@@ -8,9 +8,7 @@
 
 from __future__ import annotations
 from typing import Dict
-from typing import Tuple
 from typing import Sequence
-from typing import List
 from typing import TextIO
 from typing import NamedTuple
 
@@ -25,11 +23,7 @@ import gevent.event
 
 from silx.gui import qt
 from silx.gui import plot as silx_plot
-from silx.gui.plot.items.roi import RectangleROI
-from silx.gui.plot.items.roi import RegionOfInterest
-
 from bliss.flint.helper import plot_interaction
-from bliss.flint.widgets.roi_selection_widget import RoiSelectionWidget
 from bliss.flint.helper import model_helper
 from bliss.flint.model import plot_model
 from bliss.flint.model import plot_item_model
@@ -353,9 +347,13 @@ class FlintApi:
 
     # User interaction
 
-    def select_shapes(
+    def __create_request_id(self):
+        self.__requestCount += 1
+        return "flint_api_request_%d" % self.__requestCount
+
+    def request_select_shapes(
         self, plot_id, initial_shapes: Sequence[Dict] = (), timeout=None
-    ) -> List[Dict]:
+    ) -> str:
         """
         Request a shape selection in a specific plot and return the selection.
 
@@ -364,68 +362,19 @@ class FlintApi:
         Arguments:
             plot_id: Identifier of the plot
             initial_shapes: A list of shapes describing the current selection. Only Rectangle are supported.
+            timeout: A timeout to enforce the user to do a selection
 
         Return:
-            A list of shape describing the selection
+            This method returns an event name which have to be registered to
+            reach the result.
+
+            The event event is list of shapes describing the selection
         """
-        custom_plot = self._get_plot_widget(plot_id, custom_plot=True)
-        if isinstance(custom_plot, CustomPlot):
-            plot = custom_plot.plot
-            # Set the focus as an user input is requested
-            window = self.__flintModel.mainWindow()
-            window.setFocusOnPlot(custom_plot.tab)
-        else:
-            window = self.__flintModel.mainWindow()
-            window.setFocusOnLiveScan()
-            plot = custom_plot
-
-        dock = self._create_roi_dock_widget(plot, initial_shapes)
-        try:
-            roi_widget = dock.widget()
-            done_event = gevent.event.AsyncResult()
-
-            roi_widget.selectionFinished.connect(
-                functools.partial(self._selection_finished, done_event=done_event)
-            )
-            return done_event.get(timeout=timeout)
-        finally:
-            plot.removeDockWidget(dock)
-
-    def _selection_finished(self, selections: List[RegionOfInterest], done_event=None):
-        shapes: List[Dict] = []
-        try:
-            shapes = [
-                dict(
-                    origin=select.getOrigin(),
-                    size=select.getSize(),
-                    label=select.getLabel(),
-                    kind=select._getKind(),
-                )
-                for select in selections
-            ]
-        finally:
-            done_event.set_result(shapes)
-
-    def _create_roi_dock_widget(self, plot, initial_shapes):
-        roi_widget = RoiSelectionWidget(plot)
-        dock = qt.QDockWidget("ROI selection")
-        dock.setWidget(roi_widget)
-        plot.addTabbedDockWidget(dock)
-        for shape in initial_shapes:
-            kind = shape["kind"]
-            if kind == "Rectangle":
-                roi = RectangleROI()
-                roi.setGeometry(origin=shape["origin"], size=shape["size"])
-                roi.setLabel(shape["label"])
-                roi_widget.add_roi(roi)
-            else:
-                raise ValueError("Unknown shape of type {}".format(kind))
-        dock.show()
-        return dock
-
-    def __create_request_id(self):
-        self.__requestCount += 1
-        return "flint_api_request_%d" % self.__requestCount
+        plot = self._get_plot_widget(plot_id, expect_silx_api=True)
+        selector = plot_interaction.ShapesSelector(plot)
+        selector.setInitialShapes(initial_shapes)
+        selector.setTimeout(timeout)
+        return self.__request_selector(plot_id, selector)
 
     def request_select_points(self, plot_id, nb: int) -> str:
         """
@@ -443,8 +392,8 @@ class FlintApi:
             is defined by a tuple of 2 floats (x, y). If nothing is selected an
             empty sequence is returned.
         """
-        custom_plot = self._get_plot_widget(plot_id, custom_plot=True)
-        selector = plot_interaction.PointsSelector(custom_plot.plot)
+        plot = self._get_plot_widget(plot_id, expect_silx_api=True)
+        selector = plot_interaction.PointsSelector(plot)
         selector.setNbPoints(nb)
         return self.__request_selector(plot_id, selector)
 
@@ -465,20 +414,27 @@ class FlintApi:
             A point is defined by a tuple of 2 floats (x, y). If nothing is
             selected an empty sequence is returned.
         """
-        custom_plot = self._get_plot_widget(plot_id, custom_plot=True)
-        selector = plot_interaction.ShapeSelector(custom_plot.plot)
+        plot = self._get_plot_widget(plot_id, expect_silx_api=True)
+        selector = plot_interaction.ShapeSelector(plot)
         selector.setShapeSelection(shape)
         return self.__request_selector(plot_id, selector)
 
     def __request_selector(self, plot_id, selector: plot_interaction.Selector) -> str:
         custom_plot = self._get_plot_widget(plot_id, custom_plot=True)
-        request_id = self.__create_request_id()
 
         # Set the focus as an user input is requested
-        window = self.__flintModel.mainWindow()
-        window.setFocusOnPlot(custom_plot.tab)
+        if isinstance(custom_plot, CustomPlot):
+            plot = custom_plot.plot
+            # Set the focus as an user input is requested
+            window = self.__flintModel.mainWindow()
+            window.setFocusOnPlot(custom_plot.tab)
+        else:
+            window = self.__flintModel.mainWindow()
+            window.setFocusOnLiveScan()
+            plot = custom_plot
 
-        request = Request(custom_plot.plot, request_id, selector)
+        request_id = self.__create_request_id()
+        request = Request(plot, request_id, selector)
         self.__requests[request_id] = request
 
         # Start the task

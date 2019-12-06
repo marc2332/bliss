@@ -5,11 +5,17 @@
 # Copyright (c) 2015-2019 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
+from __future__ import annotations
+from typing import Dict
+from typing import Sequence
 
 from silx.gui import qt, icons
 from silx.gui.plot.actions import PlotAction
 from silx.gui.plot import PlotWidget
 from silx.gui.colors import rgba
+from silx.gui.plot.items.roi import RectangleROI
+from silx.gui.plot.items.roi import RegionOfInterest
+from bliss.flint.widgets.roi_selection_widget import RoiSelectionWidget
 
 
 class DrawModeAction(PlotAction):
@@ -447,3 +453,88 @@ class PointsSelector(Selector):
         else:  # Do not handle click event
             plot.sigPlotSignal.disconnect(self._handleSelect)
         self._updateStatusBar()
+
+
+class ShapesSelector(Selector):
+    def __init__(self, parent=None):
+        assert isinstance(parent, PlotWidget)
+        super(ShapesSelector, self).__init__(parent=parent)
+        self.__initialShapes: Sequence[Dict] = ()
+        self.__timeout = None
+        self.__dock = None
+        self.__roiWidget = None
+        self.__selection = None
+
+    def setInitialShapes(self, initialShapes: Sequence[Dict] = ()):
+        self.__initialShapes = initialShapes
+
+    def setTimeout(self, timeout):
+        self.__timeout = timeout
+
+    def __dictToRois(self, shapes: Sequence[Dict]) -> Sequence[RegionOfInterest]:
+        rois = []
+        for shape in shapes:
+            kind = shape["kind"]
+            if kind == "Rectangle":
+                roi = RectangleROI()
+                roi.setGeometry(origin=shape["origin"], size=shape["size"])
+                roi.setLabel(shape["label"])
+                rois.append(roi)
+            else:
+                raise ValueError(f"Unknown shape of type {kind}")
+        return rois
+
+    def __roisToDict(self, rois: Sequence[RegionOfInterest]) -> Sequence[Dict]:
+        shapes = []
+        for roi in rois:
+            shape = dict(
+                origin=roi.getOrigin(),
+                size=roi.getSize(),
+                label=roi.getLabel(),
+                kind=roi._getKind(),
+            )
+            shapes.append(shape)
+        return shapes
+
+    def start(self):
+        plot = self.parent()
+
+        roiWidget = RoiSelectionWidget(plot)
+        dock = qt.QDockWidget("ROI selection")
+        dock.setWidget(roiWidget)
+        plot.addTabbedDockWidget(dock)
+        rois = self.__dictToRois(self.__initialShapes)
+        for roi in rois:
+            roiWidget.add_roi(roi)
+        roiWidget.selectionFinished.connect(self.__selectionFinished)
+        dock.show()
+
+        self.__dock = dock
+        self.__roiWidget = roiWidget
+
+        if self.__timeout is not None:
+            qt.QTimer.singleShot(self.__timeout * 1000, self.__selectionCancelled)
+
+    def stop(self):
+        if self.__dock is None:
+            return
+        plot = self.parent()
+        plot.removeDockWidget(self.__dock)
+        self.__dock = None
+        self.__roiWidget = None
+
+    def selection(self):
+        """Returns the selection"""
+        return self.__selection
+
+    def __selectionCancelled(self):
+        if self.__roiWidget is not None:
+            self.stop()
+            self.__selection = None
+            self.selectionFinished.emit()
+
+    def __selectionFinished(self, selection: Sequence[RegionOfInterest]):
+        self.stop()
+        shapes = self.__roisToDict(selection)
+        self.__selection = shapes
+        self.selectionFinished.emit()

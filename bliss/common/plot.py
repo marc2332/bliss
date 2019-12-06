@@ -564,7 +564,12 @@ class BasePlot(object):
     # Interaction
 
     def select_shapes(self, initial_selection=()):
-        return self._flint.select_shapes(self._plot_id, initial_selection, timeout=None)
+        flint = self._flint
+        request_id = flint.request_select_shapes(self._plot_id, initial_selection)
+        results = gevent.queue.Queue()
+        event.connect(flint, request_id, results.put)
+        result = results.get()
+        return result
 
     def select_points(self, nb):
         flint = self._flint

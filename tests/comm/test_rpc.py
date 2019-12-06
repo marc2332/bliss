@@ -161,8 +161,6 @@ def test_exceptions():
     with rpc_server(url) as (server, car):
         client_car = Client(url)
 
-        client_car.color
-
         try:
             client_car.buggy_call()
         except RuntimeError as e:

@@ -149,16 +149,6 @@ class ShapeSelector(Selector):
         self._itemId = "%s-%s" % (self.__class__.__name__, id(self))
         self._shape: str = ""
 
-        # Add a toolbar to plot
-        self._toolbar = qt.QToolBar("Selection")
-        self._modeAction = DrawModeAction(plot=parent)
-        self._modeAction.setLabel(self._itemId)
-        self._modeAction.setColor(rgba("red"))
-        toolButton = qt.QToolButton()
-        toolButton.setDefaultAction(self._modeAction)
-        toolButton.setToolButtonStyle(qt.Qt.ToolButtonTextBesideIcon)
-        self._toolbar.addWidget(toolButton)
-
     def setShapeSelection(self, shape):
         """
         Set the kind of shape to use durig the selection.
@@ -227,6 +217,16 @@ class ShapeSelector(Selector):
 
         self.stop()
         self.reset()
+
+        # Add a toolbar to plot
+        self._toolbar = qt.QToolBar("Selection")
+        self._modeAction = DrawModeAction(plot=plot)
+        self._modeAction.setLabel(self._itemId)
+        self._modeAction.setColor(rgba("red"))
+        toolButton = qt.QToolButton()
+        toolButton.setDefaultAction(self._modeAction)
+        toolButton.setToolButtonStyle(qt.Qt.ToolButtonTextBesideIcon)
+        self._toolbar.addWidget(toolButton)
 
         assert self._shape in ("rectangle", "line", "polygon", "hline", "vline")
 

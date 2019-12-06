@@ -256,7 +256,7 @@ for module_name, module_info in MODULES_CONFIG.items():
         elif module_name.endswith("562-UP"):
             reading_info["base"] = 65535
         else:
-            reading_info["base"] = 32768
+            reading_info["base"] = 32767
     elif reading_type.startswith("ssi"):
         module_info[READING_TYPE] = "ssi"
         reading_info["bits"] = int(reading_type[3:])
@@ -981,7 +981,7 @@ class WagoController:
         with self.lock:
             self.client.close()
 
-    def _read_fs(self, raw_value, low=0, high=10, base=32768):
+    def _read_fs(self, raw_value, low=0, high=10, base=32767):
         """Read Digital Input type module. Make full scale conversion.
         """
         value = ctypes.c_short(raw_value).value
@@ -1225,7 +1225,7 @@ class WagoController:
         # by Wago module, but we prefer to have a flat list
         return flatten(ret)
 
-    def _write_fs(self, value, low=0, high=10, base=32768):
+    def _write_fs(self, value, low=0, high=10, base=32767):
         return int(((value - low) * base / float(high))) & 0xffff
 
     def write_phys(self, write_table):

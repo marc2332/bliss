@@ -123,6 +123,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `flint.set_dpi` was removed. A local use setting is provided now.
   - Redis node `SESSION:plot_select` is not anymore updated by the GUI
   - Redis node `SESSION:scatter_select` is not anymore updated by the GUI
+- `bliss.common.plot.BasePlot.clear_selections` was removed
+
 
 ## [0.3.0] - 2019-10-01
 

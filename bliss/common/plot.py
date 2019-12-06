@@ -571,9 +571,6 @@ class BasePlot(object):
     def select_shape(self, shape):
         return self._flint.select_shape(self._plot_id, shape)
 
-    def clear_selections(self):
-        return self._flint.clear_selections(self._plot_id)
-
     # Instanciation
 
     @classmethod

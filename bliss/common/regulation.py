@@ -165,6 +165,17 @@ from bliss.common.axis import Axis, AxisState
 from simple_pid import PID
 from bliss.common.plot import plot
 
+import functools
+
+
+def lazy_init(func):
+    @functools.wraps(func)
+    def func_wrapper(self, *args, **kwargs):
+        # self.controller._initialize_obj(self)
+        return func(self, *args, **kwargs)
+
+    return func_wrapper
+
 
 class DeviceCounter(SamplingCounter):
     """ Implements access to counter object for

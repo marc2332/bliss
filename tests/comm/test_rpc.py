@@ -32,6 +32,7 @@ class Car(object):
         self.__position = 0
         self.null = null
         self.__extras = kwargs
+        self.__value = 0
 
     @property
     def position(self):
@@ -64,6 +65,18 @@ class Car(object):
         else:
             self.__position = value
         return self.__position
+
+    def request_task(self, value):
+        task_id = "request_task_0"
+        self.__value = value
+        return task_id
+
+    def execute_task(self, task_id):
+        def worker():
+            gevent.sleep(1)
+            event.send(self, task_id, self.__value * 2)
+
+        gevent.spawn(worker)
 
     def buggy_call(self):
         """Calling this function will raise an exception"""
@@ -201,6 +214,27 @@ def test_event():
 
         event.send(car, "test", 4)
         assert results.get() == (4,)
+
+    # close client
+    client_car.close()
+
+
+def test_remote_task():
+
+    url = "tcp://127.0.0.1:12345"
+    results = gevent.queue.Queue()
+
+    def callback(*args):
+        results.put(args)
+
+    with rpc_server(url) as (server, car):
+        client_car = Client(url)
+        client_car.connect()
+
+        task_id = car.request_task(3)
+        event.connect(client_car, task_id, callback)
+        car.execute_task(task_id)
+        assert results.get() == (6,)
 
     # close client
     client_car.close()

@@ -10,12 +10,10 @@ from __future__ import annotations
 from typing import Dict
 from typing import Sequence
 from typing import Tuple
-from typing import Optional
 from typing import TextIO
 from typing import NamedTuple
 
 import sys
-import socket
 import logging
 import itertools
 import functools
@@ -51,32 +49,26 @@ class Request(NamedTuple):
     selector: plot_interaction.Selector
 
 
-class MultiplexStreamToSocket(TextIO):
+class MultiplexStreamToCallback(TextIO):
     """Multiplex a stream to another stream and sockets"""
 
     def __init__(self, stream_output):
-        self.__sockets = []
+        self.__listener = None
         self.__stream = stream_output
 
     def write(self, s):
-        if len(self.__sockets) > 0:
-            data = s.encode("utf-8")
-            sockets = list(self.__sockets)
-            for sock in sockets:
-                try:
-                    sock.send(data)
-                except:
-                    _logger.debug("Error while sending output", exc_info=True)
-                    self.__sockets.remove(sock)
+        if self.__listener is not None:
+            self.__listener(s)
         self.__stream.write(s)
 
     def flush(self):
         self.__stream.flush()
 
-    def add_listener(self, address):
-        client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        client.connect(tuple(address))
-        self.__sockets.append(client)
+    def has_listener(self):
+        return self.__listener is not None
+
+    def set_listener(self, listener):
+        self.__listener = listener
 
 
 class FlintApi:
@@ -97,16 +89,25 @@ class FlintApi:
         self.data_event = collections.defaultdict(dict)
         self.data_dict = collections.defaultdict(dict)
 
-        self.stdout = MultiplexStreamToSocket(sys.stdout)
+        self.stdout = MultiplexStreamToCallback(sys.stdout)
         sys.stdout = self.stdout
-        self.stderr = MultiplexStreamToSocket(sys.stderr)
+        self.stderr = MultiplexStreamToCallback(sys.stderr)
         sys.stderr = self.stderr
 
-    def add_output_listener(self, stdout_address, stderr_address):
-        """Add socket based listeners to receive stdout and stderr from flint
+    def register_output_listener(self):
+        """Register output listener to ask flint to emit signals for stdout and
+        stderr.
         """
-        self.stdout.add_listener(stdout_address)
-        self.stderr.add_listener(stderr_address)
+        if self.stdout.has_listener():
+            return
+        self.stdout.set_listener(self.__stdout_to_events)
+        self.stderr.set_listener(self.__stderr_to_events)
+
+    def __stdout_to_events(self, s):
+        event.send(self, "flint_stdout", s)
+
+    def __stderr_to_events(self, s):
+        event.send(self, "flint_stderr", s)
 
     def create_new_id(self):
         return next(self._id_generator)

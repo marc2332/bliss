@@ -151,7 +151,6 @@ import psutil
 import subprocess
 import contextlib
 import gevent
-import socket
 
 from bliss.comm import rpc
 from bliss import current_session
@@ -359,6 +358,8 @@ def _attach_flint(process):
     greenlets = FLINT["greenlet"]
     if greenlets is not None:
         gevent.killall(greenlets)
+    FLINT["greenlet"] = None
+    FLINT["callbacks"] = None
 
     if hasattr(process, "stdout"):
         # process which comes from subprocess, and was pipelined
@@ -376,27 +377,22 @@ def _attach_flint(process):
             FLINT_OUTPUT_LOGGER,
             logging.ERROR,
         )
-    else:
-        # Else we can use a socket
-        # This way do not allow to receive the very first logs
-        stdout_serv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        stdout_serv.bind(("", 0))
-        stdout_serv.setblocking(True)
-        stdout_serv.listen(0)
-        stderr_serv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        stderr_serv.bind(("", 0))
-        stderr_serv.setblocking(True)
-        stderr_serv.listen(0)
-        proxy.add_output_listener(stdout_serv.getsockname(), stderr_serv.getsockname())
-        g1 = gevent.spawn(
-            log_socket_output_to_logger, stdout_serv, FLINT_OUTPUT_LOGGER, logging.INFO
-        )
-        g2 = gevent.spawn(
-            log_socket_output_to_logger, stderr_serv, FLINT_OUTPUT_LOGGER, logging.ERROR
-        )
+        FLINT["greenlet"] = (g1, g2)
 
-    greenlets = (g1, g2)
-    FLINT["greenlet"] = greenlets
+    else:
+        # Else we can use RPC events
+        def stdout_callbacks(s):
+            FLINT_OUTPUT_LOGGER.info("%s", s)
+
+        def stderr_callbacks(s):
+            FLINT_OUTPUT_LOGGER.error("%s", s)
+
+        event.connect(proxy, "flint_stdout", stdout_callbacks)
+        event.connect(proxy, "flint_stderr", stderr_callbacks)
+
+        FLINT["callbacks"] = (stdout_callbacks, stderr_callbacks)
+
+        proxy.register_output_listener()
 
     return proxy
 
@@ -448,6 +444,7 @@ def reset_flint():
     if greenlets is not None:
         gevent.killall(greenlets)
     FLINT["greenlet"] = None
+    FLINT["callbacks"] = None
 
 
 # Base plot class

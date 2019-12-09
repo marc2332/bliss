@@ -149,7 +149,7 @@ import sys
 import numpy
 import psutil
 import subprocess
-from contextlib import contextmanager
+import contextlib
 import gevent
 import socket
 
@@ -798,7 +798,7 @@ plot = default_plot
 # Plotting: multi curves draw context manager
 
 
-@contextmanager
+@contextlib.contextmanager
 def draw_manager(plot):
     try:
         # disable the silx auto_replot to avoid refreshing the GUI for each curve plot (when calling plot.select_data(...) )

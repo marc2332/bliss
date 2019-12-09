@@ -99,14 +99,11 @@ class GroupMove:
             polling_time,
         )
 
-        for _, ax in motions_dict.items():
-            for mot in ax:
-                start_ = rounder(mot.axis.tolerance, mot.axis.position)
-                end_ = rounder(
-                    mot.axis.tolerance,
-                    mot.axis.dial2user(mot.target_pos / mot.axis.steps_per_unit),
-                )
-                lprint(f"Moving {mot.axis.name} from {start_} to {end_}")
+        for _, motions in motions_dict.items():
+            for motion_obj in motions:
+                msg = motion_obj.user_msg
+                if msg:
+                    lprint(msg)
         try:
             # Wait for the move to be started (or finished)
             gevent.wait([started, self._move_task], count=1)
@@ -345,9 +342,12 @@ class Motion:
     types like homing or limit search
     """
 
-    def __init__(self, axis, target_pos, delta, motion_type="move"):
+    def __init__(
+        self, axis, target_pos, delta, motion_type="move", user_target_pos=None
+    ):
         self.__axis = axis
         self.__type = motion_type
+        self.user_target_pos = user_target_pos
         self.target_pos = target_pos
         self.delta = delta
         self.backlash = 0
@@ -360,6 +360,22 @@ class Motion:
     @property
     def type(self):
         return self.__type
+
+    @property
+    def user_msg(self):
+        start_ = rounder(self.axis.tolerance, self.axis.position)
+        if self.type == "jog":
+            return f"Moving {self.axis.name} from {start_} until it is stopped, at constant velocity: {self.target_pos}"
+        else:
+            if self.user_target_pos is None:
+                return None
+            else:
+                if isinstance(self.user_target_pos, str):
+                    # can be a string in case of special move like limit search, homing...
+                    end_ = self.user_target_pos
+                else:
+                    end_ = rounder(self.axis.tolerance, self.user_target_pos)
+                return f"Moving {self.axis.name} from {start_} to {end_}"
 
 
 class Trajectory(object):
@@ -1246,7 +1262,7 @@ class Axis:
                 % (self.name, user_target_pos, backlash_str, user_high_limit)
             )
 
-        motion = Motion(self, target_pos, delta)
+        motion = Motion(self, target_pos, delta, user_target_pos=user_target_pos)
         motion.backlash = backlash
 
         return motion
@@ -1543,7 +1559,9 @@ class Axis:
                 raise RuntimeError("axis %s state is %r" % (self.name, "MOVING"))
 
             # create motion object for hooks
-            motion = Motion(self, switch, None, "homing")
+            motion = Motion(
+                self, switch, None, "homing", user_target_pos=f"home switch: {switch}"
+            )
             self.__execute_pre_move_hook(motion)
 
             def start_one(controller, motions):
@@ -1582,7 +1600,13 @@ class Axis:
             if self.is_moving:
                 raise RuntimeError("axis %s state is %r" % (self.name, "MOVING"))
 
-            motion = Motion(self, limit, None, "limit_search")
+            motion = Motion(
+                self,
+                limit,
+                None,
+                "limit_search",
+                user_target_pos="lim+" if limit > 0 else "lim-",
+            )
             self.__execute_pre_move_hook(motion)
 
             def start_one(controller, motions):

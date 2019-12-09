@@ -38,9 +38,15 @@ class RoiSelectionWidget(qt.QMainWindow):
         self.toolbar = qt.QToolBar()
         self.addToolBar(self.toolbar)
         rectangle_action = self.roi_manager.getInteractionModeAction(RectangleROI)
+        rectangle_action.setObjectName("roi-select-rectangle")
         self.toolbar.addAction(rectangle_action)
+
         self.toolbar.addSeparator()
-        self.toolbar.addAction("Apply", self.on_apply)
+        apply_action = qt.QAction(self.roi_manager)
+        apply_action.setText("Apply")
+        apply_action.triggered.connect(self.on_apply)
+        apply_action.setObjectName("roi-apply-selection")
+        self.toolbar.addAction(apply_action)
 
         layout = qt.QVBoxLayout(panel)
         layout.addWidget(self.table)

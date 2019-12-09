@@ -64,7 +64,8 @@ def create_objects_from_config_node(config, node):
 
             name2items[obj_name] = new_obj
 
-            return name2items
+            yield name2items
+            return
 
     # --- whatever the object kind, first of all we instanciate the controller
     controller_name = node.get("name")  # usually is None

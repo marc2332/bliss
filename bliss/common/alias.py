@@ -64,7 +64,7 @@ class CounterAlias(Proxy):
         object.__setattr__(self, "__cnt_class__", cnt.__class__)
 
         # the CounterAlias holds a reference to the counter controller
-        super().__init__(CounterWrapper(cnt.fullname, cnt.controller))
+        super().__init__(CounterWrapper(cnt.fullname, cnt._counter_controller))
 
     @property
     def __class__(self):

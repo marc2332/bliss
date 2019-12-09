@@ -320,7 +320,7 @@ class AcquisitionObject:
             from bliss.common.counter import Counter  # beware of circular import
 
             if all(isinstance(dev, Counter) for dev in devices):
-                return devices[0].controller, devices
+                return devices[0]._counter_controller, devices
             elif all(isinstance(dev, Axis) for dev in devices):
                 return Group(*devices), []
             else:
@@ -400,11 +400,11 @@ class AcquisitionObject:
         if counter in self._counters:
             return
 
-        if counter.controller == self.device:
+        if counter._counter_controller == self.device:
             self._do_add_counter(counter)
         else:
             raise RuntimeError(
-                f"Cannot add counter {counter.name}: acquisition controller mismatch {counter.controller} != {self.device}"
+                f"Cannot add counter {counter.name}: acquisition controller mismatch {counter._counter_controller} != {self.device}"
             )
 
     # ---------------------POTENTIALLY OVERLOAD METHODS  ----------------------------------------

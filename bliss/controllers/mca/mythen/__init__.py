@@ -235,16 +235,16 @@ class MythenCounter(Counter):
 
     def __init__(self, controller):
         # self._name = "spectrum"
-        # self._controller = controller
+        self._controller = controller
         super().__init__("spectrum", controller)
 
     # @property
     # def name(self):
     #     return self._name
 
-    # @property
-    # def controller(self):
-    #     return self._controller
+    @property
+    def controller(self):
+        return self._controller
 
     # Data properties
 

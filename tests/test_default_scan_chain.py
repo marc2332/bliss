@@ -67,7 +67,7 @@ def test_default_chain_with_three_sampling_counters(beacon):
     assert diode2
     assert diode3
 
-    assert diode2.controller == diode3.controller
+    assert diode2._counter_controller == diode3._counter_controller
 
     scan_pars = {"npoints": 10, "count_time": 0.1}
 

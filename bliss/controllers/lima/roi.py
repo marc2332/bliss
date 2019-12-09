@@ -78,13 +78,13 @@ class RoiStatCounter(IntegratingCounter):
         super().__init__(name, kwargs.pop("controller"), **kwargs)
 
     def get_metadata(self):
-        return {self.roi_name: self.controller.get(self.roi_name).to_dict()}
+        return {self.roi_name: self._counter_controller.get(self.roi_name).to_dict()}
 
     def __int__(self):
         # counter statistic ID = roi_id | statistic_id
         # it is calculated everty time because the roi id for a given roi name might
         # change if rois are added/removed from lima
-        roi_id = self.controller._roi_ids[self.roi_name]
+        roi_id = self._counter_controller._roi_ids[self.roi_name]
         return numpy.asscalar(self.roi_stat_id(roi_id, self.stat))
 
     @staticmethod

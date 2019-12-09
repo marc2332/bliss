@@ -347,9 +347,9 @@ class BaseMcaCounter(Counter):
         self.data_points = []
         self.acquisition_device = device
         # Consistency checks
-        assert self.controller is self.acquisition_device.device
+        assert self._counter_controller is self.acquisition_device.device
         if self.detector_channel is not None:
-            assert self.detector_channel in self.controller.elements
+            assert self.detector_channel in self._counter_controller.elements
 
     def extract_point(self, spectrums, stats):
         raise NotImplementedError
@@ -387,7 +387,7 @@ class SpectrumMcaCounter(BaseMcaCounter):
     @property
     def shape(self):
         if self.acquisition_device is None:
-            return (self.controller.spectrum_size,)
+            return (self._counter_controller.spectrum_size,)
         return (self.acquisition_device.spectrum_size,)
 
     def extract_point(self, spectrums, stats):

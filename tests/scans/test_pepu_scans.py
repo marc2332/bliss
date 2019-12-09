@@ -65,7 +65,7 @@ def pepu():
         pepu.get_default_chain_parameters = PepuClass.get_default_chain_parameters.__get__(
             pepu, type(pepu)
         )
-        pepu.master_controller = None
+        pepu._master_controller = None
 
         # Add pepu1 to globals
         global_map.register(pepu, parents_list=["controllers"])

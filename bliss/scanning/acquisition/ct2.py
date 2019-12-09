@@ -129,7 +129,7 @@ class CT2CounterAcquisitionSlave(IntegratingCounterAcquisitionSlave):
     def prepare_device(self):
         channels = []
         counter_indexes = {}
-        ctrl = self.device.master_controller
+        ctrl = self.device._master_controller
         in_channels = ctrl.INPUT_CHANNELS
         timer_counter = ctrl.internal_timer_counter
         point_nb_counter = ctrl.internal_point_nb_counter

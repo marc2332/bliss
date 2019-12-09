@@ -60,7 +60,7 @@ class Counter:
 
     def __init__(self, name, controller, conversion_function=None, unit=None):
         self._name = name
-        self._controller = controller
+        self.__counter_controller = controller
         self._conversion_function = (
             conversion_function if conversion_function is not None else lambda x: x
         )
@@ -74,8 +74,8 @@ class Counter:
         return self._name
 
     @autocomplete_property
-    def controller(self):
-        return self._controller
+    def _counter_controller(self):
+        return self.__counter_controller
 
     @property
     def dtype(self):
@@ -95,9 +95,9 @@ class Counter:
         `[<master_controller_name>].[<controller_name>].<counter_name>`
         """
         args = []
-        if self.controller.master_controller is not None:
-            args.append(self.controller.master_controller.name)
-        args.append(self.controller.name)
+        if self._counter_controller._master_controller is not None:
+            args.append(self._counter_controller._master_controller.name)
+        args.append(self._counter_controller.name)
         args.append(self.name)
         return ":".join(args)
 

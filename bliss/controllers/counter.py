@@ -30,7 +30,7 @@ class CounterController:
     def __init__(self, name, master_controller=None):  # , hw_ctrl=None):
 
         self.__name = name
-        self._master_controller = master_controller
+        self.__master_controller = master_controller
         self._counters = {}
 
         # self._hw_controller = hw_ctrl
@@ -43,14 +43,14 @@ class CounterController:
 
     @property
     def fullname(self):
-        if self.master_controller is None:
+        if self._master_controller is None:
             return self.name
         else:
-            return f"{self.master_controller.fullname}:{self.name}"
+            return f"{self._master_controller.fullname}:{self.name}"
 
     @property
-    def master_controller(self):
-        return self._master_controller
+    def _master_controller(self):
+        return self.__master_controller
 
     # @property
     # def hw_controller(self):
@@ -233,7 +233,9 @@ class CalcCounterController(CounterController):
         for cnt in self._input_counters:
             counters[cnt.name] = cnt
             if isinstance(cnt, CalcCounter):
-                counters.update({cnt.name: cnt for cnt in cnt.controller.counters})
+                counters.update(
+                    {cnt.name: cnt for cnt in cnt._counter_controller.counters}
+                )
         return counter_namespace(counters)
 
     def compute(self, sender, data_dict):

@@ -47,9 +47,9 @@ class CT2Counter(IntegratingCounter):
 
 class CT2CounterTimer(CT2Counter):
     def __init__(self, name, controller):
-        self.timer_freq = controller.master_controller.timer_freq
+        self.timer_freq = controller._master_controller.timer_freq
         super(CT2CounterTimer, self).__init__(
-            name, controller.master_controller.internal_timer_counter, controller
+            name, controller._master_controller.internal_timer_counter, controller
         )
 
     def convert(self, ticks):
@@ -138,7 +138,7 @@ class CT2CounterController(IntegratingCounterController):
         return CT2CounterAcquisitionSlave(self, ctrl_params=ctrl_params, **acq_params)
 
     def get_values(self, from_index, *counters):
-        data = self.master_controller.get_data(from_index).T
+        data = self._master_controller.get_data(from_index).T
         if not data.size:
             return len(counters) * (numpy.array(()),)
         result = [

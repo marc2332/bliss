@@ -203,6 +203,20 @@ class FlintApi:
         stream.write("%s\n" % msg)
         stream.flush()
 
+    def test_active(self, plot_id, qaction: str = None):
+        """Debug purpose function to simulate a click on an activable element.
+
+        Arguments:
+            plot_id:  The plot to interact with
+            qaction: The action which will be processed. It have to be a
+                children of the plot and referenced as it's object name.
+        """
+        plot = self._get_plot_widget(plot_id, expect_silx_api=True)
+        from silx.gui.utils.testutils import QTest
+
+        action: qt.QAction = plot.findChild(qt.QAction, qaction)
+        action.trigger()
+
     def test_mouse(
         self,
         plot_id,
@@ -211,7 +225,7 @@ class FlintApi:
         relative_to_center: bool = True,
     ):
         """Debug purpose function to simulate a mouse click in the center of the
-        plot
+        plot.
 
         Arguments:
             plot_id:  The plot to interact with

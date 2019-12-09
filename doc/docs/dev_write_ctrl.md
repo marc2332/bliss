@@ -118,7 +118,7 @@ represented, which is exactly the role of `__repr__` (in this example the
 implemented so the bulid in python implementation is used).
 
 The signature of `__info__()` should be `def __info__(self):` the return value
-musst be a string.
+must be a string.
 
 ```python
 BLISS [1]: class A(object):

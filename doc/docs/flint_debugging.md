@@ -43,8 +43,7 @@ All the outputs from Flint will be redirected to the BLISS session.
 
 * If Flint was created by this BLISS process, the output comes from 2 pipes (for
   both output).
-* If Flint was attached, the output comes from 2 sockets created on depend (for
-  both output).
+* If Flint was attached, the output comes from RPC events.
 
 This technique does not allow to catch the early output.
 

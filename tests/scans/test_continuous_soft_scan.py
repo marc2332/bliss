@@ -143,8 +143,8 @@ def test_interrupted_scan(session, diode_acq_device_factory):
     s = Scan(chain, save=False)
     scan_task = gevent.spawn(s.run)
 
-    gevent.sleep(0.2)
-    assert s.state == ScanState.STARTING
+    with gevent.Timeout(1):
+        s.wait_state(ScanState.STARTING)
 
     try:
         scan_task.kill(KeyboardInterrupt)

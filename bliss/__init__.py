@@ -33,6 +33,7 @@ from gevent import monkey as _monkey
 _monkey.patch_all(thread=False)
 
 from bliss.common.proxy import Proxy as _Proxy
+import atexit
 
 
 def get_current_session():
@@ -46,6 +47,7 @@ current_session = _Proxy(get_current_session)
 from bliss.common.alias import MapWithAliases as _MapWithAliases
 
 global_map = _MapWithAliases(current_session)
+atexit.register(global_map.clear)
 
 from bliss.common.logtools import Log as _Log
 

@@ -8,7 +8,7 @@ from tango import DevState
 
 
 class Dummy(Device):
-    position = attribute()
+    position = attribute(format="%3.2f")
     velocity = attribute(
         fget="read_velocity", fset="write_velocity", access=AttrWriteType.READ_WRITE
     )
@@ -28,7 +28,7 @@ class Dummy(Device):
         self.set_state(DevState.CLOSE)
 
     def read_position(self):
-        return 1.4
+        return 1.4078913
 
     def read_velocity(self):
         return self.vel

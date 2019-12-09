@@ -1,6 +1,6 @@
 
-`tango_attr_as_counter` class allows to read a Tango attribute in BLISS as a
-counter.
+`tango_attr_as_counter` class allows to read, as a BLISS counter, an attribute
+of a Tango Device Server.
 
 ## Configuration parameters
 
@@ -11,9 +11,12 @@ counter.
 * `counters`: list of counters wanted
     - `name` (str): name to use for the BLISS counter
     - `attr_name` (str): name of the Tango attribute
-    - `unit` (optional) (str). If specified, it will be used by BLISS instead of
-  Tango configuration parameter `unit`.
-
+    - `unit` (optional) (str): If specified, it will be used by BLISS instead of
+       Tango configuration parameter `unit`.
+    - `mode` (optional, default:`MEAN`) (str): If specified, sampling mode to use to read this
+      counter. The string corresponding to one of the
+      [SamplingMode](dev_ct.md#sampling-counter-modes).
+    - `format` (optional) (str): string representing the display format to use.
 
 ### Tango attribute parameters
 If the following parameters are defined in the attribute configuration (in Tango
@@ -23,8 +26,7 @@ BLISS:
 * `unit` (string): label used to specify units of the attribute value.
 * `display_unit` (float): conversion factor (to change unit of the
   attribute value) by which the raw read value is multiplied.
-
-
+* `format` (string): string representing the display format to use.
 
 ## Examples
 
@@ -39,7 +41,9 @@ server:
   counters:
     - name: srcur
       attr_name: SR_Current
+      mode: MEAN
       unit: mA
+      format: "3.2f"
     - name: lifetime
       attr_name: SR_Lifetime
 ```
@@ -52,9 +56,11 @@ Example to read a wago thermocouple via a Tango device server attribute:
   counters:
     - name: kohztc5
       attr_name: kohztc5
+      mode: SINGLE
       unit: deg
     - name: kohztc6
       attr_name: kohztc6
+      mode: LAST
       unit: deg
     - name: kohztc7
       attr_name: kohztc7
@@ -67,8 +73,8 @@ Example of `ct()` with timing:
 * second count : 65 ms
 
 ```python
-CYRIL [2]: import   time
-CYRIL [3]: t0=time.time();ct(0.0001, kohztc5, flowBase, flowM2, flowM1,
+DEMO [2]: import   time
+DEMO [3]: t0=time.time();ct(0.0001, kohztc5, flowBase, flowM2, flowM1,
                                      m0m2, pptc1);print("duration=", time.time()-t0)
 
 get_proxy -- create dict
@@ -87,7 +93,7 @@ Tue Jul 23 15:56:13 2019
 duration= 0.10665655136108398
 
 
-CYRIL [4]: t0=time.time();ct(0.0001, kohztc5, flowBase, flowM2, flowM1,
+DEMO [4]: t0=time.time();ct(0.0001, kohztc5, flowBase, flowM2, flowM1,
                                      m0m2, pptc1);print("duration=", time.time()-t0)
 Tue Jul 23 15:56:15 2019
 

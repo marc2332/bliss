@@ -4,9 +4,11 @@
   counters:
     - name: tac_undu_position
       attr_name: position
+      mode: MEAN
       unit: mm
     - name: tac_undu_acceleration
       attr_name: acceleration
+      mode: LAST
       # no unit for test.
     - name: tac_undu_velocity
       attr_name: velocity

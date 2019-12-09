@@ -129,6 +129,7 @@ class SamplingCounter(Counter):
         if isinstance(mode, SamplingMode):
             self._mode = mode
         else:
+            # <mode> can also be a string
             self._mode = SamplingMode[mode]
 
         stats = namedtuple(
@@ -169,7 +170,9 @@ class SamplingCounter(Counter):
         return self._statistics
 
     def read(self):
-        """ helper/shortcut to read the counter value outside the context of a scan """
+        """ helper/shortcut to read the counter value outside
+        the context of a scan --> not called in a ct/scan.
+        """
 
         self.controller.prepare(self)
         self.controller.start(self)

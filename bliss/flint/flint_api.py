@@ -9,6 +9,8 @@
 from __future__ import annotations
 from typing import Dict
 from typing import Sequence
+from typing import Tuple
+from typing import Optional
 from typing import TextIO
 from typing import NamedTuple
 
@@ -201,25 +203,39 @@ class FlintApi:
         stream.write("%s\n" % msg)
         stream.flush()
 
-    def click_on_plot(self, plot_id, relative_to_center=True, delta=None, delay=None):
+    def test_mouse(
+        self,
+        plot_id,
+        mode: str,
+        position: Tuple[int, int],
+        relative_to_center: bool = True,
+    ):
         """Debug purpose function to simulate a mouse click in the center of the
-        plot"""
+        plot
+
+        Arguments:
+            plot_id:  The plot to interact with
+            mode: One of 'click', 'press', 'release', 'move'
+            position: Expected position of the mouse
+            relative_to_center: If try the position is relative to center
+        """
         plot = self._get_plot_widget(plot_id, expect_silx_api=True)
         from silx.gui.utils.testutils import QTest
 
-        def later():
-            widget = plot.getWidgetHandle()
-            assert relative_to_center == True
-            rect = qt.QRect(qt.QPoint(0, 0), widget.size())
-            pos = rect.center()
-            if delta is not None:
-                pos = pos + qt.QPoint(delta[0], delta[1])
-            modifier = qt.Qt.KeyboardModifiers()
-            QTest.mouseClick(widget, qt.Qt.LeftButton, modifier, pos)
-
-        if delay is None:
-            delay = 0
-        qt.QTimer.singleShot(delay, later)
+        widget = plot.getWidgetHandle()
+        assert relative_to_center == True
+        rect = qt.QRect(qt.QPoint(0, 0), widget.size())
+        base = rect.center()
+        position = base + qt.QPoint(position[0], position[1])
+        modifier = qt.Qt.KeyboardModifiers()
+        if mode == "click":
+            QTest.mouseClick(widget, qt.Qt.LeftButton, modifier, position)
+        elif mode == "press":
+            QTest.mousePress(widget, qt.Qt.LeftButton, modifier, position)
+        elif mode == "release":
+            QTest.mouseRelease(widget, qt.Qt.LeftButton, modifier, position)
+        elif mode == "release":
+            QTest.mouseMove(widget, position)
 
     # Plot management
 

@@ -1380,16 +1380,23 @@ class WagoController:
         """From a logical device (name) to the key"""
         return self.modules_config.logical_keys[name]
 
-    def devwccomm(self, args):
+    def devwccomm(self, args, sleep_time=0.1):
         """
         Send an command to Wago using the Interlock protocol
 
-        Note: as the logic was implemented through reverse engineering there may be inaccuracie.
+        Args:
+            args: it is a list or tuple containing ISG commands to be executed.
+            sleep_time: introduces some delay between writing requests and reading
+                        requests, this is to let the PLC update the memory.
+                        If you encounter some unexpected values increasing this
+                        time could resolve the problem.
+
+        Note: as the logic was implemented through reverse engineering some parts could
+              be not accurate.
         """
         log_debug(self, f"In devwccomm args: {args}")
         command, params = args[0], args[1:]
         MAX_RETRY = 3
-        SLEEP_TIME = 0.01
 
         """
         PHASE 1: Handshake protocol: starts with PASSWD=0
@@ -1403,7 +1410,7 @@ class WagoController:
         log_debug(
             self, f"devwccomm Phase 1: writing at address {addr:04X} value {data:04X}"
         )
-        response = self.client_write_registers(addr, "H", [data], timeout=self.timeout)
+        response = self.client.write_registers(addr, "H", [data], timeout=self.timeout)
 
         """
         PHASE 2: Handshake protocol: wait for OUTCMD==0
@@ -1414,7 +1421,8 @@ class WagoController:
 
         |  0xaa 0x01 | 0x0000 | 0x0000 |
 
-        The code checks the first byte (version tag) that should be 0xaa
+        The code checks the first byte a fixed value
+        the second byte is the version of the ISG software (in this case 1)
         and the last register that should be 0 (ACK)
         """
 
@@ -1426,28 +1434,27 @@ class WagoController:
 
         start = time.time()
         while True:
-            if time.time() - start > self.timeout * MAX_RETRY:
-                raise TimeoutError("ACK not received")
+            if time.time() - start > self.timeout:
+                log_debug(
+                    self,
+                    f"Last response: Check code (should be like 0xaa 0x01 version tag + version num) is {check:02X}",
+                )
+                log_debug(self, f"Last response: Ack (should be 0 or 2) is {ack}")
+                raise TimeoutError(f"ACK not received")
             try:
                 check, _, ack = self.client.read_input_registers(
                     addr, "H" * size, timeout=self.timeout
                 )
-
             except Exception:
                 log_exception(self, f"failed to read at address: {addr} words: {size}")
                 raise
 
             if (check >> 8) != 0xaa:  # check Version Tag
-                log_debug(
-                    self,
-                    f"Invalid Wago controller program version: 0x{check>>8:02X} != 0xaa",
-                )
-                raise MissingFirmware("No interlock software loaded in the PLC")
+                gevent.sleep(sleep_time)
+                continue
             if ack == 0:  # check if is ok
                 log_debug(self, "devwccomm Phase 2: ACK received")
                 break
-            else:
-                gevent.sleep(SLEEP_TIME)
 
         """
         PHASE 3: Handshake protocol: write the command to process and its parameters
@@ -1476,7 +1483,7 @@ class WagoController:
             self, f"devwccomm Phase 3: writing at address: {addr:04X} values : {data}"
         )
 
-        self.client_write_registers(addr, "H" * len(data), data, timeout=self.timeout)
+        self.client.write_registers(addr, "H" * len(data), data, timeout=self.timeout)
 
         """
         PHASE 4: Handshake protocol: wait for end of command (OUTCMD==INCMD or ==0xffff)
@@ -1497,33 +1504,43 @@ class WagoController:
         log_debug(
             self, f"devwccomm Phase 4: reading at address: {addr:04X} words: {size}"
         )
-        gevent.sleep(0.1)  # needed delay otherwise we will receive part of old message
-        try:
-            check, error_code, command_executed, registers_to_read = self.client.read_input_registers(
-                addr, "H" * size, timeout=self.timeout
-            )
-        except Exception:
-            log_debug(
-                self,
-                f"devwccomm Phase 4: failed to read at address: {addr} words: {size}",
-            )
-            raise
-        # ERROR CHECK
-        if (
-            error_code != 0
-        ):  # or command_executed != 0x04:  # 0x04 is the modbus command
-            log_error(
-                self,
-                f"devwccomm Phase 4 : Command {command_executed} failed with error: 0x{error_code:02X} {ERRORS[error_code]}",
-            )
-            raise RuntimeError(
-                f"Interlock: Command {command_executed} failed with error: 0x{error_code:02X} {ERRORS[error_code]}"
-            )
-        else:
-            log_debug(
-                self,
-                f"devwccomm Phase 4: ACK from Wago (OUTCMD==INCMD) n.{registers_to_read} registers to read on next request",
-            )
+
+        start = time.time()
+        while True:
+            if time.time() - start > self.timeout:
+                log_debug(
+                    self,
+                    f"Last response: Command should be {command} and is {command_executed}",
+                )
+                raise TimeoutError(f"ACK not received")
+
+            try:
+                check, error_code, command_executed, registers_to_read = self.client.read_input_registers(
+                    addr, "H" * size, timeout=self.timeout
+                )
+            except Exception:
+                log_debug(
+                    self,
+                    f"devwccomm Phase 4: failed to read at address: {addr} words: {size}",
+                )
+                raise
+            if command != command_executed:
+                # PLC is still working on result
+                continue
+            if error_code != 0:
+                log_error(
+                    self,
+                    f"devwccomm Phase 4 : Command {command_executed} failed with error: 0x{error_code:02X} {ERRORS[error_code]}",
+                )
+                raise RuntimeError(
+                    f"Interlock: Command {command_executed} failed with error: 0x{error_code:02X} {ERRORS[error_code]}"
+                )
+            else:
+                log_debug(
+                    self,
+                    f"devwccomm Phase 4: ACK from Wago (OUTCMD==INCMD) n.{registers_to_read} registers to read on next request",
+                )
+                break
 
         """
         PHASE 5: Read response

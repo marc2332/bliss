@@ -160,7 +160,7 @@ from bliss import global_map
 from bliss.common.logtools import log_debug
 from bliss.common.utils import with_custom_members, autocomplete_property
 from bliss.common.counter import SamplingCounter
-from bliss.controllers.counter import SamplingCounterController
+from bliss.controllers.counter import SamplingCounterController, counter_namespace
 
 from bliss.common.soft_axis import SoftAxis
 from bliss.common.axis import Axis, AxisState
@@ -199,6 +199,9 @@ class Input(SamplingCounterController):
         self.add_counter(
             SamplingCounter(self.name, self, unit=config.get("unit", "N/A"))
         )
+
+    def read_all(self, *counters):
+        return [self.read()]
 
     # ----------- BASE METHODS -----------------------------------------
 
@@ -314,6 +317,9 @@ class Output(SamplingCounterController):
         self.add_counter(
             SamplingCounter(self.name, self, unit=config.get("unit", "N/A"))
         )
+
+    def read_all(self, *counters):
+        return [self.read()]
 
     # ----------- BASE METHODS -----------------------------------------
 
@@ -650,6 +656,9 @@ class Loop(SamplingCounterController):
 
     # ----------- BASE METHODS -----------------------------------------
 
+    def read_all(self, *counters):
+        return [self.setpoint]
+
     ##--- CONFIG METHODS
     def load_base_config(self):
         """ Load from the config the values of the standard parameters """
@@ -699,9 +708,13 @@ class Loop(SamplingCounterController):
     def counters(self):
         """ Standard counter namespace """
 
-        return counter_namespace(
-            [self.input.counters, self.output.counters, self._counters[self.name]]
+        all_counters = (
+            list(self.input.counters)
+            + list(self.output.counters)
+            + [self._counters[self.name]]
         )
+
+        return counter_namespace(all_counters)
 
     @autocomplete_property
     def input(self):
@@ -891,7 +904,8 @@ class Loop(SamplingCounterController):
         self.output.set_in_safe_mode()
 
     ##--- SOFT AXIS METHODS: makes the Loop object scannable (ex: ascan(loop, ...) )
-    def get_axis(self):
+    @property
+    def axis(self):
         """ Return a SoftAxis object that makes the Loop scanable """
 
         sa = SoftAxis(

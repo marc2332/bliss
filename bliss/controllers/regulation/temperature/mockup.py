@@ -26,15 +26,51 @@ class MyDevice:
         This device will be used as a custom Input or Output by a SoftLoop.
     """
 
-    def __init__(self, name="FakeDevice"):
+    def __init__(self, name="FakeDevice", config=None):
         self.name = name
-        self.value = 0
+        self.current_temp = 10.  # deg
 
-    def get_value(self):
-        return self.value
+        # live temp simulator attributes
+        self.cooling_rate = 1.  # deg per sec
+        self.heating_rate = 0.  # deg per sec
+        self._cool_down_tasks = None
+        self._stop_cool_down_events = None
+        self._cool_down_task_frequency = 20.0
 
-    def set_value(self, value):
-        self.value = value
+        if self._stop_cool_down_events is None:
+            self._stop_cool_down_events = gevent.event.Event()
+
+        if not self._cool_down_tasks:
+            self._cool_down_tasks = gevent.spawn(self._cooling_task)
+
+    def get_current_temp(self):
+        """ read the current temperature (like a sensor) """
+        return self.current_temp
+
+    def get_heating_rate(self):
+        return self.heating_rate
+
+    def set_heating_rate(self, heating_rate):
+        """ set the current heating rate (like an heater output) """
+        self.heating_rate = heating_rate
+
+    def _cooling_task(self):
+
+        self._stop_cool_down_events.clear()
+
+        last_time = time.time()
+
+        while not self._stop_cool_down_events.is_set():
+
+            gevent.sleep(1. / self._cool_down_task_frequency)
+
+            now = time.time()
+            dt = now - last_time
+            last_time = now
+
+            self.current_temp = max(
+                0., self.current_temp + self.heating_rate * dt - self.cooling_rate * dt
+            )
 
 
 class MyCustomInput(ExternalInput):
@@ -48,10 +84,7 @@ class MyCustomInput(ExternalInput):
 
         log_debug(self, "MyCustomInput:read")
 
-        xmin, xmax = self.device.limits
-        value = (self.device.read() - xmin) / (xmax - xmin) * 100.
-
-        return value
+        return self.device.get_current_temp()
 
     def state(self):
         """ returns the input device state """
@@ -70,7 +103,7 @@ class MyCustomOutput(ExternalOutput):
         """ returns the output device value (in output unit) """
 
         log_debug(self, "MyCustomOutput:read")
-        return self.device.get_value()
+        return self.device.get_heating_rate()
 
     def state(self):
         """ returns the output device state """
@@ -83,7 +116,7 @@ class MyCustomOutput(ExternalOutput):
 
         log_debug(self, "MyCustomOutput:_set_value %s" % value)
 
-        self.device.set_value(value)
+        self.device.set_heating_rate(value)
 
 
 class Mockup(Controller):

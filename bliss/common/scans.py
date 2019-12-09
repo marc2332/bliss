@@ -70,7 +70,7 @@ _log = logging.getLogger("bliss.scans")
 DEFAULT_CHAIN = DefaultAcquisitionChain()
 
 _countable = Counter
-_countables = Union[Counter, MeasurementGroup, CounterContainer]
+_countables = Union[Counter, MeasurementGroup, CounterContainer, Tuple]
 _scannable = Scannable
 _scannable_start_stop_list = List[Tuple[_scannable, float, float]]
 _position_list = Union[Sequence, numpy.ndarray]
@@ -88,7 +88,7 @@ def ascan(
     name: Optional[str] = None,
     title: Optional[str] = None,
     save: bool = True,
-    save_images: bool = True,
+    save_images: Optional[bool] = None,
     sleep_time: Optional[float] = None,
     run: bool = True,
     return_scan: bool = True,
@@ -152,7 +152,7 @@ def dscan(
     name: Optional[str] = None,
     title: Optional[str] = None,
     save: bool = True,
-    save_images: bool = True,
+    save_images: Optional[bool] = None,
     sleep_time: Optional[float] = None,
     run: bool = True,
     return_scan: bool = True,
@@ -218,7 +218,7 @@ def lineup(
     name: str = "lineup",
     title: Optional[str] = None,
     save: bool = True,
-    save_images: bool = True,
+    save_images: Optional[bool] = None,
     sleep_time: Optional[float] = None,
     run: bool = True,
     return_scan: bool = True,
@@ -265,11 +265,11 @@ def amesh(
     backnforth: bool = False,
     title: Optional[str] = None,
     save: bool = True,
-    save_images: bool = True,
+    save_images: Optional[bool] = None,
     sleep_time: Optional[float] = None,
     run: bool = True,
     return_scan: bool = True,
-    type: str = "amesh",
+    scan_type: str = "amesh",
     name: str = "amesh",
     scan_info: Optional[dict] = None,
 ):
@@ -294,7 +294,7 @@ def amesh(
 
     scan_info.update(
         {
-            "type": type,
+            "type": scan_type,
             "save": save,
             "title": title,
             "sleep_time": sleep_time,
@@ -304,7 +304,7 @@ def amesh(
 
     if title is None:
         args = (
-            type,
+            scan_type,
             motor1.name,
             rounder(motor1.tolerance, start1),
             rounder(motor1.tolerance, stop1),
@@ -333,7 +333,7 @@ def amesh(
     )
 
     scan_params = {
-        "type": type,
+        "type": scan_type,
         "npoints": npoints1 * npoints2,
         "count_time": count_time,
         "sleep_time": sleep_time,
@@ -400,11 +400,11 @@ def dmesh(
     backnforth: bool = False,
     title: Optional[str] = None,
     save: bool = True,
-    save_images: bool = True,
+    save_images: Optional[bool] = None,
     sleep_time: Optional[float] = None,
     run: bool = True,
     return_scan: bool = True,
-    type: str = "dmesh",
+    scan_type: str = "dmesh",
     name: str = "dmesh",
     scan_info: Optional[dict] = None,
 ):
@@ -433,7 +433,7 @@ def dmesh(
         sleep_time=sleep_time,
         run=False,
         return_scan=True,
-        type=type,
+        scan_type=scan_type,
         name=name,
         scan_info=scan_info,
     )
@@ -465,7 +465,7 @@ def a2scan(
     name: Optional[str] = None,
     title: Optional[str] = None,
     save: bool = True,
-    save_images: bool = True,
+    save_images: Optional[bool] = None,
     sleep_time: Optional[float] = None,
     run: bool = True,
     return_scan: bool = True,
@@ -527,11 +527,11 @@ def lookupscan(
     motor_pos_tuple_list: _scannable_position_list,
     count_time,
     *counter_args: _countables,
-    type: str = "lookupscan",
+    scan_type: str = "lookupscan",
     name: str = "lookupscan",
     title: Optional[str] = None,
     save: bool = True,
-    save_images: bool = True,
+    save_images: Optional[bool] = None,
     sleep_time: Optional[float] = None,
     run: bool = True,
     return_scan: bool = True,
@@ -566,7 +566,7 @@ def lookupscan(
         {
             "npoints": npoints,
             "count_time": count_time,
-            "type": type,
+            "type": scan_type,
             "save": save,
             "title": title,
             "sleep_time": sleep_time,
@@ -578,7 +578,7 @@ def lookupscan(
             "npoints": npoints,
             "count_time": count_time,
             "sleep_time": sleep_time,
-            "type": type,
+            "type": scan_type,
         }
     )
 
@@ -612,11 +612,11 @@ def anscan(
     count_time: float,
     intervals: int,
     *counter_args: _countables,
-    type: Optional[str] = None,
+    scan_type: Optional[str] = None,
     name: Optional[str] = None,
     title: Optional[str] = None,
     save: bool = True,
-    save_images: bool = True,
+    save_images: Optional[bool] = None,
     sleep_time: Optional[float] = None,
     run: bool = True,
     return_scan: bool = True,
@@ -644,7 +644,7 @@ def anscan(
     stops_list = list()
     for m_tup in motor_tuple_list:
         mot = m_tup[0]
-        d = mot.position if type == "dscan" else 0
+        d = mot.position if scan_type == "dscan" else 0
         start = m_tup[1]
         stop = m_tup[2]
         title_list.extend(
@@ -664,16 +664,20 @@ def anscan(
     scan_params["stop"] = stops_list
 
     # scan type is forced to be either aNscan or dNscan
-    if type == "dscan":
-        type = f"d{len(title_list)//3}scan" if len(title_list) // 3 > 1 else "dscan"
+    if scan_type == "dscan":
+        scan_type = (
+            f"d{len(title_list)//3}scan" if len(title_list) // 3 > 1 else "dscan"
+        )
     else:
-        type = f"a{len(title_list)//3}scan" if len(title_list) // 3 > 1 else "ascan"
+        scan_type = (
+            f"a{len(title_list)//3}scan" if len(title_list) // 3 > 1 else "ascan"
+        )
 
     if not name:
-        name = type
+        name = scan_type
 
     if not title:
-        args = [type]
+        args = [scan_type]
         args += title_list
         args += [intervals, count_time]
         template = " ".join(["{{{0}}}".format(i) for i in range(len(args))])
@@ -688,7 +692,7 @@ def anscan(
         run=run,
         title=title,
         name=name,
-        type=type,
+        scan_type=scan_type,
         sleep_time=sleep_time,
         return_scan=return_scan,
         scan_info=scan_info,
@@ -702,11 +706,11 @@ def dnscan(
     count_time: float,
     intervals: int,
     *counter_args: _countables,
-    type: Optional[str] = None,
+    scan_type: Optional[str] = None,
     name: Optional[str] = None,
     title: Optional[str] = None,
     save: bool = True,
-    save_images: bool = True,
+    save_images: Optional[bool] = None,
     sleep_time: Optional[float] = None,
     run: bool = True,
     return_scan: bool = True,
@@ -728,7 +732,7 @@ def dnscan(
         save_images=save_images,
         title=title,
         name=name,
-        type="dscan",
+        scan_type="dscan",
         sleep_time=sleep_time,
         run=False,
         scan_info=scan_info,
@@ -768,7 +772,7 @@ def a3scan(
     name: Optional[str] = None,
     title: Optional[str] = None,
     save: bool = True,
-    save_images: bool = True,
+    save_images: Optional[bool] = None,
     sleep_time: Optional[float] = None,
     run: bool = True,
     return_scan: bool = True,
@@ -814,7 +818,7 @@ def a4scan(
     name: Optional[str] = None,
     title: Optional[str] = None,
     save: bool = True,
-    save_images: bool = True,
+    save_images: Optional[bool] = None,
     sleep_time: Optional[float] = None,
     run: bool = True,
     return_scan: bool = True,
@@ -869,7 +873,7 @@ def a5scan(
     name: Optional[str] = None,
     title: Optional[str] = None,
     save: bool = True,
-    save_images: bool = True,
+    save_images: Optional[bool] = None,
     sleep_time: Optional[float] = None,
     run: bool = True,
     return_scan: bool = True,
@@ -918,7 +922,7 @@ def d3scan(
     name: Optional[str] = None,
     title: Optional[str] = None,
     save: bool = True,
-    save_images: bool = True,
+    save_images: Optional[bool] = None,
     sleep_time: Optional[float] = None,
     run: bool = True,
     return_scan: bool = True,
@@ -964,7 +968,7 @@ def d4scan(
     name: Optional[str] = None,
     title: Optional[str] = None,
     save: bool = True,
-    save_images: bool = True,
+    save_images: Optional[bool] = None,
     sleep_time: Optional[float] = None,
     run: bool = True,
     return_scan: bool = True,
@@ -1018,7 +1022,7 @@ def d5scan(
     name: Optional[str] = None,
     title: Optional[str] = None,
     save: bool = True,
-    save_images: bool = True,
+    save_images: Optional[bool] = None,
     sleep_time: Optional[float] = None,
     run: bool = True,
     return_scan: bool = True,
@@ -1064,7 +1068,7 @@ def d2scan(
     name: Optional[str] = None,
     title: Optional[str] = None,
     save: bool = True,
-    save_images: bool = True,
+    save_images: Optional[bool] = None,
     sleep_time: Optional[float] = None,
     run: bool = True,
     return_scan: bool = True,
@@ -1132,9 +1136,9 @@ def timescan(
     npoints: Optional[int] = 0,
     name: str = "timescan",
     title: Optional[str] = None,
-    type: str = "timescan",
+    scan_type: str = "timescan",
     save: bool = True,
-    save_images: bool = True,
+    save_images: Optional[bool] = None,
     sleep_time: Optional[float] = None,
     run: bool = True,
     return_scan: bool = True,
@@ -1172,7 +1176,7 @@ def timescan(
 
     scan_info.update(
         {
-            "type": type,
+            "type": scan_type,
             "save": save,
             "sleep_time": sleep_time,
             #       "output_mode": kwargs.get("output_mode", "tail"),
@@ -1180,15 +1184,15 @@ def timescan(
     )
 
     if title is None:
-        args = type, count_time
+        args = scan_type, count_time
         template = " ".join(["{{{0}}}".format(i) for i in range(len(args))])
         scan_info["title"] = template.format(*args)
 
     scan_info.update({"npoints": npoints, "count_time": count_time})
 
-    _log.info("Doing %s", type)
+    _log.info("Doing %s", scan_type)
 
-    scan_params = {"npoints": npoints, "count_time": count_time, "type": type}
+    scan_params = {"npoints": npoints, "count_time": count_time, "type": scan_type}
 
     chain = DEFAULT_CHAIN.get(scan_info, counter_args)
 
@@ -1215,9 +1219,9 @@ def loopscan(
     *counter_args: _countables,
     name: str = "loopscan",
     title: Optional[str] = None,
-    type: str = "loopscan",
+    scan_type: str = "loopscan",
     save: bool = True,
-    save_images: bool = True,
+    save_images: Optional[bool] = None,
     sleep_time: Optional[float] = None,
     run: bool = True,
     return_scan: bool = True,
@@ -1250,7 +1254,7 @@ def loopscan(
     """
 
     if title is None:
-        args = type, npoints, count_time
+        args = scan_type, npoints, count_time
         template = " ".join(["{{{0}}}".format(i) for i in range(len(args))])
         title = template.format(*args)
 
@@ -1260,7 +1264,7 @@ def loopscan(
         npoints=npoints,
         name=name,
         title=title,
-        type=type,
+        scan_type=scan_type,
         save=save,
         save_images=save_images,
         sleep_time=sleep_time,
@@ -1277,7 +1281,7 @@ def ct(
     name: str = "ct",
     title: Optional[str] = None,
     save: bool = False,
-    save_images: bool = True,
+    save_images: Optional[bool] = None,
     sleep_time: Optional[float] = None,
     run: bool = True,
     return_scan: bool = True,
@@ -1314,7 +1318,7 @@ def ct(
         npoints=1,
         name=name,
         title=title,
-        type="ct",
+        scan_type="ct",
         save=save,
         save_images=save_images,
         sleep_time=sleep_time,
@@ -1333,7 +1337,7 @@ def pointscan(
     *counter_args: _countables,
     name: str = "pointscan",
     title: Optional[str] = None,
-    type: str = "pointscan",
+    scan_type: str = "pointscan",
     save: bool = True,
     save_images: Optional[bool] = None,
     sleep_time: Optional[float] = None,
@@ -1365,71 +1369,21 @@ def pointscan(
         return_scan (bool): True by default
         run (bool): True by default
     """
-    if scan_info is None:
-        scan_info = dict()
 
-    npoints = len(positions)
-    if title is None:
-        args = (
-            type,
-            motor.name,
-            positions[0],
-            positions[npoints - 1],
-            npoints,
-            count_time,
-        )
-        template = " ".join(["{{{0}}}".format(i) for i in range(len(args))])
-        title = template.format(*args)
-
-    scan_info.update(
-        {
-            "npoints": npoints,
-            "total_acq_time": npoints * count_time,
-            "start": positions[0],
-            "stop": positions[npoints - 1],
-            "count_time": count_time,
-            "title": title,
-            "type": type,
-            # "save": save,
-        }
-    )
-
-    scan_params = {
-        "npoints": npoints,
-        "count_time": count_time,
-        "type": type,
-        "start": positions[0],
-        "stop": positions[npoints - 1],
-    }
-
-    chain = DEFAULT_CHAIN.get(
-        scan_params,
-        counter_args,
-        top_master=VariableStepTriggerMaster(motor, positions),
-    )
-
-    _log.info(
-        "Scanning %s from %f to %f in %d points",
-        motor.name,
-        positions[0],
-        positions[npoints - 1],
-        npoints,
-    )
-
-    scan = Scan(
-        chain,
-        scan_info=scan_info,
+    return lookupscan(
+        [(motor, positions)],
+        count_time,
+        *counter_args,
+        scan_type=scan_type,
         name=name,
+        title=title,
         save=save,
         save_images=save_images,
-        data_watch_callback=StepScanDataWatch(),
+        sleep_time=sleep_time,
+        run=run,
+        return_scan=return_scan,
+        scan_info=scan_info,
     )
-
-    if run:
-        scan.run()
-
-    if return_scan:
-        return scan
 
 
 # Alignment Helpers

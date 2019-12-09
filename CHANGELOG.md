@@ -53,6 +53,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - This logger is disabled by default
     - The output is retrived from both created or attched Flint process
     - `SCAN_DIPSLAY.flint_output_enabled` allow to enable/disable this logger
+  - Custom plots can be created with `selected=True` and `closeable=True`
   - 2 scripts was added to optimize and convert SVG to PNG
     - `scripts/export_svg.sh`, `scripts/optimize_svg.sh`
 - Typing Helper

@@ -133,8 +133,13 @@ class BaseSensor(SamplingCounter, BeaconObject):
 
     def __init__(self, config, controller):
         BeaconObject.__init__(self, config)
-        SamplingCounter.__init__(self, self.name, controller)
+        SamplingCounter.__init__(self, self.name, controller._counter_controller)
+        self.__controller = controller
         self.__measure_range_cache = None
+
+    @autocomplete_property
+    def comm(self):
+        return self.__controller._keithley_comm
 
     @property
     def index(self):
@@ -142,14 +147,14 @@ class BaseSensor(SamplingCounter, BeaconObject):
 
     @BeaconObject.property(default="CURR:DC", priority=-1)
     def meas_func(self):
-        func = self.controller["CONF"]
+        func = self.comm["CONF"]
         func = func.replace('"', "")
         return self.MeasureFunctions[func]["max_command"]
 
     @meas_func.setter
     def meas_func(self, func):
         func = self.MeasureFunctions[func]["max_command"]
-        self.controller("CONF:" + func)
+        self.comm("CONF:" + func)
         # remove range and auto_range in settings
         if not self._in_initialize_with_setting:
             with pipeline(self.settings):
@@ -160,22 +165,22 @@ class BaseSensor(SamplingCounter, BeaconObject):
     @BeaconObject.property(default=0.1)
     def nplc(self):
         cmd = self._meas_func_sensor_cmd("NPLC")
-        return self.controller[cmd]
+        return self.comm[cmd]
 
     @nplc.setter
     def nplc(self, value):
         cmd = self._meas_func_sensor_cmd("NPLC")
-        self.controller[cmd] = value
+        self.comm[cmd] = value
 
     @BeaconObject.property(priority=1)
     def auto_range(self):
         cmd = self._meas_func_sensor_cmd("RANG:AUTO")
-        return self.controller[cmd]
+        return self.comm[cmd]
 
     @auto_range.setter
     def auto_range(self, value):
         cmd = self._meas_func_sensor_cmd("RANG:AUTO")
-        self.controller[cmd] = value
+        self.comm[cmd] = value
         if value:
             self.disable_setting("range")
         else:
@@ -201,7 +206,7 @@ class BaseSensor(SamplingCounter, BeaconObject):
     @BeaconObject.property(priority=2)
     def range(self):
         cmd = self._meas_func_sensor_cmd("RANGe:UPPer")
-        return self.controller[cmd]
+        return self.comm[cmd]
 
     @range.setter
     def range(self, range_value):
@@ -212,13 +217,13 @@ class BaseSensor(SamplingCounter, BeaconObject):
                 break
 
         self.auto_range = False
-        self.controller[cmd] = value
-        return self.controller[cmd]
+        self.comm[cmd] = value
+        return self.comm[cmd]
 
     def _initialize_with_setting(self):
         if self._is_initialized:
             return
-        self.controller._initialize_with_setting()
+        self.__controller._initialize_with_setting()
         super()._initialize_with_setting()
 
     def _meas_func_sensor_cmd(self, param):
@@ -236,19 +241,19 @@ class SensorZeroCheckMixin:
 
     @BeaconObject.property(default=False)
     def zero_check(self):
-        return self.controller["SYST:ZCH"]
+        return self.comm["SYST:ZCH"]
 
     @zero_check.setter
     def zero_check(self, value):
-        self.controller["SYST:ZCH"] = value
+        self.comm["SYST:ZCH"] = value
 
     @BeaconObject.property(default=False)
     def zero_correct(self):
-        return self.controller["SYST:ZCOR"]
+        return self.comm["SYST:ZCOR"]
 
     @zero_correct.setter
     def zero_correct(self, value):
-        self.controller["SYST:ZCOR"] = value
+        self.comm["SYST:ZCOR"] = value
 
     def acquire_zero_correct(self):
         """Zero correct procedure"""
@@ -256,37 +261,10 @@ class SensorZeroCheckMixin:
         zero_correct = self.settings["zero_correct"]
         self.zero_check = True  # zero check must be enabled
         self.zero_correct = False  # zero correct state must be disabled
-        self("INIT")  # trigger a reading
-        self("SYST:ZCOR:ACQ")  # acquire zero correct value
+        self.comm("INIT")  # trigger a reading
+        self.comm("SYST:ZCOR:ACQ")  # acquire zero correct value
         self.zero_correct = zero_correct  # restore zero correct state
         self.zero_check = zero_check  # restore zero check
-
-
-class KeithleyCounterController(SamplingCounterController):
-    def __init__(self, name, keithley):
-        super().__init__(name)
-        self.__keithley = keithley
-        self._comm = self.keithley._keithley_comm
-        self._initialize_with_setting = self.keithley._initialize_with_setting
-
-    @property
-    def keithley(self):
-        return self.__keithley
-
-    def read_all(self, *counters):
-        for cnt in counters:
-            cnt._initialize_with_setting()
-        values = self["READ"]
-        return [values[cnt.index] for cnt in counters]
-
-    def __getitem__(self, cmd):
-        return self._comm[cmd]
-
-    def __setitem__(self, cmd, value):
-        self._comm[cmd] = value
-
-    def __call__(self, *args, **kwargs):
-        return self._comm(*args, **kwargs)
 
 
 class BaseMultimeter(BeaconObject):
@@ -297,14 +275,19 @@ class BaseMultimeter(BeaconObject):
             kwargs["interface"] = interface
         BeaconObject.__init__(self, config)
         self._keithley_comm = KeithleySCPI(**kwargs)
-        self._counter_controller = KeithleyCounterController(self.name, self)
+        comm = self._keithley_comm
+
+        class _CounterController(SamplingCounterController):
+            def read_all(self, *counters):
+                for counter in counters:
+                    counter._initialize_with_setting()
+                values = comm["READ"]
+                return [values[cnt.index] for cnt in counters]
+
+        self._counter_controller = _CounterController("keithley")
 
     def __str__(self):
         return "{0}({1})".format(self.__class__.__name__, self.name)
-
-    @property
-    def counters(self):
-        return self._counter_controller.counters
 
     @property
     def name(self):
@@ -455,30 +438,19 @@ class K2000(BaseMultimeter):
 
 
 class AmmeterDDC(BeaconObject):
-    class Language:
-        """Helper class that makes the counter reading code compatible with SCPI version"""
-
-        def __init__(self, interface):
-            self._interface = interface
-
-        def __getitem__(self, cmd):
-            svalue = self._interface.write_readline(b"X\r\n")
-            return [float(svalue)]
-
-        def write(self, bytes_cmd):
-            self._interface.write(bytes_cmd)
-
     def __init__(self, config):
         self.__name = config.get("name", "keithley")
         interface = get_comm(config, eol="\r\n")
         super().__init__(config)
-        self._counter_controller = KeithleyCounterController(
-            self.name,
-            SimpleNamespace(
-                _keithley_comm=AmmeterDDC.Language(interface),
-                _initialize_with_setting=self._initialize_with_setting,
-            ),
-        )
+
+        class _CounterController(SamplingCounterController):
+            def read_all(self, *counters):
+                for counter in counters:
+                    counter._initialize_with_setting()
+                values = interface.write_readline(b"X\r\n")
+                return [values]
+
+        self._counter_controller = _CounterController("keithley")
 
     @property
     def name(self):
@@ -493,7 +465,7 @@ class AmmeterDDC(BeaconObject):
 
         def __init__(self, config, controller):
             BeaconObject.__init__(self, config)
-            SamplingCounter.__init__(self, self.name, controller)
+            SamplingCounter.__init__(self, self.name, controller._counter_controller)
 
         @property
         def index(self):
@@ -503,7 +475,6 @@ class AmmeterDDC(BeaconObject):
             if self._is_initialized:
                 return
 
-            interface = self.controller._comm
             interface.write(b"F1X\r\n")  # Amp function
             interface.write(b"B0X\r\n")  # electrometer reading
             interface.write(b"G1X\r\n")  # Reading without prefix
@@ -577,6 +548,5 @@ def create_sensor(node):
     sensor_names = [sensor_node["name"] for sensor_node in ctrl_node["sensors"]]
     for s_name in sensor_names:
         CTRL[s_name] = ctrl
-    obj = ctrl.Sensor(node, ctrl._counter_controller)
-    ctrl._counter_controller.add_counter(obj)
+    obj = ctrl.Sensor(node, ctrl)
     return obj

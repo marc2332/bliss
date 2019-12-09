@@ -253,11 +253,35 @@ class FlintApi:
 
     # Plot management
 
-    def add_plot(self, cls_name, name=None):
+    def add_plot(
+        self,
+        cls_name: str,
+        name: str = None,
+        selected: bool = False,
+        closeable: bool = True,
+    ):
+        """Create a new custom plot based on the `silx` API.
+
+        The plot will be created i a new tab on Flint.
+
+        Arguments:
+            cls_name: A class name defined by silx. Can be one of "PlotWidget",
+                "PlotWindow", "Plot1D", "Plot2D", "ImageView", "StackView",
+                "ScatterView".
+            name: Name of the plot as displayed in the tab header. It is not a
+                unique name.
+            selected: If true (not the default) the plot became the current
+                displayed plot.
+            closeable: If true (default), the tab can be closed manually
+        """
         plot_id = self.create_new_id()
         if not name:
             name = "Plot %d" % plot_id
-        new_tab_widget = self.__flintModel.mainWindow().createTab(name)
+        new_tab_widget = self.__flintModel.mainWindow().createTab(
+            name, selected=selected, closeable=closeable
+        )
+        # FIXME: Hack to know how to close the widget
+        new_tab_widget._plot_id = plot_id
         qt.QVBoxLayout(new_tab_widget)
         cls = getattr(silx_plot, cls_name)
         plot = cls(new_tab_widget)

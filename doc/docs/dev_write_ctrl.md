@@ -118,7 +118,7 @@ represented, which is exactly the role of `__repr__` (in this example the
 implemented so the bulid in python implementation is used).
 
 The signature of `__info__()` should be `def __info__(self):` the return value
-musst be a string.
+must be a string.
 
 ```python
 BLISS [1]: class A(object):
@@ -143,32 +143,39 @@ BLISS [4]: [a]
     If, for any reason, there is an exception raised inside `__info__`, the
     fallback option will be used and `__repr__` is evaluated in this case.
 
-    And **this will hide the error**.
+    And **this will hide the error**. So, *any* error musst be treated
+    before returning.
 
-    So, *any* error musst be treated and displayed before returning.
 
-    Example:
-    ```python
-    def __info__(self):
+Example of a typical implementation of `.__info__()` method:
+```python
+
+def info(self):
+    info_str = ""
+    info_str += " bla bla\n"
+
+    return info_str
+
+def __info__(self):
     """Standard method called by BLISS Shell info helper."""
     try:
         info_string = self.info(menu=False)
     except Exception:
         log_error(
             self,
-            "An error happend during execution of __info__(), use .info() to get it.",
+            "An error happend during execution of __info__(), "\
+            "use .info() to get it.",
         )
 
     return info_string
-
-    ```
+```
 
 The equivalent of `repr(obj)` or `str(obj)` is also availabe in
 `bliss.shell.standard` as `info(obj)` which can be used also outside the Bliss
 shell.
 
 ```
-Python 3.7.3 (default, Mar 27 2019, 22:11:17) 
+Python 3.7.3 (default, Mar 27 2019, 22:11:17)
 [GCC 7.3.0] :: Anaconda, Inc. on linux
 Type "help", "copyright", "credits" or "license" for more information.
 
@@ -179,14 +186,14 @@ Type "help", "copyright", "credits" or "license" for more information.
 ...          return "my repl"
 ...     def __info__(self):
 ...          return "my info"
-... 
+...
 >>> info(A())
 'my info'
 
 >>> class B(object):
 ...     def __repr__(self):
 ...          return "my repl"
-... 
+...
 
 >>> info(B())
 'my repl'

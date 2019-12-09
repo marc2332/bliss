@@ -77,7 +77,7 @@ Flint also provides an `IPython` console embedded in the GUI.
 
 To show the console:
 
-* Menu: `Help` ↴ `IPython console`.
+* Menu: `Help` ▶ `IPython console`.
 
 !!!note
     The console can be detached from the main window to avoid to loose

@@ -462,8 +462,9 @@ def test_prepare_once_prepare_many(session):
 def test_tango_attr_counter(beacon, dummy_tango_server):
     counter = beacon.get("tg_dummy_counter")
 
-    assert counter.read() == 1.4
+    assert counter.read() == 1.41
     assert counter.unit == "mm"
+    assert counter.format_string == "%3.2f"
 
     with pytest.raises(tango.DevFailed):
         wrong_counter = beacon.get("wrong_counter")
@@ -475,15 +476,20 @@ def test_tango_attr_counter(beacon, dummy_tango_server):
     # test "no unit"
     tac_acc = beacon.get("tac_undu_acceleration")
 
+    # test sampling mode
+    assert tac_pos.mode == SamplingMode.MEAN
+    assert tac_acc.mode == SamplingMode.LAST
+
+    # test default sampling mode
+    assert tac_vel.mode == SamplingMode.MEAN
+
     with pytest.raises(tango.DevFailed):
         tac_cracoucas = beacon.get("tac_undu_cracoucas")
 
     # get UNDULATOR object
     u23a = beacon.get("u23a")
 
-    assert u23a.position == 1.4
-    assert u23a.position == tac_pos.read()
-
+    assert u23a.position == 1.4078913
     assert u23a.velocity == tac_vel.read()
     assert u23a.acceleration == tac_acc.read()
 

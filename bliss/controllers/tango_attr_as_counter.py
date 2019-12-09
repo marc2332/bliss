@@ -38,7 +38,7 @@ bliss/tests/test_configuration/tango_attribute_counter.yml
 """
 
 import weakref
-from bliss.common.counter import SamplingCounter
+from bliss.common.counter import SamplingCounter, SamplingMode
 from bliss.common import tango
 from bliss import global_map
 from bliss.common.logtools import log_debug
@@ -169,20 +169,31 @@ class tango_attr_as_counter(SamplingCounter):
         else:
             self.conversion_factor = 1
 
+        # Sampling MODE.
+        # MEAN is the default, like all sampling counters
+        sampling_mode = config.get("mode", SamplingMode.MEAN)
+
+        # FORMAT
+        tango_format = _tango_attr_config.format
+        if tango_format:
+            self.format_string = tango_format
+        else:
+            self.format_string = ""
+
         # INIT
         SamplingCounter.__init__(
-            self, name, controller, unit=unit, conversion_function=self.convert_func
+            self,
+            name,
+            controller,
+            conversion_function=self.convert_func,
+            mode=sampling_mode,
+            unit=unit,
         )
 
     def convert_func(self, value):
         attr_val = value * self.conversion_factor
 
-        # Trunc the result to avoid too much decimals.
-        # NB: Inoperant if sampling mode is not SINGLE :(
-        # TODO: support format defined in tango DS.
-        attr_val = float("%g" % attr_val)
-
-        return attr_val
+        return float(self.format_string % attr_val if self.format_string else attr_val)
 
 
 TangoAttrCounter = tango_attr_as_counter

@@ -5,12 +5,14 @@
 # Copyright (c) 2015-2019 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-import pytest
-
 
 def test_undulator(beacon, dummy_tango_server):
     u23a = beacon.get("u23a")
 
-    assert u23a.position == 1.4
+    # u23a is form ESRF_Undulator class
+    # not a tang_attr_as_counter => no format control
+    assert u23a.position == 1.4078913
+
     assert u23a.velocity == 5
+
     assert u23a.acceleration == 125

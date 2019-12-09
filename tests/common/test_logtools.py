@@ -334,7 +334,9 @@ def test_level_switch(params, caplog):
 
 
 def test_lslog(capsys, session, params):
+    """Check that there is no repetition of same logger"""
     session.env_dict["lslog"]()
     captured = capsys.readouterr()
-    assert "global.controllers" in captured.out
-    assert "bliss" in captured.out
+    text = str(captured.out)
+    assert "bliss " in text
+    assert text.count("global.controllers ") == 1

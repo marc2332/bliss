@@ -819,18 +819,27 @@ def interlock_compare(int_list_1, int_list_2):
                 )
                 continue
 
-            ch_keys = "num logical_device logical_device_key logical_device_key logical_device_channel type configuration low_limit high_limit dac dac_scale dac_offset".split()
+            ch_keys = "num logical_device logical_device_key logical_device_channel type configuration low_limit high_limit dac dac_scale dac_offset".split()
             for ck in ch_keys:
                 val1, val2 = ch1[ck], ch2[ck]
                 if val1 != val2:
                     if isinstance(val1, (int, float)):
                         val1 = to_signed(val1)
+                        scale1 = ch1["type"]["scale"]
+                        try:
+                            val1 = val1 / scale1  # better format
+                        except Exception:
+                            pass
                     if isinstance(val2, (int, float)):
                         val2 = to_signed(val2)
-                    scale1 = ch1["type"]["scale"]
-                    scale2 = ch2["type"]["scale"]
+                        scale2 = ch2["type"]["scale"]
+                        try:
+                            val2 = val2 / scale2
+                        except Exception:
+                            pass
+
                     messages.append(
-                        f"Interlock n.{num} channel n.{ch_num} for {ck}: {val1/scale1} != {val2/scale2}"
+                        f"Interlock n.{num} channel n.{ch_num} for {ck}: {val1} != {val2}"
                     )
             if wchmask(ch1["flags"]) != wchmask(ch2["flags"]):
                 messages.append(

@@ -46,6 +46,8 @@ import numpy
 import gevent
 from functools import wraps
 import types
+import typeguard
+from typing import Union, Optional
 
 from bliss import current_session
 from bliss.common.utils import rounder
@@ -59,13 +61,30 @@ from bliss.scanning.scan import Scan, StepScanDataWatch
 from bliss.scanning.acquisition.motor import VariableStepTriggerMaster
 from bliss.scanning.acquisition.motor import MeshStepTriggerMaster
 from bliss.controllers.motor import CalcController
+from bliss.common.counter import Counter
+from bliss.common.measurementgroup import MeasurementGroup
 
 _log = logging.getLogger("bliss.scans")
 
 DEFAULT_CHAIN = DefaultAcquisitionChain()
 
 
-def ascan(motor, start, stop, intervals, count_time, *counter_args, **kwargs):
+@typeguard.typechecked
+def ascan(
+    motor: Axis,
+    start: float,
+    stop: float,
+    intervals: int,
+    count_time: float,
+    *counter_args: Union[Counter, MeasurementGroup],
+    name: str = "scan",
+    title: Optional[str] = None,
+    save: bool = True,
+    save_images: bool = True,
+    sleep_time: Optional[float] = None,
+    run: bool = True,
+    return_scan: bool = True,
+):
     """
     Absolute scan
 
@@ -99,7 +118,19 @@ def ascan(motor, start, stop, intervals, count_time, *counter_args, **kwargs):
     """
     args = [motor, start, stop]
     args += counter_args
-    return anscan(count_time, intervals, *args, **kwargs)
+
+    return anscan(
+        count_time,
+        intervals,
+        *args,
+        name=name,
+        title=title,
+        save=save,
+        save_images=save_images,
+        sleep_time=sleep_time,
+        run=run,
+        return_scan=return_scan,
+    )
 
 
 def dscan(motor, start, stop, intervals, count_time, *counter_args, **kwargs):
@@ -454,7 +485,7 @@ def anscan(count_time, intervals, *motors_positions, **kwargs):
     npoints = intervals + 1
     counter_list = list()
     # scan type is forced to be either aNscan or dNscan
-    scan_type = kwargs.pop("type", None)
+    # scan_type = kwargs.pop("type", None)  #TODO: See if check needed!
     tmp_l, motors_positions = list(motors_positions), list()
     title_list = list()
     starts_list = []

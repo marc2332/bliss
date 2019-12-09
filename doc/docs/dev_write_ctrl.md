@@ -163,8 +163,8 @@ def __info__(self):
     except Exception:
         log_error(
             self,
-            "An error happend during execution of __info__(),
-             use .info() to get it.",
+            "An error happend during execution of __info__(), "\
+            "use .info() to get it.",
         )
 
     return info_string

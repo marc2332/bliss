@@ -563,29 +563,38 @@ class BasePlot(object):
 
     # Interaction
 
+    def _wait_for_user_selection(self, request_id):
+        """Wait for a user selection and clean up result in case of error"""
+        FLINT_LOGGER.warning("Waiting for selection in Flint window.")
+        flint = self._flint
+        results = gevent.queue.Queue()
+        event.connect(flint, request_id, results.put)
+        try:
+            result = results.get()
+            return result
+        except Exception:
+            flint.cancel_request(request_id)
+            FLINT_LOGGER.warning("Plot selection cancelled. An error orrured.")
+            raise
+        except KeyboardInterrupt:
+            flint.cancel_request(request_id)
+            FLINT_LOGGER.warning("Plot selection cancelled by bliss user.")
+            raise
+
     def select_shapes(self, initial_selection=()):
         flint = self._flint
         request_id = flint.request_select_shapes(self._plot_id, initial_selection)
-        results = gevent.queue.Queue()
-        event.connect(flint, request_id, results.put)
-        result = results.get()
-        return result
+        return self._wait_for_user_selection(request_id)
 
     def select_points(self, nb):
         flint = self._flint
         request_id = flint.request_select_points(self._plot_id, nb)
-        results = gevent.queue.Queue()
-        event.connect(flint, request_id, results.put)
-        result = results.get()
-        return result
+        return self._wait_for_user_selection(request_id)
 
     def select_shape(self, shape):
         flint = self._flint
         request_id = flint.request_select_shape(self._plot_id, shape)
-        results = gevent.queue.Queue()
-        event.connect(flint, request_id, results.put)
-        result = results.get()
-        return result
+        return self._wait_for_user_selection(request_id)
 
     # Instanciation
 

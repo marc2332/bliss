@@ -19,7 +19,7 @@ from bliss.config.static import get_config
 from bliss.common.hook import MotionHook
 from bliss.common.utils import object_method
 from bliss.common.utils import object_attribute_get, object_attribute_set
-from bliss.common.logtools import *
+from bliss.common.logtools import log_debug
 
 """
 mockup.py : a mockup controller for bliss.

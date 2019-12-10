@@ -18,6 +18,7 @@ from bliss.common import event
 from bliss.common.event import dispatcher
 from bliss.common.cleanup import error_cleanup
 from bliss.common.utils import grouped
+from bliss.common.logtools import lprint_disable
 from bliss.common.motor_group import Group, TrajectoryGroup
 from bliss.physics.trajectory import find_pvt
 
@@ -392,7 +393,8 @@ class _StepTriggerMaster(AcquisitionMaster):
             yield self
 
     def prepare(self):
-        self.device.move(*self.next_mv_cmd_arg)
+        with lprint_disable():
+            self.device.move(*self.next_mv_cmd_arg)
 
     def start(self):
         self.trigger()
@@ -503,7 +505,8 @@ class VariableStepTriggerMaster(AcquisitionMaster):
             yield self
 
     def prepare(self):
-        self.device.move(*self.next_mv_cmd_arg)
+        with lprint_disable():
+            self.device.move(*self.next_mv_cmd_arg)
 
     def start(self):
         self.trigger()

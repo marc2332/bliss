@@ -1549,8 +1549,6 @@ def goto_cen(counter=None, axis=None):
     motor = last_scan_motor(axis)
     scan = current_session.scans[-1]
     motor = last_scan_motor(axis)
-    cfwhm, _ = scan.cen(counter_name, axis=axis)
-    _log.warning("Motor %s will move from %f to %f", motor.name, motor.position, cfwhm)
     return scan.goto_cen(counter_name, axis=axis)
 
 
@@ -1566,10 +1564,6 @@ def goto_com(counter=None, axis=None):
     motor = last_scan_motor(axis)
     scan = current_session.scans[-1]
     motor = last_scan_motor(axis)
-    com_pos = scan.com(counter_name, axis=axis)
-    _log.warning(
-        "Motor %s will move from %f to %f", motor.name, motor.position, com_pos
-    )
     return current_session.scans[-1].goto_com(counter_name, axis=axis)
 
 
@@ -1585,10 +1579,6 @@ def goto_peak(counter=None, axis=None):
     motor = last_scan_motor(axis)
     scan = current_session.scans[-1]
     motor = last_scan_motor(axis=axis)
-    peak_pos = scan.peak(counter_name, axis=axis)
-    _log.warning(
-        "Motor %s will move from %f to %f", motor.name, motor.position, peak_pos
-    )
     return scan.goto_peak(counter_name, axis=axis)
 
 

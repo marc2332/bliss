@@ -12,6 +12,7 @@ import numpy
 import gevent
 import gevent.event
 from bliss.common import event
+from bliss.common.hook import MotionHook
 from bliss.common.axis import Modulo, AxisState
 from unittest import mock
 import random
@@ -763,3 +764,39 @@ def test_object_methode_signatures_and_docstr(m0):
     assert str(inspect.signature(m0.custom_get_chapi)) == "(value)"
     assert inspect.getdoc(m0.custom_park) == "doc-str of custom_park"
     assert str(inspect.signature(m0.custom_park)) == "()"
+
+
+def test_user_msg(roby):
+    motion_obj = roby.prepare_move(1)
+    assert motion_obj.user_msg == "Moving roby from 0 to 1"
+
+    class CancelMove(Exception):
+        pass
+
+    # install a motion hook to receive motion objects
+    class UserMsgCheckHook(MotionHook):
+        def pre_move(self, motion_list):
+            raise CancelMove(motion_list[0].user_msg)
+
+    user_msg_hook = UserMsgCheckHook()
+    user_msg_hook._add_axis(roby)
+    roby.motion_hooks.append(user_msg_hook)
+
+    with pytest.raises(CancelMove) as user_msg:
+        roby.hw_limit(1)
+    assert str(user_msg.value) == "Moving roby from 0 to lim+"
+    with pytest.raises(CancelMove) as user_msg:
+        roby.hw_limit(-1)
+    assert str(user_msg.value) == "Moving roby from 0 to lim-"
+    with pytest.raises(CancelMove) as user_msg:
+        roby.home(1)
+    assert str(user_msg.value) == "Moving roby from 0 to home switch: 1"
+    with pytest.raises(CancelMove) as user_msg:
+        roby.home(-1)
+    assert str(user_msg.value) == "Moving roby from 0 to home switch: -1"
+    with pytest.raises(CancelMove) as user_msg:
+        roby.jog(10)
+    assert (
+        str(user_msg.value)
+        == "Moving roby from 0 until it is stopped, at constant velocity: 10.0"
+    )

@@ -18,7 +18,7 @@ import collections
 import uuid
 from functools import wraps
 
-from bliss import setup_globals, current_session, is_bliss_shell
+from bliss import current_session, is_bliss_shell
 from bliss.common.event import connect, disconnect
 from bliss.common.cleanup import error_cleanup, axis as cleanup_axis, capture_exceptions
 from bliss.common.greenlet_utils import KillMask
@@ -779,11 +779,7 @@ def display_motor(func):
     def f(self, *args, **kwargs):
         axis = func(self, *args, **kwargs)
         scan_display_params = ScanDisplay()
-        if (
-            is_bliss_shell()
-            and scan_display_params.auto
-            and scan_display_params.motor_position
-        ):
+        if is_bliss_shell() and scan_display_params.motor_position:
             channel_name = self.get_channel_name(axis)
             if channel_name is None:
                 print(
@@ -1095,7 +1091,7 @@ class Scan:
     @display_motor
     def goto_peak(self, counter, axis=None):
         x, y, axis_name = self._get_x_y_data(counter, axis)
-        axis = getattr(setup_globals, axis_name)
+        axis = current_session.env_dict[axis_name]
         pk = self.peak((x, y))
         with error_cleanup(axis, restore_list=(cleanup_axis.POS,)):
             axis.move(pk)
@@ -1104,7 +1100,7 @@ class Scan:
     @display_motor
     def goto_com(self, counter, axis=None):
         x, y, axis_name = self._get_x_y_data(counter, axis)
-        axis = getattr(setup_globals, axis_name)
+        axis = current_session.env_dict[axis_name]
         com_value = self.com((x, y))
         with error_cleanup(axis, restore_list=(cleanup_axis.POS,)):
             axis.move(com_value)
@@ -1113,7 +1109,7 @@ class Scan:
     @display_motor
     def goto_cen(self, counter, axis=None):
         x, y, axis_name = self._get_x_y_data(counter, axis)
-        axis = getattr(setup_globals, axis_name)
+        axis = current_session.env_dict[axis_name]
         cfwhm, _ = self.cen((x, y))
         with error_cleanup(axis, restore_list=(cleanup_axis.POS,)):
             axis.move(cfwhm)
@@ -1132,7 +1128,7 @@ class Scan:
                         if axis_name in self._scan_info["instrument"]["positioners"]:
                             raise StopIteration
             except StopIteration:
-                axis = getattr(setup_globals, axis_name)
+                axis = current_session.env_dict[axis_name]
             else:
                 RuntimeError("Can't find axis in this scan")
         return axis

@@ -311,8 +311,12 @@ class MapWithAliases(Map):
                 for cnt in counter_or_container.counters:
                     yield cnt
             except AttributeError:
-                # must be a Counter object
+                # must be a counter object
                 yield counter_or_container
+        for obj in self.aliases:
+            if not isinstance(obj, ObjectAlias):
+                # must be Counter alias
+                yield obj
 
     @property
     def aliases(self):

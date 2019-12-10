@@ -13,13 +13,14 @@ Information are classify into categories like:
  - technique
  - ...
 """
-__all__ = ["get_user_scan_meta", "create_user_scan_meta"]
+__all__ = ["get_user_scan_meta"]
 
 import copy as copy_module
 import enum
 
-from bliss import global_map, current_session
+from bliss import global_map
 
+USER_SCAN_META = None
 CATEGORIES = enum.Enum(
     "categories", "INSTRUMENT SAMPLE SAMPLE_DESCRIPTION PROPOSAL TECHNIQUE"
 )
@@ -30,17 +31,15 @@ def categories_names():
 
 
 def get_user_scan_meta():
-    return current_session.user_scan_meta
-
-
-def create_user_scan_meta():
-    user_scan_meta = scan_meta()
-    user_scan_meta.instrument.set("positioners", fill_positioners)
-    user_scan_meta.sample.set("NX_class", {"NX_class": "NXsample"})
-    user_scan_meta.proposal.set("NX_class", {"NX_class": "NXcollection"})
-    user_scan_meta.sample_description.set("NX_class", {"NX_class": "NXcollection"})
-    user_scan_meta.technique.set("NX_class", {"NX_class": "NXcollection"})
-    return user_scan_meta
+    global USER_SCAN_META
+    if USER_SCAN_META is None:
+        USER_SCAN_META = scan_meta()
+        USER_SCAN_META.instrument.set("positioners", fill_positioners)
+        USER_SCAN_META.sample.set("NX_class", {"NX_class": "NXsample"})
+        USER_SCAN_META.proposal.set("NX_class", {"NX_class": "NXcollection"})
+        USER_SCAN_META.sample_description.set("NX_class", {"NX_class": "NXcollection"})
+        USER_SCAN_META.technique.set("NX_class", {"NX_class": "NXcollection"})
+    return USER_SCAN_META
 
 
 def scan_meta(info=None):

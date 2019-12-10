@@ -21,13 +21,7 @@ from ..utils import config_utils
 from ..io.io_utils import tempdir, tempname
 
 
-__all__ = [
-    "newvisitor",
-    "newinhouse",
-    "newtmpexperiment",
-    "newdefaultexperiment",
-    "newlocalexperiment",
-]
+__all__ = ["newexperiment", "newtmpexperiment"]
 
 
 def filename_templates():
@@ -60,44 +54,43 @@ def base_path_template(experiment_type=None, default=None):
 
     :param str experiment_type: visitor (official)
                                 inhouse (official)
-                                default (unofficial inhouse)
-                                tmp (beamline temp folder)
-                                None (local temp folder)
-    :param str default: used when `experiment_type is None`
+                                tmp (beamline tmp folder)
+                                None (local tmp folder)
+    :param str default: only used when `experiment_type is None`
     :returns str:
     """
     if experiment_type == "visitor":
         return os.path.join(os.sep, "data", "visitor")
     elif experiment_type == "inhouse":
-        subdir = current_inhouse_subdir()
-        return os.path.join(os.sep, "data", "{beamline}", "{inhouse_name}", subdir)
-    elif experiment_type == "default":
-        subdir = "default"
+        subdir = current_month_subdir()
         return os.path.join(os.sep, "data", "{beamline}", "{inhouse_name}", subdir)
     elif experiment_type == "tmp":
-        root = os.path.join(os.sep, "data", "{beamline}", "tmp")
-        return tempdir(root=root, prefix="bliss")
+        return os.path.join(os.sep, "data", "{beamline}", "tmp")
     else:
         if not default:
             default = tempdir(prefix="bliss")
         return default
 
 
-def initialize_datapolicy():
+def initialize_datapolicy(scan_saving=None):
     """
     Initialize the data policy
+
+    :param bliss.scanning.scan.ScanSaving scan_saving:
     """
-    initialize_scan_saving()
+    initialize_scan_saving(scan_saving=scan_saving)
 
 
-def initialize_scan_saving():
+def initialize_scan_saving(scan_saving=None):
     """
     Make sure SCAN_SAVING has the data policy template and attributes
 
-    :returns SCAN_SAVING:
+    :param bliss.scanning.scan.ScanSaving scan_saving:
+    :returns bliss.scanning.scan.ScanSaving:
     """
-    scan_saving = config_utils.scan_saving()
-    # Attributes for sub directory template
+    if scan_saving is None:
+        scan_saving = config_utils.current_scan_saving()
+    # Add attributes for sub directory template
     defaults = {"beamline": config_utils.beamline()}
     scan_saving.template = subdirectory_template()
     for attr in re.findall(r"\{(.*?)\}", scan_saving.template):
@@ -105,7 +98,7 @@ def initialize_scan_saving():
             getattr(scan_saving, attr)
         except AttributeError:
             scan_saving.add(attr, defaults.get(attr, ""))
-    # Attributes for base directory template
+    # Add attributes for base directory template
     params = {}
     params["inhouse_name"] = "inhouse"
     for attr, default in params.items():
@@ -116,10 +109,10 @@ def initialize_scan_saving():
     return scan_saving
 
 
-def current_default_proposal():
+def current_inhouse_proposal():
     """
     Default proposal name based on beamline and month.
-    For example November 2019 and ID21 becomes "id211911".
+    For example November 2019 at ID21 becomes "id211911".
 
     :returns str:
     """
@@ -128,104 +121,84 @@ def current_default_proposal():
     return proposal
 
 
-def current_inhouse_subdir():
+def current_month_subdir():
     """
     Proposals in the inhouse directory are saved per month.
-    For example inhouse proposals during November 2019 will be saved in inhouse subdirectory "19nov".
+    For example inhouse proposals during November 2019 will be
+    saved in inhouse subdirectory "19nov".
 
     :returns str:
     """
     return datetime.now().strftime("%y%b").lower()
 
 
-def base_path(proposal=None, experiment_type=None, root=None):
+def proposal_root(proposal=None, root=None, managed=True):
     """
     Experiment's base path and proposal
 
     :param str proposal:
-    :param str experiment_type: see `base_path_template`
-    :param str root: see `base_path_template`
+    :param str root:
+    :param bool managed: `root` is ignored when `True`
     :returns str, str: base_path, proposal
     """
     scan_saving = initialize_scan_saving()
-    if not proposal:
-        if experiment_type == "inhouse":
-            experiment_type = "default"
-        if experiment_type == "default":
-            proposal = current_default_proposal()
-        elif experiment_type not in ["visitor", "inhouse"]:
+    if managed:
+        root = None
+        if proposal:
+            proposal = valid_proposal_name(proposal)
+            if proposal.startswith("blc") or proposal.startswith("ih"):
+                experiment_type = "inhouse"
+            else:
+                experiment_type = "visitor"
+        else:
+            proposal = current_inhouse_proposal()
+            experiment_type = "inhouse"
+    else:
+        if proposal:
+            proposal = valid_proposal_name(proposal)
+        else:
             proposal = tempname(3, chars=string.ascii_lowercase)
             proposal += tempname(3, chars=string.digits)
-        if not proposal:
-            raise ValueError(
-                "Experiment type {} needs a proposal name".format(repr(experiment_type))
-            )
+        if root:
+            experiment_type = None
+        else:
+            experiment_type = "tmp"
     template = base_path_template(experiment_type=experiment_type, default=root)
     base_path = template.format(**config_utils.scan_saving_attrs(template))
-    proposal = valid_proposal_name(proposal)
     return base_path, proposal
 
 
-def newexperiment(**kwargs):
+def _newexperiment(proposal=None, root=None, managed=True):
     """
     Set SCAN_SAVING base_path and experiment
 
-    :param **kwargs: see `base_path`
+    :param str proposal:
+    :param str root:
+    :param bool managed: `root` is ignored when `True`
     """
-    root, proposal = base_path(**kwargs)
+    root, proposal = proposal_root(proposal=proposal, root=root, managed=managed)
     scan_saving = initialize_scan_saving()
     scan_saving.base_path = root
     scan_saving.experiment = proposal
 
 
-def newvisitor(proposal):
+def newexperiment(proposal=None):
     """
-    Set experiment root in SCAN_SAVING base_path
-    to "/data/visitor"
+    Set SCAN_SAVING base_path and experiment
 
     :param str proposal:
     """
-    newexperiment(proposal=proposal, experiment_type="visitor")
+    _newexperiment(proposal=proposal, managed=True)
 
 
-def newinhouse(proposal):
+def newtmpexperiment(proposal=None, root=None):
     """
-    Set experiment root in SCAN_SAVING base_path
-    to "/data/{beamline}/{inhouse_name}/%y%b".
+    Set SCAN_SAVING base_path and experiment
 
-    :param str proposal: same as `newdefaultexperiment` when not specified
+    :param str proposal:
+    :param str root:
     """
-    newexperiment(proposal=proposal, experiment_type="inhouse")
-
-
-def newdefaultexperiment():
-    """
-    Set experiment root in SCAN_SAVING base_path
-    to "/data/{beamline}/{inhouse_name}/default"
-    and experiment to "{beamline}%y%m"
-    """
-    newexperiment(experiment_type="default")
-
-
-def newtmpexperiment(proposal=None):
-    """
-    Set experiment root in SCAN_SAVING base_path
-    to "/data/{beamline}/tmp"
-
-    :param str proposal: random name when not specified
-    """
-    newexperiment(proposal=proposal, experiment_type="tmp")
-
-
-def newlocalexperiment(proposal=None, root=None):
-    """
-    Set experiment root in SCAN_SAVING base_path
-    to root
-
-    :param str proposal: random name when not specified
-    :param str root: system tmp directory when not specified
-    """
-    newexperiment(proposal=proposal, root=root)
+    _newexperiment(proposal=proposal, root=root, managed=False)
 
 
 def raise_invalid_characters(pattern, **kwargs):

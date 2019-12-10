@@ -1,0 +1,18 @@
+server: NexusWriter
+personal_name: test
+device:
+- tango_name: id00/bliss_nxwriter/nexus_writer_config
+  class: NexusWriter
+  properties:
+    session: nexus_writer_config
+    copy_nonhdf5_data: False
+- tango_name: id00/bliss_nxwriter/nexus_writer_base
+  class: NexusWriter
+  properties:
+    session: nexus_writer_base
+    copy_nonhdf5_data: False
+- tango_name: id00/bliss_nxwriter/test_session
+  class: NexusWriter
+  properties:
+    session: test_session
+    copy_nonhdf5_data: False

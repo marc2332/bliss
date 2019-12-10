@@ -6,25 +6,10 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import numpy
-import math
 import itertools
 from nexus_writer_service.utils import data_merging
-
-
-def divisorGenerator(n, includeone=True):
-    for i in range(1, int(math.sqrt(n) + 1)):
-        if n % i == 0:
-            if includeone or i != 1:
-                yield i
-            if i * i != n:
-                yield n // i
-
-
-def asproduct(a, n, includeone=True):
-    nums = divisorGenerator(a, includeone=includeone)
-    for tpl in itertools.product(nums, repeat=n):
-        if numpy.product(tpl) == a:
-            yield tpl
+from nexus_writer_service.utils.array_order import Order
+from nxw_test_math import asproduct
 
 
 def test_data_merging_general():
@@ -35,7 +20,7 @@ def test_data_merging_general():
     axis = 0, 1, -1
     newaxis = True, False
     reshape = False, True
-    order = "C", "F"
+    order = Order("C"), Order("F")
     advanced = False, True
 
     options = itertools.product(axis, newaxis, reshape, order, advanced)
@@ -66,7 +51,7 @@ def test_data_merging_general():
             nshape = next(it)
             while nshape == dshape:
                 nshape = next(it)
-            edata = edata.reshape(nshape, order=order)
+            edata = order.reshape(edata, nshape)
         else:
             nshape = None
         mshape, fillgen = data_merging.mergeGenerator(
@@ -83,14 +68,14 @@ def test_data_merging_general():
 
 
 def test_data_merging_single():
-    order = "C", "F"
+    order = Order("C"), Order("F")
     advanced = False, True
     options = itertools.product(order, advanced)
     dshape = 13, 14
     scanshape1 = 6, 2, 3
     scanshape2 = (numpy.product(scanshape1, dtype=int),)
     for order, advanced in options:
-        if order == "C":
+        if order.order == "C":
             shape1 = scanshape1 + dshape
             shape2 = scanshape2 + dshape
         else:
@@ -104,7 +89,7 @@ def test_data_merging_single():
 
 
 def assert_single(data, shape, order, advanced):
-    edata = data.reshape(shape, order=order)
+    edata = order.reshape(data, shape)
     mshape, fillgen = data_merging.mergeGenerator(
         [data],
         [data.shape],

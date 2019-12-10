@@ -9,23 +9,49 @@ import pytest
 import os
 import sys
 import gevent
+from gevent import subprocess
 from contextlib import contextmanager
+from bliss.common import measurementgroup
+from bliss.common.tango import DeviceProxy, DevFailed
 from nexus_writer_service.utils import data_policy
-from nexus_writer_service.scan_writers.writer_base import (
+from nexus_writer_service.subscribers.scan_writer_base import (
     cli_saveoptions as base_options
 )
-from nexus_writer_service.scan_writers.writer_config import (
+from nexus_writer_service.subscribers.scan_writer_config import (
     cli_saveoptions as config_options
 )
-from bliss.common import measurementgroup
 
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "helpers"))
 import nxw_test_config
+import nxw_test_utils
 
 
-config_writer_args = ("--log=info",)
+base_options = dict(base_options)
+base_options.pop("copy_non_external")
+base_options.pop("enable_profiling")
+
+config_options = dict(config_options)
+config_options.pop("copy_non_external")
+config_options.pop("enable_profiling")
+
+config_writer_args = (
+    "--log=info",
+    "--redirectstdout",
+    "--redirectstderr",
+    "--copy_non_external",
+)
 base_writer_args = config_writer_args + ("--noconfig",)
+writer_tango_properties = {"copy_nonhdf5_data": True}
+writer_tango_attributes = {"profiling": False}
+
+
+def cliargs_logfiles(cliargs, tmpdir):
+    tmpdir = str(tmpdir)
+    return cliargs + (
+        "--logfileout={}".format(os.path.join(tmpdir, "writer.stdout.log")),
+        "--logfileerr={}".format(os.path.join(tmpdir, "writer.stderr.log")),
+    )
 
 
 def setup_writer_session(session):
@@ -52,14 +78,12 @@ def scan_saving_nopolicy(session, scan_tmpdir):
     scan_saving = session.scan_saving
     scan_saving.base_path = str(scan_tmpdir)
     scan_saving.data_filename = "dataset"
-    scan_saving.writer = "hdf5"
     measurementgroup.set_active_name(nxw_test_config.technique["withoutpolicy"] + "MG")
 
 
 def scan_saving_policy(session, scan_tmpdir):
     scan_saving = session.scan_saving
-    scan_saving.writer = "null"
-    data_policy.newlocalexperiment("prop123", root=str(scan_tmpdir))
+    data_policy.newtmpexperiment("prop123", root=str(scan_tmpdir))
     scan_saving.add("sample", "sample")
     scan_saving.add("technique", nxw_test_config.technique["withpolicy"])
     scan_saving.add("dataset", "dataset")
@@ -93,78 +117,118 @@ def nexus_config_session_nopolicy(nexus_config_session, scan_tmpdir):
 @pytest.fixture
 def nexus_writer_base(nexus_base_session_policy, wait_for_fixture):
     session, tmpdir = nexus_base_session_policy
-    cliargs = "NexusSessionWriter", session.name
-    cliargs += base_writer_args
-    with writer_process(wait_for_fixture, cliargs) as writer_stdout:
-        yield session, tmpdir, writer_stdout
-
-
-@pytest.fixture
-def nexus_writer_base_alt(nexus_base_session_policy, wait_for_fixture):
-    session, tmpdir = nexus_base_session_policy
-    cliargs = "NexusSessionWriter", session.name
-    cliargs += base_writer_args
-    cliargs += tuple("--" + k for k in base_options if "--" + k not in cliargs)
-    with writer_process(wait_for_fixture, cliargs) as writer_stdout:
-        yield session, tmpdir, writer_stdout
+    cliargs = cliargs_logfiles(base_writer_args, tmpdir)
+    with writer_process(session, wait_for_fixture, cliargs) as writer:
+        yield {"session": session, "tmpdir": tmpdir, "writer": writer}
 
 
 @pytest.fixture
 def nexus_writer_base_nopolicy(nexus_base_session_nopolicy, wait_for_fixture):
     session, tmpdir = nexus_base_session_nopolicy
-    cliargs = "NexusSessionWriter", session.name
-    cliargs += base_writer_args
-    with writer_process(wait_for_fixture, cliargs) as writer_stdout:
-        yield session, tmpdir, writer_stdout
+    cliargs = cliargs_logfiles(base_writer_args, tmpdir)
+    with writer_process(session, wait_for_fixture, cliargs) as writer:
+        yield {"session": session, "tmpdir": tmpdir, "writer": writer}
+
+
+@pytest.fixture
+def nexus_writer_base_alt(nexus_base_session_policy, wait_for_fixture):
+    session, tmpdir = nexus_base_session_policy
+    cliargs = cliargs_logfiles(base_writer_args, tmpdir)
+    cliargs += tuple("--" + k for k in base_options if "--" + k not in cliargs)
+    with writer_process(session, wait_for_fixture, cliargs) as writer:
+        yield {"session": session, "tmpdir": tmpdir, "writer": writer}
 
 
 @pytest.fixture
 def nexus_writer_config(nexus_config_session_policy, wait_for_fixture):
     session, tmpdir = nexus_config_session_policy
-    cliargs = "NexusSessionWriter", session.name
-    cliargs += config_writer_args
-    with writer_process(wait_for_fixture, cliargs) as writer_stdout:
-        yield session, tmpdir, writer_stdout
+    cliargs = cliargs_logfiles(config_writer_args, tmpdir)
+    with writer_tango(session, wait_for_fixture, cliargs) as writer:
+        yield {"session": session, "tmpdir": tmpdir, "writer": writer}
 
 
 @pytest.fixture
 def nexus_writer_config_nopolicy(nexus_config_session_nopolicy, wait_for_fixture):
     session, tmpdir = nexus_config_session_nopolicy
-    cliargs = "NexusSessionWriter", session.name
-    cliargs += config_writer_args
-    with writer_process(wait_for_fixture, cliargs) as writer_stdout:
-        yield session, tmpdir, writer_stdout
+    cliargs = cliargs_logfiles(config_writer_args, tmpdir)
+    with writer_tango(session, wait_for_fixture, cliargs) as writer:
+        yield {"session": session, "tmpdir": tmpdir, "writer": writer}
 
 
 @pytest.fixture
 def nexus_writer_config_alt(nexus_config_session_policy, wait_for_fixture):
     session, tmpdir = nexus_config_session_policy
-    cliargs = "NexusSessionWriter", session.name
-    cliargs += config_writer_args
+    cliargs = cliargs_logfiles(config_writer_args, tmpdir)
     cliargs += tuple("--" + k for k in config_options if "--" + k not in cliargs)
-    with writer_process(wait_for_fixture, cliargs) as writer_stdout:
-        yield session, tmpdir, writer_stdout
+    with writer_process(session, wait_for_fixture, cliargs) as writer:
+        yield {"session": session, "tmpdir": tmpdir, "writer": writer}
 
 
 @contextmanager
-def writer_process(wait_for_fixture, cliargs):
+def writer_tango(session, wait_for_fixture, cliargs):
     """
-    :param callable wait_for:
+    Run external writer in a Tango server
+
+    :param session:
+    :param callable wait_for_fixture:
     :param sequence cliargs:
-    :returns Popen:
+    :returns PopenGreenlet:
     """
+    session.scan_saving.writer = "nexus"
     env = {k: str(v) for k, v in os.environ.items()}
-    p = gevent.subprocess.Popen(
-        cliargs, stdout=gevent.subprocess.PIPE, stderr=gevent.subprocess.STDOUT, env=env
-    )
-    with gevent.Timeout(10, RuntimeError("Nexus Writer not running")):
-        wait_for_fixture(p.stdout, "Start listening to scans")
-    with gevent.Timeout(1, RuntimeError("no answer from NexusSessionWriter")):
-        p.stdout.read1()
-    try:
-        yield p.stdout
-    finally:
-        p.terminate()
-        # TODO: not captured
-        # with gevent.Timeout(10, RuntimeError("Nexus Writer did not run its cleanup")):
-        #    wait_for_fixture(p.stdout, "Listener exits")
+    env["GEVENT_MONITOR_THREAD_ENABLE"] = "true"
+    env["GEVENT_MAX_BLOCKING_TIME"] = "1"
+    server_instance = "test"
+    cliargs = ("NexusWriterService", server_instance) + cliargs
+    # Register another writer with the TANGO database (testing concurrency):
+    # device_fqdn = nexus_register_writer.ensure_existence(
+    #    session.name, instance=server_instance, family="dummy", use_existing=False
+    # )
+    # Rely on beacon registration from YAML description:
+    device_name = "id00/bliss_nxwriter/" + session.name
+    device_fqdn = "tango://{}/{}".format(env["TANGO_HOST"], device_name)
+    with nxw_test_utils.popencontext(
+        cliargs, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=env
+    ) as greenlet:
+        with gevent.Timeout(30, RuntimeError("Nexus writer is not running")):
+            while True:
+                try:
+                    dev_proxy = DeviceProxy(device_fqdn)
+                    dev_proxy.ping()
+                except DevFailed as e:
+                    pass
+                else:
+                    break
+                gevent.sleep(0.1)
+        # Changing properties needs Init
+        dev_proxy.set_timeout_millis(10000)
+        dev_proxy.put_property(writer_tango_properties)
+        dev_proxy.Init()
+        # Changing attributes does not need Init
+        for attr, value in writer_tango_attributes.items():
+            dev_proxy.write_attribute(attr, value)
+        yield greenlet
+
+
+@contextmanager
+def writer_process(session, wait_for_fixture, cliargs):
+    """
+    Run external writer in a python process
+
+    :param session:
+    :param callable wait_for_fixture:
+    :param sequence cliargs:
+    :returns PopenGreenlet:
+    """
+    session.scan_saving.writer = "hdf5"
+    env = {k: str(v) for k, v in os.environ.items()}
+    env["GEVENT_MONITOR_THREAD_ENABLE"] = "true"
+    env["GEVENT_MAX_BLOCKING_TIME"] = "1"
+    cliargs = ("NexusSessionWriter", session.name) + cliargs
+    with nxw_test_utils.popencontext(
+        cliargs, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=env
+    ) as greenlet:
+        with gevent.Timeout(30, RuntimeError("Nexus Writer not running")):
+            while not greenlet.stdout_contains("Start listening"):
+                gevent.sleep(0.1)
+        yield greenlet

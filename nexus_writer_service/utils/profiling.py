@@ -12,6 +12,7 @@ except ImportError:
     from io import StringIO
 import logging
 from contextlib import contextmanager
+from .logging_utils import print_out
 
 
 def log(logger, msg):
@@ -20,7 +21,7 @@ def log(logger, msg):
     :param str msg:
     """
     if logger is None:
-        print(msg)
+        print_out(msg)
     else:
         if logger.getEffectiveLevel() == logging.DEBUG:
             logger.debug(msg)
@@ -108,16 +109,21 @@ def print_time_context(logger=None, timelimit=None, sortby="cumtime"):
         yield
     finally:
         pr.disable()
-        s = StringIO()
-        ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
-        if timelimit is None:
-            timelimit = (0.1,)
-        elif not isinstance(timelimit, tuple):
-            timelimit = (timelimit,)
-        ps.print_stats(*timelimit)
-        log(logger, "================Time profile================")
-        log(logger, "\n" + s.getvalue())
-        log(logger, "============================================")
+        if isinstance(sortby, str):
+            sortby = [sortby]
+        for sortmethod in sortby:
+            s = StringIO()
+            ps = pstats.Stats(pr, stream=s)
+            if sortmethod:
+                ps = ps.sort_stats(sortmethod)
+            if timelimit is None:
+                timelimit = (0.1,)
+            elif not isinstance(timelimit, tuple):
+                timelimit = (timelimit,)
+            ps.print_stats(*timelimit)
+            log(logger, "================Time profile================")
+            log(logger, "\n" + s.getvalue())
+            log(logger, "============================================")
 
 
 @contextmanager

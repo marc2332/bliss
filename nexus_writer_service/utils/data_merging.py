@@ -12,6 +12,7 @@
 import numpy
 import itertools
 import logging
+from .array_order import Order
 
 
 logger = logging.getLogger(__name__)
@@ -214,11 +215,11 @@ def _countCommonFastAxes(shapein, shapeout, newshapeout, order=None):
     :param tuple shapein: slice of `shapeout`
     :param tuple shapeout:
     :param tuple newshapeout: reshape `shapeout`
-    :param str or None order:
+    :param Order order:
     :returns tuple(int):
     """
     # Fast axis first
-    if order != "F":
+    if order.order != "F":
         shapein = shapein[::-1]
         shapeout = shapeout[::-1]
         newshapeout = newshapeout[::-1]
@@ -260,33 +261,34 @@ def _getCoordinates(
     :param int nskipfast: number of fast axes in `shape` to skip
     :param tuple newshape: reshaped `shape`
     :param int nsources:
-    :param str or None order:
+    :param Order order:
     :returns tuple(list): same length as `newshape`
     """
     # C: fast axis last
     # F: fast axis first
     # itertools.product: fast axis is last
+    Forder = order.order == "F"
     if nskipfast:
-        if order == "F":
+        if Forder:
             ran = ran[nskipfast:]
             shape = shape[nskipfast:]
         else:
             ran = ran[:-nskipfast]
             shape = shape[:-nskipfast]
     if newnskipfast:
-        if order == "F":
+        if Forder:
             newshape = newshape[newnskipfast:]
         else:
             newshape = newshape[:-newnskipfast]
     if nsources > 1:
-        if order == "F":
+        if Forder:
             idx = tuple(zip(*itertools.product(*ran[::-1])))[::-1]
         else:
             idx = tuple(zip(*itertools.product(*ran)))
-        flatidx = numpy.ravel_multi_index(idx, shape, order=order)
+        flatidx = order.ravel(idx, shape)
     else:
         flatidx = numpy.arange(numpy.product(shape))
-    return numpy.unravel_index(flatidx, newshape, order=order)
+    return order.unravel(flatidx, newshape)
 
 
 def mergeReshapeGenerator(
@@ -306,12 +308,14 @@ def mergeReshapeGenerator(
     :param list(tuple) shapes: of sources
     :param tuple shapeout: merged `shapes`
     :param tuple newshapeout: reshaping shapeout
-    :param str order: for reshaping ('C': fast axis last, 'F': fast axis first)
+    :param Order order: for reshaping
     :param int axis: merge along this axis
     :param bool newaxis: merge axis is new or existing
     :param bool allow_advanced_indexing:
     :returns generator: index generator
     """
+    if not isinstance(order, Order):
+        order = Order(order)
     logger.debug(
         "{} --{}--> {} --{}--> {}".format(
             shapes, "stack" if newaxis else "concat", shapeout, order, newshapeout
@@ -359,7 +363,7 @@ def mergeReshapeGenerator(
             flatout = len(coordout) == 1
 
             # Add full indices
-            if order == "F":
+            if order.order == "F":
 
                 def fout(tpl):
                     return fastidxoutnew + tpl
@@ -432,7 +436,7 @@ def mergeGenerator(
     :param int axis: merge along this axis
     :param bool newaxis: merge axis is new or existing
     :param tuple shape: for reshaping
-    :param str order: for reshaping
+    :param Order order: for reshaping
     :param bool allow_advanced_indexing:
     :returns tuple, generator: merged shape and index generator
     """

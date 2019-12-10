@@ -7,62 +7,88 @@
 
 import gevent
 import pytest
+from gevent.time import time
 from bliss.common import scans
+from bliss.data.node import get_session_node
 import nxw_test_utils
 import nxw_test_data
 
 
-@pytest.mark.skip("fails sometimes due to missing data")
 def test_nxw_timescan(nexus_writer_config):
-    _test_nxw_timescan(*nexus_writer_config, config=True, withpolicy=True, alt=False)
+    _test_nxw_timescan(**nexus_writer_config)
 
 
-@pytest.mark.skip("fails sometimes due to missing data")
+# VDS of MCA raises exception when npoints not equal
+# so that scan writer is in FAULT state.
+@pytest.mark.skip("skip until timescan has same npoints for each scan")
 def test_nxw_timescan_alt(nexus_writer_config_alt):
-    _test_nxw_timescan(*nexus_writer_config_alt, config=True, withpolicy=True, alt=True)
+    _test_nxw_timescan(**nexus_writer_config_alt, alt=True)
 
 
-@pytest.mark.skip("fails sometimes due to missing data")
 def test_nxw_timescan_nopolicy(nexus_writer_config_nopolicy):
-    _test_nxw_timescan(
-        *nexus_writer_config_nopolicy, config=True, withpolicy=False, alt=False
-    )
+    _test_nxw_timescan(**nexus_writer_config_nopolicy, withpolicy=False)
 
 
-@pytest.mark.skip("fails sometimes due to missing data")
 def test_nxw_timescan_base(nexus_writer_base):
-    _test_nxw_timescan(*nexus_writer_base, config=False, withpolicy=True, alt=False)
+    _test_nxw_timescan(**nexus_writer_base, config=False)
 
 
-@pytest.mark.skip("fails sometimes due to missing data")
+@pytest.mark.skip("skip until timescan has same npoints for each scan")
 def test_nxw_timescan_base_alt(nexus_writer_base_alt):
-    _test_nxw_timescan(*nexus_writer_base_alt, config=False, withpolicy=True, alt=True)
+    _test_nxw_timescan(**nexus_writer_base_alt, config=False, alt=True)
 
 
-@pytest.mark.skip("fails sometimes due to missing data")
 def test_nxw_timescan_base_nopolicy(nexus_writer_base_nopolicy):
-    _test_nxw_timescan(
-        *nexus_writer_base_nopolicy, config=False, withpolicy=False, alt=False
-    )
+    _test_nxw_timescan(**nexus_writer_base_nopolicy, config=False, withpolicy=False)
 
 
-def _test_nxw_timescan(
-    session, scan_tmpdir, writer_stdout, config=True, withpolicy=True, alt=False
-):
+@nxw_test_utils.writer_stdout_on_exception
+def _test_nxw_timescan(session=None, tmpdir=None, writer=None, **kwargs):
+    nodes = {}
+    t0 = None
+    nminevents = 5
+    tmax = 5
+
+    def listenscan(scannode):
+        nonlocal t0
+        it = scannode.iterator
+        for event_type, node in it.walk_events():
+            if event_type.name == "NEW_DATA_IN_CHANNEL":
+                name = node.fullname
+                if not name:
+                    continue
+                if name in nodes:
+                    nodes[name] += 1
+                else:
+                    nodes[name] = 1
+                    t0 = time()
+
+    def listensession():
+        it = get_session_node(session.name).iterator
+        listeners = []
+        try:
+            for event_type, node in it.walk_events(filter="scan"):
+                if event_type.name == "NEW_NODE":
+                    listeners.append(gevent.spawn(listenscan, node))
+        finally:
+            for g in listeners:
+                g.kill()
+
+    glisten = gevent.spawn(listensession)
     scan = scans.timescan(.1, run=False)
-    greenlet = nxw_test_utils.run_scan(scan, runasync=True)
-    gevent.sleep(10)
-    greenlet.kill()
-    greenlet.join()
-    # As we don't have any synchronisation for now:
-    nxw_test_utils.wait_scan_data_finished(
-        [scan], config=config, writer_stdout=writer_stdout
-    )
-    nxw_test_data.assert_scan_data(
-        scan,
-        scan_shape=(0,),
-        config=config,
-        withpolicy=withpolicy,
-        alt=alt,
-        writer_stdout=writer_stdout,
-    )
+    gscan = nxw_test_utils.run_scan(scan, runasync=True)
+    # Wait until first channel has data
+    while t0 is None:
+        gevent.sleep(0.1)
+    # Wait until all channels have nmin data events
+    while (time() - t0) < tmax or any(v <= nminevents for v in nodes.values()):
+        gevent.sleep(1)
+    # Stop scan and listener
+    with pytest.raises(KeyboardInterrupt):
+        gscan.kill(KeyboardInterrupt)
+        gscan.join()
+        gscan.get()
+    glisten.kill()
+    # Verify data
+    nxw_test_utils.wait_scan_data_finished([scan], writer=writer, **kwargs)
+    nxw_test_data.assert_scan_data(scan, scan_shape=(0,), **kwargs)

@@ -20,144 +20,282 @@ import traceback
 import logging
 import datetime
 from contextlib import contextmanager
-from collections import defaultdict
+from bliss.data.node import get_node
 from . import devices
 from . import dataset_proxy
+from . import base_subscriber
 from ..io import nexus
 from ..utils import scan_utils
-from ..utils import logging_utils
-from ..utils import profiling
+from ..utils.logging_utils import CustomLogger
+from ..utils.array_order import Order
+from ..utils.process_utils import log_file_processes
 
 
 logger = logging.getLogger(__name__)
 
 
-default_saveoptions = {
-    "flat": True,
-    "multivalue_positioners": False,
-    "allow_external_nonhdf5": False,  # not recommends due to absolute path links!!!
-    "allow_external_hdf5": True,
-    "profile": False,
-}
-
-
 cli_saveoptions = {
-    "keepshape": (
-        {"action": "store_false", "help": "Keep shape of multi-dimensional grid scans"},
-        "flat",
-    ),
-    "multivalue_positioners": (
-        {"action": "store_true", "help": "Allow positioners with multiple values"},
-        "multivalue_positioners",
-    ),
-    "enable_external_nonhdf5": (
-        {"action": "store_true", "help": "Enable external non-hdf5 files (like edf)"},
-        "allow_external_nonhdf5",
-    ),
-    "disable_external_hdf5": (
-        {
-            "action": "store_false",
-            "help": "Disable external hdf5 files (virtual datasets)",
-        },
-        "allow_external_hdf5",
-    ),
-    "enable_profiling": (
-        {"action": "store_true", "help": "Enable code profiling"},
-        "profile",
-    ),
+    "keepshape": {
+        "dest": "flat",
+        "action": "store_false",
+        "help": "Keep shape of multi-dimensional grid scans",
+    },
+    "multivalue_positioners": {
+        "dest": "multivalue_positioners",
+        "action": "store_true",
+        "help": "Allow positioners with multiple values",
+    },
+    "enable_external_nonhdf5": {
+        "dest": "allow_external_nonhdf5",
+        "action": "store_true",
+        "help": "Enable external non-hdf5 files like edf (ABSOLUTE LINK!)",
+    },
+    "disable_external_hdf5": {
+        "dest": "allow_external_hdf5",
+        "action": "store_false",
+        "help": "Disable external hdf5 files (virtual datasets)",
+    },
+    "copy_non_external": {
+        "dest": "copy_non_external",
+        "action": "store_true",
+        "help": "Copy data instead of saving the uri when external linking is disabled",
+    },
+    "enable_profiling": {
+        "dest": "profiling",
+        "action": "store_true",
+        "help": "Enable code profiling",
+    },
 }
 
 
-class NexusScanWriterBase(gevent.Greenlet):
+def default_saveoptions():
+    return {
+        options["dest"]: options["action"] == "store_false"
+        for options in cli_saveoptions.values()
+    }
+
+
+class Subscan(object):
+    def __init__(self, subscriber, node, parentlogger=None):
+        """
+        :param BaseSubscriber subscriber:
+        :param DataNode node:
+        :param Logger parentlogger:
+        """
+        self.name = node.name
+        self.db_name = node.db_name
+        self.fullname = node.fullname
+        self.node_type = node.node_type
+
+        self.enabled = True
+        self.datasets = {}  # bliss.data.node.DataNode.fullname -> DatasetProxy
+        self._info_cache = {}  # cache calls to self.get_info
+        if parentlogger is None:
+            parentlogger = logger
+        self.logger = CustomLogger(parentlogger, self)
+
+        # Associate resources with greenlet
+        glt = subscriber._greenlet
+        try:
+            nodes = glt._subscan_nodes
+        except AttributeError:
+            nodes = glt._subscan_nodes = {}
+        nodes[self.db_name] = node
+        self._subscriber = subscriber
+
+    def hasnode(self, node):
+        """
+        :param DataNode node:
+        """
+        return node.db_name.startswith(self.db_name)
+
+    def __repr__(self):
+        return self.db_name
+
+    def __str__(self):
+        return "{} ({})".format(self.name, "ENABLED" if self.enabled else "DISABLED")
+
+    @property
+    def node(self):
+        if self._subscriber._local_greenlet:
+            return self._subscriber._greenlet._subscan_nodes[self.db_name]
+        else:
+            return get_node(self.node_type, self.db_name)
+
+    def get_info(self, key, default=None, cache=False):
+        """
+        Get from the node's info dictionary.
+        Try subscribers's info dictionary when key is missing.
+
+        :param str key:
+        :param default: never cached
+        :param bool cache: cache this value when retrieved
+        """
+        if cache:
+            try:
+                return self._info_cache[key]
+            except KeyError:
+                pass
+        try:
+            result = self.node.info[key]
+        except KeyError:
+            result = self._subscriber.get_info(key, default=default, cache=cache)
+        if cache:
+            self._info_cache[key] = result
+        return result
+
+
+class NexusScanWriterBase(base_subscriber.BaseSubscriber):
     """
-    Listens to events of a particular scan and
-    writes the result in Nexus format.
+    Listen to events of a particular scan and write the result in Nexus format.
     No configuration needed.
     """
 
-    def __init__(self, scan_node, locks, wakeup_fd, parentlogger=None, **saveoptions):
+    def __init__(
+        self,
+        db_name,
+        lockpool,
+        node_type=None,
+        profiling=False,
+        parentlogger=None,
+        **saveoptions
+    ):
         """
-        The locks are only used to protect nxroot creation/updating.
-        This is not needed for the nxentry because only one writer
-        will create/update it.
-
-        :param bliss.data.scan.Scan scan_node:
-        :param geventsync.SharedLockPool locks:
-        :param parentlogger:
-        :param int wakeup_fd: receiving data from this file descriptor
-                              means the scan has ended
+        :param str db_name:
+        :param geventsync.SharedLockPool lockpool:
+        :param str node_type:
+        :param Logger parentlogger:
+        :param bool profiling: mem and cpu usage
         :param saveoptions:
         """
-        super(NexusScanWriterBase, self).__init__()
-        self.starttime = datetime.datetime.now()
-        self.scan_node = scan_node
-        self.wakeup_fd = wakeup_fd
         if parentlogger is None:
             parentlogger = logger
-        self.logger = logging_utils.CustomLogger(
-            parentlogger, "DataNode " + repr(scan_node.name)
+        super().__init__(
+            db_name, node_type=node_type, parentlogger=parentlogger, profiling=profiling
         )
+
         # Save options
-        for option, default in default_saveoptions.items():
+        for option, default in default_saveoptions().items():
             saveoptions[option] = saveoptions.get(option, default)
         saveoptions["short_names"] = True
         saveoptions["expand_variable_length"] = True
+        saveoptions["hold_file_open"] = True
+        saveoptions["enable_file_locking"] = True
+        saveoptions["swmr"] = False
         self.saveoptions = saveoptions
-        # Scan shape is filled as in 'C' (first axis last) or 'F' order (fast axis first)
-        # Saving is always done in 'C'
-        self._order = defaultdict(lambda: "C")
+        self.saveorder = Order("C")
+        # self.publishorder = Order("C")  # not true for snake scans
+        # self.plotorder = Order("C")  # currently the same as saveorder
+        self._h5flush_task_period = 0.5  # flushing blocks the gevent loop
+
         # Cache
-        self._data_nodes = []  # list(bliss.data.node.DataNode)
-        self._datasets = {}  # subscan:dict(bliss.data.node.DataNode.fullname:DatasetProxy)
-        self._nxroot = {}  # cache for recursive calling
-        self._nxentry = None  # cache for recursive calling
-        self._nxroot_locks = locks
-        self._devices = {}  # subscan:dict(fullname:dict)
-        self._subscanmap = {}  # subscan:dbname
-        self._redis_cache = {}
+        self._subscans = set()  # set(Subscan)
+        self._devices = {}  # str -> dict(subscan.name:dict)
+        self._nxroot = {}  # for recursive calling
+        self._nxentry = None  # for recursive calling
+        self._nxroot_locks = lockpool
 
-    def __str__(self):
-        parts = self.scan_node.db_name.split(":")
-        return ":".join([parts[0], parts[-1]])
-        # return self.scan_node.name
+    def _listen_event_loop(self, **kwargs):
+        """
+        Listen to Redis events
+        """
+        if not self.save:
+            self.logger.info("No saving requested")
+            return
+        if not self.filename:
+            raise RuntimeError("No filename specified")
+        if self.saveoptions["hold_file_open"]:
+            with self.nxroot() as nxroot:
+                kwargs["nxroot"] = nxroot
+                super()._listen_event_loop(**kwargs)
+        else:
+            super()._listen_event_loop(**kwargs)
 
-    def __repr__(self):
-        return "NexusScanWriter({})".format(str(self))
+    def _event_loop_initialize(self, **kwargs):
+        """
+        Executed at the start of the event loop
+        """
+        super()._event_loop_initialize(**kwargs)
+        self.logger.info(
+            "Start writing to {} with options {}".format(
+                repr(self.filename), self.saveoptions
+            )
+        )
 
-    @property
-    def scan_info(self):
+    def _event_loop_finalize(self, **kwargs):
         """
-        Get the scan's info dictionary
+        Executed at the end of the event loop
         """
-        return self.scan_node.info.get_all()
+        try:
+            self._finalize_hdf5()
+        except Exception as e:
+            self._set_state(self.STATES.FAULT, e)
+            self.logger.error(
+                "Not properly finalized due to exception:\n{}".format(
+                    traceback.format_exc()
+                )
+            )
+        finally:
+            self.log_progress("Finished writing to {}".format(repr(self.filename)))
+            super()._event_loop_finalize(**kwargs)
 
-    def scan_info_get(self, key, default=None):
+    def _register_event_loop_tasks(self, nxroot=None, **kwargs):
         """
-        Get from the scan's info dictionary
+        Tasks to be run periodically after succesfully processing a Redis event
         """
-        return self.scan_node.info.get(key, default=default)
+        super()._register_event_loop_tasks(**kwargs)
+        if nxroot is not None:
+            self._periodic_tasks.append(
+                base_subscriber.PeriodicTask(nxroot.flush, self._h5flush_task_period)
+            )
 
-    def subscan_info_get(self, subscan, key, default=None):
+    def _finalize_hdf5(self):
         """
-        Get from the subscan's info dictionary
-        Try scan's info dictionary when key is missing
+        Finish writing
+        """
+        if self._exception_is_fatal:
+            self.logger.info("Finalization skipped due fatal errors")
+            return
+        else:
+            self.logger.info("Finalize writing to {}".format(repr(self.filename)))
 
-        :param str subscan:
+        self.logger.info("Fetch last data")
+        for node in self._nodes:
+            self._fetch_data(node, last=True)
+
+        # Skip because fix length scans can have variable data points
+        # self.logger.info(
+        #    "Ensure all dataset have the same number of points"
+        # )
+        # for subscan in self._enabled_subscans:
+        #    self._ensure_same_length(subscan)
+
+        self.logger.info("Link external data (VDS or raw)")
+        for node in self._nodes:
+            self._ensure_dataset_existance(node)
+
+        for subscan in self._enabled_subscans:
+            self._finalize_subscan(subscan)
+            self._mark_done(subscan)
+
+    def get_subscan_info(self, subscan, key, default=None, cache=False):
         """
-        for node in self.scan_node.children():
-            if node.name == subscan:
-                try:
-                    return node.info[key]
-                except KeyError:
-                    return self.scan_info_get(key, default)
-        return self.scan_info_get(key, default)
+        Get from the subscan's info dictionary.
+        Try scan's info dictionary when key is missing.
+
+        :param Subscan subscan:
+        :param str key: subscan node's info key
+        :param default:
+        :param bool cache:
+        """
+        return subscan.get_info(key, default=default, cache=cache)
 
     @property
     def save(self):
         """
         Saving intended for this scan?
         """
-        return self.scan_info_get("save", False)
+        return self.get_info("save", False)
 
     @property
     def filename(self):
@@ -165,6 +303,18 @@ class NexusScanWriterBase(gevent.Greenlet):
         HDF5 file name for data
         """
         return self._filename()
+
+    @property
+    def uris(self):
+        filename = self.filename
+        ret = {}
+        for subscan in self._subscans:
+            name = self._nxentry_name(subscan)
+            ret[name.split(".")[-1]] = filename + "::/" + name
+        return [v for _, v in sorted(ret.items())]
+
+    def subscan_uri(self, subscan):
+        return self.filename + "::/" + self._nxentry_name(subscan)
 
     def _filename(self, level=0):
         """
@@ -189,7 +339,7 @@ class NexusScanWriterBase(gevent.Greenlet):
                        and the others for the masters
         """
         if self.save:
-            return scan_utils.scan_filenames(self.scan_node, config=False)
+            return scan_utils.scan_filenames(self.node, config=False)
         else:
             return []
 
@@ -198,7 +348,7 @@ class NexusScanWriterBase(gevent.Greenlet):
         """
         Instrument information publish by the Bliss core library
         """
-        return self.scan_info_get("instrument", default={})
+        return self.get_info("instrument", default={})
 
     @property
     def config_devices(self):
@@ -208,59 +358,53 @@ class NexusScanWriterBase(gevent.Greenlet):
     def devices(self):
         """
         Maps subscan name to a dictionary of devices,
-        which maps fullname to device info.
+        which maps fullname to device info. Ordered
+        according to position in acquisition chain.
         """
         if not self._devices:
             self._devices = devices.device_info(
                 self.config_devices,
-                self.scan_info,
+                self.info,
                 short_names=self.saveoptions["short_names"],
                 multivalue_positioners=self.saveoptions["multivalue_positioners"],
             )
         return self._devices
 
     @property
-    def subscans(self):
+    def scan_number(self):
+        return self.get_info("scan_nb")
+
+    @property
+    def _expected_subscans(self):
         """
         Subscan names for which there are devices defined.
+        Ordered according to position in acquisition chain.
         """
         return list(sorted(self.devices.keys()))
 
-    def subscan(self, node):
-        """
-        Get the subscan name to which this node belongs
+    @property
+    def _enabled_subscans(self):
+        for subscan in self._subscans:
+            if subscan.enabled:
+                yield subscan
 
-        :param bliss.data.node.DataNode node:
-        :returns str:
-        """
-        if len(self._subscanmap) == 1:
-            subscan = next(iter(self._subscanmap.keys()))
-        else:
-            fullname = node.fullname
-            matches = [
-                subscan
-                for subscan, prefix in self._subscanmap.items()
-                if node.db_name.startswith(prefix)
-            ]
-            if len(matches) != 1:
-                self.logger.warning("Could not identify subscan of " + repr(fullname))
-                return ""
-            subscan = matches[0]
-        if subscan not in self.devices:
-            self.logger.warning("No devices defined for subscan " + repr(subscan))
-            return ""
-        return subscan
+    @property
+    def _enabled_and_expected_subscans(self):
+        expected = self._expected_subscans
+        for subscan in self._enabled_subscans:
+            if subscan.name in expected:
+                yield subscan
 
     def device(self, subscan, node):
         """
         Get device information of the node belonging to the subscan
 
-        :param str subscan:
+        :param Subscan subscan:
         :param bliss.data.node.DataNode node:
         :returns dict:
         """
         fullname = node.fullname
-        subdevices = self.devices[subscan]
+        subdevices = self.devices[subscan.name]
         device = subdevices.get(fullname, None)
         if device is None:
             device = devices.update_device(subdevices, fullname)
@@ -287,21 +431,18 @@ class NexusScanWriterBase(gevent.Greenlet):
         if nxroot is None:
             filename = self._filename(level=level)
             if filename:
-                # REMARK: External readers could have opened
-                # the file with `enable_file_locking=True` and
-                # `swmr=False`.
-                with nexus.nxRoot(
-                    filename,
-                    mode="a",
-                    enable_file_locking=False,
-                    swmr=False,
-                    creationlocks=self._nxroot_locks,
-                ) as nxroot:
-                    try:
-                        self._nxroot[level] = nxroot
-                        yield nxroot
-                    finally:
-                        self._nxroot[level] = None
+                try:
+                    with nexus.nxRoot(filename, **self._nxroot_kwargs) as nxroot:
+                        try:
+                            self._nxroot[level] = nxroot
+                            yield nxroot
+                        finally:
+                            self._nxroot[level] = None
+                except Exception:
+                    if nxroot is None:
+                        pattern = ".+{}$".format(os.path.basename(filename))
+                        log_file_processes(self.logger.error, pattern)
+                    raise
             else:
                 self._h5missing("filenames")
                 self._nxroot[level] = None
@@ -309,10 +450,51 @@ class NexusScanWriterBase(gevent.Greenlet):
         else:
             yield nxroot
 
+    @property
+    def _nxroot_kwargs(self):
+        return {
+            "mode": "a",
+            "enable_file_locking": self.saveoptions["enable_file_locking"],
+            "swmr": self.saveoptions["swmr"],
+            "creationlocks": self._nxroot_locks,
+        }
+
+    @contextmanager
+    def _modify_nxroot(self, level=0):
+        with self.nxroot(level=level) as nxroot:
+            if nxroot is None:
+                yield nxroot
+            else:
+                with nxroot.acquire_lock():
+                    yield nxroot
+
+    @property
+    def has_write_permissions(self):
+        """
+        This process has permission to write/create file and/or directory
+        """
+        filename = self.filename
+        if os.path.exists(filename):
+            # Check whether we can write to the file
+            return os.access(filename, os.W_OK)
+        else:
+            # Check whether we can create the file (and possibly subdirs)
+            dirname = os.path.dirname(filename)
+            while dirname and dirname != os.sep:
+                if os.path.exists(dirname):
+                    if os.path.isdir(dirname):
+                        return os.access(dirname, os.W_OK)
+                    else:
+                        return False
+                else:
+                    dirname = os.path.dirname(dirname)
+            else:
+                return False
+
     @contextmanager
     def nxentry(self, subscan):
         """
-        :param str subscan:
+        :param Subscan subscan:
 
         Yields the NXentry instance (h5py.Group) or None
         when information is missing
@@ -322,18 +504,7 @@ class NexusScanWriterBase(gevent.Greenlet):
                 yield None
                 return
             if self._nxentry is None:
-                name = self._nxentry_name(subscan)
-                if not name:
-                    yield None
-                    return
-                # Create NXentry instance when missing
-                nxentry = nxroot.get(name, None)
-                if nxentry is None:
-                    kwargs = self._nxentry_create_args()
-                    if not kwargs:
-                        yield None
-                        return
-                    nxentry = nexus.nxEntry(nxroot, name, **kwargs)
+                nxentry = self._get_nxentry(nxroot, subscan)
                 try:
                     self._nxentry = nxentry
                     yield nxentry
@@ -342,18 +513,64 @@ class NexusScanWriterBase(gevent.Greenlet):
             else:
                 yield self._nxentry
 
+    def _get_nxentry(self, nxroot, subscan):
+        """
+        Create/get NXentry of subscan
+
+        :param h5py.File nxroot:
+        :param Subscan subscan:
+        """
+        name = self._nxentry_name(subscan)
+        if not name:
+            return None
+        # Create NXentry instance when missing
+        nxentry = nxroot.get(name, None)
+        if nxentry is None:
+            if not subscan.enabled:
+                return None
+            kwargs = self._nxentry_create_args()
+            if not kwargs:
+                return None
+            try:
+                nxentry = nexus.nxEntry(nxroot, name, raise_on_exists=True, **kwargs)
+            except nexus.NexusInstanceExists:
+                subscan.enabled = False
+            self._on_subscan_creation(subscan)
+        return nxentry
+
+    def _on_subscan_creation(self, subscan):
+        """
+        Actions taken right after subscan NXentry creation
+
+        :param Subscan subscan:
+        """
+        uri = repr(self.subscan_uri(subscan))
+        name = repr(subscan.name)
+        if subscan.enabled:
+            msg = "Start writing subscan {} to {}"
+            msg = msg.format(name, uri)
+            self.logger.info(msg)
+        else:
+            msg = "Writing subscan {} is disabled destination {} exists (probably another writer exists for this session)"
+            msg = msg.format(name, uri)
+            self._set_state(self.STATES.FAULT, msg)
+
     def _nxentry_name(self, subscan):
         """
-        :param str subscan:
+        Name of the NXentry associated with a subscan
+
+        :param Subscan subscan:
         :returns str:
         """
         try:
-            subscan = self.subscans.index(subscan)
+            # The subscan name x.1, x.2, ... depends on the order
+            # in which the
+            i = self._expected_subscans.index(subscan.name)
         except ValueError:
-            self._h5missing("subscan " + repr(subscan))
+            self._h5missing("subscan " + repr(subscan.name))
             return None
         try:
-            name = scan_utils.scan_name(self.scan_node, subscan + 1)
+            name = scan_utils.scan_name(self.node, i + 1)
         except AttributeError as e:
             self._h5missing(str(e))
             return None
@@ -365,11 +582,11 @@ class NexusScanWriterBase(gevent.Greenlet):
 
         :returns dict:
         """
-        start_timestamp = self.scan_info_get("start_timestamp")
+        start_timestamp = self.get_info("start_timestamp")
         if not start_timestamp:
             self._h5missing("start_timestamp")
             return None
-        title = self.scan_info_get("title")
+        title = self.get_info("title")
         if not title:
             self._h5missing("title")
             return None
@@ -398,43 +615,6 @@ class NexusScanWriterBase(gevent.Greenlet):
             "HDF5 group not created yet ({} missing)".format(repr(variable))
         )
 
-    def _create_measurement_group(self, subscan):
-        """
-        Fill measurement group with links to NXdetector
-
-        :param str subscan:
-        """
-        with self.nxmeasurement(subscan) as measurement:
-            if measurement is None:
-                return
-            self.logger.info("Create 'measurement' group")
-            path = measurement.name
-            motors = self.instrument_info.get("positioners", {})
-            for dproxy in self.datasets(subscan).values():
-                if dproxy.type == "positioner":
-                    linknames = []
-                    # Positioners should always be there under
-                    # a different name when not in positioners
-                    # snapshot
-                    if dproxy.linkname not in motors:
-                        linknames.append("pos_" + dproxy.linkname)
-                    # Principle positioners which are masters should
-                    # be there under their normal name
-                    if dproxy.master_index >= 0 and dproxy.data_type == "principal":
-                        linknames.append(dproxy.linkname)
-                else:
-                    # Only the principle value of this detector
-                    # if dproxy.data_type != 'principal':
-                    #    continue
-                    linknames = [dproxy.linkname]
-                with dproxy.open() as dset:
-                    if dset is None:
-                        continue
-                    if dset.parent.name == path:
-                        continue
-                    for linkname in linknames:
-                        nexus.nxCreateDataSet(measurement, linkname, dset, None)
-
     @property
     def plots(self):
         """
@@ -453,70 +633,49 @@ class NexusScanWriterBase(gevent.Greenlet):
         """
         Create default plot in Nexus structure
 
-        :param str subscan:
+        :param Subscan subscan:
         """
         with self.nxentry(subscan) as nxentry:
             if nxentry is None:
                 return
             plotselect = self.plotselect
             firstplot = None
-            plotselected = False
             plots = self.plots
-            self.logger.info("Create plots: {}".format(list(plots.keys())))
+            subscan.logger.info("Create plots: {}".format(list(plots.keys())))
             for plotname, plotparams in plots.items():
                 if plotname in nxentry:
-                    self.logger.warning(
+                    subscan.logger.warning(
                         "Cannot create plot {} (name already exists)".format(
                             repr(plotname)
                         )
                     )
                     continue
                 signaldict = self._select_plot_signals(subscan, plotname, **plotparams)
-                if signaldict:
-                    # Make sure plot name is unique
-                    fmt = "{}"
-                    plotnames = set(
-                        fmt.format(name) for name, _, _ in signaldict.keys()
-                    )
-                    if len(plotnames) != len(signaldict):
-                        fmt = "{}_{}"
-                        plotnames = set(
-                            fmt.format(name, devicetype)
-                            for (name, _, _), (
-                                devicetype,
-                                signals,
-                            ) in signaldict.items()
-                        )
-                        if len(plotnames) != len(signaldict):
-                            fmt = "{}_{}{}"
-                    # Create axes belonging to the signals and save plots
-                    for (
-                        i,
-                        ((name, scan_shape, detector_shape), (devicetype, signals)),
-                    ) in enumerate(sorted(signaldict.items()), 1):
-                        plotname = fmt.format(name, devicetype, i)
-                        axes = self._select_plot_axes(
-                            subscan, scan_shape, detector_shape
-                        )
-                        plot = self._create_plot(nxentry, plotname, signals, axes)
-                        if plotname == plotselect:
-                            plotselected = True
-                            nexus.markDefault(plot)
-                        if firstplot is None:
-                            firstplot = plot
-                        self.logger.info("Plot " + repr(plotname) + " created")
-            if not plotselected:
-                with self._nxroot_locks.acquire(self.filename):
-                    if firstplot is not None:
-                        nexus.markDefault(plot)
-                    else:
-                        nexus.markDefault(nxentry)
+                if not signaldict:
+                    continue
+                # Create axes belonging to the signals and save plots
+                fmt = self._plot_name_format(signaldict)
+                for (i, (k, v)) in enumerate(sorted(signaldict.items()), 1):
+                    name, scan_shape, detector_shape = k
+                    devicetype, signals = v
+                    plotname = fmt.format(name, devicetype, i)
+                    axes = self._select_plot_axes(subscan, scan_shape, detector_shape)
+                    plot = self._create_plot(nxentry, plotname, signals, axes)
+                    if firstplot is None or plotname == plotselect:
+                        firstplot = plot
+                    subscan.logger.info("Plot " + repr(plotname) + " created")
+            # Default plot
+            with self._modify_nxroot():
+                if firstplot is None:
+                    nexus.markDefault(nxentry)
+                else:
+                    nexus.markDefault(firstplot)
 
     def _select_plot_signals(self, subscan, plotname, ndim=-1, grid=False):
         """
         Select plot signals based on detector dimensions.
 
-        :param str subscan:
+        :param Subscan subscan:
         :param str plotname:
         :param int ndim: detector dimensions
         :param bool grid: preserve scan shape
@@ -528,6 +687,26 @@ class NexusScanWriterBase(gevent.Greenlet):
                 if dproxy.detector_ndim == ndim:
                     self._add_signal(plotname, grid, dproxy, signaldict)
         return signaldict
+
+    @staticmethod
+    def _plot_name_format(signaldict):
+        """
+        When signals have different dimensions, the plot is split in multiple plots.
+
+        :param dict signaldict: (str, tuple): (str, [(name, value, attrs)])
+        :returns str:
+        """
+        fmt = "{}"
+        plotnames = set(fmt.format(name) for name, _, _ in signaldict.keys())
+        if len(plotnames) != len(signaldict):
+            fmt = "{}_{}"
+            plotnames = set(
+                fmt.format(name, devicetype)
+                for (name, _, _), (devicetype, signals) in signaldict.items()
+            )
+            if len(plotnames) != len(signaldict):
+                fmt = "{}_{}{}"
+        return fmt
 
     def _add_signal(self, plotname, grid, dproxy, signaldict):
         """
@@ -541,8 +720,12 @@ class NexusScanWriterBase(gevent.Greenlet):
         with dproxy.open() as dset:
             if dset is None:
                 return
+            linkname = dproxy.linkname
+            if not linkname:
+                dproxy.logger.warning("cannot be linked too")
+                return
             # Determine signal shape
-            if dproxy.flattened == grid:
+            if dproxy.reshaped == grid:
                 if not nexus.HASVIRTUAL:
                     dproxy.logger.error(
                         "Cannot reshape {} for plot {} due to missing VDS support".format(
@@ -583,10 +766,10 @@ class NexusScanWriterBase(gevent.Greenlet):
                 )
                 attrs["interpretation"] = interpretation
             # Add arguments to signaldict
-            signal = (dproxy.linkname, value, attrs)
+            signal = (linkname, value, attrs)
             key = plotname, scan_shape, detector_shape
             if key not in signaldict:
-                signaldict[key] = dproxy.type, []
+                signaldict[key] = dproxy.device_type, []
             lst = signaldict[key][1]
             lst.append(signal)
 
@@ -608,7 +791,7 @@ class NexusScanWriterBase(gevent.Greenlet):
 
     def _select_plot_axes(self, subscan, scan_shape, detector_shape):
         """
-        :param str subscan:
+        :param Subscan subscan:
         :param str scan_shape: signal scan shape
         :param str scan_shape: signal detector shape
         :returns list(3-tuple): name, value, attrs
@@ -628,7 +811,8 @@ class NexusScanWriterBase(gevent.Greenlet):
                     axes[dproxy.master_index] = dproxy.linkname, dset, None
 
             # TODO: Scatter plot of non-scalar detector
-            #       does not have a visualization
+            #       does not have a visualization so no
+            #       axes for now
             flattened = scan_ndim != len(axes)
             if flattened and detector_ndim:
                 return []
@@ -636,8 +820,7 @@ class NexusScanWriterBase(gevent.Greenlet):
             # Sort axes
             #   grid plot: fast axis last
             #   scatter plot: fast axis first
-            order = self.order(scan_ndim)
-            if order == "C" and not flattened:
+            if self.saveorder.order == "C" and not flattened:
                 # Fast axis last
                 keys = reversed(sorted(axes))
             else:
@@ -648,7 +831,7 @@ class NexusScanWriterBase(gevent.Greenlet):
             lst = []
             for i, key in enumerate(keys):
                 name, value, attrs = axes[key]
-                if scan_ndim > 1:  # Grid plot
+                if scan_ndim > 1:  # Grid plot (e.g. image)
                     # Axis values: shape of scan
                     value = value[()]
                     if value.ndim == 1:
@@ -656,7 +839,18 @@ class NexusScanWriterBase(gevent.Greenlet):
                     avgdims = tuple(j for j in range(value.ndim) if i != j)
                     # Average along all but axis dimension
                     value = value.mean(avgdims)
-                else:  # Scatter plot
+                    # Make linear
+                    x = numpy.arange(value.size)
+                    mask = numpy.isfinite(value)
+                    try:
+                        m, b = numpy.polyfit(x[mask], value[mask], 1)
+                    except Exception:
+                        value = numpy.linspace(
+                            numpy.nanmin(value), numpy.nanmax(value), value.size
+                        )
+                    else:
+                        value = m * x + b
+                else:  # Scatter plot (coordinates and value)
                     if value.ndim > 1:
                         value = {"data": nexus.getUri(value), "shape": scan_shape}
                 lst.append((name, value, attrs))
@@ -676,13 +870,16 @@ class NexusScanWriterBase(gevent.Greenlet):
         """
         The NXentry is completed
 
-        :param str subscan:
+        :param Subscan subscan:
         """
+        if self.state == self.STATES.FAULT:
+            subscan.logger.warning("Data NOT marked as DONE in HDF5")
+            return
         with self.nxentry(subscan) as nxentry:
             if nxentry is not None:
-                with self._nxroot_locks.acquire(nxentry.file.filename):
+                with self._modify_nxroot():
                     nexus.updated(nxentry, final=True, parents=True)
-                self.logger.info("Scan marked as DONE in HDF5")
+                subscan.logger.info("Data marked as DONE in HDF5")
 
     @property
     def instrument_name(self):
@@ -694,7 +891,7 @@ class NexusScanWriterBase(gevent.Greenlet):
         Yields the NXinstrument instance (h5py.Group) or None
         when NXentry is missing
 
-        :param str subscan:
+        :param Subscan subscan:
         """
         with self.nxentry(subscan) as nxentry:
             if nxentry is None:
@@ -712,7 +909,7 @@ class NexusScanWriterBase(gevent.Greenlet):
         Yields the NXinstrument instance (h5py.Group) or None
         when NXentry is missing
 
-        :param str subscan:
+        :param Subscan subscan:
         """
         with self.nxinstrument(subscan) as nxinstrument:
             if nxinstrument is None:
@@ -726,7 +923,7 @@ class NexusScanWriterBase(gevent.Greenlet):
         Yields the NXinstrument instance (h5py.Group) or None
         when NXentry is missing
 
-        :param str subscan:
+        :param Subscan subscan:
         """
         with self.nxinstrument(subscan) as nxinstrument:
             if nxinstrument is None:
@@ -740,7 +937,7 @@ class NexusScanWriterBase(gevent.Greenlet):
         Yields the generic positioners instance (h5py.Group) or None
         when NXentry is missing
 
-        :param str subscan:
+        :param Subscan subscan:
         """
         with self.nxinstrument(subscan) as nxinstrument:
             if nxinstrument is None:
@@ -748,121 +945,22 @@ class NexusScanWriterBase(gevent.Greenlet):
             else:
                 yield nexus.nxCollection(nxinstrument, "positioners" + suffix)
 
-    def _run(self):
+    def _init_subscan(self, subscan):
         """
-        Greenlet main function
-        """
-        try:
-            if self.saveoptions["profile"]:
-                with profiling.profile(
-                    logger=self.logger,
-                    timelimit=50,
-                    memlimit=10,
-                    sortby="cumtime",
-                    units="MB",
-                ):
-                    self._listen_scan_events()
-            else:
-                self._listen_scan_events()
-        except Exception:
-            self.logger.error(
-                "Stop writer due to exception:\n{}".format(traceback.format_exc())
-            )
+        Things that can already be saved right after
+        receiving the new subscan event.
 
-    def _listen_scan_events(self):
-        """
-        Listening to scan events
-        """
-        try:
-            if self.save:
-                self.logger.info(
-                    "Start writing to {} with options {}".format(
-                        repr(self.filename), self.saveoptions
-                    )
-                )
-                iterator = self.scan_node.iterator
-                iterator.wakeup_fd = self.wakeup_fd
-                # walk_events: all events, also the ones that have already passed
-                for event_type, node in iterator.walk_events():
-                    try:
-                        if event_type.name == "EXTERNAL_EVENT":
-                            self.logger.info("Scan is finished, stop processing events")
-                            break
-                        else:
-                            self._process_event(event_type, node)
-                    except gevent.GreenletExit:
-                        raise
-                    except Exception:
-                        self.logger.warning(
-                            "Process {} event caused an exception:\n{}".format(
-                                repr(event_type.name), traceback.format_exc()
-                            )
-                        )
-            else:
-                self.logger.info("No saving requested")
-        except gevent.GreenletExit:
-            self.logger.info("Writer stop requested")
-        finally:
-            if self.save:
-                nbytes = 0
-                try:
-                    nbytes = self._finalize()
-                except Exception:
-                    self.logger.error(
-                        "Not properly finalized due to exception:\n{}".format(
-                            traceback.format_exc()
-                        )
-                    )
-                finally:
-                    dtime = datetime.datetime.now() - self.starttime
-                    self.logger.info(
-                        "Finished writing to {} ({} in {})".format(
-                            repr(self.filename),
-                            dataset_proxy.format_bytes(nbytes),
-                            dtime,
-                        )
-                    )
-            self.logger.info("Writer exits")
-
-    def _finalize(self):
-        """
-        Finish writing
-
-        :returns int: total number of bytes (data-only)
-        """
-        self.logger.info("Finalize writing to {}".format(repr(self.filename)))
-        nbytes = 0
-        try:
-            self.logger.info("Fetch last data")
-            for node in self._data_nodes:
-                self._fetch_data(node, last=True)
-
-            self.logger.info("Ensure all dataset have the same number of points")
-            for subscan in self.subscans:
-                self._ensure_same_length(subscan)
-
-            self.logger.info("Create external datasets if any")
-            for node in self._data_nodes:
-                dproxy = self._ensure_dataset_existance(node)
-                if dproxy is not None:
-                    nbytes += dproxy.current_bytes
-
-            for subscan in self.subscans:
-                self._finalize_extra(subscan)
-                self._mark_done(subscan)
-        finally:
-            self._nxroot_locks.pop(self.filename)
-        return nbytes
-
-    def _finalize_extra(self, subscan):
-        """
-        All raw data and metadata has been saved.
-        Save additional information.
-
-        :param str subscan:
+        :param Subscan subscan:
         """
         self._save_positioners(subscan)
-        self._create_measurement_group(subscan)
+
+    def _finalize_subscan(self, subscan):
+        """
+        Save final subscan data.
+
+        :param Subscan subscan:
+        """
+        self._save_positioners(subscan)
         self._create_plots(subscan)
 
     @property
@@ -871,11 +969,81 @@ class NexusScanWriterBase(gevent.Greenlet):
         Total bytes (data-only) of all subscans
         """
         nbytes = 0
-        for subscan in self.subscans:
-            for dproxy in self.datasets(subscan).values():
+        for subscan in self._subscans:
+            for dproxy in subscan.datasets.values():
                 if dproxy is not None:
                     nbytes += dproxy.current_bytes
         return nbytes
+
+    @property
+    def progress(self):
+        """
+        Mininal/maximal scan data progress
+        """
+        lst = []
+        for subscan in self._subscans:
+            for dproxy in list(subscan.datasets.values()):
+                if dproxy is not None:
+                    lst.append(dproxy.progress)
+        if lst:
+            return min(lst), max(lst)
+        else:
+            return 0, 0
+
+    @property
+    def progress_string(self):
+        """
+        Mininal/maximal scan data progress
+        """
+        progress = []
+        for subscan in self._subscans:
+            lst = []
+            for dproxy in list(subscan.datasets.values()):
+                if dproxy is not None:
+                    lst.append(dproxy.progress_string)
+            if lst:
+
+                def getprogress(tpl):
+                    return tpl[1]
+
+                subscan_progress = "{}-{}".format(
+                    min(lst, key=getprogress)[0], max(lst, key=getprogress)[0]
+                )
+            else:
+                subscan_progress = "0pts-0pts"
+            progress.append((subscan.name, subscan_progress))
+        if progress:
+            if len(progress) == 1:
+                return progress[0][1]
+            else:
+                return " ".join([name + ":" + s for name, s in progress])
+        else:
+            return "0pts-0pts"
+
+    def log_progress(self, msg=None):
+        data = dataset_proxy.format_bytes(self.current_bytes)
+        progress = self.progress_string
+        duration = self.duration
+        if msg:
+            self.logger.info("{} ({} {} {})".format(msg, progress, data, duration))
+        else:
+            self.logger.info(" {} {} {}".format(progress, data, duration))
+
+    @property
+    def info_string(self):
+        data = dataset_proxy.format_bytes(self.current_bytes)
+        state = self.state.name
+        progress = self.progress_string
+        start = self.starttime.strftime("%Y-%m-%d %H:%M:%S")
+        end = self.endtime
+        if end:
+            end = end.strftime("%Y-%m-%d %H:%M:%S")
+        else:
+            end = "not finished"
+        duration = self.duration
+        return "{} {} {} {}, start: {}, end: {}".format(
+            state, progress, data, duration, start, end
+        )
 
     @property
     def detector_ndims(self):
@@ -883,8 +1051,8 @@ class NexusScanWriterBase(gevent.Greenlet):
         All detector dimensions
         """
         ret = set()
-        for subscan in self.subscans:
-            for dproxy in self.datasets(subscan).values():
+        for subscan in self._subscans:
+            for dproxy in subscan.datasets.values():
                 if dproxy is not None:
                     ret.add(dproxy.detector_ndim)
         return ret
@@ -920,20 +1088,27 @@ class NexusScanWriterBase(gevent.Greenlet):
             self._event_new_subscan(node)
         else:
             self.logger.debug(
-                "new {} node event on {} not treated".format(
-                    repr(node.type), repr(name)
-                )
+                "new {} node event on {} not treated".format(repr(node.type), name)
             )
 
     def _event_new_subscan(self, node):
         """
         :param node bliss.data.node.DataNodeContainer:
         """
-        subscan = node.name
-        self.logger.debug("Start sub scan " + subscan)
-        if subscan not in self._subscanmap:
-            self._subscanmap[subscan] = node.db_name
-        self._save_positioners(subscan)
+        subscan = Subscan(self, node, parentlogger=self.logger)
+        self.logger.debug("Start subscan " + repr(subscan.name))
+        if subscan.name not in self._expected_subscans:
+            self._log_unexpected_subscan(subscan)
+            # subscan.enabled = False
+            # self._set_state(self.STATES.FAULT, msg)
+        self._subscans.add(subscan)
+        self._init_subscan(subscan)
+
+    def _log_unexpected_subscan(self, subscan):
+        msg = "Subscan {} not one of the expected subscans {}".format(
+            repr(subscan.name), self._expected_subscans
+        )
+        self.logger.warning(msg)
 
     def _event_new_data(self, node):
         """
@@ -954,9 +1129,13 @@ class NexusScanWriterBase(gevent.Greenlet):
         """
         Scan has started
 
-        :param bliss.data.scan.Scan scan:
+        :param bliss.data.nodes.scan.Scan scan:
         """
-        self.logger.debug("title = " + self.scan_info_get("title", ""))
+        title = self.get_info("title", "")
+        self.logger.info("title = " + repr(title))
+        if not self.has_write_permissions:
+            self._exception_is_fatal = True
+            raise RuntimeError("Cannot write to {}".format(self.filename))
 
     def _event_new_datanode(self, node):
         """
@@ -964,32 +1143,38 @@ class NexusScanWriterBase(gevent.Greenlet):
 
         :param bliss.data.node.DataNode node:
         """
-        self._data_nodes.append(node)
-        subscan = self.subscan(node)
-        if subscan:
-            self._create_dataset_proxy(subscan, node)
+        self._nodes.append(node)
+        self._dataset_proxy(node)
 
-    def _create_dataset_proxy(self, subscan, node):
+    def _dataset_proxy(self, node):
         """
-        Initialize HDF5 dataset creation for a data node.
+        Get dataset proxy associated with node (create when needed).
+        The subscan to which the node belongs too must be known,
+        expected and enabled.
 
-        :param str subscan:
         :param bliss.data.node.DataNode node:
+        :returns DatasetProxy or None:
         """
+        dproxy = None
+        subscan = self._datanode_subscan(node)
+        if subscan is None:
+            # unknown, unexpected or disabled
+            return dproxy
         # Already initialized?
-        datasets = self.datasets(subscan)
-        if node.fullname in datasets:
-            return
+        datasets = subscan.datasets
+        dproxy = datasets.get(node.fullname)
+        if dproxy is not None:
+            return dproxy
         # Detector data type known?
         if not node.dtype:
             # Detector data dtype not known at this point
-            return
+            return dproxy
         # Detector data shape known?
         detector_shape = node.shape
         if not all(detector_shape):
             # Detector data shape not known at this point
             # TODO: this is why 0 cannot indicate variable length
-            return
+            return dproxy
 
         # Create parent: NXdetector, NXpositioner or measurement
         device = self.device(subscan, node)
@@ -1008,7 +1193,7 @@ class NexusScanWriterBase(gevent.Greenlet):
             parentcontextargs = (subscan,)
         with parentcontext(*parentcontextargs) as parent:
             if parent is None:
-                return
+                return dproxy
             # Save info associated to the device (not the specific dataset)
             for dset_name, value in device["device_info"].items():
                 if dset_name in parent:
@@ -1020,44 +1205,70 @@ class NexusScanWriterBase(gevent.Greenlet):
         # Everything is ready to create the dataset
         scan_shape = self.scan_shape(subscan)
         scan_save_shape = self.scan_save_shape(subscan)
-        order = self.order(len(scan_shape))
         dproxy = dataset_proxy.DatasetProxy(
+            filename=self.filename,
             parent=parent,
+            filecontext=self.nxroot,
             device=device,
             scan_shape=scan_shape,
             scan_save_shape=scan_save_shape,
             detector_shape=detector_shape,
             dtype=node.dtype,
-            order=order,
-            parentlogger=self.logger,
-            filename=self.filename,
-            filecontext=self.nxroot,
+            saveorder=self.saveorder,
+            publishorder=self.saveorder,
+            parentlogger=subscan.logger,
         )
         datasets[node.fullname] = dproxy
-        self.logger.info("New data " + str(dproxy))
+        self._add_to_dataset_links(subscan, dproxy)
+        subscan.logger.debug("New data node " + str(dproxy))
+        return dproxy
+
+    def _datanode_subscan(self, node):
+        """
+        Get the subscan name to which this node belongs to
+        when subscan is known, expected and enabled.
+
+        :param bliss.data.node.DataNode node:
+        :returns Subscan:
+        """
+        for subscan in self._subscans:
+            if subscan.hasnode(node):
+                break
+        else:
+            subscans = [subscan.fullname for subscan in self._subscans]
+            self.logger.warning(
+                "data node {} does not belong to any of the subscans {}".format(
+                    repr(node.fullname), subscans
+                )
+            )
+            return None
+        if not subscan.enabled:
+            self.logger.warning(
+                "Writing of subscan {} is disabled (probably a concurrent writer)".format(
+                    repr(subscan.name)
+                )
+            )
+            return None
+        if subscan.name not in self._expected_subscans:
+            self._log_unexpected_subscan(subscan)
+            return None
+        return subscan
 
     def scan_size(self, subscan):
         """
         Number of points in the subscan (0 means variable-length)
 
-        :param str subscan:
+        :param Subscan subscan:
         :returns int:
         """
         # TODO: currently subscans always give 0 (npoints is not published in Redis)
-        cache = self._redis_cache.get("scan_size", {})
-        npoints = cache.get(subscan, None)
-        if npoints is None:
-            npoints = cache[subscan] = self.subscan_info_get(
-                subscan, "npoints", default=0
-            )
-            self._redis_cache["scan_size"] = cache
-        return npoints
+        return self.get_subscan_info(subscan, "npoints", default=0, cache=True)
 
     def scan_ndim(self, subscan):
         """
         Number of dimensions of the subscan
 
-        :param str subscan:
+        :param Subscan subscan:
         :returns int:
         """
         # TODO: currently subscans always give 1 (data_dim is not published in Redis)
@@ -1065,13 +1276,13 @@ class NexusScanWriterBase(gevent.Greenlet):
             default = 0  # scalar
         else:
             default = 1  # vector
-        return self.subscan_info_get(subscan, "data_dim", default)
+        return self.get_subscan_info(subscan, "data_dim", default, cache=True)
 
     def scan_shape(self, subscan):
         """
         Shape of the subscan
 
-        :param str subscan:
+        :param Subscan subscan:
         :returns tuple:
         """
         ndim = self.scan_ndim(subscan)
@@ -1081,28 +1292,20 @@ class NexusScanWriterBase(gevent.Greenlet):
             return (self.scan_size(subscan),)
         else:
             # Fast axis first
-            s = [
-                self.subscan_info_get(subscan, "npoints{}".format(i))
+            s = tuple(
+                self.get_subscan_info(subscan, "npoints{}".format(i), cache=True)
                 for i in range(1, ndim + 1)
-            ]
-            if self.order(ndim) == "C":
+            )
+            if self.saveorder.order == "C":
                 # Fast axis last
                 s = s[::-1]
-            return tuple(s)
-
-    def order(self, ndim):
-        """
-        Data is published as a flat list in the order of
-        nested scan loops (fast, slow1, slow2, ...).
-        We need the order in which the final shape is filled.
-        """
-        return self._order[ndim]
+            return s
 
     def scan_save_shape(self, subscan):
         """
         Potentially flattened `scan_shape`
 
-        :param str subscan:
+        :param Subscan subscan:
         :returns tuple:
         """
         if self.saveoptions["flat"]:
@@ -1117,7 +1320,7 @@ class NexusScanWriterBase(gevent.Greenlet):
         """
         Potentially flattened scan_ndim
 
-        :param str subscan:
+        :param Subscan subscan:
         :returns int:
         """
         return len(self.scan_save_shape(subscan))
@@ -1132,8 +1335,25 @@ class NexusScanWriterBase(gevent.Greenlet):
         # Get/initialize dataset proxy
         dproxy = self._dataset_proxy(node)
         if dproxy is None:
+            if last:
+                self._set_state(
+                    self.STATES.FAULT, "no data for node {}".format(repr(node.fullname))
+                )
             return
+        # Get data or references (if any)
+        self._fetch_new_data(node, dproxy)
+        # Progress
+        complete = dproxy.log_progress(expect_complete=last)
+        if last and not complete:
+            self._set_state(self.STATES.FAULT, "{} incomplete".format(dproxy))
 
+    def _fetch_new_data(self, node, dproxy):
+        """
+        Get new data (if any) from a data node and create/insert/link in HDF5.
+
+        :param bliss.data.node.DataNode node:
+        :param DatasetProxy proxy:
+        """
         # Copy/link new data
         if node.type == "channel":
             # newdata = copied from Redis
@@ -1141,35 +1361,36 @@ class NexusScanWriterBase(gevent.Greenlet):
             if newdata.shape[0]:
                 dproxy.add_internal(newdata)
         else:
-            try:
-                if dproxy.is_internal:
-                    raise RuntimeError("already has some copied data")
-                else:
-                    # newdata = references to external files (no copy)
-                    newdata, file_format = self._fetch_new_references(dproxy, node)
-            except RuntimeError as e:
-                if dproxy.is_external:
-                    dproxy.logger.debug(
-                        "data is not copied because we already have external data references"
-                    )
-                else:
-                    dproxy.logger.debug(
-                        "data is copied instead of linked because {}".format(
-                            repr(str(e))
-                        )
-                    )
-                    # newdata = copied from external files
-                    newdata = self._fetch_new_external_data(dproxy, node)
-                    if newdata.shape[0]:
-                        dproxy.add_internal(newdata)
+            # newdata = uri's and indices
+            if dproxy.is_internal:
+                external = False
             else:
-                if newdata and file_format:
+                newdata, file_format = self._fetch_new_references(dproxy, node)
+                external, file_format = self._save_reference_mode(file_format)
+            if external:
+                if newdata:
                     dproxy.add_external(newdata, file_format)
+            else:
+                newdata = self._fetch_new_external_data(dproxy, node)
+                if newdata.shape[0]:
+                    dproxy.add_internal(newdata)
 
-        # Log progress of this DataNode
-        subscan = self.subscan(node)
-        npoints_expected = self.scan_size(subscan)
-        dproxy.log_progress(npoints_expected, last=last)
+    def _save_reference_mode(self, file_format):
+        """
+        Save reference as external link (or string uri) or copy data to hdf5
+        """
+        options = self.saveoptions
+        if file_format == "hdf5":
+            external = options["allow_external_hdf5"] and nexus.HASVIRTUAL
+        elif file_format == "edf":
+            external = options["allow_external_nonhdf5"]
+        else:
+            external = True
+            file_format = None
+        if not external and not options["copy_non_external"]:
+            file_format = None
+            external = True
+        return external, file_format
 
     def _ensure_dataset_existance(self, node):
         """
@@ -1182,38 +1403,22 @@ class NexusScanWriterBase(gevent.Greenlet):
         dproxy = self._dataset_proxy(node)
         if dproxy is None:
             msg = "{} dataset not initialized".format(repr(node.fullname))
-            self.logger.warning(msg)
+            self._set_state(self.STATES.FAULT, msg)
         else:
             dproxy.ensure_existance()
-        return dproxy
-
-    def _dataset_proxy(self, node):
-        """
-        Get dataset proxy associated with node (initialize when needed).
-
-        :param bliss.data.node.DataNode node:
-        :returns DatasetProxy or None:
-        """
-        # Initialize HDF5 dataset handle when not already done
-        dproxy = None
-        subscan = self.subscan(node)
-        if subscan:
-            self._create_dataset_proxy(subscan, node)
-            datasets = self.datasets(subscan)
-            dproxy = datasets.get(node.fullname, None)
         return dproxy
 
     def _ensure_same_length(self, subscan):
         """
         Ensure the all datasets of a subscan have the same number of points.
 
-        :param str subscan:
+        :param Subscan subscan:
         """
         expand = self.saveoptions["expand_variable_length"]
         scanshape = self.scan_save_shape(subscan)
         scanndim = len(scanshape)
         scanshapes = []
-        for dproxy in self.datasets(subscan).values():
+        for dproxy in subscan.datasets.values():
             scanshapes.append(dproxy.current_scan_save_shape)
         if expand:
             scanshape = tuple(max(lst) if any(lst) else 1 for lst in zip(*scanshapes))
@@ -1221,7 +1426,7 @@ class NexusScanWriterBase(gevent.Greenlet):
             scanshape = tuple(
                 min(i for i in lst if i) if any(lst) else 1 for lst in zip(*scanshapes)
             )
-        for dproxy in self.datasets(subscan).values():
+        for dproxy in subscan.datasets.values():
             dproxy.reshape(scanshape, None)
 
     def _fetch_new_redis_data(self, dproxy, node):
@@ -1258,15 +1463,11 @@ class NexusScanWriterBase(gevent.Greenlet):
         try:
             files = dataview._get_filenames(node.info, *imgidx)
         except Exception as e:
-            dproxy.logger.debug(e)
+            dproxy.logger.debug("cannot get image file names: {}".format(e))
             return uris, file_format0
         for uri, suburi, index, file_format in files:
             # Validate format
-            if file_format:
-                file_format = file_format.lower()
-                if file_format in ("edf", "edfgz", "edfconcat"):
-                    file_format = "edf"
-            self._validate_external_format(dproxy, file_format)
+            file_format = file_format.lower()
             if file_format0:
                 if file_format != file_format0:
                     raise RuntimeError(
@@ -1276,20 +1477,7 @@ class NexusScanWriterBase(gevent.Greenlet):
                     )
             else:
                 file_format0 = file_format
-            # Full uri
-            if suburi:
-                if file_format == "hdf5":
-                    uri = self._hdf5_full_uri(uri, suburi)
-                else:
-                    raise RuntimeError(
-                        "Sub-uri of format {} not supported".format(repr(file_format))
-                    )
-                if not uri:
-                    continue
-            else:
-                if file_format == "hdf5":
-                    continue
-            # All is ok: append uri
+            # TODO: skip suburi until it is a real one
             uris.append((uri, index))
         return uris, file_format0
 
@@ -1311,75 +1499,20 @@ class NexusScanWriterBase(gevent.Greenlet):
                 lst.append(data)
         except Exception as e:
             # Data is not ready (yet): RuntimeError, ValueError, ...
-            dproxy.logger.debug("Data is not ready (yet): {}".format(e))
+            dproxy.logger.debug("cannot get image data: {}".format(e))
         return numpy.array(lst)
-
-    def _hdf5_full_uri(self, uri, suburi):
-        """
-        Make sure the uri exists.
-
-        :param str uri:
-        :param str suburi:
-        :returns str:
-        """
-        try:
-            fulluri = uri + "::" + suburi
-            with nexus.uriContext(fulluri, mode="r") as dset:
-                return fulluri
-        except Exception as e:
-            logger.debug("HDF5 '{}::{}' error ({})".format(uri, suburi, e))
-        return ""
-
-    def _validate_external_format(self, dproxy, file_format):
-        """
-        Make sure this file format can be or is allowed to be
-        used in datasets with external data.
-
-        :param DatasetProxy dproxy:
-        :param str file_format:
-        :raises RuntimeError:
-        """
-        if file_format not in ("edf", "hdf5"):
-            raise RuntimeError("Unknown file format {}".format(repr(file_format)))
-        if file_format == "hdf5":
-            if not self.saveoptions["allow_external_hdf5"]:
-                raise RuntimeError("External HDF5 disabled by writer")
-            elif not nexus.HASVIRTUAL:
-                # We could let this pass but then the copying will
-                # be done at the end instead of during the scan
-                raise RuntimeError("External HDF5 not used due to missing VDS support")
-        else:
-            if not self.saveoptions["allow_external_nonhdf5"]:
-                raise RuntimeError(
-                    "External {} disabled by writer".format(repr(file_format))
-                )
-
-    def datasets(self, subscan):
-        """
-        :param str subscan:
-        """
-        self._datasets[subscan] = ret = self._datasets.get(subscan, {})
-        return ret
-
-    def datasetproxy(self, subscan, fullname):
-        """
-        :param str subscan:
-        :param str fullname:
-        :returns DatasetProxy:
-        """
-        return self.datasets(subscan)[fullname]
 
     def positioner_iter(self, subscan, onlyprincipals=True, onlymasters=True):
         """
         Yields all positioner dataset handles
 
-        :param str subscan:
+        :param Subscan subscan:
         :param bool onlyprincipals: only the principal value of each positioner
         :param bool onlymasters: only positioners that are master in the acquisition chain
         :returns str, DatasetProxy: fullname and dataset handles
         """
-        for fullname, dproxy in self.datasets(subscan).items():
-            if dproxy.type == "positioner":
+        for fullname, dproxy in subscan.datasets.items():
+            if dproxy.device_type == "positioner":
                 if onlyprincipals and dproxy.data_type != "principal":
                     continue
                 if onlymasters and dproxy.master_index < 0:
@@ -1390,11 +1523,11 @@ class NexusScanWriterBase(gevent.Greenlet):
         """
         Yields all dataset handle except for positioners
 
-        :param str subscan:
+        :param Subscan subscan:
         :returns str, DatasetProxy: fullname and dataset handle
         """
-        for fullname, dproxy in self.datasets(subscan).items():
-            if dproxy.type != "positioner":
+        for fullname, dproxy in subscan.datasets.items():
+            if dproxy.device_type != "positioner":
                 yield fullname, dproxy
 
     @property
@@ -1421,7 +1554,7 @@ class NexusScanWriterBase(gevent.Greenlet):
         """
         Save fixed snapshots of motor positions.
 
-        :param str subscan:
+        :param Subscan subscan:
         """
         # Positions at the beginning of the scan
         positioners, units = self.positioners_start
@@ -1446,27 +1579,13 @@ class NexusScanWriterBase(gevent.Greenlet):
             subscan, positioners, units, "_dial_end", overwrite=True
         )
 
-        # Links to NXpositioners (moving during the scan)
-        for fullname, dproxy in self.positioner_iter(
-            subscan, onlyprincipals=False, onlymasters=False
-        ):
-            with self.nxpositioners(subscan) as parent:
-                if parent is None:
-                    return
-                with dproxy.open() as dset:
-                    if dset is None:
-                        continue
-                    linkname = dproxy.linkname
-                    if linkname in parent:
-                        del parent[linkname]
-                    nexus.nxCreateDataSet(parent, linkname, dset, None)
-
     def _save_positioners_snapshot(
         self, subscan, positions, units, suffix, overwrite=False
     ):
         """
         Save fixed snapshot of motor positions.
 
+        :param Subscan subscan:
         :param dict positions: name:position
         :param dict units: name:unit
         :param str suffix: output suffix
@@ -1477,7 +1596,7 @@ class NexusScanWriterBase(gevent.Greenlet):
         with self.nxpositioners(subscan, suffix=suffix) as nxpositioners:
             if nxpositioners is None:
                 return
-            self.logger.info(
+            subscan.logger.info(
                 "Save motor positions snapshot " + repr(nexus.h5Name(nxpositioners))
             )
             for mot, pos in positions.items():
@@ -1495,3 +1614,64 @@ class NexusScanWriterBase(gevent.Greenlet):
                     else:
                         attrs = {}
                     nexus.nxCreateDataSet(nxpositioners, mot, pos, attrs)
+
+    def _add_to_dataset_links(self, subscan, dproxy):
+        """
+        Add links to this dataset.
+
+        :param Subscan subscan:
+        :param DatasetProxy dproxy:
+        """
+        self._add_to_measurement_group(subscan, dproxy)
+        if dproxy.device_type == "positioner":
+            self._add_to_positioners_group(subscan, dproxy)
+
+    def _add_to_measurement_group(self, subscan, dproxy):
+        """
+        Add link in measurement group.
+
+        :param Subscan subscan:
+        :param DatasetProxy dproxy:
+        """
+        with self.nxmeasurement(subscan) as measurement:
+            if measurement is None:
+                return
+            if dproxy.parent == measurement.name:
+                return
+            linkname = dproxy.linkname
+            if not linkname:
+                dproxy.logger.warning("cannot be linked too")
+                return
+            if dproxy.device_type == "positioner":
+                linknames = []
+                # Positioners should always be there under
+                # a different name when not in positioners
+                # snapshot
+                motors = self.instrument_info.get("positioners", {})
+                if linkname not in motors:
+                    linknames.append("pos_" + linkname)
+                # Principle positioners which are masters should
+                # be there under their normal name
+                if dproxy.master_index >= 0 and dproxy.data_type == "principal":
+                    linknames.append(linkname)
+            else:
+                linknames = [linkname]
+            for linkname in linknames:
+                nexus.createLink(measurement, linkname, dproxy.path)
+
+    def _add_to_positioners_group(self, subscan, dproxy):
+        """
+        Add link in positioners group.
+
+        :param Subscan subscan:
+        :param DatasetProxy dproxy:
+        """
+        with self.nxpositioners(subscan) as parent:
+            if parent is None:
+                return
+            linkname = dproxy.linkname
+            try:
+                del parent[linkname]
+            except KeyError:
+                pass
+            nexus.createLink(parent, linkname, dproxy.path)

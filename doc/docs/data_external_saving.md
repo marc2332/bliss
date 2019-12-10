@@ -1,13 +1,110 @@
-#NeXus complient external writer process
-BLISS offers the possiblitiy to a sepearete process (on the system level) for saving and achiving the aquired data.
-The code of this external NeXus writer is maintained by the ESRF Data Analysis Unit (DAU) to ensure seamless 
-integration with data analysis tools provied by the DAU.
+# NeXus compliant external writer
+The code of this external NeXus writer is maintained by the ESRF Data Analysis Unit (DAU) to ensure seamless integration with data analysis tools provided by the DAU.
 
-To start a session writer as a process inside an environment where BLISS is installed
+## External Nexus writer as a Tango device
+
+The data writing of one BLISS session is handled by one nexus writer TANGO device.
+
+### Register session writer with the Tango database
+
+To register the TANGO device automatically, specify its properties in the beamline configuration files
+
+```yaml
+server: NexusWriter
+personal_name: nexuswriters
+device:
+- tango_name: id00/bliss_nxwriter/test_session
+  class: NexusWriter
+  properties:
+    session: test_session
+```
+
+Alternatively you can register the device manually or by using this helper script which ensures there there is only writer listening per BLISS session
+
+```bash
+   $ python -m nexus_writer_service.nexus_register_writer test_session --domain id00 --instance nexuswriters
+```
+
+In this example we registered a writer for BLISS session __test_session__ which runs under domain __id00__ in TANGO server instance __nexuswriters__. The device family is __bliss_nxwriter__ by default and the device name is equal to the session name. Running multiple session writers in on TANGO server instance (i.e. one process) is allowed but not recommended if the associated BLISS sessions may produce lots of data simultaneously.
+
+### Start the Tango server
+
+A nexus writer TANGO server (which may serve different BLISS session) can be started inside the BLISS conda environment as follows
+
+```bash
+   $ NexusWriterService nexuswriters --log=info
+```
+
+You need to specify the instance name of the TANGO server, so __nexuswriters__ in the example.
+
+### Enable in BLISS
+
+Select the external writer in the BLISS session in order to be notified of errors and register metadata generators
+
+```python
+SCAN_SCAVING.writer = "nexus"
+```
+
+BLISS will discover the external writer automatically. Note that if you disable the writer but have the TANGO server running, data will be saved but the BLISS session is unaware of it.
+
+
+### Session writer status
+
+The status of the TANGO device serving a BLISS session can be
+
+ * INIT: initializing (not accepting scans)
+ * ON: accepting scans (without active scan writers)
+ * RUNNING: accepting scans (with active scan writers)
+ * OFF: not accepting scans
+ * FAULT: not accepting scans due to exception
+
+When the server stays in the INIT state you can try calling the TANGO devices's "init" method. This can happen when the connection to beacon fails in the initialization stage. When in the OFF state, use the TANGO devices's "start" method. To stop accepting new scans, use the TANGO devices's "stop" method.
+
+### Scan writer status
+
+Each session writer launches a separate scan writer which saves the data of a particular scan (subscans are handled by the same scan writer). The scan writer status can be
+
+ * INIT: initializing (not accepting data yet)
+ * ON: accepting data
+ * OFF: not accepting data (scan is done and all data has been saved)
+ * FAULT: not accepting data due to exception
+
+The final state will always be OFF (finished succesfully) or FAULT (finished unsuccesfully). The session purges the scan writers that are finished after 5 minutes. The state of those scans (which reflects whether the data has been written succesfully or not) is lost forever.
+
+When the state is ON while the scan is finished, the writer did not received the "END_SCAN" event. You can stop the writer with the TANGO devices's "stop_scan" method. This gracefully finalizes the writing. As a last resort you can invoke the "kill_scan" method which might result in incomplete or even corrupt data (when it is executing a write operation while you kill it).
+
+### Concurrent writing
+
+Scans run in parallel and multi-to-master scans will cause the writer to create and modify multiple NXentry groups in the same HDF5 file concurrently.
+
+To protect against multiple writers listening to the same session (and therefore writing the same data) BLISS verifies whether only one writer is listening to the current BLISS session before starting a scan. If multiple writers are active nevertheless, each writer checks whether the NXentry exists before trying to create it at the start of the scan. If it exists, the writer goes in the FAULT state and it will not try to write the data of the (sub)scan associated with this NXentry. This checking relies on "h5py.File.create_group" which is not an atomic operation so not bulletproof.
+
+### Concurrent reading
+
+Each scan writer holds the HDF5 file open in append mode for the duration of the scan. HDF5 file locking is disabled. Flushing is done regularly so readers can see the latest changes.
+
+!!! warning
+    A reader should never open the HDF5 file in append mode. Even when only performing read operation, this will result in a corrupted file!
+
+### File permissions
+
+The HDF5 file and parent directories are created by the TANGO server and are therefore owned by the user under which the server process is running. Subdirectories are created by the BLISS session (e.g. directories for lima data) and are therefore owned by the user under which the BLISS session is running. Files in those subdirectories are created by the device servers and are therefore owned by their associated users.
+
+
+## External Nexus writer as a Python process
+
+!!! warning
+    This is intended for testing and should not be used in production. Caution: you may start more than one writer per session trying to write the same data. BLISS in unaware of writers started this way.
+
+### Start the writer process
+
+A session writer process (which serves one BLISS session) can be started inside the BLISS conda environment as follows
 
 ```bash
    $ NexusSessionWriter test_session --log=info
 ```
+
+### Enable in BLISS
 
 To allow for a proper Nexus structure, add these lines to the session's user script (strongly recommended but not absolutely necessary):
 
@@ -16,119 +113,8 @@ To allow for a proper Nexus structure, add these lines to the session's user scr
     metadata.register_all_metadata_generators()
 ```
 
-!!! warning
-    Currently the external NeXus writer is in an experimental state and the protocol to ensure the completeness for the
-    saved data still needs to be put in place.
-    
-    To test the external writer without using the file saving mechanism provided by BLISS itself the following line has 
-    to be entered in the BLISS shell:
-    
-    ```python
-        SCAN_SAVING.writer = 'null'
-    ```
-
-To start a session writer as a service inside an environment where BLISS is installed
-
-```bash
-   $ NexusWriterService
-```
-
-
-# Example: using Bliss data api for hdf5 saving
-
-!!! note
-    The  example script discussed here is provided in Bliss repository 
-    at [scripts/external_saving_example/external_saving_example.py](https://gitlab.esrf.fr/bliss/bliss/blob/master/scripts/external_saving_example/external_saving_example.py).
-    To have a minimal working Bliss environment have a look at the [installation notes](index.md#installation-outside-esrf) 
-    and the [test_configuration setup](index.md#use-bliss-without-hardware).
-
-
-### Listening to a Bliss session
-When running the script 
-
-    python scripts/external_saving_example/external_saving_example.py
-    
-it is listening to new scans in the Bliss __test_session__ 
+The internal BLISS writer needs to be enabled in case you do not want to register the metadata generators
 
 ```python
-listen_to_session_wait_for_scans("test_session")
+    SCAN_SAVING.writer = 'hdf5'
 ```
-
-Connect to the node 'test_session' in redis:
-
-```python
-session_node = get_session_node(session)
-```
-
-Using  the `walk_on_new_events()` function with `filter="scan"`(limit walk to nodes of type `node.type == "scan"` ) in order to handle new events on scan nodes: 
-
-- `NEW_NODE` when a new scan is launched 
-- `END_SCAN` when a scan terminates.
-
-```python
-    # wait for new events on scan
-    for event_type, node in session_node.iterator.walk_on_new_events(
-        filter="scan", from_next=True):
-```
-
-### Receiving events from a scan
-In the example script a new instance of the class `HDF5_Writer` is created per scan that is started. Following the
-initialisation a _gevent greenlet_ is spawned to run the actual listener in a non blocking way. Inside `def run(self)` 
-a second iterator is started walking through all events emitted by the scan
-[(see data structure section)](data_structure.md#experiment-and-redis-data-structure):
-
-```python
-   for event_type, node in self.scan_node.iterator.walk_events():
-```
-
-!!!hint
-    Data generated by scans in BLISS is emitted though a structure called _channel_. Further reading can be found at
-    
-    - [Overview scan engine](scan_engine.md)
-    - [Bliss data nodes](scan_data_node.md)
-    - [Data structure of published data](data_structure.md)
-
-Once an event is received it can be categorized by the event type:
-
-- `NEW_NODE`
-- `NEW_DATA_IN_CHANNEL`
-
-and by node type:
- 
-- `channel`
-- `lima`
-
-
-Currently  0d and and 1d data is directly kept in redis and published through _channels_ (`node.type == "channel"`).
-For each new _channel_  a corresponding hdf5 dataset is created and filled with data emitted on a `"NEW_DATA_IN_CHANNEL"` event.
-
-2d data (e.g. lima images) is not saved in redis itself, but can be retrieved through references (method `get_image` of class `LimaDataView`). However, for this example we
-do not want to deal with the 2d data itself but only resolve the final saving destination. 
-
-In this example data from channels (not lima) is written to the hdf5 file as soon 
-as the event is received, but references of images are only saved in hdf5 once the scan has ended (nothing is preventing to do this also on the fly).
-
-### Finalizing the scan dataset on "END_SCAN"
-Once the `END_SCAN` event is received the `finalize` method of the `HDF5_Writer` instance is called 
-to 
-
-- 1) stop the listening on events of the regarding scan, 
-- 2) have a final synchronization for all datasets of the scan and 
-- 3) to write `instrument` and meta-data entries to hdf5.
-
-### Meta-data and Instrument dataset
-Each scan has an attached `scan_info` structure (nested dict) which e.g. contains meta-data entries which also have to be put into the hdf5. In Bliss there is a `dicttoh5` 
-function which is derived from its pendant in _silx.io.dictdump_, that puts in place correct `h5dataset.attrs["NX_class"]` attributes when converting the python dict 
-structure into hdf5 datasets.
-
-## Examples of complex scans
-In order to have some test cases for more demanding scans when working with the presented api a script file that can be executed inside the Bliss shell is provided:
-```python
-    TEST_SESSION [1]:   exec(open("scripts/external_saving_example/some_scans.py").read())
-```
-
-The same scans can also be executed using Bliss in a library mode running (_TANGO_HOST_ to be chosen according to the running server...)
-```bash
-    BEACON_HOST=localhost TANGO_HOST=localhost:20000 python scripts/external_saving_example/some_scans_bliss_as_library.py 
-```
-

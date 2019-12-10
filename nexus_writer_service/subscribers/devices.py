@@ -13,6 +13,8 @@
 Compile device information before and after Redis publication
 """
 
+from collections import OrderedDict
+
 mcanamemap = {
     "spectrum": "data",
     "icr": "input_rate",
@@ -188,6 +190,7 @@ def parse_devices(devices, short_names=True, multivalue_positioners=False):
                 device["data_type"] = countertypemap.get(datatype, datatype)
                 device["data_name"] = counternamemap.get(datatype, datatype)
         elif device["device_type"] == "positionergroup":
+            # TODO: currently only timers, not other masters exist like this
             # 'timer1:xxxxxx' -> 'xxxxxx'
             #   device_name = 'timer1'
             #   data_type = timertypemap('xxxxxx')
@@ -224,6 +227,18 @@ def parse_devices(devices, short_names=True, multivalue_positioners=False):
             device["unique_name"] = device["device_name"] + ":" + device["data_name"]
 
 
+def is_positioner_group(fullname, all_fullnames):
+    """
+    A positioner group is a master which publishes more than one channel.
+    This is currently only a timer.
+    """
+    parts = fullname.split(":")
+    if len(parts) == 2:
+        if parts[1] in ["elapsed_time", "epoch"]:
+            return all(parts[0] + ":" + name for name in ["elapsed_time", "epoch"])
+    return False
+
+
 def device_info(devices, scan_info, short_names=True, multivalue_positioners=False):
     """
     Merge device information from `writer_config_publish.device_info`
@@ -234,20 +249,23 @@ def device_info(devices, scan_info, short_names=True, multivalue_positioners=Fal
     :param bool short_names:
     :param bool multivalue_positioners:
     :returns dict: subscanname:dict(fullname:dict)
+                   ordered according to position in
+                   acquisition chain
     """
-    ret = {}
+    ret = OrderedDict()
     config = bool(devices)
     for subscan, subscaninfo in scan_info["acquisition_chain"].items():
         subdevices = ret[subscan] = {}
         # These are the "positioners"
-        dic = subscaninfo["master"]
-        units = dic.get("scalars_units", {})
-        aliasmap = dic.get("display_names", {})
+        masterinfo = subscaninfo["master"]
+        units = masterinfo.get("scalars_units", {})
+        aliasmap = masterinfo.get("display_names", {})
         master_index = 0
-        for fullname in dic.get("scalars", []):
+        lst = masterinfo.get("scalars", [])
+        for fullname in lst:
             subdevices[fullname] = devices.get(fullname, {})
             device = update_device(subdevices, fullname, units)
-            if fullname.startswith("timer"):
+            if is_positioner_group(fullname, lst):
                 device["device_type"] = "positionergroup"
             else:
                 device["device_type"] = "positioner"
@@ -256,15 +274,16 @@ def device_info(devices, scan_info, short_names=True, multivalue_positioners=Fal
             if _allow_alias(device, config):
                 _add_alias(device, fullname, aliasmap)
         # These are the 0D, 1D and 2D "detectors"
-        dic = subscaninfo
-        aliasmap = dic.get("display_names", {})
+        aliasmap = subscaninfo.get("display_names", {})
         for key in "scalars", "spectra", "images":
-            units = dic.get(key + "_units", {})
-            for fullname in dic.get(key, []):
+            units = subscaninfo.get(key + "_units", {})
+            lst = subscaninfo.get(key, [])
+            for fullname in lst:
                 subdevices[fullname] = devices.get(fullname, {})
                 device = update_device(subdevices, fullname, units)
-                if fullname.startswith("timer") and key == "scalars":
-                    device["device_type"] = "positionergroup"
+                if key == "scalars":
+                    if is_positioner_group(fullname, lst):
+                        device["device_type"] = "positionergroup"
                 if _allow_alias(device, config):
                     _add_alias(device, fullname, aliasmap)
         parse_devices(

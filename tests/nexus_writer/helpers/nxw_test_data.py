@@ -8,34 +8,31 @@
 import numpy
 from nexus_writer_service.utils import scan_utils
 from nexus_writer_service.io import nexus
-from nexus_writer_service.scan_writers.writer_base import (
+from nexus_writer_service.subscribers.scan_writer_base import (
     default_saveoptions as base_options
 )
-from nexus_writer_service.scan_writers.writer_config import (
+from nexus_writer_service.subscribers.scan_writer_config import (
     default_saveoptions as config_options
 )
 import nxw_test_config
 import nxw_test_utils
 
 
-def assert_scan_data(scan, writer_stdout=None, **kwargs):
+def assert_scan_data(scan, **kwargs):
     """
     :param bliss.scanning.scan.Scan scan:
-    :param io.BufferedIOBase writer_stdout:
+    :param kwargs: see `validate_scan_data`
     """
     # scan_utils.open_data(scan, subscan=subscan, config=config, block=True)
-    try:
-        validate_scan_data(scan, **kwargs)
-    except Exception:
-        if writer_stdout is not None:
-            nxw_test_utils.print_output(writer_stdout)
-        raise
+    validate_scan_data(scan, **kwargs)
 
 
 def validate_scan_data(
     scan,
     subscan=1,
     masters=None,
+    detectors=None,
+    master_name="timer",
     scan_shape=None,
     config=True,
     withpolicy=True,
@@ -44,7 +41,10 @@ def validate_scan_data(
     """
     :param bliss.scanning.scan.Scan scan:
     :param int subscan:
-    :param tuple masters: fast axis first by default 'timer' when 1D scan or None otherwise
+    :param tuple masters: fast axis first by default `master_name` when 1D scan
+                          or None otherwise
+    :param list(str) detectors: expected detectors (derived from technique when missing)
+    :param str master_name: chain master name
     :param tuple scan_shape: fast axis first 0D scan by default
     :param bool config: configurable writer
     :param bool withpolicy: data policy
@@ -52,19 +52,20 @@ def validate_scan_data(
     """
     # Parse arguments
     if config:
-        save_options = config_options
+        save_options = config_options()
     else:
-        save_options = base_options
+        save_options = base_options()
     if alt:
         save_options = {k: not v for k, v in save_options.items()}
     if scan_shape is None:
         scan_shape = tuple()
+    variable_length = not all(scan_shape)
     if masters is None:
         if not scan_shape:
             masters = tuple()
         elif len(scan_shape) == 1:
             if save_options["multivalue_positioners"]:
-                masters = ("timer",)
+                masters = (master_name,)
             else:
                 masters = ("elapsed_time",)
     assert len(scan_shape) == len(masters)
@@ -72,6 +73,14 @@ def validate_scan_data(
         det_technique = nxw_test_config.technique["withpolicy"]
     else:
         det_technique = nxw_test_config.technique["withoutpolicy"]
+    if detectors is not None:
+        det_technique = "none"
+    if detectors:
+        for name, alias in zip(["diode2", "diode9"], ["diode2alias", "diode9alias"]):
+            if config:
+                detectors = [alias if d == name else d for d in detectors]
+            else:
+                detectors = [name if d == alias else d for d in detectors]
     if config:
         scan_technique = scan.scan_info["nxwriter"]["technique"]["name"]
     else:
@@ -82,7 +91,12 @@ def validate_scan_data(
     uri = scan_utils.scan_uri(scan, subscan=subscan, config=config)
     with nexus.uriContext(uri) as nxentry:
         validate_nxentry(
-            nxentry, config=config, withpolicy=withpolicy, technique=scan_technique
+            nxentry,
+            config=config,
+            withpolicy=withpolicy,
+            technique=scan_technique,
+            detectors=detectors,
+            variable_length=variable_length,
         )
         validate_measurement(
             nxentry["measurement"],
@@ -91,6 +105,8 @@ def validate_scan_data(
             masters=masters,
             technique=det_technique,
             save_options=save_options,
+            detectors=detectors,
+            master_name=master_name,
         )
         validate_instrument(
             nxentry["instrument"],
@@ -100,18 +116,28 @@ def validate_scan_data(
             withpolicy=withpolicy,
             technique=det_technique,
             save_options=save_options,
+            detectors=detectors,
+            master_name=master_name,
         )
-        plots = expected_plots(scan_technique, config=config, withpolicy=withpolicy)
-        for (detector_ndim, ptype), names in plots.items():
-            for name in names:
-                validate_nxdata(
-                    nxentry[name],
-                    detector_ndim,
-                    ptype,
-                    scan_shape=scan_shape,
-                    masters=masters,
-                    save_options=save_options,
-                )
+        if not variable_length:
+            validate_plots(
+                nxentry,
+                config=config,
+                withpolicy=withpolicy,
+                technique=scan_technique,
+                detectors=detectors,
+                scan_shape=scan_shape,
+                masters=masters,
+                save_options=save_options,
+            )
+        validate_applications(
+            nxentry,
+            technique=scan_technique,
+            config=config,
+            withpolicy=withpolicy,
+            save_options=save_options,
+            detectors=detectors,
+        )
 
 
 def validate_master_links(scan, subscan=1, config=True):
@@ -124,7 +150,7 @@ def validate_master_links(scan, subscan=1, config=True):
     uri = scan_utils.scan_uri(scan, subscan=subscan, config=config)
     uri = nexus.normUri(uri)
     for filename in scan_utils.scan_filenames(scan, config=config):
-        with nexus.nxRoot(filename) as nxroot:
+        with nexus.File(filename) as nxroot:
             for key in nxroot:
                 if uri == nexus.normUri(nexus.getUri(nxroot[key])):
                     break
@@ -132,25 +158,39 @@ def validate_master_links(scan, subscan=1, config=True):
                 assert False, uri
 
 
-def validate_nxentry(nxentry, config=True, withpolicy=True, technique=None):
+def validate_nxentry(
+    nxentry,
+    config=True,
+    withpolicy=True,
+    technique=None,
+    detectors=None,
+    variable_length=None,
+):
     """
     :param h5py.Group nxentry:
     :param bool config: configurable writer
     :param bool withpolicy: data policy
     :param str technique:
+    :param list(str) detectors:
+    :param bool variable_length: e.g. timescan
     """
     assert nxentry.parent.attrs["NX_class"] == "NXroot"
     assert nxentry.attrs["NX_class"] == "NXentry"
+    actual = set(nxentry.keys())
     expected = {"instrument", "measurement", "title", "start_time", "end_time"}
-    plots = expected_plots(technique, config=config, withpolicy=withpolicy)
-    _expected = set()
-    for names in plots.values():
-        _expected |= names
-    if _expected:
-        _expected |= {"plotselect"}
-    expected |= _expected
+    if variable_length:
+        for name in list(actual):
+            if nxentry[name].attrs.get("NX_class") == "NXdata":
+                actual.remove(name)
+    else:
+        plots = expected_plots(
+            technique, config=config, withpolicy=withpolicy, detectors=detectors
+        )
+        for name, info in plots.items():
+            if info["signals"]:
+                expected |= {name, "plotselect"}
     expected |= expected_applications(technique, config=config, withpolicy=withpolicy)
-    assert_set_equal(set(nxentry.keys()), expected)
+    assert_set_equal(actual, expected)
 
 
 def validate_measurement(
@@ -160,6 +200,8 @@ def validate_measurement(
     config=True,
     technique=None,
     save_options=None,
+    detectors=None,
+    master_name=None,
 ):
     """
     :param h5py.Group nxentry:
@@ -168,20 +210,27 @@ def validate_measurement(
     :param bool config: configurable writer
     :param str technique:
     :param dict save_options:
+    :param list(str) detectors:
+    :param str master_name:
     """
     assert measurement.attrs["NX_class"] == "NXcollection"
     # Detectors
-    datasets = expected_channels(config=config, technique=technique)
+    datasets = expected_channels(
+        config=config, technique=technique, detectors=detectors
+    )
     # Positioners
     if masters:
         datasets[0] |= set(masters)
     else:
         if save_options["multivalue_positioners"]:
-            datasets[0] |= {"timer"}
+            datasets[0] |= {master_name}
         else:
             datasets[0] |= {"elapsed_time"}
     if save_options["multivalue_positioners"]:
-        datasets[0] |= {"pos_timer", "pos_timer_epoch"}
+        datasets[0] |= {
+            "pos_{}".format(master_name),
+            "pos_{}_epoch".format(master_name),
+        }
     else:
         datasets[0] |= {"pos_elapsed_time", "pos_epoch"}
     # Check all datasets present
@@ -205,7 +254,9 @@ def validate_measurement(
             dshape = dset.shape
             eshape = scan_shape + (0,) * ndim
             eshape = tuple(s if s else ds for s, ds in zip(eshape, dshape))
-            assert dshape == eshape, name
+            if not variable_length:
+                # TODO: timescans will have variable length data channels
+                assert dshape == eshape, name
             scan_shape = eshape[: len(scan_shape)]
             assert_dataset(dset, ndim, save_options, variable_length=variable_length)
 
@@ -218,6 +269,8 @@ def validate_instrument(
     withpolicy=True,
     technique=None,
     save_options=None,
+    detectors=None,
+    master_name=None,
 ):
     """
     :param h5py.Group nxentry:
@@ -227,17 +280,21 @@ def validate_instrument(
     :param bool withpolicy: data policy
     :param str technique:
     :param dict save_options:
+    :param list(str) detectors:
+    :param str master_name:
     """
     # Positioner groups
     expected_posg = {"positioners", "positioners_start", "positioners_dial_start"}
     if config:
         expected_posg |= {"positioners_end", "positioners_dial_end"}
     # Detectors
-    expected_dets = expected_detectors(config=config, technique=technique)
+    expected_dets = expected_detectors(
+        config=config, technique=technique, detectors=detectors
+    )
     # Positioners
     expected_pos = set(masters)
     if save_options["multivalue_positioners"]:
-        expected_pos |= {"timer"}
+        expected_pos |= {master_name}
     else:
         expected_pos |= {"elapsed_time", "epoch"}
     # Check all subgroups present
@@ -256,12 +313,12 @@ def validate_instrument(
         if name == "positioners":
             expected |= expected_pos
             if save_options["multivalue_positioners"]:
-                expected |= {"timer_epoch"}
+                expected |= {"{}_epoch".format(master_name)}
         assert_set_equal(set(instrument[name].keys()), expected)
     # Validate content of NXpositioner groups
     for name in expected_pos:
         assert instrument[name].attrs["NX_class"] == "NXpositioner", name
-        if save_options["multivalue_positioners"] and name == "timer":
+        if save_options["multivalue_positioners"] and name == master_name:
             expected = {"value", "epoch"}
         else:
             expected = {"value"}
@@ -278,19 +335,133 @@ def validate_instrument(
             assert_dataset(instrument[name]["data"], 2, save_options, variable_length)
 
 
+def validate_plots(
+    nxentry,
+    config=True,
+    withpolicy=True,
+    technique=None,
+    detectors=None,
+    scan_shape=None,
+    masters=None,
+    save_options=None,
+):
+    """
+    :param h5py.Group nxentry:
+    :param bool config: configurable writer
+    :param bool withpolicy: data policy
+    :param str technique:
+    :param list(str) detectors:
+    :param tuple scan_shape: fast axis first
+    :param tuple masters: fast axis first
+    :param dict save_options:
+    """
+    plots = expected_plots(
+        technique, config=config, withpolicy=withpolicy, detectors=detectors
+    )
+    for name, info in plots.items():
+        if info["signals"]:
+            validate_nxdata(
+                nxentry[name],
+                info["ndim"],
+                info["type"],
+                info["signals"],
+                scan_shape=scan_shape,
+                masters=masters,
+                save_options=save_options,
+            )
+        else:
+            assert name not in nxentry, name
+
+
+def validate_applications(
+    nxentry,
+    technique=None,
+    config=True,
+    withpolicy=True,
+    save_options=None,
+    detectors=None,
+):
+    """
+    All application definitions for this technique (see nexus_definitions.yml)
+
+    :param h5py.Group nxentry:
+    :param str technique:
+    :param bool config: configurable writer
+    :param bool withpolicy: data policy
+    :param dict save_options:
+    :param list detectors:
+    """
+    names = expected_applications(technique, config=config, withpolicy=withpolicy)
+    for name in names:
+        nxsubentry = nxentry[name]
+        if name == "xrf":
+            validate_appxrf(nxsubentry, save_options=save_options, detectors=detectors)
+
+
+def validate_appxrf(nxsubentry, save_options=None, detectors=None):
+    """
+    XRF application defintion (see nexus_definitions.yml)
+
+    :param h5py.Group nxsubentry:
+    :param dict save_options:
+    :param list detectors:
+    """
+    # Application definition complete?
+    expected = {"definition", "end_time", "start_time"}
+    if detectors:
+        if "diode2" in detectors or "diode2alias" in detectors:
+            expected.add("i0")
+        if "diode3" in detectors:
+            expected.add("it")
+        mcas = []
+        if "simu1" in detectors:
+            mcas.append(0)
+        if "simu2" in detectors:
+            mcas.append(1)
+    else:
+        expected |= {"i0", "it"}
+        mcas = [0, 1]
+    if save_options["stack_mcas"]:
+        expected |= {"mca", "elapsed_time", "live_time"}
+    else:
+        for i in mcas:
+            expected |= {
+                "mca{:02d}".format(i),
+                "elapsed_time_mca{:02d}".format(i),
+                "live_time_mca{:02d}".format(i),
+            }
+    assert_set_equal(set(nxsubentry.keys()), expected, msg=nxsubentry.name)
+
+    # Validate content
+    definition = nxsubentry["definition"][()]
+    assert definition == "APPxrf"
+    if save_options["stack_mcas"] and len(mcas) > 1:
+        dset = nxsubentry["mca"]
+        assert dset.shape[0] == len(mcas), dset.name
+        assert dset.is_virtual, dset.name
+
+
 def validate_nxdata(
-    nxdata, detector_ndim, ptype, scan_shape=None, masters=None, save_options=None
+    nxdata,
+    detector_ndim,
+    ptype,
+    expected_signals,
+    scan_shape=None,
+    masters=None,
+    save_options=None,
 ):
     """
     :param h5py.Group nxdata:
     :param int detector_ndim:
     :param str ptype:
+    :param list expected_signals:
     :param tuple scan_shape: fast axis first
     :param tuple masters: fast axis first
     :param dict save_options:
     """
     assert nxdata.attrs["NX_class"] == "NXdata", nxdata.name
     signals = nexus.nxDataGetSignals(nxdata)
+    assert_set_equal(set(signals), set(expected_signals), msg=nxdata.name)
     if ptype == "flat" and scan_shape:
         escan_shape = (numpy.product(scan_shape, dtype=int),)
     else:
@@ -300,7 +471,6 @@ def validate_nxdata(
         escan_shape = escan_shape[::-1]
         masters = masters[::-1]
     # Validate signal shape and interpretation
-    # TODO: check expected signals
     scan_ndim = len(scan_shape)
     variable_length = not all(scan_shape)
     for name in signals:
@@ -328,55 +498,130 @@ def validate_nxdata(
     assert axes == masters, (axes, masters, scan_shape, ptype, nxdata.name)
 
 
-def expected_plots(technique, config=True, withpolicy=True):
+def expected_plots(technique, config=True, withpolicy=True, detectors=None):
     """
     All expected plots for this technique (see nexus_definitions.yml)
 
     :param str technique:
     :param bool config: configurable writer
     :param bool withpolicy: data policy
+    :param list(str) detectors:
     :returns dict: grouped by detector dimension and flat/grid
     """
-    groups = dict()
-    for n in range(3):
-        for s in "grid", "flat":
-            groups[(n, s)] = set()
+    plots = dict()
+    channels = expected_channels(
+        config=config, technique=technique, detectors=detectors
+    )
+
+    def ismca(name):
+        return "simu" in name or "spectrum" in name
+
+    mca_signals = [name for name in channels[1] if ismca(name)]
+    non_mca_signals = [name for name in channels[1] if not ismca(name)]
+    single1Dtype = bool(mca_signals) ^ bool(non_mca_signals)
     if config:
         if technique != "none":
-            groups[(0, "flat")] |= {"all_counters"}
-            groups[(0, "grid")] |= {"all_counters_grid"}
+            # All 0D detectors
+            plots["all_counters"] = {"ndim": 0, "type": "flat", "signals": channels[0]}
+            plots["all_counters_grid"] = {
+                "ndim": 0,
+                "type": "grid",
+                "signals": channels[0],
+            }
+            # All 1D detectors
+            if single1Dtype:
+                signals = {f"simu{i}_det{j}" for i in range(1, 3) for j in range(4)}
+                signals |= {"diode9alias_samples"}
+                signals &= channels[1]
+                plots["all_spectra"] = {"ndim": 1, "type": "flat", "signals": signals}
+                plots["all_spectra_grid"] = {
+                    "ndim": 1,
+                    "type": "grid",
+                    "signals": signals,
+                }
+            else:
+                signals = {"diode9alias_samples"}
+                signals &= channels[1]
+                plots["all_spectra_samplingcounter"] = {
+                    "ndim": 1,
+                    "type": "flat",
+                    "signals": signals,
+                }
+                plots["all_spectra_grid_samplingcounter"] = {
+                    "ndim": 1,
+                    "type": "grid",
+                    "signals": signals,
+                }
+                signals = {f"simu{i}_det{j}" for i in range(1, 3) for j in range(4)}
+                signals &= channels[1]
+                plots["all_spectra_mca"] = {
+                    "ndim": 1,
+                    "type": "flat",
+                    "signals": signals,
+                }
+                plots["all_spectra_grid_mca"] = {
+                    "ndim": 1,
+                    "type": "grid",
+                    "signals": signals,
+                }
+            # All 2D detectors
+            plots["all_images"] = {"ndim": 2, "type": "flat", "signals": channels[2]}
+            plots["all_images_grid"] = {
+                "ndim": 2,
+                "type": "grid",
+                "signals": channels[2],
+            }
+        # Plots with specific signals (see nexus_definitions.yml)
         if "xrf" in technique:
-            groups[(0, "flat")] |= {"xrf_counters"}
-            groups[(0, "grid")] |= {"xrf_counters_grid"}
+            signals = {
+                "diode2alias",
+                "diode3",
+                "simu1_det0_dead_time",
+                "simu2_det1_dead_time",
+            }
+            signals &= channels[0]
+            plots["xrf_counters"] = {"ndim": 0, "type": "flat", "signals": signals}
+            plots["xrf_counters_grid"] = {"ndim": 0, "type": "grid", "signals": signals}
         if "xas" in technique:
-            groups[(0, "flat")] |= {"xas_counters"}
-            groups[(0, "grid")] |= {"xas_counters_grid"}
+            signals = {
+                "diode4",
+                "diode5",
+                "simu1_det0_dead_time",
+                "simu2_det1_dead_time",
+            }
+            signals &= channels[1]
+            plots["xas_counters"] = {"ndim": 0, "type": "flat", "signals": signals}
+            plots["xas_counters_grid"] = {"ndim": 0, "type": "grid", "signals": signals}
         if "xrf" in technique or "xas" in technique:
-            groups[(1, "flat")] |= {
-                "all_spectra_samplingcounter",
-                "all_spectra_mca",
-                "xrf_spectra",
-            }
-            groups[(1, "grid")] |= {
-                "all_spectra_grid_samplingcounter",
-                "all_spectra_grid_mca",
-                "xrf_spectra_grid",
-            }
-        elif technique != "none":
-            groups[(1, "flat")] |= {"all_spectra"}
-            groups[(1, "grid")] |= {"all_spectra_grid"}
+            signals = {"simu1_det0", "simu2_det1"}
+            signals &= channels[1]
+            plots["xrf_spectra"] = {"ndim": 1, "type": "flat", "signals": signals}
+            plots["xrf_spectra_grid"] = {"ndim": 1, "type": "grid", "signals": signals}
         if "xrd" in technique:
-            groups[(2, "flat")] |= {"all_images", "xrd_patterns"}
-            groups[(2, "grid")] |= {"all_images_grid", "xrd_patterns_grid"}
+            signals = {"lima_simulator"}
+            signals &= channels[2]
+            plots["xrd_patterns"] = {"ndim": 2, "type": "flat", "signals": signals}
+            plots["xrd_patterns_grid"] = {"ndim": 2, "type": "grid", "signals": signals}
     else:
-        groups[(0, "flat")] |= {"plot0D"}
-        if "xrf" in technique or "xas" in technique:
-            groups[(1, "flat")] |= {"plot1D_unknown1D1", "plot1D_unknown1D2"}
+        # All 0D detectors
+        plots["plot0D"] = {"ndim": 0, "type": "flat", "signals": channels[0]}
+        # All 1D detectors
+        if single1Dtype:
+            plots["plot1D"] = {"ndim": 1, "type": "flat", "signals": channels[1]}
         else:
-            groups[(1, "flat")] |= {"plot1D_unknown1D"}
-        if "xrd" in technique:
-            groups[(2, "flat")] |= {"plot2D"}
-    return groups
+            plots["plot1D_unknown1D1"] = {
+                "ndim": 1,
+                "type": "flat",
+                "signals": non_mca_signals,
+            }
+            plots["plot1D_unknown1D2"] = {
+                "ndim": 1,
+                "type": "flat",
+                "signals": mca_signals,
+            }
+        # All 2D detectors
+        plots["plot2D"] = {"ndim": 2, "type": "flat", "signals": channels[2]}
+    return plots
 
 
 def expected_applications(technique, config=True, withpolicy=True):
@@ -395,14 +640,17 @@ def expected_applications(technique, config=True, withpolicy=True):
     return apps
 
 
-def expected_detectors(config=True, technique=None):
+def expected_detectors(config=True, technique=None, detectors=None):
     """
     Expected detectors
 
     :param bool config: configurable writer
     :param str technique:
+    :param list(str) detectors:
     :returns set:
     """
+    if detectors:
+        detectors = set(detectors)
     if config:
         # Data channels are grouped per detector
         expected = {
@@ -420,25 +668,31 @@ def expected_detectors(config=True, technique=None):
             expected |= {"diode2alias", "diode9alias"}
         else:
             expected |= {"diode2", "diode9"}
-        if "xrf" in technique or "xas" in technique:
-            expected |= {
-                "simu1_det0",
-                "simu1_det1",
-                "simu1_det2",
-                "simu1_det3",
-                "simu1_sum",
-                "simu2_det0",
-                "simu2_det1",
-                "simu2_det2",
-                "simu2_det3",
-                "simu2_sum",
-            }
-        if "xrd" in technique:
-            expected |= {"lima_simulator", "lima_simulator2"}
+        if detectors:
+            expected &= detectors
+        if "xrf" in technique or "xas" in technique or detectors:
+            names = {"simu1", "simu2"}
+            if detectors:
+                names &= detectors
+            for name in names:
+                expected |= {
+                    name + "_det0",
+                    name + "_det1",
+                    name + "_det2",
+                    name + "_det3",
+                    name + "_sum",
+                }
+        if "xrd" in technique or detectors:
+            names = {"lima_simulator", "lima_simulator2"}
+            if detectors:
+                names &= detectors
+            expected |= names
     else:
         # Each data channel is a detector
         expected = set()
-        channels = expected_channels(config=config, technique=technique)
+        channels = expected_channels(
+            config=config, technique=technique, detectors=detectors
+        )
         for names in channels.values():
             expected |= names
     return expected
@@ -493,6 +747,12 @@ def expected_detector_content(name, config=True):
                 "roi4_min",
                 "roi4_std",
                 "roi4_sum",
+                "bpm_x",
+                "bpm_y",
+                "bpm_fwhm_x",
+                "bpm_fwhm_y",
+                "bpm_intensity",
+                "bpm_acq_time",
                 "type",
                 "data",
             }
@@ -503,17 +763,20 @@ def expected_detector_content(name, config=True):
     return datasets
 
 
-def expected_channels(config=True, technique=None):
+def expected_channels(config=True, technique=None, detectors=None):
     """
-    Expected channels, grouped per dimension
+    Expected channels grouped per dimension
 
     :param bool config: configurable writer
     :param str technique:
-    :returns dict:
+    :param list(str) detectors:
+    :returns dict: key are the unique names (used in plots and measurement)
     """
+    if detectors:
+        detectors = set(detectors)
     datasets = {0: set(), 1: set(), 2: set()}
-    # 1D counters
-    datasets[0] |= {
+    # Normal diodes
+    names = {
         "diode3",
         "diode4",
         "diode5",
@@ -525,10 +788,17 @@ def expected_channels(config=True, technique=None):
         "thermo_sample",
     }
     if config:
-        datasets[0] |= {"diode2alias", "diode9alias"}
+        names |= {"diode2alias", "diode9alias"}
     else:
-        datasets[0] |= {"diode2", "diode9"}
-    for name in ["diode7"]:
+        names |= {"diode2", "diode9"}
+    if detectors:
+        names &= detectors
+    datasets[0] |= names
+    # Statistics diodes
+    names = {"diode7"}
+    if detectors:
+        names &= detectors
+    for name in names:
         datasets[0] |= {
             name + "_N",
             name + "_min",
@@ -537,16 +807,22 @@ def expected_channels(config=True, technique=None):
             name + "_std",
             name + "_var",
         }
+    # Statistics diodes
     if config:
-        lst = ["diode9alias"]
+        names = {"diode9alias"}
     else:
-        lst = ["diode9"]
-    for name in lst:
+        names = {"diode9"}
+    if detectors:
+        names &= detectors
+    for name in names:
         datasets[1] |= {name + "_samples"}
     # MCA's with ROI's
-    if "xrf" in technique or "xas" in technique:
+    if "xrf" in technique or "xas" in technique or detectors:
+        names = {"simu1", "simu2"}
+        if detectors:
+            names &= detectors
         if config:
-            for conname in ["simu1", "simu2"]:
+            for conname in names:
                 for detname in ["det0", "det1", "det2", "det3"]:
                     detname = conname + "_" + detname
                     datasets[1] |= {detname}
@@ -565,26 +841,33 @@ def expected_channels(config=True, technique=None):
                 detname = conname + "_sum"
                 datasets[0] |= {detname + "_roi1", detname + "_roi2", detname + "_roi3"}
         else:
-            for conname in ["simu1", "simu2"]:
+            for conname in names:
                 for detname in ["det0", "det1", "det2", "det3"]:
-                    datasets[1] |= {conname + "_spectrum_" + detname}
+                    if len(names) > 1:
+                        prefix = conname + "_"
+                    else:
+                        prefix = ""
+                    datasets[1] |= {prefix + "spectrum_" + detname}
                     datasets[0] |= {
-                        conname + "_triggers_" + detname,
-                        conname + "_icr_" + detname,
-                        conname + "_events_" + detname,
-                        conname + "_ocr_" + detname,
-                        conname + "_deadtime_" + detname,
-                        conname + "_livetime_" + detname,
-                        conname + "_realtime_" + detname,
-                        conname + "_roi1_" + detname,
-                        conname + "_roi2_" + detname,
-                        conname + "_roi3_" + detname,
+                        prefix + "triggers_" + detname,
+                        prefix + "icr_" + detname,
+                        prefix + "events_" + detname,
+                        prefix + "ocr_" + detname,
+                        prefix + "deadtime_" + detname,
+                        prefix + "livetime_" + detname,
+                        prefix + "realtime_" + detname,
+                        prefix + "roi1_" + detname,
+                        prefix + "roi2_" + detname,
+                        prefix + "roi3_" + detname,
                     }
-                datasets[0] |= {conname + "_roi1", conname + "_roi2", conname + "_roi3"}
-    # Lima's with ROI's
-    if "xrd" in technique:
+                datasets[0] |= {prefix + "roi1", prefix + "roi2", prefix + "roi3"}
+    # Lima's with ROI's and BMP
+    if "xrd" in technique or detectors:
+        names = {"lima_simulator", "lima_simulator2"}
+        if detectors:
+            names &= detectors
         if config:
-            for conname in ["lima_simulator", "lima_simulator2"]:
+            for conname in names:
                 datasets[2] |= {conname}
                 datasets[0] |= {
                     conname + "_roi1_min",
@@ -607,31 +890,51 @@ def expected_channels(config=True, technique=None):
                     conname + "_roi4_sum",
                     conname + "_roi4_avg",
                     conname + "_roi4_std",
+                    conname + "_bpm_x",
+                    conname + "_bpm_y",
+                    conname + "_bpm_fwhm_x",
+                    conname + "_bpm_fwhm_y",
+                    conname + "_bpm_intensity",
+                    conname + "_bpm_acq_time",
                 }
         else:
-            for conname in ["lima_simulator", "lima_simulator2"]:
-                datasets[2] |= {conname + "_image"}
+            for conname in names:
+                if len(names) > 1:
+                    prefix = conname + "_"
+                    prefix_roi = conname + "_roi_counters_"
+                    prefix_bpm = conname + "_bpm_"
+                else:
+                    prefix = ""
+                    prefix_roi = ""
+                    prefix_bpm = ""
+                datasets[2] |= {prefix + "image"}
                 datasets[0] |= {
-                    conname + "_roi_counters_roi1_min",
-                    conname + "_roi_counters_roi1_max",
-                    conname + "_roi_counters_roi1_sum",
-                    conname + "_roi_counters_roi1_avg",
-                    conname + "_roi_counters_roi1_std",
-                    conname + "_roi_counters_roi2_min",
-                    conname + "_roi_counters_roi2_max",
-                    conname + "_roi_counters_roi2_sum",
-                    conname + "_roi_counters_roi2_avg",
-                    conname + "_roi_counters_roi2_std",
-                    conname + "_roi_counters_roi3_min",
-                    conname + "_roi_counters_roi3_max",
-                    conname + "_roi_counters_roi3_sum",
-                    conname + "_roi_counters_roi3_avg",
-                    conname + "_roi_counters_roi3_std",
-                    conname + "_roi_counters_roi4_min",
-                    conname + "_roi_counters_roi4_max",
-                    conname + "_roi_counters_roi4_sum",
-                    conname + "_roi_counters_roi4_avg",
-                    conname + "_roi_counters_roi4_std",
+                    prefix_roi + "roi1_min",
+                    prefix_roi + "roi1_max",
+                    prefix_roi + "roi1_sum",
+                    prefix_roi + "roi1_avg",
+                    prefix_roi + "roi1_std",
+                    prefix_roi + "roi2_min",
+                    prefix_roi + "roi2_max",
+                    prefix_roi + "roi2_sum",
+                    prefix_roi + "roi2_avg",
+                    prefix_roi + "roi2_std",
+                    prefix_roi + "roi3_min",
+                    prefix_roi + "roi3_max",
+                    prefix_roi + "roi3_sum",
+                    prefix_roi + "roi3_avg",
+                    prefix_roi + "roi3_std",
+                    prefix_roi + "roi4_min",
+                    prefix_roi + "roi4_max",
+                    prefix_roi + "roi4_sum",
+                    prefix_roi + "roi4_avg",
+                    prefix_roi + "roi4_std",
+                    prefix_bpm + "x",
+                    prefix_bpm + "y",
+                    prefix_bpm + "fwhm_x",
+                    prefix_bpm + "fwhm_y",
+                    prefix_bpm + "intensity",
+                    prefix_bpm + "acq_time",
                 }
     return datasets
 
@@ -674,7 +977,7 @@ def assert_dataset(dset, detector_ndim, save_options, variable_length=False):
                     assert not isexternal, dset.name
             else:
                 try:
-                    isexternal = bool(dset.virtual_sources())
+                    isexternal = dset.is_virtual
                 except RuntimeError:
                     isexternal = False
                 if save_options["allow_external_hdf5"]:
@@ -701,3 +1004,19 @@ def assert_dataset(dset, detector_ndim, save_options, variable_length=False):
         # At least one valid value along the detector dimensions
         invalid = invalid.min(axis=detaxis)
         assert not invalid.all(), dset.name
+
+
+def validate_detector_data_npoints(scan, subscan=1, npoints=None):
+    """
+    :param bliss.scanning.scan.Scan scan:
+    :param int subscan:
+    :param int npoints:
+    """
+    uri = scan_utils.scan_uri(scan, subscan=subscan, config=True)
+    with nexus.uriContext(uri) as nxentry:
+        instrument = nxentry["instrument"]
+        for name in instrument:
+            detector = instrument[name]
+            if nexus.isNxClass(detector, "NXdetector"):
+                dset = instrument[detector]["data"]
+                assert dset.shape[0] == npoints, dset.name

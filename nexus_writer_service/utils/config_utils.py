@@ -15,7 +15,7 @@ Bliss session configuration utilities
 
 import os
 import re
-from bliss.common.session import get_current_session
+from bliss import current_session
 from bliss.config import static
 
 
@@ -74,42 +74,49 @@ def static_root_find(name, default=None, parent=None):
     return {}
 
 
-def scan_saving():
+def current_scan_saving():
     """
     Get session's SCAN_SAVING object
 
     :returns bliss.scanning.scan.ScanSaving:
     """
-    return get_current_session().scan_saving
+    return current_session.scan_saving
 
 
-def scan_saving_get(attr, default=None):
+def scan_saving_get(attr, default=None, scan_saving=None):
     """
     Get attribute from the session's scan saving object
 
+    :param str attr:
+    :param default:
+    :param bliss.scanning.scan.ScanSaving scan_saving:
     :returns str:
     """
-    return getattr(scan_saving(), attr, default)
+    if scan_saving is None:
+        scan_saving = current_scan_saving()
+    return getattr(scan_saving, attr, default)
 
 
-def scan_saving_attrs(template=None, **overwrite):
+def scan_saving_attrs(template=None, scan_saving=None, **overwrite):
     """
     SCAN_SAVING attributes from template
 
     :param str template: SCAN_SAVING.template when missing
+    :param bliss.scanning.scan.ScanSaving scan_saving:
     :param overwrite: overwrite attribute values
     :returns str:
     """
-    _scan_saving = scan_saving()
+    if scan_saving is None:
+        scan_saving = current_scan_saving()
     if template is None:
-        template = _scan_saving.template
+        template = scan_saving.template
     params = {}
     for attr in re.findall(r"\{(.*?)\}", template):
         if attr in overwrite:
             params[attr] = overwrite[attr]
         else:
             try:
-                params[attr] = getattr(_scan_saving, attr)
+                params[attr] = getattr(scan_saving, attr)
             except AttributeError:
                 pass
     return params

@@ -15,9 +15,9 @@ Register metadata generators for a configurable writer
 
 import enum
 from bliss.scanning import scan_meta
-from .scan_writers import writer_config_publish
+from .subscribers import scan_writer_publish
 
-GENERATORS = {"writer_config": writer_config_publish}
+GENERATORS = {"writer_config": scan_writer_publish}
 
 
 def register_all_metadata_generators(force=False):

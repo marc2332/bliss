@@ -293,8 +293,9 @@ class SimulationCounterAcquisitionSlave(AcquisitionSlave):
     def stop(self):
         log_debug(self, "SIMULATION_COUNTER_ACQ_DEV -- stop()")
         if self.distribution == "GAUSSIAN" and not self.is_count_scan():
-            print(
-                f"SIMULATION_COUNTER_ACQ_DEV -- (Theorical values) {self.name} mu={self.mu:g} sigma={self.sigma:g} fwhm={self.fwhm:g}"
+            log_debug(
+                self,
+                f"SIMULATION_COUNTER_ACQ_DEV -- (Theorical values) {self.name} mu={self.mu:g} sigma={self.sigma:g} fwhm={self.fwhm:g}",
             )
         pass
 

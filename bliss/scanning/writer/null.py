@@ -38,4 +38,4 @@ class Writer(FileWriter):
 
     @property
     def filename(self):
-        return os.path.join(self.root_path, self.data_filename + ".null")
+        return ""

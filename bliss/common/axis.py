@@ -36,16 +36,12 @@ from bliss.common.greenlet_utils import protect_from_one_kill
 from bliss.common.utils import with_custom_members
 from bliss.common.encoder import Encoder
 from bliss.config.channels import Channel
-from bliss.physics.trajectory import LinearTrajectory
-from bliss.common.logtools import *
+from bliss.common.logtools import log_debug, log_error, lprint
 from bliss.common.utils import rounder
-import bliss
 
 import gevent
 import re
 import sys
-import math
-import types
 import functools
 import numpy
 from unittest import mock
@@ -1351,9 +1347,14 @@ class Axis:
             position or True if it is given in relative position
             polling_time (float): motion loop polling time (seconds)
         """
-        user_target_pos = float(
-            user_target_pos
-        )  # accepts both floats and numpy arrays of 1 element
+
+        if numpy.isfinite(user_target_pos):
+            # accepts both floats and numpy arrays of 1 element
+            user_target_pos = float(user_target_pos)
+        else:
+            raise RuntimeError(
+                f"axis {self.name} cannot be moved to position: {user_target_pos}"
+            )
 
         log_debug(
             self,

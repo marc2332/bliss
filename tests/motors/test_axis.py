@@ -8,10 +8,12 @@
 import pytest
 import re
 import time
+import math
 import numpy
 import gevent
 import gevent.event
 from bliss.common import event
+from bliss.common.standard import mv
 from bliss.common.hook import MotionHook
 from bliss.common.axis import Modulo, AxisState
 from unittest import mock
@@ -150,6 +152,24 @@ def test_position_callback_with_exception(roby, calc_mot1):
 
     assert "READY" in calc_mot1.state
     assert roby.position == pytest.approx(0.05)
+
+
+def test_invalid_move(robz):
+
+    # test axis move
+    with pytest.raises(RuntimeError):
+        robz.move(math.nan)
+
+    # test group move
+    with pytest.raises(RuntimeError):
+        mv(robz, math.nan)
+
+    with pytest.raises(RuntimeError):
+        robz.move(numpy.array([math.nan]))
+
+    target_pos = numpy.array([3.0])
+    robz.move(target_pos)
+    assert robz.position == target_pos
 
 
 def test_rmove(robz):

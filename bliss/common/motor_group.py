@@ -6,12 +6,10 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import gevent
-import itertools
+import numpy
 import uuid
 from bliss.common.axis import Axis, AxisState, DEFAULT_POLLING_TIME, GroupMove
-from bliss.common import event
 from bliss.common.utils import grouped
-from bliss.common.cleanup import capture_exceptions
 
 
 def is_motor_group(obj):
@@ -143,10 +141,21 @@ class _Group(object):
         motions_dict = {}
 
         if len(args) == 1:
-            axis_pos_dict.update(args[0])
+            axis, target_pos = next(iter(args[0].items()))
+            if numpy.isfinite(target_pos):
+                axis_pos_dict.update(args[0])
+            else:
+                raise RuntimeError(
+                    f"axis {axis.name} cannot be moved to position: {target_pos}"
+                )
         else:
             for axis, target_pos in grouped(args, 2):
-                axis_pos_dict[axis] = target_pos
+                if numpy.isfinite(target_pos):
+                    axis_pos_dict[axis] = target_pos
+                else:
+                    raise RuntimeError(
+                        f"axis {axis.name} cannot be moved to position: {target_pos}"
+                    )
 
         self._group_move = GroupMove(self)
 

@@ -6,14 +6,11 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import pytest
-import time
 import re
 from bliss import current_session
 from bliss.shell.cli import repl
-from bliss.common import measurementgroup
 from bliss import setup_globals
 from bliss.common import scans
-from bliss.common import counter
 from treelib import Tree
 from prompt_toolkit.input.defaults import create_pipe_input
 from prompt_toolkit.output import DummyOutput
@@ -24,6 +21,14 @@ def test_session_does_not_load_session(session):
     assert getattr(setup_globals, "test_mg")
     assert pytest.raises(AttributeError, getattr, setup_globals, "freddy")
     assert session == current_session
+
+
+def test_session_unexisting_object(session2, log_context, caplog):
+    """ Ensure that running session2 trig a warning for non existing
+    object: 'c_cedille_de_surf'
+    """
+    session2.setup()
+    assert "object 'c_cedille_de_surf' does not exist. Ignoring it." in caplog.text
 
 
 def test_session_does_not_contain_default_plugin_objs(session):
@@ -128,7 +133,7 @@ def test_session_env_dict(session):
 
 def test_failing_session_globals(failing_session):
     inp = create_pipe_input()
-    cli = repl.cli(
+    _ = repl.cli(
         input=inp,
         output=DummyOutput(),
         session_name="failing_setup_session",

@@ -166,6 +166,30 @@ TODO
 
 ### Tips and examples
 
+#### capsys
+
+`capsys` module gives access to the standard output and error.
+
+
+
+#### Fixtures
+
+https://docs.pytest.org/en/latest/fixture.html
+
+
+A set of fixtures is defined in `tests/conftest.py` file.
+
+Their role is to ease the definition of tests by factorizing some procedures.
+
+Examples:
+
+* `beacon`: to give access to the configuration in the test function via `config`
+* `session`: to run testss within a BLISS session
+* `log_context`: allows to get access to logging mechanisms
+    - results are readable via `caplog` module
+* other examples: `lima_simulator`, `dummy_tango_server`, `wago_tango_server`
+
+
 #### Using a Tango device server in tests
 
 A dummy tango device server is defined in :

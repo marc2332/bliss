@@ -29,7 +29,7 @@ def map():
 
 
 @pytest.fixture
-def params(beacon, map):
+def params(beacon, map, log_context):
     """
     Creates a new beacon and log instance
     """
@@ -40,16 +40,7 @@ def params(beacon, map):
     logging_startup()
     log = Log(map=map)
 
-    try:
-        yield beacon, log
-    finally:
-        # Restore the logging context
-        logging.shutdown()
-        logging.setLoggerClass(logging.Logger)
-        logging.getLogger().handlers.clear()  # deletes all handlers
-        logging.getLogger().handlers.extend(old_handlers)
-        logging.getLogger().manager.loggerDict.clear()  # deletes all loggers
-        logging.getLogger().manager.loggerDict.update(old_logger_dict)
+    yield beacon, log
 
 
 @pytest.fixture

@@ -10,6 +10,7 @@ import sys
 import warnings
 import collections
 from treelib import Tree
+from bliss.common.logtools import log_warning
 
 from bliss import setup_globals, global_map
 from types import ModuleType
@@ -258,6 +259,8 @@ class Session:
         for child_session in self._child_session_iter():
             names_list.extend(child_session.object_names)
 
+        session_config = self.config.get_config(self.name)
+
         if self.__config_objects_names is None:
             names_list = list()
             for name in self.config.names_list:
@@ -272,20 +275,23 @@ class Session:
             # Check if other session in config-objects
             for name in names_list:
                 object_config = self.config.get_config(name)
-                if object_config is None:
-                    warnings.warn(
-                        f"Session {self.name}: object {name} does not exist, ignoring",
-                        RuntimeWarning,
-                    )
-                    names_list.remove(name)
 
-                class_name = object_config.get("class", "")
-                if class_name.lower() == "session":
-                    warnings.warn(
-                        f"Session {self.name} 'config-objects' list contains session {name}, ignoring (hint: add session in 'include-sessions' list)",
-                        RuntimeWarning,
+                if object_config is None:
+                    log_warning(
+                        self,
+                        f"In {session_config.filename} of session '{self.name}':"
+                        + f" object '{name}' does not exist. Ignoring it.",
                     )
                     names_list.remove(name)
+                else:
+                    class_name = object_config.get("class", "")
+                    if class_name.lower() == "session":
+                        warnings.warn(
+                            f"Session {self.name} 'config-objects' list contains session "
+                            + f"{name}, ignoring (hint: add session in 'include-sessions' list)",
+                            RuntimeWarning,
+                        )
+                        names_list.remove(name)
 
         for name in self.__exclude_objects_names:
             try:

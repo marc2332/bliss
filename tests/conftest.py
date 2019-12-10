@@ -12,9 +12,9 @@ import shutil
 from collections import namedtuple
 import atexit
 import gevent
-import struct
 import subprocess
 import signal
+import logging
 
 import pytest
 import redis
@@ -29,6 +29,7 @@ from bliss.controllers.lima.roi import Roi
 from bliss.controllers.wago.wago import ModulesConfig
 from bliss.common import plot
 from bliss.common.tango import DeviceProxy, DevFailed
+from bliss import logging_startup
 
 from random import randint
 from contextlib import contextmanager
@@ -532,3 +533,25 @@ def flint_session(xvfb, beacon):
 def test_session_with_flint(xvfb, session):
     with flint_context():
         yield session
+
+
+@pytest.fixture
+def log_context():
+    """
+    Create a new log instance
+    """
+    # Save the logging context
+    old_handlers = list(logging.getLogger().handlers)
+    old_logger_dict = dict(logging.getLogger().manager.loggerDict)
+
+    logging_startup()
+
+    yield
+
+    # Restore the logging context
+    logging.shutdown()
+    logging.setLoggerClass(logging.Logger)
+    logging.getLogger().handlers.clear()  # deletes all handlers
+    logging.getLogger().handlers.extend(old_handlers)
+    logging.getLogger().manager.loggerDict.clear()  # deletes all loggers
+    logging.getLogger().manager.loggerDict.update(old_logger_dict)

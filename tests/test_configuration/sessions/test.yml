@@ -92,6 +92,7 @@
   setup-file: ./test_setup2.py
   config-objects:
   - m2
+  - c_cedille_de_surf
   include-sessions:
   - test_session
 - class: Session

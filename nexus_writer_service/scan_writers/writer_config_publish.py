@@ -13,10 +13,18 @@
 Writer configuration to be published in Redis
 """
 
-import inspect
 import logging
 from bliss import global_map
 from bliss.common.counter import SamplingMode
+from bliss.controllers.mca.base import (
+    SpectrumMcaCounter,
+    StatisticsMcaCounter,
+    RoiMcaCounter,
+)
+from bliss.controllers.lima.bpm import LimaBpmCounter
+from bliss.controllers.lima.image import ImageCounter
+from bliss.controllers.lima.roi import RoiStatCounter
+from bliss.common.counter import SamplingCounter
 from ..utils import config_utils
 from ..utils import scan_utils
 
@@ -105,7 +113,9 @@ def _mca_device_info(ctr):
     :returns str:
     """
     description = (
-        ctr.controller.detector_brand.name + "/" + ctr.controller.detector_type.name
+        ctr._counter_controller.detector_brand.name
+        + "/"
+        + ctr._counter_controller.detector_type.name
     )
     return {"type": "mca", "description": description}
 
@@ -123,7 +133,7 @@ def _mca_roi_data_info(ctr):
     :param RoiMcaCounter ctr:
     :returns dict:
     """
-    roi = ctr.controller.rois.get(ctr.roi_name)
+    roi = ctr._counter_controller.rois.get(ctr.roi_name)
     return {"roi_start": roi[0], "roi_end": roi[1]}
 
 
@@ -132,7 +142,7 @@ def _lima_roi_data_info(ctr):
     :param RoiStatCounter ctr:
     :returns dict:
     """
-    roi = ctr.controller.get(ctr.roi_name)
+    roi = ctr._counter_controller.get(ctr.roi_name)
     return {"roi_" + k: v for k, v in roi.to_dict().items()}
 
 
@@ -164,26 +174,15 @@ def _device_info_add_ctr(devices, ctr):
         )
         return
     alias = global_map.aliases.get_alias(ctr)
-    # Derived from: bliss.common.counter.BaseCounter
-    #   bliss.common.counter.Counter
-    #       bliss.common.counter.SamplingCounter
-    #           bliss.common.temperature.TempControllerCounter
-    #           bliss.controllers.simulation_diode.SimulationDiodeSamplingCounter
-    #   bliss.scanning.acquisition.mca.BaseMcaCounter
-    #       bliss.scanning.acquisition.mca.SpectrumMcaCounter
-    #       bliss.scanning.acquisition.mca.StatisticsMcaCounter
-    ctr_classes = [c.__name__ for c in inspect.getmro(ctr.__class__)]
-    # print(ctr.fullname, type(ctr), type(ctr.controller), ctr_classes)
-    # controller_classes = [c.__name__ for c in inspect.getmro(ctr.controller.__class__)]
-    if "SpectrumMcaCounter" in ctr_classes:
+    if isinstance(ctr, SpectrumMcaCounter):
         device_info = _mca_device_info(ctr)
         device = {"device_info": device_info, "device_type": "mca"}
         devices[fullname] = device
-    elif "StatisticsMcaCounter" in ctr_classes:
+    elif isinstance(ctr, StatisticsMcaCounter):
         device_info = _mca_device_info(ctr)
         device = {"device_info": device_info, "device_type": "mca"}
         devices[fullname] = device
-    elif "RoiMcaCounter" in ctr_classes:
+    elif isinstance(ctr, RoiMcaCounter):
         device_info = _mca_device_info(ctr)
         data_info = _mca_roi_data_info(ctr)
         device = {
@@ -192,15 +191,15 @@ def _device_info_add_ctr(devices, ctr):
             "device_type": "mca",
         }
         devices[fullname] = device
-    elif "LimaBpmCounter" in ctr_classes:
+    elif isinstance(ctr, LimaBpmCounter):
         device_info = {"type": "lima"}
         device = {"device_info": device_info, "device_type": "lima"}
         devices[fullname] = device
-    elif "LimaImageCounter" in ctr_classes:
+    elif isinstance(ctr, ImageCounter):
         device_info = {"type": "lima"}
         device = {"device_info": device_info, "device_type": "lima"}
         devices[fullname] = device
-    elif "RoiStatCounter" in ctr_classes:
+    elif isinstance(ctr, RoiStatCounter):
         device_info = {"type": "lima"}
         data_info = _lima_roi_data_info(ctr)
         device = {
@@ -209,11 +208,7 @@ def _device_info_add_ctr(devices, ctr):
             "data_info": data_info,
         }
         devices[fullname] = device
-    elif "TempControllerCounter" in ctr_classes:
-        device_info = {"type": "temperature", "description": "temperature"}
-        device = {"device_info": device_info, "device_type": "temperature"}
-        devices[fullname] = device
-    elif "SamplingCounter" in ctr_classes:
+    elif isinstance(ctr, SamplingCounter):
         device_info = _samplingcounter_device_info(ctr)
         device = {
             "device_info": device_info,
@@ -234,7 +229,9 @@ def _device_info_add_ctr(devices, ctr):
                     devices[fullname + "_" + stat]["alias"] = alias + "_" + stat
     else:
         logger.info(
-            "Counter {} {} published as generic detector".format(fullname, ctr_classes)
+            "Counter {} {} published as generic detector".format(
+                fullname, ctr.__class__.__qualname__
+            )
         )
         devices[fullname] = {}
     if alias:
@@ -323,6 +320,8 @@ def technique_definition(technique):
         "plotselect": "",
     }
     technique_info = technique_info_get("techniques", {}).get(technique, {})
+    if technique_info is None:
+        technique_info = {}
 
     # Get the application definitions selected for this technique
     applicationdict = technique_info_get("applications", {})

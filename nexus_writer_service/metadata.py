@@ -14,7 +14,6 @@ Register metadata generators for a configurable writer
 """
 
 import enum
-from bliss import current_session
 from bliss.scanning import scan_meta
 from .scan_writers import writer_config_publish
 
@@ -55,8 +54,8 @@ def register_metadata_generators(force=False, **kwargs):
         scan_meta.CATEGORIES = enum.Enum(
             scan_meta.CATEGORIES.__name__, list(categories)
         )
-        generators = scan_meta.create_user_scan_meta()
-        current_session.user_scan_meta = generators
+        generators = scan_meta.scan_meta()
+        scan_meta.USER_SCAN_META = generators
     # Generators are called at the start of the scan:
     #   bliss.scanning.scan.Scan.__init__
     # and at the end of the scan

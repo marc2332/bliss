@@ -19,15 +19,15 @@ def run_scan(scan, runasync=False):
     """
     for node in scan.acq_chain.nodes_list:
         if node.name == "lima_simulator":
-            sim_params = node.parameters
-            sim_params["saving_format"] = "HDF5"
-            sim_params["saving_frame_per_file"] = 3
-            sim_params["saving_suffix"] = ".h5"
+            ctrl_params = node.ctrl_params
+            ctrl_params["saving_format"] = "HDF5"
+            ctrl_params["saving_frame_per_file"] = 3
+            ctrl_params["saving_suffix"] = ".h5"
         elif node.name == "lima_simulator2":
-            sim_params = node.parameters
-            sim_params["saving_format"] = "EDF"
-            sim_params["saving_frame_per_file"] = 3
-            sim_params["saving_suffix"] = ".edf"
+            ctrl_params = node.ctrl_params
+            ctrl_params["saving_format"] = "EDF"
+            ctrl_params["saving_frame_per_file"] = 3
+            ctrl_params["saving_suffix"] = ".edf"
     if runasync:
         return gevent.spawn(scan.run)
     else:

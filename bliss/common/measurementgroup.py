@@ -148,9 +148,7 @@ def _get_counters_from_names(names_list):
                 continue
 
         if index_name == name:
-            counters += _get_counters_from_object(
-                all_counters_dict[name], recursive=False
-            )
+            counters += _get_counters_from_object(all_counters_dict[name])
         else:  # match partial names
             counter_container_name = name.rstrip(":") + ":"
             # counter container case
@@ -175,7 +173,7 @@ def _get_counters_from_measurement_group(mg):
         raise RuntimeError(f"{mg.name}: {e}")
 
 
-def _get_counters_from_object(arg, recursive=True):
+def _get_counters_from_object(arg):
     """Get the counters from a bliss object (typically a scan function
     positional counter argument).
 
@@ -187,10 +185,6 @@ def _get_counters_from_object(arg, recursive=True):
        - controller.counters namepace otherwise
     - a measurementgroup
     """
-    if isinstance(arg, MeasurementGroup):
-        if not recursive:
-            raise ValueError("Measurement groups cannot point to other groups")
-        return _get_counters_from_measurement_group(arg)
     counters = []
     try:
         counters = list(arg.counter_groups.default)

@@ -104,7 +104,7 @@ def _check_counter_name(func):
     return f
 
 
-def _get_counters_from_names(names_list):
+def _get_counters_from_names(names_list, container_default_counters_only=False):
     """Get the counters from a names list"""
     counters, missing = [], []
     counters_by_name = collections.defaultdict(set)
@@ -135,7 +135,20 @@ def _get_counters_from_names(names_list):
             counters += cnts
             continue
 
-        # otherwise get counters by their full name
+        if name in counter_containers_dict:
+            if container_default_counters_only:
+                try:
+                    counters += counter_containers_dict[name].counter_groups.default
+                except AttributeError:
+                    # no default group ?
+                    # fallback to all counters below this container
+                    pass
+                else:
+                    continue
+            # look for all counters below this container
+            name += ":"
+
+        # get counters by their full name
         index = keys.bisect_key_left(name)
         try:
             index_name = keys[index]

@@ -125,11 +125,11 @@ def _get_counters_from_names(names_list):
         # try to get counter by name
         cnts = counters_by_name.get(name)
         if cnts is not None:
-            # check there is a unique counter with this name
+            # check if there is a unique counter with this name
             if len(cnts) > 1:
                 raise RuntimeError(
                     f"Several counters may be selected with this {name}\n"
-                    f" change for one of those: {cnts}"
+                    f" change for one of those: {', '.join(cnt.fullname for cnt in cnts)}"
                 )
             # add counter and continue
             counters += cnts

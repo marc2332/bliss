@@ -112,15 +112,15 @@ def test_dscan_move_done(session):
 
 def test_pointscan(session):
     robz2 = session.env_dict["robz2"]
-    simul_counter = session.env_dict["sim_ct_gauss"]
+    diode = session.env_dict["diode"]
     points = [0.0, 0.1, 0.3, 0.7]
-    s = scans.pointscan(robz2, points, 0, simul_counter, save=False, run=False)
+    s = scans.pointscan(robz2, points, 0, diode, save=False, run=False)
     assert s.state == scan.ScanState.IDLE
     s.run()
     assert robz2.position == 0.7
     scan_data = s.get_data()
     assert numpy.array_equal(scan_data["robz2"], points)
-    assert numpy.array_equal(scan_data["sim_ct_gauss"], simul_counter.data)
+    assert diode.fullname in scan_data
 
 
 def test_lookupscan(session):

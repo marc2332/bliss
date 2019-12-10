@@ -174,16 +174,18 @@ def _get_counters_from_names(names_list, container_default_counters_only=False):
                     counters.append(all_counters_dict[index_name])
             else:
                 missing.append(name)
-    if missing:
-        raise AttributeError(*missing)
-    return counters
+    return counters, missing
 
 
 def _get_counters_from_measurement_group(mg):
     try:
-        return _get_counters_from_names(mg.enabled)
+        counters, missing = _get_counters_from_names(mg.enabled)
     except RuntimeError as e:
         raise RuntimeError(f"{mg.name}: {e}")
+    if missing:
+        raise AttributeError(*missing)
+    else:
+        return counters
 
 
 def _get_counters_from_object(arg):
@@ -235,10 +237,10 @@ class MeasurementGroup:
         self.__name = name
         self.__config = config_tree
 
-        counters_list = config_tree.get("counters")
-        if counters_list is None:
+        if not isinstance(config_tree.get("counters"), list):
             raise ValueError("MeasurementGroup: should have a counters list")
-        self._available_counters = list(counters_list)
+        self._config_counters = config_tree.get("counters")
+        self._extra_counters = []
 
         # Current State
         self._current_state = settings.SimpleSetting(
@@ -264,32 +266,79 @@ class MeasurementGroup:
     def available(self):
         """available counters from the static config
         """
-        return set(self._available_counters)
+        return set(cnt.fullname for cnt in self._available_counters)
+
+    @property
+    def _available_counters(self):
+        counters, _ = _get_counters_from_names(
+            itertools.chain(self._config_counters, self._extra_counters)
+        )
+        return set(counters)
 
     @property
     def disabled(self):
         """ Disabled counter names
         """
-        return set(self.disabled_setting().get())
+        # remove counters from redis that are not in config, if any
+        available_counters = self.available
+        disabled_counters = set(self._disabled_setting.get())
+        to_disable = set()
+        for cnt_fullname in disabled_counters:
+            if (
+                cnt_fullname not in available_counters
+                and cnt_fullname not in self._extra_counters
+            ):
+                to_disable.add(cnt_fullname)
+        if to_disable:
+            new_disabled = disabled_counters.difference(to_disable)
+            if not new_disabled:
+                self._disabled_setting.clear()
+            else:
+                self._disabled_setting.set(list(new_disabled))
+        # get disabled counters list
+        disabled = set(self._disabled_setting.get())
+        return disabled
 
-    def disabled_setting(self):
+    @property
+    def _disabled_setting(self):
         # key is : "<MG name>:<state_name>"  ex : "MG1:default"
         _key = "%s:%s" % (self.name, self._current_state.get())
         return settings.QueueSetting(_key)
 
     @_check_counter_name
-    def disable(self, *counter_pattern):
-        valid_counters = self.available
-        counter_names = self._get_counter_names(counter_pattern, valid_counters)
+    def disable(self, *counter_patterns):
+        counters, _ = _get_counters_from_names(
+            self._config_counters, container_default_counters_only=True
+        )
+        default_group_counters = set(cnt.fullname for cnt in counters)
+        counter_names = []
+        for counter_pattern in counter_patterns:
+            if counter_pattern in (
+                name.split(":")[0] for name in default_group_counters
+            ):
+                # not a 'glob'-like pattern
+                counter_names.extend(
+                    cnt_name
+                    for cnt_name in default_group_counters
+                    if cnt_name.startswith(counter_pattern)
+                )
+            else:
+                counter_names.extend(
+                    cnt.fullname
+                    for cnt in self._available_counters
+                    if fnmatch.fnmatch(cnt.fullname, counter_pattern)
+                    or fnmatch.fnmatch(cnt.name, counter_pattern)
+                )
+
         to_disable = set(counter_names)
         disabled = set(self.disabled)
 
         new_disabled = disabled.union(to_disable)
 
         if new_disabled == set():
-            self.disabled_setting().clear()
+            self._disabled_setting.clear()
         else:
-            self.disabled_setting().set(list(new_disabled))
+            self._disabled_setting.set(list(new_disabled))
 
     @property
     def enabled(self):
@@ -298,17 +347,38 @@ class MeasurementGroup:
         return set(self.available) - set(self.disabled)
 
     @_check_counter_name
-    def enable(self, *counter_pattern):
-        valid_counters = self.available
-        counter_names = self._get_counter_names(counter_pattern, valid_counters)
+    def enable(self, *counter_patterns):
+        counters, _ = _get_counters_from_names(
+            self._config_counters, container_default_counters_only=True
+        )
+        default_group_counters = set(cnt.fullname for cnt in counters)
+        counter_names = []
+        for counter_pattern in counter_patterns:
+            if counter_pattern in (
+                name.split(":")[0] for name in default_group_counters
+            ):
+                # not a 'glob'-like pattern
+                counter_names.extend(
+                    cnt_name
+                    for cnt_name in default_group_counters
+                    if cnt_name.startswith(counter_pattern)
+                )
+            else:
+                counter_names.extend(
+                    cnt.fullname
+                    for cnt in self._available_counters
+                    if fnmatch.fnmatch(cnt.fullname, counter_pattern)
+                    or fnmatch.fnmatch(cnt.name, counter_pattern)
+                )
+
         to_enable = set(counter_names)
         disabled = set(self.disabled)
         new_disabled = disabled.difference(to_enable)
 
         if new_disabled == set():
-            self.disabled_setting().clear()
+            self._disabled_setting.clear()
         else:
-            self.disabled_setting().set(list(new_disabled))
+            self._disabled_setting.set(list(new_disabled))
 
     @property
     def active_state_name(self):
@@ -383,33 +453,34 @@ class MeasurementGroup:
             s += str_format % (enable, disable)
         return s
 
-    def add(self, *cnt_or_names):
+    def add(self, *counters):
         """
         Add counter(s) in measurement group, and enable them
         """
-        counters_names = [c if isinstance(c, str) else c.name for c in cnt_or_names]
+        counter_names = [cnt.fullname for cnt in counters]
 
-        to_enable = set(counters_names)
+        to_enable = set(counter_names)
         new_cnt = to_enable.difference(set(self.available))
 
-        self._available_counters.extend(new_cnt)
-        self.__config["counters"] = self._available_counters
+        self._extra_counters.extend(new_cnt)
 
         self.enable(*new_cnt)
 
-        self.__config.save()
-
-    def remove(self, *cnt_or_names):
+    def remove(self, *counters):
         """
         Remove counters from measurement group
         """
-        counters_names = [c if isinstance(c, str) else c.name for c in cnt_or_names]
+        counter_names = [cnt.fullname for cnt in counters]
+        all_config_counters, _ = _get_counters_from_names(self._config_counters)
+        all_config_counters = (cnt.fullname for cnt in all_config_counters)
 
-        for cnt in counters_names:
+        for cnt in counter_names:
+            if cnt in all_config_counters:
+                raise ValueError(
+                    f"{self.name}: cannot remove counter defined in configuration"
+                )
             self.enable(cnt)
-            if cnt in self._available_counters:
-                self._available_counters.remove(cnt)
-
-        self.__config["counters"] = self._available_counters
-
-        self.__config.save()
+            try:
+                self._extra_counters.remove(cnt)
+            except ValueError:
+                pass

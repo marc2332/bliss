@@ -380,8 +380,4 @@ class SimulationCounter(Counter):
     def __init__(self, name, config):
         super().__init__(name, SimulationCounterController())
         self.config = config
-        self.controller.add_counter(self)
-
-    def read(self):
-        log_debug(self, "SIMULATION_COUNTER -- read()")
-        return 33
+        self._counter_controller.add_counter(self)

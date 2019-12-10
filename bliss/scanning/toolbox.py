@@ -9,6 +9,7 @@
 import functools
 
 from bliss.common.measurementgroup import (
+    MeasurementGroup,
     get_active as get_active_mg,
     _get_counters_from_measurement_group,
     _get_counters_from_object,
@@ -26,7 +27,10 @@ def get_all_counters(counter_args):
     # Process all counter arguments
     for obj in counter_args:
         try:
-            all_counters += _get_counters_from_object(obj)
+            if isinstance(obj, MeasurementGroup):
+                all_counters += _get_counters_from_measurement_group(obj)
+            else:
+                all_counters += _get_counters_from_object(obj)
         except AttributeError as exc:
             missing += exc.args
 

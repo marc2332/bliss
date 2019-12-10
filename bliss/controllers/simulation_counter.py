@@ -357,12 +357,12 @@ class SimulationCounterController(CounterController):
         try:
             start = acq_params["start"]
         except KeyError:
-            start = scan_params["start"]
+            start = scan_params.get("start", [])
 
         try:
             stop = acq_params["stop"]
         except KeyError:
-            stop = scan_params["stop"]
+            stop = scan_params.get("stop", [])
 
         params = {}
         params["scan_type"] = scan_type

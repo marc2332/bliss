@@ -582,7 +582,7 @@ def test_standard_scan_display(session):
             lines = []
             # print('Start lookupscan(0.01,roby,(0.5,1.2,2.2,33.3),diode4,diode5) ...', end='', flush=True)
             s = scans.lookupscan(
-                0.01, roby, (0.5, 1.2, 2.2, 33.3), diode4, diode5, save=False
+                [(roby, (0.5, 1.2, 2.2, 33.3))], 0.01, diode4, diode5, save=False
             )
             # EXPECTED OUTPUT
             if 1:

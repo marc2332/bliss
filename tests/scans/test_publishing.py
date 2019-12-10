@@ -334,7 +334,7 @@ def test_children_timing(beacon, session, scan_tmpdir):
                     raise RuntimeError(node.db_name)
                     # pass
 
-    s = scans.loopscan(30, .1, diode2, run=False, wait=True)
+    s = scans.loopscan(30, .1, diode2, run=False)
 
     # force existance of scan node before starting the scan
     s._prepare_node()

@@ -41,6 +41,8 @@ tblib
 tmux >= 2.7
 treelib
 cerberus
+typeguard
+typing_extensions
 
 # Flint
 qt

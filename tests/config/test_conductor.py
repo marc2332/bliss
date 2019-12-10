@@ -7,6 +7,7 @@
 
 from bliss.config import static
 from bliss.config.conductor import client, connection
+from bliss.config import channels
 import contextlib
 import greenlet
 import pytest
@@ -129,3 +130,21 @@ def test_multiple_greenlets(ports):
 
         assert len(conductor_conn._redis_connection) == 1
 
+def test_single_bus_for_channels(ports):
+    key = "multi_green"
+    value = "hello"
+
+    def get_channel_on_different_greenlet():
+        c = channels.Channel(key, default_value=value)
+        gevent.sleep(0)  # give hand to other greenlet
+        return c, c.value
+
+    chan = channels.Channel(key, default_value=value)
+    chan_task = [gevent.spawn(get_channel_on_different_greenlet) for i in range(3)]
+
+    gevent.joinall(chan_task, raise_error=True)
+    assert value == chan.value
+    assert all([value == t.get()[1] for t in chan_task])
+    buses = set([chan._bus] + [t.get()[0]._bus for t in chan_task])
+    assert len(buses) == 1
+    chan._bus.close()

@@ -156,6 +156,7 @@ import gevent
 import gevent.event
 import enum
 
+from bliss import current_session
 from bliss import global_map
 from bliss.common.logtools import log_debug
 from bliss.common.utils import with_custom_members, autocomplete_property
@@ -253,6 +254,13 @@ class ExternalInput(Input):
 
         self.device = config.get("device")
         self.load_base_config()
+
+    def __close__(self):
+        if self.device not in current_session.env_dict.values():
+            try:
+                self.device.__close__()
+            except Exception:
+                pass
 
     # ----------- METHODS THAT A CHILD CLASS SHOULD CUSTOMIZE ------------------
 
@@ -507,6 +515,13 @@ class ExternalOutput(Output):
         self.device = config.get("device")
         self.mode = config.get("mode", "relative")
         self.load_base_config()
+
+    def __close__(self):
+        if self.device not in current_session.env_dict.values():
+            try:
+                self.device.__close__()
+            except Exception:
+                pass
 
     # ----------- BASE METHODS -----------------------------------------
 
@@ -1311,8 +1326,14 @@ class SoftLoop(Loop):
 
         self.load_base_config()
 
-    def __del__(self):
+    def __close__(self):
         self._stop_event.set()
+        for obj in [self._input, self._output]:
+            if obj not in current_session.env_dict.values():
+                try:
+                    obj.__close__()
+                except Exception:
+                    pass
 
     @property
     def kp(self):

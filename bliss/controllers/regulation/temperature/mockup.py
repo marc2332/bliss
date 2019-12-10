@@ -37,8 +37,10 @@ class MyDevice:
         self._stop_cool_down_events = None
         self._cool_down_task_frequency = 20.0
 
-    def __del__(self):
+    def __close__(self):
         self._stop_cool_down_events.set()
+        with gevent.Timeout(2.0):
+            self._cool_down_tasks.join()
 
     def get_current_temp(self):
         """ read the current temperature (like a sensor) """

@@ -1255,7 +1255,7 @@ class Loop(SamplingCounterController):
         else:
             self._controller.stop_ramp(self)
 
-    @autocomplete_property
+    @property
     def plot(self):
         if not self.reg_plot:
             self.reg_plot = RegPlot(self)

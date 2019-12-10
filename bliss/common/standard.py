@@ -26,16 +26,15 @@ from bliss.common.interlocks import interlock_state
 
 __all__ = (
     [
-        "wa",
-        "wm",
-        "sta",
-        "stm",
+        "iter_axes_state_all",
+        "iter_axes_state",
+        "iter_axes_position_all",
+        "iter_axes_position",
+        "iter_counters",
         "mv",
         "mvr",
         "move",
         "sync",
-        "debugon",
-        "debugoff",
         "interlock_state",
     ]
     + scans.__all__
@@ -60,37 +59,6 @@ StateMotor = namedtuple("StateMotor", "axis_name state")
 CountersList = namedtuple("CountersList", "fullname shape prefix name alias")
 
 
-def debugon(glob_logger_pattern_or_obj) -> None:
-    """
-    Activates debug-level logging for a specifig logger or an object
-
-    Args:
-        glob_logger_pattern_or_obj: glob style pattern matching for logger name, or instance
-
-    Hints on glob: pattern matching normally used by shells
-                   common operators are * for any number of characters
-                   and ? for one character of any type
-
-    Returns:
-        list: names of loggers activated
-
-    Examples:
-        >>> log.debugon('*motorsrv')
-        Set logger [motorsrv] to DEBUG level
-        Set logger [motorsrv.Connection] to DEBUG level
-        >>> log.debugon('*rob?')
-        Set logger [session.device.controller.roby] to DEBUG level
-        Set logger [session.device.controller.robz] to DEBUG level
-    """
-    activated = global_log.debugon(glob_logger_pattern_or_obj)
-    return activated
-
-
-def debugoff(glob_logger_pattern_or_obj):
-    deactivated = global_log.debugoff(glob_logger_pattern_or_obj)
-    return deactivated
-
-
 def sync(*axes):
     """
     Forces axes synchronization with the hardware
@@ -108,7 +76,7 @@ def sync(*axes):
         axis.sync_hard()
 
 
-def stm(*axes, read_hw=False):
+def iter_axes_state(*axes, read_hw=False):
     """
     Returns state information of the given axes
 
@@ -128,7 +96,7 @@ def stm(*axes, read_hw=False):
         yield StateMotor(global_map.alias_or_name(axis), state)
 
 
-def sta(read_hw=False):
+def iter_axes_state_all(read_hw=False):
     """
     Returns state information about all axes
 
@@ -136,12 +104,12 @@ def sta(read_hw=False):
         read_hw (bool): If True, force communication with hardware, otherwise
                         (default) use cached value.
     """
-    return stm(*list(global_map.get_axes_iter()), read_hw=read_hw)
+    return iter_axes_state(*list(global_map.get_axes_iter()), read_hw=read_hw)
 
 
-def wa(**kwargs):
+def iter_axes_position_all(**kwargs):
     """
-    Displays all positions (Where All) in both user and dial units
+    Iterates all positions (Where All) in both user and dial units
     """
     err = kwargs.get("err", _ERR)
     for (
@@ -155,7 +123,7 @@ def wa(**kwargs):
         yield WhereAll(axis_name, unit, user_position, dial_position)
 
 
-def wm(*axes, **kwargs):
+def iter_axes_position(*axes, **kwargs):
     """
     Return information (position - user and dial, limits) of the given axes
 
@@ -261,7 +229,7 @@ def __move(*args, **kwargs):
     return group, motor_pos
 
 
-def lscnt():
+def iter_counters():
     """
     Return a dict of counters
     """

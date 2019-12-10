@@ -10,7 +10,7 @@ import pytest
 import numpy
 
 from bliss import setup_globals
-from bliss.common.standard import SoftAxis, SoftCounter, ascan, wa
+from bliss.common.standard import SoftAxis, SoftCounter, ascan, iter_axes_position_all
 
 
 class Object(object):
@@ -97,7 +97,7 @@ def test_soft_axis_scan(session):
     numpy.testing.assert_array_almost_equal(data["another_motor"], positions)
 
 
-def test_soft_axis_wa(session):
+def test_soft_axis_iter_position_all(session):
     o = Object()
     m0 = SoftAxis("bla", o)
-    assert any(whereall.axis_name == "bla" for whereall in wa())
+    assert any(whereall.axis_name == "bla" for whereall in iter_axes_position_all())

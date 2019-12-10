@@ -6,7 +6,9 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 from bliss import setup_globals
-from bliss.common.standard import wa, wm, sta, stm, info
+from bliss.common.standard import iter_axes_state_all, iter_axes_state
+from bliss.common.standard import iter_axes_position_all, iter_axes_position
+from bliss.common.standard import info
 from bliss.common.utils import deep_update, ErrorWithTraceback
 import pytest
 
@@ -14,13 +16,13 @@ import pytest
 def test_wa_normal(default_session):
     bad = default_session.config.get("bad")
     bad.controller.bad_position = False
-    assert next(wa()) == ("bad", None, 0.0, 0.0)
+    assert next(iter_axes_position_all()) == ("bad", None, 0.0, 0.0)
 
 
 def test_wa_exception(default_session, capsys):
     bad = default_session.config.get("bad")
     bad.controller.bad_position = True
-    out = next(wa())
+    out = next(iter_axes_position_all())
     assert out.axis_name == "bad"
     assert isinstance(out.user_position, ErrorWithTraceback)
     assert isinstance(out.dial_position, ErrorWithTraceback)
@@ -34,7 +36,7 @@ def s1hg(default_session):
 
 
 def test_wa_slits(s1hg, capsys):
-    out = next(wa())
+    out = next(iter_axes_position_all())
     assert out.axis_name == "s1hg"
     assert out.unit is None
     assert out.user_position == 0
@@ -44,7 +46,7 @@ def test_wa_slits(s1hg, capsys):
 def test_wm_normal(default_session, capsys):
     bad = default_session.config.get("bad")
     bad.controller.bad_position = False
-    out = next(wm("bad"))
+    out = next(iter_axes_position("bad"))
     inf = float("inf")
     assert out == ("bad", None, 0, inf, -inf, 0, 0, inf, -inf)
 
@@ -52,7 +54,7 @@ def test_wm_normal(default_session, capsys):
 def test_wm_exception(default_session, capsys):
     bad = default_session.config.get("bad")
     bad.controller.bad_position = True
-    out = next(wm("bad"))
+    out = next(iter_axes_position("bad"))
     inf = float("inf")
     assert out.axis_name == "bad"
     assert out.unit is None

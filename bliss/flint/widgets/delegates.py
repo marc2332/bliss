@@ -135,9 +135,27 @@ class StylePropertyWidget(qt.QWidget):
         self.__legend = LegendIconWidget(self)
         layout.addWidget(self.__legend)
 
+        self.__edit: Optional[qt.QToolButton] = None
+
         self.__plotItem: Union[None, plot_model.Plot] = None
         self.__flintModel: Union[None, flint_model.FlintState] = None
         self.__scan: Union[None, scan_model.Scan] = None
+
+    def setEditable(self, isEditable):
+        """Set the widget editable.
+
+        A button is enabled to be able to edit the style, and to propagate it to
+        the item.
+        """
+        if self.__edit is not None:
+            self.__edit.setVisible(isEditable)
+        elif isEditable:
+            icon = icons.getQIcon("silx:gui/icons/colormap")
+            self.__edit = qt.QToolButton()
+            self.__edit.setIcon(icon)
+            self.__edit.setAutoRaise(True)
+            layout = self.layout()
+            layout.addWidget(self.__edit)
 
     def setPlotItem(self, plotItem: plot_model.Item):
         if self.__plotItem is not None:

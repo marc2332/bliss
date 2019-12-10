@@ -256,6 +256,7 @@ class _DataItem(_property_tree_helper.ScanRowItem):
         self.__treeView.openPersistentEditor(self.__displayed.index())
         self.__treeView.openPersistentEditor(self.__remove.index())
         widget = delegates.StylePropertyWidget(self.__treeView)
+        widget.setEditable(True)
         widget.setPlotItem(self.__plotItem)
         widget.setFlintModel(self.__flintModel)
         self.__treeView.setIndexWidget(self.__style.index(), widget)

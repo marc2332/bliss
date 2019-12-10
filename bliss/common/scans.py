@@ -539,9 +539,26 @@ def lookupscan(
     scan_params: Optional[dict] = None,
 ):
     """Lookupscan usage:
-    lookupscan(0.1,m0,numpy.arange(0,2,0.5),m1,numpy.linspace(1,3,4),diode2)
+    lookupscan([(m0,numpy.arange(0,2,0.5)),(m1,numpy.linspace(1,3,4))],0.1,diode2)
     to scan 2 motor with their own position table and with diode2 as
     the only counter.
+    
+    arguments:
+    motor_pos_tuple_list: a list of tuples of the following type (motor,positions). Positions can be provided as numpy array, list or tuple
+    count_time: count time in seconds
+    *counter_args: as many counter-providing objects as used in the scan (seperated by comma)
+    
+    keyword arguments:
+    scan_type: str = "lookupscan",
+    name: str = "lookupscan",
+    title: Optional[str] = None,
+    save: bool = True,
+    save_images: Optional[bool] = None,
+    sleep_time: Optional[float] = None,
+    run: bool = True,
+    return_scan: bool = True,
+    scan_info: Optional[dict] = None,
+    scan_params: Optional[dict] = None,
     """
     if scan_info is None:
         scan_info = dict()
@@ -624,13 +641,31 @@ def anscan(
 ):
     """
     anscan usage:
-      anscan(ctime, intervals, m1, start_m1_pos, stop_m1_pos, m2, start_m2_pos, stop_m2_pos, counter)
+      anscan( [(m1, start_m1_pos, stop_m1_pos), (m2, start_m2_pos, stop_m2_pos)], ctime, intervals, counter)
     10 points scan at 0.1 second integration on motor **m1** from
     *stop_m1_pos* to *stop_m1_pos* and **m2** from *start_m2_pos* to
     *stop_m2_pos* and with one counter.
+    
+    arguments:
+    motor_tuple_list: a list of tuples of the following type (motor,start,stop)
+    count_time: count time in seconds
+    intervals: number of intervals
+    *counter_args: as many counter-providing objects as used in the scan (seperated by comma)
+    
+    keyword arguments:
+    scan_type: str = "lookupscan",
+    name: str = "lookupscan",
+    title: Optional[str] = None,
+    save: bool = True,
+    save_images: Optional[bool] = None,
+    sleep_time: Optional[float] = None,
+    run: bool = True,
+    return_scan: bool = True,
+    scan_info: Optional[dict] = None,
+    scan_params: Optional[dict] = None,
 
     example:
-      anscan(0.1, 10, m1, 1, 2, m2, 3, 7, diode2)
+      anscan( [(m1, 1, 2), (m2, 3, 7)], 0.1, 10, diode2)
     10 points scan at 0.1 second integration on motor **m1** from
     1 to 2 and **m2** from 3 to 7 and with diode2 as the only counter.
     """
@@ -718,9 +753,29 @@ def dnscan(
 ):
     """
     dnscan usage:
-      dnscan(0.1, 10, m0, rel_start_m0, rel_end_m0, m1, rel_start_m1, rel_stop_m1, counter)
+      dnscan([(m0, rel_start_m0, rel_end_m0), (m1, rel_start_m1, rel_stop_m1)], 0.1, 10, counter)
+    
+    arguments:
+    motor_tuple_list: a list of tuples of the following type (motor,start,stop) start and stop are relative positions
+    count_time: count time in seconds
+    intervals: number of intervals
+    *counter_args: as many counter-providing objects as used in the scan (seperated by comma)
+    
+    keyword arguments:
+    scan_type: str = "lookupscan",
+    name: str = "lookupscan",
+    title: Optional[str] = None,
+    save: bool = True,
+    save_images: Optional[bool] = None,
+    sleep_time: Optional[float] = None,
+    run: bool = True,
+    return_scan: bool = True,
+    scan_info: Optional[dict] = None,
+    scan_params: Optional[dict] = None,
+
+    
     example:
-      dnscan(0.1, 10, m0, -1, 1, m1, -2, 2, diode2)
+      dnscan([(m0, -1, 1),(m1, -2, 2)],0.1, 10, diode2)
     """
 
     scan = anscan(

@@ -136,4 +136,3 @@ def test_failing_session_globals(failing_session):
     )
     assert "SCANS" in failing_session.env_dict
     assert "SCAN_SAVING" in failing_session.env_dict
-    assert "USER_SCAN_META" in failing_session.env_dict

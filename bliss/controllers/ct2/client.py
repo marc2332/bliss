@@ -27,65 +27,10 @@ from bliss.common.proxy import Proxy
 
 from bliss.comm.rpc import Client
 from bliss.common.counter import IntegratingCounter
+
 from bliss.controllers.ct2.device import AcqMode
 from bliss.controllers.counter import CounterController
-
-from bliss.scanning.chain import ChainNode
 from bliss.controllers.counter import IntegratingCounterController
-
-
-class CT2MasterChainNode(ChainNode):
-    def _get_default_chain_parameters(self, scan_params, acq_params):
-
-        # Extract scan parameters
-        try:
-            npoints = acq_params["npoints"]
-        except:
-            npoints = scan_params.get("npoints", 1)
-
-        try:
-            acq_expo_time = acq_params["acq_expo_time"]
-        except:
-            acq_expo_time = scan_params["count_time"]
-
-        acq_point_period = acq_params.get("acq_point_period")
-        acq_mode = acq_params.get("acq_mode", AcqMode.IntTrigMulti)
-        prepare_once = acq_params.get("prepare_once", True)
-        start_once = acq_params.get("start_once", True)
-
-        params = {}
-        params["npoints"] = npoints
-        params["acq_expo_time"] = acq_expo_time
-        params["acq_point_period"] = acq_point_period
-        params["acq_mode"] = acq_mode
-        params["prepare_once"] = prepare_once
-        params["start_once"] = start_once
-
-        return params
-
-    def get_acquisition_object(self, acq_params, ctrl_params=None):
-
-        # Break import cycles
-        from bliss.scanning.acquisition.ct2 import CT2AcquisitionMaster
-
-        npoints = acq_params["npoints"]
-        acq_expo_time = acq_params["acq_expo_time"]
-        acq_point_period = acq_params["acq_point_period"]
-        acq_mode = acq_params["acq_mode"]
-        prepare_once = acq_params["prepare_once"]
-        start_once = acq_params["start_once"]
-
-        # Create master
-        return CT2AcquisitionMaster(
-            self.controller,
-            npoints=npoints,
-            acq_expo_time=acq_expo_time,
-            acq_point_period=acq_point_period,
-            acq_mode=acq_mode,
-            prepare_once=prepare_once,
-            start_once=start_once,
-            ctrl_params=ctrl_params,
-        )
 
 
 class CT2Counter(IntegratingCounter):
@@ -102,9 +47,9 @@ class CT2Counter(IntegratingCounter):
 
 class CT2CounterTimer(CT2Counter):
     def __init__(self, name, controller):
-        self.timer_freq = controller.master_controller.timer_freq
+        self.timer_freq = controller._master_controller.timer_freq
         super(CT2CounterTimer, self).__init__(
-            name, controller.master_controller.internal_timer_counter, controller
+            name, controller._master_controller.internal_timer_counter, controller
         )
 
     def convert(self, ticks):
@@ -112,14 +57,15 @@ class CT2CounterTimer(CT2Counter):
 
 
 class CT2Controller(Proxy, CounterController):
-    def __init__(self, device_config, name="ct2_acquisition_controller", **kwargs):
+    def __init__(self, device_config, name="ct2_cc", **kwargs):
 
         address = device_config["address"]
 
         Proxy.__init__(
             self, functools.partial(Client, address, **kwargs), init_once=True
         )
-        CounterController.__init__(self, name=name, chain_node_class=CT2MasterChainNode)
+
+        CounterController.__init__(self, name=name)
 
         # Remote call
         self.configure(device_config)
@@ -143,42 +89,56 @@ class CT2Controller(Proxy, CounterController):
 
         self._counters = slave._counters
 
+    def get_acquisition_object(self, acq_params, ctrl_params, parent_acq_params):
+
+        from bliss.scanning.acquisition.ct2 import CT2AcquisitionMaster
+
+        return CT2AcquisitionMaster(self, ctrl_params=ctrl_params, **acq_params)
+
+    def get_default_chain_parameters(self, scan_params, acq_params):
+        # Extract scan parameters
+        try:
+            npoints = acq_params["npoints"]
+        except KeyError:
+            npoints = scan_params.get("npoints", 1)
+
+        try:
+            acq_expo_time = acq_params["acq_expo_time"]
+        except KeyError:
+            acq_expo_time = scan_params["count_time"]
+
+        acq_point_period = acq_params.get("acq_point_period")
+        acq_mode = acq_params.get("acq_mode", AcqMode.IntTrigMulti)
+        prepare_once = acq_params.get("prepare_once", True)
+        start_once = acq_params.get("start_once", True)
+
+        params = {}
+        params["npoints"] = npoints
+        params["acq_expo_time"] = acq_expo_time
+        params["acq_point_period"] = acq_point_period
+        params["acq_mode"] = acq_mode
+        params["prepare_once"] = prepare_once
+        params["start_once"] = start_once
+
+        return params
+
 
 class CT2CounterController(IntegratingCounterController):
     def __init__(self, name, master_controller):
-        IntegratingCounterController.__init__(
-            self, name=name, master_controller=master_controller
-        )
+        super().__init__(name=name, master_controller=master_controller)
 
-    def prepare(self, *counters):
-        channels = []
-        counter_indexes = {}
-        ctrl = self.master_controller
-        in_channels = ctrl.INPUT_CHANNELS
-        timer_counter = ctrl.internal_timer_counter
-        point_nb_counter = ctrl.internal_point_nb_counter
-        channel_counters = dict([(counter.channel, counter) for counter in counters])
+    def get_acquisition_object(self, acq_params, ctrl_params, parent_acq_params):
+        from bliss.scanning.acquisition.ct2 import CT2CounterAcquisitionSlave
 
-        for i, channel in enumerate(sorted(channel_counters)):
-            counter = channel_counters[channel]
-            if channel in in_channels:
-                channels.append(channel)
-            elif channel == timer_counter:
-                i = -2
-                counter.timer_freq = ctrl.timer_freq
-            elif channel == point_nb_counter:
-                i = -1
-            counter_indexes[counter] = i
-        ctrl.acq_channels = channels
-        # counter_indexes dict<counter: index in data array>
-        self.counter_indexes = counter_indexes
-        # a hack here: since this prepare is called AFTER the
-        # CT2AcquisitionSlave prepare, we do a "second" prepare
-        # here after the acq_channels have been configured
-        ctrl.prepare_acq()
+        if "count_time" in parent_acq_params:
+            acq_params.setdefault("count_time", parent_acq_params["acq_expo_time"])
+        if "npoints" in parent_acq_params:
+            acq_params.setdefault("npoints", parent_acq_params["npoints"])
+
+        return CT2CounterAcquisitionSlave(self, ctrl_params=ctrl_params, **acq_params)
 
     def get_values(self, from_index, *counters):
-        data = self.master_controller.get_data(from_index).T
+        data = self._master_controller.get_data(from_index).T
         if not data.size:
             return len(counters) * (numpy.array(()),)
         result = [

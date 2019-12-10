@@ -12,95 +12,7 @@ import numpy
 
 from bliss.scanning.chain import AcquisitionMaster, AcquisitionSlave
 from bliss.scanning.channel import AcquisitionChannel
-from bliss.scanning.chain import ChainNode
 from bliss.scanning.acquisition.counter import IntegratingCounterAcquisitionSlave
-
-
-class MusstChainNode(ChainNode):
-    def _get_default_chain_parameters(self, scan_params, acq_params):
-
-        params = {}
-        try:
-            params["count_time"] = acq_params["count_time"]
-        except KeyError:
-            params["count_time"] = scan_params["count_time"]
-
-        return params
-
-    def get_acquisition_object(self, acq_params, ctrl_params=None):
-
-        # --- Warn user if an unexpected is found in acq_params
-        expected_keys = [
-            "program",
-            "program_data",
-            "program_start_name",
-            "program_abort_name",
-            "vars",
-            "program_template_replacement",
-            "count_time",
-        ]
-        for key in acq_params.keys():
-            if key not in expected_keys:
-                print(
-                    f"=== Warning: unexpected key '{key}' found in acquisition parameters for MusstAcquisitionMaster({self.controller}) ==="
-                )
-
-        # --- MANDATORY PARAMETERS -------------------------------------
-        program = acq_params.get("program")
-        program_data = acq_params.get("program_data")
-
-        if program is None and program_data is None:
-            count_time = acq_params["count_time"]
-            return MusstDefaultAcquisitionMaster(
-                self.controller, count_time=count_time, ctrl_params=ctrl_params
-            )
-
-        else:
-
-            program_start_name = acq_params["program_start_name"]
-            program_abort_name = acq_params["program_abort_name"]
-            mvars = acq_params["vars"]
-            program_template_replacement = acq_params["program_template_replacement"]
-
-            return MusstAcquisitionMaster(
-                self.controller,
-                program=program,
-                program_data=program_data,
-                program_start_name=program_start_name,
-                program_abort_name=program_abort_name,
-                vars=mvars,
-                program_template_replacement=program_template_replacement,
-                ctrl_params=ctrl_params,
-            )
-
-
-class MusstIntegratingChainNode(ChainNode):
-    def _get_default_chain_parameters(self, scan_params, acq_params):
-
-        # Return required parameters
-        params = {}
-        try:
-            params["count_time"] = acq_params["count_time"]
-        except KeyError:
-            params["count_time"] = scan_params["count_time"]
-
-        return params
-
-    def get_acquisition_object(self, acq_params, ctrl_params=None):
-
-        # --- Warn user if an unexpected is found in acq_params
-        expected_keys = ["count_time"]
-        for key in acq_params.keys():
-            if key not in expected_keys:
-                print(
-                    f"=== Warning: unexpected key '{key}' found in acquisition parameters for MusstIntegratingAcquisitionSlave({self.controller}) ==="
-                )
-
-        # --- MANDATORY PARAMETERS -------------------------------------
-        count_time = acq_params["count_time"]
-        return MusstIntegratingAcquisitionSlave(
-            *self.counters, count_time=count_time, ctrl_params=ctrl_params
-        )
 
 
 class MusstIntegratingAcquisitionSlave(IntegratingCounterAcquisitionSlave):
@@ -120,7 +32,7 @@ class MusstIntegratingAcquisitionSlave(IntegratingCounterAcquisitionSlave):
 
 
 class MusstDefaultAcquisitionMaster(AcquisitionMaster):
-    def __init__(self, controller, count_time=None, ctrl_params=None):
+    def __init__(self, controller, count_time=None, npoints=1, ctrl_params=None):
 
         super().__init__(controller, ctrl_params=ctrl_params)
 

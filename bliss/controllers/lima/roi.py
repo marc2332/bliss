@@ -13,37 +13,8 @@ import numpy
 from bliss.config import settings
 from bliss.common.counter import IntegratingCounter
 from bliss.controllers.counter import IntegratingCounterController
-from bliss.scanning.acquisition.counter import IntegratingCounterAcquisitionSlave
-from bliss.scanning.chain import ChainNode
 from bliss.controllers.counter import counter_namespace
-
-
-class RoiChainNode(ChainNode):
-    def _get_default_chain_parameters(self, scan_params, acq_params):
-
-        try:
-            count_time = acq_params["count_time"]
-        except:
-            count_time = scan_params["count_time"]
-
-        params = {"count_time": count_time}
-
-        return params
-
-    def get_acquisition_object(self, acq_params, ctrl_params=None):
-
-        # --- Warn user if an unexpected is found in acq_params
-        expected_keys = ["count_time"]
-        for key in acq_params.keys():
-            if key not in expected_keys:
-                print(
-                    f"=== Warning: unexpected key '{key}' found in acquisition parameters for ROI IntegratingCounterAcquisitionSlave({self.controller}) ==="
-                )
-
-        count_time = acq_params["count_time"]
-        return IntegratingCounterAcquisitionSlave(
-            *self.counters, count_time=count_time, ctrl_params=ctrl_params
-        )
+from bliss.scanning.acquisition.lima import RoiCountersAcquisitionSlave
 
 
 class Roi:
@@ -107,13 +78,13 @@ class RoiStatCounter(IntegratingCounter):
         super().__init__(name, kwargs.pop("controller"), **kwargs)
 
     def get_metadata(self):
-        return {self.roi_name: self.controller.get(self.roi_name).to_dict()}
+        return {self.roi_name: self._counter_controller.get(self.roi_name).to_dict()}
 
     def __int__(self):
         # counter statistic ID = roi_id | statistic_id
         # it is calculated everty time because the roi id for a given roi name might
         # change if rois are added/removed from lima
-        roi_id = self.controller._roi_ids[self.roi_name]
+        roi_id = self._counter_controller._roi_ids[self.roi_name]
         return numpy.asscalar(self.roi_stat_id(roi_id, self.stat))
 
     @staticmethod
@@ -186,11 +157,7 @@ class RoiCounters(IntegratingCounterController):
     """
 
     def __init__(self, proxy, acquisition_proxy):
-        super().__init__(
-            "roi_counters",
-            master_controller=acquisition_proxy,
-            chain_node_class=RoiChainNode,
-        )
+        super().__init__("roi_counters", master_controller=acquisition_proxy)
         self._proxy = proxy
         self._current_config = settings.SimpleSetting(
             self.fullname, default_value="default"
@@ -199,6 +166,15 @@ class RoiCounters(IntegratingCounterController):
         self._roi_ids = {}
         self.__cached_counters = {}
         self._save_rois = settings.HashObjSetting(settings_name)
+
+    def get_acquisition_object(self, acq_params, ctrl_params, parent_acq_params):
+        # in case `count_time` is missing in acq_params take it from parent_acq_params
+        if "acq_expo_time" in parent_acq_params:
+            acq_params.setdefault("count_time", parent_acq_params["acq_expo_time"])
+        if "acq_nb_frames" in parent_acq_params:
+            acq_params.setdefault("npoints", parent_acq_params["acq_nb_frames"])
+
+        return RoiCountersAcquisitionSlave(self, ctrl_params=ctrl_params, **acq_params)
 
     def _set_roi(self, name, roi_values):
         if isinstance(roi_values, Roi):
@@ -387,9 +363,6 @@ class RoiCounters(IntegratingCounterController):
         else:
             lines.append("*** no ROIs defined ***")
         return "\n".join(lines)
-
-    def prepare(self, *counters):
-        self.upload_rois()
 
     def get_values(self, from_index, *counters):
         roi_counter_size = len(RoiStat)

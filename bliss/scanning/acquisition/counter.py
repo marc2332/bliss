@@ -17,7 +17,6 @@ from gevent import event
 import numpy
 
 from bliss.common.utils import all_equal
-from bliss.scanning.chain import ChainNode
 from bliss.scanning.chain import AcquisitionSlave, AcquisitionObject
 from bliss.scanning.channel import AcquisitionChannel
 from bliss.common.counter import SamplingMode
@@ -34,6 +33,13 @@ class BaseCounterAcquisitionSlave(AcquisitionSlave):
         ctrl_params=None,
     ):
 
+        acq_params = self.validate_params(
+            {"count_time": count_time, "npoints": npoints}
+        )
+
+        count_time = acq_params["count_time"]
+        npoints = acq_params["npoints"]
+
         super().__init__(
             *counters,
             npoints=npoints,
@@ -45,6 +51,16 @@ class BaseCounterAcquisitionSlave(AcquisitionSlave):
 
         self.__count_time = count_time
         self._nb_acq_points = 0
+
+    @staticmethod
+    def get_param_validation_schema():
+        acq_params_schema = {
+            "count_time": {"type": "number"},
+            "npoints": {"type": "number"},
+        }
+
+        schema = {"acq_params": {"type": "dict", "schema": acq_params_schema}}
+        return schema
 
     @property
     def count_time(self):
@@ -67,6 +83,15 @@ class BaseCounterAcquisitionSlave(AcquisitionSlave):
                 d = functools.reduce(new_nx_collection, name.split(":"), d)
             d.update(cnt.get_metadata())
         scan_meta.instrument.set(self, tmp_dict)
+
+    def prepare_device(self):
+        pass
+
+    def start_device(self):
+        pass
+
+    def stop_device(self):
+        pass
 
 
 class SamplingCounterAcquisitionSlave(BaseCounterAcquisitionSlave):
@@ -101,7 +126,7 @@ class SamplingCounterAcquisitionSlave(BaseCounterAcquisitionSlave):
         "SamplingCounterStatistics", "mean N std var min max p2v count_time timestamp"
     )
 
-    def __init__(self, *counters, count_time=None, npoints=1, ctrl_params=None):
+    def __init__(self, *counters, ctrl_params=None, count_time=None, npoints=1):
         """
         Helper to manage acquisition of a sampling counter.
 
@@ -190,7 +215,6 @@ class SamplingCounterAcquisitionSlave(BaseCounterAcquisitionSlave):
             self._counters[counter].append(self.channels[-1])
 
     def prepare(self):
-        self.device.prepare()
 
         # check modes to see if sampling loop is needed or not
         if all(
@@ -198,16 +222,21 @@ class SamplingCounterAcquisitionSlave(BaseCounterAcquisitionSlave):
         ):
             self._SINGLE_COUNT = True
 
+        # --- call a hook that users can implement in order to prepare the associated device
+        self.prepare_device()
+
     def start(self):
         self._nb_acq_points = 0
         self._stop_flag = False
         self._ready_event.set()
         self._event.clear()
 
-        self.device.start()
+        # --- call a hook that users can implement in order to start the associated device
+        self.start_device()
 
     def stop(self):
-        self.device.stop()
+        # --- call a hook that users can implement in order to stop the associated device
+        self.stop_device()
 
         self._stop_flag = True
         self._trig_time = None
@@ -425,7 +454,7 @@ class SamplingCounterAcquisitionSlave(BaseCounterAcquisitionSlave):
 
 
 class IntegratingCounterAcquisitionSlave(BaseCounterAcquisitionSlave):
-    def __init__(self, *counters, count_time=None, npoints=1, ctrl_params=None):
+    def __init__(self, *counters, ctrl_params=None, count_time=None, npoints=1):
 
         super().__init__(
             *counters,
@@ -446,13 +475,18 @@ class IntegratingCounterAcquisitionSlave(BaseCounterAcquisitionSlave):
     def prepare(self):
         self._nb_acq_points = 0
         self._stop_flag = False
-        self.device.prepare(*self._counters)
+
+        # --- call a hook that users can implement in order to prepare the associated device
+        self.prepare_device()
 
     def start(self):
-        self.device.start(*self._counters)
+        # --- call a hook that users can implement in order to start the associated device
+        self.start_device()
 
     def stop(self):
-        self.device.stop(*self._counters)
+        # --- call a hook that users can implement in order to stop the associated device
+        self.stop_device()
+
         self._stop_flag = True
 
     def trigger(self):
@@ -479,72 +513,3 @@ class IntegratingCounterAcquisitionSlave(BaseCounterAcquisitionSlave):
                 gevent.idle()
             else:
                 gevent.sleep(self.count_time / 2.0)
-
-
-class SamplingChainNode(ChainNode):
-    def _get_default_chain_parameters(self, scan_params, acq_params):
-
-        try:
-            count_time = acq_params["count_time"]
-        except:
-            count_time = scan_params["count_time"]
-
-        try:
-            npoints = acq_params["npoints"]
-        except:
-            npoints = scan_params["npoints"]
-
-        params = {"count_time": count_time, "npoints": npoints}
-
-        return params
-
-    def get_acquisition_object(self, acq_params, ctrl_params=None):
-
-        # --- Warn user if an unexpected is found in acq_params
-        expected_keys = ["count_time", "npoints"]
-        for key in acq_params.keys():
-            if key not in expected_keys:
-                print(
-                    f"=== Warning: unexpected key '{key}' found in acquisition parameters for SamplingCounterAcquisitionSlave({self.controller}) ==="
-                )
-
-        # --- MANDATORY PARAMETERS -------------------------------------
-        count_time = acq_params["count_time"]
-        npoints = acq_params["npoints"]
-
-        return SamplingCounterAcquisitionSlave(
-            *self.counters,
-            count_time=count_time,
-            npoints=npoints,
-            ctrl_params=ctrl_params,
-        )
-
-
-class IntegratingChainNode(ChainNode):
-    def _get_default_chain_parameters(self, scan_params, acq_params):
-
-        try:
-            count_time = acq_params["count_time"]
-        except:
-            count_time = scan_params["count_time"]
-
-        params = {"count_time": count_time}
-
-        return params
-
-    def get_acquisition_object(self, acq_params, ctrl_params=None):
-
-        # --- Warn user if an unexpected is found in acq_params
-        expected_keys = ["count_time"]
-        for key in acq_params.keys():
-            if key not in expected_keys:
-                print(
-                    f"=== Warning: unexpected key '{key}' found in acquisition parameters for IntegratingCounterAcquisitionSlave({self.controller}) ==="
-                )
-
-        # --- MANDATORY PARAMETERS -------------------------------------
-        count_time = acq_params["count_time"]
-
-        return IntegratingCounterAcquisitionSlave(
-            *self.counters, count_time=count_time, ctrl_params=ctrl_params
-        )

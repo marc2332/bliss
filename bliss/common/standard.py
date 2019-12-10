@@ -273,7 +273,7 @@ def lscnt():
         prefix, _, short_name = cnt.fullname.rpartition(":")
         counters_dict[cnt.fullname] = (
             shape[len(cnt.shape)],
-            cnt.controller.name if cnt.controller else prefix,
+            cnt._counter_controller.name if cnt._counter_controller else prefix,
             short_name,
             global_map.aliases.get_alias(cnt),
         )

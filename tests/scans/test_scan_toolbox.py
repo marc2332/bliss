@@ -18,81 +18,7 @@ from bliss.common.scans import ascan
 from bliss.controllers.simulation_calc_counter import MeanCalcCounterController
 
 
-def scan_demo(motor, start, stop, npoints, count_time, *counters):
-
-    acq_master = LinearStepTriggerMaster(npoints, motor, start, stop)
-
-    chain = AcquisitionChain()
-    builder = ChainBuilder(counters)
-
-    lima_params = {
-        "acq_nb_frames": npoints,
-        "acq_expo_time": count_time * 0.5,
-        "acq_mode": "SINGLE",
-        "acq_trigger_mode": "INTERNAL_TRIGGER_MULTI",
-        "acc_max_expo_time": 1.,
-        "prepare_once": True,
-        "start_once": False,
-    }
-
-    for node in builder.get_nodes_by_controller_type(Lima):
-        node.set_parameters(acq_params=lima_params)
-        for cnode in node.children:
-            cnode.set_parameters(acq_params={"count_time": count_time})
-
-        chain.add(acq_master, node)
-
-    builder.print_tree(not_ready_only=False)
-
-    scan_info = {
-        "npoints": npoints,
-        "count_time": count_time,
-        "start": start,
-        "stop": stop,
-    }
-
-    sc = Scan(
-        chain,
-        name="my_scan",
-        scan_info=scan_info,
-        save=False,
-        save_images=False,
-        scan_saving=None,
-        data_watch_callback=StepScanDataWatch(),
-    )
-
-    sc.run()
-
-
-def test_continous_scan(default_session, lima_simulator, lima_simulator2):
-
-    # ScanDisplay().auto=True
-
-    simulator1 = default_session.config.get("lima_simulator")  # controller lima
-    simulator2 = default_session.config.get("lima_simulator2")  # controller lima
-
-    r1 = Roi(0, 0, 100, 200)
-    r2 = Roi(10, 20, 200, 500)
-
-    simulator1.roi_counters["r1"] = r1
-    simulator2.roi_counters["r2"] = r2
-
-    # ------------------------------------------------
-
-    roby = default_session.config.get("roby")
-
-    #  simulator.counters.r1_sum
-    #  simulator.counters.r1_avg
-    #  simulator.counters.r1_std
-    #  simulator.counters.r1_min
-    #  simulator.counters.r1_max
-
-    # nodes = scan_demo(roby, 0, 10, 11, 1, simulator1.counters.r1_sum )
-    # nodes = scan_demo(roby, 0, 10, 11, 1, simulator1.counter_groups.r1 )
-
-    scan_demo(roby, 0, 1, 2, 0.1, simulator1, simulator2.counters.r2_sum)
-
-
+# ---- TEST THE DEFAULT CHAIN -------------------------------
 def test_default_scan(default_session, lima_simulator):
 
     # --- make calc counters ------------------------
@@ -188,3 +114,240 @@ def test_default_scan(default_session, lima_simulator):
     assert numpy.array_equal(
         sc.get_data()["cc1"], (sc.get_data()["cc3"] + sc.get_data()["cc2"]) / 2.
     )
+
+
+# ---- TEST CONTINOUS SCANS AND USER DEFINED SCANS -------------------------------
+def scan_demo_all_acq_pars(motor, start, stop, npoints, count_time, *counters):
+    """ Case where all masters and slaves acq_params are provided """
+
+    acq_master = LinearStepTriggerMaster(npoints, motor, start, stop)
+
+    chain = AcquisitionChain()
+    builder = ChainBuilder(counters)
+
+    lima_params = {
+        "acq_nb_frames": npoints,
+        "acq_expo_time": count_time * 0.5,
+        "acq_mode": "SINGLE",
+        "acq_trigger_mode": "INTERNAL_TRIGGER_MULTI",
+        "wait_frame_id": range(npoints),
+        "prepare_once": True,
+        "start_once": False,
+        "stat_history": npoints,
+    }
+
+    lima_children_params = {"count_time": count_time}
+
+    for node in builder.get_nodes_by_controller_type(Lima):
+        node.set_parameters(acq_params=lima_params)
+
+        for cnode in node.children:
+            cnode.set_parameters(acq_params=lima_children_params)
+
+        chain.add(acq_master, node)
+
+    builder.print_tree(not_ready_only=False)
+
+    scan_info = {
+        "npoints": npoints,
+        "count_time": count_time,
+        "start": start,
+        "stop": stop,
+    }
+
+    sc = Scan(
+        chain,
+        name="my_scan",
+        scan_info=scan_info,
+        save=False,
+        save_images=False,
+        scan_saving=None,
+        data_watch_callback=StepScanDataWatch(),
+    )
+
+    sc.run()
+
+
+def scan_demo_only_master_acq_pars(motor, start, stop, npoints, count_time, *counters):
+    """ Case where all masters acq_params are provided but slaves acq_params are not given.
+        In that case the slaves will try to find their acq_params from the acq_params of their master.
+    """
+    acq_master = LinearStepTriggerMaster(npoints, motor, start, stop)
+
+    chain = AcquisitionChain()
+    builder = ChainBuilder(counters)
+
+    lima_params = {
+        "acq_nb_frames": npoints,
+        "acq_expo_time": count_time * 0.5,
+        "acq_mode": "SINGLE",
+        "acq_trigger_mode": "INTERNAL_TRIGGER_MULTI",
+        "wait_frame_id": range(npoints),
+        "prepare_once": True,
+        "start_once": False,
+        "stat_history": npoints,
+    }
+
+    for node in builder.get_nodes_by_controller_type(Lima):
+        node.set_parameters(acq_params=lima_params)
+
+        chain.add(acq_master, node)
+
+    builder.print_tree(not_ready_only=False)
+
+    scan_info = {
+        "npoints": npoints,
+        "count_time": count_time,
+        "start": start,
+        "stop": stop,
+    }
+
+    sc = Scan(
+        chain,
+        name="my_scan",
+        scan_info=scan_info,
+        save=False,
+        save_images=False,
+        scan_saving=None,
+        data_watch_callback=StepScanDataWatch(),
+    )
+
+    sc.run()
+
+
+def scan_demo_partial_acq_pars(motor, start, stop, npoints, count_time, *counters):
+    """ Case where only some master acq_params are provided """
+
+    acq_master = LinearStepTriggerMaster(npoints, motor, start, stop)
+
+    chain = AcquisitionChain()
+    builder = ChainBuilder(counters)
+
+    lima_params = {
+        "acq_nb_frames": npoints,
+        "acq_expo_time": count_time * 0.5,
+        # "acq_mode": "SINGLE",
+        "acq_trigger_mode": "INTERNAL_TRIGGER_MULTI",
+        "prepare_once": True,
+        "start_once": False,
+    }
+
+    for node in builder.get_nodes_by_controller_type(Lima):
+        node.set_parameters(acq_params=lima_params)
+
+        chain.add(acq_master, node)
+
+    builder.print_tree(not_ready_only=False)
+
+    scan_info = {
+        "npoints": npoints,
+        "count_time": count_time,
+        "start": start,
+        "stop": stop,
+    }
+
+    sc = Scan(
+        chain,
+        name="my_scan",
+        scan_info=scan_info,
+        save=False,
+        save_images=False,
+        scan_saving=None,
+        data_watch_callback=StepScanDataWatch(),
+    )
+
+    sc.run()
+
+
+def scan_demo_missing_acq_pars(motor, start, stop, npoints, count_time, *counters):
+    """ Case where some mandatory master acq_params are missing """
+
+    acq_master = LinearStepTriggerMaster(npoints, motor, start, stop)
+
+    chain = AcquisitionChain()
+    builder = ChainBuilder(counters)
+
+    lima_params = {
+        "acq_nb_frames": npoints,
+        # "acq_expo_time": count_time * 0.5,
+        # "acq_mode": "SINGLE",
+        # "acq_trigger_mode": "INTERNAL_TRIGGER_MULTI",
+        # "prepare_once": True,
+        # "start_once": False,
+    }
+
+    for node in builder.get_nodes_by_controller_type(Lima):
+        node.set_parameters(acq_params=lima_params)
+
+        chain.add(acq_master, node)
+
+    builder.print_tree(not_ready_only=False)
+
+    scan_info = {
+        "npoints": npoints,
+        "count_time": count_time,
+        "start": start,
+        "stop": stop,
+    }
+
+    sc = Scan(
+        chain,
+        name="my_scan",
+        scan_info=scan_info,
+        save=False,
+        save_images=False,
+        scan_saving=None,
+        data_watch_callback=StepScanDataWatch(),
+    )
+
+    sc.run()
+
+
+def test_continous_scan(default_session, lima_simulator, lima_simulator2):
+
+    # ScanDisplay().auto=True
+
+    simulator1 = default_session.config.get("lima_simulator")  # controller lima
+    simulator2 = default_session.config.get("lima_simulator2")  # controller lima
+
+    r1 = Roi(0, 0, 100, 200)
+    r2 = Roi(10, 20, 200, 500)
+
+    simulator1.roi_counters["r1"] = r1
+    simulator2.roi_counters["r2"] = r2
+
+    # ------------------------------------------------
+
+    roby = default_session.config.get("roby")
+
+    #  simulator.counters.r1_sum
+    #  simulator.counters.r1_avg
+    #  simulator.counters.r1_std
+    #  simulator.counters.r1_min
+    #  simulator.counters.r1_max
+
+    # nodes = scan_demo(roby, 0, 10, 11, 1, simulator1.counters.r1_sum )
+    # nodes = scan_demo(roby, 0, 10, 11, 1, simulator1.counter_groups.r1 )
+
+    scan_demo_all_acq_pars(roby, 0, 1, 2, 0.01, simulator1, simulator2.counters.r2_sum)
+
+    scan_demo_only_master_acq_pars(
+        roby, 0, 1, 2, 0.01, simulator1, simulator2.counters.r2_sum
+    )
+
+    scan_demo_partial_acq_pars(
+        roby, 0, 1, 2, 0.01, simulator1, simulator2.counters.r2_sum
+    )
+
+    try:
+        scan_demo_missing_acq_pars(
+            roby, 0, 1, 2, 0.01, simulator1, simulator2.counters.r2_sum
+        )
+
+    except Exception as e:
+        print("scan_demo_missing_acq_pars: " + str(e))
+
+        assert (
+            str(e).strip()
+            == "{'acq_params': [{'count_time': ['null value not allowed']}]}"
+        )

@@ -6,8 +6,6 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import pytest
-import time
-import numpy
 from bliss import setup_globals
 from bliss.common import scans
 from bliss.scanning import scan, chain

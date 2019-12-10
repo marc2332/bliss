@@ -93,9 +93,9 @@ from bliss.comm.util import get_comm, TCP
 from bliss.controllers.motors.icepap import _command, _ackcommand
 
 from bliss.controllers.counter import CounterController
-from bliss.scanning.chain import ChainNode
 from bliss.common.counter import Counter
 from bliss.controllers.counter import counter_namespace
+
 
 TEMPLATE_RENISHAW = """\
 CHCFG IN1 BISS
@@ -586,51 +586,6 @@ class DeviceConfigAttr(DeviceAttr):
         return instance.raw_write(value)
 
 
-class PepuChainNode(ChainNode):
-    def _get_default_chain_parameters(self, scan_params, acq_params):
-
-        try:
-            npoints = acq_params["npoints"]
-        except:
-            npoints = scan_params["npoints"]
-
-        start = acq_params.get("start", Signal.SOFT)
-        trigger = acq_params.get("trigger", Signal.SOFT)
-        frequency = acq_params.get("frequency", None)
-        prepare_once = acq_params.get("prepare_once", True)
-        start_once = acq_params.get("start_once", True)
-
-        params = {}
-        params["npoints"] = npoints
-        params["start"] = start
-        params["trigger"] = trigger
-        params["frequency"] = frequency
-        params["prepare_once"] = prepare_once
-        params["start_once"] = start_once
-
-        return params
-
-    def get_acquisition_object(self, acq_params, ctrl_params=None):
-
-        from bliss.scanning.acquisition.pepu import PepuAcquisitionSlave
-
-        npoints = acq_params["npoints"]
-        start = acq_params["start"]
-        trigger = acq_params["trigger"]
-        frequency = acq_params["frequency"]
-        # prepare_once = acq_params["prepare_once"]
-        # start_once   = acq_params["start_once"]
-
-        return PepuAcquisitionSlave(
-            self.controller,
-            npoints=npoints,
-            start=start,
-            trigger=trigger,
-            frequency=frequency,
-            ctrl_params=ctrl_params,
-        )
-
-
 class PEPU(CounterController):
     """
     ESRF - PePU controller
@@ -649,9 +604,7 @@ class PEPU(CounterController):
 
     def __init__(self, name, config, master_controller=None):
 
-        super().__init__(
-            name, master_controller=master_controller, chain_node_class=PepuChainNode
-        )
+        super().__init__(name, master_controller=master_controller)
 
         # self.name = name
         self.bliss_config = config
@@ -684,6 +637,33 @@ class PEPU(CounterController):
         for str_stream in str_streams:
             stream_info = StreamInfo.fromstring(str_stream)
             self._create_stream(stream_info, write=False)
+
+    def get_acquisition_object(self, acq_params, ctrl_params, parent_acq_params):
+        from bliss.scanning.acquisition.pepu import PepuAcquisitionSlave
+
+        return PepuAcquisitionSlave(self, ctrl_params=ctrl_params, **acq_params)
+
+    def get_default_chain_parameters(self, scan_params, acq_params):
+        try:
+            npoints = acq_params["npoints"]
+        except KeyError:
+            npoints = scan_params["npoints"]
+
+        start = acq_params.get("start", Signal.SOFT)
+        trigger = acq_params.get("trigger", Signal.SOFT)
+        frequency = acq_params.get("frequency", None)
+        prepare_once = acq_params.get("prepare_once", True)
+        start_once = acq_params.get("start_once", True)
+
+        params = {}
+        params["npoints"] = npoints
+        params["start"] = start
+        params["trigger"] = trigger
+        params["frequency"] = frequency
+        # params["prepare_once"] = prepare_once
+        # params["start_once"] = start_once
+
+        return params
 
     def __getitem__(self, text_or_seq):
         if isinstance(text_or_seq, str):

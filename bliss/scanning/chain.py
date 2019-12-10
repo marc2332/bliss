@@ -13,6 +13,7 @@ import enum
 import collections
 from contextlib import contextmanager
 
+
 import gevent
 from treelib import Tree
 
@@ -24,6 +25,7 @@ from bliss.scanning.channel import AcquisitionChannelList, AcquisitionChannel
 from bliss.scanning.channel import duplicate_channel, attach_channels
 from bliss.common.motor_group import Group, is_motor_group
 from bliss.common.axis import Axis
+from bliss.common.validator import BlissValidator
 
 
 TRIGGER_MODE_ENUM = enum.IntEnum("TriggerMode", "HARDWARE SOFTWARE")
@@ -131,6 +133,9 @@ class DeviceIteratorWrapper:
                 self.__device.wait_reading()
             self.__iterator = iter(self.__device)
             self.__current = next(self.__iterator)
+        except Exception as e:
+            e.args = (self.__device.name, *e.args)
+            raise
 
     def _wait_ready(self, stats_dict):
         tasks = []
@@ -219,6 +224,14 @@ class ChainIterationPreset:
         pass
 
 
+class CompletedCtrlParamsDict(dict):
+    """subclass dict to convay the message to AcqObj 
+    that ctrl_params have already be treated
+    """
+
+    pass
+
+
 def update_ctrl_params(controller, scan_specific_ctrl_params):
     from bliss.controllers.counter import CounterController
 
@@ -227,12 +240,12 @@ def update_ctrl_params(controller, scan_specific_ctrl_params):
         if parameters and type(parameters) == dict:
             parameters = parameters.copy()
             if not scan_specific_ctrl_params:
-                return parameters
+                return CompletedCtrlParamsDict(parameters)
             else:
                 parameters.update(scan_specific_ctrl_params)
-                return parameters
+                return CompletedCtrlParamsDict(parameters)
 
-    return {}
+    return CompletedCtrlParamsDict({})
 
 
 class AcquisitionObject:
@@ -254,14 +267,46 @@ class AcquisitionObject:
         self.__trigger_type = trigger_type
         self.__prepare_once = prepare_once
         self.__start_once = start_once
-        self._ctrl_params = None
 
         self._counters = collections.defaultdict(list)
         self._init(devices)
-        if not isinstance(ctrl_params, ChainNode.ChainNodeDict):
-            self._ctrl_params = update_ctrl_params(self.device, ctrl_params)
+
+        if not isinstance(ctrl_params, CompletedCtrlParamsDict):
+            self._ctrl_params = self.init_ctrl_params(self.device, ctrl_params)
         else:
             self._ctrl_params = ctrl_params
+
+    def init_ctrl_params(self, device, ctrl_params):
+        """ensure that ctrl-params have been completed"""
+        if isinstance(ctrl_params, CompletedCtrlParamsDict):
+            return ctrl_params
+        else:
+            return update_ctrl_params(device, ctrl_params)
+
+    @staticmethod
+    def get_param_validation_schema():
+        """returns a schema dict for validation"""
+        raise NotImplementedError
+
+    @classmethod
+    def validate_params(cls, acq_params, ctrl_params=None):
+
+        params = {"acq_params": acq_params}
+
+        if ctrl_params:
+            assert isinstance(ctrl_params, CompletedCtrlParamsDict)
+            params.update({"ctrl_params": ctrl_params})
+
+        validator = BlissValidator(cls.get_param_validation_schema())
+
+        if validator(params):
+            return validator.normalized(params)["acq_params"]
+        else:
+            raise RuntimeError(str(validator.errors))
+
+    @classmethod
+    def get_default_acq_params(cls):
+        return cls.validate_acq_params({})
 
     def _init(self, devices):
         self._device, counters = self.init(devices)
@@ -275,7 +320,7 @@ class AcquisitionObject:
             from bliss.common.counter import Counter  # beware of circular import
 
             if all(isinstance(dev, Counter) for dev in devices):
-                return devices[0].controller, devices
+                return devices[0]._counter_controller, devices
             elif all(isinstance(dev, Axis) for dev in devices):
                 return Group(*devices), []
             else:
@@ -355,11 +400,11 @@ class AcquisitionObject:
         if counter in self._counters:
             return
 
-        if counter.controller == self.device:
+        if counter._counter_controller == self.device:
             self._do_add_counter(counter)
         else:
             raise RuntimeError(
-                f"Cannot add counter {counter.name}: acquisition controller mismatch {counter.controller} != {self.device}"
+                f"Cannot add counter {counter.name}: acquisition controller mismatch {counter._counter_controller} != {self.device}"
             )
 
     # ---------------------POTENTIALLY OVERLOAD METHODS  ----------------------------------------
@@ -1110,13 +1155,6 @@ class AcquisitionChain:
 
 
 class ChainNode:
-    class ChainNodeDict(dict):
-        """subclass dict to convay the message to AcqObj 
-        that ctrl_params have already be treated
-        """
-
-        pass
-
     def __init__(self, controller):
         self._controller = controller
 
@@ -1127,11 +1165,11 @@ class ChainNode:
         self._is_top_level = True
         self._acquisition_obj = None
 
-        self._scan_params = None
         self._acq_obj_params = None
         self._ctrl_params = None
+        self._parent_acq_params = None
 
-        self._calc_dep_nodes = {}  # to store CalcCounter dependent nodes
+        self._calc_dep_nodes = {}  # to store CalcCounterController dependent nodes
 
     @property
     def controller(self):
@@ -1162,12 +1200,21 @@ class ChainNode:
         return self._acq_obj_params
 
     @property
-    def scan_parameters(self):
-        return self._scan_params
-
-    @property
     def controller_parameters(self):
         return self._ctrl_params
+
+    def set_parent_parameters(self, parent_acq_params, force=False):
+        if parent_acq_params is not None:
+            if (
+                self._parent_acq_params is not None
+                and self._parent_acq_params != parent_acq_params
+            ):
+                print(
+                    f"=== ChainNode WARNING: try to set PARENT_ACQ_PARAMS again: \n Current {self._parent_acq_params} \n New     {parent_acq_params} "
+                )
+
+            if force or self._parent_acq_params is None:
+                self._parent_acq_params = parent_acq_params
 
     def set_parameters(self, acq_params=None, ctrl_params=None, force=False):
         """ Store the scan and/or acquisition parameters into the node. 
@@ -1194,9 +1241,7 @@ class ChainNode:
                 self._ctrl_params = ctrl_params
 
             # --- transform scan specific ctrl_params into full set of ctrl_param
-            self._ctrl_params = self.ChainNodeDict(
-                update_ctrl_params(self.controller, self._ctrl_params)
-            )
+            self._ctrl_params = update_ctrl_params(self.controller, self._ctrl_params)
 
     def add_child(self, chain_node):
         if chain_node not in self._child_nodes:
@@ -1208,29 +1253,18 @@ class ChainNode:
         self._counters.append(counter)
 
     def _get_default_chain_parameters(self, scan_params, acq_params):
-        """ Modify or update the scan and acquisition object parameters in the context of the default chain """
+        """ Obtain the full acquisition parameters set from scan_params in the context of the default chain """
 
-        # ---- Should be implemented in the controller module ----------------------------------------
-        #
-        # -------------------------------------------------------------------------------------------
-        # acq_params = f(scan_params, acq_params) <== check parameters and apply the default chain logic
-        # return acq_params                       <== return the modified acquisition object parameters
-        # -------------------------------------------------------------------------------------------
+        return self.controller.get_default_chain_parameters(scan_params, acq_params)
 
-        return acq_params
+    def get_acquisition_object(self, acq_params, ctrl_params, parent_acq_params):
+        """ Return the acquisition object associated to this node 
+            acq_params, ctrl_params and parent_acq_params have to be dicts (None not supported)
+        """
 
-    def get_acquisition_object(self, acq_params, ctrl_params=None):
-        """ return the acquisition object associated to this node """
-
-        # ---- Must be implemented in the controller module ----------------------------------------
-        #
-        # -------------------------------------------------------------------------------------------
-        # obj_args = acq_params["arg_name"]             <== obtain args required for the acq obj init (or raise error)
-        # acq_obj = xxxAcqusiitionDevice( *obj_args )   <== instanciate the acquisition object
-        # return acq_obj                                <== return the acquisition object
-        # -------------------------------------------------------------------------------------------
-
-        raise NotImplementedError
+        return self.controller.get_acquisition_object(
+            acq_params, ctrl_params=ctrl_params, parent_acq_params=parent_acq_params
+        )
 
     def create_acquisition_object(self, force=False):
         """ Create the acquisition object using the current parameters (stored in 'self._acq_obj_params').
@@ -1253,17 +1287,21 @@ class ChainNode:
             )  # <= IMPORTANT: pass a copy because the acq obj may pop on that dict!
 
         if self._ctrl_params is None:
-            ctrl_params = self.ChainNodeDict(update_ctrl_params(self.controller, {}))
-
+            ctrl_params = update_ctrl_params(self.controller, {})
         else:
-            ctrl_params = self.ChainNodeDict(
-                self._ctrl_params
-            )  # <= IMPORTANT: pass a copy in case the dict is modified later on!
+            ctrl_params = self._ctrl_params
 
-            # --- transform scan specific ctrl_params into full set of ctrl_param
+        if self._parent_acq_params is None:
+            parent_acq_params = {}
+        else:
+            parent_acq_params = (
+                self._parent_acq_params.copy()
+            )  # <= IMPORTANT: pass a copy because the acq obj may pop on that dict!
 
         # --- Create the acquisition object -------------------------------------------------------
-        acq_obj = self.get_acquisition_object(acq_params, ctrl_params=ctrl_params)
+        acq_obj = self.get_acquisition_object(
+            acq_params, ctrl_params=ctrl_params, parent_acq_params=parent_acq_params
+        )
 
         if not isinstance(acq_obj, AcquisitionObject):
             raise TypeError(f"Object: {acq_obj} is not an AcquisitionObject")
@@ -1283,7 +1321,7 @@ class ChainNode:
         for node in self.children:
 
             if node._acq_obj_params is None:
-                node.set_parameters(acq_params=self._acq_obj_params)
+                node.set_parent_parameters(self._acq_obj_params)
 
             node.create_acquisition_object(force)
 

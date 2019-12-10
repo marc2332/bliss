@@ -17,13 +17,10 @@ import tabulate
 import gevent
 
 from bliss.controllers.mca.roi import RoiConfig
-from bliss import global_map
 from bliss.common.logtools import *
 from bliss.common.utils import autocomplete_property
 from bliss.config.beacon_object import BeaconObject
-
 from bliss.controllers.counter import CounterController
-from bliss.scanning.chain import ChainNode
 
 
 # Enums
@@ -47,85 +44,6 @@ PresetMode = enum.Enum("PresetMode", "NONE REALTIME LIVETIME EVENTS TRIGGERS")
 Stats = collections.namedtuple(
     "Stats", "realtime livetime triggers events icr ocr deadtime"
 )
-
-
-class MCAChainNode(ChainNode):
-    def _get_default_chain_parameters(self, scan_params, acq_params):
-
-        # Return required parameters
-        params = {}
-        params["npoints"] = acq_params.get("npoints", scan_params.get("npoints", 1))
-        params["trigger_mode"] = acq_params.get("trigger_mode", TriggerMode.SOFTWARE)
-        params["preset_time"] = acq_params.get(
-            "preset_time", scan_params.get("count_time", 1.0)
-        )
-        params["block_size"] = acq_params.get("block_size", None)
-        params["polling_time"] = acq_params.get("polling_time", 0.1)
-        params["spectrum_size"] = acq_params.get("spectrum_size", None)
-        params["prepare_once"] = acq_params.get("prepare_once", True)
-        params["start_once"] = acq_params.get("start_once", True)
-
-        return params
-
-    def get_acquisition_object(self, acq_params, ctrl_params=None):
-
-        from bliss.scanning.acquisition.mca import (
-            McaAcquisitionSlave,
-            HWScaAcquisitionSlave,
-        )
-
-        # --- Warn user if an unexpected is found in acq_params
-        expected_keys = [
-            "npoints",
-            "trigger_mode",
-            "preset_time",
-            "block_size",
-            "polling_time",
-            "spectrum_size",
-            "prepare_once",
-            "start_once",
-        ]
-        for key in acq_params.keys():
-            if key not in expected_keys:
-                print(
-                    f"=== Warning: unexpected key '{key}' found in acquisition parameters for McaAcquisitionSlave({self.controller}) ==="
-                )
-
-        # --- MANDATORY PARAMETERS --------------------------------
-        npoints = acq_params["npoints"]
-        prepare_once = acq_params["prepare_once"]
-        start_once = acq_params["start_once"]
-
-        # --- PARAMETERS WITH DEFAULT VALUE -----------------------------
-        acq_mode = self.controller.acquisition_mode
-        if acq_mode == AcquisitionMode.HWSCA:
-            return HWScaAcquisitionSlave(
-                self.controller,
-                npoints=npoints,
-                prepare_once=prepare_once,
-                start_once=start_once,
-            )
-
-        elif acq_mode == AcquisitionMode.MCA:
-
-            trigger_mode = acq_params["trigger_mode"]
-            preset_time = acq_params["preset_time"]
-            block_size = acq_params["block_size"]
-            polling_time = acq_params["polling_time"]
-            spectrum_size = acq_params["spectrum_size"]
-
-            return McaAcquisitionSlave(
-                self.controller,
-                npoints=npoints,
-                trigger_mode=trigger_mode,
-                preset_time=preset_time,
-                block_size=block_size,
-                polling_time=polling_time,
-                spectrum_size=spectrum_size,
-                prepare_once=prepare_once,
-                start_once=start_once,
-                ctrl_params=ctrl_params,
-            )
 
 
 # MCABeaconObject
@@ -171,12 +89,52 @@ class BaseMCA(CounterController):
     # Life cycle
 
     def __init__(self, name, config, beacon_obj_class=MCABeaconObject):
-        CounterController.__init__(self, name, chain_node_class=MCAChainNode)
+        CounterController.__init__(self, name)
 
         self.beacon_obj = beacon_obj_class(self, config)
         self._config = config
         self._rois = RoiConfig(self)
         self.beacon_obj.init()
+
+    def get_acquisition_object(self, acq_params, ctrl_params, parent_acq_params):
+
+        from bliss.scanning.acquisition.mca import (
+            McaAcquisitionSlave,
+            HWScaAcquisitionSlave,
+        )
+
+        # --- PARAMETERS WITH DEFAULT VALUE -----------------------------
+        acq_mode = self.acquisition_mode
+        ### should this move to ctrl_params mechansim?
+        if acq_mode == AcquisitionMode.HWSCA:
+
+            params = {
+                "npoints": acq_params["npoints"],
+                "prepare_once": acq_params["prepare_once"],
+                "start_once": acq_params["start_once"],
+            }
+
+            return HWScaAcquisitionSlave(self, ctrl_params=ctrl_params, **params)
+
+        elif acq_mode == AcquisitionMode.MCA:
+            return McaAcquisitionSlave(self, ctrl_params=ctrl_params, **acq_params)
+
+    def get_default_chain_parameters(self, scan_params, acq_params):
+
+        # Return required parameters
+        params = {}
+        params["npoints"] = acq_params.get("npoints", scan_params.get("npoints", 1))
+        params["trigger_mode"] = acq_params.get("trigger_mode", TriggerMode.SOFTWARE)
+        params["preset_time"] = acq_params.get(
+            "preset_time", scan_params.get("count_time", 1.0)
+        )
+        params["block_size"] = acq_params.get("block_size", None)
+        params["polling_time"] = acq_params.get("polling_time", 0.1)
+        params["spectrum_size"] = acq_params.get("spectrum_size", None)
+        params["prepare_once"] = acq_params.get("prepare_once", True)
+        params["start_once"] = acq_params.get("start_once", True)
+
+        return params
 
     @property
     def config(self):

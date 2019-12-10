@@ -9,9 +9,13 @@ from collections import namedtuple
 import numpy
 from bliss import global_map
 from bliss.common.counter import Counter, CalcCounter
-from bliss.scanning.acquisition.counter import SamplingChainNode
-from bliss.scanning.acquisition.counter import IntegratingChainNode
-from bliss.scanning.acquisition.calc import CalcCounterChainNode
+from bliss.scanning.chain import ChainNode
+from bliss.scanning.acquisition.counter import SamplingCounterAcquisitionSlave
+from bliss.scanning.acquisition.counter import IntegratingCounterAcquisitionSlave
+from bliss.scanning.acquisition.calc import (
+    CalcCounterChainNode,
+    CalcCounterAcquisitionSlave,
+)
 
 
 def counter_namespace(counters):
@@ -23,13 +27,10 @@ def counter_namespace(counters):
 
 
 class CounterController:
-    def __init__(
-        self, name, master_controller=None, chain_node_class=None
-    ):  # , hw_ctrl=None):
+    def __init__(self, name, master_controller=None):  # , hw_ctrl=None):
 
         self.__name = name
-        self._chain_node_class = chain_node_class
-        self._master_controller = master_controller
+        self.__master_controller = master_controller
         self._counters = {}
 
         # self._hw_controller = hw_ctrl
@@ -42,14 +43,14 @@ class CounterController:
 
     @property
     def fullname(self):
-        if self.master_controller is None:
+        if self._master_controller is None:
             return self.name
         else:
-            return f"{self.master_controller.fullname}:{self.name}"
+            return f"{self._master_controller.fullname}:{self.name}"
 
     @property
-    def master_controller(self):
-        return self._master_controller
+    def _master_controller(self):
+        return self.__master_controller
 
     # @property
     # def hw_controller(self):
@@ -62,13 +63,33 @@ class CounterController:
     def add_counter(self, counter):
         self._counters[counter.name] = counter
 
-    def create_chain_node(self):
-        if self._chain_node_class is None:
-            raise NotImplementedError
-        else:
-            return self._chain_node_class(self)
-
     # ---------------------POTENTIALLY OVERLOAD METHODS  ------------------------------------
+    def create_chain_node(self):
+        return ChainNode(self)
+
+    def get_acquisition_object(self, acq_params, ctrl_params, parent_acq_params):
+        """
+        retruns an Acquistion Object instance. 
+        Intended to be used through by the ChainNode. 
+        acq_params, ctrl_params and parent_acq_params have to be dicts (None not supported)
+        
+        In case a incomplete set of acq_params is provided parent_acq_params may eventually
+        be used to complete acq_params before choosing which Acquistion Object needs to be
+        instiated or just to provide all nessessary acq_params to the Acquistion Object.
+        
+        parent_acq_params should be inserted into acq_params with low priority to not overwrite
+        explicitly provided acq_params i.e. by using setdefault
+        
+        e.g.
+        if "acq_expo_time" in parent_acq_params:
+            acq_params.setdefault("count_time", parent_acq_params["acq_expo_time"])
+        """
+        raise NotImplementedError
+
+    def get_default_chain_parameters(self, scan_params, acq_params):
+        """return completed acq_params with missing values guessed from scan_params
+        in the context of default chain i.e. step-by-step scans"""
+        raise NotImplementedError
 
     def get_current_parameters(self):
         """should return an exhaustive dict of parameters that will be send 
@@ -80,26 +101,31 @@ class CounterController:
     def apply_parameters(self, parameters):
         pass
 
-    def prepare(self, *counters):
-        pass
-
-    def start(self, *counters):
-        pass
-
-    def stop(self, *counters):
-        pass
-
 
 class SamplingCounterController(CounterController):
-    def __init__(
-        self,
-        name="sampling_counter_controller",
-        master_controller=None,
-        chain_node_class=SamplingChainNode,
-    ):
-        super().__init__(
-            name, master_controller=master_controller, chain_node_class=chain_node_class
+    def __init__(self, name="samp_cc", master_controller=None):
+        super().__init__(name, master_controller=master_controller)
+
+    def get_acquisition_object(self, acq_params, ctrl_params, parent_acq_params):
+        return SamplingCounterAcquisitionSlave(
+            self, ctrl_params=ctrl_params, **acq_params
         )
+
+    def get_default_chain_parameters(self, scan_params, acq_params):
+
+        try:
+            count_time = acq_params["count_time"]
+        except KeyError:
+            count_time = scan_params["count_time"]
+
+        try:
+            npoints = acq_params["npoints"]
+        except KeyError:
+            npoints = scan_params["npoints"]
+
+        params = {"count_time": count_time, "npoints": npoints}
+
+        return params
 
     def read_all(self, *counters):
         """ return the values of the given counters as a list.
@@ -116,15 +142,23 @@ class SamplingCounterController(CounterController):
 
 
 class IntegratingCounterController(CounterController):
-    def __init__(
-        self,
-        name="integrating_counter_controller",
-        master_controller=None,
-        chain_node_class=IntegratingChainNode,
-    ):
-        super().__init__(
-            name, master_controller=master_controller, chain_node_class=chain_node_class
+    def __init__(self, name="integ_cc", master_controller=None):
+        super().__init__(name, master_controller=master_controller)
+
+    def get_acquisition_object(self, acq_params, ctrl_params, parent_acq_params):
+        return IntegratingCounterAcquisitionSlave(
+            self, ctrl_params=ctrl_params, **acq_params
         )
+
+    def get_default_chain_parameters(self, scan_params, acq_params):
+        try:
+            count_time = acq_params["count_time"]
+        except KeyError:
+            count_time = scan_params["count_time"]
+
+        params = {"count_time": count_time}
+
+        return params
 
     def get_values(self, from_index, *counters):
         raise NotImplementedError
@@ -133,19 +167,27 @@ class IntegratingCounterController(CounterController):
 class CalcCounterController(CounterController):
     def __init__(self, name, config):
 
-        super().__init__(name, chain_node_class=CalcCounterChainNode)
+        super().__init__(name)
 
         self._input_counters = []
         self._output_counters = []
         self._counters = {}
         self.tags = {}
 
-        # === reset by self.prepare() ================
         self.data = {}
         self.data_index = {}
         self.emitted_index = -1
 
         self.build_counters(config)
+
+    def get_acquisition_object(self, acq_params, ctrl_params, parent_acq_params):
+        return CalcCounterAcquisitionSlave(self, acq_params, ctrl_params=ctrl_params)
+
+    def get_default_chain_parameters(self, scan_params, acq_params):
+        return acq_params
+
+    def create_chain_node(self):
+        return CalcCounterChainNode(self)
 
     def build_counters(self, config):
         """ Build the CalcCounters from config. 
@@ -191,7 +233,9 @@ class CalcCounterController(CounterController):
         for cnt in self._input_counters:
             counters[cnt.name] = cnt
             if isinstance(cnt, CalcCounter):
-                counters.update({cnt.name: cnt for cnt in cnt.controller.counters})
+                counters.update(
+                    {cnt.name: cnt for cnt in cnt._counter_controller.counters}
+                )
         return counter_namespace(counters)
 
     def compute(self, sender, data_dict):
@@ -245,22 +289,16 @@ class CalcCounterController(CounterController):
 
         return output_data_dict
 
-    def prepare(self):
+    def calc_function(self, input_dict):
+        raise NotImplementedError
+
+    def reset_data_storage(self):
         # Store read input counter datas
         self.data = {}
         # last index of read input counter datas
         self.data_index = {}
         # index of last calculated counter datas
         self.emitted_index = -1
-
-    def start(self):
-        pass
-
-    def stop(self):
-        pass
-
-    def calc_function(self, input_dict):
-        raise NotImplementedError
 
 
 class SoftCounterController(SamplingCounterController):

@@ -4,12 +4,12 @@ import enum
 import numpy
 import gevent
 
-from .lib import MythenInterface, MythenCompatibilityError
 
 from bliss.common.counter import Counter
-from bliss.scanning.chain import AcquisitionSlave, ChainNode
-from bliss.scanning.channel import AcquisitionChannel
+from bliss.scanning.chain import AcquisitionSlave
 from bliss.controllers.counter import CounterController
+
+from .lib import MythenInterface, MythenCompatibilityError
 
 
 def interface_property(name, mode=False):
@@ -25,80 +25,6 @@ def interface_property(name, mode=False):
         return getattr(self._interface, setter_name)(value)
 
     return property(getter, setter)
-
-
-class MythenChainNode(ChainNode):
-    def _get_default_chain_parameters(self, scan_params, acq_params):
-
-        try:
-            count_time = acq_params["count_time"]
-        except:
-            count_time = scan_params["count_time"]
-
-        trigger_mode = acq_params.get(
-            "trigger_mode", MythenAcquistionDevice.TriggerMode.SOFTWARE
-        )
-        if trigger_mode == MythenAcquistionDevice.TriggerMode.SOFTWARE:
-            trigger_type = AcquisitionSlave.SOFTWARE
-        else:
-            trigger_type = AcquisitionSlave.HARDWARE
-
-        prepare_once = acq_params.get("prepare_once", True)
-
-        npoints = acq_params.get("npoints", scan_params.get("npoints", 1))
-        if npoints == 0:
-            npoints = 1
-            start_once = True  # <= ???
-        else:
-            start_once = acq_params.get(
-                "start_once", trigger_type == AcquisitionSlave.HARDWARE
-            )
-
-        params = {}
-        params["count_time"] = count_time
-        params["npoints"] = npoints
-        params["trigger_type"] = trigger_type
-        params["prepare_once"] = prepare_once
-        params["start_once"] = start_once
-
-        return params
-
-    def get_acquisition_object(self, acq_params, ctrl_params=None):
-
-        # --- Warn user if an unexpected is found in acq_params
-        expected_keys = [
-            "count_time",
-            "npoints",
-            "trigger_type",
-            "prepare_once",
-            "start_once",
-        ]
-        for key in acq_params.keys():
-            if key not in expected_keys:
-                print(
-                    f"=== Warning: unexpected key '{key}' found in acquisition parameters for MythenAcquistionDevice({self.controller}) ==="
-                )
-
-        # --- MANDATORY PARAMETERS -------------------------------------
-
-        count_time = acq_params["count_time"]
-        npoints = acq_params["npoints"]
-        trigger_type = acq_params["trigger_type"]
-        prepare_once = acq_params["prepare_once"]
-        start_once = acq_params["start_once"]
-
-        # --- PARAMETERS WITH DEFAULT VALUE -----------------------------
-
-        # --- Note: MythenAcquistionDevice takes one counter as argument
-        return MythenAcquistionDevice(
-            self.counters[0],
-            count_time,
-            npoints,
-            trigger_type,
-            prepare_once,
-            start_once,
-            ctrl_params=ctrl_params,
-        )
 
 
 class Mythen(CounterController):
@@ -132,12 +58,49 @@ class Mythen(CounterController):
     ]
 
     def __init__(self, name, config):
-        super().__init__(name, chain_node_class=MythenChainNode)
+        super().__init__(name)
         self._config = config
         self._hostname = config["hostname"]
         self._interface = MythenInterface(self._hostname)
         self._apply_configuration()
         self._counters["spectrum"] = MythenCounter(self)
+
+    def get_acquisition_object(self, acq_params, ctrl_params, parent_acq_params):
+        return MythenAcquistionSlave(self, ctrl_params=ctrl_params, **acq_params)
+
+    def get_default_chain_parameters(self, scan_params, acq_params):
+        try:
+            count_time = acq_params["count_time"]
+        except KeyError:
+            count_time = scan_params["count_time"]
+
+        trigger_mode = acq_params.get(
+            "trigger_mode", MythenAcquistionSlave.TriggerMode.SOFTWARE
+        )
+        if trigger_mode == MythenAcquistionSlave.TriggerMode.SOFTWARE:
+            trigger_type = AcquisitionSlave.SOFTWARE
+        else:
+            trigger_type = AcquisitionSlave.HARDWARE
+
+        prepare_once = acq_params.get("prepare_once", True)
+
+        npoints = acq_params.get("npoints", scan_params.get("npoints", 1))
+        if npoints == 0:
+            npoints = 1
+            start_once = True  # <= ???
+        else:
+            start_once = acq_params.get(
+                "start_once", trigger_type == AcquisitionSlave.HARDWARE
+            )
+
+        params = {}
+        params["count_time"] = count_time
+        params["npoints"] = npoints
+        params["trigger_type"] = trigger_type
+        params["prepare_once"] = prepare_once
+        params["start_once"] = start_once
+
+        return params
 
     def finalize(self):
         self._interface.close()
@@ -272,16 +235,16 @@ class MythenCounter(Counter):
 
     def __init__(self, controller):
         # self._name = "spectrum"
-        # self._controller = controller
+        self._controller = controller
         super().__init__("spectrum", controller)
 
     # @property
     # def name(self):
     #     return self._name
 
-    # @property
-    # def controller(self):
-    #     return self._controller
+    @property
+    def controller(self):
+        return self._controller
 
     # Data properties
 
@@ -294,27 +257,26 @@ class MythenCounter(Counter):
         return (self.controller.get_nchannels(),)
 
 
-class MythenAcquistionDevice(AcquisitionSlave):
+class MythenAcquistionSlave(AcquisitionSlave):
     status = enum.Enum("status", "STOPPED RUNNING FAULT")
     TriggerMode = enum.Enum("TriggerMode", "SOFTWARE GATE")
-    # Initialization
 
+    # Initialization
     def __init__(
         self,
-        counter,
-        count_time,
-        npoints,
-        trigger_type,
-        prepare_once,
-        start_once,
+        controller,
+        count_time=0,
+        npoints=1,
+        trigger_type=AcquisitionSlave.HARDWARE,
+        prepare_once=False,
+        start_once=False,
         ctrl_params=None,
     ):
-        self.counter = counter
+
         self.count_time = count_time
 
         super().__init__(
-            counter.controller,
-            name=None,
+            controller,
             npoints=npoints,
             trigger_type=trigger_type,
             prepare_once=prepare_once,
@@ -322,19 +284,8 @@ class MythenAcquistionDevice(AcquisitionSlave):
             ctrl_params=ctrl_params,
         )
 
-        # self.channels.append(
-        #     AcquisitionChannel(
-        #         f"{counter.controller.name}:{counter.name}",
-        #         counter.dtype,
-        #         counter.shape,
-        #     )
-        # )
-
         self._software_acquisition = None
         self._acquisition_status = self.status.STOPPED
-
-    # def add_counter(self, counter):
-    #     assert self.counter == counter
 
     # Flow control
 

@@ -12,7 +12,8 @@ from bliss.scanning.chain import AcquisitionMaster, AcquisitionSlave
 
 class SpeedgoatAcquisitionSlave(AcquisitionSlave):
     # trigger option: trigger_type=AcquisitionMaster.HARDWARE | AcquisitionMaster.SOFTWARE
-    def __init__(self, acq_controller, npoints, ctrl_params=None):
+
+    def __init__(self, acq_controller, npoints=1, ctrl_params=None):
         """
         Acquisition device for the speedgoat counters.
         """

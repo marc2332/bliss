@@ -60,7 +60,7 @@ class Counter:
 
     def __init__(self, name, controller, conversion_function=None, unit=None):
         self._name = name
-        self._controller = controller
+        self.__counter_controller = controller
         self._conversion_function = (
             conversion_function if conversion_function is not None else lambda x: x
         )
@@ -74,8 +74,8 @@ class Counter:
         return self._name
 
     @autocomplete_property
-    def controller(self):
-        return self._controller
+    def _counter_controller(self):
+        return self.__counter_controller
 
     @property
     def dtype(self):
@@ -95,9 +95,9 @@ class Counter:
         `[<master_controller_name>].[<controller_name>].<counter_name>`
         """
         args = []
-        if self.controller.master_controller is not None:
-            args.append(self.controller.master_controller.name)
-        args.append(self.controller.name)
+        if self._counter_controller._master_controller is not None:
+            args.append(self._counter_controller._master_controller.name)
+        args.append(self._counter_controller.name)
         args.append(self.name)
         return ":".join(args)
 
@@ -169,19 +169,6 @@ class SamplingCounter(Counter):
     def statistics(self):
         return self._statistics
 
-    def read(self):
-        """ helper/shortcut to read the counter value outside
-        the context of a scan --> not called in a ct/scan.
-        """
-
-        self.controller.prepare(self)
-        self.controller.start(self)
-        try:
-            value = self.controller.read_all(self)[0]
-            return self.conversion_function(value)
-        finally:
-            self.controller.stop(self)
-
 
 class IntegratingCounter(Counter):
     def __init__(self, name, controller, conversion_function=None, unit=None):
@@ -189,17 +176,6 @@ class IntegratingCounter(Counter):
         super().__init__(
             name, controller, conversion_function=conversion_function, unit=unit
         )
-
-    def get_values(self, from_index=0):
-        """ helper/shortcut to read the counter values (from_index) outside the context of a scan """
-
-        self.controller.prepare(self)
-        self.controller.start(self)
-        try:
-            value = self.controller.get_values(from_index, self)[0]
-            return self.conversion_function(value)
-        finally:
-            self.controller.stop(self)
 
 
 class SoftCounter(SamplingCounter):

@@ -8,7 +8,7 @@
 import pytest
 import numpy.testing
 
-from bliss.common.standard import loopscan
+from bliss.common.scans import loopscan, ct
 from bliss.common.counter import SoftCounter, SamplingMode
 from bliss.scanning.acquisition.counter import SamplingCounterAcquisitionSlave
 
@@ -30,35 +30,53 @@ class Object(object):
         return 23.45
 
 
-def test_soft_counter_read(beacon):
+def test_soft_counter_read(beacon, session):
 
     null_no_name = NullObject()
     null_no_name.value = 45.67
 
-    counter = SoftCounter(null_no_name)  # counter controller is None
-    assert counter.read() == 45.67
+    counter = SoftCounter(null_no_name)
+    counter.mode = "LAST"
+    sc = ct(0.01, counter)
+    value = sc.get_data()["value"][0]
+    assert value == 45.67
 
     null_name = NullObject()
     null_name.name = "n1"
     null_name.value = 67.89
 
     counter = SoftCounter(null_name)
-    assert counter.read() == 67.89
+    counter.mode = "LAST"
+    sc = ct(0.01, counter)
+    value = sc.get_data()["n1"][0]
+    assert value == 67.89
 
     o1 = Object()
     o1.name = "o1"
 
     counter = SoftCounter(o1)
-    assert counter.read() == 12.34
+    counter.mode = "LAST"
+    sc = ct(0.01, counter)
+    value = sc.get_data()["o1"][0]
+    assert value == 12.34
 
     counter = SoftCounter(o1, value="voltage")
-    assert counter.read() == 67.89
+    counter.mode = "LAST"
+    sc = ct(0.01, counter)
+    value = sc.get_data()["o1"][0]
+    assert value == 67.89
 
     counter = SoftCounter(o1, value="get_pressure")
-    assert counter.read() == 23.45
+    counter.mode = "LAST"
+    sc = ct(0.01, counter)
+    value = sc.get_data()["o1"][0]
+    assert value == 23.45
 
     counter = SoftCounter(o1, value="get_pressure", apply=lambda v: v * 100 + 5.4)
-    assert counter.read() == 23.45 * 100 + 5.4
+    counter.mode = "LAST"
+    sc = ct(0.01, counter)
+    value = sc.get_data()["o1"][0]
+    assert value == 23.45 * 100 + 5.4
 
 
 def test_soft_counter_name(beacon):
@@ -163,7 +181,6 @@ def test_SampCnt_soft_statistics(session):
 
     c = SoftCounter(diode, "read")
 
-    loopscan(3, .1, c)
     statfields = (
         "mean",
         "N",

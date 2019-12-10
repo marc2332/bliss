@@ -14,13 +14,7 @@ from bliss.scanning.chain import AcquisitionChain
 from bliss.common.measurementgroup import MeasurementGroup
 
 from bliss.controllers.pepu import PEPU as PepuClass
-from bliss.controllers.pepu import (
-    ChannelIN,
-    ChannelOUT,
-    ChannelCALC,
-    Signal,
-    PepuChainNode,
-)
+from bliss.controllers.pepu import ChannelIN, ChannelOUT, ChannelCALC, Signal
 
 from bliss.scanning.acquisition.pepu import PepuAcquisitionSlave
 from bliss.scanning.acquisition.motor import SoftwarePositionTriggerMaster
@@ -65,8 +59,13 @@ def pepu():
 
         pepu.counters = PepuClass.counters.__get__(pepu, type(pepu))
         pepu.create_chain_node = PepuClass.create_chain_node.__get__(pepu, type(pepu))
-        pepu._chain_node_class = PepuChainNode
-        pepu.master_controller = None
+        pepu.get_acquisition_object = PepuClass.get_acquisition_object.__get__(
+            pepu, type(pepu)
+        )
+        pepu.get_default_chain_parameters = PepuClass.get_default_chain_parameters.__get__(
+            pepu, type(pepu)
+        )
+        pepu._master_controller = None
 
         # Add pepu1 to globals
         global_map.register(pepu, parents_list=["controllers"])

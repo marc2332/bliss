@@ -6,12 +6,10 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import numpy as np
-import pprint
 
-from bliss.scanning.chain import AcquisitionSlave, ChainNode
+from bliss.scanning.chain import AcquisitionSlave
 from bliss.common.counter import Counter
 from bliss.controllers.counter import CounterController
-from bliss import global_map
 
 # for logging
 import logging
@@ -109,16 +107,17 @@ dscan(m1,-1,1, 13, 0.01)
 class SimulationCounterAcquisitionSlave(AcquisitionSlave):
     def __init__(
         self,
-        counter,
-        scan_type,
-        scan_npoints,
-        scan_start,
-        scan_stop,
-        distribution,
-        gauss_param,
-        noise_factor,
+        controller,
+        scan_type=None,
+        npoints=1,
+        start=0,
+        stop=0,
+        distribution=None,
+        gauss_param=None,
+        noise_factor=0,
+        ctrl_params=None,
     ):
-        global_map.register(self)
+        # global_map.register(self)
         log_debug(
             self, "SIMULATION_COUNTER_ACQ_DEV -- SimulationCounterAcquisitionSlave()"
         )
@@ -127,15 +126,16 @@ class SimulationCounterAcquisitionSlave(AcquisitionSlave):
         self.gauss_param = gauss_param
         self.noise_factor = noise_factor
         self.scan_type = scan_type
-        self.scan_start = scan_start
-        self.scan_stop = scan_stop
+        self.scan_start = start
+        self.scan_stop = stop
 
         AcquisitionSlave.__init__(
             self,
-            counter,
-            npoints=scan_npoints,
+            controller,
+            npoints=npoints,
             prepare_once=True,  # Do not call prepare at each point.
             start_once=True,  # Do not call start at each point.
+            ctrl_params=ctrl_params,
         )
 
     def is_count_scan(self):
@@ -322,9 +322,16 @@ class SimulationCounterAcquisitionSlave(AcquisitionSlave):
         log_debug(self, f"SIMULATION_COUNTER_ACQ_DEV -- trigger()  END")
 
 
-class SimulationCounterControllerChainNode(ChainNode):
-    def _get_default_chain_parameters(self, scan_params, acq_params):
+class SimulationCounterController(CounterController):
+    def __init__(self):
+        super().__init__("simulation_counter_controller")
 
+    def get_acquisition_object(self, acq_params, ctrl_params, parent_acq_params):
+        return SimulationCounterAcquisitionSlave(
+            self, ctrl_params=ctrl_params, **acq_params
+        )
+
+    def get_default_chain_parameters(self, scan_params, acq_params):
         counter = self.counters[0]
 
         mu_offset = counter.config.get("mu_offset", 0.0)
@@ -339,26 +346,26 @@ class SimulationCounterControllerChainNode(ChainNode):
 
         try:
             scan_type = acq_params["type"]
-        except:
+        except KeyError:
             scan_type = scan_params["type"]
 
         try:
             npoints = acq_params["npoints"]
-        except:
+        except KeyError:
             npoints = scan_params["npoints"]
 
         try:
             start = acq_params["start"]
-        except:
+        except KeyError:
             start = scan_params["start"]
 
         try:
             stop = acq_params["stop"]
-        except:
+        except KeyError:
             stop = scan_params["stop"]
 
         params = {}
-        params["type"] = scan_type
+        params["scan_type"] = scan_type
         params["npoints"] = npoints
         params["start"] = start
         params["stop"] = stop
@@ -368,77 +375,9 @@ class SimulationCounterControllerChainNode(ChainNode):
 
         return params
 
-    def get_acquisition_object(self, acq_params, ctrl_params=None):
-
-        ################ TO BE CLEANED !!!!!!!!!!!!!!! #############################
-
-        # --- Warn user if an unexpected is found in acq_params
-        expected_keys = [
-            "type",
-            "npoints",
-            "start",
-            "stop",
-            "distribution",
-            "gauss_param",
-            "noise_factor",
-        ]
-        for key in acq_params.keys():
-            if key not in expected_keys:
-                print(
-                    f"=== Warning: unexpected key '{key}' found in acquisition parameters for SimulationCounterAcquisitionSlave({self.controller}) ==="
-                )
-
-        counter = self.counters[0]
-
-        log_debug(counter, "SIMULATION_COUNTER -- create_acquisition_device")
-
-        # --- MANDATORY PARAMETERS -------------------------------------
-
-        scan_type = acq_params["type"]
-        scan_npoints = acq_params["npoints"]
-        scan_start = acq_params["start"]
-        scan_stop = acq_params["stop"]
-        distribution = acq_params["distribution"]
-        gauss_param = acq_params["gauss_param"]
-        noise_factor = acq_params["noise_factor"]
-
-        acq_dev = SimulationCounterAcquisitionSlave(
-            counter,
-            scan_type,
-            scan_npoints,
-            scan_start,
-            scan_stop,
-            distribution,
-            gauss_param,
-            noise_factor,
-        )
-
-        log_debug(counter, "SIMULATION_COUNTER -- COUNTER CONFIG")
-        if get_logger(counter).isEnabledFor(logging.DEBUG):
-            pprint.pprint(counter.config)
-
-        log_debug(counter, "SIMULATION_COUNTER -- SCAN_PARS")
-
-        if get_logger(counter).isEnabledFor(logging.DEBUG):
-            pprint.pprint(acq_params)
-
-        log_debug(self, "SIMULATION_COUNTER -- create_acquisition_device END")
-        return acq_dev
-
-
-class SimulationCounterController(CounterController):
-    def __init__(self):
-        super().__init__(
-            "simulation_counter_controller",
-            chain_node_class=SimulationCounterControllerChainNode,
-        )
-
 
 class SimulationCounter(Counter):
     def __init__(self, name, config):
         super().__init__(name, SimulationCounterController())
         self.config = config
-
-    def read(self):
-        log_debug(self, "SIMULATION_COUNTER -- read()")
-        return 33
+        self._counter_controller.add_counter(self)

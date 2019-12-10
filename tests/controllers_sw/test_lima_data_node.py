@@ -38,41 +38,55 @@ def lima_data_view_test_assets(lima_files, filesystem_files):
         assert f in filesystem_files
 
 
-def test_LimaDataView_edf_1_frame_per_edf(session, lima_simulator):
-    simulator = session.config.get("lima_simulator")
+def test_LimaDataView_edf_1_frame_per_edf(default_session, lima_simulator):
+    simulator = default_session.config.get("lima_simulator")
     scan = loopscan(5, 0.1, simulator, save=True, run=False)
 
 
-def test_LimaDataView_edf_2_frames_per_edf(session, lima_simulator):
-    simulator = session.config.get("lima_simulator")
+def test_LimaDataView_edf_2_frames_per_edf(default_session, lima_simulator):
+    simulator = default_session.config.get("lima_simulator")
+
+    fpf = simulator.saving.frames_per_file
+    ff = simulator.saving.file_format
+
+    simulator.saving.frames_per_file = 2
+    simulator.saving.file_format = "EDF"
+
     scan = loopscan(5, 0.1, simulator, save=True, run=False)
-    sim_params = scan.acq_chain.nodes_list[1].ctrl_params
-    sim_params["saving_frame_per_file"] = 2
-    sim_params["saving_format"] = "EDF"
+
+    simulator.saving.frames_per_file = fpf
+    simulator.saving.file_format = ff
 
     lima_files, filesystem_files = lima_data_view_test_helper(scan)
     lima_data_view_test_assets(lima_files, filesystem_files)
 
 
-def test_LimaDataView_edf_1_frame_per_hdf5(session, lima_simulator):
-    simulator = session.config.get("lima_simulator")
+def test_LimaDataView_edf_1_frame_per_hdf5(default_session, lima_simulator):
+    simulator = default_session.config.get("lima_simulator")
+
+    ff = simulator.saving.file_format
+    simulator.saving.file_format = "HDF5"
+
     scan = loopscan(5, 0.1, simulator, save=True, run=False)
 
-    sim_params = scan.acq_chain.nodes_list[1].ctrl_params
-    sim_params["saving_format"] = "HDF5"
-    sim_params["saving_suffix"] = ".h5"
+    simulator.saving.file_format = ff
 
     lima_data_view_test_assets(*lima_data_view_test_helper(scan))
 
 
-def test_LimaDataView_edf_2_frames_per_hdf5(session, lima_simulator):
-    simulator = session.config.get("lima_simulator")
+def test_LimaDataView_edf_2_frames_per_hdf5(default_session, lima_simulator):
+    simulator = default_session.config.get("lima_simulator")
+
+    fpf = simulator.saving.frames_per_file
+    ff = simulator.saving.file_format
+
+    simulator.saving.frames_per_file = 2
+    simulator.saving.file_format = "HDF5"
+
     scan = loopscan(5, 0.1, simulator, save=True, run=False)
 
-    sim_params = scan.acq_chain.nodes_list[1].ctrl_params
-    sim_params["saving_format"] = "HDF5"
-    sim_params["saving_frame_per_file"] = 2
-    sim_params["saving_suffix"] = ".h5"
+    simulator.saving.frames_per_file = fpf
+    simulator.saving.file_format = ff
 
     lima_files, filesystem_files = lima_data_view_test_helper(scan)
     lima_data_view_test_assets(lima_files, filesystem_files)

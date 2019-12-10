@@ -17,6 +17,7 @@ from bliss.common.scans import loopscan, ct, ascan
 from bliss.shell.cli.repl import ScanPrinter
 from bliss import setup_globals
 from bliss.common.soft_axis import SoftAxis
+from bliss.common.utils import rounder
 
 from bliss.controllers.counter import IntegratingCounterController
 from bliss.controllers.simulation_diode import (
@@ -33,14 +34,14 @@ from bliss.scanning.acquisition.counter import (
 from bliss.scanning.acquisition.timer import SoftwareTimerMaster
 
 
-class Diode(SamplingCounter):
-    def __init__(self, diode, convert_func):
-        super().__init__("test_diode", None, conversion_function=convert_func)
-        self.diode = diode
+# class Diode(SamplingCounter):
+#     def __init__(self, diode, convert_func):
+#         super().__init__("test_diode", None, conversion_function=convert_func)
+#         self.diode = diode
 
-    def read(self, *args):
-        self.last_read_value = self.diode.read()
-        return self.last_read_value
+#     def read(self, *args):
+#         self.last_read_value = self.diode.read()
+#         return self.last_read_value
 
 
 class Timed_Diode:
@@ -89,10 +90,10 @@ class Timed_Diode:
         self.more_than_once = False
 
 
-class DiodeWithController(SamplingCounter):
-    def __init__(self, diode, convert_func):
-        super.__init__("test_diode", diode.controller, conversion_function=convert_func)
-        self.diode = diode
+# class DiodeWithController(SamplingCounter):
+#     def __init__(self, diode, convert_func):
+#         super.__init__("test_diode", diode.controller, conversion_function=convert_func)
+#         self.diode = diode
 
 
 class DummyCounterController(IntegratingCounterController):
@@ -104,17 +105,22 @@ class DummyCounterController(IntegratingCounterController):
         return [10 * [random.randint(-100, 100)] for cnt in counters]
 
 
-def test_diode(beacon):
+def test_diode(session):
     def multiply_by_two(x):
-        test_diode.raw_value = x
+        diode.raw_value = x
         return 2 * x
 
-    test_diode = SimulationDiodeSamplingCounter(
-        "test_diode", SimulationDiodeController(), conversion_function=multiply_by_two
+    diode = SimulationDiodeSamplingCounter(
+        "test_diode",
+        SimulationDiodeController(),
+        conversion_function=multiply_by_two,
+        mode="LAST",
     )
 
-    diode_value = test_diode.read()
-    assert test_diode.raw_value * 2 == diode_value
+    sc = ct(0.01, diode)
+    diode_value = sc.get_data()["test_diode"][0]
+
+    assert diode.raw_value * 2 == diode_value
 
 
 def test_sampling_counter_mode(session):
@@ -396,18 +402,21 @@ def test_SampCnt_mode_INTEGRATE_STATS(session):
     assert pytest.approx(integ_stats.p2v, numpy.max(new_dat) - numpy.min(new_dat))
 
 
-def test_integ_counter(beacon):
-    acq_controller = DummyCounterController()
+def test_integ_counter(session):
+    dcc = DummyCounterController()
 
     def multiply_by_two(x):
-        acq_controller.raw_value = x
+        dcc.raw_value = x
         return 2 * x
 
-    counter = SimulationDiodeIntegratingCounter(
-        "test_diode", acq_controller, conversion_function=multiply_by_two
+    diode = SimulationDiodeIntegratingCounter(
+        "test_diode", dcc, conversion_function=multiply_by_two
     )
 
-    assert list(counter.get_values(0)) == list(2 * acq_controller.raw_value)
+    sc = ct(0.01, diode)
+    diode_value = sc.get_data()["test_diode"]
+
+    assert list(diode_value) == list(2 * dcc.raw_value)
 
 
 def test_bad_counters(session, beacon):
@@ -459,10 +468,13 @@ def test_prepare_once_prepare_many(session):
     assert len(dat["diode3"]) == 10
 
 
-def test_tango_attr_counter(beacon, dummy_tango_server):
+def test_tango_attr_counter(beacon, dummy_tango_server, session):
     counter = beacon.get("tg_dummy_counter")
+    counter.mode = "LAST"
+    sc = ct(0.01, counter)
+    counter_value = sc.get_data()["tg_dummy_counter"][0]
 
-    assert counter.read() == 1.41
+    assert counter_value == 1.41
     assert counter.unit == "mm"
     assert counter.format_string == "%3.2f"
 
@@ -482,6 +494,9 @@ def test_tango_attr_counter(beacon, dummy_tango_server):
 
     # test default sampling mode
     assert tac_vel.mode == SamplingMode.MEAN
+    tac_pos.mode = "LAST"
+    tac_vel.mode = "LAST"
+    tac_acc.mode = "LAST"
 
     with pytest.raises(tango.DevFailed):
         tac_cracoucas = beacon.get("tac_undu_cracoucas")
@@ -489,9 +504,16 @@ def test_tango_attr_counter(beacon, dummy_tango_server):
     # get UNDULATOR object
     u23a = beacon.get("u23a")
 
+    sc = ct(0.01, tac_pos, tac_vel, tac_acc)
+    pos = sc.get_data()["tac_undu_position"][0]
+    vel = sc.get_data()["tac_undu_velocity"][0]
+    acc = sc.get_data()["tac_undu_acceleration"][0]
+
     assert u23a.position == 1.4078913
-    assert u23a.velocity == tac_vel.read()
-    assert u23a.acceleration == tac_acc.read()
+    assert pos == 1.41
+
+    assert u23a.velocity == vel
+    assert u23a.acceleration == acc
 
     # Test missing uri
     with pytest.raises(KeyError):

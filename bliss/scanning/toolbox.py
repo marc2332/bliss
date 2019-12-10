@@ -153,12 +153,14 @@ def get_all_counters(counter_args):
 
 def sort_counter_by_dependency_level(counters):
     def cmp_sort(cnt1, cnt2):
-        if cnt1 in cnt2.controller.counters:
+        if cnt1 in cnt2._counter_controller.counters:
             return -1
-        elif cnt2 in cnt1.controller.counters:
+        elif cnt2 in cnt1._counter_controller.counters:
             return 1
         else:
-            return len(cnt1.controller.counters) - len(cnt2.controller.counters)
+            return len(cnt1._counter_controller.counters) - len(
+                cnt2._counter_controller.counters
+            )
 
     counters.sort(key=functools.cmp_to_key(cmp_sort))
 
@@ -230,8 +232,8 @@ class ChainBuilder:
             # --- add dependencies knowledge to calc_nodes -----------------------------
             if isinstance(controller, CalcCounterController):
                 for cnt in node.controller.inputs:
-                    node._calc_dep_nodes[cnt.controller] = self._cached_nodes[
-                        cnt.controller
+                    node._calc_dep_nodes[cnt._counter_controller] = self._cached_nodes[
+                        cnt._counter_controller
                     ]
         else:
             node = self._cached_nodes.get(controller)
@@ -243,16 +245,16 @@ class ChainBuilder:
 
         for cnt in self._counter_list:
 
-            if cnt.controller is None:
+            if cnt._counter_controller is None:
                 raise AttributeError(f"counter: {cnt} must have a controller")
 
-            master_ctrl = cnt.controller.master_controller
+            master_ctrl = cnt._counter_controller._master_controller
             master_node = None
 
             if master_ctrl is not None:
                 master_node = self._create_node(master_ctrl)
 
-            node = self._create_node(cnt.controller)
+            node = self._create_node(cnt._counter_controller)
             node.add_counter(cnt)
 
             if master_node is not None:
@@ -361,7 +363,7 @@ class DefaultAcquisitionChain:
 
             device = device_settings["device"]
             if isinstance(device, Counter):
-                controller = device.controller
+                controller = device._counter_controller
             else:
                 controller = device
 

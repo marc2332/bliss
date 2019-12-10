@@ -198,3 +198,138 @@ def test_repl_excecute(clean_gevent):
     diff_dump = _generate_diff(o, p)
 
     _compare_dump(excecute_dump, diff_dump)
+
+
+def test_validator_patch_normalize_containers(clean_gevent):
+    clean_gevent["end-check"] = False
+
+    # diffdump can be generated with pytest --pdb option using
+    # >>> import pprint
+    # >>> pprint.pprint(diff_dump)
+    normalize_containers_dump = [
+        '+             if "oneof" in rules:\n',
+        "+                 self.__normalize_oneof(mapping, schema, field)\n",
+        "+ \n",
+        "-                     self.__normalize_mapping_per_keysrules(\n",
+        "+                     "
+        "self._BareValidator__normalize_mapping_per_keysrules(\n",
+        "-                     self.__normalize_mapping_per_valuesrules(\n",
+        "+                     "
+        "self._BareValidator__normalize_mapping_per_valuesrules(\n",
+        "-                         self.__normalize_mapping_per_schema(field, "
+        "mapping, schema)\n",
+        "+                         "
+        "self._BareValidator__normalize_mapping_per_schema(\n",
+        "+                             field, mapping, schema\n",
+        "+                         )\n",
+        "-                     self.__normalize_sequence_per_schema(field, mapping, "
+        "schema)\n",
+        "+                     self._BareValidator__normalize_sequence_per_schema(\n",
+        "+                         field, mapping, schema\n",
+        "+                     )\n",
+        "-                     self.__normalize_sequence_per_items(field, mapping, "
+        "schema)\n",
+        "+                     self._BareValidator__normalize_sequence_per_items(\n",
+        "+                         field, mapping, schema\n",
+        "+                     )\n",
+    ]
+
+    from bliss.common.validator import BlissValidator
+    from cerberus import Validator
+
+    v = Validator()
+    bv = BlissValidator()
+
+    p_source = "class myobj:\n" + inspect.getsource(
+        bv._BlissValidator__normalize_containers
+    )
+    p = black.format_str(p_source, line_length=88)
+    o_source = "class myobj:\n" + inspect.getsource(
+        v._BareValidator__normalize_containers
+    )
+    o = black.format_str(o_source, line_length=88)
+
+    # strip docstring
+    o = re.sub('"""((.|[\n])*)"""', "", o)
+    p = re.sub('"""((.|[\n])*)"""', "", p)
+
+    diff_dump = _generate_diff(o, p)
+
+    _compare_dump(normalize_containers_dump, diff_dump)
+
+
+def test_validator_patch_normalize_default_fields(clean_gevent):
+    clean_gevent["end-check"] = False
+
+    # diffdump can be generated with pytest --pdb option using
+    # >>> import pprint
+    # >>> pprint.pprint(diff_dump)
+    normalize_default_fields_dump = [
+        "+             fields_with_oneof = [\n",
+        "+                 x\n",
+        "+                 for x in empty_fields\n",
+        '+                 if not "default" in schema[x] and "oneof" in schema[x]\n',
+        "+             ]\n",
+        "+ \n",
+        "+         for field in fields_with_oneof:\n",
+        "+             self.__normalize_oneof(mapping, schema, field)\n",
+    ]
+
+    from bliss.common.validator import BlissValidator
+    from cerberus import Validator
+
+    v = Validator()
+    bv = BlissValidator()
+
+    p_source = "class myobj:\n" + inspect.getsource(
+        bv._BlissValidator__normalize_default_fields
+    )
+    p = black.format_str(p_source, line_length=88)
+    o_source = "class myobj:\n" + inspect.getsource(
+        v._BareValidator__normalize_default_fields
+    )
+    o = black.format_str(o_source, line_length=88)
+
+    # strip docstring
+    o = re.sub('"""((.|[\n])*)"""', "", o)
+    p = re.sub('"""((.|[\n])*)"""', "", p)
+
+    diff_dump = _generate_diff(o, p)
+
+    _compare_dump(normalize_default_fields_dump, diff_dump)
+
+
+def test_validator_patch_validate_oneof(clean_gevent):
+    clean_gevent["end-check"] = False
+
+    # diffdump can be generated with pytest --pdb option using
+    # >>> import pprint
+    # >>> pprint.pprint(diff_dump)
+    validate_oneof_dump = [
+        "-         \"\"\" {'type': 'list', 'logical': 'oneof'} \"\"\"\n",
+        '+         """ {\'type\': \'list\'} """\n',
+        '-         valids, _errors = self.__validate_logical("oneof", definitions, '
+        "field, value)\n",
+        "+         # Sort of hack: remove  'logical': 'oneof'\"\"from docstring "
+        "above\n",
+        "+         valids, _errors = self._BareValidator__validate_logical(\n",
+        '+             "oneof", definitions, field, value\n',
+        "+         )\n",
+    ]
+
+    from bliss.common.validator import BlissValidator
+    from cerberus import Validator
+
+    v = Validator()
+    bv = BlissValidator()
+
+    p_source = "class myobj:\n" + inspect.getsource(bv._validate_oneof)
+    p = black.format_str(p_source, line_length=88)
+    o_source = "class myobj:\n" + inspect.getsource(v._validate_oneof)
+    o = black.format_str(o_source, line_length=88)
+
+    # doc string matters in this case!
+
+    diff_dump = _generate_diff(o, p)
+
+    _compare_dump(validate_oneof_dump, diff_dump)

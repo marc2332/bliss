@@ -20,8 +20,7 @@ from bliss.common.utils import with_custom_members
 from bliss import global_map
 from bliss.controllers.counter import counter_namespace
 from bliss.controllers.counter import SamplingCounterController
-from bliss.scanning.chain import ChainNode
-from bliss.scanning.acquisition.counter import SamplingCounterAcquisitionSlave
+
 from bliss.common.counter import SamplingCounter
 
 
@@ -34,27 +33,6 @@ def lazy_init(func):
     return func_wrapper
 
 
-class TemperatureControllerChainNode(ChainNode):
-    def _get_default_chain_parameters(self, scan_params, acq_params):
-        try:
-            count_time = acq_params["acq_expo_time"]
-        except:
-            count_time = scan_params["count_time"]
-        npoints = scan_params["npoints"]
-        params = {"count_time": count_time, "npoints": npoints}
-        return params
-
-    def get_acquisition_object(self, acq_params, ctrl_params=None):
-        count_time = acq_params["count_time"]
-        npoints = acq_params["npoints"]
-        return SamplingCounterAcquisitionSlave(
-            *self.counters,
-            count_time=count_time,
-            npoints=npoints,
-            ctrl_params=ctrl_params
-        )
-
-
 @with_custom_members
 class Input(SamplingCounterController):
     """ Implements the access to temperature sensors
@@ -64,13 +42,11 @@ class Input(SamplingCounterController):
         """ Constructor """
         # log.debug("  config type is: %s" % type(config))
         # log.debug("  controller type is: %s" % type(controller))
-        super().__init__(
-            config["name"], chain_node_class=TemperatureControllerChainNode
-        )
+        super().__init__(config["name"])
         self.__controller = controller
         self.__config = config
         self._counters[self.name] = SamplingCounter(
-            self.name, self, unit=self.config.get("unit")
+            self.name, self, unit=config.get("unit")
         )
 
         # useful attribute for a temperature controller writer
@@ -106,9 +82,7 @@ class Output(SamplingCounterController):
 
     def __init__(self, controller, config):
         """ Constructor """
-        super().__init__(
-            config["name"], chain_node_class=TemperatureControllerChainNode
-        )
+        super().__init__(config["name"])
         self.__controller = controller
         global_map.register(self, parents_list=[controller])
 
@@ -135,9 +109,6 @@ class Output(SamplingCounterController):
 
         # useful attribute for a temperature controller writer
         self._attr_dict = {}
-        self._counters[self.name] = SamplingCounter(
-            self.name, self, unit=self.config.get("unit")
-        )
 
     @property
     def controller(self):
@@ -395,11 +366,14 @@ class Output(SamplingCounterController):
 
 
 @with_custom_members
-class Loop:
+class Loop(SamplingCounterController):
     """ Implements the access to temperature regulation loop """
 
     def __init__(self, controller, config):
         """ Constructor """
+
+        super().__init__(config["name"])
+
         self.__controller = controller
         self.__name = config["name"]
         self.__config = config

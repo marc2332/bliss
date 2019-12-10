@@ -157,7 +157,7 @@ class CalcCounterAcquisitionSlave(AcquisitionSlave):
         self._connected = False
 
     def prepare(self):
-        self.device.prepare()
+        self.device.reset_data_storage()
         self.connect()
 
     def new_data_received(self, event_dict=None, signal=None, sender=None):
@@ -179,15 +179,16 @@ class CalcCounterAcquisitionSlave(AcquisitionSlave):
                     channel.emit(channel_data)
 
     def start(self):
-        self.device.start()
+        pass
 
     def stop(self):
         self.disconnect()
-        self.device.stop()
 
 
 class CalcCounterChainNode(ChainNode):
-    def get_acquisition_object(self, acq_params, ctrl_params=None):
+    def get_acquisition_object(
+        self, acq_params, ctrl_params=None, parent_acq_params=None
+    ):
 
         # Check if Acquisition Devices of dependant counters already exist
         acq_devices = []
@@ -200,6 +201,8 @@ class CalcCounterChainNode(ChainNode):
             else:
                 acq_devices.append(acq_obj)
 
-        return CalcCounterAcquisitionSlave(
-            self.controller, acq_devices, ctrl_params=ctrl_params
+        return self.controller.get_acquisition_object(
+            acq_params=acq_devices,
+            ctrl_params=ctrl_params,
+            parent_acq_params=parent_acq_params,
         )

@@ -16,9 +16,7 @@ from bliss.scanning.chain import AcquisitionMaster
 from bliss.scanning.channel import AcquisitionChannel
 from bliss.controllers import lima
 from bliss.common.tango import get_fqn
-
-
-from bliss.scanning.chain import ChainNode
+from bliss.scanning.acquisition.counter import IntegratingCounterAcquisitionSlave
 
 LIMA_DTYPE = {
     (0, 2): numpy.uint16,
@@ -31,23 +29,7 @@ LIMA_DTYPE = {
 
 
 class LimaAcquisitionMaster(AcquisitionMaster):
-    def __init__(
-        self,
-        device,
-        acq_mode="SINGLE",
-        acq_nb_frames=1,
-        acq_expo_time=1,
-        acq_trigger_mode="INTERNAL_TRIGGER",
-        acc_time_mode="LIVE",
-        acc_max_expo_time=1,
-        latency_time=0,
-        save_flag=False,
-        prepare_once=False,
-        start_once=False,
-        wait_frame_id=None,
-        ctrl_params=None,
-        **keys,
-    ):
+    def __init__(self, device, ctrl_params=None, **acq_params):
         """
         Acquisition device for lima camera.
 
@@ -60,27 +42,15 @@ class LimaAcquisitionMaster(AcquisitionMaster):
         the wait_frame_id must be equal to range(0,TOTAL_IMAGE,IMAGE_PER_LINE).
         """
 
-        if not isinstance(device, lima.Lima):
-            raise TypeError(
-                "Device for LimaAcquisitionMaster must be an"
-                " instance of a BLISS Lima controller"
-            )
+        # ensure that ctrl-params have been completed
+        ctrl_params = self.init_ctrl_params(device, ctrl_params)
 
-        self.parameters = locals().copy()
-        del self.parameters["self"]
-        del self.parameters["device"]
-        del self.parameters["save_flag"]
-        del self.parameters["keys"]
-        del self.parameters["prepare_once"]
-        del self.parameters["start_once"]
-        del self.parameters["wait_frame_id"]
-        del self.parameters["ctrl_params"]
-        self.parameters.update(keys)
-        if wait_frame_id is None:
-            wait_frame_id = [acq_nb_frames - 1]
+        # !!! warning: validate params requires a completed ctrl_params dict
+        self.acq_params = self.validate_params(acq_params, ctrl_params)
+
         trigger_type = (
             AcquisitionMaster.SOFTWARE
-            if "INTERNAL" in acq_trigger_mode
+            if "INTERNAL" in self.acq_params["acq_trigger_mode"]
             else AcquisitionMaster.HARDWARE
         )
 
@@ -88,25 +58,105 @@ class LimaAcquisitionMaster(AcquisitionMaster):
             self,
             device,
             name=device.name,
-            npoints=acq_nb_frames,
+            npoints=self.acq_params["acq_nb_frames"],
             trigger_type=trigger_type,
-            prepare_once=prepare_once,
-            start_once=start_once,
+            prepare_once=self.acq_params["prepare_once"],
+            start_once=self.acq_params["start_once"],
             ctrl_params=ctrl_params,
         )
 
         self._lima_controller = device
         self._reading_task = None
         self._image_channel = None
-        self._save_flag = save_flag
-        self._latency = latency_time
+        self._latency = self.acq_params["latency_time"]
         self.__last_image_acquired = -1
         self.__sequence_index = 0
         self.__image_status = (False, -1)
         self.__lock = lock.Semaphore()
         self._ready_event = event.Event()
-        self.__wait_frame_id = wait_frame_id
-        self.__current_wait_frame_id = -1
+
+        wait_frame_id = self.acq_params.pop("wait_frame_id", None)
+        if wait_frame_id is None:
+            tmp = self.acq_params["acq_nb_frames"]
+
+            def wait_frame_id_iter():
+                while True:
+                    yield tmp - 1
+
+            self.__wait_frame_id = wait_frame_id_iter()
+        else:
+            self.__wait_frame_id = wait_frame_id
+
+    @staticmethod
+    def get_param_validation_schema():
+
+        # lima_ctrl_param_schema = {}
+
+        lima_master_base_schema = {
+            "prepare_once": {"type": "boolean", "default": False},
+            "start_once": {"type": "boolean", "default": False},
+            "acq_nb_frames": {"type": "integer", "default": 1},
+            "acq_expo_time": {"type": "number", "default": 1},
+            "acq_trigger_mode": {"type": "string", "default": "INTERNAL_TRIGGER"},
+            "latency_time": {"type": "integer", "default": 0},
+            "wait_frame_id": {
+                "required": True,
+                "nullable": True,
+                "oneof": [
+                    {
+                        "default": None,
+                        "nullable": True,
+                        "dependencies": {"start_once": False},
+                    },
+                    {"required": True, "dependencies": {"start_once": True}},
+                ],
+            },
+            "saving_statistics_history": {},
+            "saving_mode": {"type": "string"},
+            "stat_history": {
+                "type": "number",
+                "default_setter": lambda x: x["acq_nb_frames"],
+            },
+            ### tmp added
+            "saving_suffix": {},
+            "saving_format": {},
+            "saving_frame_per_file": {},
+        }
+
+        lima_master_no_acc_schema = {
+            "acq_mode": {"default": "SINGLE", "type": "string", "value": "SINGLE"}
+        }
+
+        lima_master_acc_schema = {
+            "acq_mode": {"type": "string", "required": True},
+            "acc_time_mode": {"default": "LIVE", "allowed": ["LIVE"]},
+            "acc_max_expo_time": {"type": "number", "default": 1.},
+        }
+
+        lima_master_schema = {
+            "acq_params": {
+                "type": "dict",
+                "oneof": [
+                    {
+                        "dependencies": {"acq_params.acq_mode": "SINGLE"},
+                        "schema": {
+                            **lima_master_base_schema,
+                            **lima_master_no_acc_schema,
+                        },
+                    },
+                    {
+                        "dependencies": {"acq_params.acq_mode": "ACCUMULATION"},
+                        "schema": {**lima_master_base_schema, **lima_master_acc_schema},
+                    },
+                ],
+            },
+            "ctrl_params": {
+                "type": "dict",
+                #  "schema": lima_ctrl_param_schema,
+                "default": {},
+            },
+        }
+        return lima_master_schema
 
     @property
     def fast_synchro(self):
@@ -114,7 +164,7 @@ class LimaAcquisitionMaster(AcquisitionMaster):
 
     def __iter__(self):
         internal_trigger_mode = (
-            self.parameters.get("acq_trigger_mode") == "INTERNAL_TRIGGER"
+            self.acq_params.get("acq_trigger_mode") == "INTERNAL_TRIGGER"
         )
         wait_frame_id_iter = iter(self.__wait_frame_id)
         if self.npoints == 0 or internal_trigger_mode:
@@ -126,7 +176,15 @@ class LimaAcquisitionMaster(AcquisitionMaster):
                 wait_frame_id_iter = count()
             image_waiting_number = 0
             while True:
-                self.__current_wait_frame_id = next(wait_frame_id_iter)
+                try:
+                    self.__current_wait_frame_id = next(wait_frame_id_iter)
+                except StopIteration as e:
+                    e.args = (
+                        self.device.name,
+                        *e.args,
+                        "Synchronisation error, **wait_frame_id** is wrongly set for this scan",
+                    )
+                    raise
                 yield self
                 if internal_trigger_mode:
                     break
@@ -142,7 +200,15 @@ class LimaAcquisitionMaster(AcquisitionMaster):
                     if new_image_acquired:
                         last_image_acquired -= 1
                 if last_image_acquired < total_frames:
-                    self.__current_wait_frame_id = next(wait_frame_id_iter)
+                    try:
+                        self.__current_wait_frame_id = next(wait_frame_id_iter)
+                    except StopIteration as e:
+                        e.args = (
+                            self.device.name,
+                            *e.args,
+                            "Synchronisation error, **wait_frame_id** is wrongly set for this scan",
+                        )
+                        raise
                     yield self
                     self.__sequence_index += 1
                 else:
@@ -170,38 +236,48 @@ class LimaAcquisitionMaster(AcquisitionMaster):
 
     @property
     def save_flag(self):
-        return bool(self._save_flag and self._image_channel)
+        return bool(self._image_channel)
 
     def set_image_saving(self, directory, prefix, force_no_saving=False):
-        if self._save_flag and not force_no_saving:
-            self.parameters["saving_mode"] = self.parameters.setdefault(
+        if self.save_flag and not force_no_saving:
+            self.acq_params["saving_mode"] = self.acq_params.setdefault(
                 "saving_mode", "AUTO_FRAME"
             )
-            assert self.parameters["saving_mode"] != "MANUAL"
-            self.parameters["saving_directory"] = self._lima_controller.get_mapped_path(
+            assert self.acq_params["saving_mode"] != "MANUAL"
+            self.acq_params["saving_directory"] = self._lima_controller.get_mapped_path(
                 directory
             )
-            self.parameters.setdefault("saving_prefix", prefix)
-
+            self.acq_params.setdefault("saving_prefix", prefix)
         else:
-            self.parameters["saving_mode"] = "MANUAL"
+            self.acq_params["saving_mode"] = "MANUAL"
 
     def prepare(self):
         if self.__sequence_index > 0 and self.prepare_once:
             return
 
         if self._image_channel:
-            self._image_channel.description.update(self.parameters)
+
             self._image_channel.description.update(
-                {
-                    "saving_format": self.ctrl_params["saving_format"],
-                    "saving_frame_per_file": self.ctrl_params["saving_frame_per_file"],
-                    "saving_suffix": self.ctrl_params["saving_suffix"],
-                }
+                {"acq_trigger_mode": self.acq_params["acq_trigger_mode"]}
             )
 
-        for param_name, param_value in self.parameters.items():
-            setattr(self.device.proxy, param_name, param_value)
+            if self.acq_params["saving_mode"] != "MANUAL":
+                self._image_channel.description.update(
+                    {
+                        "saving_format": self.ctrl_params["saving_format"],
+                        "saving_frame_per_file": self.ctrl_params[
+                            "saving_frame_per_file"
+                        ],
+                        "saving_suffix": self.ctrl_params["saving_suffix"],
+                        "saving_mode": self.acq_params["saving_mode"],
+                        "saving_directory": self.acq_params["saving_directory"],
+                        "saving_prefix": self.acq_params["saving_prefix"],
+                    }
+                )
+
+        for param_name, param_value in self.acq_params.items():
+            if not (param_value is None):
+                setattr(self.device.proxy, param_name, param_value)
 
         self.wait_slaves_prepare()
         if self.device.proxy.video_live is True:
@@ -262,7 +338,7 @@ class LimaAcquisitionMaster(AcquisitionMaster):
         with self.__lock:
             self._lima_controller.startAcq()
 
-            acq_trigger_mode = self.parameters.get(
+            acq_trigger_mode = self.acq_params.get(
                 "acq_trigger_mode", "INTERNAL_TRIGGER"
             )
 
@@ -287,7 +363,7 @@ class LimaAcquisitionMaster(AcquisitionMaster):
             }
 
     def reading(self):
-        acq_trigger_mode = self.parameters.get("acq_trigger_mode", "INTERNAL_TRIGGER")
+        acq_trigger_mode = self.acq_params.get("acq_trigger_mode", "INTERNAL_TRIGGER")
         last_image_ready = -1
         last_image_acquired = -1
         try:
@@ -324,7 +400,7 @@ class LimaAcquisitionMaster(AcquisitionMaster):
                         self._ready_event.set()
 
                 if acq_state == "running":
-                    gevent.sleep(max(self.parameters["acq_expo_time"] / 10.0, 10e-3))
+                    gevent.sleep(max(self.acq_params["acq_expo_time"] / 10.0, 10e-3))
                 else:
                     break
             if self._image_channel:
@@ -351,7 +427,7 @@ class LimaAcquisitionMaster(AcquisitionMaster):
             self,
             {
                 self.name: {
-                    "lima_parameters": self.parameters,
+                    "lima_parameters": self.acq_params,
                     "NX_class": "NXdetector",
                     "ctrl_parameters": self.ctrl_params,
                 }
@@ -359,120 +435,17 @@ class LimaAcquisitionMaster(AcquisitionMaster):
         )
 
 
-class LimaChainNode(ChainNode):
-    def _get_default_chain_parameters(self, scan_params, acq_params):
+class RoiCountersAcquisitionSlave(IntegratingCounterAcquisitionSlave):
+    def prepare_device(self):
+        self.device.upload_rois()
 
-        # Extract information
-        npoints = acq_params.get("acq_nb_frames", scan_params.get("npoints", 1))
 
-        try:
-            acq_expo_time = acq_params["acq_expo_time"]
-        except:
-            acq_expo_time = scan_params["count_time"]
+class BpmAcquisitionSlave(IntegratingCounterAcquisitionSlave):
+    def prepare_device(self):
+        self.device._proxy.Start()
 
-        if "INTERNAL_TRIGGER_MULTI" in self.controller.available_triggers:
-            default_trigger_mode = "INTERNAL_TRIGGER_MULTI"
-        else:
-            default_trigger_mode = "INTERNAL_TRIGGER"
+    def start_device(self):
+        self.device._proxy.Start()
 
-        acq_trigger_mode = acq_params.get("acq_trigger_mode", default_trigger_mode)
-
-        prepare_once = acq_trigger_mode in (
-            "INTERNAL_TRIGGER_MULTI",
-            "EXTERNAL_GATE",
-            "EXTERNAL_TRIGGER_MULTI",
-        )
-        start_once = acq_trigger_mode not in (
-            "INTERNAL_TRIGGER",
-            "INTERNAL_TRIGGER_MULTI",
-        )
-
-        data_synchronisation = scan_params.get("data_synchronisation", False)
-        if data_synchronisation:
-            prepare_once = start_once = False
-
-        acq_nb_frames = npoints if prepare_once else 1
-
-        stat_history = npoints
-
-        # Return required parameters
-        params = {}
-        params["acq_nb_frames"] = acq_nb_frames
-        params["acq_expo_time"] = acq_expo_time
-        params["acq_trigger_mode"] = acq_trigger_mode
-        params["acq_mode"] = acq_params.get("acq_mode", "SINGLE")
-        params["acc_max_expo_time"] = acq_params.get("acc_max_expo_time", 1.)
-        params["save"] = acq_params.get(
-            "save", True
-        )  # => key != AcqObj keyword and location not well defined  !
-        params["wait_frame_id"] = range(acq_nb_frames)
-        params["prepare_once"] = prepare_once
-        params["start_once"] = start_once
-        params["stat_history"] = stat_history
-
-        return params
-
-    def get_acquisition_object(self, acq_params, ctrl_params=None):
-
-        # --- Warn user if an unexpected is found in acq_params
-        expected_keys = [
-            "acq_mode",
-            "acq_nb_frames",
-            "acq_expo_time",
-            "acq_trigger_mode",
-            "acc_max_expo_time",
-            "prepare_once",
-            "start_once",
-            "wait_frame_id",
-            "acc_time_mode",
-            "latency_time",
-            "save",
-            "stat_history",
-        ]
-        for key in acq_params.keys():
-            if key not in expected_keys:
-                print(
-                    f"=== Warning: unexpected key '{key}' found in acquisition parameters for LimaAcquisitionMaster({self.controller}) ==="
-                )
-
-        # --- MANDATORY PARAMETERS -------------------------------------
-        acq_mode = acq_params["acq_mode"]
-        acq_nb_frames = acq_params["acq_nb_frames"]
-        acq_expo_time = acq_params["acq_expo_time"]
-        acq_trigger_mode = acq_params["acq_trigger_mode"]
-        prepare_once = acq_params["prepare_once"]
-        start_once = acq_params["start_once"]
-        # wait_frame_id = acq_params["wait_frame_id"]
-
-        if acq_mode == "ACCUMULATION":
-            acc_max_expo_time = acq_params["acc_max_expo_time"]
-        else:
-            # acc_max_expo_time = self.controller.acc_max_expo_time
-            acc_max_expo_time = 1.0
-
-        # --- PARAMETERS WITH DEFAULT VALUE -----------------------------
-        stat_history = acq_params.get("stat_history", acq_nb_frames)
-        wait_frame_id = acq_params.get("wait_frame_id", range(acq_nb_frames))
-        acc_time_mode = acq_params.get("acc_time_mode", "LIVE")
-        latency_time = acq_params.get("latency_time", 0)
-        save_flag = acq_params.get(
-            "save", True
-        )  # => key != AcqObj keyword  and location not well defined  !
-
-        # --- Note: LimaAcquisitionMaster has a .add_counter method (duplicates safe)
-        return LimaAcquisitionMaster(
-            self.controller,
-            acq_mode=acq_mode,
-            acq_nb_frames=acq_nb_frames,
-            acq_expo_time=acq_expo_time,
-            acq_trigger_mode=acq_trigger_mode,
-            acc_time_mode=acc_time_mode,
-            acc_max_expo_time=acc_max_expo_time,
-            latency_time=latency_time,
-            save_flag=save_flag,
-            prepare_once=prepare_once,
-            start_once=start_once,
-            wait_frame_id=wait_frame_id,
-            saving_statistics_history=stat_history,
-            ctrl_params=ctrl_params,
-        )
+    def stop_device(self):
+        self.device._proxy.Stop()

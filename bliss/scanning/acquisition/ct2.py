@@ -11,6 +11,7 @@ import gevent.event
 
 from bliss.common import event
 from bliss.scanning.chain import AcquisitionMaster
+from bliss.scanning.acquisition.counter import IntegratingCounterAcquisitionSlave
 from bliss.controllers.ct2.device import (
     AcqMode,
     AcqStatus,
@@ -27,13 +28,13 @@ class CT2AcquisitionMaster(AcquisitionMaster):
     def __init__(
         self,
         device,
+        ctrl_params=None,
         npoints=1,
         acq_expo_time=1.,
         acq_point_period=None,
         acq_mode=AcqMode.IntTrigMulti,
         prepare_once=True,
         start_once=True,
-        ctrl_params=None,
     ):
         self._connected = False
         self.acq_expo_time = acq_expo_time
@@ -53,7 +54,7 @@ class CT2AcquisitionMaster(AcquisitionMaster):
         kwargs = dict(
             npoints=npoints,
             prepare_once=prepare_once,
-            start_once=prepare_once,
+            start_once=start_once,
             trigger_type=trigger_type,
             ctrl_params=ctrl_params,
         )
@@ -122,3 +123,34 @@ class CT2AcquisitionMaster(AcquisitionMaster):
 
     def wait_ready(self):
         self._ready_event.wait()
+
+
+class CT2CounterAcquisitionSlave(IntegratingCounterAcquisitionSlave):
+    def prepare_device(self):
+        channels = []
+        counter_indexes = {}
+        ctrl = self.device._master_controller
+        in_channels = ctrl.INPUT_CHANNELS
+        timer_counter = ctrl.internal_timer_counter
+        point_nb_counter = ctrl.internal_point_nb_counter
+        channel_counters = dict(
+            [(counter.channel, counter) for counter in self._counters]
+        )
+
+        for i, channel in enumerate(sorted(channel_counters)):
+            counter = channel_counters[channel]
+            if channel in in_channels:
+                channels.append(channel)
+            elif channel == timer_counter:
+                i = -2
+                counter.timer_freq = ctrl.timer_freq
+            elif channel == point_nb_counter:
+                i = -1
+            counter_indexes[counter] = i
+        ctrl.acq_channels = channels
+        # counter_indexes dict<counter: index in data array>
+        self.device.counter_indexes = counter_indexes
+        # a hack here: since this prepare is called AFTER the
+        # CT2AcquisitionMaster prepare, we do a "second" prepare
+        # here after the acq_channels have been configured
+        ctrl.prepare_acq()

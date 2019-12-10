@@ -55,42 +55,58 @@ data = scans.get_data(scan)
 print(data['CALC2'])
 """
 
-from bliss.scanning.chain import AcquisitionSlave
+
 import gevent
 import numpy as np
 
 from bliss.controllers.emh import TRIGGER_INPUTS
+from bliss.scanning.chain import AcquisitionSlave
 
 
 class EmhAcquisitionSlave(AcquisitionSlave):
     """ TO BE USED IN HARDWARE TRIGGERED MODE ONLY """
 
-    def __init__(self, emh, trigger, int_time, npoints, counter_list, ctrl_params=None):
+    def __init__(
+        self, *devices, trigger=None, int_time=None, npoints=1, ctrl_params=None
+    ):
         """ Acquisition device for EMH counters.
+            *devices could be: the emh controller or the emh counters
         """
+
+        acq_params = self.validate_params(
+            {"trigger": trigger, "int_time": int_time, "npoints": npoints},
+            ctrl_params=ctrl_params,
+        )
+
         AcquisitionSlave.__init__(
             self,
-            *(counter_list if counter_list else (emh,)),
-            name=emh.name,
-            npoints=npoints,
+            *devices,
+            # name=emh.name,
+            npoints=acq_params["npoints"],
             trigger_type=AcquisitionSlave.HARDWARE,
             ctrl_params=ctrl_params,
         )
 
-        if trigger not in TRIGGER_INPUTS:
-            raise ValueError("{!r} is not a valid trigger".format(trigger))
-        self.trigger = trigger
+        self.trigger = acq_params["trigger"]
         # print("TRIGGER %s" % self.trigger)
 
-        int_time = int_time - 0.4
+        int_time = acq_params["int_time"] - 0.4
         if int_time < 0.320:
             int_time = 0.320
         self.int_time = int_time
 
         self.__stop_flag = False
 
-    # def add_counter(self, counter):
-    #    self.channels.append(AcquisitionChannel(counter.name, np.float, ()))
+    @staticmethod
+    def get_param_validation_schema():
+        acq_params_schema = {
+            "trigger": {"type": "string", "allowed": TRIGGER_INPUTS},
+            "int_time": {"type": "number"},
+            "npoints": {"type": "number"},
+        }
+
+        schema = {"acq_params": {"type": "dict", "schema": acq_params_schema}}
+        return schema
 
     def wait_ready(self):
         # return only when ready

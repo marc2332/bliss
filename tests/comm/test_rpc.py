@@ -14,7 +14,7 @@ from bliss.comm.rpc import Server, Client
 
 from bliss.common.logtools import get_logger
 
-from bliss.common.standard import debugon
+from bliss.shell.standard import debugon
 
 
 def null():

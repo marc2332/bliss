@@ -22,7 +22,7 @@ def bind_key(repl, action, *keys, **kwargs):
     Example binding `wa()` to F2 key::
         
         from prompt_toolkit.keys import Keys
-        from bliss.common.standard import wa
+        from bliss.shell.standard import wa
         from bliss.shell import repl_config, bind_key
         
         @repl_config

@@ -26,13 +26,10 @@ from prompt_toolkit import print_formatted_text, HTML
 from bliss import global_map, global_log, setup_globals, current_session
 from bliss.common import timedisplay
 from bliss.common.plot import plot
-from bliss.common.standard import lscnt as std_lscnt
-from bliss.common.standard import stm as std_stm
-from bliss.common.standard import wa as std_wa
-from bliss.common.standard import wm as std_wm
-from bliss.common.standard import sync as std_sync
-from bliss.common.standard import debugon as std_debugon
-from bliss.common.standard import debugoff as std_debugoff
+from bliss.common.standard import iter_counters
+from bliss.common.standard import iter_axes_state, iter_axes_state_all
+from bliss.common.standard import iter_axes_position, iter_axes_position_all
+from bliss.common.standard import sync
 from bliss.common.standard import info
 from bliss.common.standard import __move
 
@@ -133,17 +130,6 @@ def __row(cols, fmt, sep=" "):
     return sep.join([format(col, fmt) for col in cols])
 
 
-def sync(*axes):
-    """
-    Forces axes synchronization with the hardware
-
-    Args:
-        axes: list of axis objects or names. If no axis is given, it syncs all
-              all axes present in the session
-    """
-    std_sync(*axes)
-
-
 def lslog(glob: str = None, debug_only=False) -> None:
     """
     Search for loggers
@@ -232,7 +218,7 @@ def debugon(glob_logger_pattern_or_obj) -> None:
         Set logger [session.device.controller.roby] to DEBUG level
         Set logger [session.device.controller.robz] to DEBUG level
     """
-    activated = std_debugon(glob_logger_pattern_or_obj)
+    activated = global_log.debugon(glob_logger_pattern_or_obj)
     if activated:
         for name in activated:
             print(f"Setting {name} to show debug messages")
@@ -254,7 +240,7 @@ def lscnt():
     Display the list of all counters, sorted alphabetically
     """
     table_info = []
-    for counter_name, shape, prefix, name, alias in sorted(std_lscnt()):
+    for counter_name, shape, prefix, name, alias in sorted(iter_counters()):
         table_info.append(itertools.chain([counter_name], (shape, prefix, name, alias)))
     print("")
     print(
@@ -277,7 +263,7 @@ def stm(*axes, read_hw=False):
         read_hw (bool): If True, force communication with hardware, otherwise
                         (default) use cached value.
     """
-    data = std_stm(*axes, read_hw=read_hw)
+    data = iter_axes_state(*axes, read_hw=read_hw)
 
     table = [(axis, state) for (axis, state) in data]
 
@@ -320,7 +306,7 @@ def wa(**kwargs):
     tables = [(header, pos, dial)]
     errors = []
 
-    data = std_wa(**kwargs)
+    data = iter_axes_position_all(**kwargs)
     for axis_name, axis_unit, position, dial_position in data:
         if len(header) == max_cols:
             header, pos, dial = [], [], []
@@ -395,7 +381,7 @@ def wm(*axes, **kwargs):
         )
     ]
 
-    for axis in std_wm(*axes, **kwargs):
+    for axis in iter_axes_position(*axes, **kwargs):
 
         if len(header) == max_cols:
             header = [None]

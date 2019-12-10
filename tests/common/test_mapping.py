@@ -262,7 +262,7 @@ def test_global_map(beacon, s1hg, roby):
     assert len(axes) == 9
     counters = list(m.find_children("counters"))
     assert id(heater.counters[0]) in counters
-    assert len(counters) == 3
+    assert len(counters) == 2
     slits_children = m.find_children(id(s1hg.controller))
     for real_axis in s1hg.controller.reals:
         assert id(real_axis) in slits_children

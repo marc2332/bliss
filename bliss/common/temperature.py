@@ -51,7 +51,8 @@ class Input(SamplingCounterController):
 
         # useful attribute for a temperature controller writer
         self._attr_dict = {}
-        # global_map.register(self, parents_list=[controller])
+
+        global_map.register(self, parents_list=[controller])
 
     @property
     def controller(self):
@@ -84,7 +85,6 @@ class Output(SamplingCounterController):
         """ Constructor """
         super().__init__(config["name"])
         self.__controller = controller
-        # global_map.register(self, parents_list=[controller])
 
         try:
             self.__limits = (config.get("low_limit"), config.get("high_limit"))
@@ -109,6 +109,8 @@ class Output(SamplingCounterController):
 
         # useful attribute for a temperature controller writer
         self._attr_dict = {}
+
+        global_map.register(self, parents_list=[controller])
 
     @property
     def controller(self):
@@ -379,11 +381,10 @@ class Loop(SamplingCounterController):
         self.__config = config
         self.__input = config.get("input")
         self.__output = config.get("output")
-        # global_map.register(
-        #    self,
-        #    parents_list=[controller, "counters"],
-        #    children_list=[self.__input, self.__output],
-        # )
+
+        global_map.register(
+            self, parents_list=[controller], children_list=[self.__input, self.__output]
+        )
 
         self._Pval = None
         self._Ival = None

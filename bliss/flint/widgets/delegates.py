@@ -15,7 +15,7 @@ import logging
 import numpy
 
 from silx.gui import qt
-from silx.gui.plot import LegendSelector
+from silx.gui.widgets.LegendIconWidget import LegendIconWidget
 from silx.gui import colors as silx_colors
 from silx.gui import icons
 
@@ -125,88 +125,19 @@ class RemovePropertyItemDelegate(qt.QStyledItemDelegate):
         pass
 
 
-class StylePropertyWidget(LegendSelector.LegendIcon):
+class StylePropertyWidget(qt.QWidget):
     def __init__(self, parent):
-        LegendSelector.LegendIcon.__init__(self, parent=parent)
+        super(StylePropertyWidget, self).__init__(parent=parent)
+        layout = qt.QHBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        self.setLayout(layout)
+
+        self.__legend = LegendIconWidget(self)
+        layout.addWidget(self.__legend)
+
         self.__plotItem: Union[None, plot_model.Plot] = None
         self.__flintModel: Union[None, flint_model.FlintState] = None
         self.__scan: Union[None, scan_model.Scan] = None
-        self.__colormapLut = None
-
-    def paint(self, painter, rect, palette):
-        if self.__colormapLut is not None:
-            pixmap = self.getColormapPixmap(self.__colormapLut)
-            pixmapRect = qt.QRect(0, 0, _COLORMAP_PIXMAP_SIZE, 1)
-            widthMargin = 4
-            if self.symbol is None:
-                halfHeight = 4
-            else:
-                halfHeight = 2
-            dest = qt.QRect(
-                rect.left() + widthMargin,
-                rect.center().y() - halfHeight + 1,
-                rect.width() - widthMargin * 2,
-                halfHeight * 2,
-            )
-            painter.drawPixmap(dest, pixmap, pixmapRect)
-            return
-        super(StylePropertyWidget, self).paint(painter, rect, palette)
-
-    def getColormapPixmap(self, name=None, colors=None):
-        """Return an icon preview from a LUT name.
-
-        This icons are cached into a global structure.
-
-        :param str name: Name of the LUT
-        :param numpy.ndarray colors: Colors identify the LUT
-        :rtype: qt.QIcon
-        """
-        if name is not None:
-            iconKey = name
-        else:
-            iconKey = tuple(colors)
-        icon = _colormapPixmap.get(iconKey, None)
-        if icon is None:
-            icon = self.createColormapPixmap(name, colors)
-            _colormapPixmap[iconKey] = icon
-        return icon
-
-    def createColormapPixmap(self, name=None, colors=None):
-        """Create and return an icon preview from a LUT name.
-
-        This icons are cached into a global structure.
-
-        :param str name: Name of the LUT
-        :param numpy.ndarray colors: Colors identify the LUT
-        :rtype: qt.QIcon
-        """
-        colormap = silx_colors.Colormap(name)
-        size = _COLORMAP_PIXMAP_SIZE
-        if name is not None:
-            lut = colormap.getNColors(size)
-        else:
-            lut = colors
-            if len(lut) > size:
-                # Down sample
-                step = int(len(lut) / size)
-                lut = lut[::step]
-            elif len(lut) < size:
-                # Over sample
-                indexes = numpy.arange(size) / float(size) * (len(lut) - 1)
-                indexes = indexes.astype("int")
-                lut = lut[indexes]
-        if lut is None or len(lut) == 0:
-            return qt.QIcon()
-
-        pixmap = qt.QPixmap(size, 1)
-        painter = qt.QPainter(pixmap)
-        for i in range(size):
-            rgb = lut[i]
-            r, g, b = rgb[0], rgb[1], rgb[2]
-            painter.setPen(qt.QColor(r, g, b))
-            painter.drawPoint(qt.QPoint(i, 0))
-        painter.end()
-        return pixmap
 
     def setPlotItem(self, plotItem: plot_model.Item):
         if self.__plotItem is not None:
@@ -249,30 +180,30 @@ class StylePropertyWidget(LegendSelector.LegendIcon):
     def __update(self):
         plotItem = self.__plotItem
         if plotItem is None:
-            self.setLineColor("red")
-            self.setLineStyle(":")
-            self.setLineWidth(1.5)
+            self.__legend.setLineColor("red")
+            self.__legend.setLineStyle(":")
+            self.__legend.setLineWidth(1.5)
         else:
             scan = self.__scan
             try:
                 style = plotItem.getStyle(scan)
                 color = self.getQColor(style.lineColor)
                 if style.symbolStyle is not None:
-                    self.setSymbol(style.symbolStyle)
+                    self.__legend.setSymbol(style.symbolStyle)
                     if style.symbolColor is None:
-                        self.setSymbolColor(qt.QColor(0xE0, 0xE0, 0xE0))
+                        self.__legend.setSymbolColor(qt.QColor(0xE0, 0xE0, 0xE0))
                     else:
-                        self.setSymbolColor(style.symbolColor)
-                self.__colormapLut = style.colormapLut
-                self.setLineColor(color)
-                self.setLineStyle(style.lineStyle)
-                self.setLineWidth(1.5)
+                        self.__legend.setSymbolColor(style.symbolColor)
+                self.__legend.setSymbolColormap(style.colormapLut)
+                self.__legend.setLineColor(color)
+                self.__legend.setLineStyle(style.lineStyle)
+                self.__legend.setLineWidth(1.5)
             except Exception:
                 _logger.error("Error while reaching style", exc_info=True)
-                self.setLineColor("grey")
-                self.setLineStyle(":")
-                self.setLineWidth(1.5)
-        self.update()
+                self.__legend.setLineColor("grey")
+                self.__legend.setLineStyle(":")
+                self.__legend.setLineWidth(1.5)
+        self.__legend.update()
 
 
 class HookedStandardItem(qt.QStandardItem):

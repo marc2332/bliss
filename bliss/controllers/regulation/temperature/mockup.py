@@ -37,14 +37,12 @@ class MyDevice:
         self._stop_cool_down_events = None
         self._cool_down_task_frequency = 20.0
 
-        if self._stop_cool_down_events is None:
-            self._stop_cool_down_events = gevent.event.Event()
-
-        if not self._cool_down_tasks:
-            self._cool_down_tasks = gevent.spawn(self._cooling_task)
+    def __del__(self):
+        self._stop_cool_down_events.set()
 
     def get_current_temp(self):
         """ read the current temperature (like a sensor) """
+        self._start_cooling()
         return self.current_temp
 
     def get_heating_rate(self):
@@ -53,6 +51,13 @@ class MyDevice:
     def set_heating_rate(self, heating_rate):
         """ set the current heating rate (like an heater output) """
         self.heating_rate = heating_rate
+
+    def _start_cooling(self):
+        if self._stop_cool_down_events is None:
+            self._stop_cool_down_events = gevent.event.Event()
+
+        if not self._cool_down_tasks:
+            self._cool_down_tasks = gevent.spawn(self._cooling_task)
 
     def _cooling_task(self):
 

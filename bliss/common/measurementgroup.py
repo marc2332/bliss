@@ -4,6 +4,7 @@
 #
 # Copyright (c) 2015-2019 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
+import collections
 import itertools
 import functools
 import operator
@@ -103,35 +104,26 @@ def _check_counter_name(func):
     return f
 
 
-def _get_counter_container_name(name):
-    names = name.split(":")
-    for index in range(-1, -len(names), -1):
-        counter_access_name = ".".join(names[index:])
-        counter_container_name = ":".join(names[:index])
-        # first try to access from `.counters'
-        yield counter_container_name, f"counters.{counter_access_name}"
-        # second, maybe it's a group
-        yield counter_container_name, f"counter_groups.{counter_access_name}"
-
-
 def _get_counters_from_names(names_list):
     """Get the counters from a names list"""
     counters, missing = [], []
-    counters_by_names = dict()
+    counters_by_name = collections.defaultdict(set)
     all_counters_dict = dict()
 
     all_counters = set(global_map.get_counters_iter())
     for cnt in all_counters:
         all_counters_dict[cnt.fullname] = cnt
-        s = counters_by_names.setdefault(cnt.name, set())
-        s.add(cnt)
+        counters_by_name[cnt.name].add(cnt)
+    counter_containers_dict = {}
     for container in set(global_map.instance_iter("counters")) - all_counters:
-        all_counters_dict[container.name] = container
-
+        if hasattr(container, "fullname"):
+            counter_containers_dict[container.fullname] = container
+        else:
+            counter_containers_dict[container.name] = container
     keys = SortedKeyList(all_counters_dict)
     for name in set(names_list):
-        cnts = counters_by_names.get(name)
-        # get counter by name
+        # try to get counter by name
+        cnts = counters_by_name.get(name)
         if cnts is not None:
             # check there is a unique counter with this name
             if len(cnts) > 1:
@@ -140,7 +132,7 @@ def _get_counters_from_names(names_list):
                     f" change for one of those: {cnts}"
                 )
             # add counter and continue
-            counters += _get_counters_from_object(cnts.pop(), recursive=False)
+            counters += cnts
             continue
 
         # otherwise get counters by their full name
@@ -163,34 +155,14 @@ def _get_counters_from_names(names_list):
             counter_container_name = name.rstrip(":") + ":"
             # counter container case
             if index_name.startswith(counter_container_name):
-                for i in range(index, len(keys)):
-                    counters += _get_counters_from_object(
-                        all_counters_dict[index_name], recursive=False
-                    )
+                counters.append(all_counters_dict[index_name])
+                for i in range(index + 1, len(keys)):
                     index_name = keys[i]
                     if not index_name.startswith(counter_container_name):
                         break
+                    counters.append(all_counters_dict[index_name])
             else:
-                # counter case, finding controller
-                for counter_container_name, access_name in _get_counter_container_name(
-                    name
-                ):
-                    try:
-                        counter_container = all_counters_dict[counter_container_name]
-                    except KeyError:
-                        continue
-
-                    try:
-                        cnts = operator.attrgetter(access_name)(counter_container)
-                    except AttributeError:
-                        continue
-                    try:
-                        counters += cnts
-                    except TypeError:  # Simple counter
-                        counters.append(cnts)
-                    break
-                else:
-                    missing.append(name)
+                missing.append(name)
     if missing:
         raise AttributeError(*missing)
     return counters
@@ -381,23 +353,6 @@ class MeasurementGroup:
 
         states_list_new = [sn for sn in states_list_old if sn not in state_names]
         self._all_states.set(states_list_new)
-
-    @staticmethod
-    def _get_counter_names(counter_pattern, valid_counters):
-        counter_names = list()
-        for cnt_pattern in counter_pattern:
-            # if in valid_counters, not a pattern
-            if cnt_pattern in valid_counters:
-                counter_names.append(cnt_pattern)
-            else:
-                counter_names.extend(
-                    (
-                        cnt_name
-                        for cnt_name in valid_counters
-                        if fnmatch.fnmatch(cnt_name, cnt_pattern)
-                    )
-                )
-        return counter_names
 
     def __info__(self):
         """ function used when printing a measurement group.

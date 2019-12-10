@@ -6,65 +6,69 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 """
-Lakeshore 331, acessible via Serial line (RS232)
+Lakeshore 332, acessible via GPIB and Serial line (RS232)
 
 yml configuration example:
 #controller:
-- class: lakeshore331
-  module: lakeshore.lakeshore331
-  name: lakeshore331
+- class: lakeshore332
+  module: lakeshore.lakeshore332
+  name: lakeshore332
   timeout: 3
-  serial:
-     url: ser2net://lid102:28000/dev/ttyR1
-     baudrate: 9600    # max (other possible values: 300, 1200)
-     eol: "\r\n"
-
+  gpib:
+     url: enet://gpibid10f.esrf.fr
+     pad: 12
+     eol: "\r\n"     
+  # serial:
+  #    url: ser2net://lid102:28000/dev/ttyR1
+  #    baudrate: 9600    # = max (other possible values: 300, 1200)
+  #    eol: "\r\n"     
   inputs:
-    - name: ls331_A
+    - name: ls332_A
       channel: A 
       # possible set-point units: Kelvin, Celsius, Sensor_unit
       unit: Kelvin
-      #tango_server: ls_331
-    - name: ls331_A_c    # input temperature in Celsius
+      #tango_server: ls_332
+    - name: ls332_A_c    # input temperature in Celsius
       channel: A
       unit: Celsius
-    - name: ls331_A_su  # in sensor units (Ohm or Volt)
+    - name: ls332_A_su  # in sensor units (Ohm or Volt)
       channel: A
       unit: Sensor_unit
 
-    - name: ls331_B
+    - name: ls332_B
       channel: B 
       # possible set-point units: Kelvin, Celsius, Sensor_unit
       unit: Kelvin
-      #tango_server: ls_331
-    - name: ls331_B_c    # input temperature in Celsius
+      #tango_server: ls_332
+    - name: ls332_B_c    # input temperature in Celsius
       channel: B
       unit: Celsius
-    - name: ls331_B_su  # in sensor units (Ohm or Volt)
+      type: temperature_C
+    - name: ls332_B_su  # in sensor units (Ohm or Volt)
       channel: B
       unit: Sensor_unit
 
   outputs:
-    - name: ls331o_1
+    - name: ls332o_1
       channel: 1 
-      unit: Kelvin
-    - name: ls331o_2
+    - name: ls332o_2
       channel: 2 
 
   ctrl_loops:
-    - name: ls331l_1
-      input: $ls331_A
-      output: $ls331o_1
+    - name: ls332l_1
+      input: $ls332_A
+      output: $ls332o_1
       channel: 1
-    - name: ls331l_2
-      input: $ls331_B
-      output: $ls331o_2
+    - name: ls332l_2
+      input: $ls332_B
+      output: $ls332o_2
       channel: 2
 """
-import types
+
 import time
 import enum
 from bliss.comm import serial
+from bliss.comm import gpib
 from bliss.comm.util import get_interface, get_comm
 from bliss.common.logtools import *
 from bliss.controllers.temperature.lakeshore.lakeshore import LakeshoreBase
@@ -74,7 +78,7 @@ from .lakeshore import LakeshoreLoop as Loop
 
 _last_call = time.time()
 # limit number of commands per second
-# lakeshore 331 supports at most 20 commands per second
+# lakeshore 332 supports at most 20 commands per second
 def _send_limit(func):
     def f(*args, **kwargs):
         global _last_call
@@ -89,10 +93,10 @@ def _send_limit(func):
     return f
 
 
-class LakeShore331:
-    UNITS331 = {"Kelvin": 1, "Celsius": 2, "Sensor unit": 3}
-    REVUNITS331 = {1: "Kelvin", 2: "Celsius", 3: "Sensor unit"}
-    IPSENSORUNITS331 = {1: "volts", 2: "ohms"}
+class LakeShore332:
+    UNITS332 = {"Kelvin": 1, "Celsius": 2, "Sensor unit": 3}
+    REVUNITS332 = {1: "Kelvin", 2: "Celsius", 3: "Sensor unit"}
+    IPSENSORUNITS332 = {1: "volts", 2: "ohms"}
 
     def __init__(self, comm, **kwargs):
         self._comm = comm
@@ -136,6 +140,7 @@ class LakeShore331:
         ipu = loop.input.config["unit"]
         # Get loop object channel
         loop_channel = loop.config["channel"]
+
         self.set_loop_params(loop_channel, input=ipch, unit=ipu)
 
     # Standard INPUT-object related method(s)
@@ -428,10 +433,10 @@ class LakeShore331:
                     possibility is to display power (2). We are thus
                     consistent with the default value (= 1 = current).
         """
-        log_info(self, "read_loop_params")
+        log_info(self, "_read_loop_params")
         asw = self.send_cmd("CSET?", channel=channel).split(",")
         input = asw[0]
-        unit = self.REVUNITS331[int(asw[1])]
+        unit = self.REVUNITS332[int(asw[1])]
         powerup = "ON" if int(asw[2]) == 1 else "OFF"
         currpow = "current" if int(asw[3]) == 1 else "power"
         return {"input": input, "unit": unit, "powerup": powerup, "currpow": currpow}
@@ -449,7 +454,7 @@ class LakeShore331:
                 "Error: acceptables values for unit are 'Kelvin' or 'Celsius' or 'Sensor_unit'."
             )
         else:
-            unit = self.UNITS331[unit]
+            unit = self.UNITS332[unit]
 
         self.send_cmd("CSET", input, unit, powerupc, currpowc, channel=channel)
 
@@ -482,7 +487,7 @@ class LakeShore331:
         if "?" in command:
             asw = self._comm.write_readline(cmd.encode() + self.eol.encode())
             # print("asw = {0}".format(asw.decode()))
-            return asw.decode()
+            return asw.decode().strip(";")
         else:
             self._comm.write(cmd.encode() + self.eol.encode())
 
@@ -528,7 +533,7 @@ class LakeShore331:
         return asw.decode()
 
 
-class lakeshore331(LakeshoreBase):
+class lakeshore332(LakeshoreBase):
     # Number of calibration curves available
     NCURVES = 41
     NUSERCURVES = (21, 41)
@@ -564,14 +569,17 @@ class lakeshore331(LakeshoreBase):
         SHORT = 2
 
     def __init__(self, config, *args):
-        comm_interface = get_comm(config, parity="O", bytesize=7, stopbits=1)
+        if "serial" in config:
+            comm_interface = get_comm(config, parity="O", bytesize=7, stopbits=1)
+        else:
+            comm_interface = get_comm(config)
 
-        _lakeshore = LakeShore331(comm_interface)
+        _lakeshore = LakeShore332(comm_interface)
 
         model = _lakeshore._model()
-        if model != 331:
+        if model != 332:
             raise ValueError(
-                "Error, the Lakeshore model is {0}. It should be 331.".format(model)
+                "Error, the Lakeshore model is {0}. It should be 332.".format(model)
             )
 
         LakeshoreBase.__init__(self, _lakeshore, config, *args)
@@ -592,7 +600,7 @@ class lakeshore331(LakeshoreBase):
         return self.HeaterRange(r)
 
     def _set_heater_range(self, channel, value=None):
-        """ Set the heater range (0 to 3)
+        """ Set the heater range (0 to 3) [see Paragaph 4.13]
             It is used for heater output for loop 1, while for
             loop 2 can choose only between 0(heater off) and 1(heater on)
             though in the command syntax the output channel or loop

@@ -5,10 +5,7 @@
 # Copyright (c) 2015-2019 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-import numpy
-
 from bliss.common.axis import NoSettingsAxis, AxisState
-from bliss.config.static import get_config
 from bliss.controllers.motor import Controller
 
 
@@ -53,6 +50,7 @@ def get_move_func(obj, move):
 def get_stop_func(obj, stop):
     if stop is None:
         return None
+
     if callable(stop):
         return stop
 
@@ -61,6 +59,20 @@ def get_stop_func(obj, stop):
 
     stop_func.__name__ = stop
     return stop_func
+
+
+def get_state_func(obj, state):
+    if state is None:
+        return None
+
+    if callable(state):
+        return state
+
+    def state_func():
+        return getattr(obj, state)()
+
+    state_func.__name__ = state
+    return state_func
 
 
 class _Config(dict):
@@ -79,6 +91,7 @@ class SoftController(Controller):
         self._position = get_position_func(obj, axis_config["position"])
         self._move = get_move_func(obj, axis_config["move"])
         self._stop = get_stop_func(obj, axis_config["stop"])
+        self._state = get_state_func(obj, axis_config["state"])
 
     def initialize(self):
         # velocity and acceleration are not mandatory in config
@@ -89,7 +102,10 @@ class SoftController(Controller):
         pass
 
     def state(self, axis):
-        return AxisState("READY")
+        if self._state is None:
+            return AxisState("READY")
+        else:
+            return self._state()
 
     def start_one(self, motion):
         self._move(motion.target_pos)
@@ -102,4 +118,7 @@ class SoftController(Controller):
         return self._position()
 
     def stop(self, axis):
-        pass
+        if self._stop is None:
+            return
+        else:
+            return self._stop()

@@ -1,0 +1,106 @@
+- 
+    class: MyDevice     # <== any kind of object 
+    package: bliss.controllers.regulation.temperature.mockup
+    plugin: bliss
+    name: my_device
+
+-   
+    class: MyCustomInput     # <== a custom input defined by the user, inheriting from the ExternalInput class
+    package: bliss.controllers.regulation.temperature.mockup
+    plugin: bliss
+    name: custom_input
+    device: $my_device     # <== any kind of object 
+    unit: eV
+            
+
+-   
+    class: MyCustomOutput    # <== a custom output defined by the user, inheriting from the ExternalOutput class
+    package: bliss.controllers.regulation.temperature.mockup
+    plugin: bliss
+    name: custom_output
+    device: $my_device       # <== any kind of object 
+    unit: eV
+    low_limit: 0.0           # <== minimum device value [unit]
+    high_limit: 100.0        # <== maximum device value [unit]
+    ramprate: 0.0            # <== ramprate to reach the output value [unit/s]. 
+
+
+- 
+    class: Input             # <== value of key 'class' could be 'Input' or 'ExternalInput', the object will be an ExternalInput
+    name: diode_input          
+    device: $diode            # <== a SamplingCounter
+    unit: mm
+
+
+-
+    class: Output            # <== value of key 'class' could be 'Output' or 'ExternalOutput', the object will be an ExternalOutput
+    name: robz_output        
+    device: $robz            # <== an axis
+    unit: mm
+    low_limit: -1.0          # <== minimum device value [unit]
+    high_limit: 1.0          # <== maximum device value [unit]
+    ramprate: 0.0            # <== ramprate to reach the output value [unit/s].
+    mode: relative
+    
+
+- 
+    class: Loop              # <== value of key 'class' could be 'Loop' or 'SoftLoop', the object will be a SoftLoop
+    name: soft_regul
+    input: $custom_input
+    output: $custom_output
+    P: 0.01
+    I: 0.01
+    D: 0.0
+    low_limit: -1.0            # <== low limit of the PID output value. Usaually equal to 0 or -1.
+    high_limit: 1.0            # <== high limit of the PID output value. Usaually equal to 1.
+    frequency: 10.0
+    deadband: 0.1
+    deadband_time: 1.5
+    ramprate: 1.0       
+
+
+-   
+    class: Mockup
+    module: mockup
+    host: lid42
+    inputs:
+        - 
+            name: thermo_sample_new
+            channel: A
+            unit: deg
+            cooling_rate: 1.0       # <== special parameter for mockup inputs: defines the rate of the simulated cooling of the associated temperature [unit/s].
+            tango_server: temp1
+        - 
+            name: sensor_new
+            channel: B
+            cooling_rate: 2.0       # <== special parameter for mockup inputs: defines the rate of the simulated cooling of the associated temperature [unit/s].
+            tango_server: temp1
+
+    outputs: 
+        -
+            name: heater_new
+            channel: A 
+            unit: Volt
+            low_limit:  0.0          # <== minimum device value [unit]
+            high_limit: 100.0        # <== maximum device value [unit]
+            ramprate: 0.0            # <== ramprate to reach the output value [unit/s].
+            heating_rate: 10.0       # <== special parameter for mockup outputs: heating capability of the device at 100% of its power [deg/s].
+            tango_server: temp1
+
+    ctrl_loops:
+        -
+            name: sample_regulation_new
+            input: $thermo_sample_new
+            output: $heater_new
+            P: 0.5
+            I: 0.2
+            D: 0.0
+            low_limit: 0.0           # <==  low limit of the PID output value. Usaually equal to 0 or -1.
+            high_limit: 1.0          # <== high limit of the PID output value. Usaually equal to 1.
+            frequency: 10.0
+            deadband: 0.05
+            deadband_time: 1.5
+            ramprate: 1.0            # <== ramprate to reach the setpoint value [input_unit/s]
+            wait_mode: deadband
+            tango_server: temp1
+        

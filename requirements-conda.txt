@@ -33,6 +33,7 @@ pyzmq
 redis >= 5.0
 redis-py >= 3.3.7
 requests
+simple-pid
 sqlalchemy
 tabulate
 tango >= 9.3.2

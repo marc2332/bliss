@@ -17,12 +17,12 @@ import flask.json
 
 from jinja2 import Environment, FileSystemLoader
 
-from .. import server
-from .. import client
-from .. import connection
-from ... import static
-from ... import plugins
-from ....common import event
+from bliss.config.conductor import server
+from bliss.config.conductor import client
+from bliss.config.conductor import connection
+from bliss.config import static
+from bliss.config import plugins
+from bliss.common import event
 
 
 web_app = flask.Flask(__name__)

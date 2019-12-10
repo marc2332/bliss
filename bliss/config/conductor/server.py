@@ -649,7 +649,7 @@ def start_webserver(webapp_port, beacon_port, debug=True):
         _wlog.error("flask cannot be imported: web application won't be available")
         return
 
-    from .web.config_app import web_app
+    from .web.config_app.config_app import web_app
 
     _wlog.info("Web application sitting on port: %s", webapp_port)
     web_app.beacon_port = beacon_port

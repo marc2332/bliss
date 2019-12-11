@@ -159,6 +159,9 @@ class BeaconObject:
         self._event_channel = EventChannel(f"__EVENT__:{self.name}")
         self._event_channel.register_callback(self.__event_handler)
 
+    def __close__(self):
+        self._event_channel.unregister_callback(self.__event_handler)
+
     @autocomplete_property
     def config(self):
         return self._config

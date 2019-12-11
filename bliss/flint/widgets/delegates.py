@@ -22,8 +22,10 @@ from silx.gui import icons
 from bliss.flint.model import flint_model
 from bliss.flint.model import plot_model
 from bliss.flint.model import scan_model
+from bliss.flint.model import style_model
 from bliss.flint.widgets.eye_check_box import EyeCheckBox
 from bliss.flint.helper import model_helper
+from bliss.flint.widgets.style_dialog import StyleDialogEditor
 
 
 _logger = logging.getLogger(__name__)
@@ -154,8 +156,19 @@ class StylePropertyWidget(qt.QWidget):
             self.__edit = qt.QToolButton()
             self.__edit.setIcon(icon)
             self.__edit.setAutoRaise(True)
+            self.__edit.clicked.connect(self.__editStyle)
             layout = self.layout()
             layout.addWidget(self.__edit)
+
+    def __editStyle(self):
+        if self.__plotItem is None:
+            return
+        dialog = StyleDialogEditor(self)
+        dialog.setPlotItem(self.__plotItem)
+        result = dialog.exec_()
+        if result:
+            style = dialog.selectedStyle()
+            self.__plotItem.setCustomStyle(style)
 
     def setPlotItem(self, plotItem: plot_model.Item):
         if self.__plotItem is not None:
@@ -211,10 +224,18 @@ class StylePropertyWidget(qt.QWidget):
                     if style.symbolColor is None:
                         self.__legend.setSymbolColor(qt.QColor(0xE0, 0xE0, 0xE0))
                     else:
-                        self.__legend.setSymbolColor(style.symbolColor)
+                        symbolColor = self.getQColor(style.symbolColor)
+                        self.__legend.setSymbolColor(symbolColor)
                 self.__legend.setSymbolColormap(style.colormapLut)
+                if isinstance(style.lineStyle, str):
+                    lineStyle = style.lineStyle
+                elif style.lineStyle == style_model.LineStyle.NO_LINE:
+                    lineStyle = " "
+                elif style.lineStyle == style_model.LineStyle.SCATTER_SEQUENCE:
+                    lineStyle = "-"
+
                 self.__legend.setLineColor(color)
-                self.__legend.setLineStyle(style.lineStyle)
+                self.__legend.setLineStyle(lineStyle)
                 self.__legend.setLineWidth(1.5)
             except Exception:
                 _logger.error("Error while reaching style", exc_info=True)

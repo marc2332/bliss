@@ -18,6 +18,7 @@ from silx.gui.plot import Plot1D
 from bliss.flint.model import scan_model
 from bliss.flint.model import flint_model
 from bliss.flint.model import plot_model
+from bliss.flint.model import style_model
 from bliss.flint.model import plot_item_model
 from bliss.flint.widgets.extended_dock_widget import ExtendedDockWidget
 from bliss.flint.helper import scan_info_helper
@@ -106,6 +107,8 @@ class ScatterPlotWidget(ExtendedDockWidget):
     ):
         inTransaction = self.__plotModel.isInTransaction()
         if eventType == plot_model.ChangeEventType.VISIBILITY:
+            self.__updateItem(item)
+        elif eventType == plot_model.ChangeEventType.CUSTOM_STYLE:
             self.__updateItem(item)
         elif eventType == plot_model.ChangeEventType.X_CHANNEL:
             self.__updateItem(item)
@@ -228,36 +231,79 @@ class ScatterPlotWidget(ExtendedDockWidget):
 
         resetZoom = not self.__plotModel.isInTransaction()
 
+        self.__cleanItem(item)
+
         if not item.isVisible():
-            self.__cleanItem(item)
             return
 
         if not item.isValidInScan(scan):
-            self.__cleanItem(item)
             return
 
         valueChannel = item.valueChannel()
         xChannel = item.xChannel()
         yChannel = item.yChannel()
         if valueChannel is None or xChannel is None or yChannel is None:
-            self.__cleanItem(item)
             return
 
         value = valueChannel.array(scan)
         xx = xChannel.array(scan)
         yy = yChannel.array(scan)
         if value is None or xx is None or yy is None:
-            self.__cleanItem(item)
             return
 
         legend = valueChannel.name()
         style = item.getStyle(scan)
         colormap = colors.Colormap(style.colormapLut)
-        key = plot.addScatter(x=xx, y=yy, value=value, legend=legend, colormap=colormap)
-        scatter = plot.getScatter(key)
-        scatter.setSymbolSize(style.symbolSize)
 
-        plotItems.append((key, "scatter"))
+        if style.fillStyle is not None:
+            key = plot.addScatter(
+                x=xx, y=yy, value=value, legend=legend + "_solid", colormap=colormap
+            )
+            scatter = plot.getScatter(key)
+            if style.fillStyle == style_model.FillStyle.SCATTER_REGULAR_GRID:
+                scatter.setVisualization(scatter.Visualization.REGULAR_GRID)
+            elif style.fillStyle == style_model.FillStyle.SCATTER_INTERPOLATION:
+                scatter.setVisualization(scatter.Visualization.SOLID)
+            else:
+                pass
+            plotItems.append((key, "scatter"))
+
+        if style.lineStyle == style_model.LineStyle.SCATTER_SEQUENCE:
+            key = plot.addCurve(
+                x=xx,
+                y=yy,
+                legend=legend + "_line",
+                color=style.lineColor,
+                linestyle="-",
+            )
+            plotItems.append((key, "curve"))
+
+        if style.symbolStyle is not None:
+            symbolColormap = colormap if style.symbolColor is None else None
+            if symbolColormap:
+                key = plot.addScatter(
+                    x=xx,
+                    y=yy,
+                    value=value,
+                    legend=legend + "_point",
+                    colormap=symbolColormap,
+                )
+                scatter = plot.getScatter(key)
+                scatter.setSymbol(style.symbolStyle)
+                scatter.setSymbolSize(style.symbolSize)
+                plotItems.append((key, "scatter"))
+            else:
+                key = plot.addCurve(
+                    x=xx,
+                    y=yy,
+                    legend=legend + "_point",
+                    color=style.symbolColor,
+                    symbol=style.symbolStyle,
+                    linestyle=" ",
+                )
+                curve = plot.getCurve(key)
+                curve.setSymbolSize(style.symbolSize)
+                plotItems.append((key, "curve"))
 
         self.__items[item] = plotItems
         if resetZoom:

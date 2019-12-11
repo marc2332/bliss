@@ -20,7 +20,8 @@ _logger = logging.getLogger(__name__)
 
 class SimulatorWidget(qt.QMainWindow):
     def __init__(self, parent: qt.QWidget = None):
-        super(SimulatorWidget, self).__init__(parent=parent)
+        flags = qt.Qt.WindowStaysOnTopHint
+        super(SimulatorWidget, self).__init__(parent=parent, flags=flags)
         self.setWindowTitle("Simulator")
         self.__simulator: Optional[AcquisitionSimulator] = None
         self.__flintModel: Optional[flint_model.FlintState] = None

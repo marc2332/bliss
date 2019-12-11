@@ -18,7 +18,7 @@ from bliss.scanning.acquisition.counter import IntegratingCounterAcquisitionSlav
 class MusstIntegratingAcquisitionSlave(IntegratingCounterAcquisitionSlave):
     def reading(self):
 
-        musst = self.device.master_controller
+        musst = self.device._master_controller
 
         while not self._stop_flag and musst.STATE != musst.RUN_STATE:
             gevent.sleep(0.01)

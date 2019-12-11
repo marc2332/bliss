@@ -38,6 +38,7 @@ import contextlib
 from silx.gui import qt
 from . import scan_model
 from .style_model import Style
+from . import style_model
 
 
 class ChangeEventType(enum.Enum):
@@ -162,6 +163,11 @@ class Plot(qt.QObject):
         self.__invalidateStyleStrategy()
         self.structureChanged.emit()
 
+    def itemValueWasChanged(self, item, eventType: ChangeEventType):
+        if eventType == ChangeEventType.CUSTOM_STYLE:
+            self.__invalidateStyleStrategy()
+        self.itemValueChanged.emit(item, eventType)
+
     def styleStrategy(self):
         """Returns the style strategy used by this plot."""
         return self.__styleStrategy
@@ -267,6 +273,7 @@ class Item(qt.QObject):
         self.__isVisible: bool = True
         self.__plot: Optional[Plot] = None
         self.__version = 0
+        self.__customStyle: Optional[style_model.Style] = None
 
     def __reduce__(self):
         return (self.__class__, (), self.__getstate__())
@@ -330,7 +337,7 @@ class Item(qt.QObject):
         self.__version = (self.__version + 1) % 0x1000000
         plot = self.plot()
         if plot is not None:
-            plot.itemValueChanged.emit(self, eventType)
+            plot.itemValueWasChanged(self, eventType)
         self.valueChanged.emit(eventType)
 
     def setVisible(self, isVisible: bool):
@@ -344,7 +351,16 @@ class Item(qt.QObject):
         """Returns true if this item is visible."""
         return self.__isVisible
 
-    def getStyle(self, scan: scan_model.Scan = None) -> Style:
+    def setCustomStyle(self, style: style_model.Style):
+        if self.__customStyle == style:
+            return
+        self.__customStyle = style
+        self._emitValueChanged(ChangeEventType.CUSTOM_STYLE)
+
+    def customStyle(self) -> style_model.Style:
+        return self.__customStyle
+
+    def getStyle(self, scan: scan_model.Scan = None) -> style_model.Style:
         """Returns the style of this item."""
         plot = self.parent()
         strategy = plot.styleStrategy()

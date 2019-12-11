@@ -68,11 +68,13 @@ class DefaultStyleStrategy(plot_model.StyleStrategy):
 
         if len(scatters) == 1:
             scatter = scatters[0]
-            style = plot_model.Style(
-                symbolStyle="o",
-                symbolSize=self._SYMBOL_SIZE,
-                colormapLut=self._COLORMAP,
-            )
+            style = scatter.customStyle()
+            if style is None:
+                style = plot_model.Style(
+                    symbolStyle="o",
+                    symbolSize=self._SYMBOL_SIZE,
+                    colormapLut=self._COLORMAP,
+                )
             self.cacheStyle(scatter, None, style)
         else:
             baseSize = self._SYMBOL_SIZE / 3

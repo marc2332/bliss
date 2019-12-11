@@ -512,7 +512,7 @@ relay intlckf2 STICKY name Interlock 2
     modules_config = wago.controller.modules_config
 
     yml = specfile_to_yml(specfile)
-    dict_ = yaml.load(yml)
+    dict_ = yaml.safe_load(yml)
     beacon_interlock_parsing(dict_["interlocks"], modules_config)
 
 
@@ -536,7 +536,7 @@ def test_export_to_yml(default_session, wago_mockup):
         assert word in yml
     for word in "esTf1 esTf2 -10 10 50 50.5 TC".split():
         assert word in yml
-    interlock_dict_from_yml = yaml.load(yml)["interlocks"]
+    interlock_dict_from_yml = yaml.safe_load(yml)["interlocks"]
 
     # creating again a list of interlocks from yml
     interlock_list_from_yml = beacon_interlock_parsing(

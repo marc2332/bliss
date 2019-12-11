@@ -101,7 +101,11 @@ def _releaseAllLock(client_id):
         try_lock_object = set(tlo)
         if try_lock_object.intersection(objset):
             objs = _waiting_lock.pop(client_sock)
-            client_sock.sendall(protocol.message(protocol.LOCK_RETRY))
+            try:
+                client_sock.sendall(protocol.message(protocol.LOCK_RETRY))
+            except OSError:
+                # maybe this client is dead or whatever
+                continue
 
 
 def _lock(client_id, prio, lock_obj, raw_message):

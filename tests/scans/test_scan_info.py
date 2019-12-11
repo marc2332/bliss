@@ -127,4 +127,59 @@ def test_scan_meta_master_and_device(session, scan_meta):
     chain.add(master, slave)
 
     s = Scan(chain, name="my_simple")
+    s._prepare_scan_meta()
+
     assert s.scan_info["instrument"] == {**master_dict, **device_dict}
+
+
+def test_positioners_in_scan_info(alias_session):
+    env_dict = alias_session.env_dict
+    lima_simulator = env_dict["lima_simulator"]
+    robyy = env_dict["robyy"]
+    diode = alias_session.config.get("diode")
+
+    # test that positioners are remaining in for a simple counter that does not update 'scan_info'
+    s1 = scans.ascan(robyy, 0, 1, 3, .1, diode, run=False, save=False)
+
+    robyy.rmove(0.1)  # related to issue #1179
+    initial_robyy_position = robyy.position
+
+    s1.run()
+    assert "positioners" in s1.scan_info["instrument"]
+    assert s1.scan_info["instrument"]["positioners"]["robyy"] == initial_robyy_position
+
+    # test that positioners are remaining in for a counter that updates 'scan_info'
+    initial_robyy_position = robyy.position
+    s2 = scans.ascan(robyy, 0, 1, 3, .1, lima_simulator, run=False, save=False)
+    s2.run()
+    assert "positioners" in s2.scan_info["instrument"]
+    assert s2.scan_info["instrument"]["positioners"]["robyy"] == initial_robyy_position
+
+
+def test_scan_info_cleaning(alias_session):
+    env_dict = alias_session.env_dict
+    lima_simulator = env_dict["lima_simulator"]
+    robyy = env_dict["robyy"]
+    diode = alias_session.config.get("diode")
+
+    # test that positioners are remaining in for a simple counter that does not update 'scan_info'
+    s1 = scans.ascan(robyy, 0, 1, 3, .1, diode, save=False)
+    assert "lima_simulator" not in s1.scan_info["instrument"]
+
+    # test that positioners are remaining in for a counter that updates 'scan_info'
+    s2 = scans.ascan(robyy, 0, 1, 3, .1, lima_simulator, save=False)
+    assert "lima_simulator" in s2.scan_info["instrument"]
+
+    # test that 'lima_simulator' does not remain in 'scan_info' for a scan that it is not involved in
+    s3 = scans.ascan(robyy, 0, 1, 3, .1, diode, save=False)
+    assert "lima_simulator" not in s3.scan_info["instrument"]
+
+
+def test_scan_saving_without_axis_in_session(default_session):
+    # put scan file in a tmp directory
+    diode = default_session.config.get("diode")
+
+    s = scans.loopscan(3, .1, diode, save=False)
+
+    assert "positioners" in s.scan_info["instrument"]
+    assert s.scan_info["instrument"]["positioners"] == {}

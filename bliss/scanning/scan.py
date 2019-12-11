@@ -31,17 +31,17 @@ from bliss.common.plot import (
     McaPlot,
 )
 from bliss.common.utils import periodic_exec, deep_update
-from .scan_meta import get_user_scan_meta
+from bliss.scanning.scan_meta import get_user_scan_meta
 from bliss.common.axis import Axis
 from bliss.common.utils import Statistics, Null
 from bliss.config.settings import ParametersWardrobe
 from bliss.config.settings import pipeline
 from bliss.data.node import _get_or_create_node, _create_node, is_zerod
 from bliss.data.scan import get_data
-from .chain import AcquisitionSlave, AcquisitionMaster, StopChain
-from .writer.null import Writer as NullWriter
-from .scan_math import peak, cen, com
-from . import writer
+from bliss.scanning.chain import AcquisitionSlave, AcquisitionMaster, StopChain
+from bliss.scanning.writer.null import Writer as NullWriter
+from bliss.scanning.scan_math import peak, cen, com
+from bliss.scanning import writer
 
 from louie import saferef
 
@@ -879,17 +879,10 @@ class Scan:
         self.__nodes = dict()
         self._devices = []
 
-        self.user_scan_meta = get_user_scan_meta().copy()
-        # call all master and device to fill scan_meta
-        for dev in chain.nodes_list:
-            dev.fill_meta_at_scan_init(self.user_scan_meta)
         self._scan_info["session_name"] = session_name
         self._scan_info["user_name"] = user_name
-        self._scan_info["filename"] = self.writer.filename
         self._scan_info.setdefault("title", name)
 
-        deep_update(self._scan_info, self.user_scan_meta.to_dict(self))
-        self._scan_info["scan_meta_categories"] = self.user_scan_meta.cat_list()
         self._data_watch_task = None
         self._data_watch_callback = data_watch_callback
         self._data_events = dict()
@@ -1208,6 +1201,15 @@ class Scan:
 
         self.writer.prepare(self)
 
+    def _prepare_scan_meta(self):
+        self._scan_info["filename"] = self.writer.filename
+        self.user_scan_meta = get_user_scan_meta().copy()
+        # call all master and device to fill scan_meta
+        for dev in self.acq_chain.nodes_list:
+            dev.fill_meta_at_scan_init(self.user_scan_meta)
+        deep_update(self._scan_info, self.user_scan_meta.to_dict(self))
+        self._scan_info["scan_meta_categories"] = self.user_scan_meta.cat_list()
+
     def disconnect_all(self):
         for dev in self._devices:
             if isinstance(dev, (AcquisitionSlave, AcquisitionMaster)):
@@ -1222,6 +1224,8 @@ class Scan:
             raise RuntimeError(
                 "Scan state is not idle. Scan objects can only be used once."
             )
+
+        self._prepare_scan_meta()
 
         call_on_prepare, call_on_stop = False, False
         set_watch_event = None

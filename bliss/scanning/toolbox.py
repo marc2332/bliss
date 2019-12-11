@@ -262,15 +262,20 @@ class ChainBuilder:
 
     @property
     def nodes(self):
-        return self._cached_nodes.values()
+        return self.get_top_level_nodes()
 
     # ---------- Nodes filtering tools -------------------------------
+    def get_all_nodes(self):
+        """ return all nodes (top_level and children nodes)"""
+        return self._cached_nodes.values()
 
     def get_top_level_nodes(self, nodes=None):
+        """return top level nodes"""
         if nodes is None:
-            nodes = self.nodes
+            nodes = self.get_all_nodes()
         return [node for node in nodes if node.is_top_level]
 
+    # ------- Filtering methods which by default works on the top_level_nodes only -----------
     def get_nodes_by_controller_type(self, ctrl_class, nodes=None):
         if nodes is None:
             nodes = self.nodes
@@ -305,7 +310,7 @@ class ChainBuilder:
 
     def print_tree(self, nodes=None, not_ready_only=True):
         if nodes is None:
-            nodes = self.nodes
+            nodes = self.get_all_nodes()
 
         if not_ready_only:
             if len(self.get_nodes_not_ready(nodes)) == 0:

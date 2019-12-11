@@ -47,7 +47,7 @@ In the YAML configuration, can be found:
 * the internal multiplexers description
 * the program to load into the OPIOM
 
-Multiplexers are typically used in a [scan preset](scan_default.html#using-presets-to-customize-a-scan).
+Multiplexers are typically used in a [scan preset](scan_default.md#using-presets-to-customize-a-scan).
 
 
 

@@ -87,7 +87,7 @@ class MusstSamplingCounterController(SamplingCounterController):
         """ return the values of the given counters as a list.
             If possible this method should optimize the reading of all counters at once.
         """
-        return self.master_controller.read_all(*counters)
+        return self._master_controller.read_all(*counters)
 
 
 class MusstIntegratingCounterController(IntegratingCounterController):
@@ -108,7 +108,7 @@ class MusstIntegratingCounterController(IntegratingCounterController):
         )
 
     def get_values(self, from_index, *counters):
-        return self.master_controller.read_all(*counters)
+        return self._master_controller.read_all(*counters)
 
 
 class musst(CounterController):

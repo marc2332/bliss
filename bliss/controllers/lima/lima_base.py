@@ -303,6 +303,10 @@ class Lima(CounterController):
             config_tree, self._proxy, f"{name_prefix}:{self.name}:processing"
         )
 
+    def __close__(self):
+        self._processing.__close__()
+        self._saving.__close__()
+
     def get_acquisition_object(self, acq_params, ctrl_params, parent_acq_params):
         return LimaAcquisitionMaster(self, ctrl_params=ctrl_params, **acq_params)
 

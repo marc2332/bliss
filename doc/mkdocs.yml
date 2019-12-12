@@ -147,6 +147,7 @@ nav:
                 - Testing: dev_testing.md
                 - Xia handle: config_mca_handel.md
                 - Speedgoat: config_speedgoat.md
+                - timedisplay: timedisplay.md
 theme:
         name: material
         language: en

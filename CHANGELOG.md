@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- CounterController
+  - New file `bliss.controllers.counter` including the base classes of the standard CounterControllers:
+    - `CounterController` base class for `Counter` management.
+    - `SamplingCounterController` class for `SamplinCounter` management.
+    - `IntegratingCounterController` class for `IntegratingCounter` management.
+    - `CalcCounterController` class for `CalcCounter` management.
+    - `SoftCounterController` class for `SoftCounter` management.
+
+- AcquisitionObject
+  - New `AcquisitionObject` base class (`bliss.scanning.chain`).
 
 - Session
   - Store scans in `.scans` property in `Session` object.
@@ -43,6 +53,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Counters refactoring
+  - The file `bliss.common.measurement` has been renamed `bliss.common.counter`.
+  - Unique base class `Counter` (`bliss.common.counter`) for counters objects.
+  - The `Counter` object requires a `CounterController` object (`bliss.controllers.counter`) (mandatory).
+  - The `Counter` object has a `._counter_controller` property which returns its `CounterController` (the counter owner).
+  - All standard counters (`SamplingCounter`,`IntegratingCounter` ,`SoftCounter` , `CalcCounter`) inherit from the `Counter` base class.
+
+- CounterController
+  - `get_acquisition_object` method attached to the `CounterController` object.
+
+- AcquisitionObject
+  - `AcquisitionSlave` inherits from `AcquisitionObject` base class.
+  - `Acquisitionmaster` inherits from `AcquisitionObject` base class.
+
 - Flint
   - Default curve colors was updated
   - `bliss.scanning.Scan.get_plot` API was changed, now it uses a channel object and a plot kind (`image`, `scatter`, `mca` or `curve`)
@@ -65,6 +89,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Location of the live plots stay the same between 2 scans
 
 ### Removed
+
+- Counters refactoring
+  - `BaseCounter` interface class has been removed.
+  - `GroupedReadMixin` class has been removed.
+  - `controller` property removed from the `Counter` class.
+  - `master_controller` property removed from the `Counter` class.
+  - `create_acquisition_device` method removed from the `Counter` class.
+  - `DefaultSamplingCounterGroupedReadHandler` has been removed.
+  - `DefaultSingleSamplingCounterReadHandler` has been removed.
+  - `DefaultIntegratingCounterGroupedReadHandler` has been removed.
+  - `DefaultSingleIntegratingCounterReadHandler` has been removed.
+  - `Read` method removed from `SamplingCounter` class.
+
+- AcquisitionObject
+  - `AcquisitionDevice` renamed as `AcquisitionSlave`.
 
 - Flint
   - `flint.set_dpi` was removed. A local use setting is provided now.

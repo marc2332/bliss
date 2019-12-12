@@ -412,6 +412,37 @@ class AcquisitionObject:
         """Load controller parameters into hardware controller at the beginning of each scan"""
         from bliss.controllers.counter import CounterController
 
+
+    def fill_meta_at_scan_init(self, scan_meta):
+        """
+        In this method, acquisition device should collect and meta data
+        related to this device and prepare it for publishing. it is called 
+        during the scan initialization. 
+        
+        This can be used in two ways:
+        1) attaching meta data to the scan_meta object and publishing it in scan_info
+           i.e: scan_meta.instrument.set(self,{"timing mode":"fast"})
+        2) the return value of this function is used to fill the meta data of the
+           node attached to this AcqObj
+        """
+        return None
+
+    def fill_meta_at_scan_end(self, scan_meta):
+        """
+        In this method, acquisition device should collect and meta data
+        related to this device and prepare it for publishing. it is called 
+        at the end of the scan. 
+        
+        This can be used in two ways:
+        1) attaching meta data to the scan_meta object and publishing it in scan_info
+           i.e: scan_meta.instrument.set(self,{"timing mode":"fast"})
+        2) the return value of this function is used to fill the meta data of the
+           node attached to this AcqObj
+        """
+        return None
+
+    # --------------------------- OVERLOAD METHODS  ---------------------------------------------
+
         if isinstance(self.device, CounterController):
             self.device.apply_parameters(self._ctrl_params)
 
@@ -647,22 +678,6 @@ class AcquisitionMaster(AcquisitionObject):
     def set_image_saving(self, directory, prefix, force_no_saving=False):
         pass
 
-    def fill_meta_at_scan_init(self, scan_meta):
-        """
-        In this method, acquisition device should fill the information relative to his device in
-        the scan_meta object. It is called during the scan initialization
-        i.e: scan_meta.instrument.set(self,{"timing mode":"fast"})
-        """
-        pass
-
-    def fill_meta_at_scan_end(self, scan_meta):
-        """
-        In this method, acquisition device should fill the information relative to his device in
-        the scan_meta object. It is called at the scan end
-        i.e: scan_meta.instrument.set(self,{"timing mode":"fast"})
-        """
-        pass
-
 
 class AcquisitionSlave(AcquisitionObject):
     HARDWARE, SOFTWARE = TRIGGER_MODE_ENUM.HARDWARE, TRIGGER_MODE_ENUM.SOFTWARE
@@ -748,22 +763,6 @@ class AcquisitionSlave(AcquisitionObject):
     def wait_ready(self):
         # wait until ready for next acquisition
         return True
-
-    def fill_meta_at_scan_init(self, scan_meta):
-        """
-        In this method, acquisition device should fill the information relative to his device in
-        the scan_meta object. It is called during the scan initialization
-        i.e: scan_meta.instrument.set(self,{"timing mode":"fast"})
-        """
-        pass
-
-    def fill_meta_at_scan_end(self, scan_meta):
-        """
-        In this method, acquisition device should fill the information relative to his device in
-        the scan_meta object. It is called at the scan end
-        i.e: scan_meta.instrument.set(self,{"timing mode":"fast"})
-        """
-        pass
 
 
 class AcquisitionChainIter:

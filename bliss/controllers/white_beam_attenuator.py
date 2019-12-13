@@ -34,7 +34,12 @@ class WhiteBeamAttenuator:
 
     def __init__(self, name, config):
         self.attenuators = config.get("attenuators")
+        self.__name = name
         global_map.register(self, tag=name)
+
+    @property
+    def name(self):
+        return self.__name
 
     def _find_index(self, attenuator_name):
         """Find the index of the attenuator in the list of attenuators.

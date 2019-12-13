@@ -105,7 +105,7 @@ import numpy as np
 import gevent
 import treelib
 from bliss.comm import rpc
-from bliss.common.counter import SamplingCounter
+from bliss.common.counter import Counter, SamplingCounter
 from bliss.controllers.counter import CounterController
 from bliss.scanning.acquisition.counter import SamplingCounterAcquisitionSlave
 
@@ -610,7 +610,7 @@ class SpeedgoatCountersController(CounterController):
         # create counters
         self.available_counters = {}
         for cnt_name in sig_cnt.keys():
-            self.available_counters[cnt_name] = Counter(
+            self.available_counters[cnt_name] = SimpleCounter(
                 self, cnt_name, sig_cnt[cnt_name], par_cnt[cnt_name]
             )
 
@@ -622,6 +622,9 @@ class SpeedgoatCountersController(CounterController):
 
             from bliss.scanning.acquisition.speedgoat import SpeedgoatAcquisitionSlave
 
+            acq_params.pop(
+                "count_time"
+            )  # remove the count_time used in the other case for the SamplingCounterAcquisitionSlave  (i.e. if trigger_type != "HARDWARE" )
             return SpeedgoatAcquisitionSlave(
                 self, ctrl_params=ctrl_params, **acq_params
             )
@@ -666,15 +669,15 @@ class SpeedgoatCountersController(CounterController):
         return self.read_counters(cnt_names)
 
 
-class Counter(object):
+class SimpleCounter(Counter):
     def __init__(self, controller, counter_name, signal_node, param_node):
-        self.controller = controller
-        self.name = counter_name
+        super().__init__(counter_name, controller)
+
         self.signal_node = signal_node
         self.param_node = param_node
 
         self.signals = {}
-        for node in self.controller.speedgoat._cache["signal_tree"].children(
+        for node in self._counter_controller.speedgoat._cache["signal_tree"].children(
             self.signal_node.identifier
         ):
             if node.data is not None:
@@ -683,7 +686,7 @@ class Counter(object):
     def read_signal(self, signal):
         if signal in self.signals.keys():
             idx = self.signals[signal].data["idx"]
-            value = self.controller.speedgoat.get_signal_value_from_idxs([idx])
+            value = self._counter_controller.speedgoat.get_signal_value_from_idxs([idx])
         return value[0]
 
     def read_index(self):
@@ -703,7 +706,7 @@ class SpeedgoatCounter(SamplingCounter):
     def __init__(self, name, config):
 
         self.speedgoat = config.get_inherited("speedgoat")
-        SamplingCounter.__init__(self, name, self.speedgoat.counters_controller)
+        super().__init__(name, self.speedgoat.counters_controller)
 
         try:
             self.params = self.speedgoat.counters[name]
@@ -712,7 +715,7 @@ class SpeedgoatCounter(SamplingCounter):
                 'speedgoat: Counter "%s" not configured in speedgoat' % name
             )
 
-        self.controller._counters[name] = self
+        self._counter_controller._counters[name] = self
 
 
 ##########################################################################

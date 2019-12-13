@@ -21,6 +21,7 @@ from typing import Iterator
 from typing import Dict
 from typing import Any
 from typing import Set
+from typing import NamedTuple
 
 import logging
 import numpy
@@ -380,6 +381,21 @@ class ChannelType(enum.Enum):
     Only the last data stored."""
 
 
+class AxesKind(enum.Enum):
+    FAST = "fast"
+    SLOW = "slow"
+
+
+class ChannelMetadata(NamedTuple):
+    start: Optional[float]
+    stop: Optional[float]
+    min: Optional[float]
+    max: Optional[float]
+    points: Optional[int]
+    axesPoints: Optional[int]
+    axesKind: Optional[AxesKind]
+
+
 class Channel(qt.QObject, _Sealable):
     """
     Description of a channel.
@@ -399,6 +415,7 @@ class Channel(qt.QObject, _Sealable):
         qt.QObject.__init__(self, parent=parent)
         _Sealable.__init__(self)
         self.__data: Optional[Data] = None
+        self.__metadata: Optional[ChannelMetadata] = None
         self.__name: str = ""
         self.__type: ChannelType = ChannelType.COUNTER
         self.__displayName: Optional[str] = None
@@ -415,6 +432,17 @@ class Channel(qt.QObject, _Sealable):
         Returns the kind of this channel.
         """
         return self.__type
+
+    def setMetadata(self, metadata: ChannelMetadata):
+        if self.isSealed():
+            raise SealedError()
+        self.__metadata = metadata
+
+    def metadata(self) -> Optional[ChannelMetadata]:
+        """
+        Returns a bunch of metadata stored withing the channel.
+        """
+        return self.__metadata
 
     def setDisplayName(self, displayName: str):
         if self.isSealed():

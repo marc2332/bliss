@@ -24,7 +24,8 @@ SCAN_INFO = {
             "scalars_units": {"diode:diode": None, "spectra": []},
         },
         "timer2": {"spectra": ["opium:mca1"], "images": ["lima:image1"]},
-    }
+    },
+    "requests": {"timer:elapsed_time": {"points": 10}},
 }
 
 
@@ -69,6 +70,9 @@ def test_create_scan_model():
             assert channel.device().master() is None
         else:
             assert channel.device().master().name() == master
+
+    assert scan.getChannelByName("timer:elapsed_time").metadata() is not None
+    assert scan.getChannelByName("timer:epoch").metadata() is None
 
 
 def test_create_plot_model():
@@ -262,3 +266,34 @@ def test_progress_percent_image():
     channel.setData(data)
     res = scan_info_helper.get_scan_progress_percent(scan)
     assert res == 1.0
+
+
+def test_parse_channel_metadata():
+    meta = {
+        "start": 1,
+        "stop": 2,
+        "min": 3,
+        "max": 4,
+        "points": 5,
+        "axes-points": 6,
+        "axes-kind": "slow",
+    }
+    result = scan_info_helper.parse_channel_metadata(meta)
+    assert result == scan_model.ChannelMetadata(
+        1, 2, 3, 4, 5, 6, scan_model.AxesKind.SLOW
+    )
+
+
+def test_parse_wrong_values():
+    meta = {
+        "start": 1,
+        "stop": 2,
+        "min": 3,
+        "max": "foo",
+        "points": 5,
+        "axes-points": 6,
+        "axes-kind": "foo",
+        "foo": "bar",
+    }
+    result = scan_info_helper.parse_channel_metadata(meta)
+    assert result == scan_model.ChannelMetadata(1, 2, 3, None, 5, 6, None)

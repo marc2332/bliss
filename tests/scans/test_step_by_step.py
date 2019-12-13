@@ -295,6 +295,16 @@ def test_scan_callbacks(session):
     assert numpy.array_equal(numpy.array(res["values"]), simul_counter.data)
 
 
+def test_timescan_with_lima(default_session, lima_simulator):
+    ls = default_session.config.get("lima_simulator")
+    s = scans.timescan(0.1, ls, save=False, run=False)
+    try:
+        with gevent.Timeout(.3):
+            s.run()
+    except gevent.Timeout:
+        pass
+
+
 def test_scan_watch_data_set_callback_to_test_saferef(session, capsys):
     roby = session.config.get("roby")
     diode = session.config.get("diode")

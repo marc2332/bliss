@@ -622,6 +622,9 @@ class SpeedgoatCountersController(CounterController):
 
             from bliss.scanning.acquisition.speedgoat import SpeedgoatAcquisitionSlave
 
+            acq_params.pop(
+                "count_time"
+            )  # remove the count_time used in the other case for the SamplingCounterAcquisitionSlave  (i.e. if trigger_type != "HARDWARE" )
             return SpeedgoatAcquisitionSlave(
                 self, ctrl_params=ctrl_params, **acq_params
             )

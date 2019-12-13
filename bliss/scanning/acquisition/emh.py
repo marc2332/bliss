@@ -74,7 +74,7 @@ class EmhAcquisitionSlave(AcquisitionSlave):
         """
 
         acq_params = self.validate_params(
-            {"trigger": trigger, "int_time": count_time, "npoints": npoints},
+            {"trigger": trigger, "count_time": count_time, "npoints": npoints},
             ctrl_params=ctrl_params,
         )
 
@@ -90,7 +90,7 @@ class EmhAcquisitionSlave(AcquisitionSlave):
         self.trigger = acq_params["trigger"]
         # print("TRIGGER %s" % self.trigger)
 
-        int_time = acq_params["int_time"] - 0.4
+        int_time = acq_params["count_time"] - 0.4
         if int_time < 0.320:
             int_time = 0.320
         self.int_time = int_time
@@ -101,7 +101,7 @@ class EmhAcquisitionSlave(AcquisitionSlave):
     def get_param_validation_schema():
         acq_params_schema = {
             "trigger": {"type": "string", "allowed": TRIGGER_INPUTS},
-            "int_time": {"type": "number"},
+            "count_time": {"type": "number"},
             "npoints": {"type": "number"},
         }
 

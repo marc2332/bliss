@@ -191,10 +191,9 @@ def test_lima_instrument_entry(alias_session, scan_tmpdir):
     f = h5py.File(s.writer.filename)
 
     assert "lima_simulator" in f["1_ascan/instrument/chain_meta/axis/timer/"]
-    assert "acq_mode" in f["1_ascan/instrument/chain_meta/axis/timer/lima_simulator"]
     assert (
-        "saving_frame_per_file"
-        in f["1_ascan/instrument/lima_simulator/ctrl_parameters"]
+        "acq_mode"
+        in f["1_ascan/instrument/chain_meta/axis/timer/lima_simulator/acq_parameters"]
     )
     assert (
         "height"
@@ -221,6 +220,32 @@ def test_NXclass_of_scan_meta(session, lima_simulator, scan_tmpdir):
         )
 
 
+def test_scan_info_cleaning(alias_session, scan_tmpdir):
+    env_dict = alias_session.env_dict
+    lima_simulator = env_dict["lima_simulator"]
+    robyy = env_dict["robyy"]
+    diode = alias_session.config.get("diode")
+
+    # put scan file in a tmp directory
+    alias_session.scan_saving.base_path = str(scan_tmpdir)
+
+    # test that positioners are remaining in for a simple counter that does not update 'scan_info'
+    s1 = scans.ascan(robyy, 0, 1, 3, .1, diode)
+    with h5py.File(s1.writer.filename, "r") as f:
+        assert "axis" not in f["1_ascan/instrument/chain_meta"]
+
+    # test that positioners are remaining in for a counter that updates 'scan_info'
+    s2 = scans.ascan(robyy, 0, 1, 3, .1, lima_simulator)
+    assert "positioners" in s2.scan_info["instrument"]
+    with h5py.File(s2.writer.filename, "r") as f:
+        assert "lima_simulator" in f["2_ascan/instrument/chain_meta/axis/timer"]
+
+    # test that 'lima_simulator' does not remain in 'scan_info' for a scan that it is not involved in
+    s3 = scans.ascan(robyy, 0, 1, 3, .1, diode)
+    with h5py.File(s3.writer.filename, "r") as f:
+        assert "axis" not in f["3_ascan/instrument/chain_meta/"]
+
+
 def test_fill_meta_mechanisms(alias_session, lima_simulator, scan_tmpdir):
 
     # put scan file in a tmp directory
@@ -231,7 +256,10 @@ def test_fill_meta_mechanisms(alias_session, lima_simulator, scan_tmpdir):
     s = scans.loopscan(3, .1, lima_sim)
     with h5py.File(s.writer.filename, "r") as f:
         assert "lima_simulator" in f["1_loopscan/instrument/chain_meta/timer/"]
-        assert "acq_mode" in f["1_loopscan/instrument/chain_meta/timer/lima_simulator"]
+        assert (
+            "acq_mode"
+            in f["1_loopscan/instrument/chain_meta/timer/lima_simulator/acq_parameters"]
+        )
         assert (
             "height"
             in f[

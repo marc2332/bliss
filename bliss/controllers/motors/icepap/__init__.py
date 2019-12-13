@@ -360,8 +360,19 @@ class Icepap(Controller):
             self.stop(motions[0].axis)
 
     def home_search(self, axis, switch):
-        cmd = "HOME " + ("+1" if switch > 0 else "-1")
-        _ackcommand(self._cnx, "%s:%s" % (axis.address, cmd))
+        home_src = self.home_source(axis)
+        if home_src == "Lim+":
+            home_dir = "+1"
+        elif home_src == "Lim-":
+            home_dir = "-1"
+        else:
+            if switch == 0:
+                home_dir = "0"
+            elif switch > 0:
+                home_dir = "+1"
+            else:
+                home_dir = "-1"
+        _ackcommand(self._cnx, "%s:HOME %s" % (axis.address, home_dir))
         # IcePAP status is not immediately MOVING after home search command is sent
         gevent.sleep(0.2)
 
@@ -374,8 +385,15 @@ class Icepap(Controller):
             raise RuntimeError("Home switch not found.")
         return state
 
-    def home_pos(self, axis):
-        return int(_command(self._cnx, f"{axis.address}:?HOMEPOS MEASURE"))
+    @object_method(types_info=("None", "float"), filter=_object_method_filter)
+    def home_found_dial(self, axis):
+        home_step = int(_command(self._cnx, f"{axis.address}:?HOMEPOS MEASURE"))
+        return home_step / axis.steps_per_unit
+
+    @object_method(types_info=("None", "str"), filter=_object_method_filter)
+    def home_source(self, axis):
+        home_src = _command(self._cnx, f"{axis.address}:?CFG HOMESRC")
+        return home_src.split()[1]
 
     def limit_search(self, axis, limit):
         if ("LIMPOS" if limit > 0 else "LIMNEG") not in self.state(axis):
@@ -383,6 +401,11 @@ class Icepap(Controller):
             _ackcommand(self._cnx, "%s:%s" % (axis.address, cmd))
             # TODO: MG18Nov14: remove this sleep (state is not immediately MOVING)
             gevent.sleep(0.1)
+
+    @object_method(types_info=("None", "float"), filter=_object_method_filter)
+    def limit_found_dial(self, axis):
+        limit_step = int(_command(self._cnx, f"{axis.address}:?SRCHPOS MEASURE"))
+        return limit_step / axis.steps_per_unit
 
     def initialize_encoder(self, encoder):
         # Get axis config from bliss config

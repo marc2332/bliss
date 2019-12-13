@@ -9,11 +9,13 @@ from __future__ import annotations
 from typing import Tuple
 from typing import Dict
 from typing import List
+from typing import Sequence
 from typing import Optional
 
 from silx.gui import qt
 from silx.gui import colors
 from silx.gui.plot import Plot1D
+from silx.gui.plot.items.shape import BoundingRect
 
 from bliss.flint.model import scan_model
 from bliss.flint.model import flint_model
@@ -48,8 +50,13 @@ class ScatterPlotWidget(ExtendedDockWidget):
         self.__plot.installEventFilter(self)
         self.__plot.getWidgetHandle().installEventFilter(self)
 
+        self.__syncAxisTitle = signalutils.InvalidatableSignal(self)
+        self.__syncAxisTitle.triggered.connect(self.__updateAxesLabel)
         self.__syncAxis = signalutils.InvalidatableSignal(self)
-        self.__syncAxis.triggered.connect(self.__axesUpdated)
+        self.__syncAxis.triggered.connect(self.__scatterAxesUpdated)
+
+        self.__bounding = BoundingRect()
+        self.__plot._add(self.__bounding)
 
     def eventFilter(self, widget, event):
         if widget is not self.__plot and widget is not self.__plot.getWidgetHandle():
@@ -87,6 +94,7 @@ class ScatterPlotWidget(ExtendedDockWidget):
             self.__plotModel.transactionFinished.connect(self.__transactionFinished)
         self.plotModelUpdated.emit(plotModel)
         self.__redrawAll()
+        self.__syncAxisTitle.trigger()
         self.__syncAxis.trigger()
 
     def plotModel(self) -> plot_model.Plot:
@@ -94,12 +102,14 @@ class ScatterPlotWidget(ExtendedDockWidget):
 
     def __structureChanged(self):
         self.__redrawAll()
+        self.__syncAxisTitle.trigger()
         self.__syncAxis.trigger()
 
     def __transactionFinished(self):
         if self.__plotWasUpdated:
             self.__plotWasUpdated = False
             self.__plot.resetZoom()
+        self.__syncAxisTitle.validate()
         self.__syncAxis.validate()
 
     def __itemValueChanged(
@@ -112,15 +122,50 @@ class ScatterPlotWidget(ExtendedDockWidget):
             self.__updateItem(item)
         elif eventType == plot_model.ChangeEventType.X_CHANNEL:
             self.__updateItem(item)
+            self.__syncAxisTitle.triggerIf(not inTransaction)
             self.__syncAxis.triggerIf(not inTransaction)
         elif eventType == plot_model.ChangeEventType.Y_CHANNEL:
             self.__updateItem(item)
+            self.__syncAxisTitle.triggerIf(not inTransaction)
             self.__syncAxis.triggerIf(not inTransaction)
         elif eventType == plot_model.ChangeEventType.VALUE_CHANNEL:
             self.__updateItem(item)
 
-    def __axesUpdated(self):
-        self.__updateAxesLabel()
+    def __scatterAxesUpdated(self):
+        scan = self.__scan
+        plot = self.__plotModel
+        if plot is None:
+            bound = None
+        else:
+            xAxis = set([])
+            yAxis = set([])
+            for item in plot.items():
+                xAxis.add(item.xChannel().channel(scan))
+                yAxis.add(item.yChannel().channel(scan))
+            xAxis.discard(None)
+            yAxis.discard(None)
+
+            def getRange(axis: Sequence[scan_model.Channel]):
+                vv = set([])
+                for a in axis:
+                    metadata = a.metadata()
+                    if metadata is None:
+                        continue
+                    v = set([metadata.start, metadata.stop, metadata.min, metadata.max])
+                    vv.update(v)
+                vv.discard(None)
+                if len(vv) == 0:
+                    return None, None
+                return min(vv), max(vv)
+
+            xRange = getRange(list(xAxis))
+            yRange = getRange(list(yAxis))
+            if xRange[0] is None or yRange[0] is None:
+                bound = None
+            else:
+                bound = (xRange[0], xRange[1], yRange[0], yRange[1])
+
+        self.__bounding.setBounds(bound)
 
     def __updateAxesLabel(self):
         scan = self.__scan

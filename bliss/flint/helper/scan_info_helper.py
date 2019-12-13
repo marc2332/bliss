@@ -348,7 +348,8 @@ def create_plot_model(scan_info: Dict) -> List[plot_model.Plot]:
     # MCA plot
 
     for _master, channels in scan_info["acquisition_chain"].items():
-        spectra = channels.get("spectra", [])
+        spectra = []
+        spectra += channels.get("spectra", [])
         # merge master which are spectra
         if "spectra" in channels:
             for c in channels.get("master", {}).get("spectra", []):
@@ -368,7 +369,8 @@ def create_plot_model(scan_info: Dict) -> List[plot_model.Plot]:
     # Image plot
 
     for _master, channels in scan_info["acquisition_chain"].items():
-        images = channels.get("images", [])
+        images = []
+        images += channels.get("images", [])
         # merge master which are image
         if "master" in channels:
             for c in channels.get("master", {}).get("images", []):

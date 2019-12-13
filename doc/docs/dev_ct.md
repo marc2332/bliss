@@ -40,93 +40,11 @@ a custom Acquisition device can be created in case of:
 
 
 
-### Counters classes dependencies
+### Counters classes
 
-This diagram presents the hierarchy of BLISS classes related to
-counters with some example of usage.
+Hierarchy of BLISS classes related to counters.
 
-{% dot counters_dep.svg
-  digraph counter_dependencies {
-   rankdir=BT
-
-   bc   [shape=none label=
-   <<table>
-       <tr> <td> BaseCounter </td> </tr>
-       <tr><td> <table border="0">
-            <tr> <td>shape() </td> </tr>
-            <tr> <td> dtype() </td> </tr>
-           </table>
-           </td>
-       </tr>
-    </table>>]
-   c    [shape=none label=
-   <<table>
-       <tr> <td> Counter </td> </tr>
-       <tr><td> <table border="0">
-            <tr> <td>prepare() </td> </tr>
-            <tr> <td> start() </td> </tr>
-            <tr> <td> stop() </td> </tr>
-           </table>
-           </td>
-       </tr>
-    </table>>]
-
-   sc   [shape=none label=
-   <<table>
-       <tr> <td> SamplingCounter </td> </tr>
-       <tr><td> <table border="0">
-            <tr> <td>read() </td> </tr>
-            <tr> <td> ConvertValue() </td> </tr>
-           </table>
-           </td>
-       </tr>
-    </table>>]
-
-    sftc   [shape=none label=
-    <<table>
-       <tr> <td> SoftCounter </td> </tr>
-        <tr><td> <table border="0">
-            <tr> <td>read() </td> </tr>
-           </table>
-           </td>
-       </tr>
-    </table>>]
-
-    ic   [shape=none label=
-    <<table>
-        <tr> <td>IntegratingCounter </td> </tr>
-        <tr> <td>
-            <table border="0">
-               <tr> <td>get_values() </td> </tr>
-            </table>
-        </td> </tr>
-    </table>>]
-
-
-    ic   [shape=none label=
-    <<table>
-        <tr> <td>IntegratingCounter </td> </tr>
-        <tr> <td>
-            <table border="0">
-               <tr> <td>get_values() </td> </tr>
-            </table>
-        </td> </tr>
-    </table>>]
-
-   pc   [shape="oval" label="PepuCounter"]
-   lrc  [shape="oval" label="LimaRoiCounter"]
-   wc   [shape="oval" label="WagoCounter"]
-
-   sc->c
-   ic->c
-   c->bc
-   wc->sc
-   sftc-> sc
-   pc->bc
-   lrc->ic
-  }
-%}
-
+![Screenshot](img/counter_classes_paths.svg)
 
 
 ## Group read

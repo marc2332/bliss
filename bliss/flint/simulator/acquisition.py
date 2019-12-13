@@ -529,6 +529,21 @@ class AcquisitionSimulator(qt.QObject):
         temperature1 = 25 + numpy.random.rand(nbX * nbY) * 5
         scan.registerData(1, device4_channel1, temperature1)
 
+        requests = {}
+        requests[device1_channel1.name()] = {
+            "start": 10,
+            "stop": 50,
+            "axes-points": nbX,
+            "axes-kind": "fast",
+        }
+        requests[device2_channel1.name()] = {
+            "start": 20,
+            "stop": 60,
+            "axes-points": nbY,
+            "axes-kind": "slow",
+        }
+        scan.scan_info["requests"] = requests
+
     def __createScan(self, interval, duration, name=None) -> _VirtualScan:
         print("Preparing data...")
 

@@ -62,7 +62,7 @@ Common keyword arguments that can be used in all scans:
 * `sleep_time (float)`: sleep time between 2 points [default: None]
 * `run (bool)`: if `True` (default), run the scan. `False` means to just create
     scan object and acquisition chain.
-* `return_scan (bool)`: True by default ???
+* `return_scan (bool)`: [default: True by default] 
 
 
 ## Scan example
@@ -171,13 +171,13 @@ Took 0:00:05.226827
 In case a scan for more than 5 motors is needed, `anscan` and `dnscan` functions
 can be used with a slightly different list of parameters:
 
-`anscan(<counting_time>, <intervals>, (<mot>, <start>, <stop>)*)`
+`anscan([(<mot1>, <start1>, <stop1>),...,(<motN>, <startN>, <stopN>)],<counting_time>, <intervals>, counter1, ... counterN )`
 
 `(<mot>, <start>, <stop>)` can be repeated as much as needed.
 
 idem for dnscan with relative start and stop positions:
 
-`anscan(<counting_time>, <intervals>, (<mot>, <rel_start>, <rel_stop>)*)`
+`dnscan([(<mot1>, <start1>, <stop1>),...,(<motN>, <startN>, <stopN>)],<counting_time>, <intervals>, counter1, ... counterN )`
 
 
 ## amesh
@@ -214,10 +214,11 @@ Relative amesh.
 Relative scan.
 
 ```python
-lineup(motor, start, stop, intervals, count_time, *counter_args, **kwargs)
+lineup(motor, start, stop, intervals, count_time, counter, **kwargs)
 ```
 
-`lineup` performs a `dscan` and then goes to the maximum value of first counter.
+`lineup` performs a `dscan` and then goes to the maximum value of the counter. 
+It only accepts one single counter as argument
 
 ## timescan
 
@@ -269,6 +270,7 @@ position given by last value `<positions_list>`.  Count time is given by
 
 * `<positions_list>`: List of positions to scan for `<motor>` motor.
 
+pointscan is based on lookupscan, reducing it to only one motor.
 
 ## lookupscan
 
@@ -279,14 +281,14 @@ list of positions to use for the scan.
 usage:
 
 ```python
-lookupscan(counting_time, (<mot>, <positions_list>)*, <counter>*)
+lookupscan([(<mot_1>, <positions_list_1>),...,(<mot_N>, <positions_list_N>)], counting_time, <counter>*, **kwargs)
 ```
 
 example:
 
 ```python
 import numpy as np
-lookupscan(0.1, m0, np.arange(0, 2, 0.5), m1, np.linspace(1, 3, 4), diode2)
+lookupscan([(m0, np.arange(0, 2, 0.5)),(m1, np.linspace(1, 3, 4))], 0.1, diode2)
 ```
 
 

@@ -67,14 +67,14 @@ class EmhAcquisitionSlave(AcquisitionSlave):
     """ TO BE USED IN HARDWARE TRIGGERED MODE ONLY """
 
     def __init__(
-        self, *devices, trigger=None, int_time=None, npoints=1, ctrl_params=None
+        self, *devices, trigger=None, count_time=None, npoints=1, ctrl_params=None
     ):
         """ Acquisition device for EMH counters.
             *devices could be: the emh controller or the emh counters
         """
 
         acq_params = self.validate_params(
-            {"trigger": trigger, "int_time": int_time, "npoints": npoints},
+            {"trigger": trigger, "int_time": count_time, "npoints": npoints},
             ctrl_params=ctrl_params,
         )
 

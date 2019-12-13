@@ -10,7 +10,7 @@ import gevent
 from gevent import event
 from gevent import lock
 import numpy
-
+from collections import OrderedDict
 
 from bliss.scanning.chain import AcquisitionMaster
 from bliss.scanning.channel import AcquisitionChannel
@@ -46,7 +46,7 @@ class LimaAcquisitionMaster(AcquisitionMaster):
         ctrl_params = self.init_ctrl_params(device, ctrl_params)
 
         # !!! warning: validate params requires a completed ctrl_params dict
-        self.acq_params = self.validate_params(acq_params, ctrl_params)
+        self.acq_params = OrderedDict(self.validate_params(acq_params, ctrl_params))
 
         trigger_type = (
             AcquisitionMaster.SOFTWARE
@@ -274,6 +274,11 @@ class LimaAcquisitionMaster(AcquisitionMaster):
                         "saving_prefix": self.acq_params["saving_prefix"],
                     }
                 )
+
+        # make sure that parameters are in the good order for lima:
+        self.acq_params.move_to_end("acq_mode", last=False)
+        if "saving_prefix" in self.acq_params:
+            self.acq_params.move_to_end("saving_prefix", last=True)
 
         for param_name, param_value in self.acq_params.items():
             if not (param_value is None):

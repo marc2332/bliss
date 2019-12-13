@@ -111,6 +111,7 @@ nav:
                     - Preset: scan_engine_preset.md
                     - Watchdog: scan_engine_watchdog.md
                     - Data node: scan_data_node.md
+                - Writing scans: scan_writing.md
                 - Continuous scans: scan_continuous.md
                 - Grouping scans: scan_group.md
         - Instruments:

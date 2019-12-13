@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Scanning toolbox
+  - `ChainBuilder` class: helper to build a custom scan with auto-introspection of the counters dependencies given to a scan. 
+  - `ChainNode` class: used by the `ChainBuilder` to store required information about the links between Counters, CounterControllers and AcquisitionObjects. 
+
 - CounterController
   - New file `bliss.controllers.counter` including the base classes of the standard CounterControllers:
     - `CounterController` base class for `Counter` management.
@@ -17,7 +21,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - `SoftCounterController` class for `SoftCounter` management.
 
 - AcquisitionObject
-  - New `AcquisitionObject` base class (`bliss.scanning.chain`).
+  - New `AcquisitionObject` base class for `AcquisitionSlave` and `AcquisitionMaster` (`bliss.scanning.chain`).
+
+- Regulation framework
+  - new module `bliss.common.regulation` to manage PID regulation of various systems. 
+  - new `SoftLoop` object that implements a software PID regulation algorithm.
+  - new `ExternalInput` and `ExternalOutput` objects in order to transform any devices into an `Input` or `Output` for a the `SoftLoop` regulation.
 
 - Session
   - Store scans in `.scans` property in `Session` object.
@@ -61,11 +70,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - All standard counters (`SamplingCounter`,`IntegratingCounter` ,`SoftCounter` , `CalcCounter`) inherit from the `Counter` base class.
 
 - CounterController
+  - The file `bliss.controllers.acquisition` has been renamed `bliss.controllers.counter`.
   - `get_acquisition_object` method attached to the `CounterController` object.
+  - `get_default_chain_parameters` method attached to the `CounterController` object.
 
 - AcquisitionObject
   - `AcquisitionSlave` inherits from `AcquisitionObject` base class.
   - `Acquisitionmaster` inherits from `AcquisitionObject` base class.
+
+- Modified controllers
+  - EMH, Speedgoat, tango_attr_as, Wago, Musst, Pepu, MCA, Lima, CT2/P201, Flex, Temperature, CalcCounterController, SimulationDiode
 
 - Flint
   - Default curve colors was updated

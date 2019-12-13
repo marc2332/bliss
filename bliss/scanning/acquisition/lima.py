@@ -117,10 +117,6 @@ class LimaAcquisitionMaster(AcquisitionMaster):
                 "type": "number",
                 "default_setter": lambda x: x["acq_nb_frames"],
             },
-            ### tmp added
-            "saving_suffix": {},
-            "saving_format": {},
-            "saving_frame_per_file": {},
         }
 
         lima_master_no_acc_schema = {

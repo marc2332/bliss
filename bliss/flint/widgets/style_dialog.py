@@ -115,6 +115,7 @@ class _ScatterEditor(qt.QWidget):
         traduction[style_model.FillStyle.NO_FILL] = "No fill"
         traduction[style_model.FillStyle.SCATTER_INTERPOLATION] = "Interpolation"
         traduction[style_model.FillStyle.SCATTER_REGULAR_GRID] = "Regular grid"
+        traduction[style_model.FillStyle.SCATTER_IRREGULAR_GRID] = "Irregular grid"
         traduction[style_model.LineStyle.NO_LINE] = "No line"
         traduction[style_model.LineStyle.SCATTER_SEQUENCE] = "Sequence of points"
         traduction[None] = "No symbols"

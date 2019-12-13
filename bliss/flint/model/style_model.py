@@ -20,6 +20,7 @@ class FillStyle(enum.Enum):
     NO_FILL = None
     SCATTER_INTERPOLATION = "scatter-interpolation"
     SCATTER_REGULAR_GRID = "scatter-regular-grid"
+    SCATTER_IRREGULAR_GRID = "scatter-irregular-grid"
 
 
 class LineStyle(enum.Enum):

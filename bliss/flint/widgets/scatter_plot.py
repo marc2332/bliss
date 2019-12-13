@@ -262,6 +262,8 @@ class ScatterPlotWidget(ExtendedDockWidget):
             scatter = plot.getScatter(key)
             if style.fillStyle == style_model.FillStyle.SCATTER_REGULAR_GRID:
                 scatter.setVisualization(scatter.Visualization.REGULAR_GRID)
+            elif style.fillStyle == style_model.FillStyle.SCATTER_IRREGULAR_GRID:
+                scatter.setVisualization(scatter.Visualization.IRREGULAR_GRID)
             elif style.fillStyle == style_model.FillStyle.SCATTER_INTERPOLATION:
                 scatter.setVisualization(scatter.Visualization.SOLID)
             else:

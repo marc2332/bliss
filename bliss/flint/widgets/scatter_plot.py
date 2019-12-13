@@ -48,8 +48,8 @@ class ScatterPlotWidget(ExtendedDockWidget):
         self.__plot.installEventFilter(self)
         self.__plot.getWidgetHandle().installEventFilter(self)
 
-        self.__syncAxisTitle = signalutils.InvalidatableSignal(self)
-        self.__syncAxisTitle.triggered.connect(self.__updateAxesLabel)
+        self.__syncAxis = signalutils.InvalidatableSignal(self)
+        self.__syncAxis.triggered.connect(self.__axesUpdated)
 
     def eventFilter(self, widget, event):
         if widget is not self.__plot and widget is not self.__plot.getWidgetHandle():
@@ -87,20 +87,20 @@ class ScatterPlotWidget(ExtendedDockWidget):
             self.__plotModel.transactionFinished.connect(self.__transactionFinished)
         self.plotModelUpdated.emit(plotModel)
         self.__redrawAll()
-        self.__syncAxisTitle.trigger()
+        self.__syncAxis.trigger()
 
     def plotModel(self) -> plot_model.Plot:
         return self.__plotModel
 
     def __structureChanged(self):
         self.__redrawAll()
-        self.__syncAxisTitle.trigger()
+        self.__syncAxis.trigger()
 
     def __transactionFinished(self):
         if self.__plotWasUpdated:
             self.__plotWasUpdated = False
             self.__plot.resetZoom()
-        self.__syncAxisTitle.validate()
+        self.__syncAxis.validate()
 
     def __itemValueChanged(
         self, item: plot_model.Item, eventType: plot_model.ChangeEventType
@@ -112,12 +112,15 @@ class ScatterPlotWidget(ExtendedDockWidget):
             self.__updateItem(item)
         elif eventType == plot_model.ChangeEventType.X_CHANNEL:
             self.__updateItem(item)
-            self.__syncAxisTitle.triggerIf(not inTransaction)
+            self.__syncAxis.triggerIf(not inTransaction)
         elif eventType == plot_model.ChangeEventType.Y_CHANNEL:
             self.__updateItem(item)
-            self.__syncAxisTitle.triggerIf(not inTransaction)
+            self.__syncAxis.triggerIf(not inTransaction)
         elif eventType == plot_model.ChangeEventType.VALUE_CHANNEL:
             self.__updateItem(item)
+
+    def __axesUpdated(self):
+        self.__updateAxesLabel()
 
     def __updateAxesLabel(self):
         scan = self.__scan

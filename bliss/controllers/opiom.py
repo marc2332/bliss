@@ -15,8 +15,8 @@ from bliss.comm import serial
 from bliss.common.greenlet_utils import KillMask, protect_from_kill
 from bliss.common.switch import Switch as BaseSwitch
 from bliss.config.conductor.client import remote_open
-import logging
-from bliss.common.logtools import *
+
+from bliss.common.logtools import log_debug
 
 OPIOM_PRG_ROOT = "/users/blissadm/local/isg/opiom"
 
@@ -33,7 +33,7 @@ class Opiom:
             key = "serial" if comm_type == SERIAL else "tcp"
             config_tree[key]["url"]  # test if url is available
             comm_config = config_tree
-        except:
+        except Exception:
             if "serial" in config_tree:
                 comm_type = SERIAL
                 comm_config = dict(serial=dict(url=config_tree["serial"]))

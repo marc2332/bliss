@@ -262,23 +262,7 @@ class esrf_hexapode(Controller):
 
     def __info__(self):
         """Standard method called by BLISS Shell info helper."""
-        try:
-            return self.info(menu=False)
-        except Exception:
-            log_error(
-                self,
-                "An error happend during execution of __info__(), use .info() to get it.",
-            )
-
-    #    def get_info(self, axis):
-    #        info_str = ""
-    #        info_str = "DEVICE SERVER : %s \n" % self.tango_name
-    #        info_str += self.device.state() + "\n"
-    #        info_str += 'status="%s"\n' % str(self.device.status()).strip()
-    #        info_str += "state=%s\n" % self.device.state()
-    #        info_str += "mode=%s\n" % str(self.device.mode)
-    #
-    #        return info_str
+        return self.info(menu=False)
 
     def info(self, menu=False):
         """Return a string information about hexapod positions

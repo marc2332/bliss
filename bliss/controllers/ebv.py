@@ -206,16 +206,16 @@ class EBV:
 
     def __info__(self):
         self.__update()
-        info = f"EBV [{self.name}] (wago: {self._wago.client.host})\n"
+        info_str = f"EBV [{self.name}] (wago: {self._wago.client.host})\n"
         try:
-            info += f"    screen : {self._screen_status.value}\n"
-            info += f"    led    : {self._led_status.value}\n"
-            info += f"    foil   : {self._foil_status.value}\n"
-            info += f"    diode range   : {self._diode_range.value}\n"
-            info += f"    diode current : {self.current:.6g} mA\n"
+            info_str += f"    screen : {self._screen_status.value}\n"
+            info_str += f"    led    : {self._led_status.value}\n"
+            info_str += f"    foil   : {self._foil_status.value}\n"
+            info_str += f"    diode range   : {self._diode_range.value}\n"
+            info_str += f"    diode current : {self.current:.6g} mA\n"
         except:
-            info += "!!! Failed to read EBV status !!!"
-        return info
+            info_str += "!!! Failed to read EBV status !!!"
+        return info_str
 
     @property
     def screen_status(self):

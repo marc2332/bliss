@@ -75,9 +75,9 @@ class EmhCounter(SamplingCounter):
         self.channel = channel
 
     def __info__(self):
-        info_string = "info string from counter"
-        info_string += f"chan={self.channel}"
-        return info_string
+        info_str = "info string from counter"
+        info_str += f"chan={self.channel}"
+        return info_str
 
 
 class EMH(CounterController):

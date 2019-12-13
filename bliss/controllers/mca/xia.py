@@ -127,21 +127,11 @@ class BaseXIA(BaseMCA):
     def finalize(self):
         self._proxy.close()
 
-    def info(self):
-        info_str = super().info()
+    def __info__(self):
+        info_str = super().__info__()
         info_str += "XIA configuration file:\n"
         info_str += f"   - default : {self.default_configuration}\n"
         info_str += f"   - current : {self.current_configuration}\n"
-        return info_str
-
-    def __info__(self):
-        try:
-            info_str = self.info()
-        except Exception:
-            log_error(
-                self,
-                "An error happend during execution of __info__(), use .info() to get it.",
-            )
 
         return info_str
 
@@ -573,20 +563,9 @@ class FalconX(BaseXIA):
         assert self.detector_type == DetectorType.FALCONX
         assert all(e in range(8) for e in self.elements)
 
-    def info(self):
-        info_str = super().info()
+    def __info__(self):
+        info_str = super().__info__()
         info_str += "\nFalconX info:\n"
 
         info_str += f"ip address: ???\n"
-        return info_str
-
-    def __info__(self):
-        try:
-            info_str = self.info()
-        except Exception:
-            log_error(
-                self,
-                "An error happend during execution of __info__(), use .info() to get it.",
-            )
-
         return info_str

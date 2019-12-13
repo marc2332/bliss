@@ -445,24 +445,28 @@ class MeasurementGroup:
     def __info__(self):
         """ function used when printing a measurement group.
         """
-        s = "MeasurementGroup: %s (state='%s')\n" % (self.name, self.active_state_name)
-        s += "  - Existing states : "
+        info_str = "MeasurementGroup: %s (state='%s')\n" % (
+            self.name,
+            self.active_state_name,
+        )
+        info_str += "  - Existing states : "
         for name in self.state_names:
-            s += "'%s'" % name + "; "
-        s = s.strip("; ")
-        s += "\n\n"
+            info_str += "'%s'" % name + "; "
+        info_str = info_str.strip("; ")
+        info_str += "\n\n"
 
         enabled = list(self.enabled) + ["Enabled"]
 
         max_len = max((len(x) for x in enabled))
         str_format = "  %-" + "%ds" % max_len + "  %s\n"
-        s += str_format % ("Enabled", "Disabled")
-        s += str_format % ("-" * max_len, "-" * max_len)
+        info_str += str_format % ("Enabled", "Disabled")
+        info_str += str_format % ("-" * max_len, "-" * max_len)
         for enable, disable in itertools.zip_longest(
             sorted(self.enabled), sorted(self.disabled), fillvalue=""
         ):
-            s += str_format % (enable, disable)
-        return s
+            info_str += str_format % (enable, disable)
+
+        return info_str
 
     def add(self, *counters):
         """

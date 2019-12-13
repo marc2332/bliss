@@ -30,7 +30,7 @@ your object with a bliss `SoftCounter`:
 ```python
 
 from bliss.common.standard import loopscan
-from bliss.common.measurement import SoftCounter
+from bliss.common.counter import SoftCounter
 
 # counter from an object property
 pot_counter = SoftCounter(pot, 'potential')
@@ -48,8 +48,9 @@ loopscan(10, 0.1, pot_counter, milivol_counter)
 Functions can also be made counters. Here is how:
 
 ```python
-
+from bliss.common.counter import SoftCounter
 import random
+
 random_counter = SoftCounter(value=random.random, name='aleat')
 
 ```
@@ -57,7 +58,7 @@ random_counter = SoftCounter(value=random.random, name='aleat')
 Particularly useful might be tango attributes or commands as counters:
 
 ```python
-
+from bliss.common.counter import SoftCounter
 from bliss.common.tango import DeviceProxy
 
 fe = DeviceProxy('orion:10000/fe/id/00')

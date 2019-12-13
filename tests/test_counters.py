@@ -518,3 +518,23 @@ def test_tango_attr_counter(beacon, dummy_tango_server, session):
     # Test missing uri
     with pytest.raises(KeyError):
         no_uri_counter = beacon.get("no_uri_counter")
+
+
+def test_info_counters(beacon):
+    """
+    execute .__info__() method of 3 types of counters.
+    """
+    mot_robz = beacon.get("robz")
+
+    # SamplingCounter
+    diode1 = beacon.get("diode")
+
+    # IntegratingCounter
+    diode2 = beacon.get("integ_diode")
+
+    # SoftCounter
+    soft_cnt = SoftCounter(mot_robz, "position")
+
+    diode1.__info__()
+    diode2.__info__()
+    soft_cnt.__info__()

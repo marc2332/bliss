@@ -16,6 +16,7 @@ import numpy
 
 from bliss import global_map
 from bliss.common.utils import autocomplete_property
+from bliss.common.logtools import log_error
 
 
 def add_conversion_function(obj, method_name, function):
@@ -42,7 +43,7 @@ class SamplingMode(enum.IntEnum):
     * STATS: in addition to MEAN, use iterative algorithms to emit std,min,max,N etc.
     * SAMPLES: in addition to MEAN, emit also individual samples as 1D array
     * SINGLE: emit the first value (if possible: call read only once)
-    * LAST: emit the last value 
+    * LAST: emit the last value
     * INTEGRATE: emit MEAN multiplied by counting time
     """
 
@@ -112,6 +113,18 @@ class Counter:
     def get_metadata(self):
         return {}
 
+    def __info__(self):
+        info_str = "Counter info:\n"
+        info_str += f"  name = {self.name} \n"
+        info_str += f"  unit = {self.unit} \n"
+        info_str += f"  shape = {self.shape} \n"
+        info_str += f"  dtype = {self.dtype} \n"
+        info_str += f"  fullname = {self.fullname} \n"
+        info_str += f"  conversion_function = {self.conversion_function} \n"
+        info_str += f"  _counter_controller = {self._counter_controller} \n"
+
+        return info_str
+
 
 class SamplingCounter(Counter):
     def __init__(
@@ -169,6 +182,15 @@ class SamplingCounter(Counter):
     def statistics(self):
         return self._statistics
 
+    def __info__(self):
+        """Standard method called by BLISS Shell info helper."""
+        info_str = "------ SamplingCounter ------\n"
+        info_str = super().info()
+        info_str += f"\nSamplingCounter info:\n"
+        info_str += f"  mode = {SamplingMode(self.mrrode).name} ({self.mode})\n"
+
+        return info_str
+
 
 class IntegratingCounter(Counter):
     def __init__(self, name, controller, conversion_function=None, unit=None):
@@ -176,6 +198,13 @@ class IntegratingCounter(Counter):
         super().__init__(
             name, controller, conversion_function=conversion_function, unit=unit
         )
+
+    def __info__(self):
+        """Standard method called by BLISS Shell info helper."""
+        info_str = "------ IntegratingCounter ------\n"
+        info_str += super().info()
+
+        return info_str
 
 
 class SoftCounter(SamplingCounter):
@@ -243,11 +272,11 @@ class SoftCounter(SamplingCounter):
         name = value_name if name is None else name
         obj_has_name = hasattr(obj, "name") and isinstance(obj.name, str)
         if obj_has_name:
-            ctrl_name = obj.name
+            self.ctrl_name = obj.name
         elif obj is None:
-            ctrl_name = name
+            self.ctrl_name = name
         else:
-            ctrl_name = type(obj).__name__
+            self.ctrl_name = type(obj).__name__
         if apply is None:
             apply = lambda x: x
         self.apply = apply
@@ -256,7 +285,7 @@ class SoftCounter(SamplingCounter):
 
         super().__init__(
             name,
-            SoftCounterController(ctrl_name),
+            SoftCounterController(self.ctrl_name),
             mode=mode,
             unit=unit,
             conversion_function=conversion_function,
@@ -283,6 +312,15 @@ class SoftCounter(SamplingCounter):
 
             value_func.__name__ = value_name
         return value_func, value_name
+
+    def __info__(self):
+        """Standard method called by BLISS Shell info helper."""
+        info_str = "------ SoftCounter ------\n"
+        info_str = super().info()
+        info_str += f"\nSoftCounter info:\n"
+        info_str += f"  ctrl_name = {self.ctrl_name}\n"
+
+        return info_str
 
 
 class CalcCounter(Counter):

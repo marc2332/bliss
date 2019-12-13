@@ -42,11 +42,15 @@ A `SoftCounter` object can be defined to use an encoder as a BLISS counter in a
 scan by putting in the setup of a BLISS session:
 
 ```python
+from bliss.common.counter import SoftCounter
+
 <counter> = SoftCounter(<encoder>, <function used to read>, name=<counter_name>)`
 ```
 
 example:
 ```python
+from bliss.common.counter import SoftCounter
+
 hpz_enc = SoftCounter(hpzrotid16_enc, 'read', name='hpz_enc')
 ```
 

@@ -189,6 +189,9 @@ def test_simple_continuous_scan_with_session_watcher(session, scan_saving):
 def test_limatake_with_watcher(session, lima_simulator):
     lima_simulator = session.config.get("lima_simulator")
 
+    ff = lima_simulator.saving.file_format
+    lima_simulator.saving.file_format = "HDF5"
+
     scan_info = {
         "npoints": 1,
         "count_time": 0.01,
@@ -206,8 +209,6 @@ def test_limatake_with_watcher(session, lima_simulator):
         "acq_expo_time": 0.01,
         "acq_mode": "SINGLE",
         "acq_trigger_mode": "INTERNAL_TRIGGER",
-        "saving_format": "HDF5",
-        "saving_suffix": ".h5",
         "prepare_once": True,
         "start_once": False,
     }
@@ -221,7 +222,7 @@ def test_limatake_with_watcher(session, lima_simulator):
 
     scan = Scan(chain, scan_info=scan_info, name="limatake", save=False)
 
-    # print(scan.acq_chain._tree)
+    lima_simulator.saving.file_format = ff
 
     new_scan_args = []
     new_child_args = []

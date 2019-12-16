@@ -21,6 +21,7 @@ from bliss.common.utils import grouped
 from bliss.common.logtools import lprint_disable
 from bliss.common.motor_group import Group, TrajectoryGroup
 from bliss.physics.trajectory import find_pvt
+from bliss.physics.trajectory import LinearTrajectory
 
 from bliss.controllers.motor import CalcController
 
@@ -644,7 +645,7 @@ class MeshTrajectoryMaster(AcquisitionMaster, UndershootMixin):
         # Main return trajectory
 
         vr = self.movable.velocity
-        rt = axis.LinearTrajectory(p3, p0, vr, a, t3)
+        rt = LinearTrajectory(p3, p0, vr, a, t3)
         p4, p5, p6 = rt.pa, rt.pb, rt.pf
         v4, v5, v6 = rt.velocity, rt.velocity, 0
         t4, t5, t6 = rt.ta, rt.tb, rt.tf
@@ -660,7 +661,7 @@ class MeshTrajectoryMaster(AcquisitionMaster, UndershootMixin):
 
         step = float(stop2 - start2) / nb_points2
         sv, sa = axis2.velocity, axis2.acceleration
-        st = axis.LinearTrajectory(start2, start2 + step, sv, sa, t2)
+        st = LinearTrajectory(start2, start2 + step, sv, sa, t2)
         second_trajectory = [
             (st.pi, 0, 0),
             (st.pi, 0, st.ti),

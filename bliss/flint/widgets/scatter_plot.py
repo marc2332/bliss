@@ -16,6 +16,7 @@ from silx.gui import qt
 from silx.gui import colors
 from silx.gui.plot import Plot1D
 from silx.gui.plot.items.shape import BoundingRect
+from silx.gui.plot.items.scatter import Scatter
 
 from bliss.flint.model import scan_model
 from bliss.flint.model import flint_model
@@ -263,6 +264,52 @@ class ScatterPlotWidget(ExtendedDockWidget):
         for item in plotModel.items():
             self.__updateItem(item)
 
+    def __optimizeRendering(
+        self,
+        scatter: Scatter,
+        xChannel: scan_model.Channel,
+        yChannel: scan_model.Channel,
+    ):
+        """Feed the scatter plot item with metadata from the channels to
+        optimize the rendering"""
+        xmeta = xChannel.metadata()
+        ymeta = yChannel.metadata()
+        if xmeta is None or ymeta is None:
+            return
+
+        if ymeta.axesPoints is not None and xmeta.axesPoints is not None:
+            scatter.setVisualizationParameter(
+                scatter.VisualizationParameter.GRID_SHAPE,
+                (ymeta.axesPoints, xmeta.axesPoints),
+            )
+
+        if (
+            xmeta.start is not None
+            and xmeta.stop is not None
+            and ymeta.start is not None
+            and ymeta.stop is not None
+        ):
+            scatter.setVisualizationParameter(
+                scatter.VisualizationParameter.GRID_BOUNDS,
+                ((xmeta.start, ymeta.start), (xmeta.stop, ymeta.stop)),
+            )
+
+        if xmeta.axesKind is not None and ymeta.axesKind is not None:
+            if (
+                xmeta.axesKind == scan_model.AxesKind.FAST
+                or ymeta.axesKind == scan_model.AxesKind.SLOW
+            ):
+                order = "row"
+            if (
+                xmeta.axesKind == scan_model.AxesKind.SLOW
+                or ymeta.axesKind == scan_model.AxesKind.FAST
+            ):
+                order = "column"
+
+            scatter.setVisualizationParameter(
+                scatter.VisualizationParameter.GRID_MAJOR_ORDER, order
+            )
+
     def __updateItem(self, item: plot_model.Item):
         if self.__plotModel is None:
             return
@@ -293,9 +340,13 @@ class ScatterPlotWidget(ExtendedDockWidget):
         if valueChannel is None or xChannel is None or yChannel is None:
             return
 
+        # Channels from channel ref
+        xChannel = xChannel.channel(scan)
+        yChannel = yChannel.channel(scan)
+
         value = valueChannel.array(scan)
-        xx = xChannel.array(scan)
-        yy = yChannel.array(scan)
+        xx = xChannel.array()
+        yy = yChannel.array()
         if value is None or xx is None or yy is None:
             return
 
@@ -316,6 +367,7 @@ class ScatterPlotWidget(ExtendedDockWidget):
                 scatter.setVisualization(scatter.Visualization.SOLID)
             else:
                 pass
+            self.__optimizeRendering(scatter, xChannel, yChannel)
             plotItems.append((key, "scatter"))
 
         if style.lineStyle == style_model.LineStyle.SCATTER_SEQUENCE:

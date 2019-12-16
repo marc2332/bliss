@@ -101,15 +101,18 @@ def test_2_clients_1_dead(beacon, two_clients):
     conductor_conn2.lock(roby.name)
     assert conductor_conn2.who_locked(roby.name) == {roby.name: "test2"}
 
+
 @contextlib.contextmanager
 def new_conductor_conn(port):
     conductor_conn = connection.Connection("localhost", port)
     yield conductor_conn
     conductor_conn.close()
 
+
 def test_multiple_greenlets(ports):
     # make a new connection to Beacon, so it is not already connected
     with new_conductor_conn(ports.beacon_port) as conductor_conn:
+
         def get_redis_conn():
             # retrieve redis connection from Beacon:
             # this will call 'connect' concurrently
@@ -129,6 +132,7 @@ def test_multiple_greenlets(ports):
         assert redis_conn1 is redis_conn2
 
         assert len(conductor_conn._redis_connection) == 1
+
 
 def test_single_bus_for_channels(ports):
     key = "multi_green"

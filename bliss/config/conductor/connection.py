@@ -9,6 +9,7 @@ import time
 import weakref
 import os, sys
 import gevent
+import gevent.lock
 from gevent import socket, select, event, queue
 from . import protocol
 import redis
@@ -151,6 +152,9 @@ class Connection(object):
         self._redis_connection = {}
         self._clean()
         self._socket = None
+        self._connect_lock = gevent.lock.Semaphore()
+        self._get_redis_lock = gevent.lock.Semaphore()
+        self._connected = gevent.event.Event()
         self._raw_read_task = None
         self._greenlet_to_lockobjects = weakref.WeakKeyDictionary()
 
@@ -175,34 +179,32 @@ class Connection(object):
                 return None
 
     def connect(self):
-        # Already connected
-        if self._socket is not None:
-            return
+        with self._connect_lock:
+            if self._connected.is_set():
+                return
+            # Address undefined
+            if self._port is None or self._host is None:
+                self._host, self._port = self._discovery(self._host)
 
-        # Address undefined
-        if self._port is None or self._host is None:
-            self._host, self._port = self._discovery(self._host)
+            # UDS connection
+            if self.uds:
+                self._socket = self._uds_connect(self.uds)
+            # TCP connection
+            else:
+                self._socket = self._tcp_connect(self._host, self._port)
 
-        # UDS connection
-        if self.uds:
-            self._socket = self._uds_connect(self.uds)
-        # TCP connection
-        else:
-            self._socket = self._tcp_connect(self._host, self._port)
+            # Spawn read task
+            self._raw_read_task = gevent.spawn(self._raw_read)
 
-        # Spawn read task
-        self._raw_read_task = gevent.spawn(self._raw_read)
+            # Run the UDS query
+            if self.uds is None:
+                self._uds_query()
 
-        # Run the UDS query
-        if self.uds is None:
-            self._uds_query()
+            # set the default beacon client name
+            conn_name = f"{socket.gethostname()}:{os.getpid()}"
+            self._set_client_name(conn_name, timeout=3)
 
-        # set the default beacon client name
-        conn_name = f"{socket.gethostname()}:{os.getpid()}"
-        try:
-            self.set_client_name(conn_name)
-        except RuntimeError:
-            pass  # Beacon server is too old
+            self._connected.set()
 
     def _discovery(self, host, timeout=3.0):
         # Manage timeout
@@ -340,19 +342,19 @@ class Connection(object):
 
         return self._redis_host, self._redis_port
 
-    @check_connect
     def get_redis_connection(self, db=0):
-        cnx = self._redis_connection.get(db)
-        if cnx is None:
-            my_name = f"{socket.gethostname()}:{os.getpid()}"
-            cnx = self.create_redis_connection(db=db)
-            cnx.client_setname(my_name)
-            self._redis_connection[db] = cnx
-        return cnx
+        with self._get_redis_lock:
+            cnx = self._redis_connection.get(db)
+            if cnx is None:
+                my_name = f"{socket.gethostname()}:{os.getpid()}"
+                cnx = self.create_redis_connection(db=db)
+                cnx.client_setname(my_name)
+                self._redis_connection[db] = cnx
+            return cnx
 
     def clean_all_redis_connection(self):
-        for cnx in self._redis_connection.values():
-            cnx.connection_pool.disconnect()
+        for conn in self._redis_connection.values():
+            conn.connection_pool.disconnect()
         self._redis_connection = {}
 
     def create_redis_connection(self, db=0, address=None):
@@ -458,11 +460,13 @@ class Connection(object):
                     return_module.append((module_name.decode(), full_path.decode()))
         return return_module
 
+    @check_connect
     def set_client_name(self, name, timeout=3.0):
-        self._client_name(name, protocol.CLIENT_SET_NAME, timeout)
+        self._set_client_name(name, timeout)
 
+    @check_connect
     def get_client_name(self, timeout=3.0):
-        return self._client_name("", protocol.CLIENT_GET_NAME, timeout)
+        return self.__client_name("", protocol.CLIENT_GET_NAME, timeout)
 
     def who_locked(self, *names, timeout=3.0):
         name2client = dict()
@@ -478,8 +482,10 @@ class Connection(object):
                     name2client[name.decode()] = client_info.decode()
         return name2client
 
-    @check_connect
-    def _client_name(self, name, msg_type, timeout):
+    def _set_client_name(self, name, timeout):
+        return self.__client_name(name, protocol.CLIENT_SET_NAME, timeout)
+
+    def __client_name(self, name, msg_type, timeout):
         with gevent.Timeout(timeout, RuntimeError("Can't get/set client name")):
             with self.WaitingQueue(self) as wq:
                 msg = b"%s|%s" % (wq.message_key(), name.encode())
@@ -617,14 +623,13 @@ class Connection(object):
             if self._socket:
                 self._socket.close()
                 self._socket = None
+            self._connected.clear()
             self._clean()
 
     def _clean(self):
         self._redis_host = None
         self._redis_port = None
-        for db, redis_cnx in self._redis_connection.items():
-            redis_cnx.connection_pool.disconnect()
-        self._redis_connection = {}
+        self.clean_all_redis_connection()
 
     @check_connect
     def __str__(self):

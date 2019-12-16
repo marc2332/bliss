@@ -392,3 +392,18 @@ def isChannelDisplayedAsValue(plot: plot_model.Plot, channel: scan_model.Channel
                 return True
 
     return False
+
+
+def getFastChannel(
+    channel1: scan_model.Channel, channel2: scan_model.Channel
+) -> Optional[scan_model.Channel]:
+    """Returns the fast channel from input channels.
+
+    If no one is a fast channel, None is returned
+    """
+    for channel in [channel1, channel2]:
+        m = channel.metadata()
+        if m is not None:
+            if m.axesKind == scan_model.AxesKind.FAST:
+                return channel
+    return None

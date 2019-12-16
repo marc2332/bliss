@@ -38,6 +38,21 @@ def lima_data_view_test_assets(lima_files, filesystem_files):
         assert f in filesystem_files
 
 
+def test_LimaNode_ref_data(default_session, lima_simulator):
+    simulator = default_session.config.get("lima_simulator")
+    scan = loopscan(5, 0.1, simulator, save=True)
+
+    for node in scan.node.iterator.walk(wait=False, filter="lima"):
+        image_node = node
+
+    lima_data_view = image_node.get(0)
+    lima_data_view._update()
+
+    ref_data = image_node.info.get_all()
+
+    assert "user_detector_name" in ref_data
+
+
 def test_LimaDataView_edf_1_frame_per_edf(default_session, lima_simulator):
     simulator = default_session.config.get("lima_simulator")
     scan = loopscan(5, 0.1, simulator, save=True, run=False)

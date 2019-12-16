@@ -267,6 +267,7 @@ class LimaAcquisitionMaster(AcquisitionMaster):
                         "saving_mode": self.acq_params["saving_mode"],
                         "saving_directory": self.acq_params["saving_directory"],
                         "saving_prefix": self.acq_params["saving_prefix"],
+                        "user_detector_name": self.device.proxy.user_detector_name,
                     }
                 )
 

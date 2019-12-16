@@ -534,6 +534,16 @@ class Channel(qt.QObject, _Sealable):
         """
         return self.__data
 
+    def array(self) -> Optional[numpy.array]:
+        """
+        Returns the array associated to this channel.
+
+        This method is a shortcut to `.data().array()`.
+        """
+        if self.__data is None:
+            return None
+        return self.__data.array()
+
     def isDataCompatible(self, data: Data) -> bool:
         """
         True if this `data` is compoatible with this channel.

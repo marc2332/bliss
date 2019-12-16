@@ -3,23 +3,26 @@ program.
 
 ## Using BLISS as a library
 
-BLISS modules can be used in any python envirenment. In order to work correctly 
-the environement variables `BEACON_HOST` and potentially `TANGO_HOST` must be present. 
+BLISS modules can be used in any python environment. In order to work correctly
+the environment variables `BEACON_HOST` and potentially `TANGO_HOST` must be present.
 
 !!! note
-    Have a look at the ["Use Bliss without Hardware"](index.md#use-bliss-without-hardware) section in
-    case you want to have a look at this BLISS feature without disturbing beamline operation.
+    Have a look at the ["Use Bliss without Hardware"](index.md#use-bliss-without-hardware)
+    section in case you want to have a look at this BLISS feature without
+    disturbing beamline operation.
     The examples given below are based on the provided _test_configuration_.
-    
+
 Start a simple python shell e.g. like this:
 
 ```bash
 $ TANGO_HOST=localhost:20000 BEACON_HOST=localhost python
 ```
-of cause the values of `TANGO_HOST` and `BEACON_HOST` have to be changed to the approprate values - or 
-not to be set at all if they are available in the environment already.
 
-The entrypoint to work with objects configured in BEACON is
+of course the values of `TANGO_HOST` and `BEACON_HOST` have to be changed to the
+appropriate values - or not to be set at all if they are available in the
+environment already.
+
+The entry-point to work with objects configured in BEACON is:
 
 ```python
 >>> from bliss.config import static
@@ -27,7 +30,7 @@ The entrypoint to work with objects configured in BEACON is
 ```
 
 ### Using objects provided by BEACON
-To work with specific objects they can be imported via `config.get`
+To work with specific objects they can be imported via `config.get`:
 
 ```python
 >>> transfocator = config.get('transfocator_simulator')
@@ -49,7 +52,7 @@ and access objects defined in the session via `session.env_dict`
 2.1
 ```
 
-to run a standard scan the module `bliss.common.scans` can be used
+To run a standard scan the module `bliss.common.scans` can be used:
 
 ```python
 >>> from bliss.common.scans import loopscan
@@ -57,7 +60,7 @@ to run a standard scan the module `bliss.common.scans` can be used
 Scan(number=32, name=loopscan, path=/tmp/scans/test_session/data.h5)
 ```
 
-saving related settings can be configured via `session.scan_saving`
+Saving related settings can be configured via `session.scan_saving`:
 
 ```python
 >>> session.scan_saving.data_filename='my_new_file'
@@ -92,11 +95,11 @@ exists  root_path  /tmp/scans/test_session/
 For a BLISS-friendly IPython console can be started like this:
 
 ```bash
-   $ python -c "import gevent.monkey; gevent.monkey.patch_all(thread=False); import IPython; IPython.start_ipython()"
+python -c "import gevent.monkey; gevent.monkey.patch_all(thread=False); import IPython; IPython.start_ipython()"
 ```
 
 ## Using BLISS shell and BLISS in library mode in parallel
-It is possible to run e.g. a session in the ["BLISS command line"](shell_cmdline.md) 
+It is possible to run e.g. a session in the ["BLISS command line"](shell_cmdline.md)
 and access it at the same time in library mode. In this case there are two different
 python processes running that don't share the same object instances howver states are
 shared via BEACON (wherever implemented) e.g. the position and state of an axis will
@@ -104,7 +107,8 @@ be in sync in the two processes.
 
 !!! warning "Concurrent hardware access"
     Each of the two python processes may communicate directly with hardware.
-    As for now there is no locking mechanism implented to prevent concurrent hardware access.
+    As for now there is no locking mechanism implented to prevent concurrent
+    hardware access.
 
 ## Technical details
 
@@ -130,24 +134,22 @@ seems like a reasonable option), then starts the IPython interpreter.
 From now on it is possible to use BLISS as any Python library:
 
 ```python
-    In [1]: from bliss.common.axis import Axis
+from bliss.common.axis import Axis
 
-    In [2]: from bliss.controllers.motors import icepap
+from bliss.controllers.motors import icepap
 
-    In [3]: ice = icepap.Icepap("iceid2322", {"host": "iceid2322"},
-                               [("mbv4mot", Axis,
-                               {"address":1,"steps_per_unit":817,
-                               "velocity": 0.3, "acceleration": 3
-                               })], [], [], [])
+ice = icepap.Icepap("iceid2322", {"host": "iceid2322"},
+                   [("mbv4mot", Axis,
+                   {"address":1,"steps_per_unit":817,
+                   "velocity": 0.3, "acceleration": 3
+                   })], [], [], [])
 
-    In [4]: ice.initialize()
+ice.initialize()
 
-    In [5]: mbv4 = ice.get_axis("mbv4mot")
+mbv4 = ice.get_axis("mbv4mot")
 
-    In [6]: mbv4.position()
-    Out[6]: 0.07099143206854346
-
-    In [7]:
+mbv4.position()
+>>>  0.07099143206854346
 ```
 
 The example above creates an IcePAP motor controller instance,
@@ -160,12 +162,4 @@ motor position.
     way to use BLISS is to rely on BLISS Beacon to get configuration
     and to use the BLISS shell as the preferred command line
     interface.
-
-
-
-
-
-
-
-
 

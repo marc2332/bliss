@@ -1029,6 +1029,8 @@ class AcquisitionChain:
             return
 
         # print(f"===== ADD SLAVE {slave}({slave.name}) in MASTER {master} ({master.name})")
+        if not isinstance(master, AcquisitionMaster):
+            raise TypeError(f"object {master} is not an AcquisitionMaster")
 
         slave_node = self._tree.get_node(slave)
         master_node = self._tree.get_node(master)

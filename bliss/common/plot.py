@@ -149,14 +149,14 @@ import sys
 import numpy
 import psutil
 import subprocess
-from contextlib import contextmanager
+import contextlib
 import gevent
-import socket
 
 from bliss.comm import rpc
 from bliss import current_session
 from bliss.config.conductor.client import get_default_connection
 from bliss.flint.config import get_flint_key
+from bliss.common import event
 
 try:
     from bliss.flint import poll_patch
@@ -358,6 +358,8 @@ def _attach_flint(process):
     greenlets = FLINT["greenlet"]
     if greenlets is not None:
         gevent.killall(greenlets)
+    FLINT["greenlet"] = None
+    FLINT["callbacks"] = None
 
     if hasattr(process, "stdout"):
         # process which comes from subprocess, and was pipelined
@@ -375,27 +377,22 @@ def _attach_flint(process):
             FLINT_OUTPUT_LOGGER,
             logging.ERROR,
         )
-    else:
-        # Else we can use a socket
-        # This way do not allow to receive the very first logs
-        stdout_serv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        stdout_serv.bind(("", 0))
-        stdout_serv.setblocking(True)
-        stdout_serv.listen(0)
-        stderr_serv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        stderr_serv.bind(("", 0))
-        stderr_serv.setblocking(True)
-        stderr_serv.listen(0)
-        proxy.add_output_listener(stdout_serv.getsockname(), stderr_serv.getsockname())
-        g1 = gevent.spawn(
-            log_socket_output_to_logger, stdout_serv, FLINT_OUTPUT_LOGGER, logging.INFO
-        )
-        g2 = gevent.spawn(
-            log_socket_output_to_logger, stderr_serv, FLINT_OUTPUT_LOGGER, logging.ERROR
-        )
+        FLINT["greenlet"] = (g1, g2)
 
-    greenlets = (g1, g2)
-    FLINT["greenlet"] = greenlets
+    else:
+        # Else we can use RPC events
+        def stdout_callbacks(s):
+            FLINT_OUTPUT_LOGGER.info("%s", s)
+
+        def stderr_callbacks(s):
+            FLINT_OUTPUT_LOGGER.error("%s", s)
+
+        event.connect(proxy, "flint_stdout", stdout_callbacks)
+        event.connect(proxy, "flint_stderr", stderr_callbacks)
+
+        FLINT["callbacks"] = (stdout_callbacks, stderr_callbacks)
+
+        proxy.register_output_listener()
 
     return proxy
 
@@ -447,6 +444,7 @@ def reset_flint():
     if greenlets is not None:
         gevent.killall(greenlets)
     FLINT["greenlet"] = None
+    FLINT["callbacks"] = None
 
 
 # Base plot class
@@ -469,7 +467,29 @@ class BasePlot(object):
     # Data input number for a single representation
     DATA_INPUT_NUMBER = NotImplemented
 
-    def __init__(self, name=None, existing_id=None, flint_pid=None):
+    def __init__(
+        self,
+        name=None,
+        existing_id=None,
+        flint_pid=None,
+        closeable: bool = False,
+        selected: bool = False,
+    ):
+        """Create a new custom plot based on the `silx` API.
+
+        The plot will be created i a new tab on Flint.
+
+        Arguments:
+            existing_id: If set, the plot proxy will try to use an already
+                exising plot, instead of creating a new one
+            flint_pid: A specific Flint PID can be specified, else the default
+                one is used
+            name: Name of the plot as displayed in the tab header. It is not a
+                unique name.
+            selected: If true (not the default) the plot became the current
+                displayed plot.
+            closeable: If true (not the default), the tab can be closed manually
+        """
         if flint_pid:
             self._flint = attach_flint(flint_pid)
         else:
@@ -477,7 +497,9 @@ class BasePlot(object):
 
         # Create plot window
         if existing_id is None:
-            self._plot_id = self._flint.add_plot(self.WIDGET, name)
+            self._plot_id = self._flint.add_plot(
+                cls_name=self.WIDGET, name=name, selected=selected, closeable=closeable
+            )
         else:
             self._plot_id = existing_id
 
@@ -562,25 +584,59 @@ class BasePlot(object):
 
     # Interaction
 
+    def _wait_for_user_selection(self, request_id):
+        """Wait for a user selection and clean up result in case of error"""
+        FLINT_LOGGER.warning("Waiting for selection in Flint window.")
+        flint = self._flint
+        results = gevent.queue.Queue()
+        event.connect(flint, request_id, results.put)
+        try:
+            result = results.get()
+            return result
+        except Exception:
+            flint.cancel_request(request_id)
+            FLINT_LOGGER.warning("Plot selection cancelled. An error orrured.")
+            raise
+        except KeyboardInterrupt:
+            flint.cancel_request(request_id)
+            FLINT_LOGGER.warning("Plot selection cancelled by bliss user.")
+            raise
+
     def select_shapes(self, initial_selection=()):
-        return self._flint.select_shapes(self._plot_id, initial_selection, timeout=None)
+        flint = self._flint
+        request_id = flint.request_select_shapes(self._plot_id, initial_selection)
+        return self._wait_for_user_selection(request_id)
 
     def select_points(self, nb):
-        return self._flint.select_points(self._plot_id, nb)
+        flint = self._flint
+        request_id = flint.request_select_points(self._plot_id, nb)
+        return self._wait_for_user_selection(request_id)
 
     def select_shape(self, shape):
-        return self._flint.select_shape(self._plot_id, shape)
-
-    def clear_selections(self):
-        return self._flint.clear_selections(self._plot_id)
+        flint = self._flint
+        request_id = flint.request_select_shape(self._plot_id, shape)
+        return self._wait_for_user_selection(request_id)
 
     # Instanciation
 
     @classmethod
     def instanciate(
-        cls, data=None, name=None, existing_id=None, flint_pid=None, **kwargs
+        cls,
+        data=None,
+        name=None,
+        existing_id=None,
+        flint_pid=None,
+        selected=False,
+        closeable=False,
+        **kwargs,
     ):
-        plot = cls(name=name, existing_id=existing_id, flint_pid=flint_pid)
+        plot = cls(
+            name=name,
+            existing_id=existing_id,
+            flint_pid=flint_pid,
+            closeable=closeable,
+            selected=selected,
+        )
         if data is not None:
             plot.plot(data=data, **kwargs)
         return plot
@@ -785,7 +841,7 @@ plot = default_plot
 # Plotting: multi curves draw context manager
 
 
-@contextmanager
+@contextlib.contextmanager
 def draw_manager(plot):
     try:
         # disable the silx auto_replot to avoid refreshing the GUI for each curve plot (when calling plot.select_data(...) )

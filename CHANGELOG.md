@@ -53,6 +53,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - This logger is disabled by default
     - The output is retrived from both created or attched Flint process
     - `SCAN_DIPSLAY.flint_output_enabled` allow to enable/disable this logger
+  - Custom plots can be created with `selected=True` and `closeable=True`
   - 2 scripts was added to optimize and convert SVG to PNG
     - `scripts/export_svg.sh`, `scripts/optimize_svg.sh`
 - Typing Helper
@@ -123,6 +124,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `flint.set_dpi` was removed. A local use setting is provided now.
   - Redis node `SESSION:plot_select` is not anymore updated by the GUI
   - Redis node `SESSION:scatter_select` is not anymore updated by the GUI
+- `bliss.common.plot.BasePlot.clear_selections` was removed
+
 
 ## [0.3.0] - 2019-10-01
 

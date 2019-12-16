@@ -8,9 +8,12 @@
 
 from __future__ import annotations
 from typing import Dict
+from typing import Sequence
+from typing import Tuple
+from typing import TextIO
+from typing import NamedTuple
 
 import sys
-import socket
 import logging
 import itertools
 import functools
@@ -20,72 +23,91 @@ import gevent.event
 
 from silx.gui import qt
 from silx.gui import plot as silx_plot
-from silx.gui.plot.items.roi import RectangleROI
-
-from bliss.flint.interaction import PointsSelector, ShapeSelector
-from bliss.flint.widgets.roi_selection_widget import RoiSelectionWidget
+from bliss.flint.helper import plot_interaction
 from bliss.flint.helper import model_helper
 from bliss.flint.model import plot_model
 from bliss.flint.model import plot_item_model
 from bliss.flint.model import flint_model
+from bliss.common import event
 
 _logger = logging.getLogger(__name__)
 
 
-class MultiplexStreamToSocket:
+class CustomPlot(NamedTuple):
+    """Store information to a plot created remotly and providing silx API."""
+
+    plot: qt.QWidget
+    tab: qt.QWidget
+    title: str
+
+
+class Request(NamedTuple):
+    """Store information about a request."""
+
+    plot: qt.QWidget
+    request_id: str
+    selector: plot_interaction.Selector
+
+
+class MultiplexStreamToCallback(TextIO):
     """Multiplex a stream to another stream and sockets"""
 
     def __init__(self, stream_output):
-        self.__sockets = []
+        self.__listener = None
         self.__stream = stream_output
 
-    def write(self, message):
-        if len(self.__sockets) > 0:
-            data = message.encode("utf-8")
-            sockets = list(self.__sockets)
-            for socket in sockets:
-                try:
-                    socket.send(data)
-                except:
-                    _logger.debug("Error while sending output", exc_info=True)
-                    self.__sockets.remove(socket)
-        self.__stream.write(message)
+    def write(self, s):
+        if self.__listener is not None:
+            self.__listener(s)
+        self.__stream.write(s)
 
     def flush(self):
         self.__stream.flush()
 
-    def add_listener(self, address):
-        client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        client.connect(tuple(address))
-        self.__sockets.append(client)
+    def has_listener(self):
+        return self.__listener is not None
+
+    def set_listener(self, listener):
+        self.__listener = listener
 
 
 class FlintApi:
     """Flint interface, meant to be exposed through an RPC server."""
 
-    # FIXME: Everything relative to GUI should be removed in order to only provide
-    # RPC functions
-
     _id_generator = itertools.count()
 
     def __init__(self, flintModel: flint_model.FlintState):
+        self.__requestCount = -1
+        """Number of requests already created"""
+
+        self.__requests: Dict[str, Request] = {}
+        """Store the current requests"""
+
         self.__flintModel = flintModel
-        self.plot_dict: Dict[object, qt.QWidget] = {}
-        self.plot_title: Dict[object, str] = {}
+        # FIXME: _custom_plots should be owned by flint model or window
+        self._custom_plots: Dict[object, CustomPlot] = {}
         self.data_event = collections.defaultdict(dict)
-        self.selector_dict = collections.defaultdict(list)
         self.data_dict = collections.defaultdict(dict)
 
-        self.stdout = MultiplexStreamToSocket(sys.stdout)
+        self.stdout = MultiplexStreamToCallback(sys.stdout)
         sys.stdout = self.stdout
-        self.stderr = MultiplexStreamToSocket(sys.stderr)
+        self.stderr = MultiplexStreamToCallback(sys.stderr)
         sys.stderr = self.stderr
 
-    def add_output_listener(self, stdout_address, stderr_address):
-        """Add socket based listeners to receive stdout and stderr from flint
+    def register_output_listener(self):
+        """Register output listener to ask flint to emit signals for stdout and
+        stderr.
         """
-        self.stdout.add_listener(stdout_address)
-        self.stderr.add_listener(stderr_address)
+        if self.stdout.has_listener():
+            return
+        self.stdout.set_listener(self.__stdout_to_events)
+        self.stderr.set_listener(self.__stderr_to_events)
+
+    def __stdout_to_events(self, s):
+        event.send(self, "flint_stdout", s)
+
+    def __stderr_to_events(self, s):
+        event.send(self, "flint_stderr", s)
 
     def create_new_id(self):
         return next(self._id_generator)
@@ -182,31 +204,101 @@ class FlintApi:
         stream.write("%s\n" % msg)
         stream.flush()
 
+    def test_active(self, plot_id, qaction: str = None):
+        """Debug purpose function to simulate a click on an activable element.
+
+        Arguments:
+            plot_id:  The plot to interact with
+            qaction: The action which will be processed. It have to be a
+                children of the plot and referenced as it's object name.
+        """
+        plot = self._get_plot_widget(plot_id, expect_silx_api=True)
+        from silx.gui.utils.testutils import QTest
+
+        action: qt.QAction = plot.findChild(qt.QAction, qaction)
+        action.trigger()
+
+    def test_mouse(
+        self,
+        plot_id,
+        mode: str,
+        position: Tuple[int, int],
+        relative_to_center: bool = True,
+    ):
+        """Debug purpose function to simulate a mouse click in the center of the
+        plot.
+
+        Arguments:
+            plot_id:  The plot to interact with
+            mode: One of 'click', 'press', 'release', 'move'
+            position: Expected position of the mouse
+            relative_to_center: If try the position is relative to center
+        """
+        plot = self._get_plot_widget(plot_id, expect_silx_api=True)
+        from silx.gui.utils.testutils import QTest
+
+        widget = plot.getWidgetHandle()
+        assert relative_to_center == True
+        rect = qt.QRect(qt.QPoint(0, 0), widget.size())
+        base = rect.center()
+        position = base + qt.QPoint(position[0], position[1])
+        modifier = qt.Qt.KeyboardModifiers()
+        if mode == "click":
+            QTest.mouseClick(widget, qt.Qt.LeftButton, modifier, position)
+        elif mode == "press":
+            QTest.mousePress(widget, qt.Qt.LeftButton, modifier, position)
+        elif mode == "release":
+            QTest.mouseRelease(widget, qt.Qt.LeftButton, modifier, position)
+        elif mode == "release":
+            QTest.mouseMove(widget, position)
+
     # Plot management
 
-    def add_plot(self, cls_name, name=None):
+    def add_plot(
+        self,
+        cls_name: str,
+        name: str = None,
+        selected: bool = False,
+        closeable: bool = True,
+    ):
+        """Create a new custom plot based on the `silx` API.
+
+        The plot will be created i a new tab on Flint.
+
+        Arguments:
+            cls_name: A class name defined by silx. Can be one of "PlotWidget",
+                "PlotWindow", "Plot1D", "Plot2D", "ImageView", "StackView",
+                "ScatterView".
+            name: Name of the plot as displayed in the tab header. It is not a
+                unique name.
+            selected: If true (not the default) the plot became the current
+                displayed plot.
+            closeable: If true (default), the tab can be closed manually
+        """
         plot_id = self.create_new_id()
         if not name:
             name = "Plot %d" % plot_id
-        new_tab_widget = self.__flintModel.mainWindow().createTab(name)
+        new_tab_widget = self.__flintModel.mainWindow().createTab(
+            name, selected=selected, closeable=closeable
+        )
+        # FIXME: Hack to know how to close the widget
+        new_tab_widget._plot_id = plot_id
         qt.QVBoxLayout(new_tab_widget)
         cls = getattr(silx_plot, cls_name)
         plot = cls(new_tab_widget)
-        self.plot_dict[plot_id] = plot
-        self.plot_title[plot_id] = name
+        self._custom_plots[plot_id] = CustomPlot(plot, new_tab_widget, name)
         new_tab_widget.layout().addWidget(plot)
         plot.show()
         return plot_id
 
     def get_plot_name(self, plot_id):
-        return self.plot_title[plot_id]
+        return self._custom_plots[plot_id].title
 
     def remove_plot(self, plot_id):
-        plot = self.plot_dict.pop(plot_id)
-        plotParent = plot.parent()
+        custom_plot = self._custom_plots.pop(plot_id)
         window = self.__flintModel.mainWindow()
-        window.removeTab(plotParent)
-        plot.close()
+        window.removeTab(custom_plot.tab)
+        custom_plot.plot.close()
 
     def get_interface(self, plot_id):
         plot = self._get_plot_widget(plot_id)
@@ -277,7 +369,8 @@ class FlintApi:
         plot = self._get_plot_widget(plot_id)
         plot.clear()
 
-    def _get_plot_widget(self, plot_id, expect_silx_api=True):
+    def _get_plot_widget(self, plot_id, expect_silx_api=True, custom_plot=False):
+        # FIXME: Refactor it, it starts to be ugly
         if isinstance(plot_id, str) and plot_id.startswith("live:"):
             workspace = self.__flintModel.workspace()
             try:
@@ -303,76 +396,134 @@ class FlintApi:
                 f"The widget associated to '{plot_id}' only provides a silx API"
             )
 
-        return self.plot_dict[plot_id]
+        if custom_plot:
+            return self._custom_plots[plot_id]
+        return self._custom_plots[plot_id].plot
 
     # User interaction
 
-    def select_shapes(self, plot_id, initial_shapes=(), timeout=None):
-        plot = self._get_plot_widget(plot_id)
-        dock = self._create_roi_dock_widget(plot, initial_shapes)
-        roi_widget = dock.widget()
-        done_event = gevent.event.AsyncResult()
+    def __create_request_id(self):
+        self.__requestCount += 1
+        return "flint_api_request_%d" % self.__requestCount
 
-        roi_widget.selectionFinished.connect(
-            functools.partial(self._selection_finished, done_event=done_event)
+    def request_select_shapes(
+        self, plot_id, initial_shapes: Sequence[Dict] = (), timeout=None
+    ) -> str:
+        """
+        Request a shape selection in a specific plot and return the selection.
+
+        A shape is described by a dictionary containing "origin", "size", "kind" (which is "Rectangle), and "label".
+
+        Arguments:
+            plot_id: Identifier of the plot
+            initial_shapes: A list of shapes describing the current selection. Only Rectangle are supported.
+            timeout: A timeout to enforce the user to do a selection
+
+        Return:
+            This method returns an event name which have to be registered to
+            reach the result.
+
+            The event event is list of shapes describing the selection
+        """
+        plot = self._get_plot_widget(plot_id, expect_silx_api=True)
+        selector = plot_interaction.ShapesSelector(plot)
+        selector.setInitialShapes(initial_shapes)
+        selector.setTimeout(timeout)
+        return self.__request_selector(plot_id, selector)
+
+    def request_select_points(self, plot_id, nb: int) -> str:
+        """
+        Request the selection of points.
+
+        Arguments:
+            plot_id: Identifier of the plot
+            nb: Number of points requested
+
+        Return:
+            This method returns an event name which have to be registered to
+            reach the result.
+
+            The event result is list of points describing the selection. A point
+            is defined by a tuple of 2 floats (x, y). If nothing is selected an
+            empty sequence is returned.
+        """
+        plot = self._get_plot_widget(plot_id, expect_silx_api=True)
+        selector = plot_interaction.PointsSelector(plot)
+        selector.setNbPoints(nb)
+        return self.__request_selector(plot_id, selector)
+
+    def request_select_shape(self, plot_id, shape: str) -> str:
+        """
+        Request the selection of a single shape.
+
+        Arguments:
+            plot_id: Identifier of the plot
+            shape: The kind of shape requested ("rectangle", "line", "polygon",
+                "hline", "vline")
+
+        Return:
+            This method returns an event name which have to be registered to
+            reach the result.
+
+            The event result is a list of points describing the selected shape.
+            A point is defined by a tuple of 2 floats (x, y). If nothing is
+            selected an empty sequence is returned.
+        """
+        plot = self._get_plot_widget(plot_id, expect_silx_api=True)
+        selector = plot_interaction.ShapeSelector(plot)
+        selector.setShapeSelection(shape)
+        return self.__request_selector(plot_id, selector)
+
+    def __request_selector(self, plot_id, selector: plot_interaction.Selector) -> str:
+        custom_plot = self._get_plot_widget(plot_id, custom_plot=True)
+
+        # Set the focus as an user input is requested
+        if isinstance(custom_plot, CustomPlot):
+            plot = custom_plot.plot
+            # Set the focus as an user input is requested
+            window = self.__flintModel.mainWindow()
+            window.setFocusOnPlot(custom_plot.tab)
+        else:
+            window = self.__flintModel.mainWindow()
+            window.setFocusOnLiveScan()
+            plot = custom_plot
+
+        request_id = self.__create_request_id()
+        request = Request(plot, request_id, selector)
+        self.__requests[request_id] = request
+
+        # Start the task
+        selector.selectionFinished.connect(
+            functools.partial(self.__request_validated, request_id)
         )
+        selector.start()
+        return request_id
 
-        try:
-            return done_event.get(timeout=timeout)
-        finally:
-            plot.removeDockWidget(dock)
+    def cancel_request(self, request_id):
+        """
+        Stop the `request_id` selection.
 
-    def _selection_finished(self, selections, done_event=None):
-        shapes = []
-        try:
-            shapes = [
-                dict(
-                    origin=select.getOrigin(),
-                    size=select.getSize(),
-                    label=select.getLabel(),
-                    kind=select._getKind(),
-                )
-                for select in selections
-            ]
-        finally:
-            done_event.set_result(shapes)
+        As result the selection is removed and the user can't have anymore
+        feedback.
+        """
+        request = self.__requests.pop(request_id, None)
+        if request is not None:
+            request.selector.stop()
 
-    def _create_roi_dock_widget(self, plot, initial_shapes):
-        roi_widget = RoiSelectionWidget(plot)
-        dock = qt.QDockWidget("ROI selection")
-        dock.setWidget(roi_widget)
-        plot.addTabbedDockWidget(dock)
-        for shape in initial_shapes:
-            kind = shape["kind"]
-            if kind == "Rectangle":
-                roi = RectangleROI()
-                roi.setGeometry(origin=shape["origin"], size=shape["size"])
-                roi.setLabel(shape["label"])
-                roi_widget.add_roi(roi)
-            else:
-                raise ValueError("Unknown shape of type {}".format(kind))
-        dock.show()
-        return dock
+    def clear_request(self, request_id):
+        """
+        Clear the `request_id` selection.
 
-    def _selection(self, plot_id, cls, *args):
-        # Instanciate selector
-        plot = self._get_plot_widget(plot_id)
-        selector = cls(plot)
-        # Save it for future cleanup
-        self.selector_dict[plot_id].append(selector)
-        # Run the selection
-        queue = gevent.queue.Queue()
-        selector.selectionFinished.connect(queue.put)
-        selector.start(*args)
-        positions = queue.get()
-        return positions
+        This selection still have to be completed by the user.
+        """
+        request = self.__requests.get(request_id)
+        if request is not None:
+            request.selector.reset()
 
-    def select_points(self, plot_id, nb):
-        return self._selection(plot_id, PointsSelector, nb)
-
-    def select_shape(self, plot_id, shape):
-        return self._selection(plot_id, ShapeSelector, shape)
-
-    def clear_selections(self, plot_id):
-        for selector in self.selector_dict.pop(plot_id):
-            selector.reset()
+    def __request_validated(self, request_id: str):
+        """Callback when the request is validaed"""
+        request = self.__requests.pop(request_id, None)
+        if request is not None:
+            selector = request.selector
+            event.send(self, request_id, selector.selection())
+            request.selector.stop()

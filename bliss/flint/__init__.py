@@ -14,7 +14,6 @@ scan processing.
     config
     flint_api
     flint_window
-    interaction
     model
         model.flint_model
         model.scan_model
@@ -23,14 +22,15 @@ scan processing.
     helper
         helper.data_storage
         helper.manager
+        helper.plot_interaction
         helper.rpc_server
         helper.scan_info_helper
         helper.scan_manager
         helper.style_helper
     resources
     simulator
-        acquisition
-        simulator_widget
+        simulator.acquisition
+        simulator.simulator_widget
     utils
         utils.mathutils
         utils.signalutils

@@ -44,13 +44,19 @@ if getattr(sys, "frozen", False):
         _RESOURCES_DIR = _dir
 
 
-def resource_filename(resource):
+def resource_filename(resource: str):
     """Return filename corresponding to resource.
-    resource can be the name of either a file or a directory.
+
+    `resource` can be the name of either a file or a directory.
+
     The existence of the resource is not checked.
-    :param str resource: Resource path relative to resource directory
-                         using '/' path separator.
-    :return: Absolute resource path in the file system
+
+    Arguments:
+        resource: Resource path relative to resource directory
+            using '/' path separator.
+
+    Return:
+        Absolute resource path in the file system
     """
     # Not in use, uncomment when functionnality is needed
     # If _RESOURCES_DOC_DIR is set, use it to get resources in doc/ subflodler

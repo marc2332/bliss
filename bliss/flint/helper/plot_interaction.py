@@ -5,11 +5,17 @@
 # Copyright (c) 2015-2019 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
+from __future__ import annotations
+from typing import Dict
+from typing import Sequence
 
 from silx.gui import qt, icons
 from silx.gui.plot.actions import PlotAction
-from silx.gui.plot import PlotWindow, PlotWidget
+from silx.gui.plot import PlotWidget
 from silx.gui.colors import rgba
+from silx.gui.plot.items.roi import RectangleROI
+from silx.gui.plot.items.roi import RegionOfInterest
+from bliss.flint.widgets.roi_selection_widget import RoiSelectionWidget
 
 
 class DrawModeAction(PlotAction):
@@ -106,44 +112,61 @@ class DrawModeAction(PlotAction):
         )
 
 
-class ShapeSelector(qt.QObject):
-    """Handles the selection of a single shape in a PlotWidget
+class Selector(qt.QObject):
+    """Handles the selection of things
 
     :param parent: QObject's parent
     """
 
-    selectionChanged = qt.Signal(tuple)
+    selectionChanged = qt.Signal()
     """Signal emitted whenever the selection has changed.
-
-    It provides the selection.
     """
 
-    selectionFinished = qt.Signal(tuple)
+    selectionFinished = qt.Signal()
     """Signal emitted when selection is terminated.
-
-    It provides the selection.
     """
 
+    def __init__(self, parent: qt.QObject = None):
+        super(Selector, self).__init__(parent=parent)
+
+    def selection(self):
+        """Returns the current selection
+        """
+        return None
+
+    def reset(self):
+        """Clear the current selection"""
+
+    def start(self):
+        """Start the selection"""
+
+    def stop(self):
+        """Stop the selection.
+
+        After that it should not be possible to start it again."""
+
+
+class ShapeSelector(Selector):
     def __init__(self, parent=None):
         assert isinstance(parent, PlotWidget)
         super(ShapeSelector, self).__init__(parent)
         self._isSelectionRunning = False
         self._selection = ()
         self._itemId = "%s-%s" % (self.__class__.__name__, id(self))
+        self._shape: str = ""
 
-        # Add a toolbar to plot
-        self._toolbar = qt.QToolBar("Selection")
-        self._modeAction = DrawModeAction(plot=parent)
-        self._modeAction.setLabel(self._itemId)
-        self._modeAction.setColor(rgba("red"))
-        toolButton = qt.QToolButton()
-        toolButton.setDefaultAction(self._modeAction)
-        toolButton.setToolButtonStyle(qt.Qt.ToolButtonTextBesideIcon)
-        self._toolbar.addWidget(toolButton)
+    def setShapeSelection(self, shape):
+        """
+        Set the kind of shape to use durig the selection.
+
+        :param str shape: The shape to select in:
+            'rectangle', 'line', 'polygon', 'hline', 'vline'
+        """
+        self._shape = shape
 
     # Style
 
-    def getColor(self):
+    def color(self):
         """Returns the color used for the selection shape
 
         :rtype: QColor
@@ -161,7 +184,7 @@ class ShapeSelector(qt.QObject):
 
     # Control selection
 
-    def getSelection(self):
+    def selection(self):
         """Returns selection control point coordinates
 
         Returns an empty tuple if there is no selection
@@ -182,20 +205,17 @@ class ShapeSelector(qt.QObject):
         if selection != self._selection:
             self._selection = selection
             self._updateShape()
-            self.selectionChanged.emit(self.getSelection())
+            self.selectionChanged.emit()
 
     def reset(self):
         """Clear the rectangle selection"""
         if self._selection:
             self._selection = ()
             self._updateShape()
-            self.selectionChanged.emit(self.getSelection())
+            self.selectionChanged.emit()
 
-    def start(self, shape):
-        """Start requiring user to select a rectangle
-
-        :param str shape: The shape to select in:
-            'rectangle', 'line', 'polygon', 'hline', 'vline'
+    def start(self):
+        """Start requiring user to select a shape
         """
         plot = self.parent()
         if plot is None:
@@ -204,9 +224,19 @@ class ShapeSelector(qt.QObject):
         self.stop()
         self.reset()
 
-        assert shape in ("rectangle", "line", "polygon", "hline", "vline")
+        # Add a toolbar to plot
+        self._toolbar = qt.QToolBar("Selection")
+        self._modeAction = DrawModeAction(plot=plot)
+        self._modeAction.setLabel(self._itemId)
+        self._modeAction.setColor(rgba("red"))
+        toolButton = qt.QToolButton()
+        toolButton.setDefaultAction(self._modeAction)
+        toolButton.setToolButtonStyle(qt.Qt.ToolButtonTextBesideIcon)
+        self._toolbar.addWidget(toolButton)
 
-        self._modeAction.setShape(shape)
+        assert self._shape in ("rectangle", "line", "polygon", "hline", "vline")
+
+        self._modeAction.setShape(self._shape)
         self._modeAction.trigger()  # To set the interaction mode
 
         self._isSelectionRunning = True
@@ -234,7 +264,7 @@ class ShapeSelector(qt.QObject):
         plot.removeToolBar(self._toolbar)
 
         self._isSelectionRunning = False
-        self.selectionFinished.emit(self.getSelection())
+        self.selectionFinished.emit()
 
     def _handleDraw(self, event):
         """Handle shape drawing event"""
@@ -268,21 +298,7 @@ class ShapeSelector(qt.QObject):
                 )
 
 
-class PointsSelector(qt.QObject):
-    """Handle selection of points in a PlotWidget"""
-
-    selectionChanged = qt.Signal(tuple)
-    """Signal emitted whenever the selection has changed.
-
-    It provides the selection.
-    """
-
-    selectionFinished = qt.Signal(tuple)
-    """Signal emitted when selection is terminated.
-
-    It provides the selection.
-    """
-
+class PointsSelector(Selector):
     def __init__(self, parent):
         assert isinstance(parent, PlotWidget)
         super(PointsSelector, self).__init__(parent)
@@ -291,7 +307,15 @@ class PointsSelector(qt.QObject):
         self._markersAndPos = []
         self._totalPoints = 0
 
-    def getSelection(self):
+    def setNbPoints(self, nbPoints):
+        """
+        Set the number of points requested for the selection.
+
+        :param int nbPoints: Number of points to select
+        """
+        self._totalPoints = nbPoints
+
+    def selection(self):
         """Returns the selection"""
         return tuple(pos for _, pos in self._markersAndPos)
 
@@ -311,7 +335,7 @@ class PointsSelector(qt.QObject):
                         plot.remove(legend=legend, kind="marker")
 
                         self._updateStatusBar()
-                        self.selectionChanged.emit(self.getSelection())
+                        self.selectionChanged.emit()
                         return True  # Stop further handling of those keys
 
             elif event.key() == qt.Qt.Key_Return:
@@ -320,10 +344,8 @@ class PointsSelector(qt.QObject):
 
         return super(PointsSelector, self).eventFilter(obj, event)
 
-    def start(self, nbPoints=1):
+    def start(self):
         """Start interactive selection of points
-
-        :param int nbPoints: Number of points to select
         """
         self.stop()
         self.reset()
@@ -332,7 +354,6 @@ class PointsSelector(qt.QObject):
         if plot is None:
             raise RuntimeError("No plot to perform selection")
 
-        self._totalPoints = nbPoints
         self._isSelectionRunning = True
 
         plot.setInteractiveMode(mode="zoom")
@@ -362,7 +383,7 @@ class PointsSelector(qt.QObject):
 
         plot.statusBar().clearMessage()
         self._isSelectionRunning = False
-        self.selectionFinished.emit(self.getSelection())
+        self.selectionFinished.emit()
 
     def reset(self):
         """Reset selected points"""
@@ -373,7 +394,7 @@ class PointsSelector(qt.QObject):
         for legend, _ in self._markersAndPos:
             plot.remove(legend=legend, kind="marker")
         self._markersAndPos = []
-        self.selectionChanged.emit(self.getSelection())
+        self.selectionChanged.emit()
 
     def _updateStatusBar(self):
         """Update status bar message"""
@@ -434,227 +455,86 @@ class PointsSelector(qt.QObject):
         self._updateStatusBar()
 
 
-# TODO refactor to make a selection by composition rather than inheritance...
-class BlissPlot(PlotWindow):
-    """Plot with selection methods"""
+class ShapesSelector(Selector):
+    def __init__(self, parent=None):
+        assert isinstance(parent, PlotWidget)
+        super(ShapesSelector, self).__init__(parent=parent)
+        self.__initialShapes: Sequence[Dict] = ()
+        self.__timeout = None
+        self.__dock = None
+        self.__roiWidget = None
+        self.__selection = None
 
-    sigSelectionDone = qt.Signal(object)
-    """Signal emitted when the selection is done
+    def setInitialShapes(self, initialShapes: Sequence[Dict] = ()):
+        self.__initialShapes = initialShapes
 
-    It provides the list of selected points
-    """
+    def setTimeout(self, timeout):
+        self.__timeout = timeout
 
-    def __init__(self, parent=None, **kwargs):
-        super(BlissPlot, self).__init__(parent=parent, **kwargs)
-        self._selectionColor = rgba("red")
-        self._selectionMode = None
-        self._markers = []
-        self._pointNames = ()
+    def __dictToRois(self, shapes: Sequence[Dict]) -> Sequence[RegionOfInterest]:
+        rois = []
+        for shape in shapes:
+            kind = shape["kind"]
+            if kind == "Rectangle":
+                roi = RectangleROI()
+                roi.setGeometry(origin=shape["origin"], size=shape["size"])
+                roi.setLabel(shape["label"])
+                rois.append(roi)
+            else:
+                raise ValueError(f"Unknown shape of type {kind}")
+        return rois
 
-    # Style
-
-    def getColor(self):
-        """Returns the color used for selection markers
-
-        :rtype: QColor
-        """
-        return qt.QColor.fromRgbF(*self._selectionColor)
-
-    def setColor(self, color):
-        """Set the markers used for selection
-
-        :param color: The color to use for selection markers as
-           either a color name, a QColor, a list of uint8 or float in [0, 1].
-        """
-        self._selectionColor = rgba(color)
-        self._updateMarkers()  # To apply color change
-
-    # Marker helpers
-
-    def _setSelectedPointMarker(self, x, y, index=None):
-        """Add/Update a marker for a point
-
-        :param float x: X coord in plot
-        :param float y: Y coord in plot
-        :param int index: Index of point in points names to set
-        :return: corresponding marker legend
-        :rtype: str
-        """
-        if index is None:
-            index = len(self._markers)
-
-        name = self._pointNames[index]
-        legend = "BlissPlotSelection-%d" % index
-
-        self.addMarker(
-            x,
-            y,
-            legend=legend,
-            text=name,
-            color=self._selectionColor,
-            draggable=self._selectionMode is not None,
-        )
-        return legend
-
-    def _updateMarkers(self):
-        """Update all markers to sync color/draggable"""
-        for index, (x, y) in enumerate(self.getSelectedPoints()):
-            self._setSelectedPointMarker(x, y, index)
-
-    # Selection mode control
-
-    def startPointSelection(self, points=1):
-        """Request the user to select a number of points
-
-        :param points:
-            The number of points the user need to select (default: 1)
-            or a list of point names or a single name.
-        :type points: Union[int, List[str], str]
-        :return: A future to access the result
-        :rtype: concurrent.futures.Future
-        """
-        self.stopSelection()
-        self.resetSelection()
-
-        if isinstance(points, str):
-            points = [points]
-        elif isinstance(points, int):
-            points = [str(i) for i in range(points)]
-
-        self._pointNames = points
-
-        self._markers = []
-        self._selectionMode = "points"
-
-        self.setInteractiveMode(mode="zoom")
-        self._handleInteractiveModeChanged(None)
-        self.sigInteractiveModeChanged.connect(self._handleInteractiveModeChanged)
-
-    def stopSelection(self):
-        """Stop current selection.
-
-        Calling this method emits the selection through sigSelectionDone
-        and does not clear the selection.
-        """
-        if self._selectionMode is not None:
-            currentMode = self.getInteractiveMode()
-            if currentMode["mode"] == "zoom":  # Stop handling mouse click
-                self.sigPlotSignal.disconnect(self._handleSelect)
-
-            self.sigInteractiveModeChanged.disconnect(
-                self._handleInteractiveModeChanged
+    def __roisToDict(self, rois: Sequence[RegionOfInterest]) -> Sequence[Dict]:
+        shapes = []
+        for roi in rois:
+            shape = dict(
+                origin=roi.getOrigin(),
+                size=roi.getSize(),
+                label=roi.getLabel(),
+                kind=roi._getKind(),
             )
+            shapes.append(shape)
+        return shapes
 
-            self._selectionMode = None
-            self.statusBar().showMessage("Selection done")
+    def start(self):
+        plot = self.parent()
 
-            self._updateMarkers()  # To make them not draggable
+        roiWidget = RoiSelectionWidget(plot)
+        dock = qt.QDockWidget("ROI selection")
+        dock.setWidget(roiWidget)
+        plot.addTabbedDockWidget(dock)
+        rois = self.__dictToRois(self.__initialShapes)
+        for roi in rois:
+            roiWidget.add_roi(roi)
+        roiWidget.selectionFinished.connect(self.__selectionFinished)
+        dock.show()
 
-            self.sigSelectionDone.emit(self.getSelectedPoints())
+        self.__dock = dock
+        self.__roiWidget = roiWidget
 
-    def getSelectedPoints(self):
-        """Returns list of currently selected points
+        if self.__timeout is not None:
+            qt.QTimer.singleShot(self.__timeout * 1000, self.__selectionCancelled)
 
-        :rtype: tuple
-        """
-        return tuple(
-            self._getItem(kind="marker", legend=legend).getPosition()
-            for legend in self._markers
-        )
+    def stop(self):
+        if self.__dock is None:
+            return
+        plot = self.parent()
+        plot.removeDockWidget(self.__dock)
+        self.__dock = None
+        self.__roiWidget = None
 
-    def resetSelection(self):
-        """Clear current selection"""
-        for legend in self._markers:
-            self.remove(legend, kind="marker")
-        self._markers = []
+    def selection(self):
+        """Returns the selection"""
+        return self.__selection
 
-        if self._selectionMode is not None:
-            self._updateStatusBar()
-        else:
-            self.statusBar().clearMessage()
+    def __selectionCancelled(self):
+        if self.__roiWidget is not None:
+            self.stop()
+            self.__selection = None
+            self.selectionFinished.emit()
 
-    def _handleInteractiveModeChanged(self, source):
-        """Handle change of interactive mode in the plot
-
-        :param source: Objects that triggered the mode change
-        """
-        mode = self.getInteractiveMode()
-        if mode["mode"] == "zoom":  # Handle click events
-            self.sigPlotSignal.connect(self._handleSelect)
-        else:  # Do not handle click event
-            self.sigPlotSignal.disconnect(self._handleSelect)
-        self._updateStatusBar()
-
-    def _handleSelect(self, event):
-        """Handle mouse events"""
-        if event["event"] == "mouseClicked" and event["button"] == "left":
-            if len(self._markers) == len(self._pointNames):
-                return
-
-            x, y = event["x"], event["y"]
-            legend = self._setSelectedPointMarker(x, y, len(self._markers))
-            self._markers.append(legend)
-            self._updateStatusBar()
-
-    def keyPressEvent(self, event):
-        """Handle keys for undo/done actions"""
-        if self._selectionMode is not None:
-            if event.key() in (qt.Qt.Key_Delete, qt.Qt.Key_Backspace) or (
-                event.key() == qt.Qt.Key_Z and event.modifiers() & qt.Qt.ControlModifier
-            ):
-                if len(self._markers) > 0:
-                    legend = self._markers.pop()
-                    self.remove(legend, kind="marker")
-
-                    self._updateStatusBar()
-                    return  # Stop processing the event
-
-            elif event.key() == qt.Qt.Key_Return:
-                self.stopSelection()
-                return  # Stop processing the event
-
-        return super(BlissPlot, self).keyPressEvent(event)
-
-    def _updateStatusBar(self):
-        """Update status bar message"""
-        if len(self._markers) < len(self._pointNames):
-            name = self._pointNames[len(self._markers)]
-            msg = "Select point: %s (%d/%d)" % (
-                name,
-                len(self._markers),
-                len(self._pointNames),
-            )
-        else:
-            msg = "Selection ready. Press Enter to validate"
-
-        currentMode = self.getInteractiveMode()
-        if currentMode["mode"] != "zoom":
-            msg += " (Use zoom mode to add/edit points)"
-
-        self.statusBar().showMessage(msg)
-
-
-if __name__ == "__main__":
-    app = qt.QApplication([])
-
-    # plot = BlissPlot()
-    # plot.startPointSelection(('first', 'second', 'third'))
-
-    def dumpChanged(selection):
-        print("selectionChanged", selection)
-
-    def dumpFinished(selection):
-        print("selectionFinished", selection)
-
-    plot = PlotWindow()
-    selector = ShapeSelector(plot)
-    # selector.start(shape='rectangle')
-    selector.selectionChanged.connect(dumpChanged)
-    selector.selectionFinished.connect(dumpFinished)
-    plot.show()
-
-    points = PointsSelector(plot)
-    points.start(3)
-    points.selectionChanged.connect(dumpChanged)
-    points.selectionFinished.connect(dumpFinished)
-    # app.exec_()
+    def __selectionFinished(self, selection: Sequence[RegionOfInterest]):
+        self.stop()
+        shapes = self.__roisToDict(selection)
+        self.__selection = shapes
+        self.selectionFinished.emit()

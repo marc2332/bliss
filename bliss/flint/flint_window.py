@@ -30,6 +30,8 @@ class FlintWindow(qt.QMainWindow):
         central_widget = qt.QWidget(self)
 
         tabs = qt.QTabWidget(central_widget)
+        tabs.setTabsClosable(True)
+        tabs.tabCloseRequested[int].connect(self.__tabCloseRequested)
         self.__tabs = tabs
 
         self.setCentralWidget(tabs)
@@ -47,6 +49,14 @@ class FlintWindow(qt.QMainWindow):
     def tabs(self):
         # FIXME: Have to be removed as it is not really an abstraction
         return self.__tabs
+
+    def __tabCloseRequested(self, tabIndex):
+        new_tab_widget = self.__tabs.widget(tabIndex)
+        # FIXME: CustomPlot should not be a flint_api concept
+        # FIXME: There should not be a link to flint_api
+        plot_id = new_tab_widget._plot_id
+        flintApi = self.__flintState.flintApi()
+        flintApi.remove_plot(plot_id)
 
     def __initLogWindow(self):
         logWindow = qt.QDialog(self)
@@ -120,10 +130,24 @@ class FlintWindow(qt.QMainWindow):
 
         About.about(self, "Flint")
 
-    def createTab(self, label, widgetClass=qt.QWidget):
+    def setFocusOnLiveScan(self):
+        self.__tabs.setCurrentIndex(0)
+
+    def setFocusOnPlot(self, plot: qt.QWidget):
+        i = self.__tabs.indexOf(plot)
+        if i >= 0:
+            self.__tabs.setCurrentIndex(i)
+
+    def createTab(self, label, widgetClass=qt.QWidget, closeable=False, selected=False):
         # FIXME: The parent have to be set
         widget = widgetClass()
-        self.__tabs.addTab(widget, label)
+        index = self.__tabs.addTab(widget, label)
+        if selected:
+            self.__tabs.setCurrentIndex(index)
+        if not closeable:
+            closeButton = self.__tabs.tabBar().tabButton(index, qt.QTabBar.RightSide)
+            if closeButton is not None:
+                closeButton.setVisible(False)
         return widget
 
     def removeTab(self, widget):

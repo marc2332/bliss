@@ -6,7 +6,7 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 """Main entry for Flint application.
 
-This module provide a `main``function which initialize all the main components.
+This module provide a `main` function which initialize all the main components.
 
 Here is a view of this architecture and the way it interact with it's
 environment.

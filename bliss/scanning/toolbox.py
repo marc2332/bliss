@@ -5,133 +5,32 @@
 # Copyright (c) 2015-2019 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-import operator
+
 import functools
 
-from bliss import global_map
-from bliss.common import measurementgroup
-
+from bliss.common.measurementgroup import (
+    MeasurementGroup,
+    get_active as get_active_mg,
+    _get_counters_from_measurement_group,
+    _get_counters_from_object,
+)
 from bliss.common.counter import CalcCounter, Counter
 from bliss.controllers.counter import CalcCounterController, CounterController
 from bliss.scanning.chain import AcquisitionChain
 from bliss.scanning.acquisition.timer import SoftwareTimerMaster
 
 
-def _get_object_from_name(name):
-    """Get the bliss object corresponding to the given name.
-
-    `name` can be:
-    - a counter's name or an acquisition device's name ("name")
-    - a counter's fullname ("ctrl:cnt")
-    - a counter from an acquisition device ("ctrl.counters.cnt")
-    - a counter group from an acquisition device ("ctrl.counter_groups.group")
-    """
-    if ":" in name:
-        return global_map.get_counter_from_fullname(name)
-
-    elif "." in name:
-        # could be "ctrl.counters.cnt" or "ctrl.counter_groups.group"
-        try:
-            x, _, shortname = name.rpartition(".")
-        except ValueError:
-            raise AttributeError(name)
-        else:
-            for ctrl in global_map.instance_iter("controllers"):
-                if not isinstance(ctrl, CounterController):
-                    continue
-                ctrl_name, _, counters_or_group = x.rpartition(".")
-                if ctrl.name == ctrl_name:
-                    return operator.attrgetter(f"{counters_or_group}.{shortname}")(ctrl)
-            raise AttributeError(name)
-
-    else:
-        # it's a counter or a CounterController (with .counters)
-        try:
-            return next(
-                x
-                for x in global_map.instance_iter("counters")
-                if isinstance(x, Counter) and x.name == name
-            )
-        except StopIteration:
-            try:
-                return next(
-                    x
-                    for x in global_map.instance_iter("controllers")
-                    if isinstance(x, CounterController) and x.name == name
-                )
-            except StopIteration:
-                raise AttributeError(name)
-
-
-def _get_counters_from_measurement_group(mg):
-    """Get the counters from a measurement group."""
-    counters, missing = [], []
-    for name in mg.enabled:
-        try:
-            obj = _get_object_from_name(name)
-        except AttributeError:
-            missing.append(name)
-        else:
-            # Prevent groups from pointing to other groups
-            counters += _get_counters_from_object(obj, recursive=False)
-    if missing:
-        raise AttributeError(*missing)
-    return counters
-
-
-def _get_counters_from_object(arg, recursive=True):
-    """Get the counters from a bliss object (typically a scan function
-    positional counter argument).
-
-    According to issue #251, `arg` can be:
-    - a counter
-    - a counter namepace
-    - a controller, in which case:
-       - controller.groups.default namespace is used if it exists
-       - controller.counters namepace otherwise
-    - a measurementgroup
-    """
-    if isinstance(arg, measurementgroup.MeasurementGroup):
-        if not recursive:
-            raise ValueError("Measurement groups cannot point to other groups")
-        return _get_counters_from_measurement_group(arg)
-    counters = []
-    try:
-        counters = list(arg.counter_groups.default)
-    except AttributeError:
-        try:
-            counters = list(arg.counters)
-
-        except AttributeError:
-            pass
-    if not counters:
-        try:
-            counters = list(arg)
-        except TypeError:
-            counters = [arg]
-    # replace counters with their aliased counterpart, if any
-    for i, cnt in enumerate(counters):
-        alias = global_map.aliases.get_alias(cnt)
-        if alias:
-            counters[i] = global_map.aliases.get(alias)
-    return counters
-
-
 def get_all_counters(counter_args):
-    # Use active MG if no counter is provided
-    if not counter_args:
-        active = measurementgroup.get_active()
-        if active is None:
-            raise ValueError("No measurement group is currently active")
-        counter_args = [active]
-
     # Initialize
     all_counters, missing = [], []
 
     # Process all counter arguments
     for obj in counter_args:
         try:
-            all_counters += _get_counters_from_object(obj)
+            if isinstance(obj, MeasurementGroup):
+                all_counters += _get_counters_from_measurement_group(obj)
+            else:
+                all_counters += _get_counters_from_object(obj)
         except AttributeError as exc:
             missing += exc.args
 
@@ -180,7 +79,10 @@ class ChainBuilder:
             The list is sorted from the less dependent counter to the most dependent counter (see CalcCounters).
             Duplicated counters are removed.
         """
-
+        if not counters:
+            active_mg = get_active_mg()
+            if active_mg:
+                counters = [active_mg]
         # print(f"=== counters: {counters}")
 
         # --- counters = [MG, cnt, ctrl, cnt_grp]

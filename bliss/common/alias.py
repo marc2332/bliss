@@ -195,7 +195,7 @@ class Aliases:
                             break
                     else:
                         raise TypeError(
-                            f"Cannot make an alias of object of type {type(obj)}"
+                            f"Could not find a counter with corresponding name: {fn}"
                         )
 
         # create alias object
@@ -303,14 +303,20 @@ class MapWithAliases(Map):
             yield mot
 
     def get_counters_iter(self):
-        for cnt in self.instance_iter("counters"):
-            yield cnt
-        for ctrl in self.instance_iter("controllers"):
+        for counter_or_container in self.instance_iter("counters"):
             try:
-                for cnt in ctrl.counters:
+                # let's see first if we have a counter container
+                # TODO: replace with proper 'CounterContainer' abc/protocol/whatever
+                # (anything, but needs to be **defined**)
+                for cnt in counter_or_container.counters:
                     yield cnt
             except AttributeError:
-                continue
+                # must be a counter object
+                yield counter_or_container
+        for obj in self.aliases:
+            if not isinstance(obj, ObjectAlias):
+                # must be Counter alias
+                yield obj
 
     @property
     def aliases(self):
@@ -353,23 +359,11 @@ class MapWithAliases(Map):
         except ValueError:
             raise AttributeError(fullname)
         else:
-            for cnt in self.instance_iter("counters"):
+            for cnt in self.get_counters_iter():
                 try:
                     if cnt.fullname == fullname:
                         return cnt
                 except AttributeError:
                     continue
-            # could not find counter in map, look for controllers counters
-            for ctrl in self.instance_iter("controllers"):
-                try:
-                    ctrl_name = ctrl.fullname
-                except AttributeError:
-                    try:
-                        ctrl_name = ctrl.name
-                    except AttributeError:
-                        continue
-                if ctrl_name == controller_fullname:
-                    for cnt in ctrl.counters:
-                        if cnt.fullname == fullname:
-                            return cnt
-            raise AttributeError(fullname)
+            else:
+                raise AttributeError(fullname)

@@ -150,6 +150,7 @@ def main():
         "pygraphviz >= 1.5",
         "networkx",
         "tblib",
+        "sortedcontainers",
     ]
 
     tests_require = ["pytest >= 4.1.1", "pytest-cov >= 2.6.1", "scipy"]

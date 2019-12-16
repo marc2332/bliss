@@ -185,9 +185,9 @@ class SamplingCounter(Counter):
     def __info__(self):
         """Standard method called by BLISS Shell info helper."""
         info_str = "------ SamplingCounter ------\n"
-        info_str = super().info()
+        info_str = super().__info__()
         info_str += f"\nSamplingCounter info:\n"
-        info_str += f"  mode = {SamplingMode(self.mrrode).name} ({self.mode})\n"
+        info_str += f"  mode = {SamplingMode(self.mode).name} ({self.mode})\n"
 
         return info_str
 
@@ -202,7 +202,7 @@ class IntegratingCounter(Counter):
     def __info__(self):
         """Standard method called by BLISS Shell info helper."""
         info_str = "------ IntegratingCounter ------\n"
-        info_str += super().info()
+        info_str += super().__info__()
 
         return info_str
 
@@ -316,7 +316,7 @@ class SoftCounter(SamplingCounter):
     def __info__(self):
         """Standard method called by BLISS Shell info helper."""
         info_str = "------ SoftCounter ------\n"
-        info_str = super().info()
+        info_str = super().__info__()
         info_str += f"\nSoftCounter info:\n"
         info_str += f"  ctrl_name = {self.ctrl_name}\n"
 

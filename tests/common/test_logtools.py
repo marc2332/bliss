@@ -10,7 +10,7 @@ import logging
 import re
 
 from bliss.common.logtools import *
-from bliss.common.logtools import Log, logbook_printer, lprint_disable
+from bliss.common.logtools import Log, lprint_disable
 from bliss import logging_startup
 from bliss.shell.standard import *
 from bliss.common.mapping import Map, map_id
@@ -41,13 +41,6 @@ def params(beacon, map, log_context):
     log = Log(map=map)
 
     yield beacon, log
-
-
-@pytest.fixture
-def log_shell_mode():
-    logbook_printer.add_stdout_handler()
-    yield
-    logbook_printer.remove_stdout_handler()
 
 
 class MappedController:

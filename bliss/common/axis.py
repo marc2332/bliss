@@ -765,6 +765,7 @@ class Axis:
 
     def __do_set_dial(self, new_dial, no_offset):
         user_pos = self.position
+        old_dial = self.dial
 
         try:
             # Send the new value in motor units to the controller
@@ -780,6 +781,11 @@ class Axis:
         if no_offset:
             user_pos = dial_pos
         self._set_position_and_offset(user_pos)
+
+        lprint(
+            f"Resetting '{self.name}` dial position from {old_dial} to {new_dial} (new offset: {self.offset})"
+        )
+
         return dial_pos
 
     @property
@@ -861,10 +867,16 @@ class Axis:
         return new_pos - self.sign * dial_pos
 
     def _set_position_and_offset(self, new_pos):
+        curr_pos = self.position
         dial_pos = self.dial
         prev_offset = self.offset
         self._set_position = new_pos
-        self.settings.set("offset", self._calc_offset(new_pos, dial_pos))
+        new_offset = self._calc_offset(new_pos, dial_pos)
+        if curr_pos != new_pos:
+            lprint(
+                f"Resetting '{self.name}` position from {curr_pos} to {new_pos}{'' if numpy.isclose([new_offset], [0], self.tolerance) else f' (new offset: {new_offset})'}"
+            )
+        self.settings.set("offset", new_offset)
         self.settings.set("position", new_pos)
         return new_pos
 

@@ -295,7 +295,7 @@ class _WatchDogTask(gevent.Greenlet):
                                     data_event, self._scan.nodes, self._scan.scan_info
                                 )
                         # reset watchdog if it wasn't restarted in between
-                        if self.__watchdog_timer:
+                        if not self.__watchdog_timer:
                             self._reset_watchdog()
                         gevent.idle()
 

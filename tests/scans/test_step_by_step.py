@@ -310,25 +310,18 @@ def test_scan_watch_data_set_callback_to_test_saferef(session, capsys):
 
     scan.set_scan_watch_callbacks(on_scan_new, on_scan_data, on_scan_end)
 
-    scans.ascan(roby, 0, 9, 9, 0.01, diode)
+    scans.ascan(roby, 0, 1, 3, 0.01, diode)
+
     captured = capsys.readouterr()
+    assert captured.out == "scan_new\n" + "scan_data\n" * 4 + "scan_end\n"
 
-    assert captured.out == "scan_new\n" + "scan_data\n" * 10 + "scan_end\n"
+    del on_scan_new
+    del on_scan_data
+    del on_scan_end
 
+    scans.ascan(roby, 0, 1, 3, 0.01, diode)
 
-def test_scan_watch_data_no_print_on_saferef(session, capsys):
-    """
-    In the previous function
-    'test_scan_watch_data_set_callback_to_test_saferef', we set a
-    callback on scan_new event that produces a print.
-    Thanks to the underlying usage of a weakref, the print should not
-    append once we get out of the context of the previous function.
-    """
-    roby = session.config.get("roby")
-    diode = session.config.get("diode")
-    scans.ascan(roby, 0, 10, 10, 0.01, diode)
     captured = capsys.readouterr()
-
     assert captured.out == ""
 
 

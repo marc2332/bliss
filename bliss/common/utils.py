@@ -84,6 +84,14 @@ def flatten(items):
     return [i for i in flatten_gen(items)]
 
 
+def merge(items):
+    """merge a list of list, first level only
+    e.g.  merge([ [1,2], [3] ]) -> [1,2,3]
+          merge([ [1,2], [[3,4]], [5] ]) -> [1,2,[3,4],5]
+    """
+    return [item for sublist in items for item in sublist]
+
+
 def all_equal(iterable):
     g = itertools.groupby(iterable)
     return next(g, True) and not next(g, False)

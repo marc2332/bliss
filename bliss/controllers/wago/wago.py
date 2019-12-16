@@ -9,10 +9,7 @@ import ctypes
 import struct
 import socket
 import time
-import re
-import logging
 import collections
-from enum import Enum
 from itertools import zip_longest
 
 from prompt_toolkit import print_formatted_text, HTML
@@ -20,12 +17,11 @@ from tabulate import tabulate
 
 import tango
 
-import bliss.common.counter
 from bliss.common.utils import add_property, flatten
 from bliss.config.conductor.client import synchronized
 from bliss import global_map
 from bliss.comm.util import get_comm
-from bliss.common.logtools import *
+from bliss.common.logtools import log_debug, log_error, log_exception
 from bliss.common.counter import SamplingCounter
 from bliss.controllers.counter import counter_namespace, SamplingCounterController
 from bliss.controllers.wago.helpers import splitlines, to_signed, register_type_to_int
@@ -606,9 +602,9 @@ class ModulesConfig:
 
     def devlog2scale(self, array_in):
         raise NotImplementedError
-        logical_name, logical_channel = array_in
-        _, _, module_type, _, _ = self.logical_mapping[logical_name][logical_channel]
-        return scale
+        # logical_name, logical_channel = array_in
+        # _, _, module_type, _, _ = self.logical_mapping[logical_name][logical_channel]
+        # return scale
 
     def keys(self):
         return self.logical_keys.values()
@@ -1160,12 +1156,13 @@ class WagoController:
 
         return tuple(ret)
 
-    def get(self, *channel_names, convert_values=True):
+    def get(self, *channel_names, convert_values=True, flat=True):
         """
         Read one or more values from channels
         Args:
             *channel_names (list): list of channels to be read
             convert_values (bool): default=True converts from raw reading to meaningful values
+            flat (bool):           default=True, if false: return a list item per channel
 
         Returns:
             (list): channel values
@@ -1204,6 +1201,19 @@ class WagoController:
                 ret.append(values)
             else:
                 ret += values
+
+        # return a list of list per channel
+        if not flat:
+            result = flatten(ret)
+            ret = []
+            for channel in channel_names:
+                nval = len(self.modules_config.logical_mapping[channel])
+                if nval > 1:
+                    channel_values, result = result[:nval], result[nval:]
+                else:
+                    channel_values = result.pop(0)
+                ret.append(channel_values)
+            return ret
 
         # return a list with all the channels
         if not ret:
@@ -1880,7 +1890,6 @@ class Wago(SamplingCounterController):
 
         elif config_tree.get("simulate"):
             # launch the simulator
-            from tests.conftest import get_open_ports
             from tests.emulators.wago import WagoMockup
 
             self.__mockup = WagoMockup(self.modules_config)
@@ -2063,6 +2072,10 @@ class Wago(SamplingCounterController):
             (list): channel values
         """
         return self.controller.get(*args, **kwargs)
+
+    @property
+    def logical_keys(self):
+        return list(self.modules_config.logical_keys.keys())
 
     @property
     def counters(self):

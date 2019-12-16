@@ -2,6 +2,7 @@ import re
 import pytest
 
 from bliss.comm.modbus import ModbusTcp, ModbusError
+from bliss.common.utils import flatten
 
 from bliss.controllers.wago.helpers import (
     remove_comments,
@@ -309,8 +310,21 @@ def test_wago_counters(default_session, wago_mockup):
     wago = default_session.config.get("wago_simulator")
     assert len(wago.counters) == 2
     sc = ct(0.01, wago.esTr1)
-    value = float(sc.get_data()[wago.esTr1.name][0])
-    assert type(value) == type(0.0)
+    value = sc.get_data()[wago.esTr1.name][0]
+    assert isinstance(value, float)
+    assert len(wago.read_all(*wago.counters)) == 2
+
+
+def test_wago_get(default_session, wago_mockup):
+    wago = default_session.config.get("wago_simulator")
+    results = wago.get(*wago.logical_keys, flat=False)
+    assert flatten(results) == wago.get(*wago.logical_keys)
+    for i, key in enumerate(wago.logical_keys):
+        nval = len(wago.modules_config.logical_mapping[key])
+        if nval > 1:
+            assert len(results[i]) == nval
+        else:
+            assert not isinstance(results[i], list)
 
 
 def test_wago_info(capsys, default_session, wago_mockup):

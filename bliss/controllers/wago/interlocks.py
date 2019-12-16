@@ -6,16 +6,15 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import re
+import yaml
+
 from collections import namedtuple
 from itertools import zip_longest
 import decimal
 
 from typing import Union
-import yaml
-import tango
 
-import bliss
-from bliss.common.logtools import *
+from bliss.common.logtools import log_debug, log_info
 
 from bliss.controllers.wago.helpers import (
     splitlines,

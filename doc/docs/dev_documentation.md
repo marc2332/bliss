@@ -399,10 +399,10 @@ $$
 
 Code to include an existing svg file:
 
-    ![Screenshot](img/std_bpm.svg)
+    ![Screenshot](img/ebv.svg)
 
 result:
-![Screenshot](img/std_bpm.svg)
+![Screenshot](img/ebv.svg)
 
 !!! note
     To avoid fonts problems with svg files, texts can be converted to

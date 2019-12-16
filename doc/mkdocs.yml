@@ -90,6 +90,7 @@ nav:
                 - Typing helper: shell_typing_helper.md
                 - Logging: shell_logging.md
                 - Dialogs: shell_dialogs.md
+        - BLISS library: library.md
         - Motion:
                 - Axis: motion_axis.md
                 - Encoder: motion_encoder.md
@@ -146,6 +147,7 @@ nav:
                 - Testing: dev_testing.md
                 - Xia handle: config_mca_handel.md
                 - Speedgoat: config_speedgoat.md
+                - timedisplay: timedisplay.md
 theme:
         name: material
         language: en

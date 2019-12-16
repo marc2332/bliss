@@ -50,7 +50,7 @@ BLISS [1]: lima_simulator.counters. ↹
       should have an `__info__()` function implemented!
     - The return type of `__info__()` must be `str`, otherwhise it fails and
       `__repr__()` is used as fallback!
-    - As a rule of thumb: the retrun value of a custom `__repr__()` implementation
+    - As a rule of thumb: the return value of a custom `__repr__()` implementation
       should not contain `\n` and should be inspired by the standard
       implementation of `__repr__()` in python.
 
@@ -147,27 +147,16 @@ BLISS [4]: [a]
     before returning.
 
 
-Example of a typical implementation of `.__info__()` method:
+Example of a typical implementation of `.__info__()` method (no more need of
+exception management like previously):
 ```python
 
-def info(self):
+def __info__(self):
+    """Standard method called by BLISS Shell info helper."""
     info_str = ""
     info_str += " bla bla\n"
 
     return info_str
-
-def __info__(self):
-    """Standard method called by BLISS Shell info helper."""
-    try:
-        info_string = self.info(menu=False)
-    except Exception:
-        log_error(
-            self,
-            "An error happend during execution of __info__(), "\
-            "use .info() to get it.",
-        )
-
-    return info_string
 ```
 
 The equivalent of `repr(obj)` or `str(obj)` is also availabe in

@@ -149,6 +149,8 @@ def test_scan_meta_master_and_device(session, scan_meta):
     assert s.scan_info["instrument"] == {
         **master_dict,
         **device_dict,
+        "positioners": {},
+        "positioners_dial": {},
         "chain_meta": {"NX_class": "NXcollection"},
     }
 
@@ -166,15 +168,21 @@ def test_positioners_in_scan_info(alias_session):
     initial_robyy_position = robyy.position
 
     s1.run()
-    assert "positioners" in s1.scan_info["instrument"]
-    assert s1.scan_info["instrument"]["positioners"]["robyy"] == initial_robyy_position
+    assert "positioners" in s1.scan_info
+    assert (
+        s1.scan_info["positioners"]["positioners_start"]["robyy"]
+        == initial_robyy_position
+    )
 
     # test that positioners are remaining in for a counter that updates 'scan_info'
     initial_robyy_position = robyy.position
     s2 = scans.ascan(robyy, 0, 1, 3, .1, lima_simulator, run=False, save=False)
     s2.run()
-    assert "positioners" in s2.scan_info["instrument"]
-    assert s2.scan_info["instrument"]["positioners"]["robyy"] == initial_robyy_position
+    assert "positioners" in s2.scan_info
+    assert (
+        s2.scan_info["positioners"]["positioners_start"]["robyy"]
+        == initial_robyy_position
+    )
 
 
 def test_scan_saving_without_axis_in_session(default_session):
@@ -183,5 +191,5 @@ def test_scan_saving_without_axis_in_session(default_session):
 
     s = scans.loopscan(3, .1, diode, save=False)
 
-    assert "positioners" in s.scan_info["instrument"]
-    assert s.scan_info["instrument"]["positioners"] == {}
+    assert "positioners" in s.scan_info
+    assert s.scan_info["positioners"]["positioners_start"] == {}

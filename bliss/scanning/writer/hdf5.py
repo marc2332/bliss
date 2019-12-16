@@ -207,6 +207,12 @@ class Writer(FileWriter):
             return d.setdefault(x, {"NX_class": "NXcollection"})
 
         instrument_meta["chain_meta"] = {"NX_class": "NXcollection"}
+        instrument_meta["positioners"] = scan_info.get("positioners", {}).get(
+            "positioners_start", {}
+        )
+        instrument_meta["positioners_dial"] = scan_info.get("positioners", {}).get(
+            "positioners_dial_start", {}
+        )
 
         base_db_name = scan.node.db_name
         for dev in scan.acq_chain.nodes_list:

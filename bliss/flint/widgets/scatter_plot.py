@@ -25,6 +25,7 @@ from bliss.flint.model import style_model
 from bliss.flint.model import plot_item_model
 from bliss.flint.widgets.extended_dock_widget import ExtendedDockWidget
 from bliss.flint.helper import scan_info_helper
+from bliss.flint.helper import model_helper
 from bliss.flint.utils import signalutils
 
 
@@ -354,19 +355,22 @@ class ScatterPlotWidget(ExtendedDockWidget):
         style = item.getStyle(scan)
         colormap = colors.Colormap(style.colormapLut)
 
-        if style.fillStyle is not None:
+        pointBased = True
+        if style.fillStyle is not style_model.FillStyle.NO_FILL:
+            pointBased = False
+            fillStyle = style.fillStyle
             key = plot.addScatter(
                 x=xx, y=yy, value=value, legend=legend + "_solid", colormap=colormap
             )
             scatter = plot.getScatter(key)
-            if style.fillStyle == style_model.FillStyle.SCATTER_REGULAR_GRID:
+            if fillStyle == style_model.FillStyle.SCATTER_REGULAR_GRID:
                 scatter.setVisualization(scatter.Visualization.REGULAR_GRID)
-            elif style.fillStyle == style_model.FillStyle.SCATTER_IRREGULAR_GRID:
+            elif fillStyle == style_model.FillStyle.SCATTER_IRREGULAR_GRID:
                 scatter.setVisualization(scatter.Visualization.IRREGULAR_GRID)
-            elif style.fillStyle == style_model.FillStyle.SCATTER_INTERPOLATION:
+            elif fillStyle == style_model.FillStyle.SCATTER_INTERPOLATION:
                 scatter.setVisualization(scatter.Visualization.SOLID)
             else:
-                pass
+                pointBased = True
             self.__optimizeRendering(scatter, xChannel, yChannel)
             plotItems.append((key, "scatter"))
 
@@ -380,32 +384,36 @@ class ScatterPlotWidget(ExtendedDockWidget):
             )
             plotItems.append((key, "curve"))
 
-        if style.symbolStyle is not None:
+        if pointBased:
             symbolColormap = colormap if style.symbolColor is None else None
-            if symbolColormap:
+            if pointBased and symbolColormap:
+                symbolStyle = style.symbolStyle
+                if symbolStyle is None or symbolStyle == " ":
+                    symbolStyle = "o"
                 key = plot.addScatter(
                     x=xx,
                     y=yy,
                     value=value,
                     legend=legend + "_point",
                     colormap=symbolColormap,
+                    symbol=symbolStyle,
                 )
                 scatter = plot.getScatter(key)
-                scatter.setSymbol(style.symbolStyle)
+                scatter.setSymbol(symbolStyle)
                 scatter.setSymbolSize(style.symbolSize)
                 plotItems.append((key, "scatter"))
-            else:
-                key = plot.addCurve(
-                    x=xx,
-                    y=yy,
-                    legend=legend + "_point",
-                    color=style.symbolColor,
-                    symbol=style.symbolStyle,
-                    linestyle=" ",
-                )
-                curve = plot.getCurve(key)
-                curve.setSymbolSize(style.symbolSize)
-                plotItems.append((key, "curve"))
+        elif style.symbolStyle is not None:
+            key = plot.addCurve(
+                x=xx,
+                y=yy,
+                legend=legend + "_point",
+                color=style.symbolColor,
+                symbol=style.symbolStyle,
+                linestyle=" ",
+            )
+            curve = plot.getCurve(key)
+            curve.setSymbolSize(style.symbolSize)
+            plotItems.append((key, "curve"))
 
         self.__items[item] = plotItems
         if resetZoom:

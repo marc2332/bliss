@@ -5,11 +5,13 @@
 # Copyright (c) 2015-2019 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
+import time
+
 from warnings import warn
 from bliss.controllers.motor import Controller
 from bliss.common.utils import object_method
-from bliss.common.axis import AxisState
-from bliss.common.logtools import *
+from bliss.common.axis import AxisState, CyclicTrajectory, Motion
+from bliss.common.logtools import log_error, log_debug
 from bliss.comm.util import get_comm
 from bliss.comm.exceptions import CommunicationError
 from bliss import global_map
@@ -30,6 +32,9 @@ Bliss controller for McLennan PM600/PM1000 motor controller.
 
 
 class PM600(Controller):
+    def __init__(self, *args, **kwargs):
+        Controller.__init__(self, *args, **kwargs)
+
     def initialize(self):
         try:
             self.sock = get_comm(self.config.config_dict)
@@ -141,6 +146,15 @@ class PM600(Controller):
         # Set gearbox ratio denominator
         self.io_command("GD", axis.channel, axis.gearbox_ratio_denominator)
 
+        axis.trajectory_profile_number = axis.config.get(
+            "profile_number", int, default=0
+        )
+        axis.trajectory_sequence_number = axis.config.get(
+            "sequence_number", int, default=2
+        )
+        axis.trajectory_pre_xp = axis.config.get("pre_xp", list, default=[])
+        axis.trajectory_post_xp = axis.config.get("post_xp", list, default=[])
+
     def finalize_axis(self):
         pass
 
@@ -175,7 +189,7 @@ class PM600(Controller):
 
     def set_velocity(self, axis, velocity):
         if velocity > MAX_VELOCITY or velocity < MIN_VELOCITY:
-            log_error(self, "PM600 Error: velocity out of range")
+            log_error(self, "PM600 Error: velocity out of range: {0}".format(velocity))
         reply = self.io_command("SV", axis.channel, velocity)
         if reply != "OK":
             log_error(self, "PM600 Error: Unexpected response to set_velocity" + reply)
@@ -366,3 +380,143 @@ class PM600(Controller):
     @object_method(types_info=("float", "None"))
     def set_deceleration(self, axis, deceleration):
         return self.set_decel(axis, deceleration)
+
+    #
+    # Trajectories
+    #
+
+    def has_trajectory(self):
+        return True
+
+    def prepare_trajectory(self, *trajectories):
+        if not trajectories:
+            raise ValueError("no trajectory provided")
+
+        # Can define up to 8 profiles from DP0 to DP7
+        #             and 8 sequences from DS0 to DS7
+
+        for traj in trajectories:
+
+            is_cyclic_traj = isinstance(traj, CyclicTrajectory)
+
+            channel = traj.axis.channel
+            prf_num = traj.axis.trajectory_profile_number
+            seq_num = traj.axis.trajectory_sequence_number
+            pre_xp = traj.axis.trajectory_pre_xp
+            post_xp = traj.axis.trajectory_post_xp
+
+            # pvt = traj.pvt_pattern if is_cyclic_traj else traj.pvt # not needed
+
+            time = traj.pvt["time"]
+            positions = traj.pvt["position"]
+
+            if len(time) < 2:
+                log_debug(self, "trajectory is empty: {0}".format(positions))
+                raise ValueError("Wrong trajectory provided, need at leat 2 lines PVT")
+
+            ncycles = traj.nb_cycles if is_cyclic_traj else 1
+            nsteps = (len(positions) - 1) * ncycles + (ncycles - 1)
+            if nsteps > 127:
+                raise RuntimeError(
+                    "Too many profile steps {0} (maxi: 127)".format(nsteps * 4)
+                )
+
+            t1 = time[1:] - time[: time.size - 1]
+            tstep = t1.mean()
+            if tstep != t1[0]:
+                raise RuntimeError(
+                    "PM600 controller only supports unique time value to complete each element in a profile definition, so time scale in PVT array must be linear."
+                )
+
+            if tstep * 1000 > 65635:
+                raise RuntimeError(
+                    "Too long time duration per profile step {0} (maxi: 65)".format(
+                        tstep
+                    )
+                )
+
+            mr = positions[1:] - positions[: positions.size - 1]
+            speed = abs(mr / tstep)
+            if speed.max() > 200000:
+                raise RuntimeError(
+                    "Too high speed for profile {0} (maxi: 200000/step)".format(
+                        speed.max()
+                    )
+                )
+
+            # events_pos = traj.events_positions  # not used yet
+
+            prog = [
+                "US{0}".format(seq_num),  # undefine sequence
+                "UP{0}".format(prf_num),  # undefine profile
+            ]
+
+            # PROFILE: commands allowed are MR, and DP/EP
+
+            prog.append("DP{0}".format(prf_num))
+            for p in mr:
+                prog.append("MR{0}".format(p))
+            prog.append("EP{0}".format(prf_num))
+
+            # SEQUENCE: all commands allowed, and DS/ES
+
+            prog.append("DS{0}".format(seq_num))
+
+            # 1PTxx time to complete each element in a profile definition (unit is ms)
+            prog.append("PT{0}".format(tstep * 1000))
+
+            for cmd in pre_xp:
+                prog.append("{0}".format(cmd))
+
+            # 1XPO execute profile
+            prog.append("XP{0}".format(prf_num))
+
+            for cmd in post_xp:
+                prog.append("{0}".format(cmd))
+
+            # 1ES2 end of seq def
+            prog.append("ES{0}".format(seq_num))
+
+            log_debug(self, "program ready to be loaded: {0}".format(prog))
+
+            # TODO define some cleanup procedure ?
+            # Control-C or escape is supposed to return to idle state ...
+
+            self.sock.flush()
+            for cmd in prog:
+                self.raw_write_read(channel + cmd + "\r")
+
+    def move_to_trajectory(self, *trajectories):
+        motions = [Motion(t.axis, t.pvt["position"][0], 0) for t in trajectories]
+        self.start_all(*motions)
+
+    def start_trajectory(self, *trajectories):
+        for t in trajectories:
+            self.raw_write_read(
+                "{0}XS{1}\r".format(t.axis.channel, t.axis.trajectory_sequence_number)
+            )
+
+    def stop_trajectory(self, *trajectories):
+        pass
+
+    def has_trajectory_event(self):
+        return False
+
+    def set_trajectory_events(self, *trajectories):
+        pass
+
+    def trajectory_list(self, trajectory):
+        self.raw_write(
+            "{0}LP{1}\r{0}LS{2}\r".format(
+                trajectory.axis.channel,
+                trajectory.axis.trajectory_profile_number,
+                trajectory.axis.trajectory_sequence_number,
+            )
+        )
+        time.sleep(1)
+        print(self.sock.raw_read().decode())
+
+    def trajectory_backup(self, trajectory):
+        # Saves all profiles and sequences definitions to non-volatile flash-mem
+        # so that they are restored at power-up.
+        print(self.raw_write_read("{0}BP\r{0}BS\r".format(trajectory.axis.channel)))

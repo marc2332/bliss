@@ -21,6 +21,7 @@ from silx.gui import icons
 
 from bliss.flint.model import flint_model
 from bliss.flint.model import plot_model
+from bliss.flint.model import plot_item_model
 from bliss.flint.model import scan_model
 from bliss.flint.model import style_model
 from bliss.flint.widgets.eye_check_box import EyeCheckBox
@@ -208,6 +209,40 @@ class StylePropertyWidget(qt.QWidget):
         color = silx_colors.rgba(color)
         return qt.QColor.fromRgbF(*color)
 
+    def __updateScatter(self, style: plot_model.Style):
+        pointBased = True
+        if style.fillStyle is not style_model.FillStyle.NO_FILL:
+            if not isinstance(style.fillStyle, str):
+                pointBased = False
+                self.__legend.setColormap(style.colormapLut)
+            else:
+                self.__legend.setColormap(None)
+        else:
+            self.__legend.setColormap(None)
+
+        if style.lineStyle is not style_model.LineStyle.NO_LINE:
+            self.__legend.setLineStyle("-")
+            color = self.getQColor(style.lineColor)
+            self.__legend.setLineColor(color)
+            self.__legend.setLineWidth(1.5)
+        else:
+            self.__legend.setLineStyle(" ")
+
+        if pointBased:
+            symbolStyle = style.symbolStyle
+            if symbolStyle is None or symbolStyle == " ":
+                symbolStyle = "o"
+            self.__legend.setSymbol(symbolStyle)
+            self.__legend.setSymbolColormap(style.colormapLut)
+            self.__legend.setSymbolColor(None)
+        elif style.symbolStyle is not None:
+            self.__legend.setSymbol(style.symbolStyle)
+            color = self.getQColor(style.symbolColor)
+            self.__legend.setSymbolColor(color)
+            self.__legend.setSymbolColormap(None)
+        else:
+            self.__legend.setSymbol(" ")
+
     def __update(self):
         plotItem = self.__plotItem
         if plotItem is None:
@@ -218,25 +253,27 @@ class StylePropertyWidget(qt.QWidget):
             scan = self.__scan
             try:
                 style = plotItem.getStyle(scan)
-                color = self.getQColor(style.lineColor)
-                if style.symbolStyle is not None:
-                    self.__legend.setSymbol(style.symbolStyle)
-                    if style.symbolColor is None:
-                        self.__legend.setSymbolColor(qt.QColor(0xE0, 0xE0, 0xE0))
-                    else:
-                        symbolColor = self.getQColor(style.symbolColor)
-                        self.__legend.setSymbolColor(symbolColor)
-                self.__legend.setSymbolColormap(style.colormapLut)
-                if isinstance(style.lineStyle, str):
-                    lineStyle = style.lineStyle
-                elif style.lineStyle == style_model.LineStyle.NO_LINE:
-                    lineStyle = " "
-                elif style.lineStyle == style_model.LineStyle.SCATTER_SEQUENCE:
-                    lineStyle = "-"
-
-                self.__legend.setLineColor(color)
-                self.__legend.setLineStyle(lineStyle)
-                self.__legend.setLineWidth(1.5)
+                if isinstance(plotItem, plot_item_model.ScatterItem):
+                    self.__updateScatter(style)
+                else:
+                    color = self.getQColor(style.lineColor)
+                    if style.symbolStyle is not None:
+                        self.__legend.setSymbol(style.symbolStyle)
+                        if style.symbolColor is None:
+                            self.__legend.setSymbolColor(qt.QColor(0xE0, 0xE0, 0xE0))
+                        else:
+                            symbolColor = self.getQColor(style.symbolColor)
+                            self.__legend.setSymbolColor(symbolColor)
+                    self.__legend.setSymbolColormap(style.colormapLut)
+                    if isinstance(style.lineStyle, str):
+                        lineStyle = style.lineStyle
+                    elif style.lineStyle == style_model.LineStyle.NO_LINE:
+                        lineStyle = " "
+                    elif style.lineStyle == style_model.LineStyle.SCATTER_SEQUENCE:
+                        lineStyle = "-"
+                    self.__legend.setLineColor(color)
+                    self.__legend.setLineStyle(lineStyle)
+                    self.__legend.setLineWidth(1.5)
             except Exception:
                 _logger.error("Error while reaching style", exc_info=True)
                 self.__legend.setLineColor("grey")

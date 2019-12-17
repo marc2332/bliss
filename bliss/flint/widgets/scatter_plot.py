@@ -412,6 +412,7 @@ class ScatterPlotWidget(ExtendedDockWidget):
                 legend=legend + "_line",
                 color=style.lineColor,
                 linestyle="-",
+                resetzoom=False,
             )
             plotItems.append((key, "curve"))
 
@@ -441,6 +442,7 @@ class ScatterPlotWidget(ExtendedDockWidget):
                 color=style.symbolColor,
                 symbol=style.symbolStyle,
                 linestyle=" ",
+                resetzoom=False,
             )
             curve = plot.getCurve(key)
             curve.setSymbolSize(style.symbolSize)

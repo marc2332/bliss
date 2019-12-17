@@ -213,6 +213,7 @@ class ScatterPlotWidget(ExtendedDockWidget):
     def __clear(self):
         self.__items = {}
         self.__plot.clear()
+        self.__plot._add(self.__bounding)
 
     def __scanStarted(self):
         self.__updateTitle(self.__scan)

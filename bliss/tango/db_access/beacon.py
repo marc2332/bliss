@@ -48,6 +48,11 @@ def _filter(wildcard, l):
     return [x for x in l if x is not None and m.match(x)]
 
 
+def _bytes2str_iter(it):
+    for k in it:
+        yield k.decode()
+
+
 class CaseInsensitiveDict(weakref.WeakValueDictionary):
     @staticmethod
     def _k(key):
@@ -425,9 +430,11 @@ class beacon:
     @_info
     def get_class_attribute_list(self, class_name, wildcard):
         redis = settings.get_redis_connection()
-        attributes = [
-            x for x in redis.scan_iter(match="tango.class.attribute.%s" % class_name)
-        ]
+        attributes = list(
+            _bytes2str_iter(
+                redis.scan_iter(match="tango.class.attribute.%s" % class_name)
+            )
+        )
         return _filter(wildcard, attributes)
 
     @_info
@@ -489,15 +496,12 @@ class beacon:
         return [class_name] + props[4:]
 
     @_info
-    def get_class_list(self, server):
-        server_name_list = [
-            x.get("server")
-            for x in list(self._personal_2_node.values())
-            if "server" in x
-        ]
-        res = _filter(server, set(server_name_list))
-        res.sort()
-        return res
+    def get_class_list(self, wildcard):
+        server_names = list(self._personal_2_node.keys())
+        result = self._get_device_classes(server_names)
+        result = _filter(wildcard, result)
+        result.sort()
+        return result
 
     @_info
     def get_class_property(self, class_name, properties):
@@ -526,7 +530,7 @@ class beacon:
         )
         return [k for k, v in properties.items() if not isinstance(v, dict)]
         # cache = settings.get_redis_connection()
-        # return cache.keys('tango.class.properties.%s*' % class_name)
+        # return list(_bytes2str_iter(cache.keys('tango.class.properties.%s*' % class_name)))
 
     @_info
     def get_device_alias(self, dev_name):
@@ -624,7 +628,10 @@ class beacon:
     @_info
     def get_device_exported_list(self, wildcard):
         cache = settings.get_redis_connection()
-        return [x.replace("tango.", "") for x in cache.keys("tango.%s" % wildcard)]
+        return [
+            x.replace("tango.info.", "")
+            for x in _bytes2str_iter(cache.keys("tango.%s" % wildcard))
+        ]
 
     @_info
     def get_device_family_list(self, wildcard):
@@ -783,26 +790,27 @@ class beacon:
                 return [devices.get("class")]
 
     @_info
-    def get_exported_device_list_for_class(self, class_name):
+    def get_exported_device_list_for_class(self, wildcard):
         result = []
         cache = settings.get_redis_connection()
-        exported_devices = cache.keys("tango.info.*")
+        exported_devices = _bytes2str_iter(cache.keys("tango.info.*"))
+        m = re.compile(wildcard.replace("*", ".*"), re.IGNORECASE)
         for exp_dev in exported_devices:
             dev_name = exp_dev.replace("tango.info.", "")
             dev_node = self._tango_name_2_node.get(dev_name)
             if dev_node:
-                dev_class_name = dev_node.get("class")
-                if dev_class_name == class_name:
+                dev_class_name = dev_node.get("class", "")
+                if m.match(dev_class_name):
                     result.append(dev_name)
         return result
 
     @_info
     def get_host_list(self, host_name):
         cache = settings.get_redis_connection()
-        host_list = [
+        host_list = {
             settings.HashSetting(key_name).get("host")
-            for key_name in cache.keys("tango.info.*")
-        ]
+            for key_name in _bytes2str_iter(cache.keys("tango.info.*"))
+        }
         return _filter(host_name, host_list)
 
     @_info
@@ -811,7 +819,7 @@ class beacon:
         wildcard = host_name.replace("*", ".*")
         m = re.compile(wildcard)
         cache = settings.get_redis_connection()
-        for key_name in cache.keys("tango.info.*"):
+        for key_name in _bytes2str_iter(cache.keys("tango.info.*")):
             host = settings.HashSetting(key_name).get("host")
             if not m.match(host):
                 continue
@@ -820,10 +828,11 @@ class beacon:
             if dev_node is None:
                 continue
             server_node = dev_node.parent
-            result.append(
-                "%s/%s"
-                % (server_node.get("server", ""), server_node.get("personal_name"))
-            )
+            server_name = server_node.get("server")
+            server_instance = server_node.get("personal_name")
+            if not server_name or not server_instance:
+                continue
+            result.append("%s/%s" % (server_name, server_instance))
         return result
 
     @_info
@@ -884,6 +893,12 @@ class beacon:
     @_info
     def get_server_class_list(self, wildcard):
         server_names = _filter(wildcard, list(self._personal_2_node.keys()))
+        result = self._get_device_classes(server_names)
+        result = list(result)
+        result.sort()
+        return result
+
+    def _get_device_classes(self, server_names):
         result = set()
         for ser_name in server_names:
             server_node = self._personal_2_node.get(ser_name)
@@ -891,10 +906,7 @@ class beacon:
                 class_name = device_node.get("class")
                 if class_name is not None:
                     result.add(class_name)
-
         result.add("DServer")
-        result = list(result)
-        result.sort()
         return result
 
     def import_device(self, dev_name):
@@ -1146,7 +1158,7 @@ class beacon:
     @_info
     def get_csdb_server_list(self):
         cache = settings.get_redis_connection()
-        exported_devices = cache.keys("tango.info.sys/database*")
+        exported_devices = _bytes2str_iter(cache.keys("tango.info.sys/database*"))
         result = []
         for key_name in exported_devices:
             info = settings.HashSetting(key_name)

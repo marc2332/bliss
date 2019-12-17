@@ -16,7 +16,6 @@ import numpy
 
 from bliss import global_map
 from bliss.common.utils import autocomplete_property
-from bliss.common.logtools import log_error
 
 
 def add_conversion_function(obj, method_name, function):

@@ -268,4 +268,6 @@ Finally, start the scan by calling its `run()` method.
 
 ###A more complex scan example
 
+To be continued...
+
 ![Screenshot](img/scan_writing/chain_example.png)

@@ -1,5 +1,4 @@
 # --encoding: utf-8--
-import time
 from tango.server import run
 from tango.server import Device
 from tango.server import attribute, command
@@ -8,7 +7,7 @@ from tango import DevState
 
 
 class Dummy(Device):
-    position = attribute(format="%3.2f")
+    position = attribute(format="%3.2f", unit="mm")
     velocity = attribute(
         fget="read_velocity", fset="write_velocity", access=AttrWriteType.READ_WRITE
     )

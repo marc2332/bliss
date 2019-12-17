@@ -1,6 +1,6 @@
 
-`tango_attr_as_counter` class allows to read, as a BLISS counter, an attribute
-of a Tango Device Server.
+`tango_attr_as_counter` class allows to read a Tango attribute in BLISS as a
+counter.
 
 ## Configuration parameters
 
@@ -27,6 +27,24 @@ BLISS:
 * `display_unit` (float): conversion factor (to change unit of the
   attribute value) by which the raw read value is multiplied.
 * `format` (string): string representing the display format to use.
+
+
+### info
+
+As `tango_attr_as_counter` class provide a `__info__()` method, some info about
+the counter can be obtained just by typing the name of the counter:
+
+```python
+DEMO [1]: hppstc1
+ Out [1]: Tango Attribute Counter
+          Device Server: id42:20000/id42/wcid42hpps/tg
+          Tango Attribute: hppstc1
+          value: 23.5
+          no Tango unit
+          Beacon unit: gw
+```
+
+
 
 ## Examples
 
@@ -78,9 +96,9 @@ DEMO [3]: t0=time.time();ct(0.0001, kohztc5, flowBase, flowM2, flowM1,
                                      m0m2, pptc1);print("duration=", time.time()-t0)
 
 get_proxy -- create dict
-get_proxy -- create proxy for id21/wcid21m0/tg
-get_proxy -- create proxy for id21/wcid21k/tg
-get_proxy -- create proxy for id21/wcid21hpps/tg
+get_proxy -- create proxy for id42/wcid42m0/tg
+get_proxy -- create proxy for id42/wcid42k/tg
+get_proxy -- create proxy for id42/wcid42hpps/tg
 Tue Jul 23 15:56:13 2019
 
            dt[s] =          0.0 (         0.0/s)

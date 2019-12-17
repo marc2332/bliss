@@ -547,6 +547,26 @@ def _send_who_locked(client_id, message):
     client_id.send(protocol.message(protocol.WHO_LOCKED_END, b"%s|" % message_key))
 
 
+def _send_log_server_address(client_id, message):
+    message_key, *names = message.split(b"|")
+    port = _options.log_server_port
+    host = socket.gethostname().encode()
+    if not port:
+        # lo log server
+        client_id.sendall(
+            protocol.message(
+                protocol.LOG_SERVER_ADDRESS_FAIL,
+                b"%s|%s" % (message_key, b"no log server"),
+            )
+        )
+    else:
+        client_id.sendall(
+            protocol.message(
+                protocol.LOG_SERVER_ADDRESS_OK, b"%s|%s|%d" % (message_key, host, port)
+            )
+        )
+
+
 def _send_unknow_message(client_id, message):
     client_id.sendall(protocol.message(protocol.UNKNOW_MESSAGE, message))
 
@@ -613,6 +633,8 @@ def _client_rx(client, local_connection):
                         _get_set_client_id(c_id, messageType, message)
                     elif messageType == protocol.WHO_LOCKED:
                         _send_who_locked(c_id, message)
+                    elif messageType == protocol.LOG_SERVER_ADDRESS_QUERY:
+                        _send_log_server_address(c_id, message)
                     else:
                         _send_unknow_message(c_id, message)
                 except ValueError:

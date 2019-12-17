@@ -221,3 +221,8 @@ def move_config_path(src_path, dst_path, connection=None):
 @check_connection
 def get_python_modules(base_path="", timeout=3.0, connection=None):
     return connection.get_python_modules(base_path, timeout)
+
+
+@check_connection
+def get_log_server_address(connection=None):
+    return connection.get_log_server_address()

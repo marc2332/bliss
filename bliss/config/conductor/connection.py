@@ -461,6 +461,19 @@ class Connection(object):
         return return_module
 
     @check_connect
+    def get_log_server_address(self, timeout=3.0):
+        with gevent.Timeout(timeout, RuntimeError("Can't retrieve log server port")):
+            with self.WaitingQueue(self) as wq:
+                msg = b"%s|" % wq.message_key()
+                self._socket.sendall(
+                    protocol.message(protocol.LOG_SERVER_ADDRESS_QUERY, msg)
+                )
+                for rx_msg in wq.queue():
+                    if isinstance(rx_msg, RuntimeError):
+                        raise rx_msg
+                    host, port = self._get_msg_key(rx_msg)
+                    return host, port
+
     def set_client_name(self, name, timeout=3.0):
         self._set_client_name(name, timeout)
 
@@ -555,6 +568,7 @@ class Connection(object):
                             protocol.CONFIG_GET_PYTHON_MODULE_RX,
                             protocol.CLIENT_NAME_OK,
                             protocol.WHO_LOCKED_RX,
+                            protocol.LOG_SERVER_ADDRESS_OK,
                         ):
                             message_key, value = self._get_msg_key(message)
                             queue = self._message_queue.get(message_key)
@@ -569,6 +583,7 @@ class Connection(object):
                             protocol.CONFIG_MOVE_PATH_FAILED,
                             protocol.CONFIG_GET_PYTHON_MODULE_FAILED,
                             protocol.WHO_LOCKED_FAILED,
+                            protocol.LOG_SERVER_ADDRESS_FAIL,
                         ):
                             message_key, value = self._get_msg_key(message)
                             queue = self._message_queue.get(message_key)

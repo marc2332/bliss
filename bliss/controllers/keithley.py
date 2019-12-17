@@ -92,6 +92,7 @@ from bliss.comm.exceptions import CommunicationError
 from bliss.comm.scpi import Cmd as SCPICmd
 from bliss.comm.scpi import Commands as SCPICommands
 from bliss.comm.scpi import BaseSCPIDevice
+from bliss.common.utils import autocomplete_property
 
 from .keithley_scpi_mapping import COMMANDS as SCPI_COMMANDS
 from .keithley_scpi_mapping import MODEL_COMMANDS as SCPI_MODEL_COMMANDS

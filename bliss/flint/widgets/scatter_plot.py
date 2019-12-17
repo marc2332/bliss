@@ -14,7 +14,7 @@ from typing import Optional
 
 from silx.gui import qt
 from silx.gui import colors
-from silx.gui.plot import Plot1D
+from silx.gui import icons
 from silx.gui.plot.items.shape import BoundingRect
 from silx.gui.plot.items.scatter import Scatter
 
@@ -24,9 +24,35 @@ from bliss.flint.model import plot_model
 from bliss.flint.model import style_model
 from bliss.flint.model import plot_item_model
 from bliss.flint.widgets.extended_dock_widget import ExtendedDockWidget
+from bliss.flint.widgets.plot_helper import FlintPlot
 from bliss.flint.helper import scan_info_helper
 from bliss.flint.helper import model_helper
 from bliss.flint.utils import signalutils
+
+
+class _ManageView:
+    def __init__(self, plot):
+        self.__plot = plot
+        self.__plot.sigViewChanged.connect(self.__viewChanged)
+        self.__inUserView = False
+
+    def __viewChanged(self, event):
+        if event.userInteraction:
+            self.__inUserView = True
+
+    def scanStarted(self):
+        self.__inUserView = False
+
+    def restZoom(self):
+        self.__inUserView = False
+        self.__plot.resetZoom()
+
+    def plotUpdated(self):
+        if not self.__inUserView:
+            self.__plot.resetZoom()
+
+    def plotCleared(self):
+        self.__plot.resetZoom()
 
 
 class ScatterPlotWidget(ExtendedDockWidget):
@@ -44,13 +70,17 @@ class ScatterPlotWidget(ExtendedDockWidget):
         self.__items: Dict[plot_model.Item, List[Tuple[str, str]]] = {}
 
         self.__plotWasUpdated: bool = False
-        self.__plot = Plot1D(parent=self)
+        self.__plot = FlintPlot(parent=self)
         self.__plot.setActiveCurveStyle(linewidth=2)
         self.__plot.setDataMargins(0.1, 0.1, 0.1, 0.1)
         self.setWidget(self.__plot)
         self.setFocusPolicy(qt.Qt.StrongFocus)
         self.__plot.installEventFilter(self)
         self.__plot.getWidgetHandle().installEventFilter(self)
+        self.__view = _ManageView(self.__plot)
+
+        toolBar = self.__createToolBar()
+        self.__plot.addToolBar(toolBar)
 
         self.__syncAxisTitle = signalutils.InvalidatableSignal(self)
         self.__syncAxisTitle.triggered.connect(self.__updateAxesLabel)
@@ -59,6 +89,44 @@ class ScatterPlotWidget(ExtendedDockWidget):
 
         self.__bounding = BoundingRect()
         self.__plot._add(self.__bounding)
+
+    def __createToolBar(self):
+        toolBar = qt.QToolBar(self)
+
+        from silx.gui.plot.actions import mode
+        from silx.gui.plot.actions import io
+        from silx.gui.plot.actions import control
+        from silx.gui.plot import PlotToolButtons
+
+        toolBar.addAction(mode.ZoomModeAction(self.__plot, self))
+        toolBar.addAction(mode.PanModeAction(self.__plot, self))
+
+        resetZoom = qt.QAction(self)
+        resetZoom.triggered.connect(self.__view.restZoom)
+        resetZoom.setText("Reset zoom")
+        resetZoom.setToolTip("Back the graph to auto-scale")
+        resetZoom.setIcon(icons.getQIcon("silx:gui/icons/zoom-original"))
+        toolBar.addAction(resetZoom)
+        toolBar.addSeparator()
+
+        # Axis
+        toolBar.addAction(control.GridAction(self.__plot, "major", self))
+        toolBar.addWidget(PlotToolButtons.AspectToolButton(self, self.__plot))
+        toolBar.addAction(control.XAxisLogarithmicAction(self.__plot, self))
+        toolBar.addAction(control.YAxisLogarithmicAction(self.__plot, self))
+        toolBar.addSeparator()
+
+        # Tools
+        toolBar.addAction(control.CrosshairAction(self.__plot, parent=self))
+        toolBar.addAction(control.ColorBarAction(self.__plot, self))
+        toolBar.addSeparator()
+
+        # Export
+        toolBar.addAction(io.CopyAction(self.__plot, self))
+        toolBar.addAction(io.PrintAction(self.__plot, self))
+        toolBar.addAction(io.SaveAction(self.__plot, self))
+
+        return toolBar
 
     def eventFilter(self, widget, event):
         if widget is not self.__plot and widget is not self.__plot.getWidgetHandle():
@@ -110,7 +178,7 @@ class ScatterPlotWidget(ExtendedDockWidget):
     def __transactionFinished(self):
         if self.__plotWasUpdated:
             self.__plotWasUpdated = False
-            self.__plot.resetZoom()
+            self.__view.plotUpdated()
         self.__syncAxisTitle.validate()
         self.__syncAxis.validate()
 
@@ -216,6 +284,7 @@ class ScatterPlotWidget(ExtendedDockWidget):
         self.__plot._add(self.__bounding)
 
     def __scanStarted(self):
+        self.__view.scanStarted()
         self.__updateTitle(self.__scan)
 
     def __updateTitle(self, scan: scan_model.Scan):
@@ -249,13 +318,15 @@ class ScatterPlotWidget(ExtendedDockWidget):
         for _item, itemKeys in self.__items.items():
             for key in itemKeys:
                 self.__plot.remove(*key)
-        self.__plot.resetZoom()
+        self.__view.plotCleared()
 
-    def __cleanItem(self, item: plot_model.Item):
+    def __cleanItem(self, item: plot_model.Item) -> bool:
         itemKeys = self.__items.pop(item, [])
+        if len(itemKeys) == 0:
+            return False
         for key in itemKeys:
             self.__plot.remove(*key)
-        self.__plot.resetZoom()
+        return True
 
     def __redrawAll(self):
         self.__cleanAll()
@@ -326,20 +397,26 @@ class ScatterPlotWidget(ExtendedDockWidget):
         plot = self.__plot
         plotItems: List[Tuple[str, str]] = []
 
-        resetZoom = not self.__plotModel.isInTransaction()
+        updateZoomNow = not self.__plotModel.isInTransaction()
 
-        self.__cleanItem(item)
+        wasUpdated = self.__cleanItem(item)
 
         if not item.isVisible():
+            if wasUpdated:
+                self.__updatePlotZoom(updateZoomNow)
             return
 
         if not item.isValidInScan(scan):
+            if wasUpdated:
+                self.__updatePlotZoom(updateZoomNow)
             return
 
         valueChannel = item.valueChannel()
         xChannel = item.xChannel()
         yChannel = item.yChannel()
         if valueChannel is None or xChannel is None or yChannel is None:
+            if wasUpdated:
+                self.__updatePlotZoom(updateZoomNow)
             return
 
         # Channels from channel ref
@@ -350,6 +427,8 @@ class ScatterPlotWidget(ExtendedDockWidget):
         xx = xChannel.array()
         yy = yChannel.array()
         if value is None or xx is None or yy is None:
+            if wasUpdated:
+                self.__updatePlotZoom(updateZoomNow)
             return
 
         legend = valueChannel.name()
@@ -449,7 +528,10 @@ class ScatterPlotWidget(ExtendedDockWidget):
             plotItems.append((key, "curve"))
 
         self.__items[item] = plotItems
-        if resetZoom:
-            self.__plot.resetZoom()
+        self.__updatePlotZoom(updateZoomNow)
+
+    def __updatePlotZoom(self, updateZoomNow):
+        if updateZoomNow:
+            self.__view.plotUpdated()
         else:
             self.__plotWasUpdated = True

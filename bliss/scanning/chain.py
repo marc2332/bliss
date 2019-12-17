@@ -1032,6 +1032,10 @@ class AcquisitionChain:
         self._stats_dict.clear()
 
     @property
+    def top_masters(self):
+        return [x.identifier for x in self._tree.children("root")]
+
+    @property
     def nodes_list(self):
         nodes_gen = self._tree.expand_tree()
         next(nodes_gen)  # first node is 'root'

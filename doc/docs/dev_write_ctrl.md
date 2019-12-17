@@ -147,17 +147,14 @@ BLISS [4]: [a]
     before returning.
 
 
-Example of a typical implementation of `.__info__()` method (no more need of
-exception management like previously):
-```python
+    Example:
+    ```python
+        def __info__(self):
+            info_str = "bla \n"
+            info_str += "bli \n"
 
-def __info__(self):
-    """Standard method called by BLISS Shell info helper."""
-    info_str = ""
-    info_str += " bla bla\n"
-
-    return info_str
-```
+            return info_str
+    ```
 
 The equivalent of `repr(obj)` or `str(obj)` is also availabe in
 `bliss.shell.standard` as `info(obj)` which can be used also outside the Bliss

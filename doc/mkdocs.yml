@@ -62,7 +62,7 @@ nav:
                       - Opiom: config_opiom.md
                       - PEPU: config_pepu.md
                       - TFG: config_tango_tfg.md
-                      - Tango attribute counters: config_tac.md
+                      - Tango attribute as counters: config_taac.md
                       - Nano-BPM: config_nano_bpm.md
                       - Shutters, FE and Valves: config_shutter.md
                       - Wagos:

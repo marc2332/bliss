@@ -469,58 +469,66 @@ def test_prepare_once_prepare_many(session):
 
 
 def test_tango_attr_counter(beacon, dummy_tango_server, session):
-    counter = beacon.get("tg_dummy_counter")
-    counter.mode = "LAST"
+    counter = beacon.get("taac_dummy_position")
+
+    # `taac_dummy_position` is a tango_attr_as_counter which refers to
+    # "position" attribute of "id00/tango/dummy" test device.
+    counter = beacon.get("taac_dummy_position")
     sc = ct(0.01, counter)
-    counter_value = sc.get_data()["tg_dummy_counter"][0]
+    counter_value = sc.get_data()["taac_dummy_position"][0]
 
     assert counter_value == 1.41
-    assert counter.unit == "mm"
-    assert counter.format_string == "%3.2f"
+    assert counter.unit == "mm"  # hard-coded in test config
+    assert counter.format_string == "%3.2f"  # hard-coded in test config
+    assert counter.mode == SamplingMode.MEAN  # default mode
 
     with pytest.raises(tango.DevFailed):
         wrong_counter = beacon.get("wrong_counter")
 
-    # get BLISS counters
-    tac_pos = beacon.get("tac_undu_position")
-    tac_vel = beacon.get("tac_undu_velocity")
+    # get BLISS tango_attr_as_counter counters
+    taac_pos = beacon.get("taac_undu_position")
+    taac_vel = beacon.get("taac_undu_velocity")
 
-    # test "no unit"
-    tac_acc = beacon.get("tac_undu_acceleration")
+    # Test overwriting properties in BEACON configuration.
+    assert taac_pos.format_string == "%5.3f"
+    assert taac_pos.unit == "km"
 
-    # test sampling mode
-    assert tac_pos.mode == SamplingMode.MEAN
-    assert tac_acc.mode == SamplingMode.LAST
+    # Test no BEACON unit / no BEACON format
+    taac_acc = beacon.get("taac_undu_acceleration")
 
-    # test default sampling mode
-    assert tac_vel.mode == SamplingMode.MEAN
-    tac_pos.mode = "LAST"
-    tac_vel.mode = "LAST"
-    tac_acc.mode = "LAST"
+    # Sampling modes fixed in config.
+    assert taac_pos.mode == SamplingMode.MEAN
+    assert taac_acc.mode == SamplingMode.LAST
+
+    # Default sampling mode is MEAN
+    assert taac_vel.mode == SamplingMode.MEAN
 
     with pytest.raises(tango.DevFailed):
-        tac_cracoucas = beacon.get("tac_undu_cracoucas")
+        _ = beacon.get("taac_undu_wrong_attr_name")
 
-    # get UNDULATOR object
+    # Get directly BLISS UNDULATOR object (not via tango_attr_as_counter)
+    # to compare taac values to direct values.
     u23a = beacon.get("u23a")
 
-    sc = ct(0.01, tac_pos, tac_vel, tac_acc)
-    pos = sc.get_data()["tac_undu_position"][0]
-    vel = sc.get_data()["tac_undu_velocity"][0]
-    acc = sc.get_data()["tac_undu_acceleration"][0]
+    sc = ct(0.01, taac_pos, taac_vel, taac_acc)
+    pos = sc.get_data()["taac_undu_position"][0]
+    vel = sc.get_data()["taac_undu_velocity"][0]
+    acc = sc.get_data()["taac_undu_acceleration"][0]
 
     assert u23a.position == 1.4078913
-    assert pos == 1.41
+
+    # formating is applyed before averaging :(
+    pytest.approx(pos) == 1.408
 
     assert u23a.velocity == vel
     assert u23a.acceleration == acc
 
     # Test missing uri
     with pytest.raises(KeyError):
-        no_uri_counter = beacon.get("no_uri_counter")
+        _ = beacon.get("no_uri_counter")
 
 
-def test_info_counters(beacon):
+def test_info_counters(beacon, dummy_tango_server):
     """
     execute .__info__() method of 3 types of counters.
     """
@@ -535,6 +543,18 @@ def test_info_counters(beacon):
     # SoftCounter
     soft_cnt = SoftCounter(mot_robz, "position")
 
-    diode1.__info__()
-    diode2.__info__()
-    soft_cnt.__info__()
+    assert diode1.__info__().startswith(
+        f"'{diode1.name}` counter info:\n  counter type = sampling"
+    )
+    assert diode2.__info__().startswith(
+        f"'{diode2.name}` counter info:\n  counter type = integrating"
+    )
+    assert soft_cnt.__info__().startswith(
+        f"'{soft_cnt.name}` counter info:\n  counter type = software"
+    )
+
+    counter = beacon.get("taac_dummy_position")
+
+    assert counter.__info__().startswith(
+        f"'{counter.name}` Tango attribute counter info:"
+    )

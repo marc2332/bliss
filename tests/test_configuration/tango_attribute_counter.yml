@@ -2,21 +2,22 @@
   uri: id00/tango/dummy
   plugin: bliss
   counters:
-    - name: tac_undu_position
+    - name: taac_undu_position
       attr_name: position
       mode: MEAN
-      unit: mm
-    - name: tac_undu_acceleration
+      unit: km
+      format: "%5.3f"
+    - name: taac_undu_acceleration
       attr_name: acceleration
       mode: LAST
-      # no unit for test.
-    - name: tac_undu_velocity
+      # no format, no unit for test.
+    - name: taac_undu_velocity
       attr_name: velocity
       unit: mm
     - name: wrong_counter
       attr_name: wrong_attr
       unit: mm
-    - name: tac_undu_cracoucas
+    - name: taac_undu_wrong_attr_name
       attr_name: cracoucas
       # wrong attr_name.
 

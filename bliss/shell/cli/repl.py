@@ -117,6 +117,8 @@ def install_excepthook():
     """
     ERROR_REPORT = ErrorReport()
 
+    logger = logging.getLogger("exceptions")
+
     def repl_excepthook(exc_type, exc_value, tb):
         err_file = sys.stderr
 
@@ -124,6 +126,7 @@ def install_excepthook():
         ERROR_REPORT._last_error = "".join(
             traceback.format_exception(exc_type, exc_value, tb)
         )
+        logger.error("", exc_info=True)
 
         # Adapt the error message depending on the ERROR_REPORT expert_mode
         if not ERROR_REPORT._expert_mode:
@@ -596,7 +599,7 @@ def embed(*args, **kwargs):
 
             try:
                 inp = cmd_line_i.app.run()
-                logger.debug(f"USER INPUT: {inp}")
+                logging.getLogger("user_input").info(f"{inp}")
                 cmd_line_i._execute(inp)
             except KeyboardInterrupt:
                 cmd_line_i.default_buffer.reset()

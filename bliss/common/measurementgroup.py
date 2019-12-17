@@ -143,6 +143,8 @@ def _get_counters_from_names(names_list, container_default_counters_only=False):
                     # no default group ?
                     # fallback to all counters below this container
                     pass
+                except Exception:
+                    pass
                 else:
                     continue
             # look for all counters below this container
@@ -331,6 +333,10 @@ class MeasurementGroup:
                 )
 
         to_disable = set(counter_names)
+        if not to_disable:
+            raise ValueError(
+                f"No match, could not disable any counter with patterns: {','.join(counter_patterns)}"
+            )
         disabled = set(self.disabled)
 
         new_disabled = disabled.union(to_disable)
@@ -372,6 +378,11 @@ class MeasurementGroup:
                 )
 
         to_enable = set(counter_names)
+        if not to_enable:
+            raise ValueError(
+                f"No match, could not enable any counter with patterns: {','.join(counter_patterns)}"
+            )
+
         disabled = set(self.disabled)
         new_disabled = disabled.difference(to_enable)
 
@@ -448,7 +459,7 @@ class MeasurementGroup:
         s += str_format % ("Enabled", "Disabled")
         s += str_format % ("-" * max_len, "-" * max_len)
         for enable, disable in itertools.zip_longest(
-            self.enabled, self.disabled, fillvalue=""
+            sorted(self.enabled), sorted(self.disabled), fillvalue=""
         ):
             s += str_format % (enable, disable)
         return s

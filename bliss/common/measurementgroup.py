@@ -333,6 +333,10 @@ class MeasurementGroup:
                 )
 
         to_disable = set(counter_names)
+        if not to_disable:
+            raise ValueError(
+                f"No match, could not disable any counter with patterns: {','.join(counter_patterns)}"
+            )
         disabled = set(self.disabled)
 
         new_disabled = disabled.union(to_disable)
@@ -374,6 +378,11 @@ class MeasurementGroup:
                 )
 
         to_enable = set(counter_names)
+        if not to_enable:
+            raise ValueError(
+                f"No match, could not enable any counter with patterns: {','.join(counter_patterns)}"
+            )
+
         disabled = set(self.disabled)
         new_disabled = disabled.difference(to_enable)
 

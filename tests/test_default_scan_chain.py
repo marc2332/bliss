@@ -6,8 +6,6 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import gevent
-import h5py
-import os
 
 from bliss.common.scans import DEFAULT_CHAIN, loopscan
 from bliss.scanning.acquisition.lima import LimaAcquisitionMaster
@@ -16,7 +14,7 @@ from bliss.scanning.acquisition.counter import SamplingCounterAcquisitionSlave
 from bliss.scanning.acquisition.counter import IntegratingCounterAcquisitionSlave
 from bliss.scanning.acquisition.motor import LinearStepTriggerMaster
 from bliss.scanning.scan import Scan
-from bliss.scanning.chain import AcquisitionObject
+from bliss.scanning.chain import AcquisitionMaster
 from bliss.controllers.counter import CounterController
 
 
@@ -311,7 +309,7 @@ def test_default_chain_with_recursive_master(default_session, lima_simulator):
         def get_acquisition_object(
             self, acq_params, ctrl_params=None, parent_acq_params=None
         ):
-            return AcquisitionObject(self, ctrl_params=ctrl_params, **acq_params)
+            return AcquisitionMaster(self, ctrl_params=ctrl_params, **acq_params)
 
         def get_default_chain_parameters(self, scan_params, acq_params):
             return acq_params

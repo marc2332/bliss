@@ -5,7 +5,7 @@
 # Copyright (c) 2015-2019 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-# ----------------------------- TEST -----------------------------------------------------------
+import pytest
 import numpy
 from bliss.scanning.toolbox import ChainBuilder
 from bliss.controllers.lima.roi import Roi
@@ -16,7 +16,7 @@ from bliss.controllers.lima.lima_base import Lima
 from bliss.common.scans import DEFAULT_CHAIN
 from bliss.common.scans import ascan
 from bliss.controllers.simulation_calc_counter import MeanCalcCounterController
-
+from bliss.scanning.acquisition.counter import SamplingCounterAcquisitionSlave
 
 # ---- TEST THE DEFAULT CHAIN -------------------------------
 def test_default_scan(default_session, lima_simulator):
@@ -351,3 +351,16 @@ def test_continous_scan(default_session, lima_simulator, lima_simulator2):
             str(e).strip()
             == "{'acq_params': [{'count_time': ['null value not allowed']}]}"
         )
+
+
+def test_bad_chain_slave_under_slave(default_session):
+
+    chain = AcquisitionChain()
+
+    slave1 = SamplingCounterAcquisitionSlave(count_time=0.1, npoints=1)
+    slave2 = SamplingCounterAcquisitionSlave(count_time=0.1, npoints=1)
+
+    with pytest.raises(TypeError) as exc:
+        chain.add(slave1, slave2)
+
+    assert str(exc.value) == f"object {slave1} is not an AcquisitionMaster"

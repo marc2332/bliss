@@ -24,5 +24,5 @@ def test_wagogroup_counters(default_session, wago_mockup, clean_gevent):
     clean_gevent["end-check"] = False
     wago_group = default_session.config.get("wago_group")
     assert len(wago_group.counters) == 2
-    assert isinstance(wago_group.esTr1.read(), float)
+    assert isinstance(wago_group.read_all(wago_group.esTr1)[0], float)
     assert len(wago_group.read_all(*wago_group.counters)) == 2

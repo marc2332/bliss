@@ -10,7 +10,6 @@ import numpy
 from bliss.common.utils import grouped
 from bliss.common.counter import IntegratingCounter
 from bliss.controllers.counter import IntegratingCounterController
-from bliss.scanning.acquisition.lima import BpmAcquisitionSlave
 
 
 class LimaBpmCounter(IntegratingCounter):
@@ -45,6 +44,9 @@ class Bpm(IntegratingCounterController):
         )
 
     def get_acquisition_object(self, acq_params, ctrl_params, parent_acq_params):
+        # avoid cyclic import
+        from bliss.scanning.acquisition.lima import BpmAcquisitionSlave
+
         if "acq_expo_time" in parent_acq_params:
             acq_params.setdefault("count_time", parent_acq_params["acq_expo_time"])
         if "acq_nb_frames" in parent_acq_params:

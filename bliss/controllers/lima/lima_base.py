@@ -19,7 +19,6 @@ from bliss.controllers.counter import CounterController, counter_namespace
 from bliss import current_session
 
 from bliss.config.channels import Cache, clear_cache
-from bliss.scanning.acquisition.lima import LimaAcquisitionMaster
 
 from bliss.controllers.lima.properties import LimaProperties, LimaProperty
 from bliss.controllers.lima.bpm import Bpm
@@ -163,6 +162,9 @@ class Lima(CounterController):
             return self.name
 
     def get_acquisition_object(self, acq_params, ctrl_params, parent_acq_params):
+        # avoid cyclic import
+        from bliss.scanning.acquisition.lima import LimaAcquisitionMaster
+
         return LimaAcquisitionMaster(self, ctrl_params=ctrl_params, **acq_params)
 
     def get_default_chain_parameters(self, scan_params, acq_params):

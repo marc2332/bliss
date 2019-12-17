@@ -474,6 +474,7 @@ class Connection(object):
                     host, port = self._get_msg_key(rx_msg)
                     return host, port
 
+    @check_connect
     def set_client_name(self, name, timeout=3.0):
         self._set_client_name(name, timeout)
 

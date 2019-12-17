@@ -143,6 +143,8 @@ def _get_counters_from_names(names_list, container_default_counters_only=False):
                     # no default group ?
                     # fallback to all counters below this container
                     pass
+                except Exception:
+                    pass
                 else:
                     continue
             # look for all counters below this container

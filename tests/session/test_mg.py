@@ -6,8 +6,11 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import pytest
+from bliss import global_map
 from bliss.common import measurementgroup
 from bliss.common import scans
+from bliss.common.counter import Counter
+from bliss.controllers.counter import CounterController
 from bliss.shell.standard import info
 from bliss.scanning import toolbox
 from bliss.controllers import counter
@@ -368,3 +371,26 @@ def test_enable_disable_pattern(test_mg, patterns, expected_counters):
     test_mg.enable_all()
     test_mg.disable(*patterns)
     assert set(test_mg.disabled) == set(expected_counters)
+
+
+def test_bad_controller(test_mg):
+    class BadController(CounterController):
+        @property
+        def counters(self):
+            raise RuntimeError("Bad controller")
+
+    bad_controller = BadController("bad_controller")
+    test_mg._config_counters.append("bad_controller")
+
+    # should work fine, even if one controller has an exception
+    assert list(global_map.get_counters_iter())
+    assert test_mg.available
+
+    # try to enable non-existent controller
+    with pytest.raises(ValueError):
+        test_mg.enable("bad_controller")
+
+    # try to disable non-existent counters
+    with pytest.raises(ValueError):
+        # explicitely test with a pattern
+        test_mg.disable("bad_con*")

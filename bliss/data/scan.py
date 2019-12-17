@@ -293,13 +293,14 @@ def watch_session_scans(
                     new_event.setdefault(db_name, node)
                     callback_event.set()
             elif event_type == data_iterator.EVENTS.END_SCAN:
-                db_name = node.db_name
-                scan_dict = running_scans.pop(db_name)
-                if scan_dict:
-                    scan_info = scan_dict["info"]
-                    new_event = events_dict.setdefault(_SCAN_EVENT.END, list())
-                    new_event.append((db_name, scan_info))
-                    callback_event.set()
+                if node.type == "scan":
+                    db_name = node.db_name
+                    scan_dict = running_scans.pop(db_name)
+                    if scan_dict:
+                        scan_info = scan_dict["info"]
+                        new_event = events_dict.setdefault(_SCAN_EVENT.END, list())
+                        new_event.append((db_name, scan_info))
+                        callback_event.set()
 
             # check watch_data_callback is still running
             try:

@@ -19,6 +19,7 @@ from bliss.data.scan import watch_session_scans
 from bliss.scanning.chain import AcquisitionChain
 from bliss.shell.standard import info
 from bliss.common import scans
+from bliss.scanning.group import Sequence
 
 
 @pytest.fixture
@@ -359,3 +360,49 @@ def test_parallel_scans(default_session, scan_tmpdir):
         assert len(array) == 26
     for array in loopscan_data[-1].values():
         assert len(array) == 20
+
+
+def test_sequence_scans(default_session, scan_tmpdir):
+    default_session.scan_saving.base_path = str(scan_tmpdir)
+
+    diode = default_session.config.get("diode")
+
+    new_scan_args = []
+    new_child_args = []
+    new_data_args = []
+    end_scan_args = []
+    end_scan_event = gevent.event.Event()
+    ready_event = gevent.event.Event()
+
+    def end(*args):
+        end_scan_event.set()
+        end_scan_args.append(args)
+
+    session_watcher = gevent.spawn(
+        watch_session_scans,
+        default_session.name,
+        lambda *args: new_scan_args.append(args),
+        lambda *args: new_child_args.append(args),
+        lambda *args: new_data_args.append(args),
+        end,
+        ready_event=ready_event,
+    )
+
+    ready_event.wait(timeout=3.)
+
+    try:
+        seq = Sequence()
+        with seq.sequence_context() as scan_seq:
+            s1 = scans.loopscan(5, .1, diode, run=False)
+            scan_seq.add(s1)
+            s1.run()
+
+    finally:
+        session_watcher.kill()
+
+    # check that end of group is not received
+    # assert len(end_scan_args) ==1
+    gevent.sleep(.5)
+    session_watcher.get()
+
+    # assert False

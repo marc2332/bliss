@@ -20,15 +20,14 @@ from bliss.common.protocols import counter_namespace
 
 
 class CounterController:
-    def __init__(self, name, master_controller=None):  # , hw_ctrl=None):
+    def __init__(self, name, master_controller=None, register_counters=True):
 
         self.__name = name
         self.__master_controller = master_controller
         self._counters = {}
 
-        # self._hw_controller = hw_ctrl
-
-        global_map.register(self, parents_list=["counters"])
+        if register_counters:
+            global_map.register(self, parents_list=["counters"])
 
     @property
     def name(self):
@@ -44,10 +43,6 @@ class CounterController:
     @property
     def _master_controller(self):
         return self.__master_controller
-
-    # @property
-    # def hw_controller(self):
-    #     return self._hw_controller
 
     @property
     def counters(self):
@@ -96,8 +91,12 @@ class CounterController:
 
 
 class SamplingCounterController(CounterController):
-    def __init__(self, name="samp_cc", master_controller=None):
-        super().__init__(name, master_controller=master_controller)
+    def __init__(self, name, master_controller=None, register_counters=True):
+        super().__init__(
+            name,
+            master_controller=master_controller,
+            register_counters=register_counters,
+        )
 
     def get_acquisition_object(self, acq_params, ctrl_params, parent_acq_params):
         return SamplingCounterAcquisitionSlave(
@@ -135,8 +134,12 @@ class SamplingCounterController(CounterController):
 
 
 class IntegratingCounterController(CounterController):
-    def __init__(self, name="integ_cc", master_controller=None):
-        super().__init__(name, master_controller=master_controller)
+    def __init__(self, name="integ_cc", master_controller=None, register_counters=True):
+        super().__init__(
+            name,
+            master_controller=master_controller,
+            register_counters=register_counters,
+        )
 
     def get_acquisition_object(self, acq_params, ctrl_params, parent_acq_params):
         return IntegratingCounterAcquisitionSlave(
@@ -295,8 +298,8 @@ class CalcCounterController(CounterController):
 
 
 class SoftCounterController(SamplingCounterController):
-    def __init__(self, name="soft_counter_controller"):
-        super().__init__(name)
+    def __init__(self, name="soft_counter_controller", register_counters=True):
+        super().__init__(name, register_counters=True)
 
     def read(self, counter):
         return counter.apply(counter.get_value())

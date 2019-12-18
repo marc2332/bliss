@@ -10,6 +10,9 @@ def test_exception_in_reading(session):
     event = gevent.event.Event()
 
     class CntController(SamplingCounterController):
+        def __init__(self):
+            super().__init__("cnt_controller")
+
         def read(self, counter):
             try:
                 if counter.nbpoints > 5:

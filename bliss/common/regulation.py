@@ -1711,24 +1711,10 @@ class RegPlot:
         self._stop_event = gevent.event.Event()
         self.sleep_time = 0.1
 
+    def create_plot(self):
+        # print("==== CREATE PLOT")
         # Declare a CurvePlot (see bliss.common.plot)
-        self.fig = plot(data=None, name=tloop.name)
-
-    def close(self):
-        self.stop()
-        # close flint tab
-        pass
-
-    def start(self):
-        if not self.task:
-            self.task = gevent.spawn(self.run)
-
-    def stop(self):
-        self._stop_event.set()
-
-    def run(self):
-
-        self._stop_event.clear()
+        self.fig = plot(data=None, name=self.loop.name, closeable=True, selected=True)
 
         self.fig.submit("setGraphXLabel", "Time (s)")
         self.fig.submit(
@@ -1742,7 +1728,34 @@ class RegPlot:
         )
         self.fig.submit("setGraphGrid", which=True)
 
-        while not self._stop_event.is_set():
+    def is_plot_active(self):
+        try:
+            return self.fig._flint.get_plot_name(self.fig.plot_id)
+        except:
+            return False
+
+    # def close(self):
+    #     self.stop()
+    #     # close flint tab
+    #     pass
+
+    def start(self):
+        if not self.is_plot_active():
+            self.create_plot()
+
+        if not self.task:
+            # print("==== START TASK")
+            self.loop.clear_history_data()
+            self.task = gevent.spawn(self.run)
+
+    def stop(self):
+        self._stop_event.set()
+
+    def run(self):
+
+        self._stop_event.clear()
+
+        while not self._stop_event.is_set() and self.is_plot_active():
 
             # t0 = time.time()
 
@@ -1793,3 +1806,5 @@ class RegPlot:
             # gevent.sleep(st)
 
             gevent.sleep(self.sleep_time)
+
+        # print("==== plot task has finished")

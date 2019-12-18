@@ -116,7 +116,7 @@ def test_default_scan(default_session, lima_simulator):
     )
 
 
-# ---- TEST CONTINOUS SCANS AND USER DEFINED SCANS -------------------------------
+# ---- TEST CUSTOM SCANS -------------------------------
 def scan_demo_all_acq_pars(motor, start, stop, npoints, count_time, *counters):
     """ Case where all masters and slaves acq_params are provided """
 
@@ -303,7 +303,7 @@ def scan_demo_missing_acq_pars(motor, start, stop, npoints, count_time, *counter
     sc.run()
 
 
-def test_continous_scan(default_session, lima_simulator, lima_simulator2):
+def test_custom_scans(default_session, lima_simulator, lima_simulator2):
 
     # ScanDisplay().auto=True
 

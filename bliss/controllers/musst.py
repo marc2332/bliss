@@ -66,14 +66,14 @@ def lazy_init(func):
 
 
 class MusstSamplingCounter(SamplingCounter):
-    def __init__(self, controller, name, channel, channel_config):
+    def __init__(self, name, channel, channel_config, controller):
         SamplingCounter.__init__(self, name, controller)
         self.channel = channel
         self.channel_config = channel_config
 
 
 class MusstIntegratingCounter(IntegratingCounter):
-    def __init__(self, controller, name, channel, channel_config):
+    def __init__(self, name, channel, channel_config, controller):
         IntegratingCounter.__init__(self, name, controller)
         self.channel = channel
         self.channel_config = channel_config
@@ -81,7 +81,9 @@ class MusstIntegratingCounter(IntegratingCounter):
 
 class MusstSamplingCounterController(SamplingCounterController):
     def __init__(self, name, master_controller):
-        super().__init__(name, master_controller=master_controller)
+        super().__init__(
+            name, master_controller=master_controller, register_counters=False
+        )
 
     def read_all(self, *counters):
         """ return the values of the given counters as a list.
@@ -93,7 +95,10 @@ class MusstSamplingCounterController(SamplingCounterController):
 class MusstIntegratingCounterController(IntegratingCounterController):
     def __init__(self, name, master_controller):
         IntegratingCounterController.__init__(
-            self, name=name, master_controller=master_controller
+            self,
+            name=name,
+            master_controller=master_controller,
+            register_counters=False,
         )
 
     def get_acquisition_object(self, acq_params, ctrl_params, parent_acq_params):
@@ -381,21 +386,16 @@ class musst(CounterController):
                     )
 
                 if channel_type in ("cnt",):
-                    cnt = MusstIntegratingCounter(
-                        self.integrating_counters, cnt_name, cnt_channel, channel_config
+                    self.integrating_counters.add_counter(
+                        MusstIntegratingCounter, cnt_name, cnt_channel, channel_config
                     )
-                    self.integrating_counters.add_counter(cnt)
-
                 elif channel_type in ("encoder", "ssi", "adc5", "adc10"):
-                    cnt = MusstSamplingCounter(
-                        self.sampling_counters, cnt_name, cnt_channel, channel_config
+                    cnt = self.sampling_counters.add_counter(
+                        MusstSamplingCounter, cnt_name, cnt_channel, channel_config
                     )
-
                     cnt_mode = channel_config.get("counter_mode")
                     if cnt_mode:
                         cnt.mode = cnt_mode
-
-                    self.sampling_counters.add_counter(cnt)
 
     def _channels_init(self, config_tree):
         """ Handle configured channels """
@@ -779,7 +779,6 @@ class musst(CounterController):
     @autocomplete_property
     def counters(self):
         all_counters = {}
-        # all_counters.update(self._counters)
         all_counters.update(self.integrating_counters._counters)
         all_counters.update(self.sampling_counters._counters)
         return counter_namespace(all_counters)

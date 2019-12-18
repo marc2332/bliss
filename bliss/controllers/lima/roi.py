@@ -157,7 +157,10 @@ class RoiCounters(IntegratingCounterController):
     """
 
     def __init__(self, proxy, acquisition_proxy):
-        super().__init__("roi_counters", master_controller=acquisition_proxy)
+        # leave counters registration to the parent object
+        super().__init__(
+            "roi_counters", master_controller=acquisition_proxy, register_counters=False
+        )
         self._proxy = proxy
         self._current_config = settings.SimpleSetting(
             self.fullname, default_value="default"

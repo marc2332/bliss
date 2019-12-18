@@ -197,7 +197,7 @@ class Input(SamplingCounterController):
         # useful attribute for a temperature controller writer
         self._attr_dict = {}
 
-        self.add_counter(SamplingCounter, self.name, unit=config.get("unit", "N/A"))
+        self.create_counter(SamplingCounter, self.name, unit=config.get("unit", "N/A"))
 
     def read_all(self, *counters):
         return [self.read()]
@@ -320,7 +320,7 @@ class Output(SamplingCounterController):
         # useful attribute for a temperature controller writer
         self._attr_dict = {}
 
-        self.add_counter(SamplingCounter, self.name, unit=config.get("unit", "N/A"))
+        self.create_counter(SamplingCounter, self.name, unit=config.get("unit", "N/A"))
 
     def read_all(self, *counters):
         return [self.read()]
@@ -661,7 +661,7 @@ class Loop(SamplingCounterController):
 
         self.reg_plot = None
 
-        self.add_counter(SamplingCounter, self.name, unit=config.get("unit", "N/A"))
+        self.create_counter(SamplingCounter, self.name, unit=config.get("unit", "N/A"))
 
     # ----------- BASE METHODS -----------------------------------------
 

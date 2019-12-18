@@ -609,7 +609,7 @@ class SpeedgoatCountersController(CounterController):
 
         # create counters
         for cnt_name in sig_cnt.keys():
-            self.add_counter(
+            self.create_counter(
                 SimpleCounter, cnt_name, sig_cnt[cnt_name], par_cnt[cnt_name]
             )
 

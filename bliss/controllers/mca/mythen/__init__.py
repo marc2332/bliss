@@ -63,7 +63,7 @@ class Mythen(CounterController):
         self._hostname = config["hostname"]
         self._interface = MythenInterface(self._hostname)
         self._apply_configuration()
-        self.add_counter(MythenCounter)
+        self.create_counter(MythenCounter)
 
     def get_acquisition_object(self, acq_params, ctrl_params, parent_acq_params):
         return MythenAcquistionSlave(self, ctrl_params=ctrl_params, **acq_params)

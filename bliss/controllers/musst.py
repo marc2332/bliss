@@ -386,11 +386,11 @@ class musst(CounterController):
                     )
 
                 if channel_type in ("cnt",):
-                    self.integrating_counters.add_counter(
+                    self.integrating_counters.create_counter(
                         MusstIntegratingCounter, cnt_name, cnt_channel, channel_config
                     )
                 elif channel_type in ("encoder", "ssi", "adc5", "adc10"):
-                    cnt = self.sampling_counters.add_counter(
+                    cnt = self.sampling_counters.create_counter(
                         MusstSamplingCounter, cnt_name, cnt_channel, channel_config
                     )
                     cnt_mode = channel_config.get("counter_mode")

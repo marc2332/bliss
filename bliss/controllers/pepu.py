@@ -629,7 +629,7 @@ class PEPU(CounterController):
             self.out_channels.values(),
             self.calc_channels.values(),
         ):
-            self.add_counter(PepuCounter, channel.name)
+            self.create_counter(PepuCounter, channel.name)
 
         if "template" in config:
             template_name = "TEMPLATE_" + config["template"].upper()

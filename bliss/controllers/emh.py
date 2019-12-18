@@ -98,7 +98,7 @@ class EMH(CounterController):
         # BPM COUNTERS
         for counter_conf in config.get("counters", list()):
             unit = counter_conf.get_inherited("unit")
-            self.add_counter(
+            self.create_counter(
                 EmhCounter, counter_conf["counter_name"], counter_conf["channel"], unit
             )
 

@@ -48,7 +48,7 @@ class CounterController:
     def counters(self):
         return counter_namespace(self._counters)
 
-    def add_counter(self, counter_class, *args, **kwargs):
+    def create_counter(self, counter_class, *args, **kwargs):
         counter = counter_class(*args, controller=self, **kwargs)
         return counter
 

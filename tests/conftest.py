@@ -27,6 +27,7 @@ from bliss.config.conductor import connection
 from bliss.config.conductor.client import get_default_connection
 from bliss.controllers.lima.roi import Roi
 from bliss.controllers.wago.wago import ModulesConfig
+from bliss.controllers import simulation_diode
 from bliss.common import plot
 from bliss.common.tango import DeviceProxy, DevFailed
 from bliss import logging_startup
@@ -123,10 +124,12 @@ def clean_gevent():
 
 
 @pytest.fixture
-def clean_session():
-    # assert main._GLOBAL_DICT['session'] is None
+def clean_globals():
     yield
     global_map.clear()
+    # reset module-level globals
+    simulation_diode.DEFAULT_CONTROLLER = None
+    simulation_diode.DEFAULT_INTEGRATING_CONTROLLER = None
 
 
 @pytest.fixture(scope="session")

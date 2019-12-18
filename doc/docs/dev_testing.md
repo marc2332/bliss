@@ -149,7 +149,7 @@ bliss % more setup.cfg
    
    [tool:pytest]
    addopts = -v --ignore=tests/images --ignore=tests/test_configuration --ignore=tests/controllers_hw
-   usefixtures = clean_louie clean_gevent clean_session
+   usefixtures = clean_louie clean_gevent clean_globals
    filterwarnings =
        ignore::DeprecationWarning
        ignore::PendingDeprecationWarning

@@ -142,9 +142,7 @@ class ScatterPlotWidget(ExtendedDockWidget):
         toolBar = qt.QToolBar(self)
 
         from silx.gui.plot.actions import mode
-        from silx.gui.plot.actions import io
         from silx.gui.plot.actions import control
-        from silx.gui.plot import PlotToolButtons
 
         toolBar.addAction(mode.ZoomModeAction(self.__plot, self))
         toolBar.addAction(mode.PanModeAction(self.__plot, self))
@@ -158,21 +156,60 @@ class ScatterPlotWidget(ExtendedDockWidget):
         toolBar.addSeparator()
 
         # Axis
+        toolBar.addAction(plot_helper.CustomAxisAction(self.__plot, self))
+        action = control.CrosshairAction(self.__plot, parent=self)
+        action.setIcon(icons.getQIcon("flint:icons/crosshair"))
+        toolBar.addAction(action)
         toolBar.addAction(control.GridAction(self.__plot, "major", self))
-        toolBar.addWidget(PlotToolButtons.AspectToolButton(self, self.__plot))
-        toolBar.addAction(control.XAxisLogarithmicAction(self.__plot, self))
-        toolBar.addAction(control.YAxisLogarithmicAction(self.__plot, self))
         toolBar.addSeparator()
 
         # Tools
-        toolBar.addAction(control.CrosshairAction(self.__plot, parent=self))
-        toolBar.addAction(control.ColorBarAction(self.__plot, self))
+        # FIXME implement that
+        action = qt.QAction(self)
+        action.setText("Histogram")
+        action.setToolTip(
+            "Show an histogram of the displayed scatter (not yet implemented)"
+        )
+        icon = icons.getQIcon("flint:icons/histogram")
+        action.setIcon(icon)
+        action.setEnabled(False)
+        toolBar.addAction(action)
+        # FIXME implement that
+        action = qt.QAction(self)
+        action.setText("Raw display")
+        action.setToolTip(
+            "Show a table of the raw data from the displayed scatter (not yet implemented)"
+        )
+        icon = icons.getQIcon("flint:icons/raw-view")
+        action.setIcon(icon)
+        action.setEnabled(False)
+        toolBar.addAction(action)
+        # FIXME implement that
+        action = qt.QAction(self)
+        action.setText("Profile")
+        action.setToolTip("Manage the profiles to this scatter (not yet implemented)")
+        icon = icons.getQIcon("flint:icons/profile")
+        action.setIcon(icon)
+        action.setEnabled(False)
+        toolBar.addAction(action)
+
+        action = control.ColorBarAction(self.__plot, self)
+        icon = icons.getQIcon("flint:icons/colorbar")
+        action.setIcon(icon)
+        toolBar.addAction(action)
         toolBar.addSeparator()
 
         # Export
-        toolBar.addAction(io.CopyAction(self.__plot, self))
-        toolBar.addAction(io.PrintAction(self.__plot, self))
-        toolBar.addAction(io.SaveAction(self.__plot, self))
+
+        # FIXME implement that
+        action = qt.QAction(self)
+        action.setText("Export to logbook")
+        action.setToolTip("Export this plot to the logbook (not yet implemented)")
+        icon = icons.getQIcon("flint:icons/export-logbook")
+        action.setIcon(icon)
+        action.setEnabled(False)
+        toolBar.addAction(action)
+        toolBar.addAction(plot_helper.ExportOthers(self.__plot, self))
 
         return toolBar
 

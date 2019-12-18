@@ -11,7 +11,11 @@ from typing import NamedTuple
 import contextlib
 
 from silx.gui import qt
+from silx.gui import icons
 from silx.gui.plot import PlotWindow
+from silx.gui.plot.actions import PlotAction
+from silx.gui.plot.actions import control
+from silx.gui.plot.actions import io
 
 
 class ViewChangedEvent(NamedTuple):
@@ -23,6 +27,83 @@ class MouseMovedEvent(NamedTuple):
     yData: float
     xPixel: int
     yPixel: int
+
+
+class CheckableKeepAspectRatioAction(PlotAction):
+    """QAction controlling X axis log scale on a :class:`.PlotWidget`.
+
+    :param plot: :class:`.PlotWidget` instance on which to operate
+    :param parent: See :class:`QAction`
+    """
+
+    def __init__(self, plot, parent=None):
+        super(CheckableKeepAspectRatioAction, self).__init__(
+            plot,
+            icon="shape-circle-solid",
+            text="Keep aspect ratio",
+            tooltip="Keep axes aspect ratio",
+            triggered=self._actionTriggered,
+            checkable=True,
+            parent=parent,
+        )
+        self.setChecked(self.plot.isKeepDataAspectRatio())
+        plot.sigSetKeepDataAspectRatio.connect(self._keepDataAspectRatioChanged)
+
+    def _keepDataAspectRatioChanged(self, aspectRatio):
+        """Handle Plot set keep aspect ratio signal"""
+        self.setChecked(aspectRatio)
+
+    def _actionTriggered(self, checked=False):
+        self.plot.setKeepDataAspectRatio(checked)
+
+
+class CustomAxisAction(qt.QWidgetAction):
+    def __init__(self, plot, parent):
+        super(CustomAxisAction, self).__init__(parent)
+
+        menu = qt.QMenu(parent)
+        menu.addSection("X-axes")
+        action = control.XAxisLogarithmicAction(plot, self)
+        action.setText("Log scale")
+        menu.addAction(action)
+
+        menu.addSection("Y-axes")
+        action = control.YAxisLogarithmicAction(plot, self)
+        action.setText("Log scale")
+        menu.addAction(action)
+
+        menu.addSection("Aspect ratio")
+        action = CheckableKeepAspectRatioAction(plot, self)
+        action.setText("Keep aspect ratio")
+        menu.addAction(action)
+
+        icon = icons.getQIcon("flint:icons/axes-options")
+        toolButton = qt.QToolButton(parent)
+        toolButton.setText("Custom axis")
+        toolButton.setToolTip("Custom the plot axis")
+        toolButton.setIcon(icon)
+        toolButton.setMenu(menu)
+        toolButton.setPopupMode(qt.QToolButton.InstantPopup)
+        self.setDefaultWidget(toolButton)
+
+
+class ExportOthers(qt.QWidgetAction):
+    def __init__(self, plot, parent):
+        super(ExportOthers, self).__init__(parent)
+
+        menu = qt.QMenu(parent)
+        menu.addAction(io.CopyAction(plot, self))
+        menu.addAction(io.PrintAction(plot, self))
+        menu.addAction(io.SaveAction(plot, self))
+
+        icon = icons.getQIcon("flint:icons/export-others")
+        toolButton = qt.QToolButton(parent)
+        toolButton.setText("Other exports")
+        toolButton.setToolTip("Various exports")
+        toolButton.setIcon(icon)
+        toolButton.setMenu(menu)
+        toolButton.setPopupMode(qt.QToolButton.InstantPopup)
+        self.setDefaultWidget(toolButton)
 
 
 class FlintPlot(PlotWindow):

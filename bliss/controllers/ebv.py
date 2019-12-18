@@ -52,14 +52,14 @@ class EBVDiodeRange:
 
 
 class EBVCounterController(SamplingCounterController):
-    def __init__(self, ebv_master, diode_name):
-        super().__init__(ebv_master.name)
-        self._ebv_master = ebv_master
+    def __init__(self, ebv_device, diode_name):
+        super().__init__(ebv_device.name)
+        self._ebv_device = ebv_device
         self._diode_name = diode_name
 
     def read(self, counter):
         if counter.name == self._diode_name:
-            return self._ebv_master.current
+            return self._ebv_device.current
 
 
 class EBVCounter(SamplingCounter):
@@ -116,11 +116,10 @@ class EBV:
         self.initialize()
 
         # --- counter interface
-        self.master_controller = None
-        self.controller = EBVCounterController(self, self._cnt_name)
-        diode_counter = EBVCounter(self._cnt_name, self.controller, unit="mA")
-        self.controller.add_counter(diode_counter)
-        add_property(self, self._cnt_name, diode_counter)
+        self._counter_controller = EBVCounterController(self, self._cnt_name)
+        self._diode_counter = EBVCounter(
+            self._cnt_name, self._counter_controller, unit="mA"
+        )
 
         global_map.register(
             self,
@@ -132,6 +131,13 @@ class EBV:
     def initialize(self):
         self._wago.connect()
         self.__update()
+
+    @property
+    def diode(self):
+        return self._diode_counter
+
+    def counters(self):
+        return self._counter_controller.counters
 
     def __led_status_changed(self, state):
         event.send(self, "led_status", state)

@@ -134,7 +134,7 @@ def test_multiple_greenlets(ports):
         assert len(conductor_conn._redis_connection) == 1
 
 
-def test_single_bus_for_channels(ports):
+def test_single_bus_for_channels(beacon):
     key = "multi_green"
     value = "hello"
 

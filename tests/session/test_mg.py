@@ -110,7 +110,8 @@ def test_mg_enable_disable(session, beacon):
     assert set(default_mg.enabled) == set(counters_list[1:])
     assert list(default_mg.disabled) == [counters_list[0]]
     default_mg.enable("diode")
-    default_mg.disable("fsdf")
+    with pytest.raises(ValueError):
+        default_mg.disable("fsdf")
     # disable a list of counters by names
     default_mg.disable("diode2", "diode3")
     assert list(default_mg.enabled) == [counters_list[0]]
@@ -189,7 +190,11 @@ def test_add_remove(session):
             # it is forbidden to remove counter added from config
             default_mg.remove(session.env_dict["diode"])
     finally:
-        default_mg.remove(session.env_dict["diode2"])
+        try:
+            default_mg.remove(session.env_dict["diode2"])
+        except ValueError:
+            # already removed
+            pass
 
 
 def test_counter_group(beacon, session, lima_simulator):
@@ -310,6 +315,7 @@ def test_mg(alias_session, lima_simulator):
             ]
         },
     )
+
     return mg
 
 

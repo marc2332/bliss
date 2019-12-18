@@ -174,8 +174,6 @@ class tango_attr_as_counter(SamplingCounter):
             self.tango_uri, TangoCounterController(self.tango_uri)
         )
 
-        controller._counters[name] = self
-
         log_debug(
             controller, f"             to read '{self.attribute}' tango attribute."
         )

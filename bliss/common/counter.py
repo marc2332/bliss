@@ -66,8 +66,6 @@ class Counter:
         )
         assert callable(self._conversion_function)
         self._unit = unit
-        parents_list = ["counters"] + ([controller] if controller is not None else [])
-        global_map.register(self, parents_list, tag=self.name)
 
     @property
     def name(self):

@@ -7,7 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0] - 2019-12-17
+
 ### Added
+- Controllers
+  - Hardware SCA mode for Xia Mercury
+  - Interlocks support for Wago
+  - WagoGroup, to group multiple Wagos in one
+    - Tango Wago server using BLISS controller
+  - PM600 trajectories
+  - PI-E517 specific improvements
+  - use home_src for Icepap "home()" method
+
+- Configuration
+  - '.' can now be used directly access attributes of referenced objects 
+  
 - Scanning toolbox
   - `ChainBuilder` class: helper to build a custom scan with auto-introspection of the counters dependencies given to a scan. 
   - `ChainNode` class: used by the `ChainBuilder` to store required information about the links between Counters, CounterControllers and AcquisitionObjects. 
@@ -18,10 +32,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - `SamplingCounterController` class for `SamplinCounter` management.
     - `IntegratingCounterController` class for `IntegratingCounter` management.
     - `CalcCounterController` class for `CalcCounter` management.
+      - can deal with N input counters, and produces M output counters 
     - `SoftCounterController` class for `SoftCounter` management.
 
 - AcquisitionObject
   - New `AcquisitionObject` base class for `AcquisitionSlave` and `AcquisitionMaster` (`bliss.scanning.chain`).
+  - Validation of acquisition object parameters using Cerberus
+
+- Scans
+  - add '.wait_state()' method to help with the synchronization of states
+  - grouping feature
 
 - Regulation framework
   - new module `bliss.common.regulation` to manage PID regulation of various systems. 
@@ -30,6 +50,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Session
   - Store scans in `.scans` property in `Session` object.
+  - Scan saving structure available in `Session` object (.scan_saving).
+  
 - Flint
   - Provides dock widget for all the main widgets of the live scan window
   - Provides a widget to monitor the state of the current scan
@@ -56,31 +78,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Custom plots can be created with `selected=True` and `closeable=True`
   - 2 scripts was added to optimize and convert SVG to PNG
     - `scripts/export_svg.sh`, `scripts/optimize_svg.sh`
+
 - Typing Helper
   - pressing F7 will disable typing helper on Bliss Shell
   - avoid interpretation of multiline code and of properties
-- lprint: new function intended to replace print for printing to stdout and to logbook
 
+- Shell
+    - start Flint in shell only
+    - clear() function to clear screen
+    
+- Logging
+    - lprint: new function intended to replace print for printing to stdout and to log file
+
+- Scan saving
+    - new Nexus Writer Service
+  
 ### Changed
 
+- Measurement groups
+  - configuration specify which counters or controllers (counter containers) can be used by a measurement group  
+  - individual ounters to be enabled or disabled are selected using the Unix "glob" pattern (*, ?, [..])
+  - entire counter groups can be enabled or disabled
+
+- Scans
+  - Scan saving '.get()' do not create redis node
+    - node creation is done in the run method of Scan
+  
 - Counters refactoring
   - The file `bliss.common.measurement` has been renamed `bliss.common.counter`.
   - Unique base class `Counter` (`bliss.common.counter`) for counters objects.
   - The `Counter` object requires a `CounterController` object (`bliss.controllers.counter`) (mandatory).
   - The `Counter` object has a `._counter_controller` property which returns its `CounterController` (the counter owner).
   - All standard counters (`SamplingCounter`,`IntegratingCounter` ,`SoftCounter` , `CalcCounter`) inherit from the `Counter` base class.
+  - counter classes defined in the same file as corresponding controllers
 
 - CounterController
   - The file `bliss.controllers.acquisition` has been renamed `bliss.controllers.counter`.
   - `get_acquisition_object` method attached to the `CounterController` object.
   - `get_default_chain_parameters` method attached to the `CounterController` object.
-
+ 
 - AcquisitionObject
   - `AcquisitionSlave` inherits from `AcquisitionObject` base class.
   - `Acquisitionmaster` inherits from `AcquisitionObject` base class.
-
-- Modified controllers
-  - EMH, Speedgoat, tango_attr_as, Wago, Musst, Pepu, MCA, Lima, CT2/P201, Flex, Temperature, CalcCounterController, SimulationDiode
 
 - Flint
   - Default curve colors was updated
@@ -88,11 +127,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - This API is only used by `edit_roi_counters` and will may be removed
   - Try to avoid to reach images which are not needed (according to the frame id already reached)
   - `selectplot` do not anymore set the default displayed channels in the plot (temporary regression)
+ 
 - Globals
   - `SCANS` is now available only in Bliss Shell. Refers to `current_session.scans`
   - `SCAN_SAVING` is now available only in Bliss Shell. Refers to `current_session.scan_saving`
+
 - Command line arguments
   - `--tmux-debug` command line option changed to only `--debug`
+
 - bliss.common.standard
   - this module is intended to be the entry point for Bliss as a library, function that
     were printing to stdout has been changed to return some forms of aggregated data
@@ -102,6 +144,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Flint
   - Location of the live plots stay the same between 2 scans
+- Fixed wrong call to 'atan' instead of 'arctan' in QSys calc motor and tab3 controller
+- Fix BPM counter group for new Lima BPM device
+- Stop live mode when calculating BPM
+- Add Lua script to do atomic updates of Setting objects
+- CT2: take device name into account to generate the data channel name
+- Icepap: do not initialize axis in Switch
+- Fix for Lakeshore controller initialization
+- Fix missing SCANS global in BLISS shell in case of error during setup
+- Fix to take image save flag into account for the Null writer
+- Display SoftAxis motors in wa()
+- Conversion function property added to SoftCounter
+- Fix Aerotech encoder reading
+- Fix oscillating movement on repeated Icepap limit search
+- SSI encoder reading support for Wago
+- Group move now stops if one of the moving axis is stopped individually
+- Motor group ".move()" do not accept numpy arrays anymore
+- Fix external shutter switch enum
+- Show axis position marker in Flint for goto_cen, goto_peak, goto_com functions
+- Deleting a node in global map do not reparent
+- Display exception in `__info__` methods
+- Watchdog timer restart logic
 
 ### Removed
 
@@ -126,6 +189,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Redis node `SESSION:scatter_select` is not anymore updated by the GUI
 - `bliss.common.plot.BasePlot.clear_selections` was removed
 
+- Scans
+  - duration estimation is no longer providede, since it cannot be calculated accurately 
 
 ## [0.3.0] - 2019-10-01
 

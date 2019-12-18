@@ -764,11 +764,3 @@ class PepuCounter(Counter):
         return float
 
     # Extra logic
-
-    def feed_point(self, stream_data):
-        self.emit_data_point(stream_data[self.name])
-
-    def emit_data_point(self, data_point):
-        self._counter_controller.channels.update(
-            {f"{pepu.name}:{self.name}": data_point}
-        )

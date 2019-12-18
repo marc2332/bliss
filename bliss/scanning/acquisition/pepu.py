@@ -143,14 +143,11 @@ class PepuAcquisitionSlave(AcquisitionSlave):
 
     # Counter management
 
-    def _do_add_counter(self, counter):
-        assert self.device == counter.channel.pepu
-        super()._do_add_counter(counter)
-        counter.acquisition_device = self
-
     def publish(self, data):
         for counter in self._counters:
-            counter.feed_point(data)
+            self.channels.update(
+                {f"{self.device.name}:{counter.name}": data[counter.name]}
+            )
 
     # Standard methods
 

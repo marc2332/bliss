@@ -306,10 +306,8 @@ def test_global_map(beacon, s1hg, roby):
         },
         "counters": {"thermo_sample", "sample_regulation", "heater"},
         "global": {"controllers", "comms", "counters", "axes"},
-        "heater": {"heater"},
         "motion_hooks": {"hook0"},
         "sample_regulation": {"thermo_sample", "heater"},
-        "thermo_sample": {"thermo_sample"},
     }
 
     assert links == expected_links

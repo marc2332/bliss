@@ -685,3 +685,10 @@ def rounder(template_number, number):
     return numpy.format_float_positional(
         number, precision=precision, unique=False, trim="-"
     )
+
+
+class ShellStr(str):
+    """Subclasses str to give a nice representation in the Bliss shell"""
+
+    def __info__(self):
+        return str(self)

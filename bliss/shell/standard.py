@@ -35,6 +35,7 @@ from bliss.common.standard import __move
 from bliss.common import measurementgroup
 from bliss.common.soft_axis import SoftAxis
 from bliss.common.counter import SoftCounter
+from bliss.common.utils import ShellStr
 
 # objects given to Bliss shell user
 from bliss.common.standard import mv, mvr, move
@@ -91,13 +92,6 @@ _MISSING_VAL = "-----"
 _FLOAT_FORMAT = ".05f"
 
 _log = logging.getLogger("bliss.shell.standard")
-
-
-class ShellStr(str):
-    """Subclasses str to give a nice representation in the Bliss shell"""
-
-    def __info__(self):
-        return str(self)
 
 
 def _print_errors_with_traceback(errors, device_type="motor"):

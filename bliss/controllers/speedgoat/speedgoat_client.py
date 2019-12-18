@@ -608,10 +608,9 @@ class SpeedgoatCountersController(CounterController):
                 par_cnt.pop(cnt)
 
         # create counters
-        self.available_counters = {}
         for cnt_name in sig_cnt.keys():
-            self.available_counters[cnt_name] = SimpleCounter(
-                self, cnt_name, sig_cnt[cnt_name], par_cnt[cnt_name]
+            self.add_counter(
+                SimpleCounter, cnt_name, sig_cnt[cnt_name], par_cnt[cnt_name]
             )
 
     def get_acquisition_object(self, acq_params, ctrl_params, parent_acq_params):
@@ -658,7 +657,7 @@ class SpeedgoatCountersController(CounterController):
         # return list of values
         idx_list = []
         for name in counter_list_name:
-            idx_list.append(self.available_counters[name].read_index())
+            idx_list.append(getattr(self.counters, name).read_index())
 
         value_list = self.speedgoat.get_signal_value_from_idxs(idx_list)
 
@@ -670,7 +669,7 @@ class SpeedgoatCountersController(CounterController):
 
 
 class SimpleCounter(Counter):
-    def __init__(self, controller, counter_name, signal_node, param_node):
+    def __init__(self, counter_name, signal_node, param_node, controller):
         super().__init__(counter_name, controller)
 
         self.signal_node = signal_node
@@ -714,8 +713,6 @@ class SpeedgoatCounter(SamplingCounter):
             raise ValueError(
                 'speedgoat: Counter "%s" not configured in speedgoat' % name
             )
-
-        self._counter_controller._counters[name] = self
 
 
 ##########################################################################
@@ -1359,7 +1356,7 @@ class Speedgoat(object):
                 self._cache["counters_controller"] = ctrl = SpeedgoatCountersController(
                     self, signal_node[0], param_node[0]
                 )
-                self._cache["counters"] = ctrl.available_counters
+                self._cache["counters"] = ctrl.counters
 
         return self._cache
 

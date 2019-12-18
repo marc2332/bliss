@@ -104,5 +104,4 @@ def simulation_diode(name, config):
         )
     else:
         diode = SimulationDiodeSamplingCounter(name, controller)
-    controller._counters[diode.name] = diode
     return diode

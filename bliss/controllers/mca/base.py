@@ -327,14 +327,10 @@ class BaseMCA(CounterController):
 
     @property
     def counters(self):
-        # from bliss.scanning.acquisition.mca import mca_counters
-
         return mca_counters(self)
 
     @property
     def counter_groups(self):
-        # from bliss.scanning.acquisition.mca import mca_counter_groups
-
         return mca_counter_groups(self)
 
     # Roi handling

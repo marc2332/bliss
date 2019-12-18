@@ -65,7 +65,7 @@ class EmhCounter(SamplingCounter):
     """EMH counter class
     """
 
-    def __init__(self, name, controller, channel, unit=None):
+    def __init__(self, name, channel, controller, unit=None):
 
         SamplingCounter.__init__(self, name, controller)
         #                                    ref to the controller
@@ -98,10 +98,9 @@ class EMH(CounterController):
         # BPM COUNTERS
         for counter_conf in config.get("counters", list()):
             unit = counter_conf.get_inherited("unit")
-            counter = EmhCounter(
-                counter_conf["counter_name"], self, counter_conf["channel"], unit
+            self.create_counter(
+                EmhCounter, counter_conf["counter_name"], counter_conf["channel"], unit
             )
-            self._counters[counter.name] = counter
 
         self.bpm_values = {"bpmx": -1, "bpmy": -1, "bpmi": -1}
 
@@ -113,7 +112,6 @@ class EMH(CounterController):
             from bliss.scanning.acquisition.emh import EmhAcquisitionSlave
 
             return EmhAcquisitionSlave(self, ctrl_params=ctrl_params, **acq_params)
-
         else:
             return SamplingCounterAcquisitionSlave(
                 self, ctrl_params=ctrl_params, **acq_params

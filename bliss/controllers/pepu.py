@@ -86,7 +86,7 @@ import enum
 import logging
 import weakref
 import collections
-
+import itertools
 import numpy
 
 from bliss.comm.util import get_comm, TCP
@@ -606,7 +606,6 @@ class PEPU(CounterController):
 
         super().__init__(name, master_controller=master_controller)
 
-        # self.name = name
         self.bliss_config = config
         self.streams = dict()
 
@@ -624,6 +623,13 @@ class PEPU(CounterController):
         self.calc_channels = dict(
             [(i, ChannelCALC(self, i)) for i in self.CALC_CHANNELS]
         )
+
+        for channel in itertools.chain(
+            self.in_channels.values(),
+            self.out_channels.values(),
+            self.calc_channels.values(),
+        ):
+            self.create_counter(PepuCounter, channel.name)
 
         if "template" in config:
             template_name = "TEMPLATE_" + config["template"].upper()
@@ -746,48 +752,15 @@ class PEPU(CounterController):
     def __info__(self):
         return "{0}(name={1!r})".format(type(self).__name__, self.name)
 
-    @property
-    def counters(self):
-        # --- add counters
-        channels = list(self.in_channels.values()) + list(self.calc_channels.values())
-        counters = []
-        for channel in channels:
-            counters.append(PepuCounter(channel))
-
-        self._counters = {cnt.name: cnt for cnt in counters}
-
-        return counter_namespace(self._counters)
-
 
 class PepuCounter(Counter):
-    def __init__(self, channel):
-        self.channel = channel
-        self.acquisition_device = None
-        super().__init__(self.channel.name, self.channel.pepu)
+    def __init__(self, name, controller):
+        super().__init__(name, controller)
 
     # Standard interface
-
-    # @property
-    # def controller(self):
-    #     return self.channel.pepu
-
-    # @property
-    # def name(self):
-    #     return self.channel.name
 
     @property
     def dtype(self):
         return float
 
-    # @property
-    # def shape(self):
-    #     return ()
-
     # Extra logic
-
-    def feed_point(self, stream_data):
-        self.emit_data_point(stream_data[self.name])
-
-    def emit_data_point(self, data_point):
-        pepu = self.acquisition_device
-        pepu.channels.update({f"{pepu.name}:{self.name}": data_point})

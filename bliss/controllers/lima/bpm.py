@@ -27,7 +27,10 @@ class LimaBpmCounter(IntegratingCounter):
 
 class Bpm(IntegratingCounterController):
     def __init__(self, name, bpm_proxy, acquisition_proxy):
-        super().__init__("bpm", master_controller=acquisition_proxy)
+        # leave counters registration to the parent object
+        super().__init__(
+            "bpm", master_controller=acquisition_proxy, register_counters=False
+        )
         self._proxy = bpm_proxy
         self._counters.update(
             {

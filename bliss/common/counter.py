@@ -60,14 +60,15 @@ class Counter:
 
     def __init__(self, name, controller, conversion_function=None, unit=None):
         self._name = name
+
         self.__counter_controller = controller
+        self.__counter_controller._counters[self.name] = self
+
         self._conversion_function = (
             conversion_function if conversion_function is not None else lambda x: x
         )
         assert callable(self._conversion_function)
         self._unit = unit
-        parents_list = ["counters"] + ([controller] if controller is not None else [])
-        global_map.register(self, parents_list, tag=self.name)
 
     @property
     def name(self):

@@ -6,6 +6,7 @@ from unittest import mock
 import pytest
 import numpy as np
 import gevent.queue
+import functools
 
 from bliss import global_map
 from bliss.common import scans
@@ -13,7 +14,7 @@ from bliss.scanning.scan import Scan
 from bliss.scanning.chain import AcquisitionChain
 from bliss.common.measurementgroup import MeasurementGroup
 
-from bliss.controllers.pepu import PEPU as PepuClass
+from bliss.controllers.pepu import PEPU
 from bliss.controllers.pepu import ChannelIN, ChannelOUT, ChannelCALC, Signal
 
 from bliss.scanning.acquisition.pepu import PepuAcquisitionSlave
@@ -27,59 +28,42 @@ def pepu():
 
     trigger = gevent.queue.Queue()
 
-    def idata(n):
-        nb_points = pepu.create_stream.call_args[1]["nb_points"]
+    def idata(n, create_stream_call_kwargs=None, pepu_counters=None):
+        nb_points = create_stream_call_kwargs["nb_points"]
         assert n == nb_points
-        points = [[y + x / 10. for y in range(1, 15)] for x in range(n)]
+        points = [
+            [y + x / 10. for y in range(1, len(pepu_counters) + 1)] for x in range(n)
+        ]
         for point in points:
             data = np.array(point)
-            data.dtype = [(counter.name, float) for counter in pepu.counters]
-            mode = pepu.create_stream.call_args[1]["trigger"]
+            data.dtype = [(counter.name, float) for counter in pepu_counters]
+            mode = create_stream_call_kwargs["trigger"]
             if mode.clock == Signal.SOFT:
                 trigger.get()
             yield data
 
-    def assert_data(data, n):
-        for i, counter in enumerate(pepu.counters, 1):
-            expecting = [i + x / 10. for x in range(n)]
-            assert list(data[counter.name]) == expecting
+    class MockPepu(PEPU):
+        def raw_write_read(self, cmd):
+            return ""
 
-    with mock.patch("bliss.controllers.pepu.PEPU", autospec=True) as PEPU:
-        pepu = PEPU.return_value
-        pepu.name = "pepu1"
-        pepu.in_channels = OrderedDict(
-            [(i, ChannelIN(pepu, i)) for i in PepuClass.IN_CHANNELS]
-        )
-        pepu.out_channels = OrderedDict(
-            [(i, ChannelOUT(pepu, i)) for i in PepuClass.OUT_CHANNELS]
-        )
-        pepu.calc_channels = OrderedDict(
-            [(i, ChannelCALC(pepu, i)) for i in PepuClass.CALC_CHANNELS]
-        )
+        def create_stream(self, *args, **kwargs):
+            stream = mock.MagicMock()
+            stream.idata.side_effect = functools.partial(
+                idata, create_stream_call_kwargs=kwargs, pepu_counters=self.counters
+            )
+            return stream
 
-        pepu.counters = PepuClass.counters.__get__(pepu, type(pepu))
-        pepu.create_chain_node = PepuClass.create_chain_node.__get__(pepu, type(pepu))
-        pepu.get_acquisition_object = PepuClass.get_acquisition_object.__get__(
-            pepu, type(pepu)
-        )
-        pepu.get_default_chain_parameters = PepuClass.get_default_chain_parameters.__get__(
-            pepu, type(pepu)
-        )
-        pepu._master_controller = None
+        def assert_data(self, data, n):
+            for i, counter in enumerate(self.counters, 1):
+                expecting = [i + x / 10. for x in range(n)]
+                assert list(data[counter.name]) == expecting
 
-        # Add pepu1 to globals
-        global_map.register(pepu, parents_list=["controllers"])
+        def software_trigger(self):
+            trigger.put(None)
 
-        stream = pepu.create_stream.return_value
-        stream.idata.side_effect = idata
-        pepu.software_trigger.side_effect = lambda: trigger.put(None)
-        pepu.assert_data = assert_data
+    pepu = MockPepu("pepu1", {"tcp": {"url": "nonexistent"}})
 
-        pepu.get_current_parameters = lambda: None
-
-        yield pepu
-        stream.start.assert_called_once_with()
-        stream.stop.assert_called_once_with()
+    yield pepu
 
 
 def test_pepu_soft_scan(session, pepu):

@@ -380,4 +380,3 @@ class SimulationCounter(Counter):
     def __init__(self, name, config):
         super().__init__(name, SimulationCounterController())
         self.config = config
-        self._counter_controller.add_counter(self)

@@ -63,7 +63,7 @@ class Mythen(CounterController):
         self._hostname = config["hostname"]
         self._interface = MythenInterface(self._hostname)
         self._apply_configuration()
-        self._counters["spectrum"] = MythenCounter(self)
+        self.create_counter(MythenCounter)
 
     def get_acquisition_object(self, acq_params, ctrl_params, parent_acq_params):
         return MythenAcquistionSlave(self, ctrl_params=ctrl_params, **acq_params)
@@ -234,17 +234,7 @@ class MythenCounter(Counter):
     # Initialization
 
     def __init__(self, controller):
-        # self._name = "spectrum"
-        self._controller = controller
         super().__init__("spectrum", controller)
-
-    # @property
-    # def name(self):
-    #     return self._name
-
-    @property
-    def controller(self):
-        return self._controller
 
     # Data properties
 
@@ -254,7 +244,7 @@ class MythenCounter(Counter):
 
     @property
     def shape(self):
-        return (self.controller.get_nchannels(),)
+        return (self._counter_controller.get_nchannels(),)
 
 
 class MythenAcquistionSlave(AcquisitionSlave):

@@ -130,7 +130,7 @@ def test_mythen_counter(beacon, run_command):
     assert counter.name == "spectrum"
     assert counter.dtype == np.int32
     assert counter.shape == (1280,)
-    assert counter.controller == m
+    assert counter._counter_controller == m
 
 
 def test_mythen_from_config(run_command, beacon):

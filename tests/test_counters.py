@@ -152,16 +152,20 @@ def test_sampling_counter_mode(session):
     assert s.get_data()["test_diode"] == pytest.approx(sum(values) * 0.1 / len(values))
 
     ## init as SamplingMode
-    samp_cnt = SamplingCounter("test_diode", test_diode, mode=SamplingMode.INTEGRATE)
+    samp_cnt = SamplingCounter(
+        "test_diode", SimulationDiodeController(), mode=SamplingMode.INTEGRATE
+    )
     assert samp_cnt.mode.name == "INTEGRATE"
 
     ## init as String
-    samp_cnt = SamplingCounter("test_diode", test_diode, mode="INTEGRATE")
+    samp_cnt = SamplingCounter(
+        "test_diode", SimulationDiodeController(), mode="INTEGRATE"
+    )
     assert samp_cnt.mode.name == "INTEGRATE"
 
     ## init as something else
     with pytest.raises(KeyError):
-        samp_cnt = SamplingCounter("test_diode", test_diode, mode=17)
+        samp_cnt = SamplingCounter("test_diode", SimulationDiodeController(), mode=17)
 
     ## two counters with different modes on the same acq_device
     diode2 = session.config.get("diode2")

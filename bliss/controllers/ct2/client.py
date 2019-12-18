@@ -65,7 +65,7 @@ class CT2Controller(Proxy, CounterController):
             self, functools.partial(Client, address, **kwargs), init_once=True
         )
 
-        CounterController.__init__(self, name=name)
+        CounterController.__init__(self, name=name, register_counters=False)
 
         # Remote call
         self.configure(device_config)
@@ -77,15 +77,13 @@ class CT2Controller(Proxy, CounterController):
             ct_name = channel.get("counter name", None)
             if ct_name:
                 address = int(channel["address"])
-                slave._counters[ct_name] = CT2Counter(
-                    ct_name, address, controller=slave
-                )
+                slave.create_counter(CT2Counter, ct_name, address)
         # Add ct2 counter timer
         timer = device_config.get("timer", None)
         if timer is not None:
             ct_name = timer.get("counter name", None)
             if ct_name:
-                slave._counters[ct_name] = CT2CounterTimer(ct_name, controller=slave)
+                slave.create_counter(CT2CounterTimer, ct_name)
 
         self._counters = slave._counters
 

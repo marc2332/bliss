@@ -18,6 +18,13 @@ class ViewChangedEvent(NamedTuple):
     userInteraction: bool
 
 
+class MouseMovedEvent(NamedTuple):
+    xData: float
+    yData: float
+    xPixel: int
+    yPixel: int
+
+
 class FlintPlot(PlotWindow):
     """Helper to provide few other functionalities on top of silx.
 
@@ -25,6 +32,8 @@ class FlintPlot(PlotWindow):
     """
 
     sigViewChanged = qt.Signal(ViewChangedEvent)
+
+    sigMouseMoved = qt.Signal(MouseMovedEvent)
 
     def __init__(self, parent=None, backend=None):
         super(FlintPlot, self).__init__(parent=parent, backend=backend)
@@ -45,8 +54,13 @@ class FlintPlot(PlotWindow):
 
     def __limitsChanged(self, eventDict):
         if eventDict["event"] == "limitsChanged":
-            event = ViewChangedEvent(self.__userInteraction)
-            self.sigViewChanged.emit(event)
+            event1 = ViewChangedEvent(self.__userInteraction)
+            self.sigViewChanged.emit(event1)
+        elif eventDict["event"] == "mouseMoved":
+            event2 = MouseMovedEvent(
+                eventDict["x"], eventDict["y"], eventDict["xpixel"], eventDict["ypixel"]
+            )
+            self.sigMouseMoved.emit(event2)
 
     def keyPressEvent(self, event):
         with self.userInteraction():

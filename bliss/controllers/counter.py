@@ -48,8 +48,9 @@ class CounterController:
     def counters(self):
         return counter_namespace(self._counters)
 
-    def add_counter(self, counter):
-        self._counters[counter.name] = counter
+    def add_counter(self, counter_class, *args, **kwargs):
+        counter = counter_class(*args, controller=self, **kwargs)
+        return counter
 
     # ---------------------POTENTIALLY OVERLOAD METHODS  ------------------------------------
     def create_chain_node(self):

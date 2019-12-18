@@ -16,6 +16,7 @@ from silx.gui import qt
 from silx.gui import colors
 from silx.gui import icons
 from silx.gui.plot.items.shape import BoundingRect
+from silx.gui.plot.items.marker import Marker
 from silx.gui.plot.items.scatter import Scatter
 
 from bliss.flint.model import scan_model
@@ -28,6 +29,7 @@ from bliss.flint.widgets.plot_helper import FlintPlot
 from bliss.flint.helper import scan_info_helper
 from bliss.flint.helper import model_helper
 from bliss.flint.utils import signalutils
+from bliss.flint.widgets import plot_helper
 
 
 class _ManageView:
@@ -81,14 +83,60 @@ class ScatterPlotWidget(ExtendedDockWidget):
 
         toolBar = self.__createToolBar()
         self.__plot.addToolBar(toolBar)
+        self.__plot.sigMouseMoved.connect(self.__onMouseMove)
 
         self.__syncAxisTitle = signalutils.InvalidatableSignal(self)
         self.__syncAxisTitle.triggered.connect(self.__updateAxesLabel)
         self.__syncAxis = signalutils.InvalidatableSignal(self)
         self.__syncAxis.triggered.connect(self.__scatterAxesUpdated)
 
+        self.__toolTipMarker = Marker()
+        self.__toolTipMarker._setLegend("marker-tooltip")
+        self.__toolTipMarker.setColor("pink")
+        self.__toolTipMarker.setSymbol("+")
+        self.__toolTipMarker.setSymbolSize(8)
+        self.__toolTipMarker.setVisible(False)
+
         self.__bounding = BoundingRect()
         self.__plot._add(self.__bounding)
+        self.__plot._add(self.__toolTipMarker)
+
+    def __onMouseMove(self, event: plot_helper.MouseMovedEvent):
+        self.__updateTooltip(event.xPixel, event.yPixel)
+
+    def __updateTooltip(self, x, y):
+        plot = self.__plot
+
+        # Start from top-most item
+        result = plot._pickTopMost(x, y, lambda item: isinstance(item, Scatter))
+        if result is not None:
+            # Get last index
+            # with matplotlib it should be the top-most point
+            index = result.getIndices(copy=False)[-1]
+            item = result.getItem()
+            x = item.getXData(copy=False)[index]
+            y = item.getYData(copy=False)[index]
+            value = item.getValueData(copy=False)[index]
+
+            text = f"""<html><ul>
+            <li><b>Index:</b> {index}</li>
+            <li><b>X:</b> {x}</li>
+            <li><b>Y:</b> {y}</li>
+            <li><b>Value:</b> {value}</li>
+            </ul></html>"""
+            self.__updateToolTipMarker(x, y)
+            cursorPos = qt.QCursor.pos() + qt.QPoint(10, 10)
+            qt.QToolTip.showText(cursorPos, text, self.__plot)
+        else:
+            self.__updateToolTipMarker(None, None)
+            qt.QToolTip.hideText()
+
+    def __updateToolTipMarker(self, x, y):
+        if x is None:
+            self.__toolTipMarker.setVisible(False)
+        else:
+            self.__toolTipMarker.setVisible(True)
+            self.__toolTipMarker.setPosition(x, y)
 
     def __createToolBar(self):
         toolBar = qt.QToolBar(self)
@@ -282,6 +330,7 @@ class ScatterPlotWidget(ExtendedDockWidget):
         self.__items = {}
         self.__plot.clear()
         self.__plot._add(self.__bounding)
+        self.__plot._add(self.__toolTipMarker)
 
     def __scanStarted(self):
         self.__view.scanStarted()

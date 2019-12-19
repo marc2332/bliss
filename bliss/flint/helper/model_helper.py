@@ -14,9 +14,12 @@ from typing import List
 from typing import Dict
 from typing import Tuple
 
+from silx.gui import colors
+
 from bliss.flint.model import plot_model
 from bliss.flint.model import plot_item_model
 from bliss.flint.model import scan_model
+from bliss.flint.model import style_model
 
 
 def reachAnyCurveItemFromDevice(
@@ -407,3 +410,20 @@ def getFastChannel(
             if m.axesKind == scan_model.AxesKind.FAST:
                 return channel
     return None
+
+
+def getColormapFromItem(
+    item: plot_model.Item, style: style_model.Style
+) -> colors.Colormap:
+    """Returns the colormap from an item, taking care of the cache.
+    """
+    colormap = item.colormap()
+    if colormap is None:
+        # Store the colormap
+        # FIXME as the colormap is exposed to the colormap dialog
+        # it have to be synchonized to the item style
+        colormap = colors.Colormap(style.colormapLut)
+        item.setColormap(colormap)
+    else:
+        colormap.setName(style.colormapLut)
+    return colormap

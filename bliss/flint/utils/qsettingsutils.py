@@ -8,6 +8,7 @@
 """Helper relative to QSettings"""
 
 import logging
+import typing
 from silx.gui import qt
 
 _logger = logging.getLogger(__name__)
@@ -26,10 +27,22 @@ def namedTuple(settings: qt.QSettings, datatype, defaultData=None):
         if not settings.contains(key):
             continue
         try:
+            # FIXME: Dirty hack cause int are read as string
+            keytype = datatype._field_types[key]
+            introspect = str(keytype)
+            if "Optional[int]" in introspect:
+                readtype = int
+            elif "Optional[float]" in introspect:
+                readtype = float
+            else:
+                readtype = None
+            # Note: we can't use type= here, cause optional can be both the right type or None
             value = settings.value(key)
+            if value is not None and readtype is not None:
+                value = readtype(value)
             content[key] = value
         except Exception:
-            _logger.debug(
+            _logger.error(
                 "Error while reading key [%s] %s from settings",
                 settings.group(),
                 key,

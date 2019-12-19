@@ -24,6 +24,9 @@ def test_read_write_to_settings__empty(tmp_settings):
     style = style_model.Style()
     settings = qt.QSettings()
     qsettingsutils.setNamedTuple(settings, style)
+    settings.sync()
+
+    settings = qt.QSettings()
     style2 = qsettingsutils.namedTuple(settings, style_model.Style)
     assert style2 == style
 
@@ -50,6 +53,9 @@ def test_read_write_to_settings__full(tmp_settings):
     )
     settings = qt.QSettings()
     qsettingsutils.setNamedTuple(settings, style)
+    settings.sync()
+
+    settings = qt.QSettings()
     style2 = qsettingsutils.namedTuple(settings, style_model.Style)
     assert style2 == style
 

@@ -50,7 +50,26 @@ class Style(_Style):
         symbolColor: Tuple[int, int, int] = None,
         colormapLut: str = None,
         fillStyle: Union[None, str, FillStyle] = None,
+        style: Optional[Style] = None,
     ):
+        if style is not None:
+            if lineStyle is None:
+                lineStyle = style.lineStyle
+            if lineColor is None:
+                lineColor = style.lineColor
+            if linePalette is None:
+                linePalette = style.linePalette
+            if symbolStyle is None:
+                symbolStyle = style.symbolStyle
+            if symbolSize is None:
+                symbolSize = style.symbolSize
+            if symbolColor is None:
+                symbolColor = style.symbolColor
+            if colormapLut is None:
+                colormapLut = style.colormapLut
+            if fillStyle is None:
+                fillStyle = style.fillStyle
+
         try:
             lineStyle = LineStyle(lineStyle)
         except ValueError:

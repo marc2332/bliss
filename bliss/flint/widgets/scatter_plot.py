@@ -12,6 +12,8 @@ from typing import List
 from typing import Sequence
 from typing import Optional
 
+import logging
+
 from silx.gui import qt
 from silx.gui import icons
 from silx.gui.plot.items.shape import BoundingRect
@@ -29,6 +31,9 @@ from bliss.flint.helper import scan_info_helper
 from bliss.flint.helper import model_helper
 from bliss.flint.utils import signalutils
 from bliss.flint.widgets import plot_helper
+
+
+_logger = logging.getLogger(__name__)
 
 
 class _ManageView:
@@ -97,6 +102,7 @@ class ScatterPlotWidget(ExtendedDockWidget):
         self.__toolTipMarker.setVisible(False)
 
         self.__bounding = BoundingRect()
+        _logger.warning("Add initial bound")
         self.__plot._add(self.__bounding)
         self.__plot._add(self.__toolTipMarker)
 
@@ -319,6 +325,7 @@ class ScatterPlotWidget(ExtendedDockWidget):
             else:
                 bound = (xRange[0], xRange[1], yRange[0], yRange[1])
 
+        _logger.warning("Update bound %s", bound)
         self.__bounding.setBounds(bound)
 
     def __updateAxesLabel(self):
@@ -365,6 +372,7 @@ class ScatterPlotWidget(ExtendedDockWidget):
     def __clear(self):
         self.__items = {}
         self.__plot.clear()
+        _logger.warning("Add bound after clear")
         self.__plot._add(self.__bounding)
         self.__plot._add(self.__toolTipMarker)
 

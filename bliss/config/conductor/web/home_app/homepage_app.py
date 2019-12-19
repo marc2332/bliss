@@ -6,20 +6,16 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import os
-
 import flask
-import flask.json
 
 from jinja2 import Environment, FileSystemLoader
 
 from ..config_app.config_app import WebConfig
 
 web_app = flask.Flask(__name__)
-beacon_port = None
 
 __this_file = os.path.realpath(__file__)
 __this_path = os.path.dirname(__this_file)
-
 
 __config = WebConfig()
 

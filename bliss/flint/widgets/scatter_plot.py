@@ -13,7 +13,6 @@ from typing import Sequence
 from typing import Optional
 
 from silx.gui import qt
-from silx.gui import colors
 from silx.gui import icons
 from silx.gui.plot.items.shape import BoundingRect
 from silx.gui.plot.items.marker import Marker

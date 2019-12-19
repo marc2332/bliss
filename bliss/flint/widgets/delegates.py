@@ -192,6 +192,7 @@ class StylePropertyWidget(qt.QWidget):
             return
         dialog = StyleDialogEditor(self)
         dialog.setPlotItem(self.__plotItem)
+        dialog.setFlintModel(self.__flintModel)
         result = dialog.exec_()
         if result:
             style = dialog.selectedStyle()
@@ -212,7 +213,7 @@ class StylePropertyWidget(qt.QWidget):
         saveColormap = item.colormap().copy()
 
         def updateCustomStyle():
-            style = item.customStyle()
+            style = item.getStyle(scan)
             style = style_model.Style(colormapLut=colormap.getName(), style=style)
             item.setCustomStyle(style)
 

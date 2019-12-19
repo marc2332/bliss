@@ -21,6 +21,7 @@ from .extended_dock_widget import ExtendedDockWidget
 from bliss.flint.model import plot_model
 from bliss.flint.model import plot_item_model
 from bliss.flint.model import style_model
+from bliss.flint.model import flint_model
 
 
 class StyleDock(ExtendedDockWidget):
@@ -39,8 +40,13 @@ class StyleDialogEditor(qt.QDialog):
 
         self.__item = None
         self.__editor = qt.QWidget(self)
+        self.__flintModel: Optional[flint_model.FlintState] = None
 
         # define modal buttons
+        self.__options = qt.QToolButton(self)
+        self.__options.setText("Options")
+        self.__options.setVisible(False)
+
         self.__box = qt.QDialogButtonBox(self)
         types = qt.QDialogButtonBox.Ok | qt.QDialogButtonBox.Cancel
         self.__box.setStandardButtons(types)
@@ -50,8 +56,14 @@ class StyleDialogEditor(qt.QDialog):
         layout.addWidget(self.__editor)
         layout.addStretch()
         layout.addSpacing(10)
-        layout.addWidget(self.__box)
+        buttonLayout = qt.QHBoxLayout()
+        buttonLayout.addWidget(self.__options)
+        buttonLayout.addWidget(self.__box)
+        layout.addLayout(buttonLayout)
         self.__updateEditor()
+
+    def setFlintModel(self, flintModel: flint_model.FlintState = None):
+        self.__flintModel = flintModel
 
     def setPlotItem(self, item: plot_model.Item):
         self.__item = weakref.ref(item)
@@ -65,11 +77,22 @@ class StyleDialogEditor(qt.QDialog):
             self.__item = None
         return item
 
+    def __saveAsDefault(self):
+        item = self.plotItem()
+        if item is None:
+            return
+        if self.__flintModel is None:
+            return
+        style = self.__editor.selectedStyle()
+        if isinstance(item, plot_item_model.ScatterItem):
+            self.__flintModel.setDefaultScatterStyle(style)
+
     def __updateEditor(self):
         item = self.plotItem()
         if item is None:
             editor = qt.QLabel(self)
             editor.setText("No item selected")
+            self.__options.setVisible(False)
         else:
             if isinstance(item, plot_item_model.ScatterItem):
                 editor = _ScatterEditor(self)
@@ -78,9 +101,21 @@ class StyleDialogEditor(qt.QDialog):
                     # FIXME: The dialog have to know it is an auto style
                     style = item.getStyle()
                 editor.selectStyle(style)
+                self.__options.setVisible(True)
+                self.__options.setPopupMode(qt.QToolButton.InstantPopup)
+                menu = qt.QMenu(self)
+                action = qt.QAction(self)
+                action.setText("Use this style as default")
+                action.setToolTip(
+                    "Save this style as the default scatter style, which will be remembered next time."
+                )
+                action.triggered.connect(self.__saveAsDefault)
+                menu.addAction(action)
+                self.__options.setMenu(menu)
             else:
                 editor = qt.QLabel(self)
                 editor.setText("No editor for item class %s" % type(item))
+                self.__options.setVisible(False)
 
         layout = self.layout()
         layout.replaceWidget(self.__editor, editor)
@@ -169,7 +204,10 @@ class _ScatterEditor(qt.QWidget):
         self._selectElseInsert(self._lineStyle, style.lineStyle)
         self._selectElseInsert(self._symbolColor, style.symbolColor)
         self._selectElseInsert(self._symbolStyle, style.symbolStyle)
-        self._symbolSize.setValue(style.symbolSize)
+        if style.symbolSize is None:
+            self._symbolSize.setValue(0)
+        else:
+            self._symbolSize.setValue(style.symbolSize)
         self.__updateWidgetLayout()
 
     def _getColormapName(self):

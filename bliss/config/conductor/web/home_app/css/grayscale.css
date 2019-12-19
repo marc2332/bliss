@@ -1,0 +1,187 @@
+/*!
+ * Based on theme "Start Bootstrap - Grayscale v5.0.9" (https://startbootstrap.com/template-overviews/grayscale)
+ * Copyright 2013-2019 Start Bootstrap
+ * Licensed under MIT (https://github.com/BlackrockDigital/startbootstrap-grayscale/blob/master/LICENSE)
+ */
+
+ #mainNav {
+    min-height: 56px;
+    background-color: #fff;
+  }
+  
+  #mainNav .navbar-toggler {
+    font-size: 80%;
+    padding: 0.75rem;
+    color: #64a19d;
+    border: 1px solid #64a19d;
+  }
+  
+  #mainNav .navbar-toggler:focus {
+    outline: none;
+  }
+  
+  #mainNav .navbar-brand {
+    color: #161616;
+    font-weight: 700;
+    padding: .9rem 0;
+  }
+  
+  #mainNav .navbar-brand img {
+    height: 60px;
+    padding: 0.5rem;
+    background: #ffffff33;
+    padding-right: 0.8rem;
+    border-radius: 0.5rem;
+    margin-right: 0.25rem;
+  }
+  
+  #mainNav .navbar-nav .nav-item:hover {
+    color: fade(white, 80%);
+    outline: none;
+    background-color: transparent;
+  }
+  
+  #mainNav .navbar-nav .nav-item:active, #mainNav .navbar-nav .nav-item:focus {
+    outline: none;
+    background-color: transparent;
+  }
+
+  @media (min-width: 992px) {
+    #mainNav {
+      padding-top: 0;
+      padding-bottom: 0;
+      border-bottom: none;
+      background-color: transparent;
+      transition: background-color 0.3s ease-in-out;
+    }
+    #mainNav .navbar-brand {
+      padding: .5rem 0;
+      color: rgba(255, 255, 255, 0.6);
+    }
+    #mainNav .navbar-brand img {
+      margin-right: 1.5rem;
+    }
+    #mainNav .nav-link {
+      transition: none;
+      padding: 2rem 1.5rem;
+      color: rgba(255, 255, 255, 0.6);
+    }
+    #mainNav .nav-link:hover {
+      color: rgba(255, 255, 255, 0.85);
+    }
+    #mainNav .nav-link:active {
+      color: white;
+    }
+  }
+  
+  .masthead {
+    position: relative;
+    width: 100%;
+    height: 100vh;
+    min-height: 35rem;
+    padding: 0;
+    /* padding: 15rem 0 25rem 0; */
+    /* background: linear-gradient(to left, #3A6073, #16222A) */
+    background: linear-gradient(to bottom, rgba(22, 22, 22, 0.3) 0%, rgba(22, 22, 22, 0.5) 75%, #161616 100%), url("../img/background.jpg");
+    background-position: center;
+    background-repeat: no-repeat;
+    background-attachment: scroll;
+    background-size: cover;
+  }
+  
+  .masthead h1 {
+    font-family: 'Nunito';
+    font-weight: 100;
+    letter-spacing: normal;
+    font-size: 2.8rem;
+    color: white;
+    line-height: 2.8rem;
+    /* letter-spacing: 0.8rem; */
+    /* background: -webkit-linear-gradient(rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.3));
+    -webkit-text-fill-color: transparent;
+    -webkit-background-clip: text; */
+  }
+  
+  .masthead h2 {
+    max-width: 20rem;
+    font-size: 1.15rem;
+  }
+  
+  @media (min-width: 768px) {
+    .masthead h1 {
+      font-size: 4rem;
+      line-height: 4rem;
+    }
+    .masthead h2 {
+      max-width: 40rem;
+      font-size: 1.5rem;
+    }
+  }
+  
+  @media (min-width: 992px) {
+    .masthead h1 {
+      font-size: 5.5rem;
+      line-height: 5.5rem;
+      /* letter-spacing: 0.8rem; */
+    }
+    .masthead h2 {
+      max-width: 45rem;
+      font-size: 2rem;
+    }
+  }
+  
+  .btn {
+    box-shadow: 0 0.1875rem 0.1875rem 0 rgba(0, 0, 0, 0.1) !important;
+    padding: 1rem 1.35rem;
+    margin: 0.15rem;
+    font-family: 'Varela Round';
+    font-size: 90%;
+    text-transform: uppercase;
+    letter-spacing: .08rem;
+    border: 0;
+  }
+  
+  .btn-primary {
+    background-color: #64a19d;
+  }
+  
+  .btn-primary:hover {
+    background-color: #4f837f;
+  }
+  
+  .btn-primary:focus {
+    background-color: #4f837f;
+    color: white;
+  }
+  
+  .btn-primary:active {
+    background-color: #467370 !important;
+  }
+  
+  body {
+    font-family: 'Nunito';
+    /* letter-spacing: 0.0625em; */
+    letter-spacing: 0.025em;
+  }
+  
+  a {
+    color: #64a19d;
+  }
+  
+  a:focus, a:hover {
+    text-decoration: none;
+    color: #3c6360;
+  }
+  
+  .bg-black {
+    background-color: #161616 !important;
+  }
+  
+  .bg-primary {
+    background-color: #64a19d !important;
+  }
+  
+  .text-primary {
+    color: #64a19d !important;
+  }
+  

@@ -72,11 +72,7 @@ class DefaultStyleStrategy(plot_model.StyleStrategy):
             scatter = scatters[0]
             style = scatter.customStyle()
             if style is None:
-                style = plot_model.Style(
-                    symbolStyle="o",
-                    symbolSize=self._SYMBOL_SIZE,
-                    colormapLut=self._COLORMAP,
-                )
+                style = self.__flintModel.defaultScatterStyle()
             self.cacheStyle(scatter, None, style)
         else:
             baseSize = self._SYMBOL_SIZE / 3

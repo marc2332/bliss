@@ -433,6 +433,7 @@ class ScatterItem(plot_model.Item):
         self.__x: Optional[plot_model.ChannelRef] = None
         self.__y: Optional[plot_model.ChannelRef] = None
         self.__value: Optional[plot_model.ChannelRef] = None
+        self.__colormap = None
 
     def __reduce__(self):
         return (self.__class__, (), self.__getstate__())
@@ -515,6 +516,12 @@ class ScatterItem(plot_model.Item):
             return None
         array = channel.array(scan)
         return array
+
+    def colormap(self):
+        return self.__colormap
+
+    def setColormap(self, colormap):
+        self.__colormap = colormap
 
 
 class MotorPositionMarker(plot_model.Item):

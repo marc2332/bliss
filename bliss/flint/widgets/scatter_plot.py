@@ -519,7 +519,7 @@ class ScatterPlotWidget(ExtendedDockWidget):
 
         legend = valueChannel.name()
         style = item.getStyle(scan)
-        colormap = colors.Colormap(style.colormapLut)
+        colormap = model_helper.getColormapFromItem(item, style)
 
         pointBased = True
         if style.fillStyle is not style_model.FillStyle.NO_FILL:

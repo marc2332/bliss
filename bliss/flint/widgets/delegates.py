@@ -16,6 +16,7 @@ import numpy
 
 from silx.gui import qt
 from silx.gui.widgets.LegendIconWidget import LegendIconWidget
+from silx.gui.dialog.ColormapDialog import ColormapDialog
 from silx.gui import colors as silx_colors
 from silx.gui import icons
 
@@ -133,12 +134,15 @@ class StylePropertyWidget(qt.QWidget):
         super(StylePropertyWidget, self).__init__(parent=parent)
         layout = qt.QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
         self.setLayout(layout)
 
         self.__legend = LegendIconWidget(self)
         layout.addWidget(self.__legend)
+        layout.addSpacing(2)
 
-        self.__edit: Optional[qt.QToolButton] = None
+        self.__buttonStyle: Optional[qt.QToolButton] = None
+        self.__buttonContrast: Optional[qt.QToolButton] = None
 
         self.__plotItem: Union[None, plot_model.Plot] = None
         self.__flintModel: Union[None, flint_model.FlintState] = None
@@ -150,16 +154,38 @@ class StylePropertyWidget(qt.QWidget):
         A button is enabled to be able to edit the style, and to propagate it to
         the item.
         """
-        if self.__edit is not None:
-            self.__edit.setVisible(isEditable)
+        if self.__buttonStyle is not None:
+            self.__buttonStyle.setVisible(isEditable)
         elif isEditable:
-            icon = icons.getQIcon("silx:gui/icons/colormap")
-            self.__edit = qt.QToolButton()
-            self.__edit.setIcon(icon)
-            self.__edit.setAutoRaise(True)
-            self.__edit.clicked.connect(self.__editStyle)
+            icon = icons.getQIcon("flint:icons/style")
+            self.__buttonStyle = qt.QToolButton()
+            self.__buttonStyle.setToolTip("Edit the style of this item")
+            self.__buttonStyle.setIcon(icon)
+            self.__buttonStyle.setAutoRaise(True)
+            self.__buttonStyle.clicked.connect(self.__editStyle)
             layout = self.layout()
-            layout.addWidget(self.__edit)
+            layout.addWidget(self.__buttonStyle)
+
+        if self.__buttonContrast is not None:
+            self.__buttonContrast.setVisible(isEditable)
+        else:
+            icon = icons.getQIcon("flint:icons/contrast")
+            self.__buttonContrast = qt.QToolButton()
+            self.__buttonContrast.setToolTip("Edit the contrast of this item")
+            self.__buttonContrast.setIcon(icon)
+            self.__buttonContrast.setAutoRaise(True)
+            self.__buttonContrast.clicked.connect(self.__editConstrast)
+            layout = self.layout()
+            layout.addWidget(self.__buttonContrast)
+        self.__updateEditButton()
+
+    def __updateEditButton(self):
+        if self.__buttonContrast is not None:
+            visible = self.__plotItem is not None and isinstance(
+                self.__plotItem,
+                (plot_item_model.ImageItem, plot_item_model.ScatterItem),
+            )
+            self.__buttonContrast.setVisible(visible)
 
     def __editStyle(self):
         if self.__plotItem is None:
@@ -171,6 +197,45 @@ class StylePropertyWidget(qt.QWidget):
             style = dialog.selectedStyle()
             self.__plotItem.setCustomStyle(style)
 
+    def __editConstrast(self):
+        if self.__plotItem is None:
+            return
+
+        scan = self.__scan
+        item = self.__plotItem
+        item.customStyle()
+
+        style = item.getStyle(scan)
+        colormap = model_helper.getColormapFromItem(item, style)
+
+        saveCustomStyle = item.customStyle()
+        saveColormap = item.colormap().copy()
+
+        def updateCustomStyle():
+            style = item.customStyle()
+            style = style_model.Style(colormapLut=colormap.getName(), style=style)
+            item.setCustomStyle(style)
+
+        colormap.sigChanged.connect(updateCustomStyle)
+
+        dialog = ColormapDialog(self)
+        dialog.setModal(True)
+
+        if scan is not None:
+            if isinstance(item, plot_item_model.ScatterItem):
+                data = item.valueChannel().array(scan)
+                dialog.setData(data)
+
+        dialog.setColormap(colormap)
+        result = dialog.exec_()
+        if result:
+            style = item.customStyle()
+            style = style_model.Style(colormapLut=colormap.getName(), style=style)
+            self.__plotItem.setCustomStyle(style)
+        else:
+            item.setCustomStyle(saveCustomStyle)
+            item.colormap().setFromColormap(saveColormap)
+
     def setPlotItem(self, plotItem: plot_model.Item):
         if self.__plotItem is not None:
             self.__plotItem.valueChanged.disconnect(self.__plotItemChanged)
@@ -178,6 +243,7 @@ class StylePropertyWidget(qt.QWidget):
         if self.__plotItem is not None:
             self.__plotItem.valueChanged.connect(self.__plotItemChanged)
             self.__plotItemStyleChanged()
+        self.__updateEditButton()
 
     def setFlintModel(self, flintModel: flint_model.FlintState = None):
         if self.__flintModel is not None:

@@ -443,7 +443,7 @@ class StyleStrategy:
     """"Compute and store styles used by items from a plot"""
 
     def __init__(self):
-        self.__plot: Plot = None
+        self.__plot: Optional[Plot] = None
 
     def __reduce__(self):
         return (self.__class__, ())
@@ -452,7 +452,7 @@ class StyleStrategy:
         self.__plot = plot
         self.invalidateStyles()
 
-    def plot(self) -> Plot:
+    def plot(self) -> Optional[Plot]:
         return self.__plot
 
     def invalidateStyles(self):

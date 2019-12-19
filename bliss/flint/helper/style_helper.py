@@ -16,13 +16,15 @@ from typing import Dict
 from typing import Tuple
 
 from bliss.flint.model import scan_model
+from bliss.flint.model import flint_model
 from bliss.flint.model import plot_model
 from bliss.flint.model import plot_item_model
 
 
 class DefaultStyleStrategy(plot_model.StyleStrategy):
-    def __init__(self):
+    def __init__(self, flintModel: flint_model.FlintState):
         super(DefaultStyleStrategy, self).__init__()
+        self.__flintModel = flintModel
         self.__cached: Dict[
             Tuple[plot_model.Item, Optional[scan_model.Scan]], plot_model.Style
         ] = {}

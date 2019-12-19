@@ -38,7 +38,8 @@ class TestImagePlot(TestCaseQt):
         channel = plot_model.ChannelRef(plot, "chan1")
         item.setImageChannel(channel)
         plot.addItem(item)
-        styleStrategy = style_helper.DefaultStyleStrategy()
+        flint = self.create_flint_model()
+        styleStrategy = style_helper.DefaultStyleStrategy(flint)
         plot.setStyleStrategy(styleStrategy)
         return plot
 
@@ -51,7 +52,8 @@ class TestImagePlot(TestCaseQt):
         channel = plot_model.ChannelRef(plot, "chan2")
         item.setImageChannel(channel)
         plot.addItem(item)
-        styleStrategy = style_helper.DefaultStyleStrategy()
+        flint = self.create_flint_model()
+        styleStrategy = style_helper.DefaultStyleStrategy(flint)
         plot.setStyleStrategy(styleStrategy)
         return plot
 

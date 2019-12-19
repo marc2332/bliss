@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Run flake8 linter on diff lines of stage area
 #   - never fails (always exit 0)
 #     => errors are reported for information purpose only

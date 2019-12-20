@@ -113,7 +113,11 @@ class ScatterPlotWidget(ExtendedDockWidget):
         plot = self.__plot
 
         # Start from top-most item
-        result = plot._pickTopMost(x, y, lambda item: isinstance(item, Scatter))
+        for result in plot.pickItems(x, y, lambda item: isinstance(item, Scatter)):
+            break
+        else:
+            result = None
+
         if result is not None:
             # Get last index
             # with matplotlib it should be the top-most point

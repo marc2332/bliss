@@ -70,6 +70,7 @@ class _Style(NamedTuple):
     lineStyle: Union[str, LineStyle]
     lineColor: Optional[Tuple[int, int, int]]
     linePalette: Optional[int]
+    lineWidth: Optional[int]
     symbolStyle: Union[str, SymbolStyle]
     symbolSize: Optional[float]
     symbolColor: Optional[Tuple[int, int, int]]
@@ -83,6 +84,7 @@ class Style(_Style):
         lineStyle: Union[None, str, LineStyle] = None,
         lineColor: Tuple[int, int, int] = None,
         linePalette: int = None,
+        lineWidth: float = None,
         symbolStyle: Union[None, str, SymbolStyle] = None,
         symbolSize: float = None,
         symbolColor: Tuple[int, int, int] = None,
@@ -97,6 +99,8 @@ class Style(_Style):
                 lineColor = style.lineColor
             if linePalette is None:
                 linePalette = style.linePalette
+            if lineWidth is None:
+                lineWidth = style.lineWidth
             if symbolStyle is None:
                 symbolStyle = style.symbolStyle
             if symbolSize is None:
@@ -128,6 +132,7 @@ class Style(_Style):
             lineStyle=lineStyle,
             lineColor=lineColor,
             linePalette=linePalette,
+            lineWidth=lineWidth,
             symbolStyle=symbolStyle,
             symbolSize=symbolSize,
             symbolColor=symbolColor,

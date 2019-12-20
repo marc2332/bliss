@@ -196,10 +196,11 @@ class _ScatterEditor(qt.QWidget):
         self._selectElseInsert(self._lineStyle, style.lineStyle)
         self._selectElseInsert(self._symbolColor, style.symbolColor)
         self._selectElseInsert(self._symbolStyle, style.symbolStyle)
-        if style.symbolSize is None:
-            self._symbolSize.setValue(0)
-        else:
-            self._symbolSize.setValue(style.symbolSize)
+        value = style.symbolSize if style.symbolSize is not None else 0
+        self._symbolSize.setValue(value)
+        value = style.lineWidth if style.lineWidth is not None else 0
+        self._lineWidth.setValue(value)
+
         self.__updateWidgetLayout()
 
     def _getColormapName(self):
@@ -227,7 +228,6 @@ class _ScatterEditor(qt.QWidget):
         colormapLut = self._getColormapName()
         lineColor = self._lineColor.currentData()
         lineStyle = self._lineStyle.currentData()
-        # FIXME: not supported
         lineWidth = self._lineWidth.value()
         symbolColor = self._symbolColor.currentData()
         symbolStyle = self._symbolStyle.currentData()
@@ -236,6 +236,7 @@ class _ScatterEditor(qt.QWidget):
             lineStyle=lineStyle,
             lineColor=lineColor,
             linePalette=None,
+            lineWidth=lineWidth,
             symbolStyle=symbolStyle,
             symbolSize=symbolSize,
             symbolColor=symbolColor,

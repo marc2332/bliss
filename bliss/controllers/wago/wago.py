@@ -256,7 +256,7 @@ for module_name, module_info in MODULES_CONFIG.items():
         elif module_name.endswith("562-UP"):
             reading_info["base"] = 65535
         else:
-            reading_info["base"] = 32768
+            reading_info["base"] = 32767
     elif reading_type.startswith("ssi"):
         module_info[READING_TYPE] = "ssi"
         reading_info["bits"] = int(reading_type[3:])
@@ -913,6 +913,24 @@ class ModulesConfig:
             }
         return self.__physical_mapping
 
+    @property
+    def bit_output_mem_area(self):
+        """Returns the address of the first Word in plc Wago Memory
+        where digital outputs are mapped
+
+        Normally in Wago memory at first all analog outputs
+        are mapped starting on %QW0 up to the needed quantity,
+        than digital outputs are mapped one output per bit
+        starting from the LSB of the Word
+        """
+        # count OW
+        offset = 0
+        for logical_device in self.logical_mapping.values():
+            for logical_channel in logical_device:
+                if logical_channel.channel_base_address == 20311:
+                    offset += 1
+        return offset
+
 
 class MissingFirmware(RuntimeError):
     pass
@@ -981,7 +999,7 @@ class WagoController:
         with self.lock:
             self.client.close()
 
-    def _read_fs(self, raw_value, low=0, high=10, base=32768):
+    def _read_fs(self, raw_value, low=0, high=10, base=32767):
         """Read Digital Input type module. Make full scale conversion.
         """
         value = ctypes.c_short(raw_value).value
@@ -1225,7 +1243,7 @@ class WagoController:
         # by Wago module, but we prefer to have a flat list
         return flatten(ret)
 
-    def _write_fs(self, value, low=0, high=10, base=32768):
+    def _write_fs(self, value, low=0, high=10, base=32767):
         return int(((value - low) * base / float(high))) & 0xffff
 
     def write_phys(self, write_table):
@@ -1243,7 +1261,7 @@ class WagoController:
                         ]
                         + channel_index
                     )
-                    self.client.write_coil(addr, bool(value2write))
+                    self.client_write_coil(addr, bool(value2write))
                 elif type_index == ANA_OUT:
                     addr = (
                         self.modules_config.mapping[module_index]["writing_info"][
@@ -1258,7 +1276,9 @@ class WagoController:
                         )
                     else:
                         raise RuntimeError("Writing %r is not supported" % writing_type)
-                    self.client.write_register(addr, "H", write_value)
+                    self.client_write_registers(
+                        addr, "H", [write_value], timeout=self.timeout
+                    )
 
     def set(self, *args):
         """Args should be list or pairs: channel_name, value
@@ -1360,16 +1380,23 @@ class WagoController:
         """From a logical device (name) to the key"""
         return self.modules_config.logical_keys[name]
 
-    def devwccomm(self, args):
+    def devwccomm(self, args, sleep_time=0.1):
         """
         Send an command to Wago using the Interlock protocol
 
-        Note: as the logic was implemented through reverse engineering there may be inaccuracie.
+        Args:
+            args: it is a list or tuple containing ISG commands to be executed.
+            sleep_time: introduces some delay between writing requests and reading
+                        requests, this is to let the PLC update the memory.
+                        If you encounter some unexpected values increasing this
+                        time could resolve the problem.
+
+        Note: as the logic was implemented through reverse engineering some parts could
+              be not accurate.
         """
         log_debug(self, f"In devwccomm args: {args}")
         command, params = args[0], args[1:]
         MAX_RETRY = 3
-        SLEEP_TIME = 0.01
 
         """
         PHASE 1: Handshake protocol: starts with PASSWD=0
@@ -1383,7 +1410,7 @@ class WagoController:
         log_debug(
             self, f"devwccomm Phase 1: writing at address {addr:04X} value {data:04X}"
         )
-        response = self.client.write_register(addr, "H", data, timeout=self.timeout)
+        response = self.client.write_registers(addr, "H", [data], timeout=self.timeout)
 
         """
         PHASE 2: Handshake protocol: wait for OUTCMD==0
@@ -1394,7 +1421,8 @@ class WagoController:
 
         |  0xaa 0x01 | 0x0000 | 0x0000 |
 
-        The code checks the first byte (version tag) that should be 0xaa
+        The code checks the first byte a fixed value
+        the second byte is the version of the ISG software (in this case 1)
         and the last register that should be 0 (ACK)
         """
 
@@ -1406,28 +1434,27 @@ class WagoController:
 
         start = time.time()
         while True:
-            if time.time() - start > self.timeout * MAX_RETRY:
-                raise TimeoutError("ACK not received")
+            if time.time() - start > self.timeout:
+                log_debug(
+                    self,
+                    f"Last response: Check code (should be like 0xaa 0x01 version tag + version num) is {check:02X}",
+                )
+                log_debug(self, f"Last response: Ack (should be 0 or 2) is {ack}")
+                raise TimeoutError(f"ACK not received")
             try:
                 check, _, ack = self.client.read_input_registers(
                     addr, "H" * size, timeout=self.timeout
                 )
-
             except Exception:
                 log_exception(self, f"failed to read at address: {addr} words: {size}")
                 raise
 
             if (check >> 8) != 0xaa:  # check Version Tag
-                log_debug(
-                    self,
-                    f"Invalid Wago controller program version: 0x{check>>8:02X} != 0xaa",
-                )
-                raise MissingFirmware("No interlock software loaded in the PLC")
+                gevent.sleep(sleep_time)
+                continue
             if ack == 0:  # check if is ok
                 log_debug(self, "devwccomm Phase 2: ACK received")
                 break
-            else:
-                gevent.sleep(SLEEP_TIME)
 
         """
         PHASE 3: Handshake protocol: write the command to process and its parameters
@@ -1477,33 +1504,43 @@ class WagoController:
         log_debug(
             self, f"devwccomm Phase 4: reading at address: {addr:04X} words: {size}"
         )
-        gevent.sleep(0.1)  # needed delay otherwise we will receive part of old message
-        try:
-            check, error_code, command_executed, registers_to_read = self.client.read_input_registers(
-                addr, "H" * size, timeout=self.timeout
-            )
-        except Exception:
-            log_debug(
-                self,
-                f"devwccomm Phase 4: failed to read at address: {addr} words: {size}",
-            )
-            raise
-        # ERROR CHECK
-        if (
-            error_code != 0
-        ):  # or command_executed != 0x04:  # 0x04 is the modbus command
-            log_error(
-                self,
-                f"devwccomm Phase 4 : Command {command_executed} failed with error: 0x{error_code:02X} {ERRORS[error_code]}",
-            )
-            raise RuntimeError(
-                f"Interlock: Command {command_executed} failed with error: 0x{error_code:02X} {ERRORS[error_code]}"
-            )
-        else:
-            log_debug(
-                self,
-                f"devwccomm Phase 4: ACK from Wago (OUTCMD==INCMD) n.{registers_to_read} registers to read on next request",
-            )
+
+        start = time.time()
+        while True:
+            if time.time() - start > self.timeout:
+                log_debug(
+                    self,
+                    f"Last response: Command should be {command} and is {command_executed}",
+                )
+                raise TimeoutError(f"ACK not received")
+
+            try:
+                check, error_code, command_executed, registers_to_read = self.client.read_input_registers(
+                    addr, "H" * size, timeout=self.timeout
+                )
+            except Exception:
+                log_debug(
+                    self,
+                    f"devwccomm Phase 4: failed to read at address: {addr} words: {size}",
+                )
+                raise
+            if command != command_executed:
+                # PLC is still working on result
+                continue
+            if error_code != 0:
+                log_error(
+                    self,
+                    f"devwccomm Phase 4 : Command {command_executed} failed with error: 0x{error_code:02X} {ERRORS[error_code]}",
+                )
+                raise RuntimeError(
+                    f"Interlock: Command {command_executed} failed with error: 0x{error_code:02X} {ERRORS[error_code]}"
+                )
+            else:
+                log_debug(
+                    self,
+                    f"devwccomm Phase 4: ACK from Wago (OUTCMD==INCMD) n.{registers_to_read} registers to read on next request",
+                )
+                break
 
         """
         PHASE 5: Read response
@@ -1758,6 +1795,63 @@ class WagoController:
                 raise RuntimeError(
                     f"PLC module n.{i} (starting from zero) does not corresponds to mapping:{module1} != {module2}"
                 )
+
+    def client_write_registers(self, address, struct_format, values, timeout=None):
+        if self.order_nu == 891:
+            """For Wago CPU model 750-891
+
+            Protocol description:
+            -----------------------------------------------------------------
+            fcode (1 word) : Function Code (15 for write multiple coil,
+                             16 for multiple registers)
+            faddr (1 word) : Wago starting address (internal memory)
+            fnum_words (1 word) : Num of words to be written 
+                                  (For FC15 always 1)
+            fmask (1 word) : Bitmask used in FC15 for writing only some coils
+            ftable (n words) : Array of values (always 1 word for FC15)
+            """
+            payload = [16, address, len(struct_format), 0, *values]
+
+            # allow writing if previous request was ok
+            with gevent.Timeout(
+                timeout, RuntimeError("PLC is not ready to receive requests")
+            ):
+                while True:
+                    if self.client.read_holding_registers(12288, "H") == 0:
+                        # when the Function Code is set to 0 we can proceed
+                        break
+            return self.client.write_registers(
+                12288, "H" * len(payload), payload, timeout=self.timeout
+            )
+        else:
+            return self.client.write_registers(
+                address, struct_format, values, timeout=timeout
+            )
+
+    def client_write_coil(self, address, on_off, timeout=None):
+        if self.order_nu == 891:
+            word_address = address // 16 + self.modules_config.bit_output_mem_area
+            bit_n = address % 16
+            bit_mask = 1 << bit_n
+            lenght = 1
+            value = bit_mask if on_off else 0
+
+            payload = [15, word_address, lenght, bit_mask, value]
+            log_debug_data(self, "payload of client_write_coil", payload)
+
+            with gevent.Timeout(
+                timeout, RuntimeError("PLC is not ready to receive requests")
+            ):
+                while True:
+                    if self.client.read_holding_registers(12288, "H") == 0:
+                        # when the Function Code is set to 0 we can proceed
+                        break
+
+            return self.client.write_registers(
+                12288, "H" * len(payload), payload, timeout=self.timeout
+            )
+        else:
+            return self.client.write_coil(address, on_off, timeout=timeout)
 
 
 class WagoCounter(SamplingCounter):

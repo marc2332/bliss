@@ -296,14 +296,16 @@ class StylePropertyWidget(qt.QWidget):
             self.__legend.setLineStyle(" ")
 
         if pointBased:
-            symbolStyle = style.symbolStyle
-            if symbolStyle is None or symbolStyle == " ":
+            if style.symbolStyle == style_model.SymbolStyle.NO_SYMBOL:
                 symbolStyle = "o"
+            else:
+                symbolStyle = style_model.symbol_to_silx(style.symbolStyle)
             self.__legend.setSymbol(symbolStyle)
             self.__legend.setSymbolColormap(style.colormapLut)
             self.__legend.setSymbolColor(None)
         elif style.symbolStyle is not None:
-            self.__legend.setSymbol(style.symbolStyle)
+            symbolStyle = style_model.symbol_to_silx(style.symbolStyle)
+            self.__legend.setSymbol(symbolStyle)
             color = self.getQColor(style.symbolColor)
             self.__legend.setSymbolColor(color)
             self.__legend.setSymbolColormap(None)

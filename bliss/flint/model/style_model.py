@@ -45,7 +45,7 @@ class DescriptiveEnum(enum.Enum):
 
 
 class FillStyle(DescriptiveEnum):
-    NO_FILL = None
+    NO_FILL = DescriptiveValue(None, "No fill")
     SCATTER_INTERPOLATION = DescriptiveValue("scatter-interpolation", "Interpolation")
     SCATTER_REGULAR_GRID = DescriptiveValue("scatter-regular-grid", "Regular grid")
     SCATTER_IRREGULAR_GRID = DescriptiveValue(
@@ -54,19 +54,27 @@ class FillStyle(DescriptiveEnum):
 
 
 class LineStyle(DescriptiveEnum):
-    NO_LINE = None
+    NO_LINE = DescriptiveValue(None, "No line")
     SCATTER_SEQUENCE = DescriptiveValue("scatter-sequence", "Sequence of points")
 
 
+class SymbolStyle(DescriptiveEnum):
+    NO_SYMBOL = DescriptiveValue(None, "No symbol")
+    CIRCLE = DescriptiveValue("o", "Circle")
+    PLUS = DescriptiveValue("+", "Plus")
+    CROSS = DescriptiveValue("x", "Cross")
+    POINT = DescriptiveValue(".", "Point")
+
+
 class _Style(NamedTuple):
-    lineStyle: Union[None, str, LineStyle]
+    lineStyle: Union[str, LineStyle]
     lineColor: Optional[Tuple[int, int, int]]
     linePalette: Optional[int]
-    symbolStyle: Optional[str]
+    symbolStyle: Union[str, SymbolStyle]
     symbolSize: Optional[float]
     symbolColor: Optional[Tuple[int, int, int]]
     colormapLut: Optional[str]
-    fillStyle: Union[None, str, FillStyle]
+    fillStyle: Union[str, FillStyle]
 
 
 class Style(_Style):
@@ -75,7 +83,7 @@ class Style(_Style):
         lineStyle: Union[None, str, LineStyle] = None,
         lineColor: Tuple[int, int, int] = None,
         linePalette: int = None,
-        symbolStyle: str = None,
+        symbolStyle: Union[None, str, SymbolStyle] = None,
         symbolSize: float = None,
         symbolColor: Tuple[int, int, int] = None,
         colormapLut: str = None,
@@ -101,6 +109,11 @@ class Style(_Style):
                 fillStyle = style.fillStyle
 
         try:
+            symbolStyle = SymbolStyle.fromCode(symbolStyle)
+        except ValueError:
+            pass
+
+        try:
             lineStyle = LineStyle.fromCode(lineStyle)
         except ValueError:
             pass
@@ -121,3 +134,11 @@ class Style(_Style):
             colormapLut=colormapLut,
             fillStyle=fillStyle,
         )
+
+
+def symbol_to_silx(value: Union[None, str, SymbolStyle]):
+    if value is None or value == SymbolStyle.NO_SYMBOL:
+        return " "
+    if isinstance(value, SymbolStyle):
+        return value.code
+    return str(value)

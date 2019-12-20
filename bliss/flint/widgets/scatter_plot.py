@@ -591,8 +591,8 @@ class ScatterPlotWidget(ExtendedDockWidget):
         if pointBased:
             symbolColormap = colormap if style.symbolColor is None else None
             if pointBased and symbolColormap:
-                symbolStyle = style.symbolStyle
-                if symbolStyle is None or symbolStyle == " ":
+                symbolStyle = style_model.symbol_to_silx(style.symbolStyle)
+                if symbolStyle == " ":
                     symbolStyle = "o"
                 key = plot.addScatter(
                     x=xx,
@@ -606,13 +606,14 @@ class ScatterPlotWidget(ExtendedDockWidget):
                 scatter.setSymbol(symbolStyle)
                 scatter.setSymbolSize(style.symbolSize)
                 plotItems.append((key, "scatter"))
-        elif style.symbolStyle is not None:
+        elif style.symbolStyle is not style_model.SymbolStyle.NO_SYMBOL:
+            symbolStyle = style_model.symbol_to_silx(style.symbolStyle)
             key = plot.addCurve(
                 x=xx,
                 y=yy,
                 legend=legend + "_point",
                 color=style.symbolColor,
-                symbol=style.symbolStyle,
+                symbol=symbolStyle,
                 linestyle=" ",
                 resetzoom=False,
             )

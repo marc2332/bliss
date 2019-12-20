@@ -146,23 +146,12 @@ class _ScatterEditor(qt.QWidget):
         qt.loadUi(filename, self)
         log.disabled = False
 
-        traduction = {}
-        traduction[style_model.FillStyle.NO_FILL] = "No fill"
-        traduction[style_model.FillStyle.SCATTER_INTERPOLATION] = "Interpolation"
-        traduction[style_model.FillStyle.SCATTER_REGULAR_GRID] = "Regular grid"
-        traduction[style_model.FillStyle.SCATTER_IRREGULAR_GRID] = "Irregular grid"
-        traduction[style_model.LineStyle.NO_LINE] = "No line"
-        traduction[style_model.LineStyle.SCATTER_SEQUENCE] = "Sequence of points"
-        traduction[None] = "No symbols"
-        traduction["o"] = "Circle"
-        traduction["+"] = "Cross"
-
         for s in style_model.FillStyle:
-            self._fillStyle.addItem(traduction[s], s)
+            self._fillStyle.addItem(s.value.name, s)
         for s in style_model.LineStyle:
-            self._lineStyle.addItem(traduction[s], s)
-        for s in [None, "o", "+"]:
-            self._symbolStyle.addItem(traduction[s], s)
+            self._lineStyle.addItem(s.value.name, s)
+        for s in style_model.SymbolStyle:
+            self._symbolStyle.addItem(s.value.name, s)
 
         self._fillStyle.currentIndexChanged.connect(self.__updateWidgetLayout)
         self._lineStyle.currentIndexChanged.connect(self.__updateWidgetLayout)
@@ -187,7 +176,7 @@ class _ScatterEditor(qt.QWidget):
         self._lineWidth.setVisible(lined)
         self._lineWidthLabel.setVisible(lined)
 
-        symboled = self._symbolStyle.currentData() is not None
+        symboled = self._symbolStyle.currentData() != style_model.SymbolStyle.NO_SYMBOL
         self._symbolColormap.setVisible(not filled)
         self._symbolColormapLabel.setVisible(not filled)
         self._symbolColor.setVisible(filled and symboled)

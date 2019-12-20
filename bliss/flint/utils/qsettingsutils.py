@@ -8,7 +8,7 @@
 """Helper relative to QSettings"""
 
 import logging
-import typing
+import enum
 from silx.gui import qt
 
 _logger = logging.getLogger(__name__)
@@ -17,6 +17,12 @@ _logger = logging.getLogger(__name__)
 def setNamedTuple(settings: qt.QSettings, data):
     """Write a named tuple into this settings"""
     for key, value in data._asdict().items():
+        if isinstance(value, enum.Enum):
+            # Unpack the enums to store a resilient object
+            if hasattr(value, "code"):
+                value = value.code
+            elif hasattr(value, "value"):
+                value = value.value
         settings.setValue(key, value)
 
 

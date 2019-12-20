@@ -12,20 +12,50 @@ from typing import Tuple
 from typing import Union
 from typing import Optional
 from typing import NamedTuple
+from typing import Any
 
 import enum
 
 
-class FillStyle(enum.Enum):
+class DescriptiveValue(NamedTuple):
+    """Allow to describe value of the enums"""
+
+    code: Any
+    name: str
+
+
+class DescriptiveEnum(enum.Enum):
+    @classmethod
+    def fromCode(classobject, code: Any):
+        for value in classobject:
+            if value.value == code:
+                return value
+            elif isinstance(value.value, DescriptiveValue):
+                if value.code == code:
+                    return value
+        raise ValueError(
+            "Value %s not part of the enum %s" % (code, classobject.__name__)
+        )
+
+    @property
+    def code(self):
+        if isinstance(self.value, DescriptiveValue):
+            return self.value.code
+        raise AttributeError()
+
+
+class FillStyle(DescriptiveEnum):
     NO_FILL = None
-    SCATTER_INTERPOLATION = "scatter-interpolation"
-    SCATTER_REGULAR_GRID = "scatter-regular-grid"
-    SCATTER_IRREGULAR_GRID = "scatter-irregular-grid"
+    SCATTER_INTERPOLATION = DescriptiveValue("scatter-interpolation", "Interpolation")
+    SCATTER_REGULAR_GRID = DescriptiveValue("scatter-regular-grid", "Regular grid")
+    SCATTER_IRREGULAR_GRID = DescriptiveValue(
+        "scatter-irregular-grid", "Irregular grid"
+    )
 
 
-class LineStyle(enum.Enum):
+class LineStyle(DescriptiveEnum):
     NO_LINE = None
-    SCATTER_SEQUENCE = "scatter-sequence"
+    SCATTER_SEQUENCE = DescriptiveValue("scatter-sequence", "Sequence of points")
 
 
 class _Style(NamedTuple):
@@ -71,11 +101,12 @@ class Style(_Style):
                 fillStyle = style.fillStyle
 
         try:
-            lineStyle = LineStyle(lineStyle)
+            lineStyle = LineStyle.fromCode(lineStyle)
         except ValueError:
             pass
+
         try:
-            fillStyle = FillStyle(fillStyle)
+            fillStyle = FillStyle.fromCode(fillStyle)
         except ValueError:
             pass
 

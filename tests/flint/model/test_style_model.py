@@ -60,6 +60,22 @@ def test_read_write_to_settings__full(tmp_settings):
     assert style2 == style
 
 
+def test_read_write_to_settings__check_content(tmp_settings):
+    style = style_model.Style(
+        lineStyle=style_model.LineStyle.SCATTER_SEQUENCE,
+        fillStyle=style_model.FillStyle.SCATTER_IRREGULAR_GRID,
+    )
+    settings = qt.QSettings()
+    qsettingsutils.setNamedTuple(settings, style)
+    settings.sync()
+
+    settings = qt.QSettings()
+    assert settings.value("lineStyle") == style_model.LineStyle.SCATTER_SEQUENCE.code
+    assert (
+        settings.value("fillStyle") == style_model.FillStyle.SCATTER_IRREGULAR_GRID.code
+    )
+
+
 def test_create_from():
     style = style_model.Style(linePalette=5)
     style2 = style_model.Style(style=style, colormapLut="viridis")

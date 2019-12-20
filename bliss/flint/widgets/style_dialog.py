@@ -157,13 +157,15 @@ class _ScatterEditor(qt.QWidget):
         self._lineStyle.currentIndexChanged.connect(self.__updateWidgetLayout)
         self._symbolStyle.currentIndexChanged.connect(self.__updateWidgetLayout)
 
-        self._lineColor.addItem("No color", None)
-        self._lineColor.addItem("Black", (0, 0, 0))
-        self._lineColor.addItem("White", (255, 255, 255))
+        colors = [("No color", None), ("Black", (0, 0, 0)), ("White", (255, 255, 255))]
 
-        self._symbolColor.addItem("No color", None)
-        self._symbolColor.addItem("Black", (0, 0, 0))
-        self._symbolColor.addItem("White", (255, 255, 255))
+        for name, color in colors:
+            if color is None:
+                qcolor = None
+            else:
+                qcolor = qt.QColor(color[0], color[1], color[2])
+            self._lineColor.addColor(name, qcolor)
+            self._symbolColor.addColor(name, qcolor)
 
     def __updateWidgetLayout(self):
         filled = self._fillStyle.currentData() != style_model.FillStyle.NO_FILL
@@ -192,9 +194,15 @@ class _ScatterEditor(qt.QWidget):
         self._fillColormap.setCurrentLut(colormap)
         self._symbolColormap.setCurrentLut(colormap)
         self._selectElseInsert(self._fillStyle, style.fillStyle)
-        self._selectElseInsert(self._lineColor, style.lineColor)
+        lineColor = style.lineColor
+        if lineColor is not None:
+            lineColor = qt.QColor(*lineColor)
+        self._selectElseInsert(self._lineColor, lineColor)
         self._selectElseInsert(self._lineStyle, style.lineStyle)
-        self._selectElseInsert(self._symbolColor, style.symbolColor)
+        symbolColor = style.symbolColor
+        if symbolColor is not None:
+            symbolColor = qt.QColor(*symbolColor)
+        self._selectElseInsert(self._symbolColor, symbolColor)
         self._selectElseInsert(self._symbolStyle, style.symbolStyle)
         value = style.symbolSize if style.symbolSize is not None else 0
         self._symbolSize.setValue(value)
@@ -227,9 +235,20 @@ class _ScatterEditor(qt.QWidget):
         fillStyle = self._fillStyle.currentData()
         colormapLut = self._getColormapName()
         lineColor = self._lineColor.currentData()
+        if lineColor is not None:
+            if not lineColor.isValid():
+                lineColor = None
+            else:
+                lineColor = lineColor.red(), lineColor.green(), lineColor.blue()
         lineStyle = self._lineStyle.currentData()
         lineWidth = self._lineWidth.value()
         symbolColor = self._symbolColor.currentData()
+        if symbolColor is not None:
+            if not symbolColor.isValid():
+                symbolColor = None
+            else:
+                symbolColor = symbolColor.red(), symbolColor.green(), symbolColor.blue()
+
         symbolStyle = self._symbolStyle.currentData()
         symbolSize = self._symbolSize.value()
         return style_model.Style(

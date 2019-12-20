@@ -54,7 +54,7 @@
     </widget>
    </item>
    <item row="4" column="1">
-    <widget class="QComboBox" name="_lineColor"/>
+    <widget class="ColorPicker" name="_lineColor"/>
    </item>
    <item row="3" column="1">
     <widget class="QComboBox" name="_lineStyle"/>
@@ -74,7 +74,7 @@
     </widget>
    </item>
    <item row="10" column="1">
-    <widget class="QComboBox" name="_symbolColor"/>
+    <widget class="ColorPicker" name="_symbolColor"/>
    </item>
    <item row="4" column="0">
     <widget class="QLabel" name="_lineColorLabel">
@@ -157,6 +157,11 @@
    <class>ColormapNameComboBox</class>
    <extends>QComboBox</extends>
    <header>silx.gui.widgets.ColormapNameComboBox</header>
+  </customwidget>
+  <customwidget>
+   <class>ColorPicker</class>
+   <extends>QComboBox</extends>
+   <header>bliss.flint.widgets.color_picker</header>
   </customwidget>
  </customwidgets>
  <resources/>

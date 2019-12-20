@@ -10,11 +10,12 @@ from typing import Dict
 from typing import Optional
 from typing import Any
 
-from silx.gui import qt
-
 import numpy
+import time
 import logging
 import scipy.signal
+
+from silx.gui import qt
 
 from bliss.flint.model import scan_model
 from bliss.flint.helper import scan_manager
@@ -62,7 +63,6 @@ class _VirtualScan:
     def __init__(self, parent, scanManager: scan_manager.ScanManager):
         self.__data: Dict[int, Dict[scan_model.Channel, numpy.ndarray]] = {}
         self.scan_info: Dict[str, Any] = {}
-        self.__tick = 0
         self.__duration: int = 0
         self.__interval: int = 0
         self.__timer: Optional[qt.QTimer] = None
@@ -90,6 +90,7 @@ class _VirtualScan:
 
         print("Acquisition started")
         self.__timer.start(self.__interval)
+        self.__startTime = time.time()
 
     def isRunning(self):
         return self.__timer is not None
@@ -109,12 +110,14 @@ class _VirtualScan:
             self.__endOfScan()
 
     def processData(self):
-        self.__tick += 1
+        duration = (time.time() - self.__startTime) * 1000
+        tick = int(duration // self.__interval)
+
         channel_scan_data = {}
         for modulo, data in self.__data.items():
-            if (self.__tick % modulo) != 0:
+            if (tick % modulo) != 0:
                 continue
-            pos = self.__tick // modulo
+            pos = tick // modulo
             for channel, array in data.items():
                 if channel.type() == scan_model.ChannelType.COUNTER:
                     # growing 1d data
@@ -157,7 +160,7 @@ class _VirtualScan:
             scan_data = {"data": channel_scan_data, "scan_info": self.scan_info}
             self.__scan_manager.new_scan_data("0d", "foo", scan_data)
 
-        if self.__tick * self.__interval >= self.__duration:
+        if duration >= self.__duration:
             self.__timer.stop()
             qt.QTimer.singleShot(10, self.__endOfScan)
 

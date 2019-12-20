@@ -195,6 +195,9 @@ class _ScatterEditor(qt.QWidget):
         self._symbolSize.setVisible(lined)
         self._symbolSizeLabel.setVisible(lined)
 
+        # Do it once, avoid blinking
+        self.updateGeometry()
+
     def selectStyle(self, style: plot_model.Style):
         colormap = colors.Colormap(style.colormapLut)
         self._fillColormap.setCurrentLut(colormap)

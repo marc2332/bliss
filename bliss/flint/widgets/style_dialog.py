@@ -192,8 +192,8 @@ class _ScatterEditor(qt.QWidget):
         self._symbolColormapLabel.setVisible(not filled)
         self._symbolColor.setVisible(filled and symboled)
         self._symbolColorLabel.setVisible(filled and symboled)
-        self._symbolSize.setVisible(lined)
-        self._symbolSizeLabel.setVisible(lined)
+        self._symbolSize.setVisible(symboled)
+        self._symbolSizeLabel.setVisible(symboled)
 
         # Do it once, avoid blinking
         self.updateGeometry()

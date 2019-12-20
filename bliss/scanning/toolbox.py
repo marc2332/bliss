@@ -336,6 +336,10 @@ class DefaultAcquisitionChain:
                     )
                     mstr_node.set_parameters(acq_params=mstr_params)
 
+                    for cnode in mstr_node.children:
+                        acq_params = cnode._get_default_chain_parameters(scan_pars, {})
+                        cnode.set_parameters(acq_params=acq_params)
+
                     chain.add(mstr_node, node)
                     node = mstr_node
 

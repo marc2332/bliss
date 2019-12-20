@@ -42,7 +42,7 @@ tblib
 tmux >= 2.7
 treelib
 cerberus
-typeguard
+typeguard == 2.6.1
 typing_extensions
 
 # Flint

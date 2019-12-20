@@ -11,6 +11,7 @@ Standard bliss macros (:func:`~bliss.common.standard.wa`, \
 """
 from collections import namedtuple
 import functools
+import inspect
 
 from bliss import global_map, global_log, current_session
 from bliss.common import scans
@@ -259,7 +260,8 @@ def info(obj):
     if *obj* has `__info__` implemented this `__info__` function will be called. As a fallback 
     option (`__info__` not implemented) repr(obj) is used. 
     """
-    if hasattr(obj, "__info__"):
+
+    if not inspect.isclass(obj) and hasattr(obj, "__info__"):
         # this is not a violation of EAFP, this is to
         # discriminate AttributeError raised *inside* __info__ ;
         # TODO: clean with protocol

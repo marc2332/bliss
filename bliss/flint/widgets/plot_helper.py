@@ -116,6 +116,8 @@ class FlintPlot(PlotWindow):
 
     sigMouseMoved = qt.Signal(MouseMovedEvent)
 
+    sigMouseLeft = qt.Signal()
+
     def __init__(self, parent=None, backend=None):
         super(FlintPlot, self).__init__(parent=parent, backend=backend)
         self.sigPlotSignal.connect(self.__limitsChanged)
@@ -125,6 +127,9 @@ class FlintPlot(PlotWindow):
         for tb in toolbars:
             self.removeToolBar(tb)
 
+        if hasattr(self, "centralWidget"):
+            self.centralWidget().installEventFilter(self)
+
     @contextlib.contextmanager
     def userInteraction(self):
         self.__userInteraction = True
@@ -132,6 +137,15 @@ class FlintPlot(PlotWindow):
             yield
         finally:
             self.__userInteraction = False
+
+    def eventFilter(self, widget, event):
+        if event.type() == qt.QEvent.Leave:
+            self.__mouseLeft()
+            return True
+        return False
+
+    def __mouseLeft(self):
+        self.sigMouseLeft.emit()
 
     def __limitsChanged(self, eventDict):
         if eventDict["event"] == "limitsChanged":

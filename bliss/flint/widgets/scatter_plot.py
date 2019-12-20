@@ -88,6 +88,7 @@ class ScatterPlotWidget(ExtendedDockWidget):
         toolBar = self.__createToolBar()
         self.__plot.addToolBar(toolBar)
         self.__plot.sigMouseMoved.connect(self.__onMouseMove)
+        self.__plot.sigMouseLeft.connect(self.__onMouseLeft)
 
         self.__syncAxisTitle = signalutils.InvalidatableSignal(self)
         self.__syncAxisTitle.triggered.connect(self.__updateAxesLabel)
@@ -109,14 +110,18 @@ class ScatterPlotWidget(ExtendedDockWidget):
     def __onMouseMove(self, event: plot_helper.MouseMovedEvent):
         self.__updateTooltip(event.xPixel, event.yPixel)
 
+    def __onMouseLeft(self):
+        self.__updateTooltip(None, None)
+
     def __updateTooltip(self, x, y):
         plot = self.__plot
 
         # Start from top-most item
-        for result in plot.pickItems(x, y, lambda item: isinstance(item, Scatter)):
-            break
-        else:
-            result = None
+        result = None
+        if x is not None:
+            for result in plot.pickItems(x, y, lambda item: isinstance(item, Scatter)):
+                # Break at the first result
+                break
 
         if result is not None:
             # Get last index

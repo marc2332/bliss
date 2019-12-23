@@ -39,7 +39,7 @@ pip install -r requirements-doc.txt
 This installs `mkdocs` and all dependencies.
 
 In order to serve a local version of the documentation, start
-the mkdocs serve with:
+the mkdocs server with:
 ```bash
 cd <bliss.git directory>/doc/
 mkdocs serve
@@ -165,7 +165,7 @@ pip install -r requirements-doc.txt
 hostname
 myhost
 cd <bliss.git directory>/doc/
-mkdocs serve -a myhost:8888
+mkdocs serve -a 0.0.0.0:8888
 ```
 
 * and visit [http://myhost:8888](http://myhost:888) to see the documentation

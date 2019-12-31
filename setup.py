@@ -195,7 +195,7 @@ def main():
         packages=packages,
         package_data=package_data,
         ext_modules=extensions,
-        scripts=["bin/beacon-server-list", "bin/sps_data_watch"],
+        scripts=["bin/beacon-server-list"],
         entry_points={
             "console_scripts": [
                 "bliss = bliss.shell.cli.main:main",

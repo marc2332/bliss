@@ -145,6 +145,8 @@ class ScatterPlotWidget(ExtendedDockWidget):
         self.__rect.setColor("#E0E0E0")
         self.__rect.setZValue(0.1)
 
+        self.__aggregator = signalutils.EventAggregator()
+
         self.__permanentItems = [
             self.__bounding,
             self.__toolTipMarker,
@@ -154,6 +156,16 @@ class ScatterPlotWidget(ExtendedDockWidget):
 
         for o in self.__permanentItems:
             self.__plot._add(o)
+
+        self.__updater = qt.QTimer(self)
+        self.__updater.timeout.connect(self.__update)
+        self.__updater.start(500)
+
+    def __update(self):
+        if self.__aggregator.empty():
+            return
+        _logger.debug("Update widget")
+        self.__aggregator.flush()
 
     def __onMouseMove(self, event: plot_helper.MouseMovedEvent):
         self.__updateTooltip(event.xPixel, event.yPixel)
@@ -297,14 +309,26 @@ class ScatterPlotWidget(ExtendedDockWidget):
 
     def setPlotModel(self, plotModel: plot_model.Plot):
         if self.__plotModel is not None:
-            self.__plotModel.structureChanged.disconnect(self.__structureChanged)
-            self.__plotModel.itemValueChanged.disconnect(self.__itemValueChanged)
-            self.__plotModel.transactionFinished.disconnect(self.__transactionFinished)
+            self.__plotModel.structureChanged.disconnect(
+                self.__aggregator.callbackTo(self.__structureChanged)
+            )
+            self.__plotModel.itemValueChanged.disconnect(
+                self.__aggregator.callbackTo(self.__itemValueChanged)
+            )
+            self.__plotModel.transactionFinished.disconnect(
+                self.__aggregator.callbackTo(self.__transactionFinished)
+            )
         self.__plotModel = plotModel
         if self.__plotModel is not None:
-            self.__plotModel.structureChanged.connect(self.__structureChanged)
-            self.__plotModel.itemValueChanged.connect(self.__itemValueChanged)
-            self.__plotModel.transactionFinished.connect(self.__transactionFinished)
+            self.__plotModel.structureChanged.connect(
+                self.__aggregator.callbackTo(self.__structureChanged)
+            )
+            self.__plotModel.itemValueChanged.connect(
+                self.__aggregator.callbackTo(self.__itemValueChanged)
+            )
+            self.__plotModel.transactionFinished.connect(
+                self.__aggregator.callbackTo(self.__transactionFinished)
+            )
         self.plotModelUpdated.emit(plotModel)
         self.__redrawAll()
         self.__syncAxisTitle.trigger()
@@ -416,14 +440,26 @@ class ScatterPlotWidget(ExtendedDockWidget):
         if self.__scan is scan:
             return
         if self.__scan is not None:
-            self.__scan.scanDataUpdated[object].disconnect(self.__scanDataUpdated)
-            self.__scan.scanStarted.disconnect(self.__scanStarted)
-            self.__scan.scanFinished.disconnect(self.__scanFinished)
+            self.__scan.scanDataUpdated[object].disconnect(
+                self.__aggregator.callbackTo(self.__scanDataUpdated)
+            )
+            self.__scan.scanStarted.disconnect(
+                self.__aggregator.callbackTo(self.__scanStarted)
+            )
+            self.__scan.scanFinished.disconnect(
+                self.__aggregator.callbackTo(self.__scanFinished)
+            )
         self.__scan = scan
         if self.__scan is not None:
-            self.__scan.scanDataUpdated[object].connect(self.__scanDataUpdated)
-            self.__scan.scanStarted.connect(self.__scanStarted)
-            self.__scan.scanFinished.connect(self.__scanFinished)
+            self.__scan.scanDataUpdated[object].connect(
+                self.__aggregator.callbackTo(self.__scanDataUpdated)
+            )
+            self.__scan.scanStarted.connect(
+                self.__aggregator.callbackTo(self.__scanStarted)
+            )
+            self.__scan.scanFinished.connect(
+                self.__aggregator.callbackTo(self.__scanFinished)
+            )
             if self.__scan.state() != scan_model.ScanState.INITIALIZED:
                 self.__updateTitle(self.__scan)
         self.__redrawAll()

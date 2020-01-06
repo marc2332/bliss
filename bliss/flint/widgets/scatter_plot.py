@@ -138,6 +138,7 @@ class ScatterPlotWidget(ExtendedDockWidget):
         self.__lastValue.setSymbol(",")
         self.__lastValue._setLegend("scatter")
         self.__lastValue.setVisible(False)
+        self.__lastValue.setZValue(10)
         self.__rect = Shape("rectangle")
         self.__rect._setLegend("rect")
         self.__rect.setVisible(False)

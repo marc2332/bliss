@@ -16,7 +16,9 @@ import logging
 
 from silx.gui import qt
 from silx.gui import icons
+from silx.gui import colors
 from silx.gui.plot.items.shape import BoundingRect
+from silx.gui.plot.items.shape import Shape
 from silx.gui.plot.items.marker import Marker
 from silx.gui.plot.items.scatter import Scatter
 
@@ -129,9 +131,29 @@ class ScatterPlotWidget(ExtendedDockWidget):
         self.__toolTipMarker.setVisible(False)
 
         self.__bounding = BoundingRect()
+        self.__bounding._setLegend("bound")
         _logger.warning("Add initial bound")
-        self.__plot._add(self.__bounding)
-        self.__plot._add(self.__toolTipMarker)
+
+        self.__lastValue = Scatter()
+        self.__lastValue.setSymbol(",")
+        self.__lastValue._setLegend("scatter")
+        self.__lastValue.setVisible(False)
+        self.__rect = Shape("rectangle")
+        self.__rect._setLegend("rect")
+        self.__rect.setVisible(False)
+        self.__rect.setFill(False)
+        self.__rect.setColor("#E0E0E0")
+        self.__rect.setZValue(0.1)
+
+        self.__permanentItems = [
+            self.__bounding,
+            self.__toolTipMarker,
+            self.__lastValue,
+            self.__rect,
+        ]
+
+        for o in self.__permanentItems:
+            self.__plot._add(o)
 
     def __onMouseMove(self, event: plot_helper.MouseMovedEvent):
         self.__updateTooltip(event.xPixel, event.yPixel)
@@ -359,6 +381,12 @@ class ScatterPlotWidget(ExtendedDockWidget):
         _logger.warning("Update bound %s", bound)
         self.__bounding.setBounds(bound)
 
+        if bound is not None:
+            self.__rect.setVisible(True)
+            self.__rect.setPoints([(xRange[0], yRange[0]), (xRange[1], yRange[1])])
+        else:
+            self.__rect.setVisible(False)
+
     def __updateAxesLabel(self):
         scan = self.__scan
         plot = self.__plotModel
@@ -404,8 +432,8 @@ class ScatterPlotWidget(ExtendedDockWidget):
         self.__items = {}
         self.__plot.clear()
         _logger.warning("Add bound after clear")
-        self.__plot._add(self.__bounding)
-        self.__plot._add(self.__toolTipMarker)
+        for o in self.__permanentItems:
+            self.__plot._add(o)
 
     def __scanStarted(self):
         self.__view.scanStarted()
@@ -589,7 +617,7 @@ class ScatterPlotWidget(ExtendedDockWidget):
                         else:
                             xxx, yyy, vvv = None, None, None
                         if xxx is not None:
-                            key = plot.addScatter(
+                            key2 = plot.addScatter(
                                 x=xxx,
                                 y=yyy,
                                 value=vvv,
@@ -597,9 +625,9 @@ class ScatterPlotWidget(ExtendedDockWidget):
                                 colormap=colormap,
                                 symbol="o",
                             )
-                            scatter = plot.getScatter(key)
-                            scatter.setSymbolSize(style.symbolSize)
-                            plotItems.append((key, "scatter"))
+                            scatter2 = plot.getScatter(key2)
+                            scatter2.setSymbolSize(style.symbolSize)
+                            plotItems.append((key2, "scatter"))
 
             elif fillStyle == style_model.FillStyle.SCATTER_INTERPOLATION:
                 scatter.setVisualization(scatter.Visualization.SOLID)
@@ -607,6 +635,16 @@ class ScatterPlotWidget(ExtendedDockWidget):
                 pointBased = True
             self.__optimizeRendering(scatter, xChannel, yChannel)
             plotItems.append((key, "scatter"))
+
+        if not pointBased and len(value) >= 1:
+            vmin, vmax = colormap.getColormapRange(value)
+            colormap2 = colormap.copy()
+            colormap2.setVRange(vmin, vmax)
+            self.__lastValue.setData(x=xx[-1:], y=yy[-1:], value=value[-1:])
+            self.__lastValue.setColormap(colormap2)
+            self.__lastValue.setVisible(True)
+        else:
+            self.__lastValue.setVisible(False)
 
         if style.lineStyle == style_model.LineStyle.SCATTER_SEQUENCE:
             key = plot.addCurve(

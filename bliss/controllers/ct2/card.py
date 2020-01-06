@@ -18,15 +18,10 @@ import errno
 import fcntl
 import ctypes
 import ctypes.util
-import select
 import struct
 import logging
-import weakref
 import functools
-import string
-
 import enum
-
 import numpy
 
 
@@ -2271,14 +2266,32 @@ class BaseCard:
         return self.interface.write_offset(offset, ivalue)
 
     def calc_fifo_events(self, fifo_status, nb_counters=None):
+        """
+        * Calculate number of counters and number of events stored in the FIFO.
+        * This func is called in while loop during acquisition.
+        * nb_counters is calculated only once to limit (dangerous) dma access.
+        """
         if nb_counters is None:
-            etl = self.get_DMA_enable_trigger_latch()
-            nb_counters = list(etl[1].values()).count(True)
+            read_retries = 5
+            for i in range(read_retries):
+                # Reading error can (rarely) happen.
+                # retry statistically solve it. (AH+GB)
+                etl = self.get_DMA_enable_trigger_latch()
+                nb_counters = list(etl[1].values()).count(True)
+                if nb_counters > 0:
+                    break
+                self.__log.warning("nb_counters=%d, etl=%s" % (nb_counters, etl))
+            else:
+                raise RuntimeError("bad nb_counters from DMA_ETL")
+
         data_len = min(fifo_status["size"], self.FIFO_SIZE // CT2_REG_SIZE)
         return data_len // nb_counters, nb_counters
 
-    def read_fifo(self, fifo_status, nb_events=0, use_mmap=False):
-        max_events, nb_counters = self.calc_fifo_events(fifo_status)
+    def read_fifo(self, fifo_status, nb_events=0, use_mmap=False, nb_counters=None):
+        """
+        Read FIFO and return numpy array ordered by events and counters.
+        """
+        max_events, nb_counters = self.calc_fifo_events(fifo_status, nb_counters)
         if not nb_events or nb_events > max_events:
             nb_events = max_events
         if nb_events == 0:

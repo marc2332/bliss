@@ -162,6 +162,7 @@ class CT2(object):
         self.__soft_started = False
         self.__last_point_nb = -1
         self.__last_error = None
+        self.__trig_readout_keep_first_point = False
         self.input_config = dict(self.DefaultInputConfig)
         self.output_config = dict(self.DefaultOutputConfig)
 
@@ -195,7 +196,14 @@ class CT2(object):
         acq_last_point = self.acq_nb_points - 1
 
         point_nb = -1
+        soft_trig_readout = self.__in_soft_trig_readout()
+        ext_trig_readout = self.__in_ext_trig_readout()
+
+        # Flag used to know if first point has already been removed from read
+        # data during current acquisition loop.
         first_discarded = False
+
+        keep_first = self.__trig_readout_keep_first_point
         async_latch_comp = 0
 
         fifo_persistent_status = {}
@@ -226,11 +234,15 @@ class CT2(object):
 
         send_buffer_task = gevent.spawn(send_buffer_func)
 
+        nb_counters = None
+
         while self.__acq_status == AcqStatus.Running:
             # if counters stopped and FIFO is empty select will block forever
             counters_status = card_o.get_counters_status()
             if not counters_status[point_nb_ct]["run"]:
-                max_events, nb_counters = card_o.calc_fifo_events(get_fifo_status())
+                max_events, nb_counters = card_o.calc_fifo_events(
+                    get_fifo_status(), nb_counters
+                )
                 if not max_events:
                     self._send_error("data overrun")
                     self.__acq_status = AcqStatus.Ready
@@ -261,15 +273,20 @@ class CT2(object):
                     self._log.debug("overrun: counters=%s, dma=%s", counters, dma)
                 got_data = False
 
-                max_events, nb_counters = card_o.calc_fifo_events(get_fifo_status())
+                max_events, nb_counters = card_o.calc_fifo_events(
+                    get_fifo_status(), nb_counters
+                )
                 if max_events > 0:
                     got_data = True
                     data = []
                     while True:
-                        single_data, fifo_status = card_o.read_fifo(get_fifo_status())
+                        single_data, fifo_status = card_o.read_fifo(
+                            get_fifo_status(), nb_counters=nb_counters
+                        )
                         if single_data is None:
                             break
                         data.append(single_data)
+
                     if len(data) > 1:
                         data = numpy.vstack(data)
                     elif data:
@@ -285,7 +302,8 @@ class CT2(object):
                     if not_endless and (len(data) + point_nb > acq_last_point):
                         data = data[: acq_last_point - point_nb]
                     sys.stdout.flush()
-                    if self.__acq_mode == AcqMode.SoftTrigReadout:
+
+                    if soft_trig_readout:
                         data = numpy.array(data)
                         for i, point_data in enumerate(data, point_nb + 1):
                             async_latch_comp = point_data[-1] - i
@@ -294,12 +312,15 @@ class CT2(object):
                                     "warning! Async latch jump: %s", async_latch_comp
                                 )
                             point_data[-1] -= async_latch_comp
-                    elif self.__in_ext_trig_readout():
-                        if not first_discarded:
+
+                    if soft_trig_readout or ext_trig_readout:
+                        # Remove first point in SoftTrigReadout or ExtTrigReadout modes.
+                        # Excepted if 'keep_first' has been set.
+                        if not first_discarded and not keep_first:
                             data = numpy.array(data[1:])
                             first_discarded = True
-                            dma = len(data) > 0
-                        if dma and first_discarded:
+                            got_data = len(data) > 0
+                        if got_data and first_discarded:
                             data = numpy.array(data)
                             for point_data in data:
                                 point_data[-1] -= 1
@@ -371,6 +392,7 @@ class CT2(object):
         out_gate = mode in self.OutGateModes
         gate_ct = out_ct if (out_ct and out_gate) else timer_ct
 
+        soft_trig_readout = self.__in_soft_trig_readout()
         ext_trig_readout = self.__in_ext_trig_readout()
 
         def ch_signal(ch, rise, pol_invert=False):
@@ -467,7 +489,7 @@ class CT2(object):
             stop_from_hard_stop=True,
         )
         card_o.set_counter_config(point_nb_ct, ct_config)
-        extra_pulse = not_endless and ext_trig_readout
+        extra_pulse = not_endless and (ext_trig_readout or soft_trig_readout)
         acq_nb_points = self.acq_nb_points + (1 if extra_pulse else 0)
         card_o.set_counter_comparator_value(point_nb_ct, acq_nb_points)
         # gen. IRQ on point_nb (soft) stop, so acq_loop ends during stop_acq
@@ -497,7 +519,7 @@ class CT2(object):
             start_signal = "START_STOP" if auto_restart else "START"
             out_start_source = start_on_ct_signal(timer_ct, start_signal)
 
-            if ext_trig_readout:
+            if soft_trig_readout or ext_trig_readout:
                 out_stop_source = stop_source(ext_rise_signal)
             elif out_cmp:
                 out_stop_source = stop_on_ct_end(out_ct)
@@ -584,6 +606,9 @@ class CT2(object):
     def __has_ext_sync(self):
         return self.__has_ext_start() or self.__has_ext_trig() or self.__has_ext_exp()
 
+    def __in_soft_trig_readout(self):
+        return self.acq_mode == AcqMode.SoftTrigReadout
+
     def __in_ext_trig_readout(self):
         return self.acq_mode == AcqMode.ExtTrigReadout
 
@@ -611,6 +636,7 @@ class CT2(object):
         self.__last_error = None
         self.__configure_std_mode(self.acq_mode)
         self.__soft_started = False
+
         self._send_point_nb(-1)
 
     def __on_acq_loop_finished(self, event_loop):
@@ -658,9 +684,15 @@ class CT2(object):
             gevent.wait([self.__event_loop])
 
     def trigger_latch(self, counters):
+        """
+        Called by DS.
+        """
         self._card.trigger_counters_software_latch(counters)
 
     def trigger_point(self):
+        """
+        Called in case of software trigger.
+        """
         if self.acq_status != AcqStatus.Running:
             raise ValueError("No acquisition is running")
         elif self.__has_soft_start() and not self.__soft_started:
@@ -675,9 +707,8 @@ class CT2(object):
             point_nb = self._card.get_counter_value(point_nb_ct)
             self._card.stop_counters_software(counters)
             start = not self.__soft_started
-            restart = (
-                start or self.is_endless_acq or (point_nb < self.acq_nb_points - 1)
-            )
+            acq_last_point = self.acq_nb_points - 1
+            restart = start or self.is_endless_acq or (point_nb < acq_last_point)
         elif self.acq_mode == AcqMode.IntTrigMulti:
             counters_status = self._card.get_counters_status()
             if counters_status[counters[0]]["run"]:
@@ -843,6 +874,22 @@ class CT2(object):
     @property
     def is_endless_acq(self):
         return self.acq_nb_points == 0
+
+    # In mode ExtTrigReadout or SoftTrigReadout, The ct2 card receive
+    # one trig for each point when client ask for intervals i.e one value less than triggers.
+    # The first trigger may be consider as a start and consequently the value read at this trigger
+    # do not represent anything (the value is always 0) and then the number of values returned
+    # correspond to the number of intervals asked by the client which is 1 less than the number of trigger.
+    # For datasize homogeneity in certain scans, it might be interresting to return the same number of values
+    # than the number of triggers received by the P201. in this case, the value read with the first trgger
+    # is return even if its value is 0.
+    @property
+    def read_all_triggers(self):
+        return self.__trig_readout_keep_first_point
+
+    @read_all_triggers.setter
+    def read_all_triggers(self, read_all):
+        self.__trig_readout_keep_first_point = read_all
 
 
 def __get_device_config(name):

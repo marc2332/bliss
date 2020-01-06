@@ -1,9 +1,9 @@
 # Configuring the P201 counter card
 
-This chapter assumes you have have a running a bliss configuration
+This chapter assumes you have have a running a BLISS configuration
 server (beacon) available on your system.
 
-The CT2 card has two models:
+The CT2 card exists in two versions:
 
 -   *P201*: the `PCI` version of the card
     -   8 input channels
@@ -12,7 +12,7 @@ The CT2 card has two models:
     -   10 input channels
     -   2 input/output channels
 
-The *C208* has been discontinued and is not supported by bliss.
+The *C208* model has been discontinued and is not supported by BLISS.
 
 !!! warning
     BLISS is tested with the 3.3 version of the P201 kernel driver.
@@ -20,7 +20,7 @@ The *C208* has been discontinued and is not supported by bliss.
 
 ## Architecture
 
-A brief diagram explaining how the P201 is used by bliss:
+A brief diagram explaining how the P201 is used by BLISS:
 
 {% dot p201_arch.svg
   digraph G {
@@ -98,7 +98,8 @@ INFO 2017-10-30 15:14:57,684 CT2Server: Serving CT2 on tcp://0.0.0.0:8909...
     stdout_capture_maxbytes=1MB
     ```
 
-By default it runs on port **8909**. To run with different options type: `bliss-ct2-server --help`.
+By default it runs on port **8909**. To run with different options type:
+`bliss-ct2-server --help`.
 
 ## Configuration
 
@@ -157,7 +158,7 @@ channels:                      # (14)
 2.  controller name (mandatory)
 3.  plugin class (mandatory)
 4.  card address (mandatory). `tcp://<host>:<port>` to connect to a
-    remote bliss rpc CT2 server or `/dev/ct_<card_nb>` for a local card.
+    remote BLISS rpc CT2 server or `/dev/ct_<card_nb>` for a local card.
 5.  card type (optional, default: `P201`). Valid values are: `P201`
     (historical: before the C208 was forseen to be supported as well)
 6.  card clock (optional, default: `CLK_100_MHz`)
@@ -185,8 +186,8 @@ channels:                      # (14)
     is ignored as this channel cannot be used to count
 
 !!! note
-    If a bliss rpc *address* is set, the `type` is ignored. In this case it is
-    specified at the bliss rpc server command line.
+    If a BLISS rpc *address* is set, the `type` is ignored. In this case it is
+    specified at the BLISS rpc server command line.
 
 
 ### Configuring 2 or more *independent* cards
@@ -211,7 +212,7 @@ Here is an example how to configure and run two P201 cards:
 
 ![image](img/CT2/two_cards.png)
 
-First, start two CT2 bliss rpc servers:
+First, start two CT2 BLISS rpc servers:
 
 ```bash
 $ bliss-ct2-server --port=8909 --address=/dev/ct2_0
@@ -322,7 +323,7 @@ Here is an example how to configure and run two P201 cards:
 
 ![image](img/CT2/master_slave.png)
 
-First, start two CT2 bliss rpc servers:
+First, start two CT2 BLISS rpc servers:
 
 ```bash
 $ bliss-ct2-server --port=8909 --address=/dev/ct2_0
@@ -419,7 +420,7 @@ cards:
 
 ## Spec & TANGO configuration
 
-Bliss provides a TANGO_ server and a set of spec macros in case you need to
+BLISS provides a TANGO_ server and a set of spec macros in case you need to
 control the card through Spec:
 
 {% dot p201_tango_spec_arch.svg
@@ -464,7 +465,7 @@ configuration:
 
 ### Spec configuration
 
-bliss also provides a *ct2.mac* macro counter/timer so it can be used from spec. It
+BLISS also provides a *ct2.mac* macro counter/timer so it can be used from spec. It
 communicates with the CT2 TANGO device.
 
 Don't forget to add in setup `need bliss/ct2`.
@@ -599,4 +600,38 @@ Exposure time determined by trigger.
 This mode is similar to *Internal Trigger Readout* except that the start and
 the triggers are by an external trigger instead of software start and
 software trigger.
+
+
+## programming
+
+### properties
+
+properties name    |  R/W ?          | default | type |   comment
+-------------------|-----------------|---------|------|----------------
+ `acq_mode`        | RW              |         |      |
+ `acq_status`      | R               |         |      |
+ `acq_nb_points`   | RW              |         |      |
+ `acq_expo_time`   | RW              |         |      |
+ `acq_point_period`| RW              |         |      |
+ `acq_channels`    | RW              |         |      |
+ `timer_freq`      | RW              |         |      |
+ `input_config`    | RW              |         |      |
+ `input_channel`   | RW              |         |      |
+ `input_counter`   | R               |         |      |
+ `output_config`   | RW              |         |      |
+ `output_channel`  | RW              |         |      |
+ `output_counter`  | R               |         |      |
+ `counter_values`  | R               |         |      |
+ `latches`         | R               |         |      |
+ `last_point_nb`   | R               |         |      |
+ `last_error`      | R               |         |      |
+ `is_endless_acq`  | R               |         |      |
+ `trig_readout_keep_first_point`| RW |  False  | bool |  Do not remove first point (as done by default during a an acquisition in `SoftTrigReadout` or `ExtTrigReadout` mode).
+
+
+
+## Classes
+
+![classes](img/CT2/ct2_classes_paths.svg)
+
 

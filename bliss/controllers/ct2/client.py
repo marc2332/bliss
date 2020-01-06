@@ -114,6 +114,7 @@ class CT2Controller(Proxy, CounterController):
         acq_mode = acq_params.get("acq_mode", AcqMode.IntTrigMulti)
         prepare_once = acq_params.get("prepare_once", True)
         start_once = acq_params.get("start_once", True)
+        read_all_triggers = acq_params.get("read_all_triggers", False)
 
         params = {}
         params["npoints"] = npoints
@@ -122,6 +123,7 @@ class CT2Controller(Proxy, CounterController):
         params["acq_mode"] = acq_mode
         params["prepare_once"] = prepare_once
         params["start_once"] = start_once
+        params["read_all_triggers"] = read_all_triggers
 
         return params
 

@@ -592,7 +592,12 @@ class ScatterPlotWidget(ExtendedDockWidget):
             pointBased = False
             fillStyle = style.fillStyle
             key = plot.addScatter(
-                x=xx, y=yy, value=value, legend=legend + "_solid", colormap=colormap
+                x=xx,
+                y=yy,
+                value=value,
+                legend=legend + "_solid",
+                colormap=colormap,
+                copy=False,
             )
             scatter = plot.getScatter(key)
             if fillStyle == style_model.FillStyle.SCATTER_REGULAR_GRID:
@@ -624,6 +629,7 @@ class ScatterPlotWidget(ExtendedDockWidget):
                                 legend=legend + "_solid2",
                                 colormap=colormap,
                                 symbol="o",
+                                copy=False,
                             )
                             scatter2 = plot.getScatter(key2)
                             scatter2.setSymbolSize(style.symbolSize)
@@ -670,6 +676,7 @@ class ScatterPlotWidget(ExtendedDockWidget):
                     legend=legend + "_point",
                     colormap=symbolColormap,
                     symbol=symbolStyle,
+                    copy=False,
                 )
                 scatter = plot.getScatter(key)
                 scatter.setSymbol(symbolStyle)
@@ -685,6 +692,7 @@ class ScatterPlotWidget(ExtendedDockWidget):
                 symbol=symbolStyle,
                 linestyle=" ",
                 resetzoom=False,
+                copy=False,
             )
             curve = plot.getCurve(key)
             curve.setSymbolSize(style.symbolSize)

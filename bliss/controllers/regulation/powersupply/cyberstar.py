@@ -6,16 +6,15 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 """
-- class: Cyberstar
-  module: regulation.powersupply.cyberstar
-  plugin: bliss
-  name: cyberstar
-  timeout: 3
-  serial:
-     url: ser2net://lid00limace:28000/dev/ttyS0
+-   class: Cyberstar
+    module: regulation.powersupply.cyberstar
+    plugin: bliss
+    name: cyberstar
+    timeout: 3
+    serial:
+    url: ser2net://lid00limace:28000/dev/ttyS0
 
--
-    class: CyberstarOutput
+-   class: CyberstarOutput
     module: regulation.powersupply.cyberstar
     name: cyberstar_hv
     device: $cyberstar
@@ -27,31 +26,29 @@
     module_id: 0              # <== identify the module in the serial line
     channel: hv               # <== the high voltage output
 
--
-    class: CyberstarOutput
+-   class: CyberstarOutput
     module: regulation.powersupply.cyberstar
     name: cyberstar_sca_low
     device: $cyberstar
     unit: volt
-    low_limit: 0            # <== minimum device value [unit]
-    high_limit: 10          # <== maximum device value [unit]
-    ramprate: 0.0           # <== ramprate to reach the output value [unit/s].
+    low_limit: 0            
+    high_limit: 10          
+    ramprate: 0.0           
     mode: absolute
     module_id: 0
-    channel: sca_low        # <== the SCA low level voltage output
+    channel: sca_low        
 
--
-    class:  CyberstarOutput   # an ExternalOutput
+-   class:  CyberstarOutput   
     module: regulation.powersupply.cyberstar
     name: cyberstar_sca_up
     device: $cyberstar
     unit: volt
-    low_limit: 0             # <== minimum device value [unit]
-    high_limit: 10           # <== maximum device value [unit]
-    ramprate: 0.0            # <== ramprate to reach the output value [unit/s].
+    low_limit: 0             
+    high_limit: 10           
+    ramprate: 0.0            
     mode: absolute
     module_id: 0
-    channel: sca_up          # <== the SCA low level voltage output
+    channel: sca_up          
 """
 
 import time
@@ -111,7 +108,7 @@ class CyberstarOutput(ExternalOutput):
 
     @lazy_init
     def get_remote(self):
-        """ Get the remote controle """
+        """ Get the remote control """
         log_info(self, "CyberstarOutput:get_remote")
         return self.device.get_param_value(self.module_id, "remote")
 

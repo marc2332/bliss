@@ -627,11 +627,15 @@ class ScatterPlotWidget(ExtendedDockWidget):
         self.__items = {}
         self.__plot.clear()
         _logger.warning("Add bound after clear")
+        self.__rect.setVisible(False)
+        self.__lastValue.setVisible(False)
         for o in self.__permanentItems:
             self.__plot._add(o)
 
     def __scanStarted(self):
+        self.__refreshRate.reset()
         self.__view.scanStarted()
+        self.__syncAxis.trigger()
         self.__updateTitle(self.__scan)
 
     def __updateTitle(self, scan: scan_model.Scan):
@@ -665,6 +669,8 @@ class ScatterPlotWidget(ExtendedDockWidget):
         for _item, itemKeys in self.__items.items():
             for key in itemKeys:
                 self.__plot.remove(*key)
+        self.__rect.setVisible(False)
+        self.__lastValue.setVisible(False)
         self.__view.plotCleared()
 
     def __cleanItem(self, item: plot_model.Item) -> bool:

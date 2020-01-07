@@ -131,12 +131,10 @@ class _VirtualScan:
                     # growing 1d data
                     p = min(len(array), pos)
                     array = array[0:p]
-                    newData = scan_model.Data(channel, array)
                     channel_scan_data[channel.name()] = array
                 elif channel.type() == scan_model.ChannelType.SPECTRUM:
                     # 1d data in an indexed array
                     array = array[pos]
-                    newData = scan_model.Data(channel, array)
                     scan_data = {
                         "scan_info": self.scan_info,
                         "channel_name": channel.name(),

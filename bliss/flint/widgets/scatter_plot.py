@@ -79,7 +79,7 @@ class _ManageView(qt.QObject):
         resetZoom.triggered.connect(self.resetZoom)
         resetZoom.setText("Reset zoom")
         resetZoom.setToolTip("Back to the auto-zoom")
-        resetZoom.setIcon(icons.getQIcon("silx:gui/icons/zoom-original"))
+        resetZoom.setIcon(icons.getQIcon("flint:icons/zoom-auto"))
         resetZoom.setEnabled(self.__inUserView)
 
         def updateResetZoomAction(isUserMode):

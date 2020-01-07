@@ -1441,7 +1441,7 @@ class WagoController:
                     f"Last response: Check code (should be like 0xaa 0x01 version tag + version num) is {check:02X}",
                 )
                 log_debug(self, f"Last response: Ack (should be 0 or 2) is {ack}")
-                raise TimeoutError(f"ACK not received")
+                raise MissingFirmware(f"ACK not received")
             try:
                 check, _, ack = self.client.read_input_registers(
                     addr, "H" * size, timeout=self.timeout

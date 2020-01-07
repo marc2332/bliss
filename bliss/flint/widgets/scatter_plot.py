@@ -13,6 +13,7 @@ from typing import Sequence
 from typing import Optional
 
 import logging
+import numpy
 
 from silx.gui import qt
 from silx.gui import icons
@@ -204,7 +205,9 @@ class ScatterPlotWidget(ExtendedDockWidget):
         # Start from top-most item
         result = None
         if x is not None:
-            for result in plot.pickItems(x, y, lambda item: isinstance(item, Scatter)):
+            for result in plot.pickItems(
+                x, y, lambda item: isinstance(item, _ScatterPlotItemMixIn)
+            ):
                 # Break at the first result
                 break
 
@@ -217,11 +220,33 @@ class ScatterPlotWidget(ExtendedDockWidget):
             y = item.getYData(copy=False)[index]
             value = item.getValueData(copy=False)[index]
 
+            assert isinstance(item, _ScatterPlotItemMixIn)
+            plotItem = item.customItem()
+            if plotItem is not None:
+                assert (
+                    plotItem.xChannel() is not None
+                    and plotItem.yChannel() is not None
+                    and plotItem.valueChannel() is not None
+                )
+                xName = plotItem.xChannel().displayName(self.__scan)
+                yName = plotItem.yChannel().displayName(self.__scan)
+                vName = plotItem.valueChannel().displayName(self.__scan)
+            else:
+                xName = "X"
+                yName = "Y"
+                vName = "Value"
+
+            colormap = item.getColormap()
+            # FIXME: This should be merged to Silx
+            vmin, vmax = colormap.getColormapRange(item.getValueData(copy=False))
+            colors = colormap.applyToData(numpy.array([value, vmin, vmax]))
+            cssColor = f"#{colors[0,0]:02X}{colors[0,1]:02X}{colors[0,2]:02X}"
+
             text = f"""<html><ul>
             <li><b>Index:</b> {index}</li>
-            <li><b>X:</b> {x}</li>
-            <li><b>Y:</b> {y}</li>
-            <li><b>Value:</b> {value}</li>
+            <li><b>{xName}:</b> {x}</li>
+            <li><b>{yName}:</b> {y}</li>
+            <li><b>{vName}:</b> <font color="{cssColor}">■</font> {value}</li>
             </ul></html>"""
             self.__updateToolTipMarker(x, y)
             cursorPos = qt.QCursor.pos() + qt.QPoint(10, 10)

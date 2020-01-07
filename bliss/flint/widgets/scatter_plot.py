@@ -194,7 +194,12 @@ class ScatterPlotWidget(ExtendedDockWidget):
         self.__aggregator.flush()
 
     def __onMouseMove(self, event: plot_helper.MouseMovedEvent):
-        self.__updateTooltip(event.xPixel, event.yPixel)
+        mouseButton = qt.QApplication.mouseButtons()
+        if mouseButton == qt.Qt.NoButton:
+            self.__updateTooltip(event.xPixel, event.yPixel)
+        else:
+            # Avoid to display the tooltip if the user is doing stuffs
+            self.__updateTooltip(None, None)
 
     def __onMouseLeft(self):
         self.__updateTooltip(None, None)

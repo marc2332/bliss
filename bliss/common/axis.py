@@ -899,9 +899,9 @@ class Axis:
         """
         return self.__controller.state(self)
 
-    @lazy_init
-    def info(self):
-        """Return common axis information about the axis.
+    def __info__(self):
+        """Standard method called by BLISS Shell info helper:
+        Return common axis information about the axis.
         PLUS controller specific information.
         """
         _info_string = ""
@@ -958,16 +958,6 @@ class Axis:
             _info_string += f"{self.controller}\n"
 
         return _info_string
-
-    def __info__(self):
-        """Standard method called by BLISS Shell info helper."""
-        try:
-            return self.info()
-        except Exception:
-            log_error(
-                self,
-                "An error happend during execution of __info__(), use .info() to get it.",
-            )
 
     def sync_hard(self):
         """Forces an axis synchronization with the hardware"""

@@ -148,9 +148,9 @@ class MultiplePositions:
         except TypeError:
             print("No position configured")
 
-    @property
-    def info(self):
-        """ Return the exhaustive status of the object.
+    def __info__(self):
+        """Standard method called by BLISS Shell info helper.
+        Return the exhaustive status of the object.
         Returns:
             (str): tabulated string
         """
@@ -183,18 +183,6 @@ class MultiplePositions:
         pos_str = tabulate(tuple(table), numalign="right", tablefmt="plain")
 
         return f"{pos_str}\n {motpos_str}"
-
-    def __info__(self):
-        """Standard method called by BLISS Shell info helper."""
-        try:
-            info_string = self.info
-
-        except Exception:
-            log_error(
-                self,
-                "An error happend during execution of __info__(), use .info() to get it.",
-            )
-        return info_string
 
     @property
     def position(self):

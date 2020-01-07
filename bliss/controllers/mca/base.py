@@ -175,13 +175,17 @@ class BaseMCA(CounterController):
     def elements(self):
         raise NotImplementedError
 
-    def info(self):
+    def __info__(self):
+        """Standard function called by BLISS Shell typing helper to get info
+        about objects.
+        """
+
         info_str = " ---=== MCA ===---\n"
         info_str += f"object: {self.__class__}\n\n"
         info_str += f"Detector brand : {self.detector_brand.name}\n"
         try:
             info_str += f"Detector type  : {self.detector_type.name}\n"
-        except:
+        except Exception:
             info_str += f"Detector type  : UNKNOWN\n"
 
         # info_str += f"\nConfig:\n"
@@ -193,27 +197,13 @@ class BaseMCA(CounterController):
         info_str += f"Acquisition mode : {self.acquisition_mode.name}\n"
         try:
             info_str += f"Spectrum size    : {self.spectrum_size}\n"
-        except:
+        except Exception:
             pass
         try:
             info_str += f"Calib type       : {self.calibration_type}\n"
-        except:
+        except Exception:
             pass
         info_str += f"\n"
-
-        return info_str
-
-    def __info__(self):
-        """Standard function called by BLISS Shell typing helper to get info
-        about objects.
-        """
-        try:
-            info_str = self.info()
-        except Exception:
-            log_error(
-                self,
-                "An error happend during execution of __info__(), use .info() to get it.",
-            )
 
         return info_str
 

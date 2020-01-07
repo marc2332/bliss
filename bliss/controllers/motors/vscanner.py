@@ -12,7 +12,7 @@ from bliss.controllers.motor import Controller
 from bliss.comm.util import get_comm
 from bliss.common.axis import AxisState
 from bliss import global_map
-from bliss.common.logtools import *
+from bliss.common.logtools import log_error, log_info, log_debug
 from bliss.comm.util import SERIAL
 
 """
@@ -394,30 +394,37 @@ class VSCANNER(Controller):
             log_error(self, f"VSCANNER ERROR: {_ans}\n")
         return _ans
 
-    def get_info(self, axis):
+    def get_info(self, axis=None):
         """Return a set of information about axis and controller.
-        Helpful to tune the device.
-        Method used by '__info__()'.
         """
-        _txt = ""
-        _txt += "###############################\n"
-        _txt += f"Config:\n"
-        _txt += f"  url={self.config.config_dict['serial']['url']}\n"
-        _txt += f"  class={self.config.config_dict['class']}\n"
-        _txt += f"  channel letter:{axis.chan_letter}\n"
-        _txt += "###############################\n"
-        _txt += f"?ERR: {self.get_error()}\n"
-        _txt += "###############################\n"
-        _txt += f"'?INFO' command:\n"
-        _txt += f"firmware version   : {self.send(axis, '?VER')  }\n"
-        _txt += f"output voltage     : {self.send(axis, '?VXY')  }\n"
-        _txt += f"unit state         : {self.send(axis, '?STATE')}\n"
-        _txt += "###############################\n"
-        _txt += self.raw_write_readlines("?INFO\r\n", 13)
-        _txt += "\n"
-        _txt += "###############################\n"
+        info_str = ""
+        info_str += "###############################\n"
+        info_str += f"Config:\n"
+        info_str += f"  url={self.config.config_dict['serial']['url']}\n"
+        info_str += f"  class={self.config.config_dict['class']}\n"
+        #        info_str += f"  channel letter:{axis.chan_letter}\n"
+        info_str += "###############################\n"
+        info_str += f"?ERR: {self.get_error()}\n"
+        info_str += "###############################\n"
+        info_str += f"'?INFO' command:\n"
+        info_str += f"firmware version   : {self.get_version()}\n"
+        info_str += f"output voltage     : {self.get_voltages()}\n"
+        info_str += f"unit state         : {self.get_state()}\n"
+        info_str += "###############################\n"
+        info_str += self.raw_write_readlines("?INFO\r\n", 13)
+        info_str += "\n"
+        info_str += "###############################\n"
 
-        return _txt
+        return info_str
+
+    def get_version(self):
+        return self.raw_write_read("?VER\r\n")
+
+    def get_voltages(self):
+        return self.raw_write_read("?VXY\r\n")
+
+    def get_state(self):
+        return self.raw_write_read("?STATE\r\n")
 
     def __info__(self):
         return self.get_info()

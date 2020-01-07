@@ -125,10 +125,6 @@ class WhiteBeamAttenuator:
         return msg
 
     def __info__(self):
-        """Standard method called by BLISS Shell info helper."""
-        return self.info()
-
-    def info(self):
         """Return the exhaustive status of the object.
         Returns:
             (str): The status as string

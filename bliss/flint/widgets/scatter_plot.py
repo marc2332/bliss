@@ -21,6 +21,7 @@ from silx.gui.plot.items.shape import BoundingRect
 from silx.gui.plot.items.shape import Shape
 from silx.gui.plot.items.marker import Marker
 from silx.gui.plot.items.scatter import Scatter
+from silx.gui.plot.items.curve import Curve
 
 from bliss.flint.model import scan_model
 from bliss.flint.model import flint_model
@@ -87,6 +88,29 @@ class _ManageView(qt.QObject):
         self.sigZoomMode.connect(updateResetZoomAction)
 
         return resetZoom
+
+
+class _ScatterPlotItemMixIn:
+    def __init__(self):
+        self.__plotItem = None
+
+    def customItem(self) -> Optional[plot_item_model.ScatterItem]:
+        return self.__plotItem
+
+    def setCustomItem(self, item: plot_item_model.ScatterItem):
+        self.__plotItem = item
+
+
+class _MainScatter(Scatter, _ScatterPlotItemMixIn):
+    def __init__(self):
+        Scatter.__init__(self)
+        _ScatterPlotItemMixIn.__init__(self)
+
+
+class _MainCurve(Curve, _ScatterPlotItemMixIn):
+    def __init__(self):
+        Curve.__init__(self)
+        _ScatterPlotItemMixIn.__init__(self)
 
 
 class ScatterPlotWidget(ExtendedDockWidget):
@@ -628,15 +652,13 @@ class ScatterPlotWidget(ExtendedDockWidget):
         if style.fillStyle is not style_model.FillStyle.NO_FILL:
             pointBased = False
             fillStyle = style.fillStyle
-            key = plot.addScatter(
-                x=xx,
-                y=yy,
-                value=value,
-                legend=legend + "_solid",
-                colormap=colormap,
-                copy=False,
-            )
-            scatter = plot.getScatter(key)
+            scatter = _MainScatter()
+            scatter.setData(x=xx, y=yy, value=value, copy=False)
+            scatter.setColormap(colormap)
+            scatter.setCustomItem(item)
+            key = legend + "_solid"
+            scatter._setLegend(key)
+            plot._add(scatter)
             if fillStyle == style_model.FillStyle.SCATTER_REGULAR_GRID:
                 scatter.setVisualization(scatter.Visualization.REGULAR_GRID)
             elif fillStyle == style_model.FillStyle.SCATTER_IRREGULAR_GRID:
@@ -706,33 +728,28 @@ class ScatterPlotWidget(ExtendedDockWidget):
                 symbolStyle = style_model.symbol_to_silx(style.symbolStyle)
                 if symbolStyle == " ":
                     symbolStyle = "o"
-                key = plot.addScatter(
-                    x=xx,
-                    y=yy,
-                    value=value,
-                    legend=legend + "_point",
-                    colormap=symbolColormap,
-                    symbol=symbolStyle,
-                    copy=False,
-                )
-                scatter = plot.getScatter(key)
+                scatter = _MainScatter()
+                scatter.setData(x=xx, y=yy, value=value, copy=False)
+                scatter.setColormap(symbolColormap)
                 scatter.setSymbol(symbolStyle)
                 scatter.setSymbolSize(style.symbolSize)
+                scatter.setCustomItem(item)
+                key = legend + "_point"
+                scatter._setLegend(key)
+                plot._add(scatter)
                 plotItems.append((key, "scatter"))
         elif style.symbolStyle is not style_model.SymbolStyle.NO_SYMBOL:
             symbolStyle = style_model.symbol_to_silx(style.symbolStyle)
-            key = plot.addCurve(
-                x=xx,
-                y=yy,
-                legend=legend + "_point",
-                color=style.symbolColor,
-                symbol=symbolStyle,
-                linestyle=" ",
-                resetzoom=False,
-                copy=False,
-            )
-            curve = plot.getCurve(key)
+            curve = _MainCurve()
+            curve.setData(x=xx, y=yy, copy=False)
+            curve.setColor(style.symbolColor)
+            curve.setSymbol(symbolStyle)
+            curve.setLineStyle(" ")
             curve.setSymbolSize(style.symbolSize)
+            curve.setCustomItem(item)
+            key = legend + "_point"
+            curve._setLegend(key)
+            plot._add(curve)
             plotItems.append((key, "curve"))
 
         self.__items[item] = plotItems

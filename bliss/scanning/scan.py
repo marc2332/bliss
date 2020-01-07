@@ -927,6 +927,9 @@ class Scan:
             self.writer.template["scan_number"] = self.scan_number
             self._scan_info["scan_nb"] = self.__scan_number
 
+            # this has to be done when the writer is ready
+            self._prepare_scan_meta()
+
             start_timestamp = time.time()
             start_time = datetime.datetime.fromtimestamp(start_timestamp)
             self._scan_info["start_time"] = start_time
@@ -1227,8 +1230,6 @@ class Scan:
             raise RuntimeError(
                 "Scan state is not idle. Scan objects can only be used once."
             )
-
-        self._prepare_scan_meta()
 
         call_on_prepare, call_on_stop = False, False
         set_watch_event = None

@@ -788,6 +788,8 @@ class ScatterPlotWidget(ExtendedDockWidget):
         style = item.getStyle(scan)
         colormap = model_helper.getColormapFromItem(item, style)
 
+        scatter = None
+        curve = None
         pointBased = True
         if style.fillStyle is not style_model.FillStyle.NO_FILL:
             pointBased = False
@@ -891,6 +893,11 @@ class ScatterPlotWidget(ExtendedDockWidget):
             curve._setLegend(key)
             plot._add(curve)
             plotItems.append((key, "curve"))
+
+        if scatter is not None:
+            self.__plot._setActiveItem("scatter", scatter.getLegend())
+        elif curve is not None:
+            self.__plot._setActiveItem("curve", curve.getLegend())
 
         self.__items[item] = plotItems
         self.__updatePlotZoom(updateZoomNow)

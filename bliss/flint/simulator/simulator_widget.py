@@ -47,6 +47,11 @@ class SimulatorWidget(qt.QMainWindow):
         layout.addWidget(button)
 
         button = qt.QPushButton(self)
+        button.setText("Scatter 1000x1000 scan")
+        button.clicked.connect(lambda: self.__startScan(10, 20000, "scatter-big"))
+        layout.addWidget(button)
+
+        button = qt.QPushButton(self)
         button.setText("MCA scan")
         button.clicked.connect(lambda: self.__startScan(10, 2000, "mca"))
         layout.addWidget(button)

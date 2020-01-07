@@ -70,6 +70,14 @@ class _VirtualScan:
         self.__timer.timeout.connect(self.safeProcessData)
         self.__scan_manager = scanManager
         self.__scan: scan_model.Scan = scan_model.Scan(None)
+        self.__step = 1
+
+    def setStep(self, step):
+        """Size of each increment of data.
+
+        Allow to send data by bunches.
+        """
+        self.__step = step
 
     def setDuration(self, duration: int):
         self.__duration = duration
@@ -117,7 +125,7 @@ class _VirtualScan:
         for modulo, data in self.__data.items():
             if (tick % modulo) != 0:
                 continue
-            pos = tick // modulo
+            pos = (tick // modulo) * self.__step
             for channel, array in data.items():
                 if channel.type() == scan_model.ChannelType.COUNTER:
                     # growing 1d data
@@ -441,7 +449,7 @@ class AcquisitionSimulator(qt.QObject):
         data = numpy.array(data)
         scan.registerData(periode, lima2_channel1, data)
 
-    def __createScatters(self, scan: _VirtualScan, interval, duration):
+    def __createScatters(self, scan: _VirtualScan, interval, duration, size=None):
 
         master_time1 = scan_model.Device(scan.scan())
         master_time1.setName("timer_scatter")
@@ -498,7 +506,12 @@ class AcquisitionSimulator(qt.QObject):
         scan.scan_info["data_dim"] = 2
 
         # Every 2 ticks
-        nbPoints = duration // interval
+        if size is None:
+            nbPoints = duration // interval
+        else:
+            nbSteps = duration // interval
+            nbPoints = size * size
+            scan.setStep((nbPoints // nbSteps) + 1)
         nbX = int(numpy.sqrt(nbPoints))
         nbY = nbPoints // nbX + 1
 
@@ -510,26 +523,35 @@ class AcquisitionSimulator(qt.QObject):
         yy = numpy.atleast_2d(numpy.ones(nbY)).T
         xx = numpy.atleast_2d(numpy.ones(nbX))
 
+        # Dispertion
+        dist = max(nbX, nbY)
+        error = 1 / dist
+        pixelSize = 20 / dist
+
         positionX = numpy.linspace(10, 50, nbX) * yy
         positionX = positionX.reshape(nbX * nbY)
-        positionX = positionX + numpy.random.rand(len(positionX)) - 0.5
+        positionX = (
+            positionX + (numpy.random.rand(len(positionX)) - 0.5) * pixelSize * 0.8
+        )
 
         positionY = numpy.atleast_2d(numpy.linspace(20, 60, nbY)).T * xx
         positionY = positionY.reshape(nbX * nbY)
-        positionY = positionY + numpy.random.rand(len(positionY)) - 0.5
+        positionY = (
+            positionY + (numpy.random.rand(len(positionY)) - 0.5) * pixelSize * 0.8
+        )
 
         scan.registerData(1, device1_channel1, positionX)
         scan.registerData(1, device2_channel1, positionY)
 
         # Diodes position
-        lut = scipy.signal.gaussian(max(nbX, nbY), std=8) * 10
+        lut = scipy.signal.gaussian(dist, std=0.8 * dist) * 10
         yy, xx = numpy.ogrid[:nbY, :nbX]
         signal = lut[yy] * lut[xx]
-        diode1 = numpy.random.poisson(signal * 10)
+        diode1 = numpy.random.poisson(signal * dist)
         diode1 = diode1.reshape(nbX * nbY)
         scan.registerData(1, device3_channel1, diode1)
 
-        temperature1 = 25 + numpy.random.rand(nbX * nbY) * 5
+        temperature1 = 25 + numpy.random.rand(nbX * nbY) * 5 * error
         scan.registerData(1, device4_channel1, temperature1)
 
         requests = {}
@@ -572,6 +594,8 @@ class AcquisitionSimulator(qt.QObject):
             self.__createImages(scan, interval, duration)
         if name is None or name == "scatter":
             self.__createScatters(scan, interval, duration)
+        if name == "scatter-big":
+            self.__createScatters(scan, interval, duration, size=1000)
 
         print("Data prepared")
         return scan

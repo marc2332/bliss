@@ -1,3 +1,6 @@
+import pytest
+
+
 def test_wagogroup_get(default_session, wago_mockup):
     wago = default_session.config.get("wago_simulator")
     wago_group = default_session.config.get("wago_group")
@@ -13,8 +16,8 @@ def test_wagogroup_set(default_session, wago_mockup, clean_gevent):
     wago_group.set("foh2ctrl", 1, 1, 1, 1, "o10v1", -4.0)
     assert wago_group.get("foh2ctrl") == [1, 1, 1, 1]
     assert wago.get("foh2ctrl") == [1, 1, 1, 1]
-    assert wago_group.get("o10v1") == -4.0
-    assert wago.get("o10v1") == -4.0
+    assert wago_group.get("o10v1") == pytest.approx(-4.0, .001)
+    assert wago.get("o10v1") == pytest.approx(-4.0, .001)
 
 
 def test_wagogroup_counters(default_session, wago_mockup, clean_gevent):

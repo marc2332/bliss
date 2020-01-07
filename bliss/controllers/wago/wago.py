@@ -25,6 +25,7 @@ from bliss.common.logtools import log_debug, log_error, log_exception
 from bliss.common.counter import SamplingCounter
 from bliss.controllers.counter import counter_namespace, SamplingCounterController
 from bliss.controllers.wago.helpers import splitlines, to_signed, register_type_to_int
+from bliss.common.utils import ShellStr
 
 """
 EXPLANATION AND NAMING CONVENTION
@@ -1440,7 +1441,7 @@ class WagoController:
                     f"Last response: Check code (should be like 0xaa 0x01 version tag + version num) is {check:02X}",
                 )
                 log_debug(self, f"Last response: Ack (should be 0 or 2) is {ack}")
-                raise TimeoutError(f"ACK not received")
+                raise MissingFirmware(f"ACK not received")
             try:
                 check, _, ack = self.client.read_input_registers(
                     addr, "H" * size, timeout=self.timeout
@@ -1652,8 +1653,6 @@ class WagoController:
         """
         Wago Status information
         """
-        from bliss.shell.standard import ShellStr
-
         out = ""
         if not self.coupler:
             out += f"Controller series code    (INFO_SERIES)    : {self.series}\n"
@@ -2084,7 +2083,6 @@ class Wago(SamplingCounterController):
 
         self.__interlock_load_config(reloaded_config)
 
-        from bliss.shell.standard import ShellStr
         from bliss.controllers.wago.interlocks import interlock_download as download
         from bliss.controllers.wago.interlocks import interlock_compare as compare
         from bliss.controllers.wago.interlocks import interlock_upload as upload
@@ -2127,7 +2125,6 @@ class Wago(SamplingCounterController):
         return ShellStr("\n".join(repr_))
 
     def interlock_to_yml(self):
-        from bliss.common.standard import ShellStr
         from bliss.controllers.wago.interlocks import interlock_to_yml as to_yml
         from bliss.controllers.wago.interlocks import interlock_download as download
 

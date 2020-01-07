@@ -1,4 +1,4 @@
-from bliss.common.utils import flatten, merge
+from bliss.common.utils import flatten, merge, ShellStr
 import numpy
 
 
@@ -12,3 +12,9 @@ def test_flatten():
 def test_merge():
     assert merge([[1, 2], [3]]) == [1, 2, 3]
     assert merge([[1, 2], [[3, 4]], [5]]) == [1, 2, [3, 4], 5]
+
+
+def test_shell_str():
+    raw_s = "<hi>"
+    s = ShellStr(raw_s)
+    assert s.__info__() == raw_s

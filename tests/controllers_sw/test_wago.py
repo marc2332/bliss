@@ -10,7 +10,7 @@ from bliss.controllers.wago.helpers import (
     wordarray_to_bytestring,
 )
 
-from bliss.controllers.wago.wago import WagoController, ModulesConfig
+from bliss.controllers.wago.wago import WagoController, ModulesConfig, MissingFirmware
 from bliss.controllers.wago.interlocks import (
     interlock_parse_relay_line,
     interlock_parse_channel_line,
@@ -369,3 +369,15 @@ def test_wago_status(capsys, default_session, wago_mockup):
     for info in "module0 module1 module2 module3".split():
         assert info in captured.out
     assert "Given mapping does match Wago attached modules" in captured.out
+
+
+def test_wago_interlock_methods(default_session, wago_mockup):
+    wago = default_session.config.get("wago_simulator")
+    with pytest.raises(MissingFirmware):
+        wago.interlock_to_yml()
+    with pytest.raises(MissingFirmware):
+        wago.interlock_upload()
+    with pytest.raises(MissingFirmware):
+        wago.interlock_reset(1)
+    with pytest.raises(MissingFirmware):
+        wago.interlock_state()

@@ -106,9 +106,18 @@ class Counter:
     def unit(self):
         return self._unit
 
+    @unit.setter
+    def unit(self, unit):
+        self._unit = unit
+
     @property
     def conversion_function(self):
         return self._conversion_function
+
+    @conversion_function.setter
+    def conversion_function(self, func):
+        assert callable(func)
+        self._conversion_function = func
 
     def get_metadata(self):
         return {}

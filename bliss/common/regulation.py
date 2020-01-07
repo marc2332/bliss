@@ -193,6 +193,7 @@ class Input(SamplingCounterController):
 
         self._controller = controller
         self._config = config
+        self._channel = None
 
         # useful attribute for a temperature controller writer
         self._attr_dict = {}
@@ -223,7 +224,11 @@ class Input(SamplingCounterController):
 
         return self._config
 
-    # ----------- METHODS THAT A CHILD CLASS MUST CUSTOMIZE ------------------
+    @property
+    def channel(self):
+        return self.config.get("channel")
+
+    # ----------- METHODS THAT A CHILD CLASS MAY CUSTOMIZE ------------------
 
     @lazy_init
     def read(self):
@@ -260,7 +265,7 @@ class ExternalInput(Input):
             except Exception:
                 pass
 
-    # ----------- METHODS THAT A CHILD CLASS SHOULD CUSTOMIZE ------------------
+    # ----------- METHODS THAT A CHILD CLASS MAY CUSTOMIZE ------------------
 
     def read(self):
         """ Return the input device value (in input unit) """
@@ -354,9 +359,13 @@ class Output(SamplingCounterController):
 
         return self._limits
 
+    @property
+    def channel(self):
+        return self.config.get("channel")
+
     @autocomplete_property
-    def ramp(self):
-        """ Get the ramp object """
+    def soft_ramp(self):
+        """ Get the software ramp object """
 
         return self._ramp
 
@@ -380,7 +389,7 @@ class Output(SamplingCounterController):
         setattr(self, name, method)
         self.__custom_methods_list.append((name, types_info))
 
-    # ----------- METHODS THAT A CHILD CLASS SHOULD CUSTOMIZE ------------------
+    # ----------- METHODS THAT A CHILD CLASS MAY CUSTOMIZE ------------------
 
     @lazy_init
     def state(self):
@@ -432,7 +441,10 @@ class Output(SamplingCounterController):
         if (
             self._use_soft_ramp is None
         ):  # case where '_start_ramping' was never called previously.
-            return False
+            try:
+                return self._controller.is_output_ramping(self)
+            except NotImplementedError:
+                return False
 
         elif self._use_soft_ramp:
 
@@ -486,8 +498,14 @@ class Output(SamplingCounterController):
 
         log_debug(self, "Output:_stop_ramping")
 
-        if self._use_soft_ramp is None:
-            self._controller.stop_output_ramp(self)
+        if (
+            self._use_soft_ramp is None
+        ):  # case where '_start_ramping' was never called previously.
+            try:
+                self._controller.stop_output_ramp(self)
+            except NotImplementedError:
+                pass
+
         elif self._use_soft_ramp:
             self._ramp.stop()
         else:
@@ -560,7 +578,7 @@ class ExternalOutput(Output):
 
         self._ramp.stop()
 
-    # ----------- METHODS THAT A CHILD CLASS SHOULD CUSTOMIZE ------------------
+    # ----------- METHODS THAT A CHILD CLASS MAY CUSTOMIZE ------------------
 
     def state(self):
         """ Return the state of the output device"""
@@ -712,6 +730,10 @@ class Loop(SamplingCounterController):
 
         return self._config
 
+    @property
+    def channel(self):
+        return self.config.get("channel")
+
     # @property
     @autocomplete_property
     def counters(self):
@@ -738,8 +760,8 @@ class Loop(SamplingCounterController):
         return self._output
 
     @autocomplete_property
-    def ramp(self):
-        """ Get the ramp object """
+    def soft_ramp(self):
+        """ Get the software ramp object """
 
         return self._ramp
 
@@ -1013,7 +1035,7 @@ class Loop(SamplingCounterController):
             <WaitMode.DEADBAND: 2>  : READY when the processed value is in the 'deadband' around the scan point for a time >= 'deadband_time'.
         """
 
-        log_debug(self, "Loop:get_deadband")
+        log_debug(self, "Loop:get_wait_mode")
         return self._wait_mode
 
     @wait_mode.setter
@@ -1023,7 +1045,7 @@ class Loop(SamplingCounterController):
             <WaitMode.DEADBAND: 2>  : READY when the processed value is in the 'deadband' around the scan point for a time >= 'deadband_time'.
         """
 
-        log_debug(self, "Loop:set_deadband: %s" % (value))
+        log_debug(self, "Loop:set_wait_mode: %s" % (value))
 
         if isinstance(value, int):
             self._wait_mode = self.WaitMode(value)
@@ -1048,7 +1070,7 @@ class Loop(SamplingCounterController):
             b = ymin - a * xmin
             return value * a + b
 
-    # ----------- METHODS THAT A CHILD CLASS SHOULD CUSTOMIZE ------------------
+    # ----------- METHODS THAT A CHILD CLASS MAY CUSTOMIZE ------------------
 
     @property
     @lazy_init
@@ -1198,7 +1220,10 @@ class Loop(SamplingCounterController):
         if (
             self._use_soft_ramp is None
         ):  # case where '_start_ramping' was never called previously.
-            return False
+            try:
+                return self._controller.is_ramping(self)
+            except NotImplementedError:
+                return False
 
         elif self._use_soft_ramp:
 
@@ -1257,14 +1282,19 @@ class Loop(SamplingCounterController):
 
         log_debug(self, "Loop:_stop_ramping")
 
-        if self._use_soft_ramp is None:
-            self._controller.stop_ramp(self)
+        if (
+            self._use_soft_ramp is None
+        ):  # case where '_start_ramping' was never called previously.
+            try:
+                self._controller.stop_ramp(self)
+            except NotImplementedError:
+                pass
         elif self._use_soft_ramp:
             self._ramp.stop()
         else:
             self._controller.stop_ramp(self)
 
-    @property
+    # @property
     def plot(self):
         if not self.reg_plot:
             self.reg_plot = RegPlot(self)
@@ -1717,7 +1747,7 @@ class RegPlot:
         )
         self.fig.submit(
             "setGraphYLabel",
-            f"Output ({self.loop.output.config['unit']})",
+            f"Output ({self.loop.output.config.get('unit','')})",
             axis="right",
         )
         self.fig.submit("setGraphGrid", which=True)

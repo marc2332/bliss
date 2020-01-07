@@ -56,10 +56,13 @@ class InvalidatableSignal(qt.QObject):
             self.trigger()
 
 
-class EventAggregator:
+class EventAggregator(qt.QObject):
     """Allow to stack events and to trig them time to time"""
 
-    def __init__(self):
+    eventAdded = qt.Signal()
+
+    def __init__(self, parent: qt.QObject = None):
+        super(EventAggregator, self).__init__(parent=parent)
         self.__eventStack = []
         self.__callbacks: MutableMapping[
             Callable, Callable
@@ -80,6 +83,7 @@ class EventAggregator:
 
             def func(*args, **kwargs):
                 self.__eventStack.append((callback, args, kwargs))
+                self.eventAdded.emit()
 
             internalCallback = func
             self.__callbacks[callback] = internalCallback

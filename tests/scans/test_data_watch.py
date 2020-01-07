@@ -14,94 +14,12 @@ from bliss.scanning.toolbox import ChainBuilder
 from bliss.scanning.acquisition.timer import SoftwareTimerMaster
 from bliss.scanning.acquisition.motor import SoftwarePositionTriggerMaster
 from bliss.scanning.acquisition.counter import SamplingCounterAcquisitionSlave
-from bliss.scanning.scan import Scan, ScanSaving
+from bliss.scanning.scan import Scan
 from bliss.data.scan import watch_session_scans
 from bliss.scanning.chain import AcquisitionChain
 from bliss.shell.standard import info
 from bliss.common import scans
 from bliss.scanning.group import Sequence
-
-
-@pytest.fixture
-def scan_saving():
-    ss = ScanSaving("test")
-    prev_template = ss.template
-    yield ss
-    ss.template = prev_template
-
-
-def test_scan_saving(session, scan_saving):
-    scan_saving.base_path = "/tmp"
-    scan_saving.template = "{session}/toto"
-    parent_node = scan_saving.get_parent_node()
-    assert parent_node.name == "toto"
-    assert parent_node.parent is not None
-    assert parent_node.parent.parent.name == scan_saving.session
-    assert parent_node.parent.parent.db_name == scan_saving.session
-    assert parent_node.db_name == "%s:%s" % (parent_node.parent.db_name, "toto")
-
-    scan_saving.template = "toto"
-    parent_node = scan_saving.get_parent_node()
-    assert parent_node.name == "toto"
-    assert parent_node.parent is not None
-    assert parent_node.parent.parent.name == scan_saving.session
-    assert parent_node.parent.parent.db_name == scan_saving.session
-    assert parent_node.db_name == "%s:tmp:%s" % (scan_saving.session, "toto")
-
-    scan_saving_repr = """\
-Parameters (default) - 
-
-  .base_path            = '/tmp'
-  .data_filename        = 'data'
-  .user_name            = '{user_name}'
-  .template             = 'toto'
-  .images_path_relative = True
-  .images_path_template = 'scan{{scan_number}}'
-  .images_prefix        = '{{img_acq_device}}_'
-  .date_format          = '%Y%m%d'
-  .scan_number_format   = '%04d'
-  .session              = '{session}'
-  .date                 = '{date}'
-  .scan_name            = 'scan name'
-  .scan_number          = 'scan number'
-  .img_acq_device       = '<images_* only> acquisition device name'
-  .writer               = 'hdf5'
-  .creation_date        = '{creation_date}'
-  .last_accessed        = '{last_accessed}'
---------------  ---------  -----------------
-does not exist  filename   /tmp/toto/data.h5
-does not exist  root_path  /tmp/toto
---------------  ---------  -----------------""".format(
-        creation_date=scan_saving.creation_date,
-        date=scan_saving.date,
-        last_accessed=scan_saving.last_accessed,
-        session=scan_saving.session,
-        user_name=scan_saving.user_name,
-    )
-
-    assert info(scan_saving) == scan_saving_repr
-
-    scan_saving.template = "toto/{session}"
-    parent_node = scan_saving.get_parent_node()
-    assert parent_node.name == scan_saving.session
-    assert parent_node.parent is not None
-    assert parent_node.parent.name == "toto"
-    assert parent_node.parent.db_name == scan_saving.session + ":tmp:toto"
-    assert parent_node.db_name == "%s:%s" % (
-        parent_node.parent.db_name,
-        scan_saving.session,
-    )
-
-    no_saving_info_tail = """\
-  .last_accessed        = '{last_accessed}'
----------
-NO SAVING
----------""".format(
-        last_accessed=scan_saving.last_accessed
-    )
-
-    scan_saving.writer = "null"  # set no saving
-    assert info(scan_saving).endswith(no_saving_info_tail)
 
 
 def test_simple_continuous_scan_with_session_watcher(session, scan_saving):

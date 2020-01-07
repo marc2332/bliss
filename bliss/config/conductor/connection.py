@@ -31,18 +31,23 @@ class _ConnectionPool(redis.ConnectionPool):
     def get_connection(self, command_name, *keys, **options):
         with self._lock:
             connection = super().get_connection(command_name, *keys, **options)
+
         if command_name == "pubsub":
-            weakref.finalize(gevent.getcurrent(), self.clean_pubsub, connection)
+            finalize = weakref.finalize(
+                gevent.getcurrent(), self.clean_pubsub, connection
+            )
+        else:
+            finalize = weakref.finalize(gevent.getcurrent(), self.release, connection)
+        connection.__finalize__ = finalize
         return connection
 
     def make_connection(self):
         with self._lock:
-            connection = super().make_connection()
-            weakref.finalize(gevent.getcurrent(), self.release, connection)
-
-        return connection
+            return super().make_connection()
 
     def release(self, connection):
+        if hasattr(connection, "__finalize__"):
+            connection.__finalize__.detach()
         # As we register callback when greenlet disappear,
         # Connection might been removed before the greenlet
         try:
@@ -50,10 +55,10 @@ class _ConnectionPool(redis.ConnectionPool):
         except KeyError:
             pass
 
-    @staticmethod
-    def clean_pubsub(connection):
+    def clean_pubsub(self, connection):
         connection.disconnect()
         connection.clear_connect_callbacks()
+        self.release(connection)
 
 
 def ip4_broadcast_addresses(default_route_only=False):

@@ -221,10 +221,11 @@ class DataNodeIterator(object):
             ready_event.set()
 
         if wait:
-            # yield from self.wait_for_event(pubsub)
-            for event_type, value in self.wait_for_event(pubsub, filter):
-                if event_type is self.EVENTS.NEW_NODE:
-                    yield value
+            yield from (
+                value
+                for event_type, value in self.wait_for_event(pubsub, filter)
+                if event_type is self.EVENTS.NEW_NODE
+            )
 
     def __internal_walk(
         self, db_name, data_nodes, data_node_2_children, filter, pipeline
@@ -240,10 +241,9 @@ class DataNodeIterator(object):
             if child_name == db_name:
                 continue
             # walk to the tree leaf
-            for n in self.__internal_walk(
+            yield from self.__internal_walk(
                 child_name, data_nodes, data_node_2_children, filter, pipeline
-            ):
-                yield n
+            )
 
     def _get_grandchildren(self, db_name):
         # grouped all redis request here and cache them
@@ -293,9 +293,11 @@ class DataNodeIterator(object):
             ready_event.set()
 
         if wait:
-            for event_type, node in self.wait_for_event(pubsub, filter=filter):
-                if event_type is self.EVENTS.NEW_NODE:
-                    yield node
+            yield from (
+                node
+                for event_type, node in self.wait_for_event(pubsub, filter=filter)
+                if event_type is self.EVENTS.NEW_NODE
+            )
 
     def jumpahead(self):
         """Move the iterator to the last available node so that only new nodes will be concerned"""
@@ -312,8 +314,7 @@ class DataNodeIterator(object):
 
         self.jumpahead()
 
-        for event_type, event_data in self.wait_for_event(pubsub, filter=filter):
-            yield event_type, event_data
+        yield from self.wait_for_event(pubsub, filter=filter)
 
     def walk_events(self, filter=None, ready_event=None):
         """Walk through child nodes, just like `walk` function, yielding node events
@@ -329,12 +330,11 @@ class DataNodeIterator(object):
         if ready_event is not None:
             ready_event.set()
 
-        for event_type, event_data in self.wait_for_event(pubsub, filter=filter):
-            yield event_type, event_data
+        yield from self.wait_for_event(pubsub, filter=filter)
 
     def children_event_register(self):
         redis = self.node.db_connection
-        pubsub = redis.pubsub()
+        pubsub = redis.pubsub(ignore_subscribe_messages=True)
         pubsub.psubscribe("__keyspace@1__:%s*_children_list" % self.node.db_name)
         pubsub.psubscribe("__keyspace@1__:%s*_data" % self.node.db_name)
         pubsub.psubscribe("__scans_events__:%s:*" % self.node.db_name)

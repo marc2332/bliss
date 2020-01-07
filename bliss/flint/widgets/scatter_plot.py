@@ -247,7 +247,7 @@ class ScatterPlotWidget(ExtendedDockWidget):
         result = None
         if x is not None:
             for result in plot.pickItems(
-                x, y, lambda item: isinstance(item, _ScatterPlotItemMixIn)
+                x, y, lambda item: isinstance(item, _MainScatter)
             ):
                 # Break at the first result
                 break

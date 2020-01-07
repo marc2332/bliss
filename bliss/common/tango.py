@@ -4,7 +4,14 @@ from bliss.common.proxy import Proxy
 from enum import IntEnum
 import functools
 
-__all__ = ["AttrQuality", "EventType", "DevState", "AttributeProxy", "DeviceProxy"]
+__all__ = [
+    "AttrQuality",
+    "EventType",
+    "DevState",
+    "AttributeProxy",
+    "DeviceProxy",
+    "ApiUtil",
+]
 
 
 class AttrQuality(IntEnum):
@@ -68,8 +75,25 @@ def Database(*args, **kwargs):
     )
 
 
+class _ApiUtil:
+    def __getattribute__(self, attr):
+        raise RuntimeError(
+            "Tango is not imported. Hint: is tango Python module installed ?"
+        )
+
+
+ApiUtil = _ApiUtil()
+
 try:
-    from tango import AttrQuality, EventType, DevState, DevFailed, Database, DevSource
+    from tango import (
+        AttrQuality,
+        EventType,
+        DevState,
+        DevFailed,
+        Database,
+        DevSource,
+        ApiUtil,
+    )
     from tango.gevent import (
         DeviceProxy as _DeviceProxy,
         AttributeProxy as _AttributeProxy,
@@ -84,6 +108,7 @@ except ImportError:
             DevFailed,
             Database,
             DevSource,
+            ApiUtil,
         )
         from PyTango.gevent import (
             DeviceProxy as _DeviceProxy,

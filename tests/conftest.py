@@ -15,7 +15,6 @@ import gevent
 import subprocess
 import signal
 import logging
-
 import pytest
 import redis
 
@@ -29,7 +28,7 @@ from bliss.controllers.lima.roi import Roi
 from bliss.controllers.wago.wago import ModulesConfig
 from bliss.controllers import simulation_diode
 from bliss.common import plot
-from bliss.common.tango import DeviceProxy, DevFailed
+from bliss.common.tango import DeviceProxy, DevFailed, ApiUtil
 from bliss import logging_startup
 
 from random import randint
@@ -130,6 +129,16 @@ def clean_globals():
     # reset module-level globals
     simulation_diode.DEFAULT_CONTROLLER = None
     simulation_diode.DEFAULT_INTEGRATING_CONTROLLER = None
+
+
+@pytest.fixture
+def clean_tango():
+    # close file descriptors left open by Tango (see tango-controls/pytango/issues/324)
+    try:
+        ApiUtil.cleanup()
+    except RuntimeError:
+        # no Tango ?
+        pass
 
 
 @pytest.fixture(scope="session")

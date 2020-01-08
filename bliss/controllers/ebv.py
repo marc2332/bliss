@@ -68,6 +68,15 @@ class EBVCounter(SamplingCounter):
 
 
 class EBV:
+    _WAGO_KEYS = [
+        "status",
+        "screen",
+        "led",
+        "gain",
+        "current",
+        "foil_status",
+        "foil_cmd",
+    ]
     _PULSE_INDEX = {"led_on": 0, "led_off": 1, "screen_in": 1, "screen_out": 0}
     _DIODE_RANGES = [
         EBVDiodeRange([True, False, True, False], "1mA", 1),
@@ -109,9 +118,20 @@ class EBV:
 
         # --- wago interface
         self.__comm_lock = gevent.lock.RLock()
-        mapping = build_wago_mapping(self._single_model, self._channel, self._has_foil)
-        comm = get_wago_comm(config_node)
-        self._wago = WagoController(comm, mapping)
+        wctrl = config_node.get("wago_controller", None)
+        if wctrl is None:
+            mapping = build_wago_mapping(
+                self._single_model, self._channel, self._has_foil
+            )
+            comm = get_wago_comm(config_node)
+            self._wago = WagoController(comm, mapping)
+            self._wkeys = dict(tuple([(name, name) for name in self._WAGO_KEYS]))
+        else:
+            self._wago = wctrl.controller
+            wprefix = config_node.get("wago_prefix", "")
+            self._wkeys = dict(
+                tuple([(name, f"{wprefix}{name}") for name in self._WAGO_KEYS])
+            )
 
         self.initialize()
 
@@ -155,6 +175,30 @@ class EBV:
     def __foil_status_changed(self, state):
         event.send(self, "foil_status", state)
 
+    @property
+    def wago(self):
+        return self._wago
+
+    def wago_get(self, name):
+        self.__wago_check_key(name)
+        return self.__wago_get(name)
+
+    def __wago_get(self, name):
+        return self._wago.get(self._wkeys[name])
+
+    def wago_set(self, name, value):
+        self.__wago_check_key(name)
+        self.__wago_set(name, value)
+
+    def __wago_set(self, name, value):
+        self._wago.set(self._wkeys[name], value)
+
+    def __wago_check_key(self, name):
+        if name not in self._WAGO_KEYS:
+            raise ValueError(
+                "Invalid key name. Should be one of {0}".format(self._WAGO_KEYS)
+            )
+
     def __update(self):
         self.__update_state()
         self.__update_foil_state()
@@ -162,7 +206,7 @@ class EBV:
 
     def __update_state(self):
         with self.__comm_lock:
-            status = self._wago.get("status")
+            status = self.__wago_get("status")
         # --- screen status
         if status[0] and not status[1]:
             screen = "IN"
@@ -182,7 +226,7 @@ class EBV:
             self._foil_status.value = "NONE"
         else:
             with self.__comm_lock:
-                status = self._wago.get("foil_status")
+                status = self.__wago_get("foil_status")
             if status[0] and not status[1]:
                 self._foil_status.value = "IN"
             elif not status[0] and status[1]:
@@ -192,7 +236,7 @@ class EBV:
 
     def __update_diode_range(self):
         with self.__comm_lock:
-            gain_value = self._wago.get("gain")
+            gain_value = self.__wago_get("gain")
         for gain in self._DIODE_RANGES:
             if gain_value == gain.wago_value:
                 self._diode_range.value = gain.name
@@ -202,24 +246,28 @@ class EBV:
         index = self._PULSE_INDEX[value]
         with self.__comm_lock:
             set_value = [0, 0]
-            self._wago.set(name, set_value)
+            self.__wago_set(name, set_value)
             gevent.sleep(0.01)
             set_value[index] = 1
-            self._wago.set(name, set_value)
+            self.__wago_set(name, set_value)
             set_value[index] = 0
             gevent.sleep(0.01)
-            self._wago.set(name, set_value)
+            self.__wago_set(name, set_value)
 
     def __info__(self):
         self.__update()
-        info_str = f"EBV [{self.name}] (wago: {self._wago.client.host})\n"
+        try:
+            wname = f"Wago({self._wago.client.host})"
+        except Exception:
+            wname = self._wago.comm
+        info_str = f"EBV [{self.name}] {wname}\n"
         try:
             info_str += f"    screen : {self._screen_status.value}\n"
             info_str += f"    led    : {self._led_status.value}\n"
             info_str += f"    foil   : {self._foil_status.value}\n"
             info_str += f"    diode range   : {self._diode_range.value}\n"
             info_str += f"    diode current : {self.current:.6g} mA\n"
-        except:
+        except Exception:
             info_str += "!!! Failed to read EBV status !!!"
         return info_str
 
@@ -252,7 +300,7 @@ class EBV:
         for gain in self._DIODE_RANGES:
             if gain.name == value:
                 with self.__comm_lock:
-                    self._wago.set("gain", gain.wago_value)
+                    self.__wago_set("gain", gain.wago_value)
                 self.__update_diode_range()
                 return
         raise ValueError(f"Invalid diode range [{value}]")
@@ -266,7 +314,7 @@ class EBV:
     def diode_gain(self, value):
         try:
             askval = float(value)
-        except:
+        except Exception:
             raise ValueError(f"Invalid diode gain [{value}]")
         set_gain = None
         all_gain = list(self._DIODE_RANGES)
@@ -276,7 +324,7 @@ class EBV:
                 set_gain = gain
         if set_gain is not None:
             with self.__comm_lock:
-                self._wago.set("gain", set_gain.wago_value)
+                self.__wago_set("gain", set_gain.wago_value)
             self.__update_diode_range()
         else:
             raise ValueError(f"Cannot adjust gain for [{value}]")
@@ -284,7 +332,7 @@ class EBV:
     @property
     def raw_current(self):
         with self.__comm_lock:
-            value = self._wago.get("current")
+            value = self.__wago_get("current")
         return float(value)
 
     @property
@@ -319,5 +367,5 @@ class EBV:
 
     def __set_foil(self, flag):
         with self.__comm_lock:
-            self._wago.set("foil_cmd", flag)
+            self.__wago_set("foil_cmd", flag)
         self.__update_foil_state()

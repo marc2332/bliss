@@ -3,9 +3,12 @@
 from __future__ import absolute_import
 
 import os
+import inspect
 from functools import reduce
 
 import numpy
+import gevent
+from bliss.common import event
 
 from .error import check_error, HandelError
 from ._cffi import handel, ffi
@@ -693,6 +696,90 @@ def apply_acquisition_values(channel=None):
     dummy = ffi.new("int *")
     code = handel.xiaBoardOperation(channel, b"apply", dummy)
     check_error(code)
+
+
+def trigger():
+    module = inspect.getmodule(trigger)
+    try:
+        stop_run()
+        start_run()
+        while is_running():
+            gevent.idle()
+        stop_run()
+        spectrums = get_spectrums()
+        statistics = get_statistics()
+        event.send(module, "data", (spectrums, statistics))
+    except Exception as e:
+        event.send(module, "data", e)
+
+
+HARDWARE_READING_TASK = None
+
+
+def start_hardware_reading():
+    global HARDWARE_READING_TASK
+    if HARDWARE_READING_TASK:
+        raise RuntimeError("Reading task is not finnished")
+    nbpoints = get_acquisition_value("num_map_pixels")
+    HARDWARE_READING_TASK = gevent.spawn(_hardware_poll_points, nbpoints)
+
+
+def wait_hardware_reading():
+    global HARDWARE_READING_TASK
+    if HARDWARE_READING_TASK:
+        try:
+            return HARDWARE_READING_TASK.get()
+        finally:
+            HARDWARE_READING_TASK = None
+
+
+def _hardware_poll_points(npoints):
+    module = inspect.getmodule(_hardware_poll_points)
+    queue = gevent.queue.Queue()
+    try:
+        raw_read_task = gevent.spawn(_raw_read, npoints, queue)
+        for args in queue:
+            event.send(module, "data", args)
+    finally:
+        event.send(module, "data", StopIteration)
+        if raw_read_task.ready():
+            raw_read_task.get()  # in case of exception
+        else:
+            raw_read_task.kill()
+
+
+def _raw_read(acquisition_number, queue):
+    try:
+
+        def poll_data(sent):
+            current, data, statistics = synchronized_poll_data()
+            points = list(range(sent, sent + len(data)))
+            # Check data integrity
+            if sorted(data) != sorted(statistics) != points:
+                raise RuntimeError("The polled data overlapped during the acquisition")
+            sent += len(data)
+            # Send the data
+            for n in points:
+                queue.put((data[n], statistics[n]))
+            # Finished
+            if sent == current == acquisition_number:
+                raise StopIteration
+            # Sleep
+            gevent.sleep(0)
+            return sent
+
+        sent = 0
+        while is_running():
+            sent = poll_data(sent)
+        # get last points
+        poll_data(sent)
+    except StopIteration:
+        pass
+    except Exception as e:
+        queue.put(e)
+        raise
+    finally:
+        queue.put(StopIteration)
 
 
 # Not exposed

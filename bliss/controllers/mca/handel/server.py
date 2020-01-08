@@ -23,7 +23,7 @@ def run(bind="0.0.0.0", port=8000):
     access = "tcp://{}:{}".format(bind, port)
     try:
         hi.init_handel()
-        server = rpc.Server(hi)
+        server = rpc.Server(hi, stream=True)
         server.bind(access)
         print("Serving handel on {} ...".format(access))
         try:

@@ -12,33 +12,9 @@ from collections import defaultdict
 import time
 import gevent.event
 
-
+from bliss.common import event
 from bliss.scanning.chain import AcquisitionSlave
 from bliss.controllers.mca import TriggerMode, PresetMode
-
-
-class StateMachine(object):
-    def __init__(self, state):
-        self._state = state
-        self._state_dict = defaultdict(gevent.event.Event)
-        self._state_dict[state].set()
-
-    @property
-    def state(self):
-        return self._state
-
-    def wait(self, state):
-        self._state_dict[state].wait()
-
-    def goto(self, state):
-        self._state_dict[self._state].clear()
-        self._state = state
-        self._state_dict[state].set()
-
-    def move(self, source, destination):
-        self.wait(source)
-        self.goto(destination)
-
 
 # MCA Acquisition Slave
 
@@ -95,7 +71,6 @@ class McaAcquisitionSlave(AcquisitionSlave):
 
         # Internals
         self.acquisition_gen = None
-        self.acquisition_state = StateMachine(self.READY)
 
         # Default value
         if spectrum_size is None:
@@ -107,6 +82,8 @@ class McaAcquisitionSlave(AcquisitionSlave):
         self.trigger_mode = trigger_mode
         self.polling_time = polling_time
         self.spectrum_size = spectrum_size
+        # Reading Queue
+        self._pending_datas = gevent.queue.Queue()
 
         # Add counters
 
@@ -148,126 +125,51 @@ class McaAcquisitionSlave(AcquisitionSlave):
             self.device.hardware_points = self.npoints
             self.device.block_size = self.block_size
 
+        self._pending_datas = gevent.queue.Queue()
+        event.connect(self.device, "data", self._data_rx)
+
     def start(self):
         """Start the acquisition."""
         if self.soft_trigger_mode:
             return
         self.device.start_acquisition()
+        if not self.soft_trigger_mode:
+            self.device.start_hardware_reading()
 
     def stop(self):
         """Stop the acquistion."""
-        if self.soft_trigger_mode:
-            self._reading_task.kill()
-        else:
-            self.device.stop_acquisition()
-        self.acquisition_state.goto(self.READY)
+        self.device.stop_acquisition()
+        event.disconnect(self.device, "data", self._data_rx)
+        self._pending_datas.put(StopIteration)
+        if not self.soft_trigger_mode:
+            self.device.wait_hardware_reading()
 
     def trigger(self):
         """Send a software trigger."""
-        self.acquisition_state.move(self.READY, self.TRIGGERED)
-
-    def trigger_ready(self):
-        if self.soft_trigger_mode:
-            return self.acquisition_state.state == self.READY
-        return True
-
-    def wait_ready(self):
-        """Block until finished."""
-        if self.soft_trigger_mode:
-            self.acquisition_state.wait(self.READY)
+        self.device.trigger()
 
     def reading(self):
         """Spawn by the chain."""
-        # Buffer for the data to publish
-        try:
-            publishing_dict = defaultdict(list)
+        for nb, values in enumerate(self._pending_datas):
+            if isinstance(values, Exception):
+                raise values
 
-            # Spawn the real reading task
-            task = gevent.spawn(
-                self._soft_reading if self.soft_trigger_mode else self._hard_reading,
-                publishing_dict,
-            )
+            spectrums, stats = values
+            # Publish
+            self._publish(spectrums, stats)
+            if self.npoints == nb + 1:
+                break
 
-            # Periodically publish
-            while True:
-
-                # Use task.get as a conditional sleep
-                try:
-                    task.get(timeout=self.polling_time)
-
-                # Tick
-                except gevent.Timeout:
-                    pass
-
-                # The reading task has terminated
-                else:
-                    break
-
-                # Publish all items from publishing_dict
-                finally:
-                    # ensure no greenlet switch will alter publishing_dict,
-                    # we update channels with a copy and so we can clear
-                    # the dict just after to continue putting values in it
-                    # from data acquisition task
-                    publishing_dict_copy = publishing_dict.copy()
-                    publishing_dict.clear()
-                    self.channels.update(publishing_dict_copy)
-                    del publishing_dict_copy
-
-        # Make sure the reading task has completed
-        finally:
-            task.kill()
-
-    # Helpers
-
-    def _hard_reading(self, publishing_dict):
-        npoints = self.npoints + 1 if self.sync_trigger_mode else self.npoints
-
-        # Safe point generator
-        with closing(
-            self.device.hardware_poll_points(npoints, self.polling_time)
-        ) as generator:
-
-            # Discard first point in synchronized mode
-            if self.sync_trigger_mode:
-                next(generator)
-
-            # Acquire data
-            for spectrums, stats in generator:
-                self._publish(publishing_dict, spectrums, stats)
-
-    def _soft_reading(self, publishing_dict):
-
-        # Safe point generator
-        with closing(
-            self.device.software_controlled_run(self.npoints, self.polling_time)
-        ) as generator:
-
-            # Acquire data
-            indexes = (
-                itertools.count() if self.npoints == 0 else list(range(self.npoints))
-            )
-            for i in indexes:
-
-                # Software sync
-                self.acquisition_state.wait(self.TRIGGERED)
-
-                # Get data
-                spectrums, stats = next(generator)
-
-                # Publish
-                self._publish(publishing_dict, spectrums, stats)
-
-                # Software sync
-                self.acquisition_state.goto(self.READY)
-
-    def _publish(self, publishing_dict, spectrums, stats):
+    def _publish(self, spectrums, stats):
+        spectrums = self.device._convert_spectrums(spectrums)
+        stats = self.device._convert_statistics(stats)
         # Feed data to all counters
         for counter in self._counters:
             point = counter.feed_point(spectrums, stats)
+            self.channels.update({f"{self.name}:{counter.name}": point})
 
-            # Atomic - add point to publising dict
-            publishing_dict[counter.fullname].append(point)
+    def _data_rx(self, values, signal):
+        self._pending_datas.put(values)
 
 
 # HWSCA Acquisition Slave

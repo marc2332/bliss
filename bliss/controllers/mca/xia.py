@@ -9,6 +9,7 @@
 
 # Imports
 from bliss.common.logtools import log_error, log_debug
+from bliss.common import event
 from bliss.config.beacon_object import BeaconObject
 
 from bliss.comm import rpc
@@ -117,6 +118,7 @@ class BaseXIA(BaseMCA):
 
     def initialize_hardware(self):
         self._proxy = rpc.Client(self._url)
+        event.connect(self._proxy, "data", self._event)
         global_map.register(self._proxy, parents_list=[self], tag="comm")
         # try:
         print(f"Loading {self.name} config {self._current_config}")
@@ -124,8 +126,12 @@ class BaseXIA(BaseMCA):
         # except:
         #    print("Loading config failed !!")
 
+    def _event(self, value, signal):
+        return event.send(self, signal, value)
+
     def finalize(self):
         self._proxy.close()
+        event.disconnect(self._proxy, "data", self._event)
 
     def __info__(self):
         info_str = super().__info__()
@@ -301,6 +307,16 @@ class BaseXIA(BaseMCA):
         log_debug(self, "start_acquisition")
         self._proxy.stop_run()
         self._proxy.start_run()
+
+    def start_hardware_reading(self):
+        self._proxy.start_hardware_reading()
+
+    def wait_hardware_reading(self):
+        self._proxy.wait_hardware_reading()
+
+    def trigger(self):
+        log_debug(self, "trigger")
+        self._proxy.trigger()
 
     def stop_acquisition(self):
         log_debug(self, "stop_acquisition")

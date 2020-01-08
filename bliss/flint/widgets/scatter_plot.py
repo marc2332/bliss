@@ -873,21 +873,19 @@ class ScatterPlotWidget(ExtendedDockWidget):
             plotItems.append((key, "curve"))
 
         if pointBased:
-            symbolColormap = colormap if style.symbolColor is None else None
-            if pointBased and symbolColormap:
-                symbolStyle = style_model.symbol_to_silx(style.symbolStyle)
-                if symbolStyle == " ":
-                    symbolStyle = "o"
-                scatter = _MainScatter()
-                scatter.setData(x=xx, y=yy, value=value, copy=False)
-                scatter.setColormap(symbolColormap)
-                scatter.setSymbol(symbolStyle)
-                scatter.setSymbolSize(style.symbolSize)
-                scatter.setCustomItem(item)
-                key = legend + "_point"
-                scatter._setLegend(key)
-                plot._add(scatter)
-                plotItems.append((key, "scatter"))
+            symbolStyle = style_model.symbol_to_silx(style.symbolStyle)
+            if symbolStyle == " ":
+                symbolStyle = "o"
+            scatter = _MainScatter()
+            scatter.setData(x=xx, y=yy, value=value, copy=False)
+            scatter.setColormap(colormap)
+            scatter.setSymbol(symbolStyle)
+            scatter.setSymbolSize(style.symbolSize)
+            scatter.setCustomItem(item)
+            key = legend + "_point"
+            scatter._setLegend(key)
+            plot._add(scatter)
+            plotItems.append((key, "scatter"))
         elif style.symbolStyle is not style_model.SymbolStyle.NO_SYMBOL:
             symbolStyle = style_model.symbol_to_silx(style.symbolStyle)
             curve = _MainCurve()

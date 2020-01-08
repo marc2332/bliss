@@ -886,7 +886,10 @@ class ScatterPlotWidget(ExtendedDockWidget):
             scatter._setLegend(key)
             plot._add(scatter)
             plotItems.append((key, "scatter"))
-        elif style.symbolStyle is not style_model.SymbolStyle.NO_SYMBOL:
+        elif (
+            style.symbolStyle is not style_model.SymbolStyle.NO_SYMBOL
+            and style.symbolColor is not None
+        ):
             symbolStyle = style_model.symbol_to_silx(style.symbolStyle)
             curve = _MainCurve()
             curve.setData(x=xx, y=yy, copy=False)

@@ -58,3 +58,33 @@ def index():
 @web_app.route("/<dir>/<path:filename>")
 def static_file(dir, filename):
     return flask.send_from_directory(os.path.join(__this_path, dir), filename)
+
+
+#
+# Redirections to other applications
+# (so that we don't need to remember all ports)
+#
+@web_app.route("/config/")
+def config():
+    host = flask.request.host.split(":")[0]
+    return flask.redirect(f"http://{host}:{web_app.config_port}")
+
+
+@web_app.route("/multivisor/")
+@web_app.route("/status/")
+def multivisor():
+    host = flask.request.host.split(":")[0]
+    return flask.redirect(f"http://{host}:22000")
+
+
+@web_app.route("/supervisor/")
+def supervisor():
+    host = flask.request.host.split(":")[0]
+    return flask.redirect(f"http://{host}:9001")
+
+
+@web_app.route("/log/")
+@web_app.route("/logs/")
+def log_viewer():
+    host = flask.request.host.split(":")[0]
+    return flask.redirect(f"http://{host}:{web_app.log_port}")

@@ -917,6 +917,8 @@ def main(args=None):
     if _options.homepage_port > 0:
         from .web.home_app.homepage_app import web_app as homepage_app
 
+        homepage_app.config_port = _options.webapp_port
+        homepage_app.log_port = _options.log_viewer_port
         start_webserver(homepage_app, _options.homepage_port, beacon_port)
 
     # Logger server application

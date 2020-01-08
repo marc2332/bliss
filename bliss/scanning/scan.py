@@ -405,25 +405,28 @@ class ScanSaving(ParametersWardrobe):
         return info_str
 
     def get_data_info(self):
-
         data_config = self.get()
         info_table = list()
-        #        import pprint
-        #       pprint.pprint(data_config['writer'].data_filename)
-        #        pprint.pprint(data_config['writer'].file)
-        #        pprint.pprint()
         if isinstance(data_config["writer"], NullWriter):
             info_table.append(("NO SAVING",))
         else:
-            data_file = data_config["writer"].filename
-            #        data_file = data_config["data_path"]
+            writer = self.get()["writer"]
+            writer.template.update(
+                {
+                    "scan_name": "{scan_name}",
+                    "session": self.session,
+                    "scan_number": "{scan_number}",
+                }
+            )
+            data_file = writer.filename
+            data_dir = os.path.dirname(data_file)
+
             if os.path.exists(data_file):
                 exists = "exists"
             else:
                 exists = "does not exist"
             info_table.append((exists, "filename", data_file))
 
-            data_dir = data_config["root_path"]
             if os.path.exists(data_dir):
                 exists = "exists"
             else:
@@ -924,6 +927,9 @@ class Scan:
             self.writer.template["scan_number"] = self.scan_number
             self._scan_info["scan_nb"] = self.__scan_number
 
+            # this has to be done when the writer is ready
+            self._prepare_scan_meta()
+
             start_timestamp = time.time()
             start_time = datetime.datetime.fromtimestamp(start_timestamp)
             self._scan_info["start_time"] = start_time
@@ -1224,8 +1230,6 @@ class Scan:
             raise RuntimeError(
                 "Scan state is not idle. Scan objects can only be used once."
             )
-
-        self._prepare_scan_meta()
 
         call_on_prepare, call_on_stop = False, False
         set_watch_event = None

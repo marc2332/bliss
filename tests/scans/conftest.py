@@ -18,6 +18,15 @@ from bliss.scanning.channel import AcquisitionChannel
 from bliss.scanning.chain import AcquisitionMaster, AcquisitionSlave
 from bliss.scanning.acquisition.counter import SamplingCounterAcquisitionSlave
 from bliss.scanning import scan_meta as scan_meta_module
+from bliss.scanning.scan import ScanSaving
+
+
+@pytest.fixture
+def scan_saving():
+    ss = ScanSaving("test")
+    prev_template = ss.template
+    yield ss
+    ss.template = prev_template
 
 
 class DummyMaster(AcquisitionMaster):

@@ -232,7 +232,8 @@ class ScatterPlotWidget(ExtendedDockWidget):
 
     def __onMouseMove(self, event: plot_helper.MouseMovedEvent):
         mouseButton = qt.QApplication.mouseButtons()
-        if mouseButton == qt.Qt.NoButton:
+        mode = self.__plot.getInteractiveMode()
+        if mouseButton == qt.Qt.NoButton and mode["mode"] in ["zoom", "pan"]:
             self.__updateTooltip(event.xPixel, event.yPixel)
         else:
             # Avoid to display the tooltip if the user is doing stuffs

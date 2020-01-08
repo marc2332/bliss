@@ -46,7 +46,7 @@ typing_extensions
 
 # Flint
 qt
-silx == 0.11.0
+silx == 0.12.0
 pyopengl
 scipy
 sortedcontainers

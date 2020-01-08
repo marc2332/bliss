@@ -191,7 +191,6 @@ class ScatterPlotWidget(ExtendedDockWidget):
 
         self.__bounding = BoundingRect()
         self.__bounding._setLegend("bound")
-        _logger.warning("Add initial bound")
 
         self.__lastValue = Scatter()
         self.__lastValue.setSymbol(",")
@@ -568,7 +567,6 @@ class ScatterPlotWidget(ExtendedDockWidget):
             else:
                 bound = (xRange[0], xRange[1], yRange[0], yRange[1])
 
-        _logger.warning("Update bound %s", bound)
         self.__bounding.setBounds(bound)
 
         if bound is not None:
@@ -633,7 +631,6 @@ class ScatterPlotWidget(ExtendedDockWidget):
     def __clear(self):
         self.__items = {}
         self.__plot.clear()
-        _logger.warning("Add bound after clear")
         self.__rect.setVisible(False)
         self.__lastValue.setVisible(False)
         for o in self.__permanentItems:

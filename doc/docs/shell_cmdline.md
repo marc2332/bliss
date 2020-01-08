@@ -21,14 +21,15 @@ Usage: bliss [-l | --log-level=<log_level>] [-s <name> | --session=<name>]
 
 Options:
   -l, --log-level=<log_level>   Log level [default: WARN]
-                                {CRITICAL; ERROR; INFO; DEBUG; NOTSET}
+                                (CRITICAL ERROR INFO DEBUG NOTSET)
   -s, --session=<session_name>  Start with the specified session
   -v, --version                 Show version and exit
   -c, --create=<session_name>   Create a new session with the given name
   -d, --delete=<session_name>   Delete the given session
   -h, --help                    Show help screen and exit
   --no-tmux                     Deactivate Tmux usage
-  --debug                       Allow debugging: keep tmux alive after shell exit
+  --debug                       Allow debugging with full exceptions and keeping
+                                tmux alive after Bliss shell exits
   --show-sessions               Display sessions and tree of sub-sessions
   --show-sessions-only          Display sessions names only
 ```

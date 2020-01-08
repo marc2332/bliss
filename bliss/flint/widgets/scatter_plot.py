@@ -905,6 +905,9 @@ class ScatterPlotWidget(ExtendedDockWidget):
             plotItems.append((key, "curve"))
 
         if scatter is not None:
+            # Profile is not selectable,
+            # so it does not interfere with profile interaction
+            scatter._setSelectable(False)
             self.__plot._setActiveItem("scatter", scatter.getLegend())
         elif curve is not None:
             self.__plot._setActiveItem("curve", curve.getLegend())

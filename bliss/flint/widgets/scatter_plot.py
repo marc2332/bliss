@@ -364,14 +364,7 @@ class ScatterPlotWidget(ExtendedDockWidget):
         action.setIcon(icon)
         action.setEnabled(False)
         toolBar.addAction(action)
-        # FIXME implement that
-        action = qt.QAction(self)
-        action.setText("Profile")
-        action.setToolTip("Manage the profiles to this scatter (not yet implemented)")
-        icon = icons.getQIcon("flint:icons/profile")
-        action.setIcon(icon)
-        action.setEnabled(False)
-        toolBar.addAction(action)
+        toolBar.addAction(plot_helper.CustomScatterProfileAction(self.__plot, self))
 
         action = control.ColorBarAction(self.__plot, self)
         icon = icons.getQIcon("flint:icons/colorbar")

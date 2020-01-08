@@ -16,6 +16,7 @@ from silx.gui.plot import PlotWindow
 from silx.gui.plot.actions import PlotAction
 from silx.gui.plot.actions import control
 from silx.gui.plot.actions import io
+from silx.gui.plot.tools.profile import ScatterProfileToolBar
 
 
 class ViewChangedEvent(NamedTuple):
@@ -81,6 +82,29 @@ class CustomAxisAction(qt.QWidgetAction):
         toolButton = qt.QToolButton(parent)
         toolButton.setText("Custom axis")
         toolButton.setToolTip("Custom the plot axis")
+        toolButton.setIcon(icon)
+        toolButton.setMenu(menu)
+        toolButton.setPopupMode(qt.QToolButton.InstantPopup)
+        self.setDefaultWidget(toolButton)
+
+
+class CustomScatterProfileAction(qt.QWidgetAction):
+    def __init__(self, plot, parent):
+        super(CustomScatterProfileAction, self).__init__(parent)
+
+        self.__toolbar = ScatterProfileToolBar(parent=parent, plot=plot)
+        self.__toolbar.setVisible(False)
+
+        menu = qt.QMenu(parent)
+        for action in self.__toolbar.actions():
+            menu.addAction(action)
+
+        icon = icons.getQIcon("flint:icons/profile")
+        toolButton = qt.QToolButton(parent)
+        toolButton.setText("Profile tools")
+        toolButton.setToolTip(
+            "Manage the profiles to this scatter (not yet implemented)"
+        )
         toolButton.setIcon(icon)
         toolButton.setMenu(menu)
         toolButton.setPopupMode(qt.QToolButton.InstantPopup)

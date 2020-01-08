@@ -283,11 +283,16 @@ class ScatterPlotWidget(ExtendedDockWidget):
             colors = colormap.applyToData(numpy.array([value, vmin, vmax]))
             cssColor = f"#{colors[0,0]:02X}{colors[0,1]:02X}{colors[0,2]:02X}"
 
+            if self.__flintModel is not None and self.__flintModel.getDate() == "0108":
+                char = "\u2665"
+            else:
+                char = "■"
+
             text = f"""<html><ul>
             <li><b>Index:</b> {index}</li>
             <li><b>{xName}:</b> {x}</li>
             <li><b>{yName}:</b> {y}</li>
-            <li><b>{vName}:</b> <font color="{cssColor}">■</font> {value}</li>
+            <li><b>{vName}:</b> <font color="{cssColor}">{char}</font> {value}</li>
             </ul></html>"""
             self.__updateToolTipMarker(x, y)
             cursorPos = qt.QCursor.pos() + qt.QPoint(10, 10)
@@ -634,6 +639,10 @@ class ScatterPlotWidget(ExtendedDockWidget):
 
     def __scanStarted(self):
         self.__refreshRate.reset()
+        if self.__flintModel is not None and self.__flintModel.getDate() == "0108":
+            self.__lastValue.setSymbol("\u2665")
+        else:
+            self.__lastValue.setSymbol(",")
         self.__view.scanStarted()
         self.__syncAxis.trigger()
         self.__updateTitle(self.__scan)

@@ -9,6 +9,7 @@
 from __future__ import annotations
 from typing import List
 
+import datetime
 from silx.gui import qt
 
 from . import scan_model
@@ -219,3 +220,7 @@ class FlintState(qt.QObject):
         settings.beginGroup("default-scatter-style")
         qsettingsutils.setNamedTuple(settings, defaultStyle)
         settings.endGroup()
+
+    def getDate(self):
+        now = datetime.datetime.now()
+        return now.strftime("%m%d")

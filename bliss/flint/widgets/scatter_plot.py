@@ -283,7 +283,7 @@ class ScatterPlotWidget(ExtendedDockWidget):
             colors = colormap.applyToData(numpy.array([value, vmin, vmax]))
             cssColor = f"#{colors[0,0]:02X}{colors[0,1]:02X}{colors[0,2]:02X}"
 
-            if self.__flintModel is not None and self.__flintModel.getDate() == "0108":
+            if self.__flintModel is not None and self.__flintModel.getDate() == "0214":
                 char = "\u2665"
             else:
                 char = "■"
@@ -639,7 +639,7 @@ class ScatterPlotWidget(ExtendedDockWidget):
 
     def __scanStarted(self):
         self.__refreshRate.reset()
-        if self.__flintModel is not None and self.__flintModel.getDate() == "0108":
+        if self.__flintModel is not None and self.__flintModel.getDate() == "0214":
             self.__lastValue.setSymbol("\u2665")
         else:
             self.__lastValue.setSymbol(",")

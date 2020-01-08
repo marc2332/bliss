@@ -205,6 +205,7 @@ class ScatterPlotWidget(ExtendedDockWidget):
         self.__rect.setColor("#E0E0E0")
         self.__rect.setZValue(0.1)
 
+        self.__scanProcessing = False
         self.__aggregator = signalutils.EventAggregator(self)
         self.__refreshRate = _RefreshRate()
 
@@ -226,7 +227,8 @@ class ScatterPlotWidget(ExtendedDockWidget):
         if self.__aggregator.empty():
             return
         _logger.debug("Update widget")
-        self.__refreshRate.update()
+        if self.__scanProcessing:
+            self.__refreshRate.update()
         self.__aggregator.flush()
 
     def __onMouseMove(self, event: plot_helper.MouseMovedEvent):
@@ -638,6 +640,7 @@ class ScatterPlotWidget(ExtendedDockWidget):
             self.__plot._add(o)
 
     def __scanStarted(self):
+        self.__scanProcessing = True
         self.__refreshRate.reset()
         if self.__flintModel is not None and self.__flintModel.getDate() == "0214":
             self.__lastValue.setSymbol("\u2665")
@@ -654,6 +657,7 @@ class ScatterPlotWidget(ExtendedDockWidget):
         self.__plot.setGraphTitle(title)
 
     def __scanFinished(self):
+        self.__scanProcessing = False
         self.__lastValue.setVisible(False)
 
     def __scanDataUpdated(self, event: scan_model.ScanDataUpdateEvent):

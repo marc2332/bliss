@@ -2,6 +2,7 @@ from itertools import zip_longest
 
 import pytest
 import random
+import numpy
 
 import yaml
 
@@ -92,6 +93,7 @@ def test_register_type_to_int():
     assert register_type_to_int(b"OW") == register_type_to_int("OW") == 20311
     assert register_type_to_int(b"OB") == register_type_to_int("OB") == 20290
     assert register_type_to_int(b"IB") == register_type_to_int("IB") == 18754
+    assert register_type_to_int(numpy.int16(18754))
 
 
 def test_splitlines():

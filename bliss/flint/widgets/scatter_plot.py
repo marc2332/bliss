@@ -643,6 +643,8 @@ class ScatterPlotWidget(ExtendedDockWidget):
             self.__lastValue.setSymbol("\u2665")
         else:
             self.__lastValue.setSymbol(",")
+        self.__lastValue.setData(x=[], y=[], value=[])
+        self.__lastValue.setVisible(True)
         self.__view.scanStarted()
         self.__syncAxis.trigger()
         self.__updateTitle(self.__scan)
@@ -652,7 +654,7 @@ class ScatterPlotWidget(ExtendedDockWidget):
         self.__plot.setGraphTitle(title)
 
     def __scanFinished(self):
-        pass
+        self.__lastValue.setVisible(False)
 
     def __scanDataUpdated(self, event: scan_model.ScanDataUpdateEvent):
         plotModel = self.__plotModel
@@ -858,9 +860,6 @@ class ScatterPlotWidget(ExtendedDockWidget):
             colormap2.setVRange(vmin, vmax)
             self.__lastValue.setData(x=xx[-1:], y=yy[-1:], value=value[-1:])
             self.__lastValue.setColormap(colormap2)
-            self.__lastValue.setVisible(True)
-        else:
-            self.__lastValue.setVisible(False)
 
         if style.lineStyle == style_model.LineStyle.SCATTER_SEQUENCE:
             key = plot.addCurve(

@@ -522,11 +522,11 @@ def interlock_to_yml(interlock_list):
             }
             if ch["low_limit"] is not None:
                 c_d["min"] = float(
-                    round(decimal.Decimal(to_signed(ch["low_limit"])) / 10, 2)
+                    round(decimal.Decimal(to_signed(int(ch["low_limit"]))) / 10, 2)
                 )
             if ch["high_limit"] is not None:
                 c_d["max"] = float(
-                    round(decimal.Decimal(to_signed(ch["high_limit"])) / 10, 2)
+                    round(decimal.Decimal(to_signed(int(ch["high_limit"]))) / 10, 2)
                 )
             for name in "dac_scale dac_offset".split():
                 if ch[name] is not None:

@@ -83,8 +83,10 @@ def pretty_float(in_: Union[int, float]) -> Union[int, float]:
 
 
 def register_type_to_int(type_str: Union[str, bytes, int]) -> int:
-    if isinstance(type_str, int):
-        return type_str
+    try:
+        return int(type_str)
+    except ValueError:
+        pass
     if isinstance(type_str, str):
         type_str = type_str.encode()
     if type_str not in (b"IW", b"IB", b"OW", b"OB"):

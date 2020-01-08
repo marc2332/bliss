@@ -69,7 +69,7 @@ def create_objects_from_config_node(config, node):
 
     # --- whatever the object kind, first of all we instanciate the controller
     controller_name = node.get("name")  # usually is None
-    controller_class = find_class(node, "bliss.controllers.regulation.temperature")
+    controller_class = find_class(node, "bliss.controllers.regulation")
     controller = controller_class(node)
     # controller.initialize_controller()  # removed for lasy_init
 

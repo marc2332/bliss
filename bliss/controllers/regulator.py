@@ -14,8 +14,8 @@ Example of .yml file for a mockup temperature controller
 with the mandatory fields:
 
 
-    class: mockup
-    module: mockup
+    class: Mockup
+    module: temperature.mockup
     host: lid42
     inputs:
         - 
@@ -130,28 +130,6 @@ class Controller:
                     self.initialize_input(obj)
                 elif isinstance(obj, Output):
                     self.initialize_output(obj)
-
-            # =========  INIT ALL DEVICES ATTACHED TO THE CONTROLLER ==================
-            # if self.__hw_controller_initialized:
-            #     return
-            # else:
-            #     self.__hw_controller_initialized = True
-
-            #     self.initialize_controller()
-            #     print("============= controller_hw INITIALIZED")
-
-            #     for obj in self._objects.values():
-
-            #         # --- initialize the object
-            #         obj.load_base_config()
-            #         if isinstance(obj, Input):
-            #             self.initialize_input(obj)
-            #         elif isinstance(obj, Output):
-            #             self.initialize_output(obj)
-            #         elif isinstance(obj, Loop):
-            #             self.initialize_loop(obj)
-
-            #         print(f"============= {obj.name} INITIALIZED")
 
     @property
     def name(self):

@@ -40,7 +40,7 @@ This module implements the classes allowing the control of regulation processes 
 
             -
                 class: Mockup                  # <-- the controller class inheriting from 'bliss.controllers.regulator.Controller'
-                module: mockup
+                module: temperature.mockup
                 host: lid42
                 inputs:
                     - 
@@ -94,7 +94,7 @@ This module implements the classes allowing the control of regulation processes 
 
             -   
                 class: MyCustomInput     # <-- a custom input defined by the user and inheriting from the ExternalInput class
-                package: bliss.controllers.temperature.mockup  # <-- the module where the custom class is defined
+                package: bliss.controllers.regulation.temperature.mockup  # <-- the module where the custom class is defined
                 plugin: bliss
                 name: custom_input
                 unit: eV
@@ -102,7 +102,7 @@ This module implements the classes allowing the control of regulation processes 
             
             -   
                 class: MyCustomOutput    # <-- a custom output defined by the user and inheriting from the ExternalOutput class
-                package: bliss.controllers.temperature.mockup  # <-- the module where the custom class is defined
+                package: bliss.controllers.regulation.temperature.mockup  # <-- the module where the custom class is defined
                 plugin: bliss
                 name: custom_output
                 unit: eV

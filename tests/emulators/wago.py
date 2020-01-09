@@ -15,7 +15,13 @@ from bliss.controllers.wago.helpers import remove_comments, splitlines
 from tests.conftest import get_open_ports
 
 
-def Wago(address, slave_ids=list(range(1, 256)), modules=None, randomize_values=False):
+def Wago(
+    server_ready_event,
+    address,
+    slave_ids=list(range(1, 256)),
+    modules=None,
+    randomize_values=False,
+):
     """
     Creates a synchronous modbus server serving 2 different memory areas
      * coils and inputs for boolean values
@@ -79,6 +85,7 @@ def Wago(address, slave_ids=list(range(1, 256)), modules=None, randomize_values=
     TCPServer.allow_reuse_address = True
     TCPServer.timeout = .1
     app = get_server(TCPServer, address, RequestHandler)
+    server_ready_event.set()
 
     # 0x2020 x 16H Short description controller
 
@@ -404,15 +411,17 @@ class WagoEmulator:
 
         self.host = "localhost"
         self.port = get_open_ports(1)[0]
+        self.server_ready_event = threading.Event()
 
         self.t = threading.Thread(
             target=Wago,
-            args=((self.host, self.port),),
+            args=(self.server_ready_event, (self.host, self.port)),
             kwargs={"modules": modules, "randomize_values": randomize_values},
             daemon=True,
         )
 
         self.t.start()
+        self.server_ready_event.wait()
 
     def close(self):
         self.t.do_run = False

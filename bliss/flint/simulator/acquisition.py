@@ -556,6 +556,7 @@ class AcquisitionSimulator(qt.QObject):
         requests[device1_channel1.name()] = {
             "start": 10,
             "stop": 50,
+            "points": nbX * nbY,
             "axes-points": nbX,
             "axes-kind": "fast",
         }

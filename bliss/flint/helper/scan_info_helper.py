@@ -12,7 +12,9 @@ from typing import Any
 from typing import Dict
 from typing import List
 from typing import Optional
+from typing import MutableMapping
 
+import weakref
 import collections
 import logging
 from ..model import scan_model
@@ -348,7 +350,7 @@ def create_plot_model(scan_info: Dict) -> List[plot_model.Plot]:
     # MCA plot
 
     for _master, channels in scan_info["acquisition_chain"].items():
-        spectra = []
+        spectra: List[str] = []
         spectra += channels.get("spectra", [])
         # merge master which are spectra
         if "spectra" in channels:
@@ -369,7 +371,7 @@ def create_plot_model(scan_info: Dict) -> List[plot_model.Plot]:
     # Image plot
 
     for _master, channels in scan_info["acquisition_chain"].items():
-        images = []
+        images: List[str] = []
         images += channels.get("images", [])
         # merge master which are image
         if "master" in channels:
@@ -409,33 +411,41 @@ def get_full_title(scan: scan_model.Scan) -> str:
     return text
 
 
-def get_scan_progress_percent(scan: scan_model.Scan) -> Optional[float]:
-    """Returns the percent of progress of this scan.
-    """
-    scan_info = scan.scanInfo()
-    if scan_info is None:
-        return None
+_PROGRESS_STRATEGIES: MutableMapping[
+    scan_model.Scan, List[_ProgressStrategy]
+] = weakref.WeakKeyDictionary()
 
-    # FIXME: npoints do not distinguish many top masters, AFAIK
 
-    try:
-        npoints = scan_info.get("npoints", None)
-        if npoints is None:
-            # Mesh scans
-            npoints1 = scan_info.get("npoints1", 0)
-            npoints2 = scan_info.get("npoints2", 0)
-            npoints = int(npoints1) * int(npoints2)
+class _ProgressStrategy:
+    def compute(self, scan: scan_model.Scan) -> Optional[float]:
+        """Returns the percent of progress of this strategy.
+
+        Returns a value between 0..1, else None if it is not appliable.
+        """
+        raise NotImplementedError
+
+    def channelSize(self, channel: scan_model.Channel):
+        data = channel.data()
+        if data is None:
+            return 0.0
+
+        if data.frameId() is not None:
+            size = data.frameId() + 1
         else:
-            npoints = int(npoints)
-    except:
-        # It's about parsing user input, everything can happen
-        _logger.error("Error while reading scan_info", exc_info=True)
+            size = len(data.array())
 
-    if npoints == 0:
-        return None
+        return size
 
-    if npoints is not None:
-        master_channels = []
+
+class _ProgressOfAnyChannels(_ProgressStrategy):
+    """Compute the progress according to any of the available channels"""
+
+    def __init__(self, maxPoints: int):
+        self.__maxPoints = maxPoints
+
+    def compute(self, scan: scan_model.Scan) -> Optional[float]:
+        scan_info = scan.scanInfo()
+        master_channels: List[str] = []
         for _master_name, channel_info in scan_info["acquisition_chain"].items():
             master_channels.extend(channel_info.get("master", {}).get("scalars", []))
             master_channels.extend(channel_info.get("master", {}).get("images", []))
@@ -444,15 +454,90 @@ def get_scan_progress_percent(scan: scan_model.Scan) -> Optional[float]:
             channel = scan.getChannelByName(master_channel)
             if channel is None:
                 continue
-            data = channel.data()
-            if data is None:
-                return 0.0
+            size = self.channelSize(channel)
+            return size / self.__maxPoints
 
-            if data.frameId() is not None:
-                size = data.frameId() + 1
+        return None
+
+
+class _ProgressOfChannel(_ProgressStrategy):
+    def __init__(self, channelName: str, maxPoints: int):
+        self.__maxPoints = maxPoints
+        self.__channelName = channelName
+
+    def compute(self, scan: scan_model.Scan) -> Optional[float]:
+        channel = scan.getChannelByName(self.__channelName)
+        if channel is None:
+            return None
+        size = self.channelSize(channel)
+        return size / self.__maxPoints
+
+
+def _create_progress_strategies(scan: scan_model.Scan) -> List[_ProgressStrategy]:
+    scan_info = scan.scanInfo()
+    if scan_info is None:
+        return []
+
+    strategies = []
+
+    requests = scan_info.get("requests", None)
+    if requests:
+        # Reach on channel per npoints (in case of many top masters without
+        # same size)
+        strategy_per_npoints: Dict[int, _ProgressStrategy] = {}
+        for channel_name, metadata_dict in requests.items():
+            if "points" in metadata_dict:
+                try:
+                    npoints = int(metadata_dict["points"])
+                except:
+                    # It's about parsing user input, everything can happen
+                    _logger.error("Error while reading scan_info", exc_info=True)
+                    continue
+
+                if npoints in strategy_per_npoints:
+                    continue
+                strategy = _ProgressOfChannel(channel_name, npoints)
+                strategy_per_npoints[npoints] = strategy
+
+        for _, s in strategy_per_npoints.items():
+            strategies.append(s)
+
+    if len(strategies) == 0:
+        # npoints do not distinguish many top masters
+        # It only use it if there is no other choises
+        try:
+            npoints = scan_info.get("npoints", None)
+            if npoints is None:
+                # Mesh scans
+                npoints1 = scan_info.get("npoints1", 0)
+                npoints2 = scan_info.get("npoints2", 0)
+                npoints = int(npoints1) * int(npoints2)
             else:
-                size = len(data.array())
+                npoints = int(npoints)
 
-            return size / npoints
+            if npoints is not None and npoints != 0:
+                strategies.append(_ProgressOfAnyChannels(npoints))
+        except:
+            # It's about parsing user input, everything can happen
+            _logger.error("Error while reading scan_info", exc_info=True)
 
-    return None
+    return strategies
+
+
+def get_scan_progress_percent(scan: scan_model.Scan) -> Optional[float]:
+    """Returns the percent of progress of this strategy.
+
+    Returns a value between 0..1, else None if it is not appliable.
+    """
+    strategies = _PROGRESS_STRATEGIES.get(scan, None)
+    if strategies is None:
+        strategies = _create_progress_strategies(scan)
+        _PROGRESS_STRATEGIES[scan] = strategies
+
+    values = [s.compute(scan) for s in strategies]
+    values = [v for v in values if v is not None]
+    if len(values) == 0:
+        return None
+
+    result = sum(values) / len(values)
+    return result

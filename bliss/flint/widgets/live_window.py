@@ -21,3 +21,9 @@ class LiveWindow(qt.QMainWindow):
             | qt.QMainWindow.AnimatedDocks
             # | qt.QMainWindow.VerticalTabs
         )
+
+        self.tabifiedDockWidgetActivated.connect(self.__tabActivated)
+
+    def __tabActivated(self, dock: qt.QDockWidget):
+        if hasattr(dock, "widgetActivated"):
+            dock.widgetActivated.emit(dock)

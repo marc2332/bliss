@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Beacon:
+  - Log Server: all log messages (plus exceptions and user input) are sent to a socket server
+                that can be started with Beacon, this will save to a Log Rotating File
+                on a selected folder (default to `/var/log/bliss`).
+  - Log Viewer: a logging viewer web application process can be started to serve on a selected
+                http port (default 9080) on the Beacon Host
+- last_error: now contains the last 100 exceptions that can be accessed with list notation
+              last_error[-1] for the last one.
+
 ### Changes
 
 - Flint

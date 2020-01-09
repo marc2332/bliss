@@ -16,6 +16,7 @@ import traceback
 import gevent
 import time
 import logging
+from collections import deque
 
 from ptpython.repl import PythonRepl
 import ptpython.layout
@@ -45,6 +46,7 @@ from bliss.data.display import ScanPrinter, ScanEventHandler
 from .prompt import BlissPrompt
 from .typing_helper import TypingHelper
 
+from bliss.common.utils import ShellStr
 from bliss.shell.standard import info
 from bliss.shell.cli.ptpython_statusbar_patch import NEWstatus_bar, TMUXstatus_bar
 
@@ -82,6 +84,32 @@ if sys.platform in ["win32", "cygwin"]:
 
 
 # =================== ERROR REPORTING ============================
+
+
+class LastError:
+    def __init__(self):
+        self.errors = deque()
+
+    def __getitem__(self, index):
+        try:
+            return ShellStr(self.errors[index])
+        except IndexError:
+            return ShellStr(
+                f"No exception with index {index} found, size is {len(self.errors)}"
+            )
+
+    def __repr__(self):
+        try:
+            return ShellStr(self.errors[-1])
+        except IndexError:
+            return "Not yet exceptions in this session"
+
+    def append(self, item):
+        self.errors.append(item)
+        while len(self.errors) > 100:
+            self.errors.popleft()
+
+
 class ErrorReport:
     """ 
     Manage the behavior of the error reporting in the shell.
@@ -96,11 +124,11 @@ class ErrorReport:
     def __init__(self):
 
         self._expert_mode = False
-        self._last_error = ""
+        self._last_error = LastError()
 
     @property
     def last_error(self):
-        print(self._last_error)
+        return self._last_error
 
     @property
     def expert_mode(self):
@@ -123,8 +151,8 @@ def install_excepthook():
         err_file = sys.stderr
 
         # Store latest traceback (as a string to avoid memory leaks)
-        ERROR_REPORT._last_error = "".join(
-            traceback.format_exception(exc_type, exc_value, tb)
+        ERROR_REPORT._last_error.append(
+            "".join(traceback.format_exception(exc_type, exc_value, tb))
         )
         logger.error("", exc_info=True)
 
@@ -466,7 +494,7 @@ def cli(
 
     # ADD 2 GLOBALS TO HANDLE THE LAST ERROR AND THE ERROR REPORT MODE (IN SHELL ENV ONLY)
     user_ns["ERROR_REPORT"] = ERROR_REPORT
-    user_ns["last_error"] = lambda: ERROR_REPORT.last_error
+    user_ns["last_error"] = ERROR_REPORT.last_error
 
     def get_globals():
         return user_ns

@@ -7,9 +7,6 @@
 """This module contains dialog to edit style"""
 from __future__ import annotations
 from typing import Optional
-from typing import Tuple
-from typing import Dict
-from typing import List
 
 import logging
 import weakref

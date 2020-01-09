@@ -489,7 +489,7 @@ def _create_progress_strategies(scan: scan_model.Scan) -> List[_ProgressStrategy
             if "points" in metadata_dict:
                 try:
                     npoints = int(metadata_dict["points"])
-                except:
+                except Exception:
                     # It's about parsing user input, everything can happen
                     _logger.error("Error while reading scan_info", exc_info=True)
                     continue
@@ -517,7 +517,7 @@ def _create_progress_strategies(scan: scan_model.Scan) -> List[_ProgressStrategy
 
             if npoints is not None and npoints != 0:
                 strategies.append(_ProgressOfAnyChannels(npoints))
-        except:
+        except Exception:
             # It's about parsing user input, everything can happen
             _logger.error("Error while reading scan_info", exc_info=True)
 

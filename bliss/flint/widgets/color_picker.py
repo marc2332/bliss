@@ -22,7 +22,7 @@ class ColorEditor(qt.QLineEdit):
         else:
             try:
                 return qt.QColor(text)
-            except:
+            except Exception:
                 return qt.QColor()
 
     def setColor(self, color):

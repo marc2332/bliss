@@ -194,7 +194,7 @@ class ScatterPlotWidget(ExtendedDockWidget):
 
         self.__lastValue = Scatter()
         self.__lastValue.setSymbol(",")
-        self.__lastValue._setLegend("scatter")
+        self.__lastValue._setLegend("cursor_last_value")
         self.__lastValue.setVisible(False)
         self.__lastValue.setZValue(10)
         self.__rect = Shape("rectangle")

@@ -29,7 +29,6 @@ pygraphviz >= 1.5
 pyserial > 2
 python >= 3.7
 pyyaml >= 5.1
-pyzmq
 redis >= 5.0
 redis-py >= 3.3.7
 requests

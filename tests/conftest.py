@@ -315,7 +315,7 @@ def dummy_tango_server(ports, beacon):
 
 
 @pytest.fixture
-def wago_tango_server(ports, default_session, wago_mockup):
+def wago_tango_server(ports, default_session, wago_emulator):
     from bliss.tango.servers.wago_ds import main
 
     device_name = "1/1/wagodummy"
@@ -323,7 +323,7 @@ def wago_tango_server(ports, default_session, wago_mockup):
 
     # patching the property Iphost of wago tango device to connect to the mockup
     wago_ds = DeviceProxy(device_fqdn)
-    wago_ds.put_property({"Iphost": f"{wago_mockup.host}:{wago_mockup.port}"})
+    wago_ds.put_property({"Iphost": f"{wago_emulator.host}:{wago_emulator.port}"})
 
     p = subprocess.Popen(["Wago", "wago_tg_server"])
 
@@ -456,30 +456,25 @@ def alias_session(beacon, lima_simulator):
 
 
 @pytest.fixture
-def wago_mockup(default_session):
-    from tests.emulators.wago import WagoMockup
+def wago_emulator(beacon):
+    from tests.emulators.wago import WagoEmulator
 
-    config_tree = default_session.config.get_config("wago_simulator")
+    config_tree = beacon.get_config("wago_simulator")
     modules_config = ModulesConfig.from_config_tree(config_tree)
-    wago = WagoMockup(modules_config)
-
-    # patching the port of the simulator
-    # as simulate=True in the config a simulator will be launched
-    default_session.config.get_config("wago_simulator")["modbustcp"][
-        "url"
-    ] = f"{wago.host}:{wago.port}"
+    wago = WagoEmulator(modules_config)
 
     yield wago
+
     wago.close()
 
 
 @pytest.fixture
 def transfocator_mockup(default_session):
-    from tests.emulators.wago import WagoMockup
+    from tests.emulators.wago import WagoEmulator
 
     config_tree = default_session.config.get_config("transfocator_simulator")
     modules_config = ModulesConfig.from_config_tree(config_tree)
-    wago = WagoMockup(modules_config)
+    wago = WagoEmulator(modules_config)
 
     # patching the port of the simulator
     # as simulate=True in the config a simulator will be launched

@@ -395,7 +395,7 @@ def Wago(address, slave_ids=list(range(1, 256)), modules=None, randomize_values=
         app.server_close()
 
 
-class WagoMockup:
+class WagoEmulator:
     def __init__(self, modules_config: ModulesConfig, randomize_values=False):
         """creates a wago simulator threaded instance based on a given mapping"""
 

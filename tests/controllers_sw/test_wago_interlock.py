@@ -475,7 +475,7 @@ def test_specfile_to_yml():
     assert yml == expected
 
 
-def test_beacon_interlock_parsing(default_session, wago_mockup):
+def test_beacon_interlock_parsing(default_session):
     wago = default_session.config.get("wago_simulator")
 
     wago_conf = default_session.config.get_config("wago_simulator")
@@ -498,7 +498,7 @@ def test_beacon_interlock_parsing(default_session, wago_mockup):
     assert interlock_list[0]["channels"][2]["high_limit"] == int(500)
 
 
-def test_specfile_beacon_interlock_parsing(default_session, wago_mockup):
+def test_specfile_beacon_interlock_parsing(default_session):
     specfile = """
 relay intlckf1 STICKY name Interlock
   esTf1 TC 10 50
@@ -518,7 +518,7 @@ relay intlckf2 STICKY name Interlock 2
     beacon_interlock_parsing(dict_["interlocks"], modules_config)
 
 
-def test_export_to_yml(default_session, wago_mockup):
+def test_export_to_yml(default_session):
     wago = default_session.config.get("wago_simulator")
 
     wago_conf = default_session.config.get_config("wago_simulator")

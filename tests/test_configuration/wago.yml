@@ -1,10 +1,9 @@
 - name: wago_simulator
   plugin: bliss
   module: wago.wago
-  class: Wago
+  class: WagoMockup
   modbustcp:
       url: localhost
-  simulate: True
   ignore_missing: True
   mapping:
       - type: 750-504

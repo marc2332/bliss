@@ -303,7 +303,7 @@ class StylePropertyWidget(qt.QWidget):
             self.__legend.setSymbol(symbolStyle)
             self.__legend.setSymbolColormap(style.colormapLut)
             self.__legend.setSymbolColor(None)
-        elif style.symbolStyle is not None:
+        elif style.symbolStyle is not style_model.SymbolStyle.NO_SYMBOL:
             symbolStyle = style_model.symbol_to_silx(style.symbolStyle)
             self.__legend.setSymbol(symbolStyle)
             color = self.getQColor(style.symbolColor)
@@ -326,8 +326,9 @@ class StylePropertyWidget(qt.QWidget):
                     self.__updateScatter(style)
                 else:
                     color = self.getQColor(style.lineColor)
-                    if style.symbolStyle is not None:
-                        self.__legend.setSymbol(style.symbolStyle)
+                    if style.symbolStyle is not style_model.SymbolStyle.NO_SYMBOL:
+                        symbolStyle = style_model.symbol_to_silx(style.symbolStyle)
+                        self.__legend.setSymbol(symbolStyle)
                         if style.symbolColor is None:
                             self.__legend.setSymbolColor(qt.QColor(0xE0, 0xE0, 0xE0))
                         else:

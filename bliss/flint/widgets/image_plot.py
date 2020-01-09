@@ -241,7 +241,7 @@ class ImagePlotWidget(ExtendedDockWidget):
             # it have to be synchonized to the item style
             item.setColormap(colormap)
 
-        if style.symbolStyle is None:
+        if style.symbolStyle is style_model.SymbolStyle.NO_SYMBOL:
             key = plot.addImage(
                 image, legend=legend, resetzoom=False, colormap=colormap
             )

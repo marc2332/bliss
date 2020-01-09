@@ -169,7 +169,10 @@ class ScanStatus(ExtendedDockWidget):
         self.updateGeometry()
 
         scan = widget.scan()
-        if scan is not None and scan.state() == scan_model.ScanState.PROCESSING:
+        if scan is not None and scan.state() in [
+            scan_model.ScanState.PROCESSING,
+            scan_model.ScanState.INITIALIZED,
+        ]:
             if not self.__timer.isActive():
                 self.__timer.start()
 

@@ -442,6 +442,13 @@ class ScatterPlotWidget(ExtendedDockWidget):
                 self.__updater.start(rate)
                 self.__aggregator.eventAdded.disconnect(self.__update)
 
+    def _silxPlot(self):
+        """Returns the silx plot associated to this view.
+
+        It is provided without any warranty.
+        """
+        return self.__plot
+
     def eventFilter(self, widget, event):
         if widget is not self.__plot and widget is not self.__plot.getWidgetHandle():
             return

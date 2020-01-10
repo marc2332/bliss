@@ -262,7 +262,10 @@ def main():
 
     qapp = initApplication(sys.argv)
     settings = qt.QSettings(
-        qt.QSettings.IniFormat, qt.QSettings.UserScope, qapp.applicationName()
+        qt.QSettings.IniFormat,
+        qt.QSettings.UserScope,
+        qapp.organizationName(),
+        qapp.applicationName(),
     )
     set_global_settings(settings, options)
 

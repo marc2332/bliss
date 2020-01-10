@@ -107,19 +107,26 @@ def clean_gevent():
         ob.kill()
 
     d = {"end-check": True}
-    yield d
-    if not d.get("end-check"):
-        return
 
+    yield d
+
+    end_check = d.get("end-check")
+
+    greenlets = []
     for ob in gc.get_objects():
         try:
             if not isinstance(ob, Greenlet):
                 continue
         except ReferenceError:
             continue
-        if not ob.ready():
+        if end_check and not ob.ready():
             print(ob)  # Better printouts
-        assert ob.ready()
+        greenlets.append(ob)
+    all_ready = all(gr.ready() for gr in greenlets)
+    gevent.killall(greenlets)
+    del greenlets
+    if end_check:
+        assert all_ready
 
 
 @pytest.fixture

@@ -50,15 +50,30 @@
       update_buttons();
     });
 
-    $(".save-editor").on("click", function() {
+    function save_editor() {
       save_file("{{ name }}", editor.getValue(), function() {
         editor.getSession().getUndoManager().markClean();
         update_buttons();
         reload_trees();
-	      show_notification("{{name}} saved", "success");
+        show_notification("{{name}} saved", "success");
       });
+    }
+    
+    // Save editor with CTRL-S
+    $('#file-editor').bind('keydown', function(e) {
+      if (e.ctrlKey || e.metaKey) {
+        switch (String.fromCharCode(e.which).toLowerCase()) {
+          case 's':
+            e.preventDefault();
+            if (!$(".save-editor").prop("disabled"))
+              save_editor();
+            break;
+        }
+      }
     });
-
+    
+    $(".save-editor").on("click", save_editor);
+    
     $(".revert-editor").on("click", function() {
       $.get("db_file/{{ name }}", function(data) {
         editor.setValue(data.content);

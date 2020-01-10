@@ -521,6 +521,7 @@ class ScatterPlotWidget(ExtendedDockWidget):
         inTransaction = self.__plotModel.isInTransaction()
         if eventType == plot_model.ChangeEventType.VISIBILITY:
             self.__updateItem(item)
+            self.__syncAxisTitle.triggerIf(not inTransaction)
         elif eventType == plot_model.ChangeEventType.CUSTOM_STYLE:
             self.__updateItem(item)
         elif eventType == plot_model.ChangeEventType.X_CHANNEL:
@@ -587,6 +588,8 @@ class ScatterPlotWidget(ExtendedDockWidget):
             yLabels = []
             for item in plot.items():
                 if not item.isValid():
+                    continue
+                if not item.isVisible():
                     continue
                 if isinstance(item, plot_item_model.ScatterItem):
                     xLabels.append(item.xChannel().displayName(scan))

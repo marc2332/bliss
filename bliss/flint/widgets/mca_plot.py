@@ -109,6 +109,7 @@ class McaPlotWidget(ExtendedDockWidget):
         inTransaction = self.__plotModel.isInTransaction()
         if eventType == plot_model.ChangeEventType.VISIBILITY:
             self.__updateItem(item)
+            self.__syncAxisTitle.triggerIf(not inTransaction)
         elif eventType == plot_model.ChangeEventType.MCA_CHANNEL:
             self.__updateItem(item)
             self.__syncAxisTitle.triggerIf(not inTransaction)
@@ -122,6 +123,8 @@ class McaPlotWidget(ExtendedDockWidget):
             labels = []
             for item in plot.items():
                 if not item.isValid():
+                    continue
+                if not item.isVisible():
                     continue
                 if isinstance(item, plot_item_model.McaItem):
                     labels.append(item.mcaChannel().displayName(scan))

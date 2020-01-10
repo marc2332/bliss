@@ -115,6 +115,7 @@ class CurvePlotWidget(ExtendedDockWidget):
         inTransaction = self.__plotModel.isInTransaction()
         if eventType == plot_model.ChangeEventType.VISIBILITY:
             self.__updateItem(item)
+            self.__syncAxisTitle.triggerIf(not inTransaction)
         elif eventType == plot_model.ChangeEventType.YAXIS:
             self.__updateItem(item)
             self.__syncAxisTitle.triggerIf(not inTransaction)
@@ -139,6 +140,8 @@ class CurvePlotWidget(ExtendedDockWidget):
             y2Labels = []
             for item in plot.items():
                 if not item.isValid():
+                    continue
+                if not item.isVisible():
                     continue
                 if isinstance(item, plot_item_model.CurveItem):
                     xLabels.append(item.xChannel().displayName(scan))

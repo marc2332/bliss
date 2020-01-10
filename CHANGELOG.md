@@ -33,6 +33,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - This feature is provided for `amesh` and `dmesh`
     - To implement if on your scans take a look at https://bliss.gitlab-pages.esrf.fr/bliss/master/flint_scan_info.html
 
+### Fixed
+
+- Beacon web configuration:
+  - Fixed "Revert" of the editor content
+  - Some ergonomic improvements (ctrl-s to save the editor, css styles)
+
 ## [1.0.0] - 2019-12-17
 
 ### Added

@@ -301,6 +301,13 @@ def start_flint():
 
     Returns:
         The process object"""
+
+    if sys.platform.startswith("linux") and not os.environ.get("DISPLAY", ""):
+        FLINT_LOGGER.error(
+            "DISPLAY environment variable have to be defined to launch Flint"
+        )
+        raise RuntimeError("DISPLAY environment variable is not defined")
+
     FLINT_LOGGER.warning("Flint starting...")
     env = dict(os.environ)
     env["BEACON_HOST"] = get_beacon_config()

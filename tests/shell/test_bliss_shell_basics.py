@@ -8,12 +8,11 @@
 import re
 
 from prompt_toolkit.input.defaults import create_pipe_input
-from bliss.shell.cli.repl import BlissRepl, _set_pt_event_loop
+from bliss.shell.cli.repl import BlissRepl
 from prompt_toolkit.output import DummyOutput
 
 
 def _feed_cli_with_input(text, check_line_ending=True, local_locals={}):
-    _set_pt_event_loop()
     """
     Create a Prompt, feed it with the given user input and return the CLI
     object.
@@ -42,32 +41,28 @@ def _feed_cli_with_input(text, check_line_ending=True, local_locals={}):
         inp.close()
 
 
-def test_shell_exit(clean_gevent):
-    clean_gevent["end-check"] = False
+def test_shell_exit():
     try:
         _feed_cli_with_input(chr(0x4) + "y", check_line_ending=False)
     except EOFError:
         assert True
 
 
-def test_shell_exit2(clean_gevent):
-    clean_gevent["end-check"] = False
+def test_shell_exit2():
     try:
         _feed_cli_with_input(chr(0x4) + "\r", check_line_ending=False)
     except EOFError:
         assert True
 
 
-def test_shell_noexit(clean_gevent):
-    clean_gevent["end-check"] = False
+def test_shell_noexit():
     result, cli, br = _feed_cli_with_input(
         chr(0x4) + "nprint 1 2\r", check_line_ending=True
     )
     assert result == "print(1,2)"
 
 
-def test_shell_ctrl_r(clean_gevent):
-    clean_gevent["end-check"] = False
+def test_shell_ctrl_r():
 
     result, cli, br = _feed_cli_with_input(
         chr(0x12) + "bla blub\r\r", check_line_ending=True
@@ -83,8 +78,7 @@ def test_shell_ctrl_r(clean_gevent):
     assert result == "from bliss import setup_globals"
 
 
-def test_shell_prompt_number(clean_gevent):
-    clean_gevent["end-check"] = False
+def test_shell_prompt_number():
     result, cli, br = _feed_cli_with_input("print 1\r")
     num1 = br.bliss_prompt.python_input.current_statement_index
     br._execute(result)
@@ -95,26 +89,22 @@ def test_shell_prompt_number(clean_gevent):
     assert num3 == num1 + 2
 
 
-def test_shell_comma_backets(clean_gevent):
-    clean_gevent["end-check"] = False
+def test_shell_comma_backets():
     result, cli, _ = _feed_cli_with_input("print 1 2\r")
     assert result == "print(1,2)"
 
 
-def test_shell_string_input(clean_gevent):
-    clean_gevent["end-check"] = False
+def test_shell_string_input():
     result, cli, _ = _feed_cli_with_input("a='to to'\r")
     assert result == "a='to to'"
 
 
-def test_shell_string_parameter(clean_gevent):
-    clean_gevent["end-check"] = False
+def test_shell_string_parameter():
     result, cli, _ = _feed_cli_with_input("print 'bla bla'\r")
     assert result == "print('bla bla')"
 
 
-def test_shell_function_without_parameter(clean_gevent):
-    clean_gevent["end-check"] = False
+def test_shell_function_without_parameter():
     result, cli, _ = _feed_cli_with_input("print\r")
     assert result == "print"
 
@@ -125,14 +115,12 @@ def test_shell_function_without_parameter(clean_gevent):
     assert result == "f()"
 
 
-def test_shell_function_with_return_only(clean_gevent):
-    clean_gevent["end-check"] = False
+def test_shell_function_with_return_only():
     result, cli, _ = _feed_cli_with_input("\r")
     assert result == ""
 
 
-def test_shell_callable_with_args(clean_gevent):
-    clean_gevent["end-check"] = False
+def test_shell_callable_with_args():
     result, cli, _ = _feed_cli_with_input("sum\r")
     assert result == "sum"
 
@@ -143,8 +131,7 @@ def test_shell_callable_with_args(clean_gevent):
     assert result == "f"
 
 
-def test_shell_callable_with_kwargs_only(clean_gevent):
-    clean_gevent["end-check"] = False
+def test_shell_callable_with_kwargs_only():
     result, cli, _ = _feed_cli_with_input("property\r")
     assert result == "property()"
 
@@ -155,8 +142,7 @@ def test_shell_callable_with_kwargs_only(clean_gevent):
     assert result == "f()"
 
 
-def test_shell_callable_with_args_and_kwargs(clean_gevent):
-    clean_gevent["end-check"] = False
+def test_shell_callable_with_args_and_kwargs():
     result, cli, _ = _feed_cli_with_input("compile\r")
     assert result == "compile"
 
@@ -167,8 +153,7 @@ def test_shell_callable_with_args_and_kwargs(clean_gevent):
     assert result == "f"
 
 
-def test_shell_list(clean_gevent):
-    clean_gevent["end-check"] = False
+def test_shell_list():
     result, cli, _ = _feed_cli_with_input("list\r")
     assert result == "list"
 
@@ -177,9 +162,7 @@ def test_shell_list(clean_gevent):
     assert result == "l"
 
 
-def test_shell_ScanSaving(clean_gevent):
-    clean_gevent["end-check"] = False
-
+def test_shell_ScanSaving(beacon):
     from bliss.scanning.scan import ScanSaving
 
     s = ScanSaving()
@@ -188,9 +171,7 @@ def test_shell_ScanSaving(clean_gevent):
     assert result == "s"
 
 
-def test_shell_func(clean_gevent):
-    clean_gevent["end-check"] = False
-
+def test_shell_func():
     def f():
         pass
 
@@ -198,47 +179,39 @@ def test_shell_func(clean_gevent):
     assert result == "f()"
 
 
-def test_shell_semicolon(clean_gevent):
-    clean_gevent["end-check"] = False
+def test_shell_semicolon():
     result, cli, _ = _feed_cli_with_input("print 1 2;print 1\r")
     assert result == "print(1,2);print(1)"
     result, cli, _ = _feed_cli_with_input("print 1 2;print 1;print 23\r")
     assert result == "print(1,2);print(1);print(23)"
 
 
-def test_shell_comma_outside_callable_assignment(clean_gevent):
-    clean_gevent["end-check"] = False
+def test_shell_comma_outside_callable_assignment():
     result, cli, _ = _feed_cli_with_input("a=True \r")
     assert result == "a=True"
 
 
-def test_shell_comma_outside_callable_bool(clean_gevent):
-    clean_gevent["end-check"] = False
+def test_shell_comma_outside_callable_bool():
     result, cli, _ = _feed_cli_with_input("True \r")
     assert result == "True"
 
 
-def test_shell_comma_outside_callable_string(clean_gevent):
-    clean_gevent["end-check"] = False
+def test_shell_comma_outside_callable_string():
     result, cli, _ = _feed_cli_with_input("'bla' \r")
     assert result == "'bla'"
 
 
-def test_shell_comma_outside_callable_number(clean_gevent):
-    clean_gevent["end-check"] = False
+def test_shell_comma_outside_callable_number():
     result, cli, _ = _feed_cli_with_input("1.1 + 1  \r")
     assert result == "1.1 + 1"
 
 
-def test_shell_comma_after_comma(clean_gevent):
-    clean_gevent["end-check"] = False
+def test_shell_comma_after_comma():
     result, cli, _ = _feed_cli_with_input("1, \r")
     assert result == "1,"
 
 
-def test_info_dunder(clean_gevent, capfd):
-    clean_gevent["end-check"] = False
-
+def test_info_dunder(capfd):
     class A(object):
         def __repr__(self):
             return "repr-string"
@@ -356,15 +329,12 @@ def test_info_dunder(clean_gevent, capfd):
         inp.close()
 
 
-def test_shell_dict_list_not_callable(clean_gevent):
-    clean_gevent["end-check"] = False
+def test_shell_dict_list_not_callable():
     result, cli, _ = _feed_cli_with_input("d \r", local_locals={"d": dict()})
     assert result == "d"
 
 
-def test_property_evaluation(clean_gevent):
-    clean_gevent["end-check"] = False
-
+def test_property_evaluation():
     class Bla:
         def __init__(self):
             self.i = 0
@@ -384,8 +354,7 @@ def test_property_evaluation(clean_gevent):
     assert b.test == 2
 
 
-def test_func_no_args(clean_gevent):
-    clean_gevent["end-check"] = False
+def test_func_no_args():
     f = lambda: None
     result, cli, _ = _feed_cli_with_input("f \r", local_locals={"f": f})
     assert result == "f()"

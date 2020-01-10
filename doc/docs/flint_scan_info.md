@@ -1,7 +1,7 @@
 
 # For scan designers
 
-Flint supports several, metadata to improve the plot rendering.
+Flint supports several metadata to improve the plot rendering.
 
 This informations have to be fixed and known at the build step of the scan.
 
@@ -10,9 +10,29 @@ scans, you have to feed useful information on your own.
 
 # Mecanism
 
-The `scan_info` dictionary allow you to add extra information to a scan.
+The `scan_info` dictionary allows you to add extra information to a scan.
 
-The `requests` field is used to register information attach to channels to Flint.
+A field `requests` can be provided to `scan_info` to annotate each channel with
+information.
+
+# Global metadata
+
+This metadata must be at the root of `scan_info`.
+
+- `npoints` (int): Number of expected points for the scan.
+- `npoints1` (int): Number of expected points of the first axes of a mesh scan
+- `npoints2` (int): Number of expected points of the second axes of a mesh scan
+
+Flint can compute a progress bar for the scan using this information. If the
+channels do not have the same size, you can use `requests` to specify the expected
+size per channels.
+
+- `data_dim` (int): Dimentionality of the scan
+- `dim` (int): Alias of `data_dim`
+
+Flint uses this metadata to display the data as a scatter if equals to 2.
+
+# Request metadata
 
 Here is an example to register few metadata to a channel named `my_channel`:
 ```
@@ -32,7 +52,7 @@ scan = Scan(
 )
 ```
 
-# List of supported metadata
+## List of `requests` metadata
 
 Everything is optional, but have to be well typed.
 
@@ -46,12 +66,12 @@ Everything is optional, but have to be well typed.
 
 Unsupported keys will not be used, and Flint will warn about it in the logs.
 
-# General
+## General case
 
-- `points`: It is used to compute the scan progress. And could be used to
+- `points`: is used to compute the scan progress. And it could be used to
   optimize memory allocation.
 
-# Curve rendering
+## Curve rendering
 
 Right now this features is not used to display the curves. But it will be
 done at one point.
@@ -62,7 +82,7 @@ done at one point.
 Then `min` and `max` should be set close to the real data which will contain the
 channel. Using the theorical range of an axes here is not a good idea.
 
-# Scatter rendering
+## Scatter rendering
 
 This can be used for general cases of scatters
 
@@ -80,7 +100,7 @@ and a column for each points of the scatter (n×m).
   or column. This is the expected information here.
 - `axes-kind`: Can be `slow` or `fast`. It is also used to speed up solid rendering.
 
-## Example
+## Scatter example
 
 Data for a regular scatter for axes `A` and `B` of 2×3 points will be received
 following this pattern:

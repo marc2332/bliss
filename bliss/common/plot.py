@@ -152,6 +152,7 @@ import subprocess
 import contextlib
 import gevent
 
+import bliss
 from bliss.comm import rpc
 from bliss import current_session
 from bliss.config.conductor.client import get_default_connection
@@ -350,6 +351,16 @@ def _attach_flint(process):
     # Return flint proxy
     FLINT_LOGGER.debug("Creating flint proxy...")
     proxy = rpc.Client(url, timeout=3)
+
+    remote_bliss_version = proxy.get_bliss_version()
+    if bliss.release.version != remote_bliss_version:
+        FLINT_LOGGER.warning(
+            "Bliss and Flint version do not match (bliss version %s, flint version: %s).",
+            bliss.release.version,
+            remote_bliss_version,
+        )
+        FLINT_LOGGER.warning("You should restart Flint.")
+
     proxy.set_session(session_name)
     proxy._pid = pid
 

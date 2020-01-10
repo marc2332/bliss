@@ -1545,7 +1545,7 @@ class Scan:
             The expected plot, else None
         """
         # check that flint is running
-        if not check_flint(current_session.name):
+        if not check_flint():
             return None
 
         flint = get_flint()

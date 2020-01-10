@@ -448,7 +448,26 @@ def get_flint(start_new=False):
         else:
             process = start_flint()
 
-    proxy = _attach_flint(process)
+    try:
+        proxy = _attach_flint(process)
+    except Exception:
+        if hasattr(process, "stdout"):
+            FLINT_LOGGER.error(
+                "Flint can't start. You can enable the logs with the following line."
+            )
+            FLINT_LOGGER.error("    SCAN_DISPLAY.flint_output_enabled = True")
+            FLINT_OUTPUT_LOGGER.error("---STDOUT---")
+            print(type(log_process_output_to_logger))
+            log_process_output_to_logger(
+                process, "stdout", FLINT_OUTPUT_LOGGER, logging.ERROR
+            )
+            FLINT_OUTPUT_LOGGER.error("---STDERR---")
+            log_process_output_to_logger(
+                process, "stderr", FLINT_OUTPUT_LOGGER, logging.ERROR
+            )
+        else:
+            raise
+
     FLINT_LOGGER.debug("Flint proxy initialized")
     return proxy
 

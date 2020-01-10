@@ -37,6 +37,8 @@ import contextlib
 
 from silx.gui import qt
 from . import scan_model
+from .style_model import Style
+from . import style_model
 
 
 class ChangeEventType(enum.Enum):
@@ -161,6 +163,11 @@ class Plot(qt.QObject):
         self.__invalidateStyleStrategy()
         self.structureChanged.emit()
 
+    def itemValueWasChanged(self, item, eventType: ChangeEventType):
+        if eventType == ChangeEventType.CUSTOM_STYLE:
+            self.__invalidateStyleStrategy()
+        self.itemValueChanged.emit(item, eventType)
+
     def styleStrategy(self):
         """Returns the style strategy used by this plot."""
         return self.__styleStrategy
@@ -266,6 +273,7 @@ class Item(qt.QObject):
         self.__isVisible: bool = True
         self.__plot: Optional[Plot] = None
         self.__version = 0
+        self.__customStyle: Optional[style_model.Style] = None
 
     def __reduce__(self):
         return (self.__class__, (), self.__getstate__())
@@ -329,7 +337,7 @@ class Item(qt.QObject):
         self.__version = (self.__version + 1) % 0x1000000
         plot = self.plot()
         if plot is not None:
-            plot.itemValueChanged.emit(self, eventType)
+            plot.itemValueWasChanged(self, eventType)
         self.valueChanged.emit(eventType)
 
     def setVisible(self, isVisible: bool):
@@ -343,7 +351,16 @@ class Item(qt.QObject):
         """Returns true if this item is visible."""
         return self.__isVisible
 
-    def getStyle(self, scan: scan_model.Scan = None) -> Style:
+    def setCustomStyle(self, style: style_model.Style):
+        if self.__customStyle == style:
+            return
+        self.__customStyle = style
+        self._emitValueChanged(ChangeEventType.CUSTOM_STYLE)
+
+    def customStyle(self) -> style_model.Style:
+        return self.__customStyle
+
+    def getStyle(self, scan: scan_model.Scan = None) -> style_model.Style:
         """Returns the style of this item."""
         plot = self.parent()
         strategy = plot.styleStrategy()
@@ -422,60 +439,11 @@ class AbstractIncrementalComputableItem(AbstractComputableItem):
         raise NotImplementedError()
 
 
-class Style:
-    def __init__(
-        self,
-        lineStyle: str = None,
-        lineColor: Tuple[int, int, int] = None,
-        linePalette: int = None,
-        symbolStyle: str = None,
-        symbolSize: float = None,
-        symbolColor: Tuple[int, int, int] = None,
-        colormapLut: str = None,
-    ):
-        super(Style, self).__init__()
-        self.__lineStyle = lineStyle
-        self.__lineColor = lineColor
-        self.__linePalette = linePalette
-        self.__symbolStyle = symbolStyle
-        self.__symbolSize = symbolSize
-        self.__symbolColor = symbolColor
-        self.__colormapLut = colormapLut
-
-    @property
-    def lineStyle(self):
-        return self.__lineStyle
-
-    @property
-    def lineColor(self):
-        return self.__lineColor
-
-    @property
-    def linePalette(self):
-        return self.__linePalette
-
-    @property
-    def symbolStyle(self):
-        return self.__symbolStyle
-
-    @property
-    def symbolSize(self):
-        return self.__symbolSize
-
-    @property
-    def symbolColor(self):
-        return self.__symbolColor
-
-    @property
-    def colormapLut(self):
-        return self.__colormapLut
-
-
 class StyleStrategy:
     """"Compute and store styles used by items from a plot"""
 
     def __init__(self):
-        self.__plot: Plot = None
+        self.__plot: Optional[Plot] = None
 
     def __reduce__(self):
         return (self.__class__, ())
@@ -484,7 +452,7 @@ class StyleStrategy:
         self.__plot = plot
         self.invalidateStyles()
 
-    def plot(self) -> Plot:
+    def plot(self) -> Optional[Plot]:
         return self.__plot
 
     def invalidateStyles(self):

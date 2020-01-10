@@ -50,3 +50,13 @@ def flint_norpc(xvfb, beacon):
     with flint_norpc_context():
         yield session
     session.close()
+
+
+@pytest.fixture
+def local_flint(xvfb):
+    """Registed expected things
+    """
+    from bliss.flint import resources
+
+    resources.silx_integration()
+    yield

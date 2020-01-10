@@ -12,6 +12,7 @@ import os
 from silx.gui import qt
 
 from bliss.flint.widgets.log_widget import LogWidget
+from bliss.flint.widgets.live_window import LiveWindow
 from bliss.flint.widgets.curve_plot import CurvePlotWidget
 from bliss.flint.model import flint_model
 
@@ -155,18 +156,9 @@ class FlintWindow(qt.QMainWindow):
         self.__tabs.removeTab(index)
 
     def createLiveWindow(self):
-        window: qt.QMainWindow = self.createTab("Live scan", qt.QMainWindow)
+        window: qt.QMainWindow = self.createTab("Live scan", LiveWindow)
         window.setObjectName("scan-window")
-        window.setDockNestingEnabled(True)
-        window.setDockOptions(
-            window.dockOptions()
-            | qt.QMainWindow.AllowNestedDocks
-            | qt.QMainWindow.AllowTabbedDocks
-            | qt.QMainWindow.GroupedDragging
-            | qt.QMainWindow.AnimatedDocks
-            # | qt.QMainWindow.VerticalTabs
-        )
-        window.setVisible(True)
+        self.setVisible(True)
         return window
 
     def __blissSessionChanged(self):

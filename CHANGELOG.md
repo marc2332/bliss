@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changes
+
+- Flint
+  - Update silx to the last 0.12
+  - Rework live scatter plot
+    - Style and min/max range can be customed by the user
+    - A prefered style can be saved as default
+    - New rendering provided (image-like solid rendering)
+    - Toolbar reworked
+    - Behaviour of "reset zoom" reworked (this will be used for other plots)
+	- Improve the mouse data picking
+    - Mecanism provided to setup the view at startup on the full range of the x/y axis
+	  - This feature is provided for `amesh` and `dmesh`
+	  - To implement if on your scans take a look at https://bliss.gitlab-pages.esrf.fr/bliss/master/flint_scan_info.html
+
 ## [1.0.0] - 2019-12-17
 
 ### Added

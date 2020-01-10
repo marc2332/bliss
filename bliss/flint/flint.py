@@ -209,6 +209,9 @@ def initApplication(argv):
     qapp.setOrganizationName("ESRF")
     qapp.setOrganizationDomain("esrf.eu")
     bliss.flint.resources.silx_integration()
+
+    # Care of the formatting for numbers (no coma)
+    qt.QLocale.setDefault(qt.QLocale.c())
     return qapp
 
 

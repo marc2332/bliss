@@ -8,11 +8,15 @@
 """
 from __future__ import annotations
 from typing import List
+from typing import Optional
 
+import datetime
 from silx.gui import qt
 
 from . import scan_model
 from . import plot_model
+from . import style_model
+from bliss.flint.utils import qsettingsutils
 
 
 class Workspace(qt.QObject):
@@ -98,11 +102,12 @@ class FlintState(qt.QObject):
         self.__liveStatusWidget = None
         self.__manager = None
         self.__flintApi = None
-        self.__settings = None
+        self.__settings: Optional[qt.QSettings] = None
         self.__mainWindow = None
         self.__scanManager = None
         self.__blissSessionName = None
         self.__redisConnection = None
+        self.__defaultScatterStyle: Optional[style_model.Style] = None
 
     def setSettings(self, settings: qt.QSettings):
         self.__settings = settings
@@ -194,3 +199,32 @@ class FlintState(qt.QObject):
     def removeAliveScan(self, scan: scan_model.Scan):
         self.__aliveScans.remove(scan)
         self.aliveScanRemoved.emit(scan)
+
+    def defaultScatterStyle(self) -> style_model.Style:
+        if self.__defaultScatterStyle is not None:
+            return self.__defaultScatterStyle
+        defaultStyle = style_model.Style(
+            fillStyle=None, colormapLut="viridis", symbolStyle="o", symbolSize=6.0
+        )
+        settings = self.__settings
+        if settings is not None:
+            settings.beginGroup("default-scatter-style")
+            style = qsettingsutils.namedTuple(settings, style_model.Style, defaultStyle)
+            settings.endGroup()
+        else:
+            style = defaultStyle
+        if style.colormapLut is None:
+            style = style_model.Style(style=style, colormapLut="viridis")
+        self.__defaultScatterStyle = style
+        return style
+
+    def setDefaultScatterStyle(self, defaultStyle: style_model.Style):
+        self.__defaultScatterStyle = defaultStyle
+        settings = self.__settings
+        settings.beginGroup("default-scatter-style")
+        qsettingsutils.setNamedTuple(settings, defaultStyle)
+        settings.endGroup()
+
+    def getDate(self):
+        now = datetime.datetime.now()
+        return now.strftime("%m%d")

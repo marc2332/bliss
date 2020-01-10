@@ -16,13 +16,15 @@ from typing import Dict
 from typing import Tuple
 
 from bliss.flint.model import scan_model
+from bliss.flint.model import flint_model
 from bliss.flint.model import plot_model
 from bliss.flint.model import plot_item_model
 
 
 class DefaultStyleStrategy(plot_model.StyleStrategy):
-    def __init__(self):
+    def __init__(self, flintModel: flint_model.FlintState):
         super(DefaultStyleStrategy, self).__init__()
+        self.__flintModel = flintModel
         self.__cached: Dict[
             Tuple[plot_model.Item, Optional[scan_model.Scan]], plot_model.Style
         ] = {}
@@ -68,11 +70,9 @@ class DefaultStyleStrategy(plot_model.StyleStrategy):
 
         if len(scatters) == 1:
             scatter = scatters[0]
-            style = plot_model.Style(
-                symbolStyle="o",
-                symbolSize=self._SYMBOL_SIZE,
-                colormapLut=self._COLORMAP,
-            )
+            style = scatter.customStyle()
+            if style is None:
+                style = self.__flintModel.defaultScatterStyle()
             self.cacheStyle(scatter, None, style)
         else:
             baseSize = self._SYMBOL_SIZE / 3

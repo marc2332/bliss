@@ -12,7 +12,9 @@ from typing import Any
 from typing import Dict
 from typing import List
 from typing import Optional
+from typing import MutableMapping
 
+import weakref
 import collections
 import logging
 from ..model import scan_model
@@ -78,6 +80,7 @@ def create_scan_model(scan_info: Dict) -> scan_model.Scan:
         "image": scan_model.ChannelType.IMAGE,
     }
 
+    channelsDict = {}
     channels = iter_channels(scan_info)
     for channel_info in channels:
         if channel_info.device in devices:
@@ -111,6 +114,7 @@ def create_scan_model(scan_info: Dict) -> scan_model.Scan:
             continue
 
         channel = scan_model.Channel(device)
+        channelsDict[channel_info.name] = channel
         channel.setName(channel_info.name)
         channel.setType(kind)
         unit = channel_units.get(channel_info.name, None)
@@ -120,13 +124,26 @@ def create_scan_model(scan_info: Dict) -> scan_model.Scan:
         if display_name is not None:
             channel.setDisplayName(display_name)
 
+    requests = scan_info.get("requests", None)
+    if requests:
+        for channel_name, metadata_dict in requests.items():
+            channel = channelsDict.get(channel_name, None)
+            if channel is not None:
+                metadata = parse_channel_metadata(metadata_dict)
+                channel.setMetadata(metadata)
+            else:
+                _logger.warning(
+                    "Channel %s is part of the request but not part of the acquisition chain. Info ingored",
+                    channel_name,
+                )
+
     scan.seal()
     return scan
 
 
 def read_units(scan_info: Dict) -> Dict[str, str]:
     """Merge all units together"""
-    units = {}
+    units: Dict[str, str] = {}
     for _master, channel_dict in scan_info["acquisition_chain"].items():
         u = channel_dict.get("scalars_units", {})
         units.update(u)
@@ -137,13 +154,44 @@ def read_units(scan_info: Dict) -> Dict[str, str]:
 
 def read_display_names(scan_info: Dict) -> Dict[str, str]:
     """Merge all display names together"""
-    display_names = {}
+    display_names: Dict[str, str] = {}
     for _master, channel_dict in scan_info["acquisition_chain"].items():
         u = channel_dict.get("display_names", {})
         display_names.update(u)
         u = channel_dict.get("master", {}).get("display_names", {})
         display_names.update(u)
     return display_names
+
+
+def _pop_and_convert(meta, key, func):
+    value = meta.pop(key, None)
+    if value is None:
+        return None
+    try:
+        value = func(value)
+    except ValueError:
+        _logger.warning("%s %s is not a valid value. Field ignored.", key, value)
+        value = None
+    return value
+
+
+def parse_channel_metadata(meta: Dict) -> scan_model.ChannelMetadata:
+    meta = meta.copy()
+
+    start = _pop_and_convert(meta, "start", float)
+    stop = _pop_and_convert(meta, "stop", float)
+    vmin = _pop_and_convert(meta, "min", float)
+    vmax = _pop_and_convert(meta, "max", float)
+    points = _pop_and_convert(meta, "points", int)
+    axesPoints = _pop_and_convert(meta, "axes-points", int)
+    axesKind = _pop_and_convert(meta, "axes-kind", scan_model.AxesKind)
+
+    for key in meta.keys():
+        _logger.warning("Metatdata key %s is unknown. Field ignored.", key)
+
+    return scan_model.ChannelMetadata(
+        start, stop, vmin, vmax, points, axesPoints, axesKind
+    )
 
 
 def create_plot_model(scan_info: Dict) -> List[plot_model.Plot]:
@@ -302,7 +350,8 @@ def create_plot_model(scan_info: Dict) -> List[plot_model.Plot]:
     # MCA plot
 
     for _master, channels in scan_info["acquisition_chain"].items():
-        spectra = channels.get("spectra", [])
+        spectra: List[str] = []
+        spectra += channels.get("spectra", [])
         # merge master which are spectra
         if "spectra" in channels:
             for c in channels.get("master", {}).get("spectra", []):
@@ -322,7 +371,8 @@ def create_plot_model(scan_info: Dict) -> List[plot_model.Plot]:
     # Image plot
 
     for _master, channels in scan_info["acquisition_chain"].items():
-        images = channels.get("images", [])
+        images: List[str] = []
+        images += channels.get("images", [])
         # merge master which are image
         if "master" in channels:
             for c in channels.get("master", {}).get("images", []):
@@ -361,33 +411,41 @@ def get_full_title(scan: scan_model.Scan) -> str:
     return text
 
 
-def get_scan_progress_percent(scan: scan_model.Scan) -> Optional[float]:
-    """Returns the percent of progress of this scan.
-    """
-    scan_info = scan.scanInfo()
-    if scan_info is None:
-        return None
+_PROGRESS_STRATEGIES: MutableMapping[
+    scan_model.Scan, List[_ProgressStrategy]
+] = weakref.WeakKeyDictionary()
 
-    # FIXME: npoints do not distinguish many top masters, AFAIK
 
-    try:
-        npoints = scan_info.get("npoints", None)
-        if npoints is None:
-            # Mesh scans
-            npoints1 = scan_info.get("npoints1", 0)
-            npoints2 = scan_info.get("npoints2", 0)
-            npoints = int(npoints1) * int(npoints2)
+class _ProgressStrategy:
+    def compute(self, scan: scan_model.Scan) -> Optional[float]:
+        """Returns the percent of progress of this strategy.
+
+        Returns a value between 0..1, else None if it is not appliable.
+        """
+        raise NotImplementedError
+
+    def channelSize(self, channel: scan_model.Channel):
+        data = channel.data()
+        if data is None:
+            return 0.0
+
+        if data.frameId() is not None:
+            size = data.frameId() + 1
         else:
-            npoints = int(npoints)
-    except:
-        # It's about parsing user input, everything can happen
-        _logger.error("Error while reading scan_info", exc_info=True)
+            size = len(data.array())
 
-    if npoints == 0:
-        return None
+        return size
 
-    if npoints is not None:
-        master_channels = []
+
+class _ProgressOfAnyChannels(_ProgressStrategy):
+    """Compute the progress according to any of the available channels"""
+
+    def __init__(self, maxPoints: int):
+        self.__maxPoints = maxPoints
+
+    def compute(self, scan: scan_model.Scan) -> Optional[float]:
+        scan_info = scan.scanInfo()
+        master_channels: List[str] = []
         for _master_name, channel_info in scan_info["acquisition_chain"].items():
             master_channels.extend(channel_info.get("master", {}).get("scalars", []))
             master_channels.extend(channel_info.get("master", {}).get("images", []))
@@ -396,15 +454,90 @@ def get_scan_progress_percent(scan: scan_model.Scan) -> Optional[float]:
             channel = scan.getChannelByName(master_channel)
             if channel is None:
                 continue
-            data = channel.data()
-            if data is None:
-                return 0.0
+            size = self.channelSize(channel)
+            return size / self.__maxPoints
 
-            if data.frameId() is not None:
-                size = data.frameId() + 1
+        return None
+
+
+class _ProgressOfChannel(_ProgressStrategy):
+    def __init__(self, channelName: str, maxPoints: int):
+        self.__maxPoints = maxPoints
+        self.__channelName = channelName
+
+    def compute(self, scan: scan_model.Scan) -> Optional[float]:
+        channel = scan.getChannelByName(self.__channelName)
+        if channel is None:
+            return None
+        size = self.channelSize(channel)
+        return size / self.__maxPoints
+
+
+def _create_progress_strategies(scan: scan_model.Scan) -> List[_ProgressStrategy]:
+    scan_info = scan.scanInfo()
+    if scan_info is None:
+        return []
+
+    strategies = []
+
+    requests = scan_info.get("requests", None)
+    if requests:
+        # Reach on channel per npoints (in case of many top masters without
+        # same size)
+        strategy_per_npoints: Dict[int, _ProgressStrategy] = {}
+        for channel_name, metadata_dict in requests.items():
+            if "points" in metadata_dict:
+                try:
+                    npoints = int(metadata_dict["points"])
+                except Exception:
+                    # It's about parsing user input, everything can happen
+                    _logger.error("Error while reading scan_info", exc_info=True)
+                    continue
+
+                if npoints in strategy_per_npoints:
+                    continue
+                strategy = _ProgressOfChannel(channel_name, npoints)
+                strategy_per_npoints[npoints] = strategy
+
+        for _, s in strategy_per_npoints.items():
+            strategies.append(s)
+
+    if len(strategies) == 0:
+        # npoints do not distinguish many top masters
+        # It only use it if there is no other choises
+        try:
+            npoints = scan_info.get("npoints", None)
+            if npoints is None:
+                # Mesh scans
+                npoints1 = scan_info.get("npoints1", 0)
+                npoints2 = scan_info.get("npoints2", 0)
+                npoints = int(npoints1) * int(npoints2)
             else:
-                size = len(data.array())
+                npoints = int(npoints)
 
-            return size / npoints
+            if npoints is not None and npoints != 0:
+                strategies.append(_ProgressOfAnyChannels(npoints))
+        except Exception:
+            # It's about parsing user input, everything can happen
+            _logger.error("Error while reading scan_info", exc_info=True)
 
-    return None
+    return strategies
+
+
+def get_scan_progress_percent(scan: scan_model.Scan) -> Optional[float]:
+    """Returns the percent of progress of this strategy.
+
+    Returns a value between 0..1, else None if it is not appliable.
+    """
+    strategies = _PROGRESS_STRATEGIES.get(scan, None)
+    if strategies is None:
+        strategies = _create_progress_strategies(scan)
+        _PROGRESS_STRATEGIES[scan] = strategies
+
+    values = [s.compute(scan) for s in strategies]
+    values = [v for v in values if v is not None]
+    if len(values) == 0:
+        return None
+
+    result = sum(values) / len(values)
+    return result

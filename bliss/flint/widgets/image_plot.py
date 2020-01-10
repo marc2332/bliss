@@ -21,6 +21,7 @@ from silx.gui.plot import Plot2D
 from bliss.flint.model import scan_model
 from bliss.flint.model import flint_model
 from bliss.flint.model import plot_model
+from bliss.flint.model import style_model
 from bliss.flint.model import plot_item_model
 from bliss.flint.widgets.extended_dock_widget import ExtendedDockWidget
 from bliss.flint.helper import scan_info_helper
@@ -240,7 +241,7 @@ class ImagePlotWidget(ExtendedDockWidget):
             # it have to be synchonized to the item style
             item.setColormap(colormap)
 
-        if style.symbolStyle is None:
+        if style.symbolStyle is style_model.SymbolStyle.NO_SYMBOL:
             key = plot.addImage(
                 image, legend=legend, resetzoom=False, colormap=colormap
             )
@@ -256,7 +257,10 @@ class ImagePlotWidget(ExtendedDockWidget):
                 x=xx, y=yy, value=image, legend=legend, colormap=colormap
             )
             scatter = plot.getScatter(key)
-            scatter.setSymbol(style.symbolStyle)
+            symbolStyle = style_model.symbol_to_silx(style.symbolStyle)
+            if symbolStyle == " ":
+                symbolStyle = "o"
+            scatter.setSymbol(symbolStyle)
             scatter.setSymbolSize(style.symbolSize)
             plotItems.append(_ItemDescription(key, "scatter", image.shape))
 

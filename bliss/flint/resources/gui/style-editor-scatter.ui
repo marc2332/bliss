@@ -1,0 +1,169 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>Form</class>
+ <widget class="QWidget" name="Form">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>332</width>
+    <height>325</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Form</string>
+  </property>
+  <layout class="QGridLayout" name="gridLayout">
+   <item row="1" column="1">
+    <widget class="ColormapNameComboBox" name="_fillColormap"/>
+   </item>
+   <item row="8" column="1">
+    <widget class="QComboBox" name="_symbolStyle"/>
+   </item>
+   <item row="8" column="0">
+    <widget class="QLabel" name="label_4">
+     <property name="text">
+      <string>Point:</string>
+     </property>
+    </widget>
+   </item>
+   <item row="0" column="1">
+    <widget class="QComboBox" name="_fillStyle"/>
+   </item>
+   <item row="2" column="0">
+    <spacer name="verticalSpacer_2">
+     <property name="orientation">
+      <enum>Qt::Vertical</enum>
+     </property>
+     <property name="sizeType">
+      <enum>QSizePolicy::Fixed</enum>
+     </property>
+     <property name="sizeHint" stdset="0">
+      <size>
+       <width>20</width>
+       <height>10</height>
+      </size>
+     </property>
+    </spacer>
+   </item>
+   <item row="3" column="0">
+    <widget class="QLabel" name="label_3">
+     <property name="text">
+      <string>Line:</string>
+     </property>
+    </widget>
+   </item>
+   <item row="4" column="1">
+    <widget class="ColorPicker" name="_lineColor"/>
+   </item>
+   <item row="3" column="1">
+    <widget class="QComboBox" name="_lineStyle"/>
+   </item>
+   <item row="1" column="0">
+    <widget class="QLabel" name="_fillColormapLabel">
+     <property name="text">
+      <string>    Colormap:</string>
+     </property>
+    </widget>
+   </item>
+   <item row="10" column="0">
+    <widget class="QLabel" name="_symbolColorLabel">
+     <property name="text">
+      <string>    Color:</string>
+     </property>
+    </widget>
+   </item>
+   <item row="10" column="1">
+    <widget class="ColorPicker" name="_symbolColor"/>
+   </item>
+   <item row="4" column="0">
+    <widget class="QLabel" name="_lineColorLabel">
+     <property name="text">
+      <string>    Color:</string>
+     </property>
+    </widget>
+   </item>
+   <item row="11" column="0">
+    <widget class="QLabel" name="_symbolSizeLabel">
+     <property name="text">
+      <string>    Size:</string>
+     </property>
+    </widget>
+   </item>
+   <item row="5" column="1">
+    <widget class="QSlider" name="_lineWidth">
+     <property name="minimum">
+      <number>1</number>
+     </property>
+     <property name="orientation">
+      <enum>Qt::Horizontal</enum>
+     </property>
+    </widget>
+   </item>
+   <item row="5" column="0">
+    <widget class="QLabel" name="_lineWidthLabel">
+     <property name="text">
+      <string>    Width:</string>
+     </property>
+    </widget>
+   </item>
+   <item row="11" column="1">
+    <widget class="QSlider" name="_symbolSize">
+     <property name="minimum">
+      <number>1</number>
+     </property>
+     <property name="orientation">
+      <enum>Qt::Horizontal</enum>
+     </property>
+    </widget>
+   </item>
+   <item row="0" column="0">
+    <widget class="QLabel" name="label_2">
+     <property name="text">
+      <string>Solid:</string>
+     </property>
+    </widget>
+   </item>
+   <item row="7" column="0">
+    <spacer name="verticalSpacer_3">
+     <property name="orientation">
+      <enum>Qt::Vertical</enum>
+     </property>
+     <property name="sizeType">
+      <enum>QSizePolicy::Fixed</enum>
+     </property>
+     <property name="sizeHint" stdset="0">
+      <size>
+       <width>20</width>
+       <height>10</height>
+      </size>
+     </property>
+    </spacer>
+   </item>
+   <item row="9" column="1">
+    <widget class="ColormapNameComboBox" name="_symbolColormap"/>
+   </item>
+   <item row="9" column="0">
+    <widget class="QLabel" name="_symbolColormapLabel">
+     <property name="text">
+      <string>    Colormap:</string>
+     </property>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <customwidgets>
+  <customwidget>
+   <class>ColormapNameComboBox</class>
+   <extends>QComboBox</extends>
+   <header>silx.gui.widgets.ColormapNameComboBox</header>
+  </customwidget>
+  <customwidget>
+   <class>ColorPicker</class>
+   <extends>QComboBox</extends>
+   <header>bliss.flint.widgets.color_picker</header>
+  </customwidget>
+ </customwidgets>
+ <resources/>
+ <connections/>
+</ui>

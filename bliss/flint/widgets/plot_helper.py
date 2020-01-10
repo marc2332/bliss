@@ -72,6 +72,8 @@ class CustomAxisAction(qt.QWidgetAction):
         action = control.YAxisLogarithmicAction(plot, self)
         action.setText("Log scale")
         menu.addAction(action)
+        action = control.YAxisInvertedAction(plot, self)
+        menu.addAction(action)
 
         menu.addSection("Aspect ratio")
         action = CheckableKeepAspectRatioAction(plot, self)

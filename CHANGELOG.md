@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+
 - Beacon:
   - Log Server: all log messages (plus exceptions and user input) are sent to a socket server
                 that can be started with Beacon, this will save to a Log Rotating File
@@ -22,19 +23,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Flint
   - Update silx to the last 0.12
   - Rework live scatter plot
-    - Style and min/max range can be customed by the user
-    - A prefered style can be saved as default
+    - Style and min/max range can be customized by the user
+    - A preferred style can be saved as default
     - New rendering provided (image-like solid rendering)
     - Toolbar reworked
     - Behaviour of "reset zoom" reworked (this will be used for other plots)
-	- Improve the mouse data picking
-    - Mecanism provided to setup the view at startup on the full range of the x/y axis
-	  - This feature is provided for `amesh` and `dmesh`
-	  - To implement if on your scans take a look at https://bliss.gitlab-pages.esrf.fr/bliss/master/flint_scan_info.html
+  - Improve the mouse data picking
+    - Mechanism provided to setup the view at startup on the full range of the x/y axis
+    - This feature is provided for `amesh` and `dmesh`
+    - To implement if on your scans take a look at https://bliss.gitlab-pages.esrf.fr/bliss/master/flint_scan_info.html
 
 ## [1.0.0] - 2019-12-17
 
 ### Added
+
 - Controllers
   - Hardware SCA mode for Xia Mercury
   - Interlocks support for Wago
@@ -45,19 +47,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - use home_src for Icepap "home()" method
 
 - Configuration
-  - '.' can now be used directly access attributes of referenced objects 
+  - '.' can now be used directly access attributes of referenced objects
   
 - Scanning toolbox
-  - `ChainBuilder` class: helper to build a custom scan with auto-introspection of the counters dependencies given to a scan. 
-  - `ChainNode` class: used by the `ChainBuilder` to store required information about the links between Counters, CounterControllers and AcquisitionObjects. 
+  - `ChainBuilder` class: helper to build a custom scan with auto-introspection of the counters dependencies given to a scan.
+  - `ChainNode` class: used by the `ChainBuilder` to store required information about the links between Counters, CounterControllers and AcquisitionObjects.
 
 - CounterController
   - New file `bliss.controllers.counter` including the base classes of the standard CounterControllers:
     - `CounterController` base class for `Counter` management.
-    - `SamplingCounterController` class for `SamplinCounter` management.
+    - `SamplingCounterController` class for `SamplingCounter` management.
     - `IntegratingCounterController` class for `IntegratingCounter` management.
     - `CalcCounterController` class for `CalcCounter` management.
-      - can deal with N input counters, and produces M output counters 
+      - can deal with N input counters, and produces M output counters
     - `SoftCounterController` class for `SoftCounter` management.
 
 - AcquisitionObject
@@ -69,7 +71,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - grouping feature
 
 - Regulation framework
-  - new module `bliss.common.regulation` to manage PID regulation of various systems. 
+  - new module `bliss.common.regulation` to manage PID regulation of various systems.
   - new `SoftLoop` object that implements a software PID regulation algorithm.
   - new `ExternalInput` and `ExternalOutput` objects in order to transform any devices into an `Input` or `Output` for a the `SoftLoop` regulation.
 
@@ -111,7 +113,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Shell
     - start Flint in shell only
     - clear() function to clear screen
-    
+
 - Logging
     - lprint: new function intended to replace print for printing to stdout and to log file
 
@@ -141,7 +143,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - The file `bliss.controllers.acquisition` has been renamed `bliss.controllers.counter`.
   - `get_acquisition_object` method attached to the `CounterController` object.
   - `get_default_chain_parameters` method attached to the `CounterController` object.
- 
+
 - AcquisitionObject
   - `AcquisitionSlave` inherits from `AcquisitionObject` base class.
   - `Acquisitionmaster` inherits from `AcquisitionObject` base class.
@@ -152,7 +154,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - This API is only used by `edit_roi_counters` and will may be removed
   - Try to avoid to reach images which are not needed (according to the frame id already reached)
   - `selectplot` do not anymore set the default displayed channels in the plot (temporary regression)
- 
+
 - Globals
   - `SCANS` is now available only in Bliss Shell. Refers to `current_session.scans`
   - `SCAN_SAVING` is now available only in Bliss Shell. Refers to `current_session.scan_saving`
@@ -215,7 +217,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `bliss.common.plot.BasePlot.clear_selections` was removed
 
 - Scans
-  - duration estimation is no longer providede, since it cannot be calculated accurately 
+  - duration estimation is no longer provide, since it cannot be calculated accurately
 
 ## [0.3.0] - 2019-10-01
 

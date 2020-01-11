@@ -176,11 +176,14 @@ def ports(beacon_directory):
         "--tango_port=%d" % ports.tango_port,
         "--webapp_port=%d" % ports.cfgapp_port,
     ]
-    proc = subprocess.Popen(BEACON + args, stderr=subprocess.PIPE)
-    wait_for(proc.stderr, "database started on port")
-    gevent.sleep(
-        1
-    )  # ugly synchronisation, would be better to use logging messages? Like 'post_init_cb()' (see databaseds.py in PyTango source code)
+    print(" ".join(BEACON + args))
+    input("Start Beacon")
+    # proc = subprocess.Popen(BEACON + args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    # wait_for(proc.stderr, "database started on port")
+    # gevent.sleep(
+    #    1
+    # )  # ugly synchronisation, would be better to use logging messages? Like 'post_init_cb()' (see databaseds.py in PyTango source code)
+    # output_processing = gevent.spawn(proc.communicate)
 
     os.environ["TANGO_HOST"] = "localhost:%d" % ports.tango_port
     os.environ["BEACON_HOST"] = "localhost:%d" % ports.beacon_port
@@ -188,8 +191,8 @@ def ports(beacon_directory):
     yield ports
 
     atexit._run_exitfuncs()
-    proc.terminate()
-    print(proc.stderr.read().decode(), file=sys.stderr)
+    # proc.terminate()
+    # stdout, stderr = output_processing.get()
 
 
 @pytest.fixture

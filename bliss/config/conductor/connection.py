@@ -154,6 +154,7 @@ class Connection(object):
         self._socket = None
         self._connect_lock = gevent.lock.Semaphore()
         self._get_redis_lock = gevent.lock.Semaphore()
+        self._send_lock = gevent.lock.Semaphore()
         self._connected = gevent.event.Event()
         self._raw_read_task = None
         self._greenlet_to_lockobjects = weakref.WeakKeyDictionary()
@@ -275,7 +276,7 @@ class Connection(object):
 
     def _uds_query(self, timeout=1.0):
         self._uds_query_event.clear()
-        self._socket.sendall(
+        self._sendall(
             protocol.message(protocol.UDS_QUERY, socket.gethostname().encode())
         )
         self._uds_query_event.wait(timeout)
@@ -290,10 +291,8 @@ class Connection(object):
             with gevent.Timeout(
                 timeout, RuntimeError("lock timeout (%s)" % str(devices_name))
             ):
-                while 1:
-                    self._socket.sendall(
-                        protocol.message(protocol.LOCK, wait_lock.msg())
-                    )
+                while True:
+                    self._sendall(protocol.message(protocol.LOCK, wait_lock.msg()))
                     status = wait_lock.get()
                     if status == protocol.LOCK_OK_REPLY:
                         break
@@ -315,7 +314,7 @@ class Connection(object):
         with gevent.Timeout(
             timeout, RuntimeError("unlock timeout (%s)" % str(devices_name))
         ):
-            self._socket.sendall(protocol.message(protocol.UNLOCK, msg))
+            self._sendall(protocol.message(protocol.UNLOCK, msg))
         locked_objects = self._greenlet_to_lockobjects.setdefault(
             gevent.getcurrent(), dict()
         )
@@ -337,7 +336,7 @@ class Connection(object):
             ):
                 while self._redis_host is None:
                     self._redis_query_event.clear()
-                    self._socket.sendall(protocol.message(protocol.REDIS_QUERY))
+                    self._sendall(protocol.message(protocol.REDIS_QUERY))
                     self._redis_query_event.wait()
 
         return self._redis_host, self._redis_port
@@ -370,7 +369,8 @@ class Connection(object):
         with gevent.Timeout(timeout, RuntimeError("Can't get configuration file")):
             with self.WaitingQueue(self) as wq:
                 msg = b"%s|%s" % (wq.message_key(), file_path.encode())
-                self._socket.sendall(protocol.message(protocol.CONFIG_GET_FILE, msg))
+                self._sendall(protocol.message(protocol.CONFIG_GET_FILE, msg))
+                # self._socket.sendall(protocol.message(protocol.CONFIG_GET_FILE, msg))
                 value = wq.get()
                 if isinstance(value, RuntimeError):
                     raise value
@@ -382,7 +382,7 @@ class Connection(object):
         with gevent.Timeout(timeout, RuntimeError("Can't get configuration tree")):
             with self.WaitingQueue(self) as wq:
                 msg = b"%s|%s" % (wq.message_key(), base_path.encode())
-                self._socket.sendall(protocol.message(protocol.CONFIG_GET_DB_TREE, msg))
+                self._sendall(protocol.message(protocol.CONFIG_GET_DB_TREE, msg))
                 value = wq.get()
                 if isinstance(value, RuntimeError):
                     raise value
@@ -396,7 +396,7 @@ class Connection(object):
         with gevent.Timeout(timeout, RuntimeError("Can't remove configuration file")):
             with self.WaitingQueue(self) as wq:
                 msg = b"%s|%s" % (wq.message_key(), file_path.encode())
-                self._socket.sendall(protocol.message(protocol.CONFIG_REMOVE_FILE, msg))
+                self._sendall(protocol.message(protocol.CONFIG_REMOVE_FILE, msg))
                 for rx_msg in wq.queue():
                     print(rx_msg)
 
@@ -409,7 +409,7 @@ class Connection(object):
                     src_path.encode(),
                     dst_path.encode(),
                 )
-                self._socket.sendall(protocol.message(protocol.CONFIG_MOVE_PATH, msg))
+                self._sendall(protocol.message(protocol.CONFIG_MOVE_PATH, msg))
                 for rx_msg in wq.queue():
                     print(rx_msg)
 
@@ -419,9 +419,7 @@ class Connection(object):
         with gevent.Timeout(timeout, RuntimeError("Can't get configuration file")):
             with self.WaitingQueue(self) as wq:
                 msg = b"%s|%s" % (wq.message_key(), base_path.encode())
-                self._socket.sendall(
-                    protocol.message(protocol.CONFIG_GET_DB_BASE_PATH, msg)
-                )
+                self._sendall(protocol.message(protocol.CONFIG_GET_DB_BASE_PATH, msg))
                 for rx_msg in wq.queue():
                     if isinstance(rx_msg, RuntimeError):
                         raise rx_msg
@@ -440,7 +438,7 @@ class Connection(object):
                     file_path.encode(),
                     content.encode(),
                 )
-                self._socket.sendall(protocol.message(protocol.CONFIG_SET_DB_FILE, msg))
+                self._sendall(protocol.message(protocol.CONFIG_SET_DB_FILE, msg))
                 for rx_msg in wq.queue():
                     raise rx_msg
 
@@ -450,9 +448,7 @@ class Connection(object):
         with gevent.Timeout(timeout, RuntimeError("Can't get python modules")):
             with self.WaitingQueue(self) as wq:
                 msg = b"%s|%s" % (wq.message_key(), base_path.encode())
-                self._socket.sendall(
-                    protocol.message(protocol.CONFIG_GET_PYTHON_MODULE, msg)
-                )
+                self._sendall(protocol.message(protocol.CONFIG_GET_PYTHON_MODULE, msg))
                 for rx_msg in wq.queue():
                     if isinstance(rx_msg, RuntimeError):
                         raise rx_msg
@@ -474,7 +470,7 @@ class Connection(object):
             with self.WaitingQueue(self) as wq:
                 raw_names = [b"%s" % wq.message_key()] + [n.encode() for n in names]
                 msg = b"|".join(raw_names)
-                self._socket.sendall(protocol.message(protocol.WHO_LOCKED, msg))
+                self._sendall(protocol.message(protocol.WHO_LOCKED, msg))
                 for rx_msg in wq.queue():
                     if isinstance(rx_msg, RuntimeError):
                         raise rx_msg
@@ -489,7 +485,7 @@ class Connection(object):
         with gevent.Timeout(timeout, RuntimeError("Can't get/set client name")):
             with self.WaitingQueue(self) as wq:
                 msg = b"%s|%s" % (wq.message_key(), name.encode())
-                self._socket.sendall(protocol.message(msg_type, msg))
+                self._sendall(protocol.message(msg_type, msg))
                 rx_msg = wq.get()
                 if isinstance(rx_msg, RuntimeError):
                     raise rx_msg
@@ -530,6 +526,10 @@ class Connection(object):
         if pos < 0:
             return message, None
         return message[:pos], message[pos + 1 :]
+
+    def _sendall(self, msg):
+        with self._send_lock:
+            self._socket.sendall(msg)
 
     def _raw_read(self):
         try:

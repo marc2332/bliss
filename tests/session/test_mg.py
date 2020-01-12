@@ -206,9 +206,7 @@ def test_counter_group(beacon, session, lima_simulator):
     assert set(counters) == set(lima_simulator.bpm.counters)
 
 
-def test_counters_with_no_register_controller(clean_gevent):
-    clean_gevent["end-check"] = False
-
+def test_counters_with_no_registered_controller(beacon):
     class MyCounter(counter.CounterController):
         def __init__(self):
             super().__init__("test_cnt")
@@ -234,9 +232,7 @@ def test_counters_with_no_register_controller(clean_gevent):
     assert set(counters) == set(container.counters)
 
 
-def test_counters_with_register_counters(clean_gevent):
-    clean_gevent["end-check"] = False
-
+def test_counters_with_registered_counters(beacon):
     class MyCounter(counter.CounterController):
         def __init__(self):
             super().__init__("test_cnt")

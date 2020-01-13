@@ -1,0 +1,17 @@
+controller:
+- module: wago
+  class: WagoMotor
+  wago: $wago_simulator
+  axes:
+  - name: dacm1
+    logical_name: o10v1
+    logical_channel: 0
+    low_limit: 0
+    high_limit: 10
+    unit: V
+  - name: dacm2
+    logical_name: o10v2
+    logical_channel: 0
+    low_limit: 0
+    high_limit: 10
+    unit: V

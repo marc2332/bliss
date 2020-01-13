@@ -25,6 +25,7 @@ from bliss.flint.model import style_model
 from bliss.flint.model import plot_item_model
 from bliss.flint.widgets.extended_dock_widget import ExtendedDockWidget
 from bliss.flint.helper import scan_info_helper
+from bliss.flint.helper import model_helper
 
 
 _ItemDescription = collections.namedtuple("_ItemDescription", ("key", "kind", "shape"))
@@ -115,6 +116,8 @@ class ImagePlotWidget(ExtendedDockWidget):
         if eventType == plot_model.ChangeEventType.VISIBILITY:
             self.__updateItem(item)
         elif eventType == plot_model.ChangeEventType.IMAGE_CHANNEL:
+            self.__updateItem(item)
+        elif eventType == plot_model.ChangeEventType.CUSTOM_STYLE:
             self.__updateItem(item)
 
     def __currentScanChanged(
@@ -232,14 +235,7 @@ class ImagePlotWidget(ExtendedDockWidget):
 
         legend = dataChannel.name()
         style = item.getStyle(self.__scan)
-
-        colormap = item.colormap()
-        if colormap is None:
-            colormap = colors.Colormap(style.colormapLut)
-            # Store the colormap
-            # FIXME as the colormap is exposed to the colormap dialog
-            # it have to be synchonized to the item style
-            item.setColormap(colormap)
+        colormap = model_helper.getColormapFromItem(item, style)
 
         if style.symbolStyle is style_model.SymbolStyle.NO_SYMBOL:
             key = plot.addImage(

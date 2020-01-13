@@ -92,7 +92,9 @@ class DefaultStyleStrategy(plot_model.StyleStrategy):
 
         if len(images) >= 1:
             image = images.pop(0)
-            style = plot_model.Style(colormapLut=self._COLORMAP)
+            style = image.customStyle()
+            if style is None:
+                style = self.__flintModel.defaultImageStyle()
             self.cacheStyle(image, None, style)
 
         if len(images) == 1:

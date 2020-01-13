@@ -226,6 +226,9 @@ class StylePropertyWidget(qt.QWidget):
             if isinstance(item, plot_item_model.ScatterItem):
                 data = item.valueChannel().array(scan)
                 dialog.setData(data)
+            elif isinstance(item, plot_item_model.ImageItem):
+                data = item.imageChannel().array(scan)
+                dialog.setData(data)
 
         dialog.setColormap(colormap)
         result = dialog.exec_()

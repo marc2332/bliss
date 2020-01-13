@@ -44,23 +44,31 @@ def _merge_master_keys(values: Dict, key: str):
 
 def iter_channels(scan_info: Dict[str, Any]):
     acquisition_chain = scan_info["acquisition_chain"]
+
+    def get_device_from_channel_name(channel_name):
+        """Returns the device name from the channel name, else None"""
+        if ":" in channel_name:
+            elements = channel_name.split(":")
+            return ":".join(elements[0:-1])
+        return None
+
     for master_name, data in acquisition_chain.items():
         scalars = _merge_master_keys(data, "scalars")
         spectra = _merge_master_keys(data, "spectra")
         images = _merge_master_keys(data, "images")
 
         for channel_name in scalars:
-            device_name = channel_name.split(":")[0]
+            device_name = get_device_from_channel_name(channel_name)
             channel = Channel(channel_name, "scalar", device_name, master_name)
             yield channel
 
         for channel_name in spectra:
-            device_name = channel_name.split(":")[0]
+            device_name = get_device_from_channel_name(channel_name)
             channel = Channel(channel_name, "spectrum", device_name, master_name)
             yield channel
 
         for channel_name in images:
-            device_name = channel_name.split(":")[0]
+            device_name = get_device_from_channel_name(channel_name)
             channel = Channel(channel_name, "image", device_name, master_name)
             yield channel
 
@@ -83,26 +91,27 @@ def create_scan_model(scan_info: Dict) -> scan_model.Scan:
     channelsDict = {}
     channels = iter_channels(scan_info)
     for channel_info in channels:
-        if channel_info.device in devices:
-            device = devices[channel_info.device]
-        else:
-            # Device have to be created
-            if channel_info.master == channel_info.device:
+        device_name = channel_info.device
+
+        key = channel_info.master
+        master = devices.get(key, None)
+        if master is None:
+            # Master have to be created
+            master = scan_model.Device(scan)
+            master.setName(channel_info.master)
+            devices[key] = master
+
+        device = None
+        if channel_info.device is not None:
+            key = channel_info.master + ":" + channel_info.device
+            device = devices.get(key, None)
+            if device is None:
                 device = scan_model.Device(scan)
-                device.setName(channel_info.device)
-                devices[channel_info.device] = device
-            else:
-                if channel_info.master in devices:
-                    master = devices[channel_info.master]
-                else:
-                    # Master have to be created
-                    master = scan_model.Device(scan)
-                    master.setName(channel_info.master)
-                    devices[channel_info.master] = master
-                device = scan_model.Device(scan)
-                device.setName(channel_info.device)
+                device.setName(device_name)
                 device.setMaster(master)
-                devices[channel_info.device] = device
+                devices[key] = device
+        else:
+            device = master
 
         kind = kinds.get(channel_info.kind, None)
         if kind is None:

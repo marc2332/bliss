@@ -50,7 +50,7 @@ def test_create_scan_model():
     for device in scan.devices():
         channelCount += len(list(device.channels()))
     assert channelCount == 5
-    assert deviceCount == 5
+    assert deviceCount == 6
 
     expected = [
         ("diode:diode", scan_model.ChannelType.COUNTER, "diode", "timer"),
@@ -66,10 +66,7 @@ def test_create_scan_model():
         assert channel.name() == name
         assert channel.type() == kind
         assert channel.device().name() == device
-        if device == master:
-            assert channel.device().master() is None
-        else:
-            assert channel.device().master().name() == master
+        assert channel.device().master().name() == master
 
     assert scan.getChannelByName("timer:elapsed_time").metadata() is not None
     assert scan.getChannelByName("timer:epoch").metadata() is None

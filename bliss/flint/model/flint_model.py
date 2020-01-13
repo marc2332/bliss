@@ -108,6 +108,7 @@ class FlintState(qt.QObject):
         self.__blissSessionName = None
         self.__redisConnection = None
         self.__defaultScatterStyle: Optional[style_model.Style] = None
+        self.__defaultImageStyle: Optional[style_model.Style] = None
 
     def setSettings(self, settings: qt.QSettings):
         self.__settings = settings
@@ -222,6 +223,29 @@ class FlintState(qt.QObject):
         self.__defaultScatterStyle = defaultStyle
         settings = self.__settings
         settings.beginGroup("default-scatter-style")
+        qsettingsutils.setNamedTuple(settings, defaultStyle)
+        settings.endGroup()
+
+    def defaultImageStyle(self) -> style_model.Style:
+        if self.__defaultImageStyle is not None:
+            return self.__defaultImageStyle
+        defaultStyle = style_model.Style(colormapLut="viridis")
+        settings = self.__settings
+        if settings is not None:
+            settings.beginGroup("default-image-style")
+            style = qsettingsutils.namedTuple(settings, style_model.Style, defaultStyle)
+            settings.endGroup()
+        else:
+            style = defaultStyle
+        if style.colormapLut is None:
+            style = style_model.Style(style=style, colormapLut="viridis")
+        self.__defaultImageStyle = style
+        return style
+
+    def setDefaultImageStyle(self, defaultStyle: style_model.Style):
+        self.__defaultScatterStyle = defaultStyle
+        settings = self.__settings
+        settings.beginGroup("default-image-style")
         qsettingsutils.setNamedTuple(settings, defaultStyle)
         settings.endGroup()
 

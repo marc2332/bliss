@@ -248,6 +248,9 @@ if __name__ == "__main__":
     parser.add_argument(
         "--readers", default=0, type=int, help="Number of parallel readers"
     )
+    parser.add_argument(
+        "--n", default=0, type=int, help="Number iterations (unlimited by default)"
+    )
     args, unknown = parser.parse_known_args()
     if args.type == "many":
         test_func = stress_many_parallel
@@ -266,10 +269,15 @@ if __name__ == "__main__":
     readers = [gevent.spawn(reader, filename, "r") for _ in range(max(args.readers, 0))]
     try:
         titles = []
+        imax = args.n
+        i = 1
         while True:
             gevent.sleep()
             if test_func(test_session, filename, titles, checkoutput=args.astango):
                 break
+            if imax and i == imax:
+                break
+            i += 1
     finally:
         if readers:
             gevent.killall(readers)

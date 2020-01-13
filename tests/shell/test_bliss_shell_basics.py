@@ -6,10 +6,11 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import re
-
+import contextlib
 from prompt_toolkit.input.defaults import create_pipe_input
 from bliss.shell.cli.repl import BlissRepl
 from prompt_toolkit.output import DummyOutput
+from prompt_toolkit.eventloop import get_event_loop
 
 
 def _feed_cli_with_input(text, check_line_ending=True, local_locals={}):
@@ -39,6 +40,7 @@ def _feed_cli_with_input(text, check_line_ending=True, local_locals={}):
 
     finally:
         inp.close()
+        get_event_loop().close()
 
 
 def test_shell_exit():
@@ -211,6 +213,23 @@ def test_shell_comma_after_comma():
     assert result == "1,"
 
 
+@contextlib.contextmanager
+def bliss_repl(locals_dict):
+    inp = create_pipe_input()
+
+    def mylocals():
+        return locals_dict
+
+    try:
+        br = BlissRepl(
+            input=inp, output=DummyOutput(), session="test_session", get_locals=mylocals
+        )
+        yield inp, br
+    finally:
+        inp.close()
+        get_event_loop().close()
+
+
 def test_info_dunder(capfd):
     class A(object):
         def __repr__(self):
@@ -288,17 +307,9 @@ def test_info_dunder(capfd):
     out = _repl_out_to_string(captured.out)
     assert "C object at " in out
 
-    ###bypass typing helper ... equivalent of ... [Space][left Arrow]A[return]
-    inp = create_pipe_input()
-
-    def mylocals():
-        return {"A": A, "B": B, "A.titi": A.titi}
-
-    try:
-
-        br = BlissRepl(
-            input=inp, output=DummyOutput(), session="test_session", get_locals=mylocals
-        )
+    ###bypass typing helper ... equivalent of ... [Space][left Arrow]A[return], "B": B, "A.titi": A.titi}, "B": B, "A.titi": A.titi}
+    with bliss_repl({"A": A, "B": B, "A.titi": A.titi}) as bliss_repl_ctx:
+        inp, br = bliss_repl_ctx
         inp.send_text("")
         br.default_buffer.insert_text("A ")
         inp.send_text("\r")
@@ -310,9 +321,8 @@ def test_info_dunder(capfd):
         # assert "<locals>.A" in out
         assert "  Out [1]: info-string\r\n\r\n" == out
 
-        br = BlissRepl(
-            input=inp, output=DummyOutput(), session="test_session", get_locals=mylocals
-        )
+    with bliss_repl({"A": A, "B": B, "A.titi": A.titi}) as bliss_repl_ctx:
+        inp, br = bliss_repl_ctx
         inp.send_text("")
         br.default_buffer.insert_text("B ")
         inp.send_text("\r")
@@ -324,9 +334,6 @@ def test_info_dunder(capfd):
 
         # assert "<locals>.B" in out
         assert "  Out [1]: repr-string\r\n\r\n" == out
-
-    finally:
-        inp.close()
 
 
 def test_shell_dict_list_not_callable():

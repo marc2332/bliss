@@ -6,26 +6,23 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import pytest
-from prompt_toolkit.input.defaults import create_pipe_input
-from bliss.shell.cli.repl import BlissRepl
 import gevent
-from bliss.common.utils import autocomplete_property
+from prompt_toolkit.input.defaults import create_pipe_input
+from prompt_toolkit.eventloop import get_event_loop
 from types import SimpleNamespace
 
-import pytest
+from bliss.shell.cli.repl import BlissRepl
 from bliss.shell.cli.repl import _set_pt_event_loop
+from bliss.common.utils import autocomplete_property
 
 
 def _run_incomplete(cmd_input, local_locals):
-    _set_pt_event_loop()
-
     inp = create_pipe_input()
 
     def mylocals():
         return local_locals
 
     try:
-
         br = BlissRepl(
             input=inp, output=None, session="test_session", get_locals=mylocals
         )
@@ -40,19 +37,19 @@ def _run_incomplete(cmd_input, local_locals):
 
     except RuntimeError:
         inp.close()
+        get_event_loop().close()
         return br
 
     inp.close()
+    get_event_loop().close()
     assert False
     return None
 
 
-def test_shell_signature(clean_gevent, beacon):
+def test_shell_signature(beacon):
     env_dict = dict()
     session = beacon.get("test_session")
     session.setup(env_dict)
-
-    clean_gevent["end-check"] = False
 
     br = _run_incomplete("ascan(", env_dict)
 
@@ -68,11 +65,9 @@ def test_shell_signature(clean_gevent, beacon):
     session.close()
 
 
-def test_shell_kwarg_signature(clean_gevent):
+def test_shell_kwarg_signature():
 
     env_dict = dict()
-
-    clean_gevent["end-check"] = False
 
     loc = dict()
     exec(
@@ -110,9 +105,7 @@ def _get_completion(br):
         return {cc.text for cc in cl[0].content._render_pos_to_completion.values()}
 
 
-def test_shell_autocomplete_property(clean_gevent):
-    clean_gevent["end-check"] = False
-
+def test_shell_autocomplete_property():
     class Test_property_class:
         def __init__(self):
             self.x = SimpleNamespace(**{"b": 1})
@@ -147,51 +140,42 @@ def test_shell_autocomplete_property(clean_gevent):
     assert "b" in completions
 
 
-def test_shell_comma_object(clean_gevent):
-    clean_gevent["end-check"] = False
+def test_shell_comma_object():
     br = _run_incomplete("print self \r", {})
     assert br.default_buffer.text == "print(self,\n"
 
 
-def test_shell_comma_after_comma_inside_callable(clean_gevent):
-    clean_gevent["end-check"] = False
+def test_shell_comma_after_comma_inside_callable():
     br = _run_incomplete("print(1, ", {})
     assert br.default_buffer.text == "print(1, "
 
 
-def test_shell_comma_int(clean_gevent):
-    clean_gevent["end-check"] = False
+def test_shell_comma_int():
     br = _run_incomplete("print 1 ", {})
     assert br.default_buffer.text == "print(1,"
 
 
-def test_shell_comma_float(clean_gevent):
-    clean_gevent["end-check"] = False
+def test_shell_comma_float():
     br = _run_incomplete("print 1.1 ", {})
     assert br.default_buffer.text == "print(1.1,"
 
 
-def test_shell_comma_bool(clean_gevent):
-    clean_gevent["end-check"] = False
+def test_shell_comma_bool():
     br = _run_incomplete("print False ", {})
     assert br.default_buffer.text == "print(False,"
 
 
-def test_shell_comma_string(clean_gevent):
-    clean_gevent["end-check"] = False
+def test_shell_comma_string():
     br = _run_incomplete("print 'bla' ", {})
     assert br.default_buffer.text == "print('bla',"
 
 
-def test_shell_comma_kwarg(clean_gevent):
-    clean_gevent["end-check"] = False
+def test_shell_comma_kwarg():
     br = _run_incomplete("print run=True ", {})
     assert br.default_buffer.text == "print(run=True,"
 
 
-def test_shell_custom_function_kwarg(clean_gevent):
-    clean_gevent["end-check"] = False
-
+def test_shell_custom_function_kwarg():
     def f(**kwargs):
         return True
 
@@ -199,9 +183,7 @@ def test_shell_custom_function_kwarg(clean_gevent):
     assert br.default_buffer.text == "f("
 
 
-def test_shell_custom_function_arg(clean_gevent):
-    clean_gevent["end-check"] = False
-
+def test_shell_custom_function_arg():
     def f(*args):
         return True
 
@@ -219,8 +201,7 @@ def test_shell_custom_function_arg(clean_gevent):
     assert br.default_buffer.text == "g(   "
 
 
-def test_shell_import(clean_gevent):
-    clean_gevent["end-check"] = False
+def test_shell_import():
     import bliss
 
     br = _run_incomplete("from bliss.comm ", {"bliss": bliss})

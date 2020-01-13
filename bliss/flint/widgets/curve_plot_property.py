@@ -643,8 +643,7 @@ class CurvePlotPropertyWidget(qt.QWidget):
         return channelItems
 
     def __updateTree(self):
-        # FIXME: expanded/collapsed items have to be restored
-
+        collapsed = _property_tree_helper.getPathFromCollapsedNodes(self.__tree)
         model = self.__tree.model()
         model.clear()
 
@@ -760,3 +759,4 @@ class CurvePlotPropertyWidget(qt.QWidget):
             model.removeRows(itemWithoutMaster.row(), 1)
 
         self.__tree.expandAll()
+        _property_tree_helper.collapseNodesFromPaths(self.__tree, collapsed)

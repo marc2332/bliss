@@ -8,6 +8,7 @@
 
 from __future__ import annotations
 from typing import List
+from typing import Dict
 
 from silx.gui import qt
 from silx.gui import icons
@@ -96,3 +97,77 @@ class ScanRowItem(StandardRowItem):
         itemClass = plotItem.__class__
         text = "%s" % itemClass.__name__
         self.setText(text)
+
+
+def getPathFromCollapsedNodes(view: qt.QAbstractItemView) -> List[str]:
+    """Return relative path from the root index of the extended nodes"""
+    model = view.model()
+    paths: List[str] = []
+    indexes = [(None, qt.QModelIndex())]
+    while len(indexes):
+        path, index = indexes.pop(0)
+        if path is not None:
+            if not view.isExpanded(index):
+                paths.append(path)
+
+        for child in range(model.rowCount(index)):
+            childIndex = model.index(child, 0, index)
+            name = model.data(childIndex, role=qt.Qt.DisplayRole)
+            if path is None:
+                childPath = "/%s" % name
+            else:
+                childPath = "%s/%s" % (path, name)
+            indexes.append((childPath, childIndex))
+    return paths
+
+
+def collapseNodesFromPaths(view: qt.QAbstractItemView, paths: List[str]):
+    model = view.model()
+    indexes = indexesFromPaths(model, paths)
+    for index in indexes:
+        view.setExpanded(index, False)
+
+
+def indexesFromPaths(model: qt.QAbstractItemModel, paths: List[str]):
+    cache: Dict[List[str], qt.QModelIndex] = {}
+    indexes = []
+
+    def getIndexFromName(
+        model: qt.QAbstractItemModel, index: qt.QModelIndex, name: str
+    ):
+        for child in range(model.rowCount(index)):
+            childIndex = model.index(child, 0, index)
+            childName = model.data(childIndex)
+            if childName == name:
+                return childIndex
+        return None
+
+    for path in paths:
+        if len(path) > 0 and path[0] == "/":
+            path = path[1:]
+        elements = tuple(path.split("/"))
+
+        # Reach the first available parent
+        parent = None
+        i = 0
+        for i in reversed(range(len(elements) - 1)):
+            key = elements[:i]
+            parent = cache.get(key, None)
+            if parent is not None:
+                break
+        if parent is None:
+            parent = qt.QModelIndex()
+
+        # Reach the next elements
+        for j in range(i, len(elements)):
+            key = elements[0 : j + 1]
+            index = getIndexFromName(model, parent, elements[j])
+            if index is None:
+                break
+            cache[key] = index
+            parent = index
+
+        if index is not None:
+            indexes.append(index)
+
+    return indexes

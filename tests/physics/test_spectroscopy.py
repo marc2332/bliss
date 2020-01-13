@@ -15,16 +15,21 @@ from bliss.physics.spectroscopy import wavevector_to_energy
 
 approx = partial(approx, rel=1e-11, abs=0.)
 
+# scipy constants have changed, see: https://github.com/scipy/scipy/commit/f166e3a7140d72dbd7cd718fbf65c53ba4a3a961#diff-0680be3eaa6e6ae60d2e2118fc49b13e
+
 
 def test_wave_vector():
-    edge_energy = 7112
+    """
+    ???
+    """
+    edge_energy = 7112  #  Fe K-edge in eV.
     energy = 7124.5
-    wavevector = 1.81131316216
+    wavevector = 1.8113131410923873
 
     q_edge_energy = edge_energy * ur("eV")
     ev = energy * ur("eV")
     kev = (energy / 1000.) * ur("keV")
-    q_wavevector = 1.81131316216 * ur("angstrom ** -1")
+    q_wavevector = 1.8113131410923873 * ur("angstrom ** -1")
 
     k = energy_to_wavevector(edge_energy, energy)
     assert k == approx(wavevector)

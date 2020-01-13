@@ -57,9 +57,7 @@ def _compare_dump(saved_diff_dump, new_diff_dump):
     # it is up to you to decide if you need to update the patch or the dump saved here!
 
 
-def test_ptpython_signature_patch(clean_gevent):
-    clean_gevent["end-check"] = False
-
+def test_ptpython_signature_patch():
     ptpython_signature_patch_diff_dump = [
         "- def signature_toolbar(python_input):\n",
         "+ def NEWsignature_toolbar(python_input):\n",
@@ -95,9 +93,7 @@ def test_ptpython_signature_patch(clean_gevent):
         importlib.reload(bliss.shell.cli.ptpython_signature_patch)
 
 
-def test_dicttoh5(clean_gevent):
-    clean_gevent["end-check"] = False
-
+def test_dicttoh5():
     # diffdump can be generated with pytest --pdb option using
     # >>> import pprint
     # >>> pprint.pprint(diff_dump)
@@ -144,9 +140,7 @@ def test_dicttoh5(clean_gevent):
     _compare_dump(dicttoh5_diff_dump, diff_dump)
 
 
-def test_repl_excecute(clean_gevent):
-    clean_gevent["end-check"] = False
-
+def test_repl_excecute():
     # diffdump can be generated with pytest --pdb option using
     # >>> import pprint
     # >>> pprint.pprint(diff_dump)
@@ -200,9 +194,7 @@ def test_repl_excecute(clean_gevent):
     _compare_dump(excecute_dump, diff_dump)
 
 
-def test_validator_patch_normalize_containers(clean_gevent):
-    clean_gevent["end-check"] = False
-
+def test_validator_patch_normalize_containers():
     # diffdump can be generated with pytest --pdb option using
     # >>> import pprint
     # >>> pprint.pprint(diff_dump)
@@ -258,9 +250,7 @@ def test_validator_patch_normalize_containers(clean_gevent):
     _compare_dump(normalize_containers_dump, diff_dump)
 
 
-def test_validator_patch_normalize_default_fields(clean_gevent):
-    clean_gevent["end-check"] = False
-
+def test_validator_patch_normalize_default_fields():
     # diffdump can be generated with pytest --pdb option using
     # >>> import pprint
     # >>> pprint.pprint(diff_dump)
@@ -299,9 +289,7 @@ def test_validator_patch_normalize_default_fields(clean_gevent):
     _compare_dump(normalize_default_fields_dump, diff_dump)
 
 
-def test_validator_patch_validate_oneof(clean_gevent):
-    clean_gevent["end-check"] = False
-
+def test_validator_patch_validate_oneof():
     # diffdump can be generated with pytest --pdb option using
     # >>> import pprint
     # >>> pprint.pprint(diff_dump)

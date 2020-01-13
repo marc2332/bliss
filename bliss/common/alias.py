@@ -345,8 +345,9 @@ class MapWithAliases(Map):
         for axis in self.get_axes_iter():
             tasks.append(gevent.spawn(request, axis))
 
-        for task in tasks:
-            yield task.get()
+        gevent.joinall(tasks)
+
+        yield from (task.get() for task in tasks)
 
     def get_axis_objects_iter(self, *names_or_objs):
         axes_dict = dict((a.name, a) for a in self.get_axes_iter())

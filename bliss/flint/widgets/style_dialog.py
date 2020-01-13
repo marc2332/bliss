@@ -154,9 +154,13 @@ class _ScatterEditor(qt.QWidget):
         self._lineStyle.currentIndexChanged.connect(self.__updateWidgetLayout)
         self._symbolStyle.currentIndexChanged.connect(self.__updateWidgetLayout)
 
-        colors = [("No color", None), ("Black", (0, 0, 0)), ("White", (255, 255, 255))]
+        colorList = [
+            ("No color", None),
+            ("Black", (0, 0, 0)),
+            ("White", (255, 255, 255)),
+        ]
 
-        for name, color in colors:
+        for name, color in colorList:
             if color is None:
                 qcolor = None
             else:

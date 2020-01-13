@@ -374,6 +374,9 @@ def create_objects_from_config_node(config, node):
         objects_dict[controller_name] = controller
     yield objects_dict, cache_dict
 
+    referenced_objects = dict()
+
+    replace_reference_by_object(config, node, referenced_objects, greedy=True)
     # evaluate referenced axes
     for axis_name, (axis_class, config_dict) in axes.items():
         if axis_class is None:  # mean reference axis

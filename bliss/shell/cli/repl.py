@@ -122,8 +122,12 @@ def _set_pt_event_loop():
         from prompt_toolkit.eventloop.posix import PosixEventLoop
 
         class _PosixLoop(PosixEventLoop):
+            EVENT_LOOP_DAEMON_GREENLETS = []
+
             def run_in_executor(self, callback, _daemon=False):
                 t = gevent.spawn(callback)
+                if _daemon:
+                    _PosixLoop.EVENT_LOOP_DAEMON_GREENLETS.append(t)
 
                 class F(future.Future):
                     def result(self):
@@ -134,6 +138,9 @@ def _set_pt_event_loop():
                     def add_done_callback(self, callback):
                         t.link(callback)
 
+                    def set_exception(self, exception):
+                        t.kill(exception)
+
                     def exception(self):
                         return t.exception
 
@@ -141,6 +148,10 @@ def _set_pt_event_loop():
                         return t.ready()
 
                 return F()
+
+            def close(self):
+                super().close()
+                gevent.killall(_PosixLoop.EVENT_LOOP_DAEMON_GREENLETS)
 
         set_event_loop(_PosixLoop())
 

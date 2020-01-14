@@ -481,7 +481,7 @@ def test_tango_attr_counter(beacon, dummy_tango_server, session):
     sc = ct(0.01, counter)
     counter_value = sc.get_data()["taac_dummy_position"][0]
 
-    assert counter_value == 1.41
+    assert pytest.approx(counter_value) == 1.41
     assert counter.unit == "mm"  # hard-coded in test config
     assert counter.format_string == "%3.2f"  # hard-coded in test config
     assert counter.mode == SamplingMode.MEAN  # default mode

@@ -197,6 +197,9 @@ class Writer(FileWriter):
         instrument.attrs["NX_class"] = "NXinstrument"
         instrument_meta = hdf5_scan_meta.pop("instrument")
 
+        # pop nexuswriter
+        hdf5_scan_meta.pop("nexuswriter")
+
         dicttoh5(hdf5_scan_meta, self.file, h5path=f"{scan_name}/scan_meta")
         self.file[f"{scan_name}/scan_meta"].attrs["NX_class"] = "NXcollection"
 

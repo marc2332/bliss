@@ -40,6 +40,7 @@ def get_user_scan_meta():
         USER_SCAN_META.proposal.set("NX_class", {"NX_class": "NXcollection"})
         USER_SCAN_META.sample_description.set("NX_class", {"NX_class": "NXcollection"})
         USER_SCAN_META.technique.set("NX_class", {"NX_class": "NXcollection"})
+        USER_SCAN_META.notes.set("NX_class", {"NX_class": "NXcollection"})
     return USER_SCAN_META
 
 

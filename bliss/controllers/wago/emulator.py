@@ -12,7 +12,7 @@ from bliss.controllers.wago.helpers import to_unsigned, bytestring_to_wordarray
 from bliss.controllers.wago.wago import MODULES_CONFIG, ModulesConfig
 from bliss.controllers.wago.helpers import remove_comments, splitlines
 
-from tests.conftest import get_open_ports
+from bliss.common.utils import get_open_ports
 
 
 def Wago(

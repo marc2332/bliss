@@ -20,7 +20,7 @@ from umodbus.utils import log_to_stream
 
 
 from bliss.comm import tcp, udp
-from tests.conftest import get_open_ports
+from bliss.common.utils import get_open_ports
 
 
 DELAY = 0.2

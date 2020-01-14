@@ -25,6 +25,7 @@ from bliss.common.logtools import log_debug, log_error, log_exception
 from bliss.common.counter import SamplingCounter
 from bliss.controllers.counter import counter_namespace, SamplingCounterController
 from bliss.controllers.wago.helpers import splitlines, to_signed, register_type_to_int
+
 from bliss.common.utils import ShellStr
 
 """
@@ -2184,8 +2185,7 @@ class WagoMockup(Wago):
     def __init__(self, name, config_tree):
         self.modules_config = ModulesConfig.from_config_tree(config_tree)
 
-        # launch the simulator
-        from tests.emulators.wago import WagoEmulator
+        from bliss.controllers.wago.emulator import WagoEmulator
 
         self.__mockup = WagoEmulator(self.modules_config)
 

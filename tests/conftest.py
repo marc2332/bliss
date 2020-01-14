@@ -7,7 +7,6 @@
 
 import os
 import sys
-import socket
 import shutil
 from collections import namedtuple
 import atexit
@@ -20,12 +19,14 @@ import redis
 
 from bliss import global_map
 from bliss.common.session import DefaultSession
+from bliss.common.utils import get_open_ports
 from bliss.config import static
 from bliss.config.conductor import client
 from bliss.config.conductor import connection
 from bliss.config.conductor.client import get_default_connection
 from bliss.controllers.lima.roi import Roi
 from bliss.controllers.wago.wago import ModulesConfig
+from bliss.controllers.wago.emulator import WagoEmulator
 from bliss.controllers import simulation_diode
 from bliss.common import plot
 from bliss.common.tango import DeviceProxy, DevFailed, ApiUtil
@@ -38,17 +39,6 @@ from contextlib import contextmanager
 BLISS = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 BEACON = [sys.executable, "-m", "bliss.config.conductor.server"]
 BEACON_DB_PATH = os.path.join(BLISS, "tests", "test_configuration")
-
-
-def get_open_ports(n):
-    sockets = [socket.socket() for _ in range(n)]
-    try:
-        for s in sockets:
-            s.bind(("", 0))
-        return [s.getsockname()[1] for s in sockets]
-    finally:
-        for s in sockets:
-            s.close()
 
 
 def wait_for(stream, target):
@@ -472,8 +462,6 @@ def alias_session(beacon, lima_simulator):
 
 @pytest.fixture
 def wago_emulator(beacon):
-    from tests.emulators.wago import WagoEmulator
-
     config_tree = beacon.get_config("wago_simulator")
     modules_config = ModulesConfig.from_config_tree(config_tree)
     wago = WagoEmulator(modules_config)
@@ -485,8 +473,6 @@ def wago_emulator(beacon):
 
 @pytest.fixture
 def transfocator_mockup(default_session):
-    from tests.emulators.wago import WagoEmulator
-
     config_tree = default_session.config.get_config("transfocator_simulator")
     modules_config = ModulesConfig.from_config_tree(config_tree)
     wago = WagoEmulator(modules_config)

@@ -16,6 +16,7 @@ import numpy
 import sys
 import copy
 import collections.abc
+import socket
 from collections import Iterable
 
 from bliss.common.event import saferef
@@ -692,3 +693,14 @@ class ShellStr(str):
 
     def __info__(self):
         return str(self)
+
+
+def get_open_ports(n):
+    sockets = [socket.socket() for _ in range(n)]
+    try:
+        for s in sockets:
+            s.bind(("", 0))
+        return [s.getsockname()[1] for s in sockets]
+    finally:
+        for s in sockets:
+            s.close()

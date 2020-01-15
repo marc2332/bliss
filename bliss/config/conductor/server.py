@@ -47,6 +47,8 @@ _log = logging.getLogger("beacon")
 _tlog = _log.getChild("tango")
 _rlog = _log.getChild("redis")
 _wlog = _log.getChild("web")
+_lslog = _log.getChild("log_server")
+_logv = _log.getChild("log_viewer")
 
 
 # Helpers
@@ -544,7 +546,27 @@ def _send_who_locked(client_id, message):
                 _client_to_name.get(socket_id, b"Unknown"),
             )
         client_id.sendall(protocol.message(protocol.WHO_LOCKED_RX, msg))
-    client_id.send(protocol.message(protocol.WHO_LOCKED_END, b"%s|" % message_key))
+    client_id.sendall(protocol.message(protocol.WHO_LOCKED_END, b"%s|" % message_key))
+
+
+def _send_log_server_address(client_id, message):
+    message_key, *names = message.split(b"|")
+    port = _options.log_server_port
+    host = socket.gethostname().encode()
+    if not port:
+        # lo log server
+        client_id.sendall(
+            protocol.message(
+                protocol.LOG_SERVER_ADDRESS_FAIL,
+                b"%s|%s" % (message_key, b"no log server"),
+            )
+        )
+    else:
+        client_id.sendall(
+            protocol.message(
+                protocol.LOG_SERVER_ADDRESS_OK, b"%s|%s|%d" % (message_key, host, port)
+            )
+        )
 
 
 def _send_unknow_message(client_id, message):
@@ -613,6 +635,8 @@ def _client_rx(client, local_connection):
                         _get_set_client_id(c_id, messageType, message)
                     elif messageType == protocol.WHO_LOCKED:
                         _send_who_locked(c_id, message)
+                    elif messageType == protocol.LOG_SERVER_ADDRESS_QUERY:
+                        _send_log_server_address(c_id, message)
                     else:
                         _send_unknow_message(c_id, message)
                 except ValueError:
@@ -649,7 +673,7 @@ def start_webserver(webapp_port, beacon_port, debug=True):
         _wlog.error("flask cannot be imported: web application won't be available")
         return
 
-    from .web.config_app import web_app
+    from .web.config_app.config_app import web_app
 
     _wlog.info("Web application sitting on port: %s", webapp_port)
     web_app.beacon_port = beacon_port
@@ -735,8 +759,40 @@ def main(args=None):
         "--webapp-port",
         dest="webapp_port",
         type=int,
-        default=0,
-        help="web server port (default to 0: disable)",
+        default=0,  # normally on 9030
+        help="web server port for beacon configuration (default to 0: disable)",
+    )
+    parser.add_argument(
+        "--log_server_port",
+        "--log-server-port",
+        dest="log_server_port",
+        type=int,
+        default=0,  # normally on 9020
+        help="logger server port (default to 0: disable)",
+    )
+    parser.add_argument(
+        "--log-output-folder",
+        "--log_output_folder",
+        dest="log_output_folder",
+        type=str,
+        default="/var/log/bliss",
+        help="logger output folder (default is /var/log/bliss)",
+    )
+    parser.add_argument(
+        "--log-size",
+        "--log_size",
+        dest="log_size",
+        type=float,
+        default=10,
+        help="Size of log rotating file in MegaBytes (default is 10)",
+    )
+    parser.add_argument(
+        "--log-viewer-port",
+        "--log_viewer_port",
+        dest="log_viewer_port",
+        type=int,
+        default=0,  # normally on 9080
+        help="Web port for the log viewer socket (default to 0: disable)",
     )
     parser.add_argument(
         "--redis_socket",
@@ -745,8 +801,8 @@ def main(args=None):
         help="Unix socket for redis (default to /tmp/redis.sock)",
     )
     parser.add_argument(
-        "--log_level",
         "--log-level",
+        "--log_level",
         default="INFO",
         type=str,
         choices=["DEBUG", "INFO", "WARN", "ERROR"],
@@ -823,12 +879,13 @@ def main(args=None):
     if _options.posix_queue:
         _log.warning("Posix queue are not managed anymore")
 
+    # Environment
+    env = dict(os.environ)
+    env["BEACON_HOST"] = "%s:%d" % ("localhost", beacon_port)
+
     # Tango databaseds
     if _options.tango_port > 0:
         tango_rp, tango_wp = os.pipe()
-        # Environment
-        env = dict(os.environ)
-        env["BEACON_HOST"] = "%s:%d" % ("localhost", beacon_port)
         # Tango database executable
         args = [sys.executable]
         args += ["-m", "bliss.tango.servers.databaseds"]
@@ -847,6 +904,41 @@ def main(args=None):
     # Web application
     if _options.webapp_port > 0:
         start_webserver(_options.webapp_port, beacon_port)
+
+    # Logger server application
+    if _options.log_server_port > 0:
+        log_server_rp, log_server_wp = os.pipe()
+        _log.info("launching log_server on port: %s", _options.log_server_port)
+        # Logserver executable
+        args = [sys.executable]
+        args += ["-m", "bliss.config.conductor.log_server"]
+        # Arguments
+        args += ["--port", str(_options.log_server_port)]
+        if not _options.log_output_folder:
+            default_log_folder = os.path.join(str(_options.db_path), "logs")
+            args += ["--log-output-folder", default_log_folder]
+        else:
+            args += ["--log-output-folder", str(_options.log_output_folder)]
+        args += ["--log-size", str(_options.log_size)]
+        # Fire up process
+
+        log_server_process = subprocess.Popen(
+            args, stdout=log_server_wp, stderr=subprocess.STDOUT, env=env
+        )
+    else:
+        log_server_rp = log_server_process = None
+
+    # Logviewer Web application
+    if _options.log_server_port and _options.log_viewer_port > 0:
+        log_viewer_rp, log_viewer_wp = os.pipe()
+        args = ["tailon"]
+        args += ["-b", f"0.0.0.0:{_options.log_viewer_port}"]
+        args += [os.path.join(_options.log_output_folder, "*")]
+        log_viewer_process = subprocess.Popen(
+            args, stdout=log_viewer_wp, stderr=subprocess.STDOUT, env=env
+        )
+    else:
+        log_viewer_rp = log_viewer_process = None
 
     # Start redis
     rp, wp = os.pipe()
@@ -876,8 +968,12 @@ def main(args=None):
 
     # Safe context
     try:
-        fd_list = filter(None, [udp, tcp, uds, rp, sig_read, tango_rp])
-        logger = {rp: _rlog, tango_rp: _tlog}
+        logger = {
+            rp: _rlog,
+            tango_rp: _tlog,
+            log_server_rp: _lslog,
+            log_viewer_rp: _logv,
+        }
         udp_reply = b"%s|%d" % (socket.gethostname().encode(), beacon_port)
 
         # ==== UDP case ============
@@ -938,11 +1034,44 @@ def main(args=None):
         else:
             tango_rp_processing = None
 
+        def do_log_server_rp_processing(fd):
+            while True:
+                msg = gevent.os.tp_read(fd, 8192)
+                if msg:
+                    logger.get(fd, _log).info(msg.decode())
+
+        if log_server_rp:
+            log_server_rp_processing = gevent.spawn(
+                do_log_server_rp_processing, log_server_rp
+            )
+        else:
+            log_server_rp_processing = None
+
+        def do_log_viewer_rp_processing(fd):
+            while True:
+                msg = gevent.os.tp_read(fd, 8192)
+                if msg:
+                    logger.get(fd, _log).info(msg.decode())
+
+        if log_viewer_rp:
+            log_viewer_rp_processing = gevent.spawn(
+                do_log_viewer_rp_processing, log_viewer_rp
+            )
+        else:
+            log_viewer_rp_processing = None
+
         # ==== Define processes list ============
         proc_list = list(
             filter(
                 None,
-                [udp_processing, tcp_processing, rp_processing, tango_rp_processing],
+                [
+                    udp_processing,
+                    tcp_processing,
+                    rp_processing,
+                    tango_rp_processing,
+                    log_server_rp_processing,
+                    log_viewer_rp_processing,
+                ],
             )
         )
 
@@ -999,6 +1128,10 @@ def main(args=None):
             redis_process.terminate()
         if tango_process:
             tango_process.terminate()
+        if log_server_process:
+            log_server_process.terminate()
+        if log_viewer_process:
+            log_viewer_process.terminate()
 
 
 if __name__ == "__main__":

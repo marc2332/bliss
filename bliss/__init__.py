@@ -69,10 +69,21 @@ def logging_startup(
     # setting startup level for session and bliss logger
     logging.getLogger("session").setLevel(log_level)
     logging.getLogger("bliss").setLevel(log_level)
+    logging.getLogger("flint").setLevel(log_level)
 
     # install an additional handler, only for debug messages
     # (debugon / debugoff)
-    global_log.set_debug_handler(logging.StreamHandler())
+    global_log.start_stdout_handler()
+
+    # Beacon logging handler through SocketServer
+    from bliss.config.conductor.client import get_log_server_address
+
+    try:
+        host, port = get_log_server_address()
+    except RuntimeError:
+        pass
+    else:
+        global_log.start_beacon_handler((host, port))
 
 
 # Bliss shell mode False indicates Bliss in running in library mode

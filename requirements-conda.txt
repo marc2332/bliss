@@ -43,6 +43,7 @@ treelib
 cerberus
 typeguard == 2.6.1
 typing_extensions
+tailon
 
 # Flint
 qt

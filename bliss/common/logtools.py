@@ -7,6 +7,7 @@
 
 import sys
 import logging
+import logging.handlers
 import contextlib
 from logging import Logger, NullHandler, Formatter
 import re
@@ -16,8 +17,19 @@ from functools import wraps
 
 from bliss.common.utils import autocomplete_property
 from bliss.common.mapping import format_node, map_id
-from bliss import global_map
+from bliss import global_map, get_current_session
 
+old_factory = logging.getLogRecordFactory()
+
+
+def record_factory(*args, **kwargs):
+    record = old_factory(*args, **kwargs)
+    session = get_current_session()
+    record.session = "startup" if session is None else session.name
+    return record
+
+
+logging.setLogRecordFactory(record_factory)
 
 __all__ = [
     "log_debug",
@@ -432,6 +444,18 @@ class BlissLogger(Logger):
         return hexify(in_str)
 
 
+class SessionFinder:
+    def __getitem__(self, key):
+        if key == "session":
+            session = get_current_session()
+            if session is None:
+                session = "undefined"
+            return session
+
+    def __iter__(self):
+        return iter("session")
+
+
 class Log:
     """
     Main utility class for BLISS logging
@@ -474,15 +498,40 @@ class Log:
         for node_name in ("global", "controllers"):
             get_logger(node_name)
 
-        self._debug_handler = None
+        self.session_finder = SessionFinder()
 
-    def set_debug_handler(self, handler):
-        if self._debug_handler:
-            logging.getLogger().removeHandler(self._debug_handler)
-        self._debug_handler = handler
-        self._debug_handler.setFormatter(Formatter(self._LOG_FORMAT))
-        self._debug_handler.setLevel(logging.DEBUG)
-        logging.getLogger().addHandler(self._debug_handler)
+    def start_stdout_handler(self):
+        try:
+            self._stdout_handler
+        except AttributeError:
+            self._stdout_handler = logging.StreamHandler()
+            self._stdout_handler.setLevel(logging.DEBUG)
+            self._stdout_handler.setFormatter(Formatter(self._LOG_FORMAT))
+            logging.getLogger().addHandler(self._stdout_handler)
+
+            def filter_(record):
+                # filter shell exceptions
+                if record.name in ["exceptions", "user_input"]:
+                    return False
+                return True
+
+            self._stdout_handler.addFilter(filter_)
+
+    def start_beacon_handler(self, address):
+        try:
+            self._beacon_handler
+        except AttributeError:
+            host, port = address
+            self._beacon_handler = logging.handlers.SocketHandler(host, port)
+            self._beacon_handler.setLevel(logging.DEBUG)
+            logging.getLogger().addHandler(self._beacon_handler)
+
+            # handler for user input and exceptions
+            for log_name in ("user_input", "exceptions"):
+                log = logging.getLogger(log_name)
+                log.addHandler(self._beacon_handler)
+                log.setLevel(logging.INFO)
+                log.propagate = False
 
     def set_log_format(self, fmt):
         self._LOG_FORMAT = fmt

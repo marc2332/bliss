@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+### Changed
+
+### Fixed
+
+## [1.1.0] - 2020-01-15
+
+### Added
+
 - Beacon:
   - Log Server: all log messages (plus exceptions and user input) are sent to a socket server
                 that can be started with Beacon, this will save to a Log Rotating File
@@ -17,8 +25,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
                 http port (default 9080) on the Beacon Host
 - last_error: now contains the last 100 exceptions that can be accessed with list notation
               last_error[-1] for the last one.
+- conversion_function can now be set at runtime on Counter objects
+- support for Cyberstar powersupply
+- __info__ method for opiom, mca, ebv, emh, measurement groups, wba, multiple position objects, hexapod, vscanner, Keithley, shutters
+- setting motor position now display a message to user
+- first version of the Nexus writer Tango server
+- Transfocators fill metadata
+- Tango attribute as counter: added .value and .raw_value to read the attribute out of a scan context
 
-### Changes
+### Changed
 
 - Flint
   - Update silx to the last 0.12
@@ -32,12 +47,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Mechanism provided to setup the view at startup on the full range of the x/y axis
     - This feature is provided for `amesh` and `dmesh`
     - To implement if on your scans take a look at https://bliss.gitlab-pages.esrf.fr/bliss/master/flint_scan_info.html
+- web applications (configuration, homepage and log viewer) are now started by default
+    - default port numbers are proposed
+- moved Linkam, Lakeshore to the regulation framework 
 
 ### Fixed
 
 - Beacon web configuration:
   - Fixed "Revert" of the editor content
   - Some ergonomic improvements (ctrl-s to save the editor, css styles)
+- typeguard version set to 2.6.1 instead of 2.7
+- info() now works for classes and types
+- Wago
+    - interlocks
+    - support for CPU model 750-891
+    - 0-10V overflow and negative voltage
+    - MissingFirmware exception
+    - numpy types
+- {scan_number} and {scan_name} bug in ScanSaving is fixed
+- call prepare_scan_meta after writer template has been updated
+- fix file descriptors leakage
+    - new gevent-friendly Redis connection pool
+    - Tango connections cleaning (in tests)
+    - gevent patch to ensure hubs are closed when threads get destroyed
+- fix asynchronicity problems and race conditions in Beacon server and client code
+- multiple Beacon objects with the same name are now properly initialized  
+- bug in AllowKill context manager
 
 ## [1.0.0] - 2019-12-17
 

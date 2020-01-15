@@ -633,8 +633,10 @@ def _client_rx(client, local_connection):
     except:
         sys.excepthook(*sys.exc_info())
     finally:
-        _clean(client)
-        client.close()
+        try:
+            _clean(client)
+        finally:
+            client.close()
 
 
 def sigterm_handler(_signo, _stack_frame):

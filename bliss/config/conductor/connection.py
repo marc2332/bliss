@@ -16,6 +16,8 @@ import redis
 import netifaces
 from functools import wraps
 
+from bliss.common.greenlet_utils import protect_from_kill, AllowKill
+
 
 class StolenLockException(RuntimeError):
     """This exception is raise in case of a stolen lock"""
@@ -160,11 +162,8 @@ class Connection(object):
         self._greenlet_to_lockobjects = weakref.WeakKeyDictionary()
 
     def close(self):
-        if self._socket:
-            self._socket.close()
-            self._socket = None
         if self._raw_read_task is not None:
-            self._raw_read_task.join()
+            self._raw_read_task.kill()
             self._raw_read_task = None
 
     @property
@@ -532,10 +531,15 @@ class Connection(object):
             self._socket.sendall(msg)
 
     def _raw_read(self):
+        self.__raw_read()
+
+    @protect_from_kill
+    def __raw_read(self):
         try:
             data = b""
             while True:
-                raw_data = self._socket.recv(16 * 1024)
+                with AllowKill():
+                    raw_data = self._socket.recv(16 * 1024)
                 if not raw_data:
                     break
                 data = b"%s%s" % (data, raw_data)
@@ -620,11 +624,12 @@ class Connection(object):
         except:
             sys.excepthook(*sys.exc_info())
         finally:
-            if self._socket:
-                self._socket.close()
-                self._socket = None
-            self._connected.clear()
-            self._clean()
+            with self._connect_lock:
+                if self._socket:
+                    self._socket.close()
+                    self._socket = None
+                self._connected.clear()
+                self._clean()
 
     def _clean(self):
         self._redis_host = None

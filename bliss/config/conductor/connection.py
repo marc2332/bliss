@@ -637,6 +637,8 @@ class Connection(object):
                         sys.excepthook(*sys.exc_info())
         except socket.error:
             pass
+        except gevent.GreenletExit:
+            pass
         except:
             sys.excepthook(*sys.exc_info())
         finally:

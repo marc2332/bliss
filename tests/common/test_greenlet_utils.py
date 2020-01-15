@@ -131,3 +131,20 @@ def test_timeout_with_kill_mask():
         with gevent.Timeout(0.2):
             t.get()
     t.kill()
+
+
+def test_exception_with_kill_mask():
+    event = gevent.event.Event()
+
+    @protect_from_kill
+    def f():
+        with AllowKill():
+            event.set()
+            gevent.sleep(1)
+
+    t = gevent.spawn(f)
+    with gevent.Timeout(1):
+        event.wait()
+    with pytest.raises(AttributeError):
+        t.kill(block=False, exception=AttributeError)
+        t.get()

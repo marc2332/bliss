@@ -35,6 +35,8 @@ from bliss import logging_startup
 from random import randint
 from contextlib import contextmanager
 
+from bliss.scanning import scan_meta
+
 
 BLISS = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 BEACON = [sys.executable, "-m", "bliss.config.conductor.server"]
@@ -126,6 +128,7 @@ def clean_globals():
     # reset module-level globals
     simulation_diode.DEFAULT_CONTROLLER = None
     simulation_diode.DEFAULT_INTEGRATING_CONTROLLER = None
+    scan_meta.USER_SCAN_META = None
 
 
 @pytest.fixture

@@ -1216,7 +1216,7 @@ class ChainNode:
 
     def set_parameters(self, acq_params=None, ctrl_params=None, force=False):
         """ Store the scan and/or acquisition parameters into the node. 
-            These parameters will be used when the acquisition object is instanciated (see self.create_acquisition_object )
+            These parameters will be used when the acquisition object is instantiated (see self.create_acquisition_object )
             If the parameters have been set already, new parameters will be ignored (except if Force==True).
         """
 

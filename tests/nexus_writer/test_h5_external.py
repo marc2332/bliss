@@ -11,6 +11,7 @@ except ImportError:
     gzip = None
 from fabio.edfimage import EdfImage
 from nexus_writer_service.io import h5_external
+from nexus_writer_service.utils.array_order import Order
 
 
 def test_h5ext_edf(scan_tmpdir):
@@ -29,7 +30,7 @@ def test_h5ext_edf(scan_tmpdir):
             continue
         else:
             kwargs = h5_external.add_edf_arguments(filenames)
-            h5_external.finalize(kwargs, shape=scan_shape, order=order)
+            h5_external.finalize(kwargs, shape=scan_shape, addorder=order)
         # TODO: external datasets do not support relative paths
         # kwargs['external'] = [(os.path.relpath(tpl[0], str(scan_tmpdir)),) + tpl[1:]
         #                      for tpl in kwargs['external']]
@@ -58,9 +59,9 @@ def test_h5ext_edf_append(scan_tmpdir):
             kwargs1 = {}
             for i in range(n):
                 kwargs1 = h5_external.add_edf_arguments(filenames, createkwargs=kwargs1)
-            h5_external.finalize(kwargs1, shape=shape, order=order)
+            h5_external.finalize(kwargs1, shape=shape, addorder=order)
             kwargs2 = h5_external.add_edf_arguments(filenames * n)
-            h5_external.finalize(kwargs2, shape=shape, order=order)
+            h5_external.finalize(kwargs2, shape=shape, addorder=order)
             assert kwargs1 == kwargs2
             npoints = numpy.product(kwargs1["shape"]) // numpy.product(image_shape)
             assert npoints == enpoints
@@ -71,22 +72,17 @@ def edf_files(scan_tmpdir, scan_shape, image_shape):
     shape = scan_shape + image_shape
     fshape = (numpy.product(scan_shape),) + image_shape
     fdata = numpy.arange(numpy.product(shape))
+    # Data save in C order
     data = fdata.reshape(shape, order="C")
-    order = "C", "F"
+    # Data publication in any order
+    order = Order("C"), Order("F"), Order("C", caxes="all"), Order("F", caxes="all")
     compression = "NONE", "GZIP"
     withindices = False, True
     options = itertools.product(order, compression, withindices)
     for i, (order, compression, withindices) in enumerate(options):
         # Save as EDF:
         filename = os.path.join(str(scan_tmpdir), "out{}.edf".format(i))
-        if order == "F":
-            data1 = []
-            for col in numpy.transpose(data, (1, 0, 2, 3)):
-                for img in col:
-                    data1.append(img)
-            data1 = numpy.array(data1)
-        else:
-            data1 = data.reshape(fshape, order="C")
+        data1 = order.reshape(data, fshape)
         edf = None
         for img in data1:
             if compression == "GZIP":

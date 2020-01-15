@@ -15,9 +15,11 @@
     :toctree:
 
     async_utils
-    data_merging
-    logging_utils
     config_utils
+    data_merging
     data_policy
+    log_levels
+    logging_utils
+    profiling
     scan_utils
 """

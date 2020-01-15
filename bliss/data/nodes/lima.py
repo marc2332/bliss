@@ -323,12 +323,7 @@ class LimaImageChannelDataNode(DataNode):
                 file_path = path_format % file_nb
                 if file_format == "HDF5":
                     returned_params.append(
-                        (
-                            file_path,
-                            self._path_in_hdf5(file_path),
-                            image_index_in_file,
-                            file_format,
-                        )
+                        (file_path, "entry0000", image_index_in_file, file_format)
                     )
                 else:
                     returned_params.append(
@@ -337,7 +332,7 @@ class LimaImageChannelDataNode(DataNode):
             return returned_params
 
         @staticmethod
-        def _path_in_hdf5(filename, signal=True):
+        def _default_hdf5_dataset(f, signal=True):
             # TODO:
             # same as nexus_writer_service.io.nexus.getDefault
             # handle OSError?
@@ -351,34 +346,33 @@ class LimaImageChannelDataNode(DataNode):
                 return v
 
             path = ""
-            with h5py.File(filename, mode="r") as f:
-                default = strattr(f, "default", "")
-                if default and not default.startswith("/"):
-                    default = "/" + default
-                while default:
-                    try:
-                        node = f[default]
-                    except KeyError:
-                        break
-                    nxclass = strattr(node, "NX_class", "")
-                    if nxclass == "NXdata":
-                        if signal:
-                            name = strattr(node, "signal", "data")
-                            try:
-                                path = node[name].name
-                            except KeyError:
-                                pass
-                        else:
-                            path = node.name
-                        break
+            default = strattr(f, "default", "")
+            if default and not default.startswith("/"):
+                default = "/" + default
+            while default:
+                try:
+                    node = f[default]
+                except KeyError:
+                    break
+                nxclass = strattr(node, "NX_class", "")
+                if nxclass == "NXdata":
+                    if signal:
+                        name = strattr(node, "signal", "data")
+                        try:
+                            path = node[name].name
+                        except KeyError:
+                            pass
                     else:
-                        add = strattr(node, "default", "")
-                        if add.startswith("/"):
-                            default = add
-                        elif add:
-                            default += "/" + add
-                        else:
-                            break
+                        path = node.name
+                    break
+                else:
+                    add = strattr(node, "default", "")
+                    if add.startswith("/"):
+                        default = add
+                    elif add:
+                        default += "/" + add
+                    else:
+                        break
             return path
 
         def _get_from_file(self, image_nb):
@@ -400,6 +394,7 @@ class LimaImageChannelDataNode(DataNode):
                 elif file_format == "HDF5":
                     if h5py is not None:
                         with h5py.File(filename) as f:
+                            path_in_file = self._default_hdf5_dataset(f)
                             dataset = f[path_in_file]
                             return dataset[image_index]
                 else:

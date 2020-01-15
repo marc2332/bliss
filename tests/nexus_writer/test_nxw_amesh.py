@@ -11,36 +11,31 @@ import nxw_test_data
 
 
 def test_nxw_amesh(nexus_writer_config):
-    _test_nxw_amesh(*nexus_writer_config, config=True, withpolicy=True, alt=False)
+    _test_nxw_amesh(**nexus_writer_config)
 
 
 def test_nxw_amesh_alt(nexus_writer_config_alt):
-    _test_nxw_amesh(*nexus_writer_config_alt, config=True, withpolicy=True, alt=True)
+    _test_nxw_amesh(**nexus_writer_config_alt, alt=True)
 
 
 def test_nxw_amesh_nopolicy(nexus_writer_config_nopolicy):
-    _test_nxw_amesh(
-        *nexus_writer_config_nopolicy, config=True, withpolicy=False, alt=False
-    )
+    _test_nxw_amesh(**nexus_writer_config_nopolicy, withpolicy=False)
 
 
 def test_nxw_amesh_base(nexus_writer_base):
-    _test_nxw_amesh(*nexus_writer_base, config=False, withpolicy=True, alt=False)
+    _test_nxw_amesh(**nexus_writer_base, config=False)
 
 
 def test_nxw_amesh_base_alt(nexus_writer_base_alt):
-    _test_nxw_amesh(*nexus_writer_base_alt, config=False, withpolicy=True, alt=True)
+    _test_nxw_amesh(**nexus_writer_base_alt, config=False, alt=True)
 
 
 def test_nxw_amesh_base_nopolicy(nexus_writer_base_nopolicy):
-    _test_nxw_amesh(
-        *nexus_writer_base_nopolicy, config=False, withpolicy=False, alt=False
-    )
+    _test_nxw_amesh(**nexus_writer_base_nopolicy, config=False, withpolicy=False)
 
 
-def _test_nxw_amesh(
-    session, scan_tmpdir, writer_stdout, config=True, withpolicy=True, alt=False
-):
+@nxw_test_utils.writer_stdout_on_exception
+def _test_nxw_amesh(session=None, tmpdir=None, writer=None, **kwargs):
     masters = "robx", "roby"
     scan_shape = 4, 5
     scan = scans.amesh(
@@ -56,16 +51,7 @@ def _test_nxw_amesh(
         run=False,
     )
     nxw_test_utils.run_scan(scan)
-    # As we don't have any synchronisation for now:
-    nxw_test_utils.wait_scan_data_finished(
-        [scan], config=config, writer_stdout=writer_stdout
-    )
+    nxw_test_utils.wait_scan_data_finished([scan], writer=writer, **kwargs)
     nxw_test_data.assert_scan_data(
-        scan,
-        masters=masters,
-        scan_shape=scan_shape,
-        config=config,
-        withpolicy=withpolicy,
-        alt=alt,
-        writer_stdout=writer_stdout,
+        scan, masters=masters, scan_shape=scan_shape, **kwargs
     )

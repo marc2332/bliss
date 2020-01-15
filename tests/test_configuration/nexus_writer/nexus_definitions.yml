@@ -7,24 +7,24 @@ technique:
       - xrf
       plots:
       - xrf_counters
-      - xrf_spectra
-      - counters
-      - spectra
       - xrf_counters_grid
+      - xrf_spectra
       - xrf_spectra_grid
+      - counters
       - counters_grid
+      - spectra
       - spectra_grid
     xas:
       applications:
       - xrf
       plots:
       - xas_counters
-      - xrf_spectra
-      - counters
-      - spectra
       - xas_counters_grid
+      - xrf_spectra
       - xrf_spectra_grid
+      - counters
       - counters_grid
+      - spectra
       - spectra_grid
     xrfxrd:
       applications:
@@ -55,19 +55,39 @@ technique:
     counters:
       personal_name: all_counters
       ndim: 0
+    counters_grid:
+      personal_name: all_counters_grid
+      ndim: 0
+      grid: true
     spectra:
       personal_name: all_spectra
       ndim: 1
+    spectra_grid:
+      personal_name: all_spectra_grid
+      ndim: 1
+      grid: true
     images:
       personal_name: all_images
       ndim: 2
+    images_grid:
+      personal_name: all_images_grid
+      ndim: 2
+      grid: true
     xas_counters:
       personal_name: xas_counters
       items:
-      - diode2
-      - diode3
+      - diode4
+      - diode5
       - simu1:deadtime_det0
       - simu2:deadtime_det1
+    xas_counters_grid:
+      personal_name: xas_counters_grid
+      items:
+      - diode4
+      - diode5
+      - simu1:deadtime_det0
+      - simu2:deadtime_det1
+      grid: true
     xrf_counters:
       personal_name: xrf_counters
       items:
@@ -75,35 +95,6 @@ technique:
       - diode3
       - simu1:deadtime_det0
       - simu2:deadtime_det1
-    xrf_spectra:
-      personal_name: xrf_spectra
-      items:
-      - simu1:spectrum_det0
-      - simu2:spectrum_det1
-    xrd:
-      personal_name: xrd_patterns
-      items:
-      - lima_simulator:image
-    counters_grid:
-      personal_name: all_counters_grid
-      ndim: 0
-      grid: true
-    spectra_grid:
-      personal_name: all_spectra_grid
-      ndim: 1
-      grid: true
-    images_grid:
-      personal_name: all_images_grid
-      ndim: 2
-      grid: true
-    xas_counters_grid:
-      personal_name: xas_counters_grid
-      items:
-      - diode2
-      - diode3
-      - simu1:deadtime_det0
-      - simu2:deadtime_det1
-      grid: true
     xrf_counters_grid:
       personal_name: xrf_counters_grid
       items:
@@ -112,12 +103,21 @@ technique:
       - simu1:deadtime_det0
       - simu2:deadtime_det1
       grid: true
+    xrf_spectra:
+      personal_name: xrf_spectra
+      items:
+      - simu1:spectrum_det0
+      - simu2:spectrum_det1
     xrf_spectra_grid:
       personal_name: xrf_spectra_grid
       items:
       - simu1:spectrum_det0
       - simu2:spectrum_det1
       grid: true
+    xrd:
+      personal_name: xrd_patterns
+      items:
+      - lima_simulator:image
     xrd_grid:
       personal_name: xrd_patterns_grid
       items:

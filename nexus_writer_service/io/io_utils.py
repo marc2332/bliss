@@ -50,11 +50,25 @@ def mkdir(path):
 
     :param str path:
     """
-    try:
-        if path:
-            os.makedirs(path)
-    except OSError as e:
-        if e.errno == errno.EEXIST and os.path.isdir(path):
-            pass
-        else:
-            raise
+    if path:
+        path = os.path.abspath(path)
+        os.makedirs(path, exist_ok=True)
+
+
+def close_files(*fds):
+    exceptions = []
+    for fd in fds:
+        try:
+            if fd is None:
+                continue
+            try:
+                os.close(fd)
+            except OSError as e:
+                if e.errno == errno.EBADF:
+                    pass
+                else:
+                    raise
+        except Exception as e:
+            exceptions.append(e)
+    if exceptions:
+        raise Exception(exceptions)

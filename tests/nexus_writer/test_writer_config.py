@@ -7,18 +7,18 @@
 
 import os
 from nexus_writer_service.utils import config_utils
-from nexus_writer_service.scan_writers import writer_config_publish
 from nexus_writer_service.utils import scan_utils
+from nexus_writer_service.subscribers import scan_writer_publish
 
 
 def test_config_withoutpolicy(nexus_base_session_nopolicy):
     session, scan_tmpdir = nexus_base_session_nopolicy
     scan_tmpdir = str(scan_tmpdir)
-    validate_writer_config(writer_config_publish.writer_config())
+    validate_writer_config(scan_writer_publish.writer_config())
     assert config_utils.beamline() == "id00"
     assert config_utils.institute() == "ESRF"
-    assert writer_config_publish.default_technique() == "none"
-    assert writer_config_publish.current_technique() == "none"
+    assert scan_writer_publish.default_technique() == "none"
+    assert scan_writer_publish.current_technique() == "none"
     directory = scan_utils.current_directory()
     expected_directory = os.path.join(scan_tmpdir, session.name)
     assert directory == expected_directory
@@ -32,11 +32,11 @@ def test_config_withoutpolicy(nexus_base_session_nopolicy):
 def test_config_withpolicy(nexus_base_session_policy):
     session, scan_tmpdir = nexus_base_session_policy
     scan_tmpdir = str(scan_tmpdir)
-    validate_writer_config(writer_config_publish.writer_config())
+    validate_writer_config(scan_writer_publish.writer_config())
     assert config_utils.beamline() == "id00"
     assert config_utils.institute() == "ESRF"
-    assert writer_config_publish.default_technique() == "none"
-    assert writer_config_publish.current_technique() == "xrfxrd"
+    assert scan_writer_publish.default_technique() == "none"
+    assert scan_writer_publish.current_technique() == "xrfxrd"
     directory = scan_utils.current_directory()
     expected_directory = os.path.join(
         scan_tmpdir, "prop123", "id00", "sample", "sample_dataset"

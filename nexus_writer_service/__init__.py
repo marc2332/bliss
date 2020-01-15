@@ -15,12 +15,19 @@
     :toctree:
 
     nexus_writer_service
-    session_writer
+    nexus_register_writer
+    session_api
     metadata
-    writers
+    subscribers
     io
     utils
+    tango
 """
+
+# TODO: not sure we need this
+from gevent import monkey
+
+monkey.patch_all(thread=False)
 
 import logging
 from .utils import logging_utils

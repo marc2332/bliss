@@ -13,9 +13,10 @@ import os
 import gevent
 from . import config_utils
 from . import data_policy
+from .logging_utils import print_out
 
 
-__all__ = ["open_data"]
+__all__ = ["open_data", "open_dataset"]
 
 
 def scan_name(scan, subscan=1):
@@ -34,7 +35,7 @@ def scan_filenames(scan, config=True):
     """
     Get filenames associated to a scan.
 
-    :param bliss.scanning.scan.Scan or bliss.data.scan.Scan scan:
+    :param bliss.scanning.scan.Scan or bliss.data.nodes.scan.Scan scan:
     :returns list(str):
     """
     try:
@@ -49,11 +50,21 @@ def scan_filenames(scan, config=True):
     return [filename_int2ext(info["filename"])]
 
 
+def session_filenames(scan_saving=None, config=True):
+    """
+    HDF5 file names to be saved by the external writer.
+    """
+    if config:
+        return current_filenames(scan_saving=scan_saving)
+    else:
+        return [current_default_filename(scan_saving=scan_saving)]
+
+
 def scan_uri(scan, subscan=1, config=True):
     """
     Get HDF5 uri associated to a scan.
 
-    :param bliss.scanning.scan.Scan or bliss.data.scan.Scan scan:
+    :param bliss.scanning.scan.Scan or bliss.data.nodes.scan.Scan scan:
     :param int subscan:
     :param bool config: expect configurable writer
     :returns str:
@@ -65,13 +76,28 @@ def scan_uri(scan, subscan=1, config=True):
         return ""
 
 
-def current_internal_filename():
+def scan_uris(scan, config=True):
+    """
+    Get HDF5 uri associated to a scan.
+
+    :param list(bliss.scanning.scan.Scan or bliss.data.nodes.scan.Scan) scan:
+    :param bool config: expect configurable writer
+    :returns list(str):
+    """
+    tree = scan.acq_chain._tree
+    subscans = range(1, len(tree.children(tree.root)) + 1)
+    return [scan_uri(scan, subscan=subscan, config=config) for subscan in subscans]
+
+
+def current_internal_filename(scan_saving=None):
     """
     Filename for the internal writer.
 
     :returns str:
     """
-    basename = config_utils.scan_saving_get("data_filename", "")
+    basename = config_utils.scan_saving_get(
+        "data_filename", "", scan_saving=scan_saving
+    )
     if basename:
         basename = os.path.splitext(basename)[0]
         return os.path.join(basename + ".h5")
@@ -93,7 +119,7 @@ def filename_int2ext(filename=None, **overwrite):
         return "data_external.h5"
 
 
-def current_directory(**overwrite):
+def current_directory(scan_saving=None, **overwrite):
     """
     Get path from the session's SCAN_SAVING object
 
@@ -101,8 +127,11 @@ def current_directory(**overwrite):
     :returns str:
     :raises RuntimeError: missing information
     """
-    scan_saving = config_utils.scan_saving()
-    attrs = config_utils.scan_saving_attrs(template=scan_saving.template, **overwrite)
+    if scan_saving is None:
+        scan_saving = config_utils.current_scan_saving()
+    attrs = config_utils.scan_saving_attrs(
+        template=scan_saving.template, scan_saving=scan_saving, **overwrite
+    )
     try:
         return os.path.normpath(
             os.path.join(scan_saving.base_path, scan_saving.template.format(**attrs))
@@ -111,7 +140,7 @@ def current_directory(**overwrite):
         raise RuntimeError("Missing '{}' attribute in SCAN_SAVING".format(e))
 
 
-def current_default_filename(**overwrite):
+def current_default_filename(scan_saving=None, **overwrite):
     """
     HDF5 file names to be saved by the external writer
     based on the filename of the internal writer.
@@ -119,18 +148,19 @@ def current_default_filename(**overwrite):
     :param overwrite: overwrite template values
     :returns str:
     """
-    filename = current_internal_filename(**overwrite)
-    base_path = current_directory(**overwrite)
+    filename = current_internal_filename(scan_saving=scan_saving, **overwrite)
+    base_path = current_directory(scan_saving=scan_saving, **overwrite)
     return filename_int2ext(os.path.join(base_path, filename))
 
 
-def current_filenames(**overwrite):
+def current_filenames(scan_saving=None, **overwrite):
     """
     HDF5 file names to be saved by the external writer.
     The first is to write scan data and the other are
     masters to link scan entries.
 
     :param overwrite: overwrite template values
+    :param bliss.scanning.scan.ScanSaving scan_saving:
     :returns list(str):
     """
     filenames = []
@@ -138,7 +168,9 @@ def current_filenames(**overwrite):
     base_path = current_directory(**overwrite)
     for name_template in name_templates:
         if name_template:
-            attrs = config_utils.scan_saving_attrs(template=name_template, **overwrite)
+            attrs = config_utils.scan_saving_attrs(
+                template=name_template, scan_saving=scan_saving, **overwrite
+            )
             try:
                 filename = name_template.format(**attrs)
             except KeyError:
@@ -150,7 +182,7 @@ def current_filenames(**overwrite):
         filenames = [""]
     if not filenames[0]:
         # Data policy was not initialized
-        filenames[0] = current_default_filename(**overwrite)
+        filenames[0] = current_default_filename(scan_saving=scan_saving, **overwrite)
     return filenames
 
 
@@ -162,7 +194,7 @@ def open_uris(uris, block=False):
     :param bool block: block thread until silx is closed
     """
     uris = [uri + "::/" if "::" not in uri else uri for uri in uris if uri]
-    print("Opening {} ...".format(uris))
+    print_out("Opening {} ...".format(uris))
     if not uris:
         return
     p = gevent.subprocess.Popen(["silx", "view"] + uris)
@@ -172,10 +204,21 @@ def open_uris(uris, block=False):
 
 def open_data(scan, block=False, subscan=1, config=True):
     """
-    Open current dataset in silx
+    Open scan data in silx
 
     :param bool block: block thread until silx is closed
     :param int subscan:
     :param bool config: expect configurable writer
     """
     open_uris([scan_uri(scan, subscan=subscan, config=config)], block=block)
+
+
+def open_dataset(scan, block=False, config=True):
+    """
+    Open dataset in silx
+
+    :param bool block: block thread until silx is closed
+    :param bool config: expect configurable writer
+    """
+    filename = scan_filenames(scan, config=config)[0]
+    open_uris([filename], block=block)

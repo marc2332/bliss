@@ -221,7 +221,7 @@ def main():
                 "NanoBpmServo = bliss.tango.servers.nanobpm_servo_ds:main",
                 "Wago = bliss.tango.servers.wago_ds:main",
                 "NexusWriterService = nexus_writer_service.nexus_writer_service:main",
-                "NexusSessionWriter = nexus_writer_service.session_writer:main",
+                "NexusSessionWriter = nexus_writer_service.subscribers.session_writer:main",
             ]
         },
         install_requires=install_requires,

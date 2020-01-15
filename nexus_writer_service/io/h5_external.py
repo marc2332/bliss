@@ -18,36 +18,15 @@ import numpy
 import fabio
 from fabio.edfimage import EdfImage
 from .io_utils import mkdir
-
-
-def swap_flattening_order(lst, shape, order):
-    """
-    Swap order of flattened list
-
-    :param list lst: flattened shape
-    :param tuple shape: original shape of `lst`
-    :param str order: flattening order of `lst`
-    :returns list:
-    """
-    if len(shape) <= 1:
-        return lst
-    if order == "C":
-        ofrom, oto = "C", "F"
-    elif order == "F":
-        ofrom, oto = "F", "C"
-    else:
-        raise ValueError("Order must be 'C' or 'F'")
-    idx = numpy.arange(len(lst))
-    idx = idx.reshape(shape, order=oto)
-    idx = idx.flatten(order=ofrom)
-    return [lst[i] for i in idx]
+from ..utils.array_order import Order
 
 
 def add_edf_arguments(filenames, createkwargs=None):
     """
     Arguments for `h5py.create_dataset` to link to EDF data frames.
 
-    :param list(str or tuple) filenames: file names (str) and optionally image indices (tuple)
+    :param list(str or tuple) filenames: file names (str) and optionally
+                                         image indices (tuple)
     :param dict: result of previous call to append to
     :returns dict:
     :raises RuntimeError: not supported by external datasets
@@ -67,7 +46,7 @@ def add_edf_arguments(filenames, createkwargs=None):
             if not isinstance(indices, (tuple, list)):
                 indices = [indices]
         else:
-            indices = None
+            indices = []
         if ".edf." in os.path.basename(filename):
             raise RuntimeError(
                 "{}: external datasets with compression not supported".format(
@@ -76,14 +55,10 @@ def add_edf_arguments(filenames, createkwargs=None):
             )
         if indices:
             img = fabio.open(filename)
-            # EdfImage.getframe returns an EdfImage, not an EdfFrame
-
-            def getframe(img):
-                return img._frames[img.currentframe]
-
-            it = (getframe(img.getframe(i)) for i in indices)
+            it = (img._frames[i] for i in indices)
         else:
             it = EdfImage.lazy_iterator(filename)
+
         for frame in it:
             if frame.swap_needed():
                 raise RuntimeError(
@@ -103,6 +78,9 @@ def add_edf_arguments(filenames, createkwargs=None):
                     )
                 )
             shapei = frame.shape
+            if len(shapei) == 1:
+                # TODO: bug in fabio?
+                shapei = 1, shapei[0]
             dtypei = frame.dtype
             start = frame.start
             size = frame.size  # TODO: need compressed size
@@ -159,7 +137,11 @@ def resize(createkwargs, enframes, filename, fillvalue):
         if os.path.splitext(filename)[-1] != ext:
             filename += ext
         if ext == ".edf":
-            mkdir(filename)
+            mkdir(os.path.dirname(filename))
+            if not frame_shape:
+                frame_shape = 1, 1
+            elif len(frame_shape) == 1:
+                frame_shape = 1, frame_shape[0]
             EdfImage(data=numpy.full(fillvalue, frame_shape)).write(filename)
         else:
             raise RuntimeError(
@@ -169,13 +151,14 @@ def resize(createkwargs, enframes, filename, fillvalue):
     return nframes - enframes
 
 
-def finalize(createkwargs, order="C", shape=None):
+def finalize(createkwargs, addorder=None, fillorder=None, shape=None):
     """
     Finalize external dataset arguments: define shape
 
     :param dict createkwargs:
     :param tuple shape: scan shape (default: (nframes,))
-    :param str order: fill order of shape
+    :param Order addorder: add order to external
+    :param Order fillorder: fill order of shape
     :raises RuntimeError: scan shape does not match number of frames
     """
     nframes = len(createkwargs["external"])
@@ -184,26 +167,35 @@ def finalize(createkwargs, order="C", shape=None):
         raise RuntimeError("The shape of one external frame must be provided")
     if shape:
         createkwargs["shape"] = shape + frame_shape
-        if order == "F":
-            external = swap_flattening_order(createkwargs["external"], shape, "C")
-            createkwargs["external"] = external
+        if not isinstance(addorder, Order):
+            addorder = Order(addorder)
+        if not isinstance(fillorder, Order):
+            fillorder = Order(fillorder)
+        if fillorder.forder:
+            raise ValueError("External HDF5 datasets are always saved in C-order")
+        createkwargs["external"] = addorder.swap_list(
+            createkwargs["external"], shape, fillorder
+        )
     else:
         createkwargs["shape"] = (nframes,) + frame_shape
 
 
-def add_arguments(file_format, filenames, shape=None, createkwargs=None):
+def add_arguments(filenames, createkwargs=None):
     """
     Arguments for `h5py.create_dataset` to link to data frames.
     The resulting shape will be `shape + frame_shape`
 
-    :param str file_format:
     :param list(str or tuple) filenames: file names (str) and optionally image indices (tuple)
-    :param dict: result of previous call to append to
-
-    :param order(str): refers to the scan dimensions, not the image dimensions
+    :param dict createkwargs: result of previous call to append to
     :returns dict:
     """
-    if file_format == "edf":
+    if not filenames:
+        return
+    first = filenames[0]
+    if isinstance(first, (tuple, list)):
+        first = first[0]
+    file_format = os.path.splitext(first)[-1].lower()
+    if file_format == ".edf":
         return add_edf_arguments(filenames, createkwargs=createkwargs)
     else:
         raise ValueError("Unknown external data format " + repr(file_format))

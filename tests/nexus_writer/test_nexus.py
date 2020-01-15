@@ -13,13 +13,20 @@ import h5py.h5t
 from nexus_writer_service.io import nexus
 
 
+@contextmanager
+def nxroot(path, name):
+    filename = os.path.join(str(path), name + ".h5")
+    with nexus.nxRoot(filename, mode="a") as f:
+        yield f
+
+
 def test_nexus_root(scan_tmpdir):
-    with h5open(scan_tmpdir, "test_nexus_root") as h5group:
+    with nxroot(scan_tmpdir, "test_nexus_root") as h5group:
         validateNxRoot(h5group)
 
 
 def test_nexus_entry(scan_tmpdir):
-    with h5open(scan_tmpdir, "test_nexus_entry") as h5group:
+    with nxroot(scan_tmpdir, "test_nexus_entry") as h5group:
         entry = nexus.nxEntry(h5group, "entry0001")
         nexus.updated(entry, final=True)
         with pytest.raises(RuntimeError):
@@ -28,7 +35,7 @@ def test_nexus_entry(scan_tmpdir):
 
 
 def test_nexus_process(scan_tmpdir):
-    with h5open(scan_tmpdir, "test_nexus_process") as h5group:
+    with nxroot(scan_tmpdir, "test_nexus_process") as h5group:
         entry = nexus.nxEntry(h5group, "entry0001")
         configdict = {"a": 1, "b": 2}
         for i, type in enumerate(["json", "ini", None]):
@@ -41,7 +48,7 @@ def test_nexus_process(scan_tmpdir):
 
 
 def test_nexus_data(scan_tmpdir):
-    with h5open(scan_tmpdir, "test_nexus_data") as h5group:
+    with nxroot(scan_tmpdir, "test_nexus_data") as h5group:
         entry = nexus.nxEntry(h5group, "entry0001")
         process = nexus.nxProcess(entry, "process0001")
         data = nexus.nxData(process["results"], "data")
@@ -192,7 +199,7 @@ def test_nexus_links(scan_tmpdir):
             i += 1
 
     linkname = namegen()
-    with h5open(scan_tmpdir, os.path.join("a", "b", "test1")) as f1:
+    with nxroot(scan_tmpdir, os.path.join("a", "b", "test1")) as f1:
         f1.create_group("a/b/c")
         g = f1["/a/b"]
         _same_target(g, g)
@@ -218,7 +225,7 @@ def test_nexus_links(scan_tmpdir):
         assert link.path == "c"
         assert isinstance(link, h5py.SoftLink)
         # external link down
-        with h5open(scan_tmpdir, os.path.join("a", "test2")) as f2:
+        with nxroot(scan_tmpdir, os.path.join("a", "test2")) as f2:
             name = next(linkname)
             nexus.createLink(f2, name, f1["a"])
             link = f2.get(name, getlink=True)
@@ -227,7 +234,7 @@ def test_nexus_links(scan_tmpdir):
             assert link.filename == "b/test1.h5"
             assert isinstance(link, h5py.ExternalLink)
         # internal link same level
-        with h5open(scan_tmpdir, os.path.join("a", "b", "test2")) as f2:
+        with nxroot(scan_tmpdir, os.path.join("a", "b", "test2")) as f2:
             name = next(linkname)
             nexus.createLink(f2, name, f1["a"])
             link = f2.get(name, getlink=True)
@@ -236,7 +243,7 @@ def test_nexus_links(scan_tmpdir):
             assert link.filename == "./test1.h5"
             assert isinstance(link, h5py.ExternalLink)
         # external link up
-        with h5open(scan_tmpdir, os.path.join("a", "b", "c", "test2")) as f2:
+        with nxroot(scan_tmpdir, os.path.join("a", "b", "c", "test2")) as f2:
             name = next(linkname)
             nexus.createLink(f2, name, f1["a"])
             _same_target(f1["a"], f2[name])
@@ -275,9 +282,9 @@ def test_nexus_reshape_datasets(scan_tmpdir):
         os.path.join("basedir1", "test2"),
         os.path.join("basedir1", "subdir", "test3"),
     )
-    with h5open(scan_tmpdir, filenames[0]) as root1:
-        with h5open(scan_tmpdir, filenames[1]) as root2:
-            with h5open(scan_tmpdir, filenames[2]) as root3:
+    with nxroot(scan_tmpdir, filenames[0]) as root1:
+        with nxroot(scan_tmpdir, filenames[1]) as root2:
+            with nxroot(scan_tmpdir, filenames[2]) as root3:
                 for root in root1, root2, root3:
                     g = root.create_group("a")
                     g.create_group("b")
@@ -328,7 +335,7 @@ def test_nexus_reshape_datasets(scan_tmpdir):
 
     paths = ("/vdata", "/vdatae", "/a/vdata", "/a/vdatae", "/a/b/vdata", "/a/b/vdatae")
     for filename in filenames:
-        with h5open(scan_tmpdir, filename) as root:
+        with nxroot(scan_tmpdir, filename) as root:
             data = root["/a/data"]
             assert shape == data.shape
             numpy.testing.assert_array_equal(fdatamem, flatten(data[()]))
@@ -360,7 +367,7 @@ def test_nexus_reshape_datasets(scan_tmpdir):
         ("/vdatae", "/a/vdatae", "/a/b/vdatae"),
     ]
     for filename, lost in zip(filenames, lostlinks):
-        with h5open(scan_tmpdir, filename) as root:
+        with nxroot(scan_tmpdir, filename) as root:
             data = root["/a/data"]
             assert shape == data.shape
             numpy.testing.assert_array_equal(fdatamem, flatten(data[()]))
@@ -372,13 +379,6 @@ def test_nexus_reshape_datasets(scan_tmpdir):
                     assert not isequal, nexus.getUri(vdata)
                 else:
                     assert isequal, nexus.getUri(vdata)
-
-
-@contextmanager
-def h5open(path, name):
-    filename = os.path.join(str(path), name + ".h5")
-    with nexus.nxRoot(filename, mode="a") as f:
-        yield f
 
 
 def validateNxRoot(h5group):
@@ -494,7 +494,7 @@ def check_string_types(scan_tmpdir, attribute=True, raiseExtended=True):
         [sUTF8AsciiUnicode, sAsciiUnicode],
     )
 
-    with h5open(scan_tmpdir, "test_nexus_String{:d}".format(attribute)) as h5group:
+    with nxroot(scan_tmpdir, "test_nexus_String{:d}".format(attribute)) as h5group:
         h5group = h5group.create_group("test")
         if attribute:
             out = h5group.attrs
@@ -536,3 +536,75 @@ def check_string_types(scan_tmpdir, attribute=True, raiseExtended=True):
                     expectedCharSet = h5py.h5t.CSET_UTF8
                 msg = "{} type {} instead of {}".format(name, charSet, expectedCharSet)
                 assert charSet == expectedCharSet, msg
+
+
+def test_nexus_exists(scan_tmpdir):
+    with nxroot(scan_tmpdir, "test_nexus_entry") as root:
+        uri = nexus.getUri(root)
+        assert nexus.exists(uri)
+
+        parent = root
+        uri = nexus.hdf5_join(nexus.getUri(parent), "entry")
+        assert not nexus.exists(uri)
+        entry = nexus.nxEntry(parent, "entry")
+        assert nexus.exists(uri)
+        with pytest.raises(nexus.NexusInstanceExists):
+            nexus.nxEntry(parent, "entry", raise_on_exists=True)
+
+        parent = entry
+        uri = nexus.hdf5_join(nexus.getUri(parent), "collection")
+        assert not nexus.exists(uri)
+        collection = nexus.nxCollection(parent, "collection")
+        assert nexus.exists(uri)
+        with pytest.raises(nexus.NexusInstanceExists):
+            nexus.nxCollection(parent, "collection", raise_on_exists=True)
+        # with pytest.raises(RuntimeError):
+        nexus.nxCollection(root, "collection")
+
+        parent = entry
+        uri = nexus.hdf5_join(nexus.getUri(parent), "process")
+        assert not nexus.exists(uri)
+        process = nexus.nxProcess(parent, "process")
+        assert nexus.exists(uri)
+        with pytest.raises(nexus.NexusInstanceExists):
+            nexus.nxProcess(parent, "process", raise_on_exists=True)
+
+        parent = entry
+        uri = nexus.hdf5_join(nexus.getUri(parent), "subentry")
+        assert not nexus.exists(uri)
+        subentry = nexus.nxSubEntry(parent, "subentry")
+        assert nexus.exists(uri)
+        with pytest.raises(nexus.NexusInstanceExists):
+            nexus.nxSubEntry(parent, "subentry", raise_on_exists=True)
+
+        parent = entry
+        uri = nexus.hdf5_join(nexus.getUri(parent), "plot")
+        assert not nexus.exists(uri)
+        data = nexus.nxData(parent, "plot")
+        assert nexus.exists(uri)
+        with pytest.raises(nexus.NexusInstanceExists):
+            nexus.nxData(parent, "plot", raise_on_exists=True)
+
+        parent = entry
+        uri = nexus.hdf5_join(nexus.getUri(parent), "instrument")
+        assert not nexus.exists(uri)
+        instrument = nexus.nxInstrument(parent, "instrument")
+        assert nexus.exists(uri)
+        with pytest.raises(nexus.NexusInstanceExists):
+            nexus.nxInstrument(parent, "instrument", raise_on_exists=True)
+
+        parent = instrument
+        uri = nexus.hdf5_join(nexus.getUri(parent), "detector")
+        assert not nexus.exists(uri)
+        detector = nexus.nxDetector(parent, "detector")
+        assert nexus.exists(uri)
+        with pytest.raises(nexus.NexusInstanceExists):
+            nexus.nxDetector(parent, "detector", raise_on_exists=True)
+
+        parent = instrument
+        uri = nexus.hdf5_join(nexus.getUri(parent), "positioner")
+        assert not nexus.exists(uri)
+        positioner = nexus.nxPositioner(parent, "positioner")
+        assert nexus.exists(uri)
+        with pytest.raises(nexus.NexusInstanceExists):
+            nexus.nxPositioner(parent, "positioner", raise_on_exists=True)

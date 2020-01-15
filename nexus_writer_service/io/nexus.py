@@ -18,6 +18,7 @@ import time
 import datetime
 import numpy
 import os
+import errno
 import re
 import pprint
 import logging
@@ -46,7 +47,7 @@ except AttributeError:
     HASVIRTUAL = False
 else:
     HASVIRTUAL = True
-HASSWMR = h5py.version.hdf5_version_tuple >= (1, 10)
+HASSWMR = h5py.version.hdf5_version_tuple >= h5py.get_config().swmr_min_hdf5_version
 
 
 logger = logging.getLogger(__name__)
@@ -54,6 +55,10 @@ logger = logging.getLogger(__name__)
 
 nxcharUnicode = h5py.special_dtype(vlen=unicode)
 nxcharBytes = h5py.special_dtype(vlen=bytes)
+
+
+class NexusInstanceExists(Exception):
+    pass
 
 
 def asNxChar(s, raiseExtended=True):
@@ -237,7 +242,7 @@ def dereferenceUri(uri):
     filename, path = splitUri(uri)
     uri2 = uri
     istart = 1
-    with h5open(filename, mode="r") as f:
+    with File(filename, mode="r") as f:
         while True:
             parts = path.split("/")[1:]
             for i in range(istart, len(parts) + 1):
@@ -307,9 +312,9 @@ def uriContext(uri, **kwargs):
     """
     filename, path = splitUri(uri)
     try:
-        with h5open(filename, **kwargs) as f:
+        with File(filename, **kwargs) as f:
             yield f[path]
-    except (OSError, IOError, KeyError):
+    except (OSError, KeyError):
         yield None
 
 
@@ -323,7 +328,8 @@ def exists(uri):
     try:
         with uriContext(uri, mode="r") as node:
             return node is not None
-    except (OSError, IOError, KeyError):
+    except (OSError, KeyError) as e:
+        logger.warning(str(e))
         pass
     return False
 
@@ -425,7 +431,7 @@ def attr_as_str(node, attr, default):
     if isinstance(v, str):
         return v
     elif isinstance(v, bytes):
-        return v.encode()
+        return v.decode()
     elif isinstance(v, tuple):
         return tuple(as_str(s) for s in v)
     elif isinstance(v, list):
@@ -464,7 +470,7 @@ def raiseIsNxClass(h5group, *classes):
     :raises RuntimeError:
     """
     if isNxClass(h5group, *classes):
-        raise RuntimeError("Nexus class not in {}".format(classes))
+        raise RuntimeError("Nexus class should not be one of these: {}".format(classes))
 
 
 def raiseIsNotNxClass(h5group, *classes):
@@ -477,30 +483,34 @@ def raiseIsNotNxClass(h5group, *classes):
         raise RuntimeError("Nexus class not in {}".format(classes))
 
 
-def nxClassNeedsInit(parent, name, nxclass):
+def nxClassInstantiate(parent, name, nxclass, raise_on_exists=False):
     """
-    Check whether parent[name] needs Nexus initialization
+    Create `parent[name]` or check its nexus class.
 
     :param h5py.Group parent:
-    :param str or None name:
-    :param str nxclass:
-    :returns bool: needs initialization
+    :param str or None name: `None` means the 
+    :param str nxclass: nxclass of the parent when `name is None`
+    :param bool raise_on_exists:
+    :returns bool: new instance created
     :raises RuntimeError: wrong Nexus class
+    :raises NexusInstanceExists:
     """
     if name is None:
-        return nxclass != nxClass(parent)
-    if name in parent:
-        _nxclass = nxClass(parent[name])
-        if _nxclass != nxclass:
-            raise RuntimeError(
-                "{} is an instance of {} instead of {}".format(
-                    parent[name].name, nxclass, _nxclass
-                )
-            )
-        return False
+        exists = nxClass(parent) is not None
+        group = parent
     else:
-        parent.create_group(name)
-        return True
+        try:
+            group = parent.create_group(name)
+            exists = False
+        except Exception as e:
+            exists = True
+            group = parent[name]
+            if raise_on_exists:
+                logger.warning(e)
+                raise NexusInstanceExists(group.name)
+    if exists:
+        raiseIsNotNxClass(group, nxclass)
+    return not exists
 
 
 def updated(h5group, final=False, parents=False):
@@ -546,27 +556,36 @@ def updateDataset(parent, name, data):
         parent[name] = data
 
 
-def nxClassInit(parent, name, nxclass, parentclasses=None, **kwargs):
+def nxClassInit(
+    parent, name, nxclass, parentclasses=None, raise_on_exists=False, **kwargs
+):
     """
-    Initialize Nexus class instance without default attributes and datasets
+    Initialize Nexus class instance. When it does exist: create
+    default attributes and datasets or raise exception.
 
     :param h5py.Group parent:
     :param str name:
     :param str nxclass:
     :param tuple parentclasses:
+    :param bool raise_on_exists:
     :param **kwargs: see `nxInit`
+    :returns h5py.Group:
     :raises RuntimeError: wrong Nexus class or parent
                           not an Nexus class instance
+    :raises NexusInstanceExists:
     """
     if parentclasses:
         raiseIsNotNxClass(parent, *parentclasses)
     else:
         raiseIsNxClass(parent, None)
-    if nxClassNeedsInit(parent, name, nxclass):
+    if nxClassInstantiate(parent, name, nxclass, raise_on_exists=raise_on_exists):
         h5group = parent[name]
         nxAddAttrInit(kwargs, "NX_class", nxclass)
         nxInit(h5group, **kwargs)
         updated(h5group)
+        return h5group
+    else:
+        return parent[name]
 
 
 def nxRootInit(h5group):
@@ -579,7 +598,7 @@ def nxRootInit(h5group):
     """
     if h5group.name != "/":
         raise ValueError("Group should be the root")
-    if nxClassNeedsInit(h5group, None, u"NXroot"):
+    if nxClassInstantiate(h5group, None, u"NXroot"):
         h5group.attrs["file_time"] = timestamp()
         h5group.attrs["file_name"] = asNxChar(h5group.file.filename)
         h5group.attrs["HDF5_Version"] = asNxChar(h5py.version.hdf5_version)
@@ -628,15 +647,20 @@ def nxAddAttrInit(dic, key, value):
     dic["attrs"][key] = value
 
 
-def _nxEntryInit(parent, name, sub=False, start_time=None, **kwargs):
+def nxEntryInit(
+    parent, name, sub=False, start_time=None, raise_on_exists=False, **kwargs
+):
     """
     Initialize NXentry and NXsubentry instance
 
     :param h5py.Group parent:
     :param bool sub:
     :param datetime start_time: 'now' when missing
+    :param bool raise_on_exists:
     :param **kwargs: see `nxInit`
+    :returns h5py.Group:
     :raises RuntimeError: wrong NX_class or parent NX_class
+    :raises NexusInstanceExists:
     """
     if sub:
         nxclass = u"NXsubentry"
@@ -645,7 +669,7 @@ def _nxEntryInit(parent, name, sub=False, start_time=None, **kwargs):
         nxclass = u"NXentry"
         parents = (u"NXroot",)
     raiseIsNotNxClass(parent, *parents)
-    if nxClassNeedsInit(parent, name, nxclass):
+    if nxClassInstantiate(parent, name, nxclass, raise_on_exists=raise_on_exists):
         h5group = parent[name]
         if start_time is None:
             start_time = timestamp()
@@ -655,33 +679,12 @@ def _nxEntryInit(parent, name, sub=False, start_time=None, **kwargs):
         nxAddAttrInit(kwargs, "NX_class", nxclass)
         nxInit(h5group, **kwargs)
         updated(h5group)
+        return h5group
+    else:
+        return parent[name]
 
 
-def nxEntryInit(parent, name, **kwargs):
-    """
-    Initialize NXentry instance
-
-    :param h5py.Group parent:
-    :param datetime start_time: 'now' when missing
-    :param **kwargs: see `nxInit`
-    :raises RuntimeError: wrong NX_class or parent not NXroot
-    """
-    _nxEntryInit(parent, name, sub=False, **kwargs)
-
-
-def nxSubEntryInit(parent, name, **kwargs):
-    """
-    Initialize NXsubentry instance
-
-    :param h5py.Group parent:
-    :param datetime start_time: 'now' when missing
-    :param **kwargs: see `_nxEntryInit`
-    :raises RuntimeError: wrong NX_class or parent not NXentry
-    """
-    _nxEntryInit(parent, name, sub=True, **kwargs)
-
-
-def nxNoteInit(parent, name, data=None, type=None):
+def nxNoteInit(parent, name, data=None, type=None, raise_on_exists=False):
     """
     Initialize NXnote instance
 
@@ -689,11 +692,14 @@ def nxNoteInit(parent, name, data=None, type=None):
     :param str name:
     :param str data:
     :param str type:
+    :param bool raise_on_exists:
+    :return h5py.Group:
     :raises RuntimeError: wrong Nexus class or parent
                           not an Nexus class instance
+    :raises NexusInstanceExists:
     """
     raiseIsNxClass(parent, None)
-    if nxClassNeedsInit(parent, name, u"NXnote"):
+    if nxClassInstantiate(parent, name, u"NXnote", raise_on_exists=raise_on_exists):
         h5group = parent[name]
         h5group.attrs["NX_class"] = u"NXnote"
         update = True
@@ -708,9 +714,12 @@ def nxNoteInit(parent, name, data=None, type=None):
         update = True
     if update:
         updated(h5group)
+    return h5group
 
 
-def nxProcessConfigurationInit(parent, configdict=None, type="json", indent=2):
+def nxProcessConfigurationInit(
+    parent, configdict=None, type="json", indent=2, raise_on_exists=False
+):
     """
     Initialize NXnote instance
 
@@ -718,7 +727,9 @@ def nxProcessConfigurationInit(parent, configdict=None, type="json", indent=2):
     :param dict configdict:
     :param str type: 'json' or 'ini' or None (pprint)
     :param num indent: pretty-string with indent level
+    :returns h5py.Group:
     :raises RuntimeError: parent not NXprocess
+    :raises NexusInstanceExists:
     """
     raiseIsNotNxClass(parent, u"NXprocess")
     if configdict is not None:
@@ -737,22 +748,27 @@ def nxProcessConfigurationInit(parent, configdict=None, type="json", indent=2):
         data = None
         type = None
     name = "configuration"
-    nxNoteInit(parent, name, data=data, type=type)
-    updated(parent[name])
+    group = nxNoteInit(
+        parent, name, data=data, type=type, raise_on_exists=raise_on_exists
+    )
+    updated(group)
+    return group
 
 
-def nxProcessInit(parent, name, configdict=None, **kwargs):
+def nxProcess(parent, name, configdict=None, raise_on_exists=False, **kwargs):
     """
-    Initialize NXprocess instance
+    Get NXprocess instance (create or raise when missing)
 
     :param h5py.Group parent:
     :param str name:
     :param dict configdict:
     :param **kwargs: see `nxProcessConfigurationInit`
+    :returns h5py.Group:
     :raises RuntimeError: wrong Nexus class or parent not NXentry
+    :raises NexusInstanceExists:
     """
     raiseIsNotNxClass(parent, u"NXentry")
-    if nxClassNeedsInit(parent, name, u"NXprocess"):
+    if nxClassInstantiate(parent, name, u"NXprocess", raise_on_exists=raise_on_exists):
         h5group = parent[name]
         updateDataset(h5group, "program", "bliss")
         updateDataset(h5group, "version", bliss.__version__)
@@ -760,109 +776,96 @@ def nxProcessInit(parent, name, configdict=None, **kwargs):
         updated(h5group)
     else:
         h5group = parent[name]
-    nxProcessConfigurationInit(h5group, configdict=configdict, **kwargs)
-    nxClassInit(h5group, "results", u"NXcollection")
+    nxProcessConfigurationInit(
+        h5group, configdict=configdict, raise_on_exists=raise_on_exists, **kwargs
+    )
+    results = nxClassInit(h5group, "results", u"NXcollection")
+    return h5group
 
 
-@contextmanager
-def _h5file(path, creationlocks=None, mode="r", **kwargs):
-    """
-    HDF5 file context with creation locking
+class File(h5py.File):
+    def __init__(
+        self,
+        name,
+        mode="r",
+        enable_file_locking=None,
+        swmr=None,
+        creationlocks=None,
+        **kwargs
+    ):
+        """
+        :param str name:
+        :param str mode:
+        :param bool enable_file_locking: by default it is disabled for `mode=='r'`
+                                         and enabled in all other modes
+        :param bool swmr: when not specified: try both modes when `mode=='r'`
+        :param SharedLockPool creationlocks:
+        :param **kwargs: see `h5py.File.__init__`
+        """
+        self._lockname = os.path.abspath(name)
+        self._creationlocks = creationlocks
+        with self.acquire_lock():
+            # https://support.hdfgroup.org/HDF5/docNewFeatures/SWMR/Design-HDF5-FileLocking.pdf
+            if not HASSWMR and swmr:
+                swmr = False
+            libver = kwargs.get("libver")
+            if swmr:
+                kwargs["libver"] = "latest"
+            if enable_file_locking is None:
+                enable_file_locking = mode != "r"
+            if enable_file_locking:
+                os.environ["HDF5_USE_FILE_LOCKING"] = "TRUE"
+            else:
+                os.environ["HDF5_USE_FILE_LOCKING"] = "FALSE"
+            try:
+                super().__init__(name, mode=mode, swmr=swmr, **kwargs)
+                if mode != "r" and swmr:
+                    # Try setting writing in SWMR mode
+                    try:
+                        self.swmr_mode = True
+                    except Exception:
+                        pass
+            except OSError as e:
+                # errno.EAGAIN: file is locked
+                if (
+                    swmr is not None
+                    or mode != "r"
+                    or not HASSWMR
+                    or e.errno == errno.EAGAIN
+                ):
+                    raise
+                # Try reading with opposite SWMR mode
+                swmr = not swmr
+                if swmr:
+                    kwargs["libver"] = "latest"
+                else:
+                    kwargs["libver"] = libver
+                super().__init__(name, mode=mode, swmr=swmr, **kwargs)
 
-    :param str path:
-    :param str mode:
-    :param SharedLockPool creationlocks:
-    :param **kwargs: see h5py.File
-    :yields h5py.File:
-    """
-    if creationlocks is None:
-        with h5py.File(path, mode=mode, **kwargs) as h5file:
-            yield h5file
-    else:
-        with creationlocks.acquire_context_creation(
-            path, h5py.File, path, mode=mode, **kwargs
-        ) as h5file:
-            yield h5file
-
-
-@contextmanager
-def h5open(path, mode="r", enable_file_locking=False, swmr=False, **kwargs):
-    """
-    HDF5 file context which does not lock the file by default.
-    When file locking is enabled, you can have a single writer
-    and multiple readers when the writer contexts has `swmr=True`:
-
-    .. code-block:: python
-
-        with h5open('test.h5', mode='a', swmr=True, enable_file_locking=True):
-            ...
-
-        with h5open('test.h5', mode='r', enable_file_locking=True):
-            ...
-
-        with h5open('test.h5', mode='r', enable_file_locking=True):
-            ...
-
-        ...
-
-    :param str path:
-    :param str mode:
-    :param bool enable_file_locking: locking is done in all modes
-                                     (also read-only).
-    :param bool swmr: files locked with `swmr=True` and `mode!='r'`
-                      can be opened read-only but modifications
-                      to the file will not be visible.
-    :param **kwargs: see `_h5file`
-    :yields h5py.File:
-    """
-    # https://support.hdfgroup.org/HDF5/docNewFeatures/SWMR/Design-HDF5-FileLocking.pdf
-    if not HASSWMR:
-        swmr = False
-    if swmr:
-        kwargs["libver"] = "latest"
-    if enable_file_locking:
-        os.environ["HDF5_USE_FILE_LOCKING"] = "TRUE"
-    else:
-        os.environ["HDF5_USE_FILE_LOCKING"] = "FALSE"
-    try:
-        with _h5file(path, mode=mode, swmr=swmr, **kwargs) as h5file:
-            if mode != "r" and swmr:
-                try:
-                    h5file.swmr_mode = True
-                except Exception:
-                    pass
-            yield h5file
-    except (OSError, IOError):
-        if mode != "r" and not HASSWMR:
-            raise
-        # Try opposite SWMR mode
-        swmr = not swmr
-        if swmr:
-            kwargs["libver"] = "latest"
-        with _h5file(path, mode=mode, swmr=swmr, **kwargs) as h5file:
-            yield h5file
-
-
-@contextmanager
-def nxRoot(path, mode="r", creationlocks=None, **kwargs):
-    """
-    h5py.File context with NXroot initialization
-
-    :param str path:
-    :param str mode: h5py.File modes
-    :param geventsync.SharedLockPool creationlocks: protect creation
-    :param **kwargs: see h5py.File
-    :yields h5py.File:
-    """
-    if mode != "r":
-        mkdir(os.path.dirname(path))
-    with h5open(path, mode=mode, creationlocks=creationlocks, **kwargs) as h5file:
-        if creationlocks is None:
-            nxRootInit(h5file)
+    @contextmanager
+    def acquire_lock(self):
+        if self._creationlocks is None:
+            yield
         else:
-            with creationlocks.acquire(path):
-                nxRootInit(h5file)
-        yield h5file
+            with self._creationlocks.acquire(self._lockname):
+                yield
+
+
+class nxRoot(File):
+    def __init__(self, name, mode="r", creationlocks=None, **kwargs):
+        """
+        :param str name:
+        :param str mode:
+        :param SharedLockPool creationlocks:
+        :param **kwargs: see `h5py.File.__init__`
+        """
+        self._lockname = os.path.abspath(name)
+        self._creationlocks = creationlocks
+        with self.acquire_lock():
+            if mode != "r":
+                mkdir(os.path.dirname(name))
+            super().__init__(name, creationlocks=creationlocks, mode=mode, **kwargs)
+            nxRootInit(self)
 
 
 def nxEntry(root, name, **kwargs):
@@ -874,8 +877,7 @@ def nxEntry(root, name, **kwargs):
     :param **kwargs: see `nxEntryInit`
     :returns h5py.Group:
     """
-    nxEntryInit(root, name, **kwargs)
-    return root[name]
+    return nxEntryInit(root, name, sub=False, **kwargs)
 
 
 def nxSubEntry(parent, name, **kwargs):
@@ -884,24 +886,10 @@ def nxSubEntry(parent, name, **kwargs):
 
     :param h5py.Group parent:
     :param str name:
-    :param **kwargs: see `nxSubEntryInit`
+    :param **kwargs: see `nxEntryInit`
     :returns h5py.Group:
     """
-    nxSubEntryInit(parent, name, **kwargs)
-    return parent[name]
-
-
-def nxProcess(entry, name, **kwargs):
-    """
-    Get NXprocess instance (initialize when missing)
-
-    :param h5py.Group entry:
-    :param str name:
-    :param **kwargs: see `nxClassInit`
-    :returns h5py.Group:
-    """
-    nxProcessInit(entry, name, **kwargs)
-    return entry[name]
+    return nxEntryInit(parent, name, sub=True, **kwargs)
 
 
 def nxCollection(parent, name, **kwargs):
@@ -913,8 +901,7 @@ def nxCollection(parent, name, **kwargs):
     :param **kwargs: see `nxClassInit`
     :returns h5py.Group:
     """
-    nxClassInit(parent, name, u"NXcollection", **kwargs)
-    return parent[name]
+    return nxClassInit(parent, name, u"NXcollection", **kwargs)
 
 
 def nxInstrument(parent, name="instrument", **kwargs):
@@ -926,8 +913,9 @@ def nxInstrument(parent, name="instrument", **kwargs):
     :param **kwargs: see `nxClassInit`
     :returns h5py.Group:
     """
-    nxClassInit(parent, name, u"NXinstrument", parentclasses=(u"NXentry",), **kwargs)
-    return parent[name]
+    return nxClassInit(
+        parent, name, u"NXinstrument", parentclasses=(u"NXentry",), **kwargs
+    )
 
 
 def nxDetector(parent, name, **kwargs):
@@ -939,8 +927,9 @@ def nxDetector(parent, name, **kwargs):
     :param **kwargs: see `nxClassInit`
     :returns h5py.Group:
     """
-    nxClassInit(parent, name, u"NXdetector", parentclasses=(u"NXinstrument",), **kwargs)
-    return parent[name]
+    return nxClassInit(
+        parent, name, u"NXdetector", parentclasses=(u"NXinstrument",), **kwargs
+    )
 
 
 def nxPositioner(parent, name, **kwargs):
@@ -952,10 +941,9 @@ def nxPositioner(parent, name, **kwargs):
     :param **kwargs: see `nxClassInit`
     :returns h5py.Group:
     """
-    nxClassInit(
+    return nxClassInit(
         parent, name, u"NXpositioner", parentclasses=(u"NXinstrument",), **kwargs
     )
-    return parent[name]
 
 
 def nxData(parent, name, **kwargs):
@@ -969,8 +957,7 @@ def nxData(parent, name, **kwargs):
     """
     if name is None:
         name = DEFAULT_PLOT_NAME
-    nxClassInit(parent, name, u"NXdata", **kwargs)
-    return parent[name]
+    return nxClassInit(parent, name, u"NXdata", **kwargs)
 
 
 def nxDataGetSignals(data):
@@ -1202,16 +1189,20 @@ def createLink(h5group, name, destination):
     """
     if not isinstance(destination, (unicode, bytes)):
         destination = getUri(destination)
-    destination = splitUri(destination)
+    if "::" in destination:
+        destination = splitUri(destination)
+    else:
+        destination = h5group.file.filename, destination
     filename, path = relUri(destination, getUri(h5group))
     if filename == ".":
         # TODO: h5py does not support relative up links
         if ".." in path:
             path = destination[1]
-        h5group[name] = h5py.SoftLink(path)
+        lnk = h5py.SoftLink(path)
     else:
-        h5group[name] = h5py.ExternalLink(filename, path)
-    return h5group[name]
+        lnk = h5py.ExternalLink(filename, path)
+    h5group[name] = lnk
+    return lnk
 
 
 def nxCreateDataSet(h5group, name, value, attrs, stringasuri=False):
@@ -1292,6 +1283,10 @@ def nxCreateDataSet(h5group, name, value, attrs, stringasuri=False):
         # create dataset (internal) without extra options
         if isinstance(value, (unicode, bytes)):
             value = asNxChar(value)
+        elif isinstance(value, (list, tuple)):
+            if value:
+                if isinstance(value[0], (unicode, bytes)):
+                    value = asNxChar(value)
         logger.debug("Create HDF5 dataset {}/{}".format(getUri(h5group), name))
         h5group[name] = value
     dset = h5group.get(name, None)
@@ -1435,66 +1430,59 @@ def markDefault(h5node, nxentrylink=True):
     :param h5py.Group or h5py.Dataset h5node:
     :param bool nxentrylink: Use a direct link for the default of an NXentry instance
     """
-    path = h5node
-    nxclass = nxClass(path)
     nxdata = None
-    for parent in iterup(path.parent):
+    nxclass = nxClass(h5node)
+    for parent in iterup(h5node, includeself=False):
         parentnxclass = nxClass(parent)
         if parentnxclass == u"NXdata":
-            # path becomes default signal of parent
             signals = nxDataGetSignals(parent)
-            signal = h5Name(path)
+            signal = h5Name(h5node)
             if signal in signals:
                 signals.pop(signals.index(signal))
             nxDataSetSignals(parent, [signal] + signals)
             updated(parent)
-        elif nxclass == u"NXentry":
-            # Set this entry as default of root
-            parent.attrs["default"] = h5Name(path)
+        elif nxclass in [u"NXentry", u"NXsubentry"]:
+            parent.attrs["default"] = h5Name(h5node)
             updated(parent)
-        elif parentnxclass is not None:
-            if nxclass == u"NXdata":
-                # Select the NXdata for plotting
-                nxdata = path
-            if nxdata:
-                if parentnxclass == u"NXentry" and nxentrylink:
-                    # Instead of setting the default of parent to the selected NXdata,
-                    # create a direct link to the select NXData and set that link as
-                    # default of the parent
-                    plotname = DEFAULT_PLOT_NAME
-                    if isLink(parent, plotname):
-                        # parent already has plotname: delete because its merely a link
-                        del parent[plotname]
-                    if plotname in parent:
-                        # parent already has plotname: find non-existent plotname
-                        # unless plotname is the selected NXdata, in which case
-                        # nothing has to be done
-                        if parent[plotname].name != nxdata.name:
-                            fmt = plotname + "{}"
-                            i = 0
-                            while fmt.format(i) in parent:
-                                i += 1
-                            plotname = fmt.format(i)
-                            parent[plotname] = h5py.SoftLink(nxdata.name)
-                    else:
-                        parent[plotname] = h5py.SoftLink(nxdata.name)
-                    parent.attrs["default"] = plotname
-                else:
-                    # Set default of parent to the selected NXdata
-                    parent.attrs["default"] = nxdata.name[len(parent.name) + 1 :]
-                updated(parent)
-            if parentnxclass == u"NXroot":
-                break
-        path = parent
+        elif nxclass == u"NXdata":
+            parent.attrs["default"] = h5Name(h5node)
+            updated(parent)
+            nxdata = h5node
+        else:
+            parent.attrs["default"] = h5Name(h5node)
+            updated(parent)
+        h5node = parent
         nxclass = parentnxclass
+    if nxdata is not None:
+        _nxentry_plot_link(nxdata)
+
+
+def _nxentry_plot_link(nxdata):
+    for nxentry in iterup(nxdata, includeself=False):
+        if isNxClass(nxentry, "NXentry"):
+            break
+    else:
+        return
+    plotname = DEFAULT_PLOT_NAME
+    if isLink(nxentry, plotname):
+        del nxentry[plotname]
+    if plotname in nxentry:
+        if nxentry[plotname].name == nxdata.name:
+            return
+        fmt = plotname + "{}"
+        i = 0
+        while fmt.format(i) in nxentry:
+            i += 1
+        plotname = fmt.format(i)
+    nxentry[plotname] = h5py.SoftLink(nxdata.name)
+    nxentry.attrs["default"] = plotname
 
 
 def getDefault(node, signal=True):
     """
-    :param h5py.Group or h5py.Dataset h5node:
+    :param h5py.Group or h5py.Dataset node:
     :returns str: path of dataset or NXdata group
     """
-    path = ""
     default = attr_as_str(node, "default", "")
     root = node.file
     if default and not default.startswith("/"):
@@ -1512,11 +1500,11 @@ def getDefault(node, signal=True):
             if signal:
                 name = attr_as_str(node, "signal", "data")
                 try:
-                    path = node[name].name
+                    default = node[name].name
                 except KeyError:
                     pass
             else:
-                path = node.name
+                default = node.name
             break
         else:
             add = attr_as_str(node, "default", "")
@@ -1526,4 +1514,17 @@ def getDefault(node, signal=True):
                 default += "/" + add
             else:
                 break
-    return path
+    return default
+
+
+def getDefaultUri(filename, signal=True):
+    """
+    :param str filename:
+    :returns str: full uri to default data
+    """
+    with File(filename) as f:
+        path = getDefault(f, signal=signal)
+    if path:
+        return filename + "::" + path
+    else:
+        return None

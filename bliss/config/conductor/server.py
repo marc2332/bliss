@@ -757,24 +757,24 @@ def main(args=None):
         "--webapp-port",
         dest="webapp_port",
         type=int,
-        default=0,  # normally on 9030
-        help="web server port for beacon configuration (default to 0: disable)",
+        default=9030,
+        help="web server port for beacon configuration (0: disable)",
     )
     parser.add_argument(
         "--homepage_port",
         "--homepage-port",
         dest="homepage_port",
         type=int,
-        default=0,
-        help="web port for the homepage (default to 0: disable)",
+        default=9010,
+        help="web port for the homepage (0: disable)",
     )
     parser.add_argument(
         "--log_server_port",
         "--log-server-port",
         dest="log_server_port",
         type=int,
-        default=0,  # normally on 9020
-        help="logger server port (default to 0: disable)",
+        default=9020,
+        help="logger server port (0: disable)",
     )
     parser.add_argument(
         "--log-output-folder",
@@ -797,8 +797,8 @@ def main(args=None):
         "--log_viewer_port",
         dest="log_viewer_port",
         type=int,
-        default=0,  # normally on 9080
-        help="Web port for the log viewer socket (default to 0: disable)",
+        default=9080,
+        help="Web port for the log viewer socket (0: disable)",
     )
     parser.add_argument(
         "--redis_socket",

@@ -392,7 +392,15 @@ def _attach_flint(process):
 
         FLINT["callbacks"] = (stdout_callbacks, stderr_callbacks)
 
-        proxy.register_output_listener()
+        try:
+            proxy.register_output_listener()
+        except:
+            # FIXME: This have to be fixed or removed
+            # See: https://gitlab.esrf.fr/bliss/bliss/issues/1249
+            FLINT_LOGGER.error(
+                "Error while connecting to stdout logs from Flint (issue #1249)"
+            )
+            FLINT_LOGGER.debug("Backtrace", exc_info=True)
 
     return proxy
 

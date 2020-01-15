@@ -142,6 +142,10 @@ class BaseSensor(SamplingCounter, BeaconObject):
     def comm(self):
         return self.__controller._keithley_comm
 
+    @autocomplete_property
+    def controller(self):
+        return self.__controller
+
     @property
     def index(self):
         return self.address - 1
@@ -234,6 +238,13 @@ class BaseSensor(SamplingCounter, BeaconObject):
     def _sensor_cmd(self, param):
         return "SENS%d:%s" % (self.address, param)
 
+    def __info__(self):
+        sinfo = f"meas_func = {self.meas_func}\n"
+        sinfo += f"auto_range = {self.auto_range}\n"
+        sinfo += f"range = {self.range}\n"
+        sinfo += f"nplc = {self.nplc}\n"
+        return sinfo
+
 
 class SensorZeroCheckMixin:
     """
@@ -266,6 +277,11 @@ class SensorZeroCheckMixin:
         self.comm("SYST:ZCOR:ACQ")  # acquire zero correct value
         self.zero_correct = zero_correct  # restore zero correct state
         self.zero_check = zero_check  # restore zero check
+
+    def __info__(self):
+        sinfo = f"zero_check = {self.zero_check}"
+        sinfo += f"zero_correct = {self.zero_correct}"
+        return sinfo
 
 
 class BaseMultimeter(BeaconObject):
@@ -323,18 +339,14 @@ class BaseMultimeter(BeaconObject):
         return self._keithley_comm("ABOR", "OPC?")
 
     @BeaconObject.lazy_init
-    def pprint(self):
+    def __info__(self):
         values = self.settings.get_all()
         settings = "\n".join(("    {0}={1}".format(k, v) for k, v in values.items()))
         idn = "\n".join(
             ("    {0}={1}".format(k, v) for k, v in self._keithley_comm["*IDN"].items())
         )
-        print(
-            (
-                "{0}:\n  name:{1}\n  IDN:\n{2}\n  settings:\n{3}".format(
-                    self, self.name, idn, settings
-                )
-            )
+        return "{0}:\n  name:{1}\n  IDN:\n{2}\n  settings:\n{3}".format(
+            self, self.name, idn, settings
         )
 
     class Sensor(BaseSensor):
@@ -360,6 +372,11 @@ class K6485(BaseMultimeter):
             Fixed the measure function to Current
             """
             return "CURR"
+
+        def __info__(self):
+            return BaseMultimeter.Sensor.__info__(self) + SensorZeroCheckMixin.__info__(
+                self
+            )
 
 
 class K6482(BaseMultimeter):
@@ -419,6 +436,9 @@ class K6514(BaseMultimeter):
             "RESISTANCE": [2e3, 20e3, 200e3, 2e6, 20e6, 200e6, 2e9, 20e9, 200e9],
             "CHARGE": [20e-9, 200e-9, 2, 20],
         }
+
+        def __info__(self):
+            return BaseSensor.__info__(self) + SensorZeroCheckMixin.__info__(self)
 
 
 class K2000(BaseMultimeter):

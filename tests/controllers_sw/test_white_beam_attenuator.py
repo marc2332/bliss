@@ -15,6 +15,9 @@ def test_white_beam_attenuator(beacon):
 
     assert wba.name == "wba"
 
+    # test __info__()
+    wba.__info__()
+
     # test to move to position
     wba.move(["att1", "Al40"])
     assert wba.position == ["att1", "Al40"]

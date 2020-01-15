@@ -131,7 +131,7 @@ class WhiteBeamAttenuator:
         """
         info_str = ""
         for att in self.attenuators:
-            info_str += att["attenuator"].info
+            info_str += att["attenuator"].__info__()
         return info_str
 
     @property

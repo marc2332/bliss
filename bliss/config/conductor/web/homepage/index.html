@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 
-  <title>Beacon Host BM32</title>
+  <title>Beacon server for {{name}}</title>
 
   <!-- Bootstrap core CSS -->
   <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
@@ -25,7 +25,7 @@
   <!-- Navigation -->
   <nav class="navbar navbar-expand-lg navbar-light fixed-top" id="mainNav">
     <div class="container">
-      <a class="navbar-brand" href="#page-top">
+      <a class="navbar-brand" href="#">
         <img src="img/bliss_logo_small.svg" alt="BLISS">
         BLISS Experiment Control System
       </a>
@@ -34,6 +34,9 @@
       </button>
       <div class="collapse navbar-collapse" id="navbarResponsive">
         <ul class="navbar-nav ml-auto">
+          <li class="nav-item">
+            <a class="nav-link" href="http://intranet.esrf.fr/ISDD/HelpDesk" title="ISDD/BCU Helpdesk">Helpdesk</a>
+          </li>
           <li class="nav-item">
             <a class="nav-link" href="https://bliss.gitlab-pages.esrf.fr/bliss/master" title="Bliss documentation">Documentation</a>
           </li>
@@ -53,7 +56,7 @@
 
   <!-- Header -->
   <header class="masthead">
-    <div class="container d-flex flex-column h-100 justify-content-center align-items-center">
+    <div class="container d-flex flex-column h-100 justify-content-around align-items-center">
       <div class="p-4 my-4 mx-auto text-center">
         <h1 class="mx-auto my-0 text-uppercase">Welcome to {{name}}</h1>
         <h2 class="text-white-50 mx-auto mt-2 mb-5">Beacon host for beamline {{name}}</h2>
@@ -61,8 +64,8 @@
         <a href="/log/" class="btn btn-secondary">Log</a>
         <a href="/multivisor/" class="btn btn-secondary">Status</a>
       </div>
-      <div class="p-4 m-4">
-        <img src="img/logo-esrf.svg" alt="ESRF" height="300px">
+      <div>
+        <img src="img/logo-esrf.svg" alt="ESRF" height="250px" style="background-color: #fff5; padding: 20px; backdrop-filter: blur(10px);">
       </div>
     </div>
   </header>

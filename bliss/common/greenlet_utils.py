@@ -24,10 +24,7 @@ class KillMask:
         MASKED_GREENLETS.setdefault(self.__greenlet, set()).add(self)
 
     def __exit__(self, exc_type, value, traceback):
-        try:
-            MASKED_GREENLETS[self.__greenlet].remove(self)
-        except KeyError:
-            pass  # probably removed by AllowKill
+        MASKED_GREENLETS[self.__greenlet].remove(self)
         if MASKED_GREENLETS[self.__greenlet]:
             return
         MASKED_GREENLETS.pop(self.__greenlet)
@@ -55,12 +52,14 @@ def AllowKill():
     """
     current_greenlet = gevent.getcurrent()
     previous_set_mask = MASKED_GREENLETS.pop(current_greenlet, set())
-    for killmask in previous_set_mask:
-        if killmask.exception:
-            raise killmask.exception
-    yield
-    if previous_set_mask:
-        MASKED_GREENLETS[current_greenlet] = previous_set_mask
+    try:
+        for killmask in previous_set_mask:
+            if killmask.exception:
+                raise killmask.exception
+        yield
+    finally:
+        if previous_set_mask:
+            MASKED_GREENLETS[current_greenlet] = previous_set_mask
 
 
 def protect_from_kill(fu):

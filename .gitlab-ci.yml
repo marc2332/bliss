@@ -114,6 +114,8 @@ package:
   stage: build
   image: continuumio/miniconda3:latest
   script:
+    # install opengl libraries (needed to avoid problem with pyopengl dependency)
+    - apt-get update && apt-get -y install libgl1-mesa-glx
     # create package env and install all requirements and conda-build, (gcc and g++ compiler required for flint)
     - conda create --quiet --name buildenv --file requirements-conda.txt --file requirements-test-conda.txt conda-build
     - source activate buildenv

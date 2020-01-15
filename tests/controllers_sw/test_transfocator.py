@@ -8,7 +8,7 @@
 from bliss.controllers.transfocator import Transfocator
 
 
-def test_transfocator(default_session, transfocator_mockup):
+def test_transfocator(default_session):
     transfocator = default_session.config.get("transfocator_simulator")
     transfocator.connect()
     # only reading is possible due to simulator limitations

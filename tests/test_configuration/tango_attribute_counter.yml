@@ -7,6 +7,12 @@
       mode: MEAN
       unit: km
       format: "%5.3f"
+    - name: taac_undu_power_0
+      attr_name: powers
+      index: 0
+    - name: taac_undu_power_1
+      attr_name: powers
+      index: 1
     - name: taac_undu_acceleration
       attr_name: acceleration
       mode: LAST

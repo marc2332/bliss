@@ -10,14 +10,13 @@ import flask
 
 from jinja2 import Environment, FileSystemLoader
 
-from ..config_app.config_app import WebConfig
+# from ..configuration.config_app import WebConfig
+from bliss.config import static
 
-web_app = flask.Flask(__name__)
 
 __this_file = os.path.realpath(__file__)
 __this_path = os.path.dirname(__this_file)
-
-__config = WebConfig()
+# __config = WebConfig()
 
 
 def __get_jinja2():
@@ -29,9 +28,13 @@ def __get_jinja2():
     return __environment
 
 
+web_app = flask.Flask(__name__)
+
+
 @web_app.route("/")
 def index():
-    cfg = __config.get_config()
+    # cfg = __config.get_config()
+    cfg = static.get_config()
     node = cfg.root
 
     template = __get_jinja2().select_template(("index.html",))
@@ -61,9 +64,10 @@ def static_file(dir, filename):
 
 
 #
-# Redirections to other applications
+# Redirections to other web applications
 # (so that we don't need to remember all ports)
 #
+@web_app.route("/configuration/")
 @web_app.route("/config/")
 def config():
     host = flask.request.host.split(":")[0]

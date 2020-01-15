@@ -909,13 +909,13 @@ def main(args=None):
 
     # Config web application
     if _options.webapp_port > 0:
-        from .web.config_app.config_app import web_app as config_app
+        from .web.configuration.config_app import web_app as config_app
 
         start_webserver(config_app, _options.webapp_port, beacon_port)
 
     # Homepage web application
     if _options.homepage_port > 0:
-        from .web.home_app.homepage_app import web_app as homepage_app
+        from .web.homepage.homepage_app import web_app as homepage_app
 
         homepage_app.config_port = _options.webapp_port
         homepage_app.log_port = _options.log_viewer_port

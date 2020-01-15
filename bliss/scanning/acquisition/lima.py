@@ -409,7 +409,7 @@ class LimaAcquisitionMaster(AcquisitionMaster):
             if acq_state == "fault":
                 raise RuntimeError(
                     "Device %s (%s) is in Fault state"
-                    % (self.device.proxy, self.device.user_detector_name)
+                    % (self.device.proxy, self.device.proxy.user_detector_name)
                 )
         except:
             if self._image_channel:

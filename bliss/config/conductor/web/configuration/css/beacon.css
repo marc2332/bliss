@@ -51,3 +51,7 @@
     min-height: 45px;
     margin-bottom: 5px;
 }
+
+.disabled-btn {
+    pointer-events: none;
+}

@@ -14,12 +14,12 @@
 /* Positioning */ 
 .notifications.top-right {
   right: 10px;
-  top: 25px;
+  top: 55px;
 }
 
 .notifications.top-left {
   left: 10px;
-  top: 25px;
+  top: 55px;
 }
 
 .notifications.bottom-left {
@@ -36,4 +36,9 @@
 .notifications > div {
   position: relative;
   margin: 5px 0px;
+}
+
+.notifications > div > a.close.pull-right {
+  margin-left: 10px;
+  margin-bottom: 10px;
 }

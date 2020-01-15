@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+  <title>Beacon server for {{name}}</title>
+
+  <!-- Bootstrap core CSS -->
+  <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
+  <script src="https://code.jquery.com/jquery-3.4.1.slim.min.js"></script>
+  <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js" integrity="sha384-wfSDF2E50Y2D1uUdj0O3uMBJnjuUD4Ih7YwaYd1iqfktj0Uod8GCExl3Og8ifwB6" crossorigin="anonymous"></script>
+
+  <!-- Custom fonts for this template -->
+  <link href="https://fonts.googleapis.com/css?family=Varela+Round" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css?family=Nunito:200,200i,300,300i,400,400i,600,600i,700,700i,800,800i,900,900i" rel="stylesheet">
+
+  <!-- Custom styles for this template -->
+  <link href="css/grayscale.css" rel="stylesheet">
+
+</head>
+
+<body>
+
+  <!-- Navigation -->
+  <nav class="navbar navbar-expand-lg navbar-light fixed-top" id="mainNav">
+    <div class="container">
+      <a class="navbar-brand" href="#">
+        <img src="img/bliss_logo_small.svg" alt="BLISS">
+        BLISS Experiment Control System
+      </a>
+      <button class="navbar-toggler navbar-toggler-right" type="button" data-toggle="collapse" data-target="#navbarResponsive" aria-controls="navbarResponsive" aria-expanded="false" aria-label="Toggle navigation">
+        Menu
+      </button>
+      <div class="collapse navbar-collapse" id="navbarResponsive">
+        <ul class="navbar-nav ml-auto">
+          <li class="nav-item">
+            <a class="nav-link" href="http://intranet.esrf.fr/ISDD/HelpDesk" title="ISDD/BCU Helpdesk">Helpdesk</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="https://bliss.gitlab-pages.esrf.fr/bliss/master" title="Bliss documentation">Documentation</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="https://gitlab.esrf.fr/bliss/bliss" title="Go to bliss repository">
+  
+              <svg viewBox="0 0 24 24" width="24" height="24">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 500 500" id="__gitlab"><path fill="currentColor" d="M93.667 473.347l90.684-279.097H2.983l90.684 279.097z" transform="translate(156.198 1.16)"></path><path fill="currentColor" d="M221.333 473.345L130.649 194.25H3.557l217.776 279.095z" transform="translate(28.531 1.16)" opacity=".7"></path><path fill="currentColor" d="M32 195.155L4.441 279.97a18.773 18.773 0 0 0 6.821 20.99l238.514 173.29L32 195.155z" transform="translate(.089 .256)" opacity=".5"></path><path fill="currentColor" d="M2.667-84.844h127.092L75.14-252.942c-2.811-8.649-15.047-8.649-17.856 0L2.667-84.844z" transform="translate(29.422 280.256)"></path><path fill="currentColor" d="M2.667 473.345L93.351 194.25h127.092L2.667 473.345z" transform="translate(247.198 1.16)" opacity=".7"></path><path fill="currentColor" d="M221.334 195.155l27.559 84.815a18.772 18.772 0 0 1-6.821 20.99L3.557 474.25l217.777-279.095z" transform="translate(246.307 .256)" opacity=".5"></path><path fill="currentColor" d="M130.667-84.844H3.575l54.618-168.098c2.811-8.649 15.047-8.649 17.856 0l54.618 168.098z" transform="translate(336.974 280.256)"></path></svg>
+              </svg>            
+              <!-- bliss/bliss -->
+            </a>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Header -->
+  <header class="masthead">
+    <div class="container d-flex flex-column h-100 justify-content-around align-items-center">
+      <div class="p-4 my-4 mx-auto text-center">
+        <h1 class="mx-auto my-0 text-uppercase">Welcome to {{name}}</h1>
+        <h2 class="text-white-50 mx-auto mt-2 mb-5">Beacon host for beamline {{name}}</h2>
+        <a href="/config/" class="btn btn-primary">Config</a>
+        <a href="/log/" class="btn btn-secondary">Log</a>
+        <a href="/multivisor/" class="btn btn-secondary">Status</a>
+      </div>
+      <div>
+        <img src="img/logo-esrf.svg" alt="ESRF" height="250px" style="background-color: #fff5; padding: 20px; backdrop-filter: blur(10px);">
+      </div>
+    </div>
+  </header>
+
+</body>
+
+</html>

@@ -392,7 +392,7 @@ def get_db_file(filename):
         return flask.json.dumps(dict(message="%s successfully saved", type="success"))
     else:
         cfg = __config.get_config()
-        content = client.get_config_file(filename)
+        content = client.get_config_file(filename).decode("utf-8")
         return flask.json.dumps(dict(name=filename, content=content))
 
 

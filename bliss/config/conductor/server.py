@@ -668,16 +668,14 @@ def sigterm_handler(_signo, _stack_frame):
     os.write(sig_write, b"!")
 
 
-def start_webserver(webapp_port, beacon_port, debug=True):
+def start_webserver(web_app, webapp_port, beacon_port, debug=True):
     try:
         import flask
     except ImportError:
         _wlog.error("flask cannot be imported: web application won't be available")
         return
 
-    from .web.config_app.config_app import web_app
-
-    _wlog.info("Web application sitting on port: %s", webapp_port)
+    _wlog.info(f"Web application '{web_app.name}' sitting on port: {webapp_port}")
     web_app.beacon_port = beacon_port
     # force not to use reloader because it would fork a subprocess
     return gevent.spawn(
@@ -761,16 +759,24 @@ def main(args=None):
         "--webapp-port",
         dest="webapp_port",
         type=int,
-        default=0,  # normally on 9030
-        help="web server port for beacon configuration (default to 0: disable)",
+        default=9030,
+        help="web server port for beacon configuration (0: disable)",
+    )
+    parser.add_argument(
+        "--homepage_port",
+        "--homepage-port",
+        dest="homepage_port",
+        type=int,
+        default=9010,
+        help="web port for the homepage (0: disable)",
     )
     parser.add_argument(
         "--log_server_port",
         "--log-server-port",
         dest="log_server_port",
         type=int,
-        default=0,  # normally on 9020
-        help="logger server port (default to 0: disable)",
+        default=9020,
+        help="logger server port (0: disable)",
     )
     parser.add_argument(
         "--log-output-folder",
@@ -793,8 +799,8 @@ def main(args=None):
         "--log_viewer_port",
         dest="log_viewer_port",
         type=int,
-        default=0,  # normally on 9080
-        help="Web port for the log viewer socket (default to 0: disable)",
+        default=9080,
+        help="Web port for the log viewer socket (0: disable)",
     )
     parser.add_argument(
         "--redis_socket",
@@ -903,9 +909,19 @@ def main(args=None):
     else:
         tango_rp = tango_process = None
 
-    # Web application
+    # Config web application
     if _options.webapp_port > 0:
-        start_webserver(_options.webapp_port, beacon_port)
+        from .web.configuration.config_app import web_app as config_app
+
+        start_webserver(config_app, _options.webapp_port, beacon_port)
+
+    # Homepage web application
+    if _options.homepage_port > 0:
+        from .web.homepage.homepage_app import web_app as homepage_app
+
+        homepage_app.config_port = _options.webapp_port
+        homepage_app.log_port = _options.log_viewer_port
+        start_webserver(homepage_app, _options.homepage_port, beacon_port)
 
     # Logger server application
     if _options.log_server_port > 0:

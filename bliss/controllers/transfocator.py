@@ -161,7 +161,7 @@ class Transfocator:
         self.safety = bool(config.get("safety", False))
         self.wago_ip = config["controller_ip"]
         self.wago_port = config.get("controller_port", 502)
-        self.wago = None
+        self.wago = config.get("wago", None)
         self.empty_jacks = []
         self.pinhole = []
         self.simulate = config.get("simulate", False)
@@ -209,17 +209,7 @@ class Transfocator:
 
             modules_config = ModulesConfig(str(mapping), ignore_missing=True)
 
-            if self.simulate:
-                # launch the simulator
-                from tests.conftest import get_open_ports
-                from tests.emulators.wago import WagoMockup
-
-                self.__mockup = WagoMockup(modules_config)
-                # create the comm
-                conf = {"modbustcp": {"url": f"localhost:{self.__mockup.port}"}}
-            else:
-                # assuming a tcp direct connection, could be done also with a Wago Device Server
-                conf = {"modbustcp": {"url": f"{self.wago_ip}:{self.wago_port}"}}
+            conf = {"modbustcp": {"url": f"{self.wago_ip}:{self.wago_port}"}}
 
             comm = get_wago_comm(conf)
             self.wago = WagoController(comm, modules_config)

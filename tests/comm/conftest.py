@@ -20,7 +20,7 @@ from umodbus.utils import log_to_stream
 
 
 from bliss.comm import tcp, udp
-from tests.conftest import get_open_ports
+from bliss.common.utils import get_open_ports
 
 
 DELAY = 0.2
@@ -116,15 +116,19 @@ def udp_socket(udp_port):
 @pytest.fixture
 def modbus_tcp_server():
     address = ("127.0.0.1", *get_open_ports(1))
+    ready_event = threading.Event()
 
-    t = threading.Thread(target=modbus_server, args=(address,))
+    t = threading.Thread(
+        target=modbus_server, args=(address,), kwargs={"ready_event": ready_event}
+    )
     t.start()
+    ready_event.wait()
     yield address
-    t.do_run = False
-    t.join(1)
+    ready_event.clear()
+    t.join()
 
 
-def modbus_server(address):
+def modbus_server(address, ready_event=None):
     """
     Creates a synchronous modbus server serving 2 different memory areas
      * coils and inputs for boolean values
@@ -178,10 +182,12 @@ def modbus_server(address):
     def write_words(slave_id, function_code, address, value):
         regs_word[address] = value
 
-    t = threading.currentThread()
+    if ready_event is not None:
+        ready_event.set()
 
     try:
-        while getattr(t, "do_run", True):  # handles until a signal from parent thread
+        while ready_event.is_set():
             app.handle_request()
     finally:
         app.server_close()
+        gevent.get_hub().destroy()

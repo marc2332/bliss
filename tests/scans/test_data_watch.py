@@ -7,6 +7,7 @@
 
 import pytest
 import gevent
+import gevent.event
 import numpy
 from bliss import setup_globals
 from bliss.controllers.lima.lima_base import Lima
@@ -153,6 +154,8 @@ def test_limatake_with_watcher(session, lima_simulator):
         end_scan_event.set()
         end_scan_args.append(args)
 
+    watcher_ready_event = gevent.event.Event()
+
     session_watcher = gevent.spawn(
         watch_session_scans,
         session.name,
@@ -160,10 +163,11 @@ def test_limatake_with_watcher(session, lima_simulator):
         lambda *args: new_child_args.append(args),
         lambda *args: new_data_args.append(args),
         end,
+        ready_event=watcher_ready_event,
     )
 
     try:
-        gevent.sleep(0.1)  # wait a bit to have session watcher greenlet started
+        watcher_ready_event.wait()
 
         scan.run()
 

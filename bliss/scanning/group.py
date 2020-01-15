@@ -108,6 +108,8 @@ class Sequence:
         try:
             with gevent.timeout.Timeout(3):
                 self.scan.wait_state(ScanState.STARTING)
+                if self.group_custom_slave is not None:
+                    self.group_custom_slave.start_event.wait()
             yield self.SequenceContext(self)
         finally:
             self.group_acq_master.queue.put(StopIteration)
@@ -151,6 +153,8 @@ class Sequence:
                 "custom_channels", self.custom_channels.values()
             )
             chain.add(self.group_acq_master, self.group_custom_slave)
+        else:
+            self.group_custom_slave = None
 
         self.scan = ScanGroup(chain, self.title, save=True, scan_info=self.scan_info)
 
@@ -262,7 +266,7 @@ class GroupingSlave(
     def __init__(self, name, channels):
 
         AcquisitionSlave.__init__(self, None, name=name)
-
+        self.start_event = gevent.event.Event()
         for channel in channels:
             self.channels.append(channel)
 
@@ -270,7 +274,7 @@ class GroupingSlave(
         pass
 
     def start(self):
-        pass
+        self.start_event.set()
 
     def trigger(self):
         pass

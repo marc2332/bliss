@@ -40,10 +40,14 @@ def test_tangodb_getters(beacon, dummy_tango_server):
     host = hosts[0]
 
     result = db.get_db_host()
-    assert result == host
+    assert (
+        result.lower() == host.lower()
+    )  # for some reason, it happened to have some upper case characters here!
 
     result = db.get_dev_host()
-    assert result == host
+    assert (
+        result.lower() == host.lower()
+    )  # for some reason, it happened to have some upper case characters here!
 
     result = db.get_server_name_list()
     assert server in result

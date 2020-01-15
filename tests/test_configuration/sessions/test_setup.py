@@ -7,7 +7,7 @@ import gevent
 from bliss.common.event import dispatcher
 from bliss.scanning import scan
 import math
-from tests.conftest import get_open_ports
+from bliss.common.utils import get_open_ports
 
 # deactivate automatic Flint startup
 scan.ScanDisplay().auto = False

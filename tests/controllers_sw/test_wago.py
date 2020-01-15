@@ -179,10 +179,10 @@ def test_wago_check_mapping():
     assert WagoController._check_mapping("750-502", "2 Channel Digital Output")
 
 
-def test_modbus_request(wago_mockup):
+def test_modbus_request(wago_emulator):
     from bliss.comm.modbus import ModbusTcp
 
-    host, port = wago_mockup.host, wago_mockup.port
+    host, port = wago_emulator.host, wago_emulator.port
 
     client = ModbusTcp(host, port=port, unit=255)
     print(f"Modbus test to Wago sim on {host}:{port}")
@@ -213,9 +213,9 @@ def check_wago_read_only_values(host, port=502, unit=255):
             )
 
 
-def test_wago_read_only_values(wago_mockup):
+def test_wago_read_only_values(wago_emulator):
     """test of previous method with simulator"""
-    host, port = wago_mockup.host, wago_mockup.port
+    host, port = wago_emulator.host, wago_emulator.port
     check_wago_read_only_values(host, port=port)
 
 
@@ -240,14 +240,14 @@ def check_wago_various_info(host, port=502, unit=255):
     assert "Programmed by" in firmware_loaded.decode()
 
 
-def test_wago_various_info(wago_mockup):
+def test_wago_various_info(wago_emulator):
     """test of previous method with simulator"""
-    host, port = wago_mockup.host, wago_mockup.port
+    host, port = wago_emulator.host, wago_emulator.port
     check_wago_read_only_values(host, port=port)
 
 
-def test_wago_modbus_simulator(wago_mockup):
-    host, port = wago_mockup.host, wago_mockup.port
+def test_wago_modbus_simulator(wago_emulator):
+    host, port = wago_emulator.host, wago_emulator.port
 
     mapping = """750-469, gabsTf1, gabsTf2
 750-469, gabsTf3, gabsTf4
@@ -296,14 +296,14 @@ def test_wago_modbus_simulator(wago_mockup):
     wago.close()
 
 
-def test_wago_config_get(default_session, wago_mockup):
+def test_wago_config_get(default_session):
     wago = default_session.config.get("wago_simulator")
 
     assert wago.controller.series == 750
     wago.controller.check_plugged_modules()
 
 
-def test_wago_counters(default_session, wago_mockup):
+def test_wago_counters(default_session):
     """
     check if you can define a wago key as a counter in config and read it
     """
@@ -315,7 +315,7 @@ def test_wago_counters(default_session, wago_mockup):
     assert len(wago.read_all(*wago.counters)) == 2
 
 
-def test_wago_get(default_session, wago_mockup):
+def test_wago_get(default_session):
     wago = default_session.config.get("wago_simulator")
     results = wago.get(*wago.logical_keys, flat=False)
     assert flatten(results) == wago.get(*wago.logical_keys)
@@ -327,7 +327,7 @@ def test_wago_get(default_session, wago_mockup):
             assert not isinstance(results[i], list)
 
 
-def test_wago_info(capsys, default_session, wago_mockup):
+def test_wago_info(capsys, default_session):
     wago = default_session.config.get("wago_simulator")
     wago.controller.check_plugged_modules()
     print(wago.__info__())
@@ -340,27 +340,7 @@ def test_wago_info(capsys, default_session, wago_mockup):
     assert "Given mapping DOES NOT match Wago attached modules" in captured.out
 
 
-def test_wago_emulator_close_on_exit(clean_gevent, capsys, beacon):
-    clean_gevent["end-check"] = False
-
-    # preparing a default session with mockup that works
-    from bliss.common.session import DefaultSession
-
-    default_session = DefaultSession()
-    default_session.setup()
-
-    def f():
-        # defining a wago inside a function without returning a reference to it
-        from bliss.config.static import get_config
-
-        conf = get_config()
-        conf.get("wago_simulator")
-
-    f()
-    default_session.close()
-
-
-def test_wago_status(capsys, default_session, wago_mockup):
+def test_wago_status(capsys, default_session):
     wago = default_session.config.get("wago_simulator")
     print(wago.status())
     captured = capsys.readouterr()
@@ -371,7 +351,7 @@ def test_wago_status(capsys, default_session, wago_mockup):
     assert "Given mapping does match Wago attached modules" in captured.out
 
 
-def test_wago_interlock_methods(default_session, wago_mockup):
+def test_wago_interlock_methods(default_session):
     wago = default_session.config.get("wago_simulator")
     with pytest.raises(MissingFirmware):
         wago.interlock_to_yml()

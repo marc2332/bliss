@@ -7,7 +7,6 @@
 
 import os
 import sys
-import socket
 import shutil
 from collections import namedtuple
 import atexit
@@ -15,21 +14,22 @@ import gevent
 import subprocess
 import signal
 import logging
-
 import pytest
 import redis
 
 from bliss import global_map
 from bliss.common.session import DefaultSession
+from bliss.common.utils import get_open_ports
 from bliss.config import static
 from bliss.config.conductor import client
 from bliss.config.conductor import connection
 from bliss.config.conductor.client import get_default_connection
 from bliss.controllers.lima.roi import Roi
 from bliss.controllers.wago.wago import ModulesConfig
+from bliss.controllers.wago.emulator import WagoEmulator
 from bliss.controllers import simulation_diode
 from bliss.common import plot
-from bliss.common.tango import DeviceProxy, DevFailed
+from bliss.common.tango import DeviceProxy, DevFailed, ApiUtil
 from bliss import logging_startup
 
 from random import randint
@@ -39,17 +39,6 @@ from contextlib import contextmanager
 BLISS = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 BEACON = [sys.executable, "-m", "bliss.config.conductor.server"]
 BEACON_DB_PATH = os.path.join(BLISS, "tests", "test_configuration")
-
-
-def get_open_ports(n):
-    sockets = [socket.socket() for _ in range(n)]
-    try:
-        for s in sockets:
-            s.bind(("", 0))
-        return [s.getsockname()[1] for s in sockets]
-    finally:
-        for s in sockets:
-            s.close()
 
 
 def wait_for(stream, target):
@@ -108,19 +97,26 @@ def clean_gevent():
         ob.kill()
 
     d = {"end-check": True}
-    yield d
-    if not d.get("end-check"):
-        return
 
+    yield d
+
+    end_check = d.get("end-check")
+
+    greenlets = []
     for ob in gc.get_objects():
         try:
             if not isinstance(ob, Greenlet):
                 continue
         except ReferenceError:
             continue
-        if not ob.ready():
+        if end_check and not ob.ready():
             print(ob)  # Better printouts
-        assert ob.ready()
+        greenlets.append(ob)
+    all_ready = all(gr.ready() for gr in greenlets)
+    gevent.killall(greenlets)
+    del greenlets
+    if end_check:
+        assert all_ready
 
 
 @pytest.fixture
@@ -130,6 +126,16 @@ def clean_globals():
     # reset module-level globals
     simulation_diode.DEFAULT_CONTROLLER = None
     simulation_diode.DEFAULT_INTEGRATING_CONTROLLER = None
+
+
+@pytest.fixture
+def clean_tango():
+    # close file descriptors left open by Tango (see tango-controls/pytango/issues/324)
+    try:
+        ApiUtil.cleanup()
+    except RuntimeError:
+        # no Tango ?
+        pass
 
 
 @pytest.fixture(scope="session")
@@ -166,6 +172,9 @@ def ports(beacon_directory):
         1
     )  # ugly synchronisation, would be better to use logging messages? Like 'post_init_cb()' (see databaseds.py in PyTango source code)
 
+    # important: close to prevent filling up the pipe as it is not read during tests
+    proc.stderr.close()
+
     os.environ["TANGO_HOST"] = "localhost:%d" % ports.tango_port
     os.environ["BEACON_HOST"] = "localhost:%d" % ports.beacon_port
 
@@ -173,7 +182,6 @@ def ports(beacon_directory):
 
     atexit._run_exitfuncs()
     proc.terminate()
-    print(proc.stderr.read().decode(), file=sys.stderr)
 
 
 @pytest.fixture
@@ -276,6 +284,9 @@ def bliss_tango_server(ports, beacon):
     with gevent.Timeout(10, RuntimeError("Bliss tango server is not running")):
         wait_for(p.stdout, "Ready to accept request")
 
+    # important: close to prevent filling up the pipe as it is not read during tests
+    p.stdout.close()
+
     dev_proxy = DeviceProxy(device_fqdn)
 
     yield device_fqdn, dev_proxy
@@ -298,6 +309,9 @@ def dummy_tango_server(ports, beacon):
     with gevent.Timeout(10, RuntimeError("Bliss tango server is not running")):
         wait_for(p.stdout, "Ready to accept request")
 
+    # important: close to prevent filling up the pipe as it is not read during tests
+    p.stdout.close()
+
     dev_proxy = DeviceProxy(device_fqdn)
 
     yield device_fqdn, dev_proxy
@@ -306,7 +320,7 @@ def dummy_tango_server(ports, beacon):
 
 
 @pytest.fixture
-def wago_tango_server(ports, default_session, wago_mockup):
+def wago_tango_server(ports, default_session, wago_emulator):
     from bliss.tango.servers.wago_ds import main
 
     device_name = "1/1/wagodummy"
@@ -314,7 +328,7 @@ def wago_tango_server(ports, default_session, wago_mockup):
 
     # patching the property Iphost of wago tango device to connect to the mockup
     wago_ds = DeviceProxy(device_fqdn)
-    wago_ds.put_property({"Iphost": f"{wago_mockup.host}:{wago_mockup.port}"})
+    wago_ds.put_property({"Iphost": f"{wago_emulator.host}:{wago_emulator.port}"})
 
     p = subprocess.Popen(["Wago", "wago_tg_server"])
 
@@ -447,30 +461,21 @@ def alias_session(beacon, lima_simulator):
 
 
 @pytest.fixture
-def wago_mockup(default_session):
-    from tests.emulators.wago import WagoMockup
-
-    config_tree = default_session.config.get_config("wago_simulator")
+def wago_emulator(beacon):
+    config_tree = beacon.get_config("wago_simulator")
     modules_config = ModulesConfig.from_config_tree(config_tree)
-    wago = WagoMockup(modules_config)
-
-    # patching the port of the simulator
-    # as simulate=True in the config a simulator will be launched
-    default_session.config.get_config("wago_simulator")["modbustcp"][
-        "url"
-    ] = f"{wago.host}:{wago.port}"
+    wago = WagoEmulator(modules_config)
 
     yield wago
+
     wago.close()
 
 
 @pytest.fixture
 def transfocator_mockup(default_session):
-    from tests.emulators.wago import WagoMockup
-
     config_tree = default_session.config.get_config("transfocator_simulator")
     modules_config = ModulesConfig.from_config_tree(config_tree)
-    wago = WagoMockup(modules_config)
+    wago = WagoEmulator(modules_config)
 
     # patching the port of the simulator
     # as simulate=True in the config a simulator will be launched

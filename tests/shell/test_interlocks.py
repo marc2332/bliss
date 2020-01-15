@@ -1,7 +1,7 @@
 from bliss.shell.interlocks import *
 
 
-def test_interlock_show(default_session, wago_mockup, capsys):
+def test_interlock_show(default_session, capsys):
     interlock_show()
     captured = capsys.readouterr()
     assert "No instance found" in captured.out
@@ -12,7 +12,7 @@ def test_interlock_show(default_session, wago_mockup, capsys):
     assert "2 interlock instance" in captured.out
 
 
-def test_interlock_state(default_session, wago_mockup):
+def test_interlock_state(default_session):
     interlock_state()
     wago_simulator = default_session.config.get("wago_simulator")
     assert interlock_state(wago_simulator) == {}

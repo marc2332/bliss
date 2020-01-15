@@ -25,6 +25,7 @@ from bliss.common.logtools import log_debug, log_error, log_exception
 from bliss.common.counter import SamplingCounter
 from bliss.controllers.counter import counter_namespace, SamplingCounterController
 from bliss.controllers.wago.helpers import splitlines, to_signed, register_type_to_int
+
 from bliss.common.utils import ShellStr
 
 """
@@ -1980,18 +1981,6 @@ class Wago(SamplingCounterController):
                 mapping = comm.get_property("config")["config"]
                 self.modules_config = ModulesConfig.from_tango_config(mapping)
             self.controller = TangoWago(comm, self.modules_config)
-
-        elif config_tree.get("simulate"):
-            # launch the simulator
-            from tests.emulators.wago import WagoMockup
-
-            self.__mockup = WagoMockup(self.modules_config)
-            # create the comm
-            conf = {"modbustcp": {"url": f"localhost:{self.__mockup.port}"}}
-            comm = get_wago_comm(conf)
-            self.controller = WagoController(comm, self.modules_config)
-            self.controller.connect()
-
         else:
             comm = get_wago_comm(config_tree)
             self.controller = WagoController(comm, self.modules_config)
@@ -2054,10 +2043,6 @@ class Wago(SamplingCounterController):
     def close(self):
         log_debug(self, f"In close")
         self.controller.close()
-        try:
-            self.__mockup.close()
-        except AttributeError:
-            pass
 
     def __close__(self):
         self.close()
@@ -2194,3 +2179,24 @@ class Wago(SamplingCounterController):
         cnt_names = [cnt.name.replace(self.name + ".", "") for cnt in counters]
         result = self.get(*cnt_names)
         return result if isinstance(result, list) else [result]
+
+
+class WagoMockup(Wago):
+    def __init__(self, name, config_tree):
+        self.modules_config = ModulesConfig.from_config_tree(config_tree)
+
+        from bliss.controllers.wago.emulator import WagoEmulator
+
+        self.__mockup = WagoEmulator(self.modules_config)
+
+        # configure comm.
+        config_tree["modbustcp"] = {"url": f"localhost:{self.__mockup.port}"}
+
+        super().__init__(name, config_tree)
+
+    def close(self):
+        super().close()
+        try:
+            self.__mockup.close()
+        except AttributeError:
+            pass

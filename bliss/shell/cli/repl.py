@@ -52,33 +52,6 @@ from bliss.shell.cli.ptpython_statusbar_patch import NEWstatus_bar, TMUXstatus_b
 
 logger = logging.getLogger(__name__)
 
-# don't patch the event loop on windows
-if not is_windows():
-    from prompt_toolkit.eventloop.posix import PosixEventLoop
-
-    class _PosixLoop(PosixEventLoop):
-        def run_in_executor(self, callback, _daemon=False):
-            t = gevent.spawn(callback)
-
-            class F(future.Future):
-                def result(self):
-                    if not t.ready():
-                        raise future.InvalidStateError
-                    return t.get()
-
-                def add_done_callback(self, callback):
-                    t.link(callback)
-
-                def exception(self):
-                    return t.exception
-
-                def done(self):
-                    return t.ready()
-
-            return F()
-
-    set_event_loop(_PosixLoop())
-
 if sys.platform in ["win32", "cygwin"]:
     import win32api
 
@@ -180,8 +153,12 @@ def _set_pt_event_loop():
         from prompt_toolkit.eventloop.posix import PosixEventLoop
 
         class _PosixLoop(PosixEventLoop):
+            EVENT_LOOP_DAEMON_GREENLETS = []
+
             def run_in_executor(self, callback, _daemon=False):
                 t = gevent.spawn(callback)
+                if _daemon:
+                    _PosixLoop.EVENT_LOOP_DAEMON_GREENLETS.append(t)
 
                 class F(future.Future):
                     def result(self):
@@ -192,6 +169,9 @@ def _set_pt_event_loop():
                     def add_done_callback(self, callback):
                         t.link(callback)
 
+                    def set_exception(self, exception):
+                        t.kill(exception)
+
                     def exception(self):
                         return t.exception
 
@@ -200,10 +180,11 @@ def _set_pt_event_loop():
 
                 return F()
 
+            def close(self):
+                super().close()
+                gevent.killall(_PosixLoop.EVENT_LOOP_DAEMON_GREENLETS)
+
         set_event_loop(_PosixLoop())
-
-
-_set_pt_event_loop()
 
 
 if sys.platform in ["win32", "cygwin"]:
@@ -238,6 +219,8 @@ access.ALLOWED_DESCRIPTOR_ACCESS += (autocomplete_property,)
 
 class BlissRepl(PythonRepl):
     def __init__(self, *args, **kwargs):
+        _set_pt_event_loop()
+
         prompt_label = kwargs.pop("prompt_label", "BLISS")
         title = kwargs.pop("title", None)
         session = kwargs.pop("session")

@@ -61,8 +61,6 @@
     - test
     - test_mg
     - thermo_sample
-    - wago_simulator
-    - wago_group
   synoptic:
     svg-file: ./test_synoptic.svg
     elements:

@@ -1,6 +1,6 @@
 
-`tango_attr_as_counter` class allows to read a Tango attribute in BLISS as a
-counter.
+`tango_attr_as_counter` class allows to read a Tango *number* attribute as a
+BLISS counter.
 
 ## Configuration parameters
 
@@ -17,6 +17,7 @@ counter.
       counter. The string corresponding to one of the
       [SamplingMode](dev_ct.md#sampling-counter-modes).
     - `format` (optional) (str): string representing the display format to use.
+    - `index` (optional) (int): index of the wanted value in case the attribute is an array.
 
 ### Tango attribute parameters
 If the following parameters are defined in the attribute configuration (in Tango
@@ -32,18 +33,31 @@ BLISS:
 ### info
 
 As `tango_attr_as_counter` class provide a `__info__()` method, some info about
-the counter can be obtained just by typing the name of the counter:
+the counter and its value can be obtained just by typing the name of the
+counter:
 
 ```python
-DEMO [1]: hppstc1
- Out [1]: Tango Attribute Counter
-          Device Server: id42:20000/id42/wcid42hpps/tg
-          Tango Attribute: hppstc1
-          value: 23.5
-          no Tango unit
-          Beacon unit: gw
+DEMO [2]: hpz_off_2
+raw_value=167.193531174
+  Out [2]: 'hpz_off_2` Tango attribute counter info:
+             device server = id16ni:20000/id16ni/hpz/metrology
+             Tango attribute = Offsets
+             Tango format = "%6.2f"
+             Beacon unit = "mm"
+             index: 2
+             value: 167.19
 ```
 
+
+!!! note
+    The formated and the raw values can be obtained directly via `.value` and
+    `.raw_value` properties:
+    ```
+    DEMO [5]: hpz_off_2.value
+    Out  [5]: 167.19
+    DEMO [6]: hpz_off_2.raw_value
+    Out  [6]: 167.193531174
+    ```
 
 
 ## Examples
@@ -93,12 +107,8 @@ Example of `ct()` with timing:
 ```python
 DEMO [2]: import   time
 DEMO [3]: t0=time.time();ct(0.0001, kohztc5, flowBase, flowM2, flowM1,
-                                     m0m2, pptc1);print("duration=", time.time()-t0)
+                            m0m2, pptc1);print("duration=", time.time()-t0)
 
-get_proxy -- create dict
-get_proxy -- create proxy for id42/wcid42m0/tg
-get_proxy -- create proxy for id42/wcid42k/tg
-get_proxy -- create proxy for id42/wcid42hpps/tg
 Tue Jul 23 15:56:13 2019
 
            dt[s] =          0.0 (         0.0/s)
@@ -108,11 +118,12 @@ Tue Jul 23 15:56:13 2019
             m0m2 =      23.3999 ( 233998.99999999997/s)
     kohztc5[Deg] =         20.6 (    206000.0/s)
       pptc1[Deg] =         14.1 (    141000.0/s)
+
 duration= 0.10665655136108398
 
 
 DEMO [4]: t0=time.time();ct(0.0001, kohztc5, flowBase, flowM2, flowM1,
-                                     m0m2, pptc1);print("duration=", time.time()-t0)
+                            m0m2, pptc1);print("duration=", time.time()-t0)
 Tue Jul 23 15:56:15 2019
 
             dt[s] =          0.0 (         0.0/s)
@@ -122,19 +133,27 @@ Tue Jul 23 15:56:15 2019
              m0m2 =      23.3999 ( 233998.99999999997/s)
      kohztc5[Deg] =         20.6 (    206000.0/s)
        pptc1[Deg] =         14.1 (    141000.0/s)
+
 duration= 0.06498312950134277
 ```
 
 
 ## Tests
 
-Test files:
+Tests files:
 
-* `bliss/tests/controllers_sw/test_tango_attr_counters.py`
-* `bliss/tests/test_configuration/tango_attribute_counter.yml`
+* `tests/test_counters.py`
+* `tests/test_configuration/tango_attribute_counter.yml`
+
+Tests are using:
+
+* `tests/test_configuration/dummy.yml`
+* `tests/dummy_tg_server.py`
+
 
 ```python
-pytest tests/controllers_sw/test_tango_attr_counters.py
-```
 
+pytest tests/test_counters.py -k test_tango_attr_counter
+
+```
 

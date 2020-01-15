@@ -6,7 +6,7 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 """
-Tango attribute as a counter
+Tango number attribute as a counter:
 * counter name can be different than attributre name
 * if unit is not specified, unit is taken from tango configuration (if any)
 * conversion factor is taken from tango configuration (if any)
@@ -14,6 +14,9 @@ Tango attribute as a counter
 TODO :
 * alarm ?
 * writability ?
+* string attribute
+* spectrum attribute (tango_attr_as_spectrum ?)
+* image attribute (tango_attr_as_image ?)
 
 YAML_ configuration example:
 
@@ -110,13 +113,21 @@ class TangoCounterController(SamplingCounterController):
         global_map.register(self, tag=self.name)
 
     def read_all(self, *counters):
-        """Read all attributes at once each time it's requiered.
         """
-        # 'cnt.attribute' string is the name of the attribute.
-        cnt_list = [cnt.attribute for cnt in counters]
+        Read all attributes at once each time it's requiered.
+        """
 
-        log_debug(self, f"tango -- {self._tango_uri} -- read_attributes({cnt_list})")
-        dev_attrs = self._proxy.read_attributes(cnt_list)
+        # Build list of attribute names (str) to read (attributes must be unique).
+        attributes_to_read = list()
+        for cnt in counters:
+            if cnt.attribute not in attributes_to_read:
+                attributes_to_read.append(cnt.attribute)
+
+        log_debug(
+            self, f"TAAC--{self._tango_uri}--attributes_to_read={attributes_to_read}"
+        )
+
+        dev_attrs = self._proxy.read_attributes(attributes_to_read)
 
         # Check error.
         for attr in dev_attrs:
@@ -125,17 +136,38 @@ class TangoCounterController(SamplingCounterController):
                 raise tango.DevFailed(*error)
 
         attr_values = [dev_attr.value for dev_attr in dev_attrs]
-        log_debug(self, f"tango -- {self._tango_uri} -- values: {attr_values}")
-        return attr_values
+
+        # Make a dict to ease counters affectation:
+        #   keys->attributes, items->values
+        attributes_values = dict(zip(attributes_to_read, attr_values))
+
+        counters_values = list()
+        for cnt in counters:
+            if cnt.index is None:
+                counters_values.append(attributes_values[cnt.attribute])
+            else:
+                counters_values.append(attributes_values[cnt.attribute][cnt.index])
+
+        log_debug(self, f"TAAC--{self._tango_uri}--values: {counters_values}")
+        return counters_values
 
 
 class tango_attr_as_counter(SamplingCounter):
     def __init__(self, name, config):
+        self.index = None
+
         self.tango_uri = config.get_inherited("uri")
         if self.tango_uri is None:
             raise KeyError("uri")
 
         self.attribute = config["attr_name"]
+
+        try:
+            self.index = config["index"]
+        except Exception:
+            # no index present -> scalar
+            pass
+
         controller = _TangoCounterControllerDict.setdefault(
             self.tango_uri, TangoCounterController(self.tango_uri)
         )
@@ -182,6 +214,7 @@ class tango_attr_as_counter(SamplingCounter):
         # FORMAT
         # Use 'format' if present in YAML, otherwise, try to use the
         # Tango configured 'format'.
+        # default: %6.2f
         self.yml_format = config.get("format")
         self.tango_format = _tango_attr_config.format
         if self.yml_format:
@@ -222,14 +255,53 @@ class tango_attr_as_counter(SamplingCounter):
             else:
                 info_string += f"  no unit\n"
 
+        # INDEX if any
+        if self.index is not None:
+            info_string += f"  index: {self.index}\n"
+        else:
+            info_string += f"  scalar\n"
+
+        # VALUE
+        info_string += f"  value: {self.value}\n"
+
         return info_string
 
-    def convert_func(self, value):
-        attr_val = value * self.conversion_factor
+    def convert_func(self, raw_value):
+        """
+        Apply to the <raw_value>:
+        * conversion_factor
+        * formatting
+        """
+        log_debug(self, f"raw_value={raw_value}")
+        attr_val = raw_value * self.conversion_factor
         formated_value = float(
             self.format_string % attr_val if self.format_string else attr_val
         )
         return formated_value
+
+    @property
+    def value(self):
+        """
+        Return value of the attribute WITH conversion.
+        """
+        value = self.convert_func(self.raw_value)
+        return value
+
+    @property
+    def raw_value(self):
+        """
+        Return value of the attribute WITHOUT conversion.
+        """
+        attr_value = (
+            tango.DeviceProxy(self.tango_uri).read_attribute(self.attribute).value
+        )
+
+        if self.index is not None:
+            value = attr_value[self.index]
+        else:
+            value = attr_value
+
+        return value
 
 
 TangoAttrCounter = tango_attr_as_counter

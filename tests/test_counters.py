@@ -17,7 +17,6 @@ from bliss.common.scans import loopscan, ct, ascan
 from bliss.shell.cli.repl import ScanPrinter
 from bliss import setup_globals
 from bliss.common.soft_axis import SoftAxis
-from bliss.common.utils import rounder
 
 from bliss.controllers.counter import IntegratingCounterController
 from bliss.controllers.simulation_diode import (
@@ -477,8 +476,19 @@ def test_tango_attr_counter(beacon, dummy_tango_server, session):
 
     # `taac_dummy_position` is a tango_attr_as_counter which refers to
     # "position" attribute of "id00/tango/dummy" test device.
+
+    # Scalar attribute
     counter = beacon.get("taac_dummy_position")
-    sc = ct(0.01, counter)
+
+    # Two elements of an array attribute
+    taac_power_current = beacon.get("taac_undu_power_0")
+    taac_power_max = beacon.get("taac_undu_power_1")
+
+    sc = ct(0.01, counter, taac_power_current, taac_power_max)
+
+    #    assert 0.136 == sc.get_data()["taac_undu_power_0"][0]
+    #    assert 1.1 == sc.get_data()["taac_undu_power_1"][0]
+
     counter_value = sc.get_data()["taac_dummy_position"][0]
 
     assert pytest.approx(counter_value) == 1.41
@@ -486,8 +496,12 @@ def test_tango_attr_counter(beacon, dummy_tango_server, session):
     assert counter.format_string == "%3.2f"  # hard-coded in test config
     assert counter.mode == SamplingMode.MEAN  # default mode
 
+    # test direct reading (outside of a scan or count)
+    assert counter.value == 1.41
+    assert counter.raw_value == 1.4078913
+
     with pytest.raises(tango.DevFailed):
-        wrong_counter = beacon.get("wrong_counter")
+        _ = beacon.get("wrong_counter")
 
     # get BLISS tango_attr_as_counter counters
     taac_pos = beacon.get("taac_undu_position")

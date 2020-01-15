@@ -8,13 +8,23 @@ from tango import DevState
 
 class Dummy(Device):
     position = attribute(format="%3.2f", unit="mm")
+
     velocity = attribute(
         fget="read_velocity", fset="write_velocity", access=AttrWriteType.READ_WRITE
     )
+
     acceleration = attribute(
         fget="read_acceleration",
         fset="write_acceleration",
         access=AttrWriteType.READ_WRITE,
+    )
+
+    powers = attribute(
+        fget="read_powers",
+        access=AttrWriteType.READ,
+        dtype=[float],
+        max_dim_x=3,
+        format="%6.3f",
     )
 
     def __init__(self, *args, **kwargs):
@@ -40,6 +50,10 @@ class Dummy(Device):
 
     def write_acceleration(self, acc):
         self.acc = acc
+
+    def read_powers(self):
+        # current and max powers
+        return [0.136, 1.1]
 
     @command(dtype_out=str)
     def string1(self):

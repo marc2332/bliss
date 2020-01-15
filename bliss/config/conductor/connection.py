@@ -23,6 +23,44 @@ class StolenLockException(RuntimeError):
     """This exception is raise in case of a stolen lock"""
 
 
+class _ConnectionPool(redis.ConnectionPool):
+    def __init__(self, *args, **kwargs):
+        self._lock = gevent.lock.RLock()
+        super().__init__(*args, **kwargs)
+
+    def get_connection(self, command_name, *keys, **options):
+        with self._lock:
+            connection = super().get_connection(command_name, *keys, **options)
+
+        if command_name == "pubsub":
+            finalize = weakref.finalize(
+                gevent.getcurrent(), self.clean_pubsub, connection
+            )
+        else:
+            finalize = weakref.finalize(gevent.getcurrent(), self.release, connection)
+        connection.__finalize__ = finalize
+        return connection
+
+    def make_connection(self):
+        with self._lock:
+            return super().make_connection()
+
+    def release(self, connection):
+        if hasattr(connection, "__finalize__"):
+            connection.__finalize__.detach()
+        # As we register callback when greenlet disappear,
+        # Connection might been removed before the greenlet
+        try:
+            return super().release(connection)
+        except KeyError:
+            pass
+
+    def clean_pubsub(self, connection):
+        connection.disconnect()
+        connection.clear_connect_callbacks()
+        self.release(connection)
+
+
 def ip4_broadcast_addresses(default_route_only=False):
     ip_list = []
     # get default route interface, if any
@@ -157,6 +195,7 @@ class Connection(object):
         self._connect_lock = gevent.lock.Semaphore()
         self._get_redis_lock = gevent.lock.Semaphore()
         self._send_lock = gevent.lock.Semaphore()
+        self._redis_pools = {}
         self._connected = gevent.event.Event()
         self._raw_read_task = None
         self._greenlet_to_lockobjects = weakref.WeakKeyDictionary()
@@ -340,20 +379,40 @@ class Connection(object):
 
         return self._redis_host, self._redis_port
 
+    def _get_redis_conn_pool(self, db):
+        pool = self._redis_pools.get(db)
+        if pool is None:
+            address = self.get_redis_connection_address()
+            host, port = address
+            if host == "localhost":
+                redis_url = f"unix://{port}"
+            else:
+                redis_url = f"redis://{host}:{port}"
+            pool = _ConnectionPool.from_url(redis_url, db=db)
+            self._redis_pools[db] = pool
+        return pool
+
     def get_redis_connection(self, db=0):
         with self._get_redis_lock:
-            cnx = self._redis_connection.get(db)
-            if cnx is None:
+            conn = self._redis_connection.get(db)
+            if conn is None:
+                pool = self._get_redis_conn_pool(db)
+                conn = redis.Redis(connection_pool=pool)
                 my_name = f"{socket.gethostname()}:{os.getpid()}"
-                cnx = self.create_redis_connection(db=db)
-                cnx.client_setname(my_name)
-                self._redis_connection[db] = cnx
-            return cnx
+                conn.client_setname(my_name)
+                self._redis_connection[db] = conn
+                weakref.finalize(gevent.getcurrent(), self._close_redis_connection, db)
+            return conn
 
     def clean_all_redis_connection(self):
         for conn in self._redis_connection.values():
             conn.connection_pool.disconnect()
         self._redis_connection = {}
+
+    def _close_redis_connection(self, db):
+        cnx = self._redis_connection.pop(db, None)
+        if cnx is not None:
+            cnx.close()
 
     def create_redis_connection(self, db=0, address=None):
         if address is None:

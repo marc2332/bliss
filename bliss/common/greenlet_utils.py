@@ -1,9 +1,13 @@
 import sys
+import weakref
+import threading
 from contextlib import contextmanager
 from functools import wraps
 
 from gevent import greenlet, timeout, getcurrent
 from gevent.timeout import string_types
+from gevent import hub
+
 import gevent
 
 MASKED_GREENLETS = dict()
@@ -145,3 +149,31 @@ class Timeout(gevent.timeout.Timeout):
 
 timeout.Timeout = Timeout
 gevent.Timeout = Timeout
+
+# patch hub to destroy it when the thread is finished
+
+
+class Hub(hub.Hub):
+    _lock = threading.Lock()
+
+    def _sync(fn):
+        @wraps(fn)
+        def f(*args, **kwargs):
+            with Hub._lock:
+                return fn(*args, *kwargs)
+
+        return f
+
+    @_sync
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        current = threading.current_thread()
+        if current is not threading.main_thread():
+            weakref.finalize(current, self.destroy)
+
+    @_sync
+    def destroy(self):
+        return super().destroy()
+
+
+hub.set_default_hub_class(Hub)

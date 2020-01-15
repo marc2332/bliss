@@ -1,12 +1,14 @@
 - 
     class: MyDevice     # <== any kind of object 
     package: bliss.controllers.regulation.temperature.mockup
+    #module: regulation.temperature.mockup
     plugin: bliss
     name: my_device
 
 -   
     class: MyCustomInput     # <== a custom input defined by the user, inheriting from the ExternalInput class
     package: bliss.controllers.regulation.temperature.mockup
+    #module: regulation.temperature.mockup
     plugin: bliss
     name: custom_input
     device: $my_device     # <== any kind of object 
@@ -16,6 +18,7 @@
 -   
     class: MyCustomOutput    # <== a custom output defined by the user, inheriting from the ExternalOutput class
     package: bliss.controllers.regulation.temperature.mockup
+    #module: regulation.temperature.mockup
     plugin: bliss
     name: custom_output
     device: $my_device       # <== any kind of object 
@@ -61,7 +64,7 @@
 
 -   
     class: Mockup
-    module: mockup
+    module: temperature.mockup
     host: lid42
     inputs:
         - 

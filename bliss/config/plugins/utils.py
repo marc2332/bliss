@@ -33,9 +33,17 @@ def find_class_and_node(cfg_node, base_path="bliss.controllers"):
 
     try:
         module = __import__(module_name, fromlist=[""])
-    except ModuleNotFoundError:
+    except ModuleNotFoundError as e:
         module_name = "%s.%s" % (base_path, camel_case_to_snake_style(klass_name))
-        module = __import__(module_name, fromlist=[""])
+        try:
+            module = __import__(module_name, fromlist=[""])
+        except ModuleNotFoundError as e2:
+            msg = "\nWITH CONFIG  MODULE NAME: " + e.msg
+            msg += "\nWITH DEFAULT MODULE NAME: " + e2.msg
+            msg += f"\nCHECK THAT MODULE NAME BEGINS AFTER '{base_path}'\n"
+
+            e2.msg = msg
+            raise e2
 
     try:
         klass = getattr(module, klass_name)

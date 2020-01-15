@@ -10,8 +10,8 @@ Lakeshore 340, acessible via GPIB or Serial line (RS232)
 
 yml configuration example:
 #controller:
-- class: lakeshore340
-  module: lakeshore.lakeshore340
+- class: LakeShore340
+  module: temperature.lakeshore.lakeshore340
   name: lakeshore340
   timeout: 3
   gpib:
@@ -63,17 +63,26 @@ yml configuration example:
       output: $ls340o_2
       channel: 2
 """
-import types
+
 import time
 import enum
-from bliss.comm import serial
-from bliss.comm import gpib
-from bliss.comm.util import get_interface, get_comm
-from bliss.common.logtools import *
-from bliss.controllers.temperature.lakeshore.lakeshore import LakeshoreBase
-from .lakeshore import LakeshoreInput as Input
-from .lakeshore import LakeshoreOutput as Output
-from .lakeshore import LakeshoreLoop as Loop
+
+from bliss.shell.standard import ShellStr
+
+from bliss.common.regulation import lazy_init
+from bliss.common.logtools import log_info
+from bliss.comm.util import get_comm
+
+from bliss.controllers.regulation.temperature.lakeshore.lakeshore331 import LakeShore331
+from bliss.controllers.regulation.temperature.lakeshore.lakeshore import LakeshoreInput
+
+from bliss.controllers.regulation.temperature.lakeshore.lakeshore import (
+    LakeshoreOutput as Output
+)
+from bliss.controllers.regulation.temperature.lakeshore.lakeshore import (
+    LakeshoreLoop as Loop
+)
+
 
 _last_call = time.time()
 # limit number of commands per second
@@ -92,373 +101,224 @@ def _send_limit(func):
     return f
 
 
-class LakeShore340:
-    UNITS340 = {"Kelvin": 1, "Celsius": 2, "Sensor_unit": 3}
-    REVUNITS340 = {1: "Kelvin", 2: "Celsius", 3: "Sensor_unit"}
-    IPSENSORUNITS340 = {1: "volts", 2: "ohms"}
+class Input(LakeshoreInput):
+    @lazy_init
+    def set_sensor_type(
+        self, sensor_type, units=None, coefficient=None, excitation=None, srange=None
+    ):
+        """ Set input type parameters
 
-    def __init__(self, comm, **kwargs):
-        self._comm = comm
-        self._channel = None
-        log_info(self, "__init__")
+            Args:
+                sensor_type   (int): see 'SensorTypes'
+                units         (int): specifies input sensor units [ 0=special, 1=volts, 2=ohms ]
+                coefficient   (int): specifies input coefficient [ 0=special, 1=negative, 2=positive ]
+                excitation    (int): specifies input excitation  [ 0 to 12] (see 'valid_sensor_excitation')
+                srange        (int): specifies the input range   [ 1 to 13 ] (see 'valid_sensor_range')
+            
+        """
+        self.controller.set_sensor_type(
+            self, sensor_type, units, coefficient, excitation, srange
+        )
 
     @property
-    def eol(self):
-        return self._comm._eol
+    def valid_sensor_excitation(self):
+        lines = ["\n"]
+        for stn, sts in self.controller.SENSOR_EXCITATION.items():
+            lines.append(f"{sts} = {stn}")
 
-    # Initialization methods
-    # ----------------------
+        return ShellStr("\n".join(lines))
 
-    # - Controller
-    #   ----------
-    def clear(self):
-        """Clears the bits in the Status Byte, Standard Event and Operation
-           Event Registers. Terminates all pending operations.
-           Returns:
-              None
-        """
-        self.send_cmd("*CLS")
+    @property
+    def valid_sensor_range(self):
+        lines = ["\n"]
+        for stn, sts in self.controller.SENSOR_RANGE.items():
+            lines.append(f"{sts} = {stn}")
 
-    # - Input object
-    #   ------------
-    def _initialize_input(self, input):
-        log_info(self, "_initialize_input")
+        return ShellStr("\n".join(lines))
 
-    # - Output object
-    #   -------------
-    def _initialize_output(self, output):
-        log_info(self, "_initialize_output")
 
-    # - Loop object
-    #   -----------
-    def _initialize_loop(self, loop):
-        log_info(self, "_initialize_loop")
-        # Get input object channel
-        ipch = loop.input.config["channel"]
-        # Get output object unit
-        ipu = loop.input.config["unit"]
-        # Get loop object channel
-        loop_channel = loop.config["channel"]
-        self.set_loop_params(loop_channel, input=ipch, unit=ipu)
+class LakeShore340(LakeShore331):
 
-    # Standard INPUT-object related method(s)
-    # ---------------------------------------
-    def read_temperature(self, channel, scale):
-        """ Read the current temperature
+    NCURVES = 60
+    NUSERCURVES = (21, 60)
+    CURVEFORMAT = {1: "mV/K", 2: "V/K", 3: "Ohms/K", 4: "logOhms/K"}
+    CURVETEMPCOEF = {1: "negative", 2: "positive"}
+
+    SENSOR_EXCITATION = {
+        0: "Off",
+        1: "30nA",
+        2: "100nA",
+        3: "300nA",
+        4: "1uA",
+        5: "3uA",
+        6: "10uA",
+        7: "30uA",
+        8: "100uA",
+        9: "300uA",
+        10: "1mA",
+        11: "10mV",
+        12: "1mV",
+    }
+
+    SENSOR_RANGE = {
+        1: "1mV",
+        2: "2.5mV",
+        3: "5mV",
+        4: "10mV",
+        5: "25mV",
+        6: "50mV",
+        7: "100mV",
+        8: "250mV",
+        9: "500mV",
+        10: "1V",
+        11: "2.5V",
+        12: "5V",
+        13: "7.5V",
+    }
+
+    @enum.unique
+    class SensorTypes(enum.IntEnum):
+        Special = 0
+        Silicon_Diode = 1
+        GaAlAs_Diode = 2
+        Platinium_100_250_ohm = 3
+        Platinium_100_500_ohm = 4
+        Platinium_1000 = 5
+        Rhodium_Iron = 6
+        Carbon_Glass = 7
+        Cernox = 8
+        RuOx = 9
+        Germanium = 10
+        Capacitor = 11
+        Thermocouple = 12
+
+    @enum.unique
+    class HeaterRange(enum.IntEnum):
+        OFF = 0
+        LOW = 1
+        MEDIUM = 2
+        HIGH = 3
+        VERYHIGH = 4
+        HIGHEST = 5
+
+    def init_com(self):
+        self._model_number = 340
+        if "serial" in self.config:
+            self._comm = get_comm(self.config, parity="O", bytesize=7, stopbits=1)
+        else:
+            self._comm = get_comm(self.config)
+
+        self._is_regulation_started = None
+
+    def get_sensor_type(self, tinput):
+        """ Read input type parameters
+
             Args:
-              channel (int): input channel. Valid entries: A or B
-              scale (str): temperature unit for reading: Kelvin or Celsius
-                           or Sensor_unit (Ohm or Volt)
+                tinput:  Input class type object
+                
             Returns:
-              (float): current temperature
-        """
-        log_info(self, "read_temperature")
-        # Query Input Status before reading temperature
-        # If status is OK, then read the temperature
-        asw = int(self.send_cmd("RDGST?", channel=channel))
-        if asw == 0:
-            if scale == "Kelvin":
-                return float(self.send_cmd("KRDG?", channel=channel))
-            elif scale == "Celsius":
-                return float(self.send_cmd("CRDG?", channel=channel))
-            elif scale == "Sensor_unit":
-                return float(self.send_cmd("SRDG?", channel=channel))
-        if asw & 16:
-            log_warning(self, "Temperature UnderRange on input %s" % channel)
-            raise ValueError("Temperature value on input %s is invalid" % channel)
-        if asw & 32:
-            log_warning(self, "Temperature OverRange on input %s" % channel)
-            raise ValueError("Temperature value on input %s is invalid" % channel)
-        if asw & 64:
-            log_warning(self, "Temperature in Sensor_unit = 0 on input %s" % channel)
-            raise ValueError("Temperature in Sensor_unit = 0 on input %s" % channel)
-        if asw & 128:
-            log_warning(
-                self, "Temperature OverRange in Sensor_unit on input %s" % channel
-            )
-            raise ValueError(
-                "Temperature OverRange in Sensor_unit on input %s" % channel
-            )
-        raise RuntimeError("Could not read temperature on channel %s" % channel)
+                dict: {sensor_type: (int), units: (int), coefficient: (int), excitation: (int), range: (int) }
 
-    def _sensor_type(
+        """
+        log_info(self, "get_sensor_type")
+        asw = self.send_cmd("INTYPE?", channel=tinput.channel).split(",")
+        return {
+            "sensor_type": int(asw[0]),
+            "units": int(asw[1]),  # 0=special, 1=volts, 2=ohms
+            "coefficient": int(asw[2]),  # 0=special, 1=negative, 2=positive
+            "excitation": int(asw[3]),
+            "range": int(asw[4]),
+        }
+
+    def set_sensor_type(
         self,
-        channel,
-        type=None,
+        tinput,
+        sensor_type,
         units=None,
         coefficient=None,
         excitation=None,
-        range=None,
+        srange=None,
     ):
-        """ Read or set input type parameters
-            Args :
-              [type], [units], [coefficient], [excitation], [range]
-              example: input.sensor_type(type=8,units=2,coefficient=1,excitation=6,range=11)
-              example: input.sensor_type(type=1) 
-            Returns:
-              <type>, <units>, <coefficient>, <excitation>, <range>
+        """ Set input type parameters
+
+            Args:
+                tinput:  Input class type object
+                sensor_type   (int): see 'SensorTypes'
+                units         (int): specifies input sensor units [ 0=special, 1=volts, 2=ohms ]
+                coefficient   (int): specifies input coefficient [ 0=special, 1=negative, 2=positive ]
+                excitation    (int): specifies input excitation  [ 0 to 12]
+                srange        (int): specifies the input range   [ 1 to 13 ]
+            
         """
-        log_info(self, "_sensor_type")
-        if type is None:
-            return self.send_cmd("INTYPE?", channel=channel)
+        log_info(self, "set_sensor_type")
+        if (
+            units is None
+            and coefficient is None
+            and excitation is None
+            and srange is None
+        ):
+            self.send_cmd("INTYPE", sensor_type, channel=tinput.channel)
         else:
-            typec, unitsc, coefficientc, excitationc, rangec = self.send_cmd(
-                "INTYPE?", channel=channel
-            ).split(",")
-            if type is None:
-                type = typec
-            if units is None:
-                units = unitsc
-            if coefficient is None:
-                coefficient = coefficientc
-            if excitation is None:
-                excitation = excitationc
-            if range is None:
-                range = rangec
+
+            if None in [units, coefficient, excitation, srange]:
+                asw = self.send_cmd("INTYPE?", channel=tinput.channel).split(",")
+
+                if units is None:
+                    units = asw[1]
+
+                if coefficient is None:
+                    coefficient = asw[2]
+
+                if excitation is None:
+                    excitation = asw[3]
+
+                if srange is None:
+                    srange = asw[4]
+
             self.send_cmd(
-                "INTYPE", type, units, coefficient, excitation, range, channel=channel
+                "INTYPE",
+                sensor_type,
+                units,
+                coefficient,
+                excitation,
+                srange,
+                channel=tinput.channel,
             )
 
-    # Standard OUTPUT-object related method(s)
-    # ----------------------------------------
-    def setpoint(self, channel, value=None):
-        """ Set/Read the control setpoint
-            Args:
-              channel (int): output channel. Valid entries: 1 or 2
-              value (float): The value of the setpoint if set
-                             None if read
-            Returns:
-              None if set
-              value (float): The value of the setpoint if read
-        """
-        log_info(self, "setpoint")
-        if value is None:
-            return float(self.send_cmd("SETP?", channel=channel))
-        else:
-            self.send_cmd("SETP", value, channel=channel)
-
-    def ramp_rate(self, channel, value=None):
-        """ Set/read the control setpoint ramp rate.
-            Explicitly stop the ramping when setting.
-            Args:
-              channel (int): output channel. Valid entries: 1 or 2
-              value (float): The ramp rate [K/min] 0 to 100 with 0.1 resolution 
-                             None if read
-            Returns:
-              None if set
-              value (float): The value of the ramp rate if read.
-        """
-        log_info(self, "ramp_rate")
-        if value is None:
-            r = self.send_cmd("RAMP?", channel=channel).split(",")
-            state = "ON" if int(r[0]) == 1 else "OFF"
-            rate_value = float(r[1])
-            return {"state": state, "rate": rate_value}
-        if value < 0.1 or value > 100:
-            raise ValueError("Ramp value %s is out of bounds [0.1,100]" % value)
-        self.send_cmd("RAMP", 0, value, channel=channel)
-
-    def ramp(self, channel, sp, rate):
-        """ Change temperature to a set value at a controlled ramp rate
-            Args:
-              channel (int): output channel. Valid entries: 1 or 2
-              rate (float): ramp rate [K/min], values 0.1 to 100 with 0.1 resolution 
-              sp (float): target setpoint [K]
-            Returns:
-              None
-        """
-        log_info(self, "ramp")
-        log_debug(self, "ramp(): SP=%r, RR=%r" % (sp, rate))
-        self.setpoint(channel, sp)
-        if rate < 0.1 or rate > 100:
-            raise ValueError("Ramp value %s is out of bounds [0.1,100]" % rate)
-        self.send_cmd("RAMP", 1, rate, channel=channel)
-
-    def ramp_status(self, channel):
-        """ Check ramp status (if running or not)
-            Args:
-              channel (int): output channel. Valid entries: 1 or 2
-            Returns:
-              Ramp status (1 = running, 0 = not running)
-        """
-        # TODO: in case rampstatus found is 0 (= no ramping active)
-        #       could add sending command *STB? and checking bit 7,
-        #       which indicates (when set to 1) that ramp is done.
-        log_info(self, "ramp_status")
-        log_debug(self, "ramp_status(): channel = %r" % channel)
-        ramp_stat = self.send_cmd("RAMPST?", channel=channel)
-        log_debug(self, "ramp_status(): ramp_status = %r" % ramp_stat)
-        return int(ramp_stat)
-
-    # Standard LOOP-object related method(s)
-    # --------------------------------------
-    def pid(self, channel, **kwargs):
-        """ Read/Set Control Loop PID Values (P, I, D)
-            Args:
-              channel (int): loop channel. Valid entries: 1 or 2
-              P (float): Proportional gain (0.1 to 1000), None if read
-              I (float): Integral reset (0.1 to 1000) [value/s], None if read
-              D (float): Derivative rate (0 to 200) [%], None if read
-            Returns:
-              None if set
-              p (float): P
-              i (float): I
-              d (float): D
-        """
-        log_info(self, "pid")
-        kp = kwargs.get("P")
-        ki = kwargs.get("I")
-        kd = kwargs.get("D")
-        if len(kwargs):
-            kpc, kic, kdc = self.send_cmd("PID?", channel=channel).split(",")
-            if kp is None:
-                kp = kpc
-            if ki is None:
-                ki = kic
-            if kd is None:
-                kd = kdc
-            if float(kp) < 0.1 or float(kp) > 1000.:
-                raise ValueError(
-                    "Proportional gain %s is out of bounds [0.1,1000]" % kp
-                )
-            if float(ki) < 0.1 or float(ki) > 1000.:
-                raise ValueError("Integral reset %s is out of bounds [0.1,1000]" % ki)
-            if float(kd) < 1 or float(kd) > 200:
-                raise ValueError("Derivative rate %s is out of bounds [0,200]" % kd)
-            self.send_cmd("PID", kp, ki, kd, channel=channel)
-        else:
-            kp, ki, kd = self.send_cmd("PID?", channel=channel).split(",")
-            return float(kp), float(ki), float(kd)
-
-    # General CUSTOM methods [valid for any type of object:
-    # input, output, loop]
-    # -----------------------------------------------------
-    def _model(self):
-        """ Get the model number
-            Returns:
-              model (int): model number
-        """
-        log_info(self, "_model")
-        model = self.send_cmd("*IDN?").split(",")[1]
-        return int(model[5:8])
-
-    # CUSTOM INPUT-object related method(s)
-    # -------------------------------------
-    def _filter(self, channel, **kwargs):
-        """ Configure input filter parameters
-            Args:
-              channel (str): input channel. Valied entries: A or B
-              onoff (int): 1 = enable, 0 = disable
-              points (int): specifies how many points the filtering function
-                            uses. Valid range: 2 to 64.
-              window (int): specifies what percent of full scale reading
-                            limits the filtering function. Reading changes
-                            greater than this percentage reset the filter.
-                            Valid range: 1 to 10%.
-            Returns:
-              None if set
-              onoff (int): filter on/off
-              points (int): nb of points used by filter function
-              window (int): filter window (in %)
-        """
-        log_info(self, "_filter")
-        input = channel
-        onoff = kwargs.get("onoff")
-        points = kwargs.get("points")
-        window = kwargs.get("window")
-
-        if onoff is None and points is None and window is None:
-            asw = self.send_cmd("FILTER?", channel=channel).split(",")
-            onoff = int(asw[0])
-            points = int(asw[1])
-            window = int(asw[2])
-            return (onoff, points, window)
-        else:
-            onoffc, pointsc, windowc = self.send_cmd("FILTER?", channel=channel).split(
-                ","
-            )
-            if onoff is None:
-                onoff = onoffc
-            if points is None:
-                points = pointsc
-            elif points not in range(2, 65):
-                raise ValueError(
-                    "Error, the nb of points {0} is not in range 2 to 64.".format(
-                        points
-                    )
-                )
-            if window is None:
-                window = windowc
-            elif window not in range(1, 11):
-                raise ValueError(
-                    "Error, the filter windows {0} is not in range 1 to 10 percent.".format(
-                        window
-                    )
-                )
-            self.send_cmd("FILTER", onoff, points, window, channel=channel)
-
-    def _alarm_status(self, channel):
-        """ Shows high and low alarm state for given input
-            Args:
-              channel (str): A or B
-            Returns:
-              high and low alarm state (str, str): "On/Off"
-        """
-        log_info(self, "_alarm_status")
-        asw = self.send_cmd("ALARMST?", channel=channel).split(",")
-        hist = "On" if int(asw[0]) == 1 else "Off"
-        lost = "On" if int(asw[1]) == 1 else "Off"
-        log_debug(self, "Alarm high state = %s" % hist)
-        log_debug(self, "Alarm Low  state = %s" % lost)
-        return (hist, lost)
-
-    def _alarm_reset(self):
-        """ Clears both the high and low status of all alarms
-            Args:
-              None (though this command does not need even the input
-                    channel, we put it here since alarms are related
-                    to the state on input like for ex. measured temperature
-                    above alarm high-limit etc)
-            Returns:
-              None
-        """
-        log_info(self, "_alarm_reset")
-        self.send_cmd("ALMRST")
-
-    # CUSTOM OUTPUT-object related method(s)
-    # --------------------------------------
-
-    # CUSTOM LOOP-object related method(s)
-    # ------------------------------------
-    def read_loop_params(self, channel, **kwargs):
+    def get_loop_params(self, tloop):
         """ Read Control Loop Parameters
             Args:
-               channel(int): loop channel. Valid entries: 1 or 2
-            Kwargs:
-               input (str): which input to control from. Valid entries: A or B
-               unit (str):  set-point unit: Kelvin(1), Celsius(2), Sensor_unit(3)
-               onoff (str): on or off to switch on or off the control loop
-          Returns:
-               input (str): which input to control from
-               unit (str):  set-point unit: Kelvin, Celsius, Sensor_unit
-               onoff (str): control loop on/off
-          Remark: In this method we do not pass power up state of control loop
+                tloop:  Loop class type object
+    
+            Returns:
+                input (str): the associated input channel, see 'VALID_INPUT_CHANNELS'
+                unit (str):  the loop setpoint units, could be Kelvin(1), Celsius(2) or Sensor_unit(3)
+                onoff (str): control loop status on or off
+                powerup (str): powerup mode
         """
-        log_info(self, "read_loop_params")
-        asw = self.send_cmd("CSET?", channel=channel).split(",")
-        input = asw[0]
-        unit = self.REVUNITS340[int(asw[1])]
+        log_info(self, "get_loop_params")
+        asw = self.send_cmd("CSET?", channel=tloop.channel).split(",")
+        input_chan = asw[0]
+        unit = self.REVUNITS[int(asw[1])]
         onoff = "ON" if int(asw[2]) == 1 else "OFF"
         powerup = "ON" if int(asw[3]) == 1 else "OFF"
-        return {"input": input, "unit": unit, "onoff": onoff, "powerup": powerup}
+        return {"input": input_chan, "unit": unit, "onoff": onoff, "powerup": powerup}
 
-    def set_loop_params(self, channel, input=None, unit=None, onoff=None):
+    def set_loop_params(self, tloop, input_channel=None, unit=None, onoff=None):
+        """ Set Control Loop Parameters
+            Args:
+                tloop:  Loop class type object
+                input_channel (str): the associated input channel, see 'VALID_INPUT_CHANNELS'
+                unit (str):  the loop setpoint units, could be Kelvin(1), Celsius(2) or Sensor_unit(3)
+                onoff (str): control loop status on or off
+        """
+
         log_info(self, "set_loop_params")
-        inputc, unitc, onoffc, powerupc = self.send_cmd("CSET?", channel=channel).split(
-            ","
-        )
-        if input is None:
-            input = inputc
+        inputc, unitc, onoffc, powerupc = self.send_cmd(
+            "CSET?", channel=tloop.channel
+        ).split(",")
+        if input_channel is None:
+            input_channel = inputc
         if unit is None:
             unit = unitc
         elif unit != "Kelvin" and unit != "Celsius" and unit != "Sensor_unit":
@@ -466,7 +326,7 @@ class LakeShore340:
                 "Error: acceptables values for unit are 'Kelvin' or 'Celsius' or 'Sensor_unit'."
             )
         else:
-            unit = self.UNITS340[unit]
+            unit = self.UNITS[unit]
         if onoff is None:
             onoff = onoffc
         elif onoff != "on" and onoff != "off":
@@ -478,194 +338,29 @@ class LakeShore340:
                 htr_range = int(self.send_cmd("RANGE?"))
                 if htr_range == 0:
                     self.send_cmd("RANGE", 1)
-        self.send_cmd("CSET", input, unit, onoff, 0, channel=channel)
+        self.send_cmd("CSET", input_channel, unit, onoff, 0, channel=tloop.channel)
 
-    # 'Internal' COMMUNICATION method
-    # -------------------------------
-    @_send_limit
-    def send_cmd(self, command, *args, channel=None):
-        """ Send a command to the controller
-            Args:
-              command (str): The command string
-              args: Possible variable number of parameters
-            Returns:
-              Answer from the controller if ? in the command
+    def set_heater_range(self, touput, value):
+        """ Set the heater range  (see self.HeaterRange)
+            args:
+                - touput:  Output class type object 
+                - value (int): the value of the range
         """
-        log_info(self, "send_cmd")
-        log_debug(self, "command = {0}, channel = {1})".format(command, channel))
-        if channel is None:
-            values = "".join(str(x) for x in args)
-            cmd = f"{command} {values}"
-            # print("-------- command = {0}, values = {1}".format(cmd, values))
-        else:
-            # print("args = {0}".format(args))
-            values = ",".join(str(x) for x in args)
-            if len(values) == 0:
-                cmd = f"{command} {channel}"
-            else:
-                cmd = f"{command} {channel},{values}"
-            # print("------------ command = {0}".format(cmd))
-        log_debug(self, "values = {0}".format(values))
-        if "?" in command:
-            asw = self._comm.write_readline(cmd.encode() + self.eol.encode())
-            # print("asw = {0}".format(asw.decode()))
-            return asw.decode()
-        else:
-            self._comm.write(cmd.encode() + self.eol.encode())
-
-    # Raw COMMUNICATION methods
-    # -------------------------
-    def wraw(self, string):
-        """ Write a string to the controller
-            Args:
-              string The complete raw string to write (except eol)
-                     Normaly will use it to set a/some parameter/s in 
-                     the controller.
-            Returns:
-              None
-        """
-        log_info(self, "wraw")
-        log_debug(self, "command to send = {0}".format(string))
-        cmd = string + self.eol
-        self._comm.write(cmd.encode())
-
-    def rraw(self):
-        """ Read a string from the controller
-            Returns:
-              response from the controller
-        """
-        log_info(self, "rraw")
-        cmd = self.eol
-        asw = self._comm.readline(cmd.encode())
-        log_debug(self, "raw answer = {0}".format(asw))
-        return asw.decode()
-
-    def wrraw(self, string):
-        """ Write a string to the controller and then reading answer back
-            Args:
-              string The complete raw string to write (except eol)
-            Returns:
-              response from the controller
-        """
-        log_info(self, "wrraw")
-        log_debug(self, "command to send = {0}".format(string))
-        cmd = string + self.eol
-        asw = self._comm.write_readline(cmd.encode())
-        log_debug(self, "raw answer = {0}".format(asw))
-        return asw.decode()
-
-
-class lakeshore340(LakeshoreBase):
-    # Number of calibration curves available
-    NCURVES = 60
-    NUSERCURVES = (21, 60)
-    CURVEFORMAT = {1: "mV/K", 2: "V/K", 3: "Ohms/K", 4: "logOhms/K"}
-    CURVETEMPCOEF = {1: "negative", 2: "positive"}
-
-    @enum.unique
-    class Unit(enum.IntEnum):
-        KELVIN = 1
-        CELSIUS = 2
-        SENSOR_UNIT = 3
-
-    @enum.unique
-    class Mode(enum.IntEnum):
-        MANUAL_PID = 1
-        ZONE = 2
-        OPEN_LOOP = 3
-        AUTO_TUNE_PID = 4
-        AUTO_TUNE_PI = 5
-        AUTO_TUNE_P = 6
-
-    @enum.unique
-    class HeaterRange(enum.IntEnum):
-        OFF = 0
-        LOW = 1
-        MEDIUM = 2
-        HIGH = 3
-        VERYHIGH = 4
-        HIGHEST = 5
-
-    @enum.unique
-    class HeaterState(enum.IntEnum):
-        OK = 0
-        OPEN_LOAD = 1
-        SHORT = 2
-
-    def __init__(self, config, *args):
-        if "serial" in config:
-            comm_interface = get_comm(config, parity="O", bytesize=7, stopbits=1)
-        else:
-            comm_interface = get_comm(config)
-
-        _lakeshore = LakeShore340(comm_interface)
-
-        model = _lakeshore._model()
-
-        if model != 340:
-            raise ValueError(
-                "Error, the Lakeshore model is {0}. It should be 340.".format(model)
-            )
-
-        LakeshoreBase.__init__(self, _lakeshore, config, *args)
-
-    def _read_state_output(self, channel):
-        log_info(self, "_state_output")
-        r = int(self._lakeshore.send_cmd("HTRST?"))
-        return self.HeaterState(r)
-
-    def _read_value_percent(self, channel):
-        log_info(self, "_state_output")
-        return self._lakeshore.send_cmd("HTR?")
-
-    def _read_heater_range(self, channel):
-        """ Read the heater range """
-        log_info(self, "_read_heater_range")
-        r = int(self._lakeshore.send_cmd("RANGE?"))
-        return self.HeaterRange(r)
-
-    def _set_heater_range(self, channel, value=None):
-        """ Set the heater range  (0 to 5) [see Paragaph 6.12.1]
-            Args:
-              value (int): The value of the range
-        """
-        log_info(self, "_set_heater_range")
+        log_info(self, "set_heater_range")
         v = self.HeaterRange(value).value
-        self._lakeshore.send_cmd("RANGE", v)
-
-    def _read_loop_mode(self, channel):
-        return self.Mode(int(self._lakeshore.send_cmd("CMODE?", channel=channel)))
-
-    def _set_loop_mode(self, channel, mode):
-        value = self.Mode(mode).value
-        self._lakeshore.send_cmd("CMODE", value, channel=channel)
-
-    def _read_loop_unit(self, channel):
-        log_info(self, "_read_loop_units")
-        asw = self._lakeshore.send_cmd("CSET?", channel=channel).split(",")
-        unit = int(asw[1])
-        return self.Unit(unit)
-
-    def _set_loop_unit(self, channel, unit):
-        log_info(self, "_set_loop_units")
-        asw = self._lakeshore.send_cmd("CSET?", channel=channel).split(",")
-        v = self.Unit(unit).value
-        self._lakeshore.send_cmd("CSET", asw[0], v, asw[2], asw[3], channel=channel)
+        self.send_cmd("RANGE", v)
 
     def _set_loop_on(self, tloop):
         log_info(self, "_set_loop_on")
-        channel = tloop.config.get("channel", int)
-        log_info(self, "_set_loop_on")
-        asw = self._lakeshore.send_cmd("CSET?", channel=channel).split(",")
-        onoff = 1
-        self._lakeshore.send_cmd("CSET", asw[0], asw[1], onoff, 0, channel=channel)
-        tloop.output.range = 1
-        return tloop.output.range == self.HeaterRange.LOW
+        if self._is_regulation_started in [None, False]:
+            self.set_loop_params(tloop, onoff="on")
+            self._is_regulation_started = True
+
+        if tloop.output.range == self.HeaterRange.OFF:
+            tloop.output.range = self.HeaterRange.LOW.value  # LOW = 1
 
     def _set_loop_off(self, tloop):
         log_info(self, "_set_loop_off")
-        channel = tloop.config.get("channel", int)
-        log_info(self, "_set_loop_off")
-        asw = self._lakeshore.send_cmd("CSET?", channel=channel).split(",")
-        onoff = 0
-        self._lakeshore.send_cmd("CSET", asw[0], asw[1], onoff, 0, channel=channel)
+        self.set_loop_params(tloop, onoff="off")
+        tloop.output.range = self.HeaterRange.OFF.value  # OFF = 0
+        self._is_regulation_started = False

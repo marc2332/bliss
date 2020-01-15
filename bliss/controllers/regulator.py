@@ -14,8 +14,8 @@ Example of .yml file for a mockup temperature controller
 with the mandatory fields:
 
 
-    class: mockup
-    module: mockup
+    class: Mockup
+    module: temperature.mockup
     host: lid42
     inputs:
         - 
@@ -53,10 +53,10 @@ with the mandatory fields:
 
 """
 
+from gevent import lock
 from bliss.common.regulation import Input, Output, Loop
 from bliss.common.utils import set_custom_members
 from bliss.common.logtools import log_info
-from gevent import lock
 
 
 class Controller:
@@ -130,28 +130,6 @@ class Controller:
                     self.initialize_input(obj)
                 elif isinstance(obj, Output):
                     self.initialize_output(obj)
-
-            # =========  INIT ALL DEVICES ATTACHED TO THE CONTROLLER ==================
-            # if self.__hw_controller_initialized:
-            #     return
-            # else:
-            #     self.__hw_controller_initialized = True
-
-            #     self.initialize_controller()
-            #     print("============= controller_hw INITIALIZED")
-
-            #     for obj in self._objects.values():
-
-            #         # --- initialize the object
-            #         obj.load_base_config()
-            #         if isinstance(obj, Input):
-            #             self.initialize_input(obj)
-            #         elif isinstance(obj, Output):
-            #             self.initialize_output(obj)
-            #         elif isinstance(obj, Loop):
-            #             self.initialize_loop(obj)
-
-            #         print(f"============= {obj.name} INITIALIZED")
 
     @property
     def name(self):
@@ -289,43 +267,6 @@ class Controller:
         log_info(self, "Controller:state_output: %s" % (toutput))
         raise NotImplementedError
 
-    # ------ raw methods ------------------------
-
-    def Wraw(self, str):
-        """
-        A string to write to the controller
-        Raises NotImplementedError if not defined by inheriting class
-
-        Args:
-           str:  the string to write
-        """
-        log_info(self, "Controller:Wraw:")
-        raise NotImplementedError
-
-    def Rraw(self):
-        """
-        Reading the controller
-        Raises NotImplementedError if not defined by inheriting class
-
-        returns:
-           answer from the controller
-        """
-        log_info(self, "Controller:Rraw:")
-        raise NotImplementedError
-
-    def WRraw(self, str):
-        """
-        Write then Reading the controller
-        Raises NotImplementedError if not defined by inheriting class
-
-        Args:
-           str:  the string to write
-        returns:
-           answer from the controller
-        """
-        log_info(self, "Controller:WRraw:")
-        raise NotImplementedError
-
     # ------ PID methods ------------------------
 
     def set_kp(self, tloop, kp):
@@ -460,7 +401,7 @@ class Controller:
         log_info(self, "Controller:get_setpoint: %s" % (tloop))
         raise NotImplementedError
 
-    # ------ setpoint ramping methods ------------------------
+    # ------ setpoint ramping methods (optional) ------------------------
 
     def start_ramp(self, tloop, sp, **kwargs):
         """
@@ -583,10 +524,44 @@ class Controller:
         log_info(self, "Controller:get_step: %s" % (tloop))
         raise NotImplementedError
 
-    # ------ others ------------------------------
+    # ------ raw methods (optional) ------------------------
 
-    def _f(self):
-        pass
+    def Wraw(self, string):
+        """
+        A string to write to the controller
+        Raises NotImplementedError if not defined by inheriting class
+
+        Args:
+           string:  the string to write
+        """
+        log_info(self, "Controller:Wraw:")
+        raise NotImplementedError
+
+    def Rraw(self):
+        """
+        Reading the controller
+        Raises NotImplementedError if not defined by inheriting class
+
+        returns:
+           answer from the controller
+        """
+        log_info(self, "Controller:Rraw:")
+        raise NotImplementedError
+
+    def WRraw(self, string):
+        """
+        Write then Reading the controller
+        Raises NotImplementedError if not defined by inheriting class
+
+        Args:
+           string:  the string to write
+        returns:
+           answer from the controller
+        """
+        log_info(self, "Controller:WRraw:")
+        raise NotImplementedError
+
+    # ------ safety methods (optional) ------------------------------
 
     def set_in_safe_mode(self, toutput):
         """
@@ -599,7 +574,7 @@ class Controller:
         log_info(self, "Controller:set_in_safe_mode: %s" % (toutput))
         raise NotImplementedError
 
-    # ------ soft regulation only ??? ------------------------
+    # --- controller methods to customize the PID algo (optional) ------------------------
 
     def get_sampling_frequency(self, tloop):
         """
@@ -638,6 +613,8 @@ class Controller:
         log_info(self, "Controller:set_pid_range: %s %s" % (tloop, pid_range))
         raise NotImplementedError
 
+    # --- controller method to set the Output to a given value (optional) -----------
+
     def set_output_value(self, toutput, value):
         """
         Set the value on the Output device.
@@ -650,7 +627,9 @@ class Controller:
         log_info(self, "Controller:set_output_value: %s %s" % (toutput, value))
         raise NotImplementedError
 
-    def start_output_ramp(self, toutput, value, **kwargs):  # required by Output obj
+    # --- controller methods to handle the ramping on the Output (optional) -----------
+
+    def start_output_ramp(self, toutput, value, **kwargs):
         """
         Start ramping on the output
         Raises NotImplementedError if not defined by inheriting class
@@ -691,7 +670,7 @@ class Controller:
         log_info(self, "Controller:is_output_ramping: %s" % (toutput))
         raise NotImplementedError
 
-    def set_output_ramprate(self, toutput, rate):  # required by Output obj
+    def set_output_ramprate(self, toutput, rate):
         """
         Set the output ramp rate
         Raises NotImplementedError if not defined by inheriting class
@@ -703,7 +682,7 @@ class Controller:
         log_info(self, "Controller:set_output_ramprate: %s %s" % (toutput, rate))
         raise NotImplementedError
 
-    def get_output_ramprate(self, toutput):  # required by Output obj
+    def get_output_ramprate(self, toutput):
         """
         Get the output ramp rate
         Raises NotImplementedError if not defined by inheriting class

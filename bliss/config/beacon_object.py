@@ -138,13 +138,20 @@ class BeaconObject:
         else:
             raise RuntimeError("No name for beacon object defined!")
 
+        self._local_initialized = False
         if share_hardware:
-            self.__initialized = Cache(self, "initialized", default_value=False)
+            self.__initialized = Cache(
+                self,
+                "initialized",
+                default_value=False,
+                callback=self.__clear_local_init,
+            )
         else:
 
             class Local:
-                def __init__(self):
+                def __init__(self, cnt):
                     self.__value = False
+                    self._cnt = cnt
 
                 @property
                 def value(self):
@@ -153,8 +160,10 @@ class BeaconObject:
                 @value.setter
                 def value(self, value):
                     self.__value = value
+                    if self._cnt._local_initialized and not value:
+                        self._cnt._local_initialized = False
 
-            self.__initialized = Local()
+            self.__initialized = Local(self)
         self._in_initialize_with_setting = False
         self._event_channel = EventChannel(f"__EVENT__:{self.name}")
         self._event_channel.register_callback(self.__event_handler)
@@ -201,7 +210,6 @@ class BeaconObject:
         self._disabled_settings = HashObjSetting(f"{self.name}:disabled_settings")
 
     def apply_config(self, reload=False):
-
         if reload:
             if not self._config_name:
                 raise RuntimeError(
@@ -256,8 +264,10 @@ class BeaconObject:
             return
         try:
             self._in_initialize_with_setting = True
-            if not self.__initialized.value:
+            if not self._local_initialized:
                 self.__update_settings()
+                self._local_initialized = True
+            if not self.__initialized.value:
                 values = self._settings.get_all()
                 error_messages = []
                 for name, prop in self.__settings_properties().items():
@@ -383,3 +393,7 @@ class BeaconObject:
             return func(self, *args, **kwargs)
 
         return f
+
+    def __clear_local_init(self, value):
+        if self._local_initialized and not value:
+            self._local_initialized = False

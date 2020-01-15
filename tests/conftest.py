@@ -35,6 +35,8 @@ from bliss import logging_startup
 from random import randint
 from contextlib import contextmanager
 
+from bliss.scanning import scan_meta
+
 
 BLISS = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 BEACON = [sys.executable, "-m", "bliss.config.conductor.server"]
@@ -126,6 +128,7 @@ def clean_globals():
     # reset module-level globals
     simulation_diode.DEFAULT_CONTROLLER = None
     simulation_diode.DEFAULT_INTEGRATING_CONTROLLER = None
+    scan_meta.USER_SCAN_META = None
 
 
 @pytest.fixture
@@ -362,10 +365,6 @@ def session(beacon):
 def default_session(beacon):
     default_session = DefaultSession()
 
-    # avoid creation of simulators
-    default_session.config.get_config("wago_simulator")["simulate"] = False
-    default_session.config.get_config("transfocator_simulator")["simulate"] = False
-
     default_session.setup()
     yield default_session
     default_session.close()
@@ -468,22 +467,6 @@ def wago_emulator(beacon):
 
     yield wago
 
-    wago.close()
-
-
-@pytest.fixture
-def transfocator_mockup(default_session):
-    config_tree = default_session.config.get_config("transfocator_simulator")
-    modules_config = ModulesConfig.from_config_tree(config_tree)
-    wago = WagoEmulator(modules_config)
-
-    # patching the port of the simulator
-    # as simulate=True in the config a simulator will be launched
-    default_session.config.get_config("transfocator_simulator")[
-        "controller_port"
-    ] = f"{wago.port}"
-
-    yield wago
     wago.close()
 
 

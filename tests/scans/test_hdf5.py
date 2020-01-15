@@ -30,7 +30,6 @@ def h5dict(scan_file):
         }
 
 
-@pytest.mark.writer
 def test_hdf5_metadata(session):
     all_motors = dict(
         [
@@ -61,7 +60,6 @@ def test_hdf5_metadata(session):
         assert len(all_motors) == 0
 
 
-@pytest.mark.writer
 def test_hdf5_file_items(session):
     roby = session.config.get("roby")
     diode = session.config.get("diode")
@@ -97,7 +95,6 @@ def test_hdf5_file_items(session):
         assert val.items() <= scan_dict[key].items()
 
 
-@pytest.mark.writer
 def test_hdf5_values(session):
     roby = session.config.get("roby")
     diode = session.config.get("diode")
@@ -111,7 +108,6 @@ def test_hdf5_values(session):
     assert list(dataset) == list(data)
 
 
-@pytest.mark.writer
 def test_subscan_in_hdf5(session, lima_simulator, dummy_acq_master, dummy_acq_device):
     chain = AcquisitionChain()
     master1 = timer.SoftwareTimerMaster(0.1, npoints=2, name="timer1")
@@ -142,7 +138,6 @@ def test_subscan_in_hdf5(session, lima_simulator, dummy_acq_master, dummy_acq_de
     assert f[subscan_name]["measurement"]["dummy2:nb"]
 
 
-@pytest.mark.writer
 def test_image_reference_in_hdf5(alias_session, scan_tmpdir):
     env_dict = alias_session.env_dict
 
@@ -185,7 +180,6 @@ def test_image_reference_in_hdf5(alias_session, scan_tmpdir):
     )
 
 
-@pytest.mark.writer
 def test_lima_instrument_entry(alias_session, scan_tmpdir):
     env_dict = alias_session.env_dict
 
@@ -196,15 +190,17 @@ def test_lima_instrument_entry(alias_session, scan_tmpdir):
 
     f = h5py.File(s.writer.filename)
 
+    assert "lima_simulator" in f["1_ascan/instrument/chain_meta/axis/timer/"]
     assert (
-        "saving_frame_per_file"
-        in f["1_ascan/instrument/lima_simulator/ctrl_parameters"]
+        "acq_mode"
+        in f["1_ascan/instrument/chain_meta/axis/timer/lima_simulator/acq_parameters"]
     )
-    assert "acq_mode" in f["1_ascan/instrument/lima_simulator/lima_parameters"]
-    assert "height" in f["1_ascan/instrument/lima_simulator/roi_counters/r1"]
+    assert (
+        "height"
+        in f["1_ascan/instrument/chain_meta/axis/timer/lima_simulator/roi_counters/r1"]
+    )
 
 
-@pytest.mark.writer
 def test_NXclass_of_scan_meta(session, lima_simulator, scan_tmpdir):
 
     # put scan file in a tmp directory
@@ -216,8 +212,59 @@ def test_NXclass_of_scan_meta(session, lima_simulator, scan_tmpdir):
         assert f["1_loopscan/scan_meta"].attrs["NX_class"] == "NXcollection"
         assert f["1_loopscan/scan_meta/sample"].attrs["NX_class"] == "NXsample"
         assert (
-            f["1_loopscan/instrument/lima_simulator"].attrs["NX_class"] == "NXdetector"
+            f["1_loopscan/instrument/chain_meta/timer/lima_simulator"].attrs["NX_class"]
+            == "NXcollection"
         )
         assert (
             f["1_loopscan/instrument/positioners"].attrs["NX_class"] == "NXcollection"
         )
+
+
+def test_scan_info_cleaning(alias_session, scan_tmpdir):
+    env_dict = alias_session.env_dict
+    lima_simulator = env_dict["lima_simulator"]
+    robyy = env_dict["robyy"]
+    diode = alias_session.config.get("diode")
+
+    # put scan file in a tmp directory
+    alias_session.scan_saving.base_path = str(scan_tmpdir)
+
+    # test that positioners are remaining in for a simple counter that does not update 'scan_info'
+    s1 = scans.ascan(robyy, 0, 1, 3, .1, diode)
+    with h5py.File(s1.writer.filename, "r") as f:
+        assert "axis" not in f["1_ascan/instrument/chain_meta"]
+
+    # test that positioners are remaining in for a counter that updates 'scan_info'
+    s2 = scans.ascan(robyy, 0, 1, 3, .1, lima_simulator)
+    assert "positioners" in s2.scan_info["instrument"]
+    with h5py.File(s2.writer.filename, "r") as f:
+        assert "lima_simulator" in f["2_ascan/instrument/chain_meta/axis/timer"]
+
+    # test that 'lima_simulator' does not remain in 'scan_info' for a scan that it is not involved in
+    s3 = scans.ascan(robyy, 0, 1, 3, .1, diode)
+    with h5py.File(s3.writer.filename, "r") as f:
+        assert "axis" not in f["3_ascan/instrument/chain_meta/"]
+
+
+def test_fill_meta_mechanisms(alias_session, lima_simulator, scan_tmpdir):
+
+    # put scan file in a tmp directory
+    alias_session.scan_saving.base_path = str(scan_tmpdir)
+    lima_sim = alias_session.config.get("lima_simulator")
+    transf = alias_session.config.get("transfocator_simulator")
+
+    s = scans.loopscan(3, .1, lima_sim)
+    with h5py.File(s.writer.filename, "r") as f:
+        assert "lima_simulator" in f["1_loopscan/instrument/chain_meta/timer/"]
+        assert (
+            "acq_mode"
+            in f["1_loopscan/instrument/chain_meta/timer/lima_simulator/acq_parameters"]
+        )
+        assert (
+            "height"
+            in f[
+                "1_loopscan/instrument/chain_meta/timer/lima_simulator/roi_counters/r1"
+            ]
+        )
+        assert "transfocator_simulator" in f["1_loopscan/instrument/"]
+        assert "L1" in f["1_loopscan/instrument/transfocator_simulator"]

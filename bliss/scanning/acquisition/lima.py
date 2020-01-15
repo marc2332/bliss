@@ -252,7 +252,6 @@ class LimaAcquisitionMaster(AcquisitionMaster):
             return
 
         if self._image_channel:
-
             self._image_channel.description.update(
                 {"acq_trigger_mode": self.acq_params["acq_trigger_mode"]}
             )
@@ -268,6 +267,7 @@ class LimaAcquisitionMaster(AcquisitionMaster):
                         "saving_mode": self.acq_params["saving_mode"],
                         "saving_directory": self.acq_params["saving_directory"],
                         "saving_prefix": self.acq_params["saving_prefix"],
+                        "user_detector_name": self.device.proxy.user_detector_name,
                     }
                 )
 
@@ -424,16 +424,7 @@ class LimaAcquisitionMaster(AcquisitionMaster):
         return self._reading_task.get()
 
     def fill_meta_at_scan_end(self, scan_meta):
-        scan_meta.instrument.set(
-            self,
-            {
-                self.name: {
-                    "lima_parameters": self.acq_params,
-                    "NX_class": "NXdetector",
-                    "ctrl_parameters": self.ctrl_params,
-                }
-            },
-        )
+        return {"acq_parameters": self.acq_params, "ctrl_parameters": self.ctrl_params}
 
 
 class RoiCountersAcquisitionSlave(IntegratingCounterAcquisitionSlave):

@@ -33,7 +33,7 @@ from bliss.common.plot import (
 from bliss.common.utils import periodic_exec, deep_update
 from bliss.scanning.scan_meta import get_user_scan_meta
 from bliss.common.axis import Axis
-from bliss.common.utils import Statistics, Null
+from bliss.common.utils import Statistics, Null, update_node_info
 from bliss.config.settings import ParametersWardrobe
 from bliss.config.settings import pipeline
 from bliss.data.node import _get_or_create_node, _create_node, is_zerod
@@ -882,6 +882,9 @@ class Scan:
         self.__nodes = dict()
         self._devices = []
 
+        self.user_scan_meta = get_user_scan_meta().copy()
+        # call all master and device to fill scan_meta
+
         self._scan_info["session_name"] = session_name
         self._scan_info["user_name"] = user_name
         self._scan_info.setdefault("title", name)
@@ -1212,7 +1215,7 @@ class Scan:
         self.user_scan_meta = get_user_scan_meta().copy()
         # call all master and device to fill scan_meta
         for dev in self.acq_chain.nodes_list:
-            dev.fill_meta_at_scan_init(self.user_scan_meta)
+            dev.fill_meta_at_scan_start(self.user_scan_meta)
         deep_update(self._scan_info, self.user_scan_meta.to_dict(self))
         self._scan_info["scan_meta_categories"] = self.user_scan_meta.cat_list()
 
@@ -1296,6 +1299,11 @@ class Scan:
                 finally:
                     gevent.killall(prepare_tasks)
 
+            for dev in self.acq_chain.nodes_list:
+                tmp = dev.fill_meta_at_scan_start(self.user_scan_meta)
+                if tmp:
+                    update_node_info(self.nodes[dev], tmp)
+
             self.__state = ScanState.STARTING
             self.__state_change.set()
             self._execute_preset("start")
@@ -1361,7 +1369,9 @@ class Scan:
                     # check if there is any master or device that would like
                     # to provide meta data at the end of the scan
                     for dev in self.acq_chain.nodes_list:
-                        dev.fill_meta_at_scan_end(self.user_scan_meta)
+                        tmp = dev.fill_meta_at_scan_end(self.user_scan_meta)
+                        if tmp:
+                            update_node_info(self.nodes[dev], tmp)
                     self.user_scan_meta.instrument.remove("positioners")
                     deep_update(self._scan_info, self.user_scan_meta.to_dict(self))
                     self._scan_info[

@@ -7,7 +7,7 @@
 
 import os
 import flask
-
+import socket
 from jinja2 import Environment, FileSystemLoader
 
 # from ..configuration.config_app import WebConfig
@@ -70,25 +70,21 @@ def static_file(dir, filename):
 @web_app.route("/configuration/")
 @web_app.route("/config/")
 def config():
-    host = flask.request.host.split(":")[0]
-    return flask.redirect(f"http://{host}:{web_app.config_port}")
+    return flask.redirect(f"http://{socket.gethostname()}:{web_app.config_port}")
 
 
 @web_app.route("/multivisor/")
 @web_app.route("/status/")
 def multivisor():
-    host = flask.request.host.split(":")[0]
-    return flask.redirect(f"http://{host}:22000")
+    return flask.redirect(f"http://{socket.gethostname()}:22000")
 
 
 @web_app.route("/supervisor/")
 def supervisor():
-    host = flask.request.host.split(":")[0]
-    return flask.redirect(f"http://{host}:9001")
+    return flask.redirect(f"http://{socket.gethostname()}:9001")
 
 
 @web_app.route("/log/")
 @web_app.route("/logs/")
 def log_viewer():
-    host = flask.request.host.split(":")[0]
-    return flask.redirect(f"http://{host}:{web_app.log_port}")
+    return flask.redirect(f"http://{socket.gethostname()}:{web_app.log_port}")

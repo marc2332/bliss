@@ -122,6 +122,9 @@ class TangoShutter(BaseShutter):
         """
         return self.state.value, self._tango_status
 
+    def __info__(self):
+        return self._tango_status.rstrip("\n")
+
     def open(self, timeout=60):
         """Open
         Args:

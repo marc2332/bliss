@@ -163,7 +163,14 @@ def main():
     package_data = {
         "bliss.config.redis": ["redis.conf"],
         "bliss.config.plugins": ["*.html"],
-        "bliss.config.conductor.web": [
+        "bliss.config.conductor.web.configuration": [
+            "*.html",
+            "css/*.*",
+            "css/jstree/*.*",
+            "js/*.*",
+            "res/*.*",
+        ],
+        "bliss.config.conductor.web.homepage": [
             "*.html",
             "css/*.*",
             "css/jstree/*.*",

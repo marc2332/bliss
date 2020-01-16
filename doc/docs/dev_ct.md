@@ -325,6 +325,52 @@ A controller exporting N counters.
 Calculation counters can be use to do some computation on raw values
 of real counters.
 
+### Expression based calc counter
+
+Do define calculational counters directly in the *YAML* it is possible to use
+`ExpressionCalcCounter` or `ExpressionCalcCounterController`. These two classes extend the Calculation Counter framework such that expressions defined in the *YAML* are evaluated during the calculation.
+
+Here are some example configurations:
+
+For a single counter 
+```
+- plugin: bliss
+  module: expression_based_calc
+  class: ExpressionCalcCounter
+  name: simu_expr_calc
+  expression: m*x+b
+  inputs:
+      - counter : $diode
+        tags: x
+      - counter : $diode2
+        tags: b
+  constants:
+      m : 10
+```
+
+For multiple counters 
+```
+- plugin: bliss
+  module: expression_based_calc
+  class: ExpressionCalcCounterController
+  name: simu_expr_calc_ctrl
+  inputs:
+      - counter: $simu1.counters.deadtime_det0
+        tags: x
+        
+      - counter: $diode2
+        tags: y
+  constants:
+       m : 10
+       n : 100
+  outputs:
+      - name: out3
+        expression:  m*x
+      - name: out4 
+        expression:  n*y
+```
+
+
 ### Simple example
 
 In this example the calculation counter will return the mean of two
@@ -366,6 +412,7 @@ class Mean(CalcHook):
 
 mean = CalcCounter("mean",Mean(),diode,diode2)
 ```
+
 
 
 #Tutorial

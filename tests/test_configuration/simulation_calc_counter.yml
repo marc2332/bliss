@@ -26,3 +26,36 @@
 
   outputs:
     - name: out2
+
+
+- plugin: bliss
+  module: expression_based_calc
+  class: ExpressionCalcCounter
+  name: simu_expr_calc
+  expression: m*x+b
+  inputs:
+      - counter : $diode
+        tags: x
+      - counter : $diode2
+        tags: b
+  constants:
+      m : 10
+      
+- plugin: bliss
+  module: expression_based_calc
+  class: ExpressionCalcCounterController
+  name: simu_expr_calc_ctrl
+  inputs:
+      - counter: $simu1.counters.deadtime_det0
+        tags: x
+        
+      - counter: $diode2
+        tags: y
+  constants:
+       m : 10
+       n : 100
+  outputs:
+      - name: out3
+        expression:  m*x
+      - name: out4 
+        expression:  n*y

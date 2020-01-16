@@ -19,7 +19,7 @@ conda_base = os.environ.get("CONDA_PREFIX")
 extensions = []
 sip_extensions = []
 
-build_flint = sys.platform not in ["win32", "cygwin"]
+build_flint = False  # sys.platform not in ["win32", "cygwin"]
 
 if build_flint:
     poll = Extension(

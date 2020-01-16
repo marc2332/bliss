@@ -965,7 +965,7 @@ class Axis:
             _info_string += f"     velocity: None\n"
 
         try:
-            _info_string += self.__controller.__info__(self)
+            _info_string += self.__controller.__info__()
         except Exception as e:
             _info_string += f"{self.controller}\n"
 

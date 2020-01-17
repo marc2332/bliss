@@ -99,7 +99,10 @@ class EMH(CounterController):
         for counter_conf in config.get("counters", list()):
             unit = counter_conf.get_inherited("unit")
             self.create_counter(
-                EmhCounter, counter_conf["counter_name"], counter_conf["channel"], unit
+                EmhCounter,
+                counter_conf["counter_name"],
+                counter_conf["channel"],
+                unit=unit,
             )
 
         self.bpm_values = {"bpmx": -1, "bpmy": -1, "bpmi": -1}

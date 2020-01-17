@@ -307,10 +307,6 @@ def create_plot_model(scan_info: Dict) -> List[plot_model.Plot]:
 
     if have_scatter:
         for _master, channels in scan_info["acquisition_chain"].items():
-            if len(channels.get("master", {}).get("scalars", [])) < 2:
-                # Not enough of a scatter
-                continue
-
             plot = plot_item_model.ScatterPlot()
             if default_plot is None:
                 default_plot = plot
@@ -330,8 +326,16 @@ def create_plot_model(scan_info: Dict) -> List[plot_model.Plot]:
             else:
                 scalar = None
 
-            x_channel = plot_model.ChannelRef(plot, axes_channels[0])
-            y_channel = plot_model.ChannelRef(plot, axes_channels[1])
+            if len(axes_channels) >= 1:
+                x_channel = plot_model.ChannelRef(plot, axes_channels[0])
+            else:
+                x_channel = None
+
+            if len(axes_channels) >= 2:
+                y_channel = plot_model.ChannelRef(plot, axes_channels[1])
+            else:
+                y_channel = None
+
             if scalar is not None:
                 data_channel = plot_model.ChannelRef(plot, scalar)
             else:

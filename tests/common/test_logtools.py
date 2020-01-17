@@ -358,3 +358,11 @@ def test_lprint_disable(capsys, log_shell_mode):
     with lprint_disable():
         lprint("something")
     assert capsys.readouterr().out == ""
+
+
+def test_nested_lprint_disable(capsys, log_shell_mode):
+    with lprint_disable():
+        with lprint_disable():
+            lprint("something")
+        lprint("should not appear")
+    assert capsys.readouterr().out == ""

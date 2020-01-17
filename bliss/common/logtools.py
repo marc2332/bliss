@@ -282,6 +282,9 @@ class LogbookPrint:
         if self.stdout_handler in self.logger.handlers:
             self.logger.removeHandler(self.stdout_handler)
 
+    def has_stdout_handler(self):
+        return self.stdout_handler in self.logger.handlers
+
     def add_logbook_handler(self):
         raise NotImplementedError
 
@@ -304,9 +307,12 @@ lprint = logbook_printer.lprint
 
 @contextlib.contextmanager
 def lprint_disable():
-    logbook_printer.remove_stdout_handler()
-    yield
-    logbook_printer.add_stdout_handler()
+    if logbook_printer.has_stdout_handler():
+        logbook_printer.remove_stdout_handler()
+        yield
+        logbook_printer.add_stdout_handler()
+    else:
+        yield
 
 
 @contextlib.contextmanager

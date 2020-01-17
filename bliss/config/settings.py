@@ -425,9 +425,11 @@ class QueueSetting(BaseSetting):
     def set(self, values, cnx=None):
         if cnx is None:
             cnx = self.connection
-        cnx.delete(self.name)
+        p = cnx.pipeline()
+        p.delete(self.name)
         if values is not None:
-            cnx.rpush(self.name, *values)
+            p.rpush(self.name, *values)
+        p.execute()
 
     @write_decorator
     def set_item(self, value, pos=0, cnx=None):

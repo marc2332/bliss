@@ -165,7 +165,7 @@ class SoftwarePositionTriggerMaster(MotorMaster):
         )
         if isinstance(start, list):
             # in case nb points for last iter is different from first iter
-            self.__last_npoints = (end - start[-1]) * npoints / (start[1] - start[0])
+            self.__last_npoints = (end - start[-1]) * npoints // (start[1] - start[0])
         else:
             self.__last_npoints = npoints
 
@@ -800,7 +800,7 @@ class SweepMotorMaster(AcquisitionMaster):
             last_npoints = (
                 (self.end_pos - self.start_pos[-1])
                 * self.npoints
-                / (self.start_pos[1] - self.start_pos[0])
+                // (self.start_pos[1] - self.start_pos[0])
             )
             niter = len(self.start_pos)
             self.start_pos = next(iter_pos)

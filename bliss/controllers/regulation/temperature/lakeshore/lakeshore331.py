@@ -576,7 +576,9 @@ class LakeShore331(Controller):
         # log_debug(self, "values = {0}".format(values))
         log_debug(self, f"send_cmd {cmd}")
         if "?" in command:
-            asw = self._comm.write_readline(cmd.encode() + self.eol.encode())
+            asw = self._comm.write_readline(
+                cmd.encode() + self.eol.encode(), timeout=3.0
+            )
             return asw.decode().strip(";")
         else:
             self._comm.write(cmd.encode() + self.eol.encode())

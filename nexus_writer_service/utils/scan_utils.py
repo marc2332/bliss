@@ -19,15 +19,36 @@ from .logging_utils import print_out
 __all__ = ["open_data", "open_dataset"]
 
 
-def scan_name(scan, subscan=1):
+def scan_info(scan):
     """
-    :param bliss.scanning.scan.Scan or dict scan_info:
-    :returns str:
+    :param bliss.scanning.scan.Scan or bliss.data.nodes.scan.Scan scan:
+    :returns dict:
     """
     try:
-        info = scan.scan_info
+        # bliss.scanning.scan.Scan -> dict
+        return scan.scan_info
     except AttributeError:
-        info = scan.info
+        # bliss.data.nodes.scan.Scan -> dict
+        return scan.info.get_all()
+
+
+def is_scan_group(scan):
+    """
+    :param bliss.scanning.scan.Scan or bliss.data.nodes.scan.Scan scan:
+    :returns bool:
+    """
+    try:
+        return scan.node.type == "scan_group"
+    except AttributeError:
+        return scan.type == "scan_group"
+
+
+def scan_name(scan, subscan=1):
+    """
+    :param bliss.scanning.scan.Scan or bliss.data.nodes.scan.Scan scan:
+    :returns str:
+    """
+    info = scan_info(scan)
     return "{}.{}".format(info["scan_nb"], subscan)
 
 
@@ -38,16 +59,21 @@ def scan_filenames(scan, config=True):
     :param bliss.scanning.scan.Scan or bliss.data.nodes.scan.Scan scan:
     :returns list(str):
     """
-    try:
-        info = scan.scan_info
-    except AttributeError:
-        info = scan.info
+    info = scan_info(scan)
+    lst = []
     if config:
         try:
-            return info["nxwriter"]["filenames"]
+            lst = list(info["nexuswriter"]["filenames"])
         except KeyError:
             pass
-    return [filename_int2ext(info["filename"])]
+    if not lst:
+        lst = [filename_int2ext(info["filename"])]
+    if is_scan_group(scan) and lst[0]:
+        dirname, filename = os.path.split(lst[0])
+        filename, ext = os.path.splitext(filename)
+        filename += ".{}".format(info["scan_nb"])
+        lst[0] = os.path.join(dirname, filename + ext)
+    return lst
 
 
 def session_filenames(scan_saving=None, config=True):
@@ -84,8 +110,13 @@ def scan_uris(scan, config=True):
     :param bool config: expect configurable writer
     :returns list(str):
     """
-    tree = scan.acq_chain._tree
-    subscans = range(1, len(tree.children(tree.root)) + 1)
+    try:
+        tree = scan.acq_chain._tree
+    except AttributeError:
+        nsubscans = len(scan_info(scan)["acquisition_chain"])
+    else:
+        nsubscans = len(tree.children(tree.root))
+    subscans = range(1, nsubscans + 1)
     return [scan_uri(scan, subscan=subscan, config=config) for subscan in subscans]
 
 

@@ -55,7 +55,7 @@ def assert_async_scans_success(scans, greenlets):
     for g, s in zip(greenlets, scans):
         try:
             g.get()
-        except Exception as e:
+        except BaseException as e:
             print("\nSCAN FAILED: " + str(s))
             traceback.print_exc()
             failed += 1
@@ -125,7 +125,7 @@ def assert_scan_data_not_corrupt(scans, config=True, **kwargs):
     for filename in filenames:
         try:
             h5todict(filename)
-        except Exception:
+        except BaseException:
             raise AssertionError(filename)
 
 
@@ -261,7 +261,7 @@ def popencontext(*popenargs, **popenkw):
     process.start()
     try:
         yield process
-    except Exception:
+    except BaseException:
         process.print()
         raise
     finally:
@@ -275,9 +275,9 @@ def stdout_on_exception(process):
     """
     try:
         yield
-    except Exception:
+    except BaseException:
         if process is not None:
-            process.print_stdout()
+            process.print()
         raise
 
 

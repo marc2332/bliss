@@ -19,13 +19,13 @@ device:
     session: test_session
 ```
 
-Alternatively you can register the device manually or by using this helper script which ensures there there is only writer listening per BLISS session
+The device class should always be __NexusWriter__ and the __session__ property should be the BLISS session name. If you want to register the device manually with the TANGO database, you can use a helper function to avoid mistakes (correct class name and session property, only one TANGO device per session)
 
 ```bash
    $ python -m nexus_writer_service.nexus_register_writer test_session --domain id00 --instance nexuswriters
 ```
 
-In this example we registered a writer for BLISS session __test_session__ which runs under domain __id00__ in TANGO server instance __nexuswriters__. The device family is __bliss_nxwriter__ by default and the device name is equal to the session name. Running multiple session writers in on TANGO server instance (i.e. one process) is allowed but not recommended if the associated BLISS sessions may produce lots of data simultaneously.
+In this example we registered a writer for BLISS session __test_session__ which runs under domain __id00__ in TANGO server instance __nexuswriters__. By default the device family is __bliss_nxwriter__ and the device name is equal to the session name. Running multiple session writers in on TANGO server instance (i.e. one process) is allowed but not recommended if the associated BLISS sessions may produce lots of data simultaneously.
 
 ### Start the Tango server
 

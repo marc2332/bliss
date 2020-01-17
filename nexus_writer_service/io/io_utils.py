@@ -68,7 +68,7 @@ def close_files(*fds):
                     pass
                 else:
                     raise
-        except Exception as e:
+        except BaseException as e:
             exceptions.append(e)
     if exceptions:
         raise Exception(exceptions)

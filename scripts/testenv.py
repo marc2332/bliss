@@ -113,7 +113,8 @@ def wait_interrupt(prompt):
     sys.stdout.flush()
     while True:
         try:
-            gevent.select.select([], [], [])
+            input()
+            # gevent.select.select([], [], [])
         except KeyboardInterrupt:
             return ""
 

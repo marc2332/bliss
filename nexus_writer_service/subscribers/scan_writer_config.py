@@ -56,24 +56,14 @@ class NexusScanWriterConfigurable(scan_writer_base.NexusScanWriterBase):
             kwargs[option] = kwargs.get(option, default)
         super().__init__(*args, **kwargs)
         self._applications = {"appxrf": self._save_application_xrf}
-
-    @property
-    def filenames(self):
-        """
-        :returns list: a list of filenames, the first for the dataset
-                       and the others for the masters
-        """
-        if self.save:
-            return scan_utils.scan_filenames(self.node, config=True)
-        else:
-            return []
+        self._configurable = True
 
     @property
     def config_writer(self):
         """
         Writer information not published by the core Bliss library
         """
-        return self.get_info("nxwriter", default={})
+        return self.get_info("nexuswriter", default={})
 
     @property
     def instrument_name(self):
@@ -567,8 +557,8 @@ class NexusScanWriterConfigurable(scan_writer_base.NexusScanWriterBase):
             if nxentry is None:
                 return
             self.logger.info("Create scan links in masters ...")
-            prefix, ext = os.path.splitext(os.path.basename(nxentry.file.filename))
-            linkname = prefix + ": " + nxentry.name[1:]
+            linkname, ext = os.path.splitext(os.path.basename(nxentry.file.filename))
+            linkname += ": " + nxentry.name[1:]
             for level in range(1, n):
                 with self.nxroot(level=level) as nxroot:
                     if nxroot is None:

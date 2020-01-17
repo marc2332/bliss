@@ -32,7 +32,7 @@ from ..utils import scan_utils
 logger = logging.getLogger(__name__)
 
 
-CATEGORIES = ["NXWRITER", "INSTRUMENT"]
+CATEGORIES = ["NEXUSWRITER", "INSTRUMENT"]
 
 
 def register_metadata_generators(generators):
@@ -43,12 +43,12 @@ def register_metadata_generators(generators):
     """
     instrument = generators.instrument
     instrument.set("positioners", fill_positioners)  # start of scan
-    nxwriter = generators.nxwriter
-    nxwriter.set("instrument", fill_instrument_name)
-    nxwriter.set("positioners", fill_positioners)  # end of scan
-    nxwriter.set("device_info", fill_device_info)
-    nxwriter.set("technique", fill_technique_info)
-    nxwriter.set("filenames", fill_filenames)
+    generators = generators.nexuswriter
+    generators.set("instrument", fill_instrument_name)
+    generators.set("positioners", fill_positioners)  # end of scan
+    generators.set("device_info", fill_device_info)
+    generators.set("technique", fill_technique_info)
+    generators.set("filenames", fill_filenames)
 
 
 def fill_positioners(scan):
@@ -128,24 +128,6 @@ def _samplingcounter_device_info(ctr):
     return {"type": "samplingcounter", "mode": ctr.mode.name}
 
 
-def _mca_roi_data_info(ctr):
-    """
-    :param RoiMcaCounter ctr:
-    :returns dict:
-    """
-    roi = ctr._counter_controller.rois.get(ctr.roi_name)
-    return {"roi_start": roi[0], "roi_end": roi[1]}
-
-
-def _lima_roi_data_info(ctr):
-    """
-    :param RoiStatCounter ctr:
-    :returns dict:
-    """
-    roi = ctr._counter_controller.get(ctr.roi_name)
-    return {"roi_" + k: v for k, v in roi.to_dict().items()}
-
-
 def device_info(scan):
     """
     Publish information on devices (defines types and groups counters).
@@ -175,21 +157,16 @@ def _device_info_add_ctr(devices, ctr):
         return
     alias = global_map.aliases.get_alias(ctr)
     if isinstance(ctr, SpectrumMcaCounter):
-        device_info = _mca_device_info(ctr)
+        device_info = {"type": "mca"}
         device = {"device_info": device_info, "device_type": "mca"}
         devices[fullname] = device
     elif isinstance(ctr, StatisticsMcaCounter):
-        device_info = _mca_device_info(ctr)
+        device_info = {"type": "mca"}
         device = {"device_info": device_info, "device_type": "mca"}
         devices[fullname] = device
     elif isinstance(ctr, RoiMcaCounter):
-        device_info = _mca_device_info(ctr)
-        data_info = _mca_roi_data_info(ctr)
-        device = {
-            "device_info": device_info,
-            "data_info": data_info,
-            "device_type": "mca",
-        }
+        device_info = {"type": "mca"}
+        device = {"device_info": device_info, "device_type": "mca"}
         devices[fullname] = device
     elif isinstance(ctr, LimaBpmCounter):
         device_info = {"type": "lima"}
@@ -201,12 +178,7 @@ def _device_info_add_ctr(devices, ctr):
         devices[fullname] = device
     elif isinstance(ctr, RoiStatCounter):
         device_info = {"type": "lima"}
-        data_info = _lima_roi_data_info(ctr)
-        device = {
-            "device_info": device_info,
-            "device_type": "lima",
-            "data_info": data_info,
-        }
+        device = {"device_info": device_info, "device_type": "lima"}
         devices[fullname] = device
     elif isinstance(ctr, SamplingCounter):
         device_info = _samplingcounter_device_info(ctr)

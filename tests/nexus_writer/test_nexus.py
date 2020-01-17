@@ -608,3 +608,147 @@ def test_nexus_exists(scan_tmpdir):
         assert nexus.exists(uri)
         with pytest.raises(nexus.NexusInstanceExists):
             nexus.nxPositioner(parent, "positioner", raise_on_exists=True)
+
+
+def test_nexus_dicttonx_dataset(scan_tmpdir):
+    with nxroot(scan_tmpdir, "test_nexus_dicttonx_dataset") as group:
+        dsetorg = dset = nexus._dicttonx_create_dataset(
+            group, "dataset", [1, 2, 3], overwrite=False, update=False
+        )
+        nexus._dicttonx_create_attr(dset, "attr", "a", update=False)
+        assert dset[()].tolist() == [1, 2, 3]
+        assert dset.attrs["attr"] == "a"
+        assert dset.id == dsetorg.id
+        # Preserve values and attributes
+        dset = nexus._dicttonx_create_dataset(
+            group, "dataset", [4, 5, 6], overwrite=False, update=False
+        )
+        nexus._dicttonx_create_attr(dset, "attr", "b", update=False)
+        assert dset[()].tolist() == [1, 2, 3]
+        assert dset.attrs["attr"] == "a"
+        assert dset.id == dsetorg.id
+        # Preserve values but not attributes
+        dset = nexus._dicttonx_create_dataset(
+            group, "dataset", [4, 5, 6], overwrite=False, update=False
+        )
+        nexus._dicttonx_create_attr(dset, "attr", "b", update=True)
+        assert dset[()].tolist() == [1, 2, 3]
+        assert dset.attrs["attr"] == "b"
+        assert dset.id == dsetorg.id
+        # Preserve attributes but not values
+        dset = nexus._dicttonx_create_dataset(
+            group, "dataset", [4, 5, 7], overwrite=False, update=True
+        )
+        assert dset[()].tolist() == [4, 5, 7]
+        assert dset.attrs["attr"] == "b"
+        assert dset.id == dsetorg.id
+        # Preserve attributes but not values
+        dset = nexus._dicttonx_create_dataset(
+            group, "dataset", [7, 8], overwrite=False, update=True
+        )
+        assert dset[()].tolist() == [7, 8]
+        assert dset.attrs["attr"] == "b"
+        assert dset.id != dsetorg.id
+        # Do not preserve values nor attributes
+        dsetorg = dset
+        dset = nexus._dicttonx_create_dataset(
+            group, "dataset", [9, 10], overwrite=True, update=False
+        )
+        assert dset[()].tolist() == [9, 10]
+        assert "attr" not in dset.attrs
+        assert dset.id == dsetorg.id
+        dset.attrs["attr"] = "b"
+        # Do not preserve values nor attributes
+        dset = nexus._dicttonx_create_dataset(
+            group, "dataset", [12, 13, 14], overwrite=True, update=False
+        )
+        assert dset[()].tolist() == [12, 13, 14]
+        assert "attr" not in dset.attrs
+        assert dset.id != dsetorg.id
+
+
+def test_nexus_dicttonx_group(scan_tmpdir):
+    with nxroot(scan_tmpdir, "test_nexus_dicttonx_group") as root:
+        grouporg = group = nexus._dicttonx_create_group(root, "group", overwrite=False)
+        group["dataset"] = [1, 2, 3]
+        nexus._dicttonx_create_attr(group, "attr", "a")
+        assert group.attrs["attr"] == "a"
+        assert list(group.keys()) == ["dataset"]
+        assert group.id == grouporg.id
+        # Preserve datasets and attributes
+        group = nexus._dicttonx_create_group(root, "group", overwrite=False)
+        assert group.attrs["attr"] == "a"
+        assert list(group.keys()) == ["dataset"]
+        assert group.id == grouporg.id
+        # Do not preserve datasets and attributes
+        group = nexus._dicttonx_create_group(root, "group", overwrite=True)
+        assert "attr" not in group.attrs
+        assert list(group.keys()) == []
+        assert group.id == grouporg.id
+
+
+def test_nexus_dictdump(scan_tmpdir):
+    with nxroot(scan_tmpdir, "test_nexus_dictdump") as root:
+        group = root.create_group("group")
+        treedict1 = {
+            "group1": {"a": 1, "b": 2},
+            "group2": {
+                "@NX_class": "NXentry",
+                "@attr1": "attr1",
+                "@attr2": "attr2",
+                "c": 3,
+                "d": 4,
+                "dataset4": {"@data": 8, "@units": "keV"},
+            },
+            "group3": {"subgroup": {"e": 9, "f": 10}},
+            "dataset1": 5,
+            "dataset2": {"@data": 6},
+            "dataset3": {"@data": 7, "@units": "mm"},
+        }
+        treedict2 = {
+            "@NX_class": "NXcollection",
+            "group1": {"@NX_class": "NXcollection", "a": 1, "b": 2},
+            "group2": {
+                "@NX_class": "NXentry",
+                "@attr1": "attr1",
+                "@attr2": "attr2",
+                "c": 3,
+                "d": 4,
+                "dataset4": {"@data": 8, "@units": "keV"},
+            },
+            "group3": {
+                "@NX_class": "NXcollection",
+                "subgroup": {"@NX_class": "NXcollection", "e": 9, "f": 10},
+            },
+            "dataset1": 5,
+            "dataset2": 6,
+            "dataset3": {"@data": 7, "@units": "mm"},
+        }
+        nexus.dicttonx(treedict1, group, overwrite=False, update=False)
+        treedict3 = nexus.nxtodict(group)
+        assert treedict2 == treedict3
+        # Add non-existing attributes/datasets/groups
+        treedict1["group1"].pop("a")
+        treedict1["group2"].pop("@attr1")
+        treedict1["group2"]["@attr2"] = "attr3"
+        treedict1["group2"]["@type"] = "test"
+        treedict1["group2"]["dataset4"] = {"@data": 9}
+        treedict1["group3"] = {}
+        treedict2["group2"]["@type"] = "test"
+        nexus.dicttonx(treedict1, group, overwrite=False, update=False)
+        treedict3 = nexus.nxtodict(group)
+        assert treedict2 == treedict3
+        # Add update existing attributes and datasets
+        treedict2["group2"]["@attr2"] = "attr3"
+        treedict2["group2"]["dataset4"]["@data"] = 9
+        nexus.dicttonx(treedict1, group, overwrite=False, update=True)
+        treedict3 = nexus.nxtodict(group)
+        assert treedict2 == treedict3
+        # Overwrite existing groups/datasets (existing datasets/attributes will be removed)
+        treedict2["group1"].pop("a")
+        treedict2["group2"].pop("@attr1")
+        treedict2["group2"]["dataset4"] = 9
+        treedict2["group3"] = {"@NX_class": "NXcollection"}
+        nexus.dicttonx(treedict1, group, overwrite=True, update=False)
+        treedict3 = nexus.nxtodict(group)
+        assert treedict2 == treedict3

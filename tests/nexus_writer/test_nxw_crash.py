@@ -36,7 +36,7 @@ def _test_tango(session=None, tmpdir=None, writer=None, config=True, **kwargs):
 
 
 def _crash_scan_writer_greenlet(filename, detector):
-    return  # does not work because scan writer holds the file open
+    return  # TODO: does not work because scan writer holds the file open
 
     # Test crashing scan writer (only the greenlet)
     scan = scans.timescan(.1, detector, run=False)
@@ -48,8 +48,9 @@ def _crash_scan_writer_greenlet(filename, detector):
         os.chmod(filename, 0o544)
 
     greenlet = gevent.spawn(crash_writer)
-    with pytest.raises(RuntimeError):
-        scan.run()
+    with gevent.Timeout(20):
+        with pytest.raises(RuntimeError):
+            scan.run()
     greenlet.join()
     try:
         os.remove(filename)
@@ -70,8 +71,9 @@ def _crash_scan_writer_process(filename, detector, writer):
         writer.kill()
 
     greenlet = gevent.spawn(kill_writer)
-    with pytest.raises(DevFailed):
-        scan.run()
+    with gevent.Timeout(20):
+        with pytest.raises(DevFailed):
+            scan.run()
     greenlet.join()
     try:
         os.remove(filename)

@@ -11,7 +11,7 @@ End user API for the Linkam regulation objects
       output: $linkam1_out
 """
 
-
+from bliss.shell.standard import ShellStr
 from bliss.common.regulation import Input, Output, Loop, lazy_init
 from bliss.common.utils import autocomplete_property
 
@@ -51,28 +51,42 @@ class LinkamOutput(Output):
         return super().__repr__()
 
     @autocomplete_property
-    def PumpMode(self):
+    def pump_mode_enum(self):
         return self.controller.PumpMode
 
-    @autocomplete_property
+    @property
+    @lazy_init
+    def valid_pump_modes(self):
+        lines = ["\n"]
+        for pme in self.controller.PumpMode:
+            lines.append(f"{pme.name} = {pme.value}")
+        return ShellStr("\n".join(lines))
+
+    @property
+    @lazy_init
     def pump_auto(self):
         return self.controller.get_pump_auto()
 
     @pump_auto.setter
+    @lazy_init
     def pump_auto(self, value):
         return self.controller.set_pump_auto(value)
 
-    @autocomplete_property
+    @property
+    @lazy_init
     def pump_speed(self):
         return self.controller.get_pump_speed()
 
     @pump_speed.setter
+    @lazy_init
     def pump_speed(self, value):
         return self.controller.set_pump_speed(value)
 
+    @lazy_init
     def heat(self):
         self.controller.heat()
 
+    @lazy_init
     def cool(self):
         self.controller.cool()
 
@@ -86,20 +100,6 @@ class LinkamLoop(Loop):
         # this is for the mapping: it needs a representation of instance
         return super().__repr__()
 
-    @property
     @lazy_init
-    def regulation_info(self):
-        """ Read:
-                - the stored rate
-                - the stored setpoint
-                - the current stage status (stopped, heating, etc.)
-        """
-        self.controller.clear(self)
-        regulation_dict = {}
-        regulation_dict["rate"] = self.controller.get_ramprate(self)
-        regulation_dict["sp"] = self.controller.get_setpoint(self)
-        regulation_dict["status"] = self.controller.is_ramping(self)
-        return regulation_dict
-
     def hold(self):
         self.controller.set_hold_on(self)

@@ -88,7 +88,12 @@ class ChainBuilder:
         # --- counters = [MG, cnt, ctrl, cnt_grp]
         counter_list = get_all_counters(
             counters
-        )  # => also add the counters dependecies of CalcCounterController
+        )  # => also add the counters dependencies of CalcCounterController
+        # but if it is a CalcCounter the real cnt dependencies must be discovered
+        for cnt in counter_list:
+            if isinstance(cnt, CalcCounter):
+                counter_list.extend(cnt._counter_controller.inputs)
+
         # print("===== received counter_list", [x.name for x in counter_list ])
 
         # --- Remove duplicates ----------------------------------

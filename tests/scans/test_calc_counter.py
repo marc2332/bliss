@@ -8,7 +8,7 @@
 # ----------------------------- TEST -----------------------------------------------------------
 import numpy
 
-from bliss.common.scans import ascan
+from bliss.common.scans import ascan, loopscan
 from bliss.controllers.simulation_calc_counter import MeanCalcCounterController
 from bliss.scanning.acquisition.motor import LinearStepTriggerMaster
 from bliss.scanning.acquisition.calc import CalcChannelAcquisitionSlave, CalcHook
@@ -220,3 +220,31 @@ def test_calc_channels_mean_position(default_session):
     sc.run()
 
     assert numpy.array_equal(sc.get_data()["mean_pos"], numpy.ones((10,)) / 2.)
+
+
+def test_single_calc_counter(default_session):
+    mg1 = default_session.config.get("MG1")
+    calc_counter_ctrl = default_session.config.get("simul_calc_controller2")
+    calc_counter = calc_counter_ctrl.outputs.out2
+
+    mg1.add(calc_counter)
+
+    s = loopscan(1, .1, calc_counter_ctrl)
+    s.get_data()["deadtime_det0"]
+    s.get_data()["deadtime_det1"]
+    s.get_data()["out2"]
+
+    s = loopscan(1, .1, calc_counter)
+    s.get_data()["deadtime_det0"]
+    s.get_data()["deadtime_det1"]
+    s.get_data()["out2"]
+
+    s = loopscan(1, .1, mg1)
+    s.get_data()["deadtime_det0"]
+    s.get_data()["deadtime_det1"]
+    s.get_data()["out2"]
+
+    s = loopscan(1, .1)
+    s.get_data()["deadtime_det0"]
+    s.get_data()["deadtime_det1"]
+    s.get_data()["out2"]

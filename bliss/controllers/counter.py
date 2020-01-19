@@ -216,11 +216,11 @@ class CalcCounterController(CounterController):
 
     @property
     def inputs(self):
-        return self._input_counters
+        return counter_namespace(self._input_counters)
 
     @property
     def outputs(self):
-        return self._output_counters
+        return counter_namespace(self._output_counters)
 
     @property
     def counters(self):

@@ -373,6 +373,21 @@ class TooltipItemManager:
             self.__updateToolTipMarker(None, None)
             qt.QToolTip.hideText()
 
+    def __getColoredChar(self, value, data, item):
+        colormap = item.getColormap()
+        # FIXME silx 0.13 provides a better API for that
+        vmin, vmax = colormap.getColormapRange(data)
+        data = numpy.array([float(value), vmin, vmax])
+        colors = colormap.applyToData(data)
+        cssColor = f"#{colors[0,0]:02X}{colors[0,1]:02X}{colors[0,2]:02X}"
+
+        flintModel = self.__parent.flintModel()
+        if flintModel is not None and flintModel.getDate() == "0214":
+            char = "\u2665"
+        else:
+            char = "■"
+        return f"""<font color="{cssColor}">{char}</font>"""
+
     def __createImageTooltip(self, item: FlintImage, index: numpy.ndarray):
         y, x = index
         image = item.getData(copy=False)
@@ -389,23 +404,13 @@ class TooltipItemManager:
         else:
             imageName = "Image"
 
-        colormap = item.getColormap()
-        # FIXME silx 0.13 provides a better API for that
-        vmin, vmax = colormap.getColormapRange(item.getData(copy=False))
-        colors = colormap.applyToData(numpy.array([float(value), vmin, vmax]))
-        cssColor = f"#{colors[0,0]:02X}{colors[0,1]:02X}{colors[0,2]:02X}"
-
-        flintModel = self.__parent.flintModel()
-
-        if flintModel is not None and flintModel.getDate() == "0214":
-            char = "\u2665"
-        else:
-            char = "■"
+        data = item.getData(copy=False)
+        char = self.__getColoredChar(value, data, item)
 
         text = f"""<html><ul>
         <li><b>Col, X:</b> {x}</li>
         <li><b>Row, Y:</b> {y}</li>
-        <li><b>{imageName}:</b> <font color="{cssColor}">{char}</font> {value}</li>
+        <li><b>{imageName}:</b> {char} {value}</li>
         </ul></html>"""
         return x + 0.5, y + 0.5, text
 
@@ -432,24 +437,14 @@ class TooltipItemManager:
             yName = "Y"
             vName = "Value"
 
-        colormap = item.getColormap()
-        # FIXME silx 0.13 provides a better API for that
-        vmin, vmax = colormap.getColormapRange(item.getValueData(copy=False))
-        colors = colormap.applyToData(numpy.array([value, vmin, vmax]))
-        cssColor = f"#{colors[0,0]:02X}{colors[0,1]:02X}{colors[0,2]:02X}"
-
-        flintModel = self.__parent.flintModel()
-
-        if flintModel is not None and flintModel.getDate() == "0214":
-            char = "\u2665"
-        else:
-            char = "■"
+        data = item.getValueData(copy=False)
+        char = self.__getColoredChar(value, data, item)
 
         text = f"""<html><ul>
         <li><b>Index:</b> {index}</li>
         <li><b>{xName}:</b> {x}</li>
         <li><b>{yName}:</b> {y}</li>
-        <li><b>{vName}:</b> <font color="{cssColor}">{char}</font> {value}</li>
+        <li><b>{vName}:</b> {char} {value}</li>
         </ul></html>"""
         return x, y, text
 

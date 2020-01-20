@@ -14,8 +14,11 @@ from bliss.flint.model import plot_item_model
 from bliss.flint.helper import style_helper
 
 
-@pytest.mark.usefixtures("xvfb")
+@pytest.mark.usefixtures("local_flint")
 class TestImagePlot(TestCaseQt):
+
+    NB_PERMANENT_ITEM = 3
+
     def create_scan(self):
         scan = scan_model.Scan()
         master = scan_model.Device(scan)
@@ -72,7 +75,7 @@ class TestImagePlot(TestCaseQt):
         widget.show()
 
         silxPlot = widget._silxPlot()
-        assert len(silxPlot.getItems()) == 0
+        assert len(silxPlot.getItems()) == self.NB_PERMANENT_ITEM
         widget.close()
 
     def test_display_image(self):
@@ -92,7 +95,8 @@ class TestImagePlot(TestCaseQt):
         widget.show()
 
         silxPlot = widget._silxPlot()
-        assert len(silxPlot.getItems()) > 0
+        self.qWait(1000)
+        assert len(silxPlot.getItems()) > self.NB_PERMANENT_ITEM
         widget.close()
 
     def test_image_visibility(self):
@@ -111,18 +115,21 @@ class TestImagePlot(TestCaseQt):
         widget.setFlintModel(flint)
         widget.setPlotModel(plot)
         widget.show()
+        self.qWait(1000)
         silxPlot = widget._silxPlot()
-        assert len(silxPlot.getItems()) > 0
+        assert len(silxPlot.getItems()) > self.NB_PERMANENT_ITEM
 
         imageItem = list(plot.items())[0]
         imageItem.setVisible(False)
+        self.qWait(1000)
         silxPlot = widget._silxPlot()
-        assert len(silxPlot.getItems()) == 0
+        assert len(silxPlot.getItems()) == self.NB_PERMANENT_ITEM
 
         imageItem = list(plot.items())[0]
         imageItem.setVisible(True)
+        self.qWait(1000)
         silxPlot = widget._silxPlot()
-        assert len(silxPlot.getItems()) > 0
+        assert len(silxPlot.getItems()) > self.NB_PERMANENT_ITEM
         widget.close()
 
     def test_update_image(self):
@@ -148,7 +155,7 @@ class TestImagePlot(TestCaseQt):
         scan._fireScanDataUpdated("chan1", "master")
 
         silxPlot = widget._silxPlot()
-        assert len(silxPlot.getItems()) > 0
+        assert len(silxPlot.getItems()) > self.NB_PERMANENT_ITEM
         widget.close()
 
     def test_new_scan_with_data(self):
@@ -164,8 +171,9 @@ class TestImagePlot(TestCaseQt):
         widget.setFlintModel(flint)
         widget.setPlotModel(plot)
         widget.show()
+        self.qWait(1000)
         silxPlot = widget._silxPlot()
-        assert len(silxPlot.getItems()) == 0
+        assert len(silxPlot.getItems()) == self.NB_PERMANENT_ITEM
 
         # Provide a new scan with data
         scan2 = self.create_scan()
@@ -173,8 +181,9 @@ class TestImagePlot(TestCaseQt):
         data = scan_model.Data(scan2, array)
         scan2.getChannelByName("chan1").setData(data)
         flint.setCurrentScan(scan2)
+        self.qWait(1000)
         silxPlot = widget._silxPlot()
-        assert len(silxPlot.getItems()) > 0
+        assert len(silxPlot.getItems()) > self.NB_PERMANENT_ITEM
         widget.close()
 
     def test_new_scan_without_data(self):
@@ -193,14 +202,16 @@ class TestImagePlot(TestCaseQt):
         widget.setFlintModel(flint)
         widget.setPlotModel(plot)
         widget.show()
+        self.qWait(1000)
         silxPlot = widget._silxPlot()
-        assert len(silxPlot.getItems()) > 0
+        assert len(silxPlot.getItems()) > self.NB_PERMANENT_ITEM
 
         # Provide a new scan without data
         scan2 = self.create_scan()
         flint.setCurrentScan(scan2)
         silxPlot = widget._silxPlot()
-        assert len(silxPlot.getItems()) == 0
+        self.qWait(1000)
+        assert len(silxPlot.getItems()) == self.NB_PERMANENT_ITEM
         widget.close()
 
     def test_display_image_2(self):
@@ -224,5 +235,5 @@ class TestImagePlot(TestCaseQt):
         widget.show()
 
         silxPlot = widget._silxPlot()
-        assert len(silxPlot.getItems()) > 0
+        assert len(silxPlot.getItems()) > self.NB_PERMANENT_ITEM
         widget.close()

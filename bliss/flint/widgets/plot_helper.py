@@ -25,6 +25,7 @@ from silx.gui.plot.actions import io
 from silx.gui.plot.tools.profile import ScatterProfileToolBar
 from silx.gui.plot.items.marker import Marker
 from silx.gui.plot.items.scatter import Scatter
+from silx.gui.plot.items.image import ImageData
 
 from bliss.flint.model import plot_model
 from bliss.flint.utils import signalutils
@@ -235,6 +236,12 @@ class FlintScatter(Scatter, _FlintItemMixIn):
         _FlintItemMixIn.__init__(self)
 
 
+class FlintImage(ImageData, _FlintItemMixIn):
+    def __init__(self):
+        ImageData.__init__(self)
+        _FlintItemMixIn.__init__(self)
+
+
 class TooltipItemManager:
     def __init__(self, parent: qt.QWidget, plot: FlintPlot):
         self.__parent = parent
@@ -284,10 +291,16 @@ class TooltipItemManager:
         if result is not None:
             # Get last index
             # with matplotlib it should be the top-most point
-            index = result.getIndices(copy=False)[-1]
+            index = result.getIndices(copy=False)
             item = result.getItem()
             if isinstance(item, FlintScatter):
                 x, y, text = self.__createScatterTooltip(item, index)
+            elif isinstance(item, FlintImage):
+                x, y, text = self.__createImageTooltip(item, index)
+            else:
+                x, y, text = None, None, None
+
+            if text is not None:
                 self.__updateToolTipMarker(x, y)
                 cursorPos = qt.QCursor.pos() + qt.QPoint(10, 10)
                 qt.QToolTip.showText(cursorPos, text, self.__plot)
@@ -299,7 +312,44 @@ class TooltipItemManager:
             self.__updateToolTipMarker(None, None)
             qt.QToolTip.hideText()
 
-    def __createScatterTooltip(self, item: FlintScatter, index: int):
+    def __createImageTooltip(self, item: FlintImage, index: numpy.ndarray):
+        y, x = index
+        image = item.getData(copy=False)
+        value = image[index]
+
+        x, y, value = x[0], y[0], value[0]
+
+        assert isinstance(item, _FlintItemMixIn)
+        plotItem = item.customItem()
+        if plotItem is not None:
+            assert plotItem.imageChannel() is not None
+            scan = self.__parent.scan()
+            imageName = plotItem.imageChannel().displayName(scan)
+        else:
+            imageName = "Image"
+
+        colormap = item.getColormap()
+        # FIXME silx 0.13 provides a better API for that
+        vmin, vmax = colormap.getColormapRange(item.getData(copy=False))
+        colors = colormap.applyToData(numpy.array([float(value), vmin, vmax]))
+        cssColor = f"#{colors[0,0]:02X}{colors[0,1]:02X}{colors[0,2]:02X}"
+
+        flintModel = self.__parent.flintModel()
+
+        if flintModel is not None and flintModel.getDate() == "0214":
+            char = "\u2665"
+        else:
+            char = "■"
+
+        text = f"""<html><ul>
+        <li><b>Col, X:</b> {x}</li>
+        <li><b>Row, Y:</b> {y}</li>
+        <li><b>{imageName}:</b> <font color="{cssColor}">{char}</font> {value}</li>
+        </ul></html>"""
+        return x + 0.5, y + 0.5, text
+
+    def __createScatterTooltip(self, item: FlintScatter, index: List[int]):
+        index = index[-1]
         x = item.getXData(copy=False)[index]
         y = item.getYData(copy=False)[index]
         value = item.getValueData(copy=False)[index]

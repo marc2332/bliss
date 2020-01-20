@@ -10,6 +10,7 @@ from typing import Optional
 from typing import Tuple
 from typing import Dict
 from typing import List
+from typing import NamedTuple
 
 import numpy
 import collections
@@ -28,7 +29,10 @@ from bliss.flint.helper import scan_info_helper
 from bliss.flint.helper import model_helper
 
 
-_ItemDescription = collections.namedtuple("_ItemDescription", ("key", "kind", "shape"))
+class _ItemDescription(NamedTuple):
+    key: str
+    kind: str
+    shape: numpy.ndarray
 
 
 class ImagePlotWidget(ExtendedDockWidget):

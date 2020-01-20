@@ -71,6 +71,7 @@ class _VirtualScan:
         self.__scan_manager = scanManager
         self.__scan: scan_model.Scan = scan_model.Scan(None)
         self.__step = 1
+        self.__patchCorner = True
 
     def setStep(self, step):
         """Size of each increment of data.
@@ -148,6 +149,9 @@ class _VirtualScan:
                     # image in a looped buffer
                     p = pos % len(array)
                     array = array[p]
+                    if self.__patchCorner:
+                        array = numpy.array(array)
+                        array[0, 0] = pos
                     scan_data = {
                         "scan_info": self.scan_info,
                         "channel_name": channel.name(),

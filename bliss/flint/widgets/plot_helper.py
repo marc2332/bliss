@@ -23,6 +23,8 @@ from silx.gui.plot.actions import PlotAction
 from silx.gui.plot.actions import control
 from silx.gui.plot.actions import io
 from silx.gui.plot.tools.profile import ScatterProfileToolBar
+from silx.gui.plot.Profile import ProfileToolBar
+from silx.gui.plot import PlotToolButtons
 from silx.gui.plot.items.marker import Marker
 from silx.gui.plot.items.scatter import Scatter
 from silx.gui.plot.items.image import ImageData
@@ -115,6 +117,63 @@ class CustomScatterProfileAction(qt.QWidgetAction):
         menu = qt.QMenu(parent)
         for action in self.__toolbar.actions():
             menu.addAction(action)
+
+        icon = icons.getQIcon("flint:icons/profile")
+        toolButton = qt.QToolButton(parent)
+        toolButton.setText("Profile tools")
+        toolButton.setToolTip(
+            "Manage the profiles to this scatter (not yet implemented)"
+        )
+        toolButton.setIcon(icon)
+        toolButton.setMenu(menu)
+        toolButton.setPopupMode(qt.QToolButton.InstantPopup)
+        self.setDefaultWidget(toolButton)
+
+
+class CustomImageProfileAction(qt.QWidgetAction):
+    def __init__(self, plot, parent):
+        super(CustomImageProfileAction, self).__init__(parent)
+
+        self.__toolbar = ProfileToolBar(parent=parent, plot=plot)
+        self.__toolbar.setVisible(False)
+
+        menu = qt.QMenu(parent)
+        for action in self.__toolbar.actionGroup.actions():
+            menu.addAction(action)
+
+        action = qt.QWidgetAction(parent)
+        action.setDefaultWidget(self.__toolbar.lineWidthSpinBox)
+        menu.addAction(action)
+
+        # Add width spin box to toolbar
+        widget = qt.QWidget(parent)
+        lineWidthSpinBox = qt.QSpinBox(widget)
+        lineWidthSpinBox.setRange(1, 1000)
+        lineWidthSpinBox.setValue(1)
+        lineWidthSpinBox.valueChanged[int].connect(
+            self.__toolbar._lineWidthSpinBoxValueChangedSlot
+        )
+        layout = qt.QHBoxLayout(widget)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.addWidget(qt.QLabel("Line width:", widget))
+        layout.addWidget(lineWidthSpinBox)
+        action = qt.QWidgetAction(parent)
+        action.setDefaultWidget(widget)
+        menu.addAction(action)
+
+        # Add method to toolbar
+        widget = qt.QWidget(parent)
+        methodsButton = PlotToolButtons.ProfileOptionToolButton(widget, plot)
+        methodsButton.sigMethodChanged.connect(self.__toolbar.setProfileMethod)
+        layout = qt.QHBoxLayout(widget)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.addWidget(qt.QLabel("Method:", widget))
+        layout.addWidget(methodsButton)
+        action = qt.QWidgetAction(parent)
+        action.setDefaultWidget(widget)
+        menu.addAction(action)
+
+        menu.addAction(self.__toolbar.clearAction)
 
         icon = icons.getQIcon("flint:icons/profile")
         toolButton = qt.QToolButton(parent)

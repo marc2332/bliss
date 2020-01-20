@@ -1286,6 +1286,9 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
         # how many references to expect.
         # scan_shape = self.scan_shape(subscan)
         # nreferences = dataset_proxy.shape_to_size(scan_shape)
+        #
+        # If we want links to scans in /x.y/dependencies(@NXcollection):
+        # parent = "/" + self._nxentry_name(subscan) + "/dependencies"
         rproxy = reference_proxy.ReferenceProxy(
             filename=self.filename,
             parent="/",

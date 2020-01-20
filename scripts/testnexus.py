@@ -149,6 +149,7 @@ def stress_many_parallel(test_session, filename, titles, checkoutput=True):
     # Group the scans
     g = Group(*scns)
     g.wait_all_subscans(timeout=10)
+    scns.append(g.scan)
 
     if checkoutput:
         check_output(scns, titles)

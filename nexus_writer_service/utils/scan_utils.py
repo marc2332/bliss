@@ -60,20 +60,12 @@ def scan_filenames(scan, config=True):
     :returns list(str):
     """
     info = scan_info(scan)
-    lst = []
     if config:
         try:
-            lst = list(info["nexuswriter"]["filenames"])
+            return list(info["nexuswriter"]["filenames"])
         except KeyError:
             pass
-    if not lst:
-        lst = [filename_int2ext(info["filename"])]
-    if is_scan_group(scan) and lst[0]:
-        dirname, filename = os.path.split(lst[0])
-        filename, ext = os.path.splitext(filename)
-        filename += ".{}".format(info["scan_nb"])
-        lst[0] = os.path.join(dirname, filename + ext)
-    return lst
+    return [filename_int2ext(info["filename"])]
 
 
 def session_filenames(scan_saving=None, config=True):

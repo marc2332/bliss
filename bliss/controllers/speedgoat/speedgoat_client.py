@@ -581,7 +581,7 @@ class SpeedgoatCountersController(CounterController):
         self.signal_node = signal_node
         self.param_node = param_node
 
-        super().__init__(self.speedgoat.name + "CC")
+        super().__init__(self.speedgoat.name)  # + "CC")
 
         # build counter signal list
         sig_cnt = {}
@@ -610,7 +610,7 @@ class SpeedgoatCountersController(CounterController):
         # create counters
         for cnt_name in sig_cnt.keys():
             self.create_counter(
-                SimpleCounter, cnt_name, sig_cnt[cnt_name], par_cnt[cnt_name]
+                SpeedgoatCounter, cnt_name, sig_cnt[cnt_name], par_cnt[cnt_name]
             )
 
     def get_acquisition_object(self, acq_params, ctrl_params, parent_acq_params):
@@ -668,7 +668,7 @@ class SpeedgoatCountersController(CounterController):
         return self.read_counters(cnt_names)
 
 
-class SimpleCounter(Counter):
+class SpeedgoatCounter(SamplingCounter):
     def __init__(self, counter_name, signal_node, param_node, controller):
         super().__init__(counter_name, controller)
 
@@ -676,16 +676,20 @@ class SimpleCounter(Counter):
         self.param_node = param_node
 
         self.signals = {}
-        for node in self._counter_controller.speedgoat._cache["signal_tree"].children(
+        for node in self.speedgoat._cache["signal_tree"].children(
             self.signal_node.identifier
         ):
             if node.data is not None:
                 self.signals[node.tag] = node
 
+    @property
+    def speedgoat(self):
+        return self._counter_controller.speedgoat
+
     def read_signal(self, signal):
         if signal in self.signals.keys():
             idx = self.signals[signal].data["idx"]
-            value = self._counter_controller.speedgoat.get_signal_value_from_idxs([idx])
+            value = self.speedgoat.get_signal_value_from_idxs([idx])
         return value[0]
 
     def read_index(self):
@@ -699,20 +703,6 @@ class SimpleCounter(Counter):
 
     def tree_name(self):
         return self.signal_node.identifier
-
-
-class SpeedgoatCounter(SamplingCounter):
-    def __init__(self, name, config):
-
-        self.speedgoat = config.get_inherited("speedgoat")
-        super().__init__(name, self.speedgoat.counters_controller)
-
-        try:
-            self.params = self.speedgoat.counters[name]
-        except:
-            raise ValueError(
-                'speedgoat: Counter "%s" not configured in speedgoat' % name
-            )
 
 
 ##########################################################################
@@ -1194,20 +1184,6 @@ class Signals(object):
 ##########                                                      ##########
 ##########################################################################
 
-# def print_trace(func):
-#    def f(*args,**kwargs):
-#        print('ENTER',func.__name__)
-#        try:
-#            return func(*args,**kwargs)
-#        except:
-#            import traceback
-#            traceback.print_exc()
-#            print('EXCEPT',func.__name__)
-#            raise
-#        finally:
-#            print('LEAVE',func.__name__)
-#    return f
-
 
 class Speedgoat(object):
     def __init__(self, name, config):
@@ -1229,6 +1205,8 @@ class Speedgoat(object):
         self.signals = Signals(self)
         self.name = name
         self.regul = Regul(self)
+
+        self.load()
 
     def set_fix_exit(self, value):
         self.params["setPoint/beam_offset(mm)/Value"] = value

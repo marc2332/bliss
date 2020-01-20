@@ -80,6 +80,11 @@ class CustomAxisAction(qt.QWidgetAction):
         super(CustomAxisAction, self).__init__(parent)
 
         menu = qt.QMenu(parent)
+
+        action = control.ShowAxisAction(plot, self)
+        action.setText("Show the plot axes")
+        menu.addAction(action)
+
         if kind is not "image":
             menu.addSection("X-axes")
             action = control.XAxisLogarithmicAction(plot, self)

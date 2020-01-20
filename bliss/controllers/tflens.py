@@ -111,6 +111,29 @@ class TFLens:
     def pout(self):
         self.__set_pinhole(False)
 
+    def lensin(self, *lens_ids):
+        ids = self.__check_lensid(lens_ids)
+        tfset = self.transfocator.pos_read()
+        for lid in ids:
+            tfset |= (1<<lid)
+        self.transfocator.tfstatus_set(tfset)
+
+    def lensout(self, *lens_ids):
+        ids = self.__check_lensid(lens_ids)
+        tfset = self.transfocator.pos_read()
+        for lid in ids:
+            tfset = tfset & (~(1<<lid))
+        self.transfocator.tfstatus_set(tfset)
+
+    def __check_lensid(self, lens_ids):
+        allids = list(range(self.transfocator.nb_lens))
+        if not len(lens_ids):
+            return allids
+        for lid in lens_ids:
+            if lid not in allids:
+                raise ValueError(f"Invalid lens id. Should be in {allids}")
+        return lens_ids
+
     @property
     def materials(self):
         return tuple(lens.material for lens in self.__lens_def)
@@ -192,6 +215,9 @@ class TFLens:
             names.append(name)
         return names
 
+    def __lens2ids(self):
+        return [ f"#{lid}" for lid in range(self.transfocator.nb_lens) ]
+
     def __tfstate2string(self, value):
         states = list()
         for lid in range(self.transfocator.nb_lens):
@@ -205,11 +231,12 @@ class TFLens:
         print(self.__info__())
 
     def __info__(self):
-        info = ""
         tfstate = self.transfocator.pos_read()
+        info = ""
+        ids = self.__lens2ids()
         names = self.__lens2names()
         states = self.__tfstate2string(tfstate)
-        info += tabulate.tabulate([states,], headers=names)
+        info += tabulate.tabulate([ids, names, states], tablefmt="plain")
         info += "\n\n"
         
         for lens in self.__lens_def:

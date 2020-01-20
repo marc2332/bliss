@@ -476,3 +476,54 @@ class RefreshManager(qt.QObject):
             else:
                 self.__updater.start(rate)
                 self.__aggregator.eventAdded.disconnect(self.__update)
+
+
+class ViewManager(qt.QObject):
+
+    sigZoomMode = qt.Signal(bool)
+
+    def __init__(self, plot):
+        super(ViewManager, self).__init__(parent=plot)
+        self.__plot = plot
+        self.__plot.sigViewChanged.connect(self.__viewChanged)
+        self.__inUserView: bool = False
+
+    def __setUserViewMode(self, userMode):
+        if self.__inUserView == userMode:
+            return
+        self.__inUserView = userMode
+        self.sigZoomMode.emit(userMode)
+
+    def __viewChanged(self, event):
+        if event.userInteraction:
+            self.__setUserViewMode(True)
+
+    def scanStarted(self):
+        self.__setUserViewMode(False)
+
+    def resetZoom(self):
+        self.__plot.resetZoom()
+        self.__setUserViewMode(False)
+
+    def plotUpdated(self):
+        if not self.__inUserView:
+            self.__plot.resetZoom()
+
+    def plotCleared(self):
+        self.__plot.resetZoom()
+        self.__setUserViewMode(False)
+
+    def createResetZoomAction(self, parent: qt.QWidget) -> qt.QAction:
+        resetZoom = qt.QAction(parent)
+        resetZoom.triggered.connect(self.resetZoom)
+        resetZoom.setText("Reset zoom")
+        resetZoom.setToolTip("Back to the auto-zoom")
+        resetZoom.setIcon(icons.getQIcon("flint:icons/zoom-auto"))
+        resetZoom.setEnabled(self.__inUserView)
+
+        def updateResetZoomAction(isUserMode):
+            resetZoom.setEnabled(isUserMode)
+
+        self.sigZoomMode.connect(updateResetZoomAction)
+
+        return resetZoom

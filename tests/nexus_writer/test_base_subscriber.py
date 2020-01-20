@@ -73,17 +73,13 @@ def test_base_subscriber(session):
     subscriber.stop(successfull=True)
     _wait_finished(subscriber, successfull=True)
     # TODO: why do we have more NEW_NODE events?
-    nnodes = 4 + 2 * len(detectors)
-    assert subscriber.progress == nnodes, msg
+    assert subscriber.progress == nnodes + len(detectors) - 1, msg
 
     # Resources
     while gc.collect():
         pass
     glts = process_utils.greenlets()
     fds = process_utils.file_descriptors()
-
-    # TODO: why do we have more NEW_NODE events?
-    nnodes = 4 + len(detectors) * (len(detectors) + 1)
     for i, successfull in enumerate([True, False, False, False]):
         msg = f"iteration {i}"
         _start(subscriber)

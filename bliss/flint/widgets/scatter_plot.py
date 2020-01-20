@@ -14,14 +14,12 @@ from typing import Optional
 
 import logging
 import time
-import numpy
 import functools
 
 from silx.gui import qt
 from silx.gui import icons
 from silx.gui.plot.items.shape import BoundingRect
 from silx.gui.plot.items.shape import Shape
-from silx.gui.plot.items.marker import Marker
 from silx.gui.plot.items.scatter import Scatter
 from silx.gui.plot.items.curve import Curve
 
@@ -125,29 +123,6 @@ class _RefreshRate:
         return sum(self.__lastValues) / len(self.__lastValues)
 
 
-class _ScatterPlotItemMixIn:
-    def __init__(self):
-        self.__plotItem = None
-
-    def customItem(self) -> Optional[plot_item_model.ScatterItem]:
-        return self.__plotItem
-
-    def setCustomItem(self, item: plot_item_model.ScatterItem):
-        self.__plotItem = item
-
-
-class _MainScatter(Scatter, _ScatterPlotItemMixIn):
-    def __init__(self):
-        Scatter.__init__(self)
-        _ScatterPlotItemMixIn.__init__(self)
-
-
-class _MainCurve(Curve, _ScatterPlotItemMixIn):
-    def __init__(self):
-        Curve.__init__(self)
-        _ScatterPlotItemMixIn.__init__(self)
-
-
 class ScatterPlotWidget(ExtendedDockWidget):
 
     widgetActivated = qt.Signal(object)
@@ -174,20 +149,14 @@ class ScatterPlotWidget(ExtendedDockWidget):
 
         toolBar = self.__createToolBar()
         self.__plot.addToolBar(toolBar)
-        self.__plot.sigMouseMoved.connect(self.__onMouseMove)
-        self.__plot.sigMouseLeft.connect(self.__onMouseLeft)
+
+        self.__tooltipManager = plot_helper.TooltipItemManager(self, self.__plot)
+        self.__tooltipManager.setFilter(plot_helper.FlintScatter)
 
         self.__syncAxisTitle = signalutils.InvalidatableSignal(self)
         self.__syncAxisTitle.triggered.connect(self.__updateAxesLabel)
         self.__syncAxis = signalutils.InvalidatableSignal(self)
         self.__syncAxis.triggered.connect(self.__scatterAxesUpdated)
-
-        self.__toolTipMarker = Marker()
-        self.__toolTipMarker._setLegend("marker-tooltip")
-        self.__toolTipMarker.setColor("pink")
-        self.__toolTipMarker.setSymbol("+")
-        self.__toolTipMarker.setSymbolSize(8)
-        self.__toolTipMarker.setVisible(False)
 
         self.__bounding = BoundingRect()
         self.__bounding._setLegend("bound")
@@ -210,7 +179,7 @@ class ScatterPlotWidget(ExtendedDockWidget):
 
         self.__permanentItems = [
             self.__bounding,
-            self.__toolTipMarker,
+            self.__tooltipManager.marker(),
             self.__lastValue,
             self.__rect,
         ]
@@ -229,86 +198,6 @@ class ScatterPlotWidget(ExtendedDockWidget):
         if self.__scanProcessing:
             self.__refreshRate.update()
         self.__aggregator.flush()
-
-    def __onMouseMove(self, event: plot_helper.MouseMovedEvent):
-        mouseButton = qt.QApplication.mouseButtons()
-        mode = self.__plot.getInteractiveMode()
-        if mouseButton == qt.Qt.NoButton and mode["mode"] in ["zoom", "pan"]:
-            self.__updateTooltip(event.xPixel, event.yPixel)
-        else:
-            # Avoid to display the tooltip if the user is doing stuffs
-            self.__updateTooltip(None, None)
-
-    def __onMouseLeft(self):
-        self.__updateTooltip(None, None)
-
-    def __updateTooltip(self, x, y):
-        plot = self.__plot
-
-        # Start from top-most item
-        result = None
-        if x is not None:
-            for result in plot.pickItems(
-                x, y, lambda item: isinstance(item, _MainScatter)
-            ):
-                # Break at the first result
-                break
-
-        if result is not None:
-            # Get last index
-            # with matplotlib it should be the top-most point
-            index = result.getIndices(copy=False)[-1]
-            item = result.getItem()
-            x = item.getXData(copy=False)[index]
-            y = item.getYData(copy=False)[index]
-            value = item.getValueData(copy=False)[index]
-
-            assert isinstance(item, _ScatterPlotItemMixIn)
-            plotItem = item.customItem()
-            if plotItem is not None:
-                assert (
-                    plotItem.xChannel() is not None
-                    and plotItem.yChannel() is not None
-                    and plotItem.valueChannel() is not None
-                )
-                xName = plotItem.xChannel().displayName(self.__scan)
-                yName = plotItem.yChannel().displayName(self.__scan)
-                vName = plotItem.valueChannel().displayName(self.__scan)
-            else:
-                xName = "X"
-                yName = "Y"
-                vName = "Value"
-
-            colormap = item.getColormap()
-            # FIXME: This should be merged to Silx
-            vmin, vmax = colormap.getColormapRange(item.getValueData(copy=False))
-            colors = colormap.applyToData(numpy.array([value, vmin, vmax]))
-            cssColor = f"#{colors[0,0]:02X}{colors[0,1]:02X}{colors[0,2]:02X}"
-
-            if self.__flintModel is not None and self.__flintModel.getDate() == "0214":
-                char = "\u2665"
-            else:
-                char = "■"
-
-            text = f"""<html><ul>
-            <li><b>Index:</b> {index}</li>
-            <li><b>{xName}:</b> {x}</li>
-            <li><b>{yName}:</b> {y}</li>
-            <li><b>{vName}:</b> <font color="{cssColor}">{char}</font> {value}</li>
-            </ul></html>"""
-            self.__updateToolTipMarker(x, y)
-            cursorPos = qt.QCursor.pos() + qt.QPoint(10, 10)
-            qt.QToolTip.showText(cursorPos, text, self.__plot)
-        else:
-            self.__updateToolTipMarker(None, None)
-            qt.QToolTip.hideText()
-
-    def __updateToolTipMarker(self, x, y):
-        if x is None:
-            self.__toolTipMarker.setVisible(False)
-        else:
-            self.__toolTipMarker.setVisible(True)
-            self.__toolTipMarker.setPosition(x, y)
 
     def __createToolBar(self):
         toolBar = qt.QToolBar(self)
@@ -464,6 +353,9 @@ class ScatterPlotWidget(ExtendedDockWidget):
         propertyWidget.setFocusWidget(self)
         return propertyWidget
 
+    def flintModel(self) -> Optional[flint_model.FlintState]:
+        return self.__flintModel
+
     def setFlintModel(self, flintModel: Optional[flint_model.FlintState]):
         if self.__flintModel is not None:
             self.__flintModel.currentScanChanged.disconnect(self.__currentScanChanged)
@@ -603,6 +495,9 @@ class ScatterPlotWidget(ExtendedDockWidget):
         self, previousScan: scan_model.Scan, newScan: scan_model.Scan
     ):
         self.__setScan(newScan)
+
+    def scan(self) -> Optional[scan_model.Scan]:
+        return self.__scan
 
     def __setScan(self, scan: scan_model.Scan = None):
         if self.__scan is scan:
@@ -810,7 +705,7 @@ class ScatterPlotWidget(ExtendedDockWidget):
         if style.fillStyle is not style_model.FillStyle.NO_FILL:
             pointBased = False
             fillStyle = style.fillStyle
-            scatter = _MainScatter()
+            scatter = plot_helper.FlintScatter()
             scatter.setData(x=xx, y=yy, value=value, copy=False)
             scatter.setColormap(colormap)
             scatter.setCustomItem(item)
@@ -881,7 +776,7 @@ class ScatterPlotWidget(ExtendedDockWidget):
             symbolStyle = style_model.symbol_to_silx(style.symbolStyle)
             if symbolStyle == " ":
                 symbolStyle = "o"
-            scatter = _MainScatter()
+            scatter = plot_helper.FlintScatter()
             scatter.setData(x=xx, y=yy, value=value, copy=False)
             scatter.setColormap(colormap)
             scatter.setSymbol(symbolStyle)
@@ -896,7 +791,7 @@ class ScatterPlotWidget(ExtendedDockWidget):
             and style.symbolColor is not None
         ):
             symbolStyle = style_model.symbol_to_silx(style.symbolStyle)
-            curve = _MainCurve()
+            curve = Curve()
             curve.setData(x=xx, y=yy, copy=False)
             curve.setColor(style.symbolColor)
             curve.setSymbol(symbolStyle)

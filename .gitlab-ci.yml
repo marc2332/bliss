@@ -76,7 +76,6 @@ test_writer:
     - master
   variables:
     PYTEST_ARGS: '--durations=30 -m writer --runwritertests'
-  allow_failure: true
 
 test_bliss_cov:
   # Run bliss tests with coverage for master only
@@ -107,7 +106,6 @@ test_writer_cov:
     - sh scripts/print_test_profiling.sh
   variables:
     PYTEST_ARGS: '--cov nexus_writer_service --cov-report html:htmlcov_writer --cov-report term --profile --durations=30 -m writer --runwritertests'
-  allow_failure: true
 
 
 package:

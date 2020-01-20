@@ -449,10 +449,10 @@ class ScatterPlotWidget(ExtendedDockWidget):
         if xmeta is None or ymeta is None:
             return
 
-        if ymeta.axesPoints is not None and xmeta.axesPoints is not None:
+        if ymeta.axisPoints is not None and xmeta.axisPoints is not None:
             scatter.setVisualizationParameter(
                 scatter.VisualizationParameter.GRID_SHAPE,
-                (ymeta.axesPoints, xmeta.axesPoints),
+                (ymeta.axisPoints, xmeta.axisPoints),
             )
 
         if (
@@ -466,15 +466,15 @@ class ScatterPlotWidget(ExtendedDockWidget):
                 ((xmeta.start, ymeta.start), (xmeta.stop, ymeta.stop)),
             )
 
-        if xmeta.axesKind is not None and ymeta.axesKind is not None:
+        if xmeta.axisKind is not None and ymeta.axisKind is not None:
             if (
-                xmeta.axesKind == scan_model.AxesKind.FAST
-                or ymeta.axesKind == scan_model.AxesKind.SLOW
+                xmeta.axisKind == scan_model.AxisKind.FAST
+                or ymeta.axisKind == scan_model.AxisKind.SLOW
             ):
                 order = "row"
             if (
-                xmeta.axesKind == scan_model.AxesKind.SLOW
-                or ymeta.axesKind == scan_model.AxesKind.FAST
+                xmeta.axisKind == scan_model.AxisKind.SLOW
+                or ymeta.axisKind == scan_model.AxisKind.FAST
             ):
                 order = "column"
 
@@ -557,14 +557,14 @@ class ScatterPlotWidget(ExtendedDockWidget):
                 if fast is not None:
                     fastMetadata = fast.metadata()
                     assert fastMetadata is not None
-                    axesPoints = fastMetadata.axesPoints
-                    if axesPoints is not None:
-                        if len(xx) < axesPoints * 2:
+                    axisPoints = fastMetadata.axisPoints
+                    if axisPoints is not None:
+                        if len(xx) < axisPoints * 2:
                             # The 2 first lines have to be displayed
                             xxx, yyy, vvv = xx, yy, value
-                        elif len(xx) % axesPoints != 0:
+                        elif len(xx) % axisPoints != 0:
                             # Last line have to be displayed
-                            extra = slice(len(xx) - len(xx) % axesPoints, len(xx))
+                            extra = slice(len(xx) - len(xx) % axisPoints, len(xx))
                             xxx, yyy, vvv = xx[extra], yy[extra], value[extra]
                         else:
                             xxx, yyy, vvv = None, None, None

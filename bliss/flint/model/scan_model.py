@@ -381,7 +381,7 @@ class ChannelType(enum.Enum):
     Only the last data stored."""
 
 
-class AxesKind(enum.Enum):
+class AxisKind(enum.Enum):
     FAST = "fast"
     SLOW = "slow"
 
@@ -392,8 +392,8 @@ class ChannelMetadata(NamedTuple):
     min: Optional[float]
     max: Optional[float]
     points: Optional[int]
-    axesPoints: Optional[int]
-    axesKind: Optional[AxesKind]
+    axisPoints: Optional[int]
+    axisKind: Optional[AxisKind]
 
 
 class Channel(qt.QObject, _Sealable):

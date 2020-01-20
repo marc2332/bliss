@@ -187,19 +187,27 @@ def _pop_and_convert(meta, key, func):
 def parse_channel_metadata(meta: Dict) -> scan_model.ChannelMetadata:
     meta = meta.copy()
 
+    # Compatibility Bliss 1.0
+    if "axes-points" in meta and "axis-points" not in meta:
+        _logger.warning("Metadata axes-points have to be replaced by axis-points.")
+        meta["axis-points"] = meta.pop("axes-points")
+    if "axes-kind" in meta and "axis-kind" not in meta:
+        _logger.warning("Metadata axes-kind have to be replaced by axis-kind.")
+        meta["axis-kind"] = meta.pop("axes-kind")
+
     start = _pop_and_convert(meta, "start", float)
     stop = _pop_and_convert(meta, "stop", float)
     vmin = _pop_and_convert(meta, "min", float)
     vmax = _pop_and_convert(meta, "max", float)
     points = _pop_and_convert(meta, "points", int)
-    axesPoints = _pop_and_convert(meta, "axes-points", int)
-    axesKind = _pop_and_convert(meta, "axes-kind", scan_model.AxesKind)
+    axisPoints = _pop_and_convert(meta, "axis-points", int)
+    axisKind = _pop_and_convert(meta, "axis-kind", scan_model.AxisKind)
 
     for key in meta.keys():
-        _logger.warning("Metatdata key %s is unknown. Field ignored.", key)
+        _logger.warning("Metadata key %s is unknown. Field ignored.", key)
 
     return scan_model.ChannelMetadata(
-        start, stop, vmin, vmax, points, axesPoints, axesKind
+        start, stop, vmin, vmax, points, axisPoints, axisKind
     )
 
 

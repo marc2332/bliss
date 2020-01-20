@@ -561,14 +561,14 @@ class AcquisitionSimulator(qt.QObject):
             "start": 10,
             "stop": 50,
             "points": nbX * nbY,
-            "axes-points": nbX,
-            "axes-kind": "fast",
+            "axis-points": nbX,
+            "axis-kind": "fast",
         }
         requests[device2_channel1.name()] = {
             "start": 20,
             "stop": 60,
-            "axes-points": nbY,
-            "axes-kind": "slow",
+            "axis-points": nbY,
+            "axis-kind": "slow",
         }
         scan.scan_info["requests"] = requests
 

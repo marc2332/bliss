@@ -272,12 +272,12 @@ def test_parse_channel_metadata():
         "min": 3,
         "max": 4,
         "points": 5,
-        "axes-points": 6,
-        "axes-kind": "slow",
+        "axis-points": 6,
+        "axis-kind": "slow",
     }
     result = scan_info_helper.parse_channel_metadata(meta)
     assert result == scan_model.ChannelMetadata(
-        1, 2, 3, 4, 5, 6, scan_model.AxesKind.SLOW
+        1, 2, 3, 4, 5, 6, scan_model.AxisKind.SLOW
     )
 
 
@@ -288,8 +288,8 @@ def test_parse_wrong_values():
         "min": 3,
         "max": "foo",
         "points": 5,
-        "axes-points": 6,
-        "axes-kind": "foo",
+        "axis-points": 6,
+        "axis-kind": "foo",
         "foo": "bar",
     }
     result = scan_info_helper.parse_channel_metadata(meta)

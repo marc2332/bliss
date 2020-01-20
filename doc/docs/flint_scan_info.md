@@ -20,8 +20,8 @@ information.
 This metadata must be at the root of `scan_info`.
 
 - `npoints` (int): Number of expected points for the scan.
-- `npoints1` (int): Number of expected points of the first axes of a mesh scan
-- `npoints2` (int): Number of expected points of the second axes of a mesh scan
+- `npoints1` (int): Number of expected points of the first axis of a mesh scan
+- `npoints2` (int): Number of expected points of the second axis of a mesh scan
 
 Flint can compute a progress bar for the scan using this information. If the
 channels do not have the same size, you can use `requests` to specify the expected
@@ -56,13 +56,13 @@ scan = Scan(
 
 Everything is optional, but have to be well typed.
 
-- `start` (float): Start position of the axes
-- `stop` (float): Stop position of the axes
+- `start` (float): Start position of the axis
+- `stop` (float): Stop position of the axis
 - `min` (float): Minimal value the channel can have
 - `max` (float): Minimal value the channel can have
 - `points` (integer): Amount of total points which will be transmited by this channel
-- `axes-points` (integer): Amount of points for the axes (see scatter below)
-- `axes-kind` (string): Kind of axes (see scatter below)
+- `axis-points` (integer): Amount of points for the axis (see scatter below)
+- `axis-kind` (string): Kind of axis (see scatter below)
 
 Unsupported keys will not be used, and Flint will warn about it in the logs.
 
@@ -76,17 +76,17 @@ Unsupported keys will not be used, and Flint will warn about it in the logs.
 Right now this features is not used to display the curves. But it will be
 done at one point.
 
-- `min/max` will be used to contraint the default displayed view.
+- `min/max` will be used to constraint the default displayed view.
 - `start/end` will be also used to constrain the displayed view.
 
-Then `min` and `max` should be set close to the real data which will contain the
-channel. Using the theorical range of an axes here is not a good idea.
+Then `min` and `max` should be set close to the real data which will be provided
+by the channel. Using theorical range of an axis is not a good idea.
 
 ## Scatter rendering
 
 This can be used for general cases of scatters
 
-- `start/end/min/max` are used to contraint the default displayed view. This way
+- `start/end/min/max` are used to constraint the default displayed view. This way
   the full data range can be visible from the beginning to the end of the
   acquisition without rescaling everytime a new data is received.
 
@@ -94,27 +94,27 @@ This can be used for regular mesh. A mesh is regular when you can find a row
 and a column for each points of the scatter (n×m).
 
 - `start/end` are also used to speed up solid rendering of scatters. It is used
-  to know the orientation of the axes and then to compute a polygon mesh.
-- `axes-points`: Amount of axes points contained in the channel. For scatter axes,
+  to know the orientation of the axis and then to compute a polygon mesh.
+- `axis-points`: Amount of axis points contained in the channel. For scatter axes,
   the amount of points will differ from the amount of point owned by the same row,
-  or column. This is the expected information here.
-- `axes-kind`: Can be `slow` or `fast`. It is also used to speed up solid rendering.
+  or column.
+- `axis-kind`: Can be `slow` or `fast`. It is also used to speed up solid rendering.
 
 ## Scatter example
 
 Data for a regular scatter for axes `A` and `B` of 2×3 points will be received
 following this pattern:
 
-- `A0B0`, `A1B0`, `A0B1`, `A1B1`, `A0B2`, `A1B2`
+- `v(A0, B0)`, `v(A1, B0)`, `v(A0, B1)`, `v(A1, B1)`, `v(A0, B2)`, `v(A1, B2)`
 
-- Then the `A` axes is the fast axes.
-- The `B` axes is the slow axes (it is important to describe it too).
-- The number of points for axes `A` is 2
-- The number of points for axes `B` is 3
+- Then the `A` axis is the fast axis.
+- The `B` axis is the slow axis (it is important to describe it too).
+- The number of points for axis `A` is 2
+- The number of points for axis `B` is 3
 
 ```
 requests = {}
-requests["A"] = {"axes-kind": "fast", "axes-points": 2, "points": 6}
-requests["B"] = {"axes-kind": "slow", "axes-points": 3, "points": 6}
+requests["A"] = {"axis-kind": "fast", "axis-points": 2, "points": 6}
+requests["B"] = {"axis-kind": "slow", "axis-points": 3, "points": 6}
 scan_info["requests"] = requests
 ```

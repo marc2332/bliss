@@ -166,16 +166,14 @@ def main():
         "bliss.config.conductor.web.configuration": [
             "*.html",
             "css/*.*",
-            "css/jstree/*.*",
             "js/*.*",
             "res/*.*",
         ],
         "bliss.config.conductor.web.homepage": [
             "*.html",
             "css/*.*",
-            "css/jstree/*.*",
             "js/*.*",
-            "res/*.*",
+            "img/*.*",
         ],
         "bliss.shell.web": ["*.html", "css/*.css", "js/*.js"],
         "bliss.config": ["tmux.conf"],

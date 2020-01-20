@@ -47,6 +47,7 @@ import os
 import re
 import weakref
 import gevent
+from sortedcontainers import SortedSet
 
 from bliss.common.event import dispatcher
 from bliss.common.utils import grouped
@@ -254,15 +255,18 @@ class DataNodeIterator(object):
                 "%s*_children_list" % db_name, connection=self.node.db_connection
             )
         ]
+
         # get all the container node name
         data_node_containers_names = [
             x[: x.rfind("_children_list")] for x in children_queue
         ]
+
         # get all children for all container
         pipeline = self.node.db_connection.pipeline()
-        [pipeline.lrange(name, 0, -1) for name in children_queue]
+        for name in children_queue:
+            pipeline.lrange(name, 0, -1)
         data_node_2_children = {
-            node_name: [child.decode() for child in children]
+            node_name: [child.decode() for child in SortedSet(children)]
             for node_name, children in zip(
                 data_node_containers_names, pipeline.execute()
             )

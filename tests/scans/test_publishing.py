@@ -208,6 +208,29 @@ def test_data_iterator_event(beacon, redis_data_conn, scan_tmpdir, session):
     assert isinstance(n, ChannelDataNode)
 
 
+def test_no_duplicated_new_events(session):
+    diode = session.env_dict["diode"]
+    diode3 = session.env_dict["diode3"]
+    diode4 = session.env_dict["diode4"]
+
+    s = scans.loopscan(3, 0.1, diode, diode3, diode4)
+
+    ready_event = gevent.event.Event()
+
+    new_nodes = []
+
+    def walk_nodes():
+        for event_type, node in s.node.iterator.walk_events(ready_event=ready_event):
+            if event_type.name == "NEW_NODE":
+                new_nodes.append(node)
+
+    g = gevent.spawn(walk_nodes)
+    ready_event.wait()
+    g.kill()
+
+    assert len(set(new_nodes)) == len(new_nodes)
+
+
 def test_lima_data_channel_node(redis_data_conn, lima_session):
     lima_sim = lima_session.env_dict["lima_simulator"]
 

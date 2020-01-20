@@ -18,6 +18,7 @@ import numpy
 from silx.gui import qt
 from silx.gui import icons
 from silx.gui.plot.actions import histogram
+from silx.gui.plot.items.marker import Marker
 
 from bliss.flint.model import scan_model
 from bliss.flint.model import flint_model
@@ -76,7 +77,25 @@ class ImagePlotWidget(ExtendedDockWidget):
         self.__tooltipManager = plot_helper.TooltipItemManager(self, self.__plot)
         self.__tooltipManager.setFilter(plot_helper.FlintImage)
 
-        self.__permanentItems = [self.__tooltipManager.marker()]
+        self.__minMarker = Marker()
+        self.__minMarker.setSymbol("")
+        self.__minMarker.setVisible(False)
+        self.__minMarker.setColor("pink")
+        self.__minMarker.setZValue(0.1)
+        self.__minMarker._setLegend("min")
+
+        self.__maxMarker = Marker()
+        self.__maxMarker.setSymbol("")
+        self.__maxMarker.setVisible(False)
+        self.__maxMarker.setColor("pink")
+        self.__maxMarker.setZValue(0.1)
+        self.__maxMarker._setLegend("max")
+
+        self.__permanentItems = [
+            self.__tooltipManager.marker(),
+            self.__minMarker,
+            self.__maxMarker,
+        ]
 
         for o in self.__permanentItems:
             self.__plot._add(o)
@@ -379,6 +398,15 @@ class ImagePlotWidget(ExtendedDockWidget):
             self.__plot._setActiveItem("image", legend)
             plotItems.append(_ItemDescription(legend, "image", image.shape))
             self.__updateTitle(scan, item)
+
+            bottom, left = 0, 0
+            height, width = image.shape[0], image.shape[1]
+            self.__minMarker.setPosition(0, 0)
+            self.__maxMarker.setText(f"{left}, {bottom}")
+            self.__minMarker.setVisible(True)
+            self.__maxMarker.setPosition(width, height)
+            self.__maxMarker.setText(f"{width}, {height}")
+            self.__maxMarker.setVisible(True)
         else:
             yy = numpy.atleast_2d(numpy.arange(image.shape[0])).T
             xx = numpy.atleast_2d(numpy.arange(image.shape[1]))

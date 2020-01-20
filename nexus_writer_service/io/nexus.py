@@ -92,6 +92,39 @@ def asNxChar(s, raiseExtended=True):
         return numpy.array(s, dtype=nxcharUnicode)
 
 
+def isString(data):
+    """
+    String from the Nexus point of view
+    """
+    return isinstance(data, (unicode, bytes))
+
+
+def asNxType(data):
+    """
+    Convert data to Nexus data type
+    """
+    if isString(data):
+        return asNxChar(data)
+    elif isinstance(data, (list, tuple)) and data:
+        # TODO: does not handle numpy string arrays
+        if all(map(isString, data)):
+            return asNxChar(data)
+    return data
+
+
+def createNxValidate(createkws):
+    if "data" in createkws:
+        createkws["data"] = asNxType(createkws["data"])
+    dtype = createkws.get("dtype")
+    if dtype is not None:
+        if dtype is unicode:
+            createkws["dtype"] = nxcharUnicode
+            createkws.pop("fillvalue")
+        elif dtype is bytes:
+            createkws["dtype"] = nxcharBytes
+            createkws.pop("fillvalue")
+
+
 class LocalTZinfo(datetime.tzinfo):
 
     _offset = datetime.timedelta(seconds=-time.altzone)
@@ -122,7 +155,7 @@ def datetime_to_nexus(tm):
     """
     if tm.tzinfo is None:
         tm = LocalTZinfo().localize(tm)
-    return asNxChar(tm.isoformat())
+    return asNxType(tm.isoformat())
 
 
 def timestamp():
@@ -353,7 +386,7 @@ def uriContains(uri, datasets=None, attributes=None):
                 for attr in attributes:
                     if attr not in attrs:
                         return False
-    except Exception:
+    except BaseException:
         return False
     return True
 
@@ -502,7 +535,7 @@ def nxClassInstantiate(parent, name, nxclass, raise_on_exists=False):
         try:
             group = parent.create_group(name)
             exists = False
-        except Exception as e:
+        except BaseException as e:
             exists = True
             group = parent[name]
             if raise_on_exists:
@@ -548,12 +581,10 @@ def updateDataset(parent, name, data):
     :param str name:
     :param data:
     """
-    if isinstance(data, (unicode, bytes)):
-        data = asNxChar(data)
     if name in parent:
-        parent[name][()] = data
+        parent[name][()] = asNxType(data)
     else:
-        parent[name] = data
+        parent[name] = asNxType(data)
 
 
 def nxClassInit(
@@ -823,7 +854,7 @@ class File(h5py.File):
                     # Try setting writing in SWMR mode
                     try:
                         self.swmr_mode = True
-                    except Exception:
+                    except BaseException:
                         pass
             except OSError as e:
                 # errno.EAGAIN: file is locked
@@ -1187,7 +1218,7 @@ def createLink(h5group, name, destination):
     :param str or h5py.Dataset destination:
     :returns: h5py link object
     """
-    if not isinstance(destination, (unicode, bytes)):
+    if not isString(destination):
         destination = getUri(destination)
     if "::" in destination:
         destination = splitUri(destination)
@@ -1246,9 +1277,8 @@ def nxCreateDataSet(h5group, name, value, attrs, stringasuri=False):
                 # link when attributes match the existing dataset
                 if not merge:
                     value = data
-            elif isinstance(data, (unicode, bytes)):
-                # dataset of string type
-                value["data"] = asNxChar(data)
+            else:
+                value["data"] = asNxType(data)
     if value is None:
         # dataset exists already or will be created elsewhere
         pass
@@ -1278,17 +1308,12 @@ def nxCreateDataSet(h5group, name, value, attrs, stringasuri=False):
             #    value['external'] = [(os.path.relpath(tpl[0], dirname),) + tpl[1:]
             #                         for tpl in external]
             logger.debug("Create HDF5 dataset {}/{}".format(getUri(h5group), name))
+            createNxValidate(value)
             h5group.create_dataset(name, **value)
     else:
         # create dataset (internal) without extra options
-        if isinstance(value, (unicode, bytes)):
-            value = asNxChar(value)
-        elif isinstance(value, (list, tuple)):
-            if value:
-                if isinstance(value[0], (unicode, bytes)):
-                    value = asNxChar(value)
         logger.debug("Create HDF5 dataset {}/{}".format(getUri(h5group), name))
-        h5group[name] = value
+        h5group[name] = asNxType(value)
     dset = h5group.get(name, None)
     if attrs and dset is not None:
         attrs = {k: v for k, v in attrs.items() if v is not None}
@@ -1528,3 +1553,189 @@ def getDefaultUri(filename, signal=True):
         return filename + "::" + path
     else:
         return None
+
+
+def _delete_attributes(destination):
+    for k in list(destination.attrs.keys()):
+        del destination.attrs[k]
+
+
+def _delete_children(destination):
+    for k in list(destination.keys()):
+        del destination[k]
+
+
+def _update_attributes(destination, attrs):
+    for k, v in attrs.items():
+        destination.attrs[k] = v
+
+
+def _dicttonx_create_attr(destination, name, value, update=False):
+    """
+    Create a group or dataset attribute
+
+    :param h5py.Group or h5py.Dataset destination:
+    :param str name:
+    :param str value:
+    :param bool update: update value when exists
+    """
+    if value is None:
+        return
+    if name.startswith("@"):
+        name = name[1:]
+    if name in destination.attrs and not update:
+        return
+    if not isString(value):
+        raise ValueError(
+            "Attribute {} of {} must be a string".format(
+                repr(name), repr(destination.name)
+            )
+        )
+    destination.attrs[name] = asNxChar(value)
+
+
+def _dicttonx_create_dataset(destination, name, value, overwrite=False, update=False):
+    """
+    Create a dataset attribute (optional: update value when exists)
+
+    :param h5py.Group destination:
+    :param str name:
+    :param str value:
+    :param bool overwrite: existing attributes are deleted
+    :param bool update: existing attributes are not deleted
+    """
+    if name in destination:
+        if overwrite:
+            value = asNxType(value)
+            try:
+                # Preserve dataset when possible
+                destination[name][()] = value
+            except BaseException:
+                del destination[name]
+                destination[name] = value
+            else:
+                _delete_attributes(destination[name])
+        elif update:
+            value = asNxType(value)
+            try:
+                # Preserve dataset when possible
+                destination[name][()] = value
+            except BaseException:
+                attrs = dict(destination[name].attrs)
+                del destination[name]
+                destination[name] = value
+                _update_attributes(destination[name], attrs)
+    else:
+        destination[name] = asNxType(value)
+    return destination[name]
+
+
+def _dicttonx_create_group(destination, name, overwrite=False):
+    """
+    :param h5py.Group destination:
+    :param str name:
+    :param str value: ignored when `not overwrite`
+    :param bool overwrite: existing datasets and attributes are deleted
+    """
+    if name in destination:
+        if overwrite:
+            if not isinstance(destination[name], h5py.Group):
+                del destination[name]
+                destination.create_group(name)
+            else:
+                _delete_attributes(destination[name])
+                _delete_children(destination[name])
+        elif not isinstance(destination[name], h5py.Group):
+            raise ValueError(
+                "{} already exists and is not a group".format(
+                    repr(destination[name].name)
+                )
+            )
+    else:
+        destination.create_group(name)
+    return destination[name]
+
+
+def dicttonx(treedict, destination, overwrite=False, update=False):
+    """
+    Write a nested dictionary to as Nexus structure in HDF5.
+    Attributes are key-value pairs where the key starts with "@"
+    (attribute values need to be strings). A dictionary with only
+    attribute keys (starting with "@") and "@data" is treated as
+    a dataset.
+
+    :param dict treedict:
+    :param h5py.Group or h5py.Dataset destination:
+    :param bool overwrite: existing datasets/attributes may
+                           disappear or be modified
+    :param bool update: existing datasets/attributes do not
+                        disappear or be may be modified
+    """
+    if isinstance(destination, h5py.Dataset):
+        # treedict: dataset attributes
+        if "NX_class" in treedict or "@NX_class" in treedict:
+            raise ValueError(
+                "{}: '@NX_class' attribute to allowed for datasets".format(
+                    repr(destination.name)
+                )
+            )
+        for key, value in treedict.items():
+            _dicttonx_create_attr(destination, key, value, update=update)
+        return
+    treedict = treedict.copy()
+    if "NX_class" in treedict:
+        treedict.setdefault("@NX_class", treedict.pop("NX_class"))
+    if "NX_class" not in destination.attrs:
+        treedict.setdefault("@NX_class", "NXcollection")
+    for key, value in treedict.items():
+        if isinstance(value, dict):
+            nattrs = sum(k.startswith("@") for k in value.keys())
+            if nattrs == len(value) and "@data" in value:
+                value = value.copy()
+                rdestination = _dicttonx_create_dataset(
+                    destination,
+                    key,
+                    value.pop("@data"),
+                    overwrite=overwrite,
+                    update=update,
+                )
+                dicttonx(value, rdestination, overwrite=overwrite, update=update)
+            else:
+                rdestination = _dicttonx_create_group(
+                    destination, key, overwrite=overwrite
+                )
+                dicttonx(value, rdestination, overwrite=overwrite, update=update)
+        elif value is None:
+            pass
+        elif key.startswith("@"):
+            _dicttonx_create_attr(destination, key, value, update=update)
+        else:
+            _dicttonx_create_dataset(
+                destination, key, value, overwrite=overwrite, update=update
+            )
+
+
+def nxtodict(node):
+    """
+    Read a Nexus structure as a dictionary.
+
+    :param h5py.Group or h5py.Dataset node:
+    :returns dict:
+    """
+    if isinstance(node, h5py.Dataset):
+        result = {"@" + k: v for k, v in node.attrs.items()}
+        result["@data"] = node[()]
+        return result
+    result = {}
+    for key, value in node.items():
+        if isinstance(value, h5py.Group):
+            result[key] = nxtodict(value)
+        else:
+            if value.attrs:
+                d = result[key] = {"@" + k: v for k, v in value.attrs.items()}
+                d["@data"] = value[()]
+            else:
+                result[key] = value[()]
+    for key, value in node.attrs.items():
+        result["@" + key] = value
+    return result

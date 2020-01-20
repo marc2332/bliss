@@ -21,6 +21,7 @@ from contextlib import contextmanager
 from bliss.config import static
 from bliss.common import scans
 from bliss.data.scan import watch_session_scans
+from bliss.scanning.group import Group
 
 
 def get_detectors(test_session):
@@ -31,10 +32,10 @@ def get_detectors(test_session):
     detectors += [
         env_dict.get(f"simu{i}", env_dict.get(f"simu{i}alias")) for i in [1, 2]
     ]
-    # TODO: lima keeps causes all kinds of issues
-    # detectors += [
-    #    env_dict.get(f"lima_simulator{i}", env_dict.get(f"lima_simulator{i}alias")) for i in ["", 2]
-    # ]
+    detectors += [
+        env_dict.get(f"lima_simulator{i}", env_dict.get(f"lima_simulator{i}alias"))
+        for i in ["", 2]
+    ]
     return detectors
 
 
@@ -144,6 +145,10 @@ def stress_many_parallel(test_session, filename, titles, checkoutput=True):
     else:
         for g in glts:
             g.get()
+
+    # Group the scans
+    g = Group(*scns)
+    g.wait_all_subscans(timeout=10)
 
     if checkoutput:
         check_output(scns, titles)

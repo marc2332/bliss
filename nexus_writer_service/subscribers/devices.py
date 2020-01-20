@@ -43,9 +43,9 @@ timernamemap = {"elapsed_time": "value", "epoch": "epoch"}
 
 timertypemap = {"elapsed_time": "principal", "epoch": "epoch"}
 
-limanamemap = {"image": "data"}
+limanamemap = {"image": "data", "sum": "data"}
 
-limatypemap = {"image": "principal"}
+limatypemap = {"image": "principal", "sum": "principal"}
 
 counternamemap = {}
 
@@ -79,45 +79,52 @@ def shortnamemap(names, separator=":"):
     return ret
 
 
-def fill_device(fullname, device):
+def fill_device(fullname, device, device_info=None, data_info=None):
     """
     Add missing keys with default values
 
+        device_type: type for the writer (not saved), e.g. positioner, mca, lima
+        device_name: HDF5 group name (measurement or positioners when missing)
+        device_info: HDF5 group datasets
+        data_type: "principal" (data of NXdetector or value of NXpositioner) or other
+        data_name: HDF5 dataset name
+        data_info: HDF5 dataset attributes
+        unique_name: Unique name for HDF5 links
+        master_index: >=0 axis order used for plotting
+        dependencies: fullnames
+
     :param str fulname:
     :param dict device:
+    :param dict device_info:
+    :param dict data_info:
     """
-    device["device_type"] = device.get(
-        "device_type", ""
-    )  # type for the writer (not saved)
-    # e.g. positioner, mca
-    device["device_name"] = device.get("device_name", fullname)  # HDF5 group name
-    # measurement or positioners when missing
-    device["device_info"] = device.get("device_info", {})  # HDF5 group datasets
-    device["data_type"] = device.get(
-        "data_type", "principal"
-    )  # principal value of this HDF5 group
-    device["data_name"] = device.get("data_name", "data")  # HDF5 dataset name
-    device["data_info"] = device.get("data_info", {})  # HDF5 dataset attributes
-    device["unique_name"] = device.get(
-        "unique_name", fullname
-    )  # Unique name for HDF5 links
-    device["master_index"] = -1  # 0> axis order used for plotting
+    if device_info is None:
+        device_info = {}
+    if data_info is None:
+        data_info = {}
+    device["device_type"] = device.get("device_type", "")
+    device["device_name"] = device.get("device_name", fullname)
+    device["device_info"] = device.get("device_info", device_info)
+    device["data_type"] = device.get("data_type", "principal")
+    device["data_name"] = device.get("data_name", "data")
+    device["data_info"] = device.get("data_info", data_info)
+    device["unique_name"] = device.get("unique_name", fullname)
+    device["master_index"] = -1
+    device["dependencies"] = {}
+    device["metadata_keys"] = {}
 
 
-def update_device(devices, fullname, units=None):
+def update_device(devices, fullname, device_info=None, data_info=None):
     """
     Add missing device and/or keys
 
     :param dict devices:
     :param str fullname:
-    :param dict units:
+    :param dict device_info:
+    :param dict data_info:
     """
     devices[fullname] = device = devices.get(fullname, {})
-    fill_device(fullname, device)
-    if units:
-        unit = units.get(fullname, None)
-        if unit:
-            device["data_info"]["units"] = unit
+    fill_device(fullname, device, device_info=device_info, data_info=data_info)
     return device
 
 
@@ -147,6 +154,8 @@ def parse_devices(devices, short_names=True, multivalue_positioners=False):
         device["device_name"] = namemap.get(fullname, fullname)
         if device["device_type"] == "mca":
             # 'xmap1:xxxxxx_det1'
+            # 'xmap1:roi1'
+            #   xxxxxx: spectrum, icr, ocr, triggers, events, deadtime, livetime, realtime, roi1, roi2, ...
             #   device_name = 'xmap1:det1'
             #   data_type = mcatypemap('xxxxxx')
             #   data_name = mcanamemap('xxxxxx')
@@ -164,16 +173,24 @@ def parse_devices(devices, short_names=True, multivalue_positioners=False):
         elif device["device_type"] == "lima":
             # 'frelon1:image'
             # 'frelon1:roi_counters:roi1_min'
-            # 'frelon1:xxxx:fwhm_x'
+            # 'frelon1:bpm:fwhm_x'
             parts = fullname.split(":")
-            datatype = parts[1]  # image, roi_counters or xxxx
-            if parts[1] == "roi_counters":
-                datatypedefault = ":".join(parts[2:])
+            if len(parts) == 3:
+                device["dependencies"] = {parts[0] + ":image": "image"}
+                if parts[1] == "roi_counters":
+                    subparts = parts[-1].split("_")
+                    device_name = ":".join([parts[0], subparts[0]])
+                    datatype = ":".join(subparts[1:])
+                    device["metadata_keys"] = {subparts[0]: "selection"}
+                else:
+                    device_name = ":".join(parts[:2])
+                    datatype = ":".join(parts[2:])
             else:
-                datatypedefault = ":".join(parts[1:])
-            device["device_name"] = parts[0]
-            device["data_type"] = limatypemap.get(datatype, datatypedefault)
-            device["data_name"] = limanamemap.get(datatype, datatypedefault)
+                device_name = parts[0]
+                datatype = ":".join(parts[1:])
+            device["device_name"] = device_name
+            device["data_type"] = limatypemap.get(datatype, datatype)
+            device["data_name"] = limanamemap.get(datatype, datatype)
         elif device["device_type"] == "samplingcounter":
             if device["data_type"] == "signal":
                 device["data_name"] = "data"
@@ -190,7 +207,7 @@ def parse_devices(devices, short_names=True, multivalue_positioners=False):
                 device["data_type"] = countertypemap.get(datatype, datatype)
                 device["data_name"] = counternamemap.get(datatype, datatype)
         elif device["device_type"] == "positionergroup":
-            # TODO: currently only timers, not other masters exist like this
+            # TODO: currently only timers, no other masters exist like this (yet!!!)
             # 'timer1:xxxxxx' -> 'xxxxxx'
             #   device_name = 'timer1'
             #   data_type = timertypemap('xxxxxx')
@@ -264,7 +281,8 @@ def device_info(devices, scan_info, short_names=True, multivalue_positioners=Fal
         lst = masterinfo.get("scalars", [])
         for fullname in lst:
             subdevices[fullname] = devices.get(fullname, {})
-            device = update_device(subdevices, fullname, units)
+            data_info = {"units": units.get(fullname, None)}
+            device = update_device(subdevices, fullname, data_info=data_info)
             if is_positioner_group(fullname, lst):
                 device["device_type"] = "positionergroup"
             else:
@@ -280,7 +298,8 @@ def device_info(devices, scan_info, short_names=True, multivalue_positioners=Fal
             lst = subscaninfo.get(key, [])
             for fullname in lst:
                 subdevices[fullname] = devices.get(fullname, {})
-                device = update_device(subdevices, fullname, units)
+                data_info = {"units": units.get(fullname, None)}
+                device = update_device(subdevices, fullname, data_info=data_info)
                 if key == "scalars":
                     if is_positioner_group(fullname, lst):
                         device["device_type"] = "positionergroup"

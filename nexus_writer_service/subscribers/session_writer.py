@@ -94,6 +94,7 @@ class NexusSessionWriter(base_subscriber.BaseSubscriber):
         configurable=True,
         purge_delay=300,
         parentlogger=None,
+        resource_profiling=False,
         **saveoptions,
     ):
         """
@@ -105,13 +106,15 @@ class NexusSessionWriter(base_subscriber.BaseSubscriber):
         """
         if parentlogger is None:
             parentlogger = logger
-        super().__init__(db_name, parentlogger=parentlogger)
+        super().__init__(
+            db_name, resource_profiling=resource_profiling, parentlogger=parentlogger
+        )
         self._log_task_period = 5
         self.saveoptions = saveoptions
         if configurable:
-            self._writerclass = scan_writer_config.NexusScanWriterConfigurable
+            self._scan_writer_class = scan_writer_config.NexusScanWriterConfigurable
         else:
-            self._writerclass = scan_writer_base.NexusScanWriterBase
+            self._scan_writer_class = scan_writer_base.NexusScanWriterBase
         self.writers = {}
         self._locks = async_utils.SharedLockPool()
         self.minimal_purge_delay = 5
@@ -150,7 +153,7 @@ class NexusSessionWriter(base_subscriber.BaseSubscriber):
         super().stop(**kwargs)
 
     def _walk_events(self):
-        yield from self._node_iterator.walk_on_new_events(filter="scan")
+        yield from self._node_iterator.walk_on_new_events(filter=["scan_group", "scan"])
 
     def _event_loop_initialize(self, **kwargs):
         """
@@ -166,7 +169,7 @@ class NexusSessionWriter(base_subscriber.BaseSubscriber):
         """
         try:
             self.stop_scan_writers(kill=False)
-        except Exception as e:
+        except BaseException as e:
             self._set_state(self.STATES.FAULT, e)
             self.logger.error(
                 "Exception while stopping scan writers:\n{}".format(
@@ -207,6 +210,9 @@ class NexusSessionWriter(base_subscriber.BaseSubscriber):
         if node.type == "scan":
             self.logger.debug("Start writer for scan " + name)
             self._event_start_scan(node)
+        elif node.type == "scan_group":
+            self.logger.debug("Start writer for group scan " + name)
+            self._event_start_scan(node)
         else:
             self.logger.debug(
                 "new {} node event on {} not treated".format(repr(node.type), name)
@@ -216,11 +222,12 @@ class NexusSessionWriter(base_subscriber.BaseSubscriber):
         """
         Create and spawn a scan writer greenlet
         """
-        writer = self._writerclass(
+        writer = self._scan_writer_class(
             node.db_name,
             self._locks,
             node_type=node.node_type,
             parentlogger=self.logger,
+            resource_profiling=self.resource_profiling,
             **self.saveoptions,
         )
         writer.start()
@@ -282,7 +289,8 @@ class NexusSessionWriter(base_subscriber.BaseSubscriber):
         nactivate = sum(w.active for w in self.writers.values())
         msg = "{} scan writers ({} activate)".format(n, nactivate)
         self.logger.info(msg)
-        self.log_resources()
+        if self.resource_profiling:
+            self.log_resources()
 
     def log_resources(self):
         fds = process_utils.log_fd_diff(

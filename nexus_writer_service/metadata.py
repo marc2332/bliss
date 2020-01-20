@@ -28,12 +28,34 @@ def register_all_metadata_generators(force=False):
     :param bool force: re-initialize when already done
     """
     kwargs = {k: True for k in GENERATORS}
-    register_metadata_generators(force=force, **kwargs)
+    register_metadata_categories(force=force, **kwargs)
+    register_metadata_generators(**kwargs)
 
 
-def register_metadata_generators(force=False, **kwargs):
+def register_metadata_generators(**kwargs):
     """
     Register metadata generators in a bliss session for
+    the scan writers (currently only one).
+
+    :param **kwargs: any key of `GENERATORS`
+    """
+    # Generators are called at the start of the scan:
+    #   bliss.scanning.scan.Scan.__init__
+    # and at the end of the scan
+    #   run bliss.scanning.scan.Scan.run (cleanup section)
+    #
+    # The generator 'instrument.positioners' is an exception.
+    # It is only called at the beginning of the scan by
+    # removing it before calling the generators a second time.
+    generators = scan_meta.get_user_scan_meta()
+    for k, mod in GENERATORS.items():
+        if kwargs.get(k, False):
+            mod.register_metadata_generators(generators)
+
+
+def register_metadata_categories(force=False, **kwargs):
+    """
+    Register metadata categories in a bliss session for
     the scan writers (currently only one).
 
     :param bool force: re-initialize when already done
@@ -54,16 +76,4 @@ def register_metadata_generators(force=False, **kwargs):
         scan_meta.CATEGORIES = enum.Enum(
             scan_meta.CATEGORIES.__name__, list(categories)
         )
-        generators = scan_meta.scan_meta()
-        scan_meta.USER_SCAN_META = generators
-    # Generators are called at the start of the scan:
-    #   bliss.scanning.scan.Scan.__init__
-    # and at the end of the scan
-    #   run bliss.scanning.scan.Scan.run (cleanup section)
-    #
-    # The generator 'instrument.positioners' is an exception.
-    # It is only called at the beginning of the scan by
-    # removing it before calling the generators a second time.
-    for k, mod in GENERATORS.items():
-        if kwargs.get(k, False):
-            mod.register_metadata_generators(generators)
+        scan_meta.USER_SCAN_META = scan_meta.scan_meta()

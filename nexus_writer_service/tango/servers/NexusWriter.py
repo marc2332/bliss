@@ -140,7 +140,7 @@ class NexusWriter(Device):
 
     state_reason = attribute(dtype="DevString")
 
-    profiling = attribute(dtype="DevBoolean", access=AttrWriteType.READ_WRITE)
+    resource_profiling = attribute(dtype="DevBoolean", access=AttrWriteType.READ_WRITE)
 
     scan_states = attribute(dtype=("DevState",), max_dim_x=10000)
 
@@ -205,17 +205,17 @@ class NexusWriter(Device):
         return self.session_writer.state_reason
         # PROTECTED REGION END #    //  NexusWriter.state_reason_read
 
-    def read_profiling(self):
-        # PROTECTED REGION ID(NexusWriter.profiling_read) ENABLED START #
-        """Return the profiling attribute."""
-        return self.session_writer.saveoptions["profiling"]
-        # PROTECTED REGION END #    //  NexusWriter.profiling_read
+    def read_resource_profiling(self):
+        # PROTECTED REGION ID(NexusWriter.resource_profiling_read) ENABLED START #
+        """Return the resource_profiling attribute."""
+        return self.session_writer.resource_profiling
+        # PROTECTED REGION END #    //  NexusWriter.resource_profiling_read
 
-    def write_profiling(self, value):
-        # PROTECTED REGION ID(NexusWriter.profiling_write) ENABLED START #
-        """Set the profiling attribute."""
-        self.session_writer.saveoptions["profiling"] = value
-        # PROTECTED REGION END #    //  NexusWriter.profiling_write
+    def write_resource_profiling(self, value):
+        # PROTECTED REGION ID(NexusWriter.resource_profiling_write) ENABLED START #
+        """Set the resource_profiling attribute."""
+        self.session_writer.resource_profiling = value
+        # PROTECTED REGION END #    //  NexusWriter.resource_profiling_write
 
     def read_scan_states(self):
         # PROTECTED REGION ID(NexusWriter.scan_states_read) ENABLED START #

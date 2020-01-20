@@ -87,12 +87,14 @@ class BaseSubscriber(object):
         STATES.FAULT: [],
     }
 
-    def __init__(self, db_name, node_type=None, parentlogger=None, profiling=False):
+    def __init__(
+        self, db_name, node_type=None, parentlogger=None, resource_profiling=False
+    ):
         """
         :param str db_name:
         :param str node_type:
         :param parentlogger:
-        :param bool profiling: mem and cpu usage
+        :param bool resource_profiling:
         """
         self.state = self.STATES.INIT
         self.state_reason = "instantiation"
@@ -103,7 +105,7 @@ class BaseSubscriber(object):
         if parentlogger is None:
             parentlogger = logger
         self.logger = CustomLogger(parentlogger, self)
-        self.profiling = profiling
+        self.resource_profiling = resource_profiling
 
         self._greenlet = None
         self._log_task_period = 5
@@ -292,7 +294,7 @@ class BaseSubscriber(object):
         """
         try:
             yield
-        except Exception as e:
+        except BaseException as e:
             # No need to reraise or set the listener state to FAULT
             self.logger.error(
                 "Exception while {}:\n{}".format(action, traceback.format_exc())
@@ -303,7 +305,7 @@ class BaseSubscriber(object):
         Greenlet main function without the resource (de)allocation
         """
         try:
-            if self.profiling:
+            if self.resource_profiling:
                 with profiling.profile(
                     logger=self.logger,
                     timelimit=50,
@@ -320,7 +322,7 @@ class BaseSubscriber(object):
         except KeyboardInterrupt:
             self._set_state(self.STATES.FAULT, "KeyboardInterrupt")
             self.logger.warning("Stop listening to Redis events (KeyboardInterrupt)")
-        except Exception as e:
+        except BaseException as e:
             self._set_state(self.STATES.FAULT, e)
             self.logger.error(
                 "Stop listening due to exception:\n{}".format(traceback.format_exc())
@@ -350,7 +352,7 @@ class BaseSubscriber(object):
                     except KeyboardInterrupt:
                         self._set_state(self.STATES.FAULT, "KeyboardInterrupt")
                         raise
-                    except Exception as e:
+                    except BaseException as e:
                         self._set_state(self.STATES.FAULT, e)
                         self.logger.warning(
                             "Processing {} event caused an exception:\n{}".format(
@@ -363,7 +365,7 @@ class BaseSubscriber(object):
         finally:
             try:
                 self._event_loop_finalize(**kwargs)
-            except Exception as e:
+            except BaseException as e:
                 self._set_state(self.STATES.FAULT, e)
                 self.logger.error(
                     "Not properly finalized due to exception:\n{}".format(

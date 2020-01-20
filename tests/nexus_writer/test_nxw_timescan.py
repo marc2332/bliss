@@ -7,6 +7,7 @@
 
 import gevent
 import pytest
+from louie import dispatcher
 from gevent.time import time
 from bliss.common import scans
 from bliss.data.node import get_session_node
@@ -19,7 +20,7 @@ def test_nxw_timescan(nexus_writer_config):
 
 
 # VDS of MCA raises exception when npoints not equal
-# so that scan writer is in FAULT state.
+# so scan writer is in FAULT state.
 @pytest.mark.skip("skip until timescan has same npoints for each scan")
 def test_nxw_timescan_alt(nexus_writer_config_alt):
     _test_nxw_timescan(**nexus_writer_config_alt, alt=True)
@@ -89,6 +90,10 @@ def _test_nxw_timescan(session=None, tmpdir=None, writer=None, **kwargs):
         gscan.join()
         gscan.get()
     glisten.kill()
+
     # Verify data
     nxw_test_utils.wait_scan_data_finished([scan], writer=writer, **kwargs)
     nxw_test_data.assert_scan_data(scan, scan_shape=(0,), **kwargs)
+
+    # TODO: no proper cleanup by Bliss
+    dispatcher.reset()

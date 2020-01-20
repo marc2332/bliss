@@ -106,7 +106,7 @@ def ensure_existence(
     db = Database()
     if not member:
         member = session_name
-    if not domain():
+    if not domain:
         domain = beamline()
     dev_name = "/".join([domain, family, member])
     if use_existing:

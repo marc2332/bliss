@@ -32,7 +32,7 @@ def file_descriptors(pid=None):
     for fd in os.listdir(fdpath):
         try:
             dest = os.readlink(os.path.join(fdpath, fd))
-        except Exception:
+        except BaseException:
             pass
         else:
             fds[int(fd)] = dest
@@ -89,7 +89,7 @@ def file_processes(pattern):
             for filename in fds.values():
                 if re.match(pattern, filename):
                     ret.append((filename, proc))
-        except Exception:
+        except BaseException:
             pass
     return ret
 

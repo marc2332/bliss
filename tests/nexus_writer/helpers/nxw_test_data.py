@@ -5,6 +5,7 @@
 # Copyright (c) 2015-2019 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
+import re
 import numpy
 from nexus_writer_service.utils import scan_utils
 from nexus_writer_service.io import nexus
@@ -25,6 +26,15 @@ def assert_scan_data(scan, **kwargs):
     """
     # scan_utils.open_data(scan, subscan=subscan, config=config, block=True)
     validate_scan_data(scan, **kwargs)
+
+
+def assert_scangroup_data(sequence, **kwargs):
+    """
+    :param bliss.scanning.group.Sequence sequence:
+    :param kwargs: see `validate_scangroup_data`
+    """
+    # scan_utils.open_data(sequence.scan, subscan=subscan, config=config, block=True)
+    validate_scangroup_data(sequence, **kwargs)
 
 
 def validate_scan_data(
@@ -82,7 +92,7 @@ def validate_scan_data(
             else:
                 detectors = [name if d == alias else d for d in detectors]
     if config:
-        scan_technique = scan.scan_info["nxwriter"]["technique"]["name"]
+        scan_technique = scan.scan_info["nexuswriter"]["technique"]["name"]
     else:
         scan_technique = det_technique
     # Validate NXentry links
@@ -140,6 +150,21 @@ def validate_scan_data(
         )
 
 
+def validate_scangroup_data(sequence, config=True, **kwargs):
+    """
+    :param bliss.scanning.scan.Scan sequence:
+    :param bool config: configurable writer
+    """
+    # Validate NXentry links
+    validate_master_links(sequence.scan, config=config)
+    validate_scangroup_links(sequence, config=config)
+    # Validate NXentry content
+    uri = scan_utils.scan_uri(sequence.scan, config=config)
+    with nexus.uriContext(uri) as nxentry:
+        # TODO: validate scan group NXentry (custom channels)
+        pass
+
+
 def validate_master_links(scan, subscan=1, config=True):
     """
     Check whether all files contain the scan entry.
@@ -156,6 +181,24 @@ def validate_master_links(scan, subscan=1, config=True):
                     break
             else:
                 assert False, uri
+
+
+def validate_scangroup_links(sequence, config=True):
+    """
+    :param bliss.scanning.scan.Scan sequence:
+    :param bool config: configurable writer
+    """
+    expected = []
+    for scan in sequence._scans:
+        expected += scan_utils.scan_uris(scan, config=config)
+    uri = scan_utils.scan_uri(sequence.scan, config=config)
+    expected.append(uri)
+    actual = []
+    with nexus.uriContext(uri) as nxentry:
+        root = nxentry.parent
+        for k in root:
+            actual.append(nexus.normUri(nexus.dereference(root[k])))
+    assert_set_equal(set(actual), set(expected))
 
 
 def validate_nxentry(
@@ -329,9 +372,11 @@ def validate_instrument(
         assert instrument[name].attrs["NX_class"] == "NXdetector", name
         expected = expected_detector_content(name, config=config)
         assert_set_equal(set(instrument[name].keys()), expected, msg=name)
-        if "lima_simulator" in name:
-            if not config and not name.endswith("image"):
-                continue
+        if config:
+            islima_image = name in ["lima_simulator", "lima_simulator2"]
+        else:
+            islima_image = name in ["lima_simulator_image", "lima_simulator2_image"]
+        if islima_image:
             assert_dataset(instrument[name]["data"], 2, save_options, variable_length)
 
 
@@ -686,7 +731,15 @@ def expected_detectors(config=True, technique=None, detectors=None):
             names = {"lima_simulator", "lima_simulator2"}
             if detectors:
                 names &= detectors
-            expected |= names
+            for name in names:
+                expected |= {
+                    name,
+                    name + "_roi1",
+                    name + "_roi2",
+                    name + "_roi3",
+                    name + "_roi4",
+                    name + "_bpm",
+                }
     else:
         # Each data channel is a detector
         expected = set()
@@ -713,7 +766,7 @@ def expected_detector_content(name, config=True):
         elif name == "thermo_sample":
             datasets = {"data", "mode", "type"}
         elif name.startswith("simu"):
-            datasets = {"type", "description", "roi1", "roi2", "roi3"}
+            datasets = {"type", "roi1", "roi2", "roi3"}
             if "sum" not in name:
                 datasets |= {
                     "data",
@@ -726,40 +779,36 @@ def expected_detector_content(name, config=True):
                     "output_rate",
                 }
         elif name.startswith("lima"):
-            datasets = {
-                "roi1_avg",
-                "roi1_max",
-                "roi1_min",
-                "roi1_std",
-                "roi1_sum",
-                "roi2_avg",
-                "roi2_max",
-                "roi2_min",
-                "roi2_std",
-                "roi2_sum",
-                "roi3_avg",
-                "roi3_max",
-                "roi3_min",
-                "roi3_std",
-                "roi3_sum",
-                "roi4_avg",
-                "roi4_max",
-                "roi4_min",
-                "roi4_std",
-                "roi4_sum",
-                "bpm_x",
-                "bpm_y",
-                "bpm_fwhm_x",
-                "bpm_fwhm_y",
-                "bpm_intensity",
-                "bpm_acq_time",
-                "type",
-                "data",
-            }
+            if "roi" in name:
+                datasets = {"data", "type", "avg", "min", "max", "std", "selection"}
+            elif "bpm" in name:
+                datasets = {
+                    "type",
+                    "x",
+                    "y",
+                    "fwhm_x",
+                    "fwhm_y",
+                    "intensity",
+                    "acq_time",
+                }
+            else:
+                datasets = {"type", "data", "acq_parameters", "ctrl_parameters"}
         else:
             datasets = {"data"}
     else:
-        datasets = {"data"}
+        if name.startswith("lima"):
+            if "roi" in name:
+                datasets = {"data", "roi1", "roi2", "roi3", "roi4"}
+            elif "bpm" in name:
+                datasets = {"data"}
+            else:
+                datasets = {"data", "acq_parameters", "ctrl_parameters"}
+        elif name == "image":
+            datasets = {"data", "acq_parameters", "ctrl_parameters"}
+        elif re.match("roi[0-9]_(sum|avg|std|min|max)", name):
+            datasets = {"data", "roi1", "roi2", "roi3", "roi4"}
+        else:
+            datasets = {"data"}
     return datasets
 
 
@@ -861,7 +910,7 @@ def expected_channels(config=True, technique=None, detectors=None):
                         prefix + "roi3_" + detname,
                     }
                 datasets[0] |= {prefix + "roi1", prefix + "roi2", prefix + "roi3"}
-    # Lima's with ROI's and BMP
+    # Lima's with ROI's and BPM
     if "xrd" in technique or detectors:
         names = {"lima_simulator", "lima_simulator2"}
         if detectors:
@@ -872,22 +921,22 @@ def expected_channels(config=True, technique=None, detectors=None):
                 datasets[0] |= {
                     conname + "_roi1_min",
                     conname + "_roi1_max",
-                    conname + "_roi1_sum",
+                    conname + "_roi1",
                     conname + "_roi1_avg",
                     conname + "_roi1_std",
                     conname + "_roi2_min",
                     conname + "_roi2_max",
-                    conname + "_roi2_sum",
+                    conname + "_roi2",
                     conname + "_roi2_avg",
                     conname + "_roi2_std",
                     conname + "_roi3_min",
                     conname + "_roi3_max",
-                    conname + "_roi3_sum",
+                    conname + "_roi3",
                     conname + "_roi3_avg",
                     conname + "_roi3_std",
                     conname + "_roi4_min",
                     conname + "_roi4_max",
-                    conname + "_roi4_sum",
+                    conname + "_roi4",
                     conname + "_roi4_avg",
                     conname + "_roi4_std",
                     conname + "_bpm_x",

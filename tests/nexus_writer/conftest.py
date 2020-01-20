@@ -43,7 +43,7 @@ config_writer_args = (
 )
 base_writer_args = config_writer_args + ("--noconfig",)
 writer_tango_properties = {"copy_nonhdf5_data": True}
-writer_tango_attributes = {"profiling": False}
+writer_tango_attributes = {"resource_profiling": False}
 
 
 def cliargs_logfiles(cliargs, tmpdir):

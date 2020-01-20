@@ -18,10 +18,10 @@ from gevent import sleep
 from collections import OrderedDict
 from contextlib import contextmanager
 from fabio.edfimage import EdfImage
+from .base_proxy import BaseProxy
 from ..io import nexus
 from ..io import h5_external
 from ..io.io_utils import mkdir
-from ..utils import logging_utils
 from ..utils.array_order import Order
 
 
@@ -83,7 +83,7 @@ class FileSizeMonitor:
         self.reset()
 
 
-class DatasetProxy:
+class DatasetProxy(BaseProxy):
     """
     Wraps HDF5 dataset creating and growth.
     """
@@ -116,12 +116,14 @@ class DatasetProxy:
         :param Order publishorder: order in which the scan shape is published
         :param parentlogger:
         """
-        # HDF5 parameters
-        if filecontext is None:
-            filecontext = self._filecontext
-        self.filename = filename
-        self.filecontext = filecontext
-        self.parent = parent
+        if parentlogger is None:
+            parentlogger = logger
+        super().__init__(
+            filename=filename,
+            parent=parent,
+            filecontext=filecontext,
+            parentlogger=parentlogger,
+        )
 
         # Shape and order
         if sum(n == 0 for n in scan_shape) > 1:
@@ -145,32 +147,15 @@ class DatasetProxy:
         self.device = device
 
         # Internals
-        self.npoints = 0
         self._external_raw = []
         self._external_datasets = []
         self._external_names = []
         self._external_raw_formats = ["edf"]
-        if parentlogger is None:
-            parentlogger = logger
-        self.logger = logging_utils.CustomLogger(parentlogger, self)
-
-    @contextmanager
-    def _filecontext(self):
-        with nexus.nxRoot(self.filename, mode="a") as nxroot:
-            yield nxroot
 
     def __repr__(self):
         return "{}: shape = {}, dtype={}".format(
             repr(self.path), self.shape, self.dtype.__name__
         )
-
-    @property
-    def path(self):
-        return "/".join([self.parent, self.name])
-
-    @property
-    def uri(self):
-        return self.filename + "::" + self.path
 
     @property
     def name(self):
@@ -339,7 +324,7 @@ class DatasetProxy:
             self._external_names += newdata
             self.npoints = len(self._external_names)
 
-    def add_internal(self, newdata):
+    def add(self, newdata):
         """
         Add data to dataset (copy)
 
@@ -349,12 +334,9 @@ class DatasetProxy:
         if self.is_external:
             msg = "{} already has external data".format(self)
             raise RuntimeError(msg)
-        with self.open(ensure_existance=True) as dset:
-            try:
-                self.npoints += self._insert_data(dset, newdata)
-            except TypeError as e:
-                self.logger.error(e)
-                raise
+        super().add(newdata)
+
+    add_internal = add
 
     def _insert_data(self, dset, newdata):
         """
@@ -496,6 +478,8 @@ class DatasetProxy:
         """
         Value reader gets for uninitialized elements
         """
+        if self.dtype in (str, bytes):
+            return ""
         fillvalue = numpy.nan
         try:
             numpy.array(fillvalue, self.dtype)
@@ -688,90 +672,16 @@ class DatasetProxy:
         attrs = {k: v for k, v in attrs.items() if v is not None}
         return attrs
 
-    def ensure_existance(self):
-        with self.filecontext() as nxroot:
-            if self.exists:
-                return
-            parent = nxroot[self.parent]
-            nexus.nxCreateDataSet(parent, self.name, self._dset_value, self._dset_attrs)
+    def _create(self, nxroot):
+        """
+        Create the dataset
+        """
+        parent = nxroot[self.parent]
+        nexus.nxCreateDataSet(parent, self.name, self._dset_value, self._dset_attrs)
 
     @property
-    def exists(self):
-        """
-        :returns bool:
-        """
-        with self.filecontext() as nxroot:
-            return self.path in nxroot
-
-    @contextmanager
-    def open(self, ensure_existance=False):
-        """
-        :param bool ensure_existance:
-        :yields h5py.Dataset or None:
-        """
-        with self.filecontext() as nxroot:
-            if ensure_existance:
-                self.ensure_existance()
-            if self.path in nxroot:
-                yield nxroot[self.path]
-            else:
-                self.logger.warning(repr(self.uri) + " does not exist")
-                yield None
-
-    @property
-    def complete(self):
-        """
-        Variable length scans are marked complete when we have some data
-        """
-        n, nall = self.npoints, self.npoints_expected
-        return n and n >= nall
-
-    @property
-    def progress(self):
-        if self.npoints_expected:
-            return self.npoints / self.npoints_expected
-        else:
-            if self.npoints:
-                return numpy.nan
-            else:
-                return 0
-
-    @property
-    def progress_string(self):
-        if self.npoints_expected:
-            sortkey = self.npoints / self.npoints_expected
-            s = "{:.0f}%".format(sortkey * 100)
-        else:
-            sortkey = self.npoints
-            s = "{:d}pts".format(sortkey)
-        return s, sortkey
-
-    def log_progress(self, expect_complete=False):
-        """
-        :param bool expect_complete: 
-        :returns int, bool, str:
-        """
-        npoints_expected = self.npoints_expected
-        npoints_current = self.npoints
-        complete = self.complete
-        datasize = format_bytes(self.current_bytes)
-        if expect_complete:
-            if complete:
-                msg = "{}/{} points published ({})".format(
-                    npoints_current, npoints_expected, datasize
-                )
-                self.logger.debug(msg)
-            else:
-                msg = "only {}/{} points published ({})".format(
-                    npoints_current, npoints_expected, datasize
-                )
-                self.logger.warning(msg)
-        else:
-            msg = "progress {}/{} ({})".format(
-                npoints_current, npoints_expected, datasize
-            )
-            self.logger.debug(msg)
-        return complete
+    def _progress_log_string(self):
+        return " ({})".format(format_bytes(self.current_bytes))
 
     def reshape(self, scan_save_shape, detector_shape=None):
         """
@@ -905,3 +815,16 @@ class DatasetProxy:
             "_".join(map(str, self.current_detector_shape)) + "_" + self.dtype.__name__
         )
         return os.path.join(dirname, "dummy", "dummy_" + name + ext)
+
+    def add_metadata(self, treedict, parent=False, **kwargs):
+        """
+        Add datasets/attributes (typically used for metadata)
+
+        :param dict treedict:
+        :param bool parent:
+        :param kwargs: see `dicttonx`
+        """
+        with self.open(ensure_existance=True) as destination:
+            if parent:
+                destination = destination.parent
+            nexus.dicttonx(treedict, destination, **kwargs)

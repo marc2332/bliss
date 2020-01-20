@@ -132,12 +132,12 @@ def reader(filename, startevent, hold=False, **kwargs):
                         for entry in f:
                             list(f[entry]["instrument"].keys())
                             list(f[entry]["measurement"].keys())
-                    except Exception:
+                    except BaseException:
                         pass
                     finally:
                         if not hold:
                             break
         except (KeyboardInterrupt, gevent.GreenletExit):
             break
-        except Exception:
+        except BaseException:
             pass

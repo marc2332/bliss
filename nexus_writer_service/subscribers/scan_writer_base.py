@@ -23,6 +23,7 @@ from contextlib import contextmanager
 from bliss.data.node import get_node
 from . import devices
 from . import dataset_proxy
+from . import reference_proxy
 from . import base_subscriber
 from ..io import nexus
 from ..utils import scan_utils
@@ -61,9 +62,9 @@ cli_saveoptions = {
         "help": "Copy data instead of saving the uri when external linking is disabled",
     },
     "enable_profiling": {
-        "dest": "profiling",
+        "dest": "resource_profiling",
         "action": "store_true",
-        "help": "Enable code profiling",
+        "help": "Enable resource profiling",
     },
 }
 
@@ -89,6 +90,7 @@ class Subscan(object):
 
         self.enabled = True
         self.datasets = {}  # bliss.data.node.DataNode.fullname -> DatasetProxy
+        self.references = {}  # bliss.data.node.DataNode.fullname -> ReferenceProxy
         self._info_cache = {}  # cache calls to self.get_info
         if parentlogger is None:
             parentlogger = logger
@@ -156,7 +158,7 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
         db_name,
         lockpool,
         node_type=None,
-        profiling=False,
+        resource_profiling=False,
         parentlogger=None,
         **saveoptions
     ):
@@ -165,13 +167,16 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
         :param geventsync.SharedLockPool lockpool:
         :param str node_type:
         :param Logger parentlogger:
-        :param bool profiling: mem and cpu usage
+        :param bool resource_profiling:
         :param saveoptions:
         """
         if parentlogger is None:
             parentlogger = logger
         super().__init__(
-            db_name, node_type=node_type, parentlogger=parentlogger, profiling=profiling
+            db_name,
+            node_type=node_type,
+            parentlogger=parentlogger,
+            resource_profiling=resource_profiling,
         )
 
         # Save options
@@ -194,6 +199,7 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
         self._nxroot = {}  # for recursive calling
         self._nxentry = None  # for recursive calling
         self._nxroot_locks = lockpool
+        self._configurable = False
 
     def _listen_event_loop(self, **kwargs):
         """
@@ -228,7 +234,7 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
         """
         try:
             self._finalize_hdf5()
-        except Exception as e:
+        except BaseException as e:
             self._set_state(self.STATES.FAULT, e)
             self.logger.error(
                 "Not properly finalized due to exception:\n{}".format(
@@ -269,6 +275,15 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
         # )
         # for subscan in self._enabled_subscans:
         #    self._ensure_same_length(subscan)
+
+        self.logger.info("Save detector metadata")
+        skip = set()
+        for node in self._nodes:
+            self._fetch_node_metadata(node, skip)
+
+        self.logger.info("Save scan metadata")
+        for subscan in self._enabled_subscans:
+            self._fetch_subscan_metadata(subscan)
 
         self.logger.info("Link external data (VDS or raw)")
         for node in self._nodes:
@@ -324,10 +339,9 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
             filename = self.filenames[level]
             if not os.path.dirname(filename):
                 self.logger.warning(
-                    "Saving {} in current working directory {}".format(
-                        repr(filename), repr(os.getcwd())
-                    )
+                    "Filename {} has no directory specified".format(repr(filename))
                 )
+                filename = ""
         except IndexError:
             filename = ""
         return filename
@@ -339,7 +353,7 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
                        and the others for the masters
         """
         if self.save:
-            return scan_utils.scan_filenames(self.node, config=False)
+            return scan_utils.scan_filenames(self.node, config=self._configurable)
         else:
             return []
 
@@ -410,7 +424,11 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
             device = devices.update_device(subdevices, fullname)
         if not device["device_type"]:
             device["device_type"] = self._device_type(node)
-        return device.copy()
+        if self.is_scan_group and device["device_type"] == "positioner":
+            device["device_type"] = "groupinfo"
+            if device["data_name"] == "value":
+                device["data_name"] = "data"
+        return device
 
     def _device_type(self, node):
         """
@@ -438,7 +456,7 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
                             yield nxroot
                         finally:
                             self._nxroot[level] = None
-                except Exception:
+                except BaseException:
                     if nxroot is None:
                         pattern = ".+{}$".format(os.path.basename(filename))
                         log_file_processes(self.logger.error, pattern)
@@ -844,7 +862,7 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
                     mask = numpy.isfinite(value)
                     try:
                         m, b = numpy.polyfit(x[mask], value[mask], 1)
-                    except Exception:
+                    except BaseException:
                         value = numpy.linspace(
                             numpy.nanmin(value), numpy.nanmax(value), value.size
                         )
@@ -1074,21 +1092,24 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
         Creation of a new Redis node
         """
         name = repr(node.name)
-        if node.type == "scan":
+        if node.type in ["scan", "scan_group"]:
             self.logger.debug("Start scan " + name)
             self._event_start_scan(node)
         elif node.type == "channel":
             self.logger.debug("New channel " + name)
             self._event_new_datanode(node)
+        elif node.type == "node_ref_channel":
+            self.logger.debug("New reference channel " + name)
+            self._event_new_datanode(node)
         elif node.type == "lima":
             self.logger.debug("New Lima " + name)
             self._event_new_datanode(node)
-        elif node.parent.type == "scan":
+        elif node.parent.type in ["scan", "scan_group"]:
             self.logger.debug("New subscan " + name)
             self._event_new_subscan(node)
         else:
             self.logger.debug(
-                "new {} node event on {} not treated".format(repr(node.type), name)
+                "New {} node event on {} not treated".format(repr(str(node.type)), name)
             )
 
     def _event_new_subscan(self, node):
@@ -1096,7 +1117,7 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
         :param node bliss.data.node.DataNodeContainer:
         """
         subscan = Subscan(self, node, parentlogger=self.logger)
-        self.logger.debug("Start subscan " + repr(subscan.name))
+        self.logger.info("New subscan " + repr(subscan.name))
         if subscan.name not in self._expected_subscans:
             self._log_unexpected_subscan(subscan)
             # subscan.enabled = False
@@ -1118,11 +1139,13 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
         name = repr(node.fullname)
         if node.type == "channel":
             self._fetch_data(node)
+        elif node.type == "node_ref_channel":
+            self._fetch_data(node)
         elif node.type == "lima":
             self._fetch_data(node)
         else:
             self.logger.warning(
-                "New {} data for {} not treated".format(repr(node.type), name)
+                "New {} data for {} not treated".format(repr(str(node.type)), name)
             )
 
     def _event_start_scan(self, scan):
@@ -1143,8 +1166,28 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
 
         :param bliss.data.node.DataNode node:
         """
+        # Node will appear in HDF5 but not
+        # necessarily with data (dset.shape[0] == 0)
         self._nodes.append(node)
-        self._dataset_proxy(node)
+        self._node_proxy(node)
+
+    @property
+    def is_scan_group(self):
+        return self.node.type == "scan_group"
+
+    def _node_proxy(self, node):
+        """
+        Get node proxy associated with node (create when needed).
+        The subscan to which the node belongs too must be known,
+        expected and enabled.
+
+        :param bliss.data.node.DataNode node:
+        :returns DatasetProxy or None:
+        """
+        if node.type == "node_ref_channel":
+            return self._reference_proxy(node)
+        else:
+            return self._dataset_proxy(node)
 
     def _dataset_proxy(self, node):
         """
@@ -1194,12 +1237,8 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
         with parentcontext(*parentcontextargs) as parent:
             if parent is None:
                 return dproxy
-            # Save info associated to the device (not the specific dataset)
-            for dset_name, value in device["device_info"].items():
-                if dset_name in parent:
-                    nexus.updateDataset(parent, dset_name, value)
-                else:
-                    nexus.nxCreateDataSet(parent, dset_name, value, None)
+            # Save info associated to the device (not this specific dataset)
+            nexus.dicttonx(device["device_info"], parent, update=True)
             parent = parent.name
 
         # Everything is ready to create the dataset
@@ -1222,6 +1261,41 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
         self._add_to_dataset_links(subscan, dproxy)
         subscan.logger.debug("New data node " + str(dproxy))
         return dproxy
+
+    def _reference_proxy(self, node):
+        """
+        Get reference proxy associated with node (create when needed).
+        The subscan to which the node belongs too must be known,
+        expected and enabled.
+
+        :param bliss.data.node.DataNode node:
+        :returns ReferenceProxy or None:
+        """
+        rproxy = None
+        subscan = self._datanode_subscan(node)
+        if subscan is None:
+            # unknown, unexpected or disabled
+            return rproxy
+        # Already initialized?
+        references = subscan.references
+        rproxy = references.get(node.fullname)
+        if rproxy is not None:
+            return rproxy
+
+        # Scans can have subscans so we don't know
+        # how many references to expect.
+        # scan_shape = self.scan_shape(subscan)
+        # nreferences = dataset_proxy.shape_to_size(scan_shape)
+        rproxy = reference_proxy.ReferenceProxy(
+            filename=self.filename,
+            parent="/",
+            filecontext=self.nxroot,
+            nreferences=0,
+            parentlogger=subscan.logger,
+        )
+        references[node.fullname] = rproxy
+        subscan.logger.debug("New reference node " + str(rproxy))
+        return rproxy
 
     def _datanode_subscan(self, node):
         """
@@ -1332,48 +1406,71 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
         :param bliss.data.node.DataNode node:
         :param bool last: this will be the last fetch
         """
-        # Get/initialize dataset proxy
-        dproxy = self._dataset_proxy(node)
-        if dproxy is None:
+        # Skip when no data expected
+        if not self._node_data_saved(node):
+            if last:
+                self.logger.debug(
+                    "no data to be saved for node {}".format(repr(node.fullname))
+                )
+            return
+        # Get/initialize dataset or reference proxy
+        nproxy = self._node_proxy(node)
+        if nproxy is None:
             if last:
                 self._set_state(
                     self.STATES.FAULT, "no data for node {}".format(repr(node.fullname))
                 )
             return
         # Get data or references (if any)
-        self._fetch_new_data(node, dproxy)
+        self._fetch_new_data(node, nproxy)
         # Progress
-        complete = dproxy.log_progress(expect_complete=last)
+        complete = nproxy.log_progress(expect_complete=last)
         if last and not complete:
-            self._set_state(self.STATES.FAULT, "{} incomplete".format(dproxy))
+            self._set_state(self.STATES.FAULT, "{} incomplete".format(nproxy))
 
-    def _fetch_new_data(self, node, dproxy):
+    def _fetch_new_data(self, node, nproxy):
         """
         Get new data (if any) from a data node and create/insert/link in HDF5.
 
         :param bliss.data.node.DataNode node:
-        :param DatasetProxy proxy:
+        :param DatasetProxy or ReferenceProxy nproxy:
         """
         # Copy/link new data
-        if node.type == "channel":
+        if node.type in "channel":
             # newdata = copied from Redis
-            newdata = self._fetch_new_redis_data(dproxy, node)
+            newdata = self._fetch_new_redis_data(nproxy, node)
             if newdata.shape[0]:
-                dproxy.add_internal(newdata)
+                nproxy.add_internal(newdata)
+        elif node.type == "node_ref_channel":
+            # newdata = copied from Redis
+            newdata = self._fetch_new_redis_refdata(nproxy, node)
+            if newdata:
+                nproxy.add_references(newdata)
         else:
             # newdata = uri's and indices
-            if dproxy.is_internal:
+            if nproxy.is_internal:
                 external = False
             else:
-                newdata, file_format = self._fetch_new_references(dproxy, node)
+                newdata, file_format = self._fetch_new_references(nproxy, node)
                 external, file_format = self._save_reference_mode(file_format)
             if external:
                 if newdata:
-                    dproxy.add_external(newdata, file_format)
+                    nproxy.add_external(newdata, file_format)
             else:
-                newdata = self._fetch_new_external_data(dproxy, node)
+                newdata = self._fetch_new_external_data(nproxy, node)
                 if newdata.shape[0]:
-                    dproxy.add_internal(newdata)
+                    nproxy.add_internal(newdata)
+
+    def _node_data_saved(self, node):
+        """
+        Check whether data associated for this node is actually saved.
+
+        :param bliss.data.node.DataNode node:
+        """
+        if node.type in ["channel", "node_ref_channel"]:
+            return True
+        else:
+            return node.info.get("saving_mode", "MANUAL") != "MANUAL"
 
     def _save_reference_mode(self, file_format):
         """
@@ -1397,16 +1494,46 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
         Make sure the dataset associated with this node is created (if not already done).
 
         :param bliss.data.node.DataNode node:
-        :param bool last: this will be the last fetch
-        :returns DatasetProxy or None:
         """
-        dproxy = self._dataset_proxy(node)
-        if dproxy is None:
-            msg = "{} dataset not initialized".format(repr(node.fullname))
+        nproxy = self._node_proxy(node)
+        if nproxy is None:
+            msg = "{} not initialized".format(repr(node.fullname))
             self._set_state(self.STATES.FAULT, msg)
         else:
-            dproxy.ensure_existance()
-        return dproxy
+            nproxy.ensure_existance()
+
+    def _fetch_node_metadata(self, node, skip):
+        """
+        Get metadata (if any) from a data node and save in HDF5.
+
+        :param bliss.data.node.DataNode node:
+        :param set skip:
+        """
+        if node.type == "node_ref_channel":
+            return
+        # Get/initialize dataset proxy
+        dproxy = self._dataset_proxy(node)
+        if dproxy is None:
+            self._set_state(
+                self.STATES.FAULT, "no data for node {}".format(repr(node.fullname))
+            )
+            return
+        # Add metadata to dataset
+        metadata = {"units": node.info.get("unit")}
+        dproxy.add_metadata(metadata, parent=False)
+        # Add metadata to nxdetector/nxpositioner
+        if dproxy.parent not in skip:
+            if not dproxy.parent.endswith("measurement"):
+                metadata = node.parent.info.get_all()
+                metadata_keys = dproxy.device["metadata_keys"]
+                if metadata_keys:
+                    metadata = {
+                        metadata_keys[k]: v
+                        for k, v in metadata.items()
+                        if k in metadata_keys
+                    }
+                dproxy.add_metadata(metadata, parent=True)
+            skip.add(dproxy.parent)
 
     def _ensure_same_length(self, subscan):
         """
@@ -1437,10 +1564,22 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
         :param bliss.data.channel.ChannelDataNode node:
         :returns numpy.ndarray:
         """
-        icurrent = dproxy.npoints
-        # list(num or numpy.ndarray)
-        # return numpy.array(node.get(icurrent, -1))
-        return node.get_as_array(icurrent, -1)
+        # return numpy.array(node.get(dproxy.npoints, -1))
+        return node.get_as_array(dproxy.npoints, -1)
+
+    def _fetch_new_redis_refdata(self, rproxy, node):
+        """
+        Get new uris provided by a 'node_ref_channel' data node.
+
+        :param ReferenceProxy rproxy:
+        :param bliss.data.channel.ChannelDataNode node:
+        :returns lst(str):
+        """
+        result = []
+        for refnode in node.get(rproxy.npoints, -1):
+            if refnode.info.get("save"):
+                result += scan_utils.scan_uris(refnode, config=self._configurable)
+        return result
 
     def _fetch_new_references(self, dproxy, node):
         """
@@ -1462,7 +1601,7 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
             return uris, file_format0
         try:
             files = dataview._get_filenames(node.info, *imgidx)
-        except Exception as e:
+        except BaseException as e:
             dproxy.logger.debug("cannot get image file names: {}".format(e))
             return uris, file_format0
         for uri, suburi, index, file_format in files:
@@ -1497,7 +1636,7 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
         try:
             for data in dataview:
                 lst.append(data)
-        except Exception as e:
+        except BaseException as e:
             # Data is not ready (yet): RuntimeError, ValueError, ...
             dproxy.logger.debug("cannot get image data: {}".format(e))
         return numpy.array(lst)
@@ -1521,13 +1660,24 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
 
     def detector_iter(self, subscan):
         """
-        Yields all dataset handle except for positioners
+        Yields all dataset handles except for positioners
 
         :param Subscan subscan:
         :returns str, DatasetProxy: fullname and dataset handle
         """
         for fullname, dproxy in subscan.datasets.items():
             if dproxy.device_type != "positioner":
+                yield fullname, dproxy
+
+    def principal_iter(self, subscan):
+        """
+        Yields all principal dataset handles
+
+        :param Subscan subscan:
+        :returns str, DatasetProxy: fullname and dataset handle
+        """
+        for fullname, dproxy in subscan.datasets.items():
+            if dproxy.data_type != "principal":
                 yield fullname, dproxy
 
     @property
@@ -1597,7 +1747,9 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
             if nxpositioners is None:
                 return
             subscan.logger.info(
-                "Save motor positions snapshot " + repr(nexus.h5Name(nxpositioners))
+                "Save motor positions snapshot {} (overwrite: {})".format(
+                    repr(nexus.h5Name(nxpositioners)), overwrite
+                )
             )
             for mot, pos in positions.items():
                 unit = units.get(mot, None)
@@ -1675,3 +1827,38 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
             except KeyError:
                 pass
             nexus.createLink(parent, linkname, dproxy.path)
+
+    def _fetch_subscan_metadata(self, subscan):
+        """
+        Dump metadata for a subscan
+
+        :param Subscan subscan:
+        """
+        with self.nxentry(subscan) as parent:
+            if parent is None:
+                return
+            info = self.info
+            categories = set(info["scan_meta_categories"])
+            categories -= {"positioners", "nexuswriter"}
+            scan_meta = {}
+            for cat in categories:
+                add = info.get(cat, {})
+                if cat == "instrument":
+                    # TODO: remove when positioners are outside
+                    add.pop("positioners")
+                if set(add.keys()) - {"NX_class", "@NX_class"}:
+                    scan_meta[cat] = add
+            if scan_meta:
+                try:
+                    nexus.dicttonx(scan_meta, parent)
+                except BaseException as e:
+                    self._set_state(self.STATES.FAULT, e)
+                    subscan.logger.error(
+                        "Scan metadata not saved due to exception:\n{}".format(
+                            traceback.format_exc()
+                        )
+                    )
+                else:
+                    subscan.logger.info(
+                        "Saved metadata categories: {}".format(list(scan_meta.keys()))
+                    )

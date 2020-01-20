@@ -33,9 +33,17 @@ class ESRF_Undulator(Controller):
     """
 
     def initialize(self):
+        # velocity and acceleration are not mandatory in config
+        self.axis_settings.config_setting["velocity"] = False
+        self.axis_settings.config_setting["acceleration"] = False
+        
         # Get a proxy on Insertion Device device server of the beamline.
         self.device = DeviceProxy(self.ds_name)
-
+        
+        self.undulator_index = None
+        self.is_revolver     = False
+        
+        
     """
     Axes initialization actions.
     """
@@ -49,6 +57,28 @@ class ESRF_Undulator(Controller):
             "attr_vel_name": attr_vel_name,
             "attr_acc_name": attr_acc_name,
         }
+        
+        # check for revolver undulator
+        pos = attr_pos_name.find("_")
+        uname = attr_pos_name[0:pos]
+        uname = uname.lower()
+        
+        uname_list = (self.device.read_attribute("UndulatorNames")).value
+        uname_list = [item.lower() for item in uname_list]
+        
+        index = uname_list.index(uname)
+        self.undulator_index = index
+        
+        if (self.device.read_attribute("UndulatorRevolverCarriage")).value[self.undulator_index] == True:
+            self.is_revolver = True
+            print ("is a revolver!") 
+            
+            ustate_list = (self.device.read_attribute("UndulatorStates")).value
+            if ustate_list[self.undulator_index] == DevState.DISABLE:
+                print ("Revolver axe is disabled")
+                
+                # Disable the axis for usage!!!!!!!
+        
         log_debug(self, "axis initialized--------------------------")
 
     """
@@ -71,6 +101,37 @@ class ESRF_Undulator(Controller):
             float(motion.target_pos / motion.axis.steps_per_unit),
         )
 
+    
+    def enable(self):
+        """
+        Enables the undulator axis when it is a disabled revolver axis
+        """
+        
+        # check that the axe is a revolver axe
+        if self.is_revolver == False:
+            raise ValueError('No revolver axis')
+        
+        # check that the axe is disabled
+        ustate_list = (self.device.read_attribute("UndulatorStates")).value
+        if ustate_list[self.undulator_index] != DevState.DISABLE:
+            raise ValueError('Axis is already enabled')
+            
+        # send the Enable command
+        uname = (self.device.read_attribute("UndulatorNames")).value[self.undulator_index]
+        self.device.Enable(uname)
+        
+        # wait until the movement finished
+        ustate = DevState.DISABLE
+        
+        while ustate == DevState.DISABLE  ustate == DevState.MOVING:
+            ustate = (self.device.read_attribute("UndulatorStates")).value[self.undulator_index]
+            time.sleep(1)
+        
+        # evaluate axis state !!!!!
+        
+        return
+    
+    
     def read_position(self, axis):
         """
         Returns the position taken from controller

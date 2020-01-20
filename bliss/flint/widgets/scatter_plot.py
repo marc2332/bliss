@@ -13,8 +13,6 @@ from typing import Sequence
 from typing import Optional
 
 import logging
-import time
-import functools
 
 from silx.gui import qt
 from silx.gui import icons
@@ -90,39 +88,6 @@ class _ManageView(qt.QObject):
         return resetZoom
 
 
-class _RefreshRate:
-    """Helper to compute a frame rate"""
-
-    def __init__(self):
-        self.__lastValues = []
-        self.__lastUpdate = None
-
-    def update(self):
-        now = time.time()
-        if self.__lastUpdate is not None:
-            periode = now - self.__lastUpdate
-            self.__lastValues.append(periode)
-            self.__lastValues = self.__lastValues[-5:]
-        else:
-            # Clean up the load values
-            self.__lastValues = []
-
-        self.__lastUpdate = now
-
-    def reset(self):
-        self.__lastUpdate = None
-
-    def frameRate(self):
-        if self.__lastValues == []:
-            return None
-        return 1 / self.periode()
-
-    def periode(self):
-        if self.__lastValues == []:
-            return None
-        return sum(self.__lastValues) / len(self.__lastValues)
-
-
 class ScatterPlotWidget(ExtendedDockWidget):
 
     widgetActivated = qt.Signal(object)
@@ -146,6 +111,10 @@ class ScatterPlotWidget(ExtendedDockWidget):
         self.__plot.installEventFilter(self)
         self.__plot.getWidgetHandle().installEventFilter(self)
         self.__view = _ManageView(self.__plot)
+
+        self.__aggregator = signalutils.EventAggregator(self)
+        self.__refreshManager = plot_helper.RefreshManager(self)
+        self.__refreshManager.setAggregator(self.__aggregator)
 
         toolBar = self.__createToolBar()
         self.__plot.addToolBar(toolBar)
@@ -173,10 +142,6 @@ class ScatterPlotWidget(ExtendedDockWidget):
         self.__rect.setColor("#E0E0E0")
         self.__rect.setZValue(0.1)
 
-        self.__scanProcessing = False
-        self.__aggregator = signalutils.EventAggregator(self)
-        self.__refreshRate = _RefreshRate()
-
         self.__permanentItems = [
             self.__bounding,
             self.__tooltipManager.marker(),
@@ -186,18 +151,6 @@ class ScatterPlotWidget(ExtendedDockWidget):
 
         for o in self.__permanentItems:
             self.__plot._add(o)
-
-        self.__updater = qt.QTimer(self)
-        self.__updater.timeout.connect(self.__update)
-        self.__updater.start(500)
-
-    def __update(self):
-        if self.__aggregator.empty():
-            return
-        _logger.debug("Update widget")
-        if self.__scanProcessing:
-            self.__refreshRate.update()
-        self.__aggregator.flush()
 
     def __createToolBar(self):
         toolBar = qt.QToolBar(self)
@@ -213,19 +166,8 @@ class ScatterPlotWidget(ExtendedDockWidget):
         toolBar.addSeparator()
 
         # Axis
-        toolButton = qt.QToolButton(self)
-        toolButton.setText("Max refresh mode")
-        menu = qt.QMenu(self)
-        menu.aboutToShow.connect(self.__aboutToShowRefreshMode)
-        toolButton.setMenu(menu)
-        toolButton.setToolTip("Custom and check refresh mode applied")
-        icon = icons.getQIcon("flint:icons/refresh")
-        toolButton.setIcon(icon)
-        toolButton.setPopupMode(qt.QToolButton.InstantPopup)
-        action = qt.QWidgetAction(self)
-        action.setDefaultWidget(toolButton)
+        action = self.__refreshManager.createRefreshAction(self)
         toolBar.addAction(action)
-
         toolBar.addAction(plot_helper.CustomAxisAction(self.__plot, self))
         action = control.CrosshairAction(self.__plot, parent=self)
         action.setIcon(icons.getQIcon("flint:icons/crosshair"))
@@ -275,61 +217,6 @@ class ScatterPlotWidget(ExtendedDockWidget):
         toolBar.addAction(plot_helper.ExportOthers(self.__plot, self))
 
         return toolBar
-
-    def __currentRate(self):
-        if self.__updater.isActive():
-            return self.__updater.interval()
-        else:
-            return None
-
-    def __aboutToShowRefreshMode(self):
-        menu: qt.QMenu = self.sender()
-        menu.clear()
-
-        currentRate = self.__currentRate()
-
-        menu.addSection("Refresh rate")
-        rates = [1000, 500, 200, 100]
-        for rate in rates:
-            action = qt.QAction(menu)
-            action.setCheckable(True)
-            action.setChecked(currentRate == rate)
-            action.setText(f"{rate} ms")
-            action.setToolTip(f"Set the refresh rate to {rate} ms")
-            action.triggered.connect(functools.partial(self.__setRefreshRate, rate))
-            menu.addAction(action)
-
-        action = qt.QAction(menu)
-        action.setCheckable(True)
-        action.setChecked(currentRate is None)
-        action.setText(f"As fast as possible")
-        action.setToolTip(f"The plot is updated when a new data is received")
-        action.triggered.connect(functools.partial(self.__setRefreshRate, None))
-        menu.addAction(action)
-
-        menu.addSection("Mesured rate")
-        periode = self.__refreshRate.periode()
-        if periode is not None:
-            periode = round(periode * 1000)
-            action = qt.QAction(menu)
-            action.setEnabled(False)
-            action.setText(f"{periode} ms")
-            action.setToolTip(f"Last mesured rate when scan was precessing")
-            menu.addAction(action)
-
-    def __setRefreshRate(self, rate):
-        if rate is None:
-            if self.__updater.isActive():
-                self.__updater.stop()
-                self.__aggregator.eventAdded.connect(
-                    self.__update, qt.Qt.QueuedConnection
-                )
-        else:
-            if self.__updater.isActive():
-                self.__updater.setInterval(rate)
-            else:
-                self.__updater.start(rate)
-                self.__aggregator.eventAdded.disconnect(self.__update)
 
     def _silxPlot(self):
         """Returns the silx plot associated to this view.
@@ -536,8 +423,7 @@ class ScatterPlotWidget(ExtendedDockWidget):
             self.__plot._add(o)
 
     def __scanStarted(self):
-        self.__scanProcessing = True
-        self.__refreshRate.reset()
+        self.__refreshManager.scanStarted()
         if self.__flintModel is not None and self.__flintModel.getDate() == "0214":
             self.__lastValue.setSymbol("\u2665")
         else:
@@ -553,7 +439,7 @@ class ScatterPlotWidget(ExtendedDockWidget):
         self.__plot.setGraphTitle(title)
 
     def __scanFinished(self):
-        self.__scanProcessing = False
+        self.__refreshManager.scanFinished()
         self.__lastValue.setVisible(False)
 
     def __scanDataUpdated(self, event: scan_model.ScanDataUpdateEvent):

@@ -273,11 +273,9 @@ class StylePropertyWidget(qt.QWidget):
         self.__update()
 
     def getQColor(self, color):
-        # FIXME: It would be good to use silx 0.12 colors.asQColor
         if color is None:
             return qt.QColor()
-        color = silx_colors.rgba(color)
-        return qt.QColor.fromRgbF(*color)
+        return silx_colors.asQColor(color)
 
     def __updateScatter(self, style: plot_model.Style):
         pointBased = True

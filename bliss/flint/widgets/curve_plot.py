@@ -370,47 +370,26 @@ class CurvePlotWidget(ExtendedDockWidget):
                         resetzoom=False,
                     )
                     plotItems.append((key, "curve"))
-                    if silx._version.version_info >= (0, 12):
-                        key = plot.addMarker(
-                            legend=legend + "_text",
-                            x=result.max_location_x,
-                            y=text_location_y,
-                            symbol=",",
-                            text="max",
-                            color=style.lineColor,
-                            yaxis=item.yAxis(),
-                        )
-                        plotItems.append((key, "marker"))
-                        key = plot.addMarker(
-                            legend=legend + "_pos",
-                            x=result.max_location_x,
-                            y=result.max_location_y,
-                            symbol="x",
-                            text="",
-                            color=style.lineColor,
-                            yaxis=item.yAxis(),
-                        )
-                        plotItems.append((key, "marker"))
-                    else:
-                        # FIXME: Remove me for the silx release 0.12
-                        key = plot.addMarker(
-                            legend=legend + "_text",
-                            x=result.max_location_x,
-                            y=text_location_y,
-                            symbol=",",
-                            text="max",
-                            color=style.lineColor,
-                        )
-                        plotItems.append((key, "marker"))
-                        key = plot.addMarker(
-                            legend=legend + "_pos",
-                            x=result.max_location_x,
-                            y=result.max_location_y,
-                            symbol="x",
-                            text="",
-                            color=style.lineColor,
-                        )
-                        plotItems.append((key, "marker"))
+                    key = plot.addMarker(
+                        legend=legend + "_text",
+                        x=result.max_location_x,
+                        y=text_location_y,
+                        symbol=",",
+                        text="max",
+                        color=style.lineColor,
+                        yaxis=item.yAxis(),
+                    )
+                    plotItems.append((key, "marker"))
+                    key = plot.addMarker(
+                        legend=legend + "_pos",
+                        x=result.max_location_x,
+                        y=result.max_location_y,
+                        symbol="x",
+                        text="",
+                        color=style.lineColor,
+                        yaxis=item.yAxis(),
+                    )
+                    plotItems.append((key, "marker"))
                 else:
                     self.__cleanScanItem(item, scan)
 

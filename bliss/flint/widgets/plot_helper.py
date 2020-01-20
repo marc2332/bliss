@@ -76,19 +76,21 @@ class CheckableKeepAspectRatioAction(PlotAction):
 
 
 class CustomAxisAction(qt.QWidgetAction):
-    def __init__(self, plot, parent):
+    def __init__(self, plot, parent, kind="any"):
         super(CustomAxisAction, self).__init__(parent)
 
         menu = qt.QMenu(parent)
-        menu.addSection("X-axes")
-        action = control.XAxisLogarithmicAction(plot, self)
-        action.setText("Log scale")
-        menu.addAction(action)
+        if kind is not "image":
+            menu.addSection("X-axes")
+            action = control.XAxisLogarithmicAction(plot, self)
+            action.setText("Log scale")
+            menu.addAction(action)
 
         menu.addSection("Y-axes")
-        action = control.YAxisLogarithmicAction(plot, self)
-        action.setText("Log scale")
-        menu.addAction(action)
+        if kind is not "image":
+            action = control.YAxisLogarithmicAction(plot, self)
+            action.setText("Log scale")
+            menu.addAction(action)
         action = control.YAxisInvertedAction(plot, self)
         menu.addAction(action)
 

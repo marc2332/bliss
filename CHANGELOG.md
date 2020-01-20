@@ -9,7 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Flint
+  - A preferred style can be saved as default for images
+
 ### Changed
+
+- Flint
+  - Update of the image live view (toolbar, tooltip, refresh rate, view...)
+  - Do not allow anymore to display more than one image in the image view
 
 ### Fixed
 

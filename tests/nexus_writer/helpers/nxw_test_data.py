@@ -157,7 +157,8 @@ def validate_scangroup_data(sequence, config=True, **kwargs):
     """
     # Validate NXentry links
     validate_master_links(sequence.scan, config=config)
-    validate_scangroup_links(sequence, config=config)
+    # Validate scan links (currently disabled)
+    # validate_scangroup_links(sequence, config=config)
     # Validate NXentry content
     uri = scan_utils.scan_uri(sequence.scan, config=config)
     with nexus.uriContext(uri) as nxentry:
@@ -192,10 +193,9 @@ def validate_scangroup_links(sequence, config=True):
     for scan in sequence._scans:
         expected += scan_utils.scan_uris(scan, config=config)
     uri = scan_utils.scan_uri(sequence.scan, config=config)
-    expected.append(uri)
     actual = []
     with nexus.uriContext(uri) as nxentry:
-        root = nxentry.parent
+        root = nxentry["dependencies"]
         for k in root:
             actual.append(nexus.normUri(nexus.dereference(root[k])))
     assert_set_equal(set(actual), set(expected))

@@ -72,11 +72,13 @@ class ReferenceProxy(BaseProxy):
         """
         for uri in newuris:
             linkname = nexus.splitUri(uri)[1].split("/")[-1]
-            nexus.createLink(group, linkname, uri)
+            if linkname not in group:
+                nexus.createLink(group, linkname, uri)
         return len(newuris)
 
     def _create(self, nxroot):
         """
         Create the group which will contain the links
         """
-        nxroot.create_group(self.path)
+        grp = nxroot.create_group(self.path)
+        grp.attrs["NX_class"] = "NXcollection"

@@ -189,7 +189,8 @@ class Writer(FileWriter):
 
         ####   use scan_meta to fill fields   ####
         hdf5_scan_meta = {
-            cat_name: scan_info.get(cat_name, {}) for cat_name in categories_names()
+            cat_name: scan_info.get(cat_name, {}).copy()
+            for cat_name in categories_names()
         }
 
         # pop instrument

@@ -73,14 +73,14 @@ class TFLensMaterialGroup:
             index = numpy.where(self.data[:, 0] == lensnb)[0][0]
             return self.data[index, 1]
         except:
-            indmin = numpy.where(self.data[:,0] < lensnb)[0][-1]
-            valmin = self.data[indmin,0]
-            indmax = numpy.where(self.data[:,0] > lensnb)[0][0]
-            valmax = self.data[indmax,0]
+            indmin = numpy.where(self.data[:, 0] < lensnb)[0][-1]
+            valmin = self.data[indmin, 0]
+            indmax = numpy.where(self.data[:, 0] > lensnb)[0][0]
+            valmax = self.data[indmax, 0]
             raise ValueError(
-                       f"No corresponding {self.material} number of lenses\n"
-                       f"Closest possible values are {valmin} and {valmax}"
-                  )
+                f"No corresponding {self.material} number of lenses\n"
+                f"Closest possible values are {valmin} and {valmax}"
+            )
 
 
 class TFLens:

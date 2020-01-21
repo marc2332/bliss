@@ -40,7 +40,7 @@ class TFLensMaterialGroup:
         value = tf_state & self.mask
         try:
             return numpy.where(self.data[:, 1] == value)[0][0]
-        except:
+        except IndexError:
             raise ValueError(
                 f"No corresponding {self.material} lens value for transfocator state [{tf_state}]"
             )
@@ -72,7 +72,7 @@ class TFLensMaterialGroup:
         try:
             index = numpy.where(self.data[:, 0] == lensnb)[0][0]
             return self.data[index, 1]
-        except:
+        except IndexError:
             indmin = numpy.where(self.data[:, 0] < lensnb)[0][-1]
             valmin = self.data[indmin, 0]
             indmax = numpy.where(self.data[:, 0] > lensnb)[0][0]
@@ -87,9 +87,9 @@ class TFLens:
     def __init__(self, name, config):
         self.name = name
 
-        if not "transfocator" in config:
+        if "transfocator" not in config:
             raise ValueError(f'Need to specify "transfocator" TFLens [{name}]')
-        if not "lenses" in config:
+        if "lenses" not in config:
             raise ValueError(f'Need to specify "lenses" for TFLens [{name}]')
 
         self.__transfocator = config.get("transfocator")

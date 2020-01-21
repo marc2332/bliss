@@ -325,6 +325,7 @@ class TooltipItemManager:
         self.__toolTipMarker.setSymbol("+")
         self.__toolTipMarker.setSymbolSize(8)
         self.__toolTipMarker.setVisible(False)
+        self.__filterClass = None
 
         self.__plot = plot
 

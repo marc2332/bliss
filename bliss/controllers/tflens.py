@@ -123,14 +123,14 @@ class TFLens:
         tfset = self.transfocator.pos_read()
         for lid in ids:
             tfset |= 1 << lid
-        self.transfocator.tfstatus_set(tfset)
+        self.transfocator.set_bitvalue(tfset)
 
     def setout(self, *lens_ids):
         ids = self.__check_lensid(lens_ids)
         tfset = self.transfocator.pos_read()
         for lid in ids:
             tfset = tfset & (~(1 << lid))
-        self.transfocator.tfstatus_set(tfset)
+        self.transfocator.set_bitvalue(tfset)
 
     def __check_lensid(self, lens_ids):
         allids = list(range(self.ntflens))
@@ -163,7 +163,7 @@ class TFLens:
                 mask |= lens.mask
             tfget = self.transfocator.pos_read()
             tfset = tfget & (~mask)
-            self.transfocator.tfstatus_set(tfset)
+            self.transfocator.set_bitvalue(tfset)
         else:
             self.set(0, material)
 
@@ -172,7 +172,7 @@ class TFLens:
         tfset = lens.lens2value(nlenses)
         tfget = self.transfocator.pos_read()
         tfset = (tfget & (~lens.mask)) | tfset
-        self.transfocator.tfstatus_set(tfset)
+        self.transfocator.set_bitvalue(tfset)
 
     def get(self, material=None):
         lens = self.__find_lens_group(material)
@@ -192,7 +192,7 @@ class TFLens:
             lens = self.__find_lens_group(material)
             tfset = lens.lens2value(value)
             tfval = (tfval & (~lens.mask)) | tfset
-        self.transfocator.tfstatus_set(tfval)
+        self.transfocator.set_bitvalue(tfval)
 
     def up(self, material=None):
         self.__set_updown(1, material)
@@ -208,7 +208,7 @@ class TFLens:
         else:
             tfset = lens.state2downvalue(tfget)
         tfset = (tfget & (~lens.mask)) | tfset
-        self.transfocator.tfstatus_set(tfset)
+        self.transfocator.set_bitvalue(tfset)
 
     def __lens2names(self):
         names = list()

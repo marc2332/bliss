@@ -228,7 +228,7 @@ class FlintPlot(PlotWindow):
     def __init__(self, parent=None, backend=None):
         super(FlintPlot, self).__init__(parent=parent, backend=backend)
         self.sigPlotSignal.connect(self.__limitsChanged)
-        self.__userInteraction = True
+        self.__userInteraction = False
 
         toolbars = self.findChildren(qt.QToolBar)
         for tb in toolbars:

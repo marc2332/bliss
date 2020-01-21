@@ -1331,7 +1331,8 @@ class Scan:
                     gevent.killall(prepare_tasks)
 
             for dev in self.acq_chain.nodes_list:
-                tmp = dev.fill_meta_at_scan_start(self.user_scan_meta)
+                with KillMask(masked_kill_nb=1):
+                    tmp = dev.fill_meta_at_scan_start(self.user_scan_meta)
                 if tmp:
                     update_node_info(self.nodes[dev], tmp)
 
@@ -1400,7 +1401,8 @@ class Scan:
                     # check if there is any master or device that would like
                     # to provide meta data at the end of the scan
                     for dev in self.acq_chain.nodes_list:
-                        tmp = dev.fill_meta_at_scan_end(self.user_scan_meta)
+                        with KillMask(masked_kill_nb=1):
+                            tmp = dev.fill_meta_at_scan_end(self.user_scan_meta)
                         if tmp:
                             update_node_info(self.nodes[dev], tmp)
                     self.user_scan_meta.instrument.remove("positioners")

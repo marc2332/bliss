@@ -395,8 +395,10 @@ class TooltipItemManager:
 
     def __createImageTooltip(self, item: FlintImage, index: numpy.ndarray):
         y, x = index
+    def __createImageTooltip(self, item: FlintImage, indexes: numpy.ndarray):
+        y, x = indexes
         image = item.getData(copy=False)
-        value = image[index]
+        value = image[indexes]
 
         x, y, value = x[0], y[0], value[0]
 
@@ -419,8 +421,9 @@ class TooltipItemManager:
         </ul></html>"""
         return x + 0.5, y + 0.5, text
 
-    def __createScatterTooltip(self, item: FlintScatter, index: List[int]):
-        index = index[-1]
+    def __createScatterTooltip(self, item: FlintScatter, indexes: List[int]):
+        # Drop other picked indexes
+        index = indexes[-1]
         x = item.getXData(copy=False)[index]
         y = item.getYData(copy=False)[index]
         value = item.getValueData(copy=False)[index]

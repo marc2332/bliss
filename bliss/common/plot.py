@@ -200,7 +200,7 @@ def check_flint() -> bool:
     """
     Returns true if a Flint application from the current session is alive.
     """
-    proxy = get_flint(allow_creation=False)
+    proxy = get_flint(creation_allowed=False)
     return proxy is not None
 
 

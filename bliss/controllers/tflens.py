@@ -101,6 +101,8 @@ class TFLens:
                 )
             self.__lens_def.append(TFLensMaterialGroup(material, lens_id, lens_nb))
 
+        self.ntflens = self.__transfocator.nb_lens + self.__transfocator.nb_pinhole
+
     @autocomplete_property
     def transfocator(self):
         return self.__transfocator
@@ -108,7 +110,7 @@ class TFLens:
     def __set_pinhole(self, inout):
         if not self.__transfocator.nb_pinhole:
             raise RuntimeError("Transfocator has no pinhole defined !!")
-        self.__transfocator.set_pin(True)
+        self.__transfocator.set_pin(inout)
 
     def pin(self):
         self.__set_pinhole(True)
@@ -131,7 +133,7 @@ class TFLens:
         self.transfocator.tfstatus_set(tfset)
 
     def __check_lensid(self, lens_ids):
-        allids = list(range(self.transfocator.nb_lens))
+        allids = list(range(self.ntflens))
         if not len(lens_ids):
             return allids
         for lid in lens_ids:
@@ -210,7 +212,7 @@ class TFLens:
 
     def __lens2names(self):
         names = list()
-        for lid in range(self.transfocator.nb_lens):
+        for lid in range(self.ntflens):
             name = f"L{lid}"
             if lid in self.transfocator.pinhole:
                 name = f"P{lid}"
@@ -221,11 +223,11 @@ class TFLens:
         return names
 
     def __lens2ids(self):
-        return [f"#{lid}" for lid in range(self.transfocator.nb_lens)]
+        return [f"#{lid}" for lid in range(self.ntflens)]
 
     def __tfstate2string(self, value):
         states = list()
-        for lid in range(self.transfocator.nb_lens):
+        for lid in range(self.ntflens):
             if value & (1 << lid):
                 states.append("IN")
             else:

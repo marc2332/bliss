@@ -86,7 +86,7 @@ class CustomAxisAction(qt.QWidgetAction):
         action.setText("Show the plot axes")
         menu.addAction(action)
 
-        if kind is not "image":
+        if kind not in ["image", "mca"]:
             menu.addSection("X-axes")
             action = control.XAxisLogarithmicAction(plot, self)
             action.setText("Log scale")
@@ -97,13 +97,15 @@ class CustomAxisAction(qt.QWidgetAction):
             action = control.YAxisLogarithmicAction(plot, self)
             action.setText("Log scale")
             menu.addAction(action)
-        action = control.YAxisInvertedAction(plot, self)
-        menu.addAction(action)
+        if kind is not "mca":
+            action = control.YAxisInvertedAction(plot, self)
+            menu.addAction(action)
 
-        menu.addSection("Aspect ratio")
-        action = CheckableKeepAspectRatioAction(plot, self)
-        action.setText("Keep aspect ratio")
-        menu.addAction(action)
+        if kind is not "mca":
+            menu.addSection("Aspect ratio")
+            action = CheckableKeepAspectRatioAction(plot, self)
+            action.setText("Keep aspect ratio")
+            menu.addAction(action)
 
         icon = icons.getQIcon("flint:icons/axes-options")
         toolButton = qt.QToolButton(parent)
@@ -356,9 +358,11 @@ class TooltipItemManager:
         # Start from top-most item
         result = None
         if x is not None:
-            for result in plot.pickItems(
-                x, y, lambda item: isinstance(item, self.__filterClass)
-            ):
+            if self.__filterClass is not None:
+                condition = lambda item: isinstance(item, self.__filterClass)
+            else:
+                condition = None
+            for result in plot.pickItems(x, y, condition):
                 # Break at the first result
                 break
 

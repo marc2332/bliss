@@ -115,6 +115,11 @@ def scan_meta(info=None):
 
     attrs["cat_list"] = cat_list
 
+    def __info__(self):
+        return f"ScanMeta {_infos}"
+
+    attrs["__info__"] = __info__
+
     klass = type("ScanMeta", (object,), attrs)
     return klass()
 

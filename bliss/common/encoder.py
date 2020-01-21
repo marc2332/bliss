@@ -6,6 +6,8 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 from bliss.common.motor_config import StaticConfig
+from bliss.common.counter import SamplingCounter
+from bliss.controllers import counter
 from bliss.common import event
 from functools import wraps
 import time
@@ -14,7 +16,7 @@ import re
 import types
 
 
-class Encoder(object):
+class Encoder:
     def lazy_init(func):
         @wraps(func)
         def func_wrapper(self, *args, **kwargs):
@@ -26,6 +28,14 @@ class Encoder(object):
     def __init__(self, name, controller, config):
         self.__name = name
         self.__controller = controller
+        self.__counter_controller = counter.SamplingCounterController(f"encoder:{name}")
+        # note: read_all is not implemented, multiple encoders from the same controller will not be read in one go
+        self.__counter_controller.read = types.MethodType(
+            lambda this, cnt: self.read(), self.__counter_controller
+        )
+        self.__counter_controller.create_counter(
+            SamplingCounter, "position", unit=config.get("unit")
+        )
         self.__config = StaticConfig(config)
 
     @property
@@ -35,6 +45,19 @@ class Encoder(object):
     @property
     def controller(self):
         return self.__controller
+
+    @property
+    def counters(self):
+        """CounterContainer protocol"""
+        return self.__counter_controller.counters
+
+    @property
+    def counter(self):
+        """Convenience access to the counter object
+
+        Useful to set conversion function for example
+        """
+        return self.__counter_controller.counters[0]
 
     @property
     def config(self):

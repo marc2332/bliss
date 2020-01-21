@@ -6,7 +6,8 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import pytest
-import time
+import numpy
+from bliss.common import scans
 
 
 def test_get_encoder(m0, m1enc, m1):
@@ -55,3 +56,12 @@ def test_maxee(m1):
 def test_move(m1):
     m1.move(5)
     assert m1.position == pytest.approx(m1.encoder.read())
+
+
+def test_encoder_counter(default_session, m1, m1enc):
+    s = scans.loopscan(3, 0.1, m1enc)
+    assert numpy.array_equal(s.get_data()["encoder:m1enc:position"], [m1enc.read()] * 3)
+
+    m1enc.counter.conversion_function = lambda x: x * 2
+    ct = scans.ct(0.1, m1enc)
+    assert ct.get_data()["encoder:m1enc:position"] == m1enc.read() * 2

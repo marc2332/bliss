@@ -1416,6 +1416,10 @@ class Scan:
 
                 self.node.end()
 
+                self._scan_info["end_time"] = self.node.info["end_time"]
+                self._scan_info["end_time_str"] = self.node.info["end_time_str"]
+                self._scan_info["end_timestamp"] = self.node.info["end_timestamp"]
+
                 # Close nodes
                 for node in self.nodes.values():
                     try:

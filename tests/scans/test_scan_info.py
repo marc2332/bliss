@@ -11,6 +11,8 @@ from bliss.common import scans
 from bliss.scanning.chain import AcquisitionChain, AcquisitionMaster, AcquisitionSlave
 from bliss.scanning.scan import Scan
 
+from tests.conftest import deep_compare
+
 
 def test_scan_info_scalars_units(session):
     heater = getattr(setup_globals, "heater")
@@ -193,3 +195,16 @@ def test_scan_saving_without_axis_in_session(default_session):
 
     assert "positioners" in s.scan_info
     assert s.scan_info["positioners"]["positioners_start"] == {}
+
+
+def test_scan_info_object_vs_node(session):
+    transf = session.config.get("transfocator_simulator")
+    roby = session.env_dict["roby"]
+    diode = session.env_dict["diode"]
+
+    s1 = scans.ascan(roby, 0, 1, 3, .1, diode, save=False)
+
+    # treat known differences
+    s1.scan_info["state"] = s1.scan_info["state"].name
+
+    deep_compare(s1.scan_info, s1.node.info.get_all())

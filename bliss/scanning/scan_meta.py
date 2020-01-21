@@ -130,15 +130,21 @@ def fill_positioners(scan):
         stuffix = "_end"
     positioners = dict()
     positioners_dial = dict()
+    units = dict()
     for axis_name, axis_pos, axis_dial_pos, unit in global_map.get_axes_positions_iter(
         on_error="ERR"
     ):
 
         positioners[axis_name] = axis_pos
         positioners_dial[axis_name] = axis_dial_pos
+        units[axis_name] = unit
 
     rd = {
         "positioners" + stuffix: positioners,
         "positioners_dial" + stuffix: positioners_dial,
     }
+
+    if scan.state != 3:
+        rd["positioners_units"] = units
+
     return rd

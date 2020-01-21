@@ -13,15 +13,11 @@ from typing import Sequence
 from typing import Optional
 
 import logging
-import time
-import numpy
-import functools
 
 from silx.gui import qt
 from silx.gui import icons
 from silx.gui.plot.items.shape import BoundingRect
 from silx.gui.plot.items.shape import Shape
-from silx.gui.plot.items.marker import Marker
 from silx.gui.plot.items.scatter import Scatter
 from silx.gui.plot.items.curve import Curve
 
@@ -39,113 +35,6 @@ from bliss.flint.widgets import plot_helper
 
 
 _logger = logging.getLogger(__name__)
-
-
-class _ManageView(qt.QObject):
-
-    sigZoomMode = qt.Signal(bool)
-
-    def __init__(self, plot):
-        super(_ManageView, self).__init__(parent=plot)
-        self.__plot = plot
-        self.__plot.sigViewChanged.connect(self.__viewChanged)
-        self.__inUserView: bool = False
-
-    def __setUserViewMode(self, userMode):
-        if self.__inUserView == userMode:
-            return
-        self.__inUserView = userMode
-        self.sigZoomMode.emit(userMode)
-
-    def __viewChanged(self, event):
-        if event.userInteraction:
-            self.__setUserViewMode(True)
-
-    def scanStarted(self):
-        self.__setUserViewMode(False)
-
-    def resetZoom(self):
-        self.__plot.resetZoom()
-        self.__setUserViewMode(False)
-
-    def plotUpdated(self):
-        if not self.__inUserView:
-            self.__plot.resetZoom()
-
-    def plotCleared(self):
-        self.__plot.resetZoom()
-        self.__setUserViewMode(False)
-
-    def createResetZoomAction(self, parent: qt.QWidget) -> qt.QAction:
-        resetZoom = qt.QAction(parent)
-        resetZoom.triggered.connect(self.resetZoom)
-        resetZoom.setText("Reset zoom")
-        resetZoom.setToolTip("Back to the auto-zoom")
-        resetZoom.setIcon(icons.getQIcon("flint:icons/zoom-auto"))
-        resetZoom.setEnabled(self.__inUserView)
-
-        def updateResetZoomAction(isUserMode):
-            resetZoom.setEnabled(isUserMode)
-
-        self.sigZoomMode.connect(updateResetZoomAction)
-
-        return resetZoom
-
-
-class _RefreshRate:
-    """Helper to compute a frame rate"""
-
-    def __init__(self):
-        self.__lastValues = []
-        self.__lastUpdate = None
-
-    def update(self):
-        now = time.time()
-        if self.__lastUpdate is not None:
-            periode = now - self.__lastUpdate
-            self.__lastValues.append(periode)
-            self.__lastValues = self.__lastValues[-5:]
-        else:
-            # Clean up the load values
-            self.__lastValues = []
-
-        self.__lastUpdate = now
-
-    def reset(self):
-        self.__lastUpdate = None
-
-    def frameRate(self):
-        if self.__lastValues == []:
-            return None
-        return 1 / self.periode()
-
-    def periode(self):
-        if self.__lastValues == []:
-            return None
-        return sum(self.__lastValues) / len(self.__lastValues)
-
-
-class _ScatterPlotItemMixIn:
-    def __init__(self):
-        self.__plotItem = None
-
-    def customItem(self) -> Optional[plot_item_model.ScatterItem]:
-        return self.__plotItem
-
-    def setCustomItem(self, item: plot_item_model.ScatterItem):
-        self.__plotItem = item
-
-
-class _MainScatter(Scatter, _ScatterPlotItemMixIn):
-    def __init__(self):
-        Scatter.__init__(self)
-        _ScatterPlotItemMixIn.__init__(self)
-
-
-class _MainCurve(Curve, _ScatterPlotItemMixIn):
-    def __init__(self):
-        Curve.__init__(self)
-        _ScatterPlotItemMixIn.__init__(self)
 
 
 class ScatterPlotWidget(ExtendedDockWidget):
@@ -170,24 +59,22 @@ class ScatterPlotWidget(ExtendedDockWidget):
         self.setFocusPolicy(qt.Qt.StrongFocus)
         self.__plot.installEventFilter(self)
         self.__plot.getWidgetHandle().installEventFilter(self)
-        self.__view = _ManageView(self.__plot)
+        self.__view = plot_helper.ViewManager(self.__plot)
+
+        self.__aggregator = signalutils.EventAggregator(self)
+        self.__refreshManager = plot_helper.RefreshManager(self)
+        self.__refreshManager.setAggregator(self.__aggregator)
 
         toolBar = self.__createToolBar()
         self.__plot.addToolBar(toolBar)
-        self.__plot.sigMouseMoved.connect(self.__onMouseMove)
-        self.__plot.sigMouseLeft.connect(self.__onMouseLeft)
+
+        self.__tooltipManager = plot_helper.TooltipItemManager(self, self.__plot)
+        self.__tooltipManager.setFilter(plot_helper.FlintScatter)
 
         self.__syncAxisTitle = signalutils.InvalidatableSignal(self)
         self.__syncAxisTitle.triggered.connect(self.__updateAxesLabel)
         self.__syncAxis = signalutils.InvalidatableSignal(self)
         self.__syncAxis.triggered.connect(self.__scatterAxesUpdated)
-
-        self.__toolTipMarker = Marker()
-        self.__toolTipMarker._setLegend("marker-tooltip")
-        self.__toolTipMarker.setColor("pink")
-        self.__toolTipMarker.setSymbol("+")
-        self.__toolTipMarker.setSymbolSize(8)
-        self.__toolTipMarker.setVisible(False)
 
         self.__bounding = BoundingRect()
         self.__bounding._setLegend("bound")
@@ -204,111 +91,15 @@ class ScatterPlotWidget(ExtendedDockWidget):
         self.__rect.setColor("#E0E0E0")
         self.__rect.setZValue(0.1)
 
-        self.__scanProcessing = False
-        self.__aggregator = signalutils.EventAggregator(self)
-        self.__refreshRate = _RefreshRate()
-
         self.__permanentItems = [
             self.__bounding,
-            self.__toolTipMarker,
+            self.__tooltipManager.marker(),
             self.__lastValue,
             self.__rect,
         ]
 
         for o in self.__permanentItems:
             self.__plot._add(o)
-
-        self.__updater = qt.QTimer(self)
-        self.__updater.timeout.connect(self.__update)
-        self.__updater.start(500)
-
-    def __update(self):
-        if self.__aggregator.empty():
-            return
-        _logger.debug("Update widget")
-        if self.__scanProcessing:
-            self.__refreshRate.update()
-        self.__aggregator.flush()
-
-    def __onMouseMove(self, event: plot_helper.MouseMovedEvent):
-        mouseButton = qt.QApplication.mouseButtons()
-        mode = self.__plot.getInteractiveMode()
-        if mouseButton == qt.Qt.NoButton and mode["mode"] in ["zoom", "pan"]:
-            self.__updateTooltip(event.xPixel, event.yPixel)
-        else:
-            # Avoid to display the tooltip if the user is doing stuffs
-            self.__updateTooltip(None, None)
-
-    def __onMouseLeft(self):
-        self.__updateTooltip(None, None)
-
-    def __updateTooltip(self, x, y):
-        plot = self.__plot
-
-        # Start from top-most item
-        result = None
-        if x is not None:
-            for result in plot.pickItems(
-                x, y, lambda item: isinstance(item, _MainScatter)
-            ):
-                # Break at the first result
-                break
-
-        if result is not None:
-            # Get last index
-            # with matplotlib it should be the top-most point
-            index = result.getIndices(copy=False)[-1]
-            item = result.getItem()
-            x = item.getXData(copy=False)[index]
-            y = item.getYData(copy=False)[index]
-            value = item.getValueData(copy=False)[index]
-
-            assert isinstance(item, _ScatterPlotItemMixIn)
-            plotItem = item.customItem()
-            if plotItem is not None:
-                assert (
-                    plotItem.xChannel() is not None
-                    and plotItem.yChannel() is not None
-                    and plotItem.valueChannel() is not None
-                )
-                xName = plotItem.xChannel().displayName(self.__scan)
-                yName = plotItem.yChannel().displayName(self.__scan)
-                vName = plotItem.valueChannel().displayName(self.__scan)
-            else:
-                xName = "X"
-                yName = "Y"
-                vName = "Value"
-
-            colormap = item.getColormap()
-            # FIXME: This should be merged to Silx
-            vmin, vmax = colormap.getColormapRange(item.getValueData(copy=False))
-            colors = colormap.applyToData(numpy.array([value, vmin, vmax]))
-            cssColor = f"#{colors[0,0]:02X}{colors[0,1]:02X}{colors[0,2]:02X}"
-
-            if self.__flintModel is not None and self.__flintModel.getDate() == "0214":
-                char = "\u2665"
-            else:
-                char = "■"
-
-            text = f"""<html><ul>
-            <li><b>Index:</b> {index}</li>
-            <li><b>{xName}:</b> {x}</li>
-            <li><b>{yName}:</b> {y}</li>
-            <li><b>{vName}:</b> <font color="{cssColor}">{char}</font> {value}</li>
-            </ul></html>"""
-            self.__updateToolTipMarker(x, y)
-            cursorPos = qt.QCursor.pos() + qt.QPoint(10, 10)
-            qt.QToolTip.showText(cursorPos, text, self.__plot)
-        else:
-            self.__updateToolTipMarker(None, None)
-            qt.QToolTip.hideText()
-
-    def __updateToolTipMarker(self, x, y):
-        if x is None:
-            self.__toolTipMarker.setVisible(False)
-        else:
-            self.__toolTipMarker.setVisible(True)
-            self.__toolTipMarker.setPosition(x, y)
 
     def __createToolBar(self):
         toolBar = qt.QToolBar(self)
@@ -324,19 +115,8 @@ class ScatterPlotWidget(ExtendedDockWidget):
         toolBar.addSeparator()
 
         # Axis
-        toolButton = qt.QToolButton(self)
-        toolButton.setText("Max refresh mode")
-        menu = qt.QMenu(self)
-        menu.aboutToShow.connect(self.__aboutToShowRefreshMode)
-        toolButton.setMenu(menu)
-        toolButton.setToolTip("Custom and check refresh mode applied")
-        icon = icons.getQIcon("flint:icons/refresh")
-        toolButton.setIcon(icon)
-        toolButton.setPopupMode(qt.QToolButton.InstantPopup)
-        action = qt.QWidgetAction(self)
-        action.setDefaultWidget(toolButton)
+        action = self.__refreshManager.createRefreshAction(self)
         toolBar.addAction(action)
-
         toolBar.addAction(plot_helper.CustomAxisAction(self.__plot, self))
         action = control.CrosshairAction(self.__plot, parent=self)
         action.setIcon(icons.getQIcon("flint:icons/crosshair"))
@@ -387,61 +167,6 @@ class ScatterPlotWidget(ExtendedDockWidget):
 
         return toolBar
 
-    def __currentRate(self):
-        if self.__updater.isActive():
-            return self.__updater.interval()
-        else:
-            return None
-
-    def __aboutToShowRefreshMode(self):
-        menu: qt.QMenu = self.sender()
-        menu.clear()
-
-        currentRate = self.__currentRate()
-
-        menu.addSection("Refresh rate")
-        rates = [1000, 500, 200, 100]
-        for rate in rates:
-            action = qt.QAction(menu)
-            action.setCheckable(True)
-            action.setChecked(currentRate == rate)
-            action.setText(f"{rate} ms")
-            action.setToolTip(f"Set the refresh rate to {rate} ms")
-            action.triggered.connect(functools.partial(self.__setRefreshRate, rate))
-            menu.addAction(action)
-
-        action = qt.QAction(menu)
-        action.setCheckable(True)
-        action.setChecked(currentRate is None)
-        action.setText(f"As fast as possible")
-        action.setToolTip(f"The plot is updated when a new data is received")
-        action.triggered.connect(functools.partial(self.__setRefreshRate, None))
-        menu.addAction(action)
-
-        menu.addSection("Mesured rate")
-        periode = self.__refreshRate.periode()
-        if periode is not None:
-            periode = round(periode * 1000)
-            action = qt.QAction(menu)
-            action.setEnabled(False)
-            action.setText(f"{periode} ms")
-            action.setToolTip(f"Last mesured rate when scan was precessing")
-            menu.addAction(action)
-
-    def __setRefreshRate(self, rate):
-        if rate is None:
-            if self.__updater.isActive():
-                self.__updater.stop()
-                self.__aggregator.eventAdded.connect(
-                    self.__update, qt.Qt.QueuedConnection
-                )
-        else:
-            if self.__updater.isActive():
-                self.__updater.setInterval(rate)
-            else:
-                self.__updater.start(rate)
-                self.__aggregator.eventAdded.disconnect(self.__update)
-
     def _silxPlot(self):
         """Returns the silx plot associated to this view.
 
@@ -463,6 +188,9 @@ class ScatterPlotWidget(ExtendedDockWidget):
         propertyWidget.setFlintModel(self.__flintModel)
         propertyWidget.setFocusWidget(self)
         return propertyWidget
+
+    def flintModel(self) -> Optional[flint_model.FlintState]:
+        return self.__flintModel
 
     def setFlintModel(self, flintModel: Optional[flint_model.FlintState]):
         if self.__flintModel is not None:
@@ -521,6 +249,7 @@ class ScatterPlotWidget(ExtendedDockWidget):
         inTransaction = self.__plotModel.isInTransaction()
         if eventType == plot_model.ChangeEventType.VISIBILITY:
             self.__updateItem(item)
+            self.__syncAxisTitle.triggerIf(not inTransaction)
         elif eventType == plot_model.ChangeEventType.CUSTOM_STYLE:
             self.__updateItem(item)
         elif eventType == plot_model.ChangeEventType.X_CHANNEL:
@@ -588,6 +317,8 @@ class ScatterPlotWidget(ExtendedDockWidget):
             for item in plot.items():
                 if not item.isValid():
                     continue
+                if not item.isVisible():
+                    continue
                 if isinstance(item, plot_item_model.ScatterItem):
                     xLabels.append(item.xChannel().displayName(scan))
                     yLabels.append(item.yChannel().displayName(scan))
@@ -600,6 +331,9 @@ class ScatterPlotWidget(ExtendedDockWidget):
         self, previousScan: scan_model.Scan, newScan: scan_model.Scan
     ):
         self.__setScan(newScan)
+
+    def scan(self) -> Optional[scan_model.Scan]:
+        return self.__scan
 
     def __setScan(self, scan: scan_model.Scan = None):
         if self.__scan is scan:
@@ -638,8 +372,7 @@ class ScatterPlotWidget(ExtendedDockWidget):
             self.__plot._add(o)
 
     def __scanStarted(self):
-        self.__scanProcessing = True
-        self.__refreshRate.reset()
+        self.__refreshManager.scanStarted()
         if self.__flintModel is not None and self.__flintModel.getDate() == "0214":
             self.__lastValue.setSymbol("\u2665")
         else:
@@ -655,7 +388,7 @@ class ScatterPlotWidget(ExtendedDockWidget):
         self.__plot.setGraphTitle(title)
 
     def __scanFinished(self):
-        self.__scanProcessing = False
+        self.__refreshManager.scanFinished()
         self.__lastValue.setVisible(False)
 
     def __scanDataUpdated(self, event: scan_model.ScanDataUpdateEvent):
@@ -716,10 +449,10 @@ class ScatterPlotWidget(ExtendedDockWidget):
         if xmeta is None or ymeta is None:
             return
 
-        if ymeta.axesPoints is not None and xmeta.axesPoints is not None:
+        if ymeta.axisPoints is not None and xmeta.axisPoints is not None:
             scatter.setVisualizationParameter(
                 scatter.VisualizationParameter.GRID_SHAPE,
-                (ymeta.axesPoints, xmeta.axesPoints),
+                (ymeta.axisPoints, xmeta.axisPoints),
             )
 
         if (
@@ -733,15 +466,15 @@ class ScatterPlotWidget(ExtendedDockWidget):
                 ((xmeta.start, ymeta.start), (xmeta.stop, ymeta.stop)),
             )
 
-        if xmeta.axesKind is not None and ymeta.axesKind is not None:
+        if xmeta.axisKind is not None and ymeta.axisKind is not None:
             if (
-                xmeta.axesKind == scan_model.AxesKind.FAST
-                or ymeta.axesKind == scan_model.AxesKind.SLOW
+                xmeta.axisKind == scan_model.AxisKind.FAST
+                or ymeta.axisKind == scan_model.AxisKind.SLOW
             ):
                 order = "row"
             if (
-                xmeta.axesKind == scan_model.AxesKind.SLOW
-                or ymeta.axesKind == scan_model.AxesKind.FAST
+                xmeta.axisKind == scan_model.AxisKind.SLOW
+                or ymeta.axisKind == scan_model.AxisKind.FAST
             ):
                 order = "column"
 
@@ -807,7 +540,7 @@ class ScatterPlotWidget(ExtendedDockWidget):
         if style.fillStyle is not style_model.FillStyle.NO_FILL:
             pointBased = False
             fillStyle = style.fillStyle
-            scatter = _MainScatter()
+            scatter = plot_helper.FlintScatter()
             scatter.setData(x=xx, y=yy, value=value, copy=False)
             scatter.setColormap(colormap)
             scatter.setCustomItem(item)
@@ -824,14 +557,14 @@ class ScatterPlotWidget(ExtendedDockWidget):
                 if fast is not None:
                     fastMetadata = fast.metadata()
                     assert fastMetadata is not None
-                    axesPoints = fastMetadata.axesPoints
-                    if axesPoints is not None:
-                        if len(xx) < axesPoints * 2:
+                    axisPoints = fastMetadata.axisPoints
+                    if axisPoints is not None:
+                        if len(xx) < axisPoints * 2:
                             # The 2 first lines have to be displayed
                             xxx, yyy, vvv = xx, yy, value
-                        elif len(xx) % axesPoints != 0:
+                        elif len(xx) % axisPoints != 0:
                             # Last line have to be displayed
-                            extra = slice(len(xx) - len(xx) % axesPoints, len(xx))
+                            extra = slice(len(xx) - len(xx) % axisPoints, len(xx))
                             xxx, yyy, vvv = xx[extra], yy[extra], value[extra]
                         else:
                             xxx, yyy, vvv = None, None, None
@@ -878,7 +611,7 @@ class ScatterPlotWidget(ExtendedDockWidget):
             symbolStyle = style_model.symbol_to_silx(style.symbolStyle)
             if symbolStyle == " ":
                 symbolStyle = "o"
-            scatter = _MainScatter()
+            scatter = plot_helper.FlintScatter()
             scatter.setData(x=xx, y=yy, value=value, copy=False)
             scatter.setColormap(colormap)
             scatter.setSymbol(symbolStyle)
@@ -893,7 +626,7 @@ class ScatterPlotWidget(ExtendedDockWidget):
             and style.symbolColor is not None
         ):
             symbolStyle = style_model.symbol_to_silx(style.symbolStyle)
-            curve = _MainCurve()
+            curve = Curve()
             curve.setData(x=xx, y=yy, copy=False)
             curve.setColor(style.symbolColor)
             curve.setSymbol(symbolStyle)

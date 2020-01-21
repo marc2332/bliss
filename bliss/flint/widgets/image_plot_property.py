@@ -66,10 +66,14 @@ class _DataItem(_property_tree_helper.ScanRowItem):
             assert self.__plotModel is not None
             plot = self.__plotModel
 
-            channelName = self.__channel.name()
-            newItem = plot_item_model.ImageItem(plot)
-            newItem.setImageChannel(plot_model.ChannelRef(plot, channelName))
-            plot.addItem(newItem)
+            with plot.transaction():
+                items = list(plot.items())
+                for i in items:
+                    plot.removeItem(i)
+                channelName = self.__channel.name()
+                newItem = plot_item_model.ImageItem(plot)
+                newItem.setImageChannel(plot_model.ChannelRef(plot, channelName))
+                plot.addItem(newItem)
 
             self.__plotItem = newItem
 
@@ -116,6 +120,7 @@ class _DataItem(_property_tree_helper.ScanRowItem):
         self.__treeView.openPersistentEditor(self.__displayed.index())
         self.__treeView.openPersistentEditor(self.__remove.index())
         widget = delegates.StylePropertyWidget(self.__treeView)
+        widget.setEditable(True)
         widget.setPlotItem(self.__plotItem)
         widget.setFlintModel(self.__flintModel)
         self.__treeView.setIndexWidget(self.__style.index(), widget)
@@ -313,24 +318,31 @@ class ImagePlotPropertyWidget(qt.QWidget):
         itemWithoutLocation = qt.QStandardItem("Not linked to this scan")
         model.appendRow(itemWithoutLocation)
 
-        for plotItem in self.__plotModel.items():
-            if not isinstance(plotItem, plot_item_model.ImageItem):
-                continue
+        plotImageItems = [
+            i
+            for i in self.__plotModel.items()
+            if isinstance(i, plot_item_model.ImageItem) and i.imageChannel() is not None
+        ]
 
+        if len(plotImageItems) >= 1:
+            plotItem = plotImageItems[0]
             dataChannel = plotItem.imageChannel()
-            if dataChannel is None:
-                continue
+            if dataChannel is not None:
+                dataChannelName = dataChannel.name()
+                if dataChannelName in channelItems:
+                    channelItem = channelItems[dataChannelName]
+                    channelItem.setPlotItem(plotItem)
+                else:
+                    item = _DataItem()
+                    item.setEnvironment(self.__tree, self.__flintModel)
+                    itemWithoutLocation.appendRow(item.rowItems())
+                    # It have to be done when model index are initialized
+                    item.setPlotItem(plotItem)
 
-            dataChannelName = dataChannel.name()
-            if dataChannelName in channelItems:
-                channelItem = channelItems[dataChannelName]
-                channelItem.setPlotItem(plotItem)
-            else:
-                item = _DataItem()
-                item.setEnvironment(self.__tree, self.__flintModel)
-                itemWithoutLocation.appendRow(item.rowItems())
-                # It have to be done when model index are initialized
-                item.setPlotItem(plotItem)
+        if len(plotImageItems) >= 2:
+            _logger.warning(
+                "More than one image is provided by this plot. A single image is supported, others will be ignored."
+            )
 
         if itemWithoutLocation.rowCount() == 0:
             model.removeRows(itemWithoutLocation.row(), 1)

@@ -49,6 +49,7 @@ import PyQt5.QtCore
 
 import silx
 from silx.gui import qt
+from silx.gui import icons
 
 import bliss.flint.resources
 from bliss.flint.widgets.property_widget import MainPropertyWidget
@@ -208,7 +209,10 @@ def initApplication(argv):
     qapp.setApplicationName("flint")
     qapp.setOrganizationName("ESRF")
     qapp.setOrganizationDomain("esrf.eu")
+
     bliss.flint.resources.silx_integration()
+    flintIcon = icons.getQIcon("flint:logo/bliss_logo_small")
+    qapp.setWindowIcon(flintIcon)
 
     # Care of the formatting for numbers (no coma)
     qt.QLocale.setDefault(qt.QLocale.c())
@@ -262,7 +266,10 @@ def main():
 
     qapp = initApplication(sys.argv)
     settings = qt.QSettings(
-        qt.QSettings.IniFormat, qt.QSettings.UserScope, qapp.applicationName()
+        qt.QSettings.IniFormat,
+        qt.QSettings.UserScope,
+        qapp.organizationName(),
+        qapp.applicationName(),
     )
     set_global_settings(settings, options)
 

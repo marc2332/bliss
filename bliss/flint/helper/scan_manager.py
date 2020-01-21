@@ -139,12 +139,14 @@ class ScanManager:
             ready_event=ready_event,
         )
 
-        task.link_exception(
-            functools.partial(
-                self._spawn_scans_session_watch, session_name, clean_redis=True
-            )
-        )
+        def exception_orrured(future_exception):
+            try:
+                future_exception.get()
+            except:
+                _logger.error("Error orrured in watch_session_scans", exc_info=True)
+            self._spawn_scans_session_watch(session_name, clean_redis=True)
 
+        task.link_exception(exception_orrured)
         self._scans_watch_task = task
 
         ready_event.wait()

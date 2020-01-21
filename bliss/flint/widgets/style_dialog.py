@@ -83,6 +83,8 @@ class StyleDialogEditor(qt.QDialog):
         style = self.__editor.selectedStyle()
         if isinstance(item, plot_item_model.ScatterItem):
             self.__flintModel.setDefaultScatterStyle(style)
+        elif isinstance(item, plot_item_model.ImageItem):
+            self.__flintModel.setDefaultImageStyle(style)
 
     def __updateEditor(self):
         item = self.plotItem()
@@ -91,8 +93,13 @@ class StyleDialogEditor(qt.QDialog):
             editor.setText("No item selected")
             self.__options.setVisible(False)
         else:
-            if isinstance(item, plot_item_model.ScatterItem):
-                editor = _ScatterEditor(self)
+            if isinstance(
+                item, (plot_item_model.ScatterItem, plot_item_model.ImageItem)
+            ):
+                if isinstance(item, plot_item_model.ScatterItem):
+                    editor = _ScatterEditor(self)
+                elif isinstance(item, plot_item_model.ImageItem):
+                    editor = _ImageEditor(self)
                 style = item.customStyle()
                 if style is None:
                     # FIXME: The dialog have to know it is an auto style
@@ -154,9 +161,13 @@ class _ScatterEditor(qt.QWidget):
         self._lineStyle.currentIndexChanged.connect(self.__updateWidgetLayout)
         self._symbolStyle.currentIndexChanged.connect(self.__updateWidgetLayout)
 
-        colors = [("No color", None), ("Black", (0, 0, 0)), ("White", (255, 255, 255))]
+        colorList = [
+            ("No color", None),
+            ("Black", (0, 0, 0)),
+            ("White", (255, 255, 255)),
+        ]
 
-        for name, color in colors:
+        for name, color in colorList:
             if color is None:
                 qcolor = None
             else:
@@ -259,6 +270,37 @@ class _ScatterEditor(qt.QWidget):
             colormapLut=colormapLut,
             fillStyle=fillStyle,
         )
+
+    def _updateLayout(self):
+        pass
+
+
+class _ImageEditor(qt.QWidget):
+    """Editor adapted to scatter items"""
+
+    styleUpdated = qt.Signal()
+
+    def __init__(self, parent=None):
+        super(_ImageEditor, self).__init__(parent=parent)
+
+        filename = silx.resources.resource_filename("flint:gui/style-editor-image.ui")
+        # FIXME: remove this catch of warning when it is possible
+        log = logging.getLogger("py.warnings")
+        log.disabled = True
+        qt.loadUi(filename, self)
+        log.disabled = False
+
+    def selectStyle(self, style: plot_model.Style):
+        colormap = colors.Colormap(style.colormapLut)
+        self._colormap.setCurrentLut(colormap)
+
+    def _getColormapName(self):
+        return self._colormap.getCurrentName()
+
+    def selectedStyle(self) -> plot_model.Style:
+        """Returns the current selected type"""
+        colormapLut = self._getColormapName()
+        return style_model.Style(colormapLut=colormapLut)
 
     def _updateLayout(self):
         pass

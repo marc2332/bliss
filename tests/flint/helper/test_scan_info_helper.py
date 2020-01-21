@@ -50,7 +50,7 @@ def test_create_scan_model():
     for device in scan.devices():
         channelCount += len(list(device.channels()))
     assert channelCount == 5
-    assert deviceCount == 5
+    assert deviceCount == 6
 
     expected = [
         ("diode:diode", scan_model.ChannelType.COUNTER, "diode", "timer"),
@@ -66,10 +66,7 @@ def test_create_scan_model():
         assert channel.name() == name
         assert channel.type() == kind
         assert channel.device().name() == device
-        if device == master:
-            assert channel.device().master() is None
-        else:
-            assert channel.device().master().name() == master
+        assert channel.device().master().name() == master
 
     assert scan.getChannelByName("timer:elapsed_time").metadata() is not None
     assert scan.getChannelByName("timer:epoch").metadata() is None
@@ -275,12 +272,12 @@ def test_parse_channel_metadata():
         "min": 3,
         "max": 4,
         "points": 5,
-        "axes-points": 6,
-        "axes-kind": "slow",
+        "axis-points": 6,
+        "axis-kind": "slow",
     }
     result = scan_info_helper.parse_channel_metadata(meta)
     assert result == scan_model.ChannelMetadata(
-        1, 2, 3, 4, 5, 6, scan_model.AxesKind.SLOW
+        1, 2, 3, 4, 5, 6, scan_model.AxisKind.SLOW
     )
 
 
@@ -291,8 +288,8 @@ def test_parse_wrong_values():
         "min": 3,
         "max": "foo",
         "points": 5,
-        "axes-points": 6,
-        "axes-kind": "foo",
+        "axis-points": 6,
+        "axis-kind": "foo",
         "foo": "bar",
     }
     result = scan_info_helper.parse_channel_metadata(meta)

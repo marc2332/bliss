@@ -47,20 +47,14 @@ def test_created_flint(flint_session):
     flint = plot.get_flint()
     flint.wait_started()
     # Check messages and stdout
-    try:
-        # FIXME: This can be removed with silx 0.12
-        previous = plot.FLINT_OUTPUT_LOGGER.disabled
-        plot.FLINT_OUTPUT_LOGGER.disabled = False
-        listener = testutils.TestLogging(plot.FLINT_OUTPUT_LOGGER.name, info=1)
-        with listener:
-            flint.ping()
-            for _ in range(10):
-                if len(listener.records) >= 1:
-                    # Early break
-                    break
-                time.sleep(0.5)
-    finally:
-        plot.FLINT_OUTPUT_LOGGER.disabled = previous
+    listener = testutils.TestLogging(plot.FLINT_OUTPUT_LOGGER.name, info=1)
+    with listener:
+        flint.ping()
+        for _ in range(10):
+            if len(listener.records) >= 1:
+                # Early break
+                break
+            time.sleep(0.5)
 
 
 def test_attached_flint(attached_flint_session):
@@ -69,17 +63,11 @@ def test_attached_flint(attached_flint_session):
     """
     flint = plot.get_flint()
     # Check messages and stdout
-    try:
-        # FIXME: This can be removed with silx 0.12
-        previous = plot.FLINT_OUTPUT_LOGGER.disabled
-        plot.FLINT_OUTPUT_LOGGER.disabled = False
-        listener = testutils.TestLogging(plot.FLINT_OUTPUT_LOGGER.name, info=1)
-        with listener:
-            flint.ping()
-            for _ in range(10):
-                if len(listener.records) >= 1:
-                    # Early break
-                    break
-                time.sleep(0.5)
-    finally:
-        plot.FLINT_OUTPUT_LOGGER.disabled = previous
+    listener = testutils.TestLogging(plot.FLINT_OUTPUT_LOGGER.name, info=1)
+    with listener:
+        flint.ping()
+        for _ in range(10):
+            if len(listener.records) >= 1:
+                # Early break
+                break
+            time.sleep(0.5)

@@ -23,6 +23,7 @@ import gevent.event
 
 from silx.gui import qt
 from silx.gui import plot as silx_plot
+import bliss
 from bliss.flint.helper import plot_interaction
 from bliss.flint.helper import model_helper
 from bliss.flint.model import plot_model
@@ -93,6 +94,10 @@ class FlintApi:
         sys.stdout = self.stdout
         self.stderr = MultiplexStreamToCallback(sys.stderr)
         sys.stderr = self.stderr
+
+    def get_bliss_version(self) -> str:
+        """Returns the bliss version"""
+        return bliss.release.version
 
     def register_output_listener(self):
         """Register output listener to ask flint to emit signals for stdout and

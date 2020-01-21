@@ -337,15 +337,15 @@ def amesh(
         "start": start1,
         "stop": stop1,
         "points": npoints1 * npoints2,
-        "axes-points": npoints1,
-        "axes-kind": "fast",
+        "axis-points": npoints1,
+        "axis-kind": "fast",
     }
     requests[f"axis:{motor2.name}"] = {
         "start": start2,
         "stop": stop2,
         "points": npoints1 * npoints2,
-        "axes-points": npoints2,
-        "axes-kind": "slow",
+        "axis-points": npoints2,
+        "axis-kind": "slow",
     }
     scan_info["requests"] = requests
 

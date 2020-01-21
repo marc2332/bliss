@@ -115,6 +115,7 @@ class CurvePlotWidget(ExtendedDockWidget):
         inTransaction = self.__plotModel.isInTransaction()
         if eventType == plot_model.ChangeEventType.VISIBILITY:
             self.__updateItem(item)
+            self.__syncAxisTitle.triggerIf(not inTransaction)
         elif eventType == plot_model.ChangeEventType.YAXIS:
             self.__updateItem(item)
             self.__syncAxisTitle.triggerIf(not inTransaction)
@@ -139,6 +140,8 @@ class CurvePlotWidget(ExtendedDockWidget):
             y2Labels = []
             for item in plot.items():
                 if not item.isValid():
+                    continue
+                if not item.isVisible():
                     continue
                 if isinstance(item, plot_item_model.CurveItem):
                     xLabels.append(item.xChannel().displayName(scan))
@@ -367,47 +370,26 @@ class CurvePlotWidget(ExtendedDockWidget):
                         resetzoom=False,
                     )
                     plotItems.append((key, "curve"))
-                    if silx._version.version_info >= (0, 12):
-                        key = plot.addMarker(
-                            legend=legend + "_text",
-                            x=result.max_location_x,
-                            y=text_location_y,
-                            symbol=",",
-                            text="max",
-                            color=style.lineColor,
-                            yaxis=item.yAxis(),
-                        )
-                        plotItems.append((key, "marker"))
-                        key = plot.addMarker(
-                            legend=legend + "_pos",
-                            x=result.max_location_x,
-                            y=result.max_location_y,
-                            symbol="x",
-                            text="",
-                            color=style.lineColor,
-                            yaxis=item.yAxis(),
-                        )
-                        plotItems.append((key, "marker"))
-                    else:
-                        # FIXME: Remove me for the silx release 0.12
-                        key = plot.addMarker(
-                            legend=legend + "_text",
-                            x=result.max_location_x,
-                            y=text_location_y,
-                            symbol=",",
-                            text="max",
-                            color=style.lineColor,
-                        )
-                        plotItems.append((key, "marker"))
-                        key = plot.addMarker(
-                            legend=legend + "_pos",
-                            x=result.max_location_x,
-                            y=result.max_location_y,
-                            symbol="x",
-                            text="",
-                            color=style.lineColor,
-                        )
-                        plotItems.append((key, "marker"))
+                    key = plot.addMarker(
+                        legend=legend + "_text",
+                        x=result.max_location_x,
+                        y=text_location_y,
+                        symbol=",",
+                        text="max",
+                        color=style.lineColor,
+                        yaxis=item.yAxis(),
+                    )
+                    plotItems.append((key, "marker"))
+                    key = plot.addMarker(
+                        legend=legend + "_pos",
+                        x=result.max_location_x,
+                        y=result.max_location_y,
+                        symbol="x",
+                        text="",
+                        color=style.lineColor,
+                        yaxis=item.yAxis(),
+                    )
+                    plotItems.append((key, "marker"))
                 else:
                     self.__cleanScanItem(item, scan)
 

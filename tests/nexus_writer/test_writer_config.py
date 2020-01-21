@@ -23,9 +23,7 @@ def test_config_withoutpolicy(nexus_base_session_nopolicy):
     expected_directory = os.path.join(scan_tmpdir, session.name)
     assert directory == expected_directory
     filenames = scan_utils.current_filenames()
-    expected_filenames = [
-        os.path.join(scan_tmpdir, session.name, "dataset_external.h5")
-    ]
+    expected_filenames = [os.path.join(scan_tmpdir, session.name, "a_b_external.h5")]
     assert filenames == expected_filenames
 
 

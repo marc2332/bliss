@@ -121,11 +121,13 @@ def current_internal_filename(scan_saving=None):
     basename = config_utils.scan_saving_get(
         "data_filename", "", scan_saving=scan_saving
     )
-    if basename:
-        basename = os.path.splitext(basename)[0]
-        return os.path.join(basename + ".h5")
-    else:
-        return ""
+    if not basename:
+        return basename
+    attrs = config_utils.scan_saving_attrs(template=basename, scan_saving=scan_saving)
+    try:
+        return basename.format(**attrs) + ".h5"
+    except KeyError as e:
+        raise RuntimeError("Missing '{}' attribute in SCAN_SAVING".format(e))
 
 
 def filename_int2ext(filename=None, **overwrite):

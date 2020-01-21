@@ -56,10 +56,13 @@ def shortnamemap(names, separator=":"):
     """
     Map full Redis names to short (but still unique) names
 
-    :param lst(str) names:
+    :param list(str) names:
     :param str separator:
     :returns dict:
     """
+    if not names:
+        return {}
+    names = set(names)
     parts = [name.split(separator) for name in names]
     nparts = max(map(len, parts))
     parts = [([""] * (nparts - len(lst))) + lst for lst in parts]

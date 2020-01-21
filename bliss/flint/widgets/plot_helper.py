@@ -27,6 +27,7 @@ from silx.gui.plot.Profile import ProfileToolBar
 from silx.gui.plot import PlotToolButtons
 from silx.gui.plot.items.marker import Marker
 from silx.gui.plot.items.scatter import Scatter
+from silx.gui.plot.items.histogram import Histogram
 from silx.gui.plot.items.image import ImageData
 
 from bliss.flint.model import plot_model
@@ -302,6 +303,12 @@ class FlintScatter(Scatter, _FlintItemMixIn):
         _FlintItemMixIn.__init__(self)
 
 
+class FlintHistogram(Histogram, _FlintItemMixIn):
+    def __init__(self):
+        Histogram.__init__(self)
+        _FlintItemMixIn.__init__(self)
+
+
 class FlintImage(ImageData, _FlintItemMixIn):
     def __init__(self):
         ImageData.__init__(self)
@@ -363,6 +370,8 @@ class TooltipItemManager:
                 x, y, text = self.__createScatterTooltip(item, index)
             elif isinstance(item, FlintImage):
                 x, y, text = self.__createImageTooltip(item, index)
+            elif isinstance(item, FlintHistogram):
+                x, y, text = self.__createHistogramTooltip(item, index)
             else:
                 _logger.error("Unsupported class %s", type(item))
                 x, y, text = None, None, None
@@ -393,8 +402,24 @@ class TooltipItemManager:
             char = "■"
         return f"""<font color="{cssColor}">{char}</font>"""
 
-    def __createImageTooltip(self, item: FlintImage, index: numpy.ndarray):
-        y, x = index
+    def __getColoredSymbol(self, item):
+        """Returns a colored HTML char according to the expected plot item style
+        """
+        if item is not None:
+            scan = self.__parent.scan()
+            style = item.getStyle(scan)
+            color = style.lineColor
+            cssColor = f"#{color[0]:02X}{color[1]:02X}{color[2]:02X}"
+        else:
+            cssColor = "#000000"
+
+        flintModel = self.__parent.flintModel()
+        if flintModel is not None and flintModel.getDate() == "0214":
+            char = "\u2665"
+        else:
+            char = "⬤"
+        return f"""<font color="{cssColor}">{char}</font>"""
+
     def __createImageTooltip(self, item: FlintImage, indexes: numpy.ndarray):
         y, x = indexes
         image = item.getData(copy=False)
@@ -455,6 +480,35 @@ class TooltipItemManager:
         <li><b>{vName}:</b> {char} {value}</li>
         </ul></html>"""
         return x, y, text
+
+    def __createHistogramTooltip(self, item: FlintScatter, indexes: List[int]):
+        # Drop other picked indexes
+        index = indexes[-1]
+
+        # Picking with silx 0.12 and histogram is not consistent with other items
+        if index % 2 == 1:
+            return None, None, None
+        else:
+            index = index // 2
+
+        value = item.getValueData(copy=False)[index]
+
+        assert isinstance(item, _FlintItemMixIn)
+        plotItem = item.customItem()
+        if plotItem is not None:
+            assert plotItem.mcaChannel() is not None
+            scan = self.__parent.scan()
+            mcaName = plotItem.mcaChannel().displayName(scan)
+        else:
+            plotItem = None
+            mcaName = "MCA"
+
+        char = self.__getColoredSymbol(plotItem)
+
+        text = f"""<html><ul>
+        <li style="white-space:pre"><b>{mcaName} {char}:</b> {value} (index {index})</li>
+        </ul></html>"""
+        return index, value, text
 
     def __updateToolTipMarker(self, x, y):
         if x is None:

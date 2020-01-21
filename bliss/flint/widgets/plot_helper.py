@@ -364,6 +364,7 @@ class TooltipItemManager:
             elif isinstance(item, FlintImage):
                 x, y, text = self.__createImageTooltip(item, index)
             else:
+                _logger.error("Unsupported class %s", type(item))
                 x, y, text = None, None, None
 
             if text is not None:
@@ -371,7 +372,6 @@ class TooltipItemManager:
                 cursorPos = qt.QCursor.pos() + qt.QPoint(10, 10)
                 qt.QToolTip.showText(cursorPos, text, self.__plot)
             else:
-                _logger.error("Unsupported class %s", type(item))
                 self.__updateToolTipMarker(None, None)
                 qt.QToolTip.hideText()
         else:

@@ -8,7 +8,7 @@
 import pytest
 import gevent
 import pprint
-import collections.abc
+
 import numpy
 import h5py
 
@@ -27,39 +27,7 @@ from scripts.external_saving_example.external_saving_example import (
     listen_scans_of_session
 )
 
-# ~ def h5_scan_name(scan_info):
-# ~ return str(scan_info["scan_nb"]) + "_" + scan_info["type"]
-
-
-## maybe this could be useful for other tests to ... move to conftest.py?
-## deep_compare is to be used to compare a dict_dump of e.g. an hdf5 file to
-## a scan output
-def deep_compare(d, u):
-    """using logic of deep update used here to compare two dicts 
-    """
-    stack = [(d, u)]
-    while stack:
-        d, u = stack.pop(0)
-        assert len(d) == len(u)
-
-        for k, v in u.items():
-            assert k in d
-            if not isinstance(v, collections.abc.Mapping):
-                if isinstance(v, numpy.ndarray) and v.size > 1:
-                    assert d[k].shape == v.shape
-                    d[k].dtype == v.dtype
-                    if d[k].dtype != numpy.object:
-                        assert all(
-                            numpy.isnan(d[k].flatten()) == numpy.isnan(v.flatten())
-                        )
-                        mask = numpy.logical_not(numpy.isnan(v.flatten()))
-                        assert all((d[k].flatten() == v.flatten())[mask])
-                    else:
-                        assert all(d[k].flatten() == v.flatten())
-                else:
-                    assert d[k] == v
-            else:
-                stack.append((d[k], v))
+from tests.conftest import deep_compare
 
 
 @pytest.fixture

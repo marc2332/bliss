@@ -194,7 +194,7 @@ def _discover_object(obj):
 
 
 class _ServerObject(object):
-    def __init__(self, obj, stream=False):
+    def __init__(self, obj, stream=False, tcp_low_latency=False):
         self._object = obj
         self._log = logging.getLogger("rpc." + type(obj).__name__)
         self._metadata = _discover_object(obj)
@@ -205,6 +205,7 @@ class _ServerObject(object):
         self._metadata["stream"] = stream
         self._uds_name = None
         self._low_latency_signal = set()
+        self._tcp_low_latency = tcp_low_latency
 
     def __dir__(self):
         result = ["_call__"]
@@ -263,8 +264,13 @@ class _ServerObject(object):
                 # On new client socket TOS is throughput due to stream event
                 # this is changed when received a rpc call or
                 # one low delay event.
+                # except if all event are low delay.
                 try:
-                    new_client.setsockopt(socket.SOL_IP, socket.IP_TOS, 0x08)
+                    if self._tcp_low_latency:
+                        new_client.setsockopt(socket.SOL_IP, socket.IP_TOS, 0x10)
+                        new_client.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+                    else:
+                        new_client.setsockopt(socket.SOL_IP, socket.IP_TOS, 0x08)
                 except OSError:  # unix socket
                     pass
                 self._clients.append(gevent.spawn(self._client_poll, new_client))
@@ -290,7 +296,7 @@ class _ServerObject(object):
         if self._stream:
 
             def rx_event(value, signal):
-                if signal in self._low_latency_signal:
+                if not self._tcp_low_latency and signal in self._low_latency_signal:
                     with lock:
                         with switch_temporary_lowdelay(client_sock):
                             client_sock.sendall(
@@ -323,12 +329,20 @@ class _ServerObject(object):
                     else:
                         with lock:
                             try:
-                                with switch_temporary_lowdelay(client_sock):
+                                if self._tcp_low_latency:
                                     client_sock.sendall(
                                         msgpack.packb(
                                             (call_id, return_values), use_bin_type=True
                                         )
                                     )
+                                else:
+                                    with switch_temporary_lowdelay(client_sock):
+                                        client_sock.sendall(
+                                            msgpack.packb(
+                                                (call_id, return_values),
+                                                use_bin_type=True,
+                                            )
+                                        )
                             except Exception as e:
                                 client_sock.sendall(
                                     msgpack.packb((call_id, e), use_bin_type=True)
@@ -362,7 +376,7 @@ class _ServerObject(object):
                 raise ServerError("Unknown call type {0!r}".format(code))
 
 
-def Server(obj, stream=False, **kwargs):
+def Server(obj, stream=False, tcp_low_latency=False, **kwargs):
     """
     Create a rpc server for the given object with a pythonic API
 
@@ -373,7 +387,7 @@ def Server(obj, stream=False, **kwargs):
     Return:
         a rpc server
     """
-    return _ServerObject(obj, stream=stream)
+    return _ServerObject(obj, stream=stream, tcp_low_latency=tcp_low_latency)
 
 
 # Client code

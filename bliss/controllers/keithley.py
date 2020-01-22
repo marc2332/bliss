@@ -522,7 +522,7 @@ def Multimeter(config):
         # Discover model
         interface, _, _ = get_interface(**config)
         decode_IDN = SCPI_COMMANDS["*IDN"].get("get")
-        idn = decode_IDN(interface.write_readline("*IDN?\n"))
+        idn = decode_IDN(interface.write_readline(b"*IDN?\n"))
         model = idn["model"]
         kwargs["interface"] = interface
         config["model"] = model

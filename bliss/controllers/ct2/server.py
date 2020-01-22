@@ -23,7 +23,7 @@ import sys
 import logging
 import argparse
 
-from bliss.comm.rpc import Server
+from bliss.comm.rpc import Server as RpcServer
 from bliss.controllers.ct2 import card, device
 
 
@@ -48,6 +48,14 @@ class CT2(device.CT2):
     def set_property(self, key, value):
         setattr(self, key, value)
 """
+
+
+def Server(*args, **kwargs):
+    server = RpcServer(*args, **kwargs)
+    # set **PointNbSignal** to low latency
+    server.set_low_latency_signal(device.PointNbSignal, True)
+    server.set_low_latency_signal(device.StatusSignal, True)
+    return server
 
 
 def create_device(card_type, address):

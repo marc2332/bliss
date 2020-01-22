@@ -362,52 +362,103 @@ class TooltipItemManager:
     def __onMouseLeft(self):
         self.__updateTooltip(None, None)
 
-    def __updateTooltip(self, x, y):
-        plot = self.__plot
+    def __normalizePickingIndices(self, item, indices: List[int]):
+        if isinstance(item, ImageData):
+            # Image is a special case cause the index is a tuple y,x
+            yield indices
+        elif isinstance(item, Histogram):
+            # Picking with silx 0.12 and histogram is not consistent with other items
+            indices = [i for i in indices if i % 2 == 0]
+            if len(indices) == 0:
+                return None, None, None
+            # Drop other picked indexes + patch silx 0.12
+            index = indices[-1] // 2
+            yield index
+        elif isinstance(item, Curve):
+            # Curve picking is picking the segments
+            # But we care about points
+            xx = item.getXData(copy=False)
+            yy = item.getYData(copy=False)
+            axis = item.getYAxis()
+            mouse = self.__mouse
 
+            # Test both start and stop of the segment
+            ii = set([])
+            for index in indices:
+                ii.add(index)
+                ii.add(index + 1)
+            ii.discard(len(yy))
+
+            indexes = sorted(ii)
+            for index in indexes:
+                x = xx[index]
+                y = yy[index]
+                pos = self.__plot.dataToPixel(x, y, axis=axis)
+                if pos is None:
+                    continue
+                dist = abs(pos[0] - mouse[0]) + abs(pos[1] - mouse[1])
+                if dist < 3:
+                    yield index
+        elif isinstance(item, Scatter):
+            for index in indices:
+                yield index
+        else:
+            assert False
+
+    def __picking(self, x, y):
         # FIXME: Hack to avoid to pass it by argument, could be done in better way
         self.__mouse = x, y
 
-        # Start from top-most item
-        result = None
         if x is not None:
             if self.__filterClass is not None:
                 condition = lambda item: isinstance(item, self.__filterClass)
             else:
                 condition = None
-            results = [r for r in plot.pickItems(x, y, condition)]
+            results = [r for r in self.__plot.pickItems(x, y, condition)]
         else:
             results = []
-
-        if results != []:
-            # Get last index
-            # with matplotlib it should be the top-most point
-            result = results[0]
-            index = result.getIndices(copy=False)
+        for result in results:
             item = result.getItem()
+            indices = result.getIndices(copy=False)
+            for index in self.__normalizePickingIndices(item, indices):
+                yield item, index
+
+    def __updateTooltip(self, x, y):
+        results = self.__picking(x, y)
+
+        x, y, axis = None, None, None
+        textResult = []
+
+        for result in results:
+            item, index = result
             if isinstance(item, FlintScatter):
                 x, y, text = self.__createScatterTooltip(item, index)
                 axis = "left"
+                textResult.append(text)
+                # Display a single result
+                break
             elif isinstance(item, FlintImage):
                 x, y, text = self.__createImageTooltip(item, index)
                 axis = "left"
+                textResult.append(text)
+                # Display a single result
+                break
             elif isinstance(item, FlintHistogram):
-                x, y, text = self.__createHistogramTooltip(results)
-                axis = "left"
+                x, y, text = self.__createHistogramTooltip(item, index)
+                axis = item.getYAxis()
+                textResult.append(text)
             elif isinstance(item, FlintCurve):
-                x, y, axis, text = self.__createCurveTooltip(results)
+                x, y, text = self.__createCurveTooltip(item, index)
+                axis = item.getYAxis()
+                textResult.append(text)
             else:
                 _logger.error("Unsupported class %s", type(item))
-                x, y, text = None, None, None
-                axis = "left"
 
-            if text is not None:
-                self.__updateToolTipMarker(x, y, axis)
-                cursorPos = qt.QCursor.pos() + qt.QPoint(10, 10)
-                qt.QToolTip.showText(cursorPos, text, self.__plot)
-            else:
-                self.__updateToolTipMarker(None, None, None)
-                qt.QToolTip.hideText()
+        if textResult != []:
+            text = f"<html>{self.UL}" + "".join(textResult) + "</ul></html>"
+            self.__updateToolTipMarker(x, y, axis)
+            cursorPos = qt.QCursor.pos() + qt.QPoint(10, 10)
+            qt.QToolTip.showText(cursorPos, text, self.__plot)
         else:
             self.__updateToolTipMarker(None, None, None)
             qt.QToolTip.hideText()
@@ -445,10 +496,10 @@ class TooltipItemManager:
             char = "⬤"
         return f"""<font color="{cssColor}">{char}</font>"""
 
-    def __createImageTooltip(self, item: FlintImage, indexes: numpy.ndarray):
-        y, x = indexes
+    def __createImageTooltip(self, item: FlintImage, index: numpy.ndarray):
+        y, x = index
         image = item.getData(copy=False)
-        value = image[indexes]
+        value = image[index]
 
         x, y, value = x[0], y[0], value[0]
 
@@ -464,16 +515,15 @@ class TooltipItemManager:
         data = item.getData(copy=False)
         char = self.__getColoredChar(value, data, item)
 
-        text = f"""<html>{self.UL}
-        <li><b>Col, X:</b> {x}</li>
-        <li><b>Row, Y:</b> {y}</li>
-        <li><b>{imageName}:</b> {char} {value}</li>
-        </ul></html>"""
+        text = f"""
+            <li><b>Col, X:</b> {x}</li>
+            <li><b>Row, Y:</b> {y}</li>
+            <li><b>{imageName}:</b> {char} {value}</li>
+        """
         return x + 0.5, y + 0.5, text
 
-    def __createScatterTooltip(self, item: FlintScatter, indexes: List[int]):
+    def __createScatterTooltip(self, item: FlintScatter, index: int):
         # Drop other picked indexes
-        index = indexes[-1]
         x = item.getXData(copy=False)[index]
         y = item.getYData(copy=False)[index]
         value = item.getValueData(copy=False)[index]
@@ -498,39 +548,16 @@ class TooltipItemManager:
         data = item.getValueData(copy=False)
         char = self.__getColoredChar(value, data, item)
 
-        text = f"""<html>{self.UL}
-        <li><b>Index:</b> {index}</li>
-        <li><b>{xName}:</b> {x}</li>
-        <li><b>{yName}:</b> {y}</li>
-        <li><b>{vName}:</b> {char} {value}</li>
-        </ul></html>"""
+        text = f"""
+            <li><b>Index:</b> {index}</li>
+            <li><b>{xName}:</b> {x}</li>
+            <li><b>{yName}:</b> {y}</li>
+            <li><b>{vName}:</b> {char} {value}</li>
+        """
         return x, y, text
 
-    def __createHistogramTooltip(self, results):
-        textResult = []
-        for result in results:
-            indexes = result.getIndices(copy=False)
-            item = result.getItem()
-            x, y, part = self.__createHistogramTooltipPart(item, indexes)
-            if part is not None:
-                textResult.append(part)
-
-        if textResult == []:
-            return None, None, None
-
-        text = f"<html>{self.UL}" + "".join(textResult) + "</ul></html>"
-        return x, y, text
-
-    def __createHistogramTooltipPart(self, item: FlintScatter, indexes: List[int]):
-        # Picking with silx 0.12 and histogram is not consistent with other items
-        indexes = [i for i in indexes if i % 2 == 0]
-        if len(indexes) == 0:
-            return None, None, None
-        # Drop other picked indexes + patch silx 0.12
-        index = indexes[-1] // 2
-
+    def __createHistogramTooltip(self, item: FlintScatter, index: int):
         value = item.getValueData(copy=False)[index]
-
         assert isinstance(item, _FlintItemMixIn)
         plotItem = item.customItem()
         if plotItem is not None:
@@ -546,47 +573,9 @@ class TooltipItemManager:
         text = f"""<li style="white-space:pre">{char} <b>{mcaName}:</b> {value} (index {index})</li>"""
         return index, value, text
 
-    def __createCurveTooltip(self, results):
-        textResult = []
-        for result in results:
-            indexes = result.getIndices(copy=False)
-            item = result.getItem()
-            x, y, axis, part = self.__createCurveTooltipPart(item, indexes)
-            if part is not None:
-                textResult.append(part)
-
-        if textResult == []:
-            return None, None, None, None
-
-        text = f"<html>{self.UL}" + "".join(textResult) + "</ul></html>"
-        return x, y, axis, text
-
-    def __createCurveTooltipPart(self, item: FlintScatter, indexes: List[int]):
-        # Curve picking is picking the segments
+    def __createCurveTooltip(self, item: FlintScatter, index: int):
         xx = item.getXData(copy=False)
         yy = item.getYData(copy=False)
-        axis = item.getYAxis()
-        mouse = self.__mouse
-
-        ii = set([])
-        for index in indexes:
-            ii.add(index)
-            ii.add(index + 1)
-        ii.discard(len(yy))
-
-        indexes = sorted(ii)
-        for index in indexes:
-            x = xx[index]
-            y = yy[index]
-            pos = self.__plot.dataToPixel(x, y, axis=axis)
-            if pos is None:
-                continue
-            dist = abs(pos[0] - mouse[0]) + abs(pos[1] - mouse[1])
-            if dist < 3:
-                break
-        else:
-            return None, None, None, None
-
         xValue = xx[index]
         yValue = yy[index]
 
@@ -608,7 +597,7 @@ class TooltipItemManager:
         <li style="white-space:pre">{char} <b>{yName}:</b> {yValue} (index {index})</li>
         <li style="white-space:pre">     <b>{xName}:</b> {xValue}</li>
         """
-        return xValue, yValue, axis, text
+        return xValue, yValue, text
 
     def __updateToolTipMarker(self, x, y, axis):
         if x is None:

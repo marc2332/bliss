@@ -64,7 +64,7 @@ class McaPlotWidget(ExtendedDockWidget):
         self.__plot.addToolBar(toolBar)
 
         self.__tooltipManager = plot_helper.TooltipItemManager(self, self.__plot)
-        self.__tooltipManager.setFilter(plot_helper.FlintHistogram)
+        self.__tooltipManager.setFilter(plot_helper.FlintRawMca)
 
         self.__syncAxisTitle = signalutils.InvalidatableSignal(self)
         self.__syncAxisTitle.triggered.connect(self.__updateAxesLabel)
@@ -367,7 +367,7 @@ class McaPlotWidget(ExtendedDockWidget):
         style = item.getStyle(self.__scan)
         edges = numpy.arange(len(histogram) + 1) - 0.5
 
-        mcaItem = plot_helper.FlintHistogram()
+        mcaItem = plot_helper.FlintRawMca()
         mcaItem.setData(histogram, edges, copy=False)
         mcaItem.setColor(style.lineColor)
         mcaItem._setLegend(legend)

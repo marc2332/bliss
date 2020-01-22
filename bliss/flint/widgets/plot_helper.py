@@ -406,7 +406,7 @@ class FlintCurve(Curve, _FlintItemMixIn):
         return xValue, yValue, text
 
 
-class FlintHistogram(Histogram, _FlintItemMixIn):
+class FlintRawMca(Histogram, _FlintItemMixIn):
     def __init__(self):
         Histogram.__init__(self)
         _FlintItemMixIn.__init__(self)

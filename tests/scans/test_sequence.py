@@ -71,9 +71,6 @@ def test_sequence_future_scans(session, scan_tmpdir):
 
 
 def test_sequence_async_scans(session, scan_tmpdir):
-    # waiting for issue #1105 to be solved
-    pytest.xfail()
-
     # put scan file in a tmp directory
     session.scan_saving.base_path = str(scan_tmpdir)
 

@@ -128,16 +128,7 @@ class Sequence:
                     gevent.sleep(0)
                 self.group_acq_master.publish_event.wait()
 
-            if self.scan.state != ScanState.DONE:
-                try:
-                    with gevent.timeout.Timeout(.1):
-                        self.scan.wait_state(ScanState.DONE)
-                except gevent.Timeout:
-                    pass
-
-            group_scan.kill()
-            self.scan.writer._remove_callbacks()
-            self.scan.disconnect_all()
+            group_scan.join()
 
             if err:
                 raise RuntimeError(

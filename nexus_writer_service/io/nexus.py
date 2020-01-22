@@ -718,46 +718,14 @@ def nxEntryInit(
         return parent[name]
 
 
-def nxNoteInit(parent, name, data=None, type=None, raise_on_exists=False):
-    """
-    Initialize NXnote instance
-
-    :param h5py.Group parent:
-    :param str name:
-    :param str data:
-    :param str type:
-    :param bool raise_on_exists:
-    :return h5py.Group:
-    :raises RuntimeError: wrong Nexus class or parent
-                          not an Nexus class instance
-    :raises NexusInstanceExists:
-    """
-    raiseIsNxClass(parent, None)
-    if nxClassInstantiate(parent, name, u"NXnote", raise_on_exists=raise_on_exists):
-        h5group = parent[name]
-        h5group.attrs["NX_class"] = u"NXnote"
-        update = True
-    else:
-        h5group = parent[name]
-        update = False
-    if data is not None:
-        updateDataset(h5group, "data", data)
-        update = True
-    if type is not None:
-        updateDataset(h5group, "type", type)
-        update = True
-    if update:
-        updated(h5group)
-    return h5group
-
-
 def nxProcessConfigurationInit(
-    parent, configdict=None, type="json", indent=2, raise_on_exists=False
+    parent, date=None, configdict=None, type="json", indent=2, raise_on_exists=False
 ):
     """
     Initialize NXnote instance
 
     :param h5py.Group parent:
+    :param datetime date:
     :param dict configdict:
     :param str type: 'json' or 'ini' or None (pprint)
     :param num indent: pretty-string with indent level
@@ -781,12 +749,14 @@ def nxProcessConfigurationInit(
     else:
         data = None
         type = None
-    name = "configuration"
-    group = nxNoteInit(
-        parent, name, data=data, type=type, raise_on_exists=raise_on_exists
+    return nxNote(
+        parent,
+        "configuration",
+        data=data,
+        type=type,
+        date=date,
+        raise_on_exists=raise_on_exists,
     )
-    updated(group)
-    return group
 
 
 def nxProcess(parent, name, configdict=None, raise_on_exists=False, **kwargs):
@@ -884,6 +854,42 @@ class FilePool(SharedLockPool):
 
 
 FILEPOOL = FilePool()
+
+
+def nxNote(parent, name, data=None, type=None, date=None, raise_on_exists=False):
+    """
+    Get NXnote instance (initialize when missing)
+
+    :param h5py.Group parent:
+    :param str name:
+    :param str data:
+    :param str type:
+    :param datetime date:
+    :param bool raise_on_exists:
+    :return h5py.Group:
+    :raises RuntimeError: wrong Nexus class or parent
+                          not an Nexus class instance
+    :raises NexusInstanceExists:
+    """
+    raiseIsNxClass(parent, None)
+    if nxClassInstantiate(parent, name, u"NXnote", raise_on_exists=raise_on_exists):
+        h5group = parent[name]
+        h5group.attrs["NX_class"] = u"NXnote"
+        update = True
+    else:
+        h5group = parent[name]
+        update = False
+    if data is not None:
+        updateDataset(h5group, "data", data)
+        update = True
+    if type is not None:
+        updateDataset(h5group, "type", type)
+        update = True
+    if date:
+        updateDataset(h5group, "date", datetime_to_nexus(date))
+    elif update:
+        updated(h5group)
+    return h5group
 
 
 class File(h5py.File):

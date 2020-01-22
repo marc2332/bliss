@@ -437,8 +437,6 @@ class FlintImage(ImageData, _FlintItemMixIn):
         image = self.getData(copy=False)
         value = image[index]
 
-        x, y, value = x[0], y[0], value[0]
-
         plotItem = self.customItem()
         if plotItem is not None:
             assert plotItem.imageChannel() is not None
@@ -497,8 +495,9 @@ class TooltipItemManager:
 
     def __normalizePickingIndices(self, item, indices: List[int]):
         if isinstance(item, ImageData):
-            # Image is a special case cause the index is a tuple y,x
-            yield indices
+            # Image is a special case cause the index is a tuple of vector y,x
+            for i in range(len(indices[0])):
+                yield indices[0][i], indices[1][i]
         elif isinstance(item, Histogram):
             # Picking with silx 0.12 and histogram is not consistent with other items
             indices = [i for i in indices if i % 2 == 0]

@@ -579,6 +579,8 @@ class TooltipItemManager:
             x = xx[index]
             y = yy[index]
             pos = self.__plot.dataToPixel(x, y, axis=axis)
+            if pos is None:
+                continue
             dist = abs(pos[0] - mouse[0]) + abs(pos[1] - mouse[1])
             if dist < 3:
                 break

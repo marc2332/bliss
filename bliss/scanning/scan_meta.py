@@ -23,7 +23,7 @@ from bliss import global_map
 USER_SCAN_META = None
 CATEGORIES = enum.Enum(
     "categories",
-    "INSTRUMENT POSITIONERS SAMPLE SAMPLE_DESCRIPTION PROPOSAL TECHNIQUE NEXUSWRITER NOTES",
+    "INSTRUMENT POSITIONERS SAMPLE SAMPLE_DESCRIPTION PROPOSAL TECHNIQUE NEXUSWRITER",
 )
 
 
@@ -41,7 +41,6 @@ def get_user_scan_meta():
         USER_SCAN_META.sample.set("NX_class", {"NX_class": "NXsample"})
         USER_SCAN_META.proposal.set("NX_class", {"NX_class": "NXcollection"})
         USER_SCAN_META.sample_description.set("NX_class", {"NX_class": "NXcollection"})
-        USER_SCAN_META.notes.set("NX_class", {"NX_class": "NXcollection"})
     return USER_SCAN_META
 
 

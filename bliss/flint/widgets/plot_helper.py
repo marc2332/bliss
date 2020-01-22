@@ -365,13 +365,14 @@ class TooltipItemManager:
                 condition = lambda item: isinstance(item, self.__filterClass)
             else:
                 condition = None
-            for result in plot.pickItems(x, y, condition):
-                # Break at the first result
-                break
+            results = [r for r in plot.pickItems(x, y, condition)]
+        else:
+            results = []
 
-        if result is not None:
+        if results != []:
             # Get last index
             # with matplotlib it should be the top-most point
+            result = results[0]
             index = result.getIndices(copy=False)
             item = result.getItem()
             if isinstance(item, FlintScatter):
@@ -379,7 +380,7 @@ class TooltipItemManager:
             elif isinstance(item, FlintImage):
                 x, y, text = self.__createImageTooltip(item, index)
             elif isinstance(item, FlintHistogram):
-                x, y, text = self.__createHistogramTooltip(item, index)
+                x, y, text = self.__createHistogramTooltip(results)
             else:
                 _logger.error("Unsupported class %s", type(item))
                 x, y, text = None, None, None
@@ -489,7 +490,22 @@ class TooltipItemManager:
         </ul></html>"""
         return x, y, text
 
-    def __createHistogramTooltip(self, item: FlintScatter, indexes: List[int]):
+    def __createHistogramTooltip(self, results):
+        textResult = []
+        for result in results:
+            indexes = result.getIndices(copy=False)
+            item = result.getItem()
+            x, y, part = self.__createHistogramTooltipPart(item, indexes)
+            if part is not None:
+                textResult.append(part)
+
+        if textResult == []:
+            return None, None, None
+
+        text = f"<html>{self.UL}" + "".join(textResult) + "</ul></html>"
+        return x, y, text
+
+    def __createHistogramTooltipPart(self, item: FlintScatter, indexes: List[int]):
         # Picking with silx 0.12 and histogram is not consistent with other items
         indexes = [i for i in indexes if i % 2 == 0]
         if len(indexes) == 0:
@@ -511,9 +527,7 @@ class TooltipItemManager:
 
         char = self.__getColoredSymbol(plotItem)
 
-        text = f"""<html><ul>
-        <li style="white-space:pre"><b>{mcaName} {char}:</b> {value} (index {index})</li>
-        </ul></html>"""
+        text = f"""<li style="white-space:pre">{char} <b>{mcaName}:</b> {value} (index {index})</li>"""
         return index, value, text
 
     def __updateToolTipMarker(self, x, y):

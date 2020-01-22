@@ -814,19 +814,6 @@ class CT2(object):
     def last_error(self):
         return self.__last_error
 
-    def read_data(self):
-        with self.__buffer_lock:
-            return self.__read_data()
-
-    def __read_data(self):
-        b = self.__buffer
-        if b:
-            self.__buffer = []
-            data = numpy.vstack(b)
-        else:
-            data = numpy.array([[]], dtype=numpy.uint32)
-        return data
-
     def get_data(self, from_index=None):
         if from_index is None:
             from_index = 0

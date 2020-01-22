@@ -27,6 +27,7 @@ from silx.gui.plot.Profile import ProfileToolBar
 from silx.gui.plot import PlotToolButtons
 from silx.gui.plot.items.marker import Marker
 from silx.gui.plot.items.scatter import Scatter
+from silx.gui.plot.items.curve import Curve
 from silx.gui.plot.items.histogram import Histogram
 from silx.gui.plot.items.image import ImageData
 
@@ -305,6 +306,12 @@ class FlintScatter(Scatter, _FlintItemMixIn):
         _FlintItemMixIn.__init__(self)
 
 
+class FlintCurve(Curve, _FlintItemMixIn):
+    def __init__(self):
+        Curve.__init__(self)
+        _FlintItemMixIn.__init__(self)
+
+
 class FlintHistogram(Histogram, _FlintItemMixIn):
     def __init__(self):
         Histogram.__init__(self)
@@ -358,6 +365,9 @@ class TooltipItemManager:
     def __updateTooltip(self, x, y):
         plot = self.__plot
 
+        # FIXME: Hack to avoid to pass it by argument, could be done in better way
+        self.__mouse = x, y
+
         # Start from top-most item
         result = None
         if x is not None:
@@ -377,23 +387,29 @@ class TooltipItemManager:
             item = result.getItem()
             if isinstance(item, FlintScatter):
                 x, y, text = self.__createScatterTooltip(item, index)
+                axis = "left"
             elif isinstance(item, FlintImage):
                 x, y, text = self.__createImageTooltip(item, index)
+                axis = "left"
             elif isinstance(item, FlintHistogram):
                 x, y, text = self.__createHistogramTooltip(results)
+                axis = "left"
+            elif isinstance(item, FlintCurve):
+                x, y, axis, text = self.__createCurveTooltip(results)
             else:
                 _logger.error("Unsupported class %s", type(item))
                 x, y, text = None, None, None
+                axis = "left"
 
             if text is not None:
-                self.__updateToolTipMarker(x, y)
+                self.__updateToolTipMarker(x, y, axis)
                 cursorPos = qt.QCursor.pos() + qt.QPoint(10, 10)
                 qt.QToolTip.showText(cursorPos, text, self.__plot)
             else:
-                self.__updateToolTipMarker(None, None)
+                self.__updateToolTipMarker(None, None, None)
                 qt.QToolTip.hideText()
         else:
-            self.__updateToolTipMarker(None, None)
+            self.__updateToolTipMarker(None, None, None)
             qt.QToolTip.hideText()
 
     def __getColoredChar(self, value, data, item):
@@ -530,12 +546,75 @@ class TooltipItemManager:
         text = f"""<li style="white-space:pre">{char} <b>{mcaName}:</b> {value} (index {index})</li>"""
         return index, value, text
 
-    def __updateToolTipMarker(self, x, y):
+    def __createCurveTooltip(self, results):
+        textResult = []
+        for result in results:
+            indexes = result.getIndices(copy=False)
+            item = result.getItem()
+            x, y, axis, part = self.__createCurveTooltipPart(item, indexes)
+            if part is not None:
+                textResult.append(part)
+
+        if textResult == []:
+            return None, None, None, None
+
+        text = f"<html>{self.UL}" + "".join(textResult) + "</ul></html>"
+        return x, y, axis, text
+
+    def __createCurveTooltipPart(self, item: FlintScatter, indexes: List[int]):
+        # Curve picking is picking the segments
+        xx = item.getXData(copy=False)
+        yy = item.getYData(copy=False)
+        axis = item.getYAxis()
+        mouse = self.__mouse
+
+        ii = set([])
+        for index in indexes:
+            ii.add(index)
+            ii.add(index + 1)
+        ii.discard(len(yy))
+
+        indexes = sorted(ii)
+        for index in indexes:
+            x = xx[index]
+            y = yy[index]
+            pos = self.__plot.dataToPixel(x, y, axis=axis)
+            dist = abs(pos[0] - mouse[0]) + abs(pos[1] - mouse[1])
+            if dist < 3:
+                break
+        else:
+            return None, None, None, None
+
+        xValue = xx[index]
+        yValue = yy[index]
+
+        assert isinstance(item, _FlintItemMixIn)
+        plotItem = item.customItem()
+        if plotItem is not None:
+            assert plotItem.yChannel() is not None and plotItem.xChannel() is not None
+            scan = self.__parent.scan()
+            xName = plotItem.xChannel().displayName(scan)
+            yName = plotItem.yChannel().displayName(scan)
+        else:
+            plotItem = None
+            xName = "X"
+            yName = "Y"
+
+        char = self.__getColoredSymbol(plotItem)
+
+        text = f"""
+        <li style="white-space:pre">{char} <b>{yName}:</b> {yValue} (index {index})</li>
+        <li style="white-space:pre">     <b>{xName}:</b> {xValue}</li>
+        """
+        return xValue, yValue, axis, text
+
+    def __updateToolTipMarker(self, x, y, axis):
         if x is None:
             self.__toolTipMarker.setVisible(False)
         else:
             self.__toolTipMarker.setVisible(True)
             self.__toolTipMarker.setPosition(x, y)
+            self.__toolTipMarker.setYAxis(axis)
 
 
 class RefreshManager(qt.QObject):

@@ -9,6 +9,7 @@ from __future__ import annotations
 from typing import NamedTuple
 from typing import Optional
 from typing import List
+from typing import Tuple
 
 import contextlib
 import numpy
@@ -32,6 +33,7 @@ from silx.gui.plot.items.histogram import Histogram
 from silx.gui.plot.items.image import ImageData
 
 from bliss.flint.model import plot_model
+from bliss.flint.model import scan_model
 from bliss.flint.utils import signalutils
 
 
@@ -299,11 +301,79 @@ class _FlintItemMixIn:
     def setCustomItem(self, item: plot_model.Item):
         self.__plotItem = item
 
+    def getFlintTooltip(
+        self, index, flintModel, scan: scan_model.Scan
+    ) -> Tuple[int, int, str]:
+        return None, None, None
+
+    def _getColoredChar(self, value, data, flintModel):
+        colormap = self.getColormap()
+        # FIXME silx 0.13 provides a better API for that
+        vmin, vmax = colormap.getColormapRange(data)
+        data = numpy.array([float(value), vmin, vmax])
+        colors = colormap.applyToData(data)
+        cssColor = f"#{colors[0,0]:02X}{colors[0,1]:02X}{colors[0,2]:02X}"
+
+        if flintModel is not None and flintModel.getDate() == "0214":
+            char = "\u2665"
+        else:
+            char = "■"
+        return f"""<font color="{cssColor}">{char}</font>"""
+
+    def _getColoredSymbol(self, flintModel, scan: scan_model.Scan):
+        """Returns a colored HTML char according to the expected plot item style
+        """
+        plotItem = self.customItem()
+        if plotItem is not None:
+            style = plotItem.getStyle(scan)
+            color = style.lineColor
+            cssColor = f"#{color[0]:02X}{color[1]:02X}{color[2]:02X}"
+        else:
+            cssColor = "#000000"
+
+        if flintModel is not None and flintModel.getDate() == "0214":
+            char = "\u2665"
+        else:
+            char = "⬤"
+        return f"""<font color="{cssColor}">{char}</font>"""
+
 
 class FlintScatter(Scatter, _FlintItemMixIn):
     def __init__(self):
         Scatter.__init__(self)
         _FlintItemMixIn.__init__(self)
+
+    def getFlintTooltip(self, index, flintModel, scan: scan_model.Scan):
+        # Drop other picked indexes
+        x = self.getXData(copy=False)[index]
+        y = self.getYData(copy=False)[index]
+        value = self.getValueData(copy=False)[index]
+
+        plotItem = self.customItem()
+        if plotItem is not None:
+            assert (
+                plotItem.xChannel() is not None
+                and plotItem.yChannel() is not None
+                and plotItem.valueChannel() is not None
+            )
+            xName = plotItem.xChannel().displayName(scan)
+            yName = plotItem.yChannel().displayName(scan)
+            vName = plotItem.valueChannel().displayName(scan)
+        else:
+            xName = "X"
+            yName = "Y"
+            vName = "Value"
+
+        data = self.getValueData(copy=False)
+        char = self._getColoredChar(value, data, flintModel)
+
+        text = f"""
+            <li><b>Index:</b> {index}</li>
+            <li><b>{xName}:</b> {x}</li>
+            <li><b>{yName}:</b> {y}</li>
+            <li><b>{vName}:</b> {char} {value}</li>
+        """
+        return x, y, text
 
 
 class FlintCurve(Curve, _FlintItemMixIn):
@@ -311,17 +381,80 @@ class FlintCurve(Curve, _FlintItemMixIn):
         Curve.__init__(self)
         _FlintItemMixIn.__init__(self)
 
+    def getFlintTooltip(self, index, flintModel, scan: scan_model.Scan):
+        xx = self.getXData(copy=False)
+        yy = self.getYData(copy=False)
+        xValue = xx[index]
+        yValue = yy[index]
+
+        plotItem = self.customItem()
+        if plotItem is not None:
+            assert plotItem.yChannel() is not None and plotItem.xChannel() is not None
+            xName = plotItem.xChannel().displayName(scan)
+            yName = plotItem.yChannel().displayName(scan)
+        else:
+            plotItem = None
+            xName = "X"
+            yName = "Y"
+
+        char = self._getColoredSymbol(flintModel, scan)
+
+        text = f"""
+        <li style="white-space:pre">{char} <b>{yName}:</b> {yValue} (index {index})</li>
+        <li style="white-space:pre">     <b>{xName}:</b> {xValue}</li>
+        """
+        return xValue, yValue, text
+
 
 class FlintHistogram(Histogram, _FlintItemMixIn):
     def __init__(self):
         Histogram.__init__(self)
         _FlintItemMixIn.__init__(self)
 
+    def getFlintTooltip(self, index, flintModel, scan: scan_model.Scan):
+        value = self.getValueData(copy=False)[index]
+        plotItem = self.customItem()
+        if plotItem is not None:
+            assert plotItem.mcaChannel() is not None
+            mcaName = plotItem.mcaChannel().displayName(scan)
+        else:
+            plotItem = None
+            mcaName = "MCA"
+
+        char = self._getColoredSymbol(flintModel, scan)
+
+        text = f"""<li style="white-space:pre">{char} <b>{mcaName}:</b> {value} (index {index})</li>"""
+        return index, value, text
+
 
 class FlintImage(ImageData, _FlintItemMixIn):
     def __init__(self):
         ImageData.__init__(self)
         _FlintItemMixIn.__init__(self)
+
+    def getFlintTooltip(self, index, flintModel, scan: scan_model.Scan):
+        y, x = index
+        image = self.getData(copy=False)
+        value = image[index]
+
+        x, y, value = x[0], y[0], value[0]
+
+        plotItem = self.customItem()
+        if plotItem is not None:
+            assert plotItem.imageChannel() is not None
+            imageName = plotItem.imageChannel().displayName(scan)
+        else:
+            imageName = "Image"
+
+        data = self.getData(copy=False)
+        char = self._getColoredChar(value, data, flintModel)
+
+        text = f"""
+            <li><b>Col, X:</b> {x}</li>
+            <li><b>Row, Y:</b> {y}</li>
+            <li><b>{imageName}:</b> {char} {value}</li>
+        """
+        return x + 0.5, y + 0.5, text
 
 
 class TooltipItemManager:
@@ -428,31 +561,21 @@ class TooltipItemManager:
 
         x, y, axis = None, None, None
         textResult = []
+        flintModel = self.__parent.flintModel()
+        scan = self.__parent.scan()
 
         for result in results:
             item, index = result
-            if isinstance(item, FlintScatter):
-                x, y, text = self.__createScatterTooltip(item, index)
-                axis = "left"
-                textResult.append(text)
-                # Display a single result
-                break
-            elif isinstance(item, FlintImage):
-                x, y, text = self.__createImageTooltip(item, index)
-                axis = "left"
-                textResult.append(text)
-                # Display a single result
-                break
-            elif isinstance(item, FlintHistogram):
-                x, y, text = self.__createHistogramTooltip(item, index)
-                axis = item.getYAxis()
-                textResult.append(text)
-            elif isinstance(item, FlintCurve):
-                x, y, text = self.__createCurveTooltip(item, index)
-                axis = item.getYAxis()
+            if isinstance(item, _FlintItemMixIn):
+                x, y, text = item.getFlintTooltip(index, flintModel, scan)
                 textResult.append(text)
             else:
-                _logger.error("Unsupported class %s", type(item))
+                continue
+
+            if isinstance(item, (Curve, Histogram)):
+                axis = item.getYAxis()
+            else:
+                axis = "left"
 
         if textResult != []:
             text = f"<html>{self.UL}" + "".join(textResult) + "</ul></html>"
@@ -462,142 +585,6 @@ class TooltipItemManager:
         else:
             self.__updateToolTipMarker(None, None, None)
             qt.QToolTip.hideText()
-
-    def __getColoredChar(self, value, data, item):
-        colormap = item.getColormap()
-        # FIXME silx 0.13 provides a better API for that
-        vmin, vmax = colormap.getColormapRange(data)
-        data = numpy.array([float(value), vmin, vmax])
-        colors = colormap.applyToData(data)
-        cssColor = f"#{colors[0,0]:02X}{colors[0,1]:02X}{colors[0,2]:02X}"
-
-        flintModel = self.__parent.flintModel()
-        if flintModel is not None and flintModel.getDate() == "0214":
-            char = "\u2665"
-        else:
-            char = "■"
-        return f"""<font color="{cssColor}">{char}</font>"""
-
-    def __getColoredSymbol(self, item):
-        """Returns a colored HTML char according to the expected plot item style
-        """
-        if item is not None:
-            scan = self.__parent.scan()
-            style = item.getStyle(scan)
-            color = style.lineColor
-            cssColor = f"#{color[0]:02X}{color[1]:02X}{color[2]:02X}"
-        else:
-            cssColor = "#000000"
-
-        flintModel = self.__parent.flintModel()
-        if flintModel is not None and flintModel.getDate() == "0214":
-            char = "\u2665"
-        else:
-            char = "⬤"
-        return f"""<font color="{cssColor}">{char}</font>"""
-
-    def __createImageTooltip(self, item: FlintImage, index: numpy.ndarray):
-        y, x = index
-        image = item.getData(copy=False)
-        value = image[index]
-
-        x, y, value = x[0], y[0], value[0]
-
-        assert isinstance(item, _FlintItemMixIn)
-        plotItem = item.customItem()
-        if plotItem is not None:
-            assert plotItem.imageChannel() is not None
-            scan = self.__parent.scan()
-            imageName = plotItem.imageChannel().displayName(scan)
-        else:
-            imageName = "Image"
-
-        data = item.getData(copy=False)
-        char = self.__getColoredChar(value, data, item)
-
-        text = f"""
-            <li><b>Col, X:</b> {x}</li>
-            <li><b>Row, Y:</b> {y}</li>
-            <li><b>{imageName}:</b> {char} {value}</li>
-        """
-        return x + 0.5, y + 0.5, text
-
-    def __createScatterTooltip(self, item: FlintScatter, index: int):
-        # Drop other picked indexes
-        x = item.getXData(copy=False)[index]
-        y = item.getYData(copy=False)[index]
-        value = item.getValueData(copy=False)[index]
-
-        assert isinstance(item, _FlintItemMixIn)
-        plotItem = item.customItem()
-        if plotItem is not None:
-            assert (
-                plotItem.xChannel() is not None
-                and plotItem.yChannel() is not None
-                and plotItem.valueChannel() is not None
-            )
-            scan = self.__parent.scan()
-            xName = plotItem.xChannel().displayName(scan)
-            yName = plotItem.yChannel().displayName(scan)
-            vName = plotItem.valueChannel().displayName(scan)
-        else:
-            xName = "X"
-            yName = "Y"
-            vName = "Value"
-
-        data = item.getValueData(copy=False)
-        char = self.__getColoredChar(value, data, item)
-
-        text = f"""
-            <li><b>Index:</b> {index}</li>
-            <li><b>{xName}:</b> {x}</li>
-            <li><b>{yName}:</b> {y}</li>
-            <li><b>{vName}:</b> {char} {value}</li>
-        """
-        return x, y, text
-
-    def __createHistogramTooltip(self, item: FlintScatter, index: int):
-        value = item.getValueData(copy=False)[index]
-        assert isinstance(item, _FlintItemMixIn)
-        plotItem = item.customItem()
-        if plotItem is not None:
-            assert plotItem.mcaChannel() is not None
-            scan = self.__parent.scan()
-            mcaName = plotItem.mcaChannel().displayName(scan)
-        else:
-            plotItem = None
-            mcaName = "MCA"
-
-        char = self.__getColoredSymbol(plotItem)
-
-        text = f"""<li style="white-space:pre">{char} <b>{mcaName}:</b> {value} (index {index})</li>"""
-        return index, value, text
-
-    def __createCurveTooltip(self, item: FlintScatter, index: int):
-        xx = item.getXData(copy=False)
-        yy = item.getYData(copy=False)
-        xValue = xx[index]
-        yValue = yy[index]
-
-        assert isinstance(item, _FlintItemMixIn)
-        plotItem = item.customItem()
-        if plotItem is not None:
-            assert plotItem.yChannel() is not None and plotItem.xChannel() is not None
-            scan = self.__parent.scan()
-            xName = plotItem.xChannel().displayName(scan)
-            yName = plotItem.yChannel().displayName(scan)
-        else:
-            plotItem = None
-            xName = "X"
-            yName = "Y"
-
-        char = self.__getColoredSymbol(plotItem)
-
-        text = f"""
-        <li style="white-space:pre">{char} <b>{yName}:</b> {yValue} (index {index})</li>
-        <li style="white-space:pre">     <b>{xName}:</b> {xValue}</li>
-        """
-        return xValue, yValue, text
 
     def __updateToolTipMarker(self, x, y, axis):
         if x is None:

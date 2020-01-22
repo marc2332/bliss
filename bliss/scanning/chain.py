@@ -364,6 +364,7 @@ class AcquisitionObject:
     @property
     def _device_name(self):
         from bliss.common.motor_group import is_motor_group
+        from bliss.common.axis import Axis
 
         if is_motor_group(self.device) or isinstance(self.device, Axis):
             return "axis"

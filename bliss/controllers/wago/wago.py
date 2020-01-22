@@ -21,7 +21,7 @@ from bliss.common.utils import add_property, flatten
 from bliss.config.conductor.client import synchronized
 from bliss import global_map
 from bliss.comm.util import get_comm
-from bliss.common.logtools import log_debug, log_error, log_exception
+from bliss.common.logtools import log_debug, log_debug_data, log_error, log_exception
 from bliss.common.counter import SamplingCounter
 from bliss.controllers.counter import counter_namespace, SamplingCounterController
 from bliss.controllers.wago.helpers import splitlines, to_signed, register_type_to_int

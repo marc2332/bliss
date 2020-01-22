@@ -318,6 +318,9 @@ class FlintImage(ImageData, _FlintItemMixIn):
 
 
 class TooltipItemManager:
+
+    UL = """<ul style="margin-top: 0px; margin-bottom: 0px; margin-left: 0px; margin-right: 0px; -qt-list-indent: 0">"""
+
     def __init__(self, parent: qt.QWidget, plot: FlintPlot):
         self.__parent = parent
 
@@ -444,7 +447,7 @@ class TooltipItemManager:
         data = item.getData(copy=False)
         char = self.__getColoredChar(value, data, item)
 
-        text = f"""<html><ul>
+        text = f"""<html>{self.UL}
         <li><b>Col, X:</b> {x}</li>
         <li><b>Row, Y:</b> {y}</li>
         <li><b>{imageName}:</b> {char} {value}</li>
@@ -478,7 +481,7 @@ class TooltipItemManager:
         data = item.getValueData(copy=False)
         char = self.__getColoredChar(value, data, item)
 
-        text = f"""<html><ul>
+        text = f"""<html>{self.UL}
         <li><b>Index:</b> {index}</li>
         <li><b>{xName}:</b> {x}</li>
         <li><b>{yName}:</b> {y}</li>

@@ -487,14 +487,12 @@ class TooltipItemManager:
         return x, y, text
 
     def __createHistogramTooltip(self, item: FlintScatter, indexes: List[int]):
-        # Drop other picked indexes
-        index = indexes[-1]
-
         # Picking with silx 0.12 and histogram is not consistent with other items
-        if index % 2 == 1:
+        indexes = [i for i in indexes if i % 2 == 0]
+        if len(indexes) == 0:
             return None, None, None
-        else:
-            index = index // 2
+        # Drop other picked indexes + patch silx 0.12
+        index = indexes[-1] // 2
 
         value = item.getValueData(copy=False)[index]
 

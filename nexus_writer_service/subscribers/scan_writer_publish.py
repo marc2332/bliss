@@ -42,29 +42,11 @@ def register_metadata_generators(generators):
     :param bliss.scanning.scan_meta.ScanMeta generators:
     """
     instrument = generators.instrument
-    instrument.set("positioners", fill_positioners)  # start of scan
     generators = generators.nexuswriter
     generators.set("instrument", fill_instrument_name)
-    generators.set("positioners", fill_positioners)  # end of scan
     generators.set("device_info", fill_device_info)
     generators.set("technique", fill_technique_info)
     generators.set("filenames", fill_filenames)
-
-
-def fill_positioners(scan):
-    """
-    :param bliss.scanning.scan.Scan scan:
-    """
-    logger.debug("fill motor positions")
-    data = {}
-    data["positioners"] = positions = {}
-    data["positioners_dial"] = dials = {}
-    data["positioners_units"] = units = {}
-    for name, pos, dial, unit in global_map.get_axes_positions_iter(on_error="ERR"):
-        positions[name] = pos
-        dials[name] = dial
-        units[name] = unit
-    return data
 
 
 def fill_instrument_name(scan):

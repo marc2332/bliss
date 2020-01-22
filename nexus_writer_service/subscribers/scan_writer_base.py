@@ -357,13 +357,6 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
             return []
 
     @property
-    def instrument_info(self):
-        """
-        Instrument information publish by the Bliss core library
-        """
-        return self.get_info("instrument", default={})
-
-    @property
     def config_devices(self):
         return {}
 
@@ -902,6 +895,14 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
     @property
     def instrument_name(self):
         return ""
+
+    @property
+    def positioner_info(self):
+        return self.get_info("positioners", {})
+
+    @property
+    def motors(self):
+        return list(self.positioner_info.get("positioners_start", {}).keys())
 
     @contextmanager
     def nxinstrument(self, subscan):
@@ -1683,51 +1684,35 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
             if dproxy.data_type != "principal":
                 yield fullname, dproxy
 
-    @property
-    def positioners_start(self):
-        positioners = self.instrument_info.get("positioners", {})
-        units = self.instrument_info.get("positioners_units", {})
-        return positioners, units
-
-    @property
-    def positioners_dial_start(self):
-        positioners = self.instrument_info.get("positioners_dial", {})
-        units = self.instrument_info.get("positioners_units", {})
-        return positioners, units
-
-    @property
-    def positioners_end(self):
-        return {}, {}
-
-    @property
-    def positioners_dial_end(self):
-        return {}, {}
-
     def _save_positioners(self, subscan):
         """
         Save fixed snapshots of motor positions.
 
         :param Subscan subscan:
         """
+        info = self.positioner_info
+        units = info.get("positioners_units", {})
+
         # Positions at the beginning of the scan
-        positioners, units = self.positioners_start
+        positioners = info.get("positioners_start", {})
+        subscan.logger.info("Save {} motor positions".format(len(positioners)))
         self._save_positioners_snapshot(
             subscan, positioners, units, "_start", overwrite=False
         )
         self._save_positioners_snapshot(
             subscan, positioners, units, "", overwrite=False
         )
-        positioners, units = self.positioners_dial_start
+        positioners = info.get("positioners_dial_start", {})
         self._save_positioners_snapshot(
             subscan, positioners, units, "_dial_start", overwrite=False
         )
 
         # Positions at the end of the scan
-        positioners, units = self.positioners_end
+        positioners = info.get("positioners_end", {})
         self._save_positioners_snapshot(
             subscan, positioners, units, "_end", overwrite=True
         )
-        positioners, units = self.positioners_dial_end
+        positioners = info.get("positioners_dial_end", {})
         self._save_positioners_snapshot(
             subscan, positioners, units, "_dial_end", overwrite=True
         )
@@ -1749,11 +1734,6 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
         with self.nxpositioners(subscan, suffix=suffix) as nxpositioners:
             if nxpositioners is None:
                 return
-            subscan.logger.info(
-                "Save motor positions snapshot {} (overwrite: {})".format(
-                    repr(nexus.h5Name(nxpositioners)), overwrite
-                )
-            )
             for mot, pos in positions.items():
                 unit = units.get(mot, None)
                 exists = mot in nxpositioners
@@ -1802,8 +1782,7 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
                 # Positioners should always be there under
                 # a different name when not in positioners
                 # snapshot
-                motors = self.instrument_info.get("positioners", {})
-                if linkname not in motors:
+                if linkname not in self.motors:
                     linknames.append("pos_" + linkname)
                 # Principle positioners which are masters should
                 # be there under their normal name
@@ -1846,9 +1825,6 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
             scan_meta = {}
             for cat in categories:
                 add = info.get(cat, {})
-                if cat == "instrument":
-                    # TODO: remove when positioners are outside
-                    add.pop("positioners")
                 if set(add.keys()) - {"NX_class", "@NX_class"}:
                     scan_meta[cat] = add
             if scan_meta:

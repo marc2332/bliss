@@ -134,18 +134,6 @@ class NexusScanWriterConfigurable(scan_writer_base.NexusScanWriterBase):
             )
         return signaldict
 
-    @property
-    def positioners_end(self):
-        positioners = self.config_writer.get("positioners", {})
-        units = self.config_writer.get("positioners_units", {})
-        return positioners, units
-
-    @property
-    def positioners_dial_end(self):
-        positioners = self.config_writer.get("positioners_dial", {})
-        units = self.config_writer.get("positioners_units", {})
-        return positioners, units
-
     def _init_subscan(self, subscan):
         """
         Things that can already be saved right after

@@ -327,9 +327,13 @@ def validate_instrument(
     :param str master_name:
     """
     # Positioner groups
-    expected_posg = {"positioners", "positioners_start", "positioners_dial_start"}
-    if config:
-        expected_posg |= {"positioners_end", "positioners_dial_end"}
+    expected_posg = {
+        "positioners",
+        "positioners_start",
+        "positioners_dial_start",
+        "positioners_end",
+        "positioners_dial_end",
+    }
     # Detectors
     expected_dets = expected_detectors(
         config=config, technique=technique, detectors=detectors

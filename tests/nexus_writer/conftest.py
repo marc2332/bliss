@@ -77,7 +77,9 @@ def nexus_config_session(beacon, lima_simulator, lima_simulator2):
 def scan_saving_nopolicy(session, scan_tmpdir):
     scan_saving = session.scan_saving
     scan_saving.base_path = str(scan_tmpdir)
-    scan_saving.data_filename = "dataset"
+    scan_saving.data_filename = "{a}_{b}"
+    scan_saving.add("a", "a")
+    scan_saving.add("b", "b")
     measurementgroup.set_active_name(nxw_test_config.technique["withoutpolicy"] + "MG")
 
 
@@ -85,8 +87,8 @@ def scan_saving_policy(session, scan_tmpdir):
     scan_saving = session.scan_saving
     data_policy.newtmpexperiment("prop123", root=str(scan_tmpdir))
     scan_saving.add("sample", "sample")
-    scan_saving.add("technique", nxw_test_config.technique["withpolicy"])
     scan_saving.add("dataset", "dataset")
+    scan_saving.add("technique", nxw_test_config.technique["withpolicy"])
     measurementgroup.set_active_name(scan_saving.technique + "MG")
 
 

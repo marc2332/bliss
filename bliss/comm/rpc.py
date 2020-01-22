@@ -77,6 +77,7 @@ import inspect
 import logging
 import weakref
 import itertools
+import contextlib
 
 import louie
 import gevent.queue
@@ -90,6 +91,30 @@ from bliss.common.logtools import *
 from bliss import global_map
 
 from bliss.common.msgpack_ext import MsgpackContext
+
+
+@contextlib.contextmanager
+def switch_temporary_lowdelay(fd):
+    """
+    Switch temparary socket to low delay on tcp socket.
+    So we disable Nagle
+    algorithm and we set TOS (Type of service) to *low delay*.
+    For unix socket operation is not supported so we go in except.
+    """
+    try:
+        previous_no_delay = fd.getsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY)
+        previous_tos = fd.getsockopt(socket.SOL_IP, socket.IP_TOS)
+        fd.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        fd.setsockopt(socket.SOL_IP, socket.IP_TOS, 0x10)
+    except OSError:
+        yield socket
+    else:
+        try:
+            yield socket
+        finally:
+            fd.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, previous_no_delay)
+            fd.setsockopt(socket.SOL_IP, socket.IP_TOS, previous_tos)
+
 
 msgpack = MsgpackContext()
 # Registration order matter
@@ -179,6 +204,7 @@ class _ServerObject(object):
         self._stream = stream
         self._metadata["stream"] = stream
         self._uds_name = None
+        self._low_latency_signal = set()
 
     def __dir__(self):
         result = ["_call__"]
@@ -230,14 +256,33 @@ class _ServerObject(object):
             self._socket = None
 
     def run(self):
-        socket = self._socket
+        server_socket = self._socket
         try:
             while True:
-                new_client, addr = socket.accept()
+                new_client, addr = server_socket.accept()
+                # On new client socket TOS is throughput due to stream event
+                # this is changed when received a rpc call or
+                # one low delay event.
+                try:
+                    new_client.setsockopt(socket.SOL_IP, socket.IP_TOS, 0x08)
+                except OSError:  # unix socket
+                    pass
                 self._clients.append(gevent.spawn(self._client_poll, new_client))
         finally:
             with KillMask():
                 gevent.killall(self._clients)
+
+    def set_low_latency_signal(self, signal_name, value):
+        """
+        Set a tcp low latency on a signal name
+        """
+        if value:
+            self._low_latency_signal.add(signal_name)
+        else:
+            try:
+                self._low_latency_signal.remove(signal_name)
+            except KeyError:
+                pass
 
     def _client_poll(self, client_sock):
         unpacker = msgpack.Unpacker(raw=False, max_buffer_size=MAX_BUFFER_SIZE)
@@ -245,10 +290,18 @@ class _ServerObject(object):
         if self._stream:
 
             def rx_event(value, signal):
-                with lock:
-                    client_sock.sendall(
-                        msgpack.packb((-1, (value, signal)), use_bin_type=True)
-                    )
+                if signal in self._low_latency_signal:
+                    with lock:
+                        with switch_temporary_lowdelay(client_sock):
+                            client_sock.sendall(
+                                msgpack.packb((-1, (value, signal)), use_bin_type=True)
+                            )
+                else:
+                    # standard signal with high throughput.
+                    with lock:
+                        client_sock.sendall(
+                            msgpack.packb((-1, (value, signal)), use_bin_type=True)
+                        )
 
             louie.connect(rx_event, sender=self._object)
         try:
@@ -270,11 +323,12 @@ class _ServerObject(object):
                     else:
                         with lock:
                             try:
-                                client_sock.sendall(
-                                    msgpack.packb(
-                                        (call_id, return_values), use_bin_type=True
+                                with switch_temporary_lowdelay(client_sock):
+                                    client_sock.sendall(
+                                        msgpack.packb(
+                                            (call_id, return_values), use_bin_type=True
+                                        )
                                     )
-                                )
                             except Exception as e:
                                 client_sock.sendall(
                                     msgpack.packb((call_id, e), use_bin_type=True)
@@ -449,9 +503,14 @@ class _cnx(object):
                 if self.host:
                     self._socket = socket.socket()
                     self._socket.connect((self.host, self.port))
+                    # On the client socket we set low delay socket
+                    # Disable Nagle and set TOS to low delay
+                    self._socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+                    self._socket.setsockopt(socket.SOL_IP, socket.IP_TOS, 0x10)
                 else:
                     self._socket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
                     self._socket.connect(self.port)
+
                 self._reading_task = gevent.spawn(self._raw_read, self._socket)
             except:
                 self._socket = None

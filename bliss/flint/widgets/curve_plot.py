@@ -365,6 +365,8 @@ class CurvePlotWidget(ExtendedDockWidget):
         plot = self.__plot
         plot.clear()
         if self.__plotModel is None:
+            for o in self.__permanentItems:
+                self.__plot._add(o)
             return
 
         scanItems = []
@@ -378,9 +380,8 @@ class CurvePlotWidget(ExtendedDockWidget):
                 self.__redrawScan(scan.scan())
         else:
             currentScan = self.__scan
-            if currentScan is None:
-                return
-            self.__redrawScan(currentScan)
+            if currentScan is not None:
+                self.__redrawScan(currentScan)
 
         for o in self.__permanentItems:
             self.__plot._add(o)

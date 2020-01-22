@@ -9,6 +9,7 @@ from __future__ import annotations
 from typing import NamedTuple
 from typing import Optional
 from typing import List
+from typing import Tuple
 
 import contextlib
 import numpy
@@ -27,9 +28,12 @@ from silx.gui.plot.Profile import ProfileToolBar
 from silx.gui.plot import PlotToolButtons
 from silx.gui.plot.items.marker import Marker
 from silx.gui.plot.items.scatter import Scatter
+from silx.gui.plot.items.curve import Curve
+from silx.gui.plot.items.histogram import Histogram
 from silx.gui.plot.items.image import ImageData
 
 from bliss.flint.model import plot_model
+from bliss.flint.model import scan_model
 from bliss.flint.utils import signalutils
 
 
@@ -85,7 +89,7 @@ class CustomAxisAction(qt.QWidgetAction):
         action.setText("Show the plot axes")
         menu.addAction(action)
 
-        if kind is not "image":
+        if kind not in ["image", "mca"]:
             menu.addSection("X-axes")
             action = control.XAxisLogarithmicAction(plot, self)
             action.setText("Log scale")
@@ -96,13 +100,15 @@ class CustomAxisAction(qt.QWidgetAction):
             action = control.YAxisLogarithmicAction(plot, self)
             action.setText("Log scale")
             menu.addAction(action)
-        action = control.YAxisInvertedAction(plot, self)
-        menu.addAction(action)
+        if kind is not "mca":
+            action = control.YAxisInvertedAction(plot, self)
+            menu.addAction(action)
 
-        menu.addSection("Aspect ratio")
-        action = CheckableKeepAspectRatioAction(plot, self)
-        action.setText("Keep aspect ratio")
-        menu.addAction(action)
+        if kind is not "mca":
+            menu.addSection("Aspect ratio")
+            action = CheckableKeepAspectRatioAction(plot, self)
+            action.setText("Keep aspect ratio")
+            menu.addAction(action)
 
         icon = icons.getQIcon("flint:icons/axes-options")
         toolButton = qt.QToolButton(parent)
@@ -228,7 +234,7 @@ class FlintPlot(PlotWindow):
     def __init__(self, parent=None, backend=None):
         super(FlintPlot, self).__init__(parent=parent, backend=backend)
         self.sigPlotSignal.connect(self.__limitsChanged)
-        self.__userInteraction = True
+        self.__userInteraction = False
 
         toolbars = self.findChildren(qt.QToolBar)
         for tb in toolbars:
@@ -295,11 +301,130 @@ class _FlintItemMixIn:
     def setCustomItem(self, item: plot_model.Item):
         self.__plotItem = item
 
+    def getFlintTooltip(
+        self, index, flintModel, scan: scan_model.Scan
+    ) -> Tuple[int, int, str]:
+        return None, None, None
+
+    def _getColoredChar(self, value, data, flintModel):
+        colormap = self.getColormap()
+        # FIXME silx 0.13 provides a better API for that
+        vmin, vmax = colormap.getColormapRange(data)
+        data = numpy.array([float(value), vmin, vmax])
+        colors = colormap.applyToData(data)
+        cssColor = f"#{colors[0,0]:02X}{colors[0,1]:02X}{colors[0,2]:02X}"
+
+        if flintModel is not None and flintModel.getDate() == "0214":
+            char = "\u2665"
+        else:
+            char = "■"
+        return f"""<font color="{cssColor}">{char}</font>"""
+
+    def _getColoredSymbol(self, flintModel, scan: scan_model.Scan):
+        """Returns a colored HTML char according to the expected plot item style
+        """
+        plotItem = self.customItem()
+        if plotItem is not None:
+            style = plotItem.getStyle(scan)
+            color = style.lineColor
+            cssColor = f"#{color[0]:02X}{color[1]:02X}{color[2]:02X}"
+        else:
+            cssColor = "#000000"
+
+        if flintModel is not None and flintModel.getDate() == "0214":
+            char = "\u2665"
+        else:
+            char = "⬤"
+        return f"""<font color="{cssColor}">{char}</font>"""
+
 
 class FlintScatter(Scatter, _FlintItemMixIn):
     def __init__(self):
         Scatter.__init__(self)
         _FlintItemMixIn.__init__(self)
+
+    def getFlintTooltip(self, index, flintModel, scan: scan_model.Scan):
+        # Drop other picked indexes
+        x = self.getXData(copy=False)[index]
+        y = self.getYData(copy=False)[index]
+        value = self.getValueData(copy=False)[index]
+
+        plotItem = self.customItem()
+        if plotItem is not None:
+            assert (
+                plotItem.xChannel() is not None
+                and plotItem.yChannel() is not None
+                and plotItem.valueChannel() is not None
+            )
+            xName = plotItem.xChannel().displayName(scan)
+            yName = plotItem.yChannel().displayName(scan)
+            vName = plotItem.valueChannel().displayName(scan)
+        else:
+            xName = "X"
+            yName = "Y"
+            vName = "Value"
+
+        data = self.getValueData(copy=False)
+        char = self._getColoredChar(value, data, flintModel)
+
+        text = f"""
+            <li><b>Index:</b> {index}</li>
+            <li><b>{xName}:</b> {x}</li>
+            <li><b>{yName}:</b> {y}</li>
+            <li><b>{vName}:</b> {char} {value}</li>
+        """
+        return x, y, text
+
+
+class FlintCurve(Curve, _FlintItemMixIn):
+    def __init__(self):
+        Curve.__init__(self)
+        _FlintItemMixIn.__init__(self)
+
+    def getFlintTooltip(self, index, flintModel, scan: scan_model.Scan):
+        xx = self.getXData(copy=False)
+        yy = self.getYData(copy=False)
+        xValue = xx[index]
+        yValue = yy[index]
+
+        plotItem = self.customItem()
+        if plotItem is not None:
+            assert plotItem.yChannel() is not None and plotItem.xChannel() is not None
+            xName = plotItem.xChannel().displayName(scan)
+            yName = plotItem.yChannel().displayName(scan)
+        else:
+            plotItem = None
+            xName = "X"
+            yName = "Y"
+
+        char = self._getColoredSymbol(flintModel, scan)
+
+        text = f"""
+        <li style="white-space:pre">{char} <b>{yName}:</b> {yValue} (index {index})</li>
+        <li style="white-space:pre">     <b>{xName}:</b> {xValue}</li>
+        """
+        return xValue, yValue, text
+
+
+class FlintRawMca(Histogram, _FlintItemMixIn):
+    def __init__(self):
+        Histogram.__init__(self)
+        _FlintItemMixIn.__init__(self)
+
+    def getFlintTooltip(self, index, flintModel, scan: scan_model.Scan):
+        value = self.getValueData(copy=False)[index]
+        plotItem = self.customItem()
+        if plotItem is not None:
+            assert plotItem.mcaChannel() is not None
+            mcaName = plotItem.mcaChannel().displayName(scan)
+        else:
+            plotItem = None
+            mcaName = "MCA"
+
+        char = self._getColoredSymbol(flintModel, scan)
+
+        text = f"""<li style="white-space:pre">{char} <b>{mcaName}:</b> {value} (index {index})</li>"""
+        return index, value, text
 
 
 class FlintImage(ImageData, _FlintItemMixIn):
@@ -307,8 +432,33 @@ class FlintImage(ImageData, _FlintItemMixIn):
         ImageData.__init__(self)
         _FlintItemMixIn.__init__(self)
 
+    def getFlintTooltip(self, index, flintModel, scan: scan_model.Scan):
+        y, x = index
+        image = self.getData(copy=False)
+        value = image[index]
+
+        plotItem = self.customItem()
+        if plotItem is not None:
+            assert plotItem.imageChannel() is not None
+            imageName = plotItem.imageChannel().displayName(scan)
+        else:
+            imageName = "Image"
+
+        data = self.getData(copy=False)
+        char = self._getColoredChar(value, data, flintModel)
+
+        text = f"""
+            <li><b>Col, X:</b> {x}</li>
+            <li><b>Row, Y:</b> {y}</li>
+            <li><b>{imageName}:</b> {char} {value}</li>
+        """
+        return x + 0.5, y + 0.5, text
+
 
 class TooltipItemManager:
+
+    UL = """<ul style="margin-top: 0px; margin-bottom: 0px; margin-left: 0px; margin-right: 0px; -qt-list-indent: 0">"""
+
     def __init__(self, parent: qt.QWidget, plot: FlintPlot):
         self.__parent = parent
 
@@ -318,6 +468,7 @@ class TooltipItemManager:
         self.__toolTipMarker.setSymbol("+")
         self.__toolTipMarker.setSymbolSize(8)
         self.__toolTipMarker.setVisible(False)
+        self.__filterClass = None
 
         self.__plot = plot
 
@@ -342,123 +493,105 @@ class TooltipItemManager:
     def __onMouseLeft(self):
         self.__updateTooltip(None, None)
 
-    def __updateTooltip(self, x, y):
-        plot = self.__plot
+    def __normalizePickingIndices(self, item, indices: List[int]):
+        if isinstance(item, ImageData):
+            # Image is a special case cause the index is a tuple of vector y,x
+            for i in range(len(indices[0])):
+                yield indices[0][i], indices[1][i]
+        elif isinstance(item, Histogram):
+            # Picking with silx 0.12 and histogram is not consistent with other items
+            indices = [i for i in indices if i % 2 == 0]
+            if len(indices) == 0:
+                return None, None, None
+            # Drop other picked indexes + patch silx 0.12
+            index = indices[-1] // 2
+            yield index
+        elif isinstance(item, Curve):
+            # Curve picking is picking the segments
+            # But we care about points
+            xx = item.getXData(copy=False)
+            yy = item.getYData(copy=False)
+            axis = item.getYAxis()
+            mouse = self.__mouse
 
-        # Start from top-most item
-        result = None
-        if x is not None:
-            for result in plot.pickItems(
-                x, y, lambda item: isinstance(item, self.__filterClass)
-            ):
-                # Break at the first result
-                break
+            # Test both start and stop of the segment
+            ii = set([])
+            for index in indices:
+                ii.add(index)
+                ii.add(index + 1)
+            ii.discard(len(yy))
 
-        if result is not None:
-            # Get last index
-            # with matplotlib it should be the top-most point
-            index = result.getIndices(copy=False)
-            item = result.getItem()
-            if isinstance(item, FlintScatter):
-                x, y, text = self.__createScatterTooltip(item, index)
-            elif isinstance(item, FlintImage):
-                x, y, text = self.__createImageTooltip(item, index)
-            else:
-                x, y, text = None, None, None
-
-            if text is not None:
-                self.__updateToolTipMarker(x, y)
-                cursorPos = qt.QCursor.pos() + qt.QPoint(10, 10)
-                qt.QToolTip.showText(cursorPos, text, self.__plot)
-            else:
-                _logger.error("Unsupported class %s", type(item))
-                self.__updateToolTipMarker(None, None)
-                qt.QToolTip.hideText()
+            indexes = sorted(ii)
+            for index in indexes:
+                x = xx[index]
+                y = yy[index]
+                pos = self.__plot.dataToPixel(x, y, axis=axis)
+                if pos is None:
+                    continue
+                dist = abs(pos[0] - mouse[0]) + abs(pos[1] - mouse[1])
+                if dist < 3:
+                    yield index
+        elif isinstance(item, Scatter):
+            for index in indices:
+                yield index
         else:
-            self.__updateToolTipMarker(None, None)
+            assert False
+
+    def __picking(self, x, y):
+        # FIXME: Hack to avoid to pass it by argument, could be done in better way
+        self.__mouse = x, y
+
+        if x is not None:
+            if self.__filterClass is not None:
+                condition = lambda item: isinstance(item, self.__filterClass)
+            else:
+                condition = None
+            results = [r for r in self.__plot.pickItems(x, y, condition)]
+        else:
+            results = []
+        for result in results:
+            item = result.getItem()
+            indices = result.getIndices(copy=False)
+            for index in self.__normalizePickingIndices(item, indices):
+                yield item, index
+
+    def __updateTooltip(self, x, y):
+        results = self.__picking(x, y)
+
+        x, y, axis = None, None, None
+        textResult = []
+        flintModel = self.__parent.flintModel()
+        scan = self.__parent.scan()
+
+        for result in results:
+            item, index = result
+            if isinstance(item, _FlintItemMixIn):
+                x, y, text = item.getFlintTooltip(index, flintModel, scan)
+                textResult.append(text)
+            else:
+                continue
+
+            if isinstance(item, (Curve, Histogram)):
+                axis = item.getYAxis()
+            else:
+                axis = "left"
+
+        if textResult != []:
+            text = f"<html>{self.UL}" + "".join(textResult) + "</ul></html>"
+            self.__updateToolTipMarker(x, y, axis)
+            cursorPos = qt.QCursor.pos() + qt.QPoint(10, 10)
+            qt.QToolTip.showText(cursorPos, text, self.__plot)
+        else:
+            self.__updateToolTipMarker(None, None, None)
             qt.QToolTip.hideText()
 
-    def __getColoredChar(self, value, data, item):
-        colormap = item.getColormap()
-        # FIXME silx 0.13 provides a better API for that
-        vmin, vmax = colormap.getColormapRange(data)
-        data = numpy.array([float(value), vmin, vmax])
-        colors = colormap.applyToData(data)
-        cssColor = f"#{colors[0,0]:02X}{colors[0,1]:02X}{colors[0,2]:02X}"
-
-        flintModel = self.__parent.flintModel()
-        if flintModel is not None and flintModel.getDate() == "0214":
-            char = "\u2665"
-        else:
-            char = "■"
-        return f"""<font color="{cssColor}">{char}</font>"""
-
-    def __createImageTooltip(self, item: FlintImage, index: numpy.ndarray):
-        y, x = index
-        image = item.getData(copy=False)
-        value = image[index]
-
-        x, y, value = x[0], y[0], value[0]
-
-        assert isinstance(item, _FlintItemMixIn)
-        plotItem = item.customItem()
-        if plotItem is not None:
-            assert plotItem.imageChannel() is not None
-            scan = self.__parent.scan()
-            imageName = plotItem.imageChannel().displayName(scan)
-        else:
-            imageName = "Image"
-
-        data = item.getData(copy=False)
-        char = self.__getColoredChar(value, data, item)
-
-        text = f"""<html><ul>
-        <li><b>Col, X:</b> {x}</li>
-        <li><b>Row, Y:</b> {y}</li>
-        <li><b>{imageName}:</b> {char} {value}</li>
-        </ul></html>"""
-        return x + 0.5, y + 0.5, text
-
-    def __createScatterTooltip(self, item: FlintScatter, index: List[int]):
-        index = index[-1]
-        x = item.getXData(copy=False)[index]
-        y = item.getYData(copy=False)[index]
-        value = item.getValueData(copy=False)[index]
-
-        assert isinstance(item, _FlintItemMixIn)
-        plotItem = item.customItem()
-        if plotItem is not None:
-            assert (
-                plotItem.xChannel() is not None
-                and plotItem.yChannel() is not None
-                and plotItem.valueChannel() is not None
-            )
-            scan = self.__parent.scan()
-            xName = plotItem.xChannel().displayName(scan)
-            yName = plotItem.yChannel().displayName(scan)
-            vName = plotItem.valueChannel().displayName(scan)
-        else:
-            xName = "X"
-            yName = "Y"
-            vName = "Value"
-
-        data = item.getValueData(copy=False)
-        char = self.__getColoredChar(value, data, item)
-
-        text = f"""<html><ul>
-        <li><b>Index:</b> {index}</li>
-        <li><b>{xName}:</b> {x}</li>
-        <li><b>{yName}:</b> {y}</li>
-        <li><b>{vName}:</b> {char} {value}</li>
-        </ul></html>"""
-        return x, y, text
-
-    def __updateToolTipMarker(self, x, y):
+    def __updateToolTipMarker(self, x, y, axis):
         if x is None:
             self.__toolTipMarker.setVisible(False)
         else:
             self.__toolTipMarker.setVisible(True)
             self.__toolTipMarker.setPosition(x, y)
+            self.__toolTipMarker.setYAxis(axis)
 
 
 class RefreshManager(qt.QObject):

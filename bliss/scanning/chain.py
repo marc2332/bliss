@@ -23,8 +23,6 @@ from bliss.common.cleanup import capture_exceptions
 from bliss.common.greenlet_utils import KillMask
 from bliss.scanning.channel import AcquisitionChannelList, AcquisitionChannel
 from bliss.scanning.channel import duplicate_channel, attach_channels
-from bliss.common.motor_group import Group, is_motor_group
-from bliss.common.axis import Axis
 from bliss.common.validator import BlissValidator
 
 
@@ -318,6 +316,8 @@ class AcquisitionObject:
         """Return the device and counters list"""
         if devices:
             from bliss.common.counter import Counter  # beware of circular import
+            from bliss.common.motor_group import Group
+            from bliss.common.axis import Axis
 
             if all(isinstance(dev, Counter) for dev in devices):
                 return devices[0]._counter_controller, devices
@@ -363,6 +363,8 @@ class AcquisitionObject:
 
     @property
     def _device_name(self):
+        from bliss.common.motor_group import is_motor_group
+
         if is_motor_group(self.device) or isinstance(self.device, Axis):
             return "axis"
         return self.device.name

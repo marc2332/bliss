@@ -382,6 +382,9 @@ class CurvePlotWidget(ExtendedDockWidget):
                 return
             self.__redrawScan(currentScan)
 
+        for o in self.__permanentItems:
+            self.__plot._add(o)
+
     def __cleanScan(self, scan: scan_model.Scan):
         items = self.__items.pop(scan, {})
         for _item, itemKeys in items.items():

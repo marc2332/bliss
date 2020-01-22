@@ -148,13 +148,7 @@ def test_scan_meta_master_and_device(session, scan_meta):
 
     s = Scan(chain, name="my_simple")
     s.run()
-    assert s.scan_info["instrument"] == {
-        **master_dict,
-        **device_dict,
-        "positioners": {},
-        "positioners_dial": {},
-        "chain_meta": {"NX_class": "NXcollection"},
-    }
+    assert s.scan_info["instrument"] == {**master_dict, **device_dict}
 
 
 def test_positioners_in_scan_info(alias_session):
@@ -175,6 +169,10 @@ def test_positioners_in_scan_info(alias_session):
         s1.scan_info["positioners"]["positioners_start"]["robyy"]
         == initial_robyy_position
     )
+    assert "positioners_dial_start" in s1.scan_info["positioners"]
+    assert "positioners_end" in s1.scan_info["positioners"]
+    assert "positioners_dial_end" in s1.scan_info["positioners"]
+    assert "positioners_units" in s1.scan_info["positioners"]
 
     # test that positioners are remaining in for a counter that updates 'scan_info'
     initial_robyy_position = robyy.position
@@ -198,7 +196,7 @@ def test_scan_saving_without_axis_in_session(default_session):
 
 
 def test_scan_info_object_vs_node(session):
-    transf = session.config.get("transfocator_simulator")
+    transf = session.config.get("transfocator_simulator")  # noqa: F841
     roby = session.env_dict["roby"]
     diode = session.env_dict["diode"]
 

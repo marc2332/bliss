@@ -262,7 +262,7 @@ class WebConfig(object):
 
     @check_config
     def get_file_info(self, file_name):
-        ext = file_name.rsplit(os.path.extsep, 1)[1]
+        ext = file_name.rpartition(os.path.extsep)[2]
         return self.EXT_MAP.setdefault(ext, dict(type=ext, icon="question"))
 
 

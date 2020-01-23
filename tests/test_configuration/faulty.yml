@@ -1,0 +1,19 @@
+- plugin: bliss
+  module: not_exixting_module
+  class: NoClass
+  name: broken_ctrl
+
+- plugin: bliss
+  package: tests.working
+  class: SomeClass
+  name: working_ctrl
+
+- plugin: bliss
+  package: tests.not_working
+  class: SomeClass
+  name: broken_ctrl2
+
+- plugin: bliss
+  package: tests.working
+  class: SomeClass2
+  name: broken_ctrl3

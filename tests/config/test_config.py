@@ -215,3 +215,18 @@ def test_capital_letter_file(beacon):
     # returned as expected
     x = beacon.get("Aunused")
     assert x
+
+
+def test_bliss_import_error(beacon):
+    with pytest.raises(RuntimeError) as excinfo:
+        beacon.get("broken_ctrl3")
+
+    # Non existing class
+    with pytest.raises(ModuleNotFoundError) as excinfo:
+        beacon.get("broken_ctrl")
+    assert "CONFIG COULD NOT FIND CLASS" in str(excinfo.value)
+
+    # faulty import in imported module
+    with pytest.raises(ModuleNotFoundError) as excinfo:
+        beacon.get("broken_ctrl2")
+    assert "CONFIG COULD NOT FIND CLASS" not in str(excinfo.value)

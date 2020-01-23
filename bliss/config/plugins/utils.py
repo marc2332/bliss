@@ -7,6 +7,7 @@
 
 from bliss.config.static import get_config
 import re
+from importlib.util import find_spec
 
 
 def camel_case_to_snake_style(name):
@@ -34,16 +35,21 @@ def find_class_and_node(cfg_node, base_path="bliss.controllers"):
     try:
         module = __import__(module_name, fromlist=[""])
     except ModuleNotFoundError as e:
+        if find_spec(module_name) is not None:
+            raise e
         module_name = "%s.%s" % (base_path, camel_case_to_snake_style(klass_name))
         try:
             module = __import__(module_name, fromlist=[""])
-        except ModuleNotFoundError as e2:
-            msg = "\nWITH CONFIG  MODULE NAME: " + e.msg
-            msg += "\nWITH DEFAULT MODULE NAME: " + e2.msg
-            msg += f"\nCHECK THAT MODULE NAME BEGINS AFTER '{base_path}'\n"
 
-            e2.msg = msg
-            raise e2
+        except ModuleNotFoundError as e2:
+            if find_spec(module_name) is not None:
+                raise e2
+            else:
+                msg = "CONFIG COULD NOT FIND CLASS!"
+                msg += "\nWITH CONFIG  MODULE NAME: " + e.msg
+                msg += "\nWITH DEFAULT MODULE NAME: " + e2.msg
+                msg += f"\nCHECK THAT MODULE NAME BEGINS AFTER '{base_path}'\n"
+                raise ModuleNotFoundError(msg)
 
     try:
         klass = getattr(module, klass_name)

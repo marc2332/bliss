@@ -13,6 +13,7 @@ from typing import Optional
 from typing import List
 from typing import Dict
 from typing import Tuple
+from typing import Union
 
 from silx.gui import colors
 
@@ -224,13 +225,18 @@ def removeItemAndKeepAxes(plot: plot_model.Plot, item: plot_model.Item):
 
 
 def createScatterItem(
-    plot: plot_model.Plot, channel: scan_model.Channel
+    plot: plot_model.Plot, channel: Union[str, scan_model.Channel]
 ) -> Tuple[plot_model.Item, bool]:
     """
     Create an item to a plot using a channel.
 
     Returns a tuple containing the created or updated item, plus a boolean to know if the item was updated.
     """
+    if isinstance(channel, scan_model.Channel):
+        channel_name = channel.name()
+    else:
+        channel_name = channel
+
     # Reach any plot item from this master
     baseItem: Optional[plot_item_model.ScatterItem]
     for baseItem in plot.items():
@@ -242,7 +248,7 @@ def createScatterItem(
     if baseItem is not None:
         isAxis = baseItem.valueChannel() is None
         if isAxis:
-            baseItem.setValueChannel(plot_model.ChannelRef(plot, channel.name()))
+            baseItem.setValueChannel(plot_model.ChannelRef(plot, channel_name))
             # It's now an item with a value
             return baseItem, True
         else:
@@ -254,12 +260,12 @@ def createScatterItem(
                 newItem.setXChannel(xChannel)
             if yChannel is not None:
                 newItem.setYChannel(yChannel)
-            newItem.setValueChannel(plot_model.ChannelRef(plot, channel.name()))
+            newItem.setValueChannel(plot_model.ChannelRef(plot, channel_name))
     else:
         # No axes are specified
         # FIXME: Maybe we could use scan infos to reach the default axes
         newItem = plot_item_model.ScatterItem(plot)
-        newItem.setValueChannel(plot_model.ChannelRef(plot, channel.name()))
+        newItem.setValueChannel(plot_model.ChannelRef(plot, channel_name))
     plot.addItem(newItem)
     return newItem, False
 

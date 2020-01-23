@@ -62,11 +62,6 @@ class EBVCounterController(SamplingCounterController):
             return self._ebv_device.current
 
 
-class EBVCounter(SamplingCounter):
-    def __call__(self, *args, **kwargs):
-        return self
-
-
 class EBV:
     _WAGO_KEYS = [
         "status",
@@ -137,8 +132,8 @@ class EBV:
 
         # --- counter interface
         self._counter_controller = EBVCounterController(self, self._cnt_name)
-        self._diode_counter = EBVCounter(
-            self._cnt_name, self._counter_controller, unit="mA"
+        self._diode_counter = self._counter_controller.create_counter(
+            SamplingCounter, self._cnt_name, unit="mA"
         )
 
         global_map.register(
@@ -156,6 +151,7 @@ class EBV:
     def diode(self):
         return self._diode_counter
 
+    @property
     def counters(self):
         return self._counter_controller.counters
 

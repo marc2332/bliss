@@ -146,15 +146,42 @@ class FlintApi:
             return None
         return data.array()
 
-    def get_live_scan_plot(self, channel_name, plot_type, as_axes=False):
+    def __get_plot_class_by_kind(self, plot_type: str):
         assert plot_type in ["scatter", "image", "curve", "mca"]
-
-        plot_class = {
+        plot_classes = {
             "scatter": plot_item_model.ScatterPlot,
             "image": plot_item_model.ImagePlot,
             "mca": plot_item_model.McaPlot,
             "curve": plot_item_model.CurvePlot,
-        }[plot_type]
+        }
+        return plot_classes[plot_type]
+
+    def get_default_live_scan_plot(self, plot_type):
+        """Returns the identifier of the default plot according it's type.
+
+        Basically returns the first plot of this kind.
+
+        Returns `None` is nothing found
+        """
+        plot_class = self.__get_plot_class_by_kind(plot_type)
+        workspace = self.__flintModel.workspace()
+        for iwidget, widget in enumerate(workspace.widgets()):
+            plot = widget.plotModel()
+            if plot is None:
+                continue
+            if not isinstance(plot, plot_class):
+                continue
+            return f"live:{iwidget}"
+
+        # FIXME: If nothing found, a default plot should be created
+        return None
+
+    def get_live_scan_plot(
+        self, channel_name: str, plot_type: str, as_axes: bool = False
+    ):
+        """Returns the identifier of a plot according to few constraints.
+        """
+        plot_class = self.__get_plot_class_by_kind(plot_type)
 
         scan = self.__flintModel.currentScan()
         if scan is None:

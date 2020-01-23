@@ -902,7 +902,6 @@ class File(h5py.File):
                     except BaseException:
                         pass
             except OSError as e:
-                raise
                 if (
                     swmr is not None
                     or mode != "r"

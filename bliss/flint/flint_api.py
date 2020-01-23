@@ -445,6 +445,38 @@ class FlintApi:
             return self._custom_plots[plot_id]
         return self._custom_plots[plot_id].plot
 
+    # API to custom default live plots
+
+    def set_displayed_channels(self, plot_id, channel_names):
+        """Enforce channels to be displayed.
+
+        - If a channel was not part of the plot, an item is added
+        - If a channel was hidden, it become visible
+        - If a channel is in the plot but not part of this list, it is removed
+        """
+        widget = self._get_plot_widget(plot_id, expect_silx_api=False, custom_plot=True)
+        if widget is None:
+            raise Exception("Widget %s not found" % plot_id)
+
+        plot = widget.plotModel()
+        if plot is None:
+            raise Exception("Widget %s is not linked to any plot model" % plot_id)
+
+        used_items, unneeded_items, expected_new_channels = model_helper.filterUsedDataItems(
+            plot, channel_names
+        )
+
+        with plot.transaction():
+            for item in used_items:
+                item.setVisible(True)
+            if len(expected_new_channels) > 0:
+                for channel_name in expected_new_channels:
+                    item, _updated = model_helper.createScatterItem(plot, channel_name)
+                    assert _updated == False
+                    item.setVisible(True)
+            for item in unneeded_items:
+                plot.removeItem(item)
+
     # User interaction
 
     def __create_request_id(self):

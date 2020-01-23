@@ -68,15 +68,19 @@ class VSCANNER(Controller):
         log_debug(self, self._status)
 
     def close(self):
-        """Close the serial line.
+        """
+        Close the serial line.
         """
         self.comm.close()
 
     def initialize_axis(self, axis):
-        """Init
+        """
+        Init
         - fix possible wrong positions (<0V or >10V)
         """
         axis.chan_letter = axis.config.get("chan_letter")
+
+        self.send_no_ans(axis, "NOECHO")
 
         ini_pos = self.read_position(axis)
         if ini_pos < 0:
@@ -90,7 +94,8 @@ class VSCANNER(Controller):
             self.send_no_ans(axis, _cmd)
 
     def read_position(self, axis, last_read={"t": time.time(), "pos": [None, None]}):
-        """Return position's setpoint of <axis> in controller units (Volts)
+        """
+        Return position's setpoint of <axis> in controller units (Volts)
         * Booth axis setpoint positions are read simultaneously.
           the result is time-stamped and kept in cache.
         * values are in Volts; command used is "?VXY"
@@ -156,7 +161,8 @@ class VSCANNER(Controller):
         return _velocity
 
     def set_velocity(self, axis, new_velocity):
-        """Set velocity of <axis>, make the conversion in V/ms
+        """
+        Set velocity of <axis>, make the conversion in V/ms
         * <new_velocity> is in user_unit/s
         * 'VEL <_new_vel>': set velocity in V/ms
         """
@@ -166,7 +172,8 @@ class VSCANNER(Controller):
         log_debug(self, "set_velocity() -- %g" % _new_vel)
 
     def state(self, axis):
-        """Return the state of <axis>.
+        """
+        Return the state of <axis>.
         return type is 'AxisState'.
         """
         _ans = self.send(axis, "?STATE")
@@ -188,7 +195,8 @@ class VSCANNER(Controller):
         return AxisState("FAULT")
 
     def prepare_move(self, motion):
-        """Prepare parameters for the move in controller.
+        """
+        Prepare parameters for the move in controller.
         'prepare_move()' is called once per axis involved in the move.
         """
         # def prepare_move(self, motion, last_motion={"dVX": None, "dVY": None}):
@@ -220,7 +228,8 @@ class VSCANNER(Controller):
         pass
 
     def start_one(self, motion):
-        """Start motion of one axis.
+        """
+        Start motion of one axis.
         In VSCANNER case, just delegate the work to start_all().
         """
         self.start_all(motion)
@@ -239,7 +248,8 @@ class VSCANNER(Controller):
         #     self.send_no_ans(motion.axis, _cmd)
 
     def start_all(self, *motion_list):
-        """Start simultaneous axis movements on one controller.
+        """
+        Start simultaneous axis movements on one controller.
         Called once per controller with all the axis to move.
         Return immediately.
         motions positions are in motor units.
@@ -338,7 +348,8 @@ class VSCANNER(Controller):
             self.send(first_axis, _cmd)
 
     def stop(self, axis):
-        """Halt a scan (not a movement ?)
+        """
+        Halt a scan (not a movement ?)
         If a scan is running, it is stopped and the output voltages
            are set back to the initial values.
         """
@@ -378,13 +389,15 @@ class VSCANNER(Controller):
         return "\n".join(_ans_lines)
 
     def get_id(self, axis):
-        """Return firmware version.
+        """
+        Return firmware version.
         """
         _ans = self.send(axis, "?VER")
         return _ans
 
     def get_error(self):
-        """Print and return error string read on controller.
+        """
+        Print and return error string read on controller.
         If no error, VSCANNER return 'OK'.
         Do not use 'send()' to be usable in 'send()'.
         No 'axis' parameter: query directly the controller.
@@ -395,7 +408,8 @@ class VSCANNER(Controller):
         return _ans
 
     def get_info(self, axis=None):
-        """Return a set of information about axis and controller.
+        """
+        Return a set of information about axis and controller.
         """
         info_str = ""
         info_str += "###############################\n"
@@ -427,7 +441,16 @@ class VSCANNER(Controller):
         return self.raw_write_read("?STATE\r\n")
 
     def __info__(self):
-        return self.get_info()
+        """
+        Return user info only.
+        See get_info() for more detailed information.
+        """
+        info_str = "VSCANNER:\n"
+        info_str += f"     ?ERR: {self.get_error().decode()}\n"
+        info_str += f"     output voltage : {self.get_voltages()}\n"
+        info_str += f"     state         : {self.get_state()}\n"
+        info_str += self.comm.__info__()
+        return info_str
 
     def send(self, axis, cmd):
         """

@@ -508,3 +508,16 @@ class Gpib:
             return Gpib.GpibType.LOCAL
         else:
             raise ValueError("Unsuported protocol %s" % url)
+
+    def __info__(self):
+        info_str = (
+            f"GPIB type={self.gpib_type.name} "
+            f"url='{self._gpib_kwargs.get('url', '')}' \n"
+            f"     primary address='{self._gpib_kwargs.get('pad')}' "
+            f"secondary address='{self._gpib_kwargs.get('sad')}' "
+            f"tmo='{self._gpib_kwargs.get('tmo')}' "
+            f"timeout(s)='{self._timeout}' "
+            f"eol='{self._eol}' "
+        )
+
+        return info_str

@@ -443,21 +443,19 @@ class musst(CounterController):
     def __info__(self):
         """Default method called by the 'BLISS shell default typing helper'
         """
-        musst_version = self.putget("?VER")
-        musst_url = self._cnx._gpib_kwargs["url"]
-        musst_address = self._cnx._gpib_kwargs["pad"]
-        info = [f"MUSST:   {self.name}, version {musst_version}"]
-        info.append(f"         url: {musst_url}")
-        info.append(f"         address: {musst_address}")
-        info.append("CHANNELS:")
+        version = self.putget("?VER")
+        info_str = f"MUSST card: {self.name}, {version}\n"
+        info_str += self._cnx.__info__() + "\n"
+        info_str += "CHANNELS:\n"
         for ii in range(6):
             ch_idx = ii + 1
             ch_value, ch_status = self.putget(f"?CH CH{ch_idx}").split(" ")
             ch_config = self.putget(f"?CHCFG CH{ch_idx}")
-            info.append(
-                f"         CH{ch_idx} ({ch_status:>4}): {ch_value:>10} -  {ch_config}"
+            info_str += (
+                f"         CH{ch_idx} ({ch_status:>4}): {ch_value:>10} -  {ch_config}\n"
             )
-        return "\n".join(info)
+
+        return info_str
 
     @protect_from_kill
     def putget(self, msg, ack=False):

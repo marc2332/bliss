@@ -757,6 +757,7 @@ class Serial:
         self._timeout = timeout
         self._raw_handler = None
         self._lock = lock.RLock()
+        self._type_dict = {0: "LOCAL", 1: "RFC2217", 2: "SER2NET", 3: "TANGO"}
         global_map.register(self, parents_list=["comms"], tag=str(self))
 
     def __del__(self):
@@ -894,3 +895,13 @@ class Serial:
             return self.TANGO
         else:
             return self.LOCAL
+
+    def __info__(self):
+        serial_type = self._type_dict[self._check_type()]
+
+        info_str = (
+            f"SERIAL type={serial_type} url={self._port} \n"
+            f"       timeout(s)={self._timeout} eol={self._eol}"
+        )
+
+        return info_str

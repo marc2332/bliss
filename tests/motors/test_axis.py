@@ -67,14 +67,17 @@ def test_info(robz, capsys):
     output += "     acceleration: 300.0 (config: 300.0)\n"
     output += "     acctime: 0.3333333333333333  (config: 0.3333333333333333)\n"
     output += "     velocity: 100.0  (config: 100.0)\n"
-    # output += "controller: <bliss.controllers.motors.mockup.Mockup object at 0x7f78ac843d30>\n"
-    output += "Axis: robz\n"
-    output += "Controller:\n"
-    output += "  class: <class 'bliss.controllers.motors.mockup.Mockup'>\n"
-    output += "  name: test\n"
+
+    # # output += "controller: <bliss.controllers.motors.mockup.Mockup object at 0x7f78ac843d30>\n"
+    # output += "Axis: robz\n"
+    # output += "Controller:\n"
+    # output += "  class: <class 'bliss.controllers.motors.mockup.Mockup'>\n"
+    # output += "  name: test\n"
 
     # remove "controller" line because 0x7f78ac843d30 ref is not deterministic...
-    captured = re.sub("controller:.*\n", "", captured)
+    captured = re.sub(
+        "<bliss.controllers.motors.mockup.Mockup object at.*\n", "", captured
+    )
 
     assert captured == output
 

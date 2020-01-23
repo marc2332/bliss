@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Cleaned up tooltips
     - Manage data display according
   - Do not allow anymore to display more than one image in the image view
+  - Display curve live view x-axis with timeseries if the channel unit is "s"
 
 ### Fixed
 

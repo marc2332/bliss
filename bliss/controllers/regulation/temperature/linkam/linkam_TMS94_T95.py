@@ -13,7 +13,7 @@ Linkam TMS94, acessible via Serial line (RS232)
 yml configuration example:
 
 - class: LinkamTms94
-  module: regulation.temperature.linkam.linkam_TMS94_T95
+  module: temperature.linkam.linkam_TMS94_T95
   plugin: regulation
   name: linkamtms94
   timeout: 3
@@ -81,11 +81,11 @@ class LinkamTms94(Controller):
         80: "Holding at current temperature",
     }
     EB1 = {
-        1: "Cooling too fast",
+        0: "No error",
+        1: "Cooling rate too fast",
         2: "Stage not connected or sensor is open circuit",
-        4: "Current protection due to overload",
+        4: "Current protection has been set due to overload",
         32: "Problems with RS-232 data tansmission",
-        128: "No error",
     }
 
     @enum.unique
@@ -105,7 +105,6 @@ class LinkamTms94(Controller):
             config, baudrate=_baudrate, parity="N", bytesize=8, stopbits=1
         )
 
-        self._serial_line_sleep = 0.2
         self._pump_auto = None
 
         self._ramp_rate = float("NAN")
@@ -124,6 +123,7 @@ class LinkamTms94(Controller):
         Initializes the controller (including hardware).
         """
         log_info(self, "initialize_controller")
+
         self.clear()
 
     def initialize_input(self, tinput):
@@ -160,9 +160,7 @@ class LinkamTms94(Controller):
     def read_input(self, tinput):
         """ Read the current temperature """
         log_info(self, "read_input")
-        asw = self.send_cmd("T")
-        temperature = int(asw[6:10], 16) / 10
-        return temperature
+        return self._get_temperature_info()["temperature"]
 
     def read_output(self, toutput):
         """
@@ -178,7 +176,7 @@ class LinkamTms94(Controller):
         log_info(self, "read_output")
 
         # no cmd to return the current output value
-        return 0
+        return float("NAN")
 
     def state_input(self, tinput):
         """
@@ -332,7 +330,7 @@ class LinkamTms94(Controller):
                 f"Setpoint value {sp} is out of bounds [{self._low_limit},{self._high_limit}]"
             )
 
-        cmd = "%4d\r" % int(round(sp * 10))
+        cmd = "%4d" % int(round(sp * 10))
         cmd = cmd.strip(" ")
         self.send_cmd("L1", cmd)
         self._setpoint = int(cmd) / 10.  # or sp ???
@@ -369,6 +367,8 @@ class LinkamTms94(Controller):
         """
         log_info(self, "Controller:start_ramp: %s %s" % (tloop, sp))
 
+        self.set_setpoint(tloop, sp)
+
     def stop_ramp(self, tloop):
         """
         Stop the current ramping to a setpoint
@@ -392,9 +392,9 @@ class LinkamTms94(Controller):
            (bool) True if ramping, else False.
         """
         log_info(self, "Controller:is_ramping: %s" % (tloop))
-        asw = self.send_cmd("T")
+        status = self._get_temperature_info()["status"]
         # Heating or cooling
-        if int(asw[0]) == 16 or int(asw[0]) == 32:
+        if status == self.SB1[16] or status == self.SB1[32]:
             return True
         else:
             return False
@@ -412,7 +412,7 @@ class LinkamTms94(Controller):
         if rate <= 0 or rate > 32:
             raise ValueError("Ramp value %s is out of bounds [0,32]" % rate)
 
-        val = "%4d\r" % int(round(rate * 100))
+        val = "%4d" % int(round(rate * 100))
         val = val.strip(" ")
         self.send_cmd("R1", val)
         self._ramp_rate = int(val) / 100.  # or rate ???
@@ -441,9 +441,10 @@ class LinkamTms94(Controller):
             Returns:
               None
         """
-        log_info(self, "wraw")
-        log_debug(self, "command to send = {0}".format(string))
-        self._comm.write(string.encode())
+        # log_info(self, "wraw")
+        # log_debug(self, "command to send = {0}".format(string))
+        # self._comm.write(string.encode())
+        raise NotImplementedError
 
     def rraw(self):
         """ Read a string from the controller
@@ -451,9 +452,10 @@ class LinkamTms94(Controller):
               response from the controller
         """
         log_info(self, "rraw")
-        asw = self._comm.raw_read()
-        log_debug(self, "raw answer = {0}".format(asw))
-        return asw
+        # asw = self._comm.raw_read()
+        # log_debug(self, "raw answer = {0}".format(asw))
+        # return asw
+        raise NotImplementedError
 
     def wrraw(self, string):
         """ Write a string to the controller and then reading answer back
@@ -464,11 +466,11 @@ class LinkamTms94(Controller):
         """
         log_info(self, "wrraw")
         log_debug(self, "command to send = {0}".format(string))
-        self._comm.write(string.encode())
-        time.sleep(self._serial_line_sleep)
-        asw = self._comm.raw_read()
-        log_debug(self, "raw answer = {0}".format(asw))
-        return asw
+        # self._comm.write(string.encode())
+        # asw = self._comm.raw_read()
+        # log_debug(self, "raw answer = {0}".format(asw))
+        # return asw
+        raise NotImplementedError
 
     # ------ safety methods (optional) ------------------------------
 
@@ -492,22 +494,22 @@ class LinkamTms94(Controller):
               command (str): The command string
               args: Possible variable number of parameters
             Returns:
-              Answer from the controller if ? in the command
+              Answer from the controller 
         """
         log_info(self, "send_cmd")
         log_debug(self, "command = {0}, arg is {1}".format(command, arg))
+
         if arg is not None:
             arg = str(arg)
             command = f"{command}{arg}"
+
         cmd = command + "\r"
-        self._comm.write(cmd.encode())
 
-        time.sleep(self._serial_line_sleep)
-        asw = self._comm.raw_read()
+        # print(f"=== SEND: {cmd}")
+        ans = self._comm.write_readline(cmd.encode(), eol="\r", timeout=3.0)
+        # print(f"=== RECV: {ans}")
 
-        if asw[-1] != 13:
-            raise ValueError("Transmission error")
-        return asw
+        return ans
 
     def clear(self):
         """ Clears the bits in the Status Byte, Standard Event and Operation
@@ -519,27 +521,30 @@ class LinkamTms94(Controller):
 
     def heat(self):
         log_info(self, "heat")
-        print("This command is not available for the TMS94 model.")
+        raise NotImplementedError("This command is not available for the TMS94 model.")
 
     def cool(self):
         log_info(self, "cool")
-        print("This command is not available for the TMS94 model.")
+        raise NotImplementedError("This command is not available for the TMS94 model.")
 
     def state(self):
         """
             Returns:
-              List of messages for SB1 ant EB1 and PB1.
+              List of messages for SB1 and EB1 and PB1.
         """
         log_info(self, "state")
-        asw = self.send_cmd("T")
+        info = self._get_temperature_info()
         state_list = []
-        sb1_val = self.SB1[int(asw[0])]
-        state_list.append("Status byte (SB1): %s" % (sb1_val))
-        eb1_val = self.EB1[int(asw[1])]
-        state_list.append("Error byte (EB1): %s" % (eb1_val))
-        offset = ord("\x80")
-        pb1_val = asw[2] - offset
-        state_list.append("Pump byte (PB1), speed = %s" % (pb1_val))
+        state_list.append("Status byte (SB1): %s" % (info["status"]))
+        state_list.append("Error byte (EB1): %s" % (info["error"]))
+        state_list.append(
+            "Pump byte (PB1): speed = %s (%s)"
+            % (info["pump_speed"], self.get_pump_auto())
+        )
+        state_list.append(
+            f"Current temperature: {info['temperature']}C (setpoint: {self._setpoint}, rate: {self._ramp_rate})"
+        )
+
         return state_list
 
     def dsc(self):
@@ -551,8 +556,8 @@ class LinkamTms94(Controller):
         temperature = int(asw[0:4], 16) / 10
         dsc = int(asw[4:8], 16)
         # if the buffer is full then clear it
-        if dsc == 32765:
-            self.clear()
+        # if dsc == 32765:
+        #    self.clear()
         return temperature, dsc
 
     def set_hold_on(self, tloop):
@@ -587,10 +592,7 @@ class LinkamTms94(Controller):
     def get_pump_speed(self):
         """ Read the set pump speed. """
         log_info(self, "get_pump_speed")
-        asw = self.send_cmd("T")
-        offset = ord("\x80")
-        speed = asw[2] - offset
-        return speed
+        return self._get_temperature_info()["pump_speed"]
 
     def set_pump_speed(self, speed):
         """ Set the pump speed.
@@ -600,7 +602,7 @@ class LinkamTms94(Controller):
         log_info(self, "set_pump_speed")
         if speed < 0 or speed > 30:
             raise ValueError("speed {0} is out of range [0,30]".format(speed))
-        self.send_cmd("P{0}\r".format(chr(speed + 48)))
+        self.send_cmd("P{0}".format(chr(speed + 48)))
 
     def _set_loop_on(self, tloop):
         """
@@ -616,6 +618,19 @@ class LinkamTms94(Controller):
         """
         log_info(self, "_set_loop_off")
         self.send_cmd("E")
+
+    def _get_temperature_info(self):
+        asw = self.send_cmd("T")
+        sb1 = asw[0]
+        eb1 = asw[1] - 128
+        pb1 = asw[2] - 128 - 96
+        temp = int(asw[6:10], 16) / 10
+        return {
+            "status": self.SB1[sb1],
+            "error": self.EB1[eb1],
+            "pump_speed": pb1,
+            "temperature": temp,
+        }
 
 
 class LinkamT95(LinkamTms94):

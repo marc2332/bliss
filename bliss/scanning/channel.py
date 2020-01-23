@@ -19,8 +19,8 @@ class AcquisitionChannelList(list):
            values_dict - { channel_name: value, ... }
         """
         for channel in self:
-            if channel.name in values_dict:
-                channel.emit(values_dict[channel.name])
+            if channel.fullname in values_dict:
+                channel.emit(values_dict[channel.fullname])
 
     def update_from_iterable(self, iterable):
         for i, channel in enumerate(self):
@@ -131,7 +131,11 @@ class AcquisitionChannel:
         self.__description["dtype"] = self.dtype
         self.__description["shape"] = self.shape
         self.__description["unit"] = self.unit
-        data_dct = {"name": self.name, "description": self.__description, "data": data}
+        data_dct = {
+            "name": self.fullname,
+            "description": self.__description,
+            "data": data,
+        }
         dispatcher.send("new_data", self, data_dct)
 
     def _check_and_reshape(self, data):

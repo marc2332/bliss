@@ -1535,6 +1535,22 @@ def plotselect(*counters):
     plot_select.set(counter_names)
 
 
+def meshselect(*counters):
+    """
+    Select counter(s) to use for scatter :
+    * alignment (bliss/common/scans.py:_get_selected_counter_name())
+    * flint display (bliss/flint/plot1d.py)
+    Saved as a HashSetting with '<session_name>:plot_select' key.
+    """
+    from bliss.common import plot
+
+    if plot.check_flint():
+        channel_names = [c.fullname for c in counters]
+        flint = plot.get_flint()
+        plot_id = flint.get_default_live_scan_plot("scatter")
+        flint.set_displayed_channels(plot_id, channel_names)
+
+
 def get_plotted_counters():
     """
     Returns names of plotted counters as a list (get list from a HashSetting

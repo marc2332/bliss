@@ -209,6 +209,19 @@ class FlintApi:
         stream.write("%s\n" % msg)
         stream.flush()
 
+    def test_count_displayed_items(self, plot_id):
+        """Debug purpose function to count number of displayed items in a plot
+        widget."""
+        widget = self._get_plot_widget(plot_id, expect_silx_api=False, custom_plot=True)
+        if widget is None:
+            raise Exception("Widget %s not found" % plot_id)
+        count = 0
+        for item in widget._silxPlot().getItems():
+            # Business items contains Flint in the name
+            if "Flint" in str(type(item)):
+                count += 1
+        return count
+
     def test_active(self, plot_id, qaction: str = None):
         """Debug purpose function to simulate a click on an activable element.
 

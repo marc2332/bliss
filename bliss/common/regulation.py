@@ -91,12 +91,18 @@ This module implements the classes allowing the control of regulation processes 
         The SoftLoop object inherits from the Loop class and implements its own PID algorithm (using the 'simple_pid' Python module). 
 
             ---------------------------------------------- YML file example ------------------------------------------------------------------------
+            - 
+                class: MyDevice     # <== any kind of object (usually declared in another YML file)
+                package: bliss.controllers.regulation.temperature.mockup
+                plugin: bliss
+                name: my_device
 
             -   
                 class: MyCustomInput     # <-- a custom input defined by the user and inheriting from the ExternalInput class
                 package: bliss.controllers.regulation.temperature.mockup  # <-- the module where the custom class is defined
                 plugin: bliss
                 name: custom_input
+                device: $my_device       # <-- any kind of object reference (pointing to an object declared somewhere else in a YML config file)
                 unit: eV
                         
             
@@ -105,6 +111,7 @@ This module implements the classes allowing the control of regulation processes 
                 package: bliss.controllers.regulation.temperature.mockup  # <-- the module where the custom class is defined
                 plugin: bliss
                 name: custom_output
+                device: $my_device       # <-- any kind of object reference (pointing to an object declared somewhere else in a YML config file)
                 unit: eV
                 low_limit: 0.0           # <-- minimum device value [unit]
                 high_limit: 100.0        # <-- maximum device value [unit]
@@ -112,24 +119,25 @@ This module implements the classes allowing the control of regulation processes 
             
             
             - 
-                class: Input             # <-- value of key 'class' could be 'Input' or 'ExternalInput', the object will be an ExternalInput
+                class: ExternalInput     # <-- declare an 'ExternalInput' object
                 name: diode_input          
-                device: $diode           # <-- a SamplingCounter
+                device: $diode           # <-- a SamplingCounter object reference (pointing to a counter declared somewhere else in a YML config file )
                 unit: mm
             
             
             -
-                class: Output            # <-- value of key 'class' could be 'Output' or 'ExternalOutput', the object will be an ExternalOutput
+                class: ExternalOutput    # <-- declare an 'ExternalOutput' object
                 name: robz_output        
-                device: $robz            # <-- an axis
+                device: $robz            # <-- an axis object reference (pointing to an axis declared somewhere else in a YML config file )
                 unit: mm
-                low_limit: 0.0           # <-- minimum device value [unit]
-                high_limit: 100.0        # <-- minimum device value [unit]
+                low_limit: -1.0          # <-- minimum device value [unit]
+                high_limit: 1.0          # <-- maximum device value [unit]
                 ramprate: 0.0            # <-- ramprate to reach the output value [unit/s]
+                mode: relative           # <-- the axis will perform relative moves (use 'absolute' for absolute moves)
                 
             
             - 
-                class: Loop              # <-- value of key 'class' could be 'Loop' or 'SoftLoop', the object will be a SoftLoop
+                class: SoftLoop          # <== declare a 'SoftLoop' object
                 name: soft_regul
                 input: $custom_input
                 output: $robz_output
@@ -158,7 +166,7 @@ import enum
 
 from bliss import current_session
 from bliss import global_map
-from bliss.common.logtools import log_debug
+from bliss.common.logtools import log_debug, lprint_disable
 from bliss.common.utils import with_custom_members, autocomplete_property
 from bliss.common.counter import SamplingCounter
 from bliss.controllers.counter import SamplingCounterController, counter_namespace
@@ -275,7 +283,7 @@ class ExternalInput(Input):
         if isinstance(self.device, Axis):
             return self.device.position
         elif isinstance(self.device, SamplingCounter):
-            return self.device.read()
+            return self.device._counter_controller.read_all([self.device])[0]
         else:
             raise TypeError(
                 "the associated device must be an 'Axis' or a 'SamplingCounter'"
@@ -1545,19 +1553,20 @@ class SoftLoop(Loop):
 
         self._stop_event.clear()
 
-        while not self._stop_event.is_set():
+        with lprint_disable():
+            while not self._stop_event.is_set():
 
-            input_value = self.input.read()
-            power_value = self.pid(input_value)
+                input_value = self.input.read()
+                power_value = self.pid(input_value)
 
-            output_value = self._get_power2unit(power_value)
+                output_value = self._get_power2unit(power_value)
 
-            self._pid_output_value = output_value
+                self._pid_output_value = output_value
 
-            if not self.is_in_idleband():
-                self.output.set_value(output_value)
+                if not self.is_in_idleband():
+                    self.output.set_value(output_value)
 
-            gevent.sleep(self.pid.sample_time)
+                gevent.sleep(self.pid.sample_time)
 
 
 class SoftRamp:

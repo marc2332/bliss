@@ -19,6 +19,11 @@ def test_home(beacon, config_app_port):
     assert r.status_code == 200  # OK
 
 
+def test_tree_files(beacon, config_app_port):
+    r = requests.get("http://localhost:%d/tree/files" % config_app_port)
+    assert r.status_code == 200  # OK
+
+
 def test_db_files(beacon, config_app_port):
     r = requests.get("http://localhost:%d/db_files" % config_app_port)
     assert r.status_code == 200

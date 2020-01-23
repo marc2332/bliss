@@ -1,5 +1,4 @@
 import pytest
-from bliss.common import scans
 from bliss.shell.standard import wm
 from bliss import global_map
 
@@ -117,70 +116,11 @@ def test_alias_get(alias_session):
     assert env_dict["ALIASES"].get("does_not_exist") is None
 
 
-def test_scan_info_display_names_with_alias(alias_session):
-    env_dict = alias_session.env_dict
-    robyy = env_dict["ALIASES"].get("robyy")
-    diode = alias_session.config.get("diode")
-    s = scans.ascan(robyy, 0, 1, 3, .1, diode, run=False)
-    acq_chan = s.acq_chain.nodes_list[0].channels[0]
-    assert acq_chan.name == "axis:robyy"
-    assert (
-        "axis:"
-        + s.scan_info["acquisition_chain"]["axis"]["master"]["display_names"][
-            acq_chan.fullname
-        ]
-        == acq_chan.name
-    )
-
-
 def test_alias_included_session(alias_session):
     env_dict = alias_session.env_dict
     assert "mot0" in global_map.aliases.names_iter()
     m0 = alias_session.config.get("m0")
     assert env_dict["mot0"] == m0
-
-
-def test_alias_scan_title(alias_session):
-    env_dict = alias_session.env_dict
-
-    robyy = env_dict["robyy"]
-    m1 = env_dict["m1"]
-    mot0 = env_dict["mot0"]
-    diode = alias_session.config.get("diode")
-
-    s = scans.ascan(robyy, 0, 1, 3, .1, diode, run=False)
-    assert "ascan" in s.scan_info["type"]
-    assert "robyy" in s.scan_info["title"]
-
-    s = scans.dmesh(robyy, 0, 1, 3, m1, 0, 1, 3, 0.1, diode, run=False)
-    assert "dmesh" in s.scan_info["type"]
-    assert "robyy" in s.scan_info["title"]
-    assert "m1" in s.scan_info["title"]
-
-    s = scans.a2scan(robyy, 0, 1, m1, 0, 1, 3, 0.1, diode, run=False)
-    assert "a2scan" in s.scan_info["type"]
-    assert "robyy" in s.scan_info["title"]
-    assert "m1" in s.scan_info["title"]
-
-    s = scans.d2scan(robyy, 0, 1, m1, 0, 1, 3, 0.1, diode, run=False)
-    assert "d2scan" in s.scan_info["type"]
-    assert "robyy" in s.scan_info["title"]
-    assert "m1" in s.scan_info["title"]
-
-    # starting from 3, the underlying scan function is 'anscan',
-    # so it does not need to test aNscan,dNscan with N>3 it is all the
-    # same code
-    s = scans.a3scan(robyy, 0, 1, m1, 0, 1, mot0, 0, 1, 3, 0.1, diode, run=False)
-    assert "a3scan" in s.scan_info["type"]
-    assert "robyy" in s.scan_info["title"]
-    assert "m1" in s.scan_info["title"]
-    assert "mot0" in s.scan_info["title"]
-
-    s = scans.d3scan(robyy, 0, 1, m1, 0, 1, mot0, 0, 1, 3, 0.1, diode, run=False)
-    assert "d3scan" in s.scan_info["type"]
-    assert "robyy" in s.scan_info["title"]
-    assert "m1" in s.scan_info["title"]
-    assert "mot0" in s.scan_info["title"]
 
 
 def test_alias_add_remove_set_get(alias_session):

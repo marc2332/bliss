@@ -29,7 +29,6 @@ from ..io import nexus
 from ..utils import scan_utils
 from ..utils.logging_utils import CustomLogger
 from ..utils.array_order import Order
-from ..utils.process_utils import log_file_processes
 
 
 logger = logging.getLogger(__name__)
@@ -456,11 +455,12 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
                             yield nxroot
                         finally:
                             self._nxroot[level] = None
-                except BaseException:
-                    if nxroot is None:
-                        pattern = ".+{}$".format(os.path.basename(filename))
-                        log_file_processes(self.logger.error, pattern)
-                    raise
+                except OSError as e:
+                    if nxroot is None and nexus.isLockedError(e):
+                        self._exception_is_fatal = True
+                        raise RuntimeError(nexus.lockedErrorMessage(filename)) from None
+                    else:
+                        raise
             else:
                 self._h5missing("filenames")
                 self._nxroot[level] = None

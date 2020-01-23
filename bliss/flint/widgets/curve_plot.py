@@ -18,7 +18,7 @@ import logging
 from silx.gui import qt
 from silx.gui import icons
 from silx.gui.plot.items.shape import BoundingRect
-import silx._version
+from silx.gui.plot.items import axis as axis_mdl
 
 from bliss.flint.model import scan_model
 from bliss.flint.model import flint_model
@@ -234,6 +234,7 @@ class CurvePlotWidget(ExtendedDockWidget):
     def __updateAxesLabel(self):
         scan = self.__scan
         plot = self.__plotModel
+        xAxis = None
         if plot is None:
             xLabel = ""
             y1Label = ""
@@ -248,6 +249,7 @@ class CurvePlotWidget(ExtendedDockWidget):
                 if not item.isVisible():
                     continue
                 if isinstance(item, plot_item_model.CurveItem):
+                    xAxis = item.xChannel().channel(scan)
                     xLabels.append(item.xChannel().displayName(scan))
                     if item.yAxis() == "left":
                         y1Labels.append(item.yChannel().displayName(scan))
@@ -261,6 +263,16 @@ class CurvePlotWidget(ExtendedDockWidget):
         self.__plot.getXAxis().setLabel(xLabel)
         self.__plot.getYAxis(axis="left").setLabel(y1Label)
         self.__plot.getYAxis(axis="right").setLabel(y2Label)
+
+        if xAxis is not None:
+            axis = self.__plot.getXAxis()
+            if xAxis.unit() == "s":
+                # FIXME: There is no axis for duration
+                # then the elapse time will be displayed in 1970, but it is still fine
+                axis.setTickMode(axis_mdl.TickMode.TIME_SERIES)
+                axis.setTimeZone("UTC")
+            else:
+                axis.setTickMode(axis_mdl.TickMode.DEFAULT)
 
     def __updateAxesItems(self):
         """Update items which have relation with the X axis"""

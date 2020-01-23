@@ -324,6 +324,31 @@ def createCurveItem(
     return newItem, False
 
 
+def filterUsedDataItems(plot, channel_names):
+    """Filter plot items according to expected channel names
+
+    Returns a tuple within channels which have items, items which are
+    not needed and channel names which have no equivalent items.
+    """
+    channel_names = set(channel_names)
+    used_items = []
+    unneeded_items = []
+    for item in plot.items():
+        if isinstance(item, plot_item_model.ScatterItem):
+            channel = item.valueChannel()
+        else:
+            raise NotImplementedError("Item type %s unsupported" % type(item))
+        if channel is None:
+            if channel.name() in channel_names:
+                used_items.append(item)
+                channel_names.remove(channel.name())
+                continue
+        unneeded_items.append(item)
+
+    unused_channels = list(channel_names)
+    return used_items, unneeded_items, unused_channels
+
+
 def getChannelNamesDisplayedAsValue(plot: plot_model.Plot) -> List[str]:
     names = []
     for item in plot.items():

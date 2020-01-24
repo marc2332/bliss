@@ -338,7 +338,7 @@ def filterUsedDataItems(plot, channel_names):
             channel = item.valueChannel()
         else:
             raise NotImplementedError("Item type %s unsupported" % type(item))
-        if channel is None:
+        if channel is not None:
             if channel.name() in channel_names:
                 used_items.append(item)
                 channel_names.remove(channel.name())

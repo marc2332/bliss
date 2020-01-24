@@ -468,10 +468,10 @@ class CurvePlotWidget(ExtendedDockWidget):
 
         if isinstance(item, plot_item_model.CurveMixIn):
             if isinstance(item, plot_item_model.CurveItem):
-                _x = item.xChannel()
+                x = item.xChannel()
                 y = item.yChannel()
                 # FIXME: remove legend, use item mapping
-                legend = y.name() + "/" + y.name() + "/" + str(scan)
+                legend = x.name() + "/" + y.name() + "/" + str(scan)
             else:
                 legend = str(item) + "/" + str(scan)
             xx = item.xArray(scan)

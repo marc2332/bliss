@@ -466,13 +466,44 @@ class FlintApi:
             plot, channel_names
         )
 
+        if isinstance(plot, plot_item_model.ScatterPlot):
+            kind = "scatter"
+        elif isinstance(plot, plot_item_model.CurvePlot):
+            kind = "curve"
+        else:
+            raise ValueError("This plot type %s is not supported" % type(plot))
+
+        scan = widget.scan()
         with plot.transaction():
             for item in used_items:
                 item.setVisible(True)
             if len(expected_new_channels) > 0:
                 for channel_name in expected_new_channels:
-                    item, _updated = model_helper.createScatterItem(plot, channel_name)
-                    assert _updated == False
+                    channel = scan.getChannelByName(channel_name)
+                    if channel is None:
+                        # Create an item pointing to a non existing channel
+                        channelRef = plot_model.ChannelRef(plot)
+                        if kind == "scatter":
+                            item = plot_item_model.ScatterItem(plot)
+                            item.setValueChannel(channelRef)
+                        elif kind == "curve":
+                            item = plot_item_model.CurveItem(plot)
+                            item.setYChannel(channelRef)
+                        plot.addItem(item)
+                    else:
+                        if kind == "scatter":
+                            item, _updated = model_helper.createScatterItem(
+                                plot, channel
+                            )
+                        elif kind == "curve":
+                            # FIXME: We have to deal with left/right axis
+                            # FIXME: Item can't be added without topmaster
+                            item, _updated = model_helper.createCurveItem(
+                                plot, channel, yAxis="left"
+                            )
+                        else:
+                            assert False
+                        assert _updated == False
                     item.setVisible(True)
             for item in unneeded_items:
                 plot.removeItem(item)

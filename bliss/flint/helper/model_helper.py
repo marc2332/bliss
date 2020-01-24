@@ -225,17 +225,14 @@ def removeItemAndKeepAxes(plot: plot_model.Plot, item: plot_model.Item):
 
 
 def createScatterItem(
-    plot: plot_model.Plot, channel: Union[str, scan_model.Channel]
+    plot: plot_model.Plot, channel: scan_model.Channel
 ) -> Tuple[plot_model.Item, bool]:
     """
     Create an item to a plot using a channel.
 
     Returns a tuple containing the created or updated item, plus a boolean to know if the item was updated.
     """
-    if isinstance(channel, scan_model.Channel):
-        channel_name = channel.name()
-    else:
-        channel_name = channel
+    channel_name = channel.name()
 
     # Reach any plot item from this master
     baseItem: Optional[plot_item_model.ScatterItem]
@@ -336,6 +333,8 @@ def filterUsedDataItems(plot, channel_names):
     for item in plot.items():
         if isinstance(item, plot_item_model.ScatterItem):
             channel = item.valueChannel()
+        elif isinstance(item, plot_item_model.CurveItem):
+            channel = item.yChannel()
         else:
             raise NotImplementedError("Item type %s unsupported" % type(item))
         if channel is not None:

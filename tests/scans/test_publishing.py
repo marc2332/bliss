@@ -231,6 +231,31 @@ def test_no_duplicated_new_events(session):
     assert len(set(new_nodes)) == len(new_nodes)
 
 
+def test_no_duplicated_new_events_while_scan_running(session):
+    diode = session.env_dict["diode"]
+    diode3 = session.env_dict["diode3"]
+    diode4 = session.env_dict["diode4"]
+    db_names = []
+
+    s = scans.loopscan(10, 0.1, diode, diode3, diode4, save=False, run=False)
+    db_root = ":".join(name for name, _ in session.scan_saving.get()["db_path_items"])
+    db_name = db_root + ":{:0d}_{}".format(1, s.name)
+
+    def walk_nodes():
+        node = DataNodeContainer(None, db_name)
+        for new_node in node.iterator.walk():
+            db_names.append(new_node.db_name)
+
+    g = gevent.spawn(walk_nodes)
+    gevent.sleep(0.1)
+    scan_greenlet = gevent.spawn(s.run)
+    scan_greenlet.get()
+    g.kill()
+
+    assert db_names
+    assert len(set(db_names)) == len(db_names)
+
+
 def test_lima_data_channel_node(redis_data_conn, lima_session):
     lima_sim = lima_session.env_dict["lima_simulator"]
 

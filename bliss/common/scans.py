@@ -1548,7 +1548,8 @@ def meshselect(*counters):
         channel_names = [c.fullname for c in counters]
         flint = plot.get_flint()
         plot_id = flint.get_default_live_scan_plot("scatter")
-        flint.set_displayed_channels(plot_id, channel_names)
+        if plot_id is not None:
+            flint.set_displayed_channels(plot_id, channel_names)
 
 
 def get_plotted_counters():

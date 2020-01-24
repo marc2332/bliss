@@ -6,7 +6,7 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 from .roi import Roi
-from .properties import LimaProperty
+from .properties import LimaProperty, LimaAttrGetterSetter
 from bliss.common.counter import Counter
 
 
@@ -30,6 +30,9 @@ class ImageCounter(Counter):
     # def create_acquisition_device(self, node_pars):
     #     """Instantiate the corresponding acquisition device."""
     #     return self.controller.create_master_device(node_pars)
+
+    def __info__(self):
+        return LimaAttrGetterSetter.__info__(self)
 
     @property
     def dtype(self):

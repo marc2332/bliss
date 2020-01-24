@@ -272,8 +272,12 @@ class ScatterPlotWidget(ExtendedDockWidget):
             xAxis = set([])
             yAxis = set([])
             for item in plot.items():
-                xAxis.add(item.xChannel().channel(scan))
-                yAxis.add(item.yChannel().channel(scan))
+                xChannel = item.xChannel()
+                yChannel = item.yChannel()
+                if xChannel is not None:
+                    xAxis.add(xChannel.channel(scan))
+                if yChannel is not None:
+                    yAxis.add(yChannel.channel(scan))
             xAxis.discard(None)
             yAxis.discard(None)
 

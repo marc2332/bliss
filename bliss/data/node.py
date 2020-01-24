@@ -356,7 +356,7 @@ class DataNodeIterator(object):
             read_fds.append(self.wakeup_fd)
 
         while True:
-            msg = pubsub.get_message()
+            msg = pubsub.get_message(ignore_subscribe_messages=True)
             with AllowKill():
                 if msg is None:
                     read_event, _, _ = gevent.select.select(read_fds, [], [])
@@ -365,9 +365,6 @@ class DataNodeIterator(object):
                         yield self.EVENTS.EXTERNAL_EVENT, None
 
             if msg is None:
-                continue
-
-            if msg["type"] != "pmessage":
                 continue
             data = msg["data"].decode()
             channel = msg["channel"].decode()

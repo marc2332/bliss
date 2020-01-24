@@ -59,21 +59,21 @@ _SCAN_WATCH_CALLBACKS = {"new": Null(), "data": Null(), "end": Null()}
 def set_scan_watch_callbacks(scan_new=None, scan_data=None, scan_end=None):
     if scan_new is None:
         r_scan_new = Null()
-    elif not hasattr(scan_new, "__call__"):
+    elif not callable(scan_new):
         raise TypeError(f"{scan_new} is not callable")
     else:
         r_scan_new = saferef.safe_ref(scan_new)
 
     if scan_data is None:
         r_scan_data = Null()
-    elif not hasattr(scan_data, "__call__"):
+    elif not callable(scan_data):
         raise TypeError(f"{scan_data} is not callable")
     else:
         r_scan_data = saferef.safe_ref(scan_data)
 
     if scan_end is None:
         r_scan_end = Null()
-    elif not hasattr(scan_end, "__call__"):
+    elif not callable(scan_end):
         raise TypeError(f"{scan_end} is not callable")
     else:
         r_scan_end = saferef.safe_ref(scan_end)
@@ -151,11 +151,11 @@ class StepScanDataWatch(DataWatchCallback):
         if cb is None:
             return
 
-        if self._init_done is False:
+        if not self._init_done:
             for acq_device_or_channel, data_node in nodes.items():
                 if is_zerod(data_node):
                     channel = data_node
-                    self._channel_name_2_channel[channel.name] = channel
+                    self._channel_name_2_channel[channel.fullname] = channel
             self._init_done = True
 
         min_nb_points = None

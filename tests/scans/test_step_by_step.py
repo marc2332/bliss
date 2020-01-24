@@ -335,30 +335,6 @@ def test_scan_watch_data_set_callback_to_test_saferef(session, capsys):
     assert captured.out == ""
 
 
-def test_scan_watch_callback_with_alias(alias_session):
-    robyy = alias_session.env_dict["robyy"]
-    diode = alias_session.config.get("diode")
-    event_called = gevent.event.Event()
-
-    def on_scan_new(*args):
-        pass
-
-    def on_scan_data(scan_info, values):
-        motor_channel_name = f"axis:{robyy.name}"
-        assert motor_channel_name in values
-        event_called.set()
-
-    def on_scan_end(*args):
-        pass
-
-    scan.set_scan_watch_callbacks(on_scan_new, on_scan_data, on_scan_end)
-
-    scans.ascan(robyy, 0, 1, 2, 0.01, diode)
-
-    with gevent.Timeout(1):
-        event_called.wait()
-
-
 def test_calc_counters(session):
     robz2 = session.env_dict["robz2"]
     cnt = session.env_dict["sim_ct_gauss"]

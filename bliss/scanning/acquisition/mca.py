@@ -203,15 +203,16 @@ class McaAcquisitionSlave(AcquisitionSlave):
                 else:
                     break
 
-                # Pop and publish all items from publishing_dict
+                # Publish all items from publishing_dict
                 finally:
-                    while publishing_dict:
-
-                        # Atomic - pop the points of a single counter
-                        name, points = publishing_dict.popitem()
-
-                        # Actual publishing
-                        self.channels.update({f"{self.name}:{name}": points})
+                    # ensure no greenlet switch will alter publishing_dict,
+                    # we update channels with a copy and so we can clear
+                    # the dict just after to continue putting values in it
+                    # from data acquisition task
+                    publishing_dict_copy = publishing_dict.copy()
+                    publishing_dict.clear()
+                    self.channels.update(publishing_dict_copy)
+                    del publishing_dict_copy
 
         # Make sure the reading task has completed
         finally:
@@ -266,7 +267,7 @@ class McaAcquisitionSlave(AcquisitionSlave):
             point = counter.feed_point(spectrums, stats)
 
             # Atomic - add point to publising dict
-            publishing_dict[counter.name].append(point)
+            publishing_dict[counter.fullname].append(point)
 
 
 # HWSCA Acquisition Slave

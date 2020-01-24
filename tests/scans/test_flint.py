@@ -131,3 +131,35 @@ def test_meshselect(test_session_with_flint):
     meshselect(diode3)
     gevent.sleep(1)
     assert flint.test_count_displayed_items(plot_id) == 0
+
+
+def test_plotselect(test_session_with_flint):
+    session = test_session_with_flint
+    ascan = session.env_dict["ascan"]
+    roby = session.config.get("roby")
+    diode = session.config.get("diode")
+    diode2 = session.config.get("diode2")
+    diode3 = session.config.get("diode3")
+    flint = get_flint()
+    import logging
+
+    l = logging.getLogger("flint.output")
+    l.disabled = False
+    l.setLevel(logging.INFO)
+
+    _scan = ascan(roby, 0, 5, 2, 0.001, diode, diode2)
+
+    # synchronize redis events with flint
+    flint.wait_end_of_scans()
+
+    plot_id = flint.get_default_live_scan_plot("curve")
+
+    # Select the second diode
+    plotselect(diode2)
+    gevent.sleep(1)
+    assert flint.test_count_displayed_items(plot_id) == 1
+
+    # Select a diode which was not scanned
+    plotselect(diode3)
+    gevent.sleep(1)
+    assert flint.test_count_displayed_items(plot_id) == 0

@@ -1534,6 +1534,15 @@ def plotselect(*counters):
         counter_names[fullname] = "Y1"
     plot_select.set(counter_names)
 
+    from bliss.common import plot
+
+    if plot.check_flint():
+        channel_names = [c.fullname for c in counters]
+        flint = plot.get_flint()
+        plot_id = flint.get_default_live_scan_plot("curve")
+        if plot_id is not None:
+            flint.set_displayed_channels(plot_id, channel_names)
+
 
 def meshselect(*counters):
     """

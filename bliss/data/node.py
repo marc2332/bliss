@@ -363,9 +363,8 @@ class DataNodeIterator(object):
                     if self.wakeup_fd in read_event:
                         os.read(self.wakeup_fd, 16 * 1024)  # flush event stream
                         yield self.EVENTS.EXTERNAL_EVENT, None
+                    continue
 
-            if msg is None:
-                continue
             data = msg["data"].decode()
             channel = msg["channel"].decode()
             if data == "rpush":

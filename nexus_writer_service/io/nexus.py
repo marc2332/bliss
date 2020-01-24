@@ -20,6 +20,7 @@ import numpy
 import os
 import errno
 import re
+import traceback
 import pprint
 import logging
 import bliss
@@ -30,6 +31,7 @@ from contextlib import contextmanager
 from silx.io.dictdump import dicttojson, dicttoini
 from .io_utils import mkdir
 from ..utils import data_merging
+from ..utils.process_utils import file_processes
 
 
 DEFAULT_PLOT_NAME = "plotselect"
@@ -814,6 +816,49 @@ def nxProcess(parent, name, configdict=None, raise_on_exists=False, **kwargs):
     return h5group
 
 
+def isErrno(e, errno):
+    """
+    :param OSError e:
+    :returns bool:
+    """
+    # Because e.__cause__ is None for chained exceptions
+    return "errno = {}".format(errno) in "".join(traceback.format_exc())
+
+
+def isLockedError(e):
+    """
+    :param OSError e:
+    :returns bool:
+    """
+    # errno.EAGAIN: could also mean SWMR mode is required
+    return isErrno(e, errno.EAGAIN)
+
+
+def isNoAccessError(e):
+    """
+    :param OSError e:
+    :returns bool
+    """
+    return any(isErrno(e, _errno) for _errno in [errno.ENOENT, errno.EACCES])
+
+
+def lockedErrorMessage(filename):
+    """
+    :param str filename:
+    :returns str:
+    """
+    msg = "File is locked (name = {})".format(repr(filename))
+    pattern = ".+{}$".format(os.path.basename(filename))
+    procs = file_processes(pattern)
+    if procs:
+        msg += " by one of these processes:"
+        for fname, proc in procs:
+            msg += "\n {}: {}".format(proc, fname)
+        msg += "\n"
+    msg += "Please terminate the locking process. External applications should open the file in read-only mode with file locking disabled."
+    return msg
+
+
 class File(h5py.File):
     def __init__(
         self,
@@ -857,12 +902,11 @@ class File(h5py.File):
                     except BaseException:
                         pass
             except OSError as e:
-                # errno.EAGAIN: file is locked
                 if (
                     swmr is not None
                     or mode != "r"
                     or not HASSWMR
-                    or e.errno == errno.EAGAIN
+                    or not isErrno(e, errno.EAGAIN)
                 ):
                     raise
                 # Try reading with opposite SWMR mode

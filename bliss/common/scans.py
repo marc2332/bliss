@@ -1520,6 +1520,28 @@ def last_scan_motors():
     return [current_session.env_dict[axis_name] for axis_name in axes_name]
 
 
+def get_channel_names(*objs) -> List[str]:
+    """
+    # FIXME: For now only counters and axis are supported.
+    """
+    result: List[str] = []
+    for obj in objs:
+        # An object could contain many channels?
+        channel_names: List[str] = []
+        if isinstance(obj, str):
+            channel_names = [obj]
+        elif isinstance(obj, Axis):
+            channel_names = ["axis:%s" % obj.name]
+        elif hasattr(obj, "fullname"):
+            # Assume it's a counter
+            channel_names = [obj.fullname]
+        else:
+            # FIXME: Add a warning
+            pass
+        result.extend(channel_names)
+    return result
+
+
 def plotselect(*counters):
     """
     Select counter(s) to use for:
@@ -1528,16 +1550,17 @@ def plotselect(*counters):
     Saved as a HashSetting with '<session_name>:plot_select' key.
     """
     plot_select = HashSetting("%s:plot_select" % current_session.name)
+    channel_names = get_channel_names(*counters)
     counter_names = dict()
-    for cnt in counters:
-        fullname = cnt.fullname  # should be like: <controller.counter>
+    for channel_name in channel_names:
+        fullname = channel_name  # should be like: <controller.counter>
         counter_names[fullname] = "Y1"
     plot_select.set(counter_names)
 
     from bliss.common import plot
 
     if plot.check_flint():
-        channel_names = [c.fullname for c in counters]
+        channel_names = get_channel_names(*counters)
         flint = plot.get_flint()
         plot_id = flint.get_default_live_scan_plot("curve")
         if plot_id is not None:
@@ -1554,7 +1577,7 @@ def meshselect(*counters):
     from bliss.common import plot
 
     if plot.check_flint():
-        channel_names = [c.fullname for c in counters]
+        channel_names = get_channel_names(*counters)
         flint = plot.get_flint()
         plot_id = flint.get_default_live_scan_plot("scatter")
         if plot_id is not None:

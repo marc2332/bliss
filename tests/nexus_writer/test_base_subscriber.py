@@ -72,8 +72,7 @@ def test_base_subscriber(session):
     del scan
     subscriber.stop(successfull=True)
     _wait_finished(subscriber, successfull=True)
-    # TODO: why do we have more NEW_NODE events?
-    assert subscriber.progress == nnodes + len(detectors) - 1, msg
+    assert subscriber.progress == nnodes, msg
 
     # Resources
     while gc.collect():

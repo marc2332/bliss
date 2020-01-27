@@ -41,7 +41,7 @@ def get_jinja2():
 
 def get_item(cfg):
     from ..static import get_config
-    from ..conductor.web.config_app import get_item
+    from ..conductor.web.configuration.config_app import get_item
 
     config = get_config()
     items = [

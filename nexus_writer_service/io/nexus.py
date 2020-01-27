@@ -1338,11 +1338,7 @@ def nxCreateDataSet(h5group, name, value, attrs, stringasuri=False):
             value = dict(value)
             axis = value.pop("axis", 0)
             uris = value.pop("data", [])
-            logger.debug(
-                "Create HDF5 dataset {}/{}: merge {}".format(
-                    getUri(h5group), name, uris
-                )
-            )
+            logger.debug("Create HDF5 dataset {}/{}".format(getUri(h5group), name))
             createMergedDataset(h5group, name, uris, axis=axis, **value)
         else:
             # TODO: external datasets do not support relative paths

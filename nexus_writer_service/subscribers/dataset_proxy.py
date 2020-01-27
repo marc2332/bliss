@@ -491,8 +491,8 @@ class DatasetProxy(BaseProxy):
     def _dset_value(self):
         value = {"fillvalue": self.fillvalue, "dtype": self.dtype}
         if self._external_datasets:
-            uris, fill_generator = self._external_dataset_uris()
-            value["data"] = uris
+            files, nuris, fill_generator = self._external_dataset_uris()
+            value["data"] = files
             value["order"] = self.saveorder
             value["fill_generator"] = fill_generator
             value["axis"] = 0
@@ -501,13 +501,17 @@ class DatasetProxy(BaseProxy):
             if nexus.HASVIRTUAL:
                 value["shape"] = self.current_shape
                 self.logger.info(
-                    "create as merged external HDF5 datasets (link using VDS)"
+                    "merge {} URIs from {} files as a virtual dataset".format(
+                        nuris, len(files)
+                    )
                 )
             else:
                 value["compression"] = self.compression
                 value["chunks"] = self.chunks
                 self.logger.info(
-                    "create as merged external HDF5 datasets (copy because VDS not supported)"
+                    "merge {} URIs from {} files as a copy (VDS not supported)".format(
+                        nuris, len(files)
+                    )
                 )
         elif self._external_raw:
             self._get_external_raw(value)
@@ -533,8 +537,9 @@ class DatasetProxy(BaseProxy):
             #         links are absolute paths
             value["shape"] = self.current_shape
             value["chunks"] = None
-            self.logger.debug(
-                "create as merged external non-HDF5 data (link using external dataset)"
+            nuris = len(value.get("external", []))
+            self.logger.info(
+                "merge {} URIs as external (non-HDF5) dataset".format(nuris)
             )
         elif self._external_names:
             value = []
@@ -542,7 +547,7 @@ class DatasetProxy(BaseProxy):
             for filename, ind in self._external_names:
                 filename = os.path.relpath(filename, dirname)
                 value.append("{}::{}".format(filename, ind))
-            self.logger.debug("create as list of uris")
+            self.logger.info("merge {} URIs as list of strings".format(len(value)))
         else:
             value["shape"] = self.current_shape
             value["chunks"] = self.chunks
@@ -553,7 +558,7 @@ class DatasetProxy(BaseProxy):
 
     def _external_dataset_uris(self):
         """
-        :returns list, generator:
+        :returns list, num, generator:
         """
         # Assume dataset shapes are (nframes, detdim0, detdim1, ...)
         extorder = Order()
@@ -590,8 +595,9 @@ class DatasetProxy(BaseProxy):
 
                 yield uri, index_generator
 
-        uris = list(uridict.keys())
-        return uris, fill_generator
+        files = list(uridict.keys())
+        nuris = sum(len(v) for v in uridict.values())
+        return files, nuris, fill_generator
 
     def _add_detidx(self, tpl, corder):
         if not isinstance(tpl, tuple):

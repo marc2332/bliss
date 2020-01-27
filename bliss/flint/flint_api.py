@@ -482,7 +482,7 @@ class FlintApi:
                     channel = scan.getChannelByName(channel_name)
                     if channel is None:
                         # Create an item pointing to a non existing channel
-                        channelRef = plot_model.ChannelRef(plot)
+                        channelRef = plot_model.ChannelRef(plot, channel_name)
                         if kind == "scatter":
                             item = plot_item_model.ScatterItem(plot)
                             item.setValueChannel(channelRef)

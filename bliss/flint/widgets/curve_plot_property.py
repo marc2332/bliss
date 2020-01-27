@@ -716,7 +716,10 @@ class CurvePlotPropertyWidget(qt.QWidget):
                             yChannel = plotItem.yChannel()
                             if yChannel is not None:
                                 yChannelName = yChannel.name()
-                                parentChannel = channelItems[yChannelName]
+                                _logger.error(yChannelName)
+                                parentChannel = channelItems.get(yChannelName, None)
+                                if parentChannel is None:
+                                    parent = itemWithoutLocation
                             else:
                                 # item with bad content
                                 continue

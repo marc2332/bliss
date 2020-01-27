@@ -8,8 +8,10 @@
 import gevent
 
 from .opiom import Opiom
+from bliss import global_map
 from bliss.config import static
 from bliss.config.settings import HashObjSetting
+from bliss.common.logtools import log_debug
 
 
 class Output:
@@ -130,15 +132,17 @@ class Multiplexer:
                 raise ValueError("Multiple output with the same name (%s)" % out.name())
 
         self.__stat = HashObjSetting("multiplexer.%s" % name)
-        self.__debug = False
 
-    def setDebug(self, flag):
-        self.__debug = flag is True
-        for opiom in self._boards.values():
-            opiom.setDebug(self.__debug)
+        global_map.register(
+            self, children_list=list(self._boards.values()), tag=f"multiplexer:{name}"
+        )
 
-    def getDebug(self):
-        return self.__debug
+        self.load_program()
+
+    def configure(self):
+        from bliss.shell.dialog.controller.multiplexer_dialogs import multiplexer_dialog
+
+        multiplexer_dialog(self)
 
     def getOutputList(self):
         return list(self.__outputs.keys())
@@ -146,6 +150,10 @@ class Multiplexer:
     def getPossibleValues(self, output_key):
         output_key = output_key.upper()
         return self.__outputs[output_key].getSwitchList()
+
+    def getAllPossibleValues(self):
+        values = [(key, val.getSwitchList()) for key, val in self.__outputs.items()]
+        return dict(values)
 
     def getKeyAndName(self):
         return dict([(key, output.comment()) for key, output in self.__outputs.items()])
@@ -157,8 +165,7 @@ class Multiplexer:
     def switch(self, output_key, input_key, synchronous=False):
         output_key = output_key.upper()
         input_key = input_key.upper()
-        if self.__debug:
-            print("Multiplexer.switch %s to %s" % (output_key, input_key))
+        log_debug(self, "Multiplexer.switch %s to %s" % (output_key, input_key))
         try:
             output = self.__outputs[output_key]
         except KeyError:
@@ -193,8 +200,7 @@ class Multiplexer:
 
     def getOutputStat(self, output_key):
         output_key = output_key.upper()
-        if self.__debug:
-            print("Multiplexer.getOutputStat %s" % output_key)
+        log_debug(self, "Multiplexer.getOutputStat %s" % output_key)
         output = self.__outputs[output_key]
         opiomRegister = {}
         futures = [(b, gevent.spawn(b.registers)) for b in self._boards.values()]
@@ -231,8 +237,7 @@ class Multiplexer:
         return list(self.__stat.keys())
 
     def getGlobalStat(self):
-        if self.__debug:
-            print("Multiplexer.getGlobalStat")
+        log_debug(self, "Multiplexer.getGlobalStat")
         opiomRegister = {}
         futures = [(b, gevent.spawn(b.registers)) for b in self._boards.values()]
         for board, registers in futures:

@@ -317,8 +317,7 @@ class MapWithAliases(Map):
                 continue
 
         for obj in self.aliases:
-            if not isinstance(obj, ObjectAlias):
-                # must be Counter alias
+            if isinstance(obj, CounterAlias):
                 yield obj
 
     @property

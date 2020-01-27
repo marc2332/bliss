@@ -23,7 +23,6 @@ from gevent.threadpool import ThreadPool
 
 from bliss.data.scan import watch_session_scans
 
-from bliss import setup_globals
 from bliss.common.axis import Axis
 from bliss.common.event import dispatcher
 from bliss.config.settings import HashSetting
@@ -57,7 +56,14 @@ def print_full_line(msg, deco="=", head="\n", tail="\n"):
 
 
 def _find_obj(name):
-    return operator.attrgetter(name)(setup_globals)
+    # get_axes_iter() returns un-aliased Axis objects only
+    for axis in global_map.get_axes_iter():
+        if global_map.alias_or_name(axis) == name:
+            return axis
+    # get_counters_iter() returns all counter objects (incl. aliases)
+    for cnt in global_map.get_counters_iter():
+        if cnt.name == name:
+            return cnt
 
 
 def _find_unit(obj):
@@ -71,7 +77,7 @@ def _find_unit(obj):
             return obj.config.get("unit")
         if hasattr(obj, "controller"):
             return _find_unit(obj.controller)
-    except:
+    except Exception:
         return
 
 
@@ -136,25 +142,21 @@ class ScanPrinter:
                 self.col_labels.insert(1, f"dt[{channel_unit}]")
             else:
                 # we can suppose channel_fullname to be a motor name
-                try:
-                    motor = _find_obj(channel_short_name)
-                except Exception:
-                    continue
-                else:
-                    if isinstance(motor, Axis):
-                        self.real_motors.append(motor)
-                        if self.term.is_a_tty:
-                            dispatcher.connect(
-                                self._on_motor_position_changed,
-                                signal="position",
-                                sender=motor,
-                            )
-                        unit = motor.config.get("unit", default=None)
-                        motor_label = global_map.alias_or_name(motor)
-                        if unit:
-                            motor_label += "[{0}]".format(unit)
-                        motor_labels.append(motor_label)
-                        self.motor_fullnames.append("axis:" + motor.name)
+                motor = _find_obj(channel_short_name)
+                if isinstance(motor, Axis):
+                    self.real_motors.append(motor)
+                    if self.term.is_a_tty:
+                        dispatcher.connect(
+                            self._on_motor_position_changed,
+                            signal="position",
+                            sender=motor,
+                        )
+                    unit = motor.config.get("unit", default=None)
+                    motor_label = motor.name  # global_map.alias_or_name(motor)
+                    if unit:
+                        motor_label += "[{0}]".format(unit)
+                    motor_labels.append(motor_label)
+                    self.motor_fullnames.append("axis:" + motor.name)
 
         for channel_fullname in channels["scalars"]:
             channel_short_name = channels["display_names"][channel_fullname]
@@ -665,16 +667,12 @@ def _local_pb(scan, repl, task):
         master, channels = next(iter(scan_info["acquisition_chain"].items()))
         for channel_fullname in channels["master"]["scalars"]:
             channel_short_name = channels["master"]["display_names"][channel_fullname]
-            try:
-                motor = _find_obj(channel_short_name)
-            except Exception:
-                continue
-            else:
-                if isinstance(motor, Axis):
-                    real_motors.append(motor)
-                    dispatcher.connect(
-                        on_motor_position_changed, signal="position", sender=motor
-                    )
+            motor = _find_obj(channel_short_name)
+            if isinstance(motor, Axis):
+                real_motors.append(motor)
+                dispatcher.connect(
+                    on_motor_position_changed, signal="position", sender=motor
+                )
         if scan.scan_info.get("type") == "ct":
 
             class my_pb(progressbar.ProgressBar):

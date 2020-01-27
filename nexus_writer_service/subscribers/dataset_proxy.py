@@ -539,7 +539,7 @@ class DatasetProxy(BaseProxy):
             value["chunks"] = None
             nuris = len(value.get("external", []))
             self.logger.info(
-                "merge {} URIs as external (non-HDF5) dataset".format(nuris)
+                "merge {} URIs as an external (non-HDF5) dataset".format(nuris)
             )
         elif self._external_names:
             value = []
@@ -547,7 +547,7 @@ class DatasetProxy(BaseProxy):
             for filename, ind in self._external_names:
                 filename = os.path.relpath(filename, dirname)
                 value.append("{}::{}".format(filename, ind))
-            self.logger.info("merge {} URIs as list of strings".format(len(value)))
+            self.logger.info("merge {} URIs as a list of strings".format(len(value)))
         else:
             value["shape"] = self.current_shape
             value["chunks"] = self.chunks

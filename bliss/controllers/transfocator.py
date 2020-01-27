@@ -377,6 +377,16 @@ class Transfocator:
             return
         self.tfstatus_set(bits)
 
+    def set_bitvalue(self, value):
+        """ Set bit values checking if there is a security pinhole to set.
+        Args:
+            (value): lens bit value
+        """
+        if self.safety and value and self.pinhole:
+            for pinhole in self.pinhole:
+                value |= 1 << pinhole
+        self.tfstatus_set(value)
+
     def set_all(self, set_in=True):
         """ Set all the lenses IN or OUT
         Args:

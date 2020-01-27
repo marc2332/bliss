@@ -47,7 +47,7 @@ import gevent
 from functools import wraps
 import types
 import typeguard
-from typing import Union, Optional, Tuple, List, Sequence
+from typing import Union, Optional, Tuple, List, Sequence, Dict
 
 from bliss import current_session
 from bliss.common.utils import rounder
@@ -57,7 +57,7 @@ from bliss.common.cleanup import error_cleanup
 from bliss.config.settings import HashSetting
 from bliss.data.scan import get_counter_names
 from bliss.scanning.toolbox import DefaultAcquisitionChain
-from bliss.scanning.scan import Scan, StepScanDataWatch
+from bliss.scanning.scan import Scan, StepScanDataWatch, ScanDisplay
 from bliss.scanning.acquisition.motor import VariableStepTriggerMaster
 from bliss.scanning.acquisition.motor import MeshStepTriggerMaster
 from bliss.controllers.motor import CalcController
@@ -710,6 +710,8 @@ def anscan(
 
     scan_info["start"] = starts_list
     scan_info["stop"] = stops_list
+
+    _update_with_scan_display_meta(scan_info)
 
     scan_params = dict()
     scan_params["start"] = starts_list
@@ -1706,3 +1708,12 @@ def goto_peak(counter=None, axis=None):
 def where():
     for axis in last_scan_motors():
         current_session.scans[-1].where(axis=axis)
+
+
+def _update_with_scan_display_meta(scan_info: Dict):
+    """Read and remove meta stored in the ScanDisplay and feed the scan_info
+    with."""
+    scan_display = ScanDisplay()
+    info = scan_display.pop_scan_meta()
+    if info is not None:
+        scan_info["_display_extra"] = info

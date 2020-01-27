@@ -289,14 +289,22 @@ class ManageMainBehaviours(qt.QObject):
     def updateScanAndPlots(self, scan: scan_model.Scan, plots: List[plot_model.Plot]):
         flint = self.__flintModel
         workspace = flint.workspace()
-
-        if flint.currentScan() is not None:
+        previousScan = flint.currentScan()
+        if previousScan is not None:
             sameScan = (
-                flint.currentScan().scanInfo()["acquisition_chain"]
+                previousScan.scanInfo()["acquisition_chain"]
                 == scan.scanInfo()["acquisition_chain"]
             )
+            enforceDisplay = (
+                scan.scanInfo()
+                .get("_display_extra", {})
+                .get("displayed_channels", None)
+                is not None
+            )
+            updatePlotModel = enforceDisplay or not sameScan
         else:
-            sameScan = False
+            updatePlotModel = True
+        _logger.error(updatePlotModel)
 
         if len(plots) > 0:
             defaultPlot = plots[0]
@@ -313,7 +321,7 @@ class ManageMainBehaviours(qt.QObject):
             ]
 
         # Remove previous plot models
-        if not sameScan and not isCt:
+        if updatePlotModel and not isCt:
             for widget in workspace.widgets():
                 widget.setPlotModel(None)
             for plot in workspace.plots():
@@ -357,7 +365,7 @@ class ManageMainBehaviours(qt.QObject):
                     else:
                         plotModel = compatibleModel()
 
-                if not sameScan:
+                if updatePlotModel:
                     if plotModel.styleStrategy() is None:
                         plotModel.setStyleStrategy(
                             DefaultStyleStrategy(self.__flintModel)

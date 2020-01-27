@@ -746,7 +746,7 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
             if dproxy.reshaped == grid:
                 if not nexus.HASVIRTUAL:
                     dproxy.logger.error(
-                        "Cannot reshape {} for plot {} due to missing VDS support".format(
+                        "Cannot reshape for plot {} due to missing VDS support".format(
                             repr(plotname)
                         )
                     )

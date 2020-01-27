@@ -283,7 +283,7 @@ class ManageMainBehaviours(qt.QObject):
         # Update the current scan only if the previous one is finished
         # FIXME: It should be managed in a better way, but for now it's fine
         scanInfo = scan.scanInfo()
-        plots = scan_info_helper.create_plot_model(scanInfo)
+        plots = scan_info_helper.create_plot_model(scanInfo, scan)
         self.updateScanAndPlots(scan, plots)
 
     def updateScanAndPlots(self, scan: scan_model.Scan, plots: List[plot_model.Plot]):

@@ -121,9 +121,6 @@ class Sequence:
                 gevent.killall(self._waiting_scans)
                 err = True
 
-                if self.scan.state == ScanState.STARTING:
-                    self.scan._Scan__state = ScanState.DONE
-
             if len(self._scans) > 0:
                 # waiting for the last point to be published before killing the scan greenlet
                 while self.group_acq_master.queue.qsize() > 0:
@@ -131,12 +128,7 @@ class Sequence:
                     gevent.sleep(0)
                 self.group_acq_master.publish_event.wait()
 
-            if self.scan.state == ScanState.STARTING:
-                self.scan._Scan__state = ScanState.DONE
-
-            self.scan.writer._remove_callbacks()
-            self.scan.disconnect_all()
-            group_scan.kill()
+            group_scan.join()
 
             if err:
                 raise RuntimeError(

@@ -908,13 +908,9 @@ class Scan:
                 uniquify_chan_name(acq_chain, n, channels)
 
         check_acq_chan_unique_name(chain)
-        ###
 
         self.__nodes = dict()
         self._devices = []
-
-        self.user_scan_meta = get_user_scan_meta().copy()
-        # call all master and device to fill scan_meta
 
         self._scan_info["session_name"] = session_name
         self._scan_info["user_name"] = user_name
@@ -1244,10 +1240,8 @@ class Scan:
     def _prepare_scan_meta(self):
         self._scan_info["filename"] = self.writer.filename
         self.user_scan_meta = get_user_scan_meta().copy()
-        # call all master and device to fill scan_meta
-        for dev in self.acq_chain.nodes_list:
-            dev.fill_meta_at_scan_start(self.user_scan_meta)
-        deep_update(self._scan_info, self.user_scan_meta.to_dict(self))
+        with KillMask(masked_kill_nb=1):
+            deep_update(self._scan_info, self.user_scan_meta.to_dict(self))
         self._scan_info["scan_meta_categories"] = self.user_scan_meta.cat_list()
 
     def disconnect_all(self):
@@ -1329,9 +1323,9 @@ class Scan:
                     gevent.joinall(prepare_tasks, raise_error=True)
                 finally:
                     gevent.killall(prepare_tasks)
-
             for dev in self.acq_chain.nodes_list:
-                tmp = dev.fill_meta_at_scan_start(self.user_scan_meta)
+                with KillMask(masked_kill_nb=1):
+                    tmp = dev.fill_meta_at_scan_start(self.user_scan_meta)
                 if tmp:
                     update_node_info(self.nodes[dev], tmp)
 
@@ -1400,19 +1394,24 @@ class Scan:
                     # check if there is any master or device that would like
                     # to provide meta data at the end of the scan
                     for dev in self.acq_chain.nodes_list:
-                        tmp = dev.fill_meta_at_scan_end(self.user_scan_meta)
+                        with KillMask(masked_kill_nb=1):
+                            tmp = dev.fill_meta_at_scan_end(self.user_scan_meta)
                         if tmp:
                             update_node_info(self.nodes[dev], tmp)
-                    self.user_scan_meta.instrument.remove("positioners")
-                    deep_update(self._scan_info, self.user_scan_meta.to_dict(self))
-                    self._scan_info[
-                        "scan_meta_categories"
-                    ] = self.user_scan_meta.cat_list()
+                    with KillMask(masked_kill_nb=1):
+                        self.user_scan_meta.instrument.remove(
+                            "positioners"
+                        )  ## this should be removed soon
+                        deep_update(self._scan_info, self.user_scan_meta.to_dict(self))
+                        self._scan_info[
+                            "scan_meta_categories"
+                        ] = self.user_scan_meta.cat_list()
 
-                    # update scan_info in redis
-                    self.node._info.update(self.scan_info)
+                        # update scan_info in redis
+                        self.node._info.update(self.scan_info)
 
-                self.set_ttl()
+                with capture():
+                    self.set_ttl()
 
                 self.node.end()
 
@@ -1422,7 +1421,6 @@ class Scan:
                         node.close()
                     except AttributeError:
                         pass
-
                 # Disconnect events
                 self.disconnect_all()
 

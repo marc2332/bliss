@@ -32,7 +32,7 @@ class SpeedgoatAcquisitionSlave(AcquisitionSlave):
         self.nb_points = npoints
 
     def add_counter(self, counter):
-        super().add_counter(self.speedgoat.counters[counter.name])
+        super().add_counter(counter)  # self.speedgoat.counters[counter.name])
 
     def wait_ready(self):
         # return only when ready

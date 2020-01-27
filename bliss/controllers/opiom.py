@@ -182,7 +182,7 @@ class Opiom:
                 # program already loaded
                 log_debug(
                     self,
-                    "No need to reload opiom program: PLDID did not change %d" % pldid,
+                    "No need to reload opiom program: PLDID did not change %s" % pldid,
                 )
                 return
 
@@ -220,7 +220,7 @@ class Opiom:
             stat_num = self.comm("?PSTAT")
             print("                         ", end="\r")
             print("{0}".format(stat_num), end="\r")
-            log_debug(self, "Load %d" % stat_num)
+            log_debug(self, "Load %s" % stat_num)
             try:
                 stat, percent = stat_num.split()
             except ValueError:

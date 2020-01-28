@@ -165,13 +165,7 @@ class CurvePlotWidget(ExtendedDockWidget):
         return self.__flintModel
 
     def setFlintModel(self, flintModel: Optional[flint_model.FlintState]):
-        if self.__flintModel is not None:
-            self.__flintModel.currentScanChanged.disconnect(self.__currentScanChanged)
-            self.__setScan(None)
         self.__flintModel = flintModel
-        if self.__flintModel is not None:
-            self.__flintModel.currentScanChanged.connect(self.__currentScanChanged)
-            self.__setScan(self.__flintModel.currentScan())
 
     def setPlotModel(self, plotModel: plot_model.Plot):
         if self.__plotModel is not None:
@@ -287,15 +281,10 @@ class CurvePlotWidget(ExtendedDockWidget):
             if isinstance(item, plot_item_model.MotorPositionMarker):
                 self.__updatePlotItem(item, scan)
 
-    def __currentScanChanged(
-        self, previousScan: scan_model.Scan, newScan: scan_model.Scan
-    ):
-        self.__setScan(newScan)
-
     def scan(self) -> Optional[scan_model.Scan]:
         return self.__scan
 
-    def __setScan(self, scan: scan_model.Scan = None):
+    def setScan(self, scan: scan_model.Scan = None):
         if self.__scan is scan:
             return
         if self.__scan is not None:

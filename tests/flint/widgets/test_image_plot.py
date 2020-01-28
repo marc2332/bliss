@@ -88,9 +88,9 @@ class TestImagePlot(TestCaseQt):
         data = scan_model.Data(scan, array)
         scan.getChannelByName("chan1").setData(data)
 
-        flint.setCurrentScan(scan)
         widget = ImagePlotWidget()
         widget.setFlintModel(flint)
+        widget.setScan(scan)
         widget.setPlotModel(plot)
         widget.show()
 
@@ -109,10 +109,10 @@ class TestImagePlot(TestCaseQt):
         data = scan_model.Data(scan, array)
         scan.getChannelByName("chan1").setData(data)
 
-        flint.setCurrentScan(scan)
         widget = ImagePlotWidget()
         widget.setAttribute(qt.Qt.WA_DeleteOnClose)
         widget.setFlintModel(flint)
+        widget.setScan(scan)
         widget.setPlotModel(plot)
         widget.show()
         self.qWait(1000)
@@ -142,10 +142,10 @@ class TestImagePlot(TestCaseQt):
         data = scan_model.Data(scan, array)
         scan.getChannelByName("chan1").setData(data)
 
-        flint.setCurrentScan(scan)
         widget = ImagePlotWidget()
         widget.setAttribute(qt.Qt.WA_DeleteOnClose)
         widget.setFlintModel(flint)
+        widget.setScan(scan)
         widget.setPlotModel(plot)
         widget.show()
 
@@ -169,6 +169,7 @@ class TestImagePlot(TestCaseQt):
         widget = ImagePlotWidget()
         widget.setAttribute(qt.Qt.WA_DeleteOnClose)
         widget.setFlintModel(flint)
+        widget.setScan(scan)
         widget.setPlotModel(plot)
         widget.show()
         self.qWait(1000)
@@ -180,7 +181,7 @@ class TestImagePlot(TestCaseQt):
         array = numpy.arange(4).reshape(2, 2)
         data = scan_model.Data(scan2, array)
         scan2.getChannelByName("chan1").setData(data)
-        flint.setCurrentScan(scan2)
+        widget.setScan(scan2)
         self.qWait(1000)
         silxPlot = widget._silxPlot()
         assert len(silxPlot.getItems()) > self.NB_PERMANENT_ITEM
@@ -196,10 +197,10 @@ class TestImagePlot(TestCaseQt):
         array = numpy.arange(4).reshape(2, 2)
         data = scan_model.Data(scan, array)
         scan.getChannelByName("chan1").setData(data)
-        flint.setCurrentScan(scan)
         widget = ImagePlotWidget()
         widget.setAttribute(qt.Qt.WA_DeleteOnClose)
         widget.setFlintModel(flint)
+        widget.setScan(scan)
         widget.setPlotModel(plot)
         widget.show()
         self.qWait(1000)
@@ -208,7 +209,7 @@ class TestImagePlot(TestCaseQt):
 
         # Provide a new scan without data
         scan2 = self.create_scan()
-        flint.setCurrentScan(scan2)
+        widget.setScan(scan2)
         silxPlot = widget._silxPlot()
         self.qWait(1000)
         assert len(silxPlot.getItems()) == self.NB_PERMANENT_ITEM
@@ -227,10 +228,10 @@ class TestImagePlot(TestCaseQt):
         data = scan_model.Data(scan, array)
         scan.getChannelByName("chan2").setData(data)
 
-        flint.setCurrentScan(scan)
         widget = ImagePlotWidget()
         widget.setAttribute(qt.Qt.WA_DeleteOnClose)
         widget.setFlintModel(flint)
+        widget.setScan(scan)
         widget.setPlotModel(plot)
         widget.show()
 

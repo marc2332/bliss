@@ -105,9 +105,9 @@ class TestCurvePlot(TestCaseQt):
         scan.getChannelByName("chan1").setData(data)
         scan.getChannelByName("chan-x").setData(data)
 
-        flint.setCurrentScan(scan)
         widget = CurvePlotWidget()
         widget.setFlintModel(flint)
+        widget.setScan(scan)
         widget.setPlotModel(plot)
         widget.show()
 
@@ -127,10 +127,10 @@ class TestCurvePlot(TestCaseQt):
         scan.getChannelByName("chan1").setData(data)
         scan.getChannelByName("chan-x").setData(data)
 
-        flint.setCurrentScan(scan)
         widget = CurvePlotWidget()
         widget.setAttribute(qt.Qt.WA_DeleteOnClose)
         widget.setFlintModel(flint)
+        widget.setScan(scan)
         widget.setPlotModel(plot)
         widget.show()
         self.qWait(1000)
@@ -158,10 +158,10 @@ class TestCurvePlot(TestCaseQt):
         scan.getChannelByName("chan1").setData(data)
         scan.getChannelByName("chan-x").setData(data)
 
-        flint.setCurrentScan(scan)
         widget = CurvePlotWidget()
         widget.setAttribute(qt.Qt.WA_DeleteOnClose)
         widget.setFlintModel(flint)
+        widget.setScan(scan)
         widget.setPlotModel(plot)
         widget.show()
 
@@ -182,10 +182,10 @@ class TestCurvePlot(TestCaseQt):
         flint = self.create_flint_model()
 
         # Display a scan without data
-        flint.setCurrentScan(scan)
         widget = CurvePlotWidget()
         widget.setAttribute(qt.Qt.WA_DeleteOnClose)
         widget.setFlintModel(flint)
+        widget.setScan(scan)
         widget.setPlotModel(plot)
         widget.show()
         self.qWait(1000)
@@ -197,7 +197,7 @@ class TestCurvePlot(TestCaseQt):
         data = scan_model.Data(scan2, array)
         scan2.getChannelByName("chan1").setData(data)
         scan2.getChannelByName("chan-x").setData(data)
-        flint.setCurrentScan(scan2)
+        widget.setScan(scan2)
         self.qWait(1000)
         assert self.nbItems(widget) == 1
         widget.close()
@@ -213,10 +213,10 @@ class TestCurvePlot(TestCaseQt):
         data = scan_model.Data(scan, array)
         scan.getChannelByName("chan1").setData(data)
         scan.getChannelByName("chan-x").setData(data)
-        flint.setCurrentScan(scan)
         widget = CurvePlotWidget()
         widget.setAttribute(qt.Qt.WA_DeleteOnClose)
         widget.setFlintModel(flint)
+        widget.setScan(scan)
         widget.setPlotModel(plot)
         widget.show()
         self.qWait(1000)
@@ -224,7 +224,7 @@ class TestCurvePlot(TestCaseQt):
 
         # Provide a new scan without data
         scan2 = self.create_scan()
-        flint.setCurrentScan(scan2)
+        widget.setScan(scan2)
         self.qWait(1000)
         assert self.nbItems(widget) == 0
         widget.close()
@@ -243,10 +243,10 @@ class TestCurvePlot(TestCaseQt):
         data = scan_model.Data(scan, array)
         scan.getChannelByName("chan2").setData(data)
 
-        flint.setCurrentScan(scan)
         widget = CurvePlotWidget()
         widget.setAttribute(qt.Qt.WA_DeleteOnClose)
         widget.setFlintModel(flint)
+        widget.setScan(scan)
         widget.setPlotModel(plot)
         widget.show()
 

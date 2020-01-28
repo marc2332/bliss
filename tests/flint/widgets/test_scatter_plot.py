@@ -111,9 +111,9 @@ class TestScatterPlot(TestCaseQt):
         data = scan_model.Data(scan, array)
         scan.getChannelByName("chan-v1").setData(data)
 
-        flint.setCurrentScan(scan)
         widget = ScatterPlotWidget()
         widget.setFlintModel(flint)
+        widget.setScan(scan)
         widget.setPlotModel(plot)
         widget.show()
 
@@ -138,10 +138,10 @@ class TestScatterPlot(TestCaseQt):
         data = scan_model.Data(scan, array)
         scan.getChannelByName("chan-v1").setData(data)
 
-        flint.setCurrentScan(scan)
         widget = ScatterPlotWidget()
         widget.setAttribute(qt.Qt.WA_DeleteOnClose)
         widget.setFlintModel(flint)
+        widget.setScan(scan)
         widget.setPlotModel(plot)
         widget.show()
         silxPlot = widget._silxPlot()
@@ -179,10 +179,10 @@ class TestScatterPlot(TestCaseQt):
         data = scan_model.Data(scan, array)
         scan.getChannelByName("chan-v1").setData(data)
 
-        flint.setCurrentScan(scan)
         widget = ScatterPlotWidget()
         widget.setAttribute(qt.Qt.WA_DeleteOnClose)
         widget.setFlintModel(flint)
+        widget.setScan(scan)
         widget.setPlotModel(plot)
         widget.show()
 
@@ -211,10 +211,10 @@ class TestScatterPlot(TestCaseQt):
         flint = self.create_flint_model()
 
         # Display a scan without data
-        flint.setCurrentScan(scan)
         widget = ScatterPlotWidget()
         widget.setAttribute(qt.Qt.WA_DeleteOnClose)
         widget.setFlintModel(flint)
+        widget.setScan(scan)
         widget.setPlotModel(plot)
         widget.show()
         silxPlot = widget._silxPlot()
@@ -233,7 +233,7 @@ class TestScatterPlot(TestCaseQt):
         data = scan_model.Data(scan, array)
         scan2.getChannelByName("chan-v1").setData(data)
 
-        flint.setCurrentScan(scan2)
+        widget.setScan(scan2)
         self.qWait(1000)
 
         scatters = [o for o in silxPlot.getItems() if isinstance(o, silx_items.Scatter)]
@@ -256,11 +256,11 @@ class TestScatterPlot(TestCaseQt):
         array = numpy.arange(4) + 100
         data = scan_model.Data(scan, array)
         scan.getChannelByName("chan-v1").setData(data)
-        flint.setCurrentScan(scan)
 
         widget = ScatterPlotWidget()
         widget.setAttribute(qt.Qt.WA_DeleteOnClose)
         widget.setFlintModel(flint)
+        widget.setScan(scan)
         widget.setPlotModel(plot)
         widget.show()
         silxPlot = widget._silxPlot()
@@ -269,7 +269,7 @@ class TestScatterPlot(TestCaseQt):
 
         # Provide a new scan without data
         scan2 = self.create_scan()
-        flint.setCurrentScan(scan2)
+        widget.setScan(scan2)
         self.qWait(1000)
         silxPlot = widget._silxPlot()
         scatters = [o for o in silxPlot.getItems() if isinstance(o, silx_items.Scatter)]
@@ -300,11 +300,10 @@ class TestScatterPlot(TestCaseQt):
         data = scan_model.Data(scan, array)
         scan.getChannelByName("chan-v1").setData(data)
 
-        flint.setCurrentScan(scan)
-
         widget = ScatterPlotWidget()
         widget.setAttribute(qt.Qt.WA_DeleteOnClose)
         widget.setFlintModel(flint)
+        widget.setScan(scan)
         widget.setPlotModel(plot)
         widget.show()
         self.qWait(1000)
@@ -338,11 +337,10 @@ class TestScatterPlot(TestCaseQt):
         data = scan_model.Data(scan, array)
         scan.getChannelByName("chan-v1").setData(data)
 
-        flint.setCurrentScan(scan)
-
         widget = ScatterPlotWidget()
         widget.setAttribute(qt.Qt.WA_DeleteOnClose)
         widget.setFlintModel(flint)
+        widget.setScan(scan)
         widget.setPlotModel(plot)
         widget.show()
         self.qWait(1000)

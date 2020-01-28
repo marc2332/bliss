@@ -14,7 +14,6 @@ from louie import dispatcher
 from bliss.common import scans
 from nexus_writer_service.utils import scan_utils
 from nexus_writer_service.io import nexus
-from nexus_writer_service.utils import async_utils
 
 
 def test_nxw_readers(nexus_writer_config):
@@ -51,13 +50,8 @@ def _test_nxw_readers(
         measurement = nexus.nxCollection(nxentry, "measurement")
         measurement["a"] = list(range(10))
         measurement["b"] = list(range(10))
-    creationlocks = async_utils.SharedLockPool()
     startevent = gevent.event.Event()
-    readerkwargs = {
-        "mode": mode,
-        "enable_file_locking": enable_file_locking,
-        "creationlocks": creationlocks,
-    }
+    readerkwargs = {"mode": mode, "enable_file_locking": enable_file_locking}
     readers = [
         gevent.spawn(reader, filename, startevent, hold=i == 0, **readerkwargs)
         for i in range(4)

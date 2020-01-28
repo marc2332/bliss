@@ -1597,7 +1597,7 @@ def get_plotted_counters():
     plotted_cnt_list = list()
 
     for cnt_name in plot_select.get_all():
-        plotted_cnt_list.append(cnt_name.split(":")[1])
+        plotted_cnt_list.append(cnt_name.split(":")[-1])
 
     return plotted_cnt_list
 

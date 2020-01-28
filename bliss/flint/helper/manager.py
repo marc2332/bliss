@@ -179,6 +179,7 @@ class ManageMainBehaviours(qt.QObject):
             # Make sure we can create object name without collision
             w.setPlotModel(None)
             w.setFlintModel(None)
+            w.setScan(None)
             w.setObjectName(None)
             w.deleteLater()
 
@@ -354,16 +355,16 @@ class ManageMainBehaviours(qt.QObject):
                     _logger.error(
                         "No compatible plot model for widget %s", widget.__class__
                     )
-                    plotModel = None
+                    # Do not update the widget (scan and plot stays as previous state)
+                    continue
+
+                plots = [p for p in availablePlots if isinstance(p, compatibleModel)]
+                if len(plots) > 0:
+                    plotModel = plots[0]
+                    availablePlots.remove(plotModel)
                 else:
-                    plots = [
-                        p for p in availablePlots if isinstance(p, compatibleModel)
-                    ]
-                    if len(plots) > 0:
-                        plotModel = plots[0]
-                        availablePlots.remove(plotModel)
-                    else:
-                        plotModel = compatibleModel()
+                    # Do not update the widget (scan and plot stays as previous state)
+                    continue
 
                 if updatePlotModel:
                     if plotModel.styleStrategy() is None:
@@ -372,6 +373,7 @@ class ManageMainBehaviours(qt.QObject):
                         )
                     workspace.addPlot(plotModel)
                     widget.setPlotModel(plotModel)
+                widget.setScan(scan)
 
         # There is no way in Qt to tabify a widget to a new floating widget
         # Then this code tabify the new widgets on an existing widget
@@ -393,6 +395,8 @@ class ManageMainBehaviours(qt.QObject):
                 continue
 
             workspace.addWidget(widget)
+            widget.setScan(scan)
+
             if lastTab is None:
                 window.addDockWidget(qt.Qt.RightDockWidgetArea, widget)
                 widget.setVisible(True)

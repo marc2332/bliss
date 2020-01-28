@@ -1263,6 +1263,7 @@ def timescan(
         scan_info["title"] = template.format(*args)
 
     scan_info.update({"npoints": npoints, "count_time": count_time})
+    _update_with_scan_display_meta(scan_info)
 
     _log.info("Doing %s", scan_type)
 

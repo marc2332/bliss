@@ -8,6 +8,8 @@
 import importlib
 import os
 import enum
+import numpy as np
+from tabulate import tabulate
 
 from bliss import global_map
 from bliss.common.utils import common_prefix, autocomplete_property
@@ -581,13 +583,71 @@ class Lima(CounterController):
                 self.name, self._proxy.dev_name()
             )
 
-        return (
+        info_str = (
             f"{data['user_detector_name']} - "
             f"{data['camera_model']} ({data['camera_type']}) - Lima {data['lima_type']}\n\n"
             f"Image:\n{self.image.__info__()}\n\n"
             f"Acquisition:\n{self.acquisition.__info__()}\n\n"
-            f"ROI Counters:\n{self.roi_counters.__info__()}"
+            f"ROI Counters:\n{self.roi_counters.__info__()}\n"
         )
+
+        info_str += "\nBPM COUNTERS:\n"
+        info_str += self.counters_info()
+
+        return info_str
+
+    def counters_info(self):
+        """
+        Return a string of info about BPM counters (name, shape, type).
+        """
+        # HEADER
+        table_header = ("name", "shape", "type")
+        table = list()
+        for cnt in self.counters:
+            try:
+                type_str = self.dtype_to_str(cnt.type)
+            except:
+                try:
+                    type_str = self.dtype_to_str(cnt.dtype)
+                except:
+                    type_str = "Unknown"
+
+            table.append((cnt.name, self.shape_to_str(cnt.shape), type_str))
+
+        info_str = tabulate(
+            tuple(table), numalign="right", headers=table_header
+        )  #  , tablefmt="plain")
+        info_str_shifted = ""
+        for line in info_str.split("\n"):
+            info_str_shifted += "    " + line + "\n"
+
+        return info_str_shifted
+
+    def shape_to_str(self, data_shape):
+        """
+        Return numpy-like data shape as a human readable string.
+        """
+        if data_shape == (0, 0):
+            return "2d"
+        elif data_shape == (0):
+            return "1d"
+        elif data_shape == ():
+            return "0d"
+        else:
+            return "unknown shape"
+
+    def dtype_to_str(self, data_type):
+        """
+        Return data type as a human readable string.
+        """
+        if data_type == np.float:
+            return "float"
+        elif data_type == np.float64:
+            return "float64"
+        elif data_type == np.int:
+            return "int"
+        else:
+            return f"{data_type}"
 
     def __repr__(self):
         attr_list = ("user_detector_name", "lima_type")

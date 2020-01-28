@@ -113,14 +113,9 @@ name: lima_bv1
 plugin: bliss
 class: Lima
 tango_url: id42/limaccds/bv1
-bpmnames:
- - x: bv1_x
- - y: bv1_y
- - fwhm_x: bv1_fx
- - fwhm_y: bv1_fy
- - intensity: bv1_i
 ```
-
+!!! note
+    In case counter names are not appropriate, they can be changed using aliases.
 
 The BPM counters are now available:
 
@@ -140,4 +135,45 @@ SESSION_SXM [3]: ct(0.1, lima_bv1.counters)
                      path=/data/id42/inhouse/session_sxm/data3.null)
 ```
 
+Inline info of lima bpm prints info about:
+* the associated camera
+* BPM counters available
 
+```python
+DEMO [1]: lima_bv1
+ Out [1]: Basler - acA1300-30gm (Basler) - Lima Basler
+
+          Image:
+          bin = [1 1]
+          flip = [False False]
+          height = 966
+          roi = <0,0> <1296 x 966>
+          rotation = rotation_enum.NONE
+          sizes = [   0    2 1296  966]
+          type = Bpp12
+          width = 1296
+
+          Acquisition:
+          expo_time = 0.1
+          mode = mode_enum.SINGLE
+          nb_frames = 1
+          status = Ready
+          status_fault_error = No error
+          trigger_mode = trigger_mode_enum.INTERNAL_TRIGGER_MULTI
+
+          ROI Counters:
+          [default]
+
+          *** no ROIs defined ***
+
+          COUNTERS:
+              name       shape    type
+              ---------  -------  ------------
+              image      2d       unknown type
+              acq_time   0d       float
+              intensity  0d       float
+              x          0d       float
+              y          0d       float
+              fwhm_x     0d       float
+              fwhm_y     0d       float
+```

@@ -373,12 +373,17 @@ class DataNodeIterator(object):
                     parent_db_name = new_child_event.groups()[0]
                     parent_node = get_node(parent_db_name)
                     first_child = self.last_child_id.setdefault(parent_db_name, 0)
+                    last_db_name = ""
                     for i, child in enumerate(parent_node.children(first_child, -1)):
                         self.last_child_id[parent_db_name] = first_child + i + 1
                         if filter is None or child.type in filter:
-                            if self.last_child_id.get(child.db_name):
+                            if (
+                                self.last_child_id.get(child.db_name)
+                                or child.db_name == last_db_name
+                            ):
                                 # do not emit the event if 'new node' has already been sent (= has been a parent)
                                 continue
+                            last_db_name = child.db_name
                             yield self.EVENTS.NEW_NODE, child
                 else:
                     new_channel_event = DataNodeIterator.NEW_DATA_IN_CHANNEL_REGEX.match(

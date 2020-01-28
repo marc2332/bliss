@@ -232,24 +232,27 @@ def test_no_duplicated_new_events(session):
 
 
 def test_no_duplicated_new_events_while_scan_running(session):
+    session_node = get_session_node(session.name)
+
+    ev = gevent.event.Event()
+    ev.clear()
+
     diode = session.env_dict["diode"]
     diode3 = session.env_dict["diode3"]
     diode4 = session.env_dict["diode4"]
     db_names = []
 
     s = scans.loopscan(10, 0.1, diode, diode3, diode4, save=False, run=False)
-    db_root = ":".join(name for name, _ in session.scan_saving.get()["db_path_items"])
-    db_name = db_root + ":{:0d}_{}".format(1, s.name)
 
     def walk_nodes():
-        node = DataNodeContainer(None, db_name)
-        for new_node in node.iterator.walk():
+        for new_node in session_node.iterator.walk(ready_event=ev):
             db_names.append(new_node.db_name)
 
     g = gevent.spawn(walk_nodes)
-    gevent.sleep(0.1)
+    ev.wait()
     scan_greenlet = gevent.spawn(s.run)
     scan_greenlet.get()
+    gevent.sleep(0.1)
     g.kill()
 
     assert db_names

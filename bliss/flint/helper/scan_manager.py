@@ -406,18 +406,41 @@ class ScanManager:
         # Make sure all the previous data was processed
         # Cause it can be processed by another greenlet
         self._end_data_process_event.wait()
-
         scan = cache.scan
+
+        scan_type = scan.scanInfo().get("type", None)
+        default_scan = scan_type in ["timescan", "loopscan"]
+        push_non_aligned_data = not default_scan
+
+        def is_same_data(array1: numpy.array, data2: scan_model.Data):
+            if data2 is not None:
+                array2 = data2.array()
+            else:
+                array2 = None
+            if array1 is None and array2 is None:
+                return True
+            if array1 is None or array2 is None:
+                return False
+            return array1.shape == array2.shape
+
         updated_masters = set([])
         for group_name in cache.data_storage.groups():
             channels = cache.data_storage.get_channels_by_group(group_name)
             for channel_name in channels:
                 channel = scan.getChannelByName(channel_name)
                 array = cache.data_storage.get_data_else_none(channel_name)
-                if array is not None:
-                    data = scan_model.Data(channel, array)
-                    channel.setData(data)
-                updated_masters.add(group_name)
+                previous_data = channel.data()
+                if not is_same_data(array, previous_data):
+                    if push_non_aligned_data:
+                        data = scan_model.Data(channel, array)
+                        channel.setData(data)
+                        updated_masters.add(group_name)
+                    else:
+                        # FIXME: THis is a hack, this should be managed in the GUI side
+                        _logger.warning(
+                            "Channel '%s' truncated to be able to display the data",
+                            channel_name,
+                        )
 
         if len(updated_masters) > 0:
             # FIXME: Should be fired by the Scan object (but here we have more informations)

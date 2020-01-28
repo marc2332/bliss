@@ -611,24 +611,33 @@ class DatasetProxy(BaseProxy):
             return tpl
 
     def _get_external_datasets(self):
-        lst = []
+        self.logger.info("Retrieving HDF5 URI's ...")
+        filenames = set(list(zip(*self._external_datasets))[0])
+        uridict = {}
         mon = FileSizeMonitor()
-        for filename, i in self._external_datasets:
+        for filename in sorted(filenames):
             mon.filename = filename
             while True:
                 try:
-                    uri = nexus.getDefaultUri(filename)
+                    uri = nexus.getDefaultUri(filename, enable_file_locking=True)
                 except (RuntimeError, OSError):
                     if not mon.is_growing():
                         raise
                 else:
                     if uri:
-                        lst.append((uri, i))
+                        self.logger.debug("Got URI from file {}".format(filename))
+                        uridict[filename] = uri
                         break
-                sleep()
-        return lst
+                    else:
+                        if not mon.is_growing():
+                            raise RuntimeError(
+                                "Cannot get URI from file {}".format(filename)
+                            )
+                sleep(0.1)
+        return [(uridict[filename], i) for filename, i in self._external_datasets]
 
     def _get_external_raw(self, createkwargs):
+        self.logger.info("Retrieving external URI's ...")
         mon = FileSizeMonitor()
         for filename, i in self._external_raw:
             mon.filename = filename
@@ -642,7 +651,7 @@ class DatasetProxy(BaseProxy):
                         raise
                 else:
                     break
-                sleep()
+                sleep(0.1)
 
     @property
     def is_external(self):

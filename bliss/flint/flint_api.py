@@ -463,7 +463,7 @@ class FlintApi:
             raise ValueError("Widget %s is not linked to any plot model" % plot_id)
 
         scan = widget.scan()
-        model_helper.update_displayed_channel_names(plot, scan, channel_names)
+        model_helper.updateDisplayedChannelNames(plot, scan, channel_names)
 
     # User interaction
 

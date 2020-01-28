@@ -451,7 +451,7 @@ def getColormapFromItem(
     if colormap is None:
         # Store the colormap
         # FIXME as the colormap is exposed to the colormap dialog
-        # it have to be synchonized to the item style
+        # it have to be synchronized to the item style
         colormap = colors.Colormap(style.colormapLut)
         item.setColormap(colormap)
     else:
@@ -459,7 +459,7 @@ def getColormapFromItem(
     return colormap
 
 
-def update_displayed_channel_names(
+def updateDisplayedChannelNames(
     plot: plot_model.Plot, scan: scan_model.Scan, channel_names: List[str]
 ):
     """Helper to update displayed channels without changing the axis."""

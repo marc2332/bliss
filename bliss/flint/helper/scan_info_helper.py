@@ -441,7 +441,7 @@ def create_plot_model(
                 if isinstance(
                     plot, (plot_item_model.CurvePlot, plot_item_model.ScatterPlot)
                 ):
-                    model_helper.update_displayed_channel_names(
+                    model_helper.updateDisplayedChannelNames(
                         plot, scan, displayed_channels
                     )
 

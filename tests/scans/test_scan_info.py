@@ -11,6 +11,8 @@ from bliss.common import scans
 from bliss.scanning.chain import AcquisitionChain, AcquisitionMaster, AcquisitionSlave
 from bliss.scanning.scan import Scan
 
+from tests.conftest import deep_compare
+
 
 def test_scan_info_scalars_units(session):
     heater = getattr(setup_globals, "heater")
@@ -146,11 +148,7 @@ def test_scan_meta_master_and_device(session, scan_meta):
 
     s = Scan(chain, name="my_simple")
     s.run()
-    assert s.scan_info["instrument"] == {
-        **master_dict,
-        **device_dict,
-        "chain_meta": {"NX_class": "NXcollection"},
-    }
+    assert s.scan_info["instrument"] == {**master_dict, **device_dict}
 
 
 def test_positioners_in_scan_info(alias_session):
@@ -166,15 +164,25 @@ def test_positioners_in_scan_info(alias_session):
     initial_robyy_position = robyy.position
 
     s1.run()
-    assert "positioners" in s1.scan_info["instrument"]
-    assert s1.scan_info["instrument"]["positioners"]["robyy"] == initial_robyy_position
+    assert "positioners" in s1.scan_info
+    assert (
+        s1.scan_info["positioners"]["positioners_start"]["robyy"]
+        == initial_robyy_position
+    )
+    assert "positioners_dial_start" in s1.scan_info["positioners"]
+    assert "positioners_end" in s1.scan_info["positioners"]
+    assert "positioners_dial_end" in s1.scan_info["positioners"]
+    assert "positioners_units" in s1.scan_info["positioners"]
 
     # test that positioners are remaining in for a counter that updates 'scan_info'
     initial_robyy_position = robyy.position
     s2 = scans.ascan(robyy, 0, 1, 3, .1, lima_simulator, run=False, save=False)
     s2.run()
-    assert "positioners" in s2.scan_info["instrument"]
-    assert s2.scan_info["instrument"]["positioners"]["robyy"] == initial_robyy_position
+    assert "positioners" in s2.scan_info
+    assert (
+        s2.scan_info["positioners"]["positioners_start"]["robyy"]
+        == initial_robyy_position
+    )
 
 
 def test_scan_saving_without_axis_in_session(default_session):
@@ -183,5 +191,18 @@ def test_scan_saving_without_axis_in_session(default_session):
 
     s = scans.loopscan(3, .1, diode, save=False)
 
-    assert "positioners" in s.scan_info["instrument"]
-    assert s.scan_info["instrument"]["positioners"] == {}
+    assert "positioners" in s.scan_info
+    assert s.scan_info["positioners"]["positioners_start"] == {}
+
+
+def test_scan_info_object_vs_node(session):
+    transf = session.config.get("transfocator_simulator")  # noqa: F841
+    roby = session.env_dict["roby"]
+    diode = session.env_dict["diode"]
+
+    s1 = scans.ascan(roby, 0, 1, 3, .1, diode, save=False)
+
+    # treat known differences
+    s1.scan_info["state"] = s1.scan_info["state"].name
+
+    deep_compare(s1.scan_info, s1.node.info.get_all())

@@ -1066,7 +1066,7 @@ class Scan:
         for top_level_master in acq_chain.keys():
             for scalar_master in acq_chain[top_level_master]["master"]["scalars"]:
                 ma = scalar_master.split(":")[-1]
-                if ma in self._scan_info["instrument"]["positioners"]:
+                if ma in self._scan_info["positioners"]["positioners_start"]:
                     master_axes.append(ma)
 
         if len(master_axes) == 0:
@@ -1154,7 +1154,10 @@ class Scan:
                         "scalars"
                     ]:
                         axis_name = scalar_master.split(":")[-1]
-                        if axis_name in self._scan_info["instrument"]["positioners"]:
+                        if (
+                            axis_name
+                            in self._scan_info["positioners"]["positioners_start"]
+                        ):
                             raise StopIteration
             except StopIteration:
                 axis = current_session.env_dict[axis_name]
@@ -1398,10 +1401,8 @@ class Scan:
                             tmp = dev.fill_meta_at_scan_end(self.user_scan_meta)
                         if tmp:
                             update_node_info(self.nodes[dev], tmp)
+
                     with KillMask(masked_kill_nb=1):
-                        self.user_scan_meta.instrument.remove(
-                            "positioners"
-                        )  ## this should be removed soon
                         deep_update(self._scan_info, self.user_scan_meta.to_dict(self))
                         self._scan_info[
                             "scan_meta_categories"
@@ -1414,6 +1415,10 @@ class Scan:
                     self.set_ttl()
 
                 self.node.end()
+
+                self._scan_info["end_time"] = self.node.info["end_time"]
+                self._scan_info["end_time_str"] = self.node.info["end_time_str"]
+                self._scan_info["end_timestamp"] = self.node.info["end_timestamp"]
 
                 # Close nodes
                 for node in self.nodes.values():

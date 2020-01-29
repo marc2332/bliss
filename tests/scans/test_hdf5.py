@@ -236,7 +236,7 @@ def test_scan_info_cleaning(alias_session, scan_tmpdir):
 
     # test that positioners are remaining in for a counter that updates 'scan_info'
     s2 = scans.ascan(robyy, 0, 1, 3, .1, lima_simulator)
-    assert "positioners" in s2.scan_info["instrument"]
+    assert "positioners" in s2.scan_info
     with h5py.File(s2.writer.filename, "r") as f:
         assert "lima_simulator" in f["2_ascan/instrument/chain_meta/axis/timer"]
 

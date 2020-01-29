@@ -23,7 +23,7 @@ from bliss import global_map
 USER_SCAN_META = None
 CATEGORIES = enum.Enum(
     "categories",
-    "INSTRUMENT SAMPLE SAMPLE_DESCRIPTION PROPOSAL TECHNIQUE NOTES NEXUSWRITER",
+    "INSTRUMENT POSITIONERS SAMPLE SAMPLE_DESCRIPTION PROPOSAL TECHNIQUE NEXUSWRITER NOTES",
 )
 
 
@@ -35,11 +35,12 @@ def get_user_scan_meta():
     global USER_SCAN_META
     if USER_SCAN_META is None:
         USER_SCAN_META = scan_meta()
-        USER_SCAN_META.instrument.set("positioners", fill_positioners)
+        USER_SCAN_META.positioners.set("positioners", fill_positioners)
+        USER_SCAN_META.instrument.set("NX_class", {"NX_class": "NXinstrument"})
+        USER_SCAN_META.technique.set("NX_class", {"NX_class": "NXcollection"})
         USER_SCAN_META.sample.set("NX_class", {"NX_class": "NXsample"})
         USER_SCAN_META.proposal.set("NX_class", {"NX_class": "NXcollection"})
         USER_SCAN_META.sample_description.set("NX_class", {"NX_class": "NXcollection"})
-        USER_SCAN_META.technique.set("NX_class", {"NX_class": "NXcollection"})
         USER_SCAN_META.notes.set("NX_class", {"NX_class": "NXcollection"})
     return USER_SCAN_META
 
@@ -114,16 +115,36 @@ def scan_meta(info=None):
 
     attrs["cat_list"] = cat_list
 
+    def __info__(self):
+        return f"ScanMeta {_infos}"
+
+    attrs["__info__"] = __info__
+
     klass = type("ScanMeta", (object,), attrs)
     return klass()
 
 
 def fill_positioners(scan):
-    rd = {"positioners": dict(), "positioners_dial": dict()}
+    stuffix = "_start"
+    if scan.state == 3:
+        stuffix = "_end"
+    positioners = dict()
+    positioners_dial = dict()
+    units = dict()
     for axis_name, axis_pos, axis_dial_pos, unit in global_map.get_axes_positions_iter(
         on_error="ERR"
     ):
 
-        rd["positioners"][axis_name] = axis_pos
-        rd["positioners_dial"][axis_name] = axis_dial_pos
+        positioners[axis_name] = axis_pos
+        positioners_dial[axis_name] = axis_dial_pos
+        units[axis_name] = unit
+
+    rd = {
+        "positioners" + stuffix: positioners,
+        "positioners_dial" + stuffix: positioners_dial,
+    }
+
+    if scan.state != 3:
+        rd["positioners_units"] = units
+
     return rd

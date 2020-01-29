@@ -319,6 +319,13 @@ class HDF5_Writer(object):
 
         instrument_meta = self.scan_info_dict["instrument"]
         instrument_meta["chain_meta"] = {"NX_class": "NXcollection"}
+        if "positioners" in self.scan_info_dict:
+            instrument_meta["positioners"] = self.scan_info_dict["positioners"].get(
+                "positioners_start"
+            )
+            instrument_meta["positioners_dial"] = self.scan_info_dict[
+                "positioners"
+            ].get("positioners_dial_start")
 
         base_db_name = self.scan_node.db_name
         for node in self.scan_node.iterator.walk(wait=False):

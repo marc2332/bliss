@@ -661,13 +661,7 @@ class Axis:
         Reference to :class:`~bliss.common.encoder.Encoder` or None if no
         encoder is defined
         """
-        if isinstance(self.__encoder, Encoder):
-            return self.__encoder
-        else:
-            if self.__encoder:
-                self.__encoder = self.__encoder()
-                self.__encoder.controller._initialize_encoder(self.__encoder)
-                return self.__encoder
+        return self.__encoder
 
     @property
     def motion_hooks(self):

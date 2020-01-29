@@ -13,6 +13,7 @@ from typing import Optional
 from typing import List
 from typing import Dict
 from typing import Tuple
+from typing import Union
 
 from silx.gui import colors
 
@@ -37,7 +38,8 @@ def reachAnyCurveItemFromDevice(
         assert itemChannel is not None
         channelName = itemChannel.name()
         channel = scan.getChannelByName(channelName)
-        assert channel is not None
+        if channel is None:
+            continue
         itemMaster = channel.device().topMaster()
         if itemMaster is topMaster:
             return item
@@ -231,6 +233,8 @@ def createScatterItem(
 
     Returns a tuple containing the created or updated item, plus a boolean to know if the item was updated.
     """
+    channel_name = channel.name()
+
     # Reach any plot item from this master
     baseItem: Optional[plot_item_model.ScatterItem]
     for baseItem in plot.items():
@@ -242,7 +246,7 @@ def createScatterItem(
     if baseItem is not None:
         isAxis = baseItem.valueChannel() is None
         if isAxis:
-            baseItem.setValueChannel(plot_model.ChannelRef(plot, channel.name()))
+            baseItem.setValueChannel(plot_model.ChannelRef(plot, channel_name))
             # It's now an item with a value
             return baseItem, True
         else:
@@ -254,12 +258,12 @@ def createScatterItem(
                 newItem.setXChannel(xChannel)
             if yChannel is not None:
                 newItem.setYChannel(yChannel)
-            newItem.setValueChannel(plot_model.ChannelRef(plot, channel.name()))
+            newItem.setValueChannel(plot_model.ChannelRef(plot, channel_name))
     else:
         # No axes are specified
         # FIXME: Maybe we could use scan infos to reach the default axes
         newItem = plot_item_model.ScatterItem(plot)
-        newItem.setValueChannel(plot_model.ChannelRef(plot, channel.name()))
+        newItem.setValueChannel(plot_model.ChannelRef(plot, channel_name))
     plot.addItem(newItem)
     return newItem, False
 
@@ -316,6 +320,33 @@ def createCurveItem(
 
     plot.addItem(newItem)
     return newItem, False
+
+
+def filterUsedDataItems(plot, channel_names):
+    """Filter plot items according to expected channel names
+
+    Returns a tuple within channels which have items, items which are
+    not needed and channel names which have no equivalent items.
+    """
+    channel_names = set(channel_names)
+    used_items = []
+    unneeded_items = []
+    for item in plot.items():
+        if isinstance(item, plot_item_model.ScatterItem):
+            channel = item.valueChannel()
+        elif isinstance(item, plot_item_model.CurveItem):
+            channel = item.yChannel()
+        else:
+            raise NotImplementedError("Item type %s unsupported" % type(item))
+        if channel is not None:
+            if channel.name() in channel_names:
+                used_items.append(item)
+                channel_names.remove(channel.name())
+                continue
+        unneeded_items.append(item)
+
+    unused_channels = list(channel_names)
+    return used_items, unneeded_items, unused_channels
 
 
 def getChannelNamesDisplayedAsValue(plot: plot_model.Plot) -> List[str]:
@@ -421,9 +452,56 @@ def getColormapFromItem(
     if colormap is None:
         # Store the colormap
         # FIXME as the colormap is exposed to the colormap dialog
-        # it have to be synchonized to the item style
+        # it have to be synchronized to the item style
         colormap = colors.Colormap(style.colormapLut)
         item.setColormap(colormap)
     else:
         colormap.setName(style.colormapLut)
     return colormap
+
+
+def updateDisplayedChannelNames(
+    plot: plot_model.Plot, scan: scan_model.Scan, channel_names: List[str]
+):
+    """Helper to update displayed channels without changing the axis."""
+
+    used_items, unneeded_items, expected_new_channels = filterUsedDataItems(
+        plot, channel_names
+    )
+
+    if isinstance(plot, plot_item_model.ScatterPlot):
+        kind = "scatter"
+    elif isinstance(plot, plot_item_model.CurvePlot):
+        kind = "curve"
+    else:
+        raise ValueError("This plot type %s is not supported" % type(plot))
+
+    with plot.transaction():
+        for item in used_items:
+            item.setVisible(True)
+        if len(expected_new_channels) > 0:
+            for channel_name in expected_new_channels:
+                channel = scan.getChannelByName(channel_name)
+                if channel is None:
+                    # Create an item pointing to a non existing channel
+                    channelRef = plot_model.ChannelRef(plot, channel_name)
+                    if kind == "scatter":
+                        item = plot_item_model.ScatterItem(plot)
+                        item.setValueChannel(channelRef)
+                    elif kind == "curve":
+                        item = plot_item_model.CurveItem(plot)
+                        item.setYChannel(channelRef)
+                    plot.addItem(item)
+                else:
+                    if kind == "scatter":
+                        item, _updated = createScatterItem(plot, channel)
+                    elif kind == "curve":
+                        # FIXME: We have to deal with left/right axis
+                        # FIXME: Item can't be added without topmaster
+                        item, _updated = createCurveItem(plot, channel, yAxis="left")
+                    else:
+                        assert False
+                    assert _updated == False
+                item.setVisible(True)
+        for item in unneeded_items:
+            plot.removeItem(item)

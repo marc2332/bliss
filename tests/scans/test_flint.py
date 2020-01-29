@@ -6,6 +6,7 @@ import bliss
 from bliss.common import plot
 from bliss.common.plot import get_flint
 from bliss.common.scans import plotselect
+from bliss.common.scans import meshselect
 from bliss.scanning.scan import Scan, ScanDisplay
 from bliss.scanning.chain import AcquisitionChain
 from bliss.scanning.acquisition.lima import LimaAcquisitionMaster
@@ -97,3 +98,68 @@ def test_motor_position_in_plot(test_session_with_flint):
     with use_shell_command_with_flint():
         scan.goto_cen(diode)
     gevent.sleep(1)
+
+
+def test_meshselect(test_session_with_flint):
+    session = test_session_with_flint
+    amesh = session.env_dict["amesh"]
+    roby = session.config.get("roby")
+    robz = session.config.get("robz")
+    diode = session.config.get("diode")
+    diode2 = session.config.get("diode2")
+    diode3 = session.config.get("diode3")
+    flint = get_flint()
+    import logging
+
+    l = logging.getLogger("flint.output")
+    l.disabled = False
+    l.setLevel(logging.INFO)
+
+    _scan = amesh(roby, 0, 5, 2, robz, 0, 5, 2, 0.001, diode, diode2)
+
+    # synchronize redis events with flint
+    flint.wait_end_of_scans()
+
+    plot_id = flint.get_default_live_scan_plot("scatter")
+
+    # Select the second diode
+    meshselect(diode2)
+    gevent.sleep(1)
+    assert flint.test_count_displayed_items(plot_id) == 1
+
+    # Select a diode which was not scanned
+    meshselect(diode3)
+    gevent.sleep(1)
+    assert flint.test_count_displayed_items(plot_id) == 0
+
+
+def test_plotselect(test_session_with_flint):
+    session = test_session_with_flint
+    ascan = session.env_dict["ascan"]
+    roby = session.config.get("roby")
+    diode = session.config.get("diode")
+    diode2 = session.config.get("diode2")
+    diode3 = session.config.get("diode3")
+    flint = get_flint()
+    import logging
+
+    l = logging.getLogger("flint.output")
+    l.disabled = False
+    l.setLevel(logging.INFO)
+
+    _scan = ascan(roby, 0, 5, 2, 0.001, diode, diode2)
+
+    # synchronize redis events with flint
+    flint.wait_end_of_scans()
+
+    plot_id = flint.get_default_live_scan_plot("curve")
+
+    # Select the second diode
+    plotselect(diode2)
+    gevent.sleep(1)
+    assert flint.test_count_displayed_items(plot_id) == 1
+
+    # Select a diode which was not scanned
+    plotselect(diode3)
+    gevent.sleep(1)
+    assert flint.test_count_displayed_items(plot_id) == 0

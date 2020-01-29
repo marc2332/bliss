@@ -16,6 +16,7 @@ import datetime
 import tabulate
 import collections
 import uuid
+import typing
 from functools import wraps
 
 from bliss import current_session, is_bliss_shell
@@ -592,6 +593,7 @@ class ScanDisplay(ParametersWardrobe):
                 "motor_position": True,
                 "_counters": [],
                 "_extra_args": [],
+                "_next_scan_metadata": None,
             },
             property_attributes=(
                 "session",
@@ -694,6 +696,21 @@ class ScanDisplay(ParametersWardrobe):
 
         logger = plot.FLINT_OUTPUT_LOGGER
         logger.disabled = not enabled
+
+    def init_next_scan_meta(self, display: typing.List[str] = None):
+        """Register extra information for the next scan."""
+        info = self._next_scan_metadata
+        if info is None:
+            info = {}
+        if display is not None:
+            info["displayed_channels"] = display
+        self._next_scan_metadata = info
+
+    def pop_scan_meta(self) -> typing.Optional[typing.Dict]:
+        """Pop the extra information to feed the scan with."""
+        info = self._next_scan_metadata
+        self._next_scan_metadata = None
+        return info
 
 
 def _get_channels_dict(acq_object, channels_dict):

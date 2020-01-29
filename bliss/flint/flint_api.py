@@ -146,15 +146,42 @@ class FlintApi:
             return None
         return data.array()
 
-    def get_live_scan_plot(self, channel_name, plot_type, as_axes=False):
+    def __get_plot_class_by_kind(self, plot_type: str):
         assert plot_type in ["scatter", "image", "curve", "mca"]
-
-        plot_class = {
+        plot_classes = {
             "scatter": plot_item_model.ScatterPlot,
             "image": plot_item_model.ImagePlot,
             "mca": plot_item_model.McaPlot,
             "curve": plot_item_model.CurvePlot,
-        }[plot_type]
+        }
+        return plot_classes[plot_type]
+
+    def get_default_live_scan_plot(self, plot_type):
+        """Returns the identifier of the default plot according it's type.
+
+        Basically returns the first plot of this kind.
+
+        Returns `None` is nothing found
+        """
+        plot_class = self.__get_plot_class_by_kind(plot_type)
+        workspace = self.__flintModel.workspace()
+        for iwidget, widget in enumerate(workspace.widgets()):
+            plot = widget.plotModel()
+            if plot is None:
+                continue
+            if not isinstance(plot, plot_class):
+                continue
+            return f"live:{iwidget}"
+
+        # FIXME: If nothing found, a default plot should be created
+        return None
+
+    def get_live_scan_plot(
+        self, channel_name: str, plot_type: str, as_axes: bool = False
+    ):
+        """Returns the identifier of a plot according to few constraints.
+        """
+        plot_class = self.__get_plot_class_by_kind(plot_type)
 
         scan = self.__flintModel.currentScan()
         if scan is None:
@@ -208,6 +235,19 @@ class FlintApi:
             msg = "PONG"
         stream.write("%s\n" % msg)
         stream.flush()
+
+    def test_count_displayed_items(self, plot_id):
+        """Debug purpose function to count number of displayed items in a plot
+        widget."""
+        widget = self._get_plot_widget(plot_id, expect_silx_api=False, custom_plot=True)
+        if widget is None:
+            raise Exception("Widget %s not found" % plot_id)
+        count = 0
+        for item in widget._silxPlot().getItems():
+            # Business items contains Flint in the name
+            if "Flint" in str(type(item)):
+                count += 1
+        return count
 
     def test_active(self, plot_id, qaction: str = None):
         """Debug purpose function to simulate a click on an activable element.
@@ -404,6 +444,26 @@ class FlintApi:
         if custom_plot:
             return self._custom_plots[plot_id]
         return self._custom_plots[plot_id].plot
+
+    # API to custom default live plots
+
+    def set_displayed_channels(self, plot_id, channel_names):
+        """Enforce channels to be displayed.
+
+        - If a channel was not part of the plot, an item is added
+        - If a channel was hidden, it become visible
+        - If a channel is in the plot but not part of this list, it is removed
+        """
+        widget = self._get_plot_widget(plot_id, expect_silx_api=False, custom_plot=True)
+        if widget is None:
+            raise ValueError("Widget %s not found" % plot_id)
+
+        plot = widget.plotModel()
+        if plot is None:
+            raise ValueError("Widget %s is not linked to any plot model" % plot_id)
+
+        scan = widget.scan()
+        model_helper.updateDisplayedChannelNames(plot, scan, channel_names)
 
     # User interaction
 

@@ -20,6 +20,7 @@ import logging
 from ..model import scan_model
 from ..model import plot_model
 from ..model import plot_item_model
+from . import model_helper
 
 
 _logger = logging.getLogger(__name__)
@@ -211,7 +212,9 @@ def parse_channel_metadata(meta: Dict) -> scan_model.ChannelMetadata:
     )
 
 
-def create_plot_model(scan_info: Dict) -> List[plot_model.Plot]:
+def create_plot_model(
+    scan_info: Dict, scan: Optional[scan_model.Scan] = None
+) -> List[plot_model.Plot]:
     result: List[plot_model.Plot] = []
 
     channel_units = read_units(scan_info)
@@ -414,6 +417,33 @@ def create_plot_model(scan_info: Dict) -> List[plot_model.Plot]:
         # Move the default plot on to
         result.remove(default_plot)
         result.insert(0, default_plot)
+
+    display_extra = scan_info.get("_display_extra", None)
+    if display_extra is not None:
+        if scan is None:
+            scan = create_scan_model(scan_info)
+        displayed_channels = display_extra.get("displayed_channels", None)
+        # Sanitize
+        if displayed_channels is not None:
+            if not isinstance(displayed_channels, list):
+                _logger.warning(
+                    "_display_extra.displayed_channels is not a list: Key ignored"
+                )
+                displayed_channels = None
+            elif len([False for i in displayed_channels if not isinstance(i, str)]) > 0:
+                _logger.warning(
+                    "_display_extra.displayed_channels must only contains strings: Key ignored"
+                )
+                displayed_channels = None
+
+        if displayed_channels is not None:
+            for plot in result:
+                if isinstance(
+                    plot, (plot_item_model.CurvePlot, plot_item_model.ScatterPlot)
+                ):
+                    model_helper.updateDisplayedChannelNames(
+                        plot, scan, displayed_channels
+                    )
 
     return result
 

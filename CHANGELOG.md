@@ -11,6 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Flint
   - A preferred style can be saved as default for images
+  - `plotselect(diode2)` can now be used if the scan is already displayed
+  - `SCAN_DISPLAY.init_next_scan_meta(display=[diode2])` can be used just before
+    scanning
 
 ### Changed
 
@@ -21,6 +24,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Manage data display according
   - Do not allow anymore to display more than one image in the image view
   - Display curve live view x-axis with timeseries if the channel unit is "s"
+  - Cut channels data at the end of timescan scans to enforce the same size
+    - It's a workaround, but can be used for other default scan if requested
 
 ### Fixed
 

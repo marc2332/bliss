@@ -47,7 +47,7 @@ import gevent
 from functools import wraps
 import types
 import typeguard
-from typing import Union, Optional, Tuple, List, Sequence
+from typing import Union, Optional, Tuple, List, Sequence, Dict
 
 from bliss import current_session
 from bliss.common.utils import rounder
@@ -57,7 +57,7 @@ from bliss.common.cleanup import error_cleanup
 from bliss.config.settings import HashSetting
 from bliss.data.scan import get_counter_names
 from bliss.scanning.toolbox import DefaultAcquisitionChain
-from bliss.scanning.scan import Scan, StepScanDataWatch
+from bliss.scanning.scan import Scan, StepScanDataWatch, ScanDisplay
 from bliss.scanning.acquisition.motor import VariableStepTriggerMaster
 from bliss.scanning.acquisition.motor import MeshStepTriggerMaster
 from bliss.controllers.motor import CalcController
@@ -711,6 +711,8 @@ def anscan(
     scan_info["start"] = starts_list
     scan_info["stop"] = stops_list
 
+    _update_with_scan_display_meta(scan_info)
+
     scan_params = dict()
     scan_params["start"] = starts_list
     scan_params["stop"] = stops_list
@@ -1261,6 +1263,7 @@ def timescan(
         scan_info["title"] = template.format(*args)
 
     scan_info.update({"npoints": npoints, "count_time": count_time})
+    _update_with_scan_display_meta(scan_info)
 
     _log.info("Doing %s", scan_type)
 
@@ -1520,6 +1523,28 @@ def last_scan_motors():
     return [current_session.env_dict[axis_name] for axis_name in axes_name]
 
 
+def get_channel_names(*objs) -> List[str]:
+    """
+    # FIXME: For now only counters and axis are supported.
+    """
+    result: List[str] = []
+    for obj in objs:
+        # An object could contain many channels?
+        channel_names: List[str] = []
+        if isinstance(obj, str):
+            channel_names = [obj]
+        elif isinstance(obj, Axis):
+            channel_names = ["axis:%s" % obj.name]
+        elif hasattr(obj, "fullname"):
+            # Assume it's a counter
+            channel_names = [obj.fullname]
+        else:
+            # FIXME: Add a warning
+            pass
+        result.extend(channel_names)
+    return result
+
+
 def plotselect(*counters):
     """
     Select counter(s) to use for:
@@ -1528,11 +1553,38 @@ def plotselect(*counters):
     Saved as a HashSetting with '<session_name>:plot_select' key.
     """
     plot_select = HashSetting("%s:plot_select" % current_session.name)
+    channel_names = get_channel_names(*counters)
     counter_names = dict()
-    for cnt in counters:
-        fullname = cnt.fullname  # should be like: <controller.counter>
+    for channel_name in channel_names:
+        fullname = channel_name  # should be like: <controller.counter>
         counter_names[fullname] = "Y1"
     plot_select.set(counter_names)
+
+    from bliss.common import plot
+
+    if plot.check_flint():
+        channel_names = get_channel_names(*counters)
+        flint = plot.get_flint()
+        plot_id = flint.get_default_live_scan_plot("curve")
+        if plot_id is not None:
+            flint.set_displayed_channels(plot_id, channel_names)
+
+
+def meshselect(*counters):
+    """
+    Select counter(s) to use for scatter :
+    * alignment (bliss/common/scans.py:_get_selected_counter_name())
+    * flint display (bliss/flint/plot1d.py)
+    Saved as a HashSetting with '<session_name>:plot_select' key.
+    """
+    from bliss.common import plot
+
+    if plot.check_flint():
+        channel_names = get_channel_names(*counters)
+        flint = plot.get_flint()
+        plot_id = flint.get_default_live_scan_plot("scatter")
+        if plot_id is not None:
+            flint.set_displayed_channels(plot_id, channel_names)
 
 
 def get_plotted_counters():
@@ -1545,7 +1597,7 @@ def get_plotted_counters():
     plotted_cnt_list = list()
 
     for cnt_name in plot_select.get_all():
-        plotted_cnt_list.append(cnt_name.split(":")[1])
+        plotted_cnt_list.append(cnt_name.split(":")[-1])
 
     return plotted_cnt_list
 
@@ -1657,3 +1709,12 @@ def goto_peak(counter=None, axis=None):
 def where():
     for axis in last_scan_motors():
         current_session.scans[-1].where(axis=axis)
+
+
+def _update_with_scan_display_meta(scan_info: Dict):
+    """Read and remove meta stored in the ScanDisplay and feed the scan_info
+    with."""
+    scan_display = ScanDisplay()
+    info = scan_display.pop_scan_meta()
+    if info is not None:
+        scan_info["_display_extra"] = info

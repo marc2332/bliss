@@ -22,13 +22,22 @@ from bliss.flint.model import plot_item_model
 
 
 class DefaultStyleStrategy(plot_model.StyleStrategy):
-    def __init__(self, flintModel: flint_model.FlintState):
+    def __init__(self, flintModel: flint_model.FlintState = None):
         super(DefaultStyleStrategy, self).__init__()
         self.__flintModel = flintModel
         self.__cached: Dict[
             Tuple[plot_model.Item, Optional[scan_model.Scan]], plot_model.Style
         ] = {}
         self.__cacheInvalidated = True
+
+    def setFlintModel(self, flintModel: flint_model.FlintState):
+        self.__flintModel = flintModel
+
+    def __getstate__(self):
+        return {}
+
+    def __setstate__(self, state):
+        assert isinstance(state, dict)
 
     _COLOR_PALETTE = [
         (87, 81, 212),

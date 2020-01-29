@@ -6,7 +6,6 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import os
-import sys
 import pkgutil
 import functools
 import mimetypes
@@ -139,7 +138,7 @@ class WebConfig(object):
             if get_tree:
                 try:
                     item = get_tree(config, "items")
-                except:
+                except Exception:
                     pass
             if item is None:
                 item = dict(type="item", path=name, icon="fa fa-question")
@@ -198,10 +197,8 @@ class WebConfig(object):
         return result
 
     def __build_tree_tags(self):
-        cfg = self.get_config()
         result = {}
         for name, item in self.items.items():
-            config = cfg.get_config(name)
             for tag in item["tags"] or ["__no_tag__"]:
                 tag_data = result.get(tag)
                 if tag_data is None:
@@ -225,7 +222,7 @@ class WebConfig(object):
             if get_tree:
                 try:
                     item = get_tree(config, "files")
-                except:
+                except Exception:
                     pass
             if item is None:
                 item = dict(
@@ -307,7 +304,7 @@ def __get_plugin(name, member=None):
     if member:
         try:
             return getattr(mod, member)
-        except:
+        except AttributeError:
             # plugin has no member
             return
     return mod
@@ -380,14 +377,12 @@ def main():
 
 @web_app.route("/db_files")
 def db_files():
-    cfg = __config.get_config()
     db_files, _ = zip(*client.get_config_db_files())
     return flask.json.dumps(db_files)
 
 
 @web_app.route("/db_tree")
 def db_tree():
-    cfg = __config.get_config
     db_tree = client.get_config_db_tree()
     return flask.json.dumps(db_tree)
 
@@ -401,7 +396,6 @@ def get_db_file(filename):
         event.send(server.__name__, "config_changed")
         return flask.json.dumps(dict(message="%s successfully saved", type="success"))
     else:
-        cfg = __config.get_config()
         content = client.get_config_file(filename).decode("utf-8")
         return flask.json.dumps(dict(name=filename, content=content))
 
@@ -555,7 +549,6 @@ def add_file():
 
 @web_app.route("/remove_file", methods=["POST"])
 def remove_file():
-    cfg = __config.get_config()
     filename = flask.request.form["file"]
     client.remove_config_file(filename)
     return flask.json.dumps(dict(message="File deleted!", type="success"))
@@ -594,7 +587,6 @@ def copy_file():
 
 @web_app.route("/move_path", methods=["POST"])
 def move_path():
-    cfg = __config.get_config()
     src_path = flask.request.form["src_path"]
     dst_path = flask.request.form["dst_path"]
     client.move_config_path(src_path, dst_path)

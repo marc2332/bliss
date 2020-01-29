@@ -6,9 +6,9 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import os
-import sys
 import pkgutil
 import functools
+import mimetypes
 
 import gevent.lock
 
@@ -45,8 +45,20 @@ def check_config(f):
 class WebConfig(object):
 
     EXT_MAP = {
+        "": dict(type="text", icon="file-o"),
+        "txt": dict(type="text", icon="file-o"),
+        "md": dict(type="markdown", icon="file-o"),
         "yml": dict(type="yaml", icon="file-text-o"),
         "py": dict(type="python", icon="file-code-o"),
+        "html": dict(type="html", icon="file-code-o"),
+        "css": dict(type="css", icon="file-code-o"),
+        "js": dict(type="javascript", icon="file-code-o"),
+        "png": dict(type="image", icon="file-image-o"),
+        "jpg": dict(type="image", icon="file-image-o"),
+        "jpeg": dict(type="image", icon="file-image-o"),
+        "gif": dict(type="image", icon="file-image-o"),
+        "tif": dict(type="image", icon="file-image-o"),
+        "tiff": dict(type="image", icon="file-image-o"),
     }
 
     def __init__(self):
@@ -126,7 +138,7 @@ class WebConfig(object):
             if get_tree:
                 try:
                     item = get_tree(config, "items")
-                except:
+                except Exception:
                     pass
             if item is None:
                 item = dict(type="item", path=name, icon="fa fa-question")
@@ -161,9 +173,7 @@ class WebConfig(object):
                 full_part = os.path.join(full_part, part)
                 p_item = items.get(full_part)
                 if p_item is None:
-                    p_item = dict(
-                        type="folder", path=full_part, icon="fa fa-folder-open"
-                    )
+                    p_item = dict(type="folder", path=full_part, icon="fa fa-folder")
                 current_level.setdefault(part, [p_item, dict()])
                 current_level = current_level[part][1]
             current_level.setdefault(parts[-1], [item, dict()])
@@ -178,7 +188,7 @@ class WebConfig(object):
             plugin_data = result.get(plugin_name)
             if plugin_data is None:
                 plugin_data = [
-                    dict(type="folder", path=plugin_name, icon="fa fa-folder-open"),
+                    dict(type="folder", path=plugin_name, icon="fa fa-folder"),
                     {},
                 ]
                 result[plugin_name] = plugin_data
@@ -187,17 +197,12 @@ class WebConfig(object):
         return result
 
     def __build_tree_tags(self):
-        cfg = self.get_config()
         result = {}
         for name, item in self.items.items():
-            config = cfg.get_config(name)
             for tag in item["tags"] or ["__no_tag__"]:
                 tag_data = result.get(tag)
                 if tag_data is None:
-                    tag_data = [
-                        dict(type="folder", path=tag, icon="fa fa-folder-open"),
-                        {},
-                    ]
+                    tag_data = [dict(type="folder", path=tag, icon="fa fa-folder"), {}]
                     result[tag] = tag_data
                 tag_items = tag_data[1]
                 tag_items[name] = [item, {}]
@@ -217,7 +222,7 @@ class WebConfig(object):
             if get_tree:
                 try:
                     item = get_tree(config, "files")
-                except:
+                except Exception:
                     pass
             if item is None:
                 item = dict(
@@ -255,7 +260,7 @@ class WebConfig(object):
                     type="file", path=item_path, icon="fa fa-" + ext_info["icon"]
                 )
             else:
-                meta = dict(type="folder", path=item_path, icon="fa fa-folder-open")
+                meta = dict(type="folder", path=item_path, icon="fa fa-folder")
                 self.__build_tree_files__(data, sub_items, path=item_path)
             dst[name] = [meta, sub_items]
         return dst
@@ -263,6 +268,8 @@ class WebConfig(object):
     @check_config
     def get_file_info(self, file_name):
         ext = file_name.rpartition(os.path.extsep)[2]
+        if "." not in file_name:
+            ext = ""
         return self.EXT_MAP.setdefault(ext, dict(type=ext, icon="question"))
 
 
@@ -297,7 +304,7 @@ def __get_plugin(name, member=None):
     if member:
         try:
             return getattr(mod, member)
-        except:
+        except AttributeError:
             # plugin has no member
             return
     return mod
@@ -370,14 +377,12 @@ def main():
 
 @web_app.route("/db_files")
 def db_files():
-    cfg = __config.get_config()
     db_files, _ = zip(*client.get_config_db_files())
     return flask.json.dumps(db_files)
 
 
 @web_app.route("/db_tree")
 def db_tree():
-    cfg = __config.get_config
     db_tree = client.get_config_db_tree()
     return flask.json.dumps(db_tree)
 
@@ -391,22 +396,31 @@ def get_db_file(filename):
         event.send(server.__name__, "config_changed")
         return flask.json.dumps(dict(message="%s successfully saved", type="success"))
     else:
-        cfg = __config.get_config()
         content = client.get_config_file(filename).decode("utf-8")
         return flask.json.dumps(dict(name=filename, content=content))
 
 
 @web_app.route("/db_file_editor/<path:filename>")
 def get_db_file_editor(filename):
-    cfg = __config.get_config()
+    ftype, _ = mimetypes.guess_type(filename)
 
-    content = client.get_config_file(filename).decode()
+    if ftype is None or ftype.startswith("text/"):
+        try:
+            content = client.get_config_file(filename).decode()
+            file_info = __config.get_file_info(filename)
+            template = __get_jinja2().select_template(("editor.html",))
+            html = template.render(
+                dict(name=filename, ftype=file_info["type"], content=content)
+            )
+        except UnicodeDecodeError:
+            html = f"failed to decode {filename}"
+    # elif ftype.startswith("image/"):
+    #     content = client.get_config_file(filename)
+    #     data = base64.b64encode(content).decode()
+    #     html = f"<img src='data:{ftype};base64,{data}' style='max-width: 100%; max-height: 100%'>"
+    else:
+        html = f"{ftype} mime type not handled"
 
-    file_info = __config.get_file_info(filename)
-    template = __get_jinja2().select_template(("editor.html",))
-    html = template.render(
-        dict(name=filename, ftype=file_info["type"], content=content)
-    )
     return flask.json.dumps(dict(html=html, name=filename))
 
 
@@ -486,7 +500,7 @@ def get_item_config(name):
     if plugin:
         obj_cfg = plugin(obj_cfg)
     else:
-        obj_cfg = "<h1>TODO</h1>"
+        obj_cfg = "<!-- TODO -->"
     return flask.json.dumps(dict(html=obj_cfg, name=name))
 
 
@@ -535,7 +549,6 @@ def add_file():
 
 @web_app.route("/remove_file", methods=["POST"])
 def remove_file():
-    cfg = __config.get_config()
     filename = flask.request.form["file"]
     client.remove_config_file(filename)
     return flask.json.dumps(dict(message="File deleted!", type="success"))
@@ -574,7 +587,6 @@ def copy_file():
 
 @web_app.route("/move_path", methods=["POST"])
 def move_path():
-    cfg = __config.get_config()
     src_path = flask.request.form["src_path"]
     dst_path = flask.request.form["dst_path"]
     client.move_config_path(src_path, dst_path)

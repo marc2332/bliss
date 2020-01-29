@@ -28,9 +28,8 @@
 }
 
 .beacon-navigation {
-    overflow-y: auto;
     position: fixed;
-    height: 90%;
+    height: calc(100% - 98px);
     padding-left:10px;
     width:32%;
 }
@@ -40,6 +39,15 @@
     font-family: monospace;
     min-height: 350px;
     padding: 4px;
+}
+
+.beacon-tree {
+    overflow-y: auto;
+    height: 100%;
+}
+
+.beacon-tree ul.list-group {
+    margin-bottom: 0;
 }
 
 .beacon-tree li.list-group-item {

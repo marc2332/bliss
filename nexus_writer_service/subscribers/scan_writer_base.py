@@ -272,6 +272,10 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
         # for subscan in self._enabled_subscans:
         #    self._ensure_same_length(subscan)
 
+        self.logger.info("Link external data (VDS or raw)")
+        for node in self._nodes:
+            self._ensure_dataset_existance(node)
+
         self.logger.info("Save detector metadata")
         skip = set()
         for node in self._nodes:
@@ -280,10 +284,6 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
         self.logger.info("Save scan metadata")
         for subscan in self._enabled_subscans:
             self._fetch_subscan_metadata(subscan)
-
-        self.logger.info("Link external data (VDS or raw)")
-        for node in self._nodes:
-            self._ensure_dataset_existance(node)
 
         for subscan in self._enabled_subscans:
             self._finalize_subscan(subscan)

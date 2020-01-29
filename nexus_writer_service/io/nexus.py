@@ -1597,12 +1597,12 @@ def getDefault(node, signal=True):
     return default
 
 
-def getDefaultUri(filename, signal=True):
+def getDefaultUri(filename, signal=True, **kwargs):
     """
     :param str filename:
     :returns str: full uri to default data
     """
-    with File(filename) as f:
+    with File(filename, **kwargs) as f:
         path = getDefault(f, signal=signal)
     if path:
         return filename + "::" + path

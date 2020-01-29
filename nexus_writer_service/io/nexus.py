@@ -32,6 +32,7 @@ from silx.io.dictdump import dicttojson, dicttoini
 from .io_utils import mkdir
 from ..utils import data_merging
 from ..utils.process_utils import file_processes
+from ..utils.async_utils import SharedLockPool
 
 
 DEFAULT_PLOT_NAME = "plotselect"
@@ -859,28 +860,43 @@ def lockedErrorMessage(filename):
     return msg
 
 
+class FilePool(SharedLockPool):
+    """
+    Allows to acquire locks identified by name recursively.
+    """
+
+    @contextmanager
+    def _acquire_open(self, filename):
+        """Protect file opening/creation
+        """
+        with super().acquire(None):
+            with super().acquire(filename):
+                yield
+
+    @contextmanager
+    def acquire(self, filename):
+        """Protect blocks of file IO operations. To be used in case other
+        operations in the block yield to the async event loop)
+        """
+        lockname = os.path.abspath(filename)
+        with super().acquire(lockname):
+            yield
+
+
+FILEPOOL = FilePool()
+
+
 class File(h5py.File):
-    def __init__(
-        self,
-        name,
-        mode="r",
-        enable_file_locking=None,
-        swmr=None,
-        creationlocks=None,
-        **kwargs
-    ):
+    def __init__(self, name, mode="r", enable_file_locking=None, swmr=None, **kwargs):
         """
         :param str name:
         :param str mode:
         :param bool enable_file_locking: by default it is disabled for `mode=='r'`
                                          and enabled in all other modes
         :param bool swmr: when not specified: try both modes when `mode=='r'`
-        :param SharedLockPool creationlocks:
         :param **kwargs: see `h5py.File.__init__`
         """
-        self._lockname = os.path.abspath(name)
-        self._creationlocks = creationlocks
-        with self.acquire_lock():
+        with self._acquire_creation_lock(name):
             # https://support.hdfgroup.org/HDF5/docNewFeatures/SWMR/Design-HDF5-FileLocking.pdf
             if not HASSWMR and swmr:
                 swmr = False
@@ -918,28 +934,27 @@ class File(h5py.File):
                 super().__init__(name, mode=mode, swmr=swmr, **kwargs)
 
     @contextmanager
-    def acquire_lock(self):
-        if self._creationlocks is None:
+    def _acquire_creation_lock(self, filename):
+        with FILEPOOL._acquire_open(filename):
             yield
-        else:
-            with self._creationlocks.acquire(self._lockname):
-                yield
+
+    @contextmanager
+    def acquire_lock(self):
+        with FILEPOOL.acquire(self.filename):
+            yield
 
 
 class nxRoot(File):
-    def __init__(self, name, mode="r", creationlocks=None, **kwargs):
+    def __init__(self, name, mode="r", **kwargs):
         """
         :param str name:
         :param str mode:
-        :param SharedLockPool creationlocks:
         :param **kwargs: see `h5py.File.__init__`
         """
-        self._lockname = os.path.abspath(name)
-        self._creationlocks = creationlocks
-        with self.acquire_lock():
+        with self._acquire_creation_lock(name):
             if mode != "r":
                 mkdir(os.path.dirname(name))
-            super().__init__(name, creationlocks=creationlocks, mode=mode, **kwargs)
+            super().__init__(name, mode=mode, **kwargs)
             nxRootInit(self)
 
 

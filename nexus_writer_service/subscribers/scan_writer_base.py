@@ -155,7 +155,6 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
     def __init__(
         self,
         db_name,
-        lockpool,
         node_type=None,
         resource_profiling=False,
         parentlogger=None,
@@ -163,7 +162,6 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
     ):
         """
         :param str db_name:
-        :param geventsync.SharedLockPool lockpool:
         :param str node_type:
         :param Logger parentlogger:
         :param bool resource_profiling:
@@ -197,7 +195,6 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
         self._devices = {}  # str -> dict(subscan.name:dict)
         self._nxroot = {}  # for recursive calling
         self._nxentry = None  # for recursive calling
-        self._nxroot_locks = lockpool
         self._configurable = False
 
     def _listen_event_loop(self, **kwargs):
@@ -474,7 +471,6 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
             "mode": "a",
             "enable_file_locking": self.saveoptions["enable_file_locking"],
             "swmr": self.saveoptions["swmr"],
-            "creationlocks": self._nxroot_locks,
         }
 
     @contextmanager

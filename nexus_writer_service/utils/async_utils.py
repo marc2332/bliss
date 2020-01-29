@@ -120,9 +120,9 @@ def greenlet_ident(g=None):
         return gevent.get_hub().ident_registry.get_ident(g)
 
 
-class SharedLockPool(object):
+class SharedLockPool:
     """
-    Allows to acquire locks identified by name recursively.
+    Allows to acquire locks identified by name (hashable type) recursively.
     """
 
     def __init__(self):

@@ -116,7 +116,6 @@ class NexusSessionWriter(base_subscriber.BaseSubscriber):
         else:
             self._scan_writer_class = scan_writer_base.NexusScanWriterBase
         self.writers = {}
-        self._locks = async_utils.SharedLockPool()
         self.minimal_purge_delay = 5
         self.purge_delay = purge_delay
         self._fds = {}
@@ -224,7 +223,6 @@ class NexusSessionWriter(base_subscriber.BaseSubscriber):
         """
         writer = self._scan_writer_class(
             node.db_name,
-            self._locks,
             node_type=node.node_type,
             parentlogger=self.logger,
             resource_profiling=self.resource_profiling,
@@ -297,13 +295,12 @@ class NexusSessionWriter(base_subscriber.BaseSubscriber):
             self.logger.info, self._fds, prefix="{} fds since start"
         )
         nfds = len(fds)
-        nlocks = len(self._locks)
         ngreenlets = len(process_utils.greenlets())
         nthreads = len(process_utils.threads())
         mb = int(process_utils.memory() / 1024 ** 2)
         self.logger.info(
-            "{} threads, {} greenlets, {} fds, {}MB MEM, {} locks".format(
-                nthreads, ngreenlets, nfds, mb, nlocks
+            "{} threads, {} greenlets, {} fds, {}MB MEM".format(
+                nthreads, ngreenlets, nfds, mb
             )
         )
 

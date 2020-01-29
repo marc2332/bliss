@@ -345,29 +345,30 @@
       function init_trees() {
         /* Files view */
         $("#tree-files-expand-all").on("click", function() {
-            $("#tree-files").treeview("expandAll", {levels: 3, silent: true} );
+          $("#tree-files").treeview("expandAll", {levels: 3, silent: true} );
+          toggle_folder_icon_state();
         });
-
+          
         $("#tree-files-collapse-all").on("click", function() {
-            $("#tree-files").treeview("collapseAll", {silent: true} );
+          $("#tree-files").treeview("collapseAll", {silent: true} );
         });
-
+        
         $("#tree-files-add-file").on("click", function() {
           show_add_file_dialog();
         });
-
+        
         $("#tree-files-add-folder").on("click", function() {
           show_add_folder_dialog();
         });
-
+        
         $("#tree-files-rename").on("click", function() {
           show_rename_dialog();
         });
-
+        
         $("#tree-files-move").on("click", function() {
           show_move_dialog();
         });
-
+        
         $("#tree-files-delete").on("click", function() {
           show_remove_dialog();
         });
@@ -375,24 +376,27 @@
         /* Items view */
         $("#tree-items-expand-all").on("click", function() {
           $("#tree-items").treeview("expandAll", {levels: 2, silent: true} );
+          toggle_folder_icon_state();
         });
-
+        
         $("#tree-items-collapse-all").on("click", function() {
           $("#tree-items").treeview("collapseAll", {silent: true} );
         });
-
+        
         /* Plugins view */
         $("#tree-plugins-expand-all").on("click", function() {
           $("#tree-plugins").treeview("expandAll", {levels: 2, silent: true} );
+          toggle_folder_icon_state();
         });
-
+        
         $("#tree-plugins-collapse-all").on("click", function() {
           $("#tree-plugins").treeview("collapseAll", {silent: true} );
         });
-
+        
         /* Tags view */
         $("#tree-tags-expand-all").on("click", function() {
           $("#tree-tags").treeview("expandAll", {levels: 2, silent: true} );
+          toggle_folder_icon_state();
         });
 
         $("#tree-tags-collapse-all").on("click", function() {
@@ -543,6 +547,10 @@
         show_node(node, $("#content-panel"));
       }
 
+      function toggle_folder_icon_state() {
+        $("span.expand-icon.fa-minus-square-o + span.fa-folder").removeClass("fa-folder").addClass("fa-folder-open");
+      }
+
       $(function() {
 
         /* initialize tooltips */
@@ -581,6 +589,8 @@
         $("#brand-text").on("click", function() {
           show_main($("#content-panel"));
         });
+
+        $(document).on("click", "li.list-group-item", toggle_folder_icon_state);
 
         $("#reload-config").on("click", function() {
           var btn = $(this).button('reloading...');

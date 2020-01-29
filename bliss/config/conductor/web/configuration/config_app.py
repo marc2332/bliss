@@ -161,9 +161,7 @@ class WebConfig(object):
                 full_part = os.path.join(full_part, part)
                 p_item = items.get(full_part)
                 if p_item is None:
-                    p_item = dict(
-                        type="folder", path=full_part, icon="fa fa-folder-open"
-                    )
+                    p_item = dict(type="folder", path=full_part, icon="fa fa-folder")
                 current_level.setdefault(part, [p_item, dict()])
                 current_level = current_level[part][1]
             current_level.setdefault(parts[-1], [item, dict()])
@@ -178,7 +176,7 @@ class WebConfig(object):
             plugin_data = result.get(plugin_name)
             if plugin_data is None:
                 plugin_data = [
-                    dict(type="folder", path=plugin_name, icon="fa fa-folder-open"),
+                    dict(type="folder", path=plugin_name, icon="fa fa-folder"),
                     {},
                 ]
                 result[plugin_name] = plugin_data
@@ -194,10 +192,7 @@ class WebConfig(object):
             for tag in item["tags"] or ["__no_tag__"]:
                 tag_data = result.get(tag)
                 if tag_data is None:
-                    tag_data = [
-                        dict(type="folder", path=tag, icon="fa fa-folder-open"),
-                        {},
-                    ]
+                    tag_data = [dict(type="folder", path=tag, icon="fa fa-folder"), {}]
                     result[tag] = tag_data
                 tag_items = tag_data[1]
                 tag_items[name] = [item, {}]
@@ -255,7 +250,7 @@ class WebConfig(object):
                     type="file", path=item_path, icon="fa fa-" + ext_info["icon"]
                 )
             else:
-                meta = dict(type="folder", path=item_path, icon="fa fa-folder-open")
+                meta = dict(type="folder", path=item_path, icon="fa fa-folder")
                 self.__build_tree_files__(data, sub_items, path=item_path)
             dst[name] = [meta, sub_items]
         return dst

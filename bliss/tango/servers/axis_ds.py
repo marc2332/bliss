@@ -16,18 +16,22 @@ import time
 import traceback
 import json
 import itertools
+import logging
 
 import gevent
 from gevent.backdoor import BackdoorServer
 
-import bliss.tango.servers.log as elog
 from bliss.common import event
 from bliss.common.utils import grouped
 from bliss.config.static import get_config as beacon_get_config
 from bliss.common.motor_group import Group
 from bliss.common.axis import Axis
 
+from bliss import global_log, global_map
+from bliss.common.logtools import Log
+
 import tango
+import bliss.tango.servers.log as elog
 from tango.server import Device, device_property
 from tango.server import attribute, command, get_worker
 
@@ -106,7 +110,7 @@ class BlissAxisManager(Device):
         self.debug_stream("In init_device() of controller")
         self.group_dict = {}
         if self.BackdoorPort:
-            print("Starting Backdoor server on port", self.BackdoorPort)
+            elog.info(f"Starting Backdoor server on port {self.BackdoorPort}")
             server = BackdoorServer(
                 ("127.0.0.1", self.BackdoorPort),
                 banner="BlissAxisManager back door",
@@ -115,7 +119,7 @@ class BlissAxisManager(Device):
             gevent.spawn(server.serve_forever)
             self.__backdoor_server = server
         else:
-            print(" no backdoor")
+            elog.info("no backdoor")
 
     def _get_axis_devices(self):
         util = tango.Util.instance()
@@ -317,6 +321,41 @@ class BlissAxis(Device):
     def delete_device(self):
         self.debug_stream("In delete_device() of axis")
 
+    def log_on(self):
+
+        controller = self.axis.controller
+        _ctrl = controller.get_class_name()
+
+        global_log = Log(map=global_map)
+
+        log_format = "%(levelname)s %(asctime)-15s %(name)s: %(message)s"
+        global_log.set_log_format(log_format)
+        global_log.start_stdout_handler()
+
+        loggers = Log._find_loggers(f"*{_ctrl}*")
+        if loggers:
+            for name, logger in loggers.items():
+                print("---L-->", logger)
+                try:
+                    logger.setLevel(logging.DEBUG)
+                    print(f"{name} level set ...")
+                except AttributeError:
+                    # not a BlissLoggers
+                    logger.setLevel(logging.DEBUG)
+                    print("level set333  ...")
+
+    def print_log_status(self):
+
+        controller = self.axis.controller
+        _ctrl = controller.get_class_name()
+
+        loggers = Log._find_loggers(f"*{_ctrl}*")
+
+        print("---------------log state-----------------------------------")
+        if loggers:
+            for name, logger in loggers.items():
+                print("---L-->", logger)
+
     def init_device(self):
         self.debug_stream("In init_device() of axis")
         Device.init_device(self)
@@ -352,6 +391,14 @@ class BlissAxis(Device):
             _ctrl = controller.get_class_name()
 
         self.debug_stream("axis found : %s" % self._axis_name)
+
+        # Get log level requiered at DS launch.
+        # -v1=500   -v2=500   -v3=600   -v/-v4=600
+        logger = self.get_logger()
+        tango_log_level = logger.get_level()
+        print(f"TANGO LOG level: {tango_log_level}")
+        if tango_log_level == 500:
+            self.log_on()
 
         self._init_time = time.time()
         self._t = time.time()

@@ -28,8 +28,15 @@ class Workspace(qt.QObject):
 
     def __init__(self, parent=None):
         super(Workspace, self).__init__(parent=parent)
+        self.__name = "default"
         self.__plots: List[plot_model.Plot] = []
         self.__widgets: List[qt.QWidget] = []
+
+    def name(self):
+        return self.__name
+
+    def setName(self, name: str):
+        self.__name = name
 
     def plots(self) -> List[plot_model.Plot]:
         return self.__plots

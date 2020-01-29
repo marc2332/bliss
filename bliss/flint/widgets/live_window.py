@@ -7,6 +7,7 @@
 
 
 from silx.gui import qt
+from bliss.flint.widgets.curve_plot import CurvePlotWidget
 
 
 class LiveWindow(qt.QMainWindow):
@@ -27,3 +28,18 @@ class LiveWindow(qt.QMainWindow):
     def __tabActivated(self, dock: qt.QDockWidget):
         if hasattr(dock, "widgetActivated"):
             dock.widgetActivated.emit(dock)
+
+    def feedDefaultWorkspace(self, flintModel, workspace):
+        curvePlotWidget = CurvePlotWidget(parent=self)
+        curvePlotWidget.setFlintModel(flintModel)
+        curvePlotWidget.setObjectName("curve1-dock")
+        curvePlotWidget.setWindowTitle("Curve1")
+        curvePlotWidget.setFeatures(
+            curvePlotWidget.features() & ~qt.QDockWidget.DockWidgetClosable
+        )
+        curvePlotWidget.widget().setSizePolicy(
+            qt.QSizePolicy.Expanding, qt.QSizePolicy.Expanding
+        )
+
+        workspace.addWidget(curvePlotWidget)
+        self.addDockWidget(qt.Qt.RightDockWidgetArea, curvePlotWidget)

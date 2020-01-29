@@ -174,26 +174,6 @@ class FlintWindow(qt.QMainWindow):
         title = "Flint (PID={}) - {}".format(os.getpid(), session)
         self.setWindowTitle(title)
 
-    def __feedDefaultWorkspace(self):
-        # FIXME: Here we can feed the workspace with something persistent
-        flintModel = self.__flintState
-        workspace = flintModel.workspace()
-        window = flintModel.liveWindow()
-
-        curvePlotWidget = CurvePlotWidget(parent=window)
-        curvePlotWidget.setFlintModel(flintModel)
-        curvePlotWidget.setObjectName("curve1-dock")
-        curvePlotWidget.setWindowTitle("Curve1")
-        curvePlotWidget.setFeatures(
-            curvePlotWidget.features() & ~qt.QDockWidget.DockWidgetClosable
-        )
-        curvePlotWidget.widget().setSizePolicy(
-            qt.QSizePolicy.Expanding, qt.QSizePolicy.Expanding
-        )
-
-        workspace.addWidget(curvePlotWidget)
-        window.addDockWidget(qt.Qt.RightDockWidgetArea, curvePlotWidget)
-
     def initFromSettings(self):
         settings = self.__flintState.settings()
         # resize window to 70% of available screen space, if no settings
@@ -205,20 +185,6 @@ class FlintWindow(qt.QMainWindow):
         self.move(settings.value("pos", qt.QPoint(3 * w / 14.0, 3 * h / 14.0)))
         settings.endGroup()
 
-        manager = self.__flintState.mainManager()
-        settings.beginGroup("live-window")
-        state = settings.value("workspace", None)
-        if state is not None:
-            try:
-                manager.restoreWorkspace(state)
-                _logger.info("Workspace restored")
-            except Exception:
-                _logger.error("Error while restoring the workspace", exc_info=True)
-                self.__feedDefaultWorkspace()
-        else:
-            self.__feedDefaultWorkspace()
-        settings.endGroup()
-
     def saveToSettings(self):
         settings = self.__flintState.settings()
         settings.beginGroup("main-window")
@@ -227,14 +193,11 @@ class FlintWindow(qt.QMainWindow):
         settings.endGroup()
 
         manager = self.__flintState.mainManager()
-        settings.beginGroup("live-window")
         try:
-            state = manager.saveWorkspace(includePlots=False)
-            settings.setValue("workspace", state)
+            manager.saveWorkspace()
             _logger.info("Workspace saved")
         except Exception:
             _logger.error("Error while saving the workspace", exc_info=True)
-        settings.endGroup()
 
         settings.sync()
 

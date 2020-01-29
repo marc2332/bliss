@@ -45,8 +45,20 @@ def check_config(f):
 class WebConfig(object):
 
     EXT_MAP = {
+        "": dict(type="text", icon="file-o"),
+        "txt": dict(type="text", icon="file-o"),
+        "md": dict(type="markdown", icon="file-o"),
         "yml": dict(type="yaml", icon="file-text-o"),
         "py": dict(type="python", icon="file-code-o"),
+        "html": dict(type="html", icon="file-code-o"),
+        "css": dict(type="css", icon="file-code-o"),
+        "js": dict(type="javascript", icon="file-code-o"),
+        "png": dict(type="image", icon="file-image-o"),
+        "jpg": dict(type="image", icon="file-image-o"),
+        "jpeg": dict(type="image", icon="file-image-o"),
+        "gif": dict(type="image", icon="file-image-o"),
+        "tif": dict(type="image", icon="file-image-o"),
+        "tiff": dict(type="image", icon="file-image-o"),
     }
 
     def __init__(self):
@@ -258,6 +270,8 @@ class WebConfig(object):
     @check_config
     def get_file_info(self, file_name):
         ext = file_name.rpartition(os.path.extsep)[2]
+        if "." not in file_name:
+            ext = ""
         return self.EXT_MAP.setdefault(ext, dict(type=ext, icon="question"))
 
 

@@ -481,7 +481,7 @@ def get_item_config(name):
     if plugin:
         obj_cfg = plugin(obj_cfg)
     else:
-        obj_cfg = "<h1>TODO</h1>"
+        obj_cfg = "<!-- TODO -->"
     return flask.json.dumps(dict(html=obj_cfg, name=name))
 
 

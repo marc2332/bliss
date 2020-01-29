@@ -950,6 +950,7 @@ class Scan:
         self.__state_change = gevent.event.Event()
         self._preset_list = list()
         self.__node = None
+        self.__comments = list()  # user comments
 
     def _create_data_node(self, node_name):
         self.__node = _create_node(
@@ -1482,6 +1483,30 @@ class Scan:
         for i in next_iter:
             i.prepare(self, self.scan_info)
             i.start()
+
+    def add_comment(self, comment):
+        """
+        Adds a comment (string + timestamp) to scan_info that will also be 
+        saved in the file data file together with the scan 
+        """
+        assert type(comment) == str
+
+        if self.__state < ScanState.DONE:
+            self.__comments.append({"timestamp": time.time(), "message": comment})
+            self._scan_info["comments"] = self.__comments
+            if self.__state > ScanState.IDLE:
+                self.node._info.update({"comments": self.__comments})
+        else:
+            raise RuntimeError(
+                "Comments can only be added to scans that have not terminated!"
+            )
+
+    @property
+    def comments(self):
+        """
+        list of comments that have been attacht to this scan by the user
+        """
+        return self.__comments
 
     @staticmethod
     def _data_watch(scan, event, event_done):

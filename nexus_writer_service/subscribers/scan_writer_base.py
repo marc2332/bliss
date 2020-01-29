@@ -605,7 +605,7 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
     @contextmanager
     def nxmeasurement(self, subscan):
         """
-        Yields the generic NXdata instance (h5py.Group) or None
+        Yields the measurement instance (h5py.Group) or None
         when NXentry is missing
         """
         with self.nxentry(subscan) as nxentry:
@@ -613,6 +613,18 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
                 yield None
             else:
                 yield nexus.nxCollection(nxentry, "measurement")
+
+    @contextmanager
+    def nxnotes(self, subscan):
+        """
+        Yields the notes instance (h5py.Group) or None
+        when NXentry is missing
+        """
+        with self.nxentry(subscan) as nxentry:
+            if nxentry is None:
+                yield None
+            else:
+                yield nexus.nxCollection(nxentry, "notes")
 
     def _h5missing(self, variable):
         """
@@ -648,7 +660,7 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
             plotselect = self.plotselect
             firstplot = None
             plots = self.plots
-            subscan.logger.info("Create plots: {}".format(list(plots.keys())))
+            subscan.logger.info("Create {} plots".format(len(plots)))
             for plotname, plotparams in plots.items():
                 if plotname in nxentry:
                     subscan.logger.warning(
@@ -977,6 +989,8 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
         """
         self._save_positioners(subscan)
         self._create_plots(subscan)
+        self._fetch_subscan_metadata(subscan)
+        self._fetch_subscan_notes(subscan)
 
     @property
     def current_bytes(self):
@@ -1815,6 +1829,7 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
         with self.nxentry(subscan) as parent:
             if parent is None:
                 return
+            subscan.logger.info("Save scan metadata")
             info = self.info
             categories = set(info["scan_meta_categories"])
             categories -= {"positioners", "nexuswriter"}
@@ -1837,3 +1852,26 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
                     subscan.logger.info(
                         "Saved metadata categories: {}".format(list(scan_meta.keys()))
                     )
+
+    def _fetch_subscan_notes(self, subscan):
+        """
+        Save notes for this subscan
+
+        :param Subscan subscan:
+        """
+        notes = self.get_info("comments", [], cache=True)
+        if not notes:
+            return
+        with self.nxnotes(subscan) as parent:
+            if parent is None:
+                return
+            subscan.logger.info("Save scan notes")
+            for i, note in enumerate(notes, 1):
+                date = datetime.datetime.fromtimestamp(note["timestamp"])
+                nexus.nxNote(
+                    parent,
+                    "note_{:02d}".format(i),
+                    data=note["message"],
+                    type="text/plain",
+                    date=date,
+                )

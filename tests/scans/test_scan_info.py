@@ -6,6 +6,7 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import pytest
+import gevent
 from bliss import setup_globals
 from bliss.common import scans
 from bliss.scanning.chain import AcquisitionChain, AcquisitionMaster, AcquisitionSlave
@@ -206,3 +207,24 @@ def test_scan_info_object_vs_node(session):
     s1.scan_info["state"] = s1.scan_info["state"].name
 
     deep_compare(s1.scan_info, s1.node.info.get_all())
+
+
+def test_scan_comment_feature(default_session):
+    diode = default_session.config.get("diode")
+
+    def f():
+        s = scans.loopscan(10, .1, diode, run=False, save=False)
+        s.add_comment("comment1")
+        g = gevent.spawn(s.run)
+        s.add_comment("comment2")
+        gevent.sleep(.2)
+        s.add_comment("comment3")
+        g.get()
+        return s
+
+    s = f()
+    assert len(s.scan_info["comments"]) == 3
+    assert len(s.node.info["comments"]) == 3
+
+    with pytest.raises(RuntimeError):
+        s.add_comment("comment4")

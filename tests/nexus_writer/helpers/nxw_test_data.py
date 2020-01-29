@@ -42,6 +42,7 @@ def validate_scan_data(
     subscan=1,
     masters=None,
     detectors=None,
+    notes=None,
     master_name="timer",
     scan_shape=None,
     config=True,
@@ -54,6 +55,7 @@ def validate_scan_data(
     :param tuple masters: fast axis first by default `master_name` when 1D scan
                           or None otherwise
     :param list(str) detectors: expected detectors (derived from technique when missing)
+    :param list(str) notes:
     :param str master_name: chain master name
     :param tuple scan_shape: fast axis first 0D scan by default
     :param bool config: configurable writer
@@ -106,6 +108,7 @@ def validate_scan_data(
             withpolicy=withpolicy,
             technique=scan_technique,
             detectors=detectors,
+            notes=notes,
             variable_length=variable_length,
         )
         validate_measurement(
@@ -148,6 +151,7 @@ def validate_scan_data(
             save_options=save_options,
             detectors=detectors,
         )
+        validate_notes(nxentry, notes)
 
 
 def validate_scangroup_data(sequence, config=True, **kwargs):
@@ -207,6 +211,7 @@ def validate_nxentry(
     withpolicy=True,
     technique=None,
     detectors=None,
+    notes=None,
     variable_length=None,
 ):
     """
@@ -233,6 +238,8 @@ def validate_nxentry(
             if info["signals"]:
                 expected |= {name, "plotselect"}
     expected |= expected_applications(technique, config=config, withpolicy=withpolicy)
+    if notes:
+        expected.add("notes")
     assert_set_equal(actual, expected)
 
 
@@ -545,6 +552,24 @@ def validate_nxdata(
             masters += tuple("datadim{}".format(i) for i in range(detector_ndim))
     axes = tuple(nxdata.attrs.get("axes", tuple()))
     assert axes == masters, (axes, masters, scan_shape, ptype, nxdata.name)
+
+
+def validate_notes(nxentry, notes):
+    """
+    :param h5py.Group nxentry:
+    :param list(str) notes:
+    """
+    if not notes:
+        assert "notes" not in nxentry, nxentry.name
+        return
+    group = nxentry["notes"]
+    assert group.attrs["NX_class"] == "NXcollection", group.name
+    for i, data in enumerate(notes, 1):
+        subgroup = group["note_{:02d}".format(i)]
+        assert subgroup.attrs["NX_class"] == "NXnote", subgroup.name
+        assert set(subgroup.keys()) == {"date", "type", "data"}
+        assert subgroup["data"][()] == data
+        assert subgroup["type"][()] == "text/plain"
 
 
 def expected_plots(technique, config=True, withpolicy=True, detectors=None):

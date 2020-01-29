@@ -9,6 +9,7 @@ import os
 import sys
 import pkgutil
 import functools
+import mimetypes
 
 import gevent.lock
 
@@ -407,15 +408,25 @@ def get_db_file(filename):
 
 @web_app.route("/db_file_editor/<path:filename>")
 def get_db_file_editor(filename):
-    cfg = __config.get_config()
+    ftype, _ = mimetypes.guess_type(filename)
 
-    content = client.get_config_file(filename).decode()
+    if ftype is None or ftype.startswith("text/"):
+        try:
+            content = client.get_config_file(filename).decode()
+            file_info = __config.get_file_info(filename)
+            template = __get_jinja2().select_template(("editor.html",))
+            html = template.render(
+                dict(name=filename, ftype=file_info["type"], content=content)
+            )
+        except UnicodeDecodeError:
+            html = f"failed to decode {filename}"
+    # elif ftype.startswith("image/"):
+    #     content = client.get_config_file(filename)
+    #     data = base64.b64encode(content).decode()
+    #     html = f"<img src='data:{ftype};base64,{data}' style='max-width: 100%; max-height: 100%'>"
+    else:
+        html = f"{ftype} mime type not handled"
 
-    file_info = __config.get_file_info(filename)
-    template = __get_jinja2().select_template(("editor.html",))
-    html = template.render(
-        dict(name=filename, ftype=file_info["type"], content=content)
-    )
     return flask.json.dumps(dict(html=html, name=filename))
 
 

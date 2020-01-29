@@ -397,6 +397,8 @@ class BlissAxis(Device):
         logger = self.get_logger()
         tango_log_level = logger.get_level()
         print(f"TANGO LOG level: {tango_log_level}")
+
+        # Activate DEBUG on -v1 to avoid to be flooded by -v4 info.
         if tango_log_level == 500:
             self.log_on()
 

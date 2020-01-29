@@ -59,10 +59,10 @@ class CT2CounterTimer(CT2Counter):
 class CT2Controller(Proxy, CounterController):
     def __init__(self, device_config, name="ct2_cc", **kwargs):
 
-        address = device_config["address"]
+        board_address = device_config["address"]
 
         Proxy.__init__(
-            self, functools.partial(Client, address, **kwargs), init_once=True
+            self, functools.partial(Client, board_address, **kwargs), init_once=True
         )
 
         CounterController.__init__(self, name=name, register_counters=False)
@@ -86,6 +86,7 @@ class CT2Controller(Proxy, CounterController):
                 slave.create_counter(CT2CounterTimer, ct_name)
 
         self._counters = slave._counters
+        self.board_address = board_address
 
     def get_acquisition_object(self, acq_params, ctrl_params, parent_acq_params):
 
@@ -119,6 +120,25 @@ class CT2Controller(Proxy, CounterController):
         params["start_once"] = start_once
 
         return params
+
+    def __info__(self):
+        infos = f"CT2Controller [address={self.board_address}]\n"
+        infos += "Counters:\n"
+        for name, cnt in self._counters.items():
+            infos += f"  channel {cnt.channel:2d} : {name}"
+            if cnt.channel == self.internal_timer_counter:
+                infos += " [timer]"
+            infos += "\n"
+        infos += "External signals:\n"
+        if self.input_channel is not None:
+            infos += f"  input channel  : {self.input_channel}\n"
+        else:
+            infos += f"  input channel  : Not Configured\n"
+        if self.output_channel is not None:
+            infos += f"  output channel : {self.output_channel}\n"
+        else:
+            infos += f"  output channel  : Not Configured\n"
+        return infos
 
 
 class CT2CounterController(IntegratingCounterController):

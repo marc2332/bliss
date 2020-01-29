@@ -99,7 +99,12 @@ class LimaImageChannelDataNode(DataNode):
             if self.acq_trigger_mode is None:
                 return None
             # FIXME: This still can be wrong for a scan with many groups of MULTI images
-            return self.acq_trigger_mode == "INTERNAL_TRIGGER_MULTI"
+            # The function is_video_frame_have_meaning itself have not meaning and
+            # should be removed
+            return self.acq_trigger_mode in [
+                "EXTERNAL_TRIGGER_MULTI",
+                "INTERNAL_TRIGGER_MULTI",
+            ]
 
         def get_last_live_image(self, proxy=UNSET):
             """Returns the last image data from stream within it's frame number.

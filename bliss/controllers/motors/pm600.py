@@ -35,6 +35,22 @@ class PM600(Controller):
     def __init__(self, *args, **kwargs):
         Controller.__init__(self, *args, **kwargs)
 
+    def __info__(self):
+        nlines = 23
+        cmd = self.channel + "QA\r"
+        reply_list = self.sock.write_readlines(
+            cmd.encode(), nlines, eol="\r\n", timeout=5
+        )
+        # Strip the echoed command from the first reply
+        first_line = reply_list[0].decode()
+        idx = first_line.find("\r")
+        if idx == -1:
+            log_error(self, "PM600 Error: No echoed command")
+        answer = "\n" + first_line[idx + 1 :]
+        for i in range(1, nlines):
+            answer = answer + "\n" + reply_list[i].decode()
+        return answer
+
     def initialize(self):
         try:
             self.sock = get_comm(self.config.config_dict)
@@ -63,6 +79,7 @@ class PM600(Controller):
     # Initialize each axis.
     def initialize_axis(self, axis):
         axis.channel = axis.config.get("address")
+        self.channel = axis.channel
 
         axis.kf = axis.config.get("Kf", int, default=0)
         axis.kp = axis.config.get("Kp", int, default=10)
@@ -106,11 +123,11 @@ class PM600(Controller):
         self.io_command("KV", axis.channel, axis.kv)
         # Set the Extra Velocity feedback on axis
         self.io_command("KX", axis.channel, axis.kx)
-        """
         # Set slew rate of axis (steps/sec)
         self.io_command("SV", axis.channel, int(axis.slewrate))
         # Set acceleration of axis (steps/sec/sec)
         self.io_command("SA", axis.channel, int(axis.accel))
+        """
         # Set deceleration of axis (steps/sec/sec)
         self.io_command("SD", axis.channel, axis.decel)
         # Set creep speed of axis (steps/sec/sec)
@@ -310,7 +327,7 @@ class PM600(Controller):
         # check for the error character !
         idx = answer.find("!")
         if idx != -1:
-            log_error(self, "PM600 Error: " + answer[idx:])
+            log_error(self, "PM600 Error: " + answer[idx:] + " " + cmd)
             return
         # Now remove the channel from the reply and check against the requested channel
         idx = answer.find(":")

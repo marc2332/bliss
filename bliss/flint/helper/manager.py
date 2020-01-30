@@ -214,10 +214,21 @@ class ManageMainBehaviours(qt.QObject):
         redis = flintModel.redisConnection()
 
         data = redis.get(key)
+        if data is not None:
+            try:
+                data = pickle.loads(data)
+            except:
+                _logger.error(
+                    "The workspace stored in redis can't be deserialized. This data will be lost.",
+                    exc_info=True,
+                )
+                _logger.error("Dump: %s", data)
+                data = None
+
         if data is None:
             window.feedDefaultWorkspace(flintModel, newWorkspace)
         else:
-            plots, widgetDescriptions, layout = pickle.loads(data)
+            plots, widgetDescriptions, layout = data
 
             # It have to be done before creating widgets
             self.closeWorkspace()

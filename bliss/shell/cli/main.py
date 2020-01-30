@@ -12,7 +12,7 @@ Usage: bliss [-l | --log-level=<log_level>] [-s <name> | --session=<name>] [--no
        bliss [-c <name> | --create=<name>]
        bliss [-d <name> | --delete=<name>]
        bliss [-h | --help]
-       bliss --show-sessions
+       bliss [-S | --show-sessions]
        bliss --show-sessions-only
 
 Options:
@@ -24,7 +24,7 @@ Options:
     -h, --help                    Show help screen and exit
     --no-tmux                     Deactivate Tmux usage
     --debug                       Allow debugging with full exceptions and keeping tmux alive after Bliss shell exits
-    --show-sessions               Display available sessions and tree of sub-sessions
+    -S, --show-sessions           Display available sessions and tree of sub-sessions
     --show-sessions-only          Display available sessions names only
 """
 

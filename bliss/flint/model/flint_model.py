@@ -39,7 +39,7 @@ class Workspace(qt.QObject):
         self.__name = name
 
     def plots(self) -> List[plot_model.Plot]:
-        return self.__plots
+        return list(self.__plots)
 
     def addPlot(self, plot):
         self.__plots.append(plot)
@@ -50,7 +50,7 @@ class Workspace(qt.QObject):
         self.plotRemoved.emit(plot)
 
     def widgets(self) -> List[qt.QWidget]:
-        return self.__widgets
+        return list(self.__widgets)
 
     def addWidget(self, widget):
         self.__widgets.append(widget)

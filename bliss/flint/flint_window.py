@@ -13,7 +13,6 @@ from silx.gui import qt
 
 from bliss.flint.widgets.log_widget import LogWidget
 from bliss.flint.widgets.live_window import LiveWindow
-from bliss.flint.widgets.curve_plot import CurvePlotWidget
 from bliss.flint.model import flint_model
 
 _logger = logging.getLogger(__name__)
@@ -39,13 +38,17 @@ class FlintWindow(qt.QMainWindow):
         self.__initMenus()
         self.__initLogWindow()
 
-    def setFlintState(self, flintState):
+    def setFlintModel(self, flintState: flint_model.FlintState):
         if self.__flintState is not None:
             self.__flintState.blissSessionChanged.disconnect(self.__blissSessionChanged)
         self.__flintState = flintState
         if self.__flintState is not None:
             self.__flintState.blissSessionChanged.connect(self.__blissSessionChanged)
         self.__updateTitle()
+
+    def flintModel(self) -> flint_model.FlintState:
+        assert self.__flintState is not None
+        return self.__flintState
 
     def tabs(self):
         # FIXME: Have to be removed as it is not really an abstraction
@@ -160,6 +163,14 @@ class FlintWindow(qt.QMainWindow):
         window.setObjectName("scan-window")
         self.setVisible(True)
         return window
+
+    def updateGui(self):
+        flintModel = self.flintModel()
+        liveWindow = flintModel.liveWindow()
+        menubar = self.menuBar()
+        layoutMenu = menubar.addMenu("&Layout")
+        for action in liveWindow.createLayoutActions(self):
+            layoutMenu.addAction(action)
 
     def __blissSessionChanged(self):
         self.__updateTitle()

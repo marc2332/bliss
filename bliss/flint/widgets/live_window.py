@@ -13,6 +13,7 @@ import functools
 
 from silx.gui import qt
 from silx.gui import utils
+from silx.gui import icons
 
 from bliss.flint.model import flint_model
 from bliss.flint.widgets.curve_plot import CurvePlotWidget
@@ -102,6 +103,8 @@ class LiveWindow(qt.QMainWindow):
         action.triggered.connect(
             functools.partial(self.setPredefinedLayout, _PredefinedLayouts.ONE_STACK)
         )
+        icon = icons.getQIcon("flint:icons/layout-one-stack")
+        action.setIcon(icon)
         result.append(action)
 
         action = qt.QAction(parent)
@@ -111,6 +114,8 @@ class LiveWindow(qt.QMainWindow):
                 self.setPredefinedLayout, _PredefinedLayouts.ONE_FOR_IMAGE_AND_MCA
             )
         )
+        icon = icons.getQIcon("flint:icons/layout-one-for-image-and-mca")
+        action.setIcon(icon)
         result.append(action)
 
         action = qt.QAction(parent)
@@ -118,6 +123,8 @@ class LiveWindow(qt.QMainWindow):
         action.triggered.connect(
             functools.partial(self.setPredefinedLayout, _PredefinedLayouts.ONE_PER_KIND)
         )
+        icon = icons.getQIcon("flint:icons/layout-one-per-kind")
+        action.setIcon(icon)
         result.append(action)
 
         return result

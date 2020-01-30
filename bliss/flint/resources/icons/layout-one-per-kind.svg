@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="svg20" version="1.1" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" xmlns:cc="http://creativecommons.org/ns#" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+ <metadata id="metadata26">
+  <rdf:RDF>
+   <cc:Work rdf:about="">
+    <dc:format>image/svg+xml</dc:format>
+    <dc:type rdf:resource="http://purl.org/dc/dcmitype/StillImage"/>
+   </cc:Work>
+  </rdf:RDF>
+ </metadata>
+ <rect id="rect4" x="4.153" y="8.0002" width="7.7285" height="7.7285" ry="0" color="#000000" fill="#fff" stroke="#000" stroke-miterlimit="2" stroke-width="1.4"/>
+ <rect id="rect8" x="11.916" y="16.271" width="7.7285" height="7.7285" ry="0" color="#000000" fill="#fff" stroke="#000" stroke-miterlimit="2" stroke-width="1.4"/>
+ <rect id="rect10" x="11.916" y="8.0002" width="7.7285" height="7.7285" ry="0" color="#000000" fill="#fff" stroke="#000" stroke-miterlimit="2" stroke-width="1.4"/>
+ <rect id="rect14" x="20.119" y="16.271" width="7.7285" height="7.7285" ry="0" color="#000000" fill="#fff" stroke="#000" stroke-miterlimit="2" stroke-width="1.4"/>
+ <rect id="rect16" x="20.119" y="8.0002" width="7.7285" height="7.7285" ry="0" color="#000000" fill="#fff" stroke="#000" stroke-miterlimit="2" stroke-width="1.4"/>
+ <rect id="rect2" x="4.153" y="12.848" width="7.7285" height="11.152" ry="0" color="#000000" fill="#fff" stroke="#000" stroke-miterlimit="2" stroke-width="1.4"/>
+</svg>

@@ -247,7 +247,7 @@ class ManageMainBehaviours(qt.QObject):
                 newWorkspace.addWidget(widget)
 
             for plot in plots.values():
-                # FIXME: THat's a hack while there is no better solution
+                # FIXME: That's a hack while there is no better solution
                 style = plot.styleStrategy()
                 if hasattr(style, "setFlintModel"):
                     style.setFlintModel(flintModel)

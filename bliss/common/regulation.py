@@ -614,10 +614,11 @@ class ExternalOutput(Output):
         log_debug(self, "ExternalOutput:_set_value %s" % value)
 
         if isinstance(self.device, Axis):
-            if self.mode == "relative":
-                self.device.rmove(value)
-            elif self.mode == "absolute":
-                self.device.move(value)
+            with lprint_disable():
+                if self.mode == "relative":
+                    self.device.rmove(value)
+                elif self.mode == "absolute":
+                    self.device.move(value)
         else:
             raise TypeError("the associated device must be an 'Axis'")
 
@@ -680,7 +681,7 @@ class Loop(SamplingCounterController):
 
         self._first_scan_move = True
 
-        self._wait_mode = self.WaitMode.RAMP
+        self._wait_mode = self.WaitMode.DEADBAND  # RAMP
 
         self._history_size = 100
         self.clear_history_data()
@@ -700,7 +701,9 @@ class Loop(SamplingCounterController):
 
         self.deadband = self._config.get("deadband", 0.1)
         self.deadband_time = self._config.get("deadband_time", 1.0)
-        self.wait_mode = self._config.get("wait_mode", "ramp")
+
+        if self._config.get("wait_mode") is not None:
+            self.wait_mode = self._config.get("wait_mode")
 
         # below the parameters that may requires communication with the controller
 
@@ -947,8 +950,10 @@ class Loop(SamplingCounterController):
     def axis(self):
         """ Return a SoftAxis object that makes the Loop scanable """
 
+        name = self.name + ":axis"
+
         sa = SoftAxis(
-            self.input.name,
+            name,
             self,
             position="axis_position",
             move="axis_move",
@@ -990,14 +995,14 @@ class Loop(SamplingCounterController):
 
         """
 
-        # Standard axis states:
-        # MOVING : 'Axis is moving'
-        # READY  : 'Axis is ready to be moved (not moving ?)'
-        # FAULT  : 'Error from controller'
-        # LIMPOS : 'Hardware high limit active'
-        # LIMNEG : 'Hardware low limit active'
-        # HOME   : 'Home signal active'
-        # OFF    : 'Axis is disabled (must be enabled to move (not ready ?))'
+        # "READY": "Axis is READY",
+        # "MOVING": "Axis is MOVING",
+        # "FAULT": "Error from controller",
+        # "LIMPOS": "Hardware high limit active",
+        # "LIMNEG": "Hardware low limit active",
+        # "HOME": "Home signal active",
+        # "OFF": "Axis power is off",
+        # "DISABLED": "Axis cannot move",
 
         if self._wait_mode == self.WaitMode.RAMP:
 

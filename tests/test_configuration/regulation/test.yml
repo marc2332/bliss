@@ -71,22 +71,24 @@
     frequency: 10.0
     deadband: 0.1
     deadband_time: 1.5
-    ramprate: 1.0       
+    ramprate: 1.0     
+    wait_mode: ramp  
 
 - 
     class: SoftLoop          # <== declare a 'SoftLoop' object
     name: soft_regul2
     input: $bound_input
     output: $robz_output
-    P: 0.01
-    I: 0.01
-    D: 0.0
+    P: 2.0
+    I: 10.0
+    D: 10.0
     low_limit: -1.0          # <== low limit of the PID output value. Usaually equal to 0 or -1.
     high_limit: 1.0          # <== high limit of the PID output value. Usaually equal to 1.
     frequency: 10.0
     deadband: 0.1
-    deadband_time: 1.5
-    ramprate: 1.0       
+    deadband_time: 3.0
+    ramprate: 1.0  
+    wait_mode: deadband     
 
 
 #============= HARDWARE REGULATION OBJECTS (A CONTROLLER WITH ITS INPUTS, OUTPUTS AND LOOPS) ==============================================================

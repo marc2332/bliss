@@ -150,8 +150,25 @@ class LiveWindow(qt.QMainWindow):
                 others.append(others)
         return curves, scatters, images, mcas, others
 
+    def customResizeDocks(self, docks, sizes, orientation):
+        if ... not in sizes:
+            return self.resizeDocks(docks, sizes, orientation)
+
+        size = self.size()
+        if orientation == qt.Qt.Vertical:
+            size = size.height()
+        else:
+            size = size.width()
+
+        nb = sizes.count(...)
+        remaining = size - sum([s for s in sizes if s is not ...])
+        remaining = remaining // nb
+        sizes = [s if s is not ... else remaining for s in sizes]
+        self.resizeDocks(docks, sizes, orientation)
+
     def __dockContent(
         self,
+        leftSide: qt.QWidget,
         bottomLeft: List[qt.QWidget],
         bottomRight: List[qt.QWidget],
         upLeft: List[qt.QWidget],
@@ -167,6 +184,7 @@ class LiveWindow(qt.QMainWindow):
         holderBottomRight.setVisible(False)
 
         self.addDockWidget(qt.Qt.RightDockWidgetArea, holderUpLeft)
+        self.customResizeDocks([leftSide, holderUpLeft], [300, ...], qt.Qt.Horizontal)
         self.splitDockWidget(holderUpLeft, holderBottomLeft, qt.Qt.Vertical)
         self.splitDockWidget(holderUpLeft, holderUpRight, qt.Qt.Horizontal)
         self.splitDockWidget(holderBottomLeft, holderBottomRight, qt.Qt.Horizontal)
@@ -209,14 +227,14 @@ class LiveWindow(qt.QMainWindow):
                 statusWidget.setParent(self)
                 self.addDockWidget(qt.Qt.LeftDockWidgetArea, statusWidget)
                 statusWidget.setVisible(True)
-                propertyWidget.setParent(self)
-                self.splitDockWidget(statusWidget, propertyWidget, qt.Qt.Vertical)
-                propertyWidget.setVisible(True)
 
                 if len(widgets) > 0:
                     widget = widgets.pop(0)
                     widget.setParent(self)
                     self.addDockWidget(qt.Qt.RightDockWidgetArea, widget)
+                    self.customResizeDocks(
+                        [statusWidget, widget], [300, ...], qt.Qt.Horizontal
+                    )
                     widget.setVisible(True)
                     lastTab = widget
                     for widget in widgets:
@@ -224,22 +242,38 @@ class LiveWindow(qt.QMainWindow):
                         self.tabifyDockWidget(lastTab, widget)
                         widget.setVisible(True)
                         lastTab = widget
+
+                propertyWidget.setParent(self)
+                self.splitDockWidget(statusWidget, propertyWidget, qt.Qt.Vertical)
+                propertyWidget.setVisible(True)
+                self.customResizeDocks(
+                    [statusWidget, propertyWidget], [100, ...], qt.Qt.Vertical
+                )
+
             elif layoutKind == _PredefinedLayouts.ONE_FOR_IMAGE_AND_MCA:
                 self.__freeDockSpace(widgets + [statusWidget, propertyWidget])
 
                 statusWidget.setParent(self)
                 self.addDockWidget(qt.Qt.LeftDockWidgetArea, statusWidget)
                 statusWidget.setVisible(True)
-                propertyWidget.setParent(self)
-                self.splitDockWidget(statusWidget, propertyWidget, qt.Qt.Vertical)
-                propertyWidget.setVisible(True)
 
                 curves, scatters, images, mcas, others = self.__filterWidgetsByTypes(
                     widgets
                 )
                 bottom = curves + scatters + others
                 self.__dockContent(
-                    bottomLeft=bottom, bottomRight=[], upLeft=mcas, upRight=images
+                    leftSide=statusWidget,
+                    bottomLeft=bottom,
+                    bottomRight=[],
+                    upLeft=mcas,
+                    upRight=images,
+                )
+
+                propertyWidget.setParent(self)
+                self.splitDockWidget(statusWidget, propertyWidget, qt.Qt.Vertical)
+                propertyWidget.setVisible(True)
+                self.customResizeDocks(
+                    [statusWidget, propertyWidget], [100, ...], qt.Qt.Vertical
                 )
 
             elif layoutKind == _PredefinedLayouts.ONE_PER_KIND:
@@ -248,19 +282,25 @@ class LiveWindow(qt.QMainWindow):
                 statusWidget.setParent(self)
                 self.addDockWidget(qt.Qt.LeftDockWidgetArea, statusWidget)
                 statusWidget.setVisible(True)
-                propertyWidget.setParent(self)
-                self.splitDockWidget(statusWidget, propertyWidget, qt.Qt.Vertical)
-                propertyWidget.setVisible(True)
 
                 curves, scatters, images, mcas, others = self.__filterWidgetsByTypes(
                     widgets
                 )
                 bottom = curves + scatters + others
                 self.__dockContent(
+                    leftSide=statusWidget,
                     bottomLeft=curves + others,
                     bottomRight=scatters,
                     upLeft=mcas,
                     upRight=images,
                 )
+
+                propertyWidget.setParent(self)
+                self.splitDockWidget(statusWidget, propertyWidget, qt.Qt.Vertical)
+                propertyWidget.setVisible(True)
+                self.customResizeDocks(
+                    [statusWidget, propertyWidget], [100, ...], qt.Qt.Vertical
+                )
+
             else:
                 assert False

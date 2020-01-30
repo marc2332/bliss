@@ -101,11 +101,12 @@ class Plot(qt.QObject):
     def __getstate__(self):
         # Well, NotStored is really specific to the long term storage
         items = [i for i in self.__items if not isinstance(i, NotStored)]
-        return (items, self.__styleStrategy)
+        state = {"items": items, "style_strategy": self.__styleStrategy}
+        return state
 
     def __setstate__(self, state):
-        self.__items = state[0]
-        self.__styleStrategy = state[1]
+        self.__items = state.pop("items")
+        self.__styleStrategy = state.pop("style_strategy")
         if self.__styleStrategy is not None:
             self.__styleStrategy.setPlot(self)
 
@@ -185,7 +186,7 @@ class Plot(qt.QObject):
 
 
 class NotStored:
-    """Flag object which not have to be stored"""
+    """Flag object which do not have to be stored"""
 
 
 class ChannelRef(qt.QObject):
@@ -206,10 +207,11 @@ class ChannelRef(qt.QObject):
         return (self.__class__, (), self.__getstate__())
 
     def __getstate__(self):
-        return (self.__channelName,)
+        state = {"channel_name": self.__channelName}
+        return state
 
     def __setstate__(self, state):
-        self.__channelName = state[0]
+        self.__channelName = state.pop("channel_name")
 
     def channel(self, scan: Optional[scan_model.Scan]) -> Optional[scan_model.Channel]:
         """Returns the referenced channel in this scan, else None."""
@@ -279,11 +281,12 @@ class Item(qt.QObject):
         return (self.__class__, (), self.__getstate__())
 
     def __getstate__(self):
-        return (self.parent(), self.__isVisible)
+        state = {"parent": self.parent(), "visible": self.__isVisible}
+        return state
 
     def __setstate__(self, state):
-        self.setParent(state[0])
-        self.setVisible(state[1])
+        self.setParent(state.pop("parent"))
+        self.setVisible(state.pop("visible"))
 
     def version(self) -> int:
         """Version of this item.
@@ -383,18 +386,20 @@ class AbstractComputableItem(Item):
 
     def __init__(self, parent=None):
         Item.__init__(self, parent=parent)
-        self.__source: Item = None
+        self.__source: Optional[Item] = None
 
     def __reduce__(self):
         return (self.__class__, (), self.__getstate__())
 
     def __getstate__(self):
         state = super(AbstractComputableItem, self).__getstate__()
-        return (state, self.__source)
+        assert "source" not in state
+        state["source"] = self.__source
+        return state
 
     def __setstate__(self, state):
-        super(AbstractComputableItem, self).__setstate__(state[0])
-        self.__source = state[1]
+        super(AbstractComputableItem, self).__setstate__(state)
+        self.__source = state.pop("source")
 
     def isChildOf(self, parent: Item) -> bool:
         source = self.source()
@@ -408,7 +413,7 @@ class AbstractComputableItem(Item):
         self.__source = source
         # FIXME: A structural change on the source item have to invalidate the result
 
-    def source(self) -> Item:
+    def source(self) -> Optional[Item]:
         return self.__source
 
     def isResultComputed(self, scan: scan_model.Scan) -> bool:

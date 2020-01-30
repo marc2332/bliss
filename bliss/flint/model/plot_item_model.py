@@ -43,11 +43,13 @@ class CurvePlot(plot_model.Plot):
 
     def __getstate__(self):
         state = super(CurvePlot, self).__getstate__()
-        return (state, self.__scansStored)
+        assert "scan_stored" not in state
+        state["scan_stored"] = self.__scansStored
+        return state
 
     def __setstate__(self, state):
-        super(CurvePlot, self).__setstate__(state[0])
-        self.__scansStored = state[1]
+        super(CurvePlot, self).__setstate__(state)
+        self.__scansStored = state.pop("scan_stored")
 
 
 class ScanItem(plot_model.Item, plot_model.NotStored):
@@ -121,13 +123,19 @@ class CurveItem(plot_model.Item, CurveMixIn):
 
     def __getstate__(self):
         state = super(CurveItem, self).__getstate__()
-        return (state, self.__x, self.__y, self.__yAxis)
+        assert "x" not in state
+        assert "y" not in state
+        assert "y-axis" not in state
+        state["x"] = self.__x
+        state["y"] = self.__y
+        state["y_axis"] = self.__yAxis
+        return state
 
     def __setstate__(self, state):
-        super(CurveItem, self).__setstate__(state[0])
-        self.__x = state[1]
-        self.__y = state[2]
-        self.__yAxis = state[3]
+        super(CurveItem, self).__setstate__(state)
+        self.__x = state.pop("x")
+        self.__y = state.pop("y")
+        self.__yAxis = state.pop("y_axis")
 
     def isValid(self):
         return self.__x is not None and self.__y is not None
@@ -203,11 +211,13 @@ class DerivativeItem(plot_model.AbstractComputableItem, CurveMixIn):
 
     def __getstate__(self):
         state = super(DerivativeItem, self).__getstate__()
-        return (state, self.yAxis())
+        assert "y_axis" not in state
+        state["y_axis"] = self.yAxis()
+        return state
 
     def __setstate__(self, state):
-        super(DerivativeItem, self).__setstate__(state[0])
-        self.setYAxis(state[1])
+        super(DerivativeItem, self).__setstate__(state)
+        self.setYAxis(state.pop("y_axis"))
 
     def isResultValid(self, result):
         return result is not None
@@ -358,11 +368,13 @@ class McaItem(plot_model.Item):
 
     def __getstate__(self):
         state = super(McaItem, self).__getstate__()
-        return (state, self.__mca)
+        assert "mca" not in state
+        state["mca"] = self.__mca
+        return state
 
     def __setstate__(self, state):
-        super(McaItem, self).__setstate__(state[0])
-        self.__mca = state[1]
+        super(McaItem, self).__setstate__(state)
+        self.__mca = state.pop("mca")
 
     def isValid(self):
         return self.__mca is not None
@@ -395,11 +407,13 @@ class ImageItem(plot_model.Item):
 
     def __getstate__(self):
         state = super(ImageItem, self).__getstate__()
-        return (state, self.__image)
+        assert "image" not in state
+        state["image"] = self.__image
+        return state
 
     def __setstate__(self, state):
-        super(ImageItem, self).__setstate__(state[0])
-        self.__image = state[1]
+        super(ImageItem, self).__setstate__(state)
+        self.__image = state.pop("image")
 
     def isValid(self):
         return self.__image is not None
@@ -440,13 +454,19 @@ class ScatterItem(plot_model.Item):
 
     def __getstate__(self):
         state = super(ScatterItem, self).__getstate__()
-        return (state, self.__x, self.__y, self.__value)
+        assert "x" not in state
+        assert "y" not in state
+        assert "value" not in state
+        state["x"] = self.__x
+        state["y"] = self.__y
+        state["value"] = self.__value
+        return state
 
     def __setstate__(self, state):
-        super(ScatterItem, self).__setstate__(state[0])
-        self.__x = state[1]
-        self.__y = state[2]
-        self.__value = state[3]
+        super(ScatterItem, self).__setstate__(state)
+        self.__x = state.pop("x")
+        self.__y = state.pop("y")
+        self.__value = state.pop("value")
 
     def isValid(self):
         return (

@@ -45,6 +45,7 @@ typeguard == 2.6.1
 typing_extensions
 tailon
 numexpr
+tango-metadata >= 4.0.2
 
 # Flint
 qt

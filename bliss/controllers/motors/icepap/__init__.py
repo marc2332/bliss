@@ -249,7 +249,7 @@ class Icepap(Controller):
             state.set(self.STATUS_MODCODE.get(state_mode)[0])
 
         # STOPCODE bits: 14-17
-        stop_code = (status >> 14) & 0xf
+        stop_code = (status >> 14) & 0xF
         if stop_code:
             state.set(self.STATUS_STOPCODE.get(stop_code)[0])
 
@@ -300,18 +300,35 @@ class Icepap(Controller):
 
     def get_info(self, axis):
         pre_cmd = "%s:" % axis.address
-        r = "MOTOR   : %s\n" % axis.name
-        r += "SYSTEM  : %s (ID: %s) (VER: %s)\n" % (
+        info_str = "MOTOR   : %s\n" % axis.name
+        info_str += "SYSTEM  : %s (ID: %s) (VER: %s)\n" % (
             self._cnx._host,
             _command(self._cnx, "0:?ID"),
             _command(self._cnx, "?VER"),
         )
-        r += "DRIVER  : %s\n" % axis.address
-        r += "POWER   : %s\n" % _command(self._cnx, pre_cmd + "?POWER")
-        r += "CLOOP   : %s\n" % _command(self._cnx, pre_cmd + "?PCLOOP")
-        r += "WARNING : %s\n" % _command(self._cnx, pre_cmd + "?WARNING")
-        r += "ALARM   : %s\n" % _command(self._cnx, pre_cmd + "?ALARM")
-        return r
+        info_str += "DRIVER  : %s\n" % axis.address
+        info_str += "POWER   : %s\n" % _command(self._cnx, pre_cmd + "?POWER")
+        info_str += "CLOOP   : %s\n" % _command(self._cnx, pre_cmd + "?PCLOOP")
+        info_str += "WARNING : %s\n" % _command(self._cnx, pre_cmd + "?WARNING")
+        info_str += "ALARM   : %s\n" % _command(self._cnx, pre_cmd + "?ALARM")
+        return info_str
+
+    def __info__(self, axis):
+        """
+        __info__ for CLI help
+        NB: <axis> is passed as argument
+            => __info__ not CLI callable for icepap controller.
+        """
+        info_str = "ICEPAP AXIS:\n"
+        info_str += f"     address: {axis.address}\n"
+        info_str += f"     controller: {self._cnx._host}\n"
+        info_str += f"     version: {_command(self._cnx, '?VER')}\n"
+        info_str += f"     status: {int(_command(self._cnx, '%s:?STATUS' % axis.address), 16)}\n"
+
+        if isinstance(axis, LinkedAxis):
+            info_str += f"     {self.get_linked_axis()}\n"
+
+        return info_str
 
     def raw_write(self, message, data=None):
         return _command(self._cnx, message, data)
@@ -650,7 +667,7 @@ class Icepap(Controller):
             _ackcommand(self._cnx, "%d:LTRACK %s" % (address, mode))
 
     @object_method(types_info=("float", "None"), filter=_object_method_filter)
-    def blink(self, axis, second=3.):
+    def blink(self, axis, second=3.0):
         """
         Blink axis driver
         """
@@ -755,9 +772,9 @@ def _command_raw(cnx, cmd, data=None, pre_cmd=None, timeout=None):
         data_checksum = uint16_view.sum()
         header = struct.pack(
             "<III",
-            0xa5aa555a,  # Header key
+            0xA5AA555A,  # Header key
             len(uint16_view),
-            int(data_checksum) & 0xffffffff,
+            int(data_checksum) & 0xFFFFFFFF,
         )
 
         data_test = data.newbyteorder("<")
@@ -792,7 +809,7 @@ def _command_raw(cnx, cmd, data=None, pre_cmd=None, timeout=None):
                 # a binary reply
                 header = cnx._read(transaction, size=12, clear_transaction=False)
                 dfmt, magic, size, checksum = struct.unpack("<HHII", header)
-                assert magic == 0xa5a5
+                assert magic == 0xA5A5
                 dsize = dfmt & 0xF  # data size (bytes)
                 data = cnx._read(
                     transaction, size=dsize * size, clear_transaction=False

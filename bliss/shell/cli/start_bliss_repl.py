@@ -20,17 +20,13 @@ def main(global_map=global_map):
     log_level = getattr(logging, sys.argv[2].upper())
     logging_startup(log_level)
 
-    try:
-        embed(
-            session_name=session_name,
-            use_tmux=True,
-            expert_error_report=sys.argv[3] == "1",
-        )
-    except IndexError:
-        embed(session_name=session_name, use_tmux=True, expert_error_report=False)
-    finally:
-        get_current_session().close()
-        global_map.clear()
+    embed(
+        session_name=session_name,
+        use_tmux=True,
+        expert_error_report=sys.argv[3] == "1" if len(sys.argv) > 3 else False,
+    )
+    get_current_session().close()
+    global_map.clear()
 
 
 if __name__ == "__main__":

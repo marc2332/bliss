@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import logging
 from silx.gui import qt
+from .extended_dock_widget import ExtendedDockWidget
 
 _logger = logging.getLogger(__name__)
 
@@ -25,7 +26,7 @@ class _Stack(qt.QStackedWidget):
         return qt.QSize(200, 500)
 
 
-class MainPropertyWidget(qt.QDockWidget):
+class MainPropertyWidget(ExtendedDockWidget):
 
     widgetUpdated = qt.Signal()
 

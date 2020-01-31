@@ -19,6 +19,7 @@ from bliss.flint.model import flint_model
 from bliss.flint.widgets.curve_plot import CurvePlotWidget
 from bliss.flint.widgets.property_widget import MainPropertyWidget
 from bliss.flint.widgets.scan_status import ScanStatus
+from bliss.flint.widgets.extended_dock_widget import MainWindow
 
 
 class _PredefinedLayouts(enum.Enum):
@@ -27,9 +28,9 @@ class _PredefinedLayouts(enum.Enum):
     ONE_FOR_IMAGE_AND_MCA = enum.auto()
 
 
-class LiveWindow(qt.QMainWindow):
+class LiveWindow(MainWindow):
     def __init__(self, parent=None):
-        qt.QMainWindow.__init__(self, parent=parent)
+        MainWindow.__init__(self, parent=parent)
         self.setDockNestingEnabled(True)
         self.setDockOptions(
             self.dockOptions()
@@ -42,6 +43,7 @@ class LiveWindow(qt.QMainWindow):
         self.__flintModel: flint_model.FlintState = None
 
         self.tabifiedDockWidgetActivated.connect(self.__tabActivated)
+        self.setLayoutLocked(True)
         self.__initGui()
 
     def __initGui(self):
@@ -125,6 +127,14 @@ class LiveWindow(qt.QMainWindow):
         )
         icon = icons.getQIcon("flint:icons/layout-one-per-kind")
         action.setIcon(icon)
+        result.append(action)
+
+        action = qt.QAction(self)
+        action.setText("Lock/unlock the view")
+        action.setCheckable(True)
+        action.setChecked(self.isLayoutLocked())
+        action.toggled[bool].connect(self.setLayoutLocked)
+        action.setShortcut("Ctrl+L")
         result.append(action)
 
         return result

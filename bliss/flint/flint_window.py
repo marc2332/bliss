@@ -89,6 +89,10 @@ class FlintWindow(qt.QMainWindow):
         windowMenu = menubar.addMenu("&Windows")
         windowMenu.addAction(showLogAction)
 
+        menubar = self.menuBar()
+        layoutMenu = menubar.addMenu("&Layout")
+        self.__layoutMenu = layoutMenu
+
         helpMenu = menubar.addMenu("&Help")
 
         action = qt.QAction("&About", self)
@@ -167,8 +171,7 @@ class FlintWindow(qt.QMainWindow):
     def updateGui(self):
         flintModel = self.flintModel()
         liveWindow = flintModel.liveWindow()
-        menubar = self.menuBar()
-        layoutMenu = menubar.addMenu("&Layout")
+        layoutMenu = self.__layoutMenu
         for action in liveWindow.createLayoutActions(self):
             layoutMenu.addAction(action)
 

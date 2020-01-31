@@ -103,6 +103,7 @@ class ScatterPlotWidget(ExtendedDockWidget):
 
     def __createToolBar(self):
         toolBar = qt.QToolBar(self)
+        toolBar.setMovable(False)
 
         from silx.gui.plot.actions import mode
         from silx.gui.plot.actions import control

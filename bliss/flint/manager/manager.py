@@ -31,7 +31,7 @@ from bliss.flint.model import scan_model
 from bliss.flint.helper import model_helper
 from bliss.flint.helper.style_helper import DefaultStyleStrategy
 
-from . import scan_info_helper
+from ..helper import scan_info_helper
 
 _logger = logging.getLogger(__name__)
 

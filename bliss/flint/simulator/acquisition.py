@@ -18,7 +18,7 @@ import scipy.signal
 from silx.gui import qt
 
 from bliss.flint.model import scan_model
-from bliss.flint.helper import scan_manager
+from bliss.flint.manager import scan_manager
 
 
 _logger = logging.getLogger(__name__)

@@ -35,7 +35,6 @@ class FlintWindow(qt.QMainWindow):
         self.__tabs = tabs
 
         self.setCentralWidget(tabs)
-        self.__initMenus()
         self.__initLogWindow()
 
     def setFlintModel(self, flintState: flint_model.FlintState):
@@ -73,7 +72,11 @@ class FlintWindow(qt.QMainWindow):
         self.__logWindow = logWindow
         logWidget.connect_logger(logging.root)
 
-    def __initMenus(self):
+    def initMenus(self):
+        flintModel = self.flintModel()
+        liveWindow = flintModel.liveWindow()
+        manager = flintModel.mainManager()
+
         exitAction = qt.QAction("&Exit", self)
         exitAction.setShortcut("Ctrl+Q")
         exitAction.setStatusTip("Exit flint")
@@ -91,7 +94,8 @@ class FlintWindow(qt.QMainWindow):
 
         menubar = self.menuBar()
         layoutMenu = menubar.addMenu("&Layout")
-        self.__layoutMenu = layoutMenu
+        for action in liveWindow.createLayoutActions(self):
+            layoutMenu.addAction(action)
 
         helpMenu = menubar.addMenu("&Help")
 
@@ -167,13 +171,6 @@ class FlintWindow(qt.QMainWindow):
         window.setObjectName("scan-window")
         self.setVisible(True)
         return window
-
-    def updateGui(self):
-        flintModel = self.flintModel()
-        liveWindow = flintModel.liveWindow()
-        layoutMenu = self.__layoutMenu
-        for action in liveWindow.createLayoutActions(self):
-            layoutMenu.addAction(action)
 
     def __blissSessionChanged(self):
         self.__updateTitle()

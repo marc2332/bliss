@@ -86,7 +86,7 @@ def create_flint_model(settings) -> flint_model.FlintState:
     manager.setFlintModel(flintModel)
     flintModel.setMainManager(manager)
     liveWindow.setFlintModel(flintModel)
-    flintWindow.updateGui()
+    flintWindow.initMenus()
 
     # Workspace
 

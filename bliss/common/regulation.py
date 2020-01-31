@@ -699,10 +699,11 @@ class Loop(SamplingCounterController):
 
         self.reg_plot = None
 
+        self._counter_name = self.name + "_setpoint"
         self.create_counter(
             SamplingCounter,
-            self.name + "_counter",
-            unit=config.get("unit", "N/A"),
+            self._counter_name,
+            unit=self.input.config.get("unit", "N/A"),
             mode="SINGLE",
         )
 
@@ -771,7 +772,7 @@ class Loop(SamplingCounterController):
         all_counters = (
             list(self.input.counters)
             + list(self.output.counters)
-            + [self._counters[self.name + "_counter"]]
+            + [self._counters[self._counter_name]]
         )
 
         return counter_namespace(all_counters)
@@ -1336,6 +1337,8 @@ class Loop(SamplingCounterController):
             tolerance=self.deadband,
             export_to_session=True,
         )
+
+        self._soft_axis._unit = self.input.config.get("unit", "N/A")
 
 
 class SoftLoop(Loop):

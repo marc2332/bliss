@@ -84,7 +84,7 @@ class LiveWindow(qt.QMainWindow):
         curvePlotWidget = CurvePlotWidget(parent=self)
         curvePlotWidget.setFlintModel(flintModel)
         curvePlotWidget.setObjectName("curve1-dock")
-        curvePlotWidget.setWindowTitle("Curve1**")
+        curvePlotWidget.setWindowTitle("Curve1")
         curvePlotWidget.setFeatures(
             curvePlotWidget.features() & ~qt.QDockWidget.DockWidgetClosable
         )

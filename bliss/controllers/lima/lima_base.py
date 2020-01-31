@@ -272,10 +272,12 @@ class Lima(CounterController):
         self.__bpm = None
         self.__roi_counters = None
         self.__bg_sub = None
+        self.__last = None
         self._camera = None
         self._image = None
         self._shutter = None
         self._acquisition = None
+        self._accumulation = None
         self._proxy = self._get_proxy()
         self._cached_ctrl_params = {}
 
@@ -485,12 +487,28 @@ class Lima(CounterController):
         return self._shutter
 
     @autocomplete_property
+    def last(self):
+        if self.__last is None:
+            self.__last = LimaProperties(
+                "LimaImageStatus", self.proxy, prefix="last_", strip_prefix=True
+            )
+        return self.__last
+
+    @autocomplete_property
     def acquisition(self):
         if self._acquisition is None:
             self._acquisition = LimaProperties(
                 "LimaAcquisition", self.proxy, prefix="acq_", strip_prefix=True
             )
         return self._acquisition
+
+    @autocomplete_property
+    def accumulation(self):
+        if self._accumulation is None:
+            self._accumulation = LimaProperties(
+                "LimaAccumulation", self.proxy, prefix="acc_", strip_prefix=True
+            )
+        return self._accumulation
 
     @autocomplete_property
     def roi_counters(self):

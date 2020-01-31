@@ -89,7 +89,7 @@ def LimaProperties(
     attr_cfg_list = proxy.attribute_list_query()
     for attr_info in attr_cfg_list:
         attr = attr_info.name
-        if attr in ("image_events_push_data", "image_events_max_rate"):
+        if attr in ("image_events_push_data", "image_events_max_rate", "last_image"):
             continue
         if prefix is None or attr.startswith(prefix):
             attr_username = camel_to_snake(

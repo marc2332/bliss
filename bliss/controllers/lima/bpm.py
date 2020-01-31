@@ -89,3 +89,9 @@ class Bpm(IntegratingCounterController):
                 res[i] = raw[j]
 
         return [x[0] for x in counter2index]
+
+    def __info__(self):
+        info = "BPM Counters:\n"
+        cnts = [f"{cnt.name}" for cnt in self.counters]
+        info += ", ".join(cnts)
+        return info

@@ -7,6 +7,7 @@
 
 from bliss.config import channels
 from bliss.common.utils import Null
+import time
 
 
 def _get_config():
@@ -21,26 +22,17 @@ class StaticConfig(object):
 
     def __init__(self, config_dict):
         self.config_dict = config_dict
+        self.__config_has_changed = False
         self.config_channel = None
 
         try:
             config_chan_name = "config.%s" % config_dict["name"]
         except KeyError:
-            # can't have config channel is there is no name
+            # can't have config channel if there is no name
             pass
         else:
-            if not "axes" in config_dict and not "encoders" in config_dict:
-                # get the original configuration without resolved references
-                # otherwise it may not be pickle
-                ori_config_dict = _get_config().get_config(config_dict["name"])
-                if ori_config_dict is not None:
-                    config_dict = ori_config_dict
-                if hasattr(config_dict, "to_dict"):
-                    config_dict = config_dict.to_dict()
-                # axis config
-                self.config_channel = channels.Channel(
-                    config_chan_name, config_dict, callback=self._config_changed
-                )
+            self.config_channel = channels.EventChannel(config_chan_name)
+            self.config_channel.register_callback(self._config_changed)
 
     def get(self, property_name, converter=str, default=NO_VALUE):
         """Get static property
@@ -57,6 +49,11 @@ class StaticConfig(object):
         Raises:
             KeyError, ValueError
         """
+
+        if self.__config_has_changed:
+            self.reload()
+            self.__config_has_changed = False
+
         property_value = self.config_dict.get(property_name)
         if property_value is not None:
             return converter(property_value)
@@ -67,6 +64,9 @@ class StaticConfig(object):
             raise KeyError("no property '%s` in config" % property_name)
 
     def set(self, property_name, value):
+        if self.__config_has_changed:
+            self.reload()
+            self.__config_has_changed = False
         cfg = _get_config()
         config_node = cfg.get_config(self.config_dict["name"])
         config_node[property_name] = value
@@ -79,6 +79,8 @@ class StaticConfig(object):
         self._update_channel()
 
     def reload(self):
+        if self.config_channel is None:
+            return
         cfg = _get_config()
         # this reloads *all* the configuration, hopefully it is not such
         # a big task and it can be left as simple as it is, if needed
@@ -87,16 +89,11 @@ class StaticConfig(object):
         cfg.reload()
         config_node = cfg.get_config(self.config_dict["name"])
         self.config_dict = config_node.to_dict()
-        self._update_channel()
 
     def _update_channel(self):
         if self.config_channel is not None:
             # inform all clients that config has changed
-            self.config_channel.value = self.config_dict
+            self.config_channel.post(time.time())
 
-    def _config_changed(self, config_dict):
-        cfg = _get_config()
-        config_node = cfg.get_config(self.config_dict["name"])
-        for key, value in config_dict.items():
-            config_node[key] = value
-            self.config_dict[key] = value
+    def _config_changed(self, timestamp):
+        self.__config_has_changed = True

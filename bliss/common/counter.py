@@ -14,7 +14,6 @@ import enum
 import inspect
 import numpy
 
-from bliss import global_map
 from bliss.common.utils import autocomplete_property
 
 

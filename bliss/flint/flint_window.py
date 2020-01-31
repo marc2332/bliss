@@ -82,7 +82,6 @@ class FlintWindow(qt.QMainWindow):
         exitAction.setStatusTip("Exit flint")
         exitAction.triggered.connect(self.close)
         showLogAction = qt.QAction("Show &log", self)
-        showLogAction.setShortcut("Ctrl+L")
         showLogAction.setStatusTip("Show log window")
 
         showLogAction.triggered.connect(self.showLogDialog)

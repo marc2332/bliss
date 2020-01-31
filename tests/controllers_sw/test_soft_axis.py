@@ -45,7 +45,6 @@ def test_soft_axis_creation(beacon):
     m0 = SoftAxis("a_unique_motor", o0)
 
     assert m0.name == "a_unique_motor"
-    assert hasattr(setup_globals, m0.name)
 
     assert m0.position == o0.position
     assert o0.nb_pos_read == 2

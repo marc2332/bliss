@@ -149,7 +149,8 @@ This module implements the classes allowing the control of regulation processes 
                 frequency: 10.0
                 deadband: 0.05
                 deadband_time: 1.5
-                ramprate: 1.0       
+                ramprate: 1.0    
+                wait_mode: deadband   
 
                 ------------------------------------------------------------------------------------------------------------------------------------
 
@@ -206,7 +207,12 @@ class Input(SamplingCounterController):
         # useful attribute for a temperature controller writer
         self._attr_dict = {}
 
-        self.create_counter(SamplingCounter, self.name, unit=config.get("unit", "N/A"))
+        self.create_counter(
+            SamplingCounter,
+            self.name + "_counter",
+            unit=config.get("unit", "N/A"),
+            mode="SINGLE",
+        )
 
     def read_all(self, *counters):
         return [self.read()]
@@ -333,7 +339,12 @@ class Output(SamplingCounterController):
         # useful attribute for a temperature controller writer
         self._attr_dict = {}
 
-        self.create_counter(SamplingCounter, self.name, unit=config.get("unit", "N/A"))
+        self.create_counter(
+            SamplingCounter,
+            self.name + "_counter",
+            unit=config.get("unit", "N/A"),
+            mode="SINGLE",
+        )
 
     def read_all(self, *counters):
         return [self.read()]
@@ -688,7 +699,14 @@ class Loop(SamplingCounterController):
 
         self.reg_plot = None
 
-        self.create_counter(SamplingCounter, self.name, unit=config.get("unit", "N/A"))
+        self.create_counter(
+            SamplingCounter,
+            self.name + "_counter",
+            unit=config.get("unit", "N/A"),
+            mode="SINGLE",
+        )
+
+        self._create_soft_axis()
 
     # ----------- BASE METHODS -----------------------------------------
 
@@ -753,7 +771,7 @@ class Loop(SamplingCounterController):
         all_counters = (
             list(self.input.counters)
             + list(self.output.counters)
-            + [self._counters[self.name]]
+            + [self._counters[self.name + "_counter"]]
         )
 
         return counter_namespace(all_counters)
@@ -950,21 +968,7 @@ class Loop(SamplingCounterController):
     def axis(self):
         """ Return a SoftAxis object that makes the Loop scanable """
 
-        name = self.name + ":axis"
-
-        sa = SoftAxis(
-            name,
-            self,
-            position="axis_position",
-            move="axis_move",
-            stop="axis_stop",
-            state="axis_state",
-            low_limit=float("-inf"),
-            high_limit=float("+inf"),
-            tolerance=self.deadband,
-        )
-
-        return sa
+        return self._soft_axis
 
     def axis_position(self):
         """ Return the input device value as the axis position """
@@ -1245,6 +1249,8 @@ class Loop(SamplingCounterController):
         else:
             return self._controller.is_ramping(self)
 
+    # ------------------------------------------------------
+
     @lazy_init
     def _get_setpoint(self):
         """ get the current setpoint """
@@ -1307,12 +1313,29 @@ class Loop(SamplingCounterController):
         else:
             self._controller.stop_ramp(self)
 
-    # @property
     def plot(self):
         if not self.reg_plot:
             self.reg_plot = RegPlot(self)
         self.reg_plot.start()
         return self.reg_plot
+
+    def _create_soft_axis(self):
+        """ Create a SoftAxis object that makes the Loop scanable """
+
+        name = self.name + "_axis"
+
+        self._soft_axis = SoftAxis(
+            name,
+            self,
+            position="axis_position",
+            move="axis_move",
+            stop="axis_stop",
+            state="axis_state",
+            low_limit=float("-inf"),
+            high_limit=float("+inf"),
+            tolerance=self.deadband,
+            export_to_session=True,
+        )
 
 
 class SoftLoop(Loop):

@@ -27,6 +27,7 @@ from .properties import LimaProperties, LimaProperty
 from .bpm import Bpm
 from .roi import RoiCounters
 from .image import ImageCounter
+from .shutter import Shutter
 from .bgsub import BgSub
 
 
@@ -273,6 +274,7 @@ class Lima(CounterController):
         self.__bg_sub = None
         self._camera = None
         self._image = None
+        self._shutter = None
         self._acquisition = None
         self._proxy = self._get_proxy()
         self._cached_ctrl_params = {}
@@ -468,6 +470,19 @@ class Lima(CounterController):
                 base_class_args=(self, self._proxy),
             )
         return self._image
+
+    @autocomplete_property
+    def shutter(self):
+        if self._shutter is None:
+            self._shutter = LimaProperties(
+                "LimaShutter",
+                self.proxy,
+                prefix="shutter_",
+                strip_prefix=True,
+                base_class=Shutter,
+                base_class_args=(self, self._proxy),
+            )
+        return self._shutter
 
     @autocomplete_property
     def acquisition(self):

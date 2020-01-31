@@ -32,6 +32,7 @@ from bliss.flint.helper import model_helper
 from bliss.flint.helper.style_helper import DefaultStyleStrategy
 
 from ..helper import scan_info_helper
+from . import workspace_manager
 
 _logger = logging.getLogger(__name__)
 
@@ -44,6 +45,7 @@ class ManageMainBehaviours(qt.QObject):
         self.__classMapping = {}
         self.__flintStarted = gevent.event.Event()
         self.__flintStarted.clear()
+        self.__workspaceManager = workspace_manager.WorkspaceManager(self)
 
     def setFlintModel(self, flintModel: flint_model.FlintState):
         if self.__flintModel is not None:
@@ -66,7 +68,7 @@ class ManageMainBehaviours(qt.QObject):
         address = connection.get_redis_connection_address()
         redisConnection = connection.create_redis_connection(address=address)
         self.flintModel().setRedisConnection(redisConnection)
-        self.restoreWorkspace()
+        self.workspaceManager().loadLastWorkspace()
 
     def updateBlissSessionName(self, sessionName):
         flintModel = self.flintModel()
@@ -153,114 +155,13 @@ class ManageMainBehaviours(qt.QObject):
                     item = plot_item_model.ScanItem(plot, scan)
                     plot.addItem(item)
 
-    def saveWorkspace(self):
+    def saveBeforeClosing(self):
         flintModel = self.flintModel()
         workspace = flintModel.workspace()
-        plots = {}
+        self.workspaceManager().saveWorkspace(workspace, last=True)
+        _logger.info("Workspace saved")
 
-        redis = flintModel.redisConnection()
-        if redis is None:
-            _logger.error("No Redis connection. Save of workspace aborted")
-            return
-
-        includePlots = workspace.name() == "default"
-        if includePlots:
-            for plot in workspace.plots():
-                plots[id(plot)] = plot
-
-        widgetDescriptions = []
-        for widget in workspace.widgets():
-            if includePlots:
-                model = widget.plotModel()
-                if model is not None:
-                    modelId = id(model)
-                else:
-                    modelId = None
-            else:
-                modelId = None
-            widgetDescriptions.append(
-                (widget.objectName(), widget.windowTitle(), widget.__class__, modelId)
-            )
-
-        window = flintModel.liveWindow()
-        layout = window.saveState()
-
-        state = (plots, widgetDescriptions, layout)
-
-        key = "flint_workspace_%s" % workspace.name()
-        data = pickle.dumps(state)
-        redis.set(key, data)
-
-    def closeWorkspace(self):
-        flintModel = self.flintModel()
-        workspace = flintModel.workspace()
-        if workspace is None:
-            return
-        widgets = workspace.popWidgets()
-        for w in widgets:
-            # Make sure we can create object name without collision
-            w.setPlotModel(None)
-            w.setFlintModel(None)
-            w.setScan(None)
-            w.setObjectName(None)
-            w.deleteLater()
-
-    def restoreWorkspace(self):
-        flintModel = self.flintModel()
-        newWorkspace = flint_model.Workspace()
-        window = flintModel.liveWindow()
-
-        key = "flint_workspace_%s" % newWorkspace.name()
-        redis = flintModel.redisConnection()
-
-        data = redis.get(key)
-        if data is not None:
-            try:
-                data = pickle.loads(data)
-            except:
-                _logger.error(
-                    "The workspace stored in redis can't be deserialized. This data will be lost.",
-                    exc_info=True,
-                )
-                _logger.error("Dump: %s", data)
-                data = None
-
-        if data is None:
-            window.feedDefaultWorkspace(flintModel, newWorkspace)
-        else:
-            plots, widgetDescriptions, layout = data
-
-            # It have to be done before creating widgets
-            self.closeWorkspace()
-
-            for plot in plots.values():
-                newWorkspace.addPlot(plot)
-
-            for name, title, widgetClass, modelId in widgetDescriptions:
-                widget = widgetClass(window)
-                widget.setObjectName(name)
-                widget.setWindowTitle(title)
-                self.__initNewDock(widget)
-                if modelId is not None:
-                    plot = plots[modelId]
-                    widget.setPlotModel(plot)
-                newWorkspace.addWidget(widget)
-
-            for plot in plots.values():
-                # FIXME: That's a hack while there is no better solution
-                style = plot.styleStrategy()
-                if hasattr(style, "setFlintModel"):
-                    style.setFlintModel(flintModel)
-
-            window.restoreState(layout)
-
-        # Make sure everything is visible (just in case)
-        for widget in newWorkspace.widgets():
-            widget.setVisible(True)
-
-        flintModel.setWorkspace(newWorkspace)
-
-    def __initNewDock(self, widget):
+    def _initNewDock(self, widget):
         widget.setAttribute(qt.Qt.WA_DeleteOnClose)
         widget.setFlintModel(self.__flintModel)
         widget.windowClosed.connect(self.__dockClosed)
@@ -492,7 +393,7 @@ class ManageMainBehaviours(qt.QObject):
         workspace = flintModel.workspace()
         widget: qt.QDockWidget = widgetClass(parent)
         widget.setPlotModel(plotModel)
-        self.__initNewDock(widget)
+        self._initNewDock(widget)
 
         prefix = str(widgetClass.__name__).replace("PlotWidget", "")
         title = self.__getUnusedTitle(prefix, workspace)
@@ -515,3 +416,6 @@ class ManageMainBehaviours(qt.QObject):
 
     def waitFlintStarted(self):
         self.__flintStarted.wait()
+
+    def workspaceManager(self) -> WorkspaceManager:
+        return self.__workspaceManager

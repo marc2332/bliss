@@ -97,6 +97,12 @@ class FlintWindow(qt.QMainWindow):
         for action in liveWindow.createLayoutActions(self):
             layoutMenu.addAction(action)
 
+        menubar = self.menuBar()
+        workspaceMenu = menubar.addMenu("&Workspace")
+        workspaceManager = manager.workspaceManager()
+        for action in workspaceManager.createManagerActions(self):
+            workspaceMenu.addAction(action)
+
         helpMenu = menubar.addMenu("&Help")
 
         action = qt.QAction("&About", self)
@@ -205,8 +211,7 @@ class FlintWindow(qt.QMainWindow):
 
         manager = self.__flintState.mainManager()
         try:
-            manager.saveWorkspace()
-            _logger.info("Workspace saved")
+            manager.saveBeforeClosing()
         except Exception:
             _logger.error("Error while saving the workspace", exc_info=True)
 

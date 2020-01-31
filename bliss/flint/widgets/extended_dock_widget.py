@@ -72,6 +72,7 @@ class ExtendedDockWidget(qt.QDockWidget):
     def __init__(self, parent: Optional[qt.QWidget] = None):
         qt.QDockWidget.__init__(self, parent=parent)
         self.__locked = False
+        self.__preventEventLoop = False
 
         # FIXME: I guess it exists a better way to do that?
         closeButton = self.findChild(qt.QAbstractButton, "qt_dockwidget_closebutton")
@@ -98,6 +99,10 @@ class ExtendedDockWidget(qt.QDockWidget):
                 event.ignore()
                 return True
 
+        if event.type() == qt.QEvent.Show:
+            if not self.__preventEventLoop:
+                self.__updateMovable()
+
         return super(ExtendedDockWidget, self).event(event)
 
     def __isFloatingTabbed(self):
@@ -106,6 +111,7 @@ class ExtendedDockWidget(qt.QDockWidget):
         return type(parent) == qt.QWidget and parent.windowFlags() & qt.Qt.Dialog
 
     def __updateMovable(self):
+        self.__preventEventLoop = True
         if not self.__locked:
             self.setTitleBarWidget(None)
             features = (
@@ -119,6 +125,7 @@ class ExtendedDockWidget(qt.QDockWidget):
             self.setAllowedAreas(qt.Qt.NoDockWidgetArea)
 
             if self.isFloating():
+                self.setTitleBarWidget(None)
                 features = (
                     qt.QDockWidget.DockWidgetMovable
                     | qt.QDockWidget.DockWidgetFloatable
@@ -126,9 +133,11 @@ class ExtendedDockWidget(qt.QDockWidget):
             elif self.__isFloatingTabbed():
                 # Avoid strange behaviors but the tool window is still
                 # movable inside the main window. See https://bugreports.qt.io/browse/QTBUG-68535
+                self.setTitleBarWidget(None)
                 features = qt.QDockWidget.DockWidgetMovable
             else:
                 dummyTitleBarWidget = qt.QWidget(self)
                 self.setTitleBarWidget(dummyTitleBarWidget)
                 features = qt.QDockWidget.NoDockWidgetFeatures
             self.setFeatures(features)
+        self.__preventEventLoop = False

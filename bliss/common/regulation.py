@@ -1584,20 +1584,19 @@ class SoftLoop(Loop):
 
         self._stop_event.clear()
 
-        with lprint_disable():
-            while not self._stop_event.is_set():
+        while not self._stop_event.is_set():
 
-                input_value = self.input.read()
-                power_value = self.pid(input_value)
+            input_value = self.input.read()
+            power_value = self.pid(input_value)
 
-                output_value = self._get_power2unit(power_value)
+            output_value = self._get_power2unit(power_value)
 
-                self._pid_output_value = output_value
+            self._pid_output_value = output_value
 
-                if not self.is_in_idleband():
-                    self.output.set_value(output_value)
+            if not self.is_in_idleband():
+                self.output.set_value(output_value)
 
-                gevent.sleep(self.pid.sample_time)
+            gevent.sleep(self.pid.sample_time)
 
 
 class SoftRamp:

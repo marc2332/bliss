@@ -52,7 +52,7 @@
     - s1vo
     - sample_regulation
     - sample_regulation_new
-    - soft_regul
+    #- soft_regul
     - sensor
     - sim_ct_gauss
     - sim_ct_gauss_noise

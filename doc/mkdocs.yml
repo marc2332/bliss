@@ -22,6 +22,7 @@ nav:
                       - Aliases: config_alias.md
                       - Measurement groups: config_mg.md
                 - Devices configuration templates:
+                      - APC: config_apc.md
                       - Motor controllers:
                             - Aerotech: config_aerotech.md
                             - Elmo: config_elmo.md

@@ -329,6 +329,9 @@ class ManageMainBehaviours(qt.QObject):
                         plotModel.setStyleStrategy(
                             DefaultStyleStrategy(self.__flintModel)
                         )
+                    previousWidgetPlot = widget.plotModel()
+                    if previousWidgetPlot is not None:
+                        workspace.removePlot(previousWidgetPlot)
                     workspace.addPlot(plotModel)
                     widget.setPlotModel(plotModel)
                 widget.setScan(scan)

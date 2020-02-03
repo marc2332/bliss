@@ -52,6 +52,17 @@ from . import session_files_templates as sft
 __all__ = ("main",)
 
 
+def yes_or_no(question):
+    answer = input(question + " (yes/no) ").lower().strip()
+    print("")
+    while not (answer in {"yes", "y"} or answer in {"no", "n"}):
+        print("Input yes or no")
+        answer = input(question + " (yes/no) ").lower().strip()
+        print("")
+
+    return answer[0] == "y"
+
+
 def print_sessions_list(slist):
     for session in slist:
         print(session)
@@ -196,7 +207,8 @@ def main():
     if arguments["--delete"]:
         session_name = arguments["--delete"]
         if session_name in get_sessions_list():
-            delete_session(session_name)
+            if yes_or_no("Do you want to delete '%s' session?" % session_name):
+                delete_session(session_name)
             exit(0)
         else:
             print(

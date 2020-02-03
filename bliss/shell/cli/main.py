@@ -10,7 +10,7 @@
 Usage: bliss [-l | --log-level=<log_level>] [-s <name> | --session=<name>] [--no-tmux] [--debug]
        bliss [-v | --version]
        bliss [-c <name> | --create=<name>]
-       bliss [-d <name> | --delete=<name>]
+       bliss [-D <name> | --delete=<name>]
        bliss [-h | --help]
        bliss [-S | --show-sessions]
        bliss --show-sessions-only
@@ -20,7 +20,7 @@ Options:
     -s, --session=<session_name>  Start with the specified session
     -v, --version                 Show version and exit
     -c, --create=<session_name>   Create a new session with the given name
-    -d, --delete=<session_name>   Delete the given session
+    -D, --delete=<session_name>   Delete the given session
     -h, --help                    Show help screen and exit
     --no-tmux                     Deactivate Tmux usage
     --debug                       Allow debugging with full exceptions and keeping tmux alive after Bliss shell exits
@@ -50,6 +50,17 @@ from .repl import embed
 from . import session_files_templates as sft
 
 __all__ = ("main",)
+
+
+def yes_or_no(question):
+    answer = input(question + " (yes/no) ").lower().strip()
+    print("")
+    while not (answer in {"yes", "y"} or answer in {"no", "n"}):
+        print("Input yes or no")
+        answer = input(question + " (yes/no) ").lower().strip()
+        print("")
+
+    return answer[0] == "y"
 
 
 def print_sessions_list(slist):
@@ -196,7 +207,8 @@ def main():
     if arguments["--delete"]:
         session_name = arguments["--delete"]
         if session_name in get_sessions_list():
-            delete_session(session_name)
+            if yes_or_no("Do you want to delete '%s' session?" % session_name):
+                delete_session(session_name)
             exit(0)
         else:
             print(

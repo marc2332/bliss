@@ -98,8 +98,10 @@ def test_create_then_delete_session(beacon, session99):
     sess = beacon.get("session99")
     assert isinstance(sess, Session)
 
-    bliss_shell = subprocess.Popen(BLISS + ["-d", "session99"], stdout=subprocess.PIPE)
-    bliss_shell.wait()
+    bliss_shell = subprocess.Popen(
+        BLISS + ["-D", "session99"], stdin=subprocess.PIPE, stdout=subprocess.PIPE
+    )
+    bliss_shell.communicate(input=b"yes\n")
     assert not os.path.exists(session_file)
     assert not os.path.exists(session_setup_file)
     assert not os.path.exists(session_scripts_file)

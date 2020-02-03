@@ -17,6 +17,7 @@ import functools
 import pickle
 import logging
 from silx.gui import qt
+from silx.gui import icons
 
 from bliss.config.settings import HashObjSetting
 from . import manager
@@ -186,6 +187,8 @@ class WorkspaceManager(qt.QObject):
             action = qt.QAction(menu)
             action.setText(f"{name}")
             action.triggered.connect(functools.partial(self.removeWorkspace, name))
+            icon = icons.getQIcon("flint:icons/remove-item")
+            action.setIcon(icon)
             menu.addAction(action)
 
     def __renameWorkspaceAs(self):

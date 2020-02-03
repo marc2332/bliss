@@ -285,11 +285,12 @@ class Item(qt.QObject):
         return (self.__class__, (), self.__getstate__())
 
     def __getstate__(self):
-        state = {"visible": self.__isVisible}
+        state = {"visible": self.__isVisible, "style": self.__customStyle}
         return state
 
     def __setstate__(self, state):
         self.setVisible(state.pop("visible"))
+        self.setCustomStyle(state.pop("style"))
 
     def version(self) -> int:
         """Version of this item.

@@ -8,6 +8,7 @@ import pytest
 
 from bliss.flint.model import plot_item_model
 from bliss.flint.model import plot_model
+from bliss.flint.model import style_model
 from bliss.flint.helper import style_helper
 
 
@@ -31,6 +32,7 @@ from bliss.flint.helper import style_helper
         plot_item_model.MaxCurveItem,
         plot_item_model.MotorPositionMarker,
         style_helper.DefaultStyleStrategy,
+        style_model.Style,
     ],
 )
 def test_dumps_loads(tested):
@@ -44,6 +46,8 @@ def test_parenting():
     item = plot_item_model.CurveItem(plot)
     plot.addItem(item)
     item2 = plot_item_model.CurveItem(plot)
+    style = style_model.Style(colormapLut="viridis")
+    item2.setCustomStyle(style)
     plot.addItem(item2)
     channel = plot_model.ChannelRef(plot, "foo")
     item.setXChannel(channel)
@@ -58,5 +62,8 @@ def test_parenting():
     assert resultItem.parent() is resultPlot
     assert resultItem2.parent() is resultPlot
     assert resultItem.plot() is resultPlot
+    assert resultItem.customStyle() is None
     assert resultItem2.plot() is resultPlot
+    assert resultItem2.customStyle() is not None
+    assert resultItem2.customStyle().colormapLut == "viridis"
     assert resultChannel.name() == channel.name()

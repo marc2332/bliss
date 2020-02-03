@@ -108,6 +108,8 @@ class ManageMainBehaviours(qt.QObject):
             newWorkspace.widgetAdded.connect(self.__widgetAdded)
             newWorkspace.widgetRemoved.connect(self.__widgetRemoved)
 
+        self.__updateLiveScanTitle()
+
     def __widgetAdded(self, widget):
         widget.widgetActivated.connect(self.__widgetActivated)
 
@@ -126,21 +128,27 @@ class ManageMainBehaviours(qt.QObject):
 
     def __currentScanChanged(self, previousScan, newScan):
         self.__storeScanIfNeeded(newScan)
-        self.__updateLiveScanWindow(newScan)
 
-    def __updateLiveScanWindow(self, newScan: scan_model.Scan):
+    def __updateLiveScanTitle(self):
         window = self.flintModel().liveWindow()
         # FIXME: Not nice to reach the tabWidget. It is implementation dependent
         tabWidget: qt.QTabWidget = window.parent().parent()
         liveScanIndex = tabWidget.indexOf(window)
         tabWidget.setCurrentIndex(liveScanIndex)
 
-        scan_info = newScan.scanInfo()
-        title = scan_info["title"]
-        scan_nb = scan_info["scan_nb"]
+        flintModel = self.flintModel()
+        workspace = flintModel.workspace()
+        if workspace is not None:
+            workspaceName = workspace.name()
+        else:
+            workspaceName = None
 
-        text = f"Live scan | {title} - scan number {scan_nb}"
-        tabWidget.setTabText(liveScanIndex, text)
+        title = ""
+        if workspaceName is not None:
+            title += f"({workspaceName}) "
+        title += "Live scan"
+
+        tabWidget.setTabText(liveScanIndex, title)
 
     def __storeScanIfNeeded(self, scan: scan_model.Scan):
         flintModel = self.__flintModel

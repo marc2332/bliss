@@ -480,8 +480,11 @@ class ScatterItem(plot_model.Item):
         xx = self.xArray(scan)
         yy = self.yArray(scan)
         value = self.valueArray(scan)
+
         if xx is None or yy is None or value is None:
             return "No data available for X or Y or Value data"
+        elif self.xChannel().name() == self.yChannel().name():
+            return "X and Y axis must differ"
         elif xx.ndim != 1:
             return "Dimension of X data do not match"
         elif yy.ndim != 1:

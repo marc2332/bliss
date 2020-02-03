@@ -346,6 +346,8 @@ class McaPlotWidget(ExtendedDockWidget):
 
         # Channels from channel ref
         mcaChannel = mcaChannel.channel(scan)
+        if mcaChannel is None:
+            return
 
         histogram = mcaChannel.array()
         if histogram is None:

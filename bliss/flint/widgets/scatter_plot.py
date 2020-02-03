@@ -626,7 +626,6 @@ class ScatterPlotWidget(ExtendedDockWidget):
             curve.setSymbol(symbolStyle)
             curve.setLineStyle(" ")
             curve.setSymbolSize(style.symbolSize)
-            curve.setCustomItem(item)
             key = legend + "_point"
             curve._setLegend(key)
             plot._add(curve)

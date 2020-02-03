@@ -14,6 +14,8 @@ import itertools
 import linecache
 import sys
 import os
+import typing
+import typeguard
 
 from gevent import sleep
 
@@ -32,9 +34,10 @@ from bliss.common.standard import iter_axes_position, iter_axes_position_all
 from bliss.common.standard import sync
 from bliss.common.standard import info
 from bliss.common.standard import __move
+from bliss.common.protocols import CounterContainer
 from bliss.common import measurementgroup
 from bliss.common.soft_axis import SoftAxis
-from bliss.common.counter import SoftCounter
+from bliss.common.counter import SoftCounter, Counter
 from bliss.common.utils import ShellStr
 
 # objects given to Bliss shell user
@@ -230,12 +233,21 @@ def debugoff(glob_logger_pattern_or_obj):
         print(f"NO loggers found for [{glob_logger_pattern_or_obj}]")
 
 
-def lscnt():
+@typeguard.typechecked
+def lscnt(counter_container: typing.Union[CounterContainer, Counter, None] = None):
     """
     Display the list of all counters, sorted alphabetically
     """
+    if counter_container is None:
+        counters = None
+    elif isinstance(counter_container, CounterContainer):
+        counters = counter_container.counters
+    else:
+        # must be Counter
+        counters = [counter_container]
+
     table_info = []
-    for counter_name, shape, prefix, name, alias in sorted(iter_counters()):
+    for counter_name, shape, prefix, name, alias in sorted(iter_counters(counters)):
         table_info.append(itertools.chain([counter_name], (shape, prefix, name, alias)))
     print("")
     print(

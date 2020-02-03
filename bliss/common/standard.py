@@ -16,7 +16,6 @@ import inspect
 from bliss import global_map, global_log, current_session
 from bliss.common import scans
 from bliss.common.scans import *
-
 from bliss.common.plot import plot
 from bliss.common.soft_axis import SoftAxis
 from bliss.common.counter import SoftCounter
@@ -230,15 +229,16 @@ def __move(*args, **kwargs):
     return group, motor_pos
 
 
-def iter_counters():
+def iter_counters(counters=None):
     """
     Return a dict of counters
     """
-
     counters_dict = dict()
     shape = ["0D", "1D", "2D"]
+    if counters is None:
+        counters = global_map.get_counters_iter()
 
-    for cnt in global_map.get_counters_iter():
+    for cnt in counters:
         prefix, _, short_name = cnt.fullname.rpartition(":")
         counters_dict[cnt.fullname] = (
             shape[len(cnt.shape)],

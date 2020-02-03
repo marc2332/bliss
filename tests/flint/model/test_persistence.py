@@ -37,3 +37,26 @@ def test_dumps_loads(tested):
     o = tested()
     data = pickle.dumps(o)
     _ = pickle.loads(data)
+
+
+def test_parenting():
+    plot = plot_item_model.CurvePlot()
+    item = plot_item_model.CurveItem(plot)
+    plot.addItem(item)
+    item2 = plot_item_model.CurveItem(plot)
+    plot.addItem(item2)
+    channel = plot_model.ChannelRef(plot, "foo")
+    item.setXChannel(channel)
+
+    data = pickle.dumps(plot)
+    resultPlot = pickle.loads(data)
+
+    resultItem = resultPlot.items()[0]
+    resultItem2 = resultPlot.items()[1]
+    resultChannel = resultItem.xChannel()
+
+    assert resultItem.parent() is resultPlot
+    assert resultItem2.parent() is resultPlot
+    assert resultItem.plot() is resultPlot
+    assert resultItem2.plot() is resultPlot
+    assert resultChannel.name() == channel.name()

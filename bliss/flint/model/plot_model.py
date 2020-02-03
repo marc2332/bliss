@@ -106,6 +106,10 @@ class Plot(qt.QObject):
 
     def __setstate__(self, state):
         self.__items = state.pop("items")
+        for i in self.__items:
+            # Take the ownership of this items
+            i._setPlot(self)
+            i.setParent(self)
         self.__styleStrategy = state.pop("style_strategy")
         if self.__styleStrategy is not None:
             self.__styleStrategy.setPlot(self)
@@ -281,11 +285,10 @@ class Item(qt.QObject):
         return (self.__class__, (), self.__getstate__())
 
     def __getstate__(self):
-        state = {"parent": self.parent(), "visible": self.__isVisible}
+        state = {"visible": self.__isVisible}
         return state
 
     def __setstate__(self, state):
-        self.setParent(state.pop("parent"))
         self.setVisible(state.pop("visible"))
 
     def version(self) -> int:

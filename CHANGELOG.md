@@ -14,6 +14,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `plotselect(diode2)` can now be used if the scan is already displayed
   - `SCAN_DISPLAY.init_next_scan_meta(display=[diode2])` can be used just before
     scanning
+  - Provide layout menu to allow to setup predefined layouts
+  - Provide menu to lock/unlock the layout (by default the layout is locked)
+  - Provide workspace to be able to store plot, widget, layout in different environment
 
 ### Changed
 
@@ -26,6 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Display curve live view x-axis with timeseries if the channel unit is "s"
   - Cut channels data at the end of timescan scans to enforce the same size
     - It's a workaround, but can be used for other default scan if requested
+  - The layout is not stored into the Redis session
 
 ### Fixed
 

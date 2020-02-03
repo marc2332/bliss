@@ -95,7 +95,7 @@ class LiveWindow(MainWindow):
         )
 
         workspace.addWidget(curvePlotWidget)
-        self.setPredefinedLayout(_PredefinedLayouts.ONE_STACK)
+        self.setPredefinedLayout(_PredefinedLayouts.ONE_STACK, workspace)
 
     def createLayoutActions(self, parent: qt.QObject) -> List[qt.QAction]:
         result = []
@@ -103,7 +103,9 @@ class LiveWindow(MainWindow):
         action = qt.QAction(parent)
         action.setText("Layout with a single stack")
         action.triggered.connect(
-            functools.partial(self.setPredefinedLayout, _PredefinedLayouts.ONE_STACK)
+            functools.partial(
+                self.__clickPredefinedLayout, _PredefinedLayouts.ONE_STACK
+            )
         )
         icon = icons.getQIcon("flint:icons/layout-one-stack")
         action.setIcon(icon)
@@ -113,7 +115,7 @@ class LiveWindow(MainWindow):
         action.setText("Curve/scatter on bottom, image/MCA on stacks")
         action.triggered.connect(
             functools.partial(
-                self.setPredefinedLayout, _PredefinedLayouts.ONE_FOR_IMAGE_AND_MCA
+                self.__clickPredefinedLayout, _PredefinedLayouts.ONE_FOR_IMAGE_AND_MCA
             )
         )
         icon = icons.getQIcon("flint:icons/layout-one-for-image-and-mca")
@@ -123,7 +125,9 @@ class LiveWindow(MainWindow):
         action = qt.QAction(parent)
         action.setText("A stack per plot kind")
         action.triggered.connect(
-            functools.partial(self.setPredefinedLayout, _PredefinedLayouts.ONE_PER_KIND)
+            functools.partial(
+                self.__clickPredefinedLayout, _PredefinedLayouts.ONE_PER_KIND
+            )
         )
         icon = icons.getQIcon("flint:icons/layout-one-per-kind")
         action.setIcon(icon)
@@ -224,11 +228,18 @@ class LiveWindow(MainWindow):
         holderBottomLeft.deleteLater()
         holderBottomRight.deleteLater()
 
-    def setPredefinedLayout(self, layoutKind: _PredefinedLayouts):
+    def __clickPredefinedLayout(self, layoutKind: _PredefinedLayouts):
+        self.setPredefinedLayout(layoutKind)
+
+    def setPredefinedLayout(
+        self, layoutKind: _PredefinedLayouts, workspace: flint_model.Workspace = None
+    ):
         flintModel = self.flintModel()
         statusWidget = flintModel.liveStatusWidget()
         propertyWidget = flintModel.propertyWidget()
-        widgets = flintModel.workspace().widgets()
+        if workspace is None:
+            workspace = flintModel.workspace()
+        widgets = workspace.widgets()
 
         with utils.blockSignals(self):
             if layoutKind == _PredefinedLayouts.ONE_STACK:

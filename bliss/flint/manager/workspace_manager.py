@@ -262,6 +262,7 @@ class WorkspaceManager(qt.QObject):
         newWorkspace.setName(name)
         window = flintModel.liveWindow()
         settings = self.__getSettings()
+        scan = flintModel.currentScan()
 
         try:
             data = settings.get(newWorkspace.name(), None)
@@ -289,15 +290,16 @@ class WorkspaceManager(qt.QObject):
             data.feedWorkspace(newWorkspace, parent=window)
 
             # FIXME: Could be done in the manager callback event
-            for widget in newWorkspace.widgets():
-                self.parent()._initNewDock(widget)
-
-            # FIXME: Could be done in the manager callback event
             for plot in newWorkspace.plots():
                 # FIXME: That's a hack while there is no better solution
                 style = plot.styleStrategy()
                 if hasattr(style, "setFlintModel"):
                     style.setFlintModel(flintModel)
+
+            # FIXME: Could be done in the manager callback event
+            for widget in newWorkspace.widgets():
+                self.parent()._initNewDock(widget)
+                widget.setScan(scan)
 
             layout = data.layout()
             window.restoreState(layout)

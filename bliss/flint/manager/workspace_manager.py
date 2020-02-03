@@ -26,6 +26,53 @@ from ..model import flint_model
 _logger = logging.getLogger(__name__)
 
 
+class WorkspaceData(dict):
+    def setWorkspace(self, workspace: flint_model.Workspace, includePlots: bool):
+        plots = {}
+        if includePlots:
+            for plot in workspace.plots():
+                plots[id(plot)] = plot
+
+        widgetDescriptions = []
+        for widget in workspace.widgets():
+            if includePlots:
+                model = widget.plotModel()
+                if model is not None:
+                    modelId = id(model)
+                else:
+                    modelId = None
+            else:
+                modelId = None
+            widgetDescriptions.append(
+                (widget.objectName(), widget.windowTitle(), widget.__class__, modelId)
+            )
+
+        self["plots"] = plots
+        self["widgets"] = widgetDescriptions
+
+    def setLayout(self, layout: qt.QByteArray):
+        self["layout"] = layout
+
+    def layout(self):
+        return self["layout"]
+
+    def feedWorkspace(self, workspace: flint_model.Workspace, parent: qt.QWidget):
+        plots: dict = self["plots"]
+        widgetDescriptions = self["widgets"]
+
+        for plot in plots.values():
+            workspace.addPlot(plot)
+
+        for name, title, widgetClass, modelId in widgetDescriptions:
+            widget = widgetClass(parent)
+            widget.setObjectName(name)
+            widget.setWindowTitle(title)
+            if modelId is not None:
+                plot = plots[modelId]
+                widget.setPlotModel(plot)
+            workspace.addWidget(widget)
+
+
 class WorkspaceManager(qt.QObject):
 
     ROOT_KEY = "flint.%s.workspace"
@@ -222,33 +269,34 @@ class WorkspaceManager(qt.QObject):
             )
             data = None
 
+        if data is not None and not isinstance(data, WorkspaceData):
+            _logger.error(
+                "Problem to load workspace data. Unexpected type %s. Information will be lost.",
+                type(data),
+                exc_info=True,
+            )
+            data = None
+
         if data is None:
             window.feedDefaultWorkspace(flintModel, newWorkspace)
         else:
-            plots, widgetDescriptions, layout = data
-
             # It have to be done before creating widgets
             self.__closeWorkspace()
 
-            for plot in plots.values():
-                newWorkspace.addPlot(plot)
+            data.feedWorkspace(newWorkspace, parent=window)
 
-            for name, title, widgetClass, modelId in widgetDescriptions:
-                widget = widgetClass(window)
-                widget.setObjectName(name)
-                widget.setWindowTitle(title)
+            # FIXME: Could be done in the manager callback event
+            for widget in newWorkspace.widgets():
                 self.parent()._initNewDock(widget)
-                if modelId is not None:
-                    plot = plots[modelId]
-                    widget.setPlotModel(plot)
-                newWorkspace.addWidget(widget)
 
-            for plot in plots.values():
+            # FIXME: Could be done in the manager callback event
+            for plot in newWorkspace.plots():
                 # FIXME: That's a hack while there is no better solution
                 style = plot.styleStrategy()
                 if hasattr(style, "setFlintModel"):
                     style.setFlintModel(flintModel)
 
+            layout = data.layout()
             window.restoreState(layout)
 
         # Make sure everything is visible (just in case)
@@ -290,38 +338,22 @@ class WorkspaceManager(qt.QObject):
 
         flintModel = self.mainManager().flintModel()
         workspace = flintModel.workspace()
-        plots = {}
 
         redis = flintModel.redisConnection()
         if redis is None:
             _logger.error("No Redis connection. Save of workspace aborted")
             return
 
+        data = WorkspaceData()
         includePlots = workspace.name() != self.DEFAULT
-        if includePlots:
-            for plot in workspace.plots():
-                plots[id(plot)] = plot
-
-        widgetDescriptions = []
-        for widget in workspace.widgets():
-            if includePlots:
-                model = widget.plotModel()
-                if model is not None:
-                    modelId = id(model)
-                else:
-                    modelId = None
-            else:
-                modelId = None
-            widgetDescriptions.append(
-                (widget.objectName(), widget.windowTitle(), widget.__class__, modelId)
-            )
+        data.setWorkspace(workspace, includePlots=includePlots)
 
         window = flintModel.liveWindow()
         layout = window.saveState()
+        data.setLayout(layout)
 
         settings = self.__getSettings()
-        state = (plots, widgetDescriptions, layout)
-        settings[name] = state
+        settings[name] = data
 
         if last:
             self.__saveCurrentWorkspaceName(name)

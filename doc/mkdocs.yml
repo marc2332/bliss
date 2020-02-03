@@ -57,6 +57,7 @@ nav:
                             - Temperature controllers in Bliss: config_tempctrl.md
                             - Eurotherm: config_eurotherm.md
                             - Keller: config_keller.md
+                            - Keithley 3706: config_keithley_3706.md
                             - Lakeshore: config_lakeshore.md
                             - Meerstetter: config_meerstetter.md
                             - Oxford700: config_oxford700.md

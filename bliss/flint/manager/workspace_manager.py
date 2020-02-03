@@ -18,6 +18,7 @@ import pickle
 import logging
 from silx.gui import qt
 
+from bliss.config.settings import HashObjSetting
 from . import manager
 from ..model import flint_model
 
@@ -27,7 +28,7 @@ _logger = logging.getLogger(__name__)
 
 class WorkspaceManager(qt.QObject):
 
-    ROOT_KEY = "flint.workspace"
+    ROOT_KEY = "flint.%s.workspace"
 
     DEFAULT = "base"
 
@@ -65,22 +66,13 @@ class WorkspaceManager(qt.QObject):
         return result
 
     def __saveAvailableNames(self, names: List[str]):
-        redis = self.mainManager().flintModel().redisConnection()
-        data = pickle.dumps(names)
-        redis.set(self.ROOT_KEY + "@names", data)
+        settings = self.__getSettings()
+        settings["@names"] = names
 
     def __getAvailableNames(self) -> List[str]:
-        redis = self.mainManager().flintModel().redisConnection()
-        data = redis.get(self.ROOT_KEY + "@names")
-        if data is not None:
-            try:
-                data = pickle.loads(data)
-            except Exception:
-                _logger.error("Not able to deserialize Redis object.", exc_info=True)
-                raise IOError
-        if data is None:
-            return []
-        return data
+        settings = self.__getSettings()
+        names = settings.get("@names", [])
+        return names
 
     def __feedLoadMenu(self):
         menu: qt.QMenu = self.sender()
@@ -184,17 +176,12 @@ class WorkspaceManager(qt.QObject):
         self.saveWorkspaceAs(workspace, name)
 
     def __saveCurrentWorkspaceName(self, name: str):
-        redis = self.mainManager().flintModel().redisConnection()
-        data = pickle.dumps(name)
-        data = redis.set(self.ROOT_KEY + "@lastname", data)
+        settings = self.__getSettings()
+        settings["@lastname"] = name
 
     def loadLastWorkspace(self):
-        redis = self.mainManager().flintModel().redisConnection()
-        data = redis.get(self.ROOT_KEY + "@lastname")
-        if data is None:
-            name = self.DEFAULT
-        else:
-            name = pickle.loads(data)
+        settings = self.__getSettings()
+        name = settings.get("@lastname", self.DEFAULT)
         return self.loadWorkspace(name)
 
     def __closeWorkspace(self):
@@ -211,26 +198,29 @@ class WorkspaceManager(qt.QObject):
             w.setObjectName(None)
             w.deleteLater()
 
+    def __getSettings(self) -> HashObjSetting:
+        """Returns the settings storing workspaces in this bliss session."""
+        flintModel = self.mainManager().flintModel()
+        redis = flintModel.redisConnection()
+        key = self.ROOT_KEY % flintModel.blissSessionName()
+        setting = HashObjSetting(key, connection=redis)
+        return setting
+
     def loadWorkspace(self, name: str):
         flintModel = self.mainManager().flintModel()
         newWorkspace = flint_model.Workspace()
         newWorkspace.setName(name)
         window = flintModel.liveWindow()
+        settings = self.__getSettings()
 
-        key = "flint.workspace.%s" % newWorkspace.name()
-        redis = flintModel.redisConnection()
-
-        data = redis.get(key)
-        if data is not None:
-            try:
-                data = pickle.loads(data)
-            except:
-                _logger.error(
-                    "The workspace stored in redis can't be deserialized. This data will be lost.",
-                    exc_info=True,
-                )
-                _logger.error("Dump: %s", data)
-                data = None
+        try:
+            data = settings.get(newWorkspace.name(), None)
+        except:
+            _logger.error(
+                "Problem to load workspace data. Information will be lost.",
+                exc_info=True,
+            )
+            data = None
 
         if data is None:
             window.feedDefaultWorkspace(flintModel, newWorkspace)
@@ -329,11 +319,9 @@ class WorkspaceManager(qt.QObject):
         window = flintModel.liveWindow()
         layout = window.saveState()
 
+        settings = self.__getSettings()
         state = (plots, widgetDescriptions, layout)
-
-        key = "%s.%s" % (self.ROOT_KEY, name)
-        data = pickle.dumps(state)
-        redis.set(key, data)
+        settings[name] = state
 
         if last:
             self.__saveCurrentWorkspaceName(name)

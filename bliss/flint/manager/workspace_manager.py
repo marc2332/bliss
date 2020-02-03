@@ -364,6 +364,8 @@ class WorkspaceManager(qt.QObject):
             return
         workspace.setName(name)
         self.saveWorkspace(workspace, last=True)
+        flintModel = self.mainManager().flintModel()
+        flintModel.setWorkspace(workspace)
 
     def renameWorkspaceAs(self, workspace: flint_model.Workspace, name: str):
         previous = workspace.name()
@@ -372,3 +374,5 @@ class WorkspaceManager(qt.QObject):
         workspace.setName(name)
         self.removeWorkspace(previous)
         self.saveWorkspace(workspace, last=True)
+        flintModel = self.mainManager().flintModel()
+        flintModel.setWorkspace(workspace)

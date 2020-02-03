@@ -57,6 +57,7 @@ class BasicScanSaving(ParametersWardrobe):
         "scan_number",
         "img_acq_device",
         "writer",
+        "data_policy",
     ]
     REDIS_SETTING_PREFIX = "scan_saving"
 
@@ -146,6 +147,10 @@ class BasicScanSaving(ParametersWardrobe):
     @property
     def scan_number(self):
         return "{scan_number}"
+
+    @property
+    def data_policy(self):
+        return "None"
 
     @property
     def img_acq_device(self):
@@ -311,6 +316,10 @@ class ESRFScanSaving(BasicScanSaving):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
+
+    @property
+    def data_policy(self):
+        return "ESRF"
 
     @property
     def scan_saving_config(self):

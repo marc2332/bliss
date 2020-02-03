@@ -637,6 +637,8 @@ class Scan:
         scan_config = scan_saving.get()
 
         self._scan_info["save"] = save
+        self._scan_info["data_writer"] = scan_saving.writer
+        self._scan_info["data_policy"] = scan_saving.data_policy
         if save:
             self.__writer = scan_config["writer"]
         else:

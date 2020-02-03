@@ -14,6 +14,9 @@ import re
 from fnmatch import fnmatch, fnmatchcase
 import networkx as nx
 from functools import wraps
+from weakref import WeakKeyDictionary
+
+import gevent
 
 from bliss.common.utils import autocomplete_property
 from bliss.common.mapping import format_node, map_id
@@ -273,10 +276,27 @@ class LogbookPrint:
         self.stdout_handler = LogbookStdoutHandler()
         self.stdout_handler.setLevel(logging.INFO)
 
+        self.disabled = WeakKeyDictionary()
+
     def add_stdout_handler(self):
         """adding handler will prints to stdout lprint messages"""
         if self.stdout_handler not in self.logger.handlers:
+
+            def filter_greenlet(record):
+                # filter greenlets
+                nonlocal self
+                current = gevent.getcurrent()
+                while current:
+                    # looping parents greenlets
+                    # until we find a disabled one
+                    # or we arrive at root
+                    if current in self.disabled:
+                        return False
+                    current = current.parent
+                return True
+
             self.logger.addHandler(self.stdout_handler)
+            self.logger.addFilter(filter_greenlet)
 
     def remove_stdout_handler(self):
         if self.stdout_handler in self.logger.handlers:
@@ -300,19 +320,31 @@ class LogbookPrint:
         else:
             self.adapter.info(args[0])
 
+    @contextlib.contextmanager
+    def lprint_disable(self):
+
+        # lprint_disable keeps track of the current greenlet
+        current = gevent.getcurrent()
+        try:
+            # keeping track of nested levels of lprint_disable
+            self.disabled[current] += 1
+        except KeyError:
+            self.disabled[current] = 1
+
+        yield
+
+        try:
+            self.disabled[current] -= 1
+            if self.disabled[current] <= 0:
+                # when we exit the last `with` we can delete the reference
+                del (self.disabled[current])
+        except KeyError:
+            pass
+
 
 logbook_printer = LogbookPrint()
 lprint = logbook_printer.lprint
-
-
-@contextlib.contextmanager
-def lprint_disable():
-    if logbook_printer.has_stdout_handler():
-        logbook_printer.remove_stdout_handler()
-        yield
-        logbook_printer.add_stdout_handler()
-    else:
-        yield
+lprint_disable = logbook_printer.lprint_disable
 
 
 @contextlib.contextmanager

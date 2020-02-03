@@ -180,20 +180,22 @@ class EMH(CounterController):
         """Send <message> to the controller.
         * type of <message> must be 'str'
         * converts <message> into 'bytes'
-        * no terminator char ???
+        * add terminator char : "\n"
         * send command to the device
         * NO answer is read from controller
         """
+        message = message + "\n"
         self.comm.write(message.encode())
 
     def raw_write_read(self, message):
         """Send <message> to the controller and read the answer.
         * type of <message> must be 'str'
         * converts <message> into 'bytes'
-        * no terminator char ???
+        * add terminator char : "\n"
         * send command to the device
         * return answer from controller as a 'str' string
         """
+        message = message + "\n"
         ans = self.comm.write_readline(message.encode()).decode()
         return ans
 
@@ -223,18 +225,18 @@ class EMH(CounterController):
     def reboot(self):
         """Send Reboot command to EMH device.
         """
-        self.raw_write("*RST")
+        ans = self.raw_write_read("*RST")
 
     def get_info(self):
         """Return list of string info taken from controller.
         """
         list_info = list()
-        list_info.append(self.get_id())
-        list_info.append(self.get_mac_address())
-        list_info.append(self.get_fw_version())
-        list_info.append(self.get_temperature_cb())
-        list_info.append(self.get_temperature_fe())
-        list_info.append(self.get_supplies_voltages())
+        list_info.append("ID:" + self.get_id())
+        list_info.append("MAC:" + self.get_mac_address())
+        list_info.append("FW V.:" + self.get_fw_version())
+        list_info.append("T board:" + self.get_temperature_cb())
+        list_info.append("T fe:" + self.get_temperature_fe())
+        list_info.append("Supply Voltage:" + self.get_supplies_voltages())
         return list_info
 
     def __info__(self):
@@ -270,8 +272,13 @@ class EMH(CounterController):
         """
         Return delay after trigger.
         Return value is an integer in milliseconds.
+        or 'NOK' in case of ???
         """
-        return int(self.raw_write_read("TRIG:DELA?"))
+        _td_ans = self.raw_write_read("TRIG:DELA?")
+        if _td_ans == "NOK":
+            return _td_ans
+        else:
+            return int(float(_td_ans))
 
     def get_trigger_input(self):
         """
@@ -286,7 +293,7 @@ class EMH(CounterController):
         <trigger_input is a string in {'DIO_1', 'DIO_2', 'DIO_3', 'DIO_4'}
         """
         if trigger_input in TRIGGER_INPUTS:
-            self.raw_write("TRIG:INPU {}".format(trigger_input))
+            ans = self.raw_write_read("TRIG:INPU {}".format(trigger_input))
         else:
             raise ValueError("Bad trigger input : {}".format(trigger_input))
 
@@ -307,7 +314,7 @@ class EMH(CounterController):
         <trigger_mode> must be a string in {'SOFTWARE', 'HARDWARE', 'AUTOTRIGGER'}
         """
         if trigger_mode in TRIGGER_MODES:
-            self.raw_write("TRIG:MODE {}".format(trigger_mode))
+            _ans = self.raw_write_read("TRIG:MODE {}".format(trigger_mode))
         else:
             raise ValueError("Bad trigger mode : {}".format(trigger_mode))
 
@@ -324,7 +331,7 @@ class EMH(CounterController):
         <pola> is a string in ('RISING', 'FALLING').
         """
         if pola in TRIGGER_POLARITIES:
-            self.raw_write("TRIG:POLA {}".format(pola))
+            ans = self.raw_write_read("TRIG:POLA {}".format(pola))
         else:
             raise ValueError("invalid polarity: {}".format(pola))
 
@@ -354,7 +361,7 @@ class EMH(CounterController):
         <speed> must be is a float in {3200; 100; 10; 1; 0.5}.
         """
         if speed in ACQU_FILTER_SPEEDS:
-            self.raw_write("ACQU:FILT {}".format(speed))
+            ans = self.raw_write_read("ACQU:FILT {}".format(speed))
         else:
             raise ValueError("Invalid speed value: {}".format(speed))
 
@@ -371,7 +378,7 @@ class EMH(CounterController):
         <mode> must be a string in {'INTEGRATION'; 'CHARGE'}
         """
         if mode in ACQUISITION_MODES:
-            self.raw_write("ACQU:MODE {}".format(mode))
+            ans = self.raw_write_read("ACQU:MODE {}".format(mode))
         else:
             raise ValueError("{} is not a valid acquisition mode".format(mode))
 
@@ -401,10 +408,12 @@ class EMH(CounterController):
         """
 
         raw_data = self.get_acq_measures(start, count)
+        # t0=time.time()
+        # print("*"*50,"BEFORE TREATMENT")
         chan_data = raw_data[1:-1].split("['CHAN")[1:]
 
         # we suppose that all the channels have been read
-        # in current and timestamps, the channel index are:
+        # sin current and timestamps, the channel index are:
         # 0:C1 1:C2 2:C3 3:C4 4:bpmx 5:bpmy 6:bpmi
         currents = np.zeros((7, count))
         timestamps = np.zeros((7, count))
@@ -435,6 +444,9 @@ class EMH(CounterController):
                 - (currents[2][pt_index] + currents[3][pt_index])
             ) / csum
 
+        # print(time.time()-t0)
+        # print("*"*50,"AFTER TREATMENT")
+
         return (timestamps, currents)
 
     def get_acq_counts(self):
@@ -459,7 +471,7 @@ class EMH(CounterController):
         100nA, 1uA, 10uA, 100uA, 1mA, AUTO}
         """
         if str_range in RANGE_STRINGS:
-            self.raw_write("ACQU:RANGE {}".format(str_range))
+            ans = self.raw_write_read("ACQU:RANGE {}".format(str_range))
             # ??? can be long ??? sleep needed ?
 
             # to check : what happens if talk during setting ?
@@ -506,7 +518,7 @@ class EMH(CounterController):
         <trigger_count> must be an integer.
         0 value means infinite number of points to acquire.
         """
-        self.raw_write("ACQU:NTRI {}".format(trigger_count))
+        ans = self.raw_write_read("ACQU:NTRI {}".format(trigger_count))
 
     def get_acq_status(self):
         """
@@ -532,14 +544,14 @@ class EMH(CounterController):
         Return acquisition time in milliseconds.
         Return value is an integer in range [;].
         """
-        return int(self.raw_write_read("ACQU:TIME?"))
+        return int(float(self.raw_write_read("ACQU:TIME?")))
 
     def set_acq_time(self, acq_time):
         """
         Set acquisition time in milliseconds.
         <acq_time> must be an integer in range [;].
         """
-        self.raw_write("ACQU:TIME {}".format(acq_time))
+        ans = self.raw_write_read("ACQU:TIME {}".format(acq_time))
 
     def print_acq_info(self):
         """
@@ -562,17 +574,17 @@ class EMH(CounterController):
     def start_acq(self):
         """Start acquisition but do not send trigger
         """
-        self.raw_write("ACQU:START")
+        ans = self.raw_write_read("ACQU:START")
 
     def start_acq_and_run(self):
         """Start acquisition and send a trigger if trigger mode is SOFTWARE.
         """
-        self.raw_write("ACQU:START SWTRIG")
+        ans = self.raw_write_read("ACQU:START SWTRIG")
 
     def stop_acq(self):
         """ Stop an acquisition.
         """
-        self.raw_write("ACQU:STOP")
+        ans = self.raw_write_read("ACQU:STOP")
 
     def get_saturation_max(self, chan):
         """ Return saturation max. This parameter defines the maximum
@@ -664,7 +676,7 @@ class EMH(CounterController):
     def pulse(self):
         """Send a command to EMH controller to make a pulse signal
         """
-        self.raw_write("TRIG:SWSE True")
+        ans = self.raw_write_read("TRIG:SWSE True")
 
     def make_N_acq(self, acq_count, acq_time):
         """

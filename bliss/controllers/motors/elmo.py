@@ -315,19 +315,24 @@ class Elmo(Controller):
             gevent.sleep(0.01)
         self._sync_pos(axis)
 
+    def _enc_command(self, axis):
+        if axis._mode == 4:
+            return "PY"
+        else:
+            return "PX"
+
     def read_position(self, axis):
         if axis._mode == 2:
             return float(self._query("PX"))
-        if self._last_state is not None:
-            if "MOVING" in self._last_state:
-                return float(self._query("PX"))
+        if self._last_state[axis] is not None:
+            if "MOVING" in self._last_state[axis]:
+                return float(self._query(self._enc_command(axis)))
         return float(self._query("PA"))
 
     def set_position(self, axis, new_pos):
         pos = round(new_pos)
         self._set_power(axis, False)
-        encodeur_name = "PY" if axis._mode == 4 else "PX"
-        self._query("%s=%d" % (encodeur_name, pos))
+        self._query("%s=%d" % (self._enc_command(axis), pos))
         self._set_power(axis, True)
         self._query("PA=%d" % pos)
         return self.read_position(axis)
@@ -385,10 +390,7 @@ class Elmo(Controller):
         self._is_homing[axis] = False
 
     def _sync_pos(self, axis):
-        if axis._mode == 4:
-            cmd = "PA=PY"
-        else:
-            cmd = "PA=PX"
+        cmd = "PA=%s" % self._enc_command(axis)
         self._query(cmd)
 
     def state(self, axis):
@@ -450,12 +452,6 @@ class Elmo(Controller):
     def stop(self, axis):
         self._query("ST")
         if self._is_homing[axis]:
-            # workaround for controller bug: a ST command while within
-            # an homing sequence lets the MS bit sets but still saying
-            # that the closed loop is on (MO==1). Unique solution found,
-            # cycle the closed loop to cleanup MS bits
-            # self._set_power(axis, False)
-            # self._set_power(axis, True)
             self._end_home(axis)
 
     @object_method(types_info=("None", "int"))
@@ -579,3 +575,21 @@ class Elmo(Controller):
         val = status & (1 << 16 | 1 << 17)
         txt = RecorderStatus.get(val, "unknown state")
         print(f"* RECORDER STATUS : {txt}")
+
+    @object_method(types_info=("None", "None"))
+    def comm_register(self, axis):
+        ip_set = self._query("AA[10]")
+        mask_set = self._query("AA[11]")
+        gate_set = self._query("AA[12]")
+        dhcp_set = int(self._query("AA[14]")) == 1 and "ENABLED" or "DISABLED"
+        ip_now = self._query("AA[20]")
+        mask_now = self._query("AA[21]")
+        gate_now = self._query("AA[22]")
+        mac_addr = self._query("AA[23]")
+        info = "ELMO COMMUNICATION REGISTER:\n"
+        info += f" * MAC ADDRESS : {mac_addr}\n"
+        info += f" * DHCP        : {dhcp_set}\n"
+        info += f" * IP ADDRESS  : {ip_now}\t[set = {ip_set}]\n"
+        info += f" * GATEWAY     : {gate_now}\t[set = {gate_set}]\n"
+        info += f" * SUBNET MASK : {mask_now}\t[set = {mask_set}]\n"
+        print(info)

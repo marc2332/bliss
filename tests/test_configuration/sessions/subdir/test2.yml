@@ -1,5 +1,5 @@
 - class: Session
   name: test_session5
-  setup-file: ../test_setup5.py
+  setup-file: test_setup5.py
   config-objects: [m2]
 

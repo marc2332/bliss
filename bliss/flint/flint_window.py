@@ -13,7 +13,6 @@ from silx.gui import qt
 
 from bliss.flint.widgets.log_widget import LogWidget
 from bliss.flint.widgets.live_window import LiveWindow
-from bliss.flint.widgets.curve_plot import CurvePlotWidget
 from bliss.flint.model import flint_model
 
 _logger = logging.getLogger(__name__)
@@ -36,16 +35,19 @@ class FlintWindow(qt.QMainWindow):
         self.__tabs = tabs
 
         self.setCentralWidget(tabs)
-        self.__initMenus()
         self.__initLogWindow()
 
-    def setFlintState(self, flintState):
+    def setFlintModel(self, flintState: flint_model.FlintState):
         if self.__flintState is not None:
             self.__flintState.blissSessionChanged.disconnect(self.__blissSessionChanged)
         self.__flintState = flintState
         if self.__flintState is not None:
             self.__flintState.blissSessionChanged.connect(self.__blissSessionChanged)
         self.__updateTitle()
+
+    def flintModel(self) -> flint_model.FlintState:
+        assert self.__flintState is not None
+        return self.__flintState
 
     def tabs(self):
         # FIXME: Have to be removed as it is not really an abstraction
@@ -70,13 +72,16 @@ class FlintWindow(qt.QMainWindow):
         self.__logWindow = logWindow
         logWidget.connect_logger(logging.root)
 
-    def __initMenus(self):
+    def initMenus(self):
+        flintModel = self.flintModel()
+        liveWindow = flintModel.liveWindow()
+        manager = flintModel.mainManager()
+
         exitAction = qt.QAction("&Exit", self)
         exitAction.setShortcut("Ctrl+Q")
         exitAction.setStatusTip("Exit flint")
         exitAction.triggered.connect(self.close)
         showLogAction = qt.QAction("Show &log", self)
-        showLogAction.setShortcut("Ctrl+L")
         showLogAction.setStatusTip("Show log window")
 
         showLogAction.triggered.connect(self.showLogDialog)
@@ -85,6 +90,17 @@ class FlintWindow(qt.QMainWindow):
         fileMenu.addAction(exitAction)
         windowMenu = menubar.addMenu("&Windows")
         windowMenu.addAction(showLogAction)
+
+        menubar = self.menuBar()
+        layoutMenu = menubar.addMenu("&Layout")
+        for action in liveWindow.createLayoutActions(self):
+            layoutMenu.addAction(action)
+
+        menubar = self.menuBar()
+        workspaceMenu = menubar.addMenu("&Workspace")
+        workspaceManager = manager.workspaceManager()
+        for action in workspaceManager.createManagerActions(self):
+            workspaceMenu.addAction(action)
 
         helpMenu = menubar.addMenu("&Help")
 
@@ -174,26 +190,6 @@ class FlintWindow(qt.QMainWindow):
         title = "Flint (PID={}) - {}".format(os.getpid(), session)
         self.setWindowTitle(title)
 
-    def __feedDefaultWorkspace(self):
-        # FIXME: Here we can feed the workspace with something persistent
-        flintModel = self.__flintState
-        workspace = flintModel.workspace()
-        window = flintModel.liveWindow()
-
-        curvePlotWidget = CurvePlotWidget(parent=window)
-        curvePlotWidget.setFlintModel(flintModel)
-        curvePlotWidget.setObjectName("curve1-dock")
-        curvePlotWidget.setWindowTitle("Curve1")
-        curvePlotWidget.setFeatures(
-            curvePlotWidget.features() & ~qt.QDockWidget.DockWidgetClosable
-        )
-        curvePlotWidget.widget().setSizePolicy(
-            qt.QSizePolicy.Expanding, qt.QSizePolicy.Expanding
-        )
-
-        workspace.addWidget(curvePlotWidget)
-        window.addDockWidget(qt.Qt.RightDockWidgetArea, curvePlotWidget)
-
     def initFromSettings(self):
         settings = self.__flintState.settings()
         # resize window to 70% of available screen space, if no settings
@@ -205,20 +201,6 @@ class FlintWindow(qt.QMainWindow):
         self.move(settings.value("pos", qt.QPoint(3 * w / 14.0, 3 * h / 14.0)))
         settings.endGroup()
 
-        manager = self.__flintState.mainManager()
-        settings.beginGroup("live-window")
-        state = settings.value("workspace", None)
-        if state is not None:
-            try:
-                manager.restoreWorkspace(state)
-                _logger.info("Workspace restored")
-            except Exception:
-                _logger.error("Error while restoring the workspace", exc_info=True)
-                self.__feedDefaultWorkspace()
-        else:
-            self.__feedDefaultWorkspace()
-        settings.endGroup()
-
     def saveToSettings(self):
         settings = self.__flintState.settings()
         settings.beginGroup("main-window")
@@ -227,14 +209,10 @@ class FlintWindow(qt.QMainWindow):
         settings.endGroup()
 
         manager = self.__flintState.mainManager()
-        settings.beginGroup("live-window")
         try:
-            state = manager.saveWorkspace(includePlots=False)
-            settings.setValue("workspace", state)
-            _logger.info("Workspace saved")
+            manager.saveBeforeClosing()
         except Exception:
             _logger.error("Error while saving the workspace", exc_info=True)
-        settings.endGroup()
 
         settings.sync()
 

@@ -52,10 +52,8 @@ from silx.gui import qt
 from silx.gui import icons
 
 import bliss.flint.resources
-from bliss.flint.widgets.property_widget import MainPropertyWidget
-from bliss.flint.widgets.scan_status import ScanStatus
-from bliss.flint.helper.manager import ManageMainBehaviours
-from bliss.flint.helper import scan_manager
+from bliss.flint.manager.manager import ManageMainBehaviours
+from bliss.flint.manager import scan_manager
 from bliss.flint.model import flint_model
 from bliss.flint import config
 from bliss.flint.helper.rpc_server import FlintServer
@@ -78,7 +76,7 @@ def create_flint_model(settings) -> flint_model.FlintState:
     flintModel.setFlintApi(flintApi)
 
     flintWindow = FlintWindow(None)
-    flintWindow.setFlintState(flintModel)
+    flintWindow.setFlintModel(flintModel)
     flintModel.setMainWindow(flintWindow)
 
     liveWindow = flintWindow.createLiveWindow()
@@ -87,32 +85,8 @@ def create_flint_model(settings) -> flint_model.FlintState:
     manager = ManageMainBehaviours(flintModel)
     manager.setFlintModel(flintModel)
     flintModel.setMainManager(manager)
-
-    # Live GUI
-
-    scanStatusWidget = ScanStatus(liveWindow)
-    scanStatusWidget.setObjectName("scan-status-dock")
-    scanStatusWidget.setFlintModel(flintModel)
-    scanStatusWidget.setFeatures(
-        scanStatusWidget.features() & ~qt.QDockWidget.DockWidgetClosable
-    )
-    flintModel.setLiveStatusWidget(scanStatusWidget)
-    liveWindow.addDockWidget(qt.Qt.LeftDockWidgetArea, scanStatusWidget)
-
-    propertyWidget = MainPropertyWidget(liveWindow)
-    propertyWidget.setObjectName("property-dock")
-    propertyWidget.setFeatures(
-        propertyWidget.features() & ~qt.QDockWidget.DockWidgetClosable
-    )
-    flintModel.setPropertyWidget(propertyWidget)
-    liveWindow.splitDockWidget(scanStatusWidget, propertyWidget, qt.Qt.Vertical)
-
-    scanStatusWidget.widget().setSizePolicy(
-        qt.QSizePolicy.Preferred, qt.QSizePolicy.Preferred
-    )
-    propertyWidget.widget().setSizePolicy(
-        qt.QSizePolicy.Preferred, qt.QSizePolicy.Expanding
-    )
+    liveWindow.setFlintModel(flintModel)
+    flintWindow.initMenus()
 
     # Workspace
 

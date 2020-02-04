@@ -12,6 +12,7 @@ Helper class to manage the state of the model
 from __future__ import annotations
 from typing import Optional
 from typing import List
+from typing import Set
 from typing import ClassVar
 
 import gevent.event
@@ -30,7 +31,8 @@ from bliss.flint.model import scan_model
 from bliss.flint.helper import model_helper
 from bliss.flint.helper.style_helper import DefaultStyleStrategy
 
-from . import scan_info_helper
+from ..helper import scan_info_helper
+from . import workspace_manager
 
 _logger = logging.getLogger(__name__)
 
@@ -43,6 +45,7 @@ class ManageMainBehaviours(qt.QObject):
         self.__classMapping = {}
         self.__flintStarted = gevent.event.Event()
         self.__flintStarted.clear()
+        self.__workspaceManager = workspace_manager.WorkspaceManager(self)
 
     def setFlintModel(self, flintModel: flint_model.FlintState):
         if self.__flintModel is not None:
@@ -55,15 +58,21 @@ class ManageMainBehaviours(qt.QObject):
             self.__flintModel.currentScanChanged.connect(self.__currentScanChanged)
             self.__flintModel.aliveScanAdded.connect(self.__aliveScanDiscovered)
 
+    def flintModel(self) -> flint_model.FlintState:
+        flintModel = self.__flintModel
+        assert flintModel is not None
+        return flintModel
+
     def initRedis(self):
         connection = get_default_connection()
         address = connection.get_redis_connection_address()
         redisConnection = connection.create_redis_connection(address=address)
-        self.__flintModel.setRedisConnection(redisConnection)
+        self.flintModel().setRedisConnection(redisConnection)
+        self.workspaceManager().loadLastWorkspace()
 
     def updateBlissSessionName(self, sessionName):
-        model = self.__flintModel
-        previousSessionName = model.blissSessionName()
+        flintModel = self.flintModel()
+        previousSessionName = flintModel.blissSessionName()
         if previousSessionName == sessionName:
             # FIXME: In case of a restart of bliss, is it safe?
             return False
@@ -74,7 +83,7 @@ class ManageMainBehaviours(qt.QObject):
         value = sessionName + " " + current_value.split()[-1]
         redis.lpush(key, value)
         redis.rpop(key)
-        model.setBlissSessionName(sessionName)
+        flintModel.setBlissSessionName(sessionName)
         return True
 
     def __workspaceChanged(
@@ -99,6 +108,8 @@ class ManageMainBehaviours(qt.QObject):
             newWorkspace.widgetAdded.connect(self.__widgetAdded)
             newWorkspace.widgetRemoved.connect(self.__widgetRemoved)
 
+        self.__updateLiveScanTitle()
+
     def __widgetAdded(self, widget):
         widget.widgetActivated.connect(self.__widgetActivated)
 
@@ -111,32 +122,39 @@ class ManageMainBehaviours(qt.QObject):
             return
         self.__activeDock = widget
 
-        propertyWidget = self.__flintModel.propertyWidget()
+        propertyWidget = self.flintModel().propertyWidget()
         if propertyWidget is not None:
             propertyWidget.setFocusWidget(widget)
 
     def __currentScanChanged(self, previousScan, newScan):
         self.__storeScanIfNeeded(newScan)
-        self.__updateLiveScanWindow(newScan)
 
-    def __updateLiveScanWindow(self, newScan: scan_model.Scan):
-        window = self.__flintModel.liveWindow()
+    def __updateLiveScanTitle(self):
+        window = self.flintModel().liveWindow()
         # FIXME: Not nice to reach the tabWidget. It is implementation dependent
         tabWidget: qt.QTabWidget = window.parent().parent()
         liveScanIndex = tabWidget.indexOf(window)
         tabWidget.setCurrentIndex(liveScanIndex)
 
-        scan_info = newScan.scanInfo()
-        title = scan_info["title"]
-        scan_nb = scan_info["scan_nb"]
+        flintModel = self.flintModel()
+        workspace = flintModel.workspace()
+        if workspace is not None:
+            workspaceName = workspace.name()
+        else:
+            workspaceName = None
 
-        text = f"Live scan | {title} - scan number {scan_nb}"
-        tabWidget.setTabText(liveScanIndex, text)
+        title = ""
+        if workspaceName is not None:
+            title += f"({workspaceName}) "
+        title += "Live scan"
+
+        tabWidget.setTabText(liveScanIndex, title)
 
     def __storeScanIfNeeded(self, scan: scan_model.Scan):
-        if self.__flintModel is None:
+        flintModel = self.__flintModel
+        if flintModel is None:
             return None
-        workspace = self.__flintModel.workspace()
+        workspace = flintModel.workspace()
         if workspace is None:
             return None
         for plot in workspace.plots():
@@ -145,74 +163,13 @@ class ManageMainBehaviours(qt.QObject):
                     item = plot_item_model.ScanItem(plot, scan)
                     plot.addItem(item)
 
-    def saveWorkspace(self, includePlots=True):
-        workspace = self.__flintModel.workspace()
-        plots = {}
-        if includePlots:
-            for plot in workspace.plots():
-                plots[id(plot)] = plot
+    def saveBeforeClosing(self):
+        flintModel = self.flintModel()
+        workspace = flintModel.workspace()
+        self.workspaceManager().saveWorkspace(workspace, last=True)
+        _logger.info("Workspace saved")
 
-        widgetDescriptions = []
-        for widget in workspace.widgets():
-            if includePlots:
-                model = widget.plotModel()
-                if model is not None:
-                    modelId = id(model)
-                else:
-                    modelId = None
-            else:
-                modelId = None
-            widgetDescriptions.append(
-                (widget.objectName(), widget.windowTitle(), widget.__class__, modelId)
-            )
-
-        window = self.__flintModel.liveWindow()
-        layout = window.saveState()
-
-        state = (plots, widgetDescriptions, layout)
-        return pickle.dumps(state)
-
-    def closeWorkspace(self):
-        workspace = self.__flintModel.workspace()
-        widgets = workspace.popWidgets()
-        for w in widgets:
-            # Make sure we can create object name without collision
-            w.setPlotModel(None)
-            w.setFlintModel(None)
-            w.setObjectName(None)
-            w.deleteLater()
-
-    def restoreWorkspace(self, state):
-        plots, widgetDescriptions, layout = pickle.loads(state)
-
-        # It have to be done before creating widgets
-        self.closeWorkspace()
-
-        workspace = flint_model.Workspace()
-
-        for plot in plots.values():
-            workspace.addPlot(plot)
-
-        window = self.__flintModel.liveWindow()
-        for name, title, widgetClass, modelId in widgetDescriptions:
-            widget = widgetClass(window)
-            widget.setObjectName(name)
-            widget.setWindowTitle(title)
-            self.__initNewDock(widget)
-            if modelId is not None:
-                plot = plots[modelId]
-                widget.setPlotModel(plot)
-            workspace.addWidget(widget)
-
-        window.restoreState(layout)
-
-        # Make sure everything is visible (just in case)
-        for widget in workspace.widgets():
-            widget.setVisible(True)
-
-        self.__flintModel.setWorkspace(workspace)
-
-    def __initNewDock(self, widget):
+    def _initNewDock(self, widget):
         widget.setAttribute(qt.Qt.WA_DeleteOnClose)
         widget.setFlintModel(self.__flintModel)
         widget.windowClosed.connect(self.__dockClosed)
@@ -249,7 +206,8 @@ class ManageMainBehaviours(qt.QObject):
         return self.__classMapping.get(widgetClass, None)
 
     def moveWidgetToWorkspace(self, workspace):
-        widgets = self.__flintModel.workspace().popWidgets()
+        flintModel = self.flintModel()
+        widgets = flintModel.workspace().popWidgets()
         availablePlots = list(workspace.plots())
         for widget in widgets:
             widget.setFlintModel(self.__flintModel)
@@ -273,7 +231,7 @@ class ManageMainBehaviours(qt.QObject):
             workspace.addWidget(widget)
 
     def __aliveScanDiscovered(self, scan):
-        currentScan = self.__flintModel.currentScan()
+        currentScan = self.flintModel().currentScan()
         if (
             currentScan is not None
             and currentScan.state() != scan_model.ScanState.FINISHED
@@ -287,9 +245,9 @@ class ManageMainBehaviours(qt.QObject):
         self.updateScanAndPlots(scan, plots)
 
     def updateScanAndPlots(self, scan: scan_model.Scan, plots: List[plot_model.Plot]):
-        flint = self.__flintModel
-        workspace = flint.workspace()
-        previousScan = flint.currentScan()
+        flintModel = self.flintModel()
+        workspace = flintModel.workspace()
+        previousScan = flintModel.currentScan()
         if previousScan is not None:
             sameScan = (
                 previousScan.scanInfo()["acquisition_chain"]
@@ -320,22 +278,15 @@ class ManageMainBehaviours(qt.QObject):
                 if isinstance(p, (plot_item_model.ImagePlot, plot_item_model.McaPlot))
             ]
 
-        # Remove previous plot models
-        if updatePlotModel and not isCt:
-            for widget in workspace.widgets():
-                widget.setPlotModel(None)
-            for plot in workspace.plots():
-                workspace.removePlot(plot)
-
         # Set the new scan
-        flint.setCurrentScan(scan)
+        flintModel.setCurrentScan(scan)
 
         # Reuse/create and connect the widgets
         availablePlots = list(plots)
-        widgets = self.__flintModel.workspace().widgets()
+        widgets = flintModel.workspace().widgets()
         if isCt:
             # Remove plots which are already displayed
-            names = set([])
+            names: Set[str] = set([])
             for widget in widgets:
                 plotModel = widget.plotModel()
                 if plotModel is not None:
@@ -354,24 +305,28 @@ class ManageMainBehaviours(qt.QObject):
                     _logger.error(
                         "No compatible plot model for widget %s", widget.__class__
                     )
-                    plotModel = None
+                    # Do not update the widget (scan and plot stays as previous state)
+                    continue
+
+                plots = [p for p in availablePlots if isinstance(p, compatibleModel)]
+                if len(plots) > 0:
+                    plotModel = plots[0]
+                    availablePlots.remove(plotModel)
                 else:
-                    plots = [
-                        p for p in availablePlots if isinstance(p, compatibleModel)
-                    ]
-                    if len(plots) > 0:
-                        plotModel = plots[0]
-                        availablePlots.remove(plotModel)
-                    else:
-                        plotModel = compatibleModel()
+                    # Do not update the widget (scan and plot stays as previous state)
+                    continue
 
                 if updatePlotModel:
                     if plotModel.styleStrategy() is None:
                         plotModel.setStyleStrategy(
                             DefaultStyleStrategy(self.__flintModel)
                         )
+                    previousWidgetPlot = widget.plotModel()
+                    if previousWidgetPlot is not None:
+                        workspace.removePlot(previousWidgetPlot)
                     workspace.addPlot(plotModel)
                     widget.setPlotModel(plotModel)
+                widget.setScan(scan)
 
         # There is no way in Qt to tabify a widget to a new floating widget
         # Then this code tabify the new widgets on an existing widget
@@ -383,16 +338,18 @@ class ManageMainBehaviours(qt.QObject):
             lastTab = widgets[0]
 
         # Create widgets for unused plots
-        window = flint.liveWindow()
+        window = flintModel.liveWindow()
         for plotModel in availablePlots:
             if plotModel.styleStrategy() is None:
-                plotModel.setStyleStrategy(DefaultStyleStrategy(self.__flintModel))
+                plotModel.setStyleStrategy(DefaultStyleStrategy(flintModel))
             widget = self.__createWidgetFromPlot(window, plotModel)
             workspace.addPlot(plotModel)
             if widget is None:
                 continue
 
             workspace.addWidget(widget)
+            widget.setScan(scan)
+
             if lastTab is None:
                 window.addDockWidget(qt.Qt.RightDockWidgetArea, widget)
                 widget.setVisible(True)
@@ -413,15 +370,15 @@ class ManageMainBehaviours(qt.QObject):
 
     def __dockClosed(self):
         dock = self.sender()
-        flint = self.__flintModel
+        flintModel = self.flintModel()
 
-        propertyWidget = flint.propertyWidget()
+        propertyWidget = flintModel.propertyWidget()
         if propertyWidget.focusWidget() is dock:
             propertyWidget.setFocusWidget(None)
 
         dock.setPlotModel(None)
         dock.setFlintModel(None)
-        workspace = flint.workspace()
+        workspace = flintModel.workspace()
         workspace.removeWidget(dock)
 
     def __createWidgetFromPlot(
@@ -435,11 +392,11 @@ class ManageMainBehaviours(qt.QObject):
             )
             return None
 
-        flint = self.__flintModel
-        workspace = flint.workspace()
+        flintModel = self.flintModel()
+        workspace = flintModel.workspace()
         widget: qt.QDockWidget = widgetClass(parent)
         widget.setPlotModel(plotModel)
-        self.__initNewDock(widget)
+        self._initNewDock(widget)
 
         prefix = str(widgetClass.__name__).replace("PlotWidget", "")
         title = self.__getUnusedTitle(prefix, workspace)
@@ -462,3 +419,6 @@ class ManageMainBehaviours(qt.QObject):
 
     def waitFlintStarted(self):
         self.__flintStarted.wait()
+
+    def workspaceManager(self) -> WorkspaceManager:
+        return self.__workspaceManager

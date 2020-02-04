@@ -1,7 +1,7 @@
 """Testing scan_manager module."""
 
 import numpy
-from bliss.flint.helper import scan_manager
+from bliss.flint.manager import scan_manager
 from bliss.data.nodes.lima import ImageFormatNotSupported
 
 

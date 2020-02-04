@@ -79,6 +79,7 @@ class McaPlotWidget(ExtendedDockWidget):
 
     def __createToolBar(self):
         toolBar = qt.QToolBar(self)
+        toolBar.setMovable(False)
 
         from silx.gui.plot.actions import mode
         from silx.gui.plot.actions import control
@@ -160,13 +161,7 @@ class McaPlotWidget(ExtendedDockWidget):
         return self.__flintModel
 
     def setFlintModel(self, flintModel: Optional[flint_model.FlintState]):
-        if self.__flintModel is not None:
-            self.__flintModel.currentScanChanged.disconnect(self.__currentScanChanged)
-            self.__setScan(None)
         self.__flintModel = flintModel
-        if self.__flintModel is not None:
-            self.__flintModel.currentScanChanged.connect(self.__currentScanChanged)
-            self.__setScan(self.__flintModel.currentScan())
 
     def setPlotModel(self, plotModel: plot_model.Plot):
         if self.__plotModel is not None:
@@ -235,15 +230,10 @@ class McaPlotWidget(ExtendedDockWidget):
             label = " + ".join(sorted(set(labels)))
         self.__plot.getYAxis().setLabel(label)
 
-    def __currentScanChanged(
-        self, previousScan: scan_model.Scan, newScan: scan_model.Scan
-    ):
-        self.__setScan(newScan)
-
     def scan(self) -> Optional[scan_model.Scan]:
         return self.__scan
 
-    def __setScan(self, scan: scan_model.Scan = None):
+    def setScan(self, scan: scan_model.Scan = None):
         if self.__scan is scan:
             return
         if self.__scan is not None:
@@ -356,6 +346,8 @@ class McaPlotWidget(ExtendedDockWidget):
 
         # Channels from channel ref
         mcaChannel = mcaChannel.channel(scan)
+        if mcaChannel is None:
+            return
 
         histogram = mcaChannel.array()
         if histogram is None:

@@ -20,11 +20,14 @@ from typing import Optional
 from typing import NamedTuple
 
 import numpy
+import logging
 
 from . import scan_model
 from . import plot_model
 from . import plot_item_model
 from ..utils import mathutils
+
+_logger = logging.getLogger(__name__)
 
 
 class CurveStatisticMixIn:
@@ -60,25 +63,18 @@ class DerivativeItem(plot_model.AbstractComputableItem, plot_item_model.CurveMix
     ) -> Optional[Tuple[numpy.ndarray, numpy.ndarray]]:
         sourceItem = self.source()
 
-        x = sourceItem.xData(scan)
-        y = sourceItem.yData(scan)
-        if x is None or y is None:
-            return None
-
-        x = x.array()
-        y = y.array()
+        x = sourceItem.xArray(scan)
+        y = sourceItem.yArray(scan)
         if x is None or y is None:
             return None
 
         try:
             result = mathutils.derivate(x, y)
         except Exception as e:
-            # FIXME: Maybe it is better to return a special type and then return
-            # Managed outside to store it into the validation cache
-            scan.setCacheValidation(
-                self, self.version(), "Error while creating derivative.\n" + str(e)
+            _logger.debug("Error while computing derivative", exc_info=True)
+            raise plot_model.ComputeError(
+                "Error while creating derivative.\n" + str(e), result=None
             )
-            return None
 
         return result
 

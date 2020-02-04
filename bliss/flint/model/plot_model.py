@@ -382,6 +382,16 @@ _NotComputed = object()
 """Allow to flag an attribute as not computed"""
 
 
+class ComputeError(Exception):
+    """Raised when the `compute` method of AbstractComputableItem can't compute
+    any output"""
+
+    def __init__(self, msg: str, result=None):
+        super(ComputeError, self).__init__(self, msg)
+        self.msg = msg
+        self.result = result
+
+
 class AbstractComputableItem(Item):
     """This item use the scan data to process result before displaying it."""
 
@@ -428,7 +438,17 @@ class AbstractComputableItem(Item):
         if scan.hasCachedResult(self):
             result = scan.getCachedResult(self)
         else:
-            result = self.compute(scan)
+            try:
+                result = self.compute(scan)
+            except ComputeError as e:
+                scan.setCacheValidation(self, self.version(), e.msg)
+                result = e.result
+            except Exception as e:
+                scan.setCacheValidation(
+                    self, self.version(), "Error while computing:" + str(e)
+                )
+                result = None
+
             scan.setCachedResult(self, result)
         if not self.isResultValid(result):
             return None

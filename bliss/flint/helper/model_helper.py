@@ -500,7 +500,7 @@ def updateDisplayedChannelNames(
                         item, _updated = createCurveItem(plot, channel, yAxis="left")
                     else:
                         assert False
-                    assert _updated == False
+                    assert not _updated
                 item.setVisible(True)
         for item in unneeded_items:
             plot.removeItem(item)

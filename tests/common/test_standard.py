@@ -40,6 +40,11 @@ simu1:triggers_det1  0D       simu1         triggers_det1
 simu1:triggers_det2  0D       simu1         triggers_det2
 simu1:triggers_det3  0D       simu1         triggers_det3
 """
+EXPECTED_DIODE_ONLY = """
+Fullname                                    Shape    Controller                            Name    Alias
+------------------------------------------  -------  ------------------------------------  ------  -------
+simulation_diode_sampling_controller:diode  0D       simulation_diode_sampling_controller  diode
+"""
 
 
 @pytest.fixture
@@ -60,6 +65,11 @@ def test_lscnt(beacon, setup_globals, capsys):
     assert lscnt() is None
     captured = capsys.readouterr()
     assert captured.out == EXPECTED
+
+    diode = beacon.get("diode")
+    lscnt(diode)
+    captured = capsys.readouterr()
+    assert captured.out == EXPECTED_DIODE_ONLY
 
 
 def test_bench(beacon, setup_globals, capsys):

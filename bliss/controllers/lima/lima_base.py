@@ -27,6 +27,7 @@ from .properties import LimaProperties, LimaProperty
 from .bpm import Bpm
 from .roi import RoiCounters
 from .image import ImageCounter
+from .shutter import Shutter
 from .bgsub import BgSub
 
 
@@ -271,9 +272,12 @@ class Lima(CounterController):
         self.__bpm = None
         self.__roi_counters = None
         self.__bg_sub = None
+        self.__last = None
         self._camera = None
         self._image = None
+        self._shutter = None
         self._acquisition = None
+        self._accumulation = None
         self._proxy = self._get_proxy()
         self._cached_ctrl_params = {}
 
@@ -470,12 +474,41 @@ class Lima(CounterController):
         return self._image
 
     @autocomplete_property
+    def shutter(self):
+        if self._shutter is None:
+            self._shutter = LimaProperties(
+                "LimaShutter",
+                self.proxy,
+                prefix="shutter_",
+                strip_prefix=True,
+                base_class=Shutter,
+                base_class_args=(self, self._proxy),
+            )
+        return self._shutter
+
+    @autocomplete_property
+    def last(self):
+        if self.__last is None:
+            self.__last = LimaProperties(
+                "LimaImageStatus", self.proxy, prefix="last_", strip_prefix=True
+            )
+        return self.__last
+
+    @autocomplete_property
     def acquisition(self):
         if self._acquisition is None:
             self._acquisition = LimaProperties(
                 "LimaAcquisition", self.proxy, prefix="acq_", strip_prefix=True
             )
         return self._acquisition
+
+    @autocomplete_property
+    def accumulation(self):
+        if self._accumulation is None:
+            self._accumulation = LimaProperties(
+                "LimaAccumulation", self.proxy, prefix="acc_", strip_prefix=True
+            )
+        return self._accumulation
 
     @autocomplete_property
     def roi_counters(self):
@@ -588,66 +621,11 @@ class Lima(CounterController):
             f"{data['camera_model']} ({data['camera_type']}) - Lima {data['lima_type']}\n\n"
             f"Image:\n{self.image.__info__()}\n\n"
             f"Acquisition:\n{self.acquisition.__info__()}\n\n"
-            f"ROI Counters:\n{self.roi_counters.__info__()}\n"
+            f"{self.roi_counters.__info__()}\n\n"
+            f"{self.bpm.__info__()}\n"
         )
 
-        info_str += "\nBPM COUNTERS:\n"
-        info_str += self.counters_info()
-
         return info_str
-
-    def counters_info(self):
-        """
-        Return a string of info about BPM counters (name, shape, type).
-        """
-        # HEADER
-        table_header = ("name", "shape", "type")
-        table = list()
-        for cnt in self.counters:
-            try:
-                type_str = self.dtype_to_str(cnt.type)
-            except:
-                try:
-                    type_str = self.dtype_to_str(cnt.dtype)
-                except:
-                    type_str = "Unknown"
-
-            table.append((cnt.name, self.shape_to_str(cnt.shape), type_str))
-
-        info_str = tabulate(
-            tuple(table), numalign="right", headers=table_header
-        )  #  , tablefmt="plain")
-        info_str_shifted = ""
-        for line in info_str.split("\n"):
-            info_str_shifted += "    " + line + "\n"
-
-        return info_str_shifted
-
-    def shape_to_str(self, data_shape):
-        """
-        Return numpy-like data shape as a human readable string.
-        """
-        if data_shape == (0, 0):
-            return "2d"
-        elif data_shape == (0):
-            return "1d"
-        elif data_shape == ():
-            return "0d"
-        else:
-            return "unknown shape"
-
-    def dtype_to_str(self, data_type):
-        """
-        Return data type as a human readable string.
-        """
-        if data_type == np.float:
-            return "float"
-        elif data_type == np.float64:
-            return "float64"
-        elif data_type == np.int:
-            return "int"
-        else:
-            return f"{data_type}"
 
     def __repr__(self):
         attr_list = ("user_detector_name", "lima_type")

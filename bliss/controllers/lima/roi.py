@@ -339,7 +339,7 @@ class RoiCounters(IntegratingCounterController):
 
     def __info__(self):
         name = self.name.rsplit(":", 1)[-1]
-        lines = ["[{0}]\n".format(self.config_name)]
+        lines = [f"ROI Counters: {self.config_name}"]
         rois = [self[name] for name in sorted(self.keys())]
         if rois:
             header = "Name", "ROI (<X, Y> <W x H>)"

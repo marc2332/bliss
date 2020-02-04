@@ -34,6 +34,8 @@ from bliss.common.standard import iter_axes_position, iter_axes_position_all
 from bliss.common.standard import sync
 from bliss.common.standard import info
 from bliss.common.standard import __move
+from bliss.controllers.lima.limatools import *
+from bliss.controllers.lima import limatools
 from bliss.common.protocols import CounterContainer
 from bliss.common import measurementgroup
 from bliss.common.soft_axis import SoftAxis
@@ -88,6 +90,7 @@ __all__ = (
     + logtools.__all__
     + ["cleanup", "error_cleanup", "plot", "lscnt"]
     + ["SoftAxis", "SoftCounter", "edit_roi_counters"]
+    + list(limatools.__all__)
 )
 
 tabulate.PRESERVE_WHITESPACE = True

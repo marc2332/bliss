@@ -5,16 +5,14 @@
 # Copyright (c) 2015-2019 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-import os, sys
-import traceback
+import os
+import sys
 import inspect
 import gevent
 import types
 import itertools
 import functools
 import numpy
-import sys
-import copy
 import collections.abc
 import socket
 
@@ -606,7 +604,6 @@ def dicttoh5(
     """
     # ... one could think about propagating something similar to the changes
     # made here back to silx
-    import h5py
     from silx.io.dictdump import _SafeH5FileWrite, _prepare_hdf5_dataset
     import warnings
 
@@ -716,3 +713,56 @@ def get_open_ports(n):
     finally:
         for s in sockets:
             s.close()
+
+
+class ColorTags:
+    PURPLE = "\033[95m"
+    CYAN = "\033[96m"
+    DARKCYAN = "\033[36m"
+    BLUE = "\033[94m"
+    GREEN = "\033[92m"
+    YELLOW = "\033[93m"
+    RED = "\033[91m"
+    BOLD = "\033[1m"
+    UNDERLINE = "\033[4m"
+    END = "\033[0m"
+
+
+def __color_message(tag, msg):
+    return "{0}{1}{2}".format(tag, msg, ColorTags.END)
+
+
+def PURPLE(msg):
+    return __color_message(ColorTags.PURPLE, msg)
+
+
+def CYAN(msg):
+    return __color_message(ColorTags.CYAN, msg)
+
+
+def DARKCYAN(msg):
+    return __color_message(ColorTags.DARKCYAN, msg)
+
+
+def BLUE(msg):
+    return __color_message(ColorTags.BLUE, msg)
+
+
+def GREEN(msg):
+    return __color_message(ColorTags.GREEN, msg)
+
+
+def YELLOW(msg):
+    return __color_message(ColorTags.YELLOW, msg)
+
+
+def RED(msg):
+    return __color_message(ColorTags.RED, msg)
+
+
+def UNDERLINE(msg):
+    return __color_message(ColorTags.UNDERLINE, msg)
+
+
+def BOLD(msg):
+    return __color_message(ColorTags.BOLD, msg)

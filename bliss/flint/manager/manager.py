@@ -278,14 +278,6 @@ class ManageMainBehaviours(qt.QObject):
                 if isinstance(p, (plot_item_model.ImagePlot, plot_item_model.McaPlot))
             ]
 
-        # Remove previous plot models
-        if False:
-            if updatePlotModel and not isCt:
-                for widget in workspace.widgets():
-                    widget.setPlotModel(None)
-                for plot in workspace.plots():
-                    workspace.removePlot(plot)
-
         # Set the new scan
         flintModel.setCurrentScan(scan)
 

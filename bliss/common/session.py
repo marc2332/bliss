@@ -434,7 +434,7 @@ class Session:
                         child_session._scripts_module_path, child_session.name
                     )
                 )
-            _SESSION_IMPORTERS.add(self.name)
+                _SESSION_IMPORTERS.add(child_session.name)
 
             child_session._setup(env_dict)
 

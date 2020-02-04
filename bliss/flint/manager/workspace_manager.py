@@ -57,7 +57,7 @@ class WorkspaceData(dict):
     def layout(self):
         return self["layout"]
 
-    def feedWorkspace(self, workspace: flint_model.Workspace, parent: qt.QWidget):
+    def feedWorkspace(self, workspace: flint_model.Workspace, parent: qt.QMainWindow):
         plots: dict = self["plots"]
         widgetDescriptions = self["widgets"]
 
@@ -68,6 +68,8 @@ class WorkspaceData(dict):
             widget = widgetClass(parent)
             widget.setObjectName(name)
             widget.setWindowTitle(title)
+            # Looks needed to retrieve the right layout with restoreSate
+            parent.addDockWidget(qt.Qt.LeftDockWidgetArea, widget)
             if modelId is not None:
                 plot = plots[modelId]
                 widget.setPlotModel(plot)

@@ -209,6 +209,7 @@ class LiveWindow(MainWindow):
             lastTab = first
             for widget in widgets:
                 widget.setParent(self)
+                self.addDockWidget(qt.Qt.RightDockWidgetArea, widget)
                 self.tabifyDockWidget(lastTab, widget)
                 widget.setVisible(True)
                 lastTab = widget
@@ -260,6 +261,7 @@ class LiveWindow(MainWindow):
                     lastTab = widget
                     for widget in widgets:
                         widget.setParent(self)
+                        self.addDockWidget(qt.Qt.RightDockWidgetArea, widget)
                         self.tabifyDockWidget(lastTab, widget)
                         widget.setVisible(True)
                         lastTab = widget

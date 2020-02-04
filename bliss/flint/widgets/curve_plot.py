@@ -24,6 +24,7 @@ from bliss.flint.model import scan_model
 from bliss.flint.model import flint_model
 from bliss.flint.model import plot_model
 from bliss.flint.model import plot_item_model
+from bliss.flint.model import plot_state_model
 from bliss.flint.widgets.extended_dock_widget import ExtendedDockWidget
 from bliss.flint.widgets.plot_helper import FlintPlot
 from bliss.flint.helper import scan_info_helper
@@ -482,8 +483,8 @@ class CurvePlotWidget(ExtendedDockWidget):
             plot._add(curveItem)
             plotItems.append((legend, "curve"))
 
-        elif isinstance(item, plot_item_model.CurveStatisticMixIn):
-            if isinstance(item, plot_item_model.MaxCurveItem):
+        elif isinstance(item, plot_state_model.CurveStatisticMixIn):
+            if isinstance(item, plot_state_model.MaxCurveItem):
                 legend = str(item) + "/" + str(scan)
                 result = item.reachResult(scan)
                 if item.isResultValid(result):

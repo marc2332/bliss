@@ -7,6 +7,7 @@ import pickle
 import pytest
 
 from bliss.flint.model import plot_item_model
+from bliss.flint.model import plot_state_model
 from bliss.flint.model import plot_model
 from bliss.flint.model import style_model
 from bliss.flint.helper import style_helper
@@ -27,9 +28,9 @@ from bliss.flint.helper import style_helper
         plot_item_model.ScatterItem,
         plot_item_model.McaItem,
         plot_item_model.ImageItem,
-        plot_item_model.DerivativeItem,
-        plot_item_model.CurveStatisticMixIn,
-        plot_item_model.MaxCurveItem,
+        plot_state_model.DerivativeItem,
+        plot_state_model.CurveStatisticMixIn,
+        plot_state_model.MaxCurveItem,
         plot_item_model.MotorPositionMarker,
         style_helper.DefaultStyleStrategy,
         style_model.Style,

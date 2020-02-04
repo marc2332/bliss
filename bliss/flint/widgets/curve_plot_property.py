@@ -19,6 +19,7 @@ from silx.gui import icons
 from bliss.flint.model import flint_model
 from bliss.flint.model import plot_model
 from bliss.flint.model import plot_item_model
+from bliss.flint.model import plot_state_model
 from bliss.flint.model import scan_model
 from bliss.flint.helper import model_helper
 from . import delegates
@@ -426,7 +427,7 @@ class _DataItem(_property_tree_helper.ScanRowItem):
             # self.__updateXAxisStyle(False, None)
             useXAxis = False
             self.__updateXAxisStyle(False)
-        elif isinstance(plotItem, plot_item_model.CurveStatisticMixIn):
+        elif isinstance(plotItem, plot_state_model.CurveStatisticMixIn):
             useXAxis = False
             self.__updateXAxisStyle(False)
 

@@ -19,6 +19,7 @@ from bliss.flint.model import scan_model
 from bliss.flint.model import flint_model
 from bliss.flint.model import plot_model
 from bliss.flint.model import plot_item_model
+from bliss.flint.model import plot_state_model
 
 
 class DefaultStyleStrategy(plot_model.StyleStrategy):
@@ -124,7 +125,7 @@ class DefaultStyleStrategy(plot_model.StyleStrategy):
                 if isinstance(item, plot_item_model.ScanItem):
                     continue
                 if isinstance(item, plot_model.AbstractComputableItem):
-                    if isinstance(item, plot_item_model.CurveStatisticMixIn):
+                    if isinstance(item, plot_state_model.CurveStatisticMixIn):
                         source = item.source()
                         baseStyle = self.getStyleFromItem(source, scan)
                         style = plot_model.Style(

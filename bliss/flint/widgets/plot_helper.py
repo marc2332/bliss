@@ -96,15 +96,15 @@ class CustomAxisAction(qt.QWidgetAction):
             menu.addAction(action)
 
         menu.addSection("Y-axes")
-        if kind is not "image":
+        if kind == "image":
             action = control.YAxisLogarithmicAction(plot, self)
             action.setText("Log scale")
             menu.addAction(action)
-        if kind is not "mca":
+        if kind == "mca":
             action = control.YAxisInvertedAction(plot, self)
             menu.addAction(action)
 
-        if kind is not "mca":
+        if kind == "mca":
             menu.addSection("Aspect ratio")
             action = CheckableKeepAspectRatioAction(plot, self)
             action.setText("Keep aspect ratio")

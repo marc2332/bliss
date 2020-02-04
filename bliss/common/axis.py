@@ -1465,7 +1465,9 @@ class Axis:
     def _jog_cleanup(self, saved_velocity, reset_position):
         self.velocity = saved_velocity
 
-        if reset_position == 0:
+        if reset_position is None:
+            self.settings.clear("_set_position")
+        elif reset_position == 0:
             self.__do_set_dial(0, True)
         elif callable(reset_position):
             reset_position(self)

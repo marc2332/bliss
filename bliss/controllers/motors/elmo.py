@@ -236,6 +236,7 @@ class Elmo(Controller):
             self._elmostate.create_state(state, human)
 
         self._is_homing = dict()
+        self._last_state = dict()
 
     def initialize_hardware(self):
         # Check that the controller is alive
@@ -249,6 +250,7 @@ class Elmo(Controller):
     def initialize_axis(self, axis):
         axis._mode = Cache(axis, "mode", default_value=None)
         self._is_homing[axis] = False
+        self._last_state[axis] = None
 
     def initialize_hardware_axis(self, axis):
         # Check user-mode
@@ -302,25 +304,24 @@ class Elmo(Controller):
         return reply
 
     def start_jog(self, axis, velocity, direction):
-        self._query("JV=%d" % velocity * direction)
+        self._query("JV=%d" % int(velocity * direction))
         self._query("BG")
 
     def stop_jog(self, axis):
         self._query("JV=0")
         self._query("BG")
 
-        while int(self._query("MS")) == 2:
+        while int(self._query("MS")) in (1, 2):
             gevent.sleep(0.01)
         self._sync_pos(axis)
 
     def read_position(self, axis):
         if axis._mode == 2:
             return float(self._query("PX"))
-        else:
-            if int(self._query("MS")) in (1, 2):
+        if self._last_state is not None:
+            if "MOVING" in self._last_state:
                 return float(self._query("PX"))
-            else:
-                return float(self._query("PA"))
+        return float(self._query("PA"))
 
     def set_position(self, axis, new_pos):
         pos = round(new_pos)
@@ -376,6 +377,7 @@ class Elmo(Controller):
             self._end_home(axis)
             state.set("READY")
 
+        self._last_state[axis] = state
         return state
 
     def _end_home(self, axis):
@@ -388,7 +390,6 @@ class Elmo(Controller):
         else:
             cmd = "PA=PX"
         self._query(cmd)
-        # print("sync pos to", self._query("PA"))
 
     def state(self, axis):
         if self._is_homing[axis]:
@@ -431,6 +432,7 @@ class Elmo(Controller):
         elif ans == 3:
             state.set("FAULT")
 
+        self._last_state[axis] = state
         return state
 
     def start_one(self, motion):

@@ -39,6 +39,12 @@ class CurveStatisticMixIn:
         return source.yAxis()
 
 
+class DerivativeData(NamedTuple):
+    xx: numpy.ndarray
+    yy: numpy.ndarray
+    nb_points: int
+
+
 class DerivativeItem(plot_model.AbstractComputableItem, plot_item_model.CurveMixIn):
     """This item use the scan data to process result before displaying it."""
 
@@ -58,9 +64,7 @@ class DerivativeItem(plot_model.AbstractComputableItem, plot_item_model.CurveMix
     def isResultValid(self, result):
         return result is not None
 
-    def compute(
-        self, scan: scan_model.Scan
-    ) -> Optional[Tuple[numpy.ndarray, numpy.ndarray]]:
+    def compute(self, scan: scan_model.Scan) -> Optional[DerivativeData]:
         sourceItem = self.source()
 
         x = sourceItem.xArray(scan)
@@ -76,20 +80,20 @@ class DerivativeItem(plot_model.AbstractComputableItem, plot_item_model.CurveMix
                 "Error while creating derivative.\n" + str(e), result=None
             )
 
-        return result
+        return DerivativeData(result[0], result[1], len(x))
 
     def xData(self, scan: scan_model.Scan) -> Optional[scan_model.Data]:
         result = self.reachResult(scan)
         if not self.isResultValid(result):
             return None
-        data = result[0]
+        data = result.xx
         return scan_model.Data(self, data)
 
     def yData(self, scan: scan_model.Scan) -> Optional[scan_model.Data]:
         result = self.reachResult(scan)
         if not self.isResultValid(result):
             return None
-        data = result[1]
+        data = result.yy
         return scan_model.Data(self, data)
 
 

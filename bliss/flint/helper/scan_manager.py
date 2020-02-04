@@ -282,6 +282,47 @@ class ScanManager:
         # An updated is needed when bliss provides a most recent frame
         return redis_frame_id > stored_frame_id
 
+    def __get_image(self, cache, image_view, channel_name):
+        image_data = None
+        frame_id = None
+        try:
+            video_available = cache.is_video_available(image_view, channel_name)
+            if video_available:
+                try:
+                    image_data, frame_id = image_view.get_last_live_image()
+                    if frame_id is None:
+                        # This should never be triggered, as we should
+                        # already new that frame have no meaning
+                        raise RuntimeError("None frame returned")
+                except ImageFormatNotSupported:
+                    _logger.debug(
+                        "Error while reaching video. Reading data from the video is disabled for this scan.",
+                        exc_info=True,
+                    )
+                    cache.disable_video(channel_name)
+
+            if image_data is None:
+                # Fallback to memory buffer or file
+                try:
+                    image_data, frame_id = image_view.get_last_image()
+                except Exception:
+                    _logger.debug(
+                        "Error while reaching image buffer/file. Reading data from the video is disabled for this scan.",
+                        exc_info=True,
+                    )
+                    # Fallback again to the video
+                    try:
+                        image_data, frame_id = image_view.get_last_live_image()
+                    except ImageFormatNotSupported:
+                        pass
+
+        except Exception:
+            # The image could not be ready
+            _logger.error("Error while reaching the last image", exc_info=True)
+            image_data = None
+
+        return image_data, frame_id
+
     def __new_scan_data(self, scan_info, data_type, master_name, data):
         scan_id = self.__get_scan_id(scan_info)
         cache = self.__get_scan_cache(scan_id)
@@ -303,29 +344,9 @@ class ScanManager:
             must_update = self.__is_image_must_be_read(
                 cache.scan, channel_name, image_view
             )
-            try:
-                if must_update:
-                    video_available = cache.is_video_available(image_view, channel_name)
-                    if video_available:
-                        try:
-                            image_data, frame_id = image_view.get_last_live_image()
-                            if frame_id is None:
-                                # This should never be triggered, as we should
-                                # already new that frame have no meaning
-                                raise RuntimeError("None frame returned")
-                        except ImageFormatNotSupported:
-                            _logger.debug(
-                                "Error while reaching video. Reading data from the video is disabled for this scan.",
-                                exc_info=True,
-                            )
-                            cache.disable_video(channel_name)
+            if must_update:
+                image_data, frame_id = self.__get_image(cache, image_view, channel_name)
 
-                    if image_data is None:
-                        image_data, frame_id = image_view.get_last_image()
-            except IndexError:
-                # The image could not be ready
-                _logger.error("Error while reaching the last image", exc_info=True)
-                image_data = None
             if image_data is not None:
                 self.__update_channel_data(
                     cache, channel_name, image_data, frame_id=frame_id

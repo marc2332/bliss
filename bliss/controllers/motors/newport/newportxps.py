@@ -85,7 +85,7 @@ class NewportXPS(Controller):
         elif error == -22:
             log_debug(self, "NewportXPS: Controller already initialised")
         else:
-            log_error(self, "NewportXPS: Controller initialise failed: " + error)
+            log_error(self, "NewportXPS: Controller initialise failed: " + str(error))
 
         if axis.autoHome:
             self.home_search(axis, False)
@@ -114,7 +114,8 @@ class NewportXPS(Controller):
         if results[0] != 0:
             log_error(
                 self,
-                "NewportXPS Error: Unexpected response to read velocity" + results[1],
+                "NewportXPS Error: Unexpected response to read velocity: "
+                + f"{results}",
             )
         else:
             return results[1]
@@ -131,7 +132,8 @@ class NewportXPS(Controller):
         if error != 0:
             log_error(
                 self,
-                "NewportXPS Error: Unexpected response to setting velocity" + reply,
+                f"NewportXPS Error [{error}]: Unexpected response to setting velocity: "
+                + reply,
             )
 
     def read_acceleration(self, axis):
@@ -215,7 +217,7 @@ class NewportXPS(Controller):
         elif error == -22:
             log_info(self, "NewportXPS: Controller already homed")
         else:
-            log_error(self, "NewportXPS: Controller homing failed: " + error)
+            log_error(self, "NewportXPS: Controller homing failed: " + str(error))
 
     def home_state(self, axis):
         log_debug(self, "home_state() called")

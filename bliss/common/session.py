@@ -447,6 +447,10 @@ class Session:
         with get_file(
             {"setup_file": self.setup_file}, "setup_file", text=True
         ) as setup_file:
+
+            # in case of nested session, make sure we execute the setup script with the load_script from the same session
+            env_dict["load_script"] = self.load_script
+
             code = compile(setup_file.read(), self.setup_file, "exec")
             exec(code, env_dict)
 

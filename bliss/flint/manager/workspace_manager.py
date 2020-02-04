@@ -112,6 +112,11 @@ class WorkspaceManager(qt.QObject):
         action.triggered.connect(self.__renameWorkspaceAs)
         result.append(action)
 
+        action = qt.QAction(parent)
+        action.setText("Reload layout")
+        action.triggered.connect(self.__reloadLayout)
+        result.append(action)
+
         return result
 
     def __saveAvailableNames(self, names: List[str]):
@@ -230,9 +235,13 @@ class WorkspaceManager(qt.QObject):
         settings = self.__getSettings()
         settings["@lastname"] = name
 
-    def loadLastWorkspace(self):
+    def __getLastWorkspaceName(self):
         settings = self.__getSettings()
         name = settings.get("@lastname", self.DEFAULT)
+        return name
+
+    def loadLastWorkspace(self):
+        name = self.__getLastWorkspaceName()
         return self.loadWorkspace(name)
 
     def __closeWorkspace(self):
@@ -256,6 +265,35 @@ class WorkspaceManager(qt.QObject):
         key = self.ROOT_KEY % flintModel.blissSessionName()
         setting = HashObjSetting(key, connection=redis)
         return setting
+
+    def __reloadLayout(self):
+        flintModel = self.mainManager().flintModel()
+        name = self.__getLastWorkspaceName()
+        window = flintModel.liveWindow()
+        settings = self.__getSettings()
+
+        try:
+            data = settings.get(name, None)
+        except:
+            _logger.error(
+                "Problem to load workspace data. Information will be lost.",
+                exc_info=True,
+            )
+            data = None
+
+        if data is not None and not isinstance(data, WorkspaceData):
+            _logger.error(
+                "Problem to load workspace data. Unexpected type %s. Information will be lost.",
+                type(data),
+                exc_info=True,
+            )
+            data = None
+
+        if data is None:
+            return
+
+        layout = data.layout()
+        window.restoreState(layout)
 
     def loadWorkspace(self, name: str):
         flintModel = self.mainManager().flintModel()

@@ -14,7 +14,6 @@ from typing import List
 
 import functools
 
-import pickle
 import logging
 from silx.gui import qt
 from silx.gui import icons

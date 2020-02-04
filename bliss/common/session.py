@@ -354,8 +354,8 @@ class Session:
         just print exception but not throwing it.
 
         Args:
-            env_dict (python dictionnary) where object will be exported
             script_module_name the python file you want to load
+            session (optional) the session from which to load the script
         """
         if session is None:
             session = self

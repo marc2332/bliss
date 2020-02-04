@@ -15,13 +15,14 @@ before and after a movement.
 
 If an encoder is associated to the axis:
 
-* *after* a movement, the encoder position is read and compared to the
-  target position of the movement. In case of difference outside the
-  limit fixed by **Encoder tolerance**, an exception is raised with
-  message: `"didn't reach final position"`
-
 * the method `measured_position()` uses `encoder.read()` to calculate
   the value returned *in user units*.
+
+* and if `check_encoder` is set to `True` in config, *after* a
+  movement, the encoder position is read and compared to the target
+  position of the movement. In case of difference outside the limit
+  fixed by **Encoder tolerance**, an exception is raised with message:
+  `"didn't reach final position"`
 
 !!! note
     This `measured_position()` method is used in particular by

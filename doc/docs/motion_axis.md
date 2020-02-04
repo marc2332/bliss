@@ -79,66 +79,36 @@ examples of `apply_config()`.
 The typing helper allowing to print info in BLISS shell will print the following
 info by default for all 'Axis' objects:
 
-example for a VSCANNER:
+example for an Icepap:
 ```python
-DEMO [1]: sampy
- Out [1]: axis name: sampy
-               state: READY (Axis is READY)
-               unit: None
-               offset: 0.0
-               backlash: 0.0
-               sign: 1
-               steps_per_unit: 0.1
-               tolerance: 0.01
-               encoder: None
-               motion_hooks: []
-               dial: 2.00001
-               position: 2.00001
-               _hw_position: 2.00001
-               hw_state: READY (Axis is READY)
-               velocity: 10.0  (config: 10.0)
-               acceleration: None   limits: (0.0, 100.0)  (config: (0.0, 100.0))
-          controller: <bliss.controllers.motors.vscanner.VSCANNER object at
-                       0x7fe0bf0c2fd0>
-          ...
+
+DEMO [1]: samy
+ Out [1]: axis name (R): samy
+               state (R): READY (Axis is READY)
+               unit (R): None
+               offset (R): 0.0
+               backlash (R): -0.00571429
+               sign (R): 1
+               steps_per_unit (R): 52500.0
+               tolerance (R) (to check pos. before a move): 0.005
+               motion_hooks (R): []
+               dial (RW): 7.40000
+               position (RW): 7.40000
+               _hw_position (R): 7.40000
+               hw_state (R): READY (Axis is READY)
+               limits (RW):      (0.0, 15.8)  (config: (0.0, 15.8))
+               acceleration (RW):    0.95238  (config:    0.95238)
+               acctime (RW):         0.50000  (config:    0.50000)
+               velocity (RW):        0.47619  (config:    0.47619)
+          ICEPAP:
+               host: iceid212 (ID: 0008.01A1.49C6) (VER: 3.17)
+               address: 42
+               status: POWER: ON    CLOOP: ON    WARNING: NONE    ALARM: NO
+          ENCODER:
+               tolerance (to check pos at end of move): 0.001
+               encoder value: 388498
+               dial_measured_position:    7.39998
 ```
-
-More info are then displayed, taken from `get_info()` method of the specific
-controller.
-
-example for a VSCANNER:
-```python
-          ...
-           ###############################
-           Config:
-             url=rfc2217://lid213.esrf.fr:28206
-             class=VSCANNER
-             channel letter:X
-           ###############################
-           ?ERR: b'OK\r'
-           ###############################
-           '?INFO' command:
-           firmware version   : VSCANNER 01.02
-           output voltage     : 0.200001 0.500205
-           unit state         : READY
-           ###############################
-           $
-           Max. number of lines: 3276
-           Internal time step (microsec.): 50
-
-           Current settings:
-              LINE -0.100193 0 1 C
-              SCAN 0 0 1 U
-              VEL 0.001 0
-              LTRIG MASK
-              PTRIG MASK
-              PIXEL 0 0
-              HDELAY 0
-           $
-           ###############################
-```
-
-
 
 
 ## Custom axis classes
@@ -607,11 +577,14 @@ exception is raised with message:
 "discrepancy between dial (0.123) and controller position (0.100), aborting"
 ```
 
-*After* a movement, if an [encoder is associated to the
-axis](motion_encoder.md), the encoder position is read and compared to
-the target position of the movement. In case of difference outside the
-limit fixed by **Encoder tolerance**, an exception is raised with
-message:
+*After* a movement, if:
+
+* an [encoder is associated to the axis](motion_encoder.md)
+* AND `check_encoder` is set to True in config
+
+then the encoder position is read and compared to the target position
+of the movement. In case of difference outside the limit fixed by
+**Encoder tolerance**, an exception is raised with message:
 
 ```
 "didn't reach final position"

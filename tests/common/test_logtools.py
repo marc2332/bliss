@@ -9,6 +9,8 @@ import pytest
 import logging
 import re
 
+import gevent
+
 from bliss.common.logtools import *
 from bliss.common.logtools import Log, lprint_disable
 from bliss import logging_startup
@@ -366,3 +368,45 @@ def test_nested_lprint_disable(capsys, log_shell_mode):
             lprint("something")
         lprint("should not appear")
     assert capsys.readouterr().out == ""
+
+
+def test_lprint_greenlet(capsys, log_shell_mode):
+    def greenlet1():
+        with lprint_disable():
+            gevent.sleep(.01)
+
+    def greenlet2():
+        lprint("showme")
+
+    # gevent.sleep gives control to greenlet2
+    gevent.joinall([gevent.spawn(g) for g in (greenlet1, greenlet2)])
+
+    captured = capsys.readouterr().out
+    assert captured == "showme\n"
+
+    def greenlet3():
+        with lprint_disable():
+            gevent.sleep(.1)
+            greenlet2()
+
+    # inside lprint_disable no message should show
+    gevent.joinall([gevent.spawn(g) for g in [greenlet3]])
+    captured = capsys.readouterr().out
+    assert captured == ""
+
+    def greenlet3():
+        gevent.sleep(.01)
+        gevent.spawn(greenlet2)
+
+    def greenlet4():
+        gevent.sleep(.01)
+        lprint("invisible")
+
+    def greenlet5():
+        with lprint_disable():
+            greenlet4()
+
+    gevent.joinall([gevent.spawn(g) for g in (greenlet5, greenlet3)])
+
+    captured = capsys.readouterr().out
+    assert captured == "showme\n"

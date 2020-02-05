@@ -6,7 +6,6 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 from bliss.controllers.motors.soft import SoftController
-from bliss import global_map, setup_globals
 from bliss.common.session import get_current_session
 
 
@@ -20,6 +19,7 @@ def SoftAxis(
     low_limit=float("-inf"),
     high_limit=float("+inf"),
     tolerance=None,
+    export_to_session=True,
 ):
 
     if callable(position):
@@ -29,25 +29,19 @@ def SoftAxis(
     if callable(stop):
         stop = stop.__name__
 
-    config = {
-        "position": position,
-        "move": move,
-        "stop": stop,
-        "state": state,
-        "limits": (low_limit, high_limit),
-        "name": name,
-    }
+    config = {"limits": (low_limit, high_limit), "name": name}
 
     if tolerance is not None:
         config["tolerance"] = tolerance
 
-    controller = SoftController(name, obj, config)
+    controller = SoftController(name, obj, config, position, move, stop, state)
 
     controller._init()
     axis = controller.get_axis(name)
-    global_map.register(axis, parents_list=[controller], tag=f"axis.{name}")
-    current_session = get_current_session()
-    setattr(setup_globals, name, axis)
-    if current_session is not None:
-        current_session.env_dict[name] = axis
+
+    if export_to_session:
+        current_session = get_current_session()
+        if current_session is not None:
+            current_session.env_dict[name] = axis
+
     return axis

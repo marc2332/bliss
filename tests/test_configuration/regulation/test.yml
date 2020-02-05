@@ -1,19 +1,31 @@
+#============= SOFTWARE REGULATION OBJECTS ==============================================================
 - 
-    class: MyDevice     # <== any kind of object 
+    class: MyDevice     # <== any kind of object (usually declared in another YML file)
     package: bliss.controllers.regulation.temperature.mockup
     #module: regulation.temperature.mockup
     plugin: bliss
     name: my_device
 
 -   
-    class: MyCustomInput     # <== a custom input defined by the user, inheriting from the ExternalInput class
+    class: MyCustomInput   # <== a custom input defined by the user, inheriting from the ExternalInput class
     package: bliss.controllers.regulation.temperature.mockup
     #module: regulation.temperature.mockup
     plugin: bliss
     name: custom_input
-    device: $my_device     # <== any kind of object 
+    device: $my_device     # <== any kind of object reference (pointing to an object declared somewhere else in a YML config file)
     unit: eV
-            
+    
+    
+-   
+    class: MySensorBindToAxis   # <== a custom input which returns a value modified by the position of an axis ('linked_axis')
+    package: bliss.controllers.regulation.temperature.mockup
+    #module: regulation.temperature.mockup
+    plugin: bliss
+    name: bound_input
+    device: $my_device     # <== any kind of object reference (pointing to an object declared somewhere else in a YML config file)
+    unit: deg
+    linked_axis: $robz 
+
 
 -   
     class: MyCustomOutput    # <== a custom output defined by the user, inheriting from the ExternalOutput class
@@ -21,7 +33,7 @@
     #module: regulation.temperature.mockup
     plugin: bliss
     name: custom_output
-    device: $my_device       # <== any kind of object 
+    device: $my_device       # <== any kind of object reference (pointing to an object declared somewhere else in a YML config file)
     unit: eV
     low_limit: 0.0           # <== minimum device value [unit]
     high_limit: 100.0        # <== maximum device value [unit]
@@ -29,38 +41,57 @@
 
 
 - 
-    class: Input             # <== value of key 'class' could be 'Input' or 'ExternalInput', the object will be an ExternalInput
+    class: ExternalInput      # <== declare an 'ExternalInput' object
     name: diode_input          
-    device: $diode            # <== a SamplingCounter
+    device: $diode            # <== a SamplingCounter object reference (pointing to a counter declared somewhere else in a YML config file)
     unit: mm
 
 
 -
-    class: Output            # <== value of key 'class' could be 'Output' or 'ExternalOutput', the object will be an ExternalOutput
+    class: ExternalOutput    # <== declare an 'ExternalOutput' object
     name: robz_output        
-    device: $robz            # <== an axis
+    device: $robz            # <== an axis object reference (pointing to an object declared somewhere else in a YML config file)
     unit: mm
     low_limit: -1.0          # <== minimum device value [unit]
     high_limit: 1.0          # <== maximum device value [unit]
     ramprate: 0.0            # <== ramprate to reach the output value [unit/s].
-    mode: relative
+    mode: relative           # <== the axis will perform relative moves (use 'absolute' for absolute moves)
     
 
 - 
-    class: Loop              # <== value of key 'class' could be 'Loop' or 'SoftLoop', the object will be a SoftLoop
+    class: SoftLoop          # <== declare a 'SoftLoop' object
     name: soft_regul
     input: $custom_input
     output: $custom_output
     P: 0.01
     I: 0.01
     D: 0.0
-    low_limit: -1.0            # <== low limit of the PID output value. Usaually equal to 0 or -1.
-    high_limit: 1.0            # <== high limit of the PID output value. Usaually equal to 1.
+    low_limit: -1.0          # <== low limit of the PID output value. Usaually equal to 0 or -1.
+    high_limit: 1.0          # <== high limit of the PID output value. Usaually equal to 1.
     frequency: 10.0
     deadband: 0.1
     deadband_time: 1.5
-    ramprate: 1.0       
+    ramprate: 1.0     
+    wait_mode: ramp  
 
+- 
+    class: SoftLoop          # <== declare a 'SoftLoop' object
+    name: soft_regul2
+    input: $bound_input
+    output: $robz_output
+    P: 2.0
+    I: 10.0
+    D: 10.0
+    low_limit: -1.0          # <== low limit of the PID output value. Usaually equal to 0 or -1.
+    high_limit: 1.0          # <== high limit of the PID output value. Usaually equal to 1.
+    frequency: 10.0
+    deadband: 0.1
+    deadband_time: 3.0
+    ramprate: 1.0  
+    wait_mode: deadband     
+
+
+#============= HARDWARE REGULATION OBJECTS (A CONTROLLER WITH ITS INPUTS, OUTPUTS AND LOOPS) ==============================================================
 
 -   
     class: Mockup

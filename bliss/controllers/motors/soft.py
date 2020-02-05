@@ -75,23 +75,21 @@ def get_state_func(obj, state):
     return state_func
 
 
-class _Config(dict):
-    def to_dict(self):
-        return dict(self)
-
-
 class SoftController(Controller):
-    def __init__(self, axis_name, obj, axis_config):
-        axis_config = _Config(axis_config)
+    def __init__(
+        self, axis_name, obj, axis_config, position, move, stop=None, state=None
+    ):
+
         axes = {axis_name: (NoSettingsAxis, axis_config)}
+
         super(SoftController, self).__init__(
             "__soft_controller__", {}, axes, {}, {}, {}
         )
         self.obj = obj
-        self._position = get_position_func(obj, axis_config["position"])
-        self._move = get_move_func(obj, axis_config["move"])
-        self._stop = get_stop_func(obj, axis_config["stop"])
-        self._state = get_state_func(obj, axis_config["state"])
+        self._position = get_position_func(obj, position)
+        self._move = get_move_func(obj, move)
+        self._stop = get_stop_func(obj, stop)
+        self._state = get_state_func(obj, state)
 
     def initialize(self):
         # velocity and acceleration are not mandatory in config

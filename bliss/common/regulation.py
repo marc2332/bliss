@@ -91,12 +91,18 @@ This module implements the classes allowing the control of regulation processes 
         The SoftLoop object inherits from the Loop class and implements its own PID algorithm (using the 'simple_pid' Python module). 
 
             ---------------------------------------------- YML file example ------------------------------------------------------------------------
+            - 
+                class: MyDevice     # <== any kind of object (usually declared in another YML file)
+                package: bliss.controllers.regulation.temperature.mockup
+                plugin: bliss
+                name: my_device
 
             -   
                 class: MyCustomInput     # <-- a custom input defined by the user and inheriting from the ExternalInput class
                 package: bliss.controllers.regulation.temperature.mockup  # <-- the module where the custom class is defined
                 plugin: bliss
                 name: custom_input
+                device: $my_device       # <-- any kind of object reference (pointing to an object declared somewhere else in a YML config file)
                 unit: eV
                         
             
@@ -105,6 +111,7 @@ This module implements the classes allowing the control of regulation processes 
                 package: bliss.controllers.regulation.temperature.mockup  # <-- the module where the custom class is defined
                 plugin: bliss
                 name: custom_output
+                device: $my_device       # <-- any kind of object reference (pointing to an object declared somewhere else in a YML config file)
                 unit: eV
                 low_limit: 0.0           # <-- minimum device value [unit]
                 high_limit: 100.0        # <-- maximum device value [unit]
@@ -112,24 +119,25 @@ This module implements the classes allowing the control of regulation processes 
             
             
             - 
-                class: Input             # <-- value of key 'class' could be 'Input' or 'ExternalInput', the object will be an ExternalInput
+                class: ExternalInput     # <-- declare an 'ExternalInput' object
                 name: diode_input          
-                device: $diode           # <-- a SamplingCounter
+                device: $diode           # <-- a SamplingCounter object reference (pointing to a counter declared somewhere else in a YML config file )
                 unit: mm
             
             
             -
-                class: Output            # <-- value of key 'class' could be 'Output' or 'ExternalOutput', the object will be an ExternalOutput
+                class: ExternalOutput    # <-- declare an 'ExternalOutput' object
                 name: robz_output        
-                device: $robz            # <-- an axis
+                device: $robz            # <-- an axis object reference (pointing to an axis declared somewhere else in a YML config file )
                 unit: mm
-                low_limit: 0.0           # <-- minimum device value [unit]
-                high_limit: 100.0        # <-- minimum device value [unit]
+                low_limit: -1.0          # <-- minimum device value [unit]
+                high_limit: 1.0          # <-- maximum device value [unit]
                 ramprate: 0.0            # <-- ramprate to reach the output value [unit/s]
+                mode: relative           # <-- the axis will perform relative moves (use 'absolute' for absolute moves)
                 
             
             - 
-                class: Loop              # <-- value of key 'class' could be 'Loop' or 'SoftLoop', the object will be a SoftLoop
+                class: SoftLoop          # <== declare a 'SoftLoop' object
                 name: soft_regul
                 input: $custom_input
                 output: $robz_output
@@ -141,7 +149,8 @@ This module implements the classes allowing the control of regulation processes 
                 frequency: 10.0
                 deadband: 0.05
                 deadband_time: 1.5
-                ramprate: 1.0       
+                ramprate: 1.0    
+                wait_mode: deadband   
 
                 ------------------------------------------------------------------------------------------------------------------------------------
 
@@ -158,7 +167,7 @@ import enum
 
 from bliss import current_session
 from bliss import global_map
-from bliss.common.logtools import log_debug
+from bliss.common.logtools import log_debug, lprint_disable
 from bliss.common.utils import with_custom_members, autocomplete_property
 from bliss.common.counter import SamplingCounter
 from bliss.controllers.counter import SamplingCounterController, counter_namespace
@@ -198,7 +207,12 @@ class Input(SamplingCounterController):
         # useful attribute for a temperature controller writer
         self._attr_dict = {}
 
-        self.create_counter(SamplingCounter, self.name, unit=config.get("unit", "N/A"))
+        self.create_counter(
+            SamplingCounter,
+            self.name + "_counter",
+            unit=config.get("unit", "N/A"),
+            mode="SINGLE",
+        )
 
     def read_all(self, *counters):
         return [self.read()]
@@ -275,7 +289,7 @@ class ExternalInput(Input):
         if isinstance(self.device, Axis):
             return self.device.position
         elif isinstance(self.device, SamplingCounter):
-            return self.device.read()
+            return self.device._counter_controller.read_all([self.device])[0]
         else:
             raise TypeError(
                 "the associated device must be an 'Axis' or a 'SamplingCounter'"
@@ -325,7 +339,12 @@ class Output(SamplingCounterController):
         # useful attribute for a temperature controller writer
         self._attr_dict = {}
 
-        self.create_counter(SamplingCounter, self.name, unit=config.get("unit", "N/A"))
+        self.create_counter(
+            SamplingCounter,
+            self.name + "_counter",
+            unit=config.get("unit", "N/A"),
+            mode="SINGLE",
+        )
 
     def read_all(self, *counters):
         return [self.read()]
@@ -606,10 +625,11 @@ class ExternalOutput(Output):
         log_debug(self, "ExternalOutput:_set_value %s" % value)
 
         if isinstance(self.device, Axis):
-            if self.mode == "relative":
-                self.device.rmove(value)
-            elif self.mode == "absolute":
-                self.device.move(value)
+            with lprint_disable():
+                if self.mode == "relative":
+                    self.device.rmove(value)
+                elif self.mode == "absolute":
+                    self.device.move(value)
         else:
             raise TypeError("the associated device must be an 'Axis'")
 
@@ -672,14 +692,22 @@ class Loop(SamplingCounterController):
 
         self._first_scan_move = True
 
-        self._wait_mode = self.WaitMode.RAMP
+        self._wait_mode = self.WaitMode.DEADBAND  # RAMP
 
         self._history_size = 100
         self.clear_history_data()
 
         self.reg_plot = None
 
-        self.create_counter(SamplingCounter, self.name, unit=config.get("unit", "N/A"))
+        self._counter_name = self.name + "_setpoint"
+        self.create_counter(
+            SamplingCounter,
+            self._counter_name,
+            unit=self.input.config.get("unit", "N/A"),
+            mode="SINGLE",
+        )
+
+        self._create_soft_axis()
 
     # ----------- BASE METHODS -----------------------------------------
 
@@ -692,7 +720,9 @@ class Loop(SamplingCounterController):
 
         self.deadband = self._config.get("deadband", 0.1)
         self.deadband_time = self._config.get("deadband_time", 1.0)
-        self.wait_mode = self._config.get("wait_mode", "ramp")
+
+        if self._config.get("wait_mode") is not None:
+            self.wait_mode = self._config.get("wait_mode")
 
         # below the parameters that may requires communication with the controller
 
@@ -742,7 +772,7 @@ class Loop(SamplingCounterController):
         all_counters = (
             list(self.input.counters)
             + list(self.output.counters)
-            + [self._counters[self.name]]
+            + [self._counters[self._counter_name]]
         )
 
         return counter_namespace(all_counters)
@@ -939,19 +969,7 @@ class Loop(SamplingCounterController):
     def axis(self):
         """ Return a SoftAxis object that makes the Loop scanable """
 
-        sa = SoftAxis(
-            self.input.name,
-            self,
-            position="axis_position",
-            move="axis_move",
-            stop="axis_stop",
-            state="axis_state",
-            low_limit=float("-inf"),
-            high_limit=float("+inf"),
-            tolerance=self.deadband,
-        )
-
-        return sa
+        return self._soft_axis
 
     def axis_position(self):
         """ Return the input device value as the axis position """
@@ -982,14 +1000,14 @@ class Loop(SamplingCounterController):
 
         """
 
-        # Standard axis states:
-        # MOVING : 'Axis is moving'
-        # READY  : 'Axis is ready to be moved (not moving ?)'
-        # FAULT  : 'Error from controller'
-        # LIMPOS : 'Hardware high limit active'
-        # LIMNEG : 'Hardware low limit active'
-        # HOME   : 'Home signal active'
-        # OFF    : 'Axis is disabled (must be enabled to move (not ready ?))'
+        # "READY": "Axis is READY",
+        # "MOVING": "Axis is MOVING",
+        # "FAULT": "Error from controller",
+        # "LIMPOS": "Hardware high limit active",
+        # "LIMNEG": "Hardware low limit active",
+        # "HOME": "Home signal active",
+        # "OFF": "Axis power is off",
+        # "DISABLED": "Axis cannot move",
 
         if self._wait_mode == self.WaitMode.RAMP:
 
@@ -1232,6 +1250,8 @@ class Loop(SamplingCounterController):
         else:
             return self._controller.is_ramping(self)
 
+    # ------------------------------------------------------
+
     @lazy_init
     def _get_setpoint(self):
         """ get the current setpoint """
@@ -1294,12 +1314,31 @@ class Loop(SamplingCounterController):
         else:
             self._controller.stop_ramp(self)
 
-    # @property
     def plot(self):
         if not self.reg_plot:
             self.reg_plot = RegPlot(self)
         self.reg_plot.start()
         return self.reg_plot
+
+    def _create_soft_axis(self):
+        """ Create a SoftAxis object that makes the Loop scanable """
+
+        name = self.name + "_axis"
+
+        self._soft_axis = SoftAxis(
+            name,
+            self,
+            position="axis_position",
+            move="axis_move",
+            stop="axis_stop",
+            state="axis_state",
+            low_limit=float("-inf"),
+            high_limit=float("+inf"),
+            tolerance=self.deadband,
+            export_to_session=True,
+        )
+
+        self._soft_axis._unit = self.input.config.get("unit", "N/A")
 
 
 class SoftLoop(Loop):

@@ -76,8 +76,33 @@ class MyDevice:
             last_time = now
 
             self.current_temp = max(
-                0., self.current_temp + self.heating_rate * dt - self.cooling_rate * dt
+                0.,
+                self.current_temp
+                + self.get_heating_rate() * dt
+                - self.cooling_rate * dt,
             )
+
+
+class MySensorBindToAxis(ExternalInput):
+    """ An Input that returns a value which depends on the position of an axis """
+
+    def __init__(self, name, config):
+        super().__init__(config)
+        self.axis = config["linked_axis"]
+        self.device.get_heating_rate = lambda: self.axis.position / 10
+
+    def read(self):
+        """ returns the input device value (in input unit) """
+
+        log_debug(self, "read")
+
+        return self.device.get_current_temp()
+
+    def state(self):
+        """ returns the input device state """
+
+        log_debug(self, "state")
+        return "READY"
 
 
 class MyCustomInput(ExternalInput):

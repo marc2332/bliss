@@ -228,18 +228,10 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
         """
         Executed at the end of the event loop
         """
-        try:
+        with self._capture_finalize_exceptions():
             self._finalize_hdf5()
-        except BaseException as e:
-            self._set_state(self.STATES.FAULT, e)
-            self.logger.error(
-                "Not properly finalized due to exception:\n{}".format(
-                    traceback.format_exc()
-                )
-            )
-        finally:
-            self.log_progress("Finished writing to {}".format(repr(self.filename)))
-            super()._event_loop_finalize(**kwargs)
+        self.log_progress("Finished writing to {}".format(repr(self.filename)))
+        super()._event_loop_finalize(**kwargs)
 
     def _register_event_loop_tasks(self, nxroot=None, **kwargs):
         """
@@ -263,18 +255,22 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
 
         self.logger.info("Fetch last data")
         for node in self._nodes:
-            self._fetch_data(node, last=True)
+            with self._capture_finalize_exceptions():
+                self._fetch_data(node, last=True)
 
         # Skip because fix length scans can have variable data points
         # self.logger.info(
         #    "Ensure all dataset have the same number of points"
         # )
+        #
         # for subscan in self._enabled_subscans:
-        #    self._ensure_same_length(subscan)
+        #    with self._capture_finalize_exceptions():
+        #        self._ensure_same_length(subscan)
 
         self.logger.info("Link external data (VDS or raw)")
         for node in self._nodes:
-            self._ensure_dataset_existance(node)
+            with self._capture_finalize_exceptions():
+                self._ensure_dataset_existance(node)
 
         self.logger.info("Save detector metadata")
         skip = set()
@@ -284,6 +280,16 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
         for subscan in self._enabled_subscans:
             self._finalize_subscan(subscan)
             self._mark_done(subscan)
+
+    @contextmanager
+    def _capture_finalize_exceptions(self):
+        try:
+            yield
+        except BaseException as e:
+            self._set_state(self.STATES.FAULT, e)
+            self.logger.error(
+                "Captured finalization exception:\n{}".format(traceback.format_exc())
+            )
 
     def get_subscan_info(self, subscan, key, default=None, cache=False):
         """
@@ -963,10 +969,14 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
 
         :param Subscan subscan:
         """
-        self._save_positioners(subscan)
-        self._create_plots(subscan)
-        self._fetch_subscan_metadata(subscan)
-        self._fetch_subscan_notes(subscan)
+        with self._capture_finalize_exceptions():
+            self._save_positioners(subscan)
+        with self._capture_finalize_exceptions():
+            self._create_plots(subscan)
+        with self._capture_finalize_exceptions():
+            self._fetch_subscan_metadata(subscan)
+        with self._capture_finalize_exceptions():
+            self._fetch_subscan_notes(subscan)
 
     @property
     def current_bytes(self):

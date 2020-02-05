@@ -206,6 +206,93 @@ class YAxesPropertyItemDelegate(qt.QStyledItemDelegate):
         editor.move(pos)
 
 
+class _AddItemAction(qt.QWidgetAction):
+    def __init__(self, parent: qt.QObject, tree: qt.QTreeView):
+        super(_AddItemAction, self).__init__(parent)
+        self.__tree = tree
+        selectionModel = self.__tree.selectionModel()
+        selectionModel.currentChanged.connect(self.__selectionChanged)
+
+        widget = qt.QToolButton(parent)
+        icon = icons.getQIcon("flint:icons/add-item")
+        widget.setIcon(icon)
+        widget.setAutoRaise(True)
+        widget.setToolTip("CReate new items in the plot")
+        widget.setPopupMode(qt.QToolButton.InstantPopup)
+        widget.setEnabled(False)
+        widget.setText("Create items")
+        self.setDefaultWidget(widget)
+
+        menu = qt.QMenu(parent)
+        menu.aboutToShow.connect(self.__aboutToShow)
+        widget.setMenu(menu)
+
+    def __aboutToShow(self):
+        menu: qt.QMenu = self.sender()
+        menu.clear()
+
+        item = self.__getSelectedPlotItem()
+        if isinstance(item, plot_item_model.CurveMixIn):
+            menu.addSection("Statistics")
+
+            action = qt.QAction(self)
+            action.setText("Max marker")
+            icon = icons.getQIcon("flint:icons/item-stats")
+            action.setIcon(icon)
+            action.triggered.connect(self.__createMax)
+            menu.addAction(action)
+
+            menu.addSection("Functions")
+
+            action = qt.QAction(self)
+            action.setText("Derivative function")
+            icon = icons.getQIcon("flint:icons/item-stats")
+            action.setIcon(icon)
+            action.triggered.connect(self.__createDerivative)
+            menu.addAction(action)
+        else:
+            action = qt.QAction(self)
+            action.setText("No available items")
+            action.setEnabled(False)
+            menu.addAction(action)
+
+    def __selectionChanged(self, current: qt.QModelIndex, previous: qt.QModelIndex):
+        item = self.__getSelectedPlotItem()
+        self.defaultWidget().setEnabled(item is not None)
+
+    def __getSelectedPlotItem(self):
+        index = self.__tree.currentIndex()
+        if not index.isValid():
+            self.setEnabled(False)
+            return
+        model = self.__tree.model()
+        index = model.index(index.row(), 0, index.parent())
+        model = self.__tree.model()
+        item = model.itemFromIndex(index)
+        if isinstance(item, _DataItem):
+            plotItem = item.plotItem()
+            return plotItem
+        return None
+
+    def __createMax(self):
+        parentItem = self.__getSelectedPlotItem()
+        if parentItem is not None:
+            plot = parentItem.plot()
+            newItem = plot_state_model.MaxCurveItem(plot)
+            newItem.setSource(parentItem)
+            with plot.transaction():
+                plot.addItem(newItem)
+
+    def __createDerivative(self):
+        parentItem = self.__getSelectedPlotItem()
+        if parentItem is not None:
+            plot = parentItem.plot()
+            newItem = plot_state_model.DerivativeItem(plot)
+            newItem.setSource(parentItem)
+            with plot.transaction():
+                plot.addItem(newItem)
+
+
 class _DataItem(_property_tree_helper.ScanRowItem):
     def __init__(self):
         super(_DataItem, self).__init__()
@@ -247,6 +334,9 @@ class _DataItem(_property_tree_helper.ScanRowItem):
 
     def setPlotModel(self, plotModel: plot_model.Plot):
         self.__plotModel = plotModel
+
+    def plotModel(self) -> Optional[plot_model.Plot]:
+        return self.__plotModel
 
     def axesItem(self) -> qt.QStandardItem:
         return self.__yaxes
@@ -399,6 +489,9 @@ class _DataItem(_property_tree_helper.ScanRowItem):
 
         return None
 
+    def plotItem(self) -> Optional[plot_model.Item]:
+        return self.__plotItem
+
     def setPlotItem(self, plotItem):
         self.__plotItem = plotItem
 
@@ -477,8 +570,19 @@ class CurvePlotPropertyWidget(qt.QWidget):
         self.__scan = None
         self.__focusWidget = None
 
+        toolBar = self.__createToolBar()
+
         layout = qt.QVBoxLayout(self)
+        layout.setSpacing(0)
+        layout.addWidget(toolBar)
         layout.addWidget(self.__tree)
+
+    def __createToolBar(self):
+        toolBar = qt.QToolBar(self)
+        toolBar.setMovable(False)
+        action = _AddItemAction(self, self.__tree)
+        toolBar.addAction(action)
+        return toolBar
 
     def setFlintModel(self, flintModel: flint_model.FlintState = None):
         if self.__flintModel is not None:

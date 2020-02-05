@@ -145,6 +145,9 @@ class AxisSettings:
     def get(self, setting_name):
         return self.__axis.controller.axis_settings.get(self.__axis, setting_name)
 
+    def clear(self, setting_name):
+        self.__axis.controller.axis_settings._clear(self.__axis, setting_name)
+
     def disable_cache(self, setting_name, flag=True):
         """
         Remove cache for specified setting

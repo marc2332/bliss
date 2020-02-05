@@ -1460,12 +1460,14 @@ class Axis:
         velocity = motion.target_pos
         direction = motion.delta
 
-        self._move_loop(polling_time)
+        return self._move_loop(polling_time)
 
     def _jog_cleanup(self, saved_velocity, reset_position):
         self.velocity = saved_velocity
 
-        if reset_position == 0:
+        if reset_position is None:
+            self.settings.clear("_set_position")
+        elif reset_position == 0:
             self.__do_set_dial(0, True)
         elif callable(reset_position):
             reset_position(self)
@@ -1580,7 +1582,7 @@ class Axis:
             self.wait_move()
 
     def _wait_home(self, *args):
-        self._move_loop(ctrl_state_funct="home_state")
+        return self._move_loop(ctrl_state_funct="home_state")
 
     @lazy_init
     def hw_limit(self, limit, wait=True, polling_time=DEFAULT_POLLING_TIME):

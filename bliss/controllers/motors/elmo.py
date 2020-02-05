@@ -4,6 +4,7 @@
 #
 # Copyright (c) 2015-2019 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
+import gevent
 
 from bliss import global_map
 from bliss.comm.util import UDP, get_comm_type, get_comm
@@ -191,6 +192,26 @@ class Elmo(Controller):
         188: "Gantry slave is disabled",
     }
 
+    InputRegisters = {
+        0: "General purpose input",
+        1: "Safety",
+        2: "Main home switch",
+        3: "Aux. home switch",
+        4: "Soft stop",
+        5: "Hard stop",
+        6: "Forward limit switch",
+        7: "Reverse limit switch",
+        8: "Inhibit switch",
+        9: "Hardware motion begin",
+        10: "Abort function",
+        16: "Digital input 1",
+        17: "Digital input 2",
+        18: "Digital input 3",
+        19: "Digital input 4",
+        20: "Digital input 5",
+        21: "Digital input 6",
+    }
+
     def __init__(self, *args, **kwargs):
         Controller.__init__(self, *args, **kwargs)
         self._cnx = None
@@ -214,6 +235,9 @@ class Elmo(Controller):
         ):
             self._elmostate.create_state(state, human)
 
+        self._is_homing = dict()
+        self._last_state = dict()
+
     def initialize_hardware(self):
         # Check that the controller is alive
         try:
@@ -225,6 +249,8 @@ class Elmo(Controller):
 
     def initialize_axis(self, axis):
         axis._mode = Cache(axis, "mode", default_value=None)
+        self._is_homing[axis] = False
+        self._last_state[axis] = None
 
     def initialize_hardware_axis(self, axis):
         # Check user-mode
@@ -278,25 +304,35 @@ class Elmo(Controller):
         return reply
 
     def start_jog(self, axis, velocity, direction):
-        self._query("JV=%d" % velocity * direction)
+        self._query("JV=%d" % int(velocity * direction))
         self._query("BG")
 
     def stop_jog(self, axis):
         self._query("JV=0")
         self._query("BG")
-        # check if sync_hard needed
+
+        while int(self._query("MS")) in (1, 2):
+            gevent.sleep(0.01)
+        self._sync_pos(axis)
+
+    def _enc_command(self, axis):
+        if axis._mode == 4:
+            return "PY"
+        else:
+            return "PX"
 
     def read_position(self, axis):
         if axis._mode == 2:
             return float(self._query("PX"))
-        else:
-            return float(self._query("DV[3]"))
+        if self._last_state[axis] is not None:
+            if "MOVING" in self._last_state[axis]:
+                return float(self._query(self._enc_command(axis)))
+        return float(self._query("PA"))
 
     def set_position(self, axis, new_pos):
         pos = round(new_pos)
         self._set_power(axis, False)
-        encodeur_name = "PY" if axis._mode == 4 else "PX"
-        self._query("%s=%d" % (encodeur_name, pos))
+        self._query("%s=%d" % (self._enc_command(axis), pos))
         self._set_power(axis, True)
         self._query("PA=%d" % pos)
         return self.read_position(axis)
@@ -316,28 +352,51 @@ class Elmo(Controller):
         self._query("SP=%d" % new_vel)
         return self.read_velocity(axis)
 
-    def home_search(self, axis, switch, set_pos=None):
-        # can't set the position when searching home
-        # we should change emotion to add an option in
-        # home search i.e: set_pos = None
-        if set_pos is not None:
-            commands = [
-                "HM[3]=3",
-                "HM[2]=%d" % round(set_pos),
-                "HM[4]=0",
-                "HM[5]=0",
-                "HM[1]=1",
-            ]
-        else:
-            commands = ["HM[3]=3", "HM[4]=0", "HM[5]=2", "HM[1]=1"]
+    def home_search(self, axis, switch):
+        # no pos can be set in home search
+        # use then a home_position in config, 0.0 if not there
+        # (to perform a homing without changing pos, commands are:
+        #  HM[3]=3, HM[4]=0, HM[5]=2, HM[1]=1)
+        home_pos = axis.config.get("home_position", float, 0.0)
+        commands = [
+            "HM[3]=3",
+            "HM[2]=%d" % round(home_pos),
+            "HM[4]=0",
+            "HM[5]=0",
+            "HM[1]=1",
+        ]
         for cmd in commands:
             self._query(cmd)
         # Start search
-        step_sign = 1 if axis.config.get("steps_per_unit", float) > 0 else -1
-        self._query("JV=%d", switch * step_sign * self.read_velocity())
-        self._query("BG")
+        home_velocity = int(axis.config_velocity * axis.steps_per_unit)
+        self.start_jog(axis, home_velocity, switch)
+        self._is_homing[axis] = True
+
+    def home_state(self, axis):
+        state = self._elmostate.new()
+
+        ans = int(self._query("SR"))
+        if ans & (1 << 7):
+            state.set("MOVING")
+        else:
+            self._end_home(axis)
+            state.set("READY")
+
+        self._last_state[axis] = state
+        return state
+
+    def _end_home(self, axis):
+        self._sync_pos(axis)
+        self._is_homing[axis] = False
+
+    def _sync_pos(self, axis):
+        cmd = "PA=%s" % self._enc_command(axis)
+        self._query(cmd)
 
     def state(self, axis):
+        if self._is_homing[axis]:
+            return self.home_state(axis)
+
         state = self._elmostate.new()
 
         # check first that the controller is ready to move
@@ -375,6 +434,7 @@ class Elmo(Controller):
         elif ans == 3:
             state.set("FAULT")
 
+        self._last_state[axis] = state
         return state
 
     def start_one(self, motion):
@@ -391,7 +451,8 @@ class Elmo(Controller):
 
     def stop(self, axis):
         self._query("ST")
-        # todo spec macros check if motor is in homing phase...
+        if self._is_homing[axis]:
+            self._end_home(axis)
 
     @object_method(types_info=("None", "int"))
     def get_user_mode(self, axis):
@@ -406,7 +467,7 @@ class Elmo(Controller):
         for cmd in commands:
             self._query(cmd)
         if mode == 5 or mode == 4:
-            self.sync_hard()
+            axis.sync_hard()
         mode = int(self._query("UM"))
         axis._mode.value = mode
         return mode
@@ -415,7 +476,9 @@ class Elmo(Controller):
     def jog_range(self, axis):
         # this method should be in emotion
         # todo move it has a generic
-        return float(self._query("VL[2]")), float(self._query("VH[2]"))
+        jog_min = float(self._query("VL[2]"))
+        jog_max = float(self._query("VH[2]"))
+        return (jog_min / axis.steps_per_unit, jog_max / axis.steps_per_unit)
 
     @object_method(types_info=("None", "bool"))
     def get_enable_slave(self, axis):
@@ -435,3 +498,98 @@ class Elmo(Controller):
 
     def set_encoder(self, encoder, steps):
         self._query("PX=%d" % steps)
+
+    @object_method(types_info=("None", "None"))
+    def input_register(self, axis):
+        inp = int(self._query("IP"))
+        print(f"ELMO INPUT REGISTER = 0x{inp:x}")
+        for (value, text) in self.InputRegisters.items():
+            if inp & (1 << value):
+                status = "ON"
+            else:
+                status = "OFF"
+            print(f"* {text:30.30s} : {status}")
+
+    @object_method(types_info=("None", "None"))
+    def status_register(self, axis):
+        status = int(self._query("SR"))
+        print(f"ELMO STATUS REGISTER = 0x{status:x}")
+
+        StatusRegisters = {
+            1 << 4: "SERVO",
+            1 << 5: "Ext Reference",
+            1 << 6: "FAULT",
+            1 << 7: "MOVING",
+            1 << 12: "user program",
+            1 << 13: "current limit",
+            1 << 14: "safety input 1 alarm",
+            1 << 15: "safety input 2 alarm",
+            1 << 18: "target",
+            1 << 21: "no shunt",
+            1 << 22: "motor",
+            1 << 23: "speed",
+            1 << 24: "hall A sensor",
+            1 << 25: "hall B sensor",
+            1 << 26: "hall C sensor",
+            1 << 27: "safe torque",
+            1 << 28: "profile stop",
+            1 << 30: "ptp buffer full",
+        }
+        for (val, txt) in StatusRegisters.items():
+            print("* {0:s} : {1:s}".format(txt, status & val and "ON" or "OFF"))
+
+        AmplifierStatus = {
+            0: "OK",
+            3: "UNDER voltage",
+            5: "OVER voltage",
+            7: "safety alarm",
+            11: "over current",
+            13: "over temperature",
+            15: "additional ABORT activated",
+        }
+        val = status & (1 << 0 | 1 << 1 | 1 << 2 | 1 << 3)
+        txt = AmplifierStatus.get(val, "unknown state")
+        print(f"* AMPLIFIER : {txt}")
+
+        ProfileStatus = {
+            0: "none",
+            1: "position",
+            3: "velocity",
+            4: "torque",
+            6: "homing",
+            7: "interpolate position",
+            8: "cyclic sync position",
+            9: "cyclic sync velocity",
+            10: "cyclic sync torque",
+        }
+        val = status & (1 << 8 | 1 << 9 | 1 << 10 | 1 << 11)
+        txt = ProfileStatus.get(val, "unknown state")
+        print(f"* PROFILE MODE : {txt}")
+
+        RecorderStatus = {
+            0: "not active",
+            1: "waiting for the trigger",
+            2: "completed task",
+            3: "active",
+        }
+        val = status & (1 << 16 | 1 << 17)
+        txt = RecorderStatus.get(val, "unknown state")
+        print(f"* RECORDER STATUS : {txt}")
+
+    @object_method(types_info=("None", "None"))
+    def comm_register(self, axis):
+        ip_set = self._query("AA[10]")
+        mask_set = self._query("AA[11]")
+        gate_set = self._query("AA[12]")
+        dhcp_set = int(self._query("AA[14]")) == 1 and "ENABLED" or "DISABLED"
+        ip_now = self._query("AA[20]")
+        mask_now = self._query("AA[21]")
+        gate_now = self._query("AA[22]")
+        mac_addr = self._query("AA[23]")
+        info = "ELMO COMMUNICATION REGISTER:\n"
+        info += f" * MAC ADDRESS : {mac_addr}\n"
+        info += f" * DHCP        : {dhcp_set}\n"
+        info += f" * IP ADDRESS  : {ip_now}\t[set = {ip_set}]\n"
+        info += f" * GATEWAY     : {gate_now}\t[set = {gate_set}]\n"
+        info += f" * SUBNET MASK : {mask_now}\t[set = {mask_set}]\n"
+        print(info)

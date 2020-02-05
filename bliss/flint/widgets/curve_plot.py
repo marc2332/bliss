@@ -18,6 +18,7 @@ import logging
 from silx.gui import qt
 from silx.gui import icons
 from silx.gui.plot.items.shape import BoundingRect
+from silx.gui.plot.items import Curve
 from silx.gui.plot.items import axis as axis_mdl
 
 from bliss.flint.model import scan_model
@@ -494,10 +495,10 @@ class CurvePlotWidget(ExtendedDockWidget):
                     text_location_y = result.max_location_y + height * 0.1
                     yy = numpy.array([result.max_location_y, text_location_y])
 
-                    curveItem = plot_helper.FlintCurve()
-                    curveItem.setCustomItem(item)
+                    curveItem = Curve()
                     curveItem.setData(x=xx, y=yy, copy=False)
                     curveItem._setLegend(legend)
+                    curveItem._setSelectable(False)
                     curveItem.setLineStyle(style.lineStyle)
                     curveItem.setColor(style.lineColor)
                     curveItem.setSymbol("")

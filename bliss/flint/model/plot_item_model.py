@@ -93,6 +93,10 @@ class CurveMixIn:
             return None
         return data.array()
 
+    def displayName(self, axisName, scan: scan_model.Scan) -> str:
+        """Helper to reach the axis display name"""
+        raise NotImplementedError()
+
 
 class CurveItem(plot_model.Item, CurveMixIn):
     """Define a curve as part of a plot.
@@ -189,6 +193,15 @@ class CurveItem(plot_model.Item, CurveMixIn):
         if data is None:
             return None
         return data
+
+    def displayName(self, axisName, scan: scan_model.Scan) -> str:
+        """Helper to reach the axis display name"""
+        if axisName == "x":
+            return self.xChannel().displayName(scan)
+        elif axisName == "y":
+            return self.yChannel().displayName(scan)
+        else:
+            assert False
 
 
 class McaPlot(plot_model.Plot):

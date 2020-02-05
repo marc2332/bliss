@@ -148,6 +148,16 @@ class DerivativeItem(
         result = DerivativeData(xx, yy, nextNb)
         return result
 
+    def displayName(self, axisName, scan: scan_model.Scan) -> str:
+        """Helper to reach the axis display name"""
+        sourceItem = self.source()
+        if axisName == "x":
+            return sourceItem.displayName("x", scan)
+        elif axisName == "y":
+            return "d(%s)" % sourceItem.displayName("y", scan)
+        else:
+            assert False
+
 
 class MaxData(NamedTuple):
     max_index: int

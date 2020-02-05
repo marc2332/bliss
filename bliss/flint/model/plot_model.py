@@ -130,7 +130,7 @@ class Plot(qt.QObject):
         self.__inTransaction += 1
         self.transactionStarted.emit()
         try:
-            yield
+            yield self
         finally:
             self.__inTransaction -= 1
             self.transactionFinished.emit()

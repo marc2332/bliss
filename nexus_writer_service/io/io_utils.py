@@ -6,7 +6,7 @@
 #
 # Original author: Wout de Nolf
 #
-# Copyright (c) 2015-2019 ESRF
+# Copyright (c) 2015-2020 ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 

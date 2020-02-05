@@ -1,6 +1,6 @@
 // This file is part of the bliss project
 //
-// Copyright (c) 2015-2019 Beamline Control Unit, ESRF
+// Copyright (c) 2015-2020 Beamline Control Unit, ESRF
 // Distributed under the GNU LGPLv3. See LICENSE for more info.
 #define _GNU_SOURCE
 #include <poll.h>

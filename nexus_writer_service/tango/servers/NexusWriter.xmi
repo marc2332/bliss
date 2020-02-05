@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="ASCII"?>
 <pogoDsl:PogoSystem xmi:version="2.0" xmlns:xmi="http://www.omg.org/XMI" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:pogoDsl="http://www.esrf.fr/tango/pogo/PogoDsl">
   <classes name="NexusWriter" pogoRevision="9.6">
-    <description description="" title="Bliss writer service" sourcePath="/mntdirect/_data_id21_inhouse/wout/dev/blissmain/nexus_writer_service/tango/servers" language="PythonHL" filestogenerate="XMI   file,Code files,Protected Regions" license="LGPL" copyright="Code is maintained by the ESRF Data Analysis Unit.&#xA;&#xA;Original author: Wout de Nolf&#xA;&#xA;Copyright (c) 2015-2019 ESRF" hasMandatoryProperty="true" hasConcreteProperty="true" hasAbstractCommand="false" hasAbstractAttribute="false">
+    <description description="" title="Bliss writer service" sourcePath="/mntdirect/_data_id21_inhouse/wout/dev/blissmain/nexus_writer_service/tango/servers" language="PythonHL" filestogenerate="XMI   file,Code files,Protected Regions" license="LGPL" copyright="Code is maintained by the ESRF Data Analysis Unit.&#xA;&#xA;Original author: Wout de Nolf&#xA;&#xA;Copyright (c) 2015-2020 ESRF" hasMandatoryProperty="true" hasConcreteProperty="true" hasAbstractCommand="false" hasAbstractAttribute="false">
       <inheritances classname="Device_Impl" sourcePath=""/>
       <identification contact="at esrf.fr - wout.de_nolf" author="wout.de_nolf" emailDomain="esrf.fr" classFamily="SoftwareSystem" siteSpecific="ESRF" platform="Unix Like" bus="Not Applicable" manufacturer="none" reference=""/>
     </description>

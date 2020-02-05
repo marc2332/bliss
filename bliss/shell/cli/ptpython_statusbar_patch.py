@@ -1,11 +1,14 @@
+# -*- coding: utf-8 -*-
 #
 # This file is part of the bliss project
 #
-# Copyright (c) 2015-2019 Beamline Control Unit, ESRF
+# Copyright (c) 2015-2020 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
-#
-# Patch to modify the behavior of the ptpython signature_toolbar
-# The code for def signature_toolbar corresponds to ptpython version 2.0.4
+
+"""
+Patch to modify the behavior of the ptpython signature_toolbar
+The code for def signature_toolbar corresponds to ptpython version 2.0.4
+"""
 
 from prompt_toolkit.application import get_app
 

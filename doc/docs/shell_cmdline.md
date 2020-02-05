@@ -40,7 +40,7 @@ Use `-v` or `--version` option to get the current version of a BLISS installatio
 
 ```shell
 % bliss --version
-BLISS version 1.1.0-321-gc55b40484
+BLISS version 1.1.0
 ```
 
 ### Logging level
@@ -57,8 +57,8 @@ Use `-s` to start an existing session:
                   |__) |__ | .__/ .__/
 
 
-Welcome to BLISS version 1.1.0-321-gc55b40484 running on linohlsson2 (in bliss_dev Conda environment)
-Copyright (c) 2015-2019 Beamline Control Unit, ESRF
+Welcome to BLISS version 1.1.0 running on linohlsson2 (in bliss Conda environment)
+Copyright (c) 2015-2020 Beamline Control Unit, ESRF
 -
 Connected to Beacon server on linohlsson2 (port /tmp/beacon_dnnmh7vl.sock)
 test_session: Executing setup...
@@ -71,8 +71,6 @@ You can now customize your 'test_session' session by changing files:
    * /scripts/test_session.py 
 
 Done.
-
-TEST_SESSION [1]: 
 ```
 
 Use `--show-sessions` option to get the list of available sessions:

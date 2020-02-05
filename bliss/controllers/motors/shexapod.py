@@ -62,6 +62,15 @@ from bliss import global_map
 ROLES = "tx", "ty", "tz", "rx", "ry", "rz"
 Pose = namedtuple("Pose", ROLES)
 
+# Symetrie hexapods work only with mm and deg, but mrad and microns are more useful units
+CUNIT_TO_UNIT = {
+    "mrad": pi / 180.0 * 1000,
+    "rad": pi / 180.0,
+    "micron": 1 / 1000.0,
+    "mm": 1,
+    "deg": 1,
+}
+
 
 class BaseHexapodProtocol:
 
@@ -302,7 +311,10 @@ Q86=%f Q87=%f Q88=%f Q89=%f Q90=%f Q91=%f Q20=21"
     def __get_hw_set_positions(self):
         return dict(
             (
-                (self.__get_axis_role(axis), self.__get_hw_set_position(axis))
+                (
+                    self.__get_axis_role(axis),
+                    self.__get_hw_set_position(axis) * CUNIT_TO_UNIT[axis.unit],
+                )
                 for axis in self.axes.values()
             )
         )
@@ -316,7 +328,10 @@ Q86=%f Q87=%f Q88=%f Q89=%f Q90=%f Q91=%f Q20=21"
         pose_dict.update(
             dict(
                 (
-                    (self.__get_axis_role(motion.axis), motion.target_pos)
+                    (
+                        self.__get_axis_role(motion.axis),
+                        motion.target_pos / CUNIT_TO_UNIT[motion.axis.unit],
+                    )
                     for motion in motion_list
                 )
             )
@@ -347,7 +362,9 @@ Q86=%f Q87=%f Q88=%f Q89=%f Q90=%f Q91=%f Q20=21"
         return self.protocol().dump()
 
     def read_position(self, axis):
-        return getattr(self.protocol().object_pose, self.__get_axis_role(axis))
+        return CUNIT_TO_UNIT[axis.unit] * getattr(
+            self.protocol().object_pose, self.__get_axis_role(axis)
+        )
 
     def set_position(self, axis, new_position):
         raise NotImplementedError

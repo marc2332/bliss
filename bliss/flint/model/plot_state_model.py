@@ -38,6 +38,19 @@ class CurveStatisticMixIn:
         source = self.source()
         return source.yAxis()
 
+    def setSource(self, source: plot_model.Item):
+        previousSource = self.source()
+        if previousSource is not None:
+            previousSource.valueChanged.disconnect(self.__sourceChanged)
+        plot_model.AbstractIncrementalComputableItem.setSource(self, source)
+        if source is not None:
+            source.valueChanged.connect(self.__sourceChanged)
+            self.__sourceChanged(plot_model.ChangeEventType.YAXIS)
+
+    def __sourceChanged(self, eventType):
+        if eventType == plot_model.ChangeEventType.YAXIS:
+            self._emitValueChanged(plot_model.ChangeEventType.YAXIS)
+
 
 class DerivativeData(NamedTuple):
     xx: numpy.ndarray
@@ -238,23 +251,10 @@ class MaxData(NamedTuple):
 
 
 class MaxCurveItem(plot_model.AbstractIncrementalComputableItem, CurveStatisticMixIn):
-    """Implement a statistic which identify the maximum location of a curve."""
+    """Statistic identifying the maximum location of a curve."""
 
     def isResultValid(self, result):
         return result is not None
-
-    def setSource(self, source: plot_model.Item):
-        previousSource = self.source()
-        if previousSource is not None:
-            previousSource.valueChanged.disconnect(self.__sourceChanged)
-        plot_model.AbstractIncrementalComputableItem.setSource(self, source)
-        if source is not None:
-            source.valueChanged.connect(self.__sourceChanged)
-            self.__sourceChanged(plot_model.ChangeEventType.YAXIS)
-
-    def __sourceChanged(self, eventType):
-        if eventType == plot_model.ChangeEventType.YAXIS:
-            self._emitValueChanged(plot_model.ChangeEventType.YAXIS)
 
     def compute(self, scan: scan_model.Scan) -> Optional[MaxData]:
         sourceItem = self.source()

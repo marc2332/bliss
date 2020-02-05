@@ -525,6 +525,46 @@ class CurvePlotWidget(ExtendedDockWidget):
                         yaxis=item.yAxis(),
                     )
                     plotItems.append((key, "marker"))
+            elif isinstance(item, plot_state_model.MinCurveItem):
+                legend = str(item) + "/" + str(scan)
+                result = item.reachResult(scan)
+                if item.isResultValid(result):
+                    style = item.getStyle(scan)
+                    height = result.max_y_value - result.min_location_y
+                    xx = numpy.array([result.min_location_x, result.min_location_x])
+                    text_location_y = result.min_location_y - height * 0.1
+                    yy = numpy.array([result.min_location_y, text_location_y])
+
+                    curveItem = Curve()
+                    curveItem.setData(x=xx, y=yy, copy=False)
+                    curveItem._setLegend(legend)
+                    curveItem._setSelectable(False)
+                    curveItem.setLineStyle(style.lineStyle)
+                    curveItem.setColor(style.lineColor)
+                    curveItem.setSymbol("")
+                    curveItem.setYAxis(item.yAxis())
+                    plot._add(curveItem)
+                    plotItems.append((legend, "curve"))
+                    key = plot.addMarker(
+                        legend=legend + "_text",
+                        x=result.min_location_x,
+                        y=text_location_y,
+                        symbol=",",
+                        text="min",
+                        color=style.lineColor,
+                        yaxis=item.yAxis(),
+                    )
+                    plotItems.append((key, "marker"))
+                    key = plot.addMarker(
+                        legend=legend + "_pos",
+                        x=result.min_location_x,
+                        y=result.min_location_y,
+                        symbol="x",
+                        text="",
+                        color=style.lineColor,
+                        yaxis=item.yAxis(),
+                    )
+                    plotItems.append((key, "marker"))
 
         elif isinstance(item, plot_item_model.MotorPositionMarker):
             if item.isValid():

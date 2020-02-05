@@ -242,6 +242,13 @@ class _AddItemAction(qt.QWidgetAction):
             action.triggered.connect(self.__createMax)
             menu.addAction(action)
 
+            action = qt.QAction(self)
+            action.setText("Min marker")
+            icon = icons.getQIcon("flint:icons/item-stats")
+            action.setIcon(icon)
+            action.triggered.connect(self.__createMin)
+            menu.addAction(action)
+
             menu.addSection("Functions")
 
             action = qt.QAction(self)
@@ -286,6 +293,15 @@ class _AddItemAction(qt.QWidgetAction):
         if parentItem is not None:
             plot = parentItem.plot()
             newItem = plot_state_model.MaxCurveItem(plot)
+            newItem.setSource(parentItem)
+            with plot.transaction():
+                plot.addItem(newItem)
+
+    def __createMin(self):
+        parentItem = self.__getSelectedPlotItem()
+        if parentItem is not None:
+            plot = parentItem.plot()
+            newItem = plot_state_model.MinCurveItem(plot)
             newItem.setSource(parentItem)
             with plot.transaction():
                 plot.addItem(newItem)

@@ -254,7 +254,7 @@ class MaxCurveItem(plot_model.AbstractIncrementalComputableItem, CurveStatisticM
 
     def __sourceChanged(self, eventType):
         if eventType == plot_model.ChangeEventType.YAXIS:
-            self.valueChanged.emit(plot_model.ChangeEventType.YAXIS)
+            self._emitValueChanged(plot_model.ChangeEventType.YAXIS)
 
     def compute(self, scan: scan_model.Scan) -> Optional[MaxData]:
         sourceItem = self.source()

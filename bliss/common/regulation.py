@@ -103,7 +103,7 @@ This module implements the classes allowing the control of regulation processes 
                 plugin: bliss
                 name: custom_input
                 device: $my_device       # <-- any kind of object reference (pointing to an object declared somewhere else in a YML config file)
-                unit: eV
+                unit: deg
                         
             
             -   
@@ -112,7 +112,7 @@ This module implements the classes allowing the control of regulation processes 
                 plugin: bliss
                 name: custom_output
                 device: $my_device       # <-- any kind of object reference (pointing to an object declared somewhere else in a YML config file)
-                unit: eV
+                unit: W
                 low_limit: 0.0           # <-- minimum device value [unit]
                 high_limit: 100.0        # <-- maximum device value [unit]
                 ramprate: 0.0            # <-- ramprate to reach the output value [unit/s]
@@ -122,7 +122,7 @@ This module implements the classes allowing the control of regulation processes 
                 class: ExternalInput     # <-- declare an 'ExternalInput' object
                 name: diode_input          
                 device: $diode           # <-- a SamplingCounter object reference (pointing to a counter declared somewhere else in a YML config file )
-                unit: mm
+                unit: N/A
             
             
             -
@@ -140,15 +140,15 @@ This module implements the classes allowing the control of regulation processes 
                 class: SoftLoop          # <== declare a 'SoftLoop' object
                 name: soft_regul
                 input: $custom_input
-                output: $robz_output
-                P: 0.5
-                I: 0.2
+                output: $custom_output
+                P: 0.05
+                I: 0.1
                 D: 0.0
                 low_limit: 0.0            # <-- low limit of the PID output value. Usaually equal to 0 or -1.
                 high_limit: 1.0           # <-- high limit of the PID output value. Usaually equal to 1.
                 frequency: 10.0
-                deadband: 0.05
-                deadband_time: 1.5
+                deadband: 0.1
+                deadband_time: 3.0
                 ramprate: 1.0    
                 wait_mode: deadband   
 
@@ -245,6 +245,19 @@ class Input(SamplingCounterController):
     # ----------- METHODS THAT A CHILD CLASS MAY CUSTOMIZE ------------------
 
     @lazy_init
+    def __info__(self):
+        lines = ["\n"]
+        lines.append(f"=== Input: {self.name} ===")
+        lines.append(
+            f"controller: {self.controller.name if self.controller.name is not None else self.controller.__class__.__name__}"
+        )
+        lines.append(f"channel: {self.channel}")
+        lines.append(
+            f"current value: {self.read():.3f} {self.config.get('unit', 'N/A')}"
+        )
+        return "\n".join(lines)
+
+    @lazy_init
     def read(self):
         """ Return the input device value (in input unit) """
 
@@ -272,14 +285,18 @@ class ExternalInput(Input):
         self.device = config.get("device")
         self.load_base_config()
 
-    def __close__(self):
-        if self.device not in current_session.env_dict.values():
-            try:
-                self.device.__close__()
-            except Exception:
-                pass
-
     # ----------- METHODS THAT A CHILD CLASS MAY CUSTOMIZE ------------------
+
+    def __info__(self):
+        lines = ["\n"]
+        lines.append(f"=== ExternalInput: {self.name} ===")
+        lines.append(
+            f"device: {self.device.name if self.device.name is not None else self.device.__class__.__name__}"
+        )
+        lines.append(
+            f"current value: {self.read():.3f} {self.config.get('unit', 'N/A')}"
+        )
+        return "\n".join(lines)
 
     def read(self):
         """ Return the input device value (in input unit) """
@@ -289,7 +306,7 @@ class ExternalInput(Input):
         if isinstance(self.device, Axis):
             return self.device.position
         elif isinstance(self.device, SamplingCounter):
-            return self.device._counter_controller.read_all([self.device])[0]
+            return self.device._counter_controller.read_all(self.device)[0]
         else:
             raise TypeError(
                 "the associated device must be an 'Axis' or a 'SamplingCounter'"
@@ -409,6 +426,22 @@ class Output(SamplingCounterController):
         self.__custom_methods_list.append((name, types_info))
 
     # ----------- METHODS THAT A CHILD CLASS MAY CUSTOMIZE ------------------
+
+    @lazy_init
+    def __info__(self):
+        lines = ["\n"]
+        lines.append(f"=== Output: {self.name} ===")
+        lines.append(
+            f"controller: {self.controller.name if self.controller.name is not None else self.controller.__class__.__name__}"
+        )
+        lines.append(f"channel: {self.channel}")
+        lines.append(
+            f"current value: {self.read():.3f} {self.config.get('unit', 'N/A')}"
+        )
+        lines.append(f"ramp rate: {self.ramprate}")
+        lines.append(f"ramping: {self.is_ramping()}")
+        lines.append(f"limits: {self._limits}")
+        return "\n".join(lines)
 
     @lazy_init
     def state(self):
@@ -549,13 +582,6 @@ class ExternalOutput(Output):
         self.mode = config.get("mode", "relative")
         self.load_base_config()
 
-    def __close__(self):
-        if self.device not in current_session.env_dict.values():
-            try:
-                self.device.__close__()
-            except Exception:
-                pass
-
     # ----------- BASE METHODS -----------------------------------------
 
     @property
@@ -598,6 +624,20 @@ class ExternalOutput(Output):
         self._ramp.stop()
 
     # ----------- METHODS THAT A CHILD CLASS MAY CUSTOMIZE ------------------
+
+    def __info__(self):
+        lines = ["\n"]
+        lines.append(f"=== ExternalOutput: {self.name} ===")
+        lines.append(
+            f"device: {self.device.name if self.device.name is not None else self.device.__class__.__name__}"
+        )
+        lines.append(
+            f"current value: {self.read():.3f} {self.config.get('unit', 'N/A')}"
+        )
+        lines.append(f"ramp rate: {self.ramprate}")
+        lines.append(f"ramping: {self.is_ramping()}")
+        lines.append(f"limits: {self._limits}")
+        return "\n".join(lines)
 
     def state(self):
         """ Return the state of the output device"""
@@ -708,6 +748,16 @@ class Loop(SamplingCounterController):
         )
 
         self._create_soft_axis()
+
+    def __del__(self):
+        self.close()
+
+    def close(self):
+
+        if self.reg_plot:
+            self.reg_plot.stop()
+
+        self._ramp.stop()
 
     # ----------- BASE METHODS -----------------------------------------
 
@@ -961,7 +1011,7 @@ class Loop(SamplingCounterController):
 
         self._stop_ramping()
         self._stop_regulation()
-        time.sleep(0.5)  # wait for the regulation to be stopped
+
         self.output.set_in_safe_mode()
 
     ##--- SOFT AXIS METHODS: makes the Loop object scannable (ex: ascan(loop, ...) )
@@ -1089,6 +1139,32 @@ class Loop(SamplingCounterController):
             return value * a + b
 
     # ----------- METHODS THAT A CHILD CLASS MAY CUSTOMIZE ------------------
+
+    @lazy_init
+    def __info__(self):
+        lines = ["\n"]
+        lines.append(f"=== Loop: {self.name} ===")
+        lines.append(
+            f"controller: {self.controller.name if self.controller.name is not None else self.controller.__class__.__name__}"
+        )
+        lines.append(
+            f"Input: {self.input.name} @ {self.input.read():.3f} {self.input.config.get('unit', 'N/A')}"
+        )
+        lines.append(
+            f"output: {self.output.name} @ {self.output.read():.3f} {self.output.config.get('unit', 'N/A')}"
+        )
+        lines.append(
+            f"setpoint: {self.setpoint} {self.input.config.get('unit', 'N/A')}"
+        )
+        lines.append(
+            f"ramp rate: {self.ramprate} {self.input.config.get('unit', 'N/A')}/s"
+        )
+        lines.append(f"ramping: {self.is_ramping()}")
+        lines.append(f"kp: {self.kp}")
+        lines.append(f"ki: {self.ki}")
+        lines.append(f"kd: {self.kd}")
+
+        return "\n".join(lines)
 
     @property
     @lazy_init
@@ -1389,14 +1465,38 @@ class SoftLoop(Loop):
 
         self.load_base_config()
 
-    def __close__(self):
-        self._stop_event.set()
-        for obj in [self._input, self._output]:
-            if obj not in current_session.env_dict.values():
-                try:
-                    obj.__close__()
-                except Exception:
-                    pass
+    def __info__(self):
+        lines = ["\n"]
+        lines.append(f"=== SoftLoop: {self.name} ===")
+        lines.append(
+            f"Input: {self.input.name} @ {self.input.read():.3f} {self.input.config.get('unit', 'N/A')}"
+        )
+        lines.append(
+            f"output: {self.output.name} @ {self.output.read():.3f} {self.output.config.get('unit', 'N/A')}"
+        )
+        lines.append(
+            f"setpoint: {self.setpoint} {self.input.config.get('unit', 'N/A')}"
+        )
+        lines.append(
+            f"ramp rate: {self.ramprate} {self.input.config.get('unit', 'N/A')}/s"
+        )
+        lines.append(f"ramping: {self.is_ramping()}")
+        lines.append(f"deadband: {self.deadband} s")
+        lines.append(f"deadband time: {self.deadband_time} s")
+        lines.append(f"wait mode: {self.wait_mode}")
+        lines.append(f"kp: {self.kp}")
+        lines.append(f"ki: {self.ki}")
+        lines.append(f"kd: {self.kd}")
+
+        return "\n".join(lines)
+
+    def close(self):
+
+        if self.reg_plot:
+            self.reg_plot.stop()
+
+        self._ramp.stop()
+        self._stop_regulation()
 
     @property
     def kp(self):
@@ -1525,6 +1625,15 @@ class SoftLoop(Loop):
 
         return self._ramp.is_ramping()
 
+    def is_regulating(self):
+        """
+        Get the regulation status.
+        """
+
+        log_debug(self, "SoftLoop:is_regulating")
+
+        return bool(self.task)
+
     def apply_proportional_on_measurement(self, enable):
         """
         To eliminate overshoot in certain types of systems, 
@@ -1557,6 +1666,7 @@ class SoftLoop(Loop):
         log_debug(self, "SoftLoop:_start_regulation")
 
         if not self.task:
+            self._stop_event.clear()
             self.task = gevent.spawn(self._do_regulation)
 
     def _stop_regulation(self):
@@ -1564,7 +1674,10 @@ class SoftLoop(Loop):
 
         log_debug(self, "SoftLoop:_stop_regulation")
 
-        self._stop_event.set()
+        if self.task is not None:
+            self._stop_event.set()
+            with gevent.Timeout(2.0):
+                self.task.join()
 
     def _start_ramping(self, value):
         """ Start the ramping to setpoint value """
@@ -1577,12 +1690,9 @@ class SoftLoop(Loop):
         """ Stop the ramping """
 
         log_debug(self, "SoftLoop:_stop_ramping")
-
         self._ramp.stop()
 
     def _do_regulation(self):
-
-        self._stop_event.clear()
 
         while not self._stop_event.is_set():
 
@@ -1632,9 +1742,10 @@ class SoftRamp:
         self.start_time = None
         self.start_value = None
         self.direction = None
+        self.count = 0
 
     def __del__(self):
-        self._stop_event.set()
+        self.stop()
 
     @property
     def poll_time(self):
@@ -1674,6 +1785,7 @@ class SoftRamp:
         if not self._rate:
             self._set_working_point(self.new_target_value)
         elif not self.task:
+            self._stop_event.clear()
             self.task = gevent.spawn(self._do_ramping)
 
     def stop(self):
@@ -1681,9 +1793,10 @@ class SoftRamp:
 
         log_debug(self, "SoftRamp:stop")
 
-        if self.task:
+        if self.task is not None:
             self._stop_event.set()
-            self.task.join()
+            with gevent.Timeout(2.0):
+                self.task.join()
 
     def is_ramping(self):
         """
@@ -1691,11 +1804,6 @@ class SoftRamp:
         """
 
         log_debug(self, "SoftRamp:is_ramping")
-
-        # if not self.task:
-        #    return False
-        # else:
-        #    return True
 
         return bool(self.task)
 
@@ -1724,8 +1832,6 @@ class SoftRamp:
 
     def _do_ramping(self):
         """ performs the step by step ramping """
-
-        self._stop_event.clear()
 
         while not self._stop_event.is_set():
 
@@ -1774,6 +1880,9 @@ class RegPlot:
         self._stop_event = gevent.event.Event()
         self.sleep_time = 0.1
 
+    def __del__(self):
+        self.stop()
+
     def create_plot(self):
 
         # Declare a CurvePlot (see bliss.common.plot)
@@ -1811,14 +1920,16 @@ class RegPlot:
 
         if not self.task:
             self.loop.clear_history_data()
+            self._stop_event.clear()
             self.task = gevent.spawn(self.run)
 
     def stop(self):
-        self._stop_event.set()
+        if self.task is not None:
+            self._stop_event.set()
+            with gevent.Timeout(2.0):
+                self.task.join()
 
     def run(self):
-
-        self._stop_event.clear()
 
         while not self._stop_event.is_set() and self.is_plot_active():
 

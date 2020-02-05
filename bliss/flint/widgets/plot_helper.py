@@ -34,6 +34,7 @@ from silx.gui.plot.items.image import ImageData
 
 from bliss.flint.model import plot_model
 from bliss.flint.model import plot_item_model
+from bliss.flint.model import plot_state_model
 from bliss.flint.model import scan_model
 from bliss.flint.utils import signalutils
 
@@ -403,6 +404,15 @@ class FlintCurve(Curve, _FlintItemMixIn):
         <li style="white-space:pre">{char} <b>{yName}:</b> {yValue} (index {index})</li>
         <li style="white-space:pre">     <b>{xName}:</b> {xValue}</li>
         """
+
+        if isinstance(plotItem, plot_state_model.GaussianFitItem):
+            result = plotItem.reachResult(scan)
+            if result is not None:
+                text += f"""
+                <li style="white-space:pre">     <b>std dev:</b> {result.fit.std}</li>
+                <li style="white-space:pre">     <b>sigma:</b> {result.fit.pos_x}</li>
+                """
+
         return xValue, yValue, text
 
 

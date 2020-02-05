@@ -41,6 +41,23 @@ def test_max_compute():
     assert result.min_y_value == -10
 
 
+def test_min_compute():
+    scan = None
+    yy = [0, -10, 2, 5, 9, 500, 100]
+    xx = numpy.arange(len(yy)) * 10
+
+    item = plot_state_model.MinCurveItem()
+    curveItem = CurveMock(xx=xx, yy=yy)
+    item.setSource(curveItem)
+
+    result = item.compute(scan)
+    assert result.nb_points == len(xx)
+    assert result.min_index == 1
+    assert result.min_location_x == 10
+    assert result.min_location_y == -10
+    assert result.max_y_value == 500
+
+
 def test_max_incremental_compute_1():
     """The result is part of the increment"""
     scan = None

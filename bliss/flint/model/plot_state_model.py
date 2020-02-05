@@ -314,3 +314,77 @@ class MaxCurveItem(plot_model.AbstractIncrementalComputableItem, CurveStatisticM
             max_index, max_location_y, max_location_x, min_y_value, nb + len(xx)
         )
         return result
+
+
+class MinData(NamedTuple):
+    min_index: int
+    min_location_y: float
+    min_location_x: float
+    max_y_value: float
+    nb_points: int
+
+
+class MinCurveItem(plot_model.AbstractIncrementalComputableItem, CurveStatisticMixIn):
+    """Statistic identifying the minimum location of a curve."""
+
+    def isResultValid(self, result):
+        return result is not None
+
+    def compute(self, scan: scan_model.Scan) -> Optional[MinData]:
+        sourceItem = self.source()
+
+        xx = sourceItem.xArray(scan)
+        yy = sourceItem.yArray(scan)
+        if xx is None or yy is None:
+            return None
+
+        min_index = numpy.argmin(yy)
+        max_y_value = numpy.max(yy)
+        min_location_x, min_location_y = xx[min_index], yy[min_index]
+
+        result = MinData(
+            min_index, min_location_y, min_location_x, max_y_value, len(xx)
+        )
+        return result
+
+    def incrementalCompute(
+        self, previousResult: MinData, scan: scan_model.Scan
+    ) -> MinData:
+        sourceItem = self.source()
+
+        xx = sourceItem.xArray(scan)
+        yy = sourceItem.yArray(scan)
+        if xx is None or yy is None:
+            raise ValueError("Non empty data is expected")
+
+        nb = previousResult.nb_points
+        if nb == len(xx):
+            # obviously nothing to compute
+            return previousResult
+
+        xx = xx[nb:]
+        yy = yy[nb:]
+
+        min_index = numpy.argmin(yy)
+        max_y_value = numpy.max(yy)
+        min_location_x, min_location_y = xx[min_index], yy[min_index]
+        min_index = min_index + nb
+
+        if previousResult.max_y_value < max_y_value:
+            max_y_value = previousResult.max_y_value
+
+        if previousResult.min_location_y < min_location_y:
+            # Update and return the previous result
+            return MinData(
+                previousResult.min_index,
+                previousResult.min_location_y,
+                previousResult.min_location_x,
+                max_y_value,
+                nb + len(xx),
+            )
+
+        # Update and new return the previous result
+        result = MinData(
+            min_index, min_location_y, min_location_x, max_y_value, nb + len(xx)
+        )
+        return result

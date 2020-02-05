@@ -33,6 +33,7 @@ from silx.gui.plot.items.histogram import Histogram
 from silx.gui.plot.items.image import ImageData
 
 from bliss.flint.model import plot_model
+from bliss.flint.model import plot_item_model
 from bliss.flint.model import scan_model
 from bliss.flint.utils import signalutils
 
@@ -388,10 +389,9 @@ class FlintCurve(Curve, _FlintItemMixIn):
         yValue = yy[index]
 
         plotItem = self.customItem()
-        if plotItem is not None:
-            assert plotItem.yChannel() is not None and plotItem.xChannel() is not None
-            xName = plotItem.xChannel().displayName(scan)
-            yName = plotItem.yChannel().displayName(scan)
+        if isinstance(plotItem, plot_item_model.CurveMixIn):
+            xName = plotItem.displayName("x", scan)
+            yName = plotItem.displayName("y", scan)
         else:
             plotItem = None
             xName = "X"

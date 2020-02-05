@@ -65,8 +65,63 @@ def test_shell_signature(beacon):
     session.close()
 
 
-def test_shell_kwarg_signature():
+def test_shell_completion(clean_gevent, beacon):
+    env_dict = dict()
+    session = beacon.get("test_session5")
+    session.setup(env_dict)
 
+    br = _run_incomplete("m", env_dict)
+    completions = _get_completion(br)
+
+    assert "m2" in completions
+
+    session.close()
+
+
+def test_shell_load_script(clean_gevent, beacon):
+    env_dict = dict()
+    session = beacon.get("test_session5")
+    session.setup(env_dict)
+
+    print(env_dict.keys())
+
+    br = _run_incomplete("tes", env_dict)
+    completions = _get_completion(br)
+
+    assert "test1" in completions
+
+    session.close()
+
+
+def test_shell_load_script2(clean_gevent, beacon):
+    env_dict = dict()
+    session = beacon.get("test_session")
+    session.setup(env_dict)
+
+    print(env_dict.keys())
+
+    br = _run_incomplete("vis", env_dict)
+    completions = _get_completion(br)
+
+    assert "visible_func" in completions
+
+    session.close()
+
+
+def test_shell_load_script_error(clean_gevent, beacon, capsys):
+    env_dict = dict()
+    session = beacon.get("test_session5")
+    session.setup(env_dict)
+
+    br = _run_incomplete("test1 ", env_dict)
+    out, err = capsys.readouterr()
+
+    assert "Unhandled exception in event loop" not in out
+
+    session.close()
+
+
+def test_shell_kwarg_signature(clean_gevent):
     env_dict = dict()
 
     loc = dict()

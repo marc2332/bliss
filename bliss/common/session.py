@@ -354,8 +354,8 @@ class Session:
         just print exception but not throwing it.
 
         Args:
-            env_dict (python dictionnary) where object will be exported
             script_module_name the python file you want to load
+            session (optional) the session from which to load the script
         """
         if session is None:
             session = self
@@ -434,7 +434,7 @@ class Session:
                         child_session._scripts_module_path, child_session.name
                     )
                 )
-            _SESSION_IMPORTERS.add(self.name)
+                _SESSION_IMPORTERS.add(child_session.name)
 
             child_session._setup(env_dict)
 
@@ -447,6 +447,10 @@ class Session:
         with get_file(
             {"setup_file": self.setup_file}, "setup_file", text=True
         ) as setup_file:
+
+            # in case of nested session, make sure we execute the setup script with the load_script from the same session
+            env_dict["load_script"] = self.load_script
+
             code = compile(setup_file.read(), self.setup_file, "exec")
             exec(code, env_dict)
 

@@ -211,9 +211,10 @@ import bliss.shell.cli.ptpython_signature_patch
 
 # add autocomplete_property to jedi's ALLOWED_DESCRIPTOR_ACCESS
 from bliss.common.utils import autocomplete_property
-from jedi.evaluate.compiled import access
+import jedi
 
-access.ALLOWED_DESCRIPTOR_ACCESS += (autocomplete_property,)
+jedi.Interpreter._allow_descriptor_getattr_default = False
+jedi.inference.compiled.access.ALLOWED_DESCRIPTOR_ACCESS += (autocomplete_property,)
 #############
 
 

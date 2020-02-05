@@ -159,6 +159,76 @@ class DerivativeItem(
             assert False
 
 
+class GaussianFitData(NamedTuple):
+    xx: numpy.ndarray
+    yy: numpy.ndarray
+    fit: mathutils.GaussianFitResult
+
+
+class GaussianFitItem(plot_model.AbstractComputableItem, plot_item_model.CurveMixIn):
+    """This item use the scan data to process result before displaying it."""
+
+    def __reduce__(self):
+        return (self.__class__, (), self.__getstate__())
+
+    def __getstate__(self):
+        state = super(GaussianFitItem, self).__getstate__()
+        assert "y_axis" not in state
+        state["y_axis"] = self.yAxis()
+        return state
+
+    def __setstate__(self, state):
+        super(GaussianFitItem, self).__setstate__(state)
+        self.setYAxis(state.pop("y_axis"))
+
+    def isResultValid(self, result):
+        return result is not None
+
+    def compute(self, scan: scan_model.Scan) -> Optional[GaussianFitData]:
+        sourceItem = self.source()
+
+        xx = sourceItem.xArray(scan)
+        yy = sourceItem.yArray(scan)
+        if xx is None or yy is None:
+            return None
+
+        try:
+            fit = mathutils.fit_gaussian(xx, yy)
+        except Exception as e:
+            _logger.debug("Error while computing gaussian fit", exc_info=True)
+            result = GaussianFitData(numpy.array([]), numpy.array([]), None)
+            raise plot_model.ComputeError(
+                "Error while creating gaussian fit.\n" + str(e), result=result
+            )
+
+        yy = fit.transform(xx)
+        return GaussianFitData(xx, yy, fit)
+
+    def xData(self, scan: scan_model.Scan) -> Optional[scan_model.Data]:
+        result = self.reachResult(scan)
+        if not self.isResultValid(result):
+            return None
+        data = result.xx
+        return scan_model.Data(self, data)
+
+    def yData(self, scan: scan_model.Scan) -> Optional[scan_model.Data]:
+        result = self.reachResult(scan)
+        if not self.isResultValid(result):
+            return None
+        data = result.yy
+        return scan_model.Data(self, data)
+
+    def displayName(self, axisName, scan: scan_model.Scan) -> str:
+        """Helper to reach the axis display name"""
+        sourceItem = self.source()
+        if axisName == "x":
+            return sourceItem.displayName("x", scan)
+        elif axisName == "y":
+            return "gaussian(%s)" % sourceItem.displayName("y", scan)
+        else:
+            assert False
+
+
 class MaxData(NamedTuple):
     max_index: int
     max_location_y: float

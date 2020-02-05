@@ -72,7 +72,8 @@ def fit_gaussian(xx: numpy.ndarray, yy: numpy.ndarray) -> GaussianFitResult:
     ipos = numpy.argmax(yy)
     pos = xx[ipos]
     # FIXME: It would be good to provide a better guess for sigma
-    p0 = [pos, 1, height, background]
+    std = abs(xx[-1] - xx[0]) * 0.5
+    p0 = [pos, std, height, background]
 
     # Distance to the target function
     errfunc = lambda p, x, y: _gaussian(x, p) - y

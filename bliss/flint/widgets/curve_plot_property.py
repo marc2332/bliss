@@ -250,6 +250,13 @@ class _AddItemAction(qt.QWidgetAction):
             action.setIcon(icon)
             action.triggered.connect(self.__createDerivative)
             menu.addAction(action)
+
+            action = qt.QAction(self)
+            action.setText("Gaussian fit")
+            icon = icons.getQIcon("flint:icons/item-stats")
+            action.setIcon(icon)
+            action.triggered.connect(self.__createGaussianFit)
+            menu.addAction(action)
         else:
             action = qt.QAction(self)
             action.setText("No available items")
@@ -288,6 +295,15 @@ class _AddItemAction(qt.QWidgetAction):
         if parentItem is not None:
             plot = parentItem.plot()
             newItem = plot_state_model.DerivativeItem(plot)
+            newItem.setSource(parentItem)
+            with plot.transaction():
+                plot.addItem(newItem)
+
+    def __createGaussianFit(self):
+        parentItem = self.__getSelectedPlotItem()
+        if parentItem is not None:
+            plot = parentItem.plot()
+            newItem = plot_state_model.GaussianFitItem(plot)
             newItem.setSource(parentItem)
             with plot.transaction():
                 plot.addItem(newItem)

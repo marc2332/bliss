@@ -9,6 +9,7 @@ import os
 import sys
 import warnings
 import collections
+import functools
 from treelib import Tree
 from bliss.common.logtools import log_warning
 
@@ -436,11 +437,11 @@ class Session:
                 )
                 _SESSION_IMPORTERS.add(child_session.name)
 
-            child_session._setup(env_dict)
+            child_session._setup(env_dict, nested=True)
 
         self._setup(env_dict)
 
-    def _setup(self, env_dict):
+    def _setup(self, env_dict, nested=False):
         if self.setup_file is None:
             return
 
@@ -448,8 +449,13 @@ class Session:
             {"setup_file": self.setup_file}, "setup_file", text=True
         ) as setup_file:
 
-            # in case of nested session, make sure we execute the setup script with the load_script from the same session
-            env_dict["load_script"] = self.load_script
+            if nested:
+                # in case of nested sessions, execute load_script from the child session
+                env_dict["load_script"] = functools.partial(
+                    env_dict["load_script"], session=self.name
+                )
+            else:
+                env_dict["load_script"] = self.load_script
 
             code = compile(setup_file.read(), self.setup_file, "exec")
             exec(code, env_dict)

@@ -7,6 +7,7 @@
 
 """CT2 (P201/C208) bliss acquisition master"""
 
+import numpy
 import gevent.event
 
 from bliss.common import event
@@ -18,6 +19,7 @@ from bliss.controllers.ct2.device import (
     StatusSignal,
     PointNbSignal,
     ErrorSignal,
+    DataSignal,
 )
 
 
@@ -126,6 +128,11 @@ class CT2AcquisitionMaster(AcquisitionMaster):
 
 
 class CT2CounterAcquisitionSlave(IntegratingCounterAcquisitionSlave):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.__buffer = []
+        self.__buffer_event = gevent.event.Event()
+
     def prepare_device(self):
         channels = []
         counter_indexes = {}
@@ -154,3 +161,34 @@ class CT2CounterAcquisitionSlave(IntegratingCounterAcquisitionSlave):
         # CT2AcquisitionMaster prepare, we do a "second" prepare
         # here after the acq_channels have been configured
         ctrl.prepare_acq()
+        self.__buffer = []
+
+    def start_device(self):
+        event.connect(self.device._master_controller, DataSignal, self.rx_data)
+
+    def stop_device(self):
+        event.disconnect(self.device._master_controller, DataSignal, self.rx_data)
+        self.__buffer_event.set()
+
+    def rx_data(self, data, signal):
+        self.__buffer.extend(data)
+        self.__buffer_event.set()
+
+    def reading(self):
+        from_index = 0
+        while (
+            not self.npoints or self._nb_acq_points < self.npoints
+        ) and not self._stop_flag:
+            self.__buffer_event.wait()
+            self.__buffer_event.clear()
+            data = numpy.array(self.__buffer[from_index:], dtype=numpy.uint32)
+            if not data.size:
+                continue
+            data_len = len(data)
+            from_index += data_len
+            self._nb_acq_points += data_len
+            self._emit_new_data(data.T)
+        # finally
+        data = numpy.array(self.__buffer[from_index:], dtype=numpy.uint32)
+        if data.size:
+            self._emit_new_data(data.T)

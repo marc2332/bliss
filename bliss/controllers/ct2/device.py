@@ -41,6 +41,7 @@ from . import card
 ErrorSignal = "error"
 StatusSignal = "status"
 PointNbSignal = "point_nb"
+DataSignal = "data"
 
 
 class AcqMode(enum.IntEnum):
@@ -149,8 +150,6 @@ class CT2(object):
     def __init__(self, card):
         self._log = logging.getLogger(type(self).__name__)
         self._card = card
-        self.__buffer = []
-        self.__buffer_lock = lock.RLock()
         self.__acq_mode = self.DefaultAcqMode
         self.__acq_status = AcqStatus.Ready
         self.__acq_expo_time = 1.0
@@ -200,6 +199,9 @@ class CT2(object):
         async_latch_comp = 0
 
         fifo_persistent_status = {}
+        send_buffer_list = list()
+        send_buffer_event = gevent.event.Event()
+        stop_buffer_loop = False
 
         def get_fifo_status():
             fifo_status = self.get_FIFO_status()
@@ -207,6 +209,22 @@ class CT2(object):
                 if fifo_status[k]:
                     fifo_persistent_status[k] = True
             return fifo_status
+
+        def send_buffer_func():
+            while not stop_buffer_loop:
+                send_buffer_event.wait()
+                send_buffer_event.clear()
+                local_buffers = list(send_buffer_list)
+                send_buffer_list.clear()
+                if local_buffers:
+                    data = numpy.concatenate(local_buffers)
+                    dispatcher.send(DataSignal, self, data)
+                gevent.idle()
+            if send_buffer_list:  # Last send
+                data = numpy.concatenate(send_buffer_list)
+                dispatcher.send(DataSignal, self, data)
+
+        send_buffer_task = gevent.spawn(send_buffer_func)
 
         while self.__acq_status == AcqStatus.Running:
             # if counters stopped and FIFO is empty select will block forever
@@ -302,8 +320,8 @@ class CT2(object):
                     self.__acq_status = AcqStatus.Ready
 
                 if got_data:
-                    with self.__buffer_lock:
-                        self.__buffer.extend(data)
+                    send_buffer_list.append(data)
+                    send_buffer_event.set()
                     self.__last_point_nb = point_nb
                     self._send_point_nb(point_nb)
 
@@ -325,6 +343,10 @@ class CT2(object):
                 break
             ack_irq = card_o.acknowledge_interrupt()
         card_o.set_interrupts()
+        # Wait send task
+        stop_buffer_loop = True
+        send_buffer_event.set()
+        send_buffer_task.get()
 
     @property
     def event_loop(self):
@@ -333,7 +355,6 @@ class CT2(object):
     def reset(self):
         self._card.software_reset()
         self._card.reset()
-        self.__buffer = []
 
     def __configure_std_mode(self, mode):
         card_o = self._card
@@ -586,12 +607,10 @@ class CT2(object):
         self.stop_acq()
         if self.acq_mode not in self.StdModes:
             raise NotImplementedError
-        self.__buffer = []
         self.__last_point_nb = -1
         self.__last_error = None
         self.__configure_std_mode(self.acq_mode)
         self.__soft_started = False
-
         self._send_point_nb(-1)
 
     def __on_acq_loop_finished(self, event_loop):
@@ -813,30 +832,6 @@ class CT2(object):
     @property
     def last_error(self):
         return self.__last_error
-
-    def read_data(self):
-        with self.__buffer_lock:
-            return self.__read_data()
-
-    def __read_data(self):
-        b = self.__buffer
-        if b:
-            self.__buffer = []
-            data = numpy.vstack(b)
-        else:
-            data = numpy.array([[]], dtype=numpy.uint32)
-        return data
-
-    def get_data(self, from_index=None):
-        if from_index is None:
-            from_index = 0
-        data = None
-        with self.__buffer_lock:
-            if self.__buffer:
-                data = self.__buffer[from_index:]
-        if data:
-            return numpy.array(data, dtype=numpy.uint32)
-        return numpy.array([[]], dtype=numpy.uint32)
 
     def configure(self, device_config):
         card_config = _build_card_config(device_config)

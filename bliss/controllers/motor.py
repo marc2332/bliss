@@ -354,7 +354,7 @@ class Controller:
     def prepare_move(self, motion):
         return
 
-    def start_jog(self, velocity, direction):
+    def start_jog(self, axis, velocity, direction):
         raise NotImplementedError
 
     def start_one(self, motion):

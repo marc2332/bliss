@@ -1,5 +1,5 @@
 # External data processing
-BLISS offers the possiblitiy to a separate process (on the system level) for retrieving the acquired data in order to save or process.
+BLISS offers the possibility to have a separate process (on the system level) for retrieving the acquired data in order to save or process.
 
 
 # Example 1: Save data in HDF5
@@ -8,8 +8,8 @@ BLISS offers the possiblitiy to a separate process (on the system level) for ret
     BLISS already comes with on external writer. This is just an example.
     The  example script discussed here is provided in Bliss repository 
     at [scripts/external_saving_example/external_saving_example.py](https://gitlab.esrf.fr/bliss/bliss/blob/master/scripts/external_saving_example/external_saving_example.py).
-    To have a minimal working Bliss environment have a look at the [installation notes](index.md#installation-outside-esrf) 
-    and the [test_configuration setup](index.md#use-bliss-without-hardware).
+    To have a minimal working Bliss environment have a look at the [installation notes](installation.md#installation-outside-esrf) 
+    and the [test_configuration setup](installation.md#use-bliss-without-hardware).
 
 
 ### Listening to a Bliss session

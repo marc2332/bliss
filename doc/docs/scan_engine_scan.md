@@ -1,15 +1,14 @@
 Is the top level object of the scan engine and it's the one who
-performe the scan according to the [acquisition
+perform the scan according to the [acquisition
 chain](scan_engine_acquisition_chain.md) passed as argument when
 calling the `run` method.  It save and publish Acquisition data
-following the configuartion of [scan
-saving](gs_presentation.md#scan-saving).
+following the configuration of [scan saving](index.md#scan-saving).
 
 ## Scan data
 
 During or after the scan, you can retrieved the scan data by calling
-`get_data` method.  This will return datas as a dictionnary with the
-key as the counter name and a numpy array with the assaociated data.
+`get_data` method.  This will return data as a dictionary with the
+key as the counter name and a numpy array with the associated data.
 
 ```python
 TEST_SESSION [1]: s = loopscan(2,0.1,diode)

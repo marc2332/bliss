@@ -17,6 +17,8 @@ Here is a list of plot and item inheritance.
 """
 from __future__ import annotations
 from typing import Optional
+from typing import Dict
+from typing import Any
 
 import numpy
 
@@ -68,10 +70,20 @@ class CurveMixIn:
     def __init__(self):
         self.__yAxis = "left"
 
+    def __getstate__(self):
+        state = {}
+        state["y_axis"] = self.yAxis()
+        return state
+
+    def __setstate__(self, state):
+        self.setYAxis(state.pop("y_axis"))
+
     def yAxis(self) -> str:
         return self.__yAxis
 
     def setYAxis(self, yAxis: str):
+        if self.__yAxis == yAxis:
+            return
         self.__yAxis = yAxis
         self._emitValueChanged(plot_model.ChangeEventType.YAXIS)
 
@@ -105,29 +117,26 @@ class CurveItem(plot_model.Item, CurveMixIn):
     """
 
     def __init__(self, parent: plot_model.Plot = None):
-        super(CurveItem, self).__init__(parent=parent)
+        plot_model.Item.__init__(self, parent=parent)
+        CurveMixIn.__init__(self)
         self.__x: Optional[plot_model.ChannelRef] = None
         self.__y: Optional[plot_model.ChannelRef] = None
-        self.__yAxis: str = "left"
-
-    def __reduce__(self):
-        return (self.__class__, (), self.__getstate__())
 
     def __getstate__(self):
-        state = super(CurveItem, self).__getstate__()
+        state: Dict[str, Any] = {}
+        state.update(plot_model.Item.__getstate__(self))
+        state.update(CurveMixIn.__getstate__(self))
         assert "x" not in state
         assert "y" not in state
-        assert "y-axis" not in state
         state["x"] = self.__x
         state["y"] = self.__y
-        state["y_axis"] = self.__yAxis
         return state
 
     def __setstate__(self, state):
-        super(CurveItem, self).__setstate__(state)
+        plot_model.Item.__setstate__(self, state)
+        CurveMixIn.__setstate__(self, state)
         self.__x = state.pop("x")
         self.__y = state.pop("y")
-        self.__yAxis = state.pop("y_axis")
 
     def isValid(self):
         return self.__x is not None and self.__y is not None
@@ -166,15 +175,6 @@ class CurveItem(plot_model.Item, CurveMixIn):
     def setYChannel(self, channel: Optional[plot_model.ChannelRef]):
         self.__y = channel
         self._emitValueChanged(plot_model.ChangeEventType.Y_CHANNEL)
-
-    def yAxis(self) -> str:
-        return self.__yAxis
-
-    def setYAxis(self, yAxis: str):
-        if self.__yAxis == yAxis:
-            return
-        self.__yAxis = yAxis
-        self._emitValueChanged(plot_model.ChangeEventType.YAXIS)
 
     def xData(self, scan: scan_model.Scan) -> Optional[scan_model.Data]:
         channel = self.xChannel()

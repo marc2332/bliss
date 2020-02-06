@@ -18,6 +18,8 @@ Here is a list of plot and item inheritance.
 from __future__ import annotations
 from typing import Optional
 from typing import NamedTuple
+from typing import Dict
+from typing import Any
 
 import numpy
 import logging
@@ -30,8 +32,8 @@ from ..utils import mathutils
 _logger = logging.getLogger(__name__)
 
 
-class CurveStatisticMixIn:
-    """This item use the scan data to process result before displaying it."""
+class CurveStatisticItem(plot_model.ChildItem):
+    """Statistic displayed on a source item, depending on it y-axis."""
 
     def yAxis(self) -> str:
         """Returns the name of the y-axis in which the statistic have to be displayed"""
@@ -42,7 +44,7 @@ class CurveStatisticMixIn:
         previousSource = self.source()
         if previousSource is not None:
             previousSource.valueChanged.disconnect(self.__sourceChanged)
-        plot_model.AbstractIncrementalComputableItem.setSource(self, source)
+        plot_model.ChildItem.setSource(self, source)
         if source is not None:
             source.valueChanged.connect(self.__sourceChanged)
             self.__sourceChanged(plot_model.ChangeEventType.YAXIS)
@@ -59,25 +61,28 @@ class DerivativeData(NamedTuple):
 
 
 class DerivativeItem(
-    plot_model.AbstractIncrementalComputableItem, plot_item_model.CurveMixIn
+    plot_model.ChildItem,
+    plot_model.IncrementalComputableMixIn,
+    plot_item_model.CurveMixIn,
 ):
     """This item use the scan data to process result before displaying it."""
 
     EXTRA_POINTS = 5
     """Extra points needed before and after a single point to compute a result"""
 
-    def __reduce__(self):
-        return (self.__class__, (), self.__getstate__())
+    def __init__(self, parent=None):
+        plot_model.ChildItem.__init__(self, parent=parent)
+        plot_item_model.CurveMixIn.__init__(self)
 
     def __getstate__(self):
-        state = super(DerivativeItem, self).__getstate__()
-        assert "y_axis" not in state
-        state["y_axis"] = self.yAxis()
+        state: Dict[str, Any] = {}
+        state.update(plot_model.ChildItem.__getstate__(self))
+        state.update(plot_item_model.CurveMixIn.__getstate__(self))
         return state
 
     def __setstate__(self, state):
-        super(DerivativeItem, self).__setstate__(state)
-        self.setYAxis(state.pop("y_axis"))
+        plot_model.ChildItem.__setstate__(self, state)
+        plot_item_model.CurveMixIn.__setstate__(self, state)
 
     def isResultValid(self, result):
         return result is not None
@@ -178,21 +183,24 @@ class GaussianFitData(NamedTuple):
     fit: mathutils.GaussianFitResult
 
 
-class GaussianFitItem(plot_model.AbstractComputableItem, plot_item_model.CurveMixIn):
+class GaussianFitItem(
+    plot_model.ChildItem, plot_model.ComputableMixIn, plot_item_model.CurveMixIn
+):
     """This item use the scan data to process result before displaying it."""
 
-    def __reduce__(self):
-        return (self.__class__, (), self.__getstate__())
+    def __init__(self, parent=None):
+        plot_model.ChildItem.__init__(self, parent=parent)
+        plot_item_model.CurveMixIn.__init__(self)
 
     def __getstate__(self):
-        state = super(GaussianFitItem, self).__getstate__()
-        assert "y_axis" not in state
-        state["y_axis"] = self.yAxis()
+        state: Dict[str, Any] = {}
+        state.update(plot_model.ChildItem.__getstate__(self))
+        state.update(plot_item_model.CurveMixIn.__getstate__(self))
         return state
 
     def __setstate__(self, state):
-        super(GaussianFitItem, self).__setstate__(state)
-        self.setYAxis(state.pop("y_axis"))
+        plot_model.ChildItem.__setstate__(self, state)
+        plot_item_model.CurveMixIn.__setstate__(self, state)
 
     def isResultValid(self, result):
         return result is not None
@@ -250,7 +258,7 @@ class MaxData(NamedTuple):
     nb_points: int
 
 
-class MaxCurveItem(plot_model.AbstractIncrementalComputableItem, CurveStatisticMixIn):
+class MaxCurveItem(CurveStatisticItem, plot_model.IncrementalComputableMixIn):
     """Statistic identifying the maximum location of a curve."""
 
     def isResultValid(self, result):
@@ -324,7 +332,7 @@ class MinData(NamedTuple):
     nb_points: int
 
 
-class MinCurveItem(plot_model.AbstractIncrementalComputableItem, CurveStatisticMixIn):
+class MinCurveItem(CurveStatisticItem, plot_model.IncrementalComputableMixIn):
     """Statistic identifying the minimum location of a curve."""
 
     def isResultValid(self, result):

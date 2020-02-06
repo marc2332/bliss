@@ -552,7 +552,7 @@ class _DataItem(_property_tree_helper.ScanRowItem):
             # self.__updateXAxisStyle(False, None)
             useXAxis = False
             self.__updateXAxisStyle(False)
-        elif isinstance(plotItem, plot_state_model.CurveStatisticMixIn):
+        elif isinstance(plotItem, plot_state_model.CurveStatisticItem):
             useXAxis = False
             self.__updateXAxisStyle(False)
 
@@ -832,7 +832,7 @@ class CurvePlotPropertyWidget(qt.QWidget):
             if isinstance(plotItem, plot_item_model.MotorPositionMarker):
                 continue
 
-            if isinstance(plotItem, plot_model.AbstractComputableItem):
+            if isinstance(plotItem, plot_model.ComputableMixIn):
                 source = plotItem.source()
                 if source is None:
                     parent = itemWithoutLocation

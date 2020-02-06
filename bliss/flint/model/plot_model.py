@@ -28,6 +28,7 @@ of the implementation.
 from __future__ import annotations
 from typing import List
 from typing import Any
+from typing import Dict
 from typing import Optional
 
 import numpy
@@ -91,7 +92,7 @@ class Plot(qt.QObject):
     def __init__(self, parent=None):
         super(Plot, self).__init__(parent=parent)
         self.__items: List[Item] = []
-        self.__styleStrategy: StyleStrategy = None
+        self.__styleStrategy: Optional[StyleStrategy] = None
         self.__inTransaction: int = 0
 
     def __reduce__(self):
@@ -383,8 +384,8 @@ _NotComputed = object()
 
 
 class ComputeError(Exception):
-    """Raised when the `compute` method of AbstractComputableItem can't compute
-    any output"""
+    """Raised when the `compute` method of ComputableMixIn or
+    IncrementalComputableMixIn can't compute any output"""
 
     def __init__(self, msg: str, result=None):
         super(ComputeError, self).__init__(self, msg)
@@ -392,26 +393,22 @@ class ComputeError(Exception):
         self.result = result
 
 
-class AbstractComputableItem(Item):
-    """This item use the scan data to process result before displaying it."""
-
-    resultAvailable = qt.Signal(object)
+class ChildItem(Item):
+    """An item with a source"""
 
     def __init__(self, parent=None):
-        Item.__init__(self, parent=parent)
+        super(ChildItem, self).__init__(parent=parent)
         self.__source: Optional[Item] = None
 
-    def __reduce__(self):
-        return (self.__class__, (), self.__getstate__())
-
     def __getstate__(self):
-        state = super(AbstractComputableItem, self).__getstate__()
+        state: Dict[str, Any] = {}
+        state.update(Item.__getstate__(self))
         assert "source" not in state
         state["source"] = self.__source
         return state
 
     def __setstate__(self, state):
-        super(AbstractComputableItem, self).__setstate__(state)
+        Item.__setstate__(self, state)
         self.__source = state.pop("source")
 
     def isChildOf(self, parent: Item) -> bool:
@@ -428,6 +425,12 @@ class AbstractComputableItem(Item):
 
     def source(self) -> Optional[Item]:
         return self.__source
+
+
+class ComputableMixIn:
+    """This item use the scan data to process result before displaying it."""
+
+    resultAvailable = qt.Signal(object)
 
     def isResultComputed(self, scan: scan_model.Scan) -> bool:
         return scan.hasCachedResult(self)
@@ -461,7 +464,7 @@ class AbstractComputableItem(Item):
         raise NotImplementedError()
 
 
-class AbstractIncrementalComputableItem(AbstractComputableItem):
+class IncrementalComputableMixIn(ComputableMixIn):
     def incrementalCompute(self, previousResult: Any, scan: scan_model.Scan) -> Any:
         """Compute a data using the previous value as basis"""
         raise NotImplementedError()

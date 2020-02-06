@@ -124,8 +124,8 @@ class DefaultStyleStrategy(plot_model.StyleStrategy):
             for item in plot.items():
                 if isinstance(item, plot_item_model.ScanItem):
                     continue
-                if isinstance(item, plot_model.AbstractComputableItem):
-                    if isinstance(item, plot_state_model.CurveStatisticMixIn):
+                if isinstance(item, plot_model.ComputableMixIn):
+                    if isinstance(item, plot_state_model.CurveStatisticItem):
                         source = item.source()
                         baseStyle = self.getStyleFromItem(source, scan)
                         style = plot_model.Style(

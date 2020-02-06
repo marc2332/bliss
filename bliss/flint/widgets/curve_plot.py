@@ -484,7 +484,7 @@ class CurvePlotWidget(ExtendedDockWidget):
             plot._add(curveItem)
             plotItems.append((legend, "curve"))
 
-        elif isinstance(item, plot_state_model.CurveStatisticMixIn):
+        elif isinstance(item, plot_state_model.CurveStatisticItem):
             if isinstance(item, plot_state_model.MaxCurveItem):
                 legend = str(item) + "/" + str(scan)
                 result = item.reachResult(scan)

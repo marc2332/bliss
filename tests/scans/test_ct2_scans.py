@@ -5,7 +5,7 @@ import numpy
 from bliss.common import scans
 from bliss.common import event
 from bliss.controllers.ct2.client import create_and_configure_device
-from bliss.controllers.ct2.device import AcqStatus, StatusSignal
+from bliss.controllers.ct2.device import AcqStatus, StatusSignal, DataSignal
 
 
 @pytest.fixture
@@ -25,16 +25,16 @@ def ct2(mocker):
 
     def start_acq():
         event.send(ct2, StatusSignal, AcqStatus.Ready)
+        event.send(ct2, DataSignal, [(x + x / 10.) for x in range(1, 10)])
 
     # Patch ct2
     del ct2.counter_groups
     ct2.start_acq.side_effect = start_acq
-    ct2.get_data.return_value.T = numpy.array([[x + x / 10.] for x in range(1, 10)])
     yield ct2
 
 
 def test_ct2_scan(session, ct2):
     s = scans.ct(0.1, ct2)
     data = s.get_data()
-    assert data["c1"] == [1.1]
-    assert data["c2"] == [2.2]
+    assert data["c1"] == [1]
+    assert data["c2"] == [2]

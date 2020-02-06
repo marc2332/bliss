@@ -55,8 +55,6 @@ from bliss.comm.util import get_comm, TCP
 from bliss.comm.tcp import SocketTimeout
 from bliss.common.axis import AxisState
 from bliss.controllers.motor import Controller
-from bliss.controllers.motors.shexapodV1 import HexapodProtocolV1
-from bliss.controllers.motors.shexapodV2 import HexapodProtocolV2
 from bliss import global_map
 
 ROLES = "tx", "ty", "tz", "rx", "ry", "rz"
@@ -216,7 +214,7 @@ class SHexapod(Controller):
     """Symetrie hexapod controller"""
 
     def __init__(self, *args, **kwargs):
-        super().__init__(self, *args, **kwargs)
+        super().__init__(*args, **kwargs)
         try:
             user_origin = self.config.get("user_origin").split()
             object_origin = self.config.get("object_origin").split()
@@ -398,3 +396,8 @@ Q86=%f Q87=%f Q88=%f Q89=%f Q90=%f Q91=%f Q20=21"
 
     def reset(self):
         self.protocol().reset()
+
+
+# at end of file to avoid circular import
+from bliss.controllers.motors.shexapodV1 import HexapodProtocolV1
+from bliss.controllers.motors.shexapodV2 import HexapodProtocolV2

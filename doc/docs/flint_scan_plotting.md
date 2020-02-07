@@ -1,15 +1,10 @@
 
 # Flint Scan Plotting
 
+On BLISS, online data display relies on **flint**, a graphical application built on top of [silx][1] (ScIentific Library for eXperimentalists).
+This application can be started automatically when a new plot is created if properly configured.
 
-Bliss plotting is done through a silx-based application called **flint**.
-
-This Qt application is started automatically when a new plot is created.
-
-
-Flint is listening Redis database to known is there is something to display.
-The type is display (*curve*, *scatter plot* or *image* etc.) is determined
-using the shape of the data.
+Flint listens to scan data source to know if there's something to display. The chart type (*curve*, *scatter plot*, *image*...) is automatically determined using the shape of the data.
 
 ## Plot types
 
@@ -33,7 +28,7 @@ This interface supports several types of plot:
 
 `class ScatterPlot(BasePlot)`
 
-  * used for `amesh` scan etc.
+  * used for `amesh` scan etc.	
   * plotting one or several scattered data
   * each scatter is a group of three 1D data of same length
   * the plot is created using `plot_scatter`
@@ -146,3 +141,5 @@ And the data can be cleared:
 ```python
 p.clear_data()
 ```
+
+[1]: http://silx.org

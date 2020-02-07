@@ -8,6 +8,9 @@ helper* has been put in place. It is a tightrope walk to respect:
 * enable users to type commands in similar way as they are used to e.g. in
   Spec
 
+## Activating and deactivating typing helper
+
+This can be done using `F7` and the status can be checked on the bottom of bliss shell.
 
 ## Typing in the shell
 

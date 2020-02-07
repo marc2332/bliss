@@ -61,7 +61,7 @@ Particularly useful might be tango attributes or commands as counters:
 from bliss.common.counter import SoftCounter
 from bliss.common.tango import DeviceProxy
 
-fe = DeviceProxy('orion:10000/fe/id/00')
+fe = DeviceProxy('acs:10000/fe/master/id23')
 sr_curr_counter = SoftCounter(fe, value='sr_current')
 ```
 

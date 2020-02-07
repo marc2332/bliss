@@ -1,4 +1,4 @@
-# Meerstetter Temperature
+# Meerstetter used with **temperature plugin**:
 
 ## Configuration example
 ```YAML

@@ -1,4 +1,4 @@
-# Oxford 700
+# Oxford 700 used with **temperature plugin**:
 
 ## YAML configuration file example
 

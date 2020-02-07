@@ -7,12 +7,13 @@ Control communication is only via serial-line RS232 and modules can be chained (
 
 The powersupplies provide an SCA output TTL, which is typically integrated via a counter/timer board like the P201 ESRF board.
 
-The BLISS controller provide a SoftAxis to scan the SCA voltage window. 
+The BLISS controller provide a SoftAxis to scan the SCA voltage window.
 
 The 5 channels models accept an additional configuration parameter to specify the module channel. See the example below for more details.
 
 
-## Example Configuration
+## Example configuration
+
 ```yaml
 -   class: Cyberstar
     module: regulation.powersupply.cyberstar
@@ -22,7 +23,7 @@ The 5 channels models accept an additional configuration parameter to specify th
       url: ser2net://lid221:28000/dev/ttyRP0
     daisy_chain:
       - name: cyber1
-        module_address: 0   # <== identify the module in the serial line 
+        module_address: 0   # <== identify the module in the serial line
         module_channel: 1   # <== identify the channel on the cyberstar module (for PPU5CH and X20005CH only )
         axis_name: cylow1
       - name: cyber2
@@ -54,7 +55,7 @@ The 5 channels models accept an additional configuration parameter to specify th
         axis_name: cylow11
 ```
 
-## Usage:
+## Usage
 
 Here is an example from ESRF ID22 beamline, where two X20005CH and one X2000 are configured.
 

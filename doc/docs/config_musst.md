@@ -1,8 +1,13 @@
 
 MUSST is a board designed by ISG group.
 
-**M** ultipurpose **U** nit for **S** ynchronization **S** equencing and
-**T** rigering is an NIM module that produces trigger patterns synchronized with
+* **M** ultipurpose
+* **U** nit for
+* **S** ynchronization
+* **S** equencing and
+* **T** rigering
+
+is an NIM module that produces trigger patterns synchronized with
 external events.
 
 It can also be used to:
@@ -39,12 +44,15 @@ class: musst
 gpib:
   url: tango_gpib_device_server://id42/gpib_1/0   # PCI board
   # url: enet://gpibid156.esrf.fr                 # Enet gpib
-  pad: 13
-  timeout: 3.
+  pad: 13                                         # primary address
+  timeout: 3.                                     # in seconds
 channels:
-  - type: CNT
-    channel: 2
-    name: enc_sy
+  - type: CNT                  # encoder/cnt/ssi/adc10/switch
+    channel: 2                 # 
+    name: enc_sy               # 
+    label: "lab_enc_mono"      # ?
+    counter_name: enc_mono     # related counter
+    counter_mode: SINGLE       # MEAN, LAST,INTEGRATE etc.
 counters:
   - name: enc_mono
     channel: CH1
@@ -64,7 +72,7 @@ Config parameters list:
 * **name**: the controller's name
 * **config_tree**: controller configuration. In this dictionary we need to have:
 
-* **gpib**: 
+* **gpib**:
     - **url**: url of the gpib controller  ex: `enet://gpib42.esrf.fr`
     - **pad**: primary address of the musst controller
     - **timeout**: communication timeout, default is 1s
@@ -80,15 +88,16 @@ Config parameters list:
         - `ENCODER`
         - `SSI`
         - `ADC10`
-        - `ADC5` 
+        - `ADC5`
         - `SWITCH`
     * **channel:**: channel number
     * **name:**: use to reference an external switch
+    * **counter_name**:
+    * **counter_mode**: [Counter Sampling Mode](dev_ct.md#sampling-counter-modes)
 
 * **counters:**: list of the counters, in this dictionary we need to have:
     * **name:**: counter name
     * **channel:**: musst channel
-    
 
 
 ## Commands
@@ -112,6 +121,16 @@ address: 13
     CH6 (STOP):          0 -  CNT
 ```
 
+To set a channel to desired value:
+```python
+musst_sxm.set_variable("CH3", 123)
+```
+
+Direct communication:
+```python
+DEMO [21]: musst_sxm.putget("?CH CH3")
+ Out [21]: '53427 RUN'
+```
 
 
 ## Switch

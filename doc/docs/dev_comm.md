@@ -191,11 +191,11 @@ print(kom.write_readline(b"*IDN?\n"))
 
 ### Serial BLISS devices structure
 <!--
-ACHTUNG: original file is  img/serial_hierarchy.svg
+ACHTUNG: original file is  img/comm/serial_hierarchy.svg
 it must be transformed in PATH only file in order to avoid fonts problem
-with : shift-Ctrl-C and saved as img/serial_hierarchy_paths.svg
+with : shift-Ctrl-C and saved as img/comm/serial_hierarchy_paths.svg
 -->
-![Screenshot](img/serial_hierarchy_paths.svg)
+![Screenshot](img/comm/serial_hierarchy_paths.svg)
 
 
 ## TCP socket
@@ -287,6 +287,18 @@ function is used by socket to read lines. It is not sent by the
 added in all messages sent to a device.
 
 Default: `\n`
+
+
+
+### Ethernet BLISS devices structure
+<!--
+ACHTUNG: original file is  img/comm/ethernet_class_hierarchy.svg
+it must be transformed in PATH only file in order to avoid fonts problem
+with : shift-Ctrl-C and saved as img/comm/ethernet_class_hierarchy_paths.svg
+-->
+![Screenshot](img/comm/ethernet_class_hierarchy_paths.svg)
+
+
 
 
 ## GPIB

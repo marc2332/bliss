@@ -146,7 +146,9 @@ nav:
                 - Logging a controller: dev_maplog_controller.md
                 - Writing a shutter: dev_write_shutter.md
                 - Session Instance Map: dev_instance_map.md
-                - Counters: dev_ct.md
+                - Counters:
+                      - counters: dev_ct.md
+                      - Calc Counters: dev_calc_counters.md
                 - Acquisition objects: dev_acq.md
                 - Tips'n'tricks: dev_tipsntricks.md
                 - Dealing with energy: dev_energy.md

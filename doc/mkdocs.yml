@@ -15,7 +15,8 @@ nav:
                       - Mixed Config and Settings: beacon_object.md
                       - Channels: beacon_channels.md
                       - Static configuration API: beacon_static_api.md
-                      - Log Services: beacon_logservice.md
+                      - Log services: beacon_logservice.md
+                      - Web portal: beacon_webportal.md
                 - BLISS objects:
                       - Object instantiation: config_plugins.md
                       - Sessions: config_sessions.md

@@ -2,11 +2,10 @@
 
 To serve the demand of a simplified syntax when entering commands in the bliss
 shell (without additional parenthesis and commas compared to ‘spec’) a *typing
-helper* has been put in place. It is a tightrope walk to respect:
+helper* has been put in place. It is hard to respect both:
 
-* only clean python code syntax
-* enable users to type commands in similar way as they are used to e.g. in
-  Spec
+* the python code syntax
+* enable users to type commands in similar way as they are used to in Spec
 
 
 ## Typing in the shell
@@ -15,24 +14,25 @@ helper* has been put in place. It is a tightrope walk to respect:
     Here, ⏎ represents pressing the Enter key and ␣ represents pressing the
     space bar.
 
-Lets look at the `wm` command as an example. Lets say we want to see the
-position of two motors m0 and m1.
+Lets look at the `wm` command as an example.
+Let us say we want to see the position of two motors m0 and m1.
 
-In order for Bliss to be able to interpret the command we need:
+In order for BLISS to be able to interpret the command we need to do:
 
 ```
 $ wm(m0,m1)⏎
 ```
 
-in ‘Spec’ one would have typed
+In ‘Spec’ one would have typed
 ```
 $ wm␣m0␣m1⏎
 ```
 
-The typing helper will map this way of tying the command to the proper python
+The typing helper will map this way of typing the command to the proper python
 syntax without having to type `(` , `,` and `)` manually. It replaces ␣ by `(`
 or `,` where appropriate. Further it replaces ⏎ by `)`⏎ in case this complets
-the input, or `()`⏎ in case a the input reprensts a python callable.  E.g.
+the input, or `()`⏎ in case a the input reprensts a python callable.
+An example:
 
 ```
 $ wa⏎
@@ -48,11 +48,11 @@ The insertion behaviour of ⏎ is also applied to `;`.
 ## Objects info
 
 In order to ease the acces of BLISS objects, a shell typing short-cut has been
-implemented: if a name of a BLISS object is typed then `⏎` pressd, the return
+implemented: if a name of a BLISS object is typed and then `⏎` is pressed, the return
 value of `__info__()` method (if implemented) is printed.
 
 This method is intented to return a *string* containing information about the
-object like: name, class, configuration details etc.
+objects: name, class, configuration details etc.
 
 This information can be customized for each type of object.
 

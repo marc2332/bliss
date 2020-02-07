@@ -7,6 +7,11 @@
 
 """GPIB communication module (:class:`~bliss.comm.gpib.Gpib` and other \
 interface specific classes)
+
+.. autosummary::
+   :toctree:
+
+   _gpib
 """
 
 from ._gpib import *

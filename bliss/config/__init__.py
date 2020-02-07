@@ -11,10 +11,10 @@
 .. autosummary::
     :toctree:
 
+    beacon_object
     channels
     conductor
     plugins
-    redis
     settings
     static
 """

@@ -15,10 +15,16 @@ This module gathers different communication interfaces
 
    embl
    gpib
+   spec
+   exceptions
+   Exporter
    modbus
+   rpc
    scpi
    serial
    tcp
+   tcp_proxy
+   udp
    util
 """
 

@@ -60,6 +60,13 @@ controller:
     `"didn't reach final position"`
 
 
+
+
+## Usage
+
+see: [encoder usage](motion_encoder.md)
+
+
 ## Icepap encoder
 
 For specific details about icepap encoders, see

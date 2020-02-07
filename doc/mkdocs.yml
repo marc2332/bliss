@@ -5,7 +5,8 @@ use_directory_urls: false
 nav:
         - Getting started:
                 - BLISS in a nutshell: index.md
-                - Installation: installation.md
+                - BLISS as a library: bliss_as_library.md
+        - Installation: installation.md
         - Configuration:
                 - Beacon:
                       - Introduction: beacon.md

@@ -56,7 +56,7 @@ from bliss.common.cleanup import cleanup, axis as cleanup_axis
 ...
 
 with cleanup(motor, restore_list=(cleanup_axis.POS,)):
-    scan = ascan(motor, start, stop, npoints, count_time, *counter_args, **kwargs)
+    scan = ascan(motor, start, stop, intervals, count_time, *counter_args, **kwargs)
 
 return scan
 ```

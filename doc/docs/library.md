@@ -7,7 +7,7 @@ BLISS modules can be used in any python environment. In order to work correctly
 the environment variables `BEACON_HOST` and potentially `TANGO_HOST` must be present.
 
 !!! note
-    Have a look at the ["Use Bliss without Hardware"](index.md#use-bliss-without-hardware)
+    Have a look at the ["Use Bliss without Hardware"](installation.md#use-bliss-without-hardware)
     section in case you want to have a look at this BLISS feature without
     disturbing beamline operation.
     The examples given below are based on the provided _test_configuration_.

@@ -2,7 +2,7 @@
 
 ## Presentation
 
-There are two kind of logging in Bliss:
+There are two kind of logging in BLISS:
 
 * *Module logging*
 * *Instance logging*
@@ -10,19 +10,22 @@ There are two kind of logging in Bliss:
 We can have a look at both with `lslog()`.
 
 ```python
-DEMO [2]: lslog()
+DEMO [1]: lslog()   
 
-logger name           level
+logger name           level   
 ===================== ========
-bliss                 WARNING
-bliss.common.mapping  WARNING
-bliss.config.settings WARNING
-bliss.scans           WARNING
-bliss.shell           WARNING
-bliss.shell.cli.repl  WARNING
-bliss.standard        WARNING
-session               WARNING
-session.controllers   WARNING
+bliss                 WARNING 
+bliss.common.mapping  WARNING 
+bliss.config.settings WARNING 
+bliss.logbook_print   INFO    
+bliss.scans           WARNING 
+bliss.shell           WARNING 
+bliss.shell.cli.repl  WARNING 
+bliss.shell.standard  WARNING 
+flint                 WARNING 
+flint.output          INFO [DISABLED]
+global                WARNING 
+global.controllers    WARNING 
 ```
 
 The relevant information is:
@@ -46,7 +49,7 @@ More info about [Python logging module](https://docs.python.org/3/library/loggin
 Module-level logging is the standard python "way of logging" in which every
 *logger* has the same name as the python module producing it.
 
-The hierarchy is given by files organization inside Bliss project folder.
+The hierarchy is given by the file organization inside the BLISS project folder.
 
 ```python
 bliss                WARNING
@@ -115,7 +118,7 @@ session.controllers.Mockup.s1d                              DEBUG
 
 Activating debug for one specific device may not give the desired
 informations as a device could be managed by a controller and normally
-controllers handles the communication.
+the controller handles the communication.
 
 Sometimes debug activatation at the controller level is needed.
 
@@ -171,19 +174,22 @@ documentation).
 
 Example of calling `lslog()` without argument:
 ```python
-DEMO [2]: lslog()
+DEMO [1]: lslog()
 
-logger name           level
+logger name           level   
 ===================== ========
-bliss                 WARNING
-bliss.common.mapping  WARNING
-bliss.config.settings WARNING
-bliss.scans           WARNING
-bliss.shell           WARNING
-bliss.shell.cli.repl  WARNING
-bliss.standard        WARNING
-session               WARNING
-session.controllers   WARNING
+bliss                 WARNING 
+bliss.common.mapping  WARNING 
+bliss.config.settings WARNING 
+bliss.logbook_print   INFO    
+bliss.scans           WARNING 
+bliss.shell           WARNING 
+bliss.shell.cli.repl  WARNING 
+bliss.shell.standard  WARNING 
+flint                 WARNING 
+flint.output          INFO [DISABLED]
+global                WARNING 
+global.controllers    WARNING 
 ```
 Example of calling `lslog()` with a glob argument:
 
@@ -266,18 +272,18 @@ DEBUG 2019-07-04 16:49:45,117 bliss.shell.cli.repl: USER INPUT: 1+2
          Out [8]: 3
 ```
 
-## Save log to File or other destinations
+## Save log to file or other destinations
 
 There are a lot of ways to accomplish this.
 The easiest is to add a logging Handler to the root Logger.
 This is accomplished using a normal python logging Handler taken from the
 standard library.
 
-Logging could be initialized on bliss shell, but probably the best place to do
-this is in session configuration script.
+Logging could be initialized in the BLISS shell, but probably the best place to do
+this is in the session configuration script.
 
 ```python
-# Just near the end of session_setup.py file.
+# Just near the end of the session_setup.py file.
 
 from logging import getLogger, FileHandler, Formatter, DEBUG
 
@@ -286,7 +292,7 @@ rootlogger = getLogger()  # getting root logger
 # creating a file handler
 filehandler = FileHandler('mylogfile.log')
 
-# creating a formatter for file messages
+# creating a formatter for the file messages
 formatter = Formatter("%(asctime)s-%(name)s-%(lineno)d-%(msg)s-%(exc_info)s")
 
 filehandler.setFormatter(formatter)  # filehandler will use the formatter

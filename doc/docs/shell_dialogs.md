@@ -1,6 +1,6 @@
 # Dialog with users
 
-Bliss offers a variety of simple dialogs to interact with users, like messages, yes-no questions, inputs and more.
+BLISS offers a variety of simple dialogs to interact with users, like messages, yes-no questions, inputs and more.
 
 
 ## The user dialog classes
@@ -13,12 +13,12 @@ The default backend is Prompt-toolkit.
 The predefined dialogs are: 
 
 * `UserMsg( "This is a message" )`: display a message to the user.
-* `UserYesNo( "Do you want to continue?" )`: ask a question expecting a yes or no answer.
-* `UserInput( "What is your name?" )`: ask for a string input.
-* `UserIntInput( "What is your age?" )`: ask for a integer input.
-* `UserFloatInput( "What is the target position?" )`: ask for a float input.
-* `UserFileInput( "Select a file" )`: ask for a file path input.
-* `UserChoice( "Select one", choices )`: ask to select one value among a list of choices.
+* `UserYesNo( "Do you want to continue?" )`: asks a question, expecting a yes or a no answer.
+* `UserInput( "What is your name?" )`: asks for a string input.
+* `UserIntInput( "What is your age?" )`: asks for an integer input.
+* `UserFloatInput( "What is the target position?" )`: asks for a float input.
+* `UserFileInput( "Select a file" )`: asks for a file path input.
+* `UserChoice( "Select one", choices )`: asks to select one value among a list of choices.
 * `UserCheckBox( "option_name" )`: enable/disable an option.
 
 
@@ -26,7 +26,7 @@ All dialogs have the following attributes:
 
 *  `label`:       the widget label 
 *  `defval`:      the default value
-*  `text_align`:  the label text alignment, in `["CENTER", "LEFT", "JUSTIFY", "RIGHT"]`
+*  `text_align`:  the label text alignment. Allowed are `["CENTER", "LEFT", "JUSTIFY", "RIGHT"]`
 *  `text_expand`: enable label text to expand (True or False)
 
 UserInput dialogs have these extra arguments:  
@@ -45,8 +45,8 @@ The UserChoice dialogs have a special argument:
 ### Message and question
 
 Any user dialog can be transformed into a prompt toolkit widget and display on screen with the `display` function.
-They `display` function is designed for single dialogs like `UserMsg` or `UserYesNo`.
-In the case of `UserYesNo` dialog, the `display` function returns the answer as a Boolean. 
+They `display` function is designed for a single dialog like `UserMsg` or `UserYesNo`.
+In the case of a `UserYesNo` dialog, the `display` function returns the answer as a Boolean. 
  
 ```python
 from bliss.shell.cli.user_dialog import UserMsg, UserYesNo
@@ -70,9 +70,9 @@ Multiple widgets dialog can be built with the `BlissDialog` object and display o
 The first argument of the `BlissDialog` object is a 2d list of user dialogs. 
 The first dimension represent the vertical layout and the second dimension the horizontal layout.
 The space between the widgets can be specified with the `padding` argument. 
-After pressing the `ok` button, a dictionary with widget values is returned. 
+After pressing the `ok` button, a dictionary with widget values will be returned. 
 The dictionary is indexed by the dialog name (if not None) else by the dialog object itself.
-If pressing the `cancel` button, it returns `False`.
+If pressing the `cancel` button, it will return `False`.
 
 ```python
 user_dlg_list = [   [dlg_x1_y1, dlg_x2_y1, ...], 
@@ -105,10 +105,10 @@ A sub-set of dialogs can be grouped using the `Container` object:
 
 `Container(user_dlg_list, title=None, border=0, padding=0, splitting="h")`
 
-The `title` argument is a sub-title for the widget group (if `title=None` the surrounding frame is not drawn).
+The `title` argument is a sub-title for the widget group (if `title=None`, the surrounding frame is not drawn).
 The `border` argument is the space between the widgets group and the surrounding frame.
 The `padding` argument is the space between the widgets of the group.
-The `splitting` argument can be `h` (horizontal) or `v` (vertical) and describes the stacking orientation of the widgets.
+The `splitting` argument can be a `h` (horizontal) or a `v` (vertical) and describes the stacking orientation of the widgets.
 
 ```python
 from bliss.shell.cli.user_dialog import Container
@@ -132,7 +132,7 @@ BlissDialog( [  [dlg1], [ ct1, ct2]  ] , title='Bliss manager').show()
 #### UserInput validator
 
 The `UserInput` object takes an optional `validator` argument. The `validator` argument must be an object of the type `Validator`.
-The validator object takes as first argument a function instance and the function arguments as extra arguments.
+The validator object takes as first argument a function instance and the function arguments as an extra arguments.
 The validation function will be called when leaving the input field of the widget in order to check that the user input is corresponding to the expected type of answer.
 The validation function must raise or produce an exception if the user input is not what expected. 
 
@@ -164,14 +164,14 @@ dlg2 = UserInput(label="Enter a number in range [5, 10]: ", validator=v2)
 
 ```
 
-The `UserIntInput` and `UserFloatInput` are already defined and respectively check that the input is an integer or a float.
+The `UserIntInput` and `UserFloatInput` are already defined and check if the user input is an integer or a float.
 
 ![Screenshot](img/dlg_validator.png)
 
 #### UserInput completer
 
 The `UserInput` object takes an optional `completer` argument. The `completer` argument must be a list of strings which will be used as a completion list when the user is typing.
-For file path completion, it already exists the `UserFileInput` object which implements a special path completer. 
+For file path completion, there already exists a `UserFileInput` object which implements a special path completer. 
 
 ```python
 from bliss.shell.cli.user_dialog import UserInput, UserFileInput

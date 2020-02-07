@@ -65,7 +65,7 @@ raw_value=167.193531174
 Example to read *ring current* and *beam lifetime* from The Machine device
 server:
 
-`orion:10000/` prefix is used to access Tango database of The Machine.
+`acs:10000/` prefix is used to access Tango database of The Machine.
 
 ```yaml
 - class: tango_attr_as_counter

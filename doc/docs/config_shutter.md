@@ -24,7 +24,7 @@ front end device server, set by the `_frontend` variable.
   # front end shutter
   class: TangoShutter
   name: frontend
-  uri: //orion:10000/fe/master/id42
+  uri: acs:10000/fe/master/id42
 
 ```
 

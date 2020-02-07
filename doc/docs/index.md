@@ -118,8 +118,8 @@ actions on such devices.
 
 * `wa()`: shows a table of all motors in the session, with positions.
 * `lscnt()`: shows a table of all counters in the session.
-* `ascan(axis, start, stop, n_points, count_time)`: moves an axis from
-  *start* to *stop* in *n_points* steps and counts *count_time* at each step.
+* `ascan(axis, start, stop, intervals, count_time)`: moves an axis from
+  *start* to *stop* in *intervals* steps and counts *count_time* at each step.
 
 
 ### Help
@@ -354,7 +354,7 @@ step-by-step measurements.
 
 Most common are :
 
-* `ascan(axis, start, stop, n_points, count_time, *counters, **kwargs)`
+* `ascan(axis, start, stop, intervals, count_time, *counters, **kwargs)`
 * `dscan` : same as `ascan`, with `start`, `stop` as relative positions
    to current axis position
 * `a2scan` : same as ascan but with 2 motors

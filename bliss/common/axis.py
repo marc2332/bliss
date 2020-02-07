@@ -911,33 +911,25 @@ class Axis:
         PLUS controller specific information.
         """
         _info_string = ""
-        _info_string += f"axis name: {self.name}\n"
-        _info_string += f"     state: {self.state}\n"
-        _info_string += f"     unit: {self.unit}\n"
-        _info_string += f"     offset: {self.offset}\n"
-        _info_string += f"     backlash: {self.backlash}\n"
-        _info_string += f"     sign: {self.sign}\n"
-        _info_string += f"     steps_per_unit: {self.steps_per_unit}\n"
-        _info_string += f"     tolerance: {self.tolerance}\n"
+        _info_string += f"axis name (R): {self.name}\n"
+        _info_string += f"     state (R): {self.state}\n"
+        _info_string += f"     unit (R): {self.unit}\n"
+        _info_string += f"     offset (R): {self.offset}\n"
+        _info_string += f"     backlash (R): {self.backlash}\n"
+        _info_string += f"     sign (R): {self.sign}\n"
+        _info_string += f"     steps_per_unit (R): {self.steps_per_unit}\n"
+        _info_string += (
+            f"     tolerance (R) (to check pos. before a move): {self.tolerance}\n"
+        )
+        _info_string += f"     motion_hooks (R): {self.motion_hooks}\n"
+        _info_string += f"     dial (RW): {self.dial:.5f}\n"
+        _info_string += f"     position (RW): {self.position:.5f}\n"
+        _info_string += f"     _hw_position (R): {self._hw_position:.5f}\n"
+        _info_string += f"     hw_state (R): {self.hw_state}\n"
 
-        # To avoid error if no encoder.
-        try:
-            _enc = self.encoder
-            _meas_pos = self.measured_position
-            _dial_meas_pos = self.dial_measured_position
-            _info_string += f"     encoder: {_enc}\n"
-            _info_string += f"     measured_position: {_meas_pos}\n"
-            _info_string += f"     dial_measured_position: {_dial_meas_pos}\n"
-        except RuntimeError:
-            _info_string += f"     encoder: None\n"
-
-        _info_string += f"     motion_hooks: {self.motion_hooks}\n"
-        _info_string += f"     dial: {self.dial}\n"
-        _info_string += f"     position: {self.position}\n"
-        _info_string += f"     _hw_position: {self._hw_position}\n"
-        _info_string += f"     hw_state: {self.hw_state}\n"
-
-        _info_string += f"     limits: {self.limits}  (config: {self.config_limits})\n"
+        _info_string += (
+            f"     limits (RW):      {self.limits}  (config: {self.config_limits})\n"
+        )
 
         # To avoid error if no acceleration.
         try:
@@ -945,8 +937,10 @@ class Axis:
             _acc_config = self.config_acceleration
             _acc_time = self.acctime
             _acc_time_config = self.config_acctime
-            _info_string += f"     acceleration: {_acc} (config: {_acc_config})\n"
-            _info_string += f"     acctime: {_acc_time}  (config: {_acc_time_config})\n"
+            _info_string += (
+                f"     acceleration (RW): {_acc:10.5f}  (config: {_acc_config:10.5f})\n"
+            )
+            _info_string += f"     acctime (RW):      {_acc_time:10.5f}  (config: {_acc_time_config:10.5f})\n"
         except Exception as e:
             _info_string += f"     acceleration: None\n"
 
@@ -954,14 +948,22 @@ class Axis:
         try:
             _vel = self.velocity
             _vel_config = self.config_velocity
-            _info_string += f"     velocity: {_vel}  (config: {_vel_config})\n"
+            _info_string += (
+                f"     velocity (RW):     {_vel:10.5f}  (config: {_vel_config:10.5f})\n"
+            )
         except Exception as e:
             _info_string += f"     velocity: None\n"
 
         try:
-            _info_string += self.__controller.__info__()
+            # use of get_info() rather than __info__() to be able to pass axis as param.
+            _info_string += self.__controller.get_info(self)
         except Exception as e:
             _info_string += f"{self.controller}\n"
+
+        try:
+            _info_string += self.encoder.__info__()
+        except Exception as e:
+            _info_string += f"     encoder: None\n"
 
         return _info_string
 
@@ -1401,8 +1403,9 @@ class Axis:
         curr_pos = self._update_dial()
         if abs(curr_pos - enc_dial) > self.encoder.tolerance:
             raise RuntimeError(
-                "'%s' didn't reach final position.(enc_dial=%g, curr_pos=%g)"
-                % (self.name, enc_dial, curr_pos)
+                f"'{self.name}' didn't reach final position."
+                f"(enc_dial={enc_dial:10.5f}, curr_pos={curr_pos:10.5f} "
+                f"diff={enc_dial-curr_pos:10.5f} enc.tol={self.encoder.tolerance:10.5f})"
             )
 
     @lazy_init

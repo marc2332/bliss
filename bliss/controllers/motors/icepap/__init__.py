@@ -300,17 +300,19 @@ class Icepap(Controller):
 
     def get_info(self, axis):
         pre_cmd = "%s:" % axis.address
-        info_str = "MOTOR   : %s\n" % axis.name
-        info_str += "SYSTEM  : %s (ID: %s) (VER: %s)\n" % (
+        # info_str = "MOTOR   : %s\n" % axis.name
+        info_str = "ICEPAP:\n"
+        info_str += "     host: %s (ID: %s) (VER: %s)\n" % (
             self._cnx._host,
             _command(self._cnx, "0:?ID"),
             _command(self._cnx, "?VER"),
         )
-        info_str += "DRIVER  : %s\n" % axis.address
-        info_str += "POWER   : %s\n" % _command(self._cnx, pre_cmd + "?POWER")
-        info_str += "CLOOP   : %s\n" % _command(self._cnx, pre_cmd + "?PCLOOP")
-        info_str += "WARNING : %s\n" % _command(self._cnx, pre_cmd + "?WARNING")
-        info_str += "ALARM   : %s\n" % _command(self._cnx, pre_cmd + "?ALARM")
+        info_str += "     address: %s\n" % axis.address
+        info_str += "     status:"
+        info_str += f" POWER: {_command(self._cnx, pre_cmd + '?POWER')}"
+        info_str += f"    CLOOP: {_command(self._cnx, pre_cmd + '?PCLOOP')}"
+        info_str += f"    WARNING: {_command(self._cnx, pre_cmd + '?WARNING')}"
+        info_str += f"    ALARM: {_command(self._cnx, pre_cmd + '?ALARM')}\n"
         return info_str
 
     def __info__(self, axis):

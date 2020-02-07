@@ -15,10 +15,11 @@
         url: ser2net://lid00limace:28000/dev/ttyS0
 
     daisy_chain: 
-        -
-            name: cyberstar_0
-            module_address: 0              # <== identify the module in the serial line        
-            module_channel: 1              # <== identify the channel on the cyberstar modul (for PPU5CH and X20005CH only )              
+        - name: cyber1
+          module_address: 0              # <== identify the module in the serial line        
+          module_channel: 1              # <== identify the channel on the cyberstar module (for PPU5CH and X20005CH only )
+          axis_name: cylow1
+           
 
 """
 
@@ -32,7 +33,6 @@ from bliss.common.logtools import log_debug, log_info
 from bliss.common.soft_axis import SoftAxis
 from bliss.common.axis import AxisState
 
-from bliss.config.channels import Cache, clear_cache
 from bliss.common.counter import SamplingCounter
 from bliss.controllers.counter import SamplingCounterController
 from bliss.common.utils import autocomplete_property
@@ -149,21 +149,17 @@ class Cyberstar:
         }
 
         self._params2txt = {
-            "hv": "High_voltage",
-            "sca_low": "SCA_low",
-            "sca_up": "SCA_up",
-            "gain": "Gain",
-            "peaking_time": "Peaking_time",
-            "remote": "Remote_control",
-            "delay": "Delay",
+            "hv": "high_voltage",
+            "sca_low": "sca_low",
+            "sca_up": "sca_up",
+            "gain": "gain",
+            "peaking_time": "peaking_time",
+            "remote": "remote_control",
+            "delay": "delay",
         }
 
         self._params = self.model2params[self._mid]
 
-        # --- cache sca_low and sca_up for a faster access ---
-        self._use_sca_cache = True
-        self._sca_low = Cache(self, "sca_low")
-        self._sca_up = Cache(self, "sca_up")
         self._sca_mini = self._params["sca_low"][1][0]
         self._sca_maxi = self._params["sca_low"][1][1]
 
@@ -256,25 +252,25 @@ class Cyberstar:
 
         info_list = []
         log_info(self, "show")
-        info_list.append(f"Name: {self.name}")
-        info_list.append(f"Com:  {self._cyberstar_master.comm}")
-        info_list.append(f"Module_address: {self.module_address}")
+        info_list.append(f"name: {self.name}")
+        info_list.append(f"com:  {self._cyberstar_master.comm}")
+        info_list.append(f"module_address: {self.module_address}")
 
         if self._module_channel is not None:
-            info_list.append(f"Module_channel: {self.module_channel}")
+            info_list.append(f"module_channel: {self.module_channel}")
 
         if "hv" in available_params:
             info_list.append(
-                f"{self._params2txt['hv']:15s} = {str(self.high_voltage):6}V  (range=[{self._params['hv'][1][0]}, {self._params['hv'][1][1]}])"
+                f"{self._params2txt['hv']:15s} = {self.high_voltage:6.4f}V  (range=[{self._params['hv'][1][0]}, {self._params['hv'][1][1]}])"
             )
 
         info_list.append(
-            f"{self._params2txt['sca_low']:15s} = {str(self.sca_low):6}V  (range=[{self._params['sca_low'][1][0]}, {self._params['sca_low'][1][1]}])"
+            f"{self._params2txt['sca_low']:15s} = {self.sca_low:6.4f}V  (range=[{self._params['sca_low'][1][0]}, {self._params['sca_low'][1][1]}])"
         )
         info_list.append(
-            f"{self._params2txt['sca_up']:15s} = {str(self.sca_up):6}V  (range=[{self._params['sca_up'][1][0]}, {self._params['sca_up'][1][1]}])"
+            f"{self._params2txt['sca_up']:15s} = {self.sca_up:6.4f}V  (range=[{self._params['sca_up'][1][0]}, {self._params['sca_up'][1][1]}])"
         )
-        info_list.append(f"SCA_window_size = {str(self.sca_window_size):6}V")
+        info_list.append(f"sca_window_size = {self.sca_window_size:6.4f}V")
         info_list.append(
             f"{self._params2txt['gain']:15s} = {str(self.gain):6}%  (range=[{self._params['gain'][1][0]}, {self._params['gain'][1][1]}])"
         )
@@ -364,9 +360,7 @@ class Cyberstar:
     @property
     def sca_low(self):
         log_debug(self, "Cyberstar:sca_low")
-        if not self._use_sca_cache or self._sca_low.value is None:
-            self._sca_low.value = self._get_value("sca_low")
-        return self._sca_low.value
+        return self._get_value("sca_low")
 
     @sca_low.setter
     def sca_low(self, value):
@@ -376,15 +370,12 @@ class Cyberstar:
             raise ValueError(f"Error: sca_low value must be lower than sca_up")
 
         self._set_value("sca_low", value)
-        self._sca_low.value = value
         self._update_sca_window_size()
 
     @property
     def sca_up(self):
         log_debug(self, "Cyberstar:sca_up")
-        if not self._use_sca_cache or self._sca_up.value is None:
-            self._sca_up.value = self._get_value("sca_up")
-        return self._sca_up.value
+        return self._get_value("sca_up")
 
     @sca_up.setter
     def sca_up(self, value):
@@ -394,7 +385,6 @@ class Cyberstar:
             raise ValueError(f"Error: sca_up value must be greater than sca_low")
 
         self._set_value("sca_up", value)
-        self._sca_up.value = value
         self._update_sca_window_size()
 
     @property
@@ -414,17 +404,12 @@ class Cyberstar:
                 f"Error: sca_window_size value must be in range [0, {delta}]"
             )
 
-        self.sca_up = self.sca_low + value
+        sca_up = self.sca_low + value
+        self._set_value("sca_up", sca_up)
         self._sca_window_size = value
 
     def _update_sca_window_size(self):
         self._sca_window_size = self.sca_up - self.sca_low
-
-    def sca_enable_caching(self, enable):
-        self._use_sca_cache = bool(enable)
-
-    def sca_clear_cache(self):
-        clear_cache(self)
 
     # ---- SOFT AXIS METHODS TO MAKE THE CYBERSTAR SCANABLE -----------
     @property
@@ -477,12 +462,7 @@ class Cyberstar:
         self._axis_state = AxisState("MOVING")
 
         self._set_value("sca_low", pos)
-        self._sca_up.value = pos
-
         self._set_value("sca_up", up_target)
-        self._sca_up.value = up_target
-
-        # print(f"low:{self.sca_low}, up:{self.sca_up}, window:{self.sca_window_size}")
 
         gevent.sleep(0.1)
         self._axis_state = AxisState("READY")

@@ -361,7 +361,12 @@ class Motion:
     def user_msg(self):
         start_ = rounder(self.axis.tolerance, self.axis.position)
         if self.type == "jog":
-            return f"Moving {self.axis.name} from {start_} until it is stopped, at constant velocity: {self.target_pos}"
+            msg = (
+                f"Moving {self.axis.name} from {start_} until it is stopped, at constant velocity: {self.target_pos}\n"
+                f"To stop it: {self.axis.name}.stop()"
+            )
+            return msg
+
         else:
             if self.user_target_pos is None:
                 return None
@@ -1448,6 +1453,7 @@ class Axis:
 
             def stop_one(controller, motions):
                 controller.stop_jog(motions[0].axis)
+                lprint(f"Motor {self.name} stopped at posision: {self.position}")
 
             self._group_move = GroupMove()
             self._group_move.move(

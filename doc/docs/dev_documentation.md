@@ -292,7 +292,7 @@ use:
 to produce:
 
 * mkdocs inner links: [Beamviewer Configuration](config_beamviewer.md).
-* mkdocs inner links fir section ref: [code formatting](dev_guidelines.md#code-formatting)
+* mkdocs inner links with section ref: [code formatting](dev_guidelines.md#code-formatting)
 * outer links: [ESRF Gitlab](https://gitlab.esrf.fr/bliss/bliss)
 
 

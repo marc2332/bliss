@@ -47,7 +47,7 @@ mkdocs serve
 And visit http://localhost:8000
 
 
-In order to update the codumentation
+In order to update the documentation
 http://localhost:8000/dev_documentation.html
 Please do the following
 
@@ -64,6 +64,9 @@ http://localhost:8000/dev_documentation.html
 
 What to include in code  / What to put in mkdoc ???
 
+Create a new file, for instance config_mynewcontroller.md
+
+Update the master **../mkdocs.yml** file to insert the new controller documentation with a title and the reference the .md file.
 
 ### Example:
 

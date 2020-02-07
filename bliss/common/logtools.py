@@ -14,7 +14,7 @@ import re
 from fnmatch import fnmatch, fnmatchcase
 import networkx as nx
 from functools import wraps
-from weakref import WeakKeyDictionary
+import weakref
 
 import gevent
 
@@ -29,7 +29,14 @@ def record_factory(*args, **kwargs):
     record = old_factory(*args, **kwargs)
     session = get_current_session()
     record.session = "startup" if session is None else session.name
+    record.greenlet_ref = weakref.ref(gevent.getcurrent())
     return record
+
+
+class NoGreenletSocketHandler(logging.handlers.SocketHandler):
+    def emit(self, record):
+        del record.greenlet_ref
+        super().emit(record)
 
 
 logging.setLogRecordFactory(record_factory)
@@ -276,7 +283,7 @@ class LogbookPrint:
         self.stdout_handler = LogbookStdoutHandler()
         self.stdout_handler.setLevel(logging.INFO)
 
-        self.disabled = WeakKeyDictionary()
+        self.disabled = weakref.WeakKeyDictionary()
 
     def add_stdout_handler(self):
         """adding handler will prints to stdout lprint messages"""
@@ -284,13 +291,12 @@ class LogbookPrint:
 
             def filter_greenlet(record):
                 # filter greenlets
-                nonlocal self
-                current = gevent.getcurrent()
+                current = record.greenlet_ref()
                 while current:
                     # looping parents greenlets
                     # until we find a disabled one
                     # or we arrive at root
-                    if current in self.disabled:
+                    if current in self.disabled.keys():
                         return False
                     current = current.parent
                 return True
@@ -560,7 +566,7 @@ class Log:
             self._beacon_handler
         except AttributeError:
             host, port = address
-            self._beacon_handler = logging.handlers.SocketHandler(host, port)
+            self._beacon_handler = NoGreenletSocketHandler(host, port)
             self._beacon_handler.setLevel(logging.DEBUG)
             logging.getLogger().addHandler(self._beacon_handler)
 

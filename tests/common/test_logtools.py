@@ -18,6 +18,7 @@ from bliss.shell.standard import *
 from bliss.common.mapping import Map, map_id
 from bliss import global_map
 import bliss
+from bliss.common import scans
 
 
 @pytest.fixture
@@ -410,3 +411,11 @@ def test_lprint_greenlet(capsys, log_shell_mode):
 
     captured = capsys.readouterr().out
     assert captured == "showme\n"
+
+
+def test_lprint_disable_scan(default_session, capsys, log_shell_mode):
+    roby = default_session.config.get("roby")
+    diode = default_session.config.get("diode")
+    scans.ascan(roby, 0, 10, 3, .1, diode)
+    captured = capsys.readouterr().out
+    assert captured == ""

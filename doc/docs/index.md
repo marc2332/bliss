@@ -461,71 +461,54 @@ TEST_SESSION [8]: data['diode']
 
 ## Online data display
 
-Online data display relies on **Flint**, a graphical application
-shipped with BLISS and built on top of [silx][9].
+Online data display relies on **Flint**, an application with a graphical user interface
+shipped with BLISS and built on top of [silx][9](ScIentific Library for eXperimentalists).
 
-**Flint** can be started automatically when a new scan begins, by
-configuring `SCAN_DISPLAY`:
+!!! note
+    **Flint** can be started automatically when a new scan begins (the application interface will show up when a scan is launched), by
+    configuring `SCAN_DISPLAY` in the BLISS shell:
 
-`SCAN_DISPLAY.auto = True`
+    `SCAN_DISPLAY.auto = True`
 
-Plots are displayed in the **Live** tab. Depending on the scan acquisition chain,
-3 types of plots can be shown:
+Flint has 4 mayor capabilities :
+
+* Live Scan : plot data as it is created
+* Custom Scan
+* ROI (Region-of-Interest) selection
+* Plot data interaction
+
+Plots are displayed in application main window's **Live** tab. Depending on the scan acquisition chain,
+4 types of plots can be shown:
 
 * 1D plots, showing curves from the scan scalar counters
+* Scatter plots
 * 1D spectra, showing 1D scan counters (like MCA)
 * 2D images, showing 2D data counters (typically, Lima detectors data)
 
-Plots are grouped by the topmost master, i.e. as long as the number of points for a
-master corresponds to its parent, the plots are attached to this master (recursively,
-up to the root master if possible).
-If number of points diverges between 2 masters, then underlying data is represented in
-another set of plot windows.
-So, there is no limit to the number of windows in the **Live** tab, it depends on the
-scan being executed.
+!!! note
+    TBD : This has to be re-written and/or moved elsewhere
+    Plots are grouped by the topmost master, i.e. as long as the number of points for a
+    master corresponds to its parent, the plots are attached to this master (recursively,
+    up to the root master if possible).
+    If number of points diverges between 2 masters, then underlying data is represented in
+    another set of plot windows.
+    So, there is no limit to the number of windows in the **Live** tab, it depends on the
+    scan being executed.
 
 !!! note
     2D images are always represented in their own plot window.
 
 ### Live scan data in Flint
 
-```python
-TEST_SESSION [8]: SCAN_DISPLAY.auto=True
+Flint is capable of blah blah blah
 
-TEST_SESSION [9]: timescan(0.1, lima, diode, diode2, simu1.counters.spectrum_det
-         ...: 0, npoints=10)
-Activated counters not shown: spectrum_det0, image
+[Read more about Live Scan](flint_scan_plotting.md)
 
-Scan 145 Wed Apr 18 11:24:06 2018 /tmp/scans/ test_session user = matias
-timescan 0.1
+### ROI selection
 
-       #         dt(s)        diode2         diode
-       0     0.0219111       12.5556      -9.33333
-       1      0.348005        30.625         0.125
-       2      0.664058       2.88889      -10.2222
-       3      0.973582       7.11111       8.44444
-       4       1.28277       21.7778       36.3333
-       5       1.59305      -15.8889             5
-       6       1.90203       43.4444       19.4444
-       7       2.21207       20.7778       11.6667
-       8       2.52451      -7.88889       24.2222
-       9       2.83371        24.125         7.625
+Flint also can do ...
 
-Took 0:00:03.214453
-
-TEST_SESSION [9]:
-```
-
-Flint screenshot:
-
-![Flint screenshot](img/flint_screenshot.png)
-
-[Read more about Online Data Display](flint_scan_plotting.md)
-
-
-
-
-
+[Read more about ROI selection](flint_roi_counters.md)
 
 ### Interacting with plots
 
@@ -535,7 +518,8 @@ object. The argument to pass to `.get_plot` is a counter -- thus, the
 plot containing this counter data is returned:
 
 ```python
-TEST_SESSION [8]: s = loopscan(5, 0.1, lima, return_scan=True)
+s = loopscan(5, 0.1, lima, return_scan=True)
+
 Activated counters not shown: image
 
 Scan 2 Wed Apr 18 11:36:11 2018 /tmp/scans/test_session/
@@ -551,8 +535,8 @@ timescan 0.1
 
 Took 0:00:01.666654
 
-TEST_SESSION [9]: p = s.get_plot(lima)
-TEST_SESSION [10]: p
+p = s.get_plot(lima)
+p
          Out [10]: ImagePlot(plot_id=2, flint_pid=13678, name=u'')
 ```
 

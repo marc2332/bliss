@@ -6,7 +6,7 @@ nav:
         - Getting started:
                 - BLISS in a nutshell: index.md
                 - BLISS as a library: bliss_as_library.md
-                - Installation: installation.md
+        - Installation: installation.md
         - Configuration:
                 - Beacon:
                       - Introduction: beacon.md

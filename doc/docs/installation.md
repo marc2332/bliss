@@ -2,46 +2,41 @@
 
 ## Installation at ESRF beamlines
 
-At ESRF, it is recommended to follow Beamline Control Unit guidelines for
-software installation. In the case of BLISS, a special [deployment
-procedure](https://gitlab.esrf.fr/bliss/ansible/blob/master/README.md) with
-Ansible tool has been put in place in order to facilitate the work on beamlines.
+At the ESRF, it is recommended to follow the Beamline Control Unit guidelines for software installation. In the case of BLISS, a special [deployment procedure](https://bliss.gitlab-pages.esrf.fr/ansible/index.html) using the Ansible tool has been put in place in order to ease the work on beamlines.
 
 
 ### Updating BLISS installation
 
 To update BLISS on an ESRF installation:
 
-#### release version (bliss)
-To update the "release" version in `bliss` Conda environement, update the conda package:
+* #### release version (bliss)
+For the "release" version in the `bliss` Conda environement, update the conda package:
 
     * `conda update --channel http://bcu-ci.esrf.fr/stable bliss`
     * or `conda install bliss=X.Y.Z`
 
-#### development version (bliss_dev)
+* #### development version (bliss_dev)
+For the development version, i.e in `bliss_dev` Conda environement:
 
-For development, i.e in `bliss_env` Conda environement:
+    * update bliss repository:
+        
+        `cd local/bliss.git/`
+        
+        `git pull`
 
-* update bliss repository:
-    
-    `cd local/bliss.git/`
-    
-    `git pull`
+    * install up-to-date dependencies:
 
-* install up-to-date dependencies:
+        `conda install --file ./requirements-conda.txt`
 
-    `conda install --file ./requirements-conda.txt`
+    * Exit and re-enter into the conda environment to ensure using up-to-date modules.
 
-* Exit and re-enter into the conda environment to ensure using up-to-date modules.
+    * Pip-install BLISS by creating a link in the conda environment directory pointing to the git repository:
 
-* Pip-install BLISS by creating a link in conda environment directory pointing to
-  the git repository:
-
-      `pip install --no-deps -e .`
+        `pip install --no-deps -e .`
 
 !!! note
 
-    Take care to have Conda channels up-to-date. (with `conda info`) and correct if
+    Make sure to keep the Conda channels up-to-date (using `conda info`) and correct, if
     needed:
     
     ```bash
@@ -54,8 +49,7 @@ For development, i.e in `bliss_env` Conda environement:
 
 ### Local code
 
-At ESRF, it has been decided to put all beamline specific code in a dedicated
-git repository.
+At ESRF, we decided to keep all beamline specific code in a dedicated git repository. Ansible will install it at the same time as bliss in the blissadm account under local, being named after the beam line or lab the installation is for (e.g. ```~blissadm/local/ID99.git```).
 
 For more details, see: https://bliss.gitlab-pages.esrf.fr/ansible/local_code.html
 
@@ -64,16 +58,11 @@ For more details, see: https://bliss.gitlab-pages.esrf.fr/ansible/local_code.htm
 
 ## Installation outside ESRF beamlines
 
-### Using a Conda environment
-
+### Using Conda
 The use of [Conda](https://conda.io/docs/) is recommended to install BLISS.
-
-Creating a `bliss_env` Conda environment can be done like this (the
-name of the environment can - of course - be chosen freely):
-
-ESRF BCU conda channels need to be configured, as well as channels
-providing BLISS dependencies
-
+ 
+Creating a `bliss_env` Conda environment can be done like follows (the name of the environment can - of course - be chosen freely):
+ 
 ```bash
 conda create --name bliss_env
 conda activate bliss_env
@@ -82,20 +71,16 @@ conda config --env --append channels conda-forge
 conda config --env --append channels tango-controls
 ```
 
-
-#### install "release" version from BLISS Conda package
-
-To install Conda BLISS package ("release" version):
-
+#### Installing the "release" version of the BLISS Conda package
+To install the Conda "release" version BLISS package :
+ 
 ```bash
 conda install --channel http://bcu-ci.esrf.fr/stable bliss
 ```
 
 
-#### install development version from sources
-
-Git repository is the reference point to install latest development version of
-BLISS.
+#### Installing the development version with the sources
+The Git repository is the reference point to install the latest development version of BLISS.
 
 ```bash
 git clone https://gitlab.esrf.fr/bliss/bliss
@@ -105,11 +90,9 @@ pip install --no-deps -e .
 ```
 
 
-
 ### Without Conda environment
 
-The first step is to clone the [BLISS git
-repository](https://gitlab.esrf.fr/bliss/bliss) to get the BLISS
+The first step is to clone the [BLISS git repository](https://gitlab.esrf.fr/bliss/bliss) to get the BLISS
 project source code:
 
 ```bash
@@ -118,11 +101,9 @@ cd bliss/
 
 ```
 
-The line above creates a `bliss` directory in current directory, containing the
-whole project source files.
+The line above creates a `bliss` directory in current directory, containing all the project source files.
 
-BLISS has many dependencies. Most notably it requires additional, non-Python
-dependencies like the [redis server](https://redis.io) for example.
+BLISS has many dependencies. Most notably it requires additional, non-Python dependencies like the [redis server](https://redis.io).
 
 BLISS provides a Python setuptools script. Finalize the installation using `pip`:
 
@@ -149,7 +130,7 @@ BLISS is distributed with a set of _test\_sessions_ which can be used to work wi
 _simulated_ beamline the following steps have to be taken:
 
 1) Install BLISS in a [conda environment](installation.md#installation-outside-esrf) or activate
-an existing conda env. in which BLISS is installed.
+an existing conda environment, in which BLISS is installed.
 
 2) Install additional dependencies for the test environment
     
@@ -163,12 +144,11 @@ an existing conda env. in which BLISS is installed.
 
         TANGO_HOST=localhost:20000 LimaCCDs simulator
 
-Then, on Bliss shell, you can get access to this device with
+Then, in the Bliss shell, you can get access to this device with
 
 ```
-TEST_SESSION[3]: limaDev = config.get("lima_simulator")
+BLISS[1]: limaDev = config.get("lima_simulator")
 ```
-
         
 5) start a BLISS test_session 
 

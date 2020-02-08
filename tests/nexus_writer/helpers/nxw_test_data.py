@@ -5,6 +5,7 @@
 # Copyright (c) 2015-2019 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
+import os
 import re
 import numpy
 from nexus_writer_service.utils import scan_utils
@@ -24,7 +25,7 @@ def assert_scan_data(scan, **kwargs):
     :param bliss.scanning.scan.Scan scan:
     :param kwargs: see `validate_scan_data`
     """
-    # scan_utils.open_data(scan, subscan=subscan, config=config, block=True)
+    # scan_utils.open_data(scan, subscan=subscan, block=True)
     validate_scan_data(scan, **kwargs)
 
 
@@ -33,7 +34,7 @@ def assert_scangroup_data(sequence, **kwargs):
     :param bliss.scanning.group.Sequence sequence:
     :param kwargs: see `validate_scangroup_data`
     """
-    # scan_utils.open_data(sequence.scan, subscan=subscan, config=config, block=True)
+    # scan_utils.open_data(sequence.scan, subscan=subscan, block=True)
     validate_scangroup_data(sequence, **kwargs)
 
 
@@ -46,7 +47,7 @@ def validate_scan_data(
     master_name="timer",
     scan_shape=None,
     config=True,
-    withpolicy=True,
+    policy=True,
     alt=False,
 ):
     """
@@ -59,7 +60,7 @@ def validate_scan_data(
     :param str master_name: chain master name
     :param tuple scan_shape: fast axis first 0D scan by default
     :param bool config: configurable writer
-    :param bool withpolicy: data policy
+    :param bool policy: data policy
     :param bool alt: alternative writer options
     """
     # Parse arguments
@@ -81,7 +82,7 @@ def validate_scan_data(
             else:
                 masters = ("elapsed_time",)
     assert len(scan_shape) == len(masters)
-    if withpolicy:
+    if policy:
         det_technique = nxw_test_config.technique["withpolicy"]
     else:
         det_technique = nxw_test_config.technique["withoutpolicy"]
@@ -100,12 +101,12 @@ def validate_scan_data(
     # Validate NXentry links
     validate_master_links(scan, config=config)
     # Validate NXentry content
-    uri = scan_utils.scan_uri(scan, subscan=subscan, config=config)
+    uri = scan_utils.scan_uri(scan, subscan=subscan)
     with nexus.uriContext(uri) as nxentry:
         validate_nxentry(
             nxentry,
             config=config,
-            withpolicy=withpolicy,
+            policy=policy,
             technique=scan_technique,
             detectors=detectors,
             notes=notes,
@@ -126,7 +127,7 @@ def validate_scan_data(
             scan_shape=scan_shape,
             config=config,
             masters=masters,
-            withpolicy=withpolicy,
+            policy=policy,
             technique=det_technique,
             save_options=save_options,
             detectors=detectors,
@@ -136,7 +137,7 @@ def validate_scan_data(
             validate_plots(
                 nxentry,
                 config=config,
-                withpolicy=withpolicy,
+                policy=policy,
                 technique=scan_technique,
                 detectors=detectors,
                 scan_shape=scan_shape,
@@ -147,7 +148,7 @@ def validate_scan_data(
             nxentry,
             technique=scan_technique,
             config=config,
-            withpolicy=withpolicy,
+            policy=policy,
             save_options=save_options,
             detectors=detectors,
         )
@@ -162,9 +163,9 @@ def validate_scangroup_data(sequence, config=True, **kwargs):
     # Validate NXentry links
     validate_master_links(sequence.scan, config=config)
     # Validate scan links (currently disabled)
-    # validate_scangroup_links(sequence, config=config)
+    # validate_scangroup_links(sequence)
     # Validate NXentry content
-    uri = scan_utils.scan_uri(sequence.scan, config=config)
+    uri = scan_utils.scan_uri(sequence.scan)
     with nexus.uriContext(uri) as nxentry:
         # TODO: validate scan group NXentry (custom channels)
         pass
@@ -177,26 +178,29 @@ def validate_master_links(scan, subscan=1, config=True):
     :param bliss.scanning.scan.Scan scan:
     :param bool config: configurable writer
     """
-    uri = scan_utils.scan_uri(scan, subscan=subscan, config=config)
+    uri = scan_utils.scan_uri(scan, subscan=subscan)
     uri = nexus.normUri(uri)
-    for filename in scan_utils.scan_filenames(scan, config=config):
-        with nexus.File(filename) as nxroot:
-            for key in nxroot:
-                if uri == nexus.normUri(nexus.getUri(nxroot[key])):
-                    break
-            else:
-                assert False, uri
+    if config:
+        for filename in scan_utils.scan_filenames(scan, config=config).values():
+            with nexus.File(filename) as nxroot:
+                for key in nxroot:
+                    if uri == nexus.normUri(nexus.getUri(nxroot[key])):
+                        break
+                else:
+                    assert False, uri
+    else:
+        for filename in scan_utils.scan_master_filenames(scan, config=True).values():
+            assert not os.path.exists(filename), filename
 
 
-def validate_scangroup_links(sequence, config=True):
+def validate_scangroup_links(sequence):
     """
     :param bliss.scanning.scan.Scan sequence:
-    :param bool config: configurable writer
     """
     expected = []
     for scan in sequence._scans:
-        expected += scan_utils.scan_uris(scan, config=config)
-    uri = scan_utils.scan_uri(sequence.scan, config=config)
+        expected += scan_utils.scan_uris(scan)
+    uri = scan_utils.scan_uri(sequence.scan)
     actual = []
     with nexus.uriContext(uri) as nxentry:
         root = nxentry["dependencies"]
@@ -208,7 +212,7 @@ def validate_scangroup_links(sequence, config=True):
 def validate_nxentry(
     nxentry,
     config=True,
-    withpolicy=True,
+    policy=True,
     technique=None,
     detectors=None,
     notes=None,
@@ -217,7 +221,7 @@ def validate_nxentry(
     """
     :param h5py.Group nxentry:
     :param bool config: configurable writer
-    :param bool withpolicy: data policy
+    :param bool policy: data policy
     :param str technique:
     :param list(str) detectors:
     :param bool variable_length: e.g. timescan
@@ -232,12 +236,12 @@ def validate_nxentry(
                 actual.remove(name)
     else:
         plots = expected_plots(
-            technique, config=config, withpolicy=withpolicy, detectors=detectors
+            technique, config=config, policy=policy, detectors=detectors
         )
         for name, info in plots.items():
             if info["signals"]:
                 expected |= {name, "plotselect"}
-    expected |= expected_applications(technique, config=config, withpolicy=withpolicy)
+    expected |= expected_applications(technique, config=config, policy=policy)
     if notes:
         expected.add("notes")
     assert_set_equal(actual, expected)
@@ -316,7 +320,7 @@ def validate_instrument(
     scan_shape=None,
     config=True,
     masters=None,
-    withpolicy=True,
+    policy=True,
     technique=None,
     save_options=None,
     detectors=None,
@@ -327,7 +331,7 @@ def validate_instrument(
     :param tuple scan_shape: fast axis first
     :param bool config: configurable writer
     :param tuple masters:
-    :param bool withpolicy: data policy
+    :param bool policy: data policy
     :param str technique:
     :param dict save_options:
     :param list(str) detectors:
@@ -394,7 +398,7 @@ def validate_instrument(
 def validate_plots(
     nxentry,
     config=True,
-    withpolicy=True,
+    policy=True,
     technique=None,
     detectors=None,
     scan_shape=None,
@@ -404,16 +408,14 @@ def validate_plots(
     """
     :param h5py.Group nxentry:
     :param bool config: configurable writer
-    :param bool withpolicy: data policy
+    :param bool policy: data policy
     :param str technique:
     :param list(str) detectors:
     :param tuple scan_shape: fast axis first
     :param tuple masters: fast axis first
     :param dict save_options:
     """
-    plots = expected_plots(
-        technique, config=config, withpolicy=withpolicy, detectors=detectors
-    )
+    plots = expected_plots(technique, config=config, policy=policy, detectors=detectors)
     for name, info in plots.items():
         if info["signals"]:
             validate_nxdata(
@@ -430,12 +432,7 @@ def validate_plots(
 
 
 def validate_applications(
-    nxentry,
-    technique=None,
-    config=True,
-    withpolicy=True,
-    save_options=None,
-    detectors=None,
+    nxentry, technique=None, config=True, policy=True, save_options=None, detectors=None
 ):
     """
     All application definitions for this technique (see nexus_definitions.yml)
@@ -443,11 +440,11 @@ def validate_applications(
     :param h5py.Group nxentry:
     :param str technique:
     :param bool config: configurable writer
-    :param bool withpolicy: data policy
+    :param bool policy: data policy
     :param dict save_options:
     :param list detectors:
     """
-    names = expected_applications(technique, config=config, withpolicy=withpolicy)
+    names = expected_applications(technique, config=config, policy=policy)
     for name in names:
         nxsubentry = nxentry[name]
         if name == "xrf":
@@ -572,13 +569,13 @@ def validate_notes(nxentry, notes):
         assert subgroup["type"][()] == "text/plain"
 
 
-def expected_plots(technique, config=True, withpolicy=True, detectors=None):
+def expected_plots(technique, config=True, policy=True, detectors=None):
     """
     All expected plots for this technique (see nexus_definitions.yml)
 
     :param str technique:
     :param bool config: configurable writer
-    :param bool withpolicy: data policy
+    :param bool policy: data policy
     :param list(str) detectors:
     :returns dict: grouped by detector dimension and flat/grid
     """
@@ -698,13 +695,13 @@ def expected_plots(technique, config=True, withpolicy=True, detectors=None):
     return plots
 
 
-def expected_applications(technique, config=True, withpolicy=True):
+def expected_applications(technique, config=True, policy=True):
     """
     All expected application definitions for this technique (see nexus_definitions.yml)
 
     :param str technique:
     :param bool config: configurable writer
-    :param bool withpolicy: data policy
+    :param bool policy: data policy
     :returns set:
     """
     apps = set()
@@ -1090,7 +1087,7 @@ def validate_detector_data_npoints(scan, subscan=1, npoints=None):
     :param int subscan:
     :param int npoints:
     """
-    uri = scan_utils.scan_uri(scan, subscan=subscan, config=True)
+    uri = scan_utils.scan_uri(scan, subscan=subscan)
     with nexus.uriContext(uri) as nxentry:
         instrument = nxentry["instrument"]
         for name in instrument:

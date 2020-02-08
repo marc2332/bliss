@@ -1,13 +1,6 @@
 - class: Session
-  name: nexus_writer_config
-  setup-file: ./nexus_writer_config_setup.py
-  include-sessions:
-  - nexus_writer_base
-  config-objects: []
-
-- class: Session
-  name: nexus_writer_base
-  setup-file: ./nexus_writer_base_setup.py
+  name: nexus_writer_session
+  setup-file: ./nexus_writer_session_setup.py
   config-objects:
   - m1
   - roby

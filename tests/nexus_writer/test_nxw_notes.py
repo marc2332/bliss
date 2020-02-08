@@ -21,5 +21,5 @@ def _test_nxw_notes(session=None, tmpdir=None, writer=None, **kwargs):
     for note in notes:
         scan.add_comment(note)
     nxw_test_utils.run_scan(scan)
-    nxw_test_utils.wait_scan_data_finished([scan], writer=writer, **kwargs)
+    nxw_test_utils.wait_scan_data_finished([scan], writer=writer)
     nxw_test_data.assert_scan_data(scan, notes=notes, **kwargs)

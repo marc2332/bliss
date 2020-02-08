@@ -31,24 +31,25 @@ def test_inhouse_scan_saving(session, esrf_data_policy):
     scan_saving_config = esrf_data_policy
     assert scan_saving.beamline == scan_saving_config["beamline"]
     assert scan_saving.proposal == f"{scan_saving.beamline}{time.strftime('%y%m')}"
-    assert scan_saving.data_root == scan_saving_config["inhouse_data_root"].replace(
-        "{beamline}", scan_saving.beamline
+    assert scan_saving.base_path == scan_saving_config["inhouse_data_root"].format(
+        beamline=scan_saving.beamline
     )
-    assert scan_saving.sample == "default"
+    assert scan_saving.sample == "sample"
     assert scan_saving.dataset == "0001"
-    scan_saving.template = "toto"
+    with pytest.raises(AttributeError):
+        scan_saving.template = "toto"
     assert scan_saving.get_path() == os.path.join(
-        scan_saving.data_root,
+        scan_saving.base_path,
         scan_saving.proposal,
         scan_saving.beamline,
         scan_saving.sample,
         f"{scan_saving.sample}_{scan_saving.dataset}",
-        "toto",
     )
     scan_saving.sample = ""
-    assert scan_saving.sample == "default"
+    assert scan_saving.sample == "sample"
     scan_saving.dataset = "dataset"
-    scan_saving.template = ""
+    with pytest.raises(AttributeError):
+        scan_saving.template = ""
     assert scan_saving.get_path().endswith("dataset")
 
 
@@ -56,7 +57,7 @@ def test_visitor_scan_saving(session, esrf_data_policy):
     scan_saving = session.scan_saving
     scan_saving_config = esrf_data_policy
     scan_saving.proposal = "mx415"
-    assert scan_saving.data_root == scan_saving_config["visitor_data_root"]
+    assert scan_saving.base_path == scan_saving_config["visitor_data_root"]
 
 
 def test_auto_dataset_increment(session, esrf_data_policy):
@@ -95,7 +96,7 @@ def test_newproposal(
     newproposal("mx415")  # should reset sample and dataset
 
     assert session.scan_saving.proposal == "mx415"
-    assert session.scan_saving.sample == "default"
+    assert session.scan_saving.sample == "sample"
     assert session.scan_saving.dataset == "0001"
 
     session.scan_saving.get()
@@ -128,6 +129,9 @@ def test_data_policy_user_functions(session, esrf_data_policy):
     newsample = session.env_dict["newsample"]
     newdataset = session.env_dict["newdataset"]
 
+    assert scan_saving.proposal == f"{scan_saving.beamline}{time.strftime('%y%m')}"
+    assert scan_saving.sample == "sample"
+    assert scan_saving.dataset == "0001"
     newproposal("toto")
     assert scan_saving.proposal == "toto"
     assert scan_saving.sample == "sample"
@@ -142,5 +146,5 @@ def test_data_policy_user_functions(session, esrf_data_policy):
     assert scan_saving.dataset == "tutu"
     newproposal()
     assert scan_saving.proposal == f"{scan_saving.beamline}{time.strftime('%y%m')}"
-    assert scan_saving.sample == "default"
+    assert scan_saving.sample == "sample"
     assert scan_saving.dataset == "0001"

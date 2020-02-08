@@ -10,7 +10,7 @@ import os
 import pytest
 import nxw_test_utils
 from bliss.common import scans
-from nexus_writer_service.utils.scan_utils import scan_filenames, scan_uri
+from nexus_writer_service.utils.scan_utils import scan_filename, scan_uri
 from nexus_writer_service.io.io_utils import mkdir
 from nexus_writer_service.io import nexus
 
@@ -20,7 +20,7 @@ def test_nxw_permissions(nexus_writer_config):
 
 
 def test_nxw_permissions_alt(nexus_writer_config_alt):
-    _test_nxw_permissions(**nexus_writer_config_alt, alt=True)
+    _test_nxw_permissions(**nexus_writer_config_alt)
 
 
 @nxw_test_utils.writer_stdout_on_exception
@@ -71,7 +71,7 @@ def _test_tango(session=None, tmpdir=None, writer=None, **kwargs):
 
     # File already exists with wrong permission
     scan = scans.ct(0.1, detector, save=True)
-    filename = scan_filenames(scan)[0]
+    filename = scan_filename(scan)
     if disable_permissions(filename):
         with pytest.raises(RuntimeError):
             scans.ct(0.1, detector, save=True)
@@ -79,7 +79,7 @@ def _test_tango(session=None, tmpdir=None, writer=None, **kwargs):
         # We should have permissions (scan should run)
         enable_permissions(filename)
         scan = scans.ct(0.1, detector, save=True)
-    nxw_test_utils.wait_scan_data_finished([scan], writer=writer, **kwargs)
+    nxw_test_utils.wait_scan_data_finished([scan], writer=writer)
 
 
 def _test_process(session=None, tmpdir=None, writer=None, **kwargs):
@@ -87,7 +87,7 @@ def _test_process(session=None, tmpdir=None, writer=None, **kwargs):
 
     # File already exists with wrong permission
     scan = scans.ct(0.1, detector, save=True)
-    filename = scan_filenames(scan)[0]
+    filename = scan_filename(scan)
     if disable_permissions(filename):
         scan = scans.ct(0.1, detector, save=True)
         uri = scan_uri(scan)
@@ -96,4 +96,4 @@ def _test_process(session=None, tmpdir=None, writer=None, **kwargs):
         # We should have permissions (scan should run)
         enable_permissions(filename)
         scan = scans.ct(0.1, detector, save=True)
-    nxw_test_utils.wait_scan_data_finished([scan], writer=writer, **kwargs)
+    nxw_test_utils.wait_scan_data_finished([scan], writer=writer)

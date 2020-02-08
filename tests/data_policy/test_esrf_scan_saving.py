@@ -148,3 +148,27 @@ def test_data_policy_user_functions(session, esrf_data_policy):
     assert scan_saving.proposal == f"{scan_saving.beamline}{time.strftime('%y%m')}"
     assert scan_saving.sample == "sample"
     assert scan_saving.dataset == "0001"
+
+
+def test_data_policy_name_validation(session, esrf_data_policy):
+    scan_saving = session.scan_saving
+
+    for name in ("with,", "with:", "with;"):
+        with pytest.raises(ValueError):
+            scan_saving.proposal = name
+        with pytest.raises(ValueError):
+            scan_saving.sample = name
+        with pytest.raises(ValueError):
+            scan_saving.dataset = name
+
+    for name in (" HG- 64", "HG__64", "hg_64", "  H -- G   -- 6_4  "):
+        scan_saving.proposal = name
+        assert scan_saving.proposal == "hg64"
+
+    for name in (" sample Name", "sample  Name", "  sample -- Name "):
+        scan_saving.sample = name
+        assert scan_saving.sample == "sample_Name"
+
+    for name in (" dataset Name", "dataset  Name", "  dataset -- Name "):
+        scan_saving.dataset = name
+        assert scan_saving.dataset == "dataset_Name"

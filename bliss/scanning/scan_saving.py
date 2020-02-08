@@ -836,7 +836,7 @@ class ESRFScanSaving(BasicScanSaving):
             # Alphanumeric, space, dash and underscore
             if not re.match(r"^[0-9a-zA-Z_\s\-]+$", value):
                 raise ValueError("Sample name is invalid")
-            value = re.sub(r"\s\-", "_", value)
+            value = re.sub(r"[_\s\-]+", "_", value.strip())
         self._sample = value
 
     @property_with_eval_dict
@@ -900,7 +900,7 @@ class ESRFScanSaving(BasicScanSaving):
                     # Alphanumeric, space, dash and underscore
                     if not re.match(r"^[0-9a-zA-Z_\s\-]+$", prefix):
                         raise ValueError("Dataset name is invalid")
-                    prefix = re.sub(r"\s\-", "_", prefix)
+                    prefix = re.sub(r"[_\s\-]+", "_", prefix.strip())
             else:
                 start = int(prefix)
                 prefix = ""

@@ -227,6 +227,7 @@ def main():
                 "Wago = bliss.tango.servers.wago_ds:main",
                 "NexusWriterService = nexus_writer_service.nexus_writer_service:main",
                 "NexusSessionWriter = nexus_writer_service.subscribers.session_writer:main",
+                "RegisterNexusWriter = nexus_writer_service.nexus_register_writer:main",
             ]
         },
         install_requires=install_requires,

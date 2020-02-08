@@ -731,7 +731,17 @@ class ESRFScanSaving(BasicScanSaving):
         :returns list:
         """
         info_table = super().get_data_info(eval_dict=eval_dict)
-        info_table.append(("Metadata", self.icat_state, self.icat_status))
+        try:
+            icat_state = self.icat_state
+            icat_status = self.icat_status
+        except DevFailed:
+            if not os.environ.get("TANGO_HOST"):
+                icat_state = "no TANGO_HOST defined"
+                icat_status = ""
+            else:
+                icat_state = "unknown"
+                icat_status = ""
+        info_table.append(("Metadata", icat_state, icat_status))
         return info_table
 
     @property

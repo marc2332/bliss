@@ -143,6 +143,15 @@ class Writer(FileWriter):
         self._scan_name = ""
         metadata.register_all_metadata_generators()
 
+    def create_path(self, full_path):
+        """The root directory is owned by the Nexus writer.
+        All other directories are owned by Bliss.
+        """
+        relpath = os.path.relpath(full_path, self.root_path)
+        if relpath.replace(".", "").replace(os.path.sep, ""):
+            super().create_path(full_path)
+        else:
+            self.writer_proxy.makedirs(full_path)
     @property
     def filename(self):
         return os.path.join(self.root_path, self.data_filename + ".h5")
@@ -152,11 +161,8 @@ class Writer(FileWriter):
         self._check_scan_time = time()
         self._fault = False
         self._scan_name = scan.node.name
-        # The `SCAN_SAVING.get_path()` directory is owned by
-        # the writer user. Subdirectories are created with
-        # `self.create_path` so owned by the BLISS user.
-        self.writer_proxy.makedirs(self.root_path)
         self.session_writer_on()
+        self.create_path(self.root_path)
         self.scan_exists()
         self.scan_permitted()
         super().prepare(scan)

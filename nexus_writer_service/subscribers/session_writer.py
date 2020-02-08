@@ -104,21 +104,44 @@ class NexusSessionWriter(base_subscriber.BaseSubscriber):
         :param Logger parentlogger:
         :param saveoptions:
         """
+        self.configurable = configurable
+        self.writers = {}
+        self.writer_saveoptions = saveoptions
+        self.purge_delay = purge_delay
+        self.minimal_purge_delay = 5
+        self._log_task_period = 5
+        self._fds = {}
         if parentlogger is None:
             parentlogger = logger
         super().__init__(
             db_name, resource_profiling=resource_profiling, parentlogger=parentlogger
         )
-        self._log_task_period = 5
-        self.saveoptions = saveoptions
-        if configurable:
-            self._scan_writer_class = scan_writer_config.NexusScanWriterConfigurable
+
+    def update_saveoptions(self, **kwargs):
+        if "configurable" in kwargs:
+            self.configurable = kwargs.pop("configurable")
+        self.writer_saveoptions.update(kwargs)
+
+    @property
+    def saveoptions(self):
+        d = dict(self.writer_saveoptions)
+        d["configurable"] = self.configurable
+        return d
+
+    @property
+    def resource_profiling(self):
+        return self.writer_saveoptions["resource_profiling"]
+
+    @resource_profiling.setter
+    def resource_profiling(self, value):
+        self.writer_saveoptions["resource_profiling"] = value
+
+    @property
+    def _scan_writer_class(self):
+        if self.configurable:
+            return scan_writer_config.NexusScanWriterConfigurable
         else:
-            self._scan_writer_class = scan_writer_base.NexusScanWriterBase
-        self.writers = {}
-        self.minimal_purge_delay = 5
-        self.purge_delay = purge_delay
-        self._fds = {}
+            return scan_writer_base.NexusScanWriterBase
 
     @property
     def progress_string(self):
@@ -159,7 +182,9 @@ class NexusSessionWriter(base_subscriber.BaseSubscriber):
         Executed at the start of the event loop
         """
         super()._event_loop_initialize(**kwargs)
-        self.logger.info("Writer started with options {}".format(self.saveoptions))
+        self.logger.info(
+            "Session writer started with options {}".format(self.saveoptions)
+        )
         self._fds = {}
 
     def _event_loop_finalize(self, **kwargs):
@@ -225,8 +250,7 @@ class NexusSessionWriter(base_subscriber.BaseSubscriber):
             node.db_name,
             node_type=node.node_type,
             parentlogger=self.logger,
-            resource_profiling=self.resource_profiling,
-            **self.saveoptions,
+            **self.writer_saveoptions,
         )
         writer.start()
         self.writers[node.name] = writer

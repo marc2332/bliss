@@ -15,8 +15,10 @@ Bliss session configuration utilities
 
 import os
 import re
+from functools import wraps
 from bliss import current_session
 from bliss.config import static
+from bliss.scanning.scan_saving import ScanSaving, with_eval_dict
 
 
 def static_config():
@@ -74,15 +76,24 @@ def static_root_find(name, default=None, parent=None):
     return {}
 
 
-def current_scan_saving():
+def with_scan_saving(func):
+    """Pass the current session's SCAN_SAVING instance as a named argument
+
+    :param callable func:
+    :returns callable:
     """
-    Get session's SCAN_SAVING object
 
-    :returns bliss.scanning.scan.ScanSaving:
-    """
-    return current_session.scan_saving
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        scan_saving = kwargs.get("scan_saving")
+        if scan_saving is None:
+            kwargs["scan_saving"] = ScanSaving(current_session.name)
+        return func(*args, **kwargs)
+
+    return wrapper
 
 
+@with_scan_saving
 def scan_saving_get(attr, default=None, scan_saving=None):
     """
     Get attribute from the session's scan saving object
@@ -92,34 +103,21 @@ def scan_saving_get(attr, default=None, scan_saving=None):
     :param bliss.scanning.scan.ScanSaving scan_saving:
     :returns str:
     """
-    if scan_saving is None:
-        scan_saving = current_scan_saving()
     return getattr(scan_saving, attr, default)
 
 
-def scan_saving_attrs(template=None, scan_saving=None, **overwrite):
+@with_eval_dict
+@with_scan_saving
+def scan_saving_eval(template, scan_saving=None, eval_dict=None):
     """
-    SCAN_SAVING attributes from template
+    Evaluate template with SCAN_SAVING attributes and properties.
 
-    :param str template: SCAN_SAVING.template when missing
+    :param str template:
     :param bliss.scanning.scan.ScanSaving scan_saving:
-    :param overwrite: overwrite attribute values
+    :param dict eval_dict:
     :returns str:
     """
-    if scan_saving is None:
-        scan_saving = current_scan_saving()
-    if template is None:
-        template = scan_saving.template
-    params = {}
-    for attr in re.findall(r"\{(.*?)\}", template):
-        if attr in overwrite:
-            params[attr] = overwrite[attr]
-        else:
-            try:
-                params[attr] = getattr(scan_saving, attr)
-            except AttributeError:
-                pass
-    return params
+    return scan_saving.eval_template(template, eval_dict=eval_dict)
 
 
 def beamline():
@@ -129,7 +127,9 @@ def beamline():
     name = "id00"
     for k in "BEAMLINENAME", "BEAMLINE":
         name = os.environ.get(k, name)
-    name = static_root().get("beamline", name)
+    name = static_root_get("beamline", name)
+    scan_saving = static_root_get("scan_saving", {})
+    name = scan_saving.get("beamline", name)
     return name.lower()
 
 

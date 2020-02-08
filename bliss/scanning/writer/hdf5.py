@@ -18,6 +18,8 @@ import functools
 
 
 class Writer(FileWriter):
+    FILE_EXTENSION = "h5"
+
     def __init__(self, root_path, images_root_path, data_filename, **keys):
         FileWriter.__init__(
             self,
@@ -31,10 +33,6 @@ class Writer(FileWriter):
 
         self.file = None
         self.last_point_index = {}
-
-    @property
-    def filename(self):
-        return os.path.join(self.root_path, self.data_filename + ".h5")
 
     def new_file(self, scan_name, scan_info):
         self.close()

@@ -126,6 +126,8 @@ def mark_fault_on_exception(method):
 
 
 class Writer(FileWriter):
+    FILE_EXTENSION = "h5"
+
     def __init__(self, root_path, images_root_path, data_filename, *args, **keys):
         FileWriter.__init__(
             self,
@@ -152,9 +154,6 @@ class Writer(FileWriter):
             super().create_path(full_path)
         else:
             self.writer_proxy.makedirs(full_path)
-    @property
-    def filename(self):
-        return os.path.join(self.root_path, self.data_filename + ".h5")
 
     def prepare(self, scan):
         # Called at start of scan

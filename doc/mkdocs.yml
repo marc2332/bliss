@@ -111,8 +111,6 @@ nav:
                 - Measurement groups: config_mg.md
                 - Default scans: scan_default.md
                 - Alignment: scan_alignment.md
-                - Data saving: scan_saving.md
-                - Metadata: scan_metadata.md
                 - Counters on the fly: scan_ctmg.md
                 - BLISS scan engine explained:
                     - Overview: scan_engine.md
@@ -136,9 +134,6 @@ nav:
                 - Interaction with plots: flint_interaction.md
                 - For scan designers: flint_scan_info.md
                 - Debugging: flint_debugging.md
-        - Data publishing:
-                - Data structure & access: data_structure.md
-                - "External saving": data_external_saving.md
         - Developers corner:
                 - 'API documentation ⚙|api/index.html': api.md
                 - Guidelines: dev_guidelines.md
@@ -160,6 +155,12 @@ nav:
                 - Xia handle: config_mca_handel.md
                 - Speedgoat: config_speedgoat.md
                 - timedisplay: timedisplay.md
+                - Data:
+                    - Architecture: data_architecture.md
+                    - Publishing: data_publishing.md
+                    - Subscribing: data_subscribing.md
+                    - Nexus writer: data_nexus_server.md
+                    - Metadata: data_metadata_dev.md
 theme:
         name: material
         language: en

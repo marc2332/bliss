@@ -46,6 +46,8 @@ nav:
                       - Energy and Wavelength: config_enwl.md
                       - White beam Attenuator: config_wba.md
                       - 2D detectors (Lima): config_lima.md
+                      - SCA:
+                            - Cyberstar: config_cyberstar.md
                       - MCA:
                             - General: config_mca.md
                             - Rontec: config_mca_rontec.md

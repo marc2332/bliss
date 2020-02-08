@@ -144,7 +144,7 @@ def test_external_hdf5_writer(
 
     # check that external writer has at least started to procces all scans
     for i in range(0, 20):
-        if len(h5py.File(external_writer_file).keys()) < 6:
+        if len(h5py.File(external_writer_file, mode="r").keys()) < 6:
             print("##### external writer not done yet")
             gevent.sleep(1)
 

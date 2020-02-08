@@ -38,7 +38,7 @@ class Writer(FileWriter):
 
     def new_file(self, scan_name, scan_info):
         self.close()
-        self.file = h5py.File(self.filename)
+        self.file = h5py.File(self.filename, mode="a")
 
     def new_scan(self, scan_name, scan_info):
         scan_entry = self.file.create_group(scan_name)

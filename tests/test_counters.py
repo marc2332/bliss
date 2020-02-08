@@ -276,7 +276,7 @@ def test_SampCnt_mode_SAMPLES(session, scan_tmpdir):
         in s.scan_info["acquisition_chain"]["axis"]["spectra"]
     )
 
-    f = h5py.File(s.writer.filename)
+    f = h5py.File(s.writer.filename, mode="a")
     samples_h5 = numpy.array(f["1_ascan/measurement/Timed_Diode:test-samp_samples"])
 
     assert samples_h5.shape[0] == 9

@@ -272,7 +272,7 @@ def metadatamanager(env=None, tmpdir=None, name="test"):
 
 
 @contextmanager
-def nexuswriterservice(env=None, tmpdir=None, instance="test"):
+def nexuswriterservice(env=None, tmpdir=None, instance="testwriters"):
     """
     Start session writer tango device
     """
@@ -286,7 +286,7 @@ def nexuswriterservice(env=None, tmpdir=None, instance="test"):
         "--nologstdout",
         "--logfile={}".format(logfile),
     ]
-    sessions = ["nexus_writer_config", "nexus_writer_base", "test_session"]
+    sessions = ["nexus_writer_session", "test_session"]
     with runcontext(cliargs, tmpdir=tmpdir, prefix="nexuswriter_" + instance, env=env):
         for session_name in sessions:
             device_name = "id00/bliss_nxwriter/" + session_name
@@ -301,7 +301,7 @@ def nexuswriterprocesses(env=None, tmpdir=None):
     """
     level = logger.getEffectiveLevel()
     level = log_levels.log_level_name[level]
-    sessions = ["nexus_writer_config", "nexus_writer_base", "test_session"]
+    sessions = ["nexus_writer_session", "test_session"]
     with ExitStack() as stack:
         for session in sessions:
             cliargs = ["NexusSessionWriter", session, "--log=" + level]
@@ -321,20 +321,20 @@ def print_env_info(tmpdir, prefix, writer=True):
     if not writer:
         print("\nRun Nexus writer as a python process:")
         print(
-            " {} NexusSessionWriter nexus_writer_config --log=info --logfile={}/NexusSessionWriter.log".format(
+            " {} NexusSessionWriter nexus_writer_session --log=info --logfile={}/NexusSessionWriter.log".format(
                 prefix, tmpdir
             )
         )
         print("\nRun Nexus writer as a TANGO server:")
         print(
-            " {} NexusWriterService test --log=info --logfile={}/NexusWriterService.log".format(
+            " {} NexusWriterService testwriters --log=info --logfile={}/NexusWriterService.log".format(
                 prefix, tmpdir
             )
         )
     print("\nRun Nexus writer stress tests:")
     print(" {} python scripts/testnexus.py --type many".format(prefix))
     print("\nStart CLI to BLISS session:")
-    print(" {} bliss -s nexus_writer_config --no-tmux".format(prefix))
+    print(" {} bliss -s nexus_writer_session --no-tmux".format(prefix))
     print("\nOutput logs:")
     print(" " + tmpdir)
     wait_interrupt("\nCTRL-C to stop the servers")
@@ -368,7 +368,7 @@ if __name__ == "__main__":
                         with lima(env=env, tmpdir=tmpdir, name="simulator2"):
                             if args.writer == "TANGO":
                                 ctx = nexuswriterservice(
-                                    env=env, tmpdir=tmpdir, instance="test"
+                                    env=env, tmpdir=tmpdir, instance="testwriters"
                                 )
                             elif args.writer == "PROCESS":
                                 ctx = nexuswriterprocesses(env=env, tmpdir=tmpdir)

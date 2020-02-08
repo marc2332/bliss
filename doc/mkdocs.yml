@@ -132,12 +132,10 @@ nav:
                 - Data policy: data_policy.md
                 - Data format: data_nexus_format.md
                 - Metadata: data_metadata.md
-        - Online data display:
-                - Editing Lima ROI counters: flint_roi_counters.md
-                - Scans plotting: flint_scan_plotting.md
-                - Interaction with plots: flint_interaction.md
-                - For scan designers: flint_scan_info.md
-                - Debugging: flint_debugging.md
+                - Online visualization:
+                    - Plotting: flint_scan_plotting.md
+                    - Interaction: flint_interaction.md
+                    - Debugging: flint_debugging.md
                 - Offline visualization:
                     - Warning: data_vis_warning.md
                     - Silx: data_vis_silx.md
@@ -172,8 +170,12 @@ nav:
                         - Basic: data_policy_dev_basic.md
                         - Custom: data_policy_dev_custom.md
                     - Nexus writer: data_nexus_server.md
+                    - Flint:
+                        - Editing Lima ROI counters: flint_roi_counters.md
+                        - For scan designers: flint_scan_info.md
                     - ICAT: data_policy_servers.md
                     - Metadata: data_metadata_dev.md
+
 theme:
         name: material
         language: en

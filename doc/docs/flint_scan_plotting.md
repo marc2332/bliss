@@ -1,15 +1,11 @@
 
 # Flint Scan Plotting
 
-
-Bliss plotting is done through a silx-based application called **flint**.
+Bliss plotting is done through a [silx](data_vis_silx.md)-based application called **flint**.
 
 This Qt application is started automatically when a new plot is created.
 
-
-Flint is listening Redis database to known is there is something to display.
-The type is display (*curve*, *scatter plot* or *image* etc.) is determined
-using the shape of the data.
+Flint is listening to [Redis](data_architecture) and automatically plots the data of the current scan. The plot type (*curve*, *scatter plot* or *image* etc.) is determined from the dimensions of the data.
 
 ## Plot types
 

@@ -6,7 +6,7 @@ default:
     - /opt/conda/bin/conda init && source /root/.bashrc
     - conda config --append channels conda-forge
     - conda config --add channels defaults
-    - conda config --add channels http://bcu-ci.esrf.fr/stable
+    - conda config --add channels esrf-bcu
     - conda config --add channels tango-controls
 
 stages:

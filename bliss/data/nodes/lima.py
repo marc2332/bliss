@@ -327,8 +327,21 @@ class LimaImageChannelDataNode(DataNode):
                 file_nb = first_file_number + image_nb // nb_image_per_file
                 file_path = path_format % file_nb
                 if file_format.lower().startswith("hdf5"):
+                    if ref_data.get("lima_version", "<1.9.1") == "<1.9.1":
+                        # 'old' lima
+                        path_in_file = (
+                            "entry_0000/instrument/"
+                            + ref_data["user_detector_name"]
+                            + "/data/array"
+                        )
+                    else:
+                        # 'new' lima
+                        path_in_file = (
+                            f"entry_0000/{ref_data['user_instrument_name']}"
+                            + f"/{ref_data['user_detector_name']}/data"
+                        )
                     returned_params.append(
-                        (file_path, "entry0000", image_index_in_file, file_format)
+                        (file_path, path_in_file, image_index_in_file, file_format)
                     )
                 else:
                     returned_params.append(

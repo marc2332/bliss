@@ -658,6 +658,15 @@ class BasicScanSaving(EvalParametersWardrobe):
         module = importlib.import_module(module_name)
         return getattr(module, "Writer")
 
+    def newproposal(self, proposal_name):
+        raise NotImplementedError("No data policy enabled")
+
+    def newsample(self, sample_name):
+        raise NotImplementedError("No data policy enabled")
+
+    def newdataset(self, dataset_name):
+        raise NotImplementedError("No data policy enabled")
+
 
 class ESRFScanSaving(BasicScanSaving):
     """Parameterized representation of the scan data file path
@@ -697,10 +706,20 @@ class ESRFScanSaving(BasicScanSaving):
         "images_path_relative",
     ]
     REDIS_SETTING_PREFIX = "esrf_scan_saving"
+    SLOTS = ["_tango_metadata_manager", "_tango_metadata_experiment"]
+    ICAT_STATUS = {
+        "OFF": "No experiment ongoing",
+        "STANDBY": "Experiment started, sample or dataset not specified",
+        "ON": "No dataset running",
+        "RUNNING": "Dataset is running",
+        "FAULT": "Device is not functioning correctly",
+    }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
+        self._tango_metadata_manager = None
+        self._tango_metadata_experiment = None
 
     @property
     def data_policy(self):
@@ -892,3 +911,162 @@ class ESRFScanSaving(BasicScanSaving):
             yield template % i
             gevent.sleep()
 
+    @with_eval_dict
+    def get(self, eval_dict=None):
+        """Synchronizes the saving parameters with ICAT which may involve
+        changing the ICAT dataset. This method is NOT always idempotent.
+        """
+        saving_dict = super().get(eval_dict=eval_dict)
+        self.icat_sync(eval_dict=eval_dict)
+        return saving_dict
+
+    @property
+    def metadata_manager(self):
+        """Manages the dataset (data and metadata ingestion).
+        Different techniques with different metadata will be served
+        by different metadata managers.
+        """
+        if self._tango_metadata_manager is None:
+            self._tango_metadata_manager = DeviceProxy(
+                self.scan_saving_config["metadata_manager_tango_device"]
+            )
+        return self._tango_metadata_manager
+
+    @property
+    def icat_state(self):
+        return str(self.metadata_manager.state())
+
+    @property
+    def icat_status(self):
+        return self.ICAT_STATUS[self.icat_state]
+
+    @property
+    def metadata_experiment(self):
+        """Manages the sample and proposal (for all techniques).
+        """
+        if self._tango_metadata_experiment is None:
+            self._tango_metadata_experiment = DeviceProxy(
+                self.scan_saving_config["metadata_experiment_tango_device"]
+            )
+        return self._tango_metadata_experiment
+
+    @with_eval_dict
+    def icat_sync(self, eval_dict=None):
+        """Synchronize scan saving parameters with ICAT (push).
+        When a dataset with different parameters is already running,
+        is is stopped (meaning its data and metadata are ingested by ICAT).
+
+        When no exception is raised, the possible ICAT states after
+        synchronization are ON or FAULT.
+
+        This method is NOT always idempotent.
+
+        :raises RuntimeError: ICAT state exception
+        :raises DevFailed: communication or server-side exception
+        """
+        root_path = self.get_cached_property("root_path", eval_dict)
+        beamline = self.get_cached_property("beamline", eval_dict)
+        response = self.metadata_experiment.get_property("beamlineID")
+        if beamline != response.get("beamlineID", [""])[0]:
+            self.metadata_experiment.put_property({"beamlineID": [beamline]})
+
+        proposal = self.get_cached_property("proposal", eval_dict)
+        if proposal != self.metadata_experiment.proposal:
+            self._icat_ensure_notrunning()
+            self.metadata_experiment.proposal = proposal
+            self.metadata_experiment.dataRoot = root_path
+            # Sample and dataset names are cleared by the server
+            self._icat_wait_until_state(
+                ["STANDBY"], "Failed to start the ICAT proposal"
+            )
+        else:
+            self._icat_wait_until_state(["STANDBY", "RUNNING"], "ICAT state")
+
+        sample = self.sample
+        if sample != self.metadata_experiment.sample:
+            self._icat_ensure_notrunning()
+            self.metadata_experiment.sample = sample
+            # Dataset name is cleared by the server
+
+        dataset = self.get_cached_property("dataset", eval_dict)
+        if dataset != self.metadata_manager.datasetName:
+            self._icat_ensure_notrunning()
+            self.metadata_manager.datasetName = dataset
+        self._icat_ensure_running()
+
+    def _icat_ensure_notrunning(self, timeout=3):
+        """Make sure the ICAT dataset is not running. Does not wait for the server to finish.
+        When stopping a running dataset, data and metadata is ingested by the ICAT servers.
+
+        :param num timeout:
+        :raises RuntimeError: cannot stop the ICAT dataset
+        :raises DevFailed: communication or server-side exception
+        """
+        if self.icat_state == "RUNNING":
+            self.metadata_manager.endDataset()
+            # Dataset name is reset by the server
+        self._icat_wait_until_not_state(["RUNNING"], "Failed to stop the ICAT dataset")
+
+    def _icat_ensure_running(self, timeout=3):
+        """Make sure the ICAT dataset is running.
+
+        :param num timeout:
+        :raises RuntimeError: cannot start the ICAT dataset
+        :raises DevFailed: communication or server-side exception
+        """
+        if self.icat_state != "RUNNING":
+            self._icat_wait_until_state(["ON"], "Cannot start the ICAT dataset")
+            self.metadata_manager.startDataset()
+            self._icat_wait_until_state(["RUNNING"], "Failed to start the ICAT dataset")
+
+    def _icat_wait_until_state(self, states, timeoutmsg="", timeout=3):
+        """
+        :param list(str) states:
+        :param num timeout:
+        :raises RuntimeError: timeout
+        """
+        try:
+            with gevent.Timeout(timeout):
+                while self.icat_state not in states:
+                    gevent.sleep(0.1)
+        except gevent.Timeout:
+            if timeoutmsg:
+                timeoutmsg += " ({})".format(self.icat_status)
+            else:
+                timeoutmsg = repr(self.icat_status)
+            raise RuntimeError(timeoutmsg)
+
+    def _icat_wait_until_not_state(self, states, timeoutmsg="", timeout=3):
+        """
+        :param list(str) states:
+        :param num timeout:
+        :raises RuntimeError: timeout
+        """
+        try:
+            with gevent.Timeout(timeout):
+                while self.icat_state in states:
+                    gevent.sleep(0.1)
+        except gevent.Timeout:
+            if timeoutmsg:
+                timeoutmsg += " because " + repr(self.icat_status)
+            else:
+                timeoutmsg = repr(self.icat_status)
+            raise RuntimeError(timeoutmsg)
+
+    def newproposal(self, proposal_name):
+        # beware: self.proposal getter and setter do different actions
+        self.proposal = "" if not proposal_name else proposal_name
+        self.sample = ""
+        self.dataset = ""
+        lprint(f"Proposal set to '{self.proposal}'\nData path: {self.get_path()}")
+
+    def newsample(self, sample_name):
+        # beware: self.sample getter and setter do different actions
+        self.sample = "" if not sample_name else sample_name
+        self.dataset = ""
+        lprint(f"Sample set to '{self.sample}`\nData path: {self.root_path}")
+
+    def newdataset(self, dataset_name):
+        # beware: self.dataset getter and setter do different actions
+        self.dataset = "" if not dataset_name else dataset_name
+        lprint(f"Dataset set to '{self.dataset}`\nData path: {self.root_path}")

@@ -181,8 +181,6 @@ class NexusWriter(Device):
     # Attributes
     # ----------
 
-    state_reason = attribute(dtype="DevString")
-
     resource_profiling = attribute(dtype="DevBoolean", access=AttrWriteType.READ_WRITE)
 
     scan_states = attribute(dtype=("DevState",), max_dim_x=10000)
@@ -243,12 +241,6 @@ class NexusWriter(Device):
     # ------------------
     # Attributes methods
     # ------------------
-
-    def read_state_reason(self):
-        # PROTECTED REGION ID(NexusWriter.state_reason_read) ENABLED START #
-        """Return the state_reason attribute."""
-        return self.session_writer.state_reason
-        # PROTECTED REGION END #    //  NexusWriter.state_reason_read
 
     def read_resource_profiling(self):
         # PROTECTED REGION ID(NexusWriter.resource_profiling_read) ENABLED START #
@@ -366,7 +358,7 @@ class NexusWriter(Device):
         :return:'ConstDevString'
         Device status
         """
-        return self.dev_state().name
+        return self.session_writer.state_reason
         # PROTECTED REGION END #    //  NexusWriter.Status
 
     @command(dtype_in="DevString", doc_in="scan", dtype_out="DevState")

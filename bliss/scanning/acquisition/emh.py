@@ -56,6 +56,7 @@ print(data['CALC2'])
 """
 
 
+import time
 import gevent
 import numpy as np
 
@@ -90,10 +91,15 @@ class EmhAcquisitionSlave(AcquisitionSlave):
         self.trigger = acq_params["trigger"]
         # print("TRIGGER %s" % self.trigger)
 
-        int_time = acq_params["count_time"] - 0.4
-        if int_time < 0.320:
-            int_time = 0.320
-        self.int_time = int_time
+        # int_time in millisec
+        # print("=== COUNT TIME: ", acq_params["count_time"])
+        # int_time = int(acq_params["count_time"]*1000) #- 0.4
+        # int_time = max(1, int_time)
+        # if int_time < 0.320:
+        #    int_time = 0.320
+        # self.int_time = int_time
+        self.int_time = 1.0
+        # print("=== SET INT TIME: ", self.int_time)
 
         self.__stop_flag = False
 
@@ -136,7 +142,10 @@ class EmhAcquisitionSlave(AcquisitionSlave):
         self.device.set_acq_trig(self.npoints)
         gevent.sleep(0.1)
         # print("=====  acq_trig (nb_points)  %d" % self.device.get_acq_trig())
-        gevent.sleep(0.1)
+        # gevent.sleep(0.1)
+
+        # print("=== ACQ TRIG: ",self.device.get_acq_trig())
+        # print("=== ACQ TIME (ms): ",self.device.get_acq_time())
 
         self.device.start_acq()
         gevent.sleep(0.1)
@@ -166,7 +175,7 @@ class EmhAcquisitionSlave(AcquisitionSlave):
         (timestamps, currents) = self.device.get_acq_data(
                     point_last_read, (point_acquired - 1) - point_last_read
                 )
-                
+
         data_send = np.zeros((7, len(currents[0]) + 1))
         for ch in range(7):
             data_send[ch][0] = currents[ch][0]
@@ -174,17 +183,34 @@ class EmhAcquisitionSlave(AcquisitionSlave):
         data_send = np.transpose(data_send)
 
         self.channels.update_from_array(data_send)
-        
-        
+
+
+
         """
+        t0 = time.time()
+        delta_max = 100
+
+        monitor_time_to_read = []
         while (not self.__stop_flag) and (point_acquired < self.npoints):
             point_acquired = self.device.get_acq_counts()
             # print("\nEMH %s acquired %d     read %d      total  %d"%(self.device.name, point_acquired, point_last_read, self.npoints))
-            if ((point_acquired - 1) > point_last_read) and (point_acquired > 1):
+
+            delta = (point_acquired - 1) - point_last_read
+            # print("\nEMH %s acquired %d     read %d      total  %d  delta %d"%(self.device.name, point_acquired, point_last_read, self.npoints, delta))
+
+            # if ((point_acquired - 1) > point_last_read) and (point_acquired > 1):
+
+            if (delta > delta_max) and (point_acquired > 1):
+
+                now = time.time()
+                monitor_time_to_read.append(now - t0)
+                t0 = time.time()
 
                 (timestamps, currents) = self.device.get_acq_data(
                     point_last_read, (point_acquired - 1) - point_last_read
                 )
+
+                # print("==== TIME TO READ DATA:", now-t0)
 
                 if point_last_read == 0:
                     data_send = np.zeros((7, len(currents[0]) + 1))
@@ -200,8 +226,10 @@ class EmhAcquisitionSlave(AcquisitionSlave):
 
                 gevent.sleep(100e-6)  # be able to ABORT the musst card
                 # gevent.sleep(0.1)
+
             else:
-                gevent.sleep(10e-3)  # relax a little bit.
+                # gevent.sleep(10e-3)  # relax a little bit.
+                gevent.sleep(2 * delta_max * self.int_time / 1000.)
 
         point_acquired = self.device.get_acq_counts()
         # gevent.sleep(0.3)
@@ -215,3 +243,5 @@ class EmhAcquisitionSlave(AcquisitionSlave):
             # gevent.sleep(0.3)
             # print("EMH acquired %d     read %d"%(point_acquired, point_last_read))
         # print("\n FINAL EMH %s acquired %d     read %d      total  %d"%(self.device.name, point_acquired, point_last_read, self.npoints))
+
+        # print(f"DELTA={delta_max}, mean={np.mean(monitor_time_to_read)}, max={np.max(monitor_time_to_read)}, min={np.min(monitor_time_to_read)}")

@@ -20,7 +20,7 @@ numpy >= 1.13
 pandas
 parso >=0.5.1
 pint
-prompt_toolkit >= 2.0
+prompt_toolkit == 2.0.10
 psutil
 ptpython >= 2.0
 pyfiglet

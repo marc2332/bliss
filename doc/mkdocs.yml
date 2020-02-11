@@ -138,7 +138,7 @@ nav:
                 - Data structure & access: data_structure.md
                 - "External saving": data_external_saving.md
         - Developers corner:
-                - 'API documentation': api/index.html
+                - 'API documentation ⚙|api/index.html': api.md
                 - Guidelines: dev_guidelines.md
                 - Writing documentation: dev_documentation.md
                 - Communication API: dev_comm.md

@@ -208,7 +208,9 @@ Mainly for tests and debugging purpose.
 #### Not declared in config
 Example to use in BLISS shell.
 
-```yaml
+```python
+from bliss.comm.util import get_comm, TCP
+
 conf = {"tcp": {"url": "trucmuch.esrf.fr"}}
 opt = {"port":5025}
 kom = get_comm(conf, ctype=TCP, **opt)

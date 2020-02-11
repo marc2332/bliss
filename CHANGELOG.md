@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Provide layout menu to allow to setup predefined layouts
   - Provide menu to lock/unlock the layout (by default the layout is locked)
   - Provide workspace to be able to store plot, widget, layout in different environment
+- APC Rack Power Distribution Unit: implemented controller for basic relay functionalities
 
 ### Changed
 

@@ -124,11 +124,13 @@ class Counter:
     def __info__(self, counter_type=None):
         info_str = f"'{self.name}` counter info:\n"
         info_str += f"  counter type = {counter_type} \n" if counter_type else ""
+        if counter_type == "sampling":
+            info_str += f"  sampling mode = {self.mode.name} \n" if self.mode else ""
         info_str += f"  fullname = {self.fullname} \n"
         info_str += f"  unit = {self.unit} \n"
-        info_str += f"  shape = {self.shape} \n"
-        info_str += f"  dtype = {self.dtype} \n"
-        info_str += f"  conversion_function = {self.conversion_function} \n"
+        # info_str += f"  shape = {self.shape} \n"
+        # info_str += f"  dtype = {self.dtype} \n"
+        # info_str += f"  conversion_function = {self.conversion_function} \n"
 
         return info_str
 

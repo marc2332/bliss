@@ -101,10 +101,5 @@ class Encoder:
     def __info__(self):
         info_str = "ENCODER:\n"
         info_str += f"     tolerance (to check pos at end of move): {self.tolerance}\n"
-        info_str += f"     encoder value: {self.controller.read_encoder(self)}\n"
-        # only 1 read to ensure coherency.
-        _dial_meas_pos = self.read()
-        # _user_meas_pos = ???axis.dial2user(_dial_meas_pos)
-        info_str += f"     dial_measured_position: {_dial_meas_pos:10.5f}\n"
-        # info_str += f"     user_measured_position: {_user_meas_pos:10.5f} \n"
+        info_str += f"     dial_measured_position: {self.read():10.5f}\n"
         return info_str

@@ -910,62 +910,81 @@ class Axis:
         Return common axis information about the axis.
         PLUS controller specific information.
         """
-        _info_string = ""
-        _info_string += f"axis name (R): {self.name}\n"
-        _info_string += f"     state (R): {self.state}\n"
-        _info_string += f"     unit (R): {self.unit}\n"
-        _info_string += f"     offset (R): {self.offset}\n"
-        _info_string += f"     backlash (R): {self.backlash}\n"
-        _info_string += f"     sign (R): {self.sign}\n"
-        _info_string += f"     steps_per_unit (R): {self.steps_per_unit}\n"
-        _info_string += (
-            f"     tolerance (R) (to check pos. before a move): {self.tolerance}\n"
-        )
-        _info_string += f"     motion_hooks (R): {self.motion_hooks}\n"
-        _info_string += f"     dial (RW): {self.dial:.5f}\n"
-        _info_string += f"     position (RW): {self.position:.5f}\n"
-        _info_string += f"     _hw_position (R): {self._hw_position:.5f}\n"
-        _info_string += f"     hw_state (R): {self.hw_state}\n"
+        info_string = "AXIS:\n"
 
-        _info_string += (
-            f"     limits (RW):      {self.limits}  (config: {self.config_limits})\n"
-        )
+        try:
+            # Config parameters.
+            info_string += f"     name (R): {self.name}\n"
+            info_string += f"     unit (R): {self.unit}\n"
+            info_string += f"     offset (R): {self.offset:.5f}\n"
+            info_string += f"     backlash (R): {self.backlash:.5f}\n"
+            info_string += f"     sign (R): {self.sign}\n"
+            info_string += f"     steps_per_unit (R): {self.steps_per_unit:.2f}\n"
+            info_string += (
+                f"     tolerance (R) (to check pos. before a move): {self.tolerance}\n"
+            )
+        except:
+            info_string += "ERROR: unable to get info (config problem?)\n"
 
-        # To avoid error if no acceleration.
+        try:
+            # These parameters access to the device.
+            _low_cfg_limit, _high_cfg_limit = self.config_limits
+            _lim = f"Low: {self.low_limit:.5f} High: {self.high_limit:.5f}"
+            _cfg_lim = f"(config Low: {_low_cfg_limit:.5f} High: {_high_cfg_limit:.5f})"
+            info_string += f"     limits (RW):    {_lim}    {_cfg_lim}\n"
+            info_string += f"     dial (RW): {self.dial:.5f}\n"
+            info_string += f"     position (RW): {self.position:.5f}\n"
+        except:
+            info_string += "ERROR: unable to get info (communication problem?)\n"
+
+        try:
+            info_string += f"     state (R): {self.state}\n"
+        except:
+            info_string += f"     ERROR: unable to get state (communication problem?)\n"
+
+        # ACCELERATION
         try:
             _acc = self.acceleration
             _acc_config = self.config_acceleration
             _acc_time = self.acctime
             _acc_time_config = self.config_acctime
-            _info_string += (
+            info_string += (
                 f"     acceleration (RW): {_acc:10.5f}  (config: {_acc_config:10.5f})\n"
             )
-            _info_string += f"     acctime (RW):      {_acc_time:10.5f}  (config: {_acc_time_config:10.5f})\n"
+            info_string += f"     acctime (RW):      {_acc_time:10.5f}  (config: {_acc_time_config:10.5f})\n"
         except Exception as e:
-            _info_string += f"     acceleration: None\n"
+            info_string += f"     acceleration: None\n"
 
-        # To avoid error if no velocity.
+        # VELOCITY
         try:
             _vel = self.velocity
             _vel_config = self.config_velocity
-            _info_string += (
+            info_string += (
                 f"     velocity (RW):     {_vel:10.5f}  (config: {_vel_config:10.5f})\n"
             )
         except Exception as e:
-            _info_string += f"     velocity: None\n"
+            info_string += f"     velocity: None\n"
 
+        # CONTROLLER
         try:
-            # use of get_info() rather than __info__() to be able to pass axis as param.
-            _info_string += self.__controller.get_info(self)
-        except Exception as e:
-            _info_string += f"{self.controller}\n"
+            info_string += self.__controller.__info__()
+        except:
+            info_string += f"ERROR: Unable to get info from controller\n"
 
+        # SPECIFIC AXIS INFO
         try:
-            _info_string += self.encoder.__info__()
+            # usage of get_axis_info() to pass axis as param.
+            info_string += self.__controller.get_axis_info(self)
         except Exception as e:
-            _info_string += f"     encoder: None\n"
+            info_string += f"{self.controller}\n"
 
-        return _info_string
+        # ENCODER
+        try:
+            info_string += self.encoder.__info__()
+        except Exception as e:
+            info_string += f"     encoder: None\n"
+
+        return info_string
 
     def sync_hard(self):
         """Forces an axis synchronization with the hardware"""

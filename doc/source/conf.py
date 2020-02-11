@@ -329,3 +329,16 @@ rst_epilog = """\
 rst_prolog = """\
 
 """
+
+
+def maybe_skip_member(app, what, name, obj, skip, options):
+    """skip parsing of objects that have a method
+    `__sphinx_skip__`
+    """
+    if hasattr(obj, "__sphinx_skip__"):
+        return True
+    return skip or False
+
+
+def setup(app):
+    app.connect("autodoc-skip-member", maybe_skip_member)

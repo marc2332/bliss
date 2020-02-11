@@ -13,7 +13,7 @@ import nxw_test_utils
 from bliss.common import scans
 from bliss.common.tango import DevFailed
 from louie import dispatcher
-from nexus_writer_service.utils.scan_utils import session_filenames
+from nexus_writer_service.utils.scan_utils import session_filename
 
 
 def test_nxw_crash(nexus_writer_config):
@@ -28,8 +28,8 @@ def _test_nxw_crash(session=None, **kwargs):
         _test_process(session=session, **kwargs)
 
 
-def _test_tango(session=None, tmpdir=None, writer=None, config=True, **kwargs):
-    filename = session_filenames(scan_saving=session.scan_saving, config=config)[0]
+def _test_tango(session=None, tmpdir=None, writer=None, **kwargs):
+    filename = session_filename(scan_saving=session.scan_saving)
     detector = session.env_dict["diode3"]
     _crash_scan_writer_greenlet(filename, detector)
     _crash_scan_writer_process(filename, detector, writer)

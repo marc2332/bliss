@@ -37,7 +37,7 @@ def _test_nxw_parallel(session=None, tmpdir=None, writer=None, **kwargs):
     ]
     greenlets = [nxw_test_utils.run_scan(scan, runasync=True) for scan in lst]
     nxw_test_utils.assert_async_scans_success(lst, greenlets)
-    nxw_test_utils.wait_scan_data_finished(lst, writer=writer, **kwargs)
+    nxw_test_utils.wait_scan_data_finished(lst, writer=writer)
     for npoints, (scan, detector) in enumerate(zip(lst, detectors), 10):
         nxw_test_data.assert_scan_data(
             scan, scan_shape=(npoints,), detectors=[detector], **kwargs

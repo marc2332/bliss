@@ -40,6 +40,8 @@ class _EventReceiver(object):
 
 
 class FileWriter(object):
+    FILE_EXTENSION = None
+
     def __init__(
         self,
         root_path,
@@ -66,15 +68,24 @@ class FileWriter(object):
 
     @property
     def root_path(self):
+        """File directory
+        """
         return self._root_path_template.format(**self._template_dict)
 
     @property
     def data_filename(self):
+        """File name without extension
+        """
         return self._data_filename_template.format(**self._template_dict)
 
     @property
     def filename(self):
-        raise NotImplementedError
+        """Full file path
+        """
+        return os.path.join(
+            self.root_path,
+            os.path.extsep.join((self.data_filename, self.FILE_EXTENSION)),
+        )
 
     def create_path(self, full_path):
         try:

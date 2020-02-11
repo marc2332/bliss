@@ -16,7 +16,7 @@ from . import data_policy
 from .logging_utils import print_out
 
 
-__all__ = ["open_data", "open_dataset"]
+__all__ = ["open_data", "open_dataset", "open_sample", "open_proposal"]
 
 
 def scan_info(scan):
@@ -25,11 +25,24 @@ def scan_info(scan):
     :returns dict:
     """
     try:
-        # bliss.scanning.scan.Scan -> dict
+        # bliss.scanning.scan.Scan
         return scan.scan_info
     except AttributeError:
-        # bliss.data.nodes.scan.Scan -> dict
+        # bliss.data.nodes.scan.Scan
         return scan.info.get_all()
+
+
+def scan_node(scan):
+    """
+    :param bliss.scanning.scan.Scan or bliss.data.nodes.scan.Scan scan:
+    :returns bliss.data.nodes.scan.Scan:
+    """
+    try:
+        # bliss.scanning.scan.Scan
+        return scan.node
+    except AttributeError:
+        # bliss.data.nodes.scan.Scan
+        return scan
 
 
 def is_scan_group(scan):
@@ -49,166 +62,148 @@ def scan_name(scan, subscan=1):
     :returns str:
     """
     info = scan_info(scan)
-    return "{}.{}".format(info["scan_nb"], subscan)
+    if info["data_writer"] == "nexus":
+        return "{}.{}".format(info["scan_nb"], subscan)
+    else:
+        name = scan_node(scan).name
+        if subscan == 1:
+            return name
+        else:
+            scan_number, scan_name = name.split("_", maxsplit=1)
+            return f"{scan_number}{'.%d_' % subscan-1}{scan_name}"
+
+
+def scan_filename(scan):
+    """
+    Name of the file that contains the scan data
+
+    :param bliss.scanning.scan.Scan or bliss.data.nodes.scan.Scan scan:
+    :returns str or None:
+    """
+    return scan_info(scan).get("filename", None)
+
+
+@config_utils.with_scan_saving
+def session_filename(scan_saving=None):
+    """
+    Name of the file that contains the scan data of the current BLISS session
+
+    :param bliss.scanning.scan.ScanSaving scan_saving:
+    :returns str or None:
+    """
+    return config_utils.scan_saving_get(
+        "filename", default=None, scan_saving=scan_saving
+    )
+
+
+def scan_master_filenames(scan, config=True):
+    """
+    Names of the files that contain links to the scan data
+
+    :param bliss.scanning.scan.Scan or bliss.data.nodes.scan.Scan scan:
+    :param bool config: configurable writer is used
+    :returns dict(str):
+    """
+    if not config:
+        return {}
+    info = scan_info(scan)
+    return info.get("nexuswriter", {}).get("masterfiles", {})
+
+
+@config_utils.with_scan_saving
+def session_master_filenames(scan_saving=None, config=True):
+    """
+    Names of the files that contain links to the scan data of the current BLISS session
+
+    :param bliss.scanning.scan.ScanSaving scan_saving:
+    :param bool config: configurable writer is used
+    :returns dict(str):
+    """
+    if scan_saving.data_policy != "ESRF" or not config or scan_saving.writer != "nexus":
+        return {}
+    eval_dict = {}
+    root_path = scan_saving.get_cached_property("root_path", eval_dict=eval_dict)
+    relative_templates = data_policy.masterfile_templates()
+    return {
+        name: scan_saving.eval_template(
+            os.path.abspath(os.path.join(root_path, s)), eval_dict=eval_dict
+        )
+        for name, s in relative_templates.items()
+    }
 
 
 def scan_filenames(scan, config=True):
     """
-    Get filenames associated to a scan.
+    Names of the files that contain the scan data (raw or as links)
 
     :param bliss.scanning.scan.Scan or bliss.data.nodes.scan.Scan scan:
-    :returns list(str):
+    :pram bool config: writer parses the extra "nexuswriter" info
+    :returns dict(str):
     """
+    filenames = {}
     info = scan_info(scan)
+    filename = info.get("filename", None)
+    if filename:
+        filenames["dataset"] = filename
     if config:
-        try:
-            return list(info["nexuswriter"]["filenames"])
-        except KeyError:
-            pass
-    return [filename_int2ext(info["filename"])]
+        filenames.update(info.get("nexuswriter", {}).get("masterfiles", {}))
+    return filenames
 
 
+@config_utils.with_scan_saving
 def session_filenames(scan_saving=None, config=True):
     """
-    HDF5 file names to be saved by the external writer.
+    Names of the files that contain links to the scan data (raw or as links) of the current BLISS session
+
+    :param bliss.scanning.scan.ScanSaving scan_saving:
+    :pram bool config: writer parses the extra "nexuswriter" info
+    :returns list(str):
     """
+    filenames = {}
+    filename = session_filename(scan_saving=scan_saving)
+    if filename:
+        filenames["dataset"] = filename
     if config:
-        return current_filenames(scan_saving=scan_saving)
-    else:
-        return [current_default_filename(scan_saving=scan_saving)]
+        filenames.update(
+            session_master_filenames(scan_saving=scan_saving, config=config)
+        )
+    return filenames
 
 
-def scan_uri(scan, subscan=1, config=True):
+def scan_uri(scan, subscan=1):
     """
     Get HDF5 uri associated to a scan.
 
     :param bliss.scanning.scan.Scan or bliss.data.nodes.scan.Scan scan:
     :param int subscan:
-    :param bool config: expect configurable writer
-    :returns str:
+    :returns str or None:
     """
-    filename = scan_filenames(scan, config=config)[0]
+    filename = scan_filename(scan)
     if filename:
         return filename + "::/" + scan_name(scan, subscan=subscan)
     else:
-        return ""
+        return filename
 
 
-def scan_uris(scan, config=True):
+def scan_uris(scan, subscan=None):
     """
-    Get HDF5 uri associated to a scan.
+    Get all scan data uri's, one for each subscan.
 
     :param list(bliss.scanning.scan.Scan or bliss.data.nodes.scan.Scan) scan:
-    :param bool config: expect configurable writer
+    :param int subscan: all subscans by default
     :returns list(str):
     """
-    try:
-        tree = scan.acq_chain._tree
-    except AttributeError:
-        nsubscans = len(scan_info(scan)["acquisition_chain"])
+    if subscan is None:
+        try:
+            tree = scan.acq_chain._tree
+        except AttributeError:
+            nsubscans = len(scan_info(scan)["acquisition_chain"])
+        else:
+            nsubscans = len(tree.children(tree.root))
+        subscans = range(1, nsubscans + 1)
     else:
-        nsubscans = len(tree.children(tree.root))
-    subscans = range(1, nsubscans + 1)
-    return [scan_uri(scan, subscan=subscan, config=config) for subscan in subscans]
-
-
-def current_internal_filename(scan_saving=None):
-    """
-    Filename for the internal writer.
-
-    :returns str:
-    """
-    basename = config_utils.scan_saving_get(
-        "data_filename", "", scan_saving=scan_saving
-    )
-    if not basename:
-        return basename
-    attrs = config_utils.scan_saving_attrs(template=basename, scan_saving=scan_saving)
-    try:
-        return basename.format(**attrs) + ".h5"
-    except KeyError as e:
-        raise RuntimeError("Missing '{}' attribute in SCAN_SAVING".format(e))
-
-
-def filename_int2ext(filename=None, **overwrite):
-    """
-    Filename for the external writer, based on the filename for the internal writer.
-
-    :param str filename:
-    :param overwrite: overwrite template values
-    :returns str:
-    """
-    if filename:
-        return os.path.splitext(filename)[0] + "_external.h5"
-    else:
-        return "data_external.h5"
-
-
-def current_directory(scan_saving=None, **overwrite):
-    """
-    Get path from the session's SCAN_SAVING object
-
-    :param overwrite: overwrite template values
-    :returns str:
-    :raises RuntimeError: missing information
-    """
-    if scan_saving is None:
-        scan_saving = config_utils.current_scan_saving()
-    attrs = config_utils.scan_saving_attrs(
-        template=scan_saving.template, scan_saving=scan_saving, **overwrite
-    )
-    try:
-        return os.path.normpath(
-            os.path.join(scan_saving.base_path, scan_saving.template.format(**attrs))
-        )
-    except KeyError as e:
-        raise RuntimeError("Missing '{}' attribute in SCAN_SAVING".format(e))
-
-
-def current_default_filename(scan_saving=None, **overwrite):
-    """
-    HDF5 file names to be saved by the external writer
-    based on the filename of the internal writer.
-
-    :param overwrite: overwrite template values
-    :returns str:
-    """
-    filename = current_internal_filename(scan_saving=scan_saving, **overwrite)
-    base_path = current_directory(scan_saving=scan_saving, **overwrite)
-    return filename_int2ext(os.path.join(base_path, filename))
-
-
-def current_filenames(scan_saving=None, **overwrite):
-    """
-    HDF5 file names to be saved by the external writer.
-    The first is to write scan data and the other are
-    masters to link scan entries.
-
-    :param overwrite: overwrite template values
-    :param bliss.scanning.scan.ScanSaving scan_saving:
-    :returns list(str):
-    """
-    filenames = []
-    name_templates = data_policy.filename_templates()
-    base_path = current_directory(**overwrite)
-    for name_template in name_templates:
-        if name_template:
-            attrs = config_utils.scan_saving_attrs(
-                template=name_template, scan_saving=scan_saving, **overwrite
-            )
-            try:
-                filename = name_template.format(**attrs)
-            except KeyError:
-                pass
-            else:
-                filename = os.path.join(base_path, filename)
-                filenames.append(os.path.normpath(filename))
-    if not filenames:
-        filenames = [""]
-    if not filenames[0]:
-        # Data policy was not initialized
-        filenames[0] = current_default_filename(scan_saving=scan_saving, **overwrite)
-    return filenames
+        subscans = [subscan]
+    return list(filter(None, [scan_uri(scan, subscan=subscan) for subscan in subscans]))
 
 
 def open_uris(uris, block=False):
@@ -227,23 +222,53 @@ def open_uris(uris, block=False):
         p.wait()
 
 
-def open_data(scan, block=False, subscan=1, config=True):
+def open_data(scan, subscan=None, block=False):
     """
     Open scan data in silx
 
-    :param bool block: block thread until silx is closed
     :param int subscan:
-    :param bool config: expect configurable writer
+    :param bool block: block thread until silx is closed
     """
-    open_uris([scan_uri(scan, subscan=subscan, config=config)], block=block)
+    uris = scan_uris(scan, subscan=subscan)
+    open_uris(uris, block=block)
 
 
-def open_dataset(scan, block=False, config=True):
+def open_dataset(scan, block=False):
     """
     Open dataset in silx
 
     :param bool block: block thread until silx is closed
-    :param bool config: expect configurable writer
     """
-    filename = scan_filenames(scan, config=config)[0]
-    open_uris([filename], block=block)
+    filename = scan_filename(scan)
+    if filename:
+        open_uris([filename], block=block)
+    else:
+        print_out("No data saved for this scan")
+
+
+def open_sample(scan, block=False, config=True):
+    """
+    Open sample in silx
+
+    :param bool block: block thread until silx is closed
+    :param bool config: configurable writer is used
+    """
+    filename = scan_master_filenames(scan, config=config).get("sample")
+    if filename:
+        open_uris([filename], block=block)
+    else:
+        print_out("No master links for this scan")
+
+
+def open_proposal(scan, block=False, config=True):
+    """
+    Open sample in silx
+
+    :param bool block: block thread until silx is closed
+    :param bool config: configurable writer is used
+    """
+    filename = scan_master_filenames(scan, config=config).get("proposal")
+    if filename:
+        open_uris([filename], block=block)
+    else:
+        print_out("No master links for this scan")

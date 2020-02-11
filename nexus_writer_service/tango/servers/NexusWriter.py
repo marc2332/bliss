@@ -33,7 +33,7 @@ import re
 import os
 import itertools
 from tango import LogLevel
-from nexus_writer_service.subscribers.session_writer import NexusSessionWriter
+from nexus_writer_service.subscribers import session_writer
 from nexus_writer_service.subscribers.scan_writer_base import NexusScanWriterBase
 from nexus_writer_service.utils.log_levels import tango_log_level
 
@@ -49,7 +49,7 @@ logger = logging.getLogger(__name__)
 
 
 def session_tango_state(state):
-    SessionWriterStates = NexusSessionWriter.STATES
+    SessionWriterStates = session_writer.NexusSessionWriter.STATES
     if state == SessionWriterStates.INIT:
         return DevState.INIT
     elif state == SessionWriterStates.ON:
@@ -117,13 +117,44 @@ class NexusWriter(Device):
         session
             - Bliss session name
             - Type:'DevString'
-        copy_nonhdf5_data
-            - Copy EDF and other data formats to HDF5
+        keepshape
+            - Keep shape of multi-dimensional grid scans
+            - Type:'DevBoolean'
+        multivalue_positioners
+            - Group positioners values
+            - Type:'DevBoolean'
+        enable_external_nonhdf5
+            - Enable external non-hdf5 files like edf (ABSOLUTE LINK!)
+            - Type:'DevBoolean'
+        disable_external_hdf5
+            - Disable external hdf5 files (virtual datasets)
+            - Type:'DevBoolean'
+        copy_non_external
+            - Copy data instead of saving the uri when external linking is disabled
+            - Type:'DevBoolean'
+        noconfig
+            - Do not use extra writer information from Redis
+            - Type:'DevBoolean'
+        stackmca
+            - Merged MCA datasets in application definition
             - Type:'DevBoolean'
     """
 
     __metaclass__ = DeviceMeta
     # PROTECTED REGION ID(NexusWriter.class_variable) ENABLED START #
+
+    @property
+    def saveoptions(self):
+        saveoptions = session_writer.default_saveoptions()
+        for attr, attrinfo in session_writer.all_cli_saveoptions().items():
+            option = attrinfo["dest"]
+            store_true = attrinfo["action"] == "store_true"
+            try:
+                saveoptions[option] = getattr(self, attr) == store_true
+            except AttributeError:
+                continue
+        return saveoptions
+
     # PROTECTED REGION END #    //  NexusWriter.class_variable
 
     # -----------------
@@ -132,7 +163,19 @@ class NexusWriter(Device):
 
     session = device_property(dtype="DevString", mandatory=True)
 
-    copy_nonhdf5_data = device_property(dtype="DevBoolean", default_value=False)
+    keepshape = device_property(dtype="DevBoolean", default_value=False)
+
+    multivalue_positioners = device_property(dtype="DevBoolean", default_value=False)
+
+    enable_external_nonhdf5 = device_property(dtype="DevBoolean", default_value=False)
+
+    disable_external_hdf5 = device_property(dtype="DevBoolean", default_value=False)
+
+    copy_non_external = device_property(dtype="DevBoolean", default_value=False)
+
+    noconfig = device_property(dtype="DevBoolean", default_value=False)
+
+    stackmca = device_property(dtype="DevBoolean", default_value=False)
 
     # ----------
     # Attributes
@@ -175,7 +218,9 @@ class NexusWriter(Device):
         _logger.set_level(level)
         self.session_writer = getattr(self, "session_writer", None)
         if self.session_writer is None:
-            self.session_writer = NexusSessionWriter(self.session, parentlogger=None)
+            self.session_writer = session_writer.NexusSessionWriter(
+                self.session, parentlogger=None, **self.saveoptions
+            )
         self.start()
         # PROTECTED REGION END #    //  NexusWriter.init_device
 
@@ -431,8 +476,8 @@ class NexusWriter(Device):
 
         :return:None
         """
-        # Fill with device properties (already done for attributes)
-        self.session_writer.saveoptions["copy_non_external"] = self.copy_nonhdf5_data
+        # Fill with device properties (attributes are already set)
+        self.session_writer.update_saveoptions(**self.saveoptions)
         # Greenlet not running or None
         self.session_writer.start()
         # PROTECTED REGION END #    //  NexusWriter.start

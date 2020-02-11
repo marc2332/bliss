@@ -398,7 +398,7 @@ class LimaImageChannelDataNode(DataNode):
                         )
                 elif file_format == "HDF5":
                     if h5py is not None:
-                        with h5py.File(filename) as f:
+                        with h5py.File(filename, mode="r") as f:
                             path_in_file = self._default_hdf5_dataset(f)
                             dataset = f[path_in_file]
                             return dataset[image_index]

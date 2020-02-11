@@ -576,3 +576,49 @@ def deep_compare(d, u):
                     assert d[k] == v
             else:
                 stack.append((d[k], v))
+
+
+@pytest.fixture
+def metadata_manager_tango_server(ports):
+    device_name = "id00/metadata/test"
+    device_fqdn = "tango://localhost:{}/{}".format(ports.tango_port, device_name)
+
+    p = subprocess.Popen(["MetadataManager", "test"])
+
+    with gevent.Timeout(10, RuntimeError("MetadataManager is not running")):
+        while True:
+            try:
+                dev_proxy = DeviceProxy(device_fqdn)
+                dev_proxy.ping()
+                dev_proxy.state()
+            except DevFailed as e:
+                gevent.sleep(0.1)
+            else:
+                break
+
+    gevent.sleep(1)
+    yield device_fqdn, dev_proxy
+    p.terminate()
+
+
+@pytest.fixture
+def metadata_experiment_tango_server(ports):
+    device_name = "id00/metaexp/test"
+    device_fqdn = "tango://localhost:{}/{}".format(ports.tango_port, device_name)
+
+    p = subprocess.Popen(["MetaExperiment", "test"])
+
+    with gevent.Timeout(10, RuntimeError("MetaExperiment is not running")):
+        while True:
+            try:
+                dev_proxy = DeviceProxy(device_fqdn)
+                dev_proxy.ping()
+                dev_proxy.state()
+            except DevFailed as e:
+                gevent.sleep(0.1)
+            else:
+                break
+
+    gevent.sleep(1)
+    yield device_fqdn, dev_proxy
+    p.terminate()

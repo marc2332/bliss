@@ -33,30 +33,30 @@ def is_property(text, repl):
 
     # sanitize
     sanitized = re.split(r"[^a-zA-Z0-9_\.]", text.strip())[-1]
-    m = re.match(
-        r"^(?P<instance_name>[A-Za-z_]([A-Za-z0-9_\.]*[A-Za-z_0-9])*)\.(?P<attr_name>([A-Z-a-z0-9_]+))$",
-        sanitized,
-    )
-    if not m:
-        return False
-    if (
-        m["instance_name"] not in repl.get_globals()
-        and m["instance_name"] not in repl.get_locals()
-    ):
-        return False
+    m = re.split(r"\.", sanitized)
     try:
-        result = isinstance(
-            eval(
-                f"type({m['instance_name']}).{m['attr_name']}",
-                repl.get_globals(),
-                repl.get_locals(),
-            ),
-            property,
-        )
+        # iterating over dot separated tokens
+        # E.G. bar.foo.tee will check first if
+        # bar.foo is a property and than
+        # barr.foo.tee
+        iterator = iter(m)
+        root = next(iterator)
+        while True:
+            node = next(iterator)
+            # first check if name exists in local/global namespace
+            if root not in {**repl.get_locals(), **repl.get_globals()}:
+                return False
+
+            if isinstance(
+                eval(f"type({root}).{node}", repl.get_globals(), repl.get_locals()),
+                property,
+            ):
+                return True
+            root = ".".join((root, node))
+
     except Exception:
+        # this will also intercept StopIteration from next(iterator)
         return False
-    else:
-        return result
 
 
 class TypingHelper(object):

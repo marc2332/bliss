@@ -22,6 +22,7 @@ Example YAML_ configuration:
     read_mode: 0                 # (5)
     cmd_mode: 0                  # (6)
     safety: 0                    # (7)
+    controller_port: 502         # (8)
 
 1. number of lenses (mandatory)
 2. number of pinholes [0..2]. If 1, assumes pinhole is at beginning.
@@ -35,6 +36,7 @@ Example YAML_ configuration:
    (optional, default: 0)
 7. If true, the pinhole will be always put in, when any lense is in
    (optional, default: 0)
+8. port number (optional, default: 502)
 
 Usage::
 
@@ -68,15 +70,16 @@ Usage::
     >>> # shortcut to put multiple at same place
     >>> t1[1:6] = 1       # put everything IN
 """
-import random
-import gevent
+
+from random import randint
+from gevent import Timeout, sleep
 import tabulate
 from bliss.common.utils import grouped
 from bliss.controllers.wago.wago import WagoController, ModulesConfig, get_wago_comm
 from bliss.config import channels
 from bliss.common.event import dispatcher
 from bliss import current_session
-from bliss.scanning import scan_meta
+from bliss.scanning.scan_meta import get_user_scan_meta
 
 
 class TfWagoMapping:
@@ -98,42 +101,48 @@ class TfWagoMapping:
         The 750-530 and 750-1515 Digital Output modules are identical.
         The 750-436 and 740-1417 Digital Input modules are identical as well.
         """
-        STATUS_MODULE = "750-436,%s"
-        CONTROL_MODULE = "750-530,%s"
-        STATUS = ["status"] * 2
-        CONTROL = ["ctrl"]
+        status_module = "750-436,%s"
+        control_module = "750-530,%s"
+        _status = ["status"] * 2
+        _control = ["ctrl"]
+        _nb_ch = 8
 
         mapping = []
         nb_chan = self.nb_lens + self.nb_pinhole
-        ch_ctrl = nb_chan // 8
-        ch_stat = (nb_chan * 2) // 8
+        _nb_chan = nb_chan
 
-        ch = nb_chan % 8
-        if nb_chan > 8:
-            for i in range(ch_ctrl):
-                mapping += [CONTROL_MODULE % ",".join(CONTROL * 8)]
-            if ch > 0:
-                mapping += [CONTROL_MODULE % ",".join(CONTROL * ch + ["_"] * (8 - ch))]
-        else:
-            mapping += [
-                CONTROL_MODULE % ",".join(CONTROL * nb_chan + ["_"] * (8 - nb_chan))
+        # construct the controle modules
+        if nb_chan < _nb_ch:
+            mapping = [
+                control_module
+                % ",".join(_control * nb_chan + ["_"] * (_nb_ch - nb_chan))
             ]
-
-        ch = nb_chan % 4
-        if nb_chan > 4:
-            for i in range(ch_stat):
-                mapping += [STATUS_MODULE % ",".join(STATUS * 4)]
-            if ch > 0:
-                mapping += [
-                    STATUS_MODULE % ",".join(STATUS * ch + ["_"] * (8 - ch * 2))
-                ]
         else:
-            if ch > 0:
+            while _nb_chan >= _nb_ch:
+                mapping += [control_module % ",".join(_control * _nb_ch)]
+                _nb_chan -= _nb_ch
+            if _nb_chan > 0:
                 mapping += [
-                    STATUS_MODULE % ",".join(STATUS * ch + ["_"] * (8 - ch * 2))
+                    control_module
+                    % ",".join(_control * _nb_chan + ["_"] * (_nb_ch - _nb_chan))
                 ]
-            else:
-                mapping += [STATUS_MODULE % ",".join(STATUS * nb_chan)]
+
+        _nb_ch //= 2
+        _nb_chan = nb_chan
+
+        if nb_chan < _nb_ch:
+            mapping = [
+                status_module % ",".join(_status * nb_chan + ["_"] * (_nb_ch - nb_chan))
+            ]
+        else:
+            while _nb_chan >= _nb_ch:
+                mapping += [status_module % ",".join(_status * _nb_ch)]
+                _nb_chan -= _nb_ch
+            if _nb_chan > 0:
+                mapping += [
+                    status_module
+                    % ",".join(_status * _nb_chan + ["_"] * 2 * (_nb_ch - _nb_chan))
+                ]
         self.mapping = mapping
 
 
@@ -156,8 +165,8 @@ class Transfocator:
     """
 
     def __init__(self, name, config):
-        self.exec_timeout = int(config.get("timeout", 3))
         self.name = name
+        self.exec_timeout = int(config.get("timeout", 3))
         self.read_mode = int(config.get("read_mode", 0))
         self.cmd_mode = int(config.get("cmd_mode", 0))
         self.safety = bool(config.get("safety", False))
@@ -173,42 +182,37 @@ class Transfocator:
 
         if "lenses" in config:
             self.nb_lens = int(config["lenses"])
-            nb_pinhole = int(config["pinhole"])
+            self.nb_pinhole = int(config.get("pinhole", 0))
 
-            if nb_pinhole == 2:
-                self.nb_pinhole = 2
+            if self.nb_pinhole == 2:
                 # pinholes are always the first and the last channels
                 self.pinhole = [0, self.nb_lens - 1]
-            elif nb_pinhole == 1:
-                self.nb_pinhole = 1
+            elif self.nb_pinhole == 1:
                 # the pinhole is always the first channel
                 self.pinhole = [0]
-            else:
-                # set to zero to avoid ambiguous inputs
-                self.nb_pinhole = 0
         else:
             layout = config["layout"].strip()
             lenses = []
-            for i, c in enumerate(layout.split()):
-                if c == "X":
-                    self.empty_jacks.append(i)
-                elif c == "P":
-                    self.pinhole.append(i)
-                elif c == "L":
-                    lenses.append(i)
+            for _i, _c in enumerate(layout.split()):
+                if _c == "X":
+                    self.empty_jacks.append(_i)
+                elif _c == "P":
+                    self.pinhole.append(_i)
+                elif _c == "L":
+                    lenses.append(_i)
                 else:
-                    raise ValueError("%s: layout: unknown element `%s'" % (name, c))
+                    raise ValueError(f"{name}: layout: unknown element `{_c}'")
 
             self.nb_lens = len(lenses) + len(self.empty_jacks)
             self.nb_pinhole = len(self.pinhole)
             if self.nb_pinhole > 2:
-                raise ValueError("%s: layout can only have 2 pinholes maximum" % name)
+                raise ValueError(f"{name}: layout can only have 2 pinholes maximum")
 
         if current_session:
             self._init_meta_data_publishing()
 
     def _init_meta_data_publishing(self):
-        scan_meta_obj = scan_meta.get_user_scan_meta()
+        scan_meta_obj = get_user_scan_meta()
         scan_meta_obj.instrument.set(
             self,
             lambda _: {self.name: {**self.status_dict(), "NX_class": "NXcollection"}},
@@ -227,6 +231,8 @@ class Transfocator:
             self.wago = WagoController(comm, modules_config)
 
     def close(self):
+        """Close the connection with the wago
+        """
         self.wago.close()
 
     def __close__(self):
@@ -244,11 +250,13 @@ class Transfocator:
             state.reverse()
 
         bits = 0
-        for i, (s, t) in enumerate(state):
-            if i in self.empty_jacks:
+        for _i, (_s, _t) in enumerate(state):
+            if _i in self.empty_jacks:
                 continue
-            if s and not t:
-                bits += 1 << i  # (1 << n-i)
+            if _s and not _t:
+                bits += 1 << _i  # (1 << n-_i)
+            if _s and _t or not _s and not _t:
+                bits += 1 << (_i + self.nb_lens + self.nb_pinhole)
 
         return bits
 
@@ -282,12 +290,12 @@ class Transfocator:
         self.pos_write(value)
         try:
             check = self.pos_read()
-            with gevent.Timeout(
+            with Timeout(
                 self.exec_timeout,
                 RuntimeError("Timeout waiting for status to be %d" % value),
             ):
                 while check != value:
-                    gevent.sleep(0.2)
+                    sleep(0.2)
                     check = self.pos_read()
         finally:
             self._state_chan.value = self.status_read()
@@ -305,6 +313,8 @@ class Transfocator:
             else:
                 lbl = "P{}" if i in self.pinhole else "L{}"
                 position = value & (1 << i) > 0
+                if value & (1 << i + self.nb_lens + self.nb_pinhole) > 0:
+                    position = None
             positions[lbl.format(i)] = position
         return positions
 
@@ -397,8 +407,8 @@ class Transfocator:
         """
         self[self.pinhole] = set_in
 
-    def __state_changed(self, st):
-        dispatcher.send("state", self, st)
+    def __state_changed(self, state):
+        dispatcher.send("state", self, state)
 
     def __len__(self):
         return self.nb_lens + self.nb_pinhole
@@ -436,8 +446,8 @@ class Transfocator:
             positions = [_display(col) for col in positions]
             table = tabulate.tabulate((header, positions), tablefmt="plain")
             return "{}:\n{}".format(prefix, table)
-        except Exception as err:
-            return "{}: Error: {}".format(prefix, err)
+        except TypeError as err:
+            return f"{prefix}: Error: {err}"
 
     def __str__(self):
         """ Channel uses louie behind which calls this object str.
@@ -453,6 +463,8 @@ class Transfocator:
 
 
 class TransfocatorMockup(Transfocator):
+    """Tranfocator Mockup Class"""
+
     def __init__(self, name, config_tree):
         """This will emulate a transfocator"""
 
@@ -460,7 +472,7 @@ class TransfocatorMockup(Transfocator):
         lens = temp_transf.nb_lens
         pinhole = temp_transf.nb_pinhole
 
-        self.__mockup_state = random.randint(0, 2 ** (lens + pinhole))
+        self.__mockup_state = randint(0, 2 ** (lens + pinhole))
         super().__init__(name, config_tree)
 
     def connect(self):

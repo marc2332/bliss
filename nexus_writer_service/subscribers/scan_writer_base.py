@@ -281,10 +281,6 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
         for node in self._nodes:
             self._fetch_node_metadata(node, skip)
 
-        self.logger.info("Save scan metadata")
-        for subscan in self._enabled_subscans:
-            self._fetch_subscan_metadata(subscan)
-
         for subscan in self._enabled_subscans:
             self._finalize_subscan(subscan)
             self._mark_done(subscan)

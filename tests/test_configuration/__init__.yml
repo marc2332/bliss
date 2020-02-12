@@ -7,7 +7,6 @@ scan_saving:
     # test session, using current_session.enable_esrf_data_policy()
     # and to come back to the default (no policy) with
     # current_session.disable_esrf_data_policy()
-    class: BasicScanSaving
     beamline: id00
     metadata_manager_tango_device: id00/metadata/test
     metadata_experiment_tango_device: id00/metaexp/test

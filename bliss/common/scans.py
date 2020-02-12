@@ -711,6 +711,16 @@ def anscan(
     scan_info["start"] = starts_list
     scan_info["stop"] = stops_list
 
+    requests = {}
+    for motor, start, stop in motor_tuple_list:
+        d = mot.position if scan_type == "dscan" else 0
+        requests[f"axis:{motor.name}"] = {
+            "start": start + d,
+            "stop": stop + d,
+            "points": npoints,
+        }
+    scan_info["requests"] = requests
+
     _update_with_scan_display_meta(scan_info)
 
     scan_params = dict()

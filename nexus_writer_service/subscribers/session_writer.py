@@ -309,7 +309,10 @@ class NexusSessionWriter(base_subscriber.BaseSubscriber):
     def log_progress(self, msg=None):
         n = len(self.writers)
         nactivate = sum(w.active for w in self.writers.values())
-        msg = "{} scan writers ({} activate)".format(n, nactivate)
+        if msg:
+            msg = "{} ({} scan writers, {} activate)".format(msg, n, nactivate)
+        else:
+            msg = "{} scan writers ({} activate)".format(n, nactivate)
         self.logger.info(msg)
         if self.resource_profiling:
             self.log_resources()

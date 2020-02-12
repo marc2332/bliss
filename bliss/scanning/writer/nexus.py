@@ -255,7 +255,7 @@ class Writer(FileWriter):
     @property
     def session_state_reason(self):
         proxy = self.writer_proxy
-        return proxy.state_reason
+        return proxy.status
 
     @property
     def scan_state(self):
@@ -279,7 +279,7 @@ class Writer(FileWriter):
 
     # @skip_when_fault
     @mark_fault_on_exception
-    @retry_session_method(err_msg="Nexus writer service is not ON or RUNNING")
+    @retry_session_method(err_msg="Nexus writer is not ON or RUNNING")
     def session_writer_on(self):
         """
         :returns bool: state is valid and expected
@@ -300,7 +300,7 @@ class Writer(FileWriter):
 
     @skip_when_fault
     @mark_fault_on_exception
-    @retry_scan_method(err_msg="Data writer has not finished")
+    @retry_scan_method(err_msg="Nexus writer has not finished")
     def scan_writer_finished(self):
         """
         :returns bool: state is valid and expected
@@ -312,14 +312,14 @@ class Writer(FileWriter):
         elif state == DevState.FAULT:
             reason = self.scan_state_reason
             raise RuntimeError(
-                "Data writer is in FAULT state due to {}".format(repr(reason))
+                "Nexus writer is in FAULT state due to {}".format(repr(reason))
             )
         else:
             return False
 
     # @skip_when_fault
     @mark_fault_on_exception
-    @retry_scan_method(err_msg="Data writer is not in valid state")
+    @retry_scan_method(err_msg="Nexus writer is not in valid state")
     def valid_scan_writer(self):
         """
         :returns bool: state is valid and expected
@@ -329,26 +329,26 @@ class Writer(FileWriter):
         if state == DevState.FAULT:
             reason = self.scan_state_reason
             raise RuntimeError(
-                "Data writer is in FAULT state due to {}".format(repr(reason))
+                "Nexus writer is in FAULT state due to {}".format(repr(reason))
             )
         else:
             return True
 
     # @skip_when_fault
     @mark_fault_on_exception
-    @retry_scan_method(err_msg="Data writer does not have write permissions")
+    @retry_scan_method(err_msg="Nexus writer does not have write permissions")
     def scan_permitted(self):
         """
         :returns bool: writer can write
         :raises RuntimeError: invalid state
         """
         if not self._scan_permitted:
-            raise RuntimeError("Data writer does not have write permissions")
+            raise RuntimeError("Nexus writer does not have write permissions")
         return True
 
     # @skip_when_fault
     @mark_fault_on_exception
-    @retry_scan_method(err_msg="Data writer is created")
+    @retry_scan_method(err_msg="Nexus writer did not receive the start-scan event")
     def scan_exists(self):
         """
         :returns bool: writer exists

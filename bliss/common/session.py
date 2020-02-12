@@ -434,7 +434,10 @@ class Session:
 
         scan_saving_config = self.config.root.get("scan_saving", {})
         scan_saving_class_name = scan_saving_config.get("class")
-        scan_saving_class = getattr(scan_saving, scan_saving_class_name)
+        if scan_saving_class_name is not None:
+            scan_saving_class = getattr(scan_saving, scan_saving_class_name)
+        else:
+            scan_saving_class = None
         self._set_scan_saving_class(scan_saving_class)
 
         env_dict["ALIASES"] = global_map.aliases

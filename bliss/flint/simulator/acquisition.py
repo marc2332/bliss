@@ -330,6 +330,92 @@ class AcquisitionSimulator(qt.QObject):
         ) + 0.3 * numpy.random.random(nbPoints2)
         scan.registerData(3, device3_channel1, data)
 
+    def __createSlit(self, scan: _VirtualScan, interval, duration, includeMasters=True):
+        master_time1 = scan_model.Device(scan.scan())
+        master_time1.setName("timer")
+        master_time1_index = scan_model.Channel(master_time1)
+        master_time1_index.setName("timer:elapsed_time")
+
+        device1 = scan_model.Device(scan.scan())
+        device1.setName("dev1")
+        device1.setMaster(master_time1)
+        device1_channel1 = scan_model.Channel(device1)
+        device1_channel1.setName("dev1:sy")
+
+        device2 = scan_model.Device(scan.scan())
+        device2.setName("dev2")
+        device2.setMaster(master_time1)
+        device2_channel1 = scan_model.Channel(device2)
+        device2_channel1.setName("dev2:diode1")
+        device2_channel2 = scan_model.Channel(device2)
+        device2_channel2.setName("dev2:diode2")
+
+        scan_info = {
+            "display_names": {},
+            "master": {
+                "display_names": {},
+                "images": [],
+                "scalars": [],
+                "scalars_units": {},
+                "spectra": [],
+            },
+            "scalars": [
+                device2_channel1.name(),
+                device2_channel2.name(),
+                master_time1_index.name(),
+            ],
+            "scalars_units": {},
+        }
+
+        start, stop = -10, 20
+
+        if includeMasters:
+            scan_info["master"]["scalars"].append(device1_channel1.name())
+            scan_info["master"]["scalars_units"][device1_channel1.name()] = "mm"
+        else:
+            scan_info["scalars"].append(device1_channel1.name())
+            scan_info["scalars_units"][device1_channel1.name()] = "mm"
+
+        scan.scan_info["acquisition_chain"][master_time1.name()] = scan_info
+
+        requests = {}
+        requests[device1_channel1.name()] = {"start": start, "stop": stop}
+        scan.scan_info["requests"] = requests
+
+        # Every 2 ticks
+        nbPoints1 = (duration // interval) // 2
+        index1 = numpy.linspace(0, duration, nbPoints1)
+
+        def step(position, nbPoints, gaussianStd, height=1):
+            gaussianSize = int(gaussianStd) * 10
+            gaussianData = scipy.signal.gaussian(gaussianSize, gaussianStd)
+            stepData = numpy.zeros(len(index1) + gaussianSize)
+            stepData[int(position) :] = 1
+            stepData = scipy.signal.convolve(stepData, gaussianData, mode="same")[
+                0:nbPoints
+            ]
+            stepData *= 1 / stepData[-1]
+            return height * stepData
+
+        pos = numpy.random.rand() * (nbPoints1 // 2) + nbPoints1 // 4
+        height = 5 + numpy.random.rand() * 5
+        stepData = (
+            step(pos, nbPoints1, 6, height=height) + numpy.random.random(nbPoints1) * 1
+        )
+        gaussianData = (
+            scipy.signal.gaussian(nbPoints1, 6) * height
+            + numpy.random.random(nbPoints1) * 1
+        )
+
+        motorData = (
+            numpy.linspace(start, stop, nbPoints1)
+            + numpy.random.random(nbPoints1) * 0.2
+        )
+        scan.registerData(2, master_time1_index, index1)
+        scan.registerData(2, device1_channel1, motorData)
+        scan.registerData(2, device2_channel1, stepData)
+        scan.registerData(2, device2_channel2, gaussianData)
+
     def __createMcas(self, scan: _VirtualScan, interval, duration):
         master_time1 = scan_model.Device(scan.scan())
         master_time1.setName("timer_mca")
@@ -589,6 +675,8 @@ class AcquisitionSimulator(qt.QObject):
 
         if name is None or name == "counter":
             self.__createCounters(scan, interval, duration)
+        elif name is None or name == "slit":
+            self.__createSlit(scan, interval, duration)
         elif name == "counter-no-master":
             self.__createCounters(scan, interval, duration, includeMasters=False)
         if name is None or name == "mca":

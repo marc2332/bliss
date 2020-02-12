@@ -11,6 +11,7 @@ from typing import Tuple
 from typing import Union
 from typing import Dict
 from typing import List
+from typing import Sequence
 
 import numpy
 import logging
@@ -78,10 +79,19 @@ class CurvePlotWidget(ExtendedDockWidget):
         self.__syncAxisItems = signalutils.InvalidatableSignal(self)
         self.__syncAxisItems.triggered.connect(self.__updateAxesItems)
 
-        self.__bounding = BoundingRect()
-        self.__bounding._setLegend("bound")
+        self.__updateBoundWhenData = False
+        self.__boundingY1 = BoundingRect()
+        self.__boundingY1._setLegend("bound-y1")
+        self.__boundingY1.setYAxis("left")
+        self.__boundingY2 = BoundingRect()
+        self.__boundingY2._setLegend("bound-y2")
+        self.__boundingY2.setYAxis("right")
 
-        self.__permanentItems = [self.__bounding, self.__tooltipManager.marker()]
+        self.__permanentItems = [
+            self.__boundingY1,
+            self.__boundingY2,
+            self.__tooltipManager.marker(),
+        ]
 
         for o in self.__permanentItems:
             self.__plot._add(o)
@@ -273,6 +283,9 @@ class CurvePlotWidget(ExtendedDockWidget):
 
     def __updateAxesItems(self):
         """Update items which have relation with the X axis"""
+        self.__boundingY1.setBounds(None)
+        self.__boundingY2.setBounds(None)
+        self.__curveAxesUpdated()
         scan = self.__scan
         if scan is None:
             return
@@ -283,6 +296,72 @@ class CurvePlotWidget(ExtendedDockWidget):
             # FIXME: Use a better abstract concept for that
             if isinstance(item, plot_item_model.MotorPositionMarker):
                 self.__updatePlotItem(item, scan)
+
+    def __reachRangeForYAxis(
+        self, plot, scan, yAxis
+    ) -> Optional[Tuple[float, float, float]]:
+        xAxis = set([])
+        yData = None
+        for item in plot.items():
+            if isinstance(item, plot_item_model.CurveItem):
+                if item.yAxis() != yAxis:
+                    continue
+                xChannel = item.xChannel()
+                yChannel = item.yChannel()
+                if xChannel is not None:
+                    xAxis.add(xChannel.channel(scan))
+                if yData is None and yChannel is not None:
+                    yData = yChannel.array(scan)
+        xAxis.discard(None)
+        if len(xAxis) == 0:
+            return None
+
+        def getRange(axis: Sequence[scan_model.Channel]):
+            vv = set([])
+            for a in axis:
+                metadata = a.metadata()
+                if metadata is None:
+                    continue
+                v = set([metadata.start, metadata.stop, metadata.min, metadata.max])
+                vv.update(v)
+            vv.discard(None)
+            if len(vv) == 0:
+                return None, None
+            return min(vv), max(vv)
+
+        if yData is None:
+            return None
+        if yData.size == 0:
+            return None
+
+        xRange = getRange(list(xAxis))
+        if xRange[0] is None:
+            return None
+        return xRange[0], xRange[1], yData[0]
+
+    def __curveAxesUpdated(self):
+        scan = self.__scan
+        plot = self.__plotModel
+        if plot is None or scan is None:
+            return
+
+        if self.__boundingY1.getBounds() is None:
+            result = self.__reachRangeForYAxis(plot, scan, "left")
+            if result is None:
+                bound = None
+            else:
+                xMin, xMax, yValue = result
+                bound = xMin, xMax, yValue, yValue
+            self.__boundingY1.setBounds(bound)
+
+        if self.__boundingY2.getBounds() is None:
+            result = self.__reachRangeForYAxis(plot, scan, "right")
+            if result is None:
+                bound = None
+            else:
+                xMin, xMax, yValue = result
+                bound = xMin, xMax, yValue, yValue
+            self.__boundingY2.setBounds(bound)
 
     def scan(self) -> Optional[scan_model.Scan]:
         return self.__scan
@@ -334,6 +413,8 @@ class CurvePlotWidget(ExtendedDockWidget):
 
     def __scanStarted(self):
         self.__updateTitle(self.__scan)
+        self.__boundingY1.setBounds(None)
+        self.__boundingY2.setBounds(None)
 
     def __updateTitle(self, scan: scan_model.Scan):
         title = scan_info_helper.get_full_title(scan)
@@ -366,6 +447,8 @@ class CurvePlotWidget(ExtendedDockWidget):
                             if event.isUpdatedChannelName(source):
                                 self.__updatePlotItem(item, scan)
                                 break
+        # FIXME: This should be avoided by creating a XBound and YBound in silx
+        self.__curveAxesUpdated()
 
     def __redrawCurrentScan(self):
         currentScan = self.__scan

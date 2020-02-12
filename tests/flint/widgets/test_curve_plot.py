@@ -17,7 +17,7 @@ from bliss.flint.helper import style_helper
 @pytest.mark.usefixtures("local_flint")
 class TestCurvePlot(TestCaseQt):
 
-    NB_PERMANENT_ITEM = 2
+    NB_PERMANENT_ITEM = 3
 
     def nbItems(self, widget):
         silxPlot = widget._silxPlot()

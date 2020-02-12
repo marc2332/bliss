@@ -33,12 +33,16 @@ from typing import Optional
 
 import numpy
 import enum
+import logging
 import contextlib
 
 from silx.gui import qt
 from . import scan_model
 from .style_model import Style
 from . import style_model
+
+
+_logger = logging.getLogger(__name__)
 
 
 class ChangeEventType(enum.Enum):
@@ -449,7 +453,17 @@ class ComputableMixIn:
             try:
                 result = self.compute(scan)
             except ComputeError as e:
-                scan.setCacheValidation(self, self.version(), e.msg)
+                try:
+                    # FIXME: This messages should be stored at the same place
+                    scan.setCacheValidation(self, self.version(), e.msg)
+                except KeyError:
+                    _logger.error(
+                        "Computation message lost: %s, %s, %s",
+                        self,
+                        self.version(),
+                        e.msg,
+                    )
+
                 result = e.result
             except Exception as e:
                 scan.setCacheValidation(

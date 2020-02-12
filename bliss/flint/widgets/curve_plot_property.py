@@ -207,11 +207,10 @@ class YAxesPropertyItemDelegate(qt.QStyledItemDelegate):
 
 
 class _AddItemAction(qt.QWidgetAction):
-    def __init__(self, parent: qt.QObject, tree: qt.QTreeView):
+    def __init__(self, parent: qt.QObject):
+        assert isinstance(parent, CurvePlotPropertyWidget)
         super(_AddItemAction, self).__init__(parent)
-        self.__tree = tree
-        selectionModel = self.__tree.selectionModel()
-        selectionModel.currentChanged.connect(self.__selectionChanged)
+        parent.plotItemSelected.connect(self.__selectionChanged)
 
         widget = qt.QToolButton(parent)
         icon = icons.getQIcon("flint:icons/add-item")
@@ -231,7 +230,7 @@ class _AddItemAction(qt.QWidgetAction):
         menu: qt.QMenu = self.sender()
         menu.clear()
 
-        item = self.__getSelectedPlotItem()
+        item = self.parent().selectedPlotItem()
         if isinstance(item, plot_item_model.CurveMixIn):
             menu.addSection("Statistics")
 
@@ -270,26 +269,11 @@ class _AddItemAction(qt.QWidgetAction):
             action.setEnabled(False)
             menu.addAction(action)
 
-    def __selectionChanged(self, current: qt.QModelIndex, previous: qt.QModelIndex):
-        item = self.__getSelectedPlotItem()
-        self.defaultWidget().setEnabled(item is not None)
-
-    def __getSelectedPlotItem(self):
-        index = self.__tree.currentIndex()
-        if not index.isValid():
-            self.setEnabled(False)
-            return
-        model = self.__tree.model()
-        index = model.index(index.row(), 0, index.parent())
-        model = self.__tree.model()
-        item = model.itemFromIndex(index)
-        if isinstance(item, _DataItem):
-            plotItem = item.plotItem()
-            return plotItem
-        return None
+    def __selectionChanged(self, current: plot_model.Item):
+        self.defaultWidget().setEnabled(current is not None)
 
     def __createMax(self):
-        parentItem = self.__getSelectedPlotItem()
+        parentItem = self.parent().selectedPlotItem()
         if parentItem is not None:
             plot = parentItem.plot()
             newItem = plot_state_model.MaxCurveItem(plot)
@@ -298,7 +282,7 @@ class _AddItemAction(qt.QWidgetAction):
                 plot.addItem(newItem)
 
     def __createMin(self):
-        parentItem = self.__getSelectedPlotItem()
+        parentItem = self.parent().selectedPlotItem()
         if parentItem is not None:
             plot = parentItem.plot()
             newItem = plot_state_model.MinCurveItem(plot)
@@ -307,7 +291,7 @@ class _AddItemAction(qt.QWidgetAction):
                 plot.addItem(newItem)
 
     def __createDerivative(self):
-        parentItem = self.__getSelectedPlotItem()
+        parentItem = self.parent().selectedPlotItem()
         if parentItem is not None:
             plot = parentItem.plot()
             newItem = plot_state_model.DerivativeItem(plot)
@@ -316,7 +300,7 @@ class _AddItemAction(qt.QWidgetAction):
                 plot.addItem(newItem)
 
     def __createGaussianFit(self):
-        parentItem = self.__getSelectedPlotItem()
+        parentItem = self.parent().selectedPlotItem()
         if parentItem is not None:
             plot = parentItem.plot()
             newItem = plot_state_model.GaussianFitItem(plot)
@@ -581,6 +565,8 @@ class CurvePlotPropertyWidget(qt.QWidget):
     StyleColumn = 4
     RemoveColumn = 5
 
+    plotItemSelected = qt.Signal(object)
+
     def __init__(self, parent=None):
         super(CurvePlotPropertyWidget, self).__init__(parent=parent)
         self.__scan: Optional[scan_model.Scan] = None
@@ -597,8 +583,10 @@ class CurvePlotPropertyWidget(qt.QWidget):
         self.__removeDelegate = delegates.RemovePropertyItemDelegate(self)
 
         model = qt.QStandardItemModel(self)
-
         self.__tree.setModel(model)
+        selectionModel = self.__tree.selectionModel()
+        selectionModel.currentChanged.connect(self.__selectionChanged)
+
         self.__scan = None
         self.__focusWidget = None
 
@@ -612,9 +600,27 @@ class CurvePlotPropertyWidget(qt.QWidget):
     def __createToolBar(self):
         toolBar = qt.QToolBar(self)
         toolBar.setMovable(False)
-        action = _AddItemAction(self, self.__tree)
+        action = _AddItemAction(self)
         toolBar.addAction(action)
         return toolBar
+
+    def __selectionChanged(self, current: qt.QModelIndex, previous: qt.QModelIndex):
+        item = self.selectedPlotItem()
+        self.plotItemSelected.emit(item)
+
+    def selectedPlotItem(self) -> Optional[plot_model.Item]:
+        index = self.__tree.currentIndex()
+        if not index.isValid():
+            self.setEnabled(False)
+            return
+        model = self.__tree.model()
+        index = model.index(index.row(), 0, index.parent())
+        model = self.__tree.model()
+        item = model.itemFromIndex(index)
+        if isinstance(item, _DataItem):
+            plotItem = item.plotItem()
+            return plotItem
+        return None
 
     def setFlintModel(self, flintModel: flint_model.FlintState = None):
         if self.__flintModel is not None:

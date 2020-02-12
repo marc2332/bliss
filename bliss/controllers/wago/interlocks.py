@@ -395,13 +395,6 @@ def beacon_interlock_parsing(yml, modules_config: ModulesConfig):
                 type_flags |= FLAGS["tbit"]["digital"]
 
             chflags = string_to_flags(channel.get("flags", "")) | type_flags
-            """
-            if channel["type"] == "TC":
-                scale = 10
-                min_ = channel["min"] * scale
-                max_ = channel["max"] * scale
-            # continue with all others
-            """
 
             parsed = ParsedChannelLine(
                 channel["logical_name"],
@@ -637,8 +630,8 @@ def _interlock_channel_info_from_plc(
             info["type"]["register_type"] = "IB"
 
     if len(get_conf_output) > 3:
-        info["low_limit"] = to_signed(get_conf_output[2])
-        info["high_limit"] = to_signed(get_conf_output[3])
+        info["low_limit"] = to_unsigned(get_conf_output[2], bits=16)
+        info["high_limit"] = to_unsigned(get_conf_output[3], bits=16)
         info["type"]["type"] = word_to_2ch(get_conf_output[-2])
     if len(get_conf_output) > 6:  # TODO: check order of a dac
         info["dac"] = get_conf_output[5]
@@ -655,18 +648,21 @@ def _interlock_channel_info_from_plc(
     info["logical_device_channel"] = logical_device_channel
 
     # scale information
-    _, _, module_type, _, _ = modules_config.logical_mapping[logical_device][
-        logical_device_channel
+    module_type = modules_config.read_table[logical_device][logical_device_channel][
+        "module_reference"
     ]
 
     type_ = get_module_info(module_type).reading_type
 
-    if module_type == "fs30":
-        info["type"]["scale"] = 30
+    if info["type"]["type"] in ("IW", "OW"):
+        # do not scale because we ask for raw values
+        info["type"]["scale"] = 1
+    elif module_type == "fs30":
+        info["type"]["scale"] = 30  # check this
     elif type_ == "thc":
         info["type"]["scale"] = 10
-    elif type_.startswith("fc"):
-        info["type"]["scale"] = 10 / 0x8000
+    elif type_.startswith("fs"):
+        info["type"]["scale"] = 0x8000 / 10
 
     return info
 
@@ -735,25 +731,36 @@ def _interlock_channel_info_from_parsed(num, parsed, modules_config: ModulesConf
             info["type"]["register_type"] = "IB"
 
     # scale information
-    _, _, module_type, _, _ = modules_config.logical_mapping[parsed.logical_device][
+    module_type = modules_config.read_table[parsed.logical_device][
         parsed.logical_device_channel
-    ]
+    ]["module_reference"]
 
     type_ = get_module_info(module_type).reading_type
 
-    if module_type == "fs30":
+    if parsed.type in ("IW", "OW"):
+        # do not scale because we ask for raw values
+        scale = 1
+    elif module_type == "fs30":
         scale = 30
     elif type_ == "thc":
         scale = 10
-    elif type_.startswith("fc"):
-        scale = 10 / 0x8000
+    elif type_.startswith("fs"):
+        scale = 0x8000 / 10
     else:
         scale = 1
 
     info["type"]["scale"] = scale
-    if info["type"]["register_type"] in ("OW", "IW"):
+
+    if info["type"]["type"] in ("TC", "IV", "OV"):
+        # if we have those we should apply a conversion
+
+        # converting to raw_values raw_value = (value * scale)
         info["low_limit"] = to_unsigned(int(parsed.low_limit * scale))
         info["high_limit"] = to_unsigned(int(parsed.high_limit * scale))
+    elif info["type"]["type"] in ("OW", "IW"):
+        # if we have those we do not appy conversion
+        info["low_limit"] = to_unsigned(int(parsed.low_limit))
+        info["high_limit"] = to_unsigned(int(parsed.high_limit))
     """
     # Not implemented parsing
     if is_monitor(parsed.flags):
@@ -823,20 +830,22 @@ def interlock_compare(int_list_1, int_list_2):
             for ck in ch_keys:
                 val1, val2 = ch1[ck], ch2[ck]
                 if val1 != val2:
-                    if isinstance(val1, (int, float)):
-                        val1 = to_signed(val1)
-                        scale1 = ch1["type"]["scale"]
-                        try:
-                            val1 = val1 / scale1  # better format
-                        except Exception:
-                            pass
-                    if isinstance(val2, (int, float)):
-                        val2 = to_signed(val2)
-                        scale2 = ch2["type"]["scale"]
-                        try:
-                            val2 = val2 / scale2
-                        except Exception:
-                            pass
+                    # apply the scale to some values
+                    if ck in ("low_limit", "high_limit"):  # ,"dac", "dac_scale"):
+                        if isinstance(val1, (int, float)):
+                            val1 = to_signed(val1)
+                            scale1 = ch1["type"]["scale"]
+                            try:
+                                val1 = val1 / scale1  # better format
+                            except Exception:
+                                pass
+                        if isinstance(val2, (int, float)):
+                            val2 = to_signed(val2)
+                            scale2 = ch2["type"]["scale"]
+                            try:
+                                val2 = val2 / scale2
+                            except Exception:
+                                pass
 
                     messages.append(
                         f"Interlock n.{num} channel n.{ch_num} for {ck}: {val1} != {val2}"
@@ -1078,10 +1087,13 @@ def interlock_show(wc_name: str, interlock_info: list):
             ch_tripped = "T" if ch["status"]["tripped"] else "."
             logical_device = ch["logical_device"]
             type_ = ch["type"]["type"]
-            low_limit = ch["low_limit"]
-            high_limit = ch["high_limit"]
             scale = ch["type"]["scale"]
-            ch_value = ch["value"] / scale if ch["value"] else None
+
+            if type_ in ("IW", "OW"):
+                # print raw values
+                ch_value = ch["value"] if ch["value"] else None
+            else:
+                ch_value = to_signed(ch["value"]) / scale if ch["value"] else None
 
             ch_logical_device = ch["logical_device"]
             chline = f"      #{ch_num:>2}  {ch_hwerr}{ch_cfgerr}{ch_alarm}{ch_tripped} - {logical_device}  {type_}  "
@@ -1092,7 +1104,13 @@ def interlock_show(wc_name: str, interlock_info: list):
                 else:
                     ch_value = "ON" if ch["value"] else "OFF"
             else:
-                chline += f"Low:{to_signed(low_limit)/scale:.4f} High:{to_signed(high_limit)/scale:.4f}"
+                low_limit = to_signed(ch["low_limit"]) / scale
+                high_limit = to_signed(ch["high_limit"]) / scale
+                if type_ in ("IW", "OW"):
+                    # print raw values
+                    chline += f"Low:{low_limit:.0f} High:{high_limit:.0f}"
+                else:
+                    chline += f"Low:{low_limit:.4f} High:{high_limit:.4f}"
 
             chline += "  STICKY" if ch["configuration"]["sticky"] else ""
             chline += "  INVERTED" if ch["configuration"]["inverted"] else ""

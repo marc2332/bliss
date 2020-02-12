@@ -11,11 +11,12 @@ import socket
 import time
 import collections
 from itertools import zip_longest
+import functools
 
 from prompt_toolkit import print_formatted_text, HTML
 from tabulate import tabulate
 
-import tango
+from bliss.common import tango
 
 from bliss.common.utils import add_property, flatten
 from bliss.config.conductor.client import synchronized
@@ -24,7 +25,12 @@ from bliss.comm.util import get_comm
 from bliss.common.logtools import log_debug, log_debug_data, log_error, log_exception
 from bliss.common.counter import SamplingCounter
 from bliss.controllers.counter import counter_namespace, SamplingCounterController
-from bliss.controllers.wago.helpers import splitlines, to_signed, register_type_to_int
+from bliss.controllers.wago.helpers import (
+    splitlines,
+    to_signed,
+    to_unsigned,
+    register_type_to_int,
+)
 
 from bliss.common.utils import ShellStr
 
@@ -110,7 +116,7 @@ Example taken from a configuration:
 WAGO_COMMS = {}
 
 
-DIGI_IN, DIGI_OUT, ANA_IN, ANA_OUT, N_CHANNELS, READING_TYPE, DESCRIPTION, READING_INFO, WRITING_INFO = (
+DIGI_IN, DIGI_OUT, ANA_IN, ANA_OUT, N_CHANNELS, N_CHANNELS_EXT, READING_TYPE, DESCRIPTION, READING_INFO, WRITING_INFO = (
     0,
     1,
     2,
@@ -120,6 +126,7 @@ DIGI_IN, DIGI_OUT, ANA_IN, ANA_OUT, N_CHANNELS, READING_TYPE, DESCRIPTION, READI
     6,
     7,
     8,
+    9,
 )
 
 ERRORS = {
@@ -135,11 +142,11 @@ ERRORS = {
 }
 ModConf = collections.namedtuple(
     "ModConf",
-    "digi_in digi_out ana_in ana_out n_channels reading_type description reading_info writing_info".split(),
+    "digi_in digi_out ana_in ana_out n_channels n_channels_ext reading_type description reading_info writing_info".split(),
 )
 
 MODULES_CONFIG = {
-    # [Digital IN, Digital OUT, Analog IN, Analog OUT, Total, type]
+    # [Digital IN, Digital OUT, Analog IN, Analog OUT, Total_normal_mode, Total_extended_mode, type]
     # types are:
     # fs4-20: 4/20mA
     # fs20: 4/20mA
@@ -149,99 +156,167 @@ MODULES_CONFIG = {
     # ssi32: 32 bit SSI encoder
     # digital: digital IN or OUT
     # counter: counters
-    "750-842": [0, 0, 0, 0, 2, "cpu", "Wago PLC Ethernet/IP"],
-    "750-881": [0, 0, 0, 0, 2, "cpu", "Wago PLC Ethernet/IP"],
-    "750-891": [0, 0, 0, 0, 2, "cpu", "Wago PLC Ethernet/IP"],
-    "750-400": [2, 0, 0, 0, 2, "digital", "2 Channel Digital Input"],
-    "750-401": [2, 0, 0, 0, 2, "digital", "2 Channel Digital Input"],
-    "750-402": [4, 0, 0, 0, 4, "digital", "4 Channel Digital Input"],
-    "750-403": [4, 0, 0, 0, 4, "digital", "4 Channel Digital Input"],
-    "750-404": [0, 0, 3, 0, 3, "counter", "32 bit Counter"],
-    "750-405": [2, 0, 0, 0, 2, "digital", "2 Channel Digital Input"],
-    "750-406": [2, 0, 0, 0, 2, "digital", "2 Channel Digital Input"],
-    "750-408": [4, 0, 0, 0, 4, "digital", "4 Channel Digital Input"],
-    "750-409": [4, 0, 0, 0, 4, "digital", "4 Channel Digital Input"],
-    "750-410": [2, 0, 0, 0, 2, "digital", "2 Channel Digital Input"],
-    "750-411": [2, 0, 0, 0, 2, "digital", "2 Channel Digital Input"],
-    "750-412": [2, 0, 0, 0, 2, "digital", "2 Channel Digital Input"],
-    "750-414": [4, 0, 0, 0, 4, "digital", "4 Channel Digital Input"],
-    "750-415": [4, 0, 0, 0, 4, "digital", "4 Channel Digital Input"],
-    "750-422": [4, 0, 0, 0, 4, "digital", "4 Channel Digital Input"],
-    "750-430": [8, 0, 0, 0, 8, "digital", "8 Channel Digital Input"],
-    "750-436": [8, 0, 0, 0, 8, "digital", "8 Channel Digital Input"],
-    "750-452": [0, 0, 2, 0, 2, "fs20", "2 Channel 0/20mA Input"],
-    "750-454": [0, 0, 2, 0, 2, "fs4-20", "2 Channel 4/20mA Input"],
-    "750-455": [0, 0, 4, 0, 4, "fs4-20", "4 Channel 4/20mA Input"],
-    "750-456": [0, 0, 2, 0, 2, "fs10", "2 Channel +-10V Differential Input"],
-    "750-457": [0, 0, 4, 0, 4, "fs10", "4 Channel +-10V Input"],
-    "750-459": [0, 0, 4, 0, 4, "fs10", "4 Channel Channel 0/10V Input"],
-    "750-461": [0, 0, 2, 0, 2, "thc", "2 Channel PT100 Input"],
-    "750-462": [0, 0, 2, 0, 2, "thc", "2 Channel Thermocouple Input"],
-    "750-465": [0, 0, 2, 0, 2, "fs20", "2 Channel 0/20mA Input"],
-    "750-466": [0, 0, 2, 0, 2, "fs4-20", "2 Channel 4/20mA Input"],
-    "750-467": [0, 0, 2, 0, 2, "fs10", "2 Channel 0/10V Input"],
-    "750-468": [0, 0, 4, 0, 4, "fs10", "4 Channel 0/10V Input"],
-    "750-469": [0, 0, 2, 0, 2, "thc", "2 Channel Ktype Thermocouple Input"],
-    "750-472": [0, 0, 2, 0, 2, "fs20", "2 Channel 0/20mA 16bit Input"],
-    "750-474": [0, 0, 2, 0, 2, "fs4-20", "2 Channel 4/20mA 16bit Input"],
-    "750-476": [0, 0, 2, 0, 2, "fs10", "2 Channel +-10V Input"],
-    "750-477": [0, 0, 2, 0, 2, "fs20", "2 Channel 0/10V Differential Input"],
-    "750-478": [0, 0, 2, 0, 2, "fs10", "2 Channel 0/10V Input"],
-    "750-479": [0, 0, 2, 0, 2, "fs10", "2 Channel +-10V Input"],
-    "750-480": [0, 0, 2, 0, 2, "fs20", "2 Channel 0/20mA Input"],
-    "750-483": [0, 0, 2, 0, 2, "fs30", "2 Channel 0/30V Differential Input"],
-    "750-485": [0, 0, 2, 0, 2, "fs4-20", "2 Channel 4/20mA Input"],
-    "750-492": [0, 0, 2, 0, 2, "fs4-20", "2 Channel 4/20mA Differential Input"],
-    "750-501": [0, 2, 0, 0, 2, "digital", "2 Channel Digital Output"],
-    "750-502": [0, 2, 0, 0, 2, "digital", "2 Channel Digital Output"],
-    "750-504": [0, 4, 0, 0, 4, "digital", "4 Channel Digital Output"],
-    "750-506": [0, 2, 0, 0, 2, "digital", "2 Channel Digital Output"],
-    "750-507": [0, 2, 0, 0, 2, "digital", "2 Channel Digital Output"],
-    "750-508": [0, 2, 0, 0, 2, "digital", "2 Channel Digital Output"],
-    "750-509": [0, 2, 0, 0, 2, "digital", "2 Channel Digital Output"],
-    "750-512": [0, 2, 0, 0, 2, "digital", "2 Normally Open Relay Output"],
-    "750-513": [0, 2, 0, 0, 2, "digital", "2 Normally Open Relay Output"],
-    "750-514": [0, 2, 0, 0, 2, "digital", "2 Changeover Relay Output"],
-    "750-516": [0, 4, 0, 0, 4, "digital", "4 Channel Digital Output"],
-    "750-517": [0, 2, 0, 0, 2, "digital", "2 Changeover Relay Output"],
-    "750-519": [0, 4, 0, 0, 4, "digital", "4 Channel Digital Output"],
-    "750-530": [0, 8, 0, 0, 8, "digital", "8 Channel Digital Output"],
-    "750-531": [0, 4, 0, 0, 4, "digital", "4 Channel Digital Output"],
-    "750-536": [0, 8, 0, 0, 8, "digital", "8 Channel Digital Output"],
-    "750-550": [0, 0, 0, 2, 2, "fs10", "2 Channel 0/10V Output"],
-    "750-552": [0, 0, 0, 2, 2, "fs20", "2 Channel 0/20mA Output"],
-    "750-554": [0, 0, 0, 2, 2, "fs4-20", "2 Channel 4/20mA Output"],
-    "750-556": [0, 0, 0, 2, 2, "fs10", "2 Channel +-10V Output"],
-    "750-557": [0, 0, 0, 4, 4, "fs10", "4 Channel +-10V Output"],
-    "750-562": [0, 0, 0, 2, 2, "fs10", "2 Channel +-10V 16bit Output"],
-    "750-562-UP": [0, 0, 0, 2, 2, "fs10", "2 Channel 0/10V 16bit Output"],
-    "750-630": [0, 0, 2, 0, 1, "ssi24", "24 bit SSI encoder"],  # special
-    "750-630-24": [0, 0, 2, 0, 1, "ssi24", "24 bit SSI encoder"],  # special
-    "750-630-32": [0, 0, 2, 0, 1, "ssi32", "32 bit SSI encoder"],  # special
-    "750-637": [0, 0, 4, 4, 2, "637", "32 bit Incremental encoder"],  # special
-    "750-653": [0, 0, 2, 2, 1, "653", "RS485 Serial Interface"],  # special
-    # check wcid31user for the followings
-    "750-1416": [8, 0, 0, 0, 8, "digital", "8 Channel Digital Input"],
-    "750-1417": [8, 0, 0, 0, 8, "digital", "8 Channel Digital Input"],
-    "750-1515": [0, 8, 0, 0, 8, "digital", "8 Channel Digital Output"],
+    "750-842": [0, 0, 0, 0, 2, 2, "cpu", "Wago PLC Ethernet/IP"],
+    "750-881": [0, 0, 0, 0, 2, 2, "cpu", "Wago PLC Ethernet/IP"],
+    "750-891": [0, 0, 0, 0, 2, 2, "cpu", "Wago PLC Ethernet/IP"],
+    "750-400": [2, 0, 0, 0, 2, 2, "digital", "2 Channel Digital Input"],
+    "750-401": [2, 0, 0, 0, 2, 2, "digital", "2 Channel Digital Input"],
+    "750-402": [4, 0, 0, 0, 4, 4, "digital", "4 Channel Digital Input"],
+    "750-403": [4, 0, 0, 0, 4, 4, "digital", "4 Channel Digital Input"],
+    # Input process image has 2 words of counter value and 1 byte of status,
+    # total of 3 words
+    # Output process image has 2 words of counter setting value and 1 byte of
+    # control, total of 3 words
+    "750-404": [
+        0,
+        0,
+        3,
+        3,
+        2,
+        4,
+        "counter",
+        "32 bit Counter",
+    ],  # special #TODO: check this
+    "750-405": [2, 0, 0, 0, 2, 2, "digital", "2 Channel Digital Input"],
+    "750-406": [2, 0, 0, 0, 2, 2, "digital", "2 Channel Digital Input"],
+    "750-408": [4, 0, 0, 0, 4, 4, "digital", "4 Channel Digital Input"],
+    "750-409": [4, 0, 0, 0, 4, 4, "digital", "4 Channel Digital Input"],
+    "750-410": [2, 0, 0, 0, 2, 2, "digital", "2 Channel Digital Input"],
+    "750-411": [2, 0, 0, 0, 2, 2, "digital", "2 Channel Digital Input"],
+    "750-412": [2, 0, 0, 0, 2, 2, "digital", "2 Channel Digital Input"],
+    "750-414": [4, 0, 0, 0, 4, 4, "digital", "4 Channel Digital Input"],
+    "750-415": [4, 0, 0, 0, 4, 4, "digital", "4 Channel Digital Input"],
+    "750-422": [4, 0, 0, 0, 4, 4, "digital", "4 Channel Digital Input"],
+    "750-430": [8, 0, 0, 0, 8, 8, "digital", "8 Channel Digital Input"],
+    "750-436": [8, 0, 0, 0, 8, 8, "digital", "8 Channel Digital Input"],
+    "750-452": [0, 0, 2, 0, 2, 2, "fs20", "2 Channel 0/20mA Input"],
+    "750-454": [0, 0, 2, 0, 2, 2, "fs4-20", "2 Channel 4/20mA Input"],
+    "750-455": [0, 0, 4, 0, 4, 4, "fs4-20", "4 Channel 4/20mA Input"],
+    "750-456": [0, 0, 2, 0, 2, 2, "fs10", "2 Channel +-10V Differential Input"],
+    "750-457": [0, 0, 4, 0, 4, 4, "fs10", "4 Channel +-10V Input"],
+    "750-459": [0, 0, 4, 0, 4, 4, "fs10", "4 Channel Channel 0/10V Input"],
+    "750-461": [0, 0, 2, 0, 2, 2, "thc", "2 Channel PT100 Input"],
+    "750-462": [0, 0, 2, 0, 2, 2, "thc", "2 Channel Thermocouple Input"],
+    "750-465": [0, 0, 2, 0, 2, 2, "fs20", "2 Channel 0/20mA Input"],
+    "750-466": [0, 0, 2, 0, 2, 2, "fs4-20", "2 Channel 4/20mA Input"],
+    "750-467": [0, 0, 2, 0, 2, 2, "fs10", "2 Channel 0/10V Input"],
+    "750-468": [0, 0, 4, 0, 4, 4, "fs10", "4 Channel 0/10V Input"],
+    "750-469": [0, 0, 2, 0, 2, 2, "thc", "2 Channel Ktype Thermocouple Input"],
+    "750-472": [0, 0, 2, 0, 2, 2, "fs20", "2 Channel 0/20mA 16bit Input"],
+    "750-474": [0, 0, 2, 0, 2, 2, "fs4-20", "2 Channel 4/20mA 16bit Input"],
+    "750-476": [0, 0, 2, 0, 2, 2, "fs10", "2 Channel +-10V Input"],
+    "750-477": [0, 0, 2, 0, 2, 2, "fs20", "2 Channel 0/10V Differential Input"],
+    "750-478": [0, 0, 2, 0, 2, 2, "fs10", "2 Channel 0/10V Input"],
+    "750-479": [0, 0, 2, 0, 2, 2, "fs10", "2 Channel +-10V Input"],
+    "750-480": [0, 0, 2, 0, 2, 2, "fs20", "2 Channel 0/20mA Input"],
+    "750-483": [0, 0, 2, 0, 2, 2, "fs30", "2 Channel 0/30V Differential Input"],
+    "750-485": [0, 0, 2, 0, 2, 2, "fs4-20", "2 Channel 4/20mA Input"],
+    "750-492": [0, 0, 2, 0, 2, 2, "fs4-20", "2 Channel 4/20mA Differential Input"],
+    "750-501": [0, 2, 0, 0, 2, 2, "digital", "2 Channel Digital Output"],
+    "750-502": [0, 2, 0, 0, 2, 2, "digital", "2 Channel Digital Output"],
+    "750-504": [0, 4, 0, 0, 4, 4, "digital", "4 Channel Digital Output"],
+    # Input process image has 2 diagnostic bits x channel
+    # Output process image has 4 bits, first two are control bits, latest are not used
+    "750-506": [4, 4, 0, 0, 2, 6, "digital", "2 Channel Digital Output"],  # special
+    # Input process image has 1 diagnostic bit x channel
+    # Output process image has 1 control bit x channel
+    "750-507": [2, 2, 0, 0, 2, 4, "digital", "2 Channel Digital Output"],  # special
+    # Input process image has 1 diagnostic bit x channel
+    # Output process image has 1 control bit x channel
+    "750-508": [2, 2, 0, 0, 2, 4, "digital", "2 Channel Digital Output"],  # special
+    "750-509": [0, 2, 0, 0, 2, 2, "digital", "2 Channel Digital Output"],
+    "750-512": [0, 2, 0, 0, 2, 2, "digital", "2 Normally Open Relay Output"],
+    "750-513": [0, 2, 0, 0, 2, 2, "digital", "2 Normally Open Relay Output"],
+    "750-514": [0, 2, 0, 0, 2, 2, "digital", "2 Changeover Relay Output"],
+    "750-516": [0, 4, 0, 0, 4, 4, "digital", "4 Channel Digital Output"],
+    "750-517": [0, 2, 0, 0, 2, 2, "digital", "2 Changeover Relay Output"],
+    "750-519": [0, 4, 0, 0, 4, 4, "digital", "4 Channel Digital Output"],
+    "750-530": [0, 8, 0, 0, 8, 8, "digital", "8 Channel Digital Output"],
+    "750-531": [0, 4, 0, 0, 4, 4, "digital", "4 Channel Digital Output"],
+    "750-536": [0, 8, 0, 0, 8, 8, "digital", "8 Channel Digital Output"],
+    "750-550": [0, 0, 0, 2, 2, 2, "fs10", "2 Channel 0/10V Output"],
+    "750-552": [0, 0, 0, 2, 2, 2, "fs20", "2 Channel 0/20mA Output"],
+    "750-554": [0, 0, 0, 2, 2, 2, "fs4-20", "2 Channel 4/20mA Output"],
+    "750-556": [0, 0, 0, 2, 2, 2, "fs10", "2 Channel +-10V Output"],
+    "750-557": [0, 0, 0, 4, 4, 4, "fs10", "4 Channel +-10V Output"],
+    "750-562": [0, 0, 0, 2, 2, 2, "fs10", "2 Channel +-10V 16bit Output"],
+    "750-562-UP": [0, 0, 0, 2, 2, 2, "fs10", "2 Channel 0/10V 16bit Output"],
+    "750-630": [0, 0, 2, 0, 1, 1, "ssi24", "24 bit SSI encoder"],
+    "750-630-24": [0, 0, 2, 0, 1, 1, "ssi24", "24 bit SSI encoder"],
+    "750-630-32": [0, 0, 2, 0, 1, 1, "ssi32", "32 bit SSI encoder"],
+    # Both Input and Output process images has 1 Control/Status
+    # byte of Channel 1 in the first word (and an empty byte)
+    # the second word has the Data value of the channel
+    "750-637": [0, 0, 4, 4, 2, 8, "637", "32 bit Incremental encoder"],  # special
+    "750-653": [0, 0, 2, 2, 1, 1, "653", "RS485 Serial Interface"],  # special
+    "750-1416": [8, 0, 0, 0, 8, 8, "digital", "8 Channel Digital Input"],
+    "750-1417": [8, 0, 0, 0, 8, 8, "digital", "8 Channel Digital Input"],
+    "750-1515": [0, 8, 0, 0, 8, 8, "digital", "8 Channel Digital Output"],
 }
 
 
-def get_module_info(module_name):
-    return MODULES_CONFIG[module_name]
+# go through catalogue entries and change it to a NamedTuple
 
-
-# go through catalogue entries and update 'reading info'
 for module_name, module_info in MODULES_CONFIG.items():
     reading_info = {}
     writing_info = {}
 
-    # replacing Configuration List with a NamedTuple
     MODULES_CONFIG[module_name] = ModConf(*module_info, reading_info, writing_info)
 
-    reading_type = module_info[READING_TYPE]
-    if reading_type.startswith("fs"):
-        module_info[READING_TYPE] = "fs"
+
+@functools.lru_cache()
+def get_channel_info(module_name, module_channel=0, extended_mode=False):
+
+    module_info = MODULES_CONFIG[module_name]
+
+    reading_type = module_info.reading_type
+
+    info = module_info.reading_info
+    info["reading_type"] = module_info.reading_type
+    if module_name == "750-404":
+        if extended_mode:
+            # counter_value, counter_status, counter_setting_value, counter_control = (
+            if module_channel in (0, 2):
+                info["bits"] = 32
+            elif module_channel in (1, 3):
+                info["bits"] = 8
+            if module_channel in (0, 1):
+                info["type"] = "ANA_IN"
+            elif module_channel in (2, 3):
+                info["type"] = "ANA_OUT"
+        else:
+            # counter_status, counter_value
+            if module_channel == 0:
+                info["bits"] = 8
+                info["type"] = "ANA_IN"
+            elif module_channel == 1:
+                info["bits"] = 32
+                info["type"] = "ANA_IN"
+
+    elif module_name in ("750-637",):
+        if extended_mode:
+            # a_val, a_status, b_val, b_status, a_set_val, a_control, b_set_val, b_control = (
+            if module_channel in (1, 3, 5, 7):
+                info["bits"] = 8
+            elif module_channel in (0, 2, 4, 6):
+                info["bits"] = 32
+            else:
+                raise RuntimeError(
+                    f"Module channel n.{module_channel} not available for the Wago module {module_name} with extended_mode={extended_mode}"
+                )
+            if module_channel in (0, 1, 2, 3):
+                info["type"] = "ANA_IN"
+            elif module_channel in (4, 5, 6, 7):
+                info["type"] = "ANA_OUT"
+        else:
+            if module_channel in (0, 1):
+                info["bits"] = 32
+                info["type"] = "ANA_IN"
+
+    elif reading_type.startswith("fs"):
+        info["reading_type"] = "fs"
+        info["bits"] = 16
+        info["type"] = "ANA_IN"
         try:
             fs_low, fs_high = map(int, reading_type[2:].split("-"))
         except ValueError:
@@ -251,20 +326,50 @@ for module_name, module_info in MODULES_CONFIG.items():
             if fs_low != 0:
                 fs_high -= fs_low
 
-        reading_info["low"] = fs_low
-        reading_info["high"] = fs_high
+        info["low"] = fs_low
+        info["high"] = fs_high
         if module_name.endswith("477"):
-            reading_info["base"] = 20000
+            info["base"] = 20000
         elif module_name.endswith("562-UP"):
-            reading_info["base"] = 65535
+            info["base"] = 65535
         else:
-            reading_info["base"] = 32767
+            info["base"] = 32767
     elif reading_type.startswith("ssi"):
-        module_info[READING_TYPE] = "ssi"
-        reading_info["bits"] = int(reading_type[3:])
+        info["reading_type"] = "ssi"
+        info["type"] = "ANA_IN"
+        info["bits"] = int(reading_type[3:])
+    elif reading_type in ("counter", "637"):
+        info["reading_type"] = "counter"
+        info["bits"] = 32
     elif reading_type.startswith("thc"):
-        module_info[READING_TYPE] = "thc"
-        reading_info["bits"] = 16
+        info["reading_type"] = "thc"
+        info["bits"] = 16
+        info["type"] = "ANA_IN"
+    elif reading_type == "digital":
+        info["reading_type"] = "digital"
+        info["bits"] = 1
+        total_ch = module_info.digi_out + module_info.digi_in
+        # in case of special modules first we map digital out
+        if module_channel in range(0, module_info.digi_out):
+            info["type"] = "DIGI_OUT"
+        elif module_channel in range(module_info.digi_out, total_ch):
+            info["type"] = "DIGI_IN"
+    else:
+        raise RuntimeError(f"Can't retrieve information on {module_name}")
+
+    try:
+        # those should be always defined
+        info["type"]
+        info["bits"]
+    except KeyError:
+        raise KeyError(
+            f"Module channel n.{module_channel} not available for the Wago module {module_name} with extended_mode={extended_mode}"
+        )
+
+    return module_info
+
+
+get_module_info = get_channel_info
 
 
 def get_wago_comm(conf):
@@ -328,33 +433,10 @@ class TangoWago:
         or a combination of the two
         """
         log_debug(self, f"In set args={args}")
-        # write_table = self.modules_config._resolve_write(*args)
-        channels_to_write = []
-        current_list = channels_to_write
-        for x in args:
-            if type(x) in (bytes, str):
-                # channel name
-                current_list = [str(x)]
-                channels_to_write.append(current_list)
-            else:
-                # value
-                current_list.append(x)
+        array = self.modules_config._resolve_write(*args)
 
-        for i in range(len(channels_to_write)):
-            x = channels_to_write[i]
-            if len(x) > 2:
-                # group values for channel with same name
-                # in a list
-                channels_to_write[i] = [x[0], x[1:]]
-
-        for logical_device, *values in channels_to_write:
-            logical_device_key = self.modules_config.devname2key(logical_device)
-
-            array = [logical_device_key]
-            for channel, val in enumerate(flatten(values)):
-                array.extend([channel, val])
-            # logical_device_key, than pairs of channel,values
-            self.comm.command_inout("devwritephys", array)
+        for write_operation in array:
+            self.comm.command_inout("devwritephys", write_operation)
 
     def __getattr__(self, attr):
         if attr.startswith("dev") or attr in ("status", "state"):
@@ -364,7 +446,13 @@ class TangoWago:
 
 
 class ModulesConfig:
-    def __init__(self, mapping_str, main_module="750-842", ignore_missing=False):
+    def __init__(
+        self,
+        mapping_str,
+        main_module="750-842",
+        ignore_missing=False,
+        extended_mode=False,
+    ):
         """Various helper methods to manage the modules configuration for the
         Wago PLC
 
@@ -383,57 +471,277 @@ class ModulesConfig:
             750-469,coltc1,coltc2
             750-517,intlckcol,intlckinc
         """
+        self.__extended_mode = extended_mode
+
         self.mapping_str = mapping_str
-        i = 0
-        digi_out_base = 0
-        ana_out_base = 0
         self.__mapping = []
         self.__modules = [main_module]  # first element is the Ethernet Module
+
         for module_name, channels in ModulesConfig.parse_mapping_str(mapping_str):
             if module_name not in MODULES_CONFIG:
                 raise RuntimeError("Unknown module: %r" % module_name)
-            self.__modules.append(module_name)
-            channels_map = []
-            module_info = get_module_info(module_name)
-            if channels:
-                # if channels are specified, check it corresponds
-                # to the number of available channels
-                if module_info.n_channels != len(channels):
-                    if not ignore_missing:
-                        raise RuntimeError(
-                            "Missing mapped channels on module %d: %r"
-                            % (i + 1, module_name)
-                        )
-                for j in (DIGI_IN, DIGI_OUT, ANA_IN, ANA_OUT):
-                    channels_map.append([])
-                    if module_info.reading_type in ("ssi24", "ssi32", "637"):
-                        # those modules need 2 words per value
-                        total_channels = range(int(module_info[j] / 2))
-                    else:
-                        total_channels = range(module_info[j])
+            if module_name in ("750-653",):
+                raise NotImplementedError
 
-                    for _ in total_channels:
-                        if module_info.n_channels == 1:
-                            channels_map[-1].append(channels[0])
-                        else:
-                            try:
-                                channels_map[-1].append(channels.pop(0))
-                            except IndexError:
-                                if ignore_missing:
-                                    pass
-                                else:
-                                    raise
-            self.__mapping.append(
-                {
-                    "module": module_name,
-                    "channels": channels_map,
-                    "writing_info": {DIGI_OUT: digi_out_base, ANA_OUT: ana_out_base},
-                    "n_channels": module_info[N_CHANNELS],
-                }
+            # check n. of channels
+            if extended_mode:
+                n_channels = get_channel_info(module_name).n_channels_ext
+            else:
+                n_channels = get_channel_info(module_name).n_channels
+
+            if not ignore_missing and len(channels) != n_channels:
+                raise RuntimeError(
+                    f"Mapping of channels on module {module_name} is not correct"
+                )
+
+            self.__modules.append(module_name)
+
+            self.__mapping.append({"module": module_name, "channels": channels})
+
+        self.create_memory_table()
+        self.create_read_table()
+
+    @property
+    def extended_mode(self):
+        return self.__extended_mode
+
+    def create_memory_table(self):
+        """This will give a representation of the wago memory and
+        where the logical_devices/channels are mapped
+
+        Returns:
+            dict: 4 string keys (DIGI_IN, DIGI_OUT, ANA_IN, ANA_OUT), every
+            one contains a list of tuples that contains
+                (logical_name: str, logical_channel: int, module_name: str,
+                 physical_module_number, physical_module_channel )
+            of a logical device.
+
+            The important fact is that this reflects the Wago memory, so, for example
+            the third element of ANA_IN is the third Word in Wago modbus memory area,
+            this is needed as a helper for manipulating.
+            We can have empty channels if the user does not assign names, in this case
+            we will have a None value instead.
+
+        Example:
+            >>> # asking for information about the first word mapped to
+            >>> # the Analog Input area
+            >>> self.memory_table['ANA_IN'][0]
+            DeviceInfo(logical_device='encpsb', logical_channel=0, module_name='750-630', physical_module_number=2, physical_module_channel=0, info=ModConf(digi_in=0, digi_out=0, ana_in=2, ana_out=0, n_channels=1, n_channels_ext=1, reading_type='ssi24', description='24 bit SSI encoder', reading_info={'reading_type': 'ssi', 'type': 'ANA_IN', 'bits': 24}, writing_info={}))
+
+            >>> # we know that this memory area is connected to the first channel
+            >>> # (channel 0) of a logical device called 'temp_tr1' 
+            >>> # we also know that the PLC module is the first one attached
+            >>> # to the Main Wago Cpu and also this is the first input of the module
+            """
+        memory = {"DIGI_IN": [], "DIGI_OUT": [], "ANA_IN": [], "ANA_OUT": []}
+        device_map = dict()
+
+        for phys_mod_num, (module_name, logical_devices) in enumerate(
+            ModulesConfig.parse_mapping_str(self.mapping_str)
+        ):
+            # Example of calling ModulesConfig.parse_mapping_str
+            #
+            # [('750-504', ['foh2ctrl', 'foh2ctrl', 'foh2ctrl', 'foh2ctrl']),
+            # ('750-408', ['foh2pos', 'sain2', 'foh2pos', 'sain4']),
+            # ('750-408', ['foh2pos', 'sain6', 'foh2pos', 'sain8']), ...
+            # populate channels_map
+            device_memory = []  # mapped memory for a device
+
+            module_info = get_channel_info(module_name)
+
+            for phys_chan_num, logical_device in enumerate(logical_devices):
+                # Example: 0, 'foh2ctrl'
+                if logical_device in device_map:
+                    device_map[logical_device] += 1
+                else:
+                    device_map[logical_device] = 0
+
+                channel = device_map[logical_device]
+                # E.G. ('esTf1', 0, 469, 0, 0)
+
+                # extracting the module type as integer E.G."750-469" -> 469
+                # module_reference = int(module_name.split("-")[1])
+
+                devinfo = collections.namedtuple(
+                    "DeviceInfo",
+                    (
+                        "logical_device",
+                        "logical_channel",
+                        "module_name",
+                        "physical_module_number",
+                        "physical_module_channel",
+                        "info",
+                    ),
+                )
+
+                device_memory.append(
+                    devinfo(
+                        logical_device,
+                        channel,
+                        module_name,
+                        phys_mod_num,
+                        phys_chan_num,
+                        get_channel_info(
+                            module_name,
+                            phys_chan_num,
+                            extended_mode=self.__extended_mode,
+                        ),
+                    )
+                )
+
+            # fill eventually missing channels (ignore_missing = True)
+            filled_channels = device_memory + [None] * (
+                module_info.n_channels_ext - len(device_memory)
             )
-            digi_out_base += module_info[DIGI_OUT]
-            ana_out_base += module_info[ANA_OUT]
-            i += 1
+
+            # now filled_channels is a list of DeviceInfo named tuples
+            #
+            # Example
+            # [DeviceInfo(logical_device='foh2ctrl', logical_channel=0, module_name='750-504', physical_module_number=0, physical_module_channel=0),
+            # DeviceInfo(logical_device='foh2ctrl', logical_channel=1, module_name='750-504', physical_module_number=0, physical_module_channel=1), ...
+
+            if module_name == "750-404":  # 32 bit counter
+                # Input process image has 2 words of counter value and 1 byte of status,
+                # total of 3 words
+                # Output process image has 2 words of counter setting value and 1 byte of
+                # control, total of 3 words
+                if self.__extended_mode:
+                    counter_value, counter_status, counter_setting_value, counter_control = (
+                        filled_channels
+                    )
+                    memory["ANA_IN"].extend(
+                        [counter_status, counter_value, counter_value]
+                    )
+                    memory["ANA_OUT"].extend(
+                        [counter_control, counter_setting_value, counter_setting_value]
+                    )
+
+                else:
+                    counter_status, counter_value, *_ = filled_channels
+
+                    memory["ANA_IN"].extend(
+                        [counter_status, counter_value, counter_value]
+                    )
+                    memory["ANA_OUT"].extend([None, None, None])
+
+            elif module_name == "750-637":
+                # Both Input and Output process images has 1 Control/Status
+                # byte of Channel 1 in the first word (and an empty byte)
+                # the second word has the Data value of the channel
+
+                if self.__extended_mode:
+                    a_val, a_status, b_val, b_status, a_set_val, a_control, b_set_val, b_control = (
+                        filled_channels
+                    )
+                    memory["ANA_IN"].extend([a_status, a_val, b_status, b_val])
+                    memory["ANA_OUT"].extend(
+                        [a_control, a_set_val, b_control, b_set_val]
+                    )
+                else:
+                    # Replicating C++ code for this device
+                    # maps on the first logical_channel
+                    # status bits:
+                    #     logical channel 0
+                    #     00C100C0  (32 bits signed)
+                    # and on the second logical_channel
+                    # values
+                    #     logical channel 1
+                    #     D3D2D1D0  (32 bit signed)
+
+                    status, value, *_ = filled_channels
+
+                    memory["ANA_IN"].extend([status, value, status, value])
+                    memory["ANA_OUT"].extend([None, None, None, None])
+
+            elif module_info.reading_type.startswith("ssi"):
+                for ch in filled_channels:
+                    # encoders occupy two words
+                    memory["ANA_IN"].extend([ch])
+                    memory["ANA_IN"].extend([ch])
+
+            elif module_info.reading_type == "digital":
+                if module_info.digi_in > 0 and module_info.digi_out > 0:
+                    # we have both digital input and outputs
+                    # we normally map only the outputs, but in extended mode
+                    # we map first outputs that inputs
+                    if self.__extended_mode:
+                        ch_digi_out = filled_channels[: module_info.digi_out]
+                        ch_digi_in = filled_channels[module_info.digi_out :]
+                        for ch in ch_digi_out:
+                            memory["DIGI_OUT"].append(ch)
+                        for ch in ch_digi_in:
+                            memory["DIGI_IN"].append(ch)
+                    else:
+                        memory["DIGI_IN"].extend([None] * module_info.digi_in)
+                        for ch in filled_channels[: module_info.digi_out]:
+                            memory["DIGI_OUT"].append(ch)
+
+                elif module_info.digi_in > 0:
+                    memory["DIGI_IN"].extend(filled_channels)
+                elif module_info.digi_out > 0:
+                    memory["DIGI_OUT"].extend(filled_channels)
+            elif module_info.ana_in > 0:
+                memory["ANA_IN"].extend(filled_channels)
+            elif module_info.ana_out > 0:
+                memory["ANA_OUT"].extend(filled_channels)
+            else:
+                raise NotImplementedError
+        self.memory_table = memory
+
+    def create_read_table(self):
+        """
+        Creates a read table with informations about modules and memory mapping connected
+        to a logical_device_name
+
+        Examples:
+
+        >>> self.read_table.keys()  # get all logical_device_names
+        dict_keys(['foh2pos', 'sain2', 'sain4', 'sain6', 'sain8', 'pres', ... ])
+
+        >>> self.read_table['foh2pos'].keys()  # get all logical_channels
+        dict_keys([0, 1, 2, 3])
+
+        >>> len(self.read_table['foh2pos'].keys())  # how many channels
+
+        >>> self.read_table['foh2pos'][1]
+        {'module_reference': '750-408', 'info': ModConfig(...) ,'DIGI_IN': {'mem_position': [2]}}
+        >>> # channel 1 of foh2pos is a DIGI_IN and is you can read it in the
+        >>> # memory position n.2 of DIGI_IN area
+        """
+        log_dev_tree = dict()
+
+        types = "DIGI_IN DIGI_OUT ANA_IN ANA_OUT".split()
+        for type_ in types:
+            for mem_position, (mem_info) in enumerate(self.memory_table[type_]):
+                if mem_info is None:  # not mapped channel
+                    continue
+                logical_device = mem_info.logical_device
+                logical_channel = mem_info.logical_channel
+                module_reference = mem_info.module_name
+                info = mem_info.info
+                if logical_device not in log_dev_tree:
+                    log_dev_tree[logical_device] = {
+                        logical_channel: {
+                            "module_reference": module_reference,
+                            "info": info,
+                        }
+                    }
+                if logical_channel not in log_dev_tree[logical_device]:
+                    log_dev_tree[logical_device][logical_channel] = {
+                        "module_reference": module_reference,
+                        "info": info,
+                    }
+
+                if type_ not in log_dev_tree[logical_device][logical_channel]:
+                    log_dev_tree[logical_device][logical_channel][type_] = {
+                        "mem_position": []
+                    }
+
+                log_dev_tree[logical_device][logical_channel][type_][
+                    "mem_position"
+                ].append(mem_position)
+
+        self.read_table = log_dev_tree
 
     @property
     def mapping(self):
@@ -509,8 +817,13 @@ class ModulesConfig:
                 module_type = module["type"]
                 logical_names = module["logical_names"]
                 mapping.append("%s,%s" % (module_type, logical_names))
+        extended_mode = config_tree.get("extended_mode", False)
 
-        return cls("\n".join(mapping), ignore_missing=ignore_missing)
+        return cls(
+            "\n".join(mapping),
+            ignore_missing=ignore_missing,
+            extended_mode=extended_mode,
+        )
 
     @classmethod
     def from_tango_config(cls, config: dict):
@@ -570,90 +883,106 @@ class ModulesConfig:
 
         # the following will check type/convert, raising if wrong
         channel_type = register_type_to_int(channel_type)
-        for logical_device_key, logical_channels in enumerate(
-            self.logical_mapping.values()
-        ):
-            for logical_channel, logical_channel_info in enumerate(logical_channels):
-                physical_channel, physical_module, module_type, channel_base_address, offset_ = (
-                    logical_channel_info
-                )
-                if offset_ == offset and channel_base_address == channel_type:
-                    return logical_device_key, logical_channel
 
-        raise RuntimeError("Invalid offset")
+        if channel_type == 18754:
+            info = self.memory_table["DIGI_IN"]
+        elif channel_type == 20290:
+            info = self.memory_table["DIGI_OUT"]
+
+        elif channel_type == 18775:
+            info = self.memory_table["ANA_IN"]
+
+        elif channel_type == 20311:
+            info = self.memory_table["ANA_OUT"]
+        else:
+            raise RuntimeError("Invalid channel type")
+
+        try:
+            # can be None
+            logical_device = info[offset].logical_device
+            logical_channel = info[offset].logical_channel
+
+        except (IndexError, AttributeError):
+            raise RuntimeError("Invalid offset")
+
+        logical_device_key = self.devname2key(logical_device)
+        return logical_device_key, logical_channel
 
     def devlog2hard(self, array_in):
 
         device_key, logical_channel = array_in
         logical_device = self.devkey2name(device_key)
+        for offset, el in enumerate(self.memory_table["DIGI_IN"]):
+            channel_base_address = 18754
+            if el is not None:
+                if el[0] == logical_device and el[1] == logical_channel:
+                    module_name = el.module_name
+                    phys_mod_num = el.physical_module_number
+                    phys_chan_num = el.physical_module_channel
 
-        device = self.logical_mapping[logical_device][logical_channel]
-        physical_channel = device.physical_channel
-        physical_module = device.physical_module
-        channel_base_address = device.channel_base_address
-        offset = device.offset
-        module_reference = int(device.module_type.split("-")[1])
+                    module_reference = int(module_name.split("-")[1])
+                    return (
+                        offset,
+                        channel_base_address,
+                        module_reference,
+                        phys_mod_num,
+                        phys_chan_num,
+                    )
+        for offset, el in enumerate(self.memory_table["DIGI_OUT"]):
+            channel_base_address = 20290
+            if el is not None:
+                if el[0] == logical_device and el[1] == logical_channel:
+                    module_name = el.module_name
+                    phys_mod_num = el.physical_module_number
+                    phys_chan_num = el.physical_module_channel
 
-        return (
-            offset,
-            channel_base_address,
-            module_reference,
-            physical_module,
-            physical_channel,
-        )
+                    module_reference = int(module_name.split("-")[1])
+                    return (
+                        offset,
+                        channel_base_address,
+                        module_reference,
+                        phys_mod_num,
+                        phys_chan_num,
+                    )
+        for offset, el in enumerate(self.memory_table["ANA_IN"]):
+            channel_base_address = 18775
+            if el is not None:
+                if el[0] == logical_device and el[1] == logical_channel:
+                    module_name = el.module_name
+                    phys_mod_num = el.physical_module_number
+                    phys_chan_num = el.physical_module_channel
+
+                    module_reference = int(module_name.split("-")[1])
+                    return (
+                        offset,
+                        channel_base_address,
+                        module_reference,
+                        phys_mod_num,
+                        phys_chan_num,
+                    )
+        for offset, el in enumerate(self.memory_table["ANA_OUT"]):
+            channel_base_address = 20311
+            if el is not None:
+                if el[0] == logical_device and el[1] == logical_channel:
+                    module_name = el.module_name
+                    phys_mod_num = el.physical_module_number
+                    phys_chan_num = el.physical_module_channel
+
+                    module_reference = int(module_name.split("-")[1])
+                    return (
+                        offset,
+                        channel_base_address,
+                        module_reference,
+                        phys_mod_num,
+                        phys_chan_num,
+                    )
+        raise RuntimeError("invalid logical channel Key")
 
     def devlog2scale(self, array_in):
         raise NotImplementedError
-        # logical_name, logical_channel = array_in
-        # _, _, module_type, _, _ = self.logical_mapping[logical_name][logical_channel]
-        # return scale
 
     def keys(self):
         return self.logical_keys.values()
-
-    def _resolve_read(self, *channel_names):
-        """
-        Resolve modules/channels to be read on PLC
-        Args:
-            *channel_names (list): list of channels to be read
-        Returns:
-            (list): one list of three elements for every PLC's module that has to be read
-                    containing: module number (from 0 to n)
-                                type of I/O: (0=DIGI_IN, 1=DIGI_OUT, 2=ANA_IN, 3=ANA_OUT)
-                                module internal IN/OUT number (from 0 to n)
-        Return example:
-            [[(0, 2, 0), (0, 2, 1)], [(2, 2, 1)], [(6, 2, 1)]]
-            Means that we want to read:
-            - Digital IN of channel 0 and 1 of module 0
-            - Digital IN of channel 1 of module 2
-            - Digital IN of channel 1 of module 6
-        """
-        channels_to_read = []
-        found_channel = set()
-        for channel_name in channel_names:
-            # find module(s) corresponding to given channel name
-            # all multiple channels with the same name will be retrieved
-            for i, mapping_info in enumerate(self.mapping):
-                channels_map = mapping_info["channels"]
-                if channels_map:
-                    for j in (DIGI_IN, DIGI_OUT, ANA_IN, ANA_OUT):
-                        if channel_name in channels_map[j]:
-                            found_channel.add(channel_name)
-                            channels_to_read.append([])
-                            if mapping_info["n_channels"] == 1:
-                                channels_map[j] = [channels_map[j][0]]
-                            for k, chan in enumerate(channels_map[j]):
-                                if chan == channel_name:
-                                    channels_to_read[-1].append((i, j, k))
-
-        not_found_channels = set(channel_names) - found_channel
-        if not_found_channels:
-            raise KeyError(
-                f"Channel(s) '{not_found_channels}` doesn't exist in Mapping"
-            )
-
-        # return tuple info: MODULE_NUM, IOTYPE, MOD_INT_CHANNEL
-        return channels_to_read
 
     def _resolve_write(self, *args):
         """Args should be list or pairs: channel_name, value
@@ -665,9 +994,11 @@ class ModulesConfig:
                             or a combination of the two
 
         Returns:
-            write_table:
-
+            list of lists: [[logical_device_key1, logical_channel1, value1, logical_channel2, value2], [logical_device_key2, logical_channel1, value1], ...]
+            This list is well suited to be used with DevWritePhys
         """
+        log_debug(self, f"In set args={args}")
+
         channels_to_write = []
         current_list = channels_to_write
         for x in args:
@@ -686,54 +1017,29 @@ class ModulesConfig:
                 # in a list
                 channels_to_write[i] = [x[0], x[1:]]
 
-        write_table = {}
-        n_chan = 0
-        found_channel = set()
-        channel_names = set()
-        for channel_name, value in channels_to_write:
-            channel_names.add(channel_name)
-            for i, mapping_info in enumerate(self.mapping):
-                channel_map = mapping_info["channels"]
-                if not channel_map:
-                    continue
-                for j in (DIGI_IN, DIGI_OUT, ANA_IN, ANA_OUT):
-                    n_channels = channel_map[j].count(channel_name)
-                    if n_channels:
-                        found_channel.add(channel_name)
-                        if j not in (DIGI_OUT, ANA_OUT):
-                            raise RuntimeError(
-                                "Cannot write: %r is not an output" % channel_name
-                            )
-                        if isinstance(value, list):
-                            if n_channels > len(value):
-                                raise RuntimeError(
-                                    "Cannot write: not enough values for channel %r: expected %d, got %d"
-                                    % (channel_name, n_channels, len(value))
-                                )
-                            else:
-                                idx = -1
-                                for k in range(n_channels):
-                                    idx = channel_map[j].index(channel_name, idx + 1)
+        out_array = []
+        for logical_device, *values in channels_to_write:
+            logical_device_key = self.devname2key(logical_device)
 
-                                    write_table.setdefault(i, []).append(
-                                        (j, idx, value[n_chan + k])
-                                    )
-                        else:
-                            if n_channels > 1:
-                                raise RuntimeError(
-                                    "Cannot write: only one value given for channel %r, expected: %d"
-                                    % (channel_name, n_channels)
-                                )
-                            k = channel_map[j].index(channel_name)
-                            write_table.setdefault(i, []).append((j, k, value))
-                        n_chan += n_channels
-        not_found_channels = channel_names - found_channel
-        if not_found_channels:
-            raise KeyError(
-                f"Channel(s) '{not_found_channels}` doesn't exist in Mapping"
-            )
+            key_array = [logical_device_key]
 
-        return write_table
+            real_channels = self.read_table[
+                logical_device
+            ].keys()  # real number of channels
+            for channel, val in enumerate(flatten(values)):
+                # trying to get the channel, if this does not exists
+                # the following will raises IndexError
+                if channel not in real_channels:
+                    raise KeyError(f"Channel(s) '{channel}` doesn't exist in Mapping")
+                key_array.extend([channel, val])
+            if (len(real_channels) * 2) + 1 != len(key_array):
+                raise RuntimeError(
+                    f"Cannot write: expected n. {len(real_channels)} values for logical device {logical_device}"
+                )
+
+            out_array.append(key_array)
+            # logical_device_key, than pairs of channel,values
+        return out_array
 
     @property
     def logical_keys(self):
@@ -762,160 +1068,6 @@ class ModulesConfig:
         return self.__logical_keys
 
     @property
-    def logical_mapping(self):
-        """
-        Maps logical devices/channels to physical modules/channels
-
-        Returns: dictionary where keys are logical devices, values are list of namedtuple
-
-        Example:
-            >>> self.logical_mapping['dac6'][0] # asking the fist logical channel of 'dac6' logical device
-            PhysMap(physical_channel=1, physical_module=7, module_type='750-562', channel_base_address=20311, offset=5)
-            >>> # second physical channel (n.1) of eighth physical module (n.7) of type 750-562, ...
-        """
-        try:
-            self.__logical_mapping
-        except AttributeError:
-            PhysMap = collections.namedtuple(
-                "PhysMap",
-                (
-                    "physical_channel",
-                    "physical_module",
-                    "module_type",
-                    "channel_base_address",
-                    "offset",
-                ),
-            )
-
-            # create a dictionary with logical_device as key and an empty list as values
-            # {'th21':[],'gil1':[], ..}
-            self.__logical_mapping = {k: list() for k in self.logical_keys.keys()}
-            for physical_device, mapping in self.physical_mapping.items():
-                logical_device, physical_channel, physical_module, module_type, channel_base_address, offset = (
-                    mapping
-                )
-                self.__logical_mapping[logical_device].append(
-                    PhysMap(
-                        physical_channel,
-                        physical_module,
-                        module_type,
-                        channel_base_address,
-                        offset,
-                    )
-                )
-
-        return self.__logical_mapping
-
-    @property
-    def physical_mapping(self):
-        """
-        Returns:
-            dict of LogPhysMap: a dict with LOGICAL DEVICE KEYS as keys (starting fron 0 to n)
-
-                LogPhysMap fields:
-                 - logical_device
-                 - physical_channel
-                 - physical_module
-                 - physical_module_type
-                 - channel_base_address
-                 - offset
-
-        Example:
-            >>> self.physical_mapping[3]
-            LogPhysMap(logical_device='pot2cur', physical_channel=1, physical_module=1,
-                    module_type='750-476', channel_base_address=18775, offset=3)
-
-            meaning the second channel (1) of the second PLC module (1) with logical name pot2cur
-            PLC add-on module of type 750-476, channel base address 18775 and offset 3
-
-        """
-        try:
-            self.__physical_mapping
-        except AttributeError:
-            LogPhysMap = collections.namedtuple(
-                "LogPhysMap",
-                (
-                    "logical_device",
-                    "physical_channel",
-                    "physical_module",
-                    "module_type",
-                    "channel_base_address",
-                    "offset",
-                ),
-            )
-
-            all_channels = []
-            digi_in, digi_out, ana_in, ana_out = 0, 0, 0, 0
-
-            for physical_module, mapping_info in enumerate(self.mapping):
-                channels_map = mapping_info["channels"]
-                module_type = mapping_info["module"]
-
-                # some channels may not have a name but we have
-                # to take them into account to calculate the proper
-                # logical_channel
-                total_n_channels = mapping_info["n_channels"]
-                required_channel_list = flatten(channels_map)
-                all_channels_map = required_channel_list + [None] * (
-                    total_n_channels - len(required_channel_list)
-                )
-
-                for logical_channel, logical_device in enumerate(all_channels_map):
-                    # getting channel base address
-                    module_info = MODULES_CONFIG[module_type]
-                    if module_info[DIGI_IN] > 0 and module_info[DIGI_OUT] > 0:
-                        if logical_channel % 2:
-                            channel_base_address = (ord("I") << 8) + ord(
-                                "B"
-                            )  # Corresponds 0x4942 18754
-                        else:
-                            channel_base_address = (ord("O") << 8) + ord(
-                                "B"
-                            )  # Corresponds 0x4f42 20290
-                    elif module_info[DIGI_IN] > 0:
-                        channel_base_address = (ord("I") << 8) + ord(
-                            "B"
-                        )  # Corresponds 0x4942 18754
-                        offset = digi_in
-                        digi_in += 1
-                    elif module_info[DIGI_OUT] > 0:
-                        channel_base_address = (ord("O") << 8) + ord(
-                            "B"
-                        )  # Corresponds 0x4f42 20290
-                        offset = digi_out
-                        digi_out += 1
-                    elif module_info[ANA_IN] > 0:
-                        channel_base_address = (ord("I") << 8) + ord(
-                            "W"
-                        )  # Corresponds 0x4957 18775
-                        offset = ana_in
-                        ana_in += 1
-                    elif module_info[ANA_OUT] > 0:
-                        channel_base_address = (ord("O") << 8) + ord(
-                            "W"
-                        )  # Corresponds 0x4f57 20311
-                        offset = ana_out
-                        ana_out += 1
-
-                    if (
-                        logical_device
-                    ):  # exclude None channels (that does not have a name)
-                        all_channels.append(
-                            LogPhysMap(
-                                logical_device,
-                                logical_channel,
-                                physical_module,
-                                module_type,
-                                channel_base_address,
-                                offset,
-                            )
-                        )
-            self.__physical_mapping = {
-                key: info for key, info in enumerate(all_channels)
-            }
-        return self.__physical_mapping
-
-    @property
     def bit_output_mem_area(self):
         """Returns the address of the first Word in plc Wago Memory
         where digital outputs are mapped
@@ -925,13 +1077,7 @@ class ModulesConfig:
         than digital outputs are mapped one output per bit
         starting from the LSB of the Word
         """
-        # count OW
-        offset = 0
-        for logical_device in self.logical_mapping.values():
-            for logical_channel in logical_device:
-                if logical_channel.channel_base_address == 20311:
-                    offset += 1
-        return offset
+        return len(self.memory_table["ANA_OUT"])
 
 
 class MissingFirmware(RuntimeError):
@@ -943,11 +1089,17 @@ class WagoController:
     The wago controller class
     """
 
-    def __init__(self, comm, modules_config: ModulesConfig, timeout=1.0):
+    def __init__(
+        self, comm, modules_config: ModulesConfig, timeout=1.0, polling_time=2
+    ):
         log_debug(self, "In __init__")
         self.client = comm
         self.timeout = timeout
         self.modules_config = modules_config
+
+        # setting up polling
+        self.polling_time = polling_time
+        self.last_read = 0
 
         self.series, self.order_nu = 0, 0
         self.firmware = {"date": "", "version": 0, "time": ""}
@@ -962,35 +1114,30 @@ class WagoController:
         In case of controller get the firmware version and firmware date.
         """
         log_debug(self, "In connect")
-        with self.lock:
-            try:
-                # check if we have a coupler or a controller
-                self.series = self.client.read_input_registers(0x2011, "H")
-            except Exception:
-                log_error(self, "Error connecting to Wago")
-                raise
+        try:
+            # check if we have a coupler or a controller
+            self.series = self.client_read_input_registers(0x2011, "H")
+        except Exception:
+            log_error(self, "Error connecting to Wago")
+            raise
 
-            self.order_nu = self.client.read_input_registers(0x2012, "H")
+        self.order_nu = self.client_read_input_registers(0x2012, "H")
 
-            self.modules_config.update_cpu(f"750-{self.order_nu}")
+        self.modules_config.update_cpu(f"750-{self.order_nu}")
 
-            self.coupler = self.order_nu < 800
-            if not self.coupler:
-                # get firmware date and version
-                reply = self.client.read_input_registers(0x2010, "H")
-                self.firmware["version"] = reply
-                reply = struct.pack(
-                    "8H", *self.client.read_input_registers(0x2022, "8H")
-                )
-                self.firmware["date"] = "/".join(
-                    (x.decode("utf-8") for x in reply.split(b"\x00") if x)
-                )
-                reply = struct.pack(
-                    "8H", *self.client.read_input_registers(0x2021, "8H")
-                )
-                self.firmware["time"] = "/".join(
-                    (x.decode("utf-8") for x in reply.split(b"\x00") if x)
-                )
+        self.coupler = self.order_nu < 800
+        if not self.coupler:
+            # get firmware date and version
+            reply = self.client_read_input_registers(0x2010, "H")
+            self.firmware["version"] = reply
+            reply = struct.pack("8H", *self.client.read_input_registers(0x2022, "8H"))
+            self.firmware["date"] = "/".join(
+                (x.decode("utf-8") for x in reply.split(b"\x00") if x)
+            )
+            reply = struct.pack("8H", *self.client_read_input_registers(0x2021, "8H"))
+            self.firmware["time"] = "/".join(
+                (x.decode("utf-8") for x in reply.split(b"\x00") if x)
+            )
         self.__check_plugged_modules()
 
     def close(self):
@@ -1001,233 +1148,126 @@ class WagoController:
         with self.lock:
             self.client.close()
 
-    def _read_fs(self, raw_value, low=0, high=10, base=32767):
+    def _read_fs(self, raw_value, **kwargs):
         """Read Digital Input type module. Make full scale conversion.
         """
+        low = kwargs.get("low", 0)
+        high = kwargs.get("high", 10)
+        base = kwargs.get("base", 32767)
         value = ctypes.c_short(raw_value).value
         return (value * high / float(base)) + low
 
-    def _read_ssi(self, raw_value, bits=24):
+    def _read_ssi(self, raw_value, **kwargs):
         """Read SSI (absolute encoders) type module
         Returns:
             (float): 24 bits precision, signed float
         """
+        bits = kwargs.get("bits", 24)
         # reading is two words, 16 bits each
         value = raw_value[0] + raw_value[1] * (1 << 16)
-        value &= (1 << bits) - 1
-        if value & (1 << (bits - 1)):
-            value -= 1 << bits
-        return [float(value)]
+        return float(to_signed(value, bits=bits))
 
-    def _read_thc(self, raw_value, bits=16):
+    def _read_thc(self, raw_value, **kwargs):
         """Read a thermocouple type module.
         Returns:
             (float): signed float
         """
+        bits = kwargs.get("bits", 16)
         value = ctypes.c_ushort(raw_value).value
-        value &= (1 << bits) - 1
-        if value & (1 << (bits - 1)):
-            value -= 1 << bits
-        return value / 10.0
+        return to_signed(value, bits=bits) / 10
 
-    def _read_value(self, raw_value, read_table):
-        """ Read raw value from a module
+    def update_read_table(self):
+        """Reads input/output modules and updates a cached table
+        `self.value_table` that is a dictionary with 4 keys
+        - "DIGI_IN"
+        - "DIGI_OUT"
+        - "ANA_IN"
+        - "ANA_OUT"
+
+        Every key gives an array that corresponds to the memory area
+        in the Wago.
+
+        Those values are than used by `get` to give back values to
+        the user.
+        This can be extended to implement a cache.
+
+        Example:
+            {'DIGI_IN': array([1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0], dtype=uint8), 
+            'DIGI_OUT': array([0, 0, 0, 0, 0, 1, 1, 1, 0, 0], dtype=uint8), 
+            'ANA_IN': (55809, 60774, 53568, 60630, 28176, 3948, 64595, 
+            37649, 23242, 33207), 
+            'ANA_OUT': (29109, 49427)}
         """
-        reading_type = read_table[READING_TYPE]
-        reading_info = read_table[READING_INFO]
-        if reading_type.startswith("fs"):
-            return self._read_fs(raw_value, **reading_info)
-        if reading_type in ("ssi24", "ssi32", "637"):
-            return self._read_ssi(raw_value, **reading_info)
-        if reading_type == "thc":
-            return self._read_thc(raw_value, **reading_info)
-        return raw_value
 
-    def read_phys(self, modules_to_read, convert_values=True):
-        """
-        Read physical values
-
-        Args:
-            modules_to_read(list): list of modules to read (from 0 to n)
-
-        Returns:
-            (tuple of tuples): a tuple containing all obtained values
-
-        Examples:
-            >>># reading 3 modules, first is 4 Digital OUT, second  4 Digital IN
-            >>># third is 2 Analog IN
-            >>>read_phys((0,1,2))
-
-            (
-              (None, (0, 1, 0, 0), None, None),
-              ((0, 1, 1, 0), None, None, None),
-              (None, None, (-0.123, 0.0), None),
-            )
-
-        """
-        # modules_to_read has to be a sorted list
-        ret = []
-        read_table = []
-        total_digi_in, total_digi_out, total_ana_in, total_ana_out = 0, 0, 0, 0
-
-        for module_index, module in enumerate(self.modules_config.mapping):
-            module_name = module["module"]
-            try:
-                module_info = get_module_info(module_name)
-            except KeyError:
-                raise RuntimeError(
-                    "Cannot read module %d: unknown module %r"
-                    % (module_index, module_name)
-                )
-            n_digi_in = module_info[DIGI_IN]
-            n_digi_out = module_info[DIGI_OUT]
-            n_ana_in = module_info[ANA_IN]
-            n_ana_out = module_info[ANA_OUT]
-
-            if module_index in modules_to_read:
-                read_table.append(
-                    {
-                        DIGI_IN: None,
-                        DIGI_OUT: None,
-                        ANA_IN: None,
-                        ANA_OUT: None,
-                        READING_TYPE: module_info[READING_TYPE],
-                        READING_INFO: module_info[READING_INFO],
-                    }
-                )
-
-                if n_digi_in > 0:
-                    read_table[-1][DIGI_IN] = (total_digi_in, n_digi_in)
-                if n_digi_out > 0:
-                    read_table[-1][DIGI_OUT] = (total_digi_out, n_digi_out)
-                if n_ana_in > 0:
-                    read_table[-1][ANA_IN] = (total_ana_in, n_ana_in)
-                if n_ana_out > 0:
-                    read_table[-1][ANA_OUT] = (total_ana_out, n_ana_out)
-
-            total_digi_in += n_digi_in
-            total_digi_out += n_digi_out
-            total_ana_in += n_ana_in
-            total_ana_out += n_ana_out
+        self.value_table = {}
+        memory = self.modules_config.memory_table
+        total_digi_in = len(memory["DIGI_IN"])
+        total_digi_out = len(memory["DIGI_OUT"])
+        total_ana_in = len(memory["ANA_IN"])
+        total_ana_out = len(memory["ANA_OUT"])
 
         if total_digi_in > 0:
-            digi_in_reading = self.client.read_coils(0, total_digi_in)
+            digi_in_reading = self.client_read_coils(0, total_digi_in)
+            self.value_table["DIGI_IN"] = digi_in_reading
+
         if total_digi_out > 0:
-            digi_out_reading = self.client.read_coils(0x200, total_digi_out)
+            digi_out_reading = self.client_read_coils(0x200, total_digi_out)
+            self.value_table["DIGI_OUT"] = digi_out_reading
+
         if total_ana_in > 0:
-            ana_in_reading = self.client.read_input_registers(0, total_ana_in * "H")
+            ana_in_reading = self.client_read_input_registers(0, total_ana_in * "H")
+            self.value_table["ANA_IN"] = ana_in_reading
+
         if total_ana_out > 0:
-            ana_out_reading = self.client.read_input_registers(
+            ana_out_reading = self.client_read_input_registers(
                 0x200, total_ana_out * "H"
             )
+            self.value_table["ANA_OUT"] = ana_out_reading
 
-        for module_read_table in read_table:
-            readings = []
+    def get(self, *logical_names, convert_values=True, flat=True, cached=False):
 
-            try:
-                i, n = module_read_table[DIGI_IN]
-            except Exception:
-                readings.append(None)
-            else:
-                readings.append(tuple(digi_in_reading[i : i + n]))
+        if not cached or (time.time() - self.last_read) > self.polling_time:
+            self.update_read_table()
+            self.last_read = time.time()
 
-            try:
-                i, n = module_read_table[DIGI_OUT]
-            except Exception:
-                readings.append(None)
-            else:
-                readings.append(tuple(digi_out_reading[i : i + n]))
+        result = []
+        for name in logical_names:
 
-            try:
-                i, n = module_read_table[ANA_IN]
-            except Exception:
-                readings.append(None)
-            else:
-                raw_values = ana_in_reading[i : i + n]
-                if not convert_values:
-                    readings.append(raw_values)
-                elif module_read_table[READING_TYPE] in ("ssi24", "ssi32", "637"):
-                    readings.append(
-                        tuple(self._read_value(raw_values, module_read_table))
-                    )
+            values_group_by_logical_name = []
+            channels_to_read = self.modules_config.read_table[name].keys()
+            for chann in channels_to_read:
+                value = []  # normally is a single value, with encoder could be two values
+                channel_info = self.modules_config.read_table[name][chann]["info"]
+                reading_info = channel_info.reading_info
+                types = [
+                    t
+                    for t in self.modules_config.read_table[name][chann].keys()
+                    if t in ("DIGI_IN", "DIGI_OUT", "ANA_IN", "ANA_OUT")
+                ]
+
+                for type_ in types:
+                    for mem_pos in self.modules_config.read_table[name][chann][type_][
+                        "mem_position"
+                    ]:
+                        value.append(self.value_table[type_][mem_pos])
+                # at this point value can be either [v] or [v1,v2] (encoders)
+                if convert_values:  # encoder has always to be joined in one
+                    v = self._read_values(value, reading_info)
                 else:
-                    readings.append(
-                        tuple(
-                            (self._read_value(x, module_read_table) for x in raw_values)
-                        )
-                    )
+                    v = value[0]
+                values_group_by_logical_name.append(v)  # gives already a list
 
-            try:
-                i, n = module_read_table[ANA_OUT]
-            except Exception:
-                readings.append(None)
-            else:
-                raw_values = ana_out_reading[i : i + n]
-                if not convert_values:
-                    readings.append(raw_values)
-                else:
-                    readings.append(
-                        tuple(
-                            (self._read_value(x, module_read_table) for x in raw_values)
-                        )
-                    )
+            if len(values_group_by_logical_name) == 1:
+                # if only one value do not use a list
+                values_group_by_logical_name = values_group_by_logical_name[0]
+            result.append(values_group_by_logical_name)  # list of lists
 
-            ret.append(tuple(readings))
-
-        return tuple(ret)
-
-    def get(self, *channel_names, convert_values=True, flat=True):
-        """
-        Read one or more values from channels
-        Args:
-            *channel_names (list): list of channels to be read
-            convert_values (bool): default=True converts from raw reading to meaningful values
-            flat (bool):           default=True, if false: return a list item per channel
-
-        Returns:
-            (list): channel values
-        """
-        log_debug(
-            self,
-            f"In get channel_names={channel_names}, convert_values={convert_values}",
-        )
-        # MODULE_NUM, IOTYPE, MOD_INT_CHANNEL = (0, 1, 2)
-
-        ret = []
-
-        channels_to_read = self.modules_config._resolve_read(*channel_names)
-
-        # get the module number taking the first element of sub lists
-        # for example: [[(0, 2, 0), (0, 2, 1)], [(2, 2, 1)], [(6, 2, 1)]] - > this gives [0, 2, 6]
-        modules_to_read_list = sorted(
-            set({module[0][0] for module in channels_to_read})
-        )
-
-        # read from the wago
-        with self.lock:
-            readings = self.read_phys(
-                modules_to_read_list, convert_values=convert_values
-            )
-        if not readings:
-            return None
-
-        # deal with read values
-        for channel_to_read in channels_to_read:
-            values = []
-            for i, j, k in channel_to_read:
-                i = modules_to_read_list.index(i)
-                values.append(readings[i][j][k])
-            if len(channel_to_read) > 1:
-                ret.append(values)
-            else:
-                ret += values
-
-        # return a list of list per channel
         if not flat:
-            result = flatten(ret)
+            result = flatten(result)
             ret = []
-            for channel in channel_names:
-                nval = len(self.modules_config.logical_mapping[channel])
+            for name in logical_names:
+                self.modules_config.read_table[name]
+                nval = len(self.modules_config.read_table[name].keys())
                 if nval > 1:
                     channel_values, result = result[:nval], result[nval:]
                 else:
@@ -1236,51 +1276,50 @@ class WagoController:
             return ret
 
         # return a list with all the channels
-        if not ret:
+        if not result:
             return None
-        if len(ret) == 1:
-            return ret[0]
+
+        if len(result) == 1:
+            return result[0]
 
         # ret represents a list of lists, containing Wago values
         # by Wago module, but we prefer to have a flat list
-        return flatten(ret)
+        return flatten(result)
 
-    def _write_fs(self, value, low=0, high=10, base=32767):
+    def _write_ssi(self, value, **kwargs):
+        raw_values = []
+        bits = kwargs.get("bits", 24)
+        value = to_unsigned(value, bits=bits)
+        while bits > 0:
+            bits -= 16
+            raw_values.append(value & 0xffff)
+        return raw_values
+
+    def _write_fs(self, value, **kwargs):
+        low = kwargs.get("low", 0)
+        high = kwargs.get("high", 10)
+        base = kwargs.get("base", 32767)
         return int(((value - low) * base / float(high))) & 0xffff
 
-    def write_phys(self, write_table):
-        # write_table is a dict of module_index:
-        # [(type_index, channel_index, value_to_write), ...]
-        for module_index, write_info in write_table.items():
-            module_info = get_module_info(
-                self.modules_config.attached_modules[module_index]
-            )
-            for type_index, channel_index, value2write in write_info:
-                if type_index == DIGI_OUT:
-                    addr = (
-                        self.modules_config.mapping[module_index]["writing_info"][
-                            DIGI_OUT
-                        ]
-                        + channel_index
-                    )
-                    self.client_write_coil(addr, bool(value2write))
-                elif type_index == ANA_OUT:
-                    addr = (
-                        self.modules_config.mapping[module_index]["writing_info"][
-                            ANA_OUT
-                        ]
-                        + channel_index
-                    )
-                    writing_type = module_info[READING_TYPE]
-                    if writing_type.startswith("fs"):
-                        write_value = self._write_fs(
-                            value2write, **module_info[READING_INFO]
-                        )
-                    else:
-                        raise RuntimeError("Writing %r is not supported" % writing_type)
-                    self.client_write_registers(
-                        addr, "H", [write_value], timeout=self.timeout
-                    )
+    def _read_values(self, raw_values, channel_info):
+        reading_type = channel_info["reading_type"]
+        bits = channel_info["bits"]
+
+        if reading_type in ("fs",):
+            return self._read_fs(raw_values[0], **channel_info)
+
+        if reading_type in ("thc",):
+            return self._read_thc(raw_values[0], **channel_info)
+
+        if bits > 1:  # not a digital channel
+            # transform to signed value
+            # this is to manage ssi, counters and status words that has
+            # different bits size
+            return self._read_ssi(raw_values, **channel_info)
+        if len(raw_values) > 1:
+            raise NotImplementedError
+
+        return raw_values[0]
 
     def set(self, *args):
         """Args should be list or pairs: channel_name, value
@@ -1288,15 +1327,15 @@ class WagoController:
         or a combination of the two
         """
         log_debug(self, f"In set args={args}")
-        write_table = self.modules_config._resolve_write(*args)
+        array = self.modules_config._resolve_write(*args)
 
-        with self.lock:
-            return self.write_phys(write_table)
+        for write_operation in array:
+            self.devwritephys(write_operation)
 
     def devwritephys(self, array_in):
         """Writes one or more values to the PLC
 
-        array_in: 
+        array_in:
                   - first number is logical device
                   - than pairs of logical channels and value to write
         Example:
@@ -1312,7 +1351,7 @@ class WagoController:
 
         array = [el for el in array_in]  # just copy it to later manipulate
         key = int(array.pop(0))
-        write_table = collections.defaultdict(list)
+        name = self.devkey2name(key)
         while array:
             ch, val, array = int(array[0]), array[1], array[2:]
 
@@ -1323,18 +1362,29 @@ class WagoController:
             [3] : module number (1st is 0)
             [4] : physical channel of the module (ex: 1 for the 2nd)
             """
-            offset, register_type, _, module_index, phys_chann = self.devlog2hard(
-                (key, ch)
-            )
-            if register_type == register_type_to_int("OW"):
-                # output word
-                write_table[module_index].append((ANA_OUT, phys_chann, val))
-            elif register_type == register_type_to_int("OB"):
+            offset, register_type, _, _, _ = self.devlog2hard((key, ch))
+            size = len(self.modules_config.read_table[name])
+            module_reference = self.modules_config.read_table[name][ch][
+                "module_reference"
+            ]
+            module_info = get_channel_info(module_reference)
+
+            if register_type == register_type_to_int("OB"):
                 # output bit
-                write_table[module_index].append((DIGI_OUT, phys_chann, bool(val)))
+                self.client_write_coil(offset, bool(val), timeout=self.timeout)
+            elif register_type == register_type_to_int("OW"):
+                # output word
+                writing_type = module_info.reading_type
+                if writing_type.startswith("fs"):
+                    val = [self._write_fs(val, **module_info.reading_info)]
+                else:
+                    val = self._write_ssi(val, **module_info.reading_info)
+
+                self.client_write_registers(
+                    offset, "H" * size, val, timeout=self.timeout
+                )
             else:
                 raise RuntimeError("Not an output module")
-        self.write_phys(write_table)
 
     def devwritedigi(self, array_in):
         self.devwritephys(array_in)
@@ -1344,29 +1394,24 @@ class WagoController:
         # convert_values=False forces this raw reading
         val = self.get(self.devkey2name(key), convert_values=False)
 
-        # TODO: there are modules with 24 and 32 bit values, behaviour should be check
-
-        def to_signed(num):
-            # convert a 16 bit number to a signed representation
-            if num >> 15:  # if is negative
-                calc = -((num ^ 0xffff) + 1)  # 2 complement
-                return calc
-            return num
-
         # needed a conversion to fit the DevShort which is signed
         values = [to_signed(v) for v in flatten([val])]
 
         return values
 
     def devreaddigi(self, key):
-        return self.devreadnocachedigi(key)
+        val = self.get(self.devkey2name(key), convert_values=False, cached=True)
+
+        # needed a conversion to fit the DevShort which is signed
+        values = [to_signed(v) for v in flatten([val])]
+
+        return values
 
     def devreadnocachephys(self, key):
-        val = self.get(self.devkey2name(key))
-        return flatten([val])
+        return self.get(self.devkey2name(key), flat=True)
 
     def devreadphys(self, key):
-        return self.devreadnocachephys(key)
+        return self.get(self.devkey2name(key), flat=True, cached=True)
 
     def devkey2name(self, key):
         """
@@ -1398,7 +1443,6 @@ class WagoController:
         """
         log_debug(self, f"In devwccomm args: {args}")
         command, params = args[0], args[1:]
-        MAX_RETRY = 3
 
         """
         PHASE 1: Handshake protocol: starts with PASSWD=0
@@ -1444,7 +1488,7 @@ class WagoController:
                 log_debug(self, f"Last response: Ack (should be 0 or 2) is {ack}")
                 raise MissingFirmware(f"ACK not received")
             try:
-                check, _, ack = self.client.read_input_registers(
+                check, _, ack = self.client_read_input_registers(
                     addr, "H" * size, timeout=self.timeout
                 )
             except Exception:
@@ -1517,7 +1561,7 @@ class WagoController:
                 raise TimeoutError(f"ACK not received")
 
             try:
-                check, error_code, command_executed, registers_to_read = self.client.read_input_registers(
+                check, error_code, command_executed, registers_to_read = self.client_read_input_registers(
                     addr, "H" * size, timeout=self.timeout
                 )
             except Exception:
@@ -1556,7 +1600,7 @@ class WagoController:
 
         if size:
             try:
-                response = self.client.read_input_registers(
+                response = self.client_read_input_registers(
                     addr, "H" * size, timeout=self.timeout
                 )
                 if isinstance(response, int):  # single number
@@ -1627,7 +1671,7 @@ class WagoController:
         out = ""
         for i, m in enumerate(self.attached_modules):
             if m.startswith("750-"):
-                description = get_module_info(m)[DESCRIPTION]
+                description = get_channel_info(m).description
                 out += f"module{i}: {m} ({description})\n"
             else:
                 out += f"module{i}: I/O mod ({m})\n"
@@ -1638,8 +1682,8 @@ class WagoController:
         the PLC"""
         log_debug(self, "Retrieving attached modules configuration")
         try:
-            modules = self.client.read_holding_registers(0x2030, "65H")
-        except Exception:
+            modules = self.client_read_holding_registers(0x2030, "65H")
+        except Exception as exc:
             log_exception(self, f"Can't retrieve Wago plugged modules {exc}")
             raise
 
@@ -1670,22 +1714,22 @@ class WagoController:
             raise
 
         out += f"\nWago modules known by the device server:\n"
-        for i, module in enumerate(self.modules_config.mapping):
-            out += f"module{i}: {module['module']} ({MODULES_CONFIG[module['module']][DESCRIPTION]}) {' '.join(flatten(module['channels']))}\n"
+        for i, mapping in enumerate(self.modules_config.mapping):
+            module_reference = mapping["module"]
+            module_info = get_channel_info(module_reference)
+            out += f"module{i}: {module_reference} ({module_info.description}) {' '.join(flatten(mapping['channels']))}\n"
 
         out += "\nList of logical devices:\n"
-        for (
-            i,
-            (
-                logical_device,
-                physical_channel,
-                physical_module,
-                physical_module_type,
-                _,
-                _,
-            ),
-        ) in self.physical_mapping.items():
-            out += f"{logical_device}:\nlogical_channel{i}: module: {physical_module} channel: {physical_channel}\n"
+        for logical_device in self.modules_config.read_table.keys():
+            for logical_channel in self.modules_config.read_table[
+                logical_device
+            ].keys():
+                logical_device_key = self.modules_config.devname2key(logical_device)
+                _, _, _, physical_module, physical_channel = self.modules_config.devlog2hard(
+                    (logical_device_key, logical_channel)
+                )
+
+            out += f"{logical_device}:\nlogical_channel{logical_channel}: module: {physical_module} channel: {physical_channel}\n"
         try:
             self.check_plugged_modules()
         except RuntimeError as exc:
@@ -1728,14 +1772,6 @@ class WagoController:
         return self.__modules[1:]
 
     @property
-    def logical_mapping(self):
-        return self.modules_config.logical_mapping
-
-    @property
-    def physical_mapping(self):
-        return self.modules_config.physical_mapping
-
-    @property
     def logical_keys(self):
         return self.modules_config.logical_keys
 
@@ -1762,25 +1798,34 @@ class WagoController:
             descr_mod = module1
 
         # module2 is a digital
-        type_mod_digi_in, type_mod_digi_out, _, _, type_mod_total, type_mod_type = get_module_info(
-            type_mod
-        )[
-            :6
-        ]
+
+        type_mod_digi_in = get_channel_info(type_mod).digi_in
+        type_mod_digi_out = get_channel_info(type_mod).digi_out
+        type_mod_type = get_channel_info(type_mod).reading_type
+
         descr_mod_isinput = True if "Input" in descr_mod else False
-        descr_mod_size, _, _, descr_mod_inout = descr_mod.split()
+        descr_mod_isoutput = True if "Output" in descr_mod else False
+        descr_mod_size, _, _, _ = descr_mod.split()
+        descr_mod_size = int(descr_mod_size)
+
         if (
-            bool(type_mod_digi_in)
-            and descr_mod_isinput
-            or bool(type_mod_digi_out)
-            and not descr_mod_isinput  # type is the same
-            and (
-                (descr_mod_isinput and int(descr_mod_size) == type_mod_digi_in)
-                or (not descr_mod_isinput and int(descr_mod_size) == type_mod_digi_out)
+            # check if type is correct
+            (
+                bool(type_mod_digi_out)
+                and descr_mod_isoutput
+                or bool(type_mod_digi_in)
+                and descr_mod_isinput
+            )
+            and
+            # check if size is correct
+            (
+                (descr_mod_size == type_mod_digi_in)
+                or (descr_mod_size == type_mod_digi_out)
             )
             and type_mod_type == "digital"
         ):
             return True
+
         return False
 
     def check_plugged_modules(self):
@@ -1795,6 +1840,18 @@ class WagoController:
                 raise RuntimeError(
                     f"PLC module n.{i} (starting from zero) does not corresponds to mapping:{module1} != {module2}"
                 )
+
+    def client_read_coils(self, *args, **kwargs):
+        with self.lock:
+            return self.client.read_coils(*args, **kwargs)
+
+    def client_read_input_registers(self, *args, **kwargs):
+        with self.lock:
+            return self.client.read_input_registers(*args, **kwargs)
+
+    def client_read_holding_registers(self, *args, **kwargs):
+        with self.lock:
+            return self.client.read_holding_registers(*args, **kwargs)
 
     def client_write_registers(self, address, struct_format, values, timeout=None):
         if self.order_nu == 891:
@@ -1817,16 +1874,20 @@ class WagoController:
                 timeout, RuntimeError("PLC is not ready to receive requests")
             ):
                 while True:
-                    if self.client.read_holding_registers(12288, "H") == 0:
+                    if self.client_read_holding_registers(12288, "H") == 0:
                         # when the Function Code is set to 0 we can proceed
                         break
-            return self.client.write_registers(
-                12288, "H" * len(payload), payload, timeout=self.timeout
-            )
+            with self.lock:
+                value = self.client.write_registers(
+                    12288, "H" * len(payload), payload, timeout=self.timeout
+                )
+            return value
         else:
-            return self.client.write_registers(
-                address, struct_format, values, timeout=timeout
-            )
+            with self.lock:
+                value = self.client.write_registers(
+                    address, struct_format, values, timeout=timeout
+                )
+            return value
 
     def client_write_coil(self, address, on_off, timeout=None):
         if self.order_nu == 891:
@@ -1843,15 +1904,17 @@ class WagoController:
                 timeout, RuntimeError("PLC is not ready to receive requests")
             ):
                 while True:
-                    if self.client.read_holding_registers(12288, "H") == 0:
+                    if self.client_read_holding_registers(12288, "H") == 0:
                         # when the Function Code is set to 0 we can proceed
                         break
 
-            return self.client.write_registers(
-                12288, "H" * len(payload), payload, timeout=self.timeout
-            )
+            with self.lock:
+                self.client.write_registers(
+                    12288, "H" * len(payload), payload, timeout=self.timeout
+                )
         else:
-            return self.client.write_coil(address, on_off, timeout=timeout)
+            with self.lock:
+                self.client.write_coil(address, on_off, timeout=timeout)
 
 
 class WagoCounter(SamplingCounter):
@@ -2013,19 +2076,19 @@ class Wago(SamplingCounterController):
                 log_error(self, msg)
 
     def __info__(self):
-        mapping = [
-            (k, len(ch)) for k, ch in self.modules_config.logical_mapping.items()
-        ]
+        keys = list(self.modules_config.logical_keys.keys())
+
         tab = [
-            ["logical device", "num of channel", "module_type", "module description"]
+            ["logical device", "logical channel", "module_type", "module description"]
         ]
-        for k, l in mapping:
-            module_type = self.modules_config.logical_mapping[k][0].module_type
-            description = get_module_info(module_type).description
-            tab.append([k, l, module_type, description])
+        for k in keys:
+            for ch in self.modules_config.read_table[k].keys():
+                ty = self.modules_config.read_table[k][ch]["module_reference"]
+                desc = get_channel_info(ty).description
+                tab.append([k, ch, ty, desc])
         repr_ = tabulate(tab, headers="firstrow", stralign="center")
         try:
-            status = self.controller.status()
+            self.controller.status()
         except Exception as exc:
             repr_ += f"\n\n** Could not retrieve hardware mapping ({exc})**"
             log_error(self.controller, "Could not retrieve status")

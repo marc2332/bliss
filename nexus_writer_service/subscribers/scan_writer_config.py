@@ -156,7 +156,8 @@ class NexusScanWriterConfigurable(scan_writer_base.NexusScanWriterBase):
         :param Subscan subscan:
         """
         super()._finalize_subscan(subscan)
-        self._save_applications(subscan)
+        with self._capture_finalize_exceptions():
+            self._save_applications(subscan)
 
     def mca_iter(self, subscan):
         """

@@ -36,14 +36,14 @@ def test_nxw_amesh_base_nopolicy(nexus_writer_base_nopolicy):
 
 @nxw_test_utils.writer_stdout_on_exception
 def _test_nxw_amesh(session=None, tmpdir=None, writer=None, **kwargs):
-    masters = "robx", "roby"
+    positioners = [["robx"], ["roby"]]
     scan_shape = 4, 5
     scan = scans.amesh(
-        session.env_dict[masters[0]],
+        session.env_dict[positioners[0][0]],
         0,
         1,
         scan_shape[0] - 1,
-        session.env_dict[masters[1]],
+        session.env_dict[positioners[1][0]],
         0,
         1,
         scan_shape[1] - 1,
@@ -53,5 +53,5 @@ def _test_nxw_amesh(session=None, tmpdir=None, writer=None, **kwargs):
     nxw_test_utils.run_scan(scan)
     nxw_test_utils.wait_scan_data_finished([scan], writer=writer)
     nxw_test_data.assert_scan_data(
-        scan, masters=masters, scan_shape=scan_shape, **kwargs
+        scan, positioners=positioners, scan_shape=scan_shape, **kwargs
     )

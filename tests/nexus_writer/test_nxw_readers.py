@@ -58,7 +58,6 @@ def _test_nxw_readers(
     reset_dispatcher = False
     try:
         detector = "diode3"
-        session.scan_saving.technique = "none"
         if mode == "a" and not enable_file_locking:
             # Readers will not crash the scan (not sure why) but corrupt the file
             scan_shape = (100,)
@@ -96,7 +95,11 @@ def _test_nxw_readers(
             nxw_test_utils.assert_scan_data_exists([scan])
             nxw_test_utils.assert_scan_data_not_corrupt([scan])
             nxw_test_data.assert_scan_data(
-                scan, scan_shape=scan_shape, detectors=[detector], **kwargs
+                scan,
+                scan_shape=scan_shape,
+                positioners=[["elapsed_time", "epoch"]],
+                detectors=[detector],
+                **kwargs
             )
     finally:
         if reset_dispatcher:

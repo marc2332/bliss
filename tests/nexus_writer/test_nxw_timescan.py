@@ -93,7 +93,9 @@ def _test_nxw_timescan(session=None, tmpdir=None, writer=None, **kwargs):
 
     # Verify data
     nxw_test_utils.wait_scan_data_finished([scan], writer=writer)
-    nxw_test_data.assert_scan_data(scan, scan_shape=(0,), **kwargs)
+    nxw_test_data.assert_scan_data(
+        scan, scan_shape=(0,), positioners=[["elapsed_time", "epoch"]], **kwargs
+    )
 
     # TODO: no proper cleanup by Bliss
     dispatcher.reset()

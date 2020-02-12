@@ -69,10 +69,18 @@ def _test_nxw_scangroup(session=None, tmpdir=None, writer=None, **kwargs):
         [scan1, scan2, scan_seq.sequence.scan, scan_grp.scan], writer=writer
     )
     nxw_test_data.assert_scan_data(
-        scan1, scan_shape=(npoints,), detectors=["diode3"], **kwargs
+        scan1,
+        scan_shape=(npoints,),
+        positioners=[["elapsed_time", "epoch"]],
+        detectors=["diode3"],
+        **kwargs
     )
     nxw_test_data.assert_scan_data(
-        scan2, scan_shape=(npoints,), detectors=["diode4"], masters=("robx",), **kwargs
+        scan2,
+        scan_shape=(npoints,),
+        positioners=[["robx"]],
+        detectors=["diode4"],
+        **kwargs
     )
     nxw_test_data.assert_scangroup_data(scan_seq.sequence, **kwargs)
     nxw_test_data.assert_scangroup_data(scan_grp, **kwargs)

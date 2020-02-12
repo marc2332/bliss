@@ -39,16 +39,16 @@ def remove_comments(iterable):
                 yield l
 
 
-def to_signed(num: int) -> int:
+def to_signed(num: int, bits=16) -> int:
     """convert a 16 bit number to a signed representation"""
-    if num >> 15:  # if is negative
-        calc = -((num ^ 0xffff) + 1)  # 2 complement
+    if num >> (bits - 1):  # if is negative
+        calc = -((num ^ ((1 << bits) - 1)) + 1)  # 2 complement
         return calc
     return num
 
 
-def to_unsigned(num: int) -> int:
-    return num & ((1 << 16) - 1)
+def to_unsigned(num: int, bits=16) -> int:
+    return num & ((1 << bits) - 1)
 
 
 def word_to_2ch(in_: int) -> bytes:

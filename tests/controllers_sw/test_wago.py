@@ -1,5 +1,6 @@
 import re
 import pytest
+import random
 
 from bliss.comm.modbus import ModbusTcp, ModbusError
 from bliss.common.utils import flatten
@@ -8,6 +9,7 @@ from bliss.controllers.wago.helpers import (
     remove_comments,
     splitlines,
     wordarray_to_bytestring,
+    to_signed,
 )
 
 from bliss.controllers.wago.wago import WagoController, ModulesConfig, MissingFirmware
@@ -17,6 +19,11 @@ from bliss.controllers.wago.interlocks import (
 )
 
 from bliss.common.scans import ct
+
+
+def test_to_signed():
+    assert to_signed(3, bits=2) == -1
+    assert to_signed(3, bits=3) == 3
 
 
 def test_parse_mapping_str():
@@ -92,12 +99,6 @@ def test_mapping_class_1():
     assert m.devkey2name(12) == "psTf1"
     assert m.devkey2name(13) == "psTf2"
 
-    # some tricky check
-    for n_of_logphysmap in m.physical_mapping.keys():
-        assert m.physical_mapping[n_of_logphysmap].logical_device == m.devkey2name(
-            m.logical_keys[m.devkey2name(n_of_logphysmap)]
-        )
-
     for k, ch in ((i, 0) for i in range(26)):
         assert m.devhard2log((m.devlog2hard((k, ch))[1], m.devlog2hard((k, ch))[0]))
 
@@ -122,24 +123,10 @@ def test_mapping_class_2():
     assert m.devkey2name(0) == "a"
     assert m.devkey2name(1) == "b"
     assert m.devkey2name(2) == "c"
-    assert m.logical_mapping["a"][0].physical_module == 0
-    assert m.logical_mapping["a"][1].physical_module == 0
-    with pytest.raises(IndexError):
-        assert m.logical_mapping["a"][2]
-
-    assert m.logical_mapping["b"][0].physical_module == 1
-    assert m.logical_mapping["b"][1].physical_module == 1
-    assert m.logical_mapping["b"][3].physical_module == 2
-    assert m.logical_mapping["c"][1].physical_module == 3
-
-    assert m.logical_mapping["b"][0].physical_channel == 0
-    assert m.logical_mapping["b"][1].physical_channel == 1
-    assert m.logical_mapping["b"][3].physical_channel == 1
-    assert m.logical_mapping["c"][1].physical_channel == 1
 
     assert m.devlog2hard((0, 0)) == (0, 18775, 469, 0, 0)
     assert m.devlog2hard((0, 1)) == (1, 18775, 469, 0, 1)
-    with pytest.raises(IndexError):
+    with pytest.raises(RuntimeError):
         m.devlog2hard((0, 2))
     assert m.devlog2hard((1, 0)) == (2, 18775, 469, 1, 0)
 
@@ -157,7 +144,7 @@ def test_describe_hardware_module():
         ("750-476", 476),
         ("750-478", 478),
         ("4 Channel Digital Output", 33794),
-        # ("750-508", 33283),  # does not work
+        ("2 Channel Digital Output", 33283),
         ("2 Channel Digital Output", 33282),
         ("8 Channel Digital Output", 34818),
         ("750-550", 550),
@@ -184,7 +171,7 @@ def test_modbus_request(wago_emulator):
 
     host, port = wago_emulator.host, wago_emulator.port
 
-    client = ModbusTcp(host, port=port, unit=255)
+    ModbusTcp(host, port=port, unit=255)
     print(f"Modbus test to Wago sim on {host}:{port}")
 
 
@@ -320,11 +307,47 @@ def test_wago_get(default_session):
     results = wago.get(*wago.logical_keys, flat=False)
     assert flatten(results) == wago.get(*wago.logical_keys)
     for i, key in enumerate(wago.logical_keys):
-        nval = len(wago.modules_config.logical_mapping[key])
+        nval = len(wago.modules_config.read_table[key])
         if nval > 1:
             assert len(results[i]) == nval
         else:
             assert not isinstance(results[i], list)
+
+
+def test_wago_special_out(default_session):
+    wago = default_session.config.get("wago_simulator")
+    enc1, spo1, spo2 = wago.get("encoder1", "special_out_1", "special_out_2")
+    # testing encoder
+
+    # getting same registers to see if result is the same
+    enc1_memory_address = wago.modules_config.read_table["encoder1"][0]["ANA_IN"][
+        "mem_position"
+    ]
+    assert len(enc1_memory_address) == 2
+    word1_addr, word2_addr = enc1_memory_address
+
+    # getting values from the cached table and check if they are the same
+    word1_value = wago.controller.value_table["ANA_IN"][word1_addr]
+    word2_value = wago.controller.value_table["ANA_IN"][word2_addr]
+    calculated = wago.controller._read_ssi([word1_value, word2_value])
+    assert enc1 == calculated
+
+    # test special_out
+    spec1_memory_address = wago.modules_config.read_table["special_out_1"][0][
+        "DIGI_OUT"
+    ]["mem_position"]
+    # testing that this value exists
+    # wago.modules_config.read_table["status"][0]["DIGI_IN"]["mem_position"]
+
+    spec2_memory_address = wago.modules_config.read_table["special_out_2"][0][
+        "DIGI_OUT"
+    ]["mem_position"]
+    # wago.modules_config.read_table["status"][1]["DIGI_IN"]["mem_position"]
+
+    spec1_value = wago.controller.value_table["DIGI_OUT"][spec1_memory_address]
+    spec2_value = wago.controller.value_table["DIGI_OUT"][spec2_memory_address]
+    assert spo1 == spec1_value
+    assert spo2 == spec2_value
 
 
 def test_wago_info(capsys, default_session):
@@ -361,3 +384,331 @@ def test_wago_interlock_methods(default_session):
         wago.interlock_reset(1)
     with pytest.raises(MissingFirmware):
         wago.interlock_state()
+
+
+def test_memory_mapping():
+    # missing channel from 469 and 467
+    mapping = """750-469, a
+    750-400, b
+    750-467, c
+    750-467, d, e"""
+    conf = ModulesConfig(mapping, ignore_missing=True)
+    # testing digi in
+    for (test, expected) in (((18754, 0), (1, 0)),):
+        assert conf.devhard2log(test) == expected
+    with pytest.raises(RuntimeError):
+        conf.devhard2log((18754, 1))
+    # testing ana in
+    for (test, expected) in (
+        ((18775, 0), (0, 0)),  # testing a channel 0
+        ((18775, 2), (2, 0)),  # testing c channel 0
+        ((18775, 4), (3, 0)),  # testing d channel
+    ):
+        assert conf.devhard2log(test) == expected
+    with pytest.raises(RuntimeError):
+        conf.devhard2log((18775, 1))  # testing a channel 1
+    with pytest.raises(RuntimeError):
+        conf.devhard2log((18775, 3))  # testinc c channel 1
+
+
+def test_complex_memory_mapping():
+    # 508 and 630 are special modules
+    mapping = """750-508,brakef,brakeb
+    750-508,brakeu,braked
+    750-630,encpsb
+    750-630,encpsf
+    750-630,encpsu
+    750-630,encpsd
+    750-414,siceu,siced,sicef,siceb
+    750-469,tc,tc
+    750-469,tc,tc"""
+    conf = ModulesConfig(mapping, ignore_missing=True)
+    # testing digi in
+    for (test, expected) in (
+        ((18754, 4), (8, 0)),
+        ((18754, 5), (9, 0)),
+        ((18754, 6), (10, 0)),
+        ((18754, 7), (11, 0)),
+    ):
+        assert conf.devhard2log(test) == expected
+    for test in ((18754, 0), (18754, 1), (18754, 2), (18754, 3)):
+        with pytest.raises(RuntimeError):
+            conf.devhard2log(test)
+
+    # testing digi out
+    for (test, expected) in (
+        ((20290, 0), (0, 0)),
+        ((20290, 1), (1, 0)),
+        ((20290, 2), (2, 0)),
+        ((20290, 3), (3, 0)),
+    ):
+        assert conf.devhard2log(test) == expected
+    with pytest.raises(RuntimeError):
+        conf.devhard2log((20290, 4))
+
+    # testing ana in
+    for (test, expected) in (
+        ((18775, 0), (4, 0)),
+        ((18775, 1), (4, 0)),
+        ((18775, 2), (5, 0)),
+        ((18775, 3), (5, 0)),
+        ((18775, 4), (6, 0)),
+        ((18775, 5), (6, 0)),
+        ((18775, 6), (7, 0)),
+        ((18775, 7), (7, 0)),
+        ((18775, 8), (12, 0)),
+        ((18775, 9), (12, 1)),
+        ((18775, 10), (12, 2)),
+        ((18775, 11), (12, 3)),
+    ):
+        assert conf.devhard2log(test) == expected
+    with pytest.raises(RuntimeError):
+        conf.devhard2log((18775, 12))
+
+    # testing ana out
+    with pytest.raises(RuntimeError):
+        conf.devhard2log((20311, 0))
+
+
+def test_complex_memory_mapping_extended_mode():
+    # 508 and 630 are special modules
+    mapping = """750-508,brakef, brakeb,  _,  _
+    750-508,brakeu, braked, _, _
+    750-630,encpsb
+    750-630,encpsf
+    750-630,encpsu
+    750-630,encpsd
+    750-414,siceu,siced,sicef,siceb
+    750-469,tc,tc
+    750-469,tc,tc"""
+
+    conf = ModulesConfig(mapping, ignore_missing=True, extended_mode=True)
+    # testing digi in
+    for (test, expected) in (
+        ((18754, 0), (2, 0)),  # _
+        ((18754, 1), (2, 1)),  # _
+        ((18754, 2), (2, 2)),  # _
+        ((18754, 3), (2, 3)),
+        ((18754, 4), (9, 0)),
+        ((18754, 5), (10, 0)),
+        ((18754, 6), (11, 0)),
+        ((18754, 7), (12, 0)),
+    ):
+        assert conf.devhard2log(test) == expected
+    for test in ((18754, 8),):
+        with pytest.raises(RuntimeError):
+            conf.devhard2log(test)
+
+    # testing digi out
+    for (test, expected) in (
+        ((20290, 0), (0, 0)),
+        ((20290, 1), (1, 0)),
+        ((20290, 2), (3, 0)),
+        ((20290, 3), (4, 0)),
+    ):
+        assert conf.devhard2log(test) == expected
+    with pytest.raises(RuntimeError):
+        conf.devhard2log((20290, 4))
+
+    # testing ana in
+    for (test, expected) in (
+        ((18775, 0), (5, 0)),
+        ((18775, 1), (5, 0)),
+        ((18775, 2), (6, 0)),
+        ((18775, 3), (6, 0)),
+        ((18775, 4), (7, 0)),
+        ((18775, 5), (7, 0)),
+        ((18775, 6), (8, 0)),
+        ((18775, 7), (8, 0)),
+        ((18775, 8), (13, 0)),
+        ((18775, 9), (13, 1)),
+        ((18775, 10), (13, 2)),
+        ((18775, 11), (13, 3)),
+    ):
+        assert conf.devhard2log(test) == expected
+    with pytest.raises(RuntimeError):
+        conf.devhard2log((18775, 12))
+
+    # testing ana out
+    with pytest.raises(RuntimeError):
+        conf.devhard2log((20311, 0))
+
+
+def test_special_modules():
+    # 404 is an encoder
+    mapping = """750-404, counter_status, counter_value
+    750-506, out_506, out_506
+    750-507, out_507_1, out_507_2
+    750-508, out_508, out_508
+    750-504, digi_out, digi_out, digi_out, digi_out
+    750-408, digi_in, digi_in, digi_in, digi_in
+    750-469,tc,tc"""
+
+    conf = ModulesConfig(mapping)
+    # testing missing channels that should be None
+    # not_mapped = (("DIGI_OUT", 5), ("DIGI_IN", 2), ("DIGI_IN", 3))
+    # for type_, memory_addr in not_mapped:
+    #    assert conf.memory_table[type_][memory_addr] is None
+
+    # 4 bits from control ch of 506
+    # 2 bits from control ch of 507
+    # 2 bits from control ch 508
+    # 4 bits from 408
+    assert len(conf.memory_table["DIGI_IN"]) == 12
+    # 4 bits from 506
+    # 2 bits from 507
+    # 2 bits from 508
+    # 4 bits from 504
+    assert len(conf.memory_table["DIGI_OUT"]) == 12
+    # 3 words from 404
+    # 2 words from 469
+    assert len(conf.memory_table["ANA_IN"]) == 5
+    # give channel type and offset
+    # counter
+    assert conf.devkey2name(0) == "counter_status"
+    assert (0, 0) == conf.devhard2log(("IW", 0))
+    assert conf.devkey2name(1) == "counter_value"
+    assert (1, 0) == conf.devhard2log(("IW", 1))
+    assert (1, 0) == conf.devhard2log(("IW", 2))
+
+    assert conf.devkey2name(2) == "out_506"
+    assert (2, 0) == conf.devhard2log(("OB", 0))
+    assert (2, 1) == conf.devhard2log(("OB", 1))
+
+    assert conf.devkey2name(3) == "out_507_1"
+    assert conf.devkey2name(4) == "out_507_2"
+    assert (3, 0) == conf.devhard2log(("OB", 4))
+    assert (4, 0) == conf.devhard2log(("OB", 5))
+
+    assert conf.devkey2name(5) == "out_508"
+    assert (5, 0) == conf.devhard2log(("OB", 6))
+    assert (5, 1) == conf.devhard2log(("OB", 7))
+
+    assert conf.devkey2name(6) == "digi_out"
+    assert (6, 0) == conf.devhard2log(("OB", 8))
+    assert (6, 1) == conf.devhard2log(("OB", 9))
+    assert (6, 2) == conf.devhard2log(("OB", 10))
+    assert (6, 3) == conf.devhard2log(("OB", 11))
+
+    assert conf.devkey2name(7) == "digi_in"
+    assert (7, 0) == conf.devhard2log(("IB", 8))
+    assert (7, 1) == conf.devhard2log(("IB", 9))
+    assert (7, 2) == conf.devhard2log(("IB", 10))
+    assert (7, 3) == conf.devhard2log(("IB", 11))
+
+    assert conf.devkey2name(8) == "tc"
+    assert (8, 0) == conf.devhard2log(("IW", 3))
+    assert (8, 1) == conf.devhard2log(("IW", 4))
+
+
+def test_special_modules_extended_mode():
+    # 404 is an encoder
+    mapping = """750-404, counter_value, counter_status, counter_set_val, counter_control
+    750-506, out_506, out_506, _, _, status, status, status, status
+    750-507, out_507_1, out_507_2, status, status
+    750-508, out_508
+    750-504, digi_out, digi_out, digi_out
+    750-408, digi_in, digi_in
+    750-469,tc,tc"""
+
+    conf = ModulesConfig(mapping, ignore_missing=True, extended_mode=True)
+    # testing missing channels that should be None
+    # not_mapped = (("DIGI_OUT", 5), ("DIGI_IN", 2), ("DIGI_IN", 3))
+    # for type_, memory_addr in not_mapped:
+    #    assert conf.memory_table[type_][memory_addr] is None
+
+    # 4 bits from control ch of 506
+    # 2 bits from control ch of 507
+    # 2 bits from control ch 508
+    # 4 bits from 408
+    assert len(conf.memory_table["DIGI_IN"]) == 12
+    # 4 bits from 506
+    # 2 bits from 507
+    # 2 bits from 508
+    # 4 bits from 504
+    assert len(conf.memory_table["DIGI_OUT"]) == 12
+    # 3 words from 404
+    # 2 words from 469
+    assert len(conf.memory_table["ANA_IN"]) == 5
+    # give channel type and offset
+    # counter
+    assert conf.devkey2name(0) == "counter_value"
+    assert (0, 0) == conf.devhard2log(("IW", 1))
+    assert (0, 0) == conf.devhard2log(("IW", 2))
+    assert conf.devkey2name(1) == "counter_status"
+    assert (1, 0) == conf.devhard2log(("IW", 0))
+    assert conf.devkey2name(2) == "counter_set_val"
+    assert (2, 0) == conf.devhard2log(("OW", 1))
+    assert (2, 0) == conf.devhard2log(("OW", 2))
+    assert conf.devkey2name(3) == "counter_control"
+    assert (3, 0) == conf.devhard2log(("OW", 0))
+
+    assert conf.devkey2name(4) == "out_506"
+    assert (4, 0) == conf.devhard2log(("OB", 0))
+    assert (4, 1) == conf.devhard2log(("OB", 1))
+
+    assert conf.devkey2name(5) == "_"
+    assert (5, 0) == conf.devhard2log(("OB", 2))
+    assert (5, 1) == conf.devhard2log(("OB", 3))
+
+    assert conf.devkey2name(6) == "status"
+    assert (6, 0) == conf.devhard2log(("IB", 0))
+    assert (6, 1) == conf.devhard2log(("IB", 1))
+    assert (6, 2) == conf.devhard2log(("IB", 2))
+    assert (6, 3) == conf.devhard2log(("IB", 3))
+
+    assert conf.devkey2name(8) == "out_507_2"
+    assert (8, 0) == conf.devhard2log(("OB", 5))
+    assert (6, 5) == conf.devhard2log(("IB", 5))
+
+    assert conf.devkey2name(10) == "digi_out"
+    assert (10, 0) == conf.devhard2log(("OB", 8))
+    assert (10, 1) == conf.devhard2log(("OB", 9))
+    assert (10, 2) == conf.devhard2log(("OB", 10))
+
+
+def test_devwritephys(default_session):
+    wago = default_session.config.get("wago_simulator")
+    # digital out
+    for logical_name in ("foh2ctrl", "special_out_1", "special_out_2"):
+        n_chann = len(wago.controller.modules_config.read_table[logical_name])
+        channels = range(n_chann)
+        values = [random.choice([0, 1]) for _ in range(n_chann)]
+        key = wago.controller.devname2key(logical_name)
+        data = flatten([key, zip(channels, values)])
+        wago.controller.devwritephys(data)
+        assert wago.controller.devreadnocachephys(key) == values
+        assert wago.controller.get(logical_name) == values
+
+    # analog out
+    for logical_name in ("o10v1", "o10v2"):
+        n_chann = len(wago.controller.modules_config.read_table[logical_name])
+        channels = range(n_chann)
+        values = [random.choice([.3, 1.1]) for _ in range(n_chann)]
+        key = wago.controller.devname2key(logical_name)
+        data = flatten([key, zip(channels, values)])
+        wago.controller.devwritephys(data)
+        assert pytest.approx(wago.controller.devreadnocachephys(key), values)
+        assert pytest.approx(wago.controller.get(logical_name), values)
+
+
+def test_resolve_write():
+    mapping = """750-501, dig_out1, dig_out2
+    750-554, 4-20out1, 4-20out2
+    750-504, out3, out3, out3, out4
+    """
+    conf = ModulesConfig(mapping, ignore_missing=True)
+
+    array = conf._resolve_write("dig_out1", 0)
+    assert array == [[0, 0, 0]]
+    array = conf._resolve_write("out3", 0, 0, 0)
+    assert array == [[4, 0, 0, 1, 0, 2, 0]]
+    array = conf._resolve_write("dig_out1", 0, "out3", 0, 0, 0)
+
+    assert array == [[0, 0, 0], [4, 0, 0, 1, 0, 2, 0]]
+    with pytest.raises(KeyError):
+        array = conf._resolve_write("dig_out1", 1, 2)  # channel does not exist
+    with pytest.raises(KeyError):
+        conf._resolve_write("fake", 0)  # key does not exist
+    with pytest.raises(RuntimeError):
+        array = conf._resolve_write("out3", 1, 2)  # one missing channel

@@ -14,12 +14,13 @@ import sys
 import time
 import numpy
 
-import bliss.common.tango as tango
+import tango
 from tango import DebugIt, DevState, Attr, SpectrumAttr
 from tango.server import Device, device_property, attribute, command
 
 from bliss.comm.util import get_comm
-from bliss.controllers.wago.wago import *
+from bliss.controllers.wago.wago import ModulesConfig, WagoController
+
 from bliss.common.utils import flatten
 from bliss.config.static import get_config
 
@@ -62,6 +63,9 @@ class Wago(Device):
     config = device_property(
         dtype=tango.DevVarCharArray, default_value="", doc="I/O modules attached to PLC"
     )
+    polling_time = device_property(
+        dtype=int, default_value=2000, doc="polling time interval in ms"
+    )
     # modbusDevName = device_property(dtype=str, default_value="")  # its a link
     # __SubDevices = device_property(dtype=str, default_value="")  # its a link
 
@@ -89,7 +93,11 @@ class Wago(Device):
                 raise RuntimeError(
                     "modbustcp url should be given in Beacon configuration"
                 )
-            self.config = ModulesConfig.from_config_tree(yml_config).mapping_str
+            modules_config = ModulesConfig.from_config_tree(yml_config)
+            self.config = modules_config.mapping_str
+            self.extended_mode = modules_config.extended_mode
+        else:
+            self.extended_mode = False
 
         self.TurnOn()  # automatic turn on to mimic C++ Device Server
 
@@ -107,7 +115,9 @@ class Wago(Device):
         try:
             self.set_state(DevState.INIT)
             self.debug_stream("Setting Wago modules mapping")
-            modules_config = ModulesConfig(self.config, ignore_missing=True)
+            modules_config = ModulesConfig(
+                self.config, ignore_missing=True, extended_mode=self.extended_mode
+            )
         except Exception as exc:
             self.error_stream(f"Exception on Wago setting modules mapping: {exc}")
             self.set_state(DevState.FAULT)
@@ -189,7 +199,11 @@ class Wago(Device):
             f"tango attribute {tango_attribute.get_data_format()} {tango_attribute.get_data_size()}"
         )
         name = tango_attribute.get_name()
-        value = self.DevReadPhys(self.DevName2Key(name))
+        value = self.DevReadNoCachePhys(self.DevName2Key(name))
+        # getting information about the channel, can be used for later postelaboration
+        # for chann, val in enumerate(value):
+        #    info = self.__info[(name, chann)]
+        #    print(f"{name} {chann} {info}")
         if len(value) == 1:
             # single value
             tango_attribute.set_value(value[0])
@@ -218,61 +232,49 @@ class Wago(Device):
         Creates dynamic attributes from device_property 'config'
         """
         attrs = {}
+        self.__info = {}
 
-        for (
-            key,
-            (logical_device, physical_channel, physical_module, module_type, _, _),
-        ) in self.wago.physical_mapping.items():
+        # couple of logical_device/logical_channel
+        device_channels = []
+        for logical_device in self.wago.logical_keys:
+            for logical_channel in self.wago.modules_config.read_table[logical_device]:
+                device_channels.append((logical_device, logical_channel))
+
+        for logical_device, logical_channel in device_channels:
+
             if logical_device not in attrs:
-                attrs[logical_device] = {}
-                attrs[logical_device]["size"] = 1
+                attrs[logical_device] = {"size": 1}
             else:
                 attrs[logical_device]["size"] += 1
 
-        for (
-            key,
-            (logical_device, physical_channel, physical_module, module_type, _, _),
-        ) in self.wago.physical_mapping.items():
-            # find the type of attribute
-            type_ = MODULES_CONFIG[module_type][READING_TYPE]
+            config = self.wago.modules_config.read_table[logical_device][
+                logical_channel
+            ]
+
+            # saving information about the device/channel for later use
+            info = config["info"].reading_info
+            self.__info[(logical_device, logical_channel)] = info
 
             # determination of variable type
-
-            if type_ in ("thc", "fs10", "fs20", "fs4-20"):
+            bits = info["bits"]
+            if bits in (24, 32):
+                # encoder requires Long
+                var_type = tango.DevDouble
+            elif bits == 16:
                 # temperature and Analog requires Float
                 var_type = tango.DevDouble
-            elif type_ in ("ssi24", "ssi32", "637"):
-                # encoder requires Long
-                var_type = tango.DevLong
-            elif type_ in ("digital"):
+            elif bits == 1:
                 # digital requires boolean
                 var_type = tango.DevBoolean
             else:
                 raise NotImplementedError
 
-            module_info = MODULES_CONFIG[module_type]
-
             # determination of read/write type
-            if type_ in ("thc",):
+            type_ = info["type"]
+            if type_ in ("DIGI_IN", "ANA_IN"):
                 read_write = "r"
-            elif type_ in ("thc", "fs10", "fs20", "fs4-20"):
-                if module_info[ANA_IN] == module_info[N_CHANNELS]:
-                    read_write = "r"
-                elif module_info[ANA_OUT] == module_info[N_CHANNELS]:
-                    read_write = "rw"
-                else:
-                    raise NotImplementedError
-            elif type_ in ("ssi24", "ssi32", "637"):
-                read_write = "r"
-            elif type_ in ("digital"):
-                if module_info[DIGI_IN] == module_info[N_CHANNELS]:
-                    read_write = "r"
-                elif module_info[DIGI_OUT] == module_info[N_CHANNELS]:
-                    read_write = "rw"
-                else:
-                    raise NotImplementedError(
-                        f"Digital I/O number of channels should be equal to total for {module_type}"
-                    )
+            elif type_ in ("DIGI_OUT", "ANA_OUT"):
+                read_write = "rw"
             else:
                 raise NotImplementedError
 
@@ -401,13 +403,19 @@ class Wago(Device):
         dtype_in=tango.DevShort,
         doc_in="Logical device",
         dtype_out=tango.DevVarShortArray,
-        doc_out="Array of bit values",
+        doc_out="Array of bit values (cached)",
     )
     @DebugIt()
     def DevReadDigi(self, key):
         """
         """
-        return self.DevReadNoCacheDigi(key)
+        value = self.wago.devreaddigi(key)
+
+        try:
+            len(value)
+        except TypeError:
+            value = [value]
+        return value
 
     @command(
         dtype_in=tango.DevShort,
@@ -419,7 +427,7 @@ class Wago(Device):
     def DevReadNoCacheDigi(self, key):
         """
         """
-        value = self.wago.get(self.wago.devkey2name(key), convert_values=False)
+        value = self.wago.devreadnocachedigi(key)
 
         try:
             len(value)
@@ -437,7 +445,7 @@ class Wago(Device):
     def DevReadNoCachePhys(self, key):
         """
         """
-        value = self.wago.get(self.wago.devkey2name(key))
+        value = self.wago.devreadnocachephys(key)
         try:
             len(value)
         except TypeError:
@@ -448,13 +456,18 @@ class Wago(Device):
         dtype_in=tango.DevShort,
         doc_in="Logical device index",
         dtype_out=tango.DevVarFloatArray,
-        doc_out="Array of values",
+        doc_out="Array of values (cached values)",
     )
     @DebugIt()
     def DevReadPhys(self, key):
         """
         """
-        return self.DevReadNoCachePhys(key)
+        value = self.wago.devreadphys(key)
+        try:
+            len(value)
+        except TypeError:
+            value = [value]
+        return value
 
     @command(
         dtype_in=tango.DevVarShortArray,

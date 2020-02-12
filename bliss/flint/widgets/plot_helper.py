@@ -233,10 +233,14 @@ class FlintPlot(PlotWindow):
 
     sigMouseLeft = qt.Signal()
 
+    sigSelectionChanged = qt.Signal(object, object)
+    # FIXME: It have to be provided by silx
+
     def __init__(self, parent=None, backend=None):
         super(FlintPlot, self).__init__(parent=parent, backend=backend)
-        self.sigPlotSignal.connect(self.__limitsChanged)
+        self.sigPlotSignal.connect(self.__plotEvents)
         self.__userInteraction = False
+        self.sigActiveCurveChanged.connect(self.__activeCurveChanged)
 
         toolbars = self.findChildren(qt.QToolBar)
         for tb in toolbars:
@@ -262,7 +266,7 @@ class FlintPlot(PlotWindow):
     def __mouseLeft(self):
         self.sigMouseLeft.emit()
 
-    def __limitsChanged(self, eventDict):
+    def __plotEvents(self, eventDict):
         if eventDict["event"] == "limitsChanged":
             event1 = ViewChangedEvent(self.__userInteraction)
             self.sigViewChanged.emit(event1)
@@ -271,6 +275,15 @@ class FlintPlot(PlotWindow):
                 eventDict["x"], eventDict["y"], eventDict["xpixel"], eventDict["ypixel"]
             )
             self.sigMouseMoved.emit(event2)
+
+    def __activeCurveChanged(self, previous, current):
+        # FIXME: This have to be provided by silx in a much better way
+        if previous is not None:
+            previous = self.getCurve(previous)
+        if current is not None:
+            current = self.getCurve(current)
+        # NOTE: previous and current was swapped
+        self.sigSelectionChanged.emit(current, previous)
 
     def keyPressEvent(self, event):
         with self.userInteraction():

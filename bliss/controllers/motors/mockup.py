@@ -351,14 +351,19 @@ class Mockup(Controller):
         motion = Motion(pos, target, vel, accel, self.__hw_limit)
         self._axis_moves[axis]["motion"] = motion
 
-    def __info__(self, axis):
-        """Return information about Controller and Axis"""
-        info_string = f"Axis: {axis.name}\n"
-        info_string += f"Controller:\n"
-        info_string += f"  class: {self.__class__}\n"
-        info_string += f"  name: {self.name}\n"
+    def __info__(self):
+        """Return information about Controller"""
+        info_str = f"Controller name: {self.name}\n"
 
-        return info_string
+        return info_str
+
+    def get_axis_info(self, axis):
+        """ Return 'mockup'-specific info about <axis>
+        """
+        info_str = "MOCKUP AXIS:\n"
+        info_str += f"    this axis ({axis.name}) is a simulation axis\n"
+
+        return info_str
 
     def get_id(self, axis):
         return "MOCKUP AXIS %s" % (axis.name)

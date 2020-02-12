@@ -358,6 +358,14 @@ class CurvePlotWidget(ExtendedDockWidget):
                         yName
                     ):
                         self.__updatePlotItem(item, scan)
+            elif isinstance(item, plot_model.ChildItem):
+                if item.isValid():
+                    sources = item.inputData()
+                    for source in sources:
+                        if source is not None:
+                            if event.isUpdatedChannelName(source):
+                                self.__updatePlotItem(item, scan)
+                                break
 
     def __redrawCurrentScan(self):
         currentScan = self.__scan

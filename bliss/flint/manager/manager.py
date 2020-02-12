@@ -262,7 +262,6 @@ class ManageMainBehaviours(qt.QObject):
             updatePlotModel = enforceDisplay or not sameScan
         else:
             updatePlotModel = True
-        _logger.error(updatePlotModel)
 
         if len(plots) > 0:
             defaultPlot = plots[0]

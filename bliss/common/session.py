@@ -433,7 +433,7 @@ class Session:
             env_dict["load_script"] = self.load_script
 
         scan_saving_config = self.config.root.get("scan_saving", {})
-        scan_saving_class_name = scan_saving_config.get("class", "ESRFScanSaving")
+        scan_saving_class_name = scan_saving_config.get("class")
         scan_saving_class = getattr(scan_saving, scan_saving_class_name)
         self._set_scan_saving_class(scan_saving_class)
 

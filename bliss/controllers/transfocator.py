@@ -68,7 +68,7 @@ Usage::
     >>> # shortcut to put multiple at same place
     >>> t1[1:6] = 1       # put everything IN
 """
-
+import random
 import gevent
 import tabulate
 from bliss.common.utils import grouped
@@ -228,10 +228,6 @@ class Transfocator:
 
     def close(self):
         self.wago.close()
-        try:
-            self.__mockup.close()
-        except AttributeError:
-            pass
 
     def __close__(self):
         self.close()
@@ -454,3 +450,24 @@ class Transfocator:
             "<bliss.controllers.transfocator.Transfocator "
             "instance at {:x}>".format(id(self))
         )
+
+
+class TransfocatorMockup(Transfocator):
+    def __init__(self, name, config_tree):
+        """This will emulate a transfocator"""
+
+        temp_transf = Transfocator(name, config_tree)
+        lens = temp_transf.nb_lens
+        pinhole = temp_transf.nb_pinhole
+
+        self.__mockup_state = random.randint(0, 2 ** (lens + pinhole))
+        super().__init__(name, config_tree)
+
+    def connect(self):
+        pass
+
+    def tfstatus_set(self, value):
+        self.__mockup_state = value
+
+    def pos_read(self):
+        return self.__mockup_state

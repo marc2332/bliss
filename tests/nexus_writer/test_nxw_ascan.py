@@ -36,13 +36,13 @@ def test_nxw_ascan_base_nopolicy(nexus_writer_base_nopolicy):
 
 @nxw_test_utils.writer_stdout_on_exception
 def _test_nxw_ascan(session=None, tmpdir=None, writer=None, **kwargs):
-    masters = ("robx",)
+    positioners = [["robx"]]
     scan_shape = (10,)
     scan = scans.ascan(
-        session.env_dict[masters[0]], 0, 1, scan_shape[0] - 1, .1, run=False
+        session.env_dict[positioners[0][0]], 0, 1, scan_shape[0] - 1, .1, run=False
     )
     nxw_test_utils.run_scan(scan)
     nxw_test_utils.wait_scan_data_finished([scan], writer=writer)
     nxw_test_data.assert_scan_data(
-        scan, masters=masters, scan_shape=scan_shape, **kwargs
+        scan, positioners=positioners, scan_shape=scan_shape, **kwargs
     )

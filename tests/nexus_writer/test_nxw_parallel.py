@@ -17,7 +17,6 @@ def test_nxw_parallel(nexus_writer_config):
 
 @nxw_test_utils.writer_stdout_on_exception
 def _test_nxw_parallel(session=None, tmpdir=None, writer=None, **kwargs):
-    session.scan_saving.technique = "none"
     detectors = (
         "diode2alias",
         "diode3",
@@ -40,5 +39,9 @@ def _test_nxw_parallel(session=None, tmpdir=None, writer=None, **kwargs):
     nxw_test_utils.wait_scan_data_finished(lst, writer=writer)
     for npoints, (scan, detector) in enumerate(zip(lst, detectors), 10):
         nxw_test_data.assert_scan_data(
-            scan, scan_shape=(npoints,), detectors=[detector], **kwargs
+            scan,
+            scan_shape=(npoints,),
+            positioners=[["elapsed_time", "epoch"]],
+            detectors=[detector],
+            **kwargs
         )

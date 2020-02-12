@@ -40,4 +40,6 @@ def _test_nxw_loopscan(session=None, tmpdir=None, writer=None, **kwargs):
     scan = scans.loopscan(scan_shape[0], .1, run=False)
     nxw_test_utils.run_scan(scan)
     nxw_test_utils.wait_scan_data_finished([scan], writer=writer)
-    nxw_test_data.assert_scan_data(scan, scan_shape=scan_shape, **kwargs)
+    nxw_test_data.assert_scan_data(
+        scan, scan_shape=scan_shape, positioners=[["elapsed_time", "epoch"]], **kwargs
+    )

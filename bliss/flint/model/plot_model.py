@@ -432,14 +432,19 @@ class ComputableMixIn:
 
     resultAvailable = qt.Signal(object)
 
+    def inputData(self) -> Any:
+        """Needed to invalidate the data according to the configuration"""
+        return None
+
     def isResultComputed(self, scan: scan_model.Scan) -> bool:
         return scan.hasCachedResult(self)
 
     def reachResult(self, scan: scan_model.Scan):
         # FIXME: implement an asynchronous the cache system
         # FIXME: cache system have to be invalidated when self config changes
-        if scan.hasCachedResult(self):
-            result = scan.getCachedResult(self)
+        key = (self, self.inputData())
+        if scan.hasCachedResult(key):
+            result = scan.getCachedResult(key)
         else:
             try:
                 result = self.compute(scan)
@@ -452,7 +457,7 @@ class ComputableMixIn:
                 )
                 result = None
 
-            scan.setCachedResult(self, result)
+            scan.setCachedResult(key, result)
         if not self.isResultValid(result):
             return None
         return result

@@ -32,8 +32,25 @@ from ..utils import mathutils
 _logger = logging.getLogger(__name__)
 
 
+def _getHashableSource(obj: plot_model.Item):
+    while isinstance(obj, plot_model.ChildItem):
+        obj = obj.source()
+    if isinstance(obj, plot_item_model.CurveItem):
+        x = obj.xChannel()
+        y = obj.yChannel()
+        xName = None if x is None else x.name()
+        yName = None if y is None else y.name()
+        return (xName, yName)
+    else:
+        _logger.error("Source list not implemented for %s" % type(obj))
+        return tuple()
+
+
 class CurveStatisticItem(plot_model.ChildItem):
     """Statistic displayed on a source item, depending on it y-axis."""
+
+    def inputData(self):
+        return _getHashableSource(self.source())
 
     def yAxis(self) -> str:
         """Returns the name of the y-axis in which the statistic have to be displayed"""
@@ -48,10 +65,16 @@ class CurveStatisticItem(plot_model.ChildItem):
         if source is not None:
             source.valueChanged.connect(self.__sourceChanged)
             self.__sourceChanged(plot_model.ChangeEventType.YAXIS)
+            self.__sourceChanged(plot_model.ChangeEventType.X_CHANNEL)
+            self.__sourceChanged(plot_model.ChangeEventType.Y_CHANNEL)
 
     def __sourceChanged(self, eventType):
         if eventType == plot_model.ChangeEventType.YAXIS:
             self._emitValueChanged(plot_model.ChangeEventType.YAXIS)
+        if eventType == plot_model.ChangeEventType.Y_CHANNEL:
+            self._emitValueChanged(plot_model.ChangeEventType.Y_CHANNEL)
+        if eventType == plot_model.ChangeEventType.X_CHANNEL:
+            self._emitValueChanged(plot_model.ChangeEventType.X_CHANNEL)
 
 
 class DerivativeData(NamedTuple):
@@ -60,19 +83,49 @@ class DerivativeData(NamedTuple):
     nb_points: int
 
 
-class DerivativeItem(
-    plot_model.ChildItem,
-    plot_model.IncrementalComputableMixIn,
-    plot_item_model.CurveMixIn,
-):
+class ComputedCurveItem(plot_model.ChildItem, plot_item_model.CurveMixIn):
+    def inputData(self):
+        return _getHashableSource(self.source())
+
+    def isResultValid(self, result):
+        return result is not None
+
+    def xData(self, scan: scan_model.Scan) -> Optional[scan_model.Data]:
+        result = self.reachResult(scan)
+        if not self.isResultValid(result):
+            return None
+        data = result.xx
+        return scan_model.Data(self, data)
+
+    def yData(self, scan: scan_model.Scan) -> Optional[scan_model.Data]:
+        result = self.reachResult(scan)
+        if not self.isResultValid(result):
+            return None
+        data = result.yy
+        return scan_model.Data(self, data)
+
+    def setSource(self, source: plot_model.Item):
+        previousSource = self.source()
+        if previousSource is not None:
+            previousSource.valueChanged.disconnect(self.__sourceChanged)
+        plot_model.ChildItem.setSource(self, source)
+        if source is not None:
+            source.valueChanged.connect(self.__sourceChanged)
+            self.__sourceChanged(plot_model.ChangeEventType.X_CHANNEL)
+            self.__sourceChanged(plot_model.ChangeEventType.Y_CHANNEL)
+
+    def __sourceChanged(self, eventType):
+        if eventType == plot_model.ChangeEventType.Y_CHANNEL:
+            self._emitValueChanged(plot_model.ChangeEventType.Y_CHANNEL)
+        if eventType == plot_model.ChangeEventType.X_CHANNEL:
+            self._emitValueChanged(plot_model.ChangeEventType.X_CHANNEL)
+
+
+class DerivativeItem(ComputedCurveItem, plot_model.IncrementalComputableMixIn):
     """This item use the scan data to process result before displaying it."""
 
     EXTRA_POINTS = 5
     """Extra points needed before and after a single point to compute a result"""
-
-    def __init__(self, parent=None):
-        plot_model.ChildItem.__init__(self, parent=parent)
-        plot_item_model.CurveMixIn.__init__(self)
 
     def __getstate__(self):
         state: Dict[str, Any] = {}
@@ -83,9 +136,6 @@ class DerivativeItem(
     def __setstate__(self, state):
         plot_model.ChildItem.__setstate__(self, state)
         plot_item_model.CurveMixIn.__setstate__(self, state)
-
-    def isResultValid(self, result):
-        return result is not None
 
     def compute(self, scan: scan_model.Scan) -> Optional[DerivativeData]:
         sourceItem = self.source()
@@ -105,20 +155,6 @@ class DerivativeItem(
             )
 
         return DerivativeData(derived[0], derived[1], len(xx))
-
-    def xData(self, scan: scan_model.Scan) -> Optional[scan_model.Data]:
-        result = self.reachResult(scan)
-        if not self.isResultValid(result):
-            return None
-        data = result.xx
-        return scan_model.Data(self, data)
-
-    def yData(self, scan: scan_model.Scan) -> Optional[scan_model.Data]:
-        result = self.reachResult(scan)
-        if not self.isResultValid(result):
-            return None
-        data = result.yy
-        return scan_model.Data(self, data)
 
     def incrementalCompute(
         self, previousResult: DerivativeData, scan: scan_model.Scan
@@ -183,14 +219,8 @@ class GaussianFitData(NamedTuple):
     fit: mathutils.GaussianFitResult
 
 
-class GaussianFitItem(
-    plot_model.ChildItem, plot_model.ComputableMixIn, plot_item_model.CurveMixIn
-):
+class GaussianFitItem(ComputedCurveItem, plot_model.ComputableMixIn):
     """This item use the scan data to process result before displaying it."""
-
-    def __init__(self, parent=None):
-        plot_model.ChildItem.__init__(self, parent=parent)
-        plot_item_model.CurveMixIn.__init__(self)
 
     def __getstate__(self):
         state: Dict[str, Any] = {}
@@ -201,9 +231,6 @@ class GaussianFitItem(
     def __setstate__(self, state):
         plot_model.ChildItem.__setstate__(self, state)
         plot_item_model.CurveMixIn.__setstate__(self, state)
-
-    def isResultValid(self, result):
-        return result is not None
 
     def compute(self, scan: scan_model.Scan) -> Optional[GaussianFitData]:
         sourceItem = self.source()
@@ -224,20 +251,6 @@ class GaussianFitItem(
 
         yy = fit.transform(xx)
         return GaussianFitData(xx, yy, fit)
-
-    def xData(self, scan: scan_model.Scan) -> Optional[scan_model.Data]:
-        result = self.reachResult(scan)
-        if not self.isResultValid(result):
-            return None
-        data = result.xx
-        return scan_model.Data(self, data)
-
-    def yData(self, scan: scan_model.Scan) -> Optional[scan_model.Data]:
-        result = self.reachResult(scan)
-        if not self.isResultValid(result):
-            return None
-        data = result.yy
-        return scan_model.Data(self, data)
 
     def displayName(self, axisName, scan: scan_model.Scan) -> str:
         """Helper to reach the axis display name"""

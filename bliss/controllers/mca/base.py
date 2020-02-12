@@ -180,29 +180,31 @@ class BaseMCA(CounterController):
         about objects.
         """
 
-        info_str = " ---=== MCA ===---\n"
-        info_str += f"object: {self.__class__}\n\n"
-        info_str += f"Detector brand : {self.detector_brand.name}\n"
+        info_str = "MCA: \n"
+        info_str += f"    object: {self.__class__}\n"
+        info_str += f"    Detector brand : {self.detector_brand.name}\n"
         try:
-            info_str += f"Detector type  : {self.detector_type.name}\n"
+            info_str += f"    Detector type  : {self.detector_type.name}\n"
         except Exception:
-            info_str += f"Detector type  : UNKNOWN\n"
-
-        # info_str += f"\nConfig:\n"
-        # info_str += f"Counters: {self.counters}\n"
-        info_str += f"\nROIS:\n"
-        info_str += "{0}\n".format(self.rois.__info__())
-        info_str += f"\n"
-
-        info_str += f"Acquisition mode : {self.acquisition_mode.name}\n"
+            info_str += f"    Detector type  : UNKNOWN\n"
+        info_str += f"    Acquisition mode : {self.acquisition_mode.name}\n"
         try:
-            info_str += f"Spectrum size    : {self.spectrum_size}\n"
+            info_str += f"    Spectrum size    : {self.spectrum_size}\n"
         except Exception:
             pass
         try:
             info_str += f"Calib type       : {self.calibration_type}\n"
         except Exception:
             pass
+
+        # info_str += f"\nConfig:\n"
+        # info_str += f"Counters: {self.counters}\n"
+        info_str += f"\nROIS:\n"
+
+        info_str_shifted = ""
+        for line in self.rois.__info__().split("\n"):
+            info_str_shifted += "    " + line + "\n"
+        info_str += info_str_shifted
         info_str += f"\n"
 
         return info_str

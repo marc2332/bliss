@@ -20,7 +20,6 @@ from bliss.config.conductor.client import get_default_connection
 from bliss.config.conductor.client import get_redis_connection
 from bliss.flint import config
 
-import pickle
 import logging
 from silx.gui import qt
 

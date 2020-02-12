@@ -71,8 +71,7 @@ def fit_gaussian(xx: numpy.ndarray, yy: numpy.ndarray) -> GaussianFitResult:
     height = numpy.max(yy) - background
     ipos = numpy.argmax(yy)
     pos = xx[ipos]
-    # FIXME: It would be good to provide a better guess for sigma
-    std = abs(xx[-1] - xx[0]) * 0.5
+    std = numpy.std(xx)
     p0 = [pos, std, height, background]
 
     # Distance to the target function

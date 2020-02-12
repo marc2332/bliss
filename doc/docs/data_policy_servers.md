@@ -17,6 +17,16 @@ Two TANGO devices need to be registered with the TANGO database. The `MetaExperi
 The registration can be done by defining server and device properties in the beamline configuration:
 
 ```yaml
+- class: MetaExperiment
+  properties:
+    queueName: ...
+    queueURLs: ...
+- class: MetadataManager
+  properties:
+    queueName: ...
+    queueURLs: ...
+    API_KEY: ...
+    icatplus_server: ...
 - server: MetadataManager
   personal_name: icatservers
   device:
@@ -34,6 +44,8 @@ The registration can be done by defining server and device properties in the bea
     properties:
       beamlineID: id00
 ```
+
+The properties `queueName` and `queueURLs` are used to register [datasets](data_policy.md#change-dataset). The properties `icatplus_server` and `API_KEY` are used to send messages to the [electronic logbook](data_metadata.md#electronic-logbook).
 
 ## Running
 

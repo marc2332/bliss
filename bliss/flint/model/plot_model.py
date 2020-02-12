@@ -155,11 +155,12 @@ class Plot(qt.QObject):
 
     def removeItem(self, item: Item):
         items = self.__itemTree(item)
-        for i in items:
-            item._setPlot(None)
-            self.__items.remove(i)
-        for i in items:
-            self.itemRemoved.emit(i)
+        with self.transaction():
+            for i in items:
+                item._setPlot(None)
+                self.__items.remove(i)
+            for i in items:
+                self.itemRemoved.emit(i)
         self.invalidateStructure()
 
     def items(self) -> List[Item]:

@@ -35,7 +35,12 @@ from bliss.config.settings import ParametersWardrobe
 from bliss.config.settings import pipeline
 from bliss.data.node import _get_or_create_node, _create_node, is_zerod
 from bliss.data.scan import get_data
-from bliss.scanning.chain import AcquisitionSlave, AcquisitionMaster, StopChain
+from bliss.scanning.chain import (
+    AcquisitionSlave,
+    AcquisitionMaster,
+    StopChain,
+    CompletedCtrlParamsDict,
+)
 from bliss.scanning.writer.null import Writer as NullWriter
 from bliss.scanning.scan_math import peak, cen, com
 from bliss.scanning.scan_saving import ScanSaving
@@ -846,6 +851,40 @@ class Scan:
             else:
                 raise RuntimeError("No axis detected in scan.")
         return master_axes
+
+    def update_ctrl_params(self, ctrl, new_param_dict):
+        if self.state != ScanState.IDLE:
+            raise RuntimeError(
+                "Scan state is not idle. ctrl_params can only be updated before scan starts running."
+            )
+        ctrl_acq_dev = None
+        for acq_dev in self.acq_chain.nodes_list:
+            if ctrl is acq_dev.device:
+                ctrl_acq_dev = acq_dev
+                break
+        if ctrl_acq_dev is None:
+            raise RuntimeError(f"Controller {ctrl} not part of this scan!")
+
+        ## for Bliss 2 we have to see how to do the part below more systematic
+        ## and to avoid hasattr
+        potential_new_ctrl_params = ctrl_acq_dev.ctrl_params.copy()
+        potential_new_ctrl_params.update(new_param_dict)
+
+        if hasattr(ctrl_acq_dev, "acq_params"):
+            potential_new_ctrl_params = CompletedCtrlParamsDict(
+                potential_new_ctrl_params
+            )
+            ctrl_acq_dev.validate_params(
+                ctrl_acq_dev.acq_params, ctrl_params=potential_new_ctrl_params
+            )
+
+        # at least check that no new keys are added
+        if set(potential_new_ctrl_params.keys()) == set(
+            ctrl_acq_dev.ctrl_params.keys()
+        ):
+            ctrl_acq_dev.ctrl_params.update(new_param_dict)
+        else:
+            raise RuntimeError(f"New keys can not be added to ctrl_params of {ctrl}")
 
     def _get_x_y_data(self, counter, axis=None):
         axis_name = self._get_data_axis_name(axis)

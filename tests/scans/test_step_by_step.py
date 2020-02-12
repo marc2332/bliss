@@ -601,3 +601,22 @@ def test_typeguard_scanable(default_session):
     check_typeguard(True, m0, diode)
     check_typeguard(False, diode, diode)
     check_typeguard(False, m0, m0)
+
+
+def test_update_ctrl_params(default_session, beacon, lima_simulator, scan_tmpdir):
+    scan_saving = default_session.scan_saving
+    scan_saving.base_path = str(scan_tmpdir)
+
+    lima_sim = beacon.get("lima_simulator")
+
+    s = scans.loopscan(1, .1, lima_sim, run=False)
+    with pytest.raises(RuntimeError):
+        s.update_ctrl_params(lima_sim, {"unkown_key": "bla"})
+
+    s.update_ctrl_params(lima_sim, {"saving_format": "EDFGZ"})
+    s.run()
+
+    lima_data_view = s.get_data()["lima_simulator:image"]
+    lima_data_view._update()
+    ref_data = lima_data_view.ref_data[0]
+    assert lima_data_view._get_filenames(ref_data, *range(0, 1))[0][0][-7:] == ".edf.gz"

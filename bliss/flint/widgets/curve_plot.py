@@ -44,6 +44,9 @@ class CurvePlotWidget(ExtendedDockWidget):
 
     plotModelUpdated = qt.Signal(object)
 
+    plotItemSelected = qt.Signal(object)
+    """Emitted when a flint plot item was selected by the plot"""
+
     def __init__(self, parent=None):
         super(CurvePlotWidget, self).__init__(parent=parent)
         self.__scan: Optional[scan_model.Scan] = None
@@ -60,6 +63,7 @@ class CurvePlotWidget(ExtendedDockWidget):
         self.__plot.setDataMargins(0.1, 0.1, 0.1, 0.1)
         self.setWidget(self.__plot)
         self.setFocusPolicy(qt.Qt.StrongFocus)
+        self.__plot.sigSelectionChanged.connect(self.__selectionChanged)
         self.__plot.installEventFilter(self)
         self.__plot.getWidgetHandle().installEventFilter(self)
         self.__view = plot_helper.ViewManager(self.__plot)
@@ -172,7 +176,49 @@ class CurvePlotWidget(ExtendedDockWidget):
         propertyWidget = curve_plot_property.CurvePlotPropertyWidget(parent)
         propertyWidget.setFlintModel(self.__flintModel)
         propertyWidget.setFocusWidget(self)
+        propertyWidget.plotItemSelected.connect(self.__plotItemSelectedFromProperty)
         return propertyWidget
+
+    def __findItemFromPlotItem(self, requestedItem: plot_model.Item):
+        """Returns a silx plot item from a flint plot item."""
+        if requestedItem is None:
+            return None
+        for item in self.__plot.getItems():
+            if isinstance(item, plot_helper.FlintCurve):
+                plotItem = item.customItem()
+                if plotItem is requestedItem:
+                    return item
+        return None
+
+    def selectedPlotItem(self) -> Optional[plot_model.Item]:
+        """Returns the current selected plot item, if one"""
+        item = self.__plot.getActiveCurve()
+        if isinstance(item, plot_helper.FlintCurve):
+            plotItem = item.customItem()
+            return plotItem
+        return None
+
+    def __selectionChanged(self, current, previous):
+        """Callback executed when the selection from the plot was changed"""
+        if isinstance(current, plot_helper.FlintCurve):
+            selected = current.customItem()
+        else:
+            selected = None
+        self.plotItemSelected.emit(selected)
+
+    def __plotItemSelectedFromProperty(self, selected):
+        """Callback executed when the selection from the property view was
+        changed"""
+        if selected is self.selectedPlotItem():
+            # Break reentrant signals
+            return
+        item = self.__findItemFromPlotItem(selected)
+        # FIXME: We should not use the legend
+        if item is None:
+            legend = None
+        else:
+            legend = item.getLegend()
+        self.__plot.setActiveCurve(legend)
 
     def flintModel(self) -> Optional[flint_model.FlintState]:
         return self.__flintModel

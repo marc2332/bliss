@@ -22,6 +22,7 @@ from bliss.flint.model import plot_item_model
 from bliss.flint.model import plot_state_model
 from bliss.flint.model import scan_model
 from bliss.flint.helper import model_helper
+from bliss.flint.utils import qmodelutils
 from . import delegates
 from . import _property_tree_helper
 
@@ -604,18 +605,61 @@ class CurvePlotPropertyWidget(qt.QWidget):
         toolBar.addAction(action)
         return toolBar
 
+    def __findItemFromPlotItem(
+        self, requestedItem: plot_model.Item
+    ) -> Optional[_DataItem]:
+        """Returns a silx plot item from a flint plot item."""
+        if requestedItem is None:
+            return None
+        model = self.__tree.model()
+        for index in qmodelutils.iterAllItems(model):
+            item = model.itemFromIndex(index)
+            if isinstance(item, _DataItem):
+                plotItem = item.plotItem()
+                if plotItem is requestedItem:
+                    return item
+        return None
+
+    def __selectionChangedFromPlot(self, current: plot_model.Item):
+        selectionModel = self.__tree.selectionModel()
+        if current is None:
+            # Break reentrant signals
+            indices = selectionModel.selectedRows()
+            index = indices[0] if len(indices) > 0 else qt.QModelIndex()
+            if index.isValid():
+                selectionModel.select(qt.QModelIndex(), qt.QItemSelectionModel.Clear)
+            return
+        if current is self.selectedPlotItem():
+            # Break reentrant signals
+            return
+        item = self.__findItemFromPlotItem(current)
+        flags = qt.QItemSelectionModel.Rows | qt.QItemSelectionModel.ClearAndSelect
+        if item is None:
+            index = qt.QModelIndex()
+        else:
+            index = item.index()
+        selectionModel = self.__tree.selectionModel()
+        selectionModel.select(index, flags)
+
     def __selectionChanged(self, current: qt.QModelIndex, previous: qt.QModelIndex):
-        item = self.selectedPlotItem()
-        self.plotItemSelected.emit(item)
+        model = self.__tree.model()
+        index = model.index(current.row(), 0, current.parent())
+        item = model.itemFromIndex(index)
+        if isinstance(item, _DataItem):
+            plotItem = item.plotItem()
+        else:
+            plotItem = None
+        self.plotItemSelected.emit(plotItem)
 
     def selectedPlotItem(self) -> Optional[plot_model.Item]:
-        index = self.__tree.currentIndex()
+        """Returns the current selected plot item, if one"""
+        selectionModel = self.__tree.selectionModel()
+        indices = selectionModel.selectedRows()
+        index = indices[0] if len(indices) > 0 else qt.QModelIndex()
         if not index.isValid():
-            self.setEnabled(False)
-            return
+            return None
         model = self.__tree.model()
         index = model.index(index.row(), 0, index.parent())
-        model = self.__tree.model()
         item = model.itemFromIndex(index)
         if isinstance(item, _DataItem):
             plotItem = item.plotItem()
@@ -637,9 +681,11 @@ class CurvePlotPropertyWidget(qt.QWidget):
     def setFocusWidget(self, widget):
         if self.__focusWidget is not None:
             widget.plotModelUpdated.disconnect(self.__plotModelUpdated)
+            widget.plotItemSelected.disconnect(self.__selectionChangedFromPlot)
         self.__focusWidget = widget
         if self.__focusWidget is not None:
             widget.plotModelUpdated.connect(self.__plotModelUpdated)
+            widget.plotItemSelected.connect(self.__selectionChangedFromPlot)
             plotModel = widget.plotModel()
         else:
             plotModel = None

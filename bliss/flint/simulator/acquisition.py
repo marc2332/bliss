@@ -308,7 +308,7 @@ class AcquisitionSimulator(qt.QObject):
             return height * stepData
 
         pos = numpy.random.rand() * (nbPoints1 // 2) + nbPoints1 // 4
-        height = 5 * numpy.random.rand() * 5
+        height = 5 + numpy.random.rand() * 5
         stepData = (
             step(pos, nbPoints1, 6, height=height) + numpy.random.random(nbPoints1) * 1
         )

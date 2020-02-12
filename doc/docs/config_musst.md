@@ -59,8 +59,13 @@ counters:
 ```
 
 
-```
-ct(0.1, musst_sxm.counters.enc_mono)
+It is then possible to use a MUSST counter in a scan or a count:
+```python
+DEMO [5]: ct(1, musst_sxm.counters.enc_samy)
+Mon Feb 10 21:51:44 2020
+
+enc_samy =     393803.0 (    393803.0/s)
+  Out [5]: Scan(number=1, name=ct, path=)
 ```
 
 
@@ -98,7 +103,6 @@ Config parameters list:
 * **counters:**: list of the counters, in this dictionary we need to have:
     * **name:**: counter name
     * **channel:**: musst channel
-
 
 ## Commands
 
@@ -140,6 +144,4 @@ DEMO [21]: musst_sxm.putget("?CH CH3")
 ## MUSST MCA
 
 ## MUSST Programming
-
-
 

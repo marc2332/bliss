@@ -247,6 +247,7 @@ class _WatchDogTask(gevent.Greenlet):
         self._callback = callback
         self.__watchdog_timer = None
         self._lock = gevent.lock.Semaphore()
+        self._lock_watchdog_reset = gevent.lock.Semaphore()
 
     def trigger_data_event(self, sender, signal):
         self._reset_watchdog()
@@ -308,28 +309,29 @@ class _WatchDogTask(gevent.Greenlet):
                 self.__watchdog_timer.kill()
 
     def _reset_watchdog(self):
-        if self.__watchdog_timer:
-            self.__watchdog_timer.kill()
+        with self._lock_watchdog_reset:
+            if self.__watchdog_timer:
+                self.__watchdog_timer.kill()
 
-        if self.ready():
-            return
+            if self.ready():
+                return
 
-        def loop(timeout):
-            while True:
-                gevent.sleep(timeout)
-                try:
-                    with KillMask():
-                        with self._lock:
-                            self._callback.on_timeout()
-                except StopIteration:
-                    self.stop()
-                    break
-                except BaseException as e:
-                    self.clear_queue()
-                    self._events.put(e)
-                    break
+            def loop(timeout):
+                while True:
+                    gevent.sleep(timeout)
+                    try:
+                        with KillMask():
+                            with self._lock:
+                                self._callback.on_timeout()
+                    except StopIteration:
+                        self.stop()
+                        break
+                    except BaseException as e:
+                        self.clear_queue()
+                        self._events.put(e)
+                        break
 
-        self.__watchdog_timer = gevent.spawn(loop, self._callback.timeout)
+            self.__watchdog_timer = gevent.spawn(loop, self._callback.timeout)
 
 
 class ScanDisplay(ParametersWardrobe):

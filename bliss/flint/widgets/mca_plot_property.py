@@ -151,13 +151,7 @@ class McaPlotPropertyWidget(qt.QWidget):
         layout.addWidget(self.__tree)
 
     def setFlintModel(self, flintModel: flint_model.FlintState = None):
-        if self.__flintModel is not None:
-            self.__flintModel.currentScanChanged.disconnect(self.__currentScanChanged)
-            self.__setScan(None)
         self.__flintModel = flintModel
-        if self.__flintModel is not None:
-            self.__flintModel.currentScanChanged.connect(self.__currentScanChanged)
-            self.__setScan(self.__flintModel.currentScan())
 
     def focusWidget(self):
         return self.__focusWidget
@@ -165,13 +159,18 @@ class McaPlotPropertyWidget(qt.QWidget):
     def setFocusWidget(self, widget):
         if self.__focusWidget is not None:
             widget.plotModelUpdated.disconnect(self.__plotModelUpdated)
+            widget.scanModelUpdated.disconnect(self.__currentScanChanged)
         self.__focusWidget = widget
         if self.__focusWidget is not None:
             widget.plotModelUpdated.connect(self.__plotModelUpdated)
+            widget.scanModelUpdated.connect(self.__currentScanChanged)
             plotModel = widget.plotModel()
+            scanModel = widget.scan()
         else:
             plotModel = None
+            scanModel = None
         self.__plotModelUpdated(plotModel)
+        self.__currentScanChanged(scanModel)
 
     def __plotModelUpdated(self, plotModel):
         self.setPlotModel(plotModel)
@@ -186,8 +185,8 @@ class McaPlotPropertyWidget(qt.QWidget):
             self.__plotModel.itemValueChanged.connect(self.__itemValueChanged)
         self.__updateTree()
 
-    def __currentScanChanged(self):
-        self.__setScan(self.__flintModel.currentScan())
+    def __currentScanChanged(self, scanModel):
+        self.__setScan(scanModel)
 
     def __structureChanged(self):
         self.__updateTree()

@@ -47,6 +47,12 @@ class ImagePlotWidget(ExtendedDockWidget):
     widgetActivated = qt.Signal(object)
 
     plotModelUpdated = qt.Signal(object)
+    """Emitted when the plot model displayed by the plot was changed"""
+
+    scanModelUpdated = qt.Signal(object)
+    """Emitted when the scan model displayed by the plot was changed"""
+
+    plotModelUpdated = qt.Signal(object)
 
     def __init__(self, parent=None):
         super(ImagePlotWidget, self).__init__(parent=parent)
@@ -264,6 +270,7 @@ class ImagePlotWidget(ExtendedDockWidget):
             )
             if self.__scan.state() != scan_model.ScanState.INITIALIZED:
                 self.__updateTitle(self.__scan)
+        self.scanModelUpdated.emit(scan)
         self.__redrawAll()
 
     def __clear(self):

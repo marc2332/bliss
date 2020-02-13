@@ -44,9 +44,10 @@ class CurvePlotWidget(ExtendedDockWidget):
     widgetActivated = qt.Signal(object)
 
     plotModelUpdated = qt.Signal(object)
+    """Emitted when the plot model displayed by the plot was changed"""
 
     scanModelUpdated = qt.Signal(object)
-    """Emitted when the scan model displayed by the plot is changed"""
+    """Emitted when the scan model displayed by the plot was changed"""
 
     plotItemSelected = qt.Signal(object)
     """Emitted when a flint plot item was selected by the plot"""

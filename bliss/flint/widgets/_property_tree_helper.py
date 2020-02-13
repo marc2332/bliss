@@ -95,8 +95,11 @@ class ScanRowItem(StandardRowItem):
             icon = icons.getQIcon("flint:icons/item-channel")
         self.setIcon(icon)
 
-        itemClass = plotItem.__class__
-        text = "%s" % itemClass.__name__
+        if hasattr(plotItem, "name"):
+            text = plotItem.name()
+        else:
+            itemClass = plotItem.__class__
+            text = "%s" % itemClass.__name__
         self.setText(text)
 
 

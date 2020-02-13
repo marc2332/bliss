@@ -127,6 +127,9 @@ class DerivativeItem(ComputedCurveItem, plot_model.IncrementalComputableMixIn):
     EXTRA_POINTS = 5
     """Extra points needed before and after a single point to compute a result"""
 
+    def name(self) -> str:
+        return "Derivative"
+
     def __getstate__(self):
         state: Dict[str, Any] = {}
         state.update(plot_model.ChildItem.__getstate__(self))
@@ -252,6 +255,9 @@ class GaussianFitItem(ComputedCurveItem, plot_model.ComputableMixIn):
         yy = fit.transform(xx)
         return GaussianFitData(xx, yy, fit)
 
+    def name(self) -> str:
+        return "Gaussian"
+
     def displayName(self, axisName, scan: scan_model.Scan) -> str:
         """Helper to reach the axis display name"""
         sourceItem = self.source()
@@ -273,6 +279,9 @@ class MaxData(NamedTuple):
 
 class MaxCurveItem(CurveStatisticItem, plot_model.IncrementalComputableMixIn):
     """Statistic identifying the maximum location of a curve."""
+
+    def name(self) -> str:
+        return "Max"
 
     def isResultValid(self, result):
         return result is not None
@@ -347,6 +356,9 @@ class MinData(NamedTuple):
 
 class MinCurveItem(CurveStatisticItem, plot_model.IncrementalComputableMixIn):
     """Statistic identifying the minimum location of a curve."""
+
+    def name(self) -> str:
+        return "Min"
 
     def isResultValid(self, result):
         return result is not None

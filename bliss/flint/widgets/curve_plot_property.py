@@ -254,14 +254,14 @@ class _AddItemAction(qt.QWidgetAction):
 
             action = qt.QAction(self)
             action.setText("Derivative function")
-            icon = icons.getQIcon("flint:icons/item-stats")
+            icon = icons.getQIcon("flint:icons/item-func")
             action.setIcon(icon)
             action.triggered.connect(self.__createDerivative)
             menu.addAction(action)
 
             action = qt.QAction(self)
             action.setText("Gaussian fit")
-            icon = icons.getQIcon("flint:icons/item-stats")
+            icon = icons.getQIcon("flint:icons/item-func")
             action.setIcon(icon)
             action.triggered.connect(self.__createGaussianFit)
             menu.addAction(action)

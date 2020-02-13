@@ -18,6 +18,7 @@ import logging
 
 from silx.gui import qt
 from silx.gui import icons
+from silx.gui import utils as qtutils
 from silx.gui.plot.items.shape import BoundingRect
 from silx.gui.plot.items import Curve
 from silx.gui.plot.items import axis as axis_mdl
@@ -209,6 +210,10 @@ class CurvePlotWidget(ExtendedDockWidget):
     def __plotItemSelectedFromProperty(self, selected):
         """Callback executed when the selection from the property view was
         changed"""
+        self.selectPlotItem(selected)
+
+    def selectPlotItem(self, selected: plot_model.Item):
+        """Select a flint plot item"""
         if selected is self.selectedPlotItem():
             # Break reentrant signals
             return
@@ -557,20 +562,30 @@ class CurvePlotWidget(ExtendedDockWidget):
         if self.__plotModel is None:
             return
 
-        scanItems = []
-        plotModel = self.__plotModel
-        for scanItem in plotModel.items():
-            if isinstance(scanItem, plot_item_model.ScanItem):
-                scanItems.append(scanItem)
-
-        if len(scanItems) > 0:
-            for scan in scanItems:
-                self.__updatePlotItem(item, scan.scan())
+        selectedPlotItem = self.selectedPlotItem()
+        if item is selectedPlotItem:
+            reselect = item
         else:
-            currentScan = self.__scan
-            if currentScan is None:
-                return
-            self.__updatePlotItem(item, currentScan)
+            reselect = None
+
+        with qtutils.blockSignals(self):
+            scanItems = []
+            plotModel = self.__plotModel
+            for scanItem in plotModel.items():
+                if isinstance(scanItem, plot_item_model.ScanItem):
+                    scanItems.append(scanItem)
+
+            if len(scanItems) > 0:
+                for scan in scanItems:
+                    self.__updatePlotItem(item, scan.scan())
+            else:
+                currentScan = self.__scan
+                if currentScan is None:
+                    return
+                self.__updatePlotItem(item, currentScan)
+
+            if reselect is not None:
+                self.selectPlotItem(reselect)
 
     def __updatePlotItem(self, item: plot_model.Item, scan: scan_model.Scan):
         if not item.isValid():

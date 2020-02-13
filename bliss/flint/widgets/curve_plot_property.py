@@ -15,6 +15,7 @@ import logging
 
 from silx.gui import qt
 from silx.gui import icons
+from silx.gui import utils as qtutils
 
 from bliss.flint.model import flint_model
 from bliss.flint.model import plot_model
@@ -621,18 +622,21 @@ class CurvePlotPropertyWidget(qt.QWidget):
         return None
 
     def __selectionChangedFromPlot(self, current: plot_model.Item):
+        self.selectPlotItem(current)
+
+    def selectPlotItem(self, select: plot_model.Item):
         selectionModel = self.__tree.selectionModel()
-        if current is None:
+        if select is None:
             # Break reentrant signals
             indices = selectionModel.selectedRows()
             index = indices[0] if len(indices) > 0 else qt.QModelIndex()
             if index.isValid():
                 selectionModel.select(qt.QModelIndex(), qt.QItemSelectionModel.Clear)
             return
-        if current is self.selectedPlotItem():
+        if select is self.selectedPlotItem():
             # Break reentrant signals
             return
-        item = self.__findItemFromPlotItem(current)
+        item = self.__findItemFromPlotItem(select)
         flags = qt.QItemSelectionModel.Rows | qt.QItemSelectionModel.ClearAndSelect
         if item is None:
             index = qt.QModelIndex()
@@ -833,6 +837,8 @@ class CurvePlotPropertyWidget(qt.QWidget):
 
     def __updateTree(self):
         collapsed = _property_tree_helper.getPathFromCollapsedNodes(self.__tree)
+        selectedItem = self.selectedPlotItem()
+
         model = self.__tree.model()
         model.clear()
 
@@ -952,3 +958,6 @@ class CurvePlotPropertyWidget(qt.QWidget):
 
         self.__tree.expandAll()
         _property_tree_helper.collapseNodesFromPaths(self.__tree, collapsed)
+
+        with qtutils.blockSignals(self):
+            self.selectPlotItem(selectedItem)

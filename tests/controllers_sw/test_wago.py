@@ -277,6 +277,7 @@ def test_wago_modbus_simulator(wago_emulator):
 
     for name in names.split():
         wago.get(name)
+
     assert wago.series == 750
     with pytest.raises(RuntimeError):
         wago.check_plugged_modules()
@@ -312,6 +313,13 @@ def test_wago_get(default_session):
             assert len(results[i]) == nval
         else:
             assert not isinstance(results[i], list)
+
+    # check returned values form for get method
+    assert len(wago.get("foh2ctrl", "foh2pos", flat=True)) == 8
+    assert len(wago.get("foh2ctrl", "foh2pos", flat=False)) == 2
+    with pytest.raises(TypeError):
+        len(wago.get("pres", flat=True))  # this is a single value
+    assert len(wago.get("pres", flat=False)) == 1  # this is a list with 1 value
 
 
 def test_wago_special_out(default_session):

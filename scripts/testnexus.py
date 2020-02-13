@@ -268,7 +268,7 @@ if __name__ == "__main__":
         i = 1
         while True:
             gevent.sleep()
-            if test_func(test_session, filename, titles, checkoutput=args.astango):
+            if test_func(test_session, filename, titles):
                 break
             if imax and i == imax:
                 break

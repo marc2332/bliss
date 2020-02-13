@@ -4,7 +4,18 @@ repo_url: 'https://gitlab.esrf.fr/bliss/bliss'
 use_directory_urls: false
 nav:
         - Getting started:
-                - BLISS in a nutshell: index.md
+                - About BLISS: index.md
+                - BLISS in a nutshell:
+                      - Architecture overview: bliss_overview.md
+                      - BLISS shell: bliss_shell.md
+                      - Motion control basics: bliss_motion_control_basics.md
+                      - Counters: bliss_counters.md
+                      - Standard scans: bliss_standard_scans.md
+                      - Flint, online data visualisation tool: bliss_flint.md
+                      - Data policy and data format: bliss_data_policy.md
+                      - Data life cycle: bliss_data_life.md
+                      - "Practical example: slits alignment": bliss_slits_alignment.md
+                      - User defined sequences: bliss_user_sequences.md
                 - BLISS as a library: bliss_as_library.md
         - Installation: installation.md
         - Configuration:

@@ -45,6 +45,9 @@ class CurvePlotWidget(ExtendedDockWidget):
 
     plotModelUpdated = qt.Signal(object)
 
+    scanModelUpdated = qt.Signal(object)
+    """Emitted when the scan model displayed by the plot is changed"""
+
     plotItemSelected = qt.Signal(object)
     """Emitted when a flint plot item was selected by the plot"""
 
@@ -68,6 +71,7 @@ class CurvePlotWidget(ExtendedDockWidget):
         self.__plot.installEventFilter(self)
         self.__plot.getWidgetHandle().installEventFilter(self)
         self.__view = plot_helper.ViewManager(self.__plot)
+        self.__selectedPlotItem = None
 
         self.__aggregator = signalutils.EventAggregator(self)
         self.__refreshManager = plot_helper.RefreshManager(self)
@@ -193,6 +197,7 @@ class CurvePlotWidget(ExtendedDockWidget):
 
     def selectedPlotItem(self) -> Optional[plot_model.Item]:
         """Returns the current selected plot item, if one"""
+        return self.__selectedPlotItem
         item = self.__plot.getActiveCurve()
         if isinstance(item, plot_helper.FlintCurve):
             plotItem = item.customItem()
@@ -205,6 +210,7 @@ class CurvePlotWidget(ExtendedDockWidget):
             selected = current.customItem()
         else:
             selected = None
+        self.__selectedPlotItem = selected
         self.plotItemSelected.emit(selected)
 
     def __plotItemSelectedFromProperty(self, selected):
@@ -212,11 +218,15 @@ class CurvePlotWidget(ExtendedDockWidget):
         changed"""
         self.selectPlotItem(selected)
 
-    def selectPlotItem(self, selected: plot_model.Item):
+    def selectPlotItem(self, selected: plot_model.Item, force=False):
         """Select a flint plot item"""
-        if selected is self.selectedPlotItem():
-            # Break reentrant signals
-            return
+        if not force:
+            if self.__selectedPlotItem is selected:
+                return
+            if selected is self.selectedPlotItem():
+                # Break reentrant signals
+                return
+        self.__selectedPlotItem = selected
         item = self.__findItemFromPlotItem(selected)
         # FIXME: We should not use the legend
         if item is None:
@@ -443,6 +453,7 @@ class CurvePlotWidget(ExtendedDockWidget):
             )
             if self.__scan.state() != scan_model.ScanState.INITIALIZED:
                 self.__updateTitle(self.__scan)
+        self.scanModelUpdated.emit(scan)
         self.__redrawAllScans()
 
     def __cleanScanIfNeeded(self, scan):
@@ -509,28 +520,31 @@ class CurvePlotWidget(ExtendedDockWidget):
 
     def __redrawAllScans(self):
         plot = self.__plot
-        plot.clear()
-        if self.__plotModel is None:
+
+        with qtutils.blockSignals(self.__plot):
+            plot.clear()
+            if self.__plotModel is None:
+                for o in self.__permanentItems:
+                    self.__plot._add(o)
+                return
+
+        with qtutils.blockSignals(self):
+            scanItems = []
+            plotModel = self.__plotModel
+            for item in plotModel.items():
+                if isinstance(item, plot_item_model.ScanItem):
+                    scanItems.append(item)
+
+            if len(scanItems) > 0:
+                for scan in scanItems:
+                    self.__redrawScan(scan.scan())
+            else:
+                currentScan = self.__scan
+                if currentScan is not None:
+                    self.__redrawScan(currentScan)
+
             for o in self.__permanentItems:
                 self.__plot._add(o)
-            return
-
-        scanItems = []
-        plotModel = self.__plotModel
-        for item in plotModel.items():
-            if isinstance(item, plot_item_model.ScanItem):
-                scanItems.append(item)
-
-        if len(scanItems) > 0:
-            for scan in scanItems:
-                self.__redrawScan(scan.scan())
-        else:
-            currentScan = self.__scan
-            if currentScan is not None:
-                self.__redrawScan(currentScan)
-
-        for o in self.__permanentItems:
-            self.__plot._add(o)
 
     def __cleanScan(self, scan: scan_model.Scan):
         items = self.__items.pop(scan, {})
@@ -550,13 +564,16 @@ class CurvePlotWidget(ExtendedDockWidget):
     def __redrawScan(self, scan: scan_model.Scan):
         assert scan is not None
 
-        self.__cleanScan(scan)
-        plotModel = self.__plotModel
-        if plotModel is None:
-            return
+        with qtutils.blockSignals(self.__plot):
+            self.__cleanScan(scan)
 
-        for item in plotModel.items():
-            self.__updatePlotItem(item, scan)
+        with qtutils.blockSignals(self):
+            plotModel = self.__plotModel
+            if plotModel is None:
+                return
+
+            for item in plotModel.items():
+                self.__updatePlotItem(item, scan)
 
     def __updateItem(self, item: plot_model.Item):
         if self.__plotModel is None:
@@ -598,7 +615,8 @@ class CurvePlotWidget(ExtendedDockWidget):
 
         updateZoomNow = not self.__plotModel.isInTransaction()
 
-        wasUpdated = self.__cleanScanItem(item, scan)
+        with qtutils.blockSignals(self.__plot):
+            wasUpdated = self.__cleanScanItem(item, scan)
 
         if not item.isVisible():
             if wasUpdated:
@@ -736,6 +754,11 @@ class CurvePlotWidget(ExtendedDockWidget):
         if scan not in self.__items:
             self.__items[scan] = {}
         self.__items[scan][item] = plotItems
+
+        if self.selectedPlotItem() is item:
+            with qtutils.blockSignals(self.__plot):
+                self.selectPlotItem(item, True)
+
         self.__updatePlotZoom(updateZoomNow)
 
     def __updatePlotZoom(self, updateZoomNow):

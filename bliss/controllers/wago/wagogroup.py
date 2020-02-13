@@ -67,14 +67,33 @@ class WagoGroup(SamplingCounterController):
     def __info__(self):
         tab = [["logical device", "current value", "wago name", "description"]]
         try:
-            values = self.get(*self.logical_keys, flat=False)
+            values = self.get(*self.logical_keys, flat=True)
         except Exception:
             values = [None] * len(self.logical_keys)
 
-        for i, key in enumerate(self.logical_keys):
-            logical_mapping = self._wago4key[key].modules_config.logical_mapping[key]
-            description = get_module_info(logical_mapping[0].module_type).description
-            tab.append([key, values[i], self._wago4key[key].name, description])
+        organized_values = []
+        iter_val = iter(values)
+        for key in self.logical_keys:
+            modules_config = self._wago4key[key].modules_config
+            for n_ch, ch in modules_config.read_table[key].items():
+                wago_name = self._wago4key[key].name
+                description = ch["info"].description
+                if len(organized_values):
+                    if (
+                        organized_values[-1][0] == key
+                        and organized_values[-1][3] == description
+                    ):
+                        # if modules belows to the same logical_device and module_type
+                        # consider them as one
+                        organized_values[-1][2].append(next(iter_val))
+                        continue
+
+                organized_values.append(
+                    (key, n_ch, [next(iter_val)], description, wago_name)
+                )
+
+        for key, n_ch, values, description, wago_name in organized_values:
+            tab.append([key, values, wago_name, description])
 
         repr_ = tabulate(tab, headers="firstrow", stralign="center")
 

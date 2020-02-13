@@ -202,6 +202,7 @@ MODULES_CONFIG = {
     "750-467": [0, 0, 2, 0, 2, 2, "fs10", "2 Channel 0/10V Input"],
     "750-468": [0, 0, 4, 0, 4, 4, "fs10", "4 Channel 0/10V Input"],
     "750-469": [0, 0, 2, 0, 2, 2, "thc", "2 Channel Ktype Thermocouple Input"],
+    "750-471": [0, 0, 4, 0, 4, 4, "fs4-20", "4 Channel 4/20mA 16bit Input"],
     "750-472": [0, 0, 2, 0, 2, 2, "fs20", "2 Channel 0/20mA 16bit Input"],
     "750-474": [0, 0, 2, 0, 2, 2, "fs4-20", "2 Channel 4/20mA 16bit Input"],
     "750-476": [0, 0, 2, 0, 2, 2, "fs10", "2 Channel +-10V Input"],

@@ -1,4 +1,4 @@
-The [ESRF data policy](data_policy_dev_esrf.md) allows users to access their data and electronic logbook at https://data.esrf.fr. Two TANGO devices need to be installed, running and enabled for this.
+The [ESRF data policy](dev_data_policy_esrf.md) allows users to access their data and electronic logbook at https://data.esrf.fr. Two TANGO devices need to be installed, running and enabled for this.
 
 ## Summary
 

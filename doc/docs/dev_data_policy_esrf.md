@@ -6,11 +6,11 @@ The ESRF data policy allows users to access their data and electronic logbook at
 
 To enable the ESRF data policy
 
-1. Install and run the [Nexus writer](data_nexus_server.md) to write the data in Nexus format
+1. Install and run the [Nexus writer](dev_data_nexus_server.md) to write the data in Nexus format
 
-2. Install and run the [ICAT servers](data_policy_servers.md) to communicate with ICAT
+2. Install and run the [ICAT servers](dev_data_policy_servers.md) to communicate with ICAT
 
-3. Enable the ESRF data policy in the BLISS session to configure the data directory structure. This is done in the beamline configuration which will contain a mixture of [data policy configuration](#configuration) and [ICAT server configuration](data_policy_servers.md#enable-in-bliss):
+3. Enable the ESRF data policy in the BLISS session to configure the data directory structure. This is done in the beamline configuration which will contain a mixture of [data policy configuration](#configuration) and [ICAT server configuration](dev_data_policy_servers.md#enable-in-bliss):
 
     ```yaml
     scan_saving:

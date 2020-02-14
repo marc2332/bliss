@@ -6,7 +6,7 @@ This policy is meant for testing only. It does not enforce data structure (file 
 
 To enable the basic data policy
 
-1. Install and run the [Nexus writer](data_nexus_server.md) to write the data in Nexus format (optional)
+1. Install and run the [Nexus writer](dev_data_nexus_server.md) to write the data in Nexus format (optional)
 
 2. Specify file directory and name using the [SCAN_SAVING](#scan_saving) object in the BLISS session
 
@@ -82,7 +82,7 @@ a dictionary, whose key `root_path` is the final path to scan files.
 #### SCAN_SAVING writer
 
 `.writer` is a special member of `SCAN_SAVING`; it indicates which
-writer to use for saving data. BLISS supports `"hdf5"` (internal writer in BLISS), `"nexus"` (the [Nexus writer](data_nexus_server.md)) and `"null"` (writing disabled).
+writer to use for saving data. BLISS supports `"hdf5"` (internal writer in BLISS), `"nexus"` (the [Nexus writer](dev_data_nexus_server.md)) and `"null"` (writing disabled).
 
 ### Configuration example
 

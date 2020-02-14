@@ -1,4 +1,4 @@
-Currently Bliss supports only one data format: [Nexus compliant](https://www.nexusformat.org/) HDF5 files written by the [Nexus writer](data_nexus_server.md). Here we describe the logic of this Nexus structure.
+Currently Bliss supports only one data format: [Nexus compliant](https://www.nexusformat.org/) HDF5 files written by the [Nexus writer](dev_data_nexus_server.md). Here we describe the logic of this Nexus structure.
 
 In the example below we show the file of [one dataset](data_policy.md) which contains the data of three scans:
 

@@ -162,19 +162,19 @@ nav:
                 - Speedgoat: config_speedgoat.md
                 - timedisplay: timedisplay.md
                 - Data:
-                    - Architecture: data_architecture.md
-                    - Publishing: data_publishing.md
-                    - Subscribing: data_subscribing.md
+                    - Architecture: dev_data_architecture.md
+                    - Publishing: dev_data_publishing.md
+                    - Subscribing: dev_data_subscribing.md
                     - Data policy:
-                        - ESRF: data_policy_dev_esrf.md
-                        - Basic: data_policy_dev_basic.md
-                        - Custom: data_policy_dev_custom.md
-                    - Nexus writer: data_nexus_server.md
+                        - ESRF: dev_data_policy_esrf.md
+                        - Basic: dev_data_policy_basic.md
+                        - Custom: dev_data_policy_custom.md
+                    - Nexus writer: dev_data_nexus_server.md
                     - Flint:
                         - Editing Lima ROI counters: flint_roi_counters.md
                         - For scan designers: flint_scan_info.md
-                    - ICAT: data_policy_servers.md
-                    - Metadata: data_metadata_dev.md
+                    - ICAT: dev_data_policy_servers.md
+                    - Metadata: dev_data_metadata.md
 
 theme:
         name: material

@@ -4,7 +4,7 @@ BLISS offers the possibility to have a separate process (on the system level) fo
 ## Example 1: Save data in HDF5
 
 !!! note
-    BLISS already comes with an [HDF5 writer](data_nexus_server.md). This is just an example.
+    BLISS already comes with an [HDF5 writer](dev_data_nexus_server.md). This is just an example.
     The  example script discussed here is provided in Bliss repository 
     at [scripts/external_saving_example/external_saving_example.py](https://gitlab.esrf.fr/bliss/bliss/blob/master/scripts/external_saving_example/external_saving_example.py).
     To have a minimal working Bliss environment have a look at the [installation notes](installation.md#installation-outside-esrf) 
@@ -43,7 +43,7 @@ Using  the `walk_on_new_events()` function with `filter="scan"`(limit walk to no
 In the example script a new instance of the class `HDF5_Writer` is created per scan that is started. Following the
 initialisation a _gevent greenlet_ is spawned to run the actual listener in a non blocking way. Inside `def run(self)` 
 a second iterator is started walking through all events emitted by the scan
-[(see data structure section)](data_publishing.md#experiment-and-redis-data-structure):
+[(see data structure section)](dev_data_publishing.md#experiment-and-redis-data-structure):
 
 ```python
    for event_type, node in self.scan_node.iterator.walk_events():
@@ -54,7 +54,7 @@ a second iterator is started walking through all events emitted by the scan
     
     - [Overview scan engine](scan_engine.md)
     - [Bliss data nodes](scan_data_node.md)
-    - [Data structure of published data](data_publishing.md)
+    - [Data structure of published data](dev_data_publishing.md)
 
 Once an event is received it can be categorized by the event type:
 

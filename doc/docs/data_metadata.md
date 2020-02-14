@@ -1,4 +1,4 @@
-Detectors publish their own metadata by default. Here we describe how to add user metadata. A more flexible and presistent way to add metadata is described [here](data_metadata_dev.md).
+Detectors publish their own metadata by default. Here we describe how to add user metadata. A more flexible and presistent way to add metadata is described [here](dev_data_metadata.md).
 
 ## Electronic logbook
 Send user message to the [electronic logbook](https://data.esrf.fr)

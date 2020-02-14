@@ -4,7 +4,7 @@ A data policy determines data structure (file format and directory structure) an
 
 2. The [basic data policy](#basic-data-policy) does not impose a data directory structure or register data with any external service. Data can (but does not have to be) written in [Nexus compliant](https://www.nexusformat.org/) HDF5 files.
 
-Installation and configuration of the [ESRF](data_policy_dev_esrf.md) and [basic](data_policy_dev_basic.md) data policy in a BLISS session can be found elsewhere as well as how to create [custom](data_policy_dev_custom.md) data policies. Below we describe how to use the data policies.
+Installation and configuration of the [ESRF](dev_data_policy_esrf.md) and [basic](dev_data_policy_basic.md) data policy in a BLISS session can be found elsewhere as well as how to create [custom](dev_data_policy_custom.md) data policies. Below we describe how to use the data policies.
 
 ## ESRF data policy
 
@@ -26,7 +26,7 @@ The data root directory is derived from the proposal name
 * *test**, *tmp** or *temp**: `/data/{beamline}/tmp/`
 * all other names: `/data/visitor/`
 
-These root path can be [configured](data_policy_dev_esrf.md#configuration) but these are the defaults.
+These root path can be [configured](dev_data_policy_esrf.md#configuration) but these are the defaults.
 
 ### Change sample
 
@@ -102,7 +102,7 @@ DEMO  [5]: SCAN_SAVING
 
 ## Basic data policy
 
-This data policy requires the user to use the [`SCAN_SAVING`](data_policy_dev_basic.md#scan_saving) object directly to define where the data will be saved. The data location is completely determined by specifying *base_path*, *template*, *data_filename* and *writer*
+This data policy requires the user to use the [`SCAN_SAVING`](dev_data_policy_basic.md#scan_saving) object directly to define where the data will be saved. The data location is completely determined by specifying *base_path*, *template*, *data_filename* and *writer*
 
 ```
 DEMO  [1]: SCAN_SAVING.base_path = "/tmp/data"
@@ -115,7 +115,7 @@ DEMO  [7]: SCAN_SAVING.filename
   Out [7]: '/tmp/data/20Feb/demo/sample1/scan{scan_number}.h5'
 ```
 
-Note that each attribute can be a template string to be filled with other attributes from the [`SCAN_SAVING`](data_policy_dev_basic.md#scan_saving) object.
+Note that each attribute can be a template string to be filled with other attributes from the [`SCAN_SAVING`](dev_data_policy_basic.md#scan_saving) object.
 
 ### Policy state
 

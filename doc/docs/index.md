@@ -396,7 +396,7 @@ Out [1]: Parameters (default)
         .writer         = 'hdf5'
 ```
 
-Find more info about how to use it in [SCAN_SAVING section](data_policy_dev_basic.md#scan_saving)
+Find more info about how to use it in [SCAN_SAVING section](dev_data_policy_basic.md#scan_saving)
 
 
 ### Retrieving scan data

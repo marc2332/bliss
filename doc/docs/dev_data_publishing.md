@@ -40,7 +40,7 @@ the session is created and the scan data is stored in this directory.
 
 
 As two different samples will be scanned, one sub-directory per sample will be
-created. To do that, the [SCAN_SAVING](data_policy_dev_basic.md#scan_saving) object has to
+created. To do that, the [SCAN_SAVING](dev_data_policy_basic.md#scan_saving) object has to
 be used. The data saving path is customized by adding a new parameter
 '*s_name*' usable in the template of the PATH.
 

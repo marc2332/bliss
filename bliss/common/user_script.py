@@ -11,9 +11,9 @@ USER_SCRIPT_HOME = SimpleSetting(
 
 __all__ = [
     "user_script_homedir",
-    "run_user_script",
-    "load_user_script",
-    "list_user_script",
+    "user_script_run",
+    "user_script_load",
+    "user_script_list",
 ]
 
 
@@ -29,7 +29,7 @@ def user_script_homedir(new_dir=None):
         return USER_SCRIPT_HOME.get()
 
 
-def list_user_script():
+def user_script_list():
     """List python scripts from home directory"""
     rootdir = USER_SCRIPT_HOME.get()
     if not rootdir:
@@ -49,15 +49,18 @@ def list_user_script():
             print(f" - {os.path.join(dirname, filename)}")
 
 
-def load_user_script(scriptname, namespace=None):
-    _exec_user_script(scriptname, export=True, namespace=namespace)
+def user_script_load(scriptname=None, namespace=None):
+    _user_script_exec(scriptname, export=True, namespace=namespace)
 
 
-def run_user_script(scriptname, namespace=None):
-    _exec_user_script(scriptname, export=False, namespace=namespace)
+def user_script_run(scriptname=None, namespace=None):
+    _user_script_exec(scriptname, export=False, namespace=namespace)
 
 
-def _exec_user_script(scriptname, export=False, namespace=None):
+def _user_script_exec(scriptname, export=False, namespace=None):
+    if not scriptname:
+        user_script_list()
+        return
     if os.path.isabs(scriptname):
         filepath = scriptname
     else:

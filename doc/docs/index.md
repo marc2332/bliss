@@ -464,12 +464,6 @@ TEST_SESSION [8]: data['diode']
 Online data display relies on **Flint**, an application with a graphical user interface
 shipped with BLISS and built on top of [silx][9](ScIentific Library for eXperimentalists).
 
-!!! note
-    **Flint** can be started automatically when a new scan begins (the application interface will show up when a scan is launched), by
-    configuring `SCAN_DISPLAY` in the BLISS shell:
-
-    `SCAN_DISPLAY.auto = True`
-
 Flint has 4 mayor capabilities :
 
 * Live Scan : plot data as it is created
@@ -500,9 +494,21 @@ Plots are displayed in application main window's **Live** tab. Depending on the 
 
 ### Live scan data in Flint
 
-Flint is capable of blah blah blah
+Flint listens to the scan data source and displays it on real time, updating charts and plots while it is created. Flint decides which chart or plot type fits the best taking into account the nature of the incoming data.
+
+!!! note
+    **Flint** can be started automatically when a new scan begins (the application interface will show up when a scan is launched), by
+    configuring `SCAN_DISPLAY` in the BLISS shell:
+
+    `SCAN_DISPLAY.auto = True`
 
 [Read more about Live Scan](flint_scan_plotting.md)
+
+### Data plot in Flint
+
+Flint can also display data coming from other sources than a live scan. Data created on the BLISS shell like an image, scatter, 1D data can be displayed in different type of plots selected by user: curve plot, scatter plot, image plot ...
+
+[Read more about data plot](flint_data_plotting.md)
 
 ### ROI selection
 

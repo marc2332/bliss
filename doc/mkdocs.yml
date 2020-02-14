@@ -126,6 +126,7 @@ nav:
                 - Shutter: using_shutter.md
         - Flint: Online data display:
 	  	- Live scans : flint_scan_plotting.md
+                - Data Plotting : flint_data_plotting.md  
                 - Editing Lima ROI counters: flint_roi_counters.md
                 - Interaction with plots: flint_interaction.md
                 - For scan designers: flint_scan_info.md

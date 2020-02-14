@@ -11,19 +11,23 @@ from typing import Tuple
 from typing import Union
 from typing import Dict
 from typing import List
+from typing import Sequence
 
 import numpy
 import logging
 
 from silx.gui import qt
 from silx.gui import icons
+from silx.gui import utils as qtutils
 from silx.gui.plot.items.shape import BoundingRect
+from silx.gui.plot.items import Curve
 from silx.gui.plot.items import axis as axis_mdl
 
 from bliss.flint.model import scan_model
 from bliss.flint.model import flint_model
 from bliss.flint.model import plot_model
 from bliss.flint.model import plot_item_model
+from bliss.flint.model import plot_state_model
 from bliss.flint.widgets.extended_dock_widget import ExtendedDockWidget
 from bliss.flint.widgets.plot_helper import FlintPlot
 from bliss.flint.helper import scan_info_helper
@@ -40,6 +44,13 @@ class CurvePlotWidget(ExtendedDockWidget):
     widgetActivated = qt.Signal(object)
 
     plotModelUpdated = qt.Signal(object)
+    """Emitted when the plot model displayed by the plot was changed"""
+
+    scanModelUpdated = qt.Signal(object)
+    """Emitted when the scan model displayed by the plot was changed"""
+
+    plotItemSelected = qt.Signal(object)
+    """Emitted when a flint plot item was selected by the plot"""
 
     def __init__(self, parent=None):
         super(CurvePlotWidget, self).__init__(parent=parent)
@@ -57,9 +68,11 @@ class CurvePlotWidget(ExtendedDockWidget):
         self.__plot.setDataMargins(0.1, 0.1, 0.1, 0.1)
         self.setWidget(self.__plot)
         self.setFocusPolicy(qt.Qt.StrongFocus)
+        self.__plot.sigSelectionChanged.connect(self.__selectionChanged)
         self.__plot.installEventFilter(self)
         self.__plot.getWidgetHandle().installEventFilter(self)
         self.__view = plot_helper.ViewManager(self.__plot)
+        self.__selectedPlotItem = None
 
         self.__aggregator = signalutils.EventAggregator(self)
         self.__refreshManager = plot_helper.RefreshManager(self)
@@ -76,10 +89,19 @@ class CurvePlotWidget(ExtendedDockWidget):
         self.__syncAxisItems = signalutils.InvalidatableSignal(self)
         self.__syncAxisItems.triggered.connect(self.__updateAxesItems)
 
-        self.__bounding = BoundingRect()
-        self.__bounding._setLegend("bound")
+        self.__updateBoundWhenData = False
+        self.__boundingY1 = BoundingRect()
+        self.__boundingY1._setLegend("bound-y1")
+        self.__boundingY1.setYAxis("left")
+        self.__boundingY2 = BoundingRect()
+        self.__boundingY2._setLegend("bound-y2")
+        self.__boundingY2.setYAxis("right")
 
-        self.__permanentItems = [self.__bounding, self.__tooltipManager.marker()]
+        self.__permanentItems = [
+            self.__boundingY1,
+            self.__boundingY2,
+            self.__tooltipManager.marker(),
+        ]
 
         for o in self.__permanentItems:
             self.__plot._add(o)
@@ -160,7 +182,59 @@ class CurvePlotWidget(ExtendedDockWidget):
         propertyWidget = curve_plot_property.CurvePlotPropertyWidget(parent)
         propertyWidget.setFlintModel(self.__flintModel)
         propertyWidget.setFocusWidget(self)
+        propertyWidget.plotItemSelected.connect(self.__plotItemSelectedFromProperty)
         return propertyWidget
+
+    def __findItemFromPlotItem(self, requestedItem: plot_model.Item):
+        """Returns a silx plot item from a flint plot item."""
+        if requestedItem is None:
+            return None
+        for item in self.__plot.getItems():
+            if isinstance(item, plot_helper.FlintCurve):
+                plotItem = item.customItem()
+                if plotItem is requestedItem:
+                    return item
+        return None
+
+    def selectedPlotItem(self) -> Optional[plot_model.Item]:
+        """Returns the current selected plot item, if one"""
+        return self.__selectedPlotItem
+        item = self.__plot.getActiveCurve()
+        if isinstance(item, plot_helper.FlintCurve):
+            plotItem = item.customItem()
+            return plotItem
+        return None
+
+    def __selectionChanged(self, current, previous):
+        """Callback executed when the selection from the plot was changed"""
+        if isinstance(current, plot_helper.FlintCurve):
+            selected = current.customItem()
+        else:
+            selected = None
+        self.__selectedPlotItem = selected
+        self.plotItemSelected.emit(selected)
+
+    def __plotItemSelectedFromProperty(self, selected):
+        """Callback executed when the selection from the property view was
+        changed"""
+        self.selectPlotItem(selected)
+
+    def selectPlotItem(self, selected: plot_model.Item, force=False):
+        """Select a flint plot item"""
+        if not force:
+            if self.__selectedPlotItem is selected:
+                return
+            if selected is self.selectedPlotItem():
+                # Break reentrant signals
+                return
+        self.__selectedPlotItem = selected
+        item = self.__findItemFromPlotItem(selected)
+        # FIXME: We should not use the legend
+        if item is None:
+            legend = None
+        else:
+            legend = item.getLegend()
+        self.__plot.setActiveCurve(legend)
 
     def flintModel(self) -> Optional[flint_model.FlintState]:
         return self.__flintModel
@@ -271,6 +345,9 @@ class CurvePlotWidget(ExtendedDockWidget):
 
     def __updateAxesItems(self):
         """Update items which have relation with the X axis"""
+        self.__boundingY1.setBounds(None)
+        self.__boundingY2.setBounds(None)
+        self.__curveAxesUpdated()
         scan = self.__scan
         if scan is None:
             return
@@ -281,6 +358,72 @@ class CurvePlotWidget(ExtendedDockWidget):
             # FIXME: Use a better abstract concept for that
             if isinstance(item, plot_item_model.MotorPositionMarker):
                 self.__updatePlotItem(item, scan)
+
+    def __reachRangeForYAxis(
+        self, plot, scan, yAxis
+    ) -> Optional[Tuple[float, float, float]]:
+        xAxis = set([])
+        yData = None
+        for item in plot.items():
+            if isinstance(item, plot_item_model.CurveItem):
+                if item.yAxis() != yAxis:
+                    continue
+                xChannel = item.xChannel()
+                yChannel = item.yChannel()
+                if xChannel is not None:
+                    xAxis.add(xChannel.channel(scan))
+                if yData is None and yChannel is not None:
+                    yData = yChannel.array(scan)
+        xAxis.discard(None)
+        if len(xAxis) == 0:
+            return None
+
+        def getRange(axis: Sequence[scan_model.Channel]):
+            vv = set([])
+            for a in axis:
+                metadata = a.metadata()
+                if metadata is None:
+                    continue
+                v = set([metadata.start, metadata.stop, metadata.min, metadata.max])
+                vv.update(v)
+            vv.discard(None)
+            if len(vv) == 0:
+                return None, None
+            return min(vv), max(vv)
+
+        if yData is None:
+            return None
+        if yData.size == 0:
+            return None
+
+        xRange = getRange(list(xAxis))
+        if xRange[0] is None:
+            return None
+        return xRange[0], xRange[1], yData[0]
+
+    def __curveAxesUpdated(self):
+        scan = self.__scan
+        plot = self.__plotModel
+        if plot is None or scan is None:
+            return
+
+        if self.__boundingY1.getBounds() is None:
+            result = self.__reachRangeForYAxis(plot, scan, "left")
+            if result is None:
+                bound = None
+            else:
+                xMin, xMax, yValue = result
+                bound = xMin, xMax, yValue, yValue
+            self.__boundingY1.setBounds(bound)
+
+        if self.__boundingY2.getBounds() is None:
+            result = self.__reachRangeForYAxis(plot, scan, "right")
+            if result is None:
+                bound = None
+            else:
+                xMin, xMax, yValue = result
+                bound = xMin, xMax, yValue, yValue
+            self.__boundingY2.setBounds(bound)
 
     def scan(self) -> Optional[scan_model.Scan]:
         return self.__scan
@@ -311,6 +454,7 @@ class CurvePlotWidget(ExtendedDockWidget):
             )
             if self.__scan.state() != scan_model.ScanState.INITIALIZED:
                 self.__updateTitle(self.__scan)
+        self.scanModelUpdated.emit(scan)
         self.__redrawAllScans()
 
     def __cleanScanIfNeeded(self, scan):
@@ -332,6 +476,8 @@ class CurvePlotWidget(ExtendedDockWidget):
 
     def __scanStarted(self):
         self.__updateTitle(self.__scan)
+        self.__boundingY1.setBounds(None)
+        self.__boundingY2.setBounds(None)
 
     def __updateTitle(self, scan: scan_model.Scan):
         title = scan_info_helper.get_full_title(scan)
@@ -356,6 +502,16 @@ class CurvePlotWidget(ExtendedDockWidget):
                         yName
                     ):
                         self.__updatePlotItem(item, scan)
+            elif isinstance(item, plot_model.ChildItem):
+                if item.isValid():
+                    sources = item.inputData()
+                    for source in sources:
+                        if source is not None:
+                            if event.isUpdatedChannelName(source):
+                                self.__updatePlotItem(item, scan)
+                                break
+        # FIXME: This should be avoided by creating a XBound and YBound in silx
+        self.__curveAxesUpdated()
 
     def __redrawCurrentScan(self):
         currentScan = self.__scan
@@ -365,28 +521,31 @@ class CurvePlotWidget(ExtendedDockWidget):
 
     def __redrawAllScans(self):
         plot = self.__plot
-        plot.clear()
-        if self.__plotModel is None:
+
+        with qtutils.blockSignals(self.__plot):
+            plot.clear()
+            if self.__plotModel is None:
+                for o in self.__permanentItems:
+                    self.__plot._add(o)
+                return
+
+        with qtutils.blockSignals(self):
+            scanItems = []
+            plotModel = self.__plotModel
+            for item in plotModel.items():
+                if isinstance(item, plot_item_model.ScanItem):
+                    scanItems.append(item)
+
+            if len(scanItems) > 0:
+                for scan in scanItems:
+                    self.__redrawScan(scan.scan())
+            else:
+                currentScan = self.__scan
+                if currentScan is not None:
+                    self.__redrawScan(currentScan)
+
             for o in self.__permanentItems:
                 self.__plot._add(o)
-            return
-
-        scanItems = []
-        plotModel = self.__plotModel
-        for item in plotModel.items():
-            if isinstance(item, plot_item_model.ScanItem):
-                scanItems.append(item)
-
-        if len(scanItems) > 0:
-            for scan in scanItems:
-                self.__redrawScan(scan.scan())
-        else:
-            currentScan = self.__scan
-            if currentScan is not None:
-                self.__redrawScan(currentScan)
-
-        for o in self.__permanentItems:
-            self.__plot._add(o)
 
     def __cleanScan(self, scan: scan_model.Scan):
         items = self.__items.pop(scan, {})
@@ -406,32 +565,45 @@ class CurvePlotWidget(ExtendedDockWidget):
     def __redrawScan(self, scan: scan_model.Scan):
         assert scan is not None
 
-        self.__cleanScan(scan)
-        plotModel = self.__plotModel
-        if plotModel is None:
-            return
+        with qtutils.blockSignals(self.__plot):
+            self.__cleanScan(scan)
 
-        for item in plotModel.items():
-            self.__updatePlotItem(item, scan)
+        with qtutils.blockSignals(self):
+            plotModel = self.__plotModel
+            if plotModel is None:
+                return
+
+            for item in plotModel.items():
+                self.__updatePlotItem(item, scan)
 
     def __updateItem(self, item: plot_model.Item):
         if self.__plotModel is None:
             return
 
-        scanItems = []
-        plotModel = self.__plotModel
-        for scanItem in plotModel.items():
-            if isinstance(scanItem, plot_item_model.ScanItem):
-                scanItems.append(scanItem)
-
-        if len(scanItems) > 0:
-            for scan in scanItems:
-                self.__updatePlotItem(item, scan.scan())
+        selectedPlotItem = self.selectedPlotItem()
+        if item is selectedPlotItem:
+            reselect = item
         else:
-            currentScan = self.__scan
-            if currentScan is None:
-                return
-            self.__updatePlotItem(item, currentScan)
+            reselect = None
+
+        with qtutils.blockSignals(self):
+            scanItems = []
+            plotModel = self.__plotModel
+            for scanItem in plotModel.items():
+                if isinstance(scanItem, plot_item_model.ScanItem):
+                    scanItems.append(scanItem)
+
+            if len(scanItems) > 0:
+                for scan in scanItems:
+                    self.__updatePlotItem(item, scan.scan())
+            else:
+                currentScan = self.__scan
+                if currentScan is None:
+                    return
+                self.__updatePlotItem(item, currentScan)
+
+            if reselect is not None:
+                self.selectPlotItem(reselect)
 
     def __updatePlotItem(self, item: plot_model.Item, scan: scan_model.Scan):
         if not item.isValid():
@@ -444,7 +616,8 @@ class CurvePlotWidget(ExtendedDockWidget):
 
         updateZoomNow = not self.__plotModel.isInTransaction()
 
-        wasUpdated = self.__cleanScanItem(item, scan)
+        with qtutils.blockSignals(self.__plot):
+            wasUpdated = self.__cleanScanItem(item, scan)
 
         if not item.isVisible():
             if wasUpdated:
@@ -482,8 +655,8 @@ class CurvePlotWidget(ExtendedDockWidget):
             plot._add(curveItem)
             plotItems.append((legend, "curve"))
 
-        elif isinstance(item, plot_item_model.CurveStatisticMixIn):
-            if isinstance(item, plot_item_model.MaxCurveItem):
+        elif isinstance(item, plot_state_model.CurveStatisticItem):
+            if isinstance(item, plot_state_model.MaxCurveItem):
                 legend = str(item) + "/" + str(scan)
                 result = item.reachResult(scan)
                 if item.isResultValid(result):
@@ -493,10 +666,10 @@ class CurvePlotWidget(ExtendedDockWidget):
                     text_location_y = result.max_location_y + height * 0.1
                     yy = numpy.array([result.max_location_y, text_location_y])
 
-                    curveItem = plot_helper.FlintCurve()
-                    curveItem.setCustomItem(item)
+                    curveItem = Curve()
                     curveItem.setData(x=xx, y=yy, copy=False)
                     curveItem._setLegend(legend)
+                    curveItem._setSelectable(False)
                     curveItem.setLineStyle(style.lineStyle)
                     curveItem.setColor(style.lineColor)
                     curveItem.setSymbol("")
@@ -523,6 +696,46 @@ class CurvePlotWidget(ExtendedDockWidget):
                         yaxis=item.yAxis(),
                     )
                     plotItems.append((key, "marker"))
+            elif isinstance(item, plot_state_model.MinCurveItem):
+                legend = str(item) + "/" + str(scan)
+                result = item.reachResult(scan)
+                if item.isResultValid(result):
+                    style = item.getStyle(scan)
+                    height = result.max_y_value - result.min_location_y
+                    xx = numpy.array([result.min_location_x, result.min_location_x])
+                    text_location_y = result.min_location_y - height * 0.1
+                    yy = numpy.array([result.min_location_y, text_location_y])
+
+                    curveItem = Curve()
+                    curveItem.setData(x=xx, y=yy, copy=False)
+                    curveItem._setLegend(legend)
+                    curveItem._setSelectable(False)
+                    curveItem.setLineStyle(style.lineStyle)
+                    curveItem.setColor(style.lineColor)
+                    curveItem.setSymbol("")
+                    curveItem.setYAxis(item.yAxis())
+                    plot._add(curveItem)
+                    plotItems.append((legend, "curve"))
+                    key = plot.addMarker(
+                        legend=legend + "_text",
+                        x=result.min_location_x,
+                        y=text_location_y,
+                        symbol=",",
+                        text="min",
+                        color=style.lineColor,
+                        yaxis=item.yAxis(),
+                    )
+                    plotItems.append((key, "marker"))
+                    key = plot.addMarker(
+                        legend=legend + "_pos",
+                        x=result.min_location_x,
+                        y=result.min_location_y,
+                        symbol="x",
+                        text="",
+                        color=style.lineColor,
+                        yaxis=item.yAxis(),
+                    )
+                    plotItems.append((key, "marker"))
 
         elif isinstance(item, plot_item_model.MotorPositionMarker):
             if item.isValid():
@@ -542,6 +755,11 @@ class CurvePlotWidget(ExtendedDockWidget):
         if scan not in self.__items:
             self.__items[scan] = {}
         self.__items[scan][item] = plotItems
+
+        if self.selectedPlotItem() is item:
+            with qtutils.blockSignals(self.__plot):
+                self.selectPlotItem(item, True)
+
         self.__updatePlotZoom(updateZoomNow)
 
     def __updatePlotZoom(self, updateZoomNow):

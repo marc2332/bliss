@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+<svg id="svg6" version="1.1" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" xmlns:cc="http://creativecommons.org/ns#" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+ <metadata id="metadata2">
+  <rdf:RDF>
+   <cc:Work rdf:about="">
+    <dc:format>image/svg+xml</dc:format>
+    <dc:type rdf:resource="http://purl.org/dc/dcmitype/StillImage"/>
+    <dc:title/>
+   </cc:Work>
+  </rdf:RDF>
+ </metadata>
+ <path id="path4" d="m4.0413 27.281c8.6016-0.008824 3.1105-23.891 11.959-23.917 8.8482-0.026233 3.2362 23.908 11.959 23.917" fill="none" stroke="#00a14b" stroke-width="2.1827"/>
+ <g id="g843" transform="translate(-34.36 -7.0998)">
+  <path id="path4693-1" d="m50.401 10.659v26.711" fill="none" stroke="#00a14b" stroke-dasharray="2.37510014, 2.37510014" stroke-width="2.3751"/>
+  <g id="g899" transform="translate(39.007 -3.5796)" stroke="#000">
+   <g id="g888" transform="translate(-3.2784 2.6943)" fill="none" stroke="#000" stroke-width=".15">
+    <g id="g865" transform="translate(.8631 13.263)" fill="#000" stroke="#000" stroke-miterlimit="10" stroke-width=".5" style="font-variant-east_asian:normal">
+     <rect id="rect861" x="24.483" y="7.225" width="1.239" height="8.379" style="font-variant-east_asian:normal"/>
+     <rect id="rect863" x="20.913" y="10.796" width="8.38" height="1.237" style="font-variant-east_asian:normal"/>
+    </g>
+   </g>
+  </g>
+ </g>
+</svg>

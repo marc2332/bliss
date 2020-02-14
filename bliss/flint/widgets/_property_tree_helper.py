@@ -16,6 +16,7 @@ from silx.gui import icons
 from bliss.flint.model import scan_model
 from bliss.flint.model import plot_model
 from bliss.flint.model import plot_item_model
+from bliss.flint.model import plot_state_model
 
 
 class StandardRowItem(qt.QStandardItem):
@@ -86,16 +87,19 @@ class ScanRowItem(StandardRowItem):
             icon = icons.getQIcon("flint:icons/channel-image")
         elif isinstance(plotItem, plot_item_model.ScatterItem):
             icon = icons.getQIcon("flint:icons/channel-curve")
+        elif isinstance(plotItem, plot_state_model.CurveStatisticItem):
+            icon = icons.getQIcon("flint:icons/item-stats")
         elif isinstance(plotItem, plot_item_model.CurveMixIn):
             icon = icons.getQIcon("flint:icons/item-func")
-        elif isinstance(plotItem, plot_item_model.CurveStatisticMixIn):
-            icon = icons.getQIcon("flint:icons/item-stats")
         else:
             icon = icons.getQIcon("flint:icons/item-channel")
         self.setIcon(icon)
 
-        itemClass = plotItem.__class__
-        text = "%s" % itemClass.__name__
+        if hasattr(plotItem, "name"):
+            text = plotItem.name()
+        else:
+            itemClass = plotItem.__class__
+            text = "%s" % itemClass.__name__
         self.setText(text)
 
 

@@ -19,6 +19,7 @@ from bliss.flint.model import scan_model
 from bliss.flint.model import flint_model
 from bliss.flint.model import plot_model
 from bliss.flint.model import plot_item_model
+from bliss.flint.model import plot_state_model
 
 
 class DefaultStyleStrategy(plot_model.StyleStrategy):
@@ -119,23 +120,32 @@ class DefaultStyleStrategy(plot_model.StyleStrategy):
 
     def computeItemStyleFromCurvePlot(self, plot, scans):
         i = 0
+        countBase = 0
+
+        if len(scans) == 1:
+            countBase = 0
+            for item in plot.items():
+                if not isinstance(item, plot_model.ComputableMixIn):
+                    countBase += 1
+
         for scan in scans:
             for item in plot.items():
                 if isinstance(item, plot_item_model.ScanItem):
                     continue
-                if isinstance(item, plot_model.AbstractComputableItem):
-                    if isinstance(item, plot_item_model.CurveStatisticMixIn):
-                        source = item.source()
-                        baseStyle = self.getStyleFromItem(source, scan)
-                        style = plot_model.Style(
-                            lineStyle=":", lineColor=baseStyle.lineColor
-                        )
+                if isinstance(item, plot_model.ComputableMixIn):
+                    if countBase == 1:
+                        # Allocate a new color for everything
+                        color = self.pickColor(i)
+                        i += 1
                     else:
+                        # Reuse the color
                         source = item.source()
                         baseStyle = self.getStyleFromItem(source, scan)
-                        style = plot_model.Style(
-                            lineStyle="-.", lineColor=baseStyle.lineColor
-                        )
+                        color = baseStyle.lineColor
+                    if isinstance(item, plot_state_model.CurveStatisticItem):
+                        style = plot_model.Style(lineStyle=":", lineColor=color)
+                    else:
+                        style = plot_model.Style(lineStyle="-.", lineColor=color)
                 else:
                     color = self.pickColor(i)
                     style = plot_model.Style(lineStyle="-", lineColor=color)

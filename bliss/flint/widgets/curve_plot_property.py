@@ -15,12 +15,15 @@ import logging
 
 from silx.gui import qt
 from silx.gui import icons
+from silx.gui import utils as qtutils
 
 from bliss.flint.model import flint_model
 from bliss.flint.model import plot_model
 from bliss.flint.model import plot_item_model
+from bliss.flint.model import plot_state_model
 from bliss.flint.model import scan_model
 from bliss.flint.helper import model_helper
+from bliss.flint.utils import qmodelutils
 from . import delegates
 from . import _property_tree_helper
 
@@ -205,6 +208,109 @@ class YAxesPropertyItemDelegate(qt.QStyledItemDelegate):
         editor.move(pos)
 
 
+class _AddItemAction(qt.QWidgetAction):
+    def __init__(self, parent: qt.QObject):
+        assert isinstance(parent, CurvePlotPropertyWidget)
+        super(_AddItemAction, self).__init__(parent)
+        parent.plotItemSelected.connect(self.__selectionChanged)
+
+        widget = qt.QToolButton(parent)
+        icon = icons.getQIcon("flint:icons/add-item")
+        widget.setIcon(icon)
+        widget.setAutoRaise(True)
+        widget.setToolTip("CReate new items in the plot")
+        widget.setPopupMode(qt.QToolButton.InstantPopup)
+        widget.setEnabled(False)
+        widget.setText("Create items")
+        self.setDefaultWidget(widget)
+
+        menu = qt.QMenu(parent)
+        menu.aboutToShow.connect(self.__aboutToShow)
+        widget.setMenu(menu)
+
+    def __aboutToShow(self):
+        menu: qt.QMenu = self.sender()
+        menu.clear()
+
+        item = self.parent().selectedPlotItem()
+        if isinstance(item, plot_item_model.CurveMixIn):
+            menu.addSection("Statistics")
+
+            action = qt.QAction(self)
+            action.setText("Max marker")
+            icon = icons.getQIcon("flint:icons/item-stats")
+            action.setIcon(icon)
+            action.triggered.connect(self.__createMax)
+            menu.addAction(action)
+
+            action = qt.QAction(self)
+            action.setText("Min marker")
+            icon = icons.getQIcon("flint:icons/item-stats")
+            action.setIcon(icon)
+            action.triggered.connect(self.__createMin)
+            menu.addAction(action)
+
+            menu.addSection("Functions")
+
+            action = qt.QAction(self)
+            action.setText("Derivative function")
+            icon = icons.getQIcon("flint:icons/item-func")
+            action.setIcon(icon)
+            action.triggered.connect(self.__createDerivative)
+            menu.addAction(action)
+
+            action = qt.QAction(self)
+            action.setText("Gaussian fit")
+            icon = icons.getQIcon("flint:icons/item-func")
+            action.setIcon(icon)
+            action.triggered.connect(self.__createGaussianFit)
+            menu.addAction(action)
+        else:
+            action = qt.QAction(self)
+            action.setText("No available items")
+            action.setEnabled(False)
+            menu.addAction(action)
+
+    def __selectionChanged(self, current: plot_model.Item):
+        self.defaultWidget().setEnabled(current is not None)
+
+    def __createMax(self):
+        parentItem = self.parent().selectedPlotItem()
+        if parentItem is not None:
+            plot = parentItem.plot()
+            newItem = plot_state_model.MaxCurveItem(plot)
+            newItem.setSource(parentItem)
+            with plot.transaction():
+                plot.addItem(newItem)
+
+    def __createMin(self):
+        parentItem = self.parent().selectedPlotItem()
+        if parentItem is not None:
+            plot = parentItem.plot()
+            newItem = plot_state_model.MinCurveItem(plot)
+            newItem.setSource(parentItem)
+            with plot.transaction():
+                plot.addItem(newItem)
+
+    def __createDerivative(self):
+        parentItem = self.parent().selectedPlotItem()
+        if parentItem is not None:
+            plot = parentItem.plot()
+            newItem = plot_state_model.DerivativeItem(plot)
+            newItem.setSource(parentItem)
+            with plot.transaction():
+                plot.addItem(newItem)
+
+    def __createGaussianFit(self):
+        parentItem = self.parent().selectedPlotItem()
+        if parentItem is not None:
+            plot = parentItem.plot()
+            newItem = plot_state_model.GaussianFitItem(plot)
+            newItem.setSource(parentItem)
+            with plot.transaction():
+                plot.addItem(newItem)
+
+
 class _DataItem(_property_tree_helper.ScanRowItem):
     def __init__(self):
         super(_DataItem, self).__init__()
@@ -246,6 +352,9 @@ class _DataItem(_property_tree_helper.ScanRowItem):
 
     def setPlotModel(self, plotModel: plot_model.Plot):
         self.__plotModel = plotModel
+
+    def plotModel(self) -> Optional[plot_model.Plot]:
+        return self.__plotModel
 
     def axesItem(self) -> qt.QStandardItem:
         return self.__yaxes
@@ -398,6 +507,9 @@ class _DataItem(_property_tree_helper.ScanRowItem):
 
         return None
 
+    def plotItem(self) -> Optional[plot_model.Item]:
+        return self.__plotItem
+
     def setPlotItem(self, plotItem):
         self.__plotItem = plotItem
 
@@ -426,7 +538,7 @@ class _DataItem(_property_tree_helper.ScanRowItem):
             # self.__updateXAxisStyle(False, None)
             useXAxis = False
             self.__updateXAxisStyle(False)
-        elif isinstance(plotItem, plot_item_model.CurveStatisticMixIn):
+        elif isinstance(plotItem, plot_state_model.CurveStatisticItem):
             useXAxis = False
             self.__updateXAxisStyle(False)
 
@@ -455,6 +567,8 @@ class CurvePlotPropertyWidget(qt.QWidget):
     StyleColumn = 4
     RemoveColumn = 5
 
+    plotItemSelected = qt.Signal(object)
+
     def __init__(self, parent=None):
         super(CurvePlotPropertyWidget, self).__init__(parent=parent)
         self.__scan: Optional[scan_model.Scan] = None
@@ -471,22 +585,93 @@ class CurvePlotPropertyWidget(qt.QWidget):
         self.__removeDelegate = delegates.RemovePropertyItemDelegate(self)
 
         model = qt.QStandardItemModel(self)
-
         self.__tree.setModel(model)
+        selectionModel = self.__tree.selectionModel()
+        selectionModel.currentChanged.connect(self.__selectionChanged)
+
         self.__scan = None
         self.__focusWidget = None
 
+        toolBar = self.__createToolBar()
+
         layout = qt.QVBoxLayout(self)
+        layout.setSpacing(0)
+        layout.addWidget(toolBar)
         layout.addWidget(self.__tree)
 
+    def __createToolBar(self):
+        toolBar = qt.QToolBar(self)
+        toolBar.setMovable(False)
+        action = _AddItemAction(self)
+        toolBar.addAction(action)
+        return toolBar
+
+    def __findItemFromPlotItem(
+        self, requestedItem: plot_model.Item
+    ) -> Optional[_DataItem]:
+        """Returns a silx plot item from a flint plot item."""
+        if requestedItem is None:
+            return None
+        model = self.__tree.model()
+        for index in qmodelutils.iterAllItems(model):
+            item = model.itemFromIndex(index)
+            if isinstance(item, _DataItem):
+                plotItem = item.plotItem()
+                if plotItem is requestedItem:
+                    return item
+        return None
+
+    def __selectionChangedFromPlot(self, current: plot_model.Item):
+        self.selectPlotItem(current)
+
+    def selectPlotItem(self, select: plot_model.Item):
+        selectionModel = self.__tree.selectionModel()
+        if select is None:
+            # Break reentrant signals
+            indices = selectionModel.selectedRows()
+            index = indices[0] if len(indices) > 0 else qt.QModelIndex()
+            if index.isValid():
+                selectionModel.select(qt.QModelIndex(), qt.QItemSelectionModel.Clear)
+            return
+        if select is self.selectedPlotItem():
+            # Break reentrant signals
+            return
+        item = self.__findItemFromPlotItem(select)
+        flags = qt.QItemSelectionModel.Rows | qt.QItemSelectionModel.ClearAndSelect
+        if item is None:
+            index = qt.QModelIndex()
+        else:
+            index = item.index()
+        selectionModel = self.__tree.selectionModel()
+        selectionModel.select(index, flags)
+
+    def __selectionChanged(self, current: qt.QModelIndex, previous: qt.QModelIndex):
+        model = self.__tree.model()
+        index = model.index(current.row(), 0, current.parent())
+        item = model.itemFromIndex(index)
+        if isinstance(item, _DataItem):
+            plotItem = item.plotItem()
+        else:
+            plotItem = None
+        self.plotItemSelected.emit(plotItem)
+
+    def selectedPlotItem(self) -> Optional[plot_model.Item]:
+        """Returns the current selected plot item, if one"""
+        selectionModel = self.__tree.selectionModel()
+        indices = selectionModel.selectedRows()
+        index = indices[0] if len(indices) > 0 else qt.QModelIndex()
+        if not index.isValid():
+            return None
+        model = self.__tree.model()
+        index = model.index(index.row(), 0, index.parent())
+        item = model.itemFromIndex(index)
+        if isinstance(item, _DataItem):
+            plotItem = item.plotItem()
+            return plotItem
+        return None
+
     def setFlintModel(self, flintModel: flint_model.FlintState = None):
-        if self.__flintModel is not None:
-            self.__flintModel.currentScanChanged.disconnect(self.__currentScanChanged)
-            self.__setScan(None)
         self.__flintModel = flintModel
-        if self.__flintModel is not None:
-            self.__flintModel.currentScanChanged.connect(self.__currentScanChanged)
-            self.__setScan(self.__flintModel.currentScan())
 
     def focusWidget(self):
         return self.__focusWidget
@@ -494,13 +679,20 @@ class CurvePlotPropertyWidget(qt.QWidget):
     def setFocusWidget(self, widget):
         if self.__focusWidget is not None:
             widget.plotModelUpdated.disconnect(self.__plotModelUpdated)
+            widget.plotItemSelected.disconnect(self.__selectionChangedFromPlot)
+            widget.scanModelUpdated.disconnect(self.__currentScanChanged)
         self.__focusWidget = widget
         if self.__focusWidget is not None:
             widget.plotModelUpdated.connect(self.__plotModelUpdated)
+            widget.plotItemSelected.connect(self.__selectionChangedFromPlot)
+            widget.scanModelUpdated.connect(self.__currentScanChanged)
             plotModel = widget.plotModel()
+            scanModel = widget.scan()
         else:
             plotModel = None
+            scanModel = None
         self.__plotModelUpdated(plotModel)
+        self.__currentScanChanged(scanModel)
 
     def __plotModelUpdated(self, plotModel):
         self.setPlotModel(plotModel)
@@ -517,8 +709,8 @@ class CurvePlotPropertyWidget(qt.QWidget):
             self.__plotModel.transactionFinished.connect(self.__transactionFinished)
         self.__updateTree()
 
-    def __currentScanChanged(self):
-        self.__setScan(self.__flintModel.currentScan())
+    def __currentScanChanged(self, scanModel):
+        self.__setScan(scanModel)
 
     def __structureChanged(self):
         self.__updateTree()
@@ -644,6 +836,8 @@ class CurvePlotPropertyWidget(qt.QWidget):
 
     def __updateTree(self):
         collapsed = _property_tree_helper.getPathFromCollapsedNodes(self.__tree)
+        selectedItem = self.selectedPlotItem()
+
         model = self.__tree.model()
         model.clear()
 
@@ -695,7 +889,7 @@ class CurvePlotPropertyWidget(qt.QWidget):
             if isinstance(plotItem, plot_item_model.MotorPositionMarker):
                 continue
 
-            if isinstance(plotItem, plot_model.AbstractComputableItem):
+            if isinstance(plotItem, plot_model.ComputableMixIn):
                 source = plotItem.source()
                 if source is None:
                     parent = itemWithoutLocation
@@ -763,3 +957,6 @@ class CurvePlotPropertyWidget(qt.QWidget):
 
         self.__tree.expandAll()
         _property_tree_helper.collapseNodesFromPaths(self.__tree, collapsed)
+
+        with qtutils.blockSignals(self):
+            self.selectPlotItem(selectedItem)

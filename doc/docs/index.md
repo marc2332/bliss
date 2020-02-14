@@ -461,6 +461,8 @@ TEST_SESSION [8]: data['diode']
 
 ## Online data display
 
+TODO !! : ADD A SECTION TO EXPLAIN FLINT GRAPHIC INTERFACE (toolbars/buttons...)
+
 Online data display relies on **Flint**, an application with a graphical user interface
 shipped with BLISS and built on top of [silx][9](ScIentific Library for eXperimentalists).
 
@@ -471,8 +473,7 @@ Flint has 4 mayor capabilities :
 * ROI (Region-of-Interest) selection
 * Plot data interaction
 
-Plots are displayed in application main window's **Live** tab. Depending on the scan acquisition chain,
-4 types of plots can be shown:
+Plots are displayed on application's main window's **Live** tab. Depending on the scan acquisition chain, 4 types of plots can be shown:
 
 * 1D plots, showing curves from the scan scalar counters
 * Scatter plots
@@ -480,21 +481,17 @@ Plots are displayed in application main window's **Live** tab. Depending on the 
 * 2D images, showing 2D data counters (typically, Lima detectors data)
 
 !!! note
-    TBD : This has to be re-written and/or moved elsewhere
-    Plots are grouped by the topmost master, i.e. as long as the number of points for a
-    master corresponds to its parent, the plots are attached to this master (recursively,
-    up to the root master if possible).
-    If number of points diverges between 2 masters, then underlying data is represented in
-    another set of plot windows.
-    So, there is no limit to the number of windows in the **Live** tab, it depends on the
-    scan being executed.
+    TBD : This has to be re-written (more clear ??) and moved elsewhere
+    Plots are grouped by the topmost master, i.e. as long as the number of points for a master corresponds to its parent, the plots are attached to this master (recursively, up to the root master if possible).
+    If number of points diverges between 2 masters, then underlying data is represented in another set of plot windows.
+    So, there is no limit to the number of windows in the **Live** tab, it depends on the scan being executed.
 
 !!! note
     2D images are always represented in their own plot window.
 
 ### Live scan data in Flint
 
-Flint listens to the scan data source and displays it on real time, updating charts and plots while it is created. Flint decides which chart or plot type fits the best taking into account the nature of the incoming data.
+Flint listens to scans data source and displays it on real time, updating charts and plots while it is created. Flint decides which chart or plot type fits the best taking into account the nature of the incoming data.
 
 !!! note
     **Flint** can be started automatically when a new scan begins (the application interface will show up when a scan is launched), by

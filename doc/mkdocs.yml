@@ -112,8 +112,6 @@ nav:
                 - Measurement groups: config_mg.md
                 - Default scans: scan_default.md
                 - Alignment: scan_alignment.md
-                - Data saving: scan_saving.md
-                - Metadata: scan_metadata.md
                 - Counters on the fly: scan_ctmg.md
                 - BLISS scan engine explained:
                     - Overview: scan_engine.md
@@ -131,15 +129,18 @@ nav:
                 - MCA:
                     - MCA: using_mca.md
                 - Shutter: using_shutter.md
-        - Online data display:
-                - Editing Lima ROI counters: flint_roi_counters.md
-                - Scans plotting: flint_scan_plotting.md
-                - Interaction with plots: flint_interaction.md
-                - For scan designers: flint_scan_info.md
-                - Debugging: flint_debugging.md
-        - Data publishing:
-                - Data structure & access: data_structure.md
-                - "External saving": data_external_saving.md
+        - Data:
+                - Data policy: data_policy.md
+                - Data format: data_nexus_format.md
+                - Metadata: data_metadata.md
+                - Online visualization:
+                    - Plotting: flint_scan_plotting.md
+                    - Interaction: flint_interaction.md
+                    - Debugging: flint_debugging.md
+                - Offline visualization:
+                    - Warning: data_vis_warning.md
+                    - Silx: data_vis_silx.md
+                    - Pymca: data_vis_pymca.md
         - Developers corner:
                 - 'API documentation ⚙|api/index.html': api.md
                 - Guidelines: dev_guidelines.md
@@ -161,6 +162,21 @@ nav:
                 - Xia handle: config_mca_handel.md
                 - Speedgoat: config_speedgoat.md
                 - timedisplay: timedisplay.md
+                - Data:
+                    - Architecture: dev_data_architecture.md
+                    - Publishing: dev_data_publishing.md
+                    - Subscribing: dev_data_subscribing.md
+                    - Data policy:
+                        - ESRF: dev_data_policy_esrf.md
+                        - Basic: dev_data_policy_basic.md
+                        - Custom: dev_data_policy_custom.md
+                    - Nexus writer: dev_data_nexus_server.md
+                    - Flint:
+                        - Editing Lima ROI counters: flint_roi_counters.md
+                        - For scan designers: flint_scan_info.md
+                    - ICAT: dev_data_policy_servers.md
+                    - Metadata: dev_data_metadata.md
+
 theme:
         name: material
         language: en

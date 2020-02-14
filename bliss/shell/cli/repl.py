@@ -268,6 +268,11 @@ class BlissRepl(PythonRepl):
         self.confirm_exit = True
         self.enable_mouse_support = False
 
+        if self.use_tmux:
+            self.exit_message = (
+                "Do you really want to close session? (CTRL-B D to detach)"
+            )
+
         self.typing_helper = TypingHelper(self)
 
         self._application_stopper_callback = weakref.WeakSet()

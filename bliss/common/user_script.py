@@ -4,11 +4,6 @@ import sys
 from bliss import current_session
 from bliss.config.settings import SimpleSetting
 
-USER_SCRIPT_HOME = SimpleSetting(
-    "%s:script_home" % current_session.name,
-    # default_value="%s/bliss_scripts" % os.getenv("HOME"),
-)
-
 __all__ = [
     "user_script_homedir",
     "user_script_run",
@@ -16,27 +11,59 @@ __all__ = [
     "user_script_list",
 ]
 
+USER_SCRIPT_HOME = None
 
-def user_script_homedir(new_dir=None):
+
+def _create_user_script_home():
+    global USER_SCRIPT_HOME
+    USER_SCRIPT_HOME = SimpleSetting("%s:script_home" % current_session.name)
+
+
+def _get_user_script_home():
+    global USER_SCRIPT_HOME
+    if USER_SCRIPT_HOME is None:
+        _create_user_script_home()
+    return USER_SCRIPT_HOME.get()
+
+
+def _set_user_script_home(dir):
+    global USER_SCRIPT_HOME
+    if USER_SCRIPT_HOME is None:
+        _create_user_script_home()
+    USER_SCRIPT_HOME.set(dir)
+
+
+def _clear_user_script_home(dir):
+    global USER_SCRIPT_HOME
+    if USER_SCRIPT_HOME is None:
+        _create_user_script_home()
+    USER_SCRIPT_HOME.clear()
+
+
+def user_script_homedir(new_dir=None, clear=False):
     """Set or get local user script home directory"""
-    if new_dir is not None:
+    if clear:
+        _clear_user_script_home()
+    elif new_dir is not None:
         if not os.path.isabs(new_dir):
             raise RuntimeError(f"Directory path must be absolute [{new_dir}]")
         if not os.path.isdir(new_dir):
             raise RuntimeError(f"Invalid directory [{new_dir}]")
-        USER_SCRIPT_HOME.set(new_dir)
+        _set_user_script_home(new_dir)
     else:
-        return USER_SCRIPT_HOME.get()
+        return _get_user_script_home()
 
 
 def user_script_list():
     """List python scripts from home directory"""
-    rootdir = USER_SCRIPT_HOME.get()
+    rootdir = _get_user_script_home()
     if not rootdir:
         print(
             "First, you need to set a directory with `user_script_homedir(path_to_dir)`"
         )
         raise RuntimeError("User scripts home directory not configured")
+    if not os.path.isdir(rootdir):
+        raise RuntimeError(f"Invalid directory [{rootdir}]")
 
     print(f"List of python scripts in [{rootdir}]:")
     for (dirpath, dirnames, filenames) in os.walk(rootdir):
@@ -61,16 +88,17 @@ def _user_script_exec(scriptname, export=False, namespace=None):
     if not scriptname:
         user_script_list()
         return
+
     if os.path.isabs(scriptname):
         filepath = scriptname
     else:
-        if not USER_SCRIPT_HOME.get():
+        if not _get_user_script_home():
             print(
                 "First, you need to set a directory with `user_script_homedir(path_to_dir)`"
             )
             raise RuntimeError("User scripts home directory not configured")
 
-        homedir = os.path.abspath(USER_SCRIPT_HOME.get())
+        homedir = os.path.abspath(_get_user_script_home())
         filepath = os.path.join(homedir, scriptname)
 
     _, ext = os.path.splitext(scriptname)

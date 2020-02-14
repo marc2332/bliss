@@ -8,33 +8,43 @@ Flint listens to scan data source to know if there's something to display. The c
 
 ```python
 SCAN_DISPLAY.auto=True
+lima = config.get("lima_simulator")
 
-timescan(0.1, lima, diode, diode2, simu1.counters.spectrum_det 0, npoints=10)
+timescan(0.1, lima, diode, diode2, simu1.counters.spectrum_det1, npoints=10)
 
-Activated counters not shown: spectrum_det0, image
+# Output on Scans view in BLISS shell (press F5 to get it)
+Activated counters not shown: simu1:spectrum_det1, lima_simulator:image
 
-Scan 145 Wed Apr 18 11:24:06 2018 /tmp/scans/ test_session user = matias
+Scan 13 Fri Feb 14 17:11:53 2020 /tmp/scans/test_session/data.h5 test_session user = vergaral
 timescan 0.1
 
-       #         dt(s)        diode2         diode
-       0     0.0219111       12.5556      -9.33333
-       1      0.348005        30.625         0.125
-       2      0.664058       2.88889      -10.2222
-       3      0.973582       7.11111       8.44444
-       4       1.28277       21.7778       36.3333
-       5       1.59305      -15.8889             5
-       6       1.90203       43.4444       19.4444
-       7       2.21207       20.7778       11.6667
-       8       2.52451      -7.88889       24.2222
-       9       2.83371        24.125         7.625
+           #         dt[s]      roi1_avg      roi1_max      roi1_min      roi1_std      roi1_sum         diode
+           0             0             0             0             0             0             0      -18.5556
+           1      0.312813             0             0             0             0             0       16.1111
+           2      0.627234             0             0             0             0             0          7.75
+           3      0.951656             0             0             0             0             0          8.75
+           4       1.26912             0             0             0             0             0       9.11111
+           5       1.58386             0             0             0             0             0        19.125
+           6       1.90216             0             0             0             0             0      -31.6667
+           7       2.22766             0             0             0             0             0         -9.75
+           8       2.55771             0             0             0             0             0         -29.5
+           9       2.87415             0             0             0             0             0        16.125
 
-Took 0:00:03.214453
+Took 0:00:03.367694
 ```
+If automatic display is activated, Flint application will display with three tabs on the bottom of the main window (Curve1, Mca1, Image1).
 
-Flint screenshot:
+Curve1 tab:
 
-![Flint screenshot](img/flint_screenshot.png)
+![Flint screenshot](img/flint_plot_1d_diode1.png)
 
+Mca1 tab:
+
+![Flint screenshot](img/flint_plot_1d_spectrum_det1.png)
+
+Image1 tab:
+
+![Flint screenshot](img/flint_plot_image_lima_simu.png)
 
 
 

@@ -461,8 +461,6 @@ TEST_SESSION [8]: data['diode']
 
 ## Online data display
 
-TODO !! : ADD A SECTION TO EXPLAIN FLINT GRAPHIC INTERFACE (toolbars/buttons...)
-
 Online data display relies on **Flint**, an application with a graphical user interface
 shipped with BLISS and built on top of [silx][9](ScIentific Library for eXperimentalists).
 
@@ -499,62 +497,66 @@ Flint listens to scans data source and displays it on real time, updating charts
 
     `SCAN_DISPLAY.auto = True`
 
+Example: 
+
+```python
+SCAN_DISPLAY.auto=True
+lima = config.get("lima_simulator")
+timescan(0.1, lima, diode, diode2, simu1.counters.spectrum_det1, npoints=10)
+```
 [Read more about Live Scan](flint_scan_plotting.md)
 
 ### Data plot in Flint
 
 Flint can also display data coming from other sources than a live scan. Data created on the BLISS shell like an image, scatter, 1D data can be displayed in different type of plots selected by user: curve plot, scatter plot, image plot ...
 
+Example: 
+
+```python
+from bliss.common.plot import *
+import numpy
+
+xx = numpy.linspace(0, 4*3.14, 50)
+yy = numpy.cos(xx)
+
+plot(yy, name="My Cosinus Wave")
+```
 [Read more about data plot](flint_data_plotting.md)
 
 ### ROI selection
 
-Flint also can do ...
+Flint can also edit Lima ROI (*Region-Of-Interest*) with the help of the BLISS `edit_roi_counters` function , creating counters automatically from areas defined by the user with mouse dragging.
+
+Example:
+
+```py
+lima_simulator = config.get("lima_simulator")
+edit_roi_counters(lima_simulator, 0.1)
+
+Waiting for ROI edition to finish on lima_simulator [default]...                                                             
+```
 
 [Read more about ROI selection](flint_roi_counters.md)
 
 ### Interacting with plots
 
-BLISS provides tools to interact with plot windows in **Flint**. Each
-scan object has a `.get_plot()` method, that returns a `Plot`
-object. The argument to pass to `.get_plot` is a counter -- thus, the
-plot containing this counter data is returned:
+BLISS provides tools to interact (select points, select shapes) with plot windows in **Flint**. Each scan object has a `.get_plot()` method, that returns a `Plot` object. The argument to pass to `.get_plot` is a counter: the plot containing this counter data is returned:
 
 ```python
+lima = get.config("lima_simulator")
 s = loopscan(5, 0.1, lima, return_scan=True)
-
-Activated counters not shown: image
-
-Scan 2 Wed Apr 18 11:36:11 2018 /tmp/scans/test_session/
-                                test_session user = matias
-timescan 0.1
-
-       #         dt(s)
-       0      0.959486
-       1        1.0913
-       2       1.23281
-       3       1.36573
-       4       1.50349
-
-Took 0:00:01.666654
 
 p = s.get_plot(lima)
 p
          Out [10]: ImagePlot(plot_id=2, flint_pid=13678, name=u'')
 ```
 
-Starting from the `ImagePlot` object, it is possible to ask user for
-making a rectangular selection for example:
+Starting from the `ImagePlot` object, it is possible to allow the user to
+make a point or a rectangular selection.
 
-`TEST_SESSION [11]: p.select_shape("rectangle")`
+`p.select_shape("rectangle")`
 
-BLISS shell is blocked until user makes a rectangular selection:
-
-![Rectangular selection](img/flint_rect_selection.png)
-
-Then, result is returned by the `.select_shape` method:
-
-` Out [11]: ((278.25146, 716.00623), (623.90546, 401.82913)`
+BLISS shell is blocked until user makes a rectangular selection.
 
 [Read more about interactions with plots](flint_interaction.md)
 

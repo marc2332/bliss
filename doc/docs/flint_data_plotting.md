@@ -76,19 +76,20 @@ as an argumentand return a plot. Here's an example on how to display a cosinus w
 from bliss.common.plot import *
 import numpy
 
+xx = numpy.linspace(0, 4*3.14, 50)
 yy = numpy.cos(xx)
 
 plot(yy, name="My Cosinus Wave")
 ```
 
-Extra keyword arguments are forwarded to silx:
+We can add extra keyword arguments that are forwarded to silx. and recover a plot object to interact with it lately:
 
 ```python
 p = plot(mydata, xlabel='A', ylabel='b')
 ```
 
 From then on, all the interaction with the corresponding plot window goes
-through the plot object. For instance, it provides a ``plot`` method
+through the plot object `p`. For instance, it provides a ``plot`` method
 to add and display extra data:
 
 ```python
@@ -146,10 +147,17 @@ To sum up, here's how to achieve the same cosinus chart of the previous section 
 from bliss.common.plot import *
 import numpy
 
+# create plot object
 p = bliss.common.plot.CurvePlot()
+
+# create data : x and y values
 xx = numpy.linspace(0, 4*3.14, 50)
 yy = numpy.cos(xx)
+
+# add data to plot: this does not show it up
 p.add_data(yy, field='cos')
 p.add_data(xx, field='x')
+
+# select x and y data to display
 p.select_data('x', 'cos')
 ```

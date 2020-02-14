@@ -1,10 +1,14 @@
 
 # Flint interaction
 
-In order to interact with a given plot, several methods are provided.
+In order to interact with a given plot, to choose points of regions of interest of different shapes, several methods are provided.
 
+First of all, a plot related to a scan must be created: the scan object's `get_plot()` function will return the plot. The argument of the function is the counter the scan data has been created with.
+
+Exemple:
 
 ```python
+lima = get.config("lima_simulator")
 s = loopscan(5, 0.1, lima, return_scan=True)
 
 Activated counters not shown: image
@@ -27,19 +31,27 @@ p
          Out [10]: ImagePlot(plot_id=2, flint_pid=13678, name=u'')
 ```
 
-Starting from the `ImagePlot` object, it is possible to ask user for
-making a rectangular selection for example:
+Once that the plot `p` object is created (an `ImagePlot` in this case), several functions are available to interact with the plot:
 
-`TEST_SESSION [11]: p.select_shape("rectangle")`
+- ``select_points(pointnumber)`` : 
+- ``select_shape(shape)`` where ``shape`` could be:
+     - ``'rectangle'``: rectangle selection
+     - ``'line'``: line selection
+     - ``'hline'``: horizontal line selection
+     - ``'vline'``: vertical line selection
+     - ``'polygon'``: polygon selection 
+
+Example:
+
+`p.select_shape("rectangle")`
 
 BLISS shell is blocked until user makes a rectangular selection:
 
-![Rectangular selection](img/flint_rect_selection.png)
+Back on the BLISS shell, result is returned by the `.select_shape` method:
 
-Then, result is returned by the `.select_shape` method:
-
-` Out [11]: ((278.25146, 716.00623), (623.90546, 401.82913)`
-
+```py
+((278.25146, 716.00623), (623.90546, 401.82913)
+```
 
 
 The ``select_points`` method allows the user to select a given number of point
@@ -51,15 +63,6 @@ a, b, c = p.select_points(3)
 a
 (1.2, 3.4)
 ```
-
-The ``select_shape`` methods allows the user to select a given shape on the
-corresponding plot using their mouse. The available shapes are:
-
-- ``'rectangle'``: rectangle selection
-- ``'line'``: line selection
-- ``'hline'``: horizontal line selection
-- ``'vline'``: vertical line selection
-- ``'polygon'``: polygon selection
 
 The return values are shown in the following example:
 

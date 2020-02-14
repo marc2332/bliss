@@ -865,18 +865,19 @@ class Scan:
         if ctrl_acq_dev is None:
             raise RuntimeError(f"Controller {ctrl} not part of this scan!")
 
-        ## for Bliss 2 we have to see how to do the part below more systematic
-        ## and to avoid hasattr
+        ## for Bliss 2 we have to see how to make acq_params available systematically
         potential_new_ctrl_params = ctrl_acq_dev.ctrl_params.copy()
         potential_new_ctrl_params.update(new_param_dict)
 
-        if hasattr(ctrl_acq_dev, "acq_params"):
-            potential_new_ctrl_params = CompletedCtrlParamsDict(
-                potential_new_ctrl_params
-            )
-            ctrl_acq_dev.validate_params(
-                ctrl_acq_dev.acq_params, ctrl_params=potential_new_ctrl_params
-            )
+        # invoking the Validator here will only work if we have a
+        # copy of initial acq_params in the acq_obj
+        # ~ if hasattr(ctrl_acq_dev, "acq_params"):
+        # ~ potential_new_ctrl_params = CompletedCtrlParamsDict(
+        # ~ potential_new_ctrl_params
+        # ~ )
+        # ~ ctrl_acq_dev.validate_params(
+        # ~ ctrl_acq_dev.acq_params, ctrl_params=potential_new_ctrl_params
+        # ~ )
 
         # at least check that no new keys are added
         if set(potential_new_ctrl_params.keys()) == set(

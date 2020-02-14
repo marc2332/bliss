@@ -1452,6 +1452,8 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
                 external = False
             else:
                 newdata, file_format = self._fetch_new_references(nproxy, node)
+                if not file_format:
+                    return
                 external, file_format = self._save_reference_mode(file_format)
             if external:
                 if newdata:
@@ -1601,12 +1603,15 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
             return uris, file_format0
         try:
             files = dataview._get_filenames(node.info, *imgidx)
-        except BaseException as e:
+        except Exception as e:
+            # Image was not saved (yet)
             dproxy.logger.debug("cannot get image file names: {}".format(e))
             return uris, file_format0
         for uri, suburi, index, file_format in files:
             # Validate format
             file_format = file_format.lower()
+            if file_format.startswith("hdf5"):
+                file_format = "hdf5"
             if file_format0:
                 if file_format != file_format0:
                     raise RuntimeError(
@@ -1636,7 +1641,7 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
         try:
             for data in dataview:
                 lst.append(data)
-        except BaseException as e:
+        except Exception as e:
             # Data is not ready (yet): RuntimeError, ValueError, ...
             dproxy.logger.debug("cannot get image data: {}".format(e))
         return numpy.array(lst)
@@ -1827,7 +1832,7 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
             if scan_meta:
                 try:
                     nexus.dicttonx(scan_meta, parent)
-                except BaseException as e:
+                except Exception as e:
                     self._set_state(self.STATES.FAULT, e)
                     subscan.logger.error(
                         "Scan metadata not saved due to exception:\n{}".format(

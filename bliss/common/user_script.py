@@ -1,14 +1,16 @@
 import os
 import sys
 
+from types import SimpleNamespace
+
 from bliss import current_session
 from bliss.config.settings import SimpleSetting
 
 __all__ = [
     "user_script_homedir",
     "user_script_run",
-    "user_script_load",
     "user_script_list",
+    "user_script_load",
 ]
 
 USER_SCRIPT_HOME = None
@@ -33,7 +35,7 @@ def _set_user_script_home(dir):
     USER_SCRIPT_HOME.set(dir)
 
 
-def _clear_user_script_home(dir):
+def _clear_user_script_home():
     global USER_SCRIPT_HOME
     if USER_SCRIPT_HOME is None:
         _create_user_script_home()
@@ -76,15 +78,17 @@ def user_script_list():
             print(f" - {os.path.join(dirname, filename)}")
 
 
-def user_script_load(scriptname=None, namespace=None):
-    _user_script_exec(scriptname, export=True, namespace=namespace)
+def user_script_load(scriptname=None, export_global=False):
+    return _user_script_exec(
+        scriptname, return_namespace=True, export_global=export_global
+    )
 
 
-def user_script_run(scriptname=None, namespace=None):
-    _user_script_exec(scriptname, export=False, namespace=namespace)
+def user_script_run(scriptname=None):
+    _user_script_exec(scriptname, return_namespace=False)
 
 
-def _user_script_exec(scriptname, export=False, namespace=None):
+def _user_script_exec(scriptname, return_namespace=False, export_global=False):
     if not scriptname:
         user_script_list()
         return
@@ -111,23 +115,31 @@ def _user_script_exec(scriptname, export=False, namespace=None):
     except Exception:
         raise RuntimeError(f"Failed to read [{filepath}] !")
 
-    if export is True:
+    if return_namespace is True:
         print(f"Loading [{filepath}]...")
     else:
         print(f"Running [{filepath}]...")
 
-    if namespace is None:
-        namespace = current_session.env_dict
-
-    globals_dict = namespace.copy()
+    globals_dict = current_session.env_dict.copy()
 
     try:
         exec(script, globals_dict)
     except Exception:
         sys.excepthook(*sys.exc_info())
 
-    if export is True:
+    if export_global is True:
         for k in globals_dict.keys():
             if k.startswith("_"):
                 continue
-            namespace[k] = globals_dict[k]
+            current_session.env_dict[k] = globals_dict[k]
+
+    elif return_namespace is True:
+        env_dict = dict()
+        for k in globals_dict.keys():
+            if k.startswith("_"):
+                continue
+            env_dict[k] = globals_dict[k]
+        return SimpleNamespace(**env_dict)
+
+    else:
+        return None

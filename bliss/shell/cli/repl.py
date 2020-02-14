@@ -14,14 +14,13 @@ import warnings
 import functools
 import traceback
 import gevent
-import time
 import logging
 from collections import deque
 
 from ptpython.repl import PythonRepl
 import ptpython.layout
 
-## imports needed to have control over _excecute of ptpython
+# imports needed to have control over _excecute of ptpython
 import six
 from ptpython.repl import _lex_python_result
 from prompt_toolkit.formatted_text.utils import fragment_list_width
@@ -38,7 +37,6 @@ from prompt_toolkit.eventloop import future
 
 from prompt_toolkit.filters import has_focus
 from prompt_toolkit.enums import DEFAULT_BUFFER
-from prompt_toolkit.eventloop.defaults import run_in_executor
 
 from bliss.shell.cli import style as repl_style
 from bliss.shell import initialize
@@ -84,12 +82,12 @@ class LastError:
 
 
 class ErrorReport:
-    """ 
+    """
     Manage the behavior of the error reporting in the shell.
-    
+
     - ErrorReport.expert_mode = False (default) => prints a user friendly error message without traceback
     - ErrorReport.expert_mode = True            => prints the full error message with traceback
-    
+
     - ErrorReport.last_error stores the last error traceback
 
     """
@@ -187,23 +185,7 @@ def _set_pt_event_loop():
         set_event_loop(_PosixLoop())
 
 
-if sys.platform in ["win32", "cygwin"]:
-
-    import win32api
-
-    class Terminal:
-        def __getattr__(self, prop):
-            if prop.startswith("__"):
-                raise AttributeError(prop)
-            return ""
-
-
-else:
-
-    from blessings import Terminal
-
-
-__all__ = ("BlissRepl", "embed", "cli", "configure_repl")  # , "configure")
+__all__ = ("BlissRepl", "embed", "cli", "configure_repl")
 
 #############
 # patch ptpython signaturetoolbar
@@ -312,7 +294,7 @@ class BlissRepl(PythonRepl):
                 if result is not None:
                     out_prompt = self.get_output_prompt()
 
-                    result_str = f"{info(result)}\n"  ## patched here!!
+                    result_str = f"{info(result)}\n"  # patched here!!
 
                     # Align every line to the first one.
                     line_sep = "\n" + " " * fragment_list_width(out_prompt)

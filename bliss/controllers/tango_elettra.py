@@ -1,10 +1,11 @@
 import gevent
+import time
 
 from bliss import global_map
 from bliss.common.tango import DeviceProxy, DevState
-from bliss.common.counter import IntegratingCounter
-from bliss.controllers.counter import IntegratingCounterController
-from bliss.scanning.acquisition.counter import IntegratingCounterAcquisitionSlave
+from bliss.common.counter import Counter
+from bliss.controllers.counter import CounterController
+from bliss.scanning.chain import AcquisitionMaster
 
 """
 Configuration YML:
@@ -33,35 +34,55 @@ MEASURE_KEYS = {
 }
 
 
-class ElettraCounter(IntegratingCounter):
+class ElettraCounter(Counter):
     def __init__(self, name, controller, channel, **kwargs):
         super().__init__(name, controller, **kwargs)
         self.channel = channel
 
 
-class ElettraIntegratingCounterAcquisitionSlave(IntegratingCounterAcquisitionSlave):
-    def prepare_device(self):
-        pass
+class ElettraAcquisitionMaster(AcquisitionMaster):
+    def __init__(self, *devices, count_time, ctrl_params=None):
 
-    def start_device(self):
+        super().__init__(*devices, ctrl_params=ctrl_params)
+
+        self.count_time = count_time
+        self._stop_flag = False
+
+    def _emit_new_data(self, data):
+        self.channels.update_from_iterable(data)
+
+    def prepare(self):
+        self._stop_flag = False
+
+    def start(self):
+        self._stop_flag = False
+
+    def stop(self):
+        self._stop_flag = True
+
+    def trigger(self):
+        t0 = time.time()
         self.device.start(self.count_time)
+        self.trigger_slaves()
 
-    def stop_device(self):
+        # --- wait count_time -------
+        while not self._stop_flag:
+            dt = time.time() - t0
+            if dt >= self.count_time:
+                break
+            gevent.idle()
 
+        # --- get and send data --------------
         counters = list(self._counters.keys())
         data = [
             counters[i].conversion_function(x)
-            for i, x in enumerate(self.device.get_values(0, *counters))
+            for i, x in enumerate(self.device.get_data(*counters))
         ]
 
         self._emit_new_data(data)
-        gevent.idle()
-
-    def reading(self):
-        pass
 
 
-class Elettra(IntegratingCounterController):
+class Elettra(CounterController):
     def __init__(self, name, config):
 
         super().__init__(name)
@@ -70,7 +91,6 @@ class Elettra(IntegratingCounterController):
         self._tango_proxi = DeviceProxy(self._tango_uri)
 
         global_map.register(self, children_list=[self._tango_proxi], tag=name)
-
         for cnt in config.get("counters", list()):
             if "measure" in cnt.keys():
                 if cnt["measure"].casefold() in MEASURE_KEYS:
@@ -112,11 +132,19 @@ class Elettra(IntegratingCounterController):
         return _info_str
 
     def get_acquisition_object(self, acq_params, ctrl_params, parent_acq_params):
-        return ElettraIntegratingCounterAcquisitionSlave(
-            self, ctrl_params=ctrl_params, **acq_params
-        )
+        return ElettraAcquisitionMaster(self, ctrl_params=ctrl_params, **acq_params)
 
-    def get_values(self, from_index, *counters):
+    def get_default_chain_parameters(self, scan_params, acq_params):
+        try:
+            count_time = acq_params["count_time"]
+        except KeyError:
+            count_time = scan_params["count_time"]
+
+        params = {"count_time": count_time}
+
+        return params
+
+    def get_data(self, *counters):
         measure = self._tango_proxi.measure
         #        print ("get_values = measured {0:.1f}".format(measure[4]))
         #        print ("             measured {0:.1f}".format(measure[6]))

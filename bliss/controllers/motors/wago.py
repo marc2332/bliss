@@ -54,3 +54,12 @@ class WagoMotor(Controller):
 
     def stop(self, axis):
         pass
+
+    def close(self):
+        self.__close__()
+
+    def __close__(self):
+        try:
+            self.wago.close()
+        except Exception:
+            pass

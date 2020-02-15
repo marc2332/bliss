@@ -21,6 +21,9 @@ import random
 import inspect
 import numpy
 
+# For tests involving lprint.
+from ..common.conftest import log_shell_mode
+
 
 def test_property_setting(robz):
     assert robz.velocity == 100
@@ -562,14 +565,21 @@ def test_home_search(roby):
     assert roby.position == 38930
 
 
-def test_ctrlc(robz):
+def test_ctrlc(robz, capsys, log_shell_mode):
     robz.move(100, wait=False)
     assert robz.state.MOVING
     assert robz.is_moving
     time.sleep(0.1)
     robz._group_move._move_task.kill(KeyboardInterrupt, block=False)
+
     with pytest.raises(KeyboardInterrupt):
         robz.wait_move()
+
+    # Ensure "Moving..." and "...stopped at..." messages are present.
+    out, err = capsys.readouterr()
+    assert out.find("Moving robz from") >= 0
+    assert out.find("Axis robz stopped at position") >= 0
+
     assert not robz.is_moving
     assert robz.state.READY
     assert robz.position < 100

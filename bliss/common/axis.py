@@ -302,6 +302,18 @@ class GroupMove:
                     self._stop_wait(motions_dict, capture)
             finally:
                 reset_setpos = capture.failed or self._user_stopped
+                if self._user_stopped:
+                    lprint("")
+                    for motion in motions:
+                        _axis_name = motion.axis.name
+                        try:
+                            _axis_pos = motion.axis.position
+                        except RuntimeError as pos_err:
+                            if pos_err == "BAD POSITION":
+                                _axis_pos = "BAD POSITION"
+                            else:
+                                _axis_pos = "UNKNOWN"
+                        lprint(f"Axis {_axis_name} stopped at position {_axis_pos}")
 
                 # cleanup
                 # -------

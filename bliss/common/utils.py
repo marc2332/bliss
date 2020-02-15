@@ -17,7 +17,6 @@ import sys
 import copy
 import collections.abc
 import socket
-from collections import Iterable
 
 from bliss.common.event import saferef
 
@@ -73,7 +72,7 @@ def grouped(iterable, n):
 def flatten_gen(items):
     """Yield items from any nested iterable; see Reference."""
     for x in items:
-        if isinstance(x, Iterable) and not isinstance(x, (str, bytes)):
+        if isinstance(x, collections.abc.Iterable) and not isinstance(x, (str, bytes)):
             for sub_x in flatten(x):
                 yield sub_x
         else:

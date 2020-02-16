@@ -100,10 +100,7 @@ Device level API. Requires beacon configuration to work
 .. autosummary::
    :toctree:
 
-   ~bliss.controllers.ct2.client.CT2
-   ~bliss.controllers.ct2.device.CT2
-   ~bliss.controllers.ct2.device.AcqMode
-   ~bliss.controllers.ct2.device.AcqStatus
+   device
 
 Card API
 ~~~~~~~~
@@ -116,26 +113,7 @@ level.
    :nosignatures:
    :toctree:
 
-   ~bliss.controllers.ct2.card.BaseCard
-   ~bliss.controllers.ct2.card.CT2Card
-   ~bliss.controllers.ct2.card.P201Card
-   ~bliss.controllers.ct2.card.C208Card
-   ~bliss.controllers.ct2.card.CtStatus
-   ~bliss.controllers.ct2.card.CtConfig
-   ~bliss.controllers.ct2.card.FilterOutput
-   ~bliss.controllers.ct2.card.AMCCFIFOStatus
-   ~bliss.controllers.ct2.card.FIFOStatus
-   ~bliss.controllers.ct2.card.TriggerInterrupt
-   ~bliss.controllers.ct2.card.CT2Exception
-   ~bliss.controllers.ct2.card.Clock
-   ~bliss.controllers.ct2.card.Level
-   ~bliss.controllers.ct2.card.FilterClock
-   ~bliss.controllers.ct2.card.OutputSrc
-   ~bliss.controllers.ct2.card.CtClockSrc
-   ~bliss.controllers.ct2.card.CtGateSrc
-   ~bliss.controllers.ct2.card.CtHardStartSrc
-   ~bliss.controllers.ct2.card.CtHardStopSrc
-
+   card
 
 .. _P201 reference manual:
    http://www.esrf.eu/files/live/sites/www/files/Industry/files/p201.pdf

@@ -3,18 +3,18 @@
 BLISS Documentation is furnished in various manners:
 
 * main documentation using mkdocs https://www.mkdocs.org/
-    * When adding a page, the main summary in `doc/mkdocs.yml` must be
+    - When adding a page, the main summary in `doc/mkdocs.yml` must be
       modified according to the new hierarchy.
-    * As usual, merge requests are used to track and review modifications.
-    * Common parts of documentation must be factorized as much as
+    - As usual, merge requests are used to track and review modifications.
+    - Common parts of documentation must be factorized as much as
       possible in order to keep a good coherency. When developing a
       new motor controller for example, the common documentation can
       be found [here](dev_write_motctrl.md) and only the specific part
       will be kept in source code.
 
 * embeded in source code
-    * inline comments to understand source code
-    * *docstring* after all user functions to be accessible from BLISS
+    - inline comments to understand source code
+    - *doc-string* after all user functions to be accessible from BLISS
       shell with `help(<function>)`
 
 ## Installing documentation requirements
@@ -39,7 +39,7 @@ pip install -r requirements-doc.txt
 This installs `mkdocs` and all dependencies.
 
 In order to serve a local version of the documentation, start
-the mkdocs serve with:
+the mkdocs server with:
 ```bash
 cd <bliss.git directory>/doc/
 mkdocs serve
@@ -47,7 +47,7 @@ mkdocs serve
 And visit http://localhost:8000
 
 
-In order to update the codumentation
+In order to update the documentation
 http://localhost:8000/dev_documentation.html
 Please do the following
 
@@ -64,6 +64,9 @@ http://localhost:8000/dev_documentation.html
 
 What to include in code  / What to put in mkdoc ???
 
+Create a new file, for instance config_mynewcontroller.md
+
+Update the master **../mkdocs.yml** file to insert the new controller documentation with a title and the reference the .md file.
 
 ### Example:
 
@@ -97,7 +100,7 @@ For the counter interface, see the
 `PePU scan support documentation <bliss.scanning.acquisition.pepu.html>`
 
 
-###template:
+### template:
 
 
 **ESRF - XXX controller**
@@ -118,6 +121,9 @@ Usage:
      XXX
 
 For more information, see the XXX documentation: XXX.
+
+## Doc-strings
+
 
 
 ## GUI doc
@@ -165,7 +171,7 @@ pip install -r requirements-doc.txt
 hostname
 myhost
 cd <bliss.git directory>/doc/
-mkdocs serve -a myhost:8888
+mkdocs serve -a 0.0.0.0:8888
 ```
 
 * and visit [http://myhost:8888](http://myhost:888) to see the documentation
@@ -270,14 +276,31 @@ https://squidfunk.github.io/mkdocs-material/extensions/admonition/
 
 ### Lists
 
-To create a list, an empty line must be respected:
+#### bullet-list
+To create a bullet-list, an empty line must be respected:
 
 * and start 1st level lines with `* ` (star + space)
 * etc.
-    * Nested list are possible,
-    * with 4 spaces to begin the 2nd level lines.
+    - Nested list are possible,
+    - with 4 spaces to begin the 2nd level lines.
         * and 8 for 3rd level
         * etc.
+
+!!! note
+    `*` and `-` as bullet-list marker can be alternated to clearly indicate sub-lists
+
+#### numbered list
+note the space:
+
+1. first
+1. second
+1. third
+
+?? no nested list ?
+
+!!! note
+    Advantage of a numbered list well formated is to be easily selectable for
+    copy-past items without copying the numbers.
 
 
 ### Links and references
@@ -292,38 +315,36 @@ use:
 to produce:
 
 * mkdocs inner links: [Beamviewer Configuration](config_beamviewer.md).
-* mkdocs inner links fir section ref: [code formatting](dev_guidelines.md#code-formatting)
+* mkdocs inner links with section ref: [code formatting](dev_guidelines.md#code-formatting)
 * outer links: [ESRF Gitlab](https://gitlab.esrf.fr/bliss/bliss)
 
 
 ### Raw text
 
-Inline raw text is placed between 2 backquotes:
+Inline raw text is surronded by single backquotes:
 
     `raw text in monospace font`
 
 result: `raw text in monospace font`
 
-
-A raw text block is defined using 4 spaces to begin a line and
-respecting an empty line before block.
-
-    My text without any change,
-    but it has to be text without symbols.
+or triple backquotes for multi-lines text:
+```
+My text without any change,
+but it has to be text without symbols.
+```
 
 In case you want to have a line break
 just insert two *spaces* at the end of the line, like this:
-line1
-line2
-line3
 
-A bash command line is defined with 3 \` (backquotes) followed by **bash**<br>
-It looks like
+line1  
+line2  
+line3  
+
+A bash command line is surronded by  triple backquotes \`  followed by `bash`:
+
 ```markdown
  ```bash
-```
-and you finish your script with 3  \` (backquotes)  like
-```markdown
+ <code>
  ```
 ```
 
@@ -351,7 +372,13 @@ There are many formating marker to write text in *italic* or `raw text
 #### Python code
 
 To specify a programing language, 3 backquotes can be used:
+```
+  ```python
+  <code>
+  ```
+```
 
+Example:
 ```python
 from bliss.common.axis import Axis
 from bliss.controllers.motors import icepap
@@ -366,7 +393,7 @@ iceid2322 = icepap.Icepap("iceid2322", {"host": "iceid2322"},
 
 #### YAML code
 
-```YAML
+```yaml
 - controller:
     class: icepap
     host: iceid2322

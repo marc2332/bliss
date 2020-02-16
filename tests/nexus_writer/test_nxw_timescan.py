@@ -23,24 +23,24 @@ def test_nxw_timescan(nexus_writer_config):
 # so scan writer is in FAULT state.
 @pytest.mark.skip("skip until timescan has same npoints for each scan")
 def test_nxw_timescan_alt(nexus_writer_config_alt):
-    _test_nxw_timescan(**nexus_writer_config_alt, alt=True)
+    _test_nxw_timescan(**nexus_writer_config_alt)
 
 
 def test_nxw_timescan_nopolicy(nexus_writer_config_nopolicy):
-    _test_nxw_timescan(**nexus_writer_config_nopolicy, withpolicy=False)
+    _test_nxw_timescan(**nexus_writer_config_nopolicy)
 
 
 def test_nxw_timescan_base(nexus_writer_base):
-    _test_nxw_timescan(**nexus_writer_base, config=False)
+    _test_nxw_timescan(**nexus_writer_base)
 
 
 @pytest.mark.skip("skip until timescan has same npoints for each scan")
 def test_nxw_timescan_base_alt(nexus_writer_base_alt):
-    _test_nxw_timescan(**nexus_writer_base_alt, config=False, alt=True)
+    _test_nxw_timescan(**nexus_writer_base_alt)
 
 
 def test_nxw_timescan_base_nopolicy(nexus_writer_base_nopolicy):
-    _test_nxw_timescan(**nexus_writer_base_nopolicy, config=False, withpolicy=False)
+    _test_nxw_timescan(**nexus_writer_base_nopolicy)
 
 
 @nxw_test_utils.writer_stdout_on_exception
@@ -92,8 +92,10 @@ def _test_nxw_timescan(session=None, tmpdir=None, writer=None, **kwargs):
     glisten.kill()
 
     # Verify data
-    nxw_test_utils.wait_scan_data_finished([scan], writer=writer, **kwargs)
-    nxw_test_data.assert_scan_data(scan, scan_shape=(0,), **kwargs)
+    nxw_test_utils.wait_scan_data_finished([scan], writer=writer)
+    nxw_test_data.assert_scan_data(
+        scan, scan_shape=(0,), positioners=[["elapsed_time", "epoch"]], **kwargs
+    )
 
     # TODO: no proper cleanup by Bliss
     dispatcher.reset()

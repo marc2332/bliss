@@ -20,7 +20,6 @@ from bliss.config.conductor.client import get_default_connection
 from bliss.config.conductor.client import get_redis_connection
 from bliss.flint import config
 
-import pickle
 import logging
 from silx.gui import qt
 
@@ -262,7 +261,6 @@ class ManageMainBehaviours(qt.QObject):
             updatePlotModel = enforceDisplay or not sameScan
         else:
             updatePlotModel = True
-        _logger.error(updatePlotModel)
 
         if len(plots) > 0:
             defaultPlot = plots[0]

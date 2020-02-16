@@ -497,7 +497,7 @@ class Statistics(object):
 
     def __info__(self):
         # due to recursion import standard here
-        from bliss.common import standard
+        from bliss.shell.standard import _tabulate
 
         data = [("func_name", "min", "mean", "max", "std")]
 
@@ -511,7 +511,7 @@ class Statistics(object):
                     values[3],
                 )
             )
-        return standard._tabulate(data)
+        return _tabulate(data)
 
 
 class autocomplete_property(property):

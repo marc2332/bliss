@@ -221,10 +221,11 @@ def Wago(
                 )
             isinput = bool(module_info[0] or module_info[2])
             isoutput = bool(module_info[1] or module_info[3])
-            if isinput and isoutput or not isinput and not isoutput:
-                raise RuntimeError(
-                    "Wago couldn't have both input and output I/O in the same module"
-                )
+            if isinput and isoutput:
+                # special modules are used as out modules
+                # because reading input registers will give you the status
+                # and reading output will give real values
+                isinput = False
             size = module_info[4]
             if isdigital:
                 io_info.append(

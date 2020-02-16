@@ -13,7 +13,6 @@ from typing import Optional
 from typing import List
 from typing import Dict
 from typing import Tuple
-from typing import Union
 
 from silx.gui import colors
 
@@ -501,7 +500,7 @@ def updateDisplayedChannelNames(
                         item, _updated = createCurveItem(plot, channel, yAxis="left")
                     else:
                         assert False
-                    assert _updated == False
+                    assert not _updated
                 item.setVisible(True)
         for item in unneeded_items:
             plot.removeItem(item)

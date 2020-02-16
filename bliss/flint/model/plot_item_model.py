@@ -17,14 +17,13 @@ Here is a list of plot and item inheritance.
 """
 from __future__ import annotations
 from typing import Optional
-from typing import Tuple
+from typing import Dict
+from typing import Any
 
 import numpy
-import collections
 
 from . import scan_model
 from . import plot_model
-from ..utils import mathutils
 
 
 class CurvePlot(plot_model.Plot):
@@ -71,10 +70,20 @@ class CurveMixIn:
     def __init__(self):
         self.__yAxis = "left"
 
+    def __getstate__(self):
+        state = {}
+        state["y_axis"] = self.yAxis()
+        return state
+
+    def __setstate__(self, state):
+        self.setYAxis(state.pop("y_axis"))
+
     def yAxis(self) -> str:
         return self.__yAxis
 
     def setYAxis(self, yAxis: str):
+        if self.__yAxis == yAxis:
+            return
         self.__yAxis = yAxis
         self._emitValueChanged(plot_model.ChangeEventType.YAXIS)
 
@@ -96,14 +105,9 @@ class CurveMixIn:
             return None
         return data.array()
 
-
-class CurveStatisticMixIn:
-    """This item use the scan data to process result before displaying it."""
-
-    def yAxis(self) -> str:
-        """Returns the name of the y-axis in which the statistic have to be displayed"""
-        source = self.source()
-        return source.yAxis()
+    def displayName(self, axisName, scan: scan_model.Scan) -> str:
+        """Helper to reach the axis display name"""
+        raise NotImplementedError()
 
 
 class CurveItem(plot_model.Item, CurveMixIn):
@@ -113,29 +117,26 @@ class CurveItem(plot_model.Item, CurveMixIn):
     """
 
     def __init__(self, parent: plot_model.Plot = None):
-        super(CurveItem, self).__init__(parent=parent)
+        plot_model.Item.__init__(self, parent=parent)
+        CurveMixIn.__init__(self)
         self.__x: Optional[plot_model.ChannelRef] = None
         self.__y: Optional[plot_model.ChannelRef] = None
-        self.__yAxis: str = "left"
-
-    def __reduce__(self):
-        return (self.__class__, (), self.__getstate__())
 
     def __getstate__(self):
-        state = super(CurveItem, self).__getstate__()
+        state: Dict[str, Any] = {}
+        state.update(plot_model.Item.__getstate__(self))
+        state.update(CurveMixIn.__getstate__(self))
         assert "x" not in state
         assert "y" not in state
-        assert "y-axis" not in state
         state["x"] = self.__x
         state["y"] = self.__y
-        state["y_axis"] = self.__yAxis
         return state
 
     def __setstate__(self, state):
-        super(CurveItem, self).__setstate__(state)
+        plot_model.Item.__setstate__(self, state)
+        CurveMixIn.__setstate__(self, state)
         self.__x = state.pop("x")
         self.__y = state.pop("y")
-        self.__yAxis = state.pop("y_axis")
 
     def isValid(self):
         return self.__x is not None and self.__y is not None
@@ -175,15 +176,6 @@ class CurveItem(plot_model.Item, CurveMixIn):
         self.__y = channel
         self._emitValueChanged(plot_model.ChangeEventType.Y_CHANNEL)
 
-    def yAxis(self) -> str:
-        return self.__yAxis
-
-    def setYAxis(self, yAxis: str):
-        if self.__yAxis == yAxis:
-            return
-        self.__yAxis = yAxis
-        self._emitValueChanged(plot_model.ChangeEventType.YAXIS)
-
     def xData(self, scan: scan_model.Scan) -> Optional[scan_model.Data]:
         channel = self.xChannel()
         if channel is None:
@@ -202,151 +194,14 @@ class CurveItem(plot_model.Item, CurveMixIn):
             return None
         return data
 
-
-class DerivativeItem(plot_model.AbstractComputableItem, CurveMixIn):
-    """This item use the scan data to process result before displaying it."""
-
-    def __reduce__(self):
-        return (self.__class__, (), self.__getstate__())
-
-    def __getstate__(self):
-        state = super(DerivativeItem, self).__getstate__()
-        assert "y_axis" not in state
-        state["y_axis"] = self.yAxis()
-        return state
-
-    def __setstate__(self, state):
-        super(DerivativeItem, self).__setstate__(state)
-        self.setYAxis(state.pop("y_axis"))
-
-    def isResultValid(self, result):
-        return result is not None
-
-    def compute(
-        self, scan: scan_model.Scan
-    ) -> Optional[Tuple[numpy.ndarray, numpy.ndarray]]:
-        sourceItem = self.source()
-
-        x = sourceItem.xData(scan)
-        y = sourceItem.yData(scan)
-        if x is None or y is None:
-            return None
-
-        x = x.array()
-        y = y.array()
-        if x is None or y is None:
-            return None
-
-        try:
-            result = mathutils.derivate(x, y)
-        except Exception as e:
-            # FIXME: Maybe it is better to return a special type and then return
-            # Managed outside to store it into the validation cache
-            scan.setCacheValidation(
-                self, self.version(), "Error while creating derivative.\n" + str(e)
-            )
-            return None
-
-        return result
-
-    def xData(self, scan: scan_model.Scan) -> Optional[scan_model.Data]:
-        result = self.reachResult(scan)
-        if not self.isResultValid(result):
-            return None
-        data = result[0]
-        return scan_model.Data(self, data)
-
-    def yData(self, scan: scan_model.Scan) -> Optional[scan_model.Data]:
-        result = self.reachResult(scan)
-        if not self.isResultValid(result):
-            return None
-        data = result[1]
-        return scan_model.Data(self, data)
-
-
-MaxData = collections.namedtuple(
-    "MaxData",
-    ["max_index", "max_location_y", "max_location_x", "min_y_value", "nb_points"],
-)
-
-
-class MaxCurveItem(plot_model.AbstractIncrementalComputableItem, CurveStatisticMixIn):
-    """Implement a statistic which identify the maximum location of a curve."""
-
-    def isResultValid(self, result):
-        return result is not None
-
-    def setSource(self, source: plot_model.Item):
-        previousSource = self.source()
-        if previousSource is not None:
-            previousSource.valueChanged.disconnect(self.__sourceChanged)
-        plot_model.AbstractIncrementalComputableItem.setSource(self, source)
-        if source is not None:
-            source.valueChanged.connect(self.__sourceChanged)
-            self.__sourceChanged(plot_model.ChangeEventType.YAXIS)
-
-    def __sourceChanged(self, eventType):
-        if eventType == plot_model.ChangeEventType.YAXIS:
-            self.valueChanged.emit(plot_model.ChangeEventType.YAXIS)
-
-    def compute(self, scan: scan_model.Scan) -> Optional[MaxData]:
-        sourceItem = self.source()
-
-        xx = sourceItem.xArray(scan)
-        yy = sourceItem.yArray(scan)
-        if xx is None or yy is None:
-            return None
-
-        max_index = numpy.argmax(yy)
-        min_y_value = numpy.min(yy)
-        max_location_x, max_location_y = xx[max_index], yy[max_index]
-
-        result = MaxData(
-            max_index, max_location_y, max_location_x, min_y_value, len(xx)
-        )
-        return result
-
-    def incrementalCompute(
-        self, previousResult: MaxData, scan: scan_model.Scan
-    ) -> MaxData:
-        sourceItem = self.source()
-
-        xx = sourceItem.xArray(scan)
-        yy = sourceItem.yArray(scan)
-        if xx is None or yy is None:
-            raise ValueError("Non empty data is expected")
-
-        nb = previousResult.nb_points
-        if nb == len(xx):
-            # obviously nothing to compute
-            return previousResult
-
-        xx = xx[nb:]
-        yy = yy[nb:]
-
-        max_index = numpy.argmax(yy)
-        min_y_value = numpy.min(yy)
-        max_location_x, max_location_y = xx[max_index], yy[max_index]
-        max_index = max_index + nb
-
-        if previousResult.min_y_value < min_y_value:
-            min_y_value = previousResult.min_y_value
-
-        if previousResult.max_location_y > max_location_y:
-            # Update and return the previous result
-            return MaxData(
-                previousResult.max_index,
-                previousResult.max_location_y,
-                previousResult.max_location_x,
-                min_y_value,
-                nb + len(xx),
-            )
-
-        # Update and new return the previous result
-        result = MaxData(
-            max_index, max_location_y, max_location_x, min_y_value, nb + len(xx)
-        )
-        return result
+    def displayName(self, axisName, scan: scan_model.Scan) -> str:
+        """Helper to reach the axis display name"""
+        if axisName == "x":
+            return self.xChannel().displayName(scan)
+        elif axisName == "y":
+            return self.yChannel().displayName(scan)
+        else:
+            assert False
 
 
 class McaPlot(plot_model.Plot):

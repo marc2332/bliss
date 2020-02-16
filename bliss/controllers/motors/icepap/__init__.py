@@ -10,6 +10,7 @@ import time
 import gevent
 import hashlib
 import functools
+from collections import namedtuple
 from bliss.common.greenlet_utils import protect_from_kill
 from bliss.config.channels import Cache
 from bliss.controllers.motor import Controller
@@ -298,7 +299,7 @@ class Icepap(Controller):
 
         return state
 
-    def get_info(self, axis):
+    def get_axis_info(self, axis):
         pre_cmd = "%s:" % axis.address
         # info_str = "MOTOR   : %s\n" % axis.name
         info_str = "ICEPAP:\n"
@@ -313,22 +314,21 @@ class Icepap(Controller):
         info_str += f"    CLOOP: {_command(self._cnx, pre_cmd + '?PCLOOP')}"
         info_str += f"    WARNING: {_command(self._cnx, pre_cmd + '?WARNING')}"
         info_str += f"    ALARM: {_command(self._cnx, pre_cmd + '?ALARM')}\n"
-        return info_str
 
-    def __info__(self, axis):
-        """
-        __info__ for CLI help
-        NB: <axis> is passed as argument
-            => __info__ not CLI callable for icepap controller.
-        """
-        info_str = "ICEPAP AXIS:\n"
-        info_str += f"     address: {axis.address}\n"
-        info_str += f"     controller: {self._cnx._host}\n"
-        info_str += f"     version: {_command(self._cnx, '?VER')}\n"
-        info_str += f"     status: {int(_command(self._cnx, '%s:?STATUS' % axis.address), 16)}\n"
+        info_str += f"     {self.read_encoder_all_types(axis)}\n"
 
         if isinstance(axis, LinkedAxis):
+            info_str += f"LINKED AXIS:\n"
             info_str += f"     {self.get_linked_axis()}\n"
+
+        return info_str
+
+    def __info__(self):
+        """For CLI help.
+        """
+        info_str = "ICEPAP CONTROLLER:\n"
+        info_str += f"     controller: {self._cnx._host}\n"
+        info_str += f"     version: {_command(self._cnx, '?VER')}\n"
 
         return info_str
 
@@ -441,6 +441,25 @@ class Icepap(Controller):
     def read_encoder(self, encoder):
         value = _command(self._cnx, "?ENC %s %d" % (encoder.enctype, encoder.address))
         return int(value)
+
+    def read_encoder_all_types(self, axis):
+        """Return a named-tuple of all ENC value
+        ("ENCIN", "ABSENC", "INPOS", "MOTOR", "AXIS", "SYNC")
+        """
+
+        # Create new "type" named IceEncoders.
+        IceEncoders = namedtuple(
+            "IcepapEncoders", "ENCIN, ABSENC, INPOS, MOTOR, AXIS, SYNC"
+        )
+
+        enc_names = ["ENCIN", "ABSENC", "INPOS", "MOTOR", "AXIS", "SYNC"]
+        addr = axis.config.get("address")
+
+        enc_values = [
+            _command(self._cnx, f"?ENC {enctype} {addr}") for enctype in enc_names
+        ]
+
+        return IceEncoders(*enc_values)
 
     def set_encoder(self, encoder, steps):
         _ackcommand(

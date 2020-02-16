@@ -42,9 +42,7 @@ def _test_nxw_readers(
     config=True,
     **kwargs
 ):
-    filename = scan_utils.session_filenames(
-        scan_saving=session.scan_saving, config=config
-    )[0]
+    filename = scan_utils.session_filename(scan_saving=session.scan_saving)
     with nexus.nxRoot(filename, mode="a") as nxroot:
         nxentry = nexus.nxEntry(nxroot, "dummy")
         measurement = nexus.nxCollection(nxentry, "measurement")
@@ -60,7 +58,6 @@ def _test_nxw_readers(
     reset_dispatcher = False
     try:
         detector = "diode3"
-        session.scan_saving.technique = "none"
         if mode == "a" and not enable_file_locking:
             # Readers will not crash the scan (not sure why) but corrupt the file
             scan_shape = (100,)
@@ -73,7 +70,7 @@ def _test_nxw_readers(
             readers = []
             with pytest.raises(AssertionError):
                 # We can only detect the corruption after closing the readers
-                nxw_test_utils.assert_scan_data_not_corrupt([scan], config=config)
+                nxw_test_utils.assert_scan_data_not_corrupt([scan])
         elif enable_file_locking:
             # Readers will crash the scan but not corrupt the file
             reset_dispatcher = True
@@ -84,7 +81,7 @@ def _test_nxw_readers(
             gevent.killall(readers)
             gevent.joinall(readers)
             readers = []
-            nxw_test_utils.assert_scan_data_not_corrupt([scan], config=config)
+            nxw_test_utils.assert_scan_data_not_corrupt([scan])
         else:
             # Neither scan nor file are disturbed by these readers
             scan_shape = (100,)
@@ -95,13 +92,13 @@ def _test_nxw_readers(
             gevent.killall(readers)
             gevent.joinall(readers)
             readers = []
-            nxw_test_utils.assert_scan_data_exists([scan], config=config)
-            nxw_test_utils.assert_scan_data_not_corrupt([scan], config=config)
+            nxw_test_utils.assert_scan_data_exists([scan])
+            nxw_test_utils.assert_scan_data_not_corrupt([scan])
             nxw_test_data.assert_scan_data(
                 scan,
                 scan_shape=scan_shape,
+                positioners=[["elapsed_time", "epoch"]],
                 detectors=[detector],
-                config=config,
                 **kwargs
             )
     finally:

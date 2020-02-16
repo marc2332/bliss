@@ -1,5 +1,5 @@
 
-# Interlock Protocol #
+# Interlock Protocol
 
 ## What is Interlock Protocol? ##
 
@@ -58,7 +58,7 @@ Than specify a list of interlocks.
 interlocks:
     - relay: intlckf
       flags: STICKY
-      name: Interlock 1
+      description: Interlock 1
       channels:
           - logical_name: esTf1
             type: TC
@@ -72,7 +72,7 @@ interlocks:
     - relay: intlckf
       relay_channel: 2
       flags: STICKY
-      name: Interlock 2
+      description: Interlock 2
       channels:
           - logical_name: esTr1
             type: TC
@@ -97,7 +97,7 @@ interlocks:
                  the normal position and cannot be switched externally. The NOFORCE flag
                  relaxes this constraint. In any case when the instance trips, the relay is
                  always forced into the alarm state.
-- name: (**Optional**) is simply an user description of the purpose of the interlock condition.
+- description: (**Optional**) is simply an user description of the purpose of the interlock condition.
 
 ### Configuration of the channel ###
 

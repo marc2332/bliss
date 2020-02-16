@@ -10,14 +10,14 @@ import nxw_test_utils
 
 
 def test_nxw_events(nexus_writer_config):
-    _test_nxw_events(**nexus_writer_config, config=True)
+    _test_nxw_events(**nexus_writer_config)
 
 
 def test_nxw_events_base(nexus_writer_base):
-    _test_nxw_events(**nexus_writer_base, config=False)
+    _test_nxw_events(**nexus_writer_base)
 
 
 @nxw_test_utils.writer_stdout_on_exception
 def _test_nxw_events(session=None, tmpdir=None, writer=None, **kwargs):
     scan = scans.loopscan(1, .1)
-    nxw_test_utils.wait_scan_data_exists([scan], writer=writer, **kwargs)
+    nxw_test_utils.wait_scan_data_exists([scan], writer=writer)

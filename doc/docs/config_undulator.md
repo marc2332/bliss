@@ -14,13 +14,14 @@ to be specified.
 ```yaml
 controller:
   class: ESRF_Undulator
-  ds_name: //orion:10000/ID/ID/23
+  ds_name: //acs:10000/id/master/id23
   axes:
       -
         name: u23a
         attribute_position: U23A_GAP_Position
         attribute_velocity: U23A_GAP_Velocity
         attribute_acceleration: U23A_GAP_Acceleration
+        steps_per_unit: 1000
         velocity: 5
         acceleration: 125
         tolerance: 0.1

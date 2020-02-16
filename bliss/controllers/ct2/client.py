@@ -28,6 +28,8 @@ from bliss.common.proxy import Proxy
 from bliss.comm.rpc import Client
 from bliss.common.counter import IntegratingCounter
 
+from bliss import global_map
+
 from bliss.controllers.ct2.device import AcqMode
 from bliss.controllers.counter import CounterController
 from bliss.controllers.counter import IntegratingCounterController
@@ -66,6 +68,8 @@ class CT2Controller(Proxy, CounterController):
         )
 
         CounterController.__init__(self, name=name, register_counters=False)
+
+        global_map.register(self, children_list=[self.__wrapped__])
 
         # Remote call
         self.configure(device_config)

@@ -802,6 +802,80 @@ class Regul(object):
             self.set_param("Regulator/resetError/Value", 1)
             self.set_param("Regulator/resetError/Value", 0)
 
+    def setPolynom(self, angle, a, b, c):
+        if angle == "rx":
+            var_name_a = (
+                "plant/counters/counter_xtal_111_drx/2nd-order-correction(unit)/a/Value"
+            )
+            var_name_b = (
+                "plant/counters/counter_xtal_111_drx/2nd-order-correction(unit)/b/Value"
+            )
+            var_name_c = (
+                "plant/counters/counter_xtal_111_drx/2nd-order-correction(unit)/c/Value"
+            )
+        elif angle == "ry":
+            var_name_a = (
+                "plant/counters/counter_xtal_111_dry/2nd-order-correction(unit)/a/Value"
+            )
+            var_name_b = (
+                "plant/counters/counter_xtal_111_dry/2nd-order-correction(unit)/b/Value"
+            )
+            var_name_c = (
+                "plant/counters/counter_xtal_111_dry/2nd-order-correction(unit)/c/Value"
+            )
+        else:
+            print('Correct angle are "rx" or "ry", exit !!!')
+            return
+
+        self.set_param(var_name_a, a)
+        self.set_param(var_name_b, b)
+        self.set_param(var_name_c, c)
+
+    def getPolynom(self, angle):
+        if angle == "rx":
+            var_name_a = (
+                "plant/counters/counter_xtal_111_drx/2nd-order-correction(unit)/a/Value"
+            )
+            var_name_b = (
+                "plant/counters/counter_xtal_111_drx/2nd-order-correction(unit)/b/Value"
+            )
+            var_name_c = (
+                "plant/counters/counter_xtal_111_drx/2nd-order-correction(unit)/c/Value"
+            )
+        elif angle == "ry":
+            var_name_a = (
+                "plant/counters/counter_xtal_111_dry/2nd-order-correction(unit)/a/Value"
+            )
+            var_name_b = (
+                "plant/counters/counter_xtal_111_dry/2nd-order-correction(unit)/b/Value"
+            )
+            var_name_c = (
+                "plant/counters/counter_xtal_111_dry/2nd-order-correction(unit)/c/Value"
+            )
+        else:
+            print('Correct angle are "rx" or "ry", exit !!!')
+            return None
+
+        return (
+            self.get_param(var_name_a),
+            self.get_param(var_name_b),
+            self.get_param(var_name_c),
+        )
+
+    def usePolynom(self, state):
+        var_name = "plant/counters/counter_xtal_111_dry/correction_OnOff/Value"
+        self.set_param(var_name, state)
+        var_name = "plant/counters/counter_xtal_111_drx/correction_OnOff/Value"
+        self.set_param(var_name, state)
+
+    def usePolynomGet(self):
+        var_name = "plant/counters/counter_xtal_111_dry/correction_OnOff/Value"
+        ry = self.get_param(var_name)
+        var_name = "plant/counters/counter_xtal_111_drx/correction_OnOff/Value"
+        rx = self.get_param(var_name)
+
+        return (ry, rx)
+
     def set_param(self, param, value):
         self.speedgoat.params[param] = value
         ret_val = self.speedgoat.params[param]

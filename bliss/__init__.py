@@ -67,7 +67,7 @@ def logging_startup(
     global_log._LOG_DEFAULT_LEVEL = log_level  # to restore level of non-BlissLoggers
 
     # setting startup level for session and bliss logger
-    logging.getLogger("session").setLevel(log_level)
+    logging.getLogger("global").setLevel(log_level)
     logging.getLogger("bliss").setLevel(log_level)
     logging.getLogger("flint").setLevel(log_level)
 

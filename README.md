@@ -1,7 +1,7 @@
 Bliss
 ======
 
-[![build status](https://gitlab.esrf.fr/bliss/bliss/badges/master/build.svg)](https://gitlab.esrf.fr/bliss/bliss/pipelines/master/latest)
+[![build status](https://gitlab.esrf.fr/bliss/bliss/badges/master/pipeline.svg)](https://gitlab.esrf.fr/bliss/bliss/pipelines/master/latest)
 [![coverage report](https://gitlab.esrf.fr/bliss/bliss/badges/master/coverage.svg)](https://bliss.gitlab-pages.esrf.fr/bliss/master/htmlcov)
 
 The bliss control library.

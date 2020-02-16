@@ -37,6 +37,11 @@ class SimulatorWidget(qt.QMainWindow):
         layout.addWidget(button)
 
         button = qt.QPushButton(self)
+        button.setText("Slit scan")
+        button.clicked.connect(lambda: self.__startScan(10, 2000, "slit"))
+        layout.addWidget(button)
+
+        button = qt.QPushButton(self)
         button.setText("Counter scan (no masters)")
         button.clicked.connect(lambda: self.__startScan(10, 2000, "counter-no-master"))
         layout.addWidget(button)

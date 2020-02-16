@@ -80,6 +80,9 @@ __all__ = (
         "info",
         "bench",
         "clear",
+        "newproposal",
+        "newsample",
+        "newdataset",
     ]
     + scans.__all__
     + logtools.__all__
@@ -749,3 +752,18 @@ def edit_mg(mg=None):
             active_mg.enable(*to_enable)
         if to_disable:
             active_mg.disable(*to_disable)
+
+
+# Data Policy
+
+
+def newproposal(proposal_name=None):
+    current_session.scan_saving.newproposal(proposal_name)
+
+
+def newsample(sample_name=None):
+    current_session.scan_saving.newsample(sample_name)
+
+
+def newdataset(dataset_name=None):
+    current_session.scan_saving.newdataset(dataset_name)

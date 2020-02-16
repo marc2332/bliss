@@ -276,44 +276,55 @@ def device_info(devices, scan_info, short_names=True, multivalue_positioners=Fal
     config = bool(devices)
     for subscan, subscaninfo in scan_info["acquisition_chain"].items():
         subdevices = ret[subscan] = {}
-        # These are the "positioners"
         masterinfo = subscaninfo["master"]
-        units = masterinfo.get("scalars_units", {})
-        aliasmap = masterinfo.get("display_names", {})
-        master_index = 0
-        lst = masterinfo.get("scalars", [])
-        for fullname in lst:
-            subdevices[fullname] = devices.get(fullname, {})
-            data_info = {"units": units.get(fullname, None)}
-            device = update_device(subdevices, fullname, data_info=data_info)
-            if is_positioner_group(fullname, lst):
-                device["device_type"] = "positionergroup"
-            else:
-                device["device_type"] = "positioner"
-            device["master_index"] = master_index
-            master_index += 1
-            if _allow_alias(device, config):
-                _add_alias(device, fullname, aliasmap)
-        # These are the 0D, 1D and 2D "detectors"
-        aliasmap = subscaninfo.get("display_names", {})
-        for key in "scalars", "spectra", "images":
-            units = subscaninfo.get(key + "_units", {})
-            lst = subscaninfo.get(key, [])
-            for fullname in lst:
-                subdevices[fullname] = devices.get(fullname, {})
-                data_info = {"units": units.get(fullname, None)}
-                device = update_device(subdevices, fullname, data_info=data_info)
-                if key == "scalars":
-                    if is_positioner_group(fullname, lst):
-                        device["device_type"] = "positionergroup"
-                if _allow_alias(device, config):
-                    _add_alias(device, fullname, aliasmap)
+        _extract_device_info(
+            devices, subdevices, masterinfo, ["scalars"], config=config, master=True
+        )
+        _extract_device_info(
+            devices,
+            subdevices,
+            masterinfo,
+            ["spectra", "images"],
+            config=config,
+            master=True,
+        )
+        _extract_device_info(
+            devices,
+            subdevices,
+            subscaninfo,
+            ["scalars", "spectra", "images"],
+            config=config,
+            master=False,
+        )
         parse_devices(
             subdevices,
             short_names=short_names,
             multivalue_positioners=multivalue_positioners,
         )
     return ret
+
+
+def _extract_device_info(devices, subdevices, info, keys, config=True, master=False):
+    aliasmap = info.get("display_names", {})
+    for key in keys:
+        units = info.get(key + "_units", {})
+        lst = info.get(key, [])
+        for i, fullname in enumerate(lst):
+            subdevices[fullname] = devices.get(fullname, {})
+            data_info = {"units": units.get(fullname, None)}
+            device = update_device(subdevices, fullname, data_info=data_info)
+            if key == "scalars":
+                if master:
+                    if is_positioner_group(fullname, lst):
+                        device["device_type"] = "positionergroup"
+                    else:
+                        device["device_type"] = "positioner"
+                    device["master_index"] = i
+                else:
+                    if is_positioner_group(fullname, lst):
+                        device["device_type"] = "positionergroup"
+            if _allow_alias(device, config):
+                _add_alias(device, fullname, aliasmap)
 
 
 def _allow_alias(device, config):

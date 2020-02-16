@@ -26,19 +26,23 @@ of the implementation.
 """
 
 from __future__ import annotations
-from typing import Tuple
 from typing import List
 from typing import Any
+from typing import Dict
 from typing import Optional
 
 import numpy
 import enum
+import logging
 import contextlib
 
 from silx.gui import qt
 from . import scan_model
 from .style_model import Style
 from . import style_model
+
+
+_logger = logging.getLogger(__name__)
 
 
 class ChangeEventType(enum.Enum):
@@ -92,7 +96,7 @@ class Plot(qt.QObject):
     def __init__(self, parent=None):
         super(Plot, self).__init__(parent=parent)
         self.__items: List[Item] = []
-        self.__styleStrategy: StyleStrategy = None
+        self.__styleStrategy: Optional[StyleStrategy] = None
         self.__inTransaction: int = 0
 
     def __reduce__(self):
@@ -131,7 +135,7 @@ class Plot(qt.QObject):
         self.__inTransaction += 1
         self.transactionStarted.emit()
         try:
-            yield
+            yield self
         finally:
             self.__inTransaction -= 1
             self.transactionFinished.emit()
@@ -151,11 +155,12 @@ class Plot(qt.QObject):
 
     def removeItem(self, item: Item):
         items = self.__itemTree(item)
-        for i in items:
-            item._setPlot(None)
-            self.__items.remove(i)
-        for i in items:
-            self.itemRemoved.emit(i)
+        with self.transaction():
+            for i in items:
+                item._setPlot(None)
+                self.__items.remove(i)
+            for i in items:
+                self.itemRemoved.emit(i)
         self.invalidateStructure()
 
     def items(self) -> List[Item]:
@@ -383,26 +388,32 @@ _NotComputed = object()
 """Allow to flag an attribute as not computed"""
 
 
-class AbstractComputableItem(Item):
-    """This item use the scan data to process result before displaying it."""
+class ComputeError(Exception):
+    """Raised when the `compute` method of ComputableMixIn or
+    IncrementalComputableMixIn can't compute any output"""
 
-    resultAvailable = qt.Signal(object)
+    def __init__(self, msg: str, result=None):
+        super(ComputeError, self).__init__(self, msg)
+        self.msg = msg
+        self.result = result
+
+
+class ChildItem(Item):
+    """An item with a source"""
 
     def __init__(self, parent=None):
-        Item.__init__(self, parent=parent)
+        super(ChildItem, self).__init__(parent=parent)
         self.__source: Optional[Item] = None
 
-    def __reduce__(self):
-        return (self.__class__, (), self.__getstate__())
-
     def __getstate__(self):
-        state = super(AbstractComputableItem, self).__getstate__()
+        state: Dict[str, Any] = {}
+        state.update(Item.__getstate__(self))
         assert "source" not in state
         state["source"] = self.__source
         return state
 
     def __setstate__(self, state):
-        super(AbstractComputableItem, self).__setstate__(state)
+        Item.__setstate__(self, state)
         self.__source = state.pop("source")
 
     def isChildOf(self, parent: Item) -> bool:
@@ -420,17 +431,48 @@ class AbstractComputableItem(Item):
     def source(self) -> Optional[Item]:
         return self.__source
 
+
+class ComputableMixIn:
+    """This item use the scan data to process result before displaying it."""
+
+    resultAvailable = qt.Signal(object)
+
+    def inputData(self) -> Any:
+        """Needed to invalidate the data according to the configuration"""
+        return None
+
     def isResultComputed(self, scan: scan_model.Scan) -> bool:
         return scan.hasCachedResult(self)
 
     def reachResult(self, scan: scan_model.Scan):
         # FIXME: implement an asynchronous the cache system
         # FIXME: cache system have to be invalidated when self config changes
-        if scan.hasCachedResult(self):
-            result = scan.getCachedResult(self)
+        key = (self, self.inputData())
+        if scan.hasCachedResult(key):
+            result = scan.getCachedResult(key)
         else:
-            result = self.compute(scan)
-            scan.setCachedResult(self, result)
+            try:
+                result = self.compute(scan)
+            except ComputeError as e:
+                try:
+                    # FIXME: This messages should be stored at the same place
+                    scan.setCacheValidation(self, self.version(), e.msg)
+                except KeyError:
+                    _logger.error(
+                        "Computation message lost: %s, %s, %s",
+                        self,
+                        self.version(),
+                        e.msg,
+                    )
+
+                result = e.result
+            except Exception as e:
+                scan.setCacheValidation(
+                    self, self.version(), "Error while computing:" + str(e)
+                )
+                result = None
+
+            scan.setCachedResult(key, result)
         if not self.isResultValid(result):
             return None
         return result
@@ -442,7 +484,7 @@ class AbstractComputableItem(Item):
         raise NotImplementedError()
 
 
-class AbstractIncrementalComputableItem(AbstractComputableItem):
+class IncrementalComputableMixIn(ComputableMixIn):
     def incrementalCompute(self, previousResult: Any, scan: scan_model.Scan) -> Any:
         """Compute a data using the previous value as basis"""
         raise NotImplementedError()

@@ -14,9 +14,9 @@ Usage: bliss [-l | --log-level=<log_level>] [-s <name> | --session=<name>]
              [--no-tmux] [--debug]
        bliss [-v | --version]
        bliss [-c <name> | --create=<name>]
-       bliss [-d <name> | --delete=<name>]
+       bliss [-D <name> | --delete=<name>]
        bliss [-h | --help]
-       bliss --show-sessions
+       bliss [-S | --show-sessions]
        bliss --show-sessions-only
 
 Options:
@@ -25,12 +25,12 @@ Options:
   -s, --session=<session_name>  Start with the specified session
   -v, --version                 Show version and exit
   -c, --create=<session_name>   Create a new session with the given name
-  -d, --delete=<session_name>   Delete the given session
+  -D, --delete=<session_name>   Delete the given session
   -h, --help                    Show help screen and exit
   --no-tmux                     Deactivate Tmux usage
   --debug                       Allow debugging with full exceptions and keeping
                                 tmux alive after Bliss shell exits
-  --show-sessions               Display sessions and tree of sub-sessions
+  -S, --show-sessions           Display sessions and tree of sub-sessions
   --show-sessions-only          Display sessions names only
 ```
 
@@ -40,7 +40,7 @@ Use `-v` or `--version` option to get the current version of a BLISS installatio
 
 ```shell
 % bliss --version
-BLISS version 0.2
+BLISS version 1.1.0-321-gc55b40484
 ```
 
 ### Logging level
@@ -57,9 +57,22 @@ Use `-s` to start an existing session:
                   |__) |__ | .__/ .__/
 
 
-Welcome to BLISS version erbs5c2 running on PCGUILLOU
-                                         in bliss_env Conda environment
-Copyright (c) ESRF, 2015-2019
+Welcome to BLISS version 1.1.0-321-gc55b40484 running on linohlsson2 (in bliss_dev Conda environment)
+Copyright (c) 2015-2019 Beamline Control Unit, ESRF
+-
+Connected to Beacon server on linohlsson2 (port /tmp/beacon_dnnmh7vl.sock)
+test_session: Executing setup...
+
+Welcome to your new 'test_session' BLISS session !! 
+
+You can now customize your 'test_session' session by changing files:
+   * /test_session_setup.py 
+   * /test_session.yml 
+   * /scripts/test_session.py 
+
+Done.
+
+TEST_SESSION [1]: 
 ```
 
 Use `--show-sessions` option to get the list of available sessions:
@@ -67,9 +80,11 @@ Use `--show-sessions` option to get the list of available sessions:
 ```shell
 % bliss --show-sessions
 Available BLISS sessions are:
-  flint
-  lima_test_session
-  test_session
+flint
+  
+lima_test_session
+  
+test_session
 ```
 
 Other commands are also displaying the available sessions:
@@ -83,10 +98,10 @@ Use `--create` or `-c` to create the skeleton of a new session:
 ```shell
 bliss -c eh1
 % bliss -c eh1
-creating 'eh1' session
-Creating: /.../local/beamline_configuration/sessions/eh1_setup.py
-Creating: /.../local/beamline_configuration/sessions/eh1.yml
-Creating: /.../local/beamline_configuration/sessions/scripts/eh1.py
+Creating 'eh1' BLISS session
+Creating sessions/eh1.yml
+Creating sessions/eh1_setup.py
+Creating sessions/scripts/eh1.py
 ```
 
 #### Removing an existing session
@@ -94,7 +109,7 @@ Creating: /.../local/beamline_configuration/sessions/scripts/eh1.py
 To remove an existing session:
 
 ```shell
---delete or -d
+--delete or -D
 ```
 this removes:
 
@@ -130,9 +145,9 @@ If a session is already running but without *Tmux* activated (ie with `--no-tmux
 flag), an error message is displayed:
 
 ```
-********************
-demo is already running on host:pcsht,pid:12858 cmd: **bliss -s demo**
-********************
+-
+Connected to Beacon server on linohlsson2 (port /tmp/beacon_dnnmh7vl.sock)
+!!! === RuntimeError: demo is already running on host:linohlsson2,pid:8173 cmd: **bliss -s demo** === !!! ( for more details type cmd 'last_error' )
 ```
 
 ### To quit Tmux
@@ -200,8 +215,6 @@ Also, it sets the `ERROR_REPORT.expert_mode` to `True` to allow a full print of 
 * `PageDown`: go one *command* down in history (group of lines if multi-line command)
 * `Ctrl-a` or `Home`: go to begining of the current line
 * `Ctrl-e` or `End`: go to end of the current line
-* ~~`Shift-PageUp`: Scroll up terminal buffer by half a page~~
-* ~~`Shift-PageDown`: Scroll down terminal buffer by half a page~~
 * `Shift-Up`: Scroll up terminal buffer by one line
 * `Shift-Down`: Scroll down terminal buffer by one line
 * `Shift-Home`: go to begining of terminal buffer
@@ -221,7 +234,6 @@ Also, it sets the `ERROR_REPORT.expert_mode` to `True` to allow a full print of 
 
 
 * Function keys:
-    * `F1`: ?
     * `F2`: *ptpython* Menu
     * `F3`: history mode:
         * BLISS shell is hidden

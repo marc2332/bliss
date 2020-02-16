@@ -369,11 +369,19 @@ class PI_E753(Controller):
         """
         return self.send(axis, "*IDN?")
 
-    def __info__(self):
-        info_str = "PI {self.model}\n"
-        info_str += "   address:{}\n"
-        info_str += "    "
+    def get_axis_info(self, axis):
+        """Return Controller specific info about <axis>
+        """
+        info_str = "PI INFO:\n"
+        info_str += f"     voltage (SVA) = {self.get_voltage(axis)}\n"
+        info_str += f"     output voltage (VOL) = {self.get_output_voltage(axis)}\n"
+        info_str += f"     closed loop = {self.get_closed_loop(axis)}\n"
 
+        return info_str
+
+    def __info__(self):
+        info_str = f"PI {self.model}\n"
+        info_str += f"     {self.comm.__info__()}"
         return info_str
 
     @object_method(types_info=("None", "string"))

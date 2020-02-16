@@ -10,6 +10,8 @@ from bliss.scanning.writer.file import FileWriter
 
 
 class Writer(FileWriter):
+    FILE_EXTENSION = ""
+
     def __init__(self, root_path, images_root_path, data_filename, *args, **keys):
         FileWriter.__init__(self, root_path, images_root_path, data_filename)
 

@@ -7,8 +7,8 @@
 
 from __future__ import annotations
 from typing import Tuple
+from typing import NamedTuple
 
-import collections
 import numpy
 import scipy.optimize
 
@@ -47,13 +47,22 @@ def _gaussian(x, p):
     return p[3] + p[2] * numpy.exp(-(x - p[0]) ** 2 / (2 * p[1] ** 2))
 
 
-GaussianType = collections.namedtuple(
-    "FwhmType", ["fwhm", "std", "pos_x", "height", "background"]
-)
-"""Description of the gaussian modelization"""
+class GaussianFitResult(NamedTuple):
+    """Description of the gaussian modelization"""
+
+    fwhm: float
+    std: float
+    pos_x: float
+    height: float
+    background: float
+
+    def transform(self, xx: numpy.ndarray) -> numpy.ndarray:
+        """Transform a X array using the fitted function"""
+        p = [self.pos_x, self.std, self.height, self.background]
+        return _gaussian(xx, p)
 
 
-def fit_gaussian(xx: numpy.ndarray, yy: numpy.ndarray) -> GaussianType:
+def fit_gaussian(xx: numpy.ndarray, yy: numpy.ndarray) -> GaussianFitResult:
     """
     Fit `xx` and `yy` curve with a gaussian and returns its characteristics.
     """
@@ -62,8 +71,8 @@ def fit_gaussian(xx: numpy.ndarray, yy: numpy.ndarray) -> GaussianType:
     height = numpy.max(yy) - background
     ipos = numpy.argmax(yy)
     pos = xx[ipos]
-    # FIXME: It would be good to provide a better guess for sigma
-    p0 = [pos, 1, height, background]
+    std = numpy.std(xx)
+    p0 = [pos, std, height, background]
 
     # Distance to the target function
     errfunc = lambda p, x, y: _gaussian(x, p) - y
@@ -74,4 +83,4 @@ def fit_gaussian(xx: numpy.ndarray, yy: numpy.ndarray) -> GaussianType:
     # Compute characteristics
     fit_mean, fit_std, fit_height, fit_background = p1
     fwhm = 2 * numpy.sqrt(2 * numpy.log(2)) * fit_std
-    return GaussianType(fwhm, fit_std, fit_mean, fit_height, fit_background)
+    return GaussianFitResult(fwhm, fit_std, fit_mean, fit_height, fit_background)

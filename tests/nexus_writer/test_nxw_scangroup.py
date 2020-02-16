@@ -19,23 +19,23 @@ def test_nxw_scangroup(nexus_writer_config):
 
 
 def test_nxw_scangroup_alt(nexus_writer_config_alt):
-    _test_nxw_scangroup(**nexus_writer_config_alt, alt=True)
+    _test_nxw_scangroup(**nexus_writer_config_alt)
 
 
 def test_nxw_scangroup_nopolicy(nexus_writer_config_nopolicy):
-    _test_nxw_scangroup(**nexus_writer_config_nopolicy, withpolicy=False)
+    _test_nxw_scangroup(**nexus_writer_config_nopolicy)
 
 
 def test_nxw_scangroup_base(nexus_writer_base):
-    _test_nxw_scangroup(**nexus_writer_base, config=False)
+    _test_nxw_scangroup(**nexus_writer_base)
 
 
 def test_nxw_scangroup_base_alt(nexus_writer_base_alt):
-    _test_nxw_scangroup(**nexus_writer_base_alt, config=False, alt=True)
+    _test_nxw_scangroup(**nexus_writer_base_alt)
 
 
 def test_nxw_scangroup_base_nopolicy(nexus_writer_base_nopolicy):
-    _test_nxw_scangroup(**nexus_writer_base_nopolicy, config=False, withpolicy=False)
+    _test_nxw_scangroup(**nexus_writer_base_nopolicy)
 
 
 @nxw_test_utils.writer_stdout_on_exception
@@ -66,13 +66,21 @@ def _test_nxw_scangroup(session=None, tmpdir=None, writer=None, **kwargs):
     scan_grp.wait_all_subscans(timeout=10)
 
     nxw_test_utils.wait_scan_data_finished(
-        [scan1, scan2, scan_seq.sequence.scan, scan_grp.scan], writer=writer, **kwargs
+        [scan1, scan2, scan_seq.sequence.scan, scan_grp.scan], writer=writer
     )
     nxw_test_data.assert_scan_data(
-        scan1, scan_shape=(npoints,), detectors=["diode3"], **kwargs
+        scan1,
+        scan_shape=(npoints,),
+        positioners=[["elapsed_time", "epoch"]],
+        detectors=["diode3"],
+        **kwargs
     )
     nxw_test_data.assert_scan_data(
-        scan2, scan_shape=(npoints,), detectors=["diode4"], masters=("robx",), **kwargs
+        scan2,
+        scan_shape=(npoints,),
+        positioners=[["robx"]],
+        detectors=["diode4"],
+        **kwargs
     )
     nxw_test_data.assert_scangroup_data(scan_seq.sequence, **kwargs)
     nxw_test_data.assert_scangroup_data(scan_grp, **kwargs)

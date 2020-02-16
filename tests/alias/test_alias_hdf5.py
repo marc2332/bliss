@@ -17,7 +17,7 @@ import h5py
 
 
 def h5dict(scan_file):
-    with h5py.File(scan_file, "r") as f:
+    with h5py.File(scan_file, mode="r") as f:
         items = []
         f.visititems(lambda *args: items.append(args))
         return {

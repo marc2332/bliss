@@ -48,6 +48,8 @@ def local_bliss_test_db():
         os.path.join(bliss.__file__, "..", "..", "tests", "test_configuration")
     )
     if not os.path.isdir(db_path):
+        db_path = os.path.normpath(os.path.join("tests", "test_configuration"))
+    if not os.path.isdir(db_path):
         raise RuntimeError(repr(db_path), " is not the bliss test db")
     return db_path
 
@@ -242,7 +244,35 @@ def lima(env=None, tmpdir=None, name="simulator1"):
 
 
 @contextmanager
-def nexuswriterservice(env=None, tmpdir=None, instance="test"):
+def metaexperiment(env=None, tmpdir=None, name="test"):
+    """
+    ICAT proposal/sample manager
+    """
+    level = logger.getEffectiveLevel()
+    level = log_levels.tango_cli_log_level[level]
+    level = "-v{}".format(level)
+    cliargs = ["MetaExperiment", name, level]
+    with runcontext(cliargs, tmpdir=tmpdir, prefix="metaexperiment_" + name, env=env):
+        tango_online(uri="id00/metaexp/" + name, timeout=10)
+        yield
+
+
+@contextmanager
+def metadatamanager(env=None, tmpdir=None, name="test"):
+    """
+    ICAT dataset manager
+    """
+    level = logger.getEffectiveLevel()
+    level = log_levels.tango_cli_log_level[level]
+    level = "-v{}".format(level)
+    cliargs = ["MetadataManager", name, level]
+    with runcontext(cliargs, tmpdir=tmpdir, prefix="metadatamanager_" + name, env=env):
+        tango_online(uri="id00/metadata/" + name, timeout=10)
+        yield
+
+
+@contextmanager
+def nexuswriterservice(env=None, tmpdir=None, instance="testwriters"):
     """
     Start session writer tango device
     """
@@ -256,7 +286,7 @@ def nexuswriterservice(env=None, tmpdir=None, instance="test"):
         "--nologstdout",
         "--logfile={}".format(logfile),
     ]
-    sessions = ["nexus_writer_config", "nexus_writer_base", "test_session"]
+    sessions = ["nexus_writer_session", "test_session"]
     with runcontext(cliargs, tmpdir=tmpdir, prefix="nexuswriter_" + instance, env=env):
         for session_name in sessions:
             device_name = "id00/bliss_nxwriter/" + session_name
@@ -271,7 +301,7 @@ def nexuswriterprocesses(env=None, tmpdir=None):
     """
     level = logger.getEffectiveLevel()
     level = log_levels.log_level_name[level]
-    sessions = ["nexus_writer_config", "nexus_writer_base", "test_session"]
+    sessions = ["nexus_writer_session", "test_session"]
     with ExitStack() as stack:
         for session in sessions:
             cliargs = ["NexusSessionWriter", session, "--log=" + level]
@@ -291,20 +321,20 @@ def print_env_info(tmpdir, prefix, writer=True):
     if not writer:
         print("\nRun Nexus writer as a python process:")
         print(
-            " {} NexusSessionWriter nexus_writer_config --log=info --logfile={}/NexusSessionWriter.log".format(
+            " {} NexusSessionWriter nexus_writer_session --log=info --logfile={}/NexusSessionWriter.log".format(
                 prefix, tmpdir
             )
         )
         print("\nRun Nexus writer as a TANGO server:")
         print(
-            " {} NexusWriterService test --log=info --logfile={}/NexusWriterService.log".format(
+            " {} NexusWriterService testwriters --log=info --logfile={}/NexusWriterService.log".format(
                 prefix, tmpdir
             )
         )
     print("\nRun Nexus writer stress tests:")
     print(" {} python scripts/testnexus.py --type many".format(prefix))
     print("\nStart CLI to BLISS session:")
-    print(" {} bliss -s nexus_writer_config --no-tmux".format(prefix))
+    print(" {} bliss -s nexus_writer_session --no-tmux".format(prefix))
     print("\nOutput logs:")
     print(" " + tmpdir)
     wait_interrupt("\nCTRL-C to stop the servers")
@@ -332,18 +362,20 @@ if __name__ == "__main__":
 
     with testenv() as tmpdir:
         with beacon(tmpdir=tmpdir, freshdb=args.freshdb) as (env, prefix):
-            with lima(env=env, tmpdir=tmpdir, name="simulator1"):
-                with lima(env=env, tmpdir=tmpdir, name="simulator2"):
-                    if args.writer == "TANGO":
-                        ctx = nexuswriterservice(
-                            env=env, tmpdir=tmpdir, instance="test"
-                        )
-                    elif args.writer == "PROCESS":
-                        ctx = nexuswriterprocesses(env=env, tmpdir=tmpdir)
-                    else:
-                        ctx = None
-                    if ctx is None:
-                        print_env_info(tmpdir, prefix, writer=ctx is not None)
-                    else:
-                        with ctx:
-                            print_env_info(tmpdir, prefix)
+            with metaexperiment(env=env, tmpdir=tmpdir):
+                with metadatamanager(env=env, tmpdir=tmpdir):
+                    with lima(env=env, tmpdir=tmpdir, name="simulator1"):
+                        with lima(env=env, tmpdir=tmpdir, name="simulator2"):
+                            if args.writer == "TANGO":
+                                ctx = nexuswriterservice(
+                                    env=env, tmpdir=tmpdir, instance="testwriters"
+                                )
+                            elif args.writer == "PROCESS":
+                                ctx = nexuswriterprocesses(env=env, tmpdir=tmpdir)
+                            else:
+                                ctx = None
+                            if ctx is None:
+                                print_env_info(tmpdir, prefix, writer=ctx is not None)
+                            else:
+                                with ctx:
+                                    print_env_info(tmpdir, prefix)

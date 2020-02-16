@@ -22,7 +22,7 @@ import h5py
 
 
 def h5dict(scan_file):
-    with h5py.File(scan_file, "r") as f:
+    with h5py.File(scan_file, mode="r") as f:
         items = []
         f.visititems(lambda *args: items.append(args))
         return {
@@ -49,7 +49,7 @@ def test_hdf5_metadata(session):
         s.scan_info["start_timestamp"]
     ).isoformat()
 
-    with h5py.File(s.writer.filename, "r") as f:
+    with h5py.File(s.writer.filename, mode="r") as f:
         dataset = f[s.node.name]
         assert dataset["title"].value == "ascan roby 0 10 10 0.01"
         assert dataset["start_time"].value.startswith(iso_start_time)
@@ -101,7 +101,7 @@ def test_hdf5_values(session):
     s = scans.ascan(roby, 0, 10, 3, 0.01, diode, save=True, return_scan=True)
     scan_file = s.writer.filename
     data = s.get_data()["diode"]
-    f = h5py.File(scan_file)
+    f = h5py.File(scan_file, mode="a")
     dataset = f[s.node.name]["measurement"][
         "simulation_diode_sampling_controller:diode"
     ]
@@ -126,7 +126,7 @@ def test_subscan_in_hdf5(session, lima_simulator, dummy_acq_master, dummy_acq_de
     scan.run()
 
     scan_file = scan.writer.filename
-    f = h5py.File(scan_file)
+    f = h5py.File(scan_file, mode="a")
 
     scan_number, scan_name = scan.node.name.split("_", maxsplit=1)
     scan_index = 1
@@ -146,7 +146,7 @@ def test_image_reference_in_hdf5(alias_session, scan_tmpdir):
 
     s = scans.ascan(env_dict["robyy"], 0, 1, 2, .1, env_dict["lima_simulator"])
 
-    f = h5py.File(s.writer.filename)
+    f = h5py.File(s.writer.filename, mode="a")
     refs = numpy.array(f["1_ascan/measurement/lima_simulator:image"])
 
     assert numpy.array_equal(
@@ -188,7 +188,7 @@ def test_lima_instrument_entry(alias_session, scan_tmpdir):
 
     s = scans.ascan(env_dict["robyy"], 0, 1, 3, .1, env_dict["lima_simulator"])
 
-    f = h5py.File(s.writer.filename)
+    f = h5py.File(s.writer.filename, mode="a")
 
     assert "lima_simulator" in f["1_ascan/instrument/chain_meta/axis/timer/"]
     assert (
@@ -208,7 +208,7 @@ def test_NXclass_of_scan_meta(session, lima_simulator, scan_tmpdir):
     lima_sim = session.config.get("lima_simulator")
 
     s = scans.loopscan(3, .1, lima_sim)
-    with h5py.File(s.writer.filename, "r") as f:
+    with h5py.File(s.writer.filename, mode="r") as f:
         assert f["1_loopscan/scan_meta"].attrs["NX_class"] == "NXcollection"
         assert f["1_loopscan/scan_meta/sample"].attrs["NX_class"] == "NXsample"
         assert (
@@ -231,18 +231,18 @@ def test_scan_info_cleaning(alias_session, scan_tmpdir):
 
     # test that positioners are remaining in for a simple counter that does not update 'scan_info'
     s1 = scans.ascan(robyy, 0, 1, 3, .1, diode)
-    with h5py.File(s1.writer.filename, "r") as f:
+    with h5py.File(s1.writer.filename, mode="r") as f:
         assert "axis" not in f["1_ascan/instrument/chain_meta"]
 
     # test that positioners are remaining in for a counter that updates 'scan_info'
     s2 = scans.ascan(robyy, 0, 1, 3, .1, lima_simulator)
     assert "positioners" in s2.scan_info
-    with h5py.File(s2.writer.filename, "r") as f:
+    with h5py.File(s2.writer.filename, mode="r") as f:
         assert "lima_simulator" in f["2_ascan/instrument/chain_meta/axis/timer"]
 
     # test that 'lima_simulator' does not remain in 'scan_info' for a scan that it is not involved in
     s3 = scans.ascan(robyy, 0, 1, 3, .1, diode)
-    with h5py.File(s3.writer.filename, "r") as f:
+    with h5py.File(s3.writer.filename, mode="r") as f:
         assert "axis" not in f["3_ascan/instrument/chain_meta/"]
 
 
@@ -254,7 +254,7 @@ def test_fill_meta_mechanisms(alias_session, lima_simulator, scan_tmpdir):
     transf = alias_session.config.get("transfocator_simulator")
 
     s = scans.loopscan(3, .1, lima_sim)
-    with h5py.File(s.writer.filename, "r") as f:
+    with h5py.File(s.writer.filename, mode="r") as f:
         assert "lima_simulator" in f["1_loopscan/instrument/chain_meta/timer/"]
         assert (
             "acq_mode"

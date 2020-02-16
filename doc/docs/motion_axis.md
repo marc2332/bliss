@@ -182,27 +182,27 @@ Property name                                       | R/W? | Type   | Descriptio
 ----------------------------------------------------|------|--------|-------------
 [name](motion_axis.md#name)                         | R    | string | Axis name
 [velocity](motion_axis.md#velocity)                 |  R+W | float  | Get or set the axis velocity in *units.s<sup>-1</sup>*
-[config_velocity](motion_axis.md#velocity)          | R    | float  | Returns the nominal velocity value from the configuration
+[config_velocity](motion_axis.md#velocity)          | R    | float  | Return the nominal velocity value from the configuration
 [acceleration](motion_axis.md#acceleration)         | R+W  | float  | Get or set the axis acceleration in *units.s<sup>-2</sup>*
-[config_acceleration](motion_axis.md#acceleration)  | R    | float  | Returns the nominal acceleration value from the configuration
+[config_acceleration](motion_axis.md#acceleration)  | R    | float  | Return the nominal acceleration value from the configuration
 [acctime](motion_axis.md#acceleration)              | R+W  | float  | Get or set the acceleration time; note: depends on both velocity and acceleration ; *acctime = velocity / acceleration*
-[config_acctime](motion_axis.md#acceleration)       | R    | float  | Returns the acceleration time taking into account nominal values for velocity and acceleration
+[config_acctime](motion_axis.md#acceleration)       | R    | float  | Return the acceleration time taking into account nominal values for velocity and acceleration
 [low_limit](motion_axis.md#limits)                  | R+W  | float or None | Get or set the soft low limit **in user units**
 [high_limit](motion_axis.md#limits)                 | R+W  | float or None | Get or set the soft high limit **in user units**
 [limits](motion_axis.md#limits)                     | R+W  | (float or None, float or None) | Get or set soft limits **in user units**
-[config_limits](motion_axis.md#limits)              | R    | (float or None, float or None) | Returns (low_limit, high_limit), from the in-memory configuration **in user units**
+[config_limits](motion_axis.md#limits)              | R    | (float or None, float or None) | Return (low_limit, high_limit), from the in-memory configuration **in user units**
 [steps_per_unit](motion_axis.md#position)           | R    | float | Number of steps to send to the controller to make a *move of 1 unit* (eg. 1 mm, 1 rad)
-[backlash](motion_axis.md#backlash)                 | R    | float | Returns the backlash applied to the axis
-[is_moving](motion_axis.md#is_moving)               | R    | bool  | Returns whether the axis is moving
+[backlash](motion_axis.md#backlash)                 | R    | float | Return the backlash applied to the axis
+[is_moving](motion_axis.md#is_moving)               | R    | bool  | Return whether the axis is moving
 [dial](motion_axis.md#position)                     | R+W  | float | Get or set the axis *dial* position
-[offset](motion_axis.md#position)                   | R    | float | Returns the current offset for user position calculation
-[sign](motion_axis.md#position)                     | R    | int   | Returns the sign for user position calculation
+[offset](motion_axis.md#position)                   | R    | float | Return the current offset for user position calculation
+[sign](motion_axis.md#position)                     | R    | int   | Return the sign for user position calculation
 [position](motion_axis.md#position)                 | R+W  | float | Get or set the axis *user* position ; User position = (sign * dial_position) + offset
-[_hw_position](motion_axis.md#hardware_position)    | R    | float | Returns the controller position for the axis ; *forces a read on the controller*
+[_hw_position](motion_axis.md#hardware_position)    | R    | float | Return the controller position for the axis ; *forces a read on the controller*
 [_set_position](motion_axis.md#hardware_position)   | R+W  | float | Last set position for the axis (target of last move, or current position)
 [tolerance](motion_axis.md#tolerance)               | R    | float | Accepted discrepancy between controller position and last known axis dial position when starting a move ; *defaults to 1E-4*
-[state](motion_axis.md#axis-state)                  | R    | AxisState     | Returns the state of the axis (*MOVING*, *READY*, *ON_LIMIT*, etc)
-[encoder](motion_axis.md#encoder)                   | R    | Encoder[None] | Returns the encoder object associated to this axis
+[state](motion_axis.md#axis-state)                  | R    | AxisState     | Return the state of the axis (*MOVING*, *READY*, *ON_LIMIT*, etc)
+[encoder](motion_axis.md#encoder)                   | R    | Encoder[None] | Return the encoder object associated to this axis
 
 
 ### position
@@ -238,7 +238,7 @@ The user position allows to use a logical reference frame, that does
 not interfere with the motor controller.
 
 ```python
-    user_position = (sign * dial_position) + offset
+user_position = (sign * dial_position) + offset
 ```
 
 Assigning a value to the `.position` property sets the user
@@ -294,10 +294,11 @@ Frequency: 20 ms ?
 * `_hw_position`
 * `_set_position`
 
-
+```python
 m1._hw_position        # just read (no cache), does not update settings
 m1._hw_position = 36   # ---> INVALID
 m1._set_position = 36  # ---> VALID
+```
 
 ### limits
 
@@ -313,7 +314,7 @@ Properties related to limits:
 * `limits` (R+W): Get or set soft limits **in user units**
 * `low_limit` (R+W): Get or set the soft low limit **in user units**
 * `high_limit` (R+W): Get or set the soft high limit **in user units**
-* `config_limits` (R): Returns (low_limit, high_limit), from the in-memory configuration **in user units**
+* `config_limits` (R): Return (low_limit, high_limit), from the in-memory configuration **in user units**
 
 #### Pushing the limits
 
@@ -349,7 +350,7 @@ Low      -90.00000
 Setting the user position creates an offset. USER limits are impacted but not
 DIAL limits.
 
-```
+```python
 DEMO [3]: m4.position = 12
 DEMO [4]: wm(m4)
                 m4
@@ -389,11 +390,16 @@ Changing acceleration:
 
 ### is_moving
 
+Return whether the axis is moving
+
+
 ### tolerance
 
-!!!
+Accepted discrepancy between controller position and last known axis dial
+position when starting a move ; defaults to 1E-4
 
-There is also a tolerance parameter for encoder, see:
+!!! note
+    Do not confuse with [encoder's tolerance parameter](motion_encoder.md)
 
 
 ### encoder

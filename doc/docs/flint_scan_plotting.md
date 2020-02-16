@@ -1,10 +1,14 @@
-
 # Flint Scan Plotting
 
-On BLISS, online data display relies on **flint**, a graphical application built on top of [silx][1] (ScIentific Library for eXperimentalists).
-This application can be started automatically when a new plot is created if the SCAN_DISPLAY variable is properly configured in the BLISS shell.
+On BLISS, online data display relies on **flint**, a graphical application built
+on top of [silx][1] (ScIentific Library for eXperimentalists).
+This application can be started automatically when a new plot is created if the
+`SCAN_DISPLAY` variable is properly configured in the BLISS shell.
 
-Flint listens to scan data source to know if there's something to display. The chart type (*curve*, *scatter plot*, *image*...) is automatically determined using the shape of the data. The data display is updated in real time as it is created.
+Flint listens to scan data source to know if there's something to display.
+The chart type (*curve*, *scatter plot*, *image*...) is automatically determined
+using the kind of the data. The data display is updated in real time as it is
+created.
 
 ```python
 SCAN_DISPLAY.auto=True
@@ -32,7 +36,8 @@ timescan 0.1
 
 Took 0:00:03.367694
 ```
-If automatic display is activated, Flint application will display with three tabs on the bottom of the main window (Curve1, Mca1, Image1).
+If automatic display is activated, Flint application will display with three tabs
+on the bottom of the main window (Curve1, Mca1, Image1).
 
 Curve1 tab:
 

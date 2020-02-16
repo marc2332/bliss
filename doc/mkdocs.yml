@@ -134,12 +134,14 @@ nav:
                 - Data format: data_nexus_format.md
                 - Metadata: data_metadata.md
                 - Online visualization:
-                    - Plotting: flint_scan_plotting.md
-                    - Interaction: flint_interaction.md
+                    - Live scans: flint_scan_plotting.md
+                    - Custom data plotting: flint_data_plotting.md
+                    - Data selection: flint_interaction.md
+                    - Editing Lima ROI counters: flint_roi_counters.md
                     - Debugging: flint_debugging.md
                 - Offline visualization:
                     - Warning: data_vis_warning.md
-                    - Silx: data_vis_silx.md
+                    - Silx-view: data_vis_silx.md
                     - Pymca: data_vis_pymca.md
         - Developers corner:
                 - 'API documentation ⚙|api/index.html': api.md
@@ -171,9 +173,7 @@ nav:
                         - Basic: dev_data_policy_basic.md
                         - Custom: dev_data_policy_custom.md
                     - Nexus writer: dev_data_nexus_server.md
-                    - Flint:
-                        - Editing Lima ROI counters: flint_roi_counters.md
-                        - For scan designers: flint_scan_info.md
+                    - Writing scans to display it on Flint: flint_scan_info.md
                     - ICAT: dev_data_policy_servers.md
                     - Metadata: dev_data_metadata.md
 

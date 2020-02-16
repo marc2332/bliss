@@ -441,105 +441,108 @@ Out [8]: array([ 83., -10., 57., 43., -44., -16., -74., 18., 74., -43.])
 
 ## Online data display
 
-The BLISS online data display relies on **Flint**, a graphical application installed alongside BLISS and built on top of [silx][9].
+The BLISS online data display relies on **Flint**, a graphical application
+installed alongside BLISS and built on top of [silx][9] (scientific library for experimentalists).
 
-**Flint** can be started automatically when a new scan begins, by setting `SCAN_DISPLAY`:
+Flint has 3 mayor capabilities :
 
-`SCAN_DISPLAY.auto = True`
-
-Plots are displayed in the **Live** tab. Depending on the scan acquisition chain, 3 types of plots can be shown:
-
-* 1D plots, showing curves from the scan scalar counters
-* 1D spectra, showing 1D scan counters (like MCA)
-* 2D images, showing 2D data counters (typically, Lima detectors data)
-
-Plots are grouped by the topmost master, i.e. as long as the number of points for a master corresponds to its parent, the plots are attached to this master (recursively, up to the root master if possible).
-If the number of points diverges between 2 masters, then underlying data are represented in
-another set of plot windows.
-There is no limit to the number of windows in the **Live** tab, it depends on the
-scan being executed.
-
-!!! note
-    2D images are always represented in their own plot window.
+* Live scan: plotted data produced by BLISS scans
+* Custom plot: plotted data requested by user scripts (from BLISS)
+* Graphic selection
 
 ### Live scan data in Flint
 
+Live scan plots are displayed on application's main window's **Live** tab.
+
+Flint listens to scans data source and displays it on real time, updating charts
+and plots while it is created. Flint decides which chart or plot type fits the
+best taking into account the nature of the incoming data.
+
+Depending on the scan acquisition chain, 3 types of plots can be shown:
+
+* Curve plot: showing curves from the scan scalar counters
+* Scatter plot: to project in 2D specific 1D data
+* MCA plot: showing MCAs counters (and also for now other kind of 1D data)
+* Image plot, showing 2D data counters (typically Lima detectors' data)
+
+!!! note
+    TBD : This has to be re-written (more clear ??) and moved elsewhere
+    Plots are grouped by the topmost master, i.e. as long as the number of points for a master corresponds to its parent, the plots are attached to this master (recursively, up to the root master if possible).
+    If number of points diverges between 2 masters, then underlying data is represented in another set of plot windows.
+    So, there is no limit to the number of windows in the **Live** tab, it depends on the scan being executed.
+
+**Flint** can be started automatically when a new scan begins (the application
+interface will show up when a scan is launched), by configuring `SCAN_DISPLAY`
+in the BLISS shell:
+
+Example: 
+
 ```python
-BLISS [1]: SCAN_DISPLAY.auto=True
-
-BLISS [2]: timescan(0.1, lima, diode, diode2, simu1.counters.spectrum_det
-         ...: 0, npoints=10)
-Total 10 points, 0:00:01 (motion: 0:00:00, count: 0:00:01)
-Activated counters not shown: spectrum_det0, image
-
-Scan 145 Wed Apr 18 11:24:06 2018 /tmp/scans/ BLISS user = matias
-timescan 0.1
-
-       #         dt(s)        diode2         diode
-       0     0.0219111       12.5556      -9.33333
-       1      0.348005        30.625         0.125
-       2      0.664058       2.88889      -10.2222
-       3      0.973582       7.11111       8.44444
-       4       1.28277       21.7778       36.3333
-       5       1.59305      -15.8889             5
-       6       1.90203       43.4444       19.4444
-       7       2.21207       20.7778       11.6667
-       8       2.52451      -7.88889       24.2222
-       9       2.83371        24.125         7.625
-
-Took 0:00:03.214453 (estimation was for 0:00:01)
-
-BLISS [3]:
+SCAN_DISPLAY.auto=True
+lima = config.get("lima_simulator")
+timescan(0.1, lima, diode, diode2, simu1.counters.spectrum_det1, npoints=10)
 ```
+[Read more about Live Scan](flint_scan_plotting.md)
 
-Flint screenshot:
+### Custom plot in Flint
 
-![Flint screenshot](img/flint_screenshot.png)
+Flint can also display data coming from other sources than a live scan.
+Data created on the BLISS shell like an 1D, and 2D data can be displayed
+in different type of plots selected by user: curve plot, scatter plot, image plot...
 
-### Interacting with plots
-
-BLISS provides tools to interact with plot windows in **Flint**. Each
-scan object has a `.get_plot()` method, that returns a `Plot`
-object. The argument to pass to `.get_plot` is a counter -- thus, the
-plot containing this counter data is returned:
+Example: 
 
 ```python
-TEST_SESSION [8]: s = loopscan(5, 0.1, lima, return_scan=True)
-Total 5 points, 0:00:00.500000 (motion: 0:00:00, count: 0:00:00.500000)
-Activated counters not shown: image
+from bliss.common.plot import *
+import numpy
 
-Scan 2 Wed Apr 18 11:36:11 2018 /tmp/scans/test_session/
-                                test_session user = matias
-timescan 0.1
+xx = numpy.linspace(0, 4*3.14, 50)
+yy = numpy.cos(xx)
 
-       #         dt(s)
-       0      0.959486
-       1        1.0913
-       2       1.23281
-       3       1.36573
-       4       1.50349
+plot(yy, name="My Cosinus Wave")
+```
+[Read more about data plot](flint_data_plotting.md)
 
-Took 0:00:01.666654 (estimation was for 0:00:00.500000)
+### Graphic selection in Flint
 
-TEST_SESSION [9]: p = s.get_plot(lima)
-TEST_SESSION [10]: p
+BLISS provides tools to interact (select points, select shapes) with plot windows
+in **Flint**. Each scan object has a `get_plot()` method, that returns a `Plot`
+object. The argument to pass to `get_plot` is a counter: the plot containing
+this counter data is returned:
+
+```python
+lima = get.config("lima_simulator")
+s = loopscan(5, 0.1, lima, return_scan=True)
+
+p = s.get_plot(lima)
+p
          Out [10]: ImagePlot(plot_id=2, flint_pid=13678, name=u'')
 ```
 
-Starting from the `ImagePlot` object, it is possible to ask user for
-making a rectangular selection for example:
+Starting from the `ImagePlot` object, it is possible to allow the user to
+make a point or a rectangular selection.
 
-`TEST_SESSION [11]: p.select_shape("rectangle")`
+`p.select_shape("rectangle")`
 
-BLISS shell is blocked until user makes a rectangular selection:
-
-![Rectangular selection](img/flint_rect_selection.png)
-
-Then, result is returned by the `.select_shape` method:
-
-` Out [11]: ((278.25146, 716.00623), (623.90546, 401.82913)`
+BLISS shell is blocked until user makes a rectangular selection.
 
 [Read more about interactions with plots](flint_interaction.md)
+
+The BLISS `edit_roi_counters` function is a specifc use case of the Flint
+graphical selection. It allows to edit Lima ROI (*region of interest*),
+creating counters automatically from areas defined by the user with mouse
+dragging.
+
+Example:
+
+```py
+lima_simulator = config.get("lima_simulator")
+edit_roi_counters(lima_simulator, 0.1)
+
+Waiting for ROI edition to finish on lima_simulator [default]...                                                             
+```
+
+[Read more about ROI selection](flint_roi_counters.md)
 
 
 [8]: https://github.com/prompt-toolkit/ptpython

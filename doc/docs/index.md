@@ -464,19 +464,26 @@ TEST_SESSION [8]: data['diode']
 Online data display relies on **Flint**, an application with a graphical user interface
 shipped with BLISS and built on top of [silx][9](ScIentific Library for eXperimentalists).
 
-Flint has 4 mayor capabilities :
+Flint has 3 mayor capabilities :
 
-* Live Scan : plot data as it is created
-* Custom Scan
-* ROI (Region-of-Interest) selection
-* Plot data interaction
+* Live scan: plotted data produced by BLISS scans
+* Custom plot: plotted data requested by user scripts (from BLISS)
+* Graphic selection
 
-Plots are displayed on application's main window's **Live** tab. Depending on the scan acquisition chain, 4 types of plots can be shown:
+### Live scan data in Flint
 
-* 1D plots, showing curves from the scan scalar counters
-* Scatter plots
-* 1D spectra, showing 1D scan counters (like MCA)
-* 2D images, showing 2D data counters (typically, Lima detectors data)
+Live scan plots are displayed on application's main window's **Live** tab.
+
+Flint listens to scans data source and displays it on real time, updating charts
+and plots while it is created. Flint decides which chart or plot type fits the
+best taking into account the nature of the incoming data.
+
+Depending on the scan acquisition chain, 4 types of plots can be shown:
+
+* Curve plot: showing curves from the scan scalar counters
+* Scatter plot: to project in 2D specific 1D data
+* MCA plot: showing MCAs counters (and also for now other kind of 1D data)
+* Image plot, showing 2D data counters (typically Lima detectors' data)
 
 !!! note
     TBD : This has to be re-written (more clear ??) and moved elsewhere
@@ -484,18 +491,9 @@ Plots are displayed on application's main window's **Live** tab. Depending on th
     If number of points diverges between 2 masters, then underlying data is represented in another set of plot windows.
     So, there is no limit to the number of windows in the **Live** tab, it depends on the scan being executed.
 
-!!! note
-    2D images are always represented in their own plot window.
-
-### Live scan data in Flint
-
-Flint listens to scans data source and displays it on real time, updating charts and plots while it is created. Flint decides which chart or plot type fits the best taking into account the nature of the incoming data.
-
-!!! note
-    **Flint** can be started automatically when a new scan begins (the application interface will show up when a scan is launched), by
-    configuring `SCAN_DISPLAY` in the BLISS shell:
-
-    `SCAN_DISPLAY.auto = True`
+**Flint** can be started automatically when a new scan begins (the application
+interface will show up when a scan is launched), by configuring `SCAN_DISPLAY`
+in the BLISS shell:
 
 Example: 
 
@@ -506,9 +504,11 @@ timescan(0.1, lima, diode, diode2, simu1.counters.spectrum_det1, npoints=10)
 ```
 [Read more about Live Scan](flint_scan_plotting.md)
 
-### Data plot in Flint
+### Custom plot in Flint
 
-Flint can also display data coming from other sources than a live scan. Data created on the BLISS shell like an image, scatter, 1D data can be displayed in different type of plots selected by user: curve plot, scatter plot, image plot ...
+Flint can also display data coming from other sources than a live scan.
+Data created on the BLISS shell like an 1D, and 2D data can be displayed
+in different type of plots selected by user: curve plot, scatter plot, image plot...
 
 Example: 
 
@@ -523,24 +523,12 @@ plot(yy, name="My Cosinus Wave")
 ```
 [Read more about data plot](flint_data_plotting.md)
 
-### ROI selection
+### Graphic selection in Flint
 
-Flint can also edit Lima ROI (*Region-Of-Interest*) with the help of the BLISS `edit_roi_counters` function , creating counters automatically from areas defined by the user with mouse dragging.
-
-Example:
-
-```py
-lima_simulator = config.get("lima_simulator")
-edit_roi_counters(lima_simulator, 0.1)
-
-Waiting for ROI edition to finish on lima_simulator [default]...                                                             
-```
-
-[Read more about ROI selection](flint_roi_counters.md)
-
-### Interacting with plots
-
-BLISS provides tools to interact (select points, select shapes) with plot windows in **Flint**. Each scan object has a `.get_plot()` method, that returns a `Plot` object. The argument to pass to `.get_plot` is a counter: the plot containing this counter data is returned:
+BLISS provides tools to interact (select points, select shapes) with plot windows
+in **Flint**. Each scan object has a `get_plot()` method, that returns a `Plot`
+object. The argument to pass to `get_plot` is a counter: the plot containing
+this counter data is returned:
 
 ```python
 lima = get.config("lima_simulator")
@@ -559,6 +547,22 @@ make a point or a rectangular selection.
 BLISS shell is blocked until user makes a rectangular selection.
 
 [Read more about interactions with plots](flint_interaction.md)
+
+The BLISS `edit_roi_counters` function is a specifc use case of the Flint
+graphical selection. It allows to edit Lima ROI (*region of interest*),
+creating counters automatically from areas defined by the user with mouse
+dragging.
+
+Example:
+
+```py
+lima_simulator = config.get("lima_simulator")
+edit_roi_counters(lima_simulator, 0.1)
+
+Waiting for ROI edition to finish on lima_simulator [default]...                                                             
+```
+
+[Read more about ROI selection](flint_roi_counters.md)
 
 
 [8]: https://github.com/prompt-toolkit/ptpython

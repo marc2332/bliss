@@ -47,7 +47,7 @@ class VSCANNER(Controller):
             _ans = "no ans"
             self._status = sys.exc_info()[1]
             log_error(self, self._status)
-        except:
+        except Exception:
             _ans = "no ans"
             self._status = (
                 'communication error : cannot communicate with serial "%s"' % self.comm
@@ -60,7 +60,7 @@ class VSCANNER(Controller):
             self._status += (
                 "VSCANNER found (substring VSCANNER found in answer to ?VER)."
             )
-        except:
+        except Exception:
             self._status = (
                 'communication error : no VSCANNER found on serial "%s"' % self.comm
             )
@@ -84,12 +84,18 @@ class VSCANNER(Controller):
 
         ini_pos = self.read_position(axis)
         if ini_pos < 0:
-            log_info(self, "reseting VSCANNER negative position to 0 !!")
+            lprint(
+                f"WARNING: reseting VSCANNER {axis.chan_letter}"
+                f"negative position ({ini_pos}) to 0 !!"
+            )
             _cmd = "V%s 0" % (axis.chan_letter)
             self.send_no_ans(axis, _cmd)
 
         if ini_pos > 10:
-            log_info(self, "reseting VSCANNER >10-position to 10 !!")
+            lprint(
+                f"WARNING: reseting VSCANNER {axis.chan_letter}"
+                f"wrong position ({ini_pos}) to 10 !!"
+            )
             _cmd = "V%s 10" % (axis.chan_letter)
             self.send_no_ans(axis, _cmd)
 
@@ -375,7 +381,7 @@ class VSCANNER(Controller):
 
     def raw_write_readlines(self, cmd, lines):
         """
-        - Adds '\r\n' terminator to <cmd> string
+        - Add '\r\n' terminator to <cmd> string
         - Send <cmd> string to the controller and read back <lines> lines
         - <cmd>: 'str'
         - <lines>: 'int'

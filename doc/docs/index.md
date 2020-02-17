@@ -503,6 +503,7 @@ SCAN_DISPLAY.auto=True
 lima = config.get("lima_simulator")
 timescan(0.1, lima, diode, diode2, simu1.counters.spectrum_det1, npoints=10)
 ```
+
 [Read more about Live Scan](flint_scan_plotting.md)
 
 ### Data plot in Flint
@@ -544,18 +545,21 @@ Waiting for ROI edition to finish on lima_simulator [default]...
 
 ### Interacting with plots
 
-BLISS provides tools to interact (select points, select shapes...) with plot windows in **Flint**. Each scan object has a `.get_plot()` method, that returns a `Plot` object. The argument to pass to `.get_plot` is a counter: the plot containing this counter data is returned:
+BLISS provides tools to interact (select points, select shapes...) with plots in **Flint**. 
 
 ```python
-lima = get.config("lima_simulator")
-s = loopscan(5, 0.1, lima, return_scan=True)
+from bliss.common.plot import *
+import numpy
 
-p = s.get_plot(lima)
+xx = numpy.linspace(0, 4*3.14, 50)
+yy = numpy.cos(xx)
+
+p = plot(yy, name="Plot 0")
 p
-         Out [10]: ImagePlot(plot_id=2, flint_pid=13678, name=u'')
+         Out [10]: CurvePlot(plot_id=2, flint_pid=13678, name=u'')
 ```
 
-Starting from the `ImagePlot` object, it is possible to allow the user to make a point or a rectangular selection on the graphical application. 
+Starting from the plot object (a `CurvePlot` in this case), it is possible to allow the user to mark a point or to create a rectangular selection on the graphical application. 
 
 `p.select_shape("rectangle")`
 

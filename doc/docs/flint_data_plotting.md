@@ -7,7 +7,6 @@ During a BLISS session users may create data (other than scan data) that needs t
 
 The **bliss.common.plot** module offers several types of plot:
 
-
 ### curve plot
 
 `class CurvePlot(BasePlot)`
@@ -16,9 +15,6 @@ The **bliss.common.plot** module offers several types of plot:
   * plotting of one or several 1D data as curves
   * Optional x-axis data can be provided
   * the plot is created using `plot_curve`
-
-![Screenshot](img/flint_plot_1d_cosinus.png)
-
 
 ### scatter plot
 
@@ -29,7 +25,6 @@ The **bliss.common.plot** module offers several types of plot:
   * each scatter is a group of three 1D data of same length
   * the plot is created using `plot_scatter`
 
-
 ### image plot
 
 `class ImagePlot(BasePlot)`
@@ -37,6 +32,7 @@ The **bliss.common.plot** module offers several types of plot:
   * plots one or several images on top of each other
   * the images order can be controled using a depth parameter
   * the plot is created using `plot_image`
+
 
 ### image + histogram plot
 
@@ -79,8 +75,12 @@ import numpy
 xx = numpy.linspace(0, 4*3.14, 50)
 yy = numpy.cos(xx)
 
-plot(yy, name="My Cosinus Wave")
+plot(yy, name="Plot 0")
 ```
+
+After the execution of these commands, Flint interface will show up, with a main tab named "Plot 0" (below application's main menu) with a plot with a consinus wave on it.
+
+![Screenshot](img/flint_plot_1d_cosinus.png)
 
 We can add extra keyword arguments that are forwarded to silx. and recover a plot object to interact with it lately:
 
@@ -158,6 +158,6 @@ yy = numpy.cos(xx)
 p.add_data(yy, field='cos')
 p.add_data(xx, field='x')
 
-# select x and y data to display
+# select x and y data to display them
 p.select_data('x', 'cos')
 ```

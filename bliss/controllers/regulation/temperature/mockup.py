@@ -28,19 +28,20 @@ class MyDevice:
 
     def __init__(self, name="FakeDevice", config=None):
         self.name = name
-        self.current_temp = 10.  # deg
+        self.current_temp = 1.  # deg
 
         # live temp simulator attributes
         self.cooling_rate = 1.  # deg per sec
         self.heating_rate = 0.  # deg per sec
-        self._cool_down_tasks = None
-        self._stop_cool_down_events = None
+        self._cool_down_task = None
+        self._stop_cool_down_event = gevent.event.Event()
         self._cool_down_task_frequency = 20.0
 
-    def __close__(self):
-        self._stop_cool_down_events.set()
-        with gevent.Timeout(2.0):
-            self._cool_down_tasks.join()
+    def __del__(self):
+        self.close()
+
+    def close(self):
+        self._stop_cooling()
 
     def get_current_temp(self):
         """ read the current temperature (like a sensor) """
@@ -55,19 +56,19 @@ class MyDevice:
         self.heating_rate = heating_rate
 
     def _start_cooling(self):
-        if self._stop_cool_down_events is None:
-            self._stop_cool_down_events = gevent.event.Event()
+        if not self._cool_down_task:
+            self._stop_cool_down_event.clear()
+            self._cool_down_task = gevent.spawn(self._cooling_task)
 
-        if not self._cool_down_tasks:
-            self._cool_down_tasks = gevent.spawn(self._cooling_task)
+    def _stop_cooling(self):
+        if self._cool_down_task is not None:
+            self._stop_cool_down_event.set()
+            with gevent.Timeout(2.0):
+                self._cool_down_task.join()
 
     def _cooling_task(self):
-
-        self._stop_cool_down_events.clear()
-
         last_time = time.time()
-
-        while not self._stop_cool_down_events.is_set():
+        while not self._stop_cool_down_event.is_set():
 
             gevent.sleep(1. / self._cool_down_task_frequency)
 
@@ -184,11 +185,21 @@ class Mockup(Controller):
         self.pids = {}
 
     def __del__(self):
+        self.close()
+
+    def close(self):
+
         for spe in self._stop_pid_events.values():
             spe.set()
 
         for sde in self._stop_cool_down_events.values():
             sde.set()
+
+        with gevent.Timeout(2.0):
+            gevent.joinall(self._pid_tasks.values())
+
+        with gevent.Timeout(2.0):
+            gevent.joinall(self._cool_down_tasks.values())
 
     def initialize_controller(self):
         # host becomes mandatory
@@ -365,16 +376,13 @@ class Mockup(Controller):
         """
         log_debug(self, "Controller:start_regulation: %s" % (tloop))
 
-        if self._stop_cool_down_events.get(tloop.name) is None:
-            self._stop_cool_down_events[tloop.name] = gevent.event.Event()
-
-        if not self._cool_down_tasks.get(tloop.name):
-            self._cool_down_tasks[tloop.name] = gevent.spawn(self._cooling_task, tloop)
+        self._start_cooling(tloop)
 
         if self._stop_pid_events.get(tloop.name) is None:
             self._stop_pid_events[tloop.name] = gevent.event.Event()
 
         if not self._pid_tasks.get(tloop.name):
+            self._stop_pid_events[tloop.name].clear()
             self._pid_tasks[tloop.name] = gevent.spawn(self._pid_task, tloop)
 
     def stop_regulation(self, tloop):
@@ -388,7 +396,10 @@ class Mockup(Controller):
         """
         log_debug(self, "Controller:stop_regulation: %s" % (tloop))
 
-        self._stop_pid_events[tloop.name].set()
+        if self._pid_tasks.get(tloop.name) is not None:
+            self._stop_pid_events[tloop.name].set()
+            with gevent.Timeout(2.0):
+                self._pid_tasks[tloop.name].join()
 
     def read_input(self, tinput):
         """Reading on a Input object"""
@@ -435,9 +446,21 @@ class Mockup(Controller):
 
         return self.pids[tloop.name].setpoint
 
-    def _cooling_task(self, tloop):
+    def _start_cooling(self, tloop):
+        if self._stop_cool_down_events.get(tloop.name) is None:
+            self._stop_cool_down_events[tloop.name] = gevent.event.Event()
 
-        self._stop_cool_down_events[tloop.name].clear()
+        if not self._cool_down_tasks.get(tloop.name):
+            self._stop_cool_down_events[tloop.name].clear()
+            self._cool_down_tasks[tloop.name] = gevent.spawn(self._cooling_task, tloop)
+
+    def _stop_cooling(self, tloop):
+        if self._cool_down_tasks.get(tloop.name) is not None:
+            self._stop_cool_down_events[tloop.name].set()
+            with gevent.Timeout(2.0):
+                self._cool_down_tasks[tloop.name].join()
+
+    def _cooling_task(self, tloop):
 
         tloop.input._attr_dict["last_cool_time"] = time.time()
 
@@ -470,8 +493,6 @@ class Mockup(Controller):
     def _pid_task(self, tloop):
 
         # simulate the PID processes handled by the controller hardware
-
-        self._stop_pid_events[tloop.name].clear()
 
         while not self._stop_pid_events[tloop.name].is_set():
 

@@ -458,20 +458,25 @@ class K2000(BaseMultimeter):
         )
 
 
+class AmmeterDDCCounterController(SamplingCounterController):
+    def __init__(self, name, interface):
+        super().__init__(name)
+        self.interface = interface
+
+    def read_all(self, *counters):
+        for counter in counters:
+            counter._initialize_with_setting()
+        values = self.interface.write_readline(b"X\r\n")
+        return [values]
+
+
 class AmmeterDDC(BeaconObject):
     def __init__(self, config):
         self.__name = config.get("name", "keithley")
         interface = get_comm(config, eol="\r\n")
         super().__init__(config)
 
-        class _CounterController(SamplingCounterController):
-            def read_all(self, *counters):
-                for counter in counters:
-                    counter._initialize_with_setting()
-                values = interface.write_readline(b"X\r\n")
-                return [values]
-
-        self._counter_controller = _CounterController("keithley")
+        self._counter_controller = AmmeterDDCCounterController("keithley", interface)
 
     @property
     def name(self):
@@ -487,6 +492,7 @@ class AmmeterDDC(BeaconObject):
         def __init__(self, config, controller):
             BeaconObject.__init__(self, config)
             SamplingCounter.__init__(self, self.name, controller._counter_controller)
+            self.interface = controller._counter_controller.interface
 
         @property
         def index(self):
@@ -496,10 +502,10 @@ class AmmeterDDC(BeaconObject):
             if self._is_initialized:
                 return
 
-            interface.write(b"F1X\r\n")  # Amp function
-            interface.write(b"B0X\r\n")  # electrometer reading
-            interface.write(b"G1X\r\n")  # Reading without prefix
-            interface.write(b"T4X\r\n")
+            self.interface.write(b"F1X\r\n")  # Amp function
+            self.interface.write(b"B0X\r\n")  # electrometer reading
+            self.interface.write(b"G1X\r\n")  # Reading without prefix
+            self.interface.write(b"T4X\r\n")
             super()._initialize_with_setting()
 
 

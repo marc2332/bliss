@@ -154,7 +154,7 @@ def test_repl_excecute():
         "https://github.com/davidhalter/jedi/issues/1148\n",
         '-         if "" not in sys.path:\n',
         '-             sys.path.insert(0, "")\n',
-        '+                     result_str = f"{info(result)}\\n"  ## patched here!!\n',
+        '+                     result_str = f"{info(result)}\\n"  # patched here!!\n',
         "-                     try:\n",
         '-                         result_str = "%r\\n" % (result,)\n',
         "-                     except UnicodeDecodeError:\n",

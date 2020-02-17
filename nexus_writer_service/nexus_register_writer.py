@@ -85,7 +85,7 @@ def get_uri(p):
 def ensure_existence(
     session_name,
     server="nexuswriter",
-    instance="nexuswriters",
+    instance=None,
     domain=None,
     family="bliss_nxwriter",
     member=None,
@@ -96,7 +96,7 @@ def ensure_existence(
 
     :param str session_name:
     :param str server: device server name
-    :param str instance: device server instance
+    :param str instance: device server instance (Default: `session_name`)
     :param str domain: location of device
     :param str family: type of device
     :param str member: device name (Default: `session_name`)
@@ -108,6 +108,8 @@ def ensure_existence(
         member = session_name
     if not domain:
         domain = beamline()
+    if not instance:
+        instance = session_name
     dev_name = "/".join([domain, family, member])
     if use_existing:
         pdev_name = find_session_writer(session_name, db=db)
@@ -166,9 +168,7 @@ def main():
     parser = argparse.ArgumentParser(
         description="Register Tango device of session writing"
     )
-    parser.add_argument(
-        "session", type=str, default="session", help="Bliss session name"
-    )
+    parser.add_argument("session", type=str, help="Bliss session name")
     parser.add_argument(
         "--server",
         type=str,
@@ -178,8 +178,8 @@ def main():
     parser.add_argument(
         "--instance",
         type=str,
-        default="nexuswriters",
-        help="Server instance name ('nexuswriters' by default)",
+        default="",
+        help="Server instance name (session name by default)",
     )
     parser.add_argument(
         "--domain",
@@ -200,9 +200,9 @@ def main():
         "--ignore_existing",
         action="store_false",
         dest="use_existing",
-        help="Ignore existing writer forthis session",
+        help="Ignore existing writer for this session",
     )
-    logging_utils.add_cli_args(parser)
+    # logging_utils.add_cli_args(parser)
     args, unknown = parser.parse_known_args()
     ensure_existence(
         args.session,

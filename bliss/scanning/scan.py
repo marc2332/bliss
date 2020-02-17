@@ -5,17 +5,13 @@
 # Copyright (c) 2015-2019 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 import enum
-import getpass
 import gevent
 import os
-import string
 import weakref
 import sys
 import time
 import datetime
-import tabulate
 import collections
-import uuid
 import typing
 from functools import wraps
 
@@ -39,10 +35,15 @@ from bliss.config.settings import ParametersWardrobe
 from bliss.config.settings import pipeline
 from bliss.data.node import _get_or_create_node, _create_node, is_zerod
 from bliss.data.scan import get_data
-from bliss.scanning.chain import AcquisitionSlave, AcquisitionMaster, StopChain
+from bliss.scanning.chain import (
+    AcquisitionSlave,
+    AcquisitionMaster,
+    StopChain,
+    CompletedCtrlParamsDict,
+)
 from bliss.scanning.writer.null import Writer as NullWriter
 from bliss.scanning.scan_math import peak, cen, com
-from bliss.scanning import writer
+from bliss.scanning.scan_saving import ScanSaving
 
 from louie import saferef
 
@@ -329,251 +330,6 @@ class _WatchDogTask(gevent.Greenlet):
                     break
 
         self.__watchdog_timer = gevent.spawn(loop, self._callback.timeout)
-
-
-class ScanSaving(ParametersWardrobe):
-    SLOTS = []
-    WRITER_MODULE_PATH = "bliss.scanning.writer"
-
-    def __init__(self, name=None):
-        """
-        This class hold the saving structure for a session.
-
-        This class generate the *root path* of scans and the *parent* node use
-        to publish data.
-
-        The *root path* is generate using *base path* argument as the first part
-        and use the *template* argument as the final part.
-
-        The *template* argument is basically a (python) string format use to
-        generate the final part of the root_path.
-
-        i.e: a template like "{session}/{date}" will use the session and the date attribute
-        of this class.
-
-        Attribute used in this template can also be a function with one argument
-        (scan_data) which return a string.
-
-        i.e: date argument can point to this method
-             def get_date(scan_data): datetime.datetime.now().strftime("%Y/%m/%d")
-             scan_data.add('date',get_date)
-
-        The *parent* node should be use as parameters for the Scan.
-        """
-        # default and not removable values
-        _default_values = {
-            "base_path": "/tmp/scans",
-            "data_filename": "data",
-            "user_name": getpass.getuser(),
-            "template": "{session}/",
-            "images_path_relative": True,
-            "images_path_template": "scan{scan_number}",
-            "images_prefix": "{img_acq_device}_",
-            "date_format": "%Y%m%d",
-            "scan_number_format": "%04d",
-            "_writer_module": "hdf5",
-        }
-        # read only attributes implemented with python properties
-        _property_attributes = [
-            "session",
-            "date",
-            "scan_name",
-            "scan_number",
-            "img_acq_device",
-            "writer",
-        ]
-
-        super().__init__(
-            "scan_saving:%s" % name if name else "scan_saving:%s" % uuid.uuid4().hex,
-            default_values=_default_values,
-            property_attributes=_property_attributes,
-            not_removable=_default_values.keys(),
-        )
-
-    def __dir__(self):
-        keys = super().__dir__()
-        return keys + ["session", "get", "get_path", "get_parent_node", "writer"]
-
-    def __info__(self):
-        d = self._get_instance(self.current_instance)
-        d["scan_name"] = "scan name"
-        d["scan_number"] = "scan number"
-        d["img_acq_device"] = "<images_* only> acquisition device name"
-
-        info_str = super()._repr(d)
-        info_str += self.get_data_info()
-
-        return info_str
-
-    def get_data_info(self):
-        data_config = self.get()
-        info_table = list()
-        if isinstance(data_config["writer"], NullWriter):
-            info_table.append(("NO SAVING",))
-        else:
-            writer = self.get()["writer"]
-            writer.template.update(
-                {
-                    "scan_name": "{scan_name}",
-                    "session": self.session,
-                    "scan_number": "{scan_number}",
-                }
-            )
-            data_file = writer.filename
-            data_dir = os.path.dirname(data_file)
-
-            if os.path.exists(data_file):
-                exists = "exists"
-            else:
-                exists = "does not exist"
-            info_table.append((exists, "filename", data_file))
-
-            if os.path.exists(data_dir):
-                exists = "exists"
-            else:
-                exists = "does not exist"
-            info_table.append((exists, "root_path", data_dir))
-
-        return tabulate.tabulate(tuple(info_table))
-
-    @property
-    def scan_name(self):
-        return "{scan_name}"
-
-    @property
-    def scan_number(self):
-        return "{scan_number}"
-
-    @property
-    def img_acq_device(self):
-        return "{img_acq_device}"
-
-    @property
-    def session(self):
-        """ This give the name of the current session or 'default' if no current session is defined """
-        return current_session.name
-
-    @property
-    def date(self):
-        return time.strftime(self.date_format)
-
-    @property
-    def writer(self):
-        """
-        Scan writer object.
-        """
-        return self._writer_module
-
-    @writer.setter
-    def writer(self, value):
-        try:
-            if value is not None:
-                self._get_writer_class(value)
-        except ImportError as exc:
-            raise ImportError(
-                "Writer module **%s** does not"
-                " exist or cannot be loaded (%s)"
-                " possible module are %s" % (value, exc, writer.__all__)
-            )
-        except AttributeError as exc:
-            raise AttributeError(
-                "Writer module **%s** does have"
-                " class named Writer (%s)" % (value, exc)
-            )
-        else:
-            self._writer_module = value
-
-    def get(self):
-        """
-        This method will compute all configurations needed for a new acquisition.
-        It will return a dictionary with:
-            root_path -- compute root path with *base_path* and *template* attribute
-            images_path -- compute images path with *base_path* and *images_path_template* attribute
-                If images_path_relative is set to True (default), the path
-                template is relative to the scan path, otherwise the
-                image_path_template has to be an absolute path.
-            parent -- DataNodeContainer to be used as a parent for new acquisition
-        """
-        try:
-            template = self.template
-            images_template = self.images_path_template
-            images_prefix = self.images_prefix
-            data_filename = self.data_filename
-            formatter = string.Formatter()
-            cache_dict = self.to_dict(export_properties=True)
-            template_keys = [key[1] for key in formatter.parse(template)]
-
-            for key in template_keys:
-                value = cache_dict.get(key)
-                if callable(value):
-                    value = value(self)  # call the function
-                    cache_dict[key] = value
-            sub_path = template.format(**cache_dict)
-            images_sub_path = images_template.format(**cache_dict)
-            images_prefix = images_prefix.format(**cache_dict)
-            data_filename = data_filename.format(**cache_dict)
-
-            db_path_items = [(self.session, "container")]
-            base_path_items = list(
-                filter(
-                    None,
-                    os.path.normpath(cache_dict.get("base_path")).split(os.path.sep),
-                )
-            )
-            sub_items = os.path.normpath(sub_path).split(os.path.sep)
-            try:
-                if db_path_items[0][0] == sub_items[0]:
-                    del sub_items[0]
-            except IndexError:
-                pass
-            sub_items = base_path_items + sub_items
-            for path_item in sub_items:
-                db_path_items.append((path_item, "container"))
-        except KeyError as keyname:
-            raise RuntimeError("Missing %s attribute in ScanSaving" % keyname)
-        else:
-            path = os.path.join(cache_dict.get("base_path"), sub_path)
-            if self.images_path_relative:
-                images_path = os.path.join(path, images_sub_path, images_prefix)
-            else:
-                images_path = os.path.join(images_sub_path, images_prefix)
-
-            return {
-                "root_path": path,
-                "data_path": os.path.join(path, data_filename),
-                "images_path": images_path,
-                "db_path_items": db_path_items,
-                "writer": self._get_writer_object(path, images_path, data_filename),
-            }
-
-    def get_path(self):
-        """
-        This method return the current saving path.
-        The path is compute with *base_path* and follow the *template* attribute
-        to generate it.
-        """
-        return self.get()["root_path"]
-
-    def get_parent_node(self):
-        """
-        This method return the parent node which should be used to publish new data
-        """
-        db_path_items = self.get()["db_path_items"]
-        parent_node = _get_or_create_node(*db_path_items[0])
-        for item_name, node_type in db_path_items[1:]:
-            parent_node = _get_or_create_node(item_name, node_type, parent=parent_node)
-        return parent_node
-
-    def _get_writer_class(self, writer_module):
-        module_name = "%s.%s" % (self.WRITER_MODULE_PATH, writer_module)
-        writer_module = __import__(module_name, fromlist=[""])
-        return getattr(writer_module, "Writer")
-
-    def _get_writer_object(self, path, images_path, data_filename):
-        if self.writer is None:
-            return
-        klass = self._get_writer_class(self.writer)
-        return klass(path, images_path, data_filename)
 
 
 class ScanDisplay(ParametersWardrobe):
@@ -886,6 +642,8 @@ class Scan:
         scan_config = scan_saving.get()
 
         self._scan_info["save"] = save
+        self._scan_info["data_writer"] = scan_saving.writer
+        self._scan_info["data_policy"] = scan_saving.data_policy
         if save:
             self.__writer = scan_config["writer"]
         else:
@@ -1093,6 +851,41 @@ class Scan:
             else:
                 raise RuntimeError("No axis detected in scan.")
         return master_axes
+
+    def update_ctrl_params(self, ctrl, new_param_dict):
+        if self.state != ScanState.IDLE:
+            raise RuntimeError(
+                "Scan state is not idle. ctrl_params can only be updated before scan starts running."
+            )
+        ctrl_acq_dev = None
+        for acq_dev in self.acq_chain.nodes_list:
+            if ctrl is acq_dev.device:
+                ctrl_acq_dev = acq_dev
+                break
+        if ctrl_acq_dev is None:
+            raise RuntimeError(f"Controller {ctrl} not part of this scan!")
+
+        ## for Bliss 2 we have to see how to make acq_params available systematically
+        potential_new_ctrl_params = ctrl_acq_dev.ctrl_params.copy()
+        potential_new_ctrl_params.update(new_param_dict)
+
+        # invoking the Validator here will only work if we have a
+        # copy of initial acq_params in the acq_obj
+        # ~ if hasattr(ctrl_acq_dev, "acq_params"):
+        # ~ potential_new_ctrl_params = CompletedCtrlParamsDict(
+        # ~ potential_new_ctrl_params
+        # ~ )
+        # ~ ctrl_acq_dev.validate_params(
+        # ~ ctrl_acq_dev.acq_params, ctrl_params=potential_new_ctrl_params
+        # ~ )
+
+        # at least check that no new keys are added
+        if set(potential_new_ctrl_params.keys()) == set(
+            ctrl_acq_dev.ctrl_params.keys()
+        ):
+            ctrl_acq_dev.ctrl_params.update(new_param_dict)
+        else:
+            raise RuntimeError(f"New keys can not be added to ctrl_params of {ctrl}")
 
     def _get_x_y_data(self, counter, axis=None):
         axis_name = self._get_data_axis_name(axis)

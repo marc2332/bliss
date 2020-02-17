@@ -16,23 +16,23 @@ def test_nxw_mtopmaster(nexus_writer_config):
 
 
 def test_nxw_mtopmaster_alt(nexus_writer_config_alt):
-    _test_nxw_mtopmaster(**nexus_writer_config_alt, alt=True)
+    _test_nxw_mtopmaster(**nexus_writer_config_alt)
 
 
 def test_nxw_mtopmaster_nopolicy(nexus_writer_config_nopolicy):
-    _test_nxw_mtopmaster(**nexus_writer_config_nopolicy, withpolicy=False)
+    _test_nxw_mtopmaster(**nexus_writer_config_nopolicy)
 
 
 def test_nxw_mtopmaster_base(nexus_writer_base):
-    _test_nxw_mtopmaster(**nexus_writer_base, config=False)
+    _test_nxw_mtopmaster(**nexus_writer_base)
 
 
 def test_nxw_mtopmaster_base_alt(nexus_writer_base_alt):
-    _test_nxw_mtopmaster(**nexus_writer_base_alt, config=False, alt=True)
+    _test_nxw_mtopmaster(**nexus_writer_base_alt)
 
 
 def test_nxw_mtopmaster_base_nopolicy(nexus_writer_base_nopolicy):
-    _test_nxw_mtopmaster(**nexus_writer_base_nopolicy, config=False, withpolicy=False)
+    _test_nxw_mtopmaster(**nexus_writer_base_nopolicy)
 
 
 @nxw_test_utils.writer_stdout_on_exception
@@ -77,12 +77,12 @@ def _test_aloopscan(session=None, tmpdir=None, writer=None, **kwargs):
     )
 
     nxw_test_utils.run_scan(scan)
-    nxw_test_utils.wait_scan_data_finished([scan], writer=writer, **kwargs)
+    nxw_test_utils.wait_scan_data_finished([scan], writer=writer)
     nxw_test_data.assert_scan_data(
         scan,
         subscan=1,
-        masters=(mot,),
         scan_shape=(npoints1,),
+        positioners=[[mot]],
         detectors=detectors1,
         master_name="subscan1tmr",
         **kwargs
@@ -91,6 +91,7 @@ def _test_aloopscan(session=None, tmpdir=None, writer=None, **kwargs):
         scan,
         subscan=2,
         scan_shape=(npoints2,),
+        positioners=[["elapsed_time", "epoch"]],
         detectors=detectors2,
         master_name="subscan2tmr",
         **kwargs
@@ -131,11 +132,12 @@ def _test_limatimescan(session=None, tmpdir=None, writer=None, **kwargs):
     )
 
     nxw_test_utils.run_scan(scan)
-    nxw_test_utils.wait_scan_data_finished([scan], writer=writer, **kwargs)
+    nxw_test_utils.wait_scan_data_finished([scan], writer=writer)
     nxw_test_data.assert_scan_data(
         scan,
         subscan=1,
         scan_shape=(npoints1,),
+        positioners=[["elapsed_time", "epoch"]],
         detectors=detectors1,
         master_name="subscan1tmr",
         **kwargs
@@ -144,6 +146,7 @@ def _test_limatimescan(session=None, tmpdir=None, writer=None, **kwargs):
         scan,
         subscan=2,
         scan_shape=(npoints2,),
+        positioners=[["elapsed_time", "epoch"]],
         detectors=detectors2,
         master_name="subscan2tmr",
         **kwargs

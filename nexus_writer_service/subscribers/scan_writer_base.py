@@ -43,7 +43,7 @@ cli_saveoptions = {
     "multivalue_positioners": {
         "dest": "multivalue_positioners",
         "action": "store_true",
-        "help": "Allow positioners with multiple values",
+        "help": "Group positioners values",
     },
     "enable_external_nonhdf5": {
         "dest": "allow_external_nonhdf5",
@@ -60,7 +60,7 @@ cli_saveoptions = {
         "action": "store_true",
         "help": "Copy data instead of saving the uri when external linking is disabled",
     },
-    "enable_profiling": {
+    "resource_profiling": {
         "dest": "resource_profiling",
         "action": "store_true",
         "help": "Enable resource profiling",
@@ -191,11 +191,11 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
         self._h5flush_task_period = 0.5  # flushing blocks the gevent loop
 
         # Cache
+        self._filename = None
         self._subscans = set()  # set(Subscan)
         self._devices = {}  # str -> dict(subscan.name:dict)
         self._nxroot = {}  # for recursive calling
         self._nxentry = None  # for recursive calling
-        self._configurable = False
 
     def _listen_event_loop(self, **kwargs):
         """
@@ -219,8 +219,8 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
         """
         super()._event_loop_initialize(**kwargs)
         self.logger.info(
-            "Start writing to {} with options {}".format(
-                repr(self.filename), self.saveoptions
+            "Start writing to {} with options ({}) {}".format(
+                repr(self.filename), self.__class__.__name__, self.saveoptions
             )
         )
 
@@ -228,18 +228,10 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
         """
         Executed at the end of the event loop
         """
-        try:
+        with self._capture_finalize_exceptions():
             self._finalize_hdf5()
-        except BaseException as e:
-            self._set_state(self.STATES.FAULT, e)
-            self.logger.error(
-                "Not properly finalized due to exception:\n{}".format(
-                    traceback.format_exc()
-                )
-            )
-        finally:
-            self.log_progress("Finished writing to {}".format(repr(self.filename)))
-            super()._event_loop_finalize(**kwargs)
+        self.log_progress("Finished writing to {}".format(repr(self.filename)))
+        super()._event_loop_finalize(**kwargs)
 
     def _register_event_loop_tasks(self, nxroot=None, **kwargs):
         """
@@ -263,31 +255,41 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
 
         self.logger.info("Fetch last data")
         for node in self._nodes:
-            self._fetch_data(node, last=True)
+            with self._capture_finalize_exceptions():
+                self._fetch_data(node, last=True)
 
         # Skip because fix length scans can have variable data points
         # self.logger.info(
         #    "Ensure all dataset have the same number of points"
         # )
+        #
         # for subscan in self._enabled_subscans:
-        #    self._ensure_same_length(subscan)
+        #    with self._capture_finalize_exceptions():
+        #        self._ensure_same_length(subscan)
 
         self.logger.info("Link external data (VDS or raw)")
         for node in self._nodes:
-            self._ensure_dataset_existance(node)
+            with self._capture_finalize_exceptions():
+                self._ensure_dataset_existance(node)
 
         self.logger.info("Save detector metadata")
         skip = set()
         for node in self._nodes:
             self._fetch_node_metadata(node, skip)
 
-        self.logger.info("Save scan metadata")
-        for subscan in self._enabled_subscans:
-            self._fetch_subscan_metadata(subscan)
-
         for subscan in self._enabled_subscans:
             self._finalize_subscan(subscan)
             self._mark_done(subscan)
+
+    @contextmanager
+    def _capture_finalize_exceptions(self):
+        try:
+            yield
+        except BaseException as e:
+            self._set_state(self.STATES.FAULT, e)
+            self.logger.error(
+                "Captured finalization exception:\n{}".format(traceback.format_exc())
+            )
 
     def get_subscan_info(self, subscan, key, default=None, cache=False):
         """
@@ -306,14 +308,19 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
         """
         Saving intended for this scan?
         """
-        return self.get_info("save", False)
+        return (
+            self.get_info("save", False)
+            and self.get_info("data_writer", "null") == "nexus"
+        )
 
     @property
     def filename(self):
         """
         HDF5 file name for data
         """
-        return self._filename()
+        if not self._filename:
+            self._filename = scan_utils.scan_filename(self.node)
+        return self._filename
 
     @property
     def uris(self):
@@ -326,32 +333,6 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
 
     def subscan_uri(self, subscan):
         return self.filename + "::/" + self._nxentry_name(subscan)
-
-    def _filename(self, level=0):
-        """
-        HDF5 file name for data and masters
-        """
-        try:
-            filename = self.filenames[level]
-            if not os.path.dirname(filename):
-                self.logger.warning(
-                    "Filename {} has no directory specified".format(repr(filename))
-                )
-                filename = ""
-        except IndexError:
-            filename = ""
-        return filename
-
-    @property
-    def filenames(self):
-        """
-        :returns list: a list of filenames, the first for the dataset
-                       and the others for the masters
-        """
-        if self.save:
-            return scan_utils.scan_filenames(self.node, config=self._configurable)
-        else:
-            return []
 
     @property
     def config_devices(self):
@@ -429,22 +410,25 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
         return "unknown{}D".format(len(node.shape))
 
     @contextmanager
-    def nxroot(self, level=0):
+    def nxroot(self, filename=None):
         """
         Yields the NXroot instance (h5py.File) or None
         when information is missing
         """
-        nxroot = self._nxroot.get(level, None)
+        if not filename:
+            filename = self.filename
+            if not filename:
+                self._h5missing("filename")
+        nxroot = self._nxroot.get(filename, None)
         if nxroot is None:
-            filename = self._filename(level=level)
             if filename:
                 try:
                     with nexus.nxRoot(filename, **self._nxroot_kwargs) as nxroot:
                         try:
-                            self._nxroot[level] = nxroot
+                            self._nxroot[filename] = nxroot
                             yield nxroot
                         finally:
-                            self._nxroot[level] = None
+                            self._nxroot[filename] = None
                 except OSError as e:
                     if nxroot is None and nexus.isLockedError(e):
                         self._exception_is_fatal = True
@@ -452,8 +436,6 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
                     else:
                         raise
             else:
-                self._h5missing("filenames")
-                self._nxroot[level] = None
                 yield None
         else:
             yield nxroot
@@ -467,8 +449,8 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
         }
 
     @contextmanager
-    def _modify_nxroot(self, level=0):
-        with self.nxroot(level=level) as nxroot:
+    def _modify_nxroot(self, filename=None):
+        with self.nxroot(filename=filename) as nxroot:
             if nxroot is None:
                 yield nxroot
             else:
@@ -987,10 +969,14 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
 
         :param Subscan subscan:
         """
-        self._save_positioners(subscan)
-        self._create_plots(subscan)
-        self._fetch_subscan_metadata(subscan)
-        self._fetch_subscan_notes(subscan)
+        with self._capture_finalize_exceptions():
+            self._save_positioners(subscan)
+        with self._capture_finalize_exceptions():
+            self._create_plots(subscan)
+        with self._capture_finalize_exceptions():
+            self._fetch_subscan_metadata(subscan)
+        with self._capture_finalize_exceptions():
+            self._fetch_subscan_notes(subscan)
 
     @property
     def current_bytes(self):
@@ -1466,6 +1452,8 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
                 external = False
             else:
                 newdata, file_format = self._fetch_new_references(nproxy, node)
+                if not file_format:
+                    return
                 external, file_format = self._save_reference_mode(file_format)
             if external:
                 if newdata:
@@ -1592,7 +1580,7 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
         result = []
         for refnode in node.get(rproxy.npoints, -1):
             if refnode.info.get("save"):
-                result += scan_utils.scan_uris(refnode, config=self._configurable)
+                result += scan_utils.scan_uris(refnode)
         return result
 
     def _fetch_new_references(self, dproxy, node):
@@ -1615,12 +1603,15 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
             return uris, file_format0
         try:
             files = dataview._get_filenames(node.info, *imgidx)
-        except BaseException as e:
+        except Exception as e:
+            # Image was not saved (yet)
             dproxy.logger.debug("cannot get image file names: {}".format(e))
             return uris, file_format0
         for uri, suburi, index, file_format in files:
             # Validate format
             file_format = file_format.lower()
+            if file_format.startswith("hdf5"):
+                file_format = "hdf5"
             if file_format0:
                 if file_format != file_format0:
                     raise RuntimeError(
@@ -1650,7 +1641,7 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
         try:
             for data in dataview:
                 lst.append(data)
-        except BaseException as e:
+        except Exception as e:
             # Data is not ready (yet): RuntimeError, ValueError, ...
             dproxy.logger.debug("cannot get image data: {}".format(e))
         return numpy.array(lst)
@@ -1841,7 +1832,7 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
             if scan_meta:
                 try:
                     nexus.dicttonx(scan_meta, parent)
-                except BaseException as e:
+                except Exception as e:
                     self._set_state(self.STATES.FAULT, e)
                     subscan.logger.error(
                         "Scan metadata not saved due to exception:\n{}".format(

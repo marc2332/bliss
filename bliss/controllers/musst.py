@@ -123,7 +123,7 @@ class musst(CounterController):
         def __init__(self, musst, channel_id, type=None, switch=None, switch_name=None):
             self._musst = weakref.ref(musst)
             self._channel_id = channel_id
-            self._mode = None
+            self._mode_number = None
             self._string2mode = {
                 "CNT": self.COUNTER,
                 "ENCODER": self.ENCODER,
@@ -131,16 +131,26 @@ class musst(CounterController):
                 "ADC10": self.ADC10,
                 "ADC5": self.ADC5,
                 "SWITCH": self.SWITCH,
+                "ENC": self.ENCODER,
             }
+            self._mode2string = [
+                "CNT",
+                "ENCODER",
+                "SSI",
+                "ADC10",
+                "ADC5",
+                "SWITCH",
+                "ENC",
+            ]
             if type is not None:
                 if isinstance(type, str):
                     MODE = type.upper()
                     mode = self._string2mode.get(MODE)
                     if mode is None:
                         raise RuntimeError("musst: mode (%s) is not known" % type)
-                    self._mode = mode
+                    self._mode_number = mode
                 else:
-                    self._mode = type
+                    self._mode_number = type
             if switch is not None:
                 # check if has the good interface
                 if switch_name is None:
@@ -160,7 +170,11 @@ class musst(CounterController):
 
         @property
         def mode(self):
-            return self._string2mode.get(self._mode)
+            return self._mode_number
+
+        @property
+        def mode_str(self):
+            return self._mode2string[self._mode_number]
 
         @property
         def value(self):
@@ -184,6 +198,12 @@ class musst(CounterController):
             return musst._string2state.get(status_string)
 
         @property
+        def status_string(self):
+            musst = self._musst()
+            status_string = musst.putget("?CH CH%d" % self._channel_id).split()[1]
+            return status_string
+
+        @property
         def channel_id(self):
             if self._switch is not None:
                 self._switch.set(self._switch_name)
@@ -204,7 +224,7 @@ class musst(CounterController):
 
         def _cnt_cmd(self, cmd):
             self._read_config()
-            if self._mode == self.COUNTER or self._mode == self.ENCODER:
+            if self._mode_number == self.COUNTER or self._mode_number == self.ENCODER:
                 musst = self._musst()
                 musst.putget("CH CH%d %s" % (self._channel_id, cmd))
             else:
@@ -217,28 +237,30 @@ class musst(CounterController):
             """Return channel value, converted according to the configured mode.
             """
             self._read_config()
-            if self._mode == self.COUNTER:
+            if self._mode_number == self.COUNTER:
                 return int(string_value)
-            elif self._mode == self.ADC10:
+            elif self._mode_number == self.ADC10:
                 return int(string_value) * (10. / 0x7fffffff)
-            elif self._mode == self.ADC5:
+            elif self._mode_number == self.ADC5:
                 return int(string_value) * (5. / 0x7fffffff)
             else:  # not managed yet
                 return int(string_value)
 
         def _read_config(self):
             """Read configuration of the current channel from MUSST board to
-            detrtemine the usage mode of the channel.
-            Fill self._mode attribute.
+            determine the usage mode of the channel.
+            Fill self._mode_number attribute.
             """
-            if self._mode is None:
+            if self._mode_number is None:
+                print("_read_config")
                 musst = self._musst()
                 string_config = musst.putget("?CHCFG CH%d" % self._channel_id)
+                print("sc=", string_config)
                 split_config = string_config.split()
-                self._mode = self._string2mode.get(split_config[0])
-                if self._mode == self.ADC10:  # TEST if it's not a 5 volt ADC
+                self._mode_number = self._string2mode.get(split_config[0])
+                if self._mode_number == self.ADC10:  # TEST if it's not a 5 volt ADC
                     if len(split_config) > 1 and split_config[1].find("5") > -1:
-                        self._mode = self.ADC5
+                        self._mode_number = self.ADC5
 
     ADDR = _get_simple_property("ADDR", "Set/query serial line address")
     BTRIG = _get_simple_property(
@@ -440,6 +462,7 @@ class musst(CounterController):
                         "musst: channel type can only be one of: (cnt,encoder,ssi,adc5,adc10,switch)"
                     )
 
+    @lazy_init
     def __info__(self):
         """Default method called by the 'BLISS shell default typing helper'
         """
@@ -447,13 +470,15 @@ class musst(CounterController):
         info_str = f"MUSST card: {self.name}, {version}\n"
         info_str += self._cnx.__info__() + "\n"
         info_str += "CHANNELS:\n"
-        for ii in range(6):
-            ch_idx = ii + 1
-            ch_value, ch_status = self.putget(f"?CH CH{ch_idx}").split(" ")
-            ch_config = self.putget(f"?CHCFG CH{ch_idx}")
-            info_str += (
-                f"         CH{ch_idx} ({ch_status:>4}): {ch_value:>10} -  {ch_config}\n"
-            )
+
+        for (ch_label, chan) in self._channels.items():
+            ch = chan[0]
+            ch_id = ch._channel_id
+            ch_status = ch.status_string
+            ch_value = ch.value
+            ch._read_config()
+            ch_config = ch.mode_str
+            info_str += f"       CH{ch_id} {ch_label:15} ({ch_status:>4}): {ch_value:>10} -  {ch_config}\n"
 
         return info_str
 
@@ -729,6 +754,8 @@ class musst(CounterController):
 
     @lazy_init
     def get_channel_by_name(self, channel_name):
+        """<channel_name>: Label of the channel.
+        """
         channel_name = channel_name.upper()
         channels = self._channels.get(channel_name)
         if channels is None:
@@ -739,6 +766,8 @@ class musst(CounterController):
 
     @lazy_init
     def get_channel_by_names(self, *channel_names):
+        """<channel_names>: Labels of the channels.
+        """
         channels = dict()
         for channel_name in channel_names:
             chans = self._channels.get(channel_name.upper())

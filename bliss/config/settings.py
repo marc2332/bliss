@@ -1200,7 +1200,7 @@ class ParametersType(type):
         return type.__call__(new_cls, *args, **kwargs)
 
     def __new__(cls, name, bases, attrs):
-        attrs["__slots__"] = tuple(attrs["SLOTS"])
+        attrs["__slots__"] = tuple(attrs.get("SLOTS", []))
         return type.__new__(cls, name, bases, attrs)
 
 

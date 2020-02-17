@@ -1,4 +1,10 @@
-"""List all the MCA controllers."""
+"""
+.. autosummary::
+    :toctree:
+
+    handel
+    mythen
+"""
 
 from .base import *
 from .xia import *

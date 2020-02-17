@@ -1,7 +1,14 @@
+# Basic data policy
 
-## Architecture
+This policy is meant for testing only. It does not enforce data structure (file format)
 
-![Screenshot](img/scan_data_flow_path.svg)
+## Summary
+
+To enable the basic data policy
+
+1. Install and run the [Nexus writer](dev_data_nexus_server.md) to write the data in Nexus format (optional)
+
+2. Specify file directory and name using the [SCAN_SAVING](#scan_saving) object in the BLISS session
 
 ## SCAN_SAVING
 
@@ -64,7 +71,7 @@ a dictionary, whose key `root_path` is the final path to scan files.
     - `root_path`: `base_path` + interpolated template
     - `data_path`: fullpath for the *data file* without the extension.
     - `images_path`: path where image device should save (Lima)
-    - `parent`: parent node for publishing data via Redis
+    - `db_path_items`: used to create parent node for publishing data via Redis
     - `writer`: Data file writer object.
 
 !!! note
@@ -75,9 +82,7 @@ a dictionary, whose key `root_path` is the final path to scan files.
 #### SCAN_SAVING writer
 
 `.writer` is a special member of `SCAN_SAVING`; it indicates which
-writer to use for saving data. BLISS only supports the HDF5 file
-format for scan data, although more writers could be added to the
-project later.
+writer to use for saving data. BLISS supports `"hdf5"` (internal writer in BLISS), `"nexus"` (the [Nexus writer](dev_data_nexus_server.md)) and `"null"` (writing disabled).
 
 ### Configuration example
 
@@ -145,43 +150,4 @@ DEMO [12]: SCAN_SAVING.get_path()
 DEMO [13]: SCAN_SAVING.user_name='toto'
 DEMO [14]: SCAN_SAVING.get_path()
  Out [14]: '/data/visitor/unknown/lysozyme'
-```
-
-
-### Programers note
-
-SCAN_SAVING is a `ParametersWardrobe`.
-
-
-from `bliss/common/session.py`:
-```python
-class Session:
-    [...]
-    def setup(self, env_dict=None, verbose=False):
-        [...]
-        env_dict["SCAN_SAVING"] = ScanSaving(self.name)
-```
-
-
-from `bliss/scanning/scan.py`:
-```python
-
-class ScanSaving(ParametersWardrobe):
-    SLOTS = []
-    WRITER_MODULE_PATH = "bliss.scanning.writer"
-    [...]
-
-    def __init__(self, name=None):
-        [...]
-        _default_values = {
-            "base_path": "/tmp/scans",
-            "data_filename": "data",
-            [...]
-
-    def get(self):
-        try:
-            # calculate all parameters
-        except KeyError as keyname:
-            raise RuntimeError("Missing %s attribute in ScanSaving" % keyname)
-
 ```

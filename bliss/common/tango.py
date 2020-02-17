@@ -121,6 +121,8 @@ except ImportError:
 class DeviceProxy(Proxy):
     """A transparent wrapper of DeviceProxy, to make sure TANGO cache is not used by default"""
 
+    __sphinx_skip__ = True
+
     def __init__(self, *args, **kwargs):
         super().__init__(
             functools.partial(_DeviceProxy, *args, **kwargs), init_once=True
@@ -130,6 +132,8 @@ class DeviceProxy(Proxy):
 
 class AttributeProxy(Proxy):
     """A transparent wrapper of AttributeProxy, to make sure TANGO cache is not used by default"""
+
+    __sphinx_skip__ = True
 
     def __init__(self, *args, **kwargs):
         super().__init__(

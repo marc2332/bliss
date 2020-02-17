@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Wago: 
+  - support for special modules `750-403`, `750-506`, `750-507`, `750-508`, `750-637`
+  - create an "extended_mode" (normally not used) to be able to retrieve all
+    information from special modules (status, both input and output). 
+    Activating this mode gives the capability to access those extra information, but
+    could be not compatible with actual ISG protocol and with C++ device server.
+  - `devreadphys` and `devreaddigi` will take values from a cache like is in C++
+    device server, to get instantaneous values use `devreadnocachephys` and
+    `devreadnocachedigi`. This can be used for monitoring without giving more
+    pressure to the Wago. The shell command `get` gives instantaneous values.
 
 - Flint
   - A preferred style can be saved as default for images
@@ -17,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Provide layout menu to allow to setup predefined layouts
   - Provide menu to lock/unlock the layout (by default the layout is locked)
   - Provide workspace to be able to store plot, widget, layout in different environment
+- APC Rack Power Distribution Unit: implemented controller for basic relay functionalities
 
 ### Changed
 

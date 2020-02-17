@@ -95,6 +95,13 @@ def limatimescan(lima, npoints1, expo1, detectors1, npoints2, expo2, detectors2)
     return Scan(chain, "limatimescan", save=True)
 
 
+def limact(lima, expo):
+    """Simple lima image
+    """
+    chain = _lime_ct_chain(name, lima, expo)
+    return Scan(chain, "limact", save=True)
+
+
 def _timer_chain(name, npoints, expo, detectors):
     chain = AcquisitionChain()
     timer_master = SoftwareTimerMaster(expo, npoints=npoints, name=name + "tmr")
@@ -137,6 +144,21 @@ def _lima_chain(name, lima, npoints, expo, detectors):
     return chain
 
 
+def _lime_ct_chain(name, lima, expo):
+    chain = AcquisitionChain()
+    scan_params = {"npoints": 1, "type": "loopscan"}
+    acq_params = {
+        "acq_nb_frames": 10,
+        "acq_expo_time": expo / 10,
+        "acq_mode": "SINGLE",
+        "acq_trigger_mode": "INTERNAL_TRIGGER",
+        "prepare_once": True,
+        "start_once": False,
+    }
+    _add_detectors(chain, None, [lima.image], scan_params, acq_params)
+    return chain
+
+
 def _add_detectors(chain, master, detectors, scan_params, acq_params):
     builder = ChainBuilder(detectors)
     for top_node in builder.get_top_level_nodes():
@@ -149,4 +171,7 @@ def _add_detectors(chain, master, detectors, scan_params, acq_params):
                 scan_params, acq_params
             )
             cnode.set_parameters(acq_params=node_acq_params, ctrl_params=None)
-        chain.add(master, top_node)
+        if master is None:
+            chain.add(top_node)
+        else:
+            chain.add(master, slave=top_node)

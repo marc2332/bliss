@@ -24,6 +24,10 @@
         logical_names: esTr3, esTr4
       - type: 750-517
         logical_names: intlckf1, intlckf2
+      - type: 750-630
+        logical_names: encoder1
+      - type: 750-508
+        logical_names: special_out_1, special_out_2
       - type: 750-554
         logical_names: o10v1, o10v2
       - type: 750-517

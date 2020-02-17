@@ -61,6 +61,7 @@
     - test
     - test_mg
     - thermo_sample
+    - transfocator_simulator
   synoptic:
     svg-file: ./test_synoptic.svg
     elements:

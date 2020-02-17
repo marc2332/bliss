@@ -370,3 +370,28 @@ def test_func_no_args():
 def _repl_out_to_string(out):
     ansi_escape = re.compile(r"\x1B[@-_][0-?]*[ -/]*[@-~]")
     return ansi_escape.sub("", out)
+
+
+def test_nested_property_evaluation():
+    class A:
+        def __init__(self):
+            self.count = 0
+
+        @property
+        def foo(self):
+            self.count += 1
+            return self.count
+
+    class B:
+        def __init__(self):
+            self.a = A()
+
+        @property
+        def bar(self):
+            return self.a
+
+    b = B()
+
+    result, cli, _ = _feed_cli_with_input("b.bar.foo\r", local_locals={"b": b})
+    result, cli, _ = _feed_cli_with_input("b.bar.foo\r", local_locals={"b": b})
+    assert b.bar.foo == 1

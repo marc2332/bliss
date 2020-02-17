@@ -326,7 +326,7 @@ class LimaImageChannelDataNode(DataNode):
                 image_index_in_file = image_nb % nb_image_per_file
                 file_nb = first_file_number + image_nb // nb_image_per_file
                 file_path = path_format % file_nb
-                if file_format == "HDF5":
+                if file_format.lower().startswith("hdf5"):
                     returned_params.append(
                         (file_path, "entry0000", image_index_in_file, file_format)
                     )
@@ -384,9 +384,9 @@ class LimaImageChannelDataNode(DataNode):
             for ref_data in self.ref_data:
                 values = self._get_filenames(ref_data, image_nb)
                 filename, path_in_file, image_index, file_format = values[0]
-
-                if file_format in ("EDF", "EDFGZ", "EDFConcat"):
-                    if file_format == "EDFConcat":
+                file_format = file_format.lower()
+                if file_format.startswith("edf"):
+                    if file_format == "edfconcat":
                         image_index = 0
                     if EdfFile is not None:
                         f = EdfFile(filename)
@@ -396,9 +396,9 @@ class LimaImageChannelDataNode(DataNode):
                             "EdfFile module is not available, "
                             "cannot return image data."
                         )
-                elif file_format == "HDF5":
+                elif file_format.startswith("hdf5"):
                     if h5py is not None:
-                        with h5py.File(filename) as f:
+                        with h5py.File(filename, mode="r") as f:
                             path_in_file = self._default_hdf5_dataset(f)
                             dataset = f[path_in_file]
                             return dataset[image_index]
@@ -570,7 +570,7 @@ class LimaImageChannelDataNode(DataNode):
         file_format = final_ref_data["fileFormat"].lower()
         for next_number in range(final_ref_data["nextNumber"], last_file_number):
             full_path = path_format % next_number
-            if file_format == "hdf5":
+            if file_format.startswith("hdf5"):
                 # @todo see what's is needed for hdf5 dataset link
                 pass
             references.append(full_path)

@@ -27,17 +27,34 @@ to be stored as metadata for the object, for the category.
 The following example adds the position label of a Multiple Position object under the 'Instrument'
 category to each scan metadata:
 
-    ```python
-    from bliss.scanning import scan_meta
+```python
+from bliss.scanning import scan_meta
 
-    scan_meta_obj = scan_meta.get_user_scan_meta()
+scan_meta_obj = scan_meta.get_user_scan_meta()
 
-    # mp is a BLISS Multiple Position object
-    scan_meta_obj.instrument.set(mp, lambda _: { "position_label": mp.position })
-    ```
+# mp is a BLISS Multiple Position object
+scan_meta_obj.instrument.set(mp, lambda _: { "position_label": mp.position })
+```
 
 The function receives the scan object as argument. In the example above, this argument is ignored.
 
 Each subsequent scan will have an 'instrument' section filled with the metadata:
 
 ![Screenshot](img/scan_meta.png)
+
+
+### Examples
+
+Refer to the [Nexus standard](https://manual.nexusformat.org) when adding metadata.
+
+#### Devices
+
+Choose an appropriate [device definition](https://manual.nexusformat.org/classes/base_classes/NXinstrument.html#nxinstrument) from the Nexus standard. For example an attenuator can be added as follows
+
+```python
+scan_meta_obj.instrument.set("myattenuator", {"myattenuator":
+    {"@NX_class":"NXattenuator",
+     "status": "in",
+     "type": "aluminium",
+     "thickness":{"@data":20., "@units": "um"}}})
+```

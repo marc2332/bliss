@@ -111,9 +111,9 @@ def test_meshselect(test_session_with_flint):
     flint = get_flint()
     import logging
 
-    l = logging.getLogger("flint.output")
-    l.disabled = False
-    l.setLevel(logging.INFO)
+    logger = logging.getLogger("flint.output")
+    logger.disabled = False
+    logger.setLevel(logging.INFO)
 
     _scan = amesh(roby, 0, 5, 2, robz, 0, 5, 2, 0.001, diode, diode2)
 
@@ -143,9 +143,9 @@ def test_plotselect(test_session_with_flint):
     flint = get_flint()
     import logging
 
-    l = logging.getLogger("flint.output")
-    l.disabled = False
-    l.setLevel(logging.INFO)
+    logger = logging.getLogger("flint.output")
+    logger.disabled = False
+    logger.setLevel(logging.INFO)
 
     _scan = ascan(roby, 0, 5, 2, 0.001, diode, diode2)
 

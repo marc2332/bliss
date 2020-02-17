@@ -53,3 +53,7 @@ within the transfocator, with incident beam coming from **left to right**.
     - any other value means the opposite, that the first transfocator state switch is wired last 
 * `cmd_mode`: 0 (default) means **first transfocator lens action switch is wired first in Wago** 
     - any other value means the opposite, that the first transfocator action switch is wired last 
+
+### Transfocator Simulator
+
+We can simulate any Transfocator simply changing the yml parameter `class: Transfocator` with `class: TransfocatorMockup`.

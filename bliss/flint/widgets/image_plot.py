@@ -47,6 +47,12 @@ class ImagePlotWidget(ExtendedDockWidget):
     widgetActivated = qt.Signal(object)
 
     plotModelUpdated = qt.Signal(object)
+    """Emitted when the plot model displayed by the plot was changed"""
+
+    scanModelUpdated = qt.Signal(object)
+    """Emitted when the scan model displayed by the plot was changed"""
+
+    plotModelUpdated = qt.Signal(object)
 
     def __init__(self, parent=None):
         super(ImagePlotWidget, self).__init__(parent=parent)
@@ -61,6 +67,7 @@ class ImagePlotWidget(ExtendedDockWidget):
         self.__plot.setActiveCurveStyle(linewidth=2)
         self.__plot.setKeepDataAspectRatio(True)
         self.__plot.setDataMargins(0.1, 0.1, 0.1, 0.1)
+        self.__plot.getYAxis().setInverted(True)
         self.setWidget(self.__plot)
         self.setFocusPolicy(qt.Qt.StrongFocus)
         self.__plot.installEventFilter(self)
@@ -264,6 +271,7 @@ class ImagePlotWidget(ExtendedDockWidget):
             )
             if self.__scan.state() != scan_model.ScanState.INITIALIZED:
                 self.__updateTitle(self.__scan)
+        self.scanModelUpdated.emit(scan)
         self.__redrawAll()
 
     def __clear(self):

@@ -88,10 +88,14 @@ def scan_meta(info=None):
         rd = dict()
         for category, infos in _infos.items():
             for name, values in infos.items():
-                if callable(values):
-                    values = values(scan)
-                cat_dict = rd.setdefault(category.name.lower(), dict())
-                cat_dict.update(values)
+                try:
+                    if callable(values):
+                        values = values(scan)
+                    cat_dict = rd.setdefault(category.name.lower(), dict())
+                    cat_dict.update(values)
+                except Exception as e:
+                    err_msg = f"Invalid field {repr(name)} in category {repr(category.name)} of user scan metadata ({str(e)})"
+                    raise RuntimeError(err_msg) from e
         return rd
 
     attrs["to_dict"] = to_dict

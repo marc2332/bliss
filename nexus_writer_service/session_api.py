@@ -14,12 +14,8 @@ API available in bliss session
 from nexus_writer_service import *
 """
 
-from .utils import data_policy
-from .utils.data_policy import *
-
 from .utils import scan_utils
 from .utils.scan_utils import *
 
 __all__ = []
-__all__.extend(data_policy.__all__)
 __all__.extend(scan_utils.__all__)

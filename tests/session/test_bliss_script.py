@@ -61,8 +61,7 @@ test_session3
 lima_test_session
 test_session
 freddy
-nexus_writer_base
-nexus_writer_config
+nexus_writer_session
 """.split(
             "\n"
         )

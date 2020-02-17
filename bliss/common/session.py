@@ -19,6 +19,8 @@ from bliss.config import static
 from bliss.config.conductor.client import get_text_file, get_python_modules, get_file
 from bliss.common.proxy import Proxy
 from bliss import is_bliss_shell
+from bliss.scanning import scan_saving
+
 
 _SESSION_IMPORTERS = set()
 CURRENT_SESSION = None
@@ -348,6 +350,19 @@ class Session:
     def env_dict(self):
         return self.__env_dict
 
+    def _set_scan_saving_class(self, scan_saving_class):
+        scan_saving.set_scan_saving_class(scan_saving_class)
+
+        self.scan_saving = scan_saving.ScanSaving(self.name)
+        if is_bliss_shell():
+            self.env_dict["SCAN_SAVING"] = self.scan_saving
+
+    def enable_esrf_data_policy(self):
+        self._set_scan_saving_class(scan_saving.ESRFScanSaving)
+
+    def disable_esrf_data_policy(self):
+        self._set_scan_saving_class(None)
+
     def load_script(self, script_module_name, session=None):
         """
         load a script name script_module_name and export all public
@@ -417,11 +432,14 @@ class Session:
         if "load_script" not in env_dict:
             env_dict["load_script"] = self.load_script
 
-        from bliss.scanning.scan import ScanSaving
+        scan_saving_config = self.config.root.get("scan_saving", {})
+        scan_saving_class_name = scan_saving_config.get("class")
+        if scan_saving_class_name is not None:
+            scan_saving_class = getattr(scan_saving, scan_saving_class_name)
+        else:
+            scan_saving_class = None
+        self._set_scan_saving_class(scan_saving_class)
 
-        self.scan_saving = ScanSaving(self.name)
-        if is_bliss_shell():
-            env_dict["SCAN_SAVING"] = self.scan_saving
         env_dict["ALIASES"] = global_map.aliases
 
         from bliss.common.measurementgroup import ACTIVE_MG

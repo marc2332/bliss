@@ -417,7 +417,7 @@ def test_default_chain_with_mca_defaults_parameters(default_session, lima_simula
 # ~ f = h5py.File(
 # ~ os.path.join(
 # ~ os.path.dirname(s.writer.filename), "scan0001", "lima_simulator_0000.h5"
-# ~ )
+# ~ ), mode="a"
 # ~ )
 
 # ~ assert f["entry_0000"]

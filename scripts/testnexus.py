@@ -55,18 +55,13 @@ def get_scan_funcs(test_session):
     }
 
 
-def prepare_saving(test_session, nexus=True, root=None):
+def prepare_saving(test_session, root=None):
     scan_saving = test_session.scan_saving
-    if nexus:
-        scan_saving.writer = "nexus"
-    else:
-        scan_saving.writer = "hdf5"
+    scan_saving.writer = "nexus"
     scan_saving.data_filename = "test"
     if root:
         scan_saving.base_path = root
-    filename = os.path.join(
-        scan_saving.get_path(), scan_saving.data_filename + "_external.h5"
-    )
+    filename = scan_saving.filename
     try:
         os.remove(filename)
     except FileNotFoundError:
@@ -244,12 +239,6 @@ if __name__ == "__main__":
         help="Stress type",
         choices=["many", "data"],
     )
-    parser.add_argument(
-        "--notango",
-        action="store_false",
-        dest="astango",
-        help="Writer is run as a process",
-    )
     parser.add_argument("--root", default="", help="Data root directory")
     parser.add_argument(
         "--readers", default=0, type=int, help="Number of parallel readers"
@@ -266,12 +255,12 @@ if __name__ == "__main__":
         test_func = stress_many_parallel
 
     config = static.get_config()
-    test_session = config.get("nexus_writer_config")
+    test_session = config.get("nexus_writer_session")
     test_session.setup()
     root = args.root
     if not root:
         root = "/tmp/testnexus/" + args.type
-    filename = prepare_saving(test_session, root=root, nexus=args.astango)
+    filename = prepare_saving(test_session, root=root)
     readers = [gevent.spawn(reader, filename, "r") for _ in range(max(args.readers, 0))]
     try:
         titles = []
@@ -279,7 +268,7 @@ if __name__ == "__main__":
         i = 1
         while True:
             gevent.sleep()
-            if test_func(test_session, filename, titles, checkoutput=args.astango):
+            if test_func(test_session, filename, titles):
                 break
             if imax and i == imax:
                 break

@@ -5,7 +5,8 @@ use_directory_urls: false
 nav:
         - Getting started:
                 - BLISS in a nutshell: index.md
-                - Installation: installation.md
+                - BLISS as a library: bliss_as_library.md
+        - Installation: installation.md
         - Configuration:
                 - Beacon:
                       - Introduction: beacon.md
@@ -15,13 +16,15 @@ nav:
                       - Mixed Config and Settings: beacon_object.md
                       - Channels: beacon_channels.md
                       - Static configuration API: beacon_static_api.md
-                      - Log Services: beacon_logservice.md
+                      - Log services: beacon_logservice.md
+                      - Web portal: beacon_webportal.md
                 - BLISS objects:
                       - Object instantiation: config_plugins.md
                       - Sessions: config_sessions.md
                       - Aliases: config_alias.md
                       - Measurement groups: config_mg.md
                 - Devices configuration templates:
+                      - APC: config_apc.md
                       - Motor controllers:
                             - Aerotech: config_aerotech.md
                             - Elmo: config_elmo.md
@@ -44,6 +47,8 @@ nav:
                       - Energy and Wavelength: config_enwl.md
                       - White beam Attenuator: config_wba.md
                       - 2D detectors (Lima): config_lima.md
+                      - SCA:
+                            - Cyberstar: config_cyberstar.md
                       - MCA:
                             - General: config_mca.md
                             - Rontec: config_mca_rontec.md
@@ -53,6 +58,7 @@ nav:
                             - Temperature controllers in Bliss: config_tempctrl.md
                             - Eurotherm: config_eurotherm.md
                             - Keller: config_keller.md
+                            - Keithley 3706: config_keithley_3706.md
                             - Lakeshore: config_lakeshore.md
                             - Meerstetter: config_meerstetter.md
                             - Oxford700: config_oxford700.md
@@ -84,6 +90,7 @@ nav:
                       - Correlators:
                             - Flex: config_correlator_flex.md
                       - VME time frame generator: config_tango_tfg.md
+                      - Elettra / ePicea 4 quadrant diode BPM: config_elettra.md
                 - Tango Device Servers:
                       - Introduction: config_tango_ds.md
                       - Wago Device Server: config_tango_wago.md
@@ -105,8 +112,6 @@ nav:
                 - Measurement groups: config_mg.md
                 - Default scans: scan_default.md
                 - Alignment: scan_alignment.md
-                - Data saving: scan_saving.md
-                - Metadata: scan_metadata.md
                 - Counters on the fly: scan_ctmg.md
                 - BLISS scan engine explained:
                     - Overview: scan_engine.md
@@ -116,7 +121,7 @@ nav:
                     - Preset: scan_engine_preset.md
                     - Watchdog: scan_engine_watchdog.md
                     - Data node: scan_data_node.md
-                - Writing scans: scan_writing.md
+                - Custom scans: scan_writing.md
                 #- Continuous scans: scan_continuous.md
                 - Grouping scans: scan_group.md
         - Instruments:
@@ -124,18 +129,22 @@ nav:
                 - MCA:
                     - MCA: using_mca.md
                 - Shutter: using_shutter.md
-        - Flint: Online data display:
-	  	- Live scans : flint_scan_plotting.md
-                - Data Plotting : flint_data_plotting.md  
-                - Editing Lima ROI counters: flint_roi_counters.md
-                - Interaction with plots: flint_interaction.md
-                - For scan designers: flint_scan_info.md
-                - Debugging: flint_debugging.md
-        - Data publishing:
-                - Data structure & access: data_structure.md
-                - "External saving": data_external_saving.md
+        - Data:
+                - Data policy: data_policy.md
+                - Data format: data_nexus_format.md
+                - Metadata: data_metadata.md
+                - Online visualization:
+                    - Live scans: flint_scan_plotting.md
+                    - Custom data plotting: flint_data_plotting.md
+                    - Data selection: flint_interaction.md
+                    - Editing Lima ROI counters: flint_roi_counters.md
+                    - Debugging: flint_debugging.md
+                - Offline visualization:
+                    - Warning: data_vis_warning.md
+                    - Silx-view: data_vis_silx.md
+                    - Pymca: data_vis_pymca.md
         - Developers corner:
-                - 'API documentation &#8291;|https://bliss.gitlab-pages.esrf.fr/bliss/master/api/index.html': api.md
+                - 'API documentation ⚙|api/index.html': api.md
                 - Guidelines: dev_guidelines.md
                 - Writing documentation: dev_documentation.md
                 - Communication API: dev_comm.md
@@ -155,6 +164,19 @@ nav:
                 - Xia handle: config_mca_handel.md
                 - Speedgoat: config_speedgoat.md
                 - timedisplay: timedisplay.md
+                - Data:
+                    - Architecture: dev_data_architecture.md
+                    - Publishing: dev_data_publishing.md
+                    - Subscribing: dev_data_subscribing.md
+                    - Data policy:
+                        - ESRF: dev_data_policy_esrf.md
+                        - Basic: dev_data_policy_basic.md
+                        - Custom: dev_data_policy_custom.md
+                    - Nexus writer: dev_data_nexus_server.md
+                    - Writing scans to display it on Flint: flint_scan_info.md
+                    - ICAT: dev_data_policy_servers.md
+                    - Metadata: dev_data_metadata.md
+
 theme:
         name: material
         language: en

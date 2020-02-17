@@ -1,21 +1,23 @@
-device:
-- tango_name: 1/1/wagodummy
-  class: Wago
-  properties:
-    Iphost: localhost
-    Protocol: TCP
-    config:
-    - 750-504, foh2ctrl, foh2ctrl, foh2ctrl, foh2ctrl
-    - 750-408, foh2pos, sain2, foh2pos, sain4
-    - 750-408, foh2pos, sain6, foh2pos, sain8
-    - 750-408, pres
-    - 750-469, esTf1, esTf2
-    - 750-469, esTf3, esTf4
-    - 750-469, esTr1, esTr2
-    - 750-469, esTr3, esTr4
-    - 750-517, intlckf1, intlckf2
-    - 750-554, o10v1, o10v2
-    - 750-517, double_out, double_out
-    TCPTimeout: 1000
-personal_name: wago_tg_server
-server: Wago
+- device:
+  - tango_name: 1/1/wagodummy
+    class: Wago
+    properties:
+      Iphost: localhost
+      Protocol: TCP
+      config:
+      - 750-504, foh2ctrl, foh2ctrl, foh2ctrl, foh2ctrl
+      - 750-408, foh2pos, sain2, foh2pos, sain4
+      - 750-408, foh2pos, sain6, foh2pos, sain8
+      - 750-408, pres
+      - 750-469, esTf1, esTf2
+      - 750-469, esTf3, esTf4
+      - 750-469, esTr1, esTr2
+      - 750-469, esTr3, esTr4
+      - 750-517, intlckf1, intlckf2
+      - 750-630, encoder1
+      - 750-508, special_out_1, special_out_2
+      - 750-554, o10v1, o10v2
+      - 750-517, double_out, double_out
+      TCPTimeout: 1000
+  personal_name: wago_tg_server
+  server: Wago

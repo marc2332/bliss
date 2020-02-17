@@ -11,6 +11,7 @@ import os
 import sys
 import functools
 import traceback
+import random
 from contextlib import contextmanager
 from silx.io.dictdump import h5todict
 from bliss.data.scan import watch_session_scans
@@ -30,7 +31,8 @@ def run_scan(scan, runasync=False):
     for node in scan.acq_chain.nodes_list:
         if node.name == "lima_simulator":
             ctrl_params = node.ctrl_params
-            ctrl_params["saving_format"] = "HDF5"
+            saving_format = random.choice(["HDF5", "HDF5GZ"])
+            ctrl_params["saving_format"] = saving_format
             ctrl_params["saving_frame_per_file"] = 3
             ctrl_params["saving_suffix"] = ".h5"
         elif node.name == "lima_simulator2":
@@ -66,27 +68,26 @@ class TimeOutError(Exception):
     pass
 
 
-def _scan_uris(scans, config=True):
+def _scan_uris(scans):
     """
     :param list(bliss.scanning.scan.Scan) scans:
     :returns list:
     """
     uris = []
     for scan in scans:
-        uris += scan_utils.scan_uris(scan, config=config)
+        uris += scan_utils.scan_uris(scan)
     assert uris
     return uris
 
 
-def wait_scan_data_finished(scans, config=True, timeout=10, writer=None, **kwargs):
+def wait_scan_data_finished(scans, timeout=10, writer=None):
     """
     :param list(bliss.scanning.scan.Scan) scans:
-    :param bool config: configurable writer
-    :param num timeout:
     :param PopenGreenlet writer: writer process
+    :param num timeout:
     :param int timeout:
     """
-    uris = _scan_uris(scans, config=config)
+    uris = _scan_uris(scans)
     # print("wait_scan_data_finished: {}".format(uris))
     try:
         with gevent.Timeout(timeout, TimeOutError):
@@ -97,12 +98,12 @@ def wait_scan_data_finished(scans, config=True, timeout=10, writer=None, **kwarg
         on_timeout(writer, uris)
 
 
-def wait_scan_data_exists(scans, config=True, timeout=60, writer=None, **kwargs):
+def wait_scan_data_exists(scans, writer=None, timeout=60):
     """
     :param list(bliss.scanning.scan.Scan) scans:
-    :param bool config: configurable writer
+    :param PopenGreenlet writer: writer process
     """
-    uris = _scan_uris(scans, config=config)
+    uris = _scan_uris(scans)
     # print("wait_scan_data_exists: {}".format(filenames))
     try:
         with gevent.Timeout(timeout, TimeOutError):
@@ -113,15 +114,14 @@ def wait_scan_data_exists(scans, config=True, timeout=60, writer=None, **kwargs)
         on_timeout(writer, uris)
 
 
-def assert_scan_data_not_corrupt(scans, config=True, **kwargs):
+def assert_scan_data_not_corrupt(scans):
     """
     :param list(bliss.scanning.scan.Scan) scans:
-    :param bool config: configurable writer
     """
     filenames = []
     for scan in scans:
         # Only check the main data file, not the masters
-        filenames.append(scan_utils.scan_filenames(scan, config=config)[0])
+        filenames.append(scan_utils.scan_filename(scan))
     for filename in filenames:
         try:
             h5todict(filename)
@@ -141,22 +141,21 @@ def on_timeout(writer, uris):
     assert not uris, uris
 
 
-def assert_scan_data_finished(scans, config=True, **kwargs):
+def assert_scan_data_finished(scans):
     """
     :param list(bliss.scanning.scan.Scan) scans:
     :param bool config: configurable writer
     """
-    uris = _scan_uris(scans, config=config)
+    uris = _scan_uris(scans)
     for uri in uris:
         nexus.nxComplete(uri)
 
 
-def assert_scan_data_exists(scans, config=True, **kwargs):
+def assert_scan_data_exists(scans):
     """
     :param list(bliss.scanning.scan.Scan) scans:
-    :param bool config: configurable writer
     """
-    uris = _scan_uris(scans, config=config)
+    uris = _scan_uris(scans)
     for uri in uris:
         assert nexus.exists(uri), uri
 

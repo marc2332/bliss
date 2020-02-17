@@ -13,7 +13,7 @@
     plugin: bliss
     name: custom_input
     device: $my_device     # <== any kind of object reference (pointing to an object declared somewhere else in a YML config file)
-    unit: eV
+    unit: deg
     
     
 -   
@@ -34,7 +34,7 @@
     plugin: bliss
     name: custom_output
     device: $my_device       # <== any kind of object reference (pointing to an object declared somewhere else in a YML config file)
-    unit: eV
+    unit: W
     low_limit: 0.0           # <== minimum device value [unit]
     high_limit: 100.0        # <== maximum device value [unit]
     ramprate: 0.0            # <== ramprate to reach the output value [unit/s]. 
@@ -44,7 +44,7 @@
     class: ExternalInput      # <== declare an 'ExternalInput' object
     name: diode_input          
     device: $diode            # <== a SamplingCounter object reference (pointing to a counter declared somewhere else in a YML config file)
-    unit: mm
+    unit: N/A
 
 
 -
@@ -63,16 +63,16 @@
     name: soft_regul
     input: $custom_input
     output: $custom_output
-    P: 0.01
-    I: 0.01
+    P: 0.05
+    I: 0.1
     D: 0.0
-    low_limit: -1.0          # <== low limit of the PID output value. Usaually equal to 0 or -1.
+    low_limit: 0.0          # <== low limit of the PID output value. Usaually equal to 0 or -1.
     high_limit: 1.0          # <== high limit of the PID output value. Usaually equal to 1.
     frequency: 10.0
     deadband: 0.1
-    deadband_time: 1.5
+    deadband_time: 3.0
     ramprate: 1.0     
-    wait_mode: ramp  
+    wait_mode: deadband  
 
 - 
     class: SoftLoop          # <== declare a 'SoftLoop' object

@@ -327,6 +327,10 @@ class BaseSocket:
 
 
 class Socket(BaseSocket):
+    def __info__(self):
+        info_str = f"TCP SOCKET:  host={self._host} port={self._port} \n"
+        return info_str
+
     def _connect(self, host, port):
         fd = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         fd.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
@@ -470,6 +474,10 @@ class Command:
 
     def __str__(self):
         return f"{self.__class__.__name__}[{self._host}:{self._port}]"
+
+    def __info__(self):
+        info_str = "TCP COMMAND:  host={self._host} port={self._port} \n"
+        return info_str
 
     @property
     def lock(self):

@@ -16,10 +16,14 @@ Configurable Nexus writer listening to Redis events of a scan
 import os
 import re
 import datetime
+import logging
 from contextlib import contextmanager
 from . import scan_writer_base
 from ..io import nexus
 from ..utils import scan_utils
+
+
+logger = logging.getLogger(__name__)
 
 
 cli_saveoptions = dict(scan_writer_base.cli_saveoptions)
@@ -54,9 +58,10 @@ class NexusScanWriterConfigurable(scan_writer_base.NexusScanWriterBase):
         """
         for option, default in default_saveoptions().items():
             kwargs[option] = kwargs.get(option, default)
+        if kwargs.get("parentlogger") is None:
+            kwargs["parentlogger"] = logger
         super().__init__(*args, **kwargs)
         self._applications = {"appxrf": self._save_application_xrf}
-        self._configurable = True
 
     @property
     def config_writer(self):
@@ -151,7 +156,8 @@ class NexusScanWriterConfigurable(scan_writer_base.NexusScanWriterBase):
         :param Subscan subscan:
         """
         super()._finalize_subscan(subscan)
-        self._save_applications(subscan)
+        with self._capture_finalize_exceptions():
+            self._save_applications(subscan)
 
     def mca_iter(self, subscan):
         """
@@ -530,32 +536,37 @@ class NexusScanWriterConfigurable(scan_writer_base.NexusScanWriterBase):
         if incomplete and notfoundmsg:
             self.logger.warning(notfoundmsg)
 
+    @property
+    def master_files(self):
+        """
+        :returns list(str): 
+        """
+        return list(scan_utils.scan_master_filenames(self.node).values())
+
     def _create_master_links(self, subscan):
         """
         Links to the scan's NXentry
 
         :param Subscan subscan:
         """
-        filenames = self.filenames
-        n = len(filenames)
-        if n <= 1:
+        filenames = self.master_files
+        if not filenames:
             return
-        filenames = filenames[1:]
         with self.nxentry(subscan) as nxentry:
             if nxentry is None:
                 return
             self.logger.info("Create scan links in masters ...")
             linkname, ext = os.path.splitext(os.path.basename(nxentry.file.filename))
             linkname += ": " + nxentry.name[1:]
-            for level in range(1, n):
-                with self.nxroot(level=level) as nxroot:
+            for filename in filenames:
+                with self.nxroot(filename=filename) as nxroot:
                     if nxroot is None:
                         continue
                     if linkname in nxroot:
                         continue
                     self.logger.info(
                         "Create link {} in master {}".format(
-                            repr(linkname), repr(nxroot.file.filename)
+                            repr(linkname), repr(filename)
                         )
                     )
                     lnk = nexus.createLink(nxroot, linkname, nxentry)

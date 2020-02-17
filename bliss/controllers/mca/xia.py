@@ -129,9 +129,10 @@ class BaseXIA(BaseMCA):
 
     def __info__(self):
         info_str = super().__info__()
-        info_str += "XIA configuration file:\n"
-        info_str += f"   - default : {self.default_configuration}\n"
-        info_str += f"   - current : {self.current_configuration}\n"
+        info_str += "XIA:\n"
+        info_str += f"    configuration file:\n"
+        info_str += f"      - default : {self.default_configuration}\n"
+        info_str += f"      - current : {self.current_configuration}\n"
 
         return info_str
 
@@ -565,7 +566,7 @@ class FalconX(BaseXIA):
 
     def __info__(self):
         info_str = super().__info__()
-        info_str += "\nFalconX info:\n"
+        info_str += "\nFALCONX:\n"
 
-        info_str += f"ip address: ???\n"
+        info_str += f"    address: {self.url}\n"
         return info_str

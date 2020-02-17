@@ -2,7 +2,7 @@
 # MCA
 
 
-![MCA classes](img/mca_classes_path.svg)
+![MCA classes](img/mca/mca_classes_path.svg)
 
 
 ## ROIs counters

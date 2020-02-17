@@ -46,7 +46,7 @@ def register_metadata_generators(generators):
     generators.set("instrument", fill_instrument_name)
     generators.set("device_info", fill_device_info)
     generators.set("technique", fill_technique_info)
-    generators.set("filenames", fill_filenames)
+    generators.set("masterfiles", fill_masterfiles)
 
 
 def fill_instrument_name(scan):
@@ -73,12 +73,15 @@ def fill_technique_info(scan):
     return {"technique": current_technique_definition()}
 
 
-def fill_filenames(scan):
+def fill_masterfiles(scan):
     """
     :param bliss.scanning.scan.Scan scan:
     """
-    logger.debug("fill filename info")
-    return {"filenames": scan_utils.current_filenames()}
+    logger.debug("fill master filenames")
+    if scan.scan_info["save"]:
+        return {"masterfiles": scan_utils.session_master_filenames()}
+    else:
+        return {}
 
 
 def fill_device_info(scan):

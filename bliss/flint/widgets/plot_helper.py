@@ -33,6 +33,8 @@ from silx.gui.plot.items.histogram import Histogram
 from silx.gui.plot.items.image import ImageData
 
 from bliss.flint.model import plot_model
+from bliss.flint.model import plot_item_model
+from bliss.flint.model import plot_state_model
 from bliss.flint.model import scan_model
 from bliss.flint.utils import signalutils
 
@@ -96,15 +98,15 @@ class CustomAxisAction(qt.QWidgetAction):
             menu.addAction(action)
 
         menu.addSection("Y-axes")
-        if kind is not "image":
+        if kind == "image":
             action = control.YAxisLogarithmicAction(plot, self)
             action.setText("Log scale")
             menu.addAction(action)
-        if kind is not "mca":
+        if kind == "mca":
             action = control.YAxisInvertedAction(plot, self)
             menu.addAction(action)
 
-        if kind is not "mca":
+        if kind == "mca":
             menu.addSection("Aspect ratio")
             action = CheckableKeepAspectRatioAction(plot, self)
             action.setText("Keep aspect ratio")
@@ -231,10 +233,14 @@ class FlintPlot(PlotWindow):
 
     sigMouseLeft = qt.Signal()
 
+    sigSelectionChanged = qt.Signal(object, object)
+    # FIXME: It have to be provided by silx
+
     def __init__(self, parent=None, backend=None):
         super(FlintPlot, self).__init__(parent=parent, backend=backend)
-        self.sigPlotSignal.connect(self.__limitsChanged)
+        self.sigPlotSignal.connect(self.__plotEvents)
         self.__userInteraction = False
+        self.sigActiveCurveChanged.connect(self.__activeCurveChanged)
 
         toolbars = self.findChildren(qt.QToolBar)
         for tb in toolbars:
@@ -260,7 +266,7 @@ class FlintPlot(PlotWindow):
     def __mouseLeft(self):
         self.sigMouseLeft.emit()
 
-    def __limitsChanged(self, eventDict):
+    def __plotEvents(self, eventDict):
         if eventDict["event"] == "limitsChanged":
             event1 = ViewChangedEvent(self.__userInteraction)
             self.sigViewChanged.emit(event1)
@@ -269,6 +275,15 @@ class FlintPlot(PlotWindow):
                 eventDict["x"], eventDict["y"], eventDict["xpixel"], eventDict["ypixel"]
             )
             self.sigMouseMoved.emit(event2)
+
+    def __activeCurveChanged(self, previous, current):
+        # FIXME: This have to be provided by silx in a much better way
+        if previous is not None:
+            previous = self.getCurve(previous)
+        if current is not None:
+            current = self.getCurve(current)
+        # NOTE: previous and current was swapped
+        self.sigSelectionChanged.emit(current, previous)
 
     def keyPressEvent(self, event):
         with self.userInteraction():
@@ -388,10 +403,9 @@ class FlintCurve(Curve, _FlintItemMixIn):
         yValue = yy[index]
 
         plotItem = self.customItem()
-        if plotItem is not None:
-            assert plotItem.yChannel() is not None and plotItem.xChannel() is not None
-            xName = plotItem.xChannel().displayName(scan)
-            yName = plotItem.yChannel().displayName(scan)
+        if isinstance(plotItem, plot_item_model.CurveMixIn):
+            xName = plotItem.displayName("x", scan)
+            yName = plotItem.displayName("y", scan)
         else:
             plotItem = None
             xName = "X"
@@ -403,6 +417,15 @@ class FlintCurve(Curve, _FlintItemMixIn):
         <li style="white-space:pre">{char} <b>{yName}:</b> {yValue} (index {index})</li>
         <li style="white-space:pre">     <b>{xName}:</b> {xValue}</li>
         """
+
+        if isinstance(plotItem, plot_state_model.GaussianFitItem):
+            result = plotItem.reachResult(scan)
+            if result is not None:
+                text += f"""
+                <li style="white-space:pre">     <b>std dev:</b> {result.fit.std}</li>
+                <li style="white-space:pre">     <b>sigma:</b> {result.fit.pos_x}</li>
+                """
+
         return xValue, yValue, text
 
 

@@ -4,3 +4,4 @@ sphinx
 graphviz
 pygments
 markdown-inline-graphviz
+markdown>=3.2

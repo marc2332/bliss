@@ -245,6 +245,32 @@ class SHexapod(Controller):
         if role not in ROLES:
             raise ValueError("Invalid role {0!r} for axis {1}".format(role, axis.name))
 
+        # on this controller the homing procedure is particular so here
+        # we replace the *axis.home* by the specific homing procedure.
+        def _home():
+            protocol = self.protocol()
+            # start homing
+            protocol.homing()
+            # Wait the procedure to starts
+            gevent.sleep(1)
+            while protocol.system_status.moving:
+                gevent.sleep(0.1)
+            # home_done is not synchronous with moving!!!
+            # Wait a little bit
+            gevent.sleep(0.5)
+            if not protocol.system_status.homing_done:
+                lprint("Home failed check status for more info")
+            # Wait that all axis are in position
+            while True:
+                gevent.sleep(0.2)
+                if protocol.system_status.in_position:
+                    break
+            # Synchronize all hexapod axes.
+            for axis in self.axes.values():
+                axis.sync_hard()
+
+        axis.home = _home
+
     def __get_axis_role(self, axis):
         return axis.config.get("role")
 

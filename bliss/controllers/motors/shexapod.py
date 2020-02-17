@@ -324,7 +324,7 @@ class SHexapod(Controller):
         state = AxisState(state)
         return state
 
-    def get_info(self, axis):
+    def get_axis_info(self, axis):
         return self.protocol().dump()
 
     def read_position(self, axis):

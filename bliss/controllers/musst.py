@@ -471,14 +471,25 @@ class musst(CounterController):
         info_str += self._cnx.__info__() + "\n"
         info_str += "CHANNELS:\n"
 
-        for (ch_label, chan) in self._channels.items():
-            ch = chan[0]
-            ch_id = ch._channel_id
-            ch_status = ch.status_string
-            ch_value = ch.value
-            ch._read_config()
-            ch_config = ch.mode_str
-            info_str += f"       CH{ch_id} {ch_label:15} ({ch_status:>4}): {ch_value:>10} -  {ch_config}\n"
+        # CYRIL [13]: musst_sxm.get_channel(6).status_string
+        #  Out [13]: 'STOP'
+
+        for ii in range(6):
+            ch_idx = ii + 1
+            ch_value, ch_status = self.putget(f"?CH CH{ch_idx}").split(" ")
+            ch_config = self.putget(f"?CHCFG CH{ch_idx}")
+            info_str += (
+                f"         CH{ch_idx} ({ch_status:>4}): {ch_value:>10} -  {ch_config}\n"
+            )
+
+        #        for (ch_label, chan) in self._channels.items():
+        #            ch = chan[0]
+        #            ch_id = ch._channel_id
+        #            ch_status = ch.status_string
+        #            ch_value = ch.value
+        #            ch._read_config()
+        #            ch_config = ch.mode_str
+        #            info_str += f"       CH{ch_id} {ch_label:15} ({ch_status:>4}): {ch_value:>10} -  {ch_config}\n"
 
         return info_str
 

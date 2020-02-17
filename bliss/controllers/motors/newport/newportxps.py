@@ -22,6 +22,7 @@ Bliss controller for XPS-Q motor controller.
 
 controller:
   class: NewportXPS
+  module: newport
   name: xps-q
   description: Newport-Q test
   tcp: 160.103.146.95:5001

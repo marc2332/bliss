@@ -11,8 +11,12 @@ using the kind of the data. The data display is updated in real time as it is
 created.
 
 ```python
+# set SCAN_DISPLAY 
 SCAN_DISPLAY.auto=True
-lima = config.get("lima_simulator")
+
+# get lima and MCA simulation devices from config
+lima = config.get("lima_simulator") 
+simu1 = config.get("simu1")
 
 timescan(0.1, lima, diode, diode2, simu1.counters.spectrum_det1, npoints=10)
 

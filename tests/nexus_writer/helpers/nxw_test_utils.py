@@ -11,6 +11,7 @@ import os
 import sys
 import functools
 import traceback
+import random
 from contextlib import contextmanager
 from silx.io.dictdump import h5todict
 from bliss.data.scan import watch_session_scans
@@ -30,7 +31,8 @@ def run_scan(scan, runasync=False):
     for node in scan.acq_chain.nodes_list:
         if node.name == "lima_simulator":
             ctrl_params = node.ctrl_params
-            ctrl_params["saving_format"] = "HDF5"
+            saving_format = random.choice(["HDF5", "HDF5GZ"])
+            ctrl_params["saving_format"] = saving_format
             ctrl_params["saving_frame_per_file"] = 3
             ctrl_params["saving_suffix"] = ".h5"
         elif node.name == "lima_simulator2":

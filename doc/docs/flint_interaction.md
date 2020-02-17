@@ -1,4 +1,3 @@
-
 # Flint interaction
 
 In order to interact with a given plot, to choose points or regions of interest of different shapes, plot objects propose two methods : `select_point()` and `select_shape()`.
@@ -36,7 +35,7 @@ Example:
 
 BLISS shell is blocked until user makes a rectangular selection:
 
-Once the rectangle is created, back on the BLISS shell, result is returned by the `.select_shape` method:
+Once the rectangle is created, back on the BLISS shell, result is returned by the `select_shape` method:
 
 ```py
 rectangle

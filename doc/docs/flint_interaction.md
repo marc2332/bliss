@@ -1,7 +1,7 @@
 
 # Flint interaction
 
-In order to interact with a given plot, to choose points of regions of interest of different shapes, several methods are provided.
+In order to interact with a given plot, to choose points of regions of interest of different shapes, plot objects propose two methods : `select_point()` and `select_shape()`.
 
 First of all, a plot related to a scan must be created: the scan object's `get_plot()` function will return the plot. The argument of the function is the counter the scan data has been created with.
 

@@ -32,7 +32,7 @@ timescan 0.1
 
 Took 0:00:03.367694
 ```
-If automatic display is activated, Flint application will display with three tabs on the bottom of the main window (Curve1, Mca1, Image1).
+If automatic display is activated, Flint application will show up with three tabs on the bottom of the main window (Curve1, Mca1, Image1).
 
 Curve1 tab:
 

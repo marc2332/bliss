@@ -461,8 +461,7 @@ TEST_SESSION [8]: data['diode']
 
 ## Online data display
 
-Online data display relies on **Flint**, an application with a graphical user interface
-shipped with BLISS and built on top of [silx][9](ScIentific Library for eXperimentalists).
+Online data display relies on **Flint**, an application with a graphical user interface shipped with BLISS and built on top of [silx][9](ScIentific Library for eXperimentalists).
 
 Flint has 4 mayor capabilities :
 
@@ -523,9 +522,14 @@ plot(yy, name="My Cosinus Wave")
 ```
 [Read more about data plot](flint_data_plotting.md)
 
+
+!!! note
+    The architecture of Flint makes it a 'slave' of BLISS: many of its functionnalities must be launched from the BLISS shell, are not available directly from the Flint's graphical interface.
+    The following two sections, "ROI selection" and "Interacting with plot" describe how data from plots can be recovered into BLISS shell.
+
 ### ROI selection
 
-Flint can also edit Lima ROI (*Region-Of-Interest*) with the help of the BLISS `edit_roi_counters` function , creating counters automatically from areas defined by the user with mouse dragging.
+Flint can also edit Lima ROI (*Region-Of-Interest*) with the help of the BLISS `edit_roi_counters` function , creating counters automatically from areas defined by the user with mouse dragging. The output of the function (on the BLISS shell) consist on the geometric data of the different ROIs selected by user.
 
 Example:
 
@@ -540,7 +544,7 @@ Waiting for ROI edition to finish on lima_simulator [default]...
 
 ### Interacting with plots
 
-BLISS provides tools to interact (select points, select shapes) with plot windows in **Flint**. Each scan object has a `.get_plot()` method, that returns a `Plot` object. The argument to pass to `.get_plot` is a counter: the plot containing this counter data is returned:
+BLISS provides tools to interact (select points, select shapes...) with plot windows in **Flint**. Each scan object has a `.get_plot()` method, that returns a `Plot` object. The argument to pass to `.get_plot` is a counter: the plot containing this counter data is returned:
 
 ```python
 lima = get.config("lima_simulator")
@@ -551,12 +555,11 @@ p
          Out [10]: ImagePlot(plot_id=2, flint_pid=13678, name=u'')
 ```
 
-Starting from the `ImagePlot` object, it is possible to allow the user to
-make a point or a rectangular selection.
+Starting from the `ImagePlot` object, it is possible to allow the user to make a point or a rectangular selection on the graphical application. 
 
 `p.select_shape("rectangle")`
 
-BLISS shell is blocked until user makes a rectangular selection.
+BLISS shell will be blocked until user makes a rectangular selection. Again, the output of the function (on the BLISS shell) consist on the geometric data of the different ROIs selected by user.
 
 [Read more about interactions with plots](flint_interaction.md)
 

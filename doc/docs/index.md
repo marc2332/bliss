@@ -458,18 +458,12 @@ Flint listens to scans data source and displays it on real time, updating charts
 and plots while it is created. Flint decides which chart or plot type fits the
 best taking into account the nature of the incoming data.
 
-Depending on the scan acquisition chain, 3 types of plots can be shown:
+Depending on the scan acquisition chain, different types of plots can be shown:
 
 * Curve plot: showing curves from the scan scalar counters
 * Scatter plot: to project in 2D specific 1D data
 * MCA plot: showing MCAs counters (and also for now other kind of 1D data)
 * Image plot, showing 2D data counters (typically Lima detectors' data)
-
-!!! note
-    TBD : This has to be re-written (more clear ??) and moved elsewhere
-    Plots are grouped by the topmost master, i.e. as long as the number of points for a master corresponds to its parent, the plots are attached to this master (recursively, up to the root master if possible).
-    If number of points diverges between 2 masters, then underlying data is represented in another set of plot windows.
-    So, there is no limit to the number of windows in the **Live** tab, it depends on the scan being executed.
 
 **Flint** can be started automatically when a new scan begins (the application
 interface will show up when a scan is launched), by configuring `SCAN_DISPLAY`
@@ -482,11 +476,12 @@ SCAN_DISPLAY.auto=True
 lima = config.get("lima_simulator")
 timescan(0.1, lima, diode, diode2, simu1.counters.spectrum_det1, npoints=10)
 ```
+
 [Read more about Live Scan](flint_scan_plotting.md)
 
 ### Custom plot in Flint
 
-Flint can also display data coming from other sources than a live scan.
+**Flint** can also display data coming from other sources than a live scan.
 Data created on the BLISS shell like an 1D, and 2D data can be displayed
 in different type of plots selected by user: curve plot, scatter plot, image plot...
 
@@ -503,28 +498,35 @@ plot(yy, name="My Cosinus Wave")
 ```
 [Read more about data plot](flint_data_plotting.md)
 
+
 ### Graphic selection in Flint
 
 BLISS provides tools to interact (select points, select shapes) with plot windows
 in **Flint**. Each scan object has a `get_plot()` method, that returns a `Plot`
 object. The argument to pass to `get_plot` is a counter: the plot containing
-this counter data is returned:
+this counter data is returned.
+
+
+!!! note
+    The architecture of Flint makes it a 'slave' of BLISS: many of its functionnalities must be launched from the BLISS shell, are not available directly from the Flint's graphical interface.
 
 ```python
-lima = get.config("lima_simulator")
-s = loopscan(5, 0.1, lima, return_scan=True)
+from bliss.common.plot import *
+import numpy
 
-p = s.get_plot(lima)
+xx = numpy.linspace(0, 4*3.14, 50)
+yy = numpy.cos(xx)
+
+p = plot(yy, name="Plot 0")
 p
-         Out [10]: ImagePlot(plot_id=2, flint_pid=13678, name=u'')
+         Out [10]: CurvePlot(plot_id=2, flint_pid=13678, name=u'')
 ```
 
-Starting from the `ImagePlot` object, it is possible to allow the user to
-make a point or a rectangular selection.
+Starting from the plot object (a `CurvePlot` in this case), it is possible to allow the user to mark a point or to create a rectangular selection on the graphical application. 
 
 `p.select_shape("rectangle")`
 
-BLISS shell is blocked until user makes a rectangular selection.
+BLISS shell will be blocked until user makes a rectangular selection. Again, the output of the function (on the BLISS shell) consist on the geometric data of the different ROIs selected by user.
 
 [Read more about interactions with plots](flint_interaction.md)
 

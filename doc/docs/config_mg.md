@@ -1,13 +1,24 @@
 # Measurement groups
 
-A measurement group is a logical container for counters. The idea is to bind a set of counters together, for a detector, an experiment or an entire hutch. Measurement groups can be passed to scans, in order to tell which data acquisition channels will be recorded.
+A measurement group is a logical container for counters. The idea is to bind a
+set of counters together, for a detector, an experiment or an entire
+hutch. Measurement groups can be passed to scans, in order to tell which data
+acquisition channels will be recorded.
 
-User can enable or disable counters interactively at runtime, in order to select the active counters within the measurement group.
+User can enable or disable counters interactively at runtime, in order to select
+the active counters within the measurement group.
 
-In addition to enabling or disabling counters, measurement group objects can also manage **states**: a state corresponds to enabled and disabled counters associated with a name. The default state is called `default`. 
+In addition to enabling or disabling counters, measurement group objects can
+also manage **states**: a state corresponds to enabled and disabled counters
+associated with a name. The default state is called `default`.
 
-The possibility to define several measurement groups, each with different states managing lists of enabled and disabled counters gives a lot of flexibility.
-An example use case for measurement group states is for diagnostics: it is possible to disable some counters during an alignment and, in case of problem, to switch to a state where diagnostic counters are enabled, independently of the counters selected by the user in the default state.
+The possibility to define several measurement groups, each with different states
+managing lists of enabled and disabled counters gives a lot of flexibility.
+
+An example use case for measurement group states is for diagnostics: it is
+possible to disable some counters during an alignment and, in case of problem,
+to switch to a state where diagnostic counters are enabled, independently of the
+counters selected by the user in the default state.
 
 ## Defining measurement groups in Beacon configuration
 
@@ -17,6 +28,7 @@ is possible to configure those:
 * directly in a session YAML file
 * somewhere else with `plugin: session`
 
+Example:
 ```yaml
   - class: MeasurementGroup
     plugin: session
@@ -30,26 +42,40 @@ is possible to configure those:
 ```
 
 !!! note
-    Do not forget to associate measurement groups to sessions, by adding measurement groups to a session `config-objects` list (like any other object)
+    Do not forget to associate measurement groups to sessions, by adding
+    measurement groups to a session `config-objects` list (like any other
+    object)
 
-`counters` must be a list of **names**, corresponding to `Counter` objects or to **counter container** objects. Valid names include:
+`counters` must be a list of **names**, corresponding to `Counter` objects or to
+**counter container** objects. Valid names include:
 
 - counter fullnames, from the output of `lscnt()`
 
 ```
-Fullname                                    Shape    Controller                            Name    Alias                                                      
-------------------------------------------  -------  ------------------------------------  ------  -------                                                    
-simulation_diode_sampling_controller:diode  0D       simulation_diode_sampling_controller  diode
+Fullname                       Shape    Controller               Name    Alias
+-----------------------------  -------  -----------------------  ------  -------
+sim_diode_sampling_ctrl:diode  0D       sim_diode_sampling_ctrl  diode
 ```
 
-- counter object names, for the counters that exists individually in configuration
-- counter container names from configuration, for example a Lima controller name
-- counter aliases
+* counter object names, for the counters that exists individually in configuration
+* counter container names from configuration, for example a Lima controller name
+* counter aliases
+
+Example:
+```yaml
+- class: MeasurementGroup
+  plugin: session
+  name: MG_sim
+  counters:
+  - sim_ct_1
+  - simulation_counter_controller:sim_ct_2   <------ full name
+```
+
 
 ### Nesting measurement groups
 
-Counters of a measurement group can be included into another
-measurement group using `include` keyword in the YML file:
+Counters of a measurement group can be included into another measurement group
+using `include` keyword in the YML file:
 
 ```yaml
 - class: MeasurementGroup
@@ -66,16 +92,15 @@ measurement group using `include` keyword in the YML file:
 Once a measurement group is added to a session, it can be used from the shell.
 
 ```python
-DEMO [1]: MG1                                                                            
- Out [1]: MeasurementGroup: MG1 (state='default')                                        
-                - Existing states : 'default'                                                
-                                                                                               
-                Enabled                                      Disabled
-                -------------------------------------------  --------------------------------
------------
-                simulation_diode_sampling_controller:diode   
-                simulation_diode_sampling_controller:diode2  
-                simulation_diode_sampling_controller:diode3 
+DEMO [1]: MG1
+ Out [1]: MeasurementGroup: MG1 (state='default')
+        - Existing states : 'default'
+
+        Enabled                          Disabled
+        -------------------------------  --------------------
+        sim_diode_sampling_ctrl:diode
+        sim_diode_sampling_ctrl:diode2
+        sim_diode_sampling_ctrl:diode3
 ```
 
 ### Properties
@@ -84,8 +109,10 @@ DEMO [1]: MG1
 * `.active_state_name`: returns the current, active state for this measurement group
 * `.state_names`: returns the list of valid states for this measurement group
 * `.available`: returns the set of available counter names for the measurement group
-* `.enabled`: returns the set of enabled counter names (a subset of `.available`) for the current active state
-* `.disabled`: returns the set of disabled counter names (a subset of `.available`) for the current active state
+* `.enabled`: returns the set of enabled counter names (a subset of
+  `.available`) for the current active state
+* `.disabled`: returns the set of disabled counter names (a subset of
+  `.available`) for the current active state
 
 ### Switching states
 
@@ -169,8 +196,8 @@ MeasurementGroup:  align_counters (diag_mono)
 
 ### Enabling or disabling counters
 
-The `.enable(pattern)` method can be used to enable counters within the current state of the
-measurement group:
+The `.enable(pattern)` method can be used to enable counters within the current
+state of the measurement group:
 
 *pattern* accepts Unix-like wildcard characters:
 
@@ -184,7 +211,10 @@ measurement group:
     - match counters whose name or fullname starts with `pico`
 
 !!! note
-    Default counters are the ones that are considered more common or the more useful for a controller. In the case of Lima controllers, for example, BPM counters are not included by default. This is also because the position calculation is costly and people do not want it generally.
+    Default counters are the ones that are considered more common or the
+    more useful for a controller. In the case of Lima controllers, for example,
+    BPM counters are not included by default. This is also because the position
+    calculation is costly and people do not want it generally.
 
 ## Default measurement group
 
@@ -244,10 +274,12 @@ or `ct` procedure to indicate which counters to use:
 
 ```python
 DEMO [2]: MG1.available
- Out [2]: {'simulation_diode_sampling_controller:diode', 'simulation_diode_sampling_controller:diode3', 'simulation_diode_sampling_controller:diode2'}
+ Out [2]: {'sim_diode_sampling_ctrl:diode',
+           'sim_diode_sampling_ctrl:diode3',
+           'sim_diode_sampling_ctrl:diode2'}
 
 DEMO [3]: MG2.available
- Out [3]: {'simulation_diode_sampling_controller:diode4'}
+ Out [3]: {'sim_diode_sampling_ctrl:diode4'}
 
 DEMO [4]: timescan(0.1, MG1, MG2, npoints=3)
 
@@ -263,7 +295,9 @@ Took 0:00:00.395435
 
 ## Adding or removing counters
 
-Counters can be added to a measurement group dynamically. It adds the counter in the set of available counters for the measurement group. By default, the counter is enabled:
+Counters can be added to a measurement group dynamically. It adds the counter in
+the set of available counters for the measurement group. By default, the counter
+is enabled:
 
 ```python
 DEMO [4]: MG1
@@ -305,5 +339,6 @@ DEMO [8]: MG1
 
 !!! note
     Added counters **are not saved in the YML file**. This is runtime only.
-    Only **dynamically added counters** can be removed ; it is not possible to remove a counter that was made available through the YML configuration.
+    Only **dynamically added counters** can be removed ; it is not possible to
+    remove a counter that was made available through the YML configuration.
 

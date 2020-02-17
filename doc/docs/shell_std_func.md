@@ -1,10 +1,7 @@
 # BLISS shell standard functions
 
-use :
-
-` from bliss.shell.standard import *`
-
-to get access to standard shell functions.
+Standard shell functions are automatically accessible in shell of any BLISS
+session.
 
 ## motors
 
@@ -31,7 +28,7 @@ DEMO [13]: umv(simot1, 1, spec_m3, 4)
 ```
 
 ### mvr (relative move)
-`mvr([<motor>, <position>]+)`: moves motor(s) relatively to current positions.
+`mvr([<motor>, <position>]+)`: move motor(s) relatively to current positions.
 
 ```python
 DEMO [5]: wa()
@@ -77,7 +74,7 @@ m1
 ```
 
 ### wm (where motor)
-`wm([<mot_name>]+)`: Shows user, dial and offset values of positions and limits
+`wm([<mot_name>]+)`: Show user, dial and offset values of positions and limits
 for given motor(s).
 
 ```python
@@ -97,11 +94,34 @@ Low      -456.00000  -456.00000
 ```
 
 ### sync
-`sync([<motor>]*)`: Forces axes synchronization with the hardware. If no axis is
+`sync([<motor>]*)`: Force axes synchronization with the hardware. If no axis is
   given, it syncs all all axes present in the session
 
 ```python
 DEMO [38]: sync(simot1)
+```
+
+### sta (all motors status)
+`sta()`: Show status of all configured motors.
+
+```python
+DEMO [13]: sta()
+Axis     Status
+-------  ----------------------
+pzth     <status not available>
+simot1   READY (Axis is READY)
+spec_m3  READY (Axis is READY)
+```
+
+### stm (motors status)
+`stm(<mot>)`: Show status of motors given as parameters.
+
+```python
+DEMO [3]: stm(mm1, mm2)
+Axis    Status
+------  ---------------------
+mm1     READY (Axis is READY)
+mm2     READY (Axis is READY)
 ```
 
 
@@ -128,22 +148,11 @@ simul_mca.deadtime_det0  0D       simul_mca
 simul_mca.deadtime_det1  0D       simul_mca
 ```
 
-### sta (motors status)
-sta()`: Shows status of configured motors
-
-```python
-DEMO [13]: sta()
-Axis     Status
--------  ----------------------
-pzth     <status not available>
-simot1   READY (Axis is READY)
-spec_m3  READY (Axis is READY)
-```
 
 ## introspection, doc, logging
 
 
-### logbook print ###
+### logbook print
 
 The `lprint` function is a replacement for python standard `print` function
 that sends what is given to both stdout and to the logbook.
@@ -155,7 +164,7 @@ You can use `lprint` even when using Bliss in library mode: no output will
 be send to stdout, but messages will be forwarded to logbook.
 
 ### prdef (print definition)
-`prdef(<function>)`: Displays information about given function :
+`prdef(<function>)`: Display information about given function :
  definition file, docstring and source code.
 
 ```python

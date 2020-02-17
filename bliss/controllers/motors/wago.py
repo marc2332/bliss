@@ -15,7 +15,6 @@ class WagoMotor(Controller):
 
         self.axis_settings.config_setting["velocity"] = False
         self.axis_settings.config_setting["acceleration"] = False
-        self.axis_settings.config_setting["steps_per_unit"] = False
 
         global_map.register(self, parents_list=[self.wago], children_list=[*self.axes])
 
@@ -33,7 +32,7 @@ class WagoMotor(Controller):
             (
                 self.wago.controller.devname2key(logical_name),
                 logical_channel,
-                motion.user_target_pos,
+                motion.target_pos,
             )
         )
 

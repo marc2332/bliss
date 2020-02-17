@@ -11,23 +11,27 @@ from bliss.common.axis import AxisState
 
 def test_wago_motor(session):
     dacm1 = session.config.get("dacm1")
-    dacm1.move(3)
-    assert 3 == pytest.approx(dacm1.position, .001)
-    dacm1.move(5)
-    assert 5 == pytest.approx(dacm1.position, .001)
+    pos = 300
+    dacm1.move(pos)
+    assert pos == pytest.approx(dacm1.position, 1)
+    pos = 2000
+    dacm1.move(pos)
+    assert pos == pytest.approx(dacm1.position, 1)
     dacm1.state == AxisState("READY")
 
     dacm2 = session.config.get("dacm1")
-    dacm2.move(2)
-    assert 2 == pytest.approx(dacm2.position, .001)
-    dacm2.move(7)
-    assert 7 == pytest.approx(dacm2.position, .001)
+    pos = 5000
+    dacm2.move(pos)
+    assert pos == pytest.approx(dacm2.position, 1)
+    pos = 7000
+    dacm2.move(pos)
+    assert pos == pytest.approx(dacm2.position, pos)
     dacm2.state == AxisState("READY")
 
 
 def test_wago_motor_limits(session):
     dacm1 = session.config.get("dacm1")
     with pytest.raises(ValueError):
-        dacm1.move(20)
+        dacm1.move(20000)
     with pytest.raises(ValueError):
         dacm1.move(-1)

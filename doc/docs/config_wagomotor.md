@@ -19,14 +19,16 @@ controller:
     logical_name: o10v1
     logical_channel: 0
     low_limit: 0
-    high_limit: 10
-    unit: V
+    high_limit: 10000
+    steps_per_unit: 0.001
+    unit: mV
   - name: dacm2
     logical_name: o10v2
     logical_channel: 0
     low_limit: 0
-    high_limit: 10
-    unit: V
+    high_limit: 10000
+    steps_per_unit: 0.001
+    unit: mV
 ```
 
 Axes names should correspond to `logical_devices` configured in the
@@ -34,5 +36,3 @@ wago itself. If there are multiple channels defined with the same name be sure t
 
 
 There is no need to specify `velocity`, `acceleration` as this does not make sense (changes of output are always made at the maximum speed).
-
-In the current implementation it is not possible to specify `steps_per_unit`.

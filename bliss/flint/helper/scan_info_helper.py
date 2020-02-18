@@ -413,8 +413,10 @@ def create_plot_model(
             plot.addItem(item)
             result.append(plot)
 
+    # Final process
+
     if default_plot is not None:
-        # Move the default plot on to
+        # Move the default plot on top
         result.remove(default_plot)
         result.insert(0, default_plot)
 

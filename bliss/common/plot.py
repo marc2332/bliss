@@ -476,7 +476,13 @@ def get_flint(start_new=False, creation_allowed=True):
     if check_redis:
         pid = _get_flint_pid_from_redis(session_name)
         if pid is not None:
-            return attach_flint(pid)
+            try:
+                return attach_flint(pid)
+            except:
+                FLINT_LOGGER.error(
+                    "Impossible to attach Flint to the already existing PID %s", pid
+                )
+                raise
 
     if not creation_allowed:
         return None

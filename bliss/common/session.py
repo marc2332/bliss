@@ -10,15 +10,16 @@ import sys
 import warnings
 import collections
 import functools
-from treelib import Tree
-from bliss.common.logtools import log_warning
 
-from bliss import setup_globals, global_map
-from types import ModuleType
+from treelib import Tree
+from types import ModuleType, SimpleNamespace
+
+from bliss import setup_globals, global_map, is_bliss_shell
 from bliss.config import static
+from bliss.config.settings import SimpleSetting
 from bliss.config.conductor.client import get_text_file, get_python_modules, get_file
 from bliss.common.proxy import Proxy
-from bliss import is_bliss_shell
+from bliss.common.logtools import log_warning
 from bliss.scanning import scan_saving
 
 
@@ -160,6 +161,7 @@ class Session:
         self.__map = None
         self.__log = None
         self.__scans = collections.deque(maxlen=20)
+        self.__user_script_homedir = None
 
         self.init(config_tree)
 
@@ -410,6 +412,142 @@ class Session:
             finally:
                 sys.meta_path.remove(importer)
 
+    def _create_user_script_home(self):
+        self.__user_script_homedir = SimpleSetting("%s:script_home" % self.name)
+
+    def _get_user_script_home(self):
+        if self.__user_script_homedir is None:
+            self._create_user_script_home()
+        return self.__user_script_homedir.get()
+
+    def _set_user_script_home(self, dir):
+        if self.__user_script_homedir is None:
+            self._create_user_script_home()
+        self.__user_script_homedir.set(dir)
+
+    def _clear_user_script_home(self):
+        if self.__user_script_homedir is None:
+            self._create_user_script_home()
+        self.__user_script_homedir.clear()
+
+    def user_script_homedir(self, new_dir=None, clear=False):
+        """Set or get local user script home directory"""
+        if clear:
+            self._clear_user_script_home()
+        elif new_dir is not None:
+            if not os.path.isabs(new_dir):
+                raise RuntimeError(f"Directory path must be absolute [{new_dir}]")
+            if not os.path.isdir(new_dir):
+                raise RuntimeError(f"Invalid directory [{new_dir}]")
+            self._set_user_script_home(new_dir)
+        else:
+            return self._get_user_script_home()
+
+    def user_script_list(self):
+        """List python scripts from user script home directory"""
+        rootdir = self._get_user_script_home()
+        if not rootdir:
+            print(
+                "First, you need to set a directory with `user_script_homedir(path_to_dir)`"
+            )
+            raise RuntimeError("User scripts home directory not configured")
+        if not os.path.isdir(rootdir):
+            raise RuntimeError(f"Invalid directory [{rootdir}]")
+
+        print(f"List of python scripts in [{rootdir}]:")
+        for (dirpath, dirnames, filenames) in os.walk(rootdir):
+            dirname = dirpath.replace(rootdir, "")
+            dirname = dirname.lstrip(os.path.sep)
+            for filename in filenames:
+                _, ext = os.path.splitext(filename)
+                if ext != ".py":
+                    continue
+                print(f" - {os.path.join(dirname, filename)}")
+
+    def user_script_load(self, scriptname=None, export_global=False):
+        """
+        load a script and export all public (= not starting with _)
+        objects and functions to the returned namespace.
+        (or optionnaly can export to the current environment.
+        /!\ Use with caution: risk of overwriting important stuff)
+        (exceptions are printed but not thrown)
+
+        Args:
+            scriptname: the python file to load (can be an absolute path or relative to script_homedir)
+            export_global (default: False): whether to export to session or return a namespace
+        """
+        return self._user_script_exec(
+            scriptname, return_namespace=True, export_global=export_global
+        )
+
+    def user_script_run(self, scriptname=None):
+        """
+        Execute a script without exporting objects or functions to current environment.
+        (exceptions are printed but not thrown)
+
+        Args:
+            scriptname: the python file to run (can be an absolute path or relative to script_homedir)
+        """
+        self._user_script_exec(scriptname, return_namespace=False)
+
+    def _user_script_exec(
+        self, scriptname, return_namespace=False, export_global=False
+    ):
+        if not scriptname:
+            self.user_script_list()
+            return
+
+        if os.path.isabs(scriptname):
+            filepath = scriptname
+        else:
+            if not self._get_user_script_home():
+                print(
+                    "First, you need to set a directory with `user_script_homedir(path_to_dir)`"
+                )
+                raise RuntimeError("User scripts home directory not configured")
+
+            homedir = os.path.abspath(self._get_user_script_home())
+            filepath = os.path.join(homedir, scriptname)
+
+        _, ext = os.path.splitext(scriptname)
+        if not ext:
+            filepath += ".py"
+        if not os.path.isfile(filepath):
+            raise RuntimeError(f"Cannot find [{filepath}] !")
+        try:
+            script = open(filepath).read()
+        except Exception:
+            raise RuntimeError(f"Failed to read [{filepath}] !")
+
+        if return_namespace is True:
+            print(f"Loading [{filepath}]...")
+        else:
+            print(f"Running [{filepath}]...")
+
+        globals_dict = self.env_dict.copy()
+
+        try:
+            exec(script, globals_dict)
+        except Exception:
+            sys.excepthook(*sys.exc_info())
+
+        if export_global is True:
+            for k in globals_dict.keys():
+                if k.startswith("_"):
+                    continue
+                self.env_dict[k] = globals_dict[k]
+
+        elif return_namespace is True:
+            env_dict = dict()
+            for k in globals_dict.keys():
+                if k.startswith("_"):
+                    continue
+                env_dict[k] = globals_dict[k]
+            return SimpleNamespace(**env_dict)
+
+        else:
+            return None
+
     def setup(self, env_dict=None, verbose=False):
         if get_current_session() is None:
             set_current_session(self, force=True)
@@ -458,6 +596,15 @@ class Session:
             child_session._setup(env_dict, nested=True)
 
         self._setup(env_dict)
+
+        if "user_script_homedir" not in env_dict:
+            env_dict["user_script_homedir"] = self.user_script_homedir
+        if "user_script_list" not in env_dict:
+            env_dict["user_script_list"] = self.user_script_list
+        if "user_script_load" not in env_dict:
+            env_dict["user_script_load"] = self.user_script_load
+        if "user_script_run" not in env_dict:
+            env_dict["user_script_run"] = self.user_script_run
 
     def _setup(self, env_dict, nested=False):
         if self.setup_file is None:

@@ -295,41 +295,24 @@ class ManageMainBehaviours(qt.QObject):
         # Reuse/create and connect the widgets
         availablePlots = list(plots)
         widgets = flintModel.workspace().widgets()
-        if isCt:
-            # Remove plots which are already displayed
-            names: Set[str] = set([])
-            for widget in widgets:
-                plotModel = widget.plotModel()
-                if plotModel is not None:
-                    channels = model_helper.getChannelNamesDisplayedAsValue(plotModel)
-                    names.update(channels)
+        for widget in widgets:
+            plots = self.__getCompatiblePlots(widget, availablePlots)
+            if len(plots) == 0:
+                # Do not update the widget (scan and plot stays as previous state)
+                continue
 
-            for p in list(availablePlots):
-                channels = set(model_helper.getChannelNamesDisplayedAsValue(p))
-                if len(channels - names) == 0:
-                    # All the channels are already displayed
-                    availablePlots.remove(p)
-        else:
-            for widget in widgets:
-                plots = self.__getCompatiblePlots(widget, availablePlots)
-                if len(plots) == 0:
-                    # Do not update the widget (scan and plot stays as previous state)
-                    continue
+            plotModel = plots[0]
+            availablePlots.remove(plotModel)
 
-                plotModel = plots[0]
-                availablePlots.remove(plotModel)
-
-                if updatePlotModel:
-                    if plotModel.styleStrategy() is None:
-                        plotModel.setStyleStrategy(
-                            DefaultStyleStrategy(self.__flintModel)
-                        )
-                    previousWidgetPlot = widget.plotModel()
-                    if previousWidgetPlot is not None:
-                        workspace.removePlot(previousWidgetPlot)
-                    workspace.addPlot(plotModel)
-                    widget.setPlotModel(plotModel)
-                widget.setScan(scan)
+            if updatePlotModel:
+                if plotModel.styleStrategy() is None:
+                    plotModel.setStyleStrategy(DefaultStyleStrategy(self.__flintModel))
+                previousWidgetPlot = widget.plotModel()
+                if previousWidgetPlot is not None:
+                    workspace.removePlot(previousWidgetPlot)
+                workspace.addPlot(plotModel)
+                widget.setPlotModel(plotModel)
+            widget.setScan(scan)
 
         # There is no way in Qt to tabify a widget to a new floating widget
         # Then this code tabify the new widgets on an existing widget

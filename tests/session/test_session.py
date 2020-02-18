@@ -87,6 +87,9 @@ def test_load_script(session2, session4, capsys):
     load_script("script3", "test_session5")
     assert env_dict.get("test_func") is not None
 
+    assert env_dict.get("test1") is not None
+    assert env_dict["test_session5"].env_dict == {}
+
     from bliss.session.test_session5 import script3
 
     assert script3.test_func

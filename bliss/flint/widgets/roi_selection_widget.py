@@ -51,6 +51,8 @@ class RoiSelectionWidget(qt.QMainWindow):
         layout = qt.QVBoxLayout(panel)
         layout.addWidget(self.table)
 
+        rectangle_action.trigger()
+
     def on_apply(self):
         self.selectionFinished.emit(self.roi_manager.getRois())
         self.clear()
@@ -64,9 +66,9 @@ class RoiSelectionWidget(qt.QMainWindow):
             pass
 
     def on_added(self, roi):
-        if not roi.getLabel():
+        if not roi.getName():
             nb_rois = len(self.roi_manager.getRois())
-            roi.setLabel("roi{}".format(nb_rois))
+            roi.setName("roi{}".format(nb_rois))
 
     def add_roi(self, roi):
         self.roi_manager.addRoi(roi)

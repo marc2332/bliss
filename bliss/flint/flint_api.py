@@ -337,6 +337,9 @@ class FlintApi:
         return plot_id
 
     def get_plot_name(self, plot_id):
+        if isinstance(plot_id, str) and plot_id.startswith("live:"):
+            widget = self._get_live_plot_widget(plot_id)
+            return widget.windowTitle()
         return self._custom_plots[plot_id].title
 
     def remove_plot(self, plot_id):
@@ -414,20 +417,27 @@ class FlintApi:
         plot = self._get_plot_widget(plot_id)
         plot.clear()
 
+    def _get_live_plot_widget(self, plot_id):
+        if not isinstance(plot_id, str) or not plot_id.startswith("live:"):
+            raise ValueError(f"'{plot_id}' is not a valid plot_id")
+
+        workspace = self.__flintModel.workspace()
+        try:
+            iwidget = int(plot_id[5:])
+            if iwidget < 0:
+                raise ValueError()
+        except Exception:
+            raise ValueError(f"'{plot_id}' is not a valid plot_id")
+        widgets = list(workspace.widgets())
+        if iwidget >= len(widgets):
+            raise ValueError(f"'{plot_id}' is not anymore available")
+        widget = widgets[iwidget]
+        return widget
+
     def _get_plot_widget(self, plot_id, expect_silx_api=True, custom_plot=False):
         # FIXME: Refactor it, it starts to be ugly
         if isinstance(plot_id, str) and plot_id.startswith("live:"):
-            workspace = self.__flintModel.workspace()
-            try:
-                iwidget = int(plot_id[5:])
-                if iwidget < 0:
-                    raise ValueError()
-            except Exception:
-                raise ValueError(f"'{plot_id}' is not a valid plot_id")
-            widgets = list(workspace.widgets())
-            if iwidget >= len(widgets):
-                raise ValueError(f"'{plot_id}' is not anymore available")
-            widget = widgets[iwidget]
+            widget = self._get_live_plot_widget(plot_id)
             if not expect_silx_api:
                 return widget
             if not hasattr(widget, "_silxPlot"):

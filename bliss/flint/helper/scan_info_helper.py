@@ -212,6 +212,11 @@ def parse_channel_metadata(meta: Dict) -> scan_model.ChannelMetadata:
     )
 
 
+def get_device_from_channel(channel_name) -> str:
+    elements = channel_name.split(":")
+    return elements[0]
+
+
 def create_plot_model(
     scan_info: Dict, scan: Optional[scan_model.Scan] = None
 ) -> List[plot_model.Plot]:
@@ -373,6 +378,8 @@ def create_plot_model(
 
     # MCA plot
 
+    mca_plots_per_device: Dict[str, List[plot_model.Plot]] = {}
+
     for _master, channels in scan_info["acquisition_chain"].items():
         spectra: List[str] = []
         spectra += channels.get("spectra", [])
@@ -383,16 +390,25 @@ def create_plot_model(
                     spectra.append(c)
 
         for spectrum_name in spectra:
-            plot = plot_item_model.McaPlot()
+            device_name = get_device_from_channel(spectrum_name)
+            plot = mca_plots_per_device.get(device_name, None)
+            if plot is None:
+                plot = plot_item_model.McaPlot()
+                plot.setDeviceName(device_name)
+                mca_plots_per_device[device_name] = plot
             if default_plot is None:
                 default_plot = plot
+
             mca_channel = plot_model.ChannelRef(plot, spectrum_name)
             item = plot_item_model.McaItem(plot)
             item.setMcaChannel(mca_channel)
             plot.addItem(item)
-            result.append(plot)
+
+    result.extend(mca_plots_per_device.values())
 
     # Image plot
+
+    image_plots_per_device: Dict[str, List[plot_model.Plot]] = {}
 
     for _master, channels in scan_info["acquisition_chain"].items():
         images: List[str] = []
@@ -404,17 +420,26 @@ def create_plot_model(
                     images.append(c)
 
         for image_name in images:
-            plot = plot_item_model.ImagePlot()
+            device_name = get_device_from_channel(image_name)
+            plot = image_plots_per_device.get(device_name, None)
+            if plot is None:
+                plot = plot_item_model.ImagePlot()
+                plot.setDeviceName(device_name)
+                image_plots_per_device[device_name] = plot
             if default_plot is None:
                 default_plot = plot
+
             image_channel = plot_model.ChannelRef(plot, image_name)
             item = plot_item_model.ImageItem(plot)
             item.setImageChannel(image_channel)
             plot.addItem(item)
-            result.append(plot)
+
+    result.extend(image_plots_per_device.values())
+
+    # Final process
 
     if default_plot is not None:
-        # Move the default plot on to
+        # Move the default plot on top
         result.remove(default_plot)
         result.insert(0, default_plot)
 

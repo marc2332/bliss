@@ -556,13 +556,15 @@ def display_motor(func):
         axis = func(self, *args, **kwargs)
         scan_display_params = ScanDisplay()
         if is_bliss_shell() and scan_display_params.motor_position:
-            channel_name = self.get_channel_name(axis)
-            if channel_name is None:
+            try:
+                channel_name = self.get_channel_name(axis)
+            except ValueError:
                 print(
                     "The object %s have no obvious channel. Plot marker skiped."
                     % (axis,)
                 )
-            else:
+                channel_name = None
+            if channel_name is not None:
                 plot = self.get_plot(axis, plot_type="curve", as_axes=True)
                 if plot is None:
                     print(
@@ -1352,7 +1354,7 @@ class Scan:
         return None
 
     def get_channel_name(self, channel_item):
-        """Return a channel name from a bliss object, else None
+        """Return a channel name from a bliss object, else raises an exception
 
         If you are lucky the result is what you expect.
 
@@ -1362,9 +1364,17 @@ class Scan:
         Return:
             A channel name identifying this object in scan data acquisition
         """
+        if isinstance(channel_item, str):
+            return channel_item
         if isinstance(channel_item, Axis):
             return "axis:%s" % channel_item.name
-        return channel_item.fullname
+        if hasattr(channel_item, "fullname"):
+            return channel_item.fullname
+        if hasattr(channel_item, "image"):
+            return channel_item.image.fullname
+        if hasattr(channel_item, "counter"):
+            return channel_item.counter.fullname
+        raise ValueError("Can't find channel name from object %s" % channel_item)
 
     def get_plot(self, channel_item, plot_type, as_axes=False, wait=False):
         """Return the first plot object of type 'plot_type' showing the
@@ -1384,6 +1394,7 @@ class Scan:
         """
         # check that flint is running
         if not check_flint():
+            print("Flint is not started")
             return None
 
         flint = get_flint()
@@ -1391,11 +1402,11 @@ class Scan:
             flint.wait_end_of_scans()
         try:
             channel_name = self.get_channel_name(channel_item)
-            if channel_name is None:
-                return None
-            plot_id = flint.get_live_scan_plot(channel_name, plot_type, as_axes=as_axes)
-        except Exception:
+        except ValueError:
+            print("The object %s have no obvious channel." % (channel_item,))
             return None
+
+        plot_id = flint.get_live_scan_plot(channel_name, plot_type, as_axes=as_axes)
 
         if plot_type == "curve":
             return CurvePlot(existing_id=plot_id)
@@ -1406,7 +1417,7 @@ class Scan:
         elif plot_type == "image":
             return ImagePlot(existing_id=plot_id)
         else:
-            assert False
+            print("Argument plot_type uses an invalid value: '%s'." % plot_type)
 
     def _next_scan_number(self):
         LAST_SCAN_NUMBER = "last_scan_number"

@@ -476,7 +476,13 @@ def get_flint(start_new=False, creation_allowed=True):
     if check_redis:
         pid = _get_flint_pid_from_redis(session_name)
         if pid is not None:
-            return attach_flint(pid)
+            try:
+                return attach_flint(pid)
+            except:
+                FLINT_LOGGER.error(
+                    "Impossible to attach Flint to the already existing PID %s", pid
+                )
+                raise
 
     if not creation_allowed:
         return None
@@ -578,8 +584,13 @@ class BasePlot(object):
             self._plot_id = existing_id
 
     def __repr__(self):
+        try:
+            # Protect problems on RPC
+            name = self._flint.get_plot_name(self._plot_id)
+        except Exception:
+            name = None
         return "{}(plot_id={!r}, flint_pid={!r}, name={!r})".format(
-            self.__class__.__name__, self.plot_id, self.flint_pid, self.name
+            self.__class__.__name__, self.plot_id, self.flint_pid, name
         )
 
     def submit(self, method, *args, **kwargs):

@@ -207,6 +207,16 @@ class CurveItem(plot_model.Item, CurveMixIn):
 class McaPlot(plot_model.Plot):
     """Define a plot which is specific for MCAs."""
 
+    def __init__(self, parent=None):
+        plot_model.Plot.__init__(self, parent=parent)
+        self.__deviceName: Optional[str] = None
+
+    def deviceName(self) -> Optional[str]:
+        return self.__deviceName
+
+    def setDeviceName(self, name: str):
+        self.__deviceName = name
+
 
 class McaItem(plot_model.Item):
     """Define a MCA as part of a plot.
@@ -244,6 +254,16 @@ class McaItem(plot_model.Item):
 
 class ImagePlot(plot_model.Plot):
     """Define a plot which displays images."""
+
+    def __init__(self, parent=None):
+        plot_model.Plot.__init__(self, parent=parent)
+        self.__deviceName: Optional[str] = None
+
+    def deviceName(self) -> Optional[str]:
+        return self.__deviceName
+
+    def setDeviceName(self, name: str):
+        self.__deviceName = name
 
 
 class ImageItem(plot_model.Item):

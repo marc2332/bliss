@@ -102,11 +102,12 @@ class Enet(EnetSocket):
 
     def init(self):
         if not self._sock._connected:
-            self.ibdev(
-                pad=self._gpib_kwargs.get("pad"),
-                sad=self._gpib_kwargs.get("sad"),
-                tmo=self._gpib_kwargs.get("tmo"),
-            )
+            with gevent.Timeout(3., "Connection error on %s" % self._host):
+                self.ibdev(
+                    pad=self._gpib_kwargs.get("pad"),
+                    sad=self._gpib_kwargs.get("sad"),
+                    tmo=self._gpib_kwargs.get("tmo"),
+                )
 
     def close(self):
         self._sock.close()

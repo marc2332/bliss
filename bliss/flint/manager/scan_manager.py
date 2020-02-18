@@ -144,6 +144,9 @@ class ScanManager:
                 future_exception.get()
             except Exception:
                 _logger.error("Error occurred in watch_session_scans", exc_info=True)
+            delay = 5
+            _logger.warning("Retry the Redis connect in %s seconds", delay)
+            gevent.sleep(delay)
             self._spawn_scans_session_watch(session_name, clean_redis=True)
 
         task.link_exception(exception_orrured)

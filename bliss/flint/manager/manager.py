@@ -243,6 +243,19 @@ class ManageMainBehaviours(qt.QObject):
         plots = scan_info_helper.create_plot_model(scanInfo, scan)
         self.updateScanAndPlots(scan, plots)
 
+    def __getCompatiblePlots(self, widget, availablePlots) -> List[plot_model.Plot]:
+        compatibleModel = self.__getPlotClassFromWidgetClass(type(widget))
+        if compatibleModel is None:
+            return []
+        plots = [p for p in availablePlots if isinstance(p, compatibleModel)]
+        if issubclass(
+            compatibleModel, (plot_item_model.ImagePlot, plot_item_model.McaPlot)
+        ):
+            # FIXME: windowTitle should not be used, but for now it is convenient
+            deviceName = widget.windowTitle()
+            plots = [p for p in plots if p.deviceName() == deviceName]
+        return plots
+
     def updateScanAndPlots(self, scan: scan_model.Scan, plots: List[plot_model.Plot]):
         flintModel = self.flintModel()
         workspace = flintModel.workspace()
@@ -298,21 +311,13 @@ class ManageMainBehaviours(qt.QObject):
                     availablePlots.remove(p)
         else:
             for widget in widgets:
-                compatibleModel = self.__getPlotClassFromWidgetClass(type(widget))
-                if compatibleModel is None:
-                    _logger.error(
-                        "No compatible plot model for widget %s", widget.__class__
-                    )
+                plots = self.__getCompatiblePlots(widget, availablePlots)
+                if len(plots) == 0:
                     # Do not update the widget (scan and plot stays as previous state)
                     continue
 
-                plots = [p for p in availablePlots if isinstance(p, compatibleModel)]
-                if len(plots) > 0:
-                    plotModel = plots[0]
-                    availablePlots.remove(plotModel)
-                else:
-                    # Do not update the widget (scan and plot stays as previous state)
-                    continue
+                plotModel = plots[0]
+                availablePlots.remove(plotModel)
 
                 if updatePlotModel:
                     if plotModel.styleStrategy() is None:
@@ -396,10 +401,20 @@ class ManageMainBehaviours(qt.QObject):
         widget.setPlotModel(plotModel)
         self._initNewDock(widget)
 
-        prefix = str(widgetClass.__name__).replace("PlotWidget", "")
-        title = self.__getUnusedTitle(prefix, workspace)
+        if isinstance(plotModel, (plot_item_model.ImagePlot, plot_item_model.McaPlot)):
+            title = plotModel.deviceName()
+        else:
+            prefix = str(widgetClass.__name__).replace("PlotWidget", "")
+            title = self.__getUnusedTitle(prefix, workspace)
+
+        name = title
+        name = name.replace(":", "--")
+        name = name.replace(".", "--")
+        name = name.replace(" ", "--")
+        name = name.lower() + "-dock"
+
         widget.setWindowTitle(title)
-        widget.setObjectName(title.lower() + "-dock")
+        widget.setObjectName(name)
         return widget
 
     def __getUnusedTitle(self, prefix, workspace) -> str:

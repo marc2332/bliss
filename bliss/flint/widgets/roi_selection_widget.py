@@ -51,6 +51,8 @@ class RoiSelectionWidget(qt.QMainWindow):
         layout = qt.QVBoxLayout(panel)
         layout.addWidget(self.table)
 
+        rectangle_action.trigger()
+
     def on_apply(self):
         self.selectionFinished.emit(self.roi_manager.getRois())
         self.clear()

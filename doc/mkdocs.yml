@@ -41,6 +41,7 @@ nav:
                             - Symetrie Hexapod: config_shexapod.md
                             - ESRF Hexapode: config_esrf_hexapode.md
                             - Vscanner: config_vscanner.md
+                            - Wago: config_wagomotor.md
                       - Encoders: config_encoder.md
                       - Multiple positions: config_mp.md
                       - Slits: config_slits.md

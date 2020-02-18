@@ -118,8 +118,13 @@ def _parse_list(config, value, placeholder):
 
 
 def replace_reference_by_object(
-    config, item_cfg_node, ref_objects=None, placeholder=None
+    config, item_cfg_node, ref_objects=None, placeholder=None, greedy=False
 ):
+    """
+    Args:
+        greedy (false): if True replaces only objects references at first level
+                        not going deeper
+    """
     referenced_objects = ref_objects if ref_objects is not None else dict()
     for name, value in tuple(item_cfg_node.items()):
         if _checkref(
@@ -127,15 +132,17 @@ def replace_reference_by_object(
         ):
             continue
 
-        if isinstance(value, list):
-            return_list = _parse_list(config, value, placeholder)
-            if return_list:
-                referenced_objects[name] = return_list
-                item_cfg_node[name] = return_list
-        elif isinstance(value, dict):
-            subdict = dict()
-            subref = dict()
-            _parse_dict(config, subdict, subref, value, placeholder)
-            if subref:
-                referenced_objects[name] = subref
-            item_cfg_node.update(subdict)
+        if not greedy:
+            # enter subnodes
+            if isinstance(value, list):
+                return_list = _parse_list(config, value, placeholder)
+                if return_list:
+                    referenced_objects[name] = return_list
+                    item_cfg_node[name] = return_list
+            elif isinstance(value, dict):
+                subdict = dict()
+                subref = dict()
+                _parse_dict(config, subdict, subref, value, placeholder)
+                if subref:
+                    referenced_objects[name] = subref
+                item_cfg_node.update(subdict)

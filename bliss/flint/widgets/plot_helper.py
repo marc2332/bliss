@@ -422,8 +422,8 @@ class FlintCurve(Curve, _FlintItemMixIn):
             result = plotItem.reachResult(scan)
             if result is not None:
                 text += f"""
-                <li style="white-space:pre">     <b>std dev:</b> {result.fit.std}</li>
-                <li style="white-space:pre">     <b>sigma:</b> {result.fit.pos_x}</li>
+                <li style="white-space:pre">     <b>std dev (σ):</b> {result.fit.std}</li>
+                <li style="white-space:pre">     <b>position (μ):</b> {result.fit.pos_x}</li>
                 """
 
         return xValue, yValue, text

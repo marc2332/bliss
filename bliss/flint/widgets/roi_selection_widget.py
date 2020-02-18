@@ -64,9 +64,9 @@ class RoiSelectionWidget(qt.QMainWindow):
             pass
 
     def on_added(self, roi):
-        if not roi.getLabel():
+        if not roi.getName():
             nb_rois = len(self.roi_manager.getRois())
-            roi.setLabel("roi{}".format(nb_rois))
+            roi.setName("roi{}".format(nb_rois))
 
     def add_roi(self, roi):
         self.roi_manager.addRoi(roi)

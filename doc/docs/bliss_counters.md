@@ -103,8 +103,9 @@ Out [49]: Simulator - Generator (Simulator) - Lima Simulator
 
 ## Calculation counters
 
-A `CalcController` takes multiple counters as inputs and produces multiple calculated counters as outputs.
+A `CalcCounterController` takes multiple counters as inputs and produces multiple calculated counters as outputs.
 One calculated counter is defined by a name and a function that computes a new value from the values of the input counters.
+The calculation counters can be used in a scan as standard counters and the dependencies on the input counters will be automatically managed. 
 
 ![Screenshot](img/CalcCnt.PNG)
 

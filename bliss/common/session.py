@@ -200,6 +200,9 @@ class Session:
         self.__children_tree = None
         self.__include_sessions = config_tree.get("include-sessions")
         self.__config_aliases = config_tree.get("aliases", [])
+        self.__default_user_script_homedir = config_tree.get("default-userscript-dir")
+        if self.__default_user_script_homedir and not self._get_user_script_home():
+            self._set_user_script_home(self.__default_user_script_homedir)
 
     @property
     def name(self):
@@ -418,20 +421,23 @@ class Session:
     def _set_user_script_home(self, dir):
         self.__user_script_homedir.set(dir)
 
-    def _clear_user_script_home(self):
-        self.__user_script_homedir.clear()
+    def _reset_user_script_home(self):
+        if self.__default_user_script_homedir:
+            self.__user_script_homedir.set(self.__default_user_script_homedir)
+        else:
+            self.__user_script_homedir.clear()
 
-    def user_script_homedir(self, new_dir=None, clear=False):
+    def user_script_homedir(self, new_dir=None, reset=False):
         """
         Set or get local user script home directory
 
         Args:
             None -> returns current user script home directory
             new_dir (optional) -> set user script home directory to new_dir
-            clear (optional) -> clear previously set user script home directory
+            reset (optional) -> reset previously set user script home directory
         """
-        if clear:
-            self._clear_user_script_home()
+        if reset:
+            self._reset_user_script_home()
         elif new_dir is not None:
             if not os.path.isabs(new_dir):
                 raise RuntimeError(f"Directory path must be absolute [{new_dir}]")

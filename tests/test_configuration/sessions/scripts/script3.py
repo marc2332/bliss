@@ -4,3 +4,6 @@ def _hidden_func():
 
 def visible_func():
     pass
+
+
+toto = 42

@@ -16,7 +16,6 @@ from bliss.common.tango import DeviceProxy, DevState, DevFailed
 from tango import CommunicationFailed
 from nexus_writer_service.io import nexus
 from nexus_writer_service import metadata
-from nexus_writer_service.utils.config_utils import beamline
 from nexus_writer_service.nexus_register_writer import find_session_writer, get_uri
 
 
@@ -197,13 +196,7 @@ class Writer(FileWriter):
 
     @property
     def _writer_uri(self):
-        dev_name = find_session_writer(current_session.name)
-        if dev_name:
-            return dev_name
-        domain = beamline()
-        family = "bliss_nxwriter"
-        device = current_session.name
-        return "/".join([domain, family, device])
+        return find_session_writer(current_session.name)
 
     @property
     def _full_writer_uri(self):
@@ -218,14 +211,7 @@ class Writer(FileWriter):
     def writer_proxy(self):
         self._store_writer_proxy()
         if self._writer_proxy is None:
-            uri = self._writer_uri
-            if uri:
-                err_msg = "External writer {} not online".format(
-                    repr(self._writer_proxy)
-                )
-            else:
-                err_msg = "Missing tango URI of external writer in YAML configuration"
-            raise RuntimeError(err_msg)
+            raise RuntimeError("No Nexus writer registered for this session")
         return self._writer_proxy
 
     @skip_when_fault
@@ -234,18 +220,8 @@ class Writer(FileWriter):
         if self._writer_proxy is None:
             uri = self._writer_uri
             if not uri:
-                raise RuntimeError(
-                    "Missing tango URI of external writer in YAML configuration"
-                )
+                raise RuntimeError("No Nexus writer registered for this session")
             self._writer_proxy = DeviceProxy(uri)
-            # self._set_writer_timeout(10)
-
-    def _set_writer_timeout(self, timeout):
-        """
-        Set proxy timeout
-        """
-        proxy = self.writer_proxy
-        proxy.set_timeout_millis(int(timeout * 1000))
 
     @property
     def session_state(self):

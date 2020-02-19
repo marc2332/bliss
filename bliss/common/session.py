@@ -524,8 +524,9 @@ class Session:
 
         globals_dict = self.env_dict.copy()
 
+        c_code = compile(script, filepath, "exec")
         try:
-            exec(script, globals_dict)
+            exec(c_code, globals_dict)
         except Exception:
             sys.excepthook(*sys.exc_info())
 
@@ -537,8 +538,10 @@ class Session:
 
         elif return_namespace is True:
             env_dict = dict()
-            for k in globals_dict.keys():
+            for k in c_code.co_names:
                 if k.startswith("_"):
+                    continue
+                if k not in globals_dict:
                     continue
                 env_dict[k] = globals_dict[k]
             return SimpleNamespace(**env_dict)

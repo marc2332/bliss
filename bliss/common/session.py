@@ -161,7 +161,7 @@ class Session:
         self.__map = None
         self.__log = None
         self.__scans = collections.deque(maxlen=20)
-        self.__user_script_homedir = None
+        self.__user_script_homedir = SimpleSetting("%s:user_script_homedir" % self.name)
 
         self.init(config_tree)
 
@@ -412,26 +412,24 @@ class Session:
             finally:
                 sys.meta_path.remove(importer)
 
-    def _create_user_script_home(self):
-        self.__user_script_homedir = SimpleSetting("%s:script_home" % self.name)
-
     def _get_user_script_home(self):
-        if self.__user_script_homedir is None:
-            self._create_user_script_home()
         return self.__user_script_homedir.get()
 
     def _set_user_script_home(self, dir):
-        if self.__user_script_homedir is None:
-            self._create_user_script_home()
         self.__user_script_homedir.set(dir)
 
     def _clear_user_script_home(self):
-        if self.__user_script_homedir is None:
-            self._create_user_script_home()
         self.__user_script_homedir.clear()
 
     def user_script_homedir(self, new_dir=None, clear=False):
-        """Set or get local user script home directory"""
+        """
+        Set or get local user script home directory
+
+        Args:
+            None -> returns current user script home directory
+            new_dir (optional) -> set user script home directory to new_dir
+            clear (optional) -> clear previously set user script home directory
+        """
         if clear:
             self._clear_user_script_home()
         elif new_dir is not None:
@@ -569,6 +567,14 @@ class Session:
 
         if "load_script" not in env_dict:
             env_dict["load_script"] = self.load_script
+        if "user_script_homedir" not in env_dict:
+            env_dict["user_script_homedir"] = self.user_script_homedir
+        if "user_script_list" not in env_dict:
+            env_dict["user_script_list"] = self.user_script_list
+        if "user_script_load" not in env_dict:
+            env_dict["user_script_load"] = self.user_script_load
+        if "user_script_run" not in env_dict:
+            env_dict["user_script_run"] = self.user_script_run
 
         scan_saving_config = self.config.root.get("scan_saving", {})
         scan_saving_class_name = scan_saving_config.get("class")
@@ -596,15 +602,6 @@ class Session:
             child_session._setup(env_dict, nested=True)
 
         self._setup(env_dict)
-
-        if "user_script_homedir" not in env_dict:
-            env_dict["user_script_homedir"] = self.user_script_homedir
-        if "user_script_list" not in env_dict:
-            env_dict["user_script_list"] = self.user_script_list
-        if "user_script_load" not in env_dict:
-            env_dict["user_script_load"] = self.user_script_load
-        if "user_script_run" not in env_dict:
-            env_dict["user_script_run"] = self.user_script_run
 
     def _setup(self, env_dict, nested=False):
         if self.setup_file is None:

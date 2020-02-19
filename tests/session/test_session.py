@@ -87,6 +87,9 @@ def test_load_script(session2, session4, capsys):
     load_script("script3", "test_session5")
     assert env_dict.get("test_func") is not None
 
+    assert env_dict.get("test1") is not None
+    assert env_dict["test_session5"].env_dict == {}
+
     from bliss.session.test_session5 import script3
 
     assert script3.test_func
@@ -100,6 +103,40 @@ def test_load_script_namespace(session4):
     env_dict = dict()
     session4.setup(env_dict)
     assert env_dict["a"] == 2
+
+
+def test_user_script(session4, capsys):
+    env_dict = dict()
+    session4.setup(env_dict)
+
+    user_script_load = env_dict.get("user_script_load")
+    user_script_run = env_dict.get("user_script_run")
+    user_script_list = env_dict.get("user_script_list")
+    user_script_homedir = env_dict.get("user_script_homedir")
+    assert user_script_load is not None
+    assert user_script_run is not None
+    assert user_script_list is not None
+    assert user_script_homedir is not None
+
+    assert user_script_homedir() is None
+    with pytest.raises(RuntimeError):
+        user_script_list()
+
+    from tests.conftest import BEACON_DB_PATH
+
+    user_script_homedir(BEACON_DB_PATH)
+    assert user_script_homedir() == BEACON_DB_PATH
+    capsys.readouterr()
+    user_script_list()
+    assert "sessions/subdir/scripts/simple_script.py" in capsys.readouterr()[0]
+
+    user_script_run("sessions/scripts/script3")
+    assert "toto" not in session4.env_dict
+    user_script_load("sessions/scripts/script3", export_global=True)
+    assert "toto" in session4.env_dict
+
+    ns = user_script_load("sessions/subdir/scripts/simple_script")
+    assert list(ns.__dict__) == ["ascan", "time", "test1", "a"]
 
 
 def test_prdef(session2, capsys):

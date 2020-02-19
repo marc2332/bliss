@@ -198,6 +198,10 @@ class NotStored:
     """Flag object which do not have to be stored"""
 
 
+class NotReused:
+    """Flag object which do not have to be reused for next scan"""
+
+
 class ChannelRef(qt.QObject):
     """Identify a channel by it's name.
     """

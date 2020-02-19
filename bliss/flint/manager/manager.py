@@ -312,6 +312,16 @@ class ManageMainBehaviours(qt.QObject):
                     workspace.removePlot(previousWidgetPlot)
                 workspace.addPlot(plotModel)
                 widget.setPlotModel(plotModel)
+            else:
+                # Clean up few items
+                plotModel = widget.plotModel()
+                for item in list(plotModel.items()):
+                    if isinstance(item, plot_model.NotReused):
+                        try:
+                            plotModel.removeItem(item)
+                        except:
+                            pass
+
             widget.setScan(scan)
 
         # There is no way in Qt to tabify a widget to a new floating widget

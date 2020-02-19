@@ -422,7 +422,7 @@ class ScatterItem(plot_model.Item):
         self.__colormap = colormap
 
 
-class MotorPositionMarker(plot_model.Item):
+class MotorPositionMarker(plot_model.Item, plot_model.NotReused):
     """Define a location of a motor in a plot.
 
     This item is only displayable when the plot uses its motor

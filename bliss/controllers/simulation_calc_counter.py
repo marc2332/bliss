@@ -7,11 +7,33 @@
 
 from bliss.controllers.counter import CalcCounterController
 
+"""
+config example:
+
+- plugin: bliss
+  module: simulation_calc_counter
+  class: MeanCalcCounterController
+  name: simul_calc_controller
+  inputs:
+    - counter: $diode
+      tags: data1
+
+    - counter: $diode2
+      tags: data2
+
+  outputs:
+    - name: out1
+"""
+
 
 # Mean calculation
 class MeanCalcCounterController(CalcCounterController):
-    def calc_function(self, input_dict):
+    """
+    This calculation counter takes a variable number of inputs and computes
+    the average of all of them.
+    """
 
+    def calc_function(self, input_dict):
         csum = 0
         for cnt in self.inputs:
             csum += input_dict[self.tags[cnt.name]]

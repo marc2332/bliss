@@ -49,7 +49,7 @@ import types
 import typeguard
 from typing import Union, Optional, Tuple, List, Sequence, Dict
 
-from bliss import current_session
+from bliss import current_session, global_map
 from bliss.common.utils import rounder
 from bliss.common.cleanup import cleanup, axis as cleanup_axis
 from bliss.common.axis import Axis
@@ -1511,6 +1511,17 @@ def _get_selected_counter_name(counter=None):
     return alignment_counts.pop()
 
 
+@typeguard.typechecked
+def _get_counter(counter_name: str):
+    """
+    Gets a counter instance from a counter name
+    """
+    for _counter in global_map.get_counters_iter():
+        if _counter.fullname == counter_name:
+            return _counter
+    raise RuntimeError("Can't find the counter")
+
+
 def last_scan_motor(axis=None):
     """
     Return the last motor used in the last scan
@@ -1678,12 +1689,16 @@ def cen(counter=None, axis=None):
 
 
 @_goto_multimotors
-def goto_cen(counter=None, axis=None):
-    counter_name = _get_selected_counter_name(counter=counter)
-    motor = last_scan_motor(axis)
+@typeguard.typechecked
+def goto_cen(counter: Optional[_countable] = None, axis: Optional[_scannable] = None):
+    if not counter:
+        counter = _get_counter(_get_selected_counter_name())
+    if not axis:
+        axis = last_scan_motor()
+
     scan = current_session.scans[-1]
-    motor = last_scan_motor(axis)
-    return scan.goto_cen(counter_name, axis=axis)
+
+    return scan.goto_cen(counter, axis=axis)
 
 
 @_multimotors
@@ -1693,12 +1708,16 @@ def com(counter=None, axis=None):
 
 
 @_goto_multimotors
-def goto_com(counter=None, axis=None):
-    counter_name = _get_selected_counter_name(counter=counter)
-    motor = last_scan_motor(axis)
+@typeguard.typechecked
+def goto_com(counter: Optional[_countable] = None, axis: Optional[_scannable] = None):
+    if not counter:
+        counter = _get_counter(_get_selected_counter_name())
+    if not axis:
+        axis = last_scan_motor()
+
     scan = current_session.scans[-1]
-    motor = last_scan_motor(axis)
-    return current_session.scans[-1].goto_com(counter_name, axis=axis)
+
+    return scan.goto_com(counter, axis=axis)
 
 
 @_multimotors
@@ -1708,12 +1727,16 @@ def peak(counter=None, axis=None):
 
 
 @_goto_multimotors
-def goto_peak(counter=None, axis=None):
-    counter_name = _get_selected_counter_name(counter=counter)
-    motor = last_scan_motor(axis)
+@typeguard.typechecked
+def goto_peak(counter: Optional[_countable] = None, axis: Optional[_scannable] = None):
+    if not counter:
+        counter = _get_counter(_get_selected_counter_name())
+    if not axis:
+        axis = last_scan_motor()
+
     scan = current_session.scans[-1]
-    motor = last_scan_motor(axis=axis)
-    return scan.goto_peak(counter_name, axis=axis)
+
+    return scan.goto_peak(counter, axis=axis)
 
 
 def where():

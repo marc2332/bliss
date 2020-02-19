@@ -111,3 +111,50 @@ def test_plotselect_and_global_cen(session):
     scans.goto_cen()
     scans.goto_com()
     scans.goto_peak()
+
+
+def test_goto(session):
+    from bliss.common.scans import goto_cen, goto_com, goto_peak
+
+    roby = session.config.get("roby")
+    m0 = session.config.get("m0")
+    simul_counter = session.config.get("sim_ct_gauss")
+    diode = session.config.get("diode")
+
+    s = scans.a2scan(roby, 0, 5, m0, -100, -50, 5, 0, simul_counter, diode, save=False)
+
+    goto_cen(simul_counter)  # center of simul_counter
+    assert pytest.approx(2.5, abs=1e-3) == roby.position
+    assert pytest.approx(-75, abs=1) == m0.position
+
+    goto_com(simul_counter)  # center of simul_counter
+    assert pytest.approx(2.5, abs=1e-3) == roby.position
+    assert pytest.approx(-75, abs=1) == m0.position
+
+    goto_peak(simul_counter)  # center of simul_counter
+    assert pytest.approx(2, abs=1e-3) == roby.position
+    assert pytest.approx(-80, abs=1) == m0.position
+
+    goto_cen(diode)
+    roby_center, _ = s.cen(diode, roby)
+    m0_center, _ = s.cen(diode, m0)
+    assert pytest.approx(roby_center, abs=1e-3) == roby.position
+    assert pytest.approx(m0_center, abs=1) == m0.position
+
+    goto_com(diode)
+    roby_centerofmass = s.com(diode, roby)
+    m0_centerofmass = s.com(diode, m0)
+    assert pytest.approx(roby_centerofmass, abs=1e-3) == roby.position
+    assert pytest.approx(m0_centerofmass, abs=1) == m0.position
+
+    goto_peak(diode)
+    roby_peak = s.peak(diode, roby)
+    m0_peak = s.peak(diode, m0)
+    assert pytest.approx(roby_peak, abs=1e-3) == roby.position
+    assert pytest.approx(m0_peak, abs=1) == m0.position
+
+    # wrong arguments check
+    with pytest.raises(TypeError):
+        goto_cen(roby)  # first arg should be a counter
+    with pytest.raises(TypeError):
+        goto_cen("countername")

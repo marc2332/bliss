@@ -602,3 +602,8 @@ class FlintApi:
             selector = request.selector
             event.send(self, request_id, selector.selection())
             request.selector.stop()
+
+    def close_application(self):
+        """Close flint"""
+        window = self.__flintModel.mainWindow()
+        window.close()

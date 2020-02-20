@@ -1,0 +1,8 @@
+- name: diode1
+  plugin: bliss
+  class: simulation_diode
+
+- name: diode2
+  plugin: bliss
+  class: simulation_diode
+

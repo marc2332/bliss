@@ -20,3 +20,8 @@
   class: Lima
   tango_url: id00/limaccds/simulator2
 
+#- name: lima_slits_simulator
+#  plugin: bliss
+#  class: Lima
+#  tango_url: id00/limaccds/slits_simulator
+

@@ -419,3 +419,11 @@ def test_lprint_disable_scan(default_session, capsys, log_shell_mode):
     scans.ascan(roby, 0, 10, 3, .1, diode)
     captured = capsys.readouterr().out
     assert captured == ""
+
+
+def test_lprint_disable_scan_calc_mot(default_session, capsys, log_shell_mode):
+    s1vg = default_session.config.get("s1vg")
+    diode = default_session.config.get("diode")
+    scans.ascan(s1vg, 0, 1, 3, .1, diode)
+    captured = capsys.readouterr().out
+    assert captured == ""

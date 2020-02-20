@@ -1,0 +1,7 @@
+server: NexusWriter
+personal_name: demo
+device:
+- tango_name: id00/bliss_nxwriter/demo_session
+  class: NexusWriter
+  properties:
+    session: demo_session

@@ -1,4 +1,8 @@
 -
+  class: MetadataManager
+  properties:
+    queueURLs: [""]
+-
   server: MetadataManager
   personal_name: test
   device:
@@ -8,6 +12,10 @@
       beamlineID: id00
       dataFolderPattern: "{dataRoot}"
       metaExperimentDevice: "id00/metaexp/test"
+-
+  class: MetaExperiment
+  properties:
+    queueURLs: [""]
 -
   server: MetaExperiment
   personal_name: test

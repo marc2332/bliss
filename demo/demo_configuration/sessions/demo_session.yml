@@ -1,0 +1,24 @@
+- class: Session
+  name: demo_session
+  setup-file: ./demo_session_setup.py
+  config-objects: 
+    - diode1
+    - diode2
+    - sy
+    - sz
+    - fluo_diode
+    - slit_top
+    - slit_bottom
+    - slit_vertical_gap
+    - slit_vertical_offset
+    - beamviewer
+    - lima_tomo_simulator
+    - mca_simulator
+    - mca2_simulator
+    - MG1
+- class: MeasurementGroup
+  name: MG1
+  counters:
+  - diode1
+  - diode2
+  - beamviewer

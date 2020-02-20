@@ -280,6 +280,8 @@ class LimaAcquisitionMaster(AcquisitionMaster):
             if not (param_value is None):
                 setattr(self.device.proxy, param_name, param_value)
 
+        self.device.proxy.video_source = "LAST_IMAGE"
+
         self.wait_slaves_prepare()
         if self.device.proxy.video_live is True:
             self._lima_controller.stop_bpm_live()

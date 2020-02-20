@@ -1,0 +1,49 @@
+device:
+- class: Simulator
+  tango_name: id00/simulator/tomo_simulator
+- class: LimaCCDs
+  properties:
+    LimaCameraType: Simulator
+  tango_name: id00/limaccds/tomo_simulator
+- class: CtAccumulation
+  tango_name: id00/ctaccumulation/tomo_simulator
+- class: CtAcquisition
+  tango_name: id00/ctacquisition/tomo_simulator
+- class: CtBuffer
+  tango_name: id00/ctbuffer/tomo_simulator
+- class: CtConfig
+  tango_name: id00/ctconfig/tomo_simulator
+- class: CtEvent
+  tango_name: id00/ctevent/tomo_simulator
+- class: CtImage
+  tango_name: id00/ctimage/tomo_simulator
+- class: CtSaving
+  tango_name: id00/ctsaving/tomo_simulator
+- class: CtShutter
+  tango_name: id00/ctshutter/tomo_simulator
+- class: CtVideo
+  tango_name: id00/ctvideo/tomo_simulator
+- class: CtControl
+  tango_name: id00/ctcontrol/tomo_simulator
+- class: RoiCounterDeviceServer
+  tango_name: id00/roicounter/tomo_simulator
+- class: BpmDeviceServer
+  tango_name: id00/bpm/tomo_simulator
+- class: LiveViewer
+  tango_name: id00/liveviewer/tomo_simulator
+- class: PeakFinderDeviceServer
+  tango_name: id00/peakfinder/tomo_simulator
+- class: BackgroundSubstractionDeviceServer
+  tango_name: id00/backgroundsubstraction/tomo_simulator
+- class: FlatfieldDeviceServer
+  tango_name: id00/flatfield/tomo_simulator
+- class: LimaTacoCCDs
+  tango_name: id00/limatacoccds/tomo_simulator
+- class: MaskDeviceServer
+  tango_name: id00/mask/tomo_simulator
+- class: Roi2spectrumDeviceServer
+  tango_name: id00/roi2spectrum/tomo_simulator
+- class: TomoSimulationDeviceServer
+  tango_name: id00/slitssimulation/tomo_simulator
+personal_name: tomo_simulator
+server: LimaCCDs

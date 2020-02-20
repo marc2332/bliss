@@ -1,0 +1,48 @@
+controller:
+- class: mockup
+  axes:
+  - name: sz
+    steps_per_unit: 10000
+    velocity: 25000
+    acceleration: 10000
+    low_limit: -2
+    high_limit: 2
+    unit: mm
+    encoder: $szenc
+  - class: MockupAxis
+    name: sy
+    steps_per_unit: 10000
+    velocity: 25000.0
+    acceleration: 10000.0
+    low_limit: -2
+    high_limit: 2
+    encoder: $syenc
+  - name: slit_top
+    steps_per_unit: -1000
+    velocity: 500
+    acceleration: 100
+    low_limit: -10
+    high_limit: 10
+  - name: slit_bottom
+    steps_per_unit: 1000
+    velocity: 500
+    acceleration: 100
+    low_limit: -10
+    high_limit: 10
+  encoders:
+  - name: szenc
+    steps_per_unit: 100000
+  - name: syenc
+    steps_per_unit: 100000
+- class: slits
+  name: secondary_slits
+  slit_type: vertical
+  axes:
+  - name: $slit_top
+    tags: real up
+  - name: $slit_bottom
+    tags: real down
+  - name: slit_vertical_gap
+    tags: vgap
+  - name: slit_vertical_offset
+    tags: voffset

@@ -1,4 +1,3 @@
-
 from bliss.setup_globals import *
 from bliss import current_session
 from bliss.controllers.lima.roi import Roi
@@ -20,7 +19,7 @@ tango = lima_tomo_simulator._get_proxy()
 tango.image_roi = 0, 0, 560, 540
 
 load_script("demo_session.py")
-current_session.env_dict["SCAN_DISPLAY"].auto = True
+current_session.env_dict["SCAN_DISPLAY"].auto = False
 
 print(
     """

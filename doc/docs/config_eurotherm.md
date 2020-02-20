@@ -1,4 +1,4 @@
-# Eurotherm configuration
+# Eurotherm used with **temperature plugin**:
 
 ## Example Configuration
 

@@ -66,9 +66,14 @@ nav:
                             - Rontec: config_mca_rontec.md
                             - XIA: config_xia_mca.md
                             - Mythen: config_mythen.md
-                      - Temperature or pressure controllers:
+                      - Temperature, pressure, power supply controllers:
                             - Temperature controllers in Bliss: config_tempctrl.md
                             - Eurotherm: config_eurotherm.md
+                            - Lakeshore: config_lakeshore.md                                                        
+                            - Linkam: config_linkam.md
+                            - Nhq: config_nhq.md
+                            - Ace: config_ace.md
+                            - Cyberstar: config_cyberstar.md                                                        
                             - Keller: config_keller.md
                             - Keithley 3706: config_keithley_3706.md
                             - Lakeshore: config_lakeshore.md

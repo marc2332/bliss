@@ -6,15 +6,12 @@ Let's make it easy and see how to launch the device server:
 
 ```
 (base) user@beamline:~/bliss$ conda activate bliss
-(bliss) user@beamline:~/bliss$ Wago -?
-Can't build connection to TANGO database server, exiting
 (bliss) user@beamline:~/bliss$ export TANGO_HOST=localhost:20000
 (bliss) user@beamline:~/bliss$ Wago -?
 usage :  Wago instance_name [-v[trace level]] [-nodb [-dlist <device name list>]]
 Instance name defined in database for server Wago :
         wago_tg_server
 (bliss) user@beamline:~/bliss$ Wago wago_tg_server
-Unknown exception while trying to fill database cache...
 Ready to accept request
 ```
 

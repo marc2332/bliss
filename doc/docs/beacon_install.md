@@ -43,11 +43,13 @@ The web configuration UI can be enabled, by specifying the web application port 
 
     beacon-server --db-path=~/local/beamline_configuration --port=25000 --webapp-port=9030
 
-BLISS Beacon server is also able to provide a full TANGO database server service that integrates nicely
-with the BLISS configuration. To start this service it is just needed to provide the TANGO port that
-you want the TANGO database server to serve:
+BLISS Beacon server is also able to provide a simple TANGO database server service (with reduced functionality compared to the Tango DataBase device server for MariaDB) that integrates nicely with the BLISS configuration. 
+To start this service it is just needed to provide the TANGO port that you want the TANGO database server to serve:
 
     beacon-server --db-path=~/local/beamline_configuration --port=25000 --webapp-port=9030 --tango-port=20000
+
+!!! note
+    At the ESRF the standard setup is to use the C++ version of the Tango DataBase device server for production on beamlines to ensure all features are implemented.
 
 ## Log Server and Log Viewer ##
 

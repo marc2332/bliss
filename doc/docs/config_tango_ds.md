@@ -1,10 +1,12 @@
 # Tango Device Servers #
 
-[Tango](https://tango-controls.org) is a toolkit for building distributed control systems. It is based on the concept of distributed devices. 
+[Tango](https://tango-controls.org) is a toolkit for building distributed control systems.
+It is based on the concept of distributed devices.
 Tango is used at the ESRF to interface hardware on the accelerator and beamlines.
-BLISS can integrate Tango devices easily using the [pytango](https://pytango.readthedocs.io/en/latest/) python binding. 
+BLISS can integrate Tango devices easily using the [pytango](https://pytango.readthedocs.io/en/latest/) python binding.
 
-In addition to being a client of Tango BLISS provides a number of Tango device servers to support the integration of Bliss controllers in existing beamline control systems e.g. via SPEC and Tango tools.
+In addition to being a client of Tango BLISS provides a number of Tango device servers to support
+the integration of Bliss controllers in existing beamline control systems e.g. via SPEC and Tango tools.
 
 Here is the list of servers provided by Bliss and how to configure them:
 

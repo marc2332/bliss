@@ -16,6 +16,8 @@
     - mca_simulator
     - mca2_simulator
     - MG1
+    - sim_ct_gauss
+    - sim_ct_gauss_noise
 - class: MeasurementGroup
   name: MG1
   counters:

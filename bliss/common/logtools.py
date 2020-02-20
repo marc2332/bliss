@@ -298,7 +298,10 @@ class LogbookPrint:
                     # or we arrive at root
                     if current in self.disabled.keys():
                         return False
-                    current = current.parent
+                    try:
+                        current = current.spawning_greenlet()
+                    except AttributeError:
+                        current = current.parent
                 return True
 
             self.logger.addHandler(self.stdout_handler)

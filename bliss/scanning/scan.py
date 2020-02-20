@@ -44,6 +44,7 @@ from bliss.scanning.chain import (
 from bliss.scanning.writer.null import Writer as NullWriter
 from bliss.scanning.scan_math import peak, cen, com
 from bliss.scanning.scan_saving import ScanSaving
+from bliss.common.logtools import lprint_disable
 
 from louie import saferef
 
@@ -1070,6 +1071,10 @@ class Scan:
         self._devices = []
 
     def run(self):
+        with lprint_disable():
+            return self._run()
+
+    def _run(self):
         if self.state != ScanState.IDLE:
             raise RuntimeError(
                 "Scan state is not idle. Scan objects can only be used once."

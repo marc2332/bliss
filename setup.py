@@ -200,7 +200,11 @@ def main():
         packages=packages,
         package_data=package_data,
         ext_modules=extensions,
-        scripts=["bin/beacon-server-list"],
+        scripts=[
+            "bin/beacon-server-list",
+            "bin/SlitsSimulationLimaCCDs",
+            "bin/TomoSimulationLimaCCDs",
+        ],
         entry_points={
             "console_scripts": [
                 "bliss = bliss.shell.cli.main:main",

@@ -1,0 +1,31 @@
+- name: fluo_diode
+  plugin: bliss
+  package: bliss.controllers.demo.sample_stage_diode
+  class: SampleStageDiode
+  axis1: $sz
+  axis2: $sy
+
+- name: lima_simulator
+  plugin: bliss
+  class: Lima
+  tango_url: id00/limaccds/simulator1
+
+- name: beamviewer
+  plugin: bliss
+  class: Lima
+  tango_url: id00/limaccds/slits_simulator
+
+- name: lima_tomo_simulator
+  plugin: bliss
+  class: Lima
+  tango_url: id00/limaccds/tomo_simulator
+
+- name: mca_simulator
+  module: mca
+  class: SimulatedMCA
+  plugin: bliss
+
+- name: mca2_simulator
+  module: mca
+  class: SimulatedMCA
+  plugin: bliss

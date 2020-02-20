@@ -1,0 +1,47 @@
+device:
+- class: Simulator
+  tango_name: id00/simulator/simulator1
+- class: LimaCCDs
+  properties:
+    LimaCameraType: Simulator
+  tango_name: id00/limaccds/simulator1
+- class: CtAccumulation
+  tango_name: id00/ctaccumulation/simulator1
+- class: CtAcquisition
+  tango_name: id00/ctacquisition/simulator1
+- class: CtBuffer
+  tango_name: id00/ctbuffer/simulator1
+- class: CtConfig
+  tango_name: id00/ctconfig/simulator1
+- class: CtEvent
+  tango_name: id00/ctevent/simulator1
+- class: CtImage
+  tango_name: id00/ctimage/simulator1
+- class: CtSaving
+  tango_name: id00/ctsaving/simulator1
+- class: CtShutter
+  tango_name: id00/ctshutter/simulator1
+- class: CtVideo
+  tango_name: id00/ctvideo/simulator1
+- class: CtControl
+  tango_name: id00/ctcontrol/simulator1
+- class: RoiCounterDeviceServer
+  tango_name: id00/roicounter/simulator1
+- class: BpmDeviceServer
+  tango_name: id00/bpm/simulator1
+- class: LiveViewer
+  tango_name: id00/liveviewer/simulator1
+- class: PeakFinderDeviceServer
+  tango_name: id00/peakfinder/simulator1
+- class: BackgroundSubstractionDeviceServer
+  tango_name: id00/backgroundsubstraction/simulator1
+- class: FlatfieldDeviceServer
+  tango_name: id00/flatfield/simulator1
+- class: LimaTacoCCDs
+  tango_name: id00/limatacoccds/simulator1
+- class: MaskDeviceServer
+  tango_name: id00/mask/simulator1
+- class: Roi2spectrumDeviceServer
+  tango_name: id00/roi2spectrum/simulator1
+personal_name: simulator
+server: LimaCCDs

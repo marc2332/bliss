@@ -1,0 +1,52 @@
+device:
+- class: Simulator
+  tango_name: id00/simulator/slits_simulator
+- class: LimaCCDs
+  properties:
+    LimaCameraType: Simulator
+  tango_name: id00/limaccds/slits_simulator
+- class: CtAccumulation
+  tango_name: id00/ctaccumulation/slits_simulator
+- class: CtAcquisition
+  tango_name: id00/ctacquisition/slits_simulator
+- class: CtBuffer
+  tango_name: id00/ctbuffer/slits_simulator
+- class: CtConfig
+  tango_name: id00/ctconfig/slits_simulator
+- class: CtEvent
+  tango_name: id00/ctevent/slits_simulator
+- class: CtImage
+  tango_name: id00/ctimage/slits_simulator
+- class: CtSaving
+  tango_name: id00/ctsaving/slits_simulator
+- class: CtShutter
+  tango_name: id00/ctshutter/slits_simulator
+- class: CtVideo
+  tango_name: id00/ctvideo/slits_simulator
+- class: CtControl
+  tango_name: id00/ctcontrol/slits_simulator
+- class: RoiCounterDeviceServer
+  tango_name: id00/roicounter/slits_simulator
+- class: BpmDeviceServer
+  tango_name: id00/bpm/slits_simulator
+- class: LiveViewer
+  tango_name: id00/liveviewer/slits_simulator
+- class: PeakFinderDeviceServer
+  tango_name: id00/peakfinder/slits_simulator
+- class: BackgroundSubstractionDeviceServer
+  tango_name: id00/backgroundsubstraction/slits_simulator
+- class: FlatfieldDeviceServer
+  tango_name: id00/flatfield/slits_simulator
+- class: LimaTacoCCDs
+  tango_name: id00/limatacoccds/slits_simulator
+- class: MaskDeviceServer
+  tango_name: id00/mask/slits_simulator
+- class: Roi2spectrumDeviceServer
+  tango_name: id00/roi2spectrum/slits_simulator
+- class: SlitsSimulationDeviceServer
+  tango_name: id00/slitssimulation/slits_simulator
+  properties:
+      slit_top: slit_top
+      slit_bottom: slit_bottom
+personal_name: slits_simulator
+server: LimaCCDs

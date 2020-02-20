@@ -40,8 +40,8 @@ Different modes of acquisition are available:
 * `INTEGRATE`: produces the MEAN multiplied by the counting time.
 
 ```python
-In  [15]: diode
-Out [15]: 'diode` counter info:
+In   [9]: diode
+Out  [9]: 'diode` counter info:
             counter type = sampling
             sampling mode = MEAN
             fullname = simulation_diode_sampling_controller:diode
@@ -58,7 +58,7 @@ In  [13]: ct(1.0, diode)
 diode =   12.75 (       12.75/s)
 
 In  [14]: diode.statistics
-Out [14]: SamplingCounterStatistics(mean=12.75, N=92, std=55.95, var=3130.40, min=-99.0, max=100.0, p2v=199.0, count_time=1.0, timestamp='2020-02-14 11:02:41.888724')
+Out [14]: Statistics(mean=12.75, N=92, std=55.95, var=3130.40, min=-99.0, max=100.0)
 ```
 
 
@@ -94,7 +94,7 @@ Out [49]: Simulator - Generator (Simulator) - Lima Simulator
         ROI Counters: default
         Name  ROI (<X, Y> <W x H>)
         ----  ------------------
-            r1  <0, 0> <100 x 200>
+        r1    <0, 0> <100 x 200>
 
         BPM Counters:
         acq_time, intensity, x, y, fwhm_x, fwhm_y

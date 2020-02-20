@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:xlink="http://www.w3.org/1999/xlink"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   version="1.1"
+   id="svg2"
+   width="350.07999"
+   height="162.88"
+   viewBox="0 0 350.07999 162.88001"
+   sodipodi:docname="demo-scatter-irregular.svg"
+   inkscape:version="0.92.4 (5da689c313, 2019-01-14)"
+   inkscape:export-filename="../demo-scatter-irregular.png"
+   inkscape:export-xdpi="300"
+   inkscape:export-ydpi="300">
+  <metadata
+     id="metadata8">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <dc:title></dc:title>
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <defs
+     id="defs6" />
+  <sodipodi:namedview
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1"
+     objecttolerance="10"
+     gridtolerance="10"
+     guidetolerance="10"
+     inkscape:pageopacity="0"
+     inkscape:pageshadow="2"
+     inkscape:window-width="1744"
+     inkscape:window-height="954"
+     id="namedview4"
+     showgrid="false"
+     inkscape:zoom="2.3969722"
+     inkscape:cx="158.98924"
+     inkscape:cy="69.289803"
+     inkscape:window-x="337"
+     inkscape:window-y="244"
+     inkscape:window-maximized="0"
+     inkscape:current-layer="svg2"
+     fit-margin-top="0"
+     fit-margin-left="0"
+     fit-margin-right="0"
+     fit-margin-bottom="0" />
+  <image
+     sodipodi:absref="/users/valls/workspace/bliss.git/doc/docs/img/flint/source/demo-scatter-irregular.png"
+     xlink:href="demo-scatter-irregular.png"
+     y="3.73291e-06"
+     x="4.4067381e-09"
+     id="image844"
+     preserveAspectRatio="none"
+     height="162.88"
+     width="350.07999" />
+  <image
+     sodipodi:absref="/users/valls/workspace/bliss.git/doc/docs/img/flint/source/demo-scatter-irregular-dialog.png"
+     xlink:href="demo-scatter-irregular-dialog.png"
+     y="50.709999"
+     x="89.520012"
+     id="image855"
+     preserveAspectRatio="none"
+     height="95.68"
+     width="86.080002" />
+</svg>

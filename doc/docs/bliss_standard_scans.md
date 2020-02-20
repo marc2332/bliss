@@ -24,34 +24,29 @@ Bliss provides a wide choice of standard scans for step by step scanning procedu
 
 ### Running a scan
 
-#### Create and start simultaneously (with data saving):
+#### Start a scan (with data saving):
 ```python
 
-ascan( axis, start, stop, steps, count_time, *counters)
+ascan( axis, start, stop, steps, count_time, cnt1, ..., MG1, ..., ctrl1, ...)
 
 ```
 
+The scans accept as arguments a mix of `MeasurementGroups`, `Controllers` and `Counters`.
+If not provided, the default measurement group is used.
+
 #### Create then start (with data saving):
 ```python
-s = ascan( axis, start, stop, steps, count_time, *counters,  run=False)
+s = ascan( axis, start, stop, steps, count_time, cnt1,  run=False)
 s.run()
 ```
 
 #### Scan without data saving
 ```python
-ascan( axis, start, stop, steps, count_time, *counters, save=False)
+ascan( axis, start, stop, steps, count_time, cnt1, save=False)
 ```
 
-
 Note: By default, for all standard scans `run=True` and `save=True` except for the `ct()` scan which uses `save=False`.
-If `save=True` the data is generated but not saved to file.
-
-
-#### About the "*counters" arguments:
-
-`*counters` is a python expression for a 'list of arguments' (not a python list of objects).    
-It could be a mix of `MeasurementGroups`, `Controllers` and `Counters`.
-If not provided, the default measurement group is used.
+If `save=False` the data is generated but not saved to file.
 
 
 #### Examples
@@ -105,13 +100,12 @@ Took 0:00:03.030388
 #### Scanning, acquisition chain and data production
 
 During the scan creation, all the counters that are passed are introspected in order to build the acquisition chain.
-The acquisition chain is a kind of tree that reflects the hierarchy between the different involved objects.
+The acquisition chain is a tree that reflects the hierarchy between the different involved objects.
 The root of the tree is the top master. The top master will produce the triggers and propagate them along the branches of the tree.  
 Each node of tree which has associated counters will start acquiring the data in parallel of the others while receiving the trigger from its parent node. 
 
 ```python
-IN  [65]: ascan(roby,0,10,10,0.1,MG1,diode5, save=False)
-Out [65]: Scan(number=28, name=ascan, path=)
+IN  [65]: s=ascan(roby,0,10,10,0.1,MG1,diode5, save=False)
 IN  [66]: print(s.acq_chain._tree)
 acquisition chain
 └── axis

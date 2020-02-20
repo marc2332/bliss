@@ -175,3 +175,30 @@ def _add_detectors(chain, master, detectors, scan_params, acq_params):
             chain.add(top_node)
         else:
             chain.add(master, slave=top_node)
+
+
+def produce_data(n):
+    session = get_current_session()
+    session.enable_esrf_data_policy()
+    session.technique = ""
+    newproposal()
+    motors = [session.env_dict[k] for k in ["robx", "roby"]]
+    detectors = [session.env_dict[k] for k in ["xrfxrdMG"]]
+    import random
+
+    for i in range(n):
+        scan = random.choice(["ct", "loopscan", "ascan", "amesh"])
+        expo = random.choice([0.01, 0.02, 0.03])
+        n1 = random.randint(5, 8)
+        n2 = random.randint(3, 6)
+        kwargs = {"save": True, "run": False}
+        if scan == "ct":
+            args = (expo,)
+        elif scan == "loopscan":
+            args = n1, expo
+        elif scan == "ascan":
+            args = motors[0], 0, 3, n1, expo
+        elif scan == "amesh":
+            args = motors[0], -1, 2, n1, motors[1], 0.5, 3, n2, expo
+        s = session.env_dict[scan](*args, *detectors, **kwargs)
+        run_scan(s)

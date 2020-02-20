@@ -513,8 +513,8 @@ State changed to READY (Axis is READY)
 
 ### settings_to_config()
 
-Saves settings (`velocity` `acceleration` `limits`) into config (XML file or
-beacon YML).
+Save settings (`velocity` `acceleration` `limits`) into config
+(beacon YML file).
 
 
 ### on()

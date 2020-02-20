@@ -85,8 +85,8 @@ nav:
                       - Nano-BPM: config_nano_bpm.md
                       - Shutters, FE and Valves: config_shutter.md
                       - Wagos:
-                            - config_wago.md
-                            - config_wago_group.md
+                            - Wago: config_wago.md
+                            - Wago groups: config_wago_group.md
                             - config_wago_interlock.md
                       - Transfocators: config_transfocator.md
                       - Actuators: config_actuator.md
@@ -104,8 +104,17 @@ nav:
                       - VME time frame generator: config_tango_tfg.md
                       - Elettra / ePicea 4 quadrant diode BPM: config_elettra.md
                 - Tango Device Servers:
-                      - Introduction: tango_ds.md
-                      - Wago Device Server: config_tango_wago.md
+                      - Introduction: config_tango_ds.md
+                      - BlissAxis: config_tango_axis.md
+                      - CT2: config_tango_ct2.md
+                      - Gpib: config_tango_gpib.md
+                      - Keithley: config_tango_keithley.md
+                      - LinkamDsc: config_tango_linkamdsc.md
+                      - FuelCell: config_tango_fuelcell.md
+                      - Musst: config_tango_musst.md
+                      - NanoBpm: config_tango_nanobpm.md
+                      - NanoDac: config_tango_nanodac.md
+                      - Wago device server: config_tango_wago.md
                 - Deprecated: config_deprecated.md
         - BLISS shell:
                 - Command line usage: shell_cmdline.md

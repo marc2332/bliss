@@ -9,8 +9,7 @@ of this data base is not to **store** *Data* but to **publish** live
 *Data* to external process like *on-line data analysis*, *final
 storage*...
 
-Online data structure is detailed
-[Here](data_structure.md#online-data-analysis)
+
 
 ![image](img/scan_data_flow_path.svg)
 

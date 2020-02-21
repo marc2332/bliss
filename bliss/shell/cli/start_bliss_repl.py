@@ -8,7 +8,7 @@
 
 import sys
 from bliss.shell.cli.repl import embed
-from bliss import get_current_session, global_map
+from bliss import current_session, global_map
 from bliss import logging_startup
 import logging
 
@@ -28,7 +28,7 @@ def main(global_map=global_map):
         )
     finally:
         try:
-            get_current_session().close()
+            current_session.close()
         except AttributeError:
             # no current session
             pass

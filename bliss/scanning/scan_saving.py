@@ -979,29 +979,15 @@ class ESRFScanSaving(BasicScanSaving):
         response = self.metadata_experiment.get_property("beamlineID")
         if beamline != response.get("beamlineID", [""])[0]:
             self.metadata_experiment.put_property({"beamlineID": [beamline]})
-
         proposal = self.get_cached_property("proposal", eval_dict)
         if proposal != self.metadata_experiment.proposal:
-            self._icat_ensure_notrunning()
-            self.metadata_experiment.proposal = proposal
-            self.metadata_experiment.dataRoot = root_path
-            # Sample and dataset names are cleared by the server
-            self._icat_wait_until_state(
-                ["STANDBY"], "Failed to start the ICAT proposal"
-            )
-        else:
-            self._icat_wait_until_state(["STANDBY", "RUNNING"], "ICAT state")
-
+            self._icat_set_proposal(proposal, root_path)
         sample = self.sample
         if sample != self.metadata_experiment.sample:
-            self._icat_ensure_notrunning()
-            self.metadata_experiment.sample = sample
-            # Dataset name is cleared by the server
-
+            self._icat_set_sample(sample)
         dataset = self.get_cached_property("dataset", eval_dict)
         if dataset != self.metadata_manager.datasetName:
-            self._icat_ensure_notrunning()
-            self.metadata_manager.datasetName = dataset
+            self._icat_set_dataset(dataset)
         self._icat_ensure_running()
 
     def _icat_ensure_notrunning(self, timeout=3):
@@ -1015,7 +1001,9 @@ class ESRFScanSaving(BasicScanSaving):
         if self.icat_state == "RUNNING":
             self.metadata_manager.endDataset()
             # Dataset name is reset by the server
-        self._icat_wait_until_not_state(["RUNNING"], "Failed to stop the ICAT dataset")
+        self._icat_wait_until_not_state(
+            ["RUNNING"], "Failed to stop the running ICAT dataset"
+        )
 
     def _icat_ensure_running(self, timeout=3):
         """Make sure the ICAT dataset is running.
@@ -1025,7 +1013,9 @@ class ESRFScanSaving(BasicScanSaving):
         :raises DevFailed: communication or server-side exception
         """
         if self.icat_state != "RUNNING":
-            self._icat_wait_until_state(["ON"], "Cannot start the ICAT dataset")
+            self._icat_wait_until_state(
+                ["ON"], "Cannot start the ICAT dataset (sample or dataset not defined)"
+            )
             self.metadata_manager.startDataset()
             self._icat_wait_until_state(["RUNNING"], "Failed to start the ICAT dataset")
 
@@ -1041,7 +1031,7 @@ class ESRFScanSaving(BasicScanSaving):
                     gevent.sleep(0.1)
         except gevent.Timeout:
             if timeoutmsg:
-                timeoutmsg += " ({})".format(self.icat_status)
+                timeoutmsg = f"{timeoutmsg} ({self.icat_status})"
             else:
                 timeoutmsg = repr(self.icat_status)
             raise RuntimeError(timeoutmsg)
@@ -1058,10 +1048,110 @@ class ESRFScanSaving(BasicScanSaving):
                     gevent.sleep(0.1)
         except gevent.Timeout:
             if timeoutmsg:
-                timeoutmsg += " because " + repr(self.icat_status)
+                timeoutmsg = f"{timeoutmsg} ({self.icat_status})"
             else:
                 timeoutmsg = repr(self.icat_status)
             raise RuntimeError(timeoutmsg)
+
+    def _icat_set_proposal(self, proposal, root_path, timeout=3):
+        """
+        :param str proposal:
+        :param str root_path:
+        :param num timeout:
+        :raises RuntimeError: timeout
+        """
+        exception = None
+        try:
+            with gevent.Timeout(timeout):
+                timeoutmsg = "Failed to stop the running ICAT dataset"
+                self._icat_ensure_notrunning(timeout=None)
+                timeoutmsg = "Failed to set the ICAT proposal name"
+                while True:
+                    try:
+                        self.metadata_experiment.proposal = proposal
+                        self.metadata_experiment.dataRoot = root_path
+                        # Clears sample and dataset name in ICAT servers
+                    except Exception as e:
+                        exception = e
+                        if self.icat_state == "OFF":
+                            gevent.sleep(0.1)
+                        else:
+                            raise
+                    else:
+                        break
+                timeoutmsg = "Failed to start the ICAT proposal"
+                self._icat_wait_until_state(["STANDBY"], timeout=None)
+        except gevent.Timeout:
+            timeoutmsg = f"{timeoutmsg} ({self.icat_status})"
+            if exception is None:
+                raise RuntimeError(timeoutmsg)
+            else:
+                raise RuntimeError(timeoutmsg) from exception
+
+    def _icat_set_sample(self, sample, timeout=3):
+        """
+        :param str sample:
+        :param num timeout:
+        :raises RuntimeError: timeout
+        """
+        exception = None
+        try:
+            with gevent.Timeout(timeout):
+                timeoutmsg = "Failed to stop the running ICAT dataset"
+                self._icat_ensure_notrunning(timeout=None)
+                timeoutmsg = "Failed to set the ICAT sample name"
+                while True:
+                    try:
+                        self.metadata_experiment.sample = sample
+                        # Clears dataset name in ICAT servers
+                    except Exception as e:
+                        exception = e
+                        if self.icat_state == "STANDBY":
+                            gevent.sleep(0.1)
+                        else:
+                            raise
+                    else:
+                        break
+                timeoutmsg = "Failed to start the ICAT sample"
+                self._icat_wait_until_state(["STANDBY"], timeout=None)
+        except gevent.Timeout:
+            timeoutmsg = f"{timeoutmsg} ({self.icat_status})"
+            if exception is None:
+                raise RuntimeError(timeoutmsg)
+            else:
+                raise RuntimeError(timeoutmsg) from exception
+
+    def _icat_set_dataset(self, dataset, timeout=3):
+        """
+        :param str dataset:
+        :param num timeout:
+        :raises RuntimeError: timeout
+        """
+        exception = None
+        try:
+            with gevent.Timeout(timeout):
+                timeoutmsg = "Failed to stop the running ICAT dataset"
+                self._icat_ensure_notrunning(timeout=None)
+                timeoutmsg = "Failed to set the ICAT dataset name"
+                while True:
+                    try:
+                        self.metadata_manager.datasetName = dataset
+                    except Exception as e:
+                        exception = e
+                        if self.icat_state == "STANDBY":
+                            gevent.sleep(0.1)
+                        else:
+                            raise
+                    else:
+                        break
+                timeoutmsg = "Failed to start the ICAT dataset"
+                self._icat_wait_until_state(["ON"], timeout=None)
+        except gevent.Timeout:
+            timeoutmsg = f"{timeoutmsg} ({self.icat_status})"
+            if exception is None:
+                raise RuntimeError(timeoutmsg)
+            else:
+                raise RuntimeError(timeoutmsg) from exception
 
     def newproposal(self, proposal_name):
         # beware: self.proposal getter and setter do different actions

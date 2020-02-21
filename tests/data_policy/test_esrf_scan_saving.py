@@ -13,19 +13,6 @@ from bliss.common.standard import loopscan
 from bliss.shell.standard import newproposal, newsample, newdataset
 
 
-@pytest.fixture
-def esrf_data_policy(session, scan_tmpdir):
-    session.enable_esrf_data_policy()
-    scan_saving_config = session.scan_saving.scan_saving_config
-    # patch config to put data to the proper test directory
-    scan_saving_config["inhouse_data_root"] = os.path.join(
-        scan_tmpdir, "{beamline}", "inhouse"
-    )
-    scan_saving_config["visitor_data_root"] = os.path.join(scan_tmpdir, "visitor")
-    yield scan_saving_config
-    session.disable_esrf_data_policy()
-
-
 def test_inhouse_scan_saving(session, esrf_data_policy):
     scan_saving = session.scan_saving
     scan_saving_config = esrf_data_policy
@@ -113,13 +100,16 @@ def test_data_policy_scan_check_servers(
     mdexp_dev_fqdn, mdexp_dev = metadata_experiment_tango_server
     mdmgr_dev_fqdn, mdmgr_dev = metadata_manager_tango_server
 
-    session.scan_saving.dataset = "new"
+    session.scan_saving.proposal = "newproposal"
+    session.scan_saving.sample = "newsample"
+    session.scan_saving.dataset = "newdataset"
 
     diode = session.env_dict["diode"]
     s = loopscan(3, 0.01, diode, save=False)
 
-    assert mdexp_dev.proposal == session.scan_saving.proposal
-    assert mdmgr_dev.datasetName == "new"
+    assert mdexp_dev.proposal == "newproposal"
+    assert mdexp_dev.sample == "newsample"
+    assert mdmgr_dev.datasetName == "newdataset"
     assert str(mdmgr_dev.state()) == "RUNNING"
 
 

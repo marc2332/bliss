@@ -36,13 +36,13 @@ from bliss.common.proxy import Proxy as _Proxy
 import atexit
 
 
-def get_current_session():
+def _get_current_session():
     from bliss.common import session
 
     return session.get_current_session()
 
 
-current_session = _Proxy(get_current_session)
+current_session = _Proxy(_get_current_session)
 
 from bliss.common.alias import MapWithAliases as _MapWithAliases
 

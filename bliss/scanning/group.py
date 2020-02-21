@@ -18,10 +18,9 @@ from bliss.scanning.chain import (
 from bliss.scanning.scan import Scan as Scanning_Scan
 from bliss.data.nodes.scan import Scan as Data_Scan
 from bliss.data.node import get_session_node
-from bliss import get_current_session
 from bliss.scanning.scan import ScanState
-
 from bliss.data.node import _create_node
+from bliss import current_session
 
 
 class ScanGroup(Scanning_Scan):
@@ -173,9 +172,9 @@ class Group(Sequence):
                     scan = s.node
                 elif type(s) == int:
                     node_found = False
-                    for node in get_session_node(
-                        get_current_session().name
-                    ).iterator.walk(filter="scan", wait=False):
+                    for node in get_session_node(current_session.name).iterator.walk(
+                        filter="scan", wait=False
+                    ):
                         if node.info["scan_nb"] == s:
                             scan = node
                             node_found = True

@@ -20,15 +20,18 @@ import gevent
 
 from bliss.common.utils import autocomplete_property
 from bliss.common.mapping import format_node, map_id
-from bliss import global_map, get_current_session
+from bliss import global_map, current_session
 
 old_factory = logging.getLogRecordFactory()
 
 
 def record_factory(*args, **kwargs):
     record = old_factory(*args, **kwargs)
-    session = get_current_session()
-    record.session = "startup" if session is None else session.name
+    try:
+        current_session_name = current_session.name
+    except AttributeError:
+        current_session_name = "startup"
+    record.session = current_session_name
     record.greenlet_ref = weakref.ref(gevent.getcurrent())
     return record
 
@@ -491,18 +494,6 @@ class BlissLogger(Logger):
         return hexify(in_str)
 
 
-class SessionFinder:
-    def __getitem__(self, key):
-        if key == "session":
-            session = get_current_session()
-            if session is None:
-                session = "undefined"
-            return session
-
-    def __iter__(self):
-        return iter("session")
-
-
 class Log:
     """
     Main utility class for BLISS logging
@@ -544,8 +535,6 @@ class Log:
         self.map = map
         for node_name in ("global", "controllers"):
             get_logger(node_name)
-
-        self.session_finder = SessionFinder()
 
     def start_stdout_handler(self):
         try:

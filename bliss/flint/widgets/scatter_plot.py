@@ -122,7 +122,9 @@ class ScatterPlotWidget(ExtendedDockWidget):
         # Axis
         action = self.__refreshManager.createRefreshAction(self)
         toolBar.addAction(action)
-        toolBar.addAction(plot_helper.CustomAxisAction(self.__plot, self))
+        toolBar.addAction(
+            plot_helper.CustomAxisAction(self.__plot, self, kind="scatter")
+        )
         action = control.CrosshairAction(self.__plot, parent=self)
         action.setIcon(icons.getQIcon("flint:icons/crosshair"))
         toolBar.addAction(action)

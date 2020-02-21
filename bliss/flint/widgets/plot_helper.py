@@ -91,22 +91,22 @@ class CustomAxisAction(qt.QWidgetAction):
         action.setText("Show the plot axes")
         menu.addAction(action)
 
-        if kind not in ["image", "mca"]:
+        if kind in ["curve", "scatter"]:
             menu.addSection("X-axes")
             action = control.XAxisLogarithmicAction(plot, self)
             action.setText("Log scale")
             menu.addAction(action)
 
         menu.addSection("Y-axes")
-        if kind == "image":
+        if kind in ["curve", "scatter", "mca"]:
             action = control.YAxisLogarithmicAction(plot, self)
             action.setText("Log scale")
             menu.addAction(action)
-        if kind == "mca":
+        if kind in ["scatter", "image"]:
             action = control.YAxisInvertedAction(plot, self)
             menu.addAction(action)
 
-        if kind == "mca":
+        if kind in ["scatter", "image"]:
             menu.addSection("Aspect ratio")
             action = CheckableKeepAspectRatioAction(plot, self)
             action.setText("Keep aspect ratio")

@@ -787,6 +787,42 @@ def nxProcess(parent, name, configdict=None, raise_on_exists=False, **kwargs):
     return h5group
 
 
+def nxNote(parent, name, data=None, type=None, date=None, raise_on_exists=False):
+    """
+    Get NXnote instance (initialize when missing)
+
+    :param h5py.Group parent:
+    :param str name:
+    :param str data:
+    :param str type:
+    :param datetime date:
+    :param bool raise_on_exists:
+    :return h5py.Group:
+    :raises RuntimeError: wrong Nexus class or parent
+                          not an Nexus class instance
+    :raises NexusInstanceExists:
+    """
+    raiseIsNxClass(parent, None)
+    if nxClassInstantiate(parent, name, u"NXnote", raise_on_exists=raise_on_exists):
+        h5group = parent[name]
+        h5group.attrs["NX_class"] = u"NXnote"
+        update = True
+    else:
+        h5group = parent[name]
+        update = False
+    if data is not None:
+        updateDataset(h5group, "data", data)
+        update = True
+    if type is not None:
+        updateDataset(h5group, "type", type)
+        update = True
+    if date:
+        updateDataset(h5group, "date", datetime_to_nexus(date))
+    elif update:
+        updated(h5group)
+    return h5group
+
+
 def isErrno(e, errno):
     """
     :param OSError e:
@@ -830,79 +866,22 @@ def lockedErrorMessage(filename):
     return msg
 
 
-class FilePool(SharedLockPool):
-    """
-    Allows to acquire locks identified by name recursively.
-    """
-
-    @contextmanager
-    def _acquire_open(self, filename):
-        """Protect file opening/creation
-        """
-        with super().acquire(None):
-            with super().acquire(filename):
-                yield
-
-    @contextmanager
-    def acquire(self, filename):
-        """Protect blocks of file IO operations. To be used in case other
-        operations in the block yield to the async event loop)
-        """
-        lockname = os.path.abspath(filename)
-        with super().acquire(lockname):
-            yield
-
-
-FILEPOOL = FilePool()
-
-
-def nxNote(parent, name, data=None, type=None, date=None, raise_on_exists=False):
-    """
-    Get NXnote instance (initialize when missing)
-
-    :param h5py.Group parent:
-    :param str name:
-    :param str data:
-    :param str type:
-    :param datetime date:
-    :param bool raise_on_exists:
-    :return h5py.Group:
-    :raises RuntimeError: wrong Nexus class or parent
-                          not an Nexus class instance
-    :raises NexusInstanceExists:
-    """
-    raiseIsNxClass(parent, None)
-    if nxClassInstantiate(parent, name, u"NXnote", raise_on_exists=raise_on_exists):
-        h5group = parent[name]
-        h5group.attrs["NX_class"] = u"NXnote"
-        update = True
-    else:
-        h5group = parent[name]
-        update = False
-    if data is not None:
-        updateDataset(h5group, "data", data)
-        update = True
-    if type is not None:
-        updateDataset(h5group, "type", type)
-        update = True
-    if date:
-        updateDataset(h5group, "date", datetime_to_nexus(date))
-    elif update:
-        updated(h5group)
-    return h5group
-
-
 class File(h5py.File):
-    def __init__(self, name, mode="r", enable_file_locking=None, swmr=None, **kwargs):
+
+    _LOCKPOOL = SharedLockPool()
+
+    def __init__(
+        self, filename, mode="r", enable_file_locking=None, swmr=None, **kwargs
+    ):
         """
-        :param str name:
+        :param str filename:
         :param str mode:
         :param bool enable_file_locking: by default it is disabled for `mode=='r'`
                                          and enabled in all other modes
         :param bool swmr: when not specified: try both modes when `mode=='r'`
         :param **kwargs: see `h5py.File.__init__`
         """
-        with self._acquire_creation_lock(name):
+        with self._protect_init(filename):
             # https://support.hdfgroup.org/HDF5/docNewFeatures/SWMR/Design-HDF5-FileLocking.pdf
             if not HASSWMR and swmr:
                 swmr = False
@@ -916,7 +895,7 @@ class File(h5py.File):
             else:
                 os.environ["HDF5_USE_FILE_LOCKING"] = "FALSE"
             try:
-                super().__init__(name, mode=mode, swmr=swmr, **kwargs)
+                super().__init__(filename, mode=mode, swmr=swmr, **kwargs)
                 if mode != "r" and swmr:
                     # Try setting writing in SWMR mode
                     try:
@@ -937,30 +916,39 @@ class File(h5py.File):
                     kwargs["libver"] = "latest"
                 else:
                     kwargs["libver"] = libver
-                super().__init__(name, mode=mode, swmr=swmr, **kwargs)
+                super().__init__(filename, mode=mode, swmr=swmr, **kwargs)
 
     @contextmanager
-    def _acquire_creation_lock(self, filename):
-        with FILEPOOL._acquire_open(filename):
-            yield
+    def _protect_init(self, filename):
+        """Makes sure no other file is opened/created
+        or protected sections associated to the filename
+        are executed.
+        """
+        lockname = os.path.abspath(filename)
+        with self._LOCKPOOL.acquire(None):
+            with self._LOCKPOOL.acquire(lockname):
+                yield
 
     @contextmanager
-    def acquire_lock(self):
-        with FILEPOOL.acquire(self.filename):
+    def protect(self):
+        """Protected section associated to this file.
+        """
+        lockname = os.path.abspath(self.filename)
+        with self._LOCKPOOL.acquire(lockname):
             yield
 
 
 class nxRoot(File):
-    def __init__(self, name, mode="r", **kwargs):
+    def __init__(self, filename, mode="r", **kwargs):
         """
-        :param str name:
+        :param str filename:
         :param str mode:
         :param **kwargs: see `h5py.File.__init__`
         """
-        with self._acquire_creation_lock(name):
+        with self._protect_init(filename):
             if mode != "r":
-                mkdir(os.path.dirname(name))
-            super().__init__(name, mode=mode, **kwargs)
+                mkdir(os.path.dirname(filename))
+            super().__init__(filename, mode=mode, **kwargs)
             nxRootInit(self)
 
 

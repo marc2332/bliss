@@ -454,7 +454,7 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
             if nxroot is None:
                 yield nxroot
             else:
-                with nxroot.acquire_lock():
+                with nxroot.protect():
                     yield nxroot
 
     @property

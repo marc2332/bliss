@@ -11,7 +11,7 @@ default:
 
 stages:
   - style
-  # - tests
+  - tests
   - build
   - package_tests
   - deploy
@@ -61,7 +61,7 @@ check_lint:
   variables:
     CHANGES: '\.(py|cfg)$|requirements|gitlab-ci|^(bin|extensions|scripts|spec|tests)/'
 
-.test_bliss:
+test_bliss:
   # Run bliss tests without coverage for any branches except the master
   extends: .template_test_source
   except:
@@ -69,7 +69,7 @@ check_lint:
   variables:
     PYTEST_ARGS: '--durations=30'
 
-.test_writer:
+test_writer:
   # Run hdf5 writer tests without coverage for any branches except the master
   extends: .template_test_source
   except:
@@ -77,7 +77,7 @@ check_lint:
   variables:
     PYTEST_ARGS: '--durations=30 -m writer --runwritertests'
 
-.test_bliss_cov:
+test_bliss_cov:
   # Run bliss tests with coverage for master only
   extends: .template_test_source
   only:
@@ -92,7 +92,7 @@ check_lint:
   variables:
     PYTEST_ARGS: '--cov bliss --cov-report html:htmlcov --cov-report term --profile --durations=30'
 
-.test_writer_cov:
+test_writer_cov:
   # Run hdf5 writer tests with coverage for master only
   extends: .template_test_source
   only:

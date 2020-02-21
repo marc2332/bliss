@@ -12,21 +12,39 @@ except ImportError:
     from io import StringIO
 import logging
 from contextlib import contextmanager
-from .logging_utils import print_out
+from .logging_utils import log
+from ..io import io_utils
 
 
-def log(logger, msg):
-    """
-    :param logger: `print` when `None`
-    :param str msg:
-    """
-    if logger is None:
-        print_out(msg)
+class bcolors:
+    HEADER = "\033[95m"
+    OKBLUE = "\033[94m"
+    OKGREEN = "\033[92m"
+    WARNING = "\033[93m"
+    FAIL = "\033[91m"
+    ENDC = "\033[0m"
+    BOLD = "\033[1m"
+    UNDERLINE = "\033[4m"
+
+
+def durationfmtcolor(x):
+    if x < 0.0005:
+        return bcolors.OKGREEN + ("%6dµs" % (x * 1000000)) + bcolors.ENDC
+    elif x < 0.001:
+        return bcolors.WARNING + ("%6dµs" % (x * 1000000)) + bcolors.ENDC
+    elif x < 0.1:
+        return bcolors.WARNING + ("%6dms" % (x * 1000)) + bcolors.ENDC
     else:
-        if logger.getEffectiveLevel() == logging.DEBUG:
-            logger.debug(msg)
-        else:
-            logger.info(msg)
+        return bcolors.FAIL + ("%8.3f" % x) + bcolors.ENDC
+
+
+def durationfmt(x):
+    if x < 0.001:
+        return "%6dµs" % (x * 1000000)
+    elif x < 0.1:
+        return "%6dms" % (x * 1000)
+    else:
+        return "%8.3f" % x
 
 
 def print_malloc_snapshot(
@@ -97,11 +115,15 @@ def print_malloc_context(logger=None, **kwargs):
 
 
 @contextmanager
-def print_time_context(logger=None, timelimit=None, sortby="cumtime"):
+def print_time_context(
+    logger=None, timelimit=None, sortby="cumtime", color=False, filename=None
+):
     """
+    :param logger:
     :param int or float timelimit: number of lines or fraction (float between 0 and 1)
     :param str sortby: sort time profile
-    :param logger:
+    :param bool color:
+    :param str filename:
     """
     pr = cProfile.Profile()
     pr.enable()
@@ -111,7 +133,11 @@ def print_time_context(logger=None, timelimit=None, sortby="cumtime"):
         pr.disable()
         if isinstance(sortby, str):
             sortby = [sortby]
-        for sortmethod in sortby:
+        if color:
+            pstats.f8 = durationfmtcolor
+        else:
+            pstats.f8 = durationfmt
+        for i, sortmethod in enumerate(sortby):
             s = StringIO()
             ps = pstats.Stats(pr, stream=s)
             if sortmethod:
@@ -121,8 +147,13 @@ def print_time_context(logger=None, timelimit=None, sortby="cumtime"):
             elif not isinstance(timelimit, tuple):
                 timelimit = (timelimit,)
             ps.print_stats(*timelimit)
+            if filename and i == 0:
+                io_utils.rotatefiles(filename)
+                ps.dump_stats(filename)
             log(logger, "================Time profile================")
-            log(logger, "\n" + s.getvalue())
+            msg = "\n" + s.getvalue()
+            msg += "\n Saved as {}".format(repr(filename))
+            log(logger, msg)
             log(logger, "============================================")
 
 
@@ -133,6 +164,8 @@ def profile(
     memlimit=10,
     timelimit=None,
     sortby="cumtime",
+    color=False,
+    filename=None,
     units="KB",
     logger=None,
 ):
@@ -142,18 +175,32 @@ def profile(
     :param int memlimit: number of lines
     :param int or float timelimit: number of lines or fraction (float between 0 and 1)
     :param str sortby: sort time profile
+    :param bool color:
+    :param str filename: dump for visual tools
     :param str units: memory units
     :param logger:
     """
     if not memory and not time:
         return
     elif memory and time:
-        with print_time_context(timelimit=timelimit, sortby=sortby, logger=logger):
+        with print_time_context(
+            timelimit=timelimit,
+            sortby=sortby,
+            color=color,
+            filename=filename,
+            logger=logger,
+        ):
             with print_malloc_context(limit=memlimit, units=units, logger=logger):
                 yield
     elif memory:
         with print_malloc_context(limit=memlimit, units=units, logger=logger):
             yield
     else:
-        with print_time_context(timelimit=timelimit, sortby=sortby, logger=logger):
+        with print_time_context(
+            timelimit=timelimit,
+            sortby=sortby,
+            color=color,
+            filename=filename,
+            logger=logger,
+        ):
             yield

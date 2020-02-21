@@ -409,3 +409,19 @@ def filestream(name, filename, **kwargs):
     logger.setLevel(logging.INFO)
     add_filehandler(logger, filename, terminator=False, **kwargs)
     return textstream_wrapper(logger, logging.INFO)
+
+
+def log(logger, msg, force=True):
+    """
+    :param logger: use the default stdout logger when None
+    :param str msg:
+    :param bool force: visible regardless of the log level
+    """
+    if logger is None:
+        print_out(msg)
+    else:
+        if force:
+            level = max(logger.getEffectiveLevel(), logging.INFO)
+        else:
+            level = logging.INFO
+        logger.log(level, msg)

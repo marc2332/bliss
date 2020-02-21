@@ -24,7 +24,7 @@ from contextlib import contextmanager
 from bliss.data.node import get_node as _get_node
 from bliss.data.node import _get_node_object
 from ..utils.logging_utils import CustomLogger
-from ..io.io_utils import close_files
+from ..io import io_utils
 from ..utils.async_utils import greenlet_ident
 from ..utils import profiling
 
@@ -274,7 +274,9 @@ class BaseSubscriber(object):
         """
         if self._greenlet is not None:
             try:
-                close_files(self._greenlet._wakeup_write, self._greenlet._wakeup_read)
+                io_utils.close_files(
+                    self._greenlet._wakeup_write, self._greenlet._wakeup_read
+                )
                 self._greenlet._wakeup_write, self._greenlet._wakeup_read = None, None
             except AttributeError:
                 pass
@@ -306,11 +308,16 @@ class BaseSubscriber(object):
         """
         try:
             if self.resource_profiling:
+                dumpname = os.path.join(
+                    io_utils.temproot(), "pyprof_pid{}.cprof".format(os.getpid())
+                )
                 with profiling.profile(
                     logger=self.logger,
-                    timelimit=50,
-                    memlimit=10,
+                    timelimit=100,
+                    memlimit=30,
                     sortby=["cumtime", "tottime"],
+                    color=True,
+                    filename=dumpname,
                     units="MB",
                 ):
                     self._listen_event_loop()

@@ -14,12 +14,17 @@ from typing import List
 from typing import Dict
 from typing import Tuple
 
+import logging
+
 from silx.gui import colors
 
 from bliss.flint.model import plot_model
 from bliss.flint.model import plot_item_model
 from bliss.flint.model import scan_model
 from bliss.flint.model import style_model
+
+
+_logger = logging.getLogger(__name__)
 
 
 def reachAnyCurveItemFromDevice(
@@ -335,8 +340,13 @@ def filterUsedDataItems(plot, channel_names):
             channel = item.valueChannel()
         elif isinstance(item, plot_item_model.CurveItem):
             channel = item.yChannel()
+        elif isinstance(item, plot_item_model.ImageItem):
+            channel = item.imageChannel()
+        elif isinstance(item, plot_item_model.McaItem):
+            channel = item.mcaChannel()
         else:
-            raise NotImplementedError("Item type %s unsupported" % type(item))
+            _logger.debug("Item %s skipped", type(item))
+            continue
         if channel is not None:
             if channel.name() in channel_names:
                 used_items.append(item)

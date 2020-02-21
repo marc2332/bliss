@@ -143,7 +143,7 @@ class CT2CounterAcquisitionSlave(IntegratingCounterAcquisitionSlave):
         channel_counters = dict(
             [(counter.channel, counter) for counter in self._counters]
         )
-
+        cntname2channel = {cnt.name: cnt.channel for cnt in self._counters}
         for i, channel in enumerate(sorted(channel_counters)):
             counter = channel_counters[channel]
             if channel in in_channels:
@@ -155,6 +155,11 @@ class CT2CounterAcquisitionSlave(IntegratingCounterAcquisitionSlave):
                 i = -1
             counter_indexes[counter] = i
         ctrl.acq_channels = channels
+
+        def _sort(chan):
+            return cntname2channel[chan.short_name]
+
+        self.channels.sort(key=_sort)
         # counter_indexes dict<counter: index in data array>
         self.device.counter_indexes = counter_indexes
         # a hack here: since this prepare is called AFTER the

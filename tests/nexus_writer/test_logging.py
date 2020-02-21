@@ -6,6 +6,7 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import os
+import re
 import subprocess
 import pprint
 import difflib
@@ -261,6 +262,9 @@ def validate_output(tmpdir, output, outtype, **kwargs):
     lines = lines.format(*args)
     lines = lines.split(os.linesep)
     output = output.split(os.linesep)
+    timestamp = r" \d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} "
+    output = [re.sub(timestamp, ":", s) for s in output]
+
     if lines != output:
         cmd = " ".join(cliargs(tmpdir, **kwargs))
         errmsg = "Unexpected {}".format(repr(outtype))

@@ -24,6 +24,7 @@ from tango.server import attribute, command
 from tango.server import device_property
 from tango import AttrQuality, DispLevel, DevState
 from tango import AttrWriteType, PipeWriteType
+import enum
 
 # Additional import
 # PROTECTED REGION ID(NexusWriter.additionnal_import) ENABLED START #
@@ -33,19 +34,10 @@ import re
 import os
 import itertools
 from tango import LogLevel
+import nexus_writer_service
 from nexus_writer_service.subscribers import session_writer
 from nexus_writer_service.subscribers.scan_writer_base import NexusScanWriterBase
-from nexus_writer_service.utils.log_levels import tango_log_level
-
-# Not sure why this keep showing output in info level
-def DebugIt():
-    def wrap(func):
-        return func
-
-    return wrap
-
-
-logger = logging.getLogger(__name__)
+from nexus_writer_service.utils import log_levels
 
 
 def session_tango_state(state):
@@ -103,9 +95,43 @@ def strftime(tm):
         return tm.strftime("%Y-%m-%d %H:%M:%S")
 
 
+read_log_level = {
+    logging.NOTSET: 0,
+    logging.DEBUG: 1,
+    logging.INFO: 2,
+    logging.WARNING: 3,
+    logging.ERROR: 4,
+    logging.CRITICAL: 5,
+}
+
+write_log_level = {v: k for k, v in read_log_level.items()}
+
+
 # PROTECTED REGION END #    //  NexusWriter.additionnal_import
 
 __all__ = ["NexusWriter", "main"]
+
+
+class Writer_log_level(enum.IntEnum):
+    """Python enumerated type for Writer_log_level attribute."""
+
+    NOTSET = 0
+    DEBUG = 1
+    INFO = 2
+    WARN = 3
+    ERROR = 4
+    FATAL = 5
+
+
+class Tango_log_level(enum.IntEnum):
+    """Python enumerated type for Tango_log_level attribute."""
+
+    NOTSET = 0
+    DEBUG = 1
+    INFO = 2
+    WARN = 3
+    ERROR = 4
+    FATAL = 5
 
 
 class NexusWriter(Device):
@@ -183,6 +209,12 @@ class NexusWriter(Device):
 
     resource_profiling = attribute(dtype="DevBoolean", access=AttrWriteType.READ_WRITE)
 
+    writer_log_level = attribute(
+        dtype=Writer_log_level, access=AttrWriteType.READ_WRITE
+    )
+
+    tango_log_level = attribute(dtype=Tango_log_level, access=AttrWriteType.READ_WRITE)
+
     scan_states = attribute(dtype=("DevState",), max_dim_x=10000)
 
     scan_uris = attribute(dtype=("DevString",), max_dim_x=10000)
@@ -209,11 +241,8 @@ class NexusWriter(Device):
         """Initialises the attributes and properties of the NexusWriter."""
         Device.init_device(self)
         # PROTECTED REGION ID(NexusWriter.init_device) ENABLED START #
-        # TODO: Python logging respects the CLI argument -v but
-        #       the device log level is always DEBUG.
-        level = tango_log_level[logger.getEffectiveLevel()]
-        _logger = self.get_logger()
-        _logger.set_level(level)
+        level = nexus_writer_service.logger.getEffectiveLevel()
+        self.get_logger().set_level(log_levels.tango_log_level[level])
         self.session_writer = getattr(self, "session_writer", None)
         if self.session_writer is None:
             self.session_writer = session_writer.NexusSessionWriter(
@@ -253,6 +282,32 @@ class NexusWriter(Device):
         """Set the resource_profiling attribute."""
         self.session_writer.resource_profiling = value
         # PROTECTED REGION END #    //  NexusWriter.resource_profiling_write
+
+    def read_writer_log_level(self):
+        # PROTECTED REGION ID(NexusWriter.writer_log_level_read) ENABLED START #
+        """Return the writer_log_level attribute."""
+        return read_log_level[nexus_writer_service.logger.getEffectiveLevel()]
+        # PROTECTED REGION END #    //  NexusWriter.writer_log_level_read
+
+    def write_writer_log_level(self, value):
+        # PROTECTED REGION ID(NexusWriter.writer_log_level_write) ENABLED START #
+        """Set the writer_log_level attribute."""
+        nexus_writer_service.logger.setLevel(write_log_level[value])
+        # PROTECTED REGION END #    //  NexusWriter.writer_log_level_write
+
+    def read_tango_log_level(self):
+        # PROTECTED REGION ID(NexusWriter.tango_log_level_read) ENABLED START #
+        """Return the tango_log_level attribute."""
+        return read_log_level[
+            log_levels.itango_log_level[self.get_logger().get_level()]
+        ]
+        # PROTECTED REGION END #    //  NexusWriter.tango_log_level_read
+
+    def write_tango_log_level(self, value):
+        # PROTECTED REGION ID(NexusWriter.tango_log_level_write) ENABLED START #
+        """Set the tango_log_level attribute."""
+        self.get_logger().set_level(log_levels.tango_log_level[write_log_level[value]])
+        # PROTECTED REGION END #    //  NexusWriter.tango_log_level_write
 
     def read_scan_states(self):
         # PROTECTED REGION ID(NexusWriter.scan_states_read) ENABLED START #

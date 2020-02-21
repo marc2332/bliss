@@ -169,6 +169,34 @@
       <status abstract="false" inherited="false" concrete="true" concreteHere="true"/>
       <properties description="" label="" unit="" standardUnit="" displayUnit="" format="" maxValue="" minValue="" maxAlarm="" minAlarm="" maxWarning="" minWarning="" deltaTime="" deltaValue=""/>
     </attributes>
+    <attributes name="writer_log_level" attType="Scalar" rwType="READ_WRITE" displayLevel="OPERATOR" polledPeriod="0" maxX="" maxY="" allocReadMember="true" isDynamic="false">
+      <dataType xsi:type="pogoDsl:EnumType"/>
+      <changeEvent fire="false" libCheckCriteria="false"/>
+      <archiveEvent fire="false" libCheckCriteria="false"/>
+      <dataReadyEvent fire="false" libCheckCriteria="true"/>
+      <status abstract="false" inherited="false" concrete="true" concreteHere="true"/>
+      <properties description="" label="" unit="" standardUnit="" displayUnit="" format="" maxValue="" minValue="" maxAlarm="" minAlarm="" maxWarning="" minWarning="" deltaTime="" deltaValue=""/>
+      <enumLabels>NOTSET</enumLabels>
+      <enumLabels>DEBUG</enumLabels>
+      <enumLabels>INFO</enumLabels>
+      <enumLabels>WARN</enumLabels>
+      <enumLabels>ERROR</enumLabels>
+      <enumLabels>FATAL</enumLabels>
+    </attributes>
+    <attributes name="tango_log_level" attType="Scalar" rwType="READ_WRITE" displayLevel="OPERATOR" polledPeriod="0" maxX="" maxY="" allocReadMember="true" isDynamic="false">
+      <dataType xsi:type="pogoDsl:EnumType"/>
+      <changeEvent fire="false" libCheckCriteria="false"/>
+      <archiveEvent fire="false" libCheckCriteria="false"/>
+      <dataReadyEvent fire="false" libCheckCriteria="true"/>
+      <status abstract="false" inherited="false" concrete="true" concreteHere="true"/>
+      <properties description="" label="" unit="" standardUnit="" displayUnit="" format="" maxValue="" minValue="" maxAlarm="" minAlarm="" maxWarning="" minWarning="" deltaTime="" deltaValue=""/>
+      <enumLabels>NOTSET</enumLabels>
+      <enumLabels>DEBUG</enumLabels>
+      <enumLabels>INFO</enumLabels>
+      <enumLabels>WARN</enumLabels>
+      <enumLabels>ERROR</enumLabels>
+      <enumLabels>FATAL</enumLabels>
+    </attributes>
     <attributes name="scan_states" attType="Spectrum" rwType="READ" displayLevel="OPERATOR" polledPeriod="0" maxX="10000" maxY="" allocReadMember="true" isDynamic="false">
       <dataType xsi:type="pogoDsl:StateType"/>
       <changeEvent fire="false" libCheckCriteria="false"/>

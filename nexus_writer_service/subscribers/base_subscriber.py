@@ -316,7 +316,7 @@ class BaseSubscriber(object):
                     timelimit=100,
                     memlimit=30,
                     sortby=["cumtime", "tottime"],
-                    color=True,
+                    color=False,
                     filename=dumpname,
                     units="MB",
                 ):

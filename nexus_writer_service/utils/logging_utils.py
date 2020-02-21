@@ -212,6 +212,9 @@ def cliconfig(logger, default="WARNING", help=False):
     config(logger, **kwargs)
 
 
+DEFAULT_FORMAT = "%(levelname)s %(asctime)s %(name)s: %(message)s"
+
+
 def config(
     logger,
     level=None,
@@ -242,7 +245,7 @@ def config(
         "terminator": True,
         "filter_func": None,
         "formatter": True,
-        "fmt": "%(levelname)s:%(name)s: %(message)s",
+        "fmt": DEFAULT_FORMAT,
     }
 
     # - all messages to ...
@@ -352,11 +355,7 @@ def add_filehandler(
 
 
 def _add_outputhandler(
-    logger,
-    outputhandler,
-    formatter=False,
-    filter_func=None,
-    fmt="%(levelname)s:%(name)s: %(message)s",
+    logger, outputhandler, formatter=False, filter_func=None, fmt=DEFAULT_FORMAT
 ):
     """Direct logger output to an output handler
     """
@@ -367,10 +366,10 @@ def _add_outputhandler(
     logger.addHandler(outputhandler)
 
 
-def _add_formatting(outputhandler, fmt="%(levelname)s:%(name)s: %(message)s"):
+def _add_formatting(outputhandler, fmt=DEFAULT_FORMAT):
     """Define format of the logger output
     """
-    formatter = logging.Formatter(fmt)
+    formatter = logging.Formatter(fmt, "%Y-%m-%d %H:%M:%S")
     outputhandler.setFormatter(formatter)
 
 

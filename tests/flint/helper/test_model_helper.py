@@ -1,7 +1,7 @@
 """Testing LogWidget."""
 
 from bliss.flint.helper import model_helper
-from bliss.flint.model import scan_model
+from bliss.flint.model import scan_model, plot_state_model
 from bliss.flint.model import plot_model
 from bliss.flint.model import plot_item_model
 
@@ -526,3 +526,64 @@ def test_create_curve_item__existing_axes():
     assert new_item.yAxis() == "left"
     assert new_item.xChannel().name() == item.xChannel().name()
     assert new_item.yChannel().name() == channel1.name()
+
+
+def test_filter_used_data_items():
+    plot = plot_item_model.CurvePlot()
+
+    item = plot_item_model.CurveItem(plot)
+    channel = plot_model.ChannelRef(plot, "c1")
+    item.setXChannel(channel)
+    channel = plot_model.ChannelRef(plot, "c2")
+    item.setYChannel(channel)
+    plot.addItem(item)
+
+    item = plot_state_model.GaussianFitItem(plot)
+    plot.addItem(item)
+
+    item = plot_item_model.MotorPositionMarker(plot)
+    plot.addItem(item)
+
+    scan = scan_model.Scan()
+    master1 = scan_model.Device(scan)
+    channel1 = scan_model.Channel(master1)
+    channel1.setName("n1")
+    channel2 = scan_model.Channel(master1)
+    channel2.setName("c1")
+    scan.seal()
+
+    used_items, unneeded_items, unused_channels = model_helper.filterUsedDataItems(
+        plot, ["c2"]
+    )
+    assert len(used_items) == 1
+    assert len(unneeded_items) == 0
+    assert len(unused_channels) == 0
+
+
+def test_update_displayed_channel_names():
+    plot = plot_item_model.CurvePlot()
+
+    item = plot_item_model.CurveItem(plot)
+    channel = plot_model.ChannelRef(plot, "c1")
+    item.setXChannel(channel)
+    channel = plot_model.ChannelRef(plot, "c2")
+    item.setYChannel(channel)
+    plot.addItem(item)
+
+    item = plot_item_model.CurveItem(plot)
+    channel = plot_model.ChannelRef(plot, "c1")
+    item.setXChannel(channel)
+    channel = plot_model.ChannelRef(plot, "c3")
+    item.setYChannel(channel)
+    plot.addItem(item)
+
+    scan = scan_model.Scan()
+    master1 = scan_model.Device(scan)
+    channel1 = scan_model.Channel(master1)
+    channel1.setName("n1")
+    channel2 = scan_model.Channel(master1)
+    channel2.setName("c1")
+    scan.seal()
+
+    model_helper.updateDisplayedChannelNames(plot, scan, ["c2"])
+    assert len(plot.items()) == 1

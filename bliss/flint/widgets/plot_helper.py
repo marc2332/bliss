@@ -53,6 +53,34 @@ class MouseMovedEvent(NamedTuple):
     yPixel: int
 
 
+class PlotEventAggregator(signalutils.EventAggregator):
+    def reduce(self, eventStack: List) -> Tuple[List, List]:
+        """Override the method to reduce plot refresh by
+        removing duplication events.
+        """
+        result = []
+        # Reduce specific channel events
+        lastSpecificChannel: Set[object] = set([])
+        for event in reversed(eventStack):
+            _callback, args, _kwargs = event
+            if len(args) == 0:
+                result.insert(0, event)
+                continue
+            e = args[0]
+            if not isinstance(e, scan_model.ScanDataUpdateEvent):
+                result.insert(0, event)
+                continue
+
+            channel = e.selectedChannel()
+            if channel is not None:
+                if channel in lastSpecificChannel:
+                    continue
+                else:
+                    lastSpecificChannel.add(channel)
+            result.insert(0, event)
+        return result, []
+
+
 class CheckableKeepAspectRatioAction(PlotAction):
     """QAction controlling X axis log scale on a :class:`.PlotWidget`.
 

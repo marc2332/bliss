@@ -60,7 +60,7 @@ class McaPlotWidget(ExtendedDockWidget):
         self.__plot.getWidgetHandle().installEventFilter(self)
         self.__view = plot_helper.ViewManager(self.__plot)
 
-        self.__aggregator = signalutils.EventAggregator(self)
+        self.__aggregator = plot_helper.PlotEventAggregator(self)
         self.__refreshManager = plot_helper.RefreshManager(self)
         self.__refreshManager.setAggregator(self.__aggregator)
 

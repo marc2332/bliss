@@ -91,10 +91,10 @@ class CurvePlotWidget(ExtendedDockWidget):
 
         self.__updateBoundWhenData = False
         self.__boundingY1 = BoundingRect()
-        self.__boundingY1._setLegend("bound-y1")
+        self.__boundingY1.setName("bound-y1")
         self.__boundingY1.setYAxis("left")
         self.__boundingY2 = BoundingRect()
-        self.__boundingY2._setLegend("bound-y2")
+        self.__boundingY2.setName("bound-y2")
         self.__boundingY2.setYAxis("right")
 
         self.__permanentItems = [
@@ -104,7 +104,7 @@ class CurvePlotWidget(ExtendedDockWidget):
         ]
 
         for o in self.__permanentItems:
-            self.__plot._add(o)
+            self.__plot.addItem(o)
 
     def __createToolBar(self):
         toolBar = qt.QToolBar(self)
@@ -472,7 +472,7 @@ class CurvePlotWidget(ExtendedDockWidget):
         self.__items = {}
         self.__plot.clear()
         for o in self.__permanentItems:
-            self.__plot._add(o)
+            self.__plot.addItem(o)
 
     def __scanStarted(self):
         self.__updateTitle(self.__scan)
@@ -526,7 +526,7 @@ class CurvePlotWidget(ExtendedDockWidget):
             plot.clear()
             if self.__plotModel is None:
                 for o in self.__permanentItems:
-                    self.__plot._add(o)
+                    self.__plot.addItem(o)
                 return
 
         with qtutils.blockSignals(self):
@@ -545,7 +545,7 @@ class CurvePlotWidget(ExtendedDockWidget):
                     self.__redrawScan(currentScan)
 
             for o in self.__permanentItems:
-                self.__plot._add(o)
+                self.__plot.addItem(o)
 
     def __cleanScan(self, scan: scan_model.Scan):
         items = self.__items.pop(scan, {})
@@ -647,12 +647,12 @@ class CurvePlotWidget(ExtendedDockWidget):
             curveItem = plot_helper.FlintCurve()
             curveItem.setCustomItem(item)
             curveItem.setData(x=xx, y=yy, copy=False)
-            curveItem._setLegend(legend)
+            curveItem.setName(legend)
             curveItem.setLineStyle(style.lineStyle)
             curveItem.setColor(style.lineColor)
             curveItem.setSymbol("")
             curveItem.setYAxis(item.yAxis())
-            plot._add(curveItem)
+            plot.addItem(curveItem)
             plotItems.append((legend, "curve"))
 
         elif isinstance(item, plot_state_model.CurveStatisticItem):
@@ -668,13 +668,13 @@ class CurvePlotWidget(ExtendedDockWidget):
 
                     curveItem = Curve()
                     curveItem.setData(x=xx, y=yy, copy=False)
-                    curveItem._setLegend(legend)
+                    curveItem.setName(legend)
                     curveItem._setSelectable(False)
                     curveItem.setLineStyle(style.lineStyle)
                     curveItem.setColor(style.lineColor)
                     curveItem.setSymbol("")
                     curveItem.setYAxis(item.yAxis())
-                    plot._add(curveItem)
+                    plot.addItem(curveItem)
                     plotItems.append((legend, "curve"))
                     key = plot.addMarker(
                         legend=legend + "_text",
@@ -708,13 +708,13 @@ class CurvePlotWidget(ExtendedDockWidget):
 
                     curveItem = Curve()
                     curveItem.setData(x=xx, y=yy, copy=False)
-                    curveItem._setLegend(legend)
+                    curveItem.setName(legend)
                     curveItem._setSelectable(False)
                     curveItem.setLineStyle(style.lineStyle)
                     curveItem.setColor(style.lineColor)
                     curveItem.setSymbol("")
                     curveItem.setYAxis(item.yAxis())
-                    plot._add(curveItem)
+                    plot.addItem(curveItem)
                     plotItems.append((legend, "curve"))
                     key = plot.addMarker(
                         legend=legend + "_text",

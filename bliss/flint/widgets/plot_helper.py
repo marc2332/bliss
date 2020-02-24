@@ -486,7 +486,7 @@ class TooltipItemManager:
         self.__parent = parent
 
         self.__toolTipMarker = Marker()
-        self.__toolTipMarker._setLegend("marker-tooltip")
+        self.__toolTipMarker.setName("marker-tooltip")
         self.__toolTipMarker.setColor("pink")
         self.__toolTipMarker.setSymbol("+")
         self.__toolTipMarker.setSymbolSize(8)

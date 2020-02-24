@@ -74,12 +74,12 @@ class McaPlotWidget(ExtendedDockWidget):
         self.__syncAxisTitle.triggered.connect(self.__updateAxesLabel)
 
         self.__bounding = BoundingRect()
-        self.__bounding._setLegend("bound")
+        self.__bounding.setName("bound")
 
         self.__permanentItems = [self.__bounding, self.__tooltipManager.marker()]
 
         for o in self.__permanentItems:
-            self.__plot._add(o)
+            self.__plot.addItem(o)
 
     def __createToolBar(self):
         toolBar = qt.QToolBar(self)
@@ -270,7 +270,7 @@ class McaPlotWidget(ExtendedDockWidget):
         self.__items = {}
         self.__plot.clear()
         for o in self.__permanentItems:
-            self.__plot._add(o)
+            self.__plot.addItem(o)
 
     def __scanStarted(self):
         self.__updateTitle(self.__scan)
@@ -367,9 +367,9 @@ class McaPlotWidget(ExtendedDockWidget):
         mcaItem = plot_helper.FlintRawMca()
         mcaItem.setData(histogram, edges, copy=False)
         mcaItem.setColor(style.lineColor)
-        mcaItem._setLegend(legend)
+        mcaItem.setName(legend)
         mcaItem.setCustomItem(item)
-        plot._add(mcaItem)
+        plot.addItem(mcaItem)
 
         plotItems.append((legend, "histogram"))
 

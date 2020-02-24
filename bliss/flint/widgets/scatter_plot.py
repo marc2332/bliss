@@ -81,15 +81,15 @@ class ScatterPlotWidget(ExtendedDockWidget):
         self.__syncAxis.triggered.connect(self.__scatterAxesUpdated)
 
         self.__bounding = BoundingRect()
-        self.__bounding._setLegend("bound")
+        self.__bounding.setName("bound")
 
         self.__lastValue = Scatter()
         self.__lastValue.setSymbol(",")
-        self.__lastValue._setLegend("cursor_last_value")
+        self.__lastValue.setName("cursor_last_value")
         self.__lastValue.setVisible(False)
         self.__lastValue.setZValue(10)
         self.__rect = Shape("rectangle")
-        self.__rect._setLegend("rect")
+        self.__rect.setName("rect")
         self.__rect.setVisible(False)
         self.__rect.setFill(False)
         self.__rect.setColor("#E0E0E0")
@@ -103,7 +103,7 @@ class ScatterPlotWidget(ExtendedDockWidget):
         ]
 
         for o in self.__permanentItems:
-            self.__plot._add(o)
+            self.__plot.addItem(o)
 
     def __createToolBar(self):
         toolBar = qt.QToolBar(self)
@@ -368,7 +368,7 @@ class ScatterPlotWidget(ExtendedDockWidget):
         self.__rect.setVisible(False)
         self.__lastValue.setVisible(False)
         for o in self.__permanentItems:
-            self.__plot._add(o)
+            self.__plot.addItem(o)
 
     def __scanStarted(self):
         self.__refreshManager.scanStarted()
@@ -544,8 +544,8 @@ class ScatterPlotWidget(ExtendedDockWidget):
             scatter.setColormap(colormap)
             scatter.setCustomItem(item)
             key = legend + "_solid"
-            scatter._setLegend(key)
-            plot._add(scatter)
+            scatter.setName(key)
+            plot.addItem(scatter)
             if fillStyle == style_model.FillStyle.SCATTER_REGULAR_GRID:
                 scatter.setVisualization(scatter.Visualization.REGULAR_GRID)
             elif fillStyle == style_model.FillStyle.SCATTER_IRREGULAR_GRID:
@@ -617,8 +617,8 @@ class ScatterPlotWidget(ExtendedDockWidget):
             scatter.setSymbolSize(style.symbolSize)
             scatter.setCustomItem(item)
             key = legend + "_point"
-            scatter._setLegend(key)
-            plot._add(scatter)
+            scatter.setName(key)
+            plot.addItem(scatter)
             plotItems.append((key, "scatter"))
         elif (
             style.symbolStyle is not style_model.SymbolStyle.NO_SYMBOL
@@ -632,8 +632,8 @@ class ScatterPlotWidget(ExtendedDockWidget):
             curve.setLineStyle(" ")
             curve.setSymbolSize(style.symbolSize)
             key = legend + "_point"
-            curve._setLegend(key)
-            plot._add(curve)
+            curve.setName(key)
+            plot.addItem(curve)
             plotItems.append((key, "curve"))
 
         if scatter is not None:

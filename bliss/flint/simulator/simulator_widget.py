@@ -79,7 +79,7 @@ class SimulatorWidget(qt.QMainWindow):
     def __editRoi(self, channelName):
         flint = self.__flintModel.flintApi()
         plotId = flint.get_live_scan_plot(channelName, "image")
-        gevent.spawn(flint.select_shapes, plotId)
+        gevent.spawn(flint.request_select_shapes, plotId)
 
     def __startScan(self, interval: int, duration: int, name=None):
         if self.__simulator is None:

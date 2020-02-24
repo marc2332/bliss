@@ -13,7 +13,7 @@ from tabulate import tabulate
 
 from bliss import global_map
 from bliss.common.utils import common_prefix, autocomplete_property
-from bliss.common.tango import DeviceProxy, DevFailed
+from bliss.common.tango import DeviceProxy, DevFailed, Database, DevState
 from bliss.config import settings
 from bliss.config.beacon_object import BeaconObject
 
@@ -271,6 +271,16 @@ class Lima(CounterController):
         self.__prepare_timeout = config_tree.get("prepare_timeout", None)
         self.__bpm = None
         self.__roi_counters = None
+        self._instrument_name = config_tree.get_inherited("synchrotron", "")
+        self._instrument_name += "-" if self._instrument_name != "" else ""
+        beamline = config_tree.get_inherited("beamline", None)
+        if beamline is None:
+            scan_saving = config_tree.get_inherited("scan_saving", None)
+            if scan_saving is None:
+                beamline = "instrument"
+            else:
+                beamline = scan_saving.get("beamline", "instrument")
+        self._instrument_name += beamline
         self.__bg_sub = None
         self.__last = None
         self._camera = None
@@ -308,6 +318,25 @@ class Lima(CounterController):
         self._processing = self.LimaTools(
             config_tree, self._proxy, f"{name_prefix}:{self.name}:processing"
         )
+
+        self.set_bliss_device_name()
+
+    def set_bliss_device_name(self):
+        ### use tango db to check if device is exported
+        ### if yes, set user device name on init.
+        if hasattr(self.proxy, "lima_version"):
+            try:
+                if Database().get_device_info(self.__tg_url).exported:
+                    try:
+                        self.proxy.user_instrument_name = self._instrument_name
+                    except DevFailed:
+                        pass
+                    try:
+                        self.proxy.user_detector_name = self.name
+                    except DevFailed:
+                        pass
+            except (RuntimeError, DevFailed):
+                pass
 
     def __close__(self):
         self._processing.__close__()

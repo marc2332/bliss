@@ -32,15 +32,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Flint
+  - Use silx 0.13.0 beta0
   - Rework image/MCA/curve live view in order to provide same behavior as scatter view
     - Cleaned up toolbar
     - Cleaned up tooltips
     - Manage data display according
   - Do not allow anymore to display more than one image in the image view
+  - Image and scatter autoscale can use auto based on standard deviation
   - Display curve live view x-axis with timeseries if the channel unit is "s"
   - Cut channels data at the end of timescan scans to enforce the same size
     - It's a workaround, but can be used for other default scan if requested
-  - The layout is not stored into the Redis session
+  - The layout is now stored into the Redis session
 
 ### Fixed
 

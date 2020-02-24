@@ -89,14 +89,14 @@ class ImagePlotWidget(ExtendedDockWidget):
         self.__minMarker.setVisible(False)
         self.__minMarker.setColor("pink")
         self.__minMarker.setZValue(0.1)
-        self.__minMarker._setLegend("min")
+        self.__minMarker.setName("min")
 
         self.__maxMarker = Marker()
         self.__maxMarker.setSymbol("")
         self.__maxMarker.setVisible(False)
         self.__maxMarker.setColor("pink")
         self.__maxMarker.setZValue(0.1)
-        self.__maxMarker._setLegend("max")
+        self.__maxMarker.setName("max")
 
         self.__permanentItems = [
             self.__tooltipManager.marker(),
@@ -105,7 +105,7 @@ class ImagePlotWidget(ExtendedDockWidget):
         ]
 
         for o in self.__permanentItems:
-            self.__plot._add(o)
+            self.__plot.addItem(o)
 
     def __createToolBar(self):
         toolBar = qt.QToolBar(self)
@@ -278,7 +278,7 @@ class ImagePlotWidget(ExtendedDockWidget):
         self.__items = {}
         self.__plot.clear()
         for o in self.__permanentItems:
-            self.__plot._add(o)
+            self.__plot.addItem(o)
 
     def __scanStarted(self):
         self.__refreshManager.scanStarted()
@@ -390,8 +390,8 @@ class ImagePlotWidget(ExtendedDockWidget):
             imageItem.setColormap(colormap)
             imageItem.setData(image, copy=False)
             imageItem.setCustomItem(item)
-            imageItem._setLegend(legend)
-            self.__plot._add(imageItem)
+            imageItem.setName(legend)
+            self.__plot.addItem(imageItem)
 
             self.__plot._setActiveItem("image", legend)
             plotItems.append(_ItemDescription(legend, "image", image.shape))

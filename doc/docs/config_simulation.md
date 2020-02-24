@@ -55,6 +55,18 @@ controller:
 ```
 
 
+## Diode
+
+A simple simulation diode returning a `[0.01; 100.0]` value can be configured
+as:
+```yaml
+-
+  name: savoie
+  plugin: bliss
+  class: simulation_diode
+```
+
+
 ## Counter
 
 A pretty generic simulation counter is provided by

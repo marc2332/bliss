@@ -43,7 +43,7 @@ class SimulationDiodeController(SamplingCounterController):
         return [
             cnt.cst_val
             if isinstance(cnt, CstSimulationDiodeSamplingCounter)
-            else random.randint(-100, 100)
+            else random.randint(1, 10000) / 100.0
             for cnt in counters
         ]
 
@@ -54,7 +54,7 @@ class SimulationDiodeIntegrationController(IntegratingCounterController):
 
     def get_values(self, from_index, *counters):
         gevent.sleep(0.01)
-        return [10 * [random.randint(-100, 100)] for cnt in counters]
+        return [10 * [random.randint(1, 10000) / 100.0] for cnt in counters]
 
 
 class SimulationDiodeSamplingCounter(SamplingCounter):

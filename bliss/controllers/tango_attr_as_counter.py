@@ -289,13 +289,7 @@ class tango_attr_as_counter(SamplingCounter):
 
     @property
     def raw_value(self):
-        """
-        Return value of the attribute WITHOUT conversion.
-        """
-        attr_value = (
-            tango.DeviceProxy(self.tango_uri).read_attribute(self.attribute).value
-        )
-
+        attr_value = self.raw_read
         if self.index is not None:
             value = attr_value[self.index]
         else:

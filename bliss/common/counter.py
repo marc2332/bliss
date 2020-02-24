@@ -198,6 +198,10 @@ class SamplingCounter(Counter):
 
         return info_str
 
+    @property
+    def raw_read(self):
+        return self._counter_controller.read_all(self)[0]
+
 
 class IntegratingCounter(Counter):
     def __init__(self, name, controller, conversion_function=None, unit=None):

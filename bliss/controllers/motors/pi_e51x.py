@@ -9,7 +9,9 @@ import time
 import weakref
 
 from bliss.controllers.motor import Controller
-from bliss.common.utils import object_method, object_attribute_get
+from bliss.common.utils import object_method
+from bliss.common.utils import object_attribute_get, object_attribute_set
+
 from bliss.common.axis import AxisState
 from bliss.common.logtools import log_info, log_debug
 from bliss import global_map
@@ -474,7 +476,12 @@ class PI_E51X(Controller):
     Auto gate
     """
 
-    @object_method(types_info=("bool", "None"))
+    @object_attribute_get(type_info="bool")
+    def get_auto_gate(self, axis):
+        """Automatic gating for continuous scan"""
+        return self.__axis_auto_gate[axis]
+
+    @object_attribute_set(type_info="bool")
     def set_auto_gate(self, axis, value):
         self.__axis_auto_gate[axis] = value is True
         log_info(
@@ -482,10 +489,6 @@ class PI_E51X(Controller):
             "auto_gate is %s for axis.channel %s "
             % (value is True and "ON" or "OFF", axis.channel),
         )
-
-    @object_attribute_get(type_info="bool")
-    def get_auto_gate(self, axis):
-        return self.__axis_auto_gate[axis]
 
     @object_method(types_info=("bool", "None"))
     def set_gate(self, axis, state):

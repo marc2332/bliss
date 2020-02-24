@@ -18,13 +18,10 @@ def lima_data_view_test_helper(scan):
         image_node = node
 
     lima_data_view = image_node.get(0)
-    lima_data_view._update()
-
     ref_data = image_node.info.get_all()
 
-    lima_files = numpy.array(
-        lima_data_view._get_filenames(ref_data, *range(0, scan.scan_info["npoints"]))
-    )
+    lima_files = numpy.array(lima_data_view.get_filenames())
+
     filesystem_files = sorted(glob.glob(ref_data["saving_directory"] + "/*"))
 
     return lima_files, filesystem_files
@@ -38,7 +35,9 @@ def lima_data_view_test_assets(lima_files, filesystem_files):
         assert f in filesystem_files
 
 
-def test_LimaNode_ref_data(default_session, lima_simulator):
+def test_LimaNode_ref_data(default_session, lima_simulator, scan_tmpdir):
+    scan_saving = default_session.scan_saving
+    scan_saving.base_path = str(scan_tmpdir)
     simulator = default_session.config.get("lima_simulator")
     scan = loopscan(5, 0.1, simulator, save=True)
 
@@ -53,12 +52,21 @@ def test_LimaNode_ref_data(default_session, lima_simulator):
     assert "user_detector_name" in ref_data
 
 
-def test_LimaDataView_edf_1_frame_per_edf(default_session, lima_simulator):
+def test_LimaDataView_edf_1_frame_per_edf(default_session, lima_simulator, scan_tmpdir):
+    scan_saving = default_session.scan_saving
+    scan_saving.base_path = str(scan_tmpdir)
     simulator = default_session.config.get("lima_simulator")
     scan = loopscan(5, 0.1, simulator, save=True, run=False)
 
+    lima_files, filesystem_files = lima_data_view_test_helper(scan)
+    lima_data_view_test_assets(lima_files, filesystem_files)
 
-def test_LimaDataView_edf_2_frames_per_edf(default_session, lima_simulator):
+
+def test_LimaDataView_edf_2_frames_per_edf(
+    default_session, lima_simulator, scan_tmpdir
+):
+    scan_saving = default_session.scan_saving
+    scan_saving.base_path = str(scan_tmpdir)
     simulator = default_session.config.get("lima_simulator")
 
     fpf = simulator.saving.frames_per_file
@@ -76,7 +84,11 @@ def test_LimaDataView_edf_2_frames_per_edf(default_session, lima_simulator):
     lima_data_view_test_assets(lima_files, filesystem_files)
 
 
-def test_LimaDataView_edf_1_frame_per_hdf5(default_session, lima_simulator):
+def test_LimaDataView_edf_1_frame_per_hdf5(
+    default_session, lima_simulator, scan_tmpdir
+):
+    scan_saving = default_session.scan_saving
+    scan_saving.base_path = str(scan_tmpdir)
     simulator = default_session.config.get("lima_simulator")
 
     ff = simulator.saving.file_format
@@ -89,7 +101,11 @@ def test_LimaDataView_edf_1_frame_per_hdf5(default_session, lima_simulator):
     lima_data_view_test_assets(*lima_data_view_test_helper(scan))
 
 
-def test_LimaDataView_edf_2_frames_per_hdf5(default_session, lima_simulator):
+def test_LimaDataView_edf_2_frames_per_hdf5(
+    default_session, lima_simulator, scan_tmpdir
+):
+    scan_saving = default_session.scan_saving
+    scan_saving.base_path = str(scan_tmpdir)
     simulator = default_session.config.get("lima_simulator")
 
     fpf = simulator.saving.frames_per_file

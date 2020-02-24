@@ -295,6 +295,11 @@ class LimaImageChannelDataNode(DataNode):
                     else:
                         return self._tango_unpack(raw_msg[-1])
 
+        def get_filenames(self):
+            self._update()
+            ref_data = self.ref_data[0]
+            return self._get_filenames(ref_data, *range(0, self.last_image_saved + 1))
+
         def _get_filenames(self, ref_data, *image_nbs):
             saving_mode = ref_data.get("saving_mode", "MANUAL")
             if saving_mode == "MANUAL":  # files are not saved

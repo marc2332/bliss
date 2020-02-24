@@ -8,12 +8,14 @@
 import os
 import types
 import pytest
+import logging
 from bliss.scanning.acquisition.timer import SoftwareTimerMaster
-from bliss.common.tango import DeviceProxy
+from bliss.common.tango import DeviceProxy, DevFailed
 from bliss.common.counter import Counter
 from bliss.controllers.lima.roi import Roi
 from bliss.common.scans import loopscan, timescan, ct, DEFAULT_CHAIN
 import gevent
+from contextlib import contextmanager
 
 
 def test_lima_simulator(beacon, lima_simulator):
@@ -431,3 +433,149 @@ def test_scan_saving_flags_with_lima(default_session, lima_simulator):
     assert simulator.proxy.last_image_saved == -1
     loopscan(3, 0.1, simulator, save_images=True, save=False)
     assert simulator.proxy.last_image_saved == 2
+
+
+def test_lima_beacon_objs(default_session, lima_simulator):
+    simulator = default_session.config.get("lima_simulator")
+    assert simulator.saving._max_writing_tasks == 4
+    assert simulator.saving._managed_mode == "SOFTWARE"
+
+    assert simulator.processing.runlevel_roicounter == 9
+    assert simulator.processing.runlevel_background == 2
+
+    assert simulator.image.rotation == "90"
+    assert simulator.image.flip == [False, False]
+
+    simulator.processing.runlevel_roicounter = 8
+    assert simulator.processing.runlevel_roicounter == 8
+    simulator.processing.apply_config()
+    assert simulator.processing.runlevel_roicounter == 9
+
+
+def test_lima_ctrl_params_uploading(
+    default_session, lima_simulator, scan_tmpdir, caplog
+):
+    scan_saving = default_session.scan_saving
+    scan_saving.base_path = str(scan_tmpdir)
+    simulator = default_session.config.get("lima_simulator")
+
+    with caplog.at_level(logging.DEBUG, logger="global.controllers.lima_simulator"):
+        scan = loopscan(1, 0.1, simulator, save=False)
+    # check that lima parameters are resend on the first scan
+    assert "All parameters will be refeshed on lima_simulator" in caplog.messages
+
+    # check that config has been applied on lima server
+    assert simulator.proxy.saving_max_writing_task == 4
+
+    caplog.clear()
+    with caplog.at_level(logging.DEBUG, logger="global.controllers.lima_simulator"):
+        scan = loopscan(1, 0.1, simulator, save=False)
+    # check there is no change in ctrl params when repeating the scan
+    assert len(caplog.messages) == 0
+
+    caplog.clear()
+    with caplog.at_level(logging.DEBUG, logger="global.controllers.lima_simulator"):
+        scan = loopscan(1, 0.1, simulator, run=False)
+        scan.update_ctrl_params(simulator, {"saving_max_writing_task": 2})
+        scan.run()
+
+    # check that a change in ctrl params leads to update in camera
+    assert len(caplog.messages) == 1
+    assert "updating saving_max_writing_task on lima_simulator to 2" in caplog.messages
+    assert simulator.proxy.saving_max_writing_task == 2
+
+    # lets see if we can use mask, background and flatfield
+    img = scan.get_data()["lima_simulator:image"].get_filenames()[0][0]
+    simulator.processing.mask = img
+    simulator.processing.use_mask = True
+
+    simulator.processing.flatfield = img
+    simulator.processing.use_flatfield = True
+
+    simulator.processing.background = img
+    simulator.processing.use_background_substraction = "enable_file"
+
+    caplog.clear()
+    with caplog.at_level(logging.DEBUG, logger="global.controllers.lima_simulator"):
+        scan = loopscan(1, 0.1, simulator, save=False)
+
+    assert " uploading new mask on lima_simulator" in caplog.messages
+    assert " uploading flatfield on lima_simulator" in caplog.messages
+    assert " uploading background on lima_simulator" in caplog.messages
+    assert " starting background sub proxy of lima_simulator" in caplog.messages
+
+    simulator.processing.use_mask = False
+    simulator.processing.use_flatfield = False
+    simulator.processing.use_background_substraction = "disable"
+
+    # check if aqcuistion still works
+    caplog.clear()
+    with caplog.at_level(logging.DEBUG, logger="global.controllers.lima_simulator"):
+        scan = loopscan(1, 0.1, simulator, save=False)
+
+    simulator.processing.background = "not_existing_file"
+    simulator.processing.use_background_substraction = "enable_on_fly"
+    simulator.bg_sub.take_background(.1)
+
+    caplog.clear()
+    with caplog.at_level(logging.DEBUG, logger="global.controllers.lima_simulator"):
+        scan = loopscan(1, 0.1, simulator, save=False)
+
+    assert " starting background sub proxy of lima_simulator" in caplog.messages
+
+
+@contextmanager
+def lima_simulator_context(ports, beacon):
+    from Lima.Server.LimaCCDs import main
+    import subprocess
+
+    device_name = "id00/limaccds/simulator1"
+    device_fqdn = "tango://localhost:{}/{}".format(ports.tango_port, device_name)
+
+    p = subprocess.Popen(["LimaCCDs", "simulator"])
+
+    try:
+        with gevent.Timeout(10, RuntimeError("Lima simulator is not running")):
+            while True:
+                try:
+                    dev_proxy = DeviceProxy(device_fqdn)
+                    dev_proxy.ping()
+                    dev_proxy.state()
+                except DevFailed as e:
+                    gevent.sleep(0.1)
+                else:
+                    break
+
+        gevent.sleep(1)
+        yield device_fqdn, dev_proxy
+    finally:
+        p.terminate()
+
+
+def test_reapplying_ctrl_params(default_session, ports, beacon, caplog):
+    simulator = default_session.config.get("lima_simulator")
+
+    with lima_simulator_context(ports, beacon) as lsc:
+        with caplog.at_level(logging.DEBUG, logger="global.controllers.lima_simulator"):
+            scan = loopscan(1, 0.1, simulator, save=False)
+        assert "All parameters will be refeshed on lima_simulator" in caplog.messages
+
+    with pytest.raises(DevFailed):
+        caplog.clear()
+        with caplog.at_level(logging.DEBUG, logger="global.controllers.lima_simulator"):
+            scan = loopscan(1, 0.1, simulator, save=False)
+
+    with lima_simulator_context(ports, beacon) as lsc:
+        caplog.clear()
+        with caplog.at_level(logging.DEBUG, logger="global.controllers.lima_simulator"):
+            scan = loopscan(1, 0.1, simulator, save=False)
+        assert "All parameters will be refeshed on lima_simulator" in caplog.messages
+
+    with lima_simulator_context(ports, beacon) as lsc:
+        caplog.clear()
+        with caplog.at_level(logging.DEBUG, logger="global.controllers.lima_simulator"):
+            scan = loopscan(1, 0.1, simulator, save=False)
+        assert "All parameters will be refeshed on lima_simulator" in caplog.messages
+
+    # TODO: in this test we should also check if user_instrument_name and user_detector_name
+    #      are set correctly once lima version > 1.9.1 is available on CI

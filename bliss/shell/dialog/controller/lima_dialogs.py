@@ -6,6 +6,7 @@
 
 from bliss.shell.cli.user_dialog import (
     UserIntInput,
+    UserFileInput,
     UserCheckBox,
     UserChoice,
     Container,
@@ -62,6 +63,42 @@ def lima_saving_parameters_dialog(lima_controller):
 
 
 def lima_processing_dialog(lima_controller):
+
+    dlg1 = UserCheckBox(label="Enable mask", defval=lima_controller.processing.use_mask)
+
+    dlg2 = UserFileInput(label="Path", defval=lima_controller.processing.mask)
+
+    dlg3 = UserCheckBox(
+        label="Enable flatfield", defval=lima_controller.processing.use_flatfield
+    )
+
+    dlg4 = UserFileInput(label="Path", defval=lima_controller.processing.flatfield)
+
+    dlg5 = UserChoice(
+        label="Enable / disable:",
+        values=list(lima_controller.processing.BG_SUB_MODES.items()),
+        defval=list(lima_controller.processing.BG_SUB_MODES).index(
+            lima_controller.processing.use_background_substraction
+        ),
+    )
+    dlg6 = UserFileInput(label="Path", defval=lima_controller.processing.background)
+
+    ct1 = Container([dlg1, dlg2], title="Mask:")
+    ct2 = Container([dlg3, dlg4], title="Flatfield:")
+    ct3 = Container([dlg5, dlg6], title="Background substraction:")
+
+    ans = BlissDialog(
+        [[ct1], [ct2], [ct3]], title=f"{lima_controller.name}: Processing options"
+    ).show()
+
+    if ans:
+        lima_controller.processing.use_mask = ans[dlg1]
+        lima_controller.processing.mask = ans[dlg2]
+        lima_controller.processing.use_flatfield = ans[dlg3]
+        lima_controller.processing.flatfield = ans[dlg4]
+        lima_controller.processing.use_background_substraction = ans[dlg5]
+        lima_controller.processing.background = ans[dlg6]
+
 
 def lima_image_dialog(lima_controller):
 

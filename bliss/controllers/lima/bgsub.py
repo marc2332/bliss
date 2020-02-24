@@ -42,6 +42,7 @@ class BgSub(object):
         prev_nb_frames = acq.nb_frames
         prev_run_level = bg.RunLevel
         try:
+            bg.Stop()
             bg.RunLevel = run_level
             bg.takeNextAcquisitionAsBackground()
             acq.expo_time = expo_time

@@ -28,8 +28,9 @@ from bliss.scanning.acquisition.lima import LimaAcquisitionMaster
 from .properties import LimaProperties, LimaProperty
 from .bpm import Bpm
 from .roi import RoiCounters
-from .image import ImageCounter
+from .image import ImageCounter, LimaImageParameters
 from .shutter import Shutter
+
 from .bgsub import BgSub
 
 
@@ -225,45 +226,22 @@ class Lima(CounterController):
                 """
             )
 
-    # Todo to be another beacon object like saving
-    class LimaTools(BeaconObject):
+    class LimaProcessing(BeaconObject):
         def __init__(self, config, proxy, name):
             self._proxy = proxy
             super().__init__(
-                config, name="name", share_hardware=False, path=["processing"]
             )
 
-        flip = BeaconObject.property_setting("flip", default=[False, False])
 
-        @flip.setter
-        def flip(self, value):
-            assert isinstance(value, list)
-            assert len(value) == 2
-            assert isinstance(value[0], bool) and isinstance(value[1], bool)
             return value
 
-        rotation = BeaconObject.property_setting("rotation", default="NONE")
 
-        @rotation.setter
-        def rotation(self, value):
-            if isinstance(value, int):
-                value = str(value)
-            if value == "0":
-                value = "NONE"
             assert isinstance(value, str)
-            assert value in ["NONE", "90", "180", "270"]
 
             return value
 
-        # further properties that could be here
-        # - mask
-        # - background
-        # - binning
-        # - flatfield
-        # - hardware roi?
 
         def to_dict(self):
-            return {"image_rotation": self.rotation, "image_flip": self.flip}
 
         def __info__(self):
             return f"< lima prosessing settings {self.to_dict()} >"
@@ -310,11 +288,8 @@ class Lima(CounterController):
             "%s:directories_mapping" % name
         )
 
-        # TODO: might not be the good place to do this
-        # should this go to bliss/common/mapping?
-        # should the lima entry be under global or under controller?
         global_map.register("lima", ["global"])
-        global_map.register(self, parents_list=["lima"])
+        global_map.register(self, parents_list=["lima", "controllers"])
 
         clear_cache(self)
 
@@ -327,8 +302,12 @@ class Lima(CounterController):
             config_tree, self._proxy, f"{name_prefix}:{self.name}:saving"
         )
 
-        self._processing = self.LimaTools(
+        self._processing = self.LimaProcessing(
             config_tree, self._proxy, f"{name_prefix}:{self.name}:processing"
+        )
+
+        self._image_params = LimaImageParameters(
+            config_tree, self._proxy, f"{name_prefix}:{self.name}:image"
         )
 
         self.set_bliss_device_name()
@@ -353,6 +332,7 @@ class Lima(CounterController):
     def __close__(self):
         self._processing.__close__()
         self._saving.__close__()
+        self._image_params.__close__()
 
     def get_acquisition_object(self, acq_params, ctrl_params, parent_acq_params):
         return LimaAcquisitionMaster(self, ctrl_params=ctrl_params, **acq_params)
@@ -420,7 +400,11 @@ class Lima(CounterController):
                 self._cached_ctrl_params[key].value = value
 
     def get_current_parameters(self):
-        return {**self.saving.to_dict(), **self.processing.to_dict()}
+        return {
+            **self.saving.to_dict(),
+            **self.processing.to_dict(),
+            **self._image_params.to_dict(),
+        }
 
     def clear_cache(self):
         clear_cache(self)
@@ -442,6 +426,12 @@ class Lima(CounterController):
         from bliss.shell.dialog.controller.lima_dialogs import lima_processing_dialog
 
         lima_processing_dialog(self)
+
+    def configure_image(self):
+        """shell dialog for image related settings"""
+        from bliss.shell.dialog.controller.lima_dialogs import lima_image_dialog
+
+        lima_image_dialog(self)
 
     @autocomplete_property
     def saving(self):

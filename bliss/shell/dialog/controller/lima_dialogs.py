@@ -63,26 +63,49 @@ def lima_saving_parameters_dialog(lima_controller):
 
 def lima_processing_dialog(lima_controller):
 
+def lima_image_dialog(lima_controller):
+
     rot_dict = {"NONE": 0, "90": 1, "180": 2, "270": 3}
 
     dlg1 = UserCheckBox(
-        label="Flip over X axis", defval=lima_controller.processing.flip[0]
+        label="Flip over X axis", defval=lima_controller._image_params.flip[0]
     )
     dlg2 = UserCheckBox(
-        label="Flip over Y axis", defval=lima_controller.processing.flip[1]
+        label="Flip over Y axis", defval=lima_controller._image_params.flip[1]
     )
     dlg3 = UserChoice(
         values=[("None", "0"), ("90", "90"), ("180", "180"), ("270", "270")],
-        defval=rot_dict[lima_controller.processing.rotation],
+        defval=rot_dict[lima_controller._image_params.rotation],
+    )
+
+    dlg_roi_x = UserIntInput(
+        label="x:      ", defval=lima_controller._image_params._roi[0]
+    )
+    dlg_roi_y = UserIntInput(
+        label="y:      ", defval=lima_controller._image_params._roi[1]
+    )
+    dlg_roi_width = UserIntInput(
+        label="width:  ", defval=lima_controller._image_params._roi[2]
+    )
+    dlg_roi_height = UserIntInput(
+        label="height: ", defval=lima_controller._image_params._roi[3]
     )
 
     ct1 = Container([dlg1, dlg2], title="Flipping:")
     ct2 = Container([dlg3], title="Rotation:")
 
+    ct3 = Container([dlg_roi_x, dlg_roi_y, dlg_roi_width, dlg_roi_height], title="Roi:")
+
     ans = BlissDialog(
-        [[ct1, ct2]], title=f"{lima_controller.name}: Processing options"
+        [[ct1, ct2], [ct3]], title=f"{lima_controller.name}: Image options"
     ).show()
 
     if ans:
-        lima_controller.processing.flip = [ans[dlg1], ans[dlg2]]
-        lima_controller.processing.rotation = ans[dlg3]
+        lima_controller._image_params.flip = [ans[dlg1], ans[dlg2]]
+        lima_controller._image_params.rotation = ans[dlg3]
+        lima_controller._image_params._roi = [
+            ans[dlg_roi_x],
+            ans[dlg_roi_y],
+            ans[dlg_roi_width],
+            ans[dlg_roi_height],
+        ]

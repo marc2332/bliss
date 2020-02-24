@@ -88,7 +88,7 @@ nav:
                       - TFG: config_tango_tfg.md
                       - Tango attribute as counters: config_taac.md
                       - Nano-BPM: config_nano_bpm.md
-                      - Shutters, FE and Valves: config_shutter.md
+                      - Shutters, Frontend and Valves: config_shutter.md
                       - Wagos:
                             - Wago: config_wago.md
                             - Wago groups: config_wago_group.md

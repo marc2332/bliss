@@ -306,7 +306,7 @@ def test_SampCnt_mode_SINGLE(session, scan_tmpdir):
     diode8_dat = loops.get_data()["diode8"]
 
     # check that there is no averaging for diode10
-    assert all(diode8_dat.astype(numpy.int) == diode8_dat)
+    assert all(diode8_dat.astype(numpy.float) == diode8_dat)
     assert not all(diode2_dat.astype(numpy.int) == diode2_dat)
 
 

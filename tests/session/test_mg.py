@@ -15,19 +15,30 @@ from bliss.shell.standard import info
 from bliss.scanning import toolbox
 from bliss.controllers import counter
 from bliss.common.counter import Counter
+from bliss.shell.standard import _lsmg
 
 # 3 measurement groups : test_mg MG1 MG2 are configured
 # in tests/test_configuration/sessions/test.yml
 
 
-def test_measurement_group(session):
+def test_measurement_group(session, capsys):
     measurementgroup.set_active_name("test_mg")
     current_mg = session.env_dict["ACTIVE_MG"]
     test_mg = session.env_dict["test_mg"]
+    mg1 = session.env_dict["MG1"]
     all_MGs = ["test_mg", "MG1", "MG2"]
     assert set(measurementgroup.get_all_names()) == set(all_MGs)
+
     test_mg.set_active()
     assert current_mg.name == "test_mg"
+
+    # Test lsmg()
+    captured = _lsmg()
+    assert captured == "   MG1\n   MG2\n * test_mg\n"
+
+    mg1.set_active()
+    captured = _lsmg()
+    assert captured == " * MG1\n   MG2\n   test_mg\n"
 
 
 def test_empty_session_1st_mg_default(default_session):

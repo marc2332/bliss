@@ -216,6 +216,15 @@ state of the measurement group:
     BPM counters are not included by default. This is also because the position
     calculation is costly and people do not want it generally.
 
+
+### edit_mg()
+
+`edit_mg()` command allows to enable/disable counters of the active measurement
+group with a simple dialog box.
+
+Use `edit_mg(<mg_name>)` to deal with a specific measurement group.
+
+
 ## Default measurement group
 
 `ACTIVE_MG` is the global variable in the BLISS shell indicating the default measurement group.
@@ -264,6 +273,19 @@ DEMO [35]: ACTIVE_MG
               -------  -------
               simct4
               simct5
+```
+
+## lsmg
+
+`lsmg()` can be used to list the defined measurement groups. A star `*`
+indicates the active one.
+
+Example:
+```python
+DEMO [1]: lsmg()
+   MG_sim
+ * MG_align
+   MG_tomo
 ```
 
 

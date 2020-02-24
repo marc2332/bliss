@@ -10,12 +10,14 @@ import os
 import enum
 import numpy as np
 from tabulate import tabulate
+import textwrap
 
 from bliss import global_map
 from bliss.common.utils import common_prefix, autocomplete_property
 from bliss.common.tango import DeviceProxy, DevFailed, Database, DevState
 from bliss.config import settings
 from bliss.config.beacon_object import BeaconObject
+from bliss.common.logtools import log_debug
 
 from bliss.controllers.counter import CounterController, counter_namespace
 from bliss import current_session
@@ -199,18 +201,28 @@ class Lima(CounterController):
             return _suffix_dict
 
         def __info__(self):
-            return (
-                #  f"Saving parameters of {self._proxy.name()}\n"
-                f"current saving mode (.mode):\t\t{self.mode.name}\n"
-                f"saving format (.file_format): \t{self.file_format} \n"
-                f"for ONE_FILE_PER_N_FRAMES mode:\n"
-                f"\t.frames_per_file:\t\t{self.frames_per_file}\n"
-                f"for SPECIFY_MAX_FILE_SIZE mode:\n"
-                f"\t.max_file_size_in_MB:\t\t{self.max_file_size_in_MB}\n"
-                f"Available modes:\n{self.available_saving_modes}\n"
-                f"Available file formats:\n{self.available_saving_formats}\n"
-                f"The follwoing parameters will be set in camera (if not overwritten by scan):\n"
-                f"{self.to_dict()}\n"
+            tmp = self.to_dict()
+            return textwrap.dedent(
+                f"""                Saving
+                --------------
+                File Format:  {self.file_format}
+                └->  Suffix:  {tmp['saving_suffix']}
+                Current Mode: {self.mode.name}
+                
+                for ONE_FILE_PER_N_FRAMES mode
+                ------------------------------
+                frames_per_file: {self.frames_per_file}
+                
+                for SPECIFY_MAX_FILE_SIZE mode
+                ------------------------------
+                max file size (MB):  {self.max_file_size_in_MB}
+                └-> frams per file: {self._calc_max_frames_per_file()}
+                
+                Expert Settings
+                ---------------
+                config max_writing_tasks:  {self._max_writing_tasks}
+                current max_writing_tasks: {tmp['saving_max_writing_task']}
+                """
             )
 
     # Todo to be another beacon object like saving

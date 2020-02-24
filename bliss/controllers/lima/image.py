@@ -5,6 +5,8 @@
 # Copyright (c) 2015-2019 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
+import textwrap
+
 from .roi import Roi
 from .properties import LimaProperty, LimaAttrGetterSetter
 from bliss.common.counter import Counter
@@ -13,8 +15,6 @@ from bliss.common.counter import Counter
 class ImageCounter(Counter):
     def __init__(self, controller, proxy):
         self._proxy = proxy
-        # self._controller = controller
-
         super().__init__("image", controller)
 
     # Standard counter interface
@@ -24,7 +24,7 @@ class ImageCounter(Counter):
     #     return "image"
 
     # @property
-    # def controller(self):
+    # def _counter_controller(self):
     #     return self._controller
 
     # def create_acquisition_device(self, node_pars):
@@ -32,7 +32,16 @@ class ImageCounter(Counter):
     #     return self.controller.create_master_device(node_pars)
 
     def __info__(self):
-        return LimaAttrGetterSetter.__info__(self)
+        # return LimaAttrGetterSetter.__info__(self)
+        return textwrap.dedent(
+            f"""       flip:     {self.flip}
+       rotation: {self.rotation}
+       roi:      {self.roi}
+       binning:  {self.bin}
+       height:   {self.height}
+       width:    {self.width}
+       type:     {self.type}"""
+        )
 
     @property
     def dtype(self):
@@ -46,7 +55,7 @@ class ImageCounter(Counter):
 
     # Specific interface
 
-    @property
+    @autocomplete_property
     def proxy(self):
         return self._proxy
 

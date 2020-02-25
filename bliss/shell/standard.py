@@ -777,7 +777,8 @@ def newdataset(dataset_name=None):
 # Silx
 
 
-def silx_view(scan=None):
+@typeguard.typechecked
+def silx_view(scan: typing.Union[scans.Scan, None] = None):
     """Open silx view on a given scan (default last scan)"""
 
     args = f"{sys.executable} -m silx.app.view.main".split()

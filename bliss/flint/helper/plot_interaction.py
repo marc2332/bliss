@@ -520,6 +520,8 @@ class ShapesSelector(Selector):
             return
         plot = self.parent()
         plot.removeDockWidget(self.__dock)
+        if self.__roiWidget is not None:
+            self.__roiWidget.clear()
         self.__dock = None
         self.__roiWidget = None
 

@@ -355,3 +355,14 @@ def test_beacon_object_2_processes(beacon):
     ctrl_from_another_process = Ctrl8(cfg)
 
     assert ctrl_from_another_process.mode
+
+
+def test_beacon_object_within_lima(default_session, lima_simulator):
+    # test for issue 1383
+    lima_simulator = default_session.config.get("lima_simulator")
+
+    lima_simulator._image_params.flip = [True, True]
+
+    assert lima_simulator._image_params.flip == [True, True]
+
+    lima_simulator._image_params.flip = [False, False]

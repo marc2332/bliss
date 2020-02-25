@@ -586,13 +586,6 @@ def test_lima_saving_mode(default_session, lima_simulator, scan_tmpdir):
     scan_saving.base_path = str(scan_tmpdir)
     simulator = default_session.config.get("lima_simulator")
 
-    # workaround for #1383
-    print(simulator.saving.file_format)
-    print(simulator.saving.frames_per_file)
-    print(simulator.saving.max_file_size_in_MB)
-    print(simulator.saving.mode)
-    #####
-
     simulator.saving.file_format = "HDF5"
     simulator.saving.frames_per_file = 5
     simulator.saving.max_file_size_in_MB = 15

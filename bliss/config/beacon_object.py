@@ -86,9 +86,11 @@ class BeaconObject:
                             fence["in_set"] = True
                             rvalue = fset(self, value)
                             set_value = rvalue if rvalue is not None else value
-                            self._settings[fset.__name__] = set_value
+                            try:
+                                self._settings[fset.__name__] = set_value
+                            except AttributeError:
+                                self._initialize_with_setting(fset.__name__, set_value)
                             self._event_channel.post(fset.__name__)
-                            self._initialize_with_setting()
                         finally:
                             fence["in_set"] = False
 
@@ -259,7 +261,12 @@ class BeaconObject:
         """
         self._initialize_with_setting()
 
-    def _initialize_with_setting(self):
+    def _initialize_with_setting(self, setting_name=None, setting_value=None):
+        """Initialize with redis settings
+
+        If setting_name is specified, set this setting with given setting_value;
+        otherwise use the redis values
+        """
         if self._in_initialize_with_setting:
             return
         try:
@@ -287,7 +294,11 @@ class BeaconObject:
                                 f"can't set attribute {name} for device {self.name}"
                             )
                     else:  # initialize setting
-                        self._settings[name] = getattr(self, name)
+                        if name == setting_name:
+                            val = setting_value
+                        else:
+                            val = getattr(self, name)
+                        self._settings[name] = val
                         self._event_channel.post(name)
 
                 if error_messages:

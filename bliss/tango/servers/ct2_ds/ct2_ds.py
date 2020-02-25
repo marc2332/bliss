@@ -27,7 +27,8 @@ from PyTango.server import class_property, device_property
 
 from bliss.config.static import get_config
 from bliss.controllers.ct2.card import BaseCard
-from bliss.controllers.ct2.device import AcqMode, AcqStatus
+from bliss.controllers.ct2.device import AcqMode, AcqStatus, DataSignal
+from bliss.common import event
 
 
 def switch_state(tg_dev, state=None, status=None):
@@ -57,6 +58,7 @@ class CT2(Device):
 
     def __init__(self, *args, **kwargs):
         Device.__init__(self, *args, **kwargs)
+        self.__buffer = []
 
     def init_device(self):
         Device.init_device(self)
@@ -202,7 +204,13 @@ class CT2(Device):
 
     @attribute(dtype=(("uint32",),), max_dim_x=65535, max_dim_y=65535)
     def data(self):
-        return self.device.read_data()
+        b = self.__buffer
+        if b:
+            self.__buffer = []
+            data = numpy.vstack(b)
+        else:
+            data = numpy.array([[]], dtype=numpy.uint32)
+        return data
 
     @attribute(dtype=(int,), max_dim_x=12)
     def counters_status(self):
@@ -224,15 +232,21 @@ class CT2(Device):
 
     @command
     def prepare_acq(self):
+        self.__buffer = []
         self.device.prepare_acq()
 
     @command
     def start_acq(self):
+        event.connect(self.device, DataSignal, self._rx_data)
         self.device.start_acq()
+
+    def _rx_data(self, data, signal):
+        self.__buffer.extend(data)
 
     @command
     def stop_acq(self):
         self.device.stop_acq()
+        event.disconnect(self.device, DataSignal, self._rx_data)
 
     @command
     def trigger_point(self):

@@ -101,7 +101,6 @@ def test_dicttoh5():
         "+     # ... one could think about propagating something similar to the "
         "changes\n",
         "+     # made here back to silx\n",
-        "+     import h5py\n",
         "+     from silx.io.dictdump import _SafeH5FileWrite, _prepare_hdf5_dataset\n",
         "+     import warnings\n",
         '+                 if "NX_class" not in h5f[h5path + key].attrs:\n',

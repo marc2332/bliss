@@ -511,6 +511,8 @@ def get_flint(start_new=False, creation_allowed=True):
         raise
 
     FLINT_LOGGER.debug("Flint proxy initialized")
+    proxy.wait_started()
+    FLINT_LOGGER.debug("Flint proxy ready")
     return proxy
 
 

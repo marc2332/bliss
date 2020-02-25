@@ -500,7 +500,7 @@ class ShapesSelector(Selector):
         plot = self.parent()
 
         roiWidget = RoiSelectionWidget(plot)
-        dock = qt.QDockWidget("ROI selection")
+        dock = qt.QDockWidget("ROI selection", parent=plot)
         dock.setWidget(roiWidget)
         plot.addTabbedDockWidget(dock)
         rois = self.__dictToRois(self.__initialShapes)
@@ -520,6 +520,12 @@ class ShapesSelector(Selector):
             return
         plot = self.parent()
         plot.removeDockWidget(self.__dock)
+        if self.__roiWidget is not None:
+            self.__roiWidget.clear()
+        # FIXME: silx bug: https://github.com/silx-kit/silx/issues/2940
+        if hasattr(plot, "_dockWidgets"):
+            if self.__dock in plot._dockWidgets:
+                plot._dockWidgets.remove(self.__dock)
         self.__dock = None
         self.__roiWidget = None
 

@@ -53,7 +53,7 @@ class McaPlotWidget(ExtendedDockWidget):
         self.__plotWasUpdated: bool = False
         self.__plot = FlintPlot(parent=self)
         self.__plot.setActiveCurveStyle(linewidth=2)
-        self.__plot.setDataMargins(0.1, 0.1, 0.1, 0.1)
+        self.__plot.setDataMargins(0.02, 0.02, 0.1, 0.1)
         self.setWidget(self.__plot)
         self.setFocusPolicy(qt.Qt.StrongFocus)
         self.__plot.installEventFilter(self)

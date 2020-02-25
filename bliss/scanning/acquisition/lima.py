@@ -247,6 +247,7 @@ class LimaAcquisitionMaster(AcquisitionMaster):
             self.acq_params["saving_directory"] = self._lima_controller.get_mapped_path(
                 directory
             )
+            self._unmapped_path = directory
             self.acq_params.setdefault("saving_prefix", prefix)
         else:
             self.acq_params["saving_mode"] = "MANUAL"
@@ -277,7 +278,7 @@ class LimaAcquisitionMaster(AcquisitionMaster):
                         ],
                         "saving_suffix": self.ctrl_params["saving_suffix"],
                         "saving_mode": self.acq_params["saving_mode"],
-                        "saving_directory": self.acq_params["saving_directory"],
+                        "saving_directory": self._unmapped_path,
                         "saving_prefix": self.acq_params["saving_prefix"],
                         "user_detector_name": self.device.proxy.user_detector_name,
                         "user_instrument_name": user_instrument_name,

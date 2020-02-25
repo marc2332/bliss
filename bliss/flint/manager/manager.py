@@ -107,6 +107,10 @@ class ManageMainBehaviours(qt.QObject):
             newWorkspace.widgetAdded.connect(self.__widgetAdded)
             newWorkspace.widgetRemoved.connect(self.__widgetRemoved)
 
+            for widget in newWorkspace.widgets():
+                if widget.isVisible():
+                    widget.widgetActivated.emit(widget)
+                    break
         self.__updateLiveScanTitle()
 
     def __widgetAdded(self, widget):

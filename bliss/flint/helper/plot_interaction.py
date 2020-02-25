@@ -522,6 +522,10 @@ class ShapesSelector(Selector):
         plot.removeDockWidget(self.__dock)
         if self.__roiWidget is not None:
             self.__roiWidget.clear()
+        # FIXME: silx bug: https://github.com/silx-kit/silx/issues/2940
+        if hasattr(plot, "_dockWidgets"):
+            if self.__dock in plot._dockWidgets:
+                plot._dockWidgets.remove(self.__dock)
         self.__dock = None
         self.__roiWidget = None
 

@@ -501,7 +501,7 @@ def interlock_to_yml(interlock_list):
     for intrlck in interlock_list:
         r_d = {
             "relay": intrlck["logical_device"],
-            "relay_channel": intrlck["logical_device_channel"],
+            "relay_channel": int(intrlck["logical_device_channel"]),
             "flags": flags_to_string(imask(intrlck["flags"])),
             "description": intrlck["description"],
             "channels": [],

@@ -31,6 +31,8 @@ from silx.gui.plot.items.scatter import Scatter
 from silx.gui.plot.items.curve import Curve
 from silx.gui.plot.items.histogram import Histogram
 from silx.gui.plot.items.image import ImageData
+from silx.gui.plot.items import YAxisMixIn
+from silx.gui.plot.items import BoundingRect
 
 from bliss.flint.model import plot_model
 from bliss.flint.model import plot_item_model
@@ -470,10 +472,13 @@ class FlintImage(ImageData, _FlintItemMixIn):
         data = self.getData(copy=False)
         char = self._getColoredChar(value, data, flintModel)
 
+        xName = "Col/X"
+        yName = "Row/Y"
+
         text = f"""
-            <li><b>Col, X:</b> {x}</li>
-            <li><b>Row, Y:</b> {y}</li>
-            <li><b>{imageName}:</b> {char} {value}</li>
+        <li style="white-space:pre">{char} <b>Value:</b> {value}</li>
+        <li style="white-space:pre">     <b>{xName}:</b> {x}</li>
+        <li style="white-space:pre">     <b>{yName}:</b> {y}</li>
         """
         return x + 0.5, y + 0.5, text
 
@@ -581,11 +586,16 @@ class TooltipItemManager:
     def __updateTooltip(self, x, y):
         results = self.__picking(x, y)
 
-        x, y, axis = None, None, None
         textResult = []
         flintModel = self.__parent.flintModel()
         scan = self.__parent.scan()
 
+        if self.__plot.getGraphCursor() is not None and x is not None:
+            plotModel = self.__parent.plotModel()
+            text = self.getCrossairTooltip(plotModel, flintModel, scan, x, y)
+            textResult.append(text)
+
+        x, y, axis = None, None, None
         for result in results:
             item, index = result
             if isinstance(item, _FlintItemMixIn):
@@ -607,6 +617,81 @@ class TooltipItemManager:
         else:
             self.__updateToolTipMarker(None, None, None)
             qt.QToolTip.hideText()
+
+    def __isY2AxisDisplayed(self):
+        for item in self.__plot.getItems():
+            if isinstance(item, BoundingRect):
+                continue
+            if isinstance(item, YAxisMixIn):
+                if not item.isVisible():
+                    continue
+                if item.getYAxis() == "right":
+                    return True
+        return False
+
+    def getCrossairTooltip(self, plotModel, flintModel, scan, px, py):
+        # Get a visible item
+        selectedItem = None
+        for item in plotModel.items():
+            if item.isVisible():
+                selectedItem = item
+                break
+
+        x, y = self.__plot.pixelToData(px, py)
+
+        y2Name = None
+        if isinstance(plotModel, plot_item_model.CurvePlot):
+            xName = None
+            if isinstance(selectedItem, plot_item_model.CurveItem):
+                xChannel = selectedItem.xChannel()
+                if xChannel is not None:
+                    xName = xChannel.displayName(scan)
+            if xName is None:
+                xName = "X"
+            yName = "Y1"
+            if self.__isY2AxisDisplayed():
+                _, y2 = self.__plot.pixelToData(px, py, "right")
+                y2Name = "Y2"
+        elif isinstance(plotModel, plot_item_model.ScatterPlot):
+            xName = None
+            yName = None
+            if isinstance(selectedItem, plot_item_model.CurveItem):
+                xChannel = selectedItem.xChannel()
+                if xChannel is not None:
+                    xName = xChannel.displayName(scan)
+            if xName is None:
+                xName = "X"
+            if isinstance(selectedItem, plot_item_model.ScatterItem):
+                yChannel = selectedItem.xChannel()
+                if yChannel is not None:
+                    yName = yChannel.displayName(scan)
+            if yName is None:
+                yName = "Y"
+        elif isinstance(plotModel, plot_item_model.McaPlot):
+            x, y = int(x), int(y)
+            xName = "Channel ID"
+            yName = "Count"
+        elif isinstance(plotModel, plot_item_model.ImagePlot):
+            # Round to the pixel
+            x, y = int(x), int(y)
+            xName = "Col/X"
+            yName = "Row/Y"
+        else:
+            xName = "x"
+            yName = "y"
+
+        char = "✛"
+
+        text = f"""
+        <li style="white-space:pre">{char} <b>Crossair</b></li>
+        <li style="white-space:pre">     <b>{xName}:</b> {x}</li>
+        <li style="white-space:pre">     <b>{yName}:</b> {y}</li>
+        """
+        if y2Name is not None:
+            text += f"""
+        <li style="white-space:pre">     <b>{y2Name}:</b> {y2}</li>
+        """
+        return text
 
     def __updateToolTipMarker(self, x, y, axis):
         if x is None:

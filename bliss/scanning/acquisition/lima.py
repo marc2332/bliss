@@ -48,6 +48,10 @@ class LimaAcquisitionMaster(AcquisitionMaster):
         # !!! warning: validate params requires a completed ctrl_params dict
         self.acq_params = OrderedDict(self.validate_params(acq_params, ctrl_params))
 
+        # deal with 'ONE_FILE_PER_SCAN' mode
+        if ctrl_params.get("saving_frame_per_file") == -1:
+            ctrl_params["saving_frame_per_file"] = self.acq_params["acq_nb_frames"]
+
         trigger_type = (
             AcquisitionMaster.SOFTWARE
             if "INTERNAL" in self.acq_params["acq_trigger_mode"]

@@ -220,12 +220,15 @@ class Lima(CounterController):
 
         def __info__(self):
             tmp = self.to_dict()
+            av_modes = "\n                   ".join((self.available_saving_modes))
             return textwrap.dedent(
                 f"""                Saving
                 --------------
                 File Format:  {self.file_format}
                 └->  Suffix:  {tmp['saving_suffix']}
                 Current Mode: {self.mode.name}
+                Available Modes:
+                   {av_modes}
                 
                 for ONE_FILE_PER_N_FRAMES mode
                 ------------------------------

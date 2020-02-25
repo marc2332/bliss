@@ -579,3 +579,48 @@ def test_reapplying_ctrl_params(default_session, ports, beacon, caplog):
 
     # TODO: in this test we should also check if user_instrument_name and user_detector_name
     #      are set correctly once lima version > 1.9.1 is available on CI
+
+
+def test_lima_saving_mode(default_session, lima_simulator, scan_tmpdir):
+    scan_saving = default_session.scan_saving
+    scan_saving.base_path = str(scan_tmpdir)
+    simulator = default_session.config.get("lima_simulator")
+
+    # workaround for #1383
+    print(simulator.saving.file_format)
+    print(simulator.saving.frames_per_file)
+    print(simulator.saving.max_file_size_in_MB)
+    print(simulator.saving.mode)
+    #####
+
+    simulator.saving.file_format = "HDF5"
+    simulator.saving.frames_per_file = 5
+    simulator.saving.max_file_size_in_MB = 15
+
+    simulator.saving.mode = "ONE_FILE_PER_FRAME"
+    scan = loopscan(10, 0.1, simulator)
+
+    assert 10 == len(
+        set([x[0] for x in scan.get_data()["lima_simulator:image"].get_filenames()])
+    )
+
+    simulator.saving.mode = "ONE_FILE_PER_N_FRAMES"
+    scan = loopscan(10, 0.1, simulator)
+
+    assert 2 == len(
+        set([x[0] for x in scan.get_data()["lima_simulator:image"].get_filenames()])
+    )
+
+    simulator.saving.mode = "SPECIFY_MAX_FILE_SIZE"
+    scan = loopscan(10, 0.1, simulator)
+
+    assert 3 == len(
+        set([x[0] for x in scan.get_data()["lima_simulator:image"].get_filenames()])
+    )
+
+    simulator.saving.mode = "ONE_FILE_PER_SCAN"
+    scan = loopscan(10, 0.1, simulator)
+
+    assert 1 == len(
+        set([x[0] for x in scan.get_data()["lima_simulator:image"].get_filenames()])
+    )

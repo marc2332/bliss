@@ -45,7 +45,7 @@ def test_created_flint(flint_session):
     Flint is created and attached with subprocess
     """
     flint = plot.get_flint()
-    flint.wait_started()
+
     # Check messages and stdout
     listener = testutils.TestLogging(plot.FLINT_OUTPUT_LOGGER.name, info=1)
     with listener:

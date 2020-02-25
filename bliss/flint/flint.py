@@ -66,7 +66,7 @@ ROOT_LOGGER = logging.getLogger()
 
 def create_flint_model(settings) -> flint_model.FlintState:
     """"
-    Create Flint class and main windows without interaction with the
+    Create Flint classes and main windows without interaction with the
     environment.
     """
     flintModel = flint_model.FlintState()
@@ -89,21 +89,33 @@ def create_flint_model(settings) -> flint_model.FlintState:
     flintWindow.initMenus()
 
     # Workspace
-
     workspace = flint_model.Workspace()
     flintModel.setWorkspace(workspace)
 
-    # Everything is there we can read the settings
+    return flintModel
 
+
+def start_flint(flintModel: flint_model.FlintState):
+    """
+    This have to be executed after the start of the main Qt loop.
+
+    It looks to fix initial layout issue.
+    """
+    flintWindow = flintModel.mainWindow()
+    manager = flintModel.mainManager()
+
+    flintWindow.show()
+
+    # Everything is there we can read the settings
     flintWindow.initFromSettings()
     manager.initRedis()
 
     # Finally scan manager
-
     scanManager = scan_manager.ScanManager(flintModel)
     flintModel.setScanManager(scanManager)
 
-    return flintModel
+    # Flag that flint is started
+    flintModel.mainManager().setFlintStarted()
 
 
 def parse_options():
@@ -295,16 +307,8 @@ def main():
     # RPC service of the Flint API
     server = FlintServer(flintModel.flintApi())
 
-    # FIXME: why using a timer?
-    single_shot = qt.QTimer()
-    single_shot.setSingleShot(True)
-
-    def start():
-        flintWindow.show()
-        flintModel.mainManager().setFlintStarted()
-
-    single_shot.timeout.connect(start)
-    single_shot.start(0)
+    # Postpon the real start of flint
+    qt.QTimer.singleShot(10, lambda: start_flint(flintModel))
 
     try:
         sys.exit(qapp.exec_())

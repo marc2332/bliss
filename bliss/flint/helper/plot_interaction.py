@@ -500,7 +500,7 @@ class ShapesSelector(Selector):
         plot = self.parent()
 
         roiWidget = RoiSelectionWidget(plot)
-        dock = qt.QDockWidget("ROI selection")
+        dock = qt.QDockWidget("ROI selection", parent=plot)
         dock.setWidget(roiWidget)
         plot.addTabbedDockWidget(dock)
         rois = self.__dictToRois(self.__initialShapes)

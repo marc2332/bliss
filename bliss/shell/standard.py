@@ -16,6 +16,7 @@ import sys
 import os
 import typing
 import typeguard
+import subprocess
 
 from gevent import sleep
 
@@ -85,6 +86,7 @@ __all__ = (
         "newproposal",
         "newsample",
         "newdataset",
+        "silx_view",
     ]
     + scans.__all__
     + logtools.__all__
@@ -770,3 +772,21 @@ def newsample(sample_name=None):
 
 def newdataset(dataset_name=None):
     current_session.scan_saving.newdataset(dataset_name)
+
+
+# Silx
+
+
+def silx_view(scan=None):
+    """Open silx view on a given scan (default last scan)"""
+
+    args = f"{sys.executable} -m silx.app.view.main".split()
+    try:
+        if scan is None:
+            scan = current_session.scans[-1]
+        filename = scan._scan_info["filename"]
+    except IndexError:
+        pass
+    else:
+        args.append(filename)
+    subprocess.Popen(args)

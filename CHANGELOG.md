@@ -18,6 +18,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     device server, to get instantaneous values use `devreadnocachephys` and
     `devreadnocachedigi`. This can be used for monitoring without giving more
     pressure to the Wago. The shell command `get` gives instantaneous values.
+  - silx launcher: typing silx_view in the shell will launch silx on a scan
+    (default last scan).
 
 - Flint
   - A preferred style can be saved as default for images

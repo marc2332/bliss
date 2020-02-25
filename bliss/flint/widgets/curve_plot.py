@@ -22,6 +22,7 @@ from silx.gui import utils as qtutils
 from silx.gui.plot.items.shape import BoundingRect
 from silx.gui.plot.items import Curve
 from silx.gui.plot.items import axis as axis_mdl
+from silx.gui.plot.actions import fit
 
 from bliss.flint.model import scan_model
 from bliss.flint.model import flint_model
@@ -145,6 +146,8 @@ class CurvePlotWidget(ExtendedDockWidget):
         action.setIcon(icon)
         action.setEnabled(False)
         toolBar.addAction(action)
+
+        toolBar.addAction(fit.FitAction(self.__plot, self))
 
         toolBar.addSeparator()
 

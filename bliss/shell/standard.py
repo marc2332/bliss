@@ -88,8 +88,8 @@ __all__ = (
     ]
     + scans.__all__
     + logtools.__all__
-    + ["cleanup", "error_cleanup", "plot", "lscnt"]
-    + ["SoftAxis", "SoftCounter", "edit_roi_counters"]
+    + ["cleanup", "error_cleanup", "plot", "lscnt", "lsmg"]
+    + ["SoftAxis", "SoftCounter", "edit_roi_counters", "edit_mg"]
     + list(limatools.__all__)
 )
 
@@ -211,7 +211,7 @@ def debugon(glob_logger_pattern_or_obj) -> None:
                    common operators are * for any number of characters
                    and ? for one character of any type
 
-    Returns:
+    Return:
         None
 
     Examples:
@@ -265,6 +265,29 @@ def lscnt(counter_container: typing.Union[CounterContainer, Counter, None] = Non
     )
 
 
+def _lsmg():
+    """Return the list of measurment groups
+    Indicate the current active one with a star char: '*'
+    """
+    active_mg_name = measurementgroup.get_active_name()
+    lsmg_str = ""
+
+    for mg_name in measurementgroup.get_all_names():
+        if mg_name == active_mg_name:
+            lsmg_str += f" * {mg_name}\n"
+        else:
+            lsmg_str += f"   {mg_name}\n"
+
+    return lsmg_str
+
+
+def lsmg():
+    """Print the list of measurment groups
+    Indicate the current active one with a star char: '*'
+    """
+    print(_lsmg())
+
+
 def stm(*axes, read_hw=False):
     """
     Displays state information of the given axes
@@ -292,7 +315,7 @@ def stm(*axes, read_hw=False):
 
 def sta(read_hw=False):
     """
-    Returns state information about all axes
+    Return state information about all axes
 
     Keyword Args:
         read_hw (bool): If True, force communication with hardware, otherwise

@@ -1221,17 +1221,20 @@ class Scan:
                                 # it received a StopIteration
                                 run_scan = not self._watchdog_task.ready()
 
-                            for i, (task, iterator) in enumerate(list(run_next_tasks)):
+                            if not run_scan:
+                                break
+
+                            for task, iterator in run_next_tasks:
                                 if task.ready():
                                     if iterator.top_master.terminator:
                                         # scan has to end
                                         run_scan = False
                                         break
-                                    else:
-                                        # remove finished task, as it does not
-                                        # correspond to a "stopper" top master
-                                        run_next_tasks.pop(i)
-                                        run_scan = len(run_next_tasks) > 0
+                            else:
+                                run_next_tasks = [
+                                    (t, i) for t, i in run_next_tasks if not t.ready()
+                                ]
+                                run_scan = bool(run_next_tasks)
                     except:
                         kill_exception = gevent.GreenletExit
                         raise

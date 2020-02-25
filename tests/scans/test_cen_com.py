@@ -11,7 +11,7 @@ from bliss.common import scans
 from bliss.scanning import scan, chain
 from bliss.scanning.acquisition import timer, calc, motor, counter
 from bliss.common import event
-from bliss.shell.standard import plotselect
+from bliss.shell.standard import plotselect, cen, com, peak
 
 
 def test_pkcom_ascan_gauss(session):
@@ -95,6 +95,19 @@ def test_plotselect1(session):
 
     plotselect(simul_counter4)
     assert simul_counter4.fullname == scans._get_selected_counter_name()
+
+
+def test_counter_argument_on_cen_com_peak(session):
+    roby = getattr(setup_globals, "roby")
+    diode = getattr(setup_globals, "diode")
+    diode2 = getattr(setup_globals, "diode2")
+    scans.ascan(roby, 0, .1, 5, 0, diode, diode2, save=False)
+    cen(diode)
+    cen(diode2)
+    com(diode)
+    com(diode2)
+    peak(diode)
+    peak(diode2)
 
 
 def test_plotselect_and_global_cen(session):

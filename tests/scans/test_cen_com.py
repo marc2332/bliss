@@ -102,7 +102,7 @@ def test_plotselect_and_global_cen(session):
     simul_counter = getattr(setup_globals, "sim_ct_gauss")
 
     scans.plotselect(simul_counter)
-    s = scans.ascan(roby, 0, .1, 5, 0, simul_counter, save=False)
+    scans.ascan(roby, 0, .1, 5, 0, simul_counter, save=False)
     assert simul_counter.fullname == scans._get_selected_counter_name()
     cen_pos = scans.cen()
     assert pytest.approx(0.05, abs=1e-3) == cen_pos[0]

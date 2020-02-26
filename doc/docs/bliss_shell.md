@@ -1,24 +1,13 @@
-## Bliss Conda Environment
-
-Open a terminal or a remote terminal.
-Launch Bliss environment using:
-
- - `. blissenv` to enter conda bliss stable
- - `. blissenv -d` to enter conda bliss unstable version for developers
-
-```shell
-beamline:~ % blissenv
-setting BLISS environment
-Using CONDA Bliss package (use: 'conda list bliss' to know the version)
-(bliss) beamline:~ %
-```
-
-After this command on the left part of the shell you should see the name
-of the `Anaconda` environment that will be `bliss` or `bliss_dev`.
-
 ## Sessions
 
-From a terminal, after launching a Bliss environment, type:
+!!! note
+
+    On an ESRF beamline computer, the ESRF BLISS environment has to be activated prior to start BLISS shell:
+    
+    - `. blissenv` to enter conda bliss stable
+    - `. blissenv -d` to enter conda bliss unstable version for developers
+    
+From a terminal, after launching a BLISS environment, type:
 
  - `bliss -h` or `bliss --help` to display all command line options
 

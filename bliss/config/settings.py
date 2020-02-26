@@ -232,6 +232,21 @@ class BaseSetting:
     def name(self):
         return self._name
 
+    def ttl(self, value=-1):
+        """
+        Set the time to live (ttl) for settings object.
+        value -- == -1 default value means read what is the current ttl
+        value -- == None mean persistent
+        value -- >= 0 set the time to live a this setting in second.
+        """
+        return ttl_func(self.connection, self.name, value)
+
+    def clear(self):
+        """
+        Remove all elements from this settings
+        """
+        self.connection.delete(self.name)
+
     @property
     def connection(self):
         return self._cnx()
@@ -261,9 +276,6 @@ class SimpleSetting(BaseSetting):
     @write_decorator
     def set(self, value):
         self.connection.set(self.name, value)
-
-    def ttl(self, value=-1):
-        return ttl_func(self.connection, self.name, value)
 
     def clear(self):
         self.connection.delete(self.name)
@@ -455,11 +467,6 @@ class QueueSetting(BaseSetting):
             value = self._read_type_conversion(value)
         return value
 
-    def ttl(self, value=-1, cnx=None):
-        if cnx is None:
-            cnx = self.connection
-        return ttl_func(cnx, self.name, value)
-
     def __len__(self, cnx=None):
         if cnx is None:
             cnx = self.connection
@@ -592,9 +599,6 @@ class BaseHashSetting(BaseSetting):
     def __len__(self):
         cnx = self.connection
         return cnx.hlen(self.name)
-
-    def ttl(self, value=-1):
-        return ttl_func(self.connection, self.name, value)
 
     def raw_get(self, *keys):
         cnx = self.connection

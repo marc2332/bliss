@@ -506,3 +506,103 @@ def test_stop_after_first_walk_event(session):
     stop_handler.stop()
     with gevent.Timeout(1.):
         task.get()
+
+
+def _count_node_events(beforestart, session, db_name, node_type=None):
+    diode = session.env_dict["diode"]
+    s = scans.ct(0.1, diode, run=not beforestart, save=False)
+    startlistening_event = gevent.event.Event()
+    startlistening_event.clear()
+    events = {}
+
+    def walk_scan_events():
+        it = _get_node_object(node_type, db_name, None, None).iterator
+        startlistening_event.set()
+        for e, n, d in it.walk_events():
+            events.setdefault(e.name, []).append(n.db_name)
+
+    g = gevent.spawn(walk_scan_events)
+    try:
+        with gevent.Timeout(5):
+            startlistening_event.wait()
+        if beforestart:
+            scan_greenlet = gevent.spawn(s.run)
+            scan_greenlet.get()
+    finally:
+        gevent.sleep(0.1)
+        g.kill()
+
+    return events
+
+
+@pytest.mark.parametrize("beforestart", [True, False])
+def test_events_on_session_node(beforestart, session):
+    events = _count_node_events(beforestart, session, session.name)
+    # New node events: root nodes, scan, scan master (timer),
+    #                  epoch, elapsed_time, diode controller, diode
+    assert set(events.keys()) == {"NEW_NODE", "END_SCAN", "NEW_DATA"}
+    # One less because the NEW_NODE event for session.name is
+    # not emitted on node session.name
+    nroot = len(session.scan_saving._db_path_keys) - 1
+    assert len(events["NEW_NODE"]) == nroot + 6
+    assert len(events["NEW_DATA"]) == 3
+    assert len(events["END_SCAN"]) == 1
+
+
+@pytest.mark.parametrize("beforestart", [True, False])
+def test_events_on_wrong_session_node(beforestart, session):
+    events = _count_node_events(beforestart, session, session.name[:-1])
+    assert not events
+
+
+@pytest.mark.parametrize("beforestart", [True, False])
+def test_events_on_scan_node(beforestart, session):
+    db_name = session.scan_saving.scan_parent_db_name + ":1_ct"
+    events = _count_node_events(beforestart, session, db_name)
+    # New node events: scan master (timer), epoch, elapsed_time,
+    #                  diode controller, diode
+    assert set(events.keys()) == {"NEW_NODE", "NEW_DATA"}
+    assert len(events["NEW_NODE"]) == 5
+    assert len(events["NEW_DATA"]) == 3
+
+
+@pytest.mark.parametrize("beforestart", [True, False])
+def test_events_on_master_node(beforestart, session):
+    db_name = session.scan_saving.scan_parent_db_name + ":1_ct:timer"
+    events = _count_node_events(beforestart, session, db_name)
+    # New node events: epoch, elapsed_time, diode controller, diode
+    assert set(events.keys()) == {"NEW_NODE", "NEW_DATA"}
+    assert len(events["NEW_NODE"]) == 4
+    assert len(events["NEW_DATA"]) == 3
+
+
+@pytest.mark.parametrize("beforestart", [True, False])
+def test_events_on_controller_node(beforestart, session):
+    db_name = (
+        session.scan_saving.scan_parent_db_name
+        + ":1_ct:timer:simulation_diode_sampling_controller"
+    )
+    events = _count_node_events(beforestart, session, db_name)
+    # New node events: diode
+    assert set(events.keys()) == {"NEW_NODE", "NEW_DATA"}
+    assert len(events["NEW_NODE"]) == 1
+    assert len(events["NEW_DATA"]) == 1
+
+
+@pytest.mark.parametrize("beforestart", [True, False])
+def test_events_on_masterchannel_node(beforestart, session):
+    db_name = session.scan_saving.scan_parent_db_name + ":1_ct:timer:elapsed_time"
+    events = _count_node_events(beforestart, session, db_name, node_type="channel")
+    assert set(events.keys()) == {"NEW_DATA"}
+    assert len(events["NEW_DATA"]) == 1
+
+
+@pytest.mark.parametrize("beforestart", [True, False])
+def test_events_on_controllerchannel_node(beforestart, session):
+    db_name = (
+        session.scan_saving.scan_parent_db_name
+        + ":1_ct:timer:simulation_diode_sampling_controller:diode"
+    )
+    events = _count_node_events(beforestart, session, db_name, node_type="channel")
+    assert set(events.keys()) == {"NEW_DATA"}
+    assert len(events["NEW_DATA"]) == 1

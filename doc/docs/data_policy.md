@@ -2,9 +2,10 @@ A data policy determines data structure (file format and directory structure) an
 
 1. The [ESRF data policy](#esrf-data-policy) which allows users to access their data and electronic logbook at https://data.esrf.fr. The data is written in [Nexus compliant](https://www.nexusformat.org/) HDF5 files in a specific directory structure. 
 
-2. The [basic data policy](#basic-data-policy) does not impose a data directory structure or register data with any external service. Data can (but does not have to be) written in [Nexus compliant](https://www.nexusformat.org/) HDF5 files.
+!!! note
+    Read more about [configuring ESRF data policy](installation_esrf.md#ESRF data policy)
 
-Installation and configuration of the [ESRF](dev_data_policy_esrf.md) and [basic](dev_data_policy_basic.md) data policy in a BLISS session can be found elsewhere as well as how to create [custom](dev_data_policy_custom.md) data policies. Below we describe how to use the data policies.
+2. The [basic data policy](#basic-data-policy) does not impose a data directory structure or register data with any external service. Data can (but does not have to be) written in [Nexus compliant](https://www.nexusformat.org/) HDF5 files. The basic data policy is the default policy for BLISS.
 
 ## ESRF data policy
 
@@ -26,7 +27,7 @@ The data root directory is derived from the proposal name
 * *test**, *tmp** or *temp**: `/data/{beamline}/tmp/`
 * all other names: `/data/visitor/`
 
-These root path can be [configured](dev_data_policy_esrf.md#configuration) but these are the defaults.
+These root path can be [configured](installation_esrf.md#ESRF data policy) but these are the defaults.
 
 ### Change sample
 
@@ -99,6 +100,18 @@ DEMO  [5]: SCAN_SAVING
             Metadata        RUNNING    Dataset is running
             --------------  ---------  -------------------------------------------------------------------
 ```
+
+#### MetadataManager state
+
+The state of the MetadataManager device can be
+
+ * OFF: No experiment ongoing
+ * STANDBY: Experiment started, sample or dataset not specified
+ * ON: No dataset running
+ * RUNNING: Dataset is running
+ * FAULT: Device is not functioning correctly
+
+Every time a scan is started, BLISS verifies that the dataset as specified in the session's `SCAN_SAVING` object is *RUNNING*. If this is not the case, BLISS will close the previous running dataset (if any) and start the new dataset.
 
 ## Basic data policy
 

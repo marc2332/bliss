@@ -308,13 +308,11 @@ class ScanDataListener:
 
     DEFAULT_WIDTH = 12
 
-    def __init__(self, session_name="", exit_read_fd=None):
-
+    def __init__(self, session_name=""):
         self.session_name = session_name
         self.scan_name = None
         self.scan_is_running = None
         self.counter_selection = []
-        self.exit_read_fd = exit_read_fd
         self.scan_display = ScanDisplay(self.session_name)
         self._pool = ThreadPool(1)
         # self.start_time = 0
@@ -635,7 +633,6 @@ class ScanDataListener:
             self.on_scan_new_child,
             self.on_scan_data,
             self.on_scan_end,
-            exit_read_fd=self.exit_read_fd,
         )
 
 

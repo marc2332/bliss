@@ -777,7 +777,8 @@ class TooltipItemManager:
         if self.__plot.getGraphCursor() is not None and x is not None:
             plotModel = self.__parent.plotModel()
             text = self.getCrossairTooltip(plotModel, flintModel, scan, x, y)
-            textResult.append(text)
+            if text is not None:
+                textResult.append(text)
 
         x, y, axis = None, None, None
         for result in results:
@@ -815,6 +816,8 @@ class TooltipItemManager:
 
     def getCrossairTooltip(self, plotModel, flintModel, scan, px, py):
         # Get a visible item
+        if plotModel is None:
+            return None
         selectedItem = None
         for item in plotModel.items():
             if item.isVisible():

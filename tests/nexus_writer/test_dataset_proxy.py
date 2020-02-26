@@ -17,11 +17,12 @@ from nexus_writer_service.utils.array_order import Order
 
 
 def test_dataset_proxy(tmpdir):
-    mainfile = os.path.join(str(tmpdir), "main.h5")
+    mainfile = str(tmpdir.join("main.h5"))
     with nexus.nxRoot(mainfile, mode="w") as nxroot:
         nexus.nxEntry(nxroot, "entry0000")
 
     dsetname_generator = name_generator("dataset{:04d}")
+    datadir_generator = _directory_generator(tmpdir)
 
     scan_shapes = tuple(), (0,), (8,), (4, 8), (2, 4, 6)
     detector_shapes = tuple(), (3,), (3, 5)
@@ -34,7 +35,9 @@ def test_dataset_proxy(tmpdir):
     )
     publishorders = tuple(saveorders)
     nextras = (0, -2, 2)
-    datatypes = (None, "edf", "hdf5")
+    datatypes = ("hdf5", "edf", None)
+    fulluri = (True, False)
+    nframes_per_file = 3
 
     options = [
         scan_shapes,
@@ -44,12 +47,15 @@ def test_dataset_proxy(tmpdir):
         nextras,
         scan_save_ndims,
         datatypes,
+        fulluri,
     ]
     for params in itertools.product(*options):
-        scan_shape, detector_shape, saveorder, publishorder, nextra, scan_save_ndim, datatype = (
+        scan_shape, detector_shape, saveorder, publishorder, nextra, scan_save_ndim, datatype, fulluri = (
             params
         )
         if datatype == "edf" and saveorder.forder:
+            continue
+        if fulluri and datatype != "hdf5":
             continue
         # Number of points published: npoints + nextra
         if not detector_shape and datatype:
@@ -78,6 +84,10 @@ def test_dataset_proxy(tmpdir):
             escan_shape = escan_save_shape + edetector_shape
         else:
             escan_shape = edetector_shape + escan_save_shape
+        if fulluri:
+            external_images_per_file = nframes_per_file
+        else:
+            external_images_per_file = None
 
         err_msg = str(
             {
@@ -99,19 +109,34 @@ def test_dataset_proxy(tmpdir):
             scan_shape=scan_shape,
             scan_save_shape=scan_save_shape,
             detector_shape=detector_shape,
+            external_images_per_file=external_images_per_file,
+            external_uri_from_file=not fulluri,
             dtype=float,
             saveorder=saveorder,
             publishorder=publishorder,
         )
 
         # Add data
+        datadir = next(datadir_generator)
         if datatype == "hdf5":
-            data_generator = hdf5_data_generator(tmpdir, "file", detector_shape)
+            data_generator = hdf5_data_generator(
+                datadir,
+                "file",
+                detector_shape,
+                nframes=nframes_per_file,
+                fulluri=fulluri,
+            )
         elif datatype == "edf":
-            data_generator = edf_data_generator(tmpdir, "file", detector_shape)
+            data_generator = edf_data_generator(
+                datadir, "file", detector_shape, nframes=nframes_per_file
+            )
         else:
             data_generator = mem_data_generator(detector_shape)
         add_data(dproxy, data_generator, npoints + nextra)
+
+        if datatype == "hdf5" and fulluri:
+            # Creating a VDS: no need to open the files
+            os.chmod(str(datadir), 0)
 
         # Make sure it exists with the expected shape
         dproxy.reshape(escan_save_shape)
@@ -119,7 +144,18 @@ def test_dataset_proxy(tmpdir):
         assert dproxy.current_scan_save_shape == escan_save_shape, err_msg
         assert dproxy.current_shape == escan_shape, err_msg
         assert dproxy.current_detector_shape == edetector_shape, err_msg
+
+        if datatype == "hdf5" and fulluri:
+            # Allow access again to check the content
+            os.chmod(str(datadir), 0o755)
+
         _validate_data(dproxy, npoints, nextra, escan_save_shape, err_msg)
+
+
+def _directory_generator(tmpdir):
+    i = 1
+    while True:
+        yield tmpdir.join(f"data{i}")
 
 
 def _validate_data(dproxy, npoints, nextra, escan_save_shape, err_msg):
@@ -146,7 +182,9 @@ def add_data(dproxy, data_generator, npoints):
         newdata.append(next(data_generator))
         if random.choice([0, 0, 1]):
             if isinstance(newdata[0], tuple):
-                file_format = os.path.splitext(newdata[0][0])[-1][1:]
+                filename, index = newdata[0]
+                filename = nexus.splitUri(filename)[0]
+                file_format = os.path.splitext(filename)[-1][1:]
                 dproxy.add_external(newdata, file_format=file_format)
             else:
                 newdata = numpy.array(newdata)
@@ -154,7 +192,9 @@ def add_data(dproxy, data_generator, npoints):
             newdata = []
     if newdata:
         if isinstance(newdata[0], tuple):
-            file_format = os.path.splitext(newdata[0][0])[-1][1:]
+            filename, index = newdata[0]
+            filename = nexus.splitUri(filename)[0]
+            file_format = os.path.splitext(filename)[-1][1:]
             dproxy.add_external(newdata, file_format=file_format)
         else:
             newdata = numpy.array(newdata)
@@ -183,8 +223,8 @@ def mem_data_generator(detector_shape):
             m += 1
 
 
-def hdf5_data_generator(tmpdir, basename, detector_shape, nframes=3):
-    fmt = os.path.join(str(tmpdir), basename + "{:04d}.hdf5")
+def hdf5_data_generator(tmpdir, basename, detector_shape, nframes=3, fulluri=False):
+    fmt = str(tmpdir.join(basename + "{:04d}.hdf5"))
     filename_generator = name_generator(fmt)
     data_generator = mem_data_generator(detector_shape)
     iframe = nframes
@@ -205,11 +245,15 @@ def hdf5_data_generator(tmpdir, basename, detector_shape, nframes=3):
                 dset = nxdetector.create_dataset(
                     "data", shape=shape, dtype=dtype, chunks=True, fillvalue=numpy.nan
                 )
+                dsetname = dset.name
                 nexus.markDefault(dset)
                 iframe = 0
             dset[iframe] = data
             nxroot.flush()
-            yield datafile, iframe
+            if fulluri:
+                yield datafile + "::" + dsetname, iframe
+            else:
+                yield datafile, iframe
             iframe += 1
     finally:
         if nxroot is not None:
@@ -217,7 +261,7 @@ def hdf5_data_generator(tmpdir, basename, detector_shape, nframes=3):
 
 
 def edf_data_generator(tmpdir, basename, detector_shape, nframes=3):
-    fmt = os.path.join(str(tmpdir), basename + "{:04d}.edf")
+    fmt = str(tmpdir.join(basename + "{:04d}.edf"))
     filename_generator = name_generator(fmt)
     if not detector_shape:
         detector_shape = 1, 1

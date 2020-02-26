@@ -231,7 +231,7 @@ class Writer(FileWriter):
     @property
     def session_state_reason(self):
         proxy = self.writer_proxy
-        return proxy.status
+        return proxy.status()
 
     @property
     def scan_state(self):

@@ -55,10 +55,6 @@ def default_saveoptions(configurable=False):
     return ret
 
 
-def scansortkey(scan_name):
-    return int(scan_name.split("_")[0])
-
-
 class NexusSessionWriter(base_subscriber.BaseSubscriber):
     """
     Listen to session scan events and spawn a writer for each new scan.
@@ -168,14 +164,18 @@ class NexusSessionWriter(base_subscriber.BaseSubscriber):
         super().start(**kwargs)
         if g != self._greenlet:
             async_utils.kill_on_exit(self._greenlet)
+            # async_utils.start_heartbeat(self.logger, 1)
+            async_utils.log_gevent()
 
     def stop(self, **kwargs):
         if self.state == self.STATES.RUNNING:
             raise RuntimeError("Cannot stop session writer when scans are running")
         super().stop(**kwargs)
 
-    def _walk_events(self):
-        yield from self._node_iterator.walk_on_new_events(filter=["scan_group", "scan"])
+    def _walk_events(self, **kwargs):
+        yield from self._node_iterator.walk_on_new_events(
+            filter=["scan_group", "scan"], **kwargs
+        )
 
     def _event_loop_initialize(self, **kwargs):
         """
@@ -212,16 +212,14 @@ class NexusSessionWriter(base_subscriber.BaseSubscriber):
             base_subscriber.PeriodicTask(self.purge_scan_writers, 0)
         )
 
-    def _process_event(self, event_type, node):
+    def _process_event(self, event_type, node, event_data):
         """
         Process event belonging to this session
         """
         if not self._fds:
             self._fds = process_utils.file_descriptors()
-        if event_type.name == "NEW_NODE":
+        if event_type == event_type.NEW_NODE:
             self._event_new_node(node)
-        elif event_type.name == "END_SCAN":
-            self._event_end_scan(node)
         else:
             event_info = event_type.name, node.type, node.name, node.fullname
             self.logger.debug("Untreated event: {}".format(event_info))
@@ -255,15 +253,6 @@ class NexusSessionWriter(base_subscriber.BaseSubscriber):
         writer.start()
         self.writers[node.name] = writer
 
-    def _event_end_scan(self, node):
-        """
-        Send an END_SCAN event to the scan writer
-        """
-        self.logger.info("END_SCAN event received for scan {}".format(repr(node.name)))
-        writer = self.writers.get(node.name, None)
-        if writer:
-            writer.stop(successfull=True)
-
     def purge_scan_writers(self, delay=True):
         """
         Remove finished writers
@@ -287,16 +276,18 @@ class NexusSessionWriter(base_subscriber.BaseSubscriber):
             action = "stop"
         if self.writers:
             greenlets = []
+            lst = []
             writers = list(self.writers.values())
             for writer in writers:
                 if writer.active:
                     greenlets.append(writer._greenlet)
+                    lst.append(writer)
                     if kill:
                         writer.kill()
                     else:
                         writer.stop()
             if greenlets:
-                lst = list(map(str, greenlets))
+                lst = list(map(str, lst))
                 self.logger.info(action + " scan writers {} ...".format(lst))
             else:
                 self.logger.info("No scan writers to " + action)
@@ -349,7 +340,7 @@ class NexusSessionWriter(base_subscriber.BaseSubscriber):
         return list(
             name
             for name, writer in sorted(
-                self.writers.items(), key=lambda item: item[1].scan_number
+                self.writers.items(), key=lambda item: item[1].starttime
             )
         )
 
@@ -386,7 +377,7 @@ class NexusSessionWriter(base_subscriber.BaseSubscriber):
             ret[name] = getter(writer)
         else:
             for name, writer in sorted(
-                self.writers.items(), key=lambda item: item[1].scan_number
+                self.writers.items(), key=lambda item: item[1].starttime
             ):
                 ret[name] = getter(writer)
         return ret
@@ -513,7 +504,6 @@ def start_session_writer(session_name, **saveoptions):
     # Monitoring h5py
     # from .patching import monkey
     # monkey.patch("h5py")
-    async_utils.log_gevent()
     processlogger = saveoptions.get("parentlogger", None)
     if processlogger is None:
         logid = "Session writer " + repr(session_name)

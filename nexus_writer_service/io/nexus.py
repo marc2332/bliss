@@ -1082,7 +1082,14 @@ def nxDataSetSignals(data, signals):
 
 
 def _datasetMergeInfo(
-    uris, shape=None, dtype=None, axis=0, newaxis=True, order=None, fill_generator=None
+    uris,
+    shape=None,
+    dtype=None,
+    axis=0,
+    newaxis=True,
+    order=None,
+    fill_generator=None,
+    virtual_source_args=None,
 ):
     """
     Equivalent to `numpy.stack` or `numpy.concatenate` combined
@@ -1099,22 +1106,28 @@ def _datasetMergeInfo(
                                       merged dtype
                                       uri I/O index generator
     """
-    shapes = []
-    ushapes = []
-    dtypes = set()
     if not isinstance(uris, (tuple, list)):
         uris = [uris]
-    for uri in uris:
-        with uriContext(uri, mode="r") as dset:
-            dtypes.add(dset.dtype)
-            shapei = dset.shape
-            shapes.append(shapei)
-            shapei = list(shapei)
-            try:
-                shapei[axis] = None
-            except IndexError:
-                pass
-            ushapes.append(tuple(shapei))
+    if virtual_source_args:
+        dtypes = {virtual_source_args["dtype"]}
+        shapei = virtual_source_args["shape"]
+        shapes = [shapei] * len(uris)
+        ushapes = {shapei}
+    else:
+        shapes = []
+        ushapes = []
+        dtypes = set()
+        for uri in uris:
+            with uriContext(uri, mode="r") as dset:
+                dtypes.add(dset.dtype)
+                shapei = dset.shape
+                shapes.append(shapei)
+                shapei = list(shapei)
+                try:
+                    shapei[axis] = None
+                except IndexError:
+                    pass
+                ushapes.append(tuple(shapei))
     if len(set(ushapes)) > 1:
         raise RuntimeError("Cannot concatenate datasets with shapes {}".format(ushapes))
     # Merged dtype
@@ -1148,6 +1161,7 @@ def createVirtualDataset(
     dtype=None,
     order=None,
     fill_generator=None,
+    virtual_source_args=None,
 ):
     """
     Create a virtual dataset (references to the individual datasets)
@@ -1162,6 +1176,7 @@ def createVirtualDataset(
     :param dtype:
     :param str order: for reshaping
     :param fill_generator:
+    :param dict virtual_source_args: arguments for VirtualSource (avoid opening the source files)
     :returns h5py.Dataset:
     """
     shape, dtype, fill_generator = _datasetMergeInfo(
@@ -1172,26 +1187,53 @@ def createVirtualDataset(
         order=order,
         newaxis=newaxis,
         fill_generator=fill_generator,
+        virtual_source_args=virtual_source_args,
     )
     layout = h5py.VirtualLayout(shape, dtype=dtype, maxshape=maxshape)
     destination = splitUri(getUri(h5group))
-    for uri, idx_generator in fill_generator():
-        source = splitUri(uri)
-        spath, sname = relUri(source, destination)
-        with uriContext(uri, mode="r") as dset:
+    if virtual_source_args:
+        logger.debug("Create VDS {} without opening sources".format(repr(destination)))
+        for uri, idx_generator in fill_generator():
+            source = splitUri(uri)
+            spath, sname = relUri(source, destination)
+            # TODO: VirtualSource does not support relative
+            #       file paths upwards
             if ".." in spath:
                 spath, sname = source
             # TODO: VirtualSource does not support relative
             #       dataset paths like SoftLink
             sname = source[1]
-            vsource = h5py.VirtualSource(
-                spath, sname, shape=dset.shape, dtype=dset.dtype, maxshape=dset.maxshape
-            )
+            vsource = h5py.VirtualSource(spath, sname, **virtual_source_args)
             for idxin, idxout in idx_generator():
                 if idxin:
                     layout[idxout] = vsource[idxin]
                 else:
                     layout[idxout] = vsource
+    else:
+        logger.debug("Create VDS {} with opening sources".format(repr(destination)))
+        for uri, idx_generator in fill_generator():
+            source = splitUri(uri)
+            spath, sname = relUri(source, destination)
+            with uriContext(uri, mode="r") as dset:
+                # TODO: VirtualSource does not support relative
+                #       file paths upwards
+                if ".." in spath:
+                    spath, sname = source
+                # TODO: VirtualSource does not support relative
+                #       dataset paths like SoftLink
+                sname = source[1]
+                vsource = h5py.VirtualSource(
+                    spath,
+                    sname,
+                    shape=dset.shape,
+                    dtype=dset.dtype,
+                    maxshape=dset.maxshape,
+                )
+                for idxin, idxout in idx_generator():
+                    if idxin:
+                        layout[idxout] = vsource[idxin]
+                    else:
+                        layout[idxout] = vsource
     return h5group.create_virtual_dataset(name, layout, fillvalue=fillvalue)
 
 

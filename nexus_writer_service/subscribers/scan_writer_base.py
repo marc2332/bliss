@@ -1072,14 +1072,14 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
                     ret.add(dproxy.detector_ndim)
         return ret
 
-    def _process_event(self, event_type, node):
+    def _process_event(self, event_type, node, event_data):
         """
         Process event belonging to this scan
         """
-        if event_type.name == "NEW_NODE":
+        if event_type == event_type.NEW_NODE:
             self._event_new_node(node)
-        elif event_type.name == "NEW_DATA_IN_CHANNEL":
-            self._event_new_data(node)
+        elif event_type == event_type.NEW_DATA:
+            self._event_new_data(node, event_data)
         else:
             event_info = event_type.name, node.type, node.name, node.fullname
             self.logger.debug("Untreated event: {}".format(event_info))
@@ -1128,18 +1128,18 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
         )
         self.logger.warning(msg)
 
-    def _event_new_data(self, node):
+    def _event_new_data(self, node, event_data):
         """
         Creation of a new data node
         """
         # New data in an existing Redis node
         name = repr(node.fullname)
         if node.type == "channel":
-            self._fetch_data(node)
+            self._fetch_data(node, event_data=event_data)
         elif node.type == "node_ref_channel":
-            self._fetch_data(node)
+            self._fetch_data(node, event_data=event_data)
         elif node.type == "lima":
-            self._fetch_data(node)
+            self._fetch_data(node, event_data=event_data)
         else:
             self.logger.warning(
                 "New {} data for {} not treated".format(repr(str(node.type)), name)
@@ -1215,6 +1215,11 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
             # Detector data shape not known at this point
             # TODO: this is why 0 cannot indicate variable length
             return dproxy
+        # Detector save x images per file?
+        try:
+            external_images_per_file = node.images_per_file
+        except AttributeError:
+            external_images_per_file = None
 
         # Create parent: NXdetector, NXpositioner or measurement
         device = self.device(subscan, node)
@@ -1249,6 +1254,7 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
             scan_shape=scan_shape,
             scan_save_shape=scan_save_shape,
             detector_shape=detector_shape,
+            external_images_per_file=external_images_per_file,
             dtype=node.dtype,
             saveorder=self.saveorder,
             publishorder=self.saveorder,
@@ -1399,11 +1405,12 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
         """
         return len(self.scan_save_shape(subscan))
 
-    def _fetch_data(self, node, last=False):
+    def _fetch_data(self, node, event_data=None, last=False):
         """
         Get new data (if any) from a data node and create/insert/link in HDF5.
 
         :param bliss.data.node.DataNode node:
+        :param EventData event_data:
         :param bool last: this will be the last fetch
         """
         # Skip when no data expected
@@ -1422,28 +1429,29 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
                 )
             return
         # Get data or references (if any)
-        self._fetch_new_data(node, nproxy)
+        self._fetch_new_data(node, nproxy, event_data=event_data)
         # Progress
         complete = nproxy.log_progress(expect_complete=last)
         if last and not complete:
             self._set_state(self.STATES.FAULT, "{} incomplete".format(nproxy))
 
-    def _fetch_new_data(self, node, nproxy):
+    def _fetch_new_data(self, node, nproxy, event_data=None):
         """
         Get new data (if any) from a data node and create/insert/link in HDF5.
 
         :param bliss.data.node.DataNode node:
+        :param EventData event_data:
         :param DatasetProxy or ReferenceProxy nproxy:
         """
         # Copy/link new data
         if node.type in "channel":
             # newdata = copied from Redis
-            newdata = self._fetch_new_redis_data(nproxy, node)
+            newdata = self._fetch_new_redis_data(nproxy, node, event_data=event_data)
             if newdata.shape[0]:
                 nproxy.add_internal(newdata)
         elif node.type == "node_ref_channel":
             # newdata = copied from Redis
-            newdata = self._fetch_new_redis_refdata(nproxy, node)
+            newdata = self._fetch_new_redis_refdata(nproxy, node, event_data=event_data)
             if newdata:
                 nproxy.add_references(newdata)
         else:
@@ -1451,7 +1459,9 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
             if nproxy.is_internal:
                 external = False
             else:
-                newdata, file_format = self._fetch_new_references(nproxy, node)
+                newdata, file_format = self._fetch_new_references(
+                    nproxy, node, event_data=event_data
+                )
                 if not file_format:
                     return
                 external, file_format = self._save_reference_mode(file_format)
@@ -1459,7 +1469,9 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
                 if newdata:
                     nproxy.add_external(newdata, file_format)
             else:
-                newdata = self._fetch_new_external_data(nproxy, node)
+                newdata = self._fetch_new_external_data(
+                    nproxy, node, event_data=event_data
+                )
                 if newdata.shape[0]:
                     nproxy.add_internal(newdata)
 
@@ -1558,60 +1570,73 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
         for dproxy in subscan.datasets.values():
             dproxy.reshape(scanshape, None)
 
-    def _fetch_new_redis_data(self, dproxy, node):
+    def _fetch_new_redis_data(self, dproxy, node, event_data=None):
         """
         Get a copy of the new data provided by a 'channel' data node.
 
         :param DatasetProxy dproxy:
         :param bliss.data.channel.ChannelDataNode node:
+        :param EventData event_data:
         :returns numpy.ndarray:
         """
-        # return numpy.array(node.get(dproxy.npoints, -1))
-        return node.get_as_array(dproxy.npoints, -1)
+        if event_data:
+            return event_data.data
+        else:
+            return node.get_as_array(dproxy.npoints, -1)
 
-    def _fetch_new_redis_refdata(self, rproxy, node):
+    def _fetch_new_redis_refdata(self, rproxy, node, event_data=None):
         """
         Get new uris provided by a 'node_ref_channel' data node.
 
         :param ReferenceProxy rproxy:
         :param bliss.data.channel.ChannelDataNode node:
+        :param EventData event_data:
         :returns lst(str):
         """
         result = []
-        for refnode in node.get(rproxy.npoints, -1):
+        if event_data:
+            nodes = event_data.data
+        else:
+            nodes = node.get(rproxy.npoints, -1)
+        for refnode in nodes:
             if refnode.info.get("save"):
                 result += scan_utils.scan_uris(refnode)
         return result
 
-    def _fetch_new_references(self, dproxy, node):
+    def _fetch_new_references(self, dproxy, node, event_data=None):
         """
         Get references to the new data provided by the node.
 
         :param DatasetProxy dproxy:
         :param bliss.data.node.DataNode node:
+        :param EventData event_data:
         :returns lst, str: references, file_format
         :raises RuntimeError:
         """
-        icurrent = dproxy.npoints
-        # e.g node: bliss.data.lima.LimaImageChannelDataNode
-        #     dataview: bliss.data.lima.LimaImageChannelDataNode.LimaDataView
-        dataview = node.get(icurrent, -1)
+        if event_data:
+            files = event_data.data
+        else:
+            files = []
+            icurrent = dproxy.npoints
+            # e.g node: bliss.data.lima.LimaImageChannelDataNode
+            #     dataview: bliss.data.lima.LimaImageChannelDataNode.LimaDataView
+            dataview = node.get(icurrent, -1)
+            imgidx = list(range(dataview.from_index, dataview.last_index))
+            if imgidx:
+                try:
+                    files = dataview._get_filenames(node.info, *imgidx)
+                except Exception as e:
+                    # Image was not saved (yet)
+                    dproxy.logger.debug("cannot get image file names: {}".format(e))
+        # Create image URI's
         uris = []
         file_format0 = None
-        imgidx = list(range(dataview.from_index, dataview.last_index))
-        if not imgidx:
-            return uris, file_format0
-        try:
-            files = dataview._get_filenames(node.info, *imgidx)
-        except Exception as e:
-            # Image was not saved (yet)
-            dproxy.logger.debug("cannot get image file names: {}".format(e))
-            return uris, file_format0
         for uri, suburi, index, file_format in files:
             # Validate format
             file_format = file_format.lower()
             if file_format.startswith("hdf5"):
                 file_format = "hdf5"
+                uri = uri + "::" + suburi
             if file_format0:
                 if file_format != file_format0:
                     raise RuntimeError(
@@ -1621,16 +1646,16 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
                     )
             else:
                 file_format0 = file_format
-            # TODO: skip suburi until it is a real one
             uris.append((uri, index))
         return uris, file_format0
 
-    def _fetch_new_external_data(self, dproxy, node):
+    def _fetch_new_external_data(self, dproxy, node, event_data=None):
         """
         Get a copy of the new data provided by a data node that publishes references.
 
         :param DatasetProxy dproxy:
         :param bliss.data.node.DataNode node:
+        :param EventData event_data:
         :returns numpy.ndarray:
         """
         icurrent = dproxy.npoints

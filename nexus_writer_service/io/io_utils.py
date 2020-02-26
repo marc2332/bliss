@@ -13,7 +13,7 @@
 import os
 import errno
 import random
-import tempfile
+import tempfile as _tempfile
 import string
 
 
@@ -32,7 +32,7 @@ def temproot():
     """
     OS tmp directory
     """
-    return tempfile.gettempdir()
+    return _tempfile.gettempdir()
 
 
 def tempdir(root=None, **kwargs):
@@ -42,6 +42,9 @@ def tempdir(root=None, **kwargs):
     if not root:
         root = temproot()
     return os.path.join(root, tempname(**kwargs))
+
+
+tempfile = tempdir
 
 
 def mkdir(path):
@@ -72,3 +75,46 @@ def close_files(*fds):
             exceptions.append(e)
     if exceptions:
         raise Exception(exceptions)
+
+
+def rotatefiles(filename, nmax=10):
+    """
+    Rename or delete existing file.
+
+    :param str filename:
+    :param int nmax:
+    """
+    mkdir(os.path.dirname(filename))
+    filenamegen = rotatefiles_gen(filename, nmax)
+    _rotatefiles(filename, filenamegen)
+
+
+def _rotatefiles(filename, filenamegen):
+    """
+    Rename or delete existing file
+
+    :param str filename:
+    :param generator filenamegen:
+    """
+    if os.path.exists(filename):
+        try:
+            nextname = next(filenamegen)
+        except StopIteration:
+            os.remove(filename)
+        else:
+            _rotatefiles(nextname, filenamegen)
+            os.rename(filename, nextname)
+
+
+def rotatefiles_gen(filename, nmax):
+    """
+    Generate rotating file names (maximal nmax files)
+
+    :param str filename:
+    :param int nmax:
+    """
+    if nmax > 1:
+        base, ext = os.path.splitext(filename)
+        fmt = "{}.{{}}{}".format(base, ext)
+        for i in range(1, nmax):
+            yield fmt.format(i)

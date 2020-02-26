@@ -44,6 +44,9 @@ def kill_on_exit(greenlet):
 
 
 def log_gevent():
+    """
+    Redirect gevent exception stream to error stream
+    """
     gevent.get_hub().exception_stream = logging_utils.err_stream
 
 
@@ -100,8 +103,12 @@ def start_heartbeat(logger, interval=1):
 
 @contextmanager
 def monitor_gevent():
-    # Or use environment variable GEVENT_MONITOR_THREAD_ENABLE=true
-    # Look in stderr for "appears to be blocked"
+    """
+    Report for blocking operations.
+
+    Or use environment variable GEVENT_MONITOR_THREAD_ENABLE=true
+    Look in stderr for "appears to be blocked"
+    """
     gevent.config.monitor_thread = True
     hub = gevent.get_hub()
     hub.start_periodic_monitoring_thread()
@@ -112,6 +119,9 @@ def monitor_gevent():
 
 
 def greenlet_ident(g=None):
+    """
+    :returns int:
+    """
     if g is None:
         g = gevent.getcurrent()
     try:

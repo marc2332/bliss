@@ -42,6 +42,7 @@ class BaseProxy(abc.ABC):
             parentlogger = logger
         self.logger = CustomLogger(parentlogger, self)
         self.npoints = 0
+        self.__exists = False
 
     def __repr__(self):
         if self.name:
@@ -84,8 +85,11 @@ class BaseProxy(abc.ABC):
         """
         :returns bool:
         """
+        if self.__exists:
+            return True
         with self.filecontext() as nxroot:
-            return self.path in nxroot
+            self.__exists = exists = self.path in nxroot
+            return exists
 
     @contextmanager
     def open(self, ensure_existance=False):

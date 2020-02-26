@@ -341,6 +341,9 @@ class Icepap(Controller):
     def prepare_move(self, motion):
         pass
 
+    def start_jog(self, axis, velocity, direction):
+        _ackcommand(self._cnx, "JOG %s %d" % (axis.address, int(velocity * direction)))
+
     def start_one(self, motion):
         if isinstance(motion.axis, TrajectoryAxis):
             return motion.axis._start_one(motion)
@@ -370,6 +373,9 @@ class Icepap(Controller):
             return axis._stop()
         else:
             _command(self._cnx, "STOP %s" % axis.address)
+
+    def stop_jog(self, axis):
+        return self.stop(axis)
 
     def stop_all(self, *motions):
         if len(motions) > 1:

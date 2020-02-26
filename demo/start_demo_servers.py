@@ -12,11 +12,21 @@ import time
 import threading
 from tango import DeviceProxy, DevFailed
 from contextlib import contextmanager
-
+from docopt import docopt
 
 BLISS = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 BEACON = [sys.executable, "-m", "bliss.config.conductor.server"]
 BEACON_DB_PATH = os.path.join(BLISS, "demo", "demo_configuration")
+CMDLINE_ARGS = docopt(
+    """
+Usage: start_demo_servers [--beacon-port=<beacon_port>] [--tango-port=<tango_port>] [--redis-port=<redis_port>]
+
+Options:
+    --beacon-port=<beacon_port>   Beacon server port [default: 10001]
+    --tango-port=<tango_port>     Tango database server port [default: 10000]
+    --redis-port=<redis_port>     Redis server port [default: 10002]
+"""
+)
 
 
 def wait_for(stream, target):
@@ -38,7 +48,9 @@ def wait_for(stream, target):
 def start_beacon():
     redis_uds = os.path.join(BEACON_DB_PATH, "redis_demo.sock")
     ports = namedtuple("Ports", "redis_port tango_port beacon_port")(
-        10002, 10000, 10001
+        int(CMDLINE_ARGS["--redis-port"]),
+        int(CMDLINE_ARGS["--tango-port"]),
+        int(CMDLINE_ARGS["--beacon-port"]),
     )
     args = [
         "--port=%d" % ports.beacon_port,

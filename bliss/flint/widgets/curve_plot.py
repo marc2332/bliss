@@ -98,6 +98,9 @@ class CurvePlotWidget(plot_helper.PlotWidget):
         for o in self.__permanentItems:
             self.__plot.addItem(o)
 
+    def getRefreshManager(self) -> plot_helper.RefreshManager:
+        return self.__refreshManager
+
     def __createToolBar(self):
         toolBar = qt.QToolBar(self)
         toolBar.setMovable(False)

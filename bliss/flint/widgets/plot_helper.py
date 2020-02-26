@@ -296,6 +296,7 @@ class PlotConfiguration:
         self.y2_axis_scale: str = None
         self.y_axis_inverted: bool = False
         self.y2_axis_inverted: bool = False
+        self.fixed_aspect_ratio: bool = False
         # View
         self.grid_mode: bool = False
         self.axis_displayed: bool = True
@@ -374,6 +375,7 @@ class FlintPlot(PlotWindow):
         axis = self.getYAxis("right")
         config.y2_axis_scale = axis.getScale()
         config.y2_axis_inverted = axis.isInverted()
+        config.fixed_aspect_ratio = self.isKeepDataAspectRatio()
 
         # View
         config.grid_mode = self.getGraphGrid()
@@ -420,6 +422,8 @@ class FlintPlot(PlotWindow):
             axis.setScale(config.y2_axis_scale)
         with safeApply():
             axis.setInverted(config.y2_axis_inverted)
+        with safeApply():
+            self.setKeepDataAspectRatio(config.fixed_aspect_ratio)
 
         # View
         with safeApply():

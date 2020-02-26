@@ -118,13 +118,13 @@ class ScatterPlotWidget(plot_helper.PlotWidget):
         toolBar.addAction(
             plot_helper.CustomAxisAction(self.__plot, self, kind="scatter")
         )
-        action = control.CrosshairAction(self.__plot, parent=self)
-        action.setIcon(icons.getQIcon("flint:icons/crosshair"))
-        toolBar.addAction(action)
         toolBar.addAction(control.GridAction(self.__plot, "major", self))
         toolBar.addSeparator()
 
         # Tools
+        action = control.CrosshairAction(self.__plot, parent=self)
+        action.setIcon(icons.getQIcon("flint:icons/crosshair"))
+        toolBar.addAction(action)
         # FIXME implement that
         action = qt.QAction(self)
         action.setText("Histogram")

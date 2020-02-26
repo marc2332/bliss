@@ -119,14 +119,14 @@ class CurvePlotWidget(plot_helper.PlotWidget):
         action = self.__refreshManager.createRefreshAction(self)
         toolBar.addAction(action)
         toolBar.addAction(plot_helper.CustomAxisAction(self.__plot, self, kind="curve"))
-        action = control.CrosshairAction(self.__plot, parent=self)
-        action.setIcon(icons.getQIcon("flint:icons/crosshair"))
-        toolBar.addAction(action)
         toolBar.addAction(control.GridAction(self.__plot, "major", self))
         toolBar.addSeparator()
 
         # Tools
 
+        action = control.CrosshairAction(self.__plot, parent=self)
+        action.setIcon(icons.getQIcon("flint:icons/crosshair"))
+        toolBar.addAction(action)
         action = self.__plot.getCurvesRoiDockWidget().toggleViewAction()
         toolBar.addAction(action)
 

@@ -92,14 +92,14 @@ class McaPlotWidget(plot_helper.PlotWidget):
         action = self.__refreshManager.createRefreshAction(self)
         toolBar.addAction(action)
         toolBar.addAction(plot_helper.CustomAxisAction(self.__plot, self, kind="mca"))
-        action = control.CrosshairAction(self.__plot, parent=self)
-        action.setIcon(icons.getQIcon("flint:icons/crosshair"))
-        toolBar.addAction(action)
         toolBar.addAction(control.GridAction(self.__plot, "major", self))
         toolBar.addSeparator()
 
         # Tools
 
+        action = control.CrosshairAction(self.__plot, parent=self)
+        action.setIcon(icons.getQIcon("flint:icons/crosshair"))
+        toolBar.addAction(action)
         action = self.__plot.getCurvesRoiDockWidget().toggleViewAction()
         action.setToolTip(action.toolTip() + " (not yet implemented)")
         action.setEnabled(False)

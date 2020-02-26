@@ -262,6 +262,26 @@ class PlotWidget(ExtendedDockWidget):
     scanModelUpdated = qt.Signal(object)
     """Emitted when the scan model displayed by the plot was changed"""
 
+    def configuration(self):
+        plot = self._silxPlot()
+        config = plot.configuration()
+
+        if hasattr(self, "getRefreshManager"):
+            refreshManager: RefreshManager = self.getRefreshManager()
+            if refreshManager is not None:
+                rate = refreshManager.refreshMode()
+                config.refresh_mode = rate
+        return config
+
+    def setConfiguration(self, config):
+        plot = self._silxPlot()
+        if hasattr(self, "getRefreshManager"):
+            refreshManager: RefreshManager = self.getRefreshManager()
+            if refreshManager is not None:
+                rate = config.refresh_mode
+                refreshManager.setRefreshMode(rate)
+        plot.setConfiguration(config)
+
 
 class PlotConfiguration:
     """Store a plot configuration for serialization"""
@@ -269,7 +289,7 @@ class PlotConfiguration:
     def __init__(self):
         # Mode
         self.interaction_mode: str = None
-        self.refresh_rate: Optional[int, None] = None
+        self.refresh_mode: Optional[int, None] = None
         # Axis
         self.x_axis_scale: str = None
         self.y_axis_scale: str = None
@@ -344,9 +364,6 @@ class FlintPlot(PlotWindow):
         if mode not in ("pan", "zoom"):
             mode = None
         config.interaction_mode = mode
-
-        # FIXME: implement it
-        config.refresh_rate = None
 
         # Axis
         axis = self.getXAxis()

@@ -17,11 +17,90 @@ import sys
 import os
 import h5py
 import random
+import shutil
 from contextlib import contextmanager
 from bliss.config import static
 from bliss.common import scans
 from bliss.data.scan import watch_session_scans
 from bliss.scanning.group import Group
+
+
+def stress_many_parallel(test_session, filename, titles, checkoutput=True):
+    scan_funcs = get_scan_funcs(test_session)
+
+    # Create as many scans as possible
+    detectors = get_detectors(test_session)
+    motors = get_motors(test_session)
+    scns = []
+    while detectors:
+        scns.append(get_scan(detectors, motors, scan_funcs))
+
+    # Run all in parallel
+    glts = [gevent.spawn(s.run) for s in scns]
+    try:
+        gevent.joinall(glts)
+    except KeyboardInterrupt:
+        try:
+            gevent.killall(glts, KeyboardInterrupt)
+        except Exception:
+            return True
+    else:
+        for g in glts:
+            g.get()
+
+    # Group the scans
+    g = Group(*scns)
+    g.wait_all_subscans(timeout=10)
+    scns.append(g.scan)
+
+    if checkoutput:
+        check_output(scns, titles)
+
+
+def stress_bigdata(test_session, filename, titles, checkoutput=True):
+    detectors = get_detectors(test_session)
+    lima_saving(test_session, frames=100)
+    motors = get_motors(test_session)
+
+    mot1, mot2 = motors[:2]
+    with print_scan_progress(test_session):
+        scan = scans.amesh(
+            mot1, 0, 10, 200, mot2, 1, 20, 300, 1e-6, *detectors, run=False
+        )
+        g = gevent.spawn(scan.run)
+        try:
+            g.join()
+        except KeyboardInterrupt:
+            try:
+                g.kill(KeyboardInterrupt)
+            except Exception:
+                return True
+        else:
+            g.get()
+
+    if checkoutput:
+        check_output([scan], titles)
+
+
+def stress_fastdata(test_session, filename, titles, checkoutput=True):
+    detectors = (test_session.env_dict["lima_simulator"],)
+    lima_saving(test_session, frames=1000)
+
+    with print_scan_progress(test_session):
+        scan = scans.loopscan(100000, 1e-6, *detectors, run=False)
+        g = gevent.spawn(scan.run)
+        try:
+            g.join()
+        except KeyboardInterrupt:
+            try:
+                g.kill(KeyboardInterrupt)
+            except Exception:
+                return True
+        else:
+            g.get()
+
+    if checkoutput:
+        check_output([scan], titles)
 
 
 def get_detectors(test_session):
@@ -36,7 +115,22 @@ def get_detectors(test_session):
         env_dict.get(f"lima_simulator{i}", env_dict.get(f"lima_simulator{i}alias"))
         for i in ["", 2]
     ]
+    lima_saving(test_session)
     return detectors
+
+
+def lima_saving(test_session, frames=100):
+    env_dict = test_session.env_dict
+    limas = [
+        env_dict.get(f"lima_simulator{i}", env_dict.get(f"lima_simulator{i}alias"))
+        for i in ["", 2]
+    ]
+    for lima in limas:
+        lima.saving.initialize()
+        lima.saving.file_format = "HDF5"
+        lima.saving.mode = "ONE_FILE_PER_N_FRAMES"
+        lima.saving.frames_per_file = frames
+        lima.proxy.set_timeout_millis(60000)
 
 
 def get_motors(test_session):
@@ -58,15 +152,11 @@ def get_scan_funcs(test_session):
 def prepare_saving(test_session, root=None):
     scan_saving = test_session.scan_saving
     scan_saving.writer = "nexus"
-    scan_saving.data_filename = "test"
+    scan_saving.data_filename = "stresstest"
     if root:
         scan_saving.base_path = root
-    filename = scan_saving.filename
-    try:
-        os.remove(filename)
-    except FileNotFoundError:
-        pass
-    return filename
+    shutil.rmtree(scan_saving.root_path, ignore_errors=True)
+    return scan_saving.filename
 
 
 def get_scan(detectors, motors, scan_funcs):
@@ -113,43 +203,6 @@ def reader(filename, mode):
             pass
 
 
-def run_scan(test_session, scan):
-    env_dict = test_session.env_dict
-    return env_dict["run_scan"](scan, runasync=True, format="hdf5", frames=100)
-
-
-def stress_many_parallel(test_session, filename, titles, checkoutput=True):
-    scan_funcs = get_scan_funcs(test_session)
-
-    # Create as many scans as possible
-    detectors = get_detectors(test_session)
-    motors = get_motors(test_session)
-    scns = []
-    while detectors:
-        scns.append(get_scan(detectors, motors, scan_funcs))
-
-    # Run all in parallel
-    glts = [run_scan(test_session, s) for s in scns]
-    try:
-        gevent.joinall(glts)
-    except KeyboardInterrupt:
-        try:
-            gevent.killall(glts, KeyboardInterrupt)
-        except Exception:
-            return True
-    else:
-        for g in glts:
-            g.get()
-
-    # Group the scans
-    g = Group(*scns)
-    g.wait_all_subscans(timeout=10)
-    scns.append(g.scan)
-
-    if checkoutput:
-        check_output(scns, titles)
-
-
 @contextmanager
 def print_scan_progress(test_session):
     data = {}
@@ -159,9 +212,12 @@ def print_scan_progress(test_session):
         if ndim == "0d":
             for cname, cdata in info["data"].items():
                 data[cname] = len(cdata)
-        else:
+        elif ndim == "1d":
             cname = info["channel_name"]
             data[cname] = len(info["channel_data_node"])
+        else:
+            cname = info["channel_name"]
+            data[cname] = len(info["channel_data_node"].get(0, -1))
         pmin, pmax = min(data.values()), max(data.values())
         sys.stdout.write("\rScan progress {}-{} pts".format(pmin, pmax))
         sys.stdout.flush()
@@ -184,31 +240,6 @@ def print_scan_progress(test_session):
         yield
     finally:
         session_watcher.kill()
-
-
-def stress_bigdata(test_session, filename, titles, checkoutput=True):
-    detectors = get_detectors(test_session)
-    motors = get_motors(test_session)
-
-    mot1, mot2 = motors[:2]
-    with print_scan_progress(test_session):
-        # approx 24h
-        scan = scans.amesh(
-            mot1, 0, 10, 400, mot2, 1, 20, 300, 1e-6, *detectors, run=False
-        )
-        g = run_scan(test_session, scan)
-        try:
-            g.join()
-        except KeyboardInterrupt:
-            try:
-                g.kill(KeyboardInterrupt)
-            except Exception:
-                return True
-        else:
-            g.get()
-
-    if checkoutput:
-        check_output([scan], titles)
 
 
 def check_output(scans, titles):
@@ -237,7 +268,7 @@ if __name__ == "__main__":
         default="many",
         type=str.lower,
         help="Stress type",
-        choices=["many", "data"],
+        choices=["many", "big", "fast"],
     )
     parser.add_argument("--root", default="", help="Data root directory")
     parser.add_argument(
@@ -249,17 +280,20 @@ if __name__ == "__main__":
     args, unknown = parser.parse_known_args()
     if args.type == "many":
         test_func = stress_many_parallel
-    elif args.type == "data":
+    elif args.type == "big":
         test_func = stress_bigdata
+    elif args.type == "fast":
+        test_func = stress_fastdata
     else:
-        test_func = stress_many_parallel
+        test_func = stress_fastdata
 
     config = static.get_config()
     test_session = config.get("nexus_writer_session")
     test_session.setup()
     root = args.root
     if not root:
-        root = "/tmp/testnexus/" + args.type
+        root = "/tmp/testnexus/"
+    root = os.path.join(root, args.type)
     filename = prepare_saving(test_session, root=root)
     readers = [gevent.spawn(reader, filename, "r") for _ in range(max(args.readers, 0))]
     try:

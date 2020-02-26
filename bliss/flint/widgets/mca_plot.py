@@ -22,7 +22,6 @@ from bliss.flint.model import scan_model
 from bliss.flint.model import flint_model
 from bliss.flint.model import plot_model
 from bliss.flint.model import plot_item_model
-from bliss.flint.widgets.extended_dock_widget import ExtendedDockWidget
 from bliss.flint.widgets.plot_helper import FlintPlot
 from bliss.flint.helper import scan_info_helper
 from bliss.flint.utils import signalutils
@@ -32,16 +31,7 @@ from bliss.flint.widgets import plot_helper
 _logger = logging.getLogger(__name__)
 
 
-class McaPlotWidget(ExtendedDockWidget):
-
-    widgetActivated = qt.Signal(object)
-
-    plotModelUpdated = qt.Signal(object)
-    """Emitted when the plot model displayed by the plot was changed"""
-
-    scanModelUpdated = qt.Signal(object)
-    """Emitted when the scan model displayed by the plot was changed"""
-
+class McaPlotWidget(plot_helper.PlotWidget):
     def __init__(self, parent=None):
         super(McaPlotWidget, self).__init__(parent=parent)
         self.__scan: Optional[scan_model.Scan] = None

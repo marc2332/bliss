@@ -39,6 +39,7 @@ from bliss.flint.model import plot_item_model
 from bliss.flint.model import plot_state_model
 from bliss.flint.model import scan_model
 from bliss.flint.utils import signalutils
+from bliss.flint.widgets.extended_dock_widget import ExtendedDockWidget
 
 
 _logger = logging.getLogger(__name__)
@@ -249,6 +250,17 @@ class ExportOthers(qt.QWidgetAction):
         toolButton.setMenu(menu)
         toolButton.setPopupMode(qt.QToolButton.InstantPopup)
         self.setDefaultWidget(toolButton)
+
+
+class PlotWidget(ExtendedDockWidget):
+
+    widgetActivated = qt.Signal(object)
+
+    plotModelUpdated = qt.Signal(object)
+    """Emitted when the plot model displayed by the plot was changed"""
+
+    scanModelUpdated = qt.Signal(object)
+    """Emitted when the scan model displayed by the plot was changed"""
 
 
 class PlotConfiguration:

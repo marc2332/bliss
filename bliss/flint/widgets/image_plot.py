@@ -25,7 +25,6 @@ from bliss.flint.model import flint_model
 from bliss.flint.model import plot_model
 from bliss.flint.model import style_model
 from bliss.flint.model import plot_item_model
-from bliss.flint.widgets.extended_dock_widget import ExtendedDockWidget
 from bliss.flint.widgets.plot_helper import FlintPlot
 from bliss.flint.helper import scan_info_helper
 from bliss.flint.helper import model_helper
@@ -41,18 +40,7 @@ class _ItemDescription(NamedTuple):
     shape: numpy.ndarray
 
 
-class ImagePlotWidget(ExtendedDockWidget):
-
-    widgetActivated = qt.Signal(object)
-
-    plotModelUpdated = qt.Signal(object)
-    """Emitted when the plot model displayed by the plot was changed"""
-
-    scanModelUpdated = qt.Signal(object)
-    """Emitted when the scan model displayed by the plot was changed"""
-
-    plotModelUpdated = qt.Signal(object)
-
+class ImagePlotWidget(plot_helper.PlotWidget):
     def __init__(self, parent=None):
         super(ImagePlotWidget, self).__init__(parent=parent)
         self.__scan: Optional[scan_model.Scan] = None

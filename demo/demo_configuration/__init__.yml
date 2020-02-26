@@ -1,8 +1,6 @@
 scan_saving:
     class: ESRFScanSaving
     beamline: id00
-    metadata_manager_tango_device: id00/metadata/demo
-    metadata_experiment_tango_device: id00/metaexp/demo
     tmp_data_root: /tmp/scans/tmp
     visitor_data_root: /tmp/scans/visitor
     inhouse_data_root: /tmp/scans/inhouse

@@ -10,12 +10,14 @@ import os
 import enum
 import numpy as np
 from tabulate import tabulate
+import textwrap
 
 from bliss import global_map
 from bliss.common.utils import common_prefix, autocomplete_property
-from bliss.common.tango import DeviceProxy, DevFailed
+from bliss.common.tango import DeviceProxy, DevFailed, Database, DevState
 from bliss.config import settings
 from bliss.config.beacon_object import BeaconObject
+from bliss.common.logtools import log_debug
 
 from bliss.controllers.counter import CounterController, counter_namespace
 from bliss import current_session
@@ -26,8 +28,9 @@ from bliss.scanning.acquisition.lima import LimaAcquisitionMaster
 from .properties import LimaProperties, LimaProperty
 from .bpm import Bpm
 from .roi import RoiCounters
-from .image import ImageCounter
+from .image import ImageCounter, LimaImageParameters
 from .shutter import Shutter
+
 from .bgsub import BgSub
 
 
@@ -139,11 +142,26 @@ class Lima(CounterController):
             "max_file_size_in_MB", default=500, doc=_max_file_size_in_MB_doc
         )
 
-        # TODO: so far this is not shown in __info__ should it stay like that?
-        # hidden parameter?
-        max_writing_tasks = BeaconObject.property_setting(
-            "max_writing_tasks", default=1
+        _max_writing_tasks = BeaconObject.property_setting(
+            "_max_writing_tasks", default=1
         )
+
+        @_max_writing_tasks.setter
+        def _max_writing_tasks(self, value):
+            assert isinstance(value, int)
+            assert value > 0
+            return value
+
+        _managed_mode = BeaconObject.property_setting(
+            "_managed_mode", default="SOFTWARE"
+        )
+
+        @_managed_mode.setter
+        def _managed_mode(self, value):
+            assert isinstance(value, str)
+            value = value.upper()
+            assert value in ["SOFTWARE", "HARDWARE"]
+            return value
 
         file_format = BeaconObject.property_setting("file_format", default="HDF5")
 
@@ -158,6 +176,12 @@ class Lima(CounterController):
                     f"available formats are: {avail_ff}"
                 )
 
+        def _calc_max_frames_per_file(self):
+            (sign, depth, width, height) = self._proxy.image_sizes
+            return int(
+                round(self.max_file_size_in_MB / (depth * width * height / 1024 ** 2))
+            )
+
         def to_dict(self):
             """
             if saving_frame_per_file = -1 it has to be recalculated in the acq 
@@ -169,12 +193,7 @@ class Lima(CounterController):
             elif self.mode == self.SavingMode.ONE_FILE_PER_SCAN:
                 frames = -1
             elif self.mode == self.SavingMode.SPECIFY_MAX_FILE_SIZE:
-                (sign, depth, width, height) = self._proxy.image_sizes
-                frames = int(
-                    round(
-                        self.max_file_size_in_MB / (depth * width * height / 1024 ** 2)
-                    )
-                )
+                frames = self._calc_max_frames_per_file()
             else:
                 frames = 1
 
@@ -183,13 +202,14 @@ class Lima(CounterController):
             if "HDF" in self.settings["file_format"]:
                 max_tasks = 1
             else:
-                max_tasks = self.settings["max_writing_tasks"]
+                max_tasks = self.settings["_max_writing_tasks"]
 
             return {
                 "saving_format": self.settings["file_format"],
                 "saving_frame_per_file": frames,
                 "saving_suffix": self.suffix_dict[self.settings["file_format"]],
                 "saving_max_writing_task": max_tasks,
+                "saving_managed_mode": self._managed_mode,
             }
 
         @property
@@ -199,62 +219,173 @@ class Lima(CounterController):
             return _suffix_dict
 
         def __info__(self):
-            return (
-                #  f"Saving parameters of {self._proxy.name()}\n"
-                f"current saving mode (.mode):\t\t{self.mode.name}\n"
-                f"saving format (.file_format): \t{self.file_format} \n"
-                f"for ONE_FILE_PER_N_FRAMES mode:\n"
-                f"\t.frames_per_file:\t\t{self.frames_per_file}\n"
-                f"for SPECIFY_MAX_FILE_SIZE mode:\n"
-                f"\t.max_file_size_in_MB:\t\t{self.max_file_size_in_MB}\n"
-                f"Available modes:\n{self.available_saving_modes}\n"
-                f"Available file formats:\n{self.available_saving_formats}\n"
-                f"The follwoing parameters will be set in camera (if not overwritten by scan):\n"
-                f"{self.to_dict()}\n"
+            tmp = self.to_dict()
+            av_modes = "\n                   ".join((self.available_saving_modes))
+            return textwrap.dedent(
+                f"""                Saving
+                --------------
+                File Format:  {self.file_format}
+                └->  Suffix:  {tmp['saving_suffix']}
+                Current Mode: {self.mode.name}
+                Available Modes:
+                   {av_modes}
+                
+                for ONE_FILE_PER_N_FRAMES mode
+                ------------------------------
+                frames_per_file: {self.frames_per_file}
+                
+                for SPECIFY_MAX_FILE_SIZE mode
+                ------------------------------
+                max file size (MB):  {self.max_file_size_in_MB}
+                └-> frams per file: {self._calc_max_frames_per_file()}
+                
+                Expert Settings
+                ---------------
+                config max_writing_tasks:  {self._max_writing_tasks}
+                current max_writing_tasks: {tmp['saving_max_writing_task']}
+                lima managed_mode:         {self._managed_mode}
+                """
             )
 
-    # Todo to be another beacon object like saving
-    class LimaTools(BeaconObject):
+    class LimaProcessing(BeaconObject):
+
+        BG_SUB_MODES = {
+            "disable": "Disabled",
+            "enable_on_fly": "Enabled (Take bg-image on demand)",
+            "enable_file": "Enabled (Take bg-image from file)",
+        }
+
         def __init__(self, config, proxy, name):
             self._proxy = proxy
+            self._mask_changed = False
+            self._flatfield_changed = False
+            self._background_changed = False
             super().__init__(
-                config, name="name", share_hardware=False, path=["processing"]
+                config, name=name, share_hardware=False, path=["processing"]
             )
 
-        flip = BeaconObject.property_setting("flip", default=[False, False])
+        mask = BeaconObject.property_setting("mask", default="")
 
-        @flip.setter
-        def flip(self, value):
-            assert isinstance(value, list)
-            assert len(value) == 2
-            assert isinstance(value[0], bool) and isinstance(value[1], bool)
-            return value
-
-        rotation = BeaconObject.property_setting("rotation", default="NONE")
-
-        @rotation.setter
-        def rotation(self, value):
-            if isinstance(value, int):
-                value = str(value)
-            if value == "0":
-                value = "NONE"
+        @mask.setter
+        def mask(self, value):
             assert isinstance(value, str)
-            assert value in ["NONE", "90", "180", "270"]
-
+            if self.mask != value:
+                self._mask_changed = True
             return value
 
-        # further properties that could be here
-        # - mask
-        # - background
-        # - binning
-        # - flatfield
-        # - hardware roi?
+        use_mask = BeaconObject.property_setting("use_mask", default=False)
+
+        @use_mask.setter
+        def use_mask(self, value):
+            assert isinstance(value, bool)
+            return value
+
+        flatfield = BeaconObject.property_setting("flatfield", default="")
+
+        @flatfield.setter
+        def flatfield(self, value):
+            assert isinstance(value, str)
+            if self.flatfield != value:
+                self._flatfield_changed = True
+            return value
+
+        use_flatfield = BeaconObject.property_setting("use_flatfield", default=False)
+
+        @use_flatfield.setter
+        def use_flatfield(self, value):
+            assert isinstance(value, bool)
+            return value
+
+        runlevel_mask = BeaconObject.property_setting("runlevel_mask", default=0)
+        runlevel_flatfield = BeaconObject.property_setting(
+            "runlevel_flatfield", default=1
+        )
+        runlevel_background = BeaconObject.property_setting(
+            "runlevel_background", default=2
+        )
+        runlevel_roicounter = BeaconObject.property_setting(
+            "runlevel_roicounter", default=10
+        )
+        runlevel_bpm = BeaconObject.property_setting("runlevel_bpm", default=10)
+
+        @runlevel_mask.setter
+        def runlevel_mask(self, value):
+            assert isinstance(value, int)
+            return value
+
+        @runlevel_flatfield.setter
+        def runlevel_flatfield(self, value):
+            assert isinstance(value, int)
+            return value
+
+        @runlevel_background.setter
+        def runlevel_background(self, value):
+            assert isinstance(value, int)
+            return value
+
+        @runlevel_roicounter.setter
+        def runlevel_roicounter(self, value):
+            assert isinstance(value, int)
+            return value
+
+        @runlevel_bpm.setter
+        def runlevel_bpm(self, value):
+            assert isinstance(value, int)
+            return value
+
+        background = BeaconObject.property_setting("background", default="")
+
+        @background.setter
+        def background(self, value):
+            assert isinstance(value, str)
+            if self.background != value:
+                self._background_changed = True
+            return value
+
+        use_background_substraction = BeaconObject.property_setting(
+            "use_background_substraction", default="disable"
+        )
+
+        @use_background_substraction.setter
+        def use_background_substraction(self, value):
+            assert isinstance(value, str)
+            assert value in self.BG_SUB_MODES.keys()
+            return value
 
         def to_dict(self):
-            return {"image_rotation": self.rotation, "image_flip": self.flip}
+            return {
+                "use_mask": self.use_mask,
+                "use_flatfield": self.use_flatfield,
+                "use_background_substraction": self.use_background_substraction,
+            }
 
         def __info__(self):
-            return f"< lima prosessing settings {self.to_dict()} >"
+            return textwrap.dedent(
+                f"""            Mask
+            ----
+            use mask: {self.use_mask}
+            mask image path: {self.mask}
+            
+            Flatfield
+            ---------
+            use flatfield: {self.use_flatfield}
+            flatfield image path: {self.flatfield} 
+            
+            Background Substraction
+            -----------------------
+            mode: {self.BG_SUB_MODES[self.use_background_substraction]}
+            background_image_path: {self.background}
+            
+            Expert Settings
+            ---------------
+            Lima Run-Level:
+               Mask           {self.runlevel_mask}
+               Flatfield:     {self.runlevel_flatfield}
+               Bg-Sub:        {self.runlevel_background}
+               Roi Counters:  {self.runlevel_roicounter}
+               BPM:           {self.runlevel_bpm}
+            """
+            )
 
     def __init__(self, name, config_tree):
         """Lima controller.
@@ -271,6 +402,16 @@ class Lima(CounterController):
         self.__prepare_timeout = config_tree.get("prepare_timeout", None)
         self.__bpm = None
         self.__roi_counters = None
+        self._instrument_name = config_tree.get_inherited("synchrotron", "")
+        self._instrument_name += "-" if self._instrument_name != "" else ""
+        beamline = config_tree.get_inherited("beamline", None)
+        if beamline is None:
+            scan_saving = config_tree.get_inherited("scan_saving", None)
+            if scan_saving is None:
+                beamline = "instrument"
+            else:
+                beamline = scan_saving.get("beamline", "instrument")
+        self._instrument_name += beamline
         self.__bg_sub = None
         self.__last = None
         self._camera = None
@@ -288,11 +429,8 @@ class Lima(CounterController):
             "%s:directories_mapping" % name
         )
 
-        # TODO: might not be the good place to do this
-        # should this go to bliss/common/mapping?
-        # should the lima entry be under global or under controller?
         global_map.register("lima", ["global"])
-        global_map.register(self, parents_list=["lima"])
+        global_map.register(self, parents_list=["lima", "controllers"])
 
         clear_cache(self)
 
@@ -305,13 +443,37 @@ class Lima(CounterController):
             config_tree, self._proxy, f"{name_prefix}:{self.name}:saving"
         )
 
-        self._processing = self.LimaTools(
+        self._processing = self.LimaProcessing(
             config_tree, self._proxy, f"{name_prefix}:{self.name}:processing"
         )
+
+        self._image_params = LimaImageParameters(
+            config_tree, self._proxy, f"{name_prefix}:{self.name}:image"
+        )
+
+        self.set_bliss_device_name()
+
+    def set_bliss_device_name(self):
+        ### use tango db to check if device is exported
+        ### if yes, set user device name on init.
+        if hasattr(self.proxy, "lima_version"):
+            try:
+                if Database().get_device_info(self.__tg_url).exported:
+                    try:
+                        self.proxy.user_instrument_name = self._instrument_name
+                    except DevFailed:
+                        pass
+                    try:
+                        self.proxy.user_detector_name = self.name
+                    except DevFailed:
+                        pass
+            except (RuntimeError, DevFailed):
+                pass
 
     def __close__(self):
         self._processing.__close__()
         self._saving.__close__()
+        self._image_params.__close__()
 
     def get_acquisition_object(self, acq_params, ctrl_params, parent_acq_params):
         return LimaAcquisitionMaster(self, ctrl_params=ctrl_params, **acq_params)
@@ -364,22 +526,130 @@ class Lima(CounterController):
         return params
 
     def apply_parameters(self, ctrl_params):
-
-        if "saving_format" in ctrl_params:
-            assert ctrl_params["saving_format"] in self.saving.available_saving_formats
-            ctrl_params["saving_suffix"] = self.saving.suffix_dict[
-                ctrl_params["saving_format"]
-            ]
-
-        for key, value in ctrl_params.items():
+        def needs_update(key, value):
             if key not in self._cached_ctrl_params:
                 self._cached_ctrl_params[key] = Cache(self, key)
             if self._cached_ctrl_params[key].value != value:
-                setattr(self.proxy, key, value)
                 self._cached_ctrl_params[key].value = value
+                return True
+            else:
+                return False
+
+        self.set_bliss_device_name()
+
+        server_start_timestamp = needs_update(
+            "server_start_timestamp",
+            Database().get_device_info(self.__tg_url).started_date,
+        )
+        last_session_used = needs_update("last_session_used", str(current_session.name))
+
+        update_all = server_start_timestamp or last_session_used
+        if update_all:
+            log_debug(self, f"All parameters will be refeshed on {self.name}")
+
+        assert ctrl_params["saving_format"] in self.saving.available_saving_formats
+        ctrl_params["saving_suffix"] = self.saving.suffix_dict[
+            ctrl_params["saving_format"]
+        ]
+
+        use_mask = ctrl_params.pop("use_mask")
+        assert type(use_mask) == bool
+        if (
+            needs_update("use_mask", use_mask)
+            or self.processing._mask_changed
+            or update_all
+        ):
+            maskp = self._get_proxy("mask")
+            maskp.Stop()
+            if use_mask:
+                log_debug(self, f" uploading new mask on {self.name}")
+                maskp.setMaskImage(self.processing.mask)
+                self.processing._mask_changed = False
+                maskp.RunLevel = self.processing.runlevel_mask
+                maskp.Start()
+                maskp.type = "STANDARD"
+
+        use_flatfield = ctrl_params.pop("use_flatfield")
+        assert type(use_flatfield) == bool
+        if (
+            needs_update("use_flatfield", use_flatfield)
+            or self.processing._flatfield_changed
+            or update_all
+        ):
+            ff_proxy = self._get_proxy("flatfield")
+            ff_proxy.Stop()
+            if use_flatfield:
+                log_debug(self, f" uploading flatfield on {self.name}")
+                ff_proxy.setFlatFieldImage(self.processing.flatfield)
+                ff_proxy.RunLevel = self.processing.runlevel_flatfield
+                ff_proxy.normalize = 0
+                self.processing._flatfield_changed = False
+                ff_proxy.Start()
+
+        use_bg_sub = ctrl_params.pop("use_background_substraction")
+        assert isinstance(use_bg_sub, str)
+        assert use_bg_sub in self.processing.BG_SUB_MODES.keys()
+        if (
+            needs_update("use_background_substraction", use_bg_sub)
+            or self.processing._background_changed
+            or update_all
+        ):
+            bg_proxy = self._get_proxy("backgroundsubstraction")
+            log_debug(
+                self,
+                f" stopping background sub proxy on {self.name} and setting runlevel to {self.processing.runlevel_background}",
+            )
+            bg_proxy.Stop()
+            bg_proxy.RunLevel = self.processing.runlevel_background
+            if use_bg_sub == "enable_on_fly":
+                log_debug(self, f" starting background sub proxy of {self.name}")
+                bg_proxy.Start()
+            elif use_bg_sub == "enable_file":
+                log_debug(self, f" uploading background on {self.name}")
+                bg_proxy.setbackgroundimage(self.processing.background)
+                log_debug(self, f" starting background sub proxy of {self.name}")
+                bg_proxy.Start()
+
+        if (
+            needs_update("runlevel_roicounter", self.processing.runlevel_roicounter)
+            or update_all
+        ):
+            proxy = self.roi_counters._proxy
+            state = proxy.State()
+            if state == DevState.ON:
+                log_debug(
+                    self, f"stop, runlevel, start on roi_counter proxy of {self.name}"
+                )
+                proxy.Stop()
+                proxy.RunLevel = self.processing.runlevel_roicounter
+                proxy.Start()
+            else:
+                log_debug(self, f"set runlevel on roi_counter proxy of {self.name}")
+                proxy.RunLevel = self.processing.runlevel_roicounter
+
+        if needs_update("runlevel_bpm", self.processing.runlevel_bpm) or update_all:
+            proxy = self.bpm._proxy
+            state = proxy.State()
+            if state == DevState.ON:
+                log_debug(self, f"stop, runlevel, start on bpm proxy of {self.name}")
+                proxy.Stop()
+                proxy.RunLevel = self.processing.runlevel_bpm
+                proxy.Start()
+            else:
+                log_debug(self, f"set runlevel on bpm proxy of {self.name}")
+                proxy.RunLevel = self.processing.runlevel_bpm
+
+        for key, value in ctrl_params.items():
+            if needs_update(key, value) or update_all:
+                log_debug(self, f"updating {key} on {self.name} to {value}")
+                setattr(self.proxy, key, value)
 
     def get_current_parameters(self):
-        return {**self.saving.to_dict(), **self.processing.to_dict()}
+        return {
+            **self.saving.to_dict(),
+            **self.processing.to_dict(),
+            **self._image_params.to_dict(),
+        }
 
     def clear_cache(self):
         clear_cache(self)
@@ -401,6 +671,12 @@ class Lima(CounterController):
         from bliss.shell.dialog.controller.lima_dialogs import lima_processing_dialog
 
         lima_processing_dialog(self)
+
+    def configure_image(self):
+        """shell dialog for image related settings"""
+        from bliss.shell.dialog.controller.lima_dialogs import lima_image_dialog
+
+        lima_image_dialog(self)
 
     @autocomplete_property
     def saving(self):
@@ -550,7 +826,7 @@ class Lima(CounterController):
             self.__bpm = Bpm(self.name, bpm_proxy, self)
         return self.__bpm
 
-    @property
+    @autocomplete_property
     def bg_sub(self):
         if self.__bg_sub is None:
             bg_sub_proxy = self._get_proxy(Lima._BG_SUB)
@@ -622,7 +898,9 @@ class Lima(CounterController):
             f"Image:\n{self.image.__info__()}\n\n"
             f"Acquisition:\n{self.acquisition.__info__()}\n\n"
             f"{self.roi_counters.__info__()}\n\n"
-            f"{self.bpm.__info__()}\n"
+            f"{self.bpm.__info__()}\n\n"
+            f"{self.saving.__info__()}\n\n"
+            f"{self.processing.__info__()}\n"
         )
 
         return info_str

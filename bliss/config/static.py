@@ -316,7 +316,7 @@ class Node(dict):
             return self._parent.get_inherited_value_and_node(key)
         return value, self
 
-    def get_inherited(self, key):
+    def get_inherited(self, key, default=None):
         """
         Returns the value for the given config key. If the key does not exist
         in this Node it is searched recusively up in the Node tree until it
@@ -326,10 +326,11 @@ class Node(dict):
             key (str): key to search
 
         Returns:
-            object: value corresponding to the key or None if key is not found
-            in the Node tree
+            object: value corresponding to the key or a default if key is not found
+            in the Node tree and default is provied (None if no default)
         """
-        return self.get_inherited_value_and_node(key)[0]
+        value = self.get_inherited_value_and_node(key)[0]
+        return value if value is not None else default
 
     def pprint(self, indent=1, depth=None):
         """

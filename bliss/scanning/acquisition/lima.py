@@ -48,6 +48,10 @@ class LimaAcquisitionMaster(AcquisitionMaster):
         # !!! warning: validate params requires a completed ctrl_params dict
         self.acq_params = OrderedDict(self.validate_params(acq_params, ctrl_params))
 
+        # deal with 'ONE_FILE_PER_SCAN' mode
+        if ctrl_params.get("saving_frame_per_file") == -1:
+            ctrl_params["saving_frame_per_file"] = self.acq_params["acq_nb_frames"]
+
         trigger_type = (
             AcquisitionMaster.SOFTWARE
             if "INTERNAL" in self.acq_params["acq_trigger_mode"]
@@ -257,6 +261,14 @@ class LimaAcquisitionMaster(AcquisitionMaster):
             )
 
             if self.acq_params["saving_mode"] != "MANUAL":
+                if hasattr(self.device.proxy, "lima_version"):
+                    lima_version = self.device.proxy.lima_version
+                    user_instrument_name = self.device.proxy.user_instrument_name
+
+                else:
+                    lima_version = "<1.9.1"
+                    user_instrument_name = "instrument"
+
                 self._image_channel.description.update(
                     {
                         "saving_format": self.ctrl_params["saving_format"],
@@ -268,6 +280,8 @@ class LimaAcquisitionMaster(AcquisitionMaster):
                         "saving_directory": self.acq_params["saving_directory"],
                         "saving_prefix": self.acq_params["saving_prefix"],
                         "user_detector_name": self.device.proxy.user_detector_name,
+                        "user_instrument_name": user_instrument_name,
+                        "lima_version": lima_version,
                     }
                 )
 

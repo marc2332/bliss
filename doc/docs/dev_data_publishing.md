@@ -187,9 +187,8 @@ blocks until a new node appears. It returns the new node when it appears and
 then waits again for a new node.
 
 The method `walk_events(filter=None)` walks through child nodes, just like
-`walk` function but waits for node events (like `EVENTS.NEW_CHILD` or
-`EVENTS.NEW_DATA_IN_CHANNEL`). It returns the event type and the node then waits
-again for next event.
+`walk` function but waits for node events. It returns an `Event` object
+which contains event type, node object and data (if any).
 
 ```python
 session = get_node("test_session")
@@ -202,7 +201,7 @@ def g(filter='channel'):
     """wait for a new event happening in any node of the
     type 'channel' (ChannelDataNode)
     """
-    for event_type, node in session.iterator.walk_events(filter=filter):
+    for event_type, node, event_data in session.iterator.walk_events(filter=filter):
         print(event_type, node.name, node.get(-1))
 
 # spawn greenlets to avoid blocking
@@ -224,15 +223,15 @@ event.NEW_CHILD elapsed_time None
 diode None
 diode channel
 event.NEW_CHILD diode None
-event.NEW_DATA_IN_CHANNEL elapsed_time 0.0
-event.NEW_DATA_IN_CHANNEL roby 0.0
-event.NEW_DATA_IN_CHANNEL diode 70.0
-event.NEW_DATA_IN_CHANNEL elapsed_time 0.157334566116333
-event.NEW_DATA_IN_CHANNEL roby 1.0
-event.NEW_DATA_IN_CHANNEL diode -57.0
-event.NEW_DATA_IN_CHANNEL elapsed_time 0.33751416206359863
-event.NEW_DATA_IN_CHANNEL roby 2.0
-event.NEW_DATA_IN_CHANNEL diode -61.0
+event.NEW_DATA elapsed_time 0.0
+event.NEW_DATA roby 0.0
+event.NEW_DATA diode 70.0
+event.NEW_DATA elapsed_time 0.157334566116333
+event.NEW_DATA roby 1.0
+event.NEW_DATA diode -57.0
+event.NEW_DATA elapsed_time 0.33751416206359863
+event.NEW_DATA roby 2.0
+event.NEW_DATA diode -61.0
 ...
 
 # do not forget to kill the greenlet at the end
@@ -261,7 +260,7 @@ g3 = gevent.spawn(g, "lima")
 lima_simulator=config.get("lima_simulator")
 ct(0.1, lima_simulator)
 event.NEW_NODE image <bliss.data.lima.LimaImageChannelDataNode.LimaDataView object at 0x7f4d28931be0>
-event.NEW_DATA_IN_CHANNEL image <bliss.data.lima.LimaImageChannelDataNode.LimaDataView object at 0x7f4d28931c18>
+event.NEW_DATA image <bliss.data.lima.LimaImageChannelDataNode.LimaDataView object at 0x7f4d28931c18>
 ```
 
 Function `g()` calls `.get(-1)` on the node object, thus returning the last

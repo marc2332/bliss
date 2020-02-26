@@ -35,7 +35,7 @@ Using  the `walk_on_new_events()` function with `filter="scan"`(limit walk to no
 
 ```python
     # wait for new events on scan
-    for event_type, node in session_node.iterator.walk_on_new_events(
+    for event_type, node, event_data in session_node.iterator.walk_on_new_events(
         filter="scan", from_next=True):
 ```
 
@@ -46,7 +46,7 @@ a second iterator is started walking through all events emitted by the scan
 [(see data structure section)](dev_data_publishing.md#experiment-and-redis-data-structure):
 
 ```python
-   for event_type, node in self.scan_node.iterator.walk_events():
+   for event_type, node, event_data in self.scan_node.iterator.walk_events():
 ```
 
 !!!hint
@@ -59,7 +59,7 @@ a second iterator is started walking through all events emitted by the scan
 Once an event is received it can be categorized by the event type:
 
 - `NEW_NODE`
-- `NEW_DATA_IN_CHANNEL`
+- `NEW_DATA`
 
 and by node type:
  
@@ -68,7 +68,7 @@ and by node type:
 
 
 Currently  0d and and 1d data is directly kept in redis and published through _channels_ (`node.type == "channel"`).
-For each new _channel_  a corresponding hdf5 dataset is created and filled with data emitted on a `"NEW_DATA_IN_CHANNEL"` event.
+For each new _channel_  a corresponding hdf5 dataset is created and filled with data emitted on a `"NEW_DATA"` event.
 
 2d data (e.g. lima images) is not saved in redis itself, but can be retrieved through references (method `get_image` of class `LimaDataView`). However, for this example we
 do not want to deal with the 2d data itself but only resolve the final saving destination. 

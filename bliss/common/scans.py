@@ -1684,8 +1684,9 @@ def _goto_multimotors(func):
 
 @_multimotors
 def cen(counter=None, axis=None):
-    counter_name = _get_selected_counter_name(counter=counter)
-    return current_session.scans[-1].cen(counter_name, axis=axis)
+    if counter is None:
+        counter = _get_counter(_get_selected_counter_name())
+    return current_session.scans[-1].cen(counter, axis=axis)
 
 
 @_goto_multimotors
@@ -1703,8 +1704,9 @@ def goto_cen(counter: Optional[_countable] = None, axis: Optional[_scannable] = 
 
 @_multimotors
 def com(counter=None, axis=None):
-    counter_name = _get_selected_counter_name(counter=counter)
-    return current_session.scans[-1].com(counter_name, axis=axis)
+    if counter is None:
+        counter = _get_counter(_get_selected_counter_name())
+    return current_session.scans[-1].com(counter, axis=axis)
 
 
 @_goto_multimotors
@@ -1722,8 +1724,9 @@ def goto_com(counter: Optional[_countable] = None, axis: Optional[_scannable] = 
 
 @_multimotors
 def peak(counter=None, axis=None):
-    counter_name = _get_selected_counter_name(counter=counter)
-    return current_session.scans[-1].peak(counter_name, axis=axis)
+    if counter is None:
+        counter = _get_counter(_get_selected_counter_name())
+    return current_session.scans[-1].peak(counter, axis=axis)
 
 
 @_goto_multimotors

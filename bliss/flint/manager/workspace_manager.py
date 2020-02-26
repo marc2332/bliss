@@ -41,6 +41,7 @@ class _WidgetDescriptionCompatibility(NamedTuple):
     windowTitle: str
     className: Any
     modelId: int
+    config: Any
 
 
 class WidgetDescription:
@@ -51,6 +52,7 @@ class WidgetDescription:
         # FIXME: We should store the full model, instead of a modelId
         #        (pickle can deal with)
         self.modelId = None
+        self.config = None
 
     def __getstate__(self):
         """Inherite the serialization to make sure the object can grow up in the
@@ -60,6 +62,7 @@ class WidgetDescription:
         state["windowTitle"] = self.windowTitle
         state["className"] = self.className
         state["modelId"] = self.modelId
+        state["config"] = self.config
         return state
 
     def __setstate__(self, state):
@@ -69,6 +72,7 @@ class WidgetDescription:
         self.windowTitle = state.pop("windowTitle")
         self.className = state.pop("className")
         self.modelId = state.pop("modelId")
+        self.config = state.pop("config", None)
 
 
 class WorkspaceData(dict):
@@ -94,6 +98,9 @@ class WorkspaceData(dict):
             widgetDescription.windowTitle = widget.windowTitle()
             widgetDescription.className = widget.__class__
             widgetDescription.modelId = modelId
+            if hasattr(widget, "configuration"):
+                config = widget.configuration()
+                widgetDescription.config = config
             widgetDescriptions.append(widgetDescription)
 
         self["plots"] = plots
@@ -114,11 +121,14 @@ class WorkspaceData(dict):
 
         for data in widgetDescriptions:
             if isinstance(data, tuple):
-                data = _WidgetDescriptionCompatibility(*data)
+                data = _WidgetDescriptionCompatibility(*data, None)
 
             widget = data.className(parent)
             widget.setObjectName(data.objectName)
             widget.setWindowTitle(data.windowTitle)
+            if hasattr(widget, "setConfiguration") and data.config is not None:
+                widget.setConfiguration(data.config)
+
             # Looks needed to retrieve the right layout with restoreSate
             parent.addDockWidget(qt.Qt.LeftDockWidgetArea, widget)
             if data.modelId is not None:

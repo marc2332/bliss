@@ -251,6 +251,51 @@ class ExportOthers(qt.QWidgetAction):
         self.setDefaultWidget(toolButton)
 
 
+class PlotConfiguration:
+    """Store a plot configuration for serialization"""
+
+    def __init__(self):
+        # Mode
+        self.interaction_mode: str = None
+        self.refresh_rate: Optional[int, None] = None
+        # Axis
+        self.x_axis_scale: str = None
+        self.y_axis_scale: str = None
+        self.y2_axis_scale: str = None
+        self.y_axis_inverted: bool = False
+        self.y2_axis_inverted: bool = False
+        # View
+        self.grid_mode: bool = False
+        self.axis_displayed: bool = True
+        # Tools
+        self.crossair_enabled: bool = False
+        self.colorbar_displayed: bool = False
+        self.profile_widget_displayed: bool = False
+        self.roi_widget_displayed: None = False
+        self.histogram_widget_displayed: None = False
+
+    def __reduce__(self):
+        return (self.__class__, (), self.__getstate__())
+
+    def __getstate__(self):
+        """Inherite the serialization to make sure the object can growup in the
+        future"""
+        state: Dict[str, Any] = {}
+        state.update(self.__dict__)
+        return state
+
+    def __setstate__(self, state):
+        """Inherite the serialization to make sure the object can growup in the
+        future"""
+        for k in self.__dict__.keys():
+            if k in state:
+                v = state.pop(k)
+                self.__dict__[k] = v
+
+    def __str__(self):
+        return self.__dict__.__str__()
+
+
 class FlintPlot(PlotWindow):
     """Helper to provide few other functionalities on top of silx.
 
@@ -278,6 +323,88 @@ class FlintPlot(PlotWindow):
 
         if hasattr(self, "centralWidget"):
             self.centralWidget().installEventFilter(self)
+
+    def configuration(self) -> PlotConfiguration:
+        """Returns a global configuration of the plot"""
+        config = PlotConfiguration()
+
+        mode = self.getInteractiveMode()["mode"]
+        if mode not in ("pan", "zoom"):
+            mode = None
+        config.interaction_mode = mode
+
+        # FIXME: implement it
+        config.refresh_rate = None
+
+        # Axis
+        axis = self.getXAxis()
+        config.x_axis_scale = axis.getScale()
+        axis = self.getYAxis()
+        config.y_axis_scale = axis.getScale()
+        config.y_axis_inverted = axis.isInverted()
+        axis = self.getYAxis("right")
+        config.y2_axis_scale = axis.getScale()
+        config.y2_axis_inverted = axis.isInverted()
+
+        # View
+        config.grid_mode = self.getGraphGrid()
+        config.axis_displayed = self._isAxesDisplayed()
+
+        # Tools
+        config.crossair_enabled = self.getGraphCursor() is not None
+        config.colorbar_displayed = self.getColorBarAction().isChecked()
+        # FIXME: It would be good to do it
+        # config.profile_widget_displayed = None
+        # config.roi_widget_displayed = None
+        # config.histogram_widget_displayed = None
+
+        return config
+
+    def setConfiguration(self, config: PlotConfiguration):
+        mode = config.interaction_mode
+        if mode in ("pan", "zoom"):
+            self.setInteractiveMode(mode)
+
+        # FIXME: implement it
+        # config.refresh_rate
+
+        @contextlib.contextmanager
+        def safeApply():
+            try:
+                yield
+            except Exception:
+                _logger.error(
+                    "Error while applying the plot configuration", exc_info=True
+                )
+
+        # Axis
+        axis = self.getXAxis()
+        with safeApply():
+            axis.setScale(config.x_axis_scale)
+        axis = self.getYAxis()
+        with safeApply():
+            axis.setScale(config.y_axis_scale)
+        with safeApply():
+            axis.setInverted(config.y_axis_inverted)
+        axis = self.getYAxis("right")
+        with safeApply():
+            axis.setScale(config.y2_axis_scale)
+        with safeApply():
+            axis.setInverted(config.y2_axis_inverted)
+
+        # View
+        with safeApply():
+            self.setGraphGrid(config.grid_mode)
+        with safeApply():
+            self.setAxesDisplayed(config.axis_displayed)
+
+        # Tools
+        if config.crossair_enabled:
+            with safeApply():
+                self.setGraphCursor(True)
+        if config.colorbar_displayed:
+            with safeApply():
+                self.getColorBarWidget().setVisible(True)
 
     @contextlib.contextmanager
     def userInteraction(self):

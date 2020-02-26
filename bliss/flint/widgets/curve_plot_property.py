@@ -599,10 +599,29 @@ class CurvePlotPropertyWidget(qt.QWidget):
         layout.addWidget(toolBar)
         layout.addWidget(self.__tree)
 
+    def __removeAllItems(self):
+        if self.__plotModel is None:
+            return
+        with self.__plotModel.transaction():
+            items = list(self.__plotModel.items())
+            for item in items:
+                try:
+                    self.__plotModel.removeItem(item)
+                except IndexError:
+                    # Item was maybe already removed
+                    pass
+
     def __createToolBar(self):
         toolBar = qt.QToolBar(self)
         toolBar.setMovable(False)
         action = _AddItemAction(self)
+        toolBar.addAction(action)
+
+        action = qt.QAction(self)
+        icon = icons.getQIcon("flint:icons/remove-item")
+        action.setIcon(icon)
+        action.setToolTip("Remove all the items from the plot")
+        action.triggered.connect(self.__removeAllItems)
         toolBar.addAction(action)
         return toolBar
 

@@ -78,7 +78,7 @@ import logging
 import weakref
 import itertools
 import contextlib
-
+import numpy
 import louie
 import gevent.queue
 import gevent.lock
@@ -562,7 +562,7 @@ class _cnx(object):
 
         with gevent.Timeout(timeout):
             self.try_connect()
-            uniq_id = id(next(self._counter))
+            uniq_id = numpy.uint16(next(self._counter))
             msg = msgpack.packb((uniq_id, code, args, kwargs), use_bin_type=True)
             with self.wait_queue(self, uniq_id) as w:
                 while True:

@@ -277,9 +277,6 @@ class SimpleSetting(BaseSetting):
     def set(self, value):
         self.connection.set(self.name, value)
 
-    def clear(self):
-        self.connection.delete(self.name)
-
     def __add__(self, other):
         value = self.get()
         if isinstance(other, SimpleSetting):
@@ -409,11 +406,6 @@ class QueueSetting(BaseSetting):
         if cnx is None:
             cnx = self.connection
         return cnx.rpush(self.name, value)
-
-    def clear(self, cnx=None):
-        if cnx is None:
-            cnx = self.connection
-        cnx.delete(self.name)
 
     @write_decorator
     def prepend(self, value, cnx=None):
@@ -645,10 +637,6 @@ class BaseHashSetting(BaseSetting):
         cnx = self.connection
         cnx.hdel(self.name, *keys)
 
-    def clear(self):
-        cnx = self.connection
-        cnx.delete(self.name)
-
     @write_decorator_dict
     def set(self, values):
         cnx = self.connection
@@ -852,10 +840,9 @@ class OrderedHashSetting(BaseHashSetting):
         cnx.execute()
 
     def clear(self):
-        cnx = self._cnx().pipeline()
-        cnx.delete(self._name)
-        cnx.delete(self._name_order)
-        cnx.execute()
+        with pipeline(self) as p:
+            p.delete(self._name)
+            p.delete(self._name_order)
 
     @write_decorator_dict
     def set(self, mapping):

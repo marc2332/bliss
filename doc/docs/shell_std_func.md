@@ -124,6 +124,21 @@ mm1     READY (Axis is READY)
 mm2     READY (Axis is READY)
 ```
 
+### rockit (rock a motor around current position)
+
+`rockit(mot, total_move):` Rock the motor **mot** around it's current
+position +/- total_move/2.
+
+i.e: Rock the motor mm1 during a ascan. At the end of the *context*,
+the rocking will stop and the motor **mm1** will be moved back the
+previous position.
+
+```python
+with rockit(mm1, 10):
+     ascan(mm2,0,2,10,0.1,diode)
+
+```
+
 
 ## counters
 

@@ -12,6 +12,8 @@ Standard bliss macros (:func:`~bliss.common.standard.wa`, \
 from collections import namedtuple
 import functools
 import inspect
+import contextlib
+import gevent
 
 from bliss import global_map, global_log, current_session
 from bliss.common import scans
@@ -20,6 +22,7 @@ from bliss.common.plot import plot
 from bliss.common.soft_axis import SoftAxis
 from bliss.common.counter import SoftCounter
 from bliss.common.cleanup import cleanup, error_cleanup
+from bliss.common import cleanup as cleanup_mod
 from bliss.common import logtools
 from bliss.common.logtools import *
 from bliss.common.interlocks import interlock_state
@@ -276,3 +279,36 @@ def info(obj):
         info_str = repr(obj)
 
     return info_str
+
+
+@contextlib.contextmanager
+def rockit(motor, total_move):
+    """
+    Rock an axis from it's current position +/- total_move/2.
+    Usage example:
+    with rockit(mot1, 10):
+         ascan(mot2,-1,1,10,0.1,diode)
+         amesh(....)
+    """
+    if motor.is_moving:
+        raise RuntimeError(f"Motor {motor.name} is moving")
+
+    lower_position = motor.position - (total_move / 2)
+    upper_position = motor.position + (total_move / 2)
+    # Check limits
+    motor._get_motion(lower_position)
+    motor._get_motion(upper_position)
+
+    def rock():
+        with logtools.lprint_disable():
+            while True:
+                motor.move(lower_position)
+                motor.move(upper_position)
+
+    with cleanup_mod.cleanup(motor, restore_list=(cleanup_mod.axis.POS,)):
+        rock_task = gevent.spawn(rock)
+        try:
+            yield
+        finally:
+            rock_task.kill()
+            rock_task.get()

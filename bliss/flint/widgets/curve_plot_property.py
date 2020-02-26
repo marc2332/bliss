@@ -594,9 +594,16 @@ class CurvePlotPropertyWidget(qt.QWidget):
 
         toolBar = self.__createToolBar()
 
+        self.__tree.setFrameShape(qt.QFrame.NoFrame)
+        line = qt.QFrame(self)
+        line.setFrameShape(qt.QFrame.HLine)
+        line.setFrameShadow(qt.QFrame.Sunken)
+
         layout = qt.QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
         layout.addWidget(toolBar)
+        layout.addWidget(line)
         layout.addWidget(self.__tree)
 
     def __removeAllItems(self):

@@ -49,7 +49,20 @@ class ScatterPlotWidget(plot_helper.PlotWidget):
         self.__plot = FlintPlot(parent=self)
         self.__plot.setActiveCurveStyle(linewidth=2)
         self.__plot.setDataMargins(0.05, 0.05, 0.05, 0.05)
-        self.setWidget(self.__plot)
+
+        # Try to improve the look and feel
+        # FIXME: THis should be done with stylesheet
+        frame = qt.QFrame(self)
+        frame.setFrameShape(qt.QFrame.StyledPanel)
+        layout = qt.QVBoxLayout(frame)
+        layout.addWidget(self.__plot)
+        layout.setContentsMargins(0, 0, 0, 0)
+        widget = qt.QFrame(self)
+        layout = qt.QVBoxLayout(widget)
+        layout.addWidget(frame)
+        layout.setContentsMargins(0, 1, 0, 0)
+        self.setWidget(widget)
+
         self.setFocusPolicy(qt.Qt.StrongFocus)
         self.__plot.installEventFilter(self)
         self.__plot.getWidgetHandle().installEventFilter(self)

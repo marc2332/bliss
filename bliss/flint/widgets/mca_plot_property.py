@@ -147,7 +147,9 @@ class McaPlotPropertyWidget(qt.QWidget):
 
         self.__focusWidget = None
 
+        self.__tree.setFrameShape(qt.QFrame.NoFrame)
         layout = qt.QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(self.__tree)
 
     def setFlintModel(self, flintModel: flint_model.FlintState = None):

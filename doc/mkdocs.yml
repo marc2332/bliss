@@ -16,8 +16,10 @@ nav:
                       - Data life cycle: bliss_data_life.md
                       - "Practical example: slits alignment": bliss_slits_alignment.md
                       - User defined sequences: bliss_user_sequences.md
-                - BLISS as a library: bliss_as_library.md
-        - Installation: installation.md
+                      - Running BLISS demo session: bliss_demo.md
+        - Installation:
+                - Installing at ESRF: installation_esrf.md
+                - Installing outside ESRF: installation.md
         - Configuration:
                 - Beacon:
                       - Introduction: beacon.md
@@ -127,7 +129,7 @@ nav:
                 - Typing helper: shell_typing_helper.md
                 - Logging: shell_logging.md
                 - Dialogs: shell_dialogs.md
-        - BLISS library: library.md
+        - BLISS library: bliss_as_library.md
         - Motion:
                 - Axis: motion_axis.md
                 - Encoder: motion_encoder.md
@@ -173,6 +175,7 @@ nav:
                 - 'API documentation ⚙|api/index.html': api.md
                 - Guidelines: dev_guidelines.md
                 - Writing documentation: dev_documentation.md
+                - Testing: dev_testing.md
                 - Communication API: dev_comm.md
                 - BLISS controller: dev_write_ctrl.md
                 - Writing a motor controller: dev_write_motctrl.md
@@ -188,7 +191,6 @@ nav:
                 - Acquisition objects: dev_acq.md
                 - Tips'n'tricks: dev_tipsntricks.md
                 - Dealing with energy: dev_energy.md
-                - Testing: dev_testing.md
                 - Xia handle: config_mca_handel.md
                 - Speedgoat: config_speedgoat.md
                 - timedisplay: timedisplay.md
@@ -197,12 +199,10 @@ nav:
                     - Publishing: dev_data_publishing.md
                     - Subscribing: dev_data_subscribing.md
                     - Data policy:
-                        - ESRF: dev_data_policy_esrf.md
                         - Basic: dev_data_policy_basic.md
                         - Custom: dev_data_policy_custom.md
                     - Nexus writer: dev_data_nexus_server.md
                     - Writing scans to display it on Flint: flint_scan_info.md
-                    - ICAT: dev_data_policy_servers.md
                     - Metadata: dev_data_metadata.md
 
 theme:

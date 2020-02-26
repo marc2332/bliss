@@ -1,4 +1,5 @@
 synchrotron: ESRF
+instrument: esrf-id00a
 scan_saving:
     # the class is left to 'Basic' for the tests,
     # but it must be 'ESRFScanSaving' to implement Data Policy

@@ -402,16 +402,7 @@ class Lima(CounterController):
         self.__prepare_timeout = config_tree.get("prepare_timeout", None)
         self.__bpm = None
         self.__roi_counters = None
-        self._instrument_name = config_tree.get_inherited("synchrotron", "")
-        self._instrument_name += "-" if self._instrument_name != "" else ""
-        beamline = config_tree.get_inherited("beamline", None)
-        if beamline is None:
-            scan_saving = config_tree.get_inherited("scan_saving", None)
-            if scan_saving is None:
-                beamline = "instrument"
-            else:
-                beamline = scan_saving.get("beamline", "instrument")
-        self._instrument_name += beamline
+        self._instrument_name = config_tree._config.root.get("instrument", "")
         self.__bg_sub = None
         self.__last = None
         self._camera = None

@@ -11,6 +11,9 @@ Helper class to manage the state of the model
 
 from __future__ import annotations
 from typing import List
+from typing import NamedTuple
+from typing import Any
+from typing import Dict
 
 import functools
 
@@ -24,6 +27,48 @@ from ..model import flint_model
 
 
 _logger = logging.getLogger(__name__)
+
+
+class _WidgetDescriptionCompatibility(NamedTuple):
+    """Allow to read the previous way to store the object.
+
+    Was only stored this way before the restart, before 2020-02-26
+
+    Could be remove in few months.
+    """
+
+    objectName: str
+    windowTitle: str
+    className: Any
+    modelId: int
+
+
+class WidgetDescription:
+    def __init__(self):
+        self.objectName = None
+        self.windowTitle = None
+        self.className = None
+        # FIXME: We should store the full model, instead of a modelId
+        #        (pickle can deal with)
+        self.modelId = None
+
+    def __getstate__(self):
+        """Inherite the serialization to make sure the object can grow up in the
+        future"""
+        state: Dict[str, Any] = {}
+        state["objectName"] = self.objectName
+        state["windowTitle"] = self.windowTitle
+        state["className"] = self.className
+        state["modelId"] = self.modelId
+        return state
+
+    def __setstate__(self, state):
+        """Inherite the serialization to make sure the object can grow up in the
+        future"""
+        self.objectName = state.pop("objectName")
+        self.windowTitle = state.pop("windowTitle")
+        self.className = state.pop("className")
+        self.modelId = state.pop("modelId")
 
 
 class WorkspaceData(dict):
@@ -43,9 +88,13 @@ class WorkspaceData(dict):
                     modelId = None
             else:
                 modelId = None
-            widgetDescriptions.append(
-                (widget.objectName(), widget.windowTitle(), widget.__class__, modelId)
-            )
+
+            widgetDescription = WidgetDescription()
+            widgetDescription.objectName = widget.objectName()
+            widgetDescription.windowTitle = widget.windowTitle()
+            widgetDescription.className = widget.__class__
+            widgetDescription.modelId = modelId
+            widgetDescriptions.append(widgetDescription)
 
         self["plots"] = plots
         self["widgets"] = widgetDescriptions
@@ -63,14 +112,17 @@ class WorkspaceData(dict):
         for plot in plots.values():
             workspace.addPlot(plot)
 
-        for name, title, widgetClass, modelId in widgetDescriptions:
-            widget = widgetClass(parent)
-            widget.setObjectName(name)
-            widget.setWindowTitle(title)
+        for data in widgetDescriptions:
+            if isinstance(data, tuple):
+                data = _WidgetDescriptionCompatibility(*data)
+
+            widget = data.className(parent)
+            widget.setObjectName(data.objectName)
+            widget.setWindowTitle(data.windowTitle)
             # Looks needed to retrieve the right layout with restoreSate
             parent.addDockWidget(qt.Qt.LeftDockWidgetArea, widget)
-            if modelId is not None:
-                plot = plots[modelId]
+            if data.modelId is not None:
+                plot = plots[data.modelId]
                 widget.setPlotModel(plot)
             workspace.addWidget(widget)
 

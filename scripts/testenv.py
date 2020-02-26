@@ -181,15 +181,24 @@ def runcontext(cliargs, tmpdir="", prefix="tmp", env=None):
 
 
 @contextmanager
-def testenv():
+def testenv(root=None):
     """
     Create test environment
     """
-    with tempfile.TemporaryDirectory(prefix="bliss_testenv_") as tmpdir:
-        try:
-            yield tmpdir
-        except RunContextExit:
-            pass
+    if root:
+        os.makedirs(root, exist_ok=True)
+    else:
+        root = None
+    try:
+        with tempfile.TemporaryDirectory(prefix="bliss_testenv_", dir=root) as tmpdir:
+            try:
+                yield tmpdir
+            except RunContextExit:
+                pass
+            finally:
+                shutil.rmtree(tmpdir, ignore_errors=True)
+    except OSError:
+        pass
 
 
 @contextmanager
@@ -359,10 +368,11 @@ if __name__ == "__main__":
         dest="freshdb",
         help="Copy the YAML files and delete beacon.rdb",
     )
+    parser.add_argument("--root", default="", help="Log root directory")
     add_cli_args(parser, default="INFO")
     args, unknown = parser.parse_known_args()
 
-    with testenv() as tmpdir:
+    with testenv(root=args.root) as tmpdir:
         with beacon(tmpdir=tmpdir, freshdb=args.freshdb) as (env, prefix):
             with metaexperiment(env=env, tmpdir=tmpdir, name="test"):
                 with metadatamanager(env=env, tmpdir=tmpdir, name="test"):

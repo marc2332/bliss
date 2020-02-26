@@ -29,7 +29,6 @@ from bliss.flint.model import flint_model
 from bliss.flint.model import plot_model
 from bliss.flint.model import plot_item_model
 from bliss.flint.model import plot_state_model
-from bliss.flint.widgets.extended_dock_widget import ExtendedDockWidget
 from bliss.flint.widgets.plot_helper import FlintPlot
 from bliss.flint.helper import scan_info_helper
 from bliss.flint.helper import model_helper
@@ -40,15 +39,7 @@ from bliss.flint.widgets import plot_helper
 _logger = logging.getLogger(__name__)
 
 
-class CurvePlotWidget(ExtendedDockWidget):
-
-    widgetActivated = qt.Signal(object)
-
-    plotModelUpdated = qt.Signal(object)
-    """Emitted when the plot model displayed by the plot was changed"""
-
-    scanModelUpdated = qt.Signal(object)
-    """Emitted when the scan model displayed by the plot was changed"""
+class CurvePlotWidget(plot_helper.PlotWidget):
 
     plotItemSelected = qt.Signal(object)
     """Emitted when a flint plot item was selected by the plot"""
@@ -107,6 +98,9 @@ class CurvePlotWidget(ExtendedDockWidget):
         for o in self.__permanentItems:
             self.__plot.addItem(o)
 
+    def getRefreshManager(self) -> plot_helper.RefreshManager:
+        return self.__refreshManager
+
     def __createToolBar(self):
         toolBar = qt.QToolBar(self)
         toolBar.setMovable(False)
@@ -125,14 +119,14 @@ class CurvePlotWidget(ExtendedDockWidget):
         action = self.__refreshManager.createRefreshAction(self)
         toolBar.addAction(action)
         toolBar.addAction(plot_helper.CustomAxisAction(self.__plot, self, kind="curve"))
-        action = control.CrosshairAction(self.__plot, parent=self)
-        action.setIcon(icons.getQIcon("flint:icons/crosshair"))
-        toolBar.addAction(action)
         toolBar.addAction(control.GridAction(self.__plot, "major", self))
         toolBar.addSeparator()
 
         # Tools
 
+        action = control.CrosshairAction(self.__plot, parent=self)
+        action.setIcon(icons.getQIcon("flint:icons/crosshair"))
+        toolBar.addAction(action)
         action = self.__plot.getCurvesRoiDockWidget().toggleViewAction()
         toolBar.addAction(action)
 

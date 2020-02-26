@@ -1,6 +1,7 @@
 """Testing plot_helper module."""
 
 import typing
+import pickle
 
 from bliss.flint.widgets import plot_helper
 from bliss.flint.model import scan_model
@@ -33,3 +34,10 @@ def test_plot_event_aggregator():
     assert len(events) == 2
     assert events[0].args[0].selectedChannel() is None
     assert events[1].args[0].selectedChannel() is channel
+
+
+def test_persistence():
+    data = plot_helper.PlotConfiguration()
+    data.interaction_mode = "pan"
+    result = pickle.loads(pickle.dumps(data))
+    assert result.interaction_mode == "pan"

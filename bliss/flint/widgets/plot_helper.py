@@ -39,6 +39,7 @@ from bliss.flint.model import plot_item_model
 from bliss.flint.model import plot_state_model
 from bliss.flint.model import scan_model
 from bliss.flint.utils import signalutils
+from bliss.flint.widgets.extended_dock_widget import ExtendedDockWidget
 
 
 _logger = logging.getLogger(__name__)
@@ -251,6 +252,83 @@ class ExportOthers(qt.QWidgetAction):
         self.setDefaultWidget(toolButton)
 
 
+class PlotWidget(ExtendedDockWidget):
+
+    widgetActivated = qt.Signal(object)
+
+    plotModelUpdated = qt.Signal(object)
+    """Emitted when the plot model displayed by the plot was changed"""
+
+    scanModelUpdated = qt.Signal(object)
+    """Emitted when the scan model displayed by the plot was changed"""
+
+    def configuration(self):
+        plot = self._silxPlot()
+        config = plot.configuration()
+
+        if hasattr(self, "getRefreshManager"):
+            refreshManager: RefreshManager = self.getRefreshManager()
+            if refreshManager is not None:
+                rate = refreshManager.refreshMode()
+                config.refresh_mode = rate
+        return config
+
+    def setConfiguration(self, config):
+        plot = self._silxPlot()
+        if hasattr(self, "getRefreshManager"):
+            refreshManager: RefreshManager = self.getRefreshManager()
+            if refreshManager is not None:
+                rate = config.refresh_mode
+                refreshManager.setRefreshMode(rate)
+        plot.setConfiguration(config)
+
+
+class PlotConfiguration:
+    """Store a plot configuration for serialization"""
+
+    def __init__(self):
+        # Mode
+        self.interaction_mode: str = None
+        self.refresh_mode: Optional[int, None] = None
+        # Axis
+        self.x_axis_scale: str = None
+        self.y_axis_scale: str = None
+        self.y2_axis_scale: str = None
+        self.y_axis_inverted: bool = False
+        self.y2_axis_inverted: bool = False
+        self.fixed_aspect_ratio: bool = False
+        # View
+        self.grid_mode: bool = False
+        self.axis_displayed: bool = True
+        # Tools
+        self.crosshair_enabled: bool = False
+        self.colorbar_displayed: bool = False
+        self.profile_widget_displayed: bool = False
+        self.roi_widget_displayed: None = False
+        self.histogram_widget_displayed: None = False
+
+    def __reduce__(self):
+        return (self.__class__, (), self.__getstate__())
+
+    def __getstate__(self):
+        """Inherite the serialization to make sure the object can growup in the
+        future"""
+        state: Dict[str, Any] = {}
+        state.update(self.__dict__)
+        return state
+
+    def __setstate__(self, state):
+        """Inherite the serialization to make sure the object can growup in the
+        future"""
+        for k in self.__dict__.keys():
+            if k in state:
+                v = state.pop(k)
+                self.__dict__[k] = v
+
+    def __str__(self):
+        return self.__dict__.__str__()
+
+
 class FlintPlot(PlotWindow):
     """Helper to provide few other functionalities on top of silx.
 
@@ -278,6 +356,88 @@ class FlintPlot(PlotWindow):
 
         if hasattr(self, "centralWidget"):
             self.centralWidget().installEventFilter(self)
+
+    def configuration(self) -> PlotConfiguration:
+        """Returns a global configuration of the plot"""
+        config = PlotConfiguration()
+
+        mode = self.getInteractiveMode()["mode"]
+        if mode not in ("pan", "zoom"):
+            mode = None
+        config.interaction_mode = mode
+
+        # Axis
+        axis = self.getXAxis()
+        config.x_axis_scale = axis.getScale()
+        axis = self.getYAxis()
+        config.y_axis_scale = axis.getScale()
+        config.y_axis_inverted = axis.isInverted()
+        axis = self.getYAxis("right")
+        config.y2_axis_scale = axis.getScale()
+        config.y2_axis_inverted = axis.isInverted()
+        config.fixed_aspect_ratio = self.isKeepDataAspectRatio()
+
+        # View
+        config.grid_mode = self.getGraphGrid()
+        config.axis_displayed = self._isAxesDisplayed()
+
+        # Tools
+        config.crosshair_enabled = self.getGraphCursor() is not None
+        config.colorbar_displayed = self.getColorBarAction().isChecked()
+        # FIXME: It would be good to do it
+        # config.profile_widget_displayed = None
+        # config.roi_widget_displayed = None
+        # config.histogram_widget_displayed = None
+
+        return config
+
+    def setConfiguration(self, config: PlotConfiguration):
+        mode = config.interaction_mode
+        if mode in ("pan", "zoom"):
+            self.setInteractiveMode(mode)
+
+        # FIXME: implement it
+        # config.refresh_rate
+
+        @contextlib.contextmanager
+        def safeApply():
+            try:
+                yield
+            except Exception:
+                _logger.error(
+                    "Error while applying the plot configuration", exc_info=True
+                )
+
+        # Axis
+        axis = self.getXAxis()
+        with safeApply():
+            axis.setScale(config.x_axis_scale)
+        axis = self.getYAxis()
+        with safeApply():
+            axis.setScale(config.y_axis_scale)
+        with safeApply():
+            axis.setInverted(config.y_axis_inverted)
+        axis = self.getYAxis("right")
+        with safeApply():
+            axis.setScale(config.y2_axis_scale)
+        with safeApply():
+            axis.setInverted(config.y2_axis_inverted)
+        with safeApply():
+            self.setKeepDataAspectRatio(config.fixed_aspect_ratio)
+
+        # View
+        with safeApply():
+            self.setGraphGrid(config.grid_mode)
+        with safeApply():
+            self.setAxesDisplayed(config.axis_displayed)
+
+        # Tools
+        if config.crosshair_enabled:
+            with safeApply():
+                self.setGraphCursor(True)
+        if config.colorbar_displayed:
+            with safeApply():
+                self.getColorBarWidget().setVisible(True)
 
     @contextlib.contextmanager
     def userInteraction(self):
@@ -620,8 +780,9 @@ class TooltipItemManager:
 
         if self.__plot.getGraphCursor() is not None and x is not None:
             plotModel = self.__parent.plotModel()
-            text = self.getCrossairTooltip(plotModel, flintModel, scan, x, y)
-            textResult.append(text)
+            text = self.getCrosshairTooltip(plotModel, flintModel, scan, x, y)
+            if text is not None:
+                textResult.append(text)
 
         x, y, axis = None, None, None
         for result in results:
@@ -657,8 +818,10 @@ class TooltipItemManager:
                     return True
         return False
 
-    def getCrossairTooltip(self, plotModel, flintModel, scan, px, py):
+    def getCrosshairTooltip(self, plotModel, flintModel, scan, px, py):
         # Get a visible item
+        if plotModel is None:
+            return None
         selectedItem = None
         for item in plotModel.items():
             if item.isVisible():
@@ -711,7 +874,7 @@ class TooltipItemManager:
         char = "✛"
 
         text = f"""
-        <li style="white-space:pre">{char} <b>Crossair</b></li>
+        <li style="white-space:pre">{char} <b>Crosshair</b></li>
         <li style="white-space:pre">     <b>{xName}:</b> {x}</li>
         <li style="white-space:pre">     <b>{yName}:</b> {y}</li>
         """
@@ -767,7 +930,7 @@ class RefreshManager(qt.QObject):
         menu: qt.QMenu = self.sender()
         menu.clear()
 
-        currentRate = self.__currentRefreshMode()
+        currentRate = self.refreshMode()
 
         menu.addSection("Refresh rate")
         rates = [1000, 500, 200, 100]
@@ -777,7 +940,7 @@ class RefreshManager(qt.QObject):
             action.setChecked(currentRate == rate)
             action.setText(f"{rate} ms")
             action.setToolTip(f"Set the refresh rate to {rate} ms")
-            action.triggered.connect(functools.partial(self.__setRefreshRate, rate))
+            action.triggered.connect(functools.partial(self.setRefreshMode, rate))
             menu.addAction(action)
 
         action = qt.QAction(menu)
@@ -785,7 +948,7 @@ class RefreshManager(qt.QObject):
         action.setChecked(currentRate is None)
         action.setText(f"As fast as possible")
         action.setToolTip(f"The plot is updated when a new data is received")
-        action.triggered.connect(functools.partial(self.__setRefreshRate, None))
+        action.triggered.connect(functools.partial(self.setRefreshMode, None))
         menu.addAction(action)
 
         menu.addSection("Mesured rate")
@@ -837,13 +1000,23 @@ class RefreshManager(qt.QObject):
             return None
         return sum(self.__lastValues) / len(self.__lastValues)
 
-    def __currentRefreshMode(self):
+    def refreshMode(self) -> Optional[int]:
+        """Returns the current mode used by this manager.
+
+        It can be None when there is no delay, or a number in millisecond
+        for the refresh rate used.
+        """
         if self.__updater.isActive():
             return self.__updater.interval()
         else:
             return None
 
-    def __setRefreshRate(self, rate):
+    def setRefreshMode(self, rate: Optional[int]):
+        """Set the refresh mode to use with this manager.
+
+        It can be None when there is no delay, or a number in millisecond
+        for the refresh rate used.
+        """
         if rate is None:
             if self.__updater.isActive():
                 self.__updater.stop()

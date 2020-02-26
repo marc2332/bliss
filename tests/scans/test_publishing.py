@@ -17,7 +17,7 @@ from bliss.scanning.chain import AcquisitionChain, AcquisitionMaster, Acquisitio
 from bliss.scanning.acquisition.motor import SoftwarePositionTriggerMaster
 from bliss.scanning.acquisition.counter import SamplingCounterAcquisitionSlave
 from bliss.config.settings import scan as redis_scan
-from bliss.config.streaming import DataStream
+from bliss.config.streaming import DataStream, StreamStopReadingHandler
 from bliss.data.nodes.scan import Scan as ScanNode
 from bliss.data.node import (
     get_session_node,
@@ -461,3 +461,48 @@ def test_data_shape_of_get(default_session):
     assert numpy.array(mynode.get(0, 1)).dtype == numpy.float64
 
     assert numpy.array(mynode.get_as_array(0, 2)).dtype == numpy.float64
+
+
+def test_stop_before_any_walk_event(default_session):
+    session_node = get_session_node(default_session.name)
+    event = gevent.event.Event()
+
+    def spawn_walk(stop_handler):
+        event.set()
+        for node in session_node.iterator.walk(
+            stream_stop_reading_handler=stop_handler
+        ):
+            pass
+
+    stop_handler = StreamStopReadingHandler()
+    task = gevent.spawn(spawn_walk, stop_handler)
+    with gevent.Timeout(1.):
+        event.wait()
+
+    stop_handler.stop()
+    with gevent.Timeout(1.):
+        task.get()
+
+
+def test_stop_after_first_walk_event(session):
+    session_node = get_session_node(session.name)
+    event = gevent.event.Event()
+
+    def spawn_walk(stop_handler):
+        for node in session_node.iterator.walk(
+            stream_stop_reading_handler=stop_handler
+        ):
+            event.set()
+
+    stop_handler = StreamStopReadingHandler()
+    task = gevent.spawn(spawn_walk, stop_handler)
+
+    diode = session.env_dict["diode"]
+    scans.loopscan(1, 0, diode)
+
+    with gevent.Timeout(1.):
+        event.wait()
+
+    stop_handler.stop()
+    with gevent.Timeout(1.):
+        task.get()

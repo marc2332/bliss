@@ -311,7 +311,6 @@ def test_sequence_scans(default_session, scan_tmpdir):
     )
 
     ready_event.wait(timeout=3.)
-
     try:
         seq = Sequence()
         with seq.sequence_context() as scan_seq:

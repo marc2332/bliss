@@ -139,13 +139,11 @@ def test_multiple_top_masters(session, lima_simulator, dummy_acq_device):
 
     ### check structure in redis
     tree = Tree()
+    tree.create_node("acquisition chain", scan.node.db_name)
     for node in scan.node.iterator.walk(wait=False):
         if not node.type == "channel":
-            if node.db_name == scan.node.db_name:
-                tree.create_node("acquisition chain", node.db_name)
-            else:
-                tmp = node.db_name.split(":")
-                tree.create_node(node.name, node.db_name, parent=":".join(tmp[:-1]))
+            tmp = node.db_name.split(":")
+            tree.create_node(node.name, node.db_name, parent=":".join(tmp[:-1]))
 
     assert str(scan.acq_chain._tree) == str(tree)
 

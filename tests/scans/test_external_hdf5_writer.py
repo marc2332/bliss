@@ -93,12 +93,10 @@ def test_external_hdf5_writer(
     # todo add synchronisatin once !1594 is merged
     # for now .. incrase sleep time
     gevent.sleep(1)
-
     try:
         scan_task.kill(KeyboardInterrupt)
     except:
         assert scan_task.ready()
-
     # just until the test above is reliable
     # ~ s3 = scans.timescan(.05, diode2, npoints=1)
 
@@ -151,7 +149,7 @@ def test_external_hdf5_writer(
     # check that all scans have been finalized
     for i in range(0, 20):
         if len(scan_stack) > 0:
-            print("##### waiting for finalization")
+            print("##### waiting for finalization", scan_stack)
             gevent.sleep(1)
 
     ## check if external file is the same as the one of bliss writer for simple scan

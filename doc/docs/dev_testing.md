@@ -1,15 +1,91 @@
-# Testing with PyTest
+# Testing BLISS
 
+## Test setup
+
+* Create a conda environment dedicated to tests
+
+```
+conda create --name testenv --channel esrf-bcu \
+  --channel defaults --channel tango-controls --channel conda-forge \
+  --file requirements-conda.txt  --file requirements-test-conda.txt
+source activate testenv
+```
+
+* Go to BLISS source directory and do:
+
+```
+pip install --no-deps -e .
+```
+
+### Running BLISS test session
+
+In the test environment: 
+
+* start a BEACON server using the provided _test_configuration_ (path relative to root of bliss repository)
+
+```shell
+beacon-server --db_path tests/test_configuration/ --tango_port 20000
+```
+
+* Start test session device servers, like Lima camera simulators:
+
+```shell
+TANGO_HOST=localhost:20000 LimaCCDs simulator
+```
+
+* Start the BLISS shell:
+
+```shell
+BEACON_HOST=localhost TANGO_HOST=localhost:20000 bliss -s test_session
+```
+
+* A lot of controllers are already part of the test session. The ones depending on
+a Tango server are not included by default, so those devices can be accessed via
+the `config` object:
+
+```python
+TEST_SESSION[1]: limaDev = config.get("lima_simulator")
+```
+
+### to run tests on bcu-ci computer
+
+Some timing problems occuring during continuous integration but not on
+a local computer have been observed.
+
+To track them, it can be interesting to run tests on `bcu-ci` computer.
+
+Log-in to bcu-ci (needs sudo rights) and copy/paste:
+
+```
+sudo docker run -it continuumio/miniconda3:latest
+
+apt-get update && apt-get -y install xvfb libxi6 git
+
+git clone https://gitlab.esrf.fr/bliss/bliss.git
+
+cd bliss
+
+conda create -y --name testenv --channel http://bcu-ci.esrf.fr/stable  \
+  --channel defaults --channel tango-controls --channel conda-forge \
+  --file requirements-conda.txt  --file requirements-test-conda.txt
+
+source activate testenv
+
+python setup.py install
+
+pytest setup.py tests
+```
+
+## Pytest
 
 Partialy taken from `pytest` official doc: https://docs.pytest.org/en/latest/
 
-
-## Usage in BLISS
+### Usage in BLISS
 
 All tests but hardware-related ones are automatically run during
 continuous integration on *bcu-ci* server.
 
-### To run manually ALL tests
+#### To run ALL tests
 
 In BLISS root directory:
 
@@ -40,7 +116,7 @@ tests/test_channels.py::test_channel_cb PASSED                         [  0%]
     `find ./ -name "*.pyc" | xargs rm`
 
 
-### to run ONLY some tests
+#### To run ONLY some tests
 
 In BLISS root directory:
 ```
@@ -64,59 +140,13 @@ tests/test_channels.py::test_channel_not_initialized PASSED              [100%]
 ====================== 1 passed, 453 deselected in 5.15 seconds ===============
 ```
 
-### Main options
+### Pytest command line options
 
-#### -s: keep stdout
-Equivalent to `--capture=no`  => do not capture stdout
+* `-s`: keep stdout, equivalent to `--capture=no`  => do not capture stdout
+* `-v`: more verbose
+* `-q`: less verbose
 
-#### -v: more verbose
-
-#### -q: less verbose
-
-
-### Coverage
-Coverage indicates the percentage of lines touched by current tests suite.
-
-Example to get a coverage report:
-
-```bash
-py.test tests/controllers_sw/test_multiple_positions.py   \
-           --cov-report=html                              \
-           --cov bliss.controllers.multiplepositions
-```
-
-Coverage report indicating tested lines is in:
-  ./htmlcov/index.html
-
-!!! note
-    There can be some errors (lines tested but not flaged as tested) in the
-    report.
-
-See also: https://pytest-cov.readthedocs.io/en/latest/reporting.html
-
-## Hardware tests
-
-Tests files located in `bliss/tests/controllers_hw/` directory are *Hardware tests*.
-They are ignored by continuous integration but can be run manualy.
-
-!!! warning
-    They are using the beamline database for configuration and not the test
-    configuration.
-
-### Axis
-There is a generic axis test for basic feature: position, velocity, acceleration
-and stop.
-
-Example:
-```
-pytest -s --axis-name rot tests/controllers_hw/test_axis.py
-```
-This will do a real test on *Beamline* axis named **rot**.
-
-!!! warning
-    This test will do real movement on the specified axis.
-
-## `xfail`
+### `xfail`
 
 `pytest.xfail()` instruction
 
@@ -138,9 +168,30 @@ def test_read_calc_channels(pepu, channel_id):
     assert value in (1.5, -1.5)
 ```
 
+### Coverage
+
+Coverage indicates the percentage of lines touched by current tests suite.
+
+Example to get a coverage report:
+
+```bash
+py.test tests/controllers_sw/test_multiple_positions.py   \
+           --cov-report=html                              \
+           --cov bliss.controllers.multiplepositions
+```
+
+Coverage report indicating tested lines is in:
+  ./htmlcov/index.html
+
+!!! note
+    There can be some errors (lines tested but not flaged as tested) in the
+    report.
+
+See also: https://pytest-cov.readthedocs.io/en/latest/reporting.html
 
 
-## Configuration in BLISS
+### Pytest configuration
+
 Configuration is mainly done in `setup.cfg` file:
 
 ```
@@ -158,19 +209,7 @@ bliss % more setup.cfg
    test=pytest
 ```
 
-
-
-## Writing tests
-
-TODO
-
 ### Tips and examples
-
-#### capsys
-
-`capsys` module gives access to the standard output and error.
-
-
 
 #### Fixtures
 
@@ -189,6 +228,9 @@ Examples:
     - results are readable via `caplog` module
 * other examples: `lima_simulator`, `dummy_tango_server`, `wago_tango_server`
 
+#### capsys
+
+`capsys` module gives access to the standard output and error.
 
 #### Using a Tango device server in tests
 
@@ -234,7 +276,7 @@ def test_undulator(beacon, dummy_tango_server):
     assert u23a.acceleration == 125
 ```
 
-#### acces to temporary directory
+#### Access to temporary directory
 
 ```python
 def test_session_add_del(beacon, beacon_directory):
@@ -244,55 +286,27 @@ def test_session_add_del(beacon, beacon_directory):
     setup_file = sess_dir + '/tutu_setup.py'
 ```
 
-## Installation
+## Hardware tests
 
-### to run tests on your computer
+Tests files located in `bliss/tests/controllers_hw/` directory are *Hardware tests*.
+They are ignored by continuous integration but can be run manualy.
 
+!!! warning
+    They are using the beamline database for configuration and not the test
+    configuration.
 
-* Create a conda environemnt dedicated to tests:
-    * Go to bliss directory and do:
+### Axis
+
+There is a generic axis test for basic feature: position, velocity, acceleration
+and stop.
+
+Example:
 ```
-conda create --name testenv --channel http://bcu-ci.esrf.fr/stable \
-  --channel defaults --channel tango-controls --channel conda-forge \
-  --file requirements-conda.txt  --file requirements-test-conda.txt
-source activate testenv
-pip install .
+pytest -s --axis-name rot tests/controllers_hw/test_axis.py
 ```
-    * Install bliss:
-```
-cd bliss.git/
-pip install --no-deps -e .
-```
+This will do a real test on *Beamline* axis named **rot**.
 
-### to run tests on bcu-ci computer
-
-Some timing problems occuring during continuous integration but not on
-a local computer have been observed.
-
-To track them, it can be interesting to run tests on `bcu-ci` computer.
-
-Log-in to bcu-ci (needs sudo rights) and copy/paste:
-
-```
-sudo docker run -it continuumio/miniconda3:latest
-
-apt-get update && apt-get -y install xvfb libxi6 git
-
-git clone https://gitlab.esrf.fr/bliss/bliss.git
-
-cd bliss
-
-conda create -y --name testenv --channel http://bcu-ci.esrf.fr/stable  \
-  --channel defaults --channel tango-controls --channel conda-forge \
-  --file requirements-conda.txt  --file requirements-test-conda.txt
-
-source activate testenv
-
-python setup.py install
-
-pytest setup.py tests
-```
-
-Happy debugging !
+!!! warning
+    This test will do real movement on the specified axis.
 
 

@@ -31,7 +31,6 @@ from typing import List
 
 import logging
 import numpy
-import functools
 
 import gevent.event
 

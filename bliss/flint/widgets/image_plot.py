@@ -29,7 +29,6 @@ from bliss.flint.widgets.extended_dock_widget import ExtendedDockWidget
 from bliss.flint.widgets.plot_helper import FlintPlot
 from bliss.flint.helper import scan_info_helper
 from bliss.flint.helper import model_helper
-from bliss.flint.utils import signalutils
 from bliss.flint.widgets import plot_helper
 
 
@@ -74,7 +73,7 @@ class ImagePlotWidget(ExtendedDockWidget):
         self.__plot.getWidgetHandle().installEventFilter(self)
         self.__view = plot_helper.ViewManager(self.__plot)
 
-        self.__aggregator = signalutils.EventAggregator(self)
+        self.__aggregator = plot_helper.PlotEventAggregator(self)
         self.__refreshManager = plot_helper.RefreshManager(self)
         self.__refreshManager.setAggregator(self.__aggregator)
 

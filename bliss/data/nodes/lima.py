@@ -128,6 +128,15 @@ class LimaImageChannelDataNode(DataNode):
             if raw_data:
                 index, raw_event = raw_data[0]
                 return pickle.loads(raw_event[LimaImageChannelDataNode.DATA])
+            else:  # Lima acqusition is not yet started.
+                return {
+                    "lima_acq_nb": -1,
+                    "buffer_max_number": -1,
+                    "last_image_acquired": -1,
+                    "last_image_ready": -1,
+                    "last_counter_ready": -1,
+                    "last_image_saved": -1,
+                }
 
         @property
         def ref_data(self):

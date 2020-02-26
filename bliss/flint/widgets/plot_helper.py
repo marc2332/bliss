@@ -301,7 +301,7 @@ class PlotConfiguration:
         self.grid_mode: bool = False
         self.axis_displayed: bool = True
         # Tools
-        self.crossair_enabled: bool = False
+        self.crosshair_enabled: bool = False
         self.colorbar_displayed: bool = False
         self.profile_widget_displayed: bool = False
         self.roi_widget_displayed: None = False
@@ -382,7 +382,7 @@ class FlintPlot(PlotWindow):
         config.axis_displayed = self._isAxesDisplayed()
 
         # Tools
-        config.crossair_enabled = self.getGraphCursor() is not None
+        config.crosshair_enabled = self.getGraphCursor() is not None
         config.colorbar_displayed = self.getColorBarAction().isChecked()
         # FIXME: It would be good to do it
         # config.profile_widget_displayed = None
@@ -432,7 +432,7 @@ class FlintPlot(PlotWindow):
             self.setAxesDisplayed(config.axis_displayed)
 
         # Tools
-        if config.crossair_enabled:
+        if config.crosshair_enabled:
             with safeApply():
                 self.setGraphCursor(True)
         if config.colorbar_displayed:
@@ -780,7 +780,7 @@ class TooltipItemManager:
 
         if self.__plot.getGraphCursor() is not None and x is not None:
             plotModel = self.__parent.plotModel()
-            text = self.getCrossairTooltip(plotModel, flintModel, scan, x, y)
+            text = self.getCrosshairTooltip(plotModel, flintModel, scan, x, y)
             if text is not None:
                 textResult.append(text)
 
@@ -818,7 +818,7 @@ class TooltipItemManager:
                     return True
         return False
 
-    def getCrossairTooltip(self, plotModel, flintModel, scan, px, py):
+    def getCrosshairTooltip(self, plotModel, flintModel, scan, px, py):
         # Get a visible item
         if plotModel is None:
             return None
@@ -874,7 +874,7 @@ class TooltipItemManager:
         char = "✛"
 
         text = f"""
-        <li style="white-space:pre">{char} <b>Crossair</b></li>
+        <li style="white-space:pre">{char} <b>Crosshair</b></li>
         <li style="white-space:pre">     <b>{xName}:</b> {x}</li>
         <li style="white-space:pre">     <b>{yName}:</b> {y}</li>
         """

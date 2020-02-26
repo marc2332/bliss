@@ -906,7 +906,7 @@ class RefreshManager(qt.QObject):
         menu: qt.QMenu = self.sender()
         menu.clear()
 
-        currentRate = self.__currentRefreshMode()
+        currentRate = self.refreshMode()
 
         menu.addSection("Refresh rate")
         rates = [1000, 500, 200, 100]
@@ -916,7 +916,7 @@ class RefreshManager(qt.QObject):
             action.setChecked(currentRate == rate)
             action.setText(f"{rate} ms")
             action.setToolTip(f"Set the refresh rate to {rate} ms")
-            action.triggered.connect(functools.partial(self.__setRefreshRate, rate))
+            action.triggered.connect(functools.partial(self.setRefreshMode, rate))
             menu.addAction(action)
 
         action = qt.QAction(menu)
@@ -924,7 +924,7 @@ class RefreshManager(qt.QObject):
         action.setChecked(currentRate is None)
         action.setText(f"As fast as possible")
         action.setToolTip(f"The plot is updated when a new data is received")
-        action.triggered.connect(functools.partial(self.__setRefreshRate, None))
+        action.triggered.connect(functools.partial(self.setRefreshMode, None))
         menu.addAction(action)
 
         menu.addSection("Mesured rate")
@@ -976,13 +976,23 @@ class RefreshManager(qt.QObject):
             return None
         return sum(self.__lastValues) / len(self.__lastValues)
 
-    def __currentRefreshMode(self):
+    def refreshMode(self) -> Optional[int]:
+        """Returns the current mode used by this manager.
+
+        It can be None when there is no delay, or a number in millisecond
+        for the refresh rate used.
+        """
         if self.__updater.isActive():
             return self.__updater.interval()
         else:
             return None
 
-    def __setRefreshRate(self, rate):
+    def setRefreshMode(self, rate: Optional[int]):
+        """Set the refresh mode to use with this manager.
+
+        It can be None when there is no delay, or a number in millisecond
+        for the refresh rate used.
+        """
         if rate is None:
             if self.__updater.isActive():
                 self.__updater.stop()

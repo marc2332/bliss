@@ -285,14 +285,14 @@ class ScanManager:
         return redis_frame_id > stored_frame_id
 
     def __get_image(self, cache, image_view, channel_name):
-        image_data = None
-        frame_id = None
+        """Try to reach the image"""
+        frame = None
         try:
             video_available = cache.is_video_available(image_view, channel_name)
             if video_available:
                 try:
-                    image_data, frame_id = image_view.get_last_live_image()
-                    if frame_id is None:
+                    frame = image_view.get_last_live_image()
+                    if frame.frame_number is None:
                         # This should never be triggered, as we should
                         # already new that frame have no meaning
                         raise RuntimeError("None frame returned")
@@ -303,10 +303,11 @@ class ScanManager:
                     )
                     cache.disable_video(channel_name)
 
-            if image_data is None:
+            # NOTE: This comparaison can be done by the Frame object (__bool__)
+            if not frame:
                 # Fallback to memory buffer or file
                 try:
-                    image_data, frame_id = image_view.get_last_image()
+                    frame = image_view.get_last_image()
                 except Exception:
                     _logger.debug(
                         "Error while reaching image buffer/file. Reading data from the video is disabled for this scan.",
@@ -314,16 +315,21 @@ class ScanManager:
                     )
                     # Fallback again to the video
                     try:
-                        image_data, frame_id = image_view.get_last_live_image()
+                        frame = image_view.get_last_live_image()
                     except ImageFormatNotSupported:
                         pass
 
         except Exception:
             # The image could not be ready
             _logger.error("Error while reaching the last image", exc_info=True)
-            image_data = None
+            frame = None
 
-        return image_data, frame_id
+        # NOTE: This comparaison can be done by the Frame object (__bool__)
+        if not frame:
+            # Return an explicit None instead of an empty object
+            return None
+
+        return frame
 
     def __new_scan_data(self, scan_info, data_type, master_name, data):
         scan_id = self.__get_scan_id(scan_info)
@@ -341,17 +347,22 @@ class ScanManager:
             channel_data_node = data["channel_data_node"]
             channel_data_node.from_stream = True
             image_view = channel_data_node.get(-1)
-            image_data = None
             channel_name = data["channel_name"]
             must_update = self.__is_image_must_be_read(
                 cache.scan, channel_name, image_view
             )
             if must_update:
-                image_data, frame_id = self.__get_image(cache, image_view, channel_name)
+                frame = self.__get_image(cache, image_view, channel_name)
+            else:
+                frame = None
 
-            if image_data is not None:
+            if frame is not None:
                 self.__update_channel_data(
-                    cache, channel_name, image_data, frame_id=frame_id
+                    cache,
+                    channel_name,
+                    raw_data=frame.data,
+                    frame_id=frame.frame_number,
+                    source=frame.source,
                 )
         else:
             assert False
@@ -366,7 +377,7 @@ class ScanManager:
             data_event.set()
 
     def __update_channel_data(
-        self, cache: _ScanCache, channel_name, raw_data, frame_id=None
+        self, cache: _ScanCache, channel_name, raw_data, frame_id=None, source=None
     ):
         scan = cache.scan
         if cache.data_storage.has_channel(channel_name):
@@ -396,7 +407,7 @@ class ScanManager:
                 _logger.error("Channel '%s' not provided", channel_name)
             else:
                 # NOTE: No parent for the data, Python managing the life cycle of it (not Qt)
-                data = scan_model.Data(None, raw_data, frameId=frame_id)
+                data = scan_model.Data(None, raw_data, frameId=frame_id, source=source)
                 channel.setData(data)
                 # FIXME: Should be fired by the Scan object (but here we have more informations)
                 scan._fireScanDataUpdated(channelName=channel.name())

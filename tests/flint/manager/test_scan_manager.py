@@ -3,6 +3,7 @@
 import numpy
 from bliss.flint.manager import scan_manager
 from bliss.data.nodes.lima import ImageFormatNotSupported
+from bliss.data.nodes.lima import Frame
 
 
 ACQUISITION_CHAIN_1 = {
@@ -135,17 +136,17 @@ class MockedLimaNode:
     def get_last_live_image(self):
         if isinstance(self.last_live_image, Exception):
             raise self.last_live_image
-        return self.last_live_image, self.frame_id
+        return Frame(self.last_live_image, self.frame_id, "video")
 
     def get_last_image(self):
         if isinstance(self.last_image, Exception):
             raise self.last_image
-        return self.last_image, self.frame_id
+        return Frame(self.last_image, self.frame_id, "file")
 
     def get_image(self, index):
         if isinstance(self.image, Exception):
             raise self.image
-        return self.image, self.frame_id
+        return self.image
 
 
 def test_image__default():

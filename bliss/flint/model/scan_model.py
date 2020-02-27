@@ -585,13 +585,25 @@ class Data(qt.QObject):
     helper to deal with the data (like hash). Counld be renamed into `Quantity`.
     """
 
-    def __init__(self, parent=None, array: numpy.ndarray = None, frameId: int = None):
+    def __init__(
+        self,
+        parent=None,
+        array: numpy.ndarray = None,
+        frameId: int = None,
+        source: str = None,
+    ):
         super(Data, self).__init__(parent=parent)
         self.__array = array
         self.__frameId = frameId
+        self.__source = source
 
     def array(self) -> numpy.ndarray:
         return self.__array
 
     def frameId(self) -> int:
+        """Frame number, only valid for images"""
         return self.__frameId
+
+    def source(self) -> str:
+        """Source of the image, only valid for images"""
+        return self.__source

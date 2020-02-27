@@ -761,9 +761,11 @@ class TooltipItemManager:
                 dist = abs(pos[0] - mouse[0]) + abs(pos[1] - mouse[1])
                 if dist < 3:
                     yield index
+                    return
         elif isinstance(item, Scatter):
             for index in indices:
                 yield index
+                return
         else:
             assert False
 

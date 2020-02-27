@@ -158,7 +158,7 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
         node_type=None,
         resource_profiling=False,
         parentlogger=None,
-        **saveoptions
+        **saveoptions,
     ):
         """
         :param str db_name:
@@ -1769,6 +1769,7 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
         :param Subscan subscan:
         :param DatasetProxy dproxy:
         """
+        posprefix = "pstn_"
         with self.nxmeasurement(subscan) as measurement:
             if measurement is None:
                 return
@@ -1784,7 +1785,7 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
                 # a different name when not in positioners
                 # snapshot
                 if linkname not in self.motors:
-                    linknames.append("pos_" + linkname)
+                    linknames.append(posprefix + linkname)
                 # Principle positioners which are masters should
                 # be there under their normal name
                 if dproxy.master_index >= 0 and dproxy.data_type == "principal":
@@ -1792,7 +1793,12 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
             else:
                 linknames = [linkname]
             for linkname in linknames:
-                nexus.createLink(measurement, linkname, dproxy.path)
+                if linkname in measurement:
+                    self.logger.warning(
+                        f"Duplicate name '{linkname}' in the measurement group. Rename this detector or positioner (avoid prefix '{posprefix}')."
+                    )
+                else:
+                    nexus.createLink(measurement, linkname, dproxy.path)
 
     def _add_to_positioners_group(self, subscan, dproxy):
         """

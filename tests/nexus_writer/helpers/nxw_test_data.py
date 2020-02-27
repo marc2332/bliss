@@ -749,17 +749,15 @@ def expected_positioners(
             measurement.add(axes[0])
             pgroup.add(axes[0])
     if hastimer:
+        posprefix = "pstn_"
         if save_options["multivalue_positioners"]:
             content[master_name] = ["value", "epoch"]
-            measurement |= {
-                "pos_{}".format(master_name),
-                "pos_{}_epoch".format(master_name),
-            }
+            measurement |= {posprefix + master_name, posprefix + master_name + "_epoch"}
             pgroup |= {master_name, master_name + "_epoch"}
         else:
             content["elapsed_time"] = ["value"]
             content["epoch"] = ["value"]
-            measurement |= {"pos_elapsed_time", "pos_epoch"}
+            measurement |= {posprefix + "elapsed_time", posprefix + "epoch"}
             pgroup |= {"elapsed_time", "epoch"}
     return content, measurement, pgroup
 

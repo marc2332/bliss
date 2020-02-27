@@ -618,7 +618,7 @@ class CurvePlotPropertyWidget(qt.QWidget):
         toolBar.addAction(action)
 
         action = qt.QAction(self)
-        icon = icons.getQIcon("flint:icons/remove-item")
+        icon = icons.getQIcon("flint:icons/remove-all-items")
         action.setIcon(icon)
         action.setToolTip("Remove all the items from the plot")
         action.triggered.connect(self.__removeAllItems)

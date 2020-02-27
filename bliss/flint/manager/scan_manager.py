@@ -381,7 +381,8 @@ class ScanManager:
                     array = cache.data_storage.get_data(channel_name)
                     # Create a view
                     array = array[0:newSize]
-                    data = scan_model.Data(channel, array)
+                    # NOTE: No parent for the data, Python managing the life cycle of it (not Qt)
+                    data = scan_model.Data(None, array)
                     channel.setData(data)
 
                 # The group name is the master device name
@@ -394,7 +395,8 @@ class ScanManager:
             if channel is None:
                 _logger.error("Channel '%s' not provided", channel_name)
             else:
-                data = scan_model.Data(channel, raw_data, frameId=frame_id)
+                # NOTE: No parent for the data, Python managing the life cycle of it (not Qt)
+                data = scan_model.Data(None, raw_data, frameId=frame_id)
                 channel.setData(data)
                 # FIXME: Should be fired by the Scan object (but here we have more informations)
                 scan._fireScanDataUpdated(channelName=channel.name())

@@ -439,6 +439,20 @@ class FlintPlot(PlotWindow):
             with safeApply():
                 self.getColorBarWidget().setVisible(True)
 
+    def graphCallback(self, ddict=None):
+        """
+        Override silx function to avoid to call QToolTip.showText when a curve
+        is selected.
+        """
+        # FIXME it would be very good to remove this code and this function
+        if ddict is None:
+            ddict = {}
+        if ddict["event"] in ["legendClicked", "curveClicked"]:
+            if ddict["button"] == "left":
+                self.setActiveCurve(ddict["label"])
+        elif ddict["event"] == "mouseClicked" and ddict["button"] == "left":
+            self.setActiveCurve(None)
+
     @contextlib.contextmanager
     def userInteraction(self):
         self.__userInteraction = True

@@ -198,7 +198,7 @@ class WatchdogCallback:
     the scan.
     """
 
-    def __init__(self, watchdog_timeout=1.):
+    def __init__(self, watchdog_timeout=1.0):
         """
         watchdog_timeout -- is the maximum calling frequency of **on_timeout**
         method.
@@ -658,7 +658,10 @@ class Scan:
                 os.path.basename(scan_config["data_path"]),
             )
         self.__writer._save_images = save if save_images is None else save_images
-
+        # Double buffer pipeline for streams store
+        self._stream_pipeline_lock = gevent.lock.Semaphore()
+        self._stream_pipeline_task = None
+        self._current_pipeline_stream = None
         ### make channel names unique in the scope of the scan
         def check_acq_chan_unique_name(acq_chain):
             channels = []
@@ -714,6 +717,7 @@ class Scan:
         self._preset_list = list()
         self.__node = None
         self.__comments = list()  # user comments
+        self._exception = None
 
     def _create_data_node(self, node_name):
         self.__node = _create_node(
@@ -750,6 +754,8 @@ class Scan:
 
             node_name = str(self.__scan_number) + "_" + self.name
             self._create_data_node(node_name)
+            self._current_pipeline_stream = self.root_node.db_connection.pipeline()
+            self._pending_watch_callback = weakref.WeakKeyDictionary()
 
     def __repr__(self):
         return "Scan(number={}, name={}, path={})".format(
@@ -1007,9 +1013,45 @@ class Scan:
 
     def _channel_event(self, event_dict, signal=None, sender=None):
         with KillMask():
-            self.nodes[sender].store(event_dict)
+            with self._stream_pipeline_lock:
+                self.nodes[sender].store(event_dict, cnx=self._current_pipeline_stream)
+                pending = self._pending_watch_callback.setdefault(
+                    self._current_pipeline_stream, list()
+                )
+                pending.append((signal, sender))
+        self._swap_pipeline()
 
-        self.__trigger_data_watch_callback(signal, sender)
+    def _pipeline_execute(self, pipeline, trigger_func):
+        while True:
+            try:
+                pipeline.execute()
+                for event in self._pending_watch_callback.get(pipeline, list()):
+                    trigger_func(*event)
+            except:
+                raise
+            else:
+                if not len(self._current_pipeline_stream):
+                    break
+                new_pipeline = self.root_node.db_connection.pipeline()
+                pipeline = self._current_pipeline_stream
+                self._current_pipeline_stream = new_pipeline
+
+    def _swap_pipeline(self):
+        with self._stream_pipeline_lock:
+            if not self._stream_pipeline_task and len(self._current_pipeline_stream):
+                if self._stream_pipeline_task is not None:
+                    # raise error in case of problem
+                    self._stream_pipeline_task.get()
+
+                task = gevent.spawn(
+                    self._pipeline_execute,
+                    self._current_pipeline_stream,
+                    self.__trigger_data_watch_callback,
+                )
+
+                self._stream_pipeline_task = task
+                self._current_pipeline_stream = self.root_node.db_connection.pipeline()
+            return self._stream_pipeline_task
 
     def set_ttl(self):
         for node in self.nodes.values():
@@ -1018,6 +1060,9 @@ class Scan:
 
     def _device_event(self, event_dict=None, signal=None, sender=None):
         if signal == "end":
+            task = self._swap_pipeline()
+            if task is not None:
+                task.join()
             self.__trigger_data_watch_callback(signal, sender, sync=True)
 
     def _prepare_channels(self, channels, parent_node):
@@ -1211,6 +1256,9 @@ class Scan:
                                 gevent.joinall(stop_task)
                             gevent.killall(stop_task)
                             raise
+        except Exception as e:
+            self._exception = e
+            raise
         finally:
             with capture_exceptions(raise_index=0) as capture:
                 with capture():
@@ -1231,14 +1279,22 @@ class Scan:
                         # update scan_info in redis
                         self.node._info.update(self.scan_info)
 
-                with capture():
-                    self.set_ttl()
-
-                self.node.end()
+                # wait the end of publishing
+                # should be already finished.
+                stream_task = self._swap_pipeline()
+                if stream_task is not None:
+                    with capture():
+                        stream_task.get()
+                self._current_pipeline_stream = None
+                # Store end event before setting the ttl
+                self.node.end(exception=self._exception)
 
                 self._scan_info["end_time"] = self.node.info["end_time"]
                 self._scan_info["end_time_str"] = self.node.info["end_time_str"]
                 self._scan_info["end_timestamp"] = self.node.info["end_timestamp"]
+
+                with capture():
+                    self.set_ttl()
 
                 # Close nodes
                 for node in self.nodes.values():

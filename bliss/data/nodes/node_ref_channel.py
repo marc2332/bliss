@@ -7,6 +7,7 @@
 
 from bliss.data.nodes.channel import ChannelDataNode
 from bliss.data.node import get_node, get_nodes
+from bliss.data.events import EventData
 import numpy
 
 
@@ -19,33 +20,12 @@ class NodeRefChannel(ChannelDataNode):
 
     _NODE_TYPE = "node_ref_channel"
 
-    def get(self, from_index, to_index=None):
-        """
-        Return the data nodes according to the references stored in this channel 
-
-        **from_index** from which image index you want to get
-        **to_index** to which index you want images
-            if to_index is None => only one image which as index from_index
-            if to_index < 0 => to the end of acquisition
-        """
-        if to_index is None:
-            return get_node(ChannelDataNode.get(self, from_index))
-        else:
-            return get_nodes(*ChannelDataNode.get(self, from_index, to_index))
-
-    def store(self, event_dict):
-        self._create_queue()
-
-        data = event_dict.get("data")
-        self.info.update(event_dict["description"])
-        shape = event_dict["description"]["shape"]
-
-        if type(data) is numpy.ndarray:
-            if len(shape) == data.ndim:
-                self._queue.append(data)
-            else:
-                self._queue.extend(data)
-        elif type(data) is list or type(data) is tuple:
-            self._queue.extend(data)
-        else:
-            self._queue.append(data)
+    def decode_raw_events(self, events):
+        event_data = super().decode_raw_events(events)
+        nodes = get_nodes(*event_data.data)
+        return EventData(
+            first_index=event_data.first_index,
+            data=nodes,
+            description=event_data.description,
+            block_size=event_data.block_size,
+        )

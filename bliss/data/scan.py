@@ -15,8 +15,6 @@ from bliss.common.axis import Axis
 from bliss.data.nodes.scan import get_data_from_nodes
 from bliss.data.node import DataNodeIterator, _get_or_create_node
 
-_SCAN_EVENT = enum.IntEnum("SCAN_EVENT", "NEW NEW_CHILD NEW_DATA END")
-
 
 def get_counter_names(scan):
     """

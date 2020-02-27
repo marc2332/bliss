@@ -20,11 +20,11 @@ A data node has 3 Redis keys to represent it:
 
 {db_name} -> Struct { name, db_name, node_type, parent=(parent db_name) }
 {db_name}_info -> HashObjSetting, free dictionary
-{db_name}_children -> QueueSetting, list of db names
+{db_name}_children -> DataStream, list of db names
 
 The channel data node extends the structure above with:
 
-{db_name}_channel -> QueueSetting, list of channel values
+{db_name}_channel -> DataStream, list of channel values
 
 When a Lima channel is published:
 
@@ -39,12 +39,12 @@ When a Lima channel is published:
 {db_name}_info -> HashObjSetting with some extra keys like reference: True
 {db_name}_data -> QueueObjSetting, list of reference data ; first item is the 'live' reference
 """
+import time
 import datetime
 import enum
 import inspect
 import pkgutil
 import os
-import re
 import weakref
 import gevent
 from sortedcontainers import SortedSet
@@ -53,7 +53,9 @@ from bliss.common.event import dispatcher
 from bliss.common.utils import grouped
 from bliss.common.greenlet_utils import protect_from_kill, AllowKill
 from bliss.config.conductor import client
-from bliss.config.settings import Struct, QueueSetting, HashObjSetting, scan
+from bliss.config import settings
+from bliss.config.streaming import DataStream, stream_setting_read, stream_decr_index
+from bliss.data.events import Event, EventType
 
 
 def is_zerod(node):
@@ -66,6 +68,8 @@ def to_timestamp(dt, epoch=None):
     td = dt - epoch
     return td.microseconds / float(10 ** 6) + td.seconds + td.days * 86400
 
+
+SCAN_TYPES = set(("scan", "scan_group"))
 
 # make list of available plugins for generating DataNode objects
 node_plugins = dict()
@@ -110,7 +114,7 @@ def get_nodes(*db_names, **keys):
         connection = client.get_redis_connection(db=1)
     pipeline = connection.pipeline()
     for db_name in db_names:
-        data = Struct(db_name, connection=pipeline)
+        data = settings.Struct(db_name, connection=pipeline)
         data.name
         data.node_type
     return [
@@ -138,7 +142,7 @@ def sessions_list():
     Session may or may not be running.
     """
     session_names = []
-    for node_name in scan(
+    for node_name in settings.scan(
         "*_children_list", connection=client.get_redis_connection(db=1)
     ):
         if node_name.find(":") > -1:  # can't be a session node
@@ -165,18 +169,18 @@ def _get_or_create_node(name, node_type=None, parent=None, connection=None, **ke
 
 
 class DataNodeIterator(object):
-    NEW_CHILD_REGEX = re.compile(r"^__keyspace@.*?:(.*)_children_list$")
-    NEW_DATA_IN_CHANNEL_REGEX = re.compile(r"^__keyspace@.*?:(.*)_data$")
-    SCAN_EVENTS_REGEX = re.compile(r"^__scans_events__:(.+)$")
-    EVENTS = enum.Enum("event", "NEW_NODE NEW_DATA_IN_CHANNEL END_SCAN EXTERNAL_EVENT")
-
-    def __init__(self, node, last_child_id=None, wakeup_fd=None):
+    def __init__(self, node):
         self.node = node
-        self.last_child_id = dict() if last_child_id is None else last_child_id
-        self.wakeup_fd = wakeup_fd
 
     @protect_from_kill
-    def walk(self, filter=None, wait=True, ready_event=None):
+    def walk(
+        self,
+        filter=None,
+        wait=True,
+        stream_stop_reading_handler=None,
+        stream_status=None,
+        first_index="0",
+    ):
         """Iterate over child nodes that match the `filter` argument
 
            If wait is True (default), the function blocks until a new node appears
@@ -188,240 +192,307 @@ class DataNodeIterator(object):
             filter = (filter,)
         elif filter:
             filter = tuple(filter)
-
-        if wait:
-            pubsub = self.children_event_register()
-
-        db_name = self.node.db_name
-        self.last_child_id[db_name] = 0
-
-        if filter is None or self.node.type in filter:
-            with AllowKill():
-                yield self.node
-
-        data_node_2_children = self._get_grandchildren(db_name)
-        all_nodes_names = list()
-        for children_name in data_node_2_children.values():
-            all_nodes_names.extend(children_name)
-
-        data_nodes = {
-            name: node
-            for name, node in zip(all_nodes_names, get_nodes(*all_nodes_names))
-            if node is not None
-        }
-        # should be convert to yield from
-        pipeline = self.node.db_connection.pipeline()
-        for n in self.__internal_walk(
-            db_name, data_nodes, data_node_2_children, filter, pipeline
-        ):
-            with AllowKill():
-                yield n
-        pipeline.execute()
-
-        if ready_event is not None:
-            ready_event.set()
-
-        if wait:
-            yield from (
-                value
-                for event_type, value in self.wait_for_event(pubsub, filter)
-                if event_type is self.EVENTS.NEW_NODE
+        stream2nodes = weakref.WeakKeyDictionary()
+        with stream_setting_read(
+            block=0 if wait else None,
+            stream_stop_reading_handler=stream_stop_reading_handler,
+            stream_status=stream_status,
+        ) as reader:
+            yield from self._loop_on_event(
+                reader, stream2nodes, filter, first_index, self._iter_new_child
             )
 
-    def __internal_walk(
-        self, db_name, data_nodes, data_node_2_children, filter, pipeline
+    def _loop_on_event(
+        self,
+        reader,
+        stream2nodes,
+        filter,
+        first_index,
+        new_child_func,
+        new_data_event=False,
     ):
-        for i, child_name in enumerate(data_node_2_children.get(db_name, list())):
-            self.last_child_id[db_name] = i + 1
-            child_node = data_nodes.get(child_name)
-            if child_node is None:
-                pipeline.lrem("%s_children_list" % db_name, 0, child_name)
-                continue
-            if filter is None or child_node.type in filter:
-                yield child_node
-            if child_name == db_name:
-                continue
-            # walk to the tree leaf
-            yield from self.__internal_walk(
-                child_name, data_nodes, data_node_2_children, filter, pipeline
+        children_stream = DataStream(
+            f"{self.node.db_name}_children_list", connection=self.node.connection
+        )
+        reader.add_streams(children_stream, first_index=first_index)
+        self._add_existing_children(
+            reader,
+            stream2nodes,
+            f"{self.node.db_name}:",
+            first_index,
+            filter_scan=self.node.type not in SCAN_TYPES,
+        )
+        # In case the node is a scan we register also to the end of the scan
+        if self.node.type in SCAN_TYPES:
+            # also register for new data
+            if new_data_event:
+                data_stream_name = list(
+                    settings.scan(
+                        f"{self.node.db_name}:*_data", connection=self.node.connection
+                    )
+                )
+                child_nodes = get_nodes(
+                    *(name[: -len("_data")] for name in data_stream_name)
+                )
+                data_streams = {
+                    DataStream(name, connection=self.node.connection): node
+                    for name, node in zip(data_stream_name, child_nodes)
+                }
+                stream2nodes.update(data_streams)
+                reader.add_streams(*data_streams, first_index=0)
+            scan_data_stream = DataStream(
+                f"{self.node.db_name}_data", connection=self.node.connection
             )
-
-    def _get_grandchildren(self, db_name):
-        # grouped all redis request here and cache them
-        # get all children queue
-        children_queue = [
-            x
-            for x in scan(
-                "%s*_children_list" % db_name, connection=self.node.db_connection
+            stream2nodes[scan_data_stream] = self.node
+            reader.add_streams(scan_data_stream, first_index=0, priority=1)
+        elif new_data_event:
+            data_stream = DataStream(
+                f"{self.node.db_name}_data", connection=self.node.connection
             )
-        ]
+            stream2nodes[data_stream] = self.node
+            reader.add_streams(data_stream, first_index=0)
 
-        # get all the container node name
-        data_node_containers_names = [
-            x[: x.rfind("_children_list")] for x in children_queue
-        ]
+        for stream, events in reader:
+            if stream.name.endswith("_children_list"):
+                children = {
+                    value.get(self.node.CHILD_KEY).decode(): index
+                    for index, value in events
+                }
+                new_stream = [
+                    DataStream(f"{name}_children_list", connection=self.node.connection)
+                    for name in children
+                ]
+                reader.add_streams(*new_stream, first_index=first_index)
+                yield from new_child_func(
+                    reader, stream2nodes, filter, stream, children, first_index
+                )
+            else:
+                node = stream2nodes.get(stream)
+                # New event on scan
+                if node and node.type in SCAN_TYPES:
+                    for index, values in events:
+                        ev = values.get(node.EVENT_TYPE_KEY, "")
+                        if ev == node.END_EVENT:
+                            if new_data_event:
+                                with AllowKill():
+                                    yield Event(type=EventType.END_SCAN, node=node)
+                            reader.remove_match_streams(f"{node.db_name}*")
+                elif node is not None:
+                    data = node.decode_raw_events(events)
+                    with AllowKill():
+                        yield Event(type=EventType.NEW_DATA, node=node, data=data)
 
-        # get all children for all container
-        pipeline = self.node.db_connection.pipeline()
-        for name in children_queue:
-            pipeline.lrange(name, 0, -1)
-        data_node_2_children = {
-            node_name: [child.decode() for child in SortedSet(children)]
-            for node_name, children in zip(
-                data_node_containers_names, pipeline.execute()
+    def _iter_new_child(
+        self, reader, stream2nodes, filter, stream, children, first_index
+    ):
+        with settings.pipeline(stream):
+            for (child_name, index), new_child in zip(
+                children.items(), get_nodes(*children)
+            ):
+                if new_child is not None:
+                    if filter is None or new_child.type in filter:
+                        with AllowKill():
+                            yield new_child
+                    if new_child.type in SCAN_TYPES:
+                        self._add_existing_children(
+                            reader, stream2nodes, child_name, first_index
+                        )
+                        # Watching END scan event to clear all streams link with this scan
+                        data_stream = DataStream(
+                            f"{child_name}_data", connection=self.node.connection
+                        )
+                        stream2nodes[data_stream] = new_child
+                        reader.add_streams(data_stream, first_index=0)
+
+                else:
+                    stream.remove(index)
+
+    def _iter_new_child_with_data(
+        self, reader, stream2nodes, filter, stream, children, first_index
+    ):
+        with settings.pipeline(stream):
+            for (child_name, index), new_child in zip(
+                children.items(), get_nodes(*children)
+            ):
+                if new_child is not None:
+                    if filter is None or new_child.type in filter:
+                        if new_child.type not in SCAN_TYPES:
+                            data_stream = DataStream(
+                                f"{child_name}_data", connection=self.node.connection
+                            )
+                            stream2nodes[data_stream] = new_child
+                            reader.add_streams(data_stream, first_index=0)
+                        with AllowKill():
+                            yield Event(type=EventType.NEW_NODE, node=new_child)
+                    if new_child.type in SCAN_TYPES:
+                        # Need to listen all data streams already known
+                        self._add_existing_children(
+                            reader, stream2nodes, child_name, first_index
+                        )
+                        data_stream_names = list(
+                            settings.scan(
+                                f"{child_name}:*_data", connection=self.node.connection
+                            )
+                        )
+                        new_sub_child_streams = list()
+                        for sub_child_name, sub_child_node in zip(
+                            data_stream_names,
+                            get_nodes(*(x[: -len("_data")] for x in data_stream_names)),
+                        ):
+                            if sub_child_node is not None:
+                                if filter is None or sub_child_node.type in filter:
+                                    if sub_child_node.type in SCAN_TYPES:
+                                        continue
+
+                                    data_stream = DataStream(
+                                        sub_child_name, connection=self.node.connection
+                                    )
+                                    stream2nodes[data_stream] = sub_child_node
+                                    new_sub_child_streams.append(data_stream)
+                        if new_sub_child_streams:
+                            reader.add_streams(*new_sub_child_streams, first_index=0)
+
+                        # In case of scan we must put the listening of it (its stream)
+                        # At the ends of all streams of that branch
+                        # otherwise SCAN_END arrive before other datas.
+                        # so stream priority == 1
+                        # Watching END scan event to clear all streams link with this scan
+                        data_stream = DataStream(
+                            f"{child_name}_data", connection=self.node.connection
+                        )
+                        stream2nodes[data_stream] = new_child
+                        reader.add_streams(data_stream, first_index=0, priority=1)
+                else:
+                    stream.remove(index)
+
+    def _add_existing_children(
+        self, reader, stream2nodes, parent_db_name, first_index, filter_scan=False
+    ):
+        """
+        Adding already known children stream for this parent
+        """
+
+        def depth_sort(s):
+            return s.count(":")
+
+        streams_names = sorted(
+            settings.scan(
+                f"{parent_db_name}*_children_list", connection=self.node.connection
+            ),
+            key=depth_sort,
+        )
+        if filter_scan:
+            # We don't add scan nodes and underneath
+            child_node = get_nodes(
+                *(name[: -len("_children_list")] for name in streams_names)
             )
-        }
-        return data_node_2_children
+            scan_names = list(n.db_name for n in child_node if n.type in SCAN_TYPES)
+            children_stream = list()
+            for stream_name in streams_names:
+                for scan_name in scan_names:
+                    if stream_name.startswith(scan_name):
+                        break
+                else:
+                    children_stream.append(
+                        DataStream(stream_name, connection=self.node.connection)
+                    )
+        else:
+            children_stream = (
+                DataStream(stream_name, connection=self.node.connection)
+                for stream_name in streams_names
+            )
+        reader.add_streams(*children_stream, first_index=first_index)
 
     @protect_from_kill
     def walk_from_last(
-        self, filter=None, wait=True, include_last=True, ready_event=None
+        self,
+        filter=None,
+        wait=True,
+        include_last=True,
+        stream_stop_reading_handler=None,
     ):
         """Walk from the last child node (see walk)
         """
-        if wait:
-            pubsub = self.children_event_register()
-
-        last_node = None
+        stream_status = dict()
+        first_index = int(time.time() * 1000)
         if include_last:
-            for last_node in self.walk(filter, wait=False):
-                pass
-        else:
-            self.jumpahead()
-
-        if last_node is not None:
-            if include_last:
-                yield last_node
-
-        if ready_event is not None:
-            ready_event.set()
-
-        if wait:
-            yield from (
-                node
-                for event_type, node in self.wait_for_event(pubsub, filter=filter)
-                if event_type is self.EVENTS.NEW_NODE
+            children_stream = DataStream(
+                f"{self.node.db_name}_children_list", connection=self.node.connection
             )
+            children = children_stream.rev_range(count=1)
+            if children:
+                last_index, _ = children[-1]
+                last_index = stream_decr_index(last_index)
+                last_node = None
+                for last_node in self.walk(
+                    filter,
+                    wait=False,
+                    stream_status=stream_status,
+                    first_index=last_index,
+                ):
+                    pass
+                if last_node is not None:
+                    yield last_node
+                    parent = last_node.parent
+                    children_stream = DataStream(
+                        f"{parent.db_name}_children_list",
+                        connection=self.node.connection,
+                    )
+                    # look for the last_node
+                    for index, child_info in children_stream.rev_range():
+                        db_name = child_info.get(parent.CHILD_KEY, b"").decode()
+                        if db_name == last_node.db_name:
+                            break
+                    else:
+                        raise RuntimeError("Something weird happen")
+                    first_index = index
+        yield from self.walk(
+            filter,
+            wait=wait,
+            stream_status=stream_status,
+            first_index=first_index,
+            stream_stop_reading_handler=stream_stop_reading_handler,
+        )
 
-    def jumpahead(self):
-        """Move the iterator to the last available node so that only new nodes will be concerned"""
-        db_name = self.node.db_name
-        data_node_2_children = self._get_grandchildren(db_name)
-        self.last_child_id = {
-            db_name: len(children) for db_name, children in data_node_2_children.items()
-        }
-
-    def walk_on_new_events(self, filter=None):
+    def walk_on_new_events(
+        self, filter=None, stream_status=None, stream_stop_reading_handler=None
+    ):
         """Yields future events"""
-
-        pubsub = self.children_event_register()
-
-        self.jumpahead()
-
-        yield from self.wait_for_event(pubsub, filter=filter)
-
-    def walk_events(self, filter=None, ready_event=None):
-        """Walk through child nodes, just like `walk` function, yielding node events
-        (like EVENTS.NEW_NODE or EVENTS.NEW_DATA_IN_CHANNEL) instead of node objects
-        """
-        pubsub = self.children_event_register()
-
-        for node in self.walk(filter, wait=False):
-            yield self.EVENTS.NEW_NODE, node
-            if DataNode.exists("%s_data" % node.db_name):
-                yield self.EVENTS.NEW_DATA_IN_CHANNEL, node
-
-        if ready_event is not None:
-            ready_event.set()
-
-        yield from self.wait_for_event(pubsub, filter=filter)
-
-    def children_event_register(self):
-        redis = self.node.db_connection
-        pubsub = redis.pubsub(ignore_subscribe_messages=True)
-        pubsub.psubscribe("__keyspace@1__:%s*_children_list" % self.node.db_name)
-        pubsub.psubscribe("__keyspace@1__:%s*_data" % self.node.db_name)
-        pubsub.psubscribe("__scans_events__:%s:*" % self.node.db_name)
-        return pubsub
+        yield from self.walk_events(
+            filter,
+            first_index=int(time.time() * 1000),
+            stream_status=stream_status,
+            stream_stop_reading_handler=stream_stop_reading_handler,
+        )
 
     @protect_from_kill
-    def wait_for_event(self, pubsub, filter=None):
+    def walk_events(
+        self,
+        filter=None,
+        first_index="0",
+        stream_status=None,
+        stream_stop_reading_handler=None,
+    ):
+        """Walk through child nodes, just like `walk` function,
+        yielding node events (instance of `Event`) instead of node objects
+        """
         if isinstance(filter, str):
             filter = (filter,)
         elif filter:
             filter = tuple(filter)
-
-        read_fds = [pubsub.connection._sock]
-        if self.wakeup_fd:
-            read_fds.append(self.wakeup_fd)
-
-        while True:
-            msg = pubsub.get_message(ignore_subscribe_messages=True)
-            with AllowKill():
-                if msg is None:
-                    read_event, _, _ = gevent.select.select(read_fds, [], [])
-                    if self.wakeup_fd in read_event:
-                        os.read(self.wakeup_fd, 16 * 1024)  # flush event stream
-                        yield self.EVENTS.EXTERNAL_EVENT, None
-                    continue
-
-            data = msg["data"].decode()
-            channel = msg["channel"].decode()
-            if data == "rpush":
-                new_child_event = DataNodeIterator.NEW_CHILD_REGEX.match(channel)
-                if new_child_event:
-                    parent_db_name = new_child_event.groups()[0]
-                    parent_node = get_node(parent_db_name)
-                    first_child = self.last_child_id.setdefault(parent_db_name, 0)
-                    last_db_name = ""
-                    for i, child in enumerate(parent_node.children(first_child, -1)):
-                        self.last_child_id[parent_db_name] = first_child + i + 1
-                        if filter is None or child.type in filter:
-                            if (
-                                self.last_child_id.get(child.db_name)
-                                or child.db_name == last_db_name
-                            ):
-                                # do not emit the event if 'new node' has already been sent (= has been a parent)
-                                continue
-                            last_db_name = child.db_name
-                            yield self.EVENTS.NEW_NODE, child
-                else:
-                    new_channel_event = DataNodeIterator.NEW_DATA_IN_CHANNEL_REGEX.match(
-                        channel
-                    )
-                    if new_channel_event:
-                        channel_db_name = new_channel_event.group(1)
-                        channel_node = get_node(channel_db_name)
-                        if channel_node and (
-                            filter is None or channel_node.type in filter
-                        ):
-                            yield self.EVENTS.NEW_DATA_IN_CHANNEL, channel_node
-            elif data == "lset":
-                new_channel_event = DataNodeIterator.NEW_DATA_IN_CHANNEL_REGEX.match(
-                    channel
-                )
-                if new_channel_event:
-                    channel_db_name = new_channel_event.group(1)
-                    channel_node = get_node(channel_db_name)
-                    if channel_node and (filter is None or channel_node.type in filter):
-                        yield self.EVENTS.NEW_DATA_IN_CHANNEL, channel_node
-            elif data == "lrem":
-                del_child_event = DataNodeIterator.NEW_CHILD_REGEX.match(channel)
-                if del_child_event:
-                    db_name = del_child_event.groups()[0]
-                    last_child = self.last_child_id.get(db_name, 0)
-                    if last_child > 0:
-                        last_child -= 1
-                        self.last_child_id[db_name] = last_child
-                    else:  # remove entry
-                        self.last_child_id.pop(db_name, None)
-            elif data == "END":
-                scan_event = DataNodeIterator.SCAN_EVENTS_REGEX.match(channel)
-                if scan_event:
-                    scan_db_name = scan_event.group(1)
-                    scan_node = get_node(scan_db_name)
-                    if scan_node and (filter is None or scan_node.type in filter):
-                        yield self.EVENTS.END_SCAN, scan_node
+        stream2nodes = weakref.WeakKeyDictionary()
+        with stream_setting_read(
+            stream_status=stream_status,
+            stream_stop_reading_handler=stream_stop_reading_handler,
+        ) as reader:
+            yield from self._loop_on_event(
+                reader,
+                stream2nodes,
+                filter,
+                first_index,
+                self._iter_new_child_with_data,
+                new_data_event=True,
+            )
 
 
 def set_ttl(db_name):
@@ -449,7 +520,7 @@ class DataNode:
             connection = client.get_redis_connection(db=1)
         db_name = "%s:%s" % (parent.db_name, name) if parent else name
         info_hash_name = "%s_info" % db_name
-        self._info = HashObjSetting(info_hash_name, connection=connection)
+        self._info = settings.HashObjSetting(info_hash_name, connection=connection)
         if info_dict:
             info_dict["node_name"] = db_name
             self._info.update(info_dict)
@@ -467,14 +538,14 @@ class DataNode:
         else:
             self.__new_node = False
             self._ttl_setter = None
-            self._struct = Struct(db_name, connection=connection)
+            self._struct = settings.Struct(db_name, connection=connection)
             self.__db_name = self._struct._proxy.name
 
         # node type cache
         self.node_type = node_type
 
     def _create_struct(self, db_name, name, node_type):
-        struct = Struct(db_name, connection=self.db_connection)
+        struct = settings.Struct(db_name, connection=self.db_connection)
         struct.name = name
         struct.db_name = db_name
         struct.node_type = node_type
@@ -554,6 +625,8 @@ class DataNode:
 
 
 class DataNodeContainer(DataNode):
+    CHILD_KEY = b"child"
+
     def __init__(
         self, node_type, name, parent=None, connection=None, create=False, **keys
     ):
@@ -568,38 +641,26 @@ class DataNodeContainer(DataNode):
         )
         db_name = name if parent is None else self.db_name
         children_queue_name = "%s_children_list" % db_name
-        self._children = QueueSetting(children_queue_name, connection=connection)
+        self._children = DataStream(children_queue_name, connection=connection)
 
-    def add_children(self, *child):
-        if len(child) > 1:
-            self._children.extend([c.db_name for c in child])
-        else:
-            self._children.append(child[0].db_name)
+    def add_children(self, *children):
+        for child in children:
+            self._children.add({self.CHILD_KEY: child.db_name})
 
-    def children(self, from_id=0, to_id=-1):
+    def children(self):
         """Iter over children.
 
         @return an iterator
-        @param from_id start child index
-        @param to_id last child index
         """
-        children_names = self._children.get(from_id, to_id)
-        try:
-            # replace connection with pipeline
-            saved_db_connection = self._children._cnx
-            pipeline = saved_db_connection().pipeline()
-            self._children._cnx = weakref.ref(pipeline)
-            for child_name, new_child in zip(
-                children_names, get_nodes(*children_names)
+        children = {
+            values.get(self.CHILD_KEY).decode(): index
+            for index, values in self._children.range()
+        }
+        with settings.pipeline(self._children):
+            for (child_name, index), new_child in zip(
+                children.items(), get_nodes(*children)
             ):
                 if new_child is not None:
                     yield new_child
                 else:
-                    self._children.remove(child_name)  # clean
-            pipeline.execute()
-        finally:
-            self._children._cnx = saved_db_connection
-
-    @property
-    def last_child(self):
-        return get_node(self._children.get(-1))
+                    self._children.remove(index)  # clean

@@ -22,6 +22,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     (default last scan).
 
 - Flint
+  - User choices on widget configuration are now stored in Redis
+  - Create `clean_up_user_data` function in BLISS side (`bliss.common.plot`)
+    to be able to clean up Redis from Flint corrupted data in case of problem.
   - A preferred style can be saved as default for images
   - `plotselect(diode2)` can now be used if the scan is already displayed
   - `SCAN_DISPLAY.init_next_scan_meta(display=[diode2])` can be used just before
@@ -29,6 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Provide layout menu to allow to setup predefined layouts
   - Provide menu to lock/unlock the layout (by default the layout is locked)
   - Provide workspace to be able to store plot, widget, layout in different environment
+
 - APC Rack Power Distribution Unit: implemented controller for basic relay functionalities
 
 ### Changed
@@ -45,6 +49,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Cut channels data at the end of timescan scans to enforce the same size
     - It's a workaround, but can be used for other default scan if requested
   - The layout is now stored into the Redis session
+  - All MCAs (or images) from a device are displayed inside a single widget
+    - This widget is named according to the device name (preciselly the prefix
+      of the channel name)
+  - At the start of a scan, the previous image is still displaed to avoid blinking
 
 ### Fixed
 

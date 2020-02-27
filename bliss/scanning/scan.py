@@ -301,7 +301,6 @@ class _WatchDogTask(gevent.Greenlet):
                         # reset watchdog if it wasn't restarted in between
                         if not self.__watchdog_timer:
                             self._reset_watchdog()
-                        gevent.idle()
 
                 except StopIteration:
                     break
@@ -1384,7 +1383,6 @@ class Scan:
                 break
             else:
                 event_done.set()
-                gevent.idle()
 
     def get_data(self):
         """Return a numpy array with the scan data.

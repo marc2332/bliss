@@ -19,13 +19,16 @@ scan processing.
         model.scan_model
         model.plot_model
         model.plot_item_model
+    manager
+        manager.manager
+        manager.data_storage
+        manager.scan_manager
+        manager.workspace_manager
     helper
-        helper.data_storage
-        helper.manager
+        helper.model_helper
         helper.plot_interaction
         helper.rpc_server
         helper.scan_info_helper
-        helper.scan_manager
         helper.style_helper
     resources
     simulator
@@ -33,6 +36,8 @@ scan processing.
         simulator.simulator_widget
     utils
         utils.mathutils
+        utils.qmodelutils
+        utils.qsettingsutils
         utils.signalutils
         utils.stringutils
         utils.svgutils

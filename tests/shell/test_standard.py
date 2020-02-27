@@ -1,9 +1,10 @@
 import logging
 import subprocess
+import time
 
 import pytest
 
-from bliss.shell.standard import wa, wm, sta, stm, umvr, lprint, sync
+from bliss.shell.standard import wa, wm, sta, stm, _launch_silx
 
 
 @pytest.fixture
@@ -230,3 +231,11 @@ def test_sync_lib_mode(capsys, default_session):
 
     assert returncode == 0
     assert len(err) == 0
+
+
+def test_open_silx(xvfb):
+    # checking if the process opens without stdout errors
+    process = _launch_silx()
+    time.sleep(1)
+    assert process.returncode is None
+    process.terminate()

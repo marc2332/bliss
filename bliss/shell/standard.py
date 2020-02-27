@@ -804,13 +804,18 @@ def newdataset(dataset_name=None):
 def silx_view(scan: typing.Union[scans.Scan, None] = None):
     """Open silx view on a given scan (default last scan)"""
 
-    args = f"{sys.executable} -m silx.app.view.main".split()
+    filename = None
     try:
         if scan is None:
             scan = current_session.scans[-1]
         filename = scan._scan_info["filename"]
     except IndexError:
         pass
-    else:
+    _launch_silx(filename)
+
+
+def _launch_silx(filename: typing.Union[str, None] = None):
+    args = f"{sys.executable} -m silx.app.view.main".split()
+    if filename:
         args.append(filename)
-    subprocess.Popen(args)
+    return subprocess.Popen(args)

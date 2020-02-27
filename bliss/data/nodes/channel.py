@@ -140,12 +140,18 @@ class ChannelDataNode(DataNode):
         """
         self._create_queue()
         if to_index is None:
-            redis_index = from_index + 1  # redis starts at 1
-            raw_data = self._queue.range(
-                redis_index, redis_index, cnx=self.db_connection
-            )
+            if from_index == -1:
+                raw_data = self._queue.rev_range(count=1)
+            else:
+                redis_index = from_index + 1  # redis starts at 1
+                raw_data = self._queue.range(
+                    redis_index, redis_index, cnx=self.db_connection
+                )
             data = self.raw_to_data(from_index, raw_data)
-            return data[0]
+            try:
+                return data[-1]
+            except IndexError:
+                return None
         else:
             if to_index < 0:
                 to_index = "+"  # means stream end
@@ -174,7 +180,7 @@ class ChannelDataNode(DataNode):
         first_index = event_data.first_index
         if first_index < 0:
             return []
-        if first_index != from_index:
+        if first_index != from_index and from_index > 0:
             raise RuntimeError(
                 "Data is not anymore available first_index:"
                 f"{first_index} request_index:{from_index}"

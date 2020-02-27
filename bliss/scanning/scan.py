@@ -1492,11 +1492,19 @@ class Scan:
             max_scan_number = 0
             for scan_entry in self.writer.get_scan_entries():
                 try:
+                    # TODO: this has to be removed when internal hdf5 writer
+                    # is deprecated
                     max_scan_number = max(
                         int(scan_entry.split("_")[0]), max_scan_number
                     )
-                except Exception:
-                    continue
+                except ValueError:
+                    # the following is the good code for the Nexus writer
+                    try:
+                        max_scan_number = max(
+                            int(scan_entry.split(".")[0]), max_scan_number
+                        )
+                    except Exception:
+                        continue
             name = parent_node.db_name
             with pipeline(parent_node._struct) as p:
                 p.hsetnx(name, LAST_SCAN_NUMBER, max_scan_number)

@@ -212,7 +212,15 @@ class TestImagePlot(TestCaseQt):
         widget.setScan(scan2)
         silxPlot = widget._silxPlot()
         self.qWait(1000)
+        # The previous image is still displayed
+        assert len(silxPlot.getItems()) > self.NB_PERMANENT_ITEM
+
+        # Until the end of the scan
+        scan2.scanFinished.emit()
+        self.qWait(1000)
+        silxPlot = widget._silxPlot()
         assert len(silxPlot.getItems()) == self.NB_PERMANENT_ITEM
+
         widget.close()
 
     def test_display_image_2(self):

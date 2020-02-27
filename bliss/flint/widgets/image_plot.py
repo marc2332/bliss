@@ -97,6 +97,16 @@ class ImagePlotWidget(ExtendedDockWidget):
         self.__maxMarker.setZValue(0.1)
         self.__maxMarker.setName("max")
 
+        self.__hasPreviousImage: bool = False
+        """Remember that there was an image before this scan, to avoid to
+        override the title at startup and waiting for the first image"""
+        self.__imageReceived = 0
+        """Count the received image for this scan to allow to clean up the
+        screen in the end if nothing was received"""
+        self.__lastSubTitle = None
+        """Remembers the last subtitle in case it have to be reuse when
+        displaying the data from the previous scan"""
+
         self.__permanentItems = [
             self.__tooltipManager.marker(),
             self.__minMarker,
@@ -257,6 +267,10 @@ class ImagePlotWidget(ExtendedDockWidget):
             self.__scan.scanFinished.disconnect(
                 self.__aggregator.callbackTo(self.__scanFinished)
             )
+            self.__updatePreviousScanData()
+            self.__hasPreviousImage = True
+        else:
+            self.__hasPreviousImage = False
         self.__scan = scan
         if self.__scan is not None:
             self.__scan.scanDataUpdated[object].connect(
@@ -271,7 +285,11 @@ class ImagePlotWidget(ExtendedDockWidget):
             if self.__scan.state() != scan_model.ScanState.INITIALIZED:
                 self.__updateTitle(self.__scan)
         self.scanModelUpdated.emit(scan)
-        self.__redrawAll()
+
+        # Note: No redraw here to avoid blinking of the image
+        # The image title is explicitly tagged as "outdated"
+        # To avoid mistakes
+        self.__redrawAllIfNeeded()
 
     def __clear(self):
         self.__items = {}
@@ -280,9 +298,11 @@ class ImagePlotWidget(ExtendedDockWidget):
             self.__plot.addItem(o)
 
     def __scanStarted(self):
+        self.__imageReceived = 0
         self.__refreshManager.scanStarted()
         self.__view.scanStarted()
-        self.__updateTitle(self.__scan)
+        if not self.__hasPreviousImage:
+            self.__updateTitle(self.__scan)
 
     def __formatItemTitle(self, scan: scan_model.Scan, item=None):
         if item is None:
@@ -299,20 +319,38 @@ class ImagePlotWidget(ExtendedDockWidget):
                 frameInfo = ", frame id: %s" % data.frameId()
         return f"{displayName}{frameInfo}"
 
+    def __updatePreviousScanData(self):
+        """Set the plot title when the plot have to display at start the data
+        from the previous scan"""
+        title = "From previous scan"
+        subtitle = None
+        if self.__lastSubTitle is not None:
+            subtitle = self.__lastSubTitle
+        if subtitle is not None:
+            title = f"{title}\n{subtitle}"
+        self.__plot.setGraphTitle(title)
+
     def __updateTitle(self, scan: scan_model.Scan, item=None):
         title = scan_info_helper.get_full_title(scan)
+        subtitle = None
         itemTitle = self.__formatItemTitle(scan, item)
+        self.__lastSubTitle = itemTitle
         if itemTitle is not None:
-            title = f"{title}\n{itemTitle}"
+            subtitle = f"{itemTitle}"
+        if subtitle is not None:
+            title = f"{title}\n{subtitle}"
         self.__plot.setGraphTitle(title)
 
     def __scanFinished(self):
         self.__refreshManager.scanFinished()
+        if self.__imageReceived == 0:
+            self.__cleanAll()
 
     def __scanDataUpdated(self, event: scan_model.ScanDataUpdateEvent):
         plotModel = self.__plotModel
         if plotModel is None:
             return
+        self.__imageReceived += 1
         for item in plotModel.items():
             if isinstance(item, plot_item_model.ImageItem):
                 channelName = item.imageChannel().name()
@@ -332,6 +370,22 @@ class ImagePlotWidget(ExtendedDockWidget):
         for description in itemKeys:
             self.__plot.remove(description.key, description.kind)
         return True
+
+    def __redrawAllIfNeeded(self):
+        plotModel = self.__plotModel
+        if plotModel is None:
+            self.__cleanAll()
+            return
+
+        for item in plotModel.items():
+            if not isinstance(item, plot_item_model.ImageItem):
+                continue
+            if not item.isVisible():
+                continue
+            data = item.imageChannel().data(self.__scan)
+            if data is None:
+                continue
+            self.__redrawAll()
 
     def __redrawAll(self):
         self.__cleanAll()

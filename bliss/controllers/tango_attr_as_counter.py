@@ -202,7 +202,7 @@ class tango_attr_as_counter(SamplingCounter):
         # DISPLAY_UNIT
         # Use 'display_unit' as conversion factor if present in Tango configuration.
         tango_display_unit = _tango_attr_config.display_unit
-        if tango_display_unit != "No display unit":
+        if tango_display_unit != "None" and tango_display_unit != "No display unit":
             self.conversion_factor = float(tango_display_unit)
         else:
             self.conversion_factor = 1

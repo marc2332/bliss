@@ -594,9 +594,16 @@ class CurvePlotPropertyWidget(qt.QWidget):
 
         toolBar = self.__createToolBar()
 
+        self.__tree.setFrameShape(qt.QFrame.NoFrame)
+        line = qt.QFrame(self)
+        line.setFrameShape(qt.QFrame.HLine)
+        line.setFrameShadow(qt.QFrame.Sunken)
+
         layout = qt.QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
         layout.addWidget(toolBar)
+        layout.addWidget(line)
         layout.addWidget(self.__tree)
 
     def __removeAllItems(self):
@@ -618,7 +625,7 @@ class CurvePlotPropertyWidget(qt.QWidget):
         toolBar.addAction(action)
 
         action = qt.QAction(self)
-        icon = icons.getQIcon("flint:icons/remove-item")
+        icon = icons.getQIcon("flint:icons/remove-all-items")
         action.setIcon(icon)
         action.setToolTip("Remove all the items from the plot")
         action.triggered.connect(self.__removeAllItems)

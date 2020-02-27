@@ -158,6 +158,7 @@ from bliss import current_session
 from bliss.config.conductor.client import get_default_connection
 from bliss.flint.config import get_flint_key
 from bliss.common import event
+from bliss.flint import config as flint_config
 
 try:
     from bliss.flint import poll_patch
@@ -926,6 +927,27 @@ plot = default_plot
 
 
 # Plotting: multi curves draw context manager
+
+
+def clean_up_user_data():
+    """Helper to clean up the data stored in Redis and used by Flint.
+
+    Flint should be able to deal with durty data, but in case of stronger
+    problem this could help a lot (for example if the layout is really broken).
+
+    As result all the saved user preferences will be lost.
+    """
+    session_name = current_session.name
+    key = flint_config.get_workspace_key(session_name)
+
+    beacon = get_default_connection()
+    redis = beacon.get_redis_connection()
+
+    # get existing flint, if any
+    pattern = f"{key}*"
+    for key in redis.scan_iter(pattern):
+        key = key.decode()
+        redis.delete(key)
 
 
 @contextlib.contextmanager

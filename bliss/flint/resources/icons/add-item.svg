@@ -14,12 +14,13 @@
  <g id="g843" transform="translate(-34.36 -7.0998)">
   <path id="path4693-1" d="m50.401 10.659v26.711" fill="none" stroke="#00a14b" stroke-dasharray="2.37510014, 2.37510014" stroke-width="2.3751"/>
   <g id="g899" transform="translate(39.007 -3.5796)" stroke="#000">
-   <g id="g888" transform="translate(-3.2784 2.6943)" fill="none" stroke="#000" stroke-width=".15">
-    <g id="g865" transform="translate(.8631 13.263)" fill="#000" stroke="#000" stroke-miterlimit="10" stroke-width=".5" style="font-variant-east_asian:normal">
-     <rect id="rect861" x="24.483" y="7.225" width="1.239" height="8.379" style="font-variant-east_asian:normal"/>
-     <rect id="rect863" x="20.913" y="10.796" width="8.38" height="1.237" style="font-variant-east_asian:normal"/>
-    </g>
-   </g>
+   <g id="g888" transform="translate(-3.2784 2.6943)" fill="none" stroke="#000" stroke-width=".15"></g>
+  </g>
+ </g>
+ <g id="g843-9" transform="matrix(0 1.2665 -1.2665 0 58.698 -68.249)">
+  <g id="g862">
+   <rect id="rect861-1" x="63.162" y="22.074" width="1.8382" height="8.5947" ry="0"/>
+   <rect id="rect861-5" transform="rotate(90)" x="25.452" y="-68.379" width="1.8382" height="8.5947" ry="0"/>
   </g>
  </g>
 </svg>

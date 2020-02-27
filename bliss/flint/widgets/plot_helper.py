@@ -439,6 +439,20 @@ class FlintPlot(PlotWindow):
             with safeApply():
                 self.getColorBarWidget().setVisible(True)
 
+    def graphCallback(self, ddict=None):
+        """
+        Override silx function to avoid to call QToolTip.showText when a curve
+        is selected.
+        """
+        # FIXME it would be very good to remove this code and this function
+        if ddict is None:
+            ddict = {}
+        if ddict["event"] in ["legendClicked", "curveClicked"]:
+            if ddict["button"] == "left":
+                self.setActiveCurve(ddict["label"])
+        elif ddict["event"] == "mouseClicked" and ddict["button"] == "left":
+            self.setActiveCurve(None)
+
     @contextlib.contextmanager
     def userInteraction(self):
         self.__userInteraction = True
@@ -573,10 +587,9 @@ class FlintScatter(Scatter, _FlintItemMixIn):
         char = self._getColoredChar(value, data, flintModel)
 
         text = f"""
-            <li><b>Index:</b> {index}</li>
-            <li><b>{xName}:</b> {x}</li>
-            <li><b>{yName}:</b> {y}</li>
-            <li><b>{vName}:</b> {char} {value}</li>
+            <li style="white-space:pre">{char} <b>{vName}:</b> {value} (index {index})</li>
+            <li style="white-space:pre">     <b>{yName}:</b> {y}</li>
+            <li style="white-space:pre">     <b>{xName}:</b> {x}</li>
         """
         return x, y, text
 
@@ -747,9 +760,11 @@ class TooltipItemManager:
                 dist = abs(pos[0] - mouse[0]) + abs(pos[1] - mouse[1])
                 if dist < 3:
                     yield index
+                    return
         elif isinstance(item, Scatter):
             for index in indices:
                 yield index
+                return
         else:
             assert False
 

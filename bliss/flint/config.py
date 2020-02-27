@@ -70,7 +70,7 @@ def configure_parser_arguments(parser: ArgumentParser):
     )
 
 
-def get_flint_key(pid=None):
+def get_flint_key(pid=None) -> str:
     """Reach the key name storing the address of the RPC server
     providing access to the flint API.
     """
@@ -79,3 +79,9 @@ def get_flint_key(pid=None):
     if pid is None:
         pid = os.getpid()
     return f"flint:{hostname}:{username}:{pid}"
+
+
+def get_workspace_key(session_name: str) -> str:
+    """Returns the base key prefix used to store workspace information in Redis
+    """
+    return f"flint.{session_name}.workspace"

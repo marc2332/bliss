@@ -37,7 +37,20 @@ class MainPropertyWidget(ExtendedDockWidget):
         self.__focusWidget = None
         self.__stack = _Stack(self)
         self.__stack.setSizePolicy(qt.QSizePolicy.Preferred, qt.QSizePolicy.Expanding)
-        self.setWidget(self.__stack)
+
+        # Try to improve the look and feel
+        # FIXME: THis should be done with stylesheet
+        frame = qt.QFrame(self)
+        frame.setFrameShape(qt.QFrame.StyledPanel)
+        layout = qt.QVBoxLayout(frame)
+        layout.addWidget(self.__stack)
+        layout.setContentsMargins(0, 0, 0, 0)
+        widget = qt.QFrame(self)
+        layout = qt.QVBoxLayout(widget)
+        layout.addWidget(frame)
+        layout.setContentsMargins(0, 1, 0, 0)
+        self.setWidget(widget)
+
         self.__stack.setWidget(self.createEmptyWidget(self))
 
     def createEmptyWidget(self, parent: qt.QWidget):

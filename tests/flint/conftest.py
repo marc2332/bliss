@@ -56,7 +56,13 @@ def flint_norpc(xvfb, beacon):
 def local_flint(xvfb):
     """Registed expected things
     """
+    from silx.gui import qt
     from bliss.flint import resources
 
+    app = qt.QApplication.instance()
+    if app is None:
+        app = qt.QApplication([])
     resources.silx_integration()
     yield
+    if app is not None:
+        app.closeAllWindows()

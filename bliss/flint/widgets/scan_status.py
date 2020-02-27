@@ -130,8 +130,20 @@ class ScanStatus(ExtendedDockWidget):
 
         self.__scanWidgets: List[_SingleScanStatus] = []
 
-        self.setWidget(self.__widget)
-        self.__widget.setSizePolicy(qt.QSizePolicy.Preferred, qt.QSizePolicy.Preferred)
+        # Try to improve the look and feel
+        # FIXME: THis should be done with stylesheet
+        frame = qt.QFrame(self)
+        frame.setFrameShape(qt.QFrame.StyledPanel)
+        layout = qt.QVBoxLayout(frame)
+        layout.addWidget(self.__widget)
+        layout.setContentsMargins(0, 0, 0, 0)
+        widget = qt.QFrame(self)
+        layout = qt.QVBoxLayout(widget)
+        layout.addWidget(frame)
+        layout.setContentsMargins(0, 1, 0, 0)
+        self.setWidget(widget)
+
+        widget.setSizePolicy(qt.QSizePolicy.Preferred, qt.QSizePolicy.Preferred)
 
         self.__flintModel: Optional[flint_model.FlintState] = None
 

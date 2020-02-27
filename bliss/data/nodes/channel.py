@@ -237,7 +237,13 @@ class ChannelDataNode(DataNode):
 
     def __len__(self):
         self._create_queue()
-        return len(self._queue)
+        # fetching last event
+        # using last index as old queue-len
+        raw_event = self._queue.rev_range(count=1)
+        if not raw_event:
+            return 0
+        event_data = self.decode_raw_events(raw_event)
+        return event_data.first_index + event_data.block_size
 
     @property
     def shape(self):

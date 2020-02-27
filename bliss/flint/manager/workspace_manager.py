@@ -131,7 +131,8 @@ class WorkspaceData(dict):
                 widget.setConfiguration(data.config)
 
             # Looks needed to retrieve the right layout with restoreSate
-            parent.addDockWidget(qt.Qt.LeftDockWidgetArea, widget)
+            if parent is not None:
+                parent.addDockWidget(qt.Qt.LeftDockWidgetArea, widget)
             if data.modelId is not None:
                 plot = plots[data.modelId]
                 widget.setPlotModel(plot)

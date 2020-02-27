@@ -17,6 +17,7 @@ import scipy.signal
 
 from silx.gui import qt
 
+from bliss.flint.model import flint_model
 from bliss.flint.model import scan_model
 from bliss.flint.manager import scan_manager
 
@@ -185,12 +186,16 @@ class _VirtualScan:
 class AcquisitionSimulator(qt.QObject):
     def __init__(self, parent=None):
         super(AcquisitionSimulator, self).__init__(parent=parent)
-        self.__scan_manager = scan_manager.ScanManager
+        self.__flintModel: flint_model.FlintState = None
         self.__scanNb = 0
         self.__scans = []
 
-    def setScanManager(self, scanManager: scan_manager.ScanManager):
-        self.__scan_manager = scanManager
+    def setFlintModel(self, flintModel):
+        self.__flintModel = flintModel
+
+    def __scanManager(self) -> scan_manager.ScanManager:
+        scanManager = self.__flintModel.scanManager()
+        return scanManager
 
     def start(self, interval: int, duration: int, name=None):
         scan = self.__createScan(interval, duration, name)
@@ -661,7 +666,7 @@ class AcquisitionSimulator(qt.QObject):
     def __createScan(self, interval, duration, name=None) -> _VirtualScan:
         print("Preparing data...")
 
-        scan = _VirtualScan(self, self.__scan_manager)
+        scan = _VirtualScan(self, self.__scanManager())
         scan.setDuration(duration)
         scan.setInterval(interval)
 

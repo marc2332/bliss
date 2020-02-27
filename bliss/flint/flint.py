@@ -270,8 +270,7 @@ def main():
         display = SimulatorWidget(flintWindow)
         display.setFlintModel(flintModel)
         simulator = AcquisitionSimulator(display)
-        scanManager = flintModel.scanManager()
-        simulator.setScanManager(scanManager)
+        simulator.setFlintModel(flintModel)
         display.setSimulator(simulator)
         display.show()
 

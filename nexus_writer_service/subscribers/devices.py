@@ -47,6 +47,10 @@ limanamemap = {"image": "data", "sum": "data"}
 
 limatypemap = {"image": "principal", "sum": "principal"}
 
+mythennamemap = {"spectrum": "data"}
+
+mythentypemap = {"spectrum": "principal"}
+
 counternamemap = {}
 
 countertypemap = {}
@@ -173,6 +177,14 @@ def parse_devices(devices, short_names=True, multivalue_positioners=False):
             device["data_type"] = mcatypemap.get(datatype, datatype)
             device["data_name"] = mcanamemap.get(datatype, datatype)
             device["data_info"]["units"] = mcaunitmap.get(datatype, None)
+        elif device["device_type"] == "mythen":
+            # 'mythen1:spectrum'
+            parts = fullname.split(":")
+            device_name = parts[0]
+            datatype = ":".join(parts[1:])
+            device["device_name"] = device_name
+            device["data_type"] = mythentypemap.get(datatype, datatype)
+            device["data_name"] = mythennamemap.get(datatype, datatype)
         elif device["device_type"] == "lima":
             # 'frelon1:image'
             # 'frelon1:roi_counters:roi1_min'

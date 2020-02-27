@@ -587,10 +587,9 @@ class FlintScatter(Scatter, _FlintItemMixIn):
         char = self._getColoredChar(value, data, flintModel)
 
         text = f"""
-            <li><b>Index:</b> {index}</li>
-            <li><b>{xName}:</b> {x}</li>
-            <li><b>{yName}:</b> {y}</li>
-            <li><b>{vName}:</b> {char} {value}</li>
+            <li style="white-space:pre">{char} <b>{vName}:</b> {value} (index {index})</li>
+            <li style="white-space:pre">     <b>{yName}:</b> {y}</li>
+            <li style="white-space:pre">     <b>{xName}:</b> {x}</li>
         """
         return x, y, text
 

@@ -319,8 +319,16 @@ class ImagePlotWidget(plot_helper.PlotWidget):
         displayName = channel.displayName(scan)
         data = channel.data(scan)
         if data is not None:
+            if data.source() == "video":
+                op = " ≈ "
+            else:
+                op = " = "
+
             if data.frameId() is not None:
-                frameInfo = ", frame id: %s" % data.frameId()
+                frameInfo = f", id{op}{data.frameId()}"
+            if frameInfo != "":
+                frameInfo += " "
+            frameInfo += f"[{data.source()}]"
         return f"{displayName}{frameInfo}"
 
     def __updatePreviousScanData(self):

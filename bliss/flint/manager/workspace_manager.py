@@ -24,6 +24,7 @@ from silx.gui import icons
 from bliss.config.settings import HashObjSetting
 from . import manager
 from ..model import flint_model
+from bliss.flint import config
 
 
 _logger = logging.getLogger(__name__)
@@ -138,8 +139,6 @@ class WorkspaceData(dict):
 
 
 class WorkspaceManager(qt.QObject):
-
-    ROOT_KEY = "flint.%s.workspace"
 
     DEFAULT = "base"
 
@@ -324,7 +323,8 @@ class WorkspaceManager(qt.QObject):
         """Returns the settings storing workspaces in this bliss session."""
         flintModel = self.mainManager().flintModel()
         redis = flintModel.redisConnection()
-        key = self.ROOT_KEY % flintModel.blissSessionName()
+        sessionName = flintModel.blissSessionName()
+        key = config.get_workspace_key(sessionName)
         setting = HashObjSetting(key, connection=redis)
         return setting
 

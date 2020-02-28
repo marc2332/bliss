@@ -307,22 +307,21 @@ class ManageMainBehaviours(qt.QObject):
 
             plotModel = plots[0]
             availablePlots.remove(plotModel)
+            previousWidgetPlot = widget.plotModel()
 
-            if updatePlotModel:
+            if updatePlotModel or previousWidgetPlot is None:
                 if plotModel.styleStrategy() is None:
                     plotModel.setStyleStrategy(DefaultStyleStrategy(self.__flintModel))
-                previousWidgetPlot = widget.plotModel()
                 if previousWidgetPlot is not None:
                     workspace.removePlot(previousWidgetPlot)
                 workspace.addPlot(plotModel)
                 widget.setPlotModel(plotModel)
             else:
                 # Clean up few items
-                plotModel = widget.plotModel()
-                for item in list(plotModel.items()):
+                for item in list(previousWidgetPlot.items()):
                     if isinstance(item, plot_model.NotReused):
                         try:
-                            plotModel.removeItem(item)
+                            previousWidgetPlot.removeItem(item)
                         except:
                             pass
 

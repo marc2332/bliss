@@ -61,7 +61,8 @@ Simple multiplexer with 1 output and 2 inputs:
   boards:
     - class: opiom
       name: opiom1
-      serial: rfc2217://lid421:28201    # /dev/ttyR1
+      serial:
+        url: rfc2217://lid421:28201    # /dev/ttyR1
       program: 20150818_173019_SXM_V0
       opiom_prg_root: /users/blissadm/local/beamline_configuration/
   outputs:

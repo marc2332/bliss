@@ -47,6 +47,7 @@ from .typing_helper import TypingHelper
 from bliss.common.utils import ShellStr
 from bliss.shell.standard import info
 from bliss.shell.cli.ptpython_statusbar_patch import NEWstatus_bar, TMUXstatus_bar
+from bliss.common.logtools import logbook_printer
 
 logger = logging.getLogger(__name__)
 
@@ -135,6 +136,8 @@ def install_excepthook():
             )
         else:
             traceback.print_exception(exc_type, exc_value, tb, file=err_file)
+
+        logbook_printer.send_to_elogbook("error", f"{exc_type.__name__}: {exc_value}")
 
     def print_exception(self, context, exc_type, exc_value, tb):
         repl_excepthook(exc_type, exc_value, tb)
@@ -445,8 +448,6 @@ def cli(
     set_bliss_shell_mode(True)
 
     # adding stdout print of lprint messages
-    from bliss.common.logtools import logbook_printer
-
     logbook_printer.add_stdout_handler()
 
     ERROR_REPORT = install_excepthook()
@@ -598,7 +599,9 @@ def embed(*args, **kwargs):
 
             try:
                 inp = cmd_line_i.app.run()
-                logging.getLogger("user_input").info(f"{inp}")
+                if inp:
+                    logging.getLogger("user_input").info(inp)
+                    logbook_printer.send_to_elogbook("command", inp)
                 cmd_line_i._execute(inp)
             except KeyboardInterrupt:
                 cmd_line_i.default_buffer.reset()

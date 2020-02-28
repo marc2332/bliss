@@ -198,6 +198,7 @@ def test_lima_reintrant_iterator(session, lima_simulator):
             self.wait_slaves()
             self.wait_slaves_ready()
             self.trigger_slaves()
+            self.wait_slaves()
             gevent.sleep(0.1)  # avoid synchro error in Lima
 
         def stop(self):

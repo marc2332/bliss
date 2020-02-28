@@ -428,6 +428,7 @@ class Channel(qt.QObject, _Sealable):
         self.__type: ChannelType = ChannelType.COUNTER
         self.__displayName: Optional[str] = None
         self.__unit: Optional[str] = None
+        self.__refreshRates: Dict[str, Optional[int]] = {}
         parent.addChannel(self)
 
     def setType(self, channelType: ChannelType):
@@ -574,6 +575,22 @@ class Channel(qt.QObject, _Sealable):
             return
         self.__data = data
         self.dataUpdated.emit(data)
+
+    def setPreferedRefreshRate(self, key: str, rate: Optional[int]):
+        """Allow to specify the prefered refresh rate.
+
+        It have to be specified in millisecond.
+        """
+        if rate is None:
+            if key in self.__refreshRates:
+                del self.__refreshRates[key]
+        else:
+            self.__refreshRates[key] = rate
+
+    def preferedRefreshRate(self) -> Optional[int]:
+        if len(self.__refreshRates) == 0:
+            return None
+        return min(self.__refreshRates.values())
 
 
 class Data(qt.QObject):

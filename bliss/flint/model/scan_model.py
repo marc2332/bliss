@@ -614,11 +614,13 @@ class Data(qt.QObject):
         array: numpy.ndarray = None,
         frameId: int = None,
         source: str = None,
+        receivedTime: float = None,
     ):
         super(Data, self).__init__(parent=parent)
         self.__array = array
         self.__frameId = frameId
         self.__source = source
+        self.__receivedTime = receivedTime
 
     def array(self) -> numpy.ndarray:
         return self.__array
@@ -630,3 +632,7 @@ class Data(qt.QObject):
     def source(self) -> str:
         """Source of the image, only valid for images"""
         return self.__source
+
+    def receivedTime(self) -> float:
+        """Timestamp in second when the application received this data"""
+        return self.__receivedTime

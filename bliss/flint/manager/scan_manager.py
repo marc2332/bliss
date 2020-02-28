@@ -31,6 +31,7 @@ from typing import List
 
 import logging
 import numpy
+import time
 
 import gevent.event
 
@@ -379,6 +380,7 @@ class ScanManager:
     def __update_channel_data(
         self, cache: _ScanCache, channel_name, raw_data, frame_id=None, source=None
     ):
+        now = time.time()
         scan = cache.scan
         if cache.data_storage.has_channel(channel_name):
             group_name = cache.data_storage.get_group(channel_name)
@@ -393,7 +395,7 @@ class ScanManager:
                     # Create a view
                     array = array[0:newSize]
                     # NOTE: No parent for the data, Python managing the life cycle of it (not Qt)
-                    data = scan_model.Data(None, array)
+                    data = scan_model.Data(None, array, receivedTime=now)
                     channel.setData(data)
 
                 # The group name is the master device name
@@ -407,7 +409,9 @@ class ScanManager:
                 _logger.error("Channel '%s' not provided", channel_name)
             else:
                 # NOTE: No parent for the data, Python managing the life cycle of it (not Qt)
-                data = scan_model.Data(None, raw_data, frameId=frame_id, source=source)
+                data = scan_model.Data(
+                    None, raw_data, frameId=frame_id, source=source, receivedTime=now
+                )
                 channel.setData(data)
                 # FIXME: Should be fired by the Scan object (but here we have more informations)
                 scan._fireScanDataUpdated(channelName=channel.name())

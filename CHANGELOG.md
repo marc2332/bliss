@@ -32,6 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Provide layout menu to allow to setup predefined layouts
   - Provide menu to lock/unlock the layout (by default the layout is locked)
   - Provide workspace to be able to store plot, widget, layout in different environment
+  - The image widget displayed now the source of the data (can be "video", "file", "memory")
 
 - APC Rack Power Distribution Unit: implemented controller for basic relay functionalities
 
@@ -53,6 +54,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - This widget is named according to the device name (preciselly the prefix
       of the channel name)
   - At the start of a scan, the previous image is still displaed to avoid blinking
+  - Image from Lima is downloaded according to the user refresh rate choice
 
 ### Fixed
 

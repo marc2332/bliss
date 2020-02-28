@@ -292,7 +292,8 @@ class ImagePlotPropertyWidget(qt.QWidget):
         model.clear()
 
         if self.__plotModel is None:
-            foo = qt.QStandardItem("Empty")
+            model.setHorizontalHeaderLabels([""])
+            foo = qt.QStandardItem("")
             model.appendRow(foo)
             return
 

@@ -429,6 +429,7 @@ class Channel(qt.QObject, _Sealable):
         self.__displayName: Optional[str] = None
         self.__unit: Optional[str] = None
         self.__refreshRates: Dict[str, Optional[int]] = {}
+        self.__updatedCount = 0
         parent.addChannel(self)
 
     def setType(self, channelType: ChannelType):
@@ -573,6 +574,7 @@ class Channel(qt.QObject, _Sealable):
             raise ValueError("Data do not fit the channel requirements")
         if self.__data is data:
             return
+        self.__updatedCount += 1
         self.__data = data
         self.dataUpdated.emit(data)
 
@@ -591,6 +593,10 @@ class Channel(qt.QObject, _Sealable):
         if len(self.__refreshRates) == 0:
             return None
         return min(self.__refreshRates.values())
+
+    def updatedCount(self) -> int:
+        """Amount of time the data was updated."""
+        return self.__updatedCount
 
 
 class Data(qt.QObject):

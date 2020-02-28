@@ -51,12 +51,12 @@ def test_hdf5_metadata(session):
 
     with h5py.File(s.writer.filename, mode="r") as f:
         dataset = f[s.node.name]
-        assert dataset["title"].value == "ascan roby 0 10 10 0.01"
-        assert dataset["start_time"].value.startswith(iso_start_time)
+        assert dataset["title"][()] == "ascan roby 0 10 10 0.01"
+        assert dataset["start_time"][()].startswith(iso_start_time)
         assert dataset["measurement"]
         assert dataset["instrument"]
         for name, pos in dataset["instrument/positioners"].items():
-            assert all_motors.pop(name) == pos.value
+            assert all_motors.pop(name) == pos[()]
         assert len(all_motors) == 0
 
 

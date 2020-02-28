@@ -5,11 +5,10 @@
 - server: MetaExperiment
   personal_name: demo
   device:
-  - tango_name: id00/metaexp/demo
+  - tango_name: id00/metaexp/demo_session
     class: MetaExperiment
     properties:
       beamlineID: id00
-      __SubDevices: id00/metaexp/demo
 - class: MetaExperiment
   properties:
     queueURLs:
@@ -17,15 +16,9 @@
 - server: MetadataManager
   personal_name: demo
   device:
-  - tango_name: id00/metadata/demo
+  - tango_name: id00/metadata/demo_session
     class: MetadataManager
     properties:
       beamlineID: id00
       dataFolderPattern: '{dataRoot}'
-      metaExperimentDevice: id00/metaexp/demo
-      __SubDevices:
-      - id00/metadata/demo
-      - id00/metaexp/demo
-      - dserver/metaexperiment/demo
-  properties:
-    __SubDevices: dserver/metaexperiment/demo
+      metaExperimentDevice: id00/metaexp/demo_session

@@ -253,7 +253,8 @@ def metaexperiment(env=None, tmpdir=None, name="test"):
     level = "-v{}".format(level)
     cliargs = ["MetaExperiment", name, level]
     with runcontext(cliargs, tmpdir=tmpdir, prefix="metaexperiment_" + name, env=env):
-        tango_online(uri="id00/metaexp/" + name, timeout=10)
+        for session_name in ("test_session", "nexus_writer_session"):
+            tango_online(uri="id00/metaexp/" + session_name, timeout=10)
         yield
 
 
@@ -267,7 +268,8 @@ def metadatamanager(env=None, tmpdir=None, name="test"):
     level = "-v{}".format(level)
     cliargs = ["MetadataManager", name, level]
     with runcontext(cliargs, tmpdir=tmpdir, prefix="metadatamanager_" + name, env=env):
-        tango_online(uri="id00/metadata/" + name, timeout=10)
+        for session_name in ("test_session", "nexus_writer_session"):
+            tango_online(uri="id00/metadata/" + session_name, timeout=10)
         yield
 
 
@@ -362,8 +364,8 @@ if __name__ == "__main__":
 
     with testenv() as tmpdir:
         with beacon(tmpdir=tmpdir, freshdb=args.freshdb) as (env, prefix):
-            with metaexperiment(env=env, tmpdir=tmpdir):
-                with metadatamanager(env=env, tmpdir=tmpdir):
+            with metaexperiment(env=env, tmpdir=tmpdir, name="test"):
+                with metadatamanager(env=env, tmpdir=tmpdir, name="test"):
                     with lima(env=env, tmpdir=tmpdir, name="simulator1"):
                         with lima(env=env, tmpdir=tmpdir, name="simulator2"):
                             if args.writer == "TANGO":

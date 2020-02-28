@@ -580,7 +580,7 @@ def deep_compare(d, u):
 
 @pytest.fixture
 def metadata_manager_tango_server(ports):
-    device_name = "id00/metadata/test"
+    device_name = "id00/metadata/test_session"
     device_fqdn = "tango://localhost:{}/{}".format(ports.tango_port, device_name)
 
     p = subprocess.Popen(["MetadataManager", "test"])
@@ -603,7 +603,7 @@ def metadata_manager_tango_server(ports):
 
 @pytest.fixture
 def metadata_experiment_tango_server(ports):
-    device_name = "id00/metaexp/test"
+    device_name = "id00/metaexp/test_session"
     device_fqdn = "tango://localhost:{}/{}".format(ports.tango_port, device_name)
 
     p = subprocess.Popen(["MetaExperiment", "test"])

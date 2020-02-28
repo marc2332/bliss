@@ -6,12 +6,18 @@
   server: MetadataManager
   personal_name: test
   device:
-  - tango_name: id00/metadata/test
+  - tango_name: id00/metadata/test_session
     class: MetadataManager
     properties:
       beamlineID: id00
       dataFolderPattern: "{dataRoot}"
-      metaExperimentDevice: "id00/metaexp/test"
+      metaExperimentDevice: "id00/metaexp/test_session"
+  - tango_name: id00/metadata/nexus_writer_session
+    class: MetadataManager
+    properties:
+      beamlineID: id00
+      dataFolderPattern: "{dataRoot}"
+      metaExperimentDevice: "id00/metaexp/nexus_writer_session"
 -
   class: MetaExperiment
   properties:
@@ -20,8 +26,11 @@
   server: MetaExperiment
   personal_name: test
   device:
-  - tango_name: id00/metaexp/test
+  - tango_name: id00/metaexp/test_session
     class: MetaExperiment
     properties:
       beamlineID: id00
-
+  - tango_name: id00/metaexp/nexus_writer_session
+    class: MetaExperiment
+    properties:
+      beamlineID: id00

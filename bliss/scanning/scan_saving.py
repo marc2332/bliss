@@ -755,10 +755,7 @@ class ESRFScanSaving(BasicScanSaving):
 
     @property
     def beamline(self):
-        bl = ""
-        for k in "BEAMLINENAME", "BEAMLINE":
-            bl = os.environ.get(k, bl)
-        bl = self.scan_saving_config.get("beamline", bl)
+        bl = self.scan_saving_config.get("beamline")
         if not bl:
             return "{beamline}"
         # Alphanumeric, space, dash and underscore
@@ -938,7 +935,7 @@ class ESRFScanSaving(BasicScanSaving):
         """
         if self._tango_metadata_manager is None:
             self._tango_metadata_manager = DeviceProxy(
-                self.scan_saving_config["metadata_manager_tango_device"]
+                f"{self.beamline}/metadata/{self.session}"
             )
         return self._tango_metadata_manager
 
@@ -956,7 +953,7 @@ class ESRFScanSaving(BasicScanSaving):
         """
         if self._tango_metadata_experiment is None:
             self._tango_metadata_experiment = DeviceProxy(
-                self.scan_saving_config["metadata_experiment_tango_device"]
+                f"{self.beamline}/metaexp/{self.session}"
             )
         return self._tango_metadata_experiment
 

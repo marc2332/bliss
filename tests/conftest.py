@@ -45,6 +45,17 @@ BEACON = [sys.executable, "-m", "bliss.config.conductor.server"]
 BEACON_DB_PATH = os.path.join(BLISS, "tests", "test_configuration")
 
 
+def wait_terminate(process):
+    process.terminate()
+    try:
+        with gevent.Timeout(10):
+            process.wait()
+    except gevent.Timeout:
+        process.kill()
+        with gevent.Timeout(10):
+            process.wait()
+
+
 def wait_for(stream, target):
     def do_wait_for(stream, target, data=b""):
         target = target.encode()
@@ -186,7 +197,7 @@ def ports(beacon_directory):
     yield ports
 
     atexit._run_exitfuncs()
-    proc.terminate()
+    wait_terminate(proc)
 
 
 @pytest.fixture
@@ -227,7 +238,7 @@ def scan_tmpdir(tmpdir):
 
 
 @pytest.fixture
-def lima_simulator(ports, beacon):
+def lima_simulator(ports):
     from Lima.Server.LimaCCDs import main
 
     device_name = "id00/limaccds/simulator1"
@@ -248,11 +259,11 @@ def lima_simulator(ports, beacon):
 
     gevent.sleep(1)
     yield device_fqdn, dev_proxy
-    p.terminate()
+    wait_terminate(p)
 
 
 @pytest.fixture
-def lima_simulator2(ports, beacon):
+def lima_simulator2(ports):
     from Lima.Server.LimaCCDs import main
     from bliss.common.tango import DeviceProxy, DevFailed
 
@@ -274,7 +285,7 @@ def lima_simulator2(ports, beacon):
 
     gevent.sleep(1)
     yield device_fqdn, dev_proxy
-    p.terminate()
+    wait_terminate(p)
 
 
 @pytest.fixture
@@ -296,7 +307,7 @@ def bliss_tango_server(ports, beacon):
 
     yield device_fqdn, dev_proxy
 
-    p.terminate()
+    wait_terminate(p)
 
 
 @pytest.fixture
@@ -321,7 +332,7 @@ def dummy_tango_server(ports, beacon):
 
     yield device_fqdn, dev_proxy
 
-    p.terminate()
+    wait_terminate(p)
 
 
 @pytest.fixture
@@ -352,7 +363,7 @@ def wago_tango_server(ports, default_session, wago_emulator):
 
     yield device_fqdn, dev_proxy
 
-    p.terminate()
+    wait_terminate(p)
 
 
 @pytest.fixture
@@ -598,7 +609,7 @@ def metadata_manager_tango_server(ports):
 
     gevent.sleep(1)
     yield device_fqdn, dev_proxy
-    p.terminate()
+    wait_terminate(p)
 
 
 @pytest.fixture
@@ -621,4 +632,4 @@ def metadata_experiment_tango_server(ports):
 
     gevent.sleep(1)
     yield device_fqdn, dev_proxy
-    p.terminate()
+    wait_terminate(p)

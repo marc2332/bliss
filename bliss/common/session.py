@@ -616,6 +616,8 @@ class Session:
         if self.setup_file is None:
             return
 
+        print("%s: Executing setup file..." % self.name)
+
         with get_file(
             {"setup_file": self.setup_file}, "setup_file", text=True
         ) as setup_file:

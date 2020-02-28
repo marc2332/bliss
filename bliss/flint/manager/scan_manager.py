@@ -48,6 +48,12 @@ from bliss.flint.model import scan_model
 _logger = logging.getLogger(__name__)
 
 
+USE_PREFERED_REFRESH_RATE = True
+"""Early feature for the restart (2020-02-28).
+This option all to switch it off in case of string problem.
+It could be removed at some point."""
+
+
 class _ScanCache:
     def __init__(self, scan_id: str, scan: scan_model.Scan):
         self.scan_id: str = scan_id
@@ -58,6 +64,14 @@ class _ScanCache:
         """Store metadata relative to lima video"""
         self.data_storage = DataStorage()
         """"Store 0d grouped by masters"""
+        self.__image_views = {}
+
+    def store_last_image_view(self, channel_name, image_view):
+        self.__image_views[channel_name] = image_view
+
+    def image_views(self):
+        """Returns an iterator containing channel name an it's image_view"""
+        return self.__image_views.items()
 
     def is_video_available(self, image_view, channel_name) -> bool:
         """True if the video format is readable (or not yet checked) and the
@@ -269,6 +283,17 @@ class ScanManager:
             # Not yet data, then update is needed
             return True
 
+        if USE_PREFERED_REFRESH_RATE:
+            rate = stored_channel.preferedRefreshRate()
+            if rate is not None:
+                now = time.time()
+                # FIXME: This could be computed dinamically
+                time_to_receive_data = 0.01
+                next_image_time = (
+                    stored_data.receivedTime() + (rate / 1000.0) - time_to_receive_data
+                )
+                return now > next_image_time
+
         stored_frame_id = stored_data.frameId()
         if stored_frame_id is None:
             # The data is something else that an image?
@@ -349,6 +374,7 @@ class ScanManager:
             channel_data_node.from_stream = True
             image_view = channel_data_node.get(-1)
             channel_name = data["channel_name"]
+            cache.store_last_image_view(channel_name, image_view)
             must_update = self.__is_image_must_be_read(
                 cache.scan, channel_name, image_view
             )
@@ -481,6 +507,20 @@ class ScanManager:
                             "Channel '%s' truncated to be able to display the data",
                             channel_name,
                         )
+
+        if USE_PREFERED_REFRESH_RATE:
+            # Make sure the last image is diplayed
+            # FIXME: We should not need to update everything
+            for channel_name, image_view in cache.image_views():
+                frame = self.__get_image(cache, image_view, channel_name)
+                if frame is not None:
+                    self.__update_channel_data(
+                        cache,
+                        channel_name,
+                        raw_data=frame.data,
+                        frame_id=frame.frame_number,
+                        source=frame.source,
+                    )
 
         if len(updated_masters) > 0:
             # FIXME: Should be fired by the Scan object (but here we have more informations)

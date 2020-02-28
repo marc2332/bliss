@@ -233,3 +233,42 @@ def test_image__decoding_error():
     image = scan.getChannelByName("lima:image").data()
     assert image.frameId() == 2
     assert image.array().shape == (1, 1)
+
+
+def test_prefered_user_refresh():
+    scan_info_3 = {"node_name": "scan1", "acquisition_chain": ACQUISITION_CHAIN_3}
+
+    manager = scan_manager.ScanManager(flintModel=None)
+    # Disabled async consumption
+    manager._set_absorb_events(False)
+
+    manager.new_scan(scan_info_3)
+    scan = manager.get_alive_scans()[0]
+    channel = scan.getChannelByName("lima:image")
+    channel.setPreferedRefreshRate("foo", 500)
+
+    image = numpy.arange(1).reshape(1, 1)
+
+    node = MockedLimaNode(
+        frame_id=2,
+        video_frame_have_meaning=False,
+        image=Exception(),
+        last_image=image,
+        last_live_image=Exception(),
+    )
+
+    data = {}
+    data["scan_info"] = scan_info_3
+    data["channel_name"] = "lima:image"
+    data["channel_data_node"] = node
+
+    for i in range(10):
+        node.frame_id = i
+        manager.new_scan_data("2d", "axis", data)
+
+    manager.end_scan(scan_info_3)
+
+    # The first end the last
+    assert channel.updatedCount() == 2
+    # The last is there
+    assert channel.data().frameId() == 9

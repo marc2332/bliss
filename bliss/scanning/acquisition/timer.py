@@ -44,7 +44,8 @@ class SoftwareTimerMaster(AcquisitionMaster):
                 self._nb_point += 1
 
     def prepare(self):
-        self._first_trigger = True
+        if not self._nb_point:
+            self._first_trigger = True
 
     def start(self):
         # if we are the top master

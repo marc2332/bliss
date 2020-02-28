@@ -202,6 +202,7 @@ MODULES_CONFIG = {
     "750-467": [0, 0, 2, 0, 2, 2, "fs10", "2 Channel 0/10V Input"],
     "750-468": [0, 0, 4, 0, 4, 4, "fs10", "4 Channel 0/10V Input"],
     "750-469": [0, 0, 2, 0, 2, 2, "thc", "2 Channel Ktype Thermocouple Input"],
+    "750-471": [0, 0, 4, 0, 4, 4, "fs4-20", "4 Channel 4/20mA 16bit Input"],
     "750-472": [0, 0, 2, 0, 2, 2, "fs20", "2 Channel 0/20mA 16bit Input"],
     "750-474": [0, 0, 2, 0, 2, 2, "fs4-20", "2 Channel 4/20mA 16bit Input"],
     "750-476": [0, 0, 2, 0, 2, 2, "fs10", "2 Channel +-10V Input"],
@@ -401,23 +402,41 @@ class TangoWago:
 
         global_map.register(self, tag=f"TangoEngine", children_list=[self.comm])
 
-    def get(self, *args, **kwargs):
-        log_debug(self, f"In get args={args} kwargs={kwargs}")
-        values = []
-        for name in args:
+    def get(self, *logical_names, **kwargs):
+        log_debug(self, f"In get logical_names={logical_names} kwargs={kwargs}")
+        flat = kwargs.get("flat", True)
+        cached = kwargs.get("cached", False)
+
+        result = []
+        for name in logical_names:
             key = self.modules_config.devname2key(name)
-            val = self.comm.command_inout("DevReadNoCachePhys", key)
-            values.append(val)
+            command = "DevReadPhys" if cached else "DevReadNoCachePhys"
+            val = self.comm.command_inout(command, key)
+            result.append(val)
 
-        values = flatten(values)
+        result = flatten(result)
 
-        if not values:
+        if not flat:
+            ret = []
+            # aggregating results per logical_channel
+            for name in logical_names:
+                self.modules_config.read_table[name]
+                nval = len(self.modules_config.read_table[name].keys())
+                if nval > 1:
+                    channel_values, result = result[:nval], result[nval:]
+                else:
+                    channel_values = result.pop(0)
+                ret.append(channel_values)
+            return ret
+
+        # return a list with all the channels
+        if not result:
             return None
 
-        if len(values) == 1:
-            return values[0]
+        if len(result) == 1:
+            return result[0]
 
-        return values
+        return result
 
     def connect(self):
         """Added for compatibility"""
@@ -1262,8 +1281,8 @@ class WagoController:
                 values_group_by_logical_name = values_group_by_logical_name[0]
             result.append(values_group_by_logical_name)  # list of lists
 
+        result = flatten(result)
         if not flat:
-            result = flatten(result)
             ret = []
             for name in logical_names:
                 self.modules_config.read_table[name]
@@ -1284,7 +1303,7 @@ class WagoController:
 
         # ret represents a list of lists, containing Wago values
         # by Wago module, but we prefer to have a flat list
-        return flatten(result)
+        return result
 
     def _write_ssi(self, value, **kwargs):
         raw_values = []

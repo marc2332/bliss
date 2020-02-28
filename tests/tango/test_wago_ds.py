@@ -1,10 +1,10 @@
 import pytest
 import tango
-from bliss.controllers.wago.wago import Wago
+from bliss.controllers.wago.wago import TangoWago, ModulesConfig
 from gevent import sleep
 
 
-def test_wago_ds(wago_tango_server, default_session):
+def test_wago_ds(wago_tango_server):
     device_fqdn, dev_proxy = wago_tango_server
 
     assert dev_proxy.state() == tango._tango.DevState.ON
@@ -68,3 +68,22 @@ def test_wago_ds(wago_tango_server, default_session):
     value2 = dev_proxy.command_inout("DevReadDigi", (key))
 
     assert all(i == j for i, j in zip(value1, value2))
+
+
+def test_wago_ds_flat_array(wago_tango_server, default_session):
+    # check that results from DS are given in requested form
+    # flat=True should give a flat list, flat=False should give
+    # list of lists
+    # Single value:
+    #       with flat=False will give [value]
+    #       with flat=True will give value
+    config_tree = default_session.config.get_config("wago_simulator")
+    modules_config = ModulesConfig.from_config_tree(config_tree)
+    device_fqdn, dev_proxy = wago_tango_server
+    wago = TangoWago(dev_proxy, modules_config)
+    assert len(wago.get("foh2ctrl", "foh2pos", flat=True)) == 8
+    assert len(wago.get("foh2ctrl", "foh2pos", flat=False)) == 2
+
+    with pytest.raises(TypeError):
+        len(wago.get("pres", flat=True))  # this is a single value
+    assert len(wago.get("pres", flat=False)) == 1  # this is a list with 1 value

@@ -13,6 +13,7 @@ def test_wagogroup_get(default_session):
     wago_group = default_session.config.get("wago_group")
     for key in wago_group.logical_keys:
         assert wago_group.get(key) == wago.get(key)
+    wago_group.__info__()
 
 
 def test_wagogroup_set(default_session):

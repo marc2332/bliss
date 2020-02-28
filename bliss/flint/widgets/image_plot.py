@@ -385,7 +385,7 @@ class ImagePlotWidget(plot_helper.PlotWidget):
 
     def __redrawAllIfNeeded(self):
         plotModel = self.__plotModel
-        if plotModel is None:
+        if plotModel is None or self.__scan is None:
             self.__cleanAll()
             return
 

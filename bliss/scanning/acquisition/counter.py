@@ -400,7 +400,6 @@ class SamplingCounterAcquisitionSlave(BaseCounterAcquisitionSlave):
     @staticmethod
     def rolling_stats_finalize(existingAggregate, count_time=None, timest=None):
         (count, mean, M2, Min, Max) = existingAggregate
-        (mean, variance) = (mean, M2 / count)
         if count < 2:
             return SamplingCounterAcquisitionSlave.stats_nt(
                 mean,
@@ -414,6 +413,7 @@ class SamplingCounterAcquisitionSlave(BaseCounterAcquisitionSlave):
                 timest,
             )
         else:
+            variance = M2 / count
             timest = str(datetime.fromtimestamp(timest)) if timest != None else None
             return SamplingCounterAcquisitionSlave.stats_nt(
                 mean,

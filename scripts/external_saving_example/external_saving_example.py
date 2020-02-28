@@ -46,7 +46,7 @@ class HDF5_Writer(object):
         # here I modify the filename, so that this script can run
         # in parallel with the bliss filesaving ... just for debugging
         filename = filename.replace(".", "_external.")
-        self.file = h5py.File(filename)
+        self.file = h5py.File(filename, mode="a")
 
         print("Starting to save data for", self.scan_name)
         print("File:", filename)

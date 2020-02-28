@@ -911,6 +911,9 @@ class TooltipItemManager:
 class RefreshManager(qt.QObject):
     """Helper to compute a frame rate"""
 
+    refreshModeChanged = qt.Signal()
+    """Signal emitted when the refresh mode was changed"""
+
     def __init__(self, parent: qt.QWidget):
         super(RefreshManager, self).__init__(parent=parent)
         self.__parent = parent
@@ -1044,6 +1047,7 @@ class RefreshManager(qt.QObject):
             else:
                 self.__updater.start(rate)
                 self.__aggregator.eventAdded.disconnect(self.__update)
+        self.refreshModeChanged.emit()
 
 
 class ViewManager(qt.QObject):

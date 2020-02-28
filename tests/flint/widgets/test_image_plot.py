@@ -46,6 +46,17 @@ class TestImagePlot(TestCaseQt):
         plot.setStyleStrategy(styleStrategy)
         return plot
 
+    def create_plot_with_chan2(self):
+        plot = plot_item_model.ImagePlot()
+        item = plot_item_model.ImageItem(plot)
+        channel = plot_model.ChannelRef(plot, "chan2")
+        item.setImageChannel(channel)
+        plot.addItem(item)
+        flint = self.create_flint_model()
+        styleStrategy = style_helper.DefaultStyleStrategy(flint)
+        plot.setStyleStrategy(styleStrategy)
+        return plot
+
     def create_plot_with_chan1_chan2(self):
         plot = plot_item_model.ImagePlot()
         item = plot_item_model.ImageItem(plot)
@@ -245,4 +256,83 @@ class TestImagePlot(TestCaseQt):
 
         silxPlot = widget._silxPlot()
         assert len(silxPlot.getItems()) > self.NB_PERMANENT_ITEM
+        widget.close()
+
+    def test_refresh_propagation__update_scan(self):
+        scan1 = self.create_scan()
+        scan2 = self.create_scan()
+        plot = self.create_plot_with_chan1()
+        flint = self.create_flint_model()
+        channel1 = scan1.getChannelByName("chan1")
+        channel2 = scan2.getChannelByName("chan1")
+
+        widget = ImagePlotWidget()
+        widget.setFlintModel(flint)
+        widget.setScan(scan1)
+        widget.setPlotModel(plot)
+
+        # Initial state
+        rate = widget.getRefreshManager().refreshMode()
+        assert channel1.preferedRefreshRate() == rate
+        assert channel2.preferedRefreshRate() is None
+
+        # Change the scan
+        widget.setScan(scan2)
+        assert channel1.preferedRefreshRate() is None
+        assert channel2.preferedRefreshRate() == rate
+
+        self.qWait(1000)
+        widget.close()
+
+    def test_refresh_propagation__update_plot(self):
+        scan = self.create_scan()
+        plot1 = self.create_plot_with_chan1()
+        plot2 = self.create_plot_with_chan2()
+        flint = self.create_flint_model()
+        channel1 = scan.getChannelByName("chan1")
+        channel2 = scan.getChannelByName("chan2")
+
+        widget = ImagePlotWidget()
+        widget.setFlintModel(flint)
+        widget.setScan(scan)
+        widget.setPlotModel(plot1)
+
+        # Initial state
+        rate = widget.getRefreshManager().refreshMode()
+        assert channel1.preferedRefreshRate() == rate
+        assert channel2.preferedRefreshRate() is None
+
+        # Change the plot
+        widget.setPlotModel(plot2)
+        assert channel1.preferedRefreshRate() is None
+        assert channel2.preferedRefreshRate() == rate
+
+        # Update the plot content
+        item = plot2.items()[0]
+        plot2.removeItem(item)
+        self.qWait(1000)
+        assert channel2.preferedRefreshRate() is None
+        plot2.addItem(item)
+        self.qWait(1000)
+        assert channel2.preferedRefreshRate() == rate
+
+        widget.close()
+
+    def test_refresh_propagation__update_rate(self):
+        scan = self.create_scan()
+        plot = self.create_plot_with_chan1()
+        flint = self.create_flint_model()
+        channel = scan.getChannelByName("chan1")
+
+        widget = ImagePlotWidget()
+        widget.setFlintModel(flint)
+        widget.setScan(scan)
+        widget.setPlotModel(plot)
+
+        rate = widget.getRefreshManager().refreshMode()
+        newRate = rate + 100
+        assert channel.preferedRefreshRate() != newRate
+        widget.getRefreshManager().setRefreshMode(newRate)
+        assert channel.preferedRefreshRate() == newRate
+
         widget.close()

@@ -43,7 +43,9 @@ class PI_E51X(Controller):
         # <sender> is the axis.
         log_info(
             self,
-            "move_done_event_received(state=%s axis.sender=%s)" % (state, sender.name),
+            "move_done_event_received(state=%s axis.sender=%s)",
+            state,
+            sender.name,
         )
         if self.__axis_auto_gate[sender]:
             if state is True:
@@ -303,8 +305,10 @@ class PI_E51X(Controller):
         if _duration > 0.005:
             log_info(
                 self,
-                "PI_E51X.py : Received %r from Send %s (duration : %g ms) "
-                % (_ans, _cmd, _duration * 1000),
+                "PI_E51X.py : Received %r from Send %s (duration : %g ms)",
+                _ans,
+                _cmd,
+                _duration * 1000,
             )
 
         self.check_error(_cmd)
@@ -486,8 +490,9 @@ class PI_E51X(Controller):
         self.__axis_auto_gate[axis] = value is True
         log_info(
             self,
-            "auto_gate is %s for axis.channel %s "
-            % (value is True and "ON" or "OFF", axis.channel),
+            "auto_gate is %s for axis.channel %s",
+            value is True and "ON" or "OFF",
+            axis.channel,
         )
 
     @object_method(types_info=("bool", "None"))

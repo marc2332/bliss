@@ -110,8 +110,8 @@ class Controller:
         except KeyError:  # create object if doesn't exist yet
             klass, cfg = self._objects_cache.pop(name, (None, None))
             if klass:
-                log_debug(self, f"  {klass.__name__} name: {name}")
-                log_debug(self, f"  {klass.__name__} config: {cfg}")
+                log_debug(self, "  %s name: %s", klass.__name__, name)
+                log_debug(self, "  %s config: %s", klass.__name__, cfg)
                 obj = klass(self, cfg)
                 if obj.controller is self:
                     set_custom_members(self, obj, self._initialize_obj)

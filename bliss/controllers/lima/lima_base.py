@@ -536,7 +536,7 @@ class Lima(CounterController):
 
         update_all = server_start_timestamp or last_session_used
         if update_all:
-            log_debug(self, f"All parameters will be refeshed on {self.name}")
+            log_debug(self, "All parameters will be refeshed on %s", self.name)
 
         assert ctrl_params["saving_format"] in self.saving.available_saving_formats
         ctrl_params["saving_suffix"] = self.saving.suffix_dict[
@@ -553,7 +553,7 @@ class Lima(CounterController):
             maskp = self._get_proxy("mask")
             maskp.Stop()
             if use_mask:
-                log_debug(self, f" uploading new mask on {self.name}")
+                log_debug(self, " uploading new mask on %s", self.name)
                 maskp.setMaskImage(self.processing.mask)
                 self.processing._mask_changed = False
                 maskp.RunLevel = self.processing.runlevel_mask
@@ -570,7 +570,7 @@ class Lima(CounterController):
             ff_proxy = self._get_proxy("flatfield")
             ff_proxy.Stop()
             if use_flatfield:
-                log_debug(self, f" uploading flatfield on {self.name}")
+                log_debug(self, " uploading flatfield on %s", self.name)
                 ff_proxy.setFlatFieldImage(self.processing.flatfield)
                 ff_proxy.RunLevel = self.processing.runlevel_flatfield
                 ff_proxy.normalize = 0
@@ -588,17 +588,19 @@ class Lima(CounterController):
             bg_proxy = self._get_proxy("backgroundsubstraction")
             log_debug(
                 self,
-                f" stopping background sub proxy on {self.name} and setting runlevel to {self.processing.runlevel_background}",
+                " stopping background sub proxy on %s and setting runlevel to %s",
+                self.name,
+                self.processing.runlevel_background,
             )
             bg_proxy.Stop()
             bg_proxy.RunLevel = self.processing.runlevel_background
             if use_bg_sub == "enable_on_fly":
-                log_debug(self, f" starting background sub proxy of {self.name}")
+                log_debug(self, " starting background sub proxy of %s", self.name)
                 bg_proxy.Start()
             elif use_bg_sub == "enable_file":
-                log_debug(self, f" uploading background on {self.name}")
+                log_debug(self, " uploading background on %s", self.name)
                 bg_proxy.setbackgroundimage(self.processing.background)
-                log_debug(self, f" starting background sub proxy of {self.name}")
+                log_debug(self, " starting background sub proxy of %s", self.name)
                 bg_proxy.Start()
 
         if (
@@ -609,30 +611,30 @@ class Lima(CounterController):
             state = proxy.State()
             if state == DevState.ON:
                 log_debug(
-                    self, f"stop, runlevel, start on roi_counter proxy of {self.name}"
+                    self, "stop, runlevel, start on roi_counter proxy of %s", self.name
                 )
                 proxy.Stop()
                 proxy.RunLevel = self.processing.runlevel_roicounter
                 proxy.Start()
             else:
-                log_debug(self, f"set runlevel on roi_counter proxy of {self.name}")
+                log_debug(self, "set runlevel on roi_counter proxy of %s", self.name)
                 proxy.RunLevel = self.processing.runlevel_roicounter
 
         if needs_update("runlevel_bpm", self.processing.runlevel_bpm) or update_all:
             proxy = self.bpm._proxy
             state = proxy.State()
             if state == DevState.ON:
-                log_debug(self, f"stop, runlevel, start on bpm proxy of {self.name}")
+                log_debug(self, "stop, runlevel, start on bpm proxy of %s", self.name)
                 proxy.Stop()
                 proxy.RunLevel = self.processing.runlevel_bpm
                 proxy.Start()
             else:
-                log_debug(self, f"set runlevel on bpm proxy of {self.name}")
+                log_debug(self, "set runlevel on bpm proxy of %s", self.name)
                 proxy.RunLevel = self.processing.runlevel_bpm
 
         for key, value in ctrl_params.items():
             if needs_update(key, value) or update_all:
-                log_debug(self, f"updating {key} on {self.name} to {value}")
+                log_debug(self, "updating %s on %s to %s", key, self.name, value)
                 setattr(self.proxy, key, value)
 
     def get_current_parameters(self):

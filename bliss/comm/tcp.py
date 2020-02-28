@@ -112,8 +112,8 @@ class BaseSocket:
         curr_host = host or self._host
         curr_port = port or self._port
         local_timeout = timeout if timeout is not None else self._timeout
-        log_debug(self, f"connect to {curr_host}:{curr_port}")
-        log_debug(self, f"timeout={local_timeout} ; eol={self._eol}")
+        log_debug(self, "connect to %s:%s", curr_host, curr_port)
+        log_debug(self, "timeout=%s ; eol=%x", local_timeout, self._eol)
 
         self.close()
 
@@ -491,8 +491,8 @@ class Command:
         curr_host = host or self._host
         curr_port = port or self._port
         local_timeout = timeout if timeout is not None else self._timeout
-        log_debug(self, f"connect to {curr_host}:{curr_port}")
-        log_debug(self, f"timeout={local_timeout} ; eol={hexify(self._eol)}")
+        log_debug(self, "connect to %s:%s", curr_host, curr_port)
+        log_debug(self, "timeout=%s ; eol=%x", local_timeout, self._eol)
         if self._connected:
             prev_ip_host, prev_port = self._socket.getpeername()
             try:

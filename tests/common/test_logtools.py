@@ -55,16 +55,16 @@ class MappedController:
         global_map.register(self, parents_list, children_list)
 
     def msg_debug(self, msg=""):
-        log_debug(self, f"Debug message {msg}")
+        log_debug(self, "Debug message %s", msg)
 
     def msg_debug_data(self, msg=""):
-        log_debug_data(self, f"Debug data message {msg}", b"asdasdadsa")
+        log_debug_data(self, "Debug data message %s", msg, b"asdasdadsa")
 
     def msg_info(self, msg=""):
-        log_info(self, f"Info message {msg}")
+        log_info(self, "Info message %s", msg)
 
     def msg_error(self, msg=""):
-        log_error(self, f"Error message {msg}")
+        log_error(self, "Error message %s", msg)
 
 
 class Device:

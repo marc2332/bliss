@@ -233,7 +233,7 @@ class Cyberstar:
         self._send_cmd(cmd)
 
     def _send_cmd(self, command):
-        log_info(self, f"_send_cmd '{command}' ")
+        log_info(self, "_send_cmd '%s'", command)
         return self._cyberstar_master.send_cmd(command)
 
     def _clear(self):
@@ -505,7 +505,7 @@ class CyberstarMaster:
             Returns:
               Answer from the controller if ? in the command
         """
-        log_info(self, f"send_cmd '{command}' ")
+        log_info(self, "send_cmd '%s'", command)
 
         command += "\n"
 

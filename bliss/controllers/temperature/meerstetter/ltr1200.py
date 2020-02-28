@@ -124,15 +124,14 @@ class Ltr1200:
 
     def setTargetTemperature(self, value, instance):
         log_info(
-            self,
-            "setTargetTemperature(): instance = %d, value = %f" % (instance, value),
+            self, "setTargetTemperature(): instance = %d, value = %f", instance, value
         )
         answer = (self._tec._setParameter(3000, value, instance)).decode()
         log_debug(self, "setTargetTemperature: %s" % answer)  # ACK
         return answer
 
     def getOutputCurrent(self, instance):
-        log_info(self, "getOutputCurrent(): instance = %d" % (instance))
+        log_info(self, "getOutputCurrent(): instance = %d", instance)
         answer = (self._tec._getParameter(1020, 8, instance)).decode()
         if answer is not None:
             answer = struct.unpack(">f", bytes.fromhex(answer))[0]
@@ -140,7 +139,7 @@ class Ltr1200:
         return answer
 
     def getOutputVoltage(self, instance):
-        log_info(self, "getOutputVoltage(): instance = %d" % (instance))
+        log_info(self, "getOutputVoltage(): instance = %d", instance)
         answer = (self._tec._getParameter(1021, 8, instance)).decode()
         if answer is not None:
             answer = struct.unpack(">f", bytes.fromhex(answer))[0]
@@ -148,7 +147,7 @@ class Ltr1200:
         return answer
 
     def getDriverStatus(self, instance):
-        log_info(self, "getDriverStatus(): instance = %d" % (instance))
+        log_info(self, "getDriverStatus(): instance = %d", instance)
         answer = (self._tec._getParameter(1080, 8, instance)).decode()
         description = [
             "Init",
@@ -160,7 +159,7 @@ class Ltr1200:
         ]
         if answer is not None:
             answer = description[int(answer)]
-        log_debug(self, "getDriverStatus: status = %s" % answer)
+        log_debug(self, "getDriverStatus: status = %s", answer)
         return answer
 
     def ResetDevice(self):
@@ -197,7 +196,7 @@ class ltr1200(Controller):
 
         global_map.register(self, children_list=[self._ltr1200])
 
-        log_info(self, "__init__: %s %d" % (host, dev_addr))
+        log_info(self, "__init__: %s %d", host, dev_addr)
 
     def initialize(self):
         ###config = dict(self.config) -- to use if no __init__()
@@ -215,13 +214,13 @@ class ltr1200(Controller):
     def read_output(self, toutput):
         log_info(self, "read_output()")
         obj_temp = self._ltr1200.getObjectTemperature(1)
-        log_debug(self, "Object temperature = %f C" % obj_temp)
+        log_debug(self, "Object temperature = %f C", obj_temp)
         return obj_temp
 
         # set Set Point Temperature
 
     def set(self, toutput, sp, **kwargs):
-        log_info(self, "set() = set SP temperature: %f C" % sp)
+        log_info(self, "set() = set SP temperature: %f C", sp)
         self._ltr1200.setTargetTemperature(sp, 1)
 
         # get Set Point Temperature
@@ -229,13 +228,13 @@ class ltr1200(Controller):
     def get_setpoint(self, toutput):
         log_info(self, "get_setpoint() = get SP temperature")
         sp_temp = self._ltr1200.getTargetTemperature(1)
-        log_debug(self, "SP temperature = %f C" % sp_temp)
+        log_debug(self, "SP temperature = %f C", sp_temp)
         return sp_temp
 
     def state_output(self, toutput):
         log_info(self, "state_output()")
         out_state = self._ltr1200.getDriverStatus(1)
-        log_debug(self, "driver status = %s" % out_state)
+        log_debug(self, "driver status = %s", out_state)
         return out_state
 
         # Remark:
@@ -251,26 +250,26 @@ class ltr1200(Controller):
     def get_model(self, toutput):
         log_info(self, "get_model(= firmware identification string)")
         model = self._ltr1200.getModel()
-        log_debug(self, "Firmware id string = %s" % model)
+        log_debug(self, "Firmware id string = %s", model)
         return model
 
     @object_attribute_type_get(type_info=("float"), type=Output)
     def get_sink_temperature(self, toutput):
         log_info(self, "get_sink_temperature: ")
         sink_temp = self._ltr1200.getSinkTemperature(1)
-        log_debug(self, "sink_temperature = %f C" % sink_temp)
+        log_debug(self, "sink_temperature = %f C", sink_temp)
         return sink_temp
 
     @object_attribute_type_get(type_info=("float"), type=Output)
     def get_output_current(self, toutput):
         log_info(self, "get_output_current: ")
         op_current = self._ltr1200.getOutputCurrent(1)
-        log_debug(self, "output_current = %f A" % op_current)
+        log_debug(self, "output_current = %f A", op_current)
         return op_current
 
     @object_attribute_type_get(type_info=("float"), type=Output)
     def get_output_voltage(self, toutput):
         log_info(self, "get_output_voltage: ")
         op_voltage = self._ltr1200.getOutputVoltage(1)
-        log_debug(self, "output_voltage = %f V" % op_voltage)
+        log_debug(self, "output_voltage = %f V", op_voltage)
         return op_voltage

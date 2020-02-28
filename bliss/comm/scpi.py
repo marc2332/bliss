@@ -576,10 +576,10 @@ class SCPI:
         eol = kwargs.setdefault("eol", self._eol)
         strict_query = kwargs.setdefault("strict_query", self._strict_query)
         cmds, queries, msg = sanitize_msgs(*msgs, **kwargs)
-        log_debug(self, f"[start] read {msg}")
+        log_debug_data(self, "[start] read", msg)
         raw_results = self.interface.write_readlines(msg.encode(), len(queries))
         raw_results = [r.decode() for r in raw_results]
-        log_debug(self, f"[ end ] read {msg}={raw_results}")
+        log_debug_data(self, "[ end ] read", raw_results)
         if raw:
             return raw_results
         if len(queries) != len(raw_results):
@@ -626,9 +626,9 @@ class SCPI:
             context = self._contexts[-1]["commands"].extend(msgs)
             return
         msg = self.__to_write_commands(*msgs, **kwargs)
-        log_debug(self, f"[start] write {msg}")
+        log_debug_data(self, "[start] write", msg)
         self.interface.write(msg.encode())
-        log_debug(self, f"[ end ] write {msg}")
+        log_debug_data(self, "[ end ] write", msg)
 
     _MAX_ERR_STACK_SIZE = 20
 

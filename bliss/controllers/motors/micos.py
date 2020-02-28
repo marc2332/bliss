@@ -1480,7 +1480,7 @@ class micos(Controller):
             - <action_at_powerup>: numeric value of powerup action
         """
         log_info(self, "set_action_at_powerup()")
-        log_debug(self, f"Powerup action = {powerup_action}")
+        log_debug(self, "Powerup action = %s", powerup_action)
         self._set_action_at_powerup(axis, powerup_action)
 
     # closed loop related

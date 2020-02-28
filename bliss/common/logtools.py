@@ -169,13 +169,13 @@ Args:
 """
 
 
-def log_debug(instance, msg):
+def log_debug(instance, msg, *args):
     __doc__ = LOG_DOCSTRING + "Log level: DEBUG"
     logger = get_logger(instance)
-    logger.debug(msg)
+    logger.debug(msg, *args)
 
 
-def log_debug_data(instance, msg, data):
+def log_debug_data(instance, msg, *args):
     """
     Convenient function to print log messages and associated data.
 
@@ -187,39 +187,44 @@ def log_debug_data(instance, msg, data):
 
     The switch beetween a hex or ascii representation can be done
     with the function set_log_format
+
+    Args:
+        msg: the message
+        args: the last of these should be the data, the previous are %-string
+              to be injected into the message
     """
     logger = get_logger(instance)
-    logger.debug_data(msg, data)
+    logger.debug_data(msg, *args)
 
 
-def log_info(instance, msg):
+def log_info(instance, msg, *args):
     __doc__ = LOG_DOCSTRING + "Log level: INFO"
     logger = get_logger(instance)
-    logger.info(msg)
+    logger.info(msg, *args)
 
 
-def log_warning(instance, msg):
+def log_warning(instance, msg, *args):
     __doc__ = LOG_DOCSTRING + "Log level: WARNING"
     logger = get_logger(instance)
-    logger.warning(msg)
+    logger.warning(msg, *args)
 
 
-def log_error(instance, msg):
+def log_error(instance, msg, *args):
     __doc__ = LOG_DOCSTRING + "Log level: ERROR"
     logger = get_logger(instance)
-    logger.error(msg)
+    logger.error(msg, *args)
 
 
-def log_critical(instance, msg):
+def log_critical(instance, msg, *args):
     __doc__ = LOG_DOCSTRING + "Log level: CRITICAL"
     logger = get_logger(instance)
-    logger.critical(msg)
+    logger.critical(msg, *args)
 
 
-def log_exception(instance, msg):
+def log_exception(instance, msg, *args):
     __doc__ = LOG_DOCSTRING + "Log level: ERROR with added exception trace"
     logger = get_logger(instance)
-    logger.exception(msg)
+    logger.exception(msg, *args)
 
 
 def set_log_format(instance, frmt):
@@ -458,7 +463,7 @@ class BlissLogger(Logger):
                 # change the toggle value for this logger
                 self.__saved_level = level
 
-    def debug_data(self, msg: str, data) -> None:
+    def debug_data(self, msg, *args) -> None:
         """
         Represents the given data according to the previous settled format
         through methods:
@@ -472,13 +477,18 @@ class BlissLogger(Logger):
             data: dict
                   or raw bytestring
         """
-        if isinstance(data, dict):
-            self.debug(f"{msg} {self.log_format_dict(data)}")
-        else:
-            try:
-                self.debug(f"{msg} bytes={len(data)} {self.__format_data(data)}")
-            except Exception:
-                self.debug(f"{msg} {data}")
+        if self.isEnabledFor(logging.DEBUG):
+            data = args[-1]
+            args = args[:-1]
+            if isinstance(data, dict):
+                self.debug(f"{msg} {self.log_format_dict(data)}", *args)
+            else:
+                try:
+                    self.debug(
+                        f"{msg} bytes={len(data)} {self.__format_data(data)}", *args
+                    )
+                except Exception:
+                    self.debug(f"{msg} {data}", *args)
 
     def set_hex_format(self):
         """

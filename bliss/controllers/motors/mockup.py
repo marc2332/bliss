@@ -94,7 +94,7 @@ class Mockup(Controller):
             self.set_hw_position(axis, 0)
 
     def initialize_axis(self, axis):
-        log_debug(self, f"initializing axis {axis.name}")
+        log_debug(self, "initializing axis %s", axis.name)
 
         self.__voltages[axis] = axis.config.get("default_voltage", int, default=220)
         self.__cust_attr_float[axis] = axis.config.get(
@@ -133,7 +133,7 @@ class Mockup(Controller):
         return motion
 
     def set_hw_limits(self, axis, low_limit, high_limit):
-        log_debug(self, f"set axis limit low={low_limit}, high={high_limit}")
+        log_debug(self, "set axis limit low=%s, high=%s", low_limit, high_limit)
         if low_limit is None:
             low_limit = float("-inf")
         if high_limit is None:
@@ -156,7 +156,7 @@ class Mockup(Controller):
     def start_one(self, motion, t0=None):
         assert isinstance(motion.target_pos, float)
         axis = motion.axis
-        log_debug(self, f"moving {axis.name} to {motion.target_pos}")
+        log_debug(self, "moving %s to %s", axis.name, motion.target_pos)
         if self._get_axis_motion(axis):
             raise RuntimeError("Cannot start motion. Motion already in place")
         pos = self.read_position(axis)
@@ -191,7 +191,7 @@ class Mockup(Controller):
             pos = self.read_hw_position(axis)
         else:
             pos = motion.trajectory.position(t)
-        log_debug(self, f"{axis.name} position is {pos}")
+        log_debug(self, "%s position is %s", axis.name, pos)
         return int(round(pos))
 
     def read_encoder(self, encoder):

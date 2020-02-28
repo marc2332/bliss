@@ -887,7 +887,11 @@ def interlock_download(
 
         log_debug(
             wago,
-            f"Wago interlock n.{i} with description {description} has {n_of_channels} n_of_channels, flags:{flags:b}",
+            "Wago interlock n.%d with description %s has %d n_of_channels, flags:%b",
+            i,
+            description,
+            n_of_channels,
+            flags,
         )
         logical_device_key, logical_device_channel = wago.devhard2log(
             (register_type_to_int("OB"), offset)
@@ -908,13 +912,19 @@ def interlock_download(
 
         log_debug(
             wago,
-            f"Relay logical name={logical_device} inverted={is_inverted(flags)}, tripped={is_tripped(flags)}, noforce={is_noforce(flags)}",
+            "Relay logical name=%s inverted=%s, tripped=%s, noforce=%s",
+            logical_device,
+            is_inverted(flags),
+            is_tripped(flags),
+            is_noforce(flags),
         )
         log_debug(wago, "Is TRIPPED" if is_tripped(flags) else "Is NOT TRIPPED")
 
         for j in range(1, n_of_channels + 1):
             received = wago.devwccomm((COMMANDS["ILCK_GETCONF"], i, j))
-            log_debug(wago, f"Wago interlock n.{i} channel n.{j} received {received}")
+            log_debug(
+                wago, "Wago interlock n.%s channel n.%s received %s", i, j, received
+            )
             flags = received[0]
             offset = received[1]
 
@@ -1035,13 +1045,16 @@ def interlock_memory(wago):
 
     log_debug(
         wago,
-        f"Wago interlock instances: registered={registered_inst} free={free_inst}, available={available_inst}",
+        "Wago interlock instances: registered=%s free=%s, available=%s",
+        registered_inst,
+        free_inst,
+        available_inst,
     )
     return registered_inst, available_inst, free_inst
 
 
 def interlock_reset(wago, instance_n):
-    log_debug(wago, f"Interlock: Resetting instance n.{instance_n}")
+    log_debug(wago, "Interlock: Resetting instance n.%s", instance_n)
     response = wago.devwccomm((COMMANDS["ILCK_RESET"], instance_n))  # deleting instance
     if response:
         raise RuntimeError(f"Interlock: Error response from PLC: {ERRORS[response[0]]}")

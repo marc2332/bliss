@@ -60,10 +60,10 @@ class CarnacHook(MotionHook):
     def pre_move(self, motion_list):
         axes = [motion.axis for motion in motion_list]
         axes_names = ", ".join([axis.name for axis in axes])
-        log_debug(self, f"Start power ON for {axes_names}")
+        log_debug(self, "Start power ON for %s", axes_names)
         tasks = [gevent.spawn(axis.controller.set_on, axis) for axis in axes]
         gevent.joinall(tasks, timeout=1, raise_error=True)
-        log_debug(self, f"Finished power ON for {axes_names}")
+        log_debug(self, "Finished power ON for %s", axes_names)
         # we know empirically that the carnac takes ~1.3s to reply it is
         # ready after a power on
         gevent.sleep(1.2)
@@ -72,8 +72,8 @@ class CarnacHook(MotionHook):
     def post_move(self, motion_list):
         axes = [motion.axis for motion in motion_list]
         axes_names = ", ".join([axis.name for axis in axes])
-        log_debug(self, f"Start power OFF for {axes_names}")
+        log_debug(self, "Start power OFF for %s", axes_names)
         tasks = [gevent.spawn(axis.controller.set_off, axis) for axis in axes]
         gevent.joinall(tasks, timeout=1, raise_error=True)
-        log_debug(self, f"Finished power OFF for {axes_names}")
+        log_debug(self, "Finished power OFF for %s", axes_names)
         self._wait_ready(axes)

@@ -269,14 +269,18 @@ Use them to log messages to a specific level, always pass as first argument the
 instance (normally self).
 
 ```python
-log_debug(self, "ACK received")
+log_debug(self, "ACK received from %s" , host)
 log_error(self, "Connection Failed")
-log_exception(self, "No response")  # use after an except to add exception info
+log_exception(self, "No response after %d times", n_retry)  # use after an except to add exception info
 ```
+
+As normal python logging methods you should use %-string formatting (similar to `C` language `printf`).
+The use of python `f"strings"` is discouraged as is not a lazy evaluation.
 
 ### log_debug_data
 
-Like log_debug but has an additional argument (data).
+Like log_debug but has an additional argument (data). This argument should be
+the last after eventual %-string arguments.
 
 The idea in mind was to provide a debug function specifically for debugging row
 data like low communication layers.
@@ -290,11 +294,11 @@ DEMO [17]: from bliss import global_map
 DEMO [18]: global_map.register('fakenode')  # I will register this fake string node
 DEMO [19]: debugon('*fakenode')
 Setting session.controllers.fakenode to show debug messages
-DEMO [20]: log_debug_data('fakenode', "Received data", b'13$213')
-DEBUG 2019-07-04 18:11:16,799 session.controllers.fakenode: Received data bytes=6 b'13$213'
+DEMO [20]: log_debug_data('fakenode', "Received data from %s", host, b'13$213')
+DEBUG 2019-07-04 18:11:16,799 session.controllers.fakenode: Received data from 192.168.3.20 bytes=6 b'13$213'
 DEMO [21]: set_log_format('fakenode','hex')
-DEMO [22]: log_debug_data('fakenode', "Received data", b'13$213')
-DEBUG 2019-07-04 18:11:49,660 session.controllers.fakenode: Received data bytes=6 \x31\x33\x24\x32\x31\x33
+DEMO [22]: log_debug_data('fakenode', "Received data from %s", host, b'13$213')
+DEBUG 2019-07-04 18:11:49,660 session.controllers.fakenode: Received data from 192.168.3.20 bytes=6 \x31\x33\x24\x32\x31\x33
 ```
 Use **set_log_format(instance, "ascii")** or **set_log_format_(instance, "hex")** to change
 the format of log_debug_data messages.
@@ -354,16 +358,16 @@ First defining a class MyConnection:
 ```python
 DEMO [84]: class MyConnection:
 ...:     def __init__(self, address):
-...:         log_debug(self, f"In {type(self)}.__init__")
+...:         log_debug(self, "In %s.__init__", type(self))
 ...:         self.address = address
 ...:         self.sock = socket(AF_INET, SOCK_STREAM)
 ...:         global_map.register(self, children_list=[self.sock])
-...:         log_debug(self, f"Myconnection socket created to {address}")
+...:         log_debug(self, "Myconnection socket created to %s", address)
 ...:     def send(self):
 ...:         self.sock.connect((self.address,80))
 ...:         self.sock.send(b'GET /\n\r\n\r')
 ...:         data = self.sock.recv(1024)
-...:         log_debug_data(self.sock, f"Received from {self.address}", data)
+...:         log_debug_data(self.sock, "Received from %s", self.address, data)
 ```
 Then define a controller that uses MyConnection:
 

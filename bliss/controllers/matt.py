@@ -216,14 +216,14 @@ class MattControl:
         return ret
 
     def read_1posbit(self, stat):
-        log_debug(self, f"In read_1posbit({stat})")
+        log_debug(self, "In read_1posbit(%s)", stat)
         ret = 0
         for i in range(self.nb_filter):
             ret += stat[i] << i
         return ret
 
     def read_2posbit_odd(self, stat):
-        log_debug(self, f"In read_2posbit_odd({stat})")
+        log_debug(self, "In read_2posbit_odd(%s)", stat)
         ret = 0
         nstat = 2
         for i in range(self.nb_filter):
@@ -235,7 +235,7 @@ class MattControl:
         return ret
 
     def read_2posbit(self, stat):
-        log_debug(self, f"In read_2posbit({stat})")
+        log_debug(self, "In read_2posbit(%s)", stat)
         ret = 0
         nstat = 2
         for i in range(self.nb_filter):
@@ -249,7 +249,7 @@ class MattControl:
         return ret
 
     def read_2posbit_alternate(self, stat):
-        log_debug(self, f"In read_2posbit_alternate({stat})")
+        log_debug(self, "In read_2posbit_alternate(%s)", stat)
         ret = 0
         nstat = 2
         for i in range(self.nb_filter):
@@ -260,7 +260,7 @@ class MattControl:
         return ret
 
     def pos_write(self, value):
-        log_debug(self, f"In pos_write({value})")
+        log_debug(self, "In pos_write(%s)", value)
         valarr = []
         valarr = [False] * self.nb_filter
 
@@ -281,7 +281,7 @@ class MattControl:
         return mystr
 
     def status_read(self):
-        log_debug(self, f"In status_read()")
+        log_debug(self, "In status_read()")
         stat = []
         mystr = ""
         lbl = "F"
@@ -305,7 +305,7 @@ class MattControl:
         return stat
 
     def matt_set(self, val):
-        log_debug(self, f"In matt_set({val})")
+        log_debug(self, "In matt_set(%s)", val)
         oldvalue = self.pos_read()
         if oldvalue >= (1 << self.nb_filter):
             raise RuntimeError("Filters in unknown position, exiting")
@@ -330,7 +330,7 @@ class MattControl:
                 raise RuntimeError("Timeout while waiting for filters to be %d" % val)
 
     def filter_set(self, filt, put_in):
-        log_debug(self, f"In filter_set({filt}, {put_in})")
+        log_debug(self, "In filter_set(%s, %s)", filt, put_in)
         value = self.pos_read()
         if value >= (1 << self.nb_filter):
             raise RuntimeError("Filters in unknown position, exiting")
@@ -355,19 +355,19 @@ class MattControl:
                 )
 
     def mattin(self, filt):
-        log_debug(self, f"In mattin({filt}")
+        log_debug(self, "In mattin(%s)", filt)
         if filt >= self.nb_filter:
             raise RuntimeError("Wrong filter number %d" % filt)
         self.filter_set(filt, True)
 
     def mattout(self, filt):
-        log_debug(self, f"In mattout({filt}")
+        log_debug(self, "In mattout(%s)", filt)
         if filt >= self.nb_filter:
             raise RuntimeError("Wrong filter number %d" % filt)
         self.filter_set(filt, False)
 
     def mattsetall(self, flag):
-        log_debug(self, f"In mattsetall({flag}")
+        log_debug(self, "In mattsetall(%s)", flag)
         value = 0
         if flag is True:
             for i in range(self.nb_filter):
@@ -375,13 +375,13 @@ class MattControl:
         self.mattstatus_set(value)
 
     def mattstatus_get(self):
-        log_debug(self, f"In mattstatus_get()")
+        log_debug(self, "In mattstatus_get()")
         value = []
         value.append(float(self.pos_read()))
         return value
 
     def mattstatus_set(self, value):
-        log_debug(self, f"In mattstatus_set({value})")
+        log_debug(self, "In mattstatus_set(%s)", value)
         self.pos_write(value)
         t0 = time.time()
         check = self.pos_read()

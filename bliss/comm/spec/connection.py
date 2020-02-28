@@ -264,7 +264,7 @@ class SpecConnection:
 
     def error(self, error):
         """Emit the 'error' signal when the remote Spec version signals an error."""
-        log_error(self, f"Error from Spec: {error}")
+        log_error(self, "Error from Spec: %s", error)
 
         event.send(self, "error", (error,))
 

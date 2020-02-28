@@ -116,7 +116,7 @@ def initialize(session_name=None):
         except RuntimeError:  # Beacon is too old
             pass
         session = config.get(session_name)
-        print("%s: Executing setup..." % session.name)
+        print("%s: Loading config..." % session.name)
 
     env_dict = __main__.__dict__
 

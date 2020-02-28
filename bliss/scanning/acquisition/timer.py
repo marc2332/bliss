@@ -29,6 +29,7 @@ class SoftwareTimerMaster(AcquisitionMaster):
 
         self._nb_point = 0
         self._started_time = None
+        self._first_trigger = True
 
     def __iter__(self):
         npoints = self.npoints
@@ -43,7 +44,7 @@ class SoftwareTimerMaster(AcquisitionMaster):
                 self._nb_point += 1
 
     def prepare(self):
-        pass
+        self._first_trigger = True
 
     def start(self):
         # if we are the top master
@@ -56,9 +57,9 @@ class SoftwareTimerMaster(AcquisitionMaster):
 
         start_trigger = time.time()
         self.trigger_slaves()
-        if not self._nb_point:
+        if self._first_trigger:
             self._started_time = start_trigger
-
+            self._first_trigger = False
         self.channels[0].emit(start_trigger - self._started_time)
         self.channels[1].emit(start_trigger)
 

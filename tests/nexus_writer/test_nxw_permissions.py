@@ -10,7 +10,7 @@ import os
 import pytest
 import nxw_test_utils
 from bliss.common import scans
-from nexus_writer_service.utils.scan_utils import scan_filename, scan_uri
+from nexus_writer_service.utils.scan_utils import scan_filename
 from nexus_writer_service.io.io_utils import mkdir
 from nexus_writer_service.io import nexus
 
@@ -71,6 +71,7 @@ def _test_tango(session=None, tmpdir=None, writer=None, **kwargs):
 
     # File already exists with wrong permission
     scan = scans.ct(0.1, detector, save=True)
+    nxw_test_utils.wait_scan_data_exists([scan], writer=writer)
     filename = scan_filename(scan)
     if disable_permissions(filename):
         with pytest.raises(RuntimeError):
@@ -89,9 +90,8 @@ def _test_process(session=None, tmpdir=None, writer=None, **kwargs):
     scan = scans.ct(0.1, detector, save=True)
     filename = scan_filename(scan)
     if disable_permissions(filename):
-        scan = scans.ct(0.1, detector, save=True)
-        uri = scan_uri(scan)
-        assert not nexus.exists(uri), uri
+        with pytest.raises(RuntimeError):
+            scans.ct(0.1, detector, save=True)
 
         # We should have permissions (scan should run)
         enable_permissions(filename)

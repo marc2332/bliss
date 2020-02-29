@@ -23,6 +23,7 @@ from bliss.config import static
 from bliss.common import scans
 from bliss.data.scan import watch_session_scans
 from bliss.scanning.group import Group
+from nexus_writer_service.io import nexus
 
 
 def stress_many_parallel(test_session, filename, titles, checkoutput=True):
@@ -193,7 +194,7 @@ def reader(filename, mode):
     while True:
         gevent.sleep(0.1)
         try:
-            with h5py.File(filename, mode=mode) as f:
+            with nexus.File(filename, mode=mode) as f:
                 for entry in f:
                     list(f[entry]["instrument"].keys())
                     list(f[entry]["measurement"].keys())
@@ -251,7 +252,7 @@ def check_output(scans, titles):
         for s in scans
         for i in range(1, subscans.get(s.name, 1) + 1)
     ]
-    with h5py.File(filename, mode="r") as f:
+    with nexus.File(filename, mode="r") as f:
         err_msg = "{}: {}/nExpected: {}".format(filename, set(f.keys()), set(titles))
         assert set(f.keys()) == set(titles), err_msg
 

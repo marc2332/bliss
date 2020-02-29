@@ -24,6 +24,7 @@ import traceback
 import pprint
 import logging
 import bliss
+import gevent
 from functools import wraps
 from io import StringIO
 from collections import Counter
@@ -1209,6 +1210,7 @@ def createVirtualDataset(
                     layout[idxout] = vsource[idxin]
                 else:
                     layout[idxout] = vsource
+                gevent.sleep()
     else:
         logger.debug("Create VDS {} with opening sources".format(repr(destination)))
         for uri, idx_generator in fill_generator():
@@ -1234,6 +1236,7 @@ def createVirtualDataset(
                         layout[idxout] = vsource[idxin]
                     else:
                         layout[idxout] = vsource
+                    gevent.sleep()
     return h5group.create_virtual_dataset(name, layout, fillvalue=fillvalue)
 
 
@@ -1278,6 +1281,7 @@ def createConcatenatedDataset(
         with uriContext(uri, mode="r") as dseti:
             for idxin, idxout in index_generator():
                 dset[idxout] = dseti[idxin]
+                gevent.sleep()
     return dset
 
 

@@ -428,6 +428,8 @@ class Channel(qt.QObject, _Sealable):
         self.__type: ChannelType = ChannelType.COUNTER
         self.__displayName: Optional[str] = None
         self.__unit: Optional[str] = None
+        self.__refreshRates: Dict[str, Optional[int]] = {}
+        self.__updatedCount = 0
         parent.addChannel(self)
 
     def setType(self, channelType: ChannelType):
@@ -572,8 +574,29 @@ class Channel(qt.QObject, _Sealable):
             raise ValueError("Data do not fit the channel requirements")
         if self.__data is data:
             return
+        self.__updatedCount += 1
         self.__data = data
         self.dataUpdated.emit(data)
+
+    def setPreferedRefreshRate(self, key: str, rate: Optional[int]):
+        """Allow to specify the prefered refresh rate.
+
+        It have to be specified in millisecond.
+        """
+        if rate is None:
+            if key in self.__refreshRates:
+                del self.__refreshRates[key]
+        else:
+            self.__refreshRates[key] = rate
+
+    def preferedRefreshRate(self) -> Optional[int]:
+        if len(self.__refreshRates) == 0:
+            return None
+        return min(self.__refreshRates.values())
+
+    def updatedCount(self) -> int:
+        """Amount of time the data was updated."""
+        return self.__updatedCount
 
 
 class Data(qt.QObject):
@@ -585,13 +608,31 @@ class Data(qt.QObject):
     helper to deal with the data (like hash). Counld be renamed into `Quantity`.
     """
 
-    def __init__(self, parent=None, array: numpy.ndarray = None, frameId: int = None):
+    def __init__(
+        self,
+        parent=None,
+        array: numpy.ndarray = None,
+        frameId: int = None,
+        source: str = None,
+        receivedTime: float = None,
+    ):
         super(Data, self).__init__(parent=parent)
         self.__array = array
         self.__frameId = frameId
+        self.__source = source
+        self.__receivedTime = receivedTime
 
     def array(self) -> numpy.ndarray:
         return self.__array
 
     def frameId(self) -> int:
+        """Frame number, only valid for images"""
         return self.__frameId
+
+    def source(self) -> str:
+        """Source of the image, only valid for images"""
+        return self.__source
+
+    def receivedTime(self) -> float:
+        """Timestamp in second when the application received this data"""
+        return self.__receivedTime

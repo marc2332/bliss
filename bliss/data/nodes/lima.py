@@ -10,6 +10,7 @@ import struct
 import math
 import pickle
 import numpy
+import typing
 from bliss.common.tango import DeviceProxy
 from bliss.data.node import DataNode
 from bliss.data.events import EventData
@@ -33,6 +34,40 @@ when None is a valid argument which can be used"""
 class ImageFormatNotSupported(Exception):
     """"Raised when the RAW data from a Lima device can't be decoded as a grey
     scale or RGB numpy array."""
+
+
+class Frame(typing.NamedTuple):
+    """
+    Provide data frame from Lima including few metadata
+    """
+
+    data: numpy.array
+    """Data of the frame"""
+
+    frame_number: typing.Optional[int]
+    """Number of the frame. Can be None. 0 is the first frame"""
+
+    source: str
+    """Source of the data. Can be "video", "file", or "memory"
+    """
+
+    def __bool__(self) -> bool:
+        """Return true is this frame is not None
+
+        Helper for compatibility. This have to be removed. The API should return
+        `None` when there is nothing, and not return an empty tuple.
+
+        ..note:: 2020-02-27: This have to be removed at one point
+        """
+        return self.data is not None
+
+    def __iter__(self):
+        """Mimick a 2-tuple, for compatibility with the previous version.
+
+        ..note:: 2020-02-27: This have to be removed at one point
+        """
+        yield self[0]
+        yield self[1]
 
 
 def image_filenames(ref_data, image_nbs, last_image_saved=None):
@@ -198,15 +233,18 @@ class LimaImageChannelDataNode(DataNode):
                 proxy = self._get_proxy()
 
             if not proxy:
-                return None, None
+                # FIXME: It should return None
+                return Frame(None, None, None)
 
             if not self.from_stream:
-                return None, None
+                # FIXME: It should return None
+                return Frame(None, None, None)
 
             # get last video image
             _, raw_data = proxy.video_last_image
             if len(raw_data) <= HEADER_SIZE:
-                return None, None
+                # FIXME: It should return None
+                return Frame(None, None, None)
 
             (
                 magic,
@@ -259,7 +297,7 @@ class LimaImageChannelDataNode(DataNode):
                 # In this case the reached frame have no meaning within the full
                 # scan. It is better not to provide it
                 image_frame_number = None
-            return data, image_frame_number
+            return Frame(data, image_frame_number, "video")
 
         def get_last_image(self, proxy=UNSET):
             """Returns the last image from the received one, together with the frame id.
@@ -278,14 +316,16 @@ class LimaImageChannelDataNode(DataNode):
                 self._update()
                 frame_number = self.last_image_ready
                 data = self._get_from_server_memory(proxy, frame_number)
+                source = "memory"
 
             if data is None:
                 # Update to use the latest image
                 self._update()
                 frame_number = self.last_image_ready
                 data = self._get_from_file(frame_number)
+                source = "file"
 
-            return data, frame_number
+            return Frame(data, frame_number, source)
 
         def get_image(self, image_nb, proxy=UNSET):
             if image_nb < 0:

@@ -76,6 +76,7 @@ class ImagePlotWidget(plot_helper.PlotWidget):
 
         self.__aggregator = plot_helper.PlotEventAggregator(self)
         self.__refreshManager = plot_helper.RefreshManager(self)
+        self.__refreshManager.refreshModeChanged.connect(self.__refreshModeChanged)
         self.__refreshManager.setAggregator(self.__aggregator)
 
         toolBar = self.__createToolBar()
@@ -211,6 +212,12 @@ class ImagePlotWidget(plot_helper.PlotWidget):
 
     def setPlotModel(self, plotModel: plot_model.Plot):
         if self.__plotModel is not None:
+            self.__plotModel.itemAdded.disconnect(
+                self.__aggregator.callbackTo(self.__itemAdded)
+            )
+            self.__plotModel.itemRemoved.disconnect(
+                self.__aggregator.callbackTo(self.__itemRemoved)
+            )
             self.__plotModel.structureChanged.disconnect(
                 self.__aggregator.callbackTo(self.__structureChanged)
             )
@@ -220,8 +227,15 @@ class ImagePlotWidget(plot_helper.PlotWidget):
             self.__plotModel.transactionFinished.disconnect(
                 self.__aggregator.callbackTo(self.__transactionFinished)
             )
+        previousPlot = self.__plotModel
         self.__plotModel = plotModel
         if self.__plotModel is not None:
+            self.__plotModel.itemAdded.connect(
+                self.__aggregator.callbackTo(self.__itemAdded)
+            )
+            self.__plotModel.itemRemoved.connect(
+                self.__aggregator.callbackTo(self.__itemRemoved)
+            )
             self.__plotModel.structureChanged.connect(
                 self.__aggregator.callbackTo(self.__structureChanged)
             )
@@ -232,6 +246,9 @@ class ImagePlotWidget(plot_helper.PlotWidget):
                 self.__aggregator.callbackTo(self.__transactionFinished)
             )
         self.plotModelUpdated.emit(plotModel)
+        self.__updatePreferedRefreshRate(
+            previousPlot=previousPlot, plot=self.__plotModel
+        )
         self.__redrawAll()
 
     def plotModel(self) -> plot_model.Plot:
@@ -239,6 +256,12 @@ class ImagePlotWidget(plot_helper.PlotWidget):
 
     def __structureChanged(self):
         self.__redrawAll()
+
+    def __itemAdded(self, item):
+        self.__updatePreferedRefreshRate(newItem=item)
+
+    def __itemRemoved(self, item):
+        self.__updatePreferedRefreshRate(previousItem=item)
 
     def __transactionFinished(self):
         if self.__plotWasUpdated:
@@ -275,6 +298,7 @@ class ImagePlotWidget(plot_helper.PlotWidget):
             self.__hasPreviousImage = True
         else:
             self.__hasPreviousImage = False
+        previousScan = self.__scan
         self.__scan = scan
         if self.__scan is not None:
             self.__scan.scanDataUpdated[object].connect(
@@ -293,7 +317,86 @@ class ImagePlotWidget(plot_helper.PlotWidget):
         # Note: No redraw here to avoid blinking of the image
         # The image title is explicitly tagged as "outdated"
         # To avoid mistakes
+        self.__updatePreferedRefreshRate(previousScan=previousScan, scan=self.__scan)
         self.__redrawAllIfNeeded()
+
+    def __refreshModeChanged(self):
+        self.__updatePreferedRefreshRate()
+
+    def __updatePreferedRefreshRate(
+        self,
+        previousScan: scan_model.Scan = None,
+        scan: scan_model.Scan = None,
+        previousPlot: plot_model.Plot = None,
+        plot: plot_model.Plot = None,
+        previousItem: plot_model.Item = None,
+        newItem: plot_model.Item = None,
+    ):
+        """Propagate prefered refresh rate to the internal scan model.
+
+        This allow the scan manager to optimize image download.
+
+        The function deals with all the cases which can happen. Changes of the
+        scan, the plot, or the items. Item visibility could also be taken into
+        account.
+        """
+
+        if plot is None:
+            plot = self.__plotModel
+        if scan is None:
+            scan = self.__scan
+
+        key = self.objectName()
+
+        def imageChannels(plotModel, scan):
+            """Iterate through all channel scan from image items"""
+            for item in plotModel.items():
+                if isinstance(item, plot_item_model.ImageItem):
+                    channelRef = item.imageChannel()
+                    if channelRef is None:
+                        continue
+                    channel = channelRef.channel(scan)
+                    if channel is None:
+                        continue
+                    yield channel
+
+        # Remove preferences from the previous plot
+        if previousPlot is not None and scan is not None:
+            for channel in imageChannels(previousPlot, scan):
+                channel.setPreferedRefreshRate(key, None)
+
+        if plot is None:
+            return
+
+        # Remove preferences from the previous scan
+        if previousScan is not None:
+            for channel in imageChannels(plot, previousScan):
+                channel.setPreferedRefreshRate(key, None)
+
+        rate = self.__refreshManager.refreshMode()
+
+        if scan is not None:
+            # Remove preferences from the prevouos item
+            if previousItem is not None:
+                item = previousItem
+                if isinstance(item, plot_item_model.ImageItem):
+                    channelRef = item.imageChannel()
+                    if channelRef is not None:
+                        channel = channelRef.channel(scan)
+                        if channel is not None:
+                            channel.setPreferedRefreshRate(key, None)
+            elif newItem is not None:
+                item = newItem
+                if isinstance(item, plot_item_model.ImageItem):
+                    channelRef = item.imageChannel()
+                    if channelRef is not None:
+                        channel = channelRef.channel(scan)
+                        if channel is not None:
+                            channel.setPreferedRefreshRate(key, rate)
+            else:
+                # Update the preferences to the current plot and current scan
+                for channel in imageChannels(plot, scan):
+                    channel.setPreferedRefreshRate(key, rate)
 
     def __clear(self):
         self.__items = {}
@@ -319,8 +422,16 @@ class ImagePlotWidget(plot_helper.PlotWidget):
         displayName = channel.displayName(scan)
         data = channel.data(scan)
         if data is not None:
+            if data.source() == "video":
+                op = " ≈ "
+            else:
+                op = " = "
+
             if data.frameId() is not None:
-                frameInfo = ", frame id: %s" % data.frameId()
+                frameInfo = f", id{op}{data.frameId()}"
+            if frameInfo != "":
+                frameInfo += " "
+            frameInfo += f"[{data.source()}]"
         return f"{displayName}{frameInfo}"
 
     def __updatePreviousScanData(self):
@@ -377,7 +488,7 @@ class ImagePlotWidget(plot_helper.PlotWidget):
 
     def __redrawAllIfNeeded(self):
         plotModel = self.__plotModel
-        if plotModel is None:
+        if plotModel is None or self.__scan is None:
             self.__cleanAll()
             return
 

@@ -237,55 +237,39 @@ def scan_tmpdir(tmpdir):
     tmpdir.remove()
 
 
-@pytest.fixture
-def lima_simulator(ports):
-    from Lima.Server.LimaCCDs import main
+@contextmanager
+def lima_simulator_context(personal_name, device_name):
+    device_fqdn = f"tango://{os.environ['TANGO_HOST']}/{device_name}"
 
-    device_name = "id00/limaccds/simulator1"
-    device_fqdn = "tango://localhost:{}/{}".format(ports.tango_port, device_name)
+    p = subprocess.Popen(["LimaCCDs", personal_name])
 
-    p = subprocess.Popen(["LimaCCDs", "simulator"])
+    dev_proxy = DeviceProxy(device_fqdn)
 
-    with gevent.Timeout(10, RuntimeError("Lima simulator is not running")):
+    with gevent.Timeout(10, RuntimeError(f"{device_name} is not running")):
         while True:
             try:
-                dev_proxy = DeviceProxy(device_fqdn)
-                dev_proxy.ping()
                 dev_proxy.state()
             except DevFailed as e:
-                gevent.sleep(0.1)
+                gevent.sleep(0.5)
             else:
                 break
 
-    gevent.sleep(1)
-    yield device_fqdn, dev_proxy
-    wait_terminate(p)
+    try:
+        yield device_fqdn, dev_proxy
+    finally:
+        wait_terminate(p)
+
+
+@pytest.fixture
+def lima_simulator(ports):
+    with lima_simulator_context("simulator", "id00/limaccds/simulator1") as fqdn_proxy:
+        yield fqdn_proxy
 
 
 @pytest.fixture
 def lima_simulator2(ports):
-    from Lima.Server.LimaCCDs import main
-    from bliss.common.tango import DeviceProxy, DevFailed
-
-    device_name = "id00/limaccds/simulator2"
-    device_fqdn = "tango://localhost:{}/{}".format(ports.tango_port, device_name)
-
-    p = subprocess.Popen(["LimaCCDs", "simulator2"])
-
-    with gevent.Timeout(10, RuntimeError("Lima simulator2 is not running")):
-        while True:
-            try:
-                dev_proxy = DeviceProxy(device_fqdn)
-                dev_proxy.ping()
-                dev_proxy.state()
-            except DevFailed as e:
-                gevent.sleep(0.1)
-            else:
-                break
-
-    gevent.sleep(1)
-    yield device_fqdn, dev_proxy
-    wait_terminate(p)
+    with lima_simulator_context("simulator2", "id00/limaccds/simulator2") as fqdn_proxy:
+        yield fqdn_proxy
 
 
 @pytest.fixture

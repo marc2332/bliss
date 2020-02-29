@@ -18,6 +18,9 @@ import pytest
 import redis
 import collections.abc
 import numpy
+from random import randint
+from contextlib import contextmanager
+import redis
 
 from bliss import global_map
 from bliss.common.session import DefaultSession
@@ -33,10 +36,6 @@ from bliss.controllers import simulation_diode
 from bliss.common import plot
 from bliss.common.tango import DeviceProxy, DevFailed, ApiUtil
 from bliss import logging_startup
-
-from random import randint
-from contextlib import contextmanager
-
 from bliss.scanning import scan_meta
 
 
@@ -190,6 +189,11 @@ def ports(beacon_directory):
 
     # important: close to prevent filling up the pipe as it is not read during tests
     proc.stderr.close()
+
+    # disable .rdb files saving (redis persistence)
+    r = redis.Redis(host="localhost", port=ports.redis_port)
+    r.config_set("SAVE", "")
+    del r
 
     os.environ["TANGO_HOST"] = "localhost:%d" % ports.tango_port
     os.environ["BEACON_HOST"] = "localhost:%d" % ports.beacon_port

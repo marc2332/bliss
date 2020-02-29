@@ -169,7 +169,7 @@ def test_lima_mapping_and_saving(session, lima_simulator):
     assert mapped_directory.startswith(saving_directory)
 
 
-def test_images_dir_prefix_saving(lima_simulator, scan_tmpdir, session):
+def test_images_dir_prefix_saving(session, scan_tmpdir, lima_simulator):
     simulator = session.config.get("lima_simulator")
     scan_saving = session.scan_saving
     scan_saving_dump = scan_saving.to_dict()
@@ -204,7 +204,7 @@ def test_images_dir_prefix_saving(lima_simulator, scan_tmpdir, session):
         scan_saving.from_dict(scan_saving_dump)
 
 
-def test_images_dir_prefix_saving_absolute(lima_simulator, scan_tmpdir, session):
+def test_images_dir_prefix_saving_absolute(session, scan_tmpdir, lima_simulator):
     simulator = session.config.get("lima_simulator")
     scan_saving = session.scan_saving
     scan_saving_dump = scan_saving.to_dict()
@@ -240,7 +240,7 @@ def test_images_dir_prefix_saving_absolute(lima_simulator, scan_tmpdir, session)
         scan_saving.from_dict(scan_saving_dump)
 
 
-def test_images_dir_saving_null_writer(lima_simulator, scan_tmpdir, session):
+def test_images_dir_saving_null_writer(session, scan_tmpdir, lima_simulator):
     # issue 1010
     simulator = session.config.get("lima_simulator")
     scan_saving = session.scan_saving
@@ -268,7 +268,7 @@ def test_images_dir_saving_null_writer(lima_simulator, scan_tmpdir, session):
         scan_saving.from_dict(scan_saving_dump)
 
 
-def test_dir_no_saving(lima_simulator, scan_tmpdir, session):
+def test_dir_no_saving(session, scan_tmpdir, lima_simulator):
     # issue 1070
     simulator = session.config.get("lima_simulator")
     scan_saving = session.scan_saving

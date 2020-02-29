@@ -8,12 +8,13 @@
 import os
 import struct
 import math
+import pickle
 import numpy
-import gevent
 from bliss.common.tango import DeviceProxy
-from bliss.common.task import task
 from bliss.data.node import DataNode
+from bliss.data.events import EventData
 from bliss.config.settings import QueueObjSetting
+from bliss.config.streaming import DataStream
 from silx.third_party.EdfFile import EdfFile
 
 try:
@@ -34,7 +35,71 @@ class ImageFormatNotSupported(Exception):
     scale or RGB numpy array."""
 
 
+def image_filenames(ref_data, image_nbs, last_image_saved=None):
+    """
+    :param HashObjSetting ref_data:
+    :param sequence image_nbs:
+    :param int last_image_saved:
+    :returns list(tuple): file name, path-in-file, image index, file format
+                          File format is not file extension (HDF5, HDF5BS, EDFLZ4, ...)
+    :raises RuntimeError: when an image is not saved already
+    """
+    saving_mode = ref_data.get("saving_mode", "MANUAL")
+    if saving_mode == "MANUAL":  # files are not saved
+        raise RuntimeError("Images were not saved")
+
+    overwrite_policy = ref_data.get("saving_overwrite", "ABORT").lower()
+    if overwrite_policy == "multiset":
+        nb_image_per_file = ref_data["acq_nb_frames"]
+    else:
+        nb_image_per_file = ref_data.get("saving_frame_per_file", 1)
+
+    first_file_number = ref_data.get("saving_next_number", 0)
+    path_format = os.path.join(
+        ref_data["saving_directory"],
+        "%s%s%s"
+        % (
+            ref_data["saving_prefix"],
+            ref_data.get("saving_index_format", "%04d"),
+            ref_data["saving_suffix"],
+        ),
+    )
+    returned_params = list()
+    file_format = ref_data["saving_format"]
+    if last_image_saved is None:
+        last_image_saved = max(image_nbs)
+    for image_nb in image_nbs:
+        if image_nb > last_image_saved:
+            raise RuntimeError("Image %d was not saved" % image_nb)
+
+        image_index_in_file = image_nb % nb_image_per_file
+        file_nb = first_file_number + image_nb // nb_image_per_file
+        file_path = path_format % file_nb
+        if file_format.lower().startswith("hdf5"):
+            if ref_data.get("lima_version", "<1.9.1") == "<1.9.1":
+                # 'old' lima
+                path_in_file = (
+                    "/entry_0000/instrument/"
+                    + ref_data["user_detector_name"]
+                    + "/data/array"
+                )
+            else:
+                # 'new' lima
+                path_in_file = (
+                    f"/entry_0000/{ref_data['user_instrument_name']}"
+                    + f"/{ref_data['user_detector_name']}/data"
+                )
+            returned_params.append(
+                (file_path, path_in_file, image_index_in_file, file_format)
+            )
+        else:
+            returned_params.append((file_path, "", image_index_in_file, file_format))
+    return returned_params
+
+
 class LimaImageChannelDataNode(DataNode):
+    DATA = b"__data__"
+
     class LimaDataView(object):
         DataArrayMagic = struct.unpack(">I", b"DTAY")[0]
 
@@ -49,8 +114,9 @@ class LimaImageChannelDataNode(DataNode):
 
         VIDEO_MODES = {0: numpy.uint8, 1: numpy.uint16, 2: numpy.int32, 3: numpy.int64}
 
-        def __init__(self, data, from_index, to_index, from_stream=False):
+        def __init__(self, data, data_ref, from_index, to_index, from_stream=False):
             self.data = data
+            self.data_ref = data_ref
             self.from_index = from_index
             self.to_index = to_index
             self.last_image_ready = -1
@@ -58,11 +124,23 @@ class LimaImageChannelDataNode(DataNode):
 
         @property
         def ref_status(self):
-            return self.data[0]
+            raw_data = self.data.rev_range(count=1)
+            if raw_data:
+                index, raw_event = raw_data[0]
+                return pickle.loads(raw_event[LimaImageChannelDataNode.DATA])
+            else:  # Lima acqusition is not yet started.
+                return {
+                    "lima_acq_nb": -1,
+                    "buffer_max_number": -1,
+                    "last_image_acquired": -1,
+                    "last_image_ready": -1,
+                    "last_counter_ready": -1,
+                    "last_image_saved": -1,
+                }
 
         @property
         def ref_data(self):
-            return self.data[1:]
+            return self.data_ref[0:]
 
         @property
         def last_index(self):
@@ -145,14 +223,15 @@ class LimaImageChannelDataNode(DataNode):
 
             if endian != 0:
                 raise ImageFormatNotSupported(
-                    "Decoding video frame from this Lima device is not supported by bliss cause of the endianness (found %s)."
+                    "Decoding video frame from this Lima device is "
+                    "not supported by bliss cause of the endianness (found %s)."
                     % endian
                 )
 
             if pad0 != 0 or pad1 != 0:
                 raise ImageFormatNotSupported(
-                    "Decoding video frame from this Lima device is not supported by bliss cause of the padding (found %s, %s)."
-                    % (pad0, pad1)
+                    "Decoding video frame from this Lima device is not supported "
+                    "by bliss cause of the padding (found %s, %s)." % (pad0, pad1)
                 )
 
             if magic != 0x5644454f:
@@ -296,107 +375,18 @@ class LimaImageChannelDataNode(DataNode):
                         return self._tango_unpack(raw_msg[-1])
 
         def get_filenames(self):
+            """All saved image filenames
+            """
             self._update()
             ref_data = self.ref_data[0]
             return self._get_filenames(ref_data, *range(0, self.last_image_saved + 1))
 
         def _get_filenames(self, ref_data, *image_nbs):
-            saving_mode = ref_data.get("saving_mode", "MANUAL")
-            if saving_mode == "MANUAL":  # files are not saved
-                raise RuntimeError("Images were not saved")
-
-            overwrite_policy = ref_data.get("saving_overwrite", "ABORT").lower()
-            if overwrite_policy == "multiset":
-                nb_image_per_file = ref_data["acq_nb_frames"]
-            else:
-                nb_image_per_file = ref_data.get("saving_frame_per_file", 1)
-
-            last_image_saved = self.last_image_saved
-            first_file_number = ref_data.get("saving_next_number", 0)
-            path_format = os.path.join(
-                ref_data["saving_directory"],
-                "%s%s%s"
-                % (
-                    ref_data["saving_prefix"],
-                    ref_data.get("saving_index_format", "%04d"),
-                    ref_data["saving_suffix"],
-                ),
+            """Specific image filenames
+            """
+            return image_filenames(
+                ref_data, image_nbs=image_nbs, last_image_saved=self.last_image_saved
             )
-            returned_params = list()
-            file_format = ref_data["saving_format"]
-            for image_nb in image_nbs:
-                if image_nb > last_image_saved:
-                    raise RuntimeError("Image %d was not saved" % image_nb)
-
-                image_index_in_file = image_nb % nb_image_per_file
-                file_nb = first_file_number + image_nb // nb_image_per_file
-                file_path = path_format % file_nb
-                if file_format.lower().startswith("hdf5"):
-                    if ref_data.get("lima_version", "<1.9.1") == "<1.9.1":
-                        # 'old' lima
-                        path_in_file = (
-                            "entry_0000/instrument/"
-                            + ref_data["user_detector_name"]
-                            + "/data/array"
-                        )
-                    else:
-                        # 'new' lima
-                        path_in_file = (
-                            f"entry_0000/{ref_data['user_instrument_name']}"
-                            + f"/{ref_data['user_detector_name']}/data"
-                        )
-                    returned_params.append(
-                        (file_path, path_in_file, image_index_in_file, file_format)
-                    )
-                else:
-                    returned_params.append(
-                        (file_path, "", image_index_in_file, file_format)
-                    )
-            return returned_params
-
-        @staticmethod
-        def _default_hdf5_dataset(f, signal=True):
-            # TODO:
-            # same as nexus_writer_service.io.nexus.getDefault
-            # handle OSError?
-
-            def strattr(node, attr, default):
-                v = node.attrs.get(attr, default)
-                try:
-                    v = v.decode()
-                except AttributeError:
-                    pass
-                return v
-
-            path = ""
-            default = strattr(f, "default", "")
-            if default and not default.startswith("/"):
-                default = "/" + default
-            while default:
-                try:
-                    node = f[default]
-                except KeyError:
-                    break
-                nxclass = strattr(node, "NX_class", "")
-                if nxclass == "NXdata":
-                    if signal:
-                        name = strattr(node, "signal", "data")
-                        try:
-                            path = node[name].name
-                        except KeyError:
-                            pass
-                    else:
-                        path = node.name
-                    break
-                else:
-                    add = strattr(node, "default", "")
-                    if add.startswith("/"):
-                        default = add
-                    elif add:
-                        default += "/" + add
-                    else:
-                        break
-            return path
 
         def _get_from_file(self, image_nb):
             for ref_data in self.ref_data:
@@ -417,7 +407,6 @@ class LimaImageChannelDataNode(DataNode):
                 elif file_format.startswith("hdf5"):
                     if h5py is not None:
                         with h5py.File(filename, mode="r") as f:
-                            path_in_file = self._default_hdf5_dataset(f)
                             dataset = f[path_in_file]
                             return dataset[image_index]
                 else:
@@ -466,13 +455,17 @@ class LimaImageChannelDataNode(DataNode):
             # no alias, name must be fullname
             self._struct.name = fullname
 
-        self.data = QueueObjSetting(
-            "%s_data" % self.db_name, connection=self.db_connection
+        self.data = DataStream(
+            "%s_data" % self.db_name, maxlen=1, connection=self.db_connection
         )
-        self._new_image_status_event = gevent.event.Event()
-        self._new_image_status = dict()
-        self._storage_task = None
+        self.data_ref = QueueObjSetting(
+            f"{self.db_name}_data_ref", connection=self.db_connection
+        )
         self.from_stream = False
+
+        self._local_ref_status = dict()
+        self._last_index = 1
+        self._stream_image_count = 0
 
     @property
     def shape(self):
@@ -491,14 +484,6 @@ class LimaImageChannelDataNode(DataNode):
         _, _, short_name = self.name.rpartition(":")
         return short_name
 
-    def __close__(self):
-        if self._storage_task is None:
-            return
-        storage_task = self._storage_task
-        storage_task.join(timeout=3.)
-        storage_task.kill()
-        self._storage_task = None
-
     def get(self, from_index, to_index=None):
         """
         Return a view on data references.
@@ -510,46 +495,71 @@ class LimaImageChannelDataNode(DataNode):
         """
         return self.LimaDataView(
             self.data,
+            self.data_ref,
             from_index,
             to_index if to_index is not None else from_index + 1,
             from_stream=self.from_stream,
         )
 
-    def store(self, event_dict):
-        desc = event_dict["description"]
+    @property
+    def ref_data(self):
+        return self.data_ref[0:]
+
+    @property
+    def images_per_file(self):
+        return self.ref_data[0].get("saving_frame_per_file")
+
+    def decode_raw_events(self, events):
+        """
+        transform internal Stream into data
+        raw_datas -- should be the return of xread or xrange.
+        """
+        data = list()
+        first_index = -1
+        ref_status = None
+        if events:
+            # The number of events is NOT equal to  the number of images
+            # The number of images can be derived from the event data though
+            index, raw_data = events[-1]
+            ref_status = pickle.loads(raw_data[self.DATA])
+            first_index = self._stream_image_count
+            # We can choose from:
+            #   last_image_acquired
+            #   last_image_ready (default for `LimaDataView.last_index`)
+            #   last_counter_ready
+            #   last_image_saved
+            last_index = ref_status["last_image_ready"]
+            if last_index >= first_index:
+                # Data: filenames of new images since the last call to `decode_raw_events`
+                # These images are not necessarily saved already
+                image_nbs = list(range(first_index, last_index + 1))
+                try:
+                    data = image_filenames(self.ref_data[0], image_nbs)
+                except RuntimeError:
+                    # Images are not saved
+                    data = list()
+                else:
+                    self._stream_image_count = last_index + 1
+        return EventData(first_index=first_index, data=data, description=ref_status)
+
+    def store(self, event_dict, cnx=None):
         data = event_dict["data"]
-        if self._storage_task is None:
-            self._storage_task = self._do_store(wait=False, wait_started=True)
-
-        try:
-            self.data[0]
-        except IndexError:
-            ref_status = data
-            ref_status["lima_acq_nb"] = self.db_connection.incr(data["server_url"])
-            self.data.append(ref_status)
-            self.add_reference_data(desc)
-        else:
+        if data.get("in_prepare", False):  # in prepare phase
+            desc = event_dict["description"]
             self.info.update(desc)
-
-            self._new_image_status.update(data)
-            self._new_image_status_event.set()
-
-    @task
-    def _do_store(self):
-        try:
-            while True:
-                self._new_image_status_event.wait()
-                self._new_image_status_event.clear()
-                local_dict = self._new_image_status
-                self._new_image_status = dict()
-                ref_status = self.data[0]
-                ref_status.update(local_dict)
-                self.data[0] = ref_status
-                if local_dict["acq_state"] in ("fault", "ready"):
-                    break
-                gevent.idle()
-        finally:
-            self._storage_task = None
+            self.add_reference_data(desc)
+            self._local_ref_status = data
+            self._local_ref_status["lima_acq_nb"] = self.db_connection.incr(
+                data["server_url"]
+            )
+        else:  # during acquisition
+            self._local_ref_status.update(data)
+            self.data.add(
+                {self.DATA: pickle.dumps(self._local_ref_status)},
+                id=self._last_index,
+                cnx=cnx,
+            )
+            self._last_index += 1
 
     def add_reference_data(self, ref_data):
         """Save reference data in database
@@ -557,14 +567,14 @@ class LimaImageChannelDataNode(DataNode):
         In case of Lima, this corresponds to acquisition ref_data,
         in particular saving data
         """
-        self.data.append(ref_data)
+        self.data_ref.append(ref_data)
 
     def get_file_references(self):
         """
         Retrieve all files references for this data set
         """
         # take the last in list because it's should be the final
-        final_ref_data = self.data[-1]
+        final_ref_data = self.data_ref[-1]
         # in that case only one reference will be returned
         overwrite_policy = final_ref_data["overwritePolicy"].lower()
         if overwrite_policy == "multiset":
@@ -597,10 +607,13 @@ class LimaImageChannelDataNode(DataNode):
     def _get_db_names(self):
         db_names = DataNode._get_db_names(self)
         db_names.append(self.db_name + "_data")
-        try:
-            url = self.data[0].get("server_url")
-        except IndexError:
-            url = None
-        if url is not None:
-            db_names.append(url)
+        db_names.append(self.db_name + "_data_ref")
+
+        raw_data = self.data.range(count=1)
+        if raw_data:
+            index, raw_event = raw_data[0]
+            raw_ref = pickle.loads(raw_event[self.DATA])
+            url = raw_ref.get("server_url")
+            if url is not None:
+                db_names.append(url)
         return db_names

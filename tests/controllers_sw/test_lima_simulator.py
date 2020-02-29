@@ -16,6 +16,7 @@ from bliss.controllers.lima.roi import Roi
 from bliss.common.scans import loopscan, timescan, ct, DEFAULT_CHAIN
 import gevent
 from contextlib import contextmanager
+from ..conftest import lima_simulator_context
 
 
 def test_lima_simulator(beacon, lima_simulator):
@@ -168,7 +169,7 @@ def test_lima_mapping_and_saving(session, lima_simulator):
     assert mapped_directory.startswith(saving_directory)
 
 
-def test_images_dir_prefix_saving(lima_simulator, scan_tmpdir, session):
+def test_images_dir_prefix_saving(session, scan_tmpdir, lima_simulator):
     simulator = session.config.get("lima_simulator")
     scan_saving = session.scan_saving
     scan_saving_dump = scan_saving.to_dict()
@@ -203,7 +204,7 @@ def test_images_dir_prefix_saving(lima_simulator, scan_tmpdir, session):
         scan_saving.from_dict(scan_saving_dump)
 
 
-def test_images_dir_prefix_saving_absolute(lima_simulator, scan_tmpdir, session):
+def test_images_dir_prefix_saving_absolute(session, scan_tmpdir, lima_simulator):
     simulator = session.config.get("lima_simulator")
     scan_saving = session.scan_saving
     scan_saving_dump = scan_saving.to_dict()
@@ -239,7 +240,7 @@ def test_images_dir_prefix_saving_absolute(lima_simulator, scan_tmpdir, session)
         scan_saving.from_dict(scan_saving_dump)
 
 
-def test_images_dir_saving_null_writer(lima_simulator, scan_tmpdir, session):
+def test_images_dir_saving_null_writer(session, scan_tmpdir, lima_simulator):
     # issue 1010
     simulator = session.config.get("lima_simulator")
     scan_saving = session.scan_saving
@@ -267,7 +268,7 @@ def test_images_dir_saving_null_writer(lima_simulator, scan_tmpdir, session):
         scan_saving.from_dict(scan_saving_dump)
 
 
-def test_dir_no_saving(lima_simulator, scan_tmpdir, session):
+def test_dir_no_saving(session, scan_tmpdir, lima_simulator):
     # issue 1070
     simulator = session.config.get("lima_simulator")
     scan_saving = session.scan_saving
@@ -524,38 +525,10 @@ def test_lima_ctrl_params_uploading(
     assert " starting background sub proxy of lima_simulator" in caplog.messages
 
 
-@contextmanager
-def lima_simulator_context(ports, beacon):
-    from Lima.Server.LimaCCDs import main
-    import subprocess
-
-    device_name = "id00/limaccds/simulator1"
-    device_fqdn = "tango://localhost:{}/{}".format(ports.tango_port, device_name)
-
-    p = subprocess.Popen(["LimaCCDs", "simulator"])
-
-    try:
-        with gevent.Timeout(10, RuntimeError("Lima simulator is not running")):
-            while True:
-                try:
-                    dev_proxy = DeviceProxy(device_fqdn)
-                    dev_proxy.ping()
-                    dev_proxy.state()
-                except DevFailed as e:
-                    gevent.sleep(0.1)
-                else:
-                    break
-
-        gevent.sleep(1)
-        yield device_fqdn, dev_proxy
-    finally:
-        p.terminate()
-
-
-def test_reapplying_ctrl_params(default_session, ports, beacon, caplog):
+def test_reapplying_ctrl_params(default_session, caplog):
     simulator = default_session.config.get("lima_simulator")
 
-    with lima_simulator_context(ports, beacon) as lsc:
+    with lima_simulator_context("simulator", "id00/limaccds/simulator1"):
         with caplog.at_level(logging.DEBUG, logger="global.controllers.lima_simulator"):
             scan = loopscan(1, 0.1, simulator, save=False)
         assert "All parameters will be refeshed on lima_simulator" in caplog.messages
@@ -565,13 +538,13 @@ def test_reapplying_ctrl_params(default_session, ports, beacon, caplog):
         with caplog.at_level(logging.DEBUG, logger="global.controllers.lima_simulator"):
             scan = loopscan(1, 0.1, simulator, save=False)
 
-    with lima_simulator_context(ports, beacon) as lsc:
+    with lima_simulator_context("simulator", "id00/limaccds/simulator1"):
         caplog.clear()
         with caplog.at_level(logging.DEBUG, logger="global.controllers.lima_simulator"):
             scan = loopscan(1, 0.1, simulator, save=False)
         assert "All parameters will be refeshed on lima_simulator" in caplog.messages
 
-    with lima_simulator_context(ports, beacon) as lsc:
+    with lima_simulator_context("simulator", "id00/limaccds/simulator1"):
         caplog.clear()
         with caplog.at_level(logging.DEBUG, logger="global.controllers.lima_simulator"):
             scan = loopscan(1, 0.1, simulator, save=False)

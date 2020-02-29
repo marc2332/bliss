@@ -12,7 +12,7 @@ import gevent
 from gevent import subprocess
 from contextlib import contextmanager
 from bliss.common import measurementgroup
-from bliss.common.tango import DeviceProxy, DevFailed
+from bliss.common.tango import DeviceProxy, DevFailed, DevState, Database
 from nexus_writer_service.subscribers.session_writer import all_cli_saveoptions
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "helpers"))
@@ -177,6 +177,9 @@ def writer_tango(session=None, tmpdir=None, config=True, alt=False, **kwargs):
     # Rely on beacon registration from YAML description:
     device_name = "id00/bliss_nxwriter/" + session.name
     device_fqdn = "tango://{}/{}".format(env["TANGO_HOST"], device_name)
+    properties, attributes = writer_options(tango=True, config=config, alt=alt)
+    db = Database()
+    db.put_device_property(device_name, properties)
     with nxw_test_utils.popencontext(
         cliargs, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=env
     ) as greenlet:
@@ -190,12 +193,8 @@ def writer_tango(session=None, tmpdir=None, config=True, alt=False, **kwargs):
                 else:
                     break
                 gevent.sleep(0.1)
-        # Changing properties needs Init
-        properties, attributes = writer_options(tango=True, config=config, alt=alt)
-        if properties:
-            dev_proxy.set_timeout_millis(10000)
-            dev_proxy.put_property(properties)
-            dev_proxy.Init()
+            while dev_proxy.state() != DevState.ON:
+                gevent.sleep(0.1)
         # Changing attributes does not need Init
         for attr, value in attributes.items():
             dev_proxy.write_attribute(attr, value)
@@ -270,6 +269,6 @@ def writer_cli_logargs(tmpdir):
 
 def writer_env():
     env = {k: str(v) for k, v in os.environ.items()}
-    env["GEVENT_MONITOR_THREAD_ENABLE"] = "true"
-    env["GEVENT_MAX_BLOCKING_TIME"] = "1"
+    # env["GEVENT_MONITOR_THREAD_ENABLE"] = "true"
+    # env["GEVENT_MAX_BLOCKING_TIME"] = "1"
     return env

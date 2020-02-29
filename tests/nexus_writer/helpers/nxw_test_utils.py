@@ -7,18 +7,15 @@
 
 import gevent
 from gevent import subprocess
-import os
 import sys
 import functools
 import traceback
 import random
 from contextlib import contextmanager
 from silx.io.dictdump import h5todict
-from bliss.data.scan import watch_session_scans
 from nexus_writer_service.utils import scan_utils
 from nexus_writer_service.io import nexus
 from nexus_writer_service.utils.process_utils import log_file_processes
-from nexus_writer_service.io.io_utils import close_files
 from nexus_writer_service.utils.logging_utils import print_err
 
 
@@ -225,26 +222,36 @@ class PopenGreenlet(gevent.Greenlet):
         for line in self.stderr.split(b"\n"):
             yield line.decode().rstrip()
 
-    def print_stdout(self, file=None, **kwargs):
+    def print_stdout(self, reason=None, file=None, **kwargs):
         if self.process is None or self.process.stdout is None:
             return
         if file is None:
             kwargs["file"] = sys.stdout
         else:
             kwargs["file"] = file
-        print("\n### Test's subprocess {} stdout:".format(self.process.pid), **kwargs)
+        print(
+            "\n### Test's subprocess {} stdout (Reason: {}):".format(
+                self.process.pid, reason
+            ),
+            **kwargs
+        )
         for line in self.iter_stdout_lines():
             print(line, **kwargs)
         print("\n### END PROCESS STDOUT\n", **kwargs)
 
-    def print_stderr(self, file=None, **kwargs):
+    def print_stderr(self, reason=None, file=None, **kwargs):
         if self.process is None or self.process.stderr is None:
             return
         if file is None:
             kwargs["file"] = sys.stderr
         else:
             kwargs["file"] = file
-        print("\n### Test's subprocess {} stderr:".format(self.process.pid), **kwargs)
+        print(
+            "\n### Test's subprocess {} stderr (Reason: {}):".format(
+                self.process.pid, reason
+            ),
+            **kwargs
+        )
         for line in self.iter_stderr_lines():
             print(line, **kwargs)
         print("\n### END PROCESS STDERR\n", **kwargs)
@@ -260,8 +267,8 @@ def popencontext(*popenargs, **popenkw):
     process.start()
     try:
         yield process
-    except BaseException:
-        process.print()
+    except BaseException as e:
+        process.print(reason=str(e))
         raise
     finally:
         process.kill()
@@ -274,9 +281,9 @@ def stdout_on_exception(process):
     """
     try:
         yield
-    except BaseException:
+    except BaseException as e:
         if process is not None:
-            process.print()
+            process.print(reason=str(e))
         raise
 
 
@@ -288,78 +295,3 @@ def writer_stdout_on_exception(func):
             func(*args, **kwargs)
 
     return inner
-
-
-def nullhandler(*args):
-    pass
-
-
-class ScanWatcher:
-    def __init__(
-        self,
-        session_name,
-        new_scan=nullhandler,
-        new_child=nullhandler,
-        new_data=nullhandler,
-        end_scan=nullhandler,
-    ):
-        self.session_name = session_name
-        self.new_scan = new_scan  # args: scan_info
-        self.new_child = new_child  # args: scan_info, node
-        self.new_data = (
-            new_data
-        )  # args:  str(0d,1d,...), dict(master from scan_info's acq. chain), dict(...)
-        self.end_scan = end_scan  # scan_info
-        self._wakeup_read = None
-        self._wakeup_write = None
-        self.end_scan_event = gevent.event.Event()
-        self.ready_event = gevent.event.Event()
-        self.reset()
-
-    def reset(self):
-        self.end_scan_args = []
-        self.end_scan_event.clear()
-        self.ready_event.clear()
-        close_files(self._wakeup_read, self._wakeup_write)
-
-    def stop(self):
-        os.write(self._wakeup_write, b"stop")
-
-    def start(self, ready_timeout=3):
-        self.reset()
-
-        def end(*args):
-            self.end_scan_event.set()
-            self.end_scan_args.append(args)
-
-        self._wakeup_read, self._wakeup_write = os.pipe()
-
-        session_watcher = gevent.spawn(
-            watch_session_scans,
-            self.session_name,
-            self.new_scan,
-            self.new_child,
-            self.new_data,
-            scan_end_callback=end,
-            ready_event=self.ready_event,
-            exit_read_fd=self._wakeup_read,
-        )
-
-        self.ready_event.wait(timeout=ready_timeout)
-        return session_watcher
-
-    @contextmanager
-    def watchscan(self, ready_timeout=3):
-        try:
-            session_watcher = self.start(ready_timeout=ready_timeout)
-            try:
-                yield self.end_scan_event
-            finally:
-                self.stop()
-                try:
-                    session_watcher.join(ready_timeout)
-                except gevent.Timeout:
-                    session_watcher.kill()
-                    session_watcher.join()
-        finally:
-            self.reset()

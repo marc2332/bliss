@@ -297,12 +297,17 @@ def test_scan_callbacks(session):
 
 def test_timescan_with_lima(default_session, lima_simulator):
     ls = default_session.config.get("lima_simulator")
-    s = scans.timescan(0.1, ls, save=False, run=False)
+    s = scans.timescan(0.01, ls, save=False, run=False)
     try:
-        with gevent.Timeout(.3):
-            s.run()
-    except gevent.Timeout:
-        pass
+        g = gevent.spawn(s.run)
+
+        s.wait_state(scan.ScanState.STARTING)
+
+        gevent.sleep(0.3)  # let time to take some images...
+    finally:
+        g.kill()
+
+    assert len(s.get_data()[ls.image]) > 1
 
 
 def test_scan_watch_data_set_callback_to_test_saferef(session, capsys):

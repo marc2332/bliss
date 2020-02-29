@@ -53,8 +53,8 @@ def _test_nxw_timescan(session=None, tmpdir=None, writer=None, **kwargs):
     def listenscan(scannode):
         nonlocal t0
         it = scannode.iterator
-        for event_type, node in it.walk_events():
-            if event_type.name == "NEW_DATA_IN_CHANNEL":
+        for event_type, node, event_data in it.walk_events():
+            if event_type == event_type.NEW_DATA:
                 name = node.fullname
                 if not name:
                     continue
@@ -68,8 +68,8 @@ def _test_nxw_timescan(session=None, tmpdir=None, writer=None, **kwargs):
         it = get_session_node(session.name).iterator
         listeners = []
         try:
-            for event_type, node in it.walk_events(filter="scan"):
-                if event_type.name == "NEW_NODE":
+            for event_type, node, event_data in it.walk_events(filter="scan"):
+                if event_type == event_type.NEW_NODE:
                     listeners.append(gevent.spawn(listenscan, node))
         finally:
             for g in listeners:

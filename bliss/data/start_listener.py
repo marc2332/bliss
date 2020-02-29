@@ -10,10 +10,10 @@ import sys
 from bliss.data.display import ScanDataListener
 
 
-def main(session_name, exit_read_fd=None):
+def main(session_name):
     while True:
         try:
-            sdl = ScanDataListener(session_name, exit_read_fd)
+            sdl = ScanDataListener(session_name)
             sdl.start()
         except Exception as e:
             print(e)

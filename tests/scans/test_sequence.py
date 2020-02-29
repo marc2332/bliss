@@ -64,10 +64,10 @@ def test_sequence_future_scans(session, scan_tmpdir):
     assert grouped_scans[0].info["scan_nb"] == s1.scan_info["scan_nb"]
     assert grouped_scans[1].info["scan_nb"] == s2.scan_info["scan_nb"]
 
-    assert get_node(seq.node.db_name + ":GroupingMaster:scan_numbers").get(0, -1) == [
-        s1.scan_info["scan_nb"],
-        s2.scan_info["scan_nb"],
-    ]
+    assert all(
+        get_node(seq.node.db_name + ":GroupingMaster:scan_numbers").get(0, -1)
+        == [s1.scan_info["scan_nb"], s2.scan_info["scan_nb"]]
+    )
 
 
 def test_sequence_async_scans(session, scan_tmpdir):
@@ -158,9 +158,12 @@ def test_sequence_custom_channel(session, scan_tmpdir):
 
     assert seq.node.db_name + ":GroupingMaster:custom_channels" in nodes
     assert seq.node.db_name + ":GroupingMaster:custom_channels:mychannel" in nodes
-    assert get_node(seq.node.db_name + ":GroupingMaster:custom_channels:mychannel").get(
-        0, -1
-    ) == [1.1, 2.2, 3.3, 4.4]
+    assert all(
+        get_node(seq.node.db_name + ":GroupingMaster:custom_channels:mychannel").get(
+            0, -1
+        )
+        == [1.1, 2.2, 3.3, 4.4]
+    )
 
     n = get_node(seq.node.db_name + ":GroupingMaster:scans")
     grouped_scans = n.get(0, -1)
@@ -288,7 +291,7 @@ def test_sequence_events(session, scan_tmpdir):
     event_dump = list()
 
     def my_listener(session_node, event_dump):
-        for (event, node) in session_node.iterator.walk_events():
+        for i, (event, node, data) in enumerate(session_node.iterator.walk_events()):
             event_dump.append(
                 (
                     event.name,
@@ -307,11 +310,7 @@ def test_sequence_events(session, scan_tmpdir):
     gevent.sleep(.5)
     g_lis.kill()
 
-    idx = event_dump.index(("NEW_NODE", None, "test_session"))
-    idx2 = event_dump.index(("NEW_NODE", "scan", "1_loopscan"))
-    assert idx < idx2
-    idx = idx2
-
+    idx = event_dump.index(("NEW_NODE", "scan", "1_loopscan"))
     idx2 = event_dump.index(("END_SCAN", "scan", "1_loopscan"))
     assert idx < idx2
     idx = idx2
@@ -324,24 +323,16 @@ def test_sequence_events(session, scan_tmpdir):
     assert idx < idx2
     idx = idx2
 
-    idx2 = event_dump.index(("NEW_DATA_IN_CHANNEL", "channel", "3_ascan:axis:robz"))
+    idx2 = event_dump.index(("NEW_DATA", "channel", "3_ascan:axis:robz"))
     assert idx < idx2
 
     idx2 = event_dump.index(
-        (
-            "NEW_DATA_IN_CHANNEL",
-            "channel",
-            "2_sequence_of_scans:GroupingMaster:scan_numbers",
-        )
+        ("NEW_DATA", "channel", "2_sequence_of_scans:GroupingMaster:scan_numbers")
     )
     assert idx < idx2
 
     idx2 = event_dump.index(
-        (
-            "NEW_DATA_IN_CHANNEL",
-            "node_ref_channel",
-            "2_sequence_of_scans:GroupingMaster:scans",
-        )
+        ("NEW_DATA", "node_ref_channel", "2_sequence_of_scans:GroupingMaster:scans")
     )
     assert idx < idx2
     idx = idx2
@@ -355,16 +346,12 @@ def test_sequence_events(session, scan_tmpdir):
     idx = idx2
 
     idx2 = event_dump.index(
-        (
-            "NEW_DATA_IN_CHANNEL",
-            "node_ref_channel",
-            "2_sequence_of_scans:GroupingMaster:scans",
-        ),
+        ("NEW_DATA", "node_ref_channel", "2_sequence_of_scans:GroupingMaster:scans"),
         idx,
     )
     assert idx < idx2
 
-    idx2 = event_dump.index(("NEW_DATA_IN_CHANNEL", "channel", "4_dscan:axis:robz"))
+    idx2 = event_dump.index(("NEW_DATA", "channel", "4_dscan:axis:robz"))
     assert idx < idx2
 
     idx2 = event_dump.index(("END_SCAN", "scan", "4_dscan"))
@@ -372,11 +359,7 @@ def test_sequence_events(session, scan_tmpdir):
     idx = idx2
 
     idx2 = event_dump.index(
-        (
-            "NEW_DATA_IN_CHANNEL",
-            "node_ref_channel",
-            "2_sequence_of_scans:GroupingMaster:scans",
-        ),
+        ("NEW_DATA", "node_ref_channel", "2_sequence_of_scans:GroupingMaster:scans"),
         idx,
     )
     assert idx < idx2

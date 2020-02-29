@@ -232,6 +232,21 @@ class BaseSetting:
     def name(self):
         return self._name
 
+    def ttl(self, value=-1):
+        """
+        Set the time to live (ttl) for settings object.
+        value -- == -1 default value means read what is the current ttl
+        value -- == None mean persistent
+        value -- >= 0 set the time to live a this setting in second.
+        """
+        return ttl_func(self.connection, self.name, value)
+
+    def clear(self):
+        """
+        Remove all elements from this settings
+        """
+        self.connection.delete(self.name)
+
     @property
     def connection(self):
         return self._cnx()
@@ -261,12 +276,6 @@ class SimpleSetting(BaseSetting):
     @write_decorator
     def set(self, value):
         self.connection.set(self.name, value)
-
-    def ttl(self, value=-1):
-        return ttl_func(self.connection, self.name, value)
-
-    def clear(self):
-        self.connection.delete(self.name)
 
     def __add__(self, other):
         value = self.get()
@@ -398,11 +407,6 @@ class QueueSetting(BaseSetting):
             cnx = self.connection
         return cnx.rpush(self.name, value)
 
-    def clear(self, cnx=None):
-        if cnx is None:
-            cnx = self.connection
-        cnx.delete(self.name)
-
     @write_decorator
     def prepend(self, value, cnx=None):
         if cnx is None:
@@ -454,11 +458,6 @@ class QueueSetting(BaseSetting):
         if self._read_type_conversion:
             value = self._read_type_conversion(value)
         return value
-
-    def ttl(self, value=-1, cnx=None):
-        if cnx is None:
-            cnx = self.connection
-        return ttl_func(cnx, self.name, value)
 
     def __len__(self, cnx=None):
         if cnx is None:
@@ -593,9 +592,6 @@ class BaseHashSetting(BaseSetting):
         cnx = self.connection
         return cnx.hlen(self.name)
 
-    def ttl(self, value=-1):
-        return ttl_func(self.connection, self.name, value)
-
     def raw_get(self, *keys):
         cnx = self.connection
         return cnx.hget(self.name, *keys)
@@ -640,10 +636,6 @@ class BaseHashSetting(BaseSetting):
     def remove(self, *keys):
         cnx = self.connection
         cnx.hdel(self.name, *keys)
-
-    def clear(self):
-        cnx = self.connection
-        cnx.delete(self.name)
 
     @write_decorator_dict
     def set(self, values):
@@ -848,10 +840,9 @@ class OrderedHashSetting(BaseHashSetting):
         cnx.execute()
 
     def clear(self):
-        cnx = self._cnx().pipeline()
-        cnx.delete(self._name)
-        cnx.delete(self._name_order)
-        cnx.execute()
+        with pipeline(self) as p:
+            p.delete(self._name)
+            p.delete(self._name_order)
 
     @write_decorator_dict
     def set(self, mapping):

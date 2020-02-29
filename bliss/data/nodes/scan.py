@@ -9,7 +9,9 @@ import time
 import datetime
 import pickle
 from bliss.data.node import DataNodeContainer
+from bliss.data.events import EventData
 from bliss.config import settings
+from bliss.config.streaming import DataStream
 
 
 def _transform_dict_obj(dict_object):
@@ -47,34 +49,54 @@ def pickle_dump(var):
 
 class Scan(DataNodeContainer):
     _NODE_TYPE = "scan"
+    EVENT_TYPE_KEY = b"__EVENT__"
+    END_EVENT = b"END"
+    EXCEPTION_KEY = b"__EXCEPTION__"
 
     def __init__(self, name, create=False, **keys):
         DataNodeContainer.__init__(self, self._NODE_TYPE, name, create=create, **keys)
-        self._info._write_type_conversion = pickle_dump
-        if self.new_node:
-            with settings.pipeline(self._struct, self._info) as p:
-                self._info["start_time"]
-                self._info["start_time_str"]
-                self._info["start_timestamp"]
+        self._event = DataStream(f"{self.db_name}_data", connection=self.db_connection)
 
-                self._struct.start_time, self._struct.start_time_str, self._struct.start_timestamp = (
-                    self._info._read_type_conversion(x) for x in p.execute()
-                )
-
-    def end(self):
+    def end(self, exception=None):
         if self.new_node:
             db_name = self.db_name
             # to avoid to have multiple modification events
-            with settings.pipeline(self._struct, self._info) as p:
+            with settings.pipeline(self._event, self._info) as p:
                 end_timestamp = time.time()
                 end_time = datetime.datetime.fromtimestamp(end_timestamp)
-                self._struct.end_time = end_time
-                self._struct.end_time_str = end_time.strftime("%a %b %d %H:%M:%S %Y")
-                self._struct.end_timestamp = end_timestamp
-                self._info["end_time"] = end_time
-                self._info["end_time_str"] = end_time.strftime("%a %b %d %H:%M:%S %Y")
-                self._info["end_timestamp"] = end_timestamp
-                p.publish(f"__scans_events__:{db_name}", "END")
+                new_info = {
+                    "end_time": end_time,
+                    "end_time_str": end_time.strftime("%a %b %d %H:%M:%S %Y"),
+                    "end_timestamp": end_timestamp,
+                }
+                self._info.update(new_info)
+                new_info.pop("end_time")
+                new_info[self.EVENT_TYPE_KEY] = self.END_EVENT
+                new_info[self.EXCEPTION_KEY] = str(exception)
+                self._event.add(new_info)
+
+    def decode_raw_events(self, events):
+        if events:
+            first_index, raw_dict = events[0]
+            first_index = int(first_index.split(b"-")[0])
+            exception_str = raw_dict.get(self.EXCEPTION_KEY, b"None")
+            if exception_str == b"None":
+                exception_str = ""
+            else:
+                exception_str = exception_str.decode()
+            event_type = raw_dict.get(self.EVENT_TYPE_KEY, b"")
+            return EventData(
+                first_index=first_index,
+                data=event_type.decode(),
+                description=exception_str,
+            )
+        else:
+            return EventData()
+
+    def _get_db_names(self):
+        db_names = super()._get_db_names()
+        db_names.append(self.db_name + "_data")
+        return db_names
 
 
 def get_data_from_nodes(pipeline, *nodes_and_start_index):

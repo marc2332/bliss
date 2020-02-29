@@ -97,6 +97,8 @@ class DatasetProxy(BaseProxy):
         scan_shape=None,
         scan_save_shape=None,
         detector_shape=None,
+        external_images_per_file=None,
+        external_uri_from_file=False,
         dtype=None,
         saveorder=None,
         publishorder=None,
@@ -111,6 +113,8 @@ class DatasetProxy(BaseProxy):
         :param tuple scan_save_shape: zeros indicate variable length
         :param tuple detector_shape: does not contain zeros to
                                      indicate variable length
+        :param int external_images_per_file: number of images per file for external datasets
+        :param bool external_uri_from_file: get the URI's from file instead of trusting the provided URI's
         :param dtype dtype:
         :param Order saveorder: order in which the scan shape is filled
         :param Order publishorder: order in which the scan shape is published
@@ -136,6 +140,8 @@ class DatasetProxy(BaseProxy):
         self.detector_shape = detector_shape
         self.current_detector_shape = detector_shape
         self.dtype = dtype
+        self.external_images_per_file = external_images_per_file
+        self.external_uri_from_file = external_uri_from_file
         if not isinstance(saveorder, Order):
             saveorder = Order(saveorder)
         self.saveorder = saveorder
@@ -488,6 +494,16 @@ class DatasetProxy(BaseProxy):
         return fillvalue
 
     @property
+    def external_source_args(self):
+        nframes = self.external_images_per_file
+        if nframes is None:
+            self.logger.warning("Number of frames per external file is not specified")
+            return {}
+        else:
+            shape = (nframes,) + self.detector_shape
+            return {"shape": shape, "dtype": self.dtype}
+
+    @property
     def _dset_value(self):
         value = {"fillvalue": self.fillvalue, "dtype": self.dtype}
         if self._external_datasets:
@@ -495,6 +511,7 @@ class DatasetProxy(BaseProxy):
             value["data"] = files
             value["order"] = self.saveorder
             value["fill_generator"] = fill_generator
+            value["virtual_source_args"] = self.external_source_args
             value["axis"] = 0
             value["newaxis"] = True
             value["maxshape"] = self.maxshape
@@ -611,8 +628,11 @@ class DatasetProxy(BaseProxy):
             return tpl
 
     def _get_external_datasets(self):
+        if not self.external_uri_from_file:
+            return self._external_datasets
         self.logger.info("Retrieving HDF5 URI's ...")
-        filenames = set(list(zip(*self._external_datasets))[0])
+        uris = list(zip(*self._external_datasets))[0]
+        filenames = set(nexus.splitUri(uri)[0] for uri in uris)
         uridict = {}
         mon = FileSizeMonitor()
         for filename in sorted(filenames):
@@ -634,7 +654,9 @@ class DatasetProxy(BaseProxy):
                                 "Cannot get URI from file {}".format(filename)
                             )
                 sleep(0.1)
-        return [(uridict[filename], i) for filename, i in self._external_datasets]
+        return [
+            (uridict[nexus.splitUri(uri)[0]], i) for uri, i in self._external_datasets
+        ]
 
     def _get_external_raw(self, createkwargs):
         self.logger.info("Retrieving external URI's ...")

@@ -310,6 +310,7 @@ class LimaAcquisitionMaster(AcquisitionMaster):
             self._image_channel.shape = (h, w)
             status = self._get_lima_status()
             status["server_url"] = get_fqn(self.device.proxy)
+            status["in_prepare"] = True
             self._image_channel.emit(status)
 
         self._latency = self.device.proxy.latency_time

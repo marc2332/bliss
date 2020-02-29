@@ -32,12 +32,33 @@ import gevent
 import logging
 import re
 import os
+import sys
 import itertools
 from tango import LogLevel
+
+### import bliss to have gevent monkey-patching done
+import bliss
+import gevent.monkey
+
+# revert subprocess monkey-patching
+import subprocess
+
+for _name, _subprocess_item in gevent.monkey.saved["subprocess"].items():
+    setattr(subprocess, _name, _subprocess_item)
+###
+
 import nexus_writer_service
 from nexus_writer_service.subscribers import session_writer
 from nexus_writer_service.subscribers.scan_writer_base import NexusScanWriterBase
 from nexus_writer_service.utils import log_levels
+
+
+# Not sure why this keep showing output in info level
+def DebugIt():
+    def wrap(func):
+        return func
+
+    return wrap
 
 
 def session_tango_state(state):

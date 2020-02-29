@@ -203,9 +203,6 @@ def test_scan_info_object_vs_node(session):
 
     s1 = scans.ascan(roby, 0, 1, 3, .1, diode, save=False)
 
-    # treat known differences
-    s1.scan_info["state"] = s1.scan_info["state"].name
-
     deep_compare(s1.scan_info, s1.node.info.get_all())
 
 

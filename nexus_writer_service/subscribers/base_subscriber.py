@@ -23,6 +23,7 @@ from gevent.time import time
 from contextlib import contextmanager
 from bliss.data.node import get_node as _get_node
 from bliss.data.node import _get_node_object
+from bliss.config.streaming import StreamStopReadingHandler
 from ..utils.logging_utils import CustomLogger
 from ..io import io_utils
 from ..utils.async_utils import greenlet_ident
@@ -62,7 +63,7 @@ class BaseSubscriber(object):
     """
     Listen to events of a particular Redis node
 
-    All resources (Redis nodes and pipes) are assigned to an internal greenlet
+    All resources (Redis nodes) are assigned to an internal greenlet
     instance as BLISS cleans up resources when the greenlet is destroyed.
     """
 
@@ -141,8 +142,12 @@ class BaseSubscriber(object):
 
     def stop(self, successfull=False, kill=False, wait=False, timeout=1):
         """
-        Stop listening to Redis events. This does not wait until the listener
-        greenlet is actually stopped
+        Stop listening to Redis events
+
+        :param bool successfull:
+        :param bool kill: kill the listening greenlet rather than gracefully stopping it
+        :param bool wait: wait for the listening greenlet to exit
+        :param num timeout: on wait
         """
         if not self.active:
             return
@@ -156,13 +161,12 @@ class BaseSubscriber(object):
             if kill:
                 self._greenlet.kill()
             else:
-                try:
-                    os.write(self._greenlet._wakeup_write, b"stop")
-                except (OSError, TypeError, AttributeError) as e:
-                    self.logger.warning("Cannot send STOP event: {}".format(e))
-        if wait:
-            with gevent.Timeout(timeout):
-                self._greenlet.join()
+                if self._stop_handler is None:
+                    self.logger.warning("Cannot send STOP event (no stop handler)")
+                else:
+                    self._stop_handler.stop()
+            if wait:
+                self.join(timeout=timeout)
 
     def kill(self, **kw):
         self.stop(kill=True, **kw)
@@ -263,31 +267,19 @@ class BaseSubscriber(object):
         try:
             self.__greenlet_main()
         finally:
-            with self._cleanup_action("closing pipes"):
-                self._close_pipes()
             self._greenlet = None
         self.logger.info("Greenlet exits")
 
-    def _close_pipes(self):
+    def _create_stop_handler(self):
         """
-        Close all pipes
+        Handler needed to stop the listener greenlet gracefully
         """
         if self._greenlet is not None:
-            try:
-                io_utils.close_files(
-                    self._greenlet._wakeup_write, self._greenlet._wakeup_read
-                )
-                self._greenlet._wakeup_write, self._greenlet._wakeup_read = None, None
-            except AttributeError:
-                pass
+            self._greenlet._stop_handler = StreamStopReadingHandler()
 
-    def _open_wakeup_pipe(self):
-        """
-        Open pipe needed to stop the listener greenlet gracefully
-        """
-        if self._greenlet is not None:
-            self._greenlet._wakeup_read, self._greenlet._wakeup_write = os.pipe()
-            self._node_iterator.wakeup_fd = self._greenlet._wakeup_read
+    @property
+    def _stop_handler(self):
+        return getattr(self._greenlet, "_stop_handler", None)
 
     @contextmanager
     def _cleanup_action(self, action):
@@ -345,14 +337,17 @@ class BaseSubscriber(object):
         """
         try:
             self._event_loop_initialize(**kwargs)
-            for event_type, node in self._walk_events():
-                if event_type.name == "EXTERNAL_EVENT":
-                    self.log_progress("Received STOP event")
-                    break
+            for event_type, node, event_data in self._walk_events(
+                stream_stop_reading_handler=self._stop_handler
+            ):
+                if event_type == event_type.END_SCAN:
+                    if self.node.type in ["scan", "scan_group"]:
+                        self.log_progress("Received END_SCAN event")
+                        break
                 else:
                     try:
                         self._exception_is_fatal = False
-                        self._process_event(event_type, node)
+                        self._process_event(event_type, node, event_data)
                     except gevent.GreenletExit:
                         self._set_state(self.STATES.FAULT, "GreenletExit")
                         raise
@@ -380,14 +375,14 @@ class BaseSubscriber(object):
                     )
                 )
 
-    def _walk_events(self):
-        yield from self._node_iterator.walk_events()
+    def _walk_events(self, **kwargs):
+        yield from self._node_iterator.walk_events(**kwargs)
 
-    def _process_event(self, event_type, node):
+    def _process_event(self, event_type, node, event_data):
         """
         Process event belonging to this node
         """
-        if event_type.name == "NEW_NODE":
+        if event_type == event_type.NEW_NODE:
             self._event_new_node(node)
         else:
             event_info = event_type.name, node.type, node.name, node.fullname
@@ -422,7 +417,7 @@ class BaseSubscriber(object):
         """
         self.starttime = datetime.datetime.now()
         self.endtime = None
-        self._open_wakeup_pipe()
+        self._create_stop_handler()
         self._register_event_loop_tasks(**kwargs)
         self._set_state(self.STATES.ON, "Start listening to Redis events")
 

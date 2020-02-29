@@ -5,19 +5,16 @@
 # Copyright (c) 2015-2019 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-from bliss.config.settings import QueueSetting
+from bliss.config.streaming import DataStream
 from bliss.data.node import DataNode
+from bliss.data.events import EventData
 import numpy
 import redis
 import functools
 import pickle
 
-
-def data_to_bytes(data):
-    if isinstance(data, numpy.ndarray):
-        return data.dumps()
-    else:
-        return str(data).encode()
+# Default length of published channels
+CHANNEL_MAX_LEN = 2048
 
 
 def rectify_data(raw_data, dtype=None):
@@ -37,34 +34,18 @@ def rectify_data(raw_data, dtype=None):
 
 
 def data_from_pipeline(data, shape=None, dtype=None):
-    if shape is not None and len(shape) == 0:
-        return numpy.array(data, dtype=dtype)
-    else:
-        raw_data = numpy.array([pickle.loads(x) for x in data])
-        try:
-            return raw_data.astype(dtype)
-        except ValueError:
-            return rectify_data(raw_data, dtype=dtype)
-
-
-def data_from_bytes(data, shape=None, dtype=None):
-    if isinstance(data, redis.client.Pipeline):
-        return functools.partial(data_from_pipeline, shape=shape, dtype=dtype)
-
+    raw_data = numpy.array(data)
     try:
-        return pickle.loads(data)
-    except (pickle.UnpicklingError, KeyError):
-        if dtype is not None:
-            try:
-                t = numpy.dtype(dtype)
-                return dtype(numpy.array(data, dtype=t))
-            except TypeError:
-                pass
-        return float(data)
+        return raw_data.astype(dtype)
+    except ValueError:
+        return rectify_data(raw_data, dtype=dtype)
 
 
 class ChannelDataNode(DataNode):
     _NODE_TYPE = "channel"
+    DATA_KEY = b"data"
+    DESCRIPTION_KEY = b"description"
+    BLOCK_SIZE = b"block_size"
 
     def __init__(self, name, **keys):
         shape = keys.pop("shape", None)
@@ -83,6 +64,7 @@ class ChannelDataNode(DataNode):
         DataNode.__init__(self, self._NODE_TYPE, name, info=info, **keys)
 
         self._queue = None
+        self._last_index = None
 
     def _create_struct(self, db_name, name, node_type):
         # fix the channel name
@@ -98,27 +80,53 @@ class ChannelDataNode(DataNode):
     def _create_queue(self):
         if self._queue is not None:
             return
-
-        self._queue = QueueSetting(
+        self._queue = DataStream(
             "%s_data" % self.db_name,
             connection=self.db_connection,
-            read_type_conversion=functools.partial(
-                data_from_bytes, shape=self.shape, dtype=self.dtype
-            ),
-            write_type_conversion=data_to_bytes,
+            maxlen=CHANNEL_MAX_LEN,
         )
+        self._last_index = 1  # redis can't starts at 0
 
-    def store(self, event_dict):
+    def store(self, event_dict, cnx=None):
         self._create_queue()
 
         data = event_dict.get("data")
-        self.info.update(event_dict["description"])
         shape = event_dict["description"]["shape"]
+        dtype = event_dict["description"]["dtype"]
 
-        if len(shape) == data.ndim:
-            self._queue.append(data)
+        if type(data) is numpy.ndarray:
+            if len(shape) == data.ndim:
+                block_size = 1
+                bytes_data = data.dumps()
+            else:
+                block_size = len(data)
+                if block_size == 1:
+                    bytes_data = data[0].dumps()
+                else:
+                    bytes_data = data.dumps()
+        elif type(data) not in (list, tuple):
+            block_size = 1
+            event_dict["description"]["type"] = "x"
+            bytes_data = pickle.dumps(data)
         else:
-            self._queue.extend(data)
+            block_size = len(data)
+            data = numpy.array(data, dtype=dtype)
+            if block_size == 1:
+                bytes_data = data[0].dumps()
+            else:
+                bytes_data = data.dumps()
+        desc_pickled = pickle.dumps(event_dict["description"])
+
+        self._queue.add(
+            {
+                self.DATA_KEY: bytes_data,
+                self.DESCRIPTION_KEY: desc_pickled,
+                self.BLOCK_SIZE: block_size,
+            },
+            id=self._last_index,
+            cnx=cnx,
+        )
+        self._last_index += block_size
 
     def get(self, from_index, to_index=None):
         """
@@ -131,11 +139,93 @@ class ChannelDataNode(DataNode):
         returns a list of numpy arrays
         """
         self._create_queue()
-
         if to_index is None:
-            return self._queue.get(from_index, from_index, cnx=self.db_connection)
+            if from_index == -1:
+                raw_data = self._queue.rev_range(count=1)
+            else:
+                redis_index = from_index + 1  # redis starts at 1
+                raw_data = self._queue.range(
+                    redis_index, redis_index, cnx=self.db_connection
+                )
+            data = self.raw_to_data(from_index, raw_data)
+            try:
+                return data[-1]
+            except IndexError:
+                return None
         else:
-            return self._queue.get(from_index, to_index, cnx=self.db_connection)
+            if to_index < 0:
+                to_index = "+"  # means stream end
+            else:
+                to_index += 1
+            redis_first_index = from_index + 1
+            raw_data = self._queue.range(
+                redis_first_index, to_index, cnx=self.db_connection
+            )
+            if isinstance(raw_data, list):
+                return self.raw_to_data(from_index, raw_data)
+            else:
+                # pipeline case from get_data
+                # should return the conversion fonction
+                def raw_to_data(raw_data):
+                    return self.raw_to_data(from_index, raw_data)
+
+                return raw_to_data
+
+    def raw_to_data(self, from_index, raw_datas):
+        """
+        transform internal Stream into data
+        raw_datas -- should be the return of xread or xrange.
+        """
+        event_data = self.decode_raw_events(raw_datas)
+        first_index = event_data.first_index
+        if first_index < 0:
+            return []
+        if first_index != from_index and from_index > 0:
+            raise RuntimeError(
+                "Data is not anymore available first_index:"
+                f"{first_index} request_index:{from_index}"
+            )
+        return event_data.data
+
+    def decode_raw_events(self, events):
+        """
+        transform internal Stream into data
+        raw_datas -- should be the return of xread or xrange.
+        """
+        data = list()
+        descriptions = list()
+        first_index = -1
+        shape = None
+        dtype = None
+        block_size = 0
+        for i, (index, raw_data) in enumerate(events):
+            description = pickle.loads(raw_data[ChannelDataNode.DESCRIPTION_KEY])
+            block_size = int(raw_data[ChannelDataNode.BLOCK_SIZE])
+            data_type = description.get("type")
+            if i == 0:
+                first_index = int(index.split(b"-")[0]) - 1
+                shape = description["shape"]
+                dtype = description["dtype"]
+            if data_type == "x":
+                tmp_data = pickle.loads(raw_data[ChannelDataNode.DATA_KEY])
+                data.append(tmp_data)
+            else:
+                tmp_array = pickle.loads(raw_data[ChannelDataNode.DATA_KEY])
+                if block_size > 1:
+                    data.extend(tmp_array)
+                else:
+                    data.append(tmp_array)
+            descriptions.append(description)
+        if data:
+            data = data_from_pipeline(data, shape=shape, dtype=dtype)
+        else:
+            data = numpy.array([])
+        return EventData(
+            first_index=first_index,
+            data=data,
+            description=descriptions,
+            block_size=block_size,
+        )
 
     def get_as_array(self, from_index, to_index=None):
         """
@@ -153,7 +243,13 @@ class ChannelDataNode(DataNode):
 
     def __len__(self):
         self._create_queue()
-        return len(self._queue)
+        # fetching last event
+        # using last index as old queue-len
+        raw_event = self._queue.rev_range(count=1)
+        if not raw_event:
+            return 0
+        event_data = self.decode_raw_events(raw_event)
+        return event_data.first_index + event_data.block_size
 
     @property
     def shape(self):

@@ -48,7 +48,7 @@ def listenscan(db_name):
     scannode = get_node(db_name)
     it = scannode.iterator
     try:
-        for event_type, datanode in it.walk_events():
+        for event_type, datanode, event_data in it.walk_events():
             del datanode
             continue
     except gevent.GreenletExit:
@@ -68,13 +68,15 @@ def listensession(session_name, finishevent):
             with fd_leak_ctx("\nsession walk_events: "):
                 try:
                     fds = None
-                    for event_type, scannode in it.walk_on_new_events(filter="scan"):
+                    for event_type, scannode, event_data in it.walk_on_new_events(
+                        filter="scan"
+                    ):
                         if fds is None:
                             fds = file_descriptors()
-                        if event_type.name == "NEW_NODE":
+                        if event_type == event_type.NEW_NODE:
                             g = gevent.spawn(listenscan, scannode.db_name)
                             writers[scannode.name] = g
-                        elif event_type.name == "END_SCAN":
+                        elif event_type == event_type.END_SCAN:
                             g = writers.pop(scannode.name)
                             g.kill()
                             g.join()

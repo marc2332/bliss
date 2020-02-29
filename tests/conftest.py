@@ -18,6 +18,9 @@ import pytest
 import redis
 import collections.abc
 import numpy
+from random import randint
+from contextlib import contextmanager
+import redis
 
 from bliss import global_map
 from bliss.common.session import DefaultSession
@@ -33,16 +36,23 @@ from bliss.controllers import simulation_diode
 from bliss.common import plot
 from bliss.common.tango import DeviceProxy, DevFailed, ApiUtil
 from bliss import logging_startup
-
-from random import randint
-from contextlib import contextmanager
-
 from bliss.scanning import scan_meta
 
 
 BLISS = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 BEACON = [sys.executable, "-m", "bliss.config.conductor.server"]
 BEACON_DB_PATH = os.path.join(BLISS, "tests", "test_configuration")
+
+
+def wait_terminate(process):
+    process.terminate()
+    try:
+        with gevent.Timeout(10):
+            process.wait()
+    except gevent.Timeout:
+        process.kill()
+        with gevent.Timeout(10):
+            process.wait()
 
 
 def wait_for(stream, target):
@@ -180,13 +190,18 @@ def ports(beacon_directory):
     # important: close to prevent filling up the pipe as it is not read during tests
     proc.stderr.close()
 
+    # disable .rdb files saving (redis persistence)
+    r = redis.Redis(host="localhost", port=ports.redis_port)
+    r.config_set("SAVE", "")
+    del r
+
     os.environ["TANGO_HOST"] = "localhost:%d" % ports.tango_port
     os.environ["BEACON_HOST"] = "localhost:%d" % ports.beacon_port
 
     yield ports
 
     atexit._run_exitfuncs()
-    proc.terminate()
+    wait_terminate(proc)
 
 
 @pytest.fixture
@@ -226,55 +241,39 @@ def scan_tmpdir(tmpdir):
     tmpdir.remove()
 
 
-@pytest.fixture
-def lima_simulator(ports, beacon):
-    from Lima.Server.LimaCCDs import main
+@contextmanager
+def lima_simulator_context(personal_name, device_name):
+    device_fqdn = f"tango://{os.environ['TANGO_HOST']}/{device_name}"
 
-    device_name = "id00/limaccds/simulator1"
-    device_fqdn = "tango://localhost:{}/{}".format(ports.tango_port, device_name)
+    p = subprocess.Popen(["LimaCCDs", personal_name])
 
-    p = subprocess.Popen(["LimaCCDs", "simulator"])
+    dev_proxy = DeviceProxy(device_fqdn)
 
-    with gevent.Timeout(10, RuntimeError("Lima simulator is not running")):
+    with gevent.Timeout(10, RuntimeError(f"{device_name} is not running")):
         while True:
             try:
-                dev_proxy = DeviceProxy(device_fqdn)
-                dev_proxy.ping()
                 dev_proxy.state()
             except DevFailed as e:
-                gevent.sleep(0.1)
+                gevent.sleep(0.5)
             else:
                 break
 
-    gevent.sleep(1)
-    yield device_fqdn, dev_proxy
-    p.terminate()
+    try:
+        yield device_fqdn, dev_proxy
+    finally:
+        wait_terminate(p)
 
 
 @pytest.fixture
-def lima_simulator2(ports, beacon):
-    from Lima.Server.LimaCCDs import main
-    from bliss.common.tango import DeviceProxy, DevFailed
+def lima_simulator(ports):
+    with lima_simulator_context("simulator", "id00/limaccds/simulator1") as fqdn_proxy:
+        yield fqdn_proxy
 
-    device_name = "id00/limaccds/simulator2"
-    device_fqdn = "tango://localhost:{}/{}".format(ports.tango_port, device_name)
 
-    p = subprocess.Popen(["LimaCCDs", "simulator2"])
-
-    with gevent.Timeout(10, RuntimeError("Lima simulator2 is not running")):
-        while True:
-            try:
-                dev_proxy = DeviceProxy(device_fqdn)
-                dev_proxy.ping()
-                dev_proxy.state()
-            except DevFailed as e:
-                gevent.sleep(0.1)
-            else:
-                break
-
-    gevent.sleep(1)
-    yield device_fqdn, dev_proxy
-    p.terminate()
+@pytest.fixture
+def lima_simulator2(ports):
+    with lima_simulator_context("simulator2", "id00/limaccds/simulator2") as fqdn_proxy:
+        yield fqdn_proxy
 
 
 @pytest.fixture
@@ -296,7 +295,7 @@ def bliss_tango_server(ports, beacon):
 
     yield device_fqdn, dev_proxy
 
-    p.terminate()
+    wait_terminate(p)
 
 
 @pytest.fixture
@@ -321,13 +320,11 @@ def dummy_tango_server(ports, beacon):
 
     yield device_fqdn, dev_proxy
 
-    p.terminate()
+    wait_terminate(p)
 
 
 @pytest.fixture
 def wago_tango_server(ports, default_session, wago_emulator):
-    from bliss.tango.servers.wago_ds import main
-
     device_name = "1/1/wagodummy"
     device_fqdn = "tango://localhost:{}/{}".format(ports.tango_port, device_name)
 
@@ -337,22 +334,20 @@ def wago_tango_server(ports, default_session, wago_emulator):
 
     p = subprocess.Popen(["Wago", "wago_tg_server"])
 
+    dev_proxy = DeviceProxy(device_fqdn)
+
     with gevent.Timeout(10, RuntimeError("WagoDS is not running")):
         while True:
             try:
-                dev_proxy = DeviceProxy(device_fqdn)
-                dev_proxy.ping()
                 dev_proxy.state()
             except DevFailed as e:
-                gevent.sleep(0.1)
+                gevent.sleep(0.5)
             else:
                 break
 
-    gevent.sleep(1)
-
     yield device_fqdn, dev_proxy
 
-    p.terminate()
+    wait_terminate(p)
 
 
 @pytest.fixture
@@ -598,7 +593,7 @@ def metadata_manager_tango_server(ports):
 
     gevent.sleep(1)
     yield device_fqdn, dev_proxy
-    p.terminate()
+    wait_terminate(p)
 
 
 @pytest.fixture
@@ -621,4 +616,4 @@ def metadata_experiment_tango_server(ports):
 
     gevent.sleep(1)
     yield device_fqdn, dev_proxy
-    p.terminate()
+    wait_terminate(p)

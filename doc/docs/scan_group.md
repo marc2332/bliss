@@ -99,12 +99,12 @@ For online data analysis it is possible to be notified when a new scan is added 
 
 !!! example
     ```python
-	TEST_SESSION [28]: for (event,node) in seq.node.iterator.walk_events(filter='node_ref_channel'):
+	TEST_SESSION [28]: for (event,node,data) in seq.node.iterator.walk_events(filter='node_ref_channel'):
 		      ...:     print(event, node.db_name)
-		      ...:     if event.name == "NEW_DATA_IN_CHANNEL":
+		      ...:     if event.name == "NEW_DATA":
 		      ...:         print("\t" , node.get(0,-1))
 	event.NEW_NODE test_session:tmp:scans:310_sequence_of_scans:GroupingMaster:scans
-	event.NEW_DATA_IN_CHANNEL test_session:tmp:scans:310_sequence_of_scans:GroupingMaster:scans
+	event.NEW_DATA test_session:tmp:scans:310_sequence_of_scans:GroupingMaster:scans
 		 [<bliss.data.scan.Scan object at 0x7f527a7b2710>, <bliss.data.scan.Scan object at 0x7f527a7b22d0>]
 
     ```

@@ -34,10 +34,9 @@ class HDF5_Writer(object):
     the hdf5 access for one particular scan
     """
 
-    def __init__(self, scan_node, exit_read_fd):
+    def __init__(self, scan_node):
         self.scan_node = scan_node
         self.scan_name = scan_node.name
-        self.exit_read_fd = exit_read_fd
 
         # deal with subscans
         self.subscans = dict()
@@ -61,6 +60,9 @@ class HDF5_Writer(object):
 
         # listen and treat events for this scan asynchronously
         self._greenlet = gevent.spawn(self.run)
+
+    def wait_end(self):
+        self._greenlet.get()
 
     def h5_scan_name(self, node):
         # as we want to produce a NeXus compliment hdf5 the tree structure representing a scan in BLISS
@@ -90,15 +92,10 @@ class HDF5_Writer(object):
         # ~ print("writer run", self.scan_node.db_name)
 
         scan_iterator = self.scan_node.iterator
-
-        # set wakeup_fd for iterator to be able to receive notification of scan_end
-        scan_iterator.wakeup_fd = self.exit_read_fd
-
-        for event_type, node in scan_iterator.walk_events():
+        for event_type, node, event_data in scan_iterator.walk_events():
             # ~ print(self.scan_db_name, event_type, node.type)
-
             # creating new dataset for channel
-            if event_type.name == "NEW_NODE" and node.type == "channel":
+            if event_type == event_type.NEW_NODE and node.type == "channel":
                 print(self.scan_node.db_name, "create new dataset", node.name)
                 self.channels.append(node)
                 self.channel_indices[node.name] = 0
@@ -117,50 +114,42 @@ class HDF5_Writer(object):
                 )
 
             # creating new data set for lima data
-            elif event_type.name == "NEW_NODE" and node.type == "lima":
+            elif event_type == event_type.NEW_NODE and node.type == "lima":
                 self.lima_channels.append(node)
 
             # dealing with node_ref_channel
-            elif event_type.name == "NEW_NODE" and node.type == "node_ref_channel":
+            elif event_type == event_type.NEW_NODE and node.type == "node_ref_channel":
                 self.group_channels.append(node)
 
             # adding data to channel dataset
-            elif event_type.name == "NEW_DATA_IN_CHANNEL" and node.type == "channel":
+            elif event_type == event_type.NEW_DATA and node.type == "channel":
                 print(self.scan_node.db_name, "add data", node.name)
                 self.update_data(node)
 
             # adding data to lima dataset
-            elif event_type.name == "NEW_DATA_IN_CHANNEL" and node.type == "lima":
+            elif event_type == event_type.NEW_DATA and node.type == "lima":
                 # could be done in real time during run time of the scan as done for channels
                 # in this demo we restrict ourselves to treating the lima data at the end of the scan
                 pass
 
             # dealing with node_ref_channel
-            elif (
-                event_type.name == "NEW_DATA_IN_CHANNEL"
-                and node.type == "node_ref_channel"
-            ):
+            elif event_type == event_type.NEW_DATA and node.type == "node_ref_channel":
                 # could be done in real time during run time of the scan as done for channels
                 # in this demo we restrict ourselves to treating all reference in the end
                 pass
-
+            elif event_type == event_type.NEW_DATA and node.type == "scan_group":
+                print("**** NEW_DATA ****", node.db_name)
             # creating a new entry in the hdf5 for each 'top-master'
-            elif event_type.name == "NEW_NODE" and (
+            elif event_type == event_type.NEW_NODE and (
                 node.parent.type == "scan" or node.parent.type == "scan_group"
             ):
                 print(self.scan_node.db_name, "add subscan", node.name)
                 # add a new subscan to this scan (this is to deal with "multiple top master" scans)
                 # and the fact that the hdf5 three does not reflect the redis tree in this case
                 self.add_subscan(node)
-
-            elif event_type.name == "EXTERNAL_EVENT":
-                print(
-                    "EXTERNAL_EVENT",
-                    self.scan_node.db_name,
-                    "END_SCAN as been received by listen_scans_of_session",
-                )
+            elif event_type == event_type.END_SCAN:
+                self.finalize()
                 break
-
             else:
                 print("DEBUG: untreated event: ", event_type.name, node.type, node.name)
 
@@ -296,8 +285,6 @@ class HDF5_Writer(object):
         channels to make sure that all data is written """
         print("writer finalize", self.scan_node.db_name)
 
-        self._greenlet.join()
-
         # make sure that all data was written until the last point
         # in case we missed anything
         for c in self.channels:
@@ -370,7 +357,6 @@ class HDF5_Writer(object):
             ]
 
         self.file.close()
-        os.close(self.exit_read_fd)
 
 
 def listen_scans_of_session(session, scan_stack=dict()):
@@ -384,23 +370,18 @@ def listen_scans_of_session(session, scan_stack=dict()):
 
         # wait for new events on scan
         print("Listening to", session)
-        for event_type, node in session_node.iterator.walk_on_new_events(
+        for event_type, node, event_data in session_node.iterator.walk_on_new_events(
             filter=["scan", "scan_group"]
         ):
-            if event_type.name == "NEW_NODE":
-                exit_read, exit_write = os.pipe()
-                # we use this pipe to be able to catch the NEW_NODE of scan and
-                # END_SCAN in the same place but avoid to have to call a kill in
-                # the child writer process
+            if event_type == event_type.NEW_NODE:
+                scan_stack[node.db_name] = HDF5_Writer(node)
 
-                scan_stack[node.db_name] = (HDF5_Writer(node, exit_read), exit_write)
-
-            elif event_type.name == "END_SCAN":
-                s, exit_write = scan_stack.get(node.db_name, (None, None))
+            elif event_type == event_type.END_SCAN:
+                s = scan_stack.get(node.db_name)
                 if s is not None:
-                    os.write(exit_write, b"END_SCAN received")
-                    s.finalize()
-                    os.close(exit_write)
+                    print("BEFORE wait END SCAN", node.db_name)
+                    s.wait_end()
+                    print("END SCAN", node.db_name)
                     scan_stack.pop(node.db_name)
 
     # gevent.spawn(g) could be used to instead of g() to run in non-blocking fashion

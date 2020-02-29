@@ -1264,10 +1264,14 @@ class Scan:
                     # check if there is any master or device that would like
                     # to provide meta data at the end of the scan
                     for dev in self.acq_chain.nodes_list:
+                        node = self.nodes.get(dev)
+                        if node is None:
+                            # prepare has not finished ?
+                            continue
                         with KillMask(masked_kill_nb=1):
                             tmp = dev.fill_meta_at_scan_end(self.user_scan_meta)
                         if tmp:
-                            update_node_info(self.nodes[dev], tmp)
+                            update_node_info(node, tmp)
 
                     with KillMask(masked_kill_nb=1):
                         deep_update(self._scan_info, self.user_scan_meta.to_dict(self))
@@ -1279,7 +1283,7 @@ class Scan:
                         self.node._info.update(self.scan_info)
 
                 # wait the end of publishing
-                # should be already finished.
+                # (should be already finished)
                 stream_task = self._swap_pipeline()
                 if stream_task is not None:
                     with capture():

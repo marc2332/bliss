@@ -632,13 +632,9 @@ class Session:
             else:
                 env_dict["load_script"] = self.load_script
 
-            _file_ = env_dict["__file__"]
-            env_dict["__file__"] = self.setup_file
-
             code = compile(setup_file.read(), self.setup_file, "exec")
             exec(code, env_dict)
 
-            env_dict["__file__"] = _file_
             for obj_name, obj in env_dict.items():
                 setattr(setup_globals, obj_name, obj)
 

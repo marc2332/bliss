@@ -20,9 +20,12 @@ import gevent
 
 from bliss.common.utils import autocomplete_property
 from bliss.common.mapping import format_node, map_id
+from bliss.common.tango import DevFailed, DevState
 from bliss import global_map, current_session
 
 old_factory = logging.getLogRecordFactory()
+
+logbook_on = False
 
 
 def record_factory(*args, **kwargs):
@@ -328,9 +331,11 @@ class LogbookPrint:
         self.extra["end"] = kwargs.pop("end", "\n")
         self.extra["flush"] = kwargs.pop("flush", True)
         if len(args) > 1:
-            self.adapter.info(sep.join((str(arg) for arg in args)))
+            msg = sep.join((str(arg) for arg in args))
         else:
-            self.adapter.info(args[0])
+            msg = args[0]
+        self.adapter.info(msg)
+        self.send_to_elogbook("info", msg)
 
     @contextlib.contextmanager
     def lprint_disable(self):
@@ -352,6 +357,29 @@ class LogbookPrint:
                 del (self.disabled[current])
         except KeyError:
             pass
+
+    def send_to_elogbook(self, msg_type, msg):
+        if not logbook_on:
+            return
+
+        if current_session:
+            if current_session.scan_saving.data_policy != "ESRF":
+                return
+
+        metadata_manager = current_session.scan_saving.metadata_manager
+
+        try:
+            if metadata_manager.state() == DevState.ON:
+                if msg_type == "command":
+                    metadata_manager.notifyCommand(msg)
+                elif msg_type == "error":
+                    metadata_manager.notifyError(msg)
+                elif msg_type == "debug":
+                    metadata_manager.notifyDebug(msg)
+                else:
+                    metadata_manager.notifyInfo(msg)
+        except DevFailed:
+            log_error(self, "elogbook: MetadataManager communication failed")
 
 
 logbook_printer = LogbookPrint()

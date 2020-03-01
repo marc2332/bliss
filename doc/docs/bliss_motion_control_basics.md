@@ -231,7 +231,7 @@ Defined as an object that can be used standalone or linked to an Axis.
 After a movement, if:
 
 * an encoder is associated to the axis
-* AND check_encoder is set to True in config
+* AND `check_encoder` is set to `True` in config
 
 then the encoder position is read and compared to the target position
 of the movement. In case of difference outside the limit fixed by

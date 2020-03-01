@@ -1412,6 +1412,7 @@ class Axis:
     def _handle_move(self, motion, polling_time):
         state = self._move_loop(polling_time)
 
+        # after the move
         if self.config.get("check_encoder", bool, False) and self.encoder:
             self._do_encoder_reading()
 

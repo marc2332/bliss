@@ -15,6 +15,7 @@ from prompt_toolkit.layout.controls import FormattedTextControl
 from prompt_toolkit.layout.layout import Layout
 from ptpython.utils import if_mousedown
 from ptpython.layout import get_inputmode_fragments
+from bliss.common import logtools
 import bliss.shell.cli
 
 
@@ -27,9 +28,6 @@ def NEWstatus_bar(python_input):
     @if_mousedown
     def toggle_paste_mode(mouse_event):
         python_input.paste_mode = not python_input.paste_mode
-
-    def toggle_typing_helper():
-        bliss.shell.cli.typing_helper_active = not bliss.shell.cli.typing_helper_active
 
     @if_mousedown
     def enter_history(mouse_event):
@@ -83,16 +81,15 @@ def NEWstatus_bar(python_input):
 
             append((TB, "[F7]"))
             if bliss.shell.cli.typing_helper_active:
-                append(
-                    (
-                        TB + " class:paste-mode-on",
-                        " Typing helper (on)",
-                        toggle_typing_helper,
-                    )
-                )
+                append((TB + " class:paste-mode-on", " Typing helper (on)"))
             else:
-                append((TB, " Typing helper", toggle_typing_helper))
+                append((TB, " Typing helper"))
 
+            append((TB, "[F8]"))
+            if logtools.logbook_on:
+                append((TB + " class:paste-mode-on", " Logbook (on)"))
+            else:
+                append((TB, " Logbook"))
         return result
 
     return ConditionalContainer(
@@ -115,9 +112,6 @@ def TMUXstatus_bar(python_input):
     @if_mousedown
     def toggle_paste_mode(mouse_event):
         python_input.paste_mode = not python_input.paste_mode
-
-    def toggle_typing_helper():
-        bliss.shell.cli.typing_helper_active = not bliss.shell.cli.typing_helper_active
 
     @if_mousedown
     def enter_history(mouse_event):
@@ -172,16 +166,15 @@ def TMUXstatus_bar(python_input):
 
             append((TB, "[F7]"))
             if bliss.shell.cli.typing_helper_active:
-                append(
-                    (
-                        TB + " class:paste-mode-on",
-                        " Typing helper (on)",
-                        toggle_typing_helper,
-                    )
-                )
+                append((TB + " class:paste-mode-on", " Typing helper (on) "))
             else:
-                append((TB, " Typing helper", toggle_typing_helper))
+                append((TB, " Typing helper "))
 
+            append((TB, "[F8]"))
+            if logtools.logbook_on:
+                append((TB + " class:paste-mode-on", " Logbook (on)"))
+            else:
+                append((TB, " Logbook"))
         return result
 
     return ConditionalContainer(

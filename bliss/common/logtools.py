@@ -25,6 +25,8 @@ from bliss import global_map, current_session
 
 old_factory = logging.getLogRecordFactory()
 
+logbook_on = False
+
 
 def record_factory(*args, **kwargs):
     record = old_factory(*args, **kwargs)
@@ -357,8 +359,12 @@ class LogbookPrint:
             pass
 
     def send_to_elogbook(self, msg_type, msg):
-        if current_session.scan_saving.data_policy != "ESRF":
+        if not logbook_on:
             return
+
+        if current_session:
+            if current_session.scan_saving.data_policy != "ESRF":
+                return
 
         metadata_manager = current_session.scan_saving.metadata_manager
 

@@ -4,11 +4,10 @@ controller:
     axes:
         -
             name: u23a
+            undu_prefix: ""
             attribute_position: Position
             attribute_velocity: Velocity
             attribute_acceleration: Acceleration
             steps_per_unit: 1
-            velocity: 5
-            acceleration: 125
             tolerance: 0.1
 

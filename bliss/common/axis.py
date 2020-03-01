@@ -987,7 +987,7 @@ class Axis:
         try:
             info_string += self.encoder.__info__()
         except Exception as e:
-            info_string += f"     encoder: None\n"
+            info_string += f"ENCODER:\n     None\n"
 
         return info_string
 

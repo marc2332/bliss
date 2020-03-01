@@ -68,7 +68,7 @@ def test_info(robz, capsys):
     output += "Controller name: test\n"
     output += "MOCKUP AXIS:\n"
     output += "    this axis (robz) is a simulation axis\n"
-    output += "     encoder: None\n"
+    output += "ENCODER:\n     None\n"
 
     # # output += "controller: <bliss.controllers.motors.mockup.Mockup object at 0x7f78ac843d30>\n"
     # output += "Axis: robz\n"

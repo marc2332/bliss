@@ -30,8 +30,10 @@ class Dummy(Device):
     def __init__(self, *args, **kwargs):
         Device.__init__(self, *args, **kwargs)
 
-        self.vel = 0
-        self.acc = 0
+        # Forced at init as not read from config.
+        # In real undu, they are read from ID DS.
+        self.vel = 5
+        self.acc = 125
 
         # shutter state
         self.set_state(DevState.CLOSE)

@@ -9,10 +9,9 @@ import time
 
 from bliss.controllers.motor import Controller
 from bliss.common.axis import AxisState
-from bliss.common.tango import DevState, DeviceProxy, AttributeProxy
-from bliss.common.logtools import *
-
-__author__ = "Cyril Guilloud - ESRF ISDD SOFTGROUP BLISS - Feb. 2015"
+from bliss.common.tango import DevState, DeviceProxy
+from bliss.common.logtools import log_debug
+from bliss.common.utils import object_attribute_get, object_attribute_set
 
 
 class ESRF_Undulator(Controller):
@@ -23,7 +22,7 @@ class ESRF_Undulator(Controller):
 
         try:
             self.ds_name = self.config.get("ds_name")
-        except:
+        except Exception:
             log_debug(
                 self, "no 'ds_name' defined in config for %s" % self.config.get("name")
             )
@@ -36,50 +35,92 @@ class ESRF_Undulator(Controller):
         # velocity and acceleration are not mandatory in config
         self.axis_settings.config_setting["velocity"] = False
         self.axis_settings.config_setting["acceleration"] = False
-        
+
         # Get a proxy on Insertion Device device server of the beamline.
         self.device = DeviceProxy(self.ds_name)
-        
+
         self.undulator_index = None
-        self.is_revolver     = False
-        
-        
+        self.is_revolver = False
+
     """
     Axes initialization actions.
     """
 
     def initialize_axis(self, axis):
-        attr_pos_name = axis.config.get("attribute_position", str)
-        attr_vel_name = axis.config.get("attribute_velocity", str)
-        attr_acc_name = axis.config.get("attribute_acceleration", str)
+        try:
+            attr_pos_name = axis.config.get("attribute_position", str)
+        except KeyError:
+            attr_pos_name = "Position"
+
+        log_debug(self, f"attr_pos_name={attr_pos_name}")
+
+        try:
+            attr_vel_name = axis.config.get("attribute_velocity", str)
+        except KeyError:
+            attr_vel_name = "Velocity"
+        log_debug(self, f"attr_vel_name={attr_vel_name}")
+
+        try:
+            attr_fvel_name = axis.config.get("attribute_first_velocity", str)
+        except KeyError:
+            attr_fvel_name = "FirstVelocity"
+
+        log_debug(self, f"attr_fvel_name={attr_fvel_name}")
+
+        try:
+            attr_acc_name = axis.config.get("attribute_acceleration", str)
+        except KeyError:
+            attr_acc_name = "Acceleration"
+
+        log_debug(self, f"attr_acc_name={attr_acc_name}")
+
+        alpha = axis.config.get("alpha", float, 0.0)
+        period = axis.config.get("period", float, 0.0)
+
+        log_debug(self, f"alpha={alpha}  period={period}")
+
+        try:
+            undu_prefix = axis.config.get("undu_prefix", str)
+        except KeyError:
+            log_debug(self, "'undu_prefix' not specified in config")
+            if attr_pos_name == "Position":
+                raise RuntimeError("'undu_prefix' must be specified in config")
+            else:
+                undu_prefix = ""
+
         self.axis_info[axis] = {
-            "attr_pos_name": attr_pos_name,
-            "attr_vel_name": attr_vel_name,
-            "attr_acc_name": attr_acc_name,
+            "attr_pos_name": undu_prefix + attr_pos_name,
+            "attr_vel_name": undu_prefix + attr_vel_name,
+            "attr_fvel_name": undu_prefix + attr_fvel_name,
+            "attr_acc_name": undu_prefix + attr_acc_name,
+            "alpha": alpha,
+            "period": period,
         }
-        
-        # check for revolver undulator
-        pos = attr_pos_name.find("_")
-        uname = attr_pos_name[0:pos]
-        uname = uname.lower()
-        
-        uname_list = (self.device.read_attribute("UndulatorNames")).value
-        uname_list = [item.lower() for item in uname_list]
-        
-        index = uname_list.index(uname)
-        self.undulator_index = index
-        
-        if (self.device.read_attribute("UndulatorRevolverCarriage")).value[self.undulator_index] == True:
-            self.is_revolver = True
-            print ("is a revolver!") 
-            
-            ustate_list = (self.device.read_attribute("UndulatorStates")).value
-            if ustate_list[self.undulator_index] == DevState.DISABLE:
-                print ("Revolver axe is disabled")
-                
-                # Disable the axis for usage!!!!!!!
-        
-        log_debug(self, "axis initialized--------------------------")
+
+        #         # check for revolver undulator
+        #         pos = attr_pos_name.find("_")
+        #         uname = attr_pos_name[0:pos]
+        #         uname = uname.lower()
+        #         # NB: "UndulatorNames" return list of names but not indexed properly :(
+        #         uname_list = (self.device.read_attribute("UndulatorNames")).value
+        #         uname_list = [item.lower() for item in uname_list]
+        #
+        #         index = uname_list.index(uname)
+        #         self.undulator_index = index
+        #
+        #         #if (self.device.read_attribute("UndulatorRevolverCarriage")).value[self.undulator_index]:
+        #         #  "UndulatorRevolverCarriage" return an array of booleans.
+        #         if (self.device.UndulatorRevolverCarriage[self.undulator_index]:
+        #             self.is_revolver = True
+        #             print("is a revolver!")
+        #
+        #             ustate_list = (self.device.read_attribute("UndulatorStates")).value
+        #             if ustate_list[self.undulator_index] == DevState.DISABLE:
+        #                 print("Revolver axe is disabled")
+        #
+        #                 # Disable the axis for usage!!!!!!!
+
+        log_debug(self, "OK: axis well initialized")
 
     """
     Actions to perform at controller closing.
@@ -101,37 +142,39 @@ class ESRF_Undulator(Controller):
             float(motion.target_pos / motion.axis.steps_per_unit),
         )
 
-    
     def enable(self):
+        """ Enable the undulator axis when it is a disabled revolver axis.
         """
-        Enables the undulator axis when it is a disabled revolver axis
-        """
-        
+
         # check that the axe is a revolver axe
         if self.is_revolver == False:
-            raise ValueError('No revolver axis')
-        
+            raise ValueError(f"{self.name} is not a revolver axis")
+
         # check that the axe is disabled
         ustate_list = (self.device.read_attribute("UndulatorStates")).value
         if ustate_list[self.undulator_index] != DevState.DISABLE:
-            raise ValueError('Axis is already enabled')
-            
+            raise ValueError(f"{self.name} Axis is already enabled")
+
         # send the Enable command
-        uname = (self.device.read_attribute("UndulatorNames")).value[self.undulator_index]
+        uname = (self.device.read_attribute("UndulatorNames")).value[
+            self.undulator_index
+        ]
         self.device.Enable(uname)
-        
+
         # wait until the movement finished
         ustate = DevState.DISABLE
-        
-        while ustate == DevState.DISABLE  ustate == DevState.MOVING:
-            ustate = (self.device.read_attribute("UndulatorStates")).value[self.undulator_index]
+
+        # wait for state to be neither disable nor moving
+        while ustate == DevState.DISABLE or ustate == DevState.MOVING:
+            ustate = (self.device.read_attribute("UndulatorStates")).value[
+                self.undulator_index
+            ]
             time.sleep(1)
-        
+
         # evaluate axis state !!!!!
-        
+
         return
-    
-    
+
     def read_position(self, axis):
         """
         Returns the position taken from controller
@@ -190,13 +233,40 @@ class ESRF_Undulator(Controller):
     def stop_all(self, *motion_list):
         self.device.abort()
 
-    def get_info(self, axis):
-        info_str = ""
-        info_str = "DEVICE SERVER : %s \n" % self.ds_name
-        info_str += self.ds.state() + "\n"
-        info_str += 'status="%s"\n' % str(self.ds.status()).strip()
-        info_str += "state=%s\n" % self.ds.state()
-        info_str += "mode=%s\n" % str(self.ds.mode)
-        info_str += "undu states= %s" % " ".join(map(str, self.ds.UndulatorStates))
+    def __info__(self):
+        info_str = f"UNDU DEVICE SERVER: {self.ds_name} \n"
+        info_str += f"     status = {str(self.device.status()).strip()}\n"
+        info_str += f"     state = {self.device.state()}\n"
+        info_str += (
+            f"     Power = {self.device.Power:.3g} (max: {self.device.MaxPower:.3g})\n"
+        )
+        info_str += f"     PowerDensity = {self.device.PowerDensity:.3g}  (max: {self.device.MaxPowerDensity:.3g})\n"
+        return info_str
+
+    def get_axis_info(self, axis):
+        """ Return axis info specific to an undulator"""
+        info_str = "TANGO DEVICE SERVER VALUES:\n"
+
+        position = getattr(self.device, self.axis_info[axis].get("attr_pos_name"))
+        info_str += (
+            f"     {self.axis_info[axis].get('attr_pos_name')} = {position} mm\n"
+        )
+
+        velocity = getattr(self.device, self.axis_info[axis].get("attr_vel_name"))
+        info_str += (
+            f"     {self.axis_info[axis].get('attr_vel_name')} = {velocity} mm/s\n"
+        )
+
+        first_vel = getattr(self.device, self.axis_info[axis].get("attr_fvel_name"))
+        info_str += (
+            f"     {self.axis_info[axis].get('attr_fvel_name')} = {first_vel} mm/s\n"
+        )
+
+        acceleration = getattr(self.device, self.axis_info[axis].get("attr_fvel_name"))
+        info_str += f"     {self.axis_info[axis].get('attr_acc_name')} = {acceleration} mm/s/s\n"
+
+        info_str += "UNDU SPECIFIC INFO:\n"
+        info_str += f"     config alpha: {self.axis_info[axis].get('alpha')}\n"
+        info_str += f"     config period: {self.axis_info[axis].get('period')}\n"
 
         return info_str

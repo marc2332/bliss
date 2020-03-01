@@ -8,12 +8,15 @@
 from bliss.common import scans
 import nxw_test_utils
 import nxw_test_data
+import pytest
 
 
+@pytest.mark.flaky(reruns=3)
 def test_nxw_ct(nexus_writer_config):
     _test_nxw_ct(**nexus_writer_config)
 
 
+@pytest.mark.flaky(reruns=3)
 def test_nxw_ct_alt(nexus_writer_config_alt):
     _test_nxw_ct(**nexus_writer_config_alt)
 

@@ -8,6 +8,55 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+
+### Changed
+
+### Fixed
+
+### Removed
+
+## [1.2.0] - 2020-03-01
+
+### Added
+
+- Encoder objects are now counter containers, to be used in scans
+- __info__ strings for TCP, UDP, GPIB and Serial communication objects
+- image information is returned by Lima Image __info__ method
+- reload of Opiom program in multiplexer setup (only if needed)
+- 'raw_read' property for Sampling Counters
+- Transfocators
+    - TFLens to manage number of lenses and different materials for each axis of the transfocator
+    - setin(), setout()
+    - take pinholes into account in total number of lenses
+    - security checks when setting bitvalue
+    - check for invalid state (both limits activated)
+- EBV (Esrf Beam Viewer)
+    - add counters list in __info__
+- support for EMH controller
+- support for Elettra BPM
+- jog command for IcePAP controller
+- Lima
+    - add shutter property
+    - BPM info return a list of bpm counters in one line
+    - support for Mask, Background substration, Flat-field, binning, flipping, rotation
+    - "limatake" tools
+    - set instrument name and detector name
+- Data policy
+    - move positioners into separate scan_info category
+    - new global 'instrument' field in configuration
+- Introduction of Redis Streams to convey data from Beacon to clients
+- Nexus Writer
+    - adaptation to the new streams
+    - creation of Virtual Dataset without re-opening image files
+    - better profiling tools
+    - improved performance
+- Shell
+    - lscnt can now take a counter or CounterContainer object, to limit output to this object
+    - warn about tmux 'detach'
+    - functions to load/execute user scripts: user
+    - new lsmg: list measurement groups
+    - edit_mg() method to edit measurement groups graphically
+    - silx launcher: typing silx_view in the shell will launch silx on a scan (default last scan).
 - Wago: 
   - support for special modules `750-403`, `750-506`, `750-507`, `750-508`, `750-637`
   - create an "extended_mode" (normally not used) to be able to retrieve all
@@ -18,9 +67,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     device server, to get instantaneous values use `devreadnocachephys` and
     `devreadnocachedigi`. This can be used for monitoring without giving more
     pressure to the Wago. The shell command `get` gives instantaneous values.
-  - silx launcher: typing silx_view in the shell will launch silx on a scan
-    (default last scan).
-
 - Flint
   - User choices on widget configuration are now stored in Redis
   - Create `clean_up_user_data` function in BLISS side (`bliss.common.plot`)
@@ -33,11 +79,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Provide menu to lock/unlock the layout (by default the layout is locked)
   - Provide workspace to be able to store plot, widget, layout in different environment
   - The image widget displayed now the source of the data (can be "video", "file", "memory")
-
 - APC Rack Power Distribution Unit: implemented controller for basic relay functionalities
+- BLISS RPC: new low latency messages
+- Documentation
+  - "BLISS in a nutshell": interactive tutorial
+  - documentation day: many updates
+- BLISS demo session
 
 ### Changed
 
+- Scans
+  - disable all 'lprint' messages while scan is running
 - Flint
   - Use silx 0.13.0 beta0
   - Rework image/MCA/curve live view in order to provide same behavior as scatter view
@@ -55,8 +107,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
       of the channel name)
   - At the start of a scan, the previous image is still displaed to avoid blinking
   - Image from Lima is downloaded according to the user refresh rate choice
+- moved Linkam, Lakeshore to the regulation framework 
+- CT2 (P201): send data from the server instead of doing polling on client
+- Data policy
+    - enforcing server names
 
 ### Fixed
+
+- EBV counters property
+- Counting on individual calc counters
+- Aliases (motor or counter) display bug solved (see #1234)
+- Web configuration tool
+    - do not open editor for binary files
+    - do not hide buttons while scrolling
+    - toggle folder open/close icon
+    - hide TODO message for objects without UI
+- BLISS TANGO Axis logging activation with command line flag (-v1..4)
+- lprint_disable context manager
+- Elmo motor controller
+    - fixed jog, encoder, homing
+- Fix environment dictionary in case of nested sessions
+- CT2 (P201) counter values conversion
+- Software timer elapsed time
 
 ## [1.1.0] - 2020-01-15
 
@@ -94,7 +166,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - To implement if on your scans take a look at https://bliss.gitlab-pages.esrf.fr/bliss/master/flint_scan_info.html
 - web applications (configuration, homepage and log viewer) are now started by default
     - default port numbers are proposed
-- moved Linkam, Lakeshore to the regulation framework 
 
 ### Fixed
 

@@ -42,6 +42,7 @@ def _test_nxw_readers(
     config=True,
     **kwargs
 ):
+    session.scan_saving.technique = "none"
     filename = scan_utils.session_filename(scan_saving=session.scan_saving)
     with nexus.nxRoot(filename, mode="a") as nxroot:
         nxentry = nexus.nxEntry(nxroot, "dummy")
@@ -92,7 +93,7 @@ def _test_nxw_readers(
             gevent.killall(readers)
             gevent.joinall(readers)
             readers = []
-            nxw_test_utils.assert_scan_data_exists([scan])
+            nxw_test_utils.wait_scan_data_exists([scan], writer=writer)
             nxw_test_utils.assert_scan_data_not_corrupt([scan])
             nxw_test_data.assert_scan_data(
                 scan,

@@ -51,6 +51,7 @@ def _test_scan_utils(
     policy=True,
     data_writer=None,
     save=None,
+    writer=None,
     **kwargs,
 ):
     session.scan_saving.writer = data_writer
@@ -88,6 +89,8 @@ def _test_scan_utils(
 
     # Check file existence based on policy/save/writer settings
     saves_files = save and data_writer != "null"
+    if saves_files:
+        nxw_test_utils.wait_scan_data_exists([scan], writer=writer)
     saves_masters = saves_files and data_writer == "nexus" and config
     assert dataset_filename.check(file=1) == saves_files
     for name, f in master_filenames.items():

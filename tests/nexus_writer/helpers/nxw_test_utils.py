@@ -61,10 +61,6 @@ def assert_async_scans_success(scans, greenlets):
     assert not failed, "{}/{} scans failed".format(failed, len(scans))
 
 
-class TimeOutError(Exception):
-    pass
-
-
 def _scan_uris(scans):
     """
     :param list(bliss.scanning.scan.Scan) scans:
@@ -87,15 +83,15 @@ def wait_scan_data_finished(scans, timeout=10, writer=None):
     uris = _scan_uris(scans)
     # print("wait_scan_data_finished: {}".format(uris))
     try:
-        with gevent.Timeout(timeout, TimeOutError):
+        with gevent.Timeout(timeout):
             while uris:
                 uris = [uri for uri in uris if not nexus.nxComplete(uri)]
                 gevent.sleep(0.1)
-    except TimeOutError:
+    except gevent.Timeout:
         on_timeout(writer, uris)
 
 
-def wait_scan_data_exists(scans, writer=None, timeout=60):
+def wait_scan_data_exists(scans, timeout=10, writer=None):
     """
     :param list(bliss.scanning.scan.Scan) scans:
     :param PopenGreenlet writer: writer process
@@ -103,11 +99,11 @@ def wait_scan_data_exists(scans, writer=None, timeout=60):
     uris = _scan_uris(scans)
     # print("wait_scan_data_exists: {}".format(filenames))
     try:
-        with gevent.Timeout(timeout, TimeOutError):
+        with gevent.Timeout(timeout):
             while uris:
                 uris = [uri for uri in uris if not nexus.exists(uri)]
                 gevent.sleep(0.1)
-    except TimeOutError:
+    except gevent.Timeout:
         on_timeout(writer, uris)
 
 
@@ -122,8 +118,8 @@ def assert_scan_data_not_corrupt(scans):
     for filename in filenames:
         try:
             h5todict(filename)
-        except BaseException:
-            raise AssertionError(filename)
+        except Exception as e:
+            raise AssertionError("Cannot read {}: {}".format(repr(filename), e))
 
 
 def on_timeout(writer, uris):

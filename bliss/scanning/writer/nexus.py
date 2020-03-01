@@ -152,7 +152,13 @@ class Writer(FileWriter):
         if relpath.replace(".", "").replace(os.path.sep, ""):
             super().create_path(full_path)
         else:
-            self.writer_proxy.makedirs(full_path)
+            try:
+                self.writer_proxy.makedirs(full_path)
+            except DevFailed as e:
+                reason = e.args[0].reason
+                desc = e.args[0].desc
+                err_msg = "Cannot create directory ({}: {})".format(reason, desc)
+                raise RuntimeError(err_msg)
 
     def prepare(self, scan):
         # Called at start of scan
@@ -184,8 +190,10 @@ class Writer(FileWriter):
 
     def finalize_scan_entry(self, scan):
         # Called at end of scan
+        # TODO: wait for writer to finish (async, logbook, ...)
         # self._set_writer_timeout(20)
-        self.scan_writer_finished()
+        # self.scan_writer_finished()
+        pass
 
     def get_scan_entries(self):
         try:

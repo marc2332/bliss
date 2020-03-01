@@ -32,7 +32,7 @@ A session can be started in the *BLISS shell command line* with `-s` option:
 
 
 Welcome to BLISS version 0.02 running on pcsht (in bliss Conda environment)
-Copyright (c) 2015-2019 Beamline Control Unit, ESRF
+Copyright (c) 2015-2020 Beamline Control Unit, ESRF
 -
 Connected to Beacon server on lid421 (port 3412)
 eh1: Executing setup...

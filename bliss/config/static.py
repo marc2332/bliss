@@ -839,6 +839,10 @@ class Config:
 
     def _create_index(self, node):
         name = node.get(self.NAME_KEY)
+        if isinstance(name, int) or isinstance(name, str) and name[:1].isdigit():
+            raise ValueError(
+                f"Invalid name ({name}) in config file ({node.filename}). Must start with [a-zA-Z_]"
+            )
         if name is not None and not name.startswith("$"):
             if name in self._name2node:
                 prev_node = self.get_config(name)

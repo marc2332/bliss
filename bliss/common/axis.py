@@ -910,6 +910,7 @@ class Axis:
         """
         return self.__controller.state(self)
 
+    @lazy_init
     def __info__(self):
         """Standard method called by BLISS Shell info helper:
         Return common axis information about the axis.
@@ -940,12 +941,12 @@ class Axis:
             info_string += f"     dial (RW): {self.dial:.5f}\n"
             info_string += f"     position (RW): {self.position:.5f}\n"
         except:
-            info_string += "ERROR: unable to get info (communication problem?)\n"
+            info_string += "ERROR: unable to get info\n"
 
         try:
             info_string += f"     state (R): {self.state}\n"
         except:
-            info_string += f"     ERROR: unable to get state (communication problem?)\n"
+            info_string += f"     ERROR: unable to get state\n"
 
         # ACCELERATION
         try:

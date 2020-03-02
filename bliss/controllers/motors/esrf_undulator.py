@@ -12,6 +12,7 @@ from bliss.common.axis import AxisState, NoSettingsAxis
 from bliss.common.tango import DevState, DeviceProxy
 from bliss.common.logtools import log_debug
 from bliss.common.utils import object_attribute_get, object_attribute_set
+from bliss.common.utils import object_method
 
 
 # NoSettingsAxis does not use cache for settings
@@ -23,7 +24,7 @@ class ESRF_Undulator(Controller):
     def __init__(self, *args, **kwargs):
         Controller.__init__(self, *args, **kwargs)
 
-        self.axis_info = dict()
+        self.axis_info = {}
 
         try:
             self.ds_name = self.config.get("ds_name")
@@ -43,9 +44,6 @@ class ESRF_Undulator(Controller):
 
         # Get a proxy on Insertion Device device server of the beamline.
         self.device = DeviceProxy(self.ds_name)
-
-        self.undulator_index = None
-        self.is_revolver = False
 
     """
     Axes initialization actions.
@@ -93,7 +91,26 @@ class ESRF_Undulator(Controller):
             else:
                 undu_prefix = ""
 
+        # check for revolver undulator
+        is_revolver = False
+        undulator_index = None
+        disabled = False
+        pos = attr_pos_name.find("_")
+        uname = attr_pos_name[0:pos]
+        uname = uname.lower()
+        # NB: "UndulatorNames" return list of names but not indexed properly :(
+        uname_list = [item.lower() for item in self.device.UndulatorNames]
+        undulator_index = uname_list.index(uname)
+        #  "UndulatorRevolverCarriage" return an array of booleans.
+        if self.device.UndulatorRevolverCarriage[undulator_index]:
+            is_revolver = True
+            ustate_list = self.device.UndulatorStates
+            disabled = ustate_list[undulator_index] == DevState.DISABLE
+
         self.axis_info[axis] = {
+            "is_revolver": is_revolver,
+            "undulator_index": undulator_index,
+            "disabled": disabled,
             "attr_pos_name": undu_prefix + attr_pos_name,
             "attr_vel_name": undu_prefix + attr_vel_name,
             "attr_fvel_name": undu_prefix + attr_fvel_name,
@@ -101,29 +118,6 @@ class ESRF_Undulator(Controller):
             "alpha": alpha,
             "period": period,
         }
-
-        #         # check for revolver undulator
-        #         pos = attr_pos_name.find("_")
-        #         uname = attr_pos_name[0:pos]
-        #         uname = uname.lower()
-        #         # NB: "UndulatorNames" return list of names but not indexed properly :(
-        #         uname_list = (self.device.read_attribute("UndulatorNames")).value
-        #         uname_list = [item.lower() for item in uname_list]
-        #
-        #         index = uname_list.index(uname)
-        #         self.undulator_index = index
-        #
-        #         #if (self.device.read_attribute("UndulatorRevolverCarriage")).value[self.undulator_index]:
-        #         #  "UndulatorRevolverCarriage" return an array of booleans.
-        #         if (self.device.UndulatorRevolverCarriage[self.undulator_index]:
-        #             self.is_revolver = True
-        #             print("is a revolver!")
-        #
-        #             ustate_list = (self.device.read_attribute("UndulatorStates")).value
-        #             if ustate_list[self.undulator_index] == DevState.DISABLE:
-        #                 print("Revolver axe is disabled")
-        #
-        #                 # Disable the axis for usage!!!!!!!
 
         log_debug(self, "OK: axis well initialized")
 
@@ -135,9 +129,13 @@ class ESRF_Undulator(Controller):
         pass
 
     def _set_attribute(self, axis, attribute_name, value):
+        if self.axis_info[axis]["disabled"]:
+            raise RuntimeError("Revolver axis is disabled.")
         self.device.write_attribute(self.axis_info[axis][attribute_name], value)
 
     def _get_attribute(self, axis, attribute_name):
+        if self.axis_info[axis]["disabled"]:
+            raise RuntimeError("Revolver axis is disabled.")
         return self.device.read_attribute(self.axis_info[axis][attribute_name]).value
 
     def start_one(self, motion, t0=None):
@@ -147,38 +145,33 @@ class ESRF_Undulator(Controller):
             float(motion.target_pos / motion.axis.steps_per_unit),
         )
 
-    def enable(self):
+    @object_method
+    def enable(self, axis):
         """ Enable the undulator axis when it is a disabled revolver axis.
         """
+        axis_info = self.axis_info[axis]
+        undulator_index = axis_info["undulator_index"]
 
         # check that the axe is a revolver axe
-        if self.is_revolver == False:
-            raise ValueError(f"{self.name} is not a revolver axis")
+        if not axis_info["is_revolver"]:
+            raise ValueError(f"{axis.name} is not a revolver axis")
 
-        # check that the axe is disabled
-        ustate_list = (self.device.read_attribute("UndulatorStates")).value
-        if ustate_list[self.undulator_index] != DevState.DISABLE:
-            raise ValueError(f"{self.name} Axis is already enabled")
+        # check axis is disabled
+        ustate_list = self.device.UndulatorStates
+        if ustate_list[undulator_index] != DevState.DISABLE:
+            raise ValueError(f"{axis.name} is already enabled")
 
         # send the Enable command
-        uname = (self.device.read_attribute("UndulatorNames")).value[
-            self.undulator_index
-        ]
+        uname = self.device.UndulatorNames[undulator_index]
         self.device.Enable(uname)
 
-        # wait until the movement finished
         ustate = DevState.DISABLE
-
         # wait for state to be neither disable nor moving
-        while ustate == DevState.DISABLE or ustate == DevState.MOVING:
-            ustate = (self.device.read_attribute("UndulatorStates")).value[
-                self.undulator_index
-            ]
+        while ustate in (DevState.DISABLE, DevState.MOVING):
+            ustate = self.device.UndulatorStates[undulator_index]
             time.sleep(1)
 
-        # evaluate axis state !!!!!
-
-        return
+        return axis.hw_state
 
     def read_position(self, axis):
         """

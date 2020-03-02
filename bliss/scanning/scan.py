@@ -809,8 +809,7 @@ class Scan:
         axes_name = self._get_data_axes_name()
         if len(axes_name) > 1 and axis is None:
             raise ValueError(
-                "Multiple axes detected, please provide axis for \
-                                 calculation."
+                "Multiple axes detected, please provide axis for calculation."
             )
         if axis is None:
             return axes_name[0]
@@ -906,7 +905,7 @@ class Scan:
             x, y, _ = self._get_x_y_data(counter, axis)
         return com(x, y)
 
-    def cen(self, counter_or_xy, axis=None):
+    def _cen(self, counter_or_xy, axis=None):
         if isinstance(counter_or_xy, tuple):
             x, y = counter_or_xy
         else:
@@ -939,6 +938,28 @@ class Scan:
                         axis.name, channel_name, position, text=axis.name
                     )
 
+    def cen(self, counter_or_xy, axis=None):
+        return self._multimotors(self._cen, counter_or_xy, axis)
+
+    def _multimotors(self, func, counter_or_xy, axis=None):
+        from bliss.common.scans import _remove_real_dependent_of_calc
+
+        try:
+            return func(counter_or_xy, axis=axis)
+        except ValueError:
+            if axis is not None:
+                raise
+            axes_name = self._get_data_axes_name()
+            motors = [current_session.env_dict[axis_name] for axis_name in axes_name]
+            if len(motors) <= 1:
+                raise
+            # check if there is some calcaxis with associated real
+            motors = _remove_real_dependent_of_calc(motors)
+            if len(motors) == 1:
+                return func(counter_or_xy, axis=motors.pop())
+            return {mot.name: func(counter_or_xy, axis=mot) for mot in motors}
+
+    @display_motor
     def goto_peak(self, counter, axis=None):
         x, y, axis_name = self._get_x_y_data(counter, axis)
         axis = current_session.env_dict[axis_name]

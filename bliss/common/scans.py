@@ -1743,7 +1743,7 @@ def _goto_multimotors(func):
 def cen(counter=None, axis=None):
     if counter is None:
         counter = _get_counter(_get_selected_counter_name())
-    return current_session.scans[-1].cen(counter, axis=axis)
+    return current_session.scans[-1]._cen(counter, axis=axis)
 
 
 @_goto_multimotors

@@ -333,8 +333,8 @@ def create_objects_from_config_node(config, node):
     cache_dict = dict()
 
     for (objects, default_class, default_class_name, config_nodes_list) in (
-        (axes, Axis, "", node.get("axes", [])),
-        (encoders, Encoder, "", node.get("encoders", [])),
+        (axes, Axis, "Axis", node.get("axes", [])),
+        (encoders, Encoder, "Encoder", node.get("encoders", [])),
         (shutters, None, "Shutter", node.get("shutters", [])),
         (switches, None, "Switch", node.get("switches", [])),
     ):
@@ -347,15 +347,12 @@ def create_objects_from_config_node(config, node):
             else:
                 cache_dict[object_name] = config_dict
                 object_class_name = config_dict.get("class")
+
                 if object_class_name is None:
-                    object_class = default_class
-                    if object_class is None:
-                        try:
-                            object_class = getattr(
-                                controller_module, default_class_name
-                            )
-                        except AttributeError:
-                            pass
+                    try:
+                        object_class = getattr(controller_module, default_class_name)
+                    except AttributeError:
+                        object_class = default_class
                 else:
                     try:
                         object_class = getattr(controller_module, object_class_name)

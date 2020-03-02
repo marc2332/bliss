@@ -369,7 +369,7 @@ class LogbookPrint:
         metadata_manager = current_session.scan_saving.metadata_manager
 
         try:
-            if metadata_manager.state() == DevState.ON:
+            if metadata_manager.state() != DevState.FAULT:
                 if msg_type == "command":
                     metadata_manager.notifyCommand(msg)
                 elif msg_type == "error":

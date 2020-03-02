@@ -35,6 +35,7 @@ from bliss.common.standard import iter_axes_position, iter_axes_position_all
 from bliss.common.standard import sync
 from bliss.common.standard import info
 from bliss.common.standard import __move
+from bliss.common.standard import wid as std_wid
 from bliss.controllers.lima.limatools import *
 from bliss.controllers.lima import limatools
 from bliss.common.protocols import CounterContainer
@@ -42,6 +43,7 @@ from bliss.common import measurementgroup
 from bliss.common.soft_axis import SoftAxis
 from bliss.common.counter import SoftCounter, Counter
 from bliss.common.utils import ShellStr
+from bliss.controllers.motors import esrf_undulator
 
 # objects given to Bliss shell user
 from bliss.common.standard import mv, mvr, move
@@ -91,7 +93,7 @@ __all__ = (
     ]
     + scans.__all__
     + logtools.__all__
-    + ["cleanup", "error_cleanup", "plot", "lscnt", "lsmg"]
+    + ["cleanup", "error_cleanup", "plot", "lscnt", "lsmg", "wid"]
     + ["SoftAxis", "SoftCounter", "edit_roi_counters", "edit_mg"]
     + list(limatools.__all__)
 )
@@ -289,6 +291,14 @@ def lsmg():
     Indicate the current active one with a star char: '*'
     """
     print(_lsmg())
+
+
+def wid():
+    """ Print the list of undulators defined in the session
+    and their positions.
+    Print all axes of the ID device server.
+    """
+    print(std_wid())
 
 
 def stm(*axes, read_hw=False):

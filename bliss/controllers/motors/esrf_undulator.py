@@ -8,10 +8,11 @@
 import time
 
 from bliss.controllers.motor import Controller
-from bliss.common.axis import AxisState, NoSettingsAxis
+from bliss.common.axis import lazy_init, AxisState, NoSettingsAxis
 from bliss.common.tango import DevState, DeviceProxy
 from bliss.common.logtools import log_debug
 from bliss.common.utils import object_method
+from bliss import global_map
 
 
 # NoSettingsAxis does not use cache for settings
@@ -19,9 +20,22 @@ from bliss.common.utils import object_method
 Axis = NoSettingsAxis
 
 
+def get_all():
+    """Return a list of all insertion device sevice server found in the
+    global env.
+    """
+    try:
+        return list(global_map.instance_iter("undulators"))
+    except KeyError:
+        # no undulator has been created yet there is nothing in map
+        return []
+
+
 class ESRF_Undulator(Controller):
     def __init__(self, *args, **kwargs):
         Controller.__init__(self, *args, **kwargs)
+
+        global_map.register(self, parents_list=["undulators"])
 
         self.axis_info = {}
 
@@ -83,6 +97,11 @@ class ESRF_Undulator(Controller):
 
         try:
             undu_prefix = axis.config.get("undu_prefix", str)
+            attr_pos_name = undu_prefix + attr_pos_name
+            attr_vel_name = undu_prefix + attr_vel_name
+            attr_fvel_name = undu_prefix + attr_fvel_name
+            attr_acc_name = undu_prefix + attr_acc_name
+
         except KeyError:
             log_debug(self, "'undu_prefix' not specified in config")
             if attr_pos_name == "Position":
@@ -94,11 +113,15 @@ class ESRF_Undulator(Controller):
         is_revolver = False
         undulator_index = None
         disabled = False
+
         pos = attr_pos_name.find("_")
+        log_debug(self, f"attr_pos_name={attr_pos_name}   pos={pos}")
         uname = attr_pos_name[0:pos]
+        log_debug(self, f"uname={uname}")
         uname = uname.lower()
         # NB: "UndulatorNames" return list of names but not indexed properly :(
         uname_list = [item.lower() for item in self.device.UndulatorNames]
+        log_debug(self, f"uname_list={uname_list}")
         undulator_index = uname_list.index(uname)
         #  "UndulatorRevolverCarriage" return an array of booleans.
         if self.device.UndulatorRevolverCarriage[undulator_index]:
@@ -107,13 +130,14 @@ class ESRF_Undulator(Controller):
             disabled = ustate_list[undulator_index] == DevState.DISABLE
 
         self.axis_info[axis] = {
+            "name": uname,
             "is_revolver": is_revolver,
             "undulator_index": undulator_index,
             "disabled": disabled,
-            "attr_pos_name": undu_prefix + attr_pos_name,
-            "attr_vel_name": undu_prefix + attr_vel_name,
-            "attr_fvel_name": undu_prefix + attr_fvel_name,
-            "attr_acc_name": undu_prefix + attr_acc_name,
+            "attr_pos_name": attr_pos_name,
+            "attr_vel_name": attr_vel_name,
+            "attr_fvel_name": attr_fvel_name,
+            "attr_acc_name": attr_acc_name,
             "alpha": alpha,
             "period": period,
         }
@@ -231,7 +255,7 @@ class ESRF_Undulator(Controller):
         self.device.abort()
 
     def __info__(self):
-        info_str = f"UNDU DEVICE SERVER: {self.ds_name} \n"
+        info_str = f"\n\nUNDU DEVICE SERVER: {self.ds_name} \n"
         info_str += f"     status = {str(self.device.status()).strip()}\n"
         info_str += f"     state = {self.device.state()}\n"
         info_str += (

@@ -8,6 +8,7 @@ from tango import DevState
 
 class Dummy(Device):
     position = attribute(format="%3.2f", unit="mm")
+    u23a_position = attribute(format="%3.2f", unit="mm")
 
     velocity = attribute(
         fget="read_velocity", fset="write_velocity", access=AttrWriteType.READ_WRITE
@@ -27,6 +28,16 @@ class Dummy(Device):
         format="%6.3f",
     )
 
+    UndulatorNames = attribute(
+        fget="read_UndulatorNames", access=AttrWriteType.READ, dtype=[str], max_dim_x=2
+    )
+    UndulatorRevolverCarriage = attribute(
+        fget="read_UndulatorRevolverCarriage",
+        access=AttrWriteType.READ,
+        dtype=[bool],
+        max_dim_x=2,
+    )
+
     def __init__(self, *args, **kwargs):
         Device.__init__(self, *args, **kwargs)
 
@@ -38,8 +49,17 @@ class Dummy(Device):
         # shutter state
         self.set_state(DevState.CLOSE)
 
+    def read_UndulatorNames(self):
+        return ["U23a", "U27b"]
+
+    def read_UndulatorRevolverCarriage(self):
+        return [False, False]
+
     def read_position(self):
         return 1.4078913
+
+    def read_u23a_position(self):
+        return self.read_position()
 
     def read_velocity(self):
         return self.vel

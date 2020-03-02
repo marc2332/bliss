@@ -5,7 +5,7 @@ controller:
         -
             name: u23a
             undu_prefix: ""
-            attribute_position: Position
+            attribute_position: u23a_Position
             attribute_velocity: Velocity
             attribute_acceleration: Acceleration
             steps_per_unit: 1

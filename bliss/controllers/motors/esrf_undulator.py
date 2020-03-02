@@ -8,10 +8,15 @@
 import time
 
 from bliss.controllers.motor import Controller
-from bliss.common.axis import AxisState
+from bliss.common.axis import AxisState, NoSettingsAxis
 from bliss.common.tango import DevState, DeviceProxy
 from bliss.common.logtools import log_debug
 from bliss.common.utils import object_attribute_get, object_attribute_set
+
+
+# NoSettingsAxis does not use cache for settings
+# -> force to re-read velocity/position at each usage.
+Axis = NoSettingsAxis
 
 
 class ESRF_Undulator(Controller):

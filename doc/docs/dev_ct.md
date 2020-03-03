@@ -865,9 +865,9 @@ class Currency:
     def update(self):
         r = requests.request(url="https://financialmodelingprep.com/api/v3/forex",method="GET")
         data = json.loads(r.content)
-        return {convertion.pop('ticker').replace('/','_') : convertion
-                for convertion in data['forexList']}
-            
+        return {conversion.pop('ticker').replace('/','_') : conversion
+                for conversion in data['forexList']}
+
 
 class Counter(BaseCounter):
     def __init__(self,financial,counter_name):

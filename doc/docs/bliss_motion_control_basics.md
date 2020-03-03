@@ -43,7 +43,7 @@ And to be usable, another set of notions is present:
 * acctime
 * state
 
-Each of these notions is implemented as a "**Setting**" in BLISS Axis.
+Each of these notions is implemented as a "**setting**" in BLISS Axis.
 
 A setting is a value that can be changed by user or that evolves as the
 Axis moves.

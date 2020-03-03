@@ -19,6 +19,15 @@ class LimaImageParameters(BeaconObject):
         self._proxy = proxy
         super().__init__(config, name=name, share_hardware=False, path=["image"])
 
+    binning = BeaconObject.property_setting("binning", default=[1, 1])
+
+    @binning.setter
+    def binning(self, value):
+        assert isinstance(value, list)
+        assert len(value) == 2
+        assert isinstance(value[0], int) and isinstance(value[1], int)
+        return value
+
     flip = BeaconObject.property_setting("flip", default=[False, False])
 
     @flip.setter
@@ -67,6 +76,7 @@ class LimaImageParameters(BeaconObject):
             "image_rotation": self.rotation,
             "image_flip": self.flip,
             "image_roi": self._roi,
+            "image_bin": self.binning,
         }
 
 
@@ -95,7 +105,7 @@ class ImageCounter(Counter):
             f"""       flip:     {self.flip}
        rotation: {self.rotation}
        roi:      {self.roi}
-       binning:  {self.bin}
+       binning:  {self.binning}
        height:   {self.height}
        width:    {self.width}
        type:     {self.type}"""
@@ -140,3 +150,19 @@ class ImageCounter(Counter):
     @roi.setter
     def roi(self, value):
         self._counter_controller._image_params.roi = value
+
+    @property
+    def binning(self):
+        return self._counter_controller._image_params.binning
+
+    @binning.setter
+    def binning(self, value):
+        self._counter_controller._image_params.binning = value
+
+    @property
+    def bin(self):
+        return self._counter_controller._image_params.binning
+
+    @bin.setter
+    def bin(self, value):
+        self._counter_controller._image_params.binning = value

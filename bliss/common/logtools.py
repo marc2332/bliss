@@ -365,6 +365,8 @@ class LogbookPrint:
         if current_session:
             if current_session.scan_saving.data_policy != "ESRF":
                 return
+            if current_session.scan_saving.proposal_type == "tmp":
+                return
 
         metadata_manager = current_session.scan_saving.metadata_manager
 

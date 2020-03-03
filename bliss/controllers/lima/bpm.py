@@ -16,8 +16,8 @@ from bliss.scanning.acquisition.lima import BpmAcquisitionSlave
 class LimaBpmCounter(IntegratingCounter):
     """Lima BPM integrating counter."""
 
-    def __init__(self, name, value_index, controller):
-        super().__init__(name, controller)
+    def __init__(self, name, value_index, controller, unit=None):
+        super().__init__(name, controller, unit=unit)
         self.__value_index = value_index
 
     @property
@@ -36,10 +36,10 @@ class Bpm(IntegratingCounterController):
             {
                 "acq_time": LimaBpmCounter("acq_time", 0, self),
                 "intensity": LimaBpmCounter("intensity", 1, self),
-                "x": LimaBpmCounter("x", 2, self),
-                "y": LimaBpmCounter("y", 3, self),
-                "fwhm_x": LimaBpmCounter("fwhm_x", 4, self),
-                "fwhm_y": LimaBpmCounter("fwhm_y", 5, self),
+                "x": LimaBpmCounter("x", 2, self, "px"),
+                "y": LimaBpmCounter("y", 3, self, "px"),
+                "fwhm_x": LimaBpmCounter("fwhm_x", 4, self, "px"),
+                "fwhm_y": LimaBpmCounter("fwhm_y", 5, self, "px"),
             }
         )
 

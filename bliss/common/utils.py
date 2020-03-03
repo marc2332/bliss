@@ -774,3 +774,40 @@ def UNDERLINE(msg):
 
 def BOLD(msg):
     return __color_message(ColorTags.BOLD, msg)
+
+
+def shorten_signature(original_function=None, *, annotations=None, hidden_kwargs=None):
+    """decorator that can be used to simplyfy the signature displayed in the bliss shell.
+       by default it is removing the annotation of each parameter or replacing it with a custum one.
+       
+       annotations: dict with parameters as key
+       hidden_kwargs: list of parameters that should not be displayed but remain usable.
+    """
+
+    def _decorate(function):
+        @functools.wraps(function)
+        def wrapped_function(*args, **kwargs):
+            return function(*args, **kwargs)
+
+        sig = inspect.signature(function)
+        params = list(sig.parameters.values())
+        to_be_removed = list()
+        for i, param in enumerate(params):
+            if hidden_kwargs and param.name in hidden_kwargs:
+                to_be_removed.append(param)
+            elif annotations and param.name in annotations.keys():
+                params[i] = param.replace(annotation=annotations[param.name])
+                # ,default=inspect.Parameter.empty)
+            else:
+                params[i] = param.replace(annotation=inspect.Parameter.empty)
+        for p in to_be_removed:
+            params.remove(p)
+        sig = sig.replace(parameters=params)
+        wrapped_function.__signature__ = sig
+
+        return wrapped_function
+
+    if original_function:
+        return _decorate(original_function)
+
+    return _decorate

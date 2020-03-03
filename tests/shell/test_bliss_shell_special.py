@@ -145,7 +145,7 @@ b=B()
     ][0]
     sc = sb.content.text()
 
-    assert ("class:signature-toolbar", "param mykw=12") in sc
+    assert ("class:signature-toolbar", "mykw=12") in sc
 
 
 def _get_completion(br):

@@ -43,9 +43,9 @@ And to be usable, another set of notions is present:
 * acctime
 * state
 
-Each of these notions is implemented as "Settings" in BLISS Axis.
+Each of these notions is implemented as a "**setting**" in BLISS Axis.
 
-A setting is a value that can be changed by user or that evolve as the
+A setting is a value that can be changed by user or that evolves as the
 Axis moves.
 
 Settings can be defined in the configuration or saved in memory during
@@ -79,15 +79,17 @@ Following sections will briefly present the meaning of these settings.
 
 ### state
 
+* AxisState set  -  Read Only  -  computed
+
 ```python
-DEMO [7]: mot1.state
+DEMO [7]: mot1.state ⏎
  Out [7]: AxisState: READY (Axis is READY)
 ```
 
 
 A standard state has a name and a description.
 
-Standard states:
+There are 8 standard states:
 
 * `MOVING`  : 'Axis is moving'
 * `READY`   : 'Axis is ready to be moved'
@@ -98,12 +100,12 @@ Standard states:
 * `OFF`     : 'Axis power is off'
 * `DISABLED`: 'Axis cannot move'
 
-And new states, specific to a controller, can also be created.
+New states, specific to a controller, can also be created.
 
-`state` attribute is a set of one or many standard states.
+`state` attribute is a *set* of one or many standard states.
 
 ```python
-DEMO [2]: m1.state
+DEMO [2]: m1.state  ⏎
  Out [2]: AxisState: READY (Axis is READY) | LIMPOS (Hardware high limit active)
 ```
 
@@ -114,14 +116,14 @@ An axis must be in `READY` state to be moved.
 ### position / dial / offset / steps_per_unit / sign
 
 `steps_per_unit` is the conversion factor applied to transform
-position given by a motor controller (typically motor 'steps') into
-`dial` value (typically mm, um or degrees)
+position given by a motor controller (typically "motor steps") into
+`dial` value (typically `mm`, `um` or `degrees`)
 
 ```user_position = (sign * dial_position) + offset```
 
 
 ```python
-DEMO [2]: wa()
+DEMO [2]: wa() ⏎
 Current Positions: user
                    dial
 
@@ -163,18 +165,18 @@ Thus:
 
 
 ```python
-DEMO [17]: mot1.acceleration
+DEMO [17]: mot1.acceleration  ⏎
  Out [17]: 10.0
 
-DEMO [18]: mot1.acctime
+DEMO [18]: mot1.acctime  ⏎
  Out [18]: 0.4
 
-DEMO [19]: mot1.acceleration=20
-DEMO [20]: mot1.acctime
+DEMO [19]: mot1.acceleration=20  ⏎
+DEMO [20]: mot1.acctime  ⏎
  Out [20]: 0.2
 
-DEMO [21]: mot1.acctime=1
-DEMO [22]: mot1.acceleration
+DEMO [21]: mot1.acctime=1  ⏎
+DEMO [22]: mot1.acceleration  ⏎
  Out [22]: 4.0
 
 ```
@@ -188,19 +190,19 @@ Software limits are defined in user unit.
 
 They can be changed simultaneously or one by one:
 ```python
-DEMO [56]: mot1.limits
+DEMO [56]: mot1.limits  ⏎
  Out [56]: (-111.0, 111.0)
 
-DEMO [57]: mot1.limits = (-5, 5)
+DEMO [57]: mot1.limits = (-5, 5)  ⏎
 
-DEMO [58]: mot1.low_limit = -4
-DEMO [59]: mot1.high_limit = 4
+DEMO [58]: mot1.low_limit = -4  ⏎
+DEMO [59]: mot1.high_limit = 4  ⏎
 
 ```
 
 ```python
-DEMO [4]: move(mm1, 1122)
-!!! === ValueError: mm1: move to `1122.000000' (with 0.010000 backlash) would go beyond high limit (4.000000) === !!!
+DEMO [4]: move(mot1, 1122)  ⏎
+!!! === ValueError: mot1: move to `1122.000000' (with 0.010000 backlash) would go beyond high limit (4.000000) === !!!
 ```
 
 ### tolerance
@@ -213,16 +215,25 @@ the Axis `tolerance`, an exception is raised with a message like:
 
 `discrepancy between dial (0.123) and controller position (0.100), aborting`
 
+This can occur if the axis is moved by another software (*IcepapCMS* for
+example)
+
+The axis must be re-synchronized with the BLISS session using:
+
+```python
+mot1.sync_hard()
+```
+
 
 ###  backlash
 
 Read-Only  -  float  -  from config
 
-Backlash attribute define a small movement performed at the end of a
+Backlash attribute defines a small movement performed at the end of a
 movement if this movement's direction is opposed to the sign of the
 backlash.
 
-The backlash is defined in the config in user uits.
+The backlash is defined in the config in user units.
 
 ## Encoder
 
@@ -235,9 +246,13 @@ After a movement, if:
 
 then the encoder position is read and compared to the target position
 of the movement. In case of difference outside the limit fixed by
-Encoder tolerance, an exception is raised with message:
+**Encoder tolerance**, an exception is raised with message:
 
 `"didn't reach final position"`
+
+The Axis must then be re-synchronized with:
+
+`mot1.sync_hard()`
 
 
 ## In-line information
@@ -296,7 +311,7 @@ DEMO [11]: mot1 ⏎
 
 Examples:
 ```python
-DEMO [60]: sta()
+DEMO [60]: sta()  ⏎
 Axis    Status
 ------  ---------------------
 mot1     READY (Axis is READY)
@@ -306,11 +321,11 @@ mot4     READY (Axis is READY)
 psf     READY (Axis is READY)
 psb     READY (Axis is READY)
 
-DEMO [61]: stm()
+DEMO [61]: stm()  ⏎
 Axis    Status
 ------  --------
 
-DEMO [62]: stm(mot1)
+DEMO [62]: stm(mot1)  ⏎
 Axis    Status
 ------  ---------------------
 mot1     READY (Axis is READY)
@@ -319,7 +334,7 @@ mot1     READY (Axis is READY)
 
 
 ```python
-DEMO [1]: wa()
+DEMO [1]: wa()  ⏎
 Current Positions: user
                    dial
 
@@ -329,7 +344,7 @@ Current Positions: user
       5.00000  4.00000  0.00000  0.00000  0.00000  4.00000  1.00000
 
 
-DEMO [4]: wm(mot1)
+DEMO [4]: wm(mot1)  ⏎
 
             mot1[parsec]
 --------  -------------
@@ -345,7 +360,7 @@ Dial
  Low         -106.00000
 
 
-DEMO [9]: umv(mot1, 1, mot3, 2)
+DEMO [9]: umv(mot1, 1, mot3, 2)  ⏎
 Moving mot1 from 2 to 1
 Moving mot3 from 4 to 2
 
@@ -374,14 +389,12 @@ Moving mot3 from 4 to 2
 * events on change of state, position
 
 * special moves
-    - group moves
-    - jog
-    - home
-    - limit search
+    - group moves: to move multiple motors in same time
+    - jog: to move in velocity rather than in position
+    - home / limit search: to recover reference positions
 
 * special motor controller
-    - NoSettingsAxis
-    - ModuloAxis
-    - shutters
-    - switches
+    - NoSettingsAxis: to avoid caching of settings
+    - ModuloAxis: for rotary actuators
+    - shutters: for 2-positions actuators
 

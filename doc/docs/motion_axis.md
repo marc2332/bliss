@@ -395,8 +395,13 @@ Return whether the axis is moving
 
 ### tolerance
 
-Accepted discrepancy between controller position and last known axis dial
-position when starting a move ; defaults to 1E-4
+Axis tolerance is the acceptable discrepancy between controller
+position and last known axis dial position when **starting** a move.
+
+Default value is 1E-4
+
+!!! note
+    This test is always performed before a move.
 
 !!! note
     Do not confuse with [encoder's tolerance parameter](motion_encoder.md)
@@ -543,7 +548,6 @@ In order to solve the problem, and to empty the internal cache, the
 `.sync_hard()` method can be called.
 
 
-
 ## Moving stop() move() home() jog()
 
 
@@ -595,7 +599,6 @@ of the movement. In case of difference outside the limit fixed by
 ```
 "didn't reach final position"
 ```
-
 
 ### Move loop
 

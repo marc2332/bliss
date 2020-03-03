@@ -811,3 +811,54 @@ def shorten_signature(original_function=None, *, annotations=None, hidden_kwargs
         return _decorate(original_function)
 
     return _decorate
+
+
+def custom_error_msg(
+    execption_type, message, new_exeption_type=None, display_original_msg=False
+):
+    """decorator to modify exeption and/or the correspoinding message"""
+
+    def _decorate(function):
+        @functools.wraps(function)
+        def wrapped_function(*args, **kwargs):
+            try:
+                return function(*args, **kwargs)
+            except execption_type as e:
+                if new_exeption_type:
+                    new_exeption = new_exeption_type
+                else:
+                    new_exeption = execption_type
+                if display_original_msg:
+                    raise new_exeption(message + " " + str(e))
+                else:
+                    raise new_exeption(message)
+
+        return wrapped_function
+
+    return _decorate
+
+
+def transform_TypeError_to_hint(function):
+    """decorator that transforms TypeError into a simpliyed RuntimeError
+    Intended use: Modifying the message when using @typeguard.typechecked
+    """
+
+    @functools.wraps(function)
+    def wrapped_function(*args, **kwargs):
+        sig = inspect.signature(function)
+        params = list(sig.parameters.values())
+        msg = (
+            "Intended Usage: "
+            + function.__name__
+            + "("
+            + ", ".join(
+                [p.name for p in params if p.default == inspect.Parameter.empty]
+            )
+            + ")  Hint:"
+            + ""
+        )
+        return custom_error_msg(
+            TypeError, msg, new_exeption_type=RuntimeError, display_original_msg=True
+        )(function)(*args, **kwargs)
+
+    return wrapped_function

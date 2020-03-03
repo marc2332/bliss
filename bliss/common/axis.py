@@ -1227,7 +1227,11 @@ class Axis:
             hook._init()
             hook.pre_move([motion])
 
-        self._check_ready()
+        try:
+            self._check_ready()
+        except:
+            self.__execute_post_move_hook([motion])
+            raise
 
     def __execute_post_move_hook(self, motions):
         for hook in self.motion_hooks:

@@ -294,3 +294,26 @@ def test_group_stop(hooked_m0, hooked_m1):
     assert grp.state.READY
     assert hooked_m0.state.READY
     assert hooked_m1.state.READY
+
+
+class MyMotionHook(MotionHook):
+    def __init__(self, *args, **kwargs):
+        self._post_move_called = 0
+        super().__init__(*args, **kwargs)
+
+    def post_move(self, motion_list):
+        self._post_move_called += 1
+
+
+def test_check_ready_exception(hooked_m0):
+    hook = MyMotionHook()
+
+    def _check_ready():
+        raise RuntimeError
+
+    hooked_m0._check_ready = _check_ready
+    hooked_m0.motion_hooks.append(hook)
+    assert hook._post_move_called == 0
+    with pytest.raises(RuntimeError):
+        hooked_m0.move(1)
+    assert hook._post_move_called == 1

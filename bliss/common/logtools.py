@@ -271,6 +271,7 @@ class LogbookStdoutHandler(StreamHandler):
                 self.flush()
             if end:
                 stream.write(end)
+            logbook_printer.send_to_elogbook("info", msg)
         except (KeyboardInterrupt, SystemExit):
             raise
         except:
@@ -335,7 +336,6 @@ class LogbookPrint:
         else:
             msg = args[0]
         self.adapter.info(msg)
-        self.send_to_elogbook("info", msg)
 
     @contextlib.contextmanager
     def lprint_disable(self):

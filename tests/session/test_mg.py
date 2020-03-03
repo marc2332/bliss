@@ -407,3 +407,11 @@ def test_bad_controller(test_mg):
     with pytest.raises(ValueError):
         # explicitely test with a pattern
         test_mg.disable("bad_con*")
+
+
+def test_mg_with_encoder(default_session):
+    diode = default_session.config.get("diode")
+    m1enc = default_session.config.get("m1enc")
+    test_mg = default_session.config.get("test_mg_enc")
+
+    assert test_mg.available == {diode.fullname, m1enc.counters.position.fullname}

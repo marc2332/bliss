@@ -198,6 +198,9 @@ def main():
         if session_name in get_sessions_list():
             print(("Session '%s' cannot be created: it already exists." % session_name))
             exit(0)
+        elif session_name[0].isdigit():
+            print(f"Invalid session name ({session_name}). Must start with [a-zA-Z_]")
+            exit(0)
         else:
             create_session(session_name)
             # exit ( or launch new session ? )

@@ -279,7 +279,7 @@ class SensorZeroCheckMixin:
         self.zero_check = zero_check  # restore zero check
 
     def __info__(self):
-        sinfo = f"zero_check = {self.zero_check}"
+        sinfo = f"zero_check = {self.zero_check}\n"
         sinfo += f"zero_correct = {self.zero_correct}"
         return sinfo
 

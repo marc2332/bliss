@@ -11,7 +11,6 @@ from bliss.controllers.motor import Controller
 from bliss.common.axis import AxisState, NoSettingsAxis
 from bliss.common.tango import DevState, DeviceProxy
 from bliss.common.logtools import log_debug
-from bliss.common.utils import object_attribute_get, object_attribute_set
 from bliss.common.utils import object_method
 
 

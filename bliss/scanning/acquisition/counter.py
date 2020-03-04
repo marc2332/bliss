@@ -54,8 +54,8 @@ class BaseCounterAcquisitionSlave(AcquisitionSlave):
     @staticmethod
     def get_param_validation_schema():
         acq_params_schema = {
-            "count_time": {"type": "number"},
-            "npoints": {"type": "number"},
+            "count_time": {"type": "numeric"},
+            "npoints": {"type": "int"},
         }
 
         schema = {"acq_params": {"type": "dict", "schema": acq_params_schema}}

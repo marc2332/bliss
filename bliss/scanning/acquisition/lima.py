@@ -99,10 +99,10 @@ class LimaAcquisitionMaster(AcquisitionMaster):
         lima_master_base_schema = {
             "prepare_once": {"type": "boolean", "default": False},
             "start_once": {"type": "boolean", "default": False},
-            "acq_nb_frames": {"type": "integer", "default": 1},
-            "acq_expo_time": {"type": "number", "default": 1},
+            "acq_nb_frames": {"type": "int", "default": 1},
+            "acq_expo_time": {"type": "numeric", "default": 1},
             "acq_trigger_mode": {"type": "string", "default": "INTERNAL_TRIGGER"},
-            "latency_time": {"type": "integer", "default": 0},
+            "latency_time": {"type": "numeric", "default": 0},
             "wait_frame_id": {
                 "required": True,
                 "nullable": True,
@@ -118,7 +118,7 @@ class LimaAcquisitionMaster(AcquisitionMaster):
             "saving_statistics_history": {},
             "saving_mode": {"type": "string"},
             "stat_history": {
-                "type": "number",
+                "type": "numeric",
                 "default_setter": lambda x: x["acq_nb_frames"],
             },
         }
@@ -130,7 +130,7 @@ class LimaAcquisitionMaster(AcquisitionMaster):
         lima_master_acc_schema = {
             "acq_mode": {"type": "string", "required": True},
             "acc_time_mode": {"default": "LIVE", "allowed": ["LIVE"]},
-            "acc_max_expo_time": {"type": "number", "default": 1.},
+            "acc_max_expo_time": {"type": "numeric", "default": 1.},
         }
 
         lima_master_schema = {

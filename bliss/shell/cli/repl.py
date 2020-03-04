@@ -49,6 +49,7 @@ from bliss.common.utils import ShellStr
 from bliss.shell.standard import info
 from bliss.shell.cli.ptpython_statusbar_patch import NEWstatus_bar, TMUXstatus_bar
 from bliss.common.logtools import logbook_printer
+from bliss.shell.cli.protected_dict import ProtectedDict
 
 logger = logging.getLogger(__name__)
 
@@ -465,12 +466,38 @@ def cli(
     else:
         user_ns, session = initialize(session_name=None)
 
+    if "config-objects" in session.config.get_config(session.name):
+        protected_user_ns = ProtectedDict(
+            user_ns, session.config.get_config(session.name)["config-objects"]
+        )
+
+        # protect config objects of inherited sessions
+        for node in session.sessions_tree.all_nodes_itr():
+            s = node.identifier
+            if s.name != session.name:
+                protected_user_ns.protect_many(
+                    session.config.get_config(s.name)["config-objects"]
+                )
+
+        # add 2 GLOBALS to manage protected keys
+        protected_user_ns["protect"] = protected_user_ns.protect
+        protected_user_ns["unprotect"] = protected_user_ns.unprotect
+
+        # protect Aliases if they exist
+        if "ALIASES" in protected_user_ns:
+            for alias in protected_user_ns["ALIASES"].names_iter():
+                if alias in protected_user_ns:
+                    protected_user_ns.protect(alias)
+    else:
+        # nothing to protect
+        protected_user_ns = user_ns
+
     # ADD 2 GLOBALS TO HANDLE THE LAST ERROR AND THE ERROR REPORT MODE (IN SHELL ENV ONLY)
     user_ns["ERROR_REPORT"] = ERROR_REPORT
     user_ns["last_error"] = ERROR_REPORT.last_error
 
     def get_globals():
-        return user_ns
+        return protected_user_ns
 
     if session_name and not session_name.startswith("__DEFAULT__"):
         session_id = session_name

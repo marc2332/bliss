@@ -171,6 +171,123 @@ def test_session_env_dict(session):
     assert id(cli.get_globals()) == id(session.env_dict)
 
 
+def test_session_env_dict_no_protection_library_mode(session):
+    env_dict = session.env_dict
+    assert "roby" in env_dict
+    env_dict["roby"] = 17
+
+
+def test_session_env_dict_conf_obj_protection(session):
+    inp = create_pipe_input()
+    cli = repl.cli(
+        input=inp,
+        output=DummyOutput(),
+        session_name="test_session",
+        expert_error_report=True,
+    )
+    prot_env_dict = cli.get_globals()
+
+    with pytest.raises(RuntimeError):
+        prot_env_dict["roby"] = 17
+
+
+def test_session_env_dict_alias_protection(beacon):
+    inp = create_pipe_input()
+    cli = repl.cli(
+        input=inp,
+        output=DummyOutput(),
+        session_name="test_alias",
+        expert_error_report=True,
+    )
+    prot_env_dict = cli.get_globals()
+
+    with pytest.raises(RuntimeError):
+        prot_env_dict["robyy"] = 17
+
+
+def test_session_env_dict_protection_inherited(session2):
+    inp = create_pipe_input()
+    cli = repl.cli(
+        input=inp,
+        output=DummyOutput(),
+        session_name="test_session2",
+        expert_error_report=True,
+    )
+    prot_env_dict = cli.get_globals()
+
+    with pytest.raises(RuntimeError):
+        prot_env_dict["roby"] = 17
+
+
+def test_session_env_dict_protection_on_the_fly(alias_session):
+    inp = create_pipe_input()
+    cli = repl.cli(
+        input=inp,
+        output=DummyOutput(),
+        session_name="test_alias",
+        expert_error_report=True,
+    )
+    prot_env_dict = cli.get_globals()
+    prot_env_dict["unprotect"]("roby")
+    prot_env_dict["roby"] = 17
+    assert prot_env_dict["roby"] == 17
+    prot_env_dict["protect"]("roby")
+    assert prot_env_dict["roby"] == 17
+    with pytest.raises(RuntimeError):
+        prot_env_dict["roby"] = 18
+
+    # config.get should always work, even on protected keys
+    prot_env_dict["config"].get("roby")
+    assert prot_env_dict["roby"].name == "roby"
+
+
+def test_session_env_dict_protection_nonexisting_keys(session2):
+    inp = create_pipe_input()
+    cli = repl.cli(
+        input=inp,
+        output=DummyOutput(),
+        session_name="test_session2",
+        expert_error_report=True,
+    )
+    prot_env_dict = cli.get_globals()
+
+    assert "var1" in prot_env_dict._protected_keys
+    assert "var3" not in prot_env_dict._protected_keys
+
+    with pytest.raises(AssertionError):
+        prot_env_dict["protect"]("nothing")
+
+    with pytest.raises(AssertionError):
+        prot_env_dict["unprotect"]("nothing")
+
+    # check that session env dict is in sync
+    prot_env_dict["var3"] = 3
+    lib_env_dict = session2.env_dict
+    assert lib_env_dict["var3"] == 3
+    lib_env_dict["protect"]("var3")
+    with pytest.raises(RuntimeError):
+        prot_env_dict["var3"] = 4
+    lib_env_dict["unprotect"]("var3")
+    prot_env_dict["var3"] = 4
+
+
+def test_session_env_dict_setup_protection(session2):
+    inp = create_pipe_input()
+    cli = repl.cli(
+        input=inp,
+        output=DummyOutput(),
+        session_name="test_session2",
+        expert_error_report=True,
+    )
+    prot_env_dict = cli.get_globals()
+
+    with pytest.raises(RuntimeError):
+        prot_env_dict["toto"] = 18
+
+    with pytest.raises(RuntimeError):
+        prot_env_dict["var1"] = 2
+
+
 def test_failing_session_globals(failing_session):
     inp = create_pipe_input()
     _ = repl.cli(

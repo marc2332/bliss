@@ -27,11 +27,7 @@ from numpy import square, sqrt, arctan, arccos, cos, rad2deg, deg2rad
 from bliss.config import settings
 from bliss.controllers.motor import CalcController
 from bliss.common.utils import object_method
-from bliss.common.utils import (
-    add_object_attribute,
-    object_attribute_get,
-    object_attribute_set,
-)
+from bliss.common.utils import object_attribute_get, object_attribute_set
 
 from bliss.controllers.motors.id31 import ID31_diffractometer as Diffract
 

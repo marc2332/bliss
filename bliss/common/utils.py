@@ -272,12 +272,19 @@ def set_custom_members(src_obj, target_obj, pre_call=None):
     # using <src_object> object definitions.
     # Populates __custom_methods_list and __custom_attributes_dict
     # for tango device server.
-    for name, member in inspect.getmembers(src_obj):
-        # Just fills the list.
+    for name, m in inspect.getmembers(src_obj.__class__, inspect.isfunction):
+        # this loop carefully avoids to execute properties,
+        # by looking for class members of type 'function' only.
+        # Then, we get the supposed method with getattr;
+        # if it is not a method we ignore the member
+        member = getattr(src_obj, name)
+        if not inspect.ismethod(member):
+            continue
+
         if hasattr(member, "_object_attribute_"):
             attribute_info = dict(member._object_attribute_)
-            filter = attribute_info.pop("filter", None)
-            if filter is None or filter(target_obj):
+            filter_ = attribute_info.pop("filter", None)
+            if filter_ is None or filter_(target_obj):
                 add_object_attribute(target_obj, **member._object_attribute_)
 
         # For each method of <src_obj>: try to add it as a
@@ -285,11 +292,12 @@ def set_custom_members(src_obj, target_obj, pre_call=None):
         # attributes.
         try:
             method_info = dict(member._object_method_)
-            filter = method_info.pop("filter", None)
-            if filter is None or filter(target_obj):
-                add_object_method(target_obj, member, pre_call, **method_info)
         except AttributeError:
             pass
+        else:
+            filter_ = method_info.pop("filter", None)
+            if filter_ is None or filter_(target_obj):
+                add_object_method(target_obj, member, pre_call, **method_info)
 
 
 def with_custom_members(klass):

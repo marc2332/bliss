@@ -7,15 +7,25 @@
 
 from typing import Mapping, Sequence
 
-from cerberus import Validator, errors
+from cerberus import Validator, errors, TypeDefinition
 from cerberus.validator import _SchemaRuleTypeError
 from cerberus.platform import _str_type
+import numpy
+
+integ_type = TypeDefinition("int", (int, numpy.integer), ())
+numeric_type = TypeDefinition(
+    "numeric", (int, float, numpy.integer, numpy.floating), ()
+)
 
 
 class BlissValidator(Validator):
     """
     A cerberus based validator that can handle normalization also for oneof rule
     """
+
+    types_mapping = Validator.types_mapping.copy()
+    types_mapping["int"] = integ_type
+    types_mapping["numeric"] = numeric_type
 
     _NotProvided = type("_NotProvided", (), {})()
 

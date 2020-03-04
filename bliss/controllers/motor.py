@@ -210,7 +210,6 @@ class Controller:
                 )
 
         for setting_name in axis.settings.config_settings():
-
             if setting_name == "steps_per_unit":
                 """
                 ???

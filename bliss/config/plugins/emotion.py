@@ -9,6 +9,7 @@
 import os
 import sys
 import pkgutil
+import enum
 
 from bliss.common import axis as axis_module
 from bliss.common.axis import Axis
@@ -313,6 +314,9 @@ def add_axis(cfg, request):
         )
 
 
+OBJECT_TYPE = enum.Enum("OBJECT_TYPE", "AXIS ENCODER SHUTTER SWITCH")
+
+
 def create_objects_from_config_node(config, node):
     if "axes" in node or "encoders" in node:
         # asking for a controller
@@ -332,11 +336,17 @@ def create_objects_from_config_node(config, node):
     node = node.to_dict()
     cache_dict = dict()
 
-    for (objects, default_class, default_class_name, config_nodes_list) in (
-        (axes, Axis, "Axis", node.get("axes", [])),
-        (encoders, Encoder, "Encoder", node.get("encoders", [])),
-        (shutters, None, "Shutter", node.get("shutters", [])),
-        (switches, None, "Switch", node.get("switches", [])),
+    for (
+        objects,
+        object_type,
+        default_class,
+        default_class_name,
+        config_nodes_list,
+    ) in (
+        (axes, OBJECT_TYPE.AXIS, Axis, "Axis", node.get("axes", [])),
+        (encoders, OBJECT_TYPE.ENCODER, Encoder, "Encoder", node.get("encoders", [])),
+        (shutters, OBJECT_TYPE.SHUTTER, None, "Shutter", node.get("shutters", [])),
+        (switches, OBJECT_TYPE.SWITCH, None, "Switch", node.get("switches", [])),
     ):
         for config_dict in config_nodes_list:
             config_dict = config_dict.copy()
@@ -345,7 +355,7 @@ def create_objects_from_config_node(config, node):
                 object_class = None
                 object_name = object_name.strip("$")
             else:
-                cache_dict[object_name] = config_dict
+                cache_dict[object_name] = object_type, config_dict
                 object_class_name = config_dict.get("class")
 
                 if object_class_name is None:
@@ -364,7 +374,8 @@ def create_objects_from_config_node(config, node):
         controller_name, node, axes, encoders, shutters, switches
     )
     cache_dict = {
-        name: (controller, config_dict) for name, config_dict in cache_dict.items()
+        name: (controller, object_type, config_dict)
+        for name, (object_type, config_dict) in cache_dict.items()
     }
     objects_dict = {}
     if controller_name:
@@ -377,7 +388,9 @@ def create_objects_from_config_node(config, node):
     # evaluate referenced axes
     for axis_name, (axis_class, config_dict) in axes.items():
         if axis_class is None:  # mean reference axis
-            create_object_from_cache(config, axis_name, (controller, config_dict))
+            create_object_from_cache(
+                config, axis_name, (controller, OBJECT_TYPE.AXIS, config_dict)
+            )
     if isinstance(controller, CalcController):
         # As any motors can be used into a calc
         # force for all axis creation
@@ -392,16 +405,15 @@ def create_objects_from_config_node(config, node):
 
 
 def create_object_from_cache(config, name, cache_objects):
-    controller, config_dict = cache_objects
+    controller, object_type, config_dict = cache_objects
     replace_reference_by_object(config, config_dict)
-    for func in (
-        controller.get_axis,
-        controller.get_encoder,
-        controller.get_switch,
-        controller.get_shutter,
-    ):
-        try:
-            return func(name)
-        except KeyError:
-            pass
-    raise KeyError(name)
+    if object_type == OBJECT_TYPE.AXIS:
+        return controller.get_axis(name)
+    elif object_type == OBJECT_TYPE.ENCODER:
+        return controller.get_encoder(name)
+    elif object_type == OBJECT_TYPE.SWITCH:
+        return controller.get_switch(name)
+    elif object_type == OBJECT_TYPE.SHUTTERS:
+        return controller.get_shutter(name)
+    else:
+        raise RuntimeError("Object type not managed")

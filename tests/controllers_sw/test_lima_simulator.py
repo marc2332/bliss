@@ -9,6 +9,7 @@ import os
 import types
 import pytest
 import logging
+import io
 from bliss.scanning.acquisition.timer import SoftwareTimerMaster
 from bliss.common.tango import DeviceProxy, DevFailed
 from bliss.common.counter import Counter
@@ -590,3 +591,12 @@ def test_lima_saving_mode(default_session, lima_simulator, scan_tmpdir):
     assert 1 == len(
         set([x[0] for x in scan.get_data()["lima_simulator:image"].get_filenames()])
     )
+
+
+def test_lima_simulator_dialogs(beacon, lima_simulator, clean_gevent):
+    clean_gevent["end-check"] = False
+    simulator = beacon.get("lima_simulator")
+    with pytest.raises(io.UnsupportedOperation):
+        simulator.configure_image()
+        simulator.configure_saving()
+        simulator.configure_processing()

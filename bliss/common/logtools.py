@@ -271,6 +271,7 @@ class LogbookStdoutHandler(StreamHandler):
                 self.flush()
             if end:
                 stream.write(end)
+            logbook_printer.send_to_elogbook("info", msg)
         except (KeyboardInterrupt, SystemExit):
             raise
         except:
@@ -335,7 +336,6 @@ class LogbookPrint:
         else:
             msg = args[0]
         self.adapter.info(msg)
-        self.send_to_elogbook("info", msg)
 
     @contextlib.contextmanager
     def lprint_disable(self):
@@ -364,6 +364,8 @@ class LogbookPrint:
 
         if current_session:
             if current_session.scan_saving.data_policy != "ESRF":
+                return
+            if current_session.scan_saving.proposal_type == "tmp":
                 return
 
         metadata_manager = current_session.scan_saving.metadata_manager

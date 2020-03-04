@@ -316,6 +316,10 @@ def _start_flint():
     FLINT_LOGGER.warning("Flint starting...")
     env = dict(os.environ)
     env["BEACON_HOST"] = get_beacon_config()
+    # NOTE: Mitigate problem on machines with many cores (>=32)
+    #       Flint uses an incredible amount of CPU without this limitation
+    # FIXME: Understand the problem properly
+    env["OMP_NUM_THREADS"] = "4"
     if poll_patch is not None:
         poll_patch.set_ld_preload(env)
 

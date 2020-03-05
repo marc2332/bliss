@@ -50,7 +50,7 @@ import typeguard
 from typing import Union, Optional, Tuple, List, Sequence, Dict
 
 from bliss import current_session, global_map
-from bliss.common.utils import rounder
+from bliss.common.utils import rounder, shorten_signature, transform_TypeError_to_hint
 from bliss.common.cleanup import cleanup, axis as cleanup_axis
 from bliss.common.axis import Axis
 from bliss.common.cleanup import error_cleanup
@@ -79,6 +79,8 @@ _position_list = Union[Sequence, numpy.ndarray]
 _scannable_position_list = List[Tuple[_scannable, _position_list]]
 
 
+@transform_TypeError_to_hint
+@shorten_signature(hidden_kwargs=["title", "name", "scan_type", "return_scan"])
 @typeguard.typechecked
 def ascan(
     motor: _scannable,
@@ -143,6 +145,8 @@ def ascan(
     )
 
 
+@transform_TypeError_to_hint
+@shorten_signature(hidden_kwargs=["title", "name", "scan_type", "return_scan"])
 @typeguard.typechecked
 def dscan(
     motor: _scannable,
@@ -209,6 +213,8 @@ def dscan(
     )
 
 
+@transform_TypeError_to_hint
+@shorten_signature(hidden_kwargs=["title", "name", "scan_type", "return_scan"])
 @typeguard.typechecked
 def lineup(
     motor: _scannable,
@@ -252,6 +258,8 @@ def lineup(
         return scan
 
 
+@transform_TypeError_to_hint
+@shorten_signature(hidden_kwargs=["title", "name", "scan_type", "return_scan"])
 @typeguard.typechecked
 def amesh(
     motor1: _scannable,
@@ -404,6 +412,8 @@ def amesh(
         return scan
 
 
+@transform_TypeError_to_hint
+@shorten_signature(hidden_kwargs=["title", "name", "scan_type", "return_scan"])
 @typeguard.typechecked
 def dmesh(
     motor1: _scannable,
@@ -470,6 +480,8 @@ def dmesh(
         return scan
 
 
+@transform_TypeError_to_hint
+@shorten_signature(hidden_kwargs=["title", "name", "scan_type", "return_scan"])
 @typeguard.typechecked
 def a2scan(
     motor1: _scannable,
@@ -541,6 +553,8 @@ def a2scan(
 
 
 # TODO: What is the difference between type and name (keep in mind that there is also title)
+@transform_TypeError_to_hint
+@shorten_signature(hidden_kwargs=["title", "name", "scan_type", "return_scan"])
 @typeguard.typechecked
 def lookupscan(
     motor_pos_tuple_list: _scannable_position_list,
@@ -841,6 +855,8 @@ def dnscan(
         return scan
 
 
+@transform_TypeError_to_hint
+@shorten_signature(hidden_kwargs=["title", "name", "scan_type", "return_scan"])
 @typeguard.typechecked
 def a3scan(
     motor1: _scannable,
@@ -884,6 +900,8 @@ def a3scan(
     )
 
 
+@transform_TypeError_to_hint
+@shorten_signature(hidden_kwargs=["title", "name", "scan_type", "return_scan"])
 @typeguard.typechecked
 def a4scan(
     motor1: _scannable,
@@ -936,6 +954,8 @@ def a4scan(
     )
 
 
+@transform_TypeError_to_hint
+@shorten_signature(hidden_kwargs=["title", "name", "scan_type", "return_scan"])
 @typeguard.typechecked
 def a5scan(
     motor1: _scannable,
@@ -991,6 +1011,8 @@ def a5scan(
     )
 
 
+@transform_TypeError_to_hint
+@shorten_signature(hidden_kwargs=["title", "name", "scan_type", "return_scan"])
 @typeguard.typechecked
 def d3scan(
     motor1: _scannable,
@@ -1034,6 +1056,8 @@ def d3scan(
     )
 
 
+@transform_TypeError_to_hint
+@shorten_signature(hidden_kwargs=["title", "name", "scan_type", "return_scan"])
 @typeguard.typechecked
 def d4scan(
     motor1: _scannable,
@@ -1085,6 +1109,8 @@ def d4scan(
     )
 
 
+@transform_TypeError_to_hint
+@shorten_signature(hidden_kwargs=["title", "name", "scan_type", "return_scan"])
 @typeguard.typechecked
 def d5scan(
     motor1: _scannable,
@@ -1140,6 +1166,8 @@ def d5scan(
     )
 
 
+@transform_TypeError_to_hint
+@shorten_signature(hidden_kwargs=["title", "name", "scan_type", "return_scan"])
 @typeguard.typechecked
 def d2scan(
     motor1: _scannable,
@@ -1215,6 +1243,8 @@ def d2scan(
     )
 
 
+@transform_TypeError_to_hint
+@shorten_signature(hidden_kwargs=["title", "name", "scan_type", "return_scan"])
 @typeguard.typechecked
 def timescan(
     count_time: _float,
@@ -1299,6 +1329,8 @@ def timescan(
         return scan
 
 
+@transform_TypeError_to_hint
+@shorten_signature(hidden_kwargs=["title", "name", "scan_type", "return_scan"])
 @typeguard.typechecked
 def loopscan(
     npoints: _int,
@@ -1361,6 +1393,8 @@ def loopscan(
     )
 
 
+@transform_TypeError_to_hint
+@shorten_signature(hidden_kwargs=["title", "name", "scan_type", "return_scan"])
 @typeguard.typechecked
 def ct(
     count_time: _float,
@@ -1416,6 +1450,8 @@ def ct(
 
 
 # Todo: should this define start,stop? why is there total_acq_time?
+@transform_TypeError_to_hint
+@shorten_signature(hidden_kwargs=["title", "name", "scan_type", "return_scan"])
 @typeguard.typechecked
 def pointscan(
     motor: _scannable,

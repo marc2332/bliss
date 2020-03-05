@@ -65,6 +65,8 @@ def test_ptpython_signature_patch():
         "+                 append((Signature, sig.name))  ### PATCHED HERE\n",
         '-             append((Signature + ",operator", "("))\n',
         '+             append((Signature + ".operator", "("))  ### PATCHED HERE\n',
+        '+                 description = description.split("param ")[-1]  ### PATCHED '
+        "HERE\n",
         "+                     append(\n",
         '-                     append((Signature + ",current-name", '
         "str(description)))\n",

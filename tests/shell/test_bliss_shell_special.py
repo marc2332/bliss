@@ -145,7 +145,7 @@ b=B()
     ][0]
     sc = sb.content.text()
 
-    assert ("class:signature-toolbar", "param mykw=12") in sc
+    assert ("class:signature-toolbar", "mykw=12") in sc
 
 
 def _get_completion(br):
@@ -261,3 +261,42 @@ def test_shell_import():
 
     br = _run_incomplete("from bliss.comm ", {"bliss": bliss})
     assert br.default_buffer.text == "from bliss.comm "
+
+
+def test_short_signature():
+
+    loc = dict()
+    exec(
+        """
+class Test:
+    from bliss.common.utils import shorten_signature
+    import typeguard
+    from typing import Optional
+
+    @shorten_signature(annotations={"b": "True|False"}, hidden_kwargs=["d"])
+    @typeguard.typechecked
+    def func(
+        self,
+        a: int,
+        b: Optional[str] = None,
+        c: Optional[str] = None,
+        d: Optional[str] = None,
+    ):
+        pass
+
+t = Test()
+    """,
+        None,
+        loc,
+    )
+
+    br = _run_incomplete("t.func(", {"t": loc["t"]})
+
+    sb = [
+        n
+        for n in br.ptpython_layout.layout.visible_windows
+        if "signature_toolbar" in str(n)
+    ][0]
+    sc = sb.content.text()
+    display_sig = "".join([x[1] for x in sb.content.text()])
+    assert display_sig == " func(a, b: True|False=None, c=None) "

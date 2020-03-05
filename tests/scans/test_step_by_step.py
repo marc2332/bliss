@@ -596,7 +596,7 @@ def check_typeguard(valid, motor, *counters, myint=3, myfloat=.1):
     if valid:
         s = scans.dscan(motor, -.1, .1, myint, myfloat, *counters, run=False)
     else:
-        with pytest.raises(TypeError):
+        with pytest.raises(RuntimeError):
             s = scans.dscan(motor, -.1, .1, myint, myfloat, *counters, run=False)
 
 
@@ -610,6 +610,15 @@ def test_typeguard_scanable(default_session):
     check_typeguard(True, m0, diode, myint=numpy.uint8(3), myfloat=numpy.float64(.1))
     check_typeguard(True, m0, diode, myint=numpy.uint8(3), myfloat=1)
     check_typeguard(True, m0, diode, myint=numpy.uint8(3), myfloat=numpy.uint8(1))
+
+
+def test_transform_TypeError_to_hint():
+    with pytest.raises(RuntimeError) as e:
+        scans.ascan()
+    assert (
+        str(e.value)
+        == "Intended Usage: ascan(motor, start, stop, intervals, count_time, counter_args)  Hint: missing a required argument: 'motor'"
+    )
 
 
 def test_update_ctrl_params(default_session, beacon, lima_simulator, scan_tmpdir):

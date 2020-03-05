@@ -774,3 +774,91 @@ def UNDERLINE(msg):
 
 def BOLD(msg):
     return __color_message(ColorTags.BOLD, msg)
+
+
+def shorten_signature(original_function=None, *, annotations=None, hidden_kwargs=None):
+    """decorator that can be used to simplyfy the signature displayed in the bliss shell.
+       by default it is removing the annotation of each parameter or replacing it with a custum one.
+       
+       annotations: dict with parameters as key
+       hidden_kwargs: list of parameters that should not be displayed but remain usable.
+    """
+
+    def _decorate(function):
+        @functools.wraps(function)
+        def wrapped_function(*args, **kwargs):
+            return function(*args, **kwargs)
+
+        sig = inspect.signature(function)
+        params = list(sig.parameters.values())
+        to_be_removed = list()
+        for i, param in enumerate(params):
+            if hidden_kwargs and param.name in hidden_kwargs:
+                to_be_removed.append(param)
+            elif annotations and param.name in annotations.keys():
+                params[i] = param.replace(annotation=annotations[param.name])
+                # ,default=inspect.Parameter.empty)
+            else:
+                params[i] = param.replace(annotation=inspect.Parameter.empty)
+        for p in to_be_removed:
+            params.remove(p)
+        sig = sig.replace(parameters=params)
+        wrapped_function.__signature__ = sig
+
+        return wrapped_function
+
+    if original_function:
+        return _decorate(original_function)
+
+    return _decorate
+
+
+def custom_error_msg(
+    execption_type, message, new_exeption_type=None, display_original_msg=False
+):
+    """decorator to modify exeption and/or the correspoinding message"""
+
+    def _decorate(function):
+        @functools.wraps(function)
+        def wrapped_function(*args, **kwargs):
+            try:
+                return function(*args, **kwargs)
+            except execption_type as e:
+                if new_exeption_type:
+                    new_exeption = new_exeption_type
+                else:
+                    new_exeption = execption_type
+                if display_original_msg:
+                    raise new_exeption(message + " " + str(e))
+                else:
+                    raise new_exeption(message)
+
+        return wrapped_function
+
+    return _decorate
+
+
+def transform_TypeError_to_hint(function):
+    """decorator that transforms TypeError into a simpliyed RuntimeError
+    Intended use: Modifying the message when using @typeguard.typechecked
+    """
+
+    @functools.wraps(function)
+    def wrapped_function(*args, **kwargs):
+        sig = inspect.signature(function)
+        params = list(sig.parameters.values())
+        msg = (
+            "Intended Usage: "
+            + function.__name__
+            + "("
+            + ", ".join(
+                [p.name for p in params if p.default == inspect.Parameter.empty]
+            )
+            + ")  Hint:"
+            + ""
+        )
+        return custom_error_msg(
+            TypeError, msg, new_exeption_type=RuntimeError, display_original_msg=True
+        )(function)(*args, **kwargs)
+
+    return wrapped_function

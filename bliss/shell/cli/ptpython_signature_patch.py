@@ -55,6 +55,7 @@ def NEWsignature_toolbar(python_input):
                 description = p.description if p else "*"  # or '*'
                 sig_index = getattr(sig, "index", 0)
 
+                description = description.split("param ")[-1]  ### PATCHED HERE
                 if i == sig_index:
                     # Note: we use `_Param.description` instead of
                     #       `_Param.name`, that way we also get the '*' before args.

@@ -12,7 +12,6 @@ from bliss.controllers.tango_shutter import TangoShutterState
 def test_tango_shutter(beacon, dummy_tango_server):
     sh = beacon.get("safshut")
 
-    assert repr(sh).startswith("safshut")
     assert sh.name == "safshut"
     assert sh.config["name"] == "safshut"
 

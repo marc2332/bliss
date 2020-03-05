@@ -87,6 +87,7 @@ __all__ = (
         "newsample",
         "newdataset",
         "silx_view",
+        "pymca",
     ]
     + scans.__all__
     + logtools.__all__
@@ -816,6 +817,30 @@ def silx_view(scan: typing.Union[scans.Scan, None] = None):
 
 def _launch_silx(filename: typing.Union[str, None] = None):
     args = f"{sys.executable} -m silx.app.view.main".split()
+    if filename:
+        args.append(filename)
+    return subprocess.Popen(args)
+
+
+# PyMCA
+
+
+@typeguard.typechecked
+def pymca(scan: typing.Union[scans.Scan, None] = None):
+    """Open PyMCA on a given scan (default last scan)"""
+
+    filename = None
+    try:
+        if scan is None:
+            scan = current_session.scans[-1]
+        filename = scan._scan_info["filename"]
+    except IndexError:
+        pass
+    _launch_pymca(filename)
+
+
+def _launch_pymca(filename: typing.Union[str, None] = None):
+    args = f"{sys.executable} -m PyMca5.PyMcaGui.pymca.PyMcaMain".split()
     if filename:
         args.append(filename)
     return subprocess.Popen(args)

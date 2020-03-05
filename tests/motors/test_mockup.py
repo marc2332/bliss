@@ -222,6 +222,33 @@ def test_1st_time_cfg_wrong_acc_vel(beacon, beacon_directory):
     assert m.velocity == 10
 
 
+def test_apply_config_sign_changed(beacon, beacon_directory):
+
+    m = beacon.get("robz")
+
+    assert m.position == 0
+    m.move(0.1)
+    assert m.position == 0.1
+    assert m.sign == 1
+
+    try:
+        # change config sign
+        m.config.set("sign", -1)
+        m.config.save()
+
+        # apply config
+        m.apply_config(reload=True)
+        assert m.sign == -1
+
+        # make sure position has been updated according to new sign.
+        assert m.position == -0.1
+
+    finally:
+        # restore config sign
+        m.config.set("sign", 1)
+        m.config.save()
+
+
 def test_move_std_func_no_wait_motor_stop(beacon, roby, robz):
     move(roby, 1e6, robz, 1e6, wait=False)  # move == mv
 

@@ -1695,7 +1695,11 @@ class Axis:
         self.controller.axis_settings._clear(self, "acceleration")
         self.controller.axis_settings._clear(self, "low_limit")
         self.controller.axis_settings._clear(self, "high_limit")
+
         self.controller._init_settings(self)
+
+        # update position (needed for sign change)
+        self.position = self.dial2user(self.dial)
 
     @lazy_init
     def set_event_positions(self, positions):

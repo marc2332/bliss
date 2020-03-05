@@ -129,6 +129,18 @@ does not exist  directory  {root_path}
     assert s.node.parent.db_name == scan_saving.scan_parent_db_name
 
 
+def test_session_scan_saving_config(beacon):
+    scan_saving_test_session = beacon.get("scan_saving_test_session")
+    scan_saving_test_session.setup()
+    try:
+        scan_saving = scan_saving_test_session.scan_saving
+        assert isinstance(scan_saving, scan_saving_module.ESRFScanSaving)
+        scan_saving.newproposal("ihr0000")
+        assert scan_saving.base_path == "/tmp/scans/inhouse_test_scan_saving"
+    finally:
+        scan_saving_test_session.close()
+
+
 class CustomWardrobe(scan_saving_module.EvalParametersWardrobe):
     PROPERTY_ATTRIBUTES = ["p1", "p2"]
     PROPS = {"p1": "p1", "p2": "p2"}

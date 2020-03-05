@@ -105,4 +105,14 @@
   name: failing_setup_session
   setup-file: ./test_failing_setup.py
   config-objects: []
-
+- class: Session
+  name: scan_saving_test_session
+  setup-file: ./test_setup.py
+  config-objects: []
+  scan_saving:
+    class: ESRFScanSaving
+    beamline: id00_test_scan_saving
+    tmp_data_root: /tmp/scans/tmp_test_scan_saving
+    visitor_data_root: /tmp/scans/visitor_test_scan_saving
+    inhouse_data_root: /tmp/scans/inhouse_test_scan_saving
+ 

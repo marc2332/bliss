@@ -231,7 +231,7 @@ def ct2_start_timer_chan(cnum, ctrl_dev, chan, p1, p2) '{
 #---------------------------------------------------------------------
 def ct2_prepare_timer_chan_and_slaves(cnum, ctrl_dev, chan, p1, p2) '{
     local FnId addon; FnId ="ct2_prepare_timer_chan_and_slaves"
-    local nb_ctrls, ctrl_list[], i, dev, is_master
+    local nb_ctrls, ctrl_list[], i, j, dev, is_master
     local factor, acq_mode, acq_chan_list[]
 
     nb_ctrls = split(CT2_MAC_HDW[ctrl_dev]["slaves"], ctrl_list)
@@ -252,6 +252,12 @@ def ct2_prepare_timer_chan_and_slaves(cnum, ctrl_dev, chan, p1, p2) '{
         split(CT2_MAC_HDW[dev]["acq_channels"], acq_chan_list)
         tango_put(dev, "acq_channels", acq_chan_list)
         __ct2_profile "start_one" " tango_put acq_channels"
+
+        # store acq_channels_data_indexes for standard counters
+        tango_get(dev, "acq_channels_data_indexes", acq_chan_list)
+        __ct2_profile "start_one" " tango_get acq_channels_data_indexes"
+        for (j in acq_chan_list)
+            CT2_MAC_HDW[dev][sprintf("idx_%d", j)] = acq_chan_list[j]
 
         tango_put(dev, "acq_nb_points", 1)
         __ct2_profile "start_one" " tango_put acq_nb_points"
@@ -286,7 +292,7 @@ def ct2_start_timer_chan_and_slaves(cnum, ctrl_dev, chan, p1, p2) '{
 
 def ct2_counts(cnum, ctrl_dev, chan, p1) '{
     local FnId addon; FnId="ct2_counts"
-    local cnt_idx
+    local cnt_idx, arr_key
     __ct2_profile  "(trace 1)"
     if (!CT2_MAC_HDW_LAST[ctrl_dev]["valid"]) {
         local int_cnt, val, cnt_i
@@ -313,10 +319,10 @@ def ct2_counts(cnum, ctrl_dev, chan, p1) '{
             CT2_MAC_HDW_LAST[ctrl_dev][cnt_i] = val[cnt_i]
         CT2_MAC_HDW_LAST[ctrl_dev]["valid"] = 1
     }
-    if (chan)
-        cnt_idx = counter_par(cnum, "counter_idx")
-    else
-        cnt_idx = CT2_MAC_HDW[ctrl_dev]["nb_channels"]
+    # use acq_channels_data_indexes for standard counters, nb_channels for timers
+    cnt_idx = counter_par(cnum, "counter_idx")
+    arr_key = chan ? sprintf("idx_%d", cnt_idx) : "nb_channels"
+    cnt_idx = CT2_MAC_HDW[ctrl_dev][arr_key]
     return CT2_MAC_HDW_LAST[ctrl_dev][cnt_idx]
 }'
 

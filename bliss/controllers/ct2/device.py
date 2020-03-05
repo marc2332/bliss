@@ -792,6 +792,11 @@ class CT2(object):
         self.__acq_channels = acq_channels
 
     @property
+    def acq_channels_data_indexes(self):
+        sorted_channels = sorted(self.acq_channels)
+        return [sorted_channels.index(x) for x in self.acq_channels]
+
+    @property
     def timer_freq(self):
         return self.__timer_freq
 

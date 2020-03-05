@@ -101,7 +101,7 @@ class BaseShutter:
         """Method that closes the shutter"""
         raise NotImplementedError
 
-    def __repr__(self):
+    def __info__(self):
         return f"{self.name}: {self.state_string}"
 
     def __enter__(self):

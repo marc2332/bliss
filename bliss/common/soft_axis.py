@@ -23,12 +23,12 @@ def SoftAxis(
     unit=None,
 ):
 
-    if callable(position):
-        position = position.__name__
-    if callable(move):
-        move = move.__name__
-    if callable(stop):
-        stop = stop.__name__
+    # if callable(position):
+    #     position = position.__name__
+    # if callable(move):
+    #     move = move.__name__
+    # if callable(stop):
+    #     stop = stop.__name__
 
     config = {
         "low_limit": low_limit,

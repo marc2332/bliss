@@ -203,6 +203,9 @@ class Session:
         self.__default_user_script_homedir = config_tree.get("default-userscript-dir")
         if self.__default_user_script_homedir and not self._get_user_script_home():
             self._set_user_script_home(self.__default_user_script_homedir)
+        self.__scan_saving_config = config_tree.get(
+            "scan_saving", self.config.root.get("scan_saving", {})
+        )
 
     @property
     def name(self):
@@ -587,8 +590,7 @@ class Session:
         if "user_script_run" not in env_dict:
             env_dict["user_script_run"] = self.user_script_run
 
-        scan_saving_config = self.config.root.get("scan_saving", {})
-        scan_saving_class_name = scan_saving_config.get("class")
+        scan_saving_class_name = self.__scan_saving_config.get("class")
         if scan_saving_class_name is not None:
             scan_saving_class = getattr(scan_saving, scan_saving_class_name)
         else:

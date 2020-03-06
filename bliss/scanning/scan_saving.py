@@ -715,11 +715,18 @@ class ESRFScanSaving(BasicScanSaving):
         "FAULT": "Device is not functioning correctly",
     }
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, name):
+        super().__init__(name)
 
         self._tango_metadata_manager = None
         self._tango_metadata_experiment = None
+
+    @property
+    def scan_saving_config(self):
+        session_config = current_session.config.get_config(current_session.name)
+        return session_config.get(
+            "scan_saving", session_config._config.root.get("scan_saving", {})
+        )
 
     @property
     def data_policy(self):
@@ -743,10 +750,6 @@ class ESRFScanSaving(BasicScanSaving):
                 icat_status = ""
         info_table.append(("Metadata", icat_state, icat_status))
         return info_table
-
-    @property
-    def scan_saving_config(self):
-        return current_session.config.root.get("scan_saving", {})
 
     @property
     def images_path_relative(self):

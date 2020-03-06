@@ -50,18 +50,20 @@ def test_print_sessions(beacon):
     bliss_cmd_output, _ = bliss_shell.communicate()
 
     assert set(bliss_cmd_output.split("\n")) == set(
-        """test_session4
-test_session2
-test_session5
-test_alias
-test_alias2
+        """
 failing_setup_session
 flint
-test_session3
-lima_test_session
-test_session
 freddy
+lima_test_session
 nexus_writer_session
+scan_saving_test_session
+test_alias
+test_alias2
+test_session
+test_session2
+test_session3
+test_session4
+test_session5
 """.split(
             "\n"
         )

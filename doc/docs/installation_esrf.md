@@ -168,9 +168,14 @@ Note that `MetaExperiment` must be started before `MetadataManager`. At the beam
 !!! note
     Each BLISS session needs to have 2 instances of the metadata devices running.
 
-Finally, data policy must be enabled in BLISS. This is done by adding a dedicated section in the BLISS configuration:
+Finally, data policy must be enabled in BLISS. This is done by adding a dedicated section in the BLISS configuration,
+either:
 
-#### In __init__.yml at beamline configuration root
+- in `__init__.yml` at beamline configuration root
+- or together with a session configuration
+    - this is particularly useful when the same Beacon configuration is used by multiple endstations
+
+The section that has to be added is:
 
 ```yaml
     scan_saving:
@@ -182,4 +187,6 @@ Finally, data policy must be enabled in BLISS. This is done by adding a dedicate
 ```
 
 !!! note
-    The beamline name specified under *scan_saving:* will be used to find the metadata servers: *id00/metadata/<session_name>* and *id00/metaexp/<session_name>*. **There must be 2 metadata Tango devices running per BLISS session.** Do not forget to add them for each new BLISS session.
+    The beamline name specified under *scan_saving:* will be used to find the metadata servers: *id00/metadata/<session_name>* and *id00/metaexp/<session_name>*. So it must correspond to the Tango device domain name. **There must be 2 metadata Tango devices running per BLISS session.** Do not forget to add them for each new BLISS session.
+
+

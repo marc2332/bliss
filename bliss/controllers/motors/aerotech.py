@@ -13,7 +13,7 @@ from bliss.config.channels import Cache
 from bliss.controllers.motor import Controller
 from bliss.common.utils import object_method
 from bliss import global_map
-from bliss.common.logtools import log_debug
+from bliss.common.logtools import log_debug, log_debug_data
 
 import string
 import time
@@ -630,7 +630,7 @@ class Aerotech(Controller):
         self.raw_write("WAIT MODE NOWAIT")
 
     def initialize_axis(self, axis):
-        log_debug(self, f"initialize_axis {axis.name}")
+        log_debug(self, "initialize_axis %s", axis.name)
         if axis.name not in self._aero_axis.keys():
             aero_name = axis.config.get("aero_name", str, "")
             if aero_name in self._aero_axis.values():
@@ -646,7 +646,7 @@ class Aerotech(Controller):
             self._aero_axis[axis.name] = aero_name
 
     def initialize_hardware_axis(self, axis):
-        log_debug(self, f"initilize_hardware_axis {axis.name}")
+        log_debug(self, "initilize_hardware_axis %s", axis.name)
         self.set_on(axis)
         self.get_encoder_output_divider(axis)
         self.get_encoder_internal_divider(axis)
@@ -656,13 +656,13 @@ class Aerotech(Controller):
             self._comm.close()
 
     def raw_write(self, cmd):
-        log_debug(self, f"SEND {cmd}")
+        log_debug_data(self, "SEND", cmd)
         send_cmd = cmd + self.CMD_TERM
         with self._comm.lock:
             self._comm.flush()
             reply = self._comm.write_read(send_cmd.encode(), size=1)
         reply = reply.decode()
-        log_debug(self, "GET " + reply)
+        log_debug_data(self, "GET", reply)
         self._check_reply_code(reply, cmd)
 
     def _check_reply_code(self, reply, cmd):
@@ -682,7 +682,7 @@ class Aerotech(Controller):
             self.raw_write(cmd)
             reply = self._comm.readline()
         reply = reply.decode()
-        log_debug(self, "READ " + reply)
+        log_debug_data(self, "READ", reply)
         return reply
 
     def _aero_name(self, axis):
@@ -861,7 +861,7 @@ class Aerotech(Controller):
 
         # start homing and wait for reply
         cmd = "HOME %s" % self._aero_name(axis)
-        log_debug(self, "SEND " + cmd)
+        log_debug_data(self, "SEND", cmd)
         send_cmd = cmd + self.CMD_TERM
         with self._comm.lock:
             self._comm.write(send_cmd.encode())
@@ -871,7 +871,7 @@ class Aerotech(Controller):
                 try:
                     reply = self._comm.read(size=1, timeout=1.0)
                     reply = reply.decode()
-                    log_debug(self, "GET " + reply)
+                    log_debug_data(self, "GET", reply)
                 except:
                     reply = None
 

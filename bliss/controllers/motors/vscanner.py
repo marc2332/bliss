@@ -118,14 +118,16 @@ class VSCANNER(Controller):
         if time.time() - cache["t"] < 0.005:
             _pos = cache["pos"]
             log_debug(
-                self, f"read_position() -- voltages in cache: {_pos[0]} {_pos[1]}"
+                self, "read_position() -- voltages in cache: %s %s", _pos[0], _pos[1]
             )
         else:
             _ans = self.send(axis, "?VXY")
             _pos = list(map(float, _ans.split(" ")))
             log_debug(
                 self,
-                f"read_position() -- voltages NOT in cache, re-read: {_pos[0]} {_pos[1]}",
+                "read_position() -- voltages NOT in cache, re-read: %s %s",
+                _pos[0],
+                _pos[1],
             )
 
         if axis.chan_letter == "X":
@@ -135,7 +137,7 @@ class VSCANNER(Controller):
         else:
             raise ValueError("read_position() -- invalid chan letter")
 
-        log_debug(self, f"read_position() -- V{axis.chan_letter}={_pos}")
+        log_debug(self, "read_position() -- V%s=%s", axis.chan_letter, _pos)
 
         return _pos
 
@@ -157,7 +159,7 @@ class VSCANNER(Controller):
         elif len(_float_ans) == 2:
             (_vel, _line_waiting) = _float_ans
         else:
-            log_error(self, f"Invalid  '?VEL' answer:{_float_ans} ")
+            log_error(self, "Invalid  '?VEL' answer:%s", _float_ans)
 
         # VSCANNER answer is in V/ms
         # V/s = ( V/ms ) * 1000
@@ -212,16 +214,16 @@ class VSCANNER(Controller):
         #  log_debug(self, _msg)
         #
         #  motion_cache = last_motion
-        #  log_debug(self, f" #########  motion_cache={motion_cache}")
+        #  log_debug(self, " #########  motion_cache=%s", motion_cache)
         #
         #  if motion_cache["dVX"] or motion_cache["dVY"]:
-        #      log_debug(self, f"This is the second axis prepare_move().")
+        #      log_debug(self, "This is the second axis prepare_move().")
         #      if motion.axis.chan_letter == "X":
         #          motion_cache["dVX"] = motion.delta
         #      if motion.axis.chan_letter == "Y":
         #          motion_cache["dVY"] = motion.delta
         #  else:
-        #      log_debug(self, f"This is the first axis prepare_move() ... OR the only one ???.")
+        #      log_debug(self, "This is the first axis prepare_move() ... OR the only one ???.")
         #      if motion.axis.chan_letter == "X":
         #          motion_cache["dVX"] = motion.delta
         #      if motion.axis.chan_letter == "Y":
@@ -306,28 +308,28 @@ class VSCANNER(Controller):
             number_of_pixel = 1
             line_mode = "C"  # mode continuous (S for stepping)
             _cmd = f"LINE {dX} {dY} {number_of_pixel} {line_mode}"
-            log_debug(self, f"prepare_move() -- _cmd_LINE='{_cmd}'")
+            log_debug(self, "prepare_move() -- _cmd_LINE='%s'", _cmd)
             self.send_no_ans(first_axis, _cmd)
 
             # SCAN <dX> <dY> <nLine> <'U'nidirectional or 'B'i-directional>
             # Define relative spacing between lines of a scan: 0 0 in
             # our case to perform a single movement on the 2 axes.
             _cmd = "SCAN 0 0 1 U"
-            log_debug(self, f"start_all() -- _cmd_SCAN='{_cmd}'")
+            log_debug(self, "start_all() -- _cmd_SCAN='%s'", _cmd)
             self.send_no_ans(first_axis, _cmd)
 
             # PSHAPE ALL: clean and generate the line table.
             _cmd = "PSHAPE ALL"
-            log_debug(self, f"start_all() -- _cmd: '{_cmd}'")
+            log_debug(self, "start_all() -- _cmd: '%s'", _cmd)
             self.send_no_ans(first_axis, _cmd)
 
             # START
             _cmd = "START 1 NORET"
-            log_debug(self, f"start_all() --_cmd_START={_cmd}")
+            log_debug(self, "start_all() --_cmd_START=%s", _cmd)
             self.send_no_ans(first_axis, _cmd)
 
         else:
-            _msg = f"start_all() -- VXY / instant (absolute) move"
+            _msg = "start_all() -- VXY / instant (absolute) move"
             log_debug(self, _msg)
             try:
                 targetX = motion_params["X"][0]
@@ -350,7 +352,7 @@ class VSCANNER(Controller):
                     self, f"start_all() -- motion problem... vtargets={motion_params} "
                 )
 
-            log_debug(self, f"start_all() -- move command : '{_cmd}'")
+            log_debug(self, "start_all() -- move command : '%s'", _cmd)
             self.send(first_axis, _cmd)
 
     def stop(self, axis):
@@ -410,7 +412,7 @@ class VSCANNER(Controller):
         """
         _ans = self.comm.write_readline(b"?ERR\r\n")
         if _ans != b"OK\r":
-            log_error(self, f"VSCANNER ERROR: {_ans}\n")
+            log_error(self, "VSCANNER ERROR: %s\n", _ans)
         return _ans
 
     def get_info(self, axis=None):

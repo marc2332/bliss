@@ -71,7 +71,7 @@ import sys
 from bliss import global_map
 from bliss.comm import serial
 from bliss.comm.util import get_interface, get_comm
-from bliss.common.logtools import log_info, log_debug, log_warning
+from bliss.common.logtools import log_info, log_debug, log_debug_data, log_warning
 from bliss.common.utils import autocomplete_property
 
 from bliss.controllers.regulator import Controller
@@ -508,7 +508,7 @@ class LakeShore331(Controller):
                 the controller.
         """
         log_info(self, "Wraw")
-        log_debug(self, "command to send = {0}".format(string))
+        log_debug_data(self, "command to send", string)
         cmd = string + self.eol
         self._comm.write(cmd.encode())
 
@@ -520,7 +520,7 @@ class LakeShore331(Controller):
         log_info(self, "Rraw")
         cmd = self.eol
         asw = self._comm.readline(cmd.encode())
-        log_debug(self, "raw answer = {0}".format(asw))
+        log_debug_data(self, "raw answer", asw)
         return asw.decode()
 
     def WRraw(self, string):
@@ -531,10 +531,10 @@ class LakeShore331(Controller):
                response from the controller
         """
         log_info(self, "WRraw")
-        log_debug(self, "command to send = {0}".format(string))
+        log_debug_data(self, "command to send", string)
         cmd = string + self.eol
         asw = self._comm.write_readline(cmd.encode())
-        log_debug(self, "raw answer = {0}".format(asw))
+        log_debug_data(self, "raw answer", asw)
         return asw.decode()
 
     # ------ safety methods (optional) ------------------------------
@@ -573,8 +573,8 @@ class LakeShore331(Controller):
                 cmd = f"{command} {channel}"
             else:
                 cmd = f"{command} {channel},{values}"
-        # log_debug(self, "values = {0}".format(values))
-        log_debug(self, f"send_cmd {cmd}")
+        # log_debug_data(self, "values", values)
+        log_debug_data(self, "send_cmd", cmd)
         if "?" in command:
             asw = self._comm.write_readline(
                 cmd.encode() + self.eol.encode(), timeout=3.0
@@ -995,7 +995,7 @@ class LakeShore331(Controller):
                 - input_channel (str): see 'VALID_INPUT_CHANNELS'
         """
 
-        log_info(self, f"select_curve: {crvn}")
+        log_info(self, "select_curve: %s", crvn)
         if crvn not in range(1, self.NCURVES + 1):
             raise ValueError(
                 f"Curve number {crvn} is invalid. Should be in [1,{self.NCURVES}]"
@@ -1160,7 +1160,7 @@ class LakeShore331(Controller):
             )
 
     def delete_curve(self, crvn):
-        log_info(self, f"delete_curve:{crvn}")
+        log_info(self, "delete_curve:%s", crvn)
         user_min_curve, user_max_curve = self.NUSERCURVES
 
         if crvn is None:

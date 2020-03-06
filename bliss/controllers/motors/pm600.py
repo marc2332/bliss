@@ -333,7 +333,7 @@ class PM600(Controller):
         idx = answer.find(":")
         replied_channel = int(answer[:idx])
         if int(channel) != replied_channel:
-            log_error(self, f"PM600 Error: Wrong channel replied [{replied_channel}]")
+            log_error(self, "PM600 Error: Wrong channel replied [%s]", replied_channel)
         return answer[idx + 1 :]
 
     def raw_write_read(self, command):

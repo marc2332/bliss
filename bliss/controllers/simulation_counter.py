@@ -174,8 +174,12 @@ class SimulationCounterAcquisitionSlave(AcquisitionSlave):
 
         log_debug(
             self,
-            f"SIMULATION_COUNTER_ACQ_DEV -- prepare() -- type={self.scan_type} \
-        nbpoints={nbpoints} start={scan_start} stop={scan_stop}",
+            "SIMULATION_COUNTER_ACQ_DEV -- prepare() -- type=%s \
+        nbpoints=%d start=%s stop=%s",
+            self.scan_type,
+            nbpoints,
+            scan_start,
+            scan_stop,
         )
 
         #### Get gaussian distribution parameters
@@ -210,12 +214,15 @@ class SimulationCounterAcquisitionSlave(AcquisitionSlave):
 
         # creates distribution
         if self.is_count_scan() or self.distribution == "FLAT":
-            log_debug(self, f"SIMULATION_COUNTER_ACQ_DEV -- prepare() -- FLAT")
+            log_debug(self, "SIMULATION_COUNTER_ACQ_DEV -- prepare() -- FLAT")
             pass
         else:
             log_debug(
                 self,
-                f"SIMULATION_COUNTER_ACQ_DEV -- prepare() -- GAUSSIAN -- start={scan_start} stop={scan_stop} nbpoints={nbpoints}",
+                "SIMULATION_COUNTER_ACQ_DEV -- prepare() -- GAUSSIAN -- start=%s stop=%s nbpoints=%d",
+                scan_start,
+                scan_stop,
+                nbpoints,
             )
             self.data = self.gauss(self.data, mu_offset, sigma_factor)
 
@@ -240,7 +247,7 @@ class SimulationCounterAcquisitionSlave(AcquisitionSlave):
 
         next(iter(self._counters.keys())).data = self.data
 
-        log_debug(self, f"SIMULATION_COUNTER_ACQ_DEV -- prepare() END")
+        log_debug(self, "SIMULATION_COUNTER_ACQ_DEV -- prepare() END")
 
     def calc_gaussian(self, x, mu, sigma):
         one_over_sqtr = 1.0 / np.sqrt(2.0 * np.pi * np.square(sigma))
@@ -278,16 +285,21 @@ class SimulationCounterAcquisitionSlave(AcquisitionSlave):
 
         log_debug(
             self,
-            f"SIMULATION_COUNTER_ACQ_DEV -- xmin={xmin} xmax={xmax} mu_offset={mu_offset:g} mu={mu:g} sigma={sigma:g}",
+            "SIMULATION_COUNTER_ACQ_DEV -- xmin=%s xmax=%s mu_offset=%s mu=%s sigma=%s",
+            xmin,
+            xmax,
+            mu_offset,
+            mu,
+            sigma,
         )
 
         _val = self.calc_gaussian(x, mu, sigma)
 
-        log_debug(self, f"SIMULATION_COUNTER_ACQ_DEV -- gauss() -- returns {_val}")
+        log_debug(self, "SIMULATION_COUNTER_ACQ_DEV -- gauss() -- returns %s", _val)
         return _val
 
     def start(self):
-        log_debug(self, f"SIMULATION_COUNTER_ACQ_DEV -- start()")
+        log_debug(self, "SIMULATION_COUNTER_ACQ_DEV -- start()")
         pass
 
     def stop(self):
@@ -295,7 +307,11 @@ class SimulationCounterAcquisitionSlave(AcquisitionSlave):
         if self.distribution == "GAUSSIAN" and not self.is_count_scan():
             log_debug(
                 self,
-                f"SIMULATION_COUNTER_ACQ_DEV -- (Theorical values) {self.name} mu={self.mu:g} sigma={self.sigma:g} fwhm={self.fwhm:g}",
+                "SIMULATION_COUNTER_ACQ_DEV -- (Theorical values) %s mu=%f sigma=%f fwhm=%f",
+                self.name,
+                self.mu,
+                self.sigma,
+                self.fwhm,
             )
         pass
 
@@ -307,7 +323,7 @@ class SimulationCounterAcquisitionSlave(AcquisitionSlave):
         """
         log_debug(
             self,
-            f"SIMULATION_COUNTER_ACQ_DEV -- **************** trigger() **************************",
+            "SIMULATION_COUNTER_ACQ_DEV -- **************** trigger() **************************",
         )
         if get_logger(self).isEnabledFor(logging.DEBUG):
             print(self.data)
@@ -320,7 +336,7 @@ class SimulationCounterAcquisitionSlave(AcquisitionSlave):
 
         if not self.is_count_scan():
             self._index += 1
-        log_debug(self, f"SIMULATION_COUNTER_ACQ_DEV -- trigger()  END")
+        log_debug(self, "SIMULATION_COUNTER_ACQ_DEV -- trigger()  END")
 
 
 class SimulationCounterController(CounterController):

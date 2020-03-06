@@ -403,7 +403,7 @@ class TangoWago:
         global_map.register(self, tag=f"TangoEngine", children_list=[self.comm])
 
     def get(self, *logical_names, **kwargs):
-        log_debug(self, f"In get logical_names={logical_names} kwargs={kwargs}")
+        log_debug(self, "In get logical_names=%s kwargs=%s", logical_names, kwargs)
         flat = kwargs.get("flat", True)
         cached = kwargs.get("cached", False)
 
@@ -451,7 +451,7 @@ class TangoWago:
         or a list with channel_name, val1, val2, ..., valn
         or a combination of the two
         """
-        log_debug(self, f"In set args={args}")
+        log_debug(self, "In set args=%s", args)
         array = self.modules_config._resolve_write(*args)
 
         for write_operation in array:
@@ -1016,7 +1016,7 @@ class ModulesConfig:
             list of lists: [[logical_device_key1, logical_channel1, value1, logical_channel2, value2], [logical_device_key2, logical_channel1, value1], ...]
             This list is well suited to be used with DevWritePhys
         """
-        log_debug(self, f"In set args={args}")
+        log_debug(self, "In set args=%s", args)
 
         channels_to_write = []
         current_list = channels_to_write
@@ -1345,7 +1345,7 @@ class WagoController:
         or a list with channel_name, val1, val2, ..., valn
         or a combination of the two
         """
-        log_debug(self, f"In set args={args}")
+        log_debug(self, "In set args=%s", args)
         array = self.modules_config._resolve_write(*args)
 
         for write_operation in array:
@@ -1460,7 +1460,7 @@ class WagoController:
         Note: as the logic was implemented through reverse engineering some parts could
               be not accurate.
         """
-        log_debug(self, f"In devwccomm args: {args}")
+        log_debug(self, "In devwccomm args: %s", args)
         command, params = args[0], args[1:]
 
         """
@@ -1473,7 +1473,7 @@ class WagoController:
         addr, data = 0x100, 0x0000  # WC_PASSWD, 0
 
         log_debug(
-            self, f"devwccomm Phase 1: writing at address {addr:04X} value {data:04X}"
+            self, "devwccomm Phase 1: writing at address 0x%x value 0x%x", addr, data
         )
         response = self.client.write_registers(addr, "H", [data], timeout=self.timeout)
 
@@ -1494,7 +1494,10 @@ class WagoController:
         addr, size = 0x100, 3
 
         log_debug(
-            self, f"devwccomm Phase 2: reading at address {addr:04X} n.{size} registers"
+            self,
+            "devwccomm Phase 2: reading at address 0x%x n.%d registers",
+            addr,
+            size,
         )
 
         start = time.time()
@@ -1502,16 +1505,19 @@ class WagoController:
             if time.time() - start > self.timeout:
                 log_debug(
                     self,
-                    f"Last response: Check code (should be like 0xaa 0x01 version tag + version num) is {check:02X}",
+                    "Last response: Check code (should be like 0xaa 0x01 version tag + version num) is %x",
+                    check,
                 )
-                log_debug(self, f"Last response: Ack (should be 0 or 2) is {ack}")
+                log_debug(self, "Last response: Ack (should be 0 or 2) is %s", ack)
                 raise MissingFirmware(f"ACK not received")
             try:
                 check, _, ack = self.client_read_input_registers(
                     addr, "H" * size, timeout=self.timeout
                 )
             except Exception:
-                log_exception(self, f"failed to read at address: {addr} words: {size}")
+                log_exception(
+                    self, "failed to read at address: %x words: %d", addr, size
+                )
                 raise
 
             if (check >> 8) != 0xaa:  # check Version Tag
@@ -1545,7 +1551,7 @@ class WagoController:
         data += list(params)  # adds the parameters
 
         log_debug(
-            self, f"devwccomm Phase 3: writing at address: {addr:04X} values : {data}"
+            self, "devwccomm Phase 3: writing at address: %x values : %s", addr, data
         )
 
         self.client.write_registers(addr, "H" * len(data), data, timeout=self.timeout)
@@ -1567,7 +1573,7 @@ class WagoController:
         addr = 0x100
         size = 4
         log_debug(
-            self, f"devwccomm Phase 4: reading at address: {addr:04X} words: {size}"
+            self, "devwccomm Phase 4: reading at address: %x words: %d", addr, size
         )
 
         start = time.time()
@@ -1575,7 +1581,9 @@ class WagoController:
             if time.time() - start > self.timeout:
                 log_debug(
                     self,
-                    f"Last response: Command should be {command} and is {command_executed}",
+                    "Last response: Command should be %s and is %s",
+                    command,
+                    command_executed,
                 )
                 raise TimeoutError(f"ACK not received")
 
@@ -1586,7 +1594,9 @@ class WagoController:
             except Exception:
                 log_debug(
                     self,
-                    f"devwccomm Phase 4: failed to read at address: {addr} words: {size}",
+                    "devwccomm Phase 4: failed to read at address: 0x%x words: %d",
+                    addr,
+                    size,
                 )
                 raise
             if command != command_executed:
@@ -1595,7 +1605,10 @@ class WagoController:
             if error_code != 0:
                 log_error(
                     self,
-                    f"devwccomm Phase 4 : Command {command_executed} failed with error: 0x{error_code:02X} {ERRORS[error_code]}",
+                    f"devwccomm Phase 4 : Command %s failed with error: 0x%x %s",
+                    command_executed,
+                    error_code,
+                    ERRORS[error_code],
                 )
                 raise RuntimeError(
                     f"Interlock: Command {command_executed} failed with error: 0x{error_code:02X} {ERRORS[error_code]}"
@@ -1603,7 +1616,8 @@ class WagoController:
             else:
                 log_debug(
                     self,
-                    f"devwccomm Phase 4: ACK from Wago (OUTCMD==INCMD) n.{registers_to_read} registers to read on next request",
+                    "devwccomm Phase 4: ACK from Wago (OUTCMD==INCMD) n.%s registers to read on next request",
+                    registers_to_read,
                 )
                 break
 
@@ -1615,7 +1629,9 @@ class WagoController:
 
         addr = 0x104
         size = registers_to_read
-        log_debug(self, f"devwccomm Phase 5: reading at address: {addr} words: {size}")
+        log_debug(
+            self, "devwccomm Phase 5: reading at address: %x words: %d", addr, size
+        )
 
         if size:
             try:
@@ -1624,11 +1640,13 @@ class WagoController:
                 )
                 if isinstance(response, int):  # single number
                     response = [response]
-                log_debug(self, f"read registers response={response}")
+                log_debug_data(self, "read registers response", response)
             except Exception:
                 log_exception(
                     self,
-                    f"devwccomm Phase 5: failed to read at address: {addr} words: {size}",
+                    "devwccomm Phase 5: failed to read at address: %x words: %d",
+                    addr,
+                    size,
                 )
                 raise
             return [to_signed(n) for n in response]
@@ -1702,8 +1720,8 @@ class WagoController:
         log_debug(self, "Retrieving attached modules configuration")
         try:
             modules = self.client_read_holding_registers(0x2030, "65H")
-        except Exception as exc:
-            log_exception(self, f"Can't retrieve Wago plugged modules {exc}")
+        except Exception:
+            log_exception(self, "Can't retrieve Wago plugged module")
             raise
 
         self.__modules = []
@@ -1729,7 +1747,7 @@ class WagoController:
         try:
             out += self.plugged_modules_description()
         except Exception:
-            log_exception(self, f"Exception on dev_status")
+            log_exception(self, "Exception on dev_status")
             raise
 
         out += f"\nWago modules known by the device server:\n"
@@ -2123,7 +2141,7 @@ class Wago(SamplingCounterController):
         return repr_
 
     def close(self):
-        log_debug(self, f"In close")
+        log_debug(self, "In close")
         self.controller.close()
 
     def __close__(self):
@@ -2143,7 +2161,7 @@ class Wago(SamplingCounterController):
         show(self)
 
     def interlock_upload(self, ask=True):
-        log_debug(self, f"Reloading Wago interlocks static config")
+        log_debug(self, "Reloading Wago interlocks static config")
         from bliss.config.static import get_config_dict
 
         reloaded_config = get_config_dict(self.__filename, self.name)

@@ -137,7 +137,7 @@ class Prologix:
         hostname = match.group(2)
         port = match.group(3) and int(match.group(3)) or 1234
         self._sock = Socket(hostname, port, timeout=keys.get("timeout"))
-        log_debug(self, f"Prologix::__init__() host = {hostname} port = {port}")
+        log_debug(self, "Prologix::__init__() host = %s port = %s", hostname, port)
         global_map.register(self, children_list=["comms", self._sock])
         self._gpib_kwargs = keys
 
@@ -390,7 +390,7 @@ class Gpib:
 
     def open(self):
         if self._raw_handler is None:
-            log_debug(self, f"opening {self.gpib_type} gpib")
+            log_debug(self, "opening %s gpib", self.gpib_type)
             log_debug_data(self, "kwargs", self._gpib_kwargs)
             if self.gpib_type == Gpib.GpibType.ENET:
                 self._raw_handler = Enet(self, **self._gpib_kwargs)

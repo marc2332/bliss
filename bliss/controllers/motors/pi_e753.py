@@ -9,7 +9,7 @@ from bliss.controllers.motor import Controller
 from bliss.common.utils import object_method
 from bliss.common.utils import object_attribute_get, object_attribute_set
 from bliss.common.axis import AxisState
-from bliss.common.logtools import log_debug, log_info, log_warning
+from bliss.common.logtools import log_debug, log_debug_data, log_info, log_warning
 from bliss import global_map
 
 from . import pi_gcs
@@ -42,7 +42,7 @@ class PI_E753(Controller):
         # Check model.
         try:
             idn_ans = self.comm.write_readline(b"*IDN?\n").decode()
-            log_info(self, f"IDN?: {idn_ans}")
+            log_info(self, "IDN?: %s", idn_ans)
             if idn_ans.find("E-753") > 0:
                 self.model = "E-753"
             elif idn_ans.find("E-754") > 0:
@@ -52,7 +52,7 @@ class PI_E753(Controller):
         except:
             self.model = "UNKNOWN"
 
-        log_debug(self, f"model={self.model}")
+        log_debug(self, "model=%s", self.model)
         global_map.register(self, children_list=[self.comm])
 
     def close(self):
@@ -159,7 +159,7 @@ class PI_E753(Controller):
         - Type of <cmd> must be 'str'.
         - Type of returned string is 'str'.
         """
-        log_debug(self, f"SEND: {cmd}")
+        log_debug_data(self, "SEND", cmd)
         _cmd = cmd.encode() + b"\n"
         _t0 = time.time()
 
@@ -170,8 +170,10 @@ class PI_E753(Controller):
         if _duration > 0.005:
             log_info(
                 self,
-                "PI_E753.py : Received %r from Send %s (duration : %g ms) "
-                % (_ans, _cmd, _duration * 1000),
+                "PI_E753.py : Received %r from Send %s (duration : %g ms)",
+                _ans,
+                _cmd,
+                _duration * 1000,
             )
 
         self.check_error(_cmd)
@@ -186,7 +188,7 @@ class PI_E753(Controller):
         - Type of <cmd> must be 'str'.
         - Used for answer-less commands, thus return nothing.
         """
-        log_debug(self, f"SEND_NO_ANS: {cmd}")
+        log_debug_data(self, "SEND_NO_ANS", cmd)
         _cmd = cmd.encode() + b"\n"
         self.comm.write(_cmd)
         self.check_error(_cmd)

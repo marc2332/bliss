@@ -104,7 +104,9 @@ class Eurotherm2000Device:
         )  # instantiating once to allow the debug
         log_debug(
             self,
-            f"Eurotherm2000: __init__(address {modbus_address}, port {serialport})",
+            "Eurotherm2000: __init__(address %s, port %s)",
+            modbus_address,
+            serialport,
         )
         self.comm = modbus.Modbus_RTU(
             modbus_address, serialport, baudrate=9600, eol="\r"

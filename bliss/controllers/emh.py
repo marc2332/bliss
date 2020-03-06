@@ -164,7 +164,7 @@ class EMH(CounterController):
         self.bpm_values["bpmx"] = bpm_x
         self.bpm_values["bpmy"] = bpm_y
 
-        log_info(self, f"BPM values: I={csum} X={bpm_x} Y={bpm_y}")
+        log_info(self, "BPM values: I=%s X=%s Y=%s", csum, bpm_x, bpm_y)
 
         # Counters filling.
         for counter in counters:

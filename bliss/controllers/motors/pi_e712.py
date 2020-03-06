@@ -952,7 +952,7 @@ class PI_E712(Controller):
             if _ans != "0":
                 accu += float(_ans)
                 accu /= 2
-        log_debug(self, "TNS? %r" % accu)
+        log_debug(self, "TNS? %r", accu)
         # during tests with the piezojack, problems with a blocked socket
         # towards the controller were encountered. Usually, that was
         # manifesting with 0 TNS readings. If The accumulated value of

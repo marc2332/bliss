@@ -237,7 +237,7 @@ class BaseXIA(BaseMCA):
 
     @spectrum_size.setter
     def spectrum_size(self, size):
-        log_debug(self, f"set spectrum_size to {size}")
+        log_debug(self, "set spectrum_size to %s", size)
         self._proxy.set_acquisition_value("number_mca_channels", size)
         self._proxy.apply_acquisition_values()
 
@@ -253,7 +253,7 @@ class BaseXIA(BaseMCA):
 
     @hardware_points.setter
     def hardware_points(self, value):
-        log_debug(self, f"set hardware_points to {value}")
+        log_debug(self, "set hardware_points to %s", value)
         # Invalid argument
         if value < 1:
             raise ValueError("Acquisition number should be strictly positive")
@@ -278,7 +278,7 @@ class BaseXIA(BaseMCA):
 
     @block_size.setter
     def block_size(self, value=None):
-        log_debug(self, f"set block_size to {value}")
+        log_debug(self, "set block_size to %s", value)
         mapping = int(self._proxy.get_acquisition_value("mapping_mode"))
         # MCA mode
         if mapping == 0 and value not in (None, 1):
@@ -379,7 +379,7 @@ class BaseXIA(BaseMCA):
 
     @preset_mode.setter
     def preset_mode(self, mode):
-        log_debug(self, f"set preset_mode to {mode}")
+        log_debug(self, "set preset_mode to %s", mode)
         # Cast arguments
         if mode is None:
             mode = PresetMode.NONE
@@ -406,7 +406,7 @@ class BaseXIA(BaseMCA):
 
     @preset_value.setter
     def preset_value(self, value):
-        log_debug(self, f"set preset_value to {value}")
+        log_debug(self, "set preset_value to %s", value)
         mode = self.preset_mode
         # Cast arguments depending on preset mode
         pvalue = self.__preset_value_cast(value)
@@ -435,7 +435,7 @@ class BaseXIA(BaseMCA):
 
     @trigger_mode.setter
     def trigger_mode(self, mode):
-        log_debug(self, f"set trigger_mode to {mode}")
+        log_debug(self, "set trigger_mode to %s", mode)
         # Cast arguments
         if mode is None:
             mode = TriggerMode.SOFTWARE
@@ -473,7 +473,7 @@ class BaseXIA(BaseMCA):
                     "The given gate master channel is not a valid trigger channel"
                 )
             # Set gate master parameter
-            log_debug(self, f"set xmap gate_master to {channel}")
+            log_debug(self, "set xmap gate_master to %s", channel)
             self._proxy.set_acquisition_value("gate_master", True, channel)
             self._gate_master = channel
 
@@ -517,7 +517,11 @@ class Mercury(BaseXIA):
             for (isca, (start, stop)) in enumerate(scalist):
                 log_debug(
                     self,
-                    f"setting hwsca det#{det} isca#{isca} start#{start} stop#{stop}",
+                    "setting hwsca det#%s isca#%s start#%s stop#%s",
+                    det,
+                    isca,
+                    start,
+                    stop,
                 )
                 self._proxy.set_acquisition_value("sca{:d}_lo".format(isca), start, det)
                 self._proxy.set_acquisition_value("sca{:d}_hi".format(isca), stop, det)

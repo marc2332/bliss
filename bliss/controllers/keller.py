@@ -224,9 +224,9 @@ def debug_it(f):
 
     @functools.wraps(f)
     def wrapper(self, *args, **kwargs):
-        log_debug(self, f"[start] {name}()")
+        log_debug(self, "[start] %s()", name)
         r = f(self, *args, **kwargs)
-        log_debug(self, f"[end] {name}() -> {r}")
+        log_debug(self, "[end] %s() -> %s", name, r)
         return r
 
     return wrapper

@@ -238,7 +238,7 @@ class Keithley3706(SamplingCounterController):
         self.values_ohms = {}
         self.values_degrees = {}
 
-        log_debug(self, f"Keithley3706 init")
+        log_debug(self, "Keithley3706 init")
 
         global_map.register(self, children_list=[self.comm])
 
@@ -308,12 +308,12 @@ class Keithley3706(SamplingCounterController):
         Run scan for slot <slot_idx> and read corresponding buffer.
         Return a list of floats.
         """
-        log_debug(self, f"run_scan(slot_idx={slot_idx}")
+        log_debug(self, "run_scan(slot_idx=%s", slot_idx)
         self.send_prog_slot(slot_idx)
 
-        log_debug(self, f"wait start of scan")
+        log_debug(self, "wait start of scan")
         print(self.comm.write_readline(b"*IDN?\n", timeout=15).decode())
-        log_debug(self, f"scan started")
+        log_debug(self, "scan started")
 
         scan_points_read = self.get_scan_states()[1]
         last_scan_index = 0
@@ -360,13 +360,13 @@ class Keithley3706(SamplingCounterController):
         Read correspondign buffer.
         fill self.values_degrees[slot_idx] with 18 buffer values
         """
-        log_debug(self, f"run_slot_reading(slot_idx={slot_idx}")
+        log_debug(self, "run_slot_reading(slot_idx=%s", slot_idx)
 
         self.send_prog_slot(slot_idx)
 
-        log_debug(self, f"wait start of scan")
+        log_debug(self, "wait start of scan")
         self.comm.write_readline(b"*IDN?\n", timeout=15).decode()
-        log_debug(self, f"scan started")
+        log_debug(self, "scan started")
 
         # check state/number of points read.
         scan_points_read = self.get_scan_states()[1]
@@ -542,7 +542,7 @@ class Keithley3706(SamplingCounterController):
         * send prog line by line
         """
 
-        log_debug(self, f"send_prog_slot(slot_idx={slot_idx})")
+        log_debug(self, "send_prog_slot(slot_idx=%s)", slot_idx)
 
         chan_string = self.get_channels_string()
         chan_string = "{0}001:{0}018".format(slot_idx)
@@ -553,7 +553,7 @@ class Keithley3706(SamplingCounterController):
 
         for instruction in k37dcm_prog_slot_N.split("\n"):
             if instruction.find("#") == -1:
-                log_debug(self, f"send_prog_slot: send {instruction}")
+                log_debug(self, "send_prog_slot: send %s", instruction)
                 self.send(instruction)
             else:
                 print(instruction)
@@ -612,7 +612,7 @@ class Keithley3706(SamplingCounterController):
 
     def get_scan_states(self):
         ans = self.read("print(scan.state())")
-        log_debug(self, f"get scan state: ans={ans}")
+        log_debug(self, "get scan state: ans=%s", ans)
         # scan.state() returns 4 floats : state, scanCount, stepCount, reading
         # ans looks like : '6.000000e+00\t1.000000e+01\t3.000000e+00\t8.145322e+01'
         # where state can be:

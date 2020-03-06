@@ -464,12 +464,12 @@ class NanoBpm(Device):
                 or int(self._CoG[0]) != int(cog[0])
                 or int(self._CoG[1]) != int(cog[1])
             ):
-                log_debug(self, f"bpmCallback(): pushing COG {cog}")
+                log_debug(self, "bpmCallback(): pushing COG %s", cog)
                 self.push_change_event("Centre", cog)
                 with self._lock:
                     self._CoG = cog
             else:
-                log_debug(self, f"bpmCallback(): CoG is the same {cog}")
+                log_debug(self, "bpmCallback(): CoG is the same %s", cog)
         if xprofile is not None:
             xp = [float(p) for p in xprofile]
             self.push_change_event("XProfile", xp)

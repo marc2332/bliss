@@ -3,7 +3,7 @@ from contextlib import closing
 import telnetlib
 import functools
 from bliss import global_map
-from bliss.common.logtools import log_debug, log_error
+from bliss.common.logtools import log_debug, log_debug_data, log_error
 
 """
 # APC Rack Power Distribution Unit
@@ -75,7 +75,7 @@ class APC:
             setattr(self, f"{channel}on", method)
             method = functools.partial(self.turn_off, f"{channel}")
             setattr(self, f"{channel}off", method)
-        log_debug(self, f"Initialized")
+        log_debug(self, "Initialized")
 
     def __find_channel(self, n):
         if isinstance(n, str):
@@ -109,13 +109,13 @@ class APC:
         self.__send_command(f"olOff {n}")
 
     def connect(self):
-        log_debug(self, f"Trying to connect to {self.host}:{self.port}")
+        log_debug(self, "Trying to connect to %s:%s", self.host, self.port)
         _cnx = telnetlib.Telnet(host=self.host, port=self.port, timeout=1)
-        log_debug(self, f"Connection successfull")
+        log_debug(self, "Connection successfull")
 
         if self.__debug:
             _cnx.set_debuglevel(1)
-        log_debug(self, f"Trying to autenticate")
+        log_debug(self, "Trying to autenticate")
         response = _cnx.read_until(b"User Name :", timeout=self.timeout)
         if not response.endswith(b"User Name :"):
             raise RuntimeError("Could not connect")
@@ -132,16 +132,19 @@ class APC:
         if not response.endswith(f"{self.name}>".encode()):
             raise RuntimeError("Error entering password")
 
-        log_debug(self, f"Autentication successfull")
+        log_debug(self, "Autentication successfull")
         return _cnx
 
     def __send_command(self, command):
         with closing(self.connect()) as _cnx:
             _cnx.read_very_lazy()
+            log_debug_data(self, "Request", command)
             _cnx.write(command.encode("ascii") + b"\r\n")
 
             index, match, data = _cnx.expect([response_regex], timeout=self.timeout)
             if match and match["code"] == b"E000":
-                log_debug(self, f"Response {match['code']} {match['message']}")
+                log_debug_data(
+                    self, "Response: code:=%s", match["code"], match["message"]
+                )
             else:
-                log_error(self, f"Unexpected answer {data}")
+                log_error(self, "Unexpected answer %s", data)

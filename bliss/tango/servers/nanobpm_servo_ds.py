@@ -268,9 +268,10 @@ class NanoBpmServo(Device):
                 if abs(incx) > self._minimumXMove and abs(incx) < self._maximumXMove:
                     log_debug(
                         self,
-                        "Need to move X by {0} minX {1}, maxX {2}".format(
-                            incx, self._minimumXMove, self._maximumXMove
-                        ),
+                        "Need to move X by %s minX %s, maxX %s",
+                        incx,
+                        self._minimumXMove,
+                        self._maximumXMove,
                     )
                     if self._xcontrolProxy is not None:
                         xpos = self._xcontrolProxy.read_attribute("position").value
@@ -280,17 +281,18 @@ class NanoBpmServo(Device):
                 if abs(incy) > self._minimumYMove and abs(incy) < self._maximumYMove:
                     log_debug(
                         self,
-                        "Need to move Y by {0} minY {1}, maxY {2}".format(
-                            incy, self._minimumYMove, self._maximumYMove
-                        ),
+                        "Need to move Y by %s minY %s, maxY %s",
+                        incy,
+                        self._minimumYMove,
+                        self._maximumYMove,
                     )
                     if self._ycontrolProxy is not None:
                         ypos = self._ycontrolProxy.read_attribute("position").value
                         log_debug(
                             self,
-                            "current position is {0} should move to {1}".format(
-                                ypos, ypos + incy
-                            ),
+                            "current position is %s should move to %s",
+                            ypos,
+                            ypos + incy,
                         )
                         self._ycontrolProxy.write_attribute("position", ypos + incy)
 
@@ -315,9 +317,7 @@ class NanoBpmServo(Device):
             if ev.attr_value is not None and ev.attr_value.name == "centre":
                 self._xcoord = ev.attr_value.value[0]
                 self._ycoord = ev.attr_value.value[1]
-                log_debug(
-                    self, "Bpm centre [{0},{1}]".format(self._xcoord, self._ycoord)
-                )
+                log_debug(self, "Bpm centre [%s,%s]", self._xcoord, self._ycoord)
                 self._event.set()
 
 

@@ -124,7 +124,7 @@ class TangoCounterController(SamplingCounterController):
                 attributes_to_read.append(cnt.attribute)
 
         log_debug(
-            self, f"TAAC--{self._tango_uri}--attributes_to_read={attributes_to_read}"
+            self, "TAAC--%s--attributes_to_read=%s", self._tango_uri, attributes_to_read
         )
 
         dev_attrs = self._proxy.read_attributes(attributes_to_read)
@@ -148,7 +148,7 @@ class TangoCounterController(SamplingCounterController):
             else:
                 counters_values.append(attributes_values[cnt.attribute][cnt.index])
 
-        log_debug(self, f"TAAC--{self._tango_uri}--values: {counters_values}")
+        log_debug(self, "TAAC--%s--values: %s", self._tango_uri, counters_values)
         return counters_values
 
 
@@ -173,7 +173,7 @@ class tango_attr_as_counter(SamplingCounter):
         )
 
         log_debug(
-            controller, f"             to read '{self.attribute}' tango attribute."
+            controller, "             to read '%s' tango attribute.", self.attribute
         )
 
         _tango_attr_config = get_attr_config(controller._proxy, self.attribute)
@@ -191,13 +191,14 @@ class tango_attr_as_counter(SamplingCounter):
         else:
             unit = self.yml_unit
         log_debug(
-            controller, f"             * unit read from YAML config: '{self.yml_unit}'"
+            controller, "             * unit read from YAML config: '%s'", self.yml_unit
         )
         log_debug(
             controller,
-            f"             * unit read from Tango config: '{self.tango_unit}'",
+            "             * unit read from Tango config: '%s'",
+            self.tango_unit,
         )
-        log_debug(controller, f"             * unit used: '{unit}'")
+        log_debug(controller, "             * unit used: '%s'", unit)
 
         # DISPLAY_UNIT
         # Use 'display_unit' as conversion factor if present in Tango configuration.
@@ -272,7 +273,7 @@ class tango_attr_as_counter(SamplingCounter):
         * conversion_factor
         * formatting
         """
-        log_debug(self, f"raw_value={raw_value}")
+        log_debug(self, "raw_value=%s", raw_value)
         attr_val = raw_value * self.conversion_factor
         formated_value = float(
             self.format_string % attr_val if self.format_string else attr_val

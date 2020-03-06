@@ -51,6 +51,14 @@ def SoftAxis(
     if export_to_session:
         current_session = get_current_session()
         if current_session is not None:
+            if (
+                name in current_session.config.names_list
+                or name in current_session.env_dict.keys()
+            ):
+                raise ValueError(
+                    f"Cannot export object to session with the name '{name}', name is already taken! "
+                )
+
             current_session.env_dict[name] = axis
 
     return axis

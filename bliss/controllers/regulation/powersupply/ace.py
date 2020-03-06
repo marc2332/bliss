@@ -15,31 +15,31 @@
         url: ser2net://lid00limace:28000/dev/ttyS0
 
     axes:
-        - name: ace_axe_low
+        - axis_name: ace_axis_low
           tag: low
         
-        - name: ace_axe_win
+        - axis_name: ace_axis_win
           tag: win
 
-        - name: ace_axe_hhv
+        - axis_name: ace_axis_hhv
           tag: hhv
     
     counters:
-        - name: ace_cnt_counts
+        - counter_name: ace_cnt_counts
           tag: counts
           mode: LAST
         
-        - name: ace_cnt_htemp
+        - counter_name: ace_cnt_htemp
           tag: htemp
-          unit: \xB0C
+          unit: °C
           mode: SINGLE
 
-        - name: ace_cnt_hvcur
+        - counter_name: ace_cnt_hvcur
           tag: hvcur
           unit: uA
           mode: SINGLE
 
-        - name: ace_cnt_hvmon
+        - counter_name: ace_cnt_hvmon
           tag: hvmon
           unit: V
           mode: SINGLE
@@ -64,6 +64,8 @@ from bliss.scanning.acquisition.counter import SamplingCounterAcquisitionSlave
 from bliss.common.utils import autocomplete_property
 from bliss.common.protocols import counter_namespace
 
+from bliss.common.session import get_current_session
+
 
 class AceAcquisitionSlave(SamplingCounterAcquisitionSlave):
     def prepare_device(self):
@@ -73,11 +75,11 @@ class AceAcquisitionSlave(SamplingCounterAcquisitionSlave):
         pass
 
     def stop_device(self):
-        self.device.ace.stop_counting()
+        self.device.ace.counting_stop()
 
     def trigger(self):
         self._trig_time = time.time()
-        self.device.ace.start_counting(self.count_time)
+        self.device.ace.counting_start(self.count_time)
         self._event.set()
 
 
@@ -93,11 +95,11 @@ class AceCC(SamplingCounterController):
         values = []
         for cnt in counters:
             if cnt.tag == "hvcur":
-                values.append(self.ace.hvcur)
+                values.append(self.ace.head_hvcur)
             elif cnt.tag == "hvmon":
-                values.append(self.ace.hvmon)
+                values.append(self.ace.head_hvmon)
             elif cnt.tag == "htemp":
-                values.append(self.ace.htemp)
+                values.append(self.ace.head_temp)
             elif cnt.tag == "counts":
                 values.append(self.ace.counts)
         return values
@@ -117,17 +119,17 @@ class Ace:
     def __init__(self, name, config):
         self._name = name
         self._config = config
-        self.comm = get_comm(config)
-        self.timeout = config.get("timeout", 3.0)
+        self._comm = get_comm(config)
+        self._timeout = config.get("timeout", 3.0)
 
-        global_map.register(self, children_list=[self.comm])
+        global_map.register(self, children_list=[self._comm])
 
-        self.comm.open()
+        self._comm.open()
 
         self._state_labels = {"D": "ready", "R": "running", "W": "wait", "A": "abort"}
 
         # --- obtain the available parameters for the given model ----
-        self.model2params = {
+        self._model2params = {
             # model #param          #cmd             #range
             0: {
                 "sca_hhv": ["HVOLT", [0, 600]],
@@ -145,7 +147,7 @@ class Ace:
         }
 
         self._mid = 0  # just one model for now
-        self._params = self.model2params[self._mid]
+        self._params = self._model2params[self._mid]
 
         # --- pseudo axes ------
         self._axes_tolerance = {"low": None, "win": None, "hhv": None}
@@ -251,25 +253,25 @@ class Ace:
         if command.startswith("?"):
 
             if command.startswith("?INFO"):
-                asw = self.comm.write_readlines(
-                    command.encode(), 20, eol="\r\n", timeout=self.timeout
+                asw = self._comm.write_readlines(
+                    command.encode(), 20, eol="\r\n", timeout=self._timeout
                 )
                 asw = "\n".join([line.decode() for line in asw])
             else:
-                asw = self.comm.write_readline(
-                    command.encode(), eol="\r\n", timeout=self.timeout
+                asw = self._comm.write_readline(
+                    command.encode(), eol="\r\n", timeout=self._timeout
                 ).decode()
 
             if "ERROR" in asw:
-                error_msg = f"Timeout with {self.comm} and command: {command}"
+                error_msg = f"Timeout with {self._comm} and command: {command}"
                 print(error_msg)
                 gevent.sleep(0.5)
-                self.comm.flush()
+                self._comm.flush()
 
             return asw
 
         else:
-            self.comm.write(command.encode(), timeout=self.timeout)
+            self._comm.write(command.encode(), timeout=self._timeout)
 
     def _clear(self):
         """ Reset the unit.
@@ -388,18 +390,6 @@ class Ace:
         return self._name
 
     @property
-    def state(self):
-        """ Returns the state of the head.
-            Answer: {OK | NOHEAD | OVCURR | OVTEMP | HVERR}
-            Returns {NOHEAD} when the power cable of the head is disconnected. 
-            Returns {OVCURR | OVTEMP | HVERR} when one of theses parameters is out of range.
-            Ranges are set by HLIM command. 
-        """
-
-        log_debug(self, "Ace:state")
-        return self.send_cmd("?HSTATE")
-
-    @property
     def sca_mode(self):
         """ Get the SCA mode: INT|WIN """
         log_debug(self, "Ace:sca_mode")
@@ -498,6 +488,24 @@ class Ace:
         value = self._CountingSource(value).name
         self._set_value("counting_source", value)
 
+    def counting_start(self, count_time):
+
+        if self.counter_is_ready():
+
+            us_time = int(1e6 * count_time)
+
+            if us_time < 1 or us_time > 2 ** 31:
+                raise ValueError(
+                    f"Ace counting time must be in range [0.000001, 2147.483648] second "
+                )
+
+            self.send_cmd("TCT %d" % us_time)
+        else:
+            raise RuntimeError(f"Ace counter not ready!")
+
+    def counting_stop(self):
+        self.send_cmd("STCT")
+
     @property
     def counter_status(self):
         log_debug(self, "Ace:counter_status")
@@ -511,50 +519,56 @@ class Ace:
         ntotal = asw[2]
         llasw.append("Total number of count: %s" % ntotal)
         if len(lasw) > 3:
-            time = lasw[3]
-            llasw.append("Integration time: %s" % time)
+            itime = lasw[3]
+            llasw.append("Integration time: %s" % itime)
             counts = lasw[4]
             llasw.append("Actual value of the count running: %s" % counts)
         return ShellStr("\n".join(llasw))
 
-    def start_counting(self, count_time):
-        us_time = int(1e6 * count_time)
-
-        if us_time < 1 or us_time > 2 ** 31:
-            raise ValueError(
-                f"Ace counting time must be in range [0.000001, 2147.483648] second "
-            )
-
-        self.send_cmd("TCT %d" % us_time)
-
-    def stop_counting(self):
-        self.send_cmd("STCT")
+    def counter_is_ready(self):
+        asw = self._get_value("counter_status")
+        lasw = asw.split()
+        if lasw[0] != "D":
+            return False
+        else:
+            return True
 
     @property
     def counts(self):
+        log_debug(self, "Ace:counts")
         return float(self.send_cmd("?CT DATA").split()[4])
 
     @property
-    def hvmon(self):
+    def head_state(self):
+        """ Returns the state of the head.
+            Answer: {OK | NOHEAD | OVCURR | OVTEMP | HVERR}
+            Returns {NOHEAD} when the power cable of the head is disconnected. 
+            Returns {OVCURR | OVTEMP | HVERR} when one of theses parameters is out of range.
+            Ranges are set by HLIM command. 
+        """
+
+        log_debug(self, "Ace:state")
+        return self.send_cmd("?HSTATE")
+
+    @property
+    def head_hvmon(self):
+        log_debug(self, "Ace:hvmon")
         return float(self._get_value("hvmon"))
 
     @property
-    def hvcur(self):
+    def head_hvcur(self):
+        log_debug(self, "Ace:hvcur")
         return float(self._get_value("hvcur"))
 
     @property
-    def htemp(self):
+    def head_temp(self):
+        log_debug(self, "Ace:htemp")
         return float(self._get_value("htemp"))
 
     @property
     def alarm_mode(self):
         log_debug(self, "Ace:alarm_mode")
         return self._get_value("alarm_mode")
-
-    @property
-    def head_bias_voltage(self):
-        log_debug(self, "Ace:head_bias_voltage")
-        return float(self._get_value("hvmon"))
 
     # ---- SOFT AXIS METHODS TO MAKE THE ACE SCANABLE -----------
 
@@ -564,26 +578,23 @@ class Ace:
 
         for conf in axes_conf:
 
-            axis_name = conf["name"].strip()
+            name = conf["axis_name"].strip()
             chan = conf["tag"].strip()
-            name = axis_name if axis_name is not "" else self.name + "_axis_%s" % chan
 
             self._soft_axes[chan] = SoftAxis(
                 name,
                 self,
-                position=partial(
-                    self.axis_position, channel=chan
-                ),  # "axis_%s_position"%chan,
-                move=partial(self.axis_move, channel=chan),  # "axis_%s_move"%chan,
-                stop=partial(self.axis_stop, channel=chan),  # "axis_%s_stop"%chan,
-                state=partial(self.axis_state, channel=chan),  # "axis_%s_state"%chan,
+                position=partial(self._axis_position, channel=chan),
+                move=partial(self._axis_move, channel=chan),
+                stop=partial(self._axis_stop, channel=chan),
+                state=partial(self._axis_state, channel=chan),
                 low_limit=float(self._params["sca_%s" % chan][1][0]),
                 high_limit=float(self._params["sca_%s" % chan][1][1]),
                 tolerance=self._axes_tolerance[chan],
                 unit="V",
             )
 
-    def axis_position(self, channel=None):
+    def _axis_position(self, channel=None):
         """ Return the channel value as the current position of the associated soft axis"""
         if channel == "low":
             return self.sca_low
@@ -594,7 +605,7 @@ class Ace:
         else:
             raise ValueError(f"Ace.axis_position: unknown channel {channel}")
 
-    def axis_move(self, pos, channel=None):
+    def _axis_move(self, pos, channel=None):
         """ Set the channel to a new value as the new position of the associated soft axis"""
 
         chan = "sca_%s" % channel
@@ -606,14 +617,14 @@ class Ace:
 
         self._axes_state[channel] = AxisState("MOVING")
         self._set_value(chan, pos)
-        gevent.sleep(0.1)
+        # gevent.sleep(0.1)
         self._axes_state[channel] = AxisState("READY")
 
-    def axis_stop(self, channel=None):
+    def _axis_stop(self, channel=None):
         """ Stop the motion of the associated soft axis """
         pass
 
-    def axis_state(self, channel=None):
+    def _axis_state(self, channel=None):
         """ Return the current state of the associated soft axis.
         """
 
@@ -630,7 +641,7 @@ class Ace:
 
     # ---- COUNTERS METHODS ------------------------
 
-    def _create_counters(self, config):
+    def _create_counters(self, config, export_to_session=True):
 
         cnts_conf = config.get("counters")
         if cnts_conf is None:
@@ -640,11 +651,23 @@ class Ace:
 
         for conf in cnts_conf:
 
-            cnt_name = conf["name"].strip()
+            name = conf["counter_name"].strip()
             chan = conf["tag"].strip()
             unit = conf.get("unit")
             mode = conf.get("mode", "SINGLE")
-            name = cnt_name if cnt_name is not "" else self.name + "_cnt_%s" % chan
 
             cnt = self._cc.create_counter(SamplingCounter, name, unit=unit, mode=mode)
             cnt.tag = chan
+
+            if export_to_session:
+                current_session = get_current_session()
+                if current_session is not None:
+                    if (
+                        name in current_session.config.names_list
+                        or name in current_session.env_dict.keys()
+                    ):
+                        raise ValueError(
+                            f"Cannot export object to session with the name '{name}', name is already taken! "
+                        )
+
+                    current_session.env_dict[name] = cnt

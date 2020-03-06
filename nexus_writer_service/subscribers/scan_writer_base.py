@@ -196,6 +196,7 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
         self._devices = {}  # str -> dict(subscan.name:dict)
         self._nxroot = {}  # for recursive calling
         self._nxentry = None  # for recursive calling
+        self._first_event = True
 
     def _listen_event_loop(self, **kwargs):
         """
@@ -217,6 +218,7 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
         """
         Executed at the start of the event loop
         """
+        self._first_event = True
         super()._event_loop_initialize(**kwargs)
         self.logger.info(
             "Start writing to {} with options ({}) {}".format(
@@ -1076,6 +1078,11 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
         """
         Process event belonging to this scan
         """
+        if self._first_event:
+            # The NEW_NODE event for the scan node is no longer
+            # emitted on the scan node itself so fake it here
+            self._event_new_node(self.node)
+            self._first_event = False
         if event_type == event_type.NEW_NODE:
             self._event_new_node(node)
         elif event_type == event_type.NEW_DATA:

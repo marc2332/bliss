@@ -7,7 +7,7 @@
 
 """
 -   class: Ace
-    module: regulation.powersupply.ace
+    module: sca.ace
     plugin: bliss
     name: ace
     timeout: 3

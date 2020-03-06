@@ -7,7 +7,7 @@
 
 """
 -   class: Cyberstar
-    module: regulation.powersupply.cyberstar
+    module: sca.cyberstar
     plugin: bliss
     model: X20005CH
     timeout: 3

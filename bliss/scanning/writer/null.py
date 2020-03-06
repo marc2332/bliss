@@ -35,9 +35,6 @@ class Writer(FileWriter):
     def new_master(self, *args):
         return
 
-    def get_scan_entries(self):
-        return []
-
     @property
     def filename(self):
         return ""

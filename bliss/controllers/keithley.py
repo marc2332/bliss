@@ -226,8 +226,6 @@ class BaseSensor(SamplingCounter, BeaconObject):
         return self.comm[cmd]
 
     def _initialize_with_setting(self):
-        if self._is_initialized:
-            return
         self.__controller._initialize_with_setting()
         super()._initialize_with_setting()
 
@@ -311,12 +309,14 @@ class BaseMultimeter(BeaconObject):
         return self.__name
 
     def _initialize_with_setting(self):
-        if self._is_initialized:
-            return
+        is_initialized = self._is_initialized
+        if not is_initialized:
+            self._keithley_comm("*RST", "*OPC?")
 
-        self._keithley_comm("*RST", "*OPC?")
         super()._initialize_with_setting()
-        self._keithley_comm("*OPC?")
+
+        if not is_initialized:
+            self._keithley_comm("*OPC?")
 
     @BeaconObject.property(default=True)
     def display_enable(self):
@@ -355,14 +355,12 @@ class BaseMultimeter(BeaconObject):
 
 class K6485(BaseMultimeter):
     def _initialize_with_setting(self):
-        if self._is_initialized:
-            return
-
-        self._keithley_comm["FORM:ELEM"] = [
-            "READ"
-        ]  # just get the current when you read (no timestamp)
-        self._keithley_comm["CALC3:FORM"] = "MEAN"  # buffer statistics is mean
-        self._keithley_comm["TRAC:FEED"] = "SENS"  # source of reading is sensor
+        if not self._is_initialized:
+            self._keithley_comm["FORM:ELEM"] = [
+                "READ"
+            ]  # just get the current when you read (no timestamp)
+            self._keithley_comm["CALC3:FORM"] = "MEAN"  # buffer statistics is mean
+            self._keithley_comm["TRAC:FEED"] = "SENS"  # source of reading is sensor
         super()._initialize_with_setting()
 
     class Sensor(BaseMultimeter.Sensor, SensorZeroCheckMixin):
@@ -381,12 +379,10 @@ class K6485(BaseMultimeter):
 
 class K6482(BaseMultimeter):
     def _initialize_with_setting(self):
-        if self._is_initialized:
-            return
-
-        # should it not be FORM:ELEM instead of FORM:ELEM:TRAC ?
-        self._keithley_comm["FORM:ELEM:TRAC"] = ["CURR1", "CURR2"]
-        self._keithley_comm["CALC8:FORM"] = "MEAN"  # buffer statistics is mean
+        if not self._is_initialized:
+            # should it not be FORM:ELEM instead of FORM:ELEM:TRAC ?
+            self._keithley_comm["FORM:ELEM:TRAC"] = ["CURR1", "CURR2"]
+            self._keithley_comm["CALC8:FORM"] = "MEAN"  # buffer statistics is mean
         super()._initialize_with_setting()
 
     class Sensor(BaseMultimeter.Sensor):
@@ -400,14 +396,12 @@ class K6482(BaseMultimeter):
 
 class K6514(BaseMultimeter):
     def _initialize_with_setting(self):
-        if self._is_initialized:
-            return
-
-        self._keithley_comm["FORM:ELEM"] = [
-            "READ"
-        ]  # just get the current when you read (no timestamp)
-        self._keithley_comm["CALC3:FORM"] = "MEAN"  # buffer statistics is mean
-        self._keithley_comm["TRAC:FEED"] = "SENS"  # source of reading is sensor
+        if not self._is_initialized:
+            self._keithley_comm["FORM:ELEM"] = [
+                "READ"
+            ]  # just get the current when you read (no timestamp)
+            self._keithley_comm["CALC3:FORM"] = "MEAN"  # buffer statistics is mean
+            self._keithley_comm["TRAC:FEED"] = "SENS"  # source of reading is sensor
         super()._initialize_with_setting()
 
     class Sensor(BaseSensor, SensorZeroCheckMixin):
@@ -499,13 +493,11 @@ class AmmeterDDC(BeaconObject):
             return 0
 
         def _initialize_with_setting(self):
-            if self._is_initialized:
-                return
-
-            self.interface.write(b"F1X\r\n")  # Amp function
-            self.interface.write(b"B0X\r\n")  # electrometer reading
-            self.interface.write(b"G1X\r\n")  # Reading without prefix
-            self.interface.write(b"T4X\r\n")
+            if not self._is_initialized:
+                self.interface.write(b"F1X\r\n")  # Amp function
+                self.interface.write(b"B0X\r\n")  # electrometer reading
+                self.interface.write(b"G1X\r\n")  # Reading without prefix
+                self.interface.write(b"T4X\r\n")
             super()._initialize_with_setting()
 
 

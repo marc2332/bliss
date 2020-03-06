@@ -68,8 +68,10 @@ Client::
 
 """
 import psutil
+import sys
 
-MAX_BUFFER_SIZE = int(psutil.virtual_memory().total * 0.8)
+MAX_MEMORY = min(psutil.virtual_memory().total, sys.maxsize)
+MAX_BUFFER_SIZE = int(MAX_MEMORY * 0.8)
 
 import os
 import re

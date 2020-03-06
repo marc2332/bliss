@@ -120,9 +120,6 @@ class PI_E712(Controller):
         self.check_power_cut()
 
         log_debug(self, "axis = %r" % axis.name)
-        # log_debug(self, "axis.encoder = %r" % axis.encoder)
-        # if axis.encoder:
-        # log_debug(self, "axis = %r" % axis)
 
         # POSSIBLE DATA RECORDER TYPE
         axis.TARGET_POSITION_OF_AXIS = 1
@@ -154,6 +151,12 @@ class PI_E712(Controller):
             # spawn if to avoid recursion
             gevent.spawn(self.activate_closed_loop, axis, servo_mode)
 
+    def initialize_encoder(self, encoder):
+        pass
+
+    def read_encoder(self, encoder):
+        return self._get_pos(encoder.config.get("channel", int))
+
     def read_position(self, axis):
         """
         Returns position's setpoint or measured position.
@@ -171,7 +174,7 @@ class PI_E712(Controller):
             _pos = self._get_target_pos(axis)
             log_debug(self, "position read : %g" % _pos)
         else:  # if moving return real position
-            _pos = self._get_pos(axis)
+            _pos = self._get_pos(axis.channel)
 
         return _pos
 
@@ -743,7 +746,7 @@ class PI_E712(Controller):
         else:
             return reply[args_pos + 1 :].decode()
 
-    def _get_pos(self, axis):
+    def _get_pos(self, channel):
         """
         Args:
             - <axis> :
@@ -753,7 +756,7 @@ class PI_E712(Controller):
         Raises:
             ?
         """
-        _pos = float(self.command("POS? %s" % axis.channel))
+        _pos = float(self.command("POS? %d" % channel))
 
         return _pos
 

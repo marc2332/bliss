@@ -1,11 +1,11 @@
 # Cyberstar configuration
 
-Cyberstar is a family of Single Channel Analyser powersupply for Ion-chamber SCA.
+Cyberstar is a family of Single Channel Analyzer power supply for Ion-chamber SCA.
 This controller supports models X1000, PPU5CH, CS96MCD, X2000 and X20005CH.
 
 Control communication is only via serial-line RS232 and modules can be chained (so-called daisy-chain) on the same serial cable.
 
-The powersupplies provide an SCA output TTL, which is typically integrated via a counter/timer board like the P201 ESRF board.
+The power supplies provide an SCA output TTL, which is typically integrated via a counter/timer board like the P201 ESRF board.
 
 The BLISS controller provide a SoftAxis to scan the SCA voltage window.
 
@@ -16,7 +16,7 @@ The 5 channels models accept an additional configuration parameter to specify th
 
 ```yaml
 -   class: Cyberstar
-    module: regulation.powersupply.cyberstar
+    module: sca.cyberstar
     model: X20005CH
     timeout: 3
     serial:
@@ -44,7 +44,7 @@ The 5 channels models accept an additional configuration parameter to specify th
         axis_name: cylow5
 
 -   class: Cyberstar
-    module: regulation.powersupply.cyberstar
+    module: sca.cyberstar
     model: X2000
     timeout: 3
     serial:

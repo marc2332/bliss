@@ -794,17 +794,24 @@ def edit_mg(mg=None):
 
 
 # Data Policy
+# from bliss/scanning/scan_saving.py
 
 
 def newproposal(proposal_name=None):
+    """Change the proposal name used to determine the saving path.
+    """
     current_session.scan_saving.newproposal(proposal_name)
 
 
 def newsample(sample_name=None):
+    """Change the sample name used to determine the saving path.
+    """
     current_session.scan_saving.newsample(sample_name)
 
 
 def newdataset(dataset_name=None):
+    """Change the dataset name used to determine the saving path.
+    """
     current_session.scan_saving.newdataset(dataset_name)
 
 

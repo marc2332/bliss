@@ -5,8 +5,20 @@
 # Copyright (c) 2015-2020 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-from bliss.comm.gpib import Gpib
+
+"""
+Keithley 428 is a Programmable CurrentAmplifier which converts
+fast, small currents to a voltage, which can be easily digitized or
+displayed by an oscilloscope, waveform analyzer, or data acquisition
+system. It uses a sophisticated “feed-back current” circuit to achieve
+both fast risetimes and sub-picoamp noise.
+"""
+
 import math
+
+from bliss.comm.util import get_comm
+
+# from bliss.comm.gpib import Gpib
 
 
 def _simple_cmd(command_name, doco):
@@ -21,11 +33,6 @@ class keithley428(object):
         """Keithley428 controller (non-scpi).
         name -- the controller's name
         config_tree -- controller configuration,
-        in this dictionary we need to have:
-        gpib_url -- url of the gpib controller i.s:enet://gpib0.esrf.fr
-        gpib_pad -- primary address of the musst controller
-        gpib_timeout -- communication timeout, default is 1s
-        gpib_eos -- end of line termination
         """
 
         self.name = name
@@ -83,16 +90,23 @@ class keithley428(object):
     X10GainOn = _simple_cmd("W1X", "Enable X10 gain setting")
 
     def putget(self, msg):
-        """ Raw connection to the Keithley.
-        msg -- the message you want to send
+        """ Raw WRITE-READ connection to the Keithley.
+        * Add terminator
+        * convert in bytes
+        * <msg> (str): the message you want to send
+        * decode the answer
         """
         command = msg + self._txterm
         command = command.encode()
-        return self._cnx.write_readline(command, eol=self._rxterm).decode()
+        _ans = self._cnx.write_readline(command, eol=self._rxterm).decode()
+        return _ans
 
     def put(self, msg):
-        """ Raw connection to the Keithley.
-        msg -- the message you want to send
+        """ Raw WRITE connection to the Keithley.
+        * Add terminator
+        * convert in bytes
+        * <msg> (str): the message you want to send
+
         """
         with self._cnx._lock:
             command = msg + self._txterm
@@ -100,69 +114,85 @@ class keithley428(object):
             self._cnx.open()
             self._cnx._write(command)
 
+    def __info__(self):
+        info_str = "KEITHLEY K428\n"
+
+        info_str += "COMM:\n"
+        info_str += "    " + self._cnx.__info__() + "\n"
+        try:
+            info_str += f"gain: {self.gain}\n"
+            info_str += f"filter_rise_time: {self.filter_rise_time}\n"
+            info_str += f"voltage_bias: {self.voltage_bias}\n"
+            # info_str += f"current_suppress: {self.current_suppress}\n"
+            info_str += f"state: {self.state_str}\n"
+            info_str += f"overloaded: {self.overloaded}\n"
+            info_str += f"filter state: {self.filter_state}\n"
+            info_str += f"auto_filter_state: {self.auto_filter_state}\n"
+            info_str += f"zero_check: {self.zero_check}\n"
+        except Exception:
+            info_str += "\nCannot read info from device\n"
+
+        return info_str
+
     @property
-    def FilterRiseTime(self):
+    def filter_rise_time(self):
         """ Set/query Filter Rise Time """
         result = self.putget("U0X")
         pos = result.index("T") + 1
         result = int(result[pos : pos + 1])
         return (result, self._FilterRiseTimes[result])
 
-    @FilterRiseTime.setter
-    def FilterRiseTime(self, value):
+    @filter_rise_time.setter
+    def filter_rise_time(self, value):
         if value not in self._FilterRiseTimes:
-            raise ValueError(
-                "Filter rise time value {0} out of range (0-9)".format(value)
-            )
-        self.put("T{0}X".format(value))
+            raise ValueError(f"Filter rise time value {value} out of range (0-9)")
+        self.put(f"T{value}X")
 
     @property
-    def Gain(self):
+    def gain(self):
         """ Set/query Gain """
         result = self.putget("U0X")
         pos = result.index("R") + 1
         result = int(result[pos : pos + 2])
         return result, self._gainStringArray[result]
 
-    @Gain.setter
-    def Gain(self, value):
+    @gain.setter
+    def gain(self, value):
         if value not in self._gainStringArray:
-            raise ValueError("Gain value {0} out of range (0-10)".format(value))
-        self.put("R{0}X".format(value))
+            raise ValueError(f"Gain value {value} out of range (0-10)")
+        self.put(f"R{value}X")
 
     @property
-    def VoltageBias(self):
+    def voltage_bias(self):
         """ Set/query Voltage Bias """
         result = self.putget("U2X")
         pos = result.index("V") + 1
         result = result[pos:]
         return float(result)
 
-    @VoltageBias.setter
-    def VoltageBias(self, value):
+    @voltage_bias.setter
+    def voltage_bias(self, value):
         if value >= 5.0 or value <= -5.0:
-            raise ValueError("Value out of range (-5V to -5v)")
+            raise ValueError("Value out of range (-5V to 5v)")
         value = value * 10000 + 0.1
         value = int(value / 25.)
         value = value * 25.0 / 10000.0
-        self.put("V{0}X".format(value))
+        self.put(f"V{value}X")
 
     @property
-    def CurrentSuppress(self):
+    def current_suppress(self):
         """ Set/query Current suppress """
-        result = self.putget("")
+        result = self.putget("")  #  ???????????????????????
         pos = result.index("I") + 1
         result = result[pos:]
         return result
 
-    @CurrentSuppress.setter
-    def CurrentSuppress(self, amps):
+    @current_suppress.setter
+    def current_suppress(self, amps):
         absVal = math.fabs(amps)
         currentRangeMax = 0.005
         if absVal > currentRangeMax:
-            raise ValueError(
-                "Current suppress value {0} out of range (=/-0.005A)".format(amps)
-            )
+            raise ValueError(f"Current suppress value {amps} out of range (=/-0.005A)")
         currentRange = 0
         for x in range(7, 0, -1):
             currentRangeMax /= 10.0
@@ -170,28 +200,69 @@ class keithley428(object):
                 currentRange = x
                 break
         if currentRange == 0:
-            raise ValueError(
-                "Current suppress value {0} out of range (too small)".format(amps)
-            )
-        self.put("S{0},{1}X".format(amps, currentRange))
+            raise ValueError(f"Current suppress value {amps} out of range (too small)")
+        self.put(f"S{amps},{currentRange}X")
         errorState = self.putget("U1X")
         if errorState != "42800000000000":
-            raise ValueError("Failed to set current suppress value {0}".format(amps))
+            raise ValueError(f"Failed to set current suppress value {amps}")
 
     @property
-    def State(self):
+    def state(self):
         """ Query keithley status word """
         result = self.putget("U0X")
         return result
 
     @property
-    def Overloaded(self):
+    def state_str(self):
+        ans = self.state
+        state_str = ""
+
+        if ans[0:3] != "428":
+            state_str += "Not a Keithley 428"
+            return state_str
+        else:
+            state_str += "K428"
+
+        if ans[3] == "A":
+            if ans[4] == "0":
+                state_str += " - Display:Normal"
+            if ans[4] == "1":
+                state_str += " - Display:Dim"
+            if ans[4] == "2":
+                state_str += " - Display:Off"
+
+        if ans[5] == "B":
+            if ans[6] == "0":
+                state_str += " - VBias:off"
+            if ans[6] == "1":
+                state_str += " - VBias:on"
+
+        if ans[7] == "C":
+            if ans[8] == "0":
+                state_str += " - Zcheck:off"
+            if ans[8] == "1":
+                state_str += " - Zcheck:on"
+            if ans[8] == "2":
+                state_str += " - Zcheck:zero-correct"
+
+        if ans[24] == "R":
+            state_str += " - gain:"
+            state_str += f"1e{ans[25:27]}"
+
+        if ans[30] == "T":
+            frt = self._FilterRiseTimes[int(ans[31:32])]
+            state_str += f" - rise time:{frt}"
+
+        return state_str
+
+    @property
+    def overloaded(self):
         """ Query Overload """
         result = self.putget("U1X")
         return bool(int(result[12:13]))
 
     @property
-    def FilterState(self):
+    def filter_state(self):
         """ Query Filter state """
         result = self.putget("U0X")
         pos = result.index("P") + 1
@@ -199,7 +270,7 @@ class keithley428(object):
         return "Off" if result == 0 else "On"
 
     @property
-    def AutoFilterState(self):
+    def auto_filter_state(self):
         """ Query Auto filter state """
         result = self.putget("U0X")
         pos = result.index("Z") + 1
@@ -207,7 +278,7 @@ class keithley428(object):
         return "Off" if result == 0 else "On"
 
     @property
-    def ZeroCheck(self):
+    def zero_check(self):
         """ Query ZeroCheck state """
         result = self.putget("U0X")
         pos = result.index("C") + 1

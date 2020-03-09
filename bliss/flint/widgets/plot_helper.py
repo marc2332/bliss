@@ -769,6 +769,29 @@ class TooltipItemManager:
         else:
             assert False
 
+    def __closest(self, curve, x, y):
+        """Returns the closest point from a curve item"""
+        xx = curve.getXData()
+        yy = curve.getYData()
+        if xx is None or len(xx) == 0:
+            return None, None
+        xdata, ydata = self.__plot.pixelToData(x, y)
+        xcoef, ycoef = self.__plot.pixelToData(1, 1)
+        if xcoef == 0:
+            xcoef = 1
+        if ycoef == 0:
+            ycoef = 1
+        xcoef, ycoef = 1 / xcoef, 1 / ycoef
+        dist = ((xx - xdata) * xcoef) ** 2 + ((yy - ydata) * ycoef) ** 2
+        index = numpy.nanargmin(dist)
+        xdata, ydata = xx[index], yy[index]
+        pos = self.__plot.dataToPixel(xdata, ydata)
+        if pos is None:
+            return None, None
+        xdata, ydata = pos
+        dist = numpy.sqrt((x - xdata) ** 2 + (y - ydata) ** 2)
+        return index, dist
+
     def __picking(self, x, y):
         # FIXME: Hack to avoid to pass it by argument, could be done in better way
         self.__mouse = x, y
@@ -781,6 +804,15 @@ class TooltipItemManager:
             results = [r for r in self.__plot.pickItems(x, y, condition)]
         else:
             results = []
+
+        if len(results) == 0 and x is not None:
+            # Pick on the active curve with a highter tolerence
+            curve = self.__plot.getActiveCurve()
+            if curve is not None:
+                index, dist = self.__closest(curve, x, y)
+                if index is not None and dist < 80:
+                    yield curve, index
+
         for result in results:
             item = result.getItem()
             indices = result.getIndices(copy=False)

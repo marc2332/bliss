@@ -163,6 +163,9 @@ def iter_axes_position(*axes, **kwargs):
         offset = safe_get(axis, "offset", on_error=float("nan"))
         unit = axis.config.get("unit", default=None)
         axis_name = global_map.alias_or_name(axis)
+        axis_state = safe_get(axis, "state", on_error=err)
+        if "DISABLED" in axis_state:
+            axis_name += " *DISABLED*"
         dial_high_limit = axis.user2dial(user_high_limit)
         dial_low_limit = axis.user2dial(user_low_limit)
         user_position = get(axis, "position")

@@ -333,10 +333,16 @@ class MapWithAliases(Map):
 
     def get_axes_positions_iter(self, on_error=None):
         def request(axis):
+            state = safe_get(axis, "state", on_error)
+            try:
+                disabled_state = "DISABLED" in state
+            except TypeError:
+                disabled_state = False
+
             return (
                 self.alias_or_name(axis),
-                safe_get(axis, "position", on_error),
-                safe_get(axis, "dial", on_error),
+                safe_get(axis, "position", on_error) if not disabled_state else "*DIS*",
+                safe_get(axis, "dial", on_error) if not disabled_state else "*DIS*",
                 axis.config.get("unit", default=None),
             )
 

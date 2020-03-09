@@ -552,35 +552,6 @@ def _get_masters_and_channels(acq_chain):
     return chain_dict
 
 
-def display_motor(func):
-    @wraps(func)
-    def f(self, *args, **kwargs):
-        axis = func(self, *args, **kwargs)
-        scan_display_params = ScanDisplay()
-        if is_bliss_shell() and scan_display_params.motor_position:
-            try:
-                channel_name = self.get_channel_name(axis)
-            except ValueError:
-                print(
-                    "The object %s have no obvious channel. Plot marker skiped."
-                    % (axis,)
-                )
-                channel_name = None
-            if channel_name is not None:
-                plot = self.get_plot(axis, plot_type="curve", as_axes=True)
-                if plot is None:
-                    print(
-                        "There is no plot using %s as X-axes. Plot marker skiped."
-                        % (channel_name,)
-                    )
-                else:
-                    plot.update_motor_marker(
-                        channel_name, axis.position, text=axis.name
-                    )
-
-    return f
-
-
 class ScanPreset:
     def prepare(self, scan):
         """
@@ -938,34 +909,53 @@ class Scan:
             x, y, _ = self._get_x_y_data(counter, axis)
         return cen(x, y)
 
-    @display_motor
+    def display_motor(self, axis, position=None):
+        scan_display_params = ScanDisplay()
+        if is_bliss_shell() and scan_display_params.motor_position:
+            try:
+                channel_name = self.get_channel_name(axis)
+            except ValueError:
+                print(
+                    "The object %s have no obvious channel. Plot marker skiped."
+                    % (axis,)
+                )
+                channel_name = None
+            if channel_name is not None:
+                plot = self.get_plot(axis, plot_type="curve", as_axes=True)
+                if plot is None:
+                    print(
+                        "There is no plot using %s as X-axes. Plot marker skiped."
+                        % (channel_name,)
+                    )
+                else:
+                    if position is None:
+                        position = axis.position
+                    plot.update_motor_marker(channel_name, position, text=axis.name)
+
     def goto_peak(self, counter, axis=None):
         x, y, axis_name = self._get_x_y_data(counter, axis)
         axis = current_session.env_dict[axis_name]
         pk = self.peak((x, y))
+        self.display_motor(axis, pk)
         with error_cleanup(axis, restore_list=(cleanup_axis.POS,)):
             axis.move(pk)
-        return axis
 
-    @display_motor
     def goto_com(self, counter, axis=None):
         x, y, axis_name = self._get_x_y_data(counter, axis)
         axis = current_session.env_dict[axis_name]
         com_value = self.com((x, y))
+        self.display_motor(axis, com_value)
         with error_cleanup(axis, restore_list=(cleanup_axis.POS,)):
             axis.move(com_value)
-        return axis
 
-    @display_motor
     def goto_cen(self, counter, axis=None):
         x, y, axis_name = self._get_x_y_data(counter, axis)
         axis = current_session.env_dict[axis_name]
         cfwhm, _ = self.cen((x, y))
+        self.display_motor(axis, cfwhm)
         with error_cleanup(axis, restore_list=(cleanup_axis.POS,)):
             axis.move(cfwhm)
-        return axis
 
-    @display_motor
     def where(self, axis=None):
         if axis is None:
             try:
@@ -984,7 +974,7 @@ class Scan:
                 axis = current_session.env_dict[axis_name]
             else:
                 RuntimeError("Can't find axis in this scan")
-        return axis
+        self.display_motor(axis)
 
     def wait_state(self, state):
         while self.__state < state:

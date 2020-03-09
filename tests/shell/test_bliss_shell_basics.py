@@ -230,6 +230,19 @@ def bliss_repl(locals_dict):
         get_event_loop().close()
 
 
+def test_protected_against_trailing_whitespaces(capfd):
+    """ Check that the number of spaces (N) after a command doesn't  make the command to be repeated N-1 times """
+
+    def f():
+        print("Om Mani Padme Hum")
+
+    result, cli, br = _feed_cli_with_input(f"f() {' '*5}\r", local_locals={"f": f})
+    br._execute(result)
+    captured = capfd.readouterr()
+    out = _repl_out_to_string(captured.out)
+    assert out == "Om Mani Padme Hum\n"
+
+
 def test_info_dunder(capfd):
     class A(object):
         def __repr__(self):

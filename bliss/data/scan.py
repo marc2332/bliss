@@ -96,13 +96,15 @@ def watch_session_scans(
         if event_type == event_type.NEW_NODE:
             node_type = node.type
             db_name = node.db_name
-            if node_type in ["scan", "scan_group"]:
+            if node_type == "scan":
                 # New scan was created
                 scan_dictionnary = running_scans.setdefault(db_name, dict())
                 if not scan_dictionnary:
                     scan_info = node.info.get_all()
                     scan_dictionnary["info"] = scan_info
                     scan_new_callback(scan_info)
+            elif node_type == "scan_group":
+                pass
             else:
                 scan_info, scan_db_name = _get_scan_info(db_name)
                 if scan_info:  # scan_found
@@ -175,14 +177,16 @@ def watch_session_scans(
                             sys.excepthook(*sys.exc_info())
 
         elif event_type == event_type.END_SCAN:
-            db_name = node.db_name
-            scan_dict = running_scans.pop(db_name)
-            if scan_dict:
-                scan_info = scan_dict["info"]
-                if scan_end_callback:
-                    try:
-                        scan_end_callback(scan_info)
-                    except:
-                        sys.excepthook(*sys.exc_info())
+            node_type = node.type
+            if node_type == "scan":
+                db_name = node.db_name
+                scan_dict = running_scans.pop(db_name)
+                if scan_dict:
+                    scan_info = scan_dict["info"]
+                    if scan_end_callback:
+                        try:
+                            scan_end_callback(scan_info)
+                        except:
+                            sys.excepthook(*sys.exc_info())
 
         gevent.idle()

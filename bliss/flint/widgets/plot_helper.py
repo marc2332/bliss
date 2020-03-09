@@ -1077,6 +1077,8 @@ class ViewManager(qt.QObject):
     def scanStarted(self):
         if self.__resetOnStart:
             self.__setUserViewMode(False)
+            # Remove from the plot location which should not have anymore meaning
+            self.__plot.getLimitsHistory().clear()
 
     def resetZoom(self):
         self.__plot.resetZoom()

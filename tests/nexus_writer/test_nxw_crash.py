@@ -11,7 +11,6 @@ import pytest
 import gevent
 import nxw_test_utils
 from bliss.common import scans
-from bliss.common.tango import DevFailed
 from louie import dispatcher
 from nexus_writer_service.utils.scan_utils import session_filename
 
@@ -72,7 +71,7 @@ def _crash_scan_writer_process(filename, detector, writer):
 
     greenlet = gevent.spawn(kill_writer)
     with gevent.Timeout(20):
-        with pytest.raises(DevFailed):
+        with pytest.raises(RuntimeError):
             scan.run()
     greenlet.join()
     try:

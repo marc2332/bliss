@@ -1059,6 +1059,10 @@ class ViewManager(qt.QObject):
         self.__plot = plot
         self.__plot.sigViewChanged.connect(self.__viewChanged)
         self.__inUserView: bool = False
+        self.__resetOnStart = True
+
+    def setResetWhenScanStarts(self, reset: bool):
+        self.__resetOnStart = reset
 
     def __setUserViewMode(self, userMode):
         if self.__inUserView == userMode:
@@ -1071,7 +1075,8 @@ class ViewManager(qt.QObject):
             self.__setUserViewMode(True)
 
     def scanStarted(self):
-        self.__setUserViewMode(False)
+        if self.__resetOnStart:
+            self.__setUserViewMode(False)
 
     def resetZoom(self):
         self.__plot.resetZoom()

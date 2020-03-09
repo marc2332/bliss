@@ -73,6 +73,7 @@ class ImagePlotWidget(plot_helper.PlotWidget):
         self.__plot.installEventFilter(self)
         self.__plot.getWidgetHandle().installEventFilter(self)
         self.__view = plot_helper.ViewManager(self.__plot)
+        self.__view.setResetWhenScanStarts(False)
 
         self.__aggregator = plot_helper.PlotEventAggregator(self)
         self.__refreshManager = plot_helper.RefreshManager(self)

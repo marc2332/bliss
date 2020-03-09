@@ -9,9 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Flint
+    - The scan number is now displayed
+    - Saved preferences for the main window can be difference for each desktop size used
+    - Picking a point from the selected curve uses now a higher tolerance
+
 ### Changed
 
 ### Fixed
+
+- Flint
+    - The view on the image widget is not anymore reset when a scan starting
+    - The x-axis range when using a/dscan was now correct
+    - The gaussian fit now also displays the FWHM in tooltips
+    - The sandard deviation computed from the gausian fit is now positive
 
 ### Removed
 

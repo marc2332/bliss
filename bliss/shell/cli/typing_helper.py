@@ -22,6 +22,27 @@ from ptpython.python_input import PythonValidator
 import bliss.shell.cli
 from bliss.common import logtools
 
+__BUILTINS = __import__("builtins", [""], 0).__dict__
+
+
+def full_ns(repl):
+    return {**__BUILTINS, **repl.get_globals(), **repl.get_locals()}
+
+
+def get_obj_from_text(text, ns):
+    """ text should not contain ( ) ..."""
+    text_split = text.split(".")
+    if text_split[0] in ns:
+        obj = ns[text_split[0]]
+        for subtext in text_split[1:]:
+            if hasattr(obj, subtext):
+                obj = getattr(obj, subtext)
+            else:
+                return None
+        return obj
+    else:
+        return None
+
 
 def is_multiline(text):
     if len(text.splitlines()) > 1:
@@ -45,13 +66,16 @@ def is_property(text, repl):
         while True:
             node = next(iterator)
             # first check if name exists in local/global namespace
-            if root not in {**repl.get_locals(), **repl.get_globals()}:
-                return False
+            root_obj = None
+            ns = full_ns(repl)
+            if root in ns:
+                root_obj = ns[root]
+            else:
+                root_obj = get_obj_from_text(root, ns)
+                if root_obj is None:
+                    return False
 
-            if isinstance(
-                eval(f"type({root}).{node}", repl.get_globals(), repl.get_locals()),
-                property,
-            ):
+            if isinstance(getattr(type(root_obj), node), property):
                 return True
             root = ".".join((root, node))
 
@@ -83,19 +107,18 @@ class TypingHelper(object):
                 and not is_multiline(text)
                 and curs_pos == len(text) & len(text) > 0
                 and not is_property(text, repl)
+                and not text[-2:] == "  "  # more than one trailing white space (paste)
             ):
                 ji = jedi.Interpreter(
                     source=text, namespaces=[repl.get_locals(), repl.get_globals()]
                 )
                 cs = ji.call_signatures()
-
                 text_plus_open_bracket = text + "("
                 ji_plus_open_bracket = jedi.Interpreter(
                     source=text_plus_open_bracket,
                     namespaces=[repl.get_locals(), repl.get_globals()],
                 )
                 cs_plus_open_bracket = ji_plus_open_bracket.call_signatures()
-
                 # add open bracket or ,
                 if self._check_callable(repl, event) and len(cs) < len(
                     cs_plus_open_bracket
@@ -239,27 +262,11 @@ class TypingHelper(object):
             cnt = 1
             text = text[:-1]
 
-        # Go to end of buffer before to insert parenthesis.
-        if repl.default_buffer._Buffer__cursor_position < len(fulltext):
-            repl.default_buffer._set_cursor_position(len(fulltext))
-
-        try:
-            obj = repl.get_locals().get(text, None)
-            if obj is None:
-                obj = repl.get_globals().get(text, None)
-            if obj is None and eval(
-                f"callable({text})", repl.get_globals(), repl.get_locals()
-            ):
-                obj = eval(text, repl.get_globals(), repl.get_locals())
-        except:
-            return False
-
-        if callable(obj):
-            # if not self._has_positional_args(obj):
-            #    repl.default_buffer.insert_text("()"[cnt:])
-            return True
-
-        return False
+        ns = full_ns(repl)
+        if text in ns:
+            return callable(ns[text])
+        else:
+            return callable(get_obj_from_text(text, ns))
 
     def _insert_parenthesis_if_noargs(self, repl, event):
         """
@@ -286,16 +293,12 @@ class TypingHelper(object):
         if repl.default_buffer._Buffer__cursor_position < len(fulltext):
             repl.default_buffer._set_cursor_position(len(fulltext))
 
-        try:
-            obj = repl.get_locals().get(text, None)
-            if obj is None:
-                obj = repl.get_globals().get(text, None)
-            if obj is None and eval(
-                f"callable({text})", repl.get_globals(), repl.get_locals()
-            ):
-                obj = eval(text, repl.get_globals(), repl.get_locals())
-        except:
-            return
+        obj = None
+        ns = full_ns(repl)
+        if text in ns:
+            obj = ns[text]
+        else:
+            obj = get_obj_from_text(text, ns)
 
         if callable(obj):
             if not self._has_positional_args(obj):

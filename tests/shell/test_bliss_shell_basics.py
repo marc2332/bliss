@@ -314,7 +314,23 @@ def test_info_dunder(capfd):
         br.default_buffer.insert_text("A ")
         inp.send_text("\r")
         result = br.app.run()
-        assert result == "A ()"
+        assert result == "A"
+        br._execute(result)
+        captured = capfd.readouterr()
+        out = _repl_out_to_string(captured.out)
+        # assert "<locals>.A" in out
+        assert (
+            "  Out [1]: <class 'test_bliss_shell_basics.test_info_dunder.<locals>.A'>\r\n\r\n"
+            == out
+        )
+
+    with bliss_repl({"A": A, "B": B, "A.titi": A.titi}) as bliss_repl_ctx:
+        inp, br = bliss_repl_ctx
+        inp.send_text("")
+        br.default_buffer.insert_text("A")
+        inp.send_text("\r")
+        result = br.app.run()
+        assert result == "A()"
         br._execute(result)
         captured = capfd.readouterr()
         out = _repl_out_to_string(captured.out)
@@ -324,10 +340,10 @@ def test_info_dunder(capfd):
     with bliss_repl({"A": A, "B": B, "A.titi": A.titi}) as bliss_repl_ctx:
         inp, br = bliss_repl_ctx
         inp.send_text("")
-        br.default_buffer.insert_text("B ")
+        br.default_buffer.insert_text("B")
         inp.send_text("\r")
         result = br.app.run()
-        assert result == "B ()"
+        assert result == "B()"
         br._execute(result)
         captured = capfd.readouterr()
         out = _repl_out_to_string(captured.out)

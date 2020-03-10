@@ -325,6 +325,8 @@ def create_plot_model(
                     item.setXChannel(master_channel)
                     item.setYChannel(data_channel)
                     plot.addItem(item)
+                    # Only display the first counter
+                    break
 
         result.append(plot)
 

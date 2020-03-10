@@ -123,3 +123,24 @@ class Encoder:
         info_str += f"     tolerance (to check pos at end of move): {self.tolerance}\n"
         info_str += f"     dial_measured_position: {self.read():10.5f}\n"
         return info_str
+
+
+class EncoderFilter(Encoder):
+    """
+    This encoder return a measure position which is filtered.
+    return the *axis._set_position* if position is inside the **encoder_precision**
+    or the encoder value.
+    """
+
+    def read(self):
+        encoder_value = super().read()
+        axis = self.axis
+        if axis is not None:
+            user_target_position = axis._set_position
+            dial_target_position = axis.user2dial(user_target_position)
+            encoder_precision = self.config.get("encoder_precision", float, 0.5)
+            min_range = encoder_value - encoder_precision
+            max_range = encoder_value + encoder_precision
+            if min_range <= dial_target_position <= max_range:
+                return dial_target_position
+        return encoder_value

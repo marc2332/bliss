@@ -9,6 +9,7 @@ import pytest
 import numpy
 from unittest import mock
 from bliss.common import scans
+from bliss.common import encoder as encoder_mod
 
 
 def test_get_encoder(m0, m1enc, m1):
@@ -96,3 +97,22 @@ def test_maxee_mode_check_encoder(mot_maxee):
         new_read.return_value = 125.12
         with pytest.raises(RuntimeError):
             mot_maxee.move(2)
+
+
+def test_encoder_filter(mot_maxee):
+    enc_pos = 6.0
+
+    class Ctrl:
+        def _initialize_encoder(self, *args):
+            pass
+
+        def read_encoder(self, enc):
+            return enc_pos
+
+    ctrl = Ctrl()
+    encoder = encoder_mod.EncoderFilter("my", ctrl, {"encoder_precision": 5.0})
+    encoder.axis = mot_maxee
+
+    assert encoder.read() == enc_pos
+    enc_pos = 3.0
+    assert encoder.read() == mot_maxee._set_position

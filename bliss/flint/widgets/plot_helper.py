@@ -10,6 +10,9 @@ from typing import NamedTuple
 from typing import Optional
 from typing import List
 from typing import Tuple
+from typing import Set
+from typing import Dict
+from typing import Any
 
 import contextlib
 import numpy
@@ -625,6 +628,7 @@ class FlintCurve(Curve, _FlintItemMixIn):
             result = plotItem.reachResult(scan)
             if result is not None:
                 text += f"""
+                <li style="white-space:pre">     <b>FWHM:</b> {result.fit.fwhm}</li>
                 <li style="white-space:pre">     <b>std dev (σ):</b> {result.fit.std}</li>
                 <li style="white-space:pre">     <b>position (μ):</b> {result.fit.pos_x}</li>
                 """
@@ -662,13 +666,6 @@ class FlintImage(ImageData, _FlintItemMixIn):
         y, x = index
         image = self.getData(copy=False)
         value = image[index]
-
-        plotItem = self.customItem()
-        if plotItem is not None:
-            assert plotItem.imageChannel() is not None
-            imageName = plotItem.imageChannel().displayName(scan)
-        else:
-            imageName = "Image"
 
         data = self.getData(copy=False)
         char = self._getColoredChar(value, data, flintModel)
@@ -768,6 +765,29 @@ class TooltipItemManager:
         else:
             assert False
 
+    def __closest(self, curve, x, y):
+        """Returns the closest point from a curve item"""
+        xx = curve.getXData()
+        yy = curve.getYData()
+        if xx is None or len(xx) == 0:
+            return None, None
+        xdata, ydata = self.__plot.pixelToData(x, y)
+        xcoef, ycoef = self.__plot.pixelToData(1, 1)
+        if xcoef == 0:
+            xcoef = 1
+        if ycoef == 0:
+            ycoef = 1
+        xcoef, ycoef = 1 / xcoef, 1 / ycoef
+        dist = ((xx - xdata) * xcoef) ** 2 + ((yy - ydata) * ycoef) ** 2
+        index = numpy.nanargmin(dist)
+        xdata, ydata = xx[index], yy[index]
+        pos = self.__plot.dataToPixel(xdata, ydata)
+        if pos is None:
+            return None, None
+        xdata, ydata = pos
+        dist = numpy.sqrt((x - xdata) ** 2 + (y - ydata) ** 2)
+        return index, dist
+
     def __picking(self, x, y):
         # FIXME: Hack to avoid to pass it by argument, could be done in better way
         self.__mouse = x, y
@@ -780,6 +800,15 @@ class TooltipItemManager:
             results = [r for r in self.__plot.pickItems(x, y, condition)]
         else:
             results = []
+
+        if len(results) == 0 and x is not None:
+            # Pick on the active curve with a highter tolerence
+            curve = self.__plot.getActiveCurve()
+            if curve is not None:
+                index, dist = self.__closest(curve, x, y)
+                if index is not None and dist < 80:
+                    yield curve, index
+
         for result in results:
             item = result.getItem()
             indices = result.getIndices(copy=False)
@@ -1059,6 +1088,10 @@ class ViewManager(qt.QObject):
         self.__plot = plot
         self.__plot.sigViewChanged.connect(self.__viewChanged)
         self.__inUserView: bool = False
+        self.__resetOnStart = True
+
+    def setResetWhenScanStarts(self, reset: bool):
+        self.__resetOnStart = reset
 
     def __setUserViewMode(self, userMode):
         if self.__inUserView == userMode:
@@ -1071,7 +1104,10 @@ class ViewManager(qt.QObject):
             self.__setUserViewMode(True)
 
     def scanStarted(self):
-        self.__setUserViewMode(False)
+        if self.__resetOnStart:
+            self.__setUserViewMode(False)
+            # Remove from the plot location which should not have anymore meaning
+            self.__plot.getLimitsHistory().clear()
 
     def resetZoom(self):
         self.__plot.resetZoom()

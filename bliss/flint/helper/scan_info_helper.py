@@ -480,7 +480,7 @@ def get_full_title(scan: scan_model.Scan) -> str:
         return "No scan title"
     title = scan_info.get("title", "No scan title")
     scan_nb = scan_info.get("scan_nb", None)
-    if scan_nb is None:
+    if scan_nb is not None:
         text = f"{title} (#{scan_nb})"
     else:
         text = f"{title}"

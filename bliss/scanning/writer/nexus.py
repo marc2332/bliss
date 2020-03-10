@@ -61,6 +61,7 @@ class Writer(FileWriter):
         self._check_scan_time = time()
         self._check_scan_period = 3
         self._fault = False
+        self._state_checked = False
         self._scan_name = ""
         self._warn_msg_dict = {}
         metadata.register_all_metadata_generators()
@@ -85,6 +86,7 @@ class Writer(FileWriter):
         # Called at start of scan
         self._check_scan_time = time()
         self._fault = False
+        self._state_checked = False
         self._scan_name = scan.node.name
         self._retry(
             self.is_writer_on,
@@ -123,6 +125,7 @@ class Writer(FileWriter):
             # Make sure we do not check too often
             if _check_scan_time > self._check_scan_time + self._check_scan_period:
                 self._check_scan_time = _check_scan_time
+                self._state_checked = True
                 self._retry(
                     self.is_scan_notfault,
                     timeout_msg="Cannot check Nexus writer scan state",
@@ -131,6 +134,13 @@ class Writer(FileWriter):
                 )
 
     def finalize_scan_entry(self, scan):
+        if not self._state_checked:
+            self._retry(
+                self.is_scan_notfault,
+                timeout_msg="Cannot check Nexus writer scan state",
+                fail_msg="Nexus writer error",
+                timeout=0,
+            )
         # TODO: currently not checking for finish to not
         # alarm the user with the warning message
         # self._retry(

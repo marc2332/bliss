@@ -197,6 +197,7 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
         self._nxroot = {}  # for recursive calling
         self._nxentry = None  # for recursive calling
         self._first_event = True
+        self._nxentry_created = False
 
     def _listen_event_loop(self, **kwargs):
         """
@@ -514,7 +515,6 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
         name = self._nxentry_name(subscan)
         if not name:
             return None
-        # Create NXentry instance when missing
         nxentry = nxroot.get(name, None)
         if nxentry is None:
             if not subscan.enabled:
@@ -525,8 +525,17 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
             try:
                 nxentry = nexus.nxEntry(nxroot, name, raise_on_exists=True, **kwargs)
             except nexus.NexusInstanceExists:
-                subscan.enabled = False
+                self._exception_is_fatal = True
+                raise RuntimeError(
+                    f"More than one writer is writing to {self.filename}"
+                )
+                # subscan.enabled = False
+            else:
+                self._nxentry_created = True
             self._on_subscan_creation(subscan)
+        elif not self._nxentry_created:
+            self._exception_is_fatal = True
+            raise RuntimeError(f"Scan {name} already exists in {self.filename}")
         return nxentry
 
     def _on_subscan_creation(self, subscan):

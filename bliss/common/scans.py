@@ -439,10 +439,10 @@ def dmesh(
 ):
     """Relative mesh
     """
-    start1 += motor1.position
-    stop1 += motor1.position
-    start2 += motor2.position
-    stop2 += motor2.position
+    start1 += motor1._set_position
+    stop1 += motor1._set_position
+    start2 += motor2._set_position
+    stop2 += motor2._set_position
 
     scan = amesh(
         motor1,
@@ -712,7 +712,7 @@ def anscan(
     stops_list = list()
     for m_tup in motor_tuple_list:
         mot = m_tup[0]
-        d = mot.position if scan_type == "dscan" else 0
+        d = mot._set_position if scan_type == "dscan" else 0
         start = m_tup[1]
         stop = m_tup[2]
         title_list.extend(

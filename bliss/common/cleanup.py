@@ -87,7 +87,7 @@ def cleanup(*args, **kwargs):
     if axis.POS in restore_list:
         previous_motor_position = list()
         for mot in motors:
-            previous_motor_position.extend((mot, mot.position))
+            previous_motor_position.extend((mot, mot._set_position))
     if axis.VEL in restore_list:
         previous_motor_velocity = [
             (mot, mot.velocity) for mot in motors if hasattr(mot, "velocity")

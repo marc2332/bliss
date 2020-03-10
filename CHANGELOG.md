@@ -11,7 +11,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `watch_session_scans` do not expose anymore scan_group as a scan
+
 ### Fixed
+
+- Flint
+    - Scans from a `ScanSequence` are now displayed (`ScanSequence` are ignored)
 
 ### Removed
 

@@ -587,3 +587,83 @@ def test_update_displayed_channel_names():
 
     model_helper.updateDisplayedChannelNames(plot, scan, ["c2"])
     assert len(plot.items()) == 1
+
+
+def add_item(plot: plot_model.Plot, xName: str, yName: str):
+    item = plot_item_model.CurveItem(plot)
+    channel = plot_model.ChannelRef(plot, xName)
+    item.setXChannel(channel)
+    channel = plot_model.ChannelRef(plot, yName)
+    item.setYChannel(channel)
+    plot.addItem(item)
+
+
+def test_remove_channels__remove_value():
+    plot = plot_item_model.CurvePlot()
+    add_item(plot, "x1", "y1")
+    add_item(plot, "x1", "y2")
+
+    basePlot = plot_item_model.CurvePlot()
+
+    scan = scan_model.Scan()
+    master1 = scan_model.Device(scan)
+    channel1 = scan_model.Channel(master1)
+    channel1.setName("x1")
+    channel2 = scan_model.Channel(master1)
+    channel2.setName("y1")
+    scan.seal()
+
+    model_helper.removeNotAvailableChannels(plot, basePlot, scan)
+    assert len(plot.items()) == 1
+    item = plot.items()[0]
+    assert item.xChannel().name() == "x1"
+    assert item.yChannel().name() == "y1"
+
+
+def test_remove_channels__new_axis():
+    plot = plot_item_model.CurvePlot()
+    add_item(plot, "x1", "y1")
+
+    basePlot = plot_item_model.CurvePlot()
+    add_item(basePlot, "x2", "y1")
+
+    scan = scan_model.Scan()
+    master1 = scan_model.Device(scan)
+    channel2 = scan_model.Channel(master1)
+    channel2.setName("y1")
+    channel3 = scan_model.Channel(master1)
+    channel3.setName("x2")
+    channel4 = scan_model.Channel(master1)
+    channel4.setName("y2")
+    scan.seal()
+
+    model_helper.removeNotAvailableChannels(plot, basePlot, scan)
+    assert len(plot.items()) == 1
+    item = plot.items()[0]
+    assert item.xChannel().name() == "x2"
+    assert item.yChannel().name() == "y1"
+
+
+def test_remove_channels__no_axis():
+    plot = plot_item_model.CurvePlot()
+    add_item(plot, "x1", "y1")
+
+    basePlot = plot_item_model.CurvePlot()
+    add_item(basePlot, "x2", "y2")
+
+    scan = scan_model.Scan()
+    master1 = scan_model.Device(scan)
+    channel2 = scan_model.Channel(master1)
+    channel2.setName("y1")
+    master2 = scan_model.Device(scan)
+    channel3 = scan_model.Channel(master2)
+    channel3.setName("x2")
+    channel4 = scan_model.Channel(master2)
+    channel4.setName("y2")
+    scan.seal()
+
+    model_helper.removeNotAvailableChannels(plot, basePlot, scan)
+    assert len(plot.items()) == 1
+    item = plot.items()[0]
+    assert item.xChannel() is None
+    assert item.yChannel().name() == "y1"

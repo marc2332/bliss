@@ -8,7 +8,7 @@
 import time
 
 from bliss.controllers.motor import Controller
-from bliss.common.axis import lazy_init, AxisState, NoSettingsAxis
+from bliss.common.axis import AxisState, NoSettingsAxis
 from bliss.common.tango import DevState, DeviceProxy
 from bliss.common.logtools import log_debug
 from bliss.common.utils import object_method
@@ -182,7 +182,7 @@ class ESRF_Undulator(Controller):
             raise ValueError(f"{axis.name} is not a revolver axis")
 
         # check axis is disabled
-        if not "DISABLED" in self.state(axis):
+        if "DISABLED" not in self.state(axis):
             raise ValueError(f"{axis.name} is already enabled")
 
         # send the Enable command
@@ -265,7 +265,6 @@ class ESRF_Undulator(Controller):
     def __info__(self):
         info_str = f"\n\nUNDULATOR DEVICE SERVER: {self.ds_name} \n"
         info_str += f"     status = {str(self.device.status()).strip()}\n"
-        info_str += f"     state = {self.device.state()}\n"
         info_str += (
             f"     Power = {self.device.Power:.3g} (max: {self.device.MaxPower:.3g})\n"
         )
@@ -276,7 +275,10 @@ class ESRF_Undulator(Controller):
         """ Return axis info specific to an undulator"""
         info_str = "TANGO DEVICE SERVER VALUES:\n"
 
-        if "DISABLED" in self.state(axis):
+        state = self.state(axis)
+        info_str += f"     state = {str(state)}\n"
+
+        if "DISABLED" in state:
             position = "-"
             velocity = "-"
             first_vel = "-"

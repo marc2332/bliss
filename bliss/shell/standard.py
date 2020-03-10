@@ -43,7 +43,6 @@ from bliss.common import measurementgroup
 from bliss.common.soft_axis import SoftAxis
 from bliss.common.counter import SoftCounter, Counter
 from bliss.common.utils import ShellStr
-from bliss.controllers.motors import esrf_undulator
 
 # objects given to Bliss shell user
 from bliss.common.standard import mv, mvr, move

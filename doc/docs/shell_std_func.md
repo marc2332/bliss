@@ -169,12 +169,12 @@ simul_mca.deadtime_det1  0D       simul_mca
 and **dataset** names used to determine the saving path.
 
 For more info about these three functions, see [data policy
-section](bliss_data_policy.html#directory-structure)
+section](bliss_data_policy.md#directory-structure)
 
 
 ## Display
 
-* `plotselect()`: select counter(s) to plot in [Flint](bliss_flint.html#command-line-selection)
+* `plotselect()`: select counter(s) to plot in [Flint](bliss_flint.md#command-line-selection)
 
 * `clear()`: clear the screen.
 
@@ -196,13 +196,13 @@ wagos if no parameter is given).
 
 ### Logging and Debug
 
-* `lslog()`: display the list of [loggers](shell_logging.html#lslog).
+* `lslog()`: display the list of [loggers](shell_logging.md#lslog).
 
 * `lsdebug()`: display the list of [loggers currently in debug
-  mode](shell_logging.html#lslog).
+  mode](shell_logging.md#lslog).
 
 * `debugon()`/`debugoff()`: activate/deactivate
-  [debug](shell_logging.html#debugon-debugoff) on a BLISS object.
+  [debug](shell_logging.md#debugon-debugoff) on a BLISS object.
 
 
 ### logbook print

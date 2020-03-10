@@ -40,17 +40,25 @@ def test_undulator_disabled(default_session, dummy_tango_server, capsys):
     info(u23a)
 
 
-def test_wid(default_session, dummy_tango_server, capsys):
+def test_weed(default_session, dummy_tango_server, capsys):
     _, und_dev = dummy_tango_server
+
+    # Mandatory to add u23a in global map used by wid().
     u23a = default_session.config.get("u23a")
+
+    # use u23a to please pylint ;-)
+    assert u23a.position == 1.4078913
 
     wid()
 
     wid_output = capsys.readouterr().out
 
     assert (
-        wid_output
-        == "\n    ---------------------------------------\n    ID Device Server id00/tango/dummy\n            Power: 0.000 /  0.0  KW\n    Power density: 0.000 / 0.0  KW/mr2\n\n    u23a - GAP:1.408 - ENABLED   \n\n"
+        wid_output == f"\n    ---------------------------------------\n"
+        f"    ID Device Server id00/tango/dummy\n"
+        f"            Power: 0.000 /  0.0  KW\n"
+        f"    Power density: 0.000 / 0.0  KW/mr2\n\n"
+        f"    u23a - GAP:1.408 - ENABLED   \n\n"
     )
 
     und_dev.setDisabled(True)

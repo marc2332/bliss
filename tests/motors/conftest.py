@@ -52,6 +52,7 @@ custom_axis = motor_fixture("custom_axis")
 mono = motor_fixture("mono")
 energy = calc_motor_fixture("energy")
 wavelength = calc_motor_fixture("wavelength")
+mot_maxee = motor_fixture("mot_maxee")
 
 # this ensures .__close__() is called
 # for calc_mot1 when calc_mot2 is used

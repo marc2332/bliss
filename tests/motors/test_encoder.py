@@ -7,6 +7,7 @@
 
 import pytest
 import numpy
+from unittest import mock
 from bliss.common import scans
 
 
@@ -65,3 +66,33 @@ def test_encoder_counter(default_session, m1, m1enc):
     m1enc.counter.conversion_function = lambda x: x * 2
     ct = scans.ct(0.1, m1enc)
     assert ct.get_data()["m1enc:position"] == m1enc.read() * 2
+
+
+def test_maxee_mode_read_encoder(mot_maxee):
+    with mock.patch.object(mot_maxee.encoder, "read") as new_read:
+        new_read.return_value = 42.42
+        assert mot_maxee.position == 42.42
+
+
+def test_maxee_mode_set_dial(mot_maxee):
+    with mock.patch.object(mot_maxee.encoder, "set") as new_set:
+        new_set.return_value = 10.23
+        mot_maxee.dial = 10
+        assert mot_maxee.dial == 10.23
+
+
+def test_maxee_mode_simple_move(mot_maxee):
+    mot_maxee.move(2)
+    assert mot_maxee.position == 2
+
+
+def test_maxee_mode_check_encoder(mot_maxee):
+    # set check_encoder
+    mot_maxee.config.set("check_encoder", True)
+    with mock.patch.object(mot_maxee.encoder, "read") as new_read:
+        new_read.return_value = 12.23
+        # motor init
+        assert mot_maxee.position == 12.23
+        new_read.return_value = 125.12
+        with pytest.raises(RuntimeError):
+            mot_maxee.move(2)

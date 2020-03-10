@@ -667,13 +667,6 @@ class FlintImage(ImageData, _FlintItemMixIn):
         image = self.getData(copy=False)
         value = image[index]
 
-        plotItem = self.customItem()
-        if plotItem is not None:
-            assert plotItem.imageChannel() is not None
-            imageName = plotItem.imageChannel().displayName(scan)
-        else:
-            imageName = "Image"
-
         data = self.getData(copy=False)
         char = self._getColoredChar(value, data, flintModel)
 

@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- A `plotinit` was added to request before a scan what it have to display.
+    - It uses the same arguments as `plotselect`
+    - This information is part of the scan then could be used by the writer
 - Flint
     - The scan number is now displayed
     - Saved preferences for the main window can be difference for each desktop size used
@@ -18,9 +21,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `watch_session_scans` do not expose anymore scan_group as a scan
 - `goto_cen` (and similar functions) displays first the marker, then move the motor
+- Flint
+    - On a new scan the plot selection is now more conservative
+    - On a new scan if no previous selection, only a single counter is selected
 
 ### Fixed
 
+- `plotselect` now supports aliases
 - Flint
     - Scans from a `ScanSequence` are now displayed (`ScanSequence` are ignored)
     - The view on the image widget is not anymore reset when a scan starting

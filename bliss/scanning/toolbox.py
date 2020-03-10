@@ -286,8 +286,13 @@ class DefaultAcquisitionChain:
 
         self._settings = default_settings
 
-    def add_preset(self, preset):
-        self._presets[id(preset)] = preset
+    def add_preset(self, preset, name=None):
+        id_preset = id(preset) if name is None else name
+        self._presets[id_preset] = preset
+
+    def remove_preset(self, preset=None, name=None):
+        id_preset = id(preset) if name is None else name
+        self._presets.pop(id_preset, None)
 
     def get(self, scan_pars, counter_args, top_master=None):
 

@@ -1589,7 +1589,11 @@ def get_channel_names(*objs) -> List[str]:
         # An object could contain many channels?
         channel_names: List[str] = []
         if isinstance(obj, str):
-            channel_names = [obj]
+            alias = global_map.aliases.get(obj)
+            if alias is not None:
+                channel_names = get_channel_names(alias)
+            else:
+                channel_names = [obj]
         elif isinstance(obj, Axis):
             channel_names = ["axis:%s" % obj.name]
         elif hasattr(obj, "fullname"):

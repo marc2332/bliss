@@ -97,6 +97,24 @@ def test_plotselect1(session):
     assert simul_counter4.fullname == scans._get_selected_counter_name()
 
 
+def test_plotselect_axis(session):
+    roby = getattr(setup_globals, "roby")
+
+    scans.plotselect(roby)
+    assert scans.get_plotted_counters() == ["axis:roby"]
+
+
+def test_plotselect_alias(session):
+    aliases = session.env_dict["ALIASES"]
+    diode = getattr(setup_globals, "diode")
+    foo = aliases.add("foo", diode.fullname)
+    plotselect("foo")
+    assert scans.get_plotted_counters() == [foo.fullname]
+
+    plotselect("not_exists")
+    assert scans.get_plotted_counters() == ["not_exists"]
+
+
 def test_counter_argument_on_cen_com_peak(session):
     roby = getattr(setup_globals, "roby")
     diode = getattr(setup_globals, "diode")

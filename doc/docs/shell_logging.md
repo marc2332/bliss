@@ -92,7 +92,7 @@ Setting global.controllers.Mockup.s1u to show debug messages
 ```
 
 
-### lslog()
+### lslog
 
 `lslog("glob name")`
 
@@ -165,14 +165,17 @@ global.controllers.Mockup.m0                DEBUG
 
 Let's say that your problematic device is the `wago_simulator`.
 
-1. First of all be sure to have it exported to the shell using a session or doing `config.get('wago_simulator')`.
+1. First of all be sure to have it exported to the shell using a session or
+   doing `config.get('wago_simulator')`.
 2. Change the logging level to debug with `debugon(wago_simulator)`.
 ```
 TEST_SESSION [3]: debugon(wago_simulator)
 Setting global.controllers.wago.Wago(wago_simulator).Engine to show debug messages
 Setting global.controllers.wago.Wago(wago_simulator) to show debug messages
 ```
-3. Do whatever operation causes problems expecting more information. Be aware that you can look at log messages also with the Log Viewer Web Application on Beacon.
+3. Do whatever operation causes problems expecting more information. Be aware
+   that you can look at log messages also with the Log Viewer Web Application on
+   Beacon.
 ```python
 TEST_SESSION [4]: wago_simulator.set('o10v1',3)
 DEBUG 2020-02-07 10:52:54,063 global.controllers.wago.Wago(wago_simulator).Engine: In set args=('o10v1', 3)
@@ -180,7 +183,9 @@ DEBUG 2020-02-07 10:52:54,063 global.controllers.Engine.ModbusTcp:localhost:3374
 DEBUG 2020-02-07 10:52:54,063 global.controllers.Engine.ModbusTcp:localhost:33743: raw_write bytes=15 b'\x00\x00\x00\x00\x00\t\xff\x10\x00\x00\x00\x01\x02\xf8\x01'
 DEBUG 2020-02-07 10:52:54,064 global.controllers.Engine.ModbusTcp:localhost:33743: raw_read bytes=7 b'\x00\x00\x00\x00\x00\x06\xff'
 ```
-4. Sometimes what you really need is to debug at a different level, for example if you want to debug `roby` probably you want to debug the `controller` of `roby`. Keep in mind this and do `debugon(roby.controller)`.
+4. Sometimes what you really need is to debug at a different level, for example
+   if you want to debug `roby` probably you want to debug the `controller` of
+   `roby`. Keep in mind this and do `debugon(roby.controller)`.
 5. Than the hardest part! Try to figure out the problem... good luck!
 6. At the end you can `debugoff(wago_simulator)` to turn off debug messages.
 
@@ -193,7 +198,8 @@ This can be done also for all other levels: `CRITICAL ERROR INFO`.
 
 ## Activate Debug Automatically
 
-If you simply `debugon` inside a Bliss shell and than restart the shell, level will not be kept.
+If you simply `debugon` inside a Bliss shell and than restart the shell, level
+will not be kept.
 
 Let's imagine that you want to debug `roby` on `test_session`.
 
@@ -208,8 +214,9 @@ What you have to do is:
 
 ## What user have typed?
 
-User typed commands are sent to Beacon Logserver as a default, so You can read them using the Log Viewer Application.
-You can distinguish them because they have `user_input` inside the message, following an example:
+User typed commands are sent to Beacon Logserver as a default, so You can read
+them using the Log Viewer Application.  You can distinguish them because they
+have `user_input` inside the message, following an example:
 
 ``` 2020-02-07 10:48:38,156 test_session user_input INFO : config.get("wago_simulator")```
 
@@ -234,8 +241,8 @@ The easiest is to add a logging Handler to the root Logger.
 This is accomplished using a normal python logging Handler taken from the
 standard library.
 
-Logging could be initialized in the BLISS shell, but probably the best place to do
-this is in th session configuration script.
+Logging could be initialized in the BLISS shell, but probably the best place to
+do this is in th session configuration script.
 
 ```python
 # Just near the end of the session_setup.py file.
@@ -275,7 +282,8 @@ rootlogger.addHandler(rotatinghandler)
 
 ## Set Logger Level
 
-Bliss shell commands `debugon` and `debugoff` normally switch between WARNING and DEBUG logging levels.
+Bliss shell commands `debugon` and `debugoff` normally switch between WARNING
+and DEBUG logging levels.
 
 If you need to use another level here is how to do it:
 
@@ -284,7 +292,8 @@ TEST_SESSION [16]: import logging
 TEST_SESSION [17]: get_logger(m0).setLevel(logging.INFO)
 ```
 
-As you can see we first get the logger using the instance `m0`, than we set the level, in this case to logging.INFO.
+As you can see we first get the logger using the instance `m0`, than we set the
+level, in this case to logging.INFO.
 
 ## Only info log messages
 
@@ -324,7 +333,8 @@ We can say that Bliss uses two kinds of logging naming:
 * *Module logging*
 * *Instance logging*
 
-We can have a look at both with `lslog()`, here is the result of the command given to an empty session.
+We can have a look at both with `lslog()`, here is the result of the command
+given to an empty session.
 
 ```python
 BLISS [1]: lslog()

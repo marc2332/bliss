@@ -66,7 +66,8 @@ What to include in code  / What to put in mkdoc ???
 
 Create a new file, for instance config_mynewcontroller.md
 
-Update the master **../mkdocs.yml** file to insert the new controller documentation with a title and the reference the .md file.
+Update the master **../mkdocs.yml** file to insert the new controller
+documentation with a title and the reference the .md file.
 
 ### Example:
 

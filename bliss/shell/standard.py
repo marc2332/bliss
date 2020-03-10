@@ -35,6 +35,7 @@ from bliss.common.standard import iter_axes_position, iter_axes_position_all
 from bliss.common.standard import sync
 from bliss.common.standard import info
 from bliss.common.standard import __move
+from bliss.common.standard import wid as std_wid
 from bliss.controllers.lima.limatools import *
 from bliss.controllers.lima import limatools
 from bliss.common.protocols import CounterContainer
@@ -91,7 +92,7 @@ __all__ = (
     ]
     + scans.__all__
     + logtools.__all__
-    + ["cleanup", "error_cleanup", "plot", "lscnt", "lsmg"]
+    + ["cleanup", "error_cleanup", "plot", "lscnt", "lsmg", "wid"]
     + ["SoftAxis", "SoftCounter", "edit_roi_counters", "edit_mg"]
     + list(limatools.__all__)
 )
@@ -289,6 +290,14 @@ def lsmg():
     Indicate the current active one with a star char: '*'
     """
     print(_lsmg())
+
+
+def wid():
+    """ Print the list of undulators defined in the session
+    and their positions.
+    Print all axes of the ID device server.
+    """
+    print(std_wid())
 
 
 def stm(*axes, read_hw=False):
@@ -784,17 +793,24 @@ def edit_mg(mg=None):
 
 
 # Data Policy
+# from bliss/scanning/scan_saving.py
 
 
 def newproposal(proposal_name=None):
+    """Change the proposal name used to determine the saving path.
+    """
     current_session.scan_saving.newproposal(proposal_name)
 
 
 def newsample(sample_name=None):
+    """Change the sample name used to determine the saving path.
+    """
     current_session.scan_saving.newsample(sample_name)
 
 
 def newdataset(dataset_name=None):
+    """Change the dataset name used to determine the saving path.
+    """
     current_session.scan_saving.newdataset(dataset_name)
 
 

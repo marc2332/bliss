@@ -26,6 +26,8 @@ from bliss.common import cleanup as cleanup_mod
 from bliss.common import logtools
 from bliss.common.logtools import *
 from bliss.common.interlocks import interlock_state
+from bliss.controllers.motors import esrf_undulator
+
 
 __all__ = (
     [
@@ -161,6 +163,9 @@ def iter_axes_position(*axes, **kwargs):
         offset = safe_get(axis, "offset", on_error=float("nan"))
         unit = axis.config.get("unit", default=None)
         axis_name = global_map.alias_or_name(axis)
+        axis_state = safe_get(axis, "state", on_error=err)
+        if "DISABLED" in axis_state:
+            axis_name += " *DISABLED*"
         dial_high_limit = axis.user2dial(user_high_limit)
         dial_low_limit = axis.user2dial(user_low_limit)
         user_position = get(axis, "position")
@@ -279,6 +284,51 @@ def info(obj):
         info_str = repr(obj)
 
     return info_str
+
+
+def wid():
+    """ Print the list of undulators defined in the session and their
+    positions.
+    Print all axes of the ID device server.
+    """
+    data = iter_axes_position_all()
+    for axis_name, axis_unit, position, dial_position in data:
+        _ = position
+
+    ID_DS_list = esrf_undulator.get_all()
+
+    undu_str = ""
+    for id_ds in ID_DS_list:
+        undu_str += f"\n    ---------------------------------------\n"
+        undu_str += f"    ID Device Server {id_ds.ds_name}\n"
+
+        power = f"{id_ds.device.Power:.3f}"
+        max_power = f"{id_ds.device.MaxPower:.1f}"
+        power_density = f"{id_ds.device.PowerDensity:.3f}"
+        max_power_density = f"{id_ds.device.MaxPowerDensity:.1f}"
+
+        undu_str += f"            Power: {power} /  {max_power}  KW\n"
+        undu_str += (
+            f"    Power density: {power_density} / {max_power_density}  KW/mr2\n\n"
+        )
+
+        for undu_axis in id_ds.axis_info:
+            undu_axis.controller.get_axis_info(undu_axis)  # update info
+
+            uinfo = undu_axis.controller.axis_info[undu_axis]
+
+            if uinfo["is_revolver"]:
+                undu_type = " - Revolver"
+            else:
+                undu_type = " "
+
+            able = "DISABLED" if "DISABLED" in undu_axis.state else "ENABLED"
+            upos = (
+                "          " if able == "DISABLED" else f"GAP:{undu_axis.position:5.3f}"
+            )
+            undu_str += f"    {undu_axis.name} - {upos} - {able} {undu_type} \n"
+
+    return undu_str
 
 
 @contextlib.contextmanager

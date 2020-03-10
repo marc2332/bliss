@@ -4,6 +4,7 @@
 #
 # Copyright (c) 2015-2020 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
+from bliss.shell.standard import wa, wm, wid, info
 
 
 def test_undulator(beacon, dummy_tango_server):
@@ -16,3 +17,52 @@ def test_undulator(beacon, dummy_tango_server):
     assert u23a.velocity == 5
 
     assert u23a.acceleration == 125
+
+
+def test_undulator_disabled(default_session, dummy_tango_server, capsys):
+    _, und_dev = dummy_tango_server
+    u23a = default_session.config.get("u23a")
+
+    und_dev.setDisabled(True)
+
+    assert "DISABLED" in u23a.state
+
+    wa()
+
+    wa_output = capsys.readouterr().out
+
+    assert "*DIS*" in wa_output
+
+    wm(u23a)
+
+    assert "u23a *DISABLED*" in capsys.readouterr().out
+
+    info(u23a)
+
+
+def test_weed(default_session, dummy_tango_server, capsys):
+    _, und_dev = dummy_tango_server
+
+    # Mandatory to add u23a in global map used by wid().
+    u23a = default_session.config.get("u23a")
+
+    # use u23a to please pylint ;-)
+    assert u23a.position == 1.4078913
+
+    wid()
+
+    wid_output = capsys.readouterr().out
+
+    assert (
+        wid_output == f"\n    ---------------------------------------\n"
+        f"    ID Device Server id00/tango/dummy\n"
+        f"            Power: 0.000 /  0.0  KW\n"
+        f"    Power density: 0.000 / 0.0  KW/mr2\n\n"
+        f"    u23a - GAP:1.408 - ENABLED   \n\n"
+    )
+
+    und_dev.setDisabled(True)
+
+    wid()
+
+    assert "DISABLED" in capsys.readouterr().out

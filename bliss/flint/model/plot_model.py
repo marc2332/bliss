@@ -167,6 +167,9 @@ class Plot(qt.QObject):
         # FIXME better to export iterator or read only list
         return self.__items
 
+    def isEmpty(self) -> bool:
+        return len(self.__items) == 0
+
     def invalidateStructure(self):
         """Called by the plot or items when the structure of the plot (item tree)
         have changed."""

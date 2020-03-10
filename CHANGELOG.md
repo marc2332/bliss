@@ -16,6 +16,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `goto_cen` (and similar functions) displays first the marker, then move the motor
+
 ### Fixed
 
 - Flint

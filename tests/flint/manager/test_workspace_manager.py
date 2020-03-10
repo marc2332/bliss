@@ -42,7 +42,7 @@ def test_deserialization_model_v1(tested):
 
     This test check that there is no regression with sorted object in Redis
     """
-    data = pickle.loads(tested)
+    _data = pickle.loads(tested)
 
 
 def test_dumps_loads__empty_workspace(local_flint):

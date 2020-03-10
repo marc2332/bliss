@@ -337,7 +337,7 @@ class WorkspaceManager(qt.QObject):
 
         try:
             data = settings.get(name, None)
-        except:
+        except Exception:
             _logger.error(
                 "Problem to load workspace data. Information will be lost.",
                 exc_info=True,
@@ -368,7 +368,7 @@ class WorkspaceManager(qt.QObject):
 
         try:
             data = settings.get(newWorkspace.name(), None)
-        except:
+        except Exception:
             _logger.error(
                 "Problem to load workspace data. Information will be lost.",
                 exc_info=True,

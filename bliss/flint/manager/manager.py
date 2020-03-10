@@ -12,7 +12,6 @@ Helper class to manage the state of the model
 from __future__ import annotations
 from typing import Optional
 from typing import List
-from typing import Set
 from typing import ClassVar
 
 import gevent.event
@@ -322,7 +321,7 @@ class ManageMainBehaviours(qt.QObject):
                     if isinstance(item, plot_model.NotReused):
                         try:
                             previousWidgetPlot.removeItem(item)
-                        except:
+                        except Exception:
                             pass
 
             widget.setScan(scan)
@@ -429,5 +428,5 @@ class ManageMainBehaviours(qt.QObject):
     def waitFlintStarted(self):
         self.__flintStarted.wait()
 
-    def workspaceManager(self) -> WorkspaceManager:
+    def workspaceManager(self) -> workspace_manager.WorkspaceManager:
         return self.__workspaceManager

@@ -313,6 +313,8 @@ def wid():
         )
 
         for undu_axis in id_ds.axis_info:
+            undu_axis.controller.get_axis_info(undu_axis)  # update info
+
             uinfo = undu_axis.controller.axis_info[undu_axis]
 
             if uinfo["is_revolver"]:
@@ -320,9 +322,9 @@ def wid():
             else:
                 undu_type = " "
 
-            able = "DISABLED" if uinfo["disabled"] else "ENABLED "
+            able = "DISABLED" if "DISABLED" in undu_axis.state else "ENABLED"
             upos = (
-                "          " if uinfo["disabled"] else f"GAP:{undu_axis.position:5.3f}"
+                "          " if able == "DISABLED" else f"GAP:{undu_axis.position:5.3f}"
             )
             undu_str += f"    {undu_axis.name} - {upos} - {able} {undu_type} \n"
 

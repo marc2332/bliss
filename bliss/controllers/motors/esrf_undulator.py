@@ -112,7 +112,6 @@ class ESRF_Undulator(Controller):
         # check for revolver undulator
         is_revolver = False
         undulator_index = None
-        disabled = False
 
         pos = attr_pos_name.find("_")
         log_debug(self, f"attr_pos_name={attr_pos_name}   pos={pos}")
@@ -126,14 +125,11 @@ class ESRF_Undulator(Controller):
         #  "UndulatorRevolverCarriage" return an array of booleans.
         if self.device.UndulatorRevolverCarriage[undulator_index]:
             is_revolver = True
-            ustate_list = self.device.UndulatorStates
-            disabled = ustate_list[undulator_index] == DevState.DISABLE
 
         self.axis_info[axis] = {
             "name": uname,
             "is_revolver": is_revolver,
             "undulator_index": undulator_index,
-            "disabled": disabled,
             "attr_pos_name": attr_pos_name,
             "attr_vel_name": attr_vel_name,
             "attr_fvel_name": attr_fvel_name,
@@ -152,13 +148,19 @@ class ESRF_Undulator(Controller):
         pass
 
     def _set_attribute(self, axis, attribute_name, value):
-        if self.axis_info[axis]["disabled"]:
-            raise RuntimeError("Revolver axis is disabled.")
+        if "DISABLED" in self.state(axis):
+            if self.axis_info[axis]["is_revolver"]:
+                raise RuntimeError("Revolver axis is disabled.")
+            else:
+                raise RuntimeError("Undulator is disabled.")
         self.device.write_attribute(self.axis_info[axis][attribute_name], value)
 
     def _get_attribute(self, axis, attribute_name):
-        if self.axis_info[axis]["disabled"]:
-            raise RuntimeError("Revolver axis is disabled.")
+        if "DISABLED" in self.state(axis):
+            if self.axis_info[axis]["is_revolver"]:
+                raise RuntimeError("Revolver axis is disabled.")
+            else:
+                raise RuntimeError("Undulator is disabled.")
         return self.device.read_attribute(self.axis_info[axis][attribute_name]).value
 
     def start_one(self, motion, t0=None):
@@ -180,8 +182,7 @@ class ESRF_Undulator(Controller):
             raise ValueError(f"{axis.name} is not a revolver axis")
 
         # check axis is disabled
-        ustate_list = self.device.UndulatorStates
-        if ustate_list[undulator_index] != DevState.DISABLE:
+        if not "DISABLED" in self.state(axis):
             raise ValueError(f"{axis.name} is already enabled")
 
         # send the Enable command
@@ -235,12 +236,19 @@ class ESRF_Undulator(Controller):
     """
 
     def state(self, axis):
-        _state = self.device.state()
+        if self.device.state() == DevState.DISABLE:
+            return AxisState("DISABLED")
+
+        undulator_index = self.axis_info[axis]["undulator_index"]
+        ustate_list = self.device.UndulatorStates
+        _state = ustate_list[undulator_index]
 
         if _state == DevState.ON:
             return AxisState("READY")
         elif _state == DevState.MOVING:
             return AxisState("MOVING")
+        elif _state == DevState.DISABLE:
+            return AxisState("DISABLED")
         else:
             return AxisState("READY")
 

@@ -38,6 +38,7 @@ from bliss.config.channels import Channel
 from bliss.common.logtools import log_debug, lprint, lprint_disable
 from bliss.common.utils import rounder
 
+import enum
 import gevent
 import re
 import sys
@@ -542,6 +543,8 @@ class Axis:
     documentation above for an example)
     """
 
+    READ_POSITION_MODE = enum.Enum("Axis.READ_POSITION_MODE", "CONTROLLER ENCODER")
+
     def __init__(self, name, controller, config):
         self.__name = name
         self.__controller = controller
@@ -828,12 +831,15 @@ class Axis:
         user_pos = self.position
         old_dial = self.dial
 
-        # Send the new value in motor units to the controller
-        # and read back the (atomically) reported position
-        new_hw = new_dial * self.steps_per_unit
-        hw_pos = self.__controller.set_position(self, new_hw)
-
-        dial_pos = hw_pos / self.steps_per_unit
+        # Set the new dial on the encoder
+        if self._read_position_mode == self.READ_POSITION_MODE.ENCODER:
+            dial_pos = self.encoder.set(new_dial)
+        else:
+            # Send the new value in motor units to the controller
+            # and read back the (atomically) reported position
+            new_hw = new_dial * self.steps_per_unit
+            hw_pos = self.__controller.set_position(self, new_hw)
+            dial_pos = hw_pos / self.steps_per_unit
         self.settings.set("dial_position", dial_pos)
 
         if self.no_offset:
@@ -938,6 +944,9 @@ class Axis:
     @property
     @lazy_init
     def _hw_position(self):
+        if self._read_position_mode == self.READ_POSITION_MODE.ENCODER:
+            return self.dial_measured_position
+
         try:
             curr_pos = self.__controller.read_position(self) / self.steps_per_unit
         except NotImplementedError:
@@ -1273,6 +1282,13 @@ class Axis:
         hl_dial = self.__config_high_limit
         return tuple(map(self.dial2user, (ll_dial, hl_dial)))
 
+    @property
+    def _read_position_mode(self):
+        if self.config.get("read_position", str, "controller") == "encoder":
+            return self.READ_POSITION_MODE.ENCODER
+        else:
+            return self.READ_POSITION_MODE.CONTROLLER
+
     def _update_settings(self, state):
         self.settings.set("state", state)
         self._update_dial()
@@ -1329,8 +1345,9 @@ class Axis:
 
     def _get_motion(self, user_target_pos):
         dial_target_pos = self.user2dial(user_target_pos)
+        dial = self.dial
         target_pos = dial_target_pos * self.steps_per_unit
-        delta = target_pos - self.dial * self.steps_per_unit
+        delta = target_pos - dial * self.steps_per_unit
         if abs(delta) < self.controller.steps_position_precision(self):
             delta = 0.0
         backlash = self.backlash / self.sign * self.steps_per_unit
@@ -1368,7 +1385,11 @@ class Axis:
                 high_limit_msg
                 % (self.name, user_target_pos, backlash_str, user_high_limit)
             )
-
+        if self._read_position_mode == self.READ_POSITION_MODE.ENCODER:
+            controller_position = self.__controller.read_position(self)
+            enc_position = dial * self.steps_per_unit
+            delta_pos = controller_position - enc_position
+            target_pos += delta_pos
         motion = Motion(self, target_pos, delta, user_target_pos=user_target_pos)
         motion.backlash = backlash
 
@@ -1388,8 +1409,15 @@ class Axis:
         )
         dial_initial_pos = self.dial
         hw_pos = self._hw_position
-
-        if abs(dial_initial_pos - hw_pos) > self.tolerance:
+        read_encoder_position = (
+            self._read_position_mode == self.READ_POSITION_MODE.ENCODER
+        )
+        check_encoder = self.config.get("check_encoder", bool, False) and self.encoder
+        dont_check_discrepancy = read_encoder_position and not check_encoder
+        if (
+            not dont_check_discrepancy
+            and abs(dial_initial_pos - hw_pos) > self.tolerance
+        ):
             raise RuntimeError(
                 "%s: discrepancy between dial (%f) and controller position (%f), aborting"
                 % (self.name, dial_initial_pos, hw_pos)

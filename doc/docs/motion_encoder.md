@@ -16,12 +16,16 @@ If an encoder is associated to an axis:
 
 * the method `.measured_position()` uses `encoder.read()` to calculate
   the value returned *in user units*.
-
-* and if `check_encoder` is set to `True` in config, *after* a
+* if `check_encoder` is set to `True` in config, *after* a
   movement, the encoder position is read and compared to the target
   position of the movement. In case of difference outside the limit
   fixed by **Encoder tolerance**, an exception is raised with message:
   `"didn't reach final position"`
+* and if `read_position` is set to `encoder` in *configuration*, the
+hardware position return by the axis is the position read by the
+encoder like `.measured_position()`. This option disable the
+**discrepancy check** at the beginning of a movement unless
+`check_encoder` is also set to `True`.
 
 !!! note
     This `measured_position()` method is used in particular by

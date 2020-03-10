@@ -207,6 +207,10 @@ def test_umv_typecheck(session):
         umv()
 
 
+def test_umv_signature(session):
+    assert str(umv.__signature__) == "(*args: 'motor1, pos1, motor2, pos2, ...')"
+
+
 def test_umvr_lib_mode(capsys, default_session):
     """lprint should not show anything"""
 

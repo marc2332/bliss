@@ -897,3 +897,25 @@ def typecheck_var_args_pattern(args_pattern, empty_var_pos_args_allowed=False):
     return decorate
 
 
+def modify_annotations(annotations):
+    """Modify the annotation in an existing signature
+    @modify_annotations({"args": "motor1, rel. pos1, motor2, rel. pos2, ..."})
+    def umvr(*args):
+        ...
+    """
+
+    def decorate(function):
+        def wrapped_function(*args, **kwargs):
+            return function(*args, **kwargs)
+
+        functools.update_wrapper(wrapped_function, function)
+        sig = inspect.signature(function)
+        params = list(sig.parameters.values())
+        for i, param in enumerate(params):
+            if param.name in annotations:
+                params[i] = param.replace(annotation=annotations[param.name])
+        sig = sig.replace(parameters=params)
+        wrapped_function.__signature__ = sig
+        return wrapped_function
+
+    return decorate

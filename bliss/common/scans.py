@@ -1606,12 +1606,29 @@ def get_channel_names(*objs) -> List[str]:
     return result
 
 
+def plotinit(*counters):
+    """
+    Select counter(s) to use for the next scan display.
+
+    Args:
+        counters: String, alias, object identifying an object providing data to
+            record. It can be a counter name, a counter, an axis, an alias.
+    """
+    sd = ScanDisplay()
+    channel_names = get_channel_names(*counters)
+    sd.init_next_scan_meta(channel_names)
+
+
 def plotselect(*counters):
     """
     Select counter(s) to use for:
     * alignment (bliss/common/scans.py:_get_selected_counter_name())
     * flint display (bliss/flint/plot1d.py)
     Saved as a HashSetting with '<session_name>:plot_select' key.
+
+    Args:
+        counters: String, alias, object identifying an object providing data to
+            record. It can be a counter name, a counter, an axis, an alias.
     """
     plot_select = HashSetting("%s:plot_select" % current_session.name)
     channel_names = get_channel_names(*counters)

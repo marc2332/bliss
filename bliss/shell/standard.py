@@ -65,6 +65,7 @@ from bliss.common.interlocks import interlock_state
 
 from bliss.shell.interlocks import interlock_show
 from bliss.shell.cli import user_dialog, pt_widgets
+from bliss.scanning.scan import ScanDisplay
 
 from tabulate import tabulate
 
@@ -87,6 +88,7 @@ __all__ = (
         "mvr",
         "umvr",
         "move",
+        "plotinit",
         "plotselect",
         "prdef",
         "sync",
@@ -637,9 +639,36 @@ def prdef(obj_or_name):
 
 
 @typeguard.typechecked
+def plotinit(*counters: _countable):
+    """
+    Selects counters to plot and to use only with the next scan command.
+
+    User-level function built on top of bliss.common.scans.plotinit()
+    """
+
+    # If called without arguments, prints help.
+    if not counters:
+        print("")
+        print("plotinit usage:")
+        print("    plotinit(<counters>*)")
+        print("example:")
+        print("    plotinit(counter1, counter2)")
+        print("")
+    else:
+        scans.plotinit(*counters)
+    print("")
+    print("Next plotted counter(s):")
+    sd = ScanDisplay()
+    for cnt_name in sd.get_next_scan_channels():
+        print(f"- {cnt_name}")
+    print("")
+
+
+@typeguard.typechecked
 def plotselect(*counters: _countable):
     """
     Selects counters to plot and used by alignment functions (cen, peak, etc).
+
     User-level function built on top of bliss.common.scans.plotselect()
     """
 

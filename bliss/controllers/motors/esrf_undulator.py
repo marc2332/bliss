@@ -263,7 +263,7 @@ class ESRF_Undulator(Controller):
         self.device.abort()
 
     def __info__(self):
-        info_str = f"\n\nUNDU DEVICE SERVER: {self.ds_name} \n"
+        info_str = f"\n\nUNDULATOR DEVICE SERVER: {self.ds_name} \n"
         info_str += f"     status = {str(self.device.status()).strip()}\n"
         info_str += f"     state = {self.device.state()}\n"
         info_str += (
@@ -276,25 +276,34 @@ class ESRF_Undulator(Controller):
         """ Return axis info specific to an undulator"""
         info_str = "TANGO DEVICE SERVER VALUES:\n"
 
-        position = getattr(self.device, self.axis_info[axis].get("attr_pos_name"))
+        if "DISABLED" in self.state(axis):
+            position = "-"
+            velocity = "-"
+            first_vel = "-"
+            acceleration = "-"
+        else:
+            position = getattr(self.device, self.axis_info[axis].get("attr_pos_name"))
+            velocity = getattr(self.device, self.axis_info[axis].get("attr_vel_name"))
+            first_vel = getattr(self.device, self.axis_info[axis].get("attr_fvel_name"))
+            acceleration = getattr(
+                self.device, self.axis_info[axis].get("attr_fvel_name")
+            )
+
         info_str += (
             f"     {self.axis_info[axis].get('attr_pos_name')} = {position} mm\n"
         )
 
-        velocity = getattr(self.device, self.axis_info[axis].get("attr_vel_name"))
         info_str += (
             f"     {self.axis_info[axis].get('attr_vel_name')} = {velocity} mm/s\n"
         )
 
-        first_vel = getattr(self.device, self.axis_info[axis].get("attr_fvel_name"))
         info_str += (
             f"     {self.axis_info[axis].get('attr_fvel_name')} = {first_vel} mm/s\n"
         )
 
-        acceleration = getattr(self.device, self.axis_info[axis].get("attr_fvel_name"))
         info_str += f"     {self.axis_info[axis].get('attr_acc_name')} = {acceleration} mm/s/s\n"
 
-        info_str += "UNDU SPECIFIC INFO:\n"
+        info_str += "UNDULATOR SPECIFIC INFO:\n"
         info_str += f"     config alpha: {self.axis_info[axis].get('alpha')}\n"
         info_str += f"     config period: {self.axis_info[axis].get('period')}\n"
 

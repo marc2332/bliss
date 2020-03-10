@@ -14,6 +14,7 @@ import time
 import gevent
 import re
 import types
+import weakref
 
 
 class Encoder:
@@ -37,6 +38,7 @@ class Encoder:
             SamplingCounter, "position", unit=config.get("unit")
         )
         self.__config = StaticConfig(config)
+        self.__axis_ref = None
 
     @property
     def name(self):
@@ -45,6 +47,16 @@ class Encoder:
     @property
     def controller(self):
         return self.__controller
+
+    @property
+    def axis(self):
+        if self.__axis_ref is not None:
+            return self.__axis_ref()
+
+    @axis.setter
+    def axis(self, axis):
+        if axis is not None:
+            self.__axis_ref = weakref.ref(axis)
 
     @property
     def counters(self):

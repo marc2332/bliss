@@ -558,6 +558,8 @@ class Axis:
             hook._add_axis(self)
             self.__motion_hooks.append(hook)
         self.__encoder = config.get("encoder")
+        if self.__encoder is not None:
+            self.__encoder.axis = self
         self.__config = StaticConfig(config)
         self.__init_config_properties()
         self._group_move = GroupMove()

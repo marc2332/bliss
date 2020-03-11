@@ -201,7 +201,7 @@ def test_umv_typecheck(session):
     umv(m0, 1.2)
     with pytest.raises(RuntimeError):
         umv(m0, 1, 2)
-    with pytest.raises(TypeError):
+    with pytest.raises(RuntimeError):
         umv(1, m0)
     with pytest.raises(RuntimeError):
         umv()

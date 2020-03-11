@@ -42,7 +42,12 @@ from bliss.common.protocols import CounterContainer
 from bliss.common import measurementgroup
 from bliss.common.soft_axis import SoftAxis
 from bliss.common.counter import SoftCounter, Counter
-from bliss.common.utils import ShellStr, typecheck_var_args_pattern, modify_annotations
+from bliss.common.utils import (
+    ShellStr,
+    typecheck_var_args_pattern,
+    modify_annotations,
+    custom_error_msg,
+)
 from bliss.common.measurementgroup import MeasurementGroup
 
 # objects given to Bliss shell user
@@ -509,6 +514,12 @@ def wm(*axes: _scannable_or_name, **kwargs):
         print(_tabulate(table).replace("~", " "))
 
 
+@custom_error_msg(
+    TypeError,
+    "intended usage: umv(motor1, target_position_1, motor2, target_position_2, ... )",
+    new_exeption_type=RuntimeError,
+    display_original_msg=False,
+)
 @modify_annotations({"args": "motor1, pos1, motor2, pos2, ..."})
 @typecheck_var_args_pattern([_scannable, _float])
 def umv(*args):
@@ -521,6 +532,12 @@ def umv(*args):
     __umove(*args)
 
 
+@custom_error_msg(
+    TypeError,
+    "intended usage: umv(motor1, relative_displacement_1, motor2, relative_displacement_2, ... )",
+    new_exeption_type=RuntimeError,
+    display_original_msg=False,
+)
 @modify_annotations({"args": "motor1, rel. pos1, motor2, rel. pos2, ..."})
 @typecheck_var_args_pattern([_scannable, _float])
 def umvr(*args):

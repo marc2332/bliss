@@ -3,19 +3,23 @@
 
 ## What is Interlock Protocol? ##
 
-Interlocks Protocol developed at ESRF is a way to use Wago PLC to continuously monitor for some input conditions and
-trigger a relay output when those conditions meet a thresholds.
+Interlocks Protocol developed at ESRF is a way to use Wago PLC to continuously
+monitor for some input conditions and trigger a relay output when those
+conditions meet a thresholds.
 
 ### What is the purpose? ###
 
-Let's imagine that some hardware of a beamline has to maintain a temperature between 20 and 80 degrees.
-Going under 20 degrees or over 80 may cause a hardware damage and imagine that in that case we would like to shutdown the power supply.
+Let's imagine that some hardware of a beamline has to maintain a temperature
+between 20 and 80 degrees.  Going under 20 degrees or over 80 may cause a
+hardware damage and imagine that in that case we would like to shutdown the
+power supply.
 
 This is the typical case of use of interlocks protocol.
 
 ### More details ###
 
-On the same PLC we can have one or more `interlock instances` running where one interlock instance is made by:
+On the same PLC we can have one or more `interlock instances` running where one
+interlock instance is made by:
 
 * One PLC's digital output normally associated with a relay
 * One or more control conditions (input/output channels of the PLC)
@@ -42,10 +46,11 @@ the controller itself.
 
 To have this kind of interlocks system working we need these steps:
 
- 1. An interlock program `isgmain` should be loaded on the PLC normally by ESRF Electronic group, this program is generic (always the same
-    for all PLCs)
+ 1. An interlock program `isgmain` should be loaded on the PLC normally by ESRF
+    Electronic group, this program is generic (always the same for all PLCs)
  2. Conditions have to be defined in the Beacon YAML configuration for that PLC
- 3. Conditions have to be uploaded to the PLC using the Bliss shell command `interlocks_upload`
+ 3. Conditions have to be uploaded to the PLC using the Bliss shell command
+    `interlocks_upload`
  4. From here on the PLC will operate by himself checking inputs and eventually
     activating relays; no need for Bliss to be active.
 
@@ -85,7 +90,10 @@ interlocks:
 ### Configuration of the relay ###
 
 - relay: (**Mandatory**) is the `logical name` that will be activated in case of triggering
-- relay_channel: (**default is 0**) is the `logical channel` that will be triggered, this is because we can assign the same name to more than one input/output and consequently the will have different channel: the first will be 0, the second 1 and so on.
+- relay_channel: (**default is 0**) is the `logical channel` that will be
+  triggered, this is because we can assign the same name to more than one
+  input/output and consequently the will have different channel: the first will
+  be 0, the second 1 and so on.
 - flags: (**Optional**)
     - `STICKY`: once conditions are meet and the relay is activated, we should manually
                 send the command `interlock_reset` through Bliss to reset it.
@@ -97,14 +105,15 @@ interlocks:
                  the normal position and cannot be switched externally. The NOFORCE flag
                  relaxes this constraint. In any case when the instance trips, the relay is
                  always forced into the alarm state.
-- description: (**Optional**) is simply an user description of the purpose of the interlock condition.
+- description: (**Optional**) is simply an user description of the purpose of
+  the interlock condition.
 
 ### Configuration of the channel ###
 
 We can have digital or analog channels, the following are common config:
 
-- logical_name: (**Mandatory**) is the `logical_name` of the input/output that will be check, this
-                has to be defined in the `mapping`.
+- logical_name: (**Mandatory**) is the `logical_name` of the input/output that
+                will be check, this has to be defined in the `mapping`.
 - type: (**Mandatory**)
     - IB: Input Binary type (digital input)
     - OB: Output Binary type (digital output)
@@ -133,22 +142,27 @@ For termocouple the precision can be given in decimal, E.G. 50.7 Celsius.
 
 ## Interlocks on Bliss shell ##
 
-
 `interlock_show()` will display interlocks info concerning all Wagos
-already imported from yaml file or with `config.get`. 
+already imported from yaml file or with `config.get`.
+
+
 During the execution of this command the configuration loaded into Wagos
-will be downloaded and compared with the existing in Beacon. If
+will be downloaded and compared with the existing one in Beacon. If
 differences are found they will be printed in the shell.
 
-`interlock_show(*wagos)` will display interlocks info only for given Wagos.
+* `interlock_show([*wagos])`: display interlocks info only for given Wagos.
 
-`interlock_state()` returns a tuple containing the actual state
+* `interlock_state()` return a tuple containing the actual state
 of the interlocks, useful also in scripts or status bar for monitoring.
-If you use it inside a script you have to import it with 
-`from bliss.common.standard import interlock_state`
-Without arguments it will return
 
-`interlock_state(*wagos)` will return states only for given Wagos.
+* `interlock_state(*wagos)` return states only for given Wagos.
+
+To use it inside a script it must be imported with:
+
+```python
+from bliss.common.standard import interlock_state
+```
+
 
 ## Methods attached to Wago objects ##
 
@@ -220,4 +234,5 @@ On Beacon:
       # 2  .... - esTr2  TC  Low:-10.0000 High:50.0000              [None]
 ```
 
-The interlock show will check both Beacon configuration and Hardware configuration and will make evidence of any difference.
+The interlock show will check both Beacon configuration and Hardware
+configuration and will make evidence of any difference.

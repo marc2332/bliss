@@ -82,5 +82,6 @@ def fit_gaussian(xx: numpy.ndarray, yy: numpy.ndarray) -> GaussianFitResult:
 
     # Compute characteristics
     fit_mean, fit_std, fit_height, fit_background = p1
+    fit_std = abs(fit_std)
     fwhm = 2 * numpy.sqrt(2 * numpy.log(2)) * fit_std
     return GaussianFitResult(fwhm, fit_std, fit_mean, fit_height, fit_background)

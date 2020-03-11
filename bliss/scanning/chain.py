@@ -1102,6 +1102,10 @@ class AcquisitionChain:
         presets_list = self._presets_master_list.setdefault(master or self, list())
         presets_list.append(preset)
 
+    @property
+    def top_masters(self):
+        return [x.identifier for x in self._tree.children("root")]
+
     def get_iter_list(self):
         if len(self._tree) > 1:
             # set all slaves into master
@@ -1111,7 +1115,7 @@ class AcquisitionChain:
                 del master.slaves[:]
                 master.slaves.extend(self._tree.get_node(master).fpointer)
 
-            top_masters = [x.identifier for x in self._tree.children("root")]
+            top_masters = self.top_masters
             sub_trees = [self._tree.subtree(x) for x in top_masters]
 
             first_top_master = top_masters.pop(0)

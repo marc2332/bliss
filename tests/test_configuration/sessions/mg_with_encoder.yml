@@ -1,0 +1,5 @@
+- class: MeasurementGroup
+  name: test_mg_enc
+  counters:
+  - diode
+  - m1enc

@@ -6,7 +6,7 @@ session.
 ## motors
 
 ### move
-`move([<motor>, <position>]+)` or `mv([<motor>, <position>]+)`: moves one or
+* `move([<motor>, <position>]+)` or `mv([<motor>, <position>]+)`: moves one or
 many motors to given position(s).
 
 ```
@@ -17,7 +17,7 @@ DEMO [11]: mv(simot1, 3, spec_m3, 5)
 NB: `move()` can take `wait=False` argument to be non-bloquant.
 
 ### umv (updated move)
-`umv([<motor>, <position>]+)`: same than `move([<motor>, <position>]+)` but
+* `umv([<motor>, <position>]+)`: same than `move([<motor>, <position>]+)` but
 shows continuously updated positions of motors.
 
 ```
@@ -28,7 +28,7 @@ DEMO [13]: umv(simot1, 1, spec_m3, 4)
 ```
 
 ### mvr (relative move)
-`mvr([<motor>, <position>]+)`: move motor(s) relatively to current positions.
+* `mvr([<motor>, <position>]+)`: move motor(s) relatively to current positions.
 
 ```python
 DEMO [5]: wa()
@@ -51,7 +51,7 @@ Current Positions (user, dial)
 ```
 
 ### umvr (updated relative move)
-`umvr([<motor>, <position_increment>]+)`: Same than `mvr()` but shows
+* `umvr([<motor>, <position_increment>]+)`: Same than `mvr()` but shows
 continuously updated positions of motors.
 
 ```python
@@ -61,7 +61,7 @@ m1
 ```
 
 ### wa (where all)
-`wa()`: Shows user and dial positions of configured motors.
+* `wa()`: Shows user and dial positions of configured motors.
 
 ```python
  DEMO [2]: wa()
@@ -74,7 +74,7 @@ m1
 ```
 
 ### wm (where motor)
-`wm([<mot_name>]+)`: Show user, dial and offset values of positions and limits
+* `wm([<mot_name>]+)`: Show user, dial and offset values of positions and limits
 for given motor(s).
 
 ```python
@@ -94,7 +94,7 @@ Low      -456.00000  -456.00000
 ```
 
 ### sync
-`sync([<motor>]*)`: Force axes synchronization with the hardware. If no axis is
+* `sync([<motor>]*)`: Force axes synchronization with the hardware. If no axis is
   given, it syncs all all axes present in the session
 
 ```python
@@ -102,7 +102,7 @@ DEMO [38]: sync(simot1)
 ```
 
 ### sta (all motors status)
-`sta()`: Show status of all configured motors.
+* `sta()`: Show status of all configured motors.
 
 ```python
 DEMO [13]: sta()
@@ -114,7 +114,7 @@ spec_m3  READY (Axis is READY)
 ```
 
 ### stm (motors status)
-`stm(<mot>)`: Show status of motors given as parameters.
+* `stm(<mot>)`: Show status of motors given as parameters.
 
 ```python
 DEMO [3]: stm(mm1, mm2)
@@ -126,7 +126,7 @@ mm2     READY (Axis is READY)
 
 ### rockit (rock a motor around current position)
 
-`rockit(mot, total_move):` Rock the motor **mot** around it's current
+* `rockit(mot, total_move):` Rock the motor **mot** around it's current
 position +/- total_move/2.
 
 i.e: Rock the motor mm1 during a ascan. At the end of the *context*,
@@ -142,8 +142,8 @@ with rockit(mm1, 10):
 
 ## counters
 
-### lscnt (show counters)
-`lscnt()`:
+### lscnt (list counters)
+* `lscnt()`:
 
 ```python
 DEMO [1]: lscnt()
@@ -164,22 +164,60 @@ simul_mca.deadtime_det1  0D       simul_mca
 ```
 
 
+## Data Policy
+* `newproposal()` `newsample()` `newdataset()`: Change the **proposal** **sample**
+and **dataset** names used to determine the saving path.
+
+For more info about these three functions, see [data policy
+section](bliss_data_policy.md#directory-structure)
+
+
+## Display
+
+* `plotselect()`: select counter(s) to plot in [Flint](bliss_flint.md#command-line-selection)
+
+* `clear()`: clear the screen.
+
+* `silx_view()`: launch Silx View on last scan's data file.
+
+* `pymca()`: launch PyMca on last scan's data file.
+
+
+## Wago Interlocks
+
+* `interlock_show([wago]*)`: display interlocks info for given Wagos (for all
+wagos if no parameter is given).
+
+* `interlock_state()`: return a tuple containing the actual state of the
+  interlocks.
+
+
 ## introspection, doc, logging
+
+### Logging and Debug
+
+* `lslog()`: display the list of [loggers](shell_logging.md#lslog).
+
+* `lsdebug()`: display the list of [loggers currently in debug
+  mode](shell_logging.md#lslog).
+
+* `debugon()`/`debugoff()`: activate/deactivate
+  [debug](shell_logging.md#debugon-debugoff) on a BLISS object.
 
 
 ### logbook print
 
-The `lprint` function is a replacement for python standard `print` function
-that sends what is given to both stdout and to the logbook.
+* `lprint()`: replacement for python standard `print()` this function that sends
+what is given to both stdout and to the logbook.
 
 Everything that should be logged to the logbook for any reason should use this
 instead of the normal print.
 
-You can use `lprint` even when using Bliss in library mode: no output will
+You can use `lprint()` even when using Bliss in library mode: no output will
 be send to stdout, but messages will be forwarded to logbook.
 
 ### prdef (print definition)
-`prdef(<function>)`: Display information about given function :
+* `prdef(<function>)`: Display information about given function :
  definition file, docstring and source code.
 
 ```python
@@ -200,9 +238,9 @@ def umv(*args):
 
 ### bench
 
-`bench()` function is a context manager to help benchmarking functions.
+* `bench()`: context manager to help benchmarking functions.
 
-usage:
+Example:
 
 ```python
 DEMO [14]: with bench():

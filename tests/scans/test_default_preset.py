@@ -43,6 +43,12 @@ def test_simple_preset(session):
     assert preset.prepare_called == 1
     assert preset.start_called == 1
     assert preset.stop_called == 1
+    # remove preset
+    scans.DEFAULT_CHAIN.remove_preset(preset)
+    scans.ascan(m1, 0, 0.1, 2, 0, simul_counter, save=False)
+    assert preset.prepare_called == 1
+    assert preset.start_called == 1
+    assert preset.stop_called == 1
 
 
 def test_iteration_preset(session):

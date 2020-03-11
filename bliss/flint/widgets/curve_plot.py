@@ -434,6 +434,7 @@ class CurvePlotWidget(plot_helper.PlotWidget):
                 xMin, xMax, yValue = result
                 bound = xMin, xMax, yValue, yValue
             self.__boundingY2.setBounds(bound)
+        self.__view.resetZoom()
 
     def scan(self) -> Optional[scan_model.Scan]:
         return self.__scan

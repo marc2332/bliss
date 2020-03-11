@@ -25,6 +25,7 @@ from bliss.data.scan import watch_session_scans
 
 from bliss.common.axis import Axis
 from bliss.common.event import dispatcher
+from bliss.common import user_status_info
 from bliss.config.settings import HashSetting
 from bliss.scanning.scan import set_scan_watch_callbacks
 from bliss.scanning.scan import ScanDisplay
@@ -648,6 +649,11 @@ def _local_pb(scan, repl, task):
     repl.register_application_stopper(stop)
     try:
         real_motors = list()
+        messages_dict = dict()
+
+        def set_scan_status(*messages):
+            messages_dict["status"] = ",".join(messages)
+            on_motor_position_changed(None)  # refresh progressbar label
 
         def on_motor_position_changed(position, signal=None, sender=None):
             labels = []
@@ -657,6 +663,9 @@ def _local_pb(scan, repl, task):
                 if unit:
                     position += "[{0}]".format(unit)
                 labels.append("{0}: {1}".format(motor.name, position))
+            message_status = messages_dict.get("status")
+            if message_status:
+                labels.append(message_status)
             pb.bar.label = ", ".join(labels)
             pb.invalidate()
 
@@ -695,8 +704,10 @@ def _local_pb(scan, repl, task):
             with my_pb() as pb:
                 yield pb
         else:
-            with progressbar.ProgressBar() as pb:
-                yield pb
+            with user_status_info.callback() as cbk:
+                cbk(set_scan_status)
+                with progressbar.ProgressBar() as pb:
+                    yield pb
     except KeyboardInterrupt:
         repl.stop_current_task(block=False, exception=KeyboardInterrupt)
     finally:

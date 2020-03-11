@@ -390,7 +390,7 @@ def uriContains(uri, datasets=None, attributes=None):
                 for attr in attributes:
                     if attr not in attrs:
                         return False
-    except BaseException:
+    except Exception:
         return False
     return True
 
@@ -539,7 +539,7 @@ def nxClassInstantiate(parent, name, nxclass, raise_on_exists=False):
         try:
             group = parent.create_group(name)
             exists = False
-        except BaseException as e:
+        except Exception as e:
             exists = True
             group = parent[name]
             if raise_on_exists:
@@ -901,7 +901,7 @@ class File(h5py.File):
                     # Try setting writing in SWMR mode
                     try:
                         self.swmr_mode = True
-                    except BaseException:
+                    except Exception:
                         pass
             except OSError as e:
                 if (
@@ -1705,7 +1705,7 @@ def _dicttonx_create_dataset(destination, name, value, overwrite=False, update=F
             try:
                 # Preserve dataset when possible
                 destination[name][()] = value
-            except BaseException:
+            except Exception:
                 del destination[name]
                 destination[name] = value
             else:
@@ -1715,7 +1715,7 @@ def _dicttonx_create_dataset(destination, name, value, overwrite=False, update=F
             try:
                 # Preserve dataset when possible
                 destination[name][()] = value
-            except BaseException:
+            except Exception:
                 attrs = dict(destination[name].attrs)
                 del destination[name]
                 destination[name] = value

@@ -43,7 +43,8 @@ import weakref
 from bliss.common.counter import SamplingCounter, SamplingMode
 from bliss.common import tango
 from bliss import global_map
-from bliss.common.logtools import log_debug, log_error
+from bliss.common.logtools import log_debug
+from bliss.config.static import Node
 
 from bliss.controllers.counter import SamplingCounterController
 
@@ -101,7 +102,7 @@ writable_attr_name = 'None']
 
 
 class TangoCounterController(SamplingCounterController):
-    def __init__(self, tango_uri):
+    def __init__(self, tango_uri, global_map_register=True):
         proxy = tango.DeviceProxy(tango_uri)
 
         super().__init__(name=proxy.name())
@@ -109,8 +110,8 @@ class TangoCounterController(SamplingCounterController):
         self._tango_uri = tango_uri
         self._proxy = proxy
         self._attributes_config = None
-
-        global_map.register(self, tag=self.name)
+        if global_map_register:
+            global_map.register(self, tag=self.name)
 
     def read_all(self, *counters):
         """
@@ -168,8 +169,9 @@ class tango_attr_as_counter(SamplingCounter):
             # no index present -> scalar
             pass
 
+        global_map_register = config.get("global_map_register", True)
         controller = _TangoCounterControllerDict.setdefault(
-            self.tango_uri, TangoCounterController(self.tango_uri)
+            self.tango_uri, TangoCounterController(self.tango_uri, global_map_register)
         )
 
         log_debug(
@@ -300,3 +302,13 @@ class tango_attr_as_counter(SamplingCounter):
 
 
 TangoAttrCounter = tango_attr_as_counter
+
+
+def create_tango_counter(uri, name, attr_name, unit=None, global_map_register=False):
+    """
+    Helper function to create a tango counter in other controller
+    """
+    config_dict = locals()
+    config = Node()
+    config.update(config_dict)
+    return tango_attr_as_counter(name, config)

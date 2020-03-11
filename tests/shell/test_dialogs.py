@@ -5,6 +5,10 @@
 # Copyright (c) 2015-2020 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
+from bliss.common.user_status_info import status_message
+import gevent
+import time
+
 from bliss.shell.cli.user_dialog import (
     UserMsg,
     UserInput,
@@ -192,3 +196,18 @@ def dlg_from_wardrobe(ward_robe):
     ]
 
     return BlissDialog(user_dlgs, title="WardRobe", paddings=(1, 1)).show()
+
+
+def test_user_status_info():
+    def is_finished():
+        return (time.time() - t0) > 2
+
+    def my_seq():
+        gevent.sleep(0.2)
+
+    t0 = time.time()
+
+    with status_message() as p:
+        while not is_finished():
+            my_seq()
+            p("salut")

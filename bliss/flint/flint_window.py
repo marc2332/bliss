@@ -190,10 +190,26 @@ class FlintWindow(qt.QMainWindow):
         title = "Flint (PID={}) - {}".format(os.getpid(), session)
         self.setWindowTitle(title)
 
+    def __screenId(self):
+        """Try to return a kind of unique name to define the used screens.
+
+        This allows to store different preferences for different environements,
+        which is the case when we use SSH.
+        """
+        app = qt.QApplication.instance()
+        desktop = app.desktop()
+        size = desktop.size()
+        return hash(size.width()) ^ hash(size.height())
+
     def initFromSettings(self):
         settings = self.__flintState.settings()
         # resize window to 70% of available screen space, if no settings
-        settings.beginGroup("main-window")
+        screenId = self.__screenId()
+        groups = settings.childGroups()
+        mainWindowGroup = "main-window-%s" % screenId
+        if mainWindowGroup not in groups:
+            mainWindowGroup = "main-window"
+        settings.beginGroup(mainWindowGroup)
         pos = qt.QDesktopWidget().availableGeometry(self).size() * 0.7
         w = pos.width()
         h = pos.height()
@@ -203,7 +219,8 @@ class FlintWindow(qt.QMainWindow):
 
     def saveToSettings(self):
         settings = self.__flintState.settings()
-        settings.beginGroup("main-window")
+        screenId = self.__screenId()
+        settings.beginGroup("main-window-%s" % screenId)
         settings.setValue("size", self.size())
         settings.setValue("pos", self.pos())
         settings.endGroup()

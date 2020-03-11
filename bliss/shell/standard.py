@@ -35,13 +35,21 @@ from bliss.common.standard import iter_axes_position, iter_axes_position_all
 from bliss.common.standard import sync
 from bliss.common.standard import info
 from bliss.common.standard import __move
+from bliss.common.standard import wid as std_wid
 from bliss.controllers.lima.limatools import *
 from bliss.controllers.lima import limatools
 from bliss.common.protocols import CounterContainer
 from bliss.common import measurementgroup
 from bliss.common.soft_axis import SoftAxis
 from bliss.common.counter import SoftCounter, Counter
-from bliss.common.utils import ShellStr
+from bliss.common.utils import (
+    ShellStr,
+    typecheck_var_args_pattern,
+    modify_annotations,
+    custom_error_msg,
+    shorten_signature,
+)
+from bliss.common.measurementgroup import MeasurementGroup
 
 # objects given to Bliss shell user
 from bliss.common.standard import mv, mvr, move
@@ -59,6 +67,14 @@ from bliss.shell.interlocks import interlock_show
 from bliss.shell.cli import user_dialog, pt_widgets
 
 from tabulate import tabulate
+
+from bliss.common.types import (
+    _countable,
+    _scannable,
+    _scannable_or_name,
+    _float,
+    Optional,
+)
 
 __all__ = (
     [
@@ -91,7 +107,7 @@ __all__ = (
     ]
     + scans.__all__
     + logtools.__all__
-    + ["cleanup", "error_cleanup", "plot", "lscnt", "lsmg"]
+    + ["cleanup", "error_cleanup", "plot", "lscnt", "lsmg", "wid"]
     + ["SoftAxis", "SoftCounter", "edit_roi_counters", "edit_mg"]
     + list(limatools.__all__)
 )
@@ -291,7 +307,16 @@ def lsmg():
     print(_lsmg())
 
 
-def stm(*axes, read_hw=False):
+def wid():
+    """ Print the list of undulators defined in the session
+    and their positions.
+    Print all axes of the ID device server.
+    """
+    print(std_wid())
+
+
+@typeguard.typechecked
+def stm(*axes: _scannable_or_name, read_hw: bool = False):
     """
     Displays state information of the given axes
 
@@ -316,7 +341,8 @@ def stm(*axes, read_hw=False):
     _print_errors_with_traceback(errors, device_type="motor")
 
 
-def sta(read_hw=False):
+@typeguard.typechecked
+def sta(read_hw: bool = False):
     """
     Return state information about all axes
 
@@ -369,7 +395,15 @@ def wa(**kwargs):
         print(_tabulate(table))
 
 
-def wm(*axes, **kwargs):
+@custom_error_msg(
+    TypeError,
+    "intended usage: wm(axis1, axis2, ... ) Hint:",
+    new_exeption_type=RuntimeError,
+    display_original_msg=True,
+)
+@shorten_signature(annotations={"axes": "axis1, axis2, ... "}, hidden_kwargs=("kwargs"))
+@typeguard.typechecked
+def wm(*axes: _scannable_or_name, **kwargs):
     """
     Display information (position - user and dial, limits) of the given axes
 
@@ -488,6 +522,14 @@ def wm(*axes, **kwargs):
         print(_tabulate(table).replace("~", " "))
 
 
+@custom_error_msg(
+    TypeError,
+    "intended usage: umv(motor1, target_position_1, motor2, target_position_2, ... )",
+    new_exeption_type=RuntimeError,
+    display_original_msg=False,
+)
+@modify_annotations({"args": "motor1, pos1, motor2, pos2, ..."})
+@typecheck_var_args_pattern([_scannable, _float])
 def umv(*args):
     """
     Moves given axes to given absolute positions providing updated display of
@@ -498,6 +540,14 @@ def umv(*args):
     __umove(*args)
 
 
+@custom_error_msg(
+    TypeError,
+    "intended usage: umv(motor1, relative_displacement_1, motor2, relative_displacement_2, ... )",
+    new_exeption_type=RuntimeError,
+    display_original_msg=False,
+)
+@modify_annotations({"args": "motor1, rel. pos1, motor2, rel. pos2, ..."})
+@typecheck_var_args_pattern([_scannable, _float])
 def umvr(*args):
     """
     Moves given axes to given relative positions providing updated display of
@@ -586,7 +636,8 @@ def prdef(obj_or_name):
     print(__pyhighlight("".join(lines)))
 
 
-def plotselect(*counters):
+@typeguard.typechecked
+def plotselect(*counters: _countable):
     """
     Selects counters to plot and used by alignment functions (cen, peak, etc).
     User-level function built on top of bliss.common.scans.plotselect()
@@ -729,7 +780,8 @@ def clear():
         os.system("clear")
 
 
-def edit_mg(mg=None):
+@typeguard.typechecked
+def edit_mg(mg: MeasurementGroup):
     """
     Edit the measurement group with a simple dialog.
     mg -- a measurement group if left to None == default
@@ -784,17 +836,27 @@ def edit_mg(mg=None):
 
 
 # Data Policy
+# from bliss/scanning/scan_saving.py
 
 
-def newproposal(proposal_name=None):
+@typeguard.typechecked
+def newproposal(proposal_name: Optional[str] = None):
+    """Change the proposal name used to determine the saving path.
+    """
     current_session.scan_saving.newproposal(proposal_name)
 
 
-def newsample(sample_name=None):
+@typeguard.typechecked
+def newsample(sample_name: Optional[str] = None):
+    """Change the sample name used to determine the saving path.
+    """
     current_session.scan_saving.newsample(sample_name)
 
 
-def newdataset(dataset_name=None):
+@typeguard.typechecked
+def newdataset(dataset_name: Optional[str] = None):
+    """Change the dataset name used to determine the saving path.
+    """
     current_session.scan_saving.newdataset(dataset_name)
 
 

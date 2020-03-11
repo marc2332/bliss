@@ -152,12 +152,11 @@ class EnergyWavelength(CalcController):
         Returns:
             (dict): Dictionary containing the mono angle.
         """
-        # check if the input is energy or wavelength
-        if positions_dict["energy"] < 2:
-            # this is wavelength
-            egy = self.e_factor * 12.3984 // positions_dict["wavelength"]
-        else:
-            egy = self.e_factor * positions_dict["energy"]
+        energy_pos = numpy.array(positions_dict["energy"])
+        wavelength = numpy.array(positions_dict["wavelength"])
+        egy = numpy.zeros(wavelength.shape)
+        egy[energy_pos < 2] = self.e_factor * 12.3984 // wavelength[energy_pos < 2]
+        egy[energy_pos >= 2] = self.e_factor * energy_pos[energy_pos >= 2]
 
         energy_axis = self._tagged["energy"][0]
         try:

@@ -9,6 +9,7 @@ import os
 import pkgutil
 import functools
 import mimetypes
+import traceback
 
 import gevent.lock
 
@@ -30,6 +31,7 @@ beacon_port = None
 
 __this_file = os.path.realpath(__file__)
 __this_path = os.path.dirname(__this_file)
+__this_parent = os.path.dirname(__this_path)
 
 
 def check_config(f):
@@ -281,7 +283,9 @@ def __get_jinja2():
     try:
         return __environment
     except NameError:
-        __environment = Environment(loader=FileSystemLoader(__this_path))
+        __environment = Environment(
+            loader=FileSystemLoader([__this_path, __this_parent])
+        )
     return __environment
 
 
@@ -337,7 +341,20 @@ def _get_config_user_tags(config_item):
 
 @web_app.route("/")
 def index():
-    cfg = __config.get_config()
+    try:
+        cfg = __config.get_config()
+    except Exception as e:
+        error = f"{e.__class__.__name__}: {e.args[0]}"
+        details = traceback.format_exc()
+        template = __get_jinja2().get_template("500.html")
+        return template.render(
+            {
+                "title": "cannot get beamline configuration",
+                "error": error,
+                "details": details,
+            }
+        )
+
     node = cfg.root
 
     template = __get_jinja2().select_template(("index.html",))

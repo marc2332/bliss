@@ -11,7 +11,7 @@ import enum
 import fnmatch
 from contextlib import contextmanager
 
-from bliss.config.settings import BaseSetting
+from bliss.config.settings import BaseSetting, pipeline
 
 
 class DataStream(BaseSetting):
@@ -185,14 +185,19 @@ def stream_setting_read(
                         "priority": priority,
                     },
                 )
-            self._synchro_stream.add({"added streams": 1})
+            with pipeline(self._synchro_stream):
+                self._synchro_stream.add({"added streams": 1})
+                self._synchro_stream.ttl(60)
+
             if not self._read_task:
                 self._read_task = gevent.spawn(self._raw_read)
 
         def remove_stream(self, *streams):
             for stream in streams:
                 self._streams.pop(stream.name, None)
-            self._synchro_stream.add({"remove stream": 1})
+            with pipeline(self._synchro_stream):
+                self._synchro_stream.add({"remove stream": 1})
+                self._synchro_stream.ttl(60)
 
         def remove_match_streams(self, stream_name_pattern):
             streams_name = [
@@ -202,7 +207,9 @@ def stream_setting_read(
             ]
             for name in streams_name:
                 self._streams.pop(name, None)
-            self._synchro_stream.add({"remove_match_streams": 1})
+            with pipeline(self._synchro_stream):
+                self._synchro_stream.add({"remove_match_streams": 1})
+                self._synchro_stream.ttl(60)
 
         def _raw_read(self):
             try:

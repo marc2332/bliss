@@ -9,6 +9,11 @@ from tango import DevState
 class Dummy(Device):
     position = attribute(format="%3.2f", unit="mm")
     u23a_position = attribute(format="%3.2f", unit="mm")
+    power = attribute(format="%3.2f")
+    maxpower = attribute(format="%3.2f")
+    powerdensity = attribute(format="%3.2f")
+    maxpowerdensity = attribute(format="%3.2f")
+    firstvelocity = attribute(format="%3.2f")
 
     velocity = attribute(
         fget="read_velocity", fset="write_velocity", access=AttrWriteType.READ_WRITE
@@ -37,6 +42,12 @@ class Dummy(Device):
         dtype=[bool],
         max_dim_x=2,
     )
+    UndulatorStates = attribute(
+        fget="read_UndulatorStates",
+        access=AttrWriteType.READ,
+        dtype=["DevState"],
+        max_dim_x=2,
+    )
 
     def __init__(self, *args, **kwargs):
         Device.__init__(self, *args, **kwargs)
@@ -52,14 +63,34 @@ class Dummy(Device):
     def read_UndulatorNames(self):
         return ["U23a", "U27b"]
 
+    def read_UndulatorStates(self):
+        return [self.get_state(), self.get_state()]
+
     def read_UndulatorRevolverCarriage(self):
         return [False, False]
 
     def read_position(self):
+        if self.get_state() == DevState.DISABLE:
+            raise RuntimeError("DISABLED")
         return 1.4078913
 
     def read_u23a_position(self):
         return self.read_position()
+
+    def read_power(self):
+        return 0
+
+    def read_maxpower(self):
+        return 0
+
+    def read_powerdensity(self):
+        return 0
+
+    def read_maxpowerdensity(self):
+        return 0
+
+    def read_firstvelocity(self):
+        return self.vel
 
     def read_velocity(self):
         return self.vel
@@ -80,6 +111,13 @@ class Dummy(Device):
     @command(dtype_out=str)
     def string1(self):
         return "café"
+
+    @command(dtype_in=bool)
+    def setDisabled(self, disable):
+        if disable:
+            self.set_state(DevState.DISABLE)
+        else:
+            self.set_state(DevState.STANDBY)
 
     ###for tango_shutter
     @command()

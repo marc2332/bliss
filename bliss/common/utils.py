@@ -15,6 +15,7 @@ import functools
 import numpy
 import collections.abc
 import socket
+import typeguard
 
 from bliss.common.event import saferef
 
@@ -862,3 +863,59 @@ def transform_TypeError_to_hint(function):
         )(function)(*args, **kwargs)
 
     return wrapped_function
+
+
+def typecheck_var_args_pattern(args_pattern, empty_var_pos_args_allowed=False):
+    """decorator that can be used for typechecking of *args that have to follow a certain pattern e.g. 
+    @typecheck_var_args_pattern([_scannable,_float])
+    def umv(*args):
+     ...
+    """
+
+    def decorate(function):
+        @functools.wraps(function)
+        def wrapped_function(*args, **kwargs):
+            sig = inspect.signature(function)
+            params = list(sig.parameters.values())
+            for i, param in enumerate(params):
+                if param.kind == inspect.Parameter.VAR_POSITIONAL:
+                    var_args = args[i:]
+                    if not empty_var_pos_args_allowed and len(var_args) == 0:
+                        raise TypeError(f"Arguments of type {args_pattern} missing!")
+                    if len(var_args) % len(args_pattern) != 0:
+                        raise TypeError(
+                            f"Wrong number of arguments (not a multiple of {len(args_pattern)} [{args_pattern}])"
+                        )
+                    for j, a in enumerate(var_args):
+                        typeguard.check_type(
+                            f"{param.name}[{j}]", a, args_pattern[j % len(args_pattern)]
+                        )
+            return function(*args, **kwargs)
+
+        return wrapped_function
+
+    return decorate
+
+
+def modify_annotations(annotations):
+    """Modify the annotation in an existing signature
+    @modify_annotations({"args": "motor1, rel. pos1, motor2, rel. pos2, ..."})
+    def umvr(*args):
+        ...
+    """
+
+    def decorate(function):
+        def wrapped_function(*args, **kwargs):
+            return function(*args, **kwargs)
+
+        functools.update_wrapper(wrapped_function, function)
+        sig = inspect.signature(function)
+        params = list(sig.parameters.values())
+        for i, param in enumerate(params):
+            if param.name in annotations:
+                params[i] = param.replace(annotation=annotations[param.name])
+        sig = sig.replace(parameters=params)
+        wrapped_function.__signature__ = sig
+        return wrapped_function
+
+    return decorate

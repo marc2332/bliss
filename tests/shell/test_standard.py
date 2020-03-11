@@ -4,7 +4,7 @@ import time
 
 import pytest
 
-from bliss.shell.standard import wa, wm, sta, stm, _launch_silx
+from bliss.shell.standard import wa, wm, sta, stm, _launch_silx, umv
 
 
 @pytest.fixture
@@ -193,6 +193,22 @@ def execute_in_subprocess(command):
     output, err = script.communicate()
     returncode = script.returncode
     return output.decode(), err.decode(), returncode
+
+
+def test_umv_typecheck(session):
+    m0 = session.env_dict["m0"]
+
+    umv(m0, 1.2)
+    with pytest.raises(RuntimeError):
+        umv(m0, 1, 2)
+    with pytest.raises(RuntimeError):
+        umv(1, m0)
+    with pytest.raises(RuntimeError):
+        umv()
+
+
+def test_umv_signature(session):
+    assert str(umv.__signature__) == "(*args: 'motor1, pos1, motor2, pos2, ...')"
 
 
 def test_umvr_lib_mode(capsys, default_session):

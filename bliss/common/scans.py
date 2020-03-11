@@ -61,22 +61,20 @@ from bliss.scanning.scan import Scan, StepScanDataWatch, ScanDisplay
 from bliss.scanning.acquisition.motor import VariableStepTriggerMaster
 from bliss.scanning.acquisition.motor import MeshStepTriggerMaster
 from bliss.controllers.motor import CalcController
-from bliss.common.counter import Counter
-from bliss.common.measurementgroup import MeasurementGroup
-from bliss.common.protocols import CounterContainer, Scannable
+from bliss.common.types import (
+    _int,
+    _float,
+    _countable,
+    _countables,
+    _scannable,
+    _scannable_start_stop_list,
+    _position_list,
+    _scannable_position_list,
+)
 
 _log = logging.getLogger("bliss.scans")
 
 DEFAULT_CHAIN = DefaultAcquisitionChain()
-
-_int = Union[int, numpy.integer]
-_float = Union[float, numpy.floating, _int]
-_countable = Counter
-_countables = Union[Counter, MeasurementGroup, CounterContainer, Tuple]
-_scannable = Scannable
-_scannable_start_stop_list = List[Tuple[_scannable, _float, _float]]
-_position_list = Union[Sequence, numpy.ndarray]
-_scannable_position_list = List[Tuple[_scannable, _position_list]]
 
 
 @transform_TypeError_to_hint

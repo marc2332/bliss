@@ -5,643 +5,617 @@
  Distributed under the GNU LGPLv3. See LICENSE for more info.
 -->
 <html>
-  <head>
-    <meta http-equiv="Content-Type" content="text/html" charset="utf-8" />
-    <title>{{ name if name else "Beamline" }} configuration application</title>
 
-    <!-- JQuery -->
-    <script language="JavaScript" type="text/javascript" src="https://code.jquery.com/jquery-3.1.1.min.js"></script>
+<head>
+  <meta http-equiv="Content-Type" content="text/html" charset="utf-8" />
+  <title>{{ name if name else "Beamline" }} configuration application</title>
 
-    <!-- Bootstrap -->
-    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
-    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css"></link>
-    <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css">
+  <!-- JQuery -->
+  <script language="JavaScript" type="text/javascript" src="https://code.jquery.com/jquery-3.1.1.min.js"></script>
 
-    <!-- Bootstrap select -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-select/1.7.3/js/bootstrap-select.min.js"></script>
-    <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/bootstrap-select/1.7.3/css/bootstrap-select.min.css"></link>
+  <!-- Bootstrap -->
+  <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" />
+  <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css" />
 
-    <!-- Bootstrap notify -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-notify/0.2.0/js/bootstrap-notify.min.js"></script>
-    <link rel="stylesheet" href="css/bootstrap-notify.css"></link>
+  <!-- Bootstrap select -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-select/1.7.3/js/bootstrap-select.min.js"></script>
+  <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/bootstrap-select/1.7.3/css/bootstrap-select.min.css" />
 
-    <!-- Bootstrap treeview -->
-    <script language="JavaScript" type="text/javascript" src="js/bootstrap-treeview.min.js"></script>
-    <link rel="stylesheet" href="css/bootstrap-treeview.min.css"></link>
+  <!-- Bootstrap notify -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-notify/0.2.0/js/bootstrap-notify.min.js"></script>
+  <link rel="stylesheet" href="css/bootstrap-notify.css" />
 
-    <!-- Bootstrap tags input -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-tagsinput/0.8.0/bootstrap-tagsinput.min.js"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-tagsinput/0.8.0/bootstrap-tagsinput.css"></link>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-tagsinput/0.8.0/bootstrap-tagsinput-typeahead.css"></link>
+  <!-- Bootstrap treeview -->
+  <script language="JavaScript" type="text/javascript" src="js/bootstrap-treeview.min.js"></script>
+  <link rel="stylesheet" href="css/bootstrap-treeview.min.css" />
 
-    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.1.9/ace.js"></script>
+  <!-- Bootstrap tags input -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-tagsinput/0.8.0/bootstrap-tagsinput.min.js"></script>
+  <link rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-tagsinput/0.8.0/bootstrap-tagsinput.css" />
+  <link rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-tagsinput/0.8.0/bootstrap-tagsinput-typeahead.css" />
 
-    <script src="js/beacon-utils.js"></script>
-    <link rel="stylesheet" href="css/beacon.css"></link>
+  <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.1.9/ace.js"></script>
 
-  </head>
-  <body class="beacon-body">
+  <script src="js/beacon-utils.js"></script>
+  <link rel="stylesheet" href="css/beacon.css" />
+</head>
 
-    <!-- navigation bar -->
-    <div class="navbar navbar-default navbar-fixed-top">
-      <div class="container-fluid">
+<body class="beacon-body">
+  <!-- navigation bar -->
+  <div class="navbar navbar-default navbar-fixed-top">
+    <div class="container-fluid">
+      <!-- brand logo -->
+      <div class="navbar-header">
+        <a id="brand-image" class="navbar-brand beacon-brand-img-compact" href="#" data-toggle="tooltip"
+          data-placement="right" title="Go back to {{ name if name else 'Beamline' }} configuration home">
+          <img alt="Beacon" src="{{ icon if icon else 'res/logo.png' }}" height="50" />
+        </a>
+      </div>
 
-	<!-- brand logo -->
-	<div class="navbar-header">
-          <a id="brand-image" class="navbar-brand beacon-brand-img-compact" href="#"
-	     data-toggle="tooltip" data-placement="right"
-	     title="Go back to {{ name if name else "Beamline" }} configuration home">
-	    <img alt="Beacon"
-		 src="{{ icon if icon else 'res/logo.png' }}" height="50"></img>
-	  </a>
-	</div>
+      <!-- nav bar items -->
+      <div class="collapse navbar-collapse">
+        <div class="nav navbar-nav">
+          <div class="btn-group" role="group" id="tab-buttons" data-toggle="buttons">
+            <a role="tab" class="btn btn-primary navbar-btn active" style="font-size: 20px" href="#files-view"
+              data-toggle="tooltip" data-placement="bottom" title="Show files view">
+              <span class="fa fa-files-o"></span>
+            </a>
+            <a role="tab" class="btn btn-primary navbar-btn" style="font-size: 20px" href="#items-view"
+              data-toggle="tooltip" data-placement="bottom" title="Show items view">
+              <span class="fa fa-th-list"></span>
+            </a>
+            <a role="tab" class="btn btn-primary navbar-btn" style="font-size: 20px" href="#plugins-view"
+              data-toggle="tooltip" data-placement="bottom" title="Show plugins view">
+              <span class="fa fa-chain"></span>
+            </a>
+            <a role="tab" class="btn btn-primary navbar-btn" style="font-size: 20px" href="#tags-view"
+              data-toggle="tooltip" data-placement="bottom" title="Show tags view">
+              <span class="fa fa-tags"></span>
+            </a>
+            <a role="tab" class="btn btn-primary navbar-btn" style="font-size: 20px" href="#sessions-view"
+              data-toggle="tooltip" data-placement="bottom" title="Show sessions view">
+              <span class="fa fa-scribd"></span>
+            </a>
+          </div>
+        </div>
 
-	<!-- nav bar items -->
-	<div class="collapse navbar-collapse">
-	  <div class="nav navbar-nav">
-	    <div class="btn-group" role="group" id="tab-buttons" data-toggle="buttons">
-	      <a role="tab" class="btn btn-primary navbar-btn active" style="font-size: 20px"
-		 href="#files-view"
-		 data-toggle="tooltip" data-placement="bottom"
-		 title="Show files view">
-		<span class="fa fa-files-o"></span>
-	      </a>
-	      <a role="tab" class="btn btn-primary navbar-btn" style="font-size: 20px"
-		 href="#items-view"
-		 data-toggle="tooltip" data-placement="bottom"
-		 title="Show items view">
-		<span class="fa fa-th-list"></span>
-	      </a>
-	      <a role="tab" class="btn btn-primary navbar-btn" style="font-size: 20px"
-		 href="#plugins-view"
-		 data-toggle="tooltip" data-placement="bottom"
-		 title="Show plugins view">
-		<span class="fa fa-chain"></span>
-	      </a>
-	      <a role="tab" class="btn btn-primary navbar-btn" style="font-size: 20px"
-		 href="#tags-view"
-		 data-toggle="tooltip" data-placement="bottom"
-		 title="Show tags view">
-		<span class="fa fa-tags"></span>
-	      </a>
-	      <a role="tab" class="btn btn-primary navbar-btn" style="font-size: 20px"
-		 href="#sessions-view"
-		 data-toggle="tooltip" data-placement="bottom"
-		 title="Show sessions view">
-		<span class="fa fa-scribd"></span>
-	      </a>
-	    </div>
-	  </div>
-
-	  <!-- Filter form -->
-	  <form class="navbar-form navbar-left">
-            <div class="form-group">
-              <div class="input-group">
-                <input id="filter-edit" type="text" class="form-control"
-                placeholder="Filter for..."
-                data-toggle="tooltip" data-placement="bottom"
-                title="Start typing the name of the item(s) your are looking for">
-                <span class="input-group-btn">
-                  <button id="clear-filter" type="button" class="btn btn-default"
-                  data-toggle="tooltip" data-placement="bottom"
-                  title="Clears current filter">
-                  <span class="fa fa-eraser"></span>
-                  Clear
+        <!-- Filter form -->
+        <form class="navbar-form navbar-left">
+          <div class="form-group">
+            <div class="input-group">
+              <input id="filter-edit" type="text" class="form-control" placeholder="Filter for..." data-toggle="tooltip"
+                data-placement="bottom" title="Start typing the name of the item(s) your are looking for" />
+              <span class="input-group-btn">
+                <button id="clear-filter" type="button" class="btn btn-default" data-toggle="tooltip"
+                  data-placement="bottom" title="Clears current filter">
+                  <span class="fa fa-eraser"></span> Clear
                 </button>
               </span>
             </div>
           </div>
-	  </form>
+        </form>
 
-	  <div class="btn-group" role="group" id="refresh-buttons" data-toggle="buttons" >
-	    <button id="reload-config" type="button"
-		    class="btn btn-info navbar-btn"
-		    data-toggle="tooltip" data-placement="bottom"
-		    title="Forces server to reload configuration from repository">
-	      <span class="fa fa-refresh"></span>
+        <div class="btn-group" role="group" id="refresh-buttons" data-toggle="buttons">
+          <button id="reload-config" type="button" class="btn btn-info navbar-btn" data-toggle="tooltip"
+            data-placement="bottom" title="Forces server to reload configuration from repository">
+            <span class="fa fa-refresh"></span> Reload config
+          </button>
+        </div>
 
-	      Reload config
-	    </button>
+        <!-- Menu -->
+        <ul class="nav navbar-nav">
+          <li class="dropdown">
+            <a id="add-file" href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true"
+              aria-expanded="false" style="padding-left: 0;">
+              <span class="fa fa-plus"></span> Add file
+            </a>
+          </li>
+        </ul>
 
-	  </div>
-
-	  <!-- Menu -->
-    <ul class="nav navbar-nav">
-      <li class="dropdown">
-        <a id="add-file" href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true"
-          aria-expanded="false" style="padding-left: 0;">
-          <span class="fa fa-plus"></span> Add file
-        </a>
-      </li>
-    </ul>
-
-	  <div class="nav navbar-nav navbar-right">
-	    <a id="brand-text" class="navbar-brand navbar-brand-compact" href="#">
-	      {{ name if name else "Beacon" }}
-	    </a>
-	  </div>
-	</div>
+        <div class="nav navbar-nav navbar-right">
+          <a id="brand-text" class="navbar-brand navbar-brand-compact" href="#">
+            {{ name if name else "Beacon" }}
+          </a>
+        </div>
       </div>
     </div>
+  </div>
 
-    <!-- Page body: on the left is nagivation tree, on the right is main panel -->
+  <!-- Page body: on the left is navigation tree, on the right is main panel -->
 
-    <div class="container-fluid">
-      <div class="row">
-	<div class="col-sm-4 beacon-tree-col beacon-col">
-	  <div class="col-sm-4 beacon-navigation">
-	    <div class="tab-content">
+  <div class="container-fluid">
+    <div class="row">
+      <div class="col-sm-4 beacon-tree-col beacon-col">
+        <div class="col-sm-4 beacon-navigation">
+          <div class="tab-content">
+            <!-- Tree file view pane -->
+            <div id="files-view" class="tab-pane active">
+              <div class="btn-group" role="group">
+                <button type="button" class="btn btn-default" id="tree-files-expand-all" data-toggle="tooltip"
+                  data-placement="bottom" title="Expand all nodes">
+                  <span class="fa fa-angle-double-down"></span>
+                </button>
+                <button type="button" class="btn btn-default" id="tree-files-collapse-all" data-toggle="tooltip"
+                  data-placement="bottom" title="Collapse all nodes">
+                  <span class="fa fa-angle-double-up"></span>
+                </button>
+              </div>
 
-	      <!-- Tree file view pane -->
-	      <div id="files-view" class="tab-pane active">
-		<div class="btn-group" role="group">
-		  <button type="button" class="btn btn-default"
-			  id="tree-files-expand-all"
-			  data-toggle="tooltip" data-placement="bottom"
-			  title="Expand all nodes">
-		    <span class="fa fa-angle-double-down"></span>
-		  </button>
-		  <button type="button" class="btn btn-default"
-			  id="tree-files-collapse-all"
-			  data-toggle="tooltip" data-placement="bottom"
-			  title="Collapse all nodes">
-		    <span class="fa fa-angle-double-up"></span>
-		  </button>
-		</div>
+              <div class="btn-group" role="group">
+                <button type="button" class="btn btn-default btn-file-add-op" id="tree-files-add-file"
+                  data-toggle="tooltip" data-placement="bottom"
+                  title="Add new file to selected folder or to root if no folder selected">
+                  <span class="fa fa-file-o"></span>
+                </button>
+                <button type="button" class="btn btn-default btn-file-add-op" id="tree-files-add-folder"
+                  data-toggle="tooltip" data-placement="bottom"
+                  title="Add new sub-folder to selected folder or to root if no folder selected">
+                  <span class="fa fa-folder-o"></span>
+                </button>
+              </div>
+              <div class="btn-group" role="group">
+                <button type="button" class="btn btn-default btn-file-op disabled" id="tree-files-rename"
+                  data-toggle="tooltip" data-placement="bottom" title="Rename selected item">
+                  <span class="fa fa-edit"></span>
+                </button>
+                <button type="button" class="btn btn-default btn-file-op disabled" id="tree-files-move"
+                  data-toggle="tooltip" data-placement="bottom" title="Move selected item to another folder">
+                  <span class="fa fa-reorder"></span>
+                </button>
+                <button type="button" class="btn btn-default btn-file-op disabled" id="tree-files-delete"
+                  data-toggle="tooltip" data-placement="bottom" title="Delete selected item">
+                  <span class="fa fa-trash"></span>
+                </button>
+              </div>
+              <div style="height:10px;"></div>
 
-		<div class="btn-group" role="group">
-		  <button type="button" class="btn btn-default btn-file-add-op"
-			  id="tree-files-add-file"
-			  data-toggle="tooltip" data-placement="bottom"
-			  title="Add new file to selected folder or to root if no folder selected">
-		    <span class="fa fa-file-o"></span>
-		  </button>
-		  <button type="button" class="btn btn-default btn-file-add-op"
-			  id="tree-files-add-folder"
-			  data-toggle="tooltip" data-placement="bottom"
-			  title="Add new sub-folder to selected folder or to root if no folder selected">
-		    <span class="fa fa-folder-o"></span>
-		  </button>
-		</div>
-		<div class="btn-group" role="group">
-		  <button type="button" class="btn btn-default btn-file-op disabled"
-			  id="tree-files-rename"
-			  data-toggle="tooltip" data-placement="bottom"
-			  title="Rename selected item">
-		    <span class="fa fa-edit"></span>
-		  </button>
-		  <button type="button" class="btn btn-default btn-file-op disabled"
-			  id="tree-files-move"
-			  data-toggle="tooltip" data-placement="bottom"
-			  title="Move selected item to another folder">
-		    <span class="fa fa-reorder"></span>
-		  </button>
-		  <button type="button" class="btn btn-default btn-file-op disabled"
-			  id="tree-files-delete"
-			  data-toggle="tooltip" data-placement="bottom"
-			  title="Delete selected item">
-		    <span class="fa fa-trash"></span>
-		  </button>
-		</div>
-		<div style="height:10px;"></div>
+              <!-- The actual tree (file view)! -->
+              <div id="tree-files" class="beacon-tree beacon-searchable"></div>
+            </div>
 
-		<!-- The actual tree (file view)! -->
-		<div id="tree-files" class="beacon-tree beacon-searchable"></div>
-	      </div>
+            <!-- Tree items view pane -->
+            <div id="items-view" class="tab-pane">
+              <div class="btn-group" role="group">
+                <button type="button" class="btn btn-default" id="tree-items-expand-all" data-toggle="tooltip"
+                  data-placement="bottom" title="Expand all nodes">
+                  <span class="fa fa-angle-double-down"></span>
+                </button>
+                <button type="button" class="btn btn-default" id="tree-items-collapse-all" data-toggle="tooltip"
+                  data-placement="bottom" title="Collapse all nodes">
+                  <span class="fa fa-angle-double-up"></span>
+                </button>
+              </div>
+              <div style="height:10px;"></div>
 
-	      <!-- Tree items view pane -->
-	      <div id="items-view" class="tab-pane">
-		<div class="btn-group" role="group">
-		  <button type="button" class="btn btn-default"
-			  id="tree-items-expand-all"
-			  data-toggle="tooltip" data-placement="bottom"
-			  title="Expand all nodes">
-		    <span class="fa fa-angle-double-down"></span>
-		  </button>
-		  <button type="button" class="btn btn-default"
-			  id="tree-items-collapse-all"
-			  data-toggle="tooltip" data-placement="bottom"
-			  title="Collapse all nodes">
-		    <span class="fa fa-angle-double-up"></span>
-		  </button>
-		</div>
-		<div style="height:10px;"></div>
+              <!-- The actual tree (item view)! -->
+              <div id="tree-items" class="beacon-tree beacon-searchable"></div>
+            </div>
 
-		<!-- The actual tree (item view)! -->
-		<div id="tree-items" class="beacon-tree beacon-searchable"></div>
-	      </div>
+            <!-- Tree plugins view pane -->
+            <div id="plugins-view" class="tab-pane">
+              <div class="btn-group" role="group">
+                <button type="button" class="btn btn-default" id="tree-plugins-expand-all" data-toggle="tooltip"
+                  data-placement="bottom" title="Expand all nodes">
+                  <span class="fa fa-angle-double-down"></span>
+                </button>
+                <button type="button" class="btn btn-default" id="tree-plugins-collapse-all" data-toggle="tooltip"
+                  data-placement="bottom" title="Collapse all nodes">
+                  <span class="fa fa-angle-double-up"></span>
+                </button>
+              </div>
+              <div style="height:10px;"></div>
 
-	      <!-- Tree plugins view pane -->
-	      <div id="plugins-view" class="tab-pane">
-		<div class="btn-group" role="group">
-		  <button type="button" class="btn btn-default"
-			  id="tree-plugins-expand-all"
-			  data-toggle="tooltip" data-placement="bottom"
-			  title="Expand all nodes">
-		    <span class="fa fa-angle-double-down"></span>
-		  </button>
-		  <button type="button" class="btn btn-default"
-			  id="tree-plugins-collapse-all"
-			  data-toggle="tooltip" data-placement="bottom"
-			  title="Collapse all nodes">
-		    <span class="fa fa-angle-double-up"></span>
-		  </button>
-		</div>
-		<div style="height:10px;"></div>
+              <!-- The actual tree (plugin view)! -->
+              <div id="tree-plugins" class="beacon-tree beacon-searchable"></div>
+            </div>
 
-		<!-- The actual tree (plugin view)! -->
-		<div id="tree-plugins" class="beacon-tree beacon-searchable"></div>
-	      </div>
+            <!-- Tree tags view pane -->
+            <div id="tags-view" class="tab-pane">
+              <div class="btn-group" role="group">
+                <button type="button" class="btn btn-default" id="tree-tags-expand-all" data-toggle="tooltip"
+                  data-placement="bottom" title="Expand all nodes">
+                  <span class="fa fa-angle-double-down"></span>
+                </button>
+                <button type="button" class="btn btn-default" id="tree-tags-collapse-all" data-toggle="tooltip"
+                  data-placement="bottom" title="Collapse all nodes">
+                  <span class="fa fa-angle-double-up"></span>
+                </button>
+              </div>
+              <div style="height:10px;"></div>
 
-	      <!-- Tree tags view pane -->
-	      <div id="tags-view" class="tab-pane">
-		<div class="btn-group" role="group">
-		  <button type="button" class="btn btn-default"
-			  id="tree-tags-expand-all"
-			  data-toggle="tooltip" data-placement="bottom"
-			  title="Expand all nodes">
-		    <span class="fa fa-angle-double-down"></span>
-		  </button>
-		  <button type="button" class="btn btn-default"
-			  id="tree-tags-collapse-all"
-			  data-toggle="tooltip" data-placement="bottom"
-			  title="Collapse all nodes">
-		    <span class="fa fa-angle-double-up"></span>
-		  </button>
-		</div>
-		<div style="height:10px;"></div>
+              <!-- The actual tree (tag view)! -->
+              <div id="tree-tags" class="beacon-tree beacon-searchable"></div>
+            </div>
 
-		<!-- The actual tree (tag view)! -->
-		<div id="tree-tags" class="beacon-tree beacon-searchable"></div>
-	      </div>
-
-	      <!-- Tree sessions view pane -->
-	      <div id="sessions-view" class="tab-pane">
-		<!-- The actual tree (session view)! -->
-		<div id="tree-sessions" class="beacon-tree beacon-searchable"></div>
-	      </div>
-
-	    </div>
-
-	  </div>
-	</div>
-
-	<!-- content -->
-	<div id="content-panel" class="col-sm-8 beacon-col"></div>
+            <!-- Tree sessions view pane -->
+            <div id="sessions-view" class="tab-pane">
+              <!-- The actual tree (session view)! -->
+              <div id="tree-sessions" class="beacon-tree beacon-searchable"></div>
+            </div>
+          </div>
+        </div>
       </div>
-    </div> <!-- container fluid -->
 
-    <!-- modal input dialog -->
-    <div id="input-dialog" class="modal fade" tabindex="-1" role="dialog">
-      <div class="modal-dialog" role="document">
-	<div class="modal-content">
-          <div class="modal-header">
-	    <button type="button" class="close" data-dismiss="modal"
-		    aria-label="Close"><span aria-hidden="true">&times;</span>
-	    </button>
-	    <h4 id="input-title-dialog", class="modal-title" id="">-- TITLE --</h4>
-	  </div>
-	  <div class="modal-body">
-            <form>
-	      <div class="form-group">
-		<label id="input-label-dialog" for="input-text-dialog" class="control-label">
-		  -- LABEL --
-		</label>
-		<input type="text" class="form-control"
-		       id="input-text-dialog"
-		       placeholder="">
-	      </div>
-            </form>
-	  </div>
-	  <div class="modal-footer">
-            <button type="button" class="btn btn-default"
-		    data-dismiss="modal">Close</button>
-            <button type="button" id="input-dialog-apply" class="btn btn-primary">
-	      Apply
-	    </button>
-	  </div>
-	</div><!-- /.modal-content -->
-      </div><!-- /.modal-dialog -->
-    </div><!-- /.modal -->
+      <!-- content -->
+      <div id="content-panel" class="col-sm-8 beacon-col"></div>
+    </div>
+  </div>
+  <!-- container fluid -->
 
-    <div class="notifications notifications-panel top-right"></div>
+  <!-- modal input dialog -->
+  <div id="input-dialog" class="modal fade" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+          </button>
+          <h4 id="input-title-dialog" , class="modal-title" id="">
+            -- TITLE --
+          </h4>
+        </div>
+        <div class="modal-body">
+          <form>
+            <div class="form-group">
+              <label id="input-label-dialog" for="input-text-dialog" class="control-label">
+                -- LABEL --
+              </label>
+              <input type="text" class="form-control" id="input-text-dialog" placeholder="" />
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-default" data-dismiss="modal">
+            Close
+          </button>
+          <button type="button" id="input-dialog-apply" class="btn btn-primary">
+            Apply
+          </button>
+        </div>
+      </div>
+      <!-- /.modal-content -->
+    </div>
+    <!-- /.modal-dialog -->
+  </div>
+  <!-- /.modal -->
 
-    <script>
-      function start_drag(event) {
-        var nodes = $("#" + event.target.id).treeview("getSelected");
-        event.dataTransfer.setData("nodes", nodes);
-      }
+  <div class="notifications notifications-panel top-right"></div>
 
-      function allow_drop(event) {
-        event.preventDefault();
-      }
+  <script>
+    function start_drag(event) {
+      var nodes = $("#" + event.target.id).treeview("getSelected");
+      event.dataTransfer.setData("nodes", nodes);
+    }
 
-      function do_drop(event) {
-        event.preventDefault();
-        var nodes = event.dataTransfer.getData("nodes");
-        console.log("event dropped ", nodes);
-      }
+    function allow_drop(event) {
+      event.preventDefault();
+    }
 
-      function init_trees() {
-        /* Files view */
-        $("#tree-files-expand-all").on("click", function() {
-          $("#tree-files").treeview("expandAll", {levels: 3, silent: true} );
-          toggle_folder_icon_state();
-        });
-          
-        $("#tree-files-collapse-all").on("click", function() {
-          $("#tree-files").treeview("collapseAll", {silent: true} );
-        });
-        
-        $("#tree-files-add-file").on("click", function() {
-          show_add_file_dialog();
-        });
-        
-        $("#tree-files-add-folder").on("click", function() {
-          show_add_folder_dialog();
-        });
-        
-        $("#tree-files-rename").on("click", function() {
-          show_rename_dialog();
-        });
-        
-        $("#tree-files-move").on("click", function() {
-          show_move_dialog();
-        });
-        
-        $("#tree-files-delete").on("click", function() {
-          show_remove_dialog();
-        });
+    function do_drop(event) {
+      event.preventDefault();
+      var nodes = event.dataTransfer.getData("nodes");
+      console.log("event dropped ", nodes);
+    }
 
-        /* Items view */
-        $("#tree-items-expand-all").on("click", function() {
-          $("#tree-items").treeview("expandAll", {levels: 2, silent: true} );
-          toggle_folder_icon_state();
-        });
-        
-        $("#tree-items-collapse-all").on("click", function() {
-          $("#tree-items").treeview("collapseAll", {silent: true} );
-        });
-        
-        /* Plugins view */
-        $("#tree-plugins-expand-all").on("click", function() {
-          $("#tree-plugins").treeview("expandAll", {levels: 2, silent: true} );
-          toggle_folder_icon_state();
-        });
-        
-        $("#tree-plugins-collapse-all").on("click", function() {
-          $("#tree-plugins").treeview("collapseAll", {silent: true} );
-        });
-        
-        /* Tags view */
-        $("#tree-tags-expand-all").on("click", function() {
-          $("#tree-tags").treeview("expandAll", {levels: 2, silent: true} );
-          toggle_folder_icon_state();
-        });
-
-        $("#tree-tags-collapse-all").on("click", function() {
-          $("#tree-tags").treeview("collapseAll", {silent: true} );
-        });
-
-        reload_trees();
-      }
-
-      function get_selected_path() {
-        var selected = $("#tree-files").treeview("getSelected");
-        var path = "";
-        if (selected.length > 0) {
-          path = selected[0].path;
-        }
-        return path;
-      }
-
-      function get_selected_folder_path() {
-        var selected = $("#tree-files").treeview("getSelected");
-        var path = "";
-        for (var item in selected) {
-          if (selected[item].type == "folder") {
-            path = selected[item].path;
-            break;
-          }
-        }
-        return path;
-      }
-
-      function show_dialog(title, label, input, operation, placeholder) {
-        $("#input-title-dialog").text(title);
-        $("#input-label-dialog").text(label);
-        $("#input-text-dialog").val(input);
-        $("#input-text-dialog").attr("placeholder", placeholder);
-        $("#input-dialog").data("operation", operation);
-        $("#input-dialog").modal("show");
-      }
-
-      function get_dialog_info() {
-        return {
-          title: $("#input-title-dialog").text(),
-          label: $("#input-label-dialog").text(),
-          input: $("#input-text-dialog").val(),
-          placeholder: $("#input-text-dialog").attr("placeholder"),
-          operation: $("#input-dialog").data("operation"),
-        };
-      }
-
-      function show_add_file_dialog() {
-        var path = get_selected_folder_path();
-        if (path.length > 0) {
-          path = path + "/";
-        }
-        show_dialog("New file", "New file name", path,
-                    "new_file", "ex: EH/gasblower.yml");
-      }
-
-      function show_add_folder_dialog() {
-        var path = get_selected_folder_path();
-        if (path.length > 0) {
-          path = path + "/";
-        }
-        show_dialog("New folder", "New folder name:", path,
-                    "new_folder", "ex: EH/motion");
-      }
-
-      function show_rename_dialog() {
-        var path = get_selected_path();
-        show_dialog("Rename "+ path, "New name:", path, "move", path);
-      }
-
-      function show_move_dialog() {
-        var path = get_selected_path();
-        show_dialog("Move "+ path, "New name:", path, "move", path);
-      }
-
-      function show_remove_dialog() {
-        var selected = $("#tree-files").treeview("getSelected");
-        if (selected.length > 0) {
-          var node = selected[0];
-          var result = false;
-          if (node.type == "file") {
-             result = confirm("Are you sure you want to delete " + node.path + "?");
-          }
-          else if(node.type == "folder") {
-            result = confirm("Are you sure you want to folder " + node.path +
-                             " (all items underneath will also be deleted!) ?");
-          }
-          if (result == true) {
-            remove_path(node.path, function(result) {
-              data = $.parseJSON(result);
-              $("#content-panel").empty();
-              reload_trees();
-              show_notification(data.message, data.type);
-            });
-          }
-        }
-      }
-
-      function reload_trees() {
-        reload_tree($("#tree-files"), {
-            perspective: "files",
-            onNodeSelected: on_tree_files_node_selected,
-        });
-        reload_tree($("#tree-items"), {
-            perspective: "items",
-            onNodeSelected: on_tree_items_node_selected,
-        });
-        reload_tree($("#tree-plugins"), {
-            perspective: "plugins",
-            onNodeSelected: on_tree_plugins_node_selected,
-        });
-        reload_tree($("#tree-tags"), {
-            perspective: "tags",
-            onNodeSelected: on_tree_tags_node_selected,
-        });
-        reload_tree($("#tree-sessions"), {
-            perspective: "sessions",
-            onNodeSelected: on_tree_sessions_node_selected,
-        });
-      }
-
-      function on_tree_files_node_selected(event, node) {
-        var ntype = node.type;
-        if (ntype == "file" || ntype == "folder") {
-          $("#files-view button.btn-file-op").button().removeClass("disabled");
-        }
-        else {
-          $("#files-view button.btn-file-op").button().addClass("disabled");
-        }
-        show_node(node, $("#content-panel"));
-      }
-
-      function on_tree_items_node_selected(event, node) {
-        show_node(node, $("#content-panel"));
-      }
-
-      function on_tree_plugins_node_selected(event, node) {
-        show_node(node, $("#content-panel"));
-      }
-
-      function on_tree_tags_node_selected(event, node) {
-        show_node(node, $("#content-panel"));
-      }
-
-      function on_tree_sessions_node_selected(event, node) {
-        show_node(node, $("#content-panel"));
-      }
-
-      function toggle_folder_icon_state() {
-        $("span.expand-icon.fa-minus-square-o + span.fa-folder").removeClass("fa-folder").addClass("fa-folder-open");
-      }
-
-      $(function() {
-
-        /* initialize tooltips */
-        $('[data-toggle="tooltip"]').tooltip({
-          delay: { "show": 500, "hide": 0 },
-          container: 'body'
-        })
-
-        /* initialize tabs */
-        $('#tab-buttons a').click(function (e) {
-          e.preventDefault()
-          $('#tab-buttons a').removeClass('active')
-          $(this).addClass('active')
-          $(this).tab('show')
-        });
-
-        $("#filter-edit").keyup(function() {
-          var filter = $(this).val();
-          var search_options = {
-            ignoreCase: true,
-            exactMatch: false,
-            revealsResult: true,
-          };
-          $(".beacon-searchable").treeview("search", [filter, search_options]);
-        });
-
-        $("#clear-filter").on("click", function() {
-          $("#filter-edit").val("");
-          $(".beacon-searchable").treeview("clearSearch");
-        });
-
-        $("#brand-image").on("click", function() {
-          show_main($("#content-panel"));
-        });
-
-        $("#brand-text").on("click", function() {
-          show_main($("#content-panel"));
-        });
-
-        $(document).on("click", "li.list-group-item", toggle_folder_icon_state);
-
-        $("#reload-config").on("click", function() {
-          var btn = $(this).button('reloading...');
-          request = $.ajax({
-            url : "config/reload",
-            success: function() {
-              reload_trees();
-            }});
-            request.always(function() {
-              btn.button('reset');
-          });
-        });
-
-        $("#add-file").on("click", function() {
-          show_add_file_dialog();
-        });
-
-        $("#input-dialog-apply").on("click", function() {
-          var info = get_dialog_info();
-          var value = info.input;
-          var op = info.operation;
-          if (op == "new_file") {
-            add_file(value, function(result) {
-              data = $.parseJSON(result);
-              reload_trees();
-              show_filename(value, $("#content-panel"));
-              show_notification(data.message, data.type);
-            });
-          }
-          else if (op == "new_folder") {
-            add_folder(value, function(result) {
-              data = $.parseJSON(result);
-              reload_trees();
-              show_notification(data.message, data.type);
-            });
-          }
-          else if (op == "move") {
-            move_path(info.placeholder, value, function(result) {
-              data = $.parseJSON(result);
-              reload_trees();
-              show_notification(data.message, data.type);
-            });
-          }
-          $("#input-dialog").modal("hide");
-        });
-
-        init_trees();
-        show_main($("#content-panel"));
-
+    function init_trees() {
+      /* Files view */
+      $("#tree-files-expand-all").on("click", function () {
+        $("#tree-files").treeview("expandAll", { levels: 3, silent: true });
+        toggle_folder_icon_state();
       });
-    </script>
 
-  </body>
+      $("#tree-files-collapse-all").on("click", function () {
+        $("#tree-files").treeview("collapseAll", { silent: true });
+      });
+
+      $("#tree-files-add-file").on("click", function () {
+        show_add_file_dialog();
+      });
+
+      $("#tree-files-add-folder").on("click", function () {
+        show_add_folder_dialog();
+      });
+
+      $("#tree-files-rename").on("click", function () {
+        show_rename_dialog();
+      });
+
+      $("#tree-files-move").on("click", function () {
+        show_move_dialog();
+      });
+
+      $("#tree-files-delete").on("click", function () {
+        show_remove_dialog();
+      });
+
+      /* Items view */
+      $("#tree-items-expand-all").on("click", function () {
+        $("#tree-items").treeview("expandAll", { levels: 2, silent: true });
+        toggle_folder_icon_state();
+      });
+
+      $("#tree-items-collapse-all").on("click", function () {
+        $("#tree-items").treeview("collapseAll", { silent: true });
+      });
+
+      /* Plugins view */
+      $("#tree-plugins-expand-all").on("click", function () {
+        $("#tree-plugins").treeview("expandAll", { levels: 2, silent: true });
+        toggle_folder_icon_state();
+      });
+
+      $("#tree-plugins-collapse-all").on("click", function () {
+        $("#tree-plugins").treeview("collapseAll", { silent: true });
+      });
+
+      /* Tags view */
+      $("#tree-tags-expand-all").on("click", function () {
+        $("#tree-tags").treeview("expandAll", { levels: 2, silent: true });
+        toggle_folder_icon_state();
+      });
+
+      $("#tree-tags-collapse-all").on("click", function () {
+        $("#tree-tags").treeview("collapseAll", { silent: true });
+      });
+
+      reload_trees();
+    }
+
+    function get_selected_path() {
+      var selected = $("#tree-files").treeview("getSelected");
+      var path = "";
+      if (selected.length > 0) {
+        path = selected[0].path;
+      }
+      return path;
+    }
+
+    function get_selected_folder_path() {
+      var selected = $("#tree-files").treeview("getSelected");
+      var path = "";
+      for (var item in selected) {
+        if (selected[item].type == "folder") {
+          path = selected[item].path;
+          break;
+        }
+      }
+      return path;
+    }
+
+    function show_dialog(title, label, input, operation, placeholder) {
+      $("#input-title-dialog").text(title);
+      $("#input-label-dialog").text(label);
+      $("#input-text-dialog").val(input);
+      $("#input-text-dialog").attr("placeholder", placeholder);
+      $("#input-dialog").data("operation", operation);
+      $("#input-dialog").modal("show");
+    }
+
+    function get_dialog_info() {
+      return {
+        title: $("#input-title-dialog").text(),
+        label: $("#input-label-dialog").text(),
+        input: $("#input-text-dialog").val(),
+        placeholder: $("#input-text-dialog").attr("placeholder"),
+        operation: $("#input-dialog").data("operation")
+      };
+    }
+
+    function show_add_file_dialog() {
+      var path = get_selected_folder_path();
+      if (path.length > 0) {
+        path = path + "/";
+      }
+      show_dialog(
+        "New file",
+        "New file name",
+        path,
+        "new_file",
+        "ex: EH/gasblower.yml"
+      );
+    }
+
+    function show_add_folder_dialog() {
+      var path = get_selected_folder_path();
+      if (path.length > 0) {
+        path = path + "/";
+      }
+      show_dialog(
+        "New folder",
+        "New folder name:",
+        path,
+        "new_folder",
+        "ex: EH/motion"
+      );
+    }
+
+    function show_rename_dialog() {
+      var path = get_selected_path();
+      show_dialog("Rename " + path, "New name:", path, "move", path);
+    }
+
+    function show_move_dialog() {
+      var path = get_selected_path();
+      show_dialog("Move " + path, "New name:", path, "move", path);
+    }
+
+    function show_remove_dialog() {
+      var selected = $("#tree-files").treeview("getSelected");
+      if (selected.length > 0) {
+        var node = selected[0];
+        var result = false;
+        if (node.type == "file") {
+          result = confirm(
+            "Are you sure you want to delete " + node.path + "?"
+          );
+        } else if (node.type == "folder") {
+          result = confirm(
+            "Are you sure you want to folder " +
+            node.path +
+            " (all items underneath will also be deleted!) ?"
+          );
+        }
+        if (result == true) {
+          remove_path(node.path, function (result) {
+            data = $.parseJSON(result);
+            $("#content-panel").empty();
+            reload_trees();
+            show_notification(data.message, data.type);
+          });
+        }
+      }
+    }
+
+    function reload_trees() {
+      reload_tree($("#tree-files"), {
+        perspective: "files",
+        onNodeSelected: on_tree_files_node_selected
+      });
+      reload_tree($("#tree-items"), {
+        perspective: "items",
+        onNodeSelected: on_tree_items_node_selected
+      });
+      reload_tree($("#tree-plugins"), {
+        perspective: "plugins",
+        onNodeSelected: on_tree_plugins_node_selected
+      });
+      reload_tree($("#tree-tags"), {
+        perspective: "tags",
+        onNodeSelected: on_tree_tags_node_selected
+      });
+      reload_tree($("#tree-sessions"), {
+        perspective: "sessions",
+        onNodeSelected: on_tree_sessions_node_selected
+      });
+    }
+
+    function on_tree_files_node_selected(event, node) {
+      var ntype = node.type;
+      if (ntype == "file" || ntype == "folder") {
+        $("#files-view button.btn-file-op")
+          .button()
+          .removeClass("disabled");
+      } else {
+        $("#files-view button.btn-file-op")
+          .button()
+          .addClass("disabled");
+      }
+      show_node(node, $("#content-panel"));
+    }
+
+    function on_tree_items_node_selected(event, node) {
+      show_node(node, $("#content-panel"));
+    }
+
+    function on_tree_plugins_node_selected(event, node) {
+      show_node(node, $("#content-panel"));
+    }
+
+    function on_tree_tags_node_selected(event, node) {
+      show_node(node, $("#content-panel"));
+    }
+
+    function on_tree_sessions_node_selected(event, node) {
+      show_node(node, $("#content-panel"));
+    }
+
+    function toggle_folder_icon_state() {
+      $("span.expand-icon.fa-minus-square-o + span.fa-folder")
+        .removeClass("fa-folder")
+        .addClass("fa-folder-open");
+    }
+
+    $(function () {
+      /* initialize tooltips */
+      $('[data-toggle="tooltip"]').tooltip({
+        delay: { show: 500, hide: 0 },
+        container: "body"
+      });
+
+      /* initialize tabs */
+      $("#tab-buttons a").click(function (e) {
+        e.preventDefault();
+        $("#tab-buttons a").removeClass("active");
+        $(this).addClass("active");
+        $(this).tab("show");
+      });
+
+      $("#filter-edit").keyup(function () {
+        var filter = $(this).val();
+        var search_options = {
+          ignoreCase: true,
+          exactMatch: false,
+          revealsResult: true
+        };
+        $(".beacon-searchable").treeview("search", [filter, search_options]);
+      });
+
+      $("#clear-filter").on("click", function () {
+        $("#filter-edit").val("");
+        $(".beacon-searchable").treeview("clearSearch");
+      });
+
+      $("#brand-image").on("click", function () {
+        show_main($("#content-panel"));
+      });
+
+      $("#brand-text").on("click", function () {
+        show_main($("#content-panel"));
+      });
+
+      $(document).on("click", "li.list-group-item", toggle_folder_icon_state);
+
+      $("#reload-config").on("click", function () {
+        var btn = $(this).button("reloading...");
+        request = $.ajax({
+          url: "config/reload",
+          success: function () {
+            reload_trees();
+          }
+        });
+        request.always(function () {
+          btn.button("reset");
+        });
+      });
+
+      $("#add-file").on("click", function () {
+        show_add_file_dialog();
+      });
+
+      $("#input-dialog-apply").on("click", function () {
+        var info = get_dialog_info();
+        var value = info.input;
+        var op = info.operation;
+        if (op == "new_file") {
+          add_file(value, function (result) {
+            data = $.parseJSON(result);
+            reload_trees();
+            show_filename(value, $("#content-panel"));
+            show_notification(data.message, data.type);
+          });
+        } else if (op == "new_folder") {
+          add_folder(value, function (result) {
+            data = $.parseJSON(result);
+            reload_trees();
+            show_notification(data.message, data.type);
+          });
+        } else if (op == "move") {
+          move_path(info.placeholder, value, function (result) {
+            data = $.parseJSON(result);
+            reload_trees();
+            show_notification(data.message, data.type);
+          });
+        }
+        $("#input-dialog").modal("hide");
+      });
+
+      init_trees();
+      show_main($("#content-panel"));
+    });
+  </script>
+</body>
+
 </html>

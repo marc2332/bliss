@@ -13,12 +13,29 @@ from typing_extensions import Protocol, runtime_checkable
 from types import SimpleNamespace
 
 
+class IterableNamespace(SimpleNamespace):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+    def __getitem__(self, key):
+        try:
+            return self.__dict__.__getitem__(key)
+        except KeyError:
+            return list(self.__dict__.values())[key]
+
+    @property
+    def _fields(self):
+        return self.__dict__.keys()
+
+
 def counter_namespace(counters):
     if isinstance(counters, dict):
         dct = counters
+    elif isinstance(counters, IterableNamespace):
+        return counters
     else:
         dct = {counter.name: counter for counter in counters}
-    return SimpleNamespace(**dct)
+    return IterableNamespace(**dct)
     # return namedtuple("namespace", dct)(**dct)
 
 
@@ -29,7 +46,7 @@ class CounterContainer(Protocol):
     """
 
     @property
-    def counters(self) -> namedtuple("namespace", {}):
+    def counters(self) -> IterableNamespace:
         """
         Return a **counter_namespace** which hold a list of counters
         attached to this device.

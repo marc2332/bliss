@@ -10,6 +10,7 @@ This file groups all protocols managed by bliss
 """
 from collections import namedtuple
 from typing_extensions import Protocol, runtime_checkable
+from types import SimpleNamespace
 
 
 def counter_namespace(counters):
@@ -17,7 +18,8 @@ def counter_namespace(counters):
         dct = counters
     else:
         dct = {counter.name: counter for counter in counters}
-    return namedtuple("namespace", dct)(**dct)
+    return SimpleNamespace(**dct)
+    # return namedtuple("namespace", dct)(**dct)
 
 
 @runtime_checkable

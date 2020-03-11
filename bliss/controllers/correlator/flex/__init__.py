@@ -49,6 +49,10 @@ class Flex:
     def mode(self):
         return self._proxy.mode
 
+    @mode.setter
+    def mode(self, mo):
+        self._proxy.mode = mo
+
     def start_acquisition(self):
         return self._proxy.start_acquisition()
 

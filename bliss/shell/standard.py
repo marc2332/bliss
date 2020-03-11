@@ -47,6 +47,7 @@ from bliss.common.utils import (
     typecheck_var_args_pattern,
     modify_annotations,
     custom_error_msg,
+    shorten_signature,
 )
 from bliss.common.measurementgroup import MeasurementGroup
 
@@ -394,6 +395,13 @@ def wa(**kwargs):
         print(_tabulate(table))
 
 
+@custom_error_msg(
+    TypeError,
+    "intended usage: wm(axis1, axis2, ... ) Hint:",
+    new_exeption_type=RuntimeError,
+    display_original_msg=True,
+)
+@shorten_signature(annotations={"axes": "axis1, axis2, ... "}, hidden_kwargs=("kwargs"))
 @typeguard.typechecked
 def wm(*axes: _scannable_or_name, **kwargs):
     """

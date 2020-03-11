@@ -28,7 +28,7 @@ class Encoder:
     def __init__(self, name, controller, config):
         self.__name = name
         self.__controller = controller
-        self.__counter_controller = counter.SamplingCounterController(f"encoder:{name}")
+        self.__counter_controller = counter.SamplingCounterController(name)
         # note: read_all is not implemented, multiple encoders from the same controller will not be read in one go
         self.__counter_controller.read = types.MethodType(
             lambda this, cnt: self.read(), self.__counter_controller

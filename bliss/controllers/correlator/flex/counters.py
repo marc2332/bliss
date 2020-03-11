@@ -7,8 +7,11 @@
 import weakref
 import numpy
 import gevent
+
+from bliss.controllers.counter import CounterController
 from bliss.common.counter import Counter
 from bliss.scanning.chain import AcquisitionSlave
+from bliss.common.protocols import counter_namespace
 from .card import MODE
 
 INTS_NAMES = ("intensity_A", "intensity_B", "acq_time")
@@ -26,9 +29,33 @@ def get_counters(flex):
         spectrum_size = 288
         nb_channel = 5
 
-    datas = [Data(flex, i, spectrum_size) for i in range(nb_channel)]
-    intensities = [Intensity(flex, name) for name in INTS_NAMES]
-    return intensities + datas
+    ctrl = Controller(flex)
+    datas = [Data(ctrl, i, spectrum_size) for i in range(nb_channel)]
+    intensities = [Intensity(ctrl, name) for name in INTS_NAMES]
+    return counter_namespace(intensities + datas)
+
+
+class Controller(CounterController):
+    def __init__(self, flex):
+        super().__init__(flex.name, register_counters=False)
+        self._flex = flex
+
+    def get_default_chain_parameters(self, scan_params, acq_params):
+        count_time = acq_params.get("count_time", scan_params["count_time"])
+        npoints = acq_params.get("npoints", scan_params["npoints"])
+        prepare_once = acq_params.get("prepare_once", True)
+        start_once = acq_params.get("start_once", False)
+        return {
+            "count_time": count_time,
+            "npoints": npoints,
+            "prepare_once": prepare_once,
+            "start_once": start_once,
+        }
+
+    def get_acquisition_object(self, acq_params, ctrl_params, parent_acq_params):
+        return FlexAcquisitionSlave(
+            self, self._flex, ctrl_params=ctrl_params, **acq_params
+        )
 
 
 class Data(Counter):
@@ -87,7 +114,8 @@ class FlexAcquisitionSlave(AcquisitionSlave):
 
     def __init__(
         self,
-        *flex_or_flex_counters,
+        flex_counter_controller,
+        flex,
         count_time=1,
         mode=None,
         ctrl_params=None,
@@ -97,7 +125,7 @@ class FlexAcquisitionSlave(AcquisitionSlave):
         start_once = kwargs.get("start_once", False)
         AcquisitionSlave.__init__(
             self,
-            *flex_or_flex_counters,
+            flex_counter_controller,
             npoints=kwargs.get("npoints", 1),
             prepare_once=prepare_once,
             start_once=start_once,
@@ -107,10 +135,11 @@ class FlexAcquisitionSlave(AcquisitionSlave):
         self._mode = mode
         self._stop_task = None
         self._event = gevent.event.Event()
+        self._flex = flex
 
     def prepare(self):
         if self._mode is not None:
-            self.device.mode = self._mode
+            self._flex.mode = self._mode
 
     def start(self):
         pass
@@ -119,12 +148,12 @@ class FlexAcquisitionSlave(AcquisitionSlave):
         if self._stop_task is not None:
             self._stop_task.kill()
             self._stop_task = None
-        self.device.stop_acquisition()
+        self._flex.stop_acquisition()
 
     def trigger(self):
-        self.device.start_acquisition()
+        self._flex.start_acquisition()
         self._stop_task = gevent.spawn_later(
-            self._count_time, self.device.stop_acquisition
+            self._count_time, self._flex.stop_acquisition
         )
         self._event.set()
 
@@ -143,8 +172,8 @@ class FlexAcquisitionSlave(AcquisitionSlave):
             self._stop_task.join()
 
         data_names = [Data(self, chan_nb, -1).name for chan_nb in range(5)]
-        values_dict = {name: data for name, data in zip(data_names, self.device.data)}
-        ints_and_acq_time = self.device.intensities_and_acqtime
+        values_dict = {name: data for name, data in zip(data_names, self._flex.data)}
+        ints_and_acq_time = self._flex.intensities_and_acqtime
         values_dict.update(
             {name: data for name, data in zip(INTS_NAMES, ints_and_acq_time)}
         )

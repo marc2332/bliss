@@ -17,6 +17,7 @@ Minimalistic configuration example:
    class: Flex
    address: tcp://lid312:8909
 """
+from bliss import global_map
 from bliss.comm import rpc
 from . import counters
 from .card import MODE
@@ -30,10 +31,15 @@ class Flex:
         if "timeout" in config:
             kwargs["timeout"] = config["timeout"]
         self._proxy = rpc.Client(config["address"], **kwargs)
+        global_map.register(self, parents_list=["counters", "controllers"])
 
     @property
     def name(self):
         return self._proxy.name
+
+    @property
+    def fullname(self):
+        return self.name
 
     @property
     def counters(self):

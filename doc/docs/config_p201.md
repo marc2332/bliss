@@ -139,7 +139,7 @@ type: P201                     # (5)
 clock: CLK_100_MHz             # (6)
 external sync:                 # (7)
   input:                       # (8)
-    channel: 7                 # (9)
+    channel: 9                 # (9)
     polarity inverted: False   # (10)
   output:                      # (11)
     channel: 10                # (12)
@@ -147,9 +147,10 @@ external sync:                 # (7)
 channels:                      # (14)
 - address: 1                   # (15)
   counter name: pC1            # (16)
-  level: NIM                   # (17)
+  50 ohm: true                 # (17)
+  level: TTL                   # (18)
 - address: 10
-  level: NIM                   # (18)
+  level: NIM                   # (19)
 ```
 
 1.  plugin name (mandatory: `ct2`)
@@ -160,6 +161,7 @@ channels:                      # (14)
 5.  card type (optional, default: `P201`). Valid values are: `P201`
     (historical: before the C208 was forseen to be supported as well)
 6.  card clock (optional, default: `CLK_100_MHz`)
+    - There is a bug on P201 card at 100 MHz -> 12.5 MHz forced
 7.  External synchronization signal configuration
 8.  Input signal: used for external trigger/gate (optional, default: no
     input)
@@ -174,8 +176,9 @@ channels:                      # (14)
 14. Channel configuration
 15. channel address (mandatory). Valid: \[1, 10\]
 16. counter name (optional). Needed if want to count on this channel.
-17. channel input level (optional, default: TTL)
-18. channel input/output level (optional, default: TTL)
+17. true to enable 50 ohm.
+18. channel input level (optional, default: TTL)
+19. channel input/output level (optional, default: TTL)
 
 !!! note
     If external sync input/output channel is given, the channel counter name

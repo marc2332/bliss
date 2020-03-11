@@ -14,12 +14,11 @@ from bliss.common.motor_settings import (
     setting_update_from_channel,
     floatOrNone,
 )
-from bliss.common.axis import Axis, NoSettingsAxis, Trajectory
+from bliss.common.axis import NoSettingsAxis, Trajectory
 from bliss.common.motor_group import Group, TrajectoryGroup
 from bliss.common import event
 from bliss.physics import trajectory
 from bliss.common.utils import set_custom_members, object_method, grouped
-from bliss.common.logtools import *
 from bliss import global_map
 from bliss.config.channels import Cache, Channel
 from bliss.config import settings
@@ -28,6 +27,7 @@ from gevent import lock
 # make the link between encoder and axis, if axis uses an encoder
 # (only 1 encoder per axis of course)
 
+
 # apply settings or config parameters
 def get_setting_or_config_value(axis, name):
     converter = axis.settings.convert_func(name)
@@ -35,7 +35,7 @@ def get_setting_or_config_value(axis, name):
     if value is None:
         try:
             value = axis.config.get(name, converter)
-        except:
+        except BaseException:
             return None
     return value
 
@@ -161,16 +161,23 @@ class Controller:
             self.__initialized_encoder[encoder] = True
 
     def _initialize_axis(self, axis, *args, **kwargs):
+        """
+        """
         with self.__lock:
+            # Only if axis is not already initialized.
             if self.__initialized_axis[axis]:
                 return
 
+            # Initialize controller hardware only once.
             if not self.__initialized_hw.value:
                 self.initialize_hardware()
                 self.__initialized_hw.value = True
 
+            # Call specific axis initialization.
             self.initialize_axis(axis)
 
+            # Call specific hardware axis initialization.
+            # Done only once even in case of multi clients.
             axis_initialized = self.__initialized_hw_axis[axis]
             if not axis_initialized.value:
                 self.initialize_hardware_axis(axis)
@@ -178,16 +185,19 @@ class Controller:
 
             self.__initialized_axis[axis] = True
 
+        # Apply settings but for NoSettingsAxis.
         if isinstance(axis, NoSettingsAxis):
             return
         else:
             try:
                 self._init_settings(axis)
-            except:
+            except BaseException:
                 self.__initialized_axis[axis] = False
                 raise
 
     def _init_settings(self, axis):
+        """ Initialize hardware with settings
+        """
         props = dict(
             inspect.getmembers(axis.__class__, lambda o: isinstance(o, property))
         )
@@ -217,7 +227,7 @@ class Controller:
                 cval = float(axis.config.get(setting_name))
                 rval = axis.settings.get(setting_name)
 
-                if cval != rval and rval != None:
+                if (cval != rval) and (rval is not None):
                     ratio = rval / cval
                     newdial = axis.dial * ratio
                     newpos = axis.sign * newdial + axis.offset

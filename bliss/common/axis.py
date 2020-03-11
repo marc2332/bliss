@@ -34,9 +34,8 @@ from bliss.common.motor_settings import AxisSettings
 from bliss.common import event
 from bliss.common.greenlet_utils import protect_from_one_kill
 from bliss.common.utils import with_custom_members
-from bliss.common.encoder import Encoder
 from bliss.config.channels import Channel
-from bliss.common.logtools import log_debug, log_error, lprint
+from bliss.common.logtools import log_debug, lprint
 from bliss.common.utils import rounder
 
 import gevent
@@ -51,7 +50,10 @@ warnings.simplefilter("once", DeprecationWarning)
 
 
 # Python 2 cmp builtin
-cmp = lambda a, b: int(a > b) - int(a < b)
+# Return negative if a<b, zero if a==b, positive if a>b
+def cmp(a, b):
+    return int(a > b) - int(a < b)
+
 
 #: Default polling time
 DEFAULT_POLLING_TIME = 0.02
@@ -103,7 +105,7 @@ class GroupMove:
         try:
             # Wait for the move to be started (or finished)
             gevent.wait([started, self._move_task], count=1)
-        except:
+        except BaseException:
             self.stop()
             raise
         # Wait if necessary and raise the move task exception if any
@@ -114,7 +116,7 @@ class GroupMove:
         if self._move_task is not None:
             try:
                 self._move_task.get()
-            except:
+            except BaseException:
                 self.stop()
                 raise
 
@@ -145,7 +147,7 @@ class GroupMove:
             for motion, task in monitor_move.items():
                 try:
                     motion.last_state = task.get(block=False)
-                except:
+                except BaseException:
                     pass
 
     def _stop_move(self, motions_dict, stop_motion):
@@ -929,7 +931,7 @@ class Axis:
             info_string += (
                 f"     tolerance (R) (to check pos. before a move): {self.tolerance}\n"
             )
-        except:
+        except BaseException:
             info_string += "ERROR: unable to get info (config problem?)\n"
 
         try:
@@ -940,54 +942,65 @@ class Axis:
             info_string += f"     limits (RW):    {_lim}    {_cfg_lim}\n"
             info_string += f"     dial (RW): {self.dial:.5f}\n"
             info_string += f"     position (RW): {self.position:.5f}\n"
-        except:
+        except BaseException:
             info_string += "ERROR: unable to get info\n"
 
         try:
             info_string += f"     state (R): {self.state}\n"
-        except:
+        except BaseException:
             info_string += f"     ERROR: unable to get state\n"
 
         # ACCELERATION
         try:
             _acc = self.acceleration
-            _acc_config = self.config_acceleration
             _acc_time = self.acctime
-            _acc_time_config = self.config_acctime
+
+            if self.controller.axis_settings.config_setting["acceleration"]:
+                _acc_config = f"{self.config_acceleration:10.5f}"
+                _acc_time_config = f"{self.config_acctime:10.5f}"
+            else:
+                _acc_config = "none"
+                _acc_time_config = "none"
+
             info_string += (
-                f"     acceleration (RW): {_acc:10.5f}  (config: {_acc_config:10.5f})\n"
+                f"     acceleration (RW): {_acc:10.5f}  (config: {_acc_config})\n"
             )
-            info_string += f"     acctime (RW):      {_acc_time:10.5f}  (config: {_acc_time_config:10.5f})\n"
-        except Exception as e:
+            info_string += f"     acctime (RW):      {_acc_time:10.5f}  (config: {_acc_time_config})\n"
+        except Exception:
             info_string += f"     acceleration: None\n"
 
         # VELOCITY
         try:
             _vel = self.velocity
-            _vel_config = self.config_velocity
+
+            if self.controller.axis_settings.config_setting["acceleration"]:
+                _vel_config = f"{self.config_velocity:10.5f}"
+            else:
+                _vel_config = "none"
+
             info_string += (
-                f"     velocity (RW):     {_vel:10.5f}  (config: {_vel_config:10.5f})\n"
+                f"     velocity (RW):     {_vel:10.5f}  (config: {_vel_config})\n"
             )
-        except Exception as e:
+        except Exception:
             info_string += f"     velocity: None\n"
 
         # CONTROLLER
         try:
             info_string += self.__controller.__info__()
-        except:
+        except Exception:
             info_string += f"ERROR: Unable to get info from controller\n"
 
         # SPECIFIC AXIS INFO
         try:
             # usage of get_axis_info() to pass axis as param.
             info_string += self.__controller.get_axis_info(self)
-        except Exception as e:
+        except Exception:
             info_string += f"{self.controller}\n"
 
         # ENCODER
         try:
             info_string += self.encoder.__info__()
-        except Exception as e:
+        except Exception:
             info_string += f"ENCODER:\n     None\n"
 
         return info_string
@@ -1230,7 +1243,7 @@ class Axis:
 
         try:
             self._check_ready()
-        except:
+        except BaseException:
             self.__execute_post_move_hook([motion])
             raise
 
@@ -1238,7 +1251,7 @@ class Axis:
         for hook in self.motion_hooks:
             try:
                 hook.post_move(motions)
-            except:
+            except BaseException:
                 sys.excepthook(*sys.exc_info())
 
     def _get_motion(self, user_target_pos):

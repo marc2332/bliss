@@ -177,6 +177,7 @@ def test_master_synchro(session, dummy_acq_master, dummy_acq_device):
     assert master.child_prepared == 2
 
 
+@pytest.mark.flaky(reruns=3)
 def test_lima_reintrant_iterator(session, lima_simulator):
     simulator = session.config.get("lima_simulator")
 

@@ -79,7 +79,7 @@ class AcquisitionChannel:
         chan_prefix, _, short_chan_name = self.__name.rpartition(":")
         alias = global_map.aliases.get(short_chan_name)
         if alias:
-            return f"{chan_prefix}:{alias.original_name}"
+            return f"{chan_prefix}:{alias.name}"
         else:
             return self.__name
 

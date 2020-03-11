@@ -56,12 +56,12 @@ def print_full_line(msg, deco="=", head="\n", tail="\n"):
     print("".join([head, deco, msg, deco, tail]))
 
 
-def _find_obj(name):
-    # get_axes_iter() returns un-aliased Axis objects only
+def _find_obj(name: str):
+    """Return the object (Axis or Counter) corresponding to the given name
+    """
     for axis in global_map.get_axes_iter():
-        if global_map.alias_or_name(axis) == name:
+        if axis.name == name:
             return axis
-    # get_counters_iter() returns all counter objects (incl. aliases)
     for cnt in global_map.get_counters_iter():
         if cnt.name == name:
             return cnt
@@ -153,7 +153,7 @@ class ScanPrinter:
                             sender=motor,
                         )
                     unit = motor.config.get("unit", default=None)
-                    motor_label = motor.name  # global_map.alias_or_name(motor)
+                    motor_label = motor.name
                     if unit:
                         motor_label += "[{0}]".format(unit)
                     motor_labels.append(motor_label)

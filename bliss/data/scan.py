@@ -119,10 +119,11 @@ def watch_session_scans(
                 event_data.description,
             )
             db_name = node.db_name
-            try:
-                fullname = node.fullname
-            except AttributeError:
+            if not hasattr(node, "fullname"):
+                # not a node we want to do anything with here
                 continue
+
+            fullname = node.fullname
 
             scan_info, scan_db_name = _get_scan_info(db_name)
             if scan_info:

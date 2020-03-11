@@ -638,3 +638,26 @@ def test_update_ctrl_params(default_session, beacon, lima_simulator, scan_tmpdir
     lima_data_view._update()
     ref_data = lima_data_view.ref_data[0]
     assert lima_data_view._get_filenames(ref_data, *range(0, 1))[0][0][-7:] == ".edf.gz"
+
+
+def test_dscan_return_to_target_pos(default_session, beacon):
+    m0 = beacon.get("m0")
+    diode = beacon.get("diode")
+    m0.move(1.5)
+    s = scans.dscan(m0, -1.1, 1.1, 2, 0, diode, save=False)
+    assert pytest.approx(m0._set_position) == 1.5
+    d = s.get_data()
+    assert min(d[m0]) == pytest.approx(0.0)
+    assert max(d[m0]) == pytest.approx(3.0)
+
+
+def test_dmesh_return_to_target_pos(default_session, beacon):
+    m0 = beacon.get("m0")
+    robz = beacon.get("robz")
+    diode = beacon.get("diode")
+    m0.move(1.5)
+    s = scans.dmesh(robz, -0.1, 0.1, 2, m0, -1.1, 1.1, 2, 0, diode, save=False)
+    assert pytest.approx(m0._set_position) == 1.5
+    d = s.get_data()
+    assert min(d[m0]) == pytest.approx(0.0)
+    assert max(d[m0]) == pytest.approx(3.0)

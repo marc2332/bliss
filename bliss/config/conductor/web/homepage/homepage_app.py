@@ -6,17 +6,17 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import os
+import traceback
 import flask
 import socket
 from jinja2 import Environment, FileSystemLoader
 
-# from ..configuration.config_app import WebConfig
 from bliss.config import static
 
 
 __this_file = os.path.realpath(__file__)
 __this_path = os.path.dirname(__this_file)
-# __config = WebConfig()
+__this_parent = os.path.dirname(__this_path)
 
 
 def __get_jinja2():
@@ -24,7 +24,9 @@ def __get_jinja2():
     try:
         return __environment
     except NameError:
-        __environment = Environment(loader=FileSystemLoader(__this_path))
+        __environment = Environment(
+            loader=FileSystemLoader([__this_path, __this_parent])
+        )
     return __environment
 
 
@@ -33,11 +35,23 @@ web_app = flask.Flask(__name__)
 
 @web_app.route("/")
 def index():
-    # cfg = __config.get_config()
-    cfg = static.get_config()
+    try:
+        cfg = static.get_config()
+    except Exception as e:
+        error = f"{e.__class__.__name__}: {e.args[0]}"
+        details = traceback.format_exc()
+        template = __get_jinja2().get_template("500.html")
+        return template.render(
+            {
+                "title": "cannot get beamline configuration",
+                "error": error,
+                "details": details,
+            }
+        )
+
     node = cfg.root
 
-    template = __get_jinja2().select_template(("index.html",))
+    template = __get_jinja2().get_template("index.html")
 
     full_name = institute = node.get("institute", node.get("synchrotron"))
     laboratory = node.get("laboratory", node.get("beamline"))

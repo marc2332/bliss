@@ -96,6 +96,15 @@ def try_open(fu):
     return rfunc
 
 
+def _atomic(fu):
+    @wraps(fu)
+    def f(self, *args, **kwarg):
+        with self.lock:
+            return fu(self, *args, **kwarg)
+
+    return f
+
+
 class _BaseSerial:
     def __init__(self, cnt, port):
         self._cnt = weakref.ref(cnt)  # reference to the container
@@ -770,6 +779,7 @@ class Serial:
     def lock(self):
         return self._lock
 
+    @_atomic
     def open(self):
         if self._raw_handler is None:
             serial_type = self._check_type()
@@ -790,6 +800,7 @@ class Serial:
                 tag=str(self),
             )
 
+    @_atomic
     def close(self):
         if self._raw_handler:
             self._raw_handler.close()

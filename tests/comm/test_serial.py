@@ -591,3 +591,20 @@ def test_serial_write_ascii_trouble(get_serial, params, reference_socket):
         data = b"hello\nworld\n"
         serial_port.write(data)
         assert reference_socket.recv(1000) == data
+
+
+@pytest.mark.parametrize("get_serial,params", SIMPLE_PORTS, indirect=["get_serial"])
+@pytest.mark.flaky(reruns=1)
+def test_atomic_open_close(get_serial, params, reference_socket):
+    with get_serial(params) as serial_port:
+        data1 = b"hello world"
+        t1 = gevent.spawn(serial_port.write, data1)
+
+        data2 = b"super mario\n"
+        t2 = gevent.spawn(serial_port.write, data2)
+
+        with gevent.Timeout(3):
+            rx_data = b""
+            while len(rx_data) != len(data1 + data2):
+                rx_data += reference_socket.recv(1000)
+            assert rx_data == data1 + data2

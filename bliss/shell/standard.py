@@ -309,7 +309,7 @@ def wid():
     print(std_wid())
 
 
-# @typeguard.typechecked  # type checking acually acceses all members ... does not work for 'bad' motor
+@typeguard.typechecked
 def stm(*axes: _scannable_or_name, read_hw: bool = False):
     """
     Displays state information of the given axes

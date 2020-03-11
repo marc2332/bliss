@@ -70,3 +70,6 @@ class Flex:
     @property
     def data(self):
         return self._proxy.data
+
+    def __info__(self):
+        return f"Flex ({self.name}):\n\tmode: {self.mode}"

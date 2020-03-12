@@ -336,8 +336,12 @@ mg_lima_bpm_counters = [
 ]
 mg_lima_counters = mg_lima_bpm_counters + ["lima_simulator:image"]
 for roi_counter in ("r1", "r2", "r3"):
-    for cnt_name in ("max", "std", "min", "avg", "sum"):
+    for cnt_name in ("max", "std", "min", "avg"):
         mg_lima_counters.append(f"lima_simulator:roi_counters:{roi_counter}_{cnt_name}")
+mg_lima_counters.append(f"lima_simulator:roi_counters:r2_sum")
+mg_lima_counters.append(f"lima_simulator:roi_counters:myroi")
+mg_lima_counters.append(f"lima_simulator:roi_counters:myroi3")
+
 mg_lima_default_counters = list(set(mg_lima_counters) - set(mg_lima_bpm_counters))
 mg_diode_counters = [
     "simulation_diode_sampling_controller:diode",
@@ -363,7 +367,7 @@ mg_diode_counters = [
         ),
         (
             ["dtime", "diode"],
-            ["simu1:deadtime_det0", "simulation_diode_sampling_controller:diode"],
+            ["simu1:dtime", "simulation_diode_sampling_controller:diode"],
         ),
     ],
     ids=[

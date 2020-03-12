@@ -60,10 +60,10 @@ def test_alias_hdf5_file_items(alias_session, scan_tmpdir):
         f"{a2scan}/instrument/positioners_dial/robzz": {},
         f"{a2scan}/measurement": {"NX_class": "NXcollection"},
         f"{a2scan}/measurement/axis:robzz": {},
-        f"{a2scan}/measurement/dtime": {},
+        f"{a2scan}/measurement/simu1:dtime": {},
         f"{a2scan}/measurement/lima_simulator:roi_counters:r2_sum": {},
-        f"{a2scan}/measurement/myroi": {},
-        f"{a2scan}/measurement/myroi3": {},
+        f"{a2scan}/measurement/lima_simulator:roi_counters:myroi": {},
+        f"{a2scan}/measurement/lima_simulator:roi_counters:myroi3": {},
         f"{a2scan}/measurement/axis:robyy": {},
         f"{a2scan}/measurement/simu1:spectrum_det0": {},
         f"{a2scan}/measurement/timer:elapsed_time": {},
@@ -107,7 +107,7 @@ def test_alias_hdf5_continuous_scan(alias_session, scan_tmpdir):
         f"{scan_name}/instrument/positioners_dial/robyy": {},
         f"{scan_name}/instrument/positioners_dial/robzz": {},
         f"{scan_name}/measurement": {"NX_class": "NXcollection"},
-        f"{scan_name}/measurement/myDiode": {},
+        f"{scan_name}/measurement/simulation_diode_sampling_controller:myDiode": {},
         f"{scan_name}/measurement/axis:robyy": {},
     }
     for key, val in expected_dict.items():

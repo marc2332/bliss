@@ -87,7 +87,7 @@
           <div class="form-group" id="filter-form">
             <div class="input-group">
               <input id="filter-edit" type="text" class="form-control" placeholder="Search files or names" data-toggle="tooltip"
-                data-placement="bottom" title="Search in tree" />
+                data-placement="bottom" title="Search in tree (F3)" />
               <span class="input-group-btn">
                 <button id="clear-filter" type="button" class="btn btn-default" data-toggle="tooltip"
                   data-placement="bottom" title="Clear current filter">
@@ -530,7 +530,7 @@
 
     function set_search_tooltip(tooltip) {
       if (!tooltip)
-        tooltip = "Search in tree"
+        tooltip = "Search in tree (F3)"
       $('#filter-edit').prop('title', tooltip).tooltip('fixTitle')
         .data('bs.tooltip')
         .$tip.find('.tooltip-inner')
@@ -582,6 +582,14 @@
         $("#tab-buttons a").removeClass("active");
         $(this).addClass("active");
         $(this).tab("show");
+      });
+
+      $(document).keydown(function(e) {
+        // F3 key: focus search input
+        if (e.keyCode == 114) {
+          e.preventDefault()
+          $('#filter-edit').focus()
+        }
       });
 
       $("#filter-edit").keyup(function () {

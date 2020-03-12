@@ -29,8 +29,8 @@
 
 <!-- Text input-->
 <div class="form-group">
-  <label class="col-md-4 control-label" for="name">Name</label>
-  <div class="col-md-4">
+  <label class="col-md-2 control-label" for="name">Name</label>
+  <div class="col-md-3">
     <input id="name" name="name" type="text"
            placeholder="{{ name }}" value="{{ name }}"
            class="form-control input-md" required></input>
@@ -42,8 +42,8 @@
 {% block controller %}
 
 <div class="form-group">
-  <label class="col-md-4 control-label" for="controller">Controller</label>
-  <div class="col-md-4">
+  <label class="col-md-2 control-label" for="controller">Controller</label>
+  <div class="col-md-3">
   {% if controller_name %}
     <input id="controller" name="controller" type="text"
            placeholder="{{ controller_name }} ({{ controller_class }})"
@@ -67,15 +67,15 @@
 <!-- Select Basic -->
 
 <div class="form-group">
-  <label class="col-md-4 control-label" for="tags">Tags</label>
-  <div class="col-md-4">
+  <label class="col-md-2 control-label" for="tags">Tags</label>
+  <div class="col-md-3">
     <input id="user_tag" name="user_tag" data-role="tagsinput"></input>
   </div>
 </div>
 
 <div class="form-group">
-  <label class="col-md-4 control-label" for="unit">Unit</label>
-  <div class="col-md-4">
+  <label class="col-md-2 control-label" for="unit">Unit</label>
+  <div class="col-md-3">
     <input id="unit" name="unit" type="text"
            placeholder="{{ unit }}" value="{{ unit }}"
            class="form-control input-md"></input>
@@ -85,8 +85,8 @@
 
 <!-- Text input-->
 <div class="form-group">
-  <label class="col-md-4 control-label" for="steps_per_unit">Steps per {{ units }}</label>
-  <div class="col-md-4">
+  <label class="col-md-2 control-label" for="steps_per_unit">Steps per {{ units }}</label>
+  <div class="col-md-3">
     <input id="steps_per_unit" name="steps_per_unit" type="text"
            placeholder="{{ steps_per_unit }}" value="{{ steps_per_unit }}"
            class="form-control input-md"></input>
@@ -95,8 +95,8 @@
 
 <!-- Appended Input-->
 <div class="form-group">
-  <label class="col-md-4 control-label" for="velocity">Velocity</label>
-  <div class="col-md-4">
+  <label class="col-md-2 control-label" for="velocity">Velocity</label>
+  <div class="col-md-3">
     <div class="input-group">
       <input id="velocity" name="velocity" type="text"
              class="form-control"
@@ -109,8 +109,8 @@
 
 <!-- Appended Input-->
 <div class="form-group">
-  <label class="col-md-4 control-label" for="acceleration">Acceleration</label>
-  <div class="col-md-4">
+  <label class="col-md-2 control-label" for="acceleration">Acceleration</label>
+  <div class="col-md-3">
     <div class="input-group">
       <input id="acceleration" name="acceleration" type="text"
              class="form-control"
@@ -123,8 +123,8 @@
 
 <!-- Appended Input-->
 <div class="form-group">
-  <label class="col-md-4 control-label" for="backlash">Backlash</label>
-  <div class="col-md-4">
+  <label class="col-md-2 control-label" for="backlash">Backlash</label>
+  <div class="col-md-3">
     <div class="input-group">
       <input id="backlash" name="backlash" type="text" class="form-control"
              placeholder="{{ backlash }}" value="{{ backlash }}">
@@ -136,8 +136,8 @@
 
 <!-- Appended Input-->
 <div class="form-group">
-  <label class="col-md-4 control-label" for="low_limit">Low limit</label>
-  <div class="col-md-4">
+  <label class="col-md-2 control-label" for="low_limit">Low limit</label>
+  <div class="col-md-3">
     <div class="input-group">
       <input id="low_limit" name="low_limit"  type="text" class="form-control"
              placeholder="{{ low_limit }}" value="{{ low_limit }}">
@@ -149,8 +149,8 @@
 
 <!-- Appended Input-->
 <div class="form-group">
-  <label class="col-md-4 control-label" for="high_limit">High limit</label>
-  <div class="col-md-4">
+  <label class="col-md-2 control-label" for="high_limit">High limit</label>
+  <div class="col-md-3">
     <div class="input-group">
       <input id="high_limit" name="high_limit" type="text" class="form-control"
              placeholder="{{ high_limit }}" value="{{ high_limit }}">
@@ -167,8 +167,8 @@
 {% for name in params.keys() %}
 <!-- Text input-->
 <div class="form-group">
-  <label class="col-md-4 control-label" for="{{ name }}">{{ params[name].label }}</label>
-  <div class="col-md-4">
+  <label class="col-md-2 control-label" for="{{ name }}">{{ params[name].label }}</label>
+  <div class="col-md-3">
     <input id="{{ name }}" name="{{ name }}" type="text"
            class="form-control input-md"
            placeholder="{{ params[name].value }}" value="{{ params[name].value }}">

@@ -6,23 +6,19 @@
 -->
 {% block toolbar %}
 
-<nav class="navbar navbar-static-top">
-
-  <button id="emotion_controller_apply" class="btn btn-primary navbar-btn">
+  <button id="emotion_controller_apply" class="btn btn-primary">
     <span class="fa fa-save"></span>
     Apply
   </button>
 
 {% if __tango_server__ %}
 
-  <button id="emotion_controller_apply_server" class="btn btn-primary navbar-btn">
+  <button id="emotion_controller_apply_server" class="btn btn-primary">
     <span class="fa fa-save"></span>
     Apply & Update TANGO server
   </button>
 
 {% endif %}
-
-</nav>
 
 {% endblock %}
 
@@ -33,8 +29,8 @@
 
 <!-- Text input-->
 <div class="form-group">
-  <label class="col-md-4 control-label" for="name">Name</label>
-  <div class="col-md-4">
+  <label class="col-md-2 control-label" for="name">Name</label>
+  <div class="col-md-3">
     <input id="name" name="name" type="text"
            placeholder="{{ name }}" placeholder="{{ name }}"
            class="form-control input-md" required></input>
@@ -47,8 +43,8 @@
 
 <!-- Select Basic -->
 <div class="form-group">
-  <label class="col-md-4 control-label" for="class">Controller</label>
-  <div class="col-md-4">
+  <label class="col-md-2 control-label" for="class">Controller</label>
+  <div class="col-md-3">
     <select class="selectpicker" id="class" name="class" class="form-control">
       {% for c in controllers %}
       <option {{ "selected" if c.class == class }}>{{c.class}}</option>
@@ -64,8 +60,8 @@
 {% for param in params %}
 <!-- Text input-->
 <div class="form-group">
-  <label class="col-md-4 control-label" for="{{ param.name }}">{{ param.label }}</label>
-  <div class="col-md-4">
+  <label class="col-md-2 control-label" for="{{ param.name }}">{{ param.label }}</label>
+  <div class="col-md-3">
     <input id="{{ param.name }}" name="{{ param.name }}" placeholder="{{ param.value }}" 
 	   class="form-control input-md" required="" type="text">
   </div>

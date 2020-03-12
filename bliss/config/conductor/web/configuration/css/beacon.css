@@ -41,9 +41,14 @@
     padding: 4px;
 }
 
-.beacon-tree {
+.beacon-navigation .beacon-tree {
     overflow-y: auto;
     height: 100%;
+}
+
+#session_form .beacon-tree {
+    overflow-y: auto;
+    height: calc(100% - 270px);
 }
 
 .beacon-tree ul.list-group {

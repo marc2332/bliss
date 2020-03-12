@@ -10,16 +10,18 @@ Energy/wavelength Bliss controller
 Calculate energy [keV] / wavelength [Angstrom] from angle [deg] or
 angle [deg] from energy [keV].
 Either Bragg's law or linear interpolation in a look-up table (LUT)
-is used for calculating
+is used for calculating.
 
+Parameters:
 
-monoang: alias for the real monochromator motor
-energy: energy calculated axis alias
-wavelength: wavelength calculated axis alias
-dspace: monochromator crystal d-spacing
-or
-lut: Loouk-up Table (full path)
+either:
+* monoang: alias for the real monochromator motor
+* energy: energy calculated axis alias
+* wavelength: wavelength calculated axis alias
+* dspace: monochromator crystal d-spacing
 
+or:
+* lut: Loouk-up Table (full path)
 
 Antonia Beteva ESRF BCU
 
@@ -44,6 +46,36 @@ Example yml:
             tags: wavelength
 """
 
+
+"""
+CYRIL [4]: e_mono
+  Out [4]: AXIS:
+                name (R): e_mono
+                unit (R): keV
+                offset (R): 0.00000
+                backlash (R): 0.00000
+                sign (R): 1
+                steps_per_unit (R): 1.00
+                tolerance (R) (to check pos. before a move): 0.0001
+                limits (RW):    Low: -inf High: inf    (config Low: -inf High: inf)
+                dial (RW): 10.00235
+                position (RW): 10.00235
+                state (R): READY (Axis is READY)
+                acceleration: None
+                velocity: None
+
+           ENERGY-WAVELENGTH CALCULATION MOTOR:
+                    energy axis: e_mono (  10.00235 keV)
+                wavelength axis: wl_mono (   1.23955 Å)
+                      mono axis: mono (  11.40000 deg)
+                         dspace: 3.1356
+
+           ENCODER:
+                None
+
+"""
+
+
 import numpy
 from bliss.controllers.motor import CalcController
 from bliss.common import event
@@ -60,9 +92,9 @@ class EnergyWavelength(CalcController):
         self.m_factor = 1
         self.energy_array = None
         self.mono_array = None
-        lut = self.config.get("lut", default="")
-        if lut:
-            self.energy_array, self.mono_array = self._load_en_table(lut)
+        self.lut = self.config.get("lut", default="")
+        if self.lut:
+            self.energy_array, self.mono_array = self._load_en_table(self.lut)
         else:
             self.axis_settings.add("dspace", float)
 
@@ -78,6 +110,8 @@ class EnergyWavelength(CalcController):
         axis._unit = axis.config.get("unit", str, default="keV")
 
     def close(self):
+        """ ???
+        """
         for pseudo_axis in self.pseudos:
             event.disconnect(pseudo_axis, "dspace", self._calc_from_real)
         super().close()
@@ -117,6 +151,35 @@ class EnergyWavelength(CalcController):
             m_a = [c * -1 for c in m_a]
 
         return e_a, m_a
+
+    def __info__(self):
+        """ Return info about CalcController.
+        """
+        info_str = "\nENERGY-WAVELENGTH CALCULATION MOTOR:\n"
+        _ene_axis = self._tagged["energy"][0]
+        _wl_axis = self._tagged["wavelength"][0]
+        _mono_axis = self._tagged["monoang"][0]
+
+        info_str += (
+            f"         energy axis: {_ene_axis.name} ({_ene_axis.position:10.5f} keV)\n"
+        )
+        info_str += (
+            f"     wavelength axis: {_wl_axis.name} ({_wl_axis.position:10.5f} Å)\n"
+        )
+        info_str += f"           mono axis: {_mono_axis.name} ({_mono_axis.position:10.5f} deg)\n"
+
+        if self.lut:
+            info_str += f"     Use LUT: \n"
+            info_str += f"     \n"
+        else:
+            _dspace = _ene_axis.settings.get("dspace")
+            info_str += f"              dspace: {_dspace}\n"
+
+        return info_str
+
+    def get_axis_info(self, axis):
+        info_str = "\n"
+        return info_str
 
     def calc_from_real(self, real_positions):
         """ Calculate the energy [ev] or [keV] and wavelength [Angstrom].

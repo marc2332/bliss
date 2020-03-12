@@ -123,6 +123,11 @@ def _get_counters_from_names(names_list, container_default_counters_only=False):
     for cnt in all_counters:
         all_counters_dict[cnt.fullname] = cnt
         counters_by_name[cnt.name].add(cnt)
+        counters_by_name[cnt.fullname].add(cnt)
+        alias_obj = global_map.aliases.get(cnt.name)
+        if alias_obj:
+            counters_by_name[alias_obj.original_name].add(cnt)
+            counters_by_name[alias_obj.original_fullname].add(cnt)
     counter_containers_dict = {}
     for container in set(global_map.instance_iter("counters")) - all_counters:
         if hasattr(container, "fullname"):

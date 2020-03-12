@@ -21,6 +21,10 @@
      alias_name: rtime
    - original_name: simu1:livetime_det0
      alias_name: ltime
+   - original_name: simu1:deadtime_det1
+     alias_name: dtime1
+   - original_name: simu1:deadtime_det2
+     alias_name: dtime2
 - class: Session
   name: test_alias2
   config-objects:

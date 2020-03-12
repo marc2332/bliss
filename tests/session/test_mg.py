@@ -326,6 +326,31 @@ def test_mg(alias_session, lima_simulator):
     return mg
 
 
+@pytest.fixture
+def test_mg_mixed_definition(alias_session, lima_simulator):
+    diode = alias_session.config.get("diode")
+    diode2 = alias_session.config.get("diode2")
+    diode3 = alias_session.config.get("diode3")
+    simu1 = alias_session.config.get("simu1")
+
+    mg = measurementgroup.MeasurementGroup(
+        "local",
+        {
+            "counters": [
+                "simulation_diode_sampling_controller:diode",
+                "lima_simulator",
+                "diode2",
+                "diode3",
+                "dtime",
+                "simu1:deadtime_det1",
+                "simu1:dtime2",
+            ]
+        },
+    )
+
+    return mg
+
+
 mg_lima_bpm_counters = [
     "lima_simulator:bpm:x",
     "lima_simulator:bpm:y",
@@ -348,6 +373,13 @@ mg_diode_counters = [
     "simulation_diode_sampling_controller:diode2",
     "simulation_diode_sampling_controller:diode3",
 ]
+
+
+def test_available(test_mg_mixed_definition):
+    expected = {"simu1:dtime", "simu1:dtime1", "simu1:dtime2"}
+    expected |= set(mg_diode_counters)
+    expected |= set(mg_lima_counters)
+    assert set(test_mg_mixed_definition.available) == expected
 
 
 @pytest.mark.parametrize(

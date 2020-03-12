@@ -16,11 +16,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `watch_session_scans` do not expose anymore scan_group as a scan
 - `goto_cen` (and similar functions) displays first the marker, then move the motor
 
 ### Fixed
 
 - Flint
+    - Scans from a `ScanSequence` are now displayed (`ScanSequence` are ignored)
     - The view on the image widget is not anymore reset when a scan starting
     - The x-axis range when using a/dscan was now correct
     - The gaussian fit now also displays the FWHM in tooltips

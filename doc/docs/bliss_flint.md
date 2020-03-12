@@ -120,7 +120,7 @@ a specific data. Others will still be acquired, but only the ones named here
 will be displayed by default. This information became part of the scan.
 
 ```python
-SCAN_DISPLAY.init_next_scan_meta(["beamviewer:roi_counters:roi1_avg"])
+plotinit("beamviewer:roi_counters:roi1_avg")
 ascan(slit_vertical_offset, -4.0, 2.0, 40, 0.1, beamviewer.roi_counters)
 ```
 

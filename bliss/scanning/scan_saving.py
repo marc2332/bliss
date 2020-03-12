@@ -974,21 +974,20 @@ class ESRFScanSaving(BasicScanSaving):
         :raises RuntimeError: ICAT state exception
         :raises DevFailed: communication or server-side exception
         """
-        root_path = self.get_cached_property("root_path", eval_dict)
         beamline = self.get_cached_property("beamline", eval_dict)
         response = self.metadata_experiment.get_property("beamlineID")
         if beamline != response.get("beamlineID", [""])[0]:
             self.metadata_experiment.put_property({"beamlineID": [beamline]})
         proposal = self.get_cached_property("proposal", eval_dict)
         if proposal != self.metadata_experiment.proposal:
-            self._icat_set_proposal(proposal, root_path)
+            self._icat_set_proposal(proposal)
         sample = self.sample
         if sample != self.metadata_experiment.sample:
             self._icat_set_sample(sample)
         dataset = self.get_cached_property("dataset", eval_dict)
         if dataset != self.metadata_manager.datasetName:
             self._icat_set_dataset(dataset)
-        self._icat_ensure_running()
+        self._icat_ensure_running(eval_dict=eval_dict)
 
     def _icat_ensure_notrunning(self, timeout=3):
         """Make sure the ICAT dataset is not running. Does not wait for the server to finish.
@@ -1005,7 +1004,8 @@ class ESRFScanSaving(BasicScanSaving):
             ["RUNNING"], "Failed to stop the running ICAT dataset"
         )
 
-    def _icat_ensure_running(self, timeout=3):
+    @with_eval_dict
+    def _icat_ensure_running(self, eval_dict=None, timeout=3):
         """Make sure the ICAT dataset is running.
 
         :param num timeout:
@@ -1016,6 +1016,8 @@ class ESRFScanSaving(BasicScanSaving):
             self._icat_wait_until_state(
                 ["ON"], "Cannot start the ICAT dataset (sample or dataset not defined)"
             )
+            root_path = self.get_cached_property("root_path", eval_dict)
+            self.metadata_experiment.dataRoot = root_path
             self.metadata_manager.startDataset()
             self._icat_wait_until_state(["RUNNING"], "Failed to start the ICAT dataset")
 
@@ -1053,10 +1055,9 @@ class ESRFScanSaving(BasicScanSaving):
                 timeoutmsg = repr(self.icat_status)
             raise RuntimeError(timeoutmsg)
 
-    def _icat_set_proposal(self, proposal, root_path, timeout=3):
+    def _icat_set_proposal(self, proposal, timeout=3):
         """
         :param str proposal:
-        :param str root_path:
         :param num timeout:
         :raises RuntimeError: timeout
         """
@@ -1069,8 +1070,7 @@ class ESRFScanSaving(BasicScanSaving):
                 while True:
                     try:
                         self.metadata_experiment.proposal = proposal
-                        self.metadata_experiment.dataRoot = root_path
-                        # Clears sample and dataset name in ICAT servers
+                        # Clears dataRoot, sample and dataset name in ICAT servers
                     except Exception as e:
                         exception = e
                         if self.icat_state == "OFF":

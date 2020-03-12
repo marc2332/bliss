@@ -1,0 +1,22 @@
+<!--
+ This file is part of the bliss project
+
+ Copyright (c) 2015-2020 Beamline Control Unit, ESRF
+ Distributed under the GNU LGPLv3. See LICENSE for more info.
+-->
+
+<div class="btn-group" role="group" aria-label="global functionality">
+  <a class="btn btn-default disabled-btn" href="javascript:void(0)">
+    {{name}}
+  </a>
+  <button type="button" class="btn btn-info"
+    data-name="{{name}}" data-filename="{{filename}}"
+    data-toggle="tooltip" title="View in yaml file">
+    <span class="fa fa-eye"></span>
+    Yaml
+  </button>
+</div>
+<h3>{{name}}</h3>
+<a href="javascript:void(0)" data-name="{{name}}" data-filename="{{filename}}">
+  View in yaml file
+</a>

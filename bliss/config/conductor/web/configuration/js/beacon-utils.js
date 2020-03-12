@@ -70,7 +70,7 @@ function show_file(node, panel) {
   show_filename(node.path, panel);
 }
 
-function show_filename(filename, panel) {
+function show_filename(filename, panel, highlight_name) {
   $.get("db_file_editor/" + filename, function(data) {
     panel.empty();
     if (data.html === undefined) {
@@ -84,6 +84,14 @@ function show_filename(filename, panel) {
       form.append(text_area);
     } else {
       panel.html(data.html);
+      if (highlight_name) {
+        // highlight given name in editor
+        var editor = ace.edit('file-editor')
+        var find = editor.find(new RegExp('name:\\s*' + highlight_name))
+        if (find)
+          editor.resize(true);
+          editor.scrollToLine(find.start.row, true)
+      }
     }
     panel.attr("style", "visibility: visible");
   }, "json");

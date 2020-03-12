@@ -294,12 +294,12 @@ class Multiplexer:
 class MultiplexerSwitch(Switch):
     def _init(self):
         try:
-            self.__mux_ctrl = config.get("mux_controller")
+            self.__mux_ctrl = self.config.get("mux_controller")
         except RuntimeError:
             raise ValueError(
                 "Invalid mux_controller in multiplexer switch {0}".format(self.name)
             )
-        self.__mux_name = config.get("mux_name")
+        self.__mux_name = self.config.get("mux_name")
 
     def _initialize_hardware(self):
         try:

@@ -111,6 +111,7 @@ def test_data_policy_scan_check_servers(
     assert mdexp_dev.sample == "newsample"
     assert mdmgr_dev.datasetName == "newdataset"
     assert str(mdmgr_dev.state()) == "RUNNING"
+    assert session.scan_saving.root_path == mdmgr_dev.dataFolder
 
 
 def test_data_policy_user_functions(session, esrf_data_policy):

@@ -84,13 +84,13 @@
 
         <!-- Filter form -->
         <form class="navbar-form navbar-left">
-          <div class="form-group">
+          <div class="form-group" id="filter-form">
             <div class="input-group">
-              <input id="filter-edit" type="text" class="form-control" placeholder="Filter for..." data-toggle="tooltip"
-                data-placement="bottom" title="Start typing the name of the item(s) your are looking for" />
+              <input id="filter-edit" type="text" class="form-control" placeholder="Search files or names" data-toggle="tooltip"
+                data-placement="bottom" title="Search in tree" />
               <span class="input-group-btn">
                 <button id="clear-filter" type="button" class="btn btn-default" data-toggle="tooltip"
-                  data-placement="bottom" title="Clears current filter">
+                  data-placement="bottom" title="Clear current filter">
                   <span class="fa fa-eraser"></span> Clear
                 </button>
               </span>
@@ -100,7 +100,7 @@
 
         <div class="btn-group" role="group" id="refresh-buttons" data-toggle="buttons">
           <button id="reload-config" type="button" class="btn btn-info navbar-btn" data-toggle="tooltip"
-            data-placement="bottom" title="Forces server to reload configuration from repository">
+            data-placement="bottom" title="Force server to reload configuration from repository">
             <span class="fa fa-refresh"></span> Reload config
           </button>
         </div>
@@ -528,11 +528,52 @@
         .addClass("fa-folder-open");
     }
 
+    function set_search_tooltip(tooltip) {
+      if (!tooltip)
+        tooltip = "Search in tree"
+      $('#filter-edit').prop('title', tooltip).tooltip('fixTitle')
+        .data('bs.tooltip')
+        .$tip.find('.tooltip-inner')
+        .text(tooltip)
+    }
+
+    function update_filter_form_state(filter) {
+      search_count = $('div.tab-pane.active li.search-result').length;
+      if (search_count == 0 && filter.length >= 2)
+        $("#filter-form").addClass('has-error')
+      else
+        $("#filter-form").removeClass('has-error')
+      
+      next_search_index = -1
+
+      // update tooltip
+      if (filter.length == 1) {
+        set_search_tooltip("Type 2 characters")
+        $("#filter-form").addClass('has-warning')
+      }
+      else {
+        $("#filter-form").removeClass('has-warning')
+        if (filter == '')
+          set_search_tooltip()
+        else if (search_count == 0)
+          set_search_tooltip("no result")
+        else if (search_count == 1)
+          set_search_tooltip("1 result")
+        else
+          set_search_tooltip(search_count + " results")
+      }
+    }
+
+    next_search_index = -1
+    search_count = 0
+    current_search_element = undefined
+
     $(function () {
       /* initialize tooltips */
       $('[data-toggle="tooltip"]').tooltip({
         delay: { show: 500, hide: 0 },
         container: "body"
+        // animation: false
       });
 
       /* initialize tabs */
@@ -544,18 +585,54 @@
       });
 
       $("#filter-edit").keyup(function () {
+        // enter key
+        if (event.keyCode == 13) return
+        // escape key: clear search
+        if (event.keyCode == 27) $(this).val('')
         var filter = $(this).val();
+        if (filter.length < 2) filter = ''
+
         var search_options = {
           ignoreCase: true,
           exactMatch: false,
           revealsResult: true
         };
-        $(".beacon-searchable").treeview("search", [filter, search_options]);
+
+        if (filter == '')
+          $(".beacon-searchable").treeview("clearSearch");
+        else
+          $(".beacon-searchable").treeview("search", [filter, search_options]);
+
+        update_filter_form_state($(this).val());
+        if (search_count > 0)
+          // scroll first result into view
+          $('div.tab-pane.active li.search-result')[0].scrollIntoView({behavior: "smooth", block: "center"})
+      });
+
+      $("#filter-edit").keydown(function (e) {
+        if (event.keyCode == 13) {
+          // Enter key pressed: do not submit the form
+          e.preventDefault()
+          if (search_count == 0) return false
+
+          // focus next result
+          next_search_index += 1
+          if (next_search_index >= search_count) next_search_index = 0
+          var elt = $('div.tab-pane.active li.search-result')[next_search_index]
+          elt.scrollIntoView({behavior: "smooth", block: "center"})
+          elt.click()
+
+          // highlight current result
+          $('div.tab-pane.active li.search-result')[next_search_index].style.color = "blue"
+          
+          return false
+        }
       });
 
       $("#clear-filter").on("click", function () {
         $("#filter-edit").val("");
         $(".beacon-searchable").treeview("clearSearch");
+        update_filter_form_state("");
       });
 
       $("#brand-image").on("click", function () {

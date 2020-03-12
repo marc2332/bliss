@@ -80,14 +80,6 @@ def validate_scan_data(
         det_technique = nxw_test_config.technique["withoutpolicy"]
     if detectors is not None:
         det_technique = "none"
-    if detectors:
-        for name, alias in zip(["diode2", "diode9"], ["diode2alias", "diode9alias"]):
-            if config:
-                detectors = [
-                    d if alias in d else d.replace(name, alias) for d in detectors
-                ]
-            else:
-                detectors = [d.replace(alias, name) for d in detectors]
     if config:
         scan_technique = scan.scan_info["nexuswriter"]["technique"]["name"]
     else:
@@ -963,10 +955,7 @@ def expected_channels(config=True, technique=None, detectors=None):
         "sim_ct_gauss_noise",
         "thermo_sample",
     }
-    if config:
-        names |= {"diode2alias", "diode9alias"}
-    else:
-        names |= {"diode2", "diode9"}
+    names |= {"diode2alias", "diode9alias"}
     datasets[0] |= names
     # Statistics diodes
     names = {"diode7"}
@@ -980,10 +969,7 @@ def expected_channels(config=True, technique=None, detectors=None):
             name + "_var",
         }
     # Statistics diodes
-    if config:
-        names = {"diode9alias"}
-    else:
-        names = {"diode9"}
+    names = {"diode9alias"}
     for name in names:
         datasets[1] |= {name + "_samples"}
     # MCA's with ROI's

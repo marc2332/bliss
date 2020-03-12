@@ -46,7 +46,7 @@ technique:
     xrf:
       personal_name: xrf
       class: APPxrf
-      I0: diode2
+      I0: diode2alias
       It: diode3
       mca:
       - simu1:det0
@@ -91,14 +91,14 @@ technique:
     xrf_counters:
       personal_name: xrf_counters
       items:
-      - diode2
+      - diode2alias
       - diode3
       - simu1:deadtime_det0
       - simu2:deadtime_det1
     xrf_counters_grid:
       personal_name: xrf_counters_grid
       items:
-      - diode2
+      - diode2alias
       - diode3
       - simu1:deadtime_det0
       - simu2:deadtime_det1

@@ -69,7 +69,6 @@ class Writer(FileWriter):
                         maxshape=maxshape,
                         fillvalue=numpy.nan,
                     )
-                    dataset.attrs.modify("fullname", channel.fullname)
 
                     self.last_point_index[channel] = 0
         elif signal == "new_data":
@@ -151,7 +150,6 @@ class Writer(FileWriter):
                         dtype=dtype,
                         compression="gzip",
                     )
-                    dataset.attrs.modify("fullname", channel.fullname)
                     dataset[:] = data
 
             elif channel.reference and channel.data_node_type == "node_ref_channel":

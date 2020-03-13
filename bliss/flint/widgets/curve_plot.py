@@ -207,11 +207,6 @@ class CurvePlotWidget(plot_helper.PlotWidget):
     def selectedPlotItem(self) -> Optional[plot_model.Item]:
         """Returns the current selected plot item, if one"""
         return self.__selectedPlotItem
-        item = self.__plot.getActiveCurve()
-        if isinstance(item, plot_helper.FlintCurve):
-            plotItem = item.customItem()
-            return plotItem
-        return None
 
     def __selectionChanged(self, current, previous):
         """Callback executed when the selection from the plot was changed"""

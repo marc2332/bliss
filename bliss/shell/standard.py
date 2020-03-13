@@ -75,7 +75,7 @@ from bliss.common.types import (
     _scannable,
     _scannable_or_name,
     _float,
-    Optional,
+    _providing_channel,
 )
 
 __all__ = (
@@ -640,7 +640,7 @@ def prdef(obj_or_name):
 
 
 @typeguard.typechecked
-def plotinit(*counters: _countable):
+def plotinit(*counters: _providing_channel):
     """
     Selects counters to plot and to use only with the next scan command.
 
@@ -666,7 +666,7 @@ def plotinit(*counters: _countable):
 
 
 @typeguard.typechecked
-def plotselect(*counters: _countable):
+def plotselect(*counters: _providing_channel):
     """
     Selects counters to plot and used by alignment functions (cen, peak, etc).
 

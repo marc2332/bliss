@@ -25,3 +25,6 @@ _scannable_or_name = Union[_scannable, str]
 _scannable_start_stop_list = List[Tuple[_scannable, _float, _float]]
 _position_list = Union[Sequence, numpy.ndarray]
 _scannable_position_list = List[Tuple[_scannable, _position_list]]
+
+_providing_channel = Union[_scannable, Counter, str]
+"""Used by plotselect"""

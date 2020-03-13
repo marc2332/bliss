@@ -8,7 +8,6 @@
 from __future__ import annotations
 from typing import Optional
 from typing import Tuple
-from typing import Union
 from typing import Dict
 from typing import List
 from typing import Sequence
@@ -19,7 +18,7 @@ import logging
 from silx.gui import qt
 from silx.gui import icons
 from silx.gui import utils as qtutils
-from silx.gui.plot.items.shape import BoundingRect
+from silx.gui.plot.items.shape import XAxisExtent
 from silx.gui.plot.items import Curve
 from silx.gui.plot.items import axis as axis_mdl
 from silx.gui.plot.actions import fit
@@ -94,13 +93,12 @@ class CurvePlotWidget(plot_helper.PlotWidget):
         self.__syncAxisItems = signalutils.InvalidatableSignal(self)
         self.__syncAxisItems.triggered.connect(self.__updateAxesItems)
 
-        self.__updateBoundWhenData = False
-        self.__boundingY1 = BoundingRect()
+        self.__boundingY1 = XAxisExtent()
         self.__boundingY1.setName("bound-y1")
-        self.__boundingY1.setYAxis("left")
-        self.__boundingY2 = BoundingRect()
+        self.__boundingY1.setVisible(False)
+        self.__boundingY2 = XAxisExtent()
         self.__boundingY2.setName("bound-y2")
-        self.__boundingY2.setYAxis("right")
+        self.__boundingY2.setVisible(False)
 
         self.__permanentItems = [
             self.__boundingY1,
@@ -355,8 +353,6 @@ class CurvePlotWidget(plot_helper.PlotWidget):
 
     def __updateAxesItems(self):
         """Update items which have relation with the X axis"""
-        self.__boundingY1.setBounds(None)
-        self.__boundingY2.setBounds(None)
         self.__curveAxesUpdated()
         scan = self.__scan
         if scan is None:
@@ -368,22 +364,19 @@ class CurvePlotWidget(plot_helper.PlotWidget):
             # FIXME: Use a better abstract concept for that
             if isinstance(item, plot_item_model.MotorPositionMarker):
                 self.__updatePlotItem(item, scan)
+        self.__view.resetZoom()
 
     def __reachRangeForYAxis(
         self, plot, scan, yAxis
     ) -> Optional[Tuple[float, float, float]]:
         xAxis = set([])
-        yData = None
         for item in plot.items():
             if isinstance(item, plot_item_model.CurveItem):
                 if item.yAxis() != yAxis:
                     continue
                 xChannel = item.xChannel()
-                yChannel = item.yChannel()
                 if xChannel is not None:
                     xAxis.add(xChannel.channel(scan))
-                if yData is None and yChannel is not None:
-                    yData = yChannel.array(scan)
         xAxis.discard(None)
         if len(xAxis) == 0:
             return None
@@ -401,15 +394,10 @@ class CurvePlotWidget(plot_helper.PlotWidget):
                 return None, None
             return min(vv), max(vv)
 
-        if yData is None:
-            return None
-        if yData.size == 0:
-            return None
-
         xRange = getRange(list(xAxis))
         if xRange[0] is None:
             return None
-        return xRange[0], xRange[1], yData[0]
+        return xRange[0], xRange[1]
 
     def __curveAxesUpdated(self):
         scan = self.__scan
@@ -417,24 +405,21 @@ class CurvePlotWidget(plot_helper.PlotWidget):
         if plot is None or scan is None:
             return
 
-        if self.__boundingY1.getBounds() is None:
-            result = self.__reachRangeForYAxis(plot, scan, "left")
-            if result is None:
-                bound = None
-            else:
-                xMin, xMax, yValue = result
-                bound = xMin, xMax, yValue, yValue
-            self.__boundingY1.setBounds(bound)
+        result = self.__reachRangeForYAxis(plot, scan, "left")
+        if result is None:
+            self.__boundingY1.setVisible(False)
+        else:
+            xMin, xMax = result
+            self.__boundingY1.setRange(xMin, xMax)
+            self.__boundingY1.setVisible(True)
 
-        if self.__boundingY2.getBounds() is None:
-            result = self.__reachRangeForYAxis(plot, scan, "right")
-            if result is None:
-                bound = None
-            else:
-                xMin, xMax, yValue = result
-                bound = xMin, xMax, yValue, yValue
-            self.__boundingY2.setBounds(bound)
-        self.__view.resetZoom()
+        result = self.__reachRangeForYAxis(plot, scan, "right")
+        if result is None:
+            self.__boundingY2.setVisible(False)
+        else:
+            xMin, xMax = result
+            self.__boundingY2.setRange(xMin, xMax)
+            self.__boundingY2.setVisible(True)
 
     def scan(self) -> Optional[scan_model.Scan]:
         return self.__scan
@@ -487,8 +472,7 @@ class CurvePlotWidget(plot_helper.PlotWidget):
 
     def __scanStarted(self):
         self.__updateTitle(self.__scan)
-        self.__boundingY1.setBounds(None)
-        self.__boundingY2.setBounds(None)
+        self.__curveAxesUpdated()
 
     def __updateTitle(self, scan: scan_model.Scan):
         title = scan_info_helper.get_full_title(scan)
@@ -521,8 +505,6 @@ class CurvePlotWidget(plot_helper.PlotWidget):
                             if event.isUpdatedChannelName(source):
                                 self.__updatePlotItem(item, scan)
                                 break
-        # FIXME: This should be avoided by creating a XBound and YBound in silx
-        self.__curveAxesUpdated()
 
     def __redrawCurrentScan(self):
         currentScan = self.__scan

@@ -33,11 +33,11 @@ class PI_E51X(Controller):
 
     def __init__(self, *args, **kwargs):
         Controller.__init__(self, *args, **kwargs)
-        self.__axis_online = weakref.WeakKeyDictionary()
-        self.__axis_closed_loop = weakref.WeakKeyDictionary()
-        self.__axis_auto_gate = weakref.WeakKeyDictionary()
-        self.__axis_low_limit = weakref.WeakKeyDictionary()
-        self.__axis_high_limit = weakref.WeakKeyDictionary()
+        self._axis_online = weakref.WeakKeyDictionary()
+        self._axis_closed_loop = weakref.WeakKeyDictionary()
+        self._axis_auto_gate = weakref.WeakKeyDictionary()
+        self._axis_low_limit = weakref.WeakKeyDictionary()
+        self._axis_high_limit = weakref.WeakKeyDictionary()
 
     def move_done_event_received(self, state, sender=None):
         # <sender> is the axis.
@@ -47,7 +47,7 @@ class PI_E51X(Controller):
             state,
             sender.name,
         )
-        if self.__axis_auto_gate[sender]:
+        if self._axis_auto_gate[sender]:
             if state is True:
                 log_info(self, "PI_E51X.py : movement is finished")
                 self.set_gate(sender, 0)
@@ -93,10 +93,10 @@ class PI_E51X(Controller):
         self.send_no_ans(axis, "VCO %s 1" % axis.chan_letter)
 
         # Closed loop
-        self.__axis_closed_loop[axis] = self._get_closed_loop_status(axis)
+        self._axis_closed_loop[axis] = self._get_closed_loop_status(axis)
         servo_mode = axis.config.get("servo_mode", bool, None)
         if servo_mode is not None:
-            if self.__axis_closed_loop[axis] != servo_mode:
+            if self._axis_closed_loop[axis] != servo_mode:
                 self._set_closed_loop(axis, servo_mode)
 
         # Drift compensation
@@ -105,13 +105,13 @@ class PI_E51X(Controller):
             self._set_dco(axis, int(drift_mode))
 
         # automatic gate (OFF by default)
-        self.__axis_auto_gate[axis] = False
+        self._axis_auto_gate[axis] = False
         # connect move_done for auto_gate mode
         event.connect(axis, "move_done", self.move_done_event_received)
 
         # keep limits for gate
-        self.__axis_low_limit[axis] = self._get_low_limit(axis)
-        self.__axis_high_limit[axis] = self._get_high_limit(axis)
+        self._axis_low_limit[axis] = self._get_low_limit(axis)
+        self._axis_high_limit[axis] = self._get_high_limit(axis)
 
     def initialize_encoder(self, encoder):
         encoder.channel = encoder.config.get("channel", int)
@@ -126,12 +126,12 @@ class PI_E51X(Controller):
     def set_on(self, axis):
         log_debug(self, "set %s ONLINE" % axis.name)
         self.send_no_ans(axis, "ONL %d 1" % axis.channel)
-        self.__axis_online[axis] = 1
+        self._axis_online[axis] = 1
 
     def set_off(self, axis):
         log_debug(self, "set %s OFFLINE" % axis.name)
         self.send_no_ans(axis, "ONL %d 0" % axis.channel)
-        self.__axis_online[axis] = 0
+        self._axis_online[axis] = 0
 
     def read_position(
         self, axis, last_read={"t": time.time(), "pos": [None, None, None]}
@@ -196,9 +196,9 @@ class PI_E51X(Controller):
         return self.read_velocity(axis)
 
     def state(self, axis):
-        if not self.__axis_online[axis]:
+        if not self._axis_online[axis]:
             return AxisState("OFF")
-        if self.__axis_closed_loop[axis]:
+        if self._axis_closed_loop[axis]:
             log_debug(self, "%s state: CLOSED-LOOP active" % axis.name)
             if self._get_on_target_status(axis):
                 return AxisState("READY")
@@ -224,7 +224,7 @@ class PI_E51X(Controller):
         Returns:
             - None
         """
-        if self.__axis_closed_loop[motion.axis]:
+        if self._axis_closed_loop[motion.axis]:
             log_debug(
                 self,
                 "Move %s in position to %g" % (motion.axis.name, motion.target_pos),
@@ -367,7 +367,7 @@ class PI_E51X(Controller):
         Return:
             - list of float
         """
-        if self.__axis_closed_loop[axis]:
+        if self._axis_closed_loop[axis]:
             _bs_ans = self.comm.write_readlines(b"MOV?\n", 3)
         else:
             _bs_ans = self.comm.write_readlines(b"SVA?\n", 3)
@@ -442,11 +442,11 @@ class PI_E51X(Controller):
     def _set_closed_loop(self, axis, onoff):
         log_debug(self, "set %s closed_loop to %s" % (axis.name, onoff))
         self.send_no_ans(axis, "SVO %s %d" % (axis.chan_letter, onoff))
-        self.__axis_closed_loop[axis] = self._get_closed_loop_status(axis)
+        self._axis_closed_loop[axis] = self._get_closed_loop_status(axis)
         log_debug(
-            self, "effective closed_loop is now %s" % self.__axis_closed_loop[axis]
+            self, "effective closed_loop is now %s" % self._axis_closed_loop[axis]
         )
-        if self.__axis_closed_loop[axis] != onoff:
+        if self._axis_closed_loop[axis] != onoff:
             raise RuntimeError(
                 "Failed to change %s closed_loop mode to %s" % (axis.name, onoff)
             )
@@ -474,7 +474,7 @@ class PI_E51X(Controller):
 
     @object_attribute_get(type_info="bool")
     def get_closed_loop(self, axis):
-        return self.__axis_closed_loop[axis]
+        return self._axis_closed_loop[axis]
 
     """
     Auto gate
@@ -483,11 +483,11 @@ class PI_E51X(Controller):
     @object_attribute_get(type_info="bool")
     def get_auto_gate(self, axis):
         """Automatic gating for continuous scan"""
-        return self.__axis_auto_gate[axis]
+        return self._axis_auto_gate[axis]
 
     @object_attribute_set(type_info="bool")
     def set_auto_gate(self, axis, value):
-        self.__axis_auto_gate[axis] = value is True
+        self._axis_auto_gate[axis] = value is True
         log_info(
             self,
             "auto_gate is %s for axis.channel %s",
@@ -527,18 +527,18 @@ class PI_E51X(Controller):
             _cmd = "CTO %d 3 3 %d 5 %g %d 6 %g %d 7 1" % (
                 _ch,
                 _ch,
-                self.__axis_low_limit[axis],
+                self._axis_low_limit[axis],
                 _ch,
-                self.__axis_high_limit[axis],
+                self._axis_high_limit[axis],
                 _ch,
             )
         else:
             _cmd = "CTO %d 3 3 %d 5 %g %d 6 %g %d 7 0" % (
                 _ch,
                 _ch,
-                self.__axis_low_limit[axis],
+                self._axis_low_limit[axis],
                 _ch,
-                self.__axis_high_limit[axis],
+                self._axis_high_limit[axis],
                 _ch,
             )
 
@@ -596,6 +596,7 @@ class PI_E51X(Controller):
         """
         return self.send(axis, "*IDN?")
 
+    @object_method(types_info=("None", "string"))
     def get_info(self, axis):
         """
         Returns a set of usefull information about controller.

@@ -477,7 +477,7 @@ class Session:
         load a script and export all public (= not starting with _)
         objects and functions to the returned namespace.
         (or optionnaly can export to the current environment.
-        /!\ Use with caution: risk of overwriting important stuff)
+        Use with caution: risk of overwriting important stuff)
         (exceptions are printed but not thrown)
 
         Args:

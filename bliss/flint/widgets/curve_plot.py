@@ -173,6 +173,16 @@ class CurvePlotWidget(plot_helper.PlotWidget):
         for o in self.__permanentItems:
             self.__plot.addItem(o)
 
+    def configuration(self):
+        config = super(CurvePlotWidget, self).configuration()
+        config.spec_mode = self.__specMode.isEnabled()
+        return config
+
+    def setConfiguration(self, config):
+        if config.spec_mode:
+            self.__specMode.setEnabled(True)
+        super(CurvePlotWidget, self).setConfiguration(config)
+
     def __specModeChanged(self, enabled):
         if self.__specMode.isEnabled():
             dataColor = "#f0e68c"

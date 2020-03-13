@@ -8,7 +8,7 @@ import numpy
 
 
 def peak(x, y):
-    return x[y.argmax()]
+    return x[numpy.nanargmax(y)]
 
 
 def com(x, y):

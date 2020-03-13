@@ -81,18 +81,18 @@ class PI_E517(PI_E51X):
             _cmd = "CTO %d 3 3 %d 5 %g %d 6 %g %d 7 1" % (
                 _ch,
                 _ch,
-                self.__axis_low_limit[axis],
+                self._axis_low_limit[axis],
                 _ch,
-                self.__axis_high_limit[axis],
+                self._axis_high_limit[axis],
                 _ch,
             )
         else:
             _cmd = "CTO %d 3 3 %d 5 %g %d 6 %g %d 7 0" % (
                 _ch,
                 _ch,
-                self.__axis_low_limit[axis],
+                self._axis_low_limit[axis],
                 _ch,
-                self.__axis_high_limit[axis],
+                self._axis_high_limit[axis],
                 _ch,
             )
 

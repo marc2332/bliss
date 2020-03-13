@@ -5,17 +5,65 @@
 # Copyright (c) 2015-2020 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 import numpy
+import typing
 
 
-def peak(x, y):
+def peak(x: numpy.ndarray, y: numpy.ndarray) -> float:
+    """Returns the x location of the peak.
+
+    On the current implementation the peak is defined as the max of the y.
+
+    The algorithm was designed to be fast. It is not using any fit function.
+
+    Args:
+        x: A numpy array of the X locations
+        y: A numpy array of the Y locations
+    """
     return x[numpy.nanargmax(y)]
 
 
-def com(x, y):
+def peak2(x: numpy.ndarray, y: numpy.ndarray) -> typing.Tuple[float, float]:
+    """Returns the location of the peak.
+
+    On the current implementation the peak is defined as the max of the y.
+
+    The algorithm was designed to be fast. It is not using any fit function.
+
+    Args:
+        x: A numpy array of the X locations
+        y: A numpy array of the Y locations
+
+    Returns:
+        A tuple containing the x location and the y location of the peak
+    """
+    index = numpy.nanargmax(y)
+    return x[index], y[index]
+
+
+def com(x: numpy.ndarray, y: numpy.ndarray) -> float:
+    """Returns the location of the center of the mass.
+
+    The algorithm was designed to be fast. It is not using any fit function.
+
+    Args:
+        x: A numpy array of the X locations
+        y: A numpy array of the Y locations
+    """
     return numpy.sum(x * y) / numpy.sum(y)
 
 
-def cen(x, y):
+def cen(x: numpy.ndarray, y: numpy.ndarray) -> typing.Tuple[float, float]:
+    """Returns the location of center including the full width at half maximum.
+
+    The algorithm was designed to be fast. It is not using any fit function.
+
+    Args:
+        x: A numpy array of the X locations
+        y: A numpy array of the Y locations
+
+    Returns:
+        A tuple containing the location of the center, and the fwhm
+    """
     slope = numpy.gradient(y, x)
     # check if function is continuous
     if numpy.inf in slope or -numpy.inf in slope:

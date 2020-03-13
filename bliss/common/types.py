@@ -8,7 +8,7 @@
 import numbers
 import numpy
 from bliss.common.counter import Counter
-from typing import Union, Optional, Tuple, List, Sequence
+from typing import Union, Tuple, List, Sequence
 from bliss.common.protocols import Scannable, CounterContainer
 from bliss.common.measurementgroup import MeasurementGroup
 from bliss.common.axis import Axis

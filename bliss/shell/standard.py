@@ -69,6 +69,7 @@ from bliss.scanning.scan import ScanDisplay
 
 from tabulate import tabulate
 
+from typing import Optional
 from bliss.common.types import (
     _countable,
     _scannable,

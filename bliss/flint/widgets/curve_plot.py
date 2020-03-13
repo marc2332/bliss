@@ -34,8 +34,67 @@ from bliss.flint.helper import model_helper
 from bliss.flint.utils import signalutils
 from bliss.flint.widgets import plot_helper
 
+from bliss.scanning import scan_math
 
 _logger = logging.getLogger(__name__)
+
+
+class SpecMode(qt.QObject):
+
+    stateChanged = qt.Signal(bool)
+    """Emitted when the enability changed"""
+
+    def __init__(self, parent: qt.QObject = None):
+        super(SpecMode, self).__init__(parent=parent)
+        self.__enabled = False
+
+    def isEnabled(self) -> bool:
+        return self.__enabled
+
+    def setEnabled(self, enabled: bool):
+        if self.__enabled == enabled:
+            return
+        self.__enabled = enabled
+        self.stateChanged.emit(enabled)
+
+    def createAction(self):
+        action = qt.QAction(self)
+        action.setText("Spec statistics")
+        action.setToolTip("Enable/disable Spec statistics for boomers")
+        action.setCheckable(True)
+        self.stateChanged.connect(action.setChecked)
+        action.toggled.connect(self.setEnabled)
+        return action
+
+    def __selectedData(self, plot: FlintPlot) -> Tuple[numpy.ndarray, numpy.ndarray]:
+        curve = plot.getActiveCurve()
+        if curve is None:
+            return None, None
+        x = curve.getXData()
+        y = curve.getYData()
+        return x, y
+
+    def initPlot(self, plot: FlintPlot):
+        if self.__enabled:
+            pass
+
+    def __computeState(self, plot: FlintPlot) -> Optional[str]:
+        x, y = self.__selectedData(plot)
+        if x is None or y is None:
+            return None
+        # FIXME: It would be good to cache this statistics
+        peak = scan_math.peak2(x, y)
+        fwhm = scan_math.cen(x, y)
+        com = scan_math.com(x, y)
+        return f"Peak: {peak[0]:.3} ({peak[1]:.3})  FWHM: {fwhm[0]:.3} ({fwhm[1]:.3})  COM: {com:.3}"
+
+    def updateTitle(self, plot: FlintPlot, title: str) -> str:
+        if not self.__enabled:
+            return title
+        state = self.__computeState(plot)
+        if state is None:
+            return title
+        return title + "\n" + state
 
 
 class CurvePlotWidget(plot_helper.PlotWidget):
@@ -48,6 +107,9 @@ class CurvePlotWidget(plot_helper.PlotWidget):
         self.__scan: Optional[scan_model.Scan] = None
         self.__flintModel: Optional[flint_model.FlintState] = None
         self.__plotModel: plot_model.Plot = None
+
+        self.__specMode = SpecMode(self)
+        self.__specMode.stateChanged.connect(self.__specModeChanged)
 
         self.__items: Dict[
             plot_model.Item, Dict[scan_model.Scan, List[Tuple[str, str]]]
@@ -109,6 +171,14 @@ class CurvePlotWidget(plot_helper.PlotWidget):
         for o in self.__permanentItems:
             self.__plot.addItem(o)
 
+    def __specModeChanged(self, enabled):
+        if self.__specMode.isEnabled():
+            color = "#f0e68c"
+        else:
+            color = None
+        self.__plot.setDataBackgroundColor(color)
+        self.__updateTitle(self.__scan)
+
     def getRefreshManager(self) -> plot_helper.RefreshManager:
         return self.__refreshManager
 
@@ -139,6 +209,9 @@ class CurvePlotWidget(plot_helper.PlotWidget):
         action.setIcon(icons.getQIcon("flint:icons/crosshair"))
         toolBar.addAction(action)
         action = self.__plot.getCurvesRoiDockWidget().toggleViewAction()
+        toolBar.addAction(action)
+
+        action = self.__specMode.createAction()
         toolBar.addAction(action)
 
         # FIXME implement that
@@ -216,6 +289,8 @@ class CurvePlotWidget(plot_helper.PlotWidget):
             selected = None
         self.__selectedPlotItem = selected
         self.plotItemSelected.emit(selected)
+        if self.__specMode.isEnabled():
+            self.__updateTitle(self.__scan)
 
     def __plotItemSelectedFromProperty(self, selected):
         """Callback executed when the selection from the property view was
@@ -471,6 +546,7 @@ class CurvePlotWidget(plot_helper.PlotWidget):
 
     def __updateTitle(self, scan: scan_model.Scan):
         title = scan_info_helper.get_full_title(scan)
+        title = self.__specMode.updateTitle(self.__plot, title)
         self.__plot.setGraphTitle(title)
 
     def __scanFinished(self):
@@ -500,6 +576,8 @@ class CurvePlotWidget(plot_helper.PlotWidget):
                             if event.isUpdatedChannelName(source):
                                 self.__updatePlotItem(item, scan)
                                 break
+        if self.__specMode.isEnabled():
+            self.__updateTitle(scan)
 
     def __redrawCurrentScan(self):
         currentScan = self.__scan

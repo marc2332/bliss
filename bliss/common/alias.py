@@ -20,6 +20,7 @@ from tabulate import tabulate
 from bliss.common.proxy import Proxy
 from bliss.common.mapping import Map
 from bliss.common.utils import safe_get
+from bliss.common.counter import Counter
 
 
 class CounterWrapper:
@@ -80,11 +81,16 @@ class CounterAlias(Proxy):
 
     @property
     def fullname(self):
-        return self.__cnt_fullname__
+        controller_name, _, short_name = self.__cnt_fullname__.rpartition(":")
+        return controller_name + ":" + self.name
 
     @property
     def original_name(self):
         return self.__cnt_name__
+
+    @property
+    def original_fullname(self):
+        return self.__cnt_fullname__
 
     @property
     def conversion_function(self):
@@ -93,10 +99,11 @@ class CounterAlias(Proxy):
     # this is to speed up comparisons (there are a lot !),
     # to not go through the .counters everytime
     def __eq__(self, other):
-        try:
-            return self.fullname == other.fullname
-        except AttributeError:
-            return False
+        if isinstance(other, CounterAlias):
+            return self.original_fullname == other.original_fullname
+        elif isinstance(other, Counter):
+            return self.original_fullname == other.fullname
+        return False
 
     def __hash__(self):
         return self.__cnt_hash__
@@ -123,6 +130,10 @@ class ObjectAlias(Proxy):
 
     @property
     def original_name(self):
+        return self.__obj_name__
+
+    @property
+    def original_fullname(self):
         return self.__obj_name__
 
     @property
@@ -253,7 +264,7 @@ class Aliases:
                     return alias.name
                 else:
                     try:
-                        if alias.fullname == obj_or_name:
+                        if alias.original_fullname == obj_or_name:
                             return alias.name
                     except AttributeError:
                         continue
@@ -276,11 +287,7 @@ class Aliases:
         """Display the list of all aliases"""
         table_info = []
         for alias in self:
-            try:
-                alias_original_fullname = alias.fullname
-            except AttributeError:
-                alias_original_fullname = alias.original_name
-            table_info.append([alias.name, alias_original_fullname])
+            table_info.append([alias.name, alias.original_fullname])
         return str(tabulate(table_info, headers=["Alias", "Original fullname"]))
 
     def __info__(self):
@@ -299,26 +306,37 @@ class MapWithAliases(Map):
         self.__aliases = Aliases(self, self.__current_session)
 
     def get_axes_iter(self):
+        aliased_axes = []
+        for obj in self.aliases:
+            if isinstance(obj, ObjectAlias):
+                yield obj
+                aliased_axes.append(obj.original_name)
         for mot in self.instance_iter("axes"):
-            yield mot
+            if not mot.name in aliased_axes:
+                yield mot
 
     def get_counters_iter(self):
+        aliased_counters = []
+        for obj in self.aliases:
+            if isinstance(obj, CounterAlias):
+                yield obj
+                aliased_counters.append(obj.original_fullname)
+
         for counter_or_container in self.instance_iter("counters"):
             try:
                 # let's see first if we have a counter container
                 # TODO: replace with proper 'CounterContainer' abc/protocol/whatever
                 # (anything, but needs to be **defined**)
-                for cnt in counter_or_container.counters:
-                    yield cnt
+                counters = counter_or_container.counters
             except AttributeError:
                 # must be a counter object
-                yield counter_or_container
+                counters = [counter_or_container]
             except Exception:
+                # the controller has a problem ?
                 continue
-
-        for obj in self.aliases:
-            if isinstance(obj, CounterAlias):
-                yield obj
+            for cnt in counters:
+                if not cnt.fullname in aliased_counters:
+                    yield cnt
 
     @property
     def aliases(self):
@@ -329,7 +347,7 @@ class MapWithAliases(Map):
 
     def get_axes_names_iter(self):
         for axis in self.get_axes_iter():
-            yield self.alias_or_name(axis)
+            yield axis.name
 
     def get_axes_positions_iter(self, on_error=None):
         def request(axis):
@@ -340,7 +358,7 @@ class MapWithAliases(Map):
                 disabled_state = False
 
             return (
-                self.alias_or_name(axis),
+                axis.name,
                 safe_get(axis, "position", on_error) if not disabled_state else "*DIS*",
                 safe_get(axis, "dial", on_error) if not disabled_state else "*DIS*",
                 axis.config.get("unit", default=None),

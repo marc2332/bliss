@@ -59,7 +59,7 @@ class Writer(FileWriter):
                 maxshape = tuple([None] + [None] * len(channel.shape))
                 npoints = device.npoints or 1
                 shape = tuple([npoints] + list(channel.shape))
-                chan_name = channel.name
+                chan_name = channel.fullname
                 if not channel.reference and chan_name not in parent:
                     dataset = parent.create_dataset(
                         chan_name,
@@ -69,7 +69,6 @@ class Writer(FileWriter):
                         maxshape=maxshape,
                         fillvalue=numpy.nan,
                     )
-                    dataset.attrs.modify("fullname", channel.fullname)
 
                     self.last_point_index[channel] = 0
         elif signal == "new_data":
@@ -78,7 +77,7 @@ class Writer(FileWriter):
                 return
             data = event_dict.get("data")
 
-            dataset = parent[channel.name]
+            dataset = parent[channel.fullname]
 
             if not dataset.id.valid:
                 print("Writer is closed. Spurious data point ignored")
@@ -111,7 +110,7 @@ class Writer(FileWriter):
         ###    fill image references and groups   ###
 
         for fname, channel in scan.get_channels_dict.items():
-            chan_name = channel.name
+            chan_name = channel.fullname
             if channel.reference and channel.data_node_type == "lima":
                 """produce a string version of a lima reference that can be saved in hdf5
                 
@@ -151,7 +150,6 @@ class Writer(FileWriter):
                         dtype=dtype,
                         compression="gzip",
                     )
-                    dataset.attrs.modify("fullname", channel.fullname)
                     dataset[:] = data
 
             elif channel.reference and channel.data_node_type == "node_ref_channel":

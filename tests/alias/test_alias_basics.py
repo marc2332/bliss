@@ -10,6 +10,8 @@ robzz    robz
 dtime    simu1:deadtime_det0
 rtime    simu1:realtime_det0
 ltime    simu1:livetime_det0
+dtime1   simu1:deadtime_det1
+dtime2   simu1:deadtime_det2
 myroi    lima_simulator:roi_counters:r1_sum
 myroi3   lima_simulator:roi_counters:r3_sum"""
 
@@ -21,6 +23,8 @@ robzz    robz
 dtime    simu1:deadtime_det0
 rtime    simu1:realtime_det0
 ltime    simu1:livetime_det0
+dtime1   simu1:deadtime_det1
+dtime2   simu1:deadtime_det2
 myroi    lima_simulator:roi_counters:r1_sum
 myroi3   lima_simulator:roi_counters:r3_sum
 m22      m1"""
@@ -33,6 +37,8 @@ robzz    robz
 dtime    simu1:deadtime_det0
 rtime    simu1:realtime_det0
 ltime    simu1:livetime_det0
+dtime1   simu1:deadtime_det1
+dtime2   simu1:deadtime_det2
 myroi    lima_simulator:roi_counters:r1_sum
 myroi3   lima_simulator:roi_counters:r3_sum
 m22      m1

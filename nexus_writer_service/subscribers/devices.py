@@ -143,20 +143,7 @@ def parse_devices(devices, short_names=True, multivalue_positioners=False):
     :param bool short_names:
     :param bool multivalue_positioners:
     """
-    # aliasmap: alias -> fullname
-    aliasmap = {
-        info.get("alias", fullname): fullname for fullname, info in devices.items()
-    }
-    if len(aliasmap) != len(devices):
-        aliasmap = {k: k for k in devices}
-    if short_names:
-        # namemap: alias -> shortname
-        namemap = shortnamemap(list(aliasmap.keys()))
-        # namemap: fullname -> shortname
-        namemap = {aliasmap[alias]: shortname for alias, shortname in namemap.items()}
-    else:
-        # namemap: fullname -> alias
-        namemap = {fullname: alias for alias, fullname in aliasmap.items()}
+    namemap = shortnamemap(list(devices.keys()))
     for fullname, device in devices.items():
         device["device_name"] = namemap.get(fullname, fullname)
         if device["device_type"] == "mca":
@@ -317,7 +304,6 @@ def device_info(devices, scan_info, short_names=True, multivalue_positioners=Fal
 
 
 def _extract_device_info(devices, subdevices, info, keys, config=True, master=False):
-    aliasmap = info.get("display_names", {})
     for key in keys:
         units = info.get(key + "_units", {})
         lst = info.get(key, [])
@@ -335,27 +321,3 @@ def _extract_device_info(devices, subdevices, info, keys, config=True, master=Fa
                 else:
                     if is_positioner_group(fullname, lst):
                         device["device_type"] = "positionergroup"
-            if _allow_alias(device, config):
-                _add_alias(device, fullname, aliasmap)
-
-
-def _allow_alias(device, config):
-    """
-    Allowing channel aliases without configuration creates a mess
-    """
-    return config or device["device_type"] in ["positioner", "positionergroup"]
-
-
-def _add_alias(device, fullname, display_names):
-    """
-    :param dict device:
-    :param str fullname:
-    :param dict display_names:
-    """
-    # REMARK: display_names contain node.name when alias is missing
-    #         while we want node.fullname to avoid collisions.
-    alias = display_names.get(fullname, None)
-    # TODO: this does not work if the alias is the same as node.name
-    missing_alias = fullname == alias or fullname.split(":")[-1] == alias
-    if not missing_alias:
-        device["alias"] = alias

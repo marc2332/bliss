@@ -104,6 +104,15 @@ def _check_counter_name(func):
     return f
 
 
+def counter_or_aliased_counter(cnt):
+    """Return the same counter, or its alias counterpart if any
+    """
+    alias = global_map.aliases.get_alias(cnt)
+    if alias:
+        cnt = global_map.aliases.get(alias)
+    return cnt
+
+
 def _get_counters_from_names(names_list, container_default_counters_only=False):
     """Get the counters from a names list"""
     counters, missing = [], []
@@ -114,6 +123,11 @@ def _get_counters_from_names(names_list, container_default_counters_only=False):
     for cnt in all_counters:
         all_counters_dict[cnt.fullname] = cnt
         counters_by_name[cnt.name].add(cnt)
+        counters_by_name[cnt.fullname].add(cnt)
+        alias_obj = global_map.aliases.get(cnt.name)
+        if alias_obj:
+            counters_by_name[alias_obj.original_name].add(cnt)
+            counters_by_name[alias_obj.original_fullname].add(cnt)
     counter_containers_dict = {}
     for container in set(global_map.instance_iter("counters")) - all_counters:
         if hasattr(container, "fullname"):
@@ -138,7 +152,9 @@ def _get_counters_from_names(names_list, container_default_counters_only=False):
         if name in counter_containers_dict:
             if container_default_counters_only:
                 try:
-                    counters += counter_containers_dict[name].counter_groups.default
+                    default_counters = counter_containers_dict[
+                        name
+                    ].counter_groups.default
                 except AttributeError:
                     # no default group ?
                     # fallback to all counters below this container
@@ -146,6 +162,8 @@ def _get_counters_from_names(names_list, container_default_counters_only=False):
                 except Exception:
                     pass
                 else:
+                    # add default counters
+                    counters += map(counter_or_aliased_counter, default_counters)
                     continue
             # look for all counters below this container
             name += ":"
@@ -217,9 +235,7 @@ def _get_counters_from_object(arg):
             counters = [arg]
     # replace counters with their aliased counterpart, if any
     for i, cnt in enumerate(counters):
-        alias = global_map.aliases.get_alias(cnt)
-        if alias:
-            counters[i] = global_map.aliases.get(alias)
+        counters[i] = counter_or_aliased_counter(cnt)
     return counters
 
 

@@ -15,7 +15,7 @@ def test_scan_watch_callback_with_alias(alias_session):
         pass
 
     def on_scan_data(scan_info, values):
-        motor_channel_name = f"axis:{robyy.original_name}"
+        motor_channel_name = f"axis:{robyy.name}"
         assert toto.fullname in values
         assert dtime.fullname in values
         assert motor_channel_name in values

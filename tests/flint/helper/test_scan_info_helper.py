@@ -193,10 +193,7 @@ def test_create_curve_plot_from_motor_scan():
     curves = []
     for item in plot.items():
         curves.append((item.xChannel().name(), item.yChannel().name()))
-    expected_curves = [
-        ("axis:roby", "simulation_diode_sampling_controller:diode"),
-        ("axis:roby", "simulation_diode_sampling_controller:diode2"),
-    ]
+    expected_curves = [("axis:roby", "simulation_diode_sampling_controller:diode")]
     assert set(expected_curves) == set(curves)
 
 

@@ -11,7 +11,8 @@ from bliss.common import scans
 from bliss.scanning import scan, chain
 from bliss.scanning.acquisition import timer, calc, motor, counter
 from bliss.common import event
-from bliss.shell.standard import plotselect, cen, com, peak
+from bliss.shell.standard import plotselect, plotinit, cen, com, peak
+from bliss.scanning.scan import ScanDisplay
 
 
 def test_pkcom_ascan_gauss(session):
@@ -95,6 +96,42 @@ def test_plotselect1(session):
 
     plotselect(simul_counter4)
     assert simul_counter4.fullname == scans._get_selected_counter_name()
+
+
+def test_plotselect_axis(session):
+    roby = getattr(setup_globals, "roby")
+
+    scans.plotselect(roby)
+    assert scans.get_plotted_counters() == ["axis:roby"]
+
+
+def test_plotselect_alias(session):
+    aliases = session.env_dict["ALIASES"]
+    diode = getattr(setup_globals, "diode")
+    foo = aliases.add("foo", diode.fullname)
+    plotselect("foo")
+    assert scans.get_plotted_counters() == [foo.fullname]
+
+    plotselect("not_exists")
+    assert scans.get_plotted_counters() == ["not_exists"]
+
+
+def test_plotinit(session):
+    diode = getattr(setup_globals, "diode")
+    roby = getattr(setup_globals, "roby")
+    sd = ScanDisplay()
+
+    plotinit("foo")
+    assert sd.get_next_scan_channels() == ["foo"]
+    plotinit(roby)
+    assert sd.get_next_scan_channels() == ["axis:roby"]
+    plotinit(diode)
+    assert sd.get_next_scan_channels() == [diode.fullname]
+    plotinit(diode.fullname)
+    assert sd.get_next_scan_channels() == [diode.fullname]
+
+    plotinit(diode, roby)
+    assert sd.get_next_scan_channels() == [diode.fullname, "axis:roby"]
 
 
 def test_counter_argument_on_cen_com_peak(session):

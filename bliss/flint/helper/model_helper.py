@@ -11,6 +11,7 @@ Helper functions to deal with Flint models
 from __future__ import annotations
 from typing import Optional
 from typing import List
+from typing import Set
 from typing import Dict
 from typing import Tuple
 
@@ -154,6 +155,27 @@ def getMostUsedXChannelPerMasters(
         xChannelPerMaster[master] = most_often_used_channel
 
     return xChannelPerMaster
+
+
+def getChannelNameGroups(scan: scan_model.Scan) -> List[Set[str]]:
+    """Returns the list of channels which are in the same group.
+
+    A group is supposed to contain only channels with, in the end, the same
+    amount of measurements.
+    """
+    channels: Dict[scan_model.Device, List[scan_model.Channel]] = {}
+    for device in scan.devices():
+        if device.isMaster():
+            channels[device] = list(device.channels())
+        else:
+            topMaster = device.topMaster()
+            channels[topMaster].extend(device.channels())
+
+    result: List[Set[str]] = []
+    for data in channels.values():
+        ch = [c.name() for c in data]
+        result.append(ch)
+    return result
 
 
 def cloneChannelRef(
@@ -382,6 +404,93 @@ def getChannelNamesDisplayedAsValue(plot: plot_model.Plot) -> List[str]:
                 continue
             names.append(channel.name())
     return names
+
+
+def removeNotAvailableChannels(
+    plot: plot_model.Plot, basePlot: plot_model.Plot, baseScan: scan_model.Scan
+):
+    """Remove from `plot` channels which are not available in this `scan`.
+    The `basePlot` generated from this `scan` can help to improve the result.
+
+    As result:
+
+    - Channels used as value by `plot` have to exist in the scan
+    - Axes also have to exists
+        - Else it is reach from the basePlot
+            - Else there is none
+    """
+    groups = getChannelNameGroups(baseScan)
+
+    def findGroupId(name: str):
+        for groupId, group in enumerate(groups):
+            if name in group:
+                return groupId
+        return None
+
+    # Try to identify the default axis for each groups
+    defaultAxis = [None] * len(groups)
+    for item in basePlot.items():
+        xChannel = item.xChannel()
+        if xChannel is None:
+            continue
+        yChannel = item.yChannel()
+        if yChannel is not None:
+            groupId = findGroupId(yChannel.name())
+            if groupId is not None:
+                defaultAxis[groupId] = xChannel.name()
+
+    def isConsistent(item):
+        xChannel = item.xChannel()
+        yChannel = item.yChannel()
+        if xChannel is None:
+            return False
+        if yChannel is None:
+            return False
+        g1 = findGroupId(xChannel.name())
+        g2 = findGroupId(yChannel.name())
+        if g1 is None or g2 is None:
+            # Not supposed to happen
+            assert False
+        return g1 == g2
+
+    def getDefaultAxis(name: str):
+        g = findGroupId(name)
+        if g is None:
+            return None
+        return defaultAxis[g]
+
+    available = set([])
+    for g in groups:
+        available.update(g)
+
+    with plot.transaction():
+        for item in plot.items():
+            if isinstance(item, plot_item_model.CurveItem):
+                # If y is not available the item have no meaning
+                yChannel = item.yChannel()
+                if yChannel is not None:
+                    if yChannel.name() not in available:
+                        plot.removeItem(item)
+                        continue
+
+                # If x is not there we still can do something
+                xChannel = item.xChannel()
+                if xChannel is not None:
+                    if xChannel.name() not in available:
+                        if yChannel is None:
+                            plot.removeItem(item)
+                            continue
+                        else:
+                            item.setXChannel(None)
+
+                if not isConsistent(item):
+                    # We have to found a new axis
+                    axisName = getDefaultAxis(yChannel.name())
+                    if axisName is None:
+                        item.setXChannel(None)
+                    else:
+                        channel = plot_model.ChannelRef(item, axisName)
+                        item.setXChannel(channel)
 
 
 def isChannelUsedAsAxes(plot: plot_model.Plot, channel: scan_model.Channel):

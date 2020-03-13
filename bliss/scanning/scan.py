@@ -464,6 +464,11 @@ class ScanDisplay(ParametersWardrobe):
             info["displayed_channels"] = display
         self._next_scan_metadata = info
 
+    def get_next_scan_channels(self) -> typing.List[str]:
+        if self._next_scan_metadata is None:
+            return []
+        return self._next_scan_metadata["displayed_channels"]
+
     def pop_scan_meta(self) -> typing.Optional[typing.Dict]:
         """Pop the extra information to feed the scan with."""
         info = self._next_scan_metadata

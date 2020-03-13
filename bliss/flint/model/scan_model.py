@@ -344,7 +344,6 @@ class Device(qt.QObject, _Sealable):
         self.__channels.append(channel)
 
     def channels(self) -> Iterator[Channel]:
-        # FIXME better to export iterator or read only list
         return iter(self.__channels)
 
     def setMaster(self, master: Optional[Device]):

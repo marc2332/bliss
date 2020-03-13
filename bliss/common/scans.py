@@ -1589,7 +1589,11 @@ def get_channel_names(*objs) -> List[str]:
         # An object could contain many channels?
         channel_names: List[str] = []
         if isinstance(obj, str):
-            channel_names = [obj]
+            alias = global_map.aliases.get(obj)
+            if alias is not None:
+                channel_names = get_channel_names(alias)
+            else:
+                channel_names = [obj]
         elif isinstance(obj, Axis):
             channel_names = ["axis:%s" % obj.name]
         elif hasattr(obj, "fullname"):
@@ -1602,12 +1606,29 @@ def get_channel_names(*objs) -> List[str]:
     return result
 
 
+def plotinit(*counters):
+    """
+    Select counter(s) to use for the next scan display.
+
+    Args:
+        counters: String, alias, object identifying an object providing data to
+            record. It can be a counter name, a counter, an axis, an alias.
+    """
+    sd = ScanDisplay()
+    channel_names = get_channel_names(*counters)
+    sd.init_next_scan_meta(channel_names)
+
+
 def plotselect(*counters):
     """
     Select counter(s) to use for:
     * alignment (bliss/common/scans.py:_get_selected_counter_name())
     * flint display (bliss/flint/plot1d.py)
     Saved as a HashSetting with '<session_name>:plot_select' key.
+
+    Args:
+        counters: String, alias, object identifying an object providing data to
+            record. It can be a counter name, a counter, an axis, an alias.
     """
     plot_select = HashSetting("%s:plot_select" % current_session.name)
     channel_names = get_channel_names(*counters)
@@ -1654,7 +1675,7 @@ def get_plotted_counters():
     plotted_cnt_list = list()
 
     for cnt_name in plot_select.get_all():
-        plotted_cnt_list.append(cnt_name.split(":")[-1])
+        plotted_cnt_list.append(cnt_name)
 
     return plotted_cnt_list
 

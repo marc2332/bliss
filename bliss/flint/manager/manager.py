@@ -264,19 +264,14 @@ class ManageMainBehaviours(qt.QObject):
         workspace = flintModel.workspace()
         previousScan = flintModel.currentScan()
         if previousScan is not None:
-            sameScan = (
-                previousScan.scanInfo()["acquisition_chain"]
-                == scan.scanInfo()["acquisition_chain"]
-            )
-            enforceDisplay = (
+            useDefaultPlot = (
                 scan.scanInfo()
                 .get("_display_extra", {})
                 .get("displayed_channels", None)
                 is not None
             )
-            updatePlotModel = enforceDisplay or not sameScan
         else:
-            updatePlotModel = True
+            useDefaultPlot = True
 
         if len(plots) > 0:
             defaultPlot = plots[0]
@@ -308,21 +303,35 @@ class ManageMainBehaviours(qt.QObject):
             availablePlots.remove(plotModel)
             previousWidgetPlot = widget.plotModel()
 
-            if updatePlotModel or previousWidgetPlot is None:
+            # Try to reuse the previous plot
+            if not useDefaultPlot and previousWidgetPlot is not None:
+                with previousWidgetPlot.transaction():
+                    # Clean up temporary items
+                    for item in list(previousWidgetPlot.items()):
+                        if isinstance(item, plot_model.NotReused):
+                            try:
+                                previousWidgetPlot.removeItem(item)
+                            except:
+                                pass
+
+                    # Reuse only available values
+                    # FIXME: Make it work first for curves, that's the main use case
+                    if isinstance(previousWidgetPlot, plot_item_model.CurvePlot):
+                        model_helper.removeNotAvailableChannels(
+                            previousWidgetPlot, plotModel, scan
+                        )
+
+            if (
+                useDefaultPlot
+                or previousWidgetPlot is None
+                or previousWidgetPlot.isEmpty()
+            ):
                 if plotModel.styleStrategy() is None:
                     plotModel.setStyleStrategy(DefaultStyleStrategy(self.__flintModel))
                 if previousWidgetPlot is not None:
                     workspace.removePlot(previousWidgetPlot)
                 workspace.addPlot(plotModel)
                 widget.setPlotModel(plotModel)
-            else:
-                # Clean up few items
-                for item in list(previousWidgetPlot.items()):
-                    if isinstance(item, plot_model.NotReused):
-                        try:
-                            previousWidgetPlot.removeItem(item)
-                        except Exception:
-                            pass
 
             widget.setScan(scan)
 

@@ -230,3 +230,11 @@ def test_bliss_import_error(beacon):
     with pytest.raises(ModuleNotFoundError) as excinfo:
         beacon.get("broken_ctrl2")
     assert "CONFIG COULD NOT FIND CLASS" not in str(excinfo.value)
+
+
+def test_references_list_inside_subdict(beacon):
+    node = {"myname": {"mymotors": ["$roby", "$robz"]}}
+    replace_reference_by_object(beacon, node, dict())
+    motor_list = node["myname"]["mymotors"]
+    assert motor_list[0] == beacon.get("roby")
+    assert motor_list[1] == beacon.get("robz")

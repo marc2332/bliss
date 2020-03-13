@@ -84,7 +84,7 @@ def _parse_dict(config, item_cfg_node, referenced_objects, subdict, placeholder)
             if childref:
                 value.update(childref)
                 referenced_objects[name] = value
-            subdict.update(childdict)
+            subdict[name].update(childdict)
         elif isinstance(value, list):
             return_list = _parse_list(config, value, placeholder)
             if return_list:
@@ -145,4 +145,4 @@ def replace_reference_by_object(
                 _parse_dict(config, subdict, subref, value, placeholder)
                 if subref:
                     referenced_objects[name] = subref
-                item_cfg_node.update(subdict)
+                item_cfg_node[name].update(subdict)

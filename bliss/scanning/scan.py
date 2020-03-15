@@ -1316,6 +1316,7 @@ class Scan:
                     # write scan_info to file
                     with capture():
                         self.writer.finalize_scan_entry(self)
+                    with capture():
                         self.writer.close()
 
                 with capture():

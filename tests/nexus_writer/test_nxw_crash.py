@@ -11,7 +11,6 @@ import pytest
 import gevent
 import nxw_test_utils
 from bliss.common import scans
-from louie import dispatcher
 from nexus_writer_service.utils.scan_utils import session_filename
 
 
@@ -55,8 +54,6 @@ def _crash_scan_writer_greenlet(filename, detector):
         os.remove(filename)
     except OSError:
         pass
-    # TODO: no proper cleanup by Bliss
-    dispatcher.reset()
 
 
 def _crash_scan_writer_process(filename, detector, writer):
@@ -78,8 +75,6 @@ def _crash_scan_writer_process(filename, detector, writer):
         os.remove(filename)
     except OSError:
         pass
-    # TODO: no proper cleanup by Bliss
-    dispatcher.reset()
 
 
 def _test_process(session=None, tmpdir=None, writer=None, **kwargs):

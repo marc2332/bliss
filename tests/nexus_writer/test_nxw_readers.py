@@ -10,7 +10,6 @@ import gevent
 import pytest
 import nxw_test_data
 import nxw_test_utils
-from louie import dispatcher
 from bliss.common import scans
 from nexus_writer_service.utils import scan_utils
 from nexus_writer_service.io import nexus
@@ -56,7 +55,6 @@ def _test_nxw_readers(
         for i in range(4)
     ]
     startevent.wait()
-    reset_dispatcher = False
     try:
         detector = "diode3"
         if mode == "a" and not enable_file_locking:
@@ -74,7 +72,6 @@ def _test_nxw_readers(
                 nxw_test_utils.assert_scan_data_not_corrupt([scan])
         elif enable_file_locking:
             # Readers will crash the scan but not corrupt the file
-            reset_dispatcher = True
             scan = scans.timescan(.1, session.env_dict[detector], run=False)
             with gevent.Timeout(10):
                 with pytest.raises(RuntimeError):
@@ -103,8 +100,6 @@ def _test_nxw_readers(
                 **kwargs
             )
     finally:
-        if reset_dispatcher:
-            dispatcher.reset()
         if readers:
             gevent.killall(readers)
             gevent.joinall(readers)

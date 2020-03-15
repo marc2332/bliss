@@ -301,6 +301,8 @@ class ImagePlotWidget(plot_helper.PlotWidget):
             self.__hasPreviousImage = False
         previousScan = self.__scan
         self.__scan = scan
+        # As the scan was updated, clear the previous cached events
+        self.__aggregator.clear()
         if self.__scan is not None:
             self.__scan.scanDataUpdated[object].connect(
                 self.__aggregator.callbackTo(self.__scanDataUpdated)

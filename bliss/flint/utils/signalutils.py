@@ -68,6 +68,13 @@ class EventAggregator(qt.QObject):
             Callable, Callable
         ] = weakref.WeakKeyDictionary()
 
+    def clear(self):
+        """Clean up all the current events.
+
+        This events will not be received.
+        """
+        self.__eventStack = []
+
     def empty(self):
         """Returns true if there is no stored events."""
         return len(self.__eventStack) == 0

@@ -217,7 +217,9 @@ class Shutter(BeaconObject, BaseShutter):
             self.__state.value = return_state
             return return_state
 
-        if mode == self.EXTERNAL:
+        if mode == self.CONFIGURATION:
+            return BaseShutterState.UNKNOWN
+        elif mode == self.EXTERNAL:
             if self.external_control is not None:
                 switch_state = self.external_control.get()
                 return (
@@ -225,8 +227,6 @@ class Shutter(BeaconObject, BaseShutter):
                     if switch_state == "OPEN"
                     else BaseShutterState.CLOSED
                 )
-            if mode == self.CONFIGURATION:
-                return BaseShutterState.UNKNOWN
             return BaseShutterState.UNKNOWN
         return self.__state.value
 

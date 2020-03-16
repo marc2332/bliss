@@ -111,7 +111,16 @@ class BaseShutter:
         self.close()
 
 
-class Shutter(BaseShutter):
+@unique
+class ShutterMode(Enum):
+    """ Shutter Mode"""
+
+    MANUAL = "Manual mode"
+    EXTERNAL = "External trigger mode"
+    CONFIGURATION = "Configuration mode"
+
+
+class Shutter(BeaconObject, BaseShutter):
     """Shutter class"""
 
     MANUAL, EXTERNAL, CONFIGURATION = list(range(3))  # modes
@@ -133,92 +142,42 @@ class Shutter(BaseShutter):
     and have an OPEN/CLOSED states.
     """
 
-    def lazy_init(func):
-        @functools.wraps(func)
-        def func_wrapper(self, *args, **kwargs):
-            self.init()
-            with Lock(self):
-                return func(self, *args, **kwargs)
-
-        return func_wrapper
-
     def __init__(self, name, config):
-        self.__name = name
-        self.__config = config
+        BeaconObject.__init__(self, config)
         self._external_ctrl = config.get("external-control")
         self.__settings = HashObjSetting("shutter:%s" % name)
-        self.__initialized_hw = Cache(self, "initialized", default_value=False)
         self.__state = Cache(self, "state", default_value=BaseShutterState.UNKNOWN)
-        self._init_flag = False
         self.__lock = lock.Semaphore()
 
-    def init(self):
-        """
-        initialize the shutter in the current mode.
-        this is method is called by lazy_init
-        """
-        if self._external_ctrl is not None:
-            # Check if the external control is compatible
-            # with a switch object and if it has open/close state
-            ext_ctrl = self._external_ctrl
-            name = ext_ctrl.name if hasattr(ext_ctrl, "name") else "unknown"
-            try:
-                states = ext_ctrl.states_list()
-                ext_ctrl.set
-                ext_ctrl.get
-            except AttributeError:
-                raise ValueError(
-                    "external-ctrl : {0} is not compatible "
-                    "with a switch object".format(name)
-                )
-            else:
-                if "OPEN" and "CLOSED" not in states:
+    name = BeaconObject.config_getter("name")
+
+    def _initialize_with_setting(self):
+        if not self._local_initialized:
+            if self._external_ctrl is not None:
+                # Check if the external control is compatible
+                # with a switch object and if it has open/close state
+                ext_ctrl = self._external_ctrl
+                name = ext_ctrl.name if hasattr(ext_ctrl, "name") else "unknown"
+                try:
+                    states = ext_ctrl.states_list()
+                    ext_ctrl.set
+                    ext_ctrl.get
+                except AttributeError:
                     raise ValueError(
-                        "external-ctrl : {0} doesn't"
-                        " have 'OPEN' and 'CLOSED' states".format(name)
+                        "external-ctrl : {0} is not compatible "
+                        "with a switch object".format(name)
                     )
+                else:
+                    if "OPEN" and "CLOSED" not in states:
+                        raise ValueError(
+                            "external-ctrl : {0} doesn't"
+                            " have 'OPEN' and 'CLOSED' states".format(name)
+                        )
+            with Lock(self):
+                with self.__lock:
+                    super()._initialize_with_setting()
 
-        if not self._init_flag:
-            self._init_flag = True
-            try:
-                self._init()
-                with Lock(self):
-                    with self.__lock:
-                        if not self.__initialized_hw.value:
-                            self._initialize_hardware()
-                            self.__initialized_hw.value = True
-            except:
-                self._init_flag = False
-                raise
-
-    def _init(self):
-        """
-        This method should contains all software initialization
-        like communication, internal state...
-        """
-        raise NotImplementedError
-
-    def _initialize_hardware(self):
-        """
-        This method should contains all commands needed to
-        initialize the hardware.
-        It's will be call only once (by the first client).
-        """
-
-    @property
-    def name(self):
-        return self.__name
-
-    @property
-    def config(self):
-        return self.__config
-
-    @property
-    def settings(self):
-        """Return the settings"""
-        return self.__settings
-
-    @property
+    @BeaconObject.property(default=Shutter.MANUAL)
     def mode(self):
         """
         shutter mode can be MANUAL,EXTERNAL,CONFIGURATION
@@ -232,7 +191,7 @@ class Shutter(BaseShutter):
         If no external control is configured open/close
         won't be authorized.
         """
-        return self.__settings.get("mode", Shutter.MANUAL)
+        pass
 
     @mode.setter
     def mode(self, value):
@@ -241,19 +200,16 @@ class Shutter(BaseShutter):
                 "Mode can only be: %s"
                 % ",".join((x[0] for x in self.MODE2STR.values()))
             )
-        self.init()
         self._set_mode(value)
         if value in (self.CONFIGURATION, self.EXTERNAL):
             # Can't cache the state if external or configuration
             self.__state.value = BaseShutterState.UNKNOWN
-        self.__settings["mode"] = value
 
     def _set_mode(self, value):
         raise NotImplementedError
 
     @property
     def state(self):
-        self.init()
         mode = self.mode
         if mode == self.MANUAL and self.__state.value == BaseShutterState.UNKNOWN:
             return_state = self._state()
@@ -281,7 +237,7 @@ class Shutter(BaseShutter):
         """Return the external_control"""
         return self._external_ctrl
 
-    @lazy_init
+    @BeaconObject.lazy_init
     def opening_time(self):
         """
         Return the opening time if available or None
@@ -291,7 +247,7 @@ class Shutter(BaseShutter):
     def _opening_time(self):
         return self.__settings.get("opening_time")
 
-    @lazy_init
+    @BeaconObject.lazy_init
     def closing_time(self):
         """
         Return the closing time if available or None
@@ -335,7 +291,7 @@ class Shutter(BaseShutter):
         closing_time = time.time() - start_time
         return opening_time, closing_time
 
-    @lazy_init
+    @BeaconObject.lazy_init
     def open(self):
         """Open the shutter
         Returns:
@@ -364,7 +320,7 @@ class Shutter(BaseShutter):
     def _open(self):
         raise NotImplementedError
 
-    @lazy_init
+    @BeaconObject.lazy_init
     def close(self):
         """Close the shutter
         Returns:
@@ -404,4 +360,4 @@ class Shutter(BaseShutter):
             )
         switch = ShutterSwitch(set_open, set_closed, is_open)
         self._external_ctrl = switch
-        self.init()
+        self._initialize_with_setting()

@@ -12,6 +12,7 @@ import time
 from enum import Enum, unique
 from gevent import lock
 
+from bliss.config.beacon_object import BeaconObject
 from bliss.config.conductor.client import Lock
 from bliss.config.channels import Cache
 from bliss.config.settings import HashObjSetting
@@ -177,7 +178,7 @@ class Shutter(BeaconObject, BaseShutter):
                 with self.__lock:
                     super()._initialize_with_setting()
 
-    @BeaconObject.property(default=Shutter.MANUAL)
+    @BeaconObject.property(default=ShutterMode.MANUAL)
     def mode(self):
         """
         shutter mode can be MANUAL,EXTERNAL,CONFIGURATION

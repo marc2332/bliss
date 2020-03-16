@@ -475,17 +475,13 @@ def cli(
     if session_name and not session_name.startswith("__DEFAULT__"):
         session_id = session_name
         session_title = "Bliss shell ({0})".format(session_name)
-        history_filename = ".%s_%s_history" % (
-            os.path.basename(sys.argv[0]),
-            session_id,
-        )
         prompt_label = session_name.upper()
     else:
         session_id = "default"
         session_title = "Bliss shell"
-        history_filename = ".%s_history" % os.path.basename(sys.argv[0])
         prompt_label = "BLISS"
 
+    history_filename = ".bliss_%s_history" % (session_id)
     if sys.platform in ["win32", "cygwin"]:
         history_filename = os.path.join(os.environ["USERPROFILE"], history_filename)
     else:

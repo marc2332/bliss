@@ -124,13 +124,11 @@ class ShutterMode(Enum):
 class Shutter(BeaconObject, BaseShutter):
     """Shutter class"""
 
-    MANUAL, EXTERNAL, CONFIGURATION = list(range(3))  # modes
-    MODE2STR = {
-        MANUAL: ("MANUAL", "Manual mode"),
-        EXTERNAL: ("EXTERNAL", "External trigger mode"),
-        CONFIGURATION: ("CONFIGURATION", "Configuration mode"),
-    }
-
+    MANUAL, EXTERNAL, CONFIGURATION = (
+        ShutterMode.MANUAL,
+        ShutterMode.EXTERNAL,
+        ShutterMode.CONFIGURATION,
+    )
     """
     Generic shutter object
 
@@ -196,10 +194,9 @@ class Shutter(BeaconObject, BaseShutter):
 
     @mode.setter
     def mode(self, value):
-        if value not in self.MODE2STR:
+        if value not in ShutterMode:
             raise ValueError(
-                "Mode can only be: %s"
-                % ",".join((x[0] for x in self.MODE2STR.values()))
+                "Mode can only be: %s" % ",".join(str(x) for x in ShutterMode)
             )
         self._set_mode(value)
         if value in (self.CONFIGURATION, self.EXTERNAL):

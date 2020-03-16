@@ -78,7 +78,7 @@ class BaseShutter:
     def state_string(self):
         """Transfer state to a string"""
         try:
-            return BaseShutterState.__members__[self.state].value
+            return BaseShutterState.__members__[self.state.name].value
         except KeyError:
             return BaseShutterState.UNKNOWN.value
 

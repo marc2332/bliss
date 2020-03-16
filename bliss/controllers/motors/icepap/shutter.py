@@ -11,6 +11,7 @@ import numpy
 
 from bliss.config.channels import Cache
 from bliss.common.shutter import Shutter as BaseShutter
+from bliss.common.shutter import BaseShutterState
 from . import _ackcommand
 
 
@@ -166,8 +167,8 @@ class Shutter(BaseShutter):
     def _state(self):
         curr_pos = self._axis.position
         if curr_pos == self.closed_position:
-            return self.CLOSED
+            return BaseShutterState.CLOSED
         elif curr_pos == self.opened_position:
-            return self.OPEN
+            return BaseShutterState.OPEN
         else:
-            return self.UNKNOWN
+            return BaseShutterState.UNKNOWN

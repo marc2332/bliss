@@ -168,7 +168,14 @@ def set_global_settings(settings: qt.QSettings, options):
         settings.endGroup()
 
     if options.opengl:
-        silx.config.DEFAULT_PLOT_BACKEND = "opengl"
+        from silx.gui.utils import glutils
+
+        result = glutils.isOpenGLAvailable()
+        if result:
+            silx.config.DEFAULT_PLOT_BACKEND = "opengl"
+        else:
+            ROOT_LOGGER.warning("OpenGL is not available: %s", result.error)
+            ROOT_LOGGER.warning("Switch back to matplotlib backend")
 
 
 def process_gevent():

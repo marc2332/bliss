@@ -11,13 +11,17 @@ This file groups all protocols managed by bliss
 from collections import namedtuple
 from typing_extensions import Protocol, runtime_checkable
 from types import SimpleNamespace
+from typing import Mapping
 
 
 class IterableNamespace(SimpleNamespace):
+    """Access to this namespace is compatible with named_tuple"""
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
     def __getitem__(self, key):
+        """works for both keys of dict or integer values of key"""
         try:
             return self.__dict__.__getitem__(key)
         except KeyError:
@@ -25,7 +29,23 @@ class IterableNamespace(SimpleNamespace):
 
     @property
     def _fields(self):
+        """as for named tuple"""
         return self.__dict__.keys()
+
+    def __add__(self, other):
+        if isinstance(other, IterableNamespace):
+            return IterableNamespace(**{**self.__dict__, **other.__dict__})
+        elif isinstance(other, Mapping):
+            return IterableNamespace(**{**self.__dict__, **other})
+        else:
+            raise TypeError
+
+    def __info__(self):
+        names = "".join(["." + x + "\n" for x in self.__dict__.keys()])
+        return "Namespace containing:\n" + names
+
+    def __len__(self):
+        return len(self.__dict__)
 
 
 def counter_namespace(counters):

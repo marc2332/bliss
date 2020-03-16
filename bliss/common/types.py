@@ -9,7 +9,7 @@ import numbers
 import numpy
 from bliss.common.counter import Counter
 from typing import Union, Tuple, List, Sequence
-from bliss.common.protocols import Scannable, CounterContainer
+from bliss.common.protocols import Scannable, CounterContainer, IterableNamespace
 from bliss.common.measurementgroup import MeasurementGroup
 from bliss.common.axis import Axis
 
@@ -17,7 +17,9 @@ from bliss.common.axis import Axis
 _int = numbers.Integral
 _float = numbers.Real
 _countable = Counter
-_countables = Union[Counter, MeasurementGroup, CounterContainer, Tuple]
+_countables = Union[
+    IterableNamespace, Counter, MeasurementGroup, CounterContainer, Tuple
+]
 _scannable = Union[Axis, Scannable]
 # Axis is included explicitly in _scannable as the Scannable protocol evaluates
 # all attributes that are part of the protocol during type checking. (py 3.7)

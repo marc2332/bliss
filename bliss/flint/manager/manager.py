@@ -260,6 +260,7 @@ class ManageMainBehaviours(qt.QObject):
 
     def updateScanAndPlots(self, scan: scan_model.Scan, plots: List[plot_model.Plot]):
         flintModel = self.flintModel()
+        liveWindow = flintModel.liveWindow()
         workspace = flintModel.workspace()
         previousScan = flintModel.currentScan()
         if previousScan is not None:
@@ -285,6 +286,9 @@ class ManageMainBehaviours(qt.QObject):
                 for p in plots
                 if isinstance(p, (plot_item_model.ImagePlot, plot_item_model.McaPlot))
             ]
+            # FIXME: If we remove image and MCAs, there is maybe nothing to display
+            ctWidget = liveWindow.ctWidget()
+            ctWidget.setScan(scan)
 
         # Set the new scan
         flintModel.setCurrentScan(scan)

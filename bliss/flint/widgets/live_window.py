@@ -20,6 +20,7 @@ from bliss.flint.model import flint_model
 from bliss.flint.widgets.curve_plot import CurvePlotWidget
 from bliss.flint.widgets.property_widget import MainPropertyWidget
 from bliss.flint.widgets.scan_status import ScanStatus
+from bliss.flint.widgets.ct_widget import CtWidget
 from bliss.flint.widgets.extended_dock_widget import MainWindow
 
 
@@ -50,6 +51,7 @@ class LiveWindow(MainWindow):
 
         self.__scanStatusWidget = None
         self.__propertyWidget = None
+        self.__ctWidget = None
 
         self.__initGui()
 
@@ -75,6 +77,39 @@ class LiveWindow(MainWindow):
         self.__scanStatusWidget = scanStatusWidget
         self.__propertyWidget = propertyWidget
 
+    def __createCtWidget(self):
+        flintModel = self.flintModel()
+        from bliss.flint.widgets import ct_widget
+
+        widget = ct_widget.CtWidget(self)
+        widget.setAttribute(qt.Qt.WA_DeleteOnClose)
+        widget.setFlintModel(self.__flintModel)
+        widget.windowClosed.connect(self.__ctWidgetClosed)
+        widget.setObjectName("ct-dock")
+
+        workspace = flintModel.workspace()
+        curveWidget = [w for w in workspace.widgets() if isinstance(w, CurvePlotWidget)]
+        curveWidget = curveWidget[0] if len(curveWidget) > 0 else None
+
+        if curveWidget is None:
+            self.addDockWidget(qt.Qt.RightDockWidgetArea, widget)
+            widget.setVisible(True)
+        else:
+            self.tabifyDockWidget(curveWidget, widget)
+
+        widget.setWindowTitle("Ct")
+        return widget
+
+    def __ctWidgetClosed(self):
+        self.__ctWidget = None
+
+    def ctWidget(self, create=True) -> Optional[CtWidget]:
+        """Returns the widget used to display ct."""
+        if self.__ctWidget is None and create:
+            widget = self.__createCtWidget()
+            self.__ctWidget = widget
+        return self.__ctWidget
+
     def scanStatusWidget(self) -> Optional[ScanStatus]:
         """Returns the widget used to display the scan status."""
         return self.__scanStatusWidget
@@ -87,6 +122,8 @@ class LiveWindow(MainWindow):
         self.__flintModel = flintModel
         if self.__scanStatusWidget is not None:
             self.__scanStatusWidget.setFlintModel(flintModel)
+        if self.__ctWidget is not None:
+            self.__ctWidget.setFlintModel(flintModel)
 
     def flintModel(self) -> flint_model.FlintState:
         assert self.__flintModel is not None

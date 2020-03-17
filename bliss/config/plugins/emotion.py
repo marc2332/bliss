@@ -422,7 +422,7 @@ def create_object_from_cache(config, name, cache_objects):
         return controller.get_encoder(name)
     elif object_type == OBJECT_TYPE.SWITCH:
         return controller.get_switch(name)
-    elif object_type == OBJECT_TYPE.SHUTTERS:
+    elif object_type == OBJECT_TYPE.SHUTTER:
         return controller.get_shutter(name)
     else:
         raise RuntimeError("Object type not managed")

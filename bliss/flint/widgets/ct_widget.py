@@ -27,6 +27,69 @@ from bliss.flint.widgets.extended_dock_widget import ExtendedDockWidget
 _logger = logging.getLogger(__name__)
 
 
+class CenteringFloatingPointDot(qt.QStyledItemDelegate):
+    def displayText(self, value, locale):
+        if isinstance(value, numbers.Number):
+            return str(value)
+        return str(value)
+
+    def paint(
+        self,
+        painter: qt.QPainter,
+        option: qt.QStyleOptionViewItem,
+        index: qt.QModelIndex,
+    ):
+        value = index.data(qt.Qt.DisplayRole)
+        if not isinstance(value, numbers.Number):
+            return super(CenteringFloatingPointDot, self).paint(painter, option, index)
+
+        text = option.text
+        if text is None or text == "":
+            text = self.displayText(value, option.locale)
+            option.text = text
+        if "." not in text:
+            return super(CenteringFloatingPointDot, self).paint(painter, option, index)
+
+        elements = text.split(".")
+        fontMetrics = option.fontMetrics
+        prefix = fontMetrics.width(elements[0])
+        option.text = text
+        width = option.rect.width()
+        padding = width // 2 - prefix
+        if padding > 0 and padding < width:
+            option.rect.setLeft(option.rect.left() + padding)
+        return super(CenteringFloatingPointDot, self).paint(painter, option, index)
+
+    def sizeHint(self, option: qt.QStyleOptionViewItem, index: qt.QModelIndex):
+        value = index.data(qt.Qt.SizeHintRole)
+        if value is not None:
+            return value
+        value = index.data(qt.Qt.DisplayRole)
+        if not isinstance(value, numbers.Number):
+            return super(CenteringFloatingPointDot, self).sizeHint(option, index)
+
+        text = option.text
+        if text is None or text == "":
+            text = self.displayText(value, option.locale)
+            option.text = text
+        if "." not in text:
+            return super(CenteringFloatingPointDot, self).sizeHint(option, index)
+
+        elements = text.split(".")
+        fontMetrics = option.fontMetrics
+        prefix = fontMetrics.width(elements[0])
+        dot = fontMetrics.width(".")
+        suffix = fontMetrics.width(elements[1])
+
+        option.text = ""
+        base = super(CenteringFloatingPointDot, self).sizeHint(option, index)
+        option.text = text
+
+        half = max(prefix, suffix)
+        size = qt.QSize(half * 2 + dot + base.width(), base.height())
+        return size
+
+
 class CtWidget(ExtendedDockWidget):
 
     widgetActivated = qt.Signal(object)
@@ -47,6 +110,8 @@ class CtWidget(ExtendedDockWidget):
         model = qt.QStandardItemModel(self.__table)
         self.__table.setModel(model)
         self.__table.setFrameShape(qt.QFrame.NoFrame)
+        delegate = CenteringFloatingPointDot(self.__table)
+        self.__table.setItemDelegate(delegate)
 
         self.__title = qt.QLabel(mainWidget)
         self.__title.setAlignment(qt.Qt.AlignHCenter)
@@ -156,9 +221,8 @@ class CtWidget(ExtendedDockWidget):
         header = self.__table.horizontalHeader()
         header.setSectionResizeMode(0, qt.QHeaderView.Fixed)
         header.setSectionResizeMode(1, qt.QHeaderView.ResizeToContents)
-        header.setSectionResizeMode(2, qt.QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(2, qt.QHeaderView.Stretch)
         header.setSectionResizeMode(3, qt.QHeaderView.ResizeToContents)
-        header.setStretchLastSection(True)
         header.setSectionHidden(0, True)
 
         scan = self.__scan
@@ -222,7 +286,6 @@ class CtWidget(ExtendedDockWidget):
                 value = e.args[0]
                 icon = icons.getQIcon("flint:icons/warning")
 
-            valueItem.setText(value)
             unit = channel.unit()
             if unit is None:
                 unit = ""
@@ -234,5 +297,6 @@ class CtWidget(ExtendedDockWidget):
                 else:
                     unit = f"{unit}/s"
 
+            valueItem.setData(value, role=qt.Qt.DisplayRole)
             valueItem.setIcon(icon)
             unitItem.setText(unit)

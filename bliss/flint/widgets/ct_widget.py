@@ -53,8 +53,11 @@ class CtWidget(ExtendedDockWidget):
         self.__title.setTextInteractionFlags(qt.Qt.TextSelectableByMouse)
         self.__title.setStyleSheet("QLabel {font-size: 14px;}")
 
+        toolbar = self.__createToolBar()
+
         layout = qt.QVBoxLayout(mainWidget)
         layout.setContentsMargins(0, 0, 0, 0)
+        layout.addWidget(toolbar)
         layout.addWidget(self.__title)
         layout.addWidget(self.__table)
 
@@ -65,6 +68,25 @@ class CtWidget(ExtendedDockWidget):
         layout.addWidget(mainWidget)
         layout.setContentsMargins(0, 1, 0, 0)
         self.setWidget(widget)
+
+    def __createToolBar(self):
+        toolBar = qt.QToolBar(self)
+        toolBar.setMovable(False)
+
+        action = qt.QAction()
+        action.setText("Integration")
+        action.setToolTip("Divide the values by the integration time")
+        action.setCheckable(True)
+        icon = icons.getQIcon("flint:icons/mode-integration")
+        action.setIcon(icon)
+        action.toggled.connect(self.__displayModeChanged)
+        toolBar.addAction(action)
+        self.__integrationMode = action
+
+        return toolBar
+
+    def __displayModeChanged(self):
+        self.__updateData()
 
     def createPropertyWidget(self, parent: qt.QWidget):
         propertyWidget = qt.QWidget(parent)
@@ -177,6 +199,7 @@ class CtWidget(ExtendedDockWidget):
         if scan is None:
             return
 
+        integrationMode = self.__integrationMode.isChecked()
         integrationTime = scan.scanInfo()["count_time"]
         model = self.__table.model()
 
@@ -189,11 +212,27 @@ class CtWidget(ExtendedDockWidget):
 
             try:
                 value = reachValueFromChannel(channel)
-                value = str(value)
+                if isinstance(value, numbers.Number):
+                    if integrationMode:
+                        value = value / integrationTime
+                else:
+                    value = str(value)
                 icon = qt.QIcon()
             except Exception as e:
                 value = e.args[0]
                 icon = icons.getQIcon("flint:icons/warning")
 
             valueItem.setText(value)
+            unit = channel.unit()
+            if unit is None:
+                unit = ""
+            if integrationMode:
+                if unit == "s":
+                    # Obvious case
+                    # FIXME: It would be better to use pint
+                    unit = ""
+                else:
+                    unit = f"{unit}/s"
+
             valueItem.setIcon(icon)
+            unitItem.setText(unit)

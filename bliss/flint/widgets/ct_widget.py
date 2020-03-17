@@ -40,11 +40,31 @@ class CtWidget(ExtendedDockWidget):
         self.__scan: Optional[scan_model.Scan] = None
         self.__flintModel: Optional[flint_model.FlintState] = None
 
-        self.__table = qt.QTableView(self)
+        mainWidget = qt.QFrame(self)
+        mainWidget.setFrameShape(qt.QFrame.StyledPanel)
+
+        self.__table = qt.QTableView(mainWidget)
         model = qt.QStandardItemModel(self.__table)
         self.__table.setModel(model)
+        self.__table.setFrameShape(qt.QFrame.NoFrame)
 
-        self.setWidget(self.__table)
+        self.__title = qt.QLabel(mainWidget)
+        self.__title.setAlignment(qt.Qt.AlignHCenter)
+        self.__title.setTextInteractionFlags(qt.Qt.TextSelectableByMouse)
+        self.__title.setStyleSheet("QLabel {font-size: 14px;}")
+
+        layout = qt.QVBoxLayout(mainWidget)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.addWidget(self.__title)
+        layout.addWidget(self.__table)
+
+        # Try to improve the look and feel
+        # FIXME: THis should be done with stylesheet
+        widget = qt.QFrame(self)
+        layout = qt.QVBoxLayout(widget)
+        layout.addWidget(mainWidget)
+        layout.setContentsMargins(0, 1, 0, 0)
+        self.setWidget(widget)
 
     def createPropertyWidget(self, parent: qt.QWidget):
         propertyWidget = qt.QWidget(parent)
@@ -89,7 +109,7 @@ class CtWidget(ExtendedDockWidget):
     def __updateTitle(self):
         scan = self.__scan
         title = scan_info_helper.get_full_title(scan)
-        # FIXME: Do something with the title
+        self.__title.setText(title)
 
     def __scanFinished(self):
         self.__updateData()
@@ -107,6 +127,17 @@ class CtWidget(ExtendedDockWidget):
         model = self.__table.model()
         model.clear()
         model.setHorizontalHeaderLabels(["Channel", "Name", "Value", "Unit"])
+
+        header = self.__table.verticalHeader()
+        header.setVisible(False)
+
+        header = self.__table.horizontalHeader()
+        header.setSectionResizeMode(0, qt.QHeaderView.Fixed)
+        header.setSectionResizeMode(1, qt.QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(2, qt.QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(3, qt.QHeaderView.ResizeToContents)
+        header.setStretchLastSection(True)
+        header.setSectionHidden(0, True)
 
         scan = self.__scan
         if scan is None:

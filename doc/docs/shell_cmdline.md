@@ -117,15 +117,11 @@ this removes:
 
 
 ## History
-
+ 
 Previously typed commands can be recalled in the commnand line using up arrow
 key `↑`.
 
-History is kept in two distinct files depending of the usage of tmux or not:
-
-* when using tmux it's in: `.start_bliss_repl.py_<session_name>_history`
-* without tmux it's in: `.bliss_<session_name>_history`
-
+History is kept in the file:  `.bliss_<session_name>_history`
 
 Tmux provides an advanced history mode accessible with `F3` key:
 

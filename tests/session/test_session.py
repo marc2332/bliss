@@ -152,9 +152,9 @@ def test_prdef(session2, capsys):
     ansi_escape = re.compile(r"\x1B\[[0-?]*[ -/]*[@-~]")
     assert ansi_escape.sub("", output).endswith(visible_func_code)
 
-    env_dict["prdef"](scans.cen)
+    env_dict["prdef"](scans.ascan)
     output = ansi_escape.sub("", capsys.readouterr()[0])
-    assert "@_multimotors\ndef cen(" in output
+    assert "@typeguard.typechecked\ndef ascan(" in output
 
 
 def test_session_env_dict(session):

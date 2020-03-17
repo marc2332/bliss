@@ -31,6 +31,7 @@ from bliss.common.utils import periodic_exec, deep_update
 from bliss.scanning.scan_meta import get_user_scan_meta
 from bliss.common.axis import Axis
 from bliss.common.utils import Statistics, Null, update_node_info
+from bliss.controllers.motor import remove_real_dependent_of_calc
 from bliss.config.settings import ParametersWardrobe
 from bliss.config.settings import pipeline
 from bliss.data.node import _get_or_create_node, _create_node, is_zerod
@@ -42,7 +43,7 @@ from bliss.scanning.chain import (
     CompletedCtrlParamsDict,
 )
 from bliss.scanning.writer.null import Writer as NullWriter
-from bliss.scanning.scan_math import peak, cen, com
+from bliss.scanning import scan_math
 from bliss.scanning.scan_saving import ScanSaving
 from bliss.common.logtools import lprint_disable
 
@@ -877,41 +878,42 @@ class Scan:
         counter_name = counter.name if not isinstance(counter, str) else counter
         data = self.get_data()
         x_data = data[axis_name]
-        try:
-            y_data = data[counter_name]
-        except KeyError:
-            # try with the counter short name
-            y_data = data[counter_name.split(":")[-1]]
+        y_data = data[counter_name]
         return x_data, y_data, axis_name
 
-    def fwhm(self, counter, axis=None):
-        x, y, axis_name = self._get_x_y_data(counter, axis)
-        _, fwhm = cen(x, y)
-        return fwhm
+    def _get_x_y(self, func, counter_or_xy, axis=None):
+        if isinstance(counter_or_xy, tuple):
+            x, y = counter_or_xy
+        else:
+            counter = counter_or_xy
+            x, y, _ = self._get_x_y_data(counter, axis)
+        return func(x, y)
+
+    def fwhm(self, counter_or_xy, axis=None):
+        return self._multimotors(self._fwhm, counter_or_xy, axis)
+
+    def _fwhm(self, counter_or_xy, axis=None):
+        return self._get_x_y(lambda x, y: scan_math.cen(x, y)[1], counter_or_xy, axis)
 
     def peak(self, counter_or_xy, axis=None):
-        if isinstance(counter_or_xy, tuple):
-            x, y = counter_or_xy
-        else:
-            counter = counter_or_xy
-            x, y, _ = self._get_x_y_data(counter, axis)
-        return peak(x, y)
+        return self._multimotors(self._peak, counter_or_xy, axis)
+
+    def _peak(self, counter_or_xy, axis=None):
+        return self._get_x_y(scan_math.peak, counter_or_xy, axis)
 
     def com(self, counter_or_xy, axis=None):
-        if isinstance(counter_or_xy, tuple):
-            x, y = counter_or_xy
-        else:
-            counter = counter_or_xy
-            x, y, _ = self._get_x_y_data(counter, axis)
-        return com(x, y)
+        return self._multimotors(self._com, counter_or_xy, axis)
+
+    def _com(self, counter_or_xy, axis=None):
+        return self._get_x_y(scan_math.com, counter_or_xy, axis)
+
+    def cen(self, counter_or_xy, axis=None):
+        return self._multimotors(self._cen, counter_or_xy, axis)
 
     def _cen(self, counter_or_xy, axis=None):
-        if isinstance(counter_or_xy, tuple):
-            x, y = counter_or_xy
-        else:
-            counter = counter_or_xy
-            x, y, _ = self._get_x_y_data(counter, axis)
-        return cen(x, y)
+        return self._get_x_y(lambda x, y: scan_math.cen(x, y)[0], counter_or_xy, axis)
+        # this would be backward compatible
+        # return self. _get_x_y(scan_math.cen,counter_or_xy, axis)
 
     def display_motor(self, axis, position=None):
         scan_display_params = ScanDisplay()
@@ -938,51 +940,71 @@ class Scan:
                         axis.name, channel_name, position, text=axis.name
                     )
 
-    def cen(self, counter_or_xy, axis=None):
-        return self._multimotors(self._cen, counter_or_xy, axis)
-
     def _multimotors(self, func, counter_or_xy, axis=None):
-        from bliss.common.scans import _remove_real_dependent_of_calc
 
         try:
             return func(counter_or_xy, axis=axis)
         except ValueError:
             if axis is not None:
                 raise
-            axes_name = self._get_data_axes_name()
-            motors = [current_session.env_dict[axis_name] for axis_name in axes_name]
+            axes_names = self._get_data_axes_name()
+            motors = [current_session.env_dict[axis_name] for axis_name in axes_names]
             if len(motors) <= 1:
                 raise
             # check if there is some calcaxis with associated real
-            motors = _remove_real_dependent_of_calc(motors)
+            motors = remove_real_dependent_of_calc(motors)
             if len(motors) == 1:
                 return func(counter_or_xy, axis=motors.pop())
-            return {mot.name: func(counter_or_xy, axis=mot) for mot in motors}
+            return {mot: func(counter_or_xy, axis=mot) for mot in motors}
 
-    @display_motor
-    def goto_peak(self, counter, axis=None):
+    def _goto_multimotors(self, func, counter=None, axis=None):
+        try:
+            return func(counter=counter, axis=axis)
+        except ValueError:
+            if axis is not None:
+                raise
+            axes_names = self._get_data_axes_name()
+            motors = [current_session.env_dict[axis_name] for axis_name in axes_names]
+            if len(motors) <= 1:
+                raise
+            motors = remove_real_dependent_of_calc(motors)
+            if len(motors) == 1:
+                return func(counter=counter, axis=motors.pop())
+
+            with error_cleanup(*motors, restore_list=(cleanup_axis.POS,), verbose=True):
+                tasks = [
+                    gevent.spawn(func, counter=counter, axis=mot) for mot in motors
+                ]
+                try:
+                    gevent.joinall(tasks, raise_error=True)
+                finally:
+                    gevent.killall(tasks)
+
+    def _goto(self, func, counter, axis=None):
         x, y, axis_name = self._get_x_y_data(counter, axis)
         axis = current_session.env_dict[axis_name]
-        pk = self.peak((x, y))
-        self.display_motor(axis, pk)
+        res = func((x, y))
+        self.display_motor(axis, res)
         with error_cleanup(axis, restore_list=(cleanup_axis.POS,)):
-            axis.move(pk)
+            axis.move(res)
+
+    def goto_peak(self, counter, axis=None):
+        return self._goto_multimotors(self._goto_peak, counter, axis)
+
+    def _goto_peak(self, counter, axis=None):
+        return self._goto(self._peak, counter, axis)
 
     def goto_com(self, counter, axis=None):
-        x, y, axis_name = self._get_x_y_data(counter, axis)
-        axis = current_session.env_dict[axis_name]
-        com_value = self.com((x, y))
-        self.display_motor(axis, com_value)
-        with error_cleanup(axis, restore_list=(cleanup_axis.POS,)):
-            axis.move(com_value)
+        return self._goto_multimotors(self._goto_com, counter, axis)
+
+    def _goto_com(self, counter, axis):
+        return self._goto(self._com, counter, axis)
 
     def goto_cen(self, counter, axis=None):
-        x, y, axis_name = self._get_x_y_data(counter, axis)
-        axis = current_session.env_dict[axis_name]
-        cfwhm, _ = self.cen((x, y))
-        self.display_motor(axis, cfwhm)
-        with error_cleanup(axis, restore_list=(cleanup_axis.POS,)):
-            axis.move(cfwhm)
+        return self._goto_multimotors(self._goto_cen, counter, axis)
+
+    def _goto_cen(self, counter, axis):
+        return self._goto(self._cen, counter, axis)
 
     def where(self, axis=None):
         if axis is None:

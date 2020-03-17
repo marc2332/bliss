@@ -13,6 +13,8 @@ from bliss.scanning.acquisition import timer, calc, motor, counter
 from bliss.common import event
 from bliss.shell.standard import plotselect, plotinit, cen, com, peak
 from bliss.scanning.scan import ScanDisplay
+from bliss.scanning import scan_tools
+from bliss.common import plot
 
 
 def test_pkcom_ascan_gauss(session):
@@ -57,9 +59,6 @@ def test_pkcom_a2scan_gauss(session):
         roby, 0, 10, robz, 0, 5, 10, 0, simul_counter, save=False, return_scan=True
     )
 
-    with pytest.raises(ValueError):
-        s.peak(simul_counter)
-
     p = s.peak(simul_counter, roby)
     assert pytest.approx(p, 5)
 
@@ -84,25 +83,25 @@ def test_plotselect1(session):
     simul_counter4 = getattr(setup_globals, "diode4")
 
     # Select counter via library function
-    scans.plotselect(simul_counter1)
+    plot.plotselect(simul_counter1)
     s = scans.ascan(roby, 0, .1, 5, 0, mg, simul_counter4, save=False)
 
     # _get_selected_counter_name() is valid only after a scan.
-    assert simul_counter1.fullname == scans._get_selected_counter_name()
+    assert simul_counter1.fullname == scan_tools.get_selected_counter_name()
 
     # Select counter via user function
     plotselect(simul_counter2)
-    assert simul_counter2.fullname == scans._get_selected_counter_name()
+    assert simul_counter2.fullname == scan_tools.get_selected_counter_name()
 
     plotselect(simul_counter4)
-    assert simul_counter4.fullname == scans._get_selected_counter_name()
+    assert simul_counter4.fullname == scan_tools.get_selected_counter_name()
 
 
 def test_plotselect_axis(session):
     roby = getattr(setup_globals, "roby")
 
-    scans.plotselect(roby)
-    assert scans.get_plotted_counters() == ["axis:roby"]
+    plot.plotselect(roby)
+    assert plot.get_plotted_counters() == ["axis:roby"]
 
 
 def test_plotselect_alias(session):
@@ -110,10 +109,10 @@ def test_plotselect_alias(session):
     diode = getattr(setup_globals, "diode")
     foo = aliases.add("foo", diode.fullname)
     plotselect("foo")
-    assert scans.get_plotted_counters() == [foo.fullname]
+    assert plot.get_plotted_counters() == [foo.fullname]
 
     plotselect("not_exists")
-    assert scans.get_plotted_counters() == ["not_exists"]
+    assert plot.get_plotted_counters() == ["not_exists"]
 
 
 def test_plotinit(session):
@@ -151,20 +150,20 @@ def test_plotselect_and_global_cen(session):
     roby = getattr(setup_globals, "roby")
     simul_counter = getattr(setup_globals, "sim_ct_gauss")
 
-    scans.plotselect(simul_counter)
+    plot.plotselect(simul_counter)
     scans.ascan(roby, 0, .1, 5, 0, simul_counter, save=False)
-    assert simul_counter.fullname == scans._get_selected_counter_name()
-    cen_pos = scans.cen()
-    assert pytest.approx(0.05, abs=1e-3) == cen_pos[0]
+    assert simul_counter.fullname == scan_tools.get_selected_counter_name()
+    cen_pos = scan_tools.cen()
+    assert pytest.approx(0.05, abs=1e-3) == cen_pos
 
     # just call goto_X to go through the code
-    scans.goto_cen()
-    scans.goto_com()
-    scans.goto_peak()
+    scan_tools.goto_cen()
+    scan_tools.goto_com()
+    scan_tools.goto_peak()
 
 
 def test_goto(session):
-    from bliss.common.scans import goto_cen, goto_com, goto_peak
+    from bliss.scanning.scan_tools import goto_cen, goto_com, goto_peak
 
     roby = session.config.get("roby")
     m0 = session.config.get("m0")
@@ -186,8 +185,8 @@ def test_goto(session):
     assert pytest.approx(-80, abs=1) == m0.position
 
     goto_cen(diode)
-    roby_center, _ = s.cen(diode, roby)
-    m0_center, _ = s.cen(diode, m0)
+    roby_center = s.cen(diode, roby)
+    m0_center = s.cen(diode, m0)
     assert pytest.approx(roby_center, abs=1e-3) == roby.position
     assert pytest.approx(m0_center, abs=1) == m0.position
 

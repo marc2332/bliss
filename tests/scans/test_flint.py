@@ -4,9 +4,7 @@ import contextlib
 
 import bliss
 from bliss.common import plot
-from bliss.common.plot import get_flint
-from bliss.common.scans import plotselect
-from bliss.common.scans import meshselect
+from bliss.common.plot import get_flint, plotselect, meshselect
 from bliss.scanning.scan import Scan, ScanDisplay
 from bliss.scanning.chain import AcquisitionChain
 from bliss.scanning.acquisition.lima import LimaAcquisitionMaster

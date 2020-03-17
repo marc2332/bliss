@@ -159,6 +159,8 @@ from bliss.config.conductor.client import get_default_connection
 from bliss.flint.config import get_flint_key
 from bliss.common import event
 from bliss.flint import config as flint_config
+from bliss.config.settings import HashSetting
+
 
 try:
     from bliss.flint import poll_patch
@@ -183,6 +185,10 @@ __all__ = [
     "plot_scatter",
     "plot_image_with_histogram",
     "plot_image_stack",
+    "get_plotted_counters",
+    "meshselect",
+    "plotinit",
+    "plotselect",
 ]
 
 # Globals
@@ -970,3 +976,81 @@ def draw_manager(plot):
     finally:
         # re-enable the silx auto_replot
         plot.submit("setAutoReplot", True)
+
+
+### plotselect etc.
+
+
+def plotinit(*counters):
+    """
+    Select counter(s) to use for the next scan display.
+
+    Args:
+        counters: String, alias, object identifying an object providing data to
+            record. It can be a counter name, a counter, an axis, an alias.
+    """
+    from bliss.scanning.scan import ScanDisplay
+    from bliss.scanning.scan_tools import get_channel_names
+
+    sd = ScanDisplay()
+    channel_names = get_channel_names(*counters)
+    sd.init_next_scan_meta(channel_names)
+
+
+def plotselect(*counters):
+    """
+    Select counter(s) to use for:
+    * alignment (bliss/common/scans.py:_get_selected_counter_name())
+    * flint display (bliss/flint/plot1d.py)
+    Saved as a HashSetting with '<session_name>:plot_select' key.
+
+    Args:
+        counters: String, alias, object identifying an object providing data to
+            record. It can be a counter name, a counter, an axis, an alias.
+    """
+    from bliss.scanning.scan_tools import get_channel_names
+
+    plot_select = HashSetting("%s:plot_select" % current_session.name)
+    channel_names = get_channel_names(*counters)
+    counter_names = dict()
+    for channel_name in channel_names:
+        fullname = channel_name  # should be like: <controller.counter>
+        counter_names[fullname] = "Y1"
+    plot_select.set(counter_names)
+
+    if check_flint():
+        channel_names = get_channel_names(*counters)
+        flint = plot.get_flint()
+        plot_id = flint.get_default_live_scan_plot("curve")
+        if plot_id is not None:
+            flint.set_displayed_channels(plot_id, channel_names)
+
+
+def meshselect(*counters):
+    """
+    Select counter(s) to use for scatter :
+    * alignment (bliss/common/scans.py:_get_selected_counter_name())
+    * flint display (bliss/flint/plot1d.py)
+    Saved as a HashSetting with '<session_name>:plot_select' key.
+    """
+    if check_flint():
+        channel_names = get_channel_names(*counters)
+        flint = plot.get_flint()
+        plot_id = flint.get_default_live_scan_plot("scatter")
+        if plot_id is not None:
+            flint.set_displayed_channels(plot_id, channel_names)
+
+
+def get_plotted_counters():
+    """
+    Returns names of plotted counters as a list (get list from a HashSetting
+    with '<session_name>:plot_select' key).
+    """
+    plot_select = HashSetting("%s:plot_select" % current_session.name)
+
+    plotted_cnt_list = list()
+
+    for cnt_name in plot_select.get_all():
+        plotted_cnt_list.append(cnt_name)
+
+    return plotted_cnt_list

@@ -8,6 +8,7 @@
 import weakref
 import struct
 import numpy
+from tabulate import tabulate
 
 from bliss.config.channels import Cache
 from bliss.config.beacon_object import BeaconObject
@@ -163,3 +164,14 @@ class Shutter(BaseShutter):
             return BaseShutterState.OPEN
         else:
             return BaseShutterState.UNKNOWN
+
+    def __info__(self):
+        tables = [
+            ("State:", f"{self.state}"),
+            ("Mode:", f"{self.mode}"),
+            ("open position:", f"{self.opened_position}"),
+            ("closed position:", f"{self.closed_position}"),
+        ]
+        info = f"Shutter ({self.name})\n"
+        info += tabulate(tables)
+        return info

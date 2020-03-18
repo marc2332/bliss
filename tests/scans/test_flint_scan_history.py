@@ -1,0 +1,35 @@
+import pytest
+import bliss
+from bliss.flint.helper import scan_history
+
+
+def test_scan_history(session, lima_simulator):
+    lima = session.config.get("lima_simulator")
+    # simu1 = session.config.get("simu1")
+    ascan = session.env_dict["ascan"]
+    roby = session.config.get("roby")
+    diode = session.config.get("diode")
+
+    # s = ascan(roby, 0, 5, 5, 0.001, diode, lima, simu1.counters.spectrum_det0)
+    scan = ascan(roby, 0, 5, 5, 0.001, diode, lima)
+
+    # the previous scan is part of the scans read from the history
+    scans = scan_history.get_all_scans(bliss.current_session.name)
+    node_name = scan.scan_info["node_name"]
+    scan_node_names = set([s.node_name for s in scans])
+    assert node_name in scan_node_names
+
+    # scan_info read from the history is valid
+    scan_info = scan_history.get_scan_info(node_name)
+    assert scan_info["node_name"] == node_name
+
+    # the data can be reached
+    data = scan_history.get_data_from_redis(node_name, scan_info)
+    assert "axis:roby" in data.keys()
+    assert diode.fullname in data.keys()
+    assert lima.image.fullname not in data.keys()
+    assert len(data["axis:roby"]) == 6
+
+    # the nexuswriter is not installed
+    with pytest.raises(EnvironmentError):
+        scan_history.get_data_from_file(node_name, scan_info)

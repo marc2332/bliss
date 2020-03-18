@@ -137,7 +137,7 @@ class TangoShutter(BaseShutter):
         state = self.state
         if state.name in ("OPEN", "RUNNING"):
             log_warning(self, "Already open, command ignored")
-        if state == TangoShutterState.CLOSED:
+        elif state == TangoShutterState.CLOSED:
             try:
                 self.__control.open()
                 self._wait(TangoShutterState.OPEN, timeout)

@@ -12,7 +12,7 @@ The BLISS Ace controller provides:
 4 Counters:
 - pulse counter (tag: `counts`)
 - head temperature (tag: `htemp`)
-- high voltage current (tag: `hvcur`)
+- head current (tag: `hvcurr`)
 - high voltage monitor (tag: `hvmon`)
 
 
@@ -23,31 +23,33 @@ The BLISS Ace controller provides:
     module: sca.ace
     plugin: bliss
     name: ace
-    timeout: 3
-    serial:
-        url: ser2net://lid00limace:28000/dev/ttyS0
-
+    timeout: 10
+    #serial:
+    #    url: ser2net://lid00limace:28000/dev/ttyS0
+    gpib:
+        url: tango_gpib_device_server://id10/gpib_40/0
+        pad: 9
     axes:
-        - axis_name: ace_axis_low
+        - axis_name: apdthl
           tag: low
         
-        - axis_name: ace_axis_win
+        - axis_name: apdwin
           tag: win
 
-        - axis_name: ace_axis_hhv
+        - axis_name: apdhv
           tag: hhv
     
     counters:
-        - counter_name: ace_cnt_counts
+        - counter_name: apdcnt
           tag: counts
           mode: LAST
         
-        - counter_name: ace_cnt_htemp
+        - counter_name: apdtemp
           tag: htemp
           unit: °C
           mode: SINGLE
 
-        - counter_name: ace_cnt_hvcur
+        - counter_name: hvcur
           tag: hvcur
           unit: uA
           mode: SINGLE
@@ -62,53 +64,63 @@ The BLISS Ace controller provides:
 
 
 ```python
-ACE_TEST [1]: ace
-     Out [1]: VERSION:                        ACE 01.04
-              SERIAL ADDRESS:
-              GPIB ADDRESS:                   14 X10
-              HEAD MAX CURRENT:               10.1 mA            (range [0, 25])
+    Out [16]: ACE card: acedet, ACE 01.04a
+              GPIB type=TANGO_DEVICE_SERVER url='tango_gpib_device_server://id10/gpib_40/0'
+                   primary address='9' secondary address='0' tmo='13' timeout(s)='10' eol='
+              '
+              HEAD MAX CURRENT:               11 mA              (range [0, 25])
               HEAD MAX TEMPERATURE:           40 °C              (range=[0, 50])
-              HEAD CURRENT TEMPERATURE:       30.792 °C
-              HEAD BIAS VOLTAGE SETPOINT:     310 V (ON)         (range=[0, 600])
+              HEAD CURRENT TEMPERATURE:       26.1 °C
+              HEAD BIAS VOLTAGE SETPOINT:     420 V (ON)         (range=[0, 600])
               COUNTING SOURCE:                SCA
               SCA MODE:                       WIN
               SCA LOW:                        0.1 V              (range=[-0.2, 5])
-              SCA WIN:                        2 V                (range=[0, 5])
-              SCA PUSLE SHAPING:              5 ns               (range=[5, 10, 20, 30])
+              SCA WIN:                        2.6 V              (range=[0, 5])
+              SCA PUSLE SHAPING:              20 ns              (range=[5, 10, 20, 30])
               GATE IN MODE:                   NIM
               TRIGGER IN MODE:                NIM
               SYNC OUTPUT MODE:               GATE POS
-              ALARM MODE:                     HEAD CURR
+              ALARM MODE:                     HEAD RATE CURR
               RATE METER ALARM THRESHOLD:     5e+07              (range=[0, 1e8])
-              ALARM THRESHOLD:                8.08 mA            (range=[0, 25])
+              ALARM THRESHOLD:                6 mA               (range=[0, 25])
               BUFFER OPTIONS:                 DOUBLE FULL
               DATA FORMAT:                    DWORD DEC WBSWAP
 
-ACE_TEST [2]: ascan(ace_axis_low ,0,0.1,10,0.1, ace)
-     Out [2]: Scan(number=43, name=ascan, path=/tmp/scans/ace_test/data.h5)
+              Axes
+              ----
+              low: apdthl
+              win: apdwin
+              hhv: apdhv
+
+              Counters
+              --------
+              counts: apdcnt
+              htemp: apdtemp
+              hvcur: apdcurr
+              hvmon: apdhvmon
+
+EH1_EXP [5]: ascan(apdthl, 0, 0.1, 10, 1,ace, save=False)
+    Out [5]: Scan(number=9, name=ascan, path=)
 ```
 
 ```python
-======================================================= Bliss session 'ace_test': watching scans ====
+Scan 9 Wed Mar 18 18:57:30 2020  eh1_exp user = opid10
+ascan apdthl 0 0.1 10 1
 
+           #         dt[s]     apdthl[V]        apdcnt   apdcurr[uA]   apdhvmon[V]   apdtemp[°C]
+           0             0             0   3.97172e+07             0         421.3          26.1
+           1       1.06521          0.01   1.70204e+07             0         421.3          26.1
+           2       2.11069          0.02   5.88341e+06             0         421.3          26.1
+           3       3.20752          0.03   1.72699e+06             0         421.3          26.1
+           4       4.27623          0.04        446087             0         421.3          26.1
+           5       5.32162          0.05        106288             0         421.3          26.1
+           6       6.36807          0.06         23025             0         421.3          26.1
+           7       7.43761          0.07          4793             0         421.3          26.1
+           8       8.50213          0.08           901             0         421.3          26.1
+           9       9.55439          0.09           174             0         421.3          26.1
+          10       10.6151           0.1            39             0         421.3          26.1
 
-Scan 43 Fri Mar 06 15:46:57 2020 /tmp/scans/ace_test/data.h5 ace_test user = mauro
-ascan ace_axis_low 0 0.1 10 0.1
+Took 0:00:13.145863
 
-           #         dt[s]  ace_axis_low[V]  ace_cnt_counts  ace_cnt_htemp[°C]  ace_cnt_hvcur[uA]  ace_cnt_hvmon[V]
-           0             0                0          911611             30.743            0.17107            311.81
-           1      0.308431             0.01          800857             30.743            0.17107            311.81
-           2      0.636019             0.02          538452             30.792             0.1955            311.81
-           3      0.962156             0.03          306843             30.792             0.1955            311.81
-           4       1.29856             0.04          151126             30.743             0.1955            311.81
-           5       1.63566             0.05           68296             30.792            0.17107            311.81
-           6       1.97717             0.06           29134             30.694            0.17107            311.81
-           7       2.31645             0.07           11744             30.743            0.17107            311.81
-           8       2.65045             0.08            4426             30.743             0.1955            311.81
-           9       2.99212             0.09            1655             30.743            0.17107            311.81
-          10       3.31577              0.1             551             30.743            0.21994            311.81
-
-Took 0:00:04.005052
-
-=================================================== >>> PRESS F5 TO COME BACK TO THE SHELL PROMPT <<< ====
+================================ >>> PRESS F5 TO COME BACK TO THE SHELL PROMPT <<< ================================
 ```

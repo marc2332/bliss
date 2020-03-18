@@ -38,7 +38,7 @@ from bliss.common.standard import (
     sync,
     info,
     __move,
-)
+)  # noqa: F401
 from bliss.common.standard import wid as std_wid
 from bliss.controllers.lima.limatools import *
 from bliss.controllers.lima import limatools
@@ -68,7 +68,6 @@ from bliss.common import logtools
 from bliss.common.logtools import *
 from bliss.common.interlocks import interlock_state
 
-from bliss.scanning import scan_tools
 from bliss.scanning.scan_tools import (
     cen,
     goto_cen,
@@ -77,8 +76,9 @@ from bliss.scanning.scan_tools import (
     peak,
     goto_peak,
     where,
+    fwhm,  # noqa: F401
 )
-from bliss.common import plot
+from bliss.common.plot import plotselect, plotinit, meshselect  # noqa: F401
 
 
 from bliss.shell.interlocks import interlock_show
@@ -132,6 +132,7 @@ __all__ = (
         "com",
         "goto_com",
         "where",
+        "fwhm",
     ]
     + scans.__all__
     + logtools.__all__

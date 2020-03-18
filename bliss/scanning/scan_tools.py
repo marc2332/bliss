@@ -1,13 +1,11 @@
 import typeguard
-from typing import Optional, List
+from typing import Optional
 from bliss.config.settings import HashSetting
 from bliss.data.scan import get_counter_names
 from bliss import current_session, global_map
 from bliss.common.types import _countable, _scannable
-from bliss.common.axis import Axis
-from bliss.scanning.scan import ScanDisplay
-
-import gevent
+from bliss.common.plot import display_motor
+from bliss.scanning.scan import Scan
 
 """
 Alignment Helpers: cen peak com that interact with plotselect 
@@ -88,79 +86,74 @@ def last_scan_motors():
     return [current_session.env_dict[axis_name] for axis_name in axes_name]
 
 
-def get_channel_names(*objs) -> List[str]:
-    """
-    ?? returns a list containing aqc-channels names produced by provieded objects??
-    # FIXME: For now only counters and axis are supported.
-    """
-    result: List[str] = []
-    for obj in objs:
-        # An object could contain many channels?
-        channel_names: List[str] = []
-        if isinstance(obj, str):
-            alias = global_map.aliases.get(obj)
-            if alias is not None:
-                channel_names = get_channel_names(alias)
+def _scan_calc(func, counter=None, axis=None, scan=None, marker=True):
+    if counter is None:
+        counter = get_counter(get_selected_counter_name())
+    if scan is None:
+        scan = current_session.scans[-1]
+    res = getattr(scan, func)(counter, axis=axis, return_full_result=True)
+    if marker:
+        for key, value in res.items():
+            if "goto" in func:
+                display_motor(
+                    key, scan=scan, position=value, label=func[5:] + "\n" + str(value)
+                )
             else:
-                channel_names = [obj]
-        elif isinstance(obj, Axis):
-            channel_names = ["axis:%s" % obj.name]
-        elif hasattr(obj, "fullname"):
-            # Assume it's a counter
-            channel_names = [obj.fullname]
-        else:
-            # FIXME: Add a warning
-            pass
-        result.extend(channel_names)
-    return result
+                display_motor(
+                    key, scan=scan, position=value, label="cen\n" + str(value)
+                )
+                # todo: display current position if scan is last scan and axis.position != value
+    if "goto" in func:
+        return
+    elif len(res) == 1:
+        return next(iter(res.values()))
+    else:
+        return res
 
 
-def cen(counter=None, axis=None):
-    if counter is None:
-        counter = get_counter(get_selected_counter_name())
-    return current_session.scans[-1].cen(counter, axis=axis)
+def fwhm(counter=None, axis=None, scan=None):
+    return _scan_calc("fwhm", counter=counter, axis=axis, scan=scan, marker=False)
 
 
-@typeguard.typechecked
-def goto_cen(counter: Optional[_countable] = None, axis: Optional[_scannable] = None):
-    if not counter:
-        counter = get_counter(get_selected_counter_name())
-
-    return current_session.scans[-1].goto_cen(counter, axis=axis)
-
-
-def com(counter=None, axis=None):
-    if counter is None:
-        counter = get_counter(get_selected_counter_name())
-    return current_session.scans[-1].com(counter, axis=axis)
+def cen(counter=None, axis=None, scan=None):
+    return _scan_calc("cen", counter=counter, axis=axis, scan=scan)
 
 
 @typeguard.typechecked
-def goto_com(counter: Optional[_countable] = None, axis: Optional[_scannable] = None):
-    if not counter:
-        counter = get_counter(get_selected_counter_name())
+def goto_cen(
+    counter: Optional[_countable] = None,
+    axis: Optional[_scannable] = None,
+    scan: Optional[Scan] = None,
+):
+    return _scan_calc("goto_cen", counter=counter, axis=axis, scan=scan)
 
-    return current_session.scans[-1].goto_com(counter, axis=axis)
 
-
-def peak(counter=None, axis=None):
-    if counter is None:
-        counter = get_counter(get_selected_counter_name())
-    return current_session.scans[-1].peak(counter, axis=axis)
+def com(counter=None, axis=None, scan=None):
+    return _scan_calc("com", counter=counter, axis=axis, scan=scan)
 
 
 @typeguard.typechecked
-def goto_peak(counter: Optional[_countable] = None, axis: Optional[_scannable] = None):
-    if not counter:
-        counter = get_counter(get_selected_counter_name())
+def goto_com(
+    counter: Optional[_countable] = None,
+    axis: Optional[_scannable] = None,
+    scan: Optional[Scan] = None,
+):
+    return _scan_calc("goto_com", counter=counter, axis=axis, scan=scan)
 
-    return current_session.scans[-1].goto_peak(counter, axis=axis)
 
-    scan = current_session.scans[-1]
+def peak(counter=None, axis=None, scan=None):
+    return _scan_calc("peak", counter=counter, axis=axis, scan=scan)
 
-    return scan.goto_peak(counter, axis=axis)
+
+@typeguard.typechecked
+def goto_peak(
+    counter: Optional[_countable] = None,
+    axis: Optional[_scannable] = None,
+    scan: Optional[Scan] = None,
+):
+    return _scan_calc("goto_peak", counter=counter, axis=axis, scan=scan)
 
 
 def where():
     for axis in last_scan_motors():
-        current_session.scans[-1].where(axis=axis)
+        display_motor(axis)

@@ -46,7 +46,6 @@ from bliss.scanning.writer.null import Writer as NullWriter
 from bliss.scanning import scan_math
 from bliss.scanning.scan_saving import ScanSaving
 from bliss.common.logtools import lprint_disable
-
 from louie import saferef
 
 
@@ -806,19 +805,6 @@ class Scan:
         else:
             self._watchdog_task = None
 
-    def _get_data_axis_name(self, axis=None):
-        axes_name = self._get_data_axes_name()
-        if len(axes_name) > 1 and axis is None:
-            raise ValueError(
-                "Multiple axes detected, please provide axis for calculation."
-            )
-        if axis is None:
-            return axes_name[0]
-        else:
-            if axis.name not in axes_name:
-                raise ValueError("No master for axis '%s`." % axis.name)
-            return axis.name
-
     def _get_data_axes_name(self):
         """
         Return all axes in this scan
@@ -873,158 +859,105 @@ class Scan:
         else:
             raise RuntimeError(f"New keys can not be added to ctrl_params of {ctrl}")
 
-    def _get_x_y_data(self, counter, axis=None):
-        axis_name = self._get_data_axis_name(axis)
-        counter_name = counter.name if not isinstance(counter, str) else counter
+    def _get_x_y_data(self, counter, axis):
         data = self.get_data()
-        x_data = data[axis_name]
-        y_data = data[counter_name]
-        return x_data, y_data, axis_name
+        x_data = data[axis]
+        y_data = data[counter]
+        return x_data, y_data
 
-    def _get_x_y(self, func, counter_or_xy, axis=None):
-        if isinstance(counter_or_xy, tuple):
-            x, y = counter_or_xy
+    def fwhm(self, counter, axis=None, return_full_result=False):
+        return self._multimotors(
+            self._fwhm, counter, axis, return_full_result=return_full_result
+        )
+
+    def _fwhm(self, counter, axis=None):
+        return scan_math.cen(*self._get_x_y_data(counter, axis))[1]
+
+    def peak(self, counter, axis=None, return_full_result=False):
+        return self._multimotors(
+            self._peak, counter, axis, return_full_result=return_full_result
+        )
+
+    def _peak(self, counter, axis):
+        return scan_math.peak(*self._get_x_y_data(counter, axis))
+
+    def com(self, counter, axis=None, return_full_result=False):
+        return self._multimotors(
+            self._cen, counter, axis, return_full_result=return_full_result
+        )
+
+    def _com(self, counter, axis):
+        return scan_math.com(*self._get_x_y_data(counter, axis))
+
+    def cen(self, counter, axis=None, return_full_result=False):
+        return self._multimotors(
+            self._cen, counter, axis, return_full_result=return_full_result
+        )
+
+    def _cen(self, counter, axis):
+        return scan_math.cen(*self._get_x_y_data(counter, axis))[0]
+
+    def _multimotors(self, func, counter, axis=None, return_full_result=False):
+        axes_names = self._get_data_axes_name()
+        if axis is not None:
+            if isinstance(axis, str):
+                assert axis in axes_names or "epoch" in axis or "elapsed_time" in axis
+            else:
+                assert axis.name in axes_names
+            res = {axis: func(counter, axis=axis)}
         else:
-            counter = counter_or_xy
-            x, y, _ = self._get_x_y_data(counter, axis)
-        return func(x, y)
-
-    def fwhm(self, counter_or_xy, axis=None):
-        return self._multimotors(self._fwhm, counter_or_xy, axis)
-
-    def _fwhm(self, counter_or_xy, axis=None):
-        return self._get_x_y(lambda x, y: scan_math.cen(x, y)[1], counter_or_xy, axis)
-
-    def peak(self, counter_or_xy, axis=None):
-        return self._multimotors(self._peak, counter_or_xy, axis)
-
-    def _peak(self, counter_or_xy, axis=None):
-        return self._get_x_y(scan_math.peak, counter_or_xy, axis)
-
-    def com(self, counter_or_xy, axis=None):
-        return self._multimotors(self._com, counter_or_xy, axis)
-
-    def _com(self, counter_or_xy, axis=None):
-        return self._get_x_y(scan_math.com, counter_or_xy, axis)
-
-    def cen(self, counter_or_xy, axis=None):
-        return self._multimotors(self._cen, counter_or_xy, axis)
-
-    def _cen(self, counter_or_xy, axis=None):
-        return self._get_x_y(lambda x, y: scan_math.cen(x, y)[0], counter_or_xy, axis)
-        # this would be backward compatible
-        # return self. _get_x_y(scan_math.cen,counter_or_xy, axis)
-
-    def display_motor(self, axis, position=None):
-        scan_display_params = ScanDisplay()
-        if is_bliss_shell() and scan_display_params.motor_position:
-            try:
-                channel_name = self.get_channel_name(axis)
-            except ValueError:
-                print(
-                    "The object %s have no obvious channel. Plot marker skiped."
-                    % (axis,)
-                )
-                channel_name = None
-            if channel_name is not None:
-                plot = self.get_plot(axis, plot_type="curve", as_axes=True)
-                if plot is None:
-                    print(
-                        "There is no plot using %s as X-axes. Plot marker skiped."
-                        % (channel_name,)
-                    )
-                else:
-                    if position is None:
-                        position = axis.position
-                    plot.update_axis_marker(
-                        axis.name, channel_name, position, text=axis.name
-                    )
-
-    def _multimotors(self, func, counter_or_xy, axis=None):
-
-        try:
-            return func(counter_or_xy, axis=axis)
-        except ValueError:
-            if axis is not None:
-                raise
-            axes_names = self._get_data_axes_name()
             motors = [current_session.env_dict[axis_name] for axis_name in axes_names]
-            if len(motors) <= 1:
+            if len(motors) < 1:
                 raise
             # check if there is some calcaxis with associated real
             motors = remove_real_dependent_of_calc(motors)
-            if len(motors) == 1:
-                return func(counter_or_xy, axis=motors.pop())
-            return {mot: func(counter_or_xy, axis=mot) for mot in motors}
+            res = {mot: func(counter, axis=mot) for mot in motors}
 
-    def _goto_multimotors(self, func, counter=None, axis=None):
-        try:
-            return func(counter=counter, axis=axis)
-        except ValueError:
-            if axis is not None:
-                raise
-            axes_names = self._get_data_axes_name()
+        if not return_full_result and len(res) == 1:
+            return next(iter(res.values()))
+        else:
+            return res
+
+    def _goto_multimotors(
+        self, func, counter=None, axis=None, return_full_result=False
+    ):
+        axes_names = self._get_data_axes_name()
+        if axis is not None:
+            assert (
+                isinstance(axis, str) and axis in axes_names or axis.name in axes_names
+            )
+            res = {axis: func(counter, axis=axis)}
+        else:
             motors = [current_session.env_dict[axis_name] for axis_name in axes_names]
-            if len(motors) <= 1:
+            if len(motors) < 1:
                 raise
             motors = remove_real_dependent_of_calc(motors)
-            if len(motors) == 1:
-                return func(counter=counter, axis=motors.pop())
 
             with error_cleanup(*motors, restore_list=(cleanup_axis.POS,), verbose=True):
-                tasks = [
-                    gevent.spawn(func, counter=counter, axis=mot) for mot in motors
-                ]
+                tasks = [gevent.spawn(mot.move, func(counter, mot)) for mot in motors]
                 try:
                     gevent.joinall(tasks, raise_error=True)
+                    res = {ax: task.value for ax, task in zip(motors, tasks)}
                 finally:
                     gevent.killall(tasks)
 
-    def _goto(self, func, counter, axis=None):
-        x, y, axis_name = self._get_x_y_data(counter, axis)
-        axis = current_session.env_dict[axis_name]
-        res = func((x, y))
-        self.display_motor(axis, res)
-        with error_cleanup(axis, restore_list=(cleanup_axis.POS,)):
-            axis.move(res)
+            if return_full_result:
+                return res
 
-    def goto_peak(self, counter, axis=None):
-        return self._goto_multimotors(self._goto_peak, counter, axis)
+    def goto_peak(self, counter, axis=None, return_full_result=False):
+        return self._goto_multimotors(
+            self._peak, counter, axis, return_full_result=return_full_result
+        )
 
-    def _goto_peak(self, counter, axis=None):
-        return self._goto(self._peak, counter, axis)
+    def goto_com(self, counter, axis=None, return_full_result=False):
+        return self._goto_multimotors(
+            self._com, counter, axis, return_full_result=return_full_result
+        )
 
-    def goto_com(self, counter, axis=None):
-        return self._goto_multimotors(self._goto_com, counter, axis)
-
-    def _goto_com(self, counter, axis):
-        return self._goto(self._com, counter, axis)
-
-    def goto_cen(self, counter, axis=None):
-        return self._goto_multimotors(self._goto_cen, counter, axis)
-
-    def _goto_cen(self, counter, axis):
-        return self._goto(self._cen, counter, axis)
-
-    def where(self, axis=None):
-        if axis is None:
-            try:
-                acq_chain = self._scan_info["acquisition_chain"]
-                for top_level_master in acq_chain.keys():
-                    for scalar_master in acq_chain[top_level_master]["master"][
-                        "scalars"
-                    ]:
-                        axis_name = scalar_master.split(":")[-1]
-                        if (
-                            axis_name
-                            in self._scan_info["positioners"]["positioners_start"]
-                        ):
-                            raise StopIteration
-            except StopIteration:
-                axis = current_session.env_dict[axis_name]
-            else:
-                RuntimeError("Can't find axis in this scan")
-        self.display_motor(axis)
+    def goto_cen(self, counter, axis=None, return_full_result=False):
+        return self._goto_multimotors(
+            self._cen, counter, axis, return_full_result=return_full_result
+        )
 
     def wait_state(self, state):
         while self.__state < state:
@@ -1439,94 +1372,6 @@ class Scan:
         Each point is a named structure corresponding to the counter names.
         """
         return get_data(self)
-
-    def _find_plot_type_index(self, scan_item_name, channels):
-        channel_name_match = (
-            lambda scan_item_name, channel_name: ":" + scan_item_name in channel_name
-            or scan_item_name + ":" in channel_name
-        )
-
-        scalars = channels.get("scalars", [])
-        spectra = channels.get("spectra", [])
-        images = channels.get("images", [])
-
-        for i, channel_name in enumerate(scalars):
-            if channel_name_match(scan_item_name, channel_name):
-                return ("0d", 0)
-        for i, channel_name in enumerate(spectra):
-            if channel_name_match(scan_item_name, channel_name):
-                return ("1d", i)
-        for i, channel_name in enumerate(images):
-            if channel_name_match(scan_item_name, channel_name):
-                return ("2d", i)
-
-        return None
-
-    def get_channel_name(self, channel_item):
-        """Return a channel name from a bliss object, else raises an exception
-
-        If you are lucky the result is what you expect.
-
-        Argument:
-            channel_item: A bliss object which could have a channel during a scan.
-
-        Return:
-            A channel name identifying this object in scan data acquisition
-        """
-        if isinstance(channel_item, str):
-            return channel_item
-        if isinstance(channel_item, Axis):
-            return "axis:%s" % channel_item.name
-        if hasattr(channel_item, "fullname"):
-            return channel_item.fullname
-        if hasattr(channel_item, "image"):
-            return channel_item.image.fullname
-        if hasattr(channel_item, "counter"):
-            return channel_item.counter.fullname
-        raise ValueError("Can't find channel name from object %s" % channel_item)
-
-    def get_plot(self, channel_item, plot_type, as_axes=False, wait=False):
-        """Return the first plot object of type 'plot_type' showing the
-        'channel_item' from Flint live scan view.
-
-        Argument:
-            channel_item: must be a channel
-            plot_type: can be "image", "curve", "scatter", "mca"
-
-        Keyword argument:
-            as_axes (defaults to False): If true, reach a plot with this channel as
-                X-axes (curves ans scatters), or Y-axes (scatter)
-            wait (defaults to False): wait for plot to be shown
-
-        Return:
-            The expected plot, else None
-        """
-        # check that flint is running
-        if not check_flint():
-            print("Flint is not started")
-            return None
-
-        flint = get_flint()
-        if wait:
-            flint.wait_end_of_scans()
-        try:
-            channel_name = self.get_channel_name(channel_item)
-        except ValueError:
-            print("The object %s have no obvious channel." % (channel_item,))
-            return None
-
-        plot_id = flint.get_live_scan_plot(channel_name, plot_type, as_axes=as_axes)
-
-        if plot_type == "curve":
-            return CurvePlot(existing_id=plot_id)
-        elif plot_type == "scatter":
-            return ScatterPlot(existing_id=plot_id)
-        elif plot_type == "mca":
-            return McaPlot(existing_id=plot_id)
-        elif plot_type == "image":
-            return ImagePlot(existing_id=plot_id)
-        else:
-            print("Argument plot_type uses an invalid value: '%s'." % plot_type)
 
     def _next_scan_number(self):
         LAST_SCAN_NUMBER = "last_scan_number"

@@ -6,15 +6,13 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import weakref
-import struct
-import numpy
+import math
 from tabulate import tabulate
 
 from bliss.config.channels import Cache
 from bliss.config.beacon_object import BeaconObject
 from bliss.common.shutter import Shutter as BaseShutter
 from bliss.common.shutter import BaseShutterState
-from . import _ackcommand
 
 
 class Shutter(BaseShutter):
@@ -167,8 +165,8 @@ class Shutter(BaseShutter):
 
     def __info__(self):
         tables = [
-            ("State:", f"{self.state}"),
-            ("Mode:", f"{self.mode}"),
+            ("State:", f"{self.state.name}"),
+            ("Mode:", f"{self.mode.name}"),
             ("open position:", f"{self.opened_position}"),
             ("closed position:", f"{self.closed_position}"),
         ]

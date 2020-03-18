@@ -7,7 +7,6 @@
 
 """ BaseShutter, BaseShutterState, ShutterSwitch, Shutter"""
 
-import functools
 import time
 from enum import Enum, unique
 from gevent import lock

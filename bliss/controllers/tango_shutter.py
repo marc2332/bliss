@@ -175,7 +175,7 @@ class TangoShutter(BaseShutter):
 
     @property
     def mode(self):
-        """ Get the opening mode.
+        """ Get the opening mode. (only for FrontEnd).
         Raises:
             NotImplementedError: Not a Frontend shutter
         """
@@ -191,7 +191,7 @@ class TangoShutter(BaseShutter):
 
     @mode.setter
     def mode(self, mode):
-        """Set the frontend opening mode
+        """Set the opening mode (only for FrontEnd).
         Args:
             mode (str): MANUAL or AUTOMATIC
         Raises: NotImplementedError: Not a Fronend shutter.

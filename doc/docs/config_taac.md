@@ -30,6 +30,15 @@ BLISS:
 * `format` (string): string representing the display format to use.
 
 
+!!! note
+    `display_unit` is really a conversion factor. In the configuration of a
+    Tango device server, it's a `string` (eventually `"None"`) interpreted as a
+    `float`.
+
+see https://tango-controls.readthedocs.io/en/latest/development/device-api/ds-guideline/device-server-guidelines.html
+for details about theses attributes.
+
+
 ### info
 
 As `tango_attr_as_counter` class provide a `__info__()` method, some info about
@@ -39,13 +48,14 @@ counter:
 ```python
 DEMO [2]: hpz_off_2
 raw_value=167.193531174
-  Out [2]: 'hpz_off_2` Tango attribute counter info:
-             device server = id16ni:20000/id16ni/hpz/metrology
-             Tango attribute = Offsets
-             Tango format = "%6.2f"
-             Beacon unit = "mm"
-             index: 2
-             value: 167.19
+
+Out [2]: 'hpz_off_2` Tango attribute counter info:
+            device server = id16ni:20000/id16ni/hpz/metrology
+            Tango attribute = Offsets
+            Tango format = "%6.2f"
+            Beacon unit = "mm"
+            index: 2
+            value: 167.19
 ```
 
 

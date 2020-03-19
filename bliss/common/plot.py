@@ -778,9 +778,13 @@ class CurvePlot(BasePlot):
             if field != x_field:
                 self.select_data(x_field, field, **kwargs)
 
-    def update_motor_marker(self, channel_name, position: float, text: str):
-        """Mark the location of this motor in this plot"""
-        self._flint.update_motor_marker(self._plot_id, channel_name, position, text)
+    def update_axis_marker(
+        self, unique_name: str, channel_name, position: float, text: str
+    ):
+        """Mark a location in a specific axis in this plot"""
+        self._flint.update_axis_marker(
+            self._plot_id, unique_name, channel_name, position, text
+        )
 
 
 class ScatterPlot(BasePlot):

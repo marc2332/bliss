@@ -914,7 +914,7 @@ class CurvePlotPropertyWidget(qt.QWidget):
 
             if isinstance(plotItem, plot_item_model.ScanItem):
                 continue
-            if isinstance(plotItem, plot_item_model.MotorPositionMarker):
+            if isinstance(plotItem, plot_item_model.AxisPositionMarker):
                 continue
 
             if isinstance(plotItem, plot_model.ComputableMixIn):

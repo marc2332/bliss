@@ -541,7 +541,7 @@ def test_filter_used_data_items():
     item = plot_state_model.GaussianFitItem(plot)
     plot.addItem(item)
 
-    item = plot_item_model.MotorPositionMarker(plot)
+    item = plot_item_model.AxisPositionMarker(plot)
     plot.addItem(item)
 
     scan = scan_model.Scan()

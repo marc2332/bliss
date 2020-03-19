@@ -935,7 +935,9 @@ class Scan:
                 else:
                     if position is None:
                         position = axis.position
-                    plot.update_motor_marker(channel_name, position, text=axis.name)
+                    plot.update_axis_marker(
+                        axis.name, channel_name, position, text=axis.name
+                    )
 
     def goto_peak(self, counter, axis=None):
         x, y, axis_name = self._get_x_y_data(counter, axis)

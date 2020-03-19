@@ -1,13 +1,56 @@
+
+import numpy
 import gevent
 import gevent.lock
 
 from bliss.controllers.wago.wago import ModulesConfig, WagoController, get_wago_comm
 from bliss.config.channels import Channel
 from bliss.common.counter import SamplingCounter
-from bliss.controllers.counter import SamplingCounterController
-from bliss.common.utils import add_property
+from bliss.controllers.counter import SamplingCounterController, counter_namespace
+from bliss.common.utils import grouped
 from bliss.common import event
 from bliss import global_map
+
+from bliss.controllers.lima.lima_base import Lima
+from bliss.common.utils import autocomplete_property
+from bliss.common.tango import DeviceProxy
+from bliss.scanning.acquisition.counter import SamplingCounterAcquisitionSlave
+
+from bliss.common.plot import LiveImagePlot
+
+"""
+# EBV mockup
+
+- controller: EBV
+  plugin: bliss
+  name: bv1
+  class: EBV
+  wago_controller: $ebv_wago_simulator
+  single_model: False
+  has_foil: False
+  channel: 0
+  counter_name: ebv_diode
+  camera_tango_url: id00/limaccds/simulator2
+      
+
+- name: ebv_wago_simulator
+  plugin: bliss
+  module: wago.wago
+  class: WagoMockup
+  modbustcp:
+      url: localhost
+  ignore_missing: True
+  mapping:
+      - type: 750-436
+        logical_names: status,status,status,status
+      - type: 750-530
+        logical_names: screen,screen,led,led,gain,gain,gain,gain
+      - type: 750-530
+        logical_names: _,_,_,_,_,_,_,_
+      - type: 750-479
+        logical_names: current
+
+"""
 
 
 def build_wago_mapping(single_model=False, channel=0, has_foil=False):
@@ -44,6 +87,7 @@ def build_wago_mapping(single_model=False, channel=0, has_foil=False):
     return ModulesConfig(mapstr, ignore_missing=True)
 
 
+# --------------- DIODE COUNTER ---------------------------
 class EBVDiodeRange:
     def __init__(self, wago_value, str_value, float_value):
         self.wago_value = wago_value
@@ -52,8 +96,8 @@ class EBVDiodeRange:
 
 
 class EBVCounterController(SamplingCounterController):
-    def __init__(self, ebv_device, diode_name):
-        super().__init__(ebv_device.name)
+    def __init__(self, ebv_device, diode_name, register_counters=False):
+        super().__init__(ebv_device.name, register_counters=register_counters)
         self._ebv_device = ebv_device
         self._diode_name = diode_name
 
@@ -62,6 +106,299 @@ class EBVCounterController(SamplingCounterController):
             return self._ebv_device.current
 
 
+# --------------- BPM COUNTERS ---------------------------
+class BpmCounter(SamplingCounter):
+    """EBV BPM sampling counter."""
+
+    def __init__(self, name, value_index, controller, unit=None, mode="MEAN"):
+        super().__init__(name, controller, unit=unit, mode=mode)
+        self.__value_index = value_index
+
+    @property
+    def value_index(self):
+        return self.__value_index
+
+
+class BpmAcqSlave(SamplingCounterAcquisitionSlave):
+    def prepare_device(self):
+
+        self.device._prepare_cam_proxy()
+
+        self._orig_expo = None
+        # check expo <= count_time
+        expo = self.device._acq_expo
+        if expo > self.count_time:
+            # self._orig_expo = expo
+            # self.device.exposure = self.count_time
+            msg = (
+                f"\nWarning: {self.device._cam_tango_url}: exposure_time > count_time! "
+            )
+            # msg += f"Exposure_time set to {self.count_time} (for this scan only)\n"
+            print(msg)
+
+    def start_device(self):
+        pass
+
+    def stop_device(self):
+        if self._orig_expo is not None:
+            self.device.exposure = self._orig_expo
+
+
+class BpmController(SamplingCounterController):
+    def __init__(self, name, cam_tango_url, register_counters=False):
+
+        super().__init__(name, register_counters=register_counters)
+
+        self._cam_tango_url = cam_tango_url
+        self._cam_proxy = self._get_proxy()
+        self._bpm_proxy = self._get_proxy(Lima._BPM)
+
+        self._acq_mode = 0
+        self._acq_expo = None
+        self._is_live = False
+
+        self._BPP2DTYPE = {
+            "Bpp8": "uint8",
+            "Bpp8S": "int8",
+            "Bpp10": "uint16",
+            "Bpp10S": "int16",
+            "Bpp12": "uint16",
+            "Bpp12S": "int16",
+            "Bpp14": "uint16",
+            "Bpp14S": "int16",
+            "Bpp16": "uint16",
+            "Bpp16S": "int16",
+            "Bpp32": "uint32",
+            "Bpp32S": "int32",
+            "Bpp32F": "float32",
+        }
+
+        self.create_counter(BpmCounter, "acq_time", 0, unit="s", mode="SINGLE")
+        self.create_counter(BpmCounter, "intensity", 1, mode="MEAN")
+        self.create_counter(BpmCounter, "x", 2, unit="px", mode="MEAN")
+        self.create_counter(BpmCounter, "y", 3, unit="px", mode="MEAN")
+        self.create_counter(BpmCounter, "fwhm_x", 4, unit="px", mode="MEAN")
+        self.create_counter(BpmCounter, "fwhm_y", 5, unit="px", mode="MEAN")
+        # self.create_counter(BpmCounter, "frameno", 6, unit="", mode='SINGLE')
+
+        self._get_img_data_info()
+        self._plot = LiveImagePlot(self._snap_and_get_image)
+
+    def __info__(self):
+
+        info_str = f"Bpm [{self._cam_tango_url}] \n\n"
+
+        info_str += f"    exposure : {self.exposure} s\n"
+        info_str += f"    size     : {self.size}\n"
+        info_str += f"    binning  : {self.bin}\n"
+        info_str += f"    roi      : {self.roi}\n"
+        info_str += f"    flip     : {self.flip}\n"
+        info_str += f"    rotation : {self.rotation}\n"
+        info_str += f"\n"
+
+        return info_str
+
+    def _get_proxy(self, type_name="LimaCCDs"):
+        if type_name == "LimaCCDs":
+            device_name = self._cam_tango_url
+        else:
+            main_proxy = self._cam_proxy
+            device_name = main_proxy.command_inout(
+                "getPluginDeviceNameFromType", type_name.lower()
+            )
+            if not device_name:
+                raise RuntimeError(
+                    "%s: '%s` proxy cannot be found" % (self.name, type_name)
+                )
+            if not device_name.startswith("//"):
+                # build 'fully qualified domain' name
+                # '.get_fqdn()' doesn't work
+                db_host = main_proxy.get_db_host()
+                db_port = main_proxy.get_db_port()
+                device_name = "//%s:%s/%s" % (db_host, db_port, device_name)
+
+        device_proxy = DeviceProxy(device_name)
+        device_proxy.set_timeout_millis(1000 * 3)
+
+        return device_proxy
+
+    def _prepare_cam_proxy(self):
+
+        self._plot.stop()
+
+        # set required params
+        self._cam_proxy.video_live = False
+        self._cam_proxy.abortAcq()
+        self._cam_proxy.acq_mode = "SINGLE"
+        self._cam_proxy.acq_trigger_mode = "INTERNAL_TRIGGER"
+        self._cam_proxy.acq_nb_frames = 1
+        self._acq_expo = self._cam_proxy.acq_expo_time
+        self._get_img_data_info()
+
+    def _get_img_data_info(self):
+        self._bpp = str(self._cam_proxy.image_type)
+        self._sizes = self._cam_proxy.image_sizes
+        self._shape = int(self._sizes[3]), int(self._sizes[2])
+        self._depth = int(self._sizes[1])
+        self._sign = int(self._sizes[0])
+        self._dtype = self._BPP2DTYPE[self._bpp]
+        self._dlen = self._shape[0] * self._shape[1] * self._depth
+
+    def _get_image(self):
+        data_type, data = self._cam_proxy.last_image
+        if data_type == "DATA_ARRAY":
+            return numpy.frombuffer(data[-self._dlen :], dtype=self._dtype).reshape(
+                self._shape
+            )
+        else:
+            raise TypeError(f"cannot handle data-type {data_type}")
+
+    def _snap_and_get_image(self):
+        if self._acq_mode == 0:
+            self._cam_proxy.prepareAcq()
+            self._cam_proxy.startAcq()
+
+            gevent.sleep(self._acq_expo)
+
+            with gevent.Timeout(2.0):
+                data = []
+                while self._cam_proxy.last_image_ready == -1:
+                    gevent.sleep(0.001)
+
+            return self._get_image()
+
+    def _snap_and_get_results(self):
+        if self._acq_mode == 0:
+            self._bpm_proxy.Start()
+            self._cam_proxy.prepareAcq()
+            self._cam_proxy.startAcq()
+
+            gevent.sleep(self._acq_expo)
+
+            with gevent.Timeout(2.0):
+                data = []
+                while len(data) == 0:
+                    data = self._bpm_proxy.GetResults(0)
+                    gevent.sleep(0.001)
+
+            self._cam_proxy.stopAcq()
+            self._bpm_proxy.Stop()
+
+            return data
+
+    def raw_read(self, prepare=True):
+
+        if prepare:
+            self._prepare_cam_proxy()
+
+        return self.read_all(*self.counters)
+
+    def read_all(self, *counters):
+        # BPM data are : timestamp, intensity, center_x, center_y, fwhm_x, fwhm_y, frameno
+        result_size = 7
+        all_result = self._snap_and_get_results()
+        nb_result = len(all_result) // result_size
+        counter2index = [
+            (numpy.zeros((nb_result,)), cnt.value_index) for cnt in counters
+        ]
+
+        for i, raw in enumerate(grouped(all_result, result_size)):
+            for res, j in counter2index:
+                res[i] = raw[j]
+
+        return [x[0] for x in counter2index]
+
+    def get_acquisition_object(self, acq_params, ctrl_params, parent_acq_params):
+        return BpmAcqSlave(self, ctrl_params=ctrl_params, **acq_params)
+
+    def start_live(self):
+        self._prepare_cam_proxy()
+        self._plot.start()
+
+    def stop_live(self):
+        self._plot.stop()
+
+    def snap(self):
+        self._prepare_cam_proxy()
+        self._plot.plot(self._snap_and_get_image())
+
+    @property
+    def plot(self):
+        return self._plot
+
+    @property
+    def exposure(self):
+        self._acq_expo = self._cam_proxy.acq_expo_time
+        return self._acq_expo
+
+    @exposure.setter
+    def exposure(self, expo):
+        self._cam_proxy.acq_expo_time = expo
+        self._acq_expo = expo
+
+    @property
+    def size(self):
+        self._get_img_data_info()
+        return [self._shape[1], self._shape[0]]
+
+    @property
+    def roi(self):
+        return list(self._cam_proxy.image_roi)
+
+    @roi.setter
+    def roi(self, roi):
+        self._cam_proxy.image_roi = roi
+
+    @property
+    def flip(self):
+        return list(self._cam_proxy.image_flip)
+
+    @flip.setter
+    def flip(self, flip):
+        self._cam_proxy.image_flip = flip
+
+    @property
+    def bin(self):
+        return list(self._cam_proxy.image_bin)
+
+    @bin.setter
+    def bin(self, bin):
+        self._cam_proxy.image_bin = bin
+
+    @property
+    def rotation(self):
+        return self._cam_proxy.image_rotation
+
+    @rotation.setter
+    def rotation(self, rotation):
+        self._cam_proxy.image_rotation = rotation
+
+    # @property
+    # def acq_time(self):
+    #     return self._counters["acq_time"]
+
+    @property
+    def x(self):
+        return self._counters["x"]
+
+    @property
+    def y(self):
+        return self._counters["y"]
+
+    @property
+    def intensity(self):
+        return self._counters["intensity"]
+
+    @property
+    def fwhm_x(self):
+        return self._counters["fwhm_x"]
+
+    @property
+    def fwhm_y(self):
+        return self._counters["fwhm_y"]
+
+
+# --------- EBV CONTROLLER ----------------------------
 class EBV:
     _WAGO_KEYS = [
         "status",
@@ -89,6 +426,7 @@ class EBV:
         self._channel = config_node.get("channel", 0)
         self._has_foil = config_node.get("has_foil", False)
         self._cnt_name = config_node.get("counter_name", "diode")
+        self._cam_tango_url = config_node.get("camera_tango_url")
 
         # --- shared states
         self._led_status = Channel(
@@ -128,17 +466,26 @@ class EBV:
                 tuple([(name, f"{wprefix}{name}") for name in self._WAGO_KEYS])
             )
 
-        self.initialize()
-
-        # --- counter interface
-        self._counter_controller = EBVCounterController(self, self._cnt_name)
+        # --- diode counter controller
+        self._counter_controller = EBVCounterController(
+            self, self._cnt_name, register_counters=False
+        )
         self._diode_counter = self._counter_controller.create_counter(
             SamplingCounter, self._cnt_name, unit="mA"
         )
 
+        # --- bpm counters controller
+        if self._cam_tango_url:
+            self._bpm = BpmController(
+                self.name, self._cam_tango_url, register_counters=False
+            )
+
+        self.initialize()
+
         global_map.register(
             self,
-            parents_list=["ebv"],
+            parents_list=["ebv", "counters"],
+            # parents_list=["ebv",],
             children_list=[self._wago],
             tag=f"EBV({self.name})",
         )
@@ -146,14 +493,6 @@ class EBV:
     def initialize(self):
         self._wago.connect()
         self.__update()
-
-    @property
-    def diode(self):
-        return self._diode_counter
-
-    @property
-    def counters(self):
-        return self._counter_controller.counters
 
     def __led_status_changed(self, state):
         event.send(self, "led_status", state)
@@ -170,10 +509,6 @@ class EBV:
 
     def __foil_status_changed(self, state):
         event.send(self, "foil_status", state)
-
-    @property
-    def wago(self):
-        return self._wago
 
     def wago_get(self, name):
         self.__wago_check_key(name)
@@ -263,9 +598,47 @@ class EBV:
             info_str += f"    foil   : {self._foil_status.value}\n"
             info_str += f"    diode range   : {self._diode_range.value}\n"
             info_str += f"    diode current : {self.current:.6g} mA\n"
+
         except Exception:
             info_str += "!!! Failed to read EBV status !!!"
+
+        if self._cam_tango_url:
+            info_str += "\n"
+            info_str += self._bpm.__info__()
+
         return info_str
+
+    @autocomplete_property
+    def counters(self):
+        all_counters = list(self._counter_controller.counters)
+        if self._cam_tango_url:
+            all_counters += list(self._bpm.counters)
+        return counter_namespace(all_counters)
+
+    @autocomplete_property
+    def bpm(self):
+        if self._cam_tango_url:
+            return self._bpm
+        else:
+            msg = "================= No bpm attached ! ========================\n"
+            msg += "Add the 'camera_tango_url' key in the EBV configuration file \n"
+            msg += (
+                "Example in 'ebv.yml': 'camera_tango_url: id00/limaccds/simulator1' \n"
+            )
+            return msg
+
+    @property
+    def show_beam(self):
+        if self._cam_tango_url:
+            self._bpm.start_live()
+
+    @property
+    def wago(self):
+        return self._wago
+
+    @property
+    def diode(self):
+        return self._diode_counter
 
     @property
     def screen_status(self):

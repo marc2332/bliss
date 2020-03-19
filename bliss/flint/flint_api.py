@@ -137,10 +137,10 @@ class FlintApi:
     def get_live_scan_data(self, channel_name):
         scan = self.__flintModel.currentScan()
         if scan is None:
-            raise Exception("No scan available")
+            raise RuntimeError("No scan available")
         channel = scan.getChannelByName(channel_name)
         if channel is None:
-            raise Exception(f"Channel {channel_name} is not part of this scan")
+            raise ValueError(f"Channel {channel_name} is not part of this scan")
         data = channel.data()
         if data is None:
             # Just no data
@@ -186,11 +186,11 @@ class FlintApi:
 
         scan = self.__flintModel.currentScan()
         if scan is None:
-            raise Exception("No scan displayed")
+            raise RuntimeError("No scan displayed")
 
         channel = scan.getChannelByName(channel_name)
         if channel is None:
-            raise Exception(
+            raise ValueError(
                 "The channel '%s' is not part of the current scan" % channel_name
             )
 
@@ -209,7 +209,7 @@ class FlintApi:
                 return f"live:{iwidget}"
 
         # FIXME: Here we could create a specific plot
-        raise Exception("The channel '%s' is not part of any plots" % channel_name)
+        raise ValueError("The channel '%s' is not part of any plots" % channel_name)
 
     def wait_end_of_scans(self):
         scanManager = self.__flintModel.scanManager()

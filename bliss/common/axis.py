@@ -564,6 +564,7 @@ class Axis:
             self.__motion_hooks.append(hook)
         self.__encoder = config.get("encoder")
         self.__config = StaticConfig(config)
+        self.__init_properties_from_config()
         self._group_move = GroupMove()
         self._beacon_channels = dict()
         self._move_stop_channel = Channel(
@@ -642,25 +643,37 @@ class Axis:
             self.settings.set("offset", 0)
         return offset
 
+    def __init_properties_from_config(self):
+        self.__backlash = self.config.get("backlash", float, 0)
+        self.__sign = self.config.get("sign", int, 1)
+        self.__steps_per_unit = self.config.get("steps_per_unit", float, 1)
+        self.__tolerance = self.config.get("tolerance", float, 1e-4)
+        self.__low_limit = self.config.get("low_limit", float, float("-inf"))
+        self.__high_limit = self.config.get("high_limit", float, float("+inf"))
+        if self.controller.axis_settings.config_setting["velocity"]:
+            self.__velocity = self.config.get("velocity", float)
+        if self.controller.axis_settings.config_setting["acceleration"]:
+            self.__acceleration = self.config.get("acceleration", float)
+
     @property
     def backlash(self):
         """Current backlash in user units (:obj:`float`)"""
-        return self.config.get("backlash", float, 0)
+        return self.__backlash
 
     @property
     def sign(self):
         """Current motor sign (:obj:`int`) [-1, 1]"""
-        return self.config.get("sign", int, 1)
+        return self.__sign
 
     @property
     def steps_per_unit(self):
         """Current steps per unit (:obj:`float`)"""
-        return self.config.get("steps_per_unit", float, 1)
+        return self.__steps_per_unit
 
     @property
     def tolerance(self):
         """Current Axis tolerance in dial units (:obj:`float`)"""
-        return self.config.get("tolerance", float, 1e-4)
+        return self.__tolerance
 
     @property
     def encoder(self):
@@ -1056,7 +1069,7 @@ class Axis:
         Return:
             float: current velocity (user units/second)
         """
-        return self.config.get("velocity", float)
+        return self.__velocity
 
     @property
     @lazy_init
@@ -1088,7 +1101,7 @@ class Axis:
 
     @property
     def config_acceleration(self):
-        return self.config.get("acceleration", float)
+        return self.__acceleration
 
     @property
     @lazy_init
@@ -1196,8 +1209,8 @@ class Axis:
         Return a tuple (low_limit, high_limit) from IN-MEMORY config in
         USER units.
         """
-        ll_dial = self.config.get("low_limit", float, float("-inf"))
-        hl_dial = self.config.get("high_limit", float, float("+inf"))
+        ll_dial = self.__low_limit
+        hl_dial = self.__high_limit
         return tuple(map(self.dial2user, (ll_dial, hl_dial)))
 
     def _update_settings(self, state):
@@ -1697,6 +1710,7 @@ class Axis:
             self.__config.set("high_limit", hl)
         if any((velocity, acceleration, limits)):
             self.__config.save()
+            self.__init_properties_from_config()
 
     def apply_config(self, reload=False):
         """
@@ -1704,6 +1718,9 @@ class Axis:
         """
         if reload:
             self.config.reload()
+
+        self.__init_properties_from_config()
+
         self.controller.axis_settings._clear(self, "velocity")
         self.controller.axis_settings._clear(self, "acceleration")
         self.controller.axis_settings._clear(self, "low_limit")

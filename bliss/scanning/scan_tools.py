@@ -35,17 +35,29 @@ def get_selected_counter_name(counter=None):
 
     Used to determine which counter to use for cen pic curs functions.
     """
+
     if not current_session.scans:
         raise RuntimeError("Scans list is empty!")
     scan_counter_names = set(get_counter_names(current_session.scans[-1]))
     plot_select = HashSetting("%s:plot_select" % current_session.name)
     selected_flint_counter_names = set(plot_select.keys())
     alignment_counts = scan_counter_names.intersection(selected_flint_counter_names)
+
     if not alignment_counts:
-        raise RuntimeError(
-            "No counter selected...\n"
-            "Hints: Use flint or plotselect to define which counter to use for alignment"
-        )
+        # fall-back plan ... check if there is only one counter in the scan
+        alignment_counts2 = {
+            c
+            for c in scan_counter_names
+            if (":elapsed_time" not in c and ":epoch" not in c and "axis:" not in c)
+        }
+        if len(alignment_counts2) == 1:
+            print(f"using {next(iter(alignment_counts2))} for calculation")
+            alignment_counts = alignment_counts2
+        else:
+            raise RuntimeError(
+                "No counter selected...\n"
+                "Hints: Use flint or plotselect to define which counter to use for alignment"
+            )
     elif len(alignment_counts) > 1:
         if counter is None:
             raise RuntimeError(

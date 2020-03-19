@@ -30,7 +30,7 @@ from bliss.common.plot import (
 from bliss.common.utils import periodic_exec, deep_update
 from bliss.scanning.scan_meta import get_user_scan_meta
 from bliss.common.axis import Axis
-from bliss.common.utils import Statistics, Null, update_node_info
+from bliss.common.utils import Statistics, Null, update_node_info, round
 from bliss.controllers.motor import remove_real_dependent_of_calc
 from bliss.config.settings import ParametersWardrobe
 from bliss.config.settings import pipeline
@@ -871,7 +871,10 @@ class Scan:
         )
 
     def _fwhm(self, counter, axis=None):
-        return scan_math.cen(*self._get_x_y_data(counter, axis))[1]
+        return round(
+            scan_math.cen(*self._get_x_y_data(counter, axis))[1],
+            precision=axis.tolerance,
+        )
 
     def peak(self, counter, axis=None, return_full_result=False):
         return self._multimotors(
@@ -887,7 +890,9 @@ class Scan:
         )
 
     def _com(self, counter, axis):
-        return scan_math.com(*self._get_x_y_data(counter, axis))
+        return round(
+            scan_math.com(*self._get_x_y_data(counter, axis)), precision=axis.tolerance
+        )
 
     def cen(self, counter, axis=None, return_full_result=False):
         return self._multimotors(
@@ -895,7 +900,10 @@ class Scan:
         )
 
     def _cen(self, counter, axis):
-        return scan_math.cen(*self._get_x_y_data(counter, axis))[0]
+        return round(
+            scan_math.cen(*self._get_x_y_data(counter, axis))[0],
+            precision=axis.tolerance,
+        )
 
     def _multimotors(self, func, counter, axis=None, return_full_result=False):
         axes_names = self._get_data_axes_name()
@@ -906,6 +914,7 @@ class Scan:
                 assert axis.name in axes_names
             res = {axis: func(counter, axis=axis)}
         else:
+            ##ToDo: does this work for SoftAxis (not always exported)?
             motors = [current_session.env_dict[axis_name] for axis_name in axes_names]
             if len(motors) < 1:
                 raise

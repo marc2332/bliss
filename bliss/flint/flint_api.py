@@ -368,6 +368,15 @@ class FlintApi:
     def update_motor_marker(
         self, plot_id, channel_name: str, position: float, text: str
     ):
+        """Update the location of a motor marker.
+
+        Args:
+            plot_id: Identifier of the plot
+            channel_name: Name of the channel which is used as an axis by this
+                marker
+            position: Position in this axis
+            text: A text label  for the marker
+        """
         plot = self._get_plot_widget(plot_id, expect_silx_api=False)
         model = plot.plotModel()
         if model is None:

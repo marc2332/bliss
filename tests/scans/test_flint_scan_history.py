@@ -1,6 +1,9 @@
 import pytest
 import bliss
+import gevent
 from bliss.flint.helper import scan_history
+from nexus_writer_service.utils import scan_utils
+from nexus_writer_service.io import nexus
 
 
 def test_scan_history(session, lima_simulator):
@@ -33,3 +36,15 @@ def test_scan_history(session, lima_simulator):
     # the nexuswriter is not installed
     with pytest.raises(EnvironmentError):
         scan_history.get_data_from_file(node_name, scan_info)
+
+
+def wait_scan_data_finished(scan, timeout=10):
+    """
+    :param bliss.scanning.scan.Scan scan:
+    :param num timeout:
+    """
+    uris = scan_utils.scan_uris(scan)
+    with gevent.Timeout(timeout):
+        while uris:
+            uris = [uri for uri in uris if not nexus.nxComplete(uri)]
+            gevent.sleep(0.1)

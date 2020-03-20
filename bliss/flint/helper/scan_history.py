@@ -17,7 +17,7 @@ from bliss.data.node import get_session_node
 from bliss.data.node import get_node
 
 from . import scan_info_helper
-
+from bliss.flint.model import scan_model
 
 _logger = logging.getLogger(__name__)
 
@@ -119,3 +119,19 @@ def get_data_from_file(
                     )
 
     return result
+
+
+def create_scan(scan_node_name: str) -> scan_model.Scan:
+    """Create a scan with it's data from a Redis node_name.
+
+    The scan could contain empty channels.
+    """
+    scan_info = get_scan_info(scan_node_name)
+    scan = scan_info_helper.create_scan_model(scan_info)
+
+    redis_data = get_data_from_redis(scan_node_name, scan_info)
+    for channel_name, array in redis_data.items():
+        data = scan_model.Data(parent=None, array=array)
+        channel = scan.getChannelByName(channel_name)
+        channel.setData(data)
+    return scan

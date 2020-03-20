@@ -71,7 +71,11 @@ class SpecMode(qt.QObject):
     def __selectedData(self, plot: FlintPlot) -> Tuple[numpy.ndarray, numpy.ndarray]:
         curve = plot.getActiveCurve()
         if curve is None:
-            return None, None
+            curves = plot.getAllCurves()
+            curves = [c for c in curves if isinstance(c, plot_helper.FlintCurve)]
+            if len(curves) != 1:
+                return None, None
+            curve = curves[0]
         x = curve.getXData()
         y = curve.getYData()
         return x, y

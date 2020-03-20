@@ -18,6 +18,7 @@ from bliss.common.scans import loopscan, timescan, ct, DEFAULT_CHAIN
 import gevent
 from contextlib import contextmanager
 from ..conftest import lima_simulator_context
+from bliss.config.channels import Cache
 
 
 def test_lima_simulator(beacon, lima_simulator):
@@ -600,3 +601,40 @@ def test_lima_simulator_dialogs(beacon, lima_simulator, clean_gevent):
         simulator.configure_image()
         simulator.configure_saving()
         simulator.configure_processing()
+
+
+def test_reapplication_image_params(beacon, default_session, lima_simulator, caplog):
+    simulator = beacon.get("lima_simulator")
+    # do one initial scan to set all caches
+    scan = loopscan(1, 0.1, simulator, save=False)
+
+    # reset timestamp
+    Cache(simulator, "server_start_timestamp").value = ""
+
+    with caplog.at_level(logging.DEBUG, logger="global.controllers.lima_simulator"):
+        scan = loopscan(1, 0.1, simulator, save=False)
+
+    assert "All parameters will be refeshed on lima_simulator" in caplog.messages
+
+    # emulate use of another bliss session
+    Cache(simulator, "last_session_used").value = "toto_session"
+
+    caplog.clear()
+    with caplog.at_level(logging.DEBUG, logger="global.controllers.lima_simulator"):
+        scan = loopscan(1, 0.1, simulator, save=False)
+
+    assert "All parameters will be refeshed on lima_simulator" in caplog.messages
+
+    # change image parameters from outside of bliss
+    simulator.image.roi = [1, 2, 30, 40]
+    scan = loopscan(1, 0.1, simulator, save=False)
+    old_roi = simulator.proxy.image_roi
+    simulator.proxy.image_roi = [5, 6, 70, 80]
+
+    caplog.clear()
+    with caplog.at_level(logging.DEBUG, logger="global.controllers.lima_simulator"):
+        scan = loopscan(1, 0.1, simulator, save=False)
+
+    new_roi = simulator.proxy.image_roi
+    assert "All parameters will be refeshed on lima_simulator" in caplog.messages
+    assert all(old_roi == new_roi)

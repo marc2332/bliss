@@ -9,37 +9,39 @@
 -   class: Ace
     module: sca.ace
     plugin: bliss
-    name: ace
-    timeout: 3
-    serial:
-        url: ser2net://lid00limace:28000/dev/ttyS0
-
+    name: acedet
+    timeout: 10
+    #serial:
+    #    url: ser2net://lid00limace:28000/dev/ttyS0
+    gpib:
+        url: tango_gpib_device_server://id10/gpib_40/0
+        pad: 9
     axes:
-        - axis_name: ace_axis_low
+        - axis_name: apdthl
           tag: low
-        
-        - axis_name: ace_axis_win
+
+        - axis_name: apdwin
           tag: win
 
-        - axis_name: ace_axis_hhv
+        - axis_name: apdhv
           tag: hhv
-    
+
     counters:
-        - counter_name: ace_cnt_counts
+        - counter_name: apdcnt
           tag: counts
           mode: LAST
-        
-        - counter_name: ace_cnt_htemp
+
+        - counter_name: apdtemp
           tag: htemp
           unit: °C
           mode: SINGLE
 
-        - counter_name: ace_cnt_hvcur
-          tag: hvcur
+        - counter_name: apdcurr
+          tag: hcurr
           unit: uA
           mode: SINGLE
 
-        - counter_name: ace_cnt_hvmon
+        - counter_name: apdhvmon
           tag: hvmon
           unit: V
           mode: SINGLE
@@ -65,6 +67,7 @@ from bliss.common.utils import autocomplete_property
 from bliss.common.protocols import counter_namespace
 
 from bliss.common.session import get_current_session
+from bliss.common.greenlet_utils import protect_from_kill
 
 
 class AceAcquisitionSlave(SamplingCounterAcquisitionSlave):
@@ -94,8 +97,8 @@ class AceCC(SamplingCounterController):
     def read_all(self, *counters):
         values = []
         for cnt in counters:
-            if cnt.tag == "hvcur":
-                values.append(self.ace.head_hvcur)
+            if cnt.tag == "hcurr":
+                values.append(self.ace.head_hcurr)
             elif cnt.tag == "hvmon":
                 values.append(self.ace.head_hvmon)
             elif cnt.tag == "htemp":
@@ -121,6 +124,14 @@ class Ace:
         self._config = config
         self._comm = get_comm(config)
         self._timeout = config.get("timeout", 3.0)
+        gpib = config.get("gpib")
+        if gpib:
+            gpib["eol"] = ""
+            self._txterm = b""
+            self._rxterm = b"\n"
+        else:
+            self._txterm = b"\r"
+            self._rxterm = b"\r\n"
 
         global_map.register(self, children_list=[self._comm])
 
@@ -140,7 +151,7 @@ class Ace:
                 "counter_status": ["CT DATA"],
                 "alarm_mode": ["ALMODE"],
                 "hvmon": ["HVMON"],
-                "hvcur": ["HCURR"],
+                "hcurr": ["HCURR"],
                 "htemp": ["HTEMP"],
                 "counts": ["CT DATA"],
             }
@@ -183,7 +194,7 @@ class Ace:
 
         cmd = f"?{rcmd}"
         # print(f"SEND: {cmd}")
-        ans = self.send_cmd(cmd)
+        ans = self.putget(cmd)
         # print(f"RECV: {ans}")
 
         # ---------------
@@ -221,7 +232,7 @@ class Ace:
 
         # ------------------------------------------------------------------
         if param == "sca_win":
-            asw = self.send_cmd("?%s" % self._params[param][0])
+            asw = self.putget("?%s" % self._params[param][0])
             lasw = asw.split()
             # SCA in window mode
             if len(lasw) == 3:
@@ -236,30 +247,30 @@ class Ace:
 
         rcmd = plist[0]
         cmd = f"{rcmd} {value}"
-        # print(f"SEND: {cmd}")
-        self.send_cmd(cmd)
+        self.putget(cmd)
 
-    def send_cmd(self, command):
+    @protect_from_kill
+    def putget(self, command):
         """ Send a command to the controller
             Args:
               command (str): The command string
             Returns:
               Answer from the controller if ? in the command
         """
-        log_info(self, f"send_cmd '{command}' ")
+        log_info(self, f"putget '{command}' ")
 
-        command += "\r\n"
-        # print("SEND CMD: %s"%command)
+        cmd = command.encode() + self._txterm
+
         if command.startswith("?"):
 
             if command.startswith("?INFO"):
                 asw = self._comm.write_readlines(
-                    command.encode(), 20, eol="\r\n", timeout=self._timeout
+                    cmd, 20, eol=self._rxterm, timeout=self._timeout
                 )
                 asw = "\n".join([line.decode() for line in asw])
             else:
                 asw = self._comm.write_readline(
-                    command.encode(), eol="\r\n", timeout=self._timeout
+                    cmd, eol=self._rxterm, timeout=self._timeout
                 ).decode()
 
             if "ERROR" in asw:
@@ -271,7 +282,7 @@ class Ace:
             return asw
 
         else:
-            self._comm.write(command.encode(), timeout=self._timeout)
+            self._comm.write(cmd, timeout=self._timeout)
 
     def _clear(self):
         """ Reset the unit.
@@ -280,7 +291,7 @@ class Ace:
             In the current version of the firmware (01.02) the default settings are:
             ECHO OFF, GPIBX1, HVOLT = 200, LLTH = 1, WIN = 1V, GPIB_ADDR = 9. 
         """
-        self.send_cmd("RESET")
+        self.putget("RESET")
 
     def _show(self):
         """ Display all main parameters and values of the ace module
@@ -292,7 +303,11 @@ class Ace:
         log_info(self, "show")
         info_list = []
 
-        head_limits = self.send_cmd("?HLIM").split()
+        version = self.putget("?VER")
+        info_list.append(f"ACE card: {self.name}, {version}")
+        info_list.append(self._comm.__info__())
+
+        head_limits = self.putget("?HLIM").split()
         if len(head_limits) == 3:
             maxhcurr, headresistor, maxhtemp = head_limits
         elif len(head_limits) == 2:
@@ -302,27 +317,19 @@ class Ace:
             maxhcurr = headresistor = maxhtemp = "N/A"
 
         maxhtemp = maxhtemp + " \xB0C"
-        currtemp = self.send_cmd("?HTEMP") + " \xB0C"
+        currtemp = self.putget("?HTEMP") + " \xB0C"
 
-        hv, hstate = self.send_cmd("?HVOLT").split()
+        hv, hstate = self.putget("?HVOLT").split()
 
-        sca = self.send_cmd("?SCA").split()
+        sca = self.putget("?SCA").split()
         if len(sca) == 3:
             sca_mode, sca_low, sca_win = sca
         else:
             sca_mode, sca_low = sca
             sca_win = "N/A"
 
-        info_list.append(f"VERSION:                        {self.send_cmd('?VER'):17s}")
-        # info_list.append(f"NAME:                           {self.send_cmd('?NAME')}")
         info_list.append(
-            f"SERIAL ADDRESS:                 {self.send_cmd('?ADDR'):17s}"
-        )
-        info_list.append(
-            f"GPIB ADDRESS:                   {self.send_cmd('?GPIB'):17s}"
-        )
-        info_list.append(
-            f"HEAD MAX CURRENT:               {maxhcurr +' mA':17s}  (range [0, 25])"
+            f"HEAD MAX CURRENT:               {maxhcurr +' mA':17s}  (range=[0, 25])"
         )
         info_list.append(
             f"HEAD MAX TEMPERATURE:           {maxhtemp:17s}  (range=[0, 50])"
@@ -331,10 +338,7 @@ class Ace:
         info_list.append(
             f"HEAD BIAS VOLTAGE SETPOINT:     {hv +' V' + ' (' + hstate + ')':17s}  (range=[0, 600])"
         )
-        # info_list.append(f"HEAD CURRENT BIAS VOLTAGE:      {self.send_cmd('?HVMON'):17s}")
-        info_list.append(
-            f"COUNTING SOURCE:                {self.send_cmd('?CSRC'):17s}"
-        )
+        info_list.append(f"COUNTING SOURCE:                {self.putget('?CSRC'):17s}")
         info_list.append(f"SCA MODE:                       {sca_mode:17s}")
         info_list.append(
             f"SCA LOW:                        {sca_low +' V':17s}  (range=[-0.2, 5])"
@@ -343,32 +347,34 @@ class Ace:
             f"SCA WIN:                        {sca_win +' V':17s}  (range=[0, 5])"
         )
         info_list.append(
-            f"SCA PUSLE SHAPING:              {self.send_cmd('?OUT') +' ns':17s}  (range=[5, 10, 20, 30])"
+            f"SCA PUSLE SHAPING:              {self.putget('?OUT') +' ns':17s}  (range=[5, 10, 20, 30])"
+        )
+        info_list.append(f"GATE IN MODE:                   {self.putget('?GLVL'):17s}")
+        info_list.append(f"TRIGGER IN MODE:                {self.putget('?TLVL'):17s}")
+        info_list.append(f"SYNC OUTPUT MODE:               {self.putget('?SOUT'):17s}")
+        info_list.append(
+            f"ALARM MODE:                     {self.putget('?ALMODE'):17s}"
         )
         info_list.append(
-            f"GATE IN MODE:                   {self.send_cmd('?GLVL'):17s}"
+            f"RATE METER ALARM THRESHOLD:     {self.putget('?ALRATE'):17s}  (range=[0, 1e8])"
         )
         info_list.append(
-            f"TRIGGER IN MODE:                {self.send_cmd('?TLVL'):17s}"
+            f"ALARM THRESHOLD:                {self.putget('?ALCURR') +' mA':17s}  (range=[0, 25])"
         )
         info_list.append(
-            f"SYNC OUTPUT MODE:               {self.send_cmd('?SOUT'):17s}"
+            f"BUFFER OPTIONS:                 {self.putget('?BUFFER'):17s}"
         )
         info_list.append(
-            f"ALARM MODE:                     {self.send_cmd('?ALMODE'):17s}"
+            f"DATA FORMAT:                    {self.putget('?DFORMAT'):17s}"
         )
-        info_list.append(
-            f"RATE METER ALARM THRESHOLD:     {self.send_cmd('?ALRATE'):17s}  (range=[0, 1e8])"
-        )
-        info_list.append(
-            f"ALARM THRESHOLD:                {self.send_cmd('?ALCURR') +' mA':17s}  (range=[0, 25])"
-        )
-        info_list.append(
-            f"BUFFER OPTIONS:                 {self.send_cmd('?BUFFER'):17s}"
-        )
-        info_list.append(
-            f"DATA FORMAT:                    {self.send_cmd('?DFORMAT'):17s}"
-        )
+        info_list.append("\nAxes")
+        info_list.append("----")
+        for axis in self._soft_axes:
+            info_list.append(f"{axis}: {self._soft_axes[axis].name}")
+        info_list.append("\nCounters")
+        info_list.append("--------")
+        for cnt in self.counters:
+            info_list.append(f"{cnt.tag}: {cnt.name}")
 
         return info_list
 
@@ -499,12 +505,12 @@ class Ace:
                     f"Ace counting time must be in range [0.000001, 2147.483648] second "
                 )
 
-            self.send_cmd("TCT %d" % us_time)
+            self.putget("TCT %d" % us_time)
         else:
             raise RuntimeError(f"Ace counter not ready!")
 
     def counting_stop(self):
-        self.send_cmd("STCT")
+        self.putget("STCT")
 
     @property
     def counter_status(self):
@@ -536,7 +542,7 @@ class Ace:
     @property
     def counts(self):
         log_debug(self, "Ace:counts")
-        return float(self.send_cmd("?CT DATA").split()[4])
+        return float(self.putget("?CT DATA").split()[4])
 
     @property
     def head_state(self):
@@ -548,7 +554,7 @@ class Ace:
         """
 
         log_debug(self, "Ace:state")
-        return self.send_cmd("?HSTATE")
+        return self.putget("?HSTATE")
 
     @property
     def head_hvmon(self):
@@ -556,9 +562,9 @@ class Ace:
         return float(self._get_value("hvmon"))
 
     @property
-    def head_hvcur(self):
-        log_debug(self, "Ace:hvcur")
-        return float(self._get_value("hvcur"))
+    def head_hcurr(self):
+        log_debug(self, "Ace:hcurr")
+        return float(self._get_value("hcurr"))
 
     @property
     def head_temp(self):

@@ -6,7 +6,7 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import textwrap
-
+from numpy import ndarray
 from .roi import Roi
 from .properties import LimaProperty, LimaAttrGetterSetter
 from bliss.common.counter import Counter
@@ -23,6 +23,8 @@ class LimaImageParameters(BeaconObject):
 
     @binning.setter
     def binning(self, value):
+        if isinstance(value, ndarray):
+            value = [int(value[0]), int(value[1])]
         assert isinstance(value, list)
         assert len(value) == 2
         assert isinstance(value[0], int) and isinstance(value[1], int)
@@ -32,6 +34,8 @@ class LimaImageParameters(BeaconObject):
 
     @flip.setter
     def flip(self, value):
+        if isinstance(value, ndarray):
+            value = [bool(value[0]), bool(value[1])]
         assert isinstance(value, list)
         assert len(value) == 2
         assert isinstance(value[0], bool) and isinstance(value[1], bool)
@@ -78,6 +82,13 @@ class LimaImageParameters(BeaconObject):
             "image_roi": self._roi,
             "image_bin": self.binning,
         }
+
+    def sync(self):
+        """applies all image parameters from the tango server to bliss"""
+        self.rotation = self._proxy.image_rotation
+        self.flip = self._proxy.image_flip
+        self.roi = self._proxy.image_roi
+        self.binning = self._proxy.image_bin
 
 
 class ImageCounter(Counter):
@@ -166,3 +177,7 @@ class ImageCounter(Counter):
     @bin.setter
     def bin(self, value):
         self._counter_controller._image_params.binning = value
+
+    def sync(self):
+        """applies all image parameters from the tango server to bliss"""
+        return self._counter_controller._image_params.sync()

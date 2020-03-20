@@ -638,3 +638,32 @@ def test_reapplication_image_params(beacon, default_session, lima_simulator, cap
     new_roi = simulator.proxy.image_roi
     assert "All parameters will be refeshed on lima_simulator" in caplog.messages
     assert all(old_roi == new_roi)
+
+
+def test_image_param_sync(beacon, default_session, lima_simulator):
+    simulator = beacon.get("lima_simulator")
+
+    # do one initial scan to set all caches and tango properties
+    loopscan(1, 0.1, simulator, save=False)
+    assert list(simulator.image.roi.to_dict().values()) == [0, 0, 0, 0]
+    assert simulator.image.flip == [False, False]
+    assert simulator.image.rotation == "90"
+    assert simulator.image.bin == [1, 1]
+
+    simulator.proxy.image_bin = [2, 2]
+    simulator.proxy.image_roi = [1, 2, 30, 40]
+    simulator.proxy.image_flip = [True, False]
+    simulator.proxy.image_rotation = "180"
+
+    assert simulator.image.bin == [1, 1]
+    assert list(simulator.image.roi.to_dict().values()) == [0, 0, 0, 0]
+    assert simulator.image.flip == [False, False]
+    assert simulator.image.rotation == "90"
+
+    simulator.image.sync()
+
+    # have in mind that rotation is applied on roi...
+    assert simulator.image.bin == [2, 2]
+    assert list(simulator.image.roi.to_dict().values()) == [2, 1, 40, 30]
+    assert simulator.image.flip == [True, False]
+    assert simulator.image.rotation == "180"

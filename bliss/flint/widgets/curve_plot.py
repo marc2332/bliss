@@ -576,8 +576,11 @@ class CurvePlotWidget(plot_helper.PlotWidget):
         self.__curveAxesUpdated()
 
     def __updateTitle(self, scan: scan_model.Scan):
-        title = scan_info_helper.get_full_title(scan)
-        title = self.__specMode.updateTitle(self.__plot, title)
+        if scan is None:
+            title = "No scan"
+        else:
+            title = scan_info_helper.get_full_title(scan)
+            title = self.__specMode.updateTitle(self.__plot, title)
         self.__plot.setGraphTitle(title)
 
     def __scanFinished(self):

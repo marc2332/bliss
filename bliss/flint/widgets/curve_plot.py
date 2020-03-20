@@ -86,9 +86,9 @@ class SpecMode(qt.QObject):
             return None
         # FIXME: It would be good to cache this statistics
         peak = scan_math.peak2(x, y)
-        fwhm = scan_math.cen(x, y)
+        cen = scan_math.cen(x, y)
         com = scan_math.com(x, y)
-        return f"Peak: {peak[0]:.3} ({peak[1]:.3})   FWHM: {fwhm[0]:.3} ({fwhm[1]:.3})   COM: {com:.3}"
+        return f"Peak: {peak[0]:.3} ({peak[1]:.3})  Cen: {cen[0]:.3} (FWHM: {cen[1]:.3})  COM: {com:.3}"
 
     def updateTitle(self, plot: FlintPlot, title: str) -> str:
         if not self.__enabled:

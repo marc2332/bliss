@@ -98,24 +98,20 @@ def last_scan_motors():
     return [current_session.env_dict[axis_name] for axis_name in axes_name]
 
 
-def _scan_calc(func, counter=None, axis=None, scan=None, marker=True):
+def _scan_calc(func, counter=None, axis=None, scan=None, marker=True, goto=False):
     if counter is None:
         counter = get_counter(get_selected_counter_name())
     if scan is None:
         scan = current_session.scans[-1]
-    res = getattr(scan, func)(counter, axis=axis, return_full_result=True)
+    res = getattr(scan, func)(counter, axis=axis, return_axes=True)
     if marker:
         for key, value in res.items():
-            if "goto" in func:
-                display_motor(
-                    key, scan=scan, position=value, label=func[5:] + "\n" + str(value)
-                )
-            else:
-                display_motor(
-                    key, scan=scan, position=value, label="cen\n" + str(value)
-                )
-                # todo: display current position if scan is last scan and axis.position != value
-    if "goto" in func:
+            display_motor(
+                key, scan=scan, position=value, label=func + "\n" + str(value)
+            )
+            # todo: display current position if scan is last scan and axis.position != value
+    if goto:
+        scan._goto_multimotors(res)
         return
     elif len(res) == 1:
         return next(iter(res.values()))
@@ -137,7 +133,7 @@ def goto_cen(
     axis: Optional[_scannable] = None,
     scan: Optional[Scan] = None,
 ):
-    return _scan_calc("goto_cen", counter=counter, axis=axis, scan=scan)
+    return _scan_calc("cen", counter=counter, axis=axis, scan=scan, goto=True)
 
 
 def com(counter=None, axis=None, scan=None):
@@ -150,7 +146,7 @@ def goto_com(
     axis: Optional[_scannable] = None,
     scan: Optional[Scan] = None,
 ):
-    return _scan_calc("goto_com", counter=counter, axis=axis, scan=scan)
+    return _scan_calc("com", counter=counter, axis=axis, scan=scan, goto=True)
 
 
 def peak(counter=None, axis=None, scan=None):
@@ -163,7 +159,7 @@ def goto_peak(
     axis: Optional[_scannable] = None,
     scan: Optional[Scan] = None,
 ):
-    return _scan_calc("goto_peak", counter=counter, axis=axis, scan=scan)
+    return _scan_calc("peak", counter=counter, axis=axis, scan=scan, goto=True)
 
 
 def where():

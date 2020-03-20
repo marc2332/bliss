@@ -78,8 +78,8 @@ from bliss.scanning.scan_tools import (
     where,
     fwhm,  # noqa: F401
 )
-from bliss.common.plot import plotselect, plotinit, meshselect  # noqa: F401
-
+from bliss.common.plot import meshselect  # noqa: F401
+from bliss.common import plot as plot_module
 
 from bliss.shell.interlocks import interlock_show
 from bliss.shell.cli import user_dialog, pt_widgets
@@ -682,7 +682,7 @@ def plotinit(*counters: _providing_channel):
         print("    plotinit(counter1, counter2)")
         print("")
     else:
-        plot.plotinit(*counters)
+        plot_module.plotinit(*counters)
     print("")
     print("Next plotted counter(s):")
     sd = ScanDisplay()
@@ -708,10 +708,10 @@ def plotselect(*counters: _providing_channel):
         print("    plotselect(counter1, counter2)")
         print("")
     else:
-        plot.plotselect(*counters)
+        plot_module.plotselect(*counters)
     print("")
     print("Currently plotted counter(s):")
-    for cnt_name in plot.get_plotted_counters():
+    for cnt_name in plot_module.get_plotted_counters():
         print(f"- {cnt_name}")
     print("")
 

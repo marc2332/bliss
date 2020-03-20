@@ -865,10 +865,8 @@ class Scan:
         y_data = data[counter]
         return x_data, y_data
 
-    def fwhm(self, counter, axis=None, return_full_result=False):
-        return self._multimotors(
-            self._fwhm, counter, axis, return_full_result=return_full_result
-        )
+    def fwhm(self, counter, axis=None, return_axes=False):
+        return self._multimotors(self._fwhm, counter, axis, return_axes=return_axes)
 
     def _fwhm(self, counter, axis=None):
         return round(
@@ -876,28 +874,22 @@ class Scan:
             precision=axis.tolerance,
         )
 
-    def peak(self, counter, axis=None, return_full_result=False):
-        return self._multimotors(
-            self._peak, counter, axis, return_full_result=return_full_result
-        )
+    def peak(self, counter, axis=None, return_axes=False):
+        return self._multimotors(self._peak, counter, axis, return_axes=return_axes)
 
     def _peak(self, counter, axis):
         return scan_math.peak(*self._get_x_y_data(counter, axis))
 
-    def com(self, counter, axis=None, return_full_result=False):
-        return self._multimotors(
-            self._cen, counter, axis, return_full_result=return_full_result
-        )
+    def com(self, counter, axis=None, return_axes=False):
+        return self._multimotors(self._com, counter, axis, return_axes=return_axes)
 
     def _com(self, counter, axis):
         return round(
             scan_math.com(*self._get_x_y_data(counter, axis)), precision=axis.tolerance
         )
 
-    def cen(self, counter, axis=None, return_full_result=False):
-        return self._multimotors(
-            self._cen, counter, axis, return_full_result=return_full_result
-        )
+    def cen(self, counter, axis=None, return_axes=False):
+        return self._multimotors(self._cen, counter, axis, return_axes=return_axes)
 
     def _cen(self, counter, axis):
         return round(
@@ -905,7 +897,7 @@ class Scan:
             precision=axis.tolerance,
         )
 
-    def _multimotors(self, func, counter, axis=None, return_full_result=False):
+    def _multimotors(self, func, counter, axis=None, return_axes=False):
         axes_names = self._get_data_axes_name()
         if axis is not None:
             if isinstance(axis, str):
@@ -913,6 +905,10 @@ class Scan:
             else:
                 assert axis.name in axes_names
             res = {axis: func(counter, axis=axis)}
+        elif len(axes_names) == 1 and (
+            "elapsed_time" in axes_names or "epoch" in axes_names
+        ):
+            res = {axis: func(counter, axis=axes_names[0])}
         else:
             ##ToDo: does this work for SoftAxis (not always exported)?
             motors = [current_session.env_dict[axis_name] for axis_name in axes_names]
@@ -922,51 +918,31 @@ class Scan:
             motors = remove_real_dependent_of_calc(motors)
             res = {mot: func(counter, axis=mot) for mot in motors}
 
-        if not return_full_result and len(res) == 1:
+        if not return_axes and len(res) == 1:
             return next(iter(res.values()))
         else:
             return res
 
-    def _goto_multimotors(
-        self, func, counter=None, axis=None, return_full_result=False
-    ):
-        axes_names = self._get_data_axes_name()
-        if axis is not None:
-            assert (
-                isinstance(axis, str) and axis in axes_names or axis.name in axes_names
-            )
-            res = {axis: func(counter, axis=axis)}
-        else:
-            motors = [current_session.env_dict[axis_name] for axis_name in axes_names]
-            if len(motors) < 1:
-                raise
-            motors = remove_real_dependent_of_calc(motors)
+    def _goto_multimotors(self, goto):
+        for key in goto.keys():
+            assert not isinstance(key, str)
+        with error_cleanup(
+            *goto.keys(), restore_list=(cleanup_axis.POS,), verbose=True
+        ):
+            tasks = [gevent.spawn(mot.move, pos) for mot, pos in goto.items()]
+            try:
+                gevent.joinall(tasks, raise_error=True)
+            finally:
+                gevent.killall(tasks)
 
-            with error_cleanup(*motors, restore_list=(cleanup_axis.POS,), verbose=True):
-                tasks = [gevent.spawn(mot.move, func(counter, mot)) for mot in motors]
-                try:
-                    gevent.joinall(tasks, raise_error=True)
-                    res = {ax: task.value for ax, task in zip(motors, tasks)}
-                finally:
-                    gevent.killall(tasks)
+    def goto_peak(self, counter, axis=None):
+        return self._goto_multimotors(self.peak(counter, axis, return_axes=True))
 
-            if return_full_result:
-                return res
+    def goto_com(self, counter, axis=None, return_axes=False):
+        return self._goto_multimotors(self.com(counter, axis, return_axes=True))
 
-    def goto_peak(self, counter, axis=None, return_full_result=False):
-        return self._goto_multimotors(
-            self._peak, counter, axis, return_full_result=return_full_result
-        )
-
-    def goto_com(self, counter, axis=None, return_full_result=False):
-        return self._goto_multimotors(
-            self._com, counter, axis, return_full_result=return_full_result
-        )
-
-    def goto_cen(self, counter, axis=None, return_full_result=False):
-        return self._goto_multimotors(
-            self._cen, counter, axis, return_full_result=return_full_result
-        )
+    def goto_cen(self, counter, axis=None, return_axes=False):
+        return self._goto_multimotors(self.cen(counter, axis, return_axes=True))
 
     def wait_state(self, state):
         while self.__state < state:

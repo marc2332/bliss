@@ -184,15 +184,26 @@ class CurvePlotWidget(plot_helper.PlotWidget):
         super(CurvePlotWidget, self).setConfiguration(config)
 
     def __specModeChanged(self, enabled):
+        self.__updateStyle()
+        self.__updateTitle(self.__scan)
+
+    def __updateStyle(self):
+        isLive = False
+        if self.__scan is not None:
+            isLive = self.__scan.state() == scan_model.ScanState.PROCESSING
+
         if self.__specMode.isEnabled():
-            dataColor = "#f0e68c"
-            bgColor = "#d3d3d3"
+            if isLive:
+                dataColor = "#add8e6"
+                bgColor = "#f0e68c"
+            else:
+                dataColor = "#f0e68c"
+                bgColor = "#d3d3d3"
         else:
             dataColor = None
             bgColor = "transparent"
         self.__plot.setDataBackgroundColor(dataColor)
         self.__plot.setBackgroundColor(bgColor)
-        self.__updateTitle(self.__scan)
 
     def getRefreshManager(self) -> plot_helper.RefreshManager:
         return self.__refreshManager
@@ -556,6 +567,7 @@ class CurvePlotWidget(plot_helper.PlotWidget):
             self.__plot.addItem(o)
 
     def __scanStarted(self):
+        self.__updateStyle()
         self.__updateTitle(self.__scan)
         self.__curveAxesUpdated()
 
@@ -565,6 +577,7 @@ class CurvePlotWidget(plot_helper.PlotWidget):
         self.__plot.setGraphTitle(title)
 
     def __scanFinished(self):
+        self.__updateStyle()
         self.__refreshManager.scanFinished()
 
     def __scanDataUpdated(self, event: scan_model.ScanDataUpdateEvent):

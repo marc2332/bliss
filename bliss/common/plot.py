@@ -1018,7 +1018,7 @@ def plotselect(*counters):
 
     if check_flint():
         channel_names = get_channel_names(*counters)
-        flint = plot.get_flint()
+        flint = get_flint()
         plot_id = flint.get_default_live_scan_plot("curve")
         if plot_id is not None:
             flint.set_displayed_channels(plot_id, channel_names)
@@ -1033,7 +1033,7 @@ def meshselect(*counters):
     """
     if check_flint():
         channel_names = get_channel_names(*counters)
-        flint = plot.get_flint()
+        flint = get_flint()
         plot_id = flint.get_default_live_scan_plot("scatter")
         if plot_id is not None:
             flint.set_displayed_channels(plot_id, channel_names)

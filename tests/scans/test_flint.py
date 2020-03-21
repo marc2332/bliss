@@ -53,7 +53,13 @@ def test_image_display(flint_session, lima_simulator, dummy_acq_device):
     chain.add(lima_master, device)
     scan = Scan(chain, "test")
     scan.run()
+
+    # depricated access but kept for compatibilty with older versions...
     p = scan.get_plot(lima_sim.image, plot_type="image", wait=True)
+    assert isinstance(p, plot.ImagePlot)
+
+    # new access
+    p = plot.get_plot(lima_sim.image, scan=scan, plot_type="image", wait=True)
     assert isinstance(p, plot.ImagePlot)
 
 

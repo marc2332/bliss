@@ -14,6 +14,7 @@ import datetime
 import collections
 import typing
 from functools import wraps
+import warnings
 
 from bliss import current_session, is_bliss_shell
 from bliss.common.event import connect, disconnect
@@ -47,7 +48,7 @@ from bliss.scanning import scan_math
 from bliss.scanning.scan_saving import ScanSaving
 from bliss.common.logtools import lprint_disable
 from louie import saferef
-
+from bliss.common.plot import get_plot
 
 # Globals
 current_module = sys.modules[__name__]
@@ -775,6 +776,22 @@ class Scan:
     @property
     def statistics(self):
         return Statistics(self._acq_chain._stats_dict)
+
+    def get_plot(
+        self, channel_item, plot_type, as_axes=False, wait=False, silent=False
+    ):
+        warnings.warn(
+            "Scan.get_plot is deprecated, use bliss.common.plot.get_plot instead",
+            DeprecationWarning,
+        )
+        return get_plot(
+            channel_item,
+            plot_type,
+            scan=self,
+            as_axes=as_axes,
+            wait=wait,
+            silent=silent,
+        )
 
     @property
     def get_channels_dict(self):

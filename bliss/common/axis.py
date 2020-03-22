@@ -744,7 +744,6 @@ class Axis:
             new_set_pos
         )  # accepts both float or numpy array of 1 element
         self.settings.set("_set_position", new_set_pos)
-        return new_set_pos
 
     @property
     @lazy_init
@@ -851,7 +850,7 @@ class Axis:
                 "%s: can't set axis user position " "while moving" % self.name
             )
         new_pos = float(new_pos)  # accepts both float or numpy array of 1 element
-        return self.__do_set_position(new_pos, self.no_offset)
+        self.__do_set_position(new_pos, self.no_offset)
 
     @lazy_init
     def _update_dial(self, update_user=True):
@@ -1174,7 +1173,6 @@ class Axis:
         self.low_limit, self.high_limit = (
             float(x) if x is not None else None for x in limits
         )
-        return self.limits
 
     @property
     @lazy_init
@@ -1193,7 +1191,6 @@ class Axis:
             limit = float(limit)  # accepts numpy array of 1 element, or float
             limit = self.user2dial(limit)
         self.settings.set("low_limit", limit)
-        return self.low_limit
 
     @property
     @lazy_init
@@ -1210,9 +1207,7 @@ class Axis:
         if limit is not None:
             limit = float(limit)  # accepts numpy array of 1 element, or float
             limit = self.user2dial(limit)
-
         self.settings.set("high_limit", limit)
-        return self.high_limit
 
     @property
     def config_limits(self):

@@ -95,7 +95,7 @@ def test_wm_exception(default_session, capsys):
     output += " High     inf\n"
     output += " Current  !ERR\n"
     output += " Low      -inf\n"
-    output += "Offset    0\n"
+    output += "Offset    0.0\n"
     output += "\n"
     output += "Dial\n"
     output += " High     inf\n"

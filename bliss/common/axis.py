@@ -35,7 +35,7 @@ from bliss.common import event
 from bliss.common.greenlet_utils import protect_from_one_kill
 from bliss.common.utils import with_custom_members
 from bliss.config.channels import Channel
-from bliss.common.logtools import log_debug, lprint
+from bliss.common.logtools import log_debug, lprint, lprint_disable
 from bliss.common.utils import rounder
 
 import gevent
@@ -788,7 +788,9 @@ class Axis:
         # update user_pos or offset setting
         if no_offset:
             user_pos = dial_pos
-        self._set_position_and_offset(user_pos)
+
+        with lprint_disable():
+            self._set_position_and_offset(user_pos)
 
         lprint(
             f"Resetting '{self.name}` dial position from {old_dial} to {new_dial} (new offset: {self.offset})"
@@ -871,19 +873,18 @@ class Axis:
             curr_pos = 0
         return curr_pos
 
-    def _calc_offset(self, new_pos, dial_pos):
-        return new_pos - self.sign * dial_pos
-
     def _set_position_and_offset(self, new_pos):
         curr_pos = self.position
         dial_pos = self.dial
         prev_offset = self.offset
-        self._set_position = new_pos
-        new_offset = self._calc_offset(new_pos, dial_pos)
-        if curr_pos != new_pos:
+        new_offset = new_pos - self.sign * dial_pos
+        if math.isclose(new_offset, 0):
+            new_offset = 0
+        if new_offset != prev_offset or curr_pos != new_pos:
             lprint(
-                f"Resetting '{self.name}` position from {curr_pos} to {new_pos}{'' if numpy.isclose([new_offset], [0], self.tolerance) else f' (new offset: {new_offset})'}"
+                f"Resetting '{self.name}` position from {curr_pos} to {new_pos} (sign: {self.sign}, offset: {new_offset})"
             )
+        self._set_position = new_pos
         self.settings.set("offset", new_offset)
         self.settings.set("position", new_pos)
         return new_pos

@@ -145,10 +145,10 @@ def test_ascan_limits(session, s1hg, s1f, s1b):
     s1b.limits = -1, 1
     with pytest.raises(ValueError) as out_of_range_exc:
         s1hg.move(2.1)
-    assert "would go beyond high limit" in str(out_of_range_exc.value)
+    assert "would exceed high limit" in str(out_of_range_exc.value)
     with pytest.raises(ValueError) as out_of_range_exc:
         ascan(s1hg, -1, 2.1, 10, 0.1, run=False)
-    assert "would go beyond high limit" in str(out_of_range_exc.value)
+    assert "would exceed high limit" in str(out_of_range_exc.value)
 
 
 def test_same_calc_real_grp_move(s1hg, s1f, roby, calc_mot2):

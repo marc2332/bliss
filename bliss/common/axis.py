@@ -1273,8 +1273,8 @@ class Axis:
         delta *= self.steps_per_unit
         backlash = self.backlash / self.sign * self.steps_per_unit
         backlash_str = " (with %f backlash)" % self.backlash if backlash else ""
-        low_limit_msg = "%s: move to `%f'%s would go below low limit (%f)"
-        high_limit_msg = "%s: move to `%f'%s would go beyond high limit (%f)"
+        low_limit_msg = "%s: move to `%f'%s would exceed low limit (%f)"
+        high_limit_msg = "%s: move to `%f'%s would exceed high limit (%f)"
         user_low_limit, user_high_limit = self.limits
         low_limit = self.user2dial(user_low_limit) * self.steps_per_unit
         high_limit = self.user2dial(user_high_limit) * self.steps_per_unit

@@ -49,12 +49,6 @@ import warnings
 warnings.simplefilter("once", DeprecationWarning)
 
 
-# Python 2 cmp builtin
-# Return negative if a<b, zero if a==b, positive if a>b
-def cmp(a, b):
-    return int(a > b) - int(a < b)
-
-
 #: Default polling time
 DEFAULT_POLLING_TIME = 0.02
 
@@ -1290,7 +1284,7 @@ class Axis:
             high_limit_msg, low_limit_msg = low_limit_msg, high_limit_msg
 
         if backlash:
-            if abs(delta) > 1e-6 and cmp(delta, 0) != cmp(backlash, 0):
+            if abs(delta) > 1e-6 and math.copysign(delta, backlash) != delta:
                 # move and backlash are not in the same direction;
                 # apply backlash correction, the move will happen
                 # in 2 steps
@@ -1490,7 +1484,7 @@ class Axis:
             motion.reset_position = reset_position
             backlash = self.backlash / self.sign * self.steps_per_unit
             if backlash:
-                if cmp(direction, 0) != cmp(backlash, 0):
+                if math.copysign(direction, backlash) != direction:
                     motion.backlash = backlash
             else:
                 # don't do backlash correction

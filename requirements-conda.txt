@@ -43,7 +43,7 @@ treelib
 cerberus
 typeguard == 2.6.1
 typing_extensions
-tailon
+tailon == 1.1.0.1
 numexpr
 tango-metadata >= 4.0.2
 

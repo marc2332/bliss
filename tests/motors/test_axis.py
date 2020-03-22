@@ -19,6 +19,7 @@ from bliss.common.axis import Modulo, AxisState
 from unittest import mock
 import random
 import inspect
+import numpy
 
 
 def test_property_setting(robz):
@@ -384,6 +385,15 @@ def test_limits(robz):
     robz.rmove(1)
     robz.rmove(-2)
     assert robz.state.READY
+
+
+def test_dial_limits(robz):
+    robz.dial = 10
+    robz.position = 0
+    robz.dial_limits = None, None
+    assert robz.limits == (-numpy.inf, numpy.inf)
+    robz.dial_limits = 0, 20
+    assert robz.limits == (-10, 10)
 
 
 def test_limits_offset(robz):

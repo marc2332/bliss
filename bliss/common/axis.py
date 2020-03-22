@@ -1127,6 +1127,29 @@ class Axis:
         return self.config_velocity / self.config_acceleration
 
     @property
+    def dial_limits(self):
+        ll, hl = self.settings.get("low_limit"), self.settings.get("high_limit")
+        if ll is None:
+            ll = float("-inf")
+        if hl is None:
+            hl = float("+inf")
+        return ll, hl
+
+    @dial_limits.setter
+    def dial_limits(self, limits):
+        """
+        Set low, high limits in dial units
+        """
+        try:
+            if len(limits) != 2:
+                raise TypeError
+        except TypeError:
+            raise ValueError("Usage: .dial_limits(low, high)")
+        ll, hl = (float(x) if x is not None else None for x in limits)
+        self.settings.set("low_limit", ll)
+        self.settings.set("high_limit", hl)
+
+    @property
     @lazy_init
     def limits(self):
         """
@@ -1135,18 +1158,17 @@ class Axis:
         Return:
             tuple<float, float>: axis software limits (user units)
         """
-        return self.low_limit, self.high_limit
+        return tuple(map(self.dial2user, self.dial_limits))
 
     @limits.setter
     @lazy_init
     def limits(self, limits):
         # Set limits (low, high) in user units.
         try:
-            l = len(limits)
-            if l != 2:
+            if len(limits) != 2:
                 raise TypeError
         except TypeError:
-            raise ValueError("Must set the two limits at once")
+            raise ValueError("Usage: .limits(low, high)")
 
         # accepts iterable (incl. numpy array)
         self.low_limit, self.high_limit = (
@@ -1158,11 +1180,8 @@ class Axis:
     @lazy_init
     def low_limit(self):
         # Return Low Limit in USER units.
-        limit = self.settings.get("low_limit")
-        if limit is not None:
-            return self.dial2user(limit)
-        else:
-            return float("-inf")
+        ll, hl = self.dial_limits
+        return self.dial2user(ll)
 
     @low_limit.setter
     @lazy_init
@@ -1180,11 +1199,8 @@ class Axis:
     @lazy_init
     def high_limit(self):
         # Return High Limit in USER units.
-        limit = self.settings.get("high_limit")
-        if limit is not None:
-            return self.dial2user(limit)
-        else:
-            return float("+inf")
+        ll, hl = self.dial_limits
+        return self.dial2user(hl)
 
     @high_limit.setter
     @lazy_init

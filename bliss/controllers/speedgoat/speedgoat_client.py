@@ -105,9 +105,14 @@ import numpy as np
 import gevent
 import treelib
 from bliss.comm import rpc
-from bliss.common.counter import Counter, SamplingCounter
+from bliss.common.counter import SamplingCounter
 from bliss.controllers.counter import CounterController
 from bliss.scanning.acquisition.counter import SamplingCounterAcquisitionSlave
+
+
+# number of signals in ordrer to match number of signals with speedgoat buffers
+SIGNAL_COUNT = 20
+
 
 ##########################################################################
 ##########                                                      ##########
@@ -308,13 +313,13 @@ class FastDAQ(object):
 
     def set_signals(self, signal_list):
         nb_signals = len(signal_list)
-        if nb_signals > 20:
+        if nb_signals > SIGNAL_COUNT:
             raise ValueError(
-                "Nb signals {} exceeds maximum ({})".format(nb_signals, 20)
+                f"Signals count ({nb_signals}) exceeds maximum ({SIGNAL_COUNT})"
             )
 
         self._signal_list = signal_list
-        sp_signal_list = np.full((20,), 1)
+        sp_signal_list = np.full((SIGNAL_COUNT,), 1)
         for idx in range(len(self._signal_list)):
             sp_signal_list[idx] = self._signal_list[idx]
 
@@ -416,7 +421,13 @@ class DAQ(object):
             )
 
         self._signal_list = signal_list
-        sp_signal_list = np.full((20,), 1)
+
+        sp_signal_list = np.full((SIGNAL_COUNT,), 1)
+        if len(self._signal_list) > len(sp_signal_list):
+            raise ValueError(
+                f" too many counters: len(self._signal_list) > {len(sp_signal_list)} "
+            )
+
         for idx in range(len(self._signal_list)):
             sp_signal_list[idx] = self._signal_list[idx]
 
@@ -715,7 +726,6 @@ class Regul(object):
         self.speedgoat = speedgoat
 
     def set_frame_correction(self, onoff):
-        ssi_name = []
         for i in range(10):
             name = "plant/counters/counter_FPGA1_SSIM%d/correction_OnOff/Value" % (
                 i + 1

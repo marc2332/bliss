@@ -175,7 +175,7 @@ There is 3 complementary ways to work with black:
 ## Reformating existing commits in a branch
 
 ```bash
-git rebase -X theirs  $(git merge-base HEAD origin/master) --exec 'python3 -m black --fast $(git diff --name-only HEAD^) && git commit -a --amend --no-edit'
+git rebase -X theirs  $(git merge-base HEAD origin/master) --exec 'python -m black --fast $(git diff --name-only HEAD^ | grep \\.py) && git commit -a --amend --no-edit'
 ```
 
 ## Naming Conventions

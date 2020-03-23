@@ -141,6 +141,12 @@ def test_session_scan_saving_config(beacon):
         scan_saving_test_session.close()
 
 
+def test_default_session_scan_saving(default_session):
+    default_session.enable_esrf_data_policy()
+    scan_saving = default_session.scan_saving
+    scan_saving.beamline
+
+
 class CustomWardrobe(scan_saving_module.EvalParametersWardrobe):
     PROPERTY_ATTRIBUTES = ["p1", "p2"]
     PROPS = {"p1": "p1", "p2": "p2"}

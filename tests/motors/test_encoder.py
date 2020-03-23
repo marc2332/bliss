@@ -116,3 +116,25 @@ def test_encoder_filter(mot_maxee):
     assert encoder.read() == enc_pos
     enc_pos = 3.0
     assert encoder.read() == mot_maxee._set_position
+
+
+def test_encoder_filter_with_other_counters(mot_maxee):
+    enc_pos = 6.0
+
+    class Ctrl:
+        def _initialize_encoder(self, *args):
+            pass
+
+        def read_encoder(self, enc):
+            return enc_pos
+
+    ctrl = Ctrl()
+    encoder = encoder_mod.EncoderFilter(
+        "my", ctrl, {"enable_counters": ["position_raw", "position_error"]}
+    )
+    encoder.axis = mot_maxee
+    position, position_raw, position_error = encoder._read_all_counters(
+        None, *encoder.counters
+    )
+    assert position == position_raw == enc_pos
+    assert position_error == mot_maxee._set_position - enc_pos

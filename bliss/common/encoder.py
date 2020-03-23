@@ -132,8 +132,32 @@ class EncoderFilter(Encoder):
     or the encoder value.
     """
 
+    POSSIBLE_COUNTERS = ["position_raw", "position_error"]
+
+    def __init__(self, name, controller, config):
+        super().__init__(name, controller, config)
+        enable_counters = config.get("enable_counters", [])
+        for cnt_name in enable_counters:
+            if cnt_name not in EncoderFilter.POSSIBLE_COUNTERS:
+                raise ValueError(
+                    f"Counter can't be {cnt_name} only "
+                    f"be in {EncoderFilter.POSSIBLE_COUNTERS}"
+                )
+            self._counter_controller.create_counter(
+                SamplingCounter, cnt_name, unit=config.get("unit")
+            )
+
     def read(self):
+        return self._read_all_counters(self._counter_controller, self.counter)[0]
+
+    @Encoder.lazy_init
+    def _read_all_counters(self, counter_controller, *counters):
+        """
+        This method can be inherited to read other counters
+        from Encoder
+        """
         encoder_value = super().read()
+        corrected_value = encoder_value
         axis = self.axis
         if axis is not None:
             user_target_position = axis._set_position
@@ -142,5 +166,17 @@ class EncoderFilter(Encoder):
             min_range = encoder_value - encoder_precision
             max_range = encoder_value + encoder_precision
             if min_range <= dial_target_position <= max_range:
-                return dial_target_position
-        return encoder_value
+                corrected_value = dial_target_position
+
+        values = list()
+        for cnt in counters:
+            if cnt.name == "position":
+                values.append(corrected_value)
+            elif cnt.name == "position_raw":
+                values.append(encoder_value)
+            elif cnt.name == "position_error":
+                if axis is None:
+                    values.append(float("nan"))
+                else:
+                    values.append(dial_target_position - encoder_value)
+        return values

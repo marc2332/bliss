@@ -29,12 +29,12 @@ class Encoder:
     def __init__(self, name, controller, config):
         self.__name = name
         self.__controller = controller
-        self.__counter_controller = counter.SamplingCounterController(name)
+        self._counter_controller = counter.SamplingCounterController(name)
         # note: read_all is not implemented, multiple encoders from the same controller will not be read in one go
-        self.__counter_controller.read = types.MethodType(
-            lambda this, cnt: self.read(), self.__counter_controller
+        self._counter_controller.read_all = types.MethodType(
+            self._read_all_counters, self._counter_controller
         )
-        self.__counter_controller.create_counter(
+        self._counter_controller.create_counter(
             SamplingCounter, "position", unit=config.get("unit")
         )
         self.__config = StaticConfig(config)
@@ -61,7 +61,7 @@ class Encoder:
     @property
     def counters(self):
         """CounterContainer protocol"""
-        return self.__counter_controller.counters
+        return self._counter_controller.counters
 
     @property
     def counter(self):
@@ -69,7 +69,7 @@ class Encoder:
 
         Useful to set conversion function for example
         """
-        return self.__counter_controller.counters[0]
+        return self._counter_controller.counters[0]
 
     @property
     def config(self):
@@ -92,6 +92,14 @@ class Encoder:
         Returns encoder value *in user units*.
         """
         return self.controller.read_encoder(self) / float(self.steps_per_unit)
+
+    @lazy_init
+    def _read_all_counters(self, counter_controller, *counters):
+        """
+        This method can be inherited to read other counters
+        from Encoder
+        """
+        return [self.read()]
 
     @lazy_init
     def set(self, new_value):

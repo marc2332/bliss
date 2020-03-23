@@ -1005,7 +1005,7 @@ class Axis:
         try:
             _vel = self.velocity
 
-            if self.controller.axis_settings.config_setting["acceleration"]:
+            if self.controller.axis_settings.config_setting["velocity"]:
                 _vel_config = f"{self.config_velocity:10.5f}"
             else:
                 _vel_config = "none"

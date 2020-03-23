@@ -14,6 +14,7 @@ import datetime
 from silx.gui import qt
 from silx.gui import icons
 from bliss.flint.helper import scan_history
+from bliss.flint.helper import scan_info_helper
 
 
 _logger = logging.getLogger(__name__)
@@ -24,26 +25,9 @@ class _IdDelegate(qt.QStyledItemDelegate):
         super(_IdDelegate, self).initStyleOption(option, index)
 
         scanType = index.data(ScanHistoryDialog.ScanTypeRole)
-        if scanType is not None:
-            if scanType in ["ct", "runct"]:
-                icon = icons.getQIcon("flint:icons/scantype-point")
-            elif scanType in [
-                "dscan",
-                "ascan",
-                "d2scan",
-                "a2scan",
-                "d3scan",
-                "a3scan",
-                "d4scan",
-                "a4scan",
-                "dnscan",
-                "anscan",
-            ]:
-                icon = icons.getQIcon("flint:icons/scantype-nscan")
-            elif scanType in ["amesh", "dmesh"]:
-                icon = icons.getQIcon("flint:icons/scantype-mesh")
-            else:
-                icon = qt.QIcon()
+        category = scan_info_helper.get_scan_category(scan_type=scanType)
+        if category in ["point", "nscan", "mesh"]:
+            icon = icons.getQIcon("flint:icons/scantype-%s" % category)
         else:
             icon = qt.QIcon()
 
@@ -135,15 +119,10 @@ class ScanHistoryDialog(qt.QDialog):
 
         scans = scan_history.get_all_scans(sessionName)
         for scan in scans:
-            if scan.title is not None:
-                scanType = scan.title.split(" ")[0]
-            else:
-                scanType = ""
-
             idItem = qt.QStandardItem()
             idItem.setData(scan.scan_nb, role=qt.Qt.DisplayRole)
             idItem.setData(scan.node_name, role=self.NodeNameRole)
-            idItem.setData(scanType, self.ScanTypeRole)
+            idItem.setData(scan.scan_type, self.ScanTypeRole)
 
             dateItem = qt.QStandardItem()
             dateItem.setData(scan.start_time, role=qt.Qt.DisplayRole)

@@ -26,6 +26,7 @@ class ScanDesc(typing.NamedTuple):
     node_name: str
     start_time: object
     scan_nb: int
+    scan_type: str
     title: str
 
 
@@ -38,14 +39,27 @@ def get_all_scans(session_name: str) -> typing.List[ScanDesc]:
         scans = get_scans(current_session.name)
         print(scans[0].node_name)
     """
+
+    def read_safe_key(info, node_name, key, default):
+        try:
+            return info[key]
+        except Exception:
+            _logger.debug("Backtrace", exc_info=True)
+            _logger.warning("%s from scan %s can't be read", key, node_name)
+            return default
+
     session_node = get_session_node(session_name)
     for scan in session_node.iterator.walk(wait=False, filter="scan"):
-        info = scan.info
-        node_name = info["node_name"]
-        start_time = info["start_time"]
-        scan_nb = info["scan_nb"]
-        title = info["title"]
-        yield ScanDesc(node_name, start_time, scan_nb, title)
+        try:
+            info = scan.info
+            node_name = info["node_name"]
+            start_time = read_safe_key(info, node_name, "start_time", None)
+            scan_nb = read_safe_key(info, node_name, "scan_nb", None)
+            scan_type = read_safe_key(info, node_name, "type", None)
+            title = read_safe_key(info, node_name, "title", None)
+            yield ScanDesc(node_name, start_time, scan_nb, scan_type, title)
+        except Exception:
+            _logger.error("Error while reading a scan from the history")
 
 
 def get_scan_info(scan_node_name: str) -> typing.Dict:

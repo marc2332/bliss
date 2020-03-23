@@ -469,36 +469,16 @@ class ScanManager:
             if len(self.__cache) == 0:
                 self._end_scan_event.set()
 
-    _DEFAULT_SCANS = set(
-        [
-            "timescan",
-            "loopscan",
-            "lookupscan",
-            "pointscan",
-            "ascan",
-            "a2scan",
-            "a3scan",
-            "a4scan",
-            "anscan",
-            "dscan",
-            "d2scan",
-            "d3scan",
-            "d4scan",
-            "dnscan",
-            "amesh",
-            "dmesh",
-        ]
-    )
-    """Scans know to only provide data of the same size"""
-
     def _end_scan(self, cache: _ScanCache):
         # Make sure all the previous data was processed
         # Cause it can be processed by another greenlet
         self._end_data_process_event.wait()
         scan = cache.scan
 
-        scan_type = scan.scanInfo().get("type", None)
-        default_scan = scan_type in self._DEFAULT_SCANS
+        scan_info_helper.get_scan_category(scan_info=scan.scanInfo())
+        scan_category = scan.scanInfo().get("type", None)
+        # If not None, that's default scans known to have aligned data
+        default_scan = scan_category is not None
         push_non_aligned_data = not default_scan
 
         def is_same_data(array1: numpy.array, data2: scan_model.Data):

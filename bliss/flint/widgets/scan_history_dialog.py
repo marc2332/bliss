@@ -64,6 +64,32 @@ class _TimeDelegate(qt.QStyledItemDelegate):
         return value.strftime("%H:%M")
 
 
+class _FilterScanModel(qt.QSortFilterProxyModel):
+    """Filter scan history models."""
+
+    def __init__(self, parent=None):
+        qt.QSortFilterProxyModel.__init__(self, parent)
+        self.__point = False
+        self.__nscan = True
+        self.__mesh = True
+        self.__others = True
+
+    def filterAcceptsRow(self, source_row: int, source_parent: qt.QModelIndex):
+        sourceModel = self.sourceModel()
+        index = sourceModel.index(source_row, 0, source_parent)
+        if not index.isValid():
+            return True
+        scanType = sourceModel.data(index, role=ScanHistoryDialog.ScanTypeRole)
+        category = scan_info_helper.get_scan_category(scan_type=scanType)
+        if category == "point":
+            return self.__point
+        elif category == "nscan":
+            return self.__nscan
+        elif category == "mesh":
+            return self.__mesh
+        return self.__others
+
+
 class ScanHistoryDialog(qt.QDialog):
 
     NodeNameRole = qt.Qt.UserRole + 1
@@ -77,9 +103,6 @@ class ScanHistoryDialog(qt.QDialog):
         self.__table.setSelectionBehavior(qt.QAbstractItemView.SelectRows)
         self.__table.setSelectionMode(qt.QAbstractItemView.SingleSelection)
         self.__table.setEditTriggers(qt.QAbstractItemView.NoEditTriggers)
-        model = qt.QStandardItemModel(self)
-        self.__table.setModel(model)
-        model = self.__table.model()
 
         self.__buttons = qt.QDialogButtonBox(self)
         self.__buttons.accepted.connect(self.accept)
@@ -96,7 +119,11 @@ class ScanHistoryDialog(qt.QDialog):
         self.__loadScans(sessionName)
 
     def __loadScans(self, sessionName: str):
-        model = self.__table.model()
+        model = qt.QStandardItemModel(self)
+        modelFilter = _FilterScanModel(self)
+        modelFilter.setSourceModel(model)
+        self.__table.setModel(modelFilter)
+
         model.clear()
         model.setHorizontalHeaderLabels(["ID", "Date", "Time", "Command"])
 
@@ -122,7 +149,7 @@ class ScanHistoryDialog(qt.QDialog):
             idItem = qt.QStandardItem()
             idItem.setData(scan.scan_nb, role=qt.Qt.DisplayRole)
             idItem.setData(scan.node_name, role=self.NodeNameRole)
-            idItem.setData(scan.scan_type, self.ScanTypeRole)
+            idItem.setData(scan.scan_type, role=self.ScanTypeRole)
 
             dateItem = qt.QStandardItem()
             dateItem.setData(scan.start_time, role=qt.Qt.DisplayRole)
@@ -136,7 +163,7 @@ class ScanHistoryDialog(qt.QDialog):
             model.appendRow([idItem, dateItem, timeItem, commandItem])
 
         # Select the last scan
-        lastRow = model.rowCount() - 1
+        lastRow = modelFilter.rowCount() - 1
         self.__table.selectRow(lastRow)
 
     def selectedScanNodeNames(self) -> List[str]:

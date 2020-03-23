@@ -24,9 +24,6 @@ from bliss.config.channels import Cache, Channel
 from bliss.config import settings
 from gevent import lock
 
-# make the link between encoder and axis, if axis uses an encoder
-# (only 1 encoder per axis of course)
-
 
 # apply settings or config parameters
 def get_setting_or_config_value(axis, name):
@@ -201,6 +198,16 @@ class Controller:
         props = dict(
             inspect.getmembers(axis.__class__, lambda o: isinstance(o, property))
         )
+
+        sign = get_setting_or_config_value(axis, "sign")
+        if sign is None or axis.no_offset:
+            sign = 1
+        axis.settings.set("sign", sign)
+
+        offset = get_setting_or_config_value(axis, "offset")
+        if offset is None or axis.no_offset:
+            offset = 0
+        axis.settings.set("offset", offset)
 
         for setting_name in axis.settings.config_settings():
             # check if setting is in config

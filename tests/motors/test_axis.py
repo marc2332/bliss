@@ -670,6 +670,27 @@ def test_no_offset(roby):
         roby.no_offset = False
 
 
+def test_offset_property(roby):
+    roby.move(1)
+
+    roby.offset = -1
+
+    assert roby.position == 0
+    assert roby.dial == 1
+    dll, dhl = roby.dial_limits
+    assert roby.limits == (dll - 1, dhl - 1)
+
+
+def test_sign_property(roby):
+    roby.move(1)
+
+    roby.sign = -1
+
+    assert roby.position == -1
+    dll, dhl = roby.dial_limits
+    assert roby.limits == (-dll, -dhl)
+
+
 def test_settings_to_config(roby):
     roby.velocity = 3
     roby.acceleration = 10
@@ -729,7 +750,7 @@ def test_jog(robz):
     robz.jog(300, reset_position=Modulo())
     time.sleep(t)
     robz.stop()
-    assert robz.position == pytest.approx(90, 0.1)
+    assert robz.dial == pytest.approx(90, 0.1)
 
 
 def test_jog2(jogger):

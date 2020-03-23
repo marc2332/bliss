@@ -41,6 +41,7 @@ from bliss.common.utils import rounder
 import gevent
 import re
 import sys
+import math
 import functools
 import numpy
 from unittest import mock
@@ -317,7 +318,7 @@ class Modulo:
 
     def __call__(self, axis):
         dial_pos = axis.dial
-        axis._Axis__do_set_dial(dial_pos % self.modulo, True)
+        axis._Axis__do_set_dial(dial_pos % self.modulo)
 
 
 class Motion:
@@ -628,18 +629,8 @@ class Axis:
         """
         return not self.__move_done.is_set()
 
-    @property
-    def offset(self):
-        """Current offset in user units (:obj:`float`)"""
-        offset = self.settings.get("offset")
-        if offset is None:
-            offset = 0
-            self.settings.set("offset", 0)
-        return offset
-
     def __init_properties_from_config(self):
         self.__backlash = self.config.get("backlash", float, 0)
-        self.__sign = self.config.get("sign", int, 1)
         self.__steps_per_unit = self.config.get("steps_per_unit", float, 1)
         self.__tolerance = self.config.get("tolerance", float, 1e-4)
         self.__low_limit = self.config.get("low_limit", float, float("-inf"))
@@ -650,19 +641,14 @@ class Axis:
             self.__acceleration = self.config.get("acceleration", float)
 
     @property
-    def backlash(self):
-        """Current backlash in user units (:obj:`float`)"""
-        return self.__backlash
-
-    @property
-    def sign(self):
-        """Current motor sign (:obj:`int`) [-1, 1]"""
-        return self.__sign
-
-    @property
     def steps_per_unit(self):
         """Current steps per unit (:obj:`float`)"""
         return self.__steps_per_unit
+
+    @property
+    def backlash(self):
+        """Current backlash in user units (:obj:`float`)"""
+        return self.__backlash
 
     @property
     def tolerance(self):
@@ -681,6 +667,48 @@ class Axis:
     def motion_hooks(self):
         """Registered motion hooks (:obj:`MotionHook`)"""
         return self.__motion_hooks
+
+    @property
+    @lazy_init
+    def offset(self):
+        """Current offset in user units (:obj:`float`)"""
+        offset = self.settings.get("offset")
+        if offset is None:
+            return 0
+        return offset
+
+    @offset.setter
+    def offset(self, new_offset):
+        if self.no_offset:
+            raise RuntimeError(
+                f"{self.name}: cannot change offset, axis has 'no offset' flag"
+            )
+        self.__do_set_position(offset=new_offset)
+
+    @property
+    @lazy_init
+    def sign(self):
+        """Current motor sign (:obj:`int`) [-1, 1]"""
+        sign = self.settings.get("sign")
+        if sign is None:
+            return 1
+        return sign
+
+    @sign.setter
+    def sign(self, new_sign):
+        new_sign = float(
+            new_sign
+        )  # works both with single float or numpy array of 1 element
+        new_sign = math.copysign(1, new_sign)
+        if new_sign != self.sign:
+            if self.no_offset:
+                raise RuntimeError(
+                    f"{self.name}: cannot change sign, axis has 'no offset' flag"
+                )
+            self.settings.set("sign", new_sign)
+            # update pos with new sign, offset stays the same
+            # user pos is **not preserved** (like spec)
+            self.position = self.dial2user(self.dial)
 
     def set_setting(self, *args):
         """Sets the given settings"""
@@ -770,30 +798,24 @@ class Axis:
         else:
             raise RuntimeError("Axis '%s` has no encoder." % self.name)
 
-    def __do_set_dial(self, new_dial, no_offset):
+    def __do_set_dial(self, new_dial):
         user_pos = self.position
         old_dial = self.dial
 
-        try:
-            # Send the new value in motor units to the controller
-            # and read back the (atomically) reported position
-            new_hw = new_dial * self.steps_per_unit
-            hw_pos = self.__controller.set_position(self, new_hw)
-            dial_pos = hw_pos / self.steps_per_unit
-            self.settings.set("dial_position", dial_pos)
-        except NotImplementedError:
-            dial_pos = self._update_dial(update_user=False)
+        # Send the new value in motor units to the controller
+        # and read back the (atomically) reported position
+        new_hw = new_dial * self.steps_per_unit
+        hw_pos = self.__controller.set_position(self, new_hw)
 
-        # update user_pos or offset setting
-        if no_offset:
-            user_pos = dial_pos
+        dial_pos = hw_pos / self.steps_per_unit
+        self.settings.set("dial_position", dial_pos)
 
-        with lprint_disable():
-            self._set_position_and_offset(user_pos)
-
-        lprint(
-            f"Resetting '{self.name}` dial position from {old_dial} to {new_dial} (new offset: {self.offset})"
-        )
+        if self.no_offset:
+            self.__do_set_position(dial_pos, offset=0)
+        else:
+            # set user pos, will recalculate offset
+            # according to new dial
+            self.__do_set_position(user_pos)
 
         return dial_pos
 
@@ -819,13 +841,26 @@ class Axis:
                 "%s: can't set axis dial position " "while moving" % self.name
             )
         new_dial = float(new_dial)  # accepts both float or numpy array of 1 element
-        return self.__do_set_dial(new_dial, no_offset=self.no_offset)
+        old_dial = self.dial
+        new_dial = self.__do_set_dial(new_dial)
+        lprint(f"'{self.name}` dial position reset from {old_dial} to {new_dial}")
 
-    def __do_set_position(self, new_pos, no_offset):
-        if no_offset:
-            return self.__do_set_dial(new_pos, no_offset)
-        else:
-            return self._set_position_and_offset(new_pos)
+    def __do_set_position(self, new_pos=None, offset=None):
+        dial = self.dial
+        curr_offset = self.offset
+        if offset is None:
+            # calc offset
+            offset = new_pos - self.sign * dial
+        if math.isclose(offset, 0):
+            offset = 0
+        if not math.isclose(curr_offset, offset):
+            self.settings.set("offset", offset)
+        if new_pos is None:
+            # calc pos from offset
+            new_pos = self.sign * dial + offset
+        self.settings.set("position", new_pos)
+        self._set_position = new_pos
+        return True
 
     @property
     @lazy_init
@@ -850,7 +885,13 @@ class Axis:
                 "%s: can't set axis user position " "while moving" % self.name
             )
         new_pos = float(new_pos)  # accepts both float or numpy array of 1 element
-        self.__do_set_position(new_pos, self.no_offset)
+        curr_pos = self.position
+        if self.no_offset:
+            self.dial = new_pos
+        if self.__do_set_position(new_pos):
+            lprint(
+                f"'{self.name}` position reset from {curr_pos} to {new_pos} (sign: {self.sign}, offset: {self.offset})"
+            )
 
     @lazy_init
     def _update_dial(self, update_user=True):
@@ -871,22 +912,6 @@ class Axis:
             # (e.g like some piezo controllers)
             curr_pos = 0
         return curr_pos
-
-    def _set_position_and_offset(self, new_pos):
-        curr_pos = self.position
-        dial_pos = self.dial
-        prev_offset = self.offset
-        new_offset = new_pos - self.sign * dial_pos
-        if math.isclose(new_offset, 0):
-            new_offset = 0
-        if new_offset != prev_offset or curr_pos != new_pos:
-            lprint(
-                f"Resetting '{self.name}` position from {curr_pos} to {new_pos} (sign: {self.sign}, offset: {new_offset})"
-            )
-        self._set_position = new_pos
-        self.settings.set("offset", new_offset)
-        self.settings.set("position", new_pos)
-        return new_pos
 
     @property
     @lazy_init
@@ -1534,7 +1559,7 @@ class Axis:
         if reset_position is None:
             self.settings.clear("_set_position")
         elif reset_position == 0:
-            self.__do_set_dial(0, True)
+            self.__do_set_dial(0)
         elif callable(reset_position):
             reset_position(self)
 
@@ -1731,6 +1756,7 @@ class Axis:
         self.controller.axis_settings._clear(self, "acceleration")
         self.controller.axis_settings._clear(self, "low_limit")
         self.controller.axis_settings._clear(self, "high_limit")
+        self.controller.axis_settings._clear(self, "sign")
 
         self.controller._init_settings(self)
 

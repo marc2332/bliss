@@ -209,6 +209,10 @@ class Controller:
             offset = 0
         axis.settings.set("offset", offset)
 
+        low_limit_dial = get_setting_or_config_value(axis, "low_limit")
+        high_limit_dial = get_setting_or_config_value(axis, "high_limit")
+        axis.dial_limits = low_limit_dial, high_limit_dial
+
         for setting_name in axis.settings.config_settings():
             # check if setting is in config
             if axis.config.get(setting_name) is None:
@@ -248,10 +252,6 @@ class Controller:
             else:
                 value = get_setting_or_config_value(axis, setting_name)
                 setattr(axis, setting_name, value)
-
-        low_limit_dial = get_setting_or_config_value(axis, "low_limit")
-        high_limit_dial = get_setting_or_config_value(axis, "high_limit")
-        axis.limits = axis.dial2user(low_limit_dial), axis.dial2user(high_limit_dial)
 
     def get_axis(self, axis_name):
         axis = self._axes.get(axis_name)

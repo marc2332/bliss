@@ -5,6 +5,7 @@
 # Copyright (c) 2015-2020 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
+import math
 import numpy
 import inspect
 import functools
@@ -232,23 +233,28 @@ class Controller:
 
         for setting_name in axis.settings.config_settings():
             if setting_name == "steps_per_unit":
-                """
-                ???
-                """
                 cval = float(axis.config.get(setting_name))
                 rval = axis.settings.get(setting_name)
 
-                if (cval != rval) and (rval is not None):
+                if (cval != rval) and rval is not None:
                     ratio = rval / cval
-                    newdial = axis.dial * ratio
-                    newpos = axis.sign * newdial + axis.offset
-                    newsetpos = ratio * (axis._set_position - axis.offset) + axis.offset
+                    new_dial = axis.dial * ratio
 
-                    axis.settings.set("dial_position", newdial)
-                    axis.settings.set("position", newpos)
-                    axis.settings.set("_set_position", newsetpos)
                     axis.settings.set("steps_per_unit", cval)
+                    if not axis.no_offset:
+                        # calculate offset so user pos stays the same
+                        axis.settings.set(
+                            "offset", axis.position - axis.sign * new_dial
+                        )
+                    else:
+                        axis.settings.set("offset", 0)
+                    axis.settings.set("dial_position", new_dial)
 
+                    if math.copysign(rval, cval) != rval:
+                        ll = axis.settings.get("low_limit")
+                        hl = axis.settings.get("high_limit")
+                        axis.settings.set("low_limit", -hl)
+                        axis.settings.set("high_limit", -ll)
             else:
                 value = get_setting_or_config_value(axis, setting_name)
                 setattr(axis, setting_name, value)

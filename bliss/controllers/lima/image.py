@@ -6,7 +6,7 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import textwrap
-
+from numpy import ndarray
 from .roi import Roi
 from .properties import LimaProperty, LimaAttrGetterSetter
 from bliss.common.counter import Counter
@@ -19,10 +19,23 @@ class LimaImageParameters(BeaconObject):
         self._proxy = proxy
         super().__init__(config, name=name, share_hardware=False, path=["image"])
 
+    binning = BeaconObject.property_setting("binning", default=[1, 1])
+
+    @binning.setter
+    def binning(self, value):
+        if isinstance(value, ndarray):
+            value = [int(value[0]), int(value[1])]
+        assert isinstance(value, list)
+        assert len(value) == 2
+        assert isinstance(value[0], int) and isinstance(value[1], int)
+        return value
+
     flip = BeaconObject.property_setting("flip", default=[False, False])
 
     @flip.setter
     def flip(self, value):
+        if isinstance(value, ndarray):
+            value = [bool(value[0]), bool(value[1])]
         assert isinstance(value, list)
         assert len(value) == 2
         assert isinstance(value[0], bool) and isinstance(value[1], bool)
@@ -67,7 +80,15 @@ class LimaImageParameters(BeaconObject):
             "image_rotation": self.rotation,
             "image_flip": self.flip,
             "image_roi": self._roi,
+            "image_bin": self.binning,
         }
+
+    def sync(self):
+        """applies all image parameters from the tango server to bliss"""
+        self.rotation = self._proxy.image_rotation
+        self.flip = self._proxy.image_flip
+        self.roi = self._proxy.image_roi
+        self.binning = self._proxy.image_bin
 
 
 class ImageCounter(Counter):
@@ -95,7 +116,7 @@ class ImageCounter(Counter):
             f"""       flip:     {self.flip}
        rotation: {self.rotation}
        roi:      {self.roi}
-       binning:  {self.bin}
+       binning:  {self.binning}
        height:   {self.height}
        width:    {self.width}
        type:     {self.type}"""
@@ -140,3 +161,23 @@ class ImageCounter(Counter):
     @roi.setter
     def roi(self, value):
         self._counter_controller._image_params.roi = value
+
+    @property
+    def binning(self):
+        return self._counter_controller._image_params.binning
+
+    @binning.setter
+    def binning(self, value):
+        self._counter_controller._image_params.binning = value
+
+    @property
+    def bin(self):
+        return self._counter_controller._image_params.binning
+
+    @bin.setter
+    def bin(self, value):
+        self._counter_controller._image_params.binning = value
+
+    def sync(self):
+        """applies all image parameters from the tango server to bliss"""
+        return self._counter_controller._image_params.sync()

@@ -516,6 +516,13 @@ class Lima(CounterController):
 
         return params
 
+    @property
+    def _lima_hash(self):
+        """
+        returns a string that is used to describe the tango device state
+        """
+        return f"{self._proxy.image_sizes}{self._proxy.image_roi}{self._proxy.image_flip}{self._proxy.image_bin}{self._proxy.image_rotation}"
+
     def apply_parameters(self, ctrl_params):
         def needs_update(key, value):
             if key not in self._cached_ctrl_params:
@@ -533,8 +540,9 @@ class Lima(CounterController):
             Database().get_device_info(self.__tg_url).started_date,
         )
         last_session_used = needs_update("last_session_used", str(current_session.name))
+        lima_hash_different = Cache(self, "lima_hash").value != self._lima_hash
 
-        update_all = server_start_timestamp or last_session_used
+        update_all = server_start_timestamp or last_session_used or lima_hash_different
         if update_all:
             log_debug(self, "All parameters will be refeshed on %s", self.name)
 
@@ -636,6 +644,9 @@ class Lima(CounterController):
             if needs_update(key, value) or update_all:
                 log_debug(self, "updating %s on %s to %s", key, self.name, value)
                 setattr(self.proxy, key, value)
+
+        # update lima_hash with last set of parameters
+        Cache(self, "lima_hash").value = self._lima_hash
 
     def get_current_parameters(self):
         return {

@@ -166,6 +166,18 @@ class ScanHistoryDialog(qt.QDialog):
         lastRow = modelFilter.rowCount() - 1
         self.__table.selectRow(lastRow)
 
+        self.__adjustWidthToContents(self.__table)
+
+    def __adjustWidthToContents(self, view: qt.QTableView):
+        scrollBarWidth = view.verticalScrollBar().width()
+        headerWidth = view.verticalHeader().width()
+        totalWidth = 0
+        for i in range(view.horizontalHeader().count()):
+            if not view.horizontalHeader().isSectionHidden(i):
+                totalWidth += view.horizontalHeader().sectionSize(i)
+        view.setMinimumWidth(headerWidth + totalWidth + scrollBarWidth)
+        self.adjustSize()
+
     def selectedScanNodeNames(self) -> List[str]:
         selection = self.__table.selectedIndexes()
         result = []

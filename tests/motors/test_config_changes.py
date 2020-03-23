@@ -153,3 +153,35 @@ def test_apply_config_sign_changed(robz):
 
     # make sure position has been updated according to new sign.
     assert robz.position == -0.1
+
+
+def test_issue_1520(robz):
+    # let's use the same numbers as Frederico
+    ypipe = robz
+    ypipe.dial = 72.4366
+    ypipe.position = 0
+    ypipe.limits = -127.4366, 267.5634
+    assert ypipe.dial_limits == (-55, 340)
+    assert ypipe.offset == -72.4366
+
+    ypipe.settings_to_config(limits=True)  # save desired limits to config
+    # change sign of spu for ypipe in config
+    ypipe.config.set("steps_per_unit", -ypipe.steps_per_unit)
+    ypipe.config.save()
+
+    ypipe.apply_config(reload=True)
+
+    assert ypipe.position == 0
+    assert ypipe.offset == 72.4366  # offset has been changed to keep user pos the same
+    assert ypipe.dial_limits == (-340, 55)  # limits swapped and changed of sign
+
+    # set "real" position from ruler (dial) and set user position to 0
+    ypipe.dial = 58
+    ypipe.dial_limits = 0, 400
+    ypipe.position = 0
+
+    assert ypipe.position == 0
+    assert ypipe.offset == -58
+    assert ypipe.dial == 58
+    assert ypipe.dial_limits == (0, 400)
+    assert ypipe.limits == (-58, 342)

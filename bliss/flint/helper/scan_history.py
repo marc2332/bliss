@@ -143,9 +143,34 @@ def create_scan(scan_node_name: str) -> scan_model.Scan:
     scan_info = get_scan_info(scan_node_name)
     scan = scan_info_helper.create_scan_model(scan_info)
 
+    channels = list(scan_info_helper.iter_channels(scan_info))
+    channel_names = set([c.name for c in channels if c.kind == "scalar"])
+
     redis_data = get_data_from_redis(scan_node_name, scan_info)
     for channel_name, array in redis_data.items():
         data = scan_model.Data(parent=None, array=array)
         channel = scan.getChannelByName(channel_name)
         channel.setData(data)
+        channel_names.discard(channel_name)
+
+    if len(channel_names) > 0:
+        try:
+            hdf5_data = get_data_from_file(scan_node_name, scan_info)
+            for channel_name, array in hdf5_data.items():
+                if channel_name not in channel_names:
+                    continue
+                data = scan_model.Data(parent=None, array=array)
+                channel = scan.getChannelByName(channel_name)
+                channel.setData(data)
+                channel_names.discard(channel_name)
+        except:
+            _logger.debug("Error while reading data from HDF5", exc_info=True)
+            _logger.error(
+                "Impossible to read scan data '%s' from HDF5 files", scan_node_name
+            )
+
+    if len(channel_names) > 0:
+        names = ", ".join(channel_names)
+        _logger.error("Few channel data was not read '%s'", names)
+
     return scan

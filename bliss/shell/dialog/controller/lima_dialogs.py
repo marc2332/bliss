@@ -12,6 +12,8 @@ from bliss.shell.cli.user_dialog import (
     UserChoice,
     Container,
     UserMsg,
+    Validator,
+    UserInput,
 )
 
 from bliss.shell.cli.pt_widgets import display, BlissDialog
@@ -101,49 +103,241 @@ def lima_processing_dialog(lima_controller):
         lima_controller.processing.background = ans[dlg6]
 
 
+def validate_binning(dlg_input):
+    binning = int(dlg_input)
+    if binning < 1:
+        raise ValueError("Binng factor must be > 1!")
+
+    return binning
+
+
+def validate_roi(str_input, max_value):
+    roi_coord = int(str_input)
+
+    if roi_coord < 0:
+        raise ValueError("ROI coordinates must be >= 0")
+
+    if roi_coord > max_value:
+        raise ValueError("ROI coordinate exceeds image size!")
+
+
 def lima_image_dialog(lima_controller):
 
     rot_dict = {"NONE": 0, "90": 1, "180": 2, "270": 3}
 
-    dlg1 = UserCheckBox(
+    dlg_flip_x = UserCheckBox(
         label="Flip over X axis", defval=lima_controller._image_params.flip[0]
     )
-    dlg2 = UserCheckBox(
+    dlg_flip_y = UserCheckBox(
         label="Flip over Y axis", defval=lima_controller._image_params.flip[1]
     )
-    dlg3 = UserChoice(
-        values=[("None", "0"), ("90", "90"), ("180", "180"), ("270", "270")],
+
+    dlg_bin_x = UserInput(
+        label="Binning X axis",
+        defval=lima_controller._image_params.binning[0],
+        validator=Validator(validate_binning),
+    )
+    dlg_bin_y = UserInput(
+        label="Binning Y axis",
+        defval=lima_controller._image_params.binning[1],
+        validator=Validator(validate_binning),
+    )
+
+    dlg_rot = UserChoice(
+        values=[("0", "None"), ("90", "90"), ("180", "180"), ("270", "270")],
         defval=rot_dict[lima_controller._image_params.rotation],
     )
 
-    dlg_roi_x = UserIntInput(
-        label="x:      ", defval=lima_controller._image_params._roi[0]
-    )
-    dlg_roi_y = UserIntInput(
-        label="y:      ", defval=lima_controller._image_params._roi[1]
-    )
-    dlg_roi_width = UserIntInput(
-        label="width:  ", defval=lima_controller._image_params._roi[2]
-    )
-    dlg_roi_height = UserIntInput(
-        label="height: ", defval=lima_controller._image_params._roi[3]
-    )
+    ct1 = Container([dlg_flip_x, dlg_flip_y], title="Flipping:")
+    ct2 = Container([dlg_rot], title="Rotation:")
+    ct3 = Container([dlg_bin_x, dlg_bin_y], title="Binning:")
 
-    ct1 = Container([dlg1, dlg2], title="Flipping:")
-    ct2 = Container([dlg3], title="Rotation:")
+    # ROI handling
 
-    ct3 = Container([dlg_roi_x, dlg_roi_y, dlg_roi_width, dlg_roi_height], title="Roi:")
+    if (
+        lima_controller._image_params.roi.width == 0
+        and lima_controller._image_params.roi.height == 0
+    ) or (
+        lima_controller._image_params.roi.width == lima_controller.image.width
+        and lima_controller._image_params.roi.height == lima_controller.image.height
+    ):
+        no_roi = True
+        dlg_roi = UserChoice(
+            values=[
+                ("none", "No ROI"),
+                ("center", "Add centered ROI"),
+                ("free", "Add free ROI"),
+            ],
+            defval=0,
+        )
+        ct4 = Container([dlg_roi], title="Roi:")
+    else:
+        no_roi = False
+        dlg_last_roi = UserMsg(label=f"Actual ROI: {lima_controller._image_params.roi}")
+        dlg_roi = UserChoice(
+            values=[
+                ("none", "Remove ROI"),
+                ("center", "Modify centered ROI"),
+                ("free", "Modify free ROI"),
+            ],
+            defval=0,
+        )
+        ct4 = Container([dlg_last_roi, dlg_roi], title="Roi:")
 
     ans = BlissDialog(
-        [[ct1, ct2], [ct3]], title=f"{lima_controller.name}: Image options"
+        [[ct1, ct2], [ct3], [ct4]], title=f"{lima_controller.name}: Image options"
     ).show()
 
     if ans:
-        lima_controller._image_params.flip = [ans[dlg1], ans[dlg2]]
-        lima_controller._image_params.rotation = ans[dlg3]
-        lima_controller._image_params._roi = [
-            ans[dlg_roi_x],
-            ans[dlg_roi_y],
-            ans[dlg_roi_width],
-            ans[dlg_roi_height],
+        lima_controller._image_params.flip = [ans[dlg_flip_x], ans[dlg_flip_y]]
+
+        # if the binning has changed, remove the current ROI. Cannot adapt ROI because the image sizes are not adapted!
+        new_binning = [int(ans[dlg_bin_x]), int(ans[dlg_bin_y])]
+        if new_binning != lima_controller._image_params.binning:
+            lima_controller._image_params._roi = [0, 0, 0, 0]
+
+        lima_controller._image_params.binning = [
+            int(ans[dlg_bin_x]),
+            int(ans[dlg_bin_y]),
         ]
+        lima_controller._image_params.rotation = int(ans[dlg_rot])
+
+        # treat ROI request
+        if ans[dlg_roi] == "none":
+            lima_controller._image_params._roi = [0, 0, 0, 0]
+        else:
+            if ans[dlg_roi] == "center":
+                centered_roi(lima_controller)
+            else:
+                width = lima_controller.image.width
+                height = lima_controller.image.height
+                dlg_msg = UserMsg(label=f"Image size ({width}x{height})")
+                dlg_roi_x = UserInput(
+                    label="Start X position",
+                    defval=lima_controller._image_params._roi[0],
+                    validator=Validator(validate_roi, width),
+                )
+                dlg_roi_y = UserInput(
+                    label="Start Y position",
+                    defval=lima_controller._image_params._roi[1],
+                    validator=Validator(validate_roi, height),
+                )
+                dlg_roi_width = UserInput(
+                    label="Width           ",
+                    defval=lima_controller._image_params._roi[2],
+                    validator=Validator(validate_roi, width),
+                )
+                dlg_roi_height = UserInput(
+                    label="Height          ",
+                    defval=lima_controller._image_params._roi[3],
+                    validator=Validator(validate_roi, height),
+                )
+
+                ct = Container(
+                    [dlg_msg, dlg_roi_x, dlg_roi_y, dlg_roi_width, dlg_roi_height],
+                    title="Free ROI",
+                )
+                ans = BlissDialog(
+                    [[ct]], title=f"{lima_controller.name}: Image options"
+                ).show()
+
+                if ans != False:
+                    lima_controller._image_params._roi = [
+                        int(ans[dlg_roi_x]),
+                        int(ans[dlg_roi_y]),
+                        int(ans[dlg_roi_width]),
+                        int(ans[dlg_roi_height]),
+                    ]
+
+
+def centered_roi(lima_controller):
+    width = lima_controller.image.width
+    height = lima_controller.image.height
+
+    dlg_msg_width = UserMsg(label=f"Full image width is {width}")
+    dlg_roi_width = UserInput(
+        label="ROI width?",
+        defval=lima_controller._image_params.roi.width,
+        validator=Validator(validate_roi, width),
+    )
+
+    dlg_msg_height = UserMsg(label=f"Full image height is {height}")
+    dlg_roi_height = UserInput(
+        label="ROI height?",
+        defval=lima_controller._image_params.roi.height,
+        validator=Validator(validate_roi, height),
+    )
+
+    ct = Container(
+        [dlg_msg_width, dlg_roi_width, dlg_msg_height, dlg_roi_height],
+        title="Centered ROI",
+    )
+
+    dlg_expert_mode = UserCheckBox(label="Advanced settings", defval=False)
+
+    ans = BlissDialog(
+        [[ct], [dlg_expert_mode]], title=f"{lima_controller.name}: Image options"
+    ).show()
+
+    if ans != False:
+        if ans[dlg_expert_mode]:
+            dlg_msg_width = UserMsg(label=f"Full image width is {width}")
+            dlg_roi_startX = UserInput(
+                label="X width starting point?",
+                defval=lima_controller._image_params.roi.p0[0],
+                validator=Validator(validate_roi, width),
+            )
+            dlg_roi_endX = UserInput(
+                label="X width ending point?",
+                defval=lima_controller._image_params.roi.p1[0],
+                validator=Validator(validate_roi, width),
+            )
+
+            dlg_msg_height = UserMsg(label=f"Full image height is {height}")
+            dlg_roi_startY = UserInput(
+                label="Y height starting point?",
+                defval=lima_controller._image_params.roi.p0[1],
+                validator=Validator(validate_roi, height),
+            )
+            dlg_roi_endY = UserInput(
+                label="Y height ending point?",
+                defval=lima_controller._image_params.roi.p1[1],
+                validator=Validator(validate_roi, height),
+            )
+
+            ct = Container(
+                [
+                    dlg_msg_width,
+                    dlg_roi_startX,
+                    dlg_roi_endX,
+                    dlg_msg_height,
+                    dlg_roi_startY,
+                    dlg_roi_endY,
+                ],
+                title="Centered ROI",
+            )
+            ans_exp = BlissDialog(
+                [[ct]], title=f"{lima_controller.name}: Image options"
+            ).show()
+
+            if ans_exp != False:
+                new_width = int(ans_exp[dlg_roi_endX]) - int(ans_exp[dlg_roi_startX])
+                new_height = int(ans_exp[dlg_roi_endY]) - int(ans_exp[dlg_roi_startY])
+                lima_controller._image_params._roi = [
+                    int(ans_exp[dlg_roi_startX]),
+                    int(ans_exp[dlg_roi_startY]),
+                    new_width,
+                    new_height,
+                ]
+
+        else:
+            roi_start_x = int(width / 2 - int(ans[dlg_roi_width]) / 2)
+
+            roi_start_y = int(height / 2 - int(ans[dlg_roi_height]) / 2)
+
+            lima_controller._image_params._roi = [
+                roi_start_x,
+                roi_start_y,
+                int(ans[dlg_roi_width]),
+                int(ans[dlg_roi_height]),
+            ]

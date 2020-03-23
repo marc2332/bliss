@@ -783,6 +783,38 @@ class Regul(object):
                 "plant/counters/counter_xtal_311_dz/offset(cnt)/Bias", value * 1000000
             )
 
+    def reset_xtal_drx(self, value):
+        corr_switch = self.get_signal(
+            "plant/counters/counter_xtal_111_drx/correction_switch"
+        )
+        signal = self.get_signal("plant/counters/counter_xtal_111_drx/Signal(cnt)")
+        offset = value * 1000000 + corr_switch - signal
+
+        self.set_param("plant/counters/counter_xtal_111_drx/offset(cnt)/Bias", offset)
+        # Added by Maxim to test the regulation on the xtal_311 interferometer set
+        corr_switch = self.get_signal(
+            "plant/counters/counter_xtal_311_drx/correction_switch"
+        )
+        signal = self.get_signal("plant/counters/counter_xtal_311_drx/Signal(cnt)")
+        offset = value * 1000000 + corr_switch - signal
+        self.set_param("plant/counters/counter_xtal_311_drx/offset(cnt)/Bias", offset)
+
+    def reset_xtal_dry(self, value):
+        corr_switch = self.get_signal(
+            "plant/counters/counter_xtal_111_dry/correction_switch"
+        )
+        signal = self.get_signal("plant/counters/counter_xtal_111_dry/Signal(cnt)")
+        offset = value * 1000000 + corr_switch - signal
+
+        self.set_param("plant/counters/counter_xtal_111_dry/offset(cnt)/Bias", offset)
+        # Added by Maxim to test the regulation on the xtal_311 interferometer set
+        corr_switch = self.get_signal(
+            "plant/counters/counter_xtal_311_dry/correction_switch"
+        )
+        signal = self.get_signal("plant/counters/counter_xtal_311_dry/Signal(cnt)")
+        offset = value * 1000000 + corr_switch - signal
+        self.set_param("plant/counters/counter_xtal_311_dry/offset(cnt)/Bias", offset)
+
     def state(self):
         loop_error = int(self.get_signal("Regulator/controler_error_status"))
         if loop_error:

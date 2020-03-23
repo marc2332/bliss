@@ -10,9 +10,11 @@ from typing import List
 
 import logging
 import datetime
+import gevent
 
 from silx.gui import qt
 from silx.gui import icons
+from silx.gui.widgets import WaitingPushButton
 from bliss.flint.helper import scan_history
 from bliss.flint.helper import scan_info_helper
 
@@ -95,6 +97,10 @@ class ScanHistoryDialog(qt.QDialog):
     NodeNameRole = qt.Qt.UserRole + 1
     ScanTypeRole = qt.Qt.UserRole + 2
 
+    __loadingSucceeded = qt.Signal(object)
+
+    __loadingFailed = qt.Signal(object)
+
     def __init__(self, parent=None):
         super(ScanHistoryDialog, self).__init__(parent=parent)
 
@@ -104,6 +110,14 @@ class ScanHistoryDialog(qt.QDialog):
         self.__table.setSelectionMode(qt.QAbstractItemView.SingleSelection)
         self.__table.setEditTriggers(qt.QAbstractItemView.NoEditTriggers)
 
+        self.__wait = WaitingPushButton.WaitingPushButton(self)
+        self.__wait.setText("Cancel")
+        self.__wait.clicked.connect(self.__abortTask)
+        self.__wait.setDisabledWhenWaiting(False)
+
+        self.__message = qt.QLabel(self)
+        self.__task = None
+
         self.__buttons = qt.QDialogButtonBox(self)
         self.__buttons.accepted.connect(self.accept)
         self.__buttons.rejected.connect(self.reject)
@@ -112,6 +126,8 @@ class ScanHistoryDialog(qt.QDialog):
 
         layout = qt.QVBoxLayout(self)
         layout.addWidget(self.__table)
+        layout.addWidget(self.__message)
+        layout.addWidget(self.__wait)
         layout.addWidget(self.__buttons)
 
     def setSessionName(self, sessionName: str):
@@ -119,6 +135,67 @@ class ScanHistoryDialog(qt.QDialog):
         self.__loadScans(sessionName)
 
     def __loadScans(self, sessionName: str):
+        self.__cancel.setVisible(False)
+        self.__select.setVisible(False)
+        self.__table.setVisible(False)
+        self.__message.setVisible(True)
+        self.__message.setText("Loading available scans...")
+        self.__wait.setVisible(True)
+        self.__wait.setWaiting(True)
+
+        self.__loadingSucceeded.connect(self.__displayScans)
+        self.__loadingFailed.connect(self.__displayError)
+
+        def load():
+            try:
+                scans = scan_history.get_all_scans(sessionName)
+                # Convert the iterator to a list
+                scans = list(scans)
+                self.__loadingSucceeded.emit(scans)
+            except gevent.GreenletExit as e:
+                self.__loadingFailed.emit(e)
+
+        def exception_orrured(future_exception):
+            try:
+                future_exception.get()
+            except BaseException as e:
+                self.__loadingFailed.emit(e)
+                return
+            self.__loadingFailed.emit(None)
+
+        self.__task = gevent.spawn(load)
+        self.__task.link_exception(exception_orrured)
+
+    def __abortTask(self):
+        if self.__task is None:
+            return
+        gevent.kill(self.__task)
+
+    def __cleanTask(self):
+        self.__wait.setWaiting(False)
+        self.__wait.setVisible(False)
+        self.__loadingSucceeded.disconnect(self.__displayScans)
+        self.__loadingFailed.disconnect(self.__displayError)
+        self.__task = None
+
+    def __displayError(self, error):
+        self.__cleanTask()
+        if isinstance(error, gevent.GreenletExit):
+            # NOTE: Do it later to avoid segfault
+            qt.QTimer.singleShot(10, self.reject)
+            return
+        _logger.debug("Error while loading the scans", exc_info=error)
+        self.__message.setVisible(True)
+        self.__message.setText("Read operation cancelled.")
+        self.__cancel.setVisible(True)
+
+    def __displayScans(self, scans: List[scan_history.ScanDesc]):
+        self.__cleanTask()
+        self.__message.setVisible(False)
+        self.__cancel.setVisible(True)
+        self.__select.setVisible(True)
+        self.__table.setVisible(True)
+
         model = qt.QStandardItemModel(self)
         modelFilter = _FilterScanModel(self)
         modelFilter.setSourceModel(model)
@@ -144,7 +221,6 @@ class ScanHistoryDialog(qt.QDialog):
         header.setSectionResizeMode(3, qt.QHeaderView.Stretch)
         header.setStretchLastSection(True)
 
-        scans = scan_history.get_all_scans(sessionName)
         for scan in scans:
             idItem = qt.QStandardItem()
             idItem.setData(scan.scan_nb, role=qt.Qt.DisplayRole)
@@ -165,6 +241,7 @@ class ScanHistoryDialog(qt.QDialog):
         # Select the last scan
         lastRow = modelFilter.rowCount() - 1
         self.__table.selectRow(lastRow)
+        self.__table.scrollToBottom()
 
         self.__adjustWidthToContents(self.__table)
 

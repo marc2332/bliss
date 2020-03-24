@@ -227,7 +227,6 @@ class ManageMainBehaviours(qt.QObject):
                     _logger.error("No compatible model")
                     plotModel = compatibleModel()
                     plotModel.setStyleStrategy(DefaultStyleStrategy(self.__flintModel))
-                    workspace.addPlot(plotModel)
 
             widget.setPlotModel(plotModel)
             workspace.addWidget(widget)
@@ -328,9 +327,6 @@ class ManageMainBehaviours(qt.QObject):
             ):
                 if plotModel.styleStrategy() is None:
                     plotModel.setStyleStrategy(DefaultStyleStrategy(self.__flintModel))
-                if previousWidgetPlot is not None:
-                    workspace.removePlot(previousWidgetPlot)
-                workspace.addPlot(plotModel)
                 widget.setPlotModel(plotModel)
 
             widget.setScan(scan)
@@ -350,7 +346,6 @@ class ManageMainBehaviours(qt.QObject):
             if plotModel.styleStrategy() is None:
                 plotModel.setStyleStrategy(DefaultStyleStrategy(flintModel))
             widget = self.__createWidgetFromPlot(window, plotModel)
-            workspace.addPlot(plotModel)
             if widget is None:
                 continue
 

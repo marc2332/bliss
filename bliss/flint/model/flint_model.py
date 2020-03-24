@@ -21,8 +21,6 @@ from bliss.flint.utils import qsettingsutils
 
 class Workspace(qt.QObject):
 
-    plotAdded = qt.Signal(object)
-    plotRemoved = qt.Signal(object)
     widgetAdded = qt.Signal(object)
     widgetRemoved = qt.Signal(object)
 
@@ -39,15 +37,14 @@ class Workspace(qt.QObject):
         self.__name = name
 
     def plots(self) -> List[plot_model.Plot]:
-        return list(self.__plots)
-
-    def addPlot(self, plot):
-        self.__plots.append(plot)
-        self.plotAdded.emit(plot)
-
-    def removePlot(self, plot):
-        self.__plots.remove(plot)
-        self.plotRemoved.emit(plot)
+        """Returns the plots hold by the plot widgets"""
+        plots = []
+        for widget in self.__widgets:
+            if hasattr(widget, "plotModel"):
+                plot = widget.plotModel()
+                if plot is not None:
+                    plots.append(plot)
+        return plots
 
     def widgets(self) -> List[qt.QWidget]:
         return list(self.__widgets)

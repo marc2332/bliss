@@ -59,7 +59,6 @@ def test_dumps_loads__workspace(with_plot, local_flint):
     widget = curve_plot.CurvePlotWidget()
     widget.setPlotModel(plot)
     workspace.addWidget(widget)
-    workspace.addPlot(plot)
 
     data = workspace_manager.WorkspaceData()
     data.setWorkspace(workspace, includePlots=with_plot)

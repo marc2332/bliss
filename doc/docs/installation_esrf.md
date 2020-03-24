@@ -1,40 +1,45 @@
 # Installing BLISS at ESRF
 
 At the ESRF, it is recommended to follow the Beamline Control Unit guidelines
-for software installation. In the case of BLISS, a special [deployment
-procedure](https://bliss.gitlab-pages.esrf.fr/ansible/index.html) using the
-Ansible tool has been put in place in order to ease the work on beamlines.
+for software installation. In the case of BLISS, a special [deployment procedure
+using the Ansible tool](https://bliss.gitlab-pages.esrf.fr/ansible/index.html)
+has been put in place in order to ease the work on beamlines.
 
 ## Updating BLISS installation
 
 To update BLISS on an ESRF installation:
 
-* #### release version (bliss)
+### release version (bliss)
 
 For the "release" version in the `bliss` Conda environement, update the conda package:
 
-    * `conda update --channel esrf-bcu bliss`
-    * or `conda install bliss=X.Y.Z`
+```
+conda update --channel esrf-bcu bliss
+```
+or
+```
+conda install bliss=X.Y.Z
+```
 
-* #### development version (bliss_dev)
+### development version (bliss_dev)
 
-For the development version, i.e in `bliss_dev` Conda environement:
+For the development version, i.e in the `bliss_dev` Conda environement:
 
-    * update bliss repository:
+* update bliss repository:
 
-        `cd local/bliss.git/`
+    `cd local/bliss.git/`
+    `git checkout master`
+    `git pull`
 
-        `git pull`
+* install up-to-date dependencies:
 
-    * install up-to-date dependencies:
+    `conda install --file ./requirements-conda.txt`
 
-        `conda install --file ./requirements-conda.txt`
+* **Exit and re-enter** into the conda environment to ensure using up-to-date modules.
 
-    * Exit and re-enter into the conda environment to ensure using up-to-date modules.
+* Pip-install BLISS by creating a link in the conda environment directory pointing to the git repository:
 
-    * Pip-install BLISS by creating a link in the conda environment directory pointing to the git repository:
-
-        `pip install --no-deps -e .`
+    `pip install --no-deps -e .`
 
 !!! note
 
@@ -91,17 +96,13 @@ been collected in future data files, do not forget to set the `instrument`
 field.
 
 Format is free, but it is a good idea to put "ESRF-" followed by the
-beamline or endstation name.
+beamline or endstation name. In capital letters.
 
-Majuscule ou pas  ???
-pas fait sur id10 / id22 : "beamline: id10"
-
-
-In file:`__init__.yml` located at beamline configuration root, add:
+Example, in file:`__init__.yml` located at beamline configuration root, add:
 
 ```yaml
     ...
-    instrument: esrf-id00a
+    instrument: ESRF-ID42A
     ...
 ```
 
@@ -116,10 +117,12 @@ installing this server.
     There must be **one Nexus writer device** per BLISS session. Do not
     forget to add a device when a new BLISS session is created.
 
+
+
 ### ESRF data policy
 
 The ESRF data policy allows users to access their data and electronic logbook at
-https://data.esrf.fr. Data is registered with [ICAT](https://data.esrf.fr) and
+https://data.esrf.fr Data is registered with [ICAT](https://data.esrf.fr) and
 the data written in [Nexus compliant](https://www.nexusformat.org/) HDF5 files
 in a specific directory structure.
 
@@ -139,7 +142,7 @@ configured to use ESRF data policy.
 
 These are referred to as the ICAT servers. They will inform the ICAT database
 about the collected datasets during an experiment and they allow BLISS to
-communicate with the electronic logbook.
+communicate with the **electronic logbook**.
 
 On a beamline there can be multiple `MetadataManager` servers, each serving a
 specific technique that needs a specific set of metadata parameters to be
@@ -186,18 +189,17 @@ beamline configuration.
       beamlineID: id00
 ```
 
-In the case of Jive:
 
 #### Using the traditional tango database
 
-The registration can be done by defining servers and devices properties in Jive
+The registration can be done by defining servers and devices properties in Jive.
 
 A kind way to proceed is:
 
 * to get templates files `manager.tango` and `experiment.tango`
-* to adapt templates files
-    - replace `idXX` by your bemaline name
-    - replace `session_WWZ` by the name of your session
+* to adapt templates files:
+    - replace `idXX` by bemaline name
+    - replace `session_WWZ` by the session name
 * to load templates in Jive
 * to create device for other sessions, just copy devices using Jive:
     - in **Server** tab
@@ -243,7 +245,7 @@ CLASS/MetaExperiment->queueURLs: bcu-mq-01.esrf.fr:61613,\
 
 
 
-##### MetaExperiment
+##### MetaExperiment server
 
 Class properties:
 
@@ -269,7 +271,7 @@ The devices have only one property to be adapted for the beamline:
 * `beamlineID`: `id00`
 
 
-##### MetadataManager
+##### MetadataManager server
 
 
 These properties are used to send messages to the [electronic
@@ -280,16 +282,13 @@ They are the same for all the beamlines.
 * `API_KEY`:`elogbook-be70ac55-fd08-4840-9b29-b73262958ca8`
     - security key to connect to elogbook
 * `icatplus_server`: `https://icatplus.esrf.fr`
-    - ???
 * `queueName`: "/queue/icatIngest"
-    - ???
 * `queueURLs`:
     - `bcu-mq-01.esrf.fr:61613`
     - `bcu-mq-02.esrf.fr:61613`
-        * ???
 
 ```
-Not in jive :???
+Not present in jive ???
  server: "icat.esrf.fr"
  port: 443
  username: reader
@@ -303,9 +302,8 @@ Devices:
 
 ![Metadata manager device properties](img/data_policy/jive_metadata_manager_props.jpg)
 
-
 !!! note
-    `MetadataManager` must be started before `MetaExperiment`.   ??? sure ?
+     `MetaExperiment` must be started **before** `MetadataManager`.
 
 Finally, data policy must be enabled in BLISS. This is done by adding a
 dedicated section in the BLISS configuration, either:
@@ -318,22 +316,15 @@ dedicated section in the BLISS configuration, either:
 The section that has to be added is:
 
 ```yaml
-    ...
-    scan_saving:
-        class: ESRFScanSaving
-        beamline: id00
-        tmp_data_root: /data/{beamline}/tmp
-        visitor_data_root: /data/visitor
-        inhouse_data_root: /data/{beamline}/inhouse
-    ...
+...
+scan_saving:
+    class: ESRFScanSaving
+    beamline: id00
+    tmp_data_root: /data/{beamline}/tmp
+    visitor_data_root: /data/visitor
+    inhouse_data_root: /data/{beamline}/inhouse
+...
 ```
-
-```
- ???
-    metadata_manager_tango_device: ???
-    metadata_experiment_tango_device: ???
-```
-
 
 
 !!! note

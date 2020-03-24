@@ -724,8 +724,10 @@ class ESRFScanSaving(BasicScanSaving):
     @property
     def scan_saving_config(self):
         session_config = current_session.config.get_config(current_session.name)
+        if session_config is None:
+            session_config = {}
         return session_config.get(
-            "scan_saving", session_config._config.root.get("scan_saving", {})
+            "scan_saving", current_session.config.root.get("scan_saving", {})
         )
 
     @property

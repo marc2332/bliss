@@ -87,8 +87,7 @@ class DeviceIterator:
         tasks = []
         # Check that it's still ok with the readingtask
         if hasattr(self.device, "wait_reading"):
-            with profile(stats_dict, self.device.name, "wait_reading"):
-                tasks.append(gevent.spawn(self.device.wait_reading))
+            tasks.append(gevent.spawn(self.device.wait_reading))
         with profile(stats_dict, self.device.name, "wait_ready"):
             tasks.append(gevent.spawn(self.device.wait_ready))
             try:
@@ -139,8 +138,7 @@ class DeviceIteratorWrapper:
         tasks = []
         # Check that it's still ok with the readingtask
         if hasattr(self.device, "wait_reading"):
-            with profile(stats_dict, self.device.name, "wait_reading"):
-                tasks.append(gevent.spawn(self.device.wait_reading))
+            tasks.append(gevent.spawn(self.device.wait_reading))
         with profile(stats_dict, self.device.name, "wait_ready"):
             tasks.append(gevent.spawn(self.device.wait_ready))
             try:

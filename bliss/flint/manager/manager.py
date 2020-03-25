@@ -17,6 +17,7 @@ from typing import ClassVar
 import tracemalloc
 import gevent.event
 from bliss.config.conductor.client import get_redis_proxy
+from bliss.config import get_sessions_list
 from bliss.flint import config
 
 import logging
@@ -200,12 +201,17 @@ class ManageMainBehaviours(qt.QObject):
             # FIXME: In case of a restart of bliss, is it safe?
             return False
 
+        sessions = get_sessions_list()
+        if sessionName not in list(sessions):
+            return False
+
         # Early update of the beacon logger if possible
         beaconLogHandler = self.__beaconLogHandler
         if beaconLogHandler is not None:
             beaconLogHandler.session = sessionName
 
         redis = flintModel.redisConnection()
+
         key = config.get_flint_key()
         current_value = redis.lindex(key, 0).decode()
         value = sessionName + " " + current_value.split()[-1]

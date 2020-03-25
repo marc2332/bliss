@@ -43,7 +43,7 @@ import weakref
 from bliss.common.counter import SamplingCounter, SamplingMode
 from bliss.common import tango
 from bliss import global_map
-from bliss.common.logtools import log_debug
+from bliss.common.logtools import log_debug, log_warning
 from bliss.config.static import Node
 
 from bliss.controllers.counter import SamplingCounterController
@@ -205,10 +205,18 @@ class tango_attr_as_counter(SamplingCounter):
         # DISPLAY_UNIT
         # Use 'display_unit' as conversion factor if present in Tango configuration.
         tango_display_unit = _tango_attr_config.display_unit
-        if tango_display_unit != "None" and tango_display_unit != "No display unit":
-            self.conversion_factor = float(tango_display_unit)
-        else:
-            self.conversion_factor = 1
+
+        try:
+            if tango_display_unit != "None" and tango_display_unit != "No display unit":
+                self.conversion_factor = float(tango_display_unit)
+            else:
+                self.conversion_factor = 1
+        except (ValueError, TypeError):
+            log_warning(
+                controller,
+                "display_unit '%s' cannot be converted to a float. Using 1 as Conversion factor for counter.",
+                name,
+            )
 
         # Sampling MODE.
         # MEAN is the default, like all sampling counters

@@ -117,7 +117,7 @@ def create_flint_model(settings) -> flint_model.FlintState:
     return flintModel
 
 
-def start_flint(flintModel: flint_model.FlintState, splash):
+def start_flint(flintModel: flint_model.FlintState, options, splash):
     """
     This have to be executed after the start of the main Qt loop.
 
@@ -136,6 +136,13 @@ def start_flint(flintModel: flint_model.FlintState, splash):
     # Finally scan manager
     scanManager = scan_manager.ScanManager(flintModel)
     flintModel.setScanManager(scanManager)
+
+    if options.bliss_session is not None:
+        manager = flintModel.mainManager()
+        result = manager.updateBlissSessionName(options.bliss_session)
+        if not result:
+            msg = f"Impossible to connect to the session '{options.bliss_session}'"
+            qt.QMessageBox.critical(flintWindow, "Session error", msg)
 
     # Flag that flint is started
     ROOT_LOGGER.info("Flint started")
@@ -444,7 +451,7 @@ def main():
     server = FlintServer(flintModel.flintApi())
 
     # Postpon the real start of flint
-    qt.QTimer.singleShot(10, lambda: start_flint(flintModel, splash))
+    qt.QTimer.singleShot(10, lambda: start_flint(flintModel, options, splash))
 
     try:
         sys.exit(qapp.exec_())

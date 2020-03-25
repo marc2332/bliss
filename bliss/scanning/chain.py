@@ -708,7 +708,7 @@ class AcquisitionSlave(AcquisitionObject):
     def _prepare(self, stats_dict):
         with profile(stats_dict, self.name, "prepare"):
 
-            if not self._check_reading_task():
+            if self._reading_task:
                 raise RuntimeError("%s: Last reading task is not finished." % self.name)
             return self.prepare()
 
@@ -716,21 +716,16 @@ class AcquisitionSlave(AcquisitionObject):
         with profile(stats_dict, self.name, "start"):
             dispatcher.send("start", self)
             self.start()
-            if self._check_reading_task():
+            if not self._reading_task:
                 self._reading_task = gevent.spawn(self.reading)
 
     def _stop(self, stats_dict):
         with profile(stats_dict, self.name, "stop"):
             self.stop()
 
-    def _check_reading_task(self):
-        if self._reading_task:
-            return self._reading_task.ready()
-        return True
-
     def _trigger(self, stats_dict):
         with profile(stats_dict, self.name, "trigger"):
-            if self._check_reading_task():
+            if not self._reading_task:
                 dispatcher.send("start", self)
                 self._reading_task = gevent.spawn(self.reading)
             self.trigger()

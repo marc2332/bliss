@@ -67,7 +67,9 @@ class SoftwareTimerMaster(AcquisitionMaster):
         self.wait_slaves()
 
         elapsed_trigger = time.time() - start_trigger
-        gevent.sleep(self.count_time - elapsed_trigger)
+        time_to_sleep = self.count_time - elapsed_trigger
+        if time_to_sleep > 0:
+            gevent.sleep(time_to_sleep)
 
     def stop(self):
         pass

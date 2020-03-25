@@ -105,17 +105,12 @@ def get_data_from_file(
 
     if "nexus" not in scan_info["data_writer"]:
         raise EnvironmentError("nexuswriter was not enabled for this scan")
-    if "nexuswriter" not in scan_info:
-        raise EnvironmentError("nexuswriter was not configured for this scan")
-    if "filename" not in scan_info:
-        raise EnvironmentError("no file was saved for this scan")
 
     result = {}
     with h5py.File(scan_info["filename"], mode="r") as h5:
         devices = scan_info["nexuswriter"]["devices"]
         devices = device_info(devices, scan_info)
-        for subscan_id, (subscan, devices) in enumerate(devices.items()):
-            subscan_id += 1
+        for subscan_id, (subscan, devices) in enumerate(devices.items(), 1):
             for channel_name, device in devices.items():
                 if channel_name not in channel_names:
                     continue
@@ -123,7 +118,8 @@ def get_data_from_file(
                 dsetname = normalize_nexus_name(device["data_name"])
                 path = f"/{scan_nb}.{subscan_id}/instrument/{grpname}/{dsetname}"
                 try:
-                    data = h5[path][...]
+                    # Create a memory copy of the data
+                    data = h5[path][()]
                     result[channel_name] = data
                 except:
                     # It is supposed to fail if part of the measurements was dropped

@@ -32,7 +32,6 @@ class MainPropertyWidget(ExtendedDockWidget):
 
     def __init__(self, parent: qt.QWidget = None):
         super(MainPropertyWidget, self).__init__(parent=parent)
-        self.setObjectName("scan-property-widget")
         self.setWindowTitle("Plot properties")
         self.__focusWidget = None
         self.__stack = _Stack(self)

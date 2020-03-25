@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 from typing import List
+from typing import Optional
 
 import enum
 import functools
@@ -29,6 +30,8 @@ class _PredefinedLayouts(enum.Enum):
 
 
 class LiveWindow(MainWindow):
+    """Manage the GUI relative to live scans."""
+
     def __init__(self, parent=None):
         MainWindow.__init__(self, parent=parent)
         self.setDockNestingEnabled(True)
@@ -44,6 +47,10 @@ class LiveWindow(MainWindow):
 
         self.tabifiedDockWidgetActivated.connect(self.__tabActivated)
         self.setLayoutLocked(True)
+
+        self.__scanStatusWidget = None
+        self.__propertyWidget = None
+
         self.__initGui()
 
     def __initGui(self):
@@ -54,7 +61,7 @@ class LiveWindow(MainWindow):
         )
 
         propertyWidget = MainPropertyWidget(self)
-        propertyWidget.setObjectName("property-dock")
+        propertyWidget.setObjectName("property-widget")
         propertyWidget.setFeatures(
             propertyWidget.features() & ~qt.QDockWidget.DockWidgetClosable
         )
@@ -65,14 +72,21 @@ class LiveWindow(MainWindow):
         propertyWidget.widget().setSizePolicy(
             qt.QSizePolicy.Preferred, qt.QSizePolicy.Expanding
         )
-        self._tmpStorage = (scanStatusWidget, propertyWidget)
+        self.__scanStatusWidget = scanStatusWidget
+        self.__propertyWidget = propertyWidget
+
+    def scanStatusWidget(self) -> Optional[ScanStatus]:
+        """Returns the widget used to display the scan status."""
+        return self.__scanStatusWidget
+
+    def propertyWidget(self) -> Optional[MainPropertyWidget]:
+        """Returns the widget used to display properties."""
+        return self.__propertyWidget
 
     def setFlintModel(self, flintModel: flint_model.FlintState):
         self.__flintModel = flintModel
-        scanStatusWidget, propertyWidget = self._tmpStorage
-        scanStatusWidget.setFlintModel(flintModel)
-        flintModel.setLiveStatusWidget(scanStatusWidget)
-        flintModel.setPropertyWidget(propertyWidget)
+        if self.__scanStatusWidget is not None:
+            self.__scanStatusWidget.setFlintModel(flintModel)
 
     def flintModel(self) -> flint_model.FlintState:
         assert self.__flintModel is not None
@@ -235,9 +249,9 @@ class LiveWindow(MainWindow):
     def setPredefinedLayout(
         self, layoutKind: _PredefinedLayouts, workspace: flint_model.Workspace = None
     ):
+        statusWidget = self.__scanStatusWidget
+        propertyWidget = self.__propertyWidget
         flintModel = self.flintModel()
-        statusWidget = flintModel.liveStatusWidget()
-        propertyWidget = flintModel.propertyWidget()
         if workspace is None:
             workspace = flintModel.workspace()
         widgets = workspace.widgets()

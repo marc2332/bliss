@@ -30,6 +30,8 @@ class SoftwareTimerMaster(AcquisitionMaster):
         self._nb_point = 0
         self._started_time = None
         self._first_trigger = True
+        self._emit_task = None
+        self._pending_channels = []
 
     def __iter__(self):
         npoints = self.npoints
@@ -61,18 +63,30 @@ class SoftwareTimerMaster(AcquisitionMaster):
         if self._first_trigger:
             self._started_time = start_trigger
             self._first_trigger = False
-        self.channels[0].emit(start_trigger - self._started_time)
-        self.channels[1].emit(start_trigger)
+        self._post_emit_channel(start_trigger)
 
         self.wait_slaves()
-
         elapsed_trigger = time.time() - start_trigger
         time_to_sleep = self.count_time - elapsed_trigger
         if time_to_sleep > 0:
             gevent.sleep(time_to_sleep)
 
     def stop(self):
-        pass
+        if self._emit_task:
+            self._emit_task.get()
+
+    def _emit(self):
+        while self._pending_channels:
+            start_trigger = self._pending_channels.pop(0)
+            self.channels[0].emit(start_trigger - self._started_time)
+            self.channels[1].emit(start_trigger)
+
+    def _post_emit_channel(self, start_time):
+        self._pending_channels.append(start_time)
+        if not self._emit_task:
+            if self._emit_task is not None:
+                self._emit_task.get()  # check if no exception
+            self._emit_task = gevent.spawn(self._emit)
 
 
 class IntegratingTimerMaster(object):

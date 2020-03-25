@@ -235,7 +235,12 @@ def writer_options(tango=True, config=True, alt=False, resource_profiling=False)
     :param bool alt: anable all options (all disabled by default)
     :param bool resource_profiling:
     """
-    fixed = ("copy_non_external", "resource_profiling", "noconfig")
+    fixed = (
+        "copy_non_external",
+        "resource_profiling",
+        "noconfig",
+        "disable_external_hdf5",
+    )
     options = all_cli_saveoptions(configurable=config)
     if tango:
         properties = {"copy_non_external": True}

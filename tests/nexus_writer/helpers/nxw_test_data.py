@@ -71,6 +71,9 @@ def validate_scan_data(
         save_options = base_options()
     if alt:
         save_options = {k: not v for k, v in save_options.items()}
+    # Forced in confdtest.py::writer_options
+    save_options["copy_non_external"] = True
+    save_options["allow_external_hdf5"] = True
     variable_length = not all(scan_shape)
     if not positioners:
         positioners = []

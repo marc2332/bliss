@@ -16,6 +16,7 @@ def robz(robz):
     sign = robz.sign
     spu = robz.steps_per_unit
     ll, hl = robz.dial_limits
+    backlash = robz.backlash
 
     yield robz
 
@@ -24,6 +25,7 @@ def robz(robz):
     robz.config.set("sign", sign)
     robz.config.set("low_limit", ll)
     robz.config.set("high_limit", hl)
+    robz.config.set("backlash", backlash)
     robz.config.save()
 
 
@@ -164,7 +166,7 @@ def test_issue_1520(robz):
     assert ypipe.dial_limits == (-55, 340)
     assert ypipe.offset == -72.4366
 
-    ypipe.settings_to_config(limits=True)  # save desired limits to config
+    ypipe.settings_to_config()  # save desired limits to config
     # change sign of spu for ypipe in config
     ypipe.config.set("steps_per_unit", -ypipe.steps_per_unit)
     ypipe.config.save()
@@ -185,3 +187,21 @@ def test_issue_1520(robz):
     assert ypipe.dial == 58
     assert ypipe.dial_limits == (0, 400)
     assert ypipe.limits == (-58, 342)
+
+
+def test_apply_config_backlash_changed(robz):
+    assert robz.backlash == 0
+    assert robz.config_backlash == 0
+
+    # change config sign
+    robz.config.set("backlash", 1)
+    robz.config.save()
+
+    # apply config
+    robz.apply_config(reload=True)
+    assert robz.config_backlash == 1
+    assert robz.backlash == 1
+
+    robz.backlash = 2
+    robz.settings_to_config()
+    assert robz.config_backlash == 2

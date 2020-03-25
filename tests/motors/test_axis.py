@@ -478,9 +478,22 @@ def test_backlash_stop(roby):
     pos = roby._hw_position
     roby.stop()
 
-    assert pytest.approx(roby.dial, 5e-2) == pos + roby.config.get("backlash", float)
+    assert pytest.approx(roby.dial, 5e-2) == pos + roby.backlash
     assert roby._set_position == roby.dial
     assert roby.state.READY
+
+
+def test_backlash_prop(roby, robz):
+    assert robz.backlash == 0
+    assert roby.backlash
+
+    robz.backlash = roby.backlash
+    robz.position = -9
+    robz.limits = -11, 0
+    with pytest.raises(ValueError):
+        robz.move(-10)
+    robz.backlash = 0
+    robz.move(-10)
 
 
 def test_axis_steps_per_unit(roby):

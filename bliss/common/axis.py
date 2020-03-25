@@ -568,7 +568,7 @@ class Axis:
             callback=self._external_stop,
         )
         self._lock = gevent.lock.Semaphore()
-        self.no_offset = False
+        self.__no_offset = False
 
         try:
             config.parent
@@ -593,6 +593,14 @@ class Axis:
             pass
         else:
             controller_close()
+
+    @property
+    def no_offset(self):
+        return self.__no_offset
+
+    @no_offset.setter
+    def no_offset(self, value):
+        self.__no_offset = value
 
     @property
     def unit(self):
@@ -2152,3 +2160,7 @@ class NoSettingsAxis(Axis):
         Axis.__init__(self, *args, **kwags)
         self.settings.get = mock.MagicMock(return_value=None)
         self.settings.set = mock.MagicMock(return_value=None)
+
+    @property
+    def no_offset(self):
+        return True

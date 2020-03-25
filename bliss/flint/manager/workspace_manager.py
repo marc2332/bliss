@@ -117,9 +117,6 @@ class WorkspaceData(dict):
         plots: dict = self["plots"]
         widgetDescriptions = self["widgets"]
 
-        for plot in plots.values():
-            workspace.addPlot(plot)
-
         for data in widgetDescriptions:
             if isinstance(data, tuple):
                 data = _WidgetDescriptionCompatibility(*data, None)

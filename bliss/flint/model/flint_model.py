@@ -21,8 +21,6 @@ from bliss.flint.utils import qsettingsutils
 
 class Workspace(qt.QObject):
 
-    plotAdded = qt.Signal(object)
-    plotRemoved = qt.Signal(object)
     widgetAdded = qt.Signal(object)
     widgetRemoved = qt.Signal(object)
 
@@ -39,15 +37,14 @@ class Workspace(qt.QObject):
         self.__name = name
 
     def plots(self) -> List[plot_model.Plot]:
-        return list(self.__plots)
-
-    def addPlot(self, plot):
-        self.__plots.append(plot)
-        self.plotAdded.emit(plot)
-
-    def removePlot(self, plot):
-        self.__plots.remove(plot)
-        self.plotRemoved.emit(plot)
+        """Returns the plots hold by the plot widgets"""
+        plots = []
+        for widget in self.__widgets:
+            if hasattr(widget, "plotModel"):
+                plot = widget.plotModel()
+                if plot is not None:
+                    plots.append(plot)
+        return plots
 
     def widgets(self) -> List[qt.QWidget]:
         return list(self.__widgets)
@@ -105,8 +102,6 @@ class FlintState(qt.QObject):
         self.__aliveScans: List[scan_model.Scan] = []
         # FIXME: widget should be weakref
         self.__liveWindow = None
-        self.__propertyWidget = None
-        self.__liveStatusWidget = None
         self.__manager = None
         self.__flintApi = None
         self.__settings: Optional[qt.QSettings] = None
@@ -160,24 +155,19 @@ class FlintState(qt.QObject):
     def liveWindow(self) -> qt.QMainWindow:
         return self.__liveWindow
 
-    def setLiveStatusWidget(self, widget: qt.QWidget):
-        self.__liveStatusWidget = widget
-
     def liveStatusWidget(self) -> qt.QWidget:
-        return self.__liveStatusWidget
+        liveWindow = self.liveWindow()
+        return liveWindow.scanStatusWidget()
+
+    def propertyWidget(self) -> qt.QWidget:
+        liveWindow = self.liveWindow()
+        return liveWindow.propertyWidget()
 
     def setFlintApi(self, flintApi):
         self.__flintApi = flintApi
 
     def flintApi(self):
         return self.__flintApi
-
-    def setPropertyWidget(self, propertyWidget: qt.QWidget):
-        propertyWidget.setObjectName("property-widget")
-        self.__propertyWidget = propertyWidget
-
-    def propertyWidget(self) -> qt.QWidget:
-        return self.__propertyWidget
 
     def setWorkspace(self, workspace: Workspace):
         previous = self.__workspace

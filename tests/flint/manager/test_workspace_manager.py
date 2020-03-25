@@ -59,13 +59,10 @@ def test_dumps_loads__workspace(with_plot, local_flint):
     widget = curve_plot.CurvePlotWidget()
     widget.setPlotModel(plot)
     workspace.addWidget(widget)
-    workspace.addPlot(plot)
 
     data = workspace_manager.WorkspaceData()
     data.setWorkspace(workspace, includePlots=with_plot)
     string = pickle.dumps(data)
-    print("-----------------------------------")
-    print(string)
     data2 = pickle.loads(string)
 
     workspace2 = flint_model.Workspace()

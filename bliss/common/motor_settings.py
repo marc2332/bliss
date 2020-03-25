@@ -48,6 +48,7 @@ class ControllerAxisSettings:
         # 'offset' must be set BEFORE limits to ensure good dial/user conversion.
         self.add("offset", float)
         self.add("sign", int)
+        self.add("backlash", float)
         self.add("velocity", float, config=True)
         self.add("acceleration", float, config=True)
         self.add("low_limit", floatOrNone)

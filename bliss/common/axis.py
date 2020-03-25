@@ -559,7 +559,7 @@ class Axis:
             self.__motion_hooks.append(hook)
         self.__encoder = config.get("encoder")
         self.__config = StaticConfig(config)
-        self.__init_properties_from_config()
+        self.__init_config_properties()
         self._group_move = GroupMove()
         self._beacon_channels = dict()
         self._move_stop_channel = Channel(
@@ -629,16 +629,24 @@ class Axis:
         """
         return not self.__move_done.is_set()
 
-    def __init_properties_from_config(self):
-        self.__backlash = self.config.get("backlash", float, 0)
+    def __init_config_properties(
+        self, velocity=True, acceleration=True, limits=True, sign=True, backlash=True
+    ):
         self.__steps_per_unit = self.config.get("steps_per_unit", float, 1)
         self.__tolerance = self.config.get("tolerance", float, 1e-4)
-        self.__low_limit = self.config.get("low_limit", float, float("-inf"))
-        self.__high_limit = self.config.get("high_limit", float, float("+inf"))
-        if self.controller.axis_settings.config_setting["velocity"]:
-            self.__velocity = self.config.get("velocity", float)
-        if self.controller.axis_settings.config_setting["acceleration"]:
-            self.__acceleration = self.config.get("acceleration", float)
+        if velocity:
+            if self.controller.axis_settings.config_setting["velocity"]:
+                self.__config_velocity = self.config.get("velocity", float)
+        if acceleration:
+            if self.controller.axis_settings.config_setting["acceleration"]:
+                self.__config_acceleration = self.config.get("acceleration", float)
+        if limits:
+            self.__config_low_limit = self.config.get("low_limit", float, float("-inf"))
+            self.__config_high_limit = self.config.get(
+                "high_limit", float, float("+inf")
+            )
+        if backlash:
+            self.__config_backlash = self.config.get("backlash", float, 0)
 
     @property
     def steps_per_unit(self):
@@ -646,9 +654,22 @@ class Axis:
         return self.__steps_per_unit
 
     @property
+    def config_backlash(self):
+        """Current backlash in user units (:obj:`float`)"""
+        return self.__config_backlash
+
+    @property
+    @lazy_init
     def backlash(self):
         """Current backlash in user units (:obj:`float`)"""
-        return self.__backlash
+        backlash = self.settings.get("backlash")
+        if backlash is None:
+            return 0
+        return backlash
+
+    @backlash.setter
+    def backlash(self, backlash):
+        self.settings.set("backlash", backlash)
 
     @property
     def tolerance(self):
@@ -1088,7 +1109,7 @@ class Axis:
         Return:
             float: current velocity (user units/second)
         """
-        return self.__velocity
+        return self.__config_velocity
 
     @property
     @lazy_init
@@ -1120,7 +1141,7 @@ class Axis:
 
     @property
     def config_acceleration(self):
-        return self.__acceleration
+        return self.__config_acceleration
 
     @property
     @lazy_init
@@ -1152,9 +1173,10 @@ class Axis:
 
     @property
     def dial_limits(self):
-        ll, hl = self.settings.get("low_limit"), self.settings.get("high_limit")
+        ll = self.settings.get("low_limit")
         if ll is None:
             ll = float("-inf")
+        hl = self.settings.get("high_limit")
         if hl is None:
             hl = float("+inf")
         return ll, hl
@@ -1240,8 +1262,8 @@ class Axis:
         Return a tuple (low_limit, high_limit) from IN-MEMORY config in
         USER units.
         """
-        ll_dial = self.__low_limit
-        hl_dial = self.__high_limit
+        ll_dial = self.__config_low_limit
+        hl_dial = self.__config_high_limit
         return tuple(map(self.dial2user, (ll_dial, hl_dial)))
 
     def _update_settings(self, state):
@@ -1721,7 +1743,9 @@ class Axis:
     def _wait_limit_search(self, *args):
         return self._move_loop(limit_error=False)
 
-    def settings_to_config(self, velocity=True, acceleration=True, limits=True):
+    def settings_to_config(
+        self, velocity=True, acceleration=True, limits=True, sign=True, backlash=True
+    ):
         """
         Set settings values in in-memory config then save it in file.
         Settings to save can be specified.
@@ -1731,32 +1755,58 @@ class Axis:
         if acceleration:
             self.__config.set("acceleration", self.acceleration)
         if limits:
-
-            def limit2config(l):
-                return self.user2dial(l) if l is not None else l
-
-            ll, hl = map(limit2config, self.limits)
-            # limits are saved in DIAL units into config.
+            ll, hl = self.dial_limits
             self.__config.set("low_limit", ll)
             self.__config.set("high_limit", hl)
-        if any((velocity, acceleration, limits)):
-            self.__config.save()
-            self.__init_properties_from_config()
+        if sign:
+            self.__config.set("sign", self.sign)
+        if backlash:
+            self.__config.set("backlash", self.backlash)
 
-    def apply_config(self, reload=False):
+        if any((velocity, acceleration, limits, sign, backlash)):
+            self.__config.save()
+            self.__init_config_properties(
+                velocity=velocity,
+                acceleration=acceleration,
+                limits=limits,
+                sign=sign,
+                backlash=backlash,
+            )
+
+    def apply_config(
+        self,
+        reload=False,
+        velocity=True,
+        acceleration=True,
+        limits=True,
+        sign=True,
+        backlash=True,
+    ):
         """
         Applies configuration values to settings (ie: reset axis)
         """
         if reload:
             self.config.reload()
 
-        self.__init_properties_from_config()
+        self.__init_config_properties(
+            velocity=velocity,
+            acceleration=acceleration,
+            limits=limits,
+            sign=sign,
+            backlash=backlash,
+        )
 
-        self.controller.axis_settings._clear(self, "velocity")
-        self.controller.axis_settings._clear(self, "acceleration")
-        self.controller.axis_settings._clear(self, "low_limit")
-        self.controller.axis_settings._clear(self, "high_limit")
-        self.controller.axis_settings._clear(self, "sign")
+        if velocity:
+            self.controller.axis_settings._clear(self, "velocity")
+        if acceleration:
+            self.controller.axis_settings._clear(self, "acceleration")
+        if limits:
+            self.controller.axis_settings._clear(self, "low_limit")
+            self.controller.axis_settings._clear(self, "high_limit")
+        if sign:
+            self.controller.axis_settings._clear(self, "sign")
+        if backlash:
+            self.controller.axis_settings._clear(self, "backlash")
 
         self.controller._init_settings(self)
 

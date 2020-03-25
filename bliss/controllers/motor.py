@@ -210,6 +210,11 @@ class Controller:
             offset = 0
         axis.settings.set("offset", offset)
 
+        backlash = get_setting_or_config_value(axis, "backlash")
+        if backlash is None:
+            backlash = 0
+        axis.backlash = backlash
+
         low_limit_dial = get_setting_or_config_value(axis, "low_limit")
         high_limit_dial = get_setting_or_config_value(axis, "high_limit")
         axis.dial_limits = low_limit_dial, high_limit_dial

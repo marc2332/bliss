@@ -19,10 +19,10 @@ from bliss.common.axis import Modulo, AxisState
 from unittest import mock
 import random
 import inspect
-import numpy
+
 
 # For tests involving lprint.
-from ..common.conftest import log_shell_mode
+from ..common.conftest import log_shell_mode  # noqa: F401
 
 
 def test_property_setting(robz):
@@ -565,7 +565,7 @@ def test_home_search(roby):
     assert roby.position == 38930
 
 
-def test_ctrlc(robz, capsys, log_shell_mode):
+def test_ctrlc(robz, capsys, log_shell_mode):  # noqa: F811
     robz.move(100, wait=False)
     assert robz.state.MOVING
     assert robz.is_moving
@@ -577,8 +577,8 @@ def test_ctrlc(robz, capsys, log_shell_mode):
 
     # Ensure "Moving..." and "...stopped at..." messages are present.
     out, err = capsys.readouterr()
-    assert out.find("Moving robz from") >= 0
-    assert out.find("Axis robz stopped at position") >= 0
+    assert "Moving robz from" in out
+    assert "Axis robz stopped at position" in out
 
     assert not robz.is_moving
     assert robz.state.READY

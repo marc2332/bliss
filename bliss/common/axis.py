@@ -999,23 +999,18 @@ class Axis:
             info_string += (
                 f"     tolerance (R) (to check pos. before a move): {self.tolerance}\n"
             )
-        except BaseException:
-            info_string += "ERROR: unable to get info (config problem?)\n"
-
-        try:
-            # These parameters access to the device.
             _low_cfg_limit, _high_cfg_limit = self.config_limits
             _lim = f"Low: {self.low_limit:.5f} High: {self.high_limit:.5f}"
             _cfg_lim = f"(config Low: {_low_cfg_limit:.5f} High: {_high_cfg_limit:.5f})"
             info_string += f"     limits (RW):    {_lim}    {_cfg_lim}\n"
             info_string += f"     dial (RW): {self.dial:.5f}\n"
             info_string += f"     position (RW): {self.position:.5f}\n"
-        except BaseException:
+        except Exception:
             info_string += "ERROR: unable to get info\n"
 
         try:
             info_string += f"     state (R): {self.state}\n"
-        except BaseException:
+        except Exception:
             info_string += f"     ERROR: unable to get state\n"
 
         # ACCELERATION

@@ -30,6 +30,35 @@ class _PredefinedLayouts(enum.Enum):
     ONE_FOR_IMAGE_AND_MCA = enum.auto()
 
 
+class LiveWindowConfiguration:
+    """Store a live window configuration for serialization"""
+
+    def __init__(self):
+        # Mode
+        self.show_count_widget: bool = False
+
+    def __reduce__(self):
+        return (self.__class__, (), self.__getstate__())
+
+    def __getstate__(self):
+        """Inherite the serialization to make sure the object can growup in the
+        future"""
+        state: Dict[str, Any] = {}
+        state.update(self.__dict__)
+        return state
+
+    def __setstate__(self, state):
+        """Inherite the serialization to make sure the object can growup in the
+        future"""
+        for k in self.__dict__.keys():
+            if k in state:
+                v = state.pop(k)
+                self.__dict__[k] = v
+
+    def __str__(self):
+        return self.__dict__.__str__()
+
+
 class LiveWindow(MainWindow):
     """Manage the GUI relative to live scans."""
 
@@ -54,6 +83,21 @@ class LiveWindow(MainWindow):
         self.__ctWidget = None
 
         self.__initGui()
+
+    def configuration(self) -> LiveWindowConfiguration:
+        """Returns a global configuration of this window
+
+        This configuration is stored in the Redis session.
+        """
+        config = LiveWindowConfiguration()
+        displayed = self.__ctWidget is not None
+        config.show_count_widget = displayed
+        return config
+
+    def setConfiguration(self, config: LiveWindowConfiguration):
+        ctWidgetDisplayed = self.__ctWidget is not None
+        if config.show_count_widget != ctWidgetDisplayed:
+            self.__toggleCtWidget()
 
     def __initGui(self):
         scanStatusWidget = ScanStatus(self)

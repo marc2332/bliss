@@ -40,7 +40,7 @@ Parameter name                              |  Required | Setting?  | Type   | D
 [sign](motion_axis.md#position)             |  no       | no        | int    | Accepted values: 1 or -1. User position = (sign * dial_position) + offset ; *defaults to 1*
 [low_limit](motion_axis.md#limits)          |  no       | yes       | float  | **Dial** Lower limit for a move (*None* or not specified means: unlimited) ; *defaults to unlimited*
 [high_limit](motion_axis.md#limits)         |  no       | yes       | float  | **Dial** Higher limit for a move (*None* or not specified means: unlimited) ; *defaults to unlimited*
-[backlash](motion_axis.md#backlash)         |  no       | no        | float  | Axis backlash in user units ; *defaults to 0*
+[backlash](motion_axis.md#backlash)         |  no       | yes       | float  | Axis backlash in user units ; *defaults to 0*
 [tolerance](motion_axis.md#tolerance)       |  no       | no        | float  | Accepted discrepancy between controller position and last known axis dial position when starting a move ; *defaults to 1E-4*
 [encoder](motion_axis.md#encoder)           |  no       | no        | string | Name of an existing **Encoder** object linked with this axis
 [unit](motion_axis.md#unit)                 | no        | no        | string | *Informative only* - Unit (for steps per unit), e.g. mm, deg, rad, etc.
@@ -55,13 +55,13 @@ the corresponding value is also stored in redis (see [Settings documentation](be
 
 ### Applying configuration changes
 
-A change in YML configuration can be applied with use `apply_config()`
+A change in YML configuration can be applied with use of the `apply_config()`
 method of `Axis` objects.
 
-`apply_config()` has got a `reload` parameter which is `False` by default.
+`apply_config()` has a `reload` parameter which is `False` by default.
 
-This parameter forces the reload on YAML from file, otherwise, the
-configuration to apply is the one in memory (in redis ???).
+This parameter forces the reload of the YAML configuration files, otherwise
+the configuration to apply is the one that was previously loaded.
 
 Example: after changing velocity of **ssu** motor in YML file:
     ssu.apply_config(reload=False)   # <--- will apply old configuration
@@ -70,9 +70,18 @@ Example: after changing velocity of **ssu** motor in YML file:
 `ssu.apply_config(reload=False)` is a common way to reset parameters
 after changes of settings in a session for example.
 
-see [beacon db](beacon_db.md#configuration-behavior) for usage
-examples of `apply_config()`.
+It is possible to selectively apply only some parameters, using keyword
+arguments. The possible arguments are:
 
+- acceleration
+- velocity
+- limits
+- sign
+- backlash
+
+The default value is `True`, which means the parameter is applied from
+the last known configuration (or from the freshly read one if `reload`
+is set to `True`).
 
 ## Axis in BLISS shell
 
@@ -193,7 +202,7 @@ Property name                                       | R/W? | Type   | Descriptio
 [dial_limits](motion_axis.md#limits)                | R+W  | (float or None, float or None) | Get or set limits **in dial units**
 [config_limits](motion_axis.md#limits)              | R    | (float or None, float or None) | Return (low_limit, high_limit), from the configuration **in user units**
 [steps_per_unit](motion_axis.md#position)           | R    | float | Number of steps to send to the controller to make a *move of 1 unit* (eg. 1 mm, 1 rad)
-[backlash](motion_axis.md#backlash)                 | R    | float | Return the backlash applied to the axis
+[backlash](motion_axis.md#backlash)                 | R+W  | float | Get or set the backlash applied to the axis
 [is_moving](motion_axis.md#is_moving)               | R    | bool  | Return whether the axis is moving
 [dial](motion_axis.md#position)                     | R+W  | float | Get or set the axis *dial* position
 [offset](motion_axis.md#position)                   | R+W  | float | Get or set the current offset for user position calculation
@@ -376,12 +385,13 @@ Current    3.00000
 Low      -90.00000
 ```
 
-
 ### velocity
+
 * `velocity`
 * `config_velocity`
 
 ### acceleration
+
 * `acceleration`
 * `config_acceleration`
 * `acctime`
@@ -391,17 +401,13 @@ Changing acceleration:
 
 ![changing acceleration](img/acc_change.svg)
 
-
-
 ### backlash
 
 ![backlash](img/backlash.svg)
 
-
 ### is_moving
 
 Return whether the axis is moving
-
 
 ### tolerance
 
@@ -504,10 +510,6 @@ To get a direct reading of the hardware, use: `hw_state` property.
 
 The reading `hw_state` property does not update `state` property.
 
-It is possible to disable the caching mechanism in the config file ???
-
-
-
 #### State change events
 
 Similarly to the `.position` property, it is possible to be notified
@@ -528,9 +530,22 @@ State changed to READY (Axis is READY)
 
 ### settings_to_config()
 
-Save settings (`velocity` `acceleration` `limits`) into config
-(beacon YML file).
+Save settings (velocity, acceleration, limits, sign, backlash) into
+the corresponding Beacon YML configuration file.
 
+This is the opposite operation of `apply_config()`.
+
+Keyword arguments can be specified to selectively write only some
+parameters into configuration:
+
+- velocity
+- acceleration
+- limits
+- sign
+- backlash
+
+By default, those keyword arguments are all set to `True`, which
+means all settings are written to the configuration file.
 
 ### on()
 

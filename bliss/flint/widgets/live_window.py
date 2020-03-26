@@ -97,7 +97,7 @@ class LiveWindow(MainWindow):
         else:
             self.tabifyDockWidget(curveWidget, widget)
 
-        widget.setWindowTitle("Ct")
+        widget.setWindowTitle("Count")
         return widget
 
     def __ctWidgetClosed(self):

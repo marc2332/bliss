@@ -82,6 +82,7 @@ class ManageMainBehaviours(qt.QObject):
         redis.lpush(key, value)
         redis.rpop(key)
         flintModel.setBlissSessionName(sessionName)
+        self.workspaceManager().loadLastWorkspace()
         return True
 
     def __workspaceChanged(

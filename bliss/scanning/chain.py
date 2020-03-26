@@ -1010,6 +1010,30 @@ class AcquisitionChain:
         next(nodes_gen)  # first node is 'root'
         return list(nodes_gen)
 
+    def get_node_from_devices(self, *devices):
+        """
+        Helper method to get AcquisitionMaster/Slave
+        from countroller and/or counter.
+        This will return a list of nodes in the same order
+        as the devices. Node will be None if not found.
+        """
+        looking_device = {d: None for d in devices}
+        nb_device = len(devices)
+        for node in self.nodes_list:
+            if node.device in looking_device:
+                looking_device[node.device] = node
+                nb_device -= 1
+                if not nb_device:
+                    break
+            else:
+                for cnt in node._counters:
+                    if cnt in looking_device:
+                        looking_device[cnt] = node
+                        nb_device -= 1
+                if not nb_device:
+                    break
+        return looking_device.values()
+
     def add(self, master, slave=None):
 
         # --- handle ChainNodes --------------------------------------

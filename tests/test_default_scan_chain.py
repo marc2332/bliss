@@ -390,34 +390,33 @@ def test_default_chain_with_mca_defaults_parameters(default_session, lima_simula
         DEFAULT_CHAIN.set_settings([])
 
 
-# ~ def test_set_settings_with_ctrl_settings(session, lima_simulator, scan_tmpdir):
-# ~ lima_sim = session.config.get("lima_simulator")
-# ~ DEFAULT_CHAIN = session.env_dict["DEFAULT_CHAIN"]
-# ~ try:
-# ~ DEFAULT_CHAIN.set_settings(
-# ~ [
-# ~ {
-# ~ "device": lima_sim,
-# ~ "controller_settings": {
-# ~ "saving_format": "HDF5",
-# ~ "saving_suffix": ".h5",
-# ~ },
-# ~ }
-# ~ ]
-# ~ )
+def test_default_chain_getting_node_from_device_counters(beacon):
+    diode = beacon.get("diode")
+    diode2 = beacon.get("diode2")
 
-# ~ # put scan file in a tmp directory
-# ~ session.scan_saving.base_path = str(scan_tmpdir)
+    scan_pars = {"npoints": 10, "count_time": 0.1}
 
-# ~ s = loopscan(1, 0.01, lima_sim)
+    chain = DEFAULT_CHAIN.get(scan_pars, [diode, diode2])
 
-# ~ finally:
-# ~ DEFAULT_CHAIN.set_settings([])
+    nodes = chain.get_node_from_devices(diode, diode2)
+    assert len(nodes) == 2
+    nodes = list(nodes)
+    assert nodes[0].device == diode._counter_controller
+    assert nodes[1].device == diode2._counter_controller
 
-# ~ f = h5py.File(
-# ~ os.path.join(
-# ~ os.path.dirname(s.writer.filename), "scan0001", "lima_simulator_0000.h5"
-# ~ ), mode="a"
-# ~ )
 
-# ~ assert f["entry_0000"]
+def test_default_chain_getting_node_from_device_controller(beacon):
+    diode = beacon.get("diode")
+    diode2 = beacon.get("diode2")
+
+    scan_pars = {"npoints": 10, "count_time": 0.1}
+
+    chain = DEFAULT_CHAIN.get(scan_pars, [diode2, diode])
+
+    nodes = chain.get_node_from_devices(
+        diode._counter_controller, diode2._counter_controller
+    )
+    assert len(nodes) == 2
+    nodes = list(nodes)
+    assert nodes[0].device == diode._counter_controller
+    assert nodes[1].device == diode2._counter_controller

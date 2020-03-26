@@ -85,6 +85,7 @@ class LiveWindow(MainWindow):
         widget.setAttribute(qt.Qt.WA_DeleteOnClose)
         widget.setFlintModel(self.__flintModel)
         widget.windowClosed.connect(self.__ctWidgetClosed)
+        widget.destroyed.connect(self.__ctWidgetClosed)
         widget.setObjectName("ct-dock")
 
         workspace = flintModel.workspace()
@@ -109,6 +110,13 @@ class LiveWindow(MainWindow):
             widget = self.__createCtWidget()
             self.__ctWidget = widget
         return self.__ctWidget
+
+    def __toggleCtWidget(self):
+        ctWidget = self.ctWidget(create=False)
+        if ctWidget is None:
+            self.ctWidget(create=True)
+        else:
+            ctWidget.deleteLater()
 
     def scanStatusWidget(self) -> Optional[ScanStatus]:
         """Returns the widget used to display the scan status."""
@@ -147,6 +155,26 @@ class LiveWindow(MainWindow):
 
         workspace.addWidget(curvePlotWidget)
         self.setPredefinedLayout(_PredefinedLayouts.ONE_STACK, workspace)
+
+    def createWindowActions(self, menu: qt.QMenu):
+        action = qt.QAction(menu)
+        action.setText("Count")
+        action.triggered.connect(
+            functools.partial(
+                self.__clickPredefinedLayout, _PredefinedLayouts.ONE_STACK
+            )
+        )
+        action.setCheckable(True)
+
+        action.triggered.connect(self.__toggleCtWidget)
+        showCountAction = action
+
+        def updateActions():
+            ctWidget = self.ctWidget(create=False)
+            showCountAction.setChecked(ctWidget is not None)
+
+        menu.addAction(showCountAction)
+        menu.aboutToShow.connect(updateActions)
 
     def createLayoutActions(self, parent: qt.QObject) -> List[qt.QAction]:
         result = []
@@ -292,6 +320,9 @@ class LiveWindow(MainWindow):
         if workspace is None:
             workspace = flintModel.workspace()
         widgets = workspace.widgets()
+        ctWidget = self.ctWidget(create=False)
+        if ctWidget is not None:
+            widgets.append(ctWidget)
 
         with utils.blockSignals(self):
             if layoutKind == _PredefinedLayouts.ONE_STACK:

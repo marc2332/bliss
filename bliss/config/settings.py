@@ -82,8 +82,8 @@ def pickle_loads(var):
         return InvalidValue()
 
 
-def get_redis_connection():
-    return client.get_redis_connection(db=0)
+def get_redis_connection(db=0):
+    return client.get_redis_connection(db)
 
 
 def ttl_func(cnx, name, value=-1):
@@ -224,7 +224,7 @@ class BaseSetting:
         self._name = name
         if connection is None:
             connection = get_redis_connection()
-        self._cnx = weakref.ref(connection)
+        self.__cnx = weakref.ref(connection)
         self._read_type_conversion = read_type_conversion
         self._write_type_conversion = write_type_conversion
 
@@ -246,6 +246,16 @@ class BaseSetting:
         Remove all elements from this settings
         """
         self.connection.delete(self.name)
+
+    @property
+    def _cnx(self):
+        if self.__cnx is None or self.__cnx() is None:
+            raise RuntimeError("Connection to Redis lost, Bliss should be restarted")
+        return self.__cnx
+
+    @_cnx.setter
+    def _cnx(self, value):
+        self.__cnx = value
 
     @property
     def connection(self):

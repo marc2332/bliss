@@ -212,7 +212,7 @@ class LiveWindow(MainWindow):
             elif "mca" in name:
                 mcas.append(widget)
             else:
-                others.append(others)
+                others.append(widget)
         return curves, scatters, images, mcas, others
 
     def customResizeDocks(self, docks, sizes, orientation):

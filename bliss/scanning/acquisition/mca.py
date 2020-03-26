@@ -5,10 +5,6 @@
 # Copyright (c) 2015-2020 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-import itertools
-from contextlib import closing
-from collections import defaultdict
-
 import time
 import gevent.event
 

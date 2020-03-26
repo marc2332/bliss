@@ -19,7 +19,7 @@ import tabulate
 import gevent
 
 from bliss.controllers.mca.roi import RoiConfig
-from bliss.common.logtools import *
+from bliss.common.logtools import log_debug
 from bliss.common.utils import autocomplete_property
 from bliss.config.beacon_object import BeaconObject
 from bliss.controllers.counter import CounterController
@@ -387,15 +387,32 @@ class BaseMCA(CounterController):
             self.stop_acquisition()
 
     def hardware_poll_points(self, acquisition_number, polling_time):
+        log_debug(
+            self,
+            "hardware_poll_points(self, acquisition_number={}, polling_time={})",
+            acquisition_number,
+            polling_time,
+        )
         assert acquisition_number > 1
         sent = current = 0
-        # Loop over polled commands
+
+        # Loop over polled commands ???
         while True:
             # Poll data
             done = not self.is_acquiring()
             current, data, statistics = self.poll_data()
             points = list(range(sent, sent + len(data)))
             sent += len(data)
+
+            log_debug(
+                self,
+                "  hpp--while_True done={}, current={}  points={} sent={}",
+                done,
+                current,
+                points,
+                sent,
+            )
+
             # Check data integrity
             if sorted(data) != sorted(statistics) != points:
                 raise RuntimeError("The polled data overlapped during the acquisition")
@@ -451,7 +468,7 @@ class BaseMCA(CounterController):
     def run_synchronized_acquisition(
         self, acquisition_number, block_size=None, polling_time=0.1
     ):
-        log_debug(self, "run_synchronized_acquisition")
+        log_debug(self, "run_synchronized_acquisition acq_nb={}", acquisition_number)
         # Trigger mode
         self.trigger_mode = TriggerMode.SYNC
         # Acquisition number

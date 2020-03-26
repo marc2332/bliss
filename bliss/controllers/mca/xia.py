@@ -8,7 +8,7 @@
 """Controller classes for XIA multichannel analyzer"""
 
 # Imports
-from bliss.common.logtools import log_error, log_debug
+from bliss.common.logtools import log_debug
 from bliss.common import event
 from bliss.config.beacon_object import BeaconObject
 
@@ -25,6 +25,7 @@ from .base import (
 )
 
 from bliss import global_map
+
 
 # MCABeaconObject
 class XIABeaconObject(MCABeaconObject):
@@ -79,7 +80,10 @@ class BaseXIA(BaseMCA):
     def __init__(self, name, config, beacon_obj_class=XIABeaconObject):
         self._proxy = None
         super().__init__(name, config, beacon_obj_class=beacon_obj_class)
-        global_map.register(self, parents_list=["mca"], tag=f"XiaMca:{self.name}")
+        # global_map.register(self, parents_list=["mca"], tag=f"XiaMca:{self.name}")
+        global_map.register(
+            self._proxy, parents_list=[self, "comms"], tag=f"rpcXia:{self.name}"
+        )
 
     # Config / Settings
     @property
@@ -117,19 +121,28 @@ class BaseXIA(BaseMCA):
         self._trigger_mode = TriggerMode.SOFTWARE
 
     def initialize_hardware(self):
+        """ Called at session startup
+        """
+        log_debug(self, "  intialize_hardware / create rpc proxy")
         self._proxy = rpc.Client(self._url)
         event.connect(self._proxy, "data", self._event)
-        global_map.register(self._proxy, parents_list=[self], tag="comm")
-        # try:
-        print(f"Loading {self.name} config {self._current_config}")
-        self.load_configuration(self._current_config)
-        # except:
-        #    print("Loading config failed !!")
+        # global_map.register(self._proxy, parents_list=[self], tag="comm")
+        try:
+            log_debug(
+                self,
+                "  Loading %s _current_config: %s",
+                self.name,
+                self._current_config,
+            )
+            self.load_configuration(self._current_config)
+        except Exception:
+            print("Loading config failed !!")
 
     def _event(self, value, signal):
         return event.send(self, signal, value)
 
     def finalize(self):
+        log_debug(self, "  close proxy")
         self._proxy.close()
         event.disconnect(self._proxy, "data", self._event)
 
@@ -191,6 +204,7 @@ class BaseXIA(BaseMCA):
 
         The filename is relative to the configuration directory.
         """
+        log_debug(self, "load_configuration(%s)", filename)
         try:
             self._proxy.init(self._config_dir, filename)
             self._proxy.start_system()  # Takes about 5 seconds
@@ -207,11 +221,14 @@ class BaseXIA(BaseMCA):
         Useful when the file has changed or when the hardware or hardware
         server have been restarted.
         """
+        log_debug(self, "reload_configuration()")
         if self._current_config:
             raise ValueError("No valid current configuration")
         self.load_configuration(self._current_config)
 
     def reload_default(self):
+        """ ???
+        """
         self.load_configuration(self._default_config)
 
     def _run_checks(self):
@@ -237,6 +254,7 @@ class BaseXIA(BaseMCA):
 
     # Settings
 
+    # SPECTRUM SIZE
     @property
     def spectrum_size(self):
         return int(self._proxy.get_acquisition_value("number_mca_channels"))
@@ -303,15 +321,20 @@ class BaseXIA(BaseMCA):
     # Acquisition
 
     def start_acquisition(self):
-        # Make sure the acquisition is stopped first
+        """ ??? """
         log_debug(self, "start_acquisition")
+        # Make sure the acquisition is stopped first
         self._proxy.stop_run()
         self._proxy.start_run()
 
     def start_hardware_reading(self):
+        """ ??? """
+        log_debug("start_hardware_reading")
         self._proxy.start_hardware_reading()
 
     def wait_hardware_reading(self):
+        """ ??? """
+        log_debug("wait_hardware_reading")
         self._proxy.wait_hardware_reading()
 
     def trigger(self):
@@ -323,6 +346,7 @@ class BaseXIA(BaseMCA):
         self._proxy.stop_run()
 
     def is_acquiring(self):
+        log_debug(self, "is_acquiring")
         return self._proxy.is_running()
 
     def get_acquisition_data(self):
@@ -331,12 +355,12 @@ class BaseXIA(BaseMCA):
         return self._convert_spectrums(spectrums)
 
     def get_acquisition_statistics(self):
-        log_debug(self, "get_acquisition_statistics")
         stats = self._proxy.get_statistics()
+        log_debug(self, "get_acquisition_statistics() ->", stats)
+        log_debug(self, f"STATS = {stats}")
         return self._convert_statistics(stats)
 
     def poll_data(self):
-        log_debug(self, "poll_data")
         current, spectrums, statistics = self._proxy.synchronized_poll_data()
         spectrums = dict(
             (key, self._convert_spectrums(value)) for key, value in spectrums.items()
@@ -344,6 +368,10 @@ class BaseXIA(BaseMCA):
         statistics = dict(
             (key, self._convert_statistics(value)) for key, value in statistics.items()
         )
+        log_debug(self, "poll_data() -- current={}", current)
+        # log_debug(self, "spectrums={}", spectrums)
+        # log_debug(self, "statistics={}", statistics)
+
         return current, spectrums, statistics
 
     def _convert_spectrums(self, spectrums):
@@ -369,7 +397,7 @@ class BaseXIA(BaseMCA):
     def elements(self):
         return self._proxy.get_channels()
 
-    # Modes
+    # Preset modes (preset_type)
 
     @property
     def supported_preset_modes(self):
@@ -395,7 +423,7 @@ class BaseXIA(BaseMCA):
 
     @preset_mode.setter
     def preset_mode(self, mode):
-        log_debug(self, "set preset_mode to %s", mode)
+        log_debug(self, "set preset_mode (preset_type) to %s", mode)
         # Cast arguments
         if mode is None:
             mode = PresetMode.NONE
@@ -474,6 +502,7 @@ class BaseXIA(BaseMCA):
         self._trigger_mode = mode
 
     def set_xmap_gate_master(self, mode):
+        log_debug(self, "set_xmap_gate_master(modde=%s)", mode)
         # Add extra logic for external and gate trigger mode
         if mode in (TriggerMode.SYNC, TriggerMode.GATE):
             available = self._proxy.get_trigger_channels()
@@ -590,3 +619,21 @@ class FalconX(BaseXIA):
 
         info_str += f"    address: {self.url}\n"
         return info_str
+
+    """
+    MCA refresh period in seconds.
+    This controls how often MCA updates are sent from the FalconXn to the client machine.
+    Default: 0.1.
+    Does not exist for xmap/mercury
+    Must be lower than counting time.
+    """
+
+    @property
+    def refresh_rate(self):
+        return float(self._proxy.get_acquisition_value("mca_refresh"))
+
+    @refresh_rate.setter
+    def refresh_rate(self, rate):
+        log_debug(self, "set refresh rate (mca_refresh to %g", rate)
+        self._proxy.set_acquisition_value("mca_refresh", rate)
+        self._proxy.apply_acquisition_values()

@@ -4,7 +4,7 @@
 #
 # Copyright (c) 2015-2020 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
-
+import math
 import time
 import random
 import gevent
@@ -192,6 +192,9 @@ class Mockup(Controller):
         else:
             pos = motion.trajectory.position(t)
         log_debug(self, "%s position is %s", axis.name, pos)
+        if math.isnan(pos):
+            # issue 1551: support nan as a position
+            return pos
         return int(round(pos))
 
     def read_encoder(self, encoder):
@@ -552,6 +555,7 @@ class FaultyMockup(Mockup):
         self.bad_state_after_start = False
         self.bad_stop = False
         self.bad_position = False
+        self.nan_position = False
         self.state_recovery_delay = 1
         self.state_msg_index = 0
 
@@ -585,6 +589,8 @@ class FaultyMockup(Mockup):
     def read_position(self, axis, t=None):
         if self.bad_position:
             raise RuntimeError("BAD POSITION")
+        elif self.nan_position:
+            return float("nan")
         else:
             return Mockup.read_position(self, axis, t)
 

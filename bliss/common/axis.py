@@ -880,6 +880,10 @@ class Axis:
         if offset is None:
             # calc offset
             offset = new_pos - self.sign * dial
+        if math.isnan(offset):
+            # this can happen if dial is nan;
+            # cannot continue
+            return False
         if math.isclose(offset, 0):
             offset = 0
         if not math.isclose(curr_offset, offset):
@@ -887,6 +891,9 @@ class Axis:
         if new_pos is None:
             # calc pos from offset
             new_pos = self.sign * dial + offset
+        if math.isnan(new_pos):
+            # do not allow to assign nan as a user position
+            return False
         self.settings.set("position", new_pos)
         self._set_position = new_pos
         return True

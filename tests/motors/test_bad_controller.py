@@ -7,8 +7,9 @@
 
 import pytest
 import gevent
-from bliss.common.standard import Group
 import sys
+import math
+from bliss.common.standard import Group
 
 
 @pytest.fixture
@@ -93,3 +94,39 @@ def test_state_after_bad_move(bad_motor):
         g.kill()
 
     assert "FAULT" in bad_motor.state
+
+
+def test_nan_position(bad_motor):
+    assert bad_motor.position == 0  # initial pos
+
+    bad_motor.offset = 1
+
+    # this configures the controller to return
+    # nan position
+    bad_motor.controller.nan_position = True
+
+    assert math.isnan(bad_motor.position)
+    # the set position is the same as before
+    assert bad_motor._set_position == 1
+    # check offset has changed
+    assert bad_motor.offset == 1
+
+    # change offset => pos is nan but it should work
+    bad_motor.offset = 2
+    assert bad_motor.offset == 2
+
+    # try to assign a new user position => should calc offset,
+    # but as current pos is nan it will do nothing
+    bad_motor.position = -1
+    assert math.isnan(bad_motor.position)
+    assert bad_motor.offset == 2
+
+    bad_motor.controller.nan_position = False
+    bad_motor.sync_hard()
+
+    assert bad_motor.position == 2
+
+    bad_motor.dial = float("nan")
+    assert math.isnan(bad_motor.position)
+    assert bad_motor.offset == 2
+    assert bad_motor._set_position == 2

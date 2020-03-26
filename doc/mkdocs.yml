@@ -111,6 +111,7 @@ nav:
                             - Flex: config_correlator_flex.md
                       - VME time frame generator: config_tango_tfg.md
                       - Elettra / ePicea 4 quadrant diode BPM: config_elettra.md
+                      - Moco: config_moco.md
                 - Tango Device Servers:
                       - Introduction: config_tango_ds.md
                       - BlissAxis: config_tango_axis.md
@@ -158,6 +159,7 @@ nav:
                 - MCA:
                     - MCA: using_mca.md
                 - Shutter: using_shutter.md
+                - Moco: using_moco.md
         - Data:
                 - Data policy: data_policy.md
                 - Data format: data_nexus_format.md

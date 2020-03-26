@@ -289,6 +289,9 @@ class ManageMainBehaviours(qt.QObject):
             # FIXME: If we remove image and MCAs, there is maybe nothing to display
             ctWidget = liveWindow.ctWidget()
             ctWidget.setScan(scan)
+            ctWidget.show()
+            ctWidget.raise_()
+            ctWidget.setFocus(qt.Qt.OtherFocusReason)
 
         # Set the new scan
         flintModel.setCurrentScan(scan)

@@ -13,6 +13,7 @@ from typing import Dict
 from typing import List
 from typing import Optional
 from typing import MutableMapping
+from typing import NamedTuple
 
 import weakref
 import collections
@@ -618,4 +619,56 @@ def get_scan_progress_percent(scan: scan_model.Scan) -> Optional[float]:
         return None
 
     result = sum(values) / len(values)
+    return result
+
+
+class PositionerDescription(NamedTuple):
+    name: str
+    start: float
+    end: float
+    dial_start: float
+    dial_end: float
+    units: str
+
+
+def get_all_positioners(scan_info: Dict) -> List[PositionerDescription]:
+    result = []
+    print()
+    positioners = scan_info.get("positioners", None)
+    if positioners is None:
+        return result
+
+    def zipdict(*args):
+        keys = []
+        for d in args:
+            if d is not None:
+                for k in d.keys():
+                    #  Add keys in a conservative order
+                    if k not in keys:
+                        keys.append(k)
+        for k in keys:
+            result = [k]
+            for d in args:
+                if d is None:
+                    v = None
+                else:
+                    v = d.get(k, None)
+                result.append(v)
+            yield result
+
+    positioners_dial_start = positioners.get("positioners_dial_start", None)
+    positioners_dial_end = positioners.get("positioners_dial_end", None)
+    positioners_start = positioners.get("positioners_start", None)
+    positioners_end = positioners.get("positioners_end", None)
+    positioners_units = positioners.get("positioners_units", None)
+    meta = [
+        positioners_start,
+        positioners_end,
+        positioners_dial_start,
+        positioners_dial_end,
+        positioners_units,
+    ]
+    for key, start, end, dial_start, dial_end, units in zipdict(*meta):
+        p = PositionerDescription(key, start, end, dial_start, dial_end, units)
+        result.append(p)
     return result

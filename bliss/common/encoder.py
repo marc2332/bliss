@@ -148,6 +148,7 @@ class EncoderFilter(Encoder):
             )
 
     def read(self):
+        """ takes first value read which is the filtered value """
         return self._read_all_counters(self._counter_controller, self.counter)[0]
 
     @Encoder.lazy_init
@@ -162,11 +163,12 @@ class EncoderFilter(Encoder):
         if axis is not None:
             user_target_position = axis._set_position
             dial_target_position = axis.user2dial(user_target_position)
-            encoder_precision = self.config.get("encoder_precision", float, 0.5)
-            min_range = encoder_value - encoder_precision
-            max_range = encoder_value + encoder_precision
-            if min_range <= dial_target_position <= max_range:
-                corrected_value = dial_target_position
+            encoder_stepsize = 1.0 / self.config.get("steps_per_unit", float, 1.0)
+            encoder_precision = self.config.get("encoder_precision", float, 0.0)
+            # this should probably be in the motor controller rather than the encoder
+            corrected_value = encoder_noise_round(
+                encoder_value, dial_target_position, encoder_stepsize, encoder_precision
+            )
 
         values = list()
         for cnt in counters:
@@ -180,3 +182,29 @@ class EncoderFilter(Encoder):
                 else:
                     values.append(dial_target_position - encoder_value)
         return values
+
+
+def encoder_noise_round(obs_value, expected_value, stepsize, noise):
+    """
+    obs_value      = the digital number coming from hardware
+    expected_value = the value we expect to get based on setpoint
+    stepsize       = the digitization precision
+    noise          = typical read noise
+    returns a value you can use for feedback (
+         - removes digization
+         - weights estimate if noise > 0
+    """
+    diff = obs_value - expected_value
+    diff_steps = diff / abs(stepsize)
+    if abs(diff_steps) < 0.5:
+        return expected_value
+    if obs_value > expected_value:
+        closest_allowed = obs_value - abs(stepsize) / 2.0
+    else:
+        closest_allowed = obs_value + abs(stepsize) / 2.0
+    # weighting for obs vs calc. Quadratic weights.
+    wt = noise * noise / (diff * diff + noise * noise)
+    calc = (wt * expected_value) + (1 - wt) * closest_allowed
+    # noise is high - take expected value
+    # noise is low  - take observed value
+    return calc

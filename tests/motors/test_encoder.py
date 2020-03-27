@@ -10,6 +10,7 @@ import numpy
 from unittest import mock
 from bliss.common import scans
 from bliss.common import encoder as encoder_mod
+from bliss.common.encoder import encoder_noise_round
 
 
 def test_get_encoder(m0, m1enc, m1):
@@ -113,9 +114,11 @@ def test_encoder_filter(mot_maxee):
     encoder = encoder_mod.EncoderFilter("my", ctrl, {"encoder_precision": 5.0})
     encoder.axis = mot_maxee
 
-    assert encoder.read() == enc_pos
+    expected_value = encoder_noise_round(enc_pos, mot_maxee._set_position, 1.0, 5.0)
+    assert encoder.read() == pytest.approx(expected_value)
     enc_pos = 3.0
-    assert encoder.read() == mot_maxee._set_position
+    expected_value = encoder_noise_round(enc_pos, mot_maxee._set_position, 1.0, 5.0)
+    assert encoder.read() == pytest.approx(expected_value)
 
 
 def test_encoder_filter_with_other_counters(mot_maxee):
@@ -133,8 +136,10 @@ def test_encoder_filter_with_other_counters(mot_maxee):
         "my", ctrl, {"enable_counters": ["position_raw", "position_error"]}
     )
     encoder.axis = mot_maxee
-    position, position_raw, position_error = encoder._read_all_counters(
+    enc_position, position_raw, position_error = encoder._read_all_counters(
         None, *encoder.counters
     )
-    assert position == position_raw == enc_pos
+    assert position_raw == enc_pos
+    expected_position = encoder_noise_round(enc_pos, mot_maxee._set_position, 1.0, 0.0)
+    assert enc_position == pytest.approx(expected_position)
     assert position_error == mot_maxee._set_position - enc_pos

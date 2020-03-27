@@ -981,15 +981,54 @@ class ESRFScanSaving(BasicScanSaving):
         if beamline != response.get("beamlineID", [""])[0]:
             self.metadata_experiment.put_property({"beamlineID": [beamline]})
         proposal = self.get_cached_property("proposal", eval_dict)
-        if proposal != self.metadata_experiment.proposal:
+        if proposal != self.icat_proposal:
             self._icat_set_proposal(proposal)
         sample = self.sample
-        if sample != self.metadata_experiment.sample:
+        if sample != self.icat_sample:
             self._icat_set_sample(sample)
         dataset = self.get_cached_property("dataset", eval_dict)
-        if dataset != self.metadata_manager.datasetName:
+        if dataset != self.icat_dataset:
             self._icat_set_dataset(dataset)
         self._icat_ensure_running(eval_dict=eval_dict)
+
+    @property
+    def icat_proposal(self):
+        return self._icat_read_attribute(self.metadata_experiment, "proposal")
+
+    @property
+    def icat_sample(self):
+        return self._icat_read_attribute(self.metadata_experiment, "sample")
+
+    @property
+    def icat_dataset(self):
+        return self._icat_read_attribute(
+            self.metadata_manager, "datasetName", raise_on_timeout=False
+        )
+
+    @staticmethod
+    def _icat_read_attribute(proxy, attr, timeout=3, raise_on_timeout=True):
+        """Attributes like proposal, sample and dataset can be
+        temporary unavailable for reading after changing state.
+
+        :param DeviceProxy proxy:
+        :param str attr:
+        :param num timeout:
+        :returns str:
+        """
+        try:
+            with gevent.Timeout(timeout):
+                while True:
+                    try:
+                        return getattr(proxy, attr)
+                    except DevFailed as e:
+                        if e.args[0].reason != "API_AttrNotAllowed":
+                            raise
+                    gevent.sleep(0.1)
+        except gevent.Timeout:
+            if raise_on_timeout:
+                raise
+            else:
+                return ""
 
     def _icat_ensure_notrunning(self, timeout=3):
         """Make sure the ICAT dataset is not running. Does not wait for the server to finish.

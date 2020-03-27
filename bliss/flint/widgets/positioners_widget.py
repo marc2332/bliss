@@ -135,6 +135,7 @@ class PositionersWidget(ExtendedDockWidget):
 
         mainWidget = qt.QFrame(self)
         mainWidget.setFrameShape(qt.QFrame.StyledPanel)
+        mainWidget.setAutoFillBackground(True)
 
         self.__table = qt.QTableView(mainWidget)
         model = qt.QStandardItemModel(self.__table)
@@ -150,9 +151,15 @@ class PositionersWidget(ExtendedDockWidget):
 
         toolbar = self.__createToolBar()
 
+        line = qt.QFrame(self)
+        line.setFrameShape(qt.QFrame.HLine)
+        line.setFrameShadow(qt.QFrame.Sunken)
+
         layout = qt.QVBoxLayout(mainWidget)
         layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
         layout.addWidget(toolbar)
+        layout.addWidget(line)
         layout.addWidget(self.__title)
         layout.addWidget(self.__table)
 

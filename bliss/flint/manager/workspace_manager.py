@@ -330,6 +330,8 @@ class WorkspaceManager(qt.QObject):
         flintModel = self.mainManager().flintModel()
         redis = flintModel.redisConnection()
         sessionName = flintModel.blissSessionName()
+        if sessionName is None:
+            raise ValueError("No session defined")
         key = config.get_workspace_key(sessionName)
         setting = HashObjSetting(key, connection=redis)
         return setting

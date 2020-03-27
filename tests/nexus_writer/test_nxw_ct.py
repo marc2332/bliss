@@ -11,28 +11,32 @@ import nxw_test_data
 import pytest
 
 
-@pytest.mark.flaky(reruns=3)
+@pytest.mark.xfail()
 def test_nxw_ct(nexus_writer_config):
     _test_nxw_ct(**nexus_writer_config)
 
 
-@pytest.mark.flaky(reruns=3)
+@pytest.mark.xfail()
 def test_nxw_ct_alt(nexus_writer_config_alt):
     _test_nxw_ct(**nexus_writer_config_alt)
 
 
+@pytest.mark.xfail()
 def test_nxw_ct_nopolicy(nexus_writer_config_nopolicy):
     _test_nxw_ct(**nexus_writer_config_nopolicy)
 
 
+@pytest.mark.xfail()
 def test_nxw_ct_base(nexus_writer_base):
     _test_nxw_ct(**nexus_writer_base)
 
 
+@pytest.mark.xfail()
 def test_nxw_ct_base_alt(nexus_writer_base_alt):
     _test_nxw_ct(**nexus_writer_base_alt)
 
 
+@pytest.mark.xfail()
 def test_nxw_ct_base_nopolicy(nexus_writer_base_nopolicy):
     _test_nxw_ct(**nexus_writer_base_nopolicy)
 

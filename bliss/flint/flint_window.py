@@ -88,7 +88,9 @@ class FlintWindow(qt.QMainWindow):
         menubar = self.menuBar()
         fileMenu = menubar.addMenu("&File")
         fileMenu.addAction(exitAction)
-        windowMenu = menubar.addMenu("&Windows")
+        windowMenu: qt.QMenu = menubar.addMenu("&Windows")
+        liveWindow.createWindowActions(windowMenu)
+        windowMenu.addSeparator()
         windowMenu.addAction(showLogAction)
 
         menubar = self.menuBar()

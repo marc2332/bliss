@@ -179,6 +179,7 @@ class Scan(qt.QObject, _Sealable):
         self.__cacheData: Dict[Any, Any] = {}
         self.__cacheMessage: Dict[Any, Any] = {}
         self.__scanInfo = {}
+        self.__finalScanInfo = None
         self.__state = ScanState.INITIALIZED
 
     def _setState(self, state: ScanState):
@@ -204,6 +205,12 @@ class Scan(qt.QObject, _Sealable):
 
     def scanInfo(self) -> Dict:
         return self.__scanInfo
+
+    def _setFinalScanInfo(self, scanInfo: Dict):
+        self.__finalScanInfo = scanInfo
+
+    def finalScanInfo(self) -> Optional[Dict]:
+        return self.__finalScanInfo
 
     def addDevice(self, device: Device):
         if self.isSealed():

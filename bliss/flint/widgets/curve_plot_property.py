@@ -594,6 +594,7 @@ class CurvePlotPropertyWidget(qt.QWidget):
 
         toolBar = self.__createToolBar()
 
+        self.setAutoFillBackground(True)
         self.__tree.setFrameShape(qt.QFrame.NoFrame)
         line = qt.QFrame(self)
         line.setFrameShape(qt.QFrame.HLine)

@@ -45,19 +45,6 @@ class McaPlotWidget(plot_helper.PlotWidget):
         self.__plot.setActiveCurveStyle(linewidth=2)
         self.__plot.setDataMargins(0.02, 0.02, 0.1, 0.1)
 
-        # Try to improve the look and feel
-        # FIXME: THis should be done with stylesheet
-        frame = qt.QFrame(self)
-        frame.setFrameShape(qt.QFrame.StyledPanel)
-        layout = qt.QVBoxLayout(frame)
-        layout.addWidget(self.__plot)
-        layout.setContentsMargins(0, 0, 0, 0)
-        widget = qt.QFrame(self)
-        layout = qt.QVBoxLayout(widget)
-        layout.addWidget(frame)
-        layout.setContentsMargins(0, 1, 0, 0)
-        self.setWidget(widget)
-
         self.setFocusPolicy(qt.Qt.StrongFocus)
         self.__plot.installEventFilter(self)
         self.__plot.getWidgetHandle().installEventFilter(self)
@@ -68,7 +55,27 @@ class McaPlotWidget(plot_helper.PlotWidget):
         self.__refreshManager.setAggregator(self.__aggregator)
 
         toolBar = self.__createToolBar()
-        self.__plot.addToolBar(toolBar)
+
+        # Try to improve the look and feel
+        # FIXME: THis should be done with stylesheet
+        line = qt.QFrame(self)
+        line.setFrameShape(qt.QFrame.HLine)
+        line.setFrameShadow(qt.QFrame.Sunken)
+
+        frame = qt.QFrame(self)
+        frame.setFrameShape(qt.QFrame.StyledPanel)
+        frame.setAutoFillBackground(True)
+        layout = qt.QVBoxLayout(frame)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+        layout.addWidget(toolBar)
+        layout.addWidget(line)
+        layout.addWidget(self.__plot)
+        widget = qt.QFrame(self)
+        layout = qt.QVBoxLayout(widget)
+        layout.addWidget(frame)
+        layout.setContentsMargins(0, 1, 0, 0)
+        self.setWidget(widget)
 
         self.__tooltipManager = plot_helper.TooltipItemManager(self, self.__plot)
         self.__tooltipManager.setFilter(plot_helper.FlintRawMca)

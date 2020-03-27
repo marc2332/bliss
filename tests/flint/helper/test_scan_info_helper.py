@@ -26,6 +26,13 @@ SCAN_INFO = {
         "timer2": {"spectra": ["opium:mca1"], "images": ["lima:image1"]},
     },
     "requests": {"timer:elapsed_time": {"points": 10}},
+    "positioners": {
+        "positioners_start": {"slit_bottom": 1.0, "slit_top": -1.0},
+        "positioners_end": {"slit_bottom": 2.0, "slit_top": -2.0},
+        "positioners_dial_start": {"slit_bottom": 3.0, "slit_top": -3.0},
+        "positioners_dial_end": {"slit_bottom": 4.0},
+        "positioners_units": {"slit_bottom": "mm", "slit_top": None, "slit_foo": None},
+    },
 }
 
 
@@ -291,3 +298,17 @@ def test_parse_wrong_values():
     }
     result = scan_info_helper.parse_channel_metadata(meta)
     assert result == scan_model.ChannelMetadata(1, 2, 3, None, 5, 6, None)
+
+
+def test_get_all_positioners():
+    positioners = scan_info_helper.get_all_positioners(SCAN_INFO)
+    assert len(positioners) == 3
+    assert positioners[0] == scan_info_helper.PositionerDescription(
+        "slit_bottom", 1, 2, 3, 4, "mm"
+    )
+    assert positioners[1] == scan_info_helper.PositionerDescription(
+        "slit_top", -1, -2, -3, None, None
+    )
+    assert positioners[2] == scan_info_helper.PositionerDescription(
+        "slit_foo", None, None, None, None, None
+    )

@@ -66,7 +66,11 @@ class ManageMainBehaviours(qt.QObject):
         address = connection.get_redis_connection_address()
         redisConnection = connection.create_redis_connection(address=address)
         self.flintModel().setRedisConnection(redisConnection)
-        self.workspaceManager().loadLastWorkspace()
+        try:
+            # NOTE: Here the session can not yet be defined
+            self.workspaceManager().loadLastWorkspace()
+        except Exception:
+            _logger.debug("Error while loading the workspace", exc_info=True)
 
     def updateBlissSessionName(self, sessionName):
         flintModel = self.flintModel()
@@ -82,6 +86,7 @@ class ManageMainBehaviours(qt.QObject):
         redis.lpush(key, value)
         redis.rpop(key)
         flintModel.setBlissSessionName(sessionName)
+        self.workspaceManager().loadLastWorkspace()
         return True
 
     def __workspaceChanged(
@@ -260,6 +265,7 @@ class ManageMainBehaviours(qt.QObject):
 
     def updateScanAndPlots(self, scan: scan_model.Scan, plots: List[plot_model.Plot]):
         flintModel = self.flintModel()
+        liveWindow = flintModel.liveWindow()
         workspace = flintModel.workspace()
         previousScan = flintModel.currentScan()
         if previousScan is not None:
@@ -285,6 +291,12 @@ class ManageMainBehaviours(qt.QObject):
                 for p in plots
                 if isinstance(p, (plot_item_model.ImagePlot, plot_item_model.McaPlot))
             ]
+            # FIXME: If we remove image and MCAs, there is maybe nothing to display
+            ctWidget = liveWindow.ctWidget()
+            ctWidget.setScan(scan)
+            ctWidget.show()
+            ctWidget.raise_()
+            ctWidget.setFocus(qt.Qt.OtherFocusReason)
 
         # Set the new scan
         flintModel.setCurrentScan(scan)

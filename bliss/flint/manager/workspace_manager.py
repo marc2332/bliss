@@ -107,11 +107,19 @@ class WorkspaceData(dict):
         self["plots"] = plots
         self["widgets"] = widgetDescriptions
 
-    def setLayout(self, layout: qt.QByteArray):
-        self["layout"] = layout
+    def setLiveWindow(self, window: qt.QWidget):
+        config = window.configuration()
+        self["layout"] = window.saveState()
+        self["window_config"] = config
 
-    def layout(self):
-        return self["layout"]
+    def initLiveWindow(self, window: qt.QWidget):
+        # NOTE: compatibility with BLISS <= 1.3
+        # FIXME: Remove it in few months
+        if "window_config" in self:
+            config = self["window_config"]
+            window.setConfiguration(config)
+        layout = self["layout"]
+        window.restoreState(layout)
 
     def feedWorkspace(self, workspace: flint_model.Workspace, parent: qt.QMainWindow):
         plots: dict = self["plots"]
@@ -322,6 +330,8 @@ class WorkspaceManager(qt.QObject):
         flintModel = self.mainManager().flintModel()
         redis = flintModel.redisConnection()
         sessionName = flintModel.blissSessionName()
+        if sessionName is None:
+            raise ValueError("No session defined")
         key = config.get_workspace_key(sessionName)
         setting = HashObjSetting(key, connection=redis)
         return setting
@@ -352,8 +362,7 @@ class WorkspaceManager(qt.QObject):
         if data is None:
             return
 
-        layout = data.layout()
-        window.restoreState(layout)
+        data.initLiveWindow(window)
 
     def loadWorkspace(self, name: str):
         flintModel = self.mainManager().flintModel()
@@ -400,8 +409,7 @@ class WorkspaceManager(qt.QObject):
                 self.parent()._initNewDock(widget)
                 widget.setScan(scan)
 
-            layout = data.layout()
-            window.restoreState(layout)
+            data.initLiveWindow(window)
 
         # Make sure everything is visible (just in case)
         for widget in newWorkspace.widgets():
@@ -453,8 +461,7 @@ class WorkspaceManager(qt.QObject):
         data.setWorkspace(workspace, includePlots=includePlots)
 
         window = flintModel.liveWindow()
-        layout = window.saveState()
-        data.setLayout(layout)
+        data.setLiveWindow(window)
 
         settings = self.__getSettings()
         settings[name] = data

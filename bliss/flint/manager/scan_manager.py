@@ -459,6 +459,7 @@ class ScanManager:
             del self.__cache[cache.scan_id]
 
             scan = cache.scan
+            scan._setFinalScanInfo(scan_info)
             scan._setState(scan_model.ScanState.FINISHED)
             scan.scanFinished.emit()
 

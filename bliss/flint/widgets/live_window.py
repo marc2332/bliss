@@ -131,9 +131,8 @@ class LiveWindow(MainWindow):
 
     def __createCtWidget(self):
         flintModel = self.flintModel()
-        from bliss.flint.widgets import ct_widget
 
-        widget = ct_widget.CtWidget(self)
+        widget = CtWidget(self)
         widget.setAttribute(qt.Qt.WA_DeleteOnClose)
         widget.setFlintModel(self.__flintModel)
         widget.windowClosed.connect(self.__ctWidgetClosed)

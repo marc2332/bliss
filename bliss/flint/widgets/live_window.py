@@ -21,6 +21,7 @@ from bliss.flint.widgets.curve_plot import CurvePlotWidget
 from bliss.flint.widgets.property_widget import MainPropertyWidget
 from bliss.flint.widgets.scan_status import ScanStatus
 from bliss.flint.widgets.ct_widget import CtWidget
+from bliss.flint.widgets.positioners_widget import PositionersWidget
 from bliss.flint.widgets.extended_dock_widget import MainWindow
 
 
@@ -36,6 +37,7 @@ class LiveWindowConfiguration:
     def __init__(self):
         # Mode
         self.show_count_widget: bool = False
+        self.show_positioners_widget: bool = False
 
     def __reduce__(self):
         return (self.__class__, (), self.__getstate__())
@@ -81,6 +83,7 @@ class LiveWindow(MainWindow):
         self.__scanStatusWidget = None
         self.__propertyWidget = None
         self.__ctWidget = None
+        self.__positionersWidget = None
 
         self.__initGui()
 
@@ -92,12 +95,17 @@ class LiveWindow(MainWindow):
         config = LiveWindowConfiguration()
         displayed = self.__ctWidget is not None
         config.show_count_widget = displayed
+        displayed = self.__positionersWidget is not None
+        config.show_positioners_widget = displayed
         return config
 
     def setConfiguration(self, config: LiveWindowConfiguration):
         ctWidgetDisplayed = self.__ctWidget is not None
         if config.show_count_widget != ctWidgetDisplayed:
             self.__toggleCtWidget()
+        positionersWidgetDisplayed = self.__positionersWidget is not None
+        if config.show_positioners_widget != positionersWidgetDisplayed:
+            self.__togglePositionersWidget()
 
     def __initGui(self):
         scanStatusWidget = ScanStatus(self)
@@ -162,6 +170,46 @@ class LiveWindow(MainWindow):
         else:
             ctWidget.deleteLater()
 
+    def __createPositionersWidget(self):
+        flintModel = self.flintModel()
+
+        widget = PositionersWidget(self)
+        widget.setAttribute(qt.Qt.WA_DeleteOnClose)
+        widget.setFlintModel(self.__flintModel)
+        widget.windowClosed.connect(self.__ctWidgetClosed)
+        widget.destroyed.connect(self.__ctWidgetClosed)
+        widget.setObjectName("positioners-dock")
+
+        workspace = flintModel.workspace()
+        curveWidget = [w for w in workspace.widgets() if isinstance(w, CurvePlotWidget)]
+        curveWidget = curveWidget[0] if len(curveWidget) > 0 else None
+
+        if curveWidget is None:
+            self.addDockWidget(qt.Qt.RightDockWidgetArea, widget)
+            widget.setVisible(True)
+        else:
+            self.tabifyDockWidget(curveWidget, widget)
+
+        widget.setWindowTitle("Positioners")
+        return widget
+
+    def __positionersWidgetClosed(self):
+        self.__positionersWidget = None
+
+    def positionersWidget(self, create=True) -> Optional[PositionersWidget]:
+        """Returns the widget used to display positioners."""
+        if self.__positionersWidget is None and create:
+            widget = self.__createPositionersWidget()
+            self.__positionersWidget = widget
+        return self.__positionersWidget
+
+    def __togglePositionersWidget(self):
+        widget = self.positionersWidget(create=False)
+        if widget is None:
+            self.positionersWidget(create=True)
+        else:
+            widget.deleteLater()
+
     def scanStatusWidget(self) -> Optional[ScanStatus]:
         """Returns the widget used to display the scan status."""
         return self.__scanStatusWidget
@@ -203,21 +251,24 @@ class LiveWindow(MainWindow):
     def createWindowActions(self, menu: qt.QMenu):
         action = qt.QAction(menu)
         action.setText("Count")
-        action.triggered.connect(
-            functools.partial(
-                self.__clickPredefinedLayout, _PredefinedLayouts.ONE_STACK
-            )
-        )
         action.setCheckable(True)
-
         action.triggered.connect(self.__toggleCtWidget)
         showCountAction = action
+
+        action = qt.QAction(menu)
+        action.setText("Positioners")
+        action.setCheckable(True)
+        action.triggered.connect(self.__togglePositionersWidget)
+        showPositionersAction = action
 
         def updateActions():
             ctWidget = self.ctWidget(create=False)
             showCountAction.setChecked(ctWidget is not None)
+            positionersWidget = self.positionersWidget(create=False)
+            showPositionersAction.setChecked(positionersWidget is not None)
 
         menu.addAction(showCountAction)
+        menu.addAction(showPositionersAction)
         menu.aboutToShow.connect(updateActions)
 
     def createLayoutActions(self, parent: qt.QObject) -> List[qt.QAction]:
@@ -367,6 +418,9 @@ class LiveWindow(MainWindow):
         ctWidget = self.ctWidget(create=False)
         if ctWidget is not None:
             widgets.append(ctWidget)
+        positionersWidget = self.positionersWidget(create=False)
+        if positionersWidget is not None:
+            widgets.append(positionersWidget)
 
         with utils.blockSignals(self):
             if layoutKind == _PredefinedLayouts.ONE_STACK:

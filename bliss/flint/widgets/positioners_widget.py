@@ -93,13 +93,23 @@ class CenteringFloatingPointDot(qt.QStyledItemDelegate):
 
 
 class MotorPositionDelegate(CenteringFloatingPointDot):
+    def __init__(self, parent=None):
+        super(MotorPositionDelegate, self).__init__(parent=parent)
+        self.__displayDial = False
+
+    def setDisplayDial(self, displayDial: bool):
+        self.__displayDial = displayDial
+
     def displayedRole(self) -> int:
-        return PositionersWidget.UserPositionRole
+        if self.__displayDial:
+            return PositionersWidget.DialPositionRole
+        else:
+            return PositionersWidget.UserPositionRole
 
     def initStyleOption(self, option: qt.QStyleOptionViewItem, index: qt.QModelIndex):
         super(MotorPositionDelegate, self).initStyleOption(option, index)
 
-        value = index.data(PositionersWidget.UserPositionRole)
+        value = index.data(self.displayedRole())
         if value is not None:
             option.features = (
                 option.features | qt.QStyleOptionViewItem.ViewItemFeature.HasDisplay
@@ -158,7 +168,41 @@ class PositionersWidget(ExtendedDockWidget):
         toolBar = qt.QToolBar(self)
         toolBar.setMovable(False)
 
+        self.__mode = qt.QActionGroup(self)
+        self.__mode.setExclusive(True)
+        self.__mode.triggered.connect(self.__displayModeChanged)
+
+        self.__userPos = qt.QAction()
+        self.__userPos.setText("User")
+        self.__userPos.setToolTip("Display user motor position")
+        self.__userPos.setCheckable(True)
+        self.__userPos.setChecked(True)
+
+        self.__dialPos = qt.QAction()
+        self.__dialPos.setText("Dial")
+        self.__dialPos.setToolTip("Display dial motor position")
+        self.__dialPos.setCheckable(True)
+
+        toolBar.addAction(self.__userPos)
+        toolBar.addAction(self.__dialPos)
+        self.__mode.addAction(self.__userPos)
+        self.__mode.addAction(self.__dialPos)
+
         return toolBar
+
+    def __displayModeChanged(self, action):
+        if action is self.__userPos:
+            self.__motorDelegate.setDisplayDial(False)
+        elif action is self.__dialPos:
+            self.__motorDelegate.setDisplayDial(True)
+        else:
+            assert False
+        # NOTE: update is not working, i don't know why
+        table = self.__table
+        rect = table.rect()
+        topLeft = table.indexAt(rect.topLeft())
+        bottomRight = table.indexAt(rect.bottomRight())
+        self.__table.dataChanged(topLeft, bottomRight)
 
     def createPropertyWidget(self, parent: qt.QWidget):
         propertyWidget = qt.QWidget(parent)

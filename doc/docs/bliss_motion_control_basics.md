@@ -117,10 +117,24 @@ An axis must be in `READY` state to be moved.
 
 `steps_per_unit` is the conversion factor applied to transform
 position given by a motor controller (typically "motor steps") into
-`dial` value (typically `mm`, `um` or `degrees`)
+`dial` value (typically `mm`, `um` or `degrees`).
 
+In short, the **dial position** should correspond to the motor controller
+position in user units. The dial position is accessible through the
+`.dial` property.
+
+The **user position** derives from the dial, following the formula
+defined below:
+ 
 ```user_position = (sign * dial_position) + offset```
 
+By default, the sign of user and dial is 1 (no sign change), and offset is 0
+(no offset).
+It is possible to define a particular user position either by assigning a
+new value to `.position` (which creates an *offset*), or by directly assigning
+an offset value through the `.offset` property.
+The *sign* can be defined directly in the YML configuration file for a motor,
+or it can be changed on the fly via the `.sign` property. Possible values are 1 or -1.
 
 ```python
 DEMO [2]: wa() ⏎
@@ -133,9 +147,7 @@ Current Positions: user
       6.92000  14.75000  2.00000  0.00000
 ```
 
-
-
-### user unit
+### unit
 
 Read-Only  -  string  -  from config
 
@@ -202,8 +214,12 @@ DEMO [59]: mot1.high_limit = 4  ⏎
 
 ```python
 DEMO [4]: move(mot1, 1122)  ⏎
-!!! === ValueError: mot1: move to `1122.000000' (with 0.010000 backlash) would go beyond high limit (4.000000) === !!!
+!!! === ValueError: mot1: move to `1122.000000' (with 0.010000 backlash) would exceed high limit (4.000000) === !!!
 ```
+
+The `dial_limits` property allows to read/set the limits using the dial frame of
+reference.
+
 
 ### tolerance
 

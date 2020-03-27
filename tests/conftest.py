@@ -25,6 +25,7 @@ import redis
 from bliss import global_map
 from bliss.common.session import DefaultSession
 from bliss.common.utils import get_open_ports
+from bliss.common.logtools import logbook_printer
 from bliss.config import static
 from bliss.config.conductor import client
 from bliss.config.conductor import connection
@@ -141,6 +142,7 @@ def clean_globals():
     simulation_diode.DEFAULT_CONTROLLER = None
     simulation_diode.DEFAULT_INTEGRATING_CONTROLLER = None
     scan_meta.USER_SCAN_META = None
+    logbook_printer.disabled.clear()
 
 
 @pytest.fixture

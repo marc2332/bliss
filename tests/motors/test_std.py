@@ -7,7 +7,7 @@
 
 import pytest
 import gevent
-from bliss.common.standard import mv, mvr, rockit
+from bliss.common.standard import move, mv, mvr, rockit
 from bliss.common import event
 
 
@@ -66,3 +66,16 @@ def test_rockit(robz):
     assert robz.position == pytest.approx(current_pos)
     assert mot_position.get("max") == pytest.approx(current_pos + 1 / 2)
     assert mot_position.get("min") == pytest.approx(current_pos - 1 / 2)
+
+
+def test_move_std_func_no_wait_motor_stop(roby, robz):
+    move(roby, 1e6, robz, 1e6, wait=False)
+
+    assert "MOVING" in roby.state
+    assert "MOVING" in robz.state
+
+    with gevent.Timeout(1):
+        roby.stop()
+
+    assert "READY" in roby.state
+    assert "READY" in robz.state

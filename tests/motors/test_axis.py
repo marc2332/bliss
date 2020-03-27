@@ -19,6 +19,7 @@ from bliss.common.axis import Modulo, AxisState
 from unittest import mock
 import random
 import inspect
+import numpy
 
 
 def test_property_setting(robz):
@@ -386,6 +387,15 @@ def test_limits(robz):
     assert robz.state.READY
 
 
+def test_dial_limits(robz):
+    robz.dial = 10
+    robz.position = 0
+    robz.dial_limits = None, None
+    assert robz.limits == (-numpy.inf, numpy.inf)
+    robz.dial_limits = 0, 20
+    assert robz.limits == (-10, 10)
+
+
 def test_limits_offset(robz):
     # check that user limits are the same than dial limits from config.
     assert robz.limits == (-1000, 1e9)
@@ -468,9 +478,22 @@ def test_backlash_stop(roby):
     pos = roby._hw_position
     roby.stop()
 
-    assert pytest.approx(roby.dial, 5e-2) == pos + roby.config.get("backlash", float)
+    assert pytest.approx(roby.dial, 5e-2) == pos + roby.backlash
     assert roby._set_position == roby.dial
     assert roby.state.READY
+
+
+def test_backlash_prop(roby, robz):
+    assert robz.backlash == 0
+    assert roby.backlash
+
+    robz.backlash = roby.backlash
+    robz.position = -9
+    robz.limits = -11, 0
+    with pytest.raises(ValueError):
+        robz.move(-10)
+    robz.backlash = 0
+    robz.move(-10)
 
 
 def test_axis_steps_per_unit(roby):
@@ -660,6 +683,27 @@ def test_no_offset(roby):
         roby.no_offset = False
 
 
+def test_offset_property(roby):
+    roby.move(1)
+
+    roby.offset = -1
+
+    assert roby.position == 0
+    assert roby.dial == 1
+    dll, dhl = roby.dial_limits
+    assert roby.limits == (dll - 1, dhl - 1)
+
+
+def test_sign_property(roby):
+    roby.move(1)
+
+    roby.sign = -1
+
+    assert roby.position == -1
+    dll, dhl = roby.dial_limits
+    assert roby.limits == (-dll, -dhl)
+
+
 def test_settings_to_config(roby):
     roby.velocity = 3
     roby.acceleration = 10
@@ -719,7 +763,7 @@ def test_jog(robz):
     robz.jog(300, reset_position=Modulo())
     time.sleep(t)
     robz.stop()
-    assert robz.position == pytest.approx(90, 0.1)
+    assert robz.dial == pytest.approx(90, 0.1)
 
 
 def test_jog2(jogger):

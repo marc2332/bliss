@@ -5,6 +5,7 @@
 # Copyright (c) 2015-2020 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
+import math
 import numpy
 import inspect
 import functools
@@ -23,9 +24,6 @@ from bliss import global_map
 from bliss.config.channels import Cache, Channel
 from bliss.config import settings
 from gevent import lock
-
-# make the link between encoder and axis, if axis uses an encoder
-# (only 1 encoder per axis of course)
 
 
 # apply settings or config parameters
@@ -202,6 +200,25 @@ class Controller:
             inspect.getmembers(axis.__class__, lambda o: isinstance(o, property))
         )
 
+        sign = get_setting_or_config_value(axis, "sign")
+        if sign is None or axis.no_offset:
+            sign = 1
+        axis.settings.set("sign", sign)
+
+        offset = get_setting_or_config_value(axis, "offset")
+        if offset is None or axis.no_offset:
+            offset = 0
+        axis.settings.set("offset", offset)
+
+        backlash = get_setting_or_config_value(axis, "backlash")
+        if backlash is None:
+            backlash = 0
+        axis.backlash = backlash
+
+        low_limit_dial = get_setting_or_config_value(axis, "low_limit")
+        high_limit_dial = get_setting_or_config_value(axis, "high_limit")
+        axis.dial_limits = low_limit_dial, high_limit_dial
+
         for setting_name in axis.settings.config_settings():
             # check if setting is in config
             if axis.config.get(setting_name) is None:
@@ -221,30 +238,31 @@ class Controller:
 
         for setting_name in axis.settings.config_settings():
             if setting_name == "steps_per_unit":
-                """
-                ???
-                """
                 cval = float(axis.config.get(setting_name))
                 rval = axis.settings.get(setting_name)
 
-                if (cval != rval) and (rval is not None):
+                if (cval != rval) and rval is not None:
                     ratio = rval / cval
-                    newdial = axis.dial * ratio
-                    newpos = axis.sign * newdial + axis.offset
-                    newsetpos = ratio * (axis._set_position - axis.offset) + axis.offset
+                    new_dial = axis.dial * ratio
 
-                    axis.settings.set("dial_position", newdial)
-                    axis.settings.set("position", newpos)
-                    axis.settings.set("_set_position", newsetpos)
                     axis.settings.set("steps_per_unit", cval)
+                    if not axis.no_offset:
+                        # calculate offset so user pos stays the same
+                        axis.settings.set(
+                            "offset", axis.position - axis.sign * new_dial
+                        )
+                    else:
+                        axis.settings.set("offset", 0)
+                    axis.settings.set("dial_position", new_dial)
 
+                    if math.copysign(rval, cval) != rval:
+                        ll = axis.settings.get("low_limit")
+                        hl = axis.settings.get("high_limit")
+                        axis.settings.set("low_limit", -hl)
+                        axis.settings.set("high_limit", -ll)
             else:
                 value = get_setting_or_config_value(axis, setting_name)
                 setattr(axis, setting_name, value)
-
-        low_limit_dial = get_setting_or_config_value(axis, "low_limit")
-        high_limit_dial = get_setting_or_config_value(axis, "high_limit")
-        axis.limits = axis.dial2user(low_limit_dial), axis.dial2user(high_limit_dial)
 
     def get_axis(self, axis_name):
         axis = self._axes.get(axis_name)

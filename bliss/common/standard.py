@@ -159,17 +159,18 @@ def iter_axes_position(*axes, **kwargs):
 
     for axis in global_map.get_axis_objects_iter(*axes):
         # get limits in USER units.
-        user_low_limit, user_high_limit = safe_get(axis, "limits", on_error=(err, err))
-        offset = safe_get(axis, "offset", on_error=float("nan"))
-        unit = axis.config.get("unit", default=None)
         axis_name = global_map.alias_or_name(axis)
         axis_state = safe_get(axis, "state", on_error=err)
         if "DISABLED" in axis_state:
             axis_name += " *DISABLED*"
-        dial_high_limit = axis.user2dial(user_high_limit)
-        dial_low_limit = axis.user2dial(user_low_limit)
+        user_low_limit, user_high_limit = safe_get(axis, "limits", on_error=(err, err))
         user_position = get(axis, "position")
+        offset = safe_get(axis, "offset", on_error=float("nan"))
+        dial_low_limit, dial_high_limit = safe_get(
+            axis, "dial_limits", on_error=(err, err)
+        )
         dial_position = get(axis, "dial")
+        unit = axis.config.get("unit", default=None)
 
         where_motor = WhereMotor(
             axis_name,

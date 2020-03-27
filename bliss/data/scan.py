@@ -183,7 +183,7 @@ def watch_session_scans(
                 db_name = node.db_name
                 scan_dict = running_scans.pop(db_name)
                 if scan_dict:
-                    scan_info = scan_dict["info"]
+                    scan_info = node.info
                     if scan_end_callback:
                         try:
                             scan_end_callback(scan_info)

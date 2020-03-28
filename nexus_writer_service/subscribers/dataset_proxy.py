@@ -497,7 +497,7 @@ class DatasetProxy(BaseProxy):
     def external_source_args(self):
         nframes = self.external_images_per_file
         if nframes is None:
-            self.logger.warning("Number of frames per external file is not specified")
+            # self.logger.warning("Number of frames per external file is not specified")
             return {}
         else:
             shape = (nframes,) + self.detector_shape
@@ -582,23 +582,26 @@ class DatasetProxy(BaseProxy):
         cextorder = extorder.order
         csaveorder = self.csaveorder
 
-        # Map uri to list of (idxin(int), idxout(tuple)) tuples
+        # Map uri to list of (idxin(int or slice), idxout(tuple)) tuples
         uridict = OrderedDict()
         uris = self._get_external_datasets()
         if self.current_scan_save_shape:
             coordout = range(len(uris))
             coordout = self.saveorder.unravel(coordout, self.current_scan_save_shape)
 
+            collapse_slice = self.csaveorder
+
             for (uri, idxin), idxout in zip(uris, zip(*coordout)):
-                item = idxin, idxout
                 if uri in uridict:
-                    uridict[uri].append(item)
+                    if collapse_slice:
+                        self._vdsidx_append(uridict[uri], idxin, idxout)
+                    else:
+                        uridict[uri].append((idxin, idxout))
                 else:
-                    uridict[uri] = [item]
+                    uridict[uri] = [(idxin, idxout)]
         else:
             uri, idxin = uris[0]
-            item = idxin, tuple()
-            uridict[uri] = [item]
+            uridict[uri] = [(idxin, tuple())]
 
         # Generates uri's with associated in/out index generator
         def fill_generator():
@@ -616,16 +619,86 @@ class DatasetProxy(BaseProxy):
         nuris = sum(len(v) for v in uridict.values())
         return files, nuris, fill_generator
 
-    def _add_detidx(self, tpl, corder):
-        if not isinstance(tpl, tuple):
-            tpl = (tpl,)
+    def _vdsidx_append(self, lst, idxin, idxout):
+        """Append VDS input/output index or modify the last one
+
+        :param list(2-tuple) lst:
+        :param int idxin:
+        :param tuple(int) idxout:
+        """
+        idxin_prev, idxout_prev = lst[-1]
+
+        # Input index follows the previous one?
+        inext = self._vdsidx_slice_next(idxin_prev, idxin)
+        if not inext:
+            lst.append((idxin, idxout))
+            return
+
+        # Output index follows the previous one
+        onext = [
+            self._vdsidx_slice_next(ilast, i) for ilast, i in zip(idxout_prev, idxout)
+        ]
+        if sum(onext) != 1:
+            lst.append((idxin, idxout))
+            return
+        iout = onext.index(True)
+
+        # Output index the same except for the one that incremented
+        eout = [ilast == i for ilast, i in zip(idxout_prev, idxout)]
+        eout.pop(iout)
+        if not all(eout):
+            lst.append((idxin, idxout))
+            return
+
+        # Extent output index slice
+        idxout_prev = idxout_prev[iout]
+        end = idxout[iout]
+        if isinstance(idxout_prev, slice):
+            start = idxout_prev.start
+            step = idxout_prev.step
+        else:
+            start = idxout_prev
+            step = end - start
+        idxout = list(idxout)
+        idxout[iout] = slice(start, end + step, step)
+        idxout = tuple(idxout)
+
+        # Extent input index slice
+        if isinstance(idxin_prev, slice):
+            a = idxin_prev.start
+            b = idxin
+            s = idxin_prev.step
+        else:
+            a = idxin_prev
+            b = idxin
+            s = b - a
+        b += s
+        idxin = slice(a, b, s)
+
+        # Replace previous index with extended slices
+        lst[-1] = (idxin, idxout)
+
+    @staticmethod
+    def _vdsidx_slice_next(idx_prev, idx):
+        """Index follows the previous index
+        """
+        if isinstance(idx_prev, slice):
+            idx_prev = idx_prev.stop - idx_prev.step
+        # Negative steps not supported by h5py VDS
+        return idx_prev - idx == 1
+
+    def _add_detidx(self, idx, corder):
+        """Add detector dimensions to index
+        """
+        if not isinstance(idx, tuple):
+            idx = (idx,)
         if self.detector_ndim:
             if corder:
-                return tpl + (Ellipsis,)
+                return idx + (Ellipsis,)
             else:
-                return (Ellipsis,) + tpl
+                return (Ellipsis,) + idx
         else:
-            return tpl
+            return idx
 
     def _get_external_datasets(self):
         if not self.external_uri_from_file:

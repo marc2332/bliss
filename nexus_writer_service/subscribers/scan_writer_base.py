@@ -1460,7 +1460,7 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
         :param DatasetProxy or ReferenceProxy nproxy:
         """
         # Copy/link new data
-        if node.type in "channel":
+        if node.type == "channel":
             # newdata = copied from Redis
             newdata = self._fetch_new_redis_data(nproxy, node, event_data=event_data)
             if newdata.shape[0]:

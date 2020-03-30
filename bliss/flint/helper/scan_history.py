@@ -53,13 +53,15 @@ def get_all_scans(session_name: str) -> typing.List[ScanDesc]:
         try:
             info = scan.info
             node_name = info["node_name"]
+        except Exception:
+            _logger.debug("Backtrace", exc_info=True)
+            _logger.error("Error while reading a scan from the history")
+        else:
             start_time = read_safe_key(info, node_name, "start_time", None)
             scan_nb = read_safe_key(info, node_name, "scan_nb", None)
             scan_type = read_safe_key(info, node_name, "type", None)
-            title = read_safe_key(info, node_name, "title", None)
+            title = read_safe_key(info, node_name, "title", "")
             yield ScanDesc(node_name, start_time, scan_nb, scan_type, title)
-        except Exception:
-            _logger.error("Error while reading a scan from the history")
 
 
 def get_scan_info(scan_node_name: str) -> typing.Dict:
@@ -82,11 +84,12 @@ def get_data_from_redis(
             continue
         try:
             data = node.get_as_array(0, -1)
-            result[node.name] = data
         except:
             # It is supposed to fail if part of the measurements was dropped
             _logger.debug("Backtrace", exc_info=True)
             _logger.warning("Data from channel %s is not reachable", node.name)
+        else:
+            result[node.name] = data
     return result
 
 
@@ -110,7 +113,7 @@ def get_data_from_file(
     with h5py.File(scan_info["filename"], mode="r") as h5:
         devices = scan_info["nexuswriter"]["devices"]
         devices = device_info(devices, scan_info)
-        for subscan_id, (subscan, devices) in enumerate(devices.items(), 1):
+        for subscan_id, (_subscan, devices) in enumerate(devices.items(), 1):
             for channel_name, device in devices.items():
                 if channel_name not in channel_names:
                     continue
@@ -120,13 +123,13 @@ def get_data_from_file(
                 try:
                     # Create a memory copy of the data
                     data = h5[path][()]
-                    result[channel_name] = data
-                except:
-                    # It is supposed to fail if part of the measurements was dropped
+                except Exception:
                     _logger.debug("Backtrace", exc_info=True)
                     _logger.warning(
                         "Data from channel %s is not reachable", channel_name
                     )
+                else:
+                    result[channel_name] = data
 
     return result
 
@@ -152,6 +155,12 @@ def create_scan(scan_node_name: str) -> scan_model.Scan:
     if len(channel_names) > 0:
         try:
             hdf5_data = get_data_from_file(scan_node_name, scan_info)
+        except Exception:
+            _logger.debug("Error while reading data from HDF5", exc_info=True)
+            _logger.error(
+                "Impossible to read scan data '%s' from HDF5 files", scan_node_name
+            )
+        else:
             for channel_name, array in hdf5_data.items():
                 if channel_name not in channel_names:
                     continue
@@ -159,11 +168,6 @@ def create_scan(scan_node_name: str) -> scan_model.Scan:
                 channel = scan.getChannelByName(channel_name)
                 channel.setData(data)
                 channel_names.discard(channel_name)
-        except:
-            _logger.debug("Error while reading data from HDF5", exc_info=True)
-            _logger.error(
-                "Impossible to read scan data '%s' from HDF5 files", scan_node_name
-            )
 
     if len(channel_names) > 0:
         names = ", ".join(channel_names)

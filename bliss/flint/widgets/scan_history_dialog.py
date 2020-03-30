@@ -109,9 +109,9 @@ class ScanHistoryDialog(qt.QDialog):
     NodeNameRole = qt.Qt.UserRole + 1
     ScanTypeRole = qt.Qt.UserRole + 2
 
-    __loadingSucceeded = qt.Signal(object)
+    _loadingSucceeded = qt.Signal(object)
 
-    __loadingFailed = qt.Signal(object)
+    _loadingFailed = qt.Signal(object)
 
     def __init__(self, parent=None):
         super(ScanHistoryDialog, self).__init__(parent=parent)
@@ -143,8 +143,13 @@ class ScanHistoryDialog(qt.QDialog):
         layout.addWidget(self.__wait)
         layout.addWidget(self.__buttons)
 
+        self._loadingSucceeded.connect(self.__displayScans)
+        self._loadingFailed.connect(self.__displayError)
+
+    def _model(self) -> qt.QAbstractItemModel:
+        return self.__modelFilter
+
     def setSessionName(self, sessionName: str):
-        # FIXME: it should be done in a greenlet
         self.__loadScans(sessionName)
 
     def setCategoryFilter(
@@ -169,25 +174,22 @@ class ScanHistoryDialog(qt.QDialog):
         self.__wait.setVisible(True)
         self.__wait.setWaiting(True)
 
-        self.__loadingSucceeded.connect(self.__displayScans)
-        self.__loadingFailed.connect(self.__displayError)
-
         def load():
             try:
                 scans = scan_history.get_all_scans(sessionName)
                 # Convert the iterator to a list
                 scans = list(scans)
-                self.__loadingSucceeded.emit(scans)
+                self._loadingSucceeded.emit(scans)
             except gevent.GreenletExit as e:
-                self.__loadingFailed.emit(e)
+                self._loadingFailed.emit(e)
 
         def exception_orrured(future_exception):
             try:
                 future_exception.get()
             except BaseException as e:
-                self.__loadingFailed.emit(e)
+                self._loadingFailed.emit(e)
                 return
-            self.__loadingFailed.emit(None)
+            self._loadingFailed.emit(None)
 
         self.__task = gevent.spawn(load)
         self.__task.link_exception(exception_orrured)
@@ -200,8 +202,8 @@ class ScanHistoryDialog(qt.QDialog):
     def __cleanTask(self):
         self.__wait.setWaiting(False)
         self.__wait.setVisible(False)
-        self.__loadingSucceeded.disconnect(self.__displayScans)
-        self.__loadingFailed.disconnect(self.__displayError)
+        self._loadingSucceeded.disconnect(self.__displayScans)
+        self._loadingFailed.disconnect(self.__displayError)
         self.__task = None
 
     def __displayError(self, error):

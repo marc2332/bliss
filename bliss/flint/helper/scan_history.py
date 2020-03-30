@@ -173,5 +173,7 @@ def create_scan(scan_node_name: str) -> scan_model.Scan:
         names = ", ".join(channel_names)
         _logger.error("Few channel data was not read '%s'", names)
 
+    # I guess there is no way to reach the early scan_info
+    scan._setFinalScanInfo(scan_info)
     scan._setState(scan_model.ScanState.FINISHED)
     return scan

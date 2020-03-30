@@ -115,6 +115,9 @@ class Icepap(Controller):
         if hasattr(axis, "_init_hardware"):
             axis._init_hardware()
 
+    def steps_position_precision(self, axis):
+        return 1
+
     # Axis power management
     def set_on(self, axis):
         """

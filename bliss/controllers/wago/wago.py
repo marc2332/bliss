@@ -333,6 +333,7 @@ def get_channel_info(module_name, module_channel=0, extended_mode=False):
             info["base"] = 20000
         elif module_name.endswith("562-UP"):
             info["base"] = 65535
+            info["unipolar"] = True
         else:
             info["base"] = 32767
     elif reading_type.startswith("ssi"):
@@ -1173,7 +1174,10 @@ class WagoController:
         low = kwargs.get("low", 0)
         high = kwargs.get("high", 10)
         base = kwargs.get("base", 32767)
-        value = ctypes.c_short(raw_value).value
+        if kwargs.get("unipolar", False):
+            value = raw_value
+        else:
+            value = ctypes.c_short(raw_value).value
         return (value * high / float(base)) + low
 
     def _read_ssi(self, raw_value, **kwargs):

@@ -12,7 +12,12 @@ from bliss.controllers.wago.helpers import (
     to_signed,
 )
 
-from bliss.controllers.wago.wago import WagoController, ModulesConfig, MissingFirmware
+from bliss.controllers.wago.wago import (
+    WagoController,
+    ModulesConfig,
+    MissingFirmware,
+    get_channel_info,
+)
 from bliss.controllers.wago.interlocks import (
     interlock_parse_relay_line,
     interlock_parse_channel_line,
@@ -720,3 +725,57 @@ def test_resolve_write():
         conf._resolve_write("fake", 0)  # key does not exist
     with pytest.raises(RuntimeError):
         array = conf._resolve_write("out3", 1, 2)  # one missing channel
+
+
+def test_read_write_fs(default_session):
+    # check that read/write fs values corresponds to values
+    # given on modules data sheet
+    wago = default_session.config.get("wago_simulator")
+
+    table = {
+        "750-456": [
+            (0x8000, -10),
+            (0xa000, -7.5),
+            (0xe000, -2.5),
+            (0x2000, 2.5),
+            (0x6000, 7.5),
+            (0x7ff8, 10),
+        ],
+        "750-550": [(0, 0), (0x2000, 2.5), (0x6000, 7.5), (0x7fff, 10)],
+        "750-556": [(0, 0), (0x8001, -10), (0xc000, -5), (0x0, 0), (0x4000, 5)],
+        "750-562": [  # 0-10V and +-10V on twos complement
+            (0x8000, -10),
+            (0xc000, -5),
+            (0x0, 0),
+            (0x3fff, 5),
+            (0x7fff, 10),
+        ],
+        "750-562-UP": [  # 0-10V unipolar variant 0-65535
+            (0, 0),
+            (0x3fff, 2.5),
+            (0x7fff, 5),
+            (0xbfff, 7.5),
+            (0xffff, 10),
+        ],
+        "750-472": [(0, 0), (0x1000, 2.5), (0x4000, 10), (0x6000, 15), (0x7fff, 20)],
+        "750-474": [
+            (0x1000, 6),
+            (0x3000, 10),
+            (0x5000, 14),
+            (0x7000, 18),
+            (0x7fff, 20),
+        ],
+        "750-477": [(0, 0), (0x1388, 5), (0x2719, 10), (0x3a98, 15), (0x4e20, 20)],
+    }
+
+    for module, tests in table.items():
+        mi = get_channel_info(module)
+        for raw, voltage in tests:
+            if mi.ana_in or mi.ana_out:
+                assert pytest.approx(voltage, .01) == wago.controller._read_fs(
+                    raw, **mi.reading_info
+                )
+            if mi.ana_out:
+                assert pytest.approx(raw, .01) == wago.controller._write_fs(
+                    voltage, **mi.reading_info
+                )

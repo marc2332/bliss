@@ -316,9 +316,13 @@ class Moco(object):
         else:
             self.values["fratio"] = 1.0
 
-        ret_val = self.comm("?OSCBEAM")
-        self.values["oscmain"] = float(ret_val.rsplit()[0])
-        self.values["oscquad"] = float(ret_val.rsplit()[1])
+        if self.mode(silent=True) == "OSCILLATION":
+            ret_val = self.comm("?OSCBEAM")
+            self.values["oscmain"] = float(ret_val.rsplit()[0])
+            self.values["oscquad"] = float(ret_val.rsplit()[1])
+        else:
+            self.values["oscmain"] = 0
+            self.values["oscquad"] = 0
 
         ret_val = self.comm("?PIEZO")
         self.values["piezo"] = float(ret_val)

@@ -44,6 +44,7 @@ class TestScanHistoryDialog(TestCaseQt):
         dialog._loadingSucceeded.emit(scans)
         assert dialog._model().rowCount() == 2
         dialog.show()
+        self.qWaitForWindowExposed(dialog)
         dialog.close()
 
     def test_filter_dialog(self):
@@ -55,6 +56,7 @@ class TestScanHistoryDialog(TestCaseQt):
         dialog.setCategoryFilter(point=True, nscan=False, mesh=False, others=False)
         assert dialog._model().rowCount() == 1
         dialog.show()
+        self.qWaitForWindowExposed(dialog)
         dialog.close()
 
     def test_failed_dialog(self):
@@ -65,4 +67,5 @@ class TestScanHistoryDialog(TestCaseQt):
             dialog._loadingFailed.emit(e)
         assert dialog._model().rowCount() == 0
         dialog.show()
+        self.qWaitForWindowExposed(dialog)
         dialog.close()

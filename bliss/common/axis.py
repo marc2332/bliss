@@ -173,6 +173,11 @@ class GroupMove:
         for controller, motions in motions_dict.items():
             for motion in motions:
                 if motion.backlash:
+                    if self._user_stopped:
+                        # have to recalculate target: do backlash from where it stopped
+                        motion.target_pos = (
+                            motion.axis.dial * motion.axis.steps_per_unit
+                        )
                     backlash_motion = Motion(
                         motion.axis,
                         motion.target_pos + motion.backlash,
@@ -236,14 +241,6 @@ class GroupMove:
                     with capture():
                         self._stop_move(motions_dict, stop_motion)
                     self._stop_wait(motions_dict, capture)
-
-                # need to update target pos. for backlash move
-                for _, motions in motions_dict.items():
-                    for motion in motions:
-                        if motion.backlash:
-                            motion.target_pos = (
-                                motion.axis.dial * motion.axis.steps_per_unit
-                            )
 
                 # Do backlash move, if needed
                 with capture():

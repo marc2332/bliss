@@ -208,9 +208,9 @@ class CtWidget(ExtendedDockWidget):
         pass
 
     def __redrawAll(self):
-        displayValue = self.__scan.state() != scan_model.ScanState.FINISHED
+        displayResult = self.__scan.state() == scan_model.ScanState.FINISHED
         self.__updateFields()
-        if displayValue:
+        if displayResult:
             self.__updateData()
 
     def __updateFields(self):

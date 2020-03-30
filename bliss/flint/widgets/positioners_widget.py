@@ -241,8 +241,6 @@ class PositionersWidget(ExtendedDockWidget):
             self.__scan.scanDataUpdated[object].connect(self.__scanDataUpdated)
             self.__scan.scanStarted.connect(self.__scanStarted)
             self.__scan.scanFinished.connect(self.__scanFinished)
-            if self.__scan.state() != scan_model.ScanState.INITIALIZED:
-                self.__updateTitle(self.__scan)
         self.scanModelUpdated.emit(scan)
 
         self.__redrawAll()
@@ -267,9 +265,9 @@ class PositionersWidget(ExtendedDockWidget):
         pass
 
     def __redrawAll(self):
-        displayValue = self.__scan.state() != scan_model.ScanState.FINISHED
+        displayResult = self.__scan.state() == scan_model.ScanState.FINISHED
         self.__updateFields()
-        if displayValue:
+        if displayResult:
             self.__updateData()
 
     def __updateFields(self):

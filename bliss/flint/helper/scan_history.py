@@ -173,4 +173,5 @@ def create_scan(scan_node_name: str) -> scan_model.Scan:
         names = ", ".join(channel_names)
         _logger.error("Few channel data was not read '%s'", names)
 
+    scan._setState(scan_model.ScanState.FINISHED)
     return scan

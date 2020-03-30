@@ -76,6 +76,18 @@ class _FilterScanModel(qt.QSortFilterProxyModel):
         self.__mesh = True
         self.__others = True
 
+    def setCategoryFilter(self, point: bool, nscan: bool, mesh: bool, others: bool):
+        """Custom the filter applied of the scan category."""
+        if point is not None:
+            self.__point = point
+        if nscan is not None:
+            self.__nscan = nscan
+        if mesh is not None:
+            self.__mesh = mesh
+        if others is not None:
+            self.__others = others
+        self.invalidateFilter()
+
     def filterAcceptsRow(self, source_row: int, source_parent: qt.QModelIndex):
         sourceModel = self.sourceModel()
         index = sourceModel.index(source_row, 0, source_parent)
@@ -109,6 +121,7 @@ class ScanHistoryDialog(qt.QDialog):
         self.__table.setSelectionBehavior(qt.QAbstractItemView.SelectRows)
         self.__table.setSelectionMode(qt.QAbstractItemView.SingleSelection)
         self.__table.setEditTriggers(qt.QAbstractItemView.NoEditTriggers)
+        self.__modelFilter = _FilterScanModel(self)
 
         self.__wait = WaitingPushButton.WaitingPushButton(self)
         self.__wait.setText("Cancel")
@@ -133,6 +146,19 @@ class ScanHistoryDialog(qt.QDialog):
     def setSessionName(self, sessionName: str):
         # FIXME: it should be done in a greenlet
         self.__loadScans(sessionName)
+
+    def setCategoryFilter(
+        self,
+        point: bool = None,
+        nscan: bool = None,
+        mesh: bool = None,
+        others: bool = None,
+    ):
+        """Custom the filter applied of the scan category.
+
+        When an argument is None, the corresponding filter is not changed.
+        """
+        self.__modelFilter.setCategoryFilter(point, nscan, mesh, others)
 
     def __loadScans(self, sessionName: str):
         self.__cancel.setVisible(False)
@@ -197,9 +223,8 @@ class ScanHistoryDialog(qt.QDialog):
         self.__table.setVisible(True)
 
         model = qt.QStandardItemModel(self)
-        modelFilter = _FilterScanModel(self)
-        modelFilter.setSourceModel(model)
-        self.__table.setModel(modelFilter)
+        self.__modelFilter.setSourceModel(model)
+        self.__table.setModel(self.__modelFilter)
 
         model.clear()
         model.setHorizontalHeaderLabels(["ID", "Date", "Time", "Command"])
@@ -239,7 +264,7 @@ class ScanHistoryDialog(qt.QDialog):
             model.appendRow([idItem, dateItem, timeItem, commandItem])
 
         # Select the last scan
-        lastRow = modelFilter.rowCount() - 1
+        lastRow = self.__modelFilter.rowCount() - 1
         self.__table.selectRow(lastRow)
         self.__table.scrollToBottom()
 

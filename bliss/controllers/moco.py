@@ -122,11 +122,6 @@ class Moco(object):
     MOCO counters
     """
 
-    def get_counter(self, name):
-        for counter in self.counterlist:
-            if counter.name == name:
-                return counter
-
     @property
     def counters(self):
         return self.counters_controller.counters

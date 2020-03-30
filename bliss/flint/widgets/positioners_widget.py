@@ -12,10 +12,12 @@ import numbers
 import logging
 
 from silx.gui import qt
+from silx.gui import icons
 
 from bliss.flint.model import scan_model
 from bliss.flint.model import flint_model
 from bliss.flint.helper import scan_info_helper
+from bliss.flint.helper import scan_history
 from bliss.flint.widgets.extended_dock_widget import ExtendedDockWidget
 
 
@@ -171,6 +173,17 @@ class PositionersWidget(ExtendedDockWidget):
         toolBar = qt.QToolBar(self)
         toolBar.setMovable(False)
 
+        action = qt.QAction(self)
+        icon = icons.getQIcon("flint:icons/scan-history")
+        action.setIcon(icon)
+        action.setToolTip(
+            "Load a previous scan stored in Redis (about 24 hour of history)"
+        )
+        action.triggered.connect(self.__requestLoadScanFromHistory)
+        toolBar.addAction(action)
+
+        toolBar.addSeparator()
+
         self.__mode = qt.QActionGroup(self)
         self.__mode.setExclusive(True)
         self.__mode.triggered.connect(self.__displayModeChanged)
@@ -206,6 +219,35 @@ class PositionersWidget(ExtendedDockWidget):
         topLeft = table.indexAt(rect.topLeft())
         bottomRight = table.indexAt(rect.bottomRight())
         self.__table.dataChanged(topLeft, bottomRight)
+
+    def __requestLoadScanFromHistory(self):
+        from bliss.flint.widgets.scan_history_dialog import ScanHistoryDialog
+
+        sessionName = self.__flintModel.blissSessionName()
+
+        dialog = ScanHistoryDialog(self)
+        # Display all the scans
+        dialog.setCategoryFilter(point=True, nscan=True, mesh=True, others=True)
+        dialog.setSessionName(sessionName)
+        result = dialog.exec_()
+        if result:
+            selection = dialog.selectedScanNodeNames()
+            if len(selection) == 0:
+                _logger.error("No selection")
+                return
+
+            nodeName = selection[0]
+            try:
+                scan = scan_history.create_scan(nodeName)
+            except Exception:
+                _logger.error("Error while loading scan from history", exc_info=True)
+                qt.QMessageBox.critical(
+                    None,
+                    "Error",
+                    "An error occurred while a scan was loading from the history",
+                )
+            else:
+                self.setScan(scan)
 
     def createPropertyWidget(self, parent: qt.QWidget):
         propertyWidget = qt.QWidget(parent)
@@ -266,6 +308,7 @@ class PositionersWidget(ExtendedDockWidget):
 
     def __redrawAll(self):
         displayResult = self.__scan.state() == scan_model.ScanState.FINISHED
+        self.__updateTitle()
         self.__updateFields()
         if displayResult:
             self.__updateData()

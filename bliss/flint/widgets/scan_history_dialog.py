@@ -33,9 +33,7 @@ class _IdDelegate(qt.QStyledItemDelegate):
         else:
             icon = qt.QIcon()
 
-        option.features = (
-            option.features | qt.QStyleOptionViewItem.ViewItemFeature.HasDecoration
-        )
+        option.features = option.features | qt.QStyleOptionViewItem.HasDecoration
         option.icon = icon
 
     def displayText(self, value, locale: qt.QLocale):

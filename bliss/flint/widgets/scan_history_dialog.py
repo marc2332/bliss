@@ -66,7 +66,6 @@ class _DateDelegate(qt.QStyledItemDelegate):
         now = datetime.datetime.now()
         if now.isocalendar() == value.isocalendar():
             return "Today"
-        print(now.isocalendar())
         today = datetime.datetime(now.year, now.month, now.day)
         if (today - value) <= datetime.timedelta(days=1):
             return "Yesterday"

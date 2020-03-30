@@ -272,7 +272,7 @@ class CtWidget(ExtendedDockWidget):
 
         for i in range(model.rowCount()):
             channelItem = model.item(i, 0)
-            nameItem = model.item(i, 1)
+            _nameItem = model.item(i, 1)
             valueItem = model.item(i, 2)
             unitItem = model.item(i, 3)
             channel = scan.getChannelByName(channelItem.text())

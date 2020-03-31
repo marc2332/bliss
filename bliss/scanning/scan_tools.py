@@ -81,7 +81,7 @@ def last_scan_motor(axis=None):
     Return the last motor used in the last scan
     """
     if not len(current_session.scans):
-        raise RuntimeError("No scan available. Hint: do at least one ;)")
+        raise RuntimeError("No scan available.")
     scan = current_session.scans[-1]
     axis_name = scan._get_data_axis_name(axis=axis)
     return current_session.env_dict[axis_name]
@@ -92,7 +92,7 @@ def last_scan_motors():
     Return a list of motor used in the last scan
     """
     if not len(current_session.scans):
-        raise RuntimeError("No scan available. Hint: do at least one ;)")
+        raise RuntimeError("No scan available.")
     scan = current_session.scans[-1]
     axes_name = scan._get_data_axes_name()
     return [current_session.env_dict[axis_name] for axis_name in axes_name]

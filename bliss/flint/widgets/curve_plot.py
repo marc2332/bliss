@@ -8,7 +8,6 @@
 from __future__ import annotations
 from typing import Optional
 from typing import Tuple
-from typing import Union
 from typing import Dict
 from typing import List
 from typing import Sequence
@@ -19,7 +18,7 @@ import logging
 from silx.gui import qt
 from silx.gui import icons
 from silx.gui import utils as qtutils
-from silx.gui.plot.items.shape import BoundingRect
+from silx.gui.plot.items.shape import XAxisExtent
 from silx.gui.plot.items import Curve
 from silx.gui.plot.items import axis as axis_mdl
 from silx.gui.plot.actions import fit
@@ -35,8 +34,73 @@ from bliss.flint.helper import model_helper
 from bliss.flint.utils import signalutils
 from bliss.flint.widgets import plot_helper
 
+from bliss.scanning import scan_math
 
 _logger = logging.getLogger(__name__)
+
+
+class SpecMode(qt.QObject):
+
+    stateChanged = qt.Signal(bool)
+    """Emitted when the enability changed"""
+
+    def __init__(self, parent: qt.QObject = None):
+        super(SpecMode, self).__init__(parent=parent)
+        self.__enabled = False
+
+    def isEnabled(self) -> bool:
+        return self.__enabled
+
+    def setEnabled(self, enabled: bool):
+        if self.__enabled == enabled:
+            return
+        self.__enabled = enabled
+        self.stateChanged.emit(enabled)
+
+    def createAction(self):
+        action = qt.QAction(self)
+        action.setText("Spec statistics")
+        action.setToolTip("Enable/disable Spec statistics for boomers")
+        action.setCheckable(True)
+        icon = icons.getQIcon("flint:icons/spec")
+        action.setIcon(icon)
+        self.stateChanged.connect(action.setChecked)
+        action.toggled.connect(self.setEnabled)
+        return action
+
+    def __selectedData(self, plot: FlintPlot) -> Tuple[numpy.ndarray, numpy.ndarray]:
+        curve = plot.getActiveCurve()
+        if curve is None:
+            curves = plot.getAllCurves()
+            curves = [c for c in curves if isinstance(c, plot_helper.FlintCurve)]
+            if len(curves) != 1:
+                return None, None
+            curve = curves[0]
+        x = curve.getXData()
+        y = curve.getYData()
+        return x, y
+
+    def initPlot(self, plot: FlintPlot):
+        if self.__enabled:
+            pass
+
+    def __computeState(self, plot: FlintPlot) -> Optional[str]:
+        x, y = self.__selectedData(plot)
+        if x is None or y is None:
+            return None
+        # FIXME: It would be good to cache this statistics
+        peak = scan_math.peak2(x, y)
+        cen = scan_math.cen(x, y)
+        com = scan_math.com(x, y)
+        return f"Peak: {peak[0]:.3} ({peak[1]:.3})  Cen: {cen[0]:.3} (FWHM: {cen[1]:.3})  COM: {com:.3}"
+
+    def updateTitle(self, plot: FlintPlot, title: str) -> str:
+        if not self.__enabled:
+            return title
+        state = self.__computeState(plot)
+        if state is None:
+            return title
+        return title + "\n" + state
 
 
 class CurvePlotWidget(plot_helper.PlotWidget):
@@ -49,6 +113,9 @@ class CurvePlotWidget(plot_helper.PlotWidget):
         self.__scan: Optional[scan_model.Scan] = None
         self.__flintModel: Optional[flint_model.FlintState] = None
         self.__plotModel: plot_model.Plot = None
+
+        self.__specMode = SpecMode(self)
+        self.__specMode.stateChanged.connect(self.__specModeChanged)
 
         self.__items: Dict[
             plot_model.Item, Dict[scan_model.Scan, List[Tuple[str, str]]]
@@ -102,13 +169,12 @@ class CurvePlotWidget(plot_helper.PlotWidget):
         self.__syncAxisItems = signalutils.InvalidatableSignal(self)
         self.__syncAxisItems.triggered.connect(self.__updateAxesItems)
 
-        self.__updateBoundWhenData = False
-        self.__boundingY1 = BoundingRect()
+        self.__boundingY1 = XAxisExtent()
         self.__boundingY1.setName("bound-y1")
-        self.__boundingY1.setYAxis("left")
-        self.__boundingY2 = BoundingRect()
+        self.__boundingY1.setVisible(False)
+        self.__boundingY2 = XAxisExtent()
         self.__boundingY2.setName("bound-y2")
-        self.__boundingY2.setYAxis("right")
+        self.__boundingY2.setVisible(False)
 
         self.__permanentItems = [
             self.__boundingY1,
@@ -118,6 +184,38 @@ class CurvePlotWidget(plot_helper.PlotWidget):
 
         for o in self.__permanentItems:
             self.__plot.addItem(o)
+
+    def configuration(self):
+        config = super(CurvePlotWidget, self).configuration()
+        config.spec_mode = self.__specMode.isEnabled()
+        return config
+
+    def setConfiguration(self, config):
+        if config.spec_mode:
+            self.__specMode.setEnabled(True)
+        super(CurvePlotWidget, self).setConfiguration(config)
+
+    def __specModeChanged(self, enabled):
+        self.__updateStyle()
+        self.__updateTitle(self.__scan)
+
+    def __updateStyle(self):
+        isLive = False
+        if self.__scan is not None:
+            isLive = self.__scan.state() == scan_model.ScanState.PROCESSING
+
+        if self.__specMode.isEnabled():
+            if isLive:
+                dataColor = "#add8e6"
+                bgColor = "#f0e68c"
+            else:
+                dataColor = "#f0e68c"
+                bgColor = "#d3d3d3"
+        else:
+            dataColor = None
+            bgColor = "transparent"
+        self.__plot.setDataBackgroundColor(dataColor)
+        self.__plot.setBackgroundColor(bgColor)
 
     def getRefreshManager(self) -> plot_helper.RefreshManager:
         return self.__refreshManager
@@ -149,6 +247,9 @@ class CurvePlotWidget(plot_helper.PlotWidget):
         action.setIcon(icons.getQIcon("flint:icons/crosshair"))
         toolBar.addAction(action)
         action = self.__plot.getCurvesRoiDockWidget().toggleViewAction()
+        toolBar.addAction(action)
+
+        action = self.__specMode.createAction()
         toolBar.addAction(action)
 
         # FIXME implement that
@@ -217,11 +318,6 @@ class CurvePlotWidget(plot_helper.PlotWidget):
     def selectedPlotItem(self) -> Optional[plot_model.Item]:
         """Returns the current selected plot item, if one"""
         return self.__selectedPlotItem
-        item = self.__plot.getActiveCurve()
-        if isinstance(item, plot_helper.FlintCurve):
-            plotItem = item.customItem()
-            return plotItem
-        return None
 
     def __selectionChanged(self, current, previous):
         """Callback executed when the selection from the plot was changed"""
@@ -231,6 +327,8 @@ class CurvePlotWidget(plot_helper.PlotWidget):
             selected = None
         self.__selectedPlotItem = selected
         self.plotItemSelected.emit(selected)
+        if self.__specMode.isEnabled():
+            self.__updateTitle(self.__scan)
 
     def __plotItemSelectedFromProperty(self, selected):
         """Callback executed when the selection from the property view was
@@ -363,8 +461,6 @@ class CurvePlotWidget(plot_helper.PlotWidget):
 
     def __updateAxesItems(self):
         """Update items which have relation with the X axis"""
-        self.__boundingY1.setBounds(None)
-        self.__boundingY2.setBounds(None)
         self.__curveAxesUpdated()
         scan = self.__scan
         if scan is None:
@@ -376,22 +472,19 @@ class CurvePlotWidget(plot_helper.PlotWidget):
             # FIXME: Use a better abstract concept for that
             if isinstance(item, plot_item_model.MotorPositionMarker):
                 self.__updatePlotItem(item, scan)
+        self.__view.resetZoom()
 
     def __reachRangeForYAxis(
         self, plot, scan, yAxis
     ) -> Optional[Tuple[float, float, float]]:
         xAxis = set([])
-        yData = None
         for item in plot.items():
             if isinstance(item, plot_item_model.CurveItem):
                 if item.yAxis() != yAxis:
                     continue
                 xChannel = item.xChannel()
-                yChannel = item.yChannel()
                 if xChannel is not None:
                     xAxis.add(xChannel.channel(scan))
-                if yData is None and yChannel is not None:
-                    yData = yChannel.array(scan)
         xAxis.discard(None)
         if len(xAxis) == 0:
             return None
@@ -409,15 +502,10 @@ class CurvePlotWidget(plot_helper.PlotWidget):
                 return None, None
             return min(vv), max(vv)
 
-        if yData is None:
-            return None
-        if yData.size == 0:
-            return None
-
         xRange = getRange(list(xAxis))
         if xRange[0] is None:
             return None
-        return xRange[0], xRange[1], yData[0]
+        return xRange[0], xRange[1]
 
     def __curveAxesUpdated(self):
         scan = self.__scan
@@ -425,24 +513,21 @@ class CurvePlotWidget(plot_helper.PlotWidget):
         if plot is None or scan is None:
             return
 
-        if self.__boundingY1.getBounds() is None:
-            result = self.__reachRangeForYAxis(plot, scan, "left")
-            if result is None:
-                bound = None
-            else:
-                xMin, xMax, yValue = result
-                bound = xMin, xMax, yValue, yValue
-            self.__boundingY1.setBounds(bound)
+        result = self.__reachRangeForYAxis(plot, scan, "left")
+        if result is None:
+            self.__boundingY1.setVisible(False)
+        else:
+            xMin, xMax = result
+            self.__boundingY1.setRange(xMin, xMax)
+            self.__boundingY1.setVisible(True)
 
-        if self.__boundingY2.getBounds() is None:
-            result = self.__reachRangeForYAxis(plot, scan, "right")
-            if result is None:
-                bound = None
-            else:
-                xMin, xMax, yValue = result
-                bound = xMin, xMax, yValue, yValue
-            self.__boundingY2.setBounds(bound)
-        self.__view.resetZoom()
+        result = self.__reachRangeForYAxis(plot, scan, "right")
+        if result is None:
+            self.__boundingY2.setVisible(False)
+        else:
+            xMin, xMax = result
+            self.__boundingY2.setRange(xMin, xMax)
+            self.__boundingY2.setVisible(True)
 
     def scan(self) -> Optional[scan_model.Scan]:
         return self.__scan
@@ -494,15 +579,20 @@ class CurvePlotWidget(plot_helper.PlotWidget):
             self.__plot.addItem(o)
 
     def __scanStarted(self):
+        self.__updateStyle()
         self.__updateTitle(self.__scan)
-        self.__boundingY1.setBounds(None)
-        self.__boundingY2.setBounds(None)
+        self.__curveAxesUpdated()
 
     def __updateTitle(self, scan: scan_model.Scan):
-        title = scan_info_helper.get_full_title(scan)
+        if scan is None:
+            title = "No scan"
+        else:
+            title = scan_info_helper.get_full_title(scan)
+            title = self.__specMode.updateTitle(self.__plot, title)
         self.__plot.setGraphTitle(title)
 
     def __scanFinished(self):
+        self.__updateStyle()
         self.__refreshManager.scanFinished()
 
     def __scanDataUpdated(self, event: scan_model.ScanDataUpdateEvent):
@@ -529,8 +619,8 @@ class CurvePlotWidget(plot_helper.PlotWidget):
                             if event.isUpdatedChannelName(source):
                                 self.__updatePlotItem(item, scan)
                                 break
-        # FIXME: This should be avoided by creating a XBound and YBound in silx
-        self.__curveAxesUpdated()
+        if self.__specMode.isEnabled():
+            self.__updateTitle(scan)
 
     def __redrawCurrentScan(self):
         currentScan = self.__scan

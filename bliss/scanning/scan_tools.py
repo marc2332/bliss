@@ -1,3 +1,4 @@
+import numpy
 import typeguard
 from typing import Optional
 from bliss.config.settings import HashSetting
@@ -105,13 +106,38 @@ def _scan_calc(func, counter=None, axis=None, scan=None, marker=True, goto=False
         scan = current_session.scans[-1]
     res = getattr(scan, func)(counter, axis=axis, return_axes=True)
     if marker:
-        for key, value in res.items():
+        clear_markers()
+        for ax, value in res.items():
             display_motor(
-                key, scan=scan, position=value, label=func + "\n" + str(value)
+                ax,
+                scan=scan,
+                position=value,
+                label=func + "\n" + str(value),
+                marker_id=func,
             )
-            # todo: display current position if scan is last scan and axis.position != value
+            # display current position if in scan range
+            scan_dat = scan.get_data()[ax]
+            if (
+                not goto
+                and ax.position < numpy.max(scan_dat)
+                and ax.position > numpy.min(scan_dat)
+            ):
+                display_motor(
+                    ax,
+                    scan=scan,
+                    position=ax.position,
+                    label="current \n" + str(ax.position),
+                    marker_id="current",
+                )
     if goto:
         scan._goto_multimotors(res)
+        display_motor(
+            ax,
+            scan=scan,
+            position=ax.position,
+            label="current \n" + str(ax.position),
+            marker_id="current",
+        )
         return
     elif len(res) == 1:
         return next(iter(res.values()))
@@ -164,4 +190,12 @@ def goto_peak(
 
 def where():
     for axis in last_scan_motors():
-        display_motor(axis)
+        display_motor(axis, marker_id="current")
+
+
+def clear_markers():
+    for axis in last_scan_motors():
+        display_motor(axis, marker_id="cen", position=numpy.nan)
+        display_motor(axis, marker_id="peak", position=numpy.nan)
+        display_motor(axis, marker_id="com", position=numpy.nan)
+        display_motor(axis, marker_id="current", position=numpy.nan)

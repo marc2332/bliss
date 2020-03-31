@@ -1054,7 +1054,9 @@ def get_plotted_counters():
     return plotted_cnt_list
 
 
-def display_motor(axis, scan=None, position=None, label="", silent=True):
+def display_motor(
+    axis, scan=None, position=None, marker_id=None, label="", silent=True
+):
     from bliss.scanning.scan import ScanDisplay
 
     if scan is None:
@@ -1064,9 +1066,11 @@ def display_motor(axis, scan=None, position=None, label="", silent=True):
         try:
             channel_name = get_channel_name(axis)
         except ValueError:
-            print(
-                "The object %s have no obvious channel. Plot marker skiped." % (axis,)
-            )
+            if not silent:
+                print(
+                    "The object %s have no obvious channel. Plot marker skiped."
+                    % (axis,)
+                )
             channel_name = None
         if channel_name is not None:
             try:
@@ -1083,9 +1087,11 @@ def display_motor(axis, scan=None, position=None, label="", silent=True):
                     position = axis.position
                     if label == "":
                         label = "current\n" + str(position)
-                plot.update_axis_marker(
-                    channel_name, channel_name, position, text=label
-                )
+                if marker_id is None:
+                    marker_name = channel_name
+                else:
+                    marker_name = channel_name + "_" + marker_id
+                plot.update_axis_marker(marker_name, channel_name, position, text=label)
 
 
 def get_channel_names(*objs) -> List[str]:

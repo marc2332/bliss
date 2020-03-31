@@ -916,12 +916,26 @@ class Scan:
 
     def _multimotors(self, func, counter, axis=None, return_axes=False):
         axes_names = self._get_data_axes_name()
+        res = collections.UserDict()
+
+        def info():
+            """TODO: could be a nice table at one point"""
+            s = "{"
+            for key, value in res.items():
+                if len(s) != 1:
+                    s += ", "
+                s += f"{key.name}: {value}"
+            s += "}"
+            return s
+
+        res.__info__ = info
+
         if axis is not None:
             if isinstance(axis, str):
                 assert axis in axes_names or "epoch" in axis or "elapsed_time" in axis
             else:
                 assert axis.name in axes_names
-            res = {axis: func(counter, axis=axis)}
+            res[axis] = func(counter, axis=axis)
         elif len(axes_names) == 1 and (
             "elapsed_time" in axes_names or "epoch" in axes_names
         ):
@@ -933,7 +947,8 @@ class Scan:
                 raise
             # check if there is some calcaxis with associated real
             motors = remove_real_dependent_of_calc(motors)
-            res = {mot: func(counter, axis=mot) for mot in motors}
+            for mot in motors:
+                res[mot] = func(counter, axis=mot)
 
         if not return_axes and len(res) == 1:
             return next(iter(res.values()))

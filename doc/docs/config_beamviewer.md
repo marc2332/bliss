@@ -31,11 +31,7 @@ Usage of an EBV is described here: [Beamviewer Usage](using_beamviewer.md).
 
 ## Control
 
-Control is implemented using 2 bliss objects: 
-
-* **EBV** bliss object controls the wago box (screen, led, foil, diode)
-* **LIMA** bliss object controls the basler camera and the associated BPM
-  counters computed on images
+The **EBV** bliss object controls the wago box (screen, led, foil, diode), the basler camera and the associated BPM counters computed on images. 
 
 ## Wagobox modules
 
@@ -64,18 +60,24 @@ are added:
 #### Configuration example
 ```
 plugin: bliss                 (mandatory)
-name: mywbv                   (mandatory)
+name: myebv                   (mandatory)
 class: EBV                    (mandatory)
 modbustcp:                    (mandatory)
     url: wcidxxa              (mandatory)
+
 single_model: False
 has_foil: False
 channel: 0
-counter_name: mydiode
+counter_name: mydiode      
+
+tango_url: idxx/limaccds/bv1
+
 ```
 
 `modbustcp / url` defines the wago control box host as in standard wago
 controller.
+
+`tango_url` defines the `limaccds` Tango device server of associated Basler camera.
 
 #### Configuration optionnal parameters
 
@@ -98,82 +100,51 @@ controller.
     - default value : `diode`
     - counter name of diode current reading when EBV is used in counts/scans
 
-
-## Lima BPM counters
-
-Recent Lima (⩾ 1.9.2) has a built-in BPM device server (no need for an extra
-Tango server).
-
-The BPM counter controller is integrated in BLISS as a Lima object.
+* `tango_url`
+    - default value : `None`
+    - if provided, the EBV will be extended with the BPM powers (Bpm measurements and BeamViewer Live display)
 
 
-Example of configuration:
-```yaml
-name: lima_bv1
-plugin: bliss
-class: Lima
-tango_url: id42/limaccds/bv1
-```
-!!! note
-    In case counter names are not appropriate, they can be changed using aliases.
+## EBV and BPM counters
 
-The BPM counters are now available:
+The BPM counter controller is accessible via the EBV object in Bliss.
 
 ```python
-SESSION_SXM [3]: ct(0.1, lima_bv1.counters)
+BLISS [51]: myebv.bpm 
+  Out [51]: Bpm [id00/limaccds/simulator2]
 
-    Activated counters not shown: image
+                exposure : 1.0 s
+                size     : [1024, 1024]
+                binning  : [1, 1]
+                roi      : [0, 0, 1024, 1024]
+                flip     : [False, False]
+                rotation : NONE
 
-    Wed Dec 04 17:04:18 2019
-     acq_time =   0.13225 ( 1.3225/s)
-       fwhm_x =   0.0
-       fwhm_y =  31.8288  ( 318.2882/s)
-    intensity =  26.8     ( 268.0/s)
-            x =  -1.0     ( -10.0/s)
-            y = 920.2379  ( 9202.3790/s)
-            Out [3]: Scan(number=67, name=ct,
-                     path=/data/id42/inhouse/session_sxm/data3.null)
 ```
 
-Inline info of lima bpm prints info about:
-* the associated camera
-* BPM counters available
-
-```python
-DEMO [1]: lima_bv1
- Out [1]: Basler - acA1300-30gm (Basler) - Lima Basler
-
-          Image:
-          bin = [1 1]
-          flip = [False False]
-          height = 966
-          roi = <0,0> <1296 x 966>
-          rotation = rotation_enum.NONE
-          sizes = [   0    2 1296  966]
-          type = Bpp12
-          width = 1296
-
-          Acquisition:
-          expo_time = 0.1
-          mode = mode_enum.SINGLE
-          nb_frames = 1
-          status = Ready
-          status_fault_error = No error
-          trigger_mode = trigger_mode_enum.INTERNAL_TRIGGER_MULTI
-
-          ROI Counters:
-          [default]
-
-          *** no ROIs defined ***
-
-          COUNTERS:
-              name       shape    type
-              ---------  -------  ------------
-              image      2d       unknown type
-              acq_time   0d       float
-              intensity  0d       float
-              x          0d       float
-              y          0d       float
-              fwhm_x     0d       float
-              fwhm_y     0d       float
+The EBV owns all BPM counters and the diode counter.
 ```
+BLISS [51]: ct(1, myebv)                                                                                          
+Tue Mar 31 16:43:52 2020
+
+ acq_time = 1.038032054901123 ( 1.038032054901123/s)
+   fwhm_x = 99.04761904761904 ( 99.04761904761904/s)
+   fwhm_y = 99.04761904761904 ( 99.04761904761904/s)
+intensity =         99.2 (        99.2/s)
+        x =        512.0 (       512.0/s)
+        y =        512.0 (       512.0/s)
+ebv_diode = -0.15674306466872268 (-0.15674306466872268/s)
+
+
+```
+
+
+At the BPM level some camera parameters can be modified:
+
+* `myebv.bpm.exposure`
+* `myebv.bpm.bin`    
+* `myebv.bpm.roi`    
+* `myebv.bpm.flip`   
+* `myebv.bpm.rotation`
+
+more here: [Beamviewer Usage](using_beamviewer.md)

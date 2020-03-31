@@ -377,26 +377,6 @@ class BpmController(SamplingCounterController):
     # def acq_time(self):
     #     return self._counters["acq_time"]
 
-    @property
-    def x(self):
-        return self._counters["x"]
-
-    @property
-    def y(self):
-        return self._counters["y"]
-
-    @property
-    def intensity(self):
-        return self._counters["intensity"]
-
-    @property
-    def fwhm_x(self):
-        return self._counters["fwhm_x"]
-
-    @property
-    def fwhm_y(self):
-        return self._counters["fwhm_y"]
-
 
 # --------- EBV CONTROLLER ----------------------------
 class EBV:
@@ -418,6 +398,16 @@ class EBV:
         EBVDiodeRange([True, False, False, False], "100nA", 1E4),
         EBVDiodeRange([False, False, False, False], "10nA", 1E5),
     ]
+
+    _MISSING_BPM_MSG = (
+        "\n================= No bpm attached ! ========================\n"
+    )
+    _MISSING_BPM_MSG += (
+        "Add the 'camera_tango_url' key in the EBV configuration file \n"
+    )
+    _MISSING_BPM_MSG += (
+        "Example in 'ebv.yml': 'camera_tango_url: id00/limaccds/simulator1' \n"
+    )
 
     def __init__(self, name, config_node):
         self.name = name
@@ -475,6 +465,7 @@ class EBV:
         )
 
         # --- bpm counters controller
+
         if self._cam_tango_url:
             self._bpm = BpmController(
                 self.name, self._cam_tango_url, register_counters=False
@@ -617,15 +608,9 @@ class EBV:
 
     @autocomplete_property
     def bpm(self):
-        if self._cam_tango_url:
-            return self._bpm
-        else:
-            msg = "================= No bpm attached ! ========================\n"
-            msg += "Add the 'camera_tango_url' key in the EBV configuration file \n"
-            msg += (
-                "Example in 'ebv.yml': 'camera_tango_url: id00/limaccds/simulator1' \n"
-            )
-            return msg
+        if not self._cam_tango_url:
+            raise AttributeError(self._MISSING_BPM_MSG)
+        return self._bpm
 
     @property
     def show_beam(self):
@@ -639,6 +624,36 @@ class EBV:
     @property
     def diode(self):
         return self._diode_counter
+
+    @property
+    def x(self):
+        if not self._cam_tango_url:
+            raise AttributeError(self._MISSING_BPM_MSG)
+        return self._bpm._counters["x"]
+
+    @property
+    def y(self):
+        if not self._cam_tango_url:
+            raise AttributeError(self._MISSING_BPM_MSG)
+        return self._bpm._counters["y"]
+
+    @property
+    def intensity(self):
+        if not self._cam_tango_url:
+            raise AttributeError(self._MISSING_BPM_MSG)
+        return self._bpm._counters["intensity"]
+
+    @property
+    def fwhm_x(self):
+        if not self._cam_tango_url:
+            raise AttributeError(self._MISSING_BPM_MSG)
+        return self._bpm._counters["fwhm_x"]
+
+    @property
+    def fwhm_y(self):
+        if not self._cam_tango_url:
+            raise AttributeError(self._MISSING_BPM_MSG)
+        return self._bpm._counters["fwhm_y"]
 
     @property
     def screen_status(self):

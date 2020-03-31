@@ -1205,7 +1205,8 @@ def get_plot(
         print("Argument plot_type uses an invalid value: '%s'." % plot_type)
 
 
-#==== TOOLS FOR LIVE PLOTS ===============================================================
+# ==== TOOLS FOR LIVE PLOTS ===============================================================
+
 
 class LiveImagePlot:
     """ Use Flint to display Images (Live and snapshot) """

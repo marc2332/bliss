@@ -7,7 +7,7 @@
 
 import gevent
 
-from bliss.common.scans import DEFAULT_CHAIN, loopscan
+from bliss.common.scans import DEFAULT_CHAIN
 from bliss.scanning.acquisition.lima import LimaAcquisitionMaster
 from bliss.scanning.acquisition.mca import McaAcquisitionSlave
 from bliss.scanning.acquisition.counter import SamplingCounterAcquisitionSlave
@@ -420,3 +420,16 @@ def test_default_chain_getting_node_from_device_controller(beacon):
     nodes = list(nodes)
     assert nodes[0].device == diode._counter_controller
     assert nodes[1].device == diode2._counter_controller
+
+def test_default_chain_getting_node_from_axis(beacon):
+    robz = beacon.get("robz")
+    diode = beacon.get("diode")
+
+    scan_pars = {"npoints": 10, "count_time": 0.1}
+
+    chain = DEFAULT_CHAIN.get(scan_pars, [diode],
+                              top_master=LinearStepTriggerMaster(10, robz, 0, 0.1))
+
+    nodes = list(chain.get_node_from_devices(robz))
+    assert robz in nodes[0].device.axes.values()
+

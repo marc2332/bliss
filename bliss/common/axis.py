@@ -173,6 +173,11 @@ class GroupMove:
         for controller, motions in motions_dict.items():
             for motion in motions:
                 if motion.backlash:
+                    if self._user_stopped:
+                        # have to recalculate target: do backlash from where it stopped
+                        motion.target_pos = (
+                            motion.axis.dial * motion.axis.steps_per_unit
+                        )
                     backlash_motion = Motion(
                         motion.axis,
                         motion.target_pos + motion.backlash,
@@ -236,14 +241,6 @@ class GroupMove:
                     with capture():
                         self._stop_move(motions_dict, stop_motion)
                     self._stop_wait(motions_dict, capture)
-
-                # need to update target pos. for backlash move
-                for _, motions in motions_dict.items():
-                    for motion in motions:
-                        if motion.backlash:
-                            motion.target_pos = (
-                                motion.axis.dial * motion.axis.steps_per_unit
-                            )
 
                 # Do backlash move, if needed
                 with capture():
@@ -1332,13 +1329,10 @@ class Axis:
 
     def _get_motion(self, user_target_pos):
         dial_target_pos = self.user2dial(user_target_pos)
-        delta = dial_target_pos - self.dial
-        if abs(delta) < 1e-6:
-            delta = 0.0
-
-        # check software limits
         target_pos = dial_target_pos * self.steps_per_unit
-        delta *= self.steps_per_unit
+        delta = target_pos - self.dial * self.steps_per_unit
+        if abs(delta) < self.controller.steps_position_precision(self):
+            delta = 0.0
         backlash = self.backlash / self.sign * self.steps_per_unit
         backlash_str = " (with %f backlash)" % self.backlash if backlash else ""
         low_limit_msg = "%s: move to `%f'%s would exceed low limit (%f)"
@@ -1347,13 +1341,14 @@ class Axis:
         low_limit = self.user2dial(user_low_limit) * self.steps_per_unit
         high_limit = self.user2dial(user_high_limit) * self.steps_per_unit
 
+        # check software limits
         if high_limit < low_limit:
             high_limit, low_limit = low_limit, high_limit
             user_high_limit, user_low_limit = user_low_limit, user_high_limit
             high_limit_msg, low_limit_msg = low_limit_msg, high_limit_msg
 
         if backlash:
-            if abs(delta) > 1e-6 and math.copysign(delta, backlash) != delta:
+            if abs(delta) > 0 and math.copysign(delta, backlash) != delta:
                 # move and backlash are not in the same direction;
                 # apply backlash correction, the move will happen
                 # in 2 steps

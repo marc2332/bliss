@@ -114,6 +114,16 @@ class Controller:
     def config(self):
         return self.__config
 
+    def steps_position_precision(self, axis):
+        """
+        Return a float value representing the precision of the position in steps
+
+        * 1e-6 is the default value: it means the motor can deal with floating point
+        steps up to 6 digits 
+        * 1 means the motor controller can only deal with an integer number of steps
+        """
+        return 1e-6
+
     def check_limits(self, *axis_positions):
         """
         check limits for list of axis and positions

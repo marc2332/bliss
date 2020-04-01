@@ -73,6 +73,10 @@ class Mockup(Controller):
         self.axis_settings.add("init_count", int)
         self.axis_settings.add("hw_position", float)
 
+    def steps_position_precision(self, axis):
+        """Mockup is really a stepper motor controller"""
+        return 1
+
     def read_hw_position(self, axis):
         return axis.settings.get("hw_position")
 

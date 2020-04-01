@@ -472,6 +472,21 @@ def test_backlash3(roby):
     assert roby.state.READY
 
 
+def test_backlash4(roby):
+    position_with_many_digits = -0.1515151515
+    roby.move(position_with_many_digits)
+    assert roby.backlash_move == -2 + position_with_many_digits
+    p1 = roby.position
+    # motor could not move to this exact position
+    assert not math.isclose(p1, position_with_many_digits)
+    # moving again should not trig a backlash move
+    roby.move(position_with_many_digits)
+    assert roby.backlash_move == 0
+    # and finally, it should stay where it is
+    p2 = roby.position
+    assert p1 == p2
+
+
 def test_backlash_stop(roby):
     roby.move(-10, wait=False)
     assert roby.backlash_move == -12

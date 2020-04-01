@@ -559,6 +559,7 @@ class CurvePlotWidget(plot_helper.PlotWidget):
             if self.__scan.state() != scan_model.ScanState.INITIALIZED:
                 self.__updateTitle(self.__scan)
         self.scanModelUpdated.emit(scan)
+        self.__updateTitle(scan)
         self.__redrawAllScans()
 
     def __cleanScanIfNeeded(self, scan):

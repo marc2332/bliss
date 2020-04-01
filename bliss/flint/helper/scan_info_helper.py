@@ -28,6 +28,41 @@ _logger = logging.getLogger(__name__)
 
 Channel = collections.namedtuple("Channel", ["name", "kind", "device", "master"])
 
+_SCAN_CATEGORY = {
+    # A single measurement
+    "ct": "point",
+    # Many measurements
+    "timescan": "nscan",
+    "loopscan": "nscan",
+    "lookupscan": "nscan",
+    "pointscan": "nscan",
+    "ascan": "nscan",
+    "a2scan": "nscan",
+    "a3scan": "nscan",
+    "a4scan": "nscan",
+    "anscan": "nscan",
+    "dscan": "nscan",
+    "d2scan": "nscan",
+    "d3scan": "nscan",
+    "d4scan": "nscan",
+    "dnscan": "nscan",
+    # Many measurements using 2 correlated axes
+    "amesh": "mesh",
+    "dmesh": "mesh",
+}
+
+
+def get_scan_category(scan_info: Dict = None, scan_type: str = None) -> Optional[str]:
+    """
+    Returns a scan category for the given scan_info.
+
+    Returns:
+        One of "point", "nscan", "mesh" or None if nothing matches.
+    """
+    if scan_info is not None:
+        scan_type = scan_info.get("type", None)
+    return _SCAN_CATEGORY.get(scan_type, None)
+
 
 def _merge_master_keys(values: Dict, key: str):
     """

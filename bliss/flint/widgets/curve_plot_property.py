@@ -22,7 +22,8 @@ from bliss.flint.model import plot_model
 from bliss.flint.model import plot_item_model
 from bliss.flint.model import plot_state_model
 from bliss.flint.model import scan_model
-from bliss.flint.helper import model_helper
+from bliss.flint.helper import model_helper, scan_history, scan_info_helper
+from bliss.flint.helper.style_helper import DefaultStyleStrategy
 from bliss.flint.utils import qmodelutils
 from . import delegates
 from . import _property_tree_helper
@@ -631,7 +632,73 @@ class CurvePlotPropertyWidget(qt.QWidget):
         action.setToolTip("Remove all the items from the plot")
         action.triggered.connect(self.__removeAllItems)
         toolBar.addAction(action)
+
+        action = qt.QAction(self)
+        icon = icons.getQIcon("flint:icons/scan-history")
+        action.setIcon(icon)
+        action.setToolTip(
+            "Load a previous scan stored in Redis (about 24 hour of history)"
+        )
+        action.triggered.connect(self.__requestLoadScanFromHistory)
+        toolBar.addAction(action)
+
         return toolBar
+
+    def __requestLoadScanFromHistory(self):
+        from bliss.flint.widgets.scan_history_dialog import ScanHistoryDialog
+
+        sessionName = self.__flintModel.blissSessionName()
+
+        dialog = ScanHistoryDialog(self)
+        dialog.setSessionName(sessionName)
+        result = dialog.exec_()
+        if result:
+            selection = dialog.selectedScanNodeNames()
+            widget = self.__focusWidget
+            if widget is None:
+                _logger.error("No curve widget connected")
+                return
+
+            if len(selection) == 0:
+                _logger.error("No selection")
+                return
+
+            nodeName = selection[0]
+            try:
+                self.__loadScanFromHistory(nodeName)
+            except Exception:
+                _logger.error("Error while loading scan from history", exc_info=True)
+                qt.QMessageBox.critical(
+                    None,
+                    "Error",
+                    "An error occurred while a scan was loading from the history",
+                )
+
+    def __loadScanFromHistory(self, nodeName: str):
+        scan = scan_history.create_scan(nodeName)
+        widget = self.__focusWidget
+        if widget is not None:
+            plots = scan_info_helper.create_plot_model(scan.scanInfo(), scan)
+            plots = [p for p in plots if isinstance(p, plot_item_model.CurvePlot)]
+            if len(plots) == 0:
+                _logger.warning("No curve plot to display")
+                qt.QMessageBox.warning(
+                    None, "Warning", "There was no curve plot in the selected scan"
+                )
+                return
+            plotModel = plots[0]
+            previousWidgetPlot = self.__plotModel
+
+            # Reuse only available values
+            if isinstance(previousWidgetPlot, plot_item_model.CurvePlot):
+                model_helper.removeNotAvailableChannels(
+                    previousWidgetPlot, plotModel, scan
+                )
+                widget.setScan(scan)
+            if previousWidgetPlot is None or previousWidgetPlot.isEmpty():
+                if plotModel.styleStrategy() is None:
+                    plotModel.setStyleStrategy(DefaultStyleStrategy(self.__flintModel))
+                widget.setPlotModel(plotModel)
 
     def __findItemFromPlotItem(
         self, requestedItem: plot_model.Item

@@ -619,3 +619,26 @@ def metadata_experiment_tango_server(ports):
     gevent.sleep(1)
     yield device_fqdn, dev_proxy
     wait_terminate(p)
+
+
+@pytest.fixture
+def nexus_writer_service(ports):
+    device_name = "id00/bliss_nxwriter/test_session"
+    device_fqdn = "tango://localhost:{}/{}".format(ports.tango_port, device_name)
+
+    p = subprocess.Popen(["NexusWriterService", "testwriters", "--log", "info"])
+
+    with gevent.Timeout(10, RuntimeError("Nexus writer is not running")):
+        while True:
+            try:
+                dev_proxy = DeviceProxy(device_fqdn)
+                dev_proxy.ping()
+                dev_proxy.state()
+            except DevFailed as e:
+                gevent.sleep(0.1)
+            else:
+                break
+
+    gevent.sleep(1)
+    yield device_fqdn, dev_proxy
+    wait_terminate(p)

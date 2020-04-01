@@ -11,7 +11,7 @@ from bliss.common import scans
 from bliss.scanning import scan, chain
 from bliss.scanning.acquisition import timer, calc, motor, counter
 from bliss.common import event
-from bliss.shell.standard import plotselect, plotinit, cen, com, peak
+from bliss.shell.standard import plotselect, plotinit, cen, com, peak, fwhm
 from bliss.scanning.scan import ScanDisplay
 from bliss.scanning import scan_tools
 from bliss.common import plot
@@ -30,18 +30,18 @@ def test_pkcom_ascan_gauss(session):
     fwhm = s.fwhm(simul_counter)
     c = s.com(simul_counter)
 
-    assert pytest.approx(p, 5)
-    assert pytest.approx(fwhm, 2.3548)  # std dev is 1
-    assert pytest.approx(c, 5)
+    assert pytest.approx(p) == 5
+    assert pytest.approx(fwhm, abs=.01) == 4.57
+    assert pytest.approx(c) == 5
     with pytest.raises(AssertionError):
         s.peak(simul_counter, m1)
     with pytest.raises(KeyError):
         s.peak(diode)
 
     s.goto_peak(simul_counter)
-    assert pytest.approx(roby.position, p)
+    assert pytest.approx(roby.position) == p
     s.goto_com(simul_counter)
-    assert pytest.approx(roby.position, c)
+    assert pytest.approx(roby.position) == c
 
 
 def test_pkcom_a2scan_gauss(session):
@@ -55,7 +55,44 @@ def test_pkcom_a2scan_gauss(session):
     )
 
     p = s.peak(simul_counter, roby)
-    assert pytest.approx(p, 5)
+    assert pytest.approx(p) == 5
+
+    p = s.cen(simul_counter, roby)
+    assert pytest.approx(p) == 5
+
+    p = s.com(simul_counter, roby)
+    assert pytest.approx(p) == 5
+
+    p = s.fwhm(simul_counter, roby)
+    assert pytest.approx(p, abs=.01) == 4.57
+
+    p = s.peak(simul_counter)
+    assert p[robz] == 2.5
+    assert p[roby] == 5
+    assert (
+        p.__info__() == "{roby: 5.0, robz: 2.5}"
+        or p.__info__() == "{robz: 2.5, roby: 5.0}"
+    )
+
+    p = s.cen(simul_counter)
+    assert p[robz] == 2.5
+    assert p[roby] == 5
+    assert (
+        p.__info__() == "{roby: 5.0, robz: 2.5}"
+        or p.__info__() == "{robz: 2.5, roby: 5.0}"
+    )
+
+    p = s.com(simul_counter)
+    assert p[robz] == 2.5
+    assert p[roby] == 5
+    assert (
+        p.__info__() == "{roby: 5.0, robz: 2.5}"
+        or p.__info__() == "{robz: 2.5, roby: 5.0}"
+    )
+
+    p = s.fwhm(simul_counter)
+    assert pytest.approx(p[robz], abs=.01) == 2.28
+    assert pytest.approx(p[roby], abs=.01) == 4.57
 
 
 def test_pkcom_timescan_gauss(session):
@@ -139,6 +176,7 @@ def test_counter_argument_on_cen_com_peak(session):
     com(diode2)
     peak(diode)
     peak(diode2)
+    fwhm(diode)
 
     with pytest.raises(RuntimeError):
         cen()
@@ -147,6 +185,7 @@ def test_counter_argument_on_cen_com_peak(session):
     cen()
     com()
     peak()
+    fwhm()
 
 
 def test_plotselect_and_global_cen(session):
@@ -179,11 +218,36 @@ def test_goto(session):
     assert pytest.approx(2.5, abs=1e-3) == roby.position
     assert pytest.approx(-75, abs=1) == m0.position
 
+    roby.move(3)
+    m0.move(-78)
+
     goto_com(simul_counter)  # center of simul_counter
     assert pytest.approx(2.5, abs=1e-3) == roby.position
     assert pytest.approx(-75, abs=1) == m0.position
 
+    roby.move(3)
+    m0.move(-78)
+
     goto_peak(simul_counter)  # center of simul_counter
+    assert pytest.approx(2, abs=1e-3) == roby.position
+    assert pytest.approx(-80, abs=1) == m0.position
+
+    ## use scan attached functions as well
+    s.goto_cen(simul_counter)  # center of simul_counter
+    assert pytest.approx(2.5, abs=1e-3) == roby.position
+    assert pytest.approx(-75, abs=1) == m0.position
+
+    roby.move(3)
+    m0.move(-78)
+
+    s.goto_com(simul_counter)  # center of simul_counter
+    assert pytest.approx(2.5, abs=1e-3) == roby.position
+    assert pytest.approx(-75, abs=1) == m0.position
+
+    roby.move(3)
+    m0.move(-78)
+
+    s.goto_peak(simul_counter)  # center of simul_counter
     assert pytest.approx(2, abs=1e-3) == roby.position
     assert pytest.approx(-80, abs=1) == m0.position
 
@@ -193,11 +257,17 @@ def test_goto(session):
     assert pytest.approx(roby_center, abs=1e-3) == roby.position
     assert pytest.approx(m0_center, abs=1) == m0.position
 
+    roby.move(3)
+    m0.move(-78)
+
     goto_com(diode)
     roby_centerofmass = s.com(diode, roby)
     m0_centerofmass = s.com(diode, m0)
     assert pytest.approx(roby_centerofmass, abs=1e-3) == roby.position
     assert pytest.approx(m0_centerofmass, abs=1) == m0.position
+
+    roby.move(3)
+    m0.move(-78)
 
     goto_peak(diode)
     roby_peak = s.peak(diode, roby)

@@ -12,7 +12,6 @@ import numpy
 
 from bliss.data import start_listener
 from bliss.common import scans
-from bliss.scanning.scan import ScanDisplay
 
 from bliss.scanning.scan import Scan, StepScanDataWatch
 from bliss.scanning.chain import AcquisitionChain, AcquisitionSlave
@@ -177,8 +176,6 @@ def test_fast_scan_display(session):
 def test_standard_scan_display(session):
     """ PERFORM TESTS TO CHECK THE OUTPUT DISPLAYED BY THE ScanDataListener FOR THE DIFFERENT STANDARD SCANS"""
 
-    sd = ScanDisplay(session.name)
-
     # put scan file in a different tmp directory or use SAVE = False
     # env_dict, session_obj = session
     # session.scan_saving.base_path = str(scan_tmpdir)
@@ -321,67 +318,7 @@ def test_standard_scan_display(session):
 
                 # print(' finished')
 
-            # ============= START THE A2SCAN (filtered counters) ================
-            sd.counters = (diode4,)  # show only diode4
-            lines = []
-            # print('Start a2scan(robz, 0, 9, roby, 10, 19, 9, 0.01, diode4, diode5) ...', end='', flush=True)
-            s = scans.a2scan(
-                robz, 0, 9, roby, 10, 19, 9, 0.01, diode4, diode5, save=False
-            )
-            # EXPECTED OUTPUT
-            if 1:
-                # line 0
-                # line 1
-                # line 2 Scan 937 Fri Apr 26 16:57:07 2019 /tmp/scans/test_session/data.h5 test_session user = pguillou
-                # line 3 a2scan robz 0 9 roby 10 19 10 0.01
-                # line 4
-                # line 5             #         dt[s]      robz[mm]          roby        diode4
-                # line 6             0             0             0            10             4
-                # line 7             1      0.167275             1            11             4
-                # line 8             2      0.364229             2            12             4
-                # line 9             3      0.562693             3            13             4
-                # line 10            4      0.727321             4            14             4
-                # line 11            5        0.8995             5            15             4
-                # line 12            6        1.0627             6            16             4
-                # line 13            7       1.22539             7            17             4
-                # line 14            8       1.38847             8            18             4
-                # line 15            9       1.55273             9            19             4
-                # line 16
-                # line 17  Took 0:00:02.126591
-                # line 18
-                # line 19  ============== >>> PRESS F5 TO COME BACK TO THE SHELL PROMPT <<< ==============
-
-                # GRAB THE SCAN DISPLAY LINES
-                grab_lines(p, lines)
-
-                assert (
-                    lines[5].strip()
-                    == "#         dt[s]      robz[mm]          roby        diode4"
-                )
-
-                arry = []
-                for line in lines[6:]:
-                    line = " ".join(line.strip().split())
-                    tab = line.split(" ")
-                    if len(tab) > 1:
-                        tab.pop(1)
-                        arry.append(tab)
-
-                assert arry[0] == ["0", "0", "10", "4"]
-                assert arry[1] == ["1", "1", "11", "4"]
-                assert arry[2] == ["2", "2", "12", "4"]
-                assert arry[3] == ["3", "3", "13", "4"]
-                assert arry[4] == ["4", "4", "14", "4"]
-                assert arry[5] == ["5", "5", "15", "4"]
-                assert arry[6] == ["6", "6", "16", "4"]
-                assert arry[7] == ["7", "7", "17", "4"]
-                assert arry[8] == ["8", "8", "18", "4"]
-                assert arry[9] == ["9", "9", "19", "4"]
-
-                # print(' finished')
-
             # ============= START THE ASCAN ===================================
-            sd.counters = ()  # reset filtering, i.e show all
             lines = []
             # print('Start ascan(roby, 0, 9, 9, 0.1, diode4, diode5) ...', end='', flush=True)
             s = scans.ascan(roby, 0, 9, 9, 0.1, diode4, diode5, save=False)

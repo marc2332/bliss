@@ -589,6 +589,11 @@ class BasePlot(object):
             )
         else:
             self._plot_id = existing_id
+        self._init_plot()
+
+    def _init_plot(self):
+        """Inherites it to custom the plot initialization"""
+        pass
 
     def __repr__(self):
         try:
@@ -839,6 +844,9 @@ class ImagePlot(BasePlot):
 
     # Data input number for a single representation
     DATA_INPUT_NUMBER = 1
+
+    def _init_plot(self):
+        self.submit("setKeepDataAspectRatio", True)
 
 
 class HistogramImagePlot(BasePlot):

@@ -125,6 +125,21 @@ class HexapodProtocolV1(BaseHexapodProtocol):
 
     AxisStatus = namedtuple("AxisStatus", AXIS_STATUS_FIELDS)
 
+    ERROR_POSVALID = {
+        1: "Homing not done",
+        2: "Coordinate systems definition not realized",
+        4: "Kinematic error",
+        8: "Out of SYMETRIE (factory) workspace",
+        16: "Out of machine workspace (see §4.4.12)",
+        32: "Out of user workspace",
+        64: "Actuator out of limits",
+        128: "Joints out of limits",
+        256: "Out of limits due to backlash compensation",
+        512: "Abort” input enabled",
+        1024: "Safety sensor” inputs enabled",
+        63488: "Reserved",
+    }
+
     def __init__(self, config):
         BaseHexapodProtocol.__init__(self, config)
         self.pmac = TurboPmacCommand(self.comm)
@@ -202,8 +217,14 @@ class HexapodProtocolV1(BaseHexapodProtocol):
         err = self.wait_command()
         if err == -1:
             raise HexapodV1Error("Command ignored. Conditions of move not met.")
-        elif err == -1:
-            raise HexapodV2Error("Invalid movement command.")
+        elif err == -2:
+            cmd = "Q29"
+            val = int(self.pmac(cmd))
+            msg = f"Invalid movement command: POSVAL [{val}]"
+            for i in self.ERROR_POSVALID:
+                if i & val:
+                    msg += f", ({i}) " + self.ERROR_POSVALID[i]
+            raise HexapodV1Error(msg)
 
     def is_moving(self):
         pass

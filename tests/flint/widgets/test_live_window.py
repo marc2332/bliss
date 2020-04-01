@@ -30,7 +30,7 @@ class TestLiveWindow(TestCaseQt):
         widget.close()
         widget.deleteLater()
         widget = None
-        self.qapp.processEvents()
+        self.qWait(10)
 
     def test_display_nothing(self):
         # Construct the widget

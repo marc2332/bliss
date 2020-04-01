@@ -465,6 +465,8 @@ class CurvePlotWidget(plot_helper.PlotWidget):
         scan = self.__scan
         if scan is None:
             return
+        if self.__specMode.isEnabled():
+            self.__updateTitle(scan)
         plotModel = self.__plotModel
         if plotModel is None:
             return

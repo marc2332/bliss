@@ -16,6 +16,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - The scan number is now displayed
     - Saved preferences for the main window can be difference for each desktop size used
     - Picking a point from the selected curve uses now a higher tolerance
+    - A widget is displayed for ct scans
+    - A widget can be shown to display scan positioners
+      (location of the motors before and after a scan)
+    - A past scan can be displayed in place of the curent scan
+      (for curve widget, count widget, positioners widget)
+    - A Spec mode was added to the curve widget, to display Spec-like
+      statistics  
 
 ### Changed
 

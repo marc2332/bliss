@@ -202,7 +202,7 @@ class FlintState(qt.QObject):
         if self.__defaultScatterStyle is not None:
             return self.__defaultScatterStyle
         defaultStyle = style_model.Style(
-            fillStyle=None, colormapLut="viridis", symbolStyle="o", symbolSize=6.0
+            fillStyle=style_model.FillStyle.SCATTER_REGULAR_GRID, colormapLut="viridis"
         )
         settings = self.__settings
         if settings is not None:

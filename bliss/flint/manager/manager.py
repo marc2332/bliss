@@ -65,12 +65,13 @@ class ManageMainBehaviours(qt.QObject):
         connection = get_default_connection()
         address = connection.get_redis_connection_address()
         redisConnection = connection.create_redis_connection(address=address)
-        self.flintModel().setRedisConnection(redisConnection)
+        flintModel = self.flintModel()
+        flintModel.setRedisConnection(redisConnection)
         try:
             # NOTE: Here the session can not yet be defined
             self.workspaceManager().loadLastWorkspace()
         except Exception:
-            _logger.debug("Error while loading the workspace", exc_info=True)
+            _logger.error("Error while loading the workspace", exc_info=True)
 
     def updateBlissSessionName(self, sessionName):
         flintModel = self.flintModel()

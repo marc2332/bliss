@@ -307,7 +307,17 @@ class CtWidget(ExtendedDockWidget):
             return
 
         integrationMode = self.__integrationMode.isChecked()
-        integrationTime = scan.scanInfo()["count_time"]
+        if integrationMode:
+            scanInfo = scan.scanInfo()
+            if "count_time" not in scanInfo:
+                node_name = scanInfo.get("node_name", "a scan")
+                _logger.warning(
+                    "count_time is not part of the scan_info of %s", node_name
+                )
+                # NOTE: Avoid to always warn about this value
+                # FIXME: It would be good to remove that
+                scanInfo["count_time"] = 1
+            integrationTime = scan.scanInfo()["count_time"]
         model = self.__table.model()
 
         for i in range(model.rowCount()):

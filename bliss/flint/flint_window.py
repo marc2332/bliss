@@ -92,6 +92,11 @@ class FlintWindow(qt.QMainWindow):
         liveWindow.createWindowActions(windowMenu)
         windowMenu.addSeparator()
         windowMenu.addAction(showLogAction)
+        windowMenu.addSeparator()
+        action = qt.QAction("&IPython console", self)
+        action.setStatusTip("Show a IPython console (for debug purpose)")
+        action.triggered.connect(self.openDebugConsole)
+        windowMenu.addAction(action)
 
         menubar = self.menuBar()
         layoutMenu = menubar.addMenu("&Layout")
@@ -104,16 +109,38 @@ class FlintWindow(qt.QMainWindow):
         for action in workspaceManager.createManagerActions(self):
             workspaceMenu.addAction(action)
 
+        BLISS_HELP_ROOT = "https://bliss.gitlab-pages.esrf.fr/bliss/master/"
+        BLISS_HELP_URL = BLISS_HELP_ROOT
+        FLINT_DEMO_URL = BLISS_HELP_ROOT + "bliss_flint.html"
+        FLINT_HELP_URL = BLISS_HELP_ROOT + "flint_scan_plotting.html"
+
+        def openUrl(url):
+            qt.QDesktopServices.openUrl(qt.QUrl(url))
+
         helpMenu = menubar.addMenu("&Help")
+
+        action = qt.QAction("Flint online &demo", self)
+        action.setStatusTip("Show the online demo about Flint")
+        action.triggered.connect(lambda: openUrl(FLINT_DEMO_URL))
+        helpMenu.addAction(action)
+
+        helpMenu.addSeparator()
+
+        action = qt.QAction("&BLISS online help", self)
+        action.setStatusTip("Show the online help about BLISS")
+        action.triggered.connect(lambda: openUrl(BLISS_HELP_URL))
+        helpMenu.addAction(action)
+
+        action = qt.QAction("&Flint online help", self)
+        action.setStatusTip("Show the online help about Flint")
+        action.triggered.connect(lambda: openUrl(FLINT_HELP_URL))
+        helpMenu.addAction(action)
+
+        helpMenu.addSeparator()
 
         action = qt.QAction("&About", self)
         action.setStatusTip("Show the application's About box")
         action.triggered.connect(self.showAboutBox)
-        helpMenu.addAction(action)
-
-        action = qt.QAction("&IPython console", self)
-        action.setStatusTip("Show a IPython console (for debug purpose)")
-        action.triggered.connect(self.openDebugConsole)
         helpMenu.addAction(action)
 
     def openDebugConsole(self):

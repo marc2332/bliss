@@ -109,9 +109,7 @@ class MotorPositionDelegate(CenteringFloatingPointDot):
 
         value = index.data(self.displayedRole())
         if value is not None:
-            option.features = (
-                option.features | qt.QStyleOptionViewItem.ViewItemFeature.HasDisplay
-            )
+            option.features = option.features | qt.QStyleOptionViewItem.HasDisplay
             option.text = self.displayText(value, option.locale)
 
 

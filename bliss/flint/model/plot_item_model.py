@@ -422,7 +422,7 @@ class ScatterItem(plot_model.Item):
         self.__colormap = colormap
 
 
-class MotorPositionMarker(plot_model.Item, plot_model.NotReused):
+class AxisPositionMarker(plot_model.Item, plot_model.NotReused):
     """Define a location of a motor in a plot.
 
     This item is only displayable when the plot uses its motor
@@ -430,7 +430,7 @@ class MotorPositionMarker(plot_model.Item, plot_model.NotReused):
     """
 
     def __init__(self, parent: plot_model.Plot = None):
-        super(MotorPositionMarker, self).__init__(parent=parent)
+        super(AxisPositionMarker, self).__init__(parent=parent)
         self.__motor: Optional[plot_model.ChannelRef] = None
         self.__position: Optional[float] = None
         self.__text: Optional[str] = None
@@ -442,12 +442,15 @@ class MotorPositionMarker(plot_model.Item, plot_model.NotReused):
             and self.__text is not None
         )
 
-    def initProperties(self, ref: plot_model.ChannelRef, position: float, text: str):
+    def initProperties(
+        self, unique_name: str, ref: plot_model.ChannelRef, position: float, text: str
+    ):
         """Define object properties just after construction
 
         This object is not supposed to be mutable. This avoid to define boilerplat and events
         """
         assert self.__motor is None
+        self.__unique_name = unique_name
         self.__motor = ref
         self.__position = position
         self.__text = text
@@ -463,3 +466,14 @@ class MotorPositionMarker(plot_model.Item, plot_model.NotReused):
     def text(self) -> Optional[str]:
         """Returns the name of the y-axis in which the statistic have to be displayed"""
         return self.__text
+
+    def unique_name(self) -> str:
+        """Returns the name of the y-axis in which the statistic have to be displayed"""
+        return self.__unique_name
+
+
+class MotorPositionMarker(AxisPositionMarker):
+    """Deprecated object.
+
+    Created for compatibility since bliss 1.3
+    """

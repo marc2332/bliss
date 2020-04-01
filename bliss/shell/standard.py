@@ -29,12 +29,16 @@ from prompt_toolkit import print_formatted_text, HTML
 from bliss import global_map, global_log, setup_globals, current_session
 from bliss.common import timedisplay
 from bliss.common.plot import plot
-from bliss.common.standard import iter_counters
-from bliss.common.standard import iter_axes_state, iter_axes_state_all
-from bliss.common.standard import iter_axes_position, iter_axes_position_all
-from bliss.common.standard import sync
-from bliss.common.standard import info
-from bliss.common.standard import __move
+from bliss.common.standard import (
+    iter_counters,
+    iter_axes_state,
+    iter_axes_state_all,
+    iter_axes_position,
+    iter_axes_position_all,
+    sync,
+    info,
+    __move,
+)  # noqa: F401
 from bliss.common.standard import wid as std_wid
 from bliss.controllers.lima.limatools import *
 from bliss.controllers.lima import limatools
@@ -51,6 +55,7 @@ from bliss.common.utils import (
 )
 from bliss.common.measurementgroup import MeasurementGroup
 
+
 # objects given to Bliss shell user
 from bliss.common.standard import mv, mvr, move
 
@@ -62,6 +67,19 @@ from bliss.common.scans import *
 from bliss.common import logtools
 from bliss.common.logtools import *
 from bliss.common.interlocks import interlock_state
+
+from bliss.scanning.scan_tools import (
+    cen,
+    goto_cen,
+    com,
+    goto_com,
+    peak,
+    goto_peak,
+    where,
+    fwhm,  # noqa: F401
+)
+from bliss.common.plot import meshselect  # noqa: F401
+from bliss.common import plot as plot_module
 
 from bliss.shell.interlocks import interlock_show
 from bliss.shell.cli import user_dialog, pt_widgets
@@ -107,6 +125,14 @@ __all__ = (
         "newdataset",
         "silx_view",
         "pymca",
+        "cen",
+        "goto_cen",
+        "peak",
+        "goto_peak",
+        "com",
+        "goto_com",
+        "where",
+        "fwhm",
     ]
     + scans.__all__
     + logtools.__all__
@@ -656,7 +682,7 @@ def plotinit(*counters: _providing_channel):
         print("    plotinit(counter1, counter2)")
         print("")
     else:
-        scans.plotinit(*counters)
+        plot_module.plotinit(*counters)
     print("")
     print("Next plotted counter(s):")
     sd = ScanDisplay()
@@ -670,7 +696,7 @@ def plotselect(*counters: _providing_channel):
     """
     Selects counters to plot and used by alignment functions (cen, peak, etc).
 
-    User-level function built on top of bliss.common.scans.plotselect()
+    User-level function built on top of bliss.common.plot.plotselect()
     """
 
     # If called without arguments, prints help.
@@ -682,10 +708,10 @@ def plotselect(*counters: _providing_channel):
         print("    plotselect(counter1, counter2)")
         print("")
     else:
-        scans.plotselect(*counters)
+        plot_module.plotselect(*counters)
     print("")
     print("Currently plotted counter(s):")
-    for cnt_name in scans.get_plotted_counters():
+    for cnt_name in plot_module.get_plotted_counters():
         print(f"- {cnt_name}")
     print("")
 

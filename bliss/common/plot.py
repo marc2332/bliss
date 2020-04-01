@@ -151,22 +151,24 @@ import psutil
 import subprocess
 import contextlib
 import gevent
+import logging
 
 import bliss
 from bliss.comm import rpc
-from bliss import current_session
+from bliss import current_session, is_bliss_shell, global_map
 from bliss.config.conductor.client import get_default_connection
 from bliss.flint.config import get_flint_key
 from bliss.common import event
 from bliss.flint import config as flint_config
+from bliss.config.settings import HashSetting
+from typing import List
+from bliss.common.protocols import Scannable
+
 
 try:
     from bliss.flint import poll_patch
 except ImportError:
     poll_patch = None
-
-import logging
-
 
 FLINT_LOGGER = logging.getLogger("flint")
 FLINT_OUTPUT_LOGGER = logging.getLogger("flint.output")
@@ -183,6 +185,10 @@ __all__ = [
     "plot_scatter",
     "plot_image_with_histogram",
     "plot_image_stack",
+    "get_plotted_counters",
+    "meshselect",
+    "plotinit",
+    "plotselect",
 ]
 
 # Globals
@@ -783,9 +789,13 @@ class CurvePlot(BasePlot):
             if field != x_field:
                 self.select_data(x_field, field, **kwargs)
 
-    def update_motor_marker(self, channel_name, position: float, text: str):
-        """Mark the location of this motor in this plot"""
-        self._flint.update_motor_marker(self._plot_id, channel_name, position, text)
+    def update_axis_marker(
+        self, unique_name: str, channel_name, position: float, text: str
+    ):
+        """Mark a location in a specific axis in this plot"""
+        self._flint.update_axis_marker(
+            self._plot_id, unique_name, channel_name, position, text
+        )
 
 
 class ScatterPlot(BasePlot):
@@ -974,3 +984,222 @@ def draw_manager(plot):
     finally:
         # re-enable the silx auto_replot
         plot.submit("setAutoReplot", True)
+
+
+### plotselect etc.
+
+
+def plotinit(*counters):
+    """
+    Select counter(s) to use for the next scan display.
+
+    Args:
+        counters: String, alias, object identifying an object providing data to
+            record. It can be a counter name, a counter, an axis, an alias.
+    """
+    from bliss.scanning.scan import ScanDisplay
+
+    sd = ScanDisplay()
+    channel_names = get_channel_names(*counters)
+    sd.init_next_scan_meta(channel_names)
+
+
+def plotselect(*counters):
+    """
+    Select counter(s) to use for:
+    * alignment (bliss/common/scans.py:_get_selected_counter_name())
+    * flint display (bliss/flint/plot1d.py)
+    Saved as a HashSetting with '<session_name>:plot_select' key.
+
+    Args:
+        counters: String, alias, object identifying an object providing data to
+            record. It can be a counter name, a counter, an axis, an alias.
+    """
+
+    plot_select = HashSetting("%s:plot_select" % current_session.name)
+    channel_names = get_channel_names(*counters)
+    counter_names = dict()
+    for channel_name in channel_names:
+        fullname = channel_name  # should be like: <controller.counter>
+        counter_names[fullname] = "Y1"
+    plot_select.set(counter_names)
+
+    if check_flint():
+        channel_names = get_channel_names(*counters)
+        flint = get_flint()
+        plot_id = flint.get_default_live_scan_plot("curve")
+        if plot_id is not None:
+            flint.set_displayed_channels(plot_id, channel_names)
+
+
+def meshselect(*counters):
+    """
+    Select counter(s) to use for scatter :
+    * alignment (bliss/common/scans.py:_get_selected_counter_name())
+    * flint display (bliss/flint/plot1d.py)
+    Saved as a HashSetting with '<session_name>:plot_select' key.
+    """
+    if check_flint():
+        channel_names = get_channel_names(*counters)
+        flint = get_flint()
+        plot_id = flint.get_default_live_scan_plot("scatter")
+        if plot_id is not None:
+            flint.set_displayed_channels(plot_id, channel_names)
+
+
+def get_plotted_counters():
+    """
+    Returns names of plotted counters as a list (get list from a HashSetting
+    with '<session_name>:plot_select' key).
+    """
+    plot_select = HashSetting("%s:plot_select" % current_session.name)
+
+    plotted_cnt_list = list()
+
+    for cnt_name in plot_select.get_all():
+        plotted_cnt_list.append(cnt_name)
+
+    return plotted_cnt_list
+
+
+def display_motor(
+    axis, scan=None, position=None, marker_id=None, label="", silent=True
+):
+    from bliss.scanning.scan import ScanDisplay
+
+    if scan is None:
+        scan = current_session.scans[-1]
+    scan_display_params = ScanDisplay()
+    if is_bliss_shell() and scan_display_params.motor_position:
+        try:
+            channel_name = get_channel_name(axis)
+        except ValueError:
+            if not silent:
+                print(
+                    "The object %s have no obvious channel. Plot marker skiped."
+                    % (axis,)
+                )
+            channel_name = None
+        if channel_name is not None:
+            try:
+                plot = get_plot(
+                    axis, plot_type="curve", as_axes=True, scan=scan, silent=silent
+                )
+            except ValueError as e:
+                if not silent:
+                    raise e
+                return
+
+            if plot is not None:
+                if position is None:
+                    position = axis.position
+                    if label == "":
+                        label = "current\n" + str(position)
+                if marker_id is None:
+                    marker_name = channel_name
+                else:
+                    marker_name = channel_name + "_" + marker_id
+                plot.update_axis_marker(marker_name, channel_name, position, text=label)
+
+
+def get_channel_names(*objs) -> List[str]:
+    """
+    ?? returns a list containing aqc-channels names produced by provieded objects??
+    # FIXME: For now only counters and axis are supported.
+    """
+    result: List[str] = []
+    for obj in objs:
+        # An object could contain many channels?
+        channel_names: List[str] = []
+        if isinstance(obj, str):
+            alias = global_map.aliases.get(obj)
+            if alias is not None:
+                channel_names = get_channel_names(alias)
+            else:
+                channel_names = [obj]
+        elif isinstance(obj, Scannable):
+            channel_names = ["axis:%s" % obj.name]
+        elif hasattr(obj, "fullname"):
+            # Assume it's a counter
+            channel_names = [obj.fullname]
+        else:
+            # FIXME: Add a warning
+            pass
+        result.extend(channel_names)
+    return result
+
+
+def get_channel_name(channel_item):
+    """Return a channel name from a bliss object, else raises an exception
+
+    If you are lucky the result is what you expect.
+
+    Argument:
+        channel_item: A bliss object which could have a channel during a scan.
+
+    Return:
+        A channel name identifying this object in scan data acquisition
+    """
+    if isinstance(channel_item, str):
+        return channel_item
+    if isinstance(channel_item, Scannable):
+        return "axis:%s" % channel_item.name
+    if hasattr(channel_item, "fullname"):
+        return channel_item.fullname
+    if hasattr(channel_item, "image"):
+        return channel_item.image.fullname
+    if hasattr(channel_item, "counter"):
+        return channel_item.counter.fullname
+    raise ValueError("Can't find channel name from object %s" % channel_item)
+
+    # TODO: Why is this logic different than in get_channel_names?
+
+
+def get_plot(
+    channel_item, plot_type, scan=None, as_axes=False, wait=False, silent=False
+):
+    """Return the first plot object of type 'plot_type' showing the
+    'channel_item' from Flint live scan view.
+
+    Argument:
+        channel_item: must be a channel
+        plot_type: can be "image", "curve", "scatter", "mca"
+
+    Keyword argument:
+        as_axes (defaults to False): If true, reach a plot with this channel as
+            X-axes (curves ans scatters), or Y-axes (scatter)
+        wait (defaults to False): wait for plot to be shown
+
+    Return:
+        The expected plot, else None
+    """
+    # check that flint is running
+    if not check_flint():
+        if not silent:
+            print("Flint is not started")
+        return None
+
+    if scan is None:
+        scan = current_session.scans[-1]
+
+    flint = get_flint()
+    if wait:
+        flint.wait_end_of_scans()
+    try:
+        channel_name = get_channel_name(channel_item)
+    except ValueError:
+        print("The object %s have no obvious channel." % (channel_item,))
+        return None
+
+    plot_id = flint.get_live_scan_plot(channel_name, plot_type, as_axes=as_axes)
+
+    if plot_type == "curve":
+        return CurvePlot(existing_id=plot_id)
+    elif plot_type == "scatter":
+        return ScatterPlot(existing_id=plot_id)
+    elif plot_type == "mca":
+        return McaPlot(existing_id=plot_id)
+    elif plot_type == "image":
+        return ImagePlot(existing_id=plot_id)
+    else:
+        print("Argument plot_type uses an invalid value: '%s'." % plot_type)

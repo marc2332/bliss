@@ -509,6 +509,18 @@ class Controller:
         raise NotImplementedError
 
 
+def remove_real_dependent_of_calc(motors):
+    """
+    remove real motors if depend of a calc axis
+    """
+    realmot = set()
+    for mot in motors:
+        ctrl = mot.controller
+        if isinstance(ctrl, CalcController):
+            realmot.update(ctrl.reals)
+    return set(motors) - realmot
+
+
 class CalcController(Controller):
     def __init__(self, *args, **kwargs):
         Controller.__init__(self, *args, **kwargs)

@@ -706,6 +706,25 @@ def rounder(template_number, number):
     )
 
 
+def round(a, decimals=None, out=None, precision=None):
+    """
+    like numpy.round just with extened signature that 
+    can deal with precision (a template number providing
+    the smallest significant increment)
+
+    assert round(16.123,precision=.2) == 16.1
+    assert round(16.123,precision=1) == 16 
+    assert round(16.123,precision=0.0001) == 16.123     
+    """
+    if decimals is not None:
+        return numpy.round(a, decimals=decimals, out=out)
+    elif precision is not None:
+        digits = int(numpy.ceil(numpy.log10(1 / precision)))
+        return numpy.round(a, digits)
+    else:
+        return numpy.round(a, decimals=0, out=out)
+
+
 class ShellStr(str):
     """Subclasses str to give a nice representation in the Bliss shell"""
 

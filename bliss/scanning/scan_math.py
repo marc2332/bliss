@@ -6,6 +6,9 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 import numpy
 import typing
+from collections import namedtuple
+
+Cen = namedtuple("center", ["position", "fwhm"])
 
 
 def peak(x: numpy.ndarray, y: numpy.ndarray) -> float:
@@ -112,4 +115,4 @@ def cen(x: numpy.ndarray, y: numpy.ndarray) -> typing.Tuple[float, float]:
     fwhm = fwhms.max() - fwhms.min()
     cfwhm = fwhms.mean()
 
-    return cfwhm, fwhm
+    return Cen(cfwhm, fwhm)

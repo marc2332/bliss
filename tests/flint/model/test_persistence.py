@@ -34,6 +34,7 @@ from bliss.flint.helper import style_helper
         plot_state_model.MinCurveItem,
         plot_state_model.MaxCurveItem,
         plot_item_model.MotorPositionMarker,
+        plot_item_model.AxisPositionMarker,
         style_helper.DefaultStyleStrategy,
         style_model.Style,
     ],

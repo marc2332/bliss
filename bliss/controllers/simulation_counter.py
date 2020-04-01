@@ -6,10 +6,14 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import numpy as np
+from scipy import signal
+from scipy.special import erf
 
 from bliss.scanning.chain import AcquisitionSlave
-from bliss.common.counter import Counter
+from bliss.common.counter import Counter, SoftCounter
 from bliss.controllers.counter import CounterController
+from bliss.common.soft_axis import SoftAxis
+from bliss.common.protocols import counter_namespace
 
 # for logging
 import logging
@@ -397,3 +401,110 @@ class SimulationCounter(Counter):
     def __init__(self, name, config):
         super().__init__(name, SimulationCounterController())
         self.config = config
+
+
+class TestCounterAndAxis:
+    """
+    Object that produces an axis and a counter to test different signal shapes in plots
+    axis should always be used between 0 and 1
+    npoints defines how many points are use to sample
+    """
+
+    SIGNALS = {
+        "sawtooth": lambda npoints: signal.sawtooth(
+            np.arange(0, 2 * np.pi * 1.1, 2 * np.pi * 1.1 / npoints), width=.9
+        ),
+        "gaussian": lambda npoints: signal.gaussian(npoints, .2 * npoints),
+        "flat": lambda npoints: np.ones(npoints),
+        "off_center_gaussian": lambda npoints: np.concatenate(
+            (
+                np.zeros(npoints - npoints // 2),
+                signal.gaussian(npoints // 2, .1 * npoints),
+            )
+        ),
+        "triangle": lambda npoints: np.concatenate(
+            (
+                np.arange(0, 1, 1 / (npoints // 2)),
+                np.flip(np.arange(0, 1, 1 / (npoints - npoints // 2))),
+            )
+        ),
+        "square": lambda npoints: np.concatenate(
+            (
+                np.zeros(npoints // 3),
+                np.ones(npoints // 3),
+                np.zeros(npoints - 2 * (npoints // 3)),
+            )
+        ),
+        "bimodal": lambda npoints: np.concatenate(
+            (
+                signal.gaussian(npoints - npoints // 2, .15 * npoints) * 1.5,
+                signal.gaussian(npoints // 2, .15 * npoints),
+            )
+        ),
+        "step_down": lambda npoints: np.concatenate(
+            (np.ones(npoints // 2), np.zeros(npoints - npoints // 2))
+        ),
+        "step_up": lambda npoints: np.concatenate(
+            (np.zeros(npoints // 2), np.ones(npoints - npoints // 2))
+        ),
+        "erf_down": lambda npoints: 1 - erf(np.arange(-3, 3, 6 / (npoints))),
+        "erf_up": lambda npoints: erf(np.arange(-3, 3, 6 / (npoints))),
+        "inverted_gaussian": lambda npoints: 1 - signal.gaussian(npoints, .2 * npoints),
+    }
+
+    def __init__(self, signal="sawtooth", npoints=50):
+        self._axis = SoftAxis("TestAxis", self)
+        self._counter = SoftCounter(self)
+        self._npoints = npoints
+        self.signal = signal
+        self._position = 0
+
+    # for SoftAxis
+    @property
+    def position(self):
+        return self._position
+
+    @position.setter
+    def position(self, value):
+        assert value <= 1
+        assert value >= 0
+        self._position = value
+
+    # for SoftCounter
+    def value(self):
+        return self._data[int((self._npoints - 1) * self._position)]
+
+    # ------
+    def init_signal(self):
+        self._data = self.SIGNALS[self._signal](self._npoints)
+
+    @property
+    def signal(self):
+        return self._signal
+
+    @signal.setter
+    def signal(self, value):
+        assert value in self.SIGNALS
+        self._signal = value
+        self.init_signal()
+
+    @property
+    def npoints(self):
+        return self._npoints + 1
+
+    @npoints.setter
+    def npoints(self, value):
+        self._npoints = value
+        self.init_signal()
+
+    @property
+    def counters(self):
+        return counter_namespace([self._counter])
+
+    @property
+    def counter(self):
+        return self._counter
+
+    @property
+    def axis(self):
+        return self._axis

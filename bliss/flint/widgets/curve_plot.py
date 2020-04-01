@@ -472,7 +472,7 @@ class CurvePlotWidget(plot_helper.PlotWidget):
             return
         for item in plotModel.items():
             # FIXME: Use a better abstract concept for that
-            if isinstance(item, plot_item_model.MotorPositionMarker):
+            if isinstance(item, plot_item_model.AxisPositionMarker):
                 self.__updatePlotItem(item, scan)
         self.__view.resetZoom()
 
@@ -849,7 +849,7 @@ class CurvePlotWidget(plot_helper.PlotWidget):
                     )
                     plotItems.append((key, "marker"))
 
-        elif isinstance(item, plot_item_model.MotorPositionMarker):
+        elif isinstance(item, plot_item_model.AxisPositionMarker):
             if item.isValid():
                 model = self.__plotModel
                 if model_helper.isChannelUsedAsAxes(

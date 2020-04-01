@@ -18,6 +18,7 @@ import logging
 import itertools
 import functools
 import collections
+import numpy
 
 import gevent.event
 
@@ -136,10 +137,10 @@ class FlintApi:
     def get_live_scan_data(self, channel_name):
         scan = self.__flintModel.currentScan()
         if scan is None:
-            raise Exception("No scan available")
+            raise RuntimeError("No scan available")
         channel = scan.getChannelByName(channel_name)
         if channel is None:
-            raise Exception(f"Channel {channel_name} is not part of this scan")
+            raise ValueError(f"Channel {channel_name} is not part of this scan")
         data = channel.data()
         if data is None:
             # Just no data
@@ -185,11 +186,11 @@ class FlintApi:
 
         scan = self.__flintModel.currentScan()
         if scan is None:
-            raise Exception("No scan displayed")
+            raise RuntimeError("No scan displayed")
 
         channel = scan.getChannelByName(channel_name)
         if channel is None:
-            raise Exception(
+            raise ValueError(
                 "The channel '%s' is not part of the current scan" % channel_name
             )
 
@@ -208,7 +209,7 @@ class FlintApi:
                 return f"live:{iwidget}"
 
         # FIXME: Here we could create a specific plot
-        raise Exception("The channel '%s' is not part of any plots" % channel_name)
+        raise ValueError("The channel '%s' is not part of any plots" % channel_name)
 
     def wait_end_of_scans(self):
         scanManager = self.__flintModel.scanManager()
@@ -365,24 +366,38 @@ class FlintApi:
 
     # Data management
 
-    def update_motor_marker(
-        self, plot_id, channel_name: str, position: float, text: str
+    def update_axis_marker(
+        self, plot_id, unique_name: str, channel_name: str, position: float, text: str
     ):
+        """Update the location of an axis marker in a plot.
+
+        Arguments:
+            unique_name: Name of the marker to edit
+            plot_id: Identifier of the plot
+            channel_name: Name of the channel which is used as an axis by this
+                marker
+            position: Position in this axis. If the position is None or not
+                finite, the marker is removed (or not created)
+            text: A text label  for the marker
+        """
         plot = self._get_plot_widget(plot_id, expect_silx_api=False)
         model = plot.plotModel()
         if model is None:
             raise Exception("No model linked to this plot")
 
         with model.transaction():
-            # Clean up previous items
+            # Clean up previous item
             for i in list(model.items()):
-                if isinstance(i, plot_item_model.MotorPositionMarker):
-                    model.removeItem(i)
-            # Create the new indicator
-            item = plot_item_model.MotorPositionMarker(model)
-            ref = plot_model.ChannelRef(item, channel_name)
-            item.initProperties(ref, position, text)
-            model.addItem(item)
+                if isinstance(i, plot_item_model.AxisPositionMarker):
+                    if i.unique_name() == unique_name:
+                        model.removeItem(i)
+                        break
+            # Create the new marker
+            if position is not None and numpy.isfinite(position):
+                item = plot_item_model.AxisPositionMarker(model)
+                ref = plot_model.ChannelRef(item, channel_name)
+                item.initProperties(unique_name, ref, position, text)
+                model.addItem(item)
 
     def update_data(self, plot_id, field, data):
         self.data_dict[plot_id][field] = data

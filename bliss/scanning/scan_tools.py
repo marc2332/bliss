@@ -126,7 +126,7 @@ def _scan_calc(func, counter=None, axis=None, scan=None, marker=True, goto=False
                     ax,
                     scan=scan,
                     position=ax.position,
-                    label="current \n" + str(ax.position),
+                    label="\n\ncurrent\n" + str(ax.position),
                     marker_id="current",
                 )
     if goto:
@@ -135,7 +135,7 @@ def _scan_calc(func, counter=None, axis=None, scan=None, marker=True, goto=False
             ax,
             scan=scan,
             position=ax.position,
-            label="current \n" + str(ax.position),
+            label="\n\ncurrent\n" + str(ax.position),
             marker_id="current",
         )
         return
@@ -190,7 +190,9 @@ def goto_peak(
 
 def where():
     for axis in last_scan_motors():
-        display_motor(axis, marker_id="current")
+        display_motor(
+            axis, marker_id="current", label="\n\ncurrent\n" + str(axis.position)
+        )
 
 
 def clear_markers():

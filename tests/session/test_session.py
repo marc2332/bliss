@@ -98,6 +98,9 @@ def test_load_script(session2, session4, capsys):
     session4.setup(env_dict)
     assert "RuntimeError" in capsys.readouterr()[1]
 
+    with pytest.raises(RuntimeError):
+        load_script("doesnotexist")
+
 
 def test_load_script_namespace(session4):
     env_dict = dict()

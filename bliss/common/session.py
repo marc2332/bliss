@@ -418,6 +418,8 @@ class Session:
                     self.env_dict[k] = globals_dict[k]
             finally:
                 sys.meta_path.remove(importer)
+        else:
+            raise RuntimeError(f"{session.name} session has no script module path")
 
     def _get_user_script_home(self):
         return self.__user_script_homedir.get()

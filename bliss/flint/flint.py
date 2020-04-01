@@ -115,7 +115,7 @@ def start_flint(flintModel: flint_model.FlintState):
     flintModel.setScanManager(scanManager)
 
     # Flag that flint is started
-    flintModel.mainManager().setFlintStarted()
+    manager.setFlintStarted()
 
 
 def parse_options():

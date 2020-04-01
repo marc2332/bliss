@@ -442,13 +442,18 @@ class WorkspaceManager(qt.QObject):
         Arguments:
             - last: If true, save that this workspace was used
         """
+        flintModel = self.mainManager().flintModel()
+        sessionName = flintModel.blissSessionName()
+        if sessionName is None:
+            _logger.error("No BLISS session. Save of workspace aborted")
+            return
+
         name = workspace.name()
         names = self.__getAvailableNames()
         if name not in names:
             names.append(name)
             self.__saveAvailableNames(names)
 
-        flintModel = self.mainManager().flintModel()
         workspace = flintModel.workspace()
 
         redis = flintModel.redisConnection()

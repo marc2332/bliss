@@ -730,10 +730,10 @@ class AcquisitionSlave(AcquisitionObject):
 
     def _trigger(self, stats_dict):
         with profile(stats_dict, self.name, "trigger"):
-            self.trigger()
             if self._check_reading_task():
                 dispatcher.send("start", self)
                 self._reading_task = gevent.spawn(self.reading)
+            self.trigger()
 
     def wait_reading(self):
         if self._reading_task is not None:

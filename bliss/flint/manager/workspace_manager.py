@@ -308,7 +308,10 @@ class WorkspaceManager(qt.QObject):
         return name
 
     def loadLastWorkspace(self):
-        name = self.__getLastWorkspaceName()
+        try:
+            name = self.__getLastWorkspaceName()
+        except ValueError:
+            name = self.DEFAULT
         return self.loadWorkspace(name)
 
     def __closeWorkspace(self):
@@ -366,20 +369,24 @@ class WorkspaceManager(qt.QObject):
 
     def loadWorkspace(self, name: str):
         flintModel = self.mainManager().flintModel()
+
         newWorkspace = flint_model.Workspace()
         newWorkspace.setName(name)
         window = flintModel.liveWindow()
-        settings = self.__getSettings()
         scan = flintModel.currentScan()
 
-        try:
-            data = settings.get(newWorkspace.name(), None)
-        except Exception:
-            _logger.error(
-                "Problem to load workspace data. Information will be lost.",
-                exc_info=True,
-            )
-            data = None
+        data = None
+
+        sessionName = flintModel.blissSessionName()
+        if sessionName is not None:
+            try:
+                settings = self.__getSettings()
+                data = settings.get(newWorkspace.name(), None)
+            except Exception:
+                _logger.error(
+                    "Problem to load workspace data. Information will be lost.",
+                    exc_info=True,
+                )
 
         if data is not None and not isinstance(data, WorkspaceData):
             _logger.error(
@@ -415,7 +422,8 @@ class WorkspaceManager(qt.QObject):
         for widget in newWorkspace.widgets():
             widget.setVisible(True)
 
-        self.__saveCurrentWorkspaceName(newWorkspace.name())
+        if sessionName is not None:
+            self.__saveCurrentWorkspaceName(newWorkspace.name())
         flintModel.setWorkspace(newWorkspace)
 
     def removeWorkspace(self, name: str):

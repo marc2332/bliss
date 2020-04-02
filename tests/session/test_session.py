@@ -168,7 +168,7 @@ def test_session_env_dict(session):
         session_name="test_session",
         expert_error_report=True,
     )
-    assert id(cli.get_globals()) == id(session.env_dict)
+    assert id(cli.get_globals().wrapped_dict) == id(session.env_dict)
 
 
 def test_session_env_dict_no_protection_library_mode(session):

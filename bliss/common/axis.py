@@ -1414,7 +1414,9 @@ class Axis:
         read_encoder_position = (
             self._read_position_mode == self.READ_POSITION_MODE.ENCODER
         )
-        check_encoder = self.config.get("check_encoder", bool, False) and self.encoder
+        check_encoder = (
+            self.config.get("check_encoder", bool, self.encoder) and self.encoder
+        )
         dont_check_discrepancy = read_encoder_position and not check_encoder
         if (
             not dont_check_discrepancy
@@ -1532,7 +1534,7 @@ class Axis:
         state = self._move_loop(polling_time)
 
         # after the move
-        if self.config.get("check_encoder", bool, False) and self.encoder:
+        if self.config.get("check_encoder", bool, self.encoder) and self.encoder:
             self._do_encoder_reading()
 
         return state

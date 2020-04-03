@@ -135,6 +135,7 @@ class CalcCounterAcquisitionSlave(AcquisitionSlave):
         self.src_acq_devices_list = src_acq_devices_list
 
         self.output_counters = {}
+        self.device.reset_data_storage()
 
     def _do_add_counter(self, counter):
         super()._do_add_counter(counter)
@@ -157,7 +158,6 @@ class CalcCounterAcquisitionSlave(AcquisitionSlave):
         self._connected = False
 
     def prepare(self):
-        self.device.reset_data_storage()
         self.connect()
 
     def new_data_received(self, event_dict=None, signal=None, sender=None):

@@ -17,10 +17,10 @@ from functools import wraps
 import weakref
 
 import gevent
+from tango import DevFailed, DevState
 
 from bliss.common.utils import autocomplete_property
 from bliss.common.mapping import format_node, map_id
-from bliss.common.tango import DevFailed, DevState
 from bliss import global_map, current_session
 
 old_factory = logging.getLogRecordFactory()

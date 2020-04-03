@@ -1,10 +1,14 @@
-import logging
 import subprocess
 import time
 
 import pytest
+import numpy
 
 from bliss.shell.standard import wa, wm, sta, stm, _launch_silx, umv
+
+from bliss.shell.standard import sin, cos, tan, arcsin, arccos, arctan, arctan2
+from bliss.shell.standard import log, log10, sqrt, exp, power, deg2rad, rad2deg
+from bliss.shell.standard import rand, date, sleep
 
 
 @pytest.fixture
@@ -12,6 +16,19 @@ def s1hg(default_session):
     s1hg = default_session.config.get("s1hg")
     yield s1hg
     s1hg.__close__()
+
+
+def test_std_func():
+
+    # No mathematical proof, just to ensure all functions are imported.
+    numpy.testing.assert_almost_equal(sin(cos(tan(arcsin(0.1)))), 0.838733, 4)
+    numpy.testing.assert_almost_equal(arccos(arctan(arctan2(0.1, 1))), 1.47129, 4)
+    numpy.testing.assert_almost_equal(log(sqrt(exp(power(2, 3)))), 4.0, 4)
+    numpy.testing.assert_almost_equal(log10(deg2rad(rad2deg(4))), 0.602, 4)
+
+    _ = rand()
+    _ = date()
+    sleep(0.001)
 
 
 def test_wa_normal(default_session, capsys):
@@ -130,8 +147,8 @@ def test_sta_slits(s1hg, capsys):
     captured = capsys.readouterr()
 
     assert "s1hg" in captured.out
-    assert not "s1f" in captured.out
-    assert not "s1b" in captured.out
+    assert "s1f" not in captured.out
+    assert "s1b" not in captured.out
 
 
 def test_sta_exception(default_session, capsys):

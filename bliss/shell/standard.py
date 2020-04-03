@@ -96,6 +96,35 @@ from bliss.common.types import (
     _providing_channel,
 )
 
+
+############## imports that are only used simpyly the
+############## shell user access to these functions
+
+# hint: don't forget to add to __all__ as well
+from numpy import (
+    sin,
+    cos,
+    tan,
+    arcsin,
+    arccos,
+    arctan,
+    arctan2,
+    log,
+    log10,
+    sqrt,
+    exp,
+    power,
+    deg2rad,
+    rad2deg,
+)
+from numpy.random import rand
+from time import asctime as date
+
+# gevent sleep
+
+##############
+
+
 __all__ = (
     [
         "wa",
@@ -139,6 +168,25 @@ __all__ = (
     + ["cleanup", "error_cleanup", "plot", "lscnt", "lsmg", "wid"]
     + ["SoftAxis", "SoftCounter", "edit_roi_counters", "edit_mg"]
     + list(limatools.__all__)
+    + [
+        "sin",
+        "cos",
+        "tan",
+        "arcsin",
+        "arccos",
+        "arctan",
+        "arctan2",
+        "log",
+        "log10",
+        "sqrt",
+        "exp",
+        "power",
+        "deg2rad",
+        "rad2deg",
+        "rand",
+        "sleep",
+        "date",
+    ]
 )
 
 tabulate.PRESERVE_WHITESPACE = True

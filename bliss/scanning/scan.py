@@ -4,6 +4,7 @@
 #
 # Copyright (c) 2015-2020 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
+
 import enum
 import gevent
 import os
@@ -350,16 +351,10 @@ class ScanDisplay(ParametersWardrobe):
             default_values={
                 "auto": False,
                 "motor_position": True,
-                "_counters": [],
                 "_extra_args": [],
                 "_next_scan_metadata": None,
             },
-            property_attributes=(
-                "session",
-                "counters",
-                "extra_args",
-                "flint_output_enabled",
-            ),
+            property_attributes=("session", "extra_args", "flint_output_enabled"),
             not_removable=("auto", "motor_position"),
         )
 
@@ -407,26 +402,6 @@ class ScanDisplay(ParametersWardrobe):
             pass
 
         self._extra_args = list(extra_args)
-
-    @property
-    def counters(self):
-        return self._counters
-
-    @counters.setter
-    def counters(self, counters_selection):
-        """
-        Select counter(s) which will be displayed in scan output. If no counters are given, it clears the filter list.
-        """
-
-        if counters_selection in [[], (), "All", "all", None, ""]:
-            self._counters = []
-        else:
-            cnts = []
-            for cnt in counters_selection:
-                fullname = cnt.fullname
-                cnts.append(fullname)
-
-            self._counters = cnts
 
     @property
     def flint_output_enabled(self):

@@ -313,28 +313,11 @@ class ScanDataListener:
         self.session_name = session_name
         self.scan_name = None
         self.scan_is_running = None
-        self.counter_selection = []
         self.scan_display = ScanDisplay(self.session_name)
         self._pool = ThreadPool(1)
-        # self.start_time = 0
-        # self.last_time = 0
-        # self.stop_time = 0
-
-    def update_counter_selection(self):
-        self.counter_selection = self.scan_display.counters
 
     def get_selected_counters(self, counter_names):
-        selection = []
-        if not self.counter_selection:
-            for cname in counter_names:
-                if cname != "timer:epoch":
-                    selection.append(cname)
-        else:
-            for cname in counter_names:
-                if cname in self.counter_selection or cname == "timer:elapsed_time":
-                    selection.append(cname)
-
-        return selection
+        return [cname for cname in counter_names if cname != "timer:epoch"]
 
     def on_scan_new(self, scan_info):
         # self.start_time = time.time()
@@ -360,7 +343,6 @@ class ScanDataListener:
         else:
             self.scan_is_running = True
             self.scan_name = scan_info.get("node_name")
-            self.update_counter_selection()
 
             # session_name = scan_info.get('session_name')             # ex: 'test_session'
             # user_name = scan_info.get('user_name')                   # ex: 'pguillou'

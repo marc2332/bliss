@@ -233,8 +233,9 @@ def main():
         session_name = None
 
     if arguments["--no-tmux"] or sys.platform in ["win32", "cygwin"]:
+
         # If session_name is None, an empty session is started.
-        embed(session_name=session_name)
+        embed(session_name=session_name, expert_error_report=bool(arguments["--debug"]))
         current_session.close()
         global_map.clear()
 

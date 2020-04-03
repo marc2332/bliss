@@ -76,7 +76,6 @@ def test_scan_saving_path(writer, session, scan_tmpdir):
 
   .base_path            = '{base_path}'
   .data_filename        = '{{session}}_{{scan_name}}_data'
-  .user_name            = '{user_name}'
   .template             = '{{session}}/{{scan_name}}/{{scan_number}}'
   .images_path_relative = True
   .images_path_template = 'scan{{scan_number}}'
@@ -85,6 +84,7 @@ def test_scan_saving_path(writer, session, scan_tmpdir):
   .scan_number_format   = '%04d'
   .session              = '{session}'
   .date                 = '{date}'
+  .user_name            = '{user_name}'
   .scan_name            = '{{scan_name}}'
   .scan_number          = '{{scan_number}}'
   .img_acq_device       = '<images_* only> acquisition device name'

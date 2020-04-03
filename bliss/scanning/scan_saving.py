@@ -336,7 +336,6 @@ class BasicScanSaving(EvalParametersWardrobe):
         # default and not removable values
         "base_path": "/tmp/scans",
         "data_filename": "data",
-        "user_name": getpass.getuser(),
         "template": "{session}/",
         "images_path_relative": True,
         "images_path_template": "scan{scan_number}",
@@ -350,6 +349,7 @@ class BasicScanSaving(EvalParametersWardrobe):
     PROPERTY_ATTRIBUTES = [
         "session",
         "date",
+        "user_name",
         "scan_name",
         "scan_number",
         "img_acq_device",
@@ -467,6 +467,10 @@ class BasicScanSaving(EvalParametersWardrobe):
     @property
     def date(self):
         return time.strftime(self.date_format)
+
+    @property
+    def user_name(self):
+        return getpass.getuser()
 
     @property
     def writer(self):
@@ -681,7 +685,6 @@ class ESRFScanSaving(BasicScanSaving):
 
     DEFAULT_VALUES = {
         # default and not removable values
-        "user_name": getpass.getuser(),
         "images_path_template": "scan{scan_number}",
         "images_prefix": "{img_acq_device}_",
         "date_format": "%Y%m%d",

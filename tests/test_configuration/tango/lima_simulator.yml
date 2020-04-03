@@ -4,6 +4,9 @@ device:
 - class: LimaCCDs
   properties:
     LimaCameraType: Simulator
+    polled_attr:
+    - acq_status
+    - '500'
   tango_name: id00/limaccds/simulator1
 - class: CtAccumulation
   tango_name: id00/ctaccumulation/simulator1
@@ -29,6 +32,15 @@ device:
   tango_name: id00/roicounter/simulator1
 - class: BpmDeviceServer
   tango_name: id00/bpm/simulator1
+  properties:
+    calibration:
+    - '3.0'
+    - '3.0'
+    return_bpm_profiles: 'True'
+    color_map: 'False'
+    beammark:
+    - '505'
+    - '556'
 - class: LiveViewer
   tango_name: id00/liveviewer/simulator1
 - class: PeakFinderDeviceServer
@@ -45,3 +57,5 @@ device:
   tango_name: id00/roi2spectrum/simulator1
 personal_name: simulator
 server: LimaCCDs
+properties:
+  polling_threads_pool_conf: id00/limaccds/simulator1

@@ -7,14 +7,24 @@ here: [ESRF BeamViewer Configuration](config_beamviewer.md).
 
 ### Global status
 ```  
-BLISS [16]: ebv
-  Out [16]: EBV [myebv] (wago: wcid15ab)
-                screen : OUT
-                led    : OFF
+BLISS [16]: myebv
+  Out [16]: EBV [myebv] Wago(wcid21bv1)
+                screen : IN
+                led    : ON
                 foil   : NONE
-                diode range   : 10uA
-                diode current : 0 mA
+                diode range   : 1mA
+                diode current : -0.351451 mA
+
+            Bpm [id21/limaccds/bv1]
+
+                exposure : 1.0 s
+                size     : [1024, 1024]
+                binning  : [1, 1]
+                roi      : [0, 0, 1024, 1024]
+                flip     : [False, False]
+                rotation : NONE
 ```
+
 ### SCREEN control
 ```
 BLISS [12]: myebv.screen_in()
@@ -110,18 +120,72 @@ BLISS [50]: myebv.diode_gain
   Out [50]: 1000.0
 ```
 
-## Diode as a counter
+### Bpm measurements reading
 
-The diode reading can be used as a sampling counter.
-```
-BLISS [51]: ct(.1, myebv)
-Tue Oct 22 18:17:36 2019
-
-diode = -2.44140625e-07 (-2.44140625e-06/s)
+Measure and return data (timestamp, intensity, center_x, center_y, fwhm_x, fwhm_y)
+```python
+BLISS [53]: myebv.bpm.raw_read()
+  Out [53]: [array([1.0819428]), array([99.2]), array([512.]), array([512.]), array([99.04761905]), array([99.04761905])]
 ```
 
-Default counter name is *diode* but can be changed in configuration.
-Counter object is accessible though `myebv.diode`.
-So either `myebv` or `myebv.diode` can be added to measurement group (ebv hold only one sampling counter).
+
+## EBV counters
+
+The EBV has 6 sampling counters (1 for the diode and 5 for the Bpm measurements):
+
+- myebv.diode
+- myebv.x
+- myebv.y
+- myebv.fwhm_x
+- myebv.fwhm_y
+- myebv.intensity
+
+
+`myebv` holds all 6 counters wheras `myebv.diode` returns only the diode counter.
+
+The Bpm measurements will be performed using the current CCD exposure and image parameters (bin, roi, flip, rotation).
+The camera trigger mode is forced to `INTERNAL_TRIGGER` and camera mode to `SINGLE`.
+
+If the scan count_time is longer than the ccd exposure the Bpm measurements are sampled as many time as possible.
+
+Note: the default counter name for the diode is *diode* but it can be changed in the configuration file.
+
+```
+BLISS [51]: ct(1, myebv)                                                                                          
+Tue Mar 31 16:43:52 2020
+
+ acq_time = 1.038032054901123 ( 1.038032054901123/s)
+   fwhm_x = 99.04761904761904 ( 99.04761904761904/s)
+   fwhm_y = 99.04761904761904 ( 99.04761904761904/s)
+intensity =         99.2 (        99.2/s)
+        x =        512.0 (       512.0/s)
+        y =        512.0 (       512.0/s)
+ebv_diode = -0.15674306466872268 (-0.15674306466872268/s)
+
+
+
+BLISS [52]: ct(1, myebv.diode)
+Tue Mar 31 16:54:15 2020 
+
+ebv_diode = -0.1567430646687215 (-0.1567430646687215/s)  
+```
+
+## EBV Beamviewer
+
+The command `myebv.show_beam` will start/raise Flint and display a live preview from the EBV camera.
+
+To stop the live, just close the tab in Flint.
+
+If a scan is started, the live is automatically stopped first.
+
+A single snapshot can be performed with the command `myebv.bpm.snap()` 
+
+Some parameters of the underlying camera can be read or write:
+
+* `myebv.bpm.exposure`  or `myebv.bpm.exposure = 0.01`          (sec)
+* `myebv.bpm.bin`       or `myebv.bpm.bin = [2,2]`              (xbin, ybin)
+* `myebv.bpm.roi`       or `myebv.bpm.roi = [100,200,300,300]`  (xpos, ypos, width, height)
+* `myebv.bpm.flip`      or `myebv.bpm.flip = [True, False]`     (LR, TB)
+* `myebv.bpm.rotation`  or `myebv.bpm.rotation = 'NONE'`        in ['None', '90', '180', '270']
 
 

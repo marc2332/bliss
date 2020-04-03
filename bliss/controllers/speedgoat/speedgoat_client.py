@@ -783,6 +783,38 @@ class Regul(object):
                 "plant/counters/counter_xtal_311_dz/offset(cnt)/Bias", value * 1000000
             )
 
+    def reset_xtal_drx(self, value):
+        corr_switch = self.get_signal(
+            "plant/counters/counter_xtal_111_drx/correction_switch"
+        )
+        signal = self.get_signal("plant/counters/counter_xtal_111_drx/Signal(cnt)")
+        offset = value * 1000000 + corr_switch - signal
+
+        self.set_param("plant/counters/counter_xtal_111_drx/offset(cnt)/Bias", offset)
+        # Added by Maxim to test the regulation on the xtal_311 interferometer set
+        corr_switch = self.get_signal(
+            "plant/counters/counter_xtal_311_drx/correction_switch"
+        )
+        signal = self.get_signal("plant/counters/counter_xtal_311_drx/Signal(cnt)")
+        offset = value * 1000000 + corr_switch - signal
+        self.set_param("plant/counters/counter_xtal_311_drx/offset(cnt)/Bias", offset)
+
+    def reset_xtal_dry(self, value):
+        corr_switch = self.get_signal(
+            "plant/counters/counter_xtal_111_dry/correction_switch"
+        )
+        signal = self.get_signal("plant/counters/counter_xtal_111_dry/Signal(cnt)")
+        offset = value * 1000000 + corr_switch - signal
+
+        self.set_param("plant/counters/counter_xtal_111_dry/offset(cnt)/Bias", offset)
+        # Added by Maxim to test the regulation on the xtal_311 interferometer set
+        corr_switch = self.get_signal(
+            "plant/counters/counter_xtal_311_dry/correction_switch"
+        )
+        signal = self.get_signal("plant/counters/counter_xtal_311_dry/Signal(cnt)")
+        offset = value * 1000000 + corr_switch - signal
+        self.set_param("plant/counters/counter_xtal_311_dry/offset(cnt)/Bias", offset)
+
     def state(self):
         loop_error = int(self.get_signal("Regulator/controler_error_status"))
         if loop_error:
@@ -812,26 +844,51 @@ class Regul(object):
             self.set_param("Regulator/resetError/Value", 1)
             self.set_param("Regulator/resetError/Value", 0)
 
-    def setPolynom(self, angle, a, b, c):
+    def setPolynom(self, angle, a, b, c, d, e, f, g):
+        # change to 6th order correction by maxim on the 04th March 2020
         if angle == "rx":
             var_name_a = (
-                "plant/counters/counter_xtal_111_drx/2nd-order-correction(unit)/a/Value"
+                "plant/counters/counter_xtal_111_drx/6th-order-correction(unit)/a/Value"
             )
             var_name_b = (
-                "plant/counters/counter_xtal_111_drx/2nd-order-correction(unit)/b/Value"
+                "plant/counters/counter_xtal_111_drx/6th-order-correction(unit)/b/Value"
             )
             var_name_c = (
-                "plant/counters/counter_xtal_111_drx/2nd-order-correction(unit)/c/Value"
+                "plant/counters/counter_xtal_111_drx/6th-order-correction(unit)/c/Value"
+            )
+            var_name_d = (
+                "plant/counters/counter_xtal_111_drx/6th-order-correction(unit)/d/Value"
+            )
+            var_name_e = (
+                "plant/counters/counter_xtal_111_drx/6th-order-correction(unit)/e/Value"
+            )
+            var_name_f = (
+                "plant/counters/counter_xtal_111_drx/6th-order-correction(unit)/f/Value"
+            )
+            var_name_g = (
+                "plant/counters/counter_xtal_111_drx/6th-order-correction(unit)/g/Value"
             )
         elif angle == "ry":
             var_name_a = (
-                "plant/counters/counter_xtal_111_dry/2nd-order-correction(unit)/a/Value"
+                "plant/counters/counter_xtal_111_dry/6th-order-correction(unit)/a/Value"
             )
             var_name_b = (
-                "plant/counters/counter_xtal_111_dry/2nd-order-correction(unit)/b/Value"
+                "plant/counters/counter_xtal_111_dry/6th-order-correction(unit)/b/Value"
             )
             var_name_c = (
-                "plant/counters/counter_xtal_111_dry/2nd-order-correction(unit)/c/Value"
+                "plant/counters/counter_xtal_111_dry/6th-order-correction(unit)/c/Value"
+            )
+            var_name_d = (
+                "plant/counters/counter_xtal_111_dry/6th-order-correction(unit)/d/Value"
+            )
+            var_name_e = (
+                "plant/counters/counter_xtal_111_dry/6th-order-correction(unit)/e/Value"
+            )
+            var_name_f = (
+                "plant/counters/counter_xtal_111_dry/6th-order-correction(unit)/f/Value"
+            )
+            var_name_g = (
+                "plant/counters/counter_xtal_111_dry/6th-order-correction(unit)/g/Value"
             )
         else:
             print('Correct angle are "rx" or "ry", exit !!!')
@@ -840,27 +897,56 @@ class Regul(object):
         self.set_param(var_name_a, a)
         self.set_param(var_name_b, b)
         self.set_param(var_name_c, c)
+        self.set_param(var_name_d, d)
+        self.set_param(var_name_e, e)
+        self.set_param(var_name_f, f)
+        self.set_param(var_name_g, g)
 
     def getPolynom(self, angle):
+        # change to 6th order correction by maxim on the 04th March 2020
         if angle == "rx":
             var_name_a = (
-                "plant/counters/counter_xtal_111_drx/2nd-order-correction(unit)/a/Value"
+                "plant/counters/counter_xtal_111_drx/6th-order-correction(unit)/a/Value"
             )
             var_name_b = (
-                "plant/counters/counter_xtal_111_drx/2nd-order-correction(unit)/b/Value"
+                "plant/counters/counter_xtal_111_drx/6th-order-correction(unit)/b/Value"
             )
             var_name_c = (
-                "plant/counters/counter_xtal_111_drx/2nd-order-correction(unit)/c/Value"
+                "plant/counters/counter_xtal_111_drx/6th-order-correction(unit)/c/Value"
+            )
+            var_name_d = (
+                "plant/counters/counter_xtal_111_drx/6th-order-correction(unit)/d/Value"
+            )
+            var_name_e = (
+                "plant/counters/counter_xtal_111_drx/6th-order-correction(unit)/e/Value"
+            )
+            var_name_f = (
+                "plant/counters/counter_xtal_111_drx/6th-order-correction(unit)/f/Value"
+            )
+            var_name_g = (
+                "plant/counters/counter_xtal_111_drx/6th-order-correction(unit)/g/Value"
             )
         elif angle == "ry":
             var_name_a = (
-                "plant/counters/counter_xtal_111_dry/2nd-order-correction(unit)/a/Value"
+                "plant/counters/counter_xtal_111_dry/6th-order-correction(unit)/a/Value"
             )
             var_name_b = (
-                "plant/counters/counter_xtal_111_dry/2nd-order-correction(unit)/b/Value"
+                "plant/counters/counter_xtal_111_dry/6th-order-correction(unit)/b/Value"
             )
             var_name_c = (
-                "plant/counters/counter_xtal_111_dry/2nd-order-correction(unit)/c/Value"
+                "plant/counters/counter_xtal_111_dry/6th-order-correction(unit)/c/Value"
+            )
+            var_name_d = (
+                "plant/counters/counter_xtal_111_dry/6th-order-correction(unit)/d/Value"
+            )
+            var_name_e = (
+                "plant/counters/counter_xtal_111_dry/6th-order-correction(unit)/e/Value"
+            )
+            var_name_f = (
+                "plant/counters/counter_xtal_111_dry/6th-order-correction(unit)/f/Value"
+            )
+            var_name_g = (
+                "plant/counters/counter_xtal_111_dry/6th-order-correction(unit)/g/Value"
             )
         else:
             print('Correct angle are "rx" or "ry", exit !!!')
@@ -870,6 +956,10 @@ class Regul(object):
             self.get_param(var_name_a),
             self.get_param(var_name_b),
             self.get_param(var_name_c),
+            self.get_param(var_name_d),
+            self.get_param(var_name_e),
+            self.get_param(var_name_f),
+            self.get_param(var_name_g),
         )
 
     def usePolynom(self, state):

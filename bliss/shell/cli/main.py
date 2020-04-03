@@ -170,13 +170,6 @@ def main():
         print("")
         arguments = docopt(__doc__)
 
-    # disable those ugly loggers from jedi
-    logging.getLogger("parso.python.diff").disabled = True
-    logging.getLogger("parso.cache").disabled = True
-    # initialize logging
-    log_level = getattr(logging, arguments["--log-level"][0].upper())
-    logging_startup(log_level)
-
     # Print version
     if arguments["--version"]:
         print(("BLISS version %s" % release.short_version))
@@ -233,6 +226,13 @@ def main():
         session_name = None
 
     if arguments["--no-tmux"] or sys.platform in ["win32", "cygwin"]:
+
+        # disable those ugly loggers from jedi
+        logging.getLogger("parso.python.diff").disabled = True
+        logging.getLogger("parso.cache").disabled = True
+        # initialize logging
+        log_level = getattr(logging, arguments["--log-level"][0].upper())
+        logging_startup(log_level)
 
         # If session_name is None, an empty session is started.
         embed(session_name=session_name, expert_error_report=bool(arguments["--debug"]))

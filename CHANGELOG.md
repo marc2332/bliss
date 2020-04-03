@@ -7,8 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.0] - 2020-04-03
+
 ### Added
 
+- CT2 (P201) controller
+    - retries 5 times reading of point in case of error 
+    - do not remove first point
+    - change keep_first_point attribute by read_all_triggers and add it as a parameter for master and slave acquisition devices with default at 'False' to keep backward compatibility
+- useful maths functions from numpy in bliss.shell.standard
+- EBV controller now has BPM counters
+- Nexus Writer
+    - optimise Virtual Dataset creation by collapsing indices
+- Axis
+    - offset, backlash as writable properties for Axis objects
+    - .dial_limits property
+    - config changes are only taken into account when .apply_config is called
+- Moco controller
+- Lima image parameters: added binning
+- web configuration tool: improvement of the search
+- Axes DISABLED state is displayed in the output of `wa()`
+- Undulators
+    - wid() : "where insertion devices" display the list and status of undulators
+    - added support for revolver undulators
+- wait for refill
 - A `plotinit` was added to request before a scan what it have to display.
     - It uses the same arguments as `plotselect`
     - This information is part of the scan then could be used by the writer
@@ -26,6 +48,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- history files for tmux sessions or classic sessions are now the same
+- umv, umvr now check parameters (using typeguard)
 - `watch_session_scans` do not expose anymore scan_group as a scan
 - `goto_cen` (and similar functions) displays first the marker, then move the motor
 - Flint
@@ -34,6 +58,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- user_name in SCAN_SAVING and scan display
+- user_local_script now raises an exception if invalid file is given, even in default session
+- goto_cen and associated functions now work for calc axes
+- config settings raise an exception if connection to Beacon is lost
+- Axis
+    - user and dial calculation for Axis when sign or steps per unit change in config
+    - invalid backlash movement in case of floating point errors with position
+- retrying and timeout to read metadata servers attributes
+- scan or ct in default session when data policy is enabled
+- Speedgoat
+    - check number of counters to match buffers 
+- where() with aliases
+- channel .fullname returns the name with alias, if any
+- keithley controller: fixed initialization trouble with the cache
+- printing of config values for NoSettingsAxis
+- serial line communication: open/close made atomic
+- energy_wavelength calculation is compliant with numpy arrays
+- dmesh: start, stop are calculated from the motor set position
+- cleanup context manager: recorded motor position is set to the set position
+- removed "encoder" prefix on Encoder counter names
+- BLISS rpc
+    - limit allocated memory for RPC messages on 32 bits computers 
+- data stream
+   - ensure a TTL of 60 seconds to the synchronization stream
+- Nexus writer
+    - stop scan when entry already exists in file
+    - set dataRoot before starting the dataset
 - `plotselect` now supports aliases
 - Flint
     - Scans from a `ScanSequence` are now displayed (`ScanSequence` are ignored)
@@ -159,6 +210,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CT2 (P201) counter values conversion
 - Software timer elapsed time
 
+### Removed
+
 ## [1.1.0] - 2020-01-15
 
 ### Added
@@ -218,6 +271,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - fix asynchronicity problems and race conditions in Beacon server and client code
 - multiple Beacon objects with the same name are now properly initialized  
 - bug in AllowKill context manager
+
+### Removed
 
 ## [1.0.0] - 2019-12-17
 

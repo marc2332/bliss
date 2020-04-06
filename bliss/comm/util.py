@@ -245,7 +245,7 @@ def get_comm(config, ctype=None, **opts):
                 f"The given Tango url {url} is not compliant with Tango FQDN"
             )
         args.append(url)
-        from tango import DeviceProxy as klass
+        from bliss.common.tango import DeviceProxy as klass
     if klass is None:
         # should not happen (get_comm_type should handle all errors)
         raise ValueError("get_comm(): No communication channel found in config")

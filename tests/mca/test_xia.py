@@ -39,6 +39,7 @@ def xia(request, beacon, mocker):
     assert xia._proxy is client
     m.assert_called_once_with(xia._config["url"])
     yield xia
+    xia.finalize()
 
 
 def test_xia_instanciation(xia):

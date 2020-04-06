@@ -16,6 +16,9 @@ import logging
 def main(global_map=global_map):
     session_name = sys.argv[1]
 
+    # disable those ugly loggers from jedi
+    logging.getLogger("parso.python.diff").disabled = True
+    logging.getLogger("parso.cache").disabled = True
     # initialize logging
     log_level = getattr(logging, sys.argv[2].upper())
     logging_startup(log_level)

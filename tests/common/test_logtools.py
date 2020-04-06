@@ -296,7 +296,7 @@ def test_log_name_sanitize(params):
     get_logger(d2)
     assert (
         global_map[map_id(d2)]["_logger"].name
-        == "global.controllers.___deviceDEVICE=___()"
+        == "global.controllers./_/deviceDEVICE=___()"
     )
 
 

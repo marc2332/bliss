@@ -58,6 +58,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- --debug option enables ERROR_REPORT.expert_mode
 - user_name in SCAN_SAVING and scan display
 - user_local_script now raises an exception if invalid file is given, even in default session
 - goto_cen and associated functions now work for calc axes

@@ -1,10 +1,8 @@
 from bliss import global_map
-from bliss.comm.util import get_comm, get_comm_type, SERIAL, TCP
-from bliss.comm import serial
-from bliss.common.greenlet_utils import KillMask, protect_from_kill
+from bliss.comm.util import get_comm
+from bliss.common.greenlet_utils import protect_from_kill
 from bliss.common.counter import SamplingCounter, SamplingMode
 from bliss.controllers.counter import SamplingCounterController
-from bliss.common.protocols import counter_namespace
 from bliss.common.axis import AxisState
 from bliss.controllers.motor import Controller
 from bliss.config import static
@@ -36,30 +34,7 @@ class Moco(object):
         self.name = name
 
         # Communication
-        comm_type = None
-        try:
-            comm_type = get_comm_type(config_tree)
-            key = "serial" if comm_type == SERIAL else "tcp"
-            config_tree[key]["url"]  # test if url is available
-            comm_config = config_tree
-        except:
-            if "serial" in config_tree:
-                comm_type = SERIAL
-                comm_config = dict(serial=dict(url=config_tree["serial"]))
-                warn(
-                    "'serial: <url>' is deprecated. "
-                    "Use 'serial: url: <url>' instead",
-                    DeprecationWarning,
-                )
-            else:
-                raise RuntimeError("moco: need to specify a serial communication url")
-
-        if comm_type != SERIAL:
-            raise TypeError("moco: invalid communication type %r" % comm_type)
-
-        self._cnx = get_comm(comm_config, ctype=comm_type, timeout=3)
-        self._cnx.flush()
-        self.__debug = False
+        self._cnx = get_comm(config_tree, timeout=3)
 
         # motor
         self.motor = None
@@ -70,9 +45,7 @@ class Moco(object):
         for config_dict in counter_node:
             if self.counters_controller is not None:
                 counter_name = config_dict.get("counter_name")
-                counter = MocoCounter(
-                    counter_name, config_dict, self.counters_controller
-                )
+                MocoCounter(counter_name, config_dict, self.counters_controller)
 
     def __info__(self):
         info_str = f"MOCO\nName    : {self.name}\nComm.   : {self._cnx}\n\n"
@@ -83,18 +56,6 @@ class Moco(object):
             info_str += "Communication problems..."
 
         return info_str
-
-    @property
-    def debug(self):
-        return self.__debug
-
-    @debug.setter
-    def debug(self, flag):
-        self.__debug = bool(flag)
-
-    def __debugMsg(self, wr, msg):
-        if self.__debug:
-            print("%-5.5s on %s > %s" % (wr, self.name, msg))
 
     """
     Serial Communication
@@ -112,7 +73,6 @@ class Moco(object):
                 msg = self._cnx._readline(timeout=timeout)
                 if msg.startswith("$".encode()):
                     msg = self._cnx._readline("$\r\n".encode(), timeout=timeout)
-                self.__debugMsg("Read", msg.strip("\n\r".encode()))
                 if text:
                     return (msg.strip("\r\n".encode())).decode()
                 else:
@@ -243,25 +203,25 @@ class Moco(object):
             print(f"         autoscale : {rep[4]}\t[AUTO | NOAUTO]")
 
     def go(self, setpoint=None):
-        # param: sPoint | #
+        # setpoint: sPoint | #
         if setpoint is None:
             self.comm("GO")
         elif setpoint == "#":
             self.comm("GO #")
         else:
-            self.comm(f"GO {param}")
+            self.comm(f"GO {setpoint}")
 
     def stop(self):
         self.comm("STOP")
 
     def tune(self, setpoint=None):
-        # param: sPoint | #
+        # setpoint: sPoint | #
         if setpoint is None:
             self.comm("TUNE")
         elif setpoint == "#":
             self.comm("TUNE #")
         else:
-            self.comm(f"TUNE {param}")
+            self.comm(f"TUNE {setpoint}")
 
     def peak(self, height=None, width=None, pos=None, silent=False):
         if height is not None:
@@ -328,7 +288,7 @@ class MocoCounterController(SamplingCounterController):
 
         self.moco = moco
 
-        super().__init__(self.moco.name + "CC", register_counters=False)
+        super().__init__(self.moco.name, register_counters=False)
 
         global_map.register(moco, parents_list=["counters"])
 
@@ -358,11 +318,15 @@ class MocoCounter(SamplingCounter):
 
 
 class MocoMotor(Controller):
+    """
+    bliss.controllers.motor.Controller
+    """
+
     def __init__(self, name, config, axes, *args):
 
         if len(axes) > 1:
             raise RuntimeError(
-                f"moco: only 1 motor is allowed, {len(axes)} are configured"
+                f"moco: only 1 motor is allowed, but {len(axes)} are configured."
             )
 
         static_config = static.get_config()

@@ -1,0 +1,10 @@
+name: mymoco
+plugin: bliss
+class: Moco 
+serial:
+    url: tango://id00/tango/dummy
+counters:
+    - counter_name: outm
+      role: outbeam
+    - counter_name: inm
+      role: inbeam

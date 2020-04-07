@@ -6,10 +6,10 @@ This module allows to control ISG MOCO device.
 
 This module provides:
 
-- Raw access to MOCO commands
-- Direct access as method or attributes to the main functionnalities of the device
-- Access to MOCO values as BLISS counters
-- definition of a BLISS motor to control the Voltage output of the module 
+* Raw access to MOCO commands
+* Direct access as method or attributes to the main functionnalities of the device
+* Access to MOCO values as BLISS counters
+* definition of a BLISS motor to control the Voltage output of the module 
   (usually a piezo is connected to this output)
 
 ## Configuration
@@ -18,15 +18,16 @@ Configuration of a MOCO object is described here: [MOCO Configuration](config_mo
 
 ## Usage
 
-In the following session, The Moco object `moco` is running in the `session_moco` BLISS session
+In the following session, The Moco object `moco` is running in the
+`session_moco` BLISS session
 
 ### User API
 
 #### status
 
-- Status got from the MOCO device
+* Status got from the MOCO device
 
-``` python
+```python
 SESSION_MOCO [1]: moco
          Out [1]: MOCO
                   Name    : moco
@@ -57,9 +58,9 @@ SESSION_MOCO [1]: moco
                     INHIBIT OFF LOW
 ```
 
-- Status of the regulation
+* Status of the regulation
 
-``` python
+```python
 SESSION_MOCO [2]: moco.state()
 IDLE
 ```
@@ -68,37 +69,37 @@ IDLE
 
 A number of MOCO parameters can set and read:
 
-- amplitude
+* `amplitude`
 
-``` python
+```python
 SESSION_MOCO [3]: moco.amplitude = 0.00513
 SESSION_MOCO [4]: moco.amplitude
          Out [4]: 0.00513
 ```
 
-- phase
-``` python
+* `phase`
+```python
 SESSION_MOCO [5]: moco.phase = 150.0
 SESSION_MOCO [6]: moco.phase
          Out [6]: 150.0
 ```
 
-- slope
-``` python
+* `slope`
+```python
 SESSION_MOCO [7]: moco.slope = 1.0
 SESSION_MOCO [8]: moco.slope
          Out [8]: 1.0
 ```
 
-- tau
-``` python
+* `tau`
+```python
 SESSION_MOCO [9]: moco.tau = 0.1
 SESSION_MOCO [10]: moco.tau
          Out [10]: 0.1
 ```
 
-- frequency
-``` python
+* `frequency`
+```python
 SESSION_MOCO [11]: moco.frequency = 166.667
 SESSION_MOCO [12]: moco.frequency
          Out [12]: 166.667
@@ -114,7 +115,7 @@ All commands of a MOCO obejct have silent mode:
 
 The most important functionnalities of MOCO may be access using the following commands
 
-- mode
+* `mode`
 ```python
 SESSION_MOCO [14]: moco.mode("OSCILLATION")
 MODE: OSCILLATION       [POSITION | INTENSITY | OSCILLATION]
@@ -125,7 +126,7 @@ MODE: OSCILLATION       [POSITION | INTENSITY | OSCILLATION]
          Out [15]: 'OSCILLATION'
 ```
 
-- srange
+* `srange`
 ```python
 SESSION_MOCO [16]: moco.srange(0, 3)
 SRANGE: [0 - 3]
@@ -137,7 +138,7 @@ SRANGE: [0 - 3]
 
 ```
 
-- outbeam
+* `outbeam`
 ```python
 SESSION_MOCO [18]: moco.outbeam("VOLT", "NORM", "UNIP", 1.25, "autoscale")
 OUTBEAM: source    : VOLT       [CURR | VOLT | EXT]
@@ -153,12 +154,12 @@ OUTBEAM: source    : VOLT       [CURR | VOLT | EXT]
          autoscale : NOAUTO     [AUTO | NOAUTO]
 ```
 
-- go
+* `go`
 ```python
 SESSION_MOCO [20]: moco.go()
 ```
 
-- peak
+* `peak`
 ```python
 SESSION_MOCO [21]: moco.peak(1, 0.1, 0.0)
 SESSION_MOCO [22]: moco.peak()
@@ -166,17 +167,17 @@ PEAK: height=1  width=0.1  pos=0
          Out [22]: [1.0, 0.1, 0.0]
 ```
 
-- tune
+* `tune`
 ```python
 SESSION_MOCO [20]: moco.tune()
 ```
 
-- stop
+* `stop`
 ```python
 SESSION_MOCO [20]: moco.stop()
 ```
 
-- beam
+* `beam`
 ```python
 SESSION_MOCO [19]: moco.beam()
 
@@ -186,16 +187,16 @@ Beam OUT [0.0223569]
 
 ### Raw commands
 
-- MOCO commands may be call using raw communication system
+* MOCO commands may be call using raw communication system
 
-``` python
+```python
 SESSION_MOCO [3]: moco.comm("?BEAM")
          Out [3]: '0 0.0217459'
 ```
 
-- List of commands available using the .comm method
+* List of commands available using the .comm method
 
-``` python
+```python
 SESSION_MOCO [2]: moco.help()
 
       RESET

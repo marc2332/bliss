@@ -312,56 +312,89 @@ ct         |   1       |  []
 
 ## Default chain
 
-All standard scans (step scans) are build the same way using the
+All standard scans (step scans) are built the same way using the
 `DefaultAcquisitionChain` object accessible via the global variable
-`DEFAULT_CHAIN`, if you are in a session. It's the entry point to
-parameterise detectors in a step scan procedure. It is
-easy to set **acquisition parameters** and **saving parameters** for any
-detector, be it for step scans or to change it's master.
+`DEFAULT_CHAIN`, if you are in a session.
 
-!!! note
-    **Acquisition parameters** are all the parameters that define the
-    number of triggers and points, trigger type, exposure time and so on.
-    Other detector parameters should not be part of the `DefaultAcquisitionChain`
-    configuration.<br>
-    For example *Image configuration* of a Lima device like binning, flip, 
-    rotation and so on, should be excluded from this configuration and 
-    set before any scan.
+This object builds the acquisition chain with the default top masters 
+and the acquisition objects with their default acquisition parameters.
 
-    **Saving parameters** are parameters on some devices (like: Lima)
-    that configure the saving.<br>
-    This means that for instance on Lima devices *saving_mode*, *saving_format* 
-    and so on, may be part of the `DEFAULT_CHAIN` configuration.
+The default top masters are the `SoftwareTimer` (ct, loopscan, timescan) 
+or one of the motor masters  (`VariableStepTriggerMaster`, `MeshStepTriggerMaster`)
+for the default scans working with axes (ascan, amesh, pointscan, lookupscan).
 
-Example: Two basler cameras with a hardware trigger provided by your counter
-card.  Most of the time the configuration comes from `Beacon` and the
-`yaml` file may look like this:
+The default acquisition parameters for an acquisition object are defined in the 
+associated controller class (see `get_default_chain_parameters`).
+
+These defaults can be customized via the configuration (.yml) and activated
+using the `set_settings` method of the `DEFAULT_CHAIN`. 
+Be aware that it will affect all standard scans permanently.
+
+Below an example of a YAML configuration file with two basler cameras customized 
+to receive an hardware trigger provided by a p201 counting card:
 
 ```yaml
 - name: default_acq_chain
   plugin: default
   chain_config:
+
   - device: $basler_1
     acquisition_settings:
       acq_trigger_mode: EXTERNAL_TRIGGER_MULTI
-      saving_format: "HDF5"
     master: $p201_0
+
   - device: $basler_2
     acquisition_settings:
       acq_trigger_mode: EXTERNAL_TRIGGER_MULTI
-      saving_format: "HDF5"
     master: $p201_0
+
 ```
 
-In this example you notice that both cameras are triggered externally
-(**EXTERNAL_TRIGGER_MULTI**) and their saving format *HDF5*. Their master
-will be the *p201* counter card.  To activate
-this setting for all steps scan of your *session* do as follows in the
-[session setup file](config_sessions.md#setup-file-example) :
+To activate this settings for all standard scan of your *session* do as follows in the
+[session setup file](config_sessions.md#setupfile) :
 
 ```python
     DEFAULT_CHAIN.set_settings(default_acq_chain['chain_config'])
 ```
+
+Two types of customization are possible:
+
+* Modify the default `acquisition_settings` (i.e. acquisition parameters) 
+of an acquisition object associated to a `device`.
+
+```yaml
+  - device: $basler_1
+    acquisition_settings:
+      acq_trigger_mode: EXTERNAL_TRIGGER_MULTI
+    ...
+```
+
+* Add a `master` on top of a `device`.
+
+```yaml
+  - device: $basler_1
+    ...
+    master: $p201_0
+```
+
+The master device can also be customized by adding a `device` key for this master.
+
+```yaml
+  - device: $p201_0
+    acquisition_settings:
+      acq_mode: ExtTrigMulti
+```
+
+
+!!! note
+    **Acquisition parameters** are all the parameters that define the
+    number of triggers and points, trigger type, exposure time and so on.
+    Other detector parameters should not be part of the `DefaultAcquisitionChain`
+    configuration. 
+    
+    For example *Image configuration* (binning, flip, rotation) or *Saving parameters* 
+    of a Lima device, should be excluded from this configuration and set before any scan.
+
 
 [ChainPreset](scan_engine_preset.md#chainpreset) can also be added to
 the `DEFAULT_CHAIN`.  Usually this is also done in the session setup

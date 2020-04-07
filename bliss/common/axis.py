@@ -76,7 +76,7 @@ class GroupMove:
         stop_motion,
         move_func=None,
         wait=True,
-        polling_time=DEFAULT_POLLING_TIME,
+        polling_time=None,
     ):
         self._motions_dict = motions_dict
         self._stop_motion = stop_motion
@@ -131,8 +131,11 @@ class GroupMove:
             for motion in motions:
                 if move_func is None:
                     move_func = "_handle_move"
+                axis_polling_time = (
+                    motion.axis._polling_time if polling_time is None else polling_time
+                )
                 task = gevent.spawn(
-                    getattr(motion.axis, move_func), motion, polling_time
+                    getattr(motion.axis, move_func), motion, axis_polling_time
                 )
                 monitor_move[motion] = task
         try:
@@ -183,9 +186,17 @@ class GroupMove:
                         motion.target_pos + motion.backlash,
                         motion.backlash,
                     )
+                    axis_polling_time = (
+                        motion.axis._polling_time
+                        if polling_time is None
+                        else polling_time
+                    )
+
                     backlash_move.append(
                         gevent.spawn(
-                            motion.axis._backlash_move, backlash_motion, polling_time
+                            motion.axis._backlash_move,
+                            backlash_motion,
+                            axis_polling_time,
                         )
                     )
         gevent.joinall(backlash_move)
@@ -581,6 +592,7 @@ class Axis:
         for settings_name in disabled_cache:
             self.settings.disable_cache(settings_name)
         self._unit = self.config.get("unit", str, None)
+        self._polling_time = config.get("polling_time", DEFAULT_POLLING_TIME)
         global_map.register(self, parents_list=["axes", controller])
 
     def __close__(self):
@@ -1440,13 +1452,7 @@ class Axis:
             )
 
     @lazy_init
-    def move(
-        self,
-        user_target_pos,
-        wait=True,
-        relative=False,
-        polling_time=DEFAULT_POLLING_TIME,
-    ):
+    def move(self, user_target_pos, wait=True, relative=False, polling_time=None):
         """
         Move axis to the given absolute/relative position
 
@@ -1523,7 +1529,7 @@ class Axis:
             )
 
     @lazy_init
-    def jog(self, velocity, reset_position=None, polling_time=DEFAULT_POLLING_TIME):
+    def jog(self, velocity, reset_position=None, polling_time=None):
         """
         Start to move axis at constant velocity
 
@@ -1590,7 +1596,7 @@ class Axis:
         elif callable(reset_position):
             reset_position(self)
 
-    def rmove(self, user_delta_pos, wait=True, polling_time=DEFAULT_POLLING_TIME):
+    def rmove(self, user_delta_pos, wait=True, polling_time=None):
         """
         Move axis to the given relative position.
 
@@ -1621,12 +1627,7 @@ class Axis:
                     self.__move_done_callback.wait()
                     raise
 
-    def _move_loop(
-        self,
-        polling_time=DEFAULT_POLLING_TIME,
-        ctrl_state_funct="state",
-        limit_error=True,
-    ):
+    def _move_loop(self, polling_time=None, ctrl_state_funct="state", limit_error=True):
         state_funct = getattr(self.__controller, ctrl_state_funct)
         while True:
             state = state_funct(self)
@@ -1664,7 +1665,7 @@ class Axis:
                 self.stop()
 
     @lazy_init
-    def home(self, switch=1, wait=True, polling_time=DEFAULT_POLLING_TIME):
+    def home(self, switch=1, wait=True, polling_time=None):
         """
         Searches the home switch
 
@@ -1699,11 +1700,11 @@ class Axis:
         if wait:
             self.wait_move()
 
-    def _wait_home(self, *args):
-        return self._move_loop(ctrl_state_funct="home_state")
+    def _wait_home(self, motion, polling_time):
+        return self._move_loop(polling_time, ctrl_state_funct="home_state")
 
     @lazy_init
-    def hw_limit(self, limit, wait=True, polling_time=DEFAULT_POLLING_TIME):
+    def hw_limit(self, limit, wait=True, polling_time=None):
         """
         Go to a hardware limit
 
@@ -1745,8 +1746,8 @@ class Axis:
         if wait:
             self.wait_move()
 
-    def _wait_limit_search(self, *args):
-        return self._move_loop(limit_error=False)
+    def _wait_limit_search(self, motion, polling_time):
+        return self._move_loop(polling_time, limit_error=False)
 
     def settings_to_config(
         self, velocity=True, acceleration=True, limits=True, sign=True, backlash=True

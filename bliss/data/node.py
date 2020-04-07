@@ -539,7 +539,7 @@ class DataNode:
             self.__new_node = False
             self._ttl_setter = None
             self._struct = settings.Struct(db_name, connection=connection)
-            self.__db_name = self._struct._proxy.name
+            self.__db_name = db_name
 
         # node type cache
         self.node_type = node_type

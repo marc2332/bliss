@@ -122,6 +122,7 @@ def main():
 
     install_requires = [
         "redis >= 3",
+        "hiredis",
         "louie >= 2",
         "netifaces",
         "jinja2 >= 2.7",

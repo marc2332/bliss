@@ -87,8 +87,7 @@ class DeviceIterator:
         tasks = []
         # Check that it's still ok with the readingtask
         if hasattr(self.device, "wait_reading"):
-            with profile(stats_dict, self.device.name, "wait_reading"):
-                tasks.append(gevent.spawn(self.device.wait_reading))
+            tasks.append(gevent.spawn(self.device.wait_reading))
         with profile(stats_dict, self.device.name, "wait_ready"):
             tasks.append(gevent.spawn(self.device.wait_ready))
             try:
@@ -139,8 +138,7 @@ class DeviceIteratorWrapper:
         tasks = []
         # Check that it's still ok with the readingtask
         if hasattr(self.device, "wait_reading"):
-            with profile(stats_dict, self.device.name, "wait_reading"):
-                tasks.append(gevent.spawn(self.device.wait_reading))
+            tasks.append(gevent.spawn(self.device.wait_reading))
         with profile(stats_dict, self.device.name, "wait_ready"):
             tasks.append(gevent.spawn(self.device.wait_ready))
             try:
@@ -571,8 +569,9 @@ class AcquisitionMaster(AcquisitionObject):
             slave_tasks = [task for _, task in self.__triggers]
             try:
                 gevent.joinall(slave_tasks, raise_error=True)
-            finally:
+            except:
                 gevent.killall(slave_tasks)
+                raise
 
     def add_external_channel(
         self, device, name, rename=None, conversion=None, dtype=None
@@ -636,8 +635,9 @@ class AcquisitionMaster(AcquisitionObject):
         ]
         try:
             gevent.joinall(tasks, raise_error=True)
-        finally:
+        except:
             gevent.killall(tasks)
+            raise
 
     def wait_slaves_ready(self):
         """
@@ -650,8 +650,9 @@ class AcquisitionMaster(AcquisitionObject):
         tasks = [gevent.spawn(dev.wait_ready) for dev in self.slaves]
         try:
             gevent.joinall(tasks, raise_error=True)
-        finally:
+        except:
             gevent.killall(tasks)
+            raise
 
     # --------------------------- OVERLOAD METHODS  ---------------------------------------------
 
@@ -708,7 +709,7 @@ class AcquisitionSlave(AcquisitionObject):
     def _prepare(self, stats_dict):
         with profile(stats_dict, self.name, "prepare"):
 
-            if not self._check_reading_task():
+            if self._reading_task:
                 raise RuntimeError("%s: Last reading task is not finished." % self.name)
             return self.prepare()
 
@@ -716,21 +717,16 @@ class AcquisitionSlave(AcquisitionObject):
         with profile(stats_dict, self.name, "start"):
             dispatcher.send("start", self)
             self.start()
-            if self._check_reading_task():
+            if not self._reading_task:
                 self._reading_task = gevent.spawn(self.reading)
 
     def _stop(self, stats_dict):
         with profile(stats_dict, self.name, "stop"):
             self.stop()
 
-    def _check_reading_task(self):
-        if self._reading_task:
-            return self._reading_task.ready()
-        return True
-
     def _trigger(self, stats_dict):
         with profile(stats_dict, self.name, "trigger"):
-            if self._check_reading_task():
+            if not self._reading_task:
                 dispatcher.send("start", self)
                 self._reading_task = gevent.spawn(self.reading)
             self.trigger()
@@ -840,8 +836,9 @@ class AcquisitionChainIter:
         except StopChain:
             gevent.killall(preset_tasks, exception=StopChain)
             raise
-        finally:
+        except:
             gevent.killall(preset_tasks)
+            raise
 
         stats_dict = self.__acquisition_chain_ref()._stats_dict
         for tasks in self._execute(
@@ -854,8 +851,9 @@ class AcquisitionChainIter:
             except StopChain:
                 gevent.killall(tasks, exception=StopChain)
                 raise
-            finally:
+            except:
                 gevent.killall(tasks)
+                raise
 
     def start(self):
         preset_tasks = list()
@@ -873,8 +871,10 @@ class AcquisitionChainIter:
         except StopChain:
             gevent.killall(preset_tasks, exception=StopChain)
             raise
-        finally:
+        except:
             gevent.killall(preset_tasks)
+            raise
+
         stats_dict = self.__acquisition_chain_ref()._stats_dict
         for tasks in self._execute("_start", stats_dict=stats_dict):
             try:
@@ -882,8 +882,9 @@ class AcquisitionChainIter:
             except StopChain:
                 gevent.killall(tasks, exception=StopChain)
                 raise
-            finally:
+            except:
                 gevent.killall(tasks)
+                raise
 
     def wait_all_devices(self):
         for acq_dev_iter in (
@@ -938,9 +939,9 @@ class AcquisitionChainIter:
         for tasks in wait_ready_tasks:
             try:
                 gevent.joinall(tasks, raise_error=True)
-            finally:
+            except:
                 gevent.killall(tasks)
-
+                raise
         try:
             if self.__sequence_index:
                 for dev_iter in self._tree.expand_tree():

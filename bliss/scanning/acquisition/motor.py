@@ -388,6 +388,7 @@ class _StepTriggerMaster(AcquisitionMaster):
 
     def __iter__(self):
         for positions in zip(*self._motor_pos):
+            self.next_mv_cmd_arg = list()
             for axis, position in zip(self._axes, positions):
                 self.next_mv_cmd_arg += [axis, position]
             yield self
@@ -499,6 +500,7 @@ class VariableStepTriggerMaster(AcquisitionMaster):
 
     def __iter__(self):
         for positions in zip(*self._motor_pos):
+            self.next_mv_cmd_arg = list()
             for axis, position in zip(self._axes, positions):
                 self.next_mv_cmd_arg += [axis, position]
             yield self

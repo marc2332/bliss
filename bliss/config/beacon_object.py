@@ -52,6 +52,7 @@ class BeaconObject:
                         value = self._settings.get(fget.__name__)
                         return value if value is not None else fget(self)
 
+                get.__name__ = fget.__name__
                 get.__redefined__ = True
                 get.__default__ = default
                 get.__must_be_in_config__ = must_be_in_config or only_in_config
@@ -76,6 +77,7 @@ class BeaconObject:
                         set_value = rvalue if rvalue is not None else value
                         self._event_channel.post(fset.__name__)
 
+                    set.__name__ = fset.__name__
                 else:
                     fence = {"in_set": False}
 
@@ -90,10 +92,12 @@ class BeaconObject:
                                 self._settings[fset.__name__] = set_value
                             except AttributeError:
                                 self._initialize_with_setting(fset.__name__, set_value)
+                                self._settings[fset.__name__] = set_value
                             self._event_channel.post(fset.__name__)
                         finally:
                             fence["in_set"] = False
 
+                    set.__name__ = fset.__name__
             else:
                 set = None
 
@@ -389,9 +393,12 @@ class BeaconObject:
         def get(self):
             return self.settings.get(name, default)
 
+        get.__name__ = name
+
         def set(self, value):
             self.settings[name] = value
 
+        set.__name__ = name
         bop = BeaconObject._property(get, set, doc=doc)
         bop.__doc__ = doc
         return bop

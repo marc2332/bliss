@@ -7,7 +7,7 @@ By default all objects that are imported from the configuration during the sessi
 When trying the modify an protected object (axis _roby_ in example below) one will see the following message:
 
 ```python
-TEST_SESSION [1]: roby                                                                                             
+TEST_SESSION [1]: roby
          Out [1]: AXIS:
                        name (R): roby
                        unit (R): None
@@ -17,10 +17,10 @@ TEST_SESSION [1]: roby
                        steps_per_unit (R): 10000.00
                        ...                  
 
-TEST_SESSION [2]: roby = 1                                                                                          
+TEST_SESSION [2]: roby = 1
 !!! === RuntimeError: roby is protected and can not be modified! === !!! ( for more details type cmd 'last_error' )
 
-TEST_SESSION [3]: roby                                                                                             
+TEST_SESSION [3]: roby
          Out [3]: AXIS:
                        name (R): roby
                        unit (R): None
@@ -37,54 +37,58 @@ TEST_SESSION [3]: roby
 To protect or to remove the protection on the fly the two commands `protect` and `unprotect` are available from the command line.
 
 ```python
-TEST_SESSION [4]: my_important_varialbe = 3.141                                                                    
-TEST_SESSION [5]: protect('my_important_varialbe')                                                                 
-TEST_SESSION [6]: my_important_varialbe                                                                            
+TEST_SESSION [4]: my_important_variable = 3.141
+TEST_SESSION [5]: protect('my_important_variable')
+TEST_SESSION [6]: my_important_variable
          Out [6]: 3.141
 
-TEST_SESSION [7]: my_important_varialbe=1                                                                          
-!!! === RuntimeError: my_important_varialbe is protected and can not be modified! === !!! ( for more details type cmd 'last_error' )
+TEST_SESSION [7]: my_important_variable=1
+!!! === RuntimeError: my_important_variable is protected and can not be modified! === !!! ( for more details type cmd 'last_error' )
 
-TEST_SESSION [8]: unprotect('my_important_varialbe')                                                               
-TEST_SESSION [9]: my_important_varialbe=1                                                                          
-TEST_SESSION [10]: my_important_varialbe                                                                           
+TEST_SESSION [8]: unprotect('my_important_variable')
+TEST_SESSION [9]: my_important_variable=1
+TEST_SESSION [10]: my_important_variable
          Out [10]: 1
 ```
 
 ### Customization of protection in session setup _.py_ file
-To add additional names to the set of protected keys from the setup file the following method is available
+To add additional names to the set of protected keys from the setup file `protect` method can be used. Note: config objects are protected after setup.
+
 
 ```python
-from bliss.shell.cli.protected_dict import protect_after_setup
+from bliss import is_bliss_shell
 
-protect_after_setup('my_important_varialbe')
-protect_after_setup(['obj1','obj2'])
+my_important_variable = 12
+
+if is_bliss_shell():
+    protect('my_important_variable')
+    protect(['obj1','obj2'])
 ```
 
 ### Further implementation details
 - `config.get` overrides the protection
 ```python
-TEST_SESSION [15]: roby                                                                                            
+TEST_SESSION [15]: roby
          Out [15]: AXIS:
                         name (R): roby
                         unit (R): None
                         offset (R): 0.00000
                         ...
 
-TEST_SESSION [16]: unprotect('roby')                                                                               
-TEST_SESSION [17]: roby=1                                                                                          
-TEST_SESSION [18]: protect('roby')                                                                                 
-TEST_SESSION [19]: roby                                                                                            
+TEST_SESSION [16]: unprotect('roby')
+TEST_SESSION [17]: roby=1
+TEST_SESSION [18]: protect('roby')
+TEST_SESSION [19]: roby
          Out [19]: 1
 
-TEST_SESSION [20]: config.get('roby')                                                                              
+TEST_SESSION [20]: config.get('roby')
          Out [20]: AXIS:
                         name (R): roby
                         unit (R): None
                         offset (R): 0.00000
                         ...
 
-TEST_SESSION [21]: roby                                                                                            
+TEST_SESSION [21]: roby
          Out [21]: AXIS:
                         name (R): roby
                         unit (R): None

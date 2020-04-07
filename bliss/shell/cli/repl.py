@@ -51,6 +51,8 @@ from bliss.shell.cli.ptpython_statusbar_patch import NEWstatus_bar, TMUXstatus_b
 from bliss.common.logtools import logbook_printer
 from bliss.shell.cli.protected_dict import ProtectedDict
 
+import __main__
+
 logger = logging.getLogger(__name__)
 
 if sys.platform in ["win32", "cygwin"]:
@@ -455,6 +457,11 @@ def cli(
     ERROR_REPORT = install_excepthook()
     ERROR_REPORT.expert_mode = expert_error_report
 
+    protected_user_ns = ProtectedDict(__main__.__dict__)
+    # add 2 GLOBALS to manage protected keys
+    protected_user_ns["protect"] = protected_user_ns.protect
+    protected_user_ns["unprotect"] = protected_user_ns.unprotect
+
     if session_name and not session_name.startswith("__DEFAULT__"):
         try:
             user_ns, session = initialize(session_name)
@@ -466,31 +473,26 @@ def cli(
     else:
         user_ns, session = initialize(session_name=None)
 
-    if "config-objects" in session.config.get_config(session.name):
-        protected_user_ns = ProtectedDict(
-            user_ns, session.config.get_config(session.name)["config-objects"]
+    if session.name != "__DEFAULT__" and "config-objects" in session.config.get_config(
+        session.name
+    ):
+        protected_user_ns.protect(
+            session.config.get_config(session.name)["config-objects"]
         )
 
         # protect config objects of inherited sessions
         for node in session.sessions_tree.all_nodes_itr():
             s = node.identifier
             if s.name != session.name:
-                protected_user_ns.protect_many(
+                protected_user_ns.protect(
                     session.config.get_config(s.name)["config-objects"]
                 )
-
-        # add 2 GLOBALS to manage protected keys
-        protected_user_ns["protect"] = protected_user_ns.protect
-        protected_user_ns["unprotect"] = protected_user_ns.unprotect
 
         # protect Aliases if they exist
         if "ALIASES" in protected_user_ns:
             for alias in protected_user_ns["ALIASES"].names_iter():
                 if alias in protected_user_ns:
                     protected_user_ns.protect(alias)
-    else:
-        # nothing to protect
-        protected_user_ns = user_ns
 
     # ADD 2 GLOBALS TO HANDLE THE LAST ERROR AND THE ERROR REPORT MODE (IN SHELL ENV ONLY)
     user_ns["ERROR_REPORT"] = ERROR_REPORT

@@ -15,17 +15,13 @@ overwriting.
 
 class ProtectedDictType(type):
     class DictProxyClass(object):
-        def __init__(self, wrapped, protected_keys):
+        def __init__(self, wrapped):
             """
                 wrapped: dict
                 protected_keys: set of protected keys
             """
             self._wrapped = wrapped
-            self._protected_keys = (
-                set(protected_keys)
-                .union(preprotected_keys())
-                .intersection(self._wrapped.keys())
-            )
+            self._protected_keys = set()
 
         def proxy(self, attr, *args):
             return getattr(self._wrapped, attr)(*args)
@@ -86,16 +82,21 @@ class ProtectedDict(dict, metaclass=ProtectedDictType):
         """swapp the wrapped dict"""
         self._wrapped = wrapped
 
-    def protect_many(self, keys):
-        """add a key to the inventory of protected keys"""
-        new_keys = set(keys).intersection(self._wrapped.keys())
-        self._protected_keys.update(new_keys)
-
-    def protect(self, key):
-        """add a key to the inventory of protected keys"""
-        assert isinstance(key, str)
-        assert key in self._wrapped.keys()
-        self._protected_keys.add(key)
+    def protect(self, to_be_protected):
+        """add a key or a list/set of keys to the inventory of protected keys"""
+        assert (
+            isinstance(to_be_protected, str)
+            or isinstance(to_be_protected, set)
+            or isinstance(to_be_protected, list)
+        )
+        if isinstance(to_be_protected, str):
+            assert (
+                to_be_protected in self._wrapped.keys()
+            ), f"{to_be_protected} is not a known key!"
+            self._protected_keys.add(to_be_protected)
+        else:
+            new_keys = set(to_be_protected).intersection(self._wrapped.keys())
+            self._protected_keys.update(new_keys)
 
     def unprotect(self, key):
         """remove a key from the inventory of protected keys"""
@@ -108,20 +109,3 @@ class ProtectedDict(dict, metaclass=ProtectedDictType):
     @property
     def wrapped_dict(self):
         return self._wrapped
-
-
-#### helper/placeholder to protect keys just after setup
-
-_BLISS_SHELL_FUTUR_PROTECTED_ENV_DICT_KEYS = set()
-
-
-def protect_after_setup(keys):
-    global _BLISS_SHELL_FUTUR_PROTECTED_ENV_DICT_KEYS
-    if isinstance(keys, str):
-        _BLISS_SHELL_FUTUR_PROTECTED_ENV_DICT_KEYS.add(keys)
-    else:
-        _BLISS_SHELL_FUTUR_PROTECTED_ENV_DICT_KEYS.update(keys)
-
-
-def preprotected_keys():
-    return _BLISS_SHELL_FUTUR_PROTECTED_ENV_DICT_KEYS

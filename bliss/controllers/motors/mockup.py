@@ -507,8 +507,8 @@ class MockupAxis(Axis):
     def __init__(self, *args, **kwargs):
         Axis.__init__(self, *args, **kwargs)
 
-    def prepare_move(self, *args, **kwargs):
-        motion = Axis.prepare_move(self, *args, **kwargs)
+    def get_motion(self, *args, **kwargs):
+        motion = Axis.get_motion(self, *args, **kwargs)
         if motion is None:
             self.backlash_move = 0
             self.target_pos = None

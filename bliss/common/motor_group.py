@@ -69,6 +69,13 @@ class _Group(object):
     def is_moving(self):
         return self._group_move.is_moving
 
+    def _prepare_one_controller_motions(self, controller, motions):
+        try:
+            controller.prepare_all(*motions)
+        except NotImplementedError:
+            for motion in motions:
+                controller.prepare_move(motion)
+
     def _start_one_controller_motions(self, controller, motions):
         try:
             controller.start_all(*motions)
@@ -160,7 +167,7 @@ class _Group(object):
         self._group_move = GroupMove(self)
 
         for axis, target_pos in axis_pos_dict.items():
-            motion = axis.prepare_move(target_pos, relative=relative)
+            motion = axis.get_motion(target_pos, relative=relative)
             # motion can be None if axis is not supposed to move
             if motion is not None:
                 motions_dict.setdefault(axis.controller, []).append(motion)
@@ -168,6 +175,7 @@ class _Group(object):
 
         self._group_move.move(
             motions_dict,
+            self._prepare_one_controller_motions,
             self._start_one_controller_motions,
             self._stop_one_controller_motions,
             wait=wait,
@@ -181,7 +189,7 @@ class _Group(object):
         self._group_move.stop(wait)
 
 
-class TrajectoryGroup(object):
+class TrajectoryGroup:
     """
     Group for motor trajectory
     """
@@ -282,6 +290,13 @@ class TrajectoryGroup(object):
             gevent.killall(prepare)
             raise
 
+    def _prepare_move_to_trajectory(self, controller, motions):
+        try:
+            controller.prepare_all(*motions)
+        except NotImplementedError:
+            for motion in motions:
+                controller.prepare_move(motion)
+
     def _move_to_trajectory(self, controller, motions):
         trajectories = self.trajectories_by_controller[controller]
         controller.move_to_trajectory(*trajectories)
@@ -304,7 +319,7 @@ class TrajectoryGroup(object):
         for trajectory in self.trajectories:
             pvt = trajectory.pvt
             final_pos = pvt["position"][0]
-            motion = trajectory.axis.prepare_move(final_pos)
+            motion = trajectory.axis.get_motion(final_pos)
             if not motion:
                 # already at final pos
                 continue
@@ -315,6 +330,7 @@ class TrajectoryGroup(object):
 
         self.__group._group_move.move(
             motions_dict,
+            self._prepare_move_to_trajectory,
             self._move_to_trajectory,
             self._stop_trajectory,
             wait=wait,
@@ -331,13 +347,14 @@ class TrajectoryGroup(object):
         for trajectory in self.trajectories:
             pvt = trajectory.pvt
             final_pos = pvt["position"][-1]
-            motion = trajectory.axis.prepare_move(final_pos, trajectory=True)
+            motion = trajectory.axis.get_motion(final_pos)
             if not motion:
                 continue
             motions_dict.setdefault(motion.axis.controller, []).append(motion)
 
         self.__group._group_move.move(
             motions_dict,
+            None,  # no prepare needed
             self._start_trajectory,
             self._stop_trajectory,
             wait=wait,

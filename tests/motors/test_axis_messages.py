@@ -17,7 +17,7 @@ def log_shell_mode():
 
 
 def test_axis_lprint(roby, capsys, log_shell_mode):
-    move_user_msg = roby.prepare_move(0.1).user_msg
+    move_user_msg = roby.get_motion(0.1).user_msg
 
     roby.move(0.1)
 

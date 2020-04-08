@@ -10,7 +10,7 @@ import time
 import pytest
 
 from bliss.common.axis import Motion, Axis
-from bliss.common.standard import Group
+from bliss.common.standard import Group, mvr
 from bliss.controllers.motors.mockup import Mockup
 from bliss.controllers.motors.mockup import MockupHook
 from bliss.common.hook import MotionHook
@@ -107,6 +107,23 @@ def test_axis_move(hooked_m0):
     assert isinstance(hook0.last_post_move_args[0], Motion)
 
 
+def test_axis_move_multiple(hooked_m0, hooked_m1):
+    """test single motion hook works with multiple axes motion"""
+    assert hooked_m0.state.READY
+
+    hook0 = hooked_m0.motion_hooks[0]
+    assert hook0.nb_pre_move == 0
+    assert hook0.nb_post_move == 0
+
+    mvr(hooked_m0, 1, hooked_m1, 2)
+
+    assert hook0.nb_pre_move == 1
+    assert hook0.nb_post_move == 1
+    assert len(hook0.last_pre_move_args) == 2
+    assert isinstance(hook0.last_pre_move_args[0], Motion)
+    assert isinstance(hook0.last_pre_move_args[1], Motion)
+
+
 def test_axis_homing(hooked_m0):
     hook0 = hooked_m0.motion_hooks[0]
 
@@ -195,7 +212,7 @@ def test_stop(hooked_m0):
     assert hooked_m0.state.READY
 
 
-def test_error_hook(hooked_error_m0):
+def test_pre_move_error(hooked_error_m0, capsys):
     """test a hook which generates error on pre_move"""
     assert hooked_error_m0.state.READY
 
@@ -206,14 +223,50 @@ def test_error_hook(hooked_error_m0):
     assert hook1.nb_pre_move == 0
     assert hook1.nb_post_move == 0
 
-    with pytest.raises(MockupHook.Error):
+    with pytest.raises(MockupHook.Error) as exc:
         hooked_error_m0.move(180, wait=False)
+    assert "pre_move" in str(exc.value)
 
+    output = capsys.readouterr().out.split("\n")
+    assert output[0] == hook0.name + " in pre_move hook"
+    assert output[1] == hook1.name + " in pre_move hook"
+    assert output[2] == hook1.name + " in post_move hook"
+    assert output[3] == hook0.name + " in post_move hook"
     assert hook0.nb_pre_move == 1
+    assert hook0.nb_post_move == 1
+    assert hook1.nb_pre_move == 0  # hook failed to execute
+    assert hook1.nb_post_move == 1  # still, post move is executed
+    assert hooked_error_m0.state.READY
+
+
+def test_post_move_error(hooked_error_m1, capsys):
+    """test a hook which generates error on post_move"""
+    assert hooked_error_m1.state.READY
+
+    hook0 = hooked_error_m1.motion_hooks[0]
+    hook1 = hooked_error_m1.motion_hooks[1]
+    assert hook0.nb_pre_move == 0
     assert hook0.nb_post_move == 0
     assert hook1.nb_pre_move == 0
     assert hook1.nb_post_move == 0
-    assert hooked_error_m0.state.READY
+
+    with pytest.raises(MockupHook.Error) as exc:
+        hooked_error_m1.move(1)
+    assert "post_move" in str(exc.value)
+
+    # hooks are executed in reverse order,
+    # so there would be hook1 post_move before
+    # hook0 post_move
+    output = capsys.readouterr().out.split("\n")
+    assert output[0] == hook0.name + " in pre_move hook"
+    assert output[1] == hook1.name + " in pre_move hook"
+    assert output[2] == hook1.name + " in post_move hook"
+    assert output[3] == hook0.name + " in post_move hook"
+    assert hook0.nb_pre_move == 1
+    assert hook0.nb_post_move == 1  # check that post move is executed
+    assert hook1.nb_pre_move == 1
+    assert hook1.nb_post_move == 0  # post_move could not execute
+    assert hooked_error_m1.state.READY
 
 
 def test_group_move(hooked_m0, hooked_m1):
@@ -236,26 +289,32 @@ def test_group_move(hooked_m0, hooked_m1):
 
     grp.move(hooked_m0, target_hooked_m0, hooked_m1, target_hooked_m1, wait=False)
 
-    assert hook0.nb_pre_move == 2
+    assert hook0.nb_pre_move == 1
     assert hook0.nb_post_move == 0
     assert hook1.nb_pre_move == 1
     assert hook1.nb_post_move == 0
-    assert len(hook0.last_pre_move_args) == 1
-    assert isinstance(hook0.last_pre_move_args[0], Motion)
-    assert len(hook1.last_pre_move_args) == 1
-    assert isinstance(hook1.last_pre_move_args[0], Motion)
+    assert [m.axis for m in hook0.last_pre_move_args if isinstance(m, Motion)] == [
+        hooked_m0,
+        hooked_m1,
+    ]
+    assert [m.axis for m in hook1.last_pre_move_args if isinstance(m, Motion)] == [
+        hooked_m1
+    ]
     assert grp.state.MOVING
 
     grp.wait_move()
 
-    assert hook0.nb_pre_move == 2
-    assert hook0.nb_post_move == 2
+    assert hook0.nb_pre_move == 1
+    assert hook0.nb_post_move == 1
     assert hook1.nb_pre_move == 1
     assert hook1.nb_post_move == 1
-    assert len(hook0.last_post_move_args) == 1
-    assert isinstance(hook0.last_post_move_args[0], Motion)
-    assert len(hook1.last_post_move_args) == 1
-    assert isinstance(hook1.last_post_move_args[0], Motion)
+    assert [m.axis for m in hook0.last_post_move_args if isinstance(m, Motion)] == [
+        hooked_m0,
+        hooked_m1,
+    ]
+    assert [m.axis for m in hook1.last_post_move_args if isinstance(m, Motion)] == [
+        hooked_m1
+    ]
     assert hooked_m0.state.READY
     assert hooked_m1.state.READY
     assert grp.state.READY
@@ -269,8 +328,8 @@ def test_group_stop(hooked_m0, hooked_m1):
     grp = Group(hooked_m0, hooked_m1)
     grp.move(hooked_m0, 1, hooked_m1, 1)
 
-    assert hook0.nb_pre_move == 2
-    assert hook0.nb_post_move == 2
+    assert hook0.nb_pre_move == 1
+    assert hook0.nb_post_move == 1
     assert hook1.nb_pre_move == 1
     assert hook1.nb_post_move == 1
     assert hooked_m0.state.READY
@@ -279,16 +338,16 @@ def test_group_stop(hooked_m0, hooked_m1):
 
     grp.move({hooked_m0: 0, hooked_m1: 0}, wait=False)
 
-    assert hook0.nb_pre_move == 4
-    assert hook0.nb_post_move == 2
+    assert hook0.nb_pre_move == 2
+    assert hook0.nb_post_move == 1
     assert hook1.nb_pre_move == 2
     assert hook1.nb_post_move == 1
     assert grp.state.MOVING
 
     grp.stop()
 
-    assert hook0.nb_pre_move == 4
-    assert hook0.nb_post_move == 4
+    assert hook0.nb_pre_move == 2
+    assert hook0.nb_post_move == 2
     assert hook1.nb_pre_move == 2
     assert hook1.nb_post_move == 2
     assert grp.state.READY

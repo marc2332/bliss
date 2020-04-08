@@ -84,7 +84,14 @@ controller:
     acceleration: 300
     motion_hooks:
     - $hook0
-    - $hook_error
+    - $hook_pre_move_error
+  - name: hooked_error_m1
+    steps_per_unit: 1
+    velocity: 1000
+    acceleration: 300
+    motion_hooks:
+    - $hook0
+    - $hook_post_move_error
   - name: s1f
     steps_per_unit: -1000
     velocity: 500
@@ -208,9 +215,14 @@ hooks:
   plugin: bliss
   class: MockupHook
   module: motors.mockup
-- name: hook_error
+- name: hook_pre_move_error
   plugin: bliss
   class: MockupHook
   module: motors.mockup
   pre_move_error: true
+- name: hook_post_move_error
+  plugin: bliss
+  class: MockupHook
+  module: motors.mockup
+  post_move_error: true
 

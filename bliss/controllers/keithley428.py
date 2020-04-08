@@ -159,7 +159,7 @@ class keithley428(object):
     @gain.setter
     def gain(self, value):
         if value not in self._gainStringArray:
-            raise ValueError(f"Gain value {value} out of range (0-10)")
+            raise ValueError(f"Gain value {value} out of range (3-10)")
         self.put(f"R{value}X")
 
     @property

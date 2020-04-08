@@ -8,24 +8,6 @@
 """
 Axis related classes (:class:`~bliss.common.axis.Axis`, \
 :class:`~bliss.common.axis.AxisState` and :class:`~bliss.common.axis.Motion`)
-
-These classes are part of the bliss motion subsystem.
-They are not to be instantiated directly. They are the objects produced
-as calls to :meth:`~bliss.config.static.Config.get`. Example::
-
-    >>> from bliss.config.static import get_config
-
-    >>> cfg = get_config()
-    >>> energy = cfg.get('energy')
-    >>> energy
-    <bliss.common.axis.Axis object at 0x7f7baa7f6d10>
-
-    >>> energy.move(120)
-    >>> print(energy.position)
-    120.0
-
-    >>> print energy.state
-    READY (Axis is READY)
 """
 from bliss import global_map
 from bliss.common.cleanup import capture_exceptions

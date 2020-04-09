@@ -172,33 +172,6 @@ class SimulatedMCA(BaseMCA):
     def get_acquisition_statistics(self):
         return self._current_stats
 
-    def poll_data(self):
-        # Update
-        self._count += 1
-        current = self._count // self._mapping_modulo
-        # Realtime
-        if self._trigger_mode == TriggerMode.SYNC:
-            delta = 0.2 * self._mapping_modulo
-        else:
-            delta = self._gate_end
-        # Flags
-        new_pixel = self._count % self._mapping_modulo != 0
-        full_buffer = current and current % self.block_size == 0
-        finished = current == self.hardware_points
-        # A new pixel has been generated
-        if current > 0 and new_pixel:
-            a, b = self._generate_pixel(delta)
-            self._data_buffer[current - 1] = a
-            self._stats_buffer[current - 1] = b
-        # Available data
-        if new_pixel and (full_buffer or finished):
-            a, b = self._data_buffer, self._stats_buffer
-            self._data_buffer = {}
-            self._stats_buffer = {}
-            return current, a, b
-        # Nothing to return yet
-        return current, {}, {}
-
     # Data generation
 
     def _generate_pixel(self, delta):

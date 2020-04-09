@@ -6,13 +6,136 @@
       <meta http-equiv="x-ua-compatible" content="ie=edge">
       <title>Bliss documentation</title>
       <link rel="shortcut icon" href="master/assets/images/favicon.png">
-      <link rel="stylesheet" href="master/assets/stylesheets/application.adb8469c.css">
-      <link rel="stylesheet" href="master/assets/stylesheets/application-palette.a8b3c06d.css">
       <!-- <script src="master/assets/javascripts/modernizr.86422ebf.js"></script> -->
+      <style>
+/*! CSS Used from: https://bliss.gitlab-pages.esrf.fr/bliss/1.3.0/assets/stylesheets/application.adb8469c.css */
+html{box-sizing:border-box;}
+*,:after,:before{box-sizing:inherit;}
+html{-webkit-text-size-adjust:none;-moz-text-size-adjust:none;-ms-text-size-adjust:none;text-size-adjust:none;}
+body{margin:0;}
+a{-webkit-text-decoration-skip:objects;}
+a,input,label{-webkit-tap-highlight-color:transparent;}
+a{color:inherit;text-decoration:none;}
+img{border-style:none;}
+input{border:0;outline:0;}
+.md-icon,.md-nav__title:before{font-family:Material Icons;font-style:normal;font-variant:normal;font-weight:400;line-height:1;text-transform:none;white-space:nowrap;word-wrap:normal;direction:ltr;}
+.md-header-nav__button,.md-nav__title:before{display:inline-block;margin:.2rem;padding:.4rem;font-size:1.2rem;cursor:pointer;}
+.md-icon--menu:before{content:"";}
+body{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;}
+body,input{color:rgba(0,0,0,.87);font-feature-settings:"kern","liga";font-family:Helvetica Neue,Helvetica,Arial,sans-serif;}
+.md-typeset{font-size:.8rem;line-height:1.6;-webkit-print-color-adjust:exact;}
+.md-typeset ul{margin:1em 0;}
+.md-typeset a{color:#3f51b5;word-break:break-word;}
+.md-typeset a,.md-typeset a:before{-webkit-transition:color .125s;transition:color .125s;}
+.md-typeset a:active,.md-typeset a:hover{color:#536dfe;}
+.md-typeset ul{list-style-type:disc;}
+.md-typeset ul{margin-left:.625em;padding:0;}
+.md-typeset ul li{margin-bottom:.5em;margin-left:1.25em;}
+.md-typeset ul li:last-child{margin-bottom:0;}
+html{font-size:125%;overflow-x:hidden;}
+body,html{height:100%;}
+body{position:relative;font-size:.5rem;}
+.md-svg{display:none;}
+.md-grid{max-width:61rem;margin-right:auto;margin-left:auto;}
+.md-container,.md-main{overflow:auto;}
+.md-container{display:table;width:100%;height:100%;padding-top:2.4rem;table-layout:fixed;}
+.md-main{display:table-row;height:100%;}
+.md-main__inner{height:100%;padding-top:1.5rem;padding-bottom:.05rem;}
+.md-toggle{display:none;}
+.md-overlay{position:fixed;top:0;width:0;height:0;-webkit-transition:width 0s .25s,height 0s .25s,opacity .25s;transition:width 0s .25s,height 0s .25s,opacity .25s;background-color:rgba(0,0,0,.54);opacity:0;z-index:3;}
+.md-flex{display:table;}
+.md-flex__cell{display:table-cell;position:relative;vertical-align:top;}
+.md-flex__cell--shrink{width:0;}
+.md-flex__cell--stretch{display:table;width:100%;table-layout:fixed;}
+.md-flex__ellipsis{display:table-cell;text-overflow:ellipsis;white-space:nowrap;overflow:hidden;}
+.md-content__inner{margin:0 .8rem 1.2rem;padding-top:.6rem;}
+.md-content__inner:before{display:block;height:.4rem;content:"";}
+.md-content__inner>:last-child{margin-bottom:0;}
+.md-header{position:fixed;top:0;right:0;left:0;height:2.4rem;-webkit-transition:background-color .25s,color .25s;transition:background-color .25s,color .25s;background-color:#3f51b5;color:#fff;box-shadow:none;z-index:2;-webkit-backface-visibility:hidden;backface-visibility:hidden;}
+.no-js .md-header{-webkit-transition:none;transition:none;box-shadow:none;}
+.md-header[data-md-state=shadow]{-webkit-transition:background-color .25s,color .25s,box-shadow .25s;transition:background-color .25s,color .25s,box-shadow .25s;box-shadow:0 0 .2rem rgba(0,0,0,.1),0 .2rem .4rem rgba(0,0,0,.2);}
+.md-header-nav{padding:0 .2rem;}
+.md-header-nav__button{position:relative;-webkit-transition:opacity .25s;transition:opacity .25s;z-index:1;}
+.md-header-nav__button:hover{opacity:.7;}
+.md-header-nav__button.md-logo *{display:block;}
+.md-header-nav__topic{display:block;position:absolute;-webkit-transition:opacity .15s,-webkit-transform .4s cubic-bezier(.1,.7,.1,1);transition:opacity .15s,-webkit-transform .4s cubic-bezier(.1,.7,.1,1);transition:transform .4s cubic-bezier(.1,.7,.1,1),opacity .15s;transition:transform .4s cubic-bezier(.1,.7,.1,1),opacity .15s,-webkit-transform .4s cubic-bezier(.1,.7,.1,1);text-overflow:ellipsis;white-space:nowrap;overflow:hidden;}
+.no-js .md-header-nav__topic{position:static;}
+.md-header-nav__title{padding:0 1rem;font-size:.9rem;line-height:2.4rem;}
+.md-header-nav__source{display:none;}
+.md-nav__title{display:block;padding:0 .6rem;font-weight:700;text-overflow:ellipsis;overflow:hidden;}
+.md-nav__title:before{display:none;content:"\E5C4";}
+.md-source{display:block;padding-right:.6rem;-webkit-transition:opacity .25s;transition:opacity .25s;font-size:.65rem;line-height:1.2;white-space:nowrap;}
+.md-source:hover{opacity:.7;}
+.md-source:after,.md-source__icon{display:inline-block;height:2.4rem;content:"";vertical-align:middle;}
+.md-source__icon{width:2.4rem;}
+.md-source__icon svg{width:1.2rem;height:1.2rem;margin-top:.6rem;margin-left:.6rem;}
+.md-source__icon+.md-source__repository{margin-left:-2rem;padding-left:2rem;}
+.md-source__repository{display:inline-block;max-width:100%;margin-left:.6rem;font-weight:700;text-overflow:ellipsis;overflow:hidden;vertical-align:middle;}
+@media print{
+.md-typeset a:after{color:rgba(0,0,0,.54);content:" [" attr(href) "]";}
+.md-header{display:none;}
+}
+@media only screen and (min-width:100em){
+html{font-size:137.5%;}
+}
+@media only screen and (min-width:125em){
+html{font-size:150%;}
+}
+@media only screen and (max-width:76.1875em){
+[data-md-toggle=drawer]:checked~.md-overlay{width:100%;height:100%;-webkit-transition:width 0s,height 0s,opacity .25s;transition:width 0s,height 0s,opacity .25s;opacity:1;}
+.md-header-nav__button.md-logo{display:none;}
+}
+@media only screen and (min-width:60em){
+.md-content{margin-right:12.1rem;}
+.md-header-nav__source{display:block;width:11.7rem;max-width:11.7rem;padding-right:.6rem;}
+}
+@media only screen and (min-width:76.25em){
+.md-content{margin-left:12.1rem;}
+.md-content__inner{margin-right:1.2rem;margin-left:1.2rem;}
+.md-header-nav__button.md-icon--menu{display:none;}
+}
+/*! CSS Used from: https://bliss.gitlab-pages.esrf.fr/bliss/1.3.0/assets/stylesheets/application-palette.a8b3c06d.css */
+[data-md-color-primary=white] .md-header{background-color:#fff;color:rgba(0,0,0,.87);}
+[data-md-color-accent=light-blue] .md-typeset a:active,[data-md-color-accent=light-blue] .md-typeset a:hover{color:#0091ea;}
+/*! CSS Used from: Embedded */
+body,input{font-family:"Roboto","Helvetica Neue",Helvetica,Arial,sans-serif;}
+/*! CSS Used from: Embedded */
+li:first-child a::before{content:'Latest (';}
+li:first-child a::after{content:')';}
+/*! CSS Used fontfaces */
+@font-face{font-family:"Material Icons";font-style:normal;font-weight:400;src:local("Material Icons"),local("MaterialIcons-Regular"),url("https://bliss.gitlab-pages.esrf.fr/bliss/1.3.0/assets/fonts/specimen/MaterialIcons-Regular.woff2") format("woff2"),url("https://bliss.gitlab-pages.esrf.fr/bliss/1.3.0/assets/fonts/specimen/MaterialIcons-Regular.woff") format("woff"),url("https://bliss.gitlab-pages.esrf.fr/bliss/1.3.0/assets/fonts/specimen/MaterialIcons-Regular.ttf") format("truetype");}
+@font-face{font-family:'Roboto';font-style:italic;font-weight:400;font-display:fallback;src:local('Roboto Italic'), local('Roboto-Italic'), url(https://fonts.gstatic.com/s/roboto/v20/KFOkCnqEu92Fr1Mu51xFIzIFKw.woff2) format('woff2');unicode-range:U+0460-052F, U+1C80-1C88, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;}
+@font-face{font-family:'Roboto';font-style:italic;font-weight:400;font-display:fallback;src:local('Roboto Italic'), local('Roboto-Italic'), url(https://fonts.gstatic.com/s/roboto/v20/KFOkCnqEu92Fr1Mu51xMIzIFKw.woff2) format('woff2');unicode-range:U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;}
+@font-face{font-family:'Roboto';font-style:italic;font-weight:400;font-display:fallback;src:local('Roboto Italic'), local('Roboto-Italic'), url(https://fonts.gstatic.com/s/roboto/v20/KFOkCnqEu92Fr1Mu51xEIzIFKw.woff2) format('woff2');unicode-range:U+1F00-1FFF;}
+@font-face{font-family:'Roboto';font-style:italic;font-weight:400;font-display:fallback;src:local('Roboto Italic'), local('Roboto-Italic'), url(https://fonts.gstatic.com/s/roboto/v20/KFOkCnqEu92Fr1Mu51xLIzIFKw.woff2) format('woff2');unicode-range:U+0370-03FF;}
+@font-face{font-family:'Roboto';font-style:italic;font-weight:400;font-display:fallback;src:local('Roboto Italic'), local('Roboto-Italic'), url(https://fonts.gstatic.com/s/roboto/v20/KFOkCnqEu92Fr1Mu51xHIzIFKw.woff2) format('woff2');unicode-range:U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+1EA0-1EF9, U+20AB;}
+@font-face{font-family:'Roboto';font-style:italic;font-weight:400;font-display:fallback;src:local('Roboto Italic'), local('Roboto-Italic'), url(https://fonts.gstatic.com/s/roboto/v20/KFOkCnqEu92Fr1Mu51xGIzIFKw.woff2) format('woff2');unicode-range:U+0100-024F, U+0259, U+1E00-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF;}
+@font-face{font-family:'Roboto';font-style:italic;font-weight:400;font-display:fallback;src:local('Roboto Italic'), local('Roboto-Italic'), url(https://fonts.gstatic.com/s/roboto/v20/KFOkCnqEu92Fr1Mu51xIIzI.woff2) format('woff2');unicode-range:U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;}
+@font-face{font-family:'Roboto';font-style:normal;font-weight:300;font-display:fallback;src:local('Roboto Light'), local('Roboto-Light'), url(https://fonts.gstatic.com/s/roboto/v20/KFOlCnqEu92Fr1MmSU5fCRc4EsA.woff2) format('woff2');unicode-range:U+0460-052F, U+1C80-1C88, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;}
+@font-face{font-family:'Roboto';font-style:normal;font-weight:300;font-display:fallback;src:local('Roboto Light'), local('Roboto-Light'), url(https://fonts.gstatic.com/s/roboto/v20/KFOlCnqEu92Fr1MmSU5fABc4EsA.woff2) format('woff2');unicode-range:U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;}
+@font-face{font-family:'Roboto';font-style:normal;font-weight:300;font-display:fallback;src:local('Roboto Light'), local('Roboto-Light'), url(https://fonts.gstatic.com/s/roboto/v20/KFOlCnqEu92Fr1MmSU5fCBc4EsA.woff2) format('woff2');unicode-range:U+1F00-1FFF;}
+@font-face{font-family:'Roboto';font-style:normal;font-weight:300;font-display:fallback;src:local('Roboto Light'), local('Roboto-Light'), url(https://fonts.gstatic.com/s/roboto/v20/KFOlCnqEu92Fr1MmSU5fBxc4EsA.woff2) format('woff2');unicode-range:U+0370-03FF;}
+@font-face{font-family:'Roboto';font-style:normal;font-weight:300;font-display:fallback;src:local('Roboto Light'), local('Roboto-Light'), url(https://fonts.gstatic.com/s/roboto/v20/KFOlCnqEu92Fr1MmSU5fCxc4EsA.woff2) format('woff2');unicode-range:U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+1EA0-1EF9, U+20AB;}
+@font-face{font-family:'Roboto';font-style:normal;font-weight:300;font-display:fallback;src:local('Roboto Light'), local('Roboto-Light'), url(https://fonts.gstatic.com/s/roboto/v20/KFOlCnqEu92Fr1MmSU5fChc4EsA.woff2) format('woff2');unicode-range:U+0100-024F, U+0259, U+1E00-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF;}
+@font-face{font-family:'Roboto';font-style:normal;font-weight:300;font-display:fallback;src:local('Roboto Light'), local('Roboto-Light'), url(https://fonts.gstatic.com/s/roboto/v20/KFOlCnqEu92Fr1MmSU5fBBc4.woff2) format('woff2');unicode-range:U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;}
+@font-face{font-family:'Roboto';font-style:normal;font-weight:400;font-display:fallback;src:local('Roboto'), local('Roboto-Regular'), url(https://fonts.gstatic.com/s/roboto/v20/KFOmCnqEu92Fr1Mu72xKOzY.woff2) format('woff2');unicode-range:U+0460-052F, U+1C80-1C88, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;}
+@font-face{font-family:'Roboto';font-style:normal;font-weight:400;font-display:fallback;src:local('Roboto'), local('Roboto-Regular'), url(https://fonts.gstatic.com/s/roboto/v20/KFOmCnqEu92Fr1Mu5mxKOzY.woff2) format('woff2');unicode-range:U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;}
+@font-face{font-family:'Roboto';font-style:normal;font-weight:400;font-display:fallback;src:local('Roboto'), local('Roboto-Regular'), url(https://fonts.gstatic.com/s/roboto/v20/KFOmCnqEu92Fr1Mu7mxKOzY.woff2) format('woff2');unicode-range:U+1F00-1FFF;}
+@font-face{font-family:'Roboto';font-style:normal;font-weight:400;font-display:fallback;src:local('Roboto'), local('Roboto-Regular'), url(https://fonts.gstatic.com/s/roboto/v20/KFOmCnqEu92Fr1Mu4WxKOzY.woff2) format('woff2');unicode-range:U+0370-03FF;}
+@font-face{font-family:'Roboto';font-style:normal;font-weight:400;font-display:fallback;src:local('Roboto'), local('Roboto-Regular'), url(https://fonts.gstatic.com/s/roboto/v20/KFOmCnqEu92Fr1Mu7WxKOzY.woff2) format('woff2');unicode-range:U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+1EA0-1EF9, U+20AB;}
+@font-face{font-family:'Roboto';font-style:normal;font-weight:400;font-display:fallback;src:local('Roboto'), local('Roboto-Regular'), url(https://fonts.gstatic.com/s/roboto/v20/KFOmCnqEu92Fr1Mu7GxKOzY.woff2) format('woff2');unicode-range:U+0100-024F, U+0259, U+1E00-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF;}
+@font-face{font-family:'Roboto';font-style:normal;font-weight:400;font-display:fallback;src:local('Roboto'), local('Roboto-Regular'), url(https://fonts.gstatic.com/s/roboto/v20/KFOmCnqEu92Fr1Mu4mxK.woff2) format('woff2');unicode-range:U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;}
+@font-face{font-family:'Roboto';font-style:normal;font-weight:700;font-display:fallback;src:local('Roboto Bold'), local('Roboto-Bold'), url(https://fonts.gstatic.com/s/roboto/v20/KFOlCnqEu92Fr1MmWUlfCRc4EsA.woff2) format('woff2');unicode-range:U+0460-052F, U+1C80-1C88, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;}
+@font-face{font-family:'Roboto';font-style:normal;font-weight:700;font-display:fallback;src:local('Roboto Bold'), local('Roboto-Bold'), url(https://fonts.gstatic.com/s/roboto/v20/KFOlCnqEu92Fr1MmWUlfABc4EsA.woff2) format('woff2');unicode-range:U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;}
+@font-face{font-family:'Roboto';font-style:normal;font-weight:700;font-display:fallback;src:local('Roboto Bold'), local('Roboto-Bold'), url(https://fonts.gstatic.com/s/roboto/v20/KFOlCnqEu92Fr1MmWUlfCBc4EsA.woff2) format('woff2');unicode-range:U+1F00-1FFF;}
+@font-face{font-family:'Roboto';font-style:normal;font-weight:700;font-display:fallback;src:local('Roboto Bold'), local('Roboto-Bold'), url(https://fonts.gstatic.com/s/roboto/v20/KFOlCnqEu92Fr1MmWUlfBxc4EsA.woff2) format('woff2');unicode-range:U+0370-03FF;}
+@font-face{font-family:'Roboto';font-style:normal;font-weight:700;font-display:fallback;src:local('Roboto Bold'), local('Roboto-Bold'), url(https://fonts.gstatic.com/s/roboto/v20/KFOlCnqEu92Fr1MmWUlfCxc4EsA.woff2) format('woff2');unicode-range:U+0102-0103, U+0110-0111, U+0128-0129, U+0168-0169, U+01A0-01A1, U+01AF-01B0, U+1EA0-1EF9, U+20AB;}
+@font-face{font-family:'Roboto';font-style:normal;font-weight:700;font-display:fallback;src:local('Roboto Bold'), local('Roboto-Bold'), url(https://fonts.gstatic.com/s/roboto/v20/KFOlCnqEu92Fr1MmWUlfChc4EsA.woff2) format('woff2');unicode-range:U+0100-024F, U+0259, U+1E00-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF;}
+@font-face{font-family:'Roboto';font-style:normal;font-weight:700;font-display:fallback;src:local('Roboto Bold'), local('Roboto-Bold'), url(https://fonts.gstatic.com/s/roboto/v20/KFOlCnqEu92Fr1MmWUlfBBc4.woff2) format('woff2');unicode-range:U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;}
+      </style>
       <link href="https://fonts.gstatic.com" rel="preconnect" crossorigin>
       <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,400,400i,700%7CRoboto+Mono&display=fallback">
       <style>body,input{font-family:"Roboto","Helvetica Neue",Helvetica,Arial,sans-serif}code,kbd,pre{font-family:"Roboto Mono","Courier New",Courier,monospace}</style>
-    <link rel="stylesheet" href="master/assets/fonts/material-icons.css">
     <style>
       li:first-child a::before {
         content: 'Latest ('

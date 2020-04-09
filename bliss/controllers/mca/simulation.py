@@ -5,6 +5,8 @@ import time
 import numpy
 import gevent
 
+from bliss.common import event
+
 from .base import BaseMCA, PresetMode, TriggerMode, Stats, Brand, DetectorType
 
 
@@ -127,6 +129,18 @@ class SimulatedMCA(BaseMCA):
             self._data_buffer = {}
             self._stats_buffer = {}
         self._running = True
+
+    def trigger(self):
+        try:
+            if not self._running:
+                self.start_acquisition()
+            while self.is_acquiring():
+                gevent.sleep(.1)
+        finally:
+            self.stop_acquisition()
+            spectrums = self.get_acquisition_data()
+            statistics = self.get_acquisition_statistics()
+            event.send(self, "data", (spectrums, statistics))
 
     def stop_acquisition(self):
         if self._running:

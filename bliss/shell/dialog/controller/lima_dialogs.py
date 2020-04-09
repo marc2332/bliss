@@ -153,13 +153,14 @@ def lima_image_dialog(lima_controller):
     ct3 = Container([dlg_bin_x, dlg_bin_y], title="Binning:")
 
     # ROI handling
+    max_width, max_height = lima_controller._image_params._max_dim_lima_ref
 
     if (
         lima_controller._image_params.roi.width == 0
         and lima_controller._image_params.roi.height == 0
     ) or (
-        lima_controller._image_params.roi.width == lima_controller.image.width
-        and lima_controller._image_params.roi.height == lima_controller.image.height
+        lima_controller._image_params.roi.width == max_width
+        and lima_controller._image_params.roi.height == max_height
     ):
         no_roi = True
         dlg_roi = UserChoice(
@@ -173,10 +174,13 @@ def lima_image_dialog(lima_controller):
         ct4 = Container([dlg_roi], title="Roi:")
     else:
         no_roi = False
-        dlg_last_roi = UserMsg(label=f"Actual ROI: {lima_controller._image_params.roi}")
+        dlg_last_roi = UserMsg(
+            label=f"Actual ROI: {lima_controller._image_params.roi} (eventual changes above not yet considered!)"
+        )
         dlg_roi = UserChoice(
             values=[
                 ("none", "Remove ROI"),
+                ("keep", "Keep current ROI"),
                 ("center", "Modify centered ROI"),
                 ("free", "Modify free ROI"),
             ],
@@ -191,10 +195,7 @@ def lima_image_dialog(lima_controller):
     if ans:
         lima_controller._image_params.flip = [ans[dlg_flip_x], ans[dlg_flip_y]]
 
-        # if the binning has changed, remove the current ROI. Cannot adapt ROI because the image sizes are not adapted!
         new_binning = [int(ans[dlg_bin_x]), int(ans[dlg_bin_y])]
-        if new_binning != lima_controller._image_params.binning:
-            lima_controller._image_params._roi = [0, 0, 0, 0]
 
         lima_controller._image_params.binning = [
             int(ans[dlg_bin_x]),
@@ -204,32 +205,35 @@ def lima_image_dialog(lima_controller):
 
         # treat ROI request
         if ans[dlg_roi] == "none":
-            lima_controller._image_params._roi = [0, 0, 0, 0]
+            lima_controller._image_params._roi = [0, 0, max_width, max_width]
+        elif ans[dlg_roi] == "keep":
+            pass
         else:
             if ans[dlg_roi] == "center":
                 centered_roi(lima_controller)
             else:
-                width = lima_controller.image.width
-                height = lima_controller.image.height
+                width = max_width
+                height = max_width
                 dlg_msg = UserMsg(label=f"Image size ({width}x{height})")
+                cur_roi = lima_controller.image.roi.to_array()
                 dlg_roi_x = UserInput(
                     label="Start X position",
-                    defval=lima_controller._image_params._roi[0],
+                    defval=cur_roi[0],
                     validator=Validator(validate_roi, width),
                 )
                 dlg_roi_y = UserInput(
                     label="Start Y position",
-                    defval=lima_controller._image_params._roi[1],
+                    defval=cur_roi[1],
                     validator=Validator(validate_roi, height),
                 )
                 dlg_roi_width = UserInput(
                     label="Width           ",
-                    defval=lima_controller._image_params._roi[2],
+                    defval=cur_roi[2],
                     validator=Validator(validate_roi, width),
                 )
                 dlg_roi_height = UserInput(
                     label="Height          ",
-                    defval=lima_controller._image_params._roi[3],
+                    defval=cur_roi[3],
                     validator=Validator(validate_roi, height),
                 )
 
@@ -251,8 +255,7 @@ def lima_image_dialog(lima_controller):
 
 
 def centered_roi(lima_controller):
-    width = lima_controller.image.width
-    height = lima_controller.image.height
+    width, height = lima_controller._image_params._max_dim_lima_ref
 
     dlg_msg_width = UserMsg(label=f"Full image width is {width}")
     dlg_roi_width = UserInput(

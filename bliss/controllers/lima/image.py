@@ -35,10 +35,27 @@ class LimaImageParameters(BeaconObject):
 
         return width, height
 
+    @property
+    def _max_dim_full_frame_ref(self):
+        return (self._max_width, self._max_height)
+
+    @property
+    def _max_dim_lima_ref(self):
+        tmp = self._calc_roi(
+            numpy.array([0, 0, self._max_width, self._max_height]),
+            self.rotation,
+            self.flip,
+            self.binning,
+        )
+        return (tmp[2], tmp[3])
+
     def _calc_roi(self, roi, rot, flip, binning, inverse=False):
         """transformation for roi from raw full frame reference to 
            lima style reference with rot and flip applied.
-           inverste calculation if inverse=True
+           inverse calculation if inverse=True
+           
+           inverse = False  : full frame ref -> lima ref
+           inverse = True   : lima ref -> full frame ref
            
            TODO: this calculation should be one in the lima server!
            see https://gitlab.esrf.fr/bliss/bliss/-/merge_requests/2176#note_65379

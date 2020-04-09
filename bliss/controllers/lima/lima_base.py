@@ -527,7 +527,7 @@ class Lima(CounterController):
         def needs_update(key, value):
             if key not in self._cached_ctrl_params:
                 self._cached_ctrl_params[key] = Cache(self, key)
-            if self._cached_ctrl_params[key].value != value:
+            if str(self._cached_ctrl_params[key].value) != str(value):
                 self._cached_ctrl_params[key].value = value
                 return True
             else:

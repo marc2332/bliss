@@ -25,22 +25,37 @@ class LimaImageParameters(BeaconObject):
     def _tmp_get_max_width_height(self):
         """TODO: this function should be removed once the equivalent of it 
            is exposed directly on the lima tango server"""
-        tmp_roi = self._proxy.image_roi
-        tmp_bin = self._proxy.image_bin
-        self._proxy.image_bin = [1, 1]
-        self._proxy.image_roi = [0, 0, 0, 0]
-        _, _, width, height = self._proxy.image_roi
-        self._proxy.image_bin = tmp_bin
-        self._proxy.image_roi = tmp_roi
+        try:
+            tmp_roi = self._proxy.image_roi
+            tmp_bin = self._proxy.image_bin
+            self._proxy.image_bin = [1, 1]
+            self._proxy.image_roi = [0, 0, 0, 0]
+            _, _, width, height = self._proxy.image_roi
+            self._proxy.image_bin = tmp_bin
+            self._proxy.image_roi = tmp_roi
 
-        return width, height
+            return width, height
+        except AttributeError:
+            return 0, 0
+
+    def check_init(self):
+        """workaround to make sure that lima object can be
+           instantiated without running device server
+           TODO: to be removed
+        """
+        if self._max_width == 0 or self._max_height == 0:
+            self._max_width, self._max_height = self._tmp_get_max_width_height()
+            if self._max_width == 0 or self._max_height == 0:
+                raise RuntimeError("There is a problem with the device server!")
 
     @property
     def _max_dim_full_frame_ref(self):
+        self.check_init()
         return (self._max_width, self._max_height)
 
     @property
     def _max_dim_lima_ref(self):
+        self.check_init()
         tmp = self._calc_roi(
             numpy.array([0, 0, self._max_width, self._max_height]),
             self.rotation,
@@ -60,6 +75,8 @@ class LimaImageParameters(BeaconObject):
            TODO: this calculation should be one in the lima server!
            see https://gitlab.esrf.fr/bliss/bliss/-/merge_requests/2176#note_65379
         """
+        self.check_init()
+
         assert isinstance(roi, numpy.ndarray)
 
         def roi2pos(roi):

@@ -162,61 +162,9 @@ def test_calc_counter_from_config(default_session):
     )
 ```
 
-
-
-
-
-
-
-
-
-
-
-
-
-## Example: BPM
-
-
-```python
-from bliss.controllers.counter import CalcCounterController
-
-class BpmCalcCounter(CalcCounterController):
-
-    def calc_function(self, input_dict):
-
-        # BPM calculation.
-        #    __________________________
-        #   |_upper_left_|_upper_right_|   ↑
-        #   |------------|-------------|
-        #   | lower_left | lower_right |   y  x→
-        #    ---------------------------
-
-        up_left   = input_dict["up_left"]
-        up_right  = input_dict["up_right"]
-        low_right = input_dict["low_right"]
-        low_left  = input_dict["low_left"]
-
-        csum = up_left + up_right + low_right + low_left
-
-        bpm_x = ((up_left + low_left) - (up_right + low_right)) / csum
-        bpm_y = ((up_left + up_right) - (low_right + low_left)) / csum
-
-        bpm_values = {}
-        bpm_values["bpmi"] = csum
-        bpm_values["bpmx"] = bpm_x
-        bpm_values["bpmy"] = bpm_y
-
-        # print(f"CCC -- calc_function >>>> {bpm_values} ")
-
-        return bpm_values
-
-```
-
-
-
 ## Data length change
 
-I previous examples, the length of received data is not considered: the function
+In previous examples, the length of received data is not considered: the function
 produces the same length of outputs than the length of inputs received.
 
 In case a scan mix counters with different triggering modes, it can be useful to
@@ -239,6 +187,126 @@ cf:
 1D -> 2D
 
 ### example: MCA roi maps
+
+
+
+
+
+
+
+
+## Existing Calculation Counters
+
+
+### Expression based Calc Counter Controller / Calc Counter
+
+Do define calculational counters directly in the *YAML* it is possible to use
+`ExpressionCalcCounter` or `ExpressionCalcCounterController`.
+
+These two classes extend the Calculation Counter framework such that expressions defined in the *YAML* are evaluated during the calculation.
+
+The expression evaluation is using numexpr module. (Documentation: https://numexpr.readthedocs.io)
+#### Location: `bliss.controllers.expression_based_calc.py`
+
+#### YAML configuration examples
+
+##### Single counter with constant
+
+* output1 = cst * input1 + input2
+```
+- plugin: bliss
+  module: expression_based_calc
+  class: ExpressionCalcCounter
+  name: simu_expr_calc
+  expression: m*x+b
+  inputs:
+      - counter : $diode
+        tags: x
+      - counter : $diode2
+        tags: b
+  constants:
+      m : 10
+```
+
+##### Single counter average
+
+* output1 = (input1 + input2) / 2.0
+```
+- plugin: bliss
+  module: expression_based_calc
+  class: ExpressionCalcCounter
+  name: average
+  expression: (d1+d2)/m
+  inputs:
+      - counter : $diode
+        tags: d1
+      - counter : $diode2
+        tags: d2
+  constants:
+      m : 2.0
+```
+
+##### Multiple counters with constant
+
+* output1 = m * input1
+* output2 = n * input2
+```
+- plugin: bliss
+  module: expression_based_calc
+  class: ExpressionCalcCounterController
+  name: simu_expr_calc_ctrl
+  inputs:
+      - counter: $simu1.counters.deadtime_det0
+        tags: x
+        
+      - counter: $diode2
+        tags: y
+  constants:
+       m : 10
+       n : 100
+  outputs:
+      - name: out3
+        expression:  m*x
+      - name: out4 
+        expression:  n*y
+```
+
+##### Multiple counters BPM
+
+```
+  ____________________________
+  |_upper_left | upper_right |   ↑
+  |------------|-------------|
+  | lower_left | lower_right |   y  x→
+  ----------------------------
+```
+```
+- plugin: bliss
+  module: expression_based_calc
+  class: ExpressionCalcCounterController
+  name: bpm1
+  inputs:
+      - counter: $diode1
+        tags: ul         # upper_left diode
+      - counter: $diode2
+        tags: ur         # upper_right diode
+      - counter: $diode3
+        tags: ll         # lower_left diode
+      - counter: $diode4
+        tags: lr         # lower_right diode
+  outputs:
+      - name: bpmi
+        expression:  ul+ur+ll+lr
+      - name: bpmx 
+        expression:  ((ul+ll)-(ur+lr))/(ul+ur+ll+lr)
+      - name: bpmy 
+        expression:  ((ul+ur)-(ll+lr))/(ul+ur+ll+lr)
+```
+
+
+
+
+
 
 
 

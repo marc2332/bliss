@@ -47,7 +47,12 @@ the `config` object:
 TEST_SESSION[1]: limaDev = config.get("lima_simulator")
 ```
 
-### to run tests on bcu-ci computer
+
+!!! note
+    To run Nexus writer test, use:
+    `pytest tests/nexus_writer/ --durations=30 -m writer --runwritertests`
+
+### To run tests on bcu-ci computer
 
 Some timing problems occuring during continuous integration but not on
 a local computer have been observed.

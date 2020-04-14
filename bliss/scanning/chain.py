@@ -1022,7 +1022,7 @@ class AcquisitionChain:
         looking_device = {d: None for d in devices}
         nb_device = len(devices)
         for node in self.nodes_list:
-            if isinstance(node.device,_Group):
+            if isinstance(node.device, _Group):
                 for axis in node.device.axes.values():
                     if axis in looking_device:
                         looking_device[axis] = node

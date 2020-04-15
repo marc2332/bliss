@@ -524,6 +524,11 @@ class Lima(CounterController):
         return f"{self._proxy.image_sizes}{self._proxy.image_roi}{self._proxy.image_flip}{self._proxy.image_bin}{self._proxy.image_rotation}"
 
     def apply_parameters(self, ctrl_params):
+
+        if "image_roi" in ctrl_params:
+            # make sure that image_roi is applied last (last element in ctrl_params)
+            ctrl_params["image_roi"] = ctrl_params.pop("image_roi")
+
         def needs_update(key, value):
             if key not in self._cached_ctrl_params:
                 self._cached_ctrl_params[key] = Cache(self, key)

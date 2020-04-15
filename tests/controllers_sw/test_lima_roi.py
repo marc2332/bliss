@@ -3,6 +3,7 @@ import pytest
 import fabio
 
 from collections import namedtuple
+from bliss.common.scans import ct, loopscan
 
 LimParams = namedtuple("LimParams", ["rotation", "flip", "binning", "roi"])
 
@@ -124,3 +125,126 @@ def test_lima_roi_nonsquare(beacon, lima_tmpdir, lima_simulator, lima_params):
         ffrefroi, ls.image.rotation, ls.image.flip, ls.image.binning
     )
     assert all(reverse == numpy.array(lima_params.roi))
+
+
+def test_lima_image_parameters(beacon, default_session, lima_simulator2, clean_gevent):
+    clean_gevent["end-check"] = False
+    cam = beacon.get("lima_simulator2")
+
+    bv = beacon.get("bv1")
+
+    fw, fh = 1024, 1024
+    expo = 0.01
+    bv.bpm.exposure = expo
+
+    # First we align the ebv config and cam
+    cam.image.flip = [False, False]
+    bv.bpm.flip = [False, False]
+
+    cam.image.rotation = 0
+    bv.bpm.rotation = "NONE"
+
+    cam.image.roi = [0, 0, fw, fh]
+    bv.bpm.roi = [0, 0, fw, fh]
+
+    cam.image.bin = [1, 1]
+    bv.bpm.bin = [1, 1]
+
+    assert list(cam.image.roi.to_array()) == [0, 0, fw, fh]
+    assert bv.bpm.roi == [0, 0, fw, fh]
+
+    assert cam.image.bin == [1, 1]
+    assert bv.bpm.bin == [1, 1]
+
+    assert cam.image.flip == [False, False]
+    assert bv.bpm.flip == [False, False]
+
+    assert cam.image.rotation == "NONE"
+    assert bv.bpm.rotation == "NONE"
+
+    # acquire images on cam and ebv and check they are equal
+    s = ct(expo, cam)
+    cam_img = s.get_data()["lima_simulator2"].get_last_image().data
+
+    bv_img = bv.bpm._snap_and_get_image()
+
+    assert numpy.array_equal(cam_img, bv_img)
+
+    # define a centered subarea (image.roi) so flip should not modify roi coords
+    w, h = fw / 2, fh / 2
+    cam.image.roi = [fw / 2 - w / 2, fh / 2 - h / 2, w, h]
+
+    cam.image.flip = [True, False]
+    assert list(cam.image.roi.to_array()) == [fw / 2 - w / 2, fh / 2 - h / 2, w, h]
+
+    cam.image.flip = [True, True]
+    assert list(cam.image.roi.to_array()) == [fw / 2 - w / 2, fh / 2 - h / 2, w, h]
+
+    cam.image.flip = [False, False]
+    assert list(cam.image.roi.to_array()) == [fw / 2 - w / 2, fh / 2 - h / 2, w, h]
+
+    # rotation 90 should invert x,y
+    cam.image.rotation = 90
+    assert list(cam.image.roi.to_array()) == [fh / 2 - h / 2, fw / 2 - w / 2, h, w]
+
+    cam.image.rotation = 0
+    assert list(cam.image.roi.to_array()) == [fw / 2 - w / 2, fh / 2 - h / 2, w, h]
+
+    # modifying the cam config should not affected the ebv config since no scan has been done with cam yet
+    assert bv.bpm.roi == [0, 0, fw, fh]
+
+    # performing a scan with cam will affect ebv config because cam pushes its config to the tango server
+    ct(0.01, cam)
+    assert bv.bpm.roi == list(cam.image.roi.to_array())
+
+    # modifying the ebv config should not affect a scan with cam
+    # because cam will push its config which is stored in a BeaconObject
+
+    bv.bpm.roi = [0, 0, fw, fh]
+    bv_img = bv.bpm._snap_and_get_image()
+    assert bv_img.shape == (fh, fw)
+
+    s = ct(0.01, cam)
+    cam_img = s.get_data()["lima_simulator2"].get_last_image().data
+    assert cam_img.shape == (h, w)
+
+    # play with binning
+    cam.image.bin = [2, 2]
+    assert list(cam.image.roi.to_array()) == [
+        (fw / 2 - w / 2) / 2,
+        (fh / 2 - h / 2) / 2,
+        w / 2,
+        h / 2,
+    ]
+
+    # print(cam.image.roi) => <128,128> <256 x 256>
+
+    s = ct(0.01, cam)
+    cam_img = s.get_data()["lima_simulator2"].get_last_image().data
+    assert cam_img.shape == (h / 2, w / 2)
+
+    bv.bpm.bin = [1, 1]
+    bv.bpm.roi = [0, 0, fw, fh]
+    bv.bpm.bin = [2, 2]
+
+    cam.image.bin = [2, 2]
+    cam.image.roi = [156, 181, 200, 150]
+    # print(cam.image.bin)
+    # print(cam.image.roi)
+    # breakpoint()
+    s = ct(0.01, cam)
+
+
+def test_lima_image_bin_roi(beacon, default_session, lima_simulator):
+    cam = beacon.get("lima_simulator")
+
+    cam.image.bin = [2, 2]
+    cam.image.roi = [156, 181, 200, 150]
+
+    s = loopscan(1, 0.01, cam)
+
+    cam_img = s.get_data()["lima_simulator"].get_last_image().data
+    assert cam_img.shape == (200, 150)
+
+    with pytest.raises(AssertionError):
+        cam.image.roi = [156, 181, 400, 150]

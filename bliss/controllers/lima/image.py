@@ -225,24 +225,35 @@ class LimaImageParameters(BeaconObject):
             *self._calc_roi(numpy.array(r), self.rotation, self.flip, self.binning)
         )
 
+    def _validate_roi(self, roi_array):
+        """roi_array_list is roi in full-frame reference system"""
+        assert isinstance(roi_array, numpy.ndarray)
+        assert all(roi_array >= 0), "Roi too big!"
+        assert roi_array[0] + roi_array[2] <= self._max_width, "Roi too big!"
+        assert roi_array[1] + roi_array[3] <= self._max_height, "Roi too big!"
+
     @roi.setter
     def roi(self, roi_values):
         if roi_values is None or roi_values == "NONE":
             self._roi = [0, 0, 0, 0]
         elif len(roi_values) == 4:
-            self._roi = self._calc_roi(
+            new_roi = self._calc_roi(
                 numpy.array(roi_values),
                 self.rotation,
                 self.flip,
                 self.binning,
                 inverse=True,
             )
+            self._validate_roi(new_roi)
+            self._roi = new_roi
         elif isinstance(roi_values[0], Roi):
             roi_obj = roi_values[0]
             r = [roi_obj.x, roi_obj.y, roi_obj.width, roi_obj.height]
-            self._roi = self._calc_roi(
+            new_roi = self._calc_roi(
                 numpy.array(r), self.rotation, self.flip, self.binning, inverse=True
             )
+            self._validate_roi(new_roi)
+            self._roi = new_roi
         else:
             raise TypeError(
                 "Lima.image: set roi only accepts roi (class)"
@@ -253,8 +264,8 @@ class LimaImageParameters(BeaconObject):
         return {
             "image_rotation": self.rotation,
             "image_flip": self.flip,
-            "image_roi": self._roi,
             "image_bin": self.binning,
+            "image_roi": list(self.roi.to_array()),
         }
 
     def sync(self):

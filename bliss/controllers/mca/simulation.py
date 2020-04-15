@@ -13,8 +13,8 @@ from .base import BaseMCA, PresetMode, TriggerMode, Stats, Brand, DetectorType
 class SimulatedMCA(BaseMCA):
 
     _init_time = 1.
-    _prepare_time = 0.1
-    _cleanup_time = 0.1
+    _prepare_time = 1e-3
+    _cleanup_time = 1e-3
     _gate_end = 0.5
     _mapping_modulo = 2
 
@@ -135,7 +135,7 @@ class SimulatedMCA(BaseMCA):
             if not self._running:
                 self.start_acquisition()
             while self.is_acquiring():
-                gevent.sleep(.1)
+                gevent.sleep(10e-3)
         finally:
             self.stop_acquisition()
             spectrums = self.get_acquisition_data()

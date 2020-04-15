@@ -1,17 +1,17 @@
-Is the top level object of the scan engine and it's the one who
+Scan is the top level object of the scan engine and it's the one who
 perform the scan according to the [acquisition
 chain](scan_engine_acquisition_chain.md) passed as argument when
-calling the `run` method.  It save and publish Acquisition data
-following the configuration of [scan saving](index.md#scan-saving).
+calling the `run` method.  It saves and publish Acquisition data
+according to the  [scan saving](index.md#scan-saving) configuration.
 
 ## Scan data
 
-During or after the scan, you can retrieved the scan data by calling
-`get_data` method.  This will return data as a dictionary with the
-key as the counter name and a numpy array with the associated data.
+During or after a scan, scan data can be retrieved by calling `get_data()`. This
+method will return data as a dictionary with the key as the counter name and a
+numpy array with the associated data.
 
 ```python
-TEST_SESSION [1]: s = loopscan(2,0.1,diode)
+DEMO [1]: s = loopscan(2,0.1,diode)
 
 Scan 3 Wed Mar 06 11:47 /scans/test_session/data.h5 test_session user = seb
 loopscan 2 0.1
@@ -22,43 +22,45 @@ loopscan 2 0.1
 
 Took 0:00:03.523786
 
-TEST_SESSION [2]: s.get_data().keys()
-         Out [2]: dict_keys(['timer:elapsed_time', 'timer:epoch', 'simulation_diode_controller:diode'])
+DEMO [2]: s.get_data().keys()
+ Out [2]: dict_keys(['timer:elapsed_time', 'timer:epoch',
+                     'simulation_diode_controller:diode'])
 
 # retrieved with counter instance
-TEST_SESSION [4]: s.get_data()[diode]
-         Out [4]: array([ 2.77777778, 26. ])
-	 
+DEMO [4]: s.get_data()[diode]
+ Out [4]: array([ 2.77777778, 26. ])
+
 # retrieved with short name (when there is no name collision)
-TEST_SESSION [5]: s.get_data()['diode']
-         Out [5]: array([ 2.77777778, 26. ])
+DEMO [5]: s.get_data()['diode']
+ Out [5]: array([ 2.77777778, 26. ])
 
 # or with fullname
-TEST_SESSION [5]: s.get_data()['simulation_diode_controller:diode']
-         Out [5]: array([ 2.77777778, 26. ])
+DEMO [5]: s.get_data()['simulation_diode_controller:diode']
+ Out [5]: array([ 2.77777778, 26. ])
 ```
 
 ## Alignment functions
 
 There is a group of function that returns motor position in fonction
-of value of counter passed as argument.  Available function are:
+of value of counter passed as argument. Available functions are:
 
-   * `fwhm` return the *full width half maximum*
-   * `cen` return the *center of the fwhm* and *fwhm*
-   * `com` return the *center of mass*xs
-   * `peak` return the motor position at the counter *maximum*
+* `fwhm()`: return the *full width half maximum*
+* `cen()`: return the *center of the fwhm* and *fwhm*
+* `com()`: return the *center of mass*
+* `peak()`: return the motor position at the counter *maximum*
 
 An other function group prefixed by `goto_` move directly the motor to
-the calculated position. i.e: `goto_cen` move the motor to the *center
-of the fwhm*. This group of function draw a marker in flint at the
-final motor position.
+the calculated position.
 
-Function `where` display the current scan motor position.
+Example: `goto_cen()` moves the motor to the *center of the fwhm*. This group of
+function draw a marker in Flint at the final motor position.
 
-### Example
+Function `where()` displays the current scan motor position.
+
+### Examples
 
 ```python
-TEST_SESSION [1]: s = ascan(robz,0,1,10,0.1,counter)
+DEMO [1]: s = ascan(robz,0,1,10,0.1,counter)
 
 Scan 7 Wed Mar 06 12:45 /scans/test_session/data.h5 test_session user = seb
 ascan robz 0 1 10 0.1
@@ -75,17 +77,16 @@ ascan robz 0 1 10 0.1
            8       1.60499        0.8889      0.035737
            9       1.80242             1     0.0652613
 
-Took 0:00:02.167129
-TEST_SESSION [2]: robz.position #position of robz at the end of scan
-         Out [2]: 1.0
+DEMO [2]: robz.position # position of robz at the end of scan
+ Out [2]: 1.0
 
-TEST_SESSION [3]: s.cen(counter)
-         Out [3]: (0.49405354172988597, 0.42511754017698633)
+DEMO [3]: s.cen(counter)
+ Out [3]: (0.494053, 0.425117)
 
-TEST_SESSION [4]: s.goto_cen(counter) #will move to 0.49405354172988597
+DEMO [4]: s.goto_cen(counter) # will move to 0.494053
 
-TEST_SESSION [5]: robz.position #position after the `goto_cen`
-         Out [5]: 0.4941
+DEMO [5]: robz.position # position after the `goto_cen`
+ Out [5]: 0.4941
 ```
 
 ## Profiling
@@ -110,12 +111,11 @@ DEMO [16]: SCANS[-1].statistics
             timer.wait_slaves       200.987us  330.567us  536.203us  0.00014
 ```
 
-more details in [acquisition statistics](scan_engine_acquisition_chain.md#statistics)
+More details in [acquisition statistics](scan_engine_acquisition_chain.md#statistics).
 
 ## Debugging
 
-To debug scans, there is a tracing mechanism.
-Use:`
+A tracing mechanism can be activated to debug and profile scans. Use:
 
 * `debugon("bliss.scans")` to activate it
 * `debugoff("bliss.scans")` to de-activate it
@@ -123,6 +123,8 @@ Use:`
 
 ### Scan example
 
+In this example, a timescan is lauched with debug activated. Scan is aborted
+after 2 points.
 
 ```python
 DEMO [14]: s = timescan(1, sim_acq_dev.counters.sc1, run=False)
@@ -201,9 +203,9 @@ KeyboardInterrupt
 ### ct example
 
 ```python
-DEMO [4]: s = ct(1, sim_acq_dev.counters.sc1,run=False)
+DEMO [4]: s = ct(1, sim_acq_dev.counters.sc1, run=False)
 
-DEMO [6]: debugon("bliss.scans");s.run()
+DEMO [6]: debugon("bliss.scans"); s.run()
 
 DEBUG 2018-11-30 13:27:20,823 Scan: Start timer.wait_ready
 DEBUG 2018-11-30 13:27:20,823 Scan: End timer.wait_ready Took 0.000339s

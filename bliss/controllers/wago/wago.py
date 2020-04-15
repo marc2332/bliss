@@ -21,7 +21,7 @@ from bliss.common import tango
 from bliss.common.utils import add_property, flatten
 from bliss.config.conductor.client import synchronized
 from bliss import global_map
-from bliss.comm.util import get_comm
+from bliss.comm.util import get_comm, get_tango_proxy
 from bliss.common.logtools import log_debug, log_debug_data, log_error, log_exception
 from bliss.common.counter import SamplingCounter
 from bliss.controllers.counter import counter_namespace, SamplingCounterController
@@ -2076,7 +2076,7 @@ class Wago(SamplingCounterController):
             except KeyError:
                 pass
             try:
-                comm = get_comm(new_config_tree)
+                comm = get_tango_proxy(new_config_tree)
             except Exception:
                 log_exception(self, "Can't connect to tango host")
                 raise

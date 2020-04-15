@@ -7,7 +7,8 @@
 
 import pytest
 
-from bliss.comm.util import get_comm, get_comm_type, TCP, GPIB, SERIAL, check_tango_fqdn
+from bliss.comm.util import TCP, GPIB, SERIAL, check_tango_fqdn
+from bliss.comm.util import get_comm, get_comm_type, get_tango_proxy
 
 
 def test_get_comm_type():
@@ -85,3 +86,23 @@ def test_tango_fqdn():
     assert check_tango_fqdn("tango://HOST/ID21/wcid21d/tg") is None
     assert check_tango_fqdn("HOST/ID21/wcid21d/tg") is None
     assert check_tango_fqdn("tango://20000/ID21/wcid21d/tg") is None
+
+
+def test_get_tango_proxy(bliss_tango_server, ports):
+
+    dev_name, proxy = bliss_tango_server
+    url = "tango://localhost:{}/id00/bliss_test/s1hg".format(ports.tango_port)
+
+    conf1 = {"tango_url": url, "timeout": 1}
+    conf2 = {"tango": {"url": url, "timeout": 1}}
+    conf3 = {
+        "tango_ds": {
+            "uri": "id00/bliss_test/s1hg",
+            "tango_host": f"localhost:{ports.tango_port}",
+            "timeout": 1,
+        }
+    }
+
+    for conf in (conf1, conf2, conf3):
+        comm = get_tango_proxy(conf)
+        assert comm.get_timeout_millis() == 1000

@@ -14,6 +14,7 @@ __all__ = [
     "get_interface",
     "get_comm_type",
     "get_comm",
+    "get_tango_proxy",
     "HexMsg",
     "TCP",
     "SERIAL",
@@ -48,7 +49,7 @@ def get_interface(*args, **kwargs):
     Else, if *args* are given, first argument it is interpreted as *interface*.
     All other arguments and keyword arguments are returned as not interpreted.
 
-    Otherwise, it expects either a *serial*, *gpib* or *tcp* keyword argument.
+    Otherwise, it expects either a comm type argument (*serial*, *gpib*, ...).
     The value should be a dictionary which is the same that would be passed
     directly to the corresponding class constructor. An new interface
     (:class:`~bliss.comm.serial.Serial`, :class:`~bliss.comm.gpib.Gpib` or
@@ -83,7 +84,7 @@ def get_interface(*args, **kwargs):
             from .serial import Serial
             from .udp import Udp
             from .modbus import ModbusTCP
-            from tango import DeviceProxy
+            from bliss.common.tango import DeviceProxy
 
             interfaces = dict(
                 serial=Serial,
@@ -97,7 +98,10 @@ def get_interface(*args, **kwargs):
                 if iname in kwargs:
                     ikwargs = kwargs[iname]
                     if isinstance(ikwargs, dict):
-                        interface = get_comm(kwargs)
+                        try:
+                            interface = get_tango_proxy(kwargs)
+                        except TypeError:
+                            interface = get_comm(kwargs)
                     else:
                         interface = ikwargs
                     del kwargs[iname]
@@ -110,14 +114,14 @@ def get_interface(*args, **kwargs):
 def get_comm_type(config):
     """
     Returns the communication channel type from the given configuration.
-    Expects a dict like config object. It recognizes keywords: *tcp*, *gpib* or
-    *serial*.
+    Expects a dict like config object. It recognizes keywords: *tcp*, *gpib*,
+    *serial*, *udp*, *tango*.
 
     Args:
        config (dict): a dict like config object which contains communication
                       channel configuration
     Returns:
-        ``TCP``, ``GPIB`` , ``SERIAL`` or ``UDP``
+        ``TCP``, ``GPIB`` , ``SERIAL`` , ``UDP`` , ``MODBUSTCP`` or ``TANGO``
     Raises:
         ValueError: if no communication channel or more than one communication
                     channel is found in config
@@ -144,7 +148,7 @@ def get_comm_type(config):
         if comm_type:
             raise ValueError("More than one communication channel found")
         comm_type = MODBUSTCP
-    if "tango" in config:
+    if any(("tango" in config, "tango_ds" in config, "tango_url" in config)):
         if comm_type:
             raise ValueError("More than one communication channel found")
         comm_type = TANGO
@@ -156,7 +160,7 @@ def get_comm_type(config):
 def get_comm(config, ctype=None, **opts):
     r"""
     Expects a dict like config object. It recognizes keywords: *tcp*, *gpib* or
-    *serial*.
+    *serial*, *udp*, *modbustcp*.
 
     *\*\*opts* represent default values.
 
@@ -170,8 +174,6 @@ def get_comm(config, ctype=None, **opts):
       :class:`~bliss.comm.serial.Serial` as well as all other gpib parameters.
     * If *modbustcp* is given, it must have *url* keyword. *url* must be either
       ```[<host> [, <port>] ]``` or ```"<host>[:<port>]"```. *port* is optional
-    * If *tango* is given, it must have *url* keyword. *url* must be a tango
-      Fully Qualified Domain Name (FQDN)
 
     Args:
        config (dict): a dict like config object which contains communication
@@ -235,17 +237,8 @@ def get_comm(config, ctype=None, **opts):
         opts.update(config["modbustcp"])
         from .modbus import ModbusTCP as klass
     elif comm_type == TANGO:
-        url = config["tango"]["url"]
-        timeout = config.get("timeout")
-        if timeout is not None:
-            opts["timeout"] = timeout
-        m = check_tango_fqdn(url)
-        if not m:
-            raise RuntimeError(
-                f"The given Tango url {url} is not compliant with Tango FQDN"
-            )
-        args.append(url)
-        from bliss.common.tango import DeviceProxy as klass
+        raise ValueError("Use 'get_tango_proxy' to retrieve a tango DeviceProxy")
+
     if klass is None:
         # should not happen (get_comm_type should handle all errors)
         raise ValueError("get_comm(): No communication channel found in config")
@@ -257,6 +250,77 @@ def get_comm(config, ctype=None, **opts):
         from .tcp_proxy import Proxy
 
         return Proxy(com_config)
+
+
+def get_tango_proxy(config, **opts):
+    r"""
+    Expects a dict like config object. It recognizes keywords: *tango*.
+
+    *\*\*opts* represent default values.
+
+    Args:
+       config (dict): a dict like config object which contains communication
+                      channel configuration
+       **opts: default values to use if not present in config
+    Returns:
+       A DeviceProxy object
+    Raises:
+        ValueError: if no communication channel or more than one communication
+                    channel is found in config
+        RuntimeError: if the given url is not compliant with TANGO fully
+                      qualified domain name
+        KeyError: if there are missing mandatory parameters in the communication
+                  channel config (ex: *url*)
+    """
+    comm_type = get_comm_type(config)
+    klass = None
+    args = []
+
+    if comm_type == TANGO:
+        # supports multiple cases:
+
+        # tango_url: id00/limaccds/simulator1
+
+        # tango:
+        #    url: tango://lid231:20000/od23/v-bsh/2
+
+        # tango_ds:
+        #    uri: id23/v-bsh/2
+        #    timeout: 3
+        #    tango_host: lid231:20000
+
+        timeout = 3
+
+        if config.get("tango_url"):
+            url = config.get("tango_url")
+            timeout = config.get("timeout", timeout)
+        else:
+            subnode = config.get("tango", config.get("tango_ds"))
+            url = subnode.get("url", subnode.get("uri"))
+            host = subnode.get("tango_host")
+            if host is not None:
+                url = f"tango://{host}/{url}"
+            timeout = subnode.get("timeout", timeout)
+
+        if url is None:
+            raise KeyError("Missing 'url' key in config")
+
+        if timeout is not None:
+            opts["timeout"] = timeout
+        m = check_tango_fqdn(url)
+        if not m:
+            raise RuntimeError(
+                f"The given Tango url {url} is not compliant with Tango FQDN"
+            )
+        args.append(url)
+        from bliss.common.tango import DeviceProxy as klass
+    else:
+        raise ValueError(f"Expected 'tango' communication channel. Got {comm_type!r}")
+
+    proxy = klass(*args, **opts)
+    if timeout != 3:
+        proxy.set_timeout_millis(timeout * 1000)
+    return proxy
 
 
 class HexMsg:

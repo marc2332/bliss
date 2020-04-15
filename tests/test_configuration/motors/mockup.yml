@@ -119,10 +119,18 @@ controller:
     steps_per_unit: 1000
     velocity: 1000
     acceleration: 300
+  - name: mot_maxee
+    steps_per_unit: 10
+    velocity: 100
+    acceleration: 300
+    encoder: $mot_maxee_enc
+    read_position: encoder
   encoders:
   - name: m1enc
     steps_per_unit: 50
     tolerance: 0.001
+  - name: mot_maxee_enc
+    steps_per_unit: 100
 - class: slits
   axes:
   - name: $s1f

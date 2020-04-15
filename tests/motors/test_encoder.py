@@ -7,7 +7,10 @@
 
 import pytest
 import numpy
+from unittest import mock
 from bliss.common import scans
+from bliss.common import encoder as encoder_mod
+from bliss.common.encoder import encoder_noise_round
 
 
 def test_get_encoder(m0, m1enc, m1):
@@ -65,3 +68,78 @@ def test_encoder_counter(default_session, m1, m1enc):
     m1enc.counter.conversion_function = lambda x: x * 2
     ct = scans.ct(0.1, m1enc)
     assert ct.get_data()["m1enc:position"] == m1enc.read() * 2
+
+
+def test_maxee_mode_read_encoder(mot_maxee):
+    with mock.patch.object(mot_maxee.encoder, "read") as new_read:
+        new_read.return_value = 42.42
+        assert mot_maxee.position == 42.42
+
+
+def test_maxee_mode_set_dial(mot_maxee):
+    with mock.patch.object(mot_maxee.encoder, "set") as new_set:
+        new_set.return_value = 10.23
+        mot_maxee.dial = 10
+        assert mot_maxee.dial == 10.23
+
+
+def test_maxee_mode_simple_move(mot_maxee):
+    mot_maxee.move(2)
+    assert mot_maxee.position == 2
+
+
+def test_maxee_mode_check_encoder(mot_maxee):
+    # set check_encoder
+    mot_maxee.config.set("check_encoder", True)
+    with mock.patch.object(mot_maxee.encoder, "read") as new_read:
+        new_read.return_value = 12.23
+        # motor init
+        assert mot_maxee.position == 12.23
+        new_read.return_value = 125.12
+        with pytest.raises(RuntimeError):
+            mot_maxee.move(2)
+
+
+def test_encoder_filter(mot_maxee):
+    enc_pos = 6.0
+
+    class Ctrl:
+        def _initialize_encoder(self, *args):
+            pass
+
+        def read_encoder(self, enc):
+            return enc_pos
+
+    ctrl = Ctrl()
+    encoder = encoder_mod.EncoderFilter("my", ctrl, {"encoder_precision": 5.0})
+    encoder.axis = mot_maxee
+
+    expected_value = encoder_noise_round(enc_pos, mot_maxee._set_position, 1.0, 5.0)
+    assert encoder.read() == pytest.approx(expected_value)
+    enc_pos = 3.0
+    expected_value = encoder_noise_round(enc_pos, mot_maxee._set_position, 1.0, 5.0)
+    assert encoder.read() == pytest.approx(expected_value)
+
+
+def test_encoder_filter_with_other_counters(mot_maxee):
+    enc_pos = 6.0
+
+    class Ctrl:
+        def _initialize_encoder(self, *args):
+            pass
+
+        def read_encoder(self, enc):
+            return enc_pos
+
+    ctrl = Ctrl()
+    encoder = encoder_mod.EncoderFilter(
+        "my", ctrl, {"enable_counters": ["position_raw", "position_error"]}
+    )
+    encoder.axis = mot_maxee
+    enc_position, position_raw, position_error = encoder._read_all_counters(
+        None, *encoder.counters
+    )
+    assert position_raw == enc_pos
+    expected_position = encoder_noise_round(enc_pos, mot_maxee._set_position, 1.0, 0.0)
+    assert enc_position == pytest.approx(expected_position)
+    assert position_error == mot_maxee._set_position - enc_pos

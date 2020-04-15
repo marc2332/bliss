@@ -16,7 +16,7 @@ from bliss.common.axis import Axis
 from bliss.common import encoder as encoder_module
 from bliss.common.encoder import Encoder
 from bliss.config.static import Config
-from bliss.common.tango import DeviceProxy
+from bliss.common.tango import DeviceProxy, _DeviceProxy
 from bliss.config.plugins.utils import find_class, replace_reference_by_object
 import bliss.controllers.motors
 from bliss.controllers.motor import CalcController
@@ -156,7 +156,8 @@ def get_ctrl_html(cfg):
 
 def __is_tango_device(name):
     try:
-        return DeviceProxy(name) is not None
+        # using _DeviceProxy for this purpose (no side effects)
+        return _DeviceProxy(name) is not None
     except:
         pass
     return False

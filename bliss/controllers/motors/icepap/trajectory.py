@@ -343,7 +343,10 @@ class TrajectoryAxis(Axis):
                         or axis_acceleration_time > min_acceleration_time
                     ):
                         min_acceleration_time = axis_acceleration_time
-                acceleration_time = min_acceleration_time
+                # Minimum acceleration time given by each motors of a trajectory
+                # may be be in certain cases to short. This implies lost of
+                # steps. It never happened adding a this 10% overtime.
+                acceleration_time = min_acceleration_time * 1.1
             axes_str = " ".join(("%s" % axis.address for axis in self.real_axes))
             _command(
                 self.controller._cnx,

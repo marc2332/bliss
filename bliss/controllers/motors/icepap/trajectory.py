@@ -9,6 +9,7 @@ import functools
 import hashlib
 import numpy
 from unittest import mock
+from bliss.config import settings
 from bliss.common.axis import Axis, lazy_init, DEFAULT_POLLING_TIME
 from . import _command, _vdata_header, POSITION, PARAMETER
 
@@ -299,6 +300,18 @@ class TrajectoryAxis(Axis):
         axes_str = " ".join(("%s" % axis.address for axis in self.enabled_axes))
         _command(self.controller._cnx, "STOP %s" % axes_str)
 
+    def _get_max_velocity(self):
+        max_velocity = None
+        for axis in self.real_axes:
+            max_axis_vel = float(
+                _command(self.controller._cnx, "%d:?PARVEL max" % axis.address)
+            )
+            max_axis_vel = min(axis.velocity * axis.steps_per_unit, max_axis_vel)
+            if max_velocity is None or max_axis_vel < max_velocity:
+                max_velocity = max_axis_vel
+
+        return max_velocity
+
     def _set_velocity(self, velocity):
         if self._axes:  # trajectory is already loaded
             self._load_trajectories(self._axes, self._parameter, self._positions)
@@ -330,6 +343,18 @@ class TrajectoryAxis(Axis):
 
     def _get_velocity(self):
         return self._velocity
+
+    def _get_min_acceleration_time(self):
+        min_acceleration_time = None
+        for axis in self.real_axes:
+            axis_acceleration_time = axis.acctime
+            if (
+                min_acceleration_time is None
+                or axis_acceleration_time > min_acceleration_time
+            ):
+                min_acceleration_time = axis_acceleration_time
+            acceleration_time = min_acceleration_time * 1.1
+        return acceleration_time
 
     def _set_acceleration_time(self, acceleration_time):
         if self._axes:  # trajectory is already loaded

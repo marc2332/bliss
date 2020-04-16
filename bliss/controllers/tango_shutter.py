@@ -26,6 +26,7 @@ example yml file:
 
 from enum import Enum
 from gevent import Timeout, sleep
+from bliss import global_map
 from bliss.common.shutter import BaseShutter, BaseShutterState
 from bliss.common.tango import DeviceProxy, DevFailed
 from bliss.common.logtools import log_warning
@@ -53,6 +54,7 @@ class TangoShutter(BaseShutter):
         self.__name = name
         self.__config = config
         self.__control = DeviceProxy(tango_uri)
+        global_map.register(self, children_list=[self.__control], tag=f"Shutter:{name}")
         self._frontend = None
         self._mode = None
         self._init_type()

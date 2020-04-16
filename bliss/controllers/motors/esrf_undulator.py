@@ -57,6 +57,9 @@ class ESRF_Undulator(Controller):
 
         # Get a proxy on Insertion Device device server of the beamline.
         self.device = DeviceProxy(self.ds_name)
+        global_map.register(
+            self, parents_list=["undulators"], children_list=[self.device]
+        )
 
     """
     Axes initialization actions.

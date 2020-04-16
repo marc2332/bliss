@@ -1,6 +1,8 @@
 """Compatibility module for pytango."""
 
 from bliss.common.proxy import Proxy
+from bliss.common.logtools import get_logger
+from bliss import global_map
 from enum import IntEnum
 import functools
 
@@ -118,8 +120,18 @@ except ImportError:
         pass
 
 
+def logging_call(*args, name=None, tango_func=None, logger=None):
+    logger(f"call %s%s", name, args)
+    ret = tango_func(*args)
+    logger("returned: %s", ret)
+    return ret
+
+
 class DeviceProxy(Proxy):
-    """A transparent wrapper of DeviceProxy, to make sure TANGO cache is not used by default"""
+    """A transparent wrapper of DeviceProxy, to make sure TANGO cache is not used by default
+
+    Also adds logging capability, to be able to follow Tango calls
+    """
 
     __sphinx_skip__ = True
 
@@ -127,7 +139,34 @@ class DeviceProxy(Proxy):
         super().__init__(
             functools.partial(_DeviceProxy, *args, **kwargs), init_once=True
         )
+
+        dev_name = self.__wrapped__.dev_name()
+        global_map.register(self, parents_list=["comms"], tag=dev_name)
+        object.__setattr__(self, "_DeviceProxy__logger", get_logger(self).debug)
+
         self.set_source(DevSource.DEV)
+
+    def __getattr__(self, name):
+        try:
+            attr = getattr(self.__wrapped__, name)
+        except AttributeError:
+            if name == "_DeviceProxy__logger":
+                return super().__getattr__("_DeviceProxy__logger")
+            else:
+                raise
+        else:
+            if not callable(attr):
+                self.__logger("getting attribute '%s': %s", name, attr)
+                return attr
+
+            else:
+                return functools.partial(
+                    logging_call, name=name, tango_func=attr, logger=self.__logger
+                )
+
+    def __setattr__(self, name, value):
+        self.__logger("setting attribute '%s': %s", name, value)
+        super().__setattr__(name, value)
 
 
 class AttributeProxy(Proxy):

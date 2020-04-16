@@ -420,8 +420,10 @@ class Lima(CounterController):
             "%s:directories_mapping" % name
         )
 
-        global_map.register("lima", ["global"])
-        global_map.register(self, parents_list=["lima", "controllers"])
+        global_map.register("lima", parents_list=["global"])
+        global_map.register(
+            self, parents_list=["lima", "controllers"], children_list=[self._proxy]
+        )
 
         clear_cache(self)
 
@@ -564,6 +566,7 @@ class Lima(CounterController):
             or update_all
         ):
             maskp = self._get_proxy("mask")
+            global_map.register(maskp, parents_list=[self], tag="mask")
             maskp.Stop()
             if use_mask:
                 log_debug(self, " uploading new mask on %s", self.name)
@@ -581,6 +584,7 @@ class Lima(CounterController):
             or update_all
         ):
             ff_proxy = self._get_proxy("flatfield")
+            global_map.register(ff_proxy, parents_list=[self], tag="flatfield")
             ff_proxy.Stop()
             if use_flatfield:
                 log_debug(self, " uploading flatfield on %s", self.name)
@@ -599,6 +603,7 @@ class Lima(CounterController):
             or update_all
         ):
             bg_proxy = self._get_proxy("backgroundsubstraction")
+            global_map.register(bg_proxy, parents_list=[self], tag="bg_sub")
             log_debug(
                 self,
                 " stopping background sub proxy on %s and setting runlevel to %s",
@@ -800,6 +805,11 @@ class Lima(CounterController):
         if self.__roi_counters is None:
             roi_counters_proxy = self._get_proxy(self._ROI_COUNTERS)
             self.__roi_counters = RoiCounters(roi_counters_proxy, self)
+            global_map.register(
+                self.__roi_counters,
+                parents_list=[self],
+                children_list=[roi_counters_proxy],
+            )
         return self.__roi_counters
 
     @autocomplete_property
@@ -822,6 +832,9 @@ class Lima(CounterController):
                 base_class=camera_class,
                 base_class_args=(self.name, self, proxy),
             )
+            global_map.register(
+                self._camera, parents_list=[self], children_list=[proxy]
+            )
         return self._camera
 
     @property
@@ -833,6 +846,10 @@ class Lima(CounterController):
         if self.__bpm is None:
             bpm_proxy = self._get_proxy(Lima._BPM)
             self.__bpm = Bpm(self.name, bpm_proxy, self)
+            global_map.register(
+                self.__bpm, parents_list=[self], children_list=[bpm_proxy]
+            )
+
         return self.__bpm
 
     @autocomplete_property
@@ -840,6 +857,9 @@ class Lima(CounterController):
         if self.__bg_sub is None:
             bg_sub_proxy = self._get_proxy(Lima._BG_SUB)
             self.__bg_sub = BgSub(self.name, bg_sub_proxy, self)
+            global_map.register(
+                self.__bg_sub, parents_list=[self], children_list=[bg_sub_proxy]
+            )
         return self.__bg_sub
 
     @property
@@ -913,17 +933,6 @@ class Lima(CounterController):
         )
 
         return info_str
-
-    def __repr__(self):
-        attr_list = ("user_detector_name", "lima_type")
-        try:
-            data = {
-                attr.name: ("?" if attr.has_failed else attr.value)
-                for attr in self._proxy.read_attributes(attr_list)
-            }
-            return f"<Lima Controller for {data['user_detector_name']} (Lima {data['lima_type']})>"
-        except DevFailed:
-            return super().__repr__()
 
     # Expose counters
 

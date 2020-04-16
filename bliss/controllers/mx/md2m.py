@@ -11,6 +11,7 @@ import numpy
 import math
 import os
 import logging
+from bliss import global_map
 from bliss.common.tango import DeviceProxy
 from bliss.common.scans import *
 from bliss.common.motor_group import Group
@@ -35,6 +36,7 @@ class MD2M:
         self.zoom_positions = config.get("zoom_positions")
         self.oscil_mprg = config.get("oscil_mprg")
         self.members_state = {"light": None, "cryo": None, "fluodet": None}
+        global_map.register(self, tag=f"MD2M:{name}")
 
     @task
     def _simultaneous_move(self, *args):
@@ -585,6 +587,9 @@ class MD2M:
 
         self.bv_device = DeviceProxy(self.beamviewer_server)
         self.sample_video_device = DeviceProxy(self.sample_video_server)
+        global_map.register(
+            self, children_list=[self.bv_device, self.sample_video_device]
+        )
 
         def restore_live():
             self.sample_video_device.video_live = True

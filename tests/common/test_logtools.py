@@ -11,10 +11,16 @@ import re
 
 import gevent
 
-from bliss.common.logtools import *
-from bliss.common.logtools import Log, lprint_disable
+from bliss.common.logtools import (
+    Log,
+    lprint_disable,
+    get_logger,
+    set_log_format,
+    hexify,
+)
+from bliss.common.logtools import log_debug, log_debug_data, log_error
 from bliss import logging_startup
-from bliss.shell.standard import *
+from bliss.shell.standard import debugon, debugoff, lprint
 from bliss.common.mapping import Map, map_id
 from bliss import global_map
 import bliss
@@ -296,7 +302,7 @@ def test_log_name_sanitize(params):
     get_logger(d2)
     assert (
         global_map[map_id(d2)]["_logger"].name
-        == "global.controllers.___deviceDEVICE=___()"
+        == "global.controllers./_/deviceDEVICE=___()"
     )
 
 
@@ -427,3 +433,42 @@ def test_lprint_disable_scan_calc_mot(default_session, capsys, log_shell_mode):
     scans.ascan(s1vg, 0, 1, 3, .1, diode)
     captured = capsys.readouterr().out
     assert captured == ""
+
+
+def test_tango_devproxy_log_on_method(wago_tango_server, caplog):
+    device_fqdn, dev_proxy = wago_tango_server
+
+    debugon(dev_proxy)
+    dev_proxy.turnon()
+    assert "call" in caplog.text
+    assert "returned" in caplog.text
+    debugoff(dev_proxy)
+
+
+def test_lima_devproxy_logger(default_session, lima_simulator, capsys, caplog):
+    # be sure to activate 4 loggers
+    lima = default_session.config.get("lima_simulator")
+    lima.__info__()  # this is to register ROI counters on map
+    lima.camera  # this is to register the camera on map
+
+    # the following should not produce log messages (debug is off)
+    val = lima.proxy.acq_expo_time
+    assert caplog.text == ""
+
+    # now activate debug and check 4 active loggers
+    debugon(lima)
+    captured = capsys.readouterr().out
+    assert len(captured.strip().split("\n")) == 5
+
+    # check some log messages for attribute get/set
+    val = lima.proxy.acq_expo_time
+    assert "getting attribute 'acq_expo_time':" in caplog.text
+    new_val = val + 1
+    lima.proxy.acq_expo_time = new_val
+    assert "setting attribute 'acq_expo_time':" in caplog.text
+    assert (lima.proxy.acq_expo_time) == new_val
+
+    # test method call
+    lima.proxy.set_timeout_millis(10)
+    assert "call set_timeout_millis(10,)" in caplog.text
+    debugoff(lima)

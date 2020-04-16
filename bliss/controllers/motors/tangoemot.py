@@ -5,6 +5,7 @@
 # Copyright (c) 2015-2020 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
+from bliss import global_map
 from bliss.controllers.motor import Controller
 
 from bliss.common.axis import AxisState
@@ -38,6 +39,7 @@ class TangoEMot(Controller):
 
     def initialize_axis(self, axis):
         self.axis_proxy = DeviceProxy(self.ds_name)
+        global_map.register(self, children_list=[self.axis_proxy])
 
         axis.config.set("steps_per_unit", self.axis_proxy.steps_per_unit)
         axis.config.set("acceleration", self.axis_proxy.ReadConfig("acceleration"))
@@ -45,6 +47,7 @@ class TangoEMot(Controller):
 
     def initialize_encoder(self, encoder):
         self.encoder_proxy = DeviceProxy(self.ds_name)
+        global_map.register(self, children_list=[self.encoder_proxy])
 
         encoder.config.config_dict.update(
             {"steps_per_unit": {"value": self.encoder_proxy.steps_per_unit}}

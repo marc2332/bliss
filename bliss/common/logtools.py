@@ -17,10 +17,10 @@ from functools import wraps
 import weakref
 
 import gevent
+from tango import DevFailed, DevState
 
 from bliss.common.utils import autocomplete_property
 from bliss.common.mapping import format_node, map_id
-from bliss.common.tango import DevFailed, DevState
 from bliss import global_map, current_session
 
 old_factory = logging.getLogRecordFactory()
@@ -571,6 +571,16 @@ class Log:
         }
         return loggers
 
+    def _find_loggers_from_obj(self, obj):
+        loggers = {}
+        manager = logging.getLogger().manager
+        get_logger(obj)
+        for node in global_map.walk_node(obj):
+            logger = node.get("_logger")
+            if logger and logger in manager.loggerDict.values():
+                loggers[logger.name] = logger
+        return loggers
+
     def __init__(self, map):
         self.map = map
         for node_name in ("global", "controllers"):
@@ -639,22 +649,23 @@ class Log:
             Set logger [global.device.controller.roby] to DEBUG level
             Set logger [global.device.controller.robz] to DEBUG level
         """
+        activated = set()
+
         if isinstance(glob_logger_pattern_or_obj, str):
             glob_logger_pattern = glob_logger_pattern_or_obj
             loggers = self._find_loggers(glob_logger_pattern)
-            activated = set()
-            if loggers:
-                for name, logger in loggers.items():
-                    try:
-                        logger.debugon()
-                    except AttributeError:
-                        # not a BlissLoggers
-                        logger.setLevel(logging.DEBUG)
-                    activated.add(name)
-
         else:
             obj = glob_logger_pattern_or_obj
-            activated = get_logger(obj).debugon()
+            loggers = self._find_loggers_from_obj(obj)
+
+        if loggers:
+            for name, logger in loggers.items():
+                try:
+                    logger.debugon()
+                except AttributeError:
+                    # not a BlissLoggers
+                    logger.setLevel(logging.DEBUG)
+                activated.add(name)
 
         return activated
 
@@ -672,22 +683,23 @@ class Log:
         Returns:
             None
         """
+        deactivated = set()
+
         if isinstance(glob_logger_pattern_or_obj, str):
             glob_logger_pattern = glob_logger_pattern_or_obj
             loggers = self._find_loggers(glob_logger_pattern)
-            deactivated = set()
-            if loggers:
-                for name, logger in loggers.items():
-                    try:
-                        logger.debugoff()
-                    except AttributeError:
-                        # not a BlissLoggers
-                        logger.setLevel(self._LOG_DEFAULT_LEVEL)
-                    deactivated.add(name)
-
         else:
             obj = glob_logger_pattern_or_obj
-            deactivated = get_logger(obj).debugoff()
+            loggers = self._find_loggers_from_obj(obj)
+
+        if loggers:
+            for name, logger in loggers.items():
+                try:
+                    logger.debugoff()
+                except AttributeError:
+                    # not a BlissLoggers
+                    logger.setLevel(self._LOG_DEFAULT_LEVEL)
+                deactivated.add(name)
 
         return deactivated
 
@@ -709,7 +721,7 @@ def create_logger_name(G, node_id):
         for n in path:
             node_name = format_node(G, n, format_string="tag->name->class->id")
             # sanitize name
-            logger_names.append(re.sub(r"[^0-9A-Za-z_:=\-\(\)\[\]]", "_", node_name))
+            logger_names.append(re.sub(r"[^0-9A-Za-z_:=\-\(\)\[\]\/]", "_", node_name))
         return ".".join(logger_names)
 
     except (nx.exception.NetworkXNoPath, nx.exception.NodeNotFound):

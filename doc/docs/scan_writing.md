@@ -1,7 +1,7 @@
 # Writing a custom scan
 
 This section presents the fundamental concepts and objects involved in a scan
-procedure. Then it will describe how to write your own scan through examples.
+procedure. It will describe how to write a custom scan through examples.
 
 ### The acquisition chain
 
@@ -27,8 +27,11 @@ class: `AcquisitionMaster` and `AcquisitionSlave` (from `bliss.scanning.chain`).
 The role of the `AcquisitionObject` is to encapsulate a `CounterController` in order to
 use it in the context of a scan.
 
-The `AcquisitionObject` defines how to behave while receiving incoming triggers
-(software and/or hardware) and how to acquire and publish data.
+The `AcquisitionObject` defines:
+
+* how to behave while receiving incoming triggers (software and/or hardware)
+* how to acquire data
+* how to publish data
 
 The underlying `CounterController` is the one who knows how to read the data
 from the hardware device.

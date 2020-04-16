@@ -388,6 +388,9 @@ class Controller:
     def prepare_trajectory(self, *trajectories):
         pass
 
+    def prepare_all(self, *motion_list):
+        raise NotImplementedError
+
     def prepare_move(self, motion):
         return
 

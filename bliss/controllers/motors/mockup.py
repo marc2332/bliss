@@ -507,8 +507,8 @@ class MockupAxis(Axis):
     def __init__(self, *args, **kwargs):
         Axis.__init__(self, *args, **kwargs)
 
-    def prepare_move(self, *args, **kwargs):
-        motion = Axis.prepare_move(self, *args, **kwargs)
+    def get_motion(self, *args, **kwargs):
+        motion = Axis.get_motion(self, *args, **kwargs)
         if motion is None:
             self.backlash_move = 0
             self.target_pos = None
@@ -538,12 +538,14 @@ class MockupHook(MotionHook):
         self.last_post_move_args = ()
 
     def pre_move(self, motion_list):
+        print(self.name, "in pre_move hook")
         if self.config.get("pre_move_error", False):
             raise self.Error("cannot pre_move")
         self.nb_pre_move += 1
         self.last_pre_move_args = motion_list
 
     def post_move(self, motion_list):
+        print(self.name, "in post_move hook")
         if self.config.get("post_move_error", False):
             raise self.Error("cannot post_move")
         self.nb_post_move += 1

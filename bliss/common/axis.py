@@ -8,24 +8,6 @@
 """
 Axis related classes (:class:`~bliss.common.axis.Axis`, \
 :class:`~bliss.common.axis.AxisState` and :class:`~bliss.common.axis.Motion`)
-
-These classes are part of the bliss motion subsystem.
-They are not to be instantiated directly. They are the objects produced
-as calls to :meth:`~bliss.config.static.Config.get`. Example::
-
-    >>> from bliss.config.static import get_config
-
-    >>> cfg = get_config()
-    >>> energy = cfg.get('energy')
-    >>> energy
-    <bliss.common.axis.Axis object at 0x7f7baa7f6d10>
-
-    >>> energy.move(120)
-    >>> print(energy.position)
-    120.0
-
-    >>> print energy.state
-    READY (Axis is READY)
 """
 from bliss import global_map
 from bliss.common.cleanup import capture_exceptions
@@ -44,6 +26,7 @@ import re
 import sys
 import math
 import functools
+import collections
 import numpy
 from unittest import mock
 import warnings
@@ -73,6 +56,7 @@ class GroupMove:
     def move(
         self,
         motions_dict,
+        prepare_motion,
         start_motion,
         stop_motion,
         move_func=None,
@@ -82,7 +66,67 @@ class GroupMove:
         self._motions_dict = motions_dict
         self._stop_motion = stop_motion
         self._user_stopped = False
+
+        hooks = collections.defaultdict(list)
+        executed_hooks = dict()
+        axes = set()
+        hooked_axes = set()
+        for motions in motions_dict.values():
+            for motion in motions:
+                axis = motion.axis
+                axes.add(axis)
+
+                # group motion hooks
+                for hook in axis.motion_hooks:
+                    hooks[hook].append(motion)
+
+        with capture_exceptions(raise_index=0) as capture:
+            for hook, motions in hooks.items():
+                hooked_axes.union({m.axis for m in motions})
+
+                with capture():
+                    hook._init()
+                    hook.pre_move(motions)
+
+                executed_hooks[hook] = motions
+
+                if capture.failed:
+                    # something wrong happened with this hook:
+                    # let's call post_move for all executed hooks so far
+                    # (including this one), in reversed order
+                    for hook, motions in reversed(list(executed_hooks.items())):
+                        with capture():
+                            hook.post_move(motions)
+                    return
+
+        # now check if axes are ready ;
+        # the check happens after pre_move hooks execution,
+        # some axes can **become** ready because of the hook
+        with capture_exceptions(raise_index=0) as capture:
+            for axis in axes:
+                with capture():
+                    axis._check_ready()
+                if capture.failed:
+                    # this axis _check_ready() had a problem:
+                    # need to ensure post_move hook is called,
+                    # if the pre_move was executed
+                    for hook in reversed(axis.motion_hooks):
+                        motions = executed_hooks.get(hook)
+                        if motions:
+                            with capture():
+                                hook.post_move(motions)
+                    return
+
+        for controller, motions in motions_dict.items():
+            if prepare_motion is not None:
+                prepare_motion(controller, motions)
+            for motion_obj in motions:
+                msg = motion_obj.user_msg
+                if msg:
+                    lprint(msg)
+
         started = gevent.event.Event()
+
         self._move_task = gevent.spawn(
             self._move,
             motions_dict,
@@ -93,11 +137,6 @@ class GroupMove:
             polling_time,
         )
 
-        for _, motions in motions_dict.items():
-            for motion_obj in motions:
-                msg = motion_obj.user_msg
-                if msg:
-                    lprint(msg)
         try:
             # Wait for the move to be started (or finished)
             gevent.wait([started, self._move_task], count=1)
@@ -308,17 +347,28 @@ class GroupMove:
                                 motion.axis._set_position = motion.axis.position
                                 event.send(motion.axis, "sync_hard")
 
+                hooks = collections.defaultdict(list)
                 for motions in motions_dict.values():
                     for motion in motions:
-                        with capture():
-                            motion.axis._Axis__execute_post_move_hook([motion])
+                        axis = motion.axis
 
-                        for _, chan in motion.axis._beacon_channels.items():
+                        # group motion hooks
+                        for hook in axis.motion_hooks:
+                            hooks[hook].append(motion)
+
+                        # set move done
+                        for _, chan in axis._beacon_channels.items():
                             chan.register_callback(chan._setting_update_cb)
 
                         motion.axis._set_move_done()
-                if self.parent:
-                    event.send(self.parent, "move_done", True)
+
+                try:
+                    if self.parent:
+                        event.send(self.parent, "move_done", True)
+                finally:
+                    for hook, motions in reversed(list(hooks.items())):
+                        with capture():
+                            hook.post_move(motions)
 
 
 class Modulo:
@@ -1339,24 +1389,6 @@ class Axis:
         """
         return (position - self.offset) / self.sign
 
-    def __execute_pre_move_hook(self, motion):
-        for hook in self.motion_hooks:
-            hook._init()
-            hook.pre_move([motion])
-
-        try:
-            self._check_ready()
-        except BaseException:
-            self.__execute_post_move_hook([motion])
-            raise
-
-    def __execute_post_move_hook(self, motions):
-        for hook in self.motion_hooks:
-            try:
-                hook.post_move(motions)
-            except BaseException:
-                sys.excepthook(*sys.exc_info())
-
     def _get_motion(self, user_target_pos):
         dial_target_pos = self.user2dial(user_target_pos)
         dial = self.dial
@@ -1410,7 +1442,7 @@ class Axis:
         return motion
 
     @lazy_init
-    def prepare_move(self, user_target_pos, relative=False, trajectory=False):
+    def get_motion(self, user_target_pos, relative=False):
         """Prepare a motion. Internal usage only"""
 
         # To accept both float or numpy array of 1 element
@@ -1418,8 +1450,7 @@ class Axis:
 
         log_debug(
             self,
-            "prepare_move: user_target_pos=%g, relative=%r"
-            % (user_target_pos, relative),
+            "get_motion: user_target_pos=%g, relative=%r" % (user_target_pos, relative),
         )
         dial_initial_pos = self.dial
         hw_pos = self._hw_position
@@ -1445,10 +1476,6 @@ class Axis:
             user_target_pos += user_initial_pos
 
         motion = self._get_motion(user_target_pos)
-        self.__execute_pre_move_hook(motion)
-
-        if not trajectory:
-            self.__controller.prepare_move(motion)
 
         self._set_position = user_target_pos
 
@@ -1514,9 +1541,12 @@ class Axis:
             if self.is_moving:
                 raise RuntimeError("axis %s state is %r" % (self.name, "MOVING"))
 
-            motion = self.prepare_move(user_target_pos, relative)
+            motion = self.get_motion(user_target_pos, relative)
             if motion is None:
                 return
+
+            def prepare_one(controller, motions):
+                controller.prepare_move(motions[0])
 
             def start_one(controller, motions):
                 controller.start_one(motions[0])
@@ -1527,6 +1557,7 @@ class Axis:
             self._group_move = GroupMove()
             self._group_move.move(
                 {self.controller: [motion]},
+                prepare_one,
                 start_one,
                 stop_one,
                 wait=False,
@@ -1592,8 +1623,6 @@ class Axis:
                 # don't do backlash correction
                 motion.backlash = 0
 
-            self.__execute_pre_move_hook(motion)
-
             def start_jog(controller, motions):
                 motions[0].axis.velocity = abs(velocity)
                 controller.start_jog(motions[0].axis, abs(velocity_in_steps), direction)
@@ -1605,6 +1634,7 @@ class Axis:
             self._group_move = GroupMove()
             self._group_move.move(
                 {self.controller: [motion]},
+                None,  # no prepare
                 start_jog,
                 stop_one,
                 "_jog_move",
@@ -1712,7 +1742,6 @@ class Axis:
             motion = Motion(
                 self, switch, None, "homing", user_target_pos=f"home switch: {switch}"
             )
-            self.__execute_pre_move_hook(motion)
 
             def start_one(controller, motions):
                 controller.home_search(motions[0].axis, motions[0].target_pos)
@@ -1723,6 +1752,7 @@ class Axis:
             self._group_move = GroupMove()
             self._group_move.move(
                 {self.controller: [motion]},
+                None,  # no prepare
                 start_one,
                 stop_one,
                 "_wait_home",
@@ -1757,7 +1787,6 @@ class Axis:
                 "limit_search",
                 user_target_pos="lim+" if limit > 0 else "lim-",
             )
-            self.__execute_pre_move_hook(motion)
 
             def start_one(controller, motions):
                 controller.limit_search(motions[0].axis, motions[0].target_pos)
@@ -1768,6 +1797,7 @@ class Axis:
             self._group_move = GroupMove()
             self._group_move.move(
                 {self.controller: [motion]},
+                None,  # no prepare
                 start_one,
                 stop_one,
                 "_wait_limit_search",
@@ -2176,11 +2206,11 @@ class ModuloAxis(Axis):
         super(ModuloAxis, self.__class__).dial.fset(self, value)
         return self.dial
 
-    def prepare_move(self, user_target_pos, *args, **kwargs):
+    def get_motion(self, user_target_pos, *args, **kwargs):
         user_target_pos = self.__calc_modulo(user_target_pos)
         self._in_prepare_move = True
         try:
-            return Axis.prepare_move(self, user_target_pos, *args, **kwargs)
+            return Axis.get_motion(self, user_target_pos, *args, **kwargs)
         finally:
             self._in_prepare_move = False
 

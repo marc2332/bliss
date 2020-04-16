@@ -851,7 +851,7 @@ def test_object_methode_signatures_and_docstr(m0):
 
 
 def test_user_msg(roby):
-    motion_obj = roby.prepare_move(1)
+    motion_obj = roby.get_motion(1)
     assert motion_obj.user_msg == "Moving roby from 0 to 1"
 
     class CancelMove(Exception):

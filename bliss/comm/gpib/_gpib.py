@@ -244,6 +244,7 @@ class TangoDeviceServer:
         log_debug(self, "TangoDeviceServer::init()")
         if self._proxy is None:
             self._proxy = DeviceProxy(self._tango_url)
+            global_map.register(self, children_list=[self._proxy])
 
     def close(self):
         self._proxy = None

@@ -111,7 +111,7 @@ class TangoCounterController(SamplingCounterController):
         self._proxy = proxy
         self._attributes_config = None
         if global_map_register:
-            global_map.register(self, tag=self.name)
+            global_map.register(self, tag=self.name, children_list=[proxy])
 
     def read_all(self, *counters):
         """

@@ -103,6 +103,7 @@ class esrf_hexapode(Controller):
 
         # Get a proxy on Hexapode Tango DS.
         self.device = DeviceProxy(self.tango_name)
+        global_map.register(self, children_list=[self.device])
 
         self.roles = {}
         self.roles["tx"] = 0

@@ -11,7 +11,8 @@ import logging
 from functools import wraps
 
 # tango imports
-import tango
+from bliss.common import tango
+from bliss.common.tango import DeviceProxy
 from tango import GreenMode
 from tango import DebugIt
 from tango.server import run
@@ -85,9 +86,9 @@ class NanoBpmServo(Device):
                 self.NanoBPM, green_mode=GreenMode.Gevent, wait=True, timeout=True
             )
             if self.XController is not None:
-                self._xcontrolProxy = tango.DeviceProxy(self.XController)
+                self._xcontrolProxy = DeviceProxy(self.XController)
             if self.YController is not None:
-                self._ycontrolProxy = tango.DeviceProxy(self.YController)
+                self._ycontrolProxy = DeviceProxy(self.YController)
             global_map.register(
                 self,
                 children_list=[

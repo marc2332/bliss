@@ -65,7 +65,7 @@ def peak2(x: numpy.ndarray, y: numpy.ndarray) -> typing.Tuple[float, float]:
     return Peak(x[index], y[index])
 
 
-def com(x: numpy.ndarray, y: numpy.ndarray) -> float:
+def com(x: numpy.ndarray, y: numpy.ndarray, shift_y=True) -> float:
     """Returns the location of the center of the mass.
 
     The algorithm was designed to be fast. It is not using any fit function.
@@ -73,6 +73,9 @@ def com(x: numpy.ndarray, y: numpy.ndarray) -> float:
     Args:
         x: A numpy array of the X locations
         y: A numpy array of the Y locations
+        shift_y: shift y values so that they are positiv to
+                          make sure the com also works for signals
+                          with `negative` mass 
     """
     if x.shape != y.shape:
         raise TypeError("x and y arrays do not have the same size.")
@@ -84,12 +87,11 @@ def com(x: numpy.ndarray, y: numpy.ndarray) -> float:
         _logger.warning("Input data is empty")
         return numpy.nan
 
-    sum_y = numpy.sum(y)
-    if sum_y == 0:
-        # Return the center of the curve
-        return (x[0] + x[-1]) * 0.5
+    if shift_y:
+        miny = numpy.min(y)
+        y = y - miny
 
-    return numpy.sum(x * y) / sum_y
+    return numpy.sum(x * y) / numpy.sum(y)
 
 
 def cen(x: numpy.ndarray, y: numpy.ndarray) -> typing.Tuple[float, float]:

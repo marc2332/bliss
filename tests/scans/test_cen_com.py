@@ -12,6 +12,7 @@ from bliss.shell.standard import plotselect, plotinit, cen, com, peak, fwhm
 from bliss.scanning.scan import ScanDisplay
 from bliss.scanning import scan_tools
 from bliss.common import plot
+from bliss.controllers.simulation_counter import TestCounterAndAxis
 
 
 def test_pkcom_ascan_gauss(session):
@@ -296,3 +297,11 @@ def test_goto(session):
         goto_cen(roby)  # first arg should be a counter
     with pytest.raises(TypeError):
         goto_cen("countername")
+
+
+def test_com_with_neg_y(default_session):
+    tca = TestCounterAndAxis()
+    tca.signal = "sawtooth"
+    s = scans.ascan(tca.axis, 0, 1, tca.npoints, .01, tca.counter)
+    com = s.com(tca.counter, axis=tca.axis)
+    assert pytest.approx(com, abs=.0001) == 0.5987

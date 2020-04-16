@@ -1,23 +1,34 @@
-Those objects describe the behavior you need in a scan of basic device
-(axis, counters...) in therm of triggering and data flow. Those objects
-can be:
+Acquisition Master and Slave are used to describe the behaviors requiered in a
+scan of basic devices (axis, counters...) in term of triggering and data flow.
 
-* `master` means that can trigger other device
-* `device` any data producer device
+* `master` means that the device can trigger other devices
+* `device` concern any data producer device
 
 ## Master
 
+An Acquisition master can be a **motor** or a **lima device**.
+
 ### motors
 
-The exhaustive list of *motor master* are available in
+* [`MotorMaster`](scan_engine_acquisition_master_and_devices.md#motormaster): basic scan of one motor
+* [`SoftwarePositionTriggerMaster`](scan_engine_acquisition_master_and_devices.md#softwarepositiontriggermaster): triggers slaves at each step
+* [`JogMotorMaster`](scan_engine_acquisition_master_and_devices.md#jogmotormaster): drives motor in velocity
+* [`MeshStepTriggerMaster`](scan_engine_acquisition_master_and_devices.md#meshsteptriggermaster): for 2 to n dimensions mesh
+* [`LinearStepTriggerMaster`](scan_engine_acquisition_master_and_devices.md#linearsteptriggermaster): linear scan for n motors (aNscan)
+* [`VariableStepTriggerMaster`](scan_engine_acquisition_master_and_devices.md#variablesteptriggermaster): generic master for arbitrary step by step acquisition
+* [`CalcAxisTrajectoryMaster`](scan_engine_acquisition_master_and_devices.md#calcaxistrajectorymaster): for trajectory capable motors
+* [`MeshTrajectoryMaster`](scan_engine_acquisition_master_and_devices.md#meshtrajectorymaster): for mesh using 2D trajectory-programmed controllers
+* [`SweepMotorMaster`](scan_engine_acquisition_master_and_devices.md#sweepmotormaster): to deal with high dead time detectors
+
+
+The exhaustive list of *motor master* objects is available in
 `bliss.scanning.acquisition.motor`
 
 #### MotorMaster
 
-
 ```python
 from bliss.scanning.acquisition.motor import MotorMaster
-master = MotorMaster(axis, # axis you want to drive
+master = MotorMaster(axis, # axis to drive
                      start,
                      end,
                      time=0,
@@ -36,8 +47,9 @@ the acceleration of the motor.
 * `undershoot_start_margin` and `undershoot_end_margin` can be
 added to the calculated **undershoot**.
 
-* `backnforth` option will do every even motions in one direction and
-  odd motions in the other direction.
+* `backnforth` option will do every **even** motions in one direction and
+  **odd** motions in the other direction. This is useful to optimize mapping
+  scans.
 
 ![motor_master](img/motor_master.png)
 
@@ -101,35 +113,36 @@ master = JogMotorMaster(axis,
 
 Control from 2 to n motors to drive them during a mesh step scan.
 This master will build a position *grid* for all axis.
-Arguments passed to this object is a list of:
-**axis**,**start_position**,**end_position**,**nb_points**.
 
-i.e: a 2D mesh can be written as follow:
+Arguments passed to this object is a list of:  
+`axis`, `start_position`, `end_position`, `nb_points`.
 
+
+A 2D mesh can be written as follow:
 ```python
 from bliss.scanning.acquisition.motor import MeshStepTriggerMaster
-master = MeshStepTriggerMaster(axis1,0,1,5,
-                               axis2,-1,1,10)
+master = MeshStepTriggerMaster(axis1,  0, 1, 5,  # fast axis
+                               axis2, -1, 1, 10) # slowaxis
 ```
 
-In this example **axis1** will be the fast axis => it will move on any
-step. **axis1** will be move every 5 steps...
-In short **axis1** is the column axis and **axis2** is the line axis.
+In this example `axis1` will be the fast axis => it will move on any
+step.  
+`axis2` will be move every 5 steps.  
+In short, `axis1` is the columns axis and `axis2` is the lines axis.
 
 for a 3D mesh:
-
 ```python
 from bliss.scanning.acquisition.motor import MeshStepTriggerMaster
-master = MeshStepTriggerMaster(axis1,0,1,5, # fast axis
-                               axis2,-1,1,10,
-                               axis3,-2,2,20) # slowest axis
+master = MeshStepTriggerMaster(axis1,  0, 1, 5,  # fast axis
+                               axis2, -1, 1, 10,
+                               axis3, -2, 2, 20) # slowest axis
 ```
 
 **backnforth** can be activated to do a *snake style* mesh. i.e: in a
 case of 2D mesh odd lines are scanned in one direction and even are
 scanned in the other direction.
 
-####LinearStepTriggerMaster
+#### LinearStepTriggerMaster
 
 Drive axis across a n dimensional line like `anscan` command. Argument of the master are:
 
@@ -146,7 +159,7 @@ master = LinearStepTriggerMaster(nb_points,
                                  axis2,-1,1)
 ```
 
-####VariableStepTriggerMaster
+#### VariableStepTriggerMaster
 
 Generic motor master for arbitrary step by step acquisition.
 Positions are provided via a iterable object like list, numpy array...
@@ -170,7 +183,7 @@ master = VariableStepTriggerMaster(X, x_positions,
                                    Y, y_positions)
 ```
 
-####CalcAxisTrajectoryMaster
+#### CalcAxisTrajectoryMaster
 
 When real axis of a calculation axis have a motor controller with trajectory
 capable, you can use this master to automatically calculate trajectory
@@ -190,7 +203,7 @@ master = CalcAxisTrajectoryMaster(calc_axis,
     **nb_points** define the sampling for the final trajectory. This will determine it's **precision**.
     It will be the number of points loaded into the motor controller.
 
-####MeshTrajectoryMaster
+#### MeshTrajectoryMaster
 
 This master control 2 axis to program a mesh trajectory on a motor controller capabale.
 
@@ -252,7 +265,7 @@ master = SweepMotorMaster(
     for each point (images). Same meaning as `MotorMaster`
     [variables](scan_engine_acquisition_master_and_devices.md#motormaster).
 
-###lima
+### Lima
 
-##Device
+## Device
 

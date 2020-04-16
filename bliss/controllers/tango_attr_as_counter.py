@@ -217,6 +217,7 @@ class tango_attr_as_counter(SamplingCounter):
                 "display_unit '%s' cannot be converted to a float. Using 1 as Conversion factor for counter.",
                 name,
             )
+            self.conversion_factor = 1
 
         # Sampling MODE.
         # MEAN is the default, like all sampling counters

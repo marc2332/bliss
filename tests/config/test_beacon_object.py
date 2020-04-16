@@ -366,3 +366,24 @@ def test_beacon_object_within_lima(default_session, lima_simulator):
     assert lima_simulator._image_params.flip == [True, True]
 
     lima_simulator._image_params.flip = [False, False]
+
+
+class Ctrl12(BeaconObject):
+    speed = BeaconObject.property_setting("speed", default=0)
+
+    @speed.setter
+    def speed(self, value):
+        return value
+
+
+def test_BeaconObject_property_setting_setter(beacon):
+    cfg = beacon.get("hello_ctrl")
+    ctrl = Ctrl12(cfg, path=["something", "something_else"], share_hardware=False)
+    ctrl.speed = 11
+    assert ctrl.speed == 11
+
+
+def test_beacon_object_within_lima2(default_session, lima_simulator):
+    lima_simulator = default_session.config.get("lima_simulator")
+    lima_simulator._image_params.rotation = "90"
+    assert lima_simulator._image_params.rotation == "90"

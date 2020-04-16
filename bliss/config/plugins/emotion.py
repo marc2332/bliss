@@ -13,6 +13,7 @@ import enum
 
 from bliss.common import axis as axis_module
 from bliss.common.axis import Axis
+from bliss.common import encoder as encoder_module
 from bliss.common.encoder import Encoder
 from bliss.config.static import Config
 from bliss.common.tango import DeviceProxy
@@ -367,7 +368,15 @@ def create_objects_from_config_node(config, node):
                     try:
                         object_class = getattr(controller_module, object_class_name)
                     except AttributeError:
-                        object_class = getattr(axis_module, object_class_name)
+                        default_module = {
+                            OBJECT_TYPE.AXIS: axis_module,
+                            OBJECT_TYPE.ENCODER: encoder_module,
+                        }
+                        module = default_module.get(object_type)
+                        if module is not None:
+                            object_class = getattr(module, object_class_name)
+                        else:
+                            raise
             objects[object_name] = object_class, config_dict
 
     controller = controller_class(

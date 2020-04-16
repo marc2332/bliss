@@ -1185,8 +1185,9 @@ class Scan:
             ]
             try:
                 gevent.joinall(apply_parameters_tasks, raise_error=True)
-            finally:
+            except:
                 gevent.killall(apply_parameters_tasks)
+                raise
             # -----
 
             self.__state = ScanState.PREPARING
@@ -1199,8 +1200,9 @@ class Scan:
                 ]
                 try:
                     gevent.joinall(prepare_tasks, raise_error=True)
-                finally:
+                except:
                     gevent.killall(prepare_tasks)
+                    raise
             for dev in self.acq_chain.nodes_list:
                 with KillMask(masked_kill_nb=1):
                     tmp = dev.fill_meta_at_scan_start(self.user_scan_meta)
@@ -1453,5 +1455,6 @@ class Scan:
         ]
         try:
             gevent.joinall(preset_tasks, raise_error=True)
-        finally:
+        except:
             gevent.killall(preset_tasks)
+            raise

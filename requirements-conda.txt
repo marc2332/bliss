@@ -31,6 +31,7 @@ python >= 3.7
 pyyaml >= 5.1
 redis >= 5.0
 redis-py >= 3.3.7
+hiredis
 requests
 simple-pid
 sqlalchemy

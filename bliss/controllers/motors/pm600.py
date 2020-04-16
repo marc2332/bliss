@@ -2,10 +2,11 @@
 #
 # This file is part of the bliss project
 #
-# Copyright (c) 2015-2020 Beamline Control Unit, ESRF
+# Copyright (c) 2015-2019 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import time
+import gevent
 
 from warnings import warn
 from bliss.controllers.motor import Controller
@@ -49,7 +50,7 @@ class PM600(Controller):
         answer = "\n" + first_line[idx + 1 :]
         for i in range(1, nlines):
             answer = answer + "\n" + reply_list[i].decode()
-        return answer
+        return answer + "\n"
 
     def initialize(self):
         try:
@@ -112,7 +113,6 @@ class PM600(Controller):
         axis.encoder_ratio_denominator = axis.config.get(
             "encoder_ratio_denominator", int, default=1
         )
-        """
         # Set velocity feedforward on axis
         self.io_command("KF", axis.channel, axis.kf)
         # Set the proportional gain on axis
@@ -124,6 +124,7 @@ class PM600(Controller):
         # Set the Extra Velocity feedback on axis
         self.io_command("KX", axis.channel, axis.kx)
         # Set slew rate of axis (steps/sec)
+        """
         self.io_command("SV", axis.channel, int(axis.slewrate))
         # Set acceleration of axis (steps/sec/sec)
         self.io_command("SA", axis.channel, int(axis.accel))
@@ -263,14 +264,16 @@ class PM600(Controller):
         pass
 
     def start_one(self, motion):
-        reply = self.io_command("MA", motion.axis.channel, motion.target_pos)
+        reply = self.io_command("MA", motion.axis.channel, int(motion.target_pos))
         if reply != "OK":
             log_error(self, "PM600 Error: Unexpected response to move absolute" + reply)
 
     def stop(self, motion):
-        reply = self.io_command("ST", motion.axis.channel)
-        if reply != "OK":
-            log_error(self, "PM600 Error: Unexpected response to stop" + reply)
+        status = self.status(motion.axis)
+        if status[0:1] == "0":
+            reply = self.io_command("ST", motion.axis.channel)
+            if reply != "OK":
+                log_error(self, "PM600 Error: Unexpected response to stop" + reply)
 
     def start_all(self, *motion_list):
         for motion in motion_list:
@@ -471,37 +474,49 @@ class PM600(Controller):
             # PROFILE: commands allowed are MR, and DP/EP
 
             prog.append("DP{0}".format(prf_num))
+
             for p in mr:
                 prog.append("MR{0}".format(p))
+
             prog.append("EP{0}".format(prf_num))
+
+            # TODO profile_mr_list and sequence_dict must go to redis
+            self.profile_mr_list = mr
 
             # SEQUENCE: all commands allowed, and DS/ES
 
             prog.append("DS{0}".format(seq_num))
+            self.sequence_dict = {}
 
             # 1PTxx time to complete each element in a profile definition (unit is ms)
             prog.append("PT{0}".format(tstep * 1000))
+            self.sequence_dict["PT"] = tstep * 1000
 
             for cmd in pre_xp:
                 prog.append("{0}".format(cmd))
+                self.sequence_dict[cmd[0:2]] = cmd[2:]
 
             # 1XPO execute profile
             prog.append("XP{0}".format(prf_num))
+            self.sequence_dict["XP"] = prf_num
 
             for cmd in post_xp:
                 prog.append("{0}".format(cmd))
+                self.sequence_dict[cmd[0:2]] = cmd[2:]
 
             # 1ES2 end of seq def
             prog.append("ES{0}".format(seq_num))
 
             log_debug(self, "program ready to be loaded: {0}".format(prog))
 
-            # TODO define some cleanup procedure ?
+            # TODO define some clean[up procedure ?
             # Control-C or escape is supposed to return to idle state ...
 
             self.sock.flush()
             for cmd in prog:
                 self.raw_write_read(channel + cmd + "\r")
+
+            gevent.sleep(1)
 
     def move_to_trajectory(self, *trajectories):
         motions = [Motion(t.axis, t.pvt["position"][0], 0) for t in trajectories]
@@ -509,7 +524,7 @@ class PM600(Controller):
 
     def start_trajectory(self, *trajectories):
         for t in trajectories:
-            self.raw_write_read(
+            self.raw_write(
                 "{0}XS{1}\r".format(t.axis.channel, t.axis.trajectory_sequence_number)
             )
 

@@ -5,14 +5,16 @@ import time
 import numpy
 import gevent
 
+from bliss.common import event
+
 from .base import BaseMCA, PresetMode, TriggerMode, Stats, Brand, DetectorType
 
 
 class SimulatedMCA(BaseMCA):
 
     _init_time = 1.
-    _prepare_time = 0.1
-    _cleanup_time = 0.1
+    _prepare_time = 1e-3
+    _cleanup_time = 1e-3
     _gate_end = 0.5
     _mapping_modulo = 2
 
@@ -128,6 +130,18 @@ class SimulatedMCA(BaseMCA):
             self._stats_buffer = {}
         self._running = True
 
+    def trigger(self):
+        try:
+            if not self._running:
+                self.start_acquisition()
+            while self.is_acquiring():
+                gevent.sleep(10e-3)
+        finally:
+            self.stop_acquisition()
+            spectrums = self.get_acquisition_data()
+            statistics = self.get_acquisition_statistics()
+            event.send(self, "data", (spectrums, statistics))
+
     def stop_acquisition(self):
         if self._running:
             self._delta = time.time() - self._t0
@@ -157,33 +171,6 @@ class SimulatedMCA(BaseMCA):
 
     def get_acquisition_statistics(self):
         return self._current_stats
-
-    def poll_data(self):
-        # Update
-        self._count += 1
-        current = self._count // self._mapping_modulo
-        # Realtime
-        if self._trigger_mode == TriggerMode.SYNC:
-            delta = 0.2 * self._mapping_modulo
-        else:
-            delta = self._gate_end
-        # Flags
-        new_pixel = self._count % self._mapping_modulo != 0
-        full_buffer = current and current % self.block_size == 0
-        finished = current == self.hardware_points
-        # A new pixel has been generated
-        if current > 0 and new_pixel:
-            a, b = self._generate_pixel(delta)
-            self._data_buffer[current - 1] = a
-            self._stats_buffer[current - 1] = b
-        # Available data
-        if new_pixel and (full_buffer or finished):
-            a, b = self._data_buffer, self._stats_buffer
-            self._data_buffer = {}
-            self._stats_buffer = {}
-            return current, a, b
-        # Nothing to return yet
-        return current, {}, {}
 
     # Data generation
 

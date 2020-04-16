@@ -415,8 +415,13 @@ class Icepap(Controller):
 
     @object_method(types_info=("None", "float"), filter=_object_method_filter)
     def home_found_dial(self, axis):
-        home_step = int(_command(self._cnx, f"{axis.address}:?HOMEPOS MEASURE"))
-        return home_step / axis.steps_per_unit
+        if axis.config.get("read_position", str, "controller") == "encoder":
+            enctype = axis.encoder.config.get("type", str, "ENCIN").upper()
+            home_step = int(_command(self._cnx, f"{axis.address}:?HOMEPOS {enctype}"))
+            return home_step / axis.encoder.steps_per_unit
+        else:
+            home_step = int(_command(self._cnx, f"{axis.address}:?HOMEPOS MEASURE"))
+            return home_step / axis.steps_per_unit
 
     @object_method(types_info=("None", "str"), filter=_object_method_filter)
     def home_source(self, axis):

@@ -38,6 +38,7 @@ from bliss.config.channels import Channel
 from bliss.common.logtools import log_debug, lprint, lprint_disable
 from bliss.common.utils import rounder
 
+import enum
 import gevent
 import re
 import sys
@@ -76,7 +77,7 @@ class GroupMove:
         stop_motion,
         move_func=None,
         wait=True,
-        polling_time=DEFAULT_POLLING_TIME,
+        polling_time=None,
     ):
         self._motions_dict = motions_dict
         self._stop_motion = stop_motion
@@ -131,8 +132,11 @@ class GroupMove:
             for motion in motions:
                 if move_func is None:
                     move_func = "_handle_move"
+                axis_polling_time = (
+                    motion.axis._polling_time if polling_time is None else polling_time
+                )
                 task = gevent.spawn(
-                    getattr(motion.axis, move_func), motion, polling_time
+                    getattr(motion.axis, move_func), motion, axis_polling_time
                 )
                 monitor_move[motion] = task
         try:
@@ -183,9 +187,17 @@ class GroupMove:
                         motion.target_pos + motion.backlash,
                         motion.backlash,
                     )
+                    axis_polling_time = (
+                        motion.axis._polling_time
+                        if polling_time is None
+                        else polling_time
+                    )
+
                     backlash_move.append(
                         gevent.spawn(
-                            motion.axis._backlash_move, backlash_motion, polling_time
+                            motion.axis._backlash_move,
+                            backlash_motion,
+                            axis_polling_time,
                         )
                     )
         gevent.joinall(backlash_move)
@@ -542,6 +554,8 @@ class Axis:
     documentation above for an example)
     """
 
+    READ_POSITION_MODE = enum.Enum("Axis.READ_POSITION_MODE", "CONTROLLER ENCODER")
+
     def __init__(self, name, controller, config):
         self.__name = name
         self.__controller = controller
@@ -555,6 +569,8 @@ class Axis:
             hook._add_axis(self)
             self.__motion_hooks.append(hook)
         self.__encoder = config.get("encoder")
+        if self.__encoder is not None:
+            self.__encoder.axis = self
         self.__config = StaticConfig(config)
         self.__init_config_properties()
         self._group_move = GroupMove()
@@ -581,6 +597,7 @@ class Axis:
         for settings_name in disabled_cache:
             self.settings.disable_cache(settings_name)
         self._unit = self.config.get("unit", str, None)
+        self._polling_time = config.get("polling_time", DEFAULT_POLLING_TIME)
         global_map.register(self, parents_list=["axes", controller])
 
     def __close__(self):
@@ -828,12 +845,15 @@ class Axis:
         user_pos = self.position
         old_dial = self.dial
 
-        # Send the new value in motor units to the controller
-        # and read back the (atomically) reported position
-        new_hw = new_dial * self.steps_per_unit
-        hw_pos = self.__controller.set_position(self, new_hw)
-
-        dial_pos = hw_pos / self.steps_per_unit
+        # Set the new dial on the encoder
+        if self._read_position_mode == self.READ_POSITION_MODE.ENCODER:
+            dial_pos = self.encoder.set(new_dial)
+        else:
+            # Send the new value in motor units to the controller
+            # and read back the (atomically) reported position
+            new_hw = new_dial * self.steps_per_unit
+            hw_pos = self.__controller.set_position(self, new_hw)
+            dial_pos = hw_pos / self.steps_per_unit
         self.settings.set("dial_position", dial_pos)
 
         if self.no_offset:
@@ -938,6 +958,9 @@ class Axis:
     @property
     @lazy_init
     def _hw_position(self):
+        if self._read_position_mode == self.READ_POSITION_MODE.ENCODER:
+            return self.dial_measured_position
+
         try:
             curr_pos = self.__controller.read_position(self) / self.steps_per_unit
         except NotImplementedError:
@@ -1273,6 +1296,13 @@ class Axis:
         hl_dial = self.__config_high_limit
         return tuple(map(self.dial2user, (ll_dial, hl_dial)))
 
+    @property
+    def _read_position_mode(self):
+        if self.config.get("read_position", str, "controller") == "encoder":
+            return self.READ_POSITION_MODE.ENCODER
+        else:
+            return self.READ_POSITION_MODE.CONTROLLER
+
     def _update_settings(self, state):
         self.settings.set("state", state)
         self._update_dial()
@@ -1329,8 +1359,9 @@ class Axis:
 
     def _get_motion(self, user_target_pos):
         dial_target_pos = self.user2dial(user_target_pos)
+        dial = self.dial
         target_pos = dial_target_pos * self.steps_per_unit
-        delta = target_pos - self.dial * self.steps_per_unit
+        delta = target_pos - dial * self.steps_per_unit
         if abs(delta) < self.controller.steps_position_precision(self):
             delta = 0.0
         backlash = self.backlash / self.sign * self.steps_per_unit
@@ -1368,7 +1399,11 @@ class Axis:
                 high_limit_msg
                 % (self.name, user_target_pos, backlash_str, user_high_limit)
             )
-
+        if self._read_position_mode == self.READ_POSITION_MODE.ENCODER:
+            controller_position = self.__controller.read_position(self)
+            enc_position = dial * self.steps_per_unit
+            delta_pos = controller_position - enc_position
+            target_pos += delta_pos
         motion = Motion(self, target_pos, delta, user_target_pos=user_target_pos)
         motion.backlash = backlash
 
@@ -1388,8 +1423,17 @@ class Axis:
         )
         dial_initial_pos = self.dial
         hw_pos = self._hw_position
-
-        if abs(dial_initial_pos - hw_pos) > self.tolerance:
+        read_encoder_position = (
+            self._read_position_mode == self.READ_POSITION_MODE.ENCODER
+        )
+        check_encoder = (
+            self.config.get("check_encoder", bool, self.encoder) and self.encoder
+        )
+        dont_check_discrepancy = read_encoder_position and not check_encoder
+        if (
+            not dont_check_discrepancy
+            and abs(dial_initial_pos - hw_pos) > self.tolerance
+        ):
             raise RuntimeError(
                 "%s: discrepancy between dial (%f) and controller position (%f), aborting"
                 % (self.name, dial_initial_pos, hw_pos)
@@ -1440,13 +1484,7 @@ class Axis:
             )
 
     @lazy_init
-    def move(
-        self,
-        user_target_pos,
-        wait=True,
-        relative=False,
-        polling_time=DEFAULT_POLLING_TIME,
-    ):
+    def move(self, user_target_pos, wait=True, relative=False, polling_time=None):
         """
         Move axis to the given absolute/relative position
 
@@ -1502,7 +1540,7 @@ class Axis:
         state = self._move_loop(polling_time)
 
         # after the move
-        if self.config.get("check_encoder", bool, False) and self.encoder:
+        if self.config.get("check_encoder", bool, self.encoder) and self.encoder:
             self._do_encoder_reading()
 
         return state
@@ -1523,7 +1561,7 @@ class Axis:
             )
 
     @lazy_init
-    def jog(self, velocity, reset_position=None, polling_time=DEFAULT_POLLING_TIME):
+    def jog(self, velocity, reset_position=None, polling_time=None):
         """
         Start to move axis at constant velocity
 
@@ -1590,7 +1628,7 @@ class Axis:
         elif callable(reset_position):
             reset_position(self)
 
-    def rmove(self, user_delta_pos, wait=True, polling_time=DEFAULT_POLLING_TIME):
+    def rmove(self, user_delta_pos, wait=True, polling_time=None):
         """
         Move axis to the given relative position.
 
@@ -1621,12 +1659,7 @@ class Axis:
                     self.__move_done_callback.wait()
                     raise
 
-    def _move_loop(
-        self,
-        polling_time=DEFAULT_POLLING_TIME,
-        ctrl_state_funct="state",
-        limit_error=True,
-    ):
+    def _move_loop(self, polling_time=None, ctrl_state_funct="state", limit_error=True):
         state_funct = getattr(self.__controller, ctrl_state_funct)
         while True:
             state = state_funct(self)
@@ -1664,7 +1697,7 @@ class Axis:
                 self.stop()
 
     @lazy_init
-    def home(self, switch=1, wait=True, polling_time=DEFAULT_POLLING_TIME):
+    def home(self, switch=1, wait=True, polling_time=None):
         """
         Searches the home switch
 
@@ -1699,11 +1732,11 @@ class Axis:
         if wait:
             self.wait_move()
 
-    def _wait_home(self, *args):
-        return self._move_loop(ctrl_state_funct="home_state")
+    def _wait_home(self, motion, polling_time):
+        return self._move_loop(polling_time, ctrl_state_funct="home_state")
 
     @lazy_init
-    def hw_limit(self, limit, wait=True, polling_time=DEFAULT_POLLING_TIME):
+    def hw_limit(self, limit, wait=True, polling_time=None):
         """
         Go to a hardware limit
 
@@ -1745,8 +1778,8 @@ class Axis:
         if wait:
             self.wait_move()
 
-    def _wait_limit_search(self, *args):
-        return self._move_loop(limit_error=False)
+    def _wait_limit_search(self, motion, polling_time):
+        return self._move_loop(polling_time, limit_error=False)
 
     def settings_to_config(
         self, velocity=True, acceleration=True, limits=True, sign=True, backlash=True

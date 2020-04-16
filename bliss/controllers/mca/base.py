@@ -300,6 +300,15 @@ class BaseMCA(CounterController):
     def start_acquisition(self):
         raise NotImplementedError
 
+    def start_hardware_reading(self):
+        pass
+
+    def wait_hardware_reading(self):
+        pass
+
+    def trigger(self):
+        raise NotImplementedError
+
     def stop_acquisition(self):
         raise NotImplementedError
 
@@ -309,8 +318,14 @@ class BaseMCA(CounterController):
     def get_acquisition_data(self):
         raise NotImplementedError
 
+    def _convert_spectrums(self, spectrums):
+        return spectrums
+
     def get_acquisition_statistics(self):
         raise NotImplementedError
+
+    def _convert_statistics(self, stats):
+        return stats
 
     def poll_data(self):
         raise NotImplementedError

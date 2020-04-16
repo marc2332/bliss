@@ -131,6 +131,7 @@ nav:
                 - Typing helper: shell_typing_helper.md
                 - Logging: shell_logging.md
                 - Dialogs: shell_dialogs.md
+                - Object protection: shell_obj_protection.md
         - BLISS library: bliss_as_library.md
         - Motion:
                 - Axis: motion_axis.md
@@ -143,7 +144,7 @@ nav:
                 - Default scans: scan_default.md
                 - Alignment: scan_alignment.md
                 - Counters on the fly: scan_ctmg.md
-                - BLISS scan engine explained:
+                - BLISS scan engine:
                     - Overview: scan_engine.md
                     - Scan: scan_engine_scan.md
                     - Acquisition chain: scan_engine_acquisition_chain.md

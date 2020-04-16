@@ -59,6 +59,9 @@ class Roi:
         ymax = max(y0, y1)
         return cls(xmin, ymin, xmax - xmin, ymax - ymin, name=name)
 
+    def to_array(self):
+        return numpy.array([self.x, self.y, self.width, self.height])
+
 
 class RoiStat(enum.IntEnum):
     Id = 0

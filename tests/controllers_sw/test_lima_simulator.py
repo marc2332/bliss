@@ -645,7 +645,7 @@ def test_image_param_sync(beacon, default_session, lima_simulator):
 
     # do one initial scan to set all caches and tango properties
     loopscan(1, 0.1, simulator, save=False)
-    assert list(simulator.image.roi.to_dict().values()) == [0, 0, 0, 0]
+    assert list(simulator.image.roi.to_array()) == [0, 0, 1024, 1024]
     assert simulator.image.flip == [False, False]
     assert simulator.image.rotation == "90"
     assert simulator.image.bin == [1, 1]
@@ -656,7 +656,7 @@ def test_image_param_sync(beacon, default_session, lima_simulator):
     simulator.proxy.image_rotation = "180"
 
     assert simulator.image.bin == [1, 1]
-    assert list(simulator.image.roi.to_dict().values()) == [0, 0, 0, 0]
+    assert list(simulator.image.roi.to_array()) == [0, 0, 1024, 1024]
     assert simulator.image.flip == [False, False]
     assert simulator.image.rotation == "90"
 

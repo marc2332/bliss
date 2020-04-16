@@ -519,6 +519,8 @@ class Stream(object):
         self._pepu = weakref.ref(pepu)
         self.info = info
 
+        self.stop_flag = False
+
     @property
     def pepu(self):
         return self._pepu()
@@ -543,10 +545,12 @@ class Stream(object):
         )
 
     def start(self):
+        self.stop_flag = False
         self._buffer = []
         return self.pepu.raw_write_read(self._cmd("APPLY"))
 
     def stop(self):
+        self.stop_flag = True
         return self.pepu.raw_write_read(self._cmd("STOP"))
 
     def flush(self):
@@ -568,6 +572,8 @@ class Stream(object):
         if n is None:
             n = self.nb_points
         while n > 0:
+            if self.stop_flag:
+                raise StopIteration
             data = self.read()
             n -= data.shape[0]
             yield data

@@ -3,8 +3,9 @@
 * opening/closing of a shutter
 * detector cover removing/replacing
 * [multiplexer](config_opiom.md#multiplexer)
-* scan pause
-* etc.
+* pause during a scan
+* equipment protection (via data channels hook, see below)
+* ...
 
 A preset is a *hook* in a scan iteration. This hook can be set at different
 levels depending on the need.
@@ -53,6 +54,47 @@ Took 0:00:09.830967
 loopscan scan is stopped
 Closing the shutter
 ```
+
+### Data channels hook
+
+The `ScanPreset` has a `connect_data_channels` method, to execute a callback
+when data is emitted from channels.
+
+It is useful in order to protect some equipments, for example: if the value
+measured by a diode exceeds some threshold, the scan can stop or some
+attenuators can be activated.
+
+The basic usage is to call the `.connect_data_channels()` method, from the
+`.prepare()` of `ScanPreset`. Arguments are:
+
+* the list of counters to connect data channels to
+* a callback function
+
+Example:
+
+```python
+class MyScanPreset(ScanPreset):
+   def __init__(self, diode):
+       super().__init__()
+
+       self.diode = diode
+
+
+   def prepare(self, scan):
+       self.connect_data_channels([self.diode, ...], self.protect_my_detector)
+
+
+   def protect_my_detector(self, counter, channel_name, data):
+       if counter == diode:
+           # assuming the counter has only 1 channel, no need to
+           # check for channel name
+           if data > threshold:
+               # protect the detector...
+
+```
+
+If an exception is raised in the callback function, the scan will stop.
+
 
 ## ChainPreset
 

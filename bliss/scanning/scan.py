@@ -534,9 +534,26 @@ def _get_masters_and_channels(acq_chain):
 
 
 class ScanPreset:
+    def __init__(self):
+        self.__acq_chain = None
+
+    @property
+    def acq_chain(self):
+        return self.__acq_chain
+
+    def _prepare(self, scan):
+        """
+        Called on the preparation phase of a scan.
+        """
+        self.__acq_chain = scan.acq_chain
+        self.__new_channel_data = {}
+        self.__new_data_callback = None
+        return self.prepare(scan)
+
     def prepare(self, scan):
         """
         Called on the preparation phase of a scan.
+        To be overwritten in user scan presets
         """
         pass
 
@@ -546,11 +563,40 @@ class ScanPreset:
         """
         pass
 
+    def _stop(self, scan):
+        if self.__new_channel_data:
+            for data_chan in self.__new_channel_data.keys():
+                disconnect(data_chan, "new_data", self.__new_channel_data_cb)
+        self.__new_data_callback = None
+        self.__new_channel_data = {}
+        return self.stop(scan)
+
     def stop(self, scan):
         """
         Called at the end of a scan.
         """
         pass
+
+    def __new_channel_data_cb(self, event_dict, sender=None):
+        data = event_dict.get("data")
+        if data is None:
+            return
+        counter = self.__new_channel_data[sender]
+        return self.__new_data_callback(counter, sender.fullname, data)
+
+    def connect_data_channels(self, counters_list, callback):
+        nodes = self.acq_chain.get_node_from_devices(*counters_list)
+        for i, node in enumerate(nodes):
+            try:
+                channels = node.channels
+            except AttributeError:
+                continue
+            else:
+                self.__new_data_callback = callback
+                cnt = counters_list[i]
+                for data_chan in channels:
+                    self.__new_channel_data[data_chan] = cnt
+                    connect(data_chan, "new_data", self.__new_channel_data_cb)
 
 
 class ScanState(enum.IntEnum):
@@ -1147,7 +1193,7 @@ class Scan:
             self.__state = ScanState.PREPARING
             self.__state_change.set()
             with periodic_exec(0.1 if call_on_prepare else 0, set_watch_event):
-                self._execute_preset("prepare")
+                self._execute_preset("_prepare")
                 self.prepare(self.scan_info, self.acq_chain._tree)
                 prepare_tasks = [
                     gevent.spawn(i.prepare, self, self.scan_info) for i in current_iters
@@ -1308,7 +1354,7 @@ class Scan:
                             self._data_watch_task.get()
                         self._data_watch_task.kill()
 
-                self._execute_preset("stop")
+                self._execute_preset("_stop")
 
     def _run_next(self, next_iter):
         next_iter.start()

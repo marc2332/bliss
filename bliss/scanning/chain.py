@@ -1011,6 +1011,39 @@ class AcquisitionChain:
         next(nodes_gen)  # first node is 'root'
         return list(nodes_gen)
 
+    def get_node_from_devices(self, *devices):
+        """
+        Helper method to get AcquisitionMaster/Slave
+        from countroller and/or counter, motor.
+        This will return a list of nodes in the same order
+        as the devices. Node will be None if not found.
+        """
+        from bliss.common.motor_group import _Group
+
+        looking_device = {d: None for d in devices}
+        nb_device = len(devices)
+        for node in self.nodes_list:
+            if isinstance(node.device, _Group):
+                for axis in node.device.axes.values():
+                    if axis in looking_device:
+                        looking_device[axis] = node
+                        nb_device -= 1
+                if not nb_device:
+                    break
+            if node.device in looking_device:
+                looking_device[node.device] = node
+                nb_device -= 1
+                if not nb_device:
+                    break
+            else:
+                for cnt in node._counters:
+                    if cnt in looking_device:
+                        looking_device[cnt] = node
+                        nb_device -= 1
+                if not nb_device:
+                    break
+        return looking_device.values()
+
     def add(self, master, slave=None):
 
         # --- handle ChainNodes --------------------------------------

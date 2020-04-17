@@ -27,7 +27,7 @@ def test_traj_from_calc(s1hg, s1b, s1f, s1u, s1d):
         if traj.axis.name in ("s1u", "s1d"):
             assert not numpy.any(traj.pvt["position"])
         elif traj.axis.name in ("s1f", "s1b"):
-            assert pytest.approx(traj.pvt[:-1]["position"], 2.5)
+            assert pytest.approx(traj.pvt["position"][-2]) == 2.5
         assert len(traj.pvt) == 100 + 2  # include start, final extra points for traj.
 
     assert len(tg.disabled_axes) == 0
@@ -35,8 +35,8 @@ def test_traj_from_calc(s1hg, s1b, s1f, s1u, s1d):
     assert tg.calc_axis == s1hg
 
     s1hg.dial = -1
-    assert pytest.approx(s1f.offset, -0.5)
-    assert pytest.approx(s1b.offset, -0.5)
+    assert pytest.approx(s1f.offset) == -0.5
+    assert pytest.approx(s1b.offset) == -0.5
 
     tg.prepare()
     assert tg._TrajectoryGroup__trajectories_dialunit

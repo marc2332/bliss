@@ -701,8 +701,11 @@ def test_devwritephys(default_session):
         key = wago.controller.devname2key(logical_name)
         data = flatten([key, zip(channels, values)])
         wago.controller.devwritephys(data)
-        assert pytest.approx(wago.controller.devreadnocachephys(key), values)
-        assert pytest.approx(wago.controller.get(logical_name), values)
+        assert (
+            pytest.approx(wago.controller.devreadnocachephys(key), rel=.001)
+            == values[0]
+        )
+        assert pytest.approx(wago.controller.get(logical_name), rel=.001) == values[0]
 
 
 def test_resolve_write():

@@ -122,11 +122,9 @@ def test_multi_top_master(session, diode_acq_device_factory, diode):
 
     scan = Scan(chain, name="multi_master", save=False)
     scan.run()
-    # should be about the same sampling rate
-    # just to test that both top master run in parallel
-    assert pytest.approx(
-        len(diode2.store_values) - len(diode1.store_values),
-        len(diode2.store_values) * 0.1,
+    assert (
+        pytest.approx(len(diode2.store_values) - len(diode1.store_values), abs=5)
+        == len(diode2.store_values) / 2
     )
 
 
@@ -195,6 +193,7 @@ def test_scan_failure(session, diode_acq_device_factory):
     assert len(diode1.store_values) == 0
     assert acquisition_device_1.stop_flag
     assert acquisition_device_2.stop_flag
-    assert pytest.approx(
-        acquisition_device_1.stop_time, acquisition_device_2.stop_time, abs=1e-2
+    assert (
+        pytest.approx(acquisition_device_1.stop_time, abs=1e-2)
+        == acquisition_device_2.stop_time
     )

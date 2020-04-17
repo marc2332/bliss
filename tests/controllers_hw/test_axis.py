@@ -48,7 +48,7 @@ def test_hw_axis_velocity(axis):
 
         test_velocity = start_velocity / 2.0
         axis.velocity = test_velocity
-        assert pytest.approx(axis.velocity, test_velocity)
+        assert pytest.approx(axis.velocity) == test_velocity
         start_time = time.time()
         axis.move(start_position + delta_pos)
         end_time = time.time()

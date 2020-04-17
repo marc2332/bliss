@@ -21,10 +21,10 @@ def test_ascan(session):
     s = scans.ascan(
         robz2, 0, 0.1234567, 2, 0, simul_counter, return_scan=True, save=False
     )
-    assert pytest.approx(robz2.position, 0.1234567)
+    assert pytest.approx(robz2.position, abs=0.0001) == 0.1234567
     # test for issue #1079
     # use tolerance to get axis precision
-    assert pytest.approx(robz2.tolerance, 1e-4)
+    assert pytest.approx(robz2.tolerance) == 1e-4
     assert s.scan_info["title"].startswith("ascan robz2 0 0.1235 ")
     scan_data = s.get_data()
     assert numpy.array_equal(scan_data["sim_ct_gauss"], simul_counter.data)
@@ -48,7 +48,7 @@ def test_dscan(session):
     s = scans.dscan(robz2, -0.2, 0.2, 1, 0, simul_counter, return_scan=True, save=False)
     # test for issues #1080
     # use tolerance to get axis precision
-    assert pytest.approx(robz2.tolerance, 1e-4)
+    assert pytest.approx(robz2.tolerance) == 1e-4
     assert s.scan_info["title"].startswith("dscan robz2 -0.2 0.2")
     #
     assert robz2.position == start_pos

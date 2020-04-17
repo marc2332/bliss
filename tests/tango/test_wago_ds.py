@@ -26,7 +26,7 @@ def test_wago_ds(wago_tango_server):
             len(value1)
             assert all(i == j for i, j in zip(value1, value2))
         except TypeError:
-            assert pytest.approx(value1, value2[0])
+            assert pytest.approx(value1) == value2[0]
 
     # testing writing of values on digital output
     for value in ((True, True), (False, True), (False, False)):

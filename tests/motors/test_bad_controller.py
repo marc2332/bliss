@@ -12,19 +12,6 @@ import math
 from bliss.common.standard import Group
 
 
-@pytest.fixture
-def bad_motor(beacon):
-    bad = beacon.get("bad")
-    bad.controller.bad_start = False
-    bad.controller.bad_state = False
-    bad.controller.bad_state_after_start = False
-    bad.controller.bad_stop = False
-    bad.dial = 0
-    bad.position = 0
-    bad.sync_hard()
-    yield bad
-
-
 def test_bad_start(bad_motor):
     bad_motor.controller.bad_start = True
 

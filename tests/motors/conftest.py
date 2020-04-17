@@ -66,3 +66,17 @@ def calc_mot2(calc_mot1, _calc_mot2):
 def m1enc(beacon):
     m = beacon.get("m1enc")
     yield m
+
+
+@pytest.fixture
+def bad_motor(beacon):
+    bad = beacon.get("bad")
+    bad.controller.bad_start = False
+    bad.controller.bad_state = False
+    bad.controller.bad_state_after_start = False
+    bad.controller.bad_stop = False
+    bad.controller.bad_position = False
+    bad.dial = 0
+    bad.position = 0
+    bad.sync_hard()
+    yield bad

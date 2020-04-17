@@ -250,10 +250,10 @@ def test_SampCnt_STATS_algorithm():
 
     stats = SamplingCounterAcquisitionSlave.rolling_stats_finalize(statistics)
 
-    assert pytest.approx(stats.mean, numpy.mean(dat))
+    assert pytest.approx(stats.mean) == numpy.mean(dat)
     assert stats.N == len(dat)
-    assert pytest.approx(stats.std, numpy.std(dat))
-    assert pytest.approx(stats.var, numpy.var(dat))
+    assert pytest.approx(stats.std) == numpy.std(dat)
+    assert pytest.approx(stats.var) == numpy.var(dat)
     assert stats.min == numpy.min(dat)
     assert stats.max == numpy.max(dat)
     assert stats.p2v == numpy.max(dat) - numpy.min(dat)
@@ -396,13 +396,13 @@ def test_SampCnt_mode_INTEGRATE_STATS(session):
 
     new_dat = dat * count_time
 
-    assert pytest.approx(integ_stats.mean, numpy.mean(new_dat))
+    assert pytest.approx(integ_stats.mean) == numpy.mean(new_dat)
     assert integ_stats.N == len(dat)
-    assert pytest.approx(integ_stats.std, numpy.std(new_dat))
-    assert pytest.approx(integ_stats.var, numpy.var(new_dat))
+    assert pytest.approx(integ_stats.std) == numpy.std(new_dat)
+    assert pytest.approx(integ_stats.var) == numpy.var(new_dat)
     assert integ_stats.min == numpy.min(new_dat)
     assert integ_stats.max == numpy.max(new_dat)
-    assert pytest.approx(integ_stats.p2v, numpy.max(new_dat) - numpy.min(new_dat))
+    assert pytest.approx(integ_stats.p2v) == numpy.max(new_dat) - numpy.min(new_dat)
 
 
 def test_integ_counter(session):

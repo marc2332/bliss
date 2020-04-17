@@ -103,7 +103,7 @@ def test_pkcom_timescan_gauss(session):
     s = scans.timescan(0.1, simul_counter, npoints=10, save=False, return_scan=True)
 
     p = s.peak(simul_counter)
-    assert pytest.approx(p, center)
+    assert pytest.approx(p, abs=.1) == center
 
 
 def test_plotselect1(session):

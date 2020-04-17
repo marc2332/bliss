@@ -56,4 +56,4 @@ def test_2_library_instances(bliss_tango_server, s1hg, s1f, s1b, ports):
     s1hg.rmove(1)
 
     value = tango_s1hg.read_attribute("position").value
-    assert pytest.approx(value, 3)
+    assert pytest.approx(value) == 3

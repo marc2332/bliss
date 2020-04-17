@@ -51,8 +51,10 @@ def test_stop(roby, robz):
     assert grp.state.READY
     assert robz.state.READY
     assert roby.state.READY
-    assert pytest.approx(robz.position, 1)
-    assert pytest.approx(roby.position, 1)
+    assert pytest.approx(robz.position, rel=5e-2) == 1
+    # roby stops, but motor has a backlash ;
+    # the backlash move is executed after stop.
+    assert pytest.approx(robz.position, rel=5e-2) == 1 + robz.backlash
 
 
 def test_ctrlc(roby, robz):

@@ -575,11 +575,6 @@ def test_ctrlc(robz, capsys, log_shell_mode):  # noqa: F811
     with pytest.raises(KeyboardInterrupt):
         robz.wait_move()
 
-    # Ensure "Moving..." and "...stopped at..." messages are present.
-    out, err = capsys.readouterr()
-    assert "Moving robz from" in out
-    assert "Axis robz stopped at position" in out
-
     assert not robz.is_moving
     assert robz.state.READY
     assert robz.position < 100

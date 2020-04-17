@@ -50,12 +50,11 @@ from bliss.common.utils import object_attribute_get
 
 
 class SpeedgoatMotor(Controller):
-    def __init__(self, *args, **kwargs):
-        Controller.__init__(self, *args, **kwargs)
-
+    def __init__(self, name, config, *args, **kwargs):
+        Controller.__init__(self, name, config, *args, **kwargs)
+        self.speedgoat = config.get('speedgoat')
+        
     def initialize(self):
-        redirect_goat = self.config.get("speedgoat")
-        self.speedgoat = get_config().get(redirect_goat)
         self.sg_controller = self.speedgoat.motors_controller
 
     def initialize_axis(self, axis):

@@ -1,17 +1,14 @@
 #!/usr/bin/env python
 
-from contextlib import contextmanager
 import os
 import sys
 from collections import namedtuple
-import atexit
 import subprocess
 import redis
 import socket
 import time
 import threading
 from tango import DeviceProxy, DevFailed
-from contextlib import contextmanager
 from docopt import docopt
 
 BLISS = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))

@@ -150,19 +150,30 @@ def start_tango_servers():
     return processes
 
 
+def bordered_text(text):
+    lines = text.splitlines()
+    width = max([len(l) for l in lines])
+    for i, l in enumerate(lines):
+        before = (width - len(l)) // 2
+        after = (width - len(l) + 1) // 2
+        l = "# " + " " * before + l + " " * after + " #"
+        lines[i] = l
+    lines.insert(0, "#" * (width + 4))
+    lines.append("#" * (width + 4))
+    return "\n".join(lines)
+
+
 def run(db_path):
     beacon_process = start_beacon(db_path)
     tango_processes = start_tango_servers()
 
-    print(
-        f"""
-    ##################################################################################"
-    # start BLISS in another Terminal using                                          #"
-    # > TANGO_HOST={os.environ["TANGO_HOST"]} BEACON_HOST={os.environ["BEACON_HOST"]} bliss -s demo_session #"
-    #                                                                                #"
-    # press ctrl+c to quit this process                                              #"
-    ##################################################################################"""
-    )
+    text = f"""Start BLISS in another Terminal using
+
+> TANGO_HOST={os.environ["TANGO_HOST"]} BEACON_HOST={os.environ["BEACON_HOST"]} bliss -s demo_session
+
+Press CTRL+C to quit this process
+"""
+    print(bordered_text(text))
 
     try:
         while True:

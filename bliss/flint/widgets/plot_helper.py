@@ -25,9 +25,7 @@ from silx.gui import icons
 from silx.gui.plot import PlotWindow
 from silx.gui.plot.actions import PlotAction
 from silx.gui.plot.actions import control
-from silx.gui.plot.tools.profile import ScatterProfileToolBar
-from silx.gui.plot.Profile import ProfileToolBar
-from silx.gui.plot import PlotToolButtons
+from silx.gui.plot.tools.profile import manager
 from silx.gui.plot.items.marker import Marker
 from silx.gui.plot.items.scatter import Scatter
 from silx.gui.plot.items.curve import Curve
@@ -36,7 +34,6 @@ from silx.gui.plot.items.image import ImageData
 from silx.gui.plot.items import YAxisMixIn
 from silx.gui.plot.items import BoundingRect
 
-from bliss.flint.model import flint_model
 from bliss.flint.model import plot_model
 from bliss.flint.model import plot_item_model
 from bliss.flint.model import plot_state_model
@@ -156,73 +153,32 @@ class CustomAxisAction(qt.QWidgetAction):
         self.setDefaultWidget(toolButton)
 
 
-class CustomScatterProfileAction(qt.QWidgetAction):
-    def __init__(self, plot, parent):
-        super(CustomScatterProfileAction, self).__init__(parent)
+class CustomProfileAction(qt.QWidgetAction):
+    def __init__(self, plot, parent, kind):
+        super(CustomProfileAction, self).__init__(parent)
 
-        self.__toolbar = ScatterProfileToolBar(parent=parent, plot=plot)
-        self.__toolbar.setVisible(False)
-
-        menu = qt.QMenu(parent)
-        for action in self.__toolbar.actions():
-            menu.addAction(action)
-
-        icon = icons.getQIcon("flint:icons/profile")
-        toolButton = qt.QToolButton(parent)
-        toolButton.setText("Profile tools")
-        toolButton.setToolTip(
-            "Manage the profiles to this scatter (not yet implemented)"
-        )
-        toolButton.setIcon(icon)
-        toolButton.setMenu(menu)
-        toolButton.setPopupMode(qt.QToolButton.InstantPopup)
-        self.setDefaultWidget(toolButton)
-
-
-class CustomImageProfileAction(qt.QWidgetAction):
-    def __init__(self, plot, parent):
-        super(CustomImageProfileAction, self).__init__(parent)
-
-        self.__toolbar = ProfileToolBar(parent=parent, plot=plot)
-        self.__toolbar.setVisible(False)
+        self.__manager = manager.ProfileManager(parent, plot)
+        if kind == "image":
+            self.__manager.setItemType(image=True)
+        elif kind == "scatter":
+            self.__manager.setItemType(scatter=True)
+        else:
+            assert False
+        self.__manager.setActiveItemTracking(True)
 
         menu = qt.QMenu(parent)
-        for action in self.__toolbar.actionGroup.actions():
-            menu.addAction(action)
-
-        action = qt.QWidgetAction(parent)
-        action.setDefaultWidget(self.__toolbar.lineWidthSpinBox)
-        menu.addAction(action)
-
-        # Add width spin box to toolbar
-        widget = qt.QWidget(parent)
-        lineWidthSpinBox = qt.QSpinBox(widget)
-        lineWidthSpinBox.setRange(1, 1000)
-        lineWidthSpinBox.setValue(1)
-        lineWidthSpinBox.valueChanged[int].connect(
-            self.__toolbar._lineWidthSpinBoxValueChangedSlot
-        )
-        layout = qt.QHBoxLayout(widget)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.addWidget(qt.QLabel("Line width:", widget))
-        layout.addWidget(lineWidthSpinBox)
-        action = qt.QWidgetAction(parent)
-        action.setDefaultWidget(widget)
-        menu.addAction(action)
-
-        # Add method to toolbar
-        widget = qt.QWidget(parent)
-        methodsButton = PlotToolButtons.ProfileOptionToolButton(widget, plot)
-        methodsButton.sigMethodChanged.connect(self.__toolbar.setProfileMethod)
-        layout = qt.QHBoxLayout(widget)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.addWidget(qt.QLabel("Method:", widget))
-        layout.addWidget(methodsButton)
-        action = qt.QWidgetAction(parent)
-        action.setDefaultWidget(widget)
-        menu.addAction(action)
-
-        menu.addAction(self.__toolbar.clearAction)
+        if kind == "image":
+            for action in self.__manager.createImageActions(menu):
+                menu.addAction(action)
+        elif kind == "scatter":
+            for action in self.__manager.createScatterActions(menu):
+                menu.addAction(action)
+            for action in self.__manager.createScatterSliceActions(menu):
+                menu.addAction(action)
+        menu.addSeparator()
+        menu.addAction(self.__manager.createEditorAction(menu))
+        menu.addSeparator()
+        menu.addAction(self.__manager.createClearAction(menu))
 
         icon = icons.getQIcon("flint:icons/profile")
         toolButton = qt.QToolButton(parent)

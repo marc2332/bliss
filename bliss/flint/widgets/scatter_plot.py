@@ -166,7 +166,7 @@ class ScatterPlotWidget(plot_helper.PlotWidget):
         action.setIcon(icon)
         action.setEnabled(False)
         toolBar.addAction(action)
-        toolBar.addAction(plot_helper.CustomScatterProfileAction(self.__plot, self))
+        toolBar.addAction(plot_helper.CustomProfileAction(self.__plot, self, "scatter"))
 
         action = control.ColorBarAction(self.__plot, self)
         icon = icons.getQIcon("flint:icons/colorbar")

@@ -107,3 +107,15 @@ def test_notimplemented():
     s = AxisState("READY")
     assert s != None
     assert not s == None
+
+
+def test_unset():
+    states_list = ["HOME", "LIMNEG", "READY"]
+    s = AxisState(*states_list)
+    for state in states_list:
+        assert state in s
+    s.unset("HOME")
+    states_list.remove("HOME")
+    assert "HOME" not in s
+    for state in states_list:
+        assert state in s

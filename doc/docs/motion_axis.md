@@ -602,6 +602,10 @@ stop a movement:
     - send a stop command to the controller
     - the move loop will exit
 
+!!! warning
+    Jog motion is mainly used inside sequences.
+    It can be hazardous to use it from a BLISS session shell as it operates in backgroud.
+
 
 *Before* a movement, the position of the axis is read and compared to
 the BLISS Axis internal position. In case of difference outside the

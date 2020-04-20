@@ -40,3 +40,18 @@ def test_axis_lprint(roby, capsys, log_shell_mode):
         capsys.readouterr().out
         == "'roby` position reset from 0.0 to 2.0 (sign: 1, offset: 1.0)\n'roby` dial position reset from 1.0 to 2.0\n"
     )
+
+
+def test_axis_lprint2(roby, bad_motor, capsys, log_shell_mode):
+    """Ensure "Moving..." and "...stopped at..." messages are present.
+    """
+    roby.move(0.1)
+
+    out, err = capsys.readouterr()
+    assert "Moving roby from 0 to 0.1\n" in out
+
+    roby.move(0.2, wait=False)
+    roby.stop()
+
+    out, err = capsys.readouterr()
+    assert "Axis roby stopped at position" in out

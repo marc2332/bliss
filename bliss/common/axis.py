@@ -15,7 +15,7 @@ from bliss.common.motor_config import StaticConfig
 from bliss.common.motor_settings import AxisSettings
 from bliss.common import event
 from bliss.common.greenlet_utils import protect_from_one_kill
-from bliss.common.utils import with_custom_members
+from bliss.common.utils import with_custom_members, safe_get
 from bliss.config.channels import Channel
 from bliss.common.logtools import log_debug, lprint, lprint_disable
 from bliss.common.utils import rounder
@@ -361,6 +361,13 @@ class GroupMove:
                             chan.register_callback(chan._setting_update_cb)
 
                         motion.axis._set_move_done()
+
+                if self._user_stopped:
+                    lprint("")
+                    for motion in motions:
+                        _axis = motion.axis
+                        _axis_pos = safe_get(_axis, "position", on_error="!ERR")
+                        lprint(f"Axis {_axis.name} stopped at position {_axis_pos}")
 
                 try:
                     if self.parent:

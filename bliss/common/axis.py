@@ -2070,6 +2070,18 @@ class AxisState(object):
         else:
             raise ValueError("state %s does not exist" % state_name)
 
+    def unset(self, state_name):
+        """
+        Deactivates the given state on this AxisState
+
+        Args:
+            state_name (str): name of the state to deactivate
+
+        Raises:
+            ValueError: if state_name is invalid
+        """
+        self._current_states.remove(state_name)
+
     def clear(self):
         """Clears all current states"""
         # Flags all states off.

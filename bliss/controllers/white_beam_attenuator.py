@@ -26,7 +26,52 @@ Example YAML_ configuration:
 Each attenuator pole has to be configured as bliss MultiplePosition onject.
 """
 from bliss import global_map
+from bliss.common import event
 from bliss.common.utils import grouped
+from bliss.common.logtools import log_info, log_error
+from bliss.controllers.tango_shutter import TangoShutterState
+from bliss.common.hook import MotionHook
+
+
+class FeMotionHook(MotionHook):
+    def __init__(self, frontend):
+        self.frontend = frontend
+
+    def pre_move(self, motion_list):
+        if self.frontend.state != TangoShutterState.CLOSED:
+            raise RuntimeError("Cannot move motor when frontend is not closed")
+
+
+class CheckHook(MotionHook):
+    def __init__(self, axis):
+        self.axis = axis  # consider weakref
+        self.state_changes = []
+        # connect event self.__call__ to motor state
+        event.connect(self.axis, "state", self)
+
+    def pre_move(self, motion_list):
+        if "HOME" not in self.axis.state:
+            log_error(self, "Axis %s did not start from HOME position", self.axis.name)
+
+    def post_move(self, motion_list):
+        # cleaning event
+        event.disconnect(self.axis, "state", self)
+        # remove the hook itself
+        self.axis.motion_hooks.remove(self)
+
+        # reporting errors
+        if "HOME" not in self.axis.state:
+            log_error(self, "Axis %s did not stop on HOME position", self.axis.name)
+        if not any(
+            "MOVING" in state and "HOME" not in state
+            for state in self.state_changes[1:]
+        ):
+            # check if the motor is really going out of home
+            log_error(self, "Axis %s did not leave HOME switch", self.axis.name)
+
+    def __call__(self, state):
+        log_info(self, "Changing axis state to %s", state)
+        self.state_changes.append(state)
 
 
 class WhiteBeamAttenuator:
@@ -36,6 +81,18 @@ class WhiteBeamAttenuator:
         self.attenuators = config.get("attenuators")
         self.__name = name
         global_map.register(self, tag=name)
+
+        self._add_frontend_hooks(config.get("frontend"))
+
+    def _add_frontend_hooks(self, frontend):
+        if not frontend:
+            return
+        if not hasattr(frontend, "state") or frontend.state not in TangoShutterState:
+            raise RuntimeError("Could not create Frontend hook")
+
+        for att in self.attenuators:
+            for motor in att["attenuator"].motors.values():
+                motor.motion_hooks.append(FeMotionHook(frontend))
 
     @property
     def name(self):
@@ -62,7 +119,7 @@ class WhiteBeamAttenuator:
         """
         state = motor.state
         # check if the home switch is active
-        if state == state.HOME and state == state.LIMNEG:
+        if "HOME" in state and "LIMNEG" in state:
             print("Negative limit and home switch at the same place")
             b_home = motor.position
         else:
@@ -131,7 +188,23 @@ class WhiteBeamAttenuator:
         """
         info_str = ""
         for att in self.attenuators:
-            info_str += att["attenuator"].__info__()
+            att_name = att["attenuator"].name
+            info_str += f"Attenuator: '{att_name}'\n"
+            info_str += att["attenuator"].__info__()[:-1]  # remove trailing '\n'
+
+            for motor in att["attenuator"].motors.values():
+                if "HOME" in motor.state:
+                    info_str += f" is in HOME position\n"
+                else:
+                    index = info_str.rfind("\n")
+                    info_str = (
+                        info_str[: index + 1]
+                        + f" WARNING:"
+                        + info_str[index + 1 :]
+                        + " not in HOME position\n"
+                    )
+
+            info_str += "\n"
         return info_str
 
     @property
@@ -145,27 +218,81 @@ class WhiteBeamAttenuator:
             pos += [att["attenuator"].name, att["attenuator"].position]
         return pos
 
-    def move(self, att_name_pos_list, wait=True):
+    def move(self, *att_name_pos_list, wait=True):
         """Move attenuator(s) to given position. The attenuators are moved
            simultaneously.
         Args:
-            att_name_pos_list(list): two elements per attenuator: name, position
+            att_name_pos_list(list): two elements per attenuator: (name or
+                                     attenuator object, position)
             wait(bool): wait until the end of move. Default value is True.
         """
+
+        if len(att_name_pos_list) == 1:
+            # assuming is a list or tuple
+            att_name_pos_list = att_name_pos_list[0]
+
         # start moving all the attenuators
-        for name, pos in grouped(att_name_pos_list, 2):
-            idx = self._find_index(name)
-            self.attenuators[idx]["attenuator"].move(pos, wait=False)
+        for arg_in, pos in grouped(att_name_pos_list, 2):
+            attenuator = self._get_attenuator(arg_in)
+
+            for motor_obj in attenuator.motors.values():
+                # add hook
+                motor_obj.motion_hooks.insert(0, CheckHook(motor_obj))
+
+            attenuator.move(pos, wait=False)
 
         # wait the end of the move
         if wait:
             self.wait(att_name_pos_list)
 
-    def wait(self, att_name_pos_list):
+    def _get_attenuator(self, arg_in):
+        if hasattr(arg_in, "name"):
+            name = arg_in.name
+        elif isinstance(arg_in, str):
+            name = arg_in
+        else:
+            raise RuntimeError("Provide a valid attenuator object or name")
+
+        idx = self._find_index(name)
+        if idx is None:
+            raise RuntimeError(
+                "The provided attenuator was not found in the configuration"
+            )
+
+        return self.attenuators[idx]["attenuator"]
+
+    def wait(self, *att_name_pos_list):
         """ Wait until the end of move finished
         Args:
-            att_name_pos_list(list): list of attenuators name, position.
+
+            att_name_pos_list(list): two elements per attenuator: (name or
+                                     attenuator object, position)
         """
+        if len(att_name_pos_list) == 1:
+            # assuming is a list or tuple
+            att_name_pos_list = att_name_pos_list[0]
+
         for name, _ in grouped(att_name_pos_list, 2):
-            idx = self._find_index(name)
-            self.attenuators[idx]["attenuator"].wait()
+            self._get_attenuator(name).wait()
+
+
+class WhiteBeamAttenuatorMockup(WhiteBeamAttenuator):
+    def __init__(self, name, config, *args, **kwargs):
+        self.faulty = config.pop("faulty", False)
+        super().__init__(name, config, *args, **kwargs)
+        for att in self.attenuators:
+            for motor in att["attenuator"].motors.values():
+                if self.faulty:
+                    if "HOME" in motor.state:
+                        motor.controller._hw_state.unset("HOME")  # start move from home
+                else:
+                    motor.controller._hw_state.set("HOME")  # start move from home
+
+    def move(self, *args, **kwargs):
+
+        for att in self.attenuators:
+            for axis in att["attenuator"].motors.values():
+                wait = kwargs.pop("wait", True)
+                super().move(*args, **kwargs, wait=False)
+                if wait:
+                    super().wait(*args, **kwargs)

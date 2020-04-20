@@ -1,5 +1,6 @@
 name: wba
 plugin: bliss
-class:  WhiteBeamAttenuator
+module: white_beam_attenuator
+class:  WhiteBeamAttenuatorMockup
 attenuators:
   - attenuator: $att1

@@ -6,7 +6,10 @@ from collections import namedtuple
 import subprocess
 import redis
 import socket
+import contextlib
 import time
+import tempfile
+import shutil
 import threading
 from tango import DeviceProxy, DevFailed
 from docopt import docopt
@@ -42,8 +45,21 @@ def wait_for(stream, target):
     return do_wait_for(stream, target)
 
 
-def start_beacon():
-    redis_uds = os.path.join(BEACON_DB_PATH, "redis_demo.sock")
+@contextlib.contextmanager
+def setup_resource_files():
+    """Setup the configuration files"""
+    tmp_dir = tempfile.mkdtemp(prefix="demo_resources")
+    directory = os.path.join(tmp_dir, "configuration")
+    shutil.copytree(BEACON_DB_PATH, directory)
+    try:
+        yield directory
+    finally:
+        shutil.rmtree(tmp_dir)
+
+
+def start_beacon(db_path):
+
+    redis_uds = os.path.join(db_path, "redis_demo.sock")
     ports = namedtuple("Ports", "redis_port tango_port beacon_port")(
         int(CMDLINE_ARGS["--redis-port"]),
         int(CMDLINE_ARGS["--tango-port"]),
@@ -53,7 +69,7 @@ def start_beacon():
         "--port=%d" % ports.beacon_port,
         "--redis_port=%d" % ports.redis_port,
         "--redis_socket=" + redis_uds,
-        "--db_path=" + BEACON_DB_PATH,
+        "--db_path=" + db_path,
         "--posix_queue=0",
         "--tango_port=%d" % ports.tango_port,
     ]
@@ -134,29 +150,34 @@ def start_tango_servers():
     return processes
 
 
-beacon_process = start_beacon()
-tango_processes = start_tango_servers()
+def run(db_path):
+    beacon_process = start_beacon(db_path)
+    tango_processes = start_tango_servers()
 
-print(
-    f"""
-##################################################################################"
-# start BLISS in another Terminal using                                          #"
-# > TANGO_HOST={os.environ["TANGO_HOST"]} BEACON_HOST={os.environ["BEACON_HOST"]} bliss -s demo_session #"
-#                                                                                #"
-# press ctrl+c to quit this process                                              #"
-##################################################################################"""
-)
+    print(
+        f"""
+    ##################################################################################"
+    # start BLISS in another Terminal using                                          #"
+    # > TANGO_HOST={os.environ["TANGO_HOST"]} BEACON_HOST={os.environ["BEACON_HOST"]} bliss -s demo_session #"
+    #                                                                                #"
+    # press ctrl+c to quit this process                                              #"
+    ##################################################################################"""
+    )
 
-try:
-    while True:
-        time.sleep(30)
-except:
-    for p in tango_processes:
-        print("terminating", p.pid)
-        p.terminate()
-        p.wait()
-        print("  - ok")
-    print("terminating Beacon")
-    beacon_process.terminate()
-    beacon_process.wait()
+    try:
+        while True:
+            time.sleep(30)
+    except:
+        for p in tango_processes:
+            print("terminating", p.pid)
+            p.terminate()
+            p.wait()
+            print("  - ok")
+        print("terminating Beacon")
+        beacon_process.terminate()
+        beacon_process.wait()
+
+
+with setup_resource_files() as db_path:
+    run(db_path)
     print("done")

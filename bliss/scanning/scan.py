@@ -605,6 +605,7 @@ class ScanState(enum.IntEnum):
     STARTING = 2
     STOPPING = 3
     DONE = 4
+    KILLED = 5
 
 
 class Scan:
@@ -1136,7 +1137,7 @@ class Scan:
             raise RuntimeError(
                 "Scan state is not idle. Scan objects can only be used once."
             )
-
+        killed = False
         call_on_prepare, call_on_stop = False, False
         set_watch_event = None
 
@@ -1250,6 +1251,7 @@ class Scan:
                                 run_scan = bool(run_next_tasks)
                     except:
                         kill_exception = gevent.GreenletExit
+                        killed = True
                         raise
                     finally:
                         gevent.killall(
@@ -1270,9 +1272,11 @@ class Scan:
                             with KillMask(masked_kill_nb=1):
                                 gevent.joinall(stop_task)
                             gevent.killall(stop_task)
+                            killed = True
                             raise
         except Exception as e:
             self._exception = e
+            killed = True
             raise
         finally:
             with capture_exceptions(raise_index=0) as capture:
@@ -1324,7 +1328,11 @@ class Scan:
                 # Disconnect events
                 self.disconnect_all()
 
-                self.__state = ScanState.DONE
+                # put state to KILLED if needed
+                if not killed:
+                    self.__state = ScanState.DONE
+                else:
+                    self.__state = ScanState.KILLED
                 self.__state_change.set()
 
                 # Add scan to the globals

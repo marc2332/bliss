@@ -315,3 +315,42 @@ This will do a real test on *Beamline* axis named **rot**.
     This test will do real movement on the specified axis.
 
 
+## pylint
+
+
+
+Pylint is a tool that checks for errors in Python code. It can recommend
+suggestions about how particular blocks can be refactored and can offer details
+about the code's complexity.
+
+`pylint` is ran automatically by the Continuous Integration pipeline before to
+start `pytest`.
+
+For now it triggers only warnings and is not lbocking in the CI process.
+
+`pylint` produces logs that can be read on `gitlab` pipelines page. Clic on the
+first orange icon in column `Stages`, then `check_lint` then at bottom of the
+page comments like that can be read:
+
+```
+68 ../test_axis.py:25:1: F401 'log_shell_mode' imported but unused
+69 ../test_axis.py:569:30: F811 redefinition of 'log_shell_mode' from line 25
+```
+
+These comments can usually be profitably followed. Some more or less tricky bugs
+(typically typo on variable names) can then be avoided.
+
+
+### pylint false positive
+
+In (rare) case of false positive error detection, an indication to avoid warning
+during CI can be added in the code.
+
+For example, in `tests/motors/test_axis.py`, the `F401` reported error is wrong,
+`log_shell_mode` is used.
+
+To avoid warning, "` # noqa: F401`" comment has been added to the line `25`:
+
+```python
+from ..common.conftest import log_shell_mode  # noqa: F401
+```

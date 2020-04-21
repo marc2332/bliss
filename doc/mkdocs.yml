@@ -37,11 +37,32 @@ nav:
                       - Aliases: config_alias.md
                       - Measurement groups: config_mg.md
                 - Devices configuration templates:
+                      - 2D detectors (Lima): config_lima.md
+                      - Actuators: config_actuator.md
                       - APC: config_apc.md
+                      - Correlators:
+                            - Flex: config_correlator_flex.md
+                      - Electrometers:
+                            - MCCE: config_mcce.md
+                      - Elettra / ePicea 4 quadrant diode BPM: config_elettra.md
+                      - Encoders: config_encoder.md
+                      - Energy and Wavelength: config_enwl.md
+                      - ESRF BeamViewer (EBV): config_beamviewer.md
+                      - Keithley:
+                            - Ammeter and Multimeter: config_keithley.md
+                            - 428: config_keithley_428.md
+                      - Machine info: config_machine.md
+                      - MCA:
+                            - General: config_mca.md
+                            - Mythen: config_mythen.md
+                            - Rontec: config_mca_rontec.md
+                            - XIA: config_xia_mca.md
+                      - Moco: config_moco.md
                       - Motor controllers:
                             - Aerotech: config_aerotech.md
                             - Elmo: config_elmo.md
                             - Elmo Whistle: config_elmo_whistle.md
+                            - ESRF Hexapode: config_esrf_hexapode.md
                             - Galil: config_galil.md
                             - IcePAP: config_icepap.md
                             - MD2S, MD3: config_md2s_motors.md
@@ -52,66 +73,46 @@ nav:
                             - PM600: config_pm600.md
                             - Smaract: config_smaract.md
                             - Symetrie Hexapod: config_shexapod.md
-                            - ESRF Hexapode: config_esrf_hexapode.md
                             - Vscanner: config_vscanner.md
                             - Wago: config_wagomotor.md
-                      - Encoders: config_encoder.md
                       - Multiple positions: config_mp.md
-                      - Slits: config_slits.md
-                      - Energy and Wavelength: config_enwl.md
-                      - White beam Attenuator: config_wba.md
-                      - 2D detectors (Lima): config_lima.md
+                      - MUSST: config_musst.md
+                      - Nano-BPM: config_nano_bpm.md
+                      - Opiom: config_opiom.md
+                      - P201: config_p201.md
+                      - PEPU: config_pepu.md
+                      - Regulation framework:
+                            - Temperature:
+                                - Lakeshore: config_lakeshore.md
+                                - Linkam: config_linkam.md
                       - SCA:
-                            - Cyberstar: config_cyberstar.md
-                      - MCA:
-                            - General: config_mca.md
-                            - Rontec: config_mca_rontec.md
-                            - XIA: config_xia_mca.md
-                            - Mythen: config_mythen.md
-                      - Temperature, pressure, power supply controllers:
-                            - Temperature controllers in Bliss: config_tempctrl.md
-                            - Eurotherm: config_eurotherm.md
-                            - Lakeshore: config_lakeshore.md                                                        
-                            - Linkam: config_linkam.md
-                            - Nhq: config_nhq.md
                             - Ace: config_ace.md
-                            - Cyberstar: config_cyberstar.md                                                        
+                            - Cyberstar: config_cyberstar.md
+                      - Shutters, Frontend and Valves: config_shutter.md
+                      - Simulation: config_simulation.md
+                      - Slits: config_slits.md
+                      - Tango attribute as counters: config_taac.md
+                      - Temperature framework:
+                            - Temperature controllers in Bliss: config_tempctrl.md
+                            - Eurotherm: config_eurotherm.md   
+                            - Nhq: config_nhq.md                                                   
                             - Keller: config_keller.md
                             - Keithley 3706: config_keithley_3706.md
-                            - Lakeshore: config_lakeshore.md
                             - Meerstetter: config_meerstetter.md
                             - Oxford700: config_oxford700.md
                             - Oxford800: config_oxford800.md
                             - PACE: config_pace.md
-                      - P201: config_p201.md
-                      - MUSST: config_musst.md
-                      - Opiom: config_opiom.md
-                      - PEPU: config_pepu.md
                       - TFG: config_tango_tfg.md
-                      - Tango attribute as counters: config_taac.md
-                      - Machine info: config_machine.md
-                      - Nano-BPM: config_nano_bpm.md
-                      - Shutters, Frontend and Valves: config_shutter.md
+                      - Transfocators: config_transfocator.md
+                      - Transmission: config_transmission.md
+                      - Undulators: config_undulator.md
+                      - VME time frame generator: config_tango_tfg.md
+                      - White beam Attenuator: config_wba.md
                       - Wagos:
                             - Wago: config_wago.md
                             - Wago groups: config_wago_group.md
                             - config_wago_interlock.md
-                      - Transfocators: config_transfocator.md
-                      - Actuators: config_actuator.md
-                      - Undulators: config_undulator.md
-                      - Transmission: config_transmission.md
-                      - Electrometers:
-                            - MCCE: config_mcce.md
-                      - Simulation: config_simulation.md
-                      - ESRF BeamViewer (EBV): config_beamviewer.md
-                      - Keithley:
-                            - Ammeter and Multimeter: config_keithley.md
-                            - 428: config_keithley_428.md
-                      - Correlators:
-                            - Flex: config_correlator_flex.md
-                      - VME time frame generator: config_tango_tfg.md
-                      - Elettra / ePicea 4 quadrant diode BPM: config_elettra.md
-                      - Moco: config_moco.md
+                      
                 - Tango Device Servers:
                       - Introduction: config_tango_ds.md
                       - BlissAxis: config_tango_axis.md

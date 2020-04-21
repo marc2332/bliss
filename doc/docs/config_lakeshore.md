@@ -9,11 +9,15 @@ have the following possible interfaces:
     * model 336 can use GPIB or Ethernet.
     * model 340 can use GPIB or RS232.
 
-```
+
+## yml configuration example
+
 Lakeshore 336, acessible via GPIB, USB or Ethernet
 
-yml configuration example:
-#controller:
+
+
+```yml
+
 - class: LakeShore336
   module: temperature.lakeshore.lakeshore336
   name: lakeshore336

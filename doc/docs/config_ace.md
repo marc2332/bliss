@@ -2,17 +2,25 @@
 
 ACE is an electronic module NIM, two units wide, dedicated to provide all signal and power for an Avalanche photo-diode in X-ray counting. This module includes an easy user interface in local and remote control mode. The unit is based on a micro controller Hitachi and a programmable counter implemented in a Complex Programmable Logic Device from Xilinx. Computer control will communicate to the module through one of the two available serial line ports (RS232 and RS422) or by a parallel GPIB port. The local user interface will be providing by a graphic LCD display with touch panel facility.
 
-The BLISS Ace controller provides:
+The BLISS `Ace` controller provides (`bliss.controllers.sca.ace`):
 
-3 SoftAxis (pseudo-axes):
+**3 SoftAxis (pseudo-axes)**:
+
+
 - low-level threshold of discriminator (tag: `low`)
+
 - window width (high - low) level threshold (tag: `win`)
+
 - head high voltage setpoint (tag: `hhv`)
 
-4 Counters:
+**4 Counters**:
+
 - pulse counter (tag: `counts`)
+
 - head temperature (tag: `htemp`)
+
 - head current (tag: `hvcurr`)
+
 - high voltage monitor (tag: `hvmon`)
 
 

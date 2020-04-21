@@ -1,14 +1,15 @@
 # Linkam TMS94 or T95 with **regulation plugin**:
-```
-Linkam Controllers
+
+## yml configuration example
 
 Linkam TMS94, acessible via Serial line (RS232)
 
-yml configuration example:
+
+```yml
 
 - class: LinkamTms94 # LinkamT95
 
-  module: regulation.temperature.linkam.linkam_TMS94_T95
+  module: temperature.linkam.linkam_TMS94_T95
   plugin: regulation
   name: linkamtms94
   timeout: 3

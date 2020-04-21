@@ -190,6 +190,13 @@ def lazy_init(func):
     return func_wrapper
 
 
+def _get_external_device_name(device):
+    try:
+        return f"{device.name} {device}"
+    except AttributeError:
+        return device
+
+
 @with_custom_members
 class Input(SamplingCounterController):
     """ Implements the access to an input device which is accessed via the regulation controller (like a sensor plugged on a channel of the controller)
@@ -290,9 +297,8 @@ class ExternalInput(Input):
     def __info__(self):
         lines = ["\n"]
         lines.append(f"=== ExternalInput: {self.name} ===")
-        lines.append(
-            f"device: {self.device.name if self.device.name is not None else self.device.__class__.__name__}"
-        )
+
+        lines.append(f"device: {_get_external_device_name(self.device)}")
         lines.append(
             f"current value: {self.read():.3f} {self.config.get('unit', 'N/A')}"
         )
@@ -628,9 +634,7 @@ class ExternalOutput(Output):
     def __info__(self):
         lines = ["\n"]
         lines.append(f"=== ExternalOutput: {self.name} ===")
-        lines.append(
-            f"device: {self.device.name if self.device.name is not None else self.device.__class__.__name__}"
-        )
+        lines.append(f"device: {_get_external_device_name(self.device)}")
         lines.append(
             f"current value: {self.read():.3f} {self.config.get('unit', 'N/A')}"
         )

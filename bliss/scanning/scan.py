@@ -605,7 +605,8 @@ class ScanState(enum.IntEnum):
     STARTING = 2
     STOPPING = 3
     DONE = 4
-    KILLED = 5
+    USER_ABORTED = 5
+    KILLED = 6
 
 
 class Scan:
@@ -1138,6 +1139,7 @@ class Scan:
                 "Scan state is not idle. Scan objects can only be used once."
             )
         killed = False
+        killed_by_user = False
         call_on_prepare, call_on_stop = False, False
         set_watch_event = None
 
@@ -1249,9 +1251,10 @@ class Scan:
                                     (t, i) for t, i in run_next_tasks if not t.ready()
                                 ]
                                 run_scan = bool(run_next_tasks)
-                    except:
+                    except BaseException as e:
                         kill_exception = gevent.GreenletExit
                         killed = True
+                        killed_by_user = isinstance(e, KeyboardInterrupt)
                         raise
                     finally:
                         gevent.killall(
@@ -1268,15 +1271,17 @@ class Scan:
                     with capture():
                         try:
                             gevent.joinall(stop_task, raise_error=True)
-                        except:
+                        except BaseException as e:
                             with KillMask(masked_kill_nb=1):
                                 gevent.joinall(stop_task)
                             gevent.killall(stop_task)
                             killed = True
+                            killed_by_user = isinstance(e, KeyboardInterrupt)
                             raise
         except Exception as e:
             self._exception = e
             killed = True
+            killed_by_user = isinstance(e, KeyboardInterrupt)
             raise
         finally:
             with capture_exceptions(raise_index=0) as capture:
@@ -1331,6 +1336,8 @@ class Scan:
                 # put state to KILLED if needed
                 if not killed:
                     self.__state = ScanState.DONE
+                elif killed_by_user:
+                    self.__state = ScanState.USER_ABORTED
                 else:
                     self.__state = ScanState.KILLED
                 self.__state_change.set()

@@ -109,4 +109,4 @@ def test_exception_on_KeyboardInterrupt(default_session):
     with pytest.raises(KeyboardInterrupt):
         scan_task.kill(KeyboardInterrupt)
 
-    assert s.state.name == "KILLED"
+    assert s.state.name == "USER_ABORTED"

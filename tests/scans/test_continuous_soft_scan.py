@@ -149,7 +149,7 @@ def test_interrupted_scan(session, diode_acq_device_factory):
     except:
         assert scan_task.ready()
 
-    assert s.state == ScanState.KILLED
+    assert s.state == ScanState.USER_ABORTED
     assert acquisition_device_1.stop_flag
     assert acquisition_device_2.stop_flag
 

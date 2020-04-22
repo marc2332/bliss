@@ -1341,6 +1341,8 @@ class Scan:
                 else:
                     self.__state = ScanState.KILLED
                 self.__state_change.set()
+                self.node.info["state"] = self.__state
+                self._scan_info["state"] = self.__state
 
                 # Add scan to the globals
                 current_session.scans.append(self)

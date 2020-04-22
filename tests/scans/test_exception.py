@@ -5,6 +5,7 @@ from bliss.common import scans
 from bliss.common.counter import SamplingCounter
 from bliss.controllers.counter import SamplingCounterController
 from bliss.common.soft_axis import SoftAxis
+from bliss.scanning.scan import ScanState
 
 
 def test_exception_in_reading(session):
@@ -42,7 +43,8 @@ def test_exception_in_reading(session):
     except gevent.Timeout:
         assert False
 
-    assert s.state.name == "KILLED"
+    assert s.state == ScanState.KILLED
+    assert s.node.info["state"] == ScanState.KILLED
 
 
 def test_exception_in_first_reading(session, bad_diode):
@@ -51,7 +53,8 @@ def test_exception_in_first_reading(session, bad_diode):
         with gevent.Timeout(1):
             s.run()
 
-    assert s.state.name == "KILLED"
+    assert s.state == ScanState.KILLED
+    assert s.node.info["state"] == ScanState.KILLED
 
 
 def test_restarted_scan(session):
@@ -84,7 +87,8 @@ def test_exception_in_move(default_session):
     with pytest.raises(RuntimeError):
         s.run()
 
-    assert s.state.name == "KILLED"
+    assert s.state == ScanState.KILLED
+    assert s.node.info["state"] == ScanState.KILLED
 
 
 def test_exception_on_kill(default_session):
@@ -96,7 +100,8 @@ def test_exception_on_kill(default_session):
     gevent.sleep(.5)
     g.kill()
 
-    assert s.state.name == "KILLED"
+    assert s.state == ScanState.KILLED
+    assert s.node.info["state"] == ScanState.KILLED
 
 
 def test_exception_on_KeyboardInterrupt(default_session):
@@ -109,4 +114,5 @@ def test_exception_on_KeyboardInterrupt(default_session):
     with pytest.raises(KeyboardInterrupt):
         scan_task.kill(KeyboardInterrupt)
 
-    assert s.state.name == "USER_ABORTED"
+    assert s.state == ScanState.USER_ABORTED
+    assert s.node.info["state"] == ScanState.USER_ABORTED

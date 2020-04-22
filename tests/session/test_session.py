@@ -205,6 +205,23 @@ def test_session_env_dict_alias_protection(beacon):
         prot_env_dict["robyy"] = 17
 
 
+def test_session_env_dict_protection_imports_globals(beacon):
+    inp = create_pipe_input()
+    cli = repl.cli(
+        input=inp,
+        output=DummyOutput(),
+        session_name="test_alias",
+        expert_error_report=True,
+    )
+    prot_env_dict = cli.get_globals()
+
+    with pytest.raises(RuntimeError):
+        prot_env_dict["ascan"] = 17
+
+    with pytest.raises(RuntimeError):
+        prot_env_dict["SCAN_DISPLAY"] = 17
+
+
 def test_session_env_dict_protection_inherited(session2):
     inp = create_pipe_input()
     cli = repl.cli(

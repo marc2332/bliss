@@ -50,6 +50,7 @@ from bliss.shell.standard import info
 from bliss.shell.cli.ptpython_statusbar_patch import NEWstatus_bar, TMUXstatus_bar
 from bliss.common.logtools import logbook_printer
 from bliss.shell.cli.protected_dict import ProtectedDict
+from bliss.shell import standard
 
 import __main__
 
@@ -497,6 +498,18 @@ def cli(
     # ADD 2 GLOBALS TO HANDLE THE LAST ERROR AND THE ERROR REPORT MODE (IN SHELL ENV ONLY)
     user_ns["ERROR_REPORT"] = ERROR_REPORT
     user_ns["last_error"] = ERROR_REPORT.last_error
+
+    # protect certain imports and Globals
+    to_protect = [
+        "ERROR_REPORT",
+        "last_error",
+        "ALIASES",
+        "SCAN_DISPLAY",
+        "SCAN_SAVING",
+        "SCANS",
+    ]
+    to_protect.extend(standard.__all__)
+    protected_user_ns.protect(to_protect)
 
     def get_globals():
         return protected_user_ns

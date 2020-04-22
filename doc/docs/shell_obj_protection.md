@@ -2,7 +2,7 @@
 
 To protect the BLISS shell against unintentional corruption by users and to avoid the loss of object (axes, counters, controllers etc.), that are available in the session environment, a system to protect a subset of these objects is put in place.
 
-By default all objects that are imported from the configuration during the session startup (entries in `config-objects` and `aliases` of the session’s _yaml_ configuration) are protected. However it is possible to modify the behavior during run-time.
+By default all objects that are imported from the configuration during the session startup (entries in `config-objects` and `aliases` of the session’s _yaml_ configuration) are protected. Further all the content of `bliss.shell.standard` (e.g. `ascan`, `dscan`, `wa`, `umv` ...) and some globals (`ERROR_REPORT`, `last_error`, `ALIASES`, `SCAN_DISPLAY`, `SCAN_SAVING`, `SCANS`) are protected. However it is possible to modify the behavior during run-time.
 
 When trying the modify an protected object (axis _roby_ in example below) one will see the following message:
 

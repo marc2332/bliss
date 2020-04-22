@@ -1,7 +1,8 @@
 # This file is part of the bliss project
 #
-# Copyright (c) 2015-2019 Beamline Control Unit, ESRF
+# Copyright (c) 2015-2020 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
+
 """
 Module to manage scan with automatic filter.
 
@@ -47,6 +48,9 @@ class AutoFilter(BeaconObject):
 
     def __init__(self, name, config):
         super().__init__(config, share_hardware=False)
+
+        # check a filterset is in config
+        self.filterset = config.get("filterset")
 
     def ascan(self, motor, start, stop, intervals, count_time, *counter_args, **kwargs):
         """
@@ -155,9 +159,20 @@ class AutoFilter(BeaconObject):
             "monitor_counter_name",
             "min_count_rate",
             "max_count_rate",
+            "always_back",
         ):
             table_info.append([sname, getattr(self, sname)])
-        return str(tabulate(table_info, headers=["Parameter", "Value"]))
+        info = str(tabulate(table_info, headers=["Parameter", "Value"]))
+        info += "\n\n" + f"Active filterset: {self.filterset.name}"
+        info += (
+            "\n"
+            + f"Energy axis {self.energy_axis.name}: {self.energy_axis.position:.5g} keV"
+        )
+        # info += "\n" + self.filterset.__info__()
+        info += "\n\n" + f"Active filter idx {self.filterset.filter}"
+        info += "\n\n" + "Table of Effective Filters :"
+        info += "\n" + self.filterset.info_table()
+        return info
 
     def incr_filter(self, value, min_count_rate, max_count_rate):
         """
@@ -165,7 +180,7 @@ class AutoFilter(BeaconObject):
         value -- measure data
         max_count_rate -- maximum authorize value
         """
-        pass
+        self.filterset.incr_filter(value, min_count_rate, max_count_rate)
 
     def decr_filter(self, value, min_count_rate, max_count_rate):
         """
@@ -173,4 +188,4 @@ class AutoFilter(BeaconObject):
         value -- measure data
         min_count_rate -- minimum authorize value
         """
-        pass
+        self.filterset.decr_filter(value, min_count_rate, max_count_rate)

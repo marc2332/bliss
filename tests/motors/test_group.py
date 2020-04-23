@@ -125,3 +125,20 @@ def test_no_move(robz):
     with gevent.Timeout(1):
         grp.move(robz, 0)
     assert not grp.is_moving
+
+
+def test_is_moving_prop(robz, robz2):
+    # issue #1599
+    group = Group(robz, robz2)
+    robz.move(10, wait=False, relative=True)
+    assert robz.is_moving
+    assert "MOVING" in group.state
+    assert group.is_moving
+    robz.stop()
+    assert "READY" in group.state
+    group.move(robz, 10, wait=False, relative=True)
+    assert "MOVING" in group.state
+    assert group.is_moving
+    assert robz.is_moving
+    assert not robz2.is_moving
+    group.stop()

@@ -14,8 +14,11 @@ import itertools
 import functools
 import numpy
 import collections.abc
+from collections.abc import MutableMapping, MutableSequence
 import socket
 import typeguard
+
+from itertools import zip_longest
 
 from bliss.common.event import saferef
 
@@ -576,6 +579,86 @@ def deep_update(d, u):
                     # both d[k] and u[k] are dicts, push them on the stack
                     # to merge
                     stack.append((dv, v))
+
+
+def is_basictype(val):
+    return isinstance(val, (int, str, float, type(None)))
+
+
+def is_complextype(val):
+    return isinstance(val, (MutableMapping, MutableSequence))
+
+
+def is_mutsequence(val):
+    return isinstance(val, MutableSequence)
+
+
+def is_mutmapping(val):
+    return isinstance(val, MutableMapping)
+
+
+def is_sametype(val1, val2):
+    if is_basictype(val1) and is_basictype(val2) and (type(val1) == type(val2)):
+        return True
+    elif is_mutmapping(val1) and is_mutmapping(val2):
+        return True
+    elif is_mutsequence(val1) and is_mutsequence(val2):
+        return True
+
+
+MISSING = "---missing---"
+
+
+def prudent_update(d, u):
+    """Updates a MutableMapping or MutalbeSequence 'd'
+    from another one 'u'.
+    The update is done trying to minimize changes: the
+    update is done only on leaves of the tree if possible.
+    This is to preserve the original object as much as possible.
+    """
+    if is_basictype(d) and is_basictype(u):
+        if d != u:
+            if d == MISSING:
+                return u
+            elif u == MISSING:
+                return d
+            return u
+        else:
+            return d  # prefer not to update
+    elif is_complextype(d) and is_complextype(u):
+        if is_sametype(d, u):
+            # same type
+            if is_mutmapping(d):
+                for k, v in u.items():
+                    if k in d:
+                        d[k] = prudent_update(d[k], v)
+                    else:
+                        d[k] = v
+            elif is_mutsequence(d):
+                for num, (el1, el2) in enumerate(zip_longest(d, u, fillvalue=MISSING)):
+                    if el2 == MISSING:
+                        # Nothing to do
+                        pass
+                    else:
+                        # missing el1 is managed by prudent_update
+                        # when el1==MISSING el2!=MISSING -> el2 returned
+                        value = prudent_update(el1, el2)
+                        try:
+                            d[num] = value
+                        except IndexError:
+                            d.append(value)
+            else:
+                raise NotImplementedError
+            return d
+        else:
+            # not same type so the destination will be replaced
+            return u
+    elif is_basictype(d) and is_complextype(u):
+        return u
+    elif is_complextype(d) and is_basictype(u):
+        return u
+    else:
+        raise NotImplementedError
 
 
 def update_node_info(node, d):

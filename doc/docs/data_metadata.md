@@ -7,6 +7,10 @@ Send user message to the [electronic logbook](https://data.esrf.fr)
 DEMO  [1]: lprint("user message in electronic logbook ")
 ```
 
+
+![Data diagram](img/data_ESRF_paths.svg)
+
+
 ## Scan comments
 Add comments to your scans
 

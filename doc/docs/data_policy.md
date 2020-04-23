@@ -16,6 +16,10 @@ two data policies
    have to be) written in [Nexus compliant](https://www.nexusformat.org/) HDF5
    files. The basic data policy is the default policy for BLISS.
 
+
+![Data diagram](img/data_ESRF_paths.svg)
+
+
 ## ESRF data policy
 
 This data policy requires the user to specify *proposal*, *sample* and

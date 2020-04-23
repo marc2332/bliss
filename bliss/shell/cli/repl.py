@@ -474,20 +474,9 @@ def cli(
     else:
         user_ns, session = initialize(session_name=None)
 
-    if session.name != "__DEFAULT__" and "config-objects" in session.config.get_config(
-        session.name
-    ):
-        protected_user_ns.protect(
-            session.config.get_config(session.name)["config-objects"]
-        )
+    if session.name != "__DEFAULT__":
 
-        # protect config objects of inherited sessions
-        for node in session.sessions_tree.all_nodes_itr():
-            s = node.identifier
-            if s.name != session.name:
-                protected_user_ns.protect(
-                    session.config.get_config(s.name)["config-objects"]
-                )
+        protected_user_ns.protect(session.object_names)
 
         # protect Aliases if they exist
         if "ALIASES" in protected_user_ns:

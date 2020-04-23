@@ -67,7 +67,9 @@ class _Group(object):
 
     @property
     def is_moving(self):
-        return self._group_move.is_moving
+        return self._group_move.is_moving or any(
+            m.is_moving for m in self._axes.values()
+        )
 
     def _prepare_one_controller_motions(self, controller, motions):
         try:

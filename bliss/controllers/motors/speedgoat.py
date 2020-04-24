@@ -74,13 +74,13 @@ class SpeedgoatMotor(Controller):
                 self._axis_init_done[axis.name] = False
                 
     def read_position(self, axis):
-        return self.sg_controller.available_motors[axis.name].position / 1000.0
+        return self.sg_controller.available_motors[axis.name].position / axis.steps_per_unit
 
     def read_velocity(self, axis):
-        return self.sg_controller.available_motors[axis.name].velocity / 1000.0
+        return self.sg_controller.available_motors[axis.name].velocity / axis.steps_per_unit
 
     def set_velocity(self, axis, velocity):
-        self.sg_controller.available_motors[axis.name].velocity = velocity * 1000.0
+        self.sg_controller.available_motors[axis.name].velocity = int(velocity * axis.steps_per_unit)
 
     def read_acceleration(self, axis):
         acc_time = self.sg_controller.available_motors[axis.name].acc_time

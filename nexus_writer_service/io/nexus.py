@@ -639,6 +639,7 @@ def nxRootInit(h5group):
         h5group.attrs["HDF5_Version"] = asNxChar(h5py.version.hdf5_version)
         h5group.attrs["h5py_version"] = asNxChar(h5py.version.version)
         h5group.attrs["creator"] = asNxChar("bliss")
+        h5group.attrs["creator_version"] = asNxChar(bliss.__version__)
         h5group.attrs["NX_class"] = u"NXroot"
         updated(h5group)
 

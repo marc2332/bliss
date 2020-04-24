@@ -382,16 +382,17 @@ def test_nexus_reshape_datasets(scan_tmpdir):
 
 
 def validateNxRoot(h5group):
-    attrs = [
+    attrs = {
         "NX_class",
         "creator",
+        "creator_version",
         "HDF5_Version",
         "file_name",
         "file_time",
         "file_update_time",
         "h5py_version",
-    ]
-    assert set(h5group.attrs.keys()) == set(attrs)
+    }
+    assert set(h5group.attrs.keys()) == attrs
     assert h5group.attrs["NX_class"] == "NXroot"
     assert h5group.name == "/"
 

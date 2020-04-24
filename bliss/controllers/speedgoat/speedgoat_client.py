@@ -1043,7 +1043,7 @@ class MotorsController(object):
             if mot not in sig_mot:
                 par_mot.pop(mot)
 
-        # create counters
+        # create Motors
         self.available_motors = {}
         for mot_name in sig_mot.keys():
             self.available_motors[mot_name] = Motor(

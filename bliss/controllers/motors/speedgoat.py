@@ -99,8 +99,8 @@ class SpeedgoatMotor(Controller):
         return AxisState("READY")
 
     def prepare_move(self, motion):
-        self.sg_controller.available_motors[axis.name].prepare_move()
-        self.sg_controller.available_motors[axis.name].set_point = motion.target_pos
+        self.sg_controller.available_motors[motion.axis.name].prepare_move()
+        self.sg_controller.available_motors[motion.axis.name].set_point = motion.target_pos
 
     def start_one(self, motion):
         self.sg_controller.available_motors[motion.axis.name].start_move()

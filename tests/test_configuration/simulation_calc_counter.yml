@@ -59,3 +59,14 @@
         expression:  m*x
       - name: out4 
         expression:  n*y
+
+- plugin: bliss
+  module: expression_based_calc
+  class: ExpressionCalcCounter
+  name: simu_expr_calc_no_constant
+  expression: x+b
+  inputs:
+      - counter : $diode
+        tags: x
+      - counter : $diode2
+        tags: b

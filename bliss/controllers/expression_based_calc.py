@@ -7,7 +7,9 @@ class ExpressionCalcCounter(CalcCounter):
     def __init__(self, name, config):
 
         self._expression = config["expression"]
-        self._constants = config.get("constants").to_dict()
+        self._constants = config.get("constants", None)
+        if self._constants is not None:
+            self._constants = self._constants.to_dict()
         calc_ctrl_config = {
             "inputs": config["inputs"],
             "outputs": [{"name": name, "tags": name}],
@@ -15,7 +17,10 @@ class ExpressionCalcCounter(CalcCounter):
         self.__controller = CalcCounterController(name + "_ctrl", calc_ctrl_config)
 
         def _calc_function(input_dict):
-            exp_dict = self._constants.copy()
+            if self._constants is not None:
+                exp_dict = self._constants.copy()
+            else:
+                exp_dict = {}
             for cnt in self.__controller.inputs:
                 exp_dict.update(
                     {
@@ -39,7 +44,9 @@ class ExpressionCalcCounter(CalcCounter):
 
 class ExpressionCalcCounterController(CalcCounterController):
     def __init__(self, name, config):
-        self._constants = config.get("constants").to_dict()
+        self._constants = config.get("constants", None)
+        if self._constants is not None:
+            self._constants = self._constants.to_dict()
 
         self._expressions = dict()
         for o in config["outputs"]:
@@ -48,7 +55,10 @@ class ExpressionCalcCounterController(CalcCounterController):
         super().__init__(name, config)
 
         def _calc_function(input_dict):
-            exp_dict = self._constants.copy()
+            if self._constants is not None:
+                exp_dict = self._constants.copy()
+            else:
+                exp_dict = {}
             for cnt in self.inputs:
                 exp_dict.update({self.tags[cnt.name]: input_dict[self.tags[cnt.name]]})
             return {

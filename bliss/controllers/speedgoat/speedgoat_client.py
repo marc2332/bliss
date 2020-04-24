@@ -1129,11 +1129,13 @@ class Motor(object):
     def start_move(self):
         self.set_param("moveTrigger/Value", 0)
         self.set_param("moveTrigger/Value", 1)
+        gevent.sleep(0.01)
         self.set_param("moveTrigger/Value", 0)
 
     def stop(self):
         self.set_param("stoppTrigger/Value", 0)
         self.set_param("stoppTrigger/Value", 1)
+        gevent.sleep(0.01)
         self.set_param("stoppTrigger/Value", 0)
 
     def limits(self):

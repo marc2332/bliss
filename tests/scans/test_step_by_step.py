@@ -430,8 +430,10 @@ def test_calc_counter_callback(session):
         def calc_function(self, input_dict):
             return {"pow": input_dict["sim_ct_gauss"] ** 2}
 
-        def get_acquisition_object(self, acq_params, ctrl_params, parent_acq_params):
-            return CCAS(self, acq_params, ctrl_params=ctrl_params)
+        def get_acquisition_object(
+            self, acq_params, ctrl_params, parent_acq_params, acq_devices
+        ):
+            return CCAS(self, acq_devices, acq_params, ctrl_params=ctrl_params)
 
     config = {
         "inputs": [{"counter": cnt, "tags": "sim_ct_gauss"}],

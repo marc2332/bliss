@@ -53,6 +53,7 @@ class SpeedgoatMotor(Controller):
     def __init__(self, name, config, *args, **kwargs):
         Controller.__init__(self, name, config, *args, **kwargs)
         self.speedgoat = config.get('speedgoat')
+        self._axis_init_done = {}
         
     def initialize(self):
         self.sg_controller = self.speedgoat.motors_controller
@@ -61,11 +62,17 @@ class SpeedgoatMotor(Controller):
         if axis.name not in self.sg_controller.available_motors:
             raise (RuntimeError('Speedgoat: Axis "%s" does not exist' % axis.name))
 
-        (sgLowLimit, sgHighLimit) = self.sg_controller.available_motors[
-            axis.name
-        ].limits()
-        # axis.limits(LowLimit=sgLowLimit, HighLimit=sgHighLimit)
-
+        if axis.name not in self._axis_init_done.keys() or self._axis_init_done[axis.name] == False:
+            self._axis_init_done[axis.name] = True
+            try:
+                (sgLowLimit, sgHighLimit) = self.sg_controller.available_motors[
+                    axis.name
+                ].limits()
+                axis.low_limit = sgLowLimit / axis.steps_per_unit
+                axis.high_limit = sgHighLimit / axis.steps_per_unit
+            except:
+                self._axis_init_done[axis.name] = False
+                
     def read_position(self, axis):
         return self.sg_controller.available_motors[axis.name].position / 1000.0
 

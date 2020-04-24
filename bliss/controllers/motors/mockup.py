@@ -109,6 +109,11 @@ class Mockup(Controller):
         axis.settings.set("init_count", axis.settings.get("init_count") + 1)
         axis.stop_jog_called = False
 
+        # the next lines are there to test issue #1601
+        old_low_limit = axis.low_limit
+        axis.low_limit = -999
+        axis.low_limit = old_low_limit
+
     def initialize_encoder(self, encoder):
         enc_config = self.__encoders.setdefault(encoder, {})
         enc_config.setdefault("measured_noise", None)

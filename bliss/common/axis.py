@@ -866,7 +866,6 @@ class Axis:
         return position
 
     @_set_position.setter
-    @lazy_init
     def _set_position(self, new_set_pos):
         new_set_pos = float(
             new_set_pos
@@ -937,7 +936,6 @@ class Axis:
         return dial_pos
 
     @dial.setter
-    @lazy_init
     def dial(self, new_dial):
         if self.is_moving:
             raise RuntimeError(
@@ -987,7 +985,6 @@ class Axis:
         return pos
 
     @position.setter
-    @lazy_init
     def position(self, new_pos):
         log_debug(self, "axis.py : position(new_pos=%r)" % new_pos)
         if self.is_moving:
@@ -1177,7 +1174,6 @@ class Axis:
         return _user_vel
 
     @velocity.setter
-    @lazy_init
     def velocity(self, new_velocity):
         # Write -> Converts into motor units to change velocity of axis."
         new_velocity = float(
@@ -1212,7 +1208,6 @@ class Axis:
         return _acceleration
 
     @acceleration.setter
-    @lazy_init
     def acceleration(self, new_acc):
         if self.is_moving:
             raise RuntimeError(
@@ -1242,7 +1237,6 @@ class Axis:
         return self.velocity / self.acceleration
 
     @acctime.setter
-    @lazy_init
     def acctime(self, new_acctime):
         # Converts acctime into acceleration.
         new_acctime = float(
@@ -1294,7 +1288,6 @@ class Axis:
         return tuple(map(self.dial2user, self.dial_limits))
 
     @limits.setter
-    @lazy_init
     def limits(self, limits):
         # Set limits (low, high) in user units.
         try:
@@ -1316,7 +1309,6 @@ class Axis:
         return self.dial2user(ll)
 
     @low_limit.setter
-    @lazy_init
     def low_limit(self, limit):
         # Sets Low Limit
         # <limit> must be given in USER units
@@ -1334,7 +1326,6 @@ class Axis:
         return self.dial2user(hl)
 
     @high_limit.setter
-    @lazy_init
     def high_limit(self, limit):
         # Sets High Limit (given in USER units)
         # Saved in settings in DIAL units.

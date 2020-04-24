@@ -53,7 +53,7 @@ class Controller:
         self.__initialized_hw_axis = dict()
         self.__initialized_encoder = dict()
         self.__initialized_axis = dict()
-        self.__lock = lock.RLock()  # Semaphore()
+        self.__lock = lock.RLock()
         self._axes_config = axes
         self._axes = dict()
         self._encoders_config = encoders
@@ -171,35 +171,35 @@ class Controller:
     def _initialize_axis(self, axis, *args, **kwargs):
         """
         """
-        with self.__lock:
-            # Only if axis is not already initialized.
-            if self.__initialized_axis[axis]:
-                return
+        if self.__initialized_axis[axis]:
+            return
 
+        with self.__lock:
             # Initialize controller hardware only once.
             if not self.__initialized_hw.value:
                 self.initialize_hardware()
                 self.__initialized_hw.value = True
 
-            # Call specific axis initialization.
-            self.initialize_axis(axis)
-
-            # Call specific hardware axis initialization.
-            # Done only once even in case of multi clients.
-            axis_initialized = self.__initialized_hw_axis[axis]
-            if not axis_initialized.value:
-                self.initialize_hardware_axis(axis)
-                axis_initialized.value = 1
-
+            # Consider axis is initialized => prevent re-entering
+            # _initialize_axis in lazy_init
             self.__initialized_axis[axis] = True
 
-        # Apply settings but for NoSettingsAxis.
-        if isinstance(axis, NoSettingsAxis):
-            return
-        else:
             try:
-                self._init_settings(axis)
+                # Call specific axis initialization.
+                self.initialize_axis(axis)
+
+                # Call specific hardware axis initialization.
+                # Done only once even in case of multi clients.
+                axis_initialized = self.__initialized_hw_axis[axis]
+                if not axis_initialized.value:
+                    self.initialize_hardware_axis(axis)
+                    axis_initialized.value = 1
+
+                # Apply settings but for NoSettingsAxis.
+                if not isinstance(axis, NoSettingsAxis):
+                    self._init_settings(axis)
             except BaseException:
+                # Failed to initialize
                 self.__initialized_axis[axis] = False
                 raise
 

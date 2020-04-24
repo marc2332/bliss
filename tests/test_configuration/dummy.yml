@@ -6,3 +6,13 @@
       t_value: 10
     - name: dummy2
       t_value: bla
+
+- plugin: emotion
+  class: DummyCtrl
+  package: test_motor_initialization
+  axes:
+    - name: dummy_axis_1
+      steps_per_unit: 1
+      velocity: 1
+      acceleration: 1
+      

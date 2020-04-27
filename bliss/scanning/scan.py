@@ -707,9 +707,11 @@ class Scan:
             self._acq_chain
         )
 
-        scan_display_params = ScanDisplay()
-        if is_bliss_shell() and scan_display_params.auto:
-            get_flint()
+        if is_bliss_shell():
+            scan_display = ScanDisplay()
+            if scan_display.auto:
+                if self.is_flint_recommended():
+                    get_flint()
 
         self.__state = ScanState.IDLE
         self.__state_change = gevent.event.Event()
@@ -717,6 +719,22 @@ class Scan:
         self.__node = None
         self.__comments = list()  # user comments
         self._exception = None
+
+    def is_flint_recommended(self):
+        """Return true if flint is recommended for this scan"""
+        scan_info = self._scan_info
+        if scan_info["type"] == "ct":
+            chain = scan_info["acquisition_chain"]
+            ndim_data = []
+            for _top_master, chain in scan_info["acquisition_chain"].items():
+                ndim_data.extend(chain.get("images", []))
+                ndim_data.extend(chain.get("spectra", []))
+                ndim_data.extend(chain.get("master", {}).get("images", []))
+                ndim_data.extend(chain.get("master", {}).get("spectra", []))
+            # Flint is only recommended if there is MCAs or images
+            return len(ndim_data) > 0
+
+        return True
 
     def _create_data_node(self, node_name):
         self.__node = _create_node(

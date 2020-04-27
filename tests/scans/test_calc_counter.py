@@ -279,3 +279,35 @@ def test_expr_calc_counter(default_session):
         + s.get_data()["simulation_diode_sampling_controller:diode2"]
         == s.get_data()["simu_expr_calc_no_constant_ctrl:simu_expr_calc_no_constant"]
     )
+
+
+def test_expr_calc_counter_beaconobject(default_session):
+    simu_expr_calc_ctrl = default_session.config.get("simu_expr_calc_ctrl")
+    s = loopscan(1, .1, simu_expr_calc_ctrl, save=False)
+
+    simu_expr_calc_ctrl.constants.m = 20
+    s = loopscan(1, .1, simu_expr_calc_ctrl, save=False)
+    assert (
+        s.get_data()["simu1:deadtime_det0"] * 20
+        == s.get_data()["simu_expr_calc_ctrl:out3"]
+    )
+    assert (
+        s.get_data()["simulation_diode_sampling_controller:diode2"] * 100
+        == s.get_data()["simu_expr_calc_ctrl:out4"]
+    )
+
+    simu_expr_calc = default_session.config.get("simu_expr_calc")
+    s = loopscan(1, .1, simu_expr_calc, save=False)
+    assert (
+        s.get_data()["simulation_diode_sampling_controller:diode"] * 10
+        + s.get_data()["simulation_diode_sampling_controller:diode2"]
+        == s.get_data()["simu_expr_calc_ctrl:simu_expr_calc"]
+    )
+
+    simu_expr_calc.constants.m = 20
+    s = loopscan(1, .1, simu_expr_calc, save=False)
+    assert (
+        s.get_data()["simulation_diode_sampling_controller:diode"] * 20
+        + s.get_data()["simulation_diode_sampling_controller:diode2"]
+        == s.get_data()["simu_expr_calc_ctrl:simu_expr_calc"]
+    )

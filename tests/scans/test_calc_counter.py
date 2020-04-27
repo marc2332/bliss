@@ -7,7 +7,7 @@
 
 # ----------------------------- TEST -----------------------------------------------------------
 import numpy
-
+import pytest
 from bliss.common.scans import ascan, loopscan
 from bliss.controllers.simulation_calc_counter import MeanCalcCounterController
 from bliss.scanning.acquisition.motor import LinearStepTriggerMaster
@@ -248,3 +248,34 @@ def test_single_calc_counter(default_session):
     s.get_data()["deadtime_det0"]
     s.get_data()["deadtime_det1"]
     s.get_data()["out2"]
+
+
+def test_expr_calc_counter(default_session):
+    simu_expr_calc_ctrl = default_session.config.get("simu_expr_calc_ctrl")
+    s = loopscan(1, .1, simu_expr_calc_ctrl, save=False)
+    assert (
+        s.get_data()["simu1:deadtime_det0"] * 10
+        == s.get_data()["simu_expr_calc_ctrl:out3"]
+    )
+    assert (
+        s.get_data()["simulation_diode_sampling_controller:diode2"] * 100
+        == s.get_data()["simu_expr_calc_ctrl:out4"]
+    )
+
+    simu_expr_calc = default_session.config.get("simu_expr_calc")
+    s = loopscan(1, .1, simu_expr_calc, save=False)
+    assert (
+        s.get_data()["simulation_diode_sampling_controller:diode"] * 10
+        + s.get_data()["simulation_diode_sampling_controller:diode2"]
+        == s.get_data()["simu_expr_calc_ctrl:simu_expr_calc"]
+    )
+
+    simu_expr_calc_no_constant = default_session.config.get(
+        "simu_expr_calc_no_constant"
+    )
+    s = loopscan(1, .1, simu_expr_calc_no_constant, save=False)
+    assert (
+        s.get_data()["simulation_diode_sampling_controller:diode"]
+        + s.get_data()["simulation_diode_sampling_controller:diode2"]
+        == s.get_data()["simu_expr_calc_no_constant_ctrl:simu_expr_calc_no_constant"]
+    )

@@ -44,6 +44,28 @@ def test_get_plot(test_session_with_flint, lima_simulator):
     assert len(p5_data.shape) == 2
 
 
+def test_ct_image(test_session_without_flint, lima_simulator):
+    """Flint is expected with a ct on an image"""
+    session = test_session_without_flint
+    lima = session.config.get("lima_simulator")
+    ct = session.env_dict["ct"]
+    with use_shell_command_with_scan_display():
+        ct(0.1, lima)
+    flint = plot.get_flint(creation_allowed=False)
+    assert flint is not None
+
+
+def test_ct_diode(test_session_without_flint):
+    """Flint is not expected with a ct on a diode"""
+    session = test_session_without_flint
+    ct = session.env_dict["ct"]
+    diode = session.config.get("diode")
+    with use_shell_command_with_scan_display():
+        ct(0.1, diode)
+    flint = plot.get_flint(creation_allowed=False)
+    assert flint is None
+
+
 def test_image_display(flint_session, lima_simulator, dummy_acq_device):
     chain = AcquisitionChain()
     lima_sim = flint_session.config.get("lima_simulator")

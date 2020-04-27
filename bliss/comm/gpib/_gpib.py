@@ -358,7 +358,7 @@ class Gpib:
 
     READ_BLOCK_SIZE = 64 * 1024
 
-    def __init__(self, url=None, pad=0, sad=0, timeout=1.0, tmo=13, eot=1, eol="\n"):
+    def __init__(self, url=None, pad=0, sad=0, timeout=10., tmo=13, eot=1, eol="\n"):
 
         self._gpib_kwargs = {
             "url": url,

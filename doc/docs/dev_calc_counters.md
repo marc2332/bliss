@@ -206,6 +206,9 @@ Do define calculational counters directly in the *YAML* it is possible to use
 These two classes extend the Calculation Counter framework such that expressions defined in the *YAML* are evaluated during the calculation.
 
 The expression evaluation is using numexpr module. (Documentation: https://numexpr.readthedocs.io)
+
+The constants defined in the config can be modified during runtime accessing `.constants` e.g. to apply a calibration
+(in the example below `simu_expr_calc.constants.m = 12`).
 #### Location: `bliss.controllers.expression_based_calc.py`
 
 #### YAML configuration examples

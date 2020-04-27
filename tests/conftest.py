@@ -496,18 +496,21 @@ def xvfb():
 
 
 @contextmanager
-def flint_context():
-    flint = plot.get_flint()
-    pid = flint._pid
-    yield pid
-    flint = None  # Break the reference to the proxy
+def flint_context(with_flint=True):
+    if with_flint:
+        flint = plot.get_flint()
+    else:
+        flint = plot.get_flint(creation_allowed=False)
+        if flint is not None:
+            flint.close_application()
+            flint = None  # Break the reference to the proxy
+            plot.reset_flint()
+    yield
+    flint = plot.get_flint(creation_allowed=False)
+    if flint is not None:
+        flint.close_application()
+        flint = None  # Break the reference to the proxy
     plot.reset_flint()
-    os.kill(pid, signal.SIGTERM)
-    try:
-        os.waitpid(pid, 0)
-    # It happens sometimes, for some reason
-    except OSError:
-        pass
 
 
 @pytest.fixture
@@ -522,6 +525,13 @@ def flint_session(xvfb, beacon):
 @pytest.fixture
 def test_session_with_flint(xvfb, session):
     with flint_context():
+        yield session
+
+
+@pytest.fixture
+def test_session_without_flint(xvfb, session):
+    """This session have to start without flint, but can finish with"""
+    with flint_context(False):
         yield session
 
 

@@ -445,6 +445,52 @@ class FlintApi:
         plot = self._get_plot_widget(plot_id)
         plot.clear()
 
+    def start_image_monitoring(self, channel_name, tango_address, exposure_time):
+        """Start monitoring of an image from a Tango detector.
+
+        The widget used to display result of the image scan for this detector
+        will be used to display the monitoring of the camera.
+
+        Arguments:
+            channel_name: Identifier of the channel in Redis. It is used to
+                find the right plot in Flint.
+            tango_address: Address of the Lima Tango server
+            exposure_time: The exposition time of the detector. It will be used
+                to poll the detector.
+        """
+        plot_id = self.get_live_scan_plot(channel_name, "image")
+        if plot_id is None:
+            # FIXME: the widget have to be created, that's all
+            raise RuntimeError("THe channel name is not part of any widget")
+        from .manager import monitoring
+
+        scan = monitoring.MonitoringScan(
+            None, channel_name, tango_address, exposure_time
+        )
+        plot = self._get_live_plot_widget(plot_id)
+        plot.setScan(scan)
+        scan.startMonitoring()
+
+    def stop_image_monitoring(self, channel_name):
+        """Stop monitoring of an image from a Tango detector.
+
+        Arguments:
+            channel_name: Identifier of the channel in Redis. It is used to
+                find the right plot in Flint.
+        """
+        plot_id = self.get_live_scan_plot(channel_name, "image")
+        if plot_id is None:
+            raise RuntimeError("THe channel name is not part of any widget")
+        from .manager import monitoring
+
+        plot = self._get_live_plot_widget(plot_id)
+        scan = plot.scan()
+        if not isinstance(scan, monitoring.MonitoringScan):
+            raise RuntimeError("Unexpected scan type %s" % type(scan))
+
+        scan.stopMonitoring()
+        plot.setScan(None)
+
     def _get_live_plot_widget(self, plot_id):
         if not isinstance(plot_id, str) or not plot_id.startswith("live:"):
             raise ValueError(f"'{plot_id}' is not a valid plot_id")

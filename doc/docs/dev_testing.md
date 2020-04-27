@@ -237,6 +237,35 @@ Examples:
 
 `capsys` module gives access to the standard output and error.
 
+
+#### approx
+
+To test equality of floats or to test 2 values with an approximation margin,
+`pytest.approx` must be used.
+
+example to ensure that position is `6.28` more or less `0.001`:
+```python
+assert roby.position == pytest.approx(6.28, abs=1e-3)
+```
+
+!!! danger
+    `rel` or `abs` keyword arg should be used to avoid mistake.
+    ```
+    In [38]: 111 == pytest.approx(112.0, 0.1)    # <--- !!! rel by default
+    Out[38]: True
+    
+    In [39]: 111 == pytest.approx(112.0, abs=0.1)
+    Out[39]: False
+    ```
+
+!!! danger
+    `assert pytest.approx(position, 2)` is WRONG (compare position to nothing)
+    use: `assert position == pytest.approx(2)`
+
+
+see: https://docs.pytest.org/en/latest/reference.html#pytest-approx for details.
+
+
 #### Using a Tango device server in tests
 
 A dummy tango device server is defined in :

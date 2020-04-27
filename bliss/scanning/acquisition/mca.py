@@ -210,7 +210,6 @@ class HWScaAcquisitionSlave(AcquisitionSlave):
         pass
 
     def _do_add_counter(self, counter):
-        super()._do_add_counter(counter)
         counter.register_device(self)
 
         (det, start, stop) = (

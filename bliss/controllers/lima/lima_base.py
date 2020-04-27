@@ -30,8 +30,8 @@ from .bpm import Bpm
 from .roi import RoiCounters
 from .image import ImageCounter, LimaImageParameters
 from .shutter import Shutter
-
 from .bgsub import BgSub
+from .debug import LimaDebug
 
 
 class CameraBase(object):
@@ -410,6 +410,7 @@ class Lima(CounterController):
         self._shutter = None
         self._acquisition = None
         self._accumulation = None
+        self._debug = None
         self._proxy = self._get_proxy()
         self._cached_ctrl_params = {}
 
@@ -667,6 +668,12 @@ class Lima(CounterController):
 
     def clear_cache(self):
         clear_cache(self)
+
+    @autocomplete_property
+    def debug(self):
+        if self._debug is None:
+            self._debug = LimaDebug(self.name, self._proxy)
+        return self._debug
 
     @autocomplete_property
     def processing(self):

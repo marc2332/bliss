@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Shell
+    - Flint will not be launched for CT without image or MCA
+      despite `SCAN_DISPLAY.auto=True`
+
 ## [1.3.0] - 2020-04-03
 
 ### Added

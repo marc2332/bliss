@@ -12,7 +12,7 @@ import numpy
 import pickle as pickle
 from bliss import setup_globals, current_session
 from bliss.common import scans
-from bliss.scanning.scan import Scan
+from bliss.scanning.scan import Scan, ScanState
 from bliss.scanning.chain import AcquisitionChain, AcquisitionMaster, AcquisitionSlave
 from bliss.scanning.acquisition.motor import SoftwarePositionTriggerMaster
 from bliss.scanning.acquisition.counter import SamplingCounterAcquisitionSlave
@@ -114,9 +114,12 @@ def test_scan_node(session, redis_data_conn, scan_tmpdir):
 
 
 def test_interrupted_scan(session, redis_data_conn, scan_tmpdir):
+    """
+    Start a scan and simulate a ctrl-c.
+    """
     scan_saving = session.scan_saving
     scan_saving.base_path = str(scan_tmpdir)
-    parent = scan_saving.get_parent_node()
+
     m = getattr(setup_globals, "roby")
     m.velocity = 10
     diode = getattr(setup_globals, "diode")
@@ -128,8 +131,20 @@ def test_interrupted_scan(session, redis_data_conn, scan_tmpdir):
     )
 
     s = Scan(chain, "test_scan")
+
+    assert s._Scan__state == ScanState.IDLE
+
+    # Run scan in greenlet
     scan_task = gevent.spawn(s.run)
-    gevent.sleep(0.5)
+
+    # IDLE->PREPARING->STARTING->STOPPING->DONE
+    # Wait for scan state to be STARTING
+    with gevent.Timeout(2):
+        s.wait_state(ScanState.STARTING)
+
+    assert s._Scan__state == ScanState.STARTING
+
+    # Stop the scan like a ctrl-c
     with pytest.raises(KeyboardInterrupt):
         scan_task.kill(KeyboardInterrupt)
 

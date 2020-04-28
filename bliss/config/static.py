@@ -51,6 +51,7 @@ import re
 import operator
 import weakref
 import collections
+from collections.abc import MutableMapping, MutableSequence
 import types
 
 import yaml
@@ -66,9 +67,9 @@ def _find_dict(name, d):
     if d.get("name") == name:
         return d
     for key, value in d.items():
-        if isinstance(value, dict):
+        if isinstance(value, MutableMapping):
             sub_dict = _find_dict(name, value)
-        elif isinstance(value, list):
+        elif isinstance(value, MutableSequence):
             sub_dict = _find_list(name, value)
         else:
             continue
@@ -79,9 +80,9 @@ def _find_dict(name, d):
 
 def _find_list(name, l):
     for value in l:
-        if isinstance(value, dict):
+        if isinstance(value, MutableMapping):
             sub_dict = _find_dict(name, value)
-        elif isinstance(value, list):
+        elif isinstance(value, MutableSequence):
             sub_dict = _find_list(name, value)
         else:
             continue
@@ -147,10 +148,10 @@ def _replace_object_with_ref(obj):
 def _replace_list_node_with_ref(node_list):
     final_list = []
     for sub_node in node_list:
-        if isinstance(sub_node, list):
+        if isinstance(sub_node, MutableSequence):
             sub_list = _replace_list_node_with_ref(sub_node)
             final_list.append(sub_list)
-        elif isinstance(sub_node, dict):
+        elif isinstance(sub_node, MutableMapping):
             _replace_node_with_ref(sub_node)
             final_list.append(sub_node)
         else:
@@ -169,9 +170,9 @@ def _replace_node_with_ref(node):
             node[key] = new_value
             continue
 
-        if isinstance(value, dict):
+        if isinstance(value, MutableMapping):
             _replace_node_with_ref(value)
-        elif isinstance(value, list):
+        elif isinstance(value, MutableSequence):
             node[key] = _replace_list_node_with_ref(value)
 
 
@@ -220,8 +221,9 @@ def get_config_dict(fullname, node_name):
     with client.remote_open(fullname) as f:
         d = yaml.safe_load(f.read())
     if isinstance(d, dict):
+    if isinstance(d, MutableMapping):
         d = _find_dict(node_name, d)
-    elif isinstance(d, list):
+    elif isinstance(d, MutableSequence):
         d = _find_list(node_name, d)
     else:
         d = None
@@ -386,11 +388,11 @@ class Node(dict):
                 child_node = value.deep_copy()
                 node[key] = child_node
                 child_node._parent = node
-            elif isinstance(value, dict):
+            elif isinstance(value, MutableMapping):
                 child_node = Node()
                 child_node.update(value)
                 node[key] = child_node.deep_copy()
-            elif isinstance(value, list):
+            elif isinstance(value, MutableSequence):
                 new_list = Node._copy_list(value, node)
                 node[key] = new_list
             else:
@@ -408,7 +410,7 @@ class Node(dict):
             if isinstance(value, Node):
                 child_dict = value.to_dict()
                 newdict[key] = child_dict
-            elif isinstance(value, list):
+            elif isinstance(value, MutableSequence):
                 new_list = Node._copy_list(value, self, dict_mode=True)
                 newdict[key] = new_list
             else:
@@ -426,11 +428,11 @@ class Node(dict):
                     new_node = v.deep_copy()
                     new_node._parent = parent
                 new_list.append(new_node)
-            elif isinstance(v, dict):
+            elif isinstance(v, MutableMapping):
                 tmp_node = Node()
                 tmp_node.update(v)
                 new_list.append(tmp_node.deep_copy().to_dict())
-            elif isinstance(v, list):
+            elif isinstance(v, MutableSequence):
                 child_list = Node._copy_list(v, parent, dict_mode=dict_mode)
                 new_list.append(child_list)
             else:
@@ -444,7 +446,7 @@ class Node(dict):
                 if values.filename != filename:
                     continue
                 return_dict[key] = self._get_save_dict(values, filename)
-            elif isinstance(values, list):
+            elif isinstance(values, MutableSequence):
                 return_dict[key] = self._get_save_list(values, filename)
             else:
                 return_dict[key] = values
@@ -472,7 +474,7 @@ class Node(dict):
             if isinstance(v, Node):
                 print()
                 Node._pprint(v, cur_indet + indent, indent, cur_depth + 1, depth)
-            elif isinstance(v, list):
+            elif isinstance(v, MutableSequence):
                 list_ident = cur_indet + indent
                 list_space = " " * list_ident
                 print("\n%s[" % list_space)
@@ -559,7 +561,7 @@ class Config:
                 continue
             base_path, file_name = os.path.split(path)
             fs_node, fs_key = self._get_or_create_path_node(base_path)
-            if isinstance(fs_node, list):
+            if isinstance(fs_node, MutableSequence):
                 continue
 
             try:
@@ -589,7 +591,7 @@ class Config:
                 parents = Node(self, fs_node if fs_key else None, path)
                 parents["__children__"] = []
                 # do not accept a list in case of __init__ file
-                if isinstance(d, list):
+                if isinstance(d, MutableSequence):
                     raise TypeError("List are not allowed in *%s* file" % path)
                 try:
                     self._parse(d, parents)
@@ -603,7 +605,7 @@ class Config:
                     fs_node[fs_key] = parents
                 continue
             else:
-                if isinstance(d, list):
+                if isinstance(d, MutableSequence):
                     parents = []
                     for item in d:
                         local_parent = Node(self, fs_node, path)
@@ -626,23 +628,23 @@ class Config:
                         raise RuntimeError(_msg)
                     self._create_index(parents)
 
-            if isinstance(fs_node, list):
+            if isinstance(fs_node, MutableSequence):
                 continue
             elif fs_key == "":
                 children = fs_node
             else:
                 children = fs_node.get(fs_key)
 
-            if isinstance(children, list):
-                if isinstance(parents, list):
+            if isinstance(children, MutableSequence):
+                if isinstance(parents, MutableSequence):
                     children.extend(parents)
                 else:
                     children.append(parents)
             elif children is not None:
                 # check if this node is __init__
                 children_node = children.get("__children__")
-                if isinstance(children_node, list):  # it's an init node
-                    if isinstance(parents, list):
+                if isinstance(children_node, MutableSequence):  # it's an init node
+                    if isinstance(parents, MutableSequence):
                         for p in parents:
                             p._parent = children
                             children_node.append(p)
@@ -650,7 +652,7 @@ class Config:
                         parents._parent = children
                         children_node.append(parents)
                 else:
-                    if isinstance(parents, list):
+                    if isinstance(parents, MutableSequence):
                         parents.append(children)
                         fs_node[fs_key] = parents
                     else:
@@ -855,7 +857,7 @@ class Config:
 
         user_tags = node.get(self.USER_TAG_KEY)
         if user_tags is not None:
-            if not isinstance(user_tags, list):
+            if not isinstance(user_tags, MutableSequence):
                 user_tags = [user_tags]
             for tag in user_tags:
                 l = self._usertag2node.get(tag)
@@ -867,12 +869,12 @@ class Config:
     def _parse_list(self, l, parent):
         r_list = []
         for value in l:
-            if isinstance(value, dict):
+            if isinstance(value, MutableMapping):
                 node = Node(self, parent)
                 self._parse(value, node)
                 self._create_index(node)
                 r_list.append(node)
-            elif isinstance(value, list):
+            elif isinstance(value, MutableSequence):
                 child_list = self._parse_list(value, parent)
                 r_list.append(child_list)
             else:
@@ -884,12 +886,12 @@ class Config:
             raise RuntimeError("Error parsing %r" % parent)
         else:
             for key, value in d.items():
-                if isinstance(value, dict):
+                if isinstance(value, MutableMapping):
                     node = Node(self, parent=parent)
                     self._parse(value, node)
                     self._create_index(node)
                     parent[key] = node
-                elif isinstance(value, list):
+                elif isinstance(value, MutableSequence):
                     parent[key] = self._parse_list(value, parent)
                 else:
                     parent[key] = value

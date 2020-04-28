@@ -68,7 +68,13 @@ class MonitoringScan(scan_model.Scan):
 
     def __runMonitoring(self):
         while self.isMonitoring():
-            gevent.sleep(self.__exposure_time)
+            # Sleep according to the user refresh rate and the exposure time
+            refresh_rate = self._channel.preferedRefreshRate()
+            if refresh_rate is None:
+                sleep = self.__exposure_time
+            else:
+                sleep = max(self.__exposure_time, refresh_rate / 1000)
+            gevent.sleep(sleep)
 
             proxy = self._get_proxy()
             _logger.info("Polling detector %s", proxy)

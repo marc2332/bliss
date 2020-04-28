@@ -566,7 +566,10 @@ class Channel(qt.QObject, _Sealable):
         """
         if data is None:
             return True
-        if self.ndim != data.array().ndim:
+        array = data.array()
+        if array is None:
+            return True
+        if self.ndim != array.ndim:
             return False
         return True
 

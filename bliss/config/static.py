@@ -54,11 +54,13 @@ import collections
 from collections.abc import MutableMapping, MutableSequence
 import types
 
-import yaml
-from yaml.loader import Reader, Scanner, Parser, Composer, SafeConstructor, Resolver
+import ruamel
+from ruamel.yaml import YAML
+from ruamel.yaml.compat import StringIO
 
 from bliss.config.conductor import client
 from bliss.config import channels
+from bliss.common.utils import prudent_update
 
 CONFIG = None
 
@@ -100,36 +102,6 @@ def _find_subconfig(d, path):
     if len(path) > 0:
         return _find_subconfig(sub, path)
     return sub
-
-
-class BlissYamlResolver(Resolver):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-        new_resolvers = collections.defaultdict(list)
-        for k, resolver in self.__class__.yaml_implicit_resolvers.items():
-            for item in resolver:
-                tag, regexp = item
-                if tag.endswith("2002:bool"):
-                    regexp = re.compile(r"^(?:true|True|TRUE|false|False|FALSE)$", re.X)
-                new_resolvers[k].append((tag, regexp))
-        self.__class__.yaml_implicit_resolvers = new_resolvers
-
-
-class BlissSafeConstructor(SafeConstructor):
-    bool_values = {"true": True, "false": False}
-
-
-class BlissSafeYamlLoader(
-    Reader, Scanner, Parser, Composer, BlissSafeConstructor, BlissYamlResolver
-):
-    def __init__(self, stream):
-        Reader.__init__(self, stream)
-        Scanner.__init__(self)
-        Parser.__init__(self)
-        Composer.__init__(self)
-        BlissSafeConstructor.__init__(self)
-        BlissYamlResolver.__init__(self)
 
 
 def _replace_object_with_ref(obj):
@@ -219,8 +191,9 @@ def get_config_dict(fullname, node_name):
     """
 
     with client.remote_open(fullname) as f:
-        d = yaml.safe_load(f.read())
-    if isinstance(d, dict):
+        yaml = YAML(pure=True)
+        yaml.allow_duplicate_keys = True
+        d = yaml.load(f.read())
     if isinstance(d, MutableMapping):
         d = _find_dict(node_name, d)
     elif isinstance(d, MutableSequence):
@@ -363,12 +336,29 @@ class Node(dict):
         if filename is None:
             return  # Memory
         nodes_2_save = self._config._file2node[filename]
+        # for save_nodes in self._get_save_list(nodes_2_save, filename):
+        # yaml_contents can be a CommentedMap (hashmap)
         if len(nodes_2_save) == 1:
             node = tuple(nodes_2_save)[0]
             save_nodes = self._get_save_dict(node, filename)
         else:
             save_nodes = self._get_save_list(nodes_2_save, filename)
-        file_content = yaml.dump(save_nodes, default_flow_style=False, sort_keys=False)
+        yaml = YAML(pure=True)
+        yaml.allow_duplicate_keys = True
+        yaml.default_flow_style = False
+        try:
+            yaml_contents = yaml.load(
+                client.get_text_file(filename, self._config._connection)
+            )
+        except RuntimeError:
+            # file does not exist
+            yaml_contents = save_nodes
+        else:
+            yaml_contents = prudent_update(yaml_contents, save_nodes)
+
+        string_stream = StringIO()
+        yaml.dump(yaml_contents, stream=string_stream)
+        file_content = string_stream.getvalue()
         self._config.set_config_db_file(filename, file_content)
 
     def deep_copy(self):
@@ -565,8 +555,14 @@ class Config:
                 continue
 
             try:
-                d = yaml.load(file_content, BlissSafeYamlLoader)
-            except yaml.scanner.ScannerError as exp:
+                # typ='safe' -> Gives dict instead of OrderedDict subclass
+                # (removing comments)
+                # pure=True -> if False 052 is interpreted as octal (using C engine)
+
+                yaml = YAML(pure=True)
+                yaml.allow_duplicate_keys = True
+                d = yaml.load(file_content)
+            except ruamel.yaml.scanner.ScannerError as exp:
                 exp.note = "Error in YAML parsing:\n"
                 exp.note += "----------------\n"
                 exp.note += f"{file_content}\n"
@@ -574,7 +570,8 @@ class Config:
                 exp.note += "Hint: You can check your configuration with an on-line YAML validator like http://www.yamllint.com/ \n\n"
                 exp.problem_mark.name = path
                 raise exp
-            except yaml.error.MarkedYAMLError as exp:
+            # from ruamel.yaml.parser import ParserError
+            except ruamel.yaml.error.MarkedYAMLError as exp:
                 if exp.problem_mark is not None:
                     exp.problem_mark.name = path
                 raise

@@ -707,7 +707,7 @@ def test_wardrobe_from_yml_file(session):
     copper_reload.from_file("/tmp/materials_copper.yml", instance_name="copper")
     assert copper_reload.color == "yellow-brown"
     assert copper_reload.specific_weight == 8.96
-    assert copper_reload.dimensions == (5, 10, 15)
+    assert copper_reload.dimensions == [5, 10, 15]
     assert copper_reload.pieces == {"first": 40.3, "second": 27.2, "count": [1, 2, 3]}
     assert copper_reload.precious == False
     assert copper_reload.motor == session.config.get("robz")
@@ -730,7 +730,7 @@ def test_wardrobe_from_yml_file(session):
     materials_reload.switch("gold")
     assert materials_reload.color == "gold"
     assert materials_reload.specific_weight == 19.32
-    assert materials_reload.dimensions == (1, 2, 3)
+    assert materials_reload.dimensions == [1, 2, 3]
     assert materials_reload.pieces == {
         "first": 10.3,
         "second": 20.2,
@@ -742,7 +742,7 @@ def test_wardrobe_from_yml_file(session):
     materials_reload.switch("copper")
     assert materials_reload.color == "yellow-brown"
     assert materials_reload.specific_weight == 8.96
-    assert materials_reload.dimensions == (5, 10, 15)
+    assert materials_reload.dimensions == [5, 10, 15]
     assert materials_reload.pieces == {
         "first": 40.3,
         "second": 27.2,
@@ -846,7 +846,7 @@ def test_from_beacon(session):
 
     assert beacon_material.color == "gold"
     assert beacon_material.specific_weight == 19.32
-    assert beacon_material.dimensions == (1, 2, 3)
+    assert beacon_material.dimensions == [1, 2, 3]
     assert beacon_material.pieces == {"first": 10.3, "second": 20.2, "count": [5, 2, 5]}
     assert beacon_material.precious == True
     assert beacon_material.motor.name == session.config.get("roby").name
@@ -854,7 +854,7 @@ def test_from_beacon(session):
     beacon_material.switch("copper")
     assert beacon_material.color == "yellow-brown"
     assert beacon_material.specific_weight == 8.96
-    assert beacon_material.dimensions == (5, 10, 15)
+    assert beacon_material.dimensions == [5, 10, 15]
     assert beacon_material.pieces == {"first": 40.3, "second": 27.2, "count": [1, 2, 3]}
     assert beacon_material.precious == False
     assert beacon_material.motor.name == session.config.get("robz").name

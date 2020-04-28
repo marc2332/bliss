@@ -6,7 +6,8 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import re
-import yaml
+from ruamel.yaml import YAML
+from ruamel.yaml.compat import StringIO
 
 from collections import namedtuple
 from itertools import zip_longest
@@ -489,7 +490,11 @@ def specfile_to_yml(iterable):
                 c_y["dac_offset"] = c.dac_offset
             yml["interlocks"][-1]["channels"].append(c_y)
 
-    return yaml.dump(yml, default_flow_style=False, sort_keys=False)
+    yaml = YAML()
+    yaml.default_flow_style = False
+    string_stream = StringIO()
+    yaml.dump(yml, stream=string_stream)
+    return string_stream.getvalue()
 
 
 def interlock_to_yml(interlock_list):
@@ -527,7 +532,11 @@ def interlock_to_yml(interlock_list):
             r_d["channels"].append(c_d)
         d_i["interlocks"].append(r_d)
 
-    return yaml.dump(d_i, default_flow_style=False, sort_keys=False)
+    yaml = YAML()
+    yaml.default_flow_style = False
+    string_stream = StringIO()
+    yaml.dump(d_i, string_stream)
+    return string_stream.getvalue()
 
 
 def _interlock_relay_info(

@@ -1,15 +1,18 @@
 name: rw_test_2
+# comment1
 one:
 - pink: martini
-  red: apples
+  red: apples  # comment2
   blue: berry
 two:
 - a: true
+  # comment3
   b: false
   c: null
 test_list:
-  - $diode
+  - $diode  # comment4
 dict_list:
+    # comment5
   - cnt_channel: a
     instance: $diode2
   - cnt_channel: b

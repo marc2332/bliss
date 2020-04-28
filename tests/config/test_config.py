@@ -9,6 +9,7 @@ from bliss.config.conductor import client
 from bliss.config.plugins.utils import replace_reference_by_object
 import pytest
 import sys, os
+import ruamel
 
 
 @pytest.mark.parametrize(
@@ -33,13 +34,19 @@ def test_config_save(beacon, beacon_directory, file_name, node_name, copy):
     assert rw_cfg["one"][0]["pink"] == "martini"
     assert rw_cfg["one"][0]["red"] == "apples"
 
+    for comment in ("comment{}".format(i) for i in range(1, 6)):
+        assert comment in test_file_contents
+
     rw_cfg["one"][0]["red"] = "strawberry"
     rw_cfg["one"][0]["pink"] = "raspberry"
 
     try:
         rw_cfg.save()
-
         beacon.reload()
+        with open(test_file_path) as f:
+            content = f.read()
+            for comment in ("comment{}".format(i) for i in range(1, 6)):
+                assert comment in content
 
         rw_cfg2 = beacon.get_config(node_name)
 
@@ -49,6 +56,24 @@ def test_config_save(beacon, beacon_directory, file_name, node_name, copy):
     finally:
         with open(test_file_path, "w") as f:
             f.write(test_file_contents)
+
+
+def test_yml_load_exception(beacon, beacon_directory):
+    new_file = "%s/bad.yml" % beacon_directory
+
+    try:
+        with open(new_file, "w") as f:
+            f.write(
+                """- name: bad_yml
+    let:
+    - 1
+    - 2
+"""
+            )
+
+        assert pytest.raises(ruamel.yaml.scanner.ScannerError, beacon.reload)
+    finally:
+        os.unlink(new_file)
 
 
 def test_empty_yml(beacon, beacon_directory):

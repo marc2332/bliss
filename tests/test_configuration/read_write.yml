@@ -1,11 +1,12 @@
 name: rw_test
 test: this is just a test.
-# this is a comment!
+# comment1
 one:
-- pink: martini
-  red: apples
-  blue: berry
+- pink: martini # comment2
+  red: apples  # comment3
+  blue: berry # comment4
 two:
 - a: true
+  # comment5
   b: false
   c: null

@@ -141,6 +141,7 @@ def limatake(expotime, nbframes=1, save=False, run=True, **kwargs):
     scan_info = lima_params
     scan_info.update(acq_params)
     scan_info["title"] = "limatake {0:.4f} {1}".format(expotime, nbframes)
+    scan_info["type"] = "limatake"
     scan = Scan(
         chain,
         scan_info=scan_info,

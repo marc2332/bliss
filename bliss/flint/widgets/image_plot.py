@@ -40,6 +40,81 @@ class _ItemDescription(NamedTuple):
     shape: numpy.ndarray
 
 
+class _Title:
+    def __init__(self, plot):
+        self.__plot = plot
+
+        self.__hasPreviousImage: bool = False
+        """Remember that there was an image before this scan, to avoid to
+        override the title at startup and waiting for the first image"""
+        self.__lastSubTitle = None
+        """Remembers the last subtitle in case it have to be reuse when
+        displaying the data from the previous scan"""
+
+    def itemUpdated(self, scan, item):
+        self.__updateAll(scan, item)
+
+    def scanRemoved(self, scan):
+        """Removed scan, just before using another scan"""
+        if scan is not None:
+            self.__updateTitle("From previous scan")
+            self.__hasPreviousImage = True
+        else:
+            self.__hasPreviousImage = False
+
+    def scanStarted(self, scan):
+        if not self.__hasPreviousImage:
+            self.__updateAll(scan)
+
+    def scanFinished(self, scan):
+        title = scan_info_helper.get_full_title(scan)
+        if scan.state() == scan_model.ScanState.FINISHED:
+            title += " (finished)"
+        self.__updateTitle(title)
+
+    def __formatItemTitle(self, scan: scan_model.Scan, item=None):
+        if item is None:
+            return None
+        channel = item.imageChannel()
+        if channel is None:
+            return None
+
+        frameInfo = ""
+        displayName = channel.displayName(scan)
+        data = channel.data(scan)
+        if data is not None:
+            if data.source() == "video":
+                op = " ≈ "
+            else:
+                op = " = "
+
+            if data.frameId() is not None:
+                frameInfo = f", id{op}{data.frameId()}"
+            if frameInfo != "":
+                frameInfo += " "
+            frameInfo += f"[{data.source()}]"
+        return f"{displayName}{frameInfo}"
+
+    def __updateTitle(self, title):
+        subtitle = None
+        if self.__lastSubTitle is not None:
+            subtitle = self.__lastSubTitle
+        if subtitle is not None:
+            title = f"{title}\n{subtitle}"
+        self.__plot.setGraphTitle(title)
+
+    def __updateAll(self, scan: scan_model.Scan, item=None):
+        title = scan_info_helper.get_full_title(scan)
+        subtitle = None
+        itemTitle = self.__formatItemTitle(scan, item)
+        self.__lastSubTitle = itemTitle
+        if itemTitle is not None:
+            subtitle = f"{itemTitle}"
+        if subtitle is not None:
+            title = f"{title}\n{subtitle}"
+        self.__plot.setGraphTitle(title)
+
+
 class ImagePlotWidget(plot_helper.PlotWidget):
     def __init__(self, parent=None):
         super(ImagePlotWidget, self).__init__(parent=parent)
@@ -55,6 +130,8 @@ class ImagePlotWidget(plot_helper.PlotWidget):
         self.__plot.setKeepDataAspectRatio(True)
         self.__plot.setDataMargins(0.05, 0.05, 0.05, 0.05)
         self.__plot.getYAxis().setInverted(True)
+
+        self.__title = _Title(self.__plot)
 
         self.setFocusPolicy(qt.Qt.StrongFocus)
         self.__plot.installEventFilter(self)
@@ -107,15 +184,9 @@ class ImagePlotWidget(plot_helper.PlotWidget):
         self.__maxMarker.setZValue(0.1)
         self.__maxMarker.setName("max")
 
-        self.__hasPreviousImage: bool = False
-        """Remember that there was an image before this scan, to avoid to
-        override the title at startup and waiting for the first image"""
         self.__imageReceived = 0
         """Count the received image for this scan to allow to clean up the
         screen in the end if nothing was received"""
-        self.__lastSubTitle = None
-        """Remembers the last subtitle in case it have to be reuse when
-        displaying the data from the previous scan"""
 
         self.__permanentItems = [
             self.__tooltipManager.marker(),
@@ -302,10 +373,7 @@ class ImagePlotWidget(plot_helper.PlotWidget):
             self.__scan.scanFinished.disconnect(
                 self.__aggregator.callbackTo(self.__scanFinished)
             )
-            self.__updatePreviousScanData()
-            self.__hasPreviousImage = True
-        else:
-            self.__hasPreviousImage = False
+        self.__title.scanRemoved(self.__scan)
         previousScan = self.__scan
         self.__scan = scan
         # As the scan was updated, clear the previous cached events
@@ -321,7 +389,7 @@ class ImagePlotWidget(plot_helper.PlotWidget):
                 self.__aggregator.callbackTo(self.__scanFinished)
             )
             if self.__scan.state() != scan_model.ScanState.INITIALIZED:
-                self.__updateTitle(self.__scan)
+                self.__title.scanStarted(self.__scan)
         self.scanModelUpdated.emit(scan)
 
         # Note: No redraw here to avoid blinking of the image
@@ -418,58 +486,13 @@ class ImagePlotWidget(plot_helper.PlotWidget):
         self.__imageReceived = 0
         self.__refreshManager.scanStarted()
         self.__view.scanStarted()
-        if not self.__hasPreviousImage:
-            self.__updateTitle(self.__scan)
-
-    def __formatItemTitle(self, scan: scan_model.Scan, item=None):
-        if item is None:
-            return None
-        channel = item.imageChannel()
-        if channel is None:
-            return None
-
-        frameInfo = ""
-        displayName = channel.displayName(scan)
-        data = channel.data(scan)
-        if data is not None:
-            if data.source() == "video":
-                op = " ≈ "
-            else:
-                op = " = "
-
-            if data.frameId() is not None:
-                frameInfo = f", id{op}{data.frameId()}"
-            if frameInfo != "":
-                frameInfo += " "
-            frameInfo += f"[{data.source()}]"
-        return f"{displayName}{frameInfo}"
-
-    def __updatePreviousScanData(self):
-        """Set the plot title when the plot have to display at start the data
-        from the previous scan"""
-        title = "From previous scan"
-        subtitle = None
-        if self.__lastSubTitle is not None:
-            subtitle = self.__lastSubTitle
-        if subtitle is not None:
-            title = f"{title}\n{subtitle}"
-        self.__plot.setGraphTitle(title)
-
-    def __updateTitle(self, scan: scan_model.Scan, item=None):
-        title = scan_info_helper.get_full_title(scan)
-        subtitle = None
-        itemTitle = self.__formatItemTitle(scan, item)
-        self.__lastSubTitle = itemTitle
-        if itemTitle is not None:
-            subtitle = f"{itemTitle}"
-        if subtitle is not None:
-            title = f"{title}\n{subtitle}"
-        self.__plot.setGraphTitle(title)
+        self.__title.scanStarted(self.__scan)
 
     def __scanFinished(self):
         self.__refreshManager.scanFinished()
         if self.__imageReceived == 0:
             self.__cleanAll()
+        self.__title.scanFinished(self.__scan)
 
     def __scanDataUpdated(self, event: scan_model.ScanDataUpdateEvent):
         plotModel = self.__plotModel
@@ -573,7 +596,7 @@ class ImagePlotWidget(plot_helper.PlotWidget):
 
             self.__plot._setActiveItem("image", legend)
             plotItems.append(_ItemDescription(legend, "image", image.shape))
-            self.__updateTitle(scan, item)
+            self.__title.itemUpdated(scan, item)
 
             bottom, left = 0, 0
             height, width = image.shape[0], image.shape[1]

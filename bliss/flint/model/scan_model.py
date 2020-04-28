@@ -562,7 +562,7 @@ class Channel(qt.QObject, _Sealable):
 
     def isDataCompatible(self, data: Data) -> bool:
         """
-        True if this `data` is compoatible with this channel.
+        True if this `data` is compatible with this channel.
         """
         if data is None:
             return True
@@ -611,7 +611,7 @@ class Data(qt.QObject):
 
     This object was designed to be non-mutable in order to allow fast comparison,
     and to store metadata relative to the measurement (like unit, error) or
-    helper to deal with the data (like hash). Counld be renamed into `Quantity`.
+    helper to deal with the data (like hash). Could be renamed into `Quantity`.
     """
 
     def __init__(

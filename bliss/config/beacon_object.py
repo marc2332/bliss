@@ -6,7 +6,6 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import sys
-import yaml
 from functools import wraps
 from bliss.config.settings import HashObjSetting, pipeline
 from bliss.config.channels import Cache, EventChannel

@@ -11,6 +11,9 @@ home switch position.
 The configuration is defined in .yml file, but can also be changed/removed
 interactively. All the changes are saved in the corresponding .yml file.
 
+A hook to the Frontend object is optional: if given no movement of the attenuator
+will be possible when the frontend (a TangoShutter) is not on a state considered safe.
+
 
 ## YAML configuration example
 
@@ -23,6 +26,7 @@ attenuators:
     - attenuator: $wba_Al
     - attenuator: $wba_Mo
     - attenuator: $wba_Cu
+frontend: $frontend
 ```
 
 !!! warning "attenuator"

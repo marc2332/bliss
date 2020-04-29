@@ -38,8 +38,12 @@ class FeMotionHook(MotionHook):
         self.frontend = frontend
 
     def pre_move(self, motion_list):
-        if self.frontend.state != TangoShutterState.CLOSED:
-            raise RuntimeError("Cannot move motor when frontend is not closed")
+        if self.frontend.state not in (
+            TangoShutterState.CLOSED,
+            TangoShutterState.FAULT,
+            TangoShutterState.DISABLE,
+        ):
+            raise RuntimeError("Cannot move motor when frontend is not on a safe state")
 
 
 class CheckHook(MotionHook):

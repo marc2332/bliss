@@ -338,10 +338,23 @@ class Map:
         Args:
             node: instance or id(instance)
         Returns:
-            list: id of child nodes
+            list: id of first level child nodes
         """
         id_ = map_id(node)
         return [n for n in self.G.adj.get(id_)]
+
+    def find_descendant(self, node) -> list:
+        """
+        Args:
+            node: instance or id(instance)
+        Returns:
+            list: id of all descendant child nodes
+        """
+        if node not in self:
+            return []
+        sub_G = nx.DiGraph()
+        self.create_submap(sub_G, node)
+        return [n for n in sub_G]
 
     def shortest_path(self, node1, node2):
         """

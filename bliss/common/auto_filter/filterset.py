@@ -97,6 +97,8 @@ import numpy as np
 from tabulate import tabulate
 
 from bliss.config.beacon_object import BeaconObject
+from bliss.common.logtools import *
+from element_density import ElementDensity
 
 
 class FilterSet(BeaconObject):
@@ -115,6 +117,13 @@ class FilterSet(BeaconObject):
     def __init__(self, name, config):
         super().__init__(config, share_hardware=False)
 
+        self._fpattern = None
+        self._ftransm = None
+        self._filter_data = None
+        self._min_cntrate = 0.
+        self._max_cntrate = 0.
+        self._nb_filters = 0
+
         # good element density module
         self._elt = ElementDensity()
 
@@ -123,14 +132,10 @@ class FilterSet(BeaconObject):
             raise RuntimeError("Filter list is empty")
 
         self._nb_filters = len(self._filters)
-        self._positions = []
-        for filter in self._filters:
-            self._positions.append(filter["position"])
 
         # ask for the calculation of the apparent density and
         # and a first transmission of the filters
         self._calc_densities()
-        self.calc_transmissions(self._energy_setting)
 
     def __info__(self):
         info_str = f"\nActive filter is {self.filter}, transmission = {self.transmission:.5g} @ {self.energy:.5g} keV"
@@ -189,7 +194,7 @@ class FilterSet(BeaconObject):
                         filter["energy"],
                     )
 
-    def calc_transmissions(self, energy):
+    def _calc_transmissions(self, energy):
         """
         Calculate the transmission factors for the filters for the given energy
         """
@@ -201,13 +206,114 @@ class FilterSet(BeaconObject):
         # save in setting the last energy
         self._energy_setting = energy
 
+    def _calc_absorption_table(self):
+        """
+        This function regenerate the absorption table, which will be used to 
+        apply the best absorption to fit with the count-rate range
+        """
+
+        log_info(self, "Regenerating absorption table")
+
+        self._nb_filtset = self.build_filterset()
+
+        min_trans = np.sqrt(self._min_cntrate / self._max_cntrate)
+        max_trans = np.sqrt(min_trans)
+
+        # the optimum count rate
+        opt_cntrate = max_trans * self._max_cntrate
+
+        log_info(self, f"min. transmission: {min_trans}")
+        log_info(self, f"max. transmission: {max_trans}")
+        log_info(self, f"opt. count rate: {opt_cntrate}")
+        log_info(self, f"nb. filters: {self._nb_filters}")
+        log_info(self, f"nb. filtset: {self._nb_filtset}")
+
+        # Ok, the tricky loop to reduce the number of possible patterns according
+        # to the current min. and max. transmission
+        # Thanks to P.Fajardo, code copied for autof.mac SPEC macro set
+        # It selects select only the patterns (fiterset)which fit with the transmission
+        # range [min_trans,max_trans]
+
+        d = 0
+        nf = self._nb_filters
+        for f in range(nf):
+            s = self._ftransm[f:nf].argmax() + f
+            pattern = self._fpattern[s]
+            transm = self._ftransm[s]
+
+            if transm == 0:
+                break
+            if s != f:
+                self._fpattern[s] = self._fpattern[f]
+                self._ftransm[s] = self._ftransm[f]
+            if d == 0:
+                pass
+            elif d == 1:
+                if (transm / self._ftransm[d - 1]) > max_trans:
+                    continue
+            else:
+                if (transm / self._ftransm[d - 2]) > min_trans:
+                    d -= 1
+                elif (transm / self._ftransm[d - 1]) > max_trans:
+                    continue
+            if d != s:
+                self._fpattern[d] = pattern
+                self._ftransm[d] = transm
+
+            d += 1
+
+        # update filter number to the reduced one
+        self._nb_filtset = nfiltset = d
+        log_info(self, f"New nb. filtset: {self._nb_filtset}")
+
+        # Now calculate the absorption / deadtime data
+        # array of nfilters columns and rows of:
+        #  - [pattern, transmission, max_cntrate, opt_cntrate, min_cntrate]
+        #
+        self._filter_data = np.zeros([nfiltset, 5])
+        data = self._filter_data
+        data[0:nfiltset, 0] = self._fpattern[0:nfiltset]
+        data[0:nfiltset, 1] = self._ftransm[0:nfiltset]
+
+        # a quality will be calculted, 100% means all above retained patterns are useful
+        self._quality = nfiltset
+        for f in range(nfiltset):
+            data[f, 2] = self._max_cntrate / data[f, 1]
+            if f == 0:
+                data[f, 3] = 0
+                data[f, 4] = 0
+            else:
+                data[f, 3] = opt_cntrate / data[f - 1, 1]
+                data[f, 4] = self._min_cntrate / data[f, 1]
+                if data[f, 4] > data[f, 3]:
+                    data[f, 4] = data[f, 3]
+                    self._quality -= 1
+        self._quality = 100 * self._quality / nfiltset
+        log_info(self, f"Finally quality is {self._quality}")
+
+    def update_countrate_range(self, min_count_rate, max_count_rate):
+        """
+        update the countrate range, suppose to be called by the AutoFilter class
+        which has the range set from its config.
+        Then trig a first calculation of data from the current energy
+        """
+        self._min_cntrate = min_count_rate
+        self._max_cntrate = max_count_rate
+
+        self.energy = self._energy_setting
+
     @property
     def energy(self):
         return self._energy_setting
 
     @energy.setter
     def energy(self, new_energy):
-        self.calc_transmissions(new_energy)
+        # each time the energy change effective transmission and
+        # a new absorption table are calculated
+        log_info(self, f"Updating the energy {new_energy} keV")
+
+        self._calc_transmissions(new_energy)
+        self._calc_absorption_table()
 
     @property
     def filter(self):
@@ -264,3 +370,15 @@ class FilterSet(BeaconObject):
         Return the current effective tranmission
         """
         raise RuntimeError("Please override this method")
+
+    def build_filterset(self):
+        """
+        Build pattern and transmission arrays.
+        A filterset, like Wago, is made of 4 real filters 
+        which can be combined to produce 15 patterns and transmissions.
+        A filtersets like a wheel just provides 20 real filters and exactly
+        the same amount of patterns and transmissions.
+        Return the total number of effective filter combinations (filtset)
+        """
+        raise RuntimeError("Please override this method")
+        return 0

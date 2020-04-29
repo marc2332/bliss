@@ -101,6 +101,7 @@ With pairs transmission/energy:
 
 import math
 import time
+import numpy as np
 
 from bliss.common.auto_filter.filterset import FilterSet
 
@@ -115,6 +116,10 @@ class FilterSet_Wheel(FilterSet):
 
         # never forget to call grandmother !!!
         super().__init__(name, config)
+
+        self._positions = []
+        for filter in self._filters:
+            self._positions.append(filter["position"])
 
     def __info__(self):
         info_list = []
@@ -186,3 +191,22 @@ class FilterSet_Wheel(FilterSet):
         else:
             trans = None
         return trans
+
+    def build_filterset(self):
+        """
+        Build pattern and transmission arrays.
+        A filterset, like Wago, is made of 4 real filters 
+        which can be combined to produce 15 patterns and transmissions.
+        A filtersets like a wheel just provides 20 real filters and exactly
+        the same amount of patterns and transmissions.
+        """
+
+        p = []
+        t = []
+        for filter in self._filters:
+            p.append(filter["position"])
+            t.append(filter["transmission_calc"])
+        self._fpattern = np.array(p, dtype=np.int)
+        self._ftransm = np.array(t)
+
+        return len(self._fpattern)

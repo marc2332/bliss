@@ -52,6 +52,9 @@ class AutoFilter(BeaconObject):
         # check a filterset is in config
         self.filterset = config.get("filterset")
 
+        # update filterset with countrate range
+        self.filterset.update_countrate_range(self.min_count_rate, self.max_count_rate)
+
     def ascan(self, motor, start, stop, intervals, count_time, *counter_args, **kwargs):
         """
         Basically same as normal ascan with auto filter management

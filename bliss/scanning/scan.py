@@ -21,14 +21,7 @@ from bliss import current_session, is_bliss_shell
 from bliss.common.event import connect, disconnect
 from bliss.common.cleanup import error_cleanup, axis as cleanup_axis, capture_exceptions
 from bliss.common.greenlet_utils import KillMask
-from bliss.common.plot import (
-    get_flint,
-    check_flint,
-    CurvePlot,
-    ImagePlot,
-    ScatterPlot,
-    McaPlot,
-)
+from bliss.common.plot import get_flint
 from bliss.common.utils import periodic_exec, deep_update
 from bliss.scanning.scan_meta import get_user_scan_meta
 from bliss.common.axis import Axis

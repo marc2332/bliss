@@ -7,6 +7,7 @@
 
 import pytest
 from contextlib import contextmanager
+from bliss.flint.client import proxy
 from bliss.common import plot
 
 
@@ -33,11 +34,14 @@ def flint_norpc_context():
     - Faster tests
     - But the RPC code ha ve to be trustable
     """
-    old_get_flint = plot.get_flint
+    assert proxy.get_flint is plot.get_flint
+    old_get_flint = proxy.get_flint
+    proxy.get_flint = _get_real_flint
     plot.get_flint = _get_real_flint
     try:
         yield
     finally:
+        proxy.get_flint = old_get_flint
         plot.get_flint = old_get_flint
 
 

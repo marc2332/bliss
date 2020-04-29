@@ -30,7 +30,7 @@ if build_flint:
     )
     extensions.append(poll)
     poll_patch = Extension(
-        "bliss.flint.poll_patch",
+        "bliss.flint.patches.poll_patch",
         sources=[
             "extensions/cython/flint/poll_patch.pyx",
             "extensions/cython/flint/poll_patch_init.c",

@@ -6,8 +6,8 @@ import numpy
 
 from silx.gui import qt
 from silx.gui.utils.testutils import TestCaseQt
-from bliss.flint import flint
 from bliss.common import plot
+from bliss.flint.client import plots
 
 logger = logging.getLogger(__name__)
 
@@ -26,13 +26,13 @@ class TestFlint(TestCaseQt):
         assert p.name == "Some name"
 
     def test_remove_custom_plot(self):
-        widget = plot.CurvePlot(name="foo-rm")
+        widget = plots.CurvePlot(name="foo-rm")
         plot_id = widget.plot_id
         flint_api = widget._flint
         flint_api.remove_plot(plot_id)
 
     def test_custom_plot_curveplot(self):
-        widget = plot.CurvePlot(name="foo")
+        widget = plots.CurvePlot(name="foo")
 
         cos_data = numpy.cos(numpy.linspace(0, 2 * numpy.pi, 10))
         sin_data = numpy.sin(numpy.linspace(0, 2 * numpy.pi, 10))

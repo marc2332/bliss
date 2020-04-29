@@ -16,7 +16,7 @@ from bliss.common.utils import autocomplete_property
 from bliss.common.tango import DeviceProxy
 from bliss.scanning.acquisition.counter import SamplingCounterAcquisitionSlave
 
-from bliss.common.plot import LiveImagePlot
+from bliss.flint.client.live_plots import LiveImagePlot
 
 """
 # EBV mockup

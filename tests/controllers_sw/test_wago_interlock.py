@@ -4,7 +4,7 @@ import pytest
 import random
 import numpy
 
-import yaml
+from ruamel.yaml import YAML
 
 from bliss.controllers.wago.helpers import (
     bytestring_to_wordarray,
@@ -514,7 +514,8 @@ relay intlckf2 STICKY name Interlock 2
     modules_config = wago.controller.modules_config
 
     yml = specfile_to_yml(specfile)
-    dict_ = yaml.safe_load(yml)
+    yaml = YAML()
+    dict_ = yaml.load(yml)
     beacon_interlock_parsing(dict_["interlocks"], modules_config)
 
 
@@ -538,7 +539,8 @@ def test_export_to_yml(default_session):
         assert word in yml
     for word in "esTf1 esTf2 -10 10 50 50.5 TC".split():
         assert word in yml
-    interlock_dict_from_yml = yaml.safe_load(yml)["interlocks"]
+    yaml = YAML()
+    interlock_dict_from_yml = yaml.load(yml)["interlocks"]
 
     # creating again a list of interlocks from yml
     interlock_list_from_yml = beacon_interlock_parsing(

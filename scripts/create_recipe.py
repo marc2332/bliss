@@ -1,8 +1,10 @@
-import yaml
 import subprocess
 import os
 from pprint import pprint
 import re
+
+from ruamel.yaml import YAML
+from ruamel.yaml.compat import StringIO
 
 try:
     import conda.cli.python_api as conda
@@ -178,6 +180,8 @@ def main():
       license_family: GPL
     """
 
+    yaml = YAML()
+    yaml.default_flow_style = False
     head = yaml.load(template_head)
     body = yaml.load(template_body)
 
@@ -215,8 +219,10 @@ def main():
 
     # writing meta.yaml
     with open(META, "w") as f:
-        f.write(yaml.dump(head, default_flow_style=False))
-        f.write(yaml.dump(body, default_flow_style=False))
+        stream = StringIO()
+        yaml.dump(head, stream=stream)
+        yaml.dump(body, stream=stream)
+        f.write(stream.getvalue())
 
 
 if __name__ == "__main__":

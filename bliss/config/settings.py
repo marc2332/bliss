@@ -18,7 +18,8 @@ import hashlib
 
 import numpy
 from tabulate import tabulate
-import yaml
+from ruamel.yaml import YAML
+from ruamel.yaml.compat import StringIO
 
 from .conductor import client
 from bliss.config.conductor.client import set_config_db_file, remote_open
@@ -1473,7 +1474,11 @@ class ParametersWardrobe(metaclass=ParametersType):
             )
         data_to_dump = {"WardrobeName": self._wardr_name, "instances": _instances}
 
-        return yaml.dump(data_to_dump, default_flow_style=False, sort_keys=False)
+        stream = StringIO()
+        yaml = YAML(pure=True)
+        yaml.default_flow_style = False
+        yaml.dump(data_to_dump, stream=stream)
+        return stream.getvalue()
 
     def to_file(self, fullpath: str, *instances) -> None:
         """
@@ -1501,7 +1506,8 @@ class ParametersWardrobe(metaclass=ParametersType):
             yml: string containing yml data
             instance_name: the name of the instance that you want to import
         """
-        dict_in = yaml.load(yml, Loader=yaml.FullLoader)
+        yaml = YAML(pure=True)
+        dict_in = yaml.load(yml)
         if dict_in.get("WardrobeName") != self._wardr_name:
             logger.warning("Wardrobe Names are different")
         try:

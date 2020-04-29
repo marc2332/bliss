@@ -17,7 +17,7 @@ import serial as pyserial
 # from bliss.common.logtools import debugon
 import socket
 from contextlib import contextmanager
-import yaml
+from ruamel.yaml import YAML
 from bliss.common.utils import deep_update
 
 SOCAT = os.path.join(os.environ.get("CONDA_PREFIX", "/"), "bin", "socat")
@@ -82,9 +82,10 @@ def _inspect_serial_port_settings(fake_port):
                 .replace(" ", "':'")
                 + "'}"
             )
-            deep_update(options, yaml.load(tmp, Loader=yaml.Loader))
+            yaml = YAML()
+            deep_update(options, yaml.load(tmp))
         else:
-            params += yaml.load("['" + s.replace(" ", "','") + "']", Loader=yaml.Loader)
+            params += yaml.load("['" + s.replace(" ", "','") + "']")
     return (options, params)
 
 

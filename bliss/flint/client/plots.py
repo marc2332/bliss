@@ -31,42 +31,11 @@ class BasePlot(object):
     # Data input number for a single representation
     DATA_INPUT_NUMBER = NotImplemented
 
-    def __init__(
-        self,
-        name=None,
-        existing_id=None,
-        flint_pid=None,
-        closeable: bool = False,
-        selected: bool = False,
-    ):
-        """Create a new custom plot based on the `silx` API.
-
-        The plot will be created i a new tab on Flint.
-
-        Arguments:
-            existing_id: If set, the plot proxy will try to use an already
-                exising plot, instead of creating a new one
-            flint_pid: A specific Flint PID can be specified, else the default
-                one is used
-            name: Name of the plot as displayed in the tab header. It is not a
-                unique name.
-            selected: If true (not the default) the plot became the current
-                displayed plot.
-            closeable: If true (not the default), the tab can be closed manually
+    def __init__(self, flint, plot_id):
+        """Describe a custom plot handled by Flint.
         """
-        if flint_pid:
-            self._flint = proxy.attach_flint(flint_pid)
-        else:
-            self._flint = proxy.get_flint()
-
-        # Create plot window
-        if existing_id is None:
-            self._plot_id = self._flint.add_plot(
-                cls_name=self.WIDGET, name=name, selected=selected, closeable=closeable
-            )
-        else:
-            self._plot_id = existing_id
-        self._init_plot()
+        self._plot_id = plot_id
+        self._flint = flint
 
     def _init_plot(self):
         """Inherites it to custom the plot initialization"""
@@ -190,30 +159,6 @@ class BasePlot(object):
         flint = self._flint
         request_id = flint.request_select_shape(self._plot_id, shape)
         return self._wait_for_user_selection(request_id)
-
-    # Instanciation
-
-    @classmethod
-    def instanciate(
-        cls,
-        data=None,
-        name=None,
-        existing_id=None,
-        flint_pid=None,
-        selected=False,
-        closeable=False,
-        **kwargs,
-    ):
-        plot = cls(
-            name=name,
-            existing_id=existing_id,
-            flint_pid=flint_pid,
-            closeable=closeable,
-            selected=selected,
-        )
-        if data is not None:
-            plot.plot(data=data, **kwargs)
-        return plot
 
 
 # Plot classes

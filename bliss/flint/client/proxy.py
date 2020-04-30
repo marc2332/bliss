@@ -15,6 +15,7 @@ import subprocess
 import logging
 import psutil
 import gevent
+import typing
 
 import bliss
 from bliss.comm import rpc
@@ -23,6 +24,7 @@ from bliss.common import event
 from bliss import current_session
 from bliss.config.conductor.client import get_default_connection
 from bliss.flint.config import get_flint_key
+from . import plots
 
 try:
     from bliss.flint.patches import poll_patch
@@ -277,6 +279,51 @@ class FlintClient:
             pass
         if stream is not None and was_openned and not stream.closed:
             stream.close()
+
+    #
+    # Helper on top of the proxy
+    #
+
+    def add_plot(
+        self,
+        plot_class: typing.Union[str, object],
+        name: str = None,
+        selected: bool = False,
+        closeable: bool = True,
+    ):
+        """Create a new custom plot based on the `silx` API.
+
+        The plot will be created in a new tab on Flint.
+
+        Arguments:
+            plot_class: A class defined in `bliss.flint.client.plot`, or a
+                silx class name. Can be one of "PlotWidget",
+                "PlotWindow", "Plot1D", "Plot2D", "ImageView", "StackView",
+                "ScatterView".
+            name: Name of the plot as displayed in the tab header. It is not a
+                unique name.
+            selected: If true (not the default) the plot became the current
+                displayed plot.
+            closeable: If true (default), the tab can be closed manually
+        """
+        silx_class_name, plot_class = self.__get_plot_info(plot_class)
+        plot_id = self._proxy.add_plot(
+            silx_class_name, name=name, selected=selected, closeable=closeable
+        )
+        return plot_class(plot_id=plot_id, flint=self)
+
+    def __get_plot_info(self, plot_class):
+        if isinstance(plot_class, str):
+            classes = [
+                plots.CurvePlot,
+                plots.CurveListPlot,
+                plots.HistogramImagePlot,
+                plots.ImagePlot,
+                plots.ImageStackPlot,
+                plots.ScatterPlot,
+            ]
+            plot_class = [p for p in classes if p.WIDGET == plot_class][0]
+        return plot_class.WIDGET, plot_class
 
 
 def _get_beacon_config():

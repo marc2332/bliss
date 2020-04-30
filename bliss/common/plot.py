@@ -145,6 +145,7 @@ The return values are shown in the following example:
 from typing import List
 
 import numpy
+import functools
 
 from bliss import current_session, is_bliss_shell, global_map
 from bliss.config.settings import HashSetting
@@ -176,12 +177,36 @@ check_flint = flint_proxy.check_flint
 attach_flint = flint_proxy.attach_flint
 reset_flint = flint_proxy.reset_flint
 
-plot_curve = flint_plots.CurvePlot.instanciate
-plot_curve_list = flint_plots.CurveListPlot.instanciate
-plot_scatter = flint_plots.ScatterPlot.instanciate
-plot_image = flint_plots.ImagePlot.instanciate
-plot_image_with_histogram = flint_plots.HistogramImagePlot.instanciate
-plot_image_stack = flint_plots.ImageStackPlot.instanciate
+
+def _create_plot(
+    plot_class,
+    data=None,
+    name=None,
+    existing_id=None,
+    selected=False,
+    closeable=False,
+    **kwargs,
+):
+    flint = flint_proxy.get_flint()
+    if existing_id is not None:
+        if not flint.is_plot_exists(existing_id):
+            raise ValueError("This plot id '%s' is not part of flint" % existing_id)
+        plot = plot_class(flint=flint, plot_id=existing_id)
+    else:
+        plot = flint.add_plot(plot_class, name, selected, closeable)
+    if data is not None:
+        plot.plot(data=data, **kwargs)
+    return plot
+
+
+plot_curve = functools.partial(_create_plot, flint_plots.CurvePlot)
+plot_curve_list = functools.partial(_create_plot, flint_plots.CurveListPlot)
+plot_scatter = functools.partial(_create_plot, flint_plots.ScatterPlot)
+plot_image = functools.partial(_create_plot, flint_plots.ImagePlot)
+plot_image_with_histogram = functools.partial(
+    _create_plot, flint_plots.HistogramImagePlot
+)
+plot_image_stack = functools.partial(_create_plot, flint_plots.ImageStackPlot)
 
 
 def default_plot(data=None, **kwargs):
@@ -435,12 +460,12 @@ def get_plot(
     plot_id = flint.get_live_scan_plot(channel_name, plot_type, as_axes=as_axes)
 
     if plot_type == "curve":
-        return flint_plots.CurvePlot(existing_id=plot_id)
+        return flint_plots.CurvePlot(flint=flint, plot_id=plot_id)
     elif plot_type == "scatter":
-        return flint_plots.ScatterPlot(existing_id=plot_id)
+        return flint_plots.ScatterPlot(flint=flint, plot_id=plot_id)
     elif plot_type == "mca":
-        return flint_plots.McaPlot(existing_id=plot_id)
+        return flint_plots.McaPlot(flint=flint, plot_id=plot_id)
     elif plot_type == "image":
-        return flint_plots.ImagePlot(existing_id=plot_id)
+        return flint_plots.ImagePlot(flint=flint, plot_id=plot_id)
     else:
         print("Argument plot_type uses an invalid value: '%s'." % plot_type)

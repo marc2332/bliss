@@ -13,6 +13,7 @@ import time
 
 from . import utils
 from . import plots
+from . import proxy
 
 
 class LiveImagePlot:
@@ -79,9 +80,11 @@ class LiveImagePlot:
         self._get_data_cb = cb
 
     def create_plot(self, data):
-        self.fig = plots.ImagePlot.instanciate(
-            data=data, name=self._name, closeable=True, selected=True
+        flint = proxy.get_flint()
+        self.fig = flint.add_plot(
+            plots.ImagePlot, name=self._name, selected=True, closeable=True
         )
+        self.fig.plot(data=data)
         self.fig.submit("setGraphXLabel", self._xlabel)
         self.fig.submit("setGraphYLabel", self._ylabel)
         self.fig.submit("setKeepDataAspectRatio", True)

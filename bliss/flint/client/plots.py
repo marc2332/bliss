@@ -287,7 +287,7 @@ class ScatterPlot(BasePlot):
     DATA_INPUT_NUMBER = 3
 
 
-class McaPlot(BasePlot):
+class McaPlot(CurvePlot):
     pass
 
 

@@ -4,6 +4,7 @@
 #
 # Copyright (c) 2015-2020 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
+
 """
 Provide helper to create a Flint proxy.
 """
@@ -35,11 +36,250 @@ FLINT_OUTPUT_LOGGER = logging.getLogger("flint.output")
 FLINT_OUTPUT_LOGGER.setLevel(logging.INFO)
 FLINT_OUTPUT_LOGGER.disabled = True
 
+FLINT = None
 
-FLINT = {"process": None, "proxy": None, "greenlet": None}
+
+class FlintClient:
+    """
+    Create a Flint proxy based on an already existing process,
+    else create a new Flint application using subprocess and attach it.
+
+    Arguments:
+        process: A process object from (psutil) or an int
+    """
+
+    def __init__(self, process=None):
+        self._pid = None
+        self._proxy = None
+        self._process = None
+        self._greenlets = None
+        self._callbacks = None
+        if process is None:
+            self.__start_flint()
+        else:
+            self.__attach_flint(process)
+
+    @property
+    def __wrapped__(self):
+        """See bliss.common.event"""
+        return self._proxy
+
+    def __getattr__(self, name):
+        if self._proxy is None:
+            raise AttributeError(
+                "Attribute '%s' unknown. Flint proxy not yet created" % name
+            )
+        attr = self._proxy.__getattribute__(name)
+        # Shortcut the lookup attribute
+        setattr(self, name, attr)
+        return attr
+
+    def close_proxy(self):
+        if self._proxy is not None:
+            self._proxy.close()
+        self._proxy = None
+        self._process = None
+        if self._greenlets is not None:
+            gevent.killall(self._greenlets)
+        self._greenlets = None
+        self._callbacks = None
+
+    def __start_flint(self):
+        process = self.__create_flint()
+        try:
+            self.__attach_flint(process)
+        except Exception:
+            if hasattr(process, "stdout"):
+                FLINT_LOGGER.error(
+                    "Flint can't start. You can enable the logs with the following line."
+                )
+                FLINT_LOGGER.error("    SCAN_DISPLAY.flint_output_enabled = True")
+                FLINT_OUTPUT_LOGGER.error("---STDOUT---")
+                self.__log_process_output_to_logger(
+                    process, "stdout", FLINT_OUTPUT_LOGGER, logging.ERROR
+                )
+                FLINT_OUTPUT_LOGGER.error("---STDERR---")
+                self.__log_process_output_to_logger(
+                    process, "stderr", FLINT_OUTPUT_LOGGER, logging.ERROR
+                )
+            raise
+        FLINT_LOGGER.debug("Flint proxy initialized")
+        self._proxy.wait_started()
+        FLINT_LOGGER.debug("Flint proxy ready")
+
+    def __create_flint(self):
+        """Start the flint application in a subprocess.
+
+        Returns:
+            The process object"""
+
+        if sys.platform.startswith("linux") and not os.environ.get("DISPLAY", ""):
+            FLINT_LOGGER.error(
+                "DISPLAY environment variable have to be defined to launch Flint"
+            )
+            raise RuntimeError("DISPLAY environment variable is not defined")
+
+        FLINT_LOGGER.warning("Flint starting...")
+        env = dict(os.environ)
+        env["BEACON_HOST"] = _get_beacon_config()
+        # NOTE: Mitigate problem on machines with many cores (>=32)
+        #       Flint uses an incredible amount of CPU without this limitation
+        # FIXME: Understand the problem properly
+        env["OMP_NUM_THREADS"] = "4"
+        if poll_patch is not None:
+            poll_patch.set_ld_preload(env)
+
+        # Imported here to avoid cyclic dependency
+        from bliss.scanning.scan import ScanDisplay
+
+        scan_display = ScanDisplay()
+        args = [sys.executable, "-m", "bliss.flint"]
+        args.extend(scan_display.extra_args)
+        process = subprocess.Popen(
+            args,
+            env=env,
+            start_new_session=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        return process
+
+    def __attach_flint(self, process):
+        """Attach a flint process, make a RPC proxy and bind Flint to the current
+        session and return the FLINT proxy.
+        """
+        if isinstance(process, int):
+            if not psutil.pid_exists(process):
+                raise psutil.NoSuchProcess(
+                    process, "Flint PID %s does not exist" % process
+                )
+            process = psutil.Process(process)
+
+        pid = process.pid
+        FLINT_LOGGER.debug("Attach flint PID: %d...", pid)
+        beacon = get_default_connection()
+        redis = beacon.get_redis_connection()
+        try:
+            session_name = current_session.name
+        except AttributeError:
+            raise RuntimeError("No current session, cannot attach flint")
+
+        # Current URL
+        key = get_flint_key(pid)
+        for _ in range(3):
+            value = redis.brpoplpush(key, key, timeout=5)
+            if value is not None:
+                break
+        if value is None:
+            raise ValueError(
+                f"flint: cannot retrieve Flint RPC server address from pid '{pid}`"
+            )
+        url = value.decode().split()[-1]
+
+        # Return flint proxy
+        FLINT_LOGGER.debug("Creating flint proxy...")
+        proxy = rpc.Client(url, timeout=3)
+
+        remote_bliss_version = proxy.get_bliss_version()
+        if bliss.release.version != remote_bliss_version:
+            FLINT_LOGGER.warning(
+                "Bliss and Flint version do not match (bliss version %s, flint version: %s).",
+                bliss.release.version,
+                remote_bliss_version,
+            )
+            FLINT_LOGGER.warning("You should restart Flint.")
+
+        proxy.set_session(session_name)
+        self._proxy = proxy
+        self._pid = process.pid
+
+        if hasattr(process, "stdout"):
+            # process which comes from subprocess, and was pipelined
+            g1 = gevent.spawn(
+                self.__log_process_output_to_logger,
+                process,
+                "stdout",
+                FLINT_OUTPUT_LOGGER,
+                logging.INFO,
+            )
+            g2 = gevent.spawn(
+                self.__log_process_output_to_logger,
+                process,
+                "stderr",
+                FLINT_OUTPUT_LOGGER,
+                logging.ERROR,
+            )
+            self._greenlets = (g1, g2)
+
+        else:
+            # Else we can use RPC events
+            def stdout_callbacks(s):
+                FLINT_OUTPUT_LOGGER.info("%s", s)
+
+            def stderr_callbacks(s):
+                FLINT_OUTPUT_LOGGER.error("%s", s)
+
+            event.connect(proxy, "flint_stdout", stdout_callbacks)
+            event.connect(proxy, "flint_stderr", stderr_callbacks)
+
+            self._callbacks = (stdout_callbacks, stderr_callbacks)
+
+            try:
+                proxy.register_output_listener()
+            except:
+                # FIXME: This have to be fixed or removed
+                # See: https://gitlab.esrf.fr/bliss/bliss/issues/1249
+                FLINT_LOGGER.error(
+                    "Error while connecting to stdout logs from Flint (issue #1249)"
+                )
+                FLINT_LOGGER.debug("Backtrace", exc_info=True)
+
+    def __log_process_output_to_logger(self, process, stream_name, logger, level):
+        """Log the stream output of a process into a logger until the stream is
+        closed.
+
+        Args:
+            process: A process object from subprocess or from psutil modules.
+            stream_name: One of "stdout" or "stderr".
+            logger: A logger from logging module
+            level: A value of logging
+        """
+        was_openned = False
+        if hasattr(process, stream_name):
+            # process come from subprocess, and was pipelined
+            stream = getattr(process, stream_name)
+        else:
+            # process output was not pipelined.
+            # Try to open a linux stream
+            stream_id = 1 if stream_name == "stdout" else 2
+            try:
+                path = f"/proc/{process.pid}/fd/{stream_id}"
+                stream = open(path, "r")
+                was_openned = True
+            except:
+                FLINT_LOGGER.debug("Error while opening path %s", path, exc_info=True)
+                FLINT_LOGGER.warning("Flint %s can't be attached.", stream_name)
+                return
+        try:
+            while self._proxy is not None and not stream.closed:
+                line = stream.readline()
+                try:
+                    line = line.decode()
+                except:
+                    pass
+                if not line:
+                    break
+                if line[-1] == "\n":
+                    line = line[:-1]
+                logger.log(level, "%s", line)
+        except RuntimeError:
+            # Process was terminated
+            pass
+        if stream is not None and was_openned and not stream.closed:
+            stream.close()
 
 
-def get_beacon_config():
+def _get_beacon_config():
     beacon = get_default_connection()
     return "{}:{}".format(beacon._host, beacon._port)
 
@@ -67,14 +307,6 @@ def _get_flint_pid_from_redis(session_name):
     return None
 
 
-def check_flint() -> bool:
-    """
-    Returns true if a Flint application from the current session is alive.
-    """
-    proxy = get_flint(creation_allowed=False)
-    return proxy is not None
-
-
 def get_flint(start_new=False, creation_allowed=True):
     """Get the running flint proxy or create one.
 
@@ -83,299 +315,81 @@ def get_flint(start_new=False, creation_allowed=True):
             the new current one)
         creation_allowed: If false, a new application will not be created.
     """
+    global FLINT
     try:
         session_name = current_session.name
     except AttributeError:
         raise RuntimeError("No current session, cannot get flint")
 
-    check_redis = True
     if not start_new:
+        check_redis = True
         FLINT_LOGGER.debug("Check cache")
 
-        pid = FLINT.get("process")
-        if pid is not None and psutil.pid_exists(pid):
-            proxy = FLINT.get("proxy")
-            if proxy is not None:
+        flint = FLINT
+        if flint is not None:
+            if psutil.pid_exists(flint._pid):
                 try:
-                    remote_session_name = proxy.get_session_name()
+                    remote_session_name = flint.get_session_name()
                 except Exception:
                     FLINT_LOGGER.error("Error while reaching Flint API. Restart Flint.")
                     FLINT_LOGGER.debug("Backtrace", exc_info=True)
                 else:
                     if session_name == remote_session_name:
-                        return proxy
+                        return flint
 
                 # Do not use this Redis PID if is is already this one
                 pid_from_redis = _get_flint_pid_from_redis(session_name)
-                check_redis = pid_from_redis != pid
+                check_redis = pid_from_redis != flint._pid
 
-    if check_redis:
-        pid = _get_flint_pid_from_redis(session_name)
-        if pid is not None:
-            try:
-                return attach_flint(pid)
-            except:
-                FLINT_LOGGER.error(
-                    "Impossible to attach Flint to the already existing PID %s", pid
-                )
-                raise
+        if check_redis:
+            pid = _get_flint_pid_from_redis(session_name)
+            if pid is not None:
+                try:
+                    return attach_flint(pid)
+                except:
+                    FLINT_LOGGER.error(
+                        "Impossible to attach Flint to the already existing PID %s", pid
+                    )
+                    raise
 
     if not creation_allowed:
         return None
 
-    process = _start_flint()
-    try:
-        proxy = _attach_flint(process)
-    except Exception:
-        reset_flint()
-        FLINT["proxy"] = None
-        FLINT["process"] = None
-        if hasattr(process, "stdout"):
-            FLINT_LOGGER.error(
-                "Flint can't start. You can enable the logs with the following line."
-            )
-            FLINT_LOGGER.error("    SCAN_DISPLAY.flint_output_enabled = True")
-            FLINT_OUTPUT_LOGGER.error("---STDOUT---")
-            print(type(log_process_output_to_logger))
-            log_process_output_to_logger(
-                process, "stdout", FLINT_OUTPUT_LOGGER, logging.ERROR
-            )
-            FLINT_OUTPUT_LOGGER.error("---STDERR---")
-            log_process_output_to_logger(
-                process, "stderr", FLINT_OUTPUT_LOGGER, logging.ERROR
-            )
-        raise
-
-    FLINT_LOGGER.debug("Flint proxy initialized")
-    proxy.wait_started()
-    FLINT_LOGGER.debug("Flint proxy ready")
-    return proxy
+    reset_flint()
+    FLINT = FlintClient()
+    return FLINT
 
 
-def log_process_output_to_logger(process, stream_name, logger, level):
-    """Log the stream output of a process into a logger until the stream is
-    closed.
-
-    Args:
-        process: A process object from subprocess or from psutil modules.
-        stream_name: One of "stdout" or "stderr".
-        logger: A logger from logging module
-        level: A value of logging
+def check_flint() -> bool:
     """
-    was_openned = False
-    if hasattr(process, stream_name):
-        # process come from subprocess, and was pipelined
-        stream = getattr(process, stream_name)
-    else:
-        # process output was not pipelined.
-        # Try to open a linux stream
-        stream_id = 1 if stream_name == "stdout" else 2
-        try:
-            path = f"/proc/{process.pid}/fd/{stream_id}"
-            stream = open(path, "r")
-            was_openned = True
-        except:
-            FLINT_LOGGER.debug("Error while opening path %s", path, exc_info=True)
-            FLINT_LOGGER.warning("Flint %s can't be attached.", stream_name)
-            return
-    try:
-        while not stream.closed:
-            line = stream.readline()
-            try:
-                line = line.decode()
-            except:
-                pass
-            if not line:
-                break
-            if line[-1] == "\n":
-                line = line[:-1]
-            logger.log(level, "%s", line)
-    except RuntimeError:
-        # Process was terminated
-        pass
-    if stream is not None and was_openned and not stream.closed:
-        stream.close()
-
-
-def log_socket_output_to_logger(socket, logger, level):
-    """Log the socket content into a logger until the socket is
-    closed.
-
-    Args:
-        process: A process object from subprocess or from psutil modules.
-        stream_name: One of "stdout" or "stderr".
-        logger: A logger from logging module
-        level: A value of logging
+    Returns true if a Flint application from the current session is alive.
     """
-    conn = None
-    try:
-        while True:
-            conn, _address = socket.accept()
-            while True:
-                data = conn.recv(512)
-                if not data:
-                    break
-                line = data.decode("utf-8")
-                if len(line) >= 1 and line[-1] == "\n":
-                    line = line[:-1]
-                logger.log(level, "%s", line)
-    except RuntimeError:
-        pass
-    if conn is not None:
-        conn.close()
+    global FLINT
+    return FLINT is not None
 
 
-def _start_flint():
-    """ Start the flint application in a subprocess.
-
-    Returns:
-        The process object"""
-
-    if sys.platform.startswith("linux") and not os.environ.get("DISPLAY", ""):
-        FLINT_LOGGER.error(
-            "DISPLAY environment variable have to be defined to launch Flint"
-        )
-        raise RuntimeError("DISPLAY environment variable is not defined")
-
-    FLINT_LOGGER.warning("Flint starting...")
-    env = dict(os.environ)
-    env["BEACON_HOST"] = get_beacon_config()
-    # NOTE: Mitigate problem on machines with many cores (>=32)
-    #       Flint uses an incredible amount of CPU without this limitation
-    # FIXME: Understand the problem properly
-    env["OMP_NUM_THREADS"] = "4"
-    if poll_patch is not None:
-        poll_patch.set_ld_preload(env)
-
-    # Imported here to avoid cyclic dependency
-    from bliss.scanning.scan import ScanDisplay
-
-    scan_display = ScanDisplay()
-    args = [sys.executable, "-m", "bliss.flint"]
-    args.extend(scan_display.extra_args)
-    process = subprocess.Popen(
-        args,
-        env=env,
-        start_new_session=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-    )
-    return process
-
-
-def _attach_flint(process):
-    """Attach a flint process, make a RPC proxy and bind Flint to the current
-    session and return the FLINT proxy.
-    """
-    pid = process.pid
-    FLINT_LOGGER.debug("Attach flint PID: %d...", pid)
-    beacon = get_default_connection()
-    redis = beacon.get_redis_connection()
-    try:
-        session_name = current_session.name
-    except AttributeError:
-        raise RuntimeError("No current session, cannot attach flint")
-
-    # Current URL
-    key = get_flint_key(pid)
-    for _ in range(3):
-        value = redis.brpoplpush(key, key, timeout=5)
-        if value is not None:
-            break
-    if value is None:
-        raise ValueError(
-            f"flint: cannot retrieve Flint RPC server address from pid '{pid}`"
-        )
-    url = value.decode().split()[-1]
-
-    # Return flint proxy
-    FLINT_LOGGER.debug("Creating flint proxy...")
-    proxy = rpc.Client(url, timeout=3)
-
-    remote_bliss_version = proxy.get_bliss_version()
-    if bliss.release.version != remote_bliss_version:
-        FLINT_LOGGER.warning(
-            "Bliss and Flint version do not match (bliss version %s, flint version: %s).",
-            bliss.release.version,
-            remote_bliss_version,
-        )
-        FLINT_LOGGER.warning("You should restart Flint.")
-
-    proxy.set_session(session_name)
-    proxy._pid = pid
-
-    FLINT.update({"proxy": proxy, "process": pid})
-
-    greenlets = FLINT["greenlet"]
-    if greenlets is not None:
-        gevent.killall(greenlets)
-    FLINT["greenlet"] = None
-    FLINT["callbacks"] = None
-
-    if hasattr(process, "stdout"):
-        # process which comes from subprocess, and was pipelined
-        g1 = gevent.spawn(
-            log_process_output_to_logger,
-            process,
-            "stdout",
-            FLINT_OUTPUT_LOGGER,
-            logging.INFO,
-        )
-        g2 = gevent.spawn(
-            log_process_output_to_logger,
-            process,
-            "stderr",
-            FLINT_OUTPUT_LOGGER,
-            logging.ERROR,
-        )
-        FLINT["greenlet"] = (g1, g2)
-
-    else:
-        # Else we can use RPC events
-        def stdout_callbacks(s):
-            FLINT_OUTPUT_LOGGER.info("%s", s)
-
-        def stderr_callbacks(s):
-            FLINT_OUTPUT_LOGGER.error("%s", s)
-
-        event.connect(proxy, "flint_stdout", stdout_callbacks)
-        event.connect(proxy, "flint_stderr", stderr_callbacks)
-
-        FLINT["callbacks"] = (stdout_callbacks, stderr_callbacks)
-
-        try:
-            proxy.register_output_listener()
-        except:
-            # FIXME: This have to be fixed or removed
-            # See: https://gitlab.esrf.fr/bliss/bliss/issues/1249
-            FLINT_LOGGER.error(
-                "Error while connecting to stdout logs from Flint (issue #1249)"
-            )
-            FLINT_LOGGER.debug("Backtrace", exc_info=True)
-
-    return proxy
-
-
-def attach_flint(pid):
+def attach_flint(pid: int):
     """Attach to an external flint process, make a RPC proxy and bind Flint to
     the current session and return the FLINT proxy
+
+    Argument:
+        pid: Process identifier of Flint
     """
-    if not psutil.pid_exists(pid):
-        raise psutil.NoSuchProcess(pid, "Flint PID %s does not exist" % pid)
-    process = psutil.Process(pid)
-    proxy = _attach_flint(process)
-    FLINT_LOGGER.debug("Flint proxy initialized")
-    return proxy
+    global FLINT
+    flint = FlintClient(process=pid)
+    if FLINT is not None:
+        FLINT.close_proxy()
+    FLINT = flint
+    return flint
 
 
 def reset_flint():
-    proxy = FLINT.get("proxy")
-    if proxy is not None:
-        proxy.close()
-    FLINT["proxy"] = None
-    FLINT["process"] = None
-    greenlets = FLINT["greenlet"]
-    if greenlets is not None:
-        gevent.killall(greenlets)
-    FLINT["greenlet"] = None
-    FLINT["callbacks"] = None
+    """Close the current flint proxy.
+    """
+    global FLINT
+    try:
+        if FLINT is not None:
+            FLINT.close_proxy()
+    finally:
+        # Anyway, invalidate the proxy
+        FLINT = None

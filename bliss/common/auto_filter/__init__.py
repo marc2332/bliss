@@ -45,15 +45,34 @@ class AutoFilter(BeaconObject):
         must_be_in_config=True,
         doc="Maximum allowed count rate on monitor",
     )
+    always_back = BeaconObject.property_setting(
+        "always_back",
+        must_be_in_config=False,
+        default=True,
+        doc="Always move back the filter to the original position at the end of the scan",
+    )
 
     def __init__(self, name, config):
         super().__init__(config, share_hardware=False)
 
         # check a filterset is in config
         self.filterset = config.get("filterset")
+        # check energy motor is in config
+        self.energy_axis = config.get("energy_axis")
 
-        # update filterset with countrate range
-        self.filterset.update_countrate_range(self.min_count_rate, self.max_count_rate)
+        self.initialize()
+
+    def initialize(self):
+        """
+        intialize the behind filterset
+        """
+        # Synchronize the filterset with countrate range and energy
+        # and tell it to store back filter if necessary
+        energy = self.energy_axis.position
+
+        self.filterset.sync(
+            self.min_count_rate, self.max_count_rate, energy, self.always_back
+        )
 
     def ascan(self, motor, start, stop, intervals, count_time, *counter_args, **kwargs):
         """
@@ -130,6 +149,7 @@ class AutoFilter(BeaconObject):
             save_images=kwargs.get("save_images"),
             data_watch_callback=scan.StepScanDataWatch(),
         )
+
         if kwargs.get("run", True):
             s.run()
         return s

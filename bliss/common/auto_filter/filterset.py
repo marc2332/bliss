@@ -98,7 +98,7 @@ from tabulate import tabulate
 
 from bliss.config.beacon_object import BeaconObject
 from bliss.common.logtools import *
-from element_density import ElementDensity
+from .element_density import ElementDensity
 
 
 class FilterSet(BeaconObject):
@@ -117,12 +117,16 @@ class FilterSet(BeaconObject):
     def __init__(self, name, config):
         super().__init__(config, share_hardware=False)
 
+        # Some data and caches
         self._fpattern = None
         self._ftransm = None
-        self._filter_data = None
+        self._abs_table = None
         self._min_cntrate = 0.
         self._max_cntrate = 0.
         self._nb_filters = 0
+        self._curr_idx = -1
+        self._backidx = -1
+        self._back = True
 
         # good element density module
         self._elt = ElementDensity()
@@ -133,9 +137,14 @@ class FilterSet(BeaconObject):
 
         self._nb_filters = len(self._filters)
 
-        # ask for the calculation of the apparent density and
-        # and a first transmission of the filters
+        self.initialize()
+
+    def initialize(self):
+        """
+        Initialize filter apparent densities and transmissions
+        """
         self._calc_densities()
+        self._calc_transmissions(self._energy_setting)
 
     def __info__(self):
         info_str = f"\nActive filter is {self.filter}, transmission = {self.transmission:.5g} @ {self.energy:.5g} keV"
@@ -270,8 +279,8 @@ class FilterSet(BeaconObject):
         # array of nfilters columns and rows of:
         #  - [pattern, transmission, max_cntrate, opt_cntrate, min_cntrate]
         #
-        self._filter_data = np.zeros([nfiltset, 5])
-        data = self._filter_data
+        self._abs_table = np.zeros([nfiltset, 5])
+        data = self._abs_table
         data[0:nfiltset, 0] = self._fpattern[0:nfiltset]
         data[0:nfiltset, 1] = self._ftransm[0:nfiltset]
 
@@ -291,29 +300,84 @@ class FilterSet(BeaconObject):
         self._quality = 100 * self._quality / nfiltset
         log_info(self, f"Finally quality is {self._quality}")
 
-    def update_countrate_range(self, min_count_rate, max_count_rate):
+    def sync(self, min_count_rate, max_count_rate, energy, back):
         """
-        update the countrate range, suppose to be called by the AutoFilter class
-        which has the range set from its config.
-        Then trig a first calculation of data from the current energy
+        Update the absorption table (_abs_table) using the new cntrate 
+        range and the new energy.
+        Check if the current filter is in the new table otherwise
+        change it to the closest one.
         """
         self._min_cntrate = min_count_rate
         self._max_cntrate = max_count_rate
+        self._back = back
 
-        self.energy = self._energy_setting
+        # each time the energy change effective transmission and
+        # a new absorption table are calculated
+
+        log_info(self, f"Updating the energy {energy} keV")
+        self._calc_transmissions(energy)
+        self._calc_absorption_table()
+
+        # In case that the current filter is not in the abs. table
+        # change to the closest one
+
+        idx = self._read_filteridx()
+        # _abs_table is a numpy array of float, so convert filter id to integer
+        curr_filtid = int(self._abs_table[self._curr_idx, 0])
+        if idx == -1:
+            # of need to change with the closest filter
+            # the new filter index is already stored in the cache attr. _curr_idx
+            self.set_filter(curr_filtid)
+
+        # Save filter index if needed
+        if self._back:
+            self._backid = curr_filtid
+
+    def _read_filteridx(self):
+        """
+        Return current filter index
+        If current filter is not in table, find the closest one in term of transmission
+        Return -1 if the filter need to be changed and the new filter is stored in 
+        self._curr_idx for the calling function
+        """
+
+        filtid = self.get_filter()
+        curridx = self._curr_idx
+        currid = int(self._abs_table[curridx, 0])
+
+        log_info(self, f"Current filter id is {filtid}")
+        if currid == filtid:
+            return curridx
+
+        trans = self.get_transmission(filtid)
+        currtrans = 0
+        nfiltset = self._nb_filtset
+
+        found = False
+        data = self._abs_table
+        for idx in range(nfiltset):
+            if filtid == int(data[idx, 0]):
+                self._curr_idx = idx
+                return idx
+            trsm = data[idx, 1]
+            if trsm <= trans and trsm > currtrans:
+                currtrans = trsm
+                curridx = idx
+                found = True
+
+        if not found:
+            # be safe set the absorptionest filter
+            curridx = nfiltset - 1
+
+        log_info(self, f"Closest filter index is {curridx}")
+        # put new
+        self._curr_idx = curridx
+        # return -1 means the filter must be changed
+        return -1
 
     @property
     def energy(self):
         return self._energy_setting
-
-    @energy.setter
-    def energy(self, new_energy):
-        # each time the energy change effective transmission and
-        # a new absorption table are calculated
-        log_info(self, f"Updating the energy {new_energy} keV")
-
-        self._calc_transmissions(new_energy)
-        self._calc_absorption_table()
 
     @property
     def filter(self):
@@ -352,7 +416,7 @@ class FilterSet(BeaconObject):
         """
         raise RuntimeError("Please override this method")
 
-    def set_filter(self, new_filter):
+    def set_filter(self, filter_id):
         """
         Set the new filter
         """
@@ -360,14 +424,15 @@ class FilterSet(BeaconObject):
 
     def get_filter(self):
         """
-        Return the current filter and the transmission.
-        (None,None) is return if filter position is undefined
+        Return the current filter index
+        otherwise none is returned
         """
         raise RuntimeError("Please override this method")
 
-    def get_transmission(self):
+    def get_transmission(self, filter_id=None):
         """
-        Return the current effective tranmission
+        Return the tranmission of filter 
+        if None, return the curent filter transmission
         """
         raise RuntimeError("Please override this method")
 

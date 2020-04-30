@@ -157,21 +157,20 @@ class FilterSet_Wheel(FilterSet):
         """
         print(f"{value} {min_count_rate} {max_count_rate}")
 
-    def set_filter(self, new_filter):
+    def set_filter(self, filter_id):
         """
-        Set the new filter, for a wheel it correspond to a
-        precise axis position
+        Set the new filter, for a wheel it move to a position
         """
-        if new_filter not in range(len(self._filters)):
+        if filter_id not in range(len(self._filters)):
             raise ValueError(
                 f"Wrong filter value {new_filter} range is [0-{self._nb_filters-1}]"
             )
-        self._rotation_axis.move(self._filters[new_filter]["position"])
+        self._rotation_axis.move(self._filters[filter_id]["position"])
 
     def get_filter(self):
         """
-        Return the wheel filter and the transmission.
-        (None,None) is return if the axis position does not correspond to the 
+        Return the wheel filter index.
+        None is return if the axis position does not correspond to the 
         defined positions
         """
         position = self._rotation_axis.position
@@ -181,12 +180,17 @@ class FilterSet_Wheel(FilterSet):
         else:
             return None
 
-    def get_transmission(self):
+    def get_transmission(self, filter_id=None):
         """
-        Return the current effective tranmission
+        Return the tranmission of filter filter_id
+        if None, return the curent filter transmission
         """
-        filt = self.get_filter()
+        if not filter_id:
+            filt = self.get_filter()
+        else:
+            filt = filter_id
         if filt is not None:
+
             trans = self._filters[filt]["transmission_calc"]
         else:
             trans = None
@@ -194,7 +198,7 @@ class FilterSet_Wheel(FilterSet):
 
     def build_filterset(self):
         """
-        Build pattern and transmission arrays.
+        Build pattern (index here)  and transmission arrays.
         A filterset, like Wago, is made of 4 real filters 
         which can be combined to produce 15 patterns and transmissions.
         A filtersets like a wheel just provides 20 real filters and exactly
@@ -204,7 +208,8 @@ class FilterSet_Wheel(FilterSet):
         p = []
         t = []
         for filter in self._filters:
-            p.append(filter["position"])
+            # store just the index of the filters as the possible pattern
+            p.append(self._filters.index(filter))
             t.append(filter["transmission_calc"])
         self._fpattern = np.array(p, dtype=np.int)
         self._ftransm = np.array(t)

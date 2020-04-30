@@ -39,10 +39,6 @@ mcatypemap = {
 
 mcaunitmap = {"icr": "hertz", "ocr": "hertz", "livetime": "s", "realtime": "s"}
 
-timernamemap = {"elapsed_time": "value", "epoch": "epoch"}
-
-timertypemap = {"elapsed_time": "principal", "epoch": "epoch"}
-
 limanamemap = {"image": "data", "sum": "data"}
 
 limatypemap = {"image": "principal", "sum": "principal"}
@@ -93,11 +89,14 @@ def fill_device(fullname, device, device_info=None, data_info=None):
         device_type: type for the writer (not saved), e.g. positioner, mca, lima
         device_name: HDF5 group name (measurement or positioners when missing)
         device_info: HDF5 group datasets
-        data_type: "principal" (data of NXdetector or value of NXpositioner) or other
+        data_type: maximal one device dataset has type "principal"
+                   a principal's data_name is either "data" (detector) or "value" (positioner)
         data_name: HDF5 dataset name
         data_info: HDF5 dataset attributes
         unique_name: Unique name for HDF5 links
         master_index: >=0 axis order used for plotting
+        single: only data of this device
+                a single's data_name is either "data" (detector) or "value" (positioner)
         dependencies: fullnames
 
     :param str fulname:
@@ -117,6 +116,7 @@ def fill_device(fullname, device, device_info=None, data_info=None):
     device["data_info"] = device.get("data_info", data_info)
     device["unique_name"] = device.get("unique_name", fullname)
     device["master_index"] = -1
+    device["single"] = None
     device["dependencies"] = {}
     device["metadata_keys"] = {}
 
@@ -209,62 +209,42 @@ def parse_devices(devices, short_names=True, multivalue_positioners=False):
                 device["data_type"] = countertypemap.get(datatype, datatype)
                 device["data_name"] = counternamemap.get(datatype, datatype)
         elif device["device_type"] == "positionergroup":
-            # TODO: currently only timers, no other masters exist like this (yet!!!)
-            # 'timer1:xxxxxx' -> 'xxxxxx'
-            #   device_name = 'timer1'
-            #   data_type = timertypemap('xxxxxx')
-            #   data_name = timernamemap('xxxxxx')
             parts = fullname.split(":")
-            timertype = parts[-1]
-            device["device_type"] = "positioner"
+            if device["data_type"] != "principal":
+                device["data_type"] = parts[-1]
             if multivalue_positioners:
-                # All of them are masters but only one of them
-                # is a principle value
                 device["device_name"] = ":".join(parts[:-1])
-                device["data_type"] = timertypemap.get(timertype, device["data_type"])
-                device["data_name"] = timernamemap.get(timertype, device["data_name"])
-                # What to do here?
-                # if device['data_type'] != 'principal':
-                #    device['master_index'] = -1
+                if device["data_type"] == "principal":
+                    device["data_name"] = "value"
+                else:
+                    device["data_name"] = device["data_type"]
             else:
-                # All of them are principal values but only one of them
-                # is a master
-                device["data_type"] = timertypemap.get(timertype, device["data_type"])
-                if device["data_type"] != "principal":
-                    device["master_index"] = -1
-                device["data_type"] = "principal"
                 device["data_name"] = "value"
+                device["single"] = True
         elif device["device_type"] == "positioner":
             device["data_name"] = "value"
             device["data_type"] = "principal"
         else:
             device["data_name"] = "data"
             device["data_type"] = "principal"
-        if device["data_type"] == "principal":
+        if device["single"] is None:
+            device["single"] = device["data_type"] == "principal"
+        if device["single"]:
             device["unique_name"] = device["device_name"]
         else:
             device["unique_name"] = device["device_name"] + ":" + device["data_name"]
 
 
-def is_positioner_group(fullname, all_fullnames):
-    """
-    A positioner group is a master which publishes more than one channel.
-    This is currently only a timer.
-    """
-    parts = fullname.split(":")
-    if len(parts) == 2:
-        if parts[1] in ["elapsed_time", "epoch"]:
-            return all(parts[0] + ":" + name for name in ["elapsed_time", "epoch"])
-    return False
-
-
-def device_info(devices, scan_info, short_names=True, multivalue_positioners=False):
+def device_info(
+    devices, scan_info, ndim=1, short_names=True, multivalue_positioners=False
+):
     """
     Merge device information from `writer_config_publish.device_info`
     and from the scan info published by the Bliss core library.
 
     :param dict devices: as provided by `writer_config_publish.device_info`
     :param dict scan_info:
+    :param int ndim: number of scan dimensions
     :param bool short_names:
     :param bool multivalue_positioners:
     :returns dict: subscanname:dict(fullname:dict)
@@ -277,13 +257,20 @@ def device_info(devices, scan_info, short_names=True, multivalue_positioners=Fal
         subdevices = ret[subscan] = {}
         masterinfo = subscaninfo["master"]
         _extract_device_info(
-            devices, subdevices, masterinfo, ["scalars"], config=config, master=True
+            devices,
+            subdevices,
+            masterinfo,
+            ["scalars"],
+            ndim=ndim,
+            config=config,
+            master=True,
         )
         _extract_device_info(
             devices,
             subdevices,
             masterinfo,
             ["spectra", "images"],
+            ndim=ndim,
             config=config,
             master=True,
         )
@@ -292,6 +279,7 @@ def device_info(devices, scan_info, short_names=True, multivalue_positioners=Fal
             subdevices,
             subscaninfo,
             ["scalars", "spectra", "images"],
+            ndim=ndim,
             config=config,
             master=False,
         )
@@ -303,7 +291,9 @@ def device_info(devices, scan_info, short_names=True, multivalue_positioners=Fal
     return ret
 
 
-def _extract_device_info(devices, subdevices, info, keys, config=True, master=False):
+def _extract_device_info(
+    devices, subdevices, info, keys, ndim=1, config=True, master=False
+):
     for key in keys:
         units = info.get(key + "_units", {})
         lst = info.get(key, [])
@@ -313,11 +303,13 @@ def _extract_device_info(devices, subdevices, info, keys, config=True, master=Fa
             device = update_device(subdevices, fullname, data_info=data_info)
             if key == "scalars":
                 if master:
-                    if is_positioner_group(fullname, lst):
+                    if len(lst) > 1 and ndim <= 1:
                         device["device_type"] = "positionergroup"
+                        device["master_index"] = 0
                     else:
                         device["device_type"] = "positioner"
-                    device["master_index"] = i
-                else:
-                    if is_positioner_group(fullname, lst):
-                        device["device_type"] = "positionergroup"
+                        device["master_index"] = i
+                    if i == 0:
+                        device["data_type"] = "principal"
+                    else:
+                        device["data_type"] = ""

@@ -53,5 +53,9 @@ def _test_nxw_amesh(session=None, tmpdir=None, writer=None, **kwargs):
     nxw_test_utils.run_scan(scan)
     nxw_test_utils.wait_scan_data_finished([scan], writer=writer)
     nxw_test_data.assert_scan_data(
-        scan, positioners=positioners, scan_shape=scan_shape, **kwargs
+        scan,
+        positioners=positioners,
+        scan_shape=scan_shape,
+        softtimer="detector",
+        **kwargs
     )

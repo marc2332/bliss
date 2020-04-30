@@ -49,6 +49,6 @@ def _test_nxw_limact(session=None, tmpdir=None, writer=None, **kwargs):
         scan_shape=(1,),
         positioners=[[]],
         detectors=detectors,
-        hastimer=False,
+        softtimer=None,
         **kwargs
     )

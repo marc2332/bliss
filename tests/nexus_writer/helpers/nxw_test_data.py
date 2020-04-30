@@ -49,7 +49,7 @@ def validate_scan_data(
     config=True,
     policy=True,
     alt=False,
-    hastimer=True,
+    softtimer="master",
 ):
     """
     :param bliss.scanning.scan.Scan scan:
@@ -62,7 +62,7 @@ def validate_scan_data(
     :param bool config: configurable writer
     :param bool policy: data policy
     :param bool alt: alternative writer options
-    :param bool hastimer:
+    :param str softtimer: "detector", "master" or neither
     """
     # Parse arguments
     if config:
@@ -100,6 +100,8 @@ def validate_scan_data(
             detectors=detectors,
             notes=notes,
             variable_length=variable_length,
+            master_name=master_name,
+            softtimer=softtimer,
         )
         validate_measurement(
             nxentry["measurement"],
@@ -110,7 +112,7 @@ def validate_scan_data(
             save_options=save_options,
             detectors=detectors,
             master_name=master_name,
-            hastimer=hastimer,
+            softtimer=softtimer,
         )
         validate_instrument(
             nxentry["instrument"],
@@ -122,7 +124,7 @@ def validate_scan_data(
             save_options=save_options,
             detectors=detectors,
             master_name=master_name,
-            hastimer=hastimer,
+            softtimer=softtimer,
         )
         if not variable_length:
             validate_plots(
@@ -134,6 +136,7 @@ def validate_scan_data(
                 scan_shape=scan_shape,
                 positioners=positioners,
                 master_name=master_name,
+                softtimer=softtimer,
                 save_options=save_options,
             )
         validate_applications(
@@ -209,6 +212,8 @@ def validate_nxentry(
     detectors=None,
     notes=None,
     variable_length=None,
+    master_name=None,
+    softtimer=None,
 ):
     """
     :param h5py.Group nxentry:
@@ -216,7 +221,10 @@ def validate_nxentry(
     :param bool policy: data policy
     :param str technique:
     :param list(str) detectors:
+    :param bool notes:
     :param bool variable_length: e.g. timescan
+    :param str master_name:
+    :param str softtimer:
     """
     assert nxentry.parent.attrs["NX_class"] == "NXroot"
     assert nxentry.attrs["NX_class"] == "NXentry"
@@ -229,7 +237,12 @@ def validate_nxentry(
                 actual.remove(name)
     else:
         plots = expected_plots(
-            technique, config=config, policy=policy, detectors=detectors
+            technique,
+            config=config,
+            policy=policy,
+            detectors=detectors,
+            master_name=master_name,
+            softtimer=softtimer,
         )
         for name, info in plots.items():
             if info["signals"]:
@@ -249,7 +262,7 @@ def validate_measurement(
     save_options=None,
     detectors=None,
     master_name=None,
-    hastimer=None,
+    softtimer=None,
 ):
     """
     :param h5py.Group nxentry:
@@ -260,19 +273,20 @@ def validate_measurement(
     :param dict save_options:
     :param list(str) detectors:
     :param str master_name:
-    :param bool hastimer:
+    :param str softtimer:
     """
     assert measurement.attrs["NX_class"] == "NXcollection"
     # Detectors
     datasets = expected_channels(
-        config=config, technique=technique, detectors=detectors
+        config=config,
+        technique=technique,
+        detectors=detectors,
+        master_name=master_name,
+        softtimer=softtimer,
     )
     # Positioners
     pos_instrument, pos_meas, pos_pgroup = expected_positioners(
-        master_name=master_name,
-        positioners=positioners,
-        hastimer=hastimer,
-        save_options=save_options,
+        master_name=master_name, positioners=positioners, save_options=save_options
     )
     datasets[0] |= set(pos_meas)
     # Check all datasets present
@@ -313,7 +327,7 @@ def validate_instrument(
     save_options=None,
     detectors=None,
     master_name=None,
-    hastimer=None,
+    softtimer=None,
 ):
     """
     :param h5py.Group nxentry:
@@ -325,7 +339,7 @@ def validate_instrument(
     :param dict save_options:
     :param list(str) detectors:
     :param str master_name:
-    :param bool hastimer:
+    :param str softtimer:
     """
     # Positioner groups
     expected_posg = {
@@ -337,14 +351,15 @@ def validate_instrument(
     }
     # Detectors
     expected_dets = expected_detectors(
-        config=config, technique=technique, detectors=detectors
+        config=config,
+        technique=technique,
+        detectors=detectors,
+        master_name=master_name,
+        softtimer=softtimer,
     )
     # Positioners
     pos_instrument, _, pos_positioners = expected_positioners(
-        master_name=master_name,
-        positioners=positioners,
-        hastimer=hastimer,
-        save_options=save_options,
+        master_name=master_name, positioners=positioners, save_options=save_options
     )
     # Check all subgroups present
     if config:
@@ -389,6 +404,7 @@ def validate_plots(
     scan_shape=None,
     positioners=None,
     master_name=None,
+    softtimer=None,
     save_options=None,
 ):
     """
@@ -400,9 +416,17 @@ def validate_plots(
     :param tuple scan_shape: fast axis first
     :param list positioners: fast axis first
     :param str master_name:
+    :param str softtimer:
     :param dict save_options:
     """
-    plots = expected_plots(technique, config=config, policy=policy, detectors=detectors)
+    plots = expected_plots(
+        technique,
+        config=config,
+        policy=policy,
+        detectors=detectors,
+        master_name=master_name,
+        softtimer=softtimer,
+    )
     for name, info in plots.items():
         if info["signals"]:
             validate_nxdata(
@@ -570,7 +594,14 @@ def validate_notes(nxentry, notes):
         assert subgroup["type"][()] == "text/plain"
 
 
-def expected_plots(technique, config=True, policy=True, detectors=None):
+def expected_plots(
+    technique,
+    config=True,
+    policy=True,
+    detectors=None,
+    master_name=None,
+    softtimer=None,
+):
     """
     All expected plots for this technique (see nexus_definitions.yml)
 
@@ -578,11 +609,17 @@ def expected_plots(technique, config=True, policy=True, detectors=None):
     :param bool config: configurable writer
     :param bool policy: data policy
     :param list(str) detectors:
+    :param str master_name:
+    :param str softtimer:
     :returns dict: grouped by detector dimension and flat/grid
     """
     plots = dict()
     channels = expected_channels(
-        config=config, technique=technique, detectors=detectors
+        config=config,
+        technique=technique,
+        detectors=detectors,
+        master_name=master_name,
+        softtimer=softtimer,
     )
 
     def ismca(name):
@@ -713,14 +750,14 @@ def expected_applications(technique, config=True, policy=True):
 
 
 def expected_positioners(
-    master_name=None, positioners=None, hastimer=None, save_options=None
+    master_name=None, positioners=None, softtimer=None, save_options=None
 ):
     """
     Expected positioners
 
     :param str master_name:
     :param list(str) positioners:
-    :param bool hastimer:
+    :param str softtimer:
     :param dict save_options:
     :returns dict, set, set: content, measurement, positioners
     """
@@ -734,36 +771,40 @@ def expected_positioners(
                 measurement.add(master_name)
                 pgroup.add(master_name)
                 pgroup |= {master_name + "_" + axis for axis in axes[1:]}
+                measurement |= {master_name + "_" + axis for axis in axes[1:]}
             else:
                 for axis in axes:
                     content[axis] = ["value"]
-                measurement.add(axes[0])
+                measurement |= set(axes)
                 pgroup |= set(axes)
         elif axes:
             content[axes[0]] = ["value"]
             measurement.add(axes[0])
             pgroup.add(axes[0])
-    if hastimer:
-        posprefix = "pstn_"
+    if softtimer == "master":
         if save_options["multivalue_positioners"]:
             content[master_name] = ["value", "epoch"]
-            measurement |= {posprefix + master_name, posprefix + master_name + "_epoch"}
+            measurement |= {master_name, master_name + "_epoch"}
             pgroup |= {master_name, master_name + "_epoch"}
         else:
             content["elapsed_time"] = ["value"]
             content["epoch"] = ["value"]
-            measurement |= {posprefix + "elapsed_time", posprefix + "epoch"}
+            measurement |= {"elapsed_time", "epoch"}
             pgroup |= {"elapsed_time", "epoch"}
     return content, measurement, pgroup
 
 
-def expected_detectors(config=True, technique=None, detectors=None):
+def expected_detectors(
+    config=True, technique=None, detectors=None, master_name=None, softtimer=None
+):
     """
     Expected detectors
 
     :param bool config: configurable writer
     :param str technique:
     :param list(str) detectors:
+    :param str master_name:
+    :param str softtimer:
     :returns set:
     """
     if config:
@@ -803,11 +844,17 @@ def expected_detectors(config=True, technique=None, detectors=None):
                     name + "_bpm",
                 }
         expected = detectors_filter(expected, detectors)
+        if softtimer == "detector":
+            expected |= {"elapsed_time", "epoch"}
     else:
         # Each data channel is a detector
         expected = set()
         channels = expected_channels(
-            config=config, technique=technique, detectors=detectors
+            config=config,
+            technique=technique,
+            detectors=detectors,
+            master_name=master_name,
+            softtimer=softtimer,
         )
         for names in channels.values():
             expected |= names
@@ -936,13 +983,17 @@ def expected_detector_content(name, config=True):
     return datasets
 
 
-def expected_channels(config=True, technique=None, detectors=None):
+def expected_channels(
+    config=True, technique=None, detectors=None, master_name=None, softtimer=None
+):
     """
     Expected channels grouped per dimension
 
     :param bool config: configurable writer
     :param str technique:
     :param list(str) detectors:
+    :param str master_name:
+    :param str softtimer:
     :returns dict: key are the unique names (used in plots and measurement)
     """
     datasets = {0: set(), 1: set(), 2: set()}
@@ -1085,6 +1136,8 @@ def expected_channels(config=True, technique=None, detectors=None):
                 }
     for k in datasets:
         datasets[k] = detectors_filter(datasets[k], detectors, removeprefix=not config)
+    if softtimer == "detector":
+        datasets[0] |= {"elapsed_time", "epoch"}
     return datasets
 
 

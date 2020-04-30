@@ -50,6 +50,7 @@ from bliss.scanning.scan_saving import ScanSaving
 from bliss.common.logtools import lprint_disable
 from louie import saferef
 from bliss.common.plot import get_plot
+from bliss import __version__ as publisher_version
 
 # Globals
 current_module = sys.modules[__name__]
@@ -648,6 +649,8 @@ class Scan:
         self._scan_info["save"] = save
         self._scan_info["data_writer"] = scan_saving.writer
         self._scan_info["data_policy"] = scan_saving.data_policy
+        self._scan_info["publisher"] = "Bliss"
+        self._scan_info["publisher_version"] = publisher_version
         if save:
             self.__writer = scan_config["writer"]
         else:

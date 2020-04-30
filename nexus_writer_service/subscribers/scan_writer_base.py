@@ -445,10 +445,15 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
 
     @property
     def _nxroot_kwargs(self):
+        rootattrs = {
+            "publisher": self.get_info("publisher", "Bliss"),
+            "publisher_version": self.get_info("publisher_version", None),
+        }
         return {
             "mode": "a",
             "enable_file_locking": self.saveoptions["enable_file_locking"],
             "swmr": self.saveoptions["swmr"],
+            "rootattrs": rootattrs,
         }
 
     @contextmanager

@@ -16,7 +16,8 @@ from nexus_writer_service.io import nexus
 @contextmanager
 def nxroot(path, name):
     filename = os.path.join(str(path), name + ".h5")
-    with nexus.nxRoot(filename, mode="a") as f:
+    rootattrs = {"test": "test_root_attr"}
+    with nexus.nxRoot(filename, mode="a", rootattrs=rootattrs) as f:
         yield f
 
 
@@ -391,6 +392,7 @@ def validateNxRoot(h5group):
         "file_time",
         "file_update_time",
         "h5py_version",
+        "test",
     }
     assert set(h5group.attrs.keys()) == attrs
     assert h5group.attrs["NX_class"] == "NXroot"

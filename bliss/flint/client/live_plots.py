@@ -19,7 +19,7 @@ from . import proxy
 class LiveImagePlot:
     """ Use Flint to display Images (Live and snapshot) """
 
-    def __init__(self, get_data_cb=None, name="LiveImagePlot", xlabel="", ylabel=""):
+    def __init__(self, get_data_cb=None, name="LiveImagePlot"):
         """ get_data_cb (optional) is a callable returning an image (2D numpy array)  """
 
         if get_data_cb is None:
@@ -28,8 +28,6 @@ class LiveImagePlot:
             self._get_data_cb = get_data_cb
 
         self._name = name
-        self._xlabel = xlabel
-        self._ylabel = ylabel
 
         self._task = None
         self._stop_event = gevent.event.Event()
@@ -46,24 +44,6 @@ class LiveImagePlot:
     @fps.setter
     def fps(self, fps):
         self._sleep_time = 1. / fps
-
-    @property
-    def xlabel(self):
-        return self._xlabel
-
-    @xlabel.setter
-    def xlabel(self, txt):
-        self._xlabel = txt
-        self.fig.submit("setGraphXLabel", self._xlabel)
-
-    @property
-    def ylabel(self):
-        return self._ylabel
-
-    @ylabel.setter
-    def ylabel(self, txt):
-        self._ylabel = str(txt)
-        self.fig.submit("setGraphYLabel", self._ylabel)
 
     @property
     def data_cb(self):
@@ -85,15 +65,9 @@ class LiveImagePlot:
             plots.ImagePlot, name=self._name, selected=True, closeable=True
         )
         self.fig.plot(data=data)
-        self.fig.submit("setGraphXLabel", self._xlabel)
-        self.fig.submit("setGraphYLabel", self._ylabel)
-        self.fig.submit("setKeepDataAspectRatio", True)
 
     def is_plot_active(self):
-        try:
-            return self.fig._flint.get_plot_name(self.fig.plot_id)
-        except:
-            return False
+        return self.fig is not None and self.fig.is_open()
 
     def start(self):
         """ Start a Live display in Flint, calling 'self.data_cb' to refresh the image data """
@@ -101,7 +75,7 @@ class LiveImagePlot:
         if self._get_data_cb is None:
             raise ValueError(f"self._get_data_cb is None!")
 
-        if not self.is_plot_active():
+        if self.fig is None or not self.fig.is_open():
             self.create_plot(self._get_data_cb())
 
         if not self._task:
@@ -117,7 +91,7 @@ class LiveImagePlot:
     def plot(self, data):
         """ Display 'data' as an image in Flint """
 
-        if not self.is_plot_active():
+        if self.fig is None or not self.fig.is_open():
             self.create_plot(data)
         else:
             self._plot(data)
@@ -139,7 +113,7 @@ class LiveImagePlot:
                 # check that the plot is still open in Flint
                 if time.time() - t0 > self._check_flint_poll_time:
                     t0 = time.time()
-                    if not self.is_plot_active():
+                    if self.fig is None or not self.fig.is_open():
                         break
 
             except Exception as _e:

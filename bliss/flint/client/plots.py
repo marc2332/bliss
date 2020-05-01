@@ -36,10 +36,35 @@ class BasePlot(object):
         """
         self._plot_id = plot_id
         self._flint = flint
+        self._xlabel = None
+        self._ylabel = None
+        if flint is not None:
+            self._init_plot()
 
     def _init_plot(self):
-        """Inherites it to custom the plot initialization"""
-        pass
+        """Inherits it to custom the plot initialization"""
+        if self._xlabel is not None:
+            self.submit("setGraphXLabel", self._xlabel)
+        if self._ylabel is not None:
+            self.submit("setGraphYLabel", self._ylabel)
+
+    @property
+    def xlabel(self):
+        return self._xlabel
+
+    @xlabel.setter
+    def xlabel(self, txt):
+        self._xlabel = str(txt)
+        self.submit("setGraphXLabel", self._xlabel)
+
+    @property
+    def ylabel(self):
+        return self._ylabel
+
+    @ylabel.setter
+    def ylabel(self, txt):
+        self._ylabel = str(txt)
+        self.submit("setGraphYLabel", self._ylabel)
 
     def __repr__(self):
         try:
@@ -121,6 +146,15 @@ class BasePlot(object):
         self.select_data(*names, **kwargs)
 
     # Clean up
+
+    def is_open(self) -> bool:
+        """Returns true if the plot is still open in the linked Flint
+        application"""
+        try:
+            return self._flint.is_plot_exists(self._plot_id)
+        except:
+            # The proxy is maybe dead
+            return False
 
     def close(self):
         self._flint.remove_plot(self.plot_id)
@@ -272,6 +306,7 @@ class ImagePlot(BasePlot):
     DATA_INPUT_NUMBER = 1
 
     def _init_plot(self):
+        super(ImagePlot, self)._init_plot()
         self.submit("setKeepDataAspectRatio", True)
 
     def select_mask(self, initial_mask: numpy.ndarray = None):

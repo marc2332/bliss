@@ -9,3 +9,8 @@
   counters:
     - lima_simulator
 
+-
+  class: MeasurementGroup
+  name: autof_mg
+  counters:
+    - TestFilterCounterAxis:value

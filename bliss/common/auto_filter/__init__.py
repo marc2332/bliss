@@ -31,9 +31,6 @@ from . import acquisition_objects
 
 
 class AutoFilter(BeaconObject):
-    max_nb_iter = BeaconObject.property_setting(
-        "max_nb_iter", must_be_in_config=True, doc="Max iteration on the same point"
-    )
     monitor_counter_name = BeaconObject.property_setting(
         "monitor_counter_name", must_be_in_config=True, doc="Monitor counter name"
     )
@@ -74,7 +71,9 @@ class AutoFilter(BeaconObject):
         # and tell it to store back filter if necessary
         energy = self.energy_axis.position
 
-        self.filterset.sync(
+        # filterset sync. method return the maximum effective number of filters
+        # which will correspond to the maximum number of filter changes
+        self.max_nb_iter = self.filterset.sync(
             self.min_count_rate, self.max_count_rate, energy, self.always_back
         )
 
@@ -82,6 +81,10 @@ class AutoFilter(BeaconObject):
         """
         Basically same as normal ascan with auto filter management
         """
+
+        # initialize the filterset
+        # maybe better to use a ScanPreset
+        self.initialize()
 
         save_flag = kwargs.get("save", True)
         programed_device_intervals = (intervals + 1) * self.max_nb_iter

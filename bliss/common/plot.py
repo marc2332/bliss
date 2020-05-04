@@ -858,6 +858,18 @@ class ImagePlot(BasePlot):
     def _init_plot(self):
         self.submit("setKeepDataAspectRatio", True)
 
+    def select_mask(self, initial_mask: numpy.ndarray = None):
+        """Request a mask image from user selection.
+
+        Argument:
+            initial_mask: An initial mask image, else None
+        Return:
+            A numpy array containing the user mask image
+        """
+        flint = self._flint
+        request_id = flint.request_select_mask_image(self._plot_id, initial_mask)
+        return self._wait_for_user_selection(request_id)
+
 
 class HistogramImagePlot(BasePlot):
 

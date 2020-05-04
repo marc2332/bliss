@@ -9,13 +9,19 @@ from __future__ import annotations
 from typing import Dict
 from typing import Sequence
 
+import numpy
+import logging
+
 from silx.gui import qt, icons
 from silx.gui.plot.actions import PlotAction
 from silx.gui.plot import PlotWidget
+from silx.gui.plot import MaskToolsWidget
 from silx.gui.colors import rgba
 from silx.gui.plot.items.roi import RectangleROI
 from silx.gui.plot.items.roi import RegionOfInterest
 from bliss.flint.widgets.roi_selection_widget import RoiSelectionWidget
+
+_logger = logging.getLogger(__name__)
 
 
 class DrawModeAction(PlotAction):
@@ -543,4 +549,74 @@ class ShapesSelector(Selector):
         self.stop()
         shapes = self.__roisToDict(selection)
         self.__selection = shapes
+        self.selectionFinished.emit()
+
+
+class MaskImageSelector(Selector):
+    def __init__(self, parent=None):
+        assert isinstance(parent, PlotWidget)
+        super(MaskImageSelector, self).__init__(parent=parent)
+        self.__timeout = None
+        self.__selection = None
+        self.__dock: MaskToolsWidget.MaskToolsDockWidget = None
+
+    def setInitialMask(self, mask: numpy.ndarray, copy=True):
+        self.__dock.setSelectionMask(mask, copy=copy)
+
+    def setTimeout(self, timeout):
+        self.__timeout = timeout
+
+    def start(self):
+        plot = self.parent()
+
+        dock = MaskToolsWidget.MaskToolsDockWidget(plot=plot, name="Mask tools")
+        # Inject a default selection by default
+        dock.widget().rectAction.trigger()
+
+        # Inject a button to validate the selection
+        group = dock.widget().otherToolGroup
+        layout = group.layout()
+        self._validate = qt.QPushButton("Validate")
+        size = self._validate.sizeHint()
+        self._validate.setMinimumHeight(int(size.height() * 1.5))
+        self._validate.clicked.connect(self.__selectionFinished)
+        layout.addWidget(self._validate)
+
+        plot.addTabbedDockWidget(dock)
+        dock.show()
+        dock.visibilityChanged.connect(self.__selectionCancelled)
+
+        self.__dock = dock
+
+        if self.__timeout is not None:
+            qt.QTimer.singleShot(self.__timeout * 1000, self.__selectionCancelled)
+
+    def stop(self):
+        dock = self.__dock
+        if dock is None:
+            return
+        self.__dock = None
+        dock.visibilityChanged.disconnect(self.__selectionCancelled)
+        plot = self.parent()
+        plot.removeDockWidget(dock)
+
+        # FIXME: silx bug: https://github.com/silx-kit/silx/issues/2940
+        if hasattr(plot, "_dockWidgets"):
+            if dock in plot._dockWidgets:
+                plot._dockWidgets.remove(dock)
+
+    def selection(self):
+        """Returns the selection"""
+        return self.__selection
+
+    def __selectionCancelled(self):
+        if self.__dock is not None:
+            self.stop()
+            self.__selection = None
+            self.selectionFinished.emit()
+
+    def __selectionFinished(self):
+        mask = self.__dock.getSelectionMask(copy=True)
+        self.stop()
+        self.__selection = mask
         self.selectionFinished.emit()

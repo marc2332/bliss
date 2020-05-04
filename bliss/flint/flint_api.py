@@ -564,6 +564,32 @@ class FlintApi:
         selector.setShapeSelection(shape)
         return self.__request_selector(plot_id, selector)
 
+    def request_select_mask_image(
+        self, plot_id, initial_mask: numpy.ndarray = None, timeout=None
+    ) -> str:
+        """
+        Request a shape selection in a specific plot and return the selection.
+
+        A shape is described by a dictionary containing "origin", "size", "kind" (which is "Rectangle), and "label".
+
+        Arguments:
+            plot_id: Identifier of the plot
+            initial_mask: A 2d boolean array, or None
+            timeout: A timeout to enforce the user to do a selection
+
+        Return:
+            This method returns an event name which have to be registered to
+            reach the result.
+
+            The event is a numpy.array describing the selection
+        """
+        plot = self._get_plot_widget(plot_id, expect_silx_api=True)
+        selector = plot_interaction.MaskImageSelector(plot)
+        if initial_mask is not None:
+            selector.setInitialMask(initial_mask, copy=False)
+        selector.setTimeout(timeout)
+        return self.__request_selector(plot_id, selector)
+
     def __request_selector(self, plot_id, selector: plot_interaction.Selector) -> str:
         custom_plot = self._get_plot_widget(plot_id, custom_plot=True)
 

@@ -25,6 +25,8 @@ from bliss.scanning import chain, scan
 from bliss.common.event import dispatcher
 from bliss.common.measurementgroup import _get_counters_from_names
 from bliss.common.measurementgroup import get_active as get_active_mg
+from bliss import global_map
+
 from . import acquisition_objects
 
 
@@ -54,6 +56,8 @@ class AutoFilter(BeaconObject):
 
     def __init__(self, name, config):
         super().__init__(config, share_hardware=False)
+
+        global_map.register(self, tag=self.name)
 
         # check a filterset is in config
         self.filterset = config.get("filterset")

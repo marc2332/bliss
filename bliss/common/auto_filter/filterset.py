@@ -98,6 +98,8 @@ from tabulate import tabulate
 
 from bliss.config.beacon_object import BeaconObject
 from bliss.common.logtools import *
+from bliss import global_map
+
 from .element_density import ElementDensity
 
 
@@ -116,6 +118,8 @@ class FilterSet(BeaconObject):
 
     def __init__(self, name, config):
         super().__init__(config, share_hardware=False)
+
+        global_map.register(self, tag=self.name)
 
         # Some data and caches
         self._fpattern = None

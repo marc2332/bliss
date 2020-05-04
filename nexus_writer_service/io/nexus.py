@@ -623,23 +623,30 @@ def nxClassInit(
         return parent[name]
 
 
-def nxRootInit(h5group):
+def nxRootInit(h5group, rootattrs=None):
     """
     Initialize NXroot instance
 
     :param h5py.Group h5group:
+    :param dict rootattrs:
     :raises ValueError: not root
     :raises RuntimeError: wrong Nexus class
     """
     if h5group.name != "/":
         raise ValueError("Group should be the root")
+    if rootattrs is None:
+        rootattrs = {}
     if nxClassInstantiate(h5group, None, u"NXroot"):
         h5group.attrs["file_time"] = timestamp()
         h5group.attrs["file_name"] = asNxChar(h5group.file.filename)
         h5group.attrs["HDF5_Version"] = asNxChar(h5py.version.hdf5_version)
         h5group.attrs["h5py_version"] = asNxChar(h5py.version.version)
-        h5group.attrs["creator"] = asNxChar("bliss")
+        h5group.attrs["creator"] = asNxChar("Bliss")
+        h5group.attrs["creator_version"] = asNxChar(bliss.__version__)
         h5group.attrs["NX_class"] = u"NXroot"
+        for attr, value in rootattrs.items():
+            if value is not None:
+                h5group.attrs[attr] = asNxType(value)
         updated(h5group)
 
 
@@ -940,17 +947,18 @@ class File(h5py.File):
 
 
 class nxRoot(File):
-    def __init__(self, filename, mode="r", **kwargs):
+    def __init__(self, filename, mode="r", rootattrs=None, **kwargs):
         """
         :param str filename:
         :param str mode:
+        :param dict rootattrs: extra attributes to the default ones
         :param **kwargs: see `h5py.File.__init__`
         """
         with self._protect_init(filename):
             if mode != "r":
                 mkdir(os.path.dirname(filename))
             super().__init__(filename, mode=mode, **kwargs)
-            nxRootInit(self)
+            nxRootInit(self, rootattrs)
 
 
 def nxEntry(root, name, **kwargs):

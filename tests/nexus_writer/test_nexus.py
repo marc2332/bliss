@@ -16,7 +16,8 @@ from nexus_writer_service.io import nexus
 @contextmanager
 def nxroot(path, name):
     filename = os.path.join(str(path), name + ".h5")
-    with nexus.nxRoot(filename, mode="a") as f:
+    rootattrs = {"test": "test_root_attr"}
+    with nexus.nxRoot(filename, mode="a", rootattrs=rootattrs) as f:
         yield f
 
 
@@ -382,16 +383,18 @@ def test_nexus_reshape_datasets(scan_tmpdir):
 
 
 def validateNxRoot(h5group):
-    attrs = [
+    attrs = {
         "NX_class",
         "creator",
+        "creator_version",
         "HDF5_Version",
         "file_name",
         "file_time",
         "file_update_time",
         "h5py_version",
-    ]
-    assert set(h5group.attrs.keys()) == set(attrs)
+        "test",
+    }
+    assert set(h5group.attrs.keys()) == attrs
     assert h5group.attrs["NX_class"] == "NXroot"
     assert h5group.name == "/"
 

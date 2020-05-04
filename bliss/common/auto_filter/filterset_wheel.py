@@ -141,21 +141,6 @@ class FilterSet_Wheel(FilterSet):
     # Here start the mother class overloaded methods to create
     # a new filterset
     # --------------------------------------------------------------
-    def decr_filter(self, value, min_count_rate, max_count_rate):
-        """
-        Function to increment the filter level
-        value -- measure data
-        max_count_rate -- maximum authorize value
-        """
-        print(f"{value} {min_count_rate} {max_count_rate}")
-
-    def incr_filter(self, value, min_count_rate, max_count_rate):
-        """
-        Function to increment the filter level
-        value -- measure data
-        max_count_rate -- maximum authorize value
-        """
-        print(f"{value} {min_count_rate} {max_count_rate}")
 
     def set_filter(self, filter_id):
         """

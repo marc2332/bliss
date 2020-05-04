@@ -400,21 +400,6 @@ class FilterSet(BeaconObject):
     # ------------------------------------------------------------
     # Here start the methods to be overrided by the filterset
     # ------------------------------------------------------------
-    def decr_filter(self, value, min_count_rate, max_count_rate):
-        """
-        Function to increment the filter level
-        value -- measure data
-        max_count_rate -- maximum authorize value
-        """
-        raise RuntimeError("Please override this method")
-
-    def incr_filter(self, value, min_count_rate, max_count_rate):
-        """
-        Function to increment the filter level
-        value -- measure data
-        max_count_rate -- maximum authorize value
-        """
-        raise RuntimeError("Please override this method")
 
     def set_filter(self, filter_id):
         """

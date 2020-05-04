@@ -106,9 +106,6 @@ class AutoFilter(BeaconObject):
         final_chain, monitor_channel = self._patch_chain(
             default_chain, npoints, monitor_counter
         )
-        # cache min and max count-rate
-        min_count_rate = self.min_count_rate
-        max_count_rate = self.max_count_rate
 
         class Validator:
             def __init__(self, autofilter):
@@ -119,17 +116,9 @@ class AutoFilter(BeaconObject):
             def new_monitor_value(self, event_dict=None, signal=None, sender=None):
                 data = event_dict.get("data")
                 if data is not None:
-                    valid = True
-                    if data > max_count_rate:
-                        self.__autofilter.incr_filter(
-                            data, min_count_rate, max_count_rate
-                        )
-                        valid = False
-                    elif data < min_count_rate:
-                        self.__autofilter.decr_filter(
-                            data, min_count_rate, max_count_rate
-                        )
-                        valid = False
+                    # check for filter change, return false
+                    # if filter has been changed, and count must be repeated
+                    valid = self.__autofilter.check_filter(count_time, data)
                     for node in final_chain.nodes_list:
                         if hasattr(node, "validate_point"):
                             node.validate_point(self._point_nb, valid)
@@ -197,18 +186,9 @@ class AutoFilter(BeaconObject):
         info += "\n" + self.filterset.info_table()
         return info
 
-    def incr_filter(self, value, min_count_rate, max_count_rate):
+    def check_filter(self, count_time, counts):
         """
-        Function to increment the filter level
-        value -- measure data
-        max_count_rate -- maximum authorize value
+        Check if filterset needs to be adjusted.
+        Return False if the counting must be repeated
         """
-        self.filterset.incr_filter(value, min_count_rate, max_count_rate)
-
-    def decr_filter(self, value, min_count_rate, max_count_rate):
-        """
-        Function to decrement the filter level
-        value -- measure data
-        min_count_rate -- minimum authorize value
-        """
-        self.filterset.decr_filter(value, min_count_rate, max_count_rate)
+        return self.filterset.adjust_filter(count_time, counts)

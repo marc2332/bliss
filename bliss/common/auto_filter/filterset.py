@@ -131,6 +131,15 @@ class FilterSet(BeaconObject):
         self._curr_idx = -1
         self._backidx = -1
         self._back = True
+        self._nb_cycles = 0
+        self._min_idx = 0
+        self._max_idx = 0
+        self._idx_inc = 0
+        # default deadtime and peaking time for detector without
+        # hw deadtime and peakingtime
+        self._det_deadtime = 0
+        self._det_deadtime_lim = 0.3
+        self._det_peakingtime = 1e-6
 
         # good element density module
         self._elt = ElementDensity()
@@ -310,10 +319,15 @@ class FilterSet(BeaconObject):
         range and the new energy.
         Check if the current filter is in the new table otherwise
         change it to the closest one.
+
+        Return the effective number of filters
         """
         self._min_cntrate = min_count_rate
         self._max_cntrate = max_count_rate
         self._back = back
+
+        # reset cycle number
+        self._nb_cycles = 0
 
         # each time the energy change effective transmission and
         # a new absorption table are calculated
@@ -337,6 +351,120 @@ class FilterSet(BeaconObject):
         if self._back:
             self._backid = curr_filtid
 
+        return self._nb_filtset
+
+    def adjust_filter(self, count_time, counts):
+        """
+        Enfin the taken-decision method 
+        return True if the current filter is valid
+        otherwise False
+        """
+        cntrate = counts / count_time
+        log_debug(self, f"current count rate: {cntrate} cnt/s")
+
+        # detector dead time not yet managed used default value
+        # same thing for the deadtime limit and peakingtime
+        # otherwise they should be read from a controller
+        dtime = self._det_deadtime
+
+        log_debug(self, f"current deadtime: {dtime} sec.")
+
+        fidx = self._read_filteridx()
+        log_debug(self, f"current filter index: {fidx}")
+
+        # Which is the best filter corresponding to the current count rate
+        optim = self._nb_cycles != 0
+        new_fidx = self._find_filter(fidx, cntrate, dtime, optim)
+
+        data = self._abs_table
+        repeat = False
+        if new_fidx != fidx:
+            log_debug(
+                self,
+                f"need to change to data filter idx: {new_fidx} (filter {int(data[new_fidx, 0])})",
+            )
+            log_debug(self, f"min_idx: {self._min_idx} max_idx: {self._max_idx}")
+            # use min max idx to find convergence and stop hysteresis
+            if self._nb_cycles == 0:
+                # first cycle
+                if new_fidx < fidx:
+                    self._min_idx = 0
+                    self._max_idx = fidx
+                    self._idx_inc = 0
+                else:
+                    self._min_idx = fidx
+                    self._max_idx = self._nb_filtset - 1
+                    self._idx_inc = 1
+                self.set_filter(int(data[new_fidx, 0]))
+                repeat = True
+            else:
+                # sybsequent cycles
+                if new_fidx < fidx:
+                    self._max_idx = fidx - 1
+                else:
+                    self._min_idx = fidx + 1
+
+                if new_fidx < self._min_idx:
+                    new_fidx = self_min_idx
+                elif new_fidx > self._max_idx:
+                    new_fidx = self._max_idx
+
+                if new_fidx == fidx:
+                    log_debug(self, "convergence reached")
+                    repeat = False
+                else:
+                    self.set_filter(int(data[new_fidx, 0]))
+                    repeat = True
+
+        if repeat:
+            self._nb_cycles += 1
+            log_debug(self, "Repeating count")
+        else:
+            log_debug(self, "no filter change")
+            self._nb_cycles = 0
+
+        return not repeat
+
+    def _find_filter(self, fidx, cntrate, dtime, optim):
+        """
+        Look for the best filter for the countrate and deadtime  passed
+        """
+        dtime_lim = self._det_deadtime_lim
+        nfiltset = self._nb_filtset
+        data = self._abs_table
+
+        if dtime > dtime_lim:
+            if dtime < 1:
+                dtime_cntr = -log(1 - dtime) / self._det_peakingtime
+            else:
+                dtime_cntr = 50 / self._det_peakingtime
+            if dtime_cntr > cntrate:
+                cntrate = dtime_cntr
+        transm = data[fidx, 1]
+        cntrate /= transm
+
+        max_transm = transm * 10000
+        for idx in range(fidx, nfiltset):
+            if cntrate < data[idx, 2]:
+                break
+        if idx >= nfiltset:
+            return nfiltset - 1
+
+        pidx = idx
+        for idx in range(pidx, 0, -1):
+            if data[idx, 1] > max_transm:
+                idx += 1
+                break
+            if optim and idx > 0 and cntrate < data[idx, 3]:
+                continue
+            if cntrate >= data[idx, 4]:
+                break
+
+        if idx < 0:
+            return 0
+
+        return idx
+
     def _read_filteridx(self):
         """
         Return current filter index
@@ -349,7 +477,7 @@ class FilterSet(BeaconObject):
         curridx = self._curr_idx
         currid = int(self._abs_table[curridx, 0])
 
-        log_info(self, f"Current filter id is {filtid}")
+        log_info(self, f"current filter id is {filtid}")
         if currid == filtid:
             return curridx
 

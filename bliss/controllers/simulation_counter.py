@@ -475,6 +475,9 @@ class FixedShapeCounter:
         "erf_down": lambda npoints: 1 - erf(np.arange(-3, 3, 6 / (npoints))),
         "erf_up": lambda npoints: erf(np.arange(-3, 3, 6 / (npoints))),
         "inverted_gaussian": lambda npoints: 1 - signal.gaussian(npoints, .2 * npoints),
+        "expo_gaussian": lambda npoints: np.exp(
+            signal.gaussian(npoints, .1 * npoints) * 30
+        ),
     }
 
     def __init__(self, signal="sawtooth", npoints=50):
@@ -526,6 +529,62 @@ class FixedShapeCounter:
     @property
     def npoints(self):
         return self._npoints
+
+    @npoints.setter
+    def npoints(self, value):
+        self._npoints = value
+        self.init_signal()
+
+    @property
+    def counters(self):
+        return counter_namespace([self._counter])
+
+    @property
+    def counter(self):
+        return self._counter
+
+    @property
+    def axis(self):
+        return self._axis
+
+
+class TestFilterCounterAxis:
+    """
+    Object that produces an axis and a counter to test auto filters
+    """
+
+    def __init__(self, name, config):
+        self._axis = SoftAxis("TestFilterCounterAxis", self)
+        self._counter = SoftCounter(self)
+        self._npoints = config.get("npoints", 100)
+        self._attn = config.get("attenuator", None)
+        self._position = 0
+        self.init_signal()
+
+    # for SoftAxis
+    @property
+    def position(self):
+        return self._position
+
+    @position.setter
+    def position(self, value):
+        assert value <= 1
+        assert value >= 0
+        self._position = value
+
+    # for SoftCounter
+    def value(self):
+        return (
+            self._data[int((self._npoints - 1) * self._position)]
+            * self._attn.transmission
+        )
+
+    def init_signal(self):
+        self._data = np.exp(signal.gaussian(self._npoints, .1 * self._npoints) * 30)
+
+    @property
+    def npoints(self):
+        return self._npoints + 1
 
     @npoints.setter
     def npoints(self, value):

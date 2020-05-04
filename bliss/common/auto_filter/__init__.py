@@ -77,6 +77,10 @@ class AutoFilter(BeaconObject):
             self.min_count_rate, self.max_count_rate, energy, self.always_back
         )
 
+    @property
+    def transmission(self):
+        return self.filterset.transmission
+
     def ascan(self, motor, start, stop, intervals, count_time, *counter_args, **kwargs):
         """
         Basically same as normal ascan with auto filter management

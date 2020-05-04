@@ -1,0 +1,50 @@
+- name: autof
+  plugin: bliss
+  package: bliss.common.auto_filter
+  class: AutoFilter
+  min_count_rate: 10000
+  max_count_rate: 50000
+  monitor_counter_name: TestFilterCounterAxis:value  # why a name and not a dollar ref? # should it be exchangable?
+  max_nb_iter: 5
+  energy_axis: $energy
+  filterset: $filtW0
+
+- name: filtW0
+  plugin: bliss
+  package: bliss.common.auto_filter.filterset_wheel
+  class: FilterSet_Wheel
+  rotation_axis: $roby
+  filters:                      # thicknesses in here correspond to energies around 15keV
+    - name: Cu_0
+      position: 0
+      material: Cu
+      thickness: 0.0            # is there always an 0 entry here? material mandatory?
+    - name: Cu_1
+      position: 1
+      material: Cu
+      thickness: 0.01
+    - name: Cu_2
+      position: 2
+      material: Cu
+      thickness: 0.02
+    - name: Cu_3
+      position: 3
+      material: Cu
+      thickness: 0.04
+    - name: Cu_4
+      position: 4
+      material: Cu
+      thickness: 0.06
+    - name: Cu_5
+      position: 5
+      material: Cu
+      thickness: 0.08
+    - name: Cu_6
+      position: 6
+      material: Cu
+      thickness: 0.15
+    - name: Cu_7
+      position: 7
+      material: Cu
+      thickness: 0.25
+

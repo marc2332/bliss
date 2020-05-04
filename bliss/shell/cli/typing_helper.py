@@ -110,15 +110,15 @@ class TypingHelper(object):
                 and not text[-2:] == "  "  # more than one trailing white space (paste)
             ):
                 ji = jedi.Interpreter(
-                    source=text, namespaces=[repl.get_locals(), repl.get_globals()]
+                    text, namespaces=[repl.get_locals(), repl.get_globals()]
                 )
-                cs = ji.call_signatures()
+                cs = ji.get_signatures()
                 text_plus_open_bracket = text + "("
                 ji_plus_open_bracket = jedi.Interpreter(
-                    source=text_plus_open_bracket,
+                    text_plus_open_bracket,
                     namespaces=[repl.get_locals(), repl.get_globals()],
                 )
-                cs_plus_open_bracket = ji_plus_open_bracket.call_signatures()
+                cs_plus_open_bracket = ji_plus_open_bracket.get_signatures()
                 # add open bracket or ,
                 if self._check_callable(repl, event) and len(cs) < len(
                     cs_plus_open_bracket

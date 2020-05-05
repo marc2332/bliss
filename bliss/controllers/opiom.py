@@ -58,7 +58,6 @@ class Opiom:
         self._cnx = get_comm(comm_config, ctype=comm_type, timeout=3)
         global_map.register(self, children_list=[self._cnx], tag=f"opiom:{name}")
 
-        self._cnx.flush()
         self.__program = config_tree.get("program", "default")
         self.__base_path = config_tree.get("opiom_prg_root", OPIOM_PRG_ROOT)
 

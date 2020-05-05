@@ -125,9 +125,12 @@ class ScatterPlotWidget(plot_helper.PlotWidget):
 
         from silx.gui.plot.actions import mode
         from silx.gui.plot.actions import control
+        from silx.gui.widgets.MultiModeAction import MultiModeAction
 
-        toolBar.addAction(mode.ZoomModeAction(self.__plot, self))
-        toolBar.addAction(mode.PanModeAction(self.__plot, self))
+        modeAction = MultiModeAction(self)
+        modeAction.addAction(mode.ZoomModeAction(self.__plot, self))
+        modeAction.addAction(mode.PanModeAction(self.__plot, self))
+        toolBar.addAction(modeAction)
 
         resetZoom = self.__view.createResetZoomAction(parent=self)
         toolBar.addAction(resetZoom)

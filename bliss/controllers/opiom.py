@@ -59,7 +59,8 @@ class Opiom:
         global_map.register(self, children_list=[self._cnx], tag=f"opiom:{name}")
 
         self.__program = config_tree.get("program", "default")
-        self.__base_path = config_tree.get("opiom_prg_root", OPIOM_PRG_ROOT)
+        default_prg_root = config_tree.get("opiom-prg-root", OPIOM_PRG_ROOT)
+        self.__base_path = config_tree.get("opiom_prg_root", default_prg_root)
 
         program_path = config_tree.get("program-path")
         if program_path is not None:

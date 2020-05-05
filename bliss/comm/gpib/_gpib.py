@@ -22,6 +22,7 @@ __all__ = [
 import re
 import enum
 import gevent
+import contextlib
 from gevent import lock
 import numpy
 from .libnienet import EnetSocket
@@ -73,6 +74,21 @@ def to_tmo(time_sec):
         if t >= time_sec:
             return tmo, t
     return tmo, t
+
+
+@contextlib.contextmanager
+def timeout_context(gpib, message=None, timeout=None):
+    timeout = timeout if timeout is not None else gpib._timeout
+    if message is not None:
+        message += f" error on {gpib.__info__()}"
+    try:
+        with gevent.Timeout(timeout, message):
+            yield
+    except gevent.Timeout:
+        # In case of timeout we close the connection
+        # to be sure that the connection is clean
+        gpib.close()
+        raise
 
 
 class GpibError(CommunicationError):
@@ -358,7 +374,7 @@ class Gpib:
 
     READ_BLOCK_SIZE = 64 * 1024
 
-    def __init__(self, url=None, pad=0, sad=0, timeout=1.0, tmo=13, eot=1, eol="\n"):
+    def __init__(self, url=None, pad=0, sad=0, timeout=10., tmo=13, eot=1, eol="\n"):
 
         self._gpib_kwargs = {
             "url": url,
@@ -417,13 +433,15 @@ class Gpib:
     @try_open
     def raw_read(self, maxsize=None, timeout=None):
         size_to_read = maxsize or self.READ_BLOCK_SIZE
-        msg = self._raw_handler.ibrd(size_to_read)
+        with timeout_context(self, "raw_read", timeout):
+            msg = self._raw_handler.ibrd(size_to_read)
         log_debug_data(self, "raw_read", msg)
         return msg
 
     def read(self, size=1, timeout=None):
         with self._lock:
-            return self._read(size)
+            with timeout_context(self, "read", timeout):
+                return self._read(size)
 
     @try_open
     def _read(self, size=1):
@@ -433,7 +451,8 @@ class Gpib:
 
     def readline(self, eol=None, timeout=None):
         with self._lock:
-            return self._readline(eol)
+            with timeout_context(self, "readline", timeout):
+                return self._readline(eol)
 
     @try_open
     def _readline(self, eol):
@@ -455,7 +474,8 @@ class Gpib:
 
     def write(self, msg, timeout=None):
         with self._lock:
-            return self._write(msg)
+            with timeout_context(self, "write", timeout):
+                return self._write(msg)
 
     @try_open
     def _write(self, msg):
@@ -465,10 +485,11 @@ class Gpib:
     @protect_from_kill
     def write_read(self, msg, write_synchro=None, size=1, timeout=None):
         with self._lock:
-            self._write(msg)
-            if write_synchro:
-                write_synchro.notify()
-            return self._read(size)
+            with timeout_context(self, "write_read", timeout):
+                self._write(msg)
+                if write_synchro:
+                    write_synchro.notify()
+                return self._read(size)
 
     @protect_from_kill
     def write_readline(self, msg, write_synchro=None, eol=None, timeout=None):
@@ -482,13 +503,14 @@ class Gpib:
     def write_readlines(
         self, msg, nb_lines, write_synchro=None, eol=None, timeout=None
     ):
+        r_lines = []
         with self._lock:
-            self._write(msg)
-            if write_synchro:
-                write_synchro.notify()
-            r_lines = []
-            for i in range(nb_lines):
-                r_lines.append(self._readline(eol))
+            with timeout_context(self, "write_readlines", timeout):
+                self._write(msg)
+                if write_synchro:
+                    write_synchro.notify()
+                for i in range(nb_lines):
+                    r_lines.append(self._readline(eol))
         return r_lines
 
     def flush(self):

@@ -29,6 +29,7 @@ from bliss.flint.model import plot_item_model
 from bliss.flint.model import scan_model
 from bliss.flint.helper import model_helper
 from bliss.flint.helper.style_helper import DefaultStyleStrategy
+from bliss.flint.widgets.plot_helper import PlotWidget
 
 from ..helper import scan_info_helper
 from . import workspace_manager
@@ -143,11 +144,12 @@ class ManageMainBehaviours(qt.QObject):
             return
         self.__activeDock = widget
 
-        flintModel = self.flintModel()
-        liveWindow = flintModel.liveWindow()
-        propertyWidget = liveWindow.propertyWidget()
-        if propertyWidget is not None:
-            propertyWidget.setFocusWidget(widget)
+        if hasattr(widget, "createPropertyWidget"):
+            flintModel = self.flintModel()
+            liveWindow = flintModel.liveWindow()
+            propertyWidget = liveWindow.propertyWidget()
+            if propertyWidget is not None:
+                propertyWidget.setFocusWidget(widget)
 
     def __currentScanChanged(self, previousScan, newScan):
         self.__storeScanIfNeeded(newScan)
@@ -404,7 +406,9 @@ class ManageMainBehaviours(qt.QObject):
         if defaultPlot is not None:
             # Try to set the focus on the default plot
             focusWidget = [
-                w for w in workspace.widgets() if w.plotModel() is defaultPlot
+                w
+                for w in workspace.widgets()
+                if isinstance(w, PlotWidget) and w.plotModel() is defaultPlot
             ]
             if len(focusWidget) > 0:
                 focusWidget = focusWidget[0]
@@ -420,7 +424,8 @@ class ManageMainBehaviours(qt.QObject):
         if propertyWidget.focusWidget() is dock:
             propertyWidget.setFocusWidget(None)
 
-        dock.setPlotModel(None)
+        if isinstance(dock, PlotWidget):
+            dock.setPlotModel(None)
         dock.setFlintModel(None)
         workspace = flintModel.workspace()
         workspace.removeWidget(dock)

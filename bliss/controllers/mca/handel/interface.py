@@ -265,12 +265,13 @@ handel.xiaGetRunData(master, b'module_statistics_2', data)
 read statistics of a whole module and put results in data.
 0: realtime
 1: trigger livetime
-2: reserved ?
+2: reserved    (energy livetime for XMAP)
 3: triggers
 4: MCA events
 5: ICR
 6: OCR
-7/8: reserved
+7: reserved    (underflows for XMAP)
+8: reserved    (overflows for XMAP)
 
 stats_from_normal_mode() returns a Stats named-tuple
 'realtime livetime triggers events icr ocr deadtime'

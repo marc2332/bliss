@@ -473,6 +473,58 @@ class ManageMainBehaviours(qt.QObject):
                 return title
         return title
 
+    def allocateProfileDock(self):
+        from bliss.flint.widgets import holder_widget
+
+        flintModel = self.flintModel()
+        workspace = flintModel.workspace()
+
+        # Search for an existing profile
+        otherProfiles = [
+            w
+            for w in workspace.widgets()
+            if isinstance(w, holder_widget.ProfileHolderWidget)
+        ]
+        for w in otherProfiles:
+            if w.isUsed():
+                continue
+            w.setVisible(True)
+            w.setUsed(True)
+            return w
+
+        # Create the profile widget
+        window = flintModel.liveWindow()
+        widget = holder_widget.ProfileHolderWidget(parent=window)
+        self._initNewDock(widget)
+        workspace.addWidget(widget)
+
+        # Search for another profile
+        lastTab = None if len(otherProfiles) == 0 else otherProfiles[-1]
+
+        def findFreeName(widget, template, others):
+            for i in range(1, 100):
+                name = template % i
+                for w in others:
+                    if w.objectName() == name:
+                        break
+                else:
+                    return name
+            # That's a dup name
+            return template % abs(id(widget))
+
+        widget.setVisible(True)
+        name = findFreeName(widget, "profile-%s", otherProfiles)
+        widget.setObjectName(name)
+        widget.setWindowTitle(name.capitalize().replace("-", " "))
+        widget.setUsed(True)
+
+        if lastTab is not None:
+            window.tabifyDockWidget(lastTab, widget)
+        else:
+            window.addDockWidget(qt.Qt.RightDockWidgetArea, widget)
+            widget.setFloating(True)
+        return widget
+
     def setFlintStarted(self):
         self.__flintStarted.set()
 

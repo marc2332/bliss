@@ -34,12 +34,14 @@ from silx.gui.plot.items.image import ImageData
 from silx.gui.plot.items import YAxisMixIn
 from silx.gui.plot.items import BoundingRect
 
+from bliss.flint.model import flint_model
 from bliss.flint.model import plot_model
 from bliss.flint.model import plot_item_model
 from bliss.flint.model import plot_state_model
 from bliss.flint.model import scan_model
 from bliss.flint.utils import signalutils
 from bliss.flint.widgets.extended_dock_widget import ExtendedDockWidget
+from bliss.flint.widgets import holder_widget
 
 
 _logger = logging.getLogger(__name__)
@@ -153,11 +155,41 @@ class CustomAxisAction(qt.QWidgetAction):
         self.setDefaultWidget(toolButton)
 
 
+class _CustomProfileManager(manager.ProfileManager):
+    def flintModel(self):
+        flintModel = self.getPlotWidget().parent().parent().parent().flintModel()
+        assert isinstance(flintModel, flint_model.FlintState)
+        return flintModel
+
+    def createProfileWindow(self, plot, roi):
+        """Override to allocate a dock to hold the profile"""
+        manager = self.flintModel().mainManager()
+        dock = manager.allocateProfileDock()
+        return dock.profileWindow()
+
+    def initProfileWindow(self, profileWindow, roi):
+        """Override the method to skip the setup of the window"""
+        profileWindow.prepareWidget(roi)
+        profileWindow.adjustSize()
+
+    def clearProfileWindow(self, profileWindow):
+        """Override the method to release the dock"""
+        profileWindow.setProfile(None)
+        workspace = self.flintModel().workspace()
+        for dock in workspace.widgets():
+            if not isinstance(dock, holder_widget.ProfileHolderWidget):
+                continue
+            if dock.profileWindow() is not profileWindow:
+                continue
+            dock.setUsed(False)
+            return
+
+
 class CustomProfileAction(qt.QWidgetAction):
     def __init__(self, plot, parent, kind):
         super(CustomProfileAction, self).__init__(parent)
 
-        self.__manager = manager.ProfileManager(parent, plot)
+        self.__manager = _CustomProfileManager(parent, plot)
         if kind == "image":
             self.__manager.setItemType(image=True)
         elif kind == "scatter":

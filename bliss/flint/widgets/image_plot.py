@@ -31,6 +31,8 @@ from bliss.flint.helper import model_helper
 from bliss.flint.widgets import plot_helper
 from bliss.flint.widgets.utils import export_action
 from .utils.camera_live_action import CameraLiveAction
+from bliss.flint.widgets import marker_helper
+
 
 _logger = logging.getLogger(__name__)
 
@@ -241,6 +243,10 @@ class ImagePlotWidget(plot_helper.PlotWidget):
         action.setEnabled(False)
         toolBar.addAction(action)
         toolBar.addAction(plot_helper.CustomProfileAction(self.__plot, self, "image"))
+
+        action = marker_helper.MarkerAction(plot=self.__plot, parent=self, kind="image")
+        self.__markerAction = action
+        toolBar.addAction(action)
 
         action = control.ColorBarAction(self.__plot, self)
         icon = icons.getQIcon("flint:icons/colorbar")

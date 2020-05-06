@@ -32,6 +32,7 @@ from bliss.flint.helper import model_helper
 from bliss.flint.utils import signalutils
 from bliss.flint.widgets import plot_helper
 from bliss.flint.widgets.utils import export_action
+from bliss.flint.widgets import marker_helper
 
 
 _logger = logging.getLogger(__name__)
@@ -165,6 +166,12 @@ class ScatterPlotWidget(plot_helper.PlotWidget):
         action.setEnabled(False)
         toolBar.addAction(action)
         toolBar.addAction(plot_helper.CustomProfileAction(self.__plot, self, "scatter"))
+
+        action = marker_helper.MarkerAction(
+            plot=self.__plot, parent=self, kind="scatter"
+        )
+        self.__markerAction = action
+        toolBar.addAction(action)
 
         action = control.ColorBarAction(self.__plot, self)
         icon = icons.getQIcon("flint:icons/colorbar")
@@ -377,6 +384,7 @@ class ScatterPlotWidget(plot_helper.PlotWidget):
             self.__lastValue.setSymbol("\u2665")
         else:
             self.__lastValue.setSymbol(",")
+        self.__markerAction.clear()
         self.__lastValue.setData(x=[], y=[], value=[])
         self.__lastValue.setVisible(True)
         self.__view.scanStarted()

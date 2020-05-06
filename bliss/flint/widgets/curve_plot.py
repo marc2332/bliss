@@ -34,6 +34,7 @@ from bliss.flint.helper import model_helper
 from bliss.flint.utils import signalutils
 from bliss.flint.widgets import plot_helper
 from bliss.flint.widgets.utils import export_action
+from bliss.flint.widgets import marker_helper
 
 from bliss.scanning import scan_math
 
@@ -245,6 +246,11 @@ class CurvePlotWidget(plot_helper.PlotWidget):
         action = control.CrosshairAction(self.__plot, parent=self)
         action.setIcon(icons.getQIcon("flint:icons/crosshair"))
         toolBar.addAction(action)
+
+        action = marker_helper.MarkerAction(plot=self.__plot, parent=self, kind="curve")
+        self.__markerAction = action
+        toolBar.addAction(action)
+
         action = self.__plot.getCurvesRoiDockWidget().toggleViewAction()
         toolBar.addAction(action)
 
@@ -575,6 +581,7 @@ class CurvePlotWidget(plot_helper.PlotWidget):
         self.__cleanScan(scan)
 
     def __scanStarted(self):
+        self.__markerAction.clear()
         self.__updateStyle()
         self.__updateTitle(self.__scan)
         self.__curveAxesUpdated()
@@ -644,7 +651,6 @@ class CurvePlotWidget(plot_helper.PlotWidget):
                 currentScan = self.__scan
                 if currentScan is not None:
                     self.__redrawScan(currentScan)
-
 
     def __cleanScan(self, scan: scan_model.Scan):
         items = self.__items.pop(scan, {})

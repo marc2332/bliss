@@ -416,9 +416,9 @@
      borderopacity="1.0"
      inkscape:pageopacity="0.0"
      inkscape:pageshadow="2"
-     inkscape:zoom="2.226717"
-     inkscape:cx="501.52751"
-     inkscape:cy="69.684647"
+     inkscape:zoom="1.0024576"
+     inkscape:cx="356.17238"
+     inkscape:cy="406.48255"
      inkscape:document-units="px"
      inkscape:current-layer="layer1"
      showgrid="true"
@@ -623,7 +623,7 @@
            x="125.42857"
            id="tspan3929"
            sodipodi:role="line"
-           style="font-size:12px;line-height:1">available in MCA mode</tspan></text>
+           style="font-size:12px;line-height:1">available in MCA mode (&quot;module_statistics_2&quot;)</tspan></text>
       <rect
          ry="3.03408"
          y="400.85037"
@@ -985,7 +985,9 @@
          x="141.73228"
          y="768.89764"
          id="tspan5428"
-         style="font-size:12px;line-height:1">ICR/OCR</tspan><tspan
+         style="font-size:12px;line-height:1">ICR<tspan
+   style="font-style:italic"
+   id="tspan1216">m</tspan>/OCR</tspan><tspan
          sodipodi:role="line"
          x="141.73228"
          y="780.89764"
@@ -1125,7 +1127,9 @@
          y="829.74615"
          x="921.33997"
          id="tspan3094-8-5-4-31-1"
-         sodipodi:role="line">ICR</tspan></text>
+         sodipodi:role="line">ICR<tspan
+   style="font-style:italic"
+   id="tspan1222">m</tspan></tspan></text>
     <text
        xml:space="preserve"
        style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:0%;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans';text-align:start;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none"
@@ -1197,7 +1201,9 @@
                id="tspan5432-9-0"
                y="963.32336"
                x="465.06363"
-               sodipodi:role="line">ICR - OCR</tspan></text>
+               sodipodi:role="line">ICR<tspan
+   style="font-style:italic"
+   id="tspan1218">m</tspan> - OCR</tspan></text>
           <text
              id="text5424-8-8"
              y="971.20398"
@@ -1275,7 +1281,9 @@
          x="571.04102"
          y="985.32117"
          id="tspan5432-9-20-9"
-         style="font-size:12px;line-height:1">ICR</tspan></text>
+         style="font-size:12px;line-height:1">ICR<tspan
+   style="font-style:italic"
+   id="tspan1220">m</tspan></tspan></text>
     <text
        xml:space="preserve"
        style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:0%;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans';text-align:center;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;text-anchor:middle;fill:#000000;fill-opacity:1;stroke:none"
@@ -1320,5 +1328,16 @@
        id="path1478-6"
        inkscape:connector-curvature="0"
        sodipodi:nodetypes="cc" />
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:0%;font-family:'DejaVu Sans';-inkscape-font-specification:'DejaVu Sans';text-align:start;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none"
+       x="223.2531"
+       y="453.13312"
+       id="text8031-5"><tspan
+         sodipodi:role="line"
+         id="tspan8033-3"
+         x="223.2531"
+         y="453.13312"
+         style="font-size:12px;line-height:1">FAST CHANNEL LIVETIME</tspan></text>
   </g>
 </svg>

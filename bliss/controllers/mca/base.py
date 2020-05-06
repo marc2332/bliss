@@ -47,7 +47,8 @@ TriggerMode = enum.Enum("TriggerMode", "SOFTWARE SYNC GATE")
 PresetMode = enum.Enum("PresetMode", "NONE REALTIME LIVETIME EVENTS TRIGGERS")
 
 Stats = collections.namedtuple(
-    "Stats", "realtime livetime triggers events icr ocr deadtime"
+    "Stats",
+    "realtime trigger_livetime energy_livetime triggers events icr ocr deadtime",
 )
 
 
@@ -351,10 +352,26 @@ class BaseMCA(CounterController):
     def statistics(self):
         stats = self.get_acquisition_statistics()
         datas = [
-            [idx, val.realtime, val.livetime, val.deadtime, val.icr, val.ocr]
+            [
+                idx,
+                val.realtime,
+                val.trigger_livetime,
+                val.energy_livetime,
+                val.deadtime,
+                val.icr,
+                val.ocr,
+            ]
             for (idx, val) in stats.items()
         ]
-        heads = ["det#", "RealTime", "LiveTime", "DeadTime", "ICR", "OCR"]
+        heads = [
+            "det#",
+            "RealTime",
+            "TrigLiveTime",
+            "EneLiveTime",
+            "DeadTime",
+            "ICR",
+            "OCR",
+        ]
         print("\n" + tabulate.tabulate(datas, heads, numalign="right") + "\n")
 
     # Extra logic
@@ -608,7 +625,8 @@ def mca_counters(mca):
 
     - counters.spectrum_det<N>
     - counters.realtime_det<N>
-    - counters.livetime_det<N>
+    - counters.trigger_livetime_det<N>
+    - counters.energy_livetime_det<N>
     - counters.triggers_det<N>
     - counters.events_det<N>
     - counters.icr_det<N>
@@ -649,7 +667,8 @@ def mca_counter_groups(mca):
 
     - groups.spectrum
     - groups.realtime
-    - groups.livetime
+    - groups.trigger_livetime
+    - groups.energy_livetime
     - groups.triggers
     - groups.events
     - groups.icr

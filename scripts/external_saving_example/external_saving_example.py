@@ -303,17 +303,19 @@ class HDF5_Writer(object):
 
         # add acq_chain meta
         def new_nx_collection(d, x):
-            return d.setdefault(x, {"NX_class": "NXcollection"})
+            return d.setdefault(x, {"@NX_class": "NXcollection"})
 
         instrument_meta = self.scan_info_dict["instrument"]
-        instrument_meta["chain_meta"] = {"NX_class": "NXcollection"}
+        instrument_meta["chain_meta"] = {"@NX_class": "NXcollection"}
         if "positioners" in self.scan_info_dict:
             instrument_meta["positioners"] = self.scan_info_dict["positioners"].get(
                 "positioners_start"
             )
+            instrument_meta["positioners"]["@NX_class"] = "NXcollection"
             instrument_meta["positioners_dial"] = self.scan_info_dict[
                 "positioners"
             ].get("positioners_dial_start")
+            instrument_meta["positioners_dial"]["@NX_class"] = "NXcollection"
 
         base_db_name = self.scan_node.db_name
         for node in self.scan_node.iterator.walk(wait=False):
@@ -336,6 +338,8 @@ class HDF5_Writer(object):
         meta_categories = self.scan_info_dict["scan_meta_categories"]
         if "instrument" in meta_categories:
             meta_categories.remove("instrument")
+        if "positioners" in meta_categories:
+            meta_categories.remove("positioners")
 
         meta = self.file.create_group(f"{self.scan_name}/scan_meta")
         meta.attrs["NX_class"] = "NXcollection"

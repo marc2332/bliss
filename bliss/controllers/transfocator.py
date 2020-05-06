@@ -217,7 +217,7 @@ class Transfocator:
         scan_meta_obj = get_user_scan_meta()
         scan_meta_obj.instrument.set(
             self,
-            lambda _: {self.name: {**self.status_dict(), "NX_class": "NXcollection"}},
+            lambda _: {self.name: {**self.status_dict(), "@NX_class": "NXcollection"}},
         )
 
     def connect(self):

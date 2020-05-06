@@ -177,14 +177,9 @@ class CurvePlotWidget(plot_helper.PlotWidget):
         self.__boundingY2.setName("bound-y2")
         self.__boundingY2.setVisible(False)
 
-        self.__permanentItems = [
-            self.__boundingY1,
-            self.__boundingY2,
-            self.__tooltipManager.marker(),
-        ]
-
-        for o in self.__permanentItems:
-            self.__plot.addItem(o)
+        self.__plot.addItem(self.__boundingY1)
+        self.__plot.addItem(self.__boundingY2)
+        self.__plot.addItem(self.__tooltipManager.marker())
 
     def configuration(self):
         config = super(CurvePlotWidget, self).configuration()
@@ -579,12 +574,6 @@ class CurvePlotWidget(plot_helper.PlotWidget):
                     return
         self.__cleanScan(scan)
 
-    def __clear(self):
-        self.__items = {}
-        self.__plot.clear()
-        for o in self.__permanentItems:
-            self.__plot.addItem(o)
-
     def __scanStarted(self):
         self.__updateStyle()
         self.__updateTitle(self.__scan)
@@ -636,13 +625,9 @@ class CurvePlotWidget(plot_helper.PlotWidget):
         self.__redrawScan(currentScan)
 
     def __redrawAllScans(self):
-        plot = self.__plot
-
         with qtutils.blockSignals(self.__plot):
-            plot.clear()
+            self.__cleanAllItems()
             if self.__plotModel is None:
-                for o in self.__permanentItems:
-                    self.__plot.addItem(o)
                 return
 
         with qtutils.blockSignals(self):
@@ -660,8 +645,6 @@ class CurvePlotWidget(plot_helper.PlotWidget):
                 if currentScan is not None:
                     self.__redrawScan(currentScan)
 
-            for o in self.__permanentItems:
-                self.__plot.addItem(o)
 
     def __cleanScan(self, scan: scan_model.Scan):
         items = self.__items.pop(scan, {})
@@ -669,6 +652,13 @@ class CurvePlotWidget(plot_helper.PlotWidget):
             for key in itemKeys:
                 self.__plot.remove(*key)
         self.__view.plotCleared()
+
+    def __cleanAllItems(self):
+        for _scan, items in self.__items.items():
+            for _item, itemKeys in items.items():
+                for key in itemKeys:
+                    self.__plot.remove(*key)
+        self.__items.clear()
 
     def __cleanScanItem(self, item: plot_model.Item, scan: scan_model.Scan) -> bool:
         itemKeys = self.__items.get(scan, {}).pop(item, [])

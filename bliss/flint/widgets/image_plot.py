@@ -189,14 +189,9 @@ class ImagePlotWidget(plot_helper.PlotWidget):
         """Count the received image for this scan to allow to clean up the
         screen in the end if nothing was received"""
 
-        self.__permanentItems = [
-            self.__tooltipManager.marker(),
-            self.__minMarker,
-            self.__maxMarker,
-        ]
-
-        for o in self.__permanentItems:
-            self.__plot.addItem(o)
+        self.__plot.addItem(self.__tooltipManager.marker())
+        self.__plot.addItem(self.__minMarker)
+        self.__plot.addItem(self.__maxMarker)
 
     def getRefreshManager(self) -> plot_helper.RefreshManager:
         return self.__refreshManager
@@ -477,12 +472,6 @@ class ImagePlotWidget(plot_helper.PlotWidget):
                 # Update the preferences to the current plot and current scan
                 for channel in imageChannels(plot, scan):
                     channel.setPreferedRefreshRate(key, rate)
-
-    def __clear(self):
-        self.__items = {}
-        self.__plot.clear()
-        for o in self.__permanentItems:
-            self.__plot.addItem(o)
 
     def __scanStarted(self):
         self.__imageReceived = 0

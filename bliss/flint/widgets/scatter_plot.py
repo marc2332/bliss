@@ -106,15 +106,10 @@ class ScatterPlotWidget(plot_helper.PlotWidget):
         self.__rect.setColor("#E0E0E0")
         self.__rect.setZValue(0.1)
 
-        self.__permanentItems = [
-            self.__bounding,
-            self.__tooltipManager.marker(),
-            self.__lastValue,
-            self.__rect,
-        ]
-
-        for o in self.__permanentItems:
-            self.__plot.addItem(o)
+        self.__plot.addItem(self.__bounding)
+        self.__plot.addItem(self.__tooltipManager.marker())
+        self.__plot.addItem(self.__lastValue)
+        self.__plot.addItem(self.__rect)
 
     def getRefreshManager(self) -> plot_helper.RefreshManager:
         return self.__refreshManager
@@ -375,14 +370,6 @@ class ScatterPlotWidget(plot_helper.PlotWidget):
                 self.__updateTitle(self.__scan)
         self.scanModelUpdated.emit(scan)
         self.__redrawAll()
-
-    def __clear(self):
-        self.__items = {}
-        self.__plot.clear()
-        self.__rect.setVisible(False)
-        self.__lastValue.setVisible(False)
-        for o in self.__permanentItems:
-            self.__plot.addItem(o)
 
     def __scanStarted(self):
         self.__refreshManager.scanStarted()

@@ -87,10 +87,8 @@ class McaPlotWidget(plot_helper.PlotWidget):
         self.__bounding = BoundingRect()
         self.__bounding.setName("bound")
 
-        self.__permanentItems = [self.__bounding, self.__tooltipManager.marker()]
-
-        for o in self.__permanentItems:
-            self.__plot.addItem(o)
+        self.__plot.addItem(self.__bounding)
+        self.__plot.addItem(self.__tooltipManager.marker())
 
     def getRefreshManager(self) -> plot_helper.RefreshManager:
         return self.__refreshManager
@@ -277,12 +275,6 @@ class McaPlotWidget(plot_helper.PlotWidget):
                 self.__updateTitle(self.__scan)
         self.scanModelUpdated.emit(scan)
         self.__redrawAll()
-
-    def __clear(self):
-        self.__items = {}
-        self.__plot.clear()
-        for o in self.__permanentItems:
-            self.__plot.addItem(o)
 
     def __scanStarted(self):
         self.__updateTitle(self.__scan)

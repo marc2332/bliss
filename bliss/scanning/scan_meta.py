@@ -93,6 +93,8 @@ def scan_meta(info=None):
                 try:
                     if callable(values):
                         values = values(scan)
+                        if values is None:
+                            continue
                     cat_dict = rd.setdefault(category.name.lower(), dict())
                     cat_dict.update(values)
                 except Exception as e:

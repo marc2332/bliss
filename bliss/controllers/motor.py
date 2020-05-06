@@ -195,9 +195,9 @@ class Controller:
                     self.initialize_hardware_axis(axis)
                     axis_initialized.value = 1
 
-                # Apply settings but for NoSettingsAxis.
-                if not isinstance(axis, NoSettingsAxis):
-                    self._init_settings(axis)
+                    # Apply settings but for NoSettingsAxis.
+                    if not isinstance(axis, NoSettingsAxis):
+                        self._init_settings(axis)
             except BaseException:
                 # Failed to initialize
                 self.__initialized_axis[axis] = False

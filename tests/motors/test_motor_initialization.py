@@ -8,6 +8,8 @@ import sys
 import os
 import pytest
 
+from bliss.config import channels
+from bliss.config.static import get_config
 from bliss.controllers.motor import Controller as MotController
 
 
@@ -57,3 +59,20 @@ def test_initialization_controller_order(dummy_axis_1):
 def test_initialization_axis_order(dummy_axis_1):
     dummy_axis_1.position  # init everything
     assert dummy_axis_1.controller.init_axis_order == ["S", "H"]
+
+
+def test_motor_shared(beacon):
+    """
+    Simulating motor shared between two sessions
+    The second instance should be able to get the configuration
+    while the first session is moving the motor
+    """
+    config = get_config()
+    roby1 = config.get("roby")
+    config._clear_instances()
+    roby1.move(0, wait=False)
+    channels.clear_cache(roby1, roby1.controller)
+    roby1.controller._Controller__initialized_axis[roby1] = False
+    roby2 = config.get("roby")
+    roby2.__info__()
+    roby1.stop()

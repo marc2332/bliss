@@ -23,7 +23,7 @@ import numpy
 from bliss.data.node import get_session_node
 
 # derived from silx function, this could maybe enter into silx again
-from bliss.common.utils import dicttoh5
+from bliss.common.utils import dicttonx
 
 from bliss.data.nodes.lima import LimaImageChannelDataNode
 from bliss.data.nodes.channel import ChannelDataNode
@@ -299,7 +299,6 @@ class HDF5_Writer(object):
 
         # instrument entry
         instrument = self.file.create_group(f"{self.scan_name}/instrument")
-        instrument.attrs["NX_class"] = "NXinstrument"
 
         # add acq_chain meta
         def new_nx_collection(d, x):
@@ -332,7 +331,7 @@ class HDF5_Writer(object):
                     )
                     d.update(dev_info)
 
-        dicttoh5(instrument_meta, self.file, h5path=f"{self.scan_name}/instrument")
+        dicttonx(instrument_meta, self.file, h5path=f"{self.scan_name}/instrument")
 
         # deal with meta-data
         meta_categories = self.scan_info_dict["scan_meta_categories"]
@@ -344,7 +343,7 @@ class HDF5_Writer(object):
         meta = self.file.create_group(f"{self.scan_name}/scan_meta")
         meta.attrs["NX_class"] = "NXcollection"
         for cat in meta_categories:
-            dicttoh5(
+            dicttonx(
                 self.scan_info_dict[cat],
                 self.file,
                 h5path=f"{self.scan_name}/scan_meta/{cat}",

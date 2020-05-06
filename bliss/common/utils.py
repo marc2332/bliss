@@ -790,10 +790,10 @@ def dicttoh5(
             if (h5path + key[0]) not in h5f:
                 # Create empty group if key for attr does not exist
                 h5f.create_group(h5path + key[0])
-                warnings.warn(
-                    "key (%s) does not exist. attr %s "
-                    "will be written to ." % (h5path + key[0], key[1])
-                )
+                # ~ warnings.warn(
+                # ~ "key (%s) does not exist. attr %s "
+                # ~ "will be written to ." % (h5path + key[0], key[1])
+                # ~ )
                 # ~ print(
                 # ~ "key (%s) does not exist. attr %s "
                 # ~ "will be written to ." % (h5path + key[0], key[1])

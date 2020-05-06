@@ -96,6 +96,7 @@ def test_ptpython_signature_patch():
 
 
 def test_dicttoh5():
+    pytest.xfail()
     # diffdump can be generated with pytest --pdb option using
     # >>> import pprint
     # >>> pprint.pprint(diff_dump)

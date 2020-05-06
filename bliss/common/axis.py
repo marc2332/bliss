@@ -19,6 +19,7 @@ from bliss.common.utils import with_custom_members, safe_get
 from bliss.config.channels import Channel
 from bliss.common.logtools import log_debug, lprint, lprint_disable
 from bliss.common.utils import rounder
+from bliss.common.utils import autocomplete_property
 
 import enum
 import gevent
@@ -683,7 +684,7 @@ class Axis:
         """Axis name"""
         return self.__name
 
-    @property
+    @autocomplete_property
     def controller(self):
         """Reference to :class:`~bliss.controllers.motor.Controller`"""
         return self.__controller

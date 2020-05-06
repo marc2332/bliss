@@ -12,6 +12,9 @@ positions:
   - axis: $robz
     destination: 1.0
     tolerance: 0.2
+  metadata:
+    "@NX_class": NXbeam_stop
+    status: in
 - label: OUT
   description: Beamstop position OUT of the beam
   target:

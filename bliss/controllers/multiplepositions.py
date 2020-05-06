@@ -77,6 +77,7 @@ from bliss.config.channels import Channel
 from bliss.common import event
 from bliss.common.logtools import log_warning, log_error
 from bliss import global_map
+from bliss.scanning.scan_meta import get_user_scan_meta
 
 
 class MultiplePositions:
@@ -107,6 +108,23 @@ class MultiplePositions:
             self.add_label_move_method(position["label"])
 
         global_map.register(self, tag=name)
+
+        self._init_meta_data_publishing()
+
+    def _init_meta_data_publishing(self):
+        """Publish position in meta data """
+        scan_meta_obj = get_user_scan_meta()
+        scan_meta_obj.instrument.set(self, lambda _: self.metadata_dict())
+
+    def metadata_dict(self):
+        if self.position != "unknown":
+            cur_pos_config = [
+                x.to_dict()
+                for x in self._config["positions"]
+                if x["label"] == self.position
+            ][0]
+            if "metadata" in cur_pos_config:
+                return {self.name: cur_pos_config["metadata"]}
 
     def add_label_move_method(self, pos_label):
         """Add a method named after the position label to move to the

@@ -114,6 +114,12 @@ def scan_meta(info=None):
 
     def copy(self):
         return scan_meta(copy_module.deepcopy(_infos))
+        # TODO: does this really need to be a deepcopy?
+        # there is a pretty weired thing e.g. in mulitposition
+        # when one replaces
+        # scan_meta_obj.instrument.set(self, lambda _:self.metadata_dict())
+        # with
+        # scan_meta_obj.instrument.set(self, self.metadata_dict)
 
     attrs["copy"] = copy
 

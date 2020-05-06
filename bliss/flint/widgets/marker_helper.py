@@ -8,11 +8,27 @@
 from __future__ import annotations
 
 import typing
+import numpy
 
 from silx.gui import qt
 from silx.gui import icons
 from silx.gui.plot.tools import roi
 from silx.gui.plot.items import roi as roi_items
+
+
+def _getAutoPrecision(plot):
+    def getPrecision(axis):
+        vmin, vmax = axis.getLimits()
+        delta = numpy.abs(vmax - vmin)
+        if delta == 0:
+            return 2
+        if delta >= 500:
+            return 0
+        if delta >= 1:
+            return 2
+        return int(numpy.abs(numpy.log10(delta))) + 3
+
+    return getPrecision(plot.getXAxis()), getPrecision(plot.getYAxis())
 
 
 class _PointWithValue(roi_items.PointROI):
@@ -26,8 +42,10 @@ class _PointWithValue(roi_items.PointROI):
 
     def __updateValue(self):
         pos = self.getPosition()
-        # FIXME: Improve the digit according to the plot range
-        text = "%.3f,\n  %.3f" % (pos[0], pos[1])
+        x, y = pos
+        plot = self.parent().parent()
+        xdigits, ydigits = _getAutoPrecision(plot)
+        text = f"{x:.{xdigits}f},\n{y:.{ydigits}f}"
         self.setName(text)
 
 
@@ -41,9 +59,10 @@ class _VLineWithValue(roi_items.VerticalLineROI):
         self.__updateValue()
 
     def __updateValue(self):
-        pos = self.getPosition()
-        # FIXME: Improve the digit according to the plot range
-        text = "%.3f" % pos
+        x = self.getPosition()
+        plot = self.parent().parent()
+        xdigits, _ydigits = _getAutoPrecision(plot)
+        text = f"{x:.{xdigits}f}"
         self.setName(text)
 
 

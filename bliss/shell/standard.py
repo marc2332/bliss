@@ -475,7 +475,7 @@ def wa(**kwargs):
 @custom_error_msg(
     TypeError,
     "intended usage: wm(axis1, axis2, ... ) Hint:",
-    new_exeption_type=RuntimeError,
+    new_exception_type=RuntimeError,
     display_original_msg=True,
 )
 @shorten_signature(annotations={"axes": "axis1, axis2, ... "}, hidden_kwargs=("kwargs"))
@@ -602,7 +602,7 @@ def wm(*axes: _scannable_or_name, **kwargs):
 @custom_error_msg(
     TypeError,
     "intended usage: umv(motor1, target_position_1, motor2, target_position_2, ... )",
-    new_exeption_type=RuntimeError,
+    new_exception_type=RuntimeError,
     display_original_msg=False,
 )
 @modify_annotations({"args": "motor1, pos1, motor2, pos2, ..."})
@@ -620,7 +620,7 @@ def umv(*args):
 @custom_error_msg(
     TypeError,
     "intended usage: umv(motor1, relative_displacement_1, motor2, relative_displacement_2, ... )",
-    new_exeption_type=RuntimeError,
+    new_exception_type=RuntimeError,
     display_original_msg=False,
 )
 @modify_annotations({"args": "motor1, rel. pos1, motor2, rel. pos2, ..."})

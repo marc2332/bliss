@@ -16,11 +16,9 @@ import numpy
 import collections.abc
 from collections.abc import MutableMapping, MutableSequence
 import socket
-import typeguard
-
 from itertools import zip_longest
-
 from bliss.common.event import saferef
+import typeguard
 
 
 class ErrorWithTraceback:
@@ -917,31 +915,45 @@ def shorten_signature(original_function=None, *, annotations=None, hidden_kwargs
 
 
 def custom_error_msg(
-    execption_type, message, new_exeption_type=None, display_original_msg=False
+    execption_type, message, new_exception_type=None, display_original_msg=False
 ):
-    """decorator to modify exeption and/or the correspoinding message"""
+    """decorator to modify exception and/or the correspoinding message"""
 
     def _decorate(function):
         @functools.wraps(function)
         def wrapped_function(*args, **kwargs):
             try:
                 return function(*args, **kwargs)
-            except execption_type as e:
-                if new_exeption_type:
-                    new_exeption = new_exeption_type
+            except Exception as e:
+                if isinstance(e, execption_type):
+                    if new_exception_type:
+                        new_exception = new_exception_type
+                    else:
+                        new_exception = execption_type
+                    if display_original_msg:
+                        raise new_exception(message + " " + str(e))
+                    else:
+                        raise new_exception(message)
                 else:
-                    new_exeption = execption_type
-                if display_original_msg:
-                    raise new_exeption(message + " " + str(e))
-                else:
-                    raise new_exeption(message)
+                    raise e
 
         return wrapped_function
 
     return _decorate
 
 
-def transform_TypeError_to_hint(function):
+class TypeguardTypeError(TypeError):
+    """TypeError that is used only in Typeguard module
+       should be pushed to typeguard repositoy
+    """
+
+    pass
+
+
+typeguard.TypeError = TypeguardTypeError
+
+
+def typeguardTypeError_to_hint(function):
     """decorator that transforms TypeError into a simpliyed RuntimeError
     Intended use: Modifying the message when using @typeguard.typechecked
     """
@@ -961,7 +973,10 @@ def transform_TypeError_to_hint(function):
             + ""
         )
         return custom_error_msg(
-            TypeError, msg, new_exeption_type=RuntimeError, display_original_msg=True
+            TypeguardTypeError,
+            msg,
+            new_exception_type=RuntimeError,
+            display_original_msg=True,
         )(function)(*args, **kwargs)
 
     return wrapped_function

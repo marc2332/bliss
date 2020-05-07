@@ -25,9 +25,28 @@ from bliss.scanning import chain, scan
 from bliss.common.event import dispatcher
 from bliss.common.measurementgroup import _get_counters_from_names
 from bliss.common.measurementgroup import get_active as get_active_mg
+from bliss.common.counter import SamplingCounter
+from bliss.controllers.counter import SamplingCounterController
+from bliss.common.utils import autocomplete_property
 from bliss import global_map
+from bliss.common.session import get_current_session
 
 from . import acquisition_objects
+
+
+class AutoFilterCounterController(SamplingCounterController):
+    def __init__(self, name, autof):
+        super().__init__(name)
+        self._autof = autof
+
+    def read_all(self, *counters):
+        values = []
+        for cnt in counters:
+            if cnt.tag == "filteridx":
+                values.append(self._autof.filter)
+            elif cnt.tag == "transmission":
+                values.append(self._autof.transmission)
+        return values
 
 
 class AutoFilter(BeaconObject):
@@ -61,6 +80,9 @@ class AutoFilter(BeaconObject):
         # check energy motor is in config
         self.energy_axis = config.get("energy_axis")
 
+        # build counters
+        self._create_counters(config)
+
         self.initialize()
 
     def initialize(self):
@@ -77,9 +99,22 @@ class AutoFilter(BeaconObject):
             self.min_count_rate, self.max_count_rate, energy, self.always_back
         )
 
+    @autocomplete_property
+    def counters(self):
+        """ 
+        Standard counter namespace
+        """
+        if self._cc is not None:
+            return self._cc.counters
+        return []
+
     @property
     def transmission(self):
         return self.filterset.transmission
+
+    @property
+    def filter(self):
+        return self.filterset.filter
 
     def ascan(self, motor, start, stop, intervals, count_time, *counter_args, **kwargs):
         """
@@ -203,3 +238,31 @@ class AutoFilter(BeaconObject):
         Return False if the counting must be repeated
         """
         return self.filterset.adjust_filter(count_time, counts)
+
+    def _create_counters(self, config, export_to_session=True):
+        """
+        """
+        cnts_conf = config.get("counters")
+        if cnts_conf is None:
+            self._cc = None
+            return
+
+        self._cc = AutoFilterCounterController(self.name, self)
+
+        for conf in cnts_conf:
+            name = conf["counter_name"].strip()
+            tag = conf["tag"].strip()
+            cnt = self._cc.create_counter(SamplingCounter, name, mode="SINGLE")
+            cnt.tag = tag
+            if export_to_session:
+                current_session = get_current_session()
+                if current_session is not None:
+                    if (
+                        name in current_session.config.names_list
+                        or name in current_session.env_dict.keys()
+                    ):
+                        raise ValueError(
+                            f"Cannot export object to session with the name '{name}', name is already taken! "
+                        )
+
+                    current_session.env_dict[name] = cnt

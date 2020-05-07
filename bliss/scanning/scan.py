@@ -610,6 +610,126 @@ class ScanState(enum.IntEnum):
     KILLED = 6
 
 
+class _ScanIterationsRunner:
+    """Helper class to execute iterations of a scan
+    
+    Uses a generator to execute the different steps, as it receives tasks via 'send'
+    """
+
+    def __init__(
+        self,
+        data_watch_event,
+        data_watch_call_on_prepare=False,
+        data_watch_call_on_stop=False,
+    ):
+        self.data_watch_event = data_watch_event
+        self.data_watch_call_on_prepare = data_watch_call_on_prepare
+        self.data_watch_call_on_stop = data_watch_call_on_stop
+        self.runner = self._run()  # make generator
+        next(self.runner)  # "prime" runner: go to first yield
+
+    def _gwait(self, greenlets, masked_kill_nb=0):
+        """Wait until given greenlets are all done
+
+        In case of error, greenlets are all killed and exception is raised
+        
+        If a kill happens (GreenletExit or KeyboardInterrupt exception)
+        while waiting for greenlets, wait is retried - 'masked_kill_nb'
+        allow to specify a number of 'kills' to mask to really kill only
+        if it insists.
+        """
+        try:
+            gevent.joinall(greenlets, raise_error=True)
+        except (gevent.GreenletExit, KeyboardInterrupt):
+            # in case of kill: give a chance to finish the task,
+            # but if it insists => let it kill
+            if masked_kill_nb > 0:
+                with KillMask(masked_kill_nb=masked_kill_nb):
+                    gevent.joinall(greenlets)
+            raise
+        finally:
+            if any(
+                greenlets
+            ):  # only kill if some greenlets are still running, as killall takes time
+                gevent.killall(greenlets)
+
+    def _run_next(self, scan, next_iter):
+        next_iter.start()
+        for i in next_iter:
+            i.prepare(scan, scan.scan_info)
+            i.start()
+
+    def send(self, arg):
+        """Delegate 'arg' to generator"""
+        try:
+            return self.runner.send(arg)
+        except StopIteration:
+            pass
+
+    def _run(self):
+        """Generator that runs a scan: from applying parameters to acq. objects then preparing and up to stopping
+
+        Goes through the different steps by receiving tasks from the caller Scan object
+        """
+        apply_parameters_tasks = yield
+
+        # apply parameters in parallel on all iterators
+        self._gwait(apply_parameters_tasks)
+
+        # execute prepare tasks in parallel
+        prepare_tasks = yield
+        with periodic_exec(
+            0.1 if self.data_watch_call_on_prepare else 0, self.data_watch_event.set
+        ):
+            self._gwait(prepare_tasks)
+
+        # scan tasks
+        scan, chain_iterators, watchdog_task = yield
+        tasks = {gevent.spawn(self._run_next, scan, i): i for i in chain_iterators}
+        if watchdog_task is not None:
+            # put watchdog task in list, but there is no corresponding iterator
+            tasks[watchdog_task] = None
+
+        with capture_exceptions(raise_index=0) as capture:
+            with capture():
+                try:
+                    # gevent.iwait iteratively yield objects as they are ready
+                    with gevent.iwait(tasks) as task_iter:
+                        # loop over ready tasks until all are consumed, or an
+                        # exception is raised
+                        for t in task_iter:
+                            t.get()  # get the task result ; this may raise an exception
+
+                            if t is watchdog_task:
+                                # watchdog task ended: stop the scan
+                                raise StopChain
+                            elif tasks[t].top_master.terminator:
+                                # a task with a terminator top master has finished:
+                                # scan has to end
+                                raise StopChain
+                except StopChain:
+                    # stop scan:
+                    # kill all tasks, but do not raise an exception
+                    gevent.killall(tasks, exception=StopChain)
+                except (gevent.GreenletExit, KeyboardInterrupt):
+                    # scan gets killed:
+                    # kill all tasks, re-raise exception
+                    gevent.killall(tasks, exception=gevent.GreenletExit)
+                    raise
+                except BaseException:
+                    # an error occured: kill all tasks, re-raise exception
+                    gevent.killall(tasks, exception=StopChain)
+                    raise
+
+            stop_tasks = yield
+            with capture():
+                with periodic_exec(
+                    0.1 if self.data_watch_call_on_stop else 0,
+                    self.data_watch_event.set,
+                ):
+                    self._gwait(stop_tasks, masked_kill_nb=1)
+
+
 class Scan:
     def __init__(
         self,
@@ -703,7 +823,10 @@ class Scan:
 
         self._data_watch_task = None
         self._data_watch_callback = data_watch_callback
+        self._data_watch_callback_event = gevent.event.Event()
+        self._data_watch_callback_done = gevent.event.Event()
         self._data_events = dict()
+
         self.set_watchdog_callback(watchdog_callback)
         self._acq_chain = chain
         self._scan_info["acquisition_chain"] = _get_masters_and_channels(
@@ -721,7 +844,6 @@ class Scan:
         self._preset_list = list()
         self.__node = None
         self.__comments = list()  # user comments
-        self._exception = None
 
     def is_flint_recommended(self):
         """Return true if flint is recommended for this scan"""
@@ -740,6 +862,10 @@ class Scan:
         return True
 
     def _create_data_node(self, node_name):
+        """Create the data node in Redis
+        
+        Important: has to be a method, since it can be overwritten in Scan subclasses (like Sequence)
+        """
         self.__node = _create_node(
             node_name, "scan", parent=self.root_node, info=self._scan_info
         )
@@ -776,6 +902,22 @@ class Scan:
             self._create_data_node(node_name)
             self._current_pipeline_stream = self.root_node.db_connection.pipeline()
             self._pending_watch_callback = weakref.WeakKeyDictionary()
+
+    def _end_node(self):
+        self._current_pipeline_stream = None
+
+        with capture_exceptions(raise_index=0) as capture:
+            _exception, _, _ = sys.exc_info()
+
+            with capture():
+                # Store end event before setting the ttl
+                self.node.end(exception=_exception)
+            with capture():
+                self.set_ttl()
+
+            self._scan_info["end_time"] = self.node.info["end_time"]
+            self._scan_info["end_time_str"] = self.node.info["end_time_str"]
+            self._scan_info["end_timestamp"] = self.node.info["end_timestamp"]
 
     def __repr__(self):
         return "Scan(number={}, name={}, path={})".format(
@@ -1134,12 +1276,15 @@ class Scan:
 
         self.writer.prepare(self)
 
-    def _prepare_scan_meta(self):
-        self._scan_info["filename"] = self.writer.filename
-        self.user_scan_meta = get_user_scan_meta().copy()
+    def _update_scan_info_with_user_scan_meta(self):
         with KillMask(masked_kill_nb=1):
             deep_update(self._scan_info, self.user_scan_meta.to_dict(self))
         self._scan_info["scan_meta_categories"] = self.user_scan_meta.cat_list()
+
+    def _prepare_scan_meta(self):
+        self._scan_info["filename"] = self.writer.filename
+        self.user_scan_meta = get_user_scan_meta().copy()
+        self._update_scan_info_with_user_scan_meta()
 
     def disconnect_all(self):
         for dev in self._devices:
@@ -1150,255 +1295,228 @@ class Scan:
                     disconnect(dev, signal, self._device_event)
         self._devices = []
 
-    def run(self):
-        with lprint_disable():
-            return self._run()
+    def _set_state(self, state):
+        """Set the scan state
+        """
+        self.__state = state
+        self.node.info["state"] = state
+        self._scan_info["state"] = state
+        self.__state_change.set()
 
-    def _run(self):
+    def _fill_meta(self, method_name):
+        """Fill metadata from devices using specified method
+
+        Method name can be either 'fill_meta_as_scan_start' or 'fill_meta_at_scan_end'
+        """
+        for dev in self.acq_chain.nodes_list:
+            node = self.nodes.get(dev)
+            if node is None:
+                # prepare has not finished ?
+                continue
+            with KillMask(masked_kill_nb=1):
+                meth = getattr(dev, method_name)
+                tmp = meth(self.user_scan_meta)
+            if tmp:
+                update_node_info(node, tmp)
+
+    def run(self):
+        """Run the scan
+
+        A scan can only be executed once.
+        """
         if self.state != ScanState.IDLE:
             raise RuntimeError(
                 "Scan state is not idle. Scan objects can only be used once."
             )
-        killed = False
-        killed_by_user = False
-        call_on_prepare, call_on_stop = False, False
-        set_watch_event = None
 
-        ### create scan node in redis
-        self._prepare_node()
-
+        # check if watch callback has to be called in "prepare" and "stop" phases
+        data_watch_call_on_prepare = data_watch_call_on_stop = False
         if self._data_watch_callback is not None:
-            data_watch_callback_event = gevent.event.Event()
-            data_watch_callback_done = gevent.event.Event()
-
-            def trig(*args):
-                data_watch_callback_event.set()
-
-            self._data_watch_running = False
-            self._data_watch_task = gevent.spawn(
-                Scan._data_watch,
-                weakref.proxy(self, trig),
-                data_watch_callback_event,
-                data_watch_callback_done,
-            )
-            self._data_watch_callback_event = data_watch_callback_event
-            self._data_watch_callback_done = data_watch_callback_done
-
             if hasattr(self._data_watch_callback, "on_state"):
-                call_on_prepare = self._data_watch_callback.on_state(
+                data_watch_call_on_prepare = self._data_watch_callback.on_state(
                     ScanState.PREPARING
                 )
-                call_on_stop = self._data_watch_callback.on_state(ScanState.STOPPING)
+                data_watch_call_on_stop = self._data_watch_callback.on_state(
+                    ScanState.STOPPING
+                )
 
-            set_watch_event = self._data_watch_callback_event.set
+        # initialize the iterations runner helper object
+        iterations_runner = _ScanIterationsRunner(
+            self._data_watch_callback_event,
+            data_watch_call_on_prepare,
+            data_watch_call_on_stop,
+        )
 
+        # reset acquisition chain statistics
         self.acq_chain.reset_stats()
 
-        try:
-            if self._data_watch_callback:
-                self._data_watch_callback.on_scan_new(self, self.scan_info)
-            if self._watchdog_task is not None:
-                self._watchdog_task.start()
-                self._watchdog_task.on_scan_new(self, self.scan_info)
+        # get scan iterators
+        scan_chain_iterators = [next(i) for i in self.acq_chain.get_iter_list()]
 
-            current_iters = [next(i) for i in self.acq_chain.get_iter_list()]
+        with capture_exceptions(raise_index=0) as capture:
+            self._prepare_node()  # create scan node in redis
 
-            # ---- apply parameters
-            apply_parameters_tasks = [
-                gevent.spawn(i.apply_parameters) for i in current_iters
-            ]
-            try:
-                gevent.joinall(apply_parameters_tasks, raise_error=True)
-            except:
-                gevent.killall(apply_parameters_tasks)
-                raise
-            # -----
-
-            self.__state = ScanState.PREPARING
-            self.__state_change.set()
-            with periodic_exec(0.1 if call_on_prepare else 0, set_watch_event):
-                self._execute_preset("_prepare")
-                self.prepare(self.scan_info, self.acq_chain._tree)
-                prepare_tasks = [
-                    gevent.spawn(i.prepare, self, self.scan_info) for i in current_iters
-                ]
-                try:
-                    gevent.joinall(prepare_tasks, raise_error=True)
-                except:
-                    gevent.killall(prepare_tasks)
-                    raise
-            for dev in self.acq_chain.nodes_list:
-                with KillMask(masked_kill_nb=1):
-                    tmp = dev.fill_meta_at_scan_start(self.user_scan_meta)
-                if tmp:
-                    update_node_info(self.nodes[dev], tmp)
-
-            self.__state = ScanState.STARTING
-            self.__state_change.set()
-            self._execute_preset("start")
-            run_next_tasks = [
-                (gevent.spawn(self._run_next, i), i) for i in current_iters
-            ]
-            run_scan = True
-
-            with capture_exceptions(raise_index=0) as capture:
+            # start data watch task, if needed
+            if self._data_watch_callback is not None:
                 with capture():
-                    kill_exception = StopChain
+                    self._data_watch_callback.on_scan_new(self, self.scan_info)
+                if capture.failed:
+                    # if the data watch callback for "new" scan failed,
+                    # better to not continue: let's put the final state
+                    # and end the scan node
+                    self._end_node()
+                    self._set_state(ScanState.KILLED)
+                    return
+                self._data_watch_running = False
+                self._data_watch_task = gevent.spawn(
+                    Scan._data_watch,
+                    weakref.proxy(
+                        self, lambda _: self._data_watch_callback_event.set()
+                    ),
+                    self._data_watch_callback_event,
+                    self._data_watch_callback_done,
+                )
+
+            killed = killed_by_user = False
+
+            with capture():
+                # start the watchdog task, if any
+                if self._watchdog_task is not None:
+                    self._watchdog_task.start()
+                    self._watchdog_task.on_scan_new(self, self.scan_info)
+
+                # execute scan iterations
+                # NB: "lprint" messages won't be displayed to stdout, this avoids
+                # output like "moving from X to Y" on motors for example. In principle
+                # there should be no output to stdout from the scan itself
+                with lprint_disable():
                     try:
-                        while run_scan:
-                            # The master defined as 'terminator' ends the loop
-                            # (by default any top master will stop the loop),
-                            # the loop is also stopped in case of exception.
-                            wait_tasks = [t for t, _ in run_next_tasks]
-                            if self._watchdog_task is not None:
-                                wait_tasks += [self._watchdog_task]
-                            gevent.joinall(wait_tasks, raise_error=True, count=1)
-                            if self._watchdog_task is not None:
-                                # stop the scan if watchdog_task end normally
-                                # it received a StopIteration
-                                run_scan = not self._watchdog_task.ready()
-
-                            if not run_scan:
-                                break
-
-                            for task, iterator in run_next_tasks:
-                                if task.ready():
-                                    if iterator.top_master.terminator:
-                                        # scan has to end
-                                        run_scan = False
-                                        break
-                            else:
-                                run_next_tasks = [
-                                    (t, i) for t, i in run_next_tasks if not t.ready()
-                                ]
-                                run_scan = bool(run_next_tasks)
-                    except BaseException as e:
-                        kill_exception = gevent.GreenletExit
-                        killed = True
-                        killed_by_user = isinstance(e, KeyboardInterrupt)
-                        raise
-                    finally:
-                        gevent.killall(
-                            [t for t, _ in run_next_tasks], exception=kill_exception
+                        # prepare acquisition objects (via AcquisitionChainIter)
+                        iterations_runner.send(
+                            [
+                                gevent.spawn(i.apply_parameters)
+                                for i in scan_chain_iterators
+                            ]
                         )
 
-                self.__state = ScanState.STOPPING
-                self.__state_change.set()
+                        # prepare scan
+                        self._set_state(ScanState.PREPARING)
 
-                with periodic_exec(0.1 if call_on_stop else 0, set_watch_event):
-                    stop_task = [
-                        gevent.spawn(i.stop) for i in current_iters if i is not None
-                    ]
-                    with capture():
-                        try:
-                            gevent.joinall(stop_task, raise_error=True)
-                        except BaseException as e:
-                            with KillMask(masked_kill_nb=1):
-                                gevent.joinall(stop_task)
-                            gevent.killall(stop_task)
-                            killed = True
-                            killed_by_user = isinstance(e, KeyboardInterrupt)
-                            raise
-        except Exception as e:
-            self._exception = e
-            killed = True
-            killed_by_user = isinstance(e, KeyboardInterrupt)
-            raise
-        finally:
-            with capture_exceptions(raise_index=0) as capture:
-                with capture():
-                    # check if there is any master or device that would like
-                    # to provide meta data at the end of the scan
-                    for dev in self.acq_chain.nodes_list:
-                        node = self.nodes.get(dev)
-                        if node is None:
-                            # prepare has not finished ?
-                            continue
-                        with KillMask(masked_kill_nb=1):
-                            tmp = dev.fill_meta_at_scan_end(self.user_scan_meta)
-                        if tmp:
-                            update_node_info(node, tmp)
+                        self._execute_preset("_prepare")
 
-                    with KillMask(masked_kill_nb=1):
-                        deep_update(self._scan_info, self.user_scan_meta.to_dict(self))
-                        self._scan_info[
-                            "scan_meta_categories"
-                        ] = self.user_scan_meta.cat_list()
+                        self.prepare(self.scan_info, self.acq_chain._tree)
 
-                        # update scan_info in redis
-                        self.node._info.update(self.scan_info)
+                        iterations_runner.send(
+                            [
+                                gevent.spawn(i.prepare, self, self.scan_info)
+                                for i in scan_chain_iterators
+                            ]
+                        )
 
-                # wait the end of publishing
-                # (should be already finished)
+                        # starting the scan
+                        self._set_state(ScanState.STARTING)
+
+                        self._fill_meta("fill_meta_at_scan_start")
+
+                        self._execute_preset("start")
+
+                        # this execute iterations
+                        iterations_runner.send(
+                            (self, scan_chain_iterators, self._watchdog_task)
+                        )
+
+                        # scan stop
+                        self._set_state(ScanState.STOPPING)
+
+                        iterations_runner.send(
+                            [
+                                gevent.spawn(i.stop)
+                                for i in scan_chain_iterators
+                                if i is not None
+                            ]
+                        )
+                    except KeyboardInterrupt:
+                        killed = killed_by_user = True
+                        raise
+                    except BaseException:
+                        killed = True
+                        raise
+
+            with capture():
+                # check if there is any master or device that would like
+                # to provide meta data at the end of the scan.
+                self._fill_meta("fill_meta_at_scan_end")
+
+            with capture():
+                self._update_scan_info_with_user_scan_meta()
+
+                with KillMask(masked_kill_nb=1):
+                    # update scan_info in redis
+                    self.node._info.update(self.scan_info)
+
+            # wait the end of publishing
+            # (should be already finished)
+            with capture():
                 stream_task = self._swap_pipeline()
                 if stream_task is not None:
-                    with capture():
-                        stream_task.get()
-                self._current_pipeline_stream = None
-                # Store end event before setting the ttl
-                self.node.end(exception=self._exception)
+                    stream_task.get()
 
-                self._scan_info["end_time"] = self.node.info["end_time"]
-                self._scan_info["end_time_str"] = self.node.info["end_time_str"]
-                self._scan_info["end_timestamp"] = self.node.info["end_timestamp"]
+            # Disconnect events
+            self.disconnect_all()
 
-                with capture():
-                    self.set_ttl()
+            # counterpart of "_create_node"
+            with capture():
+                self._end_node()
 
+            with capture():
                 # Close nodes
                 for node in self.nodes.values():
                     try:
                         node.close()
                     except AttributeError:
                         pass
-                # Disconnect events
-                self.disconnect_all()
 
-                # put state to KILLED if needed
+            # put final state
+            with capture():
                 if not killed:
-                    self.__state = ScanState.DONE
+                    self._set_state(ScanState.DONE)
                 elif killed_by_user:
-                    self.__state = ScanState.USER_ABORTED
+                    self._set_state(ScanState.USER_ABORTED)
                 else:
-                    self.__state = ScanState.KILLED
-                self.__state_change.set()
-                self.node.info["state"] = self.__state
-                self._scan_info["state"] = self.__state
+                    self._set_state(ScanState.KILLED)
 
-                # Add scan to the globals
-                current_session.scans.append(self)
+            # kill watchdog task, if any
+            with capture():
+                if self._watchdog_task is not None:
+                    self._watchdog_task.kill()
+                    self._watchdog_task.on_scan_end(self.scan_info)
 
-                if self.writer:
-                    # write scan_info to file
-                    with capture():
-                        self.writer.finalize_scan_entry(self)
-                    with capture():
-                        self.writer.close()
-
-                with capture():
-                    if self._data_watch_callback:
-                        self._data_watch_callback.on_scan_end(self.scan_info)
-                with capture():
-                    if self._watchdog_task is not None:
-                        self._watchdog_task.kill()
-                        self._watchdog_task.on_scan_end(self.scan_info)
-                with capture():
-                    # Kill data watch task
-                    if self._data_watch_task is not None:
-                        if (
-                            self._data_watch_task.ready()
-                            and not self._data_watch_task.successful()
-                        ):
-                            self._data_watch_task.get()
-                        self._data_watch_task.kill()
-
+            # execute "stop" preset
+            with capture():
                 self._execute_preset("_stop")
 
-    def _run_next(self, next_iter):
-        next_iter.start()
-        for i in next_iter:
-            i.prepare(self, self.scan_info)
-            i.start()
+            if self._data_watch_task is not None:
+                # call "scan end" data watch callback
+                with capture():
+                    self._data_watch_callback.on_scan_end(self.scan_info)
+
+                with capture():
+                    # ensure data watch task is stopped
+                    if self._data_watch_task.ready():
+                        if not self._data_watch_task.successful():
+                            self._data_watch_task.get()
+                    else:
+                        self._data_watch_task.kill()
+
+            # Add scan to the globals
+            current_session.scans.append(self)
+
+            if self.writer:
+                # write scan_info to file
+                with capture():
+                    self.writer.finalize_scan_entry(self)
+                with capture():
+                    self.writer.close()
 
     def add_comment(self, comment):
         """
@@ -1433,11 +1551,13 @@ class Scan:
                 data_events = scan._data_events
                 scan._data_events = dict()
                 scan._data_watch_running = True
-                scan.scan_info["state"] = scan.state
-                scan._data_watch_callback.on_scan_data(
-                    data_events, scan.nodes, scan.scan_info
-                )
-                scan._data_watch_running = False
+                try:
+                    scan.scan_info["state"] = scan.state
+                    scan._data_watch_callback.on_scan_data(
+                        data_events, scan.nodes, scan.scan_info
+                    )
+                finally:
+                    scan._data_watch_running = False
             except ReferenceError:
                 break
             else:

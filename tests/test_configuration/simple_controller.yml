@@ -14,4 +14,7 @@
     something_else:    
          speed: 10
          velocity: 1.2
+- ctrl: hello3
+  name: hello_ctrl3
+  axis: $roby
           

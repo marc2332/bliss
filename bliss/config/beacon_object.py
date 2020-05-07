@@ -49,6 +49,8 @@ class BeaconObject:
                             return fget(self)
 
                         value = self._settings.get(fget.__name__)
+                        if "config_obj_property_setting" in fget.__qualname__:
+                            return fget(self)
                         return value if value is not None else fget(self)
 
                 get.__name__ = fget.__name__
@@ -396,6 +398,35 @@ class BeaconObject:
 
         def set(self, value):
             self.settings[name] = value
+
+        set.__name__ = name
+        bop = BeaconObject._property(get, set, doc=doc)
+        bop.__doc__ = doc
+        return bop
+
+    @staticmethod
+    def config_obj_property_setting(name, default=None, doc=None):
+        def get(self):
+            obj_name = self.settings.get(name, None)
+            if obj_name is None:
+                return default
+            else:
+                return self.config._config.get(obj_name)
+
+        get.__name__ = name
+
+        def set(self, value):
+            # first check that this object exists in beacon
+            if isinstance(value, str):
+                obj_name = value
+            else:
+                assert hasattr(value, "name")
+                obj_name = value.name
+            assert (
+                obj_name in self.config._config.names_list
+            ), f"{obj_name} does not exist in beacon config!"
+            self.settings[name] = obj_name
+            return obj_name
 
         set.__name__ = name
         bop = BeaconObject._property(get, set, doc=doc)

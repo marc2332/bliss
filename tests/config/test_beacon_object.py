@@ -387,3 +387,19 @@ def test_beacon_object_within_lima2(default_session, lima_simulator):
     lima_simulator = default_session.config.get("lima_simulator")
     lima_simulator._image_params.rotation = "90"
     assert lima_simulator._image_params.rotation == "90"
+
+
+class Ctrl13(BeaconObject):
+    axis = BeaconObject.config_obj_property_setting("axis")
+
+
+def test_BeaconObject_config_obj_property_setting(beacon):
+    cfg = beacon.get("hello_ctrl3")
+    robz = beacon.get("robz")
+    ctrl = Ctrl13(cfg, share_hardware=False)
+    assert ctrl.axis.name == "roby"
+    ctrl.axis = robz
+    assert ctrl.axis.name == "robz"
+
+    ctrl2 = Ctrl13(cfg, share_hardware=False)
+    assert ctrl.axis.name == "robz"

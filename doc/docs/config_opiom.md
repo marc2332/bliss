@@ -31,7 +31,8 @@ ISG pages:
   serial:
     url: tango://id13/Serial_133_232/02
     timeout: 30
-  program: /users/blissadm/local/isg/opiom/20180625_152307_multiplexer-eh3
+  #OPIOM_PROG is a remote directory on beacon server 
+  program-path: OPIOM_PROG/20180625_152307_multiplexer-eh3
 ```
 
 ## Multiplexer

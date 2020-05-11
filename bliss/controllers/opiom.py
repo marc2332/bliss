@@ -58,9 +58,14 @@ class Opiom:
         self._cnx = get_comm(comm_config, ctype=comm_type, timeout=3)
         global_map.register(self, children_list=[self._cnx], tag=f"opiom:{name}")
 
-        self._cnx.flush()
         self.__program = config_tree.get("program", "default")
-        self.__base_path = config_tree.get("opiom_prg_root", OPIOM_PRG_ROOT)
+        default_prg_root = config_tree.get("opiom-prg-root", OPIOM_PRG_ROOT)
+        self.__base_path = config_tree.get("opiom_prg_root", default_prg_root)
+
+        program_path = config_tree.get("program-path")
+        if program_path is not None:
+            pg_path = os.path.splitext(program_path)[0]
+            self.__base_path, self.__program = os.path.split(pg_path)
 
         # Sometimes, have to talk twice to the OPIOM in order to get the proper first answer.
         for _ in range(2):

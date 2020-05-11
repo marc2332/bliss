@@ -104,6 +104,7 @@ import collections
 import numpy as np
 import gevent
 import treelib
+import time
 from bliss.comm import rpc
 from bliss.common.counter import SamplingCounter
 from bliss.controllers.counter import CounterController
@@ -592,7 +593,7 @@ class SpeedgoatCountersController(CounterController):
         self.signal_node = signal_node
         self.param_node = param_node
 
-        super().__init__(self.speedgoat.name)  # + "CC")
+        super().__init__(self.speedgoat.name)
 
         # build counter signal list
         sig_cnt = {}
@@ -1068,7 +1069,7 @@ class Motor(object):
         self.signal_node = signal_node
         self.param_node = param_node
         self.sel_value = select_value
-
+        
     def set_param(self, param, value):
         param_to_read = "Motors/motor_%s/%s" % (self.name, param)
         self.controller.speedgoat.params[param_to_read] = value
@@ -1089,7 +1090,8 @@ class Motor(object):
 
     @property
     def is_moving(self):
-        return int(self.get_signal("isMoving"))
+        state = int(self.get_signal("isMoving"))
+        return state
 
     @property
     def acc_time(self):
@@ -1105,42 +1107,58 @@ class Motor(object):
 
     @velocity.setter
     def velocity(self, velocity):
-
         self.set_param("velocity/Value", velocity)
 
     @property
     def set_point(self):
-        return self.get_param("setPoint/Value")
+        res = float(self.get_param("setpoint/Value"))
+        return res
 
     @set_point.setter
     def set_point(self, position):
-        self.set_param("setPoint/Value", position)
+        self.set_param("setpoint/Value", position)
 
     def prepare_move(self):
-        self.controller.speedgoat.params[
-            "Motors/selectPseudoMotor/Value"
-        ] = self.sel_value
-        while (
-            self.controller.speedgoat.params["Motors/selectPseudoMotor/Value"]
-            != self.sel_value
-        ):
-            gevent.sleep(0.00001)  # 10us
-
-    def start_move(self):
+        self.controller.speedgoat.set_param(
+            "Motors/selectPseudoMotor/Value", 
+            self.sel_value
+        )
+        
+    def start_move(self, sleep_time=0.01, nb_try=3, timeout=0.5):
+        
+        for ntry in range(nb_try):
+            self._start_move(sleep_time)
+            (started, time_start) = self._wait_start_move(timeout)
+            if started:
+                print(f"Motor {self.name} started after {ntry+1} try {time_start} s")
+                return (ntry+1, time_start)
+        
+        raise RuntimeError(f"Motor {self.name} did not start")
+        
+    def _start_move(self, sleep_time):
         self.set_param("moveTrigger/Value", 0)
         self.set_param("moveTrigger/Value", 1)
-        gevent.sleep(0.01)
+        gevent.sleep(sleep_time)
         self.set_param("moveTrigger/Value", 0)
-
+    
+    def _wait_start_move(self, timeout):
+        wait_start = time.time()
+        while (time.time() - wait_start) < timeout:
+            if self.is_moving == 1:
+                return (True, time.time()-wait_start)
+        return (False, 0)
+    
+            
     def stop(self):
         self.set_param("stoppTrigger/Value", 0)
         self.set_param("stoppTrigger/Value", 1)
         gevent.sleep(0.01)
         self.set_param("stoppTrigger/Value", 0)
+        
 
     def limits(self):
-        lim_pos = self.get_param("motorLimit/UpperLimit")
-        lim_neg = self.get_param("motorLimit/LowerLimit")
+        lim_pos = float(self.get_param("motorLimit/UpperLimit"))
+        lim_neg = float(self.get_param("motorLimit/LowerLimit"))
 
         return (lim_neg, lim_pos)
 

@@ -74,13 +74,15 @@ class SpeedgoatMotor(Controller):
                 self._axis_init_done[axis.name] = False
                 
     def read_position(self, axis):
-        return self.sg_controller.available_motors[axis.name].position / axis.steps_per_unit
+        position = self.sg_controller.available_motors[axis.name].position
+        return position
 
     def read_velocity(self, axis):
-        return self.sg_controller.available_motors[axis.name].velocity / axis.steps_per_unit
+        velocity = self.sg_controller.available_motors[axis.name].velocity
+        return velocity
 
     def set_velocity(self, axis, velocity):
-        self.sg_controller.available_motors[axis.name].velocity = int(velocity * axis.steps_per_unit)
+        self.sg_controller.available_motors[axis.name].velocity = int(velocity)
 
     def read_acceleration(self, axis):
         acc_time = self.sg_controller.available_motors[axis.name].acc_time
@@ -88,13 +90,15 @@ class SpeedgoatMotor(Controller):
         return velocity / acc_time
 
     def set_acceleration(self, axis, acceleration):
-        accel_time = self.read_velocity(axis) / float(acceleration)
+        accel_time = self.read_velocity(axis) / acceleration
         self.sg_controller.available_motors[axis.name].acc_time = accel_time
 
     def state(self, axis):
         if not self.speedgoat.is_app_running:
             return AxisState("OFF")
-        if self.sg_controller.available_motors[axis.name].is_moving:
+        state = self.sg_controller.available_motors[axis.name].is_moving
+        print(f"\nSTATE {axis.name} {state}")
+        if state == 1:
             return AxisState("MOVING")
         return AxisState("READY")
 
@@ -110,8 +114,8 @@ class SpeedgoatMotor(Controller):
             self.start_one(m)
 
     def stop_one(self, axis):
-        self.sg_controller.available_motors[motion.axis.name].stop_move()
+        self.sg_controller.available_motors[axis.name].stop()
 
     def stop_all(self, *motions):
         for m in motions:
-            self.stop_one(m)
+            self.stop_one(m.axis)

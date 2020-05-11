@@ -18,6 +18,7 @@ import signal
 import atexit
 import contextlib
 import gevent
+
 from functools import wraps
 from gevent.threadpool import ThreadPool
 
@@ -48,12 +49,20 @@ def catch_sigint(*args):
     pass
 
 
-def print_full_line(msg, deco="=", head="\n", tail="\n"):
-    width = shutil.get_terminal_size().columns
-    fac = (width - len(msg)) // 2
-    deco = deco * fac
+def get_decorated_line(msg, width=None, deco="=", head="\n", tail="\n", rdeco=None):
+    if not width:
+        width = shutil.get_terminal_size().columns
 
-    print("".join([head, deco, msg, deco, tail]))
+    ldeco = deco
+    if rdeco is None:
+        rdeco = deco
+
+    diff = width - len(msg)
+    if diff > 1:
+        ldeco = ldeco * (diff // 2)
+        rdeco = rdeco * (diff - diff // 2)
+
+    return "".join([head, ldeco, msg, rdeco, tail])
 
 
 def _find_obj(name: str):
@@ -92,197 +101,621 @@ def _post_in_pool(func):
     return f
 
 
-class ScanPrinter:
-    """compose scan output"""
+class FormatedTab:
+    class _Cell:
+        def __init__(
+            self,
+            value,
+            dtype="g",
+            align="^",
+            width=12,
+            flag="#",
+            ellipse="..",
+            fpreci="",
+        ):
 
+            self.value = value
+            self.params = {
+                "dtype": dtype,
+                "align": align,
+                "width": width,
+                "flag": flag,  # '' or '#'
+                "ellipse": ellipse,
+                "fpreci": fpreci,  # '' or '.3' for example
+            }
+
+        def __str__(self):
+
+            if isinstance(self.value, (int, float)):
+                txt = f"{self.value:{self.params['flag']}{self.params['fpreci']}{self.dtype}}"
+            else:
+                txt = self._lim(str(self.value))
+
+            return f"{txt:{self.params['align']}{self.width}}"
+
+        def _lim(self, txt):
+            if len(txt) > self.width:
+                lng = self.width - len(self.params["ellipse"])
+                txt = f"{self.params['ellipse']}{txt[-lng:]}"
+            return txt
+
+        @property
+        def width(self):
+            return self.params["width"]
+
+        @width.setter
+        def width(self, value):
+            self.params["width"] = value
+
+        @property
+        def dtype(self):
+            return self.params["dtype"]
+
+        @property
+        def vsize(self):
+            """return the length of the value as a string"""
+            if isinstance(self.value, str):
+                return len(self.value)
+            elif isinstance(self.value, (int, float)):
+                return len(f"{self.value:{self.dtype}}")
+            else:
+                return len(str(self.value))
+
+        def set_params(self, params):
+            for k, v in params.items():
+                if k in self.params.keys():
+                    self.params[k] = v
+
+    def __init__(
+        self,
+        header_lines,
+        minwidth=1,
+        maxwidth=None,
+        col_sep=" ",
+        dtype="g",
+        align="^",
+        flag="#",
+        ellipse="..",
+        fpreci="",
+        lmargin="",
+    ):
+
+        """ helper class to manage tables of data with header lines and formated columns
+
+            - header_lines (2D list): list of lines, each line is a list of words (labels).
+               All lines must have the same number of words. 
+            - minwidth: the minimum width for columns
+            - maxwidth: the maximum width for columns
+            - col_sep: the column separator character
+            - dtype: format for numerical values (f, g, e)
+            - align: alignment style [ center = '^', left = '<', right = '>' ]
+            - flag: [ default form = '', alternate form = '#'] 
+            - ellipse: characters to use for truncated labels
+            - fpreci: precision for floating point numbers (eg: '.3' for 3 digits precision)
+            - lmargin: left margin of the entire table
+
+        """
+
+        if not isinstance(header_lines, (list, tuple)):
+            raise ValueError("header_lines must be a 2D list")
+
+        dim = None
+        for line in header_lines:
+
+            if not isinstance(line, (list, tuple)):
+                raise ValueError("header_lines must be a 2D list")
+
+            if dim is None:
+                dim = len(line)
+            elif len(line) != dim:
+                raise ValueError("header_lines: all lists must have the same size")
+
+        if align not in ["^", "<", ">"]:
+            raise ValueError("align must be in ['^', '<', '>'] ")
+
+        self.col_sep = col_sep
+        self.minwidth = minwidth
+        self.maxwidth = max(maxwidth, self.minwidth)
+
+        self.default_params = {
+            "dtype": dtype,
+            "align": align,
+            "width": minwidth,
+            "flag": flag,  # '' or '#'
+            "ellipse": ellipse,
+            "fpreci": fpreci,  # '' or '.3' for example
+        }
+
+        self.lmargin = lmargin
+        self.col_num = 0
+        self._cells = []  # [raw][col]
+
+        for values in header_lines:
+            self.add_line(values)
+
+        self.resize()
+
+    @property
+    def full_width(self):
+        if self._cells:
+            full_width = sum([c.width for c in self._cells[0]])
+            full_width += len(self.col_sep) * (self.col_num - 1)
+            return full_width
+
+    def get_line(self, index):
+        return self._cells[index]
+
+    def get_column(self, index):
+        return list(zip(*self._cells))[index]
+
+    def get_col_params(self, index):
+        """get current column width, based on the cells of the last line"""
+
+        if self._cells:
+            return self._cells[-1][index].params
+        else:
+            return self.default_params
+
+    def set_column_params(self, index, params):
+        for cell in self.get_column(index):
+            cell.set_params(params)
+
+    def add_line(self, values, line_index=None):
+        dim = len(values)
+        if self._cells:
+            if dim != self.col_num:
+                raise ValueError(
+                    f"cannot add a line with a different number of columns: {dim} != {self.col_num}"
+                )
+        else:
+            self.col_num = dim
+
+        line = [self._Cell(v, **self.get_col_params(i)) for i, v in enumerate(values)]
+
+        if line_index is None:
+            self._cells.append(line)
+        else:
+            self._cells.insert(line_index, line)
+
+        return self.lmargin + self.col_sep.join([str(cell) for cell in line])
+
+    def add_separator(self, sep="", line_index=None):
+        if self._cells:
+            self.add_line([sep * c.width for c in self._cells[0]], line_index)
+
+    def resize(self, minwidth=None, maxwidth=None):
+        if minwidth:
+            self.minwidth = minwidth
+        if maxwidth:
+            self.maxwidth = max(maxwidth, self.minwidth)
+
+        for col in zip(*self._cells):
+            self._find_best_width(col)
+
+    def _find_best_width(self, col_cells):
+
+        _maxwidth = max([c.vsize for c in col_cells])
+        _maxwidth = max(_maxwidth, self.minwidth)
+
+        if self.maxwidth:
+            _maxwidth = min(_maxwidth, self.maxwidth)
+
+        for c in col_cells:
+            c.width = _maxwidth
+
+    def __str__(self):
+        lines = [
+            self.lmargin + self.col_sep.join([str(cell) for cell in line_cells])
+            for line_cells in self._cells
+        ]
+        return "\n".join(lines)
+
+
+class _ScanPrinterBase:
     HEADER = (
-        "{not_shown_counters_str}\n"
-        + "Scan {scan_nb} {start_time_str} {filename} "
-        + "{session_name} user = {user_name}\n"
-        + "{title}\n\n"
-        + "{column_header}"
+        "\033[92m** Scan {scan_nb}: {title} **\033[0m\n\n"
+        + "   date   : {start_time_str}\n"
+        + "   file   : {filename}\n"
+        + "   user   : {user_name}\n"
+        + "   session: {session_name}\n"
+        + "\n   hidden : [ {not_shown_counters_str} ]\n"
+        + "\n{column_header}"
     )
 
     DEFAULT_WIDTH = 12
 
+    COL_SEP = "|"
+    RAW_SEP = "-"
+
     def __init__(self):
-        self.real_motors = []
-        set_scan_watch_callbacks(self.on_scan_new, self.on_scan_data, self.on_scan_end)
 
-    def on_scan_new(self, scan, scan_info):
-        scan_type = scan_info.get("type")
-        if scan_type is None:
-            return
-        scan_info = dict(scan_info)
-        self.term = Terminal(scan_info.get("stream"))
-        nb_points = scan_info.get("npoints")
-        if nb_points is None:
-            return
+        self.scan_name = None
+        self.scan_is_running = None
 
-        # print("acquisition_chain",scan_info["acquisition_chain"])
+        self.channels_number = None
+        self.sorted_channel_names = None
+        self.display_names = None
+        self.channel_units = None
+        self.other_channels = None
+        self._possible_motors = None
 
-        self.col_labels = ["#"]
-        self.real_motors = []
-        self.counter_names = []
-        self.counter_fullnames = []
-        self._point_nb = 0
-        motor_labels = []
-        self.motor_fullnames = []
+        self.scan_steps_index = 0
+        self._warning_messages = None
 
-        master, channels = next(iter(scan_info["acquisition_chain"].items()))
+    def collect_channels_info(self, scan_info):
 
-        for channel_fullname in channels["master"]["scalars"]:
-            channel_short_name = channels["master"]["display_names"][channel_fullname]
-            channel_unit = channels["master"]["scalars_units"][channel_fullname]
+        """ 
+                #------------- scan_info example -------------------------------------------------------
 
-            if channel_fullname == "timer:epoch":
-                continue
+                # session_name = scan_info.get('session_name')             # ex: 'test_session'
+                # user_name = scan_info.get('user_name')                   # ex: 'pguillou'
+                # filename = scan_info.get('filename')                     # ex: '/mnt/c/tmp/test_session/data.h5'
+                # node_name = scan_info.get('node_name')                   # ex: 'test_session:mnt:c:tmp:183_ascan'
 
-            if channel_short_name == "elapsed_time":
-                # timescan
-                self.col_labels.insert(1, f"dt[{channel_unit}]")
-            else:
-                # we can suppose channel_fullname to be a motor name
-                motor = _find_obj(channel_short_name)
-                if isinstance(motor, Axis):
-                    self.real_motors.append(motor)
-                    if self.term.is_a_tty:
-                        dispatcher.connect(
-                            self._on_motor_position_changed,
-                            signal="position",
-                            sender=motor,
-                        )
-                    unit = motor.config.get("unit", default=None)
-                    motor_label = motor.name
-                    if unit:
-                        motor_label += "[{0}]".format(unit)
-                    motor_labels.append(motor_label)
-                    self.motor_fullnames.append("axis:" + motor.name)
+                # start_time = scan_info.get('start_time')                 # ex: datetime.datetime(2019, 3, 18, 15, 28, 17, 83204)
+                # start_time_str = scan_info.get('start_time_str')         # ex: 'Mon Mar 18 15:28:17 2019'
+                # start_timestamp = scan_info.get('start_timestamp')       # ex: 1552919297.0832036
 
-        for channel_fullname in channels["scalars"]:
-            channel_short_name = channels["display_names"][channel_fullname]
-            channel_unit = channels["scalars_units"][channel_fullname]
+                # save = scan_info.get('save')                             # ex: True
+                # sleep_time = scan_info.get('sleep_time')                 # ex: None
 
-            if channel_short_name == "elapsed_time":
-                self.col_labels.insert(1, "dt[s]")
-                continue
+                # title = scan_info.get('title')                           # ex: 'ascan roby 0 10 10 0.01'
+                # scan_type = scan_info.get('type')                        # ex:    ^
+                # start = scan_info.get('start')                           # ex:             ^              = [0]
+                # stop = scan_info.get('stop')                             # ex:                ^           = [10]
+                # npoints = scan_info.get('npoints')                       # ex:                   ^        = 10
+                # count_time = scan_info.get('count_time')                 # ex:                       ^    = 0.01
 
-            if channel_fullname == "timer:epoch":
-                continue
+                # total_acq_time = scan_info.get('total_acq_time')         # ex: 0.1  ( = npoints * count_time )
+                # scan_nb = scan_info.get('scan_nb')                       # ex: 183
 
-            self.counter_names.append(
-                channel_short_name + (f"[{channel_unit}]" if channel_unit else "")
-            )
-            self.counter_fullnames.append(channel_fullname)
+                # positioners_dial = scan_info.get('positioners_dial')     # ex: {'bad': 0.0, 'calc_mot1': 20.0, 'roby': 20.0, ... }
+                # positioners = scan_info.get('positioners')               # ex: {'bad': 0.0, 'calc_mot1': 20.0, 'roby': 10.0, ...}
 
-        self.col_labels.extend(motor_labels)
-        self.col_labels.extend(self.counter_names)
+                # acquisition_chain = scan_info.get('acquisition_chain')  
+                # ex: {'axis':
+                #       { 
+                #         'master' : {'scalars': ['axis:roby'], 'spectra': [], 'images': [] }, 
+                #         'scalars': ['timer:elapsed_time', 'diode:diode'], 
+                #         'spectra': [], 
+                #         'images' : [] 
+                #       }
+                #     }
+        """
 
-        other_channels = [
-            channels["display_names"][channel_fullname]
-            for channel_fullname in channels["spectra"] + channels["images"]
+        """
+                # master, channels = next(iter(scan_info["acquisition_chain"].items()))
+                # master = axis
+                # channels = {'master': {'scalars': ['axis:roby'], 
+                #                        'scalars_units': {'axis:roby': None}, 
+                #                        'spectra': [], 
+                #                        'images': [], 
+                #                        'display_names': {'axis:roby': 'roby'}
+                #                       }, 
+
+                #             'scalars': ['timer:elapsed_time', 
+                #                         'timer:epoch', 
+                #                         'lima_simulator2:bpm:x', 
+                #                         'simulation_diode_sampling_controller:diode'],
+                #  
+                #             'scalars_units': {'timer:elapsed_time': 's', 
+                #                               'timer:epoch': 's', 
+                #                               'lima_simulator2:bpm:x': 'px', 
+                #                               'simulation_diode_sampling_controller:diode': None}, 
+                #             'spectra': [], 
+                #             'images': [], 
+                #             'display_names': {'timer:elapsed_time': 'elapsed_time', 
+                #                               'timer:epoch': 'epoch', 
+                #                               'lima_simulator2:bpm:x': 'x', 
+                #                               'simulation_diode_sampling_controller:diode': 'diode'}}
+        """
+
+        # ONLY MANAGE THE FIRST ACQUISITION BRANCH (multi-top-masters scan are ignored)
+        top_master, channels = next(iter(scan_info["acquisition_chain"].items()))
+
+        # get the total number of channels
+        self.channels_number = len(channels["master"]["scalars"]) + len(
+            channels["scalars"]
+        )
+
+        # get master scalar channels (remove epoch)
+        master_scalar_channels = [
+            cname for cname in channels["master"]["scalars"] if cname != "timer:epoch"
         ]
-        if other_channels:
-            not_shown_counters_str = "Activated counters not shown: %s\n" % ", ".join(
-                other_channels
-            )
-        else:
-            not_shown_counters_str = ""
 
-        if scan_type == "ct":
-            header = not_shown_counters_str
-        else:
-            col_lens = [max(len(x), self.DEFAULT_WIDTH) for x in self.col_labels]
-            h_templ = ["{{0:>{width}}}".format(width=col_len) for col_len in col_lens]
-            header = "  ".join(
-                [templ.format(label) for templ, label in zip(h_templ, self.col_labels)]
-            )
-            header = self.HEADER.format(
-                column_header=header,
-                not_shown_counters_str=not_shown_counters_str,
-                **scan_info,
-            )
-            self.col_templ = [
-                "{{0: >{width}g}}".format(width=col_len) for col_len in col_lens
-            ]
-        print(header)
+        # get scalar channels (remove epoch)
+        scalar_channels = [
+            cname for cname in channels["scalars"] if cname != "timer:epoch"
+        ]
 
-    def on_scan_data_ct(self, scan_info, values):
-        scan_type = scan_info.get("type")
-        if scan_type == "ct":
-            # ct is actually a timescan(npoints=1).
-            master, channels = next(iter(scan_info["acquisition_chain"].items()))
-            count_time = scan_info["count_time"]
-            col_len = 0
-            cnt_label_values = {}
-            for channel_fullname in channels["scalars"]:
-                label = channels["display_names"][channel_fullname]
-                channel_unit = channels["scalars_units"][channel_fullname]
-                col_len = max(len(label), col_len)
-                value = values[channel_fullname]
-                try:
-                    norm_value = value / count_time
-                except ZeroDivisionError:
-                    norm_value = None
-                cnt_label_values[label] = (value, norm_value)
+        # get all channels fullname, display names and units
+        channel_names = master_scalar_channels + scalar_channels
+        self.display_names = channels["master"]["display_names"]
+        self.display_names.update(channels["display_names"])
+        self.channel_units = channels["master"]["scalars_units"]
+        self.channel_units.update(channels["scalars_units"])
 
-            template = "{{label:>{0}}} = {{value: >12}} ({{norm: 12}}/s)".format(
-                col_len
-            )
-            template_no_norm = "{{label:>{0}}} = {{value: >12}}".format(col_len)
-            end_time_str = datetime.datetime.now().strftime("%a %b %d %H:%M:%S %Y")
-            print(f"{end_time_str}\n\n")
-            for label, (value, norm_value) in cnt_label_values.items():
-                temp = template if norm_value else template_no_norm
-                print(temp.format(label=label, value=value, norm=norm_value))
-            return True
+        # get none scalar channels (spectra and images)
+        self.other_channels = (
+            channels["master"]["spectra"] + channels["master"]["images"]
+        )
+        self.other_channels += channels["spectra"] + channels["images"]
 
-    def on_scan_data(self, scan_info, values):
-        scan_type = scan_info.get("type")
-        if scan_type is None:
-            return
+        self.sorted_channel_names = []
+        # First the timer channel if any
+        timer_cname = "timer:elapsed_time"
+        if timer_cname in channel_names:
+            self.sorted_channel_names.append(timer_cname)
 
-        master, channels = next(iter(scan_info["acquisition_chain"].items()))
+        # Then the masters scalars channels
+        self._possible_motors = []
+        for cname in master_scalar_channels:
+            if cname != timer_cname:
+                self.sorted_channel_names.append(cname)
+                self._possible_motors.append(self.display_names[cname])
 
-        elapsed_time_col = []
-        if "timer:elapsed_time" in values:
-            elapsed_time_col.append(values.pop("timer:elapsed_time"))
+        # Finally the other scalars channels
+        for cname in scalar_channels:
+            if cname != timer_cname:
+                self.sorted_channel_names.append(cname)
 
-        if not self.on_scan_data_ct(scan_info, values):
-            motor_values = [values[motor_name] for motor_name in self.motor_fullnames]
-            counter_values = [
-                values[counter_fullname] for counter_fullname in self.counter_fullnames
-            ]
+    def build_columns_labels(self, channel_with_unit=True, with_index=True):
+        # Build the columns labels (multi-line with counter and controller names)
+        channel_labels = []
+        counter_labels = []
+        controller_labels = []
 
-            values = elapsed_time_col + motor_values + counter_values
-            values.insert(0, self._point_nb)
-            self._point_nb += 1
-            line = "  ".join(
-                [self.col_templ[i].format(v) for i, v in enumerate(values)]
-            )
-            if self.term.is_a_tty:
-                monitor = scan_info.get("output_mode", "tail") == "monitor"
-                print("\r" + line, end=monitor and "\r" or "\n")
+        for cname in self.sorted_channel_names:
+
+            # build the channel label
+            if cname == "timer:elapsed_time":
+                disp_name = "dt"
             else:
-                print(line)
+                disp_name = self.display_names[cname]
+
+            # check if the unit must be added to channel label
+            if channel_with_unit:
+                unit = self.channel_units[cname]
+                if unit:
+                    disp_name += f"[{unit}]"
+
+            channel_labels.append(disp_name)
+
+            # try to get controller and counter names
+            try:
+                ctrl, cnt = cname.split(":")[0:2]
+                if cnt == self.display_names[cname]:
+                    cnt = "-"
+                counter_labels.append(cnt)
+                controller_labels.append(ctrl)
+            except:
+                counter_labels.append("")
+                controller_labels.append("")
+
+        if with_index:
+            controller_labels.insert(0, "")
+            counter_labels.insert(0, "")  # 'index'
+            channel_labels.insert(0, "#")
+
+        return [controller_labels, counter_labels, channel_labels]
+
+    def build_header(self, scan_info):
+        # ------------ BUILD THE HEADER TO BE DISPLAY -----------------------------
+
+        if scan_info.get("type") == "ct":
+            self._tab = FormatedTab(
+                [],
+                minwidth=self.DEFAULT_WIDTH,
+                maxwidth=50,
+                col_sep=self.COL_SEP,
+                lmargin="   ",
+            )
+        else:
+            col_max_width = 40
+            labels = self.build_columns_labels()
+            self._tab = FormatedTab(
+                labels,
+                minwidth=self.DEFAULT_WIDTH,
+                maxwidth=col_max_width,
+                col_sep=self.COL_SEP,
+                lmargin="   ",
+            )
+
+            self._tab.set_column_params(0, {"flag": ""})
+
+            # auto adjust columns widths in order to fit the screen
+            screen_width = int(shutil.get_terminal_size().columns)
+            while (self._tab.full_width + len(self._tab.lmargin) + 1) > screen_width:
+                col_max_width -= 1
+                self._tab.resize(maxwidth=col_max_width)
+                if col_max_width <= self.DEFAULT_WIDTH:
+                    break
+
+            self._tab.add_separator(self.RAW_SEP)
+
+        # A message about not shown channels
+        not_shown_counters_str = ""
+        if self.other_channels:
+            not_shown_counters_str = ", ".join(self.other_channels)
+
+        header = self.HEADER.format(
+            column_header=self._tab,
+            not_shown_counters_str=not_shown_counters_str,
+            **scan_info,
+        )
+
+        return header
+
+    def build_data_output(self, scan_info, data):
+        """ data is a dict, one scalar per channel (last point) """
+
+        # Get data for the current scan step
+        values = [data[cname] for cname in self.sorted_channel_names]
+
+        # Format output line
+        if scan_info.get("type") == "ct":
+            # ct is actually a timescan(npoints=1).
+            norm_values = numpy.array(values) / scan_info["count_time"]
+            self._build_ct_output(values, norm_values)
+            return str(self._tab)
+
+        else:
+            values.insert(0, self.scan_steps_index)
+            line = self._tab.add_line(values)
+            return line
+
+    def _build_ct_output(self, values, norm_values):
+
+        # build the header
+        labels = ["channel", "value", "value/sec", "unit", "counter", "controller"]
+        self._tab.add_line(labels)
+
+        ctrls, cnts, chans = self.build_columns_labels(
+            channel_with_unit=False, with_index=False
+        )
+        cols = []
+        cols.append(chans)
+        cols.append(values)
+        cols.append(norm_values)
+
+        # get units and replace None by N/A
+        units = []
+        for cname in self.sorted_channel_names:
+            unit = self.channel_units[cname]
+            if unit is None:
+                unit = "na"
+            units.append(unit)
+        cols.append(units)
+
+        cols.append(cnts)
+        cols.append(ctrls)
+
+        for line in list(zip(*cols))[1:]:
+            self._tab.add_line(line)
+
+        self._tab.resize()
+        self._tab.add_separator(self.RAW_SEP, line_index=1)
+
+    def is_new_scan_valid(self, scan_info):
+
+        # Skip multi-top-masters scans
+        if len(scan_info["acquisition_chain"].keys()) != 1:
+            return False
+
+        # Skip scans without a type or without a number of points
+        scan_type = scan_info.get("type")
+        npoints = scan_info.get("npoints")
+        if None in [scan_type, npoints]:
+            return False
+
+        # Skip secondary scans and warn user
+        if self.scan_is_running:
+            self._warning_messages.append(
+                f"\nWarning: a new scan '{scan_info.get('node_name')}' has been started while scan '{self.scan_name}' is running.\nNew scan outputs will be ignored."
+            )
+            return False
+
+        return True
+
+    def is_new_data_valid(self, scan_info, data):
+
+        # Skip other scan
+        if scan_info.get("node_name") != self.scan_name:
+            return False
+
+        # Skip if missing channels
+        if len(data) != self.channels_number:
+            return False
+
+        return True
+
+    def is_end_scan_valid(self, scan_info):
+
+        # Skip other scan
+        if scan_info.get("node_name") != self.scan_name:
+            return False
+
+        return True
+
+    def on_scan_new(self, scan_info):
+
+        if self.is_new_scan_valid(scan_info):
+
+            self.scan_is_running = True
+            self.scan_name = scan_info.get("node_name")
+            self.scan_steps_index = 0
+            self._warning_messages = []
+
+            self.collect_channels_info(scan_info)
+            header = self.build_header(scan_info)
+            print(header)
 
     def on_scan_end(self, scan_info):
-        scan_type = scan_info.get("type")
-        if scan_type is None or scan_type == "ct":
-            return
+        if self.is_end_scan_valid(scan_info):
+            end = datetime.datetime.fromtimestamp(time.time())
+            start = datetime.datetime.fromtimestamp(scan_info["start_timestamp"])
+            dt = end - start
 
+            msg = f"\n   Took {dt}[s] \n\n\n"
+            print(msg)
+
+            self.scan_is_running = False
+
+            for msg in self._warning_messages:
+                print(msg)
+
+
+class ScanPrinter(_ScanPrinterBase):
+    """compose scan output"""
+
+    HEADER = "\n{column_header}"
+
+    def __init__(self):
+
+        super().__init__()
+
+        self.real_motors = None
+        set_scan_watch_callbacks(self.on_scan_new, self.on_scan_data, self.on_scan_end)
+
+    def find_and_connect_real_motors(self):
+        self.real_motors = []
+        for disp_name in self._possible_motors:
+            # we can suppose channel_fullname to be a motor name
+            motor = _find_obj(disp_name)
+            if isinstance(motor, Axis):
+                self.real_motors.append(motor)
+                if self.term.is_a_tty:
+                    dispatcher.connect(
+                        self._on_motor_position_changed, signal="position", sender=motor
+                    )
+
+    def disconnect_real_motors(self):
         for motor in self.real_motors:
             dispatcher.disconnect(
                 self._on_motor_position_changed, signal="position", sender=motor
             )
 
-        end = datetime.datetime.fromtimestamp(time.time())
-        start = datetime.datetime.fromtimestamp(scan_info["start_timestamp"])
-        dt = end - start
-        if scan_info.get("output_mode", "tail") == "monitor" and self.term.is_a_tty:
-            print()
-        msg = "\nTook {0}".format(dt)
-        print(msg)
+    def on_scan_new(self, scan, scan_info):
+        self.term = Terminal(scan_info.get("stream"))
+        super().on_scan_new(scan_info)
+        self.find_and_connect_real_motors()
+
+    def on_scan_data(self, scan_info, data):
+
+        if self.is_new_data_valid(scan_info, data):
+            line = self.build_data_output(scan_info, data)
+
+            if self.term.is_a_tty and scan_info.get("type") == "ct":
+                monitor = scan_info.get("output_mode", "tail") == "monitor"
+                print("\r" + line, end=monitor and "\r" or "\n")
+            else:
+                print(line)
+
+            self.scan_steps_index += 1
+
+    def on_scan_end(self, scan_info):
+        super().on_scan_end(scan_info)
+        self.disconnect_real_motors
 
     def _on_motor_position_changed(self, position, signal=None, sender=None):
         labels = []
@@ -297,169 +730,14 @@ class ScanPrinter:
         print(*labels, sep=", ", end="\r")
 
 
-class ScanDataListener:
+class ScanDataListener(_ScanPrinterBase):
+    def __init__(self, session_name):
 
-    HEADER = (
-        "{not_shown_counters_str}\n"
-        + "Scan {scan_nb} {start_time_str} {filename} "
-        + "{session_name} user = {user_name}\n"
-        + "{title}\n\n"
-        + "{column_header}"
-    )
+        super().__init__()
 
-    DEFAULT_WIDTH = 12
-
-    def __init__(self, session_name=""):
         self.session_name = session_name
-        self.scan_name = None
-        self.scan_is_running = None
         self.scan_display = ScanDisplay(self.session_name)
         self._pool = ThreadPool(1)
-
-    def get_selected_counters(self, counter_names):
-        return [cname for cname in counter_names if cname != "timer:epoch"]
-
-    def on_scan_new(self, scan_info):
-        # self.start_time = time.time()
-        # Skip other session
-        if scan_info.get("session_name") != self.session_name:
-            # print(f"{scan_info.get('session_name')} != {self.session_name}")
-            return
-
-        scan_type = scan_info.get("type")
-        npoints = scan_info.get("npoints")
-
-        # Skip bad scans
-        if None in [scan_type, npoints]:
-            # print("scan_type, npoints = ",scan_type, npoints)
-            return
-
-        # Skip secondary scans and warn user
-        if self.scan_is_running:
-            print(
-                f"Warning: a new scan '{scan_info.get('node_name')}' has been started while scan '{self.scan_name}' is running.\nNew scan outputs will be ignored."
-            )
-            return
-        else:
-            self.scan_is_running = True
-            self.scan_name = scan_info.get("node_name")
-
-            # session_name = scan_info.get('session_name')             # ex: 'test_session'
-            # user_name = scan_info.get('user_name')                   # ex: 'pguillou'
-            # filename = scan_info.get('filename')                     # ex: '/mnt/c/tmp/test_session/data.h5'
-            # node_name = scan_info.get('node_name')                   # ex: 'test_session:mnt:c:tmp:183_ascan'
-
-            # start_time = scan_info.get('start_time')                 # ex: datetime.datetime(2019, 3, 18, 15, 28, 17, 83204)
-            # start_time_str = scan_info.get('start_time_str')         # ex: 'Mon Mar 18 15:28:17 2019'
-            # start_timestamp = scan_info.get('start_timestamp')       # ex: 1552919297.0832036
-
-            # save = scan_info.get('save')                             # ex: True
-            # sleep_time = scan_info.get('sleep_time')                 # ex: None
-
-            # title = scan_info.get('title')                           # ex: 'ascan roby 0 10 10 0.01'
-            # scan_type = scan_info.get('type')                        # ex:    ^
-            # start = scan_info.get('start')                           # ex:             ^              = [0]
-            # stop = scan_info.get('stop')                             # ex:                ^           = [10]
-            # npoints = scan_info.get('npoints')                       # ex:                   ^        = 10
-            # count_time = scan_info.get('count_time')                 # ex:                       ^    = 0.01
-
-            # total_acq_time = scan_info.get('total_acq_time')         # ex: 0.1  ( = npoints * count_time )
-            # scan_nb = scan_info.get('scan_nb')                       # ex: 183
-
-            # positioners_dial = scan_info.get('positioners_dial')     # ex: {'bad': 0.0, 'calc_mot1': 20.0, 'roby': 20.0, ... }
-            # positioners = scan_info.get('positioners')               # ex: {'bad': 0.0, 'calc_mot1': 20.0, 'roby': 10.0, ...}
-
-            # acquisition_chain = scan_info.get('acquisition_chain')   # ex: {'axis': {'master': {'scalars': ['axis:roby'], 'spectra': [], 'images': []}, 'scalars': ['timer:elapsed_time', 'diode:diode'], 'spectra': [], 'images': []}}
-
-            self.scan_steps_index = 1
-            self.col_labels = ["#"]
-            self._point_nb = 0
-
-            master, channels = next(iter(scan_info["acquisition_chain"].items()))
-
-            selected_counters = self.get_selected_counters(channels["scalars"])
-
-            # remove epoch from channel_names
-            ch_master_scalar_wo_epoch = []
-            for cname in channels["master"]["scalars"]:
-                if cname != "timer:epoch":
-                    ch_master_scalar_wo_epoch.append(cname)
-
-            self.channel_names = ch_master_scalar_wo_epoch + selected_counters
-
-            # get the number of masters and counters unfiltered
-            self.channels_number = len(channels["master"]["scalars"]) + len(
-                channels["scalars"]
-            )
-
-            # BUILD THE LABEL COLUMN
-            channel_labels = []
-            # GET THE LIST OF MASTER CHANNELS SHORT NAMES
-            for channel_name in ch_master_scalar_wo_epoch:
-                channel_short_name = channels["master"]["display_names"][channel_name]
-                channel_unit = channels["master"]["scalars_units"][channel_name]
-
-                if channel_short_name == "elapsed_time":
-                    self.col_labels.insert(1, f"dt[{channel_unit}]")
-                else:
-                    channel_labels.append(
-                        channel_short_name
-                        + (f"[{channel_unit}]" if channel_unit else "")
-                    )
-
-            # GET THE LIST OF SCALAR CHANNELS SHORT NAMES
-            for channel_name in selected_counters:
-                channel_short_name = channels["display_names"][channel_name]
-                channel_unit = channels["scalars_units"][channel_name]
-
-                if channel_short_name == "elapsed_time":
-                    self.col_labels.insert(1, f"dt[{channel_unit}]")
-                else:
-                    channel_labels.append(
-                        channel_short_name
-                        + (f"[{channel_unit}]" if channel_unit else "")
-                    )
-
-            self.col_labels.extend(channel_labels)
-
-            # GET THE LIST OF OTHER CHANNELS ('spectra' and 'images')
-            other_channels = []
-            for channel_name in channels["spectra"] + channels["images"]:
-                # idx = channel_name.rfind(":") + 1
-                # channel_short_name = channel_name[idx:]
-                # other_channels.append(channel_short_name)
-                other_channels.append(channel_name)
-
-            if other_channels:
-                not_shown_counters_str = (
-                    "Activated counters not shown: %s\n" % ", ".join(other_channels)
-                )
-            else:
-                not_shown_counters_str = ""
-
-            if scan_type == "ct":
-                header = not_shown_counters_str
-            else:
-                col_lens = [max(len(x), self.DEFAULT_WIDTH) for x in self.col_labels]
-                h_templ = [
-                    "{{0:>{width}}}".format(width=col_len) for col_len in col_lens
-                ]
-                header = "  ".join(
-                    [
-                        templ.format(label)
-                        for templ, label in zip(h_templ, self.col_labels)
-                    ]
-                )
-                header = self.HEADER.format(
-                    column_header=header,
-                    not_shown_counters_str=not_shown_counters_str,
-                    **scan_info,
-                )
-                self.col_templ = [
-                    "{{0: >{width}g}}".format(width=col_len) for col_len in col_lens
-                ]
-
-            print(header)
 
     def on_scan_new_child(self, scan_info, data_channel):
         pass
@@ -468,115 +746,30 @@ class ScanDataListener:
     def on_scan_data(self, data_dim, master_name, channel_info):
 
         if data_dim != "0d":
-            return
+            return False
 
         scan_info = channel_info["scan_info"]
-        scan_type = scan_info.get("type")
+        data = channel_info["data"]
 
-        # Skip other session
-        if scan_info.get("session_name") != self.session_name:
-            return
+        if self.is_new_data_valid(scan_info, data):
 
-        # Skip other scan
-        if scan_info.get("node_name") != self.scan_name:
-            return
+            # Skip if partial data
+            for cname in self.sorted_channel_names:
+                if len(data[cname]) <= self.scan_steps_index:
+                    return False
 
-        # Skip if missing channels
-        if len(channel_info["data"]) != self.channels_number:
-            return
+            # Check if we receive more than one scan points (i.e. lines) per 'scan_data' event
+            bsize = min([len(data[cname]) for cname in data])
 
-        # Skip if partial data
-        for channel_name in self.channel_names:
-            if len(channel_info["data"][channel_name]) < self.scan_steps_index:
-                return
-
-        # Check if we receive more than one scan points (i.e. lines) per 'scan_data' event
-        bsize = min(
-            [
-                len(channel_info["data"][channel_name])
-                for channel_name in channel_info["data"]
-            ]
-        )
-
-        for i in range(bsize - self.scan_steps_index + 1):
-            # Get data for the current scan step
-            values_dict = {}
-
-            for channel_name in self.channel_names:
-                values_dict[channel_name] = channel_info["data"][channel_name][
-                    self.scan_steps_index - 1
-                ]
-
-            # Extract time data
-            elapsed_time_col = []
-            if "timer:elapsed_time" in values_dict:
-                elapsed_time_col.append(values_dict.pop("timer:elapsed_time"))
-
-            # Build data line
-            values = elapsed_time_col + [
-                values_dict[channel_name] for channel_name in values_dict
-            ]
-
-            # Format output line
-            if scan_type == "ct":
-                # ct is actually a timescan(npoints=1).
-                norm_values = numpy.array(values) / scan_info["count_time"]
-                col_len = max(map(len, self.col_labels)) + 2
-                template = "{{label:>{0}}} = {{value: >12}} ({{norm: 12}}/s)".format(
-                    col_len
-                )
-                lines = "\n".join(
-                    [
-                        template.format(label=label, value=v, norm=nv)
-                        for label, v, nv in zip(
-                            self.col_labels[1:], values, norm_values
-                        )
-                    ]
-                )
-                end_time_str = datetime.datetime.now().strftime("%a %b %d %H:%M:%S %Y")
-                msg = "{0}\n\n{1}".format(end_time_str, lines)
-                print(msg)
-            else:
-                values.insert(0, self._point_nb)
-                self._point_nb += 1
-                line = "  ".join(
-                    [self.col_templ[i].format(v) for i, v in enumerate(values)]
-                )
-
+            for i in range(bsize - self.scan_steps_index):
+                # convert data in order to keep only the concerned line (one scalar per channel).
+                ndata = {cname: data[cname][self.scan_steps_index] for cname in data}
+                line = self.build_data_output(scan_info, ndata)
                 print(line)
-
-            self.scan_steps_index += 1
-
-        # self.last_time = time.time()
-        # print("dt_last = ",self.last_time -self.start_time)
+                self.scan_steps_index += 1
 
     def on_scan_end(self, scan_info):
-
-        # self.stop_time = time.time()
-        # print("stop_time ", self.stop_time)
-        # print("dt_stop = ",self.stop_time -self.start_time)
-
-        if scan_info.get("session_name") != self.session_name:
-            return
-
-        if scan_info.get("node_name") != self.scan_name:
-            return
-
-        end = datetime.datetime.fromtimestamp(time.time())
-        start = datetime.datetime.fromtimestamp(scan_info["start_timestamp"])
-        dt = end - start
-
-        msg = "\nTook {0}".format(dt)
-        print(msg)
-
-        print_full_line(
-            " >>> PRESS F5 TO COME BACK TO THE SHELL PROMPT <<< ",
-            deco="=",
-            head="\n",
-            tail="\n",
-        )
-
-        self.scan_is_running = False
+        super().on_scan_end(scan_info)
 
     def reset_terminal(self):
         # Prevent user inputs
@@ -602,12 +795,9 @@ class ScanDataListener:
             # revert 'Prevent user inputs if using a terminal'
             atexit.register(self.reset_terminal)
 
-        print_full_line(
-            f" Bliss session '{self.session_name}': watching scans ",
-            deco="=",
-            head="",
-            tail="\n",
-        )
+        msg = f" Watching scans from Bliss session: '{self.session_name}' "
+        line = get_decorated_line(msg, deco=">", rdeco="<", head="\n", tail="\n")
+        print(line)
 
         # Start the watch, winter is coming...
         watch_session_scans(
@@ -690,8 +880,10 @@ def _local_pb(scan, repl, task):
                 cbk(set_scan_status)
                 with progressbar.ProgressBar() as pb:
                     yield pb
+
     except KeyboardInterrupt:
         repl.stop_current_task(block=False, exception=KeyboardInterrupt)
+
     finally:
         repl.unregister_application_stopper(stop)
         for motor in real_motors:
@@ -700,15 +892,27 @@ def _local_pb(scan, repl, task):
             )
 
 
-class ScanEventHandler(ScanPrinter):
+class ScanPrinterWithProgressBar(ScanPrinter):
     def __init__(self, repl):
+        """ Alternate ScanPrinter to be used in parallel of a ScanDataListener.
+            Prints in the user shell a progress bar during the scan execution.
+            Prints data output of 'ct' scans only.
+        """
+
+        super().__init__()
 
         self.repl = repl
         self.progress_task = None
         self._on_scan_data_values = None
-        super().__init__()
 
     def on_scan_new(self, scan, scan_info):
+
+        # allow prints for 'ct' scans only
+        scan_type = scan_info.get("type")
+        if scan_type == "ct":
+            super().on_scan_new(scan, scan_info)
+
+        # prepare progress bar for all type of scans
         if self.progress_task:
             self.progress_task.kill()
 
@@ -723,11 +927,14 @@ class ScanEventHandler(ScanPrinter):
         with gevent.Timeout(1.):
             started_event.wait()
 
-    def on_scan_data(self, *args):
-        self._on_scan_data_values = args
+    def on_scan_data(self, scan_info, values):
+        self._on_scan_data_values = scan_info, values
 
     def on_scan_end(self, scan_info):
-        pass
+        # allow prints for 'ct' scans only
+        scan_type = scan_info.get("type")
+        if scan_type == "ct":
+            super().on_scan_end(scan_info)
 
     def _progress_bar(self, scan, started_event):
 
@@ -763,4 +970,8 @@ class ScanEventHandler(ScanPrinter):
                     pass
         finally:
             if self._on_scan_data_values:
-                self.on_scan_data_ct(*self._on_scan_data_values)
+                scan_info, values = self._on_scan_data_values
+                scan_type = scan_info.get("type")
+                if scan_type == "ct":
+                    line = self.build_data_output(scan_info, values)
+                    print(line)

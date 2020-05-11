@@ -515,14 +515,18 @@ def _get_masters_and_channels(acq_chain):
                 names_count.update([controller_chan_name, chan_name])
     for display_names in display_names_list:
         for fullname, (controller_chan_name, chan_name) in display_names.items():
-            if names_count[chan_name] == 1:
-                # unique short name
-                display_names[fullname] = chan_name
-            else:
-                if names_count[controller_chan_name] == 1:
-                    display_names[fullname] = controller_chan_name
-                else:
-                    display_names[fullname] = fullname
+
+            ## Replace the channel name by the controller name if not unique
+            # if names_count[chan_name] == 1:
+            #     # unique short name
+            #     display_names[fullname] = chan_name
+            # else:
+            #     if names_count[controller_chan_name] == 1:
+            #         display_names[fullname] = controller_chan_name
+            #     else:
+            #         display_names[fullname] = fullname
+
+            display_names[fullname] = chan_name
 
     return chain_dict
 

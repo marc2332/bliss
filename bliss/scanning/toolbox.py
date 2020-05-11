@@ -99,8 +99,9 @@ class ChainBuilder:
         # --- Remove duplicates ----------------------------------
         counter_dct = {counter.fullname: counter for counter in counter_list}
 
-        # --- Sort counters ------------------------------------------------------
-        counter_list = [counter for name, counter in sorted(counter_dct.items())]
+        # --- Sort ... or don t sort counters ! ------------------------------------------------------
+        # counter_list = [counter for name, counter in sorted(counter_dct.items())]
+        counter_list = list(counter_dct.values())
 
         # --- Separate real and calc counters
         real_counters = [

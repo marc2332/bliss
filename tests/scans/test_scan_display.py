@@ -23,9 +23,7 @@ import gevent
 import pytest
 
 
-def grab_lines(
-    subproc, lines, timeout=30, finish_line="PRESS F5 TO COME BACK TO THE SHELL PROMPT"
-):
+def grab_lines(subproc, lines, timeout=30, finish_line="Took "):
     try:
         with gevent.Timeout(timeout):
             for line in subproc.stdout:
@@ -33,8 +31,75 @@ def grab_lines(
                 # BREAK WHEN RECEIVING THE LAST SCAN DISPLAY LINE
                 if finish_line in line:
                     break
+
+        # print("======== LINES ============")
+        # for line in lines:
+        #     print(line[:-1])  #remove '\n' at end of line
+        # print("======== END LINES ============")
+
     except gevent.Timeout:
         raise TimeoutError
+
+
+def find_data_start(lines, fields, col_sep="|", offset=0):
+    data_start_idx = None
+    dim = len(fields)
+    for idx, line in enumerate(lines):
+        ans = line.strip().split(col_sep)
+        if len(ans) == dim:
+            if False not in [ans[i].strip() == fields[i] for i in range(dim)]:
+                data_start_idx = idx
+                break
+    return data_start_idx + offset
+
+
+def extract_data(lines, shape, col_sep="|"):
+    """ extract text data as numpy array """
+    h, w = shape
+    arry = numpy.empty(shape, dtype=numpy.float)
+
+    incr = 0
+    for line in lines:
+        ans = line.strip().split(col_sep)
+        if len(ans) == w:
+            arry[incr][:] = [float(v) for v in ans]
+            incr += 1
+
+    return arry
+
+
+def extract_words(lines, col_sep="|", cast_num=True):
+    """ extract text data as a list of strings """
+    nlines = []
+    for line in lines:
+        ans = line.strip().split(col_sep)
+
+        if cast_num:
+            words = []
+            for w in ans:
+                try:
+                    w = float(w)
+                except:
+                    w = w.strip()
+                words.append(w)
+        else:
+            words = [w.strip() for w in ans]
+
+        nlines.append(words)
+
+    return nlines
+
+
+def wait_for_scan_data_listener_started(popipe):
+    # WAIT FOR THE FIRST LINE (>>>>> Watching scans from Bliss session: 'test_session' <<<<)
+    with gevent.Timeout(5):
+        startline = "\n"
+        while startline == "\n":
+            startline = popipe.stdout.readline()
+
+        assert (
+            "Watching scans from Bliss session" in startline
+        )  # NOW LISTENER IS STARTED AND READY
 
 
 def test_fast_scan_display(session):
@@ -111,10 +176,7 @@ def test_fast_scan_display(session):
 
         try:
 
-            # WAIT FOR THE FIRST LINE (====== Bliss session 'test_session': watching scans ======)
-            with gevent.Timeout(5):
-                startline = p.stdout.readline()
-                assert "Bliss session" in startline  # NOW LISTENER IS STARTED AND READY
+            wait_for_scan_data_listener_started(p)
 
             # ============= START THE SCAN ===================================
             lines = []
@@ -130,44 +192,50 @@ def test_fast_scan_display(session):
 
             # EXPECTED OUTPUT
             if 1:
-                # line 0
-                # line 1
-                # line 2 Scan 1268 Wed May 15 17:58:41 2019 <no saving> test_session user = pguillou
-                # line 3 scan
-                # line 4
-                # line 5               #         dt[s]    block_data
-                # line 6               0             0             0
-                # line 7               1      0.167275             1
-                # line 8               2      0.364229             2
-                # line 9               3      0.562693             3
-                # line 10              4      0.727321             4
-                # line 11              5        0.8995             5
-                # line 12              6        1.0627             6
-                # line 13              7       1.22539             7
-                # line 14              8       1.38847             8
-                # line 15              9       1.55273             9
-                # ..................................................
-                # line 1240         1233       xxxxxxx          1233
-                # line 1241
-                # line 1242  Took 0:00:02.126591
-                # line 1243
-                # line 1244  ============== >>> PRESS F5 TO COME BACK TO THE SHELL PROMPT <<< ==============
+
+                # ** Scan 1: scan **
+
+                # date   : Tue May 19 11:41:07 2020
+                # file   :
+                # user   : pguillou
+                # session: test_session
+
+                # hidden : [  ]
+
+                #                |   timer    |
+                #                |     -      |
+                #         #      |   dt[s]    | block_data
+                #    ------------|------------|------------
+                #         0      |  0.00000   |  0.00000
+                #         1      |0.000756025 |  1.00000
+                #         2      | 0.00124764 |  2.00000
+                #         3      | 0.00176120 |  3.00000
+                #         4      | 0.00224543 |  4.00000
+                #         5      | 0.00273418 |  5.00000
+                #         6      | 0.00320554 |  6.00000
+                #         7      | 0.00368118 |  7.00000
+                #         8      | 0.00415182 |  8.00000
+                #         9      | 0.00499439 |  9.00000
+                #         10     | 0.00548410 |  10.0000
+                #         11     | 0.00596142 |  11.0000
+
+                # Took 0:00:00.088335[s]
 
                 # GRAB THE SCAN DISPLAY LINES
                 grab_lines(p, lines)
 
-                assert lines[5].strip() == "#         dt[s]    block_data"
+                # find the first line of data
+                # take into account the line separator of the data table (offset=2)
+                data_start_idx = find_data_start(
+                    lines, ["#", "dt[s]", "block_data"], offset=2
+                )
+                assert data_start_idx != None
 
-                arry = []
-                for line in lines[6:]:
-                    line = " ".join(line.strip().split())
-                    tab = line.split(" ")
-                    if len(tab) > 1:
-                        tab.pop(1)
-                        arry.append(tab)
-
+                # extract data and check values
+                arry = extract_data(lines[data_start_idx:], (nb, 3))
+                arry = numpy.delete(arry, 1, 1)  # remove column dt
                 for i in range(nb):
-                    assert arry[i] == [str(i), str(i)]
+                    assert numpy.all(arry[i, :] == [i, i])
 
         finally:
             p.terminate()
@@ -197,10 +265,7 @@ def test_standard_scan_display(session):
             diode4 = session.config.get("diode4")
             diode5 = session.config.get("diode5")
 
-            # WAIT FOR THE FIRST LINE (====== Bliss session 'test_session': watching scans ======)
-            with gevent.Timeout(5):
-                startline = p.stdout.readline()
-                assert "Bliss session" in startline  # NOW LISTENER IS STARTED AND READY
+            wait_for_scan_data_listener_started(p)
 
             # ============= START THE A2SCAN ===================================
             lines = []
@@ -210,55 +275,34 @@ def test_standard_scan_display(session):
             )
             # EXPECTED OUTPUT
             if 1:
-                # line 0
-                # line 1
-                # line 2 Scan 937 Fri Apr 26 16:57:07 2019 /tmp/scans/test_session/data.h5 test_session user = pguillou
-                # line 3 a2scan robz 0 9 roby 10 19 10 0.01
-                # line 4
-                # line 5             #         dt[s]      robz[mm]          roby        diode4        diode5
-                # line 6             0             0             0            10             4             5
-                # line 7             1      0.167275             1            11             4             5
-                # line 8             2      0.364229             2            12             4             5
-                # line 9             3      0.562693             3            13             4             5
-                # line 10            4      0.727321             4            14             4             5
-                # line 11            5        0.8995             5            15             4             5
-                # line 12            6        1.0627             6            16             4             5
-                # line 13            7       1.22539             7            17             4             5
-                # line 14            8       1.38847             8            18             4             5
-                # line 15            9       1.55273             9            19             4             5
-                # line 16
-                # line 17  Took 0:00:02.126591
-                # line 18
-                # line 19  ============== >>> PRESS F5 TO COME BACK TO THE SHELL PROMPT <<< ==============
+
+                #                |   timer    |    axis    |    axis    |..controller|..controller
+                #                |     -      |     -      |     -      |     -      |     -
+                #         #      |   dt[s]    |  robz[mm]  |    roby    |   diode4   |   diode5
+                #    ------------|------------|------------|------------|------------|------------
+                #         0      |  0.00000   |  0.00000   |  10.0000   |  4.00000   |  5.00000
+                #         1      |  0.252048  |  1.00000   |  11.0000   |  4.00000   |  5.00000
+                #         2      |  0.478536  |  2.00000   |  12.0000   |  4.00000   |  5.00000
+                #         3      |  0.717785  |  3.00000   |  13.0000   |  4.00000   |  5.00000
+                #         4      |  0.972510  |  4.00000   |  14.0000   |  4.00000   |  5.00000
+                #         5      |  1.22692   |  5.00000   |  15.0000   |  4.00000   |  5.00000
+                #         6      |  1.47112   |  6.00000   |  16.0000   |  4.00000   |  5.00000
+                #         7      |  1.71941   |  7.00000   |  17.0000   |  4.00000   |  5.00000
+                #         8      |  1.97158   |  8.00000   |  18.0000   |  4.00000   |  5.00000
+                #         9      |  2.23130   |  9.00000   |  19.0000   |  4.00000   |  5.00000
 
                 # GRAB THE SCAN DISPLAY LINES
                 grab_lines(p, lines)
 
-                assert (
-                    lines[5].strip()
-                    == "#         dt[s]      robz[mm]          roby        diode4        diode5"
-                )
+                labels = ["#", "dt[s]", "robz[mm]", "roby", "diode4", "diode5"]
+                data_start_idx = find_data_start(lines, labels, offset=2)
+                assert data_start_idx != None
 
-                arry = []
-                for line in lines[6:]:
-                    line = " ".join(line.strip().split())
-                    tab = line.split(" ")
-                    if len(tab) > 1:
-                        tab.pop(1)
-                        arry.append(tab)
-
-                assert arry[0] == ["0", "0", "10", "4", "5"]
-                assert arry[1] == ["1", "1", "11", "4", "5"]
-                assert arry[2] == ["2", "2", "12", "4", "5"]
-                assert arry[3] == ["3", "3", "13", "4", "5"]
-                assert arry[4] == ["4", "4", "14", "4", "5"]
-                assert arry[5] == ["5", "5", "15", "4", "5"]
-                assert arry[6] == ["6", "6", "16", "4", "5"]
-                assert arry[7] == ["7", "7", "17", "4", "5"]
-                assert arry[8] == ["8", "8", "18", "4", "5"]
-                assert arry[9] == ["9", "9", "19", "4", "5"]
-
-                # print(' finished')
+                nbp = 10
+                arry = extract_data(lines[data_start_idx:], (nbp, 6))
+                arry = numpy.delete(arry, 1, 1)  # remove column dt
+                for i in range(nbp):
+                    assert numpy.all(arry[i, :] == [i, i, i + 10, 4, 5])
 
             # ============= START THE A2SCAN (reversed axis) ===================
             lines = []
@@ -268,55 +312,34 @@ def test_standard_scan_display(session):
             )
             # EXPECTED OUTPUT
             if 1:
-                # line 0
-                # line 1
-                # line 2 Scan 937 Fri Apr 26 16:57:07 2019 /tmp/scans/test_session/data.h5 test_session user = pguillou
-                # line 3 a2scan robz 0 9 roby 10 19 10 0.01
-                # line 4
-                # line 5             #         dt[s]          roby      robz[mm]        diode4        diode5
-                # line 6             0             0             0            10             4             5
-                # line 7             1      0.167275             1            11             4             5
-                # line 8             2      0.364229             2            12             4             5
-                # line 9            3      0.562693             3            13             4             5
-                # line 10            4      0.727321             4            14             4             5
-                # line 11            5        0.8995             5            15             4             5
-                # line 12            6        1.0627             6            16             4             5
-                # line 13            7       1.22539             7            17             4             5
-                # line 14            8       1.38847             8            18             4             5
-                # line 15            9       1.55273             9            19             4             5
-                # line 16
-                # line 17  Took 0:00:02.126591
-                # line 18
-                # line 19  ============== >>> PRESS F5 TO COME BACK TO THE SHELL PROMPT <<< ==============
+
+                #                |   timer    |    axis    |    axis    |..controller|..controller
+                #                |     -      |     -      |     -      |     -      |     -
+                #         #      |   dt[s]    |    roby    |  robz[mm]  |   diode4   |   diode5
+                #    ------------|------------|------------|------------|------------|------------
+                #         0      |  0.00000   |  0.00000   |  10.0000   |  4.00000   |  5.00000
+                #         1      |  0.252455  |  1.00000   |  11.0000   |  4.00000   |  5.00000
+                #         2      |  0.501949  |  2.00000   |  12.0000   |  4.00000   |  5.00000
+                #         3      |  0.764905  |  3.00000   |  13.0000   |  4.00000   |  5.00000
+                #         4      |  1.02001   |  4.00000   |  14.0000   |  4.00000   |  5.00000
+                #         5      |  1.28091   |  5.00000   |  15.0000   |  4.00000   |  5.00000
+                #         6      |  1.54364   |  6.00000   |  16.0000   |  4.00000   |  5.00000
+                #         7      |  1.78826   |  7.00000   |  17.0000   |  4.00000   |  5.00000
+                #         8      |  2.01668   |  8.00000   |  18.0000   |  4.00000   |  5.00000
+                #         9      |  2.26631   |  9.00000   |  19.0000   |  4.00000   |  5.00000
 
                 # GRAB THE SCAN DISPLAY LINES
                 grab_lines(p, lines)
 
-                assert (
-                    lines[5].strip()
-                    == "#         dt[s]          roby      robz[mm]        diode4        diode5"
-                )
+                labels = ["#", "dt[s]", "roby", "robz[mm]", "diode4", "diode5"]
+                data_start_idx = find_data_start(lines, labels, offset=2)
+                assert data_start_idx != None
 
-                arry = []
-                for line in lines[6:]:
-                    line = " ".join(line.strip().split())
-                    tab = line.split(" ")
-                    if len(tab) > 1:
-                        tab.pop(1)
-                        arry.append(tab)
-
-                assert arry[0] == ["0", "0", "10", "4", "5"]
-                assert arry[1] == ["1", "1", "11", "4", "5"]
-                assert arry[2] == ["2", "2", "12", "4", "5"]
-                assert arry[3] == ["3", "3", "13", "4", "5"]
-                assert arry[4] == ["4", "4", "14", "4", "5"]
-                assert arry[5] == ["5", "5", "15", "4", "5"]
-                assert arry[6] == ["6", "6", "16", "4", "5"]
-                assert arry[7] == ["7", "7", "17", "4", "5"]
-                assert arry[8] == ["8", "8", "18", "4", "5"]
-                assert arry[9] == ["9", "9", "19", "4", "5"]
-
-                # print(' finished')
+                nbp = 10
+                arry = extract_data(lines[data_start_idx:], (nbp, 6))
+                arry = numpy.delete(arry, 1, 1)  # remove column dt
+                for i in range(nbp):
+                    assert numpy.all(arry[i, :] == [i, i, i + 10, 4, 5])
 
             # ============= START THE ASCAN ===================================
             lines = []
@@ -324,54 +347,34 @@ def test_standard_scan_display(session):
             s = scans.ascan(roby, 0, 9, 9, 0.1, diode4, diode5, save=False)
             # EXPECTED OUTPUT
             if 1:
-                # line 0
-                # line 1
-                # line 2  Scan 1056 Mon Apr 29 17:48:02 2019 /tmp/scans/test_session/data.h5 test_session user = pguillou
-                # line 3  ascan roby 0 1 4 0.1
-                # line 4
-                # line 5          #         dt[s]          roby        diode4        diode5
-                # line 6          0             0             0             4             5
-                # line 7          1      0.128761             1             4             5
-                # line 8          2      0.260837             2             4             5
-                # line 9          3      0.397228             3             4             5
-                # line 10         4      0.529536             4             4             5
-                # line 11         5      0.677317             5             4             5
-                # line 12         6      0.821016             6             4             5
-                # line 13         7      0.952247             7             4             5
-                # line 14         8       1.06537             8             4             5
-                # line 15         9       1.19704             9             4             5
-                # line 16 Took 0:00:01.098092
-                # line 17
-                # line 18 ================================== >>> PRESS F5 TO COME BACK TO THE SHELL PROMPT <<< ==================================
+
+                #                |   timer    |    axis    |..pling_controller|..pling_controller
+                #                |     -      |     -      |        -         |        -
+                #         #      |   dt[s]    |    roby    |      diode4      |      diode5
+                #    ------------|------------|------------|------------------|------------------
+                #         0      |  0.00000   |  0.00000   |     4.00000      |     5.00000
+                #         1      |  0.258994  |  1.00000   |     4.00000      |     5.00000
+                #         2      |  0.519995  |  2.00000   |     4.00000      |     5.00000
+                #         3      |  0.783957  |  3.00000   |     4.00000      |     5.00000
+                #         4      |  1.04765   |  4.00000   |     4.00000      |     5.00000
+                #         5      |  1.30581   |  5.00000   |     4.00000      |     5.00000
+                #         6      |  1.56437   |  6.00000   |     4.00000      |     5.00000
+                #         7      |  1.81697   |  7.00000   |     4.00000      |     5.00000
+                #         8      |  2.07680   |  8.00000   |     4.00000      |     5.00000
+                #         9      |  2.33725   |  9.00000   |     4.00000      |     5.00000
 
                 # GRAB THE SCAN DISPLAY LINES
                 grab_lines(p, lines)
 
-                assert (
-                    lines[5].strip()
-                    == "#         dt[s]          roby        diode4        diode5"
-                )
+                labels = ["#", "dt[s]", "roby", "diode4", "diode5"]
+                data_start_idx = find_data_start(lines, labels, offset=2)
+                assert data_start_idx != None
 
-                arry = []
-                for line in lines[6:]:
-                    line = " ".join(line.strip().split())
-                    tab = line.split(" ")
-                    if len(tab) > 1:
-                        tab.pop(1)
-                        arry.append(tab)
-
-                assert arry[0] == ["0", "0", "4", "5"]
-                assert arry[1] == ["1", "1", "4", "5"]
-                assert arry[2] == ["2", "2", "4", "5"]
-                assert arry[3] == ["3", "3", "4", "5"]
-                assert arry[4] == ["4", "4", "4", "5"]
-                assert arry[5] == ["5", "5", "4", "5"]
-                assert arry[6] == ["6", "6", "4", "5"]
-                assert arry[7] == ["7", "7", "4", "5"]
-                assert arry[8] == ["8", "8", "4", "5"]
-                assert arry[9] == ["9", "9", "4", "5"]
-
-                # print(' finished')
+                nbp = 10
+                arry = extract_data(lines[data_start_idx:], (nbp, 5))
+                arry = numpy.delete(arry, 1, 1)  # remove column dt
+                for i in range(nbp):
+                    assert numpy.all(arry[i, :] == [i, i, 4, 5])
 
             # ============= START THE CT SCAN ===================================
             lines = []
@@ -379,33 +382,43 @@ def test_standard_scan_display(session):
             s = scans.ct(0.1, diode4, diode5, save=False)
             # EXPECTED OUTPUT
             if 1:
-                # line 0
-                # line 1  Mon Apr 29 17:56:47 2019
-                # line 2
-                # line 3   dt[s] =          0.0 (         0.0/s)
-                # line 4  diode4 =          4.0 (        40.0/s)
-                # line 5  diode5 =          5.0 (        50.0/s)
-                # line 6
-                # line 7  Took 0:00:00.223051
-                # line 8
-                # line 9  ======= >>> PRESS F5 TO COME BACK TO THE SHELL PROMPT <<< ========
+
+                #      channel   |   value    | value/sec  |    unit    |  counter   |             controller
+                #    ------------|------------|------------|------------|------------|------------------------------------
+                #       diode4   |  4.00000   |  40.0000   |     na     |     -      |simulation_diode_sampling_controller
+                #       diode5   |  5.00000   |  50.0000   |     na     |     -      |simulation_diode_sampling_controller
 
                 # GRAB THE SCAN DISPLAY LINES
                 grab_lines(p, lines)
 
-                arry = []
-                for line in lines[3:]:
-                    line = " ".join(line.strip().split())
-                    tab = line.split(" ")[:3]
-                    if len(tab) > 1:
-                        tab.pop(1)
-                        arry.append(tab)
+                labels = [
+                    "channel",
+                    "value",
+                    "value/sec",
+                    "unit",
+                    "counter",
+                    "controller",
+                ]
+                data_start_idx = find_data_start(lines, labels, offset=2)
+                assert data_start_idx != None
 
-                assert arry[0] == ["dt[s]", "0.0"]
-                assert arry[1] == ["diode4", "4.0"]
-                assert arry[2] == ["diode5", "5.0"]
-
-                # print(' finished')
+                nlines = extract_words(lines[data_start_idx : data_start_idx + 2])
+                assert nlines[0] == [
+                    "diode4",
+                    4.0,
+                    40.0,
+                    "na",
+                    "-",
+                    "simulation_diode_sampling_controller",
+                ]
+                assert nlines[1] == [
+                    "diode5",
+                    5.0,
+                    50.0,
+                    "na",
+                    "-",
+                    "simulation_diode_sampling_controller",
+                ]
 
             # ============= START THE LOOPSCAN ===================================
             lines = []
@@ -413,51 +426,34 @@ def test_standard_scan_display(session):
             s = scans.loopscan(10, 0.1, diode4, diode5, save=False)
             # EXPECTED OUTPUT
             if 1:
-                # line 0
-                # line 1
-                # line 2  Scan 1056 Mon Apr 29 17:48:02 2019 /tmp/scans/test_session/data.h5 test_session user = pguillou
-                # line 3  ascan roby 0 1 4 0.1
-                # line 4
-                # line 5          #         dt[s]        diode4        diode5
-                # line 6          0             0             4             5
-                # line 7          1      0.128761             4             5
-                # line 8          2      0.260837             4             5
-                # line 9          3      0.397228             4             5
-                # line 10         4      0.529536             4             5
-                # line 11         5      0.677317             4             5
-                # line 12         6      0.821016             4             5
-                # line 13         7      0.952247             4             5
-                # line 14         8       1.06537             4             5
-                # line 15         9       1.19704             4             5
-                # line 16 Took 0:00:01.098092
-                # line 17
-                # line 18 ================================== >>> PRESS F5 TO COME BACK TO THE SHELL PROMPT <<< ==================================
+
+                #                |   timer    |..de_sampling_controller|..de_sampling_controller
+                #                |     -      |           -            |           -
+                #         #      |   dt[s]    |         diode4         |         diode5
+                #    ------------|------------|------------------------|------------------------
+                #         0      |  0.00000   |        4.00000         |        5.00000
+                #         1      |  0.102292  |        4.00000         |        5.00000
+                #         2      |  0.203329  |        4.00000         |        5.00000
+                #         3      |  0.305624  |        4.00000         |        5.00000
+                #         4      |  0.407249  |        4.00000         |        5.00000
+                #         5      |  0.508064  |        4.00000         |        5.00000
+                #         6      |  0.609728  |        4.00000         |        5.00000
+                #         7      |  0.711477  |        4.00000         |        5.00000
+                #         8      |  0.812464  |        4.00000         |        5.00000
+                #         9      |  0.914200  |        4.00000         |        5.00000
 
                 # GRAB THE SCAN DISPLAY LINES
                 grab_lines(p, lines)
 
-                assert lines[5].strip() == "#         dt[s]        diode4        diode5"
+                labels = ["#", "dt[s]", "diode4", "diode5"]
+                data_start_idx = find_data_start(lines, labels, offset=2)
+                assert data_start_idx != None
 
-                arry = []
-                for line in lines[6:]:
-                    line = " ".join(line.strip().split())
-                    tab = line.split(" ")
-                    if len(tab) > 1:
-                        tab.pop(1)
-                        arry.append(tab)
-
-                assert arry[0] == ["0", "4", "5"]
-                assert arry[1] == ["1", "4", "5"]
-                assert arry[2] == ["2", "4", "5"]
-                assert arry[3] == ["3", "4", "5"]
-                assert arry[4] == ["4", "4", "5"]
-                assert arry[5] == ["5", "4", "5"]
-                assert arry[6] == ["6", "4", "5"]
-                assert arry[7] == ["7", "4", "5"]
-                assert arry[8] == ["8", "4", "5"]
-                assert arry[9] == ["9", "4", "5"]
-
-                # print(' finished')
+                nbp = 10
+                arry = extract_data(lines[data_start_idx:], (nbp, 4))
+                arry = numpy.delete(arry, 1, 1)  # remove column dt
+                for i in range(nbp):
+                    assert numpy.all(arry[i, :] == [i, 4, 5])
 
             # ============= START THE AMESH ======================================
             lines = []
@@ -467,141 +463,92 @@ def test_standard_scan_display(session):
             )
             # EXPECTED OUTPUT
             if 1:
-                # line 0
-                # line 1
-                # line 2 Scan 937 Fri Apr 26 16:57:07 2019 /tmp/scans/test_session/data.h5 test_session user = pguillou
-                # line 3 a2scan robz 0 9 roby 10 19 10 0.01
-                # line 4
-                # line 5             #         dt[s]          roby      robz[mm]        diode4        diode5
-                # line 6             0             0             0            10             4             5
-                # line 7             1      0.143428             1            10             4             5
-                # line 8             2      0.287758             2            10             4             5
-                # line 9             3      0.629851             0            11             4             5
-                # line 10            4       0.77193             1            11             4             5
-                # line 11            5      0.913047             2            11             4             5
-                # line 12            6       1.26601             0            12             4             5
-                # line 13            7       1.40803             1            12             4             5
-                # line 14            8        1.5547             2            12             4             5
-                # line 15
-                # line 16  Took 0:00:02.126591
-                # line 17
-                # line 18  ============== >>> PRESS F5 TO COME BACK TO THE SHELL PROMPT <<< ==============
+
+                #                |   timer    |    axis    |    axis    |..controller|..controller
+                #                |     -      |     -      |     -      |     -      |     -
+                #         #      |   dt[s]    |    roby    |  robz[mm]  |   diode4   |   diode5
+                #    ------------|------------|------------|------------|------------|------------
+                #         0      |  0.00000   |  0.00000   |  10.0000   |  4.00000   |  5.00000
+                #         1      |  0.175061  |  1.00000   |  10.0000   |  4.00000   |  5.00000
+                #         2      |  0.377336  |  2.00000   |  10.0000   |  4.00000   |  5.00000
+                #         3      |  0.801528  |  0.00000   |  11.0000   |  4.00000   |  5.00000
+                #         4      |  0.975771  |  1.00000   |  11.0000   |  4.00000   |  5.00000
+                #         5      |  1.15545   |  2.00000   |  11.0000   |  4.00000   |  5.00000
+                #         6      |  1.53510   |  0.00000   |  12.0000   |  4.00000   |  5.00000
+                #         7      |  1.67935   |  1.00000   |  12.0000   |  4.00000   |  5.00000
+                #         8      |  1.83801   |  2.00000   |  12.0000   |  4.00000   |  5.00000
 
                 # GRAB THE SCAN DISPLAY LINES
                 grab_lines(p, lines)
 
-                assert (
-                    lines[5].strip()
-                    == "#         dt[s]          roby      robz[mm]        diode4        diode5"
-                )
+                labels = ["#", "dt[s]", "roby", "robz[mm]", "diode4", "diode5"]
+                data_start_idx = find_data_start(lines, labels, offset=2)
+                assert data_start_idx != None
 
-                arry = []
-                for line in lines[6:]:
-                    line = " ".join(line.strip().split())
-                    tab = line.split(" ")
-                    if len(tab) > 1:
-                        tab.pop(1)
-                        arry.append(tab)
-
-                assert arry[0] == ["0", "0", "10", "4", "5"]
-                assert arry[1] == ["1", "1", "10", "4", "5"]
-                assert arry[2] == ["2", "2", "10", "4", "5"]
-                assert arry[3] == ["3", "0", "11", "4", "5"]
-                assert arry[4] == ["4", "1", "11", "4", "5"]
-                assert arry[5] == ["5", "2", "11", "4", "5"]
-                assert arry[6] == ["6", "0", "12", "4", "5"]
-                assert arry[7] == ["7", "1", "12", "4", "5"]
-                assert arry[8] == ["8", "2", "12", "4", "5"]
-
-                # print(' finished')
+                nbp = 9
+                arry = extract_data(lines[data_start_idx:], (nbp, 6))
+                arry = numpy.delete(arry, 1, 1)  # remove column dt
+                for i in range(nbp):
+                    assert numpy.all(arry[i, :] == [i, i % 3, 10 + i // 3, 4, 5])
 
             # ============= START THE LOOKUPSCAN ==================================
             lines = []
             # print('Start lookupscan(0.01,roby,(0.5,1.2,2.2,33.3),diode4,diode5) ...', end='', flush=True)
-            s = scans.lookupscan(
-                [(roby, (0.5, 1.2, 2.2, 33.3))], 0.01, diode4, diode5, save=False
-            )
+            pos = (0.5, 1.2, 2.2, 33.3)
+            s = scans.lookupscan([(roby, pos)], 0.01, diode4, diode5, save=False)
             # EXPECTED OUTPUT
             if 1:
-                # line 0
-                # line 1
-                # line 2 Scan 937 Fri Apr 26 16:57:07 2019 /tmp/scans/test_session/data.h5 test_session user = pguillou
-                # line 3 a2scan robz 0 9 roby 10 19 10 0.01
-                # line 4
-                # line 5             #         dt[s]          roby        diode4        diode5
-                # line 6             0             0           0.5             4             5
-                # line 7             1      0.143428           1.2             4             5
-                # line 8             2      0.287758           2.2             4             5
-                # line 9            3      0.629851          33.3             4             5
-                # line 10
-                # line 11  Took 0:00:02.126591
-                # line 12
-                # line 13  ============== >>> PRESS F5 TO COME BACK TO THE SHELL PROMPT <<< ==============
+
+                #                |   timer    |    axis    |..pling_controller|..pling_controller
+                #                |     -      |     -      |        -         |        -
+                #         #      |   dt[s]    |    roby    |      diode4      |      diode5
+                #    ------------|------------|------------|------------------|------------------
+                #         0      |  0.00000   |  0.500000  |     4.00000      |     5.00000
+                #         1      |  0.114702  |  1.20000   |     4.00000      |     5.00000
+                #         2      |  0.277584  |  2.20000   |     4.00000      |     5.00000
+                #         3      |  0.719908  |  33.3000   |     4.00000      |     5.00000
 
                 # GRAB THE SCAN DISPLAY LINES
                 grab_lines(p, lines)
 
-                assert (
-                    lines[5].strip()
-                    == "#         dt[s]          roby        diode4        diode5"
-                )
+                labels = ["#", "dt[s]", "roby", "diode4", "diode5"]
+                data_start_idx = find_data_start(lines, labels, offset=2)
+                assert data_start_idx != None
 
-                arry = []
-                for line in lines[6:]:
-                    line = " ".join(line.strip().split())
-                    tab = line.split(" ")
-                    if len(tab) > 2:
-                        tab.pop(1)
-                        arry.append(tab)
-
-                assert arry[0] == ["0", "0.5", "4", "5"]
-                assert arry[1] == ["1", "1.2", "4", "5"]
-                assert arry[2] == ["2", "2.2", "4", "5"]
-                assert arry[3] == ["3", "33.3", "4", "5"]
-
-                # print(' finished')
+                nbp = 4
+                arry = extract_data(lines[data_start_idx:], (nbp, 5))
+                arry = numpy.delete(arry, 1, 1)  # remove column dt
+                for i in range(nbp):
+                    assert numpy.all(arry[i, :] == [i, pos[i], 4, 5])
 
             # ============= START THE POINTSCAN ==================================
             lines = []
             # print('Start pointscan(roby,(0.5,1.1,2.2),0.1,diode4,diode5) ...', end='', flush=True)
-            s = scans.pointscan(roby, (0.5, 1.1, 2.2), 0.1, diode4, diode5, save=False)
+            pos = (0.5, 1.1, 2.2)
+            s = scans.pointscan(roby, pos, 0.1, diode4, diode5, save=False)
             # EXPECTED OUTPUT
             if 1:
-                # line 0
-                # line 1
-                # line 2 Scan 937 Fri Apr 26 16:57:07 2019 /tmp/scans/test_session/data.h5 test_session user = pguillou
-                # line 3 a2scan robz 0 9 roby 10 19 10 0.01
-                # line 4
-                # line 5             #         dt[s]          roby        diode4        diode5
-                # line 6             0             0           0.5             4             5
-                # line 7             1      0.143428           1.1             4             5
-                # line 8             2      0.287758           2.2             4             5
-                # line 9
-                # line 10  Took 0:00:02.126591
-                # line 11
-                # line 12  ============== >>> PRESS F5 TO COME BACK TO THE SHELL PROMPT <<< ==============
+
+                #                |   timer    |    axis    |..pling_controller|..pling_controller
+                #                |     -      |     -      |        -         |        -
+                #         #      |   dt[s]    |    roby    |      diode4      |      diode5
+                #    ------------|------------|------------|------------------|------------------
+                #         0      |  0.00000   |  0.500000  |     4.00000      |     5.00000
+                #         1      |  0.207738  |  1.10000   |     4.00000      |     5.00000
+                #         2      |  0.452876  |  2.20000   |     4.00000      |     5.00000
 
                 # GRAB THE SCAN DISPLAY LINES
                 grab_lines(p, lines)
 
-                assert (
-                    lines[5].strip()
-                    == "#         dt[s]          roby        diode4        diode5"
-                )
+                labels = ["#", "dt[s]", "roby", "diode4", "diode5"]
+                data_start_idx = find_data_start(lines, labels, offset=2)
+                assert data_start_idx != None
 
-                arry = []
-                for line in lines[6:]:
-                    line = " ".join(line.strip().split())
-                    tab = line.split(" ")
-                    if len(tab) > 2:
-                        tab.pop(1)
-                        arry.append(tab)
-
-                assert arry[0] == ["0", "0.5", "4", "5"]
-                assert arry[1] == ["1", "1.1", "4", "5"]
-                assert arry[2] == ["2", "2.2", "4", "5"]
-
-                # print(' finished')
+                nbp = 3
+                arry = extract_data(lines[data_start_idx:], (nbp, 5))
+                arry = numpy.delete(arry, 1, 1)  # remove column dt
+                for i in range(nbp):
+                    assert numpy.all(arry[i, :] == [i, pos[i], 4, 5])
 
         finally:
 

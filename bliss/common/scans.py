@@ -43,7 +43,7 @@ import typeguard
 from typing import Union, Optional, Tuple, List, Sequence, Dict
 
 from bliss import current_session, global_map
-from bliss.common.utils import rounder, shorten_signature, transform_TypeError_to_hint
+from bliss.common.utils import rounder, shorten_signature, typeguardTypeError_to_hint
 from bliss.common.cleanup import cleanup, axis as cleanup_axis
 from bliss.common.axis import Axis
 from bliss.common.cleanup import error_cleanup
@@ -68,7 +68,7 @@ _log = logging.getLogger("bliss.scans")
 DEFAULT_CHAIN = DefaultAcquisitionChain()
 
 
-@transform_TypeError_to_hint
+@typeguardTypeError_to_hint
 @shorten_signature(hidden_kwargs=["title", "name", "scan_type", "return_scan"])
 @typeguard.typechecked
 def ascan(
@@ -134,7 +134,7 @@ def ascan(
     )
 
 
-@transform_TypeError_to_hint
+@typeguardTypeError_to_hint
 @shorten_signature(hidden_kwargs=["title", "name", "scan_type", "return_scan"])
 @typeguard.typechecked
 def dscan(
@@ -202,7 +202,7 @@ def dscan(
     )
 
 
-@transform_TypeError_to_hint
+@typeguardTypeError_to_hint
 @shorten_signature(hidden_kwargs=["title", "name", "scan_type", "return_scan"])
 @typeguard.typechecked
 def lineup(
@@ -247,7 +247,7 @@ def lineup(
         return scan
 
 
-@transform_TypeError_to_hint
+@typeguardTypeError_to_hint
 @shorten_signature(hidden_kwargs=["title", "name", "scan_type", "return_scan"])
 @typeguard.typechecked
 def amesh(
@@ -401,7 +401,7 @@ def amesh(
         return scan
 
 
-@transform_TypeError_to_hint
+@typeguardTypeError_to_hint
 @shorten_signature(hidden_kwargs=["title", "name", "scan_type", "return_scan"])
 @typeguard.typechecked
 def dmesh(
@@ -469,7 +469,7 @@ def dmesh(
         return scan
 
 
-@transform_TypeError_to_hint
+@typeguardTypeError_to_hint
 @shorten_signature(hidden_kwargs=["title", "name", "scan_type", "return_scan"])
 @typeguard.typechecked
 def a2scan(
@@ -542,7 +542,7 @@ def a2scan(
 
 
 # TODO: What is the difference between type and name (keep in mind that there is also title)
-@transform_TypeError_to_hint
+@typeguardTypeError_to_hint
 @shorten_signature(hidden_kwargs=["title", "name", "scan_type", "return_scan"])
 @typeguard.typechecked
 def lookupscan(
@@ -844,7 +844,7 @@ def dnscan(
         return scan
 
 
-@transform_TypeError_to_hint
+@typeguardTypeError_to_hint
 @shorten_signature(hidden_kwargs=["title", "name", "scan_type", "return_scan"])
 @typeguard.typechecked
 def a3scan(
@@ -889,7 +889,7 @@ def a3scan(
     )
 
 
-@transform_TypeError_to_hint
+@typeguardTypeError_to_hint
 @shorten_signature(hidden_kwargs=["title", "name", "scan_type", "return_scan"])
 @typeguard.typechecked
 def a4scan(
@@ -943,7 +943,7 @@ def a4scan(
     )
 
 
-@transform_TypeError_to_hint
+@typeguardTypeError_to_hint
 @shorten_signature(hidden_kwargs=["title", "name", "scan_type", "return_scan"])
 @typeguard.typechecked
 def a5scan(
@@ -1000,7 +1000,7 @@ def a5scan(
     )
 
 
-@transform_TypeError_to_hint
+@typeguardTypeError_to_hint
 @shorten_signature(hidden_kwargs=["title", "name", "scan_type", "return_scan"])
 @typeguard.typechecked
 def d3scan(
@@ -1045,7 +1045,7 @@ def d3scan(
     )
 
 
-@transform_TypeError_to_hint
+@typeguardTypeError_to_hint
 @shorten_signature(hidden_kwargs=["title", "name", "scan_type", "return_scan"])
 @typeguard.typechecked
 def d4scan(
@@ -1098,7 +1098,7 @@ def d4scan(
     )
 
 
-@transform_TypeError_to_hint
+@typeguardTypeError_to_hint
 @shorten_signature(hidden_kwargs=["title", "name", "scan_type", "return_scan"])
 @typeguard.typechecked
 def d5scan(
@@ -1155,7 +1155,7 @@ def d5scan(
     )
 
 
-@transform_TypeError_to_hint
+@typeguardTypeError_to_hint
 @shorten_signature(hidden_kwargs=["title", "name", "scan_type", "return_scan"])
 @typeguard.typechecked
 def d2scan(
@@ -1232,7 +1232,7 @@ def d2scan(
     )
 
 
-@transform_TypeError_to_hint
+@typeguardTypeError_to_hint
 @shorten_signature(hidden_kwargs=["title", "name", "scan_type", "return_scan"])
 @typeguard.typechecked
 def timescan(
@@ -1318,7 +1318,7 @@ def timescan(
         return scan
 
 
-@transform_TypeError_to_hint
+@typeguardTypeError_to_hint
 @shorten_signature(hidden_kwargs=["title", "name", "scan_type", "return_scan"])
 @typeguard.typechecked
 def loopscan(
@@ -1382,7 +1382,7 @@ def loopscan(
     )
 
 
-@transform_TypeError_to_hint
+@typeguardTypeError_to_hint
 @shorten_signature(hidden_kwargs=["title", "name", "scan_type", "return_scan"])
 @typeguard.typechecked
 def ct(
@@ -1439,7 +1439,7 @@ def ct(
 
 
 # Todo: should this define start,stop? why is there total_acq_time?
-@transform_TypeError_to_hint
+@typeguardTypeError_to_hint
 @shorten_signature(hidden_kwargs=["title", "name", "scan_type", "return_scan"])
 @typeguard.typechecked
 def pointscan(

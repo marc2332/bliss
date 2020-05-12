@@ -612,13 +612,28 @@ def test_typeguard_scanable(default_session):
     check_typeguard(True, m0, diode, myint=numpy.uint8(3), myfloat=numpy.uint8(1))
 
 
-def test_transform_TypeError_to_hint():
+def test_typeguardTypeError_to_hint():
     with pytest.raises(RuntimeError) as e:
-        scans.ascan()
+        scans.ascan(1, 2, 3, 4, 5)
     assert (
         str(e.value)
-        == "Intended Usage: ascan(motor, start, stop, intervals, count_time, counter_args)  Hint: missing a required argument: 'motor'"
+        == 'Intended Usage: ascan(motor, start, stop, intervals, count_time, counter_args)  Hint: type of argument "motor" must be one of (Axis, Scannable); got int instead'
     )
+
+    import typeguard
+    from bliss.common.utils import typeguardTypeError_to_hint
+
+    @typeguardTypeError_to_hint
+    @typeguard.typechecked
+    def func(a: int):
+        raise TypeError("blablabla")
+        return True
+
+    with pytest.raises(RuntimeError):
+        func(1.5)
+
+    with pytest.raises(TypeError):
+        func(1)
 
 
 def test_update_ctrl_params(default_session, beacon, lima_simulator, scan_tmpdir):

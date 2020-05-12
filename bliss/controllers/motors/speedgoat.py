@@ -52,9 +52,9 @@ from bliss.common.utils import object_attribute_get
 class SpeedgoatMotor(Controller):
     def __init__(self, name, config, *args, **kwargs):
         Controller.__init__(self, name, config, *args, **kwargs)
-        self.speedgoat = config.get('speedgoat')
+        self.speedgoat = config.get("speedgoat")
         self._axis_init_done = {}
-        
+
     def initialize(self):
         self.sg_controller = self.speedgoat.motors_controller
 
@@ -62,7 +62,10 @@ class SpeedgoatMotor(Controller):
         if axis.name not in self.sg_controller.available_motors:
             raise (RuntimeError('Speedgoat: Axis "%s" does not exist' % axis.name))
 
-        if axis.name not in self._axis_init_done.keys() or self._axis_init_done[axis.name] == False:
+        if (
+            axis.name not in self._axis_init_done.keys()
+            or self._axis_init_done[axis.name] == False
+        ):
             self._axis_init_done[axis.name] = True
             try:
                 (sgLowLimit, sgHighLimit) = self.sg_controller.available_motors[
@@ -72,7 +75,7 @@ class SpeedgoatMotor(Controller):
                 axis.high_limit = sgHighLimit / axis.steps_per_unit
             except:
                 self._axis_init_done[axis.name] = False
-                
+
     def read_position(self, axis):
         position = self.sg_controller.available_motors[axis.name].position
         return position
@@ -97,14 +100,15 @@ class SpeedgoatMotor(Controller):
         if not self.speedgoat.is_app_running:
             return AxisState("OFF")
         state = self.sg_controller.available_motors[axis.name].is_moving
-        print(f"\nSTATE {axis.name} {state}")
         if state == 1:
             return AxisState("MOVING")
         return AxisState("READY")
 
     def prepare_move(self, motion):
         self.sg_controller.available_motors[motion.axis.name].prepare_move()
-        self.sg_controller.available_motors[motion.axis.name].set_point = motion.target_pos
+        self.sg_controller.available_motors[
+            motion.axis.name
+        ].set_point = motion.target_pos
 
     def start_one(self, motion):
         self.sg_controller.available_motors[motion.axis.name].start_move()

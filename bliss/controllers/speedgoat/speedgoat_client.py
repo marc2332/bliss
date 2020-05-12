@@ -1069,7 +1069,7 @@ class Motor(object):
         self.signal_node = signal_node
         self.param_node = param_node
         self.sel_value = select_value
-        
+
     def set_param(self, param, value):
         param_to_read = "Motors/motor_%s/%s" % (self.name, param)
         self.controller.speedgoat.params[param_to_read] = value
@@ -1120,41 +1120,61 @@ class Motor(object):
 
     def prepare_move(self):
         self.controller.speedgoat.set_param(
-            "Motors/selectPseudoMotor/Value", 
-            self.sel_value
+            "Motors/selectPseudoMotor/Value", self.sel_value
         )
-        
-    def start_move(self, sleep_time=0.01, nb_try=3, timeout=0.5):
-        
+
+    def start_move(self, sleep_time=0.01, nb_try=20, timeout=0.1, silent=True):
+
         for ntry in range(nb_try):
             self._start_move(sleep_time)
             (started, time_start) = self._wait_start_move(timeout)
             if started:
-                print(f"Motor {self.name} started after {ntry+1} try {time_start} s")
-                return (ntry+1, time_start)
-        
+                if not silent:
+                    print(
+                        f"Motor {self.name} started after {ntry+1} try {time_start} s"
+                    )
+                return (ntry + 1, time_start)
+
         raise RuntimeError(f"Motor {self.name} did not start")
-        
+
     def _start_move(self, sleep_time):
         self.set_param("moveTrigger/Value", 0)
         self.set_param("moveTrigger/Value", 1)
         gevent.sleep(sleep_time)
         self.set_param("moveTrigger/Value", 0)
-    
+
     def _wait_start_move(self, timeout):
         wait_start = time.time()
         while (time.time() - wait_start) < timeout:
             if self.is_moving == 1:
-                return (True, time.time()-wait_start)
+                return (True, time.time() - wait_start)
         return (False, 0)
-    
-            
-    def stop(self):
+
+    def stop(self, sleep_time=0.01, nb_try=20, timeout=0.1, silent=True):
+        for ntry in range(nb_try):
+            self._stop(sleep_time)
+            (stopped, time_stopped) = self._wait_stop_move(timeout)
+            if stopped:
+                if not silent:
+                    print(
+                        f"Motor {self.name} stopped after {ntry+1} try {time_stopped} s"
+                    )
+                return (ntry + 1, time_stopped)
+
+        raise RuntimeError(f"Motor {self.name} did not stop")
+
+    def _stop(self, sleep_time=0.01):
         self.set_param("stoppTrigger/Value", 0)
         self.set_param("stoppTrigger/Value", 1)
-        gevent.sleep(0.01)
+        gevent.sleep(sleep_time)
         self.set_param("stoppTrigger/Value", 0)
-        
+
+    def _wait_stop_move(self, timeout):
+        wait_stop = time.time()
+        while (time.time() - wait_stop) < timeout:
+            if self.is_moving == 0:
+                return (True, time.time() - wait_stop)
+        return (False, 0)
 
     def limits(self):
         lim_pos = float(self.get_param("motorLimit/UpperLimit"))

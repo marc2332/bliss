@@ -11,6 +11,7 @@ from bliss.scanning.acquisition.motor import (
 )
 from bliss.scanning import chain
 from bliss.scanning.acquisition import lima
+from bliss.scanning.channel import AcquisitionChannel
 from bliss.common.event import dispatcher
 
 
@@ -58,21 +59,32 @@ class LinearStepTriggerMaster(_LinearStepTriggerMaster):
 
 
 class _Base:
-    def __init__(self, normalize_func=None):
+    def __init__(self, auto_filter):
         self._name_2_channel = weakref.WeakValueDictionary()
+        self._name_2_corr_chan = weakref.WeakValueDictionary()
         # copy all channel from the slave.
         for channel in self.device.channels:
             new_channel, _, _ = chain.duplicate_channel(channel)
             self._name_2_channel[new_channel.name] = new_channel
             dispatcher.connect(self.new_data_received, "new_data", channel)
             self.channels.append(new_channel)
+
+            # create a corrected channel if given by the AutoFilter instance
+            # use same dtype, shape and unit
+            if new_channel.name in auto_filter.counters_for_correction:
+                corr_chan = AcquisitionChannel(
+                    f"{new_channel.name}{auto_filter.corr_suffix}",
+                    channel.dtype,
+                    channel.shape,
+                    channel.unit,
+                )
+                self.channels.append(corr_chan)
+                self._name_2_corr_chan[new_channel.name] = corr_chan
+
         self.__pending_data = dict()
         self.__last_point_rx = dict()
         self.__valid_point = dict()
-        if normalize_func is not None:
-            self._normalize_func = normalize_func
-        else:
-            self._normalize_func = lambda x, y, z: z
+        self._auto_filter = auto_filter
 
     def prepare(self):
         return self.device.prepare()
@@ -125,10 +137,15 @@ class _Base:
         else:  # valid is True or False
             if valid:
                 my_channel = self._name_2_channel[channel_name]
-                normalized_data = self._normalize_func(
-                    last_point_rx, channel_name, channel_data
-                )
-                my_channel.emit(normalized_data)
+                my_channel.emit(channel_data)
+
+                corr_chan = self._name_2_corr_chan.get(channel_name)
+                if corr_chan is not None:
+                    corrected_data = self._auto_filter.corr_func(
+                        last_point_rx, channel_name, channel_data
+                    )
+                    corr_chan.emit(corrected_data)
+
         self.__last_point_rx[channel_name] = last_point_rx + len(channel_data)
 
     def validate_point(self, point_nb, valid_flag):
@@ -144,12 +161,18 @@ class _Base:
             self.__pending_data = dict()
             for channel_name, data in pending_data.items():
                 channel = self._name_2_channel[channel_name]
-                normalized_data = self._normalize_func(point_nb, channel_name, data)
-                channel.emit(normalized_data)
+                channel.emit(data)
+
+                corr_chan = self._name_2_corr_chan.get(channel_name)
+                if corr_chan is not None:
+                    corrected_data = self._auto_filter.corr_func(
+                        point_nb, channel_name, data
+                    )
+                    corr_chan.emit(corrected_data)
 
 
 class _Slave(_Base, chain.AcquisitionSlave):
-    def __init__(self, slave, npoints=1, normalize_func=None):
+    def __init__(self, auto_filter, slave, npoints=1):
         chain.AcquisitionSlave.__init__(
             self,
             slave,
@@ -159,7 +182,7 @@ class _Slave(_Base, chain.AcquisitionSlave):
             prepare_once=slave.prepare_once,
             start_once=slave.start_once,
         )
-        _Base.__init__(self, normalize_func=normalize_func)
+        _Base.__init__(self, auto_filter)
 
 
 class _SlaveIter(_Slave):
@@ -169,7 +192,7 @@ class _SlaveIter(_Slave):
 
 
 class _Master(_Base, chain.AcquisitionMaster):
-    def __init__(self, master, npoints=1):
+    def __init__(self, auto_filter, master, npoints=1):
         chain.AcquisitionMaster.__init__(
             self,
             master,
@@ -179,7 +202,7 @@ class _Master(_Base, chain.AcquisitionMaster):
             prepare_once=master.prepare_once,
             start_once=master.start_once,
         )
-        _Base.__init__(self)
+        _Base.__init__(self, auto_filter)
         # hack slaves of master
         # replace buy our slaves
         master._AcquisitionMaster__slaves = self.slaves
@@ -221,13 +244,13 @@ def _get_new_master(auto_filter, master, npoints):
     try:
         iter(master)
     except TypeError:
-        return _Master(master, npoints=npoints)
+        return _Master(auto_filter, master, npoints=npoints)
     else:
         # check if it Lima
         if isinstance(master, lima.LimaAcquisitionMaster):
             return _Lima(auto_filter, master, npoints=npoints)
         else:
-            return _MasterIter(master, npoints=npoints)
+            return _MasterIter(auto_filter, master, npoints=npoints)
 
 
 def get_new_slave(auto_filter, slave, npoints):
@@ -236,6 +259,6 @@ def get_new_slave(auto_filter, slave, npoints):
     try:
         iter(slave)
     except TypeError:  # not iterable
-        return _Slave(slave, npoints=npoints)
+        return _Slave(auto_filter, slave, npoints=npoints)
     else:  # can be iterable
-        return _SlaveIter(slave, npoints=npoints)
+        return _SlaveIter(auto_filter, slave, npoints=npoints)

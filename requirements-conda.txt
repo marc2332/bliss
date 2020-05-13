@@ -40,7 +40,7 @@ tango >= 9.3.2
 pytango
 tblib
 tmux >= 2.7
-treelib
+treelib <= 1.5.5
 cerberus
 typeguard == 2.6.1
 typing_extensions

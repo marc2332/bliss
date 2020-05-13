@@ -197,7 +197,7 @@ def validate_scangroup_links(sequence):
     with nexus.uriContext(uri) as nxentry:
         root = nxentry["dependencies"]
         for k in root:
-            actual.append(nexus.normUri(nexus.dereference(root[k])))
+            actual.append(nexus.normUri(nexus.dereference(root, k)))
     assert_set_equal(set(actual), set(expected))
 
 

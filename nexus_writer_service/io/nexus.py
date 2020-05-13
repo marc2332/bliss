@@ -234,8 +234,7 @@ def splitUri(uri):
 
 
 def normUri(uri):
-    """
-    Normalize uri
+    """Normalize uri
 
     :param str uri: URI
     :return str:
@@ -246,56 +245,68 @@ def normUri(uri):
     return filename + "::" + path
 
 
-def dereference(node):
+def _dereference_node(parent, name):
     """
-    :param h5py.Dataset or h5py.Group:
+    :param h5py.Dataset or h5py.Group parent:
+    :param str name: appended to uri
     :returns str: uri
     """
-    if node.name == "/":
-        return getUri(node)
     try:
-        lnk = node.parent.get(node.name, default=None, getlink=True)
+        lnk = parent.get(name, default=None, getlink=True)
     except (KeyError, RuntimeError):
-        return getUri(node)
+        return hdf5_join(getUri(parent), name)
     else:
         if isinstance(lnk, h5py.SoftLink):
             path = lnk.path
             if not path.startswith("/"):
-                path = hdf5_join(node.parent.name, path)
-            return node.file.filename + "::" + hdf5_normpath(path)
+                parts = name.split("/")[:-1]
+                path = hdf5_join(parent.name, *parts, path)
+            return parent.file.filename + "::" + hdf5_normpath(path)
         elif isinstance(lnk, h5py.ExternalLink):
-            return lnk.filename + "::" + lnk.path
+            efilename = lnk.filename
+            if not os.path.isabs(efilename):
+                dirname = os.path.dirname(parent.file.filename)
+                efilename = os.path.normpath(os.path.join(dirname, efilename))
+            return efilename + "::" + lnk.path
         else:
-            return getUri(node)
+            return hdf5_join(getUri(parent), name)
 
 
-def dereferenceUri(uri):
+def dereference(uri, name=None):
+    """Get full URI of dataset or group.
+    Follows links until destination is found.
+
+    :param h5py.Dataset or h5py.Group or str uri:
+    :param str name: appended to uri
+    :returns str: uri
     """
-    Get full URI of dataset or group
-
-    :param h5py.Dataset or h5py.Group:
-    :returns str:
-    """
+    if not isString(uri):
+        uri = getUri(uri)
+    if name:
+        uri = hdf5_join(uri, name)
     filename, path = splitUri(uri)
     uri2 = uri
     istart = 1
-    with File(filename, mode="r") as f:
-        while True:
-            parts = path.split("/")[1:]
-            for i in range(istart, len(parts) + 1):
-                path2 = hdf5_join(*parts[:i])
-                filename2, path2 = splitUri(dereference(f[path2]))
-                path2 = hdf5_join(path2, *parts[i:])
-                uri2 = filename2 + "::" + path2
-                if uri != uri2:
-                    if filename == filename2:
-                        path = path2
-                        istart = i + 1
-                        break
-                    else:
-                        return dereferenceUri(uri2)
-            else:
-                break
+    try:
+        with File(filename, mode="r") as f:
+            while True:
+                parts = path.split("/")[1:]
+                for i in range(istart, len(parts) + 1):
+                    path2 = hdf5_join(*parts[:i])
+                    filename2, path2 = splitUri(_dereference_node(f, path2))
+                    path2 = hdf5_join(path2, *parts[i:])
+                    uri2 = filename2 + "::" + path2
+                    if uri != uri2:
+                        if filename == filename2:
+                            path = path2
+                            istart = i + 1
+                            break
+                        else:
+                            return dereference(uri2)
+                else:
+                    break
+    except OSError:
+        pass
     return uri2
 
 

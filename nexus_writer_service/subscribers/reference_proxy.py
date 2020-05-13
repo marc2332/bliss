@@ -64,16 +64,17 @@ class ReferenceProxy(BaseProxy):
         self.add(newuris)
 
     def _insert_data(self, group, newuris):
-        """
-        Add uri links
+        """Add uri links
 
         :param list(str) newuris:
         :returns int: added links
         """
+        duri = nexus.getUri(group)
         for uri in newuris:
-            linkname = nexus.splitUri(uri)[1].split("/")[-1]
-            if linkname not in group:
-                nexus.createLink(group, linkname, uri)
+            linkname = nexus.hdf5_basename(uri)
+            if uri == nexus.hdf5_join(duri, linkname):
+                continue  # ignore self-reference
+            nexus.createLink(group, linkname, uri)
         return len(newuris)
 
     def _create(self, nxroot):

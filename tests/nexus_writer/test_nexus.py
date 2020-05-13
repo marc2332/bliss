@@ -78,10 +78,10 @@ def test_nexus_data(scan_tmpdir):
 
         nexus.markDefault(data["Ca K"])
         default = data.file[nexus.getDefault(data.file, signal=False)]
-        default = nexus.dereferenceUri(nexus.getUri(default))
+        default = nexus.dereference(default)
         assert default == nexus.getUri(data)
         default = data.file[nexus.getDefault(data.file, signal=True)]
-        default = nexus.dereferenceUri(nexus.getUri(default))
+        default = nexus.dereference(default)
         assert default == nexus.getUri(data["Ca K"])
 
         data = entry[nexus.DEFAULT_PLOT_NAME]
@@ -203,25 +203,25 @@ def test_nexus_links(scan_tmpdir):
     with nxroot(scan_tmpdir, os.path.join("a", "b", "test1")) as f1:
         f1.create_group("a/b/c")
         g = f1["/a/b"]
-        _same_target(g, g)
+        assert_same_target(g, g)
         # internal link up
         name = next(linkname)
         nexus.createLink(g, name, f1["a"])
-        _same_target(f1["a"], g[name])
+        assert_same_target(f1["a"], g[name])
         link = g.get(name, getlink=True)
         assert link.path == "/a"
         assert isinstance(link, h5py.SoftLink)
         # internal link same level
         name = next(linkname)
         nexus.createLink(g, name, f1["a/b"])
-        _same_target(f1["a/b"], g[name])
+        assert_same_target(f1["a/b"], g[name])
         link = g.get(name, getlink=True)
         assert link.path == "."
         assert isinstance(link, h5py.SoftLink)
         # internal link down
         name = next(linkname)
         nexus.createLink(g, name, f1["a/b/c"])
-        _same_target(f1["a/b/c"], g[name])
+        assert_same_target(f1["a/b/c"], g[name])
         link = g.get(name, getlink=True)
         assert link.path == "c"
         assert isinstance(link, h5py.SoftLink)
@@ -230,7 +230,7 @@ def test_nexus_links(scan_tmpdir):
             name = next(linkname)
             nexus.createLink(f2, name, f1["a"])
             link = f2.get(name, getlink=True)
-            _same_target(f1["a"], f2[name])
+            assert_same_target(f1["a"], f2[name])
             assert link.path == "/a"
             assert link.filename == "b/test1.h5"
             assert isinstance(link, h5py.ExternalLink)
@@ -239,7 +239,7 @@ def test_nexus_links(scan_tmpdir):
             name = next(linkname)
             nexus.createLink(f2, name, f1["a"])
             link = f2.get(name, getlink=True)
-            # _same_target(f1["a"], f2[name])
+            # assert_same_target(f1["a"], f2[name])
             assert link.path == "/a"
             assert link.filename == "./test1.h5"
             assert isinstance(link, h5py.ExternalLink)
@@ -247,16 +247,16 @@ def test_nexus_links(scan_tmpdir):
         with nxroot(scan_tmpdir, os.path.join("a", "b", "c", "test2")) as f2:
             name = next(linkname)
             nexus.createLink(f2, name, f1["a"])
-            _same_target(f1["a"], f2[name])
+            assert_same_target(f1["a"], f2[name])
             link = f2.get(name, getlink=True)
             assert link.path, "/a"
             assert link.filename == "../test1.h5"
             assert isinstance(link, h5py.ExternalLink)
 
 
-def _same_target(node1, node2):
-    target1 = nexus.dereferenceUri(nexus.getUri(node1))
-    target2 = nexus.dereferenceUri(nexus.getUri(node2))
+def assert_same_target(node1, node2):
+    target1 = nexus.dereference(node1)
+    target2 = nexus.dereference(node2)
     assert nexus.normUri(target1) == nexus.normUri(target2)
 
 

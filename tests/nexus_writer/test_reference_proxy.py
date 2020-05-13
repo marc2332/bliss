@@ -11,39 +11,46 @@ from nexus_writer_service.io import nexus
 
 
 def test_dataset_proxy(tmpdir):
-    references = []
-
-    # File containing the references
-    mainfile = os.path.join(str(tmpdir), "main.h5")
+    mainfile = str(tmpdir.join("main.h5"))
+    exfile = str(tmpdir.join("ex.h5"))
     with nexus.nxRoot(mainfile, mode="w") as nxroot:
-        nexus.nxEntry(nxroot, "entry0000")
-        grp = nexus.nxEntry(nxroot, "entry0001")
-        for i in range(5):
-            name = str(len(references))
-            grp[name] = i
-            references.append(nexus.getUri(grp[name]))
-
-    # External datasets to be references
-    exfile = os.path.join(str(tmpdir), "ex.h5")
+        nexus.nxEntry(nxroot, "destination")
+        nexus.nxEntry(nxroot, "references")
     with nexus.nxRoot(exfile, mode="w") as nxroot:
-        for _ in range(5):
-            grp = nexus.nxEntry(nxroot, str(len(references)))
-            references.append(nexus.getUri(grp))
-
-    # Add references
+        nexus.nxEntry(nxroot, "references")
+    refmain = [f"{mainfile}::/references/{i}" for i in range(0, 5)]
+    refex = [f"{exfile}::/references/{i}" for i in range(5, 10)]
+    references = refmain + refex
     nreferences = len(references)
+
+    # Add references (no self-referencing)
     rproxy = ReferenceProxy(
-        filename=mainfile, parent="/entry0000", nreferences=nreferences
+        filename=mainfile, parent="/destination", nreferences=nreferences
     )
     rproxy.add_references(references[: nreferences // 2])
     rproxy.add_references(references[nreferences // 2 :])
-
-    # Check result
     assert rproxy.npoints == nreferences
     assert rproxy.complete
-    references2 = []
-    with rproxy.open() as grp:
-        for k in grp:
-            if k.isdigit():
-                references2.append(nexus.normUri(nexus.dereference(grp[k])))
+    with rproxy.open() as parent:
+        references2 = [
+            nexus.dereference(parent, name)
+            for name in parent
+            if nexus.isLink(parent, name)
+        ]
     assert set(references) == set(references2)
+
+    # Add references (self-referencing)
+    rproxy = ReferenceProxy(
+        filename=mainfile, parent="/references", nreferences=nreferences
+    )
+    rproxy.add_references(references[: nreferences // 2])
+    rproxy.add_references(references[nreferences // 2 :])
+    assert rproxy.npoints == nreferences
+    assert rproxy.complete
+    with rproxy.open() as parent:
+        references2 = [
+            nexus.dereference(parent, name)
+            for name in parent
+            if nexus.isLink(parent, name)
+        ]
+    assert set(refex) == set(references2)

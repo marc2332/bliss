@@ -556,7 +556,7 @@ class TestFilterCounterAxis:
     def __init__(self, name, config):
         self._axis = SoftAxis("TestFilterCounterAxis", self)
         self._counter = SoftCounter(self)
-        self._npoints = config.get("npoints", 100)
+        self._npoints = config.get("npoints", 50)
         self._attn = config.get("attenuator", None)
         self._position = 0
         self.init_signal()
@@ -575,16 +575,18 @@ class TestFilterCounterAxis:
     # for SoftCounter
     def value(self):
         return (
-            self._data[int((self._npoints - 1) * self._position)]
+            self._data[int(round(self._npoints * self._position))]
             * self._attn.transmission
         )
 
     def init_signal(self):
-        self._data = np.exp(signal.gaussian(self._npoints, .1 * self._npoints) * 30)
+        self._data = np.exp(
+            signal.gaussian(self._npoints + 1, .1 * self._npoints + 1) * 30
+        )
 
     @property
     def npoints(self):
-        return self._npoints + 1
+        return self._npoints
 
     @npoints.setter
     def npoints(self, value):

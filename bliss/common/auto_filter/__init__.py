@@ -233,6 +233,7 @@ class AutoFilter(BeaconObject):
             "sleep_time": kwargs.get("sleep_time"),
             "save": save_flag,
         }
+
         # Check monitor exists
         monitor_counter_name = self.monitor_counter_name
         counters, missing = _get_counters_from_names([monitor_counter_name])

@@ -134,7 +134,6 @@ def main():
         "docopt",
         "tabulate",
         "pyserial > 2",
-        "pyyaml >= 5.1",
         "ruamel.yaml",
         "msgpack >= 0.6.1",
         "msgpack_numpy >= 0.4.4.2",

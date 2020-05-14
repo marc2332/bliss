@@ -5,7 +5,8 @@ from bliss.common import scans
 from bliss.common.counter import SamplingCounter
 from bliss.controllers.counter import SamplingCounterController
 from bliss.common.soft_axis import SoftAxis
-from bliss.scanning.scan import ScanState
+from bliss.scanning.scan import ScanState, Scan, ScanPreset
+from bliss.scanning.chain import AcquisitionMaster, AcquisitionChain
 
 
 def test_exception_in_reading(session):
@@ -116,3 +117,47 @@ def test_exception_on_KeyboardInterrupt(default_session):
 
     assert s.state == ScanState.USER_ABORTED
     assert s.node.info["state"] == ScanState.USER_ABORTED
+
+
+@pytest.mark.parametrize(
+    "first_iteration,preset",
+    [(True, False), (False, False), (True, True), (False, True)],
+)
+def test_exception_in_start_and_stop_and_preset(session, first_iteration, preset):
+    class Master(AcquisitionMaster):
+        name = "bla"
+
+        def __iter__(self):
+            self.it = 0
+            for i in range(3):
+                yield self
+                self.it += 1
+
+        def prepare(self):
+            pass
+
+        def start(self):
+            if first_iteration or self.it > 1:
+                1 / 0
+
+        def stop(self):
+            raise RuntimeError()
+
+    class Preset(ScanPreset):
+        def stop(self, scan):
+            raise BufferError()
+
+    m = Master()
+    c = AcquisitionChain()
+    c.add(m)
+    s = Scan(c)
+    if preset:
+        p = Preset()
+        s.add_preset(p)
+    try:
+        with gevent.Timeout(1):
+            s.run()
+    except Exception as e:
+        assert isinstance(e, ZeroDivisionError)
+    else:
+        assert False

@@ -29,6 +29,8 @@ from bliss.common.scans import ct
 def test_to_signed():
     assert to_signed(3, bits=2) == -1
     assert to_signed(3, bits=3) == 3
+    assert to_signed(-103, bits=16) == -103
+    assert to_signed(21, bits=3) == -3
 
 
 def test_parse_mapping_str():

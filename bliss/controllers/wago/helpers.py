@@ -40,7 +40,20 @@ def remove_comments(iterable):
 
 
 def to_signed(num: int, bits=16) -> int:
-    """convert a 16 bit number to a signed representation"""
+    """Convert a number to a signed representation using the two's complement
+
+    Args:
+        bits (int): needed for the conversion, any excess bit will not be
+                    considered
+
+    Examples:
+
+    >>> to_signed(21, bits=3)  # 21 is 0b10101, last 2 bits are discarded
+    -3
+    """
+    num = num & ((2 ** bits) - 1)
+    if num < 0:
+        return num
     if num >> (bits - 1):  # if is negative
         calc = -((num ^ ((1 << bits) - 1)) + 1)  # 2 complement
         return calc

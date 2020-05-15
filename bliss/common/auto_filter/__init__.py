@@ -90,21 +90,30 @@ class AutoFilter(BeaconObject):
         doc="suffix to be added to the corrected counters",
     )
 
+    #    filterset = BeaconObject.property_setting(
+    #        "filterset",
+    #        must_be_in_config=True,
+    #        doc="filterset to attached to the autofilter",
+    #    )
+
     def __init__(self, name, config):
         super().__init__(config, share_hardware=False)
 
         global_map.register(self, tag=self.name)
 
         # check a filterset is in config
-        self.filterset = config.get("filterset")
+        self.__filterset = config.get("filterset")
+
         # check energy motor is in config
         self.energy_axis = config.get("energy_axis")
 
         # build counters
         self._create_counters(config)
 
-        self.__tmp_counters = config.get("counters_for_correction", [])
-        self._counters_for_corr = []
+        # get counters for correction
+        self.__counters_for_corr = []
+        counters = config.get("counters_for_correction", [])
+        self.counters_for_correction = counters
 
         # initialize with filterset
         self.initialize()
@@ -119,9 +128,22 @@ class AutoFilter(BeaconObject):
 
         # filterset sync. method return the maximum effective number of filters
         # which will correspond to the maximum number of filter changes
-        self.max_nb_iter = self.filterset.sync(
+        self.max_nb_iter = self.__filterset.sync(
             self.min_count_rate, self.max_count_rate, energy, self.always_back
         )
+
+    @property
+    def filterset(self):
+        """
+        Setter/getter for the current selected filterset
+        """
+        return self.__filterset
+
+    @filterset.setter
+    def filterset(self, new_filterset):
+        self.__filterset = new_filterset
+        # initilize the new filterset with autof parameters
+        self.initialize()
 
     @property
     def counters_for_correction(self):
@@ -129,13 +151,20 @@ class AutoFilter(BeaconObject):
         Return the list of counters to be added as corrected.
         Internally used by the _Base class to create new channels
         """
-        return self._counters_for_corr
+        return self.__counters_for_corr
 
-    #    @counters_for_correction.setter
-    #    def counters_for_correction(self,counters):
-    #        if not isinstance(counters, list):
-    #            counters = list(counters)
-    #        self.__tmp_counters = counters
+    @counters_for_correction.setter
+    def counters_for_correction(self, counters):
+        if not isinstance(counters, list):
+            counters = list(counters)
+        # build the list of counter to be corrected, a new counter will be added
+        # using same name + corr_suffix.
+        # The monitor counter is the default, remove missing counters.
+        cnts, missing = _get_counters_from_names(counters)
+        for cnt in cnts:
+            self.__counters_for_corr.append(cnt.fullname)
+
+        # Check monitor exists
 
     @autocomplete_property
     def counters(self):
@@ -153,6 +182,10 @@ class AutoFilter(BeaconObject):
     @property
     def filter(self):
         return self.filterset.filter
+
+    @filter.setter
+    def filter(self, new_filter):
+        self.filterset.filter = new_filter
 
     def ascan(self, motor, start, stop, intervals, count_time, *counter_args, **kwargs):
         """
@@ -173,15 +206,6 @@ class AutoFilter(BeaconObject):
             "sleep_time": kwargs.get("sleep_time"),
             "save": save_flag,
         }
-        # build the list of counter to be corrected, a new counter will be added
-        # using same name + corr_suffix
-        # The list always has the monitor counter
-        # remove missing counters.
-        breakpoint()
-        counters, missing = _get_counters_from_names(self.__tmp_counters)
-        for cnt in counters:
-            self._counters_for_corr.append(cnt.fullname)
-
         # Check monitor exists
         monitor_counter_name = self.monitor_counter_name
         counters, missing = _get_counters_from_names([monitor_counter_name])
@@ -191,7 +215,7 @@ class AutoFilter(BeaconObject):
             )
         monitor_counter = counters[0]
         # add the monitor to the list of new corrected counters
-        self._counters_for_corr.append(monitor_counter.fullname)
+        self.__counters_for_corr.append(monitor_counter.fullname)
 
         if not counter_args:  # use the default measurement group
             counter_args = [get_active_mg()] + [monitor_counter]

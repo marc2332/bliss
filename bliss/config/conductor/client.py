@@ -101,8 +101,12 @@ def get_cache_address(connection=None):
 
 
 @check_connection
-def get_redis_connection(db=0, connection=None):
-    return connection.get_redis_connection(db=db)
+def get_redis_connection(
+    db=0, connection=None, single_connection_client=False, pool_name="default"
+):
+    return connection.get_redis_connection(
+        db=db, single_connection_client=single_connection_client, pool_name=pool_name
+    )
 
 
 @check_connection

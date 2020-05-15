@@ -44,6 +44,7 @@ from bliss.common.utils import autocomplete_property
 from bliss import global_map
 from bliss.common.session import get_current_session
 from bliss.scanning.scan import ScanPreset
+from bliss.common.axis import Axis
 
 from . import acquisition_objects
 
@@ -101,22 +102,22 @@ class AutoFilter(BeaconObject):
 
         global_map.register(self, tag=self.name)
 
-        # check a filterset is in config
-        self.__filterset = config.get("filterset")
-
-        # check energy motor is in config
-        self.energy_axis = config.get("energy_axis")
+        self.__filterset = None
+        self.__energy_axis = None
+        self.__counters_for_corr = set()
 
         # build counters
         self._create_counters(config)
 
         # get counters for correction
-        self.__counters_for_corr = []
         counters = config.get("counters_for_correction", [])
         self.counters_for_correction = counters
 
-        # initialize with filterset
-        self.initialize()
+        # check a filterset is in config
+        self.__filterset = config.get("filterset")
+
+        # check energy motor is in config
+        self.energy_axis = config.get("energy_axis")
 
     def initialize(self):
         """
@@ -137,6 +138,24 @@ class AutoFilter(BeaconObject):
             self.__initialized = False
 
     @property
+    def energy_axis(self):
+        """
+        Setter/getter for the energy axis,
+        check the instance is an axis
+        """
+        return self.__energy_axis
+
+    @energy_axis.setter
+    def energy_axis(self, energy_axis):
+        if energy_axis != self.__energy_axis:
+            if isinstance(energy_axis, Axis):
+                self.__energy_axis = energy_axis
+                # change on energy, so get filterset initialized back
+                self.initialize()
+            else:
+                raise ValueError(f"{energy_axis} is not a Bliss Axis")
+
+    @property
     def filterset(self):
         """
         Setter/getter for the current selected filterset
@@ -145,9 +164,10 @@ class AutoFilter(BeaconObject):
 
     @filterset.setter
     def filterset(self, new_filterset):
-        self.__filterset = new_filterset
-        # initilize the new filterset with autof parameters
-        self.initialize()
+        if new_filterset != self.__filterset:
+            self.__filterset = new_filterset
+            # initilize the new filterset with autof parameters
+            self.initialize()
 
     @property
     def counters_for_correction(self):
@@ -155,7 +175,7 @@ class AutoFilter(BeaconObject):
         Return the list of counters to be added as corrected.
         Internally used by the _Base class to create new channels
         """
-        return self.__counters_for_corr
+        return list(self.__counters_for_corr)
 
     @counters_for_correction.setter
     def counters_for_correction(self, counters):
@@ -166,7 +186,7 @@ class AutoFilter(BeaconObject):
         # The monitor counter is the default, remove missing counters.
         cnts, missing = _get_counters_from_names(counters)
         for cnt in cnts:
-            self.__counters_for_corr.append(cnt.fullname)
+            self.__counters_for_corr.add(cnt.fullname)
 
         # Check monitor exists
 
@@ -222,7 +242,7 @@ class AutoFilter(BeaconObject):
             )
         monitor_counter = counters[0]
         # add the monitor to the list of new corrected counters
-        self.__counters_for_corr.append(monitor_counter.fullname)
+        self.__counters_for_corr.add(monitor_counter.fullname)
 
         if not counter_args:  # use the default measurement group
             counter_args = [get_active_mg()] + [monitor_counter]

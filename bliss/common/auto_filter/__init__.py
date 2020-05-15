@@ -122,15 +122,19 @@ class AutoFilter(BeaconObject):
         """
         intialize the behind filterset
         """
+
+        self.__initialized = True
         # Synchronize the filterset with countrate range and energy
         # and tell it to store back filter if necessary
         energy = self.energy_axis.position
-
-        # filterset sync. method return the maximum effective number of filters
-        # which will correspond to the maximum number of filter changes
-        self.max_nb_iter = self.__filterset.sync(
-            self.min_count_rate, self.max_count_rate, energy, self.always_back
-        )
+        if energy > 0:
+            # filterset sync. method return the maximum effective number of filters
+            # which will correspond to the maximum number of filter changes
+            self.max_nb_iter = self.__filterset.sync(
+                self.min_count_rate, self.max_count_rate, energy, self.always_back
+            )
+        else:
+            self.__initialized = False
 
     @property
     def filterset(self):
@@ -195,7 +199,10 @@ class AutoFilter(BeaconObject):
         # initialize the filterset
         # maybe better to use a ScanPreset
         self.initialize()
-
+        if not self.__initialized:
+            raise RuntimeError(
+                f"Cannot run AutoFilter scan, your energy is not valid: {self.energy_axis.position} keV"
+            )
         save_flag = kwargs.get("save", True)
         programed_device_intervals = (intervals + 1) * self.max_nb_iter
         npoints = intervals + 1
@@ -305,8 +312,12 @@ class AutoFilter(BeaconObject):
         )
         # info += "\n" + self.filterset.__info__()
         info += "\n\n" + f"Active filter idx {self.filterset.filter}"
+
         info += "\n\n" + "Table of Effective Filters :"
-        info += "\n" + self.filterset.info_table()
+        if self.__initialized:
+            info += "\n" + self.filterset.info_table()
+        else:
+            info += "\n Cannot get effective filters, check your energy, please !!!"
         return info
 
     def check_filter(self, count_time, counts):

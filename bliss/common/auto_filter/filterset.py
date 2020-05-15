@@ -349,7 +349,7 @@ class FilterSet(BeaconObject):
 
         # Save filter index if needed
         if self._back:
-            self._backid = curr_filtid
+            self._backidx = curr_filtid
 
         return self._nb_filtset
 
@@ -528,6 +528,13 @@ class FilterSet(BeaconObject):
         Return the transmission factor of the current filter
         """
         return self.get_transmission()
+
+    def set_back_filter(self):
+        """
+        Set to back filter in any
+        """
+        if self._back:
+            self.filter = self._backidx
 
     # ------------------------------------------------------------
     # Here start the methods to be overrided by the filterset

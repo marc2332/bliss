@@ -18,6 +18,7 @@ Yaml config may look like this:
   filterset: $filtW1
 
 # optionnal parameters
+  always_back: True
   counters:
     - counter_name: curratt
       tag: fiteridx
@@ -42,6 +43,7 @@ from bliss.controllers.counter import SamplingCounterController
 from bliss.common.utils import autocomplete_property
 from bliss import global_map
 from bliss.common.session import get_current_session
+from bliss.scanning.scan import ScanPreset
 
 from . import acquisition_objects
 
@@ -233,6 +235,10 @@ class AutoFilter(BeaconObject):
             data_watch_callback=scan.StepScanDataWatch(),
         )
 
+        # Add a presetscan
+        preset = AutoFilterPreset(self)
+        s.add_preset(preset)
+
         if kwargs.get("run", True):
             s.run()
         return s
@@ -319,3 +325,18 @@ class AutoFilter(BeaconObject):
         Return the data corrected taking care of the effective transmission.
         """
         return data / self.transmission
+
+
+class AutoFilterPreset(ScanPreset):
+    """
+    ScanPreset class for AutoFilter, 
+    Manage always_back property
+    """
+
+    def __init__(self, auto_filter):
+        self.auto_filter = auto_filter
+        super().__init__()
+
+    def stop(self, scan):
+        if self.auto_filter.always_back:
+            self.auto_filter.filterset.set_back_filter()

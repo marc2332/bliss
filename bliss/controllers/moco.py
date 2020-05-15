@@ -193,7 +193,7 @@ class Moco(object):
         if (autoscale is not None) and (autoscale.upper() in ["AUTO", "NOAUTO"]):
             comm = f"{comm} {autoscale}"
         if comm != "":
-            self.comm(f"OUTBEAM {comm}")
+            self.comm(f"OUTBEAM {comm}".upper())
             return
 
         if not silent:
@@ -229,7 +229,7 @@ class Moco(object):
         if (autoscale is not None) and (autoscale.upper() in ["AUTO", "NOAUTO"]):
             comm = f"{comm} {autoscale}"
         if comm != "":
-            self.comm(f"INBEAM {comm}")
+            self.comm(f"INBEAM {comm}".upper())
             return
 
         if not silent:

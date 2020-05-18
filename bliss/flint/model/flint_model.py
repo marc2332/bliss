@@ -95,6 +95,8 @@ class FlintState(qt.QObject):
 
     blissSessionChanged = qt.Signal()
 
+    tangoMetadataChanged = qt.Signal()
+
     def __init__(self, parent=None):
         super(FlintState, self).__init__(parent=parent)
         self.__workspace: Workspace = None
@@ -109,6 +111,7 @@ class FlintState(qt.QObject):
         self.__scanManager = None
         self.__blissSessionName = None
         self.__redisConnection = None
+        self.__tangoMetadata = None
         self.__defaultScatterStyle: Optional[style_model.Style] = None
         self.__defaultImageStyle: Optional[style_model.Style] = None
 
@@ -168,6 +171,15 @@ class FlintState(qt.QObject):
 
     def flintApi(self):
         return self.__flintApi
+
+    def setTangoMetadata(self, device):
+        if self.__tangoMetadata is device:
+            return
+        self.__tangoMetadata = device
+        self.tangoMetadataChanged.emit()
+
+    def tangoMetadata(self):
+        return self.__tangoMetadata
 
     def setWorkspace(self, workspace: Workspace):
         previous = self.__workspace

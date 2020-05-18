@@ -12,7 +12,7 @@ from bliss.scanning.acquisition.motor import (
 from bliss.scanning import chain
 from bliss.scanning.acquisition import lima
 from bliss.scanning.channel import AcquisitionChannel
-from bliss.common.event import dispatcher
+from bliss.common import event
 
 
 class LinearStepTriggerMaster(_LinearStepTriggerMaster):
@@ -66,7 +66,7 @@ class _Base:
         for channel in self.device.channels:
             new_channel, _, _ = chain.duplicate_channel(channel)
             self._name_2_channel[new_channel.name] = new_channel
-            dispatcher.connect(self.new_data_received, "new_data", channel)
+            event.connect(channel, "new_data", self.new_data_received)
             self.channels.append(new_channel)
 
             # create a corrected channel if given by the AutoFilter instance
@@ -93,7 +93,11 @@ class _Base:
         return self.device.start()
 
     def stop(self):
-        return self.device.stop()
+        try:
+            return self.device.stop()
+        finally:
+            for chan in self.device.channels:
+                event.disconnect(chan, "new_data", self.new_data_received)
 
     def trigger(self):
         return self.device.trigger()

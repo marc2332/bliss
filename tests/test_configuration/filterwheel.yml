@@ -8,6 +8,11 @@
   max_nb_iter: 5
   energy_axis: $energy
   filterset: $filtW0
+  counters:
+   - counter_name: curratt
+     tag: filteridx
+   - counter_name: transm
+     tag: transmission
 
 - name: filtW0
   plugin: bliss

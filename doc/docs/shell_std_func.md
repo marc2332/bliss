@@ -182,6 +182,52 @@ section](bliss_data_policy.md#directory-structure)
 
 * `pymca()`: launch PyMca on last scan's data file.
 
+## Dialogs
+
+Some bliss objects can be used with dialogs.
+
+To check if an object has dialogs implemented you can use the `menu` function.
+
+Using `menu()` without further arguments will display all objects that has
+dialogs implemented.
+
+Using using `menu(object)` will launch the dialog with his effects. If more than
+one dialog exists for the same object you can either pass the dialog name as a string
+like `menu(lima_simulator, "saving")` or just use `menu(lima_simulator)` and first
+you will select between available dialogs and than use the selected one.
+
+Using
+
+```python
+TEST_SESSION [2]: menu()  
+         Out [2]: Dialog available for the following objects:
+
+                  ACTIVE_MG
+                  MG1
+                  MG2
+                  ascan
+                  lima_simulator
+                  test_mg
+                  transfocator_simulator
+                  wago_simulator
+                  ...
+
+TEST_SESSION [3]: show(trasfocator_simulator)
+                  .. HERE THE DIALOG DISPLAYS ..
+         Out [3]: Transfocator transfocator_simulator:  # effects of dialog
+                  P0  L1  L2   L3  L4   L5   L6  L7  L8
+                  IN  IN  OUT  IN  OUT  OUT  IN  IN  IN
+
+TEST_SESSION [4]: show(lima_simulator, "saving")
+                  .. HERE THE DIALOG DISPLAYS ..
+         Out [4]: # display of return status if present
+
+TEST_SESSION [5]: show(lima_simulator)
+                  .. HERE SUBMENU DIALOG DISPLAYS ..
+                  .. THAN SELECTED DIALOG DISPLAYS ..
+         Out [5]: # display of return status if present
+```
+
 
 ## Wago Interlocks
 

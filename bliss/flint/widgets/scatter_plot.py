@@ -31,6 +31,7 @@ from bliss.flint.helper import scan_info_helper
 from bliss.flint.helper import model_helper
 from bliss.flint.utils import signalutils
 from bliss.flint.widgets import plot_helper
+from bliss.flint.widgets.utils import export_action
 
 
 _logger = logging.getLogger(__name__)
@@ -183,7 +184,7 @@ class ScatterPlotWidget(plot_helper.PlotWidget):
         action.setIcon(icon)
         action.setEnabled(False)
         toolBar.addAction(action)
-        toolBar.addAction(plot_helper.ExportOthers(self.__plot, self))
+        toolBar.addAction(export_action.ExportOthersAction(self.__plot, self))
 
         return toolBar
 

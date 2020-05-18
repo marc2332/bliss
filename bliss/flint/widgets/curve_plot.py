@@ -33,6 +33,7 @@ from bliss.flint.helper import scan_info_helper
 from bliss.flint.helper import model_helper
 from bliss.flint.utils import signalutils
 from bliss.flint.widgets import plot_helper
+from bliss.flint.widgets.utils import export_action
 
 from bliss.scanning import scan_math
 
@@ -277,7 +278,7 @@ class CurvePlotWidget(plot_helper.PlotWidget):
         action.setIcon(icon)
         action.setEnabled(False)
         toolBar.addAction(action)
-        toolBar.addAction(plot_helper.ExportOthers(self.__plot, self))
+        toolBar.addAction(export_action.ExportOthersAction(self.__plot, self))
 
         return toolBar
 

@@ -29,6 +29,7 @@ from bliss.flint.widgets.plot_helper import FlintPlot
 from bliss.flint.helper import scan_info_helper
 from bliss.flint.helper import model_helper
 from bliss.flint.widgets import plot_helper
+from bliss.flint.widgets.utils import export_action
 from .utils.camera_live_action import CameraLiveAction
 
 _logger = logging.getLogger(__name__)
@@ -259,7 +260,7 @@ class ImagePlotWidget(plot_helper.PlotWidget):
         action.setIcon(icon)
         action.setEnabled(False)
         toolBar.addAction(action)
-        toolBar.addAction(plot_helper.ExportOthers(self.__plot, self))
+        toolBar.addAction(export_action.ExportOthersAction(self.__plot, self))
 
         return toolBar
 

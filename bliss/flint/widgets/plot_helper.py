@@ -25,7 +25,6 @@ from silx.gui import icons
 from silx.gui.plot import PlotWindow
 from silx.gui.plot.actions import PlotAction
 from silx.gui.plot.actions import control
-from silx.gui.plot.actions import io
 from silx.gui.plot.tools.profile import ScatterProfileToolBar
 from silx.gui.plot.Profile import ProfileToolBar
 from silx.gui.plot import PlotToolButtons
@@ -37,6 +36,7 @@ from silx.gui.plot.items.image import ImageData
 from silx.gui.plot.items import YAxisMixIn
 from silx.gui.plot.items import BoundingRect
 
+from bliss.flint.model import flint_model
 from bliss.flint.model import plot_model
 from bliss.flint.model import plot_item_model
 from bliss.flint.model import plot_state_model
@@ -230,25 +230,6 @@ class CustomImageProfileAction(qt.QWidgetAction):
         toolButton.setToolTip(
             "Manage the profiles to this scatter (not yet implemented)"
         )
-        toolButton.setIcon(icon)
-        toolButton.setMenu(menu)
-        toolButton.setPopupMode(qt.QToolButton.InstantPopup)
-        self.setDefaultWidget(toolButton)
-
-
-class ExportOthers(qt.QWidgetAction):
-    def __init__(self, plot, parent):
-        super(ExportOthers, self).__init__(parent)
-
-        menu = qt.QMenu(parent)
-        menu.addAction(io.CopyAction(plot, self))
-        menu.addAction(io.PrintAction(plot, self))
-        menu.addAction(io.SaveAction(plot, self))
-
-        icon = icons.getQIcon("flint:icons/export-others")
-        toolButton = qt.QToolButton(parent)
-        toolButton.setText("Other exports")
-        toolButton.setToolTip("Various exports")
         toolButton.setIcon(icon)
         toolButton.setMenu(menu)
         toolButton.setPopupMode(qt.QToolButton.InstantPopup)

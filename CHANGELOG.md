@@ -7,9 +7,88 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+
+## [1.4.0] - 2020-05-18
+
+### Added
+- scan speed improvements
+    - various optimization
+    - use of hiredis for message packing/unpacking between BLISS and redis
+- protection of global variables in BLISS shell
+    - selected globals cannot be removed, or replaced (was asked during the last BLISS training at auditorium)
+- "maxee" mode for axes with encoders
+    - read of encoder position instead of motor controller position
+    - various checks
+    - added quadratic filtering capabilities to Encoder objects (used at ID11)
+- helper to get channels from ScanPreset objects, in order to implement equipment protection for example
+- helper to get acquisition devices from counters or axes (useful in Preset objects)
+- Tango commands and attributes logging
+    - allow to do "debugon(a_BLISS_device)" and to see all commands/attributes executed if a_BLISS_device talks to Tango
+- refactoring of NHQ controller
+- White Beam Attenuators with hooks on frontend + looking at home switches
+- new flag to indicate a scan has been aborted
+- messages when stopping motions
+- saving comments in YAML files is now possible
+- variables (not only constants) in expression-based calc counters
+- added Lima debug in BLISS
+- allow expression based CalcCounter to not have constants
+- IcePAP: added methods _get_min_acceleration_time and _get_max_velocity
+- Documentation:
+    - Add regulation/temperature/powersupply
+    - Add default chain and associated settings
+- simulation for AutoFilter
+- Nexus Writer:
+    - added version to nexus files
+- Flint:
+    - API to select a mask image
+    - Provide axis markers
+- Allow to keep a reference to an object in Redis
+- Speedgoat controller improvements
+
+### Changed
 - Shell
     - Flint will not be launched for CT without image or MCA
       despite `SCAN_DISPLAY.auto=True`
+- updated documentation for data policy in BLISS
+- 'ct' does not start Flint if counters are only 0D
+- Lima dialogs more user friendly
+- read-only variables in the shell
+- improvement in DCM control (speedgoat, pepu, etc.)
+- mca: move data reading loop on server side
+- Documentation:
+    - scan documentation update
+
+### Fixed
+- fixed bug in documentation pages generation and doc search
+- PM600 controller bug fixes
+- Moco counters do not show in measurement groups
+- adapt EMH controller to new firmware
+- fix of MCA simulator, after last changes which broke tests
+- fixed usage of "pytest.approx" in tests
+- 100% CPU load in clients when Beacon is stopped
+- infinite recursion when setting value in axis from initialization method
+- `is_moving property` of motor group object could report wrong value
+- fix device.name in External Input/Output info
+- show clear error message instead of traceback if BLISS needs to reconnect to redis
+- limatake: added missing key in scan info
+- fix bug on xia hwsca
+- display error message if Beacon is not found, was not working with Tmux
+- IcePAP: fixed acceleration time margin in trajectory mode
+- Keithley: changed message for gain (0-10) -> (3-10)
+- fix BeaconObject property_setting setter not working at first call
+- tango_attr_as_counter: add missing initialization of conversion_factor
+- `--debug` option enables ERROR_REPORT.expert_mode
+- Resolve "GPIB timeout"
+- Wago: fixed a bug for negative values on interlock representation
+- fix Sharing motor between two sessions causing exception on initialzation
+- NHQ Power Supply refactoring
+- Nexus Writer:
+    - skip reference saving when paths are equal
+- fix on exception happening during scan can be shadowed by exception in
+  scan preset
+
+### Removed
+- removed mx directory
 
 ## [1.3.0] - 2020-04-03
 
@@ -62,7 +141,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- --debug option enables ERROR_REPORT.expert_mode
 - user_name in SCAN_SAVING and scan display
 - user_local_script now raises an exception if invalid file is given, even in default session
 - goto_cen and associated functions now work for calc axes
@@ -96,7 +174,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - The view on the image widget is not anymore reset when a scan starting
     - The x-axis range when using a/dscan was now correct
     - The gaussian fit now also displays the FWHM in tooltips
-    - The sandard deviation computed from the gausian fit is now positive
+    - The standard deviation computed from the gausian fit is now positive
 
 ### Removed
 

@@ -54,6 +54,7 @@ from bliss.common.utils import (
     shorten_signature,
 )
 from bliss.common.measurementgroup import MeasurementGroup
+from bliss.shell.dialog.helpers import find_dialog, dialog as dialog_dec_cls
 
 
 # objects given to Bliss shell user
@@ -67,6 +68,7 @@ from bliss.common.scans import *
 from bliss.common import logtools
 from bliss.common.logtools import *
 from bliss.common.interlocks import interlock_state
+from bliss.common.session import get_current_session
 
 from bliss.scanning.scan_tools import (
     cen,
@@ -162,6 +164,7 @@ __all__ = (
         "goto_com",
         "where",
         "fwhm",
+        "menu",
     ]
     + scans.__all__
     + logtools.__all__
@@ -859,6 +862,67 @@ def interlock_show(wago_obj=None):
         )
         for wago in wago_instance_list:
             wago.interlock_show()
+
+
+def menu(obj=None, dialog_type=None, *args, **kwargs):
+    """Will display a dialog for acting on the object if this is implemented
+
+    Args:
+        obj: the object on which you want to operate, if no object is provided
+             a complete list of available objects that have implemented some
+             dialogs will be displayed.
+
+        dialog_type (str): the dialog type that you want to display between one
+             of the available. If this parameter is omitted and only one dialog
+             is available for the given object than that dialog is diplayed,
+             if instead more than one dialog is available will be launched a
+             first selection dialog to choose from availables and than the
+             selected one.
+
+    Examples:
+
+      `menu()`  # will display all bliss objects that have dialog implemented
+
+      `menu(wba)`  # will launch the only available dialog for wba: "selection"
+
+      `menu(wba, "selection")`  # same as previous
+
+      `menu(lima_simulator)  # will launch a selection dialog between available
+                             # choices and than the selected one
+    """
+    if obj is None:
+        names = set()
+        # remove (_1, _2, ...) ptpython shell items that create false positive
+        env = {
+            k: v
+            for (k, v) in get_current_session().env_dict.items()
+            if not k.startswith("_")
+        }
+
+        for key, obj in env.items():
+            try:
+                # intercepts functions like `ascan`
+                if obj.__name__ in dialog_dec_cls.DIALOGS.keys():
+                    names.add(key)
+            except AttributeError:
+                try:
+                    # intercept class instances like `wago_simulator`
+                    if obj.__class__.__name__ in dialog_dec_cls.DIALOGS.keys():
+                        names.add(key)
+
+                except AttributeError:
+                    pass
+
+        return ShellStr(
+            "Dialog available for the following objects:\n\n" + "\n".join(sorted(names))
+        )
+    dialog = find_dialog(obj)
+    if dialog is None:
+        return ShellStr("No dialog available for this object")
+    try:
+        return dialog(dialog_type)
+    except ValueError as exc:
+        return ShellStr(str(exc))
 
 
 @contextlib.contextmanager

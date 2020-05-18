@@ -74,6 +74,7 @@ Usage::
 from random import randint
 from gevent import Timeout, sleep
 import tabulate
+from bliss import global_map
 from bliss.common.utils import grouped
 from bliss.controllers.wago.wago import WagoController, ModulesConfig, get_wago_comm
 from bliss.config import channels
@@ -179,6 +180,7 @@ class Transfocator:
         self._state_chan = channels.Channel(
             "transfocator: %s" % name, callback=self.__state_changed
         )
+        global_map.register(self, children_list=[self.wago])
 
         if "lenses" in config:
             self.nb_lens = int(config["lenses"])

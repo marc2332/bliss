@@ -110,10 +110,17 @@ class Slits(CalcController):
         if slit_type not in ["vertical"]:
             # OFFSET = ( FRONT - BACK ) / 2
             # GAP = BACK + FRONT
-            meta_dict.update({"y_gap": cur_pos["hoffset"], "y_offset": cur_pos["hgap"]})
+            meta_dict.update(
+                {
+                    "horizontal_gap": cur_pos["hoffset"],
+                    "horizontal_offset": cur_pos["hgap"],
+                }
+            )
 
         if slit_type not in ["horizontal"]:
-            meta_dict.update({"x_gap": cur_pos["voffset"], "x_offset": cur_pos["vgap"]})
+            meta_dict.update(
+                {"vertical_gap": cur_pos["voffset"], "vertical_offset": cur_pos["vgap"]}
+            )
         return meta_dict
 
     def initialize_axis(self, axis):

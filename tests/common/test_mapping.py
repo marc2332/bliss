@@ -257,7 +257,7 @@ def test_global_map(beacon, s1hg, roby):
     sr = beacon.get("sample_regulation")
     heater = beacon.get("heater")
     hooked_m0 = beacon.get("hooked_m0")
-    beacon.get("slits")
+    beacon.get("primary_slit")
     # m.draw_pygraphviz()
 
     graph_data = node_link_data(m.G)

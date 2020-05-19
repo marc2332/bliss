@@ -8,6 +8,7 @@ from contextlib import contextmanager
 
 from silx.utils import testutils
 from bliss.common import plot
+from bliss.flint.client import proxy
 
 
 @contextmanager
@@ -47,7 +48,7 @@ def test_created_flint(flint_session):
     flint = plot.get_flint()
 
     # Check messages and stdout
-    listener = testutils.TestLogging(plot.FLINT_OUTPUT_LOGGER.name, info=1)
+    listener = testutils.TestLogging(proxy.FLINT_OUTPUT_LOGGER.name, info=1)
     with listener:
         flint.ping()
         for _ in range(10):
@@ -63,7 +64,7 @@ def test_attached_flint(attached_flint_session):
     """
     flint = plot.get_flint()
     # Check messages and stdout
-    listener = testutils.TestLogging(plot.FLINT_OUTPUT_LOGGER.name, info=1)
+    listener = testutils.TestLogging(proxy.FLINT_OUTPUT_LOGGER.name, info=1)
     with listener:
         flint.ping()
         for _ in range(10):

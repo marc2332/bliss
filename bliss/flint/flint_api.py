@@ -300,6 +300,16 @@ class FlintApi:
 
     # Plot management
 
+    def is_plot_exists(self, plot_id) -> bool:
+        if isinstance(plot_id, str) and plot_id.startswith("live:"):
+            try:
+                self._get_live_plot_widget(plot_id)
+                return True
+            except ValueError:
+                return False
+        else:
+            return plot_id in self._custom_plots
+
     def add_plot(
         self,
         cls_name: str,
@@ -309,7 +319,7 @@ class FlintApi:
     ):
         """Create a new custom plot based on the `silx` API.
 
-        The plot will be created i a new tab on Flint.
+        The plot will be created in a new tab on Flint.
 
         Arguments:
             cls_name: A class name defined by silx. Can be one of "PlotWidget",
@@ -320,6 +330,9 @@ class FlintApi:
             selected: If true (not the default) the plot became the current
                 displayed plot.
             closeable: If true (default), the tab can be closed manually
+
+        Returns:
+            A plot_id
         """
         plot_id = self.create_new_id()
         if not name:

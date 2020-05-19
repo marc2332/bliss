@@ -100,7 +100,7 @@ def get_interface(*args, **kwargs):
                     if isinstance(ikwargs, dict):
                         try:
                             interface = get_tango_proxy(kwargs)
-                        except TypeError:
+                        except ValueError:
                             interface = get_comm(kwargs)
                     else:
                         interface = ikwargs

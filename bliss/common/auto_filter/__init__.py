@@ -117,6 +117,7 @@ class AutoFilter(BeaconObject):
         self.__filterset = config.get("filterset")
 
         # check energy motor is in config
+        # this property set calls initialize()
         self.energy_axis = config.get("energy_axis")
 
     def initialize(self):
@@ -127,12 +128,15 @@ class AutoFilter(BeaconObject):
         self.__initialized = True
         # Synchronize the filterset with countrate range and energy
         # and tell it to store back filter if necessary
-        energy = self.energy_axis.position
-        if energy > 0:
+        self.__last_energy = self.energy_axis.position
+        if self.__last_energy > 0:
             # filterset sync. method return the maximum effective number of filters
             # which will correspond to the maximum number of filter changes
             self.max_nb_iter = self.__filterset.sync(
-                self.min_count_rate, self.max_count_rate, energy, self.always_back
+                self.min_count_rate,
+                self.max_count_rate,
+                self.__last_energy,
+                self.always_back,
             )
         else:
             self.__initialized = False
@@ -201,6 +205,11 @@ class AutoFilter(BeaconObject):
 
     @property
     def transmission(self):
+        """
+        Return the current transmission given by the filter
+        """
+        if self.__last_energy != self.energy_axis.position:
+            self.initialize()
         return self.filterset.transmission
 
     @property
@@ -331,8 +340,14 @@ class AutoFilter(BeaconObject):
             "\n"
             + f"Energy axis {self.energy_axis.name}: {self.energy_axis.position:.5g} keV"
         )
-        # info += "\n" + self.filterset.__info__()
-        info += "\n\n" + f"Active filter idx {self.filterset.filter}"
+
+        # calling transmission can update the filterset info_table if the energy has changed
+        transm = self.transmission
+
+        info += (
+            "\n\n"
+            + f"Active filter idx {self.filterset.filter}, transmission {transm:g}"
+        )
 
         info += "\n\n" + "Table of Effective Filters :"
         if self.__initialized:

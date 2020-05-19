@@ -12,4 +12,4 @@ scan_saving:
     tmp_data_root: /tmp/scans/tmp
     visitor_data_root: /tmp/scans/visitor
     inhouse_data_root: /tmp/scans/inhouse
- 
+    icat_tmp_data_root: /tmp/scans/tmp_icat

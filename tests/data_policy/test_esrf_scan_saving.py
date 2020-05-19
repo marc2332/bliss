@@ -21,6 +21,9 @@ def test_inhouse_scan_saving(session, esrf_data_policy):
     assert scan_saving.base_path == scan_saving_config["inhouse_data_root"].format(
         beamline=scan_saving.beamline
     )
+    assert scan_saving.icat_base_path == scan_saving_config["inhouse_data_root"].format(
+        beamline=scan_saving.beamline
+    )
     assert scan_saving.sample == "sample"
     assert scan_saving.dataset == "0001"
     with pytest.raises(AttributeError):
@@ -45,6 +48,19 @@ def test_visitor_scan_saving(session, esrf_data_policy):
     scan_saving_config = esrf_data_policy
     scan_saving.proposal = "mx415"
     assert scan_saving.base_path == scan_saving_config["visitor_data_root"]
+    assert scan_saving.icat_base_path == scan_saving_config["visitor_data_root"]
+
+
+def test_tmp_scan_saving(session, esrf_data_policy):
+    scan_saving = session.scan_saving
+    scan_saving_config = esrf_data_policy
+    scan_saving.proposal = "test123"
+    assert scan_saving.base_path == scan_saving_config["tmp_data_root"].format(
+        beamline=scan_saving.beamline
+    )
+    assert scan_saving.icat_base_path == scan_saving_config[
+        "icat_tmp_data_root"
+    ].format(beamline=scan_saving.beamline)
 
 
 def test_auto_dataset_increment(session, esrf_data_policy):
@@ -112,6 +128,11 @@ def test_data_policy_scan_check_servers(
     assert mdmgr_dev.datasetName == "newdataset"
     assert str(mdmgr_dev.state()) == "RUNNING"
     assert session.scan_saving.root_path == mdmgr_dev.dataFolder
+
+    session.scan_saving.proposal = "testproposal"
+    s = loopscan(3, 0.01, diode, save=False)
+    assert session.scan_saving.root_path != mdmgr_dev.dataFolder
+    assert session.scan_saving.icat_root_path == mdmgr_dev.dataFolder
 
 
 def test_data_policy_user_functions(session, esrf_data_policy):

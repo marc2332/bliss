@@ -794,6 +794,29 @@ class ESRFScanSaving(BasicScanSaving):
             )
         return self.eval_template(base_path, eval_dict=eval_dict)
 
+    @property_with_eval_dict
+    def icat_base_path(self, eval_dict=None):
+        """Root directory depending in the proposal type (inhouse, visitor, tmp)
+        """
+        ptype = self.get_cached_property("proposal_type", eval_dict)
+        if ptype == "inhouse":
+            key = "icat_inhouse_data_root"
+        elif ptype == "visitor":
+            key = "icat_visitor_data_root"
+        else:
+            key = "icat_tmp_data_root"
+        default = self.get_cached_property("base_path", eval_dict)
+        base_path = self.scan_saving_config.get(key, default)
+        return self.eval_template(base_path, eval_dict=eval_dict)
+
+    @property_with_eval_dict
+    def icat_root_path(self, eval_dict=None):
+        """Directory of the scan *data file* reachable by ICAT
+        """
+        base_path = self.get_cached_property("icat_base_path", eval_dict)
+        template = os.path.join(base_path, self.template)
+        return os.path.abspath(self.eval_template(template, eval_dict=eval_dict))
+
     @property
     def data_filename(self):
         """File name template without extension
@@ -1060,8 +1083,8 @@ class ESRFScanSaving(BasicScanSaving):
             self._icat_wait_until_state(
                 ["ON"], "Cannot start the ICAT dataset (sample or dataset not defined)"
             )
-            root_path = self.get_cached_property("root_path", eval_dict)
-            self.metadata_experiment.dataRoot = root_path
+            dataRoot = self.get_cached_property("icat_root_path", eval_dict)
+            self.metadata_experiment.dataRoot = dataRoot
             self.metadata_manager.startDataset()
             self._icat_wait_until_state(["RUNNING"], "Failed to start the ICAT dataset")
 

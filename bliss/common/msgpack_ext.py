@@ -164,4 +164,5 @@ class MsgpackContext(object):
             max_buffer_size=max_buffer_size,
             ext_hook=self._ext_hooks,
             object_hook=self._object_hook,
+            strict_map_key=False,
         )

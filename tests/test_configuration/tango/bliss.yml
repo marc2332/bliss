@@ -63,5 +63,14 @@ device:
 - tango_name: id00/bliss_test/omega
   class: BlissAxis_omega
   alias: omega
+- tango_name: id00/bliss_test/bsy
+  class: BlissAxis_bsy
+  alias: bsy
+- tango_name: id00/bliss_test/bsz
+  class: BlissAxis_bsz
+  alias: bsz
+- tango_name: id00/bliss_test/att1z
+  class: BlissAxis_att1z
+  alias: att1z
 personal_name: test
 server: Bliss

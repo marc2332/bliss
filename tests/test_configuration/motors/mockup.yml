@@ -132,6 +132,42 @@ controller:
     acceleration: 300
     encoder: $mot_maxee_enc
     read_position: encoder
+  - class: MockupAxis
+    name: bsy
+    backlash: 2
+    steps_per_unit: 10000
+    velocity: 2500.0
+    acceleration: 1000.0
+    low_limit: -.inf
+    high_limit: .inf
+    default_cust_attr: 6.28
+  - class: MockupAxis
+    name: bsz
+    backlash: 2
+    steps_per_unit: 10000
+    velocity: 2500.0
+    acceleration: 1000.0
+    low_limit: -.inf
+    high_limit: .inf
+    default_cust_attr: 6.28
+  - class: MockupAxis
+    name: att1z
+    backlash: 2
+    steps_per_unit: 10000
+    velocity: 2500.0
+    acceleration: 1000.0
+    low_limit: -.inf
+    high_limit: .inf
+    default_cust_attr: 6.28
+  - class: MockupAxis
+    name: mp2
+    backlash: 2
+    steps_per_unit: 10000
+    velocity: 2500.0
+    acceleration: 1000.0
+    low_limit: -.inf
+    high_limit: .inf
+    default_cust_attr: 6.28
   encoders:
   - name: m1enc
     steps_per_unit: 50

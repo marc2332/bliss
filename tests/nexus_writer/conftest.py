@@ -114,10 +114,18 @@ def nexus_writer(session, tmpdir, config=True, alt=False, policy=True):
         "alt": alt,
         "policy": policy,
     }
+    prepare_objects(**info)
     prepare_scan_saving(**info)
     with writer_tango(**info) as writer:
         info["writer"] = writer
         yield info
+
+
+def prepare_objects(session=None, **kwargs):
+    att1 = session.env_dict["att1"]
+    att1.Al()
+    beamstop = session.env_dict["beamstop"]
+    beamstop.IN()
 
 
 def prepare_scan_saving(session=None, tmpdir=None, policy=True, **kwargs):

@@ -6,10 +6,10 @@ positions:
 - label: IN
   description: Beamstop position IN the beam
   target:
-  - axis: $roby
+  - axis: $bsy
     destination: 2.5
     tolerance: 0.01
-  - axis: $robz
+  - axis: $bsz
     destination: 1.0
     tolerance: 0.2
   metadata:
@@ -18,9 +18,9 @@ positions:
 - label: OUT
   description: Beamstop position OUT of the beam
   target:
-  - axis: $roby
+  - axis: $bsy
     destination: 3.5
     tolerance: 0.01
-  - axis: $robz
+  - axis: $bsz
     destination: 2.0
     tolerance: 0.2

@@ -16,8 +16,8 @@ def test_multiple_positions(session):
     beamstop has 2 positions: IN and OUT
     """
     beamstop = session.env_dict.get("beamstop")
-    mot1 = session.env_dict.get("roby")
-    mot2 = session.env_dict.get("robz")
+    mot1 = beamstop.motors["bsy"]
+    mot2 = beamstop.motors["bsz"]
 
     # Test moving by label to a position.
     beamstop.move("IN")
@@ -84,8 +84,8 @@ def test_multiple_positions_add_remove_update(session):
     beamstop has 2 positions: IN and OUT
     """
     beamstop = session.env_dict.get("beamstop")
-    mot1 = session.env_dict.get("roby")
-    mot2 = session.env_dict.get("robz")
+    mot1 = beamstop.motors["bsy"]
+    mot2 = beamstop.motors["bsz"]
 
     assert len(beamstop.targets_dict) == 2
 
@@ -133,7 +133,7 @@ def test_multiple_positions_label(beacon):
     """Test label-positioning
     """
     att = beacon.get("att1")
-    mot = beacon.get("roby")
+    mot = att.motors["att1z"]
 
     mot.move(2.5)
     assert att.position == "Al200"

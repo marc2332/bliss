@@ -35,6 +35,7 @@ class Moco(object):
 
         # Communication
         self._cnx = get_comm(config_tree, timeout=3)
+        global_map.register(self, children_list=[self._cnx])
 
         # motor
         self.motor = None

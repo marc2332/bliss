@@ -139,6 +139,7 @@ controller:
   - name: mot_maxee_enc
     steps_per_unit: 100
 - class: slits
+  name: slits
   axes:
   - name: $s1f
     tags: real front

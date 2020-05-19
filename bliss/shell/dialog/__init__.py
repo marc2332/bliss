@@ -6,3 +6,4 @@ from bliss.shell.dialog.controller import (
     lima_dialogs,
     multiplexer_dialogs,
 )
+from bliss.shell.dialog.controller.motors import slits

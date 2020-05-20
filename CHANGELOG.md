@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Flint:
+    - Added API to start/stop monitorig on Lima
+    - Added image plot GUI to custom live and exposure time while monitoring
 
 ## [1.4.0] - 2020-05-18
 

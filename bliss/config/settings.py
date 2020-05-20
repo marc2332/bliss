@@ -1252,6 +1252,7 @@ class ParametersWardrobe(metaclass=ParametersType):
         default_values=None,
         property_attributes=None,
         not_removable=None,
+        connection=None,
         **keys,
     ):
         """
@@ -1297,7 +1298,7 @@ class ParametersWardrobe(metaclass=ParametersType):
 
         # different instance names are stored in a queue where
         # the first item is the currently used one
-        self._instances = QueueSetting("parameters:%s" % name)
+        self._instances = QueueSetting("parameters:%s" % name, connection=connection)
         self._wardr_name = name  # name of the ParametersWardrobe
         self._property_attributes = tuple(property_attributes) + (
             "creation_date",
@@ -1309,8 +1310,12 @@ class ParametersWardrobe(metaclass=ParametersType):
 
         # creates the two needed proxies
         _change_to_obj_marshalling(keys)  # allows pickling complex objects
-        self._proxy = OrderedHashSetting(self._hash("default"), **keys)
-        self._proxy_default = OrderedHashSetting(self._hash("default"), **keys)
+        self._proxy = OrderedHashSetting(
+            self._hash("default"), connection=connection, **keys
+        )
+        self._proxy_default = OrderedHashSetting(
+            self._hash("default"), connection=connection, **keys
+        )
 
         # Managing default written to proxy_default
         keys = list(self._proxy_default.keys())

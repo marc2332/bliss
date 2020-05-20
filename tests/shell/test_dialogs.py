@@ -22,6 +22,7 @@ from bliss.shell.cli.user_dialog import (
     BlissWizard,
 )
 from bliss.shell.cli.pt_widgets import BlissDialog
+from bliss.shell.standard import menu
 
 
 def multi_dialog(title="Bliss dialog"):
@@ -211,3 +212,11 @@ def test_user_status_info():
         while not is_finished():
             my_seq()
             p("salut")
+
+
+def test_show_helper(session):
+    available = menu()
+    names = """ACTIVE_MG MG1 MG2 ascan
+    test_mg transfocator_simulator""".split()
+    for name in names:
+        assert name in available

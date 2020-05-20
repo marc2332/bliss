@@ -69,6 +69,23 @@ def grouped(iterable, n):
     return zip(*[iter(iterable)] * n)
 
 
+def grouped_with_tail(iterable, n):
+    "like grouped, but does not remove last elements if they not reach the given n length"
+    iterator = iter(iterable)
+    while True:
+        partial = []
+        for _ in range(n):
+            try:
+                value = next(iterator)
+            except StopIteration:
+                if len(partial):
+                    yield partial
+                return
+            else:
+                partial.append(value)
+        yield partial
+
+
 def flatten_gen(items):
     """Yield items from any nested iterable; see Reference."""
     for x in items:

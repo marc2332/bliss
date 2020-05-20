@@ -7,7 +7,6 @@
 import collections
 import itertools
 import functools
-import operator
 import fnmatch
 from sortedcontainers import SortedKeyList
 

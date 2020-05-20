@@ -16,8 +16,11 @@ import numpy
 import collections.abc
 from collections.abc import MutableMapping, MutableSequence
 import socket
+import fnmatch
+
 from itertools import zip_longest
 from bliss.common.event import saferef
+
 import typeguard
 
 
@@ -1131,3 +1134,57 @@ def modify_annotations(annotations):
         return wrapped_function
 
     return decorate
+
+
+def get_matching_names(patterns, names, strict_pattern_as_short_name=False):
+
+    """ search a pattern into a list of names (unix pattern style) 
+
+        pattern     |       meaning
+        ------------|-------------------------------------------
+          *         | matches everything
+          ?         | matches any single character
+          [seq]     | matches any character in seq
+          [!seq]    | matches any character not in seq
+
+        arguments:
+          - patterns: a list of patterns
+          - names: a list of names
+          - strict_pattern_as_short_name: if True patterns without special character,
+            are transformed like this: 'pattern' -> '*:pattern' (as the 'short name' part of a 'fullname')
+
+        return: dict { pattern : matching names }
+
+    """
+
+    special_char = ["*", ":"]
+
+    if not isinstance(patterns, (list, tuple)):
+        patterns = [patterns]
+
+    matches = {}
+    for pat in patterns:
+
+        if not isinstance(pat, str):
+            pat = str(pat)
+
+        sub_pat = [pat]
+
+        if strict_pattern_as_short_name:
+            if all([sc not in pat for sc in special_char]):
+                sub_pat = [f"*:{pat}", f"*:{pat}:*", f"{pat}:*"]
+
+        # store the fullname of matching counters
+        matching_names = []
+        for _pat in sub_pat:
+
+            for name in names:
+                if fnmatch.fnmatch(name, _pat):
+                    matching_names.append(name)
+
+            if matching_names:
+                break
+
+        matches[pat] = matching_names
+
+    return matches

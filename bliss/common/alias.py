@@ -22,6 +22,8 @@ from bliss.common.mapping import Map
 from bliss.common.utils import safe_get
 from bliss.common.counter import Counter
 
+from bliss.common.protocols import CounterContainer
+
 
 class CounterWrapper:
     def __init__(self, fullname, counter_controller):
@@ -316,6 +318,10 @@ class MapWithAliases(Map):
                 yield mot
 
     def get_counters_iter(self):
+        """ yield CounterAliases or Counters found in the map bellow the 'counters' tag.
+            It finds the Counters below the CounterContainers tagged with 'counters'.
+        """
+
         aliased_counters = []
         for obj in self.aliases:
             if isinstance(obj, CounterAlias):
@@ -323,17 +329,18 @@ class MapWithAliases(Map):
                 aliased_counters.append(obj.original_fullname)
 
         for counter_or_container in self.instance_iter("counters"):
+            counters = []
             try:
-                # let's see first if we have a counter container
-                # TODO: replace with proper 'CounterContainer' abc/protocol/whatever
-                # (anything, but needs to be **defined**)
-                counters = counter_or_container.counters
-            except AttributeError:
-                # must be a counter object
-                counters = [counter_or_container]
+                if isinstance(counter_or_container, CounterContainer):
+                    counters = counter_or_container.counters
+
+                elif isinstance(counter_or_container, Counter):
+                    counters = [counter_or_container]
+
             except Exception:
                 # the controller has a problem ?
                 continue
+
             for cnt in counters:
                 if not cnt.fullname in aliased_counters:
                     yield cnt

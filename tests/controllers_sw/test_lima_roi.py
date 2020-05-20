@@ -164,7 +164,7 @@ def test_lima_image_parameters(beacon, default_session, lima_simulator2, clean_g
 
     # acquire images on cam and ebv and check they are equal
     s = ct(expo, cam)
-    cam_img = s.get_data()["lima_simulator2"].get_last_image().data
+    cam_img = s.get_data()["image"].get_last_image().data
 
     bv_img = bv.bpm._snap_and_get_image()
 
@@ -205,7 +205,7 @@ def test_lima_image_parameters(beacon, default_session, lima_simulator2, clean_g
     assert bv_img.shape == (fh, fw)
 
     s = ct(0.01, cam)
-    cam_img = s.get_data()["lima_simulator2"].get_last_image().data
+    cam_img = s.get_data()["image"].get_last_image().data
     assert cam_img.shape == (h, w)
 
     # play with binning
@@ -220,7 +220,7 @@ def test_lima_image_parameters(beacon, default_session, lima_simulator2, clean_g
     # print(cam.image.roi) => <128,128> <256 x 256>
 
     s = ct(0.01, cam)
-    cam_img = s.get_data()["lima_simulator2"].get_last_image().data
+    cam_img = s.get_data()["image"].get_last_image().data
     assert cam_img.shape == (h / 2, w / 2)
 
     bv.bpm.bin = [1, 1]
@@ -243,7 +243,7 @@ def test_lima_image_bin_roi(beacon, default_session, lima_simulator):
 
     s = loopscan(1, 0.01, cam)
 
-    cam_img = s.get_data()["lima_simulator"].get_last_image().data
+    cam_img = s.get_data()["image"].get_last_image().data
     assert cam_img.shape == (200, 150)
 
     with pytest.raises(AssertionError):

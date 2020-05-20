@@ -1564,13 +1564,16 @@ class Scan:
             else:
                 event_done.set()
 
-    def get_data(self):
-        """Return a numpy array with the scan data.
+    def get_data(self, key=None):
+        """Return a dictionary of { channel_name: numpy array }.
 
         It is a 1D array corresponding to the scan points.
         Each point is a named structure corresponding to the counter names.
         """
-        return get_data(self)
+        if key:
+            return get_data(self)[key]
+        else:
+            return get_data(self)
 
     def _next_scan_number(self):
         LAST_SCAN_NUMBER = "last_scan_number"

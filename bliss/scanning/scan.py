@@ -1343,9 +1343,6 @@ class Scan:
         # reset acquisition chain statistics
         self.acq_chain.reset_stats()
 
-        # get scan iterators
-        scan_chain_iterators = [next(i) for i in self.acq_chain.get_iter_list()]
-
         with capture_exceptions(raise_index=0) as capture:
             self._prepare_node()  # create scan node in redis
 
@@ -1377,6 +1374,11 @@ class Scan:
                 if self._watchdog_task is not None:
                     self._watchdog_task.start()
                     self._watchdog_task.on_scan_new(self, self.scan_info)
+
+                # get scan iterators
+                # be careful: this has to be done after "scan_new" callback,
+                # since it is possible to add presets in the callback...
+                scan_chain_iterators = [next(i) for i in self.acq_chain.get_iter_list()]
 
                 # execute scan iterations
                 # NB: "lprint" messages won't be displayed to stdout, this avoids

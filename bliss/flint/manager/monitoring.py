@@ -10,6 +10,7 @@ Scan class to manage monitoring of a Lima detector
 """
 
 from __future__ import annotations
+from typing import Optional
 
 import logging
 import gevent
@@ -23,7 +24,13 @@ _logger = logging.getLogger(__name__)
 
 
 class MonitoringScan(scan_model.Scan):
-    def __init__(self, parent, channel_name, tango_address, exposure_time):
+    def __init__(
+        self,
+        parent,
+        channel_name: str,
+        tango_address: str,
+        exposure_time: Optional[float],
+    ):
         scan_model.Scan.__init__(self, parent=parent)
         topMaster = scan_model.Device(self)
         topMaster.setName("monitor")
@@ -76,12 +83,18 @@ class MonitoringScan(scan_model.Scan):
                 gevent.sleep(2)
                 continue
 
+            # Update the exposure time used
+            if self.__exposure_time is None:
+                exposure_time = float(proxy.acq_expo_time)
+            else:
+                exposure_time = self.__exposure_time
+
             # Sleep according to the user refresh rate and the exposure time
             refresh_rate = self._channel.preferedRefreshRate()
             if refresh_rate is None:
-                sleep = self.__exposure_time
+                sleep = exposure_time
             else:
-                sleep = max(self.__exposure_time, refresh_rate / 1000)
+                sleep = max(exposure_time, refresh_rate / 1000)
             gevent.sleep(sleep)
 
             _logger.info("Polling detector %s", proxy)

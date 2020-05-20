@@ -16,6 +16,8 @@ import logging
 import gevent
 import datetime
 
+from silx.gui import qt
+
 from bliss.common import tango
 from bliss.flint.model import scan_model
 from bliss.data.nodes import lima
@@ -24,6 +26,9 @@ _logger = logging.getLogger(__name__)
 
 
 class MonitoringScan(scan_model.Scan):
+
+    cameraStateChanged = qt.Signal()
+
     def __init__(
         self,
         parent,
@@ -58,8 +63,18 @@ class MonitoringScan(scan_model.Scan):
         self.__task = None
         self.__proxy = None
         self.__tango_address = tango_address
+        self.__isLive = False
 
-    def _get_proxy(self):
+    def isLive(self):
+        return self.__isLive
+
+    def __setLive(self, isLive: bool):
+        if self.__isLive == isLive:
+            return
+        self.__isLive = isLive
+        self.cameraStateChanged.emit()
+
+    def getProxy(self):
         if self.__proxy is not None:
             return self.__proxy
         try:
@@ -75,13 +90,15 @@ class MonitoringScan(scan_model.Scan):
 
     def __runMonitoring(self):
         while self.isMonitoring():
-            proxy = self._get_proxy()
+            proxy = self.getProxy()
 
             # Do not trigger the camera while the video is not enabled
             if not proxy.video_live:
                 _logger.debug("Detector %s video_live not enabled", proxy)
+                self.__setLive(False)
                 gevent.sleep(2)
                 continue
+            self.__setLive(True)
 
             # Update the exposure time used
             if self.__exposure_time is None:
@@ -97,7 +114,7 @@ class MonitoringScan(scan_model.Scan):
                 sleep = max(exposure_time, refresh_rate / 1000)
             gevent.sleep(sleep)
 
-            _logger.info("Polling detector %s", proxy)
+            _logger.debug("Polling detector %s", proxy)
             try:
                 result = lima.read_video_last_image(proxy)
             except:

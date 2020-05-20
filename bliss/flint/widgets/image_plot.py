@@ -29,7 +29,7 @@ from bliss.flint.widgets.plot_helper import FlintPlot
 from bliss.flint.helper import scan_info_helper
 from bliss.flint.helper import model_helper
 from bliss.flint.widgets import plot_helper
-
+from .utils.camera_live_action import CameraLiveAction
 
 _logger = logging.getLogger(__name__)
 
@@ -222,6 +222,8 @@ class ImagePlotWidget(plot_helper.PlotWidget):
         toolBar.addSeparator()
 
         # Tools
+        self.liveAction = CameraLiveAction(self)
+        toolBar.addAction(self.liveAction)
         action = control.CrosshairAction(self.__plot, parent=self)
         action.setIcon(icons.getQIcon("flint:icons/crosshair"))
         toolBar.addAction(action)
@@ -363,6 +365,7 @@ class ImagePlotWidget(plot_helper.PlotWidget):
     def setScan(self, scan: scan_model.Scan = None):
         if self.__scan is scan:
             return
+        self.liveAction.setScan(scan)
         if self.__scan is not None:
             self.__scan.scanDataUpdated[object].disconnect(
                 self.__aggregator.callbackTo(self.__scanDataUpdated)

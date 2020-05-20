@@ -68,6 +68,14 @@ class MonitoringScan(scan_model.Scan):
 
     def __runMonitoring(self):
         while self.isMonitoring():
+            proxy = self._get_proxy()
+
+            # Do not trigger the camera while the video is not enabled
+            if not proxy.video_live:
+                _logger.debug("Detector %s video_live not enabled", proxy)
+                gevent.sleep(2)
+                continue
+
             # Sleep according to the user refresh rate and the exposure time
             refresh_rate = self._channel.preferedRefreshRate()
             if refresh_rate is None:
@@ -76,7 +84,6 @@ class MonitoringScan(scan_model.Scan):
                 sleep = max(self.__exposure_time, refresh_rate / 1000)
             gevent.sleep(sleep)
 
-            proxy = self._get_proxy()
             _logger.info("Polling detector %s", proxy)
             try:
                 result = lima.read_video_last_image(proxy)

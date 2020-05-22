@@ -81,6 +81,7 @@ class MonitoringScan(scan_model.Scan):
         return proxy
 
     def __runMonitoring(self):
+        last_received_counter = None
         while self.isMonitoring():
             proxy = self.getProxy()
 
@@ -92,16 +93,27 @@ class MonitoringScan(scan_model.Scan):
                 continue
             self.__setLive(True)
 
-            # Update the exposure time used
-            exposure_time = float(proxy.acq_expo_time)
+            # Update the latency time used by the detector
+            exposure_time = proxy.acq_expo_time
+            latency_time = proxy.latency_time
+            duration_time = exposure_time + latency_time
 
             # Sleep according to the user refresh rate and the exposure time
             refresh_rate = self._channel.preferedRefreshRate()
             if refresh_rate is None:
-                sleep = exposure_time
+                sleep = latency_time
             else:
-                sleep = max(exposure_time, refresh_rate / 1000)
-            gevent.sleep(sleep)
+                sleep = max(latency_time, refresh_rate / 1000)
+            # Don't sleep more than 1 second
+            sleep = min(1, sleep)
+            gevent.sleep(duration_time)
+            if not self.isMonitoring():
+                break
+
+            counter = proxy.video_last_image_counter
+            if counter == last_received_counter:
+                # Avoid to receive duplicated images
+                continue
 
             _logger.debug("Polling detector %s", proxy)
             try:
@@ -113,6 +125,7 @@ class MonitoringScan(scan_model.Scan):
                 break
             try:
                 if result is None:
+                    last_received_counter = counter
                     data = scan_model.Data(
                         None,
                         array=None,
@@ -121,6 +134,7 @@ class MonitoringScan(scan_model.Scan):
                         receivedTime=datetime.datetime.now(),
                     )
                 else:
+                    last_received_counter = result[1]
                     frame, frame_number = result
                     data = scan_model.Data(
                         None,
@@ -132,6 +146,8 @@ class MonitoringScan(scan_model.Scan):
                 self._channel.setData(data)
                 self._fireScanDataUpdated(channelName=self._channel.name())
             except:
+                # It have already been tried
+                last_received_counter = counter
                 _logger.error("Error while propagating data", exc_info=True)
                 raise
         # FIXME: It have to be joined

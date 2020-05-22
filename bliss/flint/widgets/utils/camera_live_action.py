@@ -17,6 +17,20 @@ from bliss.flint.manager import monitoring
 _logger = logging.getLogger(__name__)
 
 
+class _GridLayout(qt.QGridLayout):
+    def addRow(self, *widgets):
+        layout = self.layout()
+        row = layout.rowCount()
+        if len(widgets) == 1:
+            layout.addWidget(widgets[0], row, 0, 1, 3)
+        elif len(widgets) == 3:
+            layout.addWidget(widgets[0], row, 0)
+            layout.addWidget(widgets[1], row, 1)
+            layout.addWidget(widgets[2], row, 2)
+        else:
+            assert False
+
+
 class _CustomEditorWidget(qt.QWidgetAction):
     """A GUI to custom video live"""
 
@@ -27,8 +41,8 @@ class _CustomEditorWidget(qt.QWidgetAction):
         self.__scan = scan
         widget = qt.QWidget(parent)
         self.setDefaultWidget(widget)
+        layout = _GridLayout(widget)
 
-        layout = qt.QGridLayout(widget)
         label = qt.QLabel(widget)
         label.setAlignment(qt.Qt.AlignCenter)
         button = qt.QPushButton(widget)
@@ -45,22 +59,67 @@ class _CustomEditorWidget(qt.QWidgetAction):
         icon = widget.style().standardIcon(iconName)
         button.setIcon(icon)
 
-        layout.addWidget(label, 0, 0, 1, 3)
-        layout.addWidget(button, 1, 0, 1, 3)
+        layout.addRow(label)
+        layout.addRow(button)
 
-        exposure_time = scan.getProxy().acq_expo_time * 1000
-        exposure = FloatEdit(widget)
-        exposure.editingFinished.connect(self.__updateExposure)
-        exposure.setValue(exposure_time)
-        self.__exposure = exposure
+        proxy = scan.getProxy()
+        exposure_time = proxy.acq_expo_time
+        latency_time = proxy.latency_time
+        duration_time = exposure_time + latency_time
+
+        def integerize(value):
+            """Return a normalized value including if it was normalized"""
+            integer = int(value)
+            return integer, abs(integer - value) > 0.0001
+
+        period, normalized = integerize(duration_time * 1000)
+        about = "≈ " if normalized else ""
+        toolTip = (
+            "Time between 2 consecutive acquisitions "
+            + "(exposition + dead time), in milliseconds"
+        )
+        periodValue = qt.QLabel(widget)
+        periodValue.setAlignment(qt.Qt.AlignRight)
+        periodValue.setText(f"{about}{period}")
+        periodLabel = qt.QLabel(widget)
+        periodLabel.setText("Period:")
+        periodLabel.setToolTip(toolTip)
+        periodUnit = qt.QLabel(widget)
+        periodUnit.setText("ms")
+        periodUnit.setToolTip(toolTip)
+        layout.addRow(periodLabel, periodValue, periodUnit)
+
+        if duration_time != 0:
+            rate = 1 / (duration_time)
+            rate, normalized = integerize(rate * 10)
+            if rate >= 0.9:
+                rate = rate / 10
+                about = "≈ " if normalized else ""
+                toolTip = "Number of acquisitions per seconds, in hertz"
+                rateValue = qt.QLabel(widget)
+                rateValue.setAlignment(qt.Qt.AlignRight)
+                rateValue.setText(f"{about}{rate:0.1f}")
+                rateLabel = qt.QLabel(widget)
+                rateLabel.setText("Rate:")
+                rateLabel.setToolTip(toolTip)
+                rateUnit = qt.QLabel(widget)
+                rateUnit.setText("Hz")
+                rateUnit.setToolTip(toolTip)
+                layout.addRow(rateLabel, rateValue, rateUnit)
+
+        toolTip = "Exposition for a single acquisition, in milliseconds"
+        exposureValue = FloatEdit(widget)
+        exposureValue.editingFinished.connect(self.__updateExposure)
+        exposureValue.setValue(int(exposure_time * 1000))
         exposureLabel = qt.QLabel(widget)
         exposureLabel.setText("Exposure time:")
+        exposureLabel.setToolTip(toolTip)
         exposureUnit = qt.QLabel(widget)
         exposureUnit.setText("ms")
-        exposureUnit.setToolTip("in milliseconds")
-        layout.addWidget(exposureLabel, 2, 0)
-        layout.addWidget(exposure, 2, 1)
-        layout.addWidget(exposureUnit, 2, 2)
+        exposureUnit.setToolTip(toolTip)
+        layout.addRow(exposureLabel, exposureValue, exposureUnit)
+
+        self.__exposure = exposureValue
 
     def __exceptionOrrured(self, future_exception):
         try:

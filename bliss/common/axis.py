@@ -7,7 +7,8 @@
 
 """
 Axis related classes (:class:`~bliss.common.axis.Axis`, \
-:class:`~bliss.common.axis.AxisState` and :class:`~bliss.common.axis.Motion`)
+:class:`~bliss.common.axis.AxisState`, :class:`~bliss.common.axis.Motion`
+and :class:`~bliss.common.axis.GroupMove`)
 """
 from bliss import global_map
 from bliss.common.cleanup import capture_exceptions
@@ -426,7 +427,7 @@ class Motion:
         start_ = rounder(self.axis.tolerance, self.axis.position)
         if self.type == "jog":
             msg = (
-                f"Moving {self.axis.name} from {start_} until it is stopped, at constant velocity: {self.target_pos}\n"
+                f"Moving {self.axis.name} from {start_} until it is stopped, at constant velocity in {'positive' if self.delta > 0 else 'negative'} direction: {abs(self.target_pos/self.axis.steps_per_unit)}\n"
                 f"To stop it: {self.axis.name}.stop()"
             )
             return msg
@@ -634,9 +635,14 @@ class Axis:
         self._group_move = GroupMove()
         self._beacon_channels = dict()
         self._move_stop_channel = Channel(
-            "axis.%s.move_stop" % self.name,
+            f"axis.{self.name}.move_stop",
             default_value=False,
             callback=self._external_stop,
+        )
+        self._jog_velocity_channel = Channel(
+            f"axis.{self.name}.change_jog_velocity",
+            default_value=None,
+            callback=self._set_jog_velocity,
         )
         self._lock = gevent.lock.Semaphore()
         self.__no_offset = False
@@ -717,6 +723,10 @@ class Axis:
         if velocity:
             if self.controller.axis_settings.config_setting["velocity"]:
                 self.__config_velocity = self.config.get("velocity", float)
+            if self.controller.axis_settings.config_setting["jog_velocity"]:
+                self.__config_jog_velocity = self.config.get(
+                    "jog_velocity", float, self.__config_velocity
+                )
         if acceleration:
             if self.controller.axis_settings.config_setting["acceleration"]:
                 self.__config_acceleration = self.config.get("acceleration", float)
@@ -1154,16 +1164,8 @@ class Axis:
     @lazy_init
     def velocity(self):
         """
-        Return the current velocity. If *new_velocity* is given it sets
-        the new velocity on the controller.
-
-        Keyword Args:
-            new_velocity (float): new velocity (user units/second) [default: \
-            None, meaning return the current velocity]
-            from_config (bool): if reading velocity (new_velocity is None), \
-            if True, return the current static configuration velocity, \
-            otherwise, False return velocity from the motor axis \
-            [default: False]
+        Return the current velocity 
+        
         Return:
             float: current velocity (user units/second)
         """
@@ -1191,9 +1193,111 @@ class Axis:
         Return the config velocity.
 
         Return:
-            float: current velocity (user units/second)
+            float: config velocity (user units/second)
         """
         return self.__config_velocity
+
+    def _set_jog_motion(self, motion, velocity):
+        """Set jog velocity to controller
+
+        Velocity is a signed value ; takes direction into account
+        """
+        velocity_in_steps = velocity * self.sign * self.steps_per_unit
+        direction = 1 if velocity_in_steps > 0 else -1
+        # assignment to motion object... this is abusing "target_pos" with velocity
+        # and "delta" with direction
+        motion.target_pos = abs(velocity_in_steps)
+        motion.delta = direction
+
+        backlash = self.backlash / self.sign * self.steps_per_unit
+        if backlash:
+            if math.copysign(direction, backlash) != direction:
+                motion.backlash = backlash
+        else:
+            # don't do backlash correction
+            motion.backlash = 0
+
+    def _get_jog_motion(self):
+        """Return motion object if axis is moving in jog mode
+        
+        Return values:
+        - motion object, if axis is moving in jog mode
+        - False if the jog move has been initiated by another BLISS
+        - None if axis is not moving, or if there is no jog motion
+        """
+        if self.is_moving:
+            if self._group_move.is_moving:
+                for motions in self._group_move._motions_dict.values():
+                    for motion in motions:
+                        if motion.axis is self and motion.type == "jog":
+                            return motion
+            else:
+                return False
+
+    def _set_jog_velocity(self, new_velocity):
+        """Set jog velocity
+
+        If motor is moving, and we are in a jog move, the jog command is re-issued to
+        set the new velocity.
+        It is expected an error to be raised in case the controller does not support it.
+        If the motor is not moving, only the setting is changed.
+
+        Return values:
+        - True if new velocity has been set
+        - False if the jog move has been initiated by another BLISS ('external move')
+        """
+        motion = self._get_jog_motion()
+
+        if motion:
+            if new_velocity == 0:
+                self.stop()
+            else:
+                self._set_jog_motion(motion, new_velocity)
+                self.controller.start_jog(self, motion.target_pos, motion.delta)
+        elif motion is not None:
+            # important to keep this test, if jog move has been started externally
+            return False
+
+        if new_velocity:
+            # it is None the first time the channel is initialized,
+            # it can be 0 to stop the jog move in this case we don't update the setting
+            self.settings.set("jog_velocity", new_velocity)
+
+        return True
+
+    @property
+    @lazy_init
+    def jog_velocity(self):
+        """
+        Return the current jog velocity. 
+
+        Return:
+            float: current jog velocity (user units/second)
+        """
+        # Read -> Return velocity read from motor axis.
+        _user_jog_vel = self.settings.get("jog_velocity")
+        if _user_jog_vel is None:
+            _user_jog_vel = self.velocity
+        return _user_jog_vel
+
+    @jog_velocity.setter
+    def jog_velocity(self, new_velocity):
+        new_velocity = float(
+            new_velocity
+        )  # accepts both float or numpy array of 1 element
+        if not self._set_jog_velocity(new_velocity):
+            # move started externally => use channel to inform
+            self._jog_velocity_channel.value = new_velocity
+
+    @property
+    def config_jog_velocity(self):
+        """
+        Return the config jog velocity.
+
+        Return:
+            float: config jog velocity (user units/second)
+        """
+        return self.__config_jog_velocity
 
     @property
     @lazy_init
@@ -1235,7 +1339,7 @@ class Axis:
         Return:
             float: current acceleration time (second)
         """
-        return self.velocity / self.acceleration
+        return abs(self.velocity / self.acceleration)
 
     @acctime.setter
     def acctime(self, new_acctime):
@@ -1244,14 +1348,32 @@ class Axis:
             new_acctime
         )  # accepts both float or numpy array of 1 element
         self.acceleration = self.velocity / new_acctime
-        return self.velocity / self.acceleration
+        return abs(self.velocity / self.acceleration)
 
     @property
     def config_acctime(self):
         """
         Return the config acceleration time.
         """
-        return self.config_velocity / self.config_acceleration
+        return abs(self.config_velocity / self.config_acceleration)
+
+    @property
+    @lazy_init
+    def jog_acctime(self):
+        """
+        Return the current acceleration time for jog move.
+
+        Return:
+            float: current acceleration time for jog move (second)
+        """
+        return abs(self.jog_velocity / self.acceleration)
+
+    @property
+    def config_jog_acctime(self):
+        """
+        Return the config acceleration time.
+        """
+        return abs(self.config_jog_velocity) / self.config_acceleration
 
     @property
     def dial_limits(self):
@@ -1591,14 +1713,24 @@ class Axis:
             )
 
     @lazy_init
-    def jog(self, velocity, reset_position=None, polling_time=None):
+    def jog(self, velocity=None, reset_position=None, polling_time=None):
         """
         Start to move axis at constant velocity
 
         Args:
             velocity: signed velocity for constant speed motion
         """
-        velocity = float(velocity)  # accepts both floats or numpy arrays of 1 element
+        if velocity is not None:
+            velocity = float(
+                velocity
+            )  # accepts both floats or numpy arrays of 1 element
+
+            if self._get_jog_motion() is not None:
+                # already in jog move
+                self.jog_velocity = velocity
+                return
+        else:
+            velocity = self.jog_velocity
 
         with self._lock:
             if self.is_moving:
@@ -1607,28 +1739,20 @@ class Axis:
             if velocity == 0:
                 return
 
-            saved_velocity = self.velocity
-            velocity_in_steps = velocity * self.steps_per_unit
-            direction = 1 if velocity_in_steps > 0 else -1
+            self.jog_velocity = velocity
 
-            motion = Motion(self, velocity, direction, "jog")
-            motion.saved_velocity = saved_velocity
+            motion = Motion(self, None, None, "jog")
+            motion.saved_velocity = self.velocity
             motion.reset_position = reset_position
-            backlash = self.backlash / self.sign * self.steps_per_unit
-            if backlash:
-                if math.copysign(direction, backlash) != direction:
-                    motion.backlash = backlash
-            else:
-                # don't do backlash correction
-                motion.backlash = 0
+            self._set_jog_motion(
+                motion, velocity
+            )  # this will complete motion configuration
 
             def start_jog(controller, motions):
-                motions[0].axis.velocity = abs(velocity)
-                controller.start_jog(motions[0].axis, abs(velocity_in_steps), direction)
+                controller.start_jog(motions[0].axis, motion.target_pos, motion.delta)
 
             def stop_one(controller, motions):
                 controller.stop_jog(motions[0].axis)
-                lprint(f"Motor {self.name} stopped at posision: {self.position}")
 
             self._group_move = GroupMove()
             self._group_move.move(

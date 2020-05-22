@@ -122,7 +122,7 @@ def init(*path):
     """ Called at BLISS object init.
     """
     filename = to_bytes(os.path.join(*path))
-    LOGGER.debug(f"init (config={filename})")
+    LOGGER.debug("init (config={%s})", filename)
 
     code = handel.xiaInit(filename)
     check_error(code)
@@ -138,7 +138,7 @@ def init_handel():
 
 
 def exit():
-    LOGGER.debug(f"exit()")
+    LOGGER.debug("exit()")
     code = handel.xiaExit()
     check_error(code)
 
@@ -158,8 +158,8 @@ def get_num_detectors():
 def get_detectors():
     """ ???
     """
-    n = get_num_detectors()
-    arg = [ffi.new("char []", MAX_STRING_LENGTH) for _ in range(n)]
+    det_count = get_num_detectors()
+    arg = [ffi.new("char []", MAX_STRING_LENGTH) for _ in range(det_count)]
     code = handel.xiaGetDetectors(arg)
     check_error(code)
     return tuple(ffi.string(x).decode() for x in arg)
@@ -251,9 +251,9 @@ def is_running():
 
     if LOGGER.level == logging.DEBUG:
         if running:
-            print(f"R ", end="")
+            print("R ", end="")
         else:
-            print(f"Not Running")
+            print("Not Running")
 
     return running
 
@@ -314,7 +314,7 @@ def get_statistics():
     for module in get_modules():
         result.update(get_module_statistics(module))
 
-    LOGGER.debug(f"get_statistics()")
+    LOGGER.debug("get_statistics()")
     LOGGER.debug("result=", result)
 
     return result
@@ -555,7 +555,7 @@ def get_baseline(channel):
 def load_system(*path):
     """ ???
     """
-    LOGGER.debug(f"load_system()")
+    LOGGER.debug("load_system()")
     filename = to_bytes(os.path.join(*path))
     code = handel.xiaLoadSystem(b"handel_ini", filename)
     check_error(code)
@@ -564,7 +564,7 @@ def load_system(*path):
 def save_system(*path):
     """ ???
     """
-    LOGGER.debug(f"save_system()")
+    LOGGER.debug("save_system()")
     filename = to_bytes(os.path.join(*path))
     code = handel.xiaSaveSystem(b"handel_ini", filename)
     check_error(code)
@@ -573,7 +573,7 @@ def save_system(*path):
 def start_system():
     """
     """
-    LOGGER.debug(f"start_system()")
+    LOGGER.debug("start_system()")
 
     code = handel.xiaStartSystem()
     check_error(code)
@@ -754,7 +754,7 @@ def get_acquisition_value(name, channel=None):
         # Inconsistency
         if value is None:
             raise ValueError(
-                "The acquisition value {name} differs from channel to channel"
+                f"The acquisition value {name} differs from channel to channel"
             )
         # Return
         return value
@@ -900,7 +900,8 @@ def _raw_read(acquisition_number, queue):
 
 # int xiaBoardOperation(int detChan, char *name, void *value) with mapping_pixel_next (int 0);
 # int xiaMemoryOperation(int detChan, char *name, void *value);
-# int xiaCommandOperation(int detChan, byte_t cmd, unsigned int lenS, byte_t *send, unsigned int lenR, byte_t *recv);
+# int xiaCommandOperation(int detChan, byte_t cmd, unsigned int lenS,
+#                         byte_t *send, unsigned int lenR, byte_t *recv);
 
 
 # Debugging
@@ -940,5 +941,5 @@ def get_config_files(*path):
 def get_config(*path):
     """Read and return the given config file as a dictionary."""
     filename = os.path.join(*path)
-    with open(filename) as f:
-        return parse_xia_ini_file(f.read())
+    with open(filename) as config_file:
+        return parse_xia_ini_file(config_file.read())

@@ -27,6 +27,13 @@ from .base import (
 from bliss import global_map
 
 
+# Logger to use at session startup.
+# To log after session startup: use log_debug(self, <msg>)
+import logging
+
+logger = logging.getLogger(__name__)
+
+
 # MCABeaconObject
 class XIABeaconObject(MCABeaconObject):
 
@@ -113,27 +120,25 @@ class BaseXIA(BaseMCA):
     # Life cycle
 
     def initialize_attributes(self):
+        """ Called at session startup.
+        """
+        logger.debug("initialize_attributes()")
         self._proxy = None
         self._current_config = self.settings.get(
             "current_configuration", self._default_config
         )
+        logger.debug(f'current_configuration="self._current_config"')
         self._gate_master = self.config.get("gate_master", None)
         self._trigger_mode = TriggerMode.SOFTWARE
 
     def initialize_hardware(self):
         """ Called at session startup
         """
-        log_debug(self, "  intialize_hardware / create rpc proxy")
+        logger.debug("initialize_hardware()")
         self._proxy = rpc.Client(self._url)
         event.connect(self._proxy, "data", self._event)
         # global_map.register(self._proxy, parents_list=[self], tag="comm")
         try:
-            log_debug(
-                self,
-                "  Loading %s _current_config: %s",
-                self.name,
-                self._current_config,
-            )
             self.load_configuration(self._current_config)
         except Exception:
             print("Loading config failed !!")
@@ -201,10 +206,11 @@ class BaseXIA(BaseMCA):
 
     def load_configuration(self, filename):
         """Load the configuration.
-
+        Called once at session startup and then on demand.
         The filename is relative to the configuration directory.
         """
         log_debug(self, "load_configuration(%s)", filename)
+        logger.debug("load_configuration(%s)", filename)
         try:
             self._proxy.init(self._config_dir, filename)
             self._proxy.start_system()  # Takes about 5 seconds
@@ -213,6 +219,7 @@ class BaseXIA(BaseMCA):
             self._set_current_config(None)
             raise
         else:
+            logger.debug("load_configuration: %s loaded", filename)
             self._set_current_config(filename)
 
     def reload_configuration(self):
@@ -227,7 +234,7 @@ class BaseXIA(BaseMCA):
         self.load_configuration(self._current_config)
 
     def reload_default(self):
-        """ ???
+        """ Load configuration definded in YAML config.
         """
         self.load_configuration(self._default_config)
 
@@ -329,12 +336,12 @@ class BaseXIA(BaseMCA):
 
     def start_hardware_reading(self):
         """ ??? """
-        log_debug("start_hardware_reading")
+        log_debug(self, "start_hardware_reading")
         self._proxy.start_hardware_reading()
 
     def wait_hardware_reading(self):
         """ ??? """
-        log_debug("wait_hardware_reading")
+        log_debug(self, "wait_hardware_reading")
         self._proxy.wait_hardware_reading()
 
     def trigger(self):
@@ -502,7 +509,7 @@ class BaseXIA(BaseMCA):
         self._trigger_mode = mode
 
     def set_xmap_gate_master(self, mode):
-        log_debug(self, "set_xmap_gate_master(modde=%s)", mode)
+        log_debug(self, "set_xmap_gate_master(mode=%s)", mode)
         # Add extra logic for external and gate trigger mode
         if mode in (TriggerMode.SYNC, TriggerMode.GATE):
             available = self._proxy.get_trigger_channels()

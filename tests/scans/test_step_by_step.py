@@ -61,6 +61,48 @@ def test_dscan(session):
     assert numpy.array_equal(scan_data["sim_ct_gauss"], simul_counter.data)
 
 
+def test_d2scan(session):
+    simul_counter = session.env_dict["sim_ct_gauss"]
+    robz = session.env_dict["robz"]
+    robz.position = 1
+    robz2 = session.env_dict["robz2"]
+    robz2.position = -1
+    # contrary to ascan, dscan returns to start pos
+    start_pos = robz2.position
+    s = scans.d2scan(
+        robz2,
+        -0.2,
+        0.2,
+        robz,
+        -0.1,
+        0.1,
+        1,
+        0,
+        simul_counter,
+        return_scan=True,
+        save=False,
+    )
+    # test for issues #1080
+    # use tolerance to get axis precision
+    assert pytest.approx(robz2.tolerance) == 1e-4
+    assert s.scan_info["title"].startswith("d2scan robz2 -0.2 0.2")
+    #
+    assert robz2.position == start_pos
+    scan_data = s.get_data()
+    assert numpy.allclose(
+        scan_data["robz2"],
+        numpy.linspace(start_pos - 0.2, start_pos + 0.2, 2),
+        atol=5e-4,
+    )
+    assert numpy.array_equal(scan_data["sim_ct_gauss"], simul_counter.data)
+
+    requests = s.scan_info["requests"]
+    assert requests["axis:robz2"]["start"] == pytest.approx(-1.2)
+    assert requests["axis:robz2"]["stop"] == pytest.approx(-0.8)
+    assert requests["axis:robz"]["start"] == pytest.approx(0.9)
+    assert requests["axis:robz"]["stop"] == pytest.approx(1.1)
+
+
 def test_lineup(session):
     simul_counter = session.env_dict["sim_ct_gauss"]
     robz2 = session.env_dict["robz2"]

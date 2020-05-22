@@ -438,7 +438,7 @@ class FlintApi:
         plot = self._get_plot_widget(plot_id)
         plot.clear()
 
-    def start_image_monitoring(self, channel_name, tango_address, exposure_time=None):
+    def start_image_monitoring(self, channel_name, tango_address):
         """Start monitoring of an image from a Tango detector.
 
         The widget used to display result of the image scan for this detector
@@ -448,15 +448,10 @@ class FlintApi:
             channel_name: Identifier of the channel in Redis. It is used to
                 find the right plot in Flint.
             tango_address: Address of the Lima Tango server
-            exposure_time: The exposition time of the detector. It will be used
-                to poll the detector. If None, it is checked automatically to
-                know when to refresh the image.
         """
         from .manager import monitoring
 
-        scan = monitoring.MonitoringScan(
-            None, channel_name, tango_address, exposure_time
-        )
+        scan = monitoring.MonitoringScan(None, channel_name, tango_address)
         manager = self.__flintModel.mainManager()
         plots = scan_info_helper.create_plot_model(scan.scanInfo(), scan)
         manager.updateWidgetsWithPlots(scan, plots, True, None)

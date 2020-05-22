@@ -29,13 +29,7 @@ class MonitoringScan(scan_model.Scan):
 
     cameraStateChanged = qt.Signal()
 
-    def __init__(
-        self,
-        parent,
-        channel_name: str,
-        tango_address: str,
-        exposure_time: Optional[float],
-    ):
+    def __init__(self, parent, channel_name: str, tango_address: str):
         scan_model.Scan.__init__(self, parent=parent)
         topMaster = scan_model.Device(self)
         topMaster.setName("monitor")
@@ -53,13 +47,11 @@ class MonitoringScan(scan_model.Scan):
             "type": "monitoring",
             "acquisition_chain": {"mon": {"images": [channel_name]}},
             "start_time": datetime.datetime.now(),
-            "count_time": exposure_time,
             "title": "Monitoring",
         }
         self.setScanInfo(scanInfo)
 
         self.seal()
-        self.__exposure_time = exposure_time
         self.__task = None
         self.__proxy = None
         self.__tango_address = tango_address
@@ -101,10 +93,7 @@ class MonitoringScan(scan_model.Scan):
             self.__setLive(True)
 
             # Update the exposure time used
-            if self.__exposure_time is None:
-                exposure_time = float(proxy.acq_expo_time)
-            else:
-                exposure_time = self.__exposure_time
+            exposure_time = float(proxy.acq_expo_time)
 
             # Sleep according to the user refresh rate and the exposure time
             refresh_rate = self._channel.preferedRefreshRate()

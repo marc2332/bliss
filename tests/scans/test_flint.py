@@ -110,8 +110,8 @@ def test_image_monitoring(test_session_without_flint, lima_simulator):
         # start flint and the monitoring
         with use_shell_command_with_scan_display():
             flint = plot.get_flint()
-            flint.start_image_monitoring(channel_name, tango_address, 0.1)
-            gevent.sleep(1)
+            flint.start_image_monitoring(channel_name, tango_address)
+            gevent.sleep(2)
             flint.stop_image_monitoring(channel_name)
 
         # it should display an image

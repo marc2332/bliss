@@ -718,7 +718,7 @@ def anscan(
 
     requests = {}
     for motor, start, stop in motor_tuple_list:
-        d = mot.position if scan_type == "dscan" else 0
+        d = motor.position if scan_type == "dscan" else 0
         requests[f"axis:{motor.name}"] = {
             "start": start + d,
             "stop": stop + d,

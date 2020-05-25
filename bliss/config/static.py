@@ -515,7 +515,7 @@ class Config:
         channels.Bus.clear_cache()
         self._connection.close()
 
-    def reload(self, base_path=None, timeout=3):
+    def reload(self, base_path=None, timeout=3, raise_yaml_exc=True):
         """
         Reloads the configuration from the bliss server.
 
@@ -569,6 +569,8 @@ class Config:
                 exp.note += "----------------\n"
                 exp.note += "Hint: You can check your configuration with an on-line YAML validator like http://www.yamllint.com/ \n\n"
                 exp.problem_mark.name = path
+                if not raise_yaml_exc:
+                    continue
                 raise exp
             # from ruamel.yaml.parser import ParserError
             except ruamel.yaml.error.MarkedYAMLError as exp:
@@ -614,8 +616,14 @@ class Config:
                                 path,
                             )
                             raise RuntimeError(_msg)
-                        self._create_index(local_parent)
-                        parents.append(local_parent)
+                        try:
+                            self._create_index(local_parent)
+                        except ValueError:
+                            if not raise_yaml_exc:
+                                continue
+                            raise
+                        else:
+                            parents.append(local_parent)
                 else:
                     parents = Node(self, fs_node, path)
                     try:
@@ -623,7 +631,12 @@ class Config:
                     except TypeError:
                         _msg = "Parsing error3 on %s in '%s'" % (self._connection, path)
                         raise RuntimeError(_msg)
-                    self._create_index(parents)
+                    try:
+                        self._create_index(parents)
+                    except ValueError:
+                        if not raise_yaml_exc:
+                            continue
+                        raise
 
             if isinstance(fs_node, MutableSequence):
                 continue

@@ -90,7 +90,7 @@ class WebConfig(object):
         with self.__lock:
             cfg = static.get_config()
             if self.__new_config:
-                cfg.reload()
+                cfg.reload(raise_yaml_exc=False)
                 self.__new_config = False
             return cfg
 
@@ -524,7 +524,7 @@ def get_item_config(name):
 @web_app.route("/config/reload")
 def reload_config():
     cfg = __config.get_config()
-    cfg.reload()
+    cfg.reload(raise_yaml_exc=False)
     event.send(server.__name__, "config_changed")
     return flask.json.dumps(
         dict(message="Configuration fully reloaded!", type="success")

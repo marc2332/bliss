@@ -31,6 +31,7 @@ from bliss.flint.helper.style_helper import DefaultStyleStrategy
 
 from ..helper import scan_info_helper
 from . import workspace_manager
+from . import monitoring
 
 _logger = logging.getLogger(__name__)
 
@@ -251,6 +252,11 @@ class ManageMainBehaviours(qt.QObject):
         plots = scan_info_helper.create_plot_model(scanInfo, scan)
         self.updateScanAndPlots(scan, plots)
 
+    def __clearPreviousScan(self, scan):
+        if isinstance(scan, monitoring.MonitoringScan):
+            if scan.isMonitoring():
+                scan.stopMonitoring()
+
     def __getCompatiblePlots(self, widget, availablePlots) -> List[plot_model.Plot]:
         compatibleModel = self.__getPlotClassFromWidgetClass(type(widget))
         if compatibleModel is None:
@@ -267,7 +273,6 @@ class ManageMainBehaviours(qt.QObject):
     def updateScanAndPlots(self, scan: scan_model.Scan, plots: List[plot_model.Plot]):
         flintModel = self.flintModel()
         liveWindow = flintModel.liveWindow()
-        workspace = flintModel.workspace()
         previousScan = flintModel.currentScan()
         if previousScan is not None:
             useDefaultPlot = (
@@ -303,6 +308,12 @@ class ManageMainBehaviours(qt.QObject):
         flintModel.setCurrentScan(scan)
 
         # Reuse/create and connect the widgets
+        self.updateWidgetsWithPlots(scan, plots, useDefaultPlot, defaultPlot)
+
+    def updateWidgetsWithPlots(self, scan, plots, useDefaultPlot, defaultPlot):
+        """Update the widgets with a set of plots"""
+        flintModel = self.flintModel()
+        workspace = flintModel.workspace()
         availablePlots = list(plots)
         widgets = flintModel.workspace().widgets()
         for widget in widgets:
@@ -342,6 +353,8 @@ class ManageMainBehaviours(qt.QObject):
                     plotModel.setStyleStrategy(DefaultStyleStrategy(self.__flintModel))
                 widget.setPlotModel(plotModel)
 
+            previousScan = widget.scan()
+            self.__clearPreviousScan(previousScan)
             widget.setScan(scan)
 
         # There is no way in Qt to tabify a widget to a new floating widget
@@ -363,6 +376,8 @@ class ManageMainBehaviours(qt.QObject):
                 continue
 
             workspace.addWidget(widget)
+            previousScan = widget.scan()
+            self.__clearPreviousScan(previousScan)
             widget.setScan(scan)
 
             if lastTab is None:

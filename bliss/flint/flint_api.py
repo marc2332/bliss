@@ -25,7 +25,7 @@ import gevent.event
 from silx.gui import qt
 from silx.gui import plot as silx_plot
 import bliss
-from bliss.flint.helper import plot_interaction
+from bliss.flint.helper import plot_interaction, scan_info_helper
 from bliss.flint.helper import model_helper
 from bliss.flint.model import plot_model
 from bliss.flint.model import plot_item_model
@@ -183,19 +183,12 @@ class FlintApi:
         """Returns the identifier of a plot according to few constraints.
         """
         plot_class = self.__get_plot_class_by_kind(plot_type)
-
-        scan = self.__flintModel.currentScan()
-        if scan is None:
-            raise RuntimeError("No scan displayed")
-
-        channel = scan.getChannelByName(channel_name)
-        if channel is None:
-            raise ValueError(
-                "The channel '%s' is not part of the current scan" % channel_name
-            )
-
         workspace = self.__flintModel.workspace()
         for iwidget, widget in enumerate(workspace.widgets()):
+            scan = widget.scan()
+            if scan is None:
+                continue
+            channel = scan.getChannelByName(channel_name)
             plot = widget.plotModel()
             if plot is None:
                 continue
@@ -444,6 +437,44 @@ class FlintApi:
         del self.data_dict[plot_id]
         plot = self._get_plot_widget(plot_id)
         plot.clear()
+
+    def start_image_monitoring(self, channel_name, tango_address):
+        """Start monitoring of an image from a Tango detector.
+
+        The widget used to display result of the image scan for this detector
+        will be used to display the monitoring of the camera.
+
+        Arguments:
+            channel_name: Identifier of the channel in Redis. It is used to
+                find the right plot in Flint.
+            tango_address: Address of the Lima Tango server
+        """
+        from .manager import monitoring
+
+        scan = monitoring.MonitoringScan(None, channel_name, tango_address)
+        manager = self.__flintModel.mainManager()
+        plots = scan_info_helper.create_plot_model(scan.scanInfo(), scan)
+        manager.updateWidgetsWithPlots(scan, plots, True, None)
+        scan.startMonitoring()
+
+    def stop_image_monitoring(self, channel_name):
+        """Stop monitoring of an image from a Tango detector.
+
+        Arguments:
+            channel_name: Identifier of the channel in Redis. It is used to
+                find the right plot in Flint.
+        """
+        plot_id = self.get_live_scan_plot(channel_name, "image")
+        if plot_id is None:
+            raise RuntimeError("THe channel name is not part of any widget")
+        from .manager import monitoring
+
+        plot = self._get_live_plot_widget(plot_id)
+        scan = plot.scan()
+        if not isinstance(scan, monitoring.MonitoringScan):
+            raise RuntimeError("Unexpected scan type %s" % type(scan))
+
+        scan.stopMonitoring()
 
     def _get_live_plot_widget(self, plot_id):
         if not isinstance(plot_id, str) or not plot_id.startswith("live:"):

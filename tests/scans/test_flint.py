@@ -86,6 +86,42 @@ def test_image_display(flint_session, lima_simulator, dummy_acq_device):
 
 
 @contextlib.contextmanager
+def active_video_live(lima):
+    old = lima.proxy.video_live
+    lima.proxy.video_live = True
+    try:
+        yield
+    finally:
+        lima.proxy.video_live = old
+
+
+def test_image_monitoring(test_session_without_flint, lima_simulator):
+    """Use the Flint monitoring API to check that an image was retrieved"""
+    session = test_session_without_flint
+    lima = session.config.get("lima_simulator")
+    ct = session.env_dict["ct"]
+    channel_name = lima.image.fullname
+    tango_address = lima.proxy.name()
+
+    # initialize the device with an image
+    ct(0.1, lima)
+
+    with active_video_live(lima):
+        # start flint and the monitoring
+        with use_shell_command_with_scan_display():
+            flint = plot.get_flint()
+            flint.start_image_monitoring(channel_name, tango_address)
+            gevent.sleep(2)
+            flint.stop_image_monitoring(channel_name)
+
+        # it should display an image
+        plot_id = flint.get_live_scan_plot(channel_name, "image")
+        nb = flint.test_count_displayed_items(plot_id)
+
+    assert nb == 1
+
+
+@contextlib.contextmanager
 def use_shell_command_with_scan_display():
     scan_display = ScanDisplay()
     old_auto = scan_display.auto

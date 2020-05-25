@@ -25,6 +25,7 @@ except ImportError:
 
 VIDEO_HEADER_FORMAT = "!IHHqiiHHHH"
 HEADER_SIZE = struct.calcsize(VIDEO_HEADER_FORMAT)
+VIDEO_MODES = {0: numpy.uint8, 1: numpy.uint16, 2: numpy.int32, 3: numpy.int64}
 
 UNSET = object()
 """Allow to discriminate None and unset value from function argument,
@@ -132,6 +133,70 @@ def image_filenames(ref_data, image_nbs, last_image_saved=None):
     return returned_params
 
 
+def read_video_last_image(proxy) -> typing.Optional[typing.Tuple[numpy.ndarray, int]]:
+    """Read and decode video last image from a Lima detector
+
+    Argument:
+        proxy: A Tango Lima proxy
+
+    Returns:
+        A tuple with the frame data (as a numpy array), and the frame number
+        if an image is available. None if there is not yet acquired image.
+
+    Raises:
+        ImageFormatNotSupported: when the retrieved data is not supported
+    """
+    # get last video image
+    _, raw_data = proxy.video_last_image
+    if len(raw_data) < HEADER_SIZE:
+        raise ImageFormatNotSupported("Image header smaller than the expected size")
+
+    (
+        magic,
+        header_version,
+        image_mode,
+        image_frame_number,
+        image_width,
+        image_height,
+        endian,
+        header_size,
+        pad0,
+        pad1,
+    ) = struct.unpack(VIDEO_HEADER_FORMAT, raw_data[:HEADER_SIZE])
+
+    if magic != 0x5644454f:
+        raise ImageFormatNotSupported("Magic header not supported (found %s)." % magic)
+
+    if header_version != 1:
+        raise ImageFormatNotSupported(
+            "Image header version not supported (found %s)." % header_version
+        )
+    if image_frame_number < 0:
+        return None
+
+    if endian != 0:
+        raise ImageFormatNotSupported(
+            "Decoding video frame from this Lima device is "
+            "not supported by bliss cause of the endianness (found %s)." % endian
+        )
+
+    if pad0 != 0 or pad1 != 0:
+        raise ImageFormatNotSupported(
+            "Decoding video frame from this Lima device is not supported "
+            "by bliss cause of the padding (found %s, %s)." % (pad0, pad1)
+        )
+
+    mode = VIDEO_MODES.get(image_mode)
+    if mode is None:
+        raise ImageFormatNotSupported(
+            "Video format unsupported (found %s)." % image_mode
+        )
+
+    data = numpy.frombuffer(raw_data[header_size:], dtype=mode).copy()
+    data.shape = image_height, image_width
+    return data, image_frame_number
+
+
 class LimaImageChannelDataNode(DataNode):
     DATA = b"__data__"
 
@@ -146,8 +211,6 @@ class LimaImageChannelDataNode(DataNode):
             5: numpy.int16,
             6: numpy.int32,
         }
-
-        VIDEO_MODES = {0: numpy.uint8, 1: numpy.uint16, 2: numpy.int32, 3: numpy.int64}
 
         def __init__(self, data, data_ref, from_index, to_index, from_stream=False):
             self.data = data
@@ -240,64 +303,17 @@ class LimaImageChannelDataNode(DataNode):
                 # FIXME: It should return None
                 return Frame(None, None, None)
 
-            # get last video image
-            _, raw_data = proxy.video_last_image
-            if len(raw_data) <= HEADER_SIZE:
+            result = read_video_last_image(proxy)
+            if result is None:
                 # FIXME: It should return None
                 return Frame(None, None, None)
 
-            (
-                magic,
-                header_version,
-                image_mode,
-                image_frame_number,
-                image_width,
-                image_height,
-                endian,
-                header_size,
-                pad0,
-                pad1,
-            ) = struct.unpack(VIDEO_HEADER_FORMAT, raw_data[:HEADER_SIZE])
-
-            if endian != 0:
-                raise ImageFormatNotSupported(
-                    "Decoding video frame from this Lima device is "
-                    "not supported by bliss cause of the endianness (found %s)."
-                    % endian
-                )
-
-            if pad0 != 0 or pad1 != 0:
-                raise ImageFormatNotSupported(
-                    "Decoding video frame from this Lima device is not supported "
-                    "by bliss cause of the padding (found %s, %s)." % (pad0, pad1)
-                )
-
-            if magic != 0x5644454f:
-                raise ImageFormatNotSupported(
-                    "Magic header not supported (found %s)." % magic
-                )
-
-            if header_version != 1:
-                raise ImageFormatNotSupported(
-                    "Image header version not supported (found %s)." % header_version
-                )
-            if image_frame_number < 0:
-                raise IndexError("Image (from Lima live interface) not available yet.")
-
-            mode = self.VIDEO_MODES.get(image_mode)
-            if mode is None:
-                raise ImageFormatNotSupported(
-                    "Video format unsupported (found %s)." % image_mode
-                )
-
-            data = numpy.frombuffer(raw_data[header_size:], dtype=mode).copy()
-            data.shape = image_height, image_width
-
+            frame, frame_number = result
             if not self.is_video_frame_have_meaning(update=False):
                 # In this case the reached frame have no meaning within the full
                 # scan. It is better not to provide it
-                image_frame_number = None
-            return Frame(data, image_frame_number, "video")
+                frame_number = None
+            return Frame(frame, frame_number, "video")
 
         def get_last_image(self, proxy=UNSET):
             """Returns the last image from the received one, together with the frame id.

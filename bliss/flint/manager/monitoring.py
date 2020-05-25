@@ -13,8 +13,10 @@ from __future__ import annotations
 from typing import Optional
 
 import logging
+import contextlib
 import gevent
 import datetime
+import time
 
 from silx.gui import qt
 
@@ -77,80 +79,115 @@ class MonitoringScan(scan_model.Scan):
                 exc_info=True,
             )
             return None
+
         self.__proxy = proxy
         return proxy
 
     def __runMonitoring(self):
-        last_received_counter = None
-        while self.isMonitoring():
+        @contextlib.contextmanager
+        def videoCounterRegistered():
+            """
+            Context manager to reach the state of a tango attribute
+            """
+            limaCounter = [None]
+
+            def limaVideoImageCounterUpdated(event):
+                try:
+                    limaCounter[0] = event.attr_value
+                except:
+                    _logger.error("Error while reading the event", exc_info=True)
+
             proxy = self.getProxy()
+            eventId = proxy.subscribe_event(
+                "video_last_image_counter",
+                tango.EventType.CHANGE_EVENT,
+                limaVideoImageCounterUpdated,
+                [],
+                False,
+            )
+            try:
+                yield limaCounter
+            finally:
+                proxy.unsubscribe(eventId)
 
-            # Do not trigger the camera while the video is not enabled
-            if not proxy.video_live:
-                _logger.debug("Detector %s video_live not enabled", proxy)
-                self.__setLive(False)
-                gevent.sleep(2)
-                continue
-            self.__setLive(True)
+        lastReceivedCounter = None
+        lastReceivedTime = None
+        with videoCounterRegistered() as limaCounter:
+            while self.isMonitoring():
+                proxy = self.getProxy()
 
-            # Update the latency time used by the detector
-            exposure_time = proxy.acq_expo_time
-            latency_time = proxy.latency_time
-            duration_time = exposure_time + latency_time
+                # Do not trigger the camera while the video is not enabled
+                if not proxy.video_live:
+                    _logger.debug("Detector %s video_live not enabled", proxy)
+                    self.__setLive(False)
+                    gevent.sleep(2)
+                    continue
+                self.__setLive(True)
 
-            # Sleep according to the user refresh rate and the exposure time
-            refresh_rate = self._channel.preferedRefreshRate()
-            if refresh_rate is None:
-                sleep = latency_time
+                # Sleep according to the user refresh rate
+                if lastReceivedTime is not None:
+                    refresh_rate = self._channel.preferedRefreshRate()
+                    nextTime = lastReceivedTime + refresh_rate / 1000
+                    now = time.perf_counter()
+                    if nextTime > now:
+                        gevent.sleep(nextTime - now)
+
+                # Nothing acquired right now
+                if limaCounter[0] is None:
+                    gevent.sleep(0.5)
+                    continue
+
+                # Nothing new acquired
+                if limaCounter[0] == lastReceivedCounter:
+                    gevent.sleep(0.5)
+                    continue
+
+                if not self.isMonitoring():
+                    break
+
+                counter = self.__updateImage()
+                lastReceivedTime = time.perf_counter()
+                if counter is not None:
+                    lastReceivedCounter = counter
+
+    def __updateImage(self):
+        proxy = self.getProxy()
+        _logger.debug("Polling detector %s", proxy)
+        try:
+            result = lima.read_video_last_image(proxy)
+        except:
+            _logger.error("Error while reading data", exc_info=True)
+            raise
+        if not self.isMonitoring():
+            return None
+        try:
+            if result is None:
+                counter = None
+                data = scan_model.Data(
+                    None,
+                    array=None,
+                    frameId=None,
+                    source="video-mon",
+                    receivedTime=datetime.datetime.now(),
+                )
             else:
-                sleep = max(latency_time, refresh_rate / 1000)
-            # Don't sleep more than 1 second
-            sleep = min(1, sleep)
-            gevent.sleep(duration_time)
-            if not self.isMonitoring():
-                break
-
-            counter = proxy.video_last_image_counter
-            if counter == last_received_counter:
-                # Avoid to receive duplicated images
-                continue
-
-            _logger.debug("Polling detector %s", proxy)
-            try:
-                result = lima.read_video_last_image(proxy)
-            except:
-                _logger.error("Error while reading data", exc_info=True)
-                raise
-            if not self.isMonitoring():
-                break
-            try:
-                if result is None:
-                    last_received_counter = counter
-                    data = scan_model.Data(
-                        None,
-                        array=None,
-                        frameId=None,
-                        source="video-mon",
-                        receivedTime=datetime.datetime.now(),
-                    )
-                else:
-                    last_received_counter = result[1]
-                    frame, frame_number = result
-                    data = scan_model.Data(
-                        None,
-                        array=frame,
-                        frameId=frame_number,
-                        source="video-mon",
-                        receivedTime=datetime.datetime.now(),
-                    )
-                self._channel.setData(data)
-                self._fireScanDataUpdated(channelName=self._channel.name())
-            except:
-                # It have already been tried
-                last_received_counter = counter
-                _logger.error("Error while propagating data", exc_info=True)
-                raise
-        # FIXME: It have to be joined
+                counter = result[1]
+                frame, frame_number = result
+                data = scan_model.Data(
+                    None,
+                    array=frame,
+                    frameId=frame_number,
+                    source="video-mon",
+                    receivedTime=datetime.datetime.now(),
+                )
+            self._channel.setData(data)
+            self._fireScanDataUpdated(channelName=self._channel.name())
+        except:
+            # It have already been tried
+            counter = None
+            _logger.error("Error while propagating data", exc_info=True)
+            raise
+        return counter
 
     def isMonitoring(self):
         return self.__task is not None

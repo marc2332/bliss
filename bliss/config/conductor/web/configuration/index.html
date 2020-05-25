@@ -657,7 +657,9 @@
         var btn = $(this).button("reloading...");
         request = $.ajax({
           url: "config/reload",
-          success: function () {
+          success: function (result) {
+            data = $.parseJSON(result);
+            show_notification(data.message, data.type);
             reload_trees();
           }
         });

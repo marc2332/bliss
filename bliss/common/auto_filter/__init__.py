@@ -48,6 +48,7 @@ from bliss.common.session import get_current_session
 from bliss.scanning.scan import ScanPreset
 from bliss.common.axis import Axis
 from bliss.common.cleanup import cleanup, axis as cleanup_axis
+from bliss.common.auto_filter.filterset import FilterSet
 
 from . import acquisition_objects
 
@@ -94,18 +95,24 @@ class AutoFilter(BeaconObject):
         doc="suffix to be added to the corrected counters",
     )
 
-    #    filterset = BeaconObject.property_setting(
-    #        "filterset",
-    #        must_be_in_config=True,
-    #        doc="filterset to attached to the autofilter",
-    #    )
+    filterset = BeaconObject.config_obj_property_setting(
+        "filterset", doc="filterset to attached to the autofilter"
+    )
+
+    @filterset.setter
+    def filterset(self, new_filterset):
+        assert isinstance(new_filterset, FilterSet)
+        self.initialize(new_filterset)
+        # as this is a config_obj_property_setting
+        # the setter has to return the name of the
+        # corresponding beacon object
+        return new_filterset
 
     def __init__(self, name, config):
         super().__init__(config, share_hardware=False)
 
         global_map.register(self, tag=self.name)
 
-        self.__filterset = None
         self.__energy_axis = None
         self.__counters_for_corr = set()
 
@@ -116,17 +123,18 @@ class AutoFilter(BeaconObject):
         counters = config.get("counters_for_correction", [])
         self.counters_for_correction = counters
 
-        # check a filterset is in config
-        self.__filterset = config.get("filterset")
-
         # check energy motor is in config
         # this property set calls initialize()
         self.energy_axis = config.get("energy_axis")
 
-    def initialize(self):
+    def initialize(self, new_filterset=None):
         """
         intialize the behind filterset
         """
+        if new_filterset:
+            _filterset = new_filterset
+        else:
+            _filterset = self.filterset
 
         self.__initialized = True
         # Synchronize the filterset with countrate range and energy
@@ -135,7 +143,7 @@ class AutoFilter(BeaconObject):
         if self.__last_energy > 0:
             # filterset sync. method return the maximum effective number of filters
             # which will correspond to the maximum number of filter changes
-            self.max_nb_iter = self.__filterset.sync(
+            self.max_nb_iter = _filterset.sync(
                 self.min_count_rate,
                 self.max_count_rate,
                 self.__last_energy,
@@ -161,20 +169,6 @@ class AutoFilter(BeaconObject):
                 self.initialize()
             else:
                 raise ValueError(f"{energy_axis} is not a Bliss Axis")
-
-    @property
-    def filterset(self):
-        """
-        Setter/getter for the current selected filterset
-        """
-        return self.__filterset
-
-    @filterset.setter
-    def filterset(self, new_filterset):
-        if new_filterset != self.__filterset:
-            self.__filterset = new_filterset
-            # initilize the new filterset with autof parameters
-            self.initialize()
 
     @property
     def counters_for_correction(self):

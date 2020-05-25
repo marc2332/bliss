@@ -53,3 +53,42 @@
       material: Cu
       thickness: 0.25
 
+
+- name: filtW1
+  plugin: bliss
+  package: bliss.common.auto_filter.filterset_wheel
+  class: FilterSet_Wheel
+  rotation_axis: $roby
+  filters:                      # thicknesses in here correspond to energies around 15keV
+    - name: Mo_0
+      position: 0
+      material: Mo
+      thickness: 0.0            # is there always an 0 entry here? material mandatory?
+    - name: Mo_1
+      position: 1
+      material: Mo
+      thickness: 0.01
+    - name: Mo_2
+      position: 2
+      material: Mo
+      thickness: 0.02
+    - name: Mo_3
+      position: 3
+      material: Mo
+      thickness: 0.04
+    - name: Mo_4
+      position: 4
+      material: Mo
+      thickness: 0.06
+    - name: Mo_5
+      position: 5
+      material: Mo
+      thickness: 0.08
+    - name: Mo_6
+      position: 6
+      material: Mo
+      thickness: 0.15
+    - name: Mo_7
+      position: 7
+      material: Mo
+      thickness: 0.25

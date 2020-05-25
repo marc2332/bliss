@@ -135,9 +135,12 @@ class _Base:
             if previous_data is None:
                 self.__pending_data[channel_name] = channel_data
             else:
-                self.__pending_data[channel_name] = numpy.append(
-                    previous_data, channel_data
-                )
+                if isinstance(previous_data, dict):  # Lima
+                    self.__pending_data[channel_name] = channel_data
+                else:
+                    self.__pending_data[channel_name] = numpy.append(
+                        previous_data, channel_data
+                    )
         else:  # valid is True or False
             if valid:
                 my_channel = self._name_2_channel[channel_name]
@@ -150,7 +153,10 @@ class _Base:
                     )
                     corr_chan.emit(corrected_data)
 
-        self.__last_point_rx[channel_name] = last_point_rx + len(channel_data)
+        if isinstance(channel_data, dict):  # Lima
+            self.__last_point_rx[channel_name] = last_point_rx + 1
+        else:
+            self.__last_point_rx[channel_name] = last_point_rx + len(channel_data)
 
     def validate_point(self, point_nb, valid_flag):
         # for now we just do simple thing we remove all the
@@ -230,7 +236,57 @@ class _MasterIter(_Master):
 
 
 class _Lima(_MasterIter):
-    pass
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.save_flag = False
+        # hook emit of image channel
+        if self.channels:
+            channel = self.channels[0]
+            channel_emit = channel.emit
+            # Final number of scan points.
+            self.nb_points_to_receive = self.npoints
+            self.emit_event = gevent.event.Event()
+
+            def emit(data):
+                if not data.get("in_prepare", False):
+                    if self.save_flag:
+                        # ask lima to save the current image
+                        img_ready = data["last_image_ready"]
+                        self.device.device.proxy.writeImage(img_ready)
+                    self.nb_points_to_receive -= 1
+                    self.emit_event.set()
+
+                return channel_emit(data)
+
+            channel.emit = emit
+
+    def set_image_saving(self, directory, prefix, force_no_saving=False):
+        self.device.set_image_saving(directory, prefix, force_no_saving)
+        # force Manual saving
+        self.device.acq_params["saving_mode"] = "MANUAL"
+        self.save_flag = True if directory else False
+
+    def new_data_received(self, event_dict=None, signal=None, sender=None):
+        data = event_dict["data"]
+        if data.get("in_prepare", False):
+            # Need to fill channel description
+            channel = self.channels[0]
+            channel.description.update(
+                {"acq_trigger_mode": self.device.acq_params["acq_trigger_mode"]}
+            )
+            if self.save_flag:
+                channel.description.update(self.device._get_saving_description())
+            channel.emit(data)
+        else:
+            super().new_data_received(event_dict, signal, sender)
+
+    def stop(self):
+        # wait last frame to be save + emit
+        if self.nb_points_to_receive:
+            self.emit_event.clear()
+            self.emit_event.wait(timeout=1.)
+
+        self.device.stop()
 
 
 _MASTERS = weakref.WeakKeyDictionary()

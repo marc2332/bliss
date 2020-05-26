@@ -122,7 +122,7 @@ class FlintApi:
         manager = self.__flintModel.mainManager()
         manager.updateBlissSessionName(session_name)
 
-    def set_tango_metadata_name(self, name):
+    def set_tango_metadata_name(self, name: str):
         manager = self.__flintModel.mainManager()
         manager.setTangoMetadataName(name)
 

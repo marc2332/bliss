@@ -60,10 +60,13 @@ class ManageMainBehaviours(qt.QObject):
             self.__flintModel.aliveScanAdded.connect(self.__aliveScanDiscovered)
 
     def setTangoMetadataName(self, name: str):
-        try:
-            device = DeviceProxy(name)
-        except:
-            raise
+        if name in [None, ""]:
+            device = None
+        else:
+            try:
+                device = DeviceProxy(name)
+            except:
+                raise
         self.__flintModel.setTangoMetadata(device)
 
     def flintModel(self) -> flint_model.FlintState:

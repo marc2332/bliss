@@ -9,6 +9,7 @@ import pytest
 import gevent
 from bliss.config.beacon_object import BeaconObject
 from bliss.common import event
+from bliss.config import static
 
 
 class Ctrl(BeaconObject):
@@ -381,6 +382,28 @@ def test_BeaconObject_property_setting_setter(beacon):
     ctrl = Ctrl12(cfg, path=["something", "something_else"], share_hardware=False)
     ctrl.speed = 11
     assert ctrl.speed == 11
+
+
+def test_BeaconObject_property_setting_setter2(two_clients):
+    con1, con2 = two_clients
+    cfg1 = static.Config("", connection=con1)
+    cfg2 = static.Config("", connection=con2)
+
+    # use first connection
+    ctrl1_cfg = cfg1.get("hello_ctrl")
+    ctrl1 = Ctrl12(
+        ctrl1_cfg, path=["something", "something_else"], share_hardware=False
+    )
+    assert ctrl1.speed == 10
+    ctrl1.speed = 11
+    assert ctrl1.speed == 11
+
+    # use second connection
+    ctrl2_cfg = cfg2.get("hello_ctrl")
+    ctrl2 = Ctrl12(
+        ctrl2_cfg, path=["something", "something_else"], share_hardware=False
+    )
+    assert ctrl2.speed == 11
 
 
 def test_beacon_object_within_lima2(default_session, lima_simulator):

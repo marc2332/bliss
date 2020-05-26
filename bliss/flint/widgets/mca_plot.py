@@ -141,14 +141,8 @@ class McaPlotWidget(plot_helper.PlotWidget):
 
         # Export
 
-        # FIXME implement that
-        action = qt.QAction(self)
-        action.setText("Export to logbook")
-        action.setToolTip("Export this plot to the logbook (not yet implemented)")
-        icon = icons.getQIcon("flint:icons/export-logbook")
-        action.setIcon(icon)
-        action.setEnabled(False)
-        toolBar.addAction(action)
+        self.logbookAction = export_action.ExportToLogBookAction(self.__plot, self)
+        toolBar.addAction(self.logbookAction)
         toolBar.addAction(export_action.ExportOthersAction(self.__plot, self))
 
         return toolBar
@@ -180,6 +174,7 @@ class McaPlotWidget(plot_helper.PlotWidget):
 
     def setFlintModel(self, flintModel: Optional[flint_model.FlintState]):
         self.__flintModel = flintModel
+        self.logbookAction.setFlintModel(flintModel)
 
     def setPlotModel(self, plotModel: plot_model.Plot):
         if self.__plotModel is not None:

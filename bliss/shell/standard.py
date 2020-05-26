@@ -17,6 +17,7 @@ import os
 import typing
 import typeguard
 import subprocess
+import fnmatch
 
 from gevent import sleep
 
@@ -168,7 +169,7 @@ __all__ = (
     ]
     + scans.__all__
     + logtools.__all__
-    + ["cleanup", "error_cleanup", "plot", "lscnt", "lsmg", "wid"]
+    + ["cleanup", "error_cleanup", "plot", "lscnt", "lsmg", "lsobj", "wid"]
     + ["SoftAxis", "SoftCounter", "edit_roi_counters", "edit_mg"]
     + list(limatools.__all__)
     + [
@@ -385,6 +386,31 @@ def lsmg():
     Indicate the current active one with a star char: '*'
     """
     print(_lsmg())
+
+
+def _lsobj(pattern=None):
+    obj_list = list()
+
+    if pattern is None:
+        pattern = "*"
+
+    for name in current_session.object_names:
+        if fnmatch.fnmatch(name, pattern):
+            obj_list.append(name)
+
+    return obj_list
+
+
+def lsobj(pattern=None):
+    """ Print the list of BLISS object in current session matching the
+    <pattern> string.
+    <pattern> can contain jocker characters like '*' or '?'.
+    NB: print also badly initilized objects...
+    """
+    for obj_name in _lsobj(pattern):
+        print(obj_name, end="  ")
+
+    print("")
 
 
 def wid():

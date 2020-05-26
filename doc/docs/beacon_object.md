@@ -361,3 +361,72 @@ DEMO [4]: controller_setting3.reading_speed
 AttributeError: 'SimpleAxis' object has no attribute 'reading_speed'
 ```
 
+## `BeaconObject` without hardware
+
+The `BeaconObject` can also be used to provide some configuration that can
+either be in the static config (yml) or in redis. It can be used like this:
+
+```python
+class MyParamObject(BeaconObject):
+    speed = BeaconObject.property_setting("speed", default=0)
+
+    @speed.setter
+    def speed(self, value):
+        return value
+```
+with the corresponding config
+
+```yaml
+- ctrl: hello2
+  name: hello_ctrl
+  something:
+    speed: 10
+```
+
+that can be used e.g. inside a controller 
+
+```python
+    # config that would be passed to __init__
+    # of the contoller
+    cfg = config.get("hello_ctrl")  
+    
+    #initalize a BeaconObject
+    params = MyParamObject(cfg, path=["something"], share_hardware=False)
+```
+
+now `speed` can be accessed via `params.speed`. if `path` is provied it is used
+as _offset_ in the yaml config. 
+
+### `BeaconObject.property_setting`
+
+the `property_setting` takes values availabe in redis with highest priority,
+after that there is also static config (yaml) and the possibiltiy to provide a default
+value. If a custom `setter` is provided it has to return the value that is supposed to be 
+kept in the settings.
+
+### `BeaconObject.config_obj_property_setting`
+
+Like `BeaconObject.property_setting` but intended to be used to keep references to config objects 
+(`$` references in yaml). Here is an example
+
+```yaml
+- ctrl: hello3
+  name: hello_ctrl3
+  axis: $roby
+```
+```python
+class Ctrl14(BeaconObject):
+    axis = BeaconObject.config_obj_property_setting("axis")
+```
+
+the beacon server resolves the `$` reference and the corresponding object will be returned. 
+The `config_obj_property_setting` extends this behaviour to be able to keep these references also
+in a setting. Also here it is possible to write custom `setter` which has to return a valid object
+(that exists in the beacon configuration).
+
+```python
+    @axis.setter
+    def axis(self, new_axis):
+        # e.g. do some checks or initialization here
+        return new_axis
+```

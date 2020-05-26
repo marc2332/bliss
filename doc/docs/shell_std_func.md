@@ -164,6 +164,28 @@ simul_mca.deadtime_det1  0D       simul_mca
 ```
 
 
+## Bliss Objects
+
+* `lsobj()`: print the list of BLISS objects defined in a session. Can be used
+  with usual jocker characters:
+
+    - `*`: matches everything
+    - `?`: matches any single character
+    - `[seq]`: matches any character in seq
+    - `[!seq]`: matches any character not in seq
+
+Examples:
+```python
+TEST_SESSION [2]: lsobj("dio*")      # all objects starting by 'dio'
+diode  diode2  diode3  diode4  diode5  diode6  diode7  diode8  diode9
+
+TEST_SESSION [3]: lsobj("[abc]*")    # all objects starting by 'a', 'b' or 'c'
+beamstop  att1  bad  calc_mot1  calc_mot2  custom_axis
+
+TEST_SESSION [6]: lsobj("???")       # all objects with 3-lettres names
+MG1  MG2  bad  s1b  s1d  s1f  s1u
+```
+
 ## Data Policy
 * `newproposal()` `newsample()` `newdataset()`: Change the **proposal** **sample**
 and **dataset** names used to determine the saving path.

@@ -2,7 +2,7 @@
 import pytest
 import gevent
 
-from bliss.shell.standard import lscnt, bench
+from bliss.shell.standard import lscnt, bench, lsobj
 
 EXPECTED = """
 Fullname             Shape    Controller    Name           Alias
@@ -78,3 +78,28 @@ def test_bench(beacon, setup_globals, capsys):
 
     captured = capsys.readouterr()
     assert "Execution time: 1s" in captured.out
+
+
+def test_lsobj(session, beacon, setup_globals, capsys):
+    """ Test 'lsobj' function to list objects in a session.
+    """
+
+    # should return all objects of the session
+    lsobj()
+    captured = capsys.readouterr()
+    s1 = (
+        f"beamstop  att1  MG1  MG2  bad  calc_mot1  calc_mot2  custom_axis  diode  "
+        "diode2  diode3  diode4  diode5  diode6  diode7  diode8  diode9  heater  "
+        "hook0  hook1  hooked_error_m0  hooked_m0  hooked_m1  integ_diode  jogger  "
+        "m0  m1  m1enc  omega  roby  robz  robz2  s1b  s1d  s1f  s1hg  s1ho  s1u  "
+        "s1vg  s1vo  sample_regulation  sample_regulation_new  sensor  sim_ct_gauss  "
+        "sim_ct_gauss_noise  sim_ct_flat_12  sim_ct_rand_12  test  test_mg  "
+        "thermo_sample  transfocator_simulator  \n"
+    )
+
+    assert s1 == captured.out
+
+    # test with '*' jocker character.
+    lsobj("dio*")
+    captured = capsys.readouterr()
+    assert "diode  diode2  diode3  diode4  diode5  diode6" in captured.out

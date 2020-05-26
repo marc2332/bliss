@@ -48,6 +48,8 @@ from bliss.common.session import get_current_session
 from bliss.scanning.scan import ScanPreset
 from bliss.common.axis import Axis
 from bliss.common.cleanup import cleanup, axis as cleanup_axis
+from bliss.common.types import _countable
+from bliss import global_map
 from bliss.common.auto_filter.filterset import FilterSet
 
 from . import acquisition_objects
@@ -70,8 +72,36 @@ class AutoFilterCounterController(SamplingCounterController):
 
 class AutoFilter(BeaconObject):
     monitor_counter_name = BeaconObject.property_setting(
-        "monitor_counter_name", must_be_in_config=True, doc="Monitor counter name"
+        "monitor_counter_name", doc="Monitor counter name"
     )
+
+    @monitor_counter_name.setter
+    def monitor_counter_name(self, counter_name):
+        assert isinstance(counter_name, str)
+        return counter_name
+
+    @property
+    def monitor_counter(self):
+        try:
+            return global_map.get_counter_from_fullname(self.monitor_counter_name)
+        except AttributeError:
+            return self.monitor_counter_name
+
+    @monitor_counter.setter
+    def monitor_counter(self, counter):
+        if isinstance(counter, str):
+            # check that counter exists ... not sure if the next lines work in all cases
+            # TODO: has to tested with real hardware for p201 counters...
+            try:
+                global_map.get_counter_from_fullname("counter")
+                self.monitor_counter_name = counter
+            except AttributeError:
+                raise "unknown monitor counter"
+        elif isinstance(counter, _countable):
+            self.monitor_counter_name = counter.fullname
+        else:
+            raise "unknown monitor counter"
+
     min_count_rate = BeaconObject.property_setting(
         "min_count_rate",
         must_be_in_config=True,

@@ -51,6 +51,7 @@ class WebConfig(object):
         "txt": dict(type="text", icon="file-o"),
         "md": dict(type="markdown", icon="file-o"),
         "yml": dict(type="yaml", icon="file-text-o"),
+        "yml-err": dict(type="yaml", icon="exclamation-triangle"),
         "py": dict(type="python", icon="file-code-o"),
         "html": dict(type="html", icon="file-code-o"),
         "css": dict(type="css", icon="file-code-o"),
@@ -257,7 +258,7 @@ class WebConfig(object):
             item_path = os.path.join(path, name)
             sub_items = {}
             if data is None:  # a file
-                ext_info = self.get_file_info(name)
+                ext_info = self.get_file_info(item_path)
                 meta = dict(
                     type="file", path=item_path, icon="fa fa-" + ext_info["icon"]
                 )
@@ -272,6 +273,12 @@ class WebConfig(object):
         ext = file_name.rpartition(os.path.extsep)[2]
         if "." not in file_name:
             ext = ""
+
+        # checking for invalid yaml files
+        cfg = self.get_config()
+        if file_name in cfg.invalid_yaml_files:
+            ext = "yml-err"
+
         return self.EXT_MAP.setdefault(ext, dict(type=ext, icon="question"))
 
 

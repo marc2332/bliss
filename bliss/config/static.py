@@ -509,6 +509,7 @@ class Config:
         self._base_path = base_path
         self._connection = connection or client.get_default_connection()
         self.reload(timeout=timeout)
+        self.invalid_yaml_files = []
 
     def close(self):
         self._clear_instances()
@@ -541,6 +542,7 @@ class Config:
         self._file2node = {}
 
         self._clear_instances()
+        self.invalid_yaml_files = []
 
         path2file = client.get_config_db_files(
             base_path=base_path, timeout=timeout, connection=self._connection
@@ -570,6 +572,7 @@ class Config:
                 exp.note += "Hint: You can check your configuration with an on-line YAML validator like http://www.yamllint.com/ \n\n"
                 exp.problem_mark.name = path
                 if not raise_yaml_exc:
+                    self.invalid_yaml_files.append(path)
                     continue
                 raise exp
             # from ruamel.yaml.parser import ParserError
@@ -620,6 +623,7 @@ class Config:
                             self._create_index(local_parent)
                         except ValueError:
                             if not raise_yaml_exc:
+                                self.invalid_yaml_files.append(path)
                                 continue
                             raise
                         else:
@@ -635,6 +639,7 @@ class Config:
                         self._create_index(parents)
                     except ValueError:
                         if not raise_yaml_exc:
+                            self.invalid_yaml_files.append(path)
                             continue
                         raise
 

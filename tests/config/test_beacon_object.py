@@ -426,3 +426,39 @@ def test_BeaconObject_config_obj_property_setting(beacon):
 
     ctrl2 = Ctrl13(cfg, share_hardware=False)
     assert ctrl.axis.name == "robz"
+
+
+class Ctrl14(BeaconObject):
+    axis = BeaconObject.config_obj_property_setting("axis")
+
+    @axis.setter
+    def axis(self, new_axis):
+        return new_axis
+
+
+def test_BeaconObject_config_obj_property_setting_setter(beacon):
+    cfg = beacon.get("hello_ctrl3")
+    robz = beacon.get("robz")
+    ctrl = Ctrl14(cfg, share_hardware=False)
+    assert ctrl.axis.name == "roby"
+    ctrl.axis = robz
+    assert ctrl.axis.name == "robz"
+
+
+def test_BeaconObject_config_obj_property_setting_setter2(two_clients):
+    con1, con2 = two_clients
+    cfg1 = static.Config("", connection=con1)
+    cfg2 = static.Config("", connection=con2)
+
+    # use first connection
+    ctrl_cfg1 = cfg1.get("hello_ctrl3")
+    robz1 = cfg1.get("robz")
+    ctrl1 = Ctrl14(ctrl_cfg1, share_hardware=False)
+    assert ctrl1.axis.name == "roby"
+    ctrl1.axis = robz1
+    assert ctrl1.axis.name == "robz"
+
+    # use second connection
+    ctrl_cfg2 = cfg2.get("hello_ctrl3")
+    ctrl2 = Ctrl14(ctrl_cfg2, share_hardware=False)
+    assert ctrl2.axis.name == "robz"

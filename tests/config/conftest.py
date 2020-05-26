@@ -1,6 +1,7 @@
 import pytest
 from bliss.config.conductor import client, connection
 
+
 @pytest.fixture
 def two_clients(beacon):
     conductor_conn = client.get_default_connection()

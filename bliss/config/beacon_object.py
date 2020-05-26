@@ -31,6 +31,8 @@ class BeaconObject:
             only_in_config=False,
             default=Null,
             priority=0,
+            set_marshalling=None,
+            set_unmarshalling=None,
         ):
             try:
                 fget.__redefined__
@@ -59,11 +61,15 @@ class BeaconObject:
                 get.__must_be_in_config__ = must_be_in_config or only_in_config
                 get.__only_in_config__ = only_in_config
                 get.__priority__ = priority
+                get.__set_marshalling__ = set_marshalling
+                get.__set_unmarshalling__ = set_unmarshalling
             else:
                 must_be_in_config = fget.__must_be_in_config__
                 only_in_config = fget.__only_in_config__
                 default = fget.__default__
                 priority = fget.__priority__
+                set_marshalling = fget.__set_marshalling__
+                set_unmarshalling = fget.__set_unmarshalling__
                 get = fget
 
             if fset is not None:
@@ -87,8 +93,12 @@ class BeaconObject:
                             return
                         try:
                             fence["in_set"] = True
+                            if set_unmarshalling is not None:
+                                value = set_unmarshalling(self, value)
                             rvalue = fset(self, value)
                             set_value = rvalue if rvalue is not None else value
+                            if set_marshalling is not None:
+                                set_value = set_marshalling(self, set_value)
                             try:
                                 self._settings[fset.__name__] = set_value
                             except AttributeError:
@@ -415,7 +425,7 @@ class BeaconObject:
 
         get.__name__ = name
 
-        def set(self, value):
+        def set_unmarshalling(self, value):
             # first check that this object exists in beacon
             if isinstance(value, str):
                 obj_name = value
@@ -425,11 +435,26 @@ class BeaconObject:
             assert (
                 obj_name in self.config._config.names_list
             ), f"{obj_name} does not exist in beacon config!"
-            self.settings[name] = obj_name
-            return obj_name
+            return self.config._config.get(obj_name)
+
+        def set_marshalling(self, value):
+            if value is None:
+                return None
+            elif isinstance(value, str):
+                return value
+            return value.name
+
+        def set(self, value):
+            return None
 
         set.__name__ = name
-        bop = BeaconObject._property(get, set, doc=doc)
+        bop = BeaconObject._property(
+            get,
+            set,
+            doc=doc,
+            set_marshalling=set_marshalling,
+            set_unmarshalling=set_unmarshalling,
+        )
         bop.__doc__ = doc
         return bop
 

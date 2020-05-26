@@ -51,8 +51,8 @@ class BeaconObject:
                             return fget(self)
 
                         value = self._settings.get(fget.__name__)
-                        if "config_obj_property_setting" in fget.__qualname__:
-                            return fget(self)
+                        if set_unmarshalling is not None:
+                            value = set_unmarshalling(self, value)
                         return value if value is not None else fget(self)
 
                 get.__name__ = fget.__name__

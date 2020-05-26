@@ -424,6 +424,16 @@ def get_db_file(filename):
         return flask.json.dumps(dict(name=filename, content=content))
 
 
+@web_app.route("/db_file_invalid/<path:filename>")
+def get_db_file_invalid(filename):
+    cfg = __config.get_config()
+    if filename in cfg.invalid_yaml_files:
+        result = dict(message=cfg.invalid_yaml_files[filename], type="danger")
+    else:
+        result = dict(message="ok", type="success")
+    return flask.json.dumps(result)
+
+
 @web_app.route("/db_file_editor/<path:filename>")
 def get_db_file_editor(filename):
     ftype, _ = mimetypes.guess_type(filename)

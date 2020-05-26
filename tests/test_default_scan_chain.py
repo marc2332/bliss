@@ -69,12 +69,13 @@ def test_default_chain_with_three_sampling_counters(beacon):
 
     scan_pars = {"npoints": 10, "count_time": 0.1}
 
-    chain = DEFAULT_CHAIN.get(scan_pars, [diode2, diode, diode3])
+    chain = DEFAULT_CHAIN.get(scan_pars, [diode, diode2, diode3])
     timer = chain.timer
 
     assert timer.count_time == 0.1
 
     nodes = chain.nodes_list
+
     assert len(nodes) == 3
     assert isinstance(nodes[0], timer.__class__)
     assert isinstance(nodes[1], SamplingCounterAcquisitionSlave)
@@ -86,8 +87,7 @@ def test_default_chain_with_three_sampling_counters(beacon):
 
     counter_names = [c.fullname for c in nodes[1].channels]
     assert counter_names == ["simulation_diode_sampling_controller:diode"]
-    # counters order is not important
-    # as we use **set** to eliminate duplicated counters
+
     counter_names = set([c.fullname for c in nodes[2].channels])
     assert counter_names == set(
         [

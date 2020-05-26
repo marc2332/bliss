@@ -41,7 +41,7 @@ from prompt_toolkit.enums import DEFAULT_BUFFER
 
 from bliss.shell.cli import style as repl_style
 from bliss.shell import initialize
-from bliss.data.display import ScanPrinter, ScanEventHandler
+from bliss.data.display import ScanPrinter, ScanPrinterWithProgressBar
 from .prompt import BlissPrompt
 from .typing_helper import TypingHelper
 
@@ -571,12 +571,12 @@ def embed(*args, **kwargs):
     try:
         cmd_line_i = cli(*args, **kwargs)
 
-        # set old style print methods for the scans
-        scan_printer = ScanPrinter()
-
         if sys.platform not in ["win32", "cygwin"] and cmd_line_i.use_tmux:
-            # Catch scan events to show the scan display window
-            seh = ScanEventHandler(cmd_line_i)
+            # Catch scan events to show the progress bar
+            seh = ScanPrinterWithProgressBar(cmd_line_i)
+        else:
+            # set old style print methods for the scans
+            scan_printer = ScanPrinter()
 
         if stop_signals:
 

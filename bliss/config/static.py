@@ -148,7 +148,7 @@ def _replace_node_with_ref(node):
             node[key] = _replace_list_node_with_ref(value)
 
 
-def get_config(base_path="", timeout=3.):
+def get_config(base_path="", timeout=3., raise_yaml_exc=True):
     """
     Return configuration from bliss configuration server
 
@@ -175,13 +175,15 @@ def get_config(base_path="", timeout=3.):
     Args:
         base_path (str): base path to config
         timeout (float): response timeout (seconds)
+        raise_yaml_exc (bool): if False will not raise exceptions related
+                         to yaml parsing and config nodes creation
 
     Returns:
         Config: the configuration object
     """
     global CONFIG
     if CONFIG is None:
-        CONFIG = Config(base_path, timeout)
+        CONFIG = Config(base_path, timeout, raise_yaml_exc=raise_yaml_exc)
     return CONFIG
 
 
@@ -492,7 +494,7 @@ class Node(dict):
         )
 
 
-class InvalidConfig(Exception):
+class InvalidConfig(RuntimeError):
     pass
 
 
@@ -509,7 +511,8 @@ class Config:
 
     USER_TAG_KEY = "user_tag"
 
-    def __init__(self, base_path, timeout=3, connection=None):
+    def __init__(self, base_path, timeout=3, connection=None, raise_yaml_exc=True):
+        self.raise_yaml_exc = raise_yaml_exc
         self._base_path = base_path
         self._connection = connection or client.get_default_connection()
         self.reload(timeout=timeout)
@@ -569,23 +572,34 @@ class Config:
                     yaml = YAML(pure=True)
                     yaml.allow_duplicate_keys = True
                     d = yaml.load(file_content)
-                except ruamel.yaml.scanner.ScannerError as exp:
+                except (
+                    ruamel.yaml.scanner.ScannerError,
+                    ruamel.yaml.parser.ParserError,
+                ) as exp:
                     exp.note = "Error in YAML parsing:\n"
                     exp.note += "----------------\n"
                     exp.note += f"{file_content}\n"
                     exp.note += "----------------\n"
                     exp.note += "Hint: You can check your configuration with an on-line YAML validator like http://www.yamllint.com/ \n\n"
                     exp.problem_mark.name = path
-                    if raise_yaml_exc:
+                    if self.raise_yaml_exc:
                         raise exp
                     else:
-                        print("INVALID 1")
                         raise InvalidConfig("Error in YAML parsing", path)
-                # from ruamel.yaml.parser import ParserError
                 except ruamel.yaml.error.MarkedYAMLError as exp:
                     if exp.problem_mark is not None:
                         exp.problem_mark.name = path
-                    raise
+                    if self.raise_yaml_exc:
+                        raise exp
+                    else:
+                        raise InvalidConfig("Error in YAML parsing", path)
+                except ruamel.yaml.error.MarkedYAMLError as exp:
+                    if exp.problem_mark is not None:
+                        exp.problem_mark.name = path
+                    if self.raise_yaml_exc:
+                        raise exp
+                    else:
+                        raise InvalidConfig("Error in YAML parsing", path)
 
                 is_init_file = False
                 if file_name.startswith("__init__"):
@@ -600,12 +614,19 @@ class Config:
                     parents["__children__"] = []
                     # do not accept a list in case of __init__ file
                     if isinstance(d, MutableSequence):
-                        raise TypeError("List are not allowed in *%s* file" % path)
+                        _msg = "List are not allowed in *%s* file" % path
+                        if self.raise_yaml_exc:
+                            raise TypeError(_msg)
+                        else:
+                            raise InvalidConfig(_msg, path)
                     try:
                         self._parse(d, parents)
-                    except TypeError:
-                        _msg = "Parsing error1 on %s in '%s'" % (self._connection, path)
-                        raise RuntimeError(_msg)
+                    except (TypeError, AttributeError):
+                        _msg = ("Error while parsing '{path}'",)
+                        if self.raise_yaml_exc:
+                            raise RuntimeError(_msg)
+                        else:
+                            raise InvalidConfig(_msg, path)
 
                     if not fs_key:
                         self._root_node = parents
@@ -619,46 +640,39 @@ class Config:
                             local_parent = Node(self, fs_node, path)
                             try:
                                 self._parse(item, local_parent)
-                            except TypeError:
-                                _msg = "Parsing error2 on %s in '%s'" % (
-                                    self._connection,
-                                    path,
-                                )
-                                if raise_yaml_exc:
+                            except (TypeError, AttributeError):
+                                _msg = f"Error while parsing a list on '{path}'"
+                                if self.raise_yaml_exc:
                                     raise RuntimeError(_msg)
                                 else:
                                     raise InvalidConfig(_msg, path)
                             try:
                                 self._create_index(local_parent)
-                            except ValueError:
-                                if raise_yaml_exc:
+                            except ValueError as exc:
+                                if self.raise_yaml_exc:
                                     raise
                                 else:
-                                    print("INVALID 2", item)
-                                    raise InvalidConfig("INVALID 2", path)
+                                    # Duplicated key in config
+                                    raise InvalidConfig(" ".join(exc.args), path)
                             else:
                                 parents.append(local_parent)
                     else:
                         parents = Node(self, fs_node, path)
                         try:
                             self._parse(d, parents)
-                        except TypeError:
-                            _msg = "Parsing error3 on %s in '%s'" % (
-                                self._connection,
-                                path,
-                            )
-                            if raise_yaml_exc:
+                        except (TypeError, AttributeError):
+                            _msg = f"Error while parsing '{path}'"
+                            if self.raise_yaml_exc:
                                 raise RuntimeError(_msg)
                             else:
                                 raise InvalidConfig(_msg, path)
                         try:
                             self._create_index(parents)
-                        except ValueError:
-                            if raise_yaml_exc:
+                        except ValueError as exc:
+                            if self.raise_yaml_exc:
                                 raise
                             else:
-                                print("INVALID 3")
-                                raise InvalidConfig("INVALID 3", path)
+                                raise InvalidConfig(*exc.args, path)
 
                 if isinstance(fs_node, MutableSequence):
                     continue
@@ -921,7 +935,7 @@ class Config:
 
     def _parse(self, d, parent):
         if d is None:
-            raise RuntimeError("Error parsing %r" % parent)
+            raise TypeError("Error parsing %r" % parent)
         else:
             for key, value in d.items():
                 if isinstance(value, MutableMapping):

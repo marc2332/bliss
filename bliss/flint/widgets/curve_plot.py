@@ -28,12 +28,13 @@ from bliss.flint.model import flint_model
 from bliss.flint.model import plot_model
 from bliss.flint.model import plot_item_model
 from bliss.flint.model import plot_state_model
-from bliss.flint.widgets.plot_helper import FlintPlot
 from bliss.flint.helper import scan_info_helper
 from bliss.flint.helper import model_helper
 from bliss.flint.utils import signalutils
-from bliss.flint.widgets import plot_helper
-from bliss.flint.widgets.utils import export_action
+from bliss.flint.widgets.utils import plot_helper
+from bliss.flint.widgets.utils import view_helper
+from bliss.flint.widgets.utils import refresh_helper
+from bliss.flint.widgets.utils import tooltip_helper
 from bliss.flint.widgets import marker_helper
 from .utils.plot_action import CustomAxisAction
 from bliss.flint.widgets.utils import export_action
@@ -72,7 +73,9 @@ class SpecMode(qt.QObject):
         action.toggled.connect(self.setEnabled)
         return action
 
-    def __selectedData(self, plot: FlintPlot) -> Tuple[numpy.ndarray, numpy.ndarray]:
+    def __selectedData(
+        self, plot: plot_helper.FlintPlot
+    ) -> Tuple[numpy.ndarray, numpy.ndarray]:
         curve = plot.getActiveCurve()
         if curve is None:
             curves = plot.getAllCurves()
@@ -84,11 +87,11 @@ class SpecMode(qt.QObject):
         y = curve.getYData()
         return x, y
 
-    def initPlot(self, plot: FlintPlot):
+    def initPlot(self, plot: plot_helper.FlintPlot):
         if self.__enabled:
             pass
 
-    def __computeState(self, plot: FlintPlot) -> Optional[str]:
+    def __computeState(self, plot: plot_helper.FlintPlot) -> Optional[str]:
         x, y = self.__selectedData(plot)
         if x is None or y is None:
             return None
@@ -98,7 +101,7 @@ class SpecMode(qt.QObject):
         com = scan_math.com(x, y)
         return f"Peak: {peak[0]:.3} ({peak[1]:.3})  Cen: {cen[0]:.3} (FWHM: {cen[1]:.3})  COM: {com:.3}"
 
-    def updateTitle(self, plot: FlintPlot, title: str) -> str:
+    def updateTitle(self, plot: plot_helper.FlintPlot, title: str) -> str:
         if not self.__enabled:
             return title
         state = self.__computeState(plot)
@@ -126,7 +129,7 @@ class CurvePlotWidget(plot_helper.PlotWidget):
         ] = {}
 
         self.__plotWasUpdated: bool = False
-        self.__plot = FlintPlot(parent=self)
+        self.__plot = plot_helper.FlintPlot(parent=self)
         self.__plot.setActiveCurveStyle(linewidth=2, symbol=".")
         self.__plot.setDataMargins(0.02, 0.02, 0.1, 0.1)
 
@@ -135,11 +138,11 @@ class CurvePlotWidget(plot_helper.PlotWidget):
         self.__plot.installEventFilter(self)
         self.__plot.getWidgetHandle().installEventFilter(self)
         self.__plot.setBackgroundColor("white")
-        self.__view = plot_helper.ViewManager(self.__plot)
+        self.__view = view_helper.ViewManager(self.__plot)
         self.__selectedPlotItem = None
 
         self.__aggregator = signalutils.EventAggregator(self)
-        self.__refreshManager = plot_helper.RefreshManager(self)
+        self.__refreshManager = refresh_helper.RefreshManager(self)
         self.__refreshManager.setAggregator(self.__aggregator)
 
         toolBar = self.__createToolBar()
@@ -165,7 +168,7 @@ class CurvePlotWidget(plot_helper.PlotWidget):
         layout.setContentsMargins(0, 1, 0, 0)
         self.setWidget(widget)
 
-        self.__tooltipManager = plot_helper.TooltipItemManager(self, self.__plot)
+        self.__tooltipManager = tooltip_helper.TooltipItemManager(self, self.__plot)
         self.__tooltipManager.setFilter(plot_helper.FlintCurve)
 
         self.__syncAxisTitle = signalutils.InvalidatableSignal(self)

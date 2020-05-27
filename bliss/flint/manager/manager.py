@@ -29,7 +29,7 @@ from bliss.flint.model import plot_item_model
 from bliss.flint.model import scan_model
 from bliss.flint.helper import model_helper
 from bliss.flint.helper.style_helper import DefaultStyleStrategy
-from bliss.flint.widgets.plot_helper import PlotWidget
+from bliss.flint.widgets.utils.plot_helper import PlotWidget
 
 from ..helper import scan_info_helper
 from . import workspace_manager

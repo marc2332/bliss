@@ -25,10 +25,12 @@ from bliss.flint.model import flint_model
 from bliss.flint.model import plot_model
 from bliss.flint.model import style_model
 from bliss.flint.model import plot_item_model
-from bliss.flint.widgets.plot_helper import FlintPlot
 from bliss.flint.helper import scan_info_helper
 from bliss.flint.helper import model_helper
-from bliss.flint.widgets import plot_helper
+from bliss.flint.widgets.utils import plot_helper
+from bliss.flint.widgets.utils import view_helper
+from bliss.flint.widgets.utils import refresh_helper
+from bliss.flint.widgets.utils import tooltip_helper
 from bliss.flint.widgets.utils import export_action
 from .utils.camera_live_action import CameraLiveAction
 from .utils.profile_action import ProfileAction
@@ -130,7 +132,7 @@ class ImagePlotWidget(plot_helper.PlotWidget):
         self.__items: Dict[plot_model.Item, List[_ItemDescription]] = {}
 
         self.__plotWasUpdated: bool = False
-        self.__plot = FlintPlot(parent=self)
+        self.__plot = plot_helper.FlintPlot(parent=self)
         self.__plot.setActiveCurveStyle(linewidth=2)
         self.__plot.setKeepDataAspectRatio(True)
         self.__plot.setDataMargins(0.05, 0.05, 0.05, 0.05)
@@ -141,11 +143,11 @@ class ImagePlotWidget(plot_helper.PlotWidget):
         self.setFocusPolicy(qt.Qt.StrongFocus)
         self.__plot.installEventFilter(self)
         self.__plot.getWidgetHandle().installEventFilter(self)
-        self.__view = plot_helper.ViewManager(self.__plot)
+        self.__view = view_helper.ViewManager(self.__plot)
         self.__view.setResetWhenScanStarts(False)
 
         self.__aggregator = plot_helper.PlotEventAggregator(self)
-        self.__refreshManager = plot_helper.RefreshManager(self)
+        self.__refreshManager = refresh_helper.RefreshManager(self)
         self.__refreshManager.refreshModeChanged.connect(self.__refreshModeChanged)
         self.__refreshManager.setAggregator(self.__aggregator)
 
@@ -172,7 +174,7 @@ class ImagePlotWidget(plot_helper.PlotWidget):
         layout.setContentsMargins(0, 1, 0, 0)
         self.setWidget(widget)
 
-        self.__tooltipManager = plot_helper.TooltipItemManager(self, self.__plot)
+        self.__tooltipManager = tooltip_helper.TooltipItemManager(self, self.__plot)
         self.__tooltipManager.setFilter(plot_helper.FlintImage)
 
         self.__minMarker = Marker()

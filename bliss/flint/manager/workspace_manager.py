@@ -25,7 +25,7 @@ from bliss.config.settings import HashObjSetting
 from . import manager
 from ..model import flint_model
 from bliss.flint import config
-from bliss.flint.widgets.plot_helper import PlotWidget
+from bliss.flint.widgets.utils.plot_helper import PlotWidget
 
 
 _logger = logging.getLogger(__name__)

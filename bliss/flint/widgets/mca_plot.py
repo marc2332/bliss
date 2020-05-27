@@ -22,10 +22,12 @@ from bliss.flint.model import scan_model
 from bliss.flint.model import flint_model
 from bliss.flint.model import plot_model
 from bliss.flint.model import plot_item_model
-from bliss.flint.widgets.plot_helper import FlintPlot
 from bliss.flint.helper import scan_info_helper
 from bliss.flint.utils import signalutils
-from bliss.flint.widgets import plot_helper
+from bliss.flint.widgets.utils import plot_helper
+from bliss.flint.widgets.utils import view_helper
+from bliss.flint.widgets.utils import refresh_helper
+from bliss.flint.widgets.utils import tooltip_helper
 from .utils.plot_action import CustomAxisAction
 from bliss.flint.widgets.utils import export_action
 
@@ -43,17 +45,17 @@ class McaPlotWidget(plot_helper.PlotWidget):
         self.__items: Dict[plot_model.Item, List[Tuple[str, str]]] = {}
 
         self.__plotWasUpdated: bool = False
-        self.__plot = FlintPlot(parent=self)
+        self.__plot = plot_helper.FlintPlot(parent=self)
         self.__plot.setActiveCurveStyle(linewidth=2)
         self.__plot.setDataMargins(0.02, 0.02, 0.1, 0.1)
 
         self.setFocusPolicy(qt.Qt.StrongFocus)
         self.__plot.installEventFilter(self)
         self.__plot.getWidgetHandle().installEventFilter(self)
-        self.__view = plot_helper.ViewManager(self.__plot)
+        self.__view = view_helper.ViewManager(self.__plot)
 
         self.__aggregator = plot_helper.PlotEventAggregator(self)
-        self.__refreshManager = plot_helper.RefreshManager(self)
+        self.__refreshManager = refresh_helper.RefreshManager(self)
         self.__refreshManager.setAggregator(self.__aggregator)
 
         toolBar = self.__createToolBar()
@@ -79,7 +81,7 @@ class McaPlotWidget(plot_helper.PlotWidget):
         layout.setContentsMargins(0, 1, 0, 0)
         self.setWidget(widget)
 
-        self.__tooltipManager = plot_helper.TooltipItemManager(self, self.__plot)
+        self.__tooltipManager = tooltip_helper.TooltipItemManager(self, self.__plot)
         self.__tooltipManager.setFilter(plot_helper.FlintRawMca)
 
         self.__syncAxisTitle = signalutils.InvalidatableSignal(self)
@@ -91,7 +93,7 @@ class McaPlotWidget(plot_helper.PlotWidget):
         self.__plot.addItem(self.__bounding)
         self.__plot.addItem(self.__tooltipManager.marker())
 
-    def getRefreshManager(self) -> plot_helper.RefreshManager:
+    def getRefreshManager(self) -> refresh_helper.RefreshManager:
         return self.__refreshManager
 
     def __createToolBar(self):

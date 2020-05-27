@@ -937,6 +937,10 @@ class BlissAxis(Device):
         self.debug_stream("In StepDown(); stepsize=%f" % self.attr_StepSize_read)
         self.axis.rmove(-self.attr_StepSize_read, wait=self.write_position_wait)
 
+    @command(dtype_in=float, doc_in="velocity")
+    def JogMove(self, velocity):
+        self.axis.jog(velocity)
+
     @command(dtype_out=str)
     def GetInfo(self):
         """ provide information about the axis.

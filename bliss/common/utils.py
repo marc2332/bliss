@@ -689,6 +689,8 @@ def update_node_info(node, d):
             node.info[key] = value
 
 
+########
+# TO BE REMOVED ONCE SILX 0.14 is out
 def dicttoh5(
     treedict,
     h5file,
@@ -704,13 +706,11 @@ def dicttoh5(
     :mod:`h5py` dataset. Dictionary keys must be strings and cannot contain
     the ``/`` character.
 
-    taken from silx 0.10.1 
+    taken from silx git 63a2f23 should be removed once next silx version is out
     (http://www.silx.org/doc/silx/0.10.1/_modules/silx/io/dictdump.html#dicttoh5)
     
-    HERE EXTENDED TO SUPPORT 'NX_class' Attributes
     """
-    # ... one could think about propagating something similar to the changes
-    # made here back to silx
+
     from silx.io.dictdump import _SafeH5FileWrite, _prepare_hdf5_dataset
     import warnings
 
@@ -718,7 +718,7 @@ def dicttoh5(
         h5path += "/"
 
     with _SafeH5FileWrite(h5file, mode=mode) as h5f:
-        for key in treedict:
+        for key in filter(lambda k: not isinstance(k, tuple), treedict):
             if isinstance(treedict[key], dict) and len(treedict[key]):
                 # non-empty group: recurse
                 dicttoh5(
@@ -728,9 +728,6 @@ def dicttoh5(
                     overwrite_data=overwrite_data,
                     create_dataset_args=create_dataset_args,
                 )
-
-                if "NX_class" not in h5f[h5path + key].attrs:
-                    h5f[h5path + key].attrs["NX_class"] = "NXcollection"
 
             elif treedict[key] is None or (
                 isinstance(treedict[key], dict) and not len(treedict[key])
@@ -743,19 +740,13 @@ def dicttoh5(
                             "key (%s) already exists. "
                             "Not overwriting." % (h5path + key)
                         )
+                        print(
+                            "key (%s) already exists. "
+                            "Not overwriting." % (h5path + key)
+                        )
                         continue
                 # Create empty group
                 h5f.create_group(h5path + key)
-                # use NXcollection at first, might be overwritten an time later
-                h5f[h5path + key].attrs["NX_class"] = "NXcollection"
-
-            elif key == "NX_class":
-                # assign NX_class
-                try:
-                    h5f[h5path].attrs["NX_class"] = treedict[key]
-                except KeyError:
-                    h5f.create_group(h5path)
-                    h5f[h5path].attrs["NX_class"] = treedict[key]
 
             else:
                 ds = _prepare_hdf5_dataset(treedict[key])
@@ -769,10 +760,13 @@ def dicttoh5(
                                 "key (%s) already exists. "
                                 "Not overwriting." % (h5path + key)
                             )
+                            print(
+                                "key (%s) already exists. "
+                                "Not overwriting." % (h5path + key)
+                            )
                             continue
 
                     h5f.create_dataset(h5path + key, data=ds)
-
                 else:
                     if h5path + key in h5f:
                         if overwrite_data is True:
@@ -782,9 +776,93 @@ def dicttoh5(
                                 "key (%s) already exists. "
                                 "Not overwriting." % (h5path + key)
                             )
+                            print(
+                                "key (%s) already exists. "
+                                "Not overwriting." % (h5path + key)
+                            )
+
                             continue
 
                     h5f.create_dataset(h5path + key, data=ds, **create_dataset_args)
+
+        # deal with h5 attributes which have tuples as keys in treedict
+        for key in filter(lambda k: isinstance(k, tuple), treedict):
+            if (h5path + key[0]) not in h5f:
+                # Create empty group if key for attr does not exist
+                h5f.create_group(h5path + key[0])
+                # ~ warnings.warn(
+                # ~ "key (%s) does not exist. attr %s "
+                # ~ "will be written to ." % (h5path + key[0], key[1])
+                # ~ )
+                # ~ print(
+                # ~ "key (%s) does not exist. attr %s "
+                # ~ "will be written to ." % (h5path + key[0], key[1])
+                # ~ )
+
+            if key[1] in h5f[h5path + key[0]].attrs:
+                if not overwrite_data:
+                    warnings.warn(
+                        "attribute %s@%s already exists. Not overwriting."
+                        "" % (h5path + key[0], key[1])
+                    )
+                    print(
+                        "attribute %s@%s already exists. Not overwriting."
+                        "" % (h5path + key[0], key[1])
+                    )
+                    continue
+
+            # Write attribute
+            value = treedict[key]
+
+            # Makes list/tuple of str being encoded as vlen unicode array
+            # Workaround for h5py<2.9.0 (e.g. debian 10).
+            if (
+                isinstance(value, (list, tuple))
+                and numpy.asarray(value).dtype.type == numpy.unicode_
+            ):
+                value = numpy.array(value, dtype=h5py.special_dtype(vlen=str))
+
+            h5f[h5path + key[0]].attrs[key[1]] = value
+
+
+def dicttonx(
+    treedict,
+    h5file,
+    h5path="/",
+    mode="w",
+    overwrite_data=False,
+    create_dataset_args=None,
+):
+    """
+    taken from silx git 63a2f23 should be removed once next silx version is out
+    """
+
+    def copy_keys_keep_values(original):
+        # create a new treedict with with modified keys but keep values
+        copy = dict()
+        for key, value in original.items():
+            if "@" in key:
+                newkey = tuple(key.rsplit("@", 1))
+            else:
+                newkey = key
+            if isinstance(value, dict):
+                copy[newkey] = copy_keys_keep_values(value)
+            else:
+                copy[newkey] = value
+        return copy
+
+    nxtreedict = copy_keys_keep_values(treedict)
+    dicttoh5(
+        nxtreedict,
+        h5file,
+        h5path=h5path,
+        mode=mode,
+        overwrite_data=overwrite_data,
+        create_dataset_args=create_dataset_args,
+    )
+
+
+######
 
 
 def rounder(template_number, number):

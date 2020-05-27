@@ -11,10 +11,10 @@ import pytest
 
 
 def test_white_beam_attenuator(beacon, caplog):
-    """att1 MultiplePosition and roby Axis object have to be configured."""
+    """att1 MultiplePosition and att1z Axis object have to be configured."""
 
     wba = beacon.get("wba")
-    roby = beacon.get("roby")
+    att1z = beacon.get("att1z")
 
     assert wba.name == "wba"
 
@@ -26,8 +26,8 @@ def test_white_beam_attenuator(beacon, caplog):
     assert wba.position == ["att1", "Al40"]
 
     # test when move underlying motor
-    assert wba.attenuators[0]["attenuator"].motor_objs[0] == roby
-    roby.move(0.5)
+    assert wba.attenuators[0]["attenuator"].motor_objs[0] == att1z
+    att1z.move(0.5)
     assert wba.position == ["att1", "Al"]
 
     # test with no wait
@@ -60,7 +60,7 @@ def test_frontend_hook(beacon, dummy_tango_server):
     beacon.get_config("wba").update({"frontend": "$safshut"})
     sh = beacon.get("safshut")
     wba = beacon.get("wba")
-    roby = beacon.get("roby")
+    att1z = beacon.get("att1z")
 
     wba.move("att1", "Al")
 
@@ -69,4 +69,4 @@ def test_frontend_hook(beacon, dummy_tango_server):
         wba.move("att1", "Al40")
     sh.close()  # now is ok
     wba.move("att1", "Al40")
-    assert len(roby.motion_hooks) == 1
+    assert len(att1z.motion_hooks) == 1

@@ -354,11 +354,12 @@ def validate_instrument(
     expected |= expected_posg
     expected |= expected_dets
     expected |= set(pos_instrument.keys())
+    expected |= {"att1", "beamstop"}
     assert_set_equal(set(instrument.keys()), expected)
     # Validate content of positioner NXcollections
     for name in expected_posg:
         assert instrument[name].attrs["NX_class"] == "NXcollection", name
-        expected = {"robx", "roby", "robz"}
+        expected = {"robx", "roby", "robz", "bsy", "bsz", "att1z"}
         if name == "positioners":
             expected |= set(pos_positioners)
         assert_set_equal(set(instrument[name].keys()), expected)
@@ -378,6 +379,11 @@ def validate_instrument(
             islima_image = name in ["lima_simulator_image", "lima_simulator2_image"]
         if islima_image:
             assert_dataset(instrument[name]["data"], 2, save_options, variable_length)
+    # Validate content of other groups
+    content = nexus.nxtodict(instrument["beamstop"])
+    assert content == {"@NX_class": "NXbeam_stop", "status": "in"}
+    content = nexus.nxtodict(instrument["att1"])
+    assert content == {"@NX_class": "NXattenuator", "status": "in", "type": "Al"}
 
 
 def validate_plots(

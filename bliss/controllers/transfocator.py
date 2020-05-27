@@ -79,7 +79,6 @@ from bliss.common.utils import grouped
 from bliss.controllers.wago.wago import WagoController, ModulesConfig, get_wago_comm
 from bliss.config import channels
 from bliss.common.event import dispatcher
-from bliss import current_session
 from bliss.scanning.scan_meta import get_user_scan_meta
 
 
@@ -210,14 +209,13 @@ class Transfocator:
             if self.nb_pinhole > 2:
                 raise ValueError(f"{name}: layout can only have 2 pinholes maximum")
 
-        if current_session:
-            self._init_meta_data_publishing()
+        self._init_meta_data_publishing()
 
     def _init_meta_data_publishing(self):
         scan_meta_obj = get_user_scan_meta()
         scan_meta_obj.instrument.set(
             self,
-            lambda _: {self.name: {**self.status_dict(), "NX_class": "NXcollection"}},
+            lambda _: {self.name: {**self.status_dict(), "@NX_class": "NXcollection"}},
         )
 
     def connect(self):

@@ -257,7 +257,7 @@ def test_global_map(beacon, s1hg, roby):
     sr = beacon.get("sample_regulation")
     heater = beacon.get("heater")
     hooked_m0 = beacon.get("hooked_m0")
-    beacon.get("slits")
+    beacon.get("primary_slit")
     # m.draw_pygraphviz()
 
     graph_data = node_link_data(m.G)
@@ -284,16 +284,7 @@ def test_global_map(beacon, s1hg, roby):
     # now check if expected links match the map
     expected_links = {
         roby.controller: {"s1f", "s1b", "s1u", "s1d", "roby", "hooked_m0"},
-        s1hg.controller.name: {
-            "s1vg",
-            "s1vo",
-            "s1hg",
-            "s1ho",
-            "s1f",
-            "s1d",
-            "s1u",
-            "s1b",
-        },
+        "primary_slit": {"s1vg", "s1vo", "s1hg", "s1ho", "s1f", "s1d", "s1u", "s1b"},
         heater.controller: {"thermo_sample", "heater", "sample_regulation"},
         "axes": {
             "s1f",
@@ -309,7 +300,7 @@ def test_global_map(beacon, s1hg, roby):
         },
         "hook0": {"hooked_m0"},
         "controllers": {
-            s1hg.controller.name,
+            "primary_slit",
             roby.controller,
             heater.controller,
             "motion_hooks",

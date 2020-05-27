@@ -56,5 +56,6 @@ scan_meta_obj.instrument.set("myattenuator", {"myattenuator":
     {"@NX_class":"NXattenuator",
      "status": "in",
      "type": "aluminium",
-     "thickness":{"@data":20., "@units": "um"}}})
+     "thickness": 20.,
+     "thickness@units": "um")
 ```

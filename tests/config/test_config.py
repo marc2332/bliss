@@ -87,7 +87,7 @@ def test_empty_yml(beacon, beacon_directory):
 
         with pytest.raises(RuntimeError) as exc:
             beacon.reload()
-        assert "filename" in str(exc.value)
+        assert "toto.yml" in str(exc.value)
     finally:
         os.unlink(new_file)
 

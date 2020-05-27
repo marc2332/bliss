@@ -1,3 +1,6 @@
+# Scan
+
+
 Scan is the top level object of the scan engine and it's the one who
 perform the scan according to the [acquisition
 chain](scan_engine_acquisition_chain.md) passed as argument when
@@ -243,3 +246,8 @@ DEBUG 2018-11-30 13:27:21,840 Scan: Start timer.wait_slaves
 DEBUG 2018-11-30 13:27:21,840 Scan: End timer.wait_slaves Took 0.000060s
   Out [6]: Scan(name=ct_6, run_number=6)
 ```
+
+
+## Scan behaviour
+
+![Scan states](img/scan_states.svg)

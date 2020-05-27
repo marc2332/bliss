@@ -7,7 +7,7 @@
 
 from bliss.common import event
 from bliss.common.greenlet_utils import KillMask
-from bliss.config import settings
+from bliss.config import settings, settings_cache
 import sys
 
 
@@ -85,8 +85,7 @@ class ControllerAxisSettings:
 
         if self.persistent_setting[setting_name]:
             with KillMask():
-                hash_setting = settings.HashSetting("axis.%s" % axis.name)
-                value = hash_setting.get(setting_name)
+                value = axis.settings._hash.get(setting_name)
         else:
             chan = axis._beacon_channels.get(setting_name)
             if chan:
@@ -100,7 +99,7 @@ class ControllerAxisSettings:
         return value
 
     def _clear(self, axis, setting_name):
-        settings.HashSetting("axis.%s" % axis.name)[setting_name] = None
+        axis.settings._hash[setting_name] = None
 
     def set(self, axis, setting_name, value):
         """
@@ -118,7 +117,7 @@ class ControllerAxisSettings:
 
         if self.persistent_setting[setting_name]:
             with KillMask():
-                settings.HashSetting("axis.%s" % axis.name)[setting_name] = value
+                axis.settings._hash[setting_name] = value
 
         axis._beacon_channels[setting_name].value = value
         event.send(axis, "internal_" + setting_name, value)
@@ -132,6 +131,14 @@ class AxisSettings:
     def __init__(self, axis):
         self.__axis = axis
         self.__state = None
+        cnx_cache = settings_cache.get_redis_client_cache()
+        self._hash = settings.HashSetting(
+            "axis.%s" % axis.name,
+            default_values=axis.config.config_dict,
+            connection=cnx_cache,
+        )
+        # Activate prefetch
+        cnx_cache.add_prefetch(self._hash)
 
     def set(self, setting_name, value):
         if setting_name == "state":

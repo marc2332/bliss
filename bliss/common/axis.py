@@ -663,7 +663,6 @@ class Axis:
     def __init__(self, name, controller, config):
         self.__name = name
         self.__controller = controller
-        self.__settings = AxisSettings(self)
         self.__move_done = gevent.event.Event()
         self.__move_done_callback = gevent.event.Event()
         self.__move_done.set()
@@ -676,6 +675,7 @@ class Axis:
         if self.__encoder is not None:
             self.__encoder.axis = self
         self.__config = StaticConfig(config)
+        self.__settings = AxisSettings(self)
         self.__init_config_properties()
         self._group_move = GroupMove()
         self._beacon_channels = dict()

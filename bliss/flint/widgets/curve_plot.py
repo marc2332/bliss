@@ -35,6 +35,8 @@ from bliss.flint.utils import signalutils
 from bliss.flint.widgets import plot_helper
 from bliss.flint.widgets.utils import export_action
 from bliss.flint.widgets import marker_helper
+from .utils.plot_action import CustomAxisAction
+from bliss.flint.widgets.utils import export_action
 
 from bliss.scanning import scan_math
 
@@ -237,7 +239,7 @@ class CurvePlotWidget(plot_helper.PlotWidget):
         # Axis
         action = self.__refreshManager.createRefreshAction(self)
         toolBar.addAction(action)
-        toolBar.addAction(plot_helper.CustomAxisAction(self.__plot, self, kind="curve"))
+        toolBar.addAction(CustomAxisAction(self.__plot, self, kind="curve"))
         toolBar.addAction(control.GridAction(self.__plot, "major", self))
         toolBar.addSeparator()
 

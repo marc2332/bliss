@@ -34,14 +34,12 @@ from silx.gui.plot.items.image import ImageData
 from silx.gui.plot.items import YAxisMixIn
 from silx.gui.plot.items import BoundingRect
 
-from bliss.flint.model import flint_model
 from bliss.flint.model import plot_model
 from bliss.flint.model import plot_item_model
 from bliss.flint.model import plot_state_model
 from bliss.flint.model import scan_model
 from bliss.flint.utils import signalutils
 from bliss.flint.widgets.extended_dock_widget import ExtendedDockWidget
-from bliss.flint.widgets import holder_widget
 
 
 _logger = logging.getLogger(__name__)
@@ -84,144 +82,6 @@ class PlotEventAggregator(signalutils.EventAggregator):
                     lastSpecificChannel.add(channel)
             result.insert(0, event)
         return result, []
-
-
-class CheckableKeepAspectRatioAction(PlotAction):
-    """QAction controlling X axis log scale on a :class:`.PlotWidget`.
-
-    :param plot: :class:`.PlotWidget` instance on which to operate
-    :param parent: See :class:`QAction`
-    """
-
-    def __init__(self, plot, parent=None):
-        super(CheckableKeepAspectRatioAction, self).__init__(
-            plot,
-            icon="shape-circle-solid",
-            text="Keep aspect ratio",
-            tooltip="Keep axes aspect ratio",
-            triggered=self._actionTriggered,
-            checkable=True,
-            parent=parent,
-        )
-        self.setChecked(self.plot.isKeepDataAspectRatio())
-        plot.sigSetKeepDataAspectRatio.connect(self._keepDataAspectRatioChanged)
-
-    def _keepDataAspectRatioChanged(self, aspectRatio):
-        """Handle Plot set keep aspect ratio signal"""
-        self.setChecked(aspectRatio)
-
-    def _actionTriggered(self, checked=False):
-        self.plot.setKeepDataAspectRatio(checked)
-
-
-class CustomAxisAction(qt.QWidgetAction):
-    def __init__(self, plot, parent, kind="any"):
-        super(CustomAxisAction, self).__init__(parent)
-
-        menu = qt.QMenu(parent)
-
-        action = control.ShowAxisAction(plot, self)
-        action.setText("Show the plot axes")
-        menu.addAction(action)
-
-        if kind in ["curve", "scatter"]:
-            menu.addSection("X-axes")
-            action = control.XAxisLogarithmicAction(plot, self)
-            action.setText("Log scale")
-            menu.addAction(action)
-
-        menu.addSection("Y-axes")
-        if kind in ["curve", "scatter", "mca"]:
-            action = control.YAxisLogarithmicAction(plot, self)
-            action.setText("Log scale")
-            menu.addAction(action)
-        if kind in ["scatter", "image"]:
-            action = control.YAxisInvertedAction(plot, self)
-            menu.addAction(action)
-
-        if kind in ["scatter", "image"]:
-            menu.addSection("Aspect ratio")
-            action = CheckableKeepAspectRatioAction(plot, self)
-            action.setText("Keep aspect ratio")
-            menu.addAction(action)
-
-        icon = icons.getQIcon("flint:icons/axes-options")
-        toolButton = qt.QToolButton(parent)
-        toolButton.setText("Custom axis")
-        toolButton.setToolTip("Custom the plot axis")
-        toolButton.setIcon(icon)
-        toolButton.setMenu(menu)
-        toolButton.setPopupMode(qt.QToolButton.InstantPopup)
-        self.setDefaultWidget(toolButton)
-
-
-class _CustomProfileManager(manager.ProfileManager):
-    def flintModel(self):
-        flintModel = self.getPlotWidget().parent().parent().parent().flintModel()
-        assert isinstance(flintModel, flint_model.FlintState)
-        return flintModel
-
-    def createProfileWindow(self, plot, roi):
-        """Override to allocate a dock to hold the profile"""
-        manager = self.flintModel().mainManager()
-        dock = manager.allocateProfileDock()
-        return dock.profileWindow()
-
-    def initProfileWindow(self, profileWindow, roi):
-        """Override the method to skip the setup of the window"""
-        profileWindow.prepareWidget(roi)
-        profileWindow.adjustSize()
-
-    def clearProfileWindow(self, profileWindow):
-        """Override the method to release the dock"""
-        profileWindow.setProfile(None)
-        workspace = self.flintModel().workspace()
-        for dock in workspace.widgets():
-            if not isinstance(dock, holder_widget.ProfileHolderWidget):
-                continue
-            if dock.profileWindow() is not profileWindow:
-                continue
-            dock.setUsed(False)
-            return
-
-
-class CustomProfileAction(qt.QWidgetAction):
-    def __init__(self, plot, parent, kind):
-        super(CustomProfileAction, self).__init__(parent)
-
-        self.__manager = _CustomProfileManager(parent, plot)
-        if kind == "image":
-            self.__manager.setItemType(image=True)
-        elif kind == "scatter":
-            self.__manager.setItemType(scatter=True)
-        else:
-            assert False
-        self.__manager.setActiveItemTracking(True)
-
-        menu = qt.QMenu(parent)
-        if kind == "image":
-            for action in self.__manager.createImageActions(menu):
-                menu.addAction(action)
-        elif kind == "scatter":
-            for action in self.__manager.createScatterActions(menu):
-                menu.addAction(action)
-            for action in self.__manager.createScatterSliceActions(menu):
-                menu.addAction(action)
-        menu.addSeparator()
-        menu.addAction(self.__manager.createEditorAction(menu))
-        menu.addSeparator()
-        menu.addAction(self.__manager.createClearAction(menu))
-
-        icon = icons.getQIcon("flint:icons/profile")
-        toolButton = qt.QToolButton(parent)
-        toolButton.setText("Profile tools")
-        toolButton.setToolTip(
-            "Manage the profiles to this scatter (not yet implemented)"
-        )
-        toolButton.setIcon(icon)
-        toolButton.setMenu(menu)
-        toolButton.setPopupMode(qt.QToolButton.InstantPopup)
-        self.setDefaultWidget(toolButton)
 
 
 class PlotWidget(ExtendedDockWidget):

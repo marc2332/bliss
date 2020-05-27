@@ -26,6 +26,7 @@ from bliss.flint.widgets.plot_helper import FlintPlot
 from bliss.flint.helper import scan_info_helper
 from bliss.flint.utils import signalutils
 from bliss.flint.widgets import plot_helper
+from .utils.plot_action import CustomAxisAction
 from bliss.flint.widgets.utils import export_action
 
 
@@ -113,7 +114,7 @@ class McaPlotWidget(plot_helper.PlotWidget):
         # Axis
         action = self.__refreshManager.createRefreshAction(self)
         toolBar.addAction(action)
-        toolBar.addAction(plot_helper.CustomAxisAction(self.__plot, self, kind="mca"))
+        toolBar.addAction(CustomAxisAction(self.__plot, self, kind="mca"))
         toolBar.addAction(control.GridAction(self.__plot, "major", self))
         toolBar.addSeparator()
 

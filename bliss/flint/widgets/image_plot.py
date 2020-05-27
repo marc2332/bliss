@@ -31,6 +31,8 @@ from bliss.flint.helper import model_helper
 from bliss.flint.widgets import plot_helper
 from bliss.flint.widgets.utils import export_action
 from .utils.camera_live_action import CameraLiveAction
+from .utils.profile_action import ProfileAction
+from .utils.plot_action import CustomAxisAction
 from bliss.flint.widgets import marker_helper
 
 
@@ -218,7 +220,7 @@ class ImagePlotWidget(plot_helper.PlotWidget):
         # Axis
         action = self.__refreshManager.createRefreshAction(self)
         toolBar.addAction(action)
-        toolBar.addAction(plot_helper.CustomAxisAction(self.__plot, self, kind="image"))
+        toolBar.addAction(CustomAxisAction(self.__plot, self, kind="image"))
         toolBar.addAction(control.GridAction(self.__plot, "major", self))
         toolBar.addSeparator()
 
@@ -242,7 +244,7 @@ class ImagePlotWidget(plot_helper.PlotWidget):
         action.setIcon(icon)
         action.setEnabled(False)
         toolBar.addAction(action)
-        toolBar.addAction(plot_helper.CustomProfileAction(self.__plot, self, "image"))
+        toolBar.addAction(ProfileAction(self.__plot, self, "image"))
 
         action = marker_helper.MarkerAction(plot=self.__plot, parent=self, kind="image")
         self.__markerAction = action

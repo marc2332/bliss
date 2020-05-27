@@ -33,6 +33,9 @@ from bliss.flint.utils import signalutils
 from bliss.flint.widgets import plot_helper
 from bliss.flint.widgets.utils import export_action
 from bliss.flint.widgets import marker_helper
+from .utils.profile_action import ProfileAction
+from .utils.plot_action import CustomAxisAction
+from bliss.flint.widgets.utils import export_action
 
 
 _logger = logging.getLogger(__name__)
@@ -135,9 +138,7 @@ class ScatterPlotWidget(plot_helper.PlotWidget):
         # Axis
         action = self.__refreshManager.createRefreshAction(self)
         toolBar.addAction(action)
-        toolBar.addAction(
-            plot_helper.CustomAxisAction(self.__plot, self, kind="scatter")
-        )
+        toolBar.addAction(CustomAxisAction(self.__plot, self, kind="scatter"))
         toolBar.addAction(control.GridAction(self.__plot, "major", self))
         toolBar.addSeparator()
 
@@ -165,7 +166,7 @@ class ScatterPlotWidget(plot_helper.PlotWidget):
         action.setIcon(icon)
         action.setEnabled(False)
         toolBar.addAction(action)
-        toolBar.addAction(plot_helper.CustomProfileAction(self.__plot, self, "scatter"))
+        toolBar.addAction(ProfileAction(self.__plot, self, "scatter"))
 
         action = marker_helper.MarkerAction(
             plot=self.__plot, parent=self, kind="scatter"

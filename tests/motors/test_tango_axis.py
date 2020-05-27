@@ -80,3 +80,33 @@ def test_remote_stop(bliss_tango_server, robz, ports):
     gevent.sleep(0.1)
 
     assert tango_robz.position == robz.position
+
+
+def test_remote_jog(bliss_tango_server, robz, ports):
+    dev_name, proxy = bliss_tango_server
+    tango_robz = DeviceProxy(
+        "tango://localhost:{}/id00/bliss_test/robz".format(ports.tango_port)
+    )
+
+    tango_robz.JogMove(300)
+
+    gevent.sleep(0.1)
+
+    assert robz.is_moving
+
+    robz.stop()
+
+    assert not robz.is_moving
+
+    tango_robz.JogMove(100)
+
+    gevent.sleep(0.1)
+
+    assert robz.jog_velocity == 100
+
+    gevent.sleep(0.1)
+
+    robz.jog(0)
+
+    assert not robz.is_moving
+    assert tango_robz.position == robz.position

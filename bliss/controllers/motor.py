@@ -249,9 +249,14 @@ class Controller:
         for setting_name in axis.settings.config_settings():
             if setting_name == "steps_per_unit":
                 cval = float(axis.config.get(setting_name))
-                rval = axis.settings.get(setting_name)
-
-                if (cval != rval) and rval is not None:
+                rval = axis.settings._hash.raw_get(setting_name)
+                # Record steps_per_unit
+                if rval is None:
+                    axis.settings.set(setting_name, cval)
+                    continue
+                else:
+                    rval = float(rval)
+                if cval != rval:
                     ratio = rval / cval
                     new_dial = axis.dial * ratio
 
@@ -301,22 +306,14 @@ class Controller:
                 return
 
             axis._beacon_channels.clear()
-            hash_setting = settings.HashSetting("axis.%s" % axis.name)
 
             for setting_name in axis.settings:
                 setting_value = get_setting_or_config_value(axis, setting_name)
-                if setting_value is not None:
-                    # write setting to cache
-                    hash_setting[setting_name] = setting_value
-
                 chan_name = "axis.%s.%s" % (axis.name, setting_name)
                 cb = functools.partial(
                     setting_update_from_channel, setting_name=setting_name, axis=axis
                 )
-                if setting_value is None:
-                    chan = Channel(chan_name, callback=cb)
-                else:
-                    chan = Channel(chan_name, default_value=setting_value, callback=cb)
+                chan = Channel(chan_name, default_value=setting_value, callback=cb)
                 chan._setting_update_cb = cb
                 axis._beacon_channels[setting_name] = chan
 

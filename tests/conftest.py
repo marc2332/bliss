@@ -29,6 +29,7 @@ from bliss.common.session import DefaultSession
 from bliss.common.utils import get_open_ports
 from bliss.common.logtools import logbook_printer
 from bliss.config import static
+from bliss.config import settings_cache
 from bliss.config.conductor import client
 from bliss.config.conductor import connection
 from bliss.config.conductor.client import get_default_connection
@@ -215,6 +216,7 @@ def beacon(ports):
     client._default_connection = connection.Connection("localhost", ports.beacon_port)
     config = static.get_config()
     yield config
+    settings_cache.close_all_client_cache()
     config.close()
     client._default_connection.close()
 

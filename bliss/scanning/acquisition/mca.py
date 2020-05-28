@@ -192,6 +192,7 @@ class HWScaAcquisitionSlave(AcquisitionSlave):
         pass
 
     def prepare(self):
+        self.mca.trigger_mode = TriggerMode.SOFTWARE
         self.mca.set_hardware_scas(self.scas)
 
     def start(self):

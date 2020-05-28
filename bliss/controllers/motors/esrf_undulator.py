@@ -6,18 +6,29 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import time
+import numpy
 
 from bliss.controllers.motor import Controller
 from bliss.common.axis import AxisState, NoSettingsAxis
 from bliss.common.tango import DevState, DeviceProxy
-from bliss.common.logtools import log_debug
+from bliss.common.logtools import log_debug, lprint
 from bliss.common.utils import object_method
 from bliss import global_map
 
 
+class UndulatorAxis(NoSettingsAxis):
+    def sync_hard(self):
+        st = self.hw_state
+        if "DISABLED" in st:
+            self.settings.set("state", st)
+            lprint(f"Warning: undulator {self.name} is disabled, no position update")
+        else:
+            super().sync_hard()
+
+
 # NoSettingsAxis does not use cache for settings
 # -> force to re-read velocity/position at each usage.
-Axis = NoSettingsAxis
+Axis = UndulatorAxis
 
 
 def get_all():
@@ -205,6 +216,9 @@ class ESRF_Undulator(Controller):
         Returns the position taken from controller
         in controller unit (steps).
         """
+        if self.device.state() == DevState.DISABLE:
+            return numpy.nan
+
         return self._get_attribute(axis, "attr_pos_name")
 
     """

@@ -25,6 +25,4 @@ def test_ebv(session, lima_simulator2, clean_gevent, flint_session):
     assert s.get_data()["intensity"]
     assert s.get_data()["ebv_diode"]
 
-    bv1.bpm.start_live()
-    time.sleep(1.0)
-    bv1.bpm.stop_live()
+    bv1.bpm.snap()

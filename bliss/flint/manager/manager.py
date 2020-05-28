@@ -131,7 +131,9 @@ class ManageMainBehaviours(qt.QObject):
             return
         self.__activeDock = widget
 
-        propertyWidget = self.flintModel().propertyWidget()
+        flintModel = self.flintModel()
+        liveWindow = flintModel.liveWindow()
+        propertyWidget = liveWindow.propertyWidget()
         if propertyWidget is not None:
             propertyWidget.setFocusWidget(widget)
 
@@ -401,8 +403,8 @@ class ManageMainBehaviours(qt.QObject):
     def __dockClosed(self):
         dock = self.sender()
         flintModel = self.flintModel()
-
-        propertyWidget = flintModel.propertyWidget()
+        liveWindow = flintModel.liveWindow()
+        propertyWidget = liveWindow.propertyWidget()
         if propertyWidget.focusWidget() is dock:
             propertyWidget.setFocusWidget(None)
 

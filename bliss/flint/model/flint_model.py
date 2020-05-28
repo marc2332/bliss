@@ -155,14 +155,6 @@ class FlintState(qt.QObject):
     def liveWindow(self) -> qt.QMainWindow:
         return self.__liveWindow
 
-    def liveStatusWidget(self) -> qt.QWidget:
-        liveWindow = self.liveWindow()
-        return liveWindow.scanStatusWidget()
-
-    def propertyWidget(self) -> qt.QWidget:
-        liveWindow = self.liveWindow()
-        return liveWindow.propertyWidget()
-
     def setFlintApi(self, flintApi):
         self.__flintApi = flintApi
 

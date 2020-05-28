@@ -236,6 +236,13 @@ class FlintClient:
                 )
                 FLINT_LOGGER.debug("Backtrace", exc_info=True)
 
+        try:
+            manager = current_session.scan_saving.metadata_manager
+            proxy.set_tango_metadata_name(manager.name())
+        except:
+            FLINT_LOGGER.debug("Error while registering the logbook", exc_info=True)
+            FLINT_LOGGER.error("Logbook for Flint is not available")
+
     def __log_process_output_to_logger(self, process, stream_name, logger, level):
         """Log the stream output of a process into a logger until the stream is
         closed.

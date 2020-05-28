@@ -21,6 +21,7 @@ from bliss.flint import config
 
 import logging
 from silx.gui import qt
+from tango.gevent import DeviceProxy
 
 from bliss.flint.model import flint_model
 from bliss.flint.model import plot_model
@@ -45,6 +46,7 @@ class ManageMainBehaviours(qt.QObject):
         self.__flintStarted = gevent.event.Event()
         self.__flintStarted.clear()
         self.__workspaceManager = workspace_manager.WorkspaceManager(self)
+        self.__tangoMetadata = None
 
     def setFlintModel(self, flintModel: flint_model.FlintState):
         if self.__flintModel is not None:
@@ -56,6 +58,16 @@ class ManageMainBehaviours(qt.QObject):
             self.__flintModel.workspaceChanged.connect(self.__workspaceChanged)
             self.__flintModel.currentScanChanged.connect(self.__currentScanChanged)
             self.__flintModel.aliveScanAdded.connect(self.__aliveScanDiscovered)
+
+    def setTangoMetadataName(self, name: str):
+        if name in [None, ""]:
+            device = None
+        else:
+            try:
+                device = DeviceProxy(name)
+            except:
+                raise
+        self.__flintModel.setTangoMetadata(device)
 
     def flintModel(self) -> flint_model.FlintState:
         flintModel = self.__flintModel

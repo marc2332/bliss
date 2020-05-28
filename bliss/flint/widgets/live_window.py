@@ -213,9 +213,17 @@ class LiveWindow(MainWindow):
         """Returns the widget used to display the scan status."""
         return self.__scanStatusWidget
 
+    def __toggleStatus(self):
+        widget = self.scanStatusWidget()
+        widget.setVisible(not widget.isVisible())
+
     def propertyWidget(self) -> Optional[MainPropertyWidget]:
         """Returns the widget used to display properties."""
         return self.__propertyWidget
+
+    def __toggleProperty(self):
+        widget = self.propertyWidget()
+        widget.setVisible(not widget.isVisible())
 
     def setFlintModel(self, flintModel: flint_model.FlintState):
         self.__flintModel = flintModel
@@ -249,6 +257,18 @@ class LiveWindow(MainWindow):
 
     def createWindowActions(self, menu: qt.QMenu):
         action = qt.QAction(menu)
+        action.setText("Scan progress")
+        action.setCheckable(True)
+        action.triggered.connect(self.__toggleStatus)
+        showScanStateAction = action
+
+        action = qt.QAction(menu)
+        action.setText("Properties")
+        action.setCheckable(True)
+        action.triggered.connect(self.__toggleProperty)
+        showPropertyAction = action
+
+        action = qt.QAction(menu)
         action.setText("Count")
         action.setCheckable(True)
         action.triggered.connect(self.__toggleCtWidget)
@@ -261,11 +281,21 @@ class LiveWindow(MainWindow):
         showPositionersAction = action
 
         def updateActions():
+            scanStatus = self.scanStatusWidget()
+            showScanStateAction.setChecked(
+                scanStatus is not None and scanStatus.isVisible()
+            )
+            propertyWidget = self.propertyWidget()
+            showPropertyAction.setChecked(
+                propertyWidget is not None and propertyWidget.isVisible()
+            )
             ctWidget = self.ctWidget(create=False)
             showCountAction.setChecked(ctWidget is not None)
             positionersWidget = self.positionersWidget(create=False)
             showPositionersAction.setChecked(positionersWidget is not None)
 
+        menu.addAction(showScanStateAction)
+        menu.addAction(showPropertyAction)
         menu.addAction(showCountAction)
         menu.addAction(showPositionersAction)
         menu.aboutToShow.connect(updateActions)

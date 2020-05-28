@@ -34,6 +34,8 @@ class LiveImagePlot:
         self._sleep_time = 0.1
         self._check_flint_poll_time = 2.0
 
+        self.fig = None
+
     def __del__(self):
         self.stop()
 
@@ -75,7 +77,7 @@ class LiveImagePlot:
         if self._get_data_cb is None:
             raise ValueError(f"self._get_data_cb is None!")
 
-        if self.fig is None or not self.fig.is_open():
+        if not self.is_plot_active():
             self.create_plot(self._get_data_cb())
 
         if not self._task:
@@ -91,7 +93,7 @@ class LiveImagePlot:
     def plot(self, data):
         """ Display 'data' as an image in Flint """
 
-        if self.fig is None or not self.fig.is_open():
+        if not self.is_plot_active():
             self.create_plot(data)
         else:
             self._plot(data)
@@ -113,7 +115,7 @@ class LiveImagePlot:
                 # check that the plot is still open in Flint
                 if time.time() - t0 > self._check_flint_poll_time:
                     t0 = time.time()
-                    if self.fig is None or not self.fig.is_open():
+                    if not self.is_plot_active():
                         break
 
             except Exception as _e:

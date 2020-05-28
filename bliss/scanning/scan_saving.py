@@ -1225,6 +1225,7 @@ class ESRFScanSaving(BasicScanSaving):
         self.proposal = "" if not proposal_name else proposal_name
         self.sample = ""
         self.dataset = ""
+        self._icat_set_proposal(proposal_name)
         lprint(f"Proposal set to '{self.proposal}'\nData path: {self.get_path()}")
 
     def newsample(self, sample_name):

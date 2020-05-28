@@ -109,20 +109,23 @@ Config parameters list:
 ### status
 
 ```python
-DEMO [1]: musst_sxm.__info__()
-====  MUSST info  ===
-object name: musst_sxm
-version:  MUSST 01.01a
-url: tango_gpib_device_server://id42/gpib_lid423/0
-address: 13
 
-    CHANNELS:
-    CH1 ( RUN):     159982 -  ENC DIR
-    CH2 ( RUN):   -8048244 -  ENC DIR
-    CH3 ( RUN):      53396 -  ENC DIR
-    CH4 ( RUN):     174954 -  ENC DIR
-    CH5 ( RUN):  168296384 -  ENC DIR
-    CH6 (STOP):          0 -  CNT
+
+DEMO [1]: musst_sxm
+ Out [1]: MUSST card: musst_sxm, MUSST 01.01a
+          GPIB type=TANGO_DEVICE_SERVER url='tango_gpib_device_server://id42/gpib_lid423/0'
+               primary address='13' secondary address='0' tmo='13' timeout(s)='10.0' eol=''
+          TIMEBASE: 1MHZ
+          MEMORY:
+                   MCA:     size (32b values):     2048, buffers:      128
+                   STORAGE: size (32b values):   262144, buffers:        1
+          CHANNELS:
+                   CH1 ( RUN):         -2 -  ENC DIR
+                   CH2 ( RUN):    4813076 -  ENC DIR
+                   CH3 ( RUN):     566996 -  ENC DIR
+                   CH4 ( RUN):     109294 -  ENC DIR
+                   CH5 ( RUN):     -12255 -  ENC DIR
+                   CH6 (STOP):          0 -  CNT
 ```
 
 To set a channel to desired value:

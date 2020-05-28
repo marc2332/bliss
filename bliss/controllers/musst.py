@@ -467,8 +467,19 @@ class musst(CounterController):
         """Default method called by the 'BLISS shell default typing helper'
         """
         version = self.putget("?VER")
+        timebase = self.putget("?TMRCFG")
+        hmem, hbuf = self.putget("?HSIZE").split(" ")
+        emem, ebuf = self.putget("?ESIZE").split(" ")
         info_str = f"MUSST card: {self.name}, {version}\n"
         info_str += self._cnx.__info__() + "\n"
+        info_str += f"TIMEBASE: {timebase}\n"
+        info_str += "MEMORY:\n"
+        info_str += (
+            f"         MCA:     size (32b values): {hmem:>8}, buffers: {hbuf:>8}\n"
+        )
+        info_str += (
+            f"         STORAGE: size (32b values): {emem:>8}, buffers: {ebuf:>8}\n"
+        )
         info_str += "CHANNELS:\n"
 
         # CYRIL [13]: musst_sxm.get_channel(6).status_string

@@ -65,6 +65,7 @@ from bliss.common.cleanup import cleanup, error_cleanup
 
 from bliss.common import scans
 from bliss.common.scans import *
+from bliss.scanning.scan import Scan
 
 from bliss.common import logtools
 from bliss.common.logtools import *
@@ -1058,7 +1059,7 @@ def newdataset(dataset_name: Optional[str] = None):
 
 
 @typeguard.typechecked
-def silx_view(scan: typing.Union[scans.Scan, None] = None):
+def silx_view(scan: typing.Union[Scan, None] = None):
     """Open silx view on a given scan (default last scan)"""
 
     filename = None
@@ -1082,7 +1083,7 @@ def _launch_silx(filename: typing.Union[str, None] = None):
 
 
 @typeguard.typechecked
-def pymca(scan: typing.Union[scans.Scan, None] = None):
+def pymca(scan: typing.Union[Scan, None] = None):
     """Open PyMCA on a given scan (default last scan)"""
 
     filename = None

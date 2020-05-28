@@ -30,7 +30,6 @@ __all__ = [
     "loopscan",
     "lookupscan",
     "pointscan",
-    "ct",
     "DEFAULT_CHAIN",
 ]
 
@@ -92,8 +91,7 @@ def ascan(
 
     Scans one motor, as specified by *motor*. The motor starts at the position
     given by *start* and ends at the position given by *stop*. The step size is
-    `(*start*-*stop*)/(*npoints*-1)`. The number of intervals will be
-    *npoints*-1. Count time is given by *count_time* (seconds).
+    `(*start*-*stop*)/*intervals*`. Count time is given by *count_time* (seconds).
 
     Use `ascan(..., run=False)` to create a scan object and
     its acquisition chain without executing the actual scan.
@@ -1373,62 +1371,6 @@ def loopscan(
         name=name,
         title=title,
         scan_type=scan_type,
-        save=save,
-        save_images=save_images,
-        sleep_time=sleep_time,
-        run=run,
-        return_scan=return_scan,
-        scan_info=scan_info,
-    )
-
-
-@typeguardTypeError_to_hint
-@shorten_signature(hidden_kwargs=["title", "name", "scan_type", "return_scan"])
-@typeguard.typechecked
-def ct(
-    count_time: _float,
-    *counter_args: _countables,
-    name: str = "ct",
-    title: Optional[str] = None,
-    save: bool = False,
-    save_images: Optional[bool] = None,
-    sleep_time: Optional[_float] = None,
-    run: bool = True,
-    return_scan: bool = True,
-    scan_info: Optional[dict] = None,
-):
-
-    """
-    Counts for a specified time
-
-    Use `ct(..., run=False)` to create a count object and
-    its acquisition chain without executing the actual count.
-
-    Note:
-        This function blocks the current :class:`Greenlet`
-
-    Args:
-        count_time (float): count time (seconds)
-        counter_args (counter-providing objects):
-            each argument provides counters to be integrated in the scan.
-            if no counter arguments are provided, use the active measurement group.
-
-    Keyword Args:
-        name (str): scan name in data nodes tree and directories [default: 'scan']
-        title (str): scan title [default: 'ct <count_time>']
-        save (bool): save scan data to file [default: True]
-        run (bool): if True (default), run the scan. False means just create
-                    scan object and acquisition chain
-        return_scan (bool): True by default
-    """
-
-    return timescan(
-        count_time,
-        *counter_args,
-        npoints=1,
-        name=name,
-        title=title,
-        scan_type="ct",
         save=save,
         save_images=save_images,
         sleep_time=sleep_time,

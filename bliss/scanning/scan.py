@@ -757,7 +757,9 @@ class Scan:
         self._scan_info = dict(scan_info) if scan_info is not None else dict()
 
         if scan_saving is None:
-            scan_saving = ScanSaving(current_session.name)
+            scan_saving = current_session.scan_saving.clone()
+        else:
+            scan_saving = scan_saving.clone()
         session_name = scan_saving.session
         user_name = scan_saving.user_name
         self.__scan_saving = scan_saving

@@ -184,3 +184,27 @@ def test_data_policy_name_validation(session, esrf_data_policy):
     for name in (" dataset Name", "dataset  Name", "  dataset -- Name "):
         scan_saving.dataset = name
         assert scan_saving.dataset == "dataset_Name"
+
+
+def test_session_scan_saving_clone(
+    session, esrf_data_policy, metadata_manager_tango_server
+):
+    scan_saving = session.scan_saving
+
+    # just to create a tango dev proxy in scan saving
+    mdm = scan_saving.metadata_manager
+
+    # create a clone
+    scan_saving2 = scan_saving.clone()
+
+    # check that the clone is a clone
+    # and that the SLOTS are the same (shallow copy)
+    assert id(scan_saving) != id(scan_saving2)
+    assert scan_saving2._tango_metadata_manager is not None
+    assert id(scan_saving._tango_metadata_manager) == id(
+        scan_saving2._tango_metadata_manager
+    )
+
+    # check that the same redis structure is used by the clone
+    scan_saving.proposal = "toto"
+    assert scan_saving2.proposal == "toto"

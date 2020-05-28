@@ -671,6 +671,14 @@ class BasicScanSaving(EvalParametersWardrobe):
     def newdataset(self, dataset_name):
         raise NotImplementedError("No data policy enabled")
 
+    def clone(self):
+        new_scan_saving = self.__class__(
+            self._wardr_name.split(self.REDIS_SETTING_PREFIX + ":")[-1]
+        )
+        for s in self.SLOTS:
+            setattr(new_scan_saving, s, getattr(self, s))
+        return new_scan_saving
+
 
 class ESRFScanSaving(BasicScanSaving):
     """Parameterized representation of the scan data file path

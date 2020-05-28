@@ -750,15 +750,16 @@ def test_apply_config(roby):
 
 def test_jog(robz):
     robz.velocity = 10
-    robz.jog(300)
-    assert robz.velocity == 300
-    t = 1 + robz.acctime
+    robz.jog_velocity = 300
+    assert robz.jog_velocity == 300
+    robz.jog()
+    t = 1 + robz.jog_acctime
     start_time = time.time()
     time.sleep(t)
     hw_position = robz._hw_position
-    elapsed_time = (time.time() - start_time) - robz.acctime
+    elapsed_time = (time.time() - start_time) - robz.jog_acctime
     assert hw_position == pytest.approx(
-        300 * elapsed_time + robz.acceleration * 0.5 * robz.acctime ** 2, 1e-2
+        300 * elapsed_time + robz.acceleration * 0.5 * robz.jog_acctime ** 2, 1e-2
     )
     assert robz.state.MOVING
     robz.stop()
@@ -769,18 +770,19 @@ def test_jog(robz):
     robz.position = 0
     assert robz.velocity == 10
     robz.jog(-300, reset_position=0)
-    assert robz.velocity == 300
+    assert robz.jog_velocity == -300
     start_time = time.time()
     time.sleep(t)
     hw_position = robz._hw_position
-    elapsed_time = (time.time() - start_time) - robz.acctime
+    elapsed_time = (time.time() - start_time) - robz.jog_acctime
     assert hw_position == pytest.approx(
-        -300 * elapsed_time - robz.acceleration * 0.5 * robz.acctime ** 2, 1e-2
+        -300 * elapsed_time - robz.acceleration * 0.5 * robz.jog_acctime ** 2, 1e-2
     )
     robz.stop()
     assert robz.dial == 0
     assert robz.velocity == 10
-    robz.jog(300, reset_position=Modulo())
+    robz.jog_velocity = 300
+    robz.jog(reset_position=Modulo())
     time.sleep(t)
     robz.stop()
     assert robz.dial == pytest.approx(90, 0.1)
@@ -790,15 +792,46 @@ def test_jog2(jogger):
     jogger.jog(
         300
     )  # this should go in the opposite direction because steps_per_unit < 0
-    t = 1 + jogger.acctime
+    t = 1 + jogger.jog_acctime
     start_time = time.time()
     time.sleep(t)
     hw_position = jogger._hw_position
-    elapsed_time = (time.time() - start_time) - jogger.acctime
+    elapsed_time = (time.time() - start_time) - jogger.jog_acctime
     assert hw_position == pytest.approx(
-        300 * elapsed_time + jogger.acceleration * 0.5 * jogger.acctime ** 2, 1e-2
+        300 * elapsed_time + jogger.acceleration * 0.5 * jogger.jog_acctime ** 2, 1e-2
     )
     jogger.stop()
+
+
+def test_jog3(robz):
+    robz.jog_velocity = 100
+    robz.velocity = 1
+    saved_velocity = robz.velocity
+    assert robz.acctime / robz.jog_acctime == pytest.approx(1 / robz.jog_velocity)
+    robz.jog()
+    time.sleep(0.2 + robz.jog_acctime)
+    robz.jog_velocity = 300
+    assert robz.is_moving
+    # ensure controller has really changed speed
+    assert robz.controller.read_velocity(robz) / abs(
+        robz.steps_per_unit
+    ) == pytest.approx(300)
+    robz.stop()
+    assert robz.velocity == saved_velocity
+
+
+def test_jog_method_change_velocity_and_stop(robz):
+    robz.jog_velocity = 300
+    robz.jog()
+    time.sleep(0.2 + robz.jog_acctime)
+    assert robz.is_moving
+    robz.jog_velocity = 0
+    assert not robz.is_moving
+    robz.jog(300)
+    assert robz.jog_velocity == 300
+    assert robz.is_moving
+    robz.jog(0)
+    assert not robz.is_moving
 
 
 def test_measured_position(m1, roby):
@@ -887,6 +920,6 @@ def test_user_msg(roby):
         roby.jog(10)
     assert (
         str(user_msg.value)
-        == f"Moving roby from 0 until it is stopped, at constant velocity: 10.0\n"
+        == f"Moving roby from 0 until it is stopped, at constant velocity in positive direction: 10.0\n"
         f"To stop it: roby.stop()"
     )

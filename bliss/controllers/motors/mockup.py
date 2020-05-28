@@ -72,6 +72,10 @@ class Mockup(Controller):
         # Adds Mockup-specific settings.
         self.axis_settings.add("init_count", int)
         self.axis_settings.add("hw_position", float)
+        # those 2 are to simulate a real controller (one with internal settings, that
+        # keep those for multiple clients)
+        self.axis_settings.add("curr_acc", float)
+        self.axis_settings.add("curr_velocity", float)
 
     def steps_position_precision(self, axis):
         """Mockup is really a stepper motor controller"""
@@ -247,7 +251,7 @@ class Mockup(Controller):
         Return the current velocity taken from controller
         in motor units.
         """
-        return axis.settings.get("velocity") * abs(axis.steps_per_unit)
+        return axis.settings.get("curr_velocity") * abs(axis.steps_per_unit)
 
     def set_velocity(self, axis, new_velocity):
         """
@@ -256,7 +260,7 @@ class Mockup(Controller):
         vel = new_velocity / abs(axis.steps_per_unit)
         if vel >= 1e9:
             raise RuntimeError("Invalid velocity")
-        axis.settings.set("velocity", vel)
+        axis.settings.set("curr_velocity", vel)
         return vel
 
     """
@@ -267,7 +271,7 @@ class Mockup(Controller):
         """
         must return acceleration in controller units / s2
         """
-        return axis.settings.get("acceleration") * abs(axis.steps_per_unit)
+        return axis.settings.get("curr_acc") * abs(axis.steps_per_unit)
 
     def set_acceleration(self, axis, new_acceleration):
         """
@@ -276,7 +280,7 @@ class Mockup(Controller):
         acc = new_acceleration / abs(axis.steps_per_unit)
         if acc >= 1e9:
             raise RuntimeError("Invalid acceleration")
-        axis.settings.set("acceleration", acc)
+        axis.settings.set("curr_acc", acc)
         return acc
 
     """

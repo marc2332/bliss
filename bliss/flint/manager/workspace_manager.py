@@ -396,12 +396,12 @@ class WorkspaceManager(qt.QObject):
             )
             data = None
 
+        # It have to be done before creating widgets
+        self.__closeWorkspace()
+
         if data is None:
             window.feedDefaultWorkspace(flintModel, newWorkspace)
         else:
-            # It have to be done before creating widgets
-            self.__closeWorkspace()
-
             data.feedWorkspace(newWorkspace, parent=window)
 
             # FIXME: Could be done in the manager callback event

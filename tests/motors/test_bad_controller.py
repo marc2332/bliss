@@ -10,6 +10,8 @@ import gevent
 import sys
 import math
 from bliss.common.standard import Group
+from bliss.common.standard import sync
+from bliss.common import event
 
 
 def test_bad_start(bad_motor):
@@ -117,3 +119,19 @@ def test_nan_position(bad_motor):
     assert math.isnan(bad_motor.position)
     assert bad_motor.offset == 2
     assert bad_motor._set_position == 2
+
+
+def test_bad_sync_hard(bad_motor, roby, capsys):
+    bad_motor.controller.bad_position = True
+    sync_hard_called = False
+
+    def cb():
+        nonlocal sync_hard_called
+        sync_hard_called = True
+
+    event.connect(roby, "sync_hard", cb)
+
+    sync(bad_motor, roby)
+
+    assert sync_hard_called
+    assert f"axis '{bad_motor.name}'" in capsys.readouterr().err

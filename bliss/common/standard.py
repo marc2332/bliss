@@ -14,6 +14,7 @@ import functools
 import inspect
 import contextlib
 import gevent
+import sys
 
 from bliss import global_map, global_log, current_session
 from bliss.common import scans
@@ -25,6 +26,7 @@ from bliss.common.cleanup import cleanup, error_cleanup
 from bliss.common import cleanup as cleanup_mod
 from bliss.common import logtools
 from bliss.common.logtools import *
+from bliss.common.logtools import lprint
 from bliss.common.interlocks import interlock_state
 from bliss.controllers.motors import esrf_undulator
 
@@ -77,8 +79,17 @@ def sync(*axes):
         axes = global_map.get_axis_objects_iter(*axes)
     else:
         axes = global_map.get_axes_iter()
+
     for axis in axes:
-        axis.sync_hard()
+        try:
+            axis.sync_hard()
+        except Exception as exc:
+            try:
+                raise RuntimeError(
+                    f"Synchronization error for axis '{axis.name}'"
+                ) from exc
+            except Exception:
+                sys.excepthook(*sys.exc_info())
 
 
 def iter_axes_state(*axes, read_hw=False):

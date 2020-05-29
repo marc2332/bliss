@@ -5,11 +5,11 @@
 # Copyright (c) 2015-2020 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-
+import time
 from bliss.common.scans import ct
 
 
-def test_ebv(session, lima_simulator2, clean_gevent):
+def test_ebv(session, lima_simulator2, clean_gevent, flint_session):
     clean_gevent["end-check"] = False
     bv1 = session.config.get("bv1")
 
@@ -24,3 +24,5 @@ def test_ebv(session, lima_simulator2, clean_gevent):
     assert s.get_data()["y"]
     assert s.get_data()["intensity"]
     assert s.get_data()["ebv_diode"]
+
+    bv1.bpm.snap()

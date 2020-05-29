@@ -130,11 +130,18 @@ does not exist  directory  {root_path}
 
 
 def test_session_scan_saving_config(beacon):
+    class TestESRFScanSaving(scan_saving_module.ESRFScanSaving):
+        def _icat_set_proposal(self, proposal):
+            return
+
+    scan_saving_module.TestESRFScanSaving = TestESRFScanSaving
+
     scan_saving_test_session = beacon.get("scan_saving_test_session")
     scan_saving_test_session.setup()
+
     try:
         scan_saving = scan_saving_test_session.scan_saving
-        assert isinstance(scan_saving, scan_saving_module.ESRFScanSaving)
+        assert isinstance(scan_saving, scan_saving_module.TestESRFScanSaving)
         scan_saving.newproposal("ihr0000")
         assert scan_saving.base_path == "/tmp/scans/inhouse_test_scan_saving"
     finally:

@@ -135,7 +135,12 @@ def test_data_policy_scan_check_servers(
     assert session.scan_saving.icat_root_path == mdmgr_dev.dataFolder
 
 
-def test_data_policy_user_functions(session, esrf_data_policy):
+def test_data_policy_user_functions(
+    session,
+    esrf_data_policy,
+    metadata_experiment_tango_server,
+    metadata_manager_tango_server,
+):
     scan_saving = session.scan_saving
     newproposal = session.env_dict["newproposal"]
     newsample = session.env_dict["newsample"]

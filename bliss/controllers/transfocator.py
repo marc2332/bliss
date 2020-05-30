@@ -170,9 +170,12 @@ class Transfocator:
         self.read_mode = int(config.get("read_mode", 0))
         self.cmd_mode = int(config.get("cmd_mode", 0))
         self.safety = bool(config.get("safety", False))
-        self.wago_ip = config["controller_ip"]
-        self.wago_port = config.get("controller_port", 502)
-        self.wago = config.get("wago", None)
+        try:
+            self.wago_ip = config["controller_ip"]
+        except KeyError:
+            self.wago = config["wago"]
+        else:
+            self.wago_port = config.get("controller_port", 502)
         self.empty_jacks = []
         self.pinhole = []
         self.simulate = config.get("simulate", False)
@@ -446,8 +449,10 @@ class Transfocator:
             positions = [_display(col) for col in positions]
             table = tabulate.tabulate((header, positions), tablefmt="plain")
             return "{}:\n{}".format(prefix, table)
-        except TypeError as err:
-            return f"{prefix}: Error: {err}"
+        except Exception as exc:
+            raise RuntimeError(
+                f"Could not display info for transfocator '{self.name}'"
+            ) from exc
 
     def __str__(self):
         """ Channel uses louie behind which calls this object str.

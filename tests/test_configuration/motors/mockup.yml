@@ -59,7 +59,6 @@ controller:
     velocity: 50
     acceleration: 1
     encoder: $m1enc
-    check_encoder: true
   - name: m0
     steps_per_unit: 1
     velocity: 1000

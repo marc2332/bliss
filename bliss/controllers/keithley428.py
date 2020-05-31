@@ -7,18 +7,20 @@
 
 
 """
-Keithley 428 is a Programmable CurrentAmplifier which converts
-fast, small currents to a voltage, which can be easily digitized or
-displayed by an oscilloscope, waveform analyzer, or data acquisition
-system. It uses a sophisticated “feed-back current” circuit to achieve
-both fast risetimes and sub-picoamp noise.
+Keithley 428 is a Programmable CurrentAmplifier which converts fast, small
+currents to a voltage, which can be easily digitized or displayed by an
+oscilloscope, waveform analyzer, or data acquisition system. It uses a
+“feed-back current” circuit to achieve both fast risetimes and sub-picoamp
+noise.
+Voltage cannot be read directly on K428 via gpib communication.
+Voltage must be read through a V2F + P201 for example.
 """
 
 import math
 
 from bliss.comm.util import get_comm
 
-# from bliss.comm.gpib import Gpib
+## from bliss.physics.units import ur
 
 
 def _simple_cmd(command_name, doco):
@@ -70,6 +72,17 @@ class keithley428(object):
             10: "1E10V/A",
         }
 
+        self._gain_values = [
+            1000,
+            10000,
+            100000,
+            1000000,
+            10000000,
+            100000000,
+            1000000000,
+            10000000000,
+        ]
+
     VoltageBiasOff = _simple_cmd("B0X", "Turn voltage bias off")
     VoltageBiasOn = _simple_cmd("B1X", "Turn voltage bias on")
     ZeroCheckOff = _simple_cmd("C0X", "Turn zero check off")
@@ -120,10 +133,9 @@ class keithley428(object):
         info_str += "COMM:\n"
         info_str += "    " + self._cnx.__info__() + "\n"
         try:
-            info_str += f"gain: {self.gain}\n"
+            info_str += f"gain: {self.gain:.0e} V/A  (gain_log10: {self.gain_log10}) \n"
             info_str += f"filter_rise_time: {self.filter_rise_time}\n"
             info_str += f"voltage_bias: {self.voltage_bias}\n"
-            # info_str += f"current_suppress: {self.current_suppress}\n"
             info_str += f"state: {self.state_str}\n"
             info_str += f"overloaded: {self.overloaded}\n"
             info_str += f"filter state: {self.filter_state}\n"
@@ -150,17 +162,41 @@ class keithley428(object):
 
     @property
     def gain(self):
-        """ Set/query Gain """
+        """ Query Gain
+##        Return a pint value ( V/A)
+        """
         result = self.putget("U0X")
         pos = result.index("R") + 1
         result = int(result[pos : pos + 2])
-        return result, self._gainStringArray[result]
+        gain = pow(10, result)  ## * ur.V / ur.A
+        return gain
 
     @gain.setter
     def gain(self, value):
-        if value not in self._gainStringArray:
-            raise ValueError(f"Gain value {value} out of range (3-10)")
-        self.put(f"R{value}X")
+        """ Set gain to <value>
+        """
+        if value not in self._gain_values:
+            raise ValueError(
+                f"gain value {value} not a power of ten in range [1000; 10000000000]"
+            )
+        gain_log = int(math.log10(value))
+        self.put(f"R{gain_log}X")
+
+    @property
+    def gain_log10(self):
+        """ Query log of the gain (useful to deal with gain with only 1 character)
+        Return a single char in [3;10].
+        """
+        result = self.putget("U0X")
+        pos = result.index("R") + 1
+        result = int(result[pos : pos + 2])
+        return result
+
+    @gain_log10.setter
+    def gain_log10(self, gain_log):
+        if gain_log not in self._gainStringArray:
+            raise ValueError(f"Gain_log value {gain_log} out of [3;10] range.")
+        self.put(f"R{gain_log}X")
 
     @property
     def voltage_bias(self):

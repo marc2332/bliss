@@ -176,13 +176,17 @@ class Transfocator:
             self.wago = config["wago"]
         else:
             self.wago_port = config.get("controller_port", 502)
+            self.wago = None
         self.empty_jacks = []
         self.pinhole = []
         self.simulate = config.get("simulate", False)
         self._state_chan = channels.Channel(
             "transfocator: %s" % name, callback=self.__state_changed
         )
-        global_map.register(self, children_list=[self.wago])
+        try:
+            global_map.register(self, children_list=[self.wago])
+        except:
+            pass
 
         if "lenses" in config:
             self.nb_lens = int(config["lenses"])

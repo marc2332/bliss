@@ -103,7 +103,7 @@ class TfWagoMapping:
         """
         status_module = "750-436,%s"
         control_module = "750-530,%s"
-        _status = ["status"] * 2
+        _status = ["stat"] * 2
         _control = ["ctrl"]
         _nb_ch = 8
 
@@ -248,7 +248,7 @@ class Transfocator:
         """
         self.connect()
 
-        state = list(grouped(self.wago.get("status"), 2))
+        state = list(grouped(self.wago.get("stat"), 2))
         if self.read_mode != 0:
             state.reverse()
 

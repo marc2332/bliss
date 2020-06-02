@@ -80,6 +80,7 @@ def _test_nxw_scangroup(session=None, tmpdir=None, writer=None, **kwargs):
         scan_shape=(npoints,),
         positioners=[["robx"]],
         detectors=["diode4"],
+        softtimer="detector",
         **kwargs
     )
     nxw_test_data.assert_scangroup_data(scan_seq.sequence, **kwargs)

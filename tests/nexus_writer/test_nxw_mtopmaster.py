@@ -85,7 +85,8 @@ def _test_aloopscan(session=None, tmpdir=None, writer=None, **kwargs):
         positioners=[[mot]],
         detectors=detectors1,
         master_name="subscan1tmr",
-        **kwargs
+        softtimer="detector",
+        **kwargs,
     )
     nxw_test_data.assert_scan_data(
         scan,
@@ -94,7 +95,7 @@ def _test_aloopscan(session=None, tmpdir=None, writer=None, **kwargs):
         positioners=[["elapsed_time", "epoch"]],
         detectors=detectors2,
         master_name="subscan2tmr",
-        **kwargs
+        **kwargs,
     )
 
 
@@ -140,7 +141,7 @@ def _test_limatimescan(session=None, tmpdir=None, writer=None, **kwargs):
         positioners=[["elapsed_time", "epoch"]],
         detectors=detectors1,
         master_name="subscan1tmr",
-        **kwargs
+        **kwargs,
     )
     nxw_test_data.assert_scan_data(
         scan,
@@ -149,5 +150,5 @@ def _test_limatimescan(session=None, tmpdir=None, writer=None, **kwargs):
         positioners=[["elapsed_time", "epoch"]],
         detectors=detectors2,
         master_name="subscan2tmr",
-        **kwargs
+        **kwargs,
     )

@@ -17,7 +17,7 @@ from bliss.common.types import _float, _countables
 @shorten_signature(hidden_kwargs=["title", "name", "scan_type", "return_scan"])
 @typeguard.typechecked
 def ct(
-    count_time: _float,
+    count_time: _float = 1.0,
     *counter_args: _countables,
     name: str = "ct",
     title: Optional[str] = None,

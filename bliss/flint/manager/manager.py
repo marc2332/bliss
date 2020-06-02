@@ -332,6 +332,7 @@ class ManageMainBehaviours(qt.QObject):
         workspace = flintModel.workspace()
         availablePlots = list(plots)
         widgets = flintModel.workspace().widgets()
+        defaultWidget = None
         for widget in widgets:
             plots = self.__getCompatiblePlots(widget, availablePlots)
             if len(plots) == 0:
@@ -341,6 +342,8 @@ class ManageMainBehaviours(qt.QObject):
             plotModel = plots[0]
             availablePlots.remove(plotModel)
             previousWidgetPlot = widget.plotModel()
+            if plotModel is defaultPlot:
+                defaultWidget = widget
 
             # Try to reuse the previous plot
             if not useDefaultPlot and previousWidgetPlot is not None:
@@ -390,6 +393,8 @@ class ManageMainBehaviours(qt.QObject):
             widget = self.__createWidgetFromPlot(window, plotModel)
             if widget is None:
                 continue
+            if plotModel is defaultPlot:
+                defaultWidget = widget
 
             workspace.addWidget(widget)
             previousScan = widget.scan()
@@ -403,18 +408,11 @@ class ManageMainBehaviours(qt.QObject):
                 window.tabifyDockWidget(lastTab, widget)
             lastTab = widget
 
-        if defaultPlot is not None:
+        if defaultWidget is not None:
             # Try to set the focus on the default plot
-            focusWidget = [
-                w
-                for w in workspace.widgets()
-                if isinstance(w, PlotWidget) and w.plotModel() is defaultPlot
-            ]
-            if len(focusWidget) > 0:
-                focusWidget = focusWidget[0]
-                focusWidget.show()
-                focusWidget.raise_()
-                focusWidget.setFocus(qt.Qt.OtherFocusReason)
+            defaultWidget.show()
+            defaultWidget.raise_()
+            defaultWidget.setFocus(qt.Qt.OtherFocusReason)
 
     def __dockClosed(self):
         dock = self.sender()

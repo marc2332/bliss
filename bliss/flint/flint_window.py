@@ -215,7 +215,7 @@ class FlintWindow(qt.QMainWindow):
         if sessionName is None:
             session = "no session attached."
         else:
-            session = "attached to '%s`" % sessionName
+            session = "attached to '%s'" % sessionName
         title = "Flint (PID={}) - {}".format(os.getpid(), session)
         self.setWindowTitle(title)
 

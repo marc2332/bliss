@@ -6,6 +6,7 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import gevent
+import os
 from prompt_toolkit.input.defaults import create_pipe_input
 from prompt_toolkit.eventloop import get_event_loop
 from types import SimpleNamespace
@@ -122,6 +123,44 @@ def test_shell_load_script(clean_gevent, beacon):
     completions = _get_completion(br)
 
     assert "test1" in completions
+
+    session.close()
+
+
+def test_shell_load_script_signature(clean_gevent, beacon):
+    env_dict = dict()
+    session = beacon.get("test_session")
+    session.setup(env_dict)
+
+    env_dict["user_script_homedir"](str(os.path.dirname(__file__)))
+    x = env_dict["user_script_load"]("script")
+
+    assert "MyClass" in dir(x)
+    assert "myfunc" in dir(x)
+
+    mc = x.MyClass()
+
+    br = _run_incomplete("mc.myfunc(", {"x": x, "mc": mc})
+
+    sb = [
+        n
+        for n in br.ptpython_layout.layout.visible_windows
+        if "signature_toolbar" in str(n)
+    ][0]
+    sc = sb.content.text()
+
+    assert ("class:signature-toolbar", "kwarg=14") in sc
+
+    br = _run_incomplete("x.myfunc(", {"x": x, "mc": mc})
+
+    sb = [
+        n
+        for n in br.ptpython_layout.layout.visible_windows
+        if "signature_toolbar" in str(n)
+    ][0]
+    sc = sb.content.text()
+
+    assert ("class:signature-toolbar", "kwarg=13") in sc
 
     session.close()
 

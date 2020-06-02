@@ -253,22 +253,9 @@ The backlash is defined in the config in user units.
 
 ## Encoder
 
-Defined as an object that can be used standalone or linked to an Axis.
 
-After a movement, if:
+For configuration and usage of encoder, see: [Encoder](motion_encoder.md)
 
-* an encoder is associated to the axis
-* AND `check_encoder` is set to `True` in config
-
-then the encoder position is read and compared to the target position
-of the movement. In case of difference outside the limit fixed by
-**Encoder tolerance**, an exception is raised with message:
-
-`"didn't reach final position"`
-
-The Axis must then be re-synchronized with:
-
-`mot1.sync_hard()`
 
 
 ## In-line information

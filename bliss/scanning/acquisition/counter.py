@@ -104,13 +104,13 @@ class SamplingCounterAcquisitionSlave(BaseCounterAcquisitionSlave):
             tuple(statistics)[:7]
         ),
         SamplingMode.SINGLE: lambda acc_value, statistics, samples, nb_read, count_time: numpy.array(
-            [samples]
+            [samples[0]]
         ),
         SamplingMode.SAMPLES: lambda acc_value, statistics, samples, nb_read, count_time: numpy.array(
             [acc_value / nb_read, samples]
         ),
         SamplingMode.LAST: lambda acc_value, statistics, samples, nb_read, count_time: numpy.array(
-            [samples]
+            [samples[-1]]
         ),
     }
 
@@ -278,7 +278,7 @@ class SamplingCounterAcquisitionSlave(BaseCounterAcquisitionSlave):
             # in SamplingMode.SAMPLES: list of indidual samples
             # in SamplingMode.SINGLE: first sample
             # in SamplingMode.LAST: last sample
-            samples = [[]] * len(self._counters)
+            samples = [[] for _ in range(len(self._counters))]
             counters = list(self._counters.keys())
 
             if not self._SINGLE_COUNT:
@@ -307,11 +307,11 @@ class SamplingCounterAcquisitionSlave(BaseCounterAcquisitionSlave):
                         if c.mode == SamplingMode.SAMPLES:
                             samples[i].append(read_value[i])
 
-                        elif c.mode == SamplingMode.SINGLE and samples[i] == []:
-                            samples[i] = read_value[i]
+                        elif c.mode == SamplingMode.SINGLE and len(samples[i]) == 0:
+                            samples[i] = [read_value[i]]
 
                         elif c.mode == SamplingMode.LAST:
-                            samples[i] = read_value[i]
+                            samples[i] = [read_value[i]]
 
                     current_time = time.time()
                     if (current_time + (acc_read_time / nb_read)) > stop_time:
@@ -327,7 +327,7 @@ class SamplingCounterAcquisitionSlave(BaseCounterAcquisitionSlave):
                     dtype=numpy.double,
                     ndmin=1,
                 )
-                samples = acc_value
+                samples = [[v] for v in acc_value]
 
                 acc_read_time = 0
                 nb_read = 1

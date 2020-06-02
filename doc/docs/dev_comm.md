@@ -306,6 +306,7 @@ with : shift-Ctrl-C and saved as img/comm/ethernet_class_hierarchy_paths.svg
 ## GPIB
 
 There are various ways to communicate with Gpib devices:
+
 * Gpib PCI board
     - localy if BLISS is run on the same computer than the Gpib driver
     - remotely if BLISS is run on another computer
@@ -325,6 +326,37 @@ gpib:
   url: enet://gpibid42a.esrf.fr
   pad: 15
   timeout: 3.
+```
+
+
+
+### GPIB communication detached from a controller
+Mainly for tests and debugging purpose.
+
+#### Declared in config
+To get a `gpib0` object usable in a BLISS session using the `comm` plugin.
+
+```yaml
+plugin: comm
+controller:
+- name: gpib0
+  gpib:
+    url: enet://gpibid42a.esrf.fr
+    pad: 12
+```
+
+#### Not declared in config
+
+Example to declare a GPIB communication directly from a BLISS shell.
+
+
+```python
+from bliss.comm.util import get_comm, GPIB
+
+conf = {"gpib": {"url": "enet://gpibid42a.esrf.fr"}}
+opt = {"pad":12}
+kom = get_comm(conf, ctype=GPIB, **opt)
+print(kom.write_readline(b"*IDN?\n"))
 ```
 
 

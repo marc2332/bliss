@@ -10,6 +10,7 @@ import types
 import pytest
 import logging
 import io
+import numpy
 from bliss.scanning.acquisition.timer import SoftwareTimerMaster
 from bliss.common.tango import DeviceProxy, DevFailed
 from bliss.common.counter import Counter
@@ -358,6 +359,29 @@ def test_lima_scan_get_data(session, lima_simulator):
     raw_image_data = view.get_image(2)
 
     assert raw_image_data.shape == (simulator.image.height, simulator.image.width)
+
+    # check that 'image' and 'lima_simulator' give same matches as 'lima_simulator:image'
+    # (because image s the only counter of lima_simulator)
+    data1 = s.get_data("image").get_image(2)
+    data2 = s.get_data("lima_simulator").get_image(2)
+
+    assert data1.shape == (simulator.image.height, simulator.image.width)
+    assert data2.shape == data1.shape
+    assert numpy.all(data1 == data2)
+
+    # add a roi_counters and check that 'lima_simulator' key has multiple matches now (i.e get_data fails)
+    r1 = Roi(0, 0, 100, 200)
+    simulator.roi_counters["r1"] = r1
+
+    s = loopscan(3, 0.1, simulator)
+
+    try:
+        has_failed = False
+        s.get_data("lima_simulator")
+    except KeyError as e:
+        has_failed = True
+
+    assert has_failed
 
 
 def test_lima_scan_get_last_data(session, lima_simulator):

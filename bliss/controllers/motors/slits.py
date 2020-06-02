@@ -92,9 +92,11 @@ class Slits(CalcController):
         self._init_meta_data_publishing()
 
     def _init_meta_data_publishing(self):
-        assert (
-            self.name
-        ), "to publish metadata the slit controller needs a name in config"
+        if not self.name:
+            lprint(
+                "Warning: to publish metadata the slit controller needs a name in config"
+            )
+            return
         scan_meta_obj = get_user_scan_meta()
         scan_meta_obj.instrument.set(
             self, lambda _: {self.name: {**self.metadata_dict(), "@NX_class": "NXslit"}}

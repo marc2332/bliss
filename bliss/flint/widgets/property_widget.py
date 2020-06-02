@@ -69,14 +69,11 @@ class MainPropertyWidget(ExtendedDockWidget):
         return self.__focusWidget
 
     def setFocusWidget(self, widget):
-        if hasattr(widget, "createPropertyWidget"):
-            specificPropertyWidget = widget.createPropertyWidget(self)
-            self.__stack.setWidget(specificPropertyWidget)
-        elif widget is None:
+        if widget is None:
             self.__stack.setWidget(self.createEmptyWidget(self))
         else:
-            _logger.error("Widget %s do not have propertyWidget factory", widget)
-            self.__stack.setWidget(self.createEmptyWidget(self))
+            specificPropertyWidget = widget.createPropertyWidget(self)
+            self.__stack.setWidget(specificPropertyWidget)
 
         self.__focusWidget = widget
         self.widgetUpdated.emit()

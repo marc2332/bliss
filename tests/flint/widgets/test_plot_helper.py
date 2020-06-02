@@ -3,7 +3,7 @@
 import typing
 import pickle
 
-from bliss.flint.widgets import plot_helper
+from bliss.flint.widgets.utils import plot_helper
 from bliss.flint.model import scan_model
 
 

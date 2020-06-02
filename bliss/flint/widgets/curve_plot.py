@@ -28,11 +28,15 @@ from bliss.flint.model import flint_model
 from bliss.flint.model import plot_model
 from bliss.flint.model import plot_item_model
 from bliss.flint.model import plot_state_model
-from bliss.flint.widgets.plot_helper import FlintPlot
 from bliss.flint.helper import scan_info_helper
 from bliss.flint.helper import model_helper
 from bliss.flint.utils import signalutils
-from bliss.flint.widgets import plot_helper
+from bliss.flint.widgets.utils import plot_helper
+from bliss.flint.widgets.utils import view_helper
+from bliss.flint.widgets.utils import refresh_helper
+from bliss.flint.widgets.utils import tooltip_helper
+from bliss.flint.widgets import marker_helper
+from .utils.plot_action import CustomAxisAction
 from bliss.flint.widgets.utils import export_action
 
 from bliss.scanning import scan_math
@@ -69,7 +73,9 @@ class SpecMode(qt.QObject):
         action.toggled.connect(self.setEnabled)
         return action
 
-    def __selectedData(self, plot: FlintPlot) -> Tuple[numpy.ndarray, numpy.ndarray]:
+    def __selectedData(
+        self, plot: plot_helper.FlintPlot
+    ) -> Tuple[numpy.ndarray, numpy.ndarray]:
         curve = plot.getActiveCurve()
         if curve is None:
             curves = plot.getAllCurves()
@@ -81,11 +87,11 @@ class SpecMode(qt.QObject):
         y = curve.getYData()
         return x, y
 
-    def initPlot(self, plot: FlintPlot):
+    def initPlot(self, plot: plot_helper.FlintPlot):
         if self.__enabled:
             pass
 
-    def __computeState(self, plot: FlintPlot) -> Optional[str]:
+    def __computeState(self, plot: plot_helper.FlintPlot) -> Optional[str]:
         x, y = self.__selectedData(plot)
         if x is None or y is None:
             return None
@@ -95,7 +101,7 @@ class SpecMode(qt.QObject):
         com = scan_math.com(x, y)
         return f"Peak: {peak[0]:.3} ({peak[1]:.3})  Cen: {cen[0]:.3} (FWHM: {cen[1]:.3})  COM: {com:.3}"
 
-    def updateTitle(self, plot: FlintPlot, title: str) -> str:
+    def updateTitle(self, plot: plot_helper.FlintPlot, title: str) -> str:
         if not self.__enabled:
             return title
         state = self.__computeState(plot)
@@ -123,7 +129,7 @@ class CurvePlotWidget(plot_helper.PlotWidget):
         ] = {}
 
         self.__plotWasUpdated: bool = False
-        self.__plot = FlintPlot(parent=self)
+        self.__plot = plot_helper.FlintPlot(parent=self)
         self.__plot.setActiveCurveStyle(linewidth=2, symbol=".")
         self.__plot.setDataMargins(0.02, 0.02, 0.1, 0.1)
 
@@ -132,11 +138,11 @@ class CurvePlotWidget(plot_helper.PlotWidget):
         self.__plot.installEventFilter(self)
         self.__plot.getWidgetHandle().installEventFilter(self)
         self.__plot.setBackgroundColor("white")
-        self.__view = plot_helper.ViewManager(self.__plot)
+        self.__view = view_helper.ViewManager(self.__plot)
         self.__selectedPlotItem = None
 
         self.__aggregator = signalutils.EventAggregator(self)
-        self.__refreshManager = plot_helper.RefreshManager(self)
+        self.__refreshManager = refresh_helper.RefreshManager(self)
         self.__refreshManager.setAggregator(self.__aggregator)
 
         toolBar = self.__createToolBar()
@@ -162,7 +168,7 @@ class CurvePlotWidget(plot_helper.PlotWidget):
         layout.setContentsMargins(0, 1, 0, 0)
         self.setWidget(widget)
 
-        self.__tooltipManager = plot_helper.TooltipItemManager(self, self.__plot)
+        self.__tooltipManager = tooltip_helper.TooltipItemManager(self, self.__plot)
         self.__tooltipManager.setFilter(plot_helper.FlintCurve)
 
         self.__syncAxisTitle = signalutils.InvalidatableSignal(self)
@@ -177,14 +183,9 @@ class CurvePlotWidget(plot_helper.PlotWidget):
         self.__boundingY2.setName("bound-y2")
         self.__boundingY2.setVisible(False)
 
-        self.__permanentItems = [
-            self.__boundingY1,
-            self.__boundingY2,
-            self.__tooltipManager.marker(),
-        ]
-
-        for o in self.__permanentItems:
-            self.__plot.addItem(o)
+        self.__plot.addItem(self.__boundingY1)
+        self.__plot.addItem(self.__boundingY2)
+        self.__plot.addItem(self.__tooltipManager.marker())
 
     def configuration(self):
         config = super(CurvePlotWidget, self).configuration()
@@ -227,9 +228,12 @@ class CurvePlotWidget(plot_helper.PlotWidget):
 
         from silx.gui.plot.actions import mode
         from silx.gui.plot.actions import control
+        from silx.gui.widgets.MultiModeAction import MultiModeAction
 
-        toolBar.addAction(mode.ZoomModeAction(self.__plot, self))
-        toolBar.addAction(mode.PanModeAction(self.__plot, self))
+        modeAction = MultiModeAction(self)
+        modeAction.addAction(mode.ZoomModeAction(self.__plot, self))
+        modeAction.addAction(mode.PanModeAction(self.__plot, self))
+        toolBar.addAction(modeAction)
 
         resetZoom = self.__view.createResetZoomAction(parent=self)
         toolBar.addAction(resetZoom)
@@ -238,7 +242,7 @@ class CurvePlotWidget(plot_helper.PlotWidget):
         # Axis
         action = self.__refreshManager.createRefreshAction(self)
         toolBar.addAction(action)
-        toolBar.addAction(plot_helper.CustomAxisAction(self.__plot, self, kind="curve"))
+        toolBar.addAction(CustomAxisAction(self.__plot, self, kind="curve"))
         toolBar.addAction(control.GridAction(self.__plot, "major", self))
         toolBar.addSeparator()
 
@@ -247,6 +251,11 @@ class CurvePlotWidget(plot_helper.PlotWidget):
         action = control.CrosshairAction(self.__plot, parent=self)
         action.setIcon(icons.getQIcon("flint:icons/crosshair"))
         toolBar.addAction(action)
+
+        action = marker_helper.MarkerAction(plot=self.__plot, parent=self, kind="curve")
+        self.__markerAction = action
+        toolBar.addAction(action)
+
         action = self.__plot.getCurvesRoiDockWidget().toggleViewAction()
         toolBar.addAction(action)
 
@@ -264,7 +273,12 @@ class CurvePlotWidget(plot_helper.PlotWidget):
         action.setEnabled(False)
         toolBar.addAction(action)
 
-        toolBar.addAction(fit.FitAction(self.__plot, self))
+        action = fit.FitAction(self.__plot, self)
+        if hasattr(action, "setFittedItemUpdatedFromActiveCurve"):
+            # FIXME: This have to be removed for the silx 0.13 release
+            action.setFittedItemUpdatedFromActiveCurve(True)
+            action.setXRangeUpdatedOnZoom(True)
+        toolBar.addAction(action)
 
         toolBar.addSeparator()
 
@@ -571,13 +585,8 @@ class CurvePlotWidget(plot_helper.PlotWidget):
                     return
         self.__cleanScan(scan)
 
-    def __clear(self):
-        self.__items = {}
-        self.__plot.clear()
-        for o in self.__permanentItems:
-            self.__plot.addItem(o)
-
     def __scanStarted(self):
+        self.__markerAction.clear()
         self.__updateStyle()
         self.__updateTitle(self.__scan)
         self.__curveAxesUpdated()
@@ -628,13 +637,9 @@ class CurvePlotWidget(plot_helper.PlotWidget):
         self.__redrawScan(currentScan)
 
     def __redrawAllScans(self):
-        plot = self.__plot
-
         with qtutils.blockSignals(self.__plot):
-            plot.clear()
+            self.__cleanAllItems()
             if self.__plotModel is None:
-                for o in self.__permanentItems:
-                    self.__plot.addItem(o)
                 return
 
         with qtutils.blockSignals(self):
@@ -652,15 +657,19 @@ class CurvePlotWidget(plot_helper.PlotWidget):
                 if currentScan is not None:
                     self.__redrawScan(currentScan)
 
-            for o in self.__permanentItems:
-                self.__plot.addItem(o)
-
     def __cleanScan(self, scan: scan_model.Scan):
         items = self.__items.pop(scan, {})
         for _item, itemKeys in items.items():
             for key in itemKeys:
                 self.__plot.remove(*key)
         self.__view.plotCleared()
+
+    def __cleanAllItems(self):
+        for _scan, items in self.__items.items():
+            for _item, itemKeys in items.items():
+                for key in itemKeys:
+                    self.__plot.remove(*key)
+        self.__items.clear()
 
     def __cleanScanItem(self, item: plot_model.Item, scan: scan_model.Scan) -> bool:
         itemKeys = self.__items.get(scan, {}).pop(item, [])

@@ -493,13 +493,18 @@ class ShapesSelector(Selector):
     def __roisToDict(self, rois: Sequence[RegionOfInterest]) -> Sequence[Dict]:
         shapes = []
         for roi in rois:
-            shape = dict(
-                origin=roi.getOrigin(),
-                size=roi.getSize(),
-                label=roi.getLabel(),
-                kind=roi._getKind(),
-            )
-            shapes.append(shape)
+            if isinstance(roi, RectangleROI):
+                shape = dict(
+                    origin=roi.getOrigin(),
+                    size=roi.getSize(),
+                    label=roi.getName(),
+                    kind="Rectangle",
+                )
+                shapes.append(shape)
+            else:
+                _logger.error(
+                    "Unsupported ROI kind %s. ROI skipped from results", type(roi)
+                )
         return shapes
 
     def start(self):

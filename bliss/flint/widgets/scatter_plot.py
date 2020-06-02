@@ -26,11 +26,16 @@ from bliss.flint.model import flint_model
 from bliss.flint.model import plot_model
 from bliss.flint.model import style_model
 from bliss.flint.model import plot_item_model
-from bliss.flint.widgets.plot_helper import FlintPlot
 from bliss.flint.helper import scan_info_helper
 from bliss.flint.helper import model_helper
 from bliss.flint.utils import signalutils
-from bliss.flint.widgets import plot_helper
+from bliss.flint.widgets.utils import plot_helper
+from bliss.flint.widgets.utils import view_helper
+from bliss.flint.widgets.utils import refresh_helper
+from bliss.flint.widgets.utils import tooltip_helper
+from bliss.flint.widgets import marker_helper
+from .utils.profile_action import ProfileAction
+from .utils.plot_action import CustomAxisAction
 from bliss.flint.widgets.utils import export_action
 
 
@@ -47,17 +52,17 @@ class ScatterPlotWidget(plot_helper.PlotWidget):
         self.__items: Dict[plot_model.Item, List[Tuple[str, str]]] = {}
 
         self.__plotWasUpdated: bool = False
-        self.__plot = FlintPlot(parent=self)
+        self.__plot = plot_helper.FlintPlot(parent=self)
         self.__plot.setActiveCurveStyle(linewidth=2)
         self.__plot.setDataMargins(0.05, 0.05, 0.05, 0.05)
 
         self.setFocusPolicy(qt.Qt.StrongFocus)
         self.__plot.installEventFilter(self)
         self.__plot.getWidgetHandle().installEventFilter(self)
-        self.__view = plot_helper.ViewManager(self.__plot)
+        self.__view = view_helper.ViewManager(self.__plot)
 
         self.__aggregator = signalutils.EventAggregator(self)
-        self.__refreshManager = plot_helper.RefreshManager(self)
+        self.__refreshManager = refresh_helper.RefreshManager(self)
         self.__refreshManager.setAggregator(self.__aggregator)
 
         toolBar = self.__createToolBar()
@@ -83,7 +88,7 @@ class ScatterPlotWidget(plot_helper.PlotWidget):
         layout.setContentsMargins(0, 1, 0, 0)
         self.setWidget(widget)
 
-        self.__tooltipManager = plot_helper.TooltipItemManager(self, self.__plot)
+        self.__tooltipManager = tooltip_helper.TooltipItemManager(self, self.__plot)
         self.__tooltipManager.setFilter(plot_helper.FlintScatter)
 
         self.__syncAxisTitle = signalutils.InvalidatableSignal(self)
@@ -106,15 +111,10 @@ class ScatterPlotWidget(plot_helper.PlotWidget):
         self.__rect.setColor("#E0E0E0")
         self.__rect.setZValue(0.1)
 
-        self.__permanentItems = [
-            self.__bounding,
-            self.__tooltipManager.marker(),
-            self.__lastValue,
-            self.__rect,
-        ]
-
-        for o in self.__permanentItems:
-            self.__plot.addItem(o)
+        self.__plot.addItem(self.__bounding)
+        self.__plot.addItem(self.__tooltipManager.marker())
+        self.__plot.addItem(self.__lastValue)
+        self.__plot.addItem(self.__rect)
 
     def getRefreshManager(self) -> plot_helper.RefreshManager:
         return self.__refreshManager
@@ -125,9 +125,12 @@ class ScatterPlotWidget(plot_helper.PlotWidget):
 
         from silx.gui.plot.actions import mode
         from silx.gui.plot.actions import control
+        from silx.gui.widgets.MultiModeAction import MultiModeAction
 
-        toolBar.addAction(mode.ZoomModeAction(self.__plot, self))
-        toolBar.addAction(mode.PanModeAction(self.__plot, self))
+        modeAction = MultiModeAction(self)
+        modeAction.addAction(mode.ZoomModeAction(self.__plot, self))
+        modeAction.addAction(mode.PanModeAction(self.__plot, self))
+        toolBar.addAction(modeAction)
 
         resetZoom = self.__view.createResetZoomAction(parent=self)
         toolBar.addAction(resetZoom)
@@ -136,9 +139,7 @@ class ScatterPlotWidget(plot_helper.PlotWidget):
         # Axis
         action = self.__refreshManager.createRefreshAction(self)
         toolBar.addAction(action)
-        toolBar.addAction(
-            plot_helper.CustomAxisAction(self.__plot, self, kind="scatter")
-        )
+        toolBar.addAction(CustomAxisAction(self.__plot, self, kind="scatter"))
         toolBar.addAction(control.GridAction(self.__plot, "major", self))
         toolBar.addSeparator()
 
@@ -166,7 +167,13 @@ class ScatterPlotWidget(plot_helper.PlotWidget):
         action.setIcon(icon)
         action.setEnabled(False)
         toolBar.addAction(action)
-        toolBar.addAction(plot_helper.CustomScatterProfileAction(self.__plot, self))
+        toolBar.addAction(ProfileAction(self.__plot, self, "scatter"))
+
+        action = marker_helper.MarkerAction(
+            plot=self.__plot, parent=self, kind="scatter"
+        )
+        self.__markerAction = action
+        toolBar.addAction(action)
 
         action = control.ColorBarAction(self.__plot, self)
         icon = icons.getQIcon("flint:icons/colorbar")
@@ -373,20 +380,13 @@ class ScatterPlotWidget(plot_helper.PlotWidget):
         self.scanModelUpdated.emit(scan)
         self.__redrawAll()
 
-    def __clear(self):
-        self.__items = {}
-        self.__plot.clear()
-        self.__rect.setVisible(False)
-        self.__lastValue.setVisible(False)
-        for o in self.__permanentItems:
-            self.__plot.addItem(o)
-
     def __scanStarted(self):
         self.__refreshManager.scanStarted()
         if self.__flintModel is not None and self.__flintModel.getDate() == "0214":
             self.__lastValue.setSymbol("\u2665")
         else:
             self.__lastValue.setSymbol(",")
+        self.__markerAction.clear()
         self.__lastValue.setData(x=[], y=[], value=[])
         self.__lastValue.setVisible(True)
         self.__view.scanStarted()

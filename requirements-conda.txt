@@ -49,8 +49,8 @@ numexpr
 tango-metadata >= 4.0.3
 
 # Flint
-qt
-silx == 0.13.0b0
+pyqt
+silx == 0.13.0b1
 pyopengl
 scipy
 sortedcontainers

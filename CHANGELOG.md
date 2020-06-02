@@ -11,6 +11,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Flint:
     - Added API to start/stop monitorig on Lima
     - Added image plot GUI to custom live and exposure time while monitoring
+    - Added export to logbook
+    - Added extra markers to manually put in the plots
+    - Added a window menu to change default docks visibility
+    - Update to silx 0.13
+        - Provide cross profile for images and scatters
+        - Provide extra profile tools for regular scatters to display data slice
+          without interpolation
+        - Free line image profile for diffraction images
+          (2 dedicated anchors for the start and a stop)
+        - Added image colormap normalization: square-root, gamma, arcsinh
+
+### Changes
+- Flint:
+    - Allow to select another curve when the fit dialog is open
+    - Profile windows are now docks
+
+### Fixed
+- Flint:
+    - Fix wrong plot view with d2scan/d3scan
 
 ## [1.4.0] - 2020-05-18
 

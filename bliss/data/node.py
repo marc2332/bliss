@@ -226,10 +226,9 @@ class DataNodeIterator(object):
         if self.node.type in SCAN_TYPES:
             # also register for new data
             if new_data_event:
-                data_stream_name = list(
-                    settings.scan(
-                        f"{self.node.db_name}:*_data", connection=self.node.connection
-                    )
+                cnx = self.node.connection
+                data_stream_name = (
+                    x.decode() for x in cnx.keys(f"{self.node.db_name}:*_data")
                 )
                 child_nodes = get_nodes(
                     *(name[: -len("_data")] for name in data_stream_name)
@@ -329,10 +328,9 @@ class DataNodeIterator(object):
                         self._add_existing_children(
                             reader, stream2nodes, child_name, first_index
                         )
-                        data_stream_names = list(
-                            settings.scan(
-                                f"{child_name}:*_data", connection=self.node.connection
-                            )
+                        cnx = self.node.connection
+                        data_stream_names = (
+                            x.decode() for x in cnx.keys(f"{child_name}:*_data")
                         )
                         new_sub_child_streams = list()
                         for sub_child_name, sub_child_node in zip(
@@ -375,10 +373,9 @@ class DataNodeIterator(object):
         def depth_sort(s):
             return s.count(":")
 
+        cnx = self.node.connection
         streams_names = sorted(
-            settings.scan(
-                f"{parent_db_name}*_children_list", connection=self.node.connection
-            ),
+            (x.decode() for x in cnx.keys(f"{parent_db_name}*_children_list")),
             key=depth_sort,
         )
         if filter_scan:

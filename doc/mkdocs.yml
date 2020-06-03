@@ -145,6 +145,7 @@ nav:
                 - Encoder: motion_encoder.md
                 - Soft Axis: motion_softaxis.md
                 - Hook: motion_hook.md
+                - Stack: motion_stack.md
                 - Trajectories: motion_traj.md
         - Scanning:
                 - Measurement groups: config_mg.md

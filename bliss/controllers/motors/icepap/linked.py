@@ -19,6 +19,9 @@ import gevent
 
 
 class LinkedAxis(Axis):
+    class Real(NoSettingsAxis):
+        pass
+
     def __init__(self, name, controller, config):
         Axis.__init__(self, name, controller, config)
         if config.get("address") is None:
@@ -39,6 +42,10 @@ class LinkedAxis(Axis):
         # check if real motors are also defined in the config
         linked_axis = self.controller.get_linked_axis()
         mot_addresses = linked_axis.get(self.address)
+        if mot_addresses is None:
+            raise RuntimeError(
+                f"Axis {self.name} (address: {self.address}) is not a linked axis"
+            )
 
         for name, axis in self.controller.axes.items():
             if axis.config.get("address", converter=None) in mot_addresses:
@@ -64,9 +71,8 @@ class LinkedAxis(Axis):
                     "acceleration": self.acceleration,
                     "velocity": self.velocity,
                 }
-                real_axis = NoSettingsAxis(axis_name, self.controller, config_dict)
+                real_axis = LinkedAxis.Real(axis_name, self.controller, config_dict)
                 real_axis.address = address
-                real_axis.no_offset = True
                 self.controller._Controller__initialized_axis[real_axis] = True
                 real_axes[axis_name] = real_axis
             self.__real_axes_namespace = types.SimpleNamespace(**real_axes)
@@ -80,9 +86,7 @@ class LinkedAxis(Axis):
         The position is given in user units of the virtual axis.
         """
         dial_position = self.user2dial(user_position)
-        for slave_axis in self.real_axes.__dict__.values():
-            slave_axis.dial = dial_position
-
+        self.dial = dial_position
         self.acceleration = self.acceleration
         self.velocity = self.velocity
         # Reset control encoder
@@ -153,7 +157,6 @@ class LinkedAxis(Axis):
 
                 # create motion object for hooks
                 motion = Motion(self, None, None)
-                self._Axis__execute_pre_move_hook(motion)
 
                 def start_one(controller, motions):
                     cnx = controller._cnx
@@ -173,6 +176,7 @@ class LinkedAxis(Axis):
 
                 self._group_move.move(
                     {self.controller: [motion]},
+                    None,  # no prepare
                     start_one,
                     stop_one,
                     wait=False,
@@ -182,6 +186,16 @@ class LinkedAxis(Axis):
             self.__in_disprotected_move = False
         if wait:
             self.wait_move()
+
+    def disprotected_move(self, real_axis, user_target_pos):
+        if not real_axis in self.real_axes.__dict__.values():
+            raise RuntimeError(
+                f"{self.name}: disprotected move is reserved for real axes"
+            )
+
+        return self._disprotected_command(
+            f"{real_axis.address}:MOVE {self.user2dial(user_target_pos)*self.steps_per_unit}"
+        )
 
     @property
     @lazy_init

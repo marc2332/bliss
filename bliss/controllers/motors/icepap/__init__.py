@@ -161,7 +161,7 @@ class Icepap(Controller):
     def set_position(self, axis, new_pos):
         if isinstance(axis, TrajectoryAxis):
             raise NotImplementedError
-        if isinstance(axis, LinkedAxis):
+        if isinstance(axis, LinkedAxis.Real):
             pre_cmd = "%d:DISPROT LINKED;" % axis.address
         else:
             pre_cmd = None
@@ -368,7 +368,7 @@ class Icepap(Controller):
     def start_one(self, motion):
         if isinstance(motion.axis, TrajectoryAxis):
             return motion.axis._start_one(motion)
-        elif isinstance(motion.axis, LinkedAxis):
+        elif isinstance(motion.axis, LinkedAxis.Real):
             pre_cmd = "%d:DISPROT LINKED;" % motion.axis.address
         else:
             pre_cmd = None

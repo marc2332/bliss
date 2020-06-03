@@ -206,6 +206,7 @@ def writer_tango(session=None, tmpdir=None, config=True, alt=False, **kwargs):
         # Changing attributes does not need Init
         for attr, value in attributes.items():
             dev_proxy.write_attribute(attr, value)
+        greenlet.proxy = dev_proxy
         yield greenlet
 
 

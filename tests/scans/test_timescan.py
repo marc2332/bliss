@@ -30,6 +30,20 @@ def test_ct(session):
     assert scans.ct(0.1, integ_diode)
 
 
+def test_ct_bar(session):
+    # Test bar ct
+    s = scans.ct()
+    # bar ct uses 1 second integration
+    assert s.scan_info["count_time"] == pytest.approx(1.0)
+
+
+def test_ct_count(session):
+    # Test ct with a single argument
+    s = scans.ct(2.0)
+    # the first argument is used for the integration
+    assert s.scan_info["count_time"] == pytest.approx(2.0)
+
+
 def test_long_trigger_timescan(session, diode_acq_device_factory):
     chain = AcquisitionChain()
     acquisition_device_1, _ = diode_acq_device_factory.get(

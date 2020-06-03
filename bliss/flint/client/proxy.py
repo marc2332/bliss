@@ -269,6 +269,9 @@ class FlintClient:
                 FLINT_LOGGER.debug("Error while opening path %s", path, exc_info=True)
                 FLINT_LOGGER.warning("Flint %s can't be attached.", stream_name)
                 return
+        if stream is None:
+            # Subprocess returns None attributes if the streams are not catch
+            return
         try:
             while self._proxy is not None and not stream.closed:
                 line = stream.readline()

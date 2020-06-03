@@ -170,9 +170,12 @@ class Transfocator:
         self.read_mode = int(config.get("read_mode", 0))
         self.cmd_mode = int(config.get("cmd_mode", 0))
         self.safety = bool(config.get("safety", False))
+        # first attempt to instantiate wago connection
+        # with controller_ip and controller_port
         try:
             self.wago_ip = config["controller_ip"]
         except KeyError:
+            # if not provided attempt to get wago reference
             self.wago = config["wago"]
         else:
             self.wago_port = config.get("controller_port", 502)
@@ -183,10 +186,8 @@ class Transfocator:
         self._state_chan = channels.Channel(
             "transfocator: %s" % name, callback=self.__state_changed
         )
-        try:
+        if self.wago:
             global_map.register(self, children_list=[self.wago])
-        except:
-            pass
 
         if "lenses" in config:
             self.nb_lens = int(config["lenses"])
@@ -236,11 +237,13 @@ class Transfocator:
 
             comm = get_wago_comm(conf)
             self.wago = WagoController(comm, modules_config)
+            global_map.register(self, children_list=[self.wago])
 
     def close(self):
         """Close the connection with the wago
         """
-        self.wago.close()
+        if self.wago:
+            self.wago.close()
 
     def __close__(self):
         self.close()

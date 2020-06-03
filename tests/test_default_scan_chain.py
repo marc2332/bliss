@@ -7,7 +7,7 @@
 
 import gevent
 
-from bliss.common.scans import DEFAULT_CHAIN
+from bliss.common.scans import DEFAULT_CHAIN, loopscan
 from bliss.scanning.acquisition.lima import LimaAcquisitionMaster
 from bliss.scanning.acquisition.mca import McaAcquisitionSlave
 from bliss.scanning.acquisition.counter import SamplingCounterAcquisitionSlave
@@ -280,6 +280,43 @@ def test_default_chain_with_lima_defaults_parameters(default_session, lima_simul
         assert nodes[1].acq_params.get("acq_trigger_mode") == "EXTERNAL_GATE"
     finally:
         lima_sim.roi_counters.clear()
+        DEFAULT_CHAIN.set_settings([])
+
+
+def test_default_chain_with_lima_defaults_parameters2(default_session, lima_simulator):
+    """Want to build the following acquisition chain:
+
+    root
+      |
+      |-Timer
+        |
+        |-LimaAcquisitionMaster
+          |
+
+    """
+
+    lima_sim = default_session.config.get("lima_simulator")
+    diode = default_session.config.get("diode2")
+    try:
+        DEFAULT_CHAIN.set_settings(
+            [
+                {"device": diode, "master": lima_sim},
+                {
+                    "device": lima_sim,
+                    "acquisition_settings": {
+                        "acq_mode": "ACCUMULATION",
+                        "acq_trigger_mode": "INTERNAL_TRIGGER_MULTI",
+                        "acc_max_expo_time": 0.2,
+                    },
+                },
+            ]
+        )
+
+        assert lima_sim.proxy.acq_trigger_mode == "INTERNAL_TRIGGER"
+        s = loopscan(3, .1, lima_sim, save=False)
+        assert lima_sim.proxy.acq_trigger_mode == "INTERNAL_TRIGGER_MULTI"
+        assert lima_sim.proxy.acc_max_expo_time == .2
+    finally:
         DEFAULT_CHAIN.set_settings([])
 
 

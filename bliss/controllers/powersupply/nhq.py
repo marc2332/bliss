@@ -70,6 +70,9 @@ yml configuration example:
   axes:
     - axis_name: oav
       channel: A
+      tolerance: 10
+      low_limit: 0
+      high_limit: 250
 
     - axis_name: obv
       channel: B
@@ -653,6 +656,13 @@ class Nhq:
             name = conf["axis_name"].strip()
             chan = conf["channel"].strip().upper()
 
+            low_limit = conf.get("low_limit")
+            high_limit = conf.get("high_limit")
+
+            tol = conf.get("tolerance")
+            if tol:
+                self._axes_tolerance[chan] = float(tol)
+
             if chan not in ["A", "B"]:
                 raise ValueError(f"Nhq counter {name}: 'channel' must be in ['A', 'B']")
 
@@ -663,8 +673,8 @@ class Nhq:
                 move=partial(self._axis_move, channel=chan),
                 stop=partial(self._axis_stop, channel=chan),
                 state=partial(self._axis_state, channel=chan),
-                # low_limit=float(self._params["sca_%s" % chan][1][0]),
-                # high_limit=float(self._params["sca_%s" % chan][1][1]),
+                low_limit=low_limit,
+                high_limit=high_limit,
                 tolerance=self._axes_tolerance[chan],
                 unit="V",
             )

@@ -83,6 +83,10 @@ def _test_nxw_timescan(session=None, tmpdir=None, writer=None, **kwargs):
     # Wait until all channels have nmin data events
     while (time() - t0) < tmax or any(v <= nminevents for v in nodes.values()):
         gevent.sleep(1)
+        try:
+            gscan.get(block=False)
+        except gevent.Timeout:
+            continue
     # Stop scan and listener
     with pytest.raises(KeyboardInterrupt):
         gscan.kill(KeyboardInterrupt)

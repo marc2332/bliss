@@ -20,6 +20,8 @@ def attached_flint_context():
     """
     flint = plot.get_flint()
     pid = flint._pid
+    # Release the object before calling attach_flint
+    flint = None
     flint = plot.attach_flint(pid)
     yield pid
     flint = None  # Break the reference to the proxy
@@ -45,7 +47,7 @@ def test_created_flint(flint_session):
     """
     Flint is created and attached with subprocess
     """
-    flint = plot.get_flint()
+    flint = plot.get_flint(creation_allowed=False)
 
     # Check messages and stdout
     listener = testutils.TestLogging(proxy.FLINT_OUTPUT_LOGGER.name, info=1)

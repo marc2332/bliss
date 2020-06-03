@@ -433,9 +433,11 @@ def attach_flint(pid: int):
         pid: Process identifier of Flint
     """
     global FLINT
-    flint = FlintClient(process=pid)
+    # Release the previous proxy before attaching the next one
     if FLINT is not None:
         FLINT.close_proxy()
+        FLINT = None
+    flint = FlintClient(process=pid)
     FLINT = flint
     return flint
 

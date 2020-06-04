@@ -20,6 +20,9 @@ _countable = Counter
 _countables = Union[
     IterableNamespace, Counter, MeasurementGroup, CounterContainer, Tuple
 ]
+_float_or_countables = Union[
+    numbers.Real, IterableNamespace, Counter, MeasurementGroup, CounterContainer, Tuple
+]
 _scannable = Union[Axis, Scannable]
 # Axis is included explicitly in _scannable as the Scannable protocol evaluates
 # all attributes that are part of the protocol during type checking. (py 3.7)

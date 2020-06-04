@@ -47,8 +47,8 @@ def test_ct_count(session):
 def test_ct_countable(session):
     # Test ct with a single argument which is not a number
     integ_diode = session.config.get("integ_diode")
-    with pytest.raises(RuntimeError):
-        scans.ct(integ_diode)
+    s = scans.ct(integ_diode)
+    assert s.scan_info["count_time"] == pytest.approx(1.0)
 
 
 def test_long_trigger_timescan(session, diode_acq_device_factory):

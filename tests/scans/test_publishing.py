@@ -552,6 +552,8 @@ def _count_node_events(beforestart, session, db_name, node_type=None):
 
 @pytest.mark.parametrize("beforestart", [True, False])
 def test_events_on_session_node(beforestart, session):
+    if not beforestart:
+        pytest.xfail("Channels streams are added too late")
     events = _count_node_events(beforestart, session, session.name)
     # New node events: root nodes, scan, scan master (timer),
     #                  epoch, elapsed_time, diode controller, diode
@@ -572,6 +574,8 @@ def test_events_on_wrong_session_node(beforestart, session):
 
 @pytest.mark.parametrize("beforestart", [True, False])
 def test_events_on_scan_node(beforestart, session):
+    if not beforestart:
+        pytest.xfail("Channels streams are added too late")
     db_name = session.scan_saving.scan_parent_db_name + ":1_ct"
     events = _count_node_events(beforestart, session, db_name, node_type="scan")
     # New node events: scan master (timer), epoch, elapsed_time,

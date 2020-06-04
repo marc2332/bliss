@@ -269,6 +269,9 @@ class FlintClient:
                 FLINT_LOGGER.debug("Error while opening path %s", path, exc_info=True)
                 FLINT_LOGGER.warning("Flint %s can't be attached.", stream_name)
                 return
+        if stream is None:
+            # Subprocess returns None attributes if the streams are not catch
+            return
         try:
             while self._proxy is not None and not stream.closed:
                 line = stream.readline()
@@ -430,9 +433,11 @@ def attach_flint(pid: int):
         pid: Process identifier of Flint
     """
     global FLINT
-    flint = FlintClient(process=pid)
+    # Release the previous proxy before attaching the next one
     if FLINT is not None:
         FLINT.close_proxy()
+        FLINT = None
+    flint = FlintClient(process=pid)
     FLINT = flint
     return flint
 

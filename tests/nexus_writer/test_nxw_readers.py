@@ -11,6 +11,7 @@ import pytest
 import nxw_test_data
 import nxw_test_utils
 from bliss.common import scans
+from bliss.common.tango import DevState
 from nexus_writer_service.utils import scan_utils
 from nexus_writer_service.io import nexus
 
@@ -42,12 +43,14 @@ def _test_nxw_readers(
     **kwargs
 ):
     session.scan_saving.technique = "none"
+    detector = "diode3"
+    detectorobj = session.env_dict[detector]
+
+    # make sure the file exists
     filename = scan_utils.session_filename(scan_saving=session.scan_saving)
-    with nexus.nxRoot(filename, mode="a") as nxroot:
-        nxentry = nexus.nxEntry(nxroot, "dummy")
-        measurement = nexus.nxCollection(nxentry, "measurement")
-        measurement["a"] = list(range(10))
-        measurement["b"] = list(range(10))
+    scans.ct(0.1, detectorobj, save=True)
+
+    # start readers
     startevent = gevent.event.Event()
     readerkwargs = {"mode": mode, "enable_file_locking": enable_file_locking}
     readers = [
@@ -55,42 +58,42 @@ def _test_nxw_readers(
         for i in range(4)
     ]
     startevent.wait()
+
+    # start scan
     try:
-        detector = "diode3"
         if mode == "a" and not enable_file_locking:
-            # Readers will not crash the scan (not sure why) but corrupt the file
+            # Readers will not crash the writer (not sure why) but corrupt the file
             scan_shape = (100,)
-            scan = scans.loopscan(
-                scan_shape[0], .1, session.env_dict[detector], run=False
-            )
+            scan = scans.loopscan(scan_shape[0], .1, detectorobj, run=False)
             nxw_test_utils.run_scan(scan)
+            # We can only detect the corruption after closing the readers
+            nxw_test_utils.wait_scan_finished([scan], writer=writer)
             gevent.killall(readers)
             gevent.joinall(readers)
             readers = []
+            assert writer.proxy.scan_state(scan.node.name) == DevState.OFF
             with pytest.raises(AssertionError):
-                # We can only detect the corruption after closing the readers
                 nxw_test_utils.assert_scan_data_not_corrupt([scan])
         elif enable_file_locking:
-            # Readers will crash the scan but not corrupt the file
-            scan = scans.timescan(.1, session.env_dict[detector], run=False)
+            # Readers will crash the writer but not corrupt the file
+            scan = scans.timescan(.1, detectorobj, run=False)
             with gevent.Timeout(10):
                 with pytest.raises(RuntimeError):
                     nxw_test_utils.run_scan(scan)
             gevent.killall(readers)
             gevent.joinall(readers)
             readers = []
+            assert writer.proxy.scan_state(scan.node.name) == DevState.FAULT
             nxw_test_utils.assert_scan_data_not_corrupt([scan])
         else:
             # Neither scan nor file are disturbed by these readers
             scan_shape = (100,)
-            scan = scans.loopscan(
-                scan_shape[0], .1, session.env_dict[detector], run=False
-            )
+            scan = scans.loopscan(scan_shape[0], .1, detectorobj, run=False)
             nxw_test_utils.run_scan(scan)
             gevent.killall(readers)
             gevent.joinall(readers)
             readers = []
-            nxw_test_utils.wait_scan_data_exists([scan], writer=writer)
+            nxw_test_utils.wait_scan_finished([scan], writer=writer)
             nxw_test_utils.assert_scan_data_not_corrupt([scan])
             nxw_test_data.assert_scan_data(
                 scan,
@@ -112,7 +115,8 @@ def reader(filename, startevent, hold=False, **kwargs):
         gevent.sleep(0.1)
         try:
             with nexus.File(filename, **kwargs) as f:
-                startevent.set()
+                if hold:
+                    startevent.set()
                 while True:
                     gevent.sleep(0.1)
                     try:

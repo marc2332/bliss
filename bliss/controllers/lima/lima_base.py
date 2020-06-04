@@ -473,7 +473,6 @@ class Lima(CounterController):
         return LimaAcquisitionMaster(self, ctrl_params=ctrl_params, **acq_params)
 
     def get_default_chain_parameters(self, scan_params, acq_params):
-
         npoints = acq_params.get("acq_nb_frames", scan_params.get("npoints", 1))
 
         try:

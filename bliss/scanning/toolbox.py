@@ -318,7 +318,9 @@ class DefaultAcquisitionChain:
             extra_settings = self._settings.get(node.controller)
             if extra_settings:
                 # print("==== FOUND EXTRA SETTINGS")
-                acq_params = extra_settings.get("acquisition_settings", {})
+                acq_params = dict(
+                    extra_settings.get("acquisition_settings", {})
+                )  # make a copy!
                 acq_params.update(
                     node._get_default_chain_parameters(scan_pars, acq_params)
                 )

@@ -103,7 +103,7 @@ class TfWagoMapping:
         """
         status_module = "750-436,%s"
         control_module = "750-530,%s"
-        _status = ["status"] * 2
+        _status = ["stat"] * 2
         _control = ["ctrl"]
         _nb_ch = 8
 
@@ -170,16 +170,24 @@ class Transfocator:
         self.read_mode = int(config.get("read_mode", 0))
         self.cmd_mode = int(config.get("cmd_mode", 0))
         self.safety = bool(config.get("safety", False))
-        self.wago_ip = config["controller_ip"]
-        self.wago_port = config.get("controller_port", 502)
-        self.wago = config.get("wago", None)
+        # first attempt to instantiate wago connection
+        # with controller_ip and controller_port
+        try:
+            self.wago_ip = config["controller_ip"]
+        except KeyError:
+            # if not provided attempt to get wago reference
+            self.wago = config["wago"]
+        else:
+            self.wago_port = config.get("controller_port", 502)
+            self.wago = None
         self.empty_jacks = []
         self.pinhole = []
         self.simulate = config.get("simulate", False)
         self._state_chan = channels.Channel(
             "transfocator: %s" % name, callback=self.__state_changed
         )
-        global_map.register(self, children_list=[self.wago])
+        if self.wago:
+            global_map.register(self, children_list=[self.wago])
 
         if "lenses" in config:
             self.nb_lens = int(config["lenses"])
@@ -229,11 +237,13 @@ class Transfocator:
 
             comm = get_wago_comm(conf)
             self.wago = WagoController(comm, modules_config)
+            global_map.register(self, children_list=[self.wago])
 
     def close(self):
         """Close the connection with the wago
         """
-        self.wago.close()
+        if self.wago:
+            self.wago.close()
 
     def __close__(self):
         self.close()
@@ -245,7 +255,7 @@ class Transfocator:
         """
         self.connect()
 
-        state = list(grouped(self.wago.get("status"), 2))
+        state = list(grouped(self.wago.get("stat"), 2))
         if self.read_mode != 0:
             state.reverse()
 
@@ -446,8 +456,10 @@ class Transfocator:
             positions = [_display(col) for col in positions]
             table = tabulate.tabulate((header, positions), tablefmt="plain")
             return "{}:\n{}".format(prefix, table)
-        except TypeError as err:
-            return f"{prefix}: Error: {err}"
+        except Exception as exc:
+            raise RuntimeError(
+                f"Could not display info for transfocator '{self.name}'"
+            ) from exc
 
     def __str__(self):
         """ Channel uses louie behind which calls this object str.

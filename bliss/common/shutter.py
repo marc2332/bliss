@@ -77,10 +77,7 @@ class BaseShutter:
     @property
     def state_string(self):
         """Transfer state to a string"""
-        try:
-            return BaseShutterState.__members__[self.state.name].value
-        except KeyError:
-            return BaseShutterState.UNKNOWN.value
+        return self.state.value
 
     @property
     def is_open(self):

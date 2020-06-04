@@ -319,7 +319,9 @@ class DefaultAcquisitionChain:
             if extra_settings:
                 # print("==== FOUND EXTRA SETTINGS")
                 acq_params = extra_settings.get("acquisition_settings", {})
-                acq_params = node._get_default_chain_parameters(scan_pars, acq_params)
+                acq_params.update(
+                    node._get_default_chain_parameters(scan_pars, acq_params)
+                )
                 node.set_parameters(acq_params=acq_params)
 
                 # DEAL WITH CHILDREN NODES PARAMETERS

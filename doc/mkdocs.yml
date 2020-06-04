@@ -45,7 +45,6 @@ nav:
                       - Electrometers:
                             - MCCE: config_mcce.md
                       - Elettra / ePicea 4 quadrant diode BPM: config_elettra.md
-                      - Encoders: config_encoder.md
                       - Energy and Wavelength: config_enwl.md
                       - ESRF BeamViewer (EBV): config_beamviewer.md
                       - Keithley:

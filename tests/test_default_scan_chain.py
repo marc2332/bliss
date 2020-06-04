@@ -313,9 +313,14 @@ def test_default_chain_with_lima_defaults_parameters2(default_session, lima_simu
         )
 
         assert lima_sim.proxy.acq_trigger_mode == "INTERNAL_TRIGGER"
-        s = loopscan(3, .1, lima_sim, save=False)
+        s = loopscan(1, .1, lima_sim, save=False)
         assert lima_sim.proxy.acq_trigger_mode == "INTERNAL_TRIGGER_MULTI"
         assert lima_sim.proxy.acc_max_expo_time == .2
+        assert lima_sim.proxy.acq_nb_frames == 1
+
+        # test for issue 1705
+        s2 = loopscan(2, .1, lima_sim, save=False)
+        assert lima_sim.proxy.acq_nb_frames == 2
     finally:
         DEFAULT_CHAIN.set_settings([])
 

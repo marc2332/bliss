@@ -77,6 +77,8 @@ class MarkerAction(qt.QWidgetAction):
         self.__manager.sigRoiAdded.connect(self.__roiAdded)
 
         menu = qt.QMenu(parent)
+        menu.aboutToShow.connect(self.__aboutToShow)
+
         action = self.__manager.getInteractionModeAction(_PointWithValue)
         action.setSingleShot(True)
         menu.addAction(action)
@@ -91,7 +93,15 @@ class MarkerAction(qt.QWidgetAction):
 
         action = qt.QAction(menu)
         action.setIcon(icons.getQIcon("remove"))
-        action.setText("Remove markers")
+        action.setText("Remove selected marker")
+        action.setToolTip("Remove the selected marker")
+        action.triggered.connect(self.clearCurrent)
+        menu.addAction(action)
+        self.__removeCurrent = action
+
+        action = qt.QAction(menu)
+        action.setIcon(icons.getQIcon("remove"))
+        action.setText("Remove all markers")
         action.setToolTip("Remove all the markers")
         action.triggered.connect(self.clear)
         menu.addAction(action)
@@ -109,7 +119,18 @@ class MarkerAction(qt.QWidgetAction):
 
     def __roiAdded(self, roi):
         roi.setEditable(True)
+        roi.setSelectable(True)
         roi.setColor("black")
+
+    def __aboutToShow(self):
+        roi = self.__manager.getCurrentRoi()
+        self.__removeCurrent.setEnabled(roi is not None)
 
     def clear(self):
         self.__manager.clear()
+
+    def clearCurrent(self):
+        roi = self.__manager.getCurrentRoi()
+        if roi is not None:
+            self.__manager.removeRoi(roi)
+            roi.deleteLater()

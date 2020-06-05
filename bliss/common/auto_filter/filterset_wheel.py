@@ -127,7 +127,7 @@ class FilterSet_Wheel(FilterSet):
 
         info_list.append(f" - Rotation axis: {self._rotation_axis.name}")
         info_list.append(
-            f" - Idx   Pos. Mat. Thickness    Transm. @ {self._energy_setting:.5g} keV:"
+            f" - Idx   Pos. Mat. Thickness    Transm. @ {self._last_energy:.5g} keV:"
         )
         info_list.append("   -------------------------------------------------")
         for filter in self._filters:

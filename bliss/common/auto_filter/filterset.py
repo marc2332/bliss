@@ -103,22 +103,15 @@ from bliss import global_map
 from .element_density import ElementDensity
 
 
-class FilterSet(BeaconObject):
+class FilterSet:
     """
     This is mother class which should be inherited by any new filterset controller.
     The are some mandatory methods/properties to be overrided
     """
 
-    _energy_setting = BeaconObject.property_setting(
-        "_energy_setting",
-        default=10.0,
-        must_be_in_config=False,
-        doc="The last set energy (keV)",
-    )
-
     def __init__(self, name, config):
-        super().__init__(config, share_hardware=False)
 
+        self.name = name
         global_map.register(self, tag=self.name)
 
         # Some data and caches
@@ -144,11 +137,18 @@ class FilterSet(BeaconObject):
         # good element density module
         self._elt = ElementDensity()
 
-        self._filters = config.get("filters")
-        if not len(self._filters):
+        self._config_filters = config.get("filters")
+        if not len(self._config_filters):
             raise RuntimeError("Filter list is empty")
 
-        self._nb_filters = len(self._filters)
+        self._config_nb_filters = len(self._config_filters)
+
+        self.energy_axis = config.get("energy_axis")
+        self._last_energy = self.energy_axis.position
+        if not self._last_energy <= 0 and not self._last_energy > 0:
+            raise RuntimeError(
+                f"Filterset {name}: cannot calculate transmission, your energy is not valid: {self.energy_axis.position} keV"
+            )
 
         self.initialize()
 
@@ -157,9 +157,14 @@ class FilterSet(BeaconObject):
         Initialize filter apparent densities and transmissions
         """
         self._calc_densities()
-        self._calc_transmissions(self._energy_setting)
+        self._calc_transmissions(self._last_energy)
+
+        # Now ask the public filterset
+        self._filters = self.get_filters()
+        self._nb_filters = len(self._filters)
 
     def __info__(self):
+        self._calc_transmissions()
         info_str = f"\nActive filter is {self.filter}, transmission = {self.transmission:.5g} @ {self.energy:.5g} keV"
         return info_str
 
@@ -196,7 +201,7 @@ class FilterSet(BeaconObject):
         or interpolated from pairs of transmission/energy set in config
         """
 
-        for filter in self._filters:
+        for filter in self._config_filters:
             if "density" in filter:
                 filter["density_calc"] = filter["density"]
             else:
@@ -216,17 +221,19 @@ class FilterSet(BeaconObject):
                         filter["energy"],
                     )
 
-    def _calc_transmissions(self, energy):
+    def _calc_transmissions(self, energy=None):
         """
         Calculate the transmission factors for the filters for the given energy
         """
 
-        for filter in self._filters:
+        if energy is None:
+            energy = self.energy_axis.position
+        for filter in self._config_filters:
             filter["transmission_calc"] = self._elt.get_transmission(
                 filter["material"], filter["thickness"], energy, filter["density_calc"]
             )
         # save in setting the last energy
-        self._energy_setting = energy
+        self._last_energy = energy
 
     def _calc_absorption_table(self):
         """
@@ -509,7 +516,7 @@ class FilterSet(BeaconObject):
 
     @property
     def energy(self):
-        return self._energy_setting
+        return self._last_energy
 
     @property
     def filter(self):
@@ -571,3 +578,12 @@ class FilterSet(BeaconObject):
         """
         raise RuntimeError("Please override this method")
         return 0
+
+    def get_filters(self):
+        """
+        Return the list of the public filters, a list of dictionnary items with at least:
+        - position
+        - density_calc
+        - transmission_calc
+        """
+        return self._config_filters

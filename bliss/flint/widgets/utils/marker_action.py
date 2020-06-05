@@ -40,6 +40,8 @@ class _PointWithValue(roi_items.PointROI):
         self.__updateValue()
 
     def __updateValue(self):
+        if self.parent() is None:
+            return
         pos = self.getPosition()
         x, y = pos
         plot = self.parent().parent()
@@ -58,6 +60,8 @@ class _VLineWithValue(roi_items.VerticalLineROI):
         self.__updateValue()
 
     def __updateValue(self):
+        if self.parent() is None:
+            return
         x = self.getPosition()
         plot = self.parent().parent()
         xdigits, _ydigits = _getAutoPrecision(plot)

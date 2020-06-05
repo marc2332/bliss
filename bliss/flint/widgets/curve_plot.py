@@ -243,7 +243,6 @@ class CurvePlotWidget(plot_helper.PlotWidget):
         action = self.__refreshManager.createRefreshAction(self)
         toolBar.addAction(action)
         toolBar.addAction(plot_action.CustomAxisAction(self.__plot, self, kind="curve"))
-        toolBar.addAction(control.GridAction(self.__plot, "major", self))
         toolBar.addSeparator()
 
         # Tools

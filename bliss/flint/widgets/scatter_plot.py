@@ -142,7 +142,6 @@ class ScatterPlotWidget(plot_helper.PlotWidget):
         toolBar.addAction(
             plot_action.CustomAxisAction(self.__plot, self, kind="scatter")
         )
-        toolBar.addAction(control.GridAction(self.__plot, "major", self))
         toolBar.addSeparator()
 
         # Tools

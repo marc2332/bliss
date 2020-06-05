@@ -77,6 +77,9 @@ class CustomAxisAction(qt.QWidgetAction):
             action.setText("Keep aspect ratio")
             menu.addAction(action)
 
+        action = control.GridAction(plot, "major", self)
+        menu.addAction(action)
+
         icon = icons.getQIcon("flint:icons/axes-options")
         toolButton = qt.QToolButton(parent)
         toolButton.setText("Custom axis")

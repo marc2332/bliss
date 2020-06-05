@@ -105,6 +105,7 @@ class MarkerAction(qt.QWidgetAction):
         action.setToolTip("Remove all the markers")
         action.triggered.connect(self.clear)
         menu.addAction(action)
+        self.__removeAll = action
 
         icon = icons.getQIcon("flint:icons/markers")
         toolButton = qt.QToolButton(parent)
@@ -125,6 +126,8 @@ class MarkerAction(qt.QWidgetAction):
     def __aboutToShow(self):
         roi = self.__manager.getCurrentRoi()
         self.__removeCurrent.setEnabled(roi is not None)
+        nbRois = len(self.__manager.getRois())
+        self.__removeAll.setEnabled(nbRois > 0)
 
     def clear(self):
         self.__manager.clear()

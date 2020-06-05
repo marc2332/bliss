@@ -458,4 +458,5 @@ class BpmAcquisitionSlave(IntegratingCounterAcquisitionSlave):
         self.device._proxy.Start()
 
     def stop_device(self):
-        self.device._proxy.Stop()
+        # self.device._proxy.Stop() # temporary fix, see issue 1707
+        pass

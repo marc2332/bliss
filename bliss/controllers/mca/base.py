@@ -5,6 +5,7 @@
 # Copyright (c) 2015-2020 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
+
 """Base class and enumerations for multichannel analyzers."""
 
 # Imports
@@ -56,7 +57,7 @@ Stats = collections.namedtuple(
 class MCABeaconObject(BeaconObject):
     def __init__(self, mca, config):
         self.mca = mca
-        super().__init__(config)
+        super().__init__(config, share_hardware=False)
 
     @property
     def name(self):

@@ -42,6 +42,7 @@ class YAxesEditor(qt.QWidget):
         self.__plotItem = None
         layout = qt.QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(1)
 
         self.__group = qt.QButtonGroup(self)
 
@@ -55,8 +56,20 @@ class YAxesEditor(qt.QWidget):
         self.__group.setExclusive(True)
         self.__group.buttonClicked[qt.QAbstractButton].connect(self.__checkedChanged)
 
+        self.__removeButton = delegates.RemovePlotItemButton(self)
+
+        placeHolder = qt.QWidget(self)
+        phLayout = qt.QVBoxLayout(placeHolder)
+        phLayout.setContentsMargins(0, 0, 0, 0)
+        phLayout.addWidget(self.__removeButton)
+        self.__removeButton.setFixedSize(y2Check.sizeHint())
+        placeHolder.setFixedSize(y2Check.sizeHint())
+        icon = icons.getQIcon("flint:icons/remove-item-small")
+        self.__removeButton.setIcon(icon)
+
         layout.addWidget(y1Check)
         layout.addWidget(y2Check)
+        layout.addWidget(placeHolder)
 
     def __getY1Axis(self):
         return self.findChildren(qt.QRadioButton, "y1")[0]
@@ -80,6 +93,9 @@ class YAxesEditor(qt.QWidget):
             self.__plotItemYAxisChanged()
 
         isReadOnly = self.__isReadOnly()
+
+        self.__removeButton.setPlotItem(plotItem)
+        self.__removeButton.setVisible(plotItem is not None and not isReadOnly)
 
         w = self.__getY1Axis()
         w.setEnabled(not isReadOnly)

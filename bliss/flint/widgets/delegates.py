@@ -82,9 +82,9 @@ class VisibilityPropertyItemDelegate(qt.QStyledItemDelegate):
         editor.move(pos)
 
 
-class _RemovePlotItemButton(qt.QToolButton):
+class RemovePlotItemButton(qt.QToolButton):
     def __init__(self, parent: qt.QWidget = None):
-        super(_RemovePlotItemButton, self).__init__(parent=parent)
+        super(RemovePlotItemButton, self).__init__(parent=parent)
         self.__plotItem: Optional[plot_model.Item] = None
         self.clicked.connect(self.__requestRemoveItem)
         icon = icons.getQIcon("flint:icons/remove-item")
@@ -110,7 +110,7 @@ class RemovePropertyItemDelegate(qt.QStyledItemDelegate):
             return super(RemovePropertyItemDelegate, self).createEditor(
                 parent, option, index
             )
-        editor = _RemovePlotItemButton(parent=parent)
+        editor = RemovePlotItemButton(parent=parent)
         plotItem = self.getPlotItem(index)
         editor.setVisible(plotItem is not None)
         return editor

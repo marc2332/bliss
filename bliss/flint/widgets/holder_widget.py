@@ -32,7 +32,7 @@ class ProfileHolderWidget(ExtendedDockWidget):
         self.windowClosed.connect(self.__windowClosed)
 
     def sizeHint(self):
-        return ProfileWindow.sizeHint()
+        return ProfileWindow.sizeHint(self)
 
     def __windowClosed(self):
         self.windowClosed.disconnect(self.__windowClosed)

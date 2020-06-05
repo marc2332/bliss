@@ -17,10 +17,24 @@ from silx.gui import icons
 from silx.gui.plot import PlotWindow
 from silx.gui.plot.actions import PlotAction
 from silx.gui.plot.actions import io
+from silx.gui.widgets.MultiModeAction import MultiModeAction
 from bliss.flint.model import flint_model
 
 
 _logger = logging.getLogger(__name__)
+
+
+class ExportAction(MultiModeAction):
+    def __init__(self, plot: PlotWindow, parent=None):
+        super(ExportAction, self).__init__(parent)
+        self._logbookAction = ExportToLogBookAction(plot, self)
+        self.addAction(self._logbookAction)
+        self.addAction(io.CopyAction(plot, self))
+        self.addAction(io.PrintAction(plot, self))
+        self.addAction(io.SaveAction(plot, self))
+
+    def setFlintModel(self, state: flint_model.FlintState):
+        self._logbookAction.setFlintModel(state)
 
 
 class ExportToLogBookAction(PlotAction):

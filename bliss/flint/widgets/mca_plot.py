@@ -145,9 +145,8 @@ class McaPlotWidget(plot_helper.PlotWidget):
 
         # Export
 
-        self.logbookAction = export_action.ExportToLogBookAction(self.__plot, self)
-        toolBar.addAction(self.logbookAction)
-        toolBar.addAction(export_action.ExportOthersAction(self.__plot, self))
+        self.__exportAction = export_action.ExportAction(self.__plot, self)
+        toolBar.addAction(self.__exportAction)
 
         return toolBar
 
@@ -178,7 +177,7 @@ class McaPlotWidget(plot_helper.PlotWidget):
 
     def setFlintModel(self, flintModel: Optional[flint_model.FlintState]):
         self.__flintModel = flintModel
-        self.logbookAction.setFlintModel(flintModel)
+        self.__exportAction.setFlintModel(flintModel)
 
     def setPlotModel(self, plotModel: plot_model.Plot):
         if self.__plotModel is not None:

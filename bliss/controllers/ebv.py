@@ -282,7 +282,7 @@ class BpmController(SamplingCounterController):
                     gevent.sleep(0.001)
 
             self._cam_proxy.stopAcq()
-            self._bpm_proxy.Stop()
+            # self._bpm_proxy.Stop() # temporary fix, see issue 1707
 
             return data
 

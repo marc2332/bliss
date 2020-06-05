@@ -27,15 +27,15 @@ from bliss.flint.model import style_model
 from bliss.flint.model import plot_item_model
 from bliss.flint.helper import scan_info_helper
 from bliss.flint.helper import model_helper
-from bliss.flint.widgets.utils import plot_helper
-from bliss.flint.widgets.utils import view_helper
-from bliss.flint.widgets.utils import refresh_helper
-from bliss.flint.widgets.utils import tooltip_helper
-from bliss.flint.widgets.utils import export_action
-from bliss.flint.widgets.utils import marker_action
-from .utils.camera_live_action import CameraLiveAction
-from .utils.profile_action import ProfileAction
-from .utils.plot_action import CustomAxisAction
+from .utils import plot_helper
+from .utils import view_helper
+from .utils import refresh_helper
+from .utils import tooltip_helper
+from .utils import export_action
+from .utils import marker_action
+from .utils import camera_live_action
+from .utils import profile_action
+from .utils import plot_action
 
 
 _logger = logging.getLogger(__name__)
@@ -222,12 +222,12 @@ class ImagePlotWidget(plot_helper.PlotWidget):
         # Axis
         action = self.__refreshManager.createRefreshAction(self)
         toolBar.addAction(action)
-        toolBar.addAction(CustomAxisAction(self.__plot, self, kind="image"))
+        toolBar.addAction(plot_action.CustomAxisAction(self.__plot, self, kind="image"))
         toolBar.addAction(control.GridAction(self.__plot, "major", self))
         toolBar.addSeparator()
 
         # Tools
-        self.liveAction = CameraLiveAction(self)
+        self.liveAction = camera_live_action.CameraLiveAction(self)
         toolBar.addAction(self.liveAction)
         action = control.CrosshairAction(self.__plot, parent=self)
         action.setIcon(icons.getQIcon("flint:icons/crosshair"))
@@ -246,7 +246,7 @@ class ImagePlotWidget(plot_helper.PlotWidget):
         action.setIcon(icon)
         action.setEnabled(False)
         toolBar.addAction(action)
-        toolBar.addAction(ProfileAction(self.__plot, self, "image"))
+        toolBar.addAction(profile_action.ProfileAction(self.__plot, self, "image"))
 
         action = marker_action.MarkerAction(plot=self.__plot, parent=self, kind="image")
         self.__markerAction = action

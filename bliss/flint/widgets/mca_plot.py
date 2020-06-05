@@ -24,12 +24,12 @@ from bliss.flint.model import plot_model
 from bliss.flint.model import plot_item_model
 from bliss.flint.helper import scan_info_helper
 from bliss.flint.utils import signalutils
-from bliss.flint.widgets.utils import plot_helper
-from bliss.flint.widgets.utils import view_helper
-from bliss.flint.widgets.utils import refresh_helper
-from bliss.flint.widgets.utils import tooltip_helper
-from .utils.plot_action import CustomAxisAction
-from bliss.flint.widgets.utils import export_action
+from .utils import plot_helper
+from .utils import view_helper
+from .utils import refresh_helper
+from .utils import tooltip_helper
+from .utils import export_action
+from .utils import plot_action
 
 
 _logger = logging.getLogger(__name__)
@@ -116,7 +116,7 @@ class McaPlotWidget(plot_helper.PlotWidget):
         # Axis
         action = self.__refreshManager.createRefreshAction(self)
         toolBar.addAction(action)
-        toolBar.addAction(CustomAxisAction(self.__plot, self, kind="mca"))
+        toolBar.addAction(plot_action.CustomAxisAction(self.__plot, self, kind="mca"))
         toolBar.addAction(control.GridAction(self.__plot, "major", self))
         toolBar.addSeparator()
 

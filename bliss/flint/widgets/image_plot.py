@@ -32,10 +32,10 @@ from bliss.flint.widgets.utils import view_helper
 from bliss.flint.widgets.utils import refresh_helper
 from bliss.flint.widgets.utils import tooltip_helper
 from bliss.flint.widgets.utils import export_action
+from bliss.flint.widgets.utils import marker_action
 from .utils.camera_live_action import CameraLiveAction
 from .utils.profile_action import ProfileAction
 from .utils.plot_action import CustomAxisAction
-from bliss.flint.widgets import marker_helper
 
 
 _logger = logging.getLogger(__name__)
@@ -248,7 +248,7 @@ class ImagePlotWidget(plot_helper.PlotWidget):
         toolBar.addAction(action)
         toolBar.addAction(ProfileAction(self.__plot, self, "image"))
 
-        action = marker_helper.MarkerAction(plot=self.__plot, parent=self, kind="image")
+        action = marker_action.MarkerAction(plot=self.__plot, parent=self, kind="image")
         self.__markerAction = action
         toolBar.addAction(action)
 

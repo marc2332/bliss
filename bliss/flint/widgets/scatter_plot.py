@@ -33,7 +33,7 @@ from bliss.flint.widgets.utils import plot_helper
 from bliss.flint.widgets.utils import view_helper
 from bliss.flint.widgets.utils import refresh_helper
 from bliss.flint.widgets.utils import tooltip_helper
-from bliss.flint.widgets import marker_helper
+from bliss.flint.widgets.utils import marker_action
 from .utils.profile_action import ProfileAction
 from .utils.plot_action import CustomAxisAction
 from bliss.flint.widgets.utils import export_action
@@ -169,7 +169,7 @@ class ScatterPlotWidget(plot_helper.PlotWidget):
         toolBar.addAction(action)
         toolBar.addAction(ProfileAction(self.__plot, self, "scatter"))
 
-        action = marker_helper.MarkerAction(
+        action = marker_action.MarkerAction(
             plot=self.__plot, parent=self, kind="scatter"
         )
         self.__markerAction = action

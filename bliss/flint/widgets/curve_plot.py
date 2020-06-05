@@ -35,7 +35,7 @@ from bliss.flint.widgets.utils import plot_helper
 from bliss.flint.widgets.utils import view_helper
 from bliss.flint.widgets.utils import refresh_helper
 from bliss.flint.widgets.utils import tooltip_helper
-from bliss.flint.widgets import marker_helper
+from bliss.flint.widgets.utils import marker_action
 from .utils.plot_action import CustomAxisAction
 from bliss.flint.widgets.utils import export_action
 
@@ -252,7 +252,7 @@ class CurvePlotWidget(plot_helper.PlotWidget):
         action.setIcon(icons.getQIcon("flint:icons/crosshair"))
         toolBar.addAction(action)
 
-        action = marker_helper.MarkerAction(plot=self.__plot, parent=self, kind="curve")
+        action = marker_action.MarkerAction(plot=self.__plot, parent=self, kind="curve")
         self.__markerAction = action
         toolBar.addAction(action)
 

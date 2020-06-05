@@ -382,43 +382,20 @@ def test_standard_scan_display(session):
             s = scans.ct(0.1, diode4, diode5, save=False)
             # EXPECTED OUTPUT
             if 1:
-
-                #      channel   |   value    | value/sec  |    unit    |  counter   |             controller
-                #    ------------|------------|------------|------------|------------|------------------------------------
-                #       diode4   |  4.00000   |  40.0000   |     na     |     -      |simulation_diode_sampling_controller
-                #       diode5   |  5.00000   |  50.0000   |     na     |     -      |simulation_diode_sampling_controller
+                # diode4  =  4.00000      (  40.0000   /s)    simulation_diode_sampling_controller
+                # diode5  =  5.00000      (  50.0000   /s)    simulation_diode_sampling_controller
 
                 # GRAB THE SCAN DISPLAY LINES
                 grab_lines(p, lines)
 
-                labels = [
-                    "channel",
-                    "value",
-                    "value/sec",
-                    "unit",
-                    "counter",
-                    "controller",
-                ]
-                data_start_idx = find_data_start(lines, labels, offset=2)
-                assert data_start_idx != None
-
-                nlines = extract_words(lines[data_start_idx : data_start_idx + 2])
-                assert nlines[0] == [
-                    "diode4",
-                    4.0,
-                    40.0,
-                    "na",
-                    "-",
-                    "simulation_diode_sampling_controller",
-                ]
-                assert nlines[1] == [
-                    "diode5",
-                    5.0,
-                    50.0,
-                    "na",
-                    "-",
-                    "simulation_diode_sampling_controller",
-                ]
+                assert (
+                    lines[9].strip()
+                    == "diode4  =  4.00000      (  40.0000   /s)    simulation_diode_sampling_controller"
+                )
+                assert (
+                    lines[10].strip()
+                    == "diode5  =  5.00000      (  50.0000   /s)    simulation_diode_sampling_controller"
+                )
 
             # ============= START THE LOOPSCAN ===================================
             lines = []

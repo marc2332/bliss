@@ -318,14 +318,14 @@ class _ScanPrinterBase:
         + "   file   : {filename}\n"
         + "   user   : {user_name}\n"
         + "   session: {session_name}\n"
-        + "\n   hidden : [ {not_shown_counters_str} ]\n"
-        + "\n{column_header}"
+        + "   hidden : [ {not_shown_counters_str} ]\n"
     )
 
     DEFAULT_WIDTH = 12
 
     COL_SEP = "|"
     RAW_SEP = "-"
+    NO_NAME = "-"
 
     def __init__(self):
 
@@ -485,7 +485,7 @@ class _ScanPrinterBase:
             try:
                 ctrl, cnt = cname.split(":")[0:2]
                 if cnt == self.display_names[cname]:
-                    cnt = "-"
+                    cnt = self.NO_NAME
                 counter_labels.append(cnt)
                 controller_labels.append(ctrl)
             except:
@@ -502,15 +502,9 @@ class _ScanPrinterBase:
     def build_header(self, scan_info):
         # ------------ BUILD THE HEADER TO BE DISPLAY -----------------------------
 
-        if scan_info.get("type") == "ct":
-            self._tab = FormatedTab(
-                [],
-                minwidth=self.DEFAULT_WIDTH,
-                maxwidth=50,
-                col_sep=self.COL_SEP,
-                lmargin="   ",
-            )
-        else:
+        self._tab = ""
+        if scan_info.get("type") != "ct":
+
             col_max_width = 40
             labels = self.build_columns_labels()
             self._tab = FormatedTab(
@@ -539,9 +533,7 @@ class _ScanPrinterBase:
             not_shown_counters_str = ", ".join(self.other_channels)
 
         header = self.HEADER.format(
-            column_header=self._tab,
-            not_shown_counters_str=not_shown_counters_str,
-            **scan_info,
+            not_shown_counters_str=not_shown_counters_str, **scan_info
         )
 
         return header
@@ -556,8 +548,7 @@ class _ScanPrinterBase:
         if scan_info.get("type") == "ct":
             # ct is actually a timescan(npoints=1).
             norm_values = numpy.array(values) / scan_info["count_time"]
-            self._build_ct_output(values, norm_values)
-            return str(self._tab)
+            return self._build_ct_output(values, norm_values)
 
         else:
             values.insert(0, self.scan_steps_index)
@@ -566,35 +557,39 @@ class _ScanPrinterBase:
 
     def _build_ct_output(self, values, norm_values):
 
-        # build the header
-        labels = ["channel", "value", "value/sec", "unit", "counter", "controller"]
-        self._tab.add_line(labels)
+        info_dict = {}
+        for i, cname in enumerate(self.sorted_channel_names):
 
-        ctrls, cnts, chans = self.build_columns_labels(
-            channel_with_unit=False, with_index=False
-        )
-        cols = []
-        cols.append(chans)
-        cols.append(values)
-        cols.append(norm_values)
+            # display name
+            if cname == "timer:elapsed_time":
+                # disp_name = "dt"
+                continue
+            else:
+                disp_name = self.display_names[cname]
 
-        # get units and replace None by N/A
-        units = []
-        for cname in self.sorted_channel_names:
+            # unit
             unit = self.channel_units[cname]
-            if unit is None:
-                unit = "na"
-            units.append(unit)
-        cols.append(units)
+            if unit:
+                disp_name += f"[{unit}]"
 
-        cols.append(cnts)
-        cols.append(ctrls)
+            # sort by controller name
+            ctrl, _ = cname.split(":")[0:2]
+            if info_dict.get(ctrl):
+                info_dict[ctrl].append([disp_name, values[i], norm_values[i]])
+            else:
+                info_dict[ctrl] = [[disp_name, values[i], norm_values[i]]]
 
-        for line in list(zip(*cols))[1:]:
-            self._tab.add_line(line)
+        lines = []
+        for ctrl, values in info_dict.items():
+            for dname, v, nv in values:
+                v = f"{v:#g}"
+                nv = f"{nv:#g}"
+                lines.append(f"  {dname:>20}  =  {v:12} ({nv:^12}/s)    {ctrl}")
 
-        self._tab.resize()
-        self._tab.add_separator(self.RAW_SEP, line_index=1)
+            # separate data blocks per controller
+            # lines.append('')
+
+        return "\n".join(lines)
 
     def is_new_scan_valid(self, scan_info):
 
@@ -648,7 +643,13 @@ class _ScanPrinterBase:
 
             self.collect_channels_info(scan_info)
             header = self.build_header(scan_info)
+
             print(header)
+            if str(self._tab):
+                print(self._tab)
+
+    def on_scan_data(self, scan_info, data):
+        raise NotImplementedError
 
     def on_scan_end(self, scan_info):
         if self.is_end_scan_valid(scan_info):
@@ -656,19 +657,18 @@ class _ScanPrinterBase:
             start = datetime.datetime.fromtimestamp(scan_info["start_timestamp"])
             dt = end - start
 
-            msg = f"\n   Took {dt}[s] \n\n\n"
-            print(msg)
-
             self.scan_is_running = False
 
             for msg in self._warning_messages:
                 print(msg)
 
+            print(f"\n   Took {dt}[s] \n")
+
 
 class ScanPrinter(_ScanPrinterBase):
     """compose scan output"""
 
-    HEADER = "\n{column_header}"
+    HEADER = ""
 
     def __init__(self):
 

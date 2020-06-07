@@ -847,6 +847,7 @@ class Regul(object):
 
     def setPolynom(self, angle, a, b, c, d, e, f, g):
         # change to 6th order correction by maxim on the 04th March 2020
+        # added correction for dz.  MB and TR on 1.6.2020
         if angle == "rx":
             var_name_a = (
                 "plant/counters/counter_xtal_111_drx/6th-order-correction(unit)/a/Value"
@@ -891,8 +892,32 @@ class Regul(object):
             var_name_g = (
                 "plant/counters/counter_xtal_111_dry/6th-order-correction(unit)/g/Value"
             )
+        elif angle == "dz":
+            var_name_a = (
+                "plant/counters/counter_xtal_111_dz/6th-order-correction(unit)/a/Value"
+            )
+            var_name_b = (
+                "plant/counters/counter_xtal_111_dz/6th-order-correction(unit)/b/Value"
+            )
+            var_name_c = (
+                "plant/counters/counter_xtal_111_dz/6th-order-correction(unit)/c/Value"
+            )
+            var_name_d = (
+                "plant/counters/counter_xtal_111_dz/6th-order-correction(unit)/d/Value"
+            )
+            var_name_e = (
+                "plant/counters/counter_xtal_111_dz/6th-order-correction(unit)/e/Value"
+            )
+            var_name_f = (
+                "plant/counters/counter_xtal_111_dz/6th-order-correction(unit)/f/Value"
+            )
+            var_name_g = (
+                "plant/counters/counter_xtal_111_dz/6th-order-correction(unit)/g/Value"
+            )
         else:
-            print('Correct angle are "rx" or "ry", exit !!!')
+            print(
+                'Correct arguments are angles "rx" or "ry" and distance "z", exit !!!'
+            )
             return
 
         self.set_param(var_name_a, a)
@@ -949,8 +974,32 @@ class Regul(object):
             var_name_g = (
                 "plant/counters/counter_xtal_111_dry/6th-order-correction(unit)/g/Value"
             )
+        elif angle == "dz":
+            var_name_a = (
+                "plant/counters/counter_xtal_111_dz/6th-order-correction(unit)/a/Value"
+            )
+            var_name_b = (
+                "plant/counters/counter_xtal_111_dz/6th-order-correction(unit)/b/Value"
+            )
+            var_name_c = (
+                "plant/counters/counter_xtal_111_dz/6th-order-correction(unit)/c/Value"
+            )
+            var_name_d = (
+                "plant/counters/counter_xtal_111_dz/6th-order-correction(unit)/d/Value"
+            )
+            var_name_e = (
+                "plant/counters/counter_xtal_111_dz/6th-order-correction(unit)/e/Value"
+            )
+            var_name_f = (
+                "plant/counters/counter_xtal_111_dz/6th-order-correction(unit)/f/Value"
+            )
+            var_name_g = (
+                "plant/counters/counter_xtal_111_dz/6th-order-correction(unit)/g/Value"
+            )
         else:
-            print('Correct angle are "rx" or "ry", exit !!!')
+            print(
+                'Correct arguments are angles "rx" or "ry" and distance "z", exit !!!'
+            )
             return None
 
         return (
@@ -968,14 +1017,18 @@ class Regul(object):
         self.set_param(var_name, state)
         var_name = "plant/counters/counter_xtal_111_drx/correction_OnOff/Value"
         self.set_param(var_name, state)
+        var_name = "plant/counters/counter_xtal_111_dz/correction_OnOff/Value"
+        self.set_param(var_name, state)
 
     def usePolynomGet(self):
         var_name = "plant/counters/counter_xtal_111_dry/correction_OnOff/Value"
         ry = self.get_param(var_name)
         var_name = "plant/counters/counter_xtal_111_drx/correction_OnOff/Value"
         rx = self.get_param(var_name)
+        var_name = "plant/counters/counter_xtal_111_dz/correction_OnOff/Value"
+        z = self.get_param(var_name)
 
-        return (ry, rx)
+        return (ry, rx, z)
 
     def set_param(self, param, value):
         self.speedgoat.params[param] = value

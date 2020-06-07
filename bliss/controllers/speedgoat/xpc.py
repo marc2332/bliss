@@ -286,7 +286,7 @@ def get_param(handle, param_info):
     _error(xpc.xPCGetParam(handle, param_info["idx"], buff))
     value = value.astype(dtype)
     if size == 1:
-        value = numpy.asscalar(value)
+        value = value.item()
     return dict(param_info, value=value)
 
 

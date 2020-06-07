@@ -88,7 +88,7 @@ class RoiStatCounter(IntegratingCounter):
         # it is calculated everty time because the roi id for a given roi name might
         # change if rois are added/removed from lima
         roi_id = self._counter_controller._roi_ids[self.roi_name]
-        return numpy.asscalar(self.roi_stat_id(roi_id, self.stat))
+        return self.roi_stat_id(roi_id, self.stat).item()
 
     @staticmethod
     def roi_stat_id(roi_id, stat):

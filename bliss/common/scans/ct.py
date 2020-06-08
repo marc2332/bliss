@@ -56,7 +56,7 @@ def ct(
         counter_args = [count_time] + list(counter_args)
         count_time = 1.0
 
-    return timescan(
+    s = timescan(
         count_time,
         *counter_args,
         npoints=1,
@@ -66,7 +66,16 @@ def ct(
         save=save,
         save_images=save_images,
         sleep_time=sleep_time,
-        run=run,
+        run=False,
         return_scan=return_scan,
         scan_info=scan_info,
     )
+
+    if save == False:
+        # disable metadata collection if save = False
+        s._update_scan_info_with_user_scan_meta = lambda: None
+
+    if run:
+        s.run()
+
+    return s

@@ -261,17 +261,6 @@ class CurvePlotWidget(plot_helper.PlotWidget):
         action = self.__specMode.createAction()
         toolBar.addAction(action)
 
-        # FIXME implement that
-        action = qt.QAction(self)
-        action.setText("Raw display")
-        action.setToolTip(
-            "Show a table of the raw data from the displayed scatter (not yet implemented)"
-        )
-        icon = icons.getQIcon("flint:icons/raw-view")
-        action.setIcon(icon)
-        action.setEnabled(False)
-        toolBar.addAction(action)
-
         action = fit.FitAction(self.__plot, self)
         if hasattr(action, "setFittedItemUpdatedFromActiveCurve"):
             # FIXME: This have to be removed for the silx 0.13 release

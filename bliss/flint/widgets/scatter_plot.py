@@ -158,16 +158,7 @@ class ScatterPlotWidget(plot_helper.PlotWidget):
         action.setIcon(icon)
         action.setEnabled(False)
         toolBar.addAction(action)
-        # FIXME implement that
-        action = qt.QAction(self)
-        action.setText("Raw display")
-        action.setToolTip(
-            "Show a table of the raw data from the displayed scatter (not yet implemented)"
-        )
-        icon = icons.getQIcon("flint:icons/raw-view")
-        action.setIcon(icon)
-        action.setEnabled(False)
-        toolBar.addAction(action)
+
         toolBar.addAction(profile_action.ProfileAction(self.__plot, self, "scatter"))
 
         action = marker_action.MarkerAction(

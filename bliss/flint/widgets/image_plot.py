@@ -235,16 +235,7 @@ class ImagePlotWidget(plot_helper.PlotWidget):
         icon = icons.getQIcon("flint:icons/histogram")
         action.setIcon(icon)
         toolBar.addAction(action)
-        # FIXME implement that
-        action = qt.QAction(self)
-        action.setText("Raw display")
-        action.setToolTip(
-            "Show a table of the raw data from the displayed scatter (not yet implemented)"
-        )
-        icon = icons.getQIcon("flint:icons/raw-view")
-        action.setIcon(icon)
-        action.setEnabled(False)
-        toolBar.addAction(action)
+
         toolBar.addAction(profile_action.ProfileAction(self.__plot, self, "image"))
 
         action = marker_action.MarkerAction(plot=self.__plot, parent=self, kind="image")

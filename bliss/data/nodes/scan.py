@@ -57,6 +57,8 @@ class Scan(DataNodeContainer):
         self._event = self.create_data_stream(f"{self.db_name}_data")
 
     def end(self, exception=None):
+        """Publish END event in Redis
+        """
         if self.new_node:
             db_name = self.db_name
             # to avoid to have multiple modification events

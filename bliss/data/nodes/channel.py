@@ -85,6 +85,8 @@ class ChannelDataNode(DataNode):
         self._last_index = 1  # redis can't starts at 0
 
     def store(self, event_dict, cnx=None):
+        """Publish channel data in Redis
+        """
         self._create_queue()
 
         data = event_dict.get("data")

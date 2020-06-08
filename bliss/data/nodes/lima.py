@@ -620,6 +620,8 @@ class LimaImageChannelDataNode(DataNode):
         return EventData(first_index=first_index, data=data, description=ref_status)
 
     def store(self, event_dict, cnx=None):
+        """Publish lima reference in Redis
+        """
         data = event_dict["data"]
         if data.get("in_prepare", False):  # in prepare phase
             desc = event_dict["description"]

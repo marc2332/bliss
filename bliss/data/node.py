@@ -653,6 +653,8 @@ class DataNodeContainer(DataNode):
         self._children = self.create_data_stream(children_queue_name)
 
     def add_children(self, *children):
+        """Publish new (direct) child in Redis
+        """
         for child in children:
             self._children.add({self.CHILD_KEY: child.db_name})
 

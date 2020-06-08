@@ -418,7 +418,7 @@ class Connection(object):
         if address is None:
             address = self.get_redis_connection_address()
         host, port = address
-        if host == "localhost":
+        if host == "localhost" and os.name != "nt":
             return redis.Redis(unix_socket_path=port, db=db)
         return redis.Redis(host=host, port=port, db=db)
 
@@ -666,7 +666,7 @@ class Connection(object):
                             if queue is not None:
                                 queue.put(StopIteration)
                         elif messageType == protocol.REDIS_QUERY_ANSWER:
-                            host, port = message.split(b":")
+                            host, port = message.split(b":", 1)
                             self._redis_host = host.decode()
                             self._redis_port = port.decode()
                             self._redis_query_event.set()

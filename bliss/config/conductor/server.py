@@ -947,7 +947,11 @@ def main(args=None):
         log_server_rp = log_server_process = None
 
     # Logviewer Web application
-    if _options.log_server_port and _options.log_viewer_port > 0:
+    if (
+        sys.platform not in ["win32", "cygwin"]
+        and _options.log_server_port
+        and _options.log_viewer_port > 0
+    ):
         log_viewer_rp, log_viewer_wp = os.pipe()
         args = ["tailon"]
         args += ["-b", f"0.0.0.0:{_options.log_viewer_port}"]

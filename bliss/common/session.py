@@ -190,6 +190,10 @@ class Session:
                     os.path.dirname(self.__setup_file), "scripts"
                 )
 
+        # convert windows-style path to linux-style
+        if self.__scripts_module_path:
+            self.__scripts_module_path = self._scripts_module_path.replace("\\", "/")
+
         try:
             self.__synoptic_file = config_tree.get("synoptic").get("svg-file")
         except AttributeError:

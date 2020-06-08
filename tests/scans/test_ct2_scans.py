@@ -1,6 +1,7 @@
-
 import pytest
-import numpy
+
+# skip test if we are on Windows (no fcntl)
+pytest.importorskip("fcntl")
 
 from bliss.common import scans
 from bliss.common import event

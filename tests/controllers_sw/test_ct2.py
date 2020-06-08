@@ -8,6 +8,10 @@
 """
 CT2 pure software tests (no hardware required)
 """
+import pytest
+
+# skip test if we are on Windows (no fcntl)
+pytest.importorskip("fcntl")
 
 from bliss.controllers.ct2.card import CtConfig, CtClockSrc, CtGateSrc
 from bliss.controllers.ct2.card import CtHardStartSrc, CtHardStopSrc

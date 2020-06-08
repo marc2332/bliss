@@ -16,6 +16,7 @@ import logging
 
 from silx.gui import qt
 from silx.gui import icons
+from silx.gui.plot.actions import histogram
 from silx.gui.plot.items.shape import BoundingRect
 from silx.gui.plot.items.shape import Shape
 from silx.gui.plot.items.scatter import Scatter
@@ -148,15 +149,10 @@ class ScatterPlotWidget(plot_helper.PlotWidget):
         action = control.CrosshairAction(self.__plot, parent=self)
         action.setIcon(icons.getQIcon("flint:icons/crosshair"))
         toolBar.addAction(action)
-        # FIXME implement that
-        action = qt.QAction(self)
-        action.setText("Histogram")
-        action.setToolTip(
-            "Show an histogram of the displayed scatter (not yet implemented)"
-        )
+
+        action = histogram.PixelIntensitiesHistoAction(self.__plot, self)
         icon = icons.getQIcon("flint:icons/histogram")
         action.setIcon(icon)
-        action.setEnabled(False)
         toolBar.addAction(action)
 
         toolBar.addAction(profile_action.ProfileAction(self.__plot, self, "scatter"))

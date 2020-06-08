@@ -163,13 +163,7 @@ class GroupMove:
         started = gevent.event.Event()
 
         self._move_task = gevent.spawn(
-            self._move,
-            motions_dict,
-            start_motion,
-            stop_motion,
-            move_func,
-            started,
-            polling_time,
+            self._move, motions_dict, start_motion, stop_motion, move_func, started
         )
 
         try:
@@ -200,18 +194,13 @@ class GroupMove:
 
     # Internal methods
 
-    def _monitor_move(self, motions_dict, move_func, polling_time):
+    def _monitor_move(self, motions_dict, move_func):
         monitor_move = dict()
         for controller, motions in motions_dict.items():
             for motion in motions:
                 if move_func is None:
                     move_func = "_handle_move"
-                axis_polling_time = (
-                    motion.axis._polling_time if polling_time is None else polling_time
-                )
-                task = gevent.spawn(
-                    getattr(motion.axis, move_func), motion, axis_polling_time
-                )
+                task = gevent.spawn(getattr(motion.axis, move_func), motion)
                 monitor_move[motion] = task
         try:
             gevent.joinall(monitor_move.values(), raise_error=True)
@@ -236,7 +225,9 @@ class GroupMove:
         stop_wait = []
         for controller, motions in motions_dict.items():
             for motion in motions:
-                stop_wait.append(gevent.spawn(motion.axis._move_loop))
+                stop_wait.append(
+                    gevent.spawn(motion.axis._move_loop, motion.polling_time)
+                )
         gevent.joinall(stop_wait)
         task_index = 0
         for controller, motions in motions_dict.items():
@@ -246,7 +237,7 @@ class GroupMove:
                 task_index += 1
 
     @protect_from_one_kill
-    def _do_backlash_move(self, motions_dict, polling_time):
+    def _do_backlash_move(self, motions_dict):
         backlash_move = []
         for controller, motions in motions_dict.items():
             for motion in motions:
@@ -271,31 +262,15 @@ class GroupMove:
                         motion.target_pos + motion.backlash,
                         motion.backlash,
                     )
-                    axis_polling_time = (
-                        motion.axis._polling_time
-                        if polling_time is None
-                        else polling_time
-                    )
+                    backlash_motion.polling_time = motion.polling_time
 
                     backlash_move.append(
-                        gevent.spawn(
-                            motion.axis._backlash_move,
-                            backlash_motion,
-                            axis_polling_time,
-                        )
+                        gevent.spawn(motion.axis._backlash_move, backlash_motion)
                     )
         gevent.joinall(backlash_move)
         gevent.joinall(backlash_move, raise_error=True)
 
-    def _move(
-        self,
-        motions_dict,
-        start_motion,
-        stop_motion,
-        move_func,
-        started_event,
-        polling_time,
-    ):
+    def _move(self, motions_dict, start_motion, stop_motion, move_func, started_event):
         # Set axis moving state
         for motions in motions_dict.values():
             for motion in motions:
@@ -332,7 +307,7 @@ class GroupMove:
 
                 # Spawn the monitoring for all motions
                 with capture():
-                    self._monitor_move(motions_dict, move_func, polling_time)
+                    self._monitor_move(motions_dict, move_func)
                 if capture.failed:
                     with capture():
                         self._stop_move(motions_dict, stop_motion)
@@ -340,7 +315,7 @@ class GroupMove:
 
                 # Do backlash move, if needed
                 with capture():
-                    self._do_backlash_move(motions_dict, polling_time)
+                    self._do_backlash_move(motions_dict)
                 if capture.failed:
                     with capture():
                         self._stop_move(motions_dict, stop_motion)
@@ -455,6 +430,7 @@ class Motion:
         self.target_pos = target_pos
         self.delta = delta
         self.backlash = 0
+        self.polling_time = DEFAULT_POLLING_TIME
 
     @property
     def axis(self):
@@ -1554,7 +1530,7 @@ class Axis:
         """
         return (position - self.offset) / self.sign
 
-    def _get_motion(self, user_target_pos):
+    def _get_motion(self, user_target_pos, polling_time=None):
         dial_target_pos = self.user2dial(user_target_pos)
         dial = self.dial
         target_pos = dial_target_pos * self.steps_per_unit
@@ -1603,11 +1579,15 @@ class Axis:
             target_pos += delta_pos
         motion = Motion(self, target_pos, delta, user_target_pos=user_target_pos)
         motion.backlash = backlash
+        if polling_time is None:
+            motion.polling_time = self._polling_time
+        else:
+            motion.polling_time = polling_time
 
         return motion
 
     @lazy_init
-    def get_motion(self, user_target_pos, relative=False):
+    def get_motion(self, user_target_pos, relative=False, polling_time=None):
         """Prepare a motion. Internal usage only"""
 
         # To accept both float or numpy array of 1 element
@@ -1640,7 +1620,7 @@ class Axis:
             user_initial_pos = self._set_position
             user_target_pos += user_initial_pos
 
-        motion = self._get_motion(user_target_pos)
+        motion = self._get_motion(user_target_pos, polling_time)
 
         return motion
 
@@ -1704,7 +1684,7 @@ class Axis:
             if self.is_moving:
                 raise RuntimeError("axis %s state is %r" % (self.name, "MOVING"))
 
-            motion = self.get_motion(user_target_pos, relative)
+            motion = self.get_motion(user_target_pos, relative, polling_time)
             if motion is None:
                 return
 
@@ -1715,14 +1695,13 @@ class Axis:
                 _start_one_controller_motions,
                 _stop_one_controller_motions,
                 wait=False,
-                polling_time=polling_time,
             )
 
         if wait:
             self.wait_move()
 
-    def _handle_move(self, motion, polling_time):
-        state = self._move_loop(polling_time)
+    def _handle_move(self, motion):
+        state = self._move_loop(motion.polling_time)
 
         # after the move
         if self.config.get("check_encoder", bool, self.encoder) and self.encoder:
@@ -1730,10 +1709,10 @@ class Axis:
 
         return state
 
-    def _backlash_move(self, backlash_motion, polling_time):
+    def _backlash_move(self, backlash_motion):
         self.__controller.prepare_move(backlash_motion)
         self.__controller.start_one(backlash_motion)
-        return self._handle_move(backlash_motion, polling_time)
+        return self._handle_move(backlash_motion)
 
     def _do_encoder_reading(self):
         enc_dial = self.encoder.read()
@@ -1775,6 +1754,9 @@ class Axis:
             self.jog_velocity = velocity
 
             motion = Motion(self, None, None, "jog")
+            motion.polling_time = (
+                self._polling_time if polling_time is None else polling_time
+            )
             motion.saved_velocity = self.velocity
             motion.reset_position = reset_position
             self._set_jog_motion(
@@ -1795,14 +1777,13 @@ class Axis:
                 stop_one,
                 "_jog_move",
                 wait=False,
-                polling_time=polling_time,
             )
 
-    def _jog_move(self, motion, polling_time):
+    def _jog_move(self, motion):
         velocity = motion.target_pos
         direction = motion.delta
 
-        return self._move_loop(polling_time)
+        return self._move_loop(motion.polling_time)
 
     def _jog_cleanup(self, saved_velocity, reset_position):
         self.velocity = saved_velocity
@@ -1845,7 +1826,7 @@ class Axis:
                     self.__move_done_callback.wait()
                     raise
 
-    def _move_loop(self, polling_time=None, ctrl_state_funct="state", limit_error=True):
+    def _move_loop(self, polling_time, ctrl_state_funct="state", limit_error=True):
         state_funct = getattr(self.__controller, ctrl_state_funct)
         while True:
             state = state_funct(self)
@@ -1898,6 +1879,9 @@ class Axis:
             motion = Motion(
                 self, switch, None, "homing", user_target_pos=f"home switch: {switch}"
             )
+            motion.polling_time = (
+                self._polling_time if polling_time is None else polling_time
+            )
 
             def start_one(controller, motions):
                 controller.home_search(motions[0].axis, motions[0].target_pos)
@@ -1913,13 +1897,12 @@ class Axis:
                 stop_one,
                 "_wait_home",
                 wait=False,
-                polling_time=polling_time,
             )
         if wait:
             self.wait_move()
 
-    def _wait_home(self, motion, polling_time):
-        return self._move_loop(polling_time, ctrl_state_funct="home_state")
+    def _wait_home(self, motion):
+        return self._move_loop(motion.polling_time, ctrl_state_funct="home_state")
 
     @lazy_init
     def hw_limit(self, limit, wait=True, polling_time=None):
@@ -1943,6 +1926,9 @@ class Axis:
                 "limit_search",
                 user_target_pos="lim+" if limit > 0 else "lim-",
             )
+            motion.polling_time = (
+                self._polling_time if polling_time is None else polling_time
+            )
 
             def start_one(controller, motions):
                 controller.limit_search(motions[0].axis, motions[0].target_pos)
@@ -1958,14 +1944,13 @@ class Axis:
                 stop_one,
                 "_wait_limit_search",
                 wait=False,
-                polling_time=polling_time,
             )
 
         if wait:
             self.wait_move()
 
-    def _wait_limit_search(self, motion, polling_time):
-        return self._move_loop(polling_time, limit_error=False)
+    def _wait_limit_search(self, motion):
+        return self._move_loop(motion.polling_time, limit_error=False)
 
     def settings_to_config(
         self, velocity=True, acceleration=True, limits=True, sign=True, backlash=True

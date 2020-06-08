@@ -496,7 +496,7 @@ def test_backlash_stop(roby):
     pos = roby._hw_position
     roby.stop()
 
-    assert pytest.approx(roby.dial, 5e-2) == pos + roby.backlash
+    assert pytest.approx(roby.dial, 1e-1) == pos + roby.backlash
     assert roby._set_position == roby.dial
     assert roby.state.READY
 
@@ -785,7 +785,8 @@ def test_jog(robz):
     robz.jog(reset_position=Modulo())
     time.sleep(t)
     robz.stop()
-    assert robz.dial == pytest.approx(90, 0.1)
+    hw_position = (0.6666 * robz.jog_velocity * (1 + 2 * robz.jog_acctime)) % 360
+    assert robz.dial == pytest.approx(hw_position, 0.1)
 
 
 def test_jog2(jogger):

@@ -611,6 +611,7 @@ class FaultyMockup(Mockup):
         self.bad_state_after_start = False
         self.bad_stop = False
         self.bad_position = False
+        self.bad_position_only_once = False
         self.nan_position = False
         self.state_recovery_delay = 1
         self.state_msg_index = 0
@@ -644,6 +645,9 @@ class FaultyMockup(Mockup):
 
     def read_position(self, axis, t=None):
         if self.bad_position:
+            raise RuntimeError("BAD POSITION")
+        elif self.bad_position_only_once:
+            self.bad_position_only_once = False
             raise RuntimeError("BAD POSITION")
         elif self.nan_position:
             return float("nan")

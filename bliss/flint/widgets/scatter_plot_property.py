@@ -38,6 +38,7 @@ class _DataItem(_property_tree_helper.ScanRowItem):
         self.__style = qt.QStandardItem("")
         self.__remove = qt.QStandardItem("")
         self.__error = qt.QStandardItem("")
+        self.__updateStyle()
 
         self.__plotModel: Optional[plot_model.Plot] = None
         self.__plotItem: Optional[plot_model.Item] = None
@@ -180,6 +181,12 @@ class _DataItem(_property_tree_helper.ScanRowItem):
                 for scatter in scatters:
                     channel = plot_model.ChannelRef(scatter, channelName)
                     scatter.setYChannel(channel)
+
+    def __updateStyle(self):
+        color1 = qt.QColor(0xE8, 0xE8, 0xE8)
+        color2 = qt.QColor(0xF5, 0xF5, 0xF5)
+        self.__xAxis.setBackground(color1)
+        self.__yAxis.setBackground(color2)
 
     def setDevice(self, device: scan_model.Device):
         self.setDeviceLookAndFeel(device)

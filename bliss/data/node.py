@@ -14,30 +14,39 @@ Redis structure
      --P201 (DataNodeContainer - inherits from DataNode)
        |
        --c0 (ChannelDataNode - inherits from DataNode)
-
-DataNode is the base class.
-A data node has 3 Redis keys to represent it:
-
-{db_name} -> Struct { name, db_name, node_type, parent=(parent db_name) }
-{db_name}_info -> HashObjSetting, free dictionary
-{db_name}_children -> DataStream, list of db names
-
-The channel data node extends the structure above with:
-
-{db_name}_channel -> DataStream, list of channel values
-
-When a Lima channel is published:
-
---eh3
-   |
-   --scan1
-     |
-     --P201
        |
        -- frelon (LimaChannelDataNode - inherits from DataNode)
 
-{db_name}_info -> HashObjSetting with some extra keys like reference: True
-{db_name}_data -> QueueObjSetting, list of reference data ; first item is the 'live' reference
+A DataNode is represented by 2 Redis keys:
+
+ {db_name} -> Struct { name, db_name, node_type, parent=(parent db_name) }
+ {db_name}_info -> HashObjSetting, free dictionary
+
+A DataNodeContainer is represented by 3 Redis keys:
+
+ {db_name} ->  see DataNode
+ {db_name}_info -> see DataNode
+ {db_name}_children -> DataStream, list of db names
+
+A ScanNode is represented by 4 Redis keys:
+
+ {db_name} ->  see DataNodeContainer
+ {db_name}_info -> see DataNodeContainer
+ {db_name}_children -> see DataNodeContainer
+ {db_name}_data -> contains the END event
+
+A ChannelDataNode is represented by 3 Redis keys:
+
+ {db_name} ->  see DataNode
+ {db_name}_info -> see DataNode
+ {db_name}_data -> DataStream, list of channel values
+
+A LimaChannelDataNode is represented by 4 Redis keys:
+
+ {db_name} ->  see DataNode
+ {db_name}_info -> see DataNode, with some extra keys like reference: True
+ {db_name}_data_ref -> QueueObjSetting, the 'live' reference info
+ {db_name}_data -> DataStream, list of reference data
 """
 import time
 import datetime

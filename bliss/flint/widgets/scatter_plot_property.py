@@ -271,7 +271,7 @@ class ScatterPlotPropertyWidget(qt.QWidget):
     YAxisColumn = 2
     ValueColumn = 3
     VisibleColumn = 4
-    StyleColumn = 4
+    StyleColumn = 5
     RemoveColumn = 6
 
     def __init__(self, parent=None):

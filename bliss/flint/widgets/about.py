@@ -35,21 +35,47 @@ Distributed under the GNU LGPLv3. See LICENSE for more info.
 class _Logo(silx.gui.plot.PlotWidget):
     def __init__(self, parent=None, background=None):
         super(_Logo, self).__init__(parent=parent)
+
+        def _create_lines(line):
+            nb_points = 25
+            nb_lines = 9
+            xx, yy = line[:, 0], line[:, 1]
+            xmin = numpy.nanmin(xx)
+            xmax = numpy.nanmax(xx)
+            ymin = numpy.nanmin(yy)
+            ymax = numpy.nanmax(yy)
+            array = numpy.empty((nb_points * nb_lines, 2))
+            xdelta = (xmax - xmin) * 0.08
+            ydelta = (ymax - ymin) * 0.3
+            yheight = ymax - ymin + ydelta * 2
+            ymin = ymin - ydelta
+            for iline in range(nb_lines):
+                p = iline / (nb_lines - 1)
+                s = slice(nb_points * iline, nb_points * iline + nb_points)
+                xd = numpy.cos(p * 3 * numpy.pi)
+                array[s, 0] = numpy.linspace(
+                    xmin + xd - xdelta, xmax + xd + xdelta, nb_points
+                )
+                array[s, 1] = ymin + yheight * p
+                array[nb_points * iline, :] = numpy.nan
+            return array, yheight / nb_lines
+
         line = self._parse_logo()
         self._line = line
+        self._sinback, self._spacing = _create_lines(line)
         self._i = 0
         self._colormap = silx.gui.colors.Colormap("hsv")
-        xx, yy = line[:, 0], line[:, 1]
         self.setInteractiveMode("pan")
         self.setKeepDataAspectRatio(True)
         self.setDataMargins(0.1, 0.1, 0.1, 0.1)
         self.setDataBackgroundColor("#F8F8F8")
         if background is not None:
             self.setBackgroundColor(background)
-        self.addCurve(legend="logo", x=xx, y=yy)
         self.getYAxis().setInverted(True)
         self._colors = numpy.array([[0, 0, 0, 0]] * len(self._line), "uint8")
+        xx = line[:, 0]
         self._vmin, self._vmax = min(xx), max(xx)
+        self._update()
         self.resetZoom()
 
     def _parse_logo(self):
@@ -85,11 +111,39 @@ class _Logo(silx.gui.plot.PlotWidget):
         icolor = (icolor + self._i) % len(colors)
         self._colors = colors[icolor]
 
-        delta = numpy.sin(xx / 10 + self._i / 10)
+        delta = numpy.sin(xx / 2.02 + yy * 0.001 * self._i + self._i / 13)
+
+        bx = self._sinback[:, 0]
+        by = self._sinback[:, 1]
+        bdelta = numpy.sin(-bx / 2 + self._i / 10)
 
         self.addCurve(
-            legend="logo", x=xx, y=yy + delta, color=self._colors, resetzoom=False
+            legend="logo",
+            x=xx,
+            y=yy + delta,
+            color=self._colors,
+            linewidth=6,
+            resetzoom=False,
         )
+
+        self.addCurve(
+            legend="back",
+            x=bx,
+            y=by + bdelta,
+            color=self._colors[0],
+            linewidth=3,
+            resetzoom=False,
+        )
+
+        self.addCurve(
+            legend="front",
+            x=bx,
+            y=by + bdelta + self._spacing * 0.5,
+            color="white",
+            linewidth=1,
+            resetzoom=False,
+        )
+
         self._i += 1
 
 

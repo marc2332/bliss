@@ -626,9 +626,7 @@ class DataNode:
 
     def _get_db_names(self):
         db_name = self.db_name
-        children_queue_name = "%s_children_list" % db_name
-        info_hash_name = "%s_info" % db_name
-        db_names = [db_name, children_queue_name, info_hash_name]
+        db_names = [db_name, "%s_info" % db_name]
         parent = self.parent
         if parent:
             db_names.extend(parent._get_db_names())
@@ -675,3 +673,8 @@ class DataNodeContainer(DataNode):
                     yield new_child
                 else:
                     self._children.remove(index)  # clean
+
+    def _get_db_names(self):
+        db_names = super()._get_db_names()
+        db_names.append("%s_children_list" % self.db_name)
+        return db_names

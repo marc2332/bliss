@@ -1,7 +1,7 @@
 import yaml
 import subprocess
 import os
-from pprint import pprint
+import sys
 import re
 
 try:
@@ -11,10 +11,19 @@ try:
 except ModuleNotFoundError:
     pass
 
+
 CURDIR = os.path.dirname(os.path.abspath(__file__))
 BLISS_DIR = os.path.dirname(CURDIR)
-REQ_PATH = os.path.join(BLISS_DIR, "requirements-conda.txt")
+sys.path.append(BLISS_DIR)
+
+from setup import console_script_entry_points
+
 META = os.path.join(CURDIR, "meta.yaml")
+
+if sys.platform in ["win32", "cygwin"]:
+    REQ_PATH = os.path.join(BLISS_DIR, "requirements-conda-win64.txt")
+else:
+    REQ_PATH = os.path.join(BLISS_DIR, "requirements-conda.txt")
 
 # regex
 conda_pack_regex = re.compile(
@@ -162,6 +171,7 @@ def main():
 
     template_body = f"""
     build:
+      number: 0
       script: python -m pip install --no-deps .
 
     requirements:
@@ -181,8 +191,15 @@ def main():
     head = yaml.load(template_head)
     body = yaml.load(template_body)
 
+    print("Git tag version", get_git_tag())
+
     head["package"]["version"] = ".".join(get_git_tag())
     head["source"]["git_rev"] = ".".join(get_git_tag())
+
+    # console script entry points
+    body["build"]["entry_points"] = list()
+    for entry_point in console_script_entry_points:
+        body["build"]["entry_points"].append(entry_point)
 
     # conda current environment
     body["requirements"]["run"] = list()

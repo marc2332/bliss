@@ -54,7 +54,7 @@ check_lint:
     - conda create --quiet --name testenv --file requirements-conda.txt --file requirements-test-conda.txt
     - source activate testenv
     - conda install pytest-profiling --yes
-    - pip install .
+    - pip install . --no-deps
     # run tests on source
     - echo ${PYTEST_ARGS}
     - python setup.py test --addopts "$PYTEST_ARGS"

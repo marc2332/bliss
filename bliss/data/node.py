@@ -617,8 +617,7 @@ class DataNode:
     @protect_from_kill
     def set_ttl(self):
         db_names = set(self._get_db_names())
-        redis_conn = client.get_redis_connection(db=1)
-        pipeline = redis_conn.pipeline()
+        pipeline = self.connection.pipeline()
         for name in db_names:
             pipeline.expire(name, DataNode.default_time_to_live)
         pipeline.execute()

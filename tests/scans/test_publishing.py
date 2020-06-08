@@ -579,6 +579,7 @@ def test_events_on_scan_node(beforestart, session):
     assert set(events.keys()) == {"NEW_NODE", "NEW_DATA", "END_SCAN"}
     assert len(events["NEW_NODE"]) == 5
     assert len(events["NEW_DATA"]) == 3
+    assert len(events["END_SCAN"]) == 1
 
 
 @pytest.mark.parametrize("beforestart", [True, False])

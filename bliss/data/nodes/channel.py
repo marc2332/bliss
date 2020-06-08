@@ -5,7 +5,6 @@
 # Copyright (c) 2015-2020 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-from bliss.config.streaming import DataStream
 from bliss.data.node import DataNode
 from bliss.data.events import EventData
 import numpy
@@ -80,10 +79,8 @@ class ChannelDataNode(DataNode):
     def _create_queue(self):
         if self._queue is not None:
             return
-        self._queue = DataStream(
-            "%s_data" % self.db_name,
-            connection=self.db_connection,
-            maxlen=CHANNEL_MAX_LEN,
+        self._queue = self.create_data_stream(
+            "%s_data" % self.db_name, maxlen=CHANNEL_MAX_LEN
         )
         self._last_index = 1  # redis can't starts at 0
 

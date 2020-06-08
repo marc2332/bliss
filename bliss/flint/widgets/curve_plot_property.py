@@ -966,13 +966,17 @@ class CurvePlotPropertyWidget(qt.QWidget):
             self.VisibleColumn, self.__visibilityDelegate
         )
         self.__tree.setItemDelegateForColumn(self.RemoveColumn, self.__removeDelegate)
+        self.__tree.setStyleSheet("QTreeView:item {padding: 0px 8px;}")
         header = self.__tree.header()
+        header.setStyleSheet("QHeaderView { qproperty-defaultAlignment: AlignCenter; }")
         header.setSectionResizeMode(self.NameColumn, qt.QHeaderView.ResizeToContents)
         header.setSectionResizeMode(self.XAxisColumn, qt.QHeaderView.ResizeToContents)
         header.setSectionResizeMode(self.YAxesColumn, qt.QHeaderView.ResizeToContents)
         header.setSectionResizeMode(self.VisibleColumn, qt.QHeaderView.ResizeToContents)
         header.setSectionResizeMode(self.StyleColumn, qt.QHeaderView.ResizeToContents)
         header.setSectionResizeMode(self.RemoveColumn, qt.QHeaderView.ResizeToContents)
+        header.setMinimumSectionSize(10)
+        header.moveSection(self.StyleColumn, self.VisibleColumn)
 
         sourceTree: Dict[plot_model.Item, qt.QStandardItem] = {}
         scan = self.__scan

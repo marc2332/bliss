@@ -188,6 +188,7 @@ class StylePropertyWidget(qt.QWidget):
         self.setLayout(layout)
 
         self.__legend = LegendIconWidget(self)
+        self.__legend.setFixedWidth(30)
         layout.addWidget(self.__legend)
         layout.addSpacing(2)
 

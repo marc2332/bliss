@@ -310,6 +310,8 @@ class ImagePlotPropertyWidget(qt.QWidget):
         header.setSectionResizeMode(self.VisibleColumn, qt.QHeaderView.ResizeToContents)
         header.setSectionResizeMode(self.StyleColumn, qt.QHeaderView.ResizeToContents)
         header.setSectionResizeMode(self.RemoveColumn, qt.QHeaderView.ResizeToContents)
+        header.setMinimumSectionSize(10)
+        header.moveSection(self.StyleColumn, self.VisibleColumn)
 
         scan = self.__scan
         if scan is not None:

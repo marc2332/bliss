@@ -174,7 +174,10 @@ class FlintPlot(PlotWindow):
         super(FlintPlot, self).__init__(parent=parent, backend=backend)
         self.sigPlotSignal.connect(self.__plotEvents)
         self.__userInteraction = False
+        self.__curentItem = None
         self.sigActiveCurveChanged.connect(self.__activeCurveChanged)
+        self.sigActiveImageChanged.connect(self.__activeImageChanged)
+        self.sigActiveScatterChanged.connect(self.__activeScatterChanged)
 
         toolbars = self.findChildren(qt.QToolBar)
         for tb in toolbars:
@@ -308,12 +311,39 @@ class FlintPlot(PlotWindow):
 
     def __activeCurveChanged(self, previous, current):
         # FIXME: This have to be provided by silx in a much better way
-        if previous is not None:
-            previous = self.getCurve(previous)
         if current is not None:
             current = self.getCurve(current)
+        else:
+            current = None
+        self.setCurrentItem(current)
+
+    def __activeImageChanged(self, previous, current):
+        # FIXME: This have to be provided by silx in a much better way
+        if current is not None:
+            current = self.getImage(current)
+        else:
+            current = None
+        self.setCurrentItem(current)
+
+    def __activeScatterChanged(self, previous, current):
+        # FIXME: This have to be provided by silx in a much better way
+        if current is not None:
+            current = self.getScatter(current)
+        else:
+            current = None
+        self.setCurrentItem(current)
+
+    def currentItem(self):
+        return self.__curentItem
+
+    def setCurrentItem(self, item):
+        if item is self.__curentItem:
+            return
+        previous = self.__curentItem
+        self.__curentItem = item
         # NOTE: previous and current was swapped
-        self.sigSelectionChanged.emit(current, previous)
+        # FIXME: it would be good to swap them(silx like)
+        self.sigSelectionChanged.emit(item, previous)
 
     def keyPressEvent(self, event):
         with self.userInteraction():

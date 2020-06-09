@@ -413,6 +413,7 @@ class ManageMainBehaviours(qt.QObject):
             defaultWidget.show()
             defaultWidget.raise_()
             defaultWidget.setFocus(qt.Qt.OtherFocusReason)
+            self.__widgetActivated(defaultWidget)
 
     def __dockClosed(self):
         dock = self.sender()

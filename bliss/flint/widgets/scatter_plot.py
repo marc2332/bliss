@@ -548,37 +548,6 @@ class ScatterPlotWidget(plot_helper.PlotWidget):
                 scatter.setVisualization(scatter.Visualization.REGULAR_GRID)
             elif fillStyle == style_model.FillStyle.SCATTER_IRREGULAR_GRID:
                 scatter.setVisualization(scatter.Visualization.IRREGULAR_GRID)
-
-                # FIXME: This have to be removed at one point
-                fast = model_helper.getFastChannel(xChannel, yChannel)
-                if fast is not None:
-                    fastMetadata = fast.metadata()
-                    assert fastMetadata is not None
-                    axisPoints = fastMetadata.axisPoints
-                    if axisPoints is not None:
-                        if len(xx) < axisPoints * 2:
-                            # The 2 first lines have to be displayed
-                            xxx, yyy, vvv = xx, yy, value
-                        elif len(xx) % axisPoints != 0:
-                            # Last line have to be displayed
-                            extra = slice(len(xx) - len(xx) % axisPoints, len(xx))
-                            xxx, yyy, vvv = xx[extra], yy[extra], value[extra]
-                        else:
-                            xxx, yyy, vvv = None, None, None
-                        if xxx is not None:
-                            key2 = plot.addScatter(
-                                x=xxx,
-                                y=yyy,
-                                value=vvv,
-                                legend=legend + "_solid2",
-                                colormap=colormap,
-                                symbol="o",
-                                copy=False,
-                            )
-                            scatter2 = plot.getScatter(key2)
-                            scatter2.setSymbolSize(style.symbolSize)
-                            plotItems.append((key2, "scatter"))
-
             elif fillStyle == style_model.FillStyle.SCATTER_INTERPOLATION:
                 scatter.setVisualization(scatter.Visualization.SOLID)
             else:

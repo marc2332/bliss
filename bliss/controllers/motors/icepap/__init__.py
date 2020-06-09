@@ -110,7 +110,10 @@ class Icepap(Controller):
             try:
                 self.set_on(axis)
             except:
-                sys.excepthook(*sys.exc_info())
+                # display error message only if autopower is explicitly in config
+                if axis.config.get("autopower", converter=bool, default=False):
+                    sys.excepthook(*sys.exc_info())
+                axis._update_settings(AxisState(("DISABLED", "OFF")))
 
         if hasattr(axis, "_init_hardware"):
             axis._init_hardware()

@@ -5,11 +5,13 @@
 # Copyright (c) 2015-2020 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
+import pytest
 from bliss.common import scans
 import nxw_test_utils
 import nxw_test_data
 
 
+@pytest.mark.xfail()
 def test_nxw_notes(nexus_writer_config):
     _test_nxw_notes(**nexus_writer_config)
 

@@ -5,7 +5,6 @@ from bliss.common.counter import SamplingCounter, SamplingMode
 from bliss.controllers.counter import SamplingCounterController
 from bliss.common.axis import AxisState
 from bliss.controllers.motor import Controller
-from bliss.config import static
 
 
 class Moco(object):
@@ -369,8 +368,7 @@ class MocoMotor(Controller):
                 f"moco: only 1 motor is allowed, but {len(axes)} are configured."
             )
 
-        static_config = static.get_config()
-        self.moco = static_config.get(config.get("moco"))
+        self.moco = config.get("moco")
 
         super().__init__(self.moco.name + "_motor", config, axes, *args)
 

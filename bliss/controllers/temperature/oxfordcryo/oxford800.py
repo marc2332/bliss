@@ -9,6 +9,7 @@ import liboxford800
 from liboxford800 import ls_oxford800
 from .oxford import Base
 from functools import wraps
+from bliss.common import temperature
 
 
 def get_cryo(func):
@@ -58,6 +59,11 @@ class Handler(object):
     def read_temperature(self, cryo):
         cryo.wait_new_status()
         return cryo.Sample_temp
+
+    @get_cryo
+    def read_ramprate(self, cryo):
+        cryo.wait_new_status()
+        return cryo.Ramp_rate
 
     @get_cryo
     def ramp(self, cryo, ramp, sp):
@@ -137,3 +143,48 @@ class Oxford800(Base):
             5: "READY",
             6: "FAULT",
         }.get(mode_enum, "UNKNOWN")
+
+
+class Output(temperature.Output):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._ramp_rate = None
+
+    def __info__(self):
+        return self.controller.__info__()
+
+    @temperature.lazy_init
+    def ramprate(self, rate=None):
+        if rate is None:
+            if self._ramp_rate is not None:
+                return self._ramp_rate
+            else:
+                return self.controller._oxford.read_ramprate()
+        else:
+            self._ramp_rate = rate
+            set_point = self.controller._oxford.Set_temp
+            self.controller._oxford.ramp(rate, set_point)
+
+    @temperature.lazy_init
+    def ramp(self, new_setpoint=None, ramp_rate=None):
+        """
+        Get/Set ramp.
+        if function called without argument, return the
+        current set point.
+        if only the **new_setpoint** is passed, start to ramp
+        with the current ramp rate.
+        if ramp_rate is also passed in the argument start ramping
+        with this rate to the new_setpoint.
+        """
+        if new_setpoint is not None:
+            if ramp_rate is None:
+                if self._ramp_rate is None:
+                    ramp_rate = self.controller._oxford.Ramp_rate
+                else:
+                    ramp_rate = self._ramp_rate
+
+            # clear to force read from hardware
+            self._ramp_rate = None
+            return self.controller._oxford.ramp(ramp_rate, new_setpoint)
+        else:
+            return self.controller.get_setpoint(self)

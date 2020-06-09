@@ -101,13 +101,16 @@ class StackMotor(CalcController):
     def calc_from_real(self, positions_dict):
         log_debug(self, "calc_from_real: received positions:\n", positions_dict)
 
-        calc_dict = {"stack": positions_dict["mls"] + positions_dict["mss"]}
+        calc_dict = dict()
+        calc_dict.update({"stack": positions_dict["mls"] + positions_dict["mss"]})
         return calc_dict
 
     def calc_to_real(self, positions_dict):
         ### TODO handle numpy arrays (#1622)
 
         log_debug(self, "calc_to_real: received positions:\n", positions_dict)
+
+        real_dict = dict()
 
         # build dict of current positions
         pos = {
@@ -127,13 +130,13 @@ class StackMotor(CalcController):
                 mss_target = pos[self.mss] + delta
                 mls_target = pos[self.mls]
             else:
-                # small stroke motor is bring back to midle position
+                # small stroke motor is brought back to middle position
                 mss_target = (self.mss_low_limit + self.mss_high_limit) / 2
                 mls_target = positions_dict["stack"] - mss_target
         else:
             mss_target = pos[self.mss]
             mls_target = positions_dict["stack"] - mss_target
 
-        real_dict = {"mls": mls_target, "mss": mss_target}
+        real_dict.update({"mls": mls_target, "mss": mss_target})
 
         return real_dict

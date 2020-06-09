@@ -765,7 +765,11 @@ class Config:
 
     def _get_or_create_path_node(self, base_path):
         node = self._root_node
-        sp_path = base_path.split(os.path.sep)
+        if "/" in base_path:
+            sp_path = base_path.split("/")  # beacon server runs on linux
+        else:
+            sp_path = base_path.split("\\")  # beacon server runs on windows
+
         if sp_path[-1].startswith("@"):
             sp_path.pop()
 

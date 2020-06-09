@@ -12,7 +12,6 @@ import time
 import datetime
 import numpy
 import operator
-import termios
 import shutil
 import signal
 import atexit
@@ -35,6 +34,7 @@ from bliss.scanning.chain import ChainPreset, ChainIterationPreset
 
 
 if sys.platform not in ["win32", "cygwin"]:
+    import termios
     from blessings import Terminal
 else:
 

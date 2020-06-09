@@ -106,6 +106,42 @@ version_info = [x.split("-")[0] for x in version.split(".")]
     return locals()
 
 
+console_script_entry_points = [
+    "bliss = bliss.shell.cli.main:main",
+    "bliss-emulator = bliss.controllers.emulator:main",
+    "beacon-server = bliss.config.conductor.server:main",
+    "bliss-ct2-server = bliss.controllers.ct2.server:main",
+    "bliss-flex-server = bliss.controllers.correlator.flex.server:main",
+    "bliss-handel-server = bliss.controllers.mca.handel.server:main",
+    "bliss-speedgoat-server = bliss.controllers.speedgoat.server:main",
+    "flint = bliss.flint.flint:main",
+    "CT2 = bliss.tango.servers.ct2_ds:main",
+    "BlissAxisManager =  bliss.tango.servers.axis_ds:main",
+    "BlissTempManager = bliss.tango.servers.temp_ds:main",
+    "Musst = bliss.tango.servers.musst_ds:main",
+    "Nanodac = bliss.tango.servers.nanodac_ds:main",
+    "FuelCell = bliss.tango.servers.fuelcell_ds:main",
+    "Gpib = bliss.tango.servers.gpib_ds:main",
+    "Keithley428 = bliss.tango.servers.keithley428_ds:main",
+    "Multiplexer = bliss.tango.servers.multiplexer_ds:main",
+    "LinkamDsc = bliss.tango.servers.linkamdsc_ds:main",
+    "NanoBpm = bliss.tango.servers.nanobpm_ds:main",
+    "NanoBpmServo = bliss.tango.servers.nanobpm_servo_ds:main",
+    "Wago = bliss.tango.servers.wago_ds:main",
+    "NexusWriterService = nexus_writer_service.nexus_writer_service:main",
+    "NexusSessionWriter = nexus_writer_service.subscribers.session_writer:main",
+    "RegisterNexusWriter = nexus_writer_service.nexus_register_writer:main",
+]
+
+if sys.platform not in ["win32", "cygwin"]:
+    console_script_entry_points.append("Bliss = bliss.tango.servers.bliss_ds:main")
+else:
+    # rename bliss device server on windows because commands are not case sensitive
+    console_script_entry_points.append(
+        "BlissServer = bliss.tango.servers.bliss_ds:main"
+    )
+
+
 def main():
     """run setup"""
 
@@ -137,7 +173,7 @@ def main():
         "ruamel.yaml",
         "msgpack >= 0.6.1",
         "msgpack_numpy >= 0.4.4.2",
-        "blessings",
+        'blessings; platform_machine == "x86_64"',
         "h5py",
         "gevent >= 1.4",
         "pygments",
@@ -148,7 +184,7 @@ def main():
         "psutil",
         "requests",
         "cffi",
-        "pygraphviz >= 1.5",
+        'pygraphviz >= 1.5; platform_machine == "x86_64"',
         "networkx",
         "tblib",
         "sortedcontainers",
@@ -206,35 +242,7 @@ def main():
             "bin/SlitsSimulationLimaCCDs",
             "bin/TomoSimulationLimaCCDs",
         ],
-        entry_points={
-            "console_scripts": [
-                "bliss = bliss.shell.cli.main:main",
-                "bliss-emulator = bliss.controllers.emulator:main",
-                "beacon-server = bliss.config.conductor.server:main",
-                "bliss-ct2-server = bliss.controllers.ct2.server:main",
-                "bliss-flex-server = bliss.controllers.correlator.flex.server:main",
-                "bliss-handel-server = bliss.controllers.mca.handel.server:main",
-                "bliss-speedgoat-server = bliss.controllers.speedgoat.server:main",
-                "flint = bliss.flint.flint:main",
-                "CT2 = bliss.tango.servers.ct2_ds:main",
-                "Bliss = bliss.tango.servers.bliss_ds:main",
-                "BlissAxisManager =  bliss.tango.servers.axis_ds:main",
-                "BlissTempManager = bliss.tango.servers.temp_ds:main",
-                "Musst = bliss.tango.servers.musst_ds:main",
-                "Nanodac = bliss.tango.servers.nanodac_ds:main",
-                "FuelCell = bliss.tango.servers.fuelcell_ds:main",
-                "Gpib = bliss.tango.servers.gpib_ds:main",
-                "Keithley428 = bliss.tango.servers.keithley428_ds:main",
-                "Multiplexer = bliss.tango.servers.multiplexer_ds:main",
-                "LinkamDsc = bliss.tango.servers.linkamdsc_ds:main",
-                "NanoBpm = bliss.tango.servers.nanobpm_ds:main",
-                "NanoBpmServo = bliss.tango.servers.nanobpm_servo_ds:main",
-                "Wago = bliss.tango.servers.wago_ds:main",
-                "NexusWriterService = nexus_writer_service.nexus_writer_service:main",
-                "NexusSessionWriter = nexus_writer_service.subscribers.session_writer:main",
-                "RegisterNexusWriter = nexus_writer_service.nexus_register_writer:main",
-            ]
-        },
+        entry_points={"console_scripts": console_script_entry_points},
         install_requires=install_requires,
         tests_require=tests_require,
         setup_requires=setup_requires,

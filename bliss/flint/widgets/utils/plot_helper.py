@@ -339,12 +339,19 @@ class FlintPlot(PlotWindow):
 class FlintItemMixIn:
     def __init__(self):
         self.__plotItem = None
+        self.__scan = None
 
     def customItem(self) -> Optional[plot_model.Item]:
         return self.__plotItem
 
     def setCustomItem(self, item: plot_model.Item):
         self.__plotItem = item
+
+    def setScan(self, scan):
+        self.__scan = scan
+
+    def scan(self):
+        return self.__scan
 
     def getFlintTooltip(
         self, index, flintModel, scan: scan_model.Scan

@@ -234,7 +234,10 @@ class LimaImageParameters(BeaconObject):
 
     @roi.setter
     def roi(self, roi_values):
-        if roi_values is None or roi_values == "NONE":
+        if roi_values is None:
+            self._roi = [0, 0, 0, 0]
+        elif isinstance(roi_values, str) and roi_values == "NONE":
+            # Check it is an str first to avoid to use == within numpy.array
             self._roi = [0, 0, 0, 0]
         elif len(roi_values) == 4:
             new_roi = self._calc_roi(

@@ -38,6 +38,7 @@ from .utils import marker_action
 from .utils import export_action
 from .utils import profile_action
 from .utils import plot_action
+from .utils import style_action
 
 
 _logger = logging.getLogger(__name__)
@@ -145,6 +146,15 @@ class ScatterPlotWidget(plot_helper.PlotWidget):
         )
         toolBar.addSeparator()
 
+        # Item
+        action = style_action.FlintItemStyleAction(self.__plot, self)
+        toolBar.addAction(action)
+        self.__styleAction = action
+        action = style_action.FlintItemContrastAction(self.__plot, self)
+        toolBar.addAction(action)
+        self.__contrastAction = action
+        toolBar.addSeparator()
+
         # Tools
         action = control.CrosshairAction(self.__plot, parent=self)
         action.setIcon(icons.getQIcon("flint:icons/crosshair"))
@@ -204,6 +214,8 @@ class ScatterPlotWidget(plot_helper.PlotWidget):
     def setFlintModel(self, flintModel: Optional[flint_model.FlintState]):
         self.__flintModel = flintModel
         self.__exportAction.setFlintModel(flintModel)
+        self.__styleAction.setFlintModel(flintModel)
+        self.__contrastAction.setFlintModel(flintModel)
 
     def setPlotModel(self, plotModel: plot_model.Plot):
         if self.__plotModel is not None:
@@ -541,6 +553,7 @@ class ScatterPlotWidget(plot_helper.PlotWidget):
             scatter.setData(x=xx, y=yy, value=value, copy=False)
             scatter.setColormap(colormap)
             scatter.setCustomItem(item)
+            scatter.setScan(scan)
             key = legend + "_solid"
             scatter.setName(key)
             plot.addItem(scatter)
@@ -583,6 +596,7 @@ class ScatterPlotWidget(plot_helper.PlotWidget):
             scatter.setSymbol(symbolStyle)
             scatter.setSymbolSize(style.symbolSize)
             scatter.setCustomItem(item)
+            scatter.setScan(scan)
             key = legend + "_point"
             scatter.setName(key)
             plot.addItem(scatter)

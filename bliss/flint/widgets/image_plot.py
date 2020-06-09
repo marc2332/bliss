@@ -36,6 +36,7 @@ from .utils import marker_action
 from .utils import camera_live_action
 from .utils import profile_action
 from .utils import plot_action
+from .utils import style_action
 
 
 _logger = logging.getLogger(__name__)
@@ -225,6 +226,15 @@ class ImagePlotWidget(plot_helper.PlotWidget):
         toolBar.addAction(plot_action.CustomAxisAction(self.__plot, self, kind="image"))
         toolBar.addSeparator()
 
+        # Item
+        action = style_action.FlintItemStyleAction(self.__plot, self)
+        toolBar.addAction(action)
+        self.__styleAction = action
+        action = style_action.FlintItemContrastAction(self.__plot, self)
+        toolBar.addAction(action)
+        self.__contrastAction = action
+        toolBar.addSeparator()
+
         # Tools
         self.liveAction = camera_live_action.CameraLiveAction(self)
         toolBar.addAction(self.liveAction)
@@ -283,6 +293,8 @@ class ImagePlotWidget(plot_helper.PlotWidget):
     def setFlintModel(self, flintModel: Optional[flint_model.FlintState]):
         self.__flintModel = flintModel
         self.__exportAction.setFlintModel(flintModel)
+        self.__styleAction.setFlintModel(flintModel)
+        self.__contrastAction.setFlintModel(flintModel)
 
     def setPlotModel(self, plotModel: plot_model.Plot):
         if self.__plotModel is not None:
@@ -581,6 +593,7 @@ class ImagePlotWidget(plot_helper.PlotWidget):
             imageItem.setColormap(colormap)
             imageItem.setData(image, copy=False)
             imageItem.setCustomItem(item)
+            imageItem.setScan(scan)
             imageItem.setName(legend)
             self.__plot.addItem(imageItem)
 

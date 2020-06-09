@@ -46,14 +46,12 @@ def fd_leak_ctx(prefix=""):
 
 def listenscan(db_name):
     scannode = get_node(db_name)
-    it = scannode.iterator
     try:
-        for event_type, datanode, event_data in it.walk_events():
+        for event_type, datanode, event_data in scannode.walk_events():
             del datanode
             continue
     except gevent.GreenletExit:
         pass
-    del it
     del scannode
     while gc.collect():
         pass
@@ -63,30 +61,26 @@ def listensession(session_name, finishevent):
     writers = {}
     with fd_leak_ctx("\nget_session_node: "):
         sessionnode = get_session_node(session_name)
-        with fd_leak_ctx("\nsession iterator: "):
-            it = sessionnode.iterator
-            with fd_leak_ctx("\nsession walk_events: "):
-                try:
-                    fds = None
-                    for event_type, scannode, event_data in it.walk_on_new_events(
-                        filter="scan"
-                    ):
-                        if fds is None:
-                            fds = file_descriptors()
-                        if event_type == event_type.NEW_NODE:
-                            g = gevent.spawn(listenscan, scannode.db_name)
-                            writers[scannode.name] = g
-                        elif event_type == event_type.END_SCAN:
-                            g = writers.pop(scannode.name)
-                            g.kill()
-                            g.join()
-                        if not writers:
-                            finishevent.set()
-                            fd_leaks_diff(fds, prefix="\nparallel scans done: ")
-                except gevent.GreenletExit:
-                    if writers:
-                        raise RuntimeError("Not all writers received END_SCAN")
-            del it
+        with fd_leak_ctx("\nsession walk_events: "):
+            try:
+                fds = None
+                it = sessionnode.walk_on_new_events(filter="scan")
+                for event_type, scannode, event_data in it:
+                    if fds is None:
+                        fds = file_descriptors()
+                    if event_type == event_type.NEW_NODE:
+                        g = gevent.spawn(listenscan, scannode.db_name)
+                        writers[scannode.name] = g
+                    elif event_type == event_type.END_SCAN:
+                        g = writers.pop(scannode.name)
+                        g.kill()
+                        g.join()
+                    if not writers:
+                        finishevent.set()
+                        fd_leaks_diff(fds, prefix="\nparallel scans done: ")
+            except gevent.GreenletExit:
+                if writers:
+                    raise RuntimeError("Not all writers received END_SCAN")
         del sessionnode
 
 

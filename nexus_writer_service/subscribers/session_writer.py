@@ -173,9 +173,7 @@ class NexusSessionWriter(base_subscriber.BaseSubscriber):
         super().stop(**kwargs)
 
     def _walk_events(self, **kwargs):
-        yield from self._node_iterator.walk_on_new_events(
-            filter=["scan_group", "scan"], **kwargs
-        )
+        yield from self.node.walk_on_new_events(filter=["scan_group", "scan"], **kwargs)
 
     def _event_loop_initialize(self, **kwargs):
         """

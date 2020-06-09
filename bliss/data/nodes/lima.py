@@ -534,7 +534,7 @@ class LimaImageChannelDataNode(DataNode):
             # no alias, name must be fullname
             self._struct.name = fullname
 
-        self.data = self.create_data_stream("%s_data" % self.db_name, maxlen=1)
+        self.data = self.create_associated_stream("data", maxlen=1)
         self.data_ref = QueueObjSetting(
             f"{self.db_name}_data_ref", connection=self.db_connection
         )

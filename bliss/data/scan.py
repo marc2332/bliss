@@ -96,11 +96,8 @@ def watch_session_scans(
             scans
     """
     session_node = _get_or_create_node(session_name, node_type="session")
-
     if session_node is None:
         return
-
-    data_iterator = session_node.iterator
     running_scans = dict()
 
     def _get_scan_info(db_name):
@@ -111,7 +108,7 @@ def watch_session_scans(
 
     if ready_event is not None:
         ready_event.set()
-    for event_type, node, event_data in data_iterator.walk_on_new_events(
+    for event_type, node, event_data in session_node.walk_on_new_events(
         stop_handler=stop_handler
     ):
         if event_type == event_type.NEW_NODE:

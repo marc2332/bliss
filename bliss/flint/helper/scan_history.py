@@ -49,7 +49,7 @@ def get_all_scans(session_name: str) -> typing.List[ScanDesc]:
             return default
 
     session_node = get_session_node(session_name)
-    for scan in session_node.iterator.walk(wait=False, filter="scan"):
+    for scan in session_node.walk(wait=False, filter="scan"):
         try:
             info = scan.info
             node_name = info["node_name"]
@@ -79,7 +79,7 @@ def get_data_from_redis(
 
     result = {}
     scan = get_node(scan_node_name)
-    for node in scan.iterator.walk(wait=False):
+    for node in scan.walk(wait=False):
         if node.name not in channel_names:
             continue
         try:

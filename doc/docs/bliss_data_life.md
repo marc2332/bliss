@@ -34,7 +34,7 @@ and [PyMca](http://pymca.sourceforge.net/)
 from bliss.data import node
 
 session_node = node.get_session_node('demo_session')
-for event,*values in session_node.iterator.walk_on_new_events(filter='scan'):
+for event,*values in session_node.walk_on_new_events(filter='scan'):
     if event == event.NEW_NODE:
         scan = values[0]
         print(f'Scan {scan.db_name} started')
@@ -65,7 +65,7 @@ max_value = 0.
 # communcation channel for bliss session
 stop_alignment = channels.Channel('stop_alignment',default_value=False)
 session_node = node.get_session_node('demo_session')
-for event,*values in session_node.iterator.walk_on_new_events():
+for event,*values in session_node.walk_on_new_events():
     if event == event.NEW_NODE:
         node = values[0]
         if node.type == 'scan':

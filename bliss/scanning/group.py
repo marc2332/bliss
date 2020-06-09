@@ -241,7 +241,7 @@ class Group(Sequence):
                     scan = s.node
                 elif type(s) == int:
                     node_found = False
-                    for node in get_session_node(current_session.name).iterator.walk(
+                    for node in get_session_node(current_session.name).walk(
                         filter="scan", wait=False
                     ):
                         if node.info["scan_nb"] == s:
@@ -304,7 +304,7 @@ class GroupingMaster(AcquisitionMaster):
 
         # handling of ttl of subscan
         if scan.connection.ttl(scan.db_name) > 0:
-            for n in scan.iterator.walk(wait=False):
+            for n in scan.walk(wait=False):
                 if n.connection.ttl(n.db_name) > 0:
                     n.set_ttl()
 

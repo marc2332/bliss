@@ -228,17 +228,6 @@ class BaseSubscriber(object):
             return get_node(self.node_type, self.db_name)
 
     @property
-    def _node_iterator(self):
-        if self._local_greenlet:
-            try:
-                return self._greenlet._iterator
-            except AttributeError:
-                it = self._greenlet._iterator = self.node.iterator
-                return it
-        else:
-            return None
-
-    @property
     def _nodes(self):
         if self._greenlet is None:
             return []
@@ -376,7 +365,7 @@ class BaseSubscriber(object):
                 )
 
     def _walk_events(self, **kwargs):
-        yield from self._node_iterator.walk_events(**kwargs)
+        yield from self.node.walk_events(**kwargs)
 
     def _process_event(self, event_type, node, event_data):
         """

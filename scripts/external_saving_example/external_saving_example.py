@@ -92,8 +92,7 @@ class HDF5_Writer(object):
         """This function will be used to treat events emitted by the scan."""
         # ~ print("writer run", self.scan_node.db_name)
 
-        scan_iterator = self.scan_node.iterator
-        for event_type, node, event_data in scan_iterator.walk_events():
+        for event_type, node, event_data in self.scan_node.walk_events():
             # ~ print(self.scan_db_name, event_type, node.type)
             # creating new dataset for channel
             if event_type == event_type.NEW_NODE and node.type == "channel":
@@ -317,7 +316,7 @@ class HDF5_Writer(object):
             instrument_meta["positioners_dial"]["@NX_class"] = "NXcollection"
 
         base_db_name = self.scan_node.db_name
-        for node in self.scan_node.iterator.walk(wait=False):
+        for node in self.scan_node.walk(wait=False):
             if node.db_name == base_db_name:
                 continue
             if not isinstance(node, ChannelDataNode) and not isinstance(
@@ -374,7 +373,7 @@ def listen_scans_of_session(session, scan_stack=dict()):
 
         # wait for new events on scan
         print("Listening to", session)
-        for event_type, node, event_data in session_node.iterator.walk_on_new_events(
+        for event_type, node, event_data in session_node.walk_on_new_events(
             filter=["scan", "scan_group"]
         ):
             if event_type == event_type.NEW_NODE:

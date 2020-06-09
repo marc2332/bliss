@@ -49,36 +49,22 @@ A LimaChannelDataNode is represented by 4 Redis keys:
  {db_name}_data -> DataStream, list of reference data
 """
 import time
-import datetime
-import enum
 import inspect
 import pkgutil
 import os
 import weakref
-import gevent
-from sortedcontainers import SortedSet
-
+import warnings
 from bliss.common.event import dispatcher
 from bliss.common.utils import grouped
 from bliss.common.greenlet_utils import protect_from_kill, AllowKill
 from bliss.config.conductor import client
 from bliss.config import settings
-from bliss.config.streaming import DataStream, DataStreamReader, stream_decr_index
+from bliss.config import streaming
+from bliss.config import streaming_events
 from bliss.data.events import Event, EventType
 
 
-def is_zerod(node):
-    return node.type == "channel" and len(node.shape) == 0
-
-
-def to_timestamp(dt, epoch=None):
-    if epoch is None:
-        epoch = datetime.datetime(1970, 1, 1)
-    td = dt - epoch
-    return td.microseconds / float(10 ** 6) + td.seconds + td.days * 86400
-
-
-SCAN_TYPES = set(("scan", "scan_group"))
+SCAN_TYPES = {"scan", "scan_group"}
 
 # make list of available plugins for generating DataNode objects
 node_plugins = dict()
@@ -117,8 +103,13 @@ def get_node(db_name, connection=None):
     return get_nodes(db_name, connection=connection)[0]
 
 
-def get_nodes(*db_names, **keys):
-    connection = keys.get("connection")
+def get_nodes(*db_names, **kw):
+    """
+    :param `*db_names`: str
+    :param connection:
+    :return list(DataNode):
+    """
+    connection = kw.get("connection")
     if connection is None:
         connection = client.get_redis_connection(db=1)
     pipeline = connection.pipeline()
@@ -127,18 +118,18 @@ def get_nodes(*db_names, **keys):
         data.name
         data.node_type
     return [
-        _get_node_object(
+        None
+        if name is None
+        else _get_node_object(
             None if node_type is None else node_type.decode(), db_name, None, connection
         )
-        if name is not None
-        else None
         for db_name, (name, node_type) in zip(db_names, grouped(pipeline.execute(), 2))
     ]
 
 
 def get_session_node(session_name):
     """ Return a session node even if the session doesn't exist yet.
-    This method is an helper if you want to follow a session with an DataNodeIterator.
+    This method is an helper if you want to follow session events.
     """
     if session_name.find(":") > -1:
         raise ValueError(f"Session name can't contains ':' -> ({session_name})")
@@ -177,311 +168,23 @@ def _get_or_create_node(name, node_type=None, parent=None, connection=None, **ke
 
 
 class DataNodeIterator(object):
+    """Iterate over nodes or events of a DataNode
+    """
+
     def __init__(self, node):
+        warnings.warn(
+            "DataNodeIterator is deprecated. Use 'DataNode.walk' instead.",
+            FutureWarning,
+        )
         self.node = node
 
-    def get_nodes(self, *args):
-        return self.node.get_nodes(*args)
-
-    def create_data_stream(self, name):
-        return self.node.create_data_stream(name)
-
-    def scan_redis(self, match):
-        return self.node.scan_redis(match)
-
-    @protect_from_kill
-    def walk(
-        self,
-        filter=None,
-        wait=True,
-        stop_handler=None,
-        stream_status=None,
-        first_index="0",
-    ):
-        """Iterate over child nodes that match the `filter` argument
-
-           If wait is True (default), the function blocks until a new node appears
-        """
-        if self.node is None:
-            raise ValueError("Invalid node: node is None.")
-
-        if isinstance(filter, str):
-            filter = (filter,)
-        elif filter:
-            filter = tuple(filter)
-        stream2nodes = weakref.WeakKeyDictionary()
-        with DataStreamReader(
-            block=0 if wait else None,
-            stop_handler=stop_handler,
-            stream_status=stream_status,
-        ) as reader:
-            yield from self._loop_on_event(
-                reader, stream2nodes, filter, first_index, self._iter_new_child
-            )
-
-    def _loop_on_event(
-        self,
-        reader,
-        stream2nodes,
-        filter,
-        first_index,
-        new_child_func,
-        new_data_event=False,
-    ):
-        children_stream = self.create_data_stream(f"{self.node.db_name}_children_list")
-        reader.add_streams(children_stream, first_index=first_index)
-        self._add_existing_children(
-            reader,
-            stream2nodes,
-            f"{self.node.db_name}:",
-            first_index,
-            filter_scan=self.node.type not in SCAN_TYPES,
-        )
-        # In case the node is a scan we register also to the end of the scan
-        if self.node.type in SCAN_TYPES:
-            # also register for new data
-            if new_data_event:
-                data_stream_names = list(self.scan_redis(f"{self.node.db_name}:*_data"))
-                child_nodes = self.get_nodes(
-                    *(name[: -len("_data")] for name in data_stream_names)
-                )
-                data_streams = {
-                    self.create_data_stream(name): node
-                    for name, node in zip(data_stream_names, child_nodes)
-                    if node is not None
-                }
-                stream2nodes.update(data_streams)
-                reader.add_streams(*data_streams, first_index=0)
-            scan_data_stream = self.create_data_stream(f"{self.node.db_name}_data")
-            stream2nodes[scan_data_stream] = self.node
-            reader.add_streams(scan_data_stream, first_index=0, priority=1)
-        elif new_data_event:
-            data_stream = self.create_data_stream(f"{self.node.db_name}_data")
-            stream2nodes[data_stream] = self.node
-            reader.add_streams(data_stream, first_index=0)
-
-        for stream, events in reader:
-            if stream.name.endswith("_children_list"):
-                children = {
-                    value.get(self.node.CHILD_KEY).decode(): index
-                    for index, value in events
-                }
-                new_stream = [
-                    self.create_data_stream(f"{name}_children_list")
-                    for name in children
-                ]
-                reader.add_streams(*new_stream, first_index=first_index)
-                yield from new_child_func(
-                    reader, stream2nodes, filter, stream, children, first_index
-                )
-            else:
-                node = stream2nodes.get(stream)
-                # New event on scan
-                if node and node.type in SCAN_TYPES:
-                    for index, values in events:
-                        ev = values.get(node.EVENT_TYPE_KEY, "")
-                        if ev == node.END_EVENT:
-                            if new_data_event:
-                                with AllowKill():
-                                    yield Event(type=EventType.END_SCAN, node=node)
-                            reader.remove_match_streams(f"{node.db_name}*")
-                elif node is not None:
-                    data = node.decode_raw_events(events)
-                    with AllowKill():
-                        yield Event(type=EventType.NEW_DATA, node=node, data=data)
-
-    def _iter_new_child(
-        self, reader, stream2nodes, filter, stream, children, first_index
-    ):
-        with settings.pipeline(stream):
-            for (child_name, index), new_child in zip(
-                children.items(), self.get_nodes(*children)
-            ):
-                if new_child is not None:
-                    if filter is None or new_child.type in filter:
-                        with AllowKill():
-                            yield new_child
-                    if new_child.type in SCAN_TYPES:
-                        self._add_existing_children(
-                            reader, stream2nodes, child_name, first_index
-                        )
-                        # Watching END scan event to clear all streams link with this scan
-                        data_stream = self.create_data_stream(f"{child_name}_data")
-                        stream2nodes[data_stream] = new_child
-                        reader.add_streams(data_stream, first_index=0, priority=1)
-
-                else:
-                    stream.remove(index)
-
-    def _iter_new_child_with_data(
-        self, reader, stream2nodes, filter, stream, children, first_index
-    ):
-        with settings.pipeline(stream):
-            for (child_name, index), new_child in zip(
-                children.items(), self.get_nodes(*children)
-            ):
-                if new_child is not None:
-                    if filter is None or new_child.type in filter:
-                        if new_child.type not in SCAN_TYPES:
-                            data_stream = self.create_data_stream(f"{child_name}_data")
-                            stream2nodes[data_stream] = new_child
-                            reader.add_streams(data_stream, first_index=0)
-                        with AllowKill():
-                            yield Event(type=EventType.NEW_NODE, node=new_child)
-                    if new_child.type in SCAN_TYPES:
-                        # Need to listen all data streams already known
-                        self._add_existing_children(
-                            reader, stream2nodes, child_name, first_index
-                        )
-                        data_stream_names = list(
-                            self.scan_redis(f"{child_name}:*_data")
-                        )
-                        sub_child_nodes = self.get_nodes(
-                            *(x[: -len("_data")] for x in data_stream_names)
-                        )
-                        new_sub_child_streams = list()
-                        for sub_child_name, sub_child_node in zip(
-                            data_stream_names, sub_child_nodes
-                        ):
-                            if sub_child_node is not None:
-                                if filter is None or sub_child_node.type in filter:
-                                    if sub_child_node.type in SCAN_TYPES:
-                                        continue
-
-                                    data_stream = self.create_data_stream(
-                                        sub_child_name
-                                    )
-                                    stream2nodes[data_stream] = sub_child_node
-                                    new_sub_child_streams.append(data_stream)
-                        if new_sub_child_streams:
-                            reader.add_streams(*new_sub_child_streams, first_index=0)
-
-                        # In case of scan we must put the listening of it (its stream)
-                        # At the ends of all streams of that branch
-                        # otherwise SCAN_END arrive before other datas.
-                        # so stream priority == 1
-                        # Watching END scan event to clear all streams link with this scan
-                        data_stream = self.create_data_stream(f"{child_name}_data")
-                        stream2nodes[data_stream] = new_child
-                        reader.add_streams(data_stream, first_index=0, priority=1)
-                else:
-                    stream.remove(index)
-
-    def _add_existing_children(
-        self, reader, stream2nodes, parent_db_name, first_index, filter_scan=False
-    ):
-        """
-        Adding already known children stream for this parent
-        """
-
-        def depth_sort(s):
-            return s.count(":")
-
-        streams_names = sorted(
-            self.scan_redis(f"{parent_db_name}*_children_list"), key=depth_sort
-        )
-        if filter_scan:
-            # We don't add scan nodes and underneath
-            child_node = self.get_nodes(
-                *(name[: -len("_children_list")] for name in streams_names)
-            )
-            scan_names = list(
-                n.db_name for n in child_node if n is not None and n.type in SCAN_TYPES
-            )
-            children_stream = list()
-            for stream_name in streams_names:
-                for scan_name in scan_names:
-                    if stream_name.startswith(scan_name):
-                        break
-                else:
-                    children_stream.append(self.create_data_stream(stream_name))
-        else:
-            children_stream = (
-                self.create_data_stream(stream_name) for stream_name in streams_names
-            )
-        reader.add_streams(*children_stream, first_index=first_index)
-
-    @protect_from_kill
-    def walk_from_last(
-        self, filter=None, wait=True, include_last=True, stop_handler=None
-    ):
-        """Walk from the last child node (see walk)
-        """
-        stream_status = dict()
-        first_index = int(time.time() * 1000)
-        if include_last:
-            children_stream = self.create_data_stream(
-                f"{self.node.db_name}_children_list"
-            )
-            children = children_stream.rev_range(count=1)
-            if children:
-                last_index, _ = children[-1]
-                last_index = stream_decr_index(last_index)
-                last_node = None
-                for last_node in self.walk(
-                    filter,
-                    wait=False,
-                    stream_status=stream_status,
-                    first_index=last_index,
-                ):
-                    pass
-                if last_node is not None:
-                    yield last_node
-                    parent = last_node.parent
-                    children_stream = self.create_data_stream(
-                        f"{parent.db_name}_children_list"
-                    )
-                    # look for the last_node
-                    for index, child_info in children_stream.rev_range():
-                        db_name = child_info.get(parent.CHILD_KEY, b"").decode()
-                        if db_name == last_node.db_name:
-                            break
-                    else:
-                        raise RuntimeError("Something weird happen")
-                    first_index = index
-        yield from self.walk(
-            filter,
-            wait=wait,
-            stream_status=stream_status,
-            first_index=first_index,
-            stop_handler=stop_handler,
-        )
-
-    def walk_on_new_events(self, filter=None, stream_status=None, stop_handler=None):
-        """Yields future events"""
-        yield from self.walk_events(
-            filter,
-            first_index=int(time.time() * 1000),
-            stream_status=stream_status,
-            stop_handler=stop_handler,
-        )
-
-    @protect_from_kill
-    def walk_events(
-        self, filter=None, first_index="0", stream_status=None, stop_handler=None
-    ):
-        """Walk through child nodes, just like `walk` function,
-        yielding node events (instance of `Event`) instead of node objects
-        """
-        if isinstance(filter, str):
-            filter = (filter,)
-        elif filter:
-            filter = tuple(filter)
-        stream2nodes = weakref.WeakKeyDictionary()
-        with DataStreamReader(
-            stream_status=stream_status, stop_handler=stop_handler
-        ) as reader:
-            yield from self._loop_on_event(
-                reader,
-                stream2nodes,
-                filter,
-                first_index,
-                self._iter_new_child_with_data,
-                new_data_event=True,
-            )
+    def __getattr__(self, attr):
+        return getattr(self.node, attr)
 
 
 def set_ttl(db_name):
+    """Create a new DataNode in order to call its set_ttl
+    """
     node = get_node(db_name)
     if node is not None:
         node.set_ttl()
@@ -530,17 +233,42 @@ class DataNode:
         # node type cache
         self.node_type = node_type
 
-    def get_nodes(self, *args):
-        return get_nodes(*args, connection=self.db_connection)
+    def get_nodes(self, *db_names):
+        """
+        :param `*db_names`: str
+        :return list(DataNode):
+        """
+        return get_nodes(*db_names, connection=self.db_connection)
 
-    def get_node(self, *args):
-        return get_node(*args, connection=self.db_connection)
+    def get_node(self, db_name):
+        """
+        :param str db_name:
+        :return DataNode:
+        """
+        return get_node(db_name, connection=self.db_connection)
 
-    def create_data_stream(self, name, **kw):
-        return DataStream(name, connection=self.db_connection, **kw)
+    def create_stream(self, name, **kw):
+        """
+        :param str name:
+        :param `**kw`: see `DataStream`
+        :returns DataStream:
+        """
+        return streaming.DataStream(name, connection=self.db_connection, **kw)
 
-    def scan_redis(self, match):
-        return (x.decode() for x in self.db_connection.keys(match))
+    def create_associated_stream(self, suffix, **kw):
+        """
+        :param str suffix:
+        :param `**kw`: see `create_stream`
+        :returns DataStream:
+        """
+        return self.create_stream(f"{self.db_name}_{suffix}", **kw)
+
+    def search_redis(self, pattern):
+        """
+        :param str pattern:
+        :returns generator: db_name generator
+        """
+        return (x.decode() for x in self.db_connection.keys(pattern))
 
     def _get_struct(self, db_name):
         return settings.Struct(db_name, connection=self.db_connection)
@@ -621,10 +349,282 @@ class DataNode:
             db_names.extend(parent._get_db_names())
         return db_names
 
+    @protect_from_kill
+    def walk(
+        self,
+        filter=None,
+        wait=True,
+        stop_handler=None,
+        active_streams=None,
+        first_index=0,
+    ):
+        """Iterate over child nodes that match the `filter` argument
+
+        :param tuple filter: only these DataNode types are allowed (all by default)
+        :param bool wait: if wait is True (default), the function blocks
+                          until a new node appears
+        :param DataStreamReaderStopHandler stop_handler:
+        :param dict active_streams: stream name (str) -> stream info (dict)
+        :param str or int first_index: Redis stream ID
+        :yields DataNode:
+        """
+        with streaming.DataStreamReader(
+            wait=wait, stop_handler=stop_handler, active_streams=active_streams
+        ) as reader:
+            yield from self._iter_reader(
+                reader, filter=filter, first_index=first_index, yield_events=False
+            )
+
+    @protect_from_kill
+    def walk_from_last(
+        self, filter=None, wait=True, include_last=True, stop_handler=None
+    ):
+        """Walk from the last child node (see walk)
+
+        :param tuple filter: only these DataNode types are allowed (all by default)
+        :param bool wait: if wait is True (default), the function blocks
+                          until a new node appears
+        :param bool include_last:
+        :param DataStreamReaderStopHandler stop_handler:
+        :yields DataNode:
+        """
+        if include_last:
+            last_node, active_streams = self._get_last_child(filter=filter)
+            if last_node is not None:
+                yield last_node
+                # Start walking from this node's index:
+                first_index = last_node.get_children_stream_index()
+                if first_index is None:
+                    raise RuntimeError(
+                        f"{last_node.db_name} was not added to the children stream of its parent"
+                    )
+        else:
+            active_streams = dict()
+            # Start walking from "now":
+            first_index = streaming.DataStream.now_index()
+        yield from self.walk(
+            filter,
+            wait=wait,
+            active_streams=active_streams,
+            first_index=first_index,
+            stop_handler=stop_handler,
+        )
+
+    @protect_from_kill
+    def walk_events(
+        self, filter=None, first_index=0, active_streams=None, stop_handler=None
+    ):
+        """Iterate over node and children node events starting from a
+        particular stream index.
+
+        :param tuple filter: only these DataNode types are allowed (all by default)
+        :param str or int first_index: Redis stream ID
+        :param dict active_streams: stream name (str) -> stream info (dict)
+        :param DataStreamReaderStopHandler stop_handler:
+        :yields Event:
+        """
+        with streaming.DataStreamReader(
+            active_streams=active_streams, stop_handler=stop_handler
+        ) as reader:
+            yield from self._iter_reader(
+                reader, filter=filter, first_index=first_index, yield_events=True
+            )
+
+    def walk_on_new_events(self, **kw):
+        """Iterate over node and children node events starting from now.
+
+        :param `**kw`: see `walk_events`
+        :yields Event:
+        """
+        yield from self.walk_events(first_index=streaming.DataStream.now_index(), **kw)
+
+    def _iter_reader(self, reader, filter=None, first_index=0, yield_events=False):
+        """Iterate over the DataStreamReader
+
+        :param DataStreamReader reader:
+        :param tuple filter: only these DataNode types are allowed (all by default)
+        :param str or int first_index: Redis stream ID
+        :param bool yield_events: return Event or DataNode
+        :yields Event or DataNode:
+        """
+        if isinstance(filter, str):
+            filter = (filter,)
+        elif filter:
+            filter = tuple(filter)
+        if yield_events:
+            new_child_func = self._yield_events
+        else:
+            new_child_func = self._yield_nodes
+        self.subscribe_initial_streams(
+            reader, first_index=first_index, yield_data=yield_events
+        )
+        for stream, events in reader:
+            if stream.name.endswith("_children_list"):
+                children = self._read_children_stream(stream_events=events)
+                new_stream = [
+                    self.create_stream(f"{name}_children_list") for name in children
+                ]
+                reader.add_streams(*new_stream, first_index=first_index)
+                yield from new_child_func(reader, filter, stream, children, first_index)
+            else:
+                node = reader.get_stream_info(stream, "node")
+                # New event on scan
+                if node.type in SCAN_TYPES:
+                    data = node.decode_raw_events(events)
+                    if data is None:
+                        continue
+                    if yield_events:
+                        with AllowKill():
+                            yield Event(type=EventType.END_SCAN, node=node, data=data)
+                    # Stop reading events from the scan
+                    reader.remove_matching_streams(f"{node.db_name}*")
+                else:
+                    data = node.decode_raw_events(events)
+                    with AllowKill():
+                        yield Event(type=EventType.NEW_DATA, node=node, data=data)
+
+    def _yield_nodes(self, reader, filter, stream, children, first_index):
+        """
+        :param DataStreamReader reader:
+        :param tuple filter: only these DataNode types are allowed (all by default)
+        :param DataStream stream:
+        :param dict children: db_name -> stream ID
+        :param str or int first_index: Redis stream ID
+        :yields DataNode:
+        """
+        for db_name, node in self._iter_new_children(stream, children):
+            # Yield the node, unless it is filtered out
+            if not filter or node.type in filter:
+                with AllowKill():
+                    yield node
+            if node.type in SCAN_TYPES:
+                node.subscribe_existing_children_streams(
+                    "children_list",
+                    reader,
+                    include_parent=True,
+                    first_index=first_index,
+                )
+                node.subscribe_stream("data", reader, first_index=0)
+
+    def _yield_events(self, reader, filter, stream, children, first_index):
+        """
+        :param DataStreamReader reader:
+        :param tuple filter: only these DataNode types are allowed (all by default)
+        :param DataStream stream:
+        :param dict children: node.db_name -> stream ID
+        :param str or int first_index: Redis stream ID
+        :yields Event:
+        """
+        for db_name, node in self._iter_new_children(stream, children):
+            # Yield the node's event and subscriber to the node's data stream,
+            # unless the node is filtered out
+            if not filter or node.type in filter:
+                if node.type not in SCAN_TYPES:
+                    node.subscribe_stream("data", reader, first_index=0)
+                with AllowKill():
+                    yield Event(type=EventType.NEW_NODE, node=node)
+            # Subscribe to
+            if node.type in SCAN_TYPES:
+                node.subscribe_existing_children_streams(
+                    "children_list",
+                    reader,
+                    include_parent=True,
+                    first_index=first_index,
+                )
+                node.subscribe_existing_children_streams(
+                    "data",
+                    reader,
+                    include_parent=False,
+                    first_index=0,
+                    forbidden_types=SCAN_TYPES,  # TODO why?
+                    allowed_types=filter,
+                )
+                node.subscribe_stream("data", reader, first_index=0)
+
+    def _get_last_child(self, filter=None):
+        """Get the last child added to the _children_list stream
+
+        :param tuple filter: only these DataNode types are allowed (all by default)
+        :returns 2-tuple: DataNode, active streams
+        """
+        # TODO: Why do we need to walk and
+        #       not just return the last node
+        #       from the _children_list stream?
+        active_streams = dict()
+        children_stream = self.create_associated_stream("children_list")
+        first_index = children_stream.before_last_index()
+        if first_index is None:
+            return None, active_streams
+        last_node = None
+        for last_node in self.walk(
+            filter, wait=False, active_streams=active_streams, first_index=first_index
+        ):
+            pass
+        return last_node, active_streams
+
+    def subscribe_stream(self, stream_suffix, reader, create=True, **kw):
+        """Subscribe to a stream with a particular name,
+        associated with this node.
+
+        :param str stream_suffix: stream to add is "{db_name}_{stream_suffix}"
+        :param DataStreamReader reader:
+        :param bool create: create when missing
+        :param `**kw`: see `DataStreamReader.add_streams`
+        """
+        stream_name = f"{self.db_name}_{stream_suffix}"
+        if not create:
+            if not self.db_connection.exists(stream_name):
+                return
+        stream = self.create_stream(stream_name)
+        reader.add_streams(stream, node=self, **kw)
+        # print(stream_name, kw)
+
+    def subscribe_initial_streams(self, reader, yield_data=False, **kw):
+        """Subscribe to a minimal amount of streams so
+        we can eventually get all nodes and events.
+
+        :param DataStreamReader reader:
+        :param bool yield_data:
+        """
+        if yield_data:
+            # Always subscribe to the *_data stream
+            # from the start (index 0)
+            self.subscribe_stream("data", reader, first_index=0)
+
+    def get_children_stream_index(self):
+        """Get the node's stream ID in parent node's _children_list stream
+
+        :returns bytes or None: stream ID
+        """
+        children_stream = self.parent.create_associated_stream("children_list")
+        for index, raw in children_stream.rev_range():
+            db_name = NewDataNodeEvent(raw=raw).db_name
+            if db_name == self.db_name:
+                break
+        else:
+            return None
+        return index
+
+
+class NewDataNodeEvent(streaming_events.StreamEvent):
+
+    TYPE = b"NEW_DATA_NODE"
+    DB_KEY = b"db_name"
+
+    def init(self, db_name):
+        self.db_name = db_name
+
+    def _encode(self):
+        raw = super()._encode()
+        raw[self.DB_KEY] = self.encode_string(self.db_name)
+        return raw
+
+    def _decode(self, raw):
+        super()._decode(raw)
+        self.db_name = self.decode_string(raw[self.DB_KEY])
+
 
 class DataNodeContainer(DataNode):
-    CHILD_KEY = b"child"
-
     def __init__(
         self, node_type, name, parent=None, connection=None, create=False, **keys
     ):
@@ -638,34 +638,155 @@ class DataNodeContainer(DataNode):
             **keys,
         )
         db_name = name if parent is None else self.db_name
-        children_queue_name = "%s_children_list" % db_name
-        self._children = self.create_data_stream(children_queue_name)
+        self._children_stream = self.create_stream(f"{db_name}_children_list")
 
     def add_children(self, *children):
         """Publish new (direct) child in Redis
         """
         for child in children:
-            self._children.add({self.CHILD_KEY: child.db_name})
+            self._children_stream.add_event(NewDataNodeEvent(child.db_name))
+
+    def _iter_new_children(self, stream, node_dict):
+        """
+        :param DataStream stream:
+        :param dict node_dict: node.db_name -> stream index
+        :yields 2-tuple: (db_name(str), node(DataNode))
+        """
+        with settings.pipeline(stream):
+            for (db_name, index), node in zip(
+                node_dict.items(), self.get_nodes(*node_dict)
+            ):
+                if node is None:
+                    # Why would that happen?
+                    stream.remove(index)
+                else:
+                    yield db_name, node
+
+    def _read_children_stream(self, stream_events=None):
+        """Get direct children from Redis
+
+        :param dict events: list((streamID, dict))
+        :returns dict: db_name -> stream ID
+        """
+        if stream_events is None:
+            stream_events = self._children_stream.range()
+        return {
+            NewDataNodeEvent.factory(raw).db_name: index for index, raw in stream_events
+        }
 
     def children(self):
         """Iter over children.
 
         @return an iterator
         """
-        children = {
-            values.get(self.CHILD_KEY).decode(): index
-            for index, values in self._children.range()
-        }
-        with settings.pipeline(self._children):
-            for (child_name, index), new_child in zip(
-                children.items(), self.get_nodes(*children)
-            ):
-                if new_child is not None:
-                    yield new_child
-                else:
-                    self._children.remove(index)  # clean
+        for db_name, node in self._iter_new_children(
+            self._children_stream, self._read_children_stream()
+        ):
+            yield node
 
     def _get_db_names(self):
         db_names = super()._get_db_names()
         db_names.append("%s_children_list" % self.db_name)
         return db_names
+
+    def subscribe_initial_streams(self, reader, first_index=0, **kw):
+        """Subscribe to a minimal amount of streams so
+        we can eventually get all nodes and events.
+
+        :param DataStreamReader reader:
+        :param str or int first_index: Redis stream ID
+        """
+        # This is where the new node events are published:
+        self.subscribe_children_list_streams(reader, first_index=first_index)
+
+    def subscribe_children_list_streams(self, reader, **kw):
+        """Subscribe to the _children_list stream (whether it exists or not)
+        and all existing _children_list streams of the children.
+
+        :param DataStreamReader reader:
+        :param `**kw`: see `DataStreamReader.add_streams`
+        """
+        self.subscribe_stream("children_list", reader, **kw)
+        # Do not add scan related streams
+        # unless we listen to a scan node:
+        # TODO: why?
+        if self.type in SCAN_TYPES:
+            forbidden_types = None
+        else:
+            forbidden_types = SCAN_TYPES
+        self.subscribe_existing_children_streams(
+            "children_list",
+            reader,
+            include_parent=False,
+            forbidden_types=forbidden_types,
+            **kw,
+        )
+
+    def subscribe_existing_children_streams(
+        self,
+        stream_suffix,
+        reader,
+        include_parent=False,
+        forbidden_types=None,
+        allowed_types=None,
+        **kw,
+    ):
+        """Subscribe to the existing streams with a particular name,
+        associated with all children of this node (recursive).
+
+        :param str stream_suffix: streams to add have the name
+                                  "{db_name}_{stream_suffix}"
+        :param DataStreamReader reader:
+        :param bool include_parent: including self in the children
+        :param tuple forbidden_types: do not add streams associated to DataNode's
+                                      with these node types (also not their children)
+        :param tuple allowed_types: only these DataNode types are allowed (all by default)
+        :param `**kw`: see `DataStreamReader.add_streams`
+        """
+        # Get existing stream names (only existing ones)
+        if include_parent:
+            pattern = f"{self.db_name}*_{stream_suffix}"
+        else:
+            pattern = f"{self.db_name}:*_{stream_suffix}"
+        stream_names = self.search_redis(pattern)
+        # TODO: Do we need hierarchical sorting?
+        stream_names = sorted(stream_names, key=self._node_sort_key)
+
+        # Get associated DataNode's
+        nsuffix = len(stream_suffix) + 1  # +1 for the underscore
+        node_names = (db_name[:-nsuffix] for db_name in stream_names)
+        nodes = self.get_nodes(*node_names)
+        # Some nodes may be None because a Redis key could end with
+        # the suffix and not be a stream associated to a node.
+
+        # Function to check whether a node's stream
+        # should be added (applies to its children as well).
+        if forbidden_types:
+            forbidden_prefixes = [
+                node.db_name
+                for node in nodes
+                if node is not None and node.type in SCAN_TYPES
+            ]
+        else:
+            forbidden_prefixes = []
+
+        def addstream(db_name):
+            for forbidden_prefix in forbidden_prefixes:
+                if db_name.startswith(forbidden_prefix):
+                    return False
+            return True
+
+        # Subscribe to the streams associated to the nodes
+        for node in nodes:
+            if node is None:
+                continue
+            if allowed_types and node.type not in allowed_types:
+                continue
+            if addstream(node.db_name):
+                node.subscribe_stream(stream_suffix, reader, **kw)
+
+    @staticmethod
+    def _node_sort_key(db_name):
+        """For hierarchical sort of node names
+        """
+        return db_name.count(":")

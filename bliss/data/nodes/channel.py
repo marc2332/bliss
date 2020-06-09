@@ -62,8 +62,8 @@ class ChannelDataNode(DataNode):
 
         DataNode.__init__(self, self._NODE_TYPE, name, info=info, **keys)
 
-        self._queue = None
-        self._last_index = None
+        self._queue = self.create_associated_stream("data", maxlen=CHANNEL_MAX_LEN)
+        self._last_index = 1  # redis can't starts at 0
 
     def _create_struct(self, db_name, name, node_type):
         # fix the channel name
@@ -76,19 +76,9 @@ class ChannelDataNode(DataNode):
                 name = f"axis:{name}"
         return super()._create_struct(db_name, name, node_type)
 
-    def _create_queue(self):
-        if self._queue is not None:
-            return
-        self._queue = self.create_data_stream(
-            "%s_data" % self.db_name, maxlen=CHANNEL_MAX_LEN
-        )
-        self._last_index = 1  # redis can't starts at 0
-
     def store(self, event_dict, cnx=None):
         """Publish channel data in Redis
         """
-        self._create_queue()
-
         data = event_dict.get("data")
         shape = event_dict["description"]["shape"]
         dtype = event_dict["description"]["dtype"]
@@ -137,7 +127,6 @@ class ChannelDataNode(DataNode):
         if to_index is provided:
         returns a list of numpy arrays
         """
-        self._create_queue()
         if from_index is None:
             from_index = 0
         if to_index is None:
@@ -287,7 +276,6 @@ class ChannelDataNode(DataNode):
             return rectify_data(raw_data, dtype=self.dtype)
 
     def __len__(self):
-        self._create_queue()
         # fetching last event
         # using last index as old queue-len
         raw_event = self._queue.rev_range(count=1)

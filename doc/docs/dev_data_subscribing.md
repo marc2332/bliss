@@ -35,7 +35,7 @@ Using  the `walk_on_new_events()` function with `filter="scan"`(limit walk to no
 
 ```python
     # wait for new events on scan
-    for event_type, node, event_data in session_node.iterator.walk_on_new_events(
+    for event_type, node, event_data in session_node.walk_on_new_events(
         filter="scan", from_next=True):
 ```
 
@@ -46,7 +46,7 @@ a second iterator is started walking through all events emitted by the scan
 [(see data structure section)](dev_data_publishing.md#experiment-and-redis-data-structure):
 
 ```python
-   for event_type, node, event_data in self.scan_node.iterator.walk_events():
+   for event_type, node, event_data in self.scan_node.walk_events():
 ```
 
 !!!hint

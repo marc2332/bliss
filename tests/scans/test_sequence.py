@@ -143,7 +143,7 @@ def test_sequence_custom_channel(session):
         seq_context.add(s2)
         seq.custom_channels["mychannel"].emit([4.4])
 
-    nodes = [node.db_name for node in seq.node.iterator.walk(wait=False)]
+    nodes = [node.db_name for node in seq.node.walk(wait=False)]
 
     assert seq.node.db_name + ":GroupingMaster:custom_channels" in nodes
     assert seq.node.db_name + ":GroupingMaster:custom_channels:mychannel" in nodes
@@ -265,7 +265,7 @@ def test_sequence_events(session):
     event_dump = list()
 
     def my_listener(session_node, event_dump):
-        for i, (event, node, data) in enumerate(session_node.iterator.walk_events()):
+        for i, (event, node, data) in enumerate(session_node.walk_events()):
             event_dump.append(
                 (
                     event.name,

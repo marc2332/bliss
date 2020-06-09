@@ -29,7 +29,7 @@ from bliss.common.utils import Statistics, Null, update_node_info, round
 from bliss.controllers.motor import remove_real_dependent_of_calc
 from bliss.config.settings import ParametersWardrobe
 from bliss.config.settings import pipeline
-from bliss.data.node import _get_or_create_node, _create_node, is_zerod
+from bliss.data.node import _get_or_create_node, _create_node
 from bliss.data.scan import get_data
 from bliss.scanning.chain import (
     AcquisitionSlave,
@@ -125,6 +125,10 @@ class DataWatchCallback:
         Called at the end of the scan.
         """
         pass
+
+
+def is_zerod(node):
+    return node.type == "channel" and len(node.shape) == 0
 
 
 class StepScanDataWatch(DataWatchCallback):

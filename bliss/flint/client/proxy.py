@@ -23,7 +23,7 @@ from bliss.common import event
 
 from bliss import current_session
 from bliss.config.conductor.client import get_default_connection
-from bliss.flint.config import get_flint_key
+from bliss.flint import config
 from . import plots
 
 try:
@@ -167,7 +167,7 @@ class FlintClient:
             raise RuntimeError("No current session, cannot attach flint")
 
         # Current URL
-        key = get_flint_key(pid)
+        key = config.get_flint_key(pid)
         for _ in range(3):
             value = redis.brpoplpush(key, key, timeout=5)
             if value is not None:
@@ -182,10 +182,15 @@ class FlintClient:
         FLINT_LOGGER.debug("Creating flint proxy...")
         proxy = rpc.Client(url, timeout=3)
 
-        remote_bliss_version = proxy.get_bliss_version()
-        if bliss.release.version != remote_bliss_version:
+        # Check the Flint API version
+        remote_flint_api_version = proxy.get_flint_api_version()
+        if remote_flint_api_version != config.FLINT_API_VERSION:
+            FLINT_LOGGER.debug("Flint used API: {config.FLINT_API_VERSION}")
+            FLINT_LOGGER.debug("Flint provided API: {remote_flint_api_version}")
+            # Display the BLISS version
+            remote_bliss_version = proxy.get_bliss_version()
             FLINT_LOGGER.warning(
-                "Bliss and Flint version do not match (bliss version %s, flint version: %s).",
+                "Bliss and Flint API does not match (bliss version %s, flint version: %s).",
                 bliss.release.version,
                 remote_bliss_version,
             )
@@ -351,7 +356,7 @@ def _get_flint_pid_from_redis(session_name):
     redis = beacon.get_redis_connection()
 
     # get existing flint, if any
-    pattern = get_flint_key(pid="*")
+    pattern = config.get_flint_key(pid="*")
     for key in redis.scan_iter(pattern):
         key = key.decode()
         pid = int(key.split(":")[-1])

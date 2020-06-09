@@ -31,6 +31,7 @@ from bliss.flint.model import plot_model
 from bliss.flint.model import plot_item_model
 from bliss.flint.model import flint_model
 from bliss.common import event
+from bliss.flint import config
 
 _logger = logging.getLogger(__name__)
 
@@ -99,6 +100,10 @@ class FlintApi:
     def get_bliss_version(self) -> str:
         """Returns the bliss version"""
         return bliss.release.version
+
+    def get_flint_api_version(self) -> int:
+        """Returns the flint API version"""
+        return config.FLINT_API_VERSION
 
     def register_output_listener(self):
         """Register output listener to ask flint to emit signals for stdout and

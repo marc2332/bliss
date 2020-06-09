@@ -135,3 +135,21 @@ def test_bad_sync_hard(bad_motor, roby, capsys):
 
     assert sync_hard_called
     assert f"axis '{bad_motor.name}'" in capsys.readouterr().err
+
+
+def test_issue_1719(bad_motor, capsys):
+    bad_motor.move(1000, wait=False)
+
+    gevent.sleep(bad_motor.acctime)
+
+    bad_motor.controller.bad_position_only_once = True
+
+    try:
+        bad_motor.wait_move()
+    except Exception:
+        pass
+
+    assert (
+        not "TypeError: '<=' not supported between instances of 'NoneType' and 'int'"
+        in capsys.readouterr().err
+    )

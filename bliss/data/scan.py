@@ -112,7 +112,7 @@ def watch_session_scans(
     if ready_event is not None:
         ready_event.set()
     for event_type, node, event_data in data_iterator.walk_on_new_events(
-        stream_stop_reading_handler=stop_handler
+        stop_handler=stop_handler
     ):
         if event_type == event_type.NEW_NODE:
             node_type = node.type

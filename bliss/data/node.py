@@ -63,7 +63,7 @@ from bliss.common.utils import grouped
 from bliss.common.greenlet_utils import protect_from_kill, AllowKill
 from bliss.config.conductor import client
 from bliss.config import settings
-from bliss.config.streaming import DataStream, stream_setting_read, stream_decr_index
+from bliss.config.streaming import DataStream, DataStreamReader, stream_decr_index
 from bliss.data.events import Event, EventType
 
 
@@ -194,7 +194,7 @@ class DataNodeIterator(object):
         self,
         filter=None,
         wait=True,
-        stream_stop_reading_handler=None,
+        stop_handler=None,
         stream_status=None,
         first_index="0",
     ):
@@ -210,9 +210,9 @@ class DataNodeIterator(object):
         elif filter:
             filter = tuple(filter)
         stream2nodes = weakref.WeakKeyDictionary()
-        with stream_setting_read(
+        with DataStreamReader(
             block=0 if wait else None,
-            stream_stop_reading_handler=stream_stop_reading_handler,
+            stop_handler=stop_handler,
             stream_status=stream_status,
         ) as reader:
             yield from self._loop_on_event(
@@ -403,11 +403,7 @@ class DataNodeIterator(object):
 
     @protect_from_kill
     def walk_from_last(
-        self,
-        filter=None,
-        wait=True,
-        include_last=True,
-        stream_stop_reading_handler=None,
+        self, filter=None, wait=True, include_last=True, stop_handler=None
     ):
         """Walk from the last child node (see walk)
         """
@@ -448,27 +444,21 @@ class DataNodeIterator(object):
             wait=wait,
             stream_status=stream_status,
             first_index=first_index,
-            stream_stop_reading_handler=stream_stop_reading_handler,
+            stop_handler=stop_handler,
         )
 
-    def walk_on_new_events(
-        self, filter=None, stream_status=None, stream_stop_reading_handler=None
-    ):
+    def walk_on_new_events(self, filter=None, stream_status=None, stop_handler=None):
         """Yields future events"""
         yield from self.walk_events(
             filter,
             first_index=int(time.time() * 1000),
             stream_status=stream_status,
-            stream_stop_reading_handler=stream_stop_reading_handler,
+            stop_handler=stop_handler,
         )
 
     @protect_from_kill
     def walk_events(
-        self,
-        filter=None,
-        first_index="0",
-        stream_status=None,
-        stream_stop_reading_handler=None,
+        self, filter=None, first_index="0", stream_status=None, stop_handler=None
     ):
         """Walk through child nodes, just like `walk` function,
         yielding node events (instance of `Event`) instead of node objects
@@ -478,9 +468,8 @@ class DataNodeIterator(object):
         elif filter:
             filter = tuple(filter)
         stream2nodes = weakref.WeakKeyDictionary()
-        with stream_setting_read(
-            stream_status=stream_status,
-            stream_stop_reading_handler=stream_stop_reading_handler,
+        with DataStreamReader(
+            stream_status=stream_status, stop_handler=stop_handler
         ) as reader:
             yield from self._loop_on_event(
                 reader,

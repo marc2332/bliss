@@ -111,199 +111,315 @@ def stream_decr_index(index):
     return b"-".join(indexs)
 
 
-class StreamStopReadingHandler:
-    """
-    This class is handler to gently stop stream reading.
-    It has to be passed when creating the **stream_setting_read**
-    context
+class DataStreamReaderStopHandler:
+    """Allows DataStreamReader consumers to be stopped gracefully
     """
 
     def __init__(self):
         self._reader = None
 
+    def attach(self, reader):
+        if reader is self._reader:
+            return
+        elif self._reader is not None:
+            raise RuntimeError("Already attached to a reader")
+        else:
+            self._reader = reader
+
+    def detach(self):
+        self._reader = None
+
     def stop(self):
-        if self._reader:
-            self._reader.close()
+        if self._reader is not None:
+            self._reader.stop_consumers()
 
 
-@contextmanager
-def stream_setting_read(
-    count=None, block=0, stream_stop_reading_handler=None, stream_status=None
-):
-    streams = {} if stream_status is None else stream_status
+class DataStreamReader:
+    """The class can be used to retreive the data from
+    several data streams at once.
+    
+    Safest to use as a context manager:
 
-    class Read:
-        State = enum.Enum("Stat", "IDLE WAITING YIELDING")
+        with DataStreamReader(...) as reader:
+            ...
+    
+    Can also be used without context, but don't forget
+    to close the reader when you are done:
 
-        def __init__(self):
-            self._synchro_stream = None
+        reader = DataStreamReader(...)
+        ...
+        reader.close()
+
+    Consume events as follows:
+
+        for stream, events in reader:
+            for index, value in events:
+                ...
+    """
+
+    @enum.unique
+    class State(enum.IntEnum):
+        """Writer states:
+        * IDLE: consumer stopped or stop was requested
+        * WAITING: consumer is waiting for new events
+        * YIELDING: consumer is processing an event or no
+                    consumer has been started yet
+        """
+
+        IDLE = enum.auto()
+        WAITING = enum.auto()
+        YIELDING = enum.auto()
+
+    def __init__(self, count=None, block=0, stop_handler=None, stream_status=None):
+        """
+        :param int count: read this many items from the streams
+                          at once (None: no restriction)
+        :param int block: number of milliseconds to wait for stream
+                          items (None: wait indefinitly)
+        :param DataStreamReaderStopHandler stop_handler: for gracefully stopping
+        :param dict stream_status: active streams from another reader
+        """
+        self._block = block
+        self._count = count
+        self.__synchro_stream = None
+        self._read_task = None
+        self._queue = gevent.queue.Queue()
+        self._cnx = None
+        self._streams = dict()
+        if stream_status:
+            self._active_streams = dict(stream_status)
+        else:
+            self._active_streams = {}
+        if not isinstance(stop_handler, DataStreamReaderStopHandler):
+            stop_handler = DataStreamReaderStopHandler()
+        stop_handler.attach(self)
+        self.stop_handler = stop_handler
+        self._state_changed = gevent.event.Event()
+        self._state = self.State.YIELDING
+
+    @property
+    def _state(self):
+        return self.__state
+
+    @_state.setter
+    def _state(self, state):
+        self.__state = state
+        self._state_changed.set()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        self.stop()
+
+    def stop(self):
+        """Stop reader and consumers
+        """
+        self.stop_consumers()
+        self.stop_read_task()
+
+    def stop_consumers(self):
+        """Stop consumers gracefully
+        """
+        self._queue.put(StopIteration)
+
+    def _start_read_task(self):
+        """Start the stream reading loop (spawn when not already spawned)
+        """
+        if not self._read_task:
+            self._read_task = gevent.spawn(self._read_task_main)
+
+    def stop_read_task(self):
+        """Stop the stream reading loop (greenlet)
+        """
+        if not self._read_task:
+            return
+        self._publish_synchro_event({"end": 1})
+        self._state = self.State.IDLE
+        try:
+            self._read_task.get()
             self._read_task = None
-            self._queue = gevent.queue.Queue()
-            self._cnx = None
-            self._streams = dict()
-            self._wait_event = gevent.event.Event()
-            self._state = self.State.YIELDING
+        finally:
+            self._synchro_stream.clear()
 
-        def __del__(self):
-            self.close()
-
-        def close(self):
-            if not self._read_task:
-                self._queue.put(StopIteration)
-                return
-            self._synchro_stream.add({"end": 1})
-            self._state = self.State.IDLE
-            self._wait_event.set()
-            try:
-                self._read_task.get()
-            finally:
-                self._synchro_stream.clear()
-
-        def add_streams(self, *streams, first_index="$", priority=0):
-            if not streams:
-                return
-            prev_cnx = self._cnx
-            cnxs = set(stream._cnx() for stream in streams)
-            if len(cnxs) != 1:
-                raise TypeError("All streams must have the same redis connection")
-            else:
-                cnx = cnxs.pop()
-                if prev_cnx is None:
-                    self._cnx = cnx
-                    # start read task
-                    self._synchro_stream = DataStream(
-                        uuid.uuid1().bytes, maxlen=16, connection=cnx
-                    )
-                elif cnx != prev_cnx:
-                    raise TypeError("All streams must have the same redis connection")
-            for stream in streams:
-                self._streams.setdefault(
-                    stream.name,
-                    {
-                        "stream": stream,
-                        "first_index": first_index,
-                        "priority": priority,
-                    },
+    @property
+    def _synchro_stream(self):
+        """The read synchronization stream (created when missing)
+        """
+        if self.__synchro_stream is not None:
+            return self.__synchro_stream
+        if not self._streams:
+            return None
+        cnxs = set(adict["stream"]._cnx() for adict in self._streams.values())
+        if len(cnxs) != 1:
+            raise TypeError("All streams must have the same redis connection")
+        else:
+            cnx = cnxs.pop()
+            if self._cnx is None:
+                self._cnx = cnx
+                self.__synchro_stream = DataStream(
+                    uuid.uuid1().bytes, maxlen=16, connection=cnx
                 )
-            with pipeline(self._synchro_stream):
-                self._synchro_stream.add({"added streams": 1})
-                self._synchro_stream.ttl(60)
+                return self.__synchro_stream
+            elif cnx != self._cnx:
+                raise TypeError("All streams must have the same redis connection")
 
-            if not self._read_task:
-                self._read_task = gevent.spawn(self._raw_read)
+    def _publish_synchro_event(self, value):
+        """Add an event the read synchronization stream
+        """
+        synchro_stream = self._synchro_stream
+        if synchro_stream is None:
+            return
+        with pipeline(self._synchro_stream):
+            self._synchro_stream.add(value)
+            self._synchro_stream.ttl(60)
 
-        def remove_stream(self, *streams):
-            for stream in streams:
-                self._streams.pop(stream.name, None)
-            with pipeline(self._synchro_stream):
-                self._synchro_stream.add({"remove stream": 1})
-                self._synchro_stream.ttl(60)
+    def add_streams(self, *streams, first_index="$", priority=0):
+        """Add data streams to the reader.
 
-        def remove_match_streams(self, stream_name_pattern):
-            streams_name = [
-                name
-                for name in self._streams
-                if fnmatch.fnmatch(name, stream_name_pattern)
-            ]
-            for name in streams_name:
-                self._streams.pop(name, None)
-            with pipeline(self._synchro_stream):
-                self._synchro_stream.add({"remove_match_streams": 1})
-                self._synchro_stream.ttl(60)
+        :param `*streams`: DataStream objects
+        :param str first_index: 
+        :param int priority: read priority
+        """
+        for stream in streams:
+            self._streams.setdefault(
+                stream.name,
+                {"stream": stream, "first_index": first_index, "priority": priority},
+            )
+        self._publish_synchro_event({"added streams": 1})
+        self._start_read_task()
 
-        def _raw_read(self):
-            try:
-                streams[self._synchro_stream.name] = {"first_index": 0, "priority": -1}
-                name_to_stream = {}
-                stop_flag = False
-                while not stop_flag:
-                    stop_flag = block != 0
-                    for name, events in self._cnx.xread(
-                        {
-                            k: v["first_index"]
-                            for k, v in sorted(
-                                streams.items(), key=lambda item: item[1]["priority"]
-                            )
-                        },
-                        count=count,
-                        block=block,
-                    ):
-                        if name == self._synchro_stream.name:  # internal
-                            for index, ev in events:
-                                end = ev.get(b"end")
-                                if end:
-                                    raise StopIteration  # exit
-                            streams[self._synchro_stream.name]["first_index"] = index
-                            # add new streams
-                            name_to_stream = dict()
-                            for stream_name, parameters in self._streams.items():
-                                name_to_stream[stream_name.encode()] = parameters[
-                                    "stream"
-                                ]
-                                streams.setdefault(stream_name, parameters)
-                            # remove old streams
-                            to_delete_streams = (
-                                streams.keys()
-                                - self._streams.keys()
-                                - {self._synchro_stream.name}
-                            )
-                            for delete_name in to_delete_streams:
-                                streams.pop(delete_name)
-                            stop_flag = False
-                            break
-                        self._queue.put((name_to_stream[name], events))
-                        last_index, _ = events[-1]
-                        streams[name.decode()]["first_index"] = last_index
+    def remove_stream(self, *streams):
+        """Remove data streams from the reader.
+
+        :param `*streams`: DataStream objects
+        """
+        for stream in streams:
+            self._streams.pop(stream.name, None)
+        self._publish_synchro_event({"remove streams": 1})
+
+    def remove_match_streams(self, stream_name_pattern):
+        """Remove data streams from the reader.
+
+        :param str stream_name_pattern:
+        """
+        names = [
+            name for name in self._streams if fnmatch.fnmatch(name, stream_name_pattern)
+        ]
+        for name in names:
+            self._streams.pop(name, None)
+        self._publish_synchro_event({"remove streams": 1})
+
+    def _read_active_streams(self):
+        """Get data from the active streams
+        :returns list(2-tuple): list((name, events))
+                                name: name of the stream
+                                events: list((index, value)))
+        """
+        if not self._active_streams:
+            return []
+        xdict = {
+            k: v["first_index"]
+            for k, v in sorted(
+                self._active_streams.items(), key=lambda item: item[1]["priority"]
+            )
+        }
+        return self._cnx.xread(xdict, count=self._count, block=self._block)
+
+    @contextmanager
+    def _read_task_context(self):
+        try:
+            self._active_streams[self._synchro_stream.name] = {
+                "first_index": 0,
+                "priority": -1,
+            }
+            yield
+        except StopIteration:
+            pass
+        except Exception as e:
+            self._queue.put(e)  # Stop consumers with exception
+        finally:
+            self.stop_consumers()  # Stop consumers gracefully
+            self._active_streams.pop(self._synchro_stream.name, None)
+
+    def _read_task_main(self):
+        """Main reading loop
+        """
+        with self._read_task_context():
+            stop_flag = False
+            while not stop_flag:
+                stop_flag = self._block != 0
+                for name, events in self._read_active_streams():
+                    if name == self._synchro_stream.name:
+                        # These events are for internal use
+                        # and will not be queued for consumption
+                        self._process_synchro_event(events)
+                        # Do no queue other stream events and read again
+                        stop_flag = False
+                        break
+                    else:
+                        # Queue stream events and progress the read pointer
+                        adict = self._active_streams[name.decode()]
+                        self._queue.put((adict["stream"], events))
+                        adict["first_index"] = events[-1][0]
                         gevent.idle()
 
-                    while self._state not in (self.State.WAITING, self.State.IDLE):
-                        self._wait_event.clear()
-                        self._wait_event.wait()
+                # Wait until stopped (or stop requested) or consumers
+                # waiting for new item
+                while self._state not in (self.State.WAITING, self.State.IDLE):
+                    self._state_changed.clear()
+                    self._state_changed.wait()
 
-                    if stop_flag:
-                        # check if there is new synchronization events.
-                        first_index = streams[self._synchro_stream.name]["first_index"]
-                        stop_flag = not self._synchro_stream.range(
-                            from_index=stream_incr_index(first_index), count=1
-                        )
-            except StopIteration:
-                pass
-            except Exception as e:
-                self._queue.put(e)
-            finally:
+                if stop_flag:
+                    # Stop the reader loop if there are
+                    # no more synchronization events.
+                    first_index = self._active_streams[self._synchro_stream.name][
+                        "first_index"
+                    ]
+                    stop_flag = not self._synchro_stream.range(
+                        from_index=stream_incr_index(first_index), count=1
+                    )
+
+    def _process_synchro_event(self, events):
+        """Process events from the synchronization stream.
+        Events: add streams, remove streams or end
+        """
+        for index, value in events:
+            end = value.get(b"end")
+            if end:
+                raise StopIteration  # stop reader loop
+        self._active_streams[self._synchro_stream.name]["first_index"] = index
+        self._update_active_streams()
+
+    def _update_active_streams(self):
+        """Add/remove streams from the active streams
+        """
+        for stream_name, parameters in self._streams.items():
+            self._active_streams.setdefault(stream_name, parameters)
+        inactive_streams = (
+            self._active_streams.keys()
+            - self._streams.keys()
+            - {self._synchro_stream.name}
+        )
+        for name in inactive_streams:
+            self._active_streams.pop(name)
+
+    def __iter__(self):
+        """Consumer streams events.
+        yield (stream, list((index, value)))
+        """
+        try:
+            self._state = self.State.WAITING
+            # if no stream and don't want to wait
+            # add a StopIteration in the Queue
+            if not self._streams and self._block is None:
                 self._queue.put(StopIteration)
-                streams.pop(self._synchro_stream.name, None)
 
-        def __iter__(self):
-            """
-            iteration over streams event 
-            yield stream,index,ev
-            """
-            try:
+            for item in self._queue:
+                if isinstance(item, Exception):
+                    raise item
+                self._state = self.State.YIELDING
+                yield item
                 self._state = self.State.WAITING
-                self._wait_event.set()
-                # if no stream and don't want to wait
-                # add a StopIteration in the Queue
-                if not self._streams and block is None:
-                    self._queue.put(StopIteration)
-
-                for event in self._queue:
-                    if isinstance(event, Exception):
-                        raise event
-                    self._state = self.State.YIELDING
-                    yield event
-                    self._state = self.State.WAITING
-                    self._wait_event.set()
-            finally:
-                self._state = self.State.IDLE
-                self._wait_event.set()
-
-    try:
-        read_handler = Read()
-        if stream_stop_reading_handler is not None and isinstance(
-            stream_stop_reading_handler, StreamStopReadingHandler
-        ):
-            stream_stop_reading_handler._reader = read_handler
-        yield read_handler
-    finally:
-        read_handler.close()
+        finally:
+            self._state = self.State.IDLE

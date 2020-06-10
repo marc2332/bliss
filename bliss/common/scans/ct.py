@@ -7,6 +7,7 @@
 
 import typeguard
 from typing import Optional
+from bliss.common.deprecation import deprecated_warning
 
 from bliss.common.utils import shorten_signature, typeguardTypeError_to_hint
 from bliss.common.scans.step_by_step import timescan
@@ -24,6 +25,9 @@ def ct(
     run: bool = True,
     return_scan: bool = True,
     scan_info: Optional[dict] = None,
+    save: Optional[bool] = None,  # ignored! TO BE REMOVED IN NEAR FUTURE
+    save_images: Optional[bool] = None,  # ignored! TO BE REMOVED IN NEAR FUTURE
+    sleep_time: Optional[_float] = None,  # ignored! TO BE REMOVED IN NEAR FUTURE
 ):
 
     """
@@ -50,6 +54,27 @@ def ct(
                     scan object and acquisition chain
         return_scan (bool): True by default
     """
+
+    # to be removed in a futur bliss release
+    if save is not None or save_images is not None:
+        deprecated_warning(
+            kind="function",
+            name="ct",
+            replacement="sct",
+            reason="`ct` does no longer allow to save data",
+            since_version="1.5.0",
+            skip_backtrace_count=5,
+            only_once=False,
+        )
+    if sleep_time is not None:
+        deprecated_warning(
+            kind="argument",
+            name="sleep_time",
+            reason="`ct` does no longer use sleep_time. It will be removed in near future",
+            since_version="1.5.0",
+            skip_backtrace_count=5,
+            only_once=False,
+        )
     if isinstance(count_time, _countables.__args__):
         counter_args = [count_time] + list(counter_args)
         count_time = 1.0

@@ -17,7 +17,6 @@ import weakref
 
 from silx.gui import qt
 from silx.gui.widgets.LegendIconWidget import LegendIconWidget
-from silx.gui.dialog.ColormapDialog import ColormapDialog
 from silx.gui import colors as silx_colors
 from silx.gui import icons
 
@@ -29,6 +28,7 @@ from bliss.flint.model import style_model
 from bliss.flint.widgets.eye_check_box import EyeCheckBox
 from bliss.flint.helper import model_helper
 from bliss.flint.widgets.style_dialog import StyleDialogEditor
+from bliss.flint.widgets.style_dialog import FlintColormapDialog
 
 
 _logger = logging.getLogger(__name__)
@@ -82,9 +82,9 @@ class VisibilityPropertyItemDelegate(qt.QStyledItemDelegate):
         editor.move(pos)
 
 
-class _RemovePlotItemButton(qt.QToolButton):
+class RemovePlotItemButton(qt.QToolButton):
     def __init__(self, parent: qt.QWidget = None):
-        super(_RemovePlotItemButton, self).__init__(parent=parent)
+        super(RemovePlotItemButton, self).__init__(parent=parent)
         self.__plotItem: Optional[plot_model.Item] = None
         self.clicked.connect(self.__requestRemoveItem)
         icon = icons.getQIcon("flint:icons/remove-item")
@@ -110,7 +110,7 @@ class RemovePropertyItemDelegate(qt.QStyledItemDelegate):
             return super(RemovePropertyItemDelegate, self).createEditor(
                 parent, option, index
             )
-        editor = _RemovePlotItemButton(parent=parent)
+        editor = RemovePlotItemButton(parent=parent)
         plotItem = self.getPlotItem(index)
         editor.setVisible(plotItem is not None)
         return editor
@@ -130,55 +130,6 @@ class RemovePropertyItemDelegate(qt.QStyledItemDelegate):
         pass
 
 
-class _FlintColormapDialog(ColormapDialog):
-    def __init__(self, parent=None, title="Colormap Dialog"):
-        ColormapDialog.__init__(self, parent=parent, title=title)
-        self.__channelName: Optional[str] = None
-        self.__scan: Optional[scan_model.Scan] = None
-
-    def exec_(self):
-        scan = self.__scan()
-        try:
-            if scan is not None:
-                scan.scanDataUpdated[object].connect(self.__scanDataUpdated)
-            result = ColormapDialog.exec_(self)
-        finally:
-            if scan is not None:
-                scan.scanDataUpdated[object].disconnect(self.__scanDataUpdated)
-        return result
-
-    def __scanDataUpdated(self, event: scan_model.ScanDataUpdateEvent):
-        channelName = self.__channelName
-        if event.isUpdatedChannelName(channelName):
-            self.__updateData()
-
-    def __updateData(self):
-        scan = self.__scan()
-        if scan is None:
-            return
-        channel = scan.getChannelByName(self.__channelName)
-        data = channel.array()
-        # FIXME: This infortunatly do not reuse the item cache from silx
-        self.setData(data)
-
-    def setPlotItem(self, item, scan: scan_model.Scan):
-        if scan is None:
-            return
-        if not isinstance(
-            item, (plot_item_model.ImageItem, plot_item_model.ScatterItem)
-        ):
-            return
-        self.__scan = weakref.ref(scan)
-        if isinstance(item, plot_item_model.ImageItem):
-            channelName = item.imageChannel().name()
-        elif isinstance(item, plot_item_model.ScatterItem):
-            channelName = item.valueChannel().name()
-        else:
-            assert False
-        self.__channelName = channelName
-        self.__updateData()
-
-
 class StylePropertyWidget(qt.QWidget):
     def __init__(self, parent):
         super(StylePropertyWidget, self).__init__(parent=parent)
@@ -188,6 +139,7 @@ class StylePropertyWidget(qt.QWidget):
         self.setLayout(layout)
 
         self.__legend = LegendIconWidget(self)
+        self.__legend.setFixedWidth(30)
         layout.addWidget(self.__legend)
         layout.addSpacing(2)
 
@@ -204,6 +156,11 @@ class StylePropertyWidget(qt.QWidget):
         A button is enabled to be able to edit the style, and to propagate it to
         the item.
         """
+        style = self.style()
+        w = style.pixelMetric(qt.QStyle.PM_ExclusiveIndicatorWidth)
+        h = style.pixelMetric(qt.QStyle.PM_ExclusiveIndicatorHeight)
+        indicatorSize = qt.QSize(w, h) + qt.QSize(4, 4)
+
         if self.__buttonStyle is not None:
             self.__buttonStyle.setVisible(isEditable)
         elif isEditable:
@@ -213,6 +170,7 @@ class StylePropertyWidget(qt.QWidget):
             self.__buttonStyle.setIcon(icon)
             self.__buttonStyle.setAutoRaise(True)
             self.__buttonStyle.clicked.connect(self.__editStyle)
+            self.__buttonStyle.setFixedSize(indicatorSize)
             layout = self.layout()
             layout.addWidget(self.__buttonStyle)
 
@@ -225,6 +183,7 @@ class StylePropertyWidget(qt.QWidget):
             self.__buttonContrast.setIcon(icon)
             self.__buttonContrast.setAutoRaise(True)
             self.__buttonContrast.clicked.connect(self.__editConstrast)
+            self.__buttonContrast.setFixedSize(indicatorSize)
             layout = self.layout()
             layout.addWidget(self.__buttonContrast)
         self.__updateEditButton()
@@ -269,7 +228,7 @@ class StylePropertyWidget(qt.QWidget):
 
         colormap.sigChanged.connect(updateCustomStyle)
 
-        dialog = _FlintColormapDialog(self)
+        dialog = FlintColormapDialog(self)
         dialog.setModal(True)
         dialog.setPlotItem(item, scan)
         dialog.setColormap(colormap)

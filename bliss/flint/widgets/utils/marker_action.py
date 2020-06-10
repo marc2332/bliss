@@ -7,7 +7,6 @@
 
 from __future__ import annotations
 
-import typing
 import numpy
 
 from silx.gui import qt
@@ -41,6 +40,8 @@ class _PointWithValue(roi_items.PointROI):
         self.__updateValue()
 
     def __updateValue(self):
+        if self.parent() is None:
+            return
         pos = self.getPosition()
         x, y = pos
         plot = self.parent().parent()
@@ -59,6 +60,8 @@ class _VLineWithValue(roi_items.VerticalLineROI):
         self.__updateValue()
 
     def __updateValue(self):
+        if self.parent() is None:
+            return
         x = self.getPosition()
         plot = self.parent().parent()
         xdigits, _ydigits = _getAutoPrecision(plot)
@@ -74,6 +77,8 @@ class MarkerAction(qt.QWidgetAction):
         self.__manager.sigRoiAdded.connect(self.__roiAdded)
 
         menu = qt.QMenu(parent)
+        menu.aboutToShow.connect(self.__aboutToShow)
+
         action = self.__manager.getInteractionModeAction(_PointWithValue)
         action.setSingleShot(True)
         menu.addAction(action)
@@ -88,10 +93,19 @@ class MarkerAction(qt.QWidgetAction):
 
         action = qt.QAction(menu)
         action.setIcon(icons.getQIcon("remove"))
-        action.setText("Remove markers")
+        action.setText("Remove selected marker")
+        action.setToolTip("Remove the selected marker")
+        action.triggered.connect(self.clearCurrent)
+        menu.addAction(action)
+        self.__removeCurrent = action
+
+        action = qt.QAction(menu)
+        action.setIcon(icons.getQIcon("remove"))
+        action.setText("Remove all markers")
         action.setToolTip("Remove all the markers")
         action.triggered.connect(self.clear)
         menu.addAction(action)
+        self.__removeAll = action
 
         icon = icons.getQIcon("flint:icons/markers")
         toolButton = qt.QToolButton(parent)
@@ -106,7 +120,20 @@ class MarkerAction(qt.QWidgetAction):
 
     def __roiAdded(self, roi):
         roi.setEditable(True)
+        roi.setSelectable(True)
         roi.setColor("black")
+
+    def __aboutToShow(self):
+        roi = self.__manager.getCurrentRoi()
+        self.__removeCurrent.setEnabled(roi is not None)
+        nbRois = len(self.__manager.getRois())
+        self.__removeAll.setEnabled(nbRois > 0)
 
     def clear(self):
         self.__manager.clear()
+
+    def clearCurrent(self):
+        roi = self.__manager.getCurrentRoi()
+        if roi is not None:
+            self.__manager.removeRoi(roi)
+            roi.deleteLater()

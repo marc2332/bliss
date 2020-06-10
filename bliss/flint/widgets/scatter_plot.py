@@ -16,6 +16,7 @@ import logging
 
 from silx.gui import qt
 from silx.gui import icons
+from silx.gui.plot.actions import histogram
 from silx.gui.plot.items.shape import BoundingRect
 from silx.gui.plot.items.shape import Shape
 from silx.gui.plot.items.scatter import Scatter
@@ -29,14 +30,15 @@ from bliss.flint.model import plot_item_model
 from bliss.flint.helper import scan_info_helper
 from bliss.flint.helper import model_helper
 from bliss.flint.utils import signalutils
-from bliss.flint.widgets.utils import plot_helper
-from bliss.flint.widgets.utils import view_helper
-from bliss.flint.widgets.utils import refresh_helper
-from bliss.flint.widgets.utils import tooltip_helper
-from bliss.flint.widgets import marker_helper
-from .utils.profile_action import ProfileAction
-from .utils.plot_action import CustomAxisAction
-from bliss.flint.widgets.utils import export_action
+from .utils import plot_helper
+from .utils import view_helper
+from .utils import refresh_helper
+from .utils import tooltip_helper
+from .utils import marker_action
+from .utils import export_action
+from .utils import profile_action
+from .utils import plot_action
+from .utils import style_action
 
 
 _logger = logging.getLogger(__name__)
@@ -139,37 +141,33 @@ class ScatterPlotWidget(plot_helper.PlotWidget):
         # Axis
         action = self.__refreshManager.createRefreshAction(self)
         toolBar.addAction(action)
-        toolBar.addAction(CustomAxisAction(self.__plot, self, kind="scatter"))
-        toolBar.addAction(control.GridAction(self.__plot, "major", self))
+        toolBar.addAction(
+            plot_action.CustomAxisAction(self.__plot, self, kind="scatter")
+        )
+        toolBar.addSeparator()
+
+        # Item
+        action = style_action.FlintItemStyleAction(self.__plot, self)
+        toolBar.addAction(action)
+        self.__styleAction = action
+        action = style_action.FlintItemContrastAction(self.__plot, self)
+        toolBar.addAction(action)
+        self.__contrastAction = action
         toolBar.addSeparator()
 
         # Tools
         action = control.CrosshairAction(self.__plot, parent=self)
         action.setIcon(icons.getQIcon("flint:icons/crosshair"))
         toolBar.addAction(action)
-        # FIXME implement that
-        action = qt.QAction(self)
-        action.setText("Histogram")
-        action.setToolTip(
-            "Show an histogram of the displayed scatter (not yet implemented)"
-        )
+
+        action = histogram.PixelIntensitiesHistoAction(self.__plot, self)
         icon = icons.getQIcon("flint:icons/histogram")
         action.setIcon(icon)
-        action.setEnabled(False)
         toolBar.addAction(action)
-        # FIXME implement that
-        action = qt.QAction(self)
-        action.setText("Raw display")
-        action.setToolTip(
-            "Show a table of the raw data from the displayed scatter (not yet implemented)"
-        )
-        icon = icons.getQIcon("flint:icons/raw-view")
-        action.setIcon(icon)
-        action.setEnabled(False)
-        toolBar.addAction(action)
-        toolBar.addAction(ProfileAction(self.__plot, self, "scatter"))
 
-        action = marker_helper.MarkerAction(
+        toolBar.addAction(profile_action.ProfileAction(self.__plot, self, "scatter"))
+
+        action = marker_action.MarkerAction(
             plot=self.__plot, parent=self, kind="scatter"
         )
         self.__markerAction = action
@@ -183,9 +181,8 @@ class ScatterPlotWidget(plot_helper.PlotWidget):
 
         # Export
 
-        self.logbookAction = export_action.ExportToLogBookAction(self.__plot, self)
-        toolBar.addAction(self.logbookAction)
-        toolBar.addAction(export_action.ExportOthersAction(self.__plot, self))
+        self.__exportAction = export_action.ExportAction(self.__plot, self)
+        toolBar.addAction(self.__exportAction)
 
         return toolBar
 
@@ -216,7 +213,9 @@ class ScatterPlotWidget(plot_helper.PlotWidget):
 
     def setFlintModel(self, flintModel: Optional[flint_model.FlintState]):
         self.__flintModel = flintModel
-        self.logbookAction.setFlintModel(flintModel)
+        self.__exportAction.setFlintModel(flintModel)
+        self.__styleAction.setFlintModel(flintModel)
+        self.__contrastAction.setFlintModel(flintModel)
 
     def setPlotModel(self, plotModel: plot_model.Plot):
         if self.__plotModel is not None:
@@ -554,6 +553,7 @@ class ScatterPlotWidget(plot_helper.PlotWidget):
             scatter.setData(x=xx, y=yy, value=value, copy=False)
             scatter.setColormap(colormap)
             scatter.setCustomItem(item)
+            scatter.setScan(scan)
             key = legend + "_solid"
             scatter.setName(key)
             plot.addItem(scatter)
@@ -561,37 +561,6 @@ class ScatterPlotWidget(plot_helper.PlotWidget):
                 scatter.setVisualization(scatter.Visualization.REGULAR_GRID)
             elif fillStyle == style_model.FillStyle.SCATTER_IRREGULAR_GRID:
                 scatter.setVisualization(scatter.Visualization.IRREGULAR_GRID)
-
-                # FIXME: This have to be removed at one point
-                fast = model_helper.getFastChannel(xChannel, yChannel)
-                if fast is not None:
-                    fastMetadata = fast.metadata()
-                    assert fastMetadata is not None
-                    axisPoints = fastMetadata.axisPoints
-                    if axisPoints is not None:
-                        if len(xx) < axisPoints * 2:
-                            # The 2 first lines have to be displayed
-                            xxx, yyy, vvv = xx, yy, value
-                        elif len(xx) % axisPoints != 0:
-                            # Last line have to be displayed
-                            extra = slice(len(xx) - len(xx) % axisPoints, len(xx))
-                            xxx, yyy, vvv = xx[extra], yy[extra], value[extra]
-                        else:
-                            xxx, yyy, vvv = None, None, None
-                        if xxx is not None:
-                            key2 = plot.addScatter(
-                                x=xxx,
-                                y=yyy,
-                                value=vvv,
-                                legend=legend + "_solid2",
-                                colormap=colormap,
-                                symbol="o",
-                                copy=False,
-                            )
-                            scatter2 = plot.getScatter(key2)
-                            scatter2.setSymbolSize(style.symbolSize)
-                            plotItems.append((key2, "scatter"))
-
             elif fillStyle == style_model.FillStyle.SCATTER_INTERPOLATION:
                 scatter.setVisualization(scatter.Visualization.SOLID)
             else:
@@ -627,6 +596,7 @@ class ScatterPlotWidget(plot_helper.PlotWidget):
             scatter.setSymbol(symbolStyle)
             scatter.setSymbolSize(style.symbolSize)
             scatter.setCustomItem(item)
+            scatter.setScan(scan)
             key = legend + "_point"
             scatter.setName(key)
             plot.addItem(scatter)

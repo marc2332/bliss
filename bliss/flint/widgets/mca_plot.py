@@ -24,12 +24,12 @@ from bliss.flint.model import plot_model
 from bliss.flint.model import plot_item_model
 from bliss.flint.helper import scan_info_helper
 from bliss.flint.utils import signalutils
-from bliss.flint.widgets.utils import plot_helper
-from bliss.flint.widgets.utils import view_helper
-from bliss.flint.widgets.utils import refresh_helper
-from bliss.flint.widgets.utils import tooltip_helper
-from .utils.plot_action import CustomAxisAction
-from bliss.flint.widgets.utils import export_action
+from .utils import plot_helper
+from .utils import view_helper
+from .utils import refresh_helper
+from .utils import tooltip_helper
+from .utils import export_action
+from .utils import plot_action
 
 
 _logger = logging.getLogger(__name__)
@@ -116,8 +116,7 @@ class McaPlotWidget(plot_helper.PlotWidget):
         # Axis
         action = self.__refreshManager.createRefreshAction(self)
         toolBar.addAction(action)
-        toolBar.addAction(CustomAxisAction(self.__plot, self, kind="mca"))
-        toolBar.addAction(control.GridAction(self.__plot, "major", self))
+        toolBar.addAction(plot_action.CustomAxisAction(self.__plot, self, kind="mca"))
         toolBar.addSeparator()
 
         # Tools
@@ -130,24 +129,12 @@ class McaPlotWidget(plot_helper.PlotWidget):
         action.setEnabled(False)
         toolBar.addAction(action)
 
-        # FIXME implement that
-        action = qt.QAction(self)
-        action.setText("Raw display")
-        action.setToolTip(
-            "Show a table of the raw data from the displayed scatter (not yet implemented)"
-        )
-        icon = icons.getQIcon("flint:icons/raw-view")
-        action.setIcon(icon)
-        action.setEnabled(False)
-        toolBar.addAction(action)
-
         toolBar.addSeparator()
 
         # Export
 
-        self.logbookAction = export_action.ExportToLogBookAction(self.__plot, self)
-        toolBar.addAction(self.logbookAction)
-        toolBar.addAction(export_action.ExportOthersAction(self.__plot, self))
+        self.__exportAction = export_action.ExportAction(self.__plot, self)
+        toolBar.addAction(self.__exportAction)
 
         return toolBar
 
@@ -178,7 +165,7 @@ class McaPlotWidget(plot_helper.PlotWidget):
 
     def setFlintModel(self, flintModel: Optional[flint_model.FlintState]):
         self.__flintModel = flintModel
-        self.logbookAction.setFlintModel(flintModel)
+        self.__exportAction.setFlintModel(flintModel)
 
     def setPlotModel(self, plotModel: plot_model.Plot):
         if self.__plotModel is not None:

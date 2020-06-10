@@ -64,6 +64,7 @@ class ProfileAction(qt.QWidgetAction):
         self.__manager.setActiveItemTracking(True)
 
         menu = qt.QMenu(parent)
+        menu.aboutToShow.connect(self.__updateMenu)
         if kind == "image":
             for action in self.__manager.createImageActions(menu):
                 menu.addAction(action)
@@ -73,8 +74,9 @@ class ProfileAction(qt.QWidgetAction):
             for action in self.__manager.createScatterSliceActions(menu):
                 menu.addAction(action)
         menu.addSeparator()
-        menu.addAction(self.__manager.createEditorAction(menu))
-        menu.addSeparator()
+        self.__editor = self.__manager.createEditorAction(menu)
+        menu.addAction(self.__editor)
+        self.__separator = menu.addSeparator()
         menu.addAction(self.__manager.createClearAction(menu))
 
         icon = icons.getQIcon("flint:icons/profile")
@@ -87,3 +89,7 @@ class ProfileAction(qt.QWidgetAction):
         toolButton.setMenu(menu)
         toolButton.setPopupMode(qt.QToolButton.InstantPopup)
         self.setDefaultWidget(toolButton)
+
+    def __updateMenu(self):
+        roi = self.__manager.getCurrentRoi()
+        self.__separator.setVisible(roi is not None)

@@ -34,6 +34,7 @@ class _SingleScanStatus(qt.QWidget):
         log.disabled = False
 
         layout = qt.QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(widget)
         self.__widget = widget
 
@@ -80,7 +81,7 @@ class _SingleScanStatus(qt.QWidget):
                 self.__widget.remainingTime.setText("")
 
     def __updateNoScan(self):
-        self.__widget.scanInfo.setText("No scan available")
+        self.__widget.scanTitle.setText("No scan available")
         self.__widget.process.setVisible(False)
         self.__widget.noAcquisition.setVisible(True)
         self.__widget.noAcquisition.setText("NO SCAN")
@@ -90,7 +91,7 @@ class _SingleScanStatus(qt.QWidget):
         scan = self.__scan
         assert scan is not None
         title = scan_info_helper.get_full_title(scan)
-        self.__widget.scanInfo.setText(title)
+        self.__widget.scanTitle.setText(title)
 
         scan_info = scan.scanInfo()
         self.__end = None

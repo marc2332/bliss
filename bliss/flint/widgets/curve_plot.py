@@ -31,15 +31,15 @@ from bliss.flint.model import plot_state_model
 from bliss.flint.helper import scan_info_helper
 from bliss.flint.helper import model_helper
 from bliss.flint.utils import signalutils
-from bliss.flint.widgets.utils import plot_helper
-from bliss.flint.widgets.utils import view_helper
-from bliss.flint.widgets.utils import refresh_helper
-from bliss.flint.widgets.utils import tooltip_helper
-from bliss.flint.widgets import marker_helper
-from .utils.plot_action import CustomAxisAction
-from bliss.flint.widgets.utils import export_action
-
 from bliss.scanning import scan_math
+from .utils import plot_helper
+from .utils import view_helper
+from .utils import refresh_helper
+from .utils import tooltip_helper
+from .utils import marker_action
+from .utils import plot_action
+from .utils import export_action
+
 
 _logger = logging.getLogger(__name__)
 
@@ -242,8 +242,7 @@ class CurvePlotWidget(plot_helper.PlotWidget):
         # Axis
         action = self.__refreshManager.createRefreshAction(self)
         toolBar.addAction(action)
-        toolBar.addAction(CustomAxisAction(self.__plot, self, kind="curve"))
-        toolBar.addAction(control.GridAction(self.__plot, "major", self))
+        toolBar.addAction(plot_action.CustomAxisAction(self.__plot, self, kind="curve"))
         toolBar.addSeparator()
 
         # Tools
@@ -252,7 +251,7 @@ class CurvePlotWidget(plot_helper.PlotWidget):
         action.setIcon(icons.getQIcon("flint:icons/crosshair"))
         toolBar.addAction(action)
 
-        action = marker_helper.MarkerAction(plot=self.__plot, parent=self, kind="curve")
+        action = marker_action.MarkerAction(plot=self.__plot, parent=self, kind="curve")
         self.__markerAction = action
         toolBar.addAction(action)
 
@@ -260,17 +259,6 @@ class CurvePlotWidget(plot_helper.PlotWidget):
         toolBar.addAction(action)
 
         action = self.__specMode.createAction()
-        toolBar.addAction(action)
-
-        # FIXME implement that
-        action = qt.QAction(self)
-        action.setText("Raw display")
-        action.setToolTip(
-            "Show a table of the raw data from the displayed scatter (not yet implemented)"
-        )
-        icon = icons.getQIcon("flint:icons/raw-view")
-        action.setIcon(icon)
-        action.setEnabled(False)
         toolBar.addAction(action)
 
         action = fit.FitAction(self.__plot, self)
@@ -284,9 +272,8 @@ class CurvePlotWidget(plot_helper.PlotWidget):
 
         # Export
 
-        self.logbookAction = export_action.ExportToLogBookAction(self.__plot, self)
-        toolBar.addAction(self.logbookAction)
-        toolBar.addAction(export_action.ExportOthersAction(self.__plot, self))
+        self.__exportAction = export_action.ExportAction(self.__plot, self)
+        toolBar.addAction(self.__exportAction)
 
         return toolBar
 
@@ -366,7 +353,7 @@ class CurvePlotWidget(plot_helper.PlotWidget):
 
     def setFlintModel(self, flintModel: Optional[flint_model.FlintState]):
         self.__flintModel = flintModel
-        self.logbookAction.setFlintModel(flintModel)
+        self.__exportAction.setFlintModel(flintModel)
 
     def setPlotModel(self, plotModel: plot_model.Plot):
         if self.__plotModel is not None:

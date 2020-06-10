@@ -38,6 +38,7 @@ class _DataItem(_property_tree_helper.ScanRowItem):
         self.__style = qt.QStandardItem("")
         self.__remove = qt.QStandardItem("")
         self.__error = qt.QStandardItem("")
+        self.__updateStyle()
 
         self.__plotModel: Optional[plot_model.Plot] = None
         self.__plotItem: Optional[plot_model.Item] = None
@@ -181,6 +182,12 @@ class _DataItem(_property_tree_helper.ScanRowItem):
                     channel = plot_model.ChannelRef(scatter, channelName)
                     scatter.setYChannel(channel)
 
+    def __updateStyle(self):
+        color1 = qt.QColor(0xE8, 0xE8, 0xE8)
+        color2 = qt.QColor(0xF5, 0xF5, 0xF5)
+        self.__xAxis.setBackground(color1)
+        self.__yAxis.setBackground(color2)
+
     def setDevice(self, device: scan_model.Device):
         self.setDeviceLookAndFeel(device)
         self.__xAxis.setData(None, role=delegates.RadioRole)
@@ -271,7 +278,7 @@ class ScatterPlotPropertyWidget(qt.QWidget):
     YAxisColumn = 2
     ValueColumn = 3
     VisibleColumn = 4
-    StyleColumn = 4
+    StyleColumn = 5
     RemoveColumn = 6
 
     def __init__(self, parent=None):
@@ -472,7 +479,7 @@ class ScatterPlotPropertyWidget(qt.QWidget):
             return
 
         model.setHorizontalHeaderLabels(
-            ["Name", "X", "Y", "Value", "Displayed", "Style", "Remove", "Message"]
+            ["Name", "X", "Y", "V", "Displayed", "Style", "Remove", "Message"]
         )
         self.__tree.setItemDelegateForColumn(self.YAxisColumn, self.__yAxisDelegate)
         self.__tree.setItemDelegateForColumn(self.XAxisColumn, self.__xAxisDelegate)
@@ -480,7 +487,9 @@ class ScatterPlotPropertyWidget(qt.QWidget):
             self.VisibleColumn, self.__visibilityDelegate
         )
         self.__tree.setItemDelegateForColumn(self.RemoveColumn, self.__removeDelegate)
+        self.__tree.setStyleSheet("QTreeView:item {padding: 0px 8px;}")
         header = self.__tree.header()
+        header.setStyleSheet("QHeaderView { qproperty-defaultAlignment: AlignCenter; }")
         header.setSectionResizeMode(self.NameColumn, qt.QHeaderView.ResizeToContents)
         header.setSectionResizeMode(self.XAxisColumn, qt.QHeaderView.ResizeToContents)
         header.setSectionResizeMode(self.YAxisColumn, qt.QHeaderView.ResizeToContents)
@@ -488,6 +497,8 @@ class ScatterPlotPropertyWidget(qt.QWidget):
         header.setSectionResizeMode(self.VisibleColumn, qt.QHeaderView.ResizeToContents)
         header.setSectionResizeMode(self.StyleColumn, qt.QHeaderView.ResizeToContents)
         header.setSectionResizeMode(self.RemoveColumn, qt.QHeaderView.ResizeToContents)
+        header.setMinimumSectionSize(10)
+        header.moveSection(self.StyleColumn, self.VisibleColumn)
 
         scan = self.__scan
         if scan is not None:

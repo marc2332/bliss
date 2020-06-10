@@ -27,15 +27,16 @@ from bliss.flint.model import style_model
 from bliss.flint.model import plot_item_model
 from bliss.flint.helper import scan_info_helper
 from bliss.flint.helper import model_helper
-from bliss.flint.widgets.utils import plot_helper
-from bliss.flint.widgets.utils import view_helper
-from bliss.flint.widgets.utils import refresh_helper
-from bliss.flint.widgets.utils import tooltip_helper
-from bliss.flint.widgets.utils import export_action
-from .utils.camera_live_action import CameraLiveAction
-from .utils.profile_action import ProfileAction
-from .utils.plot_action import CustomAxisAction
-from bliss.flint.widgets import marker_helper
+from .utils import plot_helper
+from .utils import view_helper
+from .utils import refresh_helper
+from .utils import tooltip_helper
+from .utils import export_action
+from .utils import marker_action
+from .utils import camera_live_action
+from .utils import profile_action
+from .utils import plot_action
+from .utils import style_action
 
 
 _logger = logging.getLogger(__name__)
@@ -222,12 +223,20 @@ class ImagePlotWidget(plot_helper.PlotWidget):
         # Axis
         action = self.__refreshManager.createRefreshAction(self)
         toolBar.addAction(action)
-        toolBar.addAction(CustomAxisAction(self.__plot, self, kind="image"))
-        toolBar.addAction(control.GridAction(self.__plot, "major", self))
+        toolBar.addAction(plot_action.CustomAxisAction(self.__plot, self, kind="image"))
+        toolBar.addSeparator()
+
+        # Item
+        action = style_action.FlintItemStyleAction(self.__plot, self)
+        toolBar.addAction(action)
+        self.__styleAction = action
+        action = style_action.FlintItemContrastAction(self.__plot, self)
+        toolBar.addAction(action)
+        self.__contrastAction = action
         toolBar.addSeparator()
 
         # Tools
-        self.liveAction = CameraLiveAction(self)
+        self.liveAction = camera_live_action.CameraLiveAction(self)
         toolBar.addAction(self.liveAction)
         action = control.CrosshairAction(self.__plot, parent=self)
         action.setIcon(icons.getQIcon("flint:icons/crosshair"))
@@ -236,19 +245,10 @@ class ImagePlotWidget(plot_helper.PlotWidget):
         icon = icons.getQIcon("flint:icons/histogram")
         action.setIcon(icon)
         toolBar.addAction(action)
-        # FIXME implement that
-        action = qt.QAction(self)
-        action.setText("Raw display")
-        action.setToolTip(
-            "Show a table of the raw data from the displayed scatter (not yet implemented)"
-        )
-        icon = icons.getQIcon("flint:icons/raw-view")
-        action.setIcon(icon)
-        action.setEnabled(False)
-        toolBar.addAction(action)
-        toolBar.addAction(ProfileAction(self.__plot, self, "image"))
 
-        action = marker_helper.MarkerAction(plot=self.__plot, parent=self, kind="image")
+        toolBar.addAction(profile_action.ProfileAction(self.__plot, self, "image"))
+
+        action = marker_action.MarkerAction(plot=self.__plot, parent=self, kind="image")
         self.__markerAction = action
         toolBar.addAction(action)
 
@@ -260,9 +260,8 @@ class ImagePlotWidget(plot_helper.PlotWidget):
 
         # Export
 
-        self.logbookAction = export_action.ExportToLogBookAction(self.__plot, self)
-        toolBar.addAction(self.logbookAction)
-        toolBar.addAction(export_action.ExportOthersAction(self.__plot, self))
+        self.__exportAction = export_action.ExportAction(self.__plot, self)
+        toolBar.addAction(self.__exportAction)
 
         return toolBar
 
@@ -293,7 +292,9 @@ class ImagePlotWidget(plot_helper.PlotWidget):
 
     def setFlintModel(self, flintModel: Optional[flint_model.FlintState]):
         self.__flintModel = flintModel
-        self.logbookAction.setFlintModel(flintModel)
+        self.__exportAction.setFlintModel(flintModel)
+        self.__styleAction.setFlintModel(flintModel)
+        self.__contrastAction.setFlintModel(flintModel)
 
     def setPlotModel(self, plotModel: plot_model.Plot):
         if self.__plotModel is not None:
@@ -592,6 +593,7 @@ class ImagePlotWidget(plot_helper.PlotWidget):
             imageItem.setColormap(colormap)
             imageItem.setData(image, copy=False)
             imageItem.setCustomItem(item)
+            imageItem.setScan(scan)
             imageItem.setName(legend)
             self.__plot.addItem(imageItem)
 

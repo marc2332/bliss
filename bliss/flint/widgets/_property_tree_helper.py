@@ -50,7 +50,11 @@ class ScanRowItem(StandardRowItem):
     """Helper to provide consistent look and feel for all the property trees."""
 
     def setDeviceLookAndFeel(self, device: scan_model.Device):
-        if device.isMaster():
+        if device.type() == scan_model.DeviceType.VIRTUAL_ROI:
+            text = device.name()
+            icon = icons.getQIcon("flint:icons/device-image-roi")
+            toolTip = "Image ROI %s" % device.name()
+        elif device.isMaster():
             text = device.name()
             icon = icons.getQIcon("flint:icons/device-timer")
             toolTip = "Master %s" % device.name()

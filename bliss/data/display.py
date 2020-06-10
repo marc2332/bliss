@@ -558,6 +558,7 @@ class _ScanPrinterBase:
     def _build_ct_output(self, values, norm_values):
 
         info_dict = {}
+        width = 20
         for i, cname in enumerate(self.sorted_channel_names):
 
             # display name
@@ -572,6 +573,10 @@ class _ScanPrinterBase:
             if unit:
                 disp_name += f"[{unit}]"
 
+            nw = len(disp_name)
+            if nw > width:
+                width = nw
+
             # sort by controller name
             ctrl, _ = cname.split(":")[0:2]
             if info_dict.get(ctrl):
@@ -579,12 +584,14 @@ class _ScanPrinterBase:
             else:
                 info_dict[ctrl] = [[disp_name, values[i], norm_values[i]]]
 
+        width = min(50, width)
+
         lines = []
         for ctrl, values in info_dict.items():
             for dname, v, nv in values:
                 v = f"{v:#g}"
                 nv = f"{nv:#g}"
-                lines.append(f"  {dname:>20}  =  {v:12} ({nv:^12}/s)    {ctrl}")
+                lines.append(f"  {dname:>{width}}  =  {v:12} ({nv:^12}/s)    {ctrl}")
 
             # separate data blocks per controller
             # lines.append('')

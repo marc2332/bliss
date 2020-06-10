@@ -159,7 +159,7 @@ def create_scan_model(scan_info: Dict) -> scan_model.Scan:
     for channel_info in channels:
         master_name = channel_info.master
         device_name = channel_info.device
-        device = get_device(master_name, device_name)
+        parent = get_device(master_name, device_name)
 
         kind = kinds.get(channel_info.kind, None)
         if kind is None:
@@ -170,9 +170,26 @@ def create_scan_model(scan_info: Dict) -> scan_model.Scan:
             )
             continue
 
-        channel = scan_model.Channel(device)
+        name = channel_info.name
+        short_name = name.rsplit(":")[-1]
+
+        # Some magic to create virtual device for each ROIs
+        if parent.name() == "roi_counters":
+            if short_name.startswith("roi") and "_" in short_name:
+                roi_name, _ = short_name.split("_", 1)
+                key = f"{channel_info.master}:{channel_info.device}:@@{roi_name}"
+                device = devices.get(key, None)
+                if device is None:
+                    device = scan_model.Device(scan)
+                    device.setName(roi_name)
+                    device.setMaster(parent)
+                    device.setType(scan_model.DeviceType.VIRTUAL_ROI)
+                    devices[key] = device
+                parent = device
+
+        channel = scan_model.Channel(parent)
         channelsDict[channel_info.name] = channel
-        channel.setName(channel_info.name)
+        channel.setName(name)
         channel.setType(kind)
         unit = channel_units.get(channel_info.name, None)
         if unit is not None:

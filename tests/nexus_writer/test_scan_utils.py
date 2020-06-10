@@ -62,6 +62,8 @@ def _test_scan_utils(
     if policy:
         dataset_filename = tmpdir.join(
             session.name,
+            "fs1",
+            "id00",
             "tmp",
             "testproposal",
             "id00",
@@ -71,6 +73,8 @@ def _test_scan_utils(
         )
         sample_filename = tmpdir.join(
             session.name,
+            "fs1",
+            "id00",
             "tmp",
             "testproposal",
             "id00",
@@ -78,7 +82,13 @@ def _test_scan_utils(
             "testproposal_sample.h5",
         )
         proposal_filename = tmpdir.join(
-            session.name, "tmp", "testproposal", "id00", "testproposal_id00.h5"
+            session.name,
+            "fs1",
+            "id00",
+            "tmp",
+            "testproposal",
+            "id00",
+            "testproposal_id00.h5",
         )
         master_filenames = {"sample": sample_filename, "proposal": proposal_filename}
         filenames = {"dataset": dataset_filename}

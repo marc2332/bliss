@@ -222,7 +222,9 @@ class EvalParametersWardrobe(ParametersWardrobe):
             try:
                 eval_dict[field] = self.eval_template(value, eval_dict=eval_dict)
             except MissingParameter:
-                raise MissingParameter("Parameter {} is missing".format(repr(field)))
+                raise MissingParameter(
+                    f"Parameter {repr(field)} is missing in {repr(template)}"
+                )
 
         # Evaluate string template while avoiding circular references
         fill_dict = {}
@@ -704,8 +706,9 @@ class ESRFScanSaving(BasicScanSaving):
         "_proposal": "",
         "_sample": "",
         "_dataset": "",
+        "_mount": "",
     }
-    # Order imported for resolving dependencies
+    # Order important for resolving dependencies
     PROPERTY_ATTRIBUTES = BasicScanSaving.PROPERTY_ATTRIBUTES + [
         "template",
         "beamline",
@@ -715,6 +718,7 @@ class ESRFScanSaving(BasicScanSaving):
         "dataset",
         "data_filename",
         "images_path_relative",
+        "mount_point",
     ]
     REDIS_SETTING_PREFIX = "esrf_scan_saving"
     SLOTS = ["_tango_metadata_manager", "_tango_metadata_experiment"]
@@ -728,7 +732,6 @@ class ESRFScanSaving(BasicScanSaving):
 
     def __init__(self, name):
         super().__init__(name)
-
         self._tango_metadata_manager = None
         self._tango_metadata_experiment = None
 
@@ -789,17 +792,13 @@ class ESRFScanSaving(BasicScanSaving):
         """
         ptype = self.get_cached_property("proposal_type", eval_dict)
         if ptype == "inhouse":
-            base_path = self.scan_saving_config.get(
+            base_path = self._get_mount_point(
                 "inhouse_data_root", "/data/{beamline}/inhouse"
             )
         elif ptype == "visitor":
-            base_path = self.scan_saving_config.get(
-                "visitor_data_root", "/data/visitor"
-            )
+            base_path = self._get_mount_point("visitor_data_root", "/data/visitor")
         else:
-            base_path = self.scan_saving_config.get(
-                "tmp_data_root", "/data/{beamline}/tmp"
-            )
+            base_path = self._get_mount_point("tmp_data_root", "/data/{beamline}/tmp")
         return self.eval_template(base_path, eval_dict=eval_dict)
 
     @property_with_eval_dict
@@ -815,7 +814,70 @@ class ESRFScanSaving(BasicScanSaving):
             key = "icat_tmp_data_root"
         default = self.get_cached_property("base_path", eval_dict)
         base_path = self.scan_saving_config.get(key, default)
+        if not isinstance(base_path, str):
+            raise RuntimeError(f"'{key}' does not allow different mount points")
         return self.eval_template(base_path, eval_dict=eval_dict)
+
+    def _get_mount_point(self, key, default):
+        """Get proposal type's mount point which defines `base_path`
+
+        :param str key: scan saving configuration dict key
+        :param str default: when key is not in configuration
+        :returns str:
+        """
+        mount_points = self._mount_points_from_config(key, default)
+        current_mp = mount_points.get(self.mount_point, None)
+        if current_mp is None:
+            # Take the first mount point when the current one
+            # is not defined for this proposal type
+            return mount_points[next(iter(mount_points.keys()))]
+        else:
+            return current_mp
+
+    def _mount_points_from_config(self, key, default):
+        """Get all mount points for the proposal type.
+
+        :param str key: scan saving configuration dict key
+        :param str default: when key is not in configuration
+                            it returns {"": default})
+        :returns dict:
+        """
+        mount_points = self.scan_saving_config.get(key, default)
+        if isinstance(mount_points, str):
+            return {"": mount_points}
+        else:
+            return mount_points.to_dict()
+
+    @property
+    def mount_points(self):
+        """All mount points of all proposal types
+
+        :returns set(str):
+        """
+        mount_points = set()
+        for k in ["inhouse_data_root", "visitor_data_root", "tmp_data_root"]:
+            mount_points |= self._mount_points_from_config(k, "").keys()
+        return mount_points
+
+    @property
+    def mount_point(self):
+        """Current mount point (defines `base_path` selection
+        from scan saving configuration) for all proposal types
+        """
+        if self._mount is None:
+            self._mount = ""
+        return self._mount
+
+    @mount_point.setter
+    def mount_point(self, value):
+        """
+        :param str value:
+        :raises ValueError: not in the available mount points
+        """
+        choices = self.mount_points
+        if value not in choices:
+            raise ValueError(f"The only valid mount points are {choices}")
+        self._mount = value
 
     @property_with_eval_dict
     def icat_root_path(self, eval_dict=None):

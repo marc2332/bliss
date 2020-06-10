@@ -305,6 +305,8 @@ Devices:
 !!! note
      `MetaExperiment` must be started **before** `MetadataManager`.
 
+#### Enable in BLISS
+
 Finally, data policy must be enabled in BLISS. This is done by adding a
 dedicated section in the BLISS configuration, either:
 
@@ -335,3 +337,24 @@ scan_saving:
     **There must be 2 metadata Tango devices running per BLISS session.**
     (+1 nexus writer) Do not forget to add them for each new BLISS session.
 
+##### Multiple mount points
+
+Multiple mount points can be configured for each proposal type (visitor, inhouse and temp) and optionally a fixed mount point for the icat servers (`MetadataManager` and `MetaExperiment`)
+
+```yaml
+...
+scan_saving:
+    inhouse_data_root:
+        nfs: /data/{beamline}/inhouse
+        lsb: /lsbram/{beamline}/inhouse
+    icat_inhouse_data_root: /data/{beamline}/inhouse
+...
+```
+
+The active mount points can be selected in BLISS
+
+```python
+DEMO [1]: SCAN_SAVING.mount_point = "lsb"
+```
+
+The default mount point is `SCAN_SAVING.mount_point == ""` which selects the first mount point in the configuration.

@@ -6,9 +6,16 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 import numpy
 import typing
+import logging
 from collections import namedtuple
 
+
+_logger = logging.getLogger(__name__)
+
 Cen = namedtuple("center", ["position", "fwhm"])
+
+
+Peak = namedtuple("peak", ["position", "value"])
 
 
 def peak(x: numpy.ndarray, y: numpy.ndarray) -> float:
@@ -22,7 +29,8 @@ def peak(x: numpy.ndarray, y: numpy.ndarray) -> float:
         x: A numpy array of the X locations
         y: A numpy array of the Y locations
     """
-    return x[numpy.nanargmax(y)]
+    # Use peak2 to reuse the argument checks
+    return peak2(x, y)[0]
 
 
 def peak2(x: numpy.ndarray, y: numpy.ndarray) -> typing.Tuple[float, float]:
@@ -39,8 +47,22 @@ def peak2(x: numpy.ndarray, y: numpy.ndarray) -> typing.Tuple[float, float]:
     Returns:
         A tuple containing the x location and the y location of the peak
     """
-    index = numpy.nanargmax(y)
-    return x[index], y[index]
+    if x.shape != y.shape:
+        raise TypeError("x and y arrays do not have the same size.")
+
+    if x.ndim != 1:
+        raise TypeError("x and y arrays must have a single dimension.")
+
+    if x.size == 0:
+        _logger.warning("Input data is empty")
+        return Peak(numpy.nan, numpy.nan)
+
+    try:
+        index = numpy.nanargmax(y)
+    except ValueError:
+        # No finite values found
+        return Peak(numpy.nan, numpy.nan)
+    return Peak(x[index], y[index])
 
 
 def com(x: numpy.ndarray, y: numpy.ndarray) -> float:
@@ -52,7 +74,22 @@ def com(x: numpy.ndarray, y: numpy.ndarray) -> float:
         x: A numpy array of the X locations
         y: A numpy array of the Y locations
     """
-    return numpy.sum(x * y) / numpy.sum(y)
+    if x.shape != y.shape:
+        raise TypeError("x and y arrays do not have the same size.")
+
+    if x.ndim != 1:
+        raise TypeError("x and y arrays must have a single dimension.")
+
+    if x.size == 0:
+        _logger.warning("Input data is empty")
+        return numpy.nan
+
+    sum_y = numpy.sum(y)
+    if sum_y == 0:
+        # Return the center of the curve
+        return (x[0] + x[-1]) * 0.5
+
+    return numpy.sum(x * y) / sum_y
 
 
 def cen(x: numpy.ndarray, y: numpy.ndarray) -> typing.Tuple[float, float]:
@@ -67,6 +104,16 @@ def cen(x: numpy.ndarray, y: numpy.ndarray) -> typing.Tuple[float, float]:
     Returns:
         A tuple containing the location of the center, and the fwhm
     """
+    if x.shape != y.shape:
+        raise TypeError("x and y arrays do not have the same size.")
+
+    if x.ndim != 1:
+        raise TypeError("x and y arrays must have a single dimension.")
+
+    if x.size == 0:
+        _logger.warning("Input data is empty")
+        return Cen(numpy.nan, numpy.nan)
+
     slope = numpy.gradient(y, x)
     # check if function is continuous
     if numpy.inf in slope or -numpy.inf in slope:

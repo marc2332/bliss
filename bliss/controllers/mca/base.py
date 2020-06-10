@@ -57,16 +57,11 @@ Stats = collections.namedtuple(
 class MCABeaconObject(BeaconObject):
     def __init__(self, mca, config):
         self.mca = mca
-        super().__init__(config, share_hardware=False)
+        super().__init__(config)
 
     @property
     def name(self):
         return self.mca.name
-
-    @BeaconObject.lazy_init
-    def init(self):
-        self.mca.initialize_attributes()
-        self.mca.initialize_hardware()
 
     @BeaconObject.property(default=AcquisitionMode.MCA)
     def acquisition_mode(self):
@@ -101,7 +96,10 @@ class BaseMCA(CounterController):
         self.beacon_obj = beacon_obj_class(self, config)
         self._config = config
         self._rois = RoiConfig(self)
-        self.beacon_obj.init()
+
+        # Init
+        self.initialize_attributes()
+        self.initialize_hardware()
 
     def get_acquisition_object(self, acq_params, ctrl_params, parent_acq_params):
 

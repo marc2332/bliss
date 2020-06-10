@@ -239,6 +239,10 @@ ERROR_DICT = {
         "requires for the hardware",
     ),
     801: ("UNIT_TEST", None),
+    13009: (
+        "LOW_REFRESH_RATE",
+        "Histogram fixed time target is less than refresh rate",
+    ),
 }
 
 DEFAULT_ERROR = "UNKNOWN_ERROR_CODE", None

@@ -303,6 +303,27 @@ def umv(*args):
     __umove(*args)
 ```
 
+### ladd
+
+The output from a previously execute command can be sent to the logbook
+simply using `ladd(num)`.
+The parameter `num` con refer to the number of shell paragraph or be a
+negative number relative to the current paragraph number.
+If no parameter is specify the previous paragraph is sent (coresponds to -1).
+
+Following an example sending to the logbook for three times the same output:
+
+```python
+
+TEST_SESSION [1]: transfocator_simulator
+         Out [1]: Transfocator transfocator_simulator:
+                  P0   L1  L2  L3  L4   L5  L6   L7  L8
+                  OUT  IN  IN  IN  OUT  IN  OUT  IN  OUT
+
+TEST_SESSION [2]: ladd()  # adds previous paragraph (-1)
+TEST_SESSION [3]: ladd(1)  # can be used with reference to the paragraph number
+TEST_SESSION [4]: ladd(-3)  # can be also used with relative negative reference
+```
 
 ### bench
 

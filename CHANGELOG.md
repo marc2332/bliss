@@ -41,6 +41,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - ct does no longer collect metadata and positioners for scan_info
       this is to reduce the time cosumed by ct on top of the counting time
       in case positioners or metadata is needed, use `sct` instead.
+    - ct (and sct) will no longer be added to SCANS queue of the session
 - scan numbering: scans that are not saved use a hidden (silent) scan numbers
 
 ### Fixed

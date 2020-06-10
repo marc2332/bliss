@@ -756,6 +756,7 @@ class Scan:
         self.root_node = None
         self._scan_info = dict(scan_info) if scan_info is not None else dict()
         self._silent_numbering = not save
+        self._add_to_scans_queue = name != "ct"
 
         if scan_saving is None:
             scan_saving = current_session.scan_saving.clone()
@@ -1520,7 +1521,8 @@ class Scan:
                         self._data_watch_task.kill()
 
             # Add scan to the globals
-            current_session.scans.append(self)
+            if self._add_to_scans_queue:
+                current_session.scans.append(self)
 
             if self.writer:
                 # write scan_info to file

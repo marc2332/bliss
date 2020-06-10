@@ -35,11 +35,13 @@ example of configuration:
 
 
 class SimulationDiodeController(SamplingCounterController):
+    _read_overhead = 0.01
+
     def __init__(self):
         super().__init__(name="simulation_diode_sampling_controller")
 
     def read_all(self, *counters):
-        gevent.sleep(0.01)
+        gevent.sleep(self._read_overhead)
         return [
             cnt.cst_val
             if isinstance(cnt, CstSimulationDiodeSamplingCounter)
@@ -49,11 +51,13 @@ class SimulationDiodeController(SamplingCounterController):
 
 
 class SimulationDiodeIntegrationController(IntegratingCounterController):
+    _read_overhead = 0.01
+
     def __init__(self):
         super().__init__(name="simulation_diode_integrating_controller")
 
     def get_values(self, from_index, *counters):
-        gevent.sleep(0.01)
+        gevent.sleep(self._read_overhead)
         return [10 * [random.randint(1, 10000) / 100.0] for cnt in counters]
 
 

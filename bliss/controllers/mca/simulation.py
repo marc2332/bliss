@@ -15,6 +15,7 @@ class SimulatedMCA(BaseMCA):
     _init_time = 1.
     _prepare_time = 1e-3
     _cleanup_time = 1e-3
+    _read_overhead = 10e-3
     _gate_end = 0.5
     _mapping_modulo = 2
 
@@ -135,7 +136,7 @@ class SimulatedMCA(BaseMCA):
             if not self._running:
                 self.start_acquisition()
             while self.is_acquiring():
-                gevent.sleep(10e-3)
+                gevent.sleep(self._read_overhead)
         finally:
             self.stop_acquisition()
             spectrums = self.get_acquisition_data()

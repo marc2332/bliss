@@ -9,7 +9,8 @@ from bliss.scanning.acquisition.lima import LimaAcquisitionMaster
 from bliss.scanning.chain import AcquisitionChain
 from bliss.scanning.scan import Scan
 from bliss.common.session import get_current_session
-
+from bliss.controllers import simulation_diode
+from bliss.controllers.mca import simulation as simulation_mca
 
 # Not required but useful for manual testing:
 from nexus_writer_service.session_api import *
@@ -44,6 +45,15 @@ rois = {"roi1": (500, 550), "roi2": (600, 650), "roi3": (700, 750)}
 for mca in objects_of_type(BaseMCA).values():
     for name, roi in rois.items():
         mca.rois.set(name, *roi)
+
+
+# Remove simulated overheads
+simulation_diode.SimulationDiodeController._read_overhead = 0
+simulation_diode.SimulationDiodeIntegrationController._read_overhead = 0
+simulation_mca.SimulatedMCA._read_overhead = 0
+simulation_mca.SimulatedMCA._init_time = 0
+simulation_mca.SimulatedMCA._prepare_time = 0
+simulation_mca.SimulatedMCA._cleanup_time = 0
 
 
 def run_scan(scan, runasync=False, format="hdf5", frames=3):

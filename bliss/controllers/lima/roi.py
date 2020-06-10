@@ -218,7 +218,8 @@ class RoiCounters(IntegratingCounterController):
 
     def get_rois(self):
         """alias to values()"""
-        return list(self.values())
+        cache = self._save_rois
+        return [cache[name] for name in sorted(cache.keys())]
 
     def remove(self, name):
         """alias to: del <lima obj>.roi_counters[name]"""
@@ -343,7 +344,7 @@ class RoiCounters(IntegratingCounterController):
     def __info__(self):
         name = self.name.rsplit(":", 1)[-1]
         lines = [f"ROI Counters: {self.config_name}"]
-        rois = [self[name] for name in sorted(self.keys())]
+        rois = self.get_rois()
         if rois:
             header = "Name", "ROI (<X, Y> <W x H>)"
             x = max((len(str(roi.x)) for roi in rois))

@@ -15,7 +15,7 @@ from bliss.scanning.acquisition.timer import SoftwareTimerMaster
 from bliss.common.tango import DeviceProxy, DevFailed
 from bliss.common.counter import Counter
 from bliss.controllers.lima.roi import Roi
-from bliss.common.scans import loopscan, timescan, ct, DEFAULT_CHAIN
+from bliss.common.scans import loopscan, timescan, sct, ct, DEFAULT_CHAIN
 import gevent
 from contextlib import contextmanager
 from ..conftest import lima_simulator_context
@@ -157,7 +157,7 @@ def test_lima_mapping_and_saving(session, lima_simulator):
     try:
         simulator.select_directories_mapping("fancy")
         mapped_directory = simulator.get_mapped_path(scan_saving.get_path())
-        ct_scan = ct(0.1, simulator, save=True, run=False)
+        ct_scan = sct(0.1, simulator, save=True, run=False)
 
         try:
             ct_scan.run()

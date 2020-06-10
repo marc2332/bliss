@@ -525,7 +525,7 @@ def test_stop_after_first_walk_event(session):
 
 def _count_node_events(beforestart, session, db_name, node_type=None):
     diode = session.env_dict["diode"]
-    s = scans.ct(0.1, diode, run=not beforestart, save=False)
+    s = scans.ct(0.1, diode, run=not beforestart)
     startlistening_event = gevent.event.Event()
     startlistening_event.clear()
     events = {}

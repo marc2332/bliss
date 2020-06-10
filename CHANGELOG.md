@@ -14,10 +14,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Added export to logbook
     - Added extra markers to manually put in the plots
     - Added a window menu to change default docks visibility
+    - Added tools to custom style and contrast of the scatters and images
+      in the plot tool bar (and not only on the item property)
     - Update to silx 0.13
         - Provide cross profile for images and scatters
         - Provide extra profile tools for regular scatters to display data slice
           without interpolation
+        - Provide histogram for scatters
         - Free line image profile for diffraction images
           (2 dedicated anchors for the start and a stop)
         - Added image colormap normalization: square-root, gamma, arcsinh
@@ -26,6 +29,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Flint:
     - Allow to select another curve when the fit dialog is open
     - Profile windows are now docks
+    - Tune the scan status widget to resize the width smaller
+	- Provide tool to remove curves close to the y1/y2 indicators
+	- Rework the check of the flint API at startup to reduce pointless warnings
 
 ### Fixed
 - Flint:

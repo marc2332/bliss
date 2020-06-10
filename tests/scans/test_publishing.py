@@ -611,8 +611,35 @@ def _count_node_events(beforestart, session, db_name, node_type=None):
     return events
 
 
+def _count_nodes(beforestart, session, db_name, node_type=None):
+    diode = session.env_dict["diode"]
+    s = scans.ct(0.1, diode, run=not beforestart, save=False)
+    startlistening_event = gevent.event.Event()
+    startlistening_event.clear()
+    nodes = []
+
+    def walk_scan_events():
+        it = _get_node_object(node_type, db_name, None, None).iterator
+        startlistening_event.set()
+        for n in it.walk():
+            nodes.append(n.db_name)
+
+    g = gevent.spawn(walk_scan_events)
+    try:
+        with gevent.Timeout(5):
+            startlistening_event.wait()
+        if beforestart:
+            scan_greenlet = gevent.spawn(s.run)
+            scan_greenlet.get()
+    finally:
+        gevent.sleep(0.1)
+        g.kill()
+
+    return nodes
+
+
 @pytest.mark.parametrize("beforestart", [True, False])
-def test_events_on_session_node(beforestart, session):
+def test_walk_events_on_session_node(beforestart, session):
     if not beforestart:
         pytest.xfail("Channels streams are added too late")
     events = _count_node_events(beforestart, session, session.name)
@@ -628,13 +655,28 @@ def test_events_on_session_node(beforestart, session):
 
 
 @pytest.mark.parametrize("beforestart", [True, False])
-def test_events_on_wrong_session_node(beforestart, session):
+def test_walk_nodes_on_session_node(beforestart, session):
+    nodes = _count_nodes(beforestart, session, session.name)
+    # Nodes: root nodes, scan, scan master (timer),
+    #        epoch, elapsed_time, diode controller, diode
+    nroot = len(session.scan_saving._db_path_keys) - 1
+    assert len(nodes) == nroot + 6
+
+
+@pytest.mark.parametrize("beforestart", [True, False])
+def test_walk_events_on_wrong_session_node(beforestart, session):
     events = _count_node_events(beforestart, session, session.name[:-1])
     assert not events
 
 
 @pytest.mark.parametrize("beforestart", [True, False])
-def test_events_on_scan_node(beforestart, session):
+def test_walk_nodes_on_wrong_session_node(beforestart, session):
+    nodes = _count_nodes(beforestart, session, session.name[:-1])
+    assert not nodes
+
+
+@pytest.mark.parametrize("beforestart", [True, False])
+def test_walk_events_on_scan_node(beforestart, session):
     if not beforestart:
         pytest.xfail("Channels streams are added too late")
     db_name = session.scan_saving.scan_parent_db_name + ":_1_ct"
@@ -648,7 +690,18 @@ def test_events_on_scan_node(beforestart, session):
 
 
 @pytest.mark.parametrize("beforestart", [True, False])
-def test_events_on_master_node(beforestart, session):
+def test_walk_nodes_on_scan_node(beforestart, session):
+    if not beforestart:
+        pytest.xfail("Channels streams are added too late")
+    db_name = session.scan_saving.scan_parent_db_name + ":_1_ct"
+    nodes = _count_nodes(beforestart, session, db_name, node_type="scan")
+    # Nodes: scan master (timer), epoch, elapsed_time,
+    #        diode controller, diode
+    assert len(nodes) == 5
+
+
+@pytest.mark.parametrize("beforestart", [True, False])
+def test_walk_events_on_master_node(beforestart, session):
     db_name = session.scan_saving.scan_parent_db_name + ":_1_ct:timer"
     events = _count_node_events(beforestart, session, db_name)
     # New node events: epoch, elapsed_time, diode controller, diode
@@ -658,7 +711,15 @@ def test_events_on_master_node(beforestart, session):
 
 
 @pytest.mark.parametrize("beforestart", [True, False])
-def test_events_on_controller_node(beforestart, session):
+def test_walk_nodes_on_master_node(beforestart, session):
+    db_name = session.scan_saving.scan_parent_db_name + ":1_ct:timer"
+    nodes = _count_nodes(beforestart, session, db_name)
+    # Nodes: epoch, elapsed_time, diode controller, diode
+    assert len(nodes) == 4
+
+
+@pytest.mark.parametrize("beforestart", [True, False])
+def test_walk_events_on_controller_node(beforestart, session):
     db_name = (
         session.scan_saving.scan_parent_db_name
         + ":_1_ct:timer:simulation_diode_sampling_controller"
@@ -671,7 +732,18 @@ def test_events_on_controller_node(beforestart, session):
 
 
 @pytest.mark.parametrize("beforestart", [True, False])
-def test_events_on_masterchannel_node(beforestart, session):
+def test_walk_nodes_on_controller_node(beforestart, session):
+    db_name = (
+        session.scan_saving.scan_parent_db_name
+        + ":_1_ct:timer:simulation_diode_sampling_controller"
+    )
+    nodes = _count_nodes(beforestart, session, db_name)
+    # Nodes: diode
+    assert len(nodes) == 1
+
+
+@pytest.mark.parametrize("beforestart", [True, False])
+def test_walk_events_on_masterchannel_node(beforestart, session):
     db_name = session.scan_saving.scan_parent_db_name + ":_1_ct:timer:elapsed_time"
     events = _count_node_events(beforestart, session, db_name, node_type="channel")
     assert set(events.keys()) == {"NEW_DATA"}
@@ -679,7 +751,14 @@ def test_events_on_masterchannel_node(beforestart, session):
 
 
 @pytest.mark.parametrize("beforestart", [True, False])
-def test_events_on_controllerchannel_node(beforestart, session):
+def test_walk_nodes_on_masterchannel_node(beforestart, session):
+    db_name = session.scan_saving.scan_parent_db_name + ":_1_ct:timer:elapsed_time"
+    nodes = _count_nodes(beforestart, session, db_name, node_type="channel")
+    assert not nodes
+
+
+@pytest.mark.parametrize("beforestart", [True, False])
+def test_walk_events_on_controllerchannel_node(beforestart, session):
     db_name = (
         session.scan_saving.scan_parent_db_name
         + ":_1_ct:timer:simulation_diode_sampling_controller:diode"
@@ -687,6 +766,16 @@ def test_events_on_controllerchannel_node(beforestart, session):
     events = _count_node_events(beforestart, session, db_name, node_type="channel")
     assert set(events.keys()) == {"NEW_DATA"}
     assert len(events["NEW_DATA"]) == 1
+
+
+@pytest.mark.parametrize("beforestart", [True, False])
+def test_walk_nodes_on_controllerchannel_node(beforestart, session):
+    db_name = (
+        session.scan_saving.scan_parent_db_name
+        + ":1_ct:timer:simulation_diode_sampling_controller:diode"
+    )
+    nodes = _count_nodes(beforestart, session, db_name, node_type="channel")
+    assert not nodes
 
 
 def test_scan_numbering(default_session, beacon):

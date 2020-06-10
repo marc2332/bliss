@@ -31,6 +31,7 @@ Yaml config may look like this:
 """
 
 import weakref
+import numpy
 from tabulate import tabulate
 from bliss.config.beacon_object import BeaconObject
 from bliss.common import scans
@@ -41,10 +42,12 @@ from bliss.common.measurementgroup import get_active as get_active_mg
 from bliss.common.counter import SamplingCounter
 from bliss.controllers.counter import SamplingCounterController
 from bliss.common.utils import autocomplete_property
+from bliss.common.utils import rounder
 from bliss import global_map
 from bliss.common.session import get_current_session
 from bliss.scanning.scan import ScanPreset
 from bliss.common.axis import Axis
+from bliss.common.cleanup import cleanup, axis as cleanup_axis
 
 from . import acquisition_objects
 
@@ -224,7 +227,96 @@ class AutoFilter(BeaconObject):
         """
         Basically same as normal ascan with auto filter management
         """
+        scan_pars = {"type": "ascan"}
+        return self.anscan(
+            [(motor, start, stop)],
+            intervals,
+            count_time,
+            *counter_args,
+            scan_info=scan_pars,
+            **kwargs,
+        )
 
+    def a2scan(
+        self,
+        motor1,
+        start1,
+        stop1,
+        motor2,
+        start2,
+        stop2,
+        intervals,
+        count_time,
+        *counter_args,
+        **kwargs,
+    ):
+        """
+        Basically same as normal ascan with auto filter management
+        """
+        scan_pars = {"type": "ascan"}
+        return self.anscan(
+            [(motor1, start1, stop1), (motor2, start2, stop2)],
+            intervals,
+            count_time,
+            *counter_args,
+            scan_info=scan_pars,
+            **kwargs,
+        )
+
+    def dscan(self, motor, start, stop, intervals, count_time, *counter_args, **kwargs):
+        """
+        Basically same as normal ascan with auto filter management
+        """
+        scan_pars = {"type": "dscan"}
+        with cleanup(motor, restore_list=(cleanup_axis.POS,), verbose=True):
+            return self.anscan(
+                [(motor, start, stop)],
+                intervals,
+                count_time,
+                *counter_args,
+                scan_info=scan_pars,
+                scan_type="dscan",
+                **kwargs,
+            )
+
+    def d2scan(
+        self,
+        motor1,
+        start1,
+        stop1,
+        motor2,
+        start2,
+        stop2,
+        intervals,
+        count_time,
+        *counter_args,
+        **kwargs,
+    ):
+        """
+        Basically same as normal ascan with auto filter management
+        """
+        scan_pars = {"type": "dscan"}
+        with cleanup(motor1, motor2, restore_list=(cleanup_axis.POS,), verbose=True):
+            return self.anscan(
+                [(motor1, start1, stop1), (motor2, start2, stop2)],
+                intervals,
+                count_time,
+                *counter_args,
+                scan_info=scan_pars,
+                scan_type="dscan",
+                **kwargs,
+            )
+
+    def anscan(
+        self,
+        motor_tuple_list,
+        intervals,
+        count_time,
+        *counter_args,
+        scan_info=None,
+        scan_type=None,
+        **kwargs,
+    ):
         # initialize the filterset
         # maybe better to use a ScanPreset
         self.initialize()
@@ -235,13 +327,16 @@ class AutoFilter(BeaconObject):
         save_flag = kwargs.get("save", True)
         programed_device_intervals = (intervals + 1) * self.max_nb_iter
         npoints = intervals + 1
-        scan_pars = {
-            "type": "ascan",
-            "npoints": programed_device_intervals,
-            "count_time": count_time,
-            "sleep_time": kwargs.get("sleep_time"),
-            "save": save_flag,
-        }
+        if scan_info is None:
+            scan_info = dict()
+        scan_info.update(
+            {
+                "npoints": programed_device_intervals,
+                "count_time": count_time,
+                "sleep_time": kwargs.get("sleep_time"),
+                "save": save_flag,
+            }
+        )
 
         # Check monitor exists
         monitor_counter_name = self.monitor_counter_name
@@ -259,7 +354,7 @@ class AutoFilter(BeaconObject):
         else:
             counter_args = list(counter_args) + [monitor_counter]
 
-        default_chain = scans.DEFAULT_CHAIN.get(scan_pars, counter_args)
+        default_chain = scans.DEFAULT_CHAIN.get(scan_info, counter_args)
         final_chain, monitor_channel = self._patch_chain(
             default_chain, npoints, monitor_counter
         )
@@ -282,14 +377,32 @@ class AutoFilter(BeaconObject):
                     self._point_nb += 1
 
         validator = Validator(self)
-        top_master = acquisition_objects.LinearStepTriggerMaster(
-            npoints, motor, start, stop
-        )
+        #        top_master = acquisition_objects.LinearStepTriggerMaster(
+        #            npoints, motor, start, stop
+        #        )
+
+        motors_positions = list()
+        title_list = list()
+
+        for m_tup in motor_tuple_list:
+            mot = m_tup[0]
+            d = mot._set_position if scan_type == "dscan" else 0
+            start = m_tup[1]
+            stop = m_tup[2]
+            title_list.extend(
+                (mot.name, rounder(mot.tolerance, start), rounder(mot.tolerance, stop))
+            )
+            start = m_tup[1] + d
+            stop = m_tup[2] + d
+            motors_positions.extend((mot, numpy.linspace(start, stop, npoints)))
+
+        top_master = acquisition_objects.VariableStepTriggerMaster(*motors_positions)
+
         timer = final_chain.top_masters.pop(0)
         final_chain.add(top_master, timer)
         s = scan.Scan(
             final_chain,
-            scan_info=scan_pars,
+            scan_info=scan_info,
             name=kwargs.setdefault("name", "ascan"),
             save=kwargs.get("save", True),
             save_images=kwargs.get("save_images"),

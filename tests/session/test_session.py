@@ -218,6 +218,13 @@ def test_session_env_dict_protection_imports_globals(beacon):
     with pytest.raises(RuntimeError):
         prot_env_dict["ascan"] = 17
 
+    try:
+        from bliss.common.scans import ascan
+
+        prot_env_dict["ascan"] = ascan
+    except RuntimeError:
+        pytest.fail("Items protection should not reject imports")
+
     with pytest.raises(RuntimeError):
         prot_env_dict["SCAN_DISPLAY"] = 17
 

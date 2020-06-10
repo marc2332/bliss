@@ -840,12 +840,12 @@ def edit_roi_counters(detector, acq_time=None):
         return
 
     selections = []
-    for roi_name, roi in roi_counters.items():
+    for roi in roi_counters.get_rois():
         selection = dict(
             kind="Rectangle",
             origin=(roi.x, roi.y),
             size=(roi.width, roi.height),
-            label=roi_name,
+            label=roi.name,
         )
         selections.append(selection)
     print(("Waiting for ROI edition to finish on {}...".format(name)))

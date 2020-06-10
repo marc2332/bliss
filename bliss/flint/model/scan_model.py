@@ -310,6 +310,18 @@ class Scan(qt.QObject, _Sealable):
         return result[1]
 
 
+class DeviceType(enum.Enum):
+    """Enumerate the kind of devices"""
+
+    NONE = 0
+    """Default type"""
+
+    VIRTUAL_ROI = 1
+    """Device containing channel data from the same ROI.
+    It is a GUI concept, there is no related device on the BLISS side.
+    """
+
+
 class Device(qt.QObject, _Sealable):
     """
     Description of a device.
@@ -322,6 +334,7 @@ class Device(qt.QObject, _Sealable):
         qt.QObject.__init__(self, parent=parent)
         _Sealable.__init__(self)
         self.__name: str = ""
+        self.__type: DeviceType = DeviceType.NONE
         self.__channels: List[Channel] = []
         self.__master: Optional[Device] = None
         self.__topMaster: Optional[Device] = None
@@ -379,6 +392,17 @@ class Device(qt.QObject, _Sealable):
         """
         # FIXME: This have to be improved
         return self.__master is None
+
+    def setType(self, deviceType: DeviceType):
+        if self.isSealed():
+            raise SealedError()
+        self.__type = deviceType
+
+    def type(self) -> DeviceType:
+        """
+        Returns the kind of this channel.
+        """
+        return self.__type
 
 
 class ChannelType(enum.Enum):

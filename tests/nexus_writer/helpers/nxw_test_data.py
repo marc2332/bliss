@@ -949,9 +949,10 @@ def expected_detector_content(name, config=True):
                     "data",
                     "dead_time",
                     "elapsed_time",
+                    "input_live_time",
                     "input_counts",
                     "input_rate",
-                    "live_time",
+                    "output_live_time",
                     "output_counts",
                     "output_rate",
                 }
@@ -1041,12 +1042,13 @@ def expected_channels(
                     detname = conname + "_" + detname
                     datasets[1] |= {detname}
                     datasets[0] |= {
+                        detname + "_input_live_time",
                         detname + "_input_counts",
                         detname + "_input_rate",
+                        detname + "_output_live_time",
                         detname + "_output_counts",
                         detname + "_output_rate",
                         detname + "_dead_time",
-                        detname + "_live_time",
                         detname + "_elapsed_time",
                         detname + "_roi1",
                         detname + "_roi2",
@@ -1060,12 +1062,13 @@ def expected_channels(
                     prefix = conname + "_"
                     datasets[1] |= {prefix + "spectrum_" + detname}
                     datasets[0] |= {
+                        prefix + "trigger_livetime_" + detname,
                         prefix + "triggers_" + detname,
                         prefix + "icr_" + detname,
+                        prefix + "energy_livetime_" + detname,
                         prefix + "events_" + detname,
                         prefix + "ocr_" + detname,
                         prefix + "deadtime_" + detname,
-                        prefix + "livetime_" + detname,
                         prefix + "realtime_" + detname,
                         prefix + "roi1_" + detname,
                         prefix + "roi2_" + detname,

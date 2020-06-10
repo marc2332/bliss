@@ -22,7 +22,8 @@ mcanamemap = {
     "triggers": "input_counts",
     "events": "output_counts",
     "deadtime": "dead_time",
-    "livetime": "live_time",
+    "trigger_livetime": "input_live_time",
+    "energy_livetime": "output_live_time",
     "realtime": "elapsed_time",
 }
 
@@ -33,11 +34,17 @@ mcatypemap = {
     "triggers": "triggers",
     "events": "events",
     "deadtime": "deadtime",
-    "livetime": "livetime",
+    "trigger_livetime": "trigger_livetime",
+    "energy_livetime": "livetime",
     "realtime": "realtime",
 }
 
-mcaunitmap = {"icr": "hertz", "ocr": "hertz", "livetime": "s", "realtime": "s"}
+mcaunitmap = {
+    "rate": "hertz",
+    "livetime": "s",
+    "trigger_livetime": "s",
+    "realtime": "s",
+}
 
 limanamemap = {"image": "data", "sum": "data"}
 
@@ -149,20 +156,26 @@ def parse_devices(devices, short_names=True, multivalue_positioners=False):
         if device["device_type"] == "mca":
             # 'xmap1:xxxxxx_det1'
             # 'xmap1:roi1'
-            #   xxxxxx: spectrum, icr, ocr, triggers, events, deadtime, livetime, realtime, roi1, roi2, ...
+            #   xxxxxx: spectrum, icr, ocr, triggers, events,
+            #           deadtime, trigger_livetime, energy_livetime,
+            #           realtime, roi1, roi2, ...
             #   device_name = 'xmap1:det1'
             #   data_type = mcatypemap('xxxxxx')
             #   data_name = mcanamemap('xxxxxx')
             parts = fullname.split(":")
             lastparts = parts[-1].split("_")
-            mcachannel = "_".join(lastparts[1:])
-            if not mcachannel:
+            if len(lastparts) == 1:
                 mcachannel = "sum"
+                datatype = lastparts[-1]
+            else:
+                mcachannel = lastparts[-1]
+                datatype = "_".join(lastparts[:-1])  # xxxxxx
             parts = parts[:-1] + [mcachannel]
-            datatype = lastparts[0]  # xxxxxx
             device["device_name"] = ":".join(parts)
-            device["data_type"] = mcatypemap.get(datatype, datatype)
             device["data_name"] = mcanamemap.get(datatype, datatype)
+            if datatype.startswith("roi"):
+                datatype = "roi"
+            device["data_type"] = mcatypemap.get(datatype, datatype)
             device["data_info"]["units"] = mcaunitmap.get(datatype, None)
         elif device["device_type"] == "mythen":
             # 'mythen1:spectrum'

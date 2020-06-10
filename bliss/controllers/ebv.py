@@ -228,7 +228,7 @@ class BpmController(SamplingCounterController):
 
         # set required params
         self._cam_proxy.video_live = False
-        self._cam_proxy.abortAcq()
+        self._cam_proxy.stopAcq()  # abortAcq()
         self._cam_proxy.acq_mode = "SINGLE"
         self._cam_proxy.acq_trigger_mode = "INTERNAL_TRIGGER"
         self._cam_proxy.acq_nb_frames = 1

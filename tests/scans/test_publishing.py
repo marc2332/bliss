@@ -626,3 +626,29 @@ def test_events_on_controllerchannel_node(beforestart, session):
     events = _count_node_events(beforestart, session, db_name, node_type="channel")
     assert set(events.keys()) == {"NEW_DATA"}
     assert len(events["NEW_DATA"]) == 1
+
+
+def test_scan_numbering(default_session, beacon, scan_tmpdir):
+    scan_saving = default_session.scan_saving
+    scan_saving.base_path = str(scan_tmpdir)
+    diode = beacon.get("diode")
+
+    l = scans.loopscan(1, .1, diode, save=True)
+    assert "number" in repr(l)
+    nodename = l.node.db_name.split(":")[-1]
+    assert nodename[0] != "_"
+
+    l = scans.loopscan(1, .1, diode, save=False)
+    assert "number" not in repr(l)
+    nodename = l.node.db_name.split(":")[-1]
+    assert nodename[0] == "_"
+
+
+def test_no_ct_in_scans_queue(beacon, default_session):
+    diode = beacon.get("diode")
+    scans.loopscan(1, .1, diode, save=False)
+    assert len(default_session.scans) == 1
+    scans.ct(.1, diode)
+    assert len(default_session.scans) == 1
+    scans.sct(.1, diode, save=False)
+    assert len(default_session.scans) == 1

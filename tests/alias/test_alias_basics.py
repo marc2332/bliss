@@ -9,7 +9,7 @@ robyy    roby
 robzz    robz
 dtime    simu1:deadtime_det0
 rtime    simu1:realtime_det0
-ltime    simu1:livetime_det0
+ltime    simu1:energy_livetime_det0
 dtime1   simu1:deadtime_det1
 dtime2   simu1:deadtime_det2
 myroi    lima_simulator:roi_counters:r1_sum
@@ -22,7 +22,7 @@ robyy    roby
 robzz    robz
 dtime    simu1:deadtime_det0
 rtime    simu1:realtime_det0
-ltime    simu1:livetime_det0
+ltime    simu1:energy_livetime_det0
 dtime1   simu1:deadtime_det1
 dtime2   simu1:deadtime_det2
 myroi    lima_simulator:roi_counters:r1_sum
@@ -36,7 +36,7 @@ robyy    roby
 robzz    robz
 dtime    simu1:deadtime_det0
 rtime    simu1:realtime_det0
-ltime    simu1:livetime_det0
+ltime    simu1:energy_livetime_det0
 dtime1   simu1:deadtime_det1
 dtime2   simu1:deadtime_det2
 myroi    lima_simulator:roi_counters:r1_sum

@@ -211,8 +211,8 @@ def test_xia_software_acquisition(xia, mocker):
     sleep = mocker.patch("gevent.sleep")
     sleep.side_effect = lambda x: client.mock_not_running()
     client.get_spectrums.return_value = {0: [3, 2, 1]}
-    client.get_statistics.return_value = {0: list(range(7))}
-    stats = Stats(*list(range(7)))
+    client.get_statistics.return_value = {0: list(range(8))}
+    stats = Stats(*list(range(8)))
     assert xia.run_software_acquisition(1, 3.) == ([{0: [3, 2, 1]}], [{0: stats}])
 
 
@@ -223,11 +223,11 @@ def test_xia_multiple_acquisition(xia, mocker):
     client.synchronized_poll_data.side_effect = lambda: data.pop(0)
 
     data = [
-        (1, {0: {0: "discarded"}}, {0: {0: [0] * 7}}),
-        (2, {1: {0: "spectrum0"}}, {1: {0: list(range(7))}}),
-        (3, {2: {0: "spectrum1"}}, {2: {0: list(range(10, 17))}}),
+        (1, {0: {0: "discarded"}}, {0: {0: [0] * 8}}),
+        (2, {1: {0: "spectrum0"}}, {1: {0: list(range(8))}}),
+        (3, {2: {0: "spectrum1"}}, {2: {0: list(range(10, 18))}}),
     ]
-    stats0, stats1 = Stats(*list(range(7))), Stats(*list(range(10, 17)))
+    stats0, stats1 = Stats(*list(range(8))), Stats(*list(range(10, 18)))
 
     data, stats = xia.run_synchronized_acquisition(2)
     assert data == [{0: "spectrum0"}, {0: "spectrum1"}]

@@ -32,6 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Tune the scan status widget to resize the width smaller
 	- Provide tool to remove curves close to the y1/y2 indicators
 	- Rework the check of the flint API at startup to reduce pointless warnings
+    - Group Lima ROI channels by ROI name in the property tree
 
 ### Fixed
 - Flint:

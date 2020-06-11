@@ -36,6 +36,21 @@ SCAN_INFO = {
 }
 
 
+SCAN_INFO_LIMA_ROIS = {
+    "acquisition_chain": {
+        "timer": {
+            "master": {"scalars": ["timer:elapsed_time", "timer:epoch"]},
+            "scalars": [
+                "beamviewer:roi_counters:roi1_sum",
+                "beamviewer:roi_counters:roi1_avg",
+                "beamviewer:roi_counters:roi4_sum",
+                "beamviewer:roi_counters:roi4_avg",
+            ],
+        }
+    }
+}
+
+
 def test_iter_channels():
     result = scan_info_helper.iter_channels(SCAN_INFO)
     expected = [
@@ -77,6 +92,23 @@ def test_create_scan_model():
 
     assert scan.getChannelByName("timer:elapsed_time").metadata() is not None
     assert scan.getChannelByName("timer:epoch").metadata() is None
+
+
+def test_create_scan_model_with_lima_rois():
+    scan = scan_info_helper.create_scan_model(SCAN_INFO_LIMA_ROIS)
+    assert scan.isSealed()
+
+    channelCount = 0
+    deviceCount = len(list(scan.devices()))
+    for device in scan.devices():
+        channelCount += len(list(device.channels()))
+    assert channelCount == 6
+    assert deviceCount == 6
+
+    channel = scan.getChannelByName("beamviewer:roi_counters:roi4_avg")
+    assert channel.name() == "beamviewer:roi_counters:roi4_avg"
+    assert channel.device().name() == "roi4"
+    assert channel.device().type() == scan_model.DeviceType.VIRTUAL_ROI
 
 
 def test_create_plot_model():

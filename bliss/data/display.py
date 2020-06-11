@@ -750,8 +750,11 @@ class ScanDataListener(_ScanPrinterBase):
         pass
 
     @_post_in_pool
-    def on_scan_data(self, data_dim, master_name, channel_info):
+    def on_scan_new(self, scan_info):
+        super(ScanDataListener, self).on_scan_new(scan_info)
 
+    @_post_in_pool
+    def on_scan_data(self, data_dim, master_name, channel_info):
         if data_dim != "0d":
             return False
 
@@ -775,6 +778,7 @@ class ScanDataListener(_ScanPrinterBase):
                 print(line)
                 self.scan_steps_index += 1
 
+    @_post_in_pool
     def on_scan_end(self, scan_info):
         super().on_scan_end(scan_info)
 

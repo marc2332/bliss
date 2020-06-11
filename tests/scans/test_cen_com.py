@@ -8,9 +8,6 @@
 import pytest
 from bliss import setup_globals
 from bliss.common import scans
-from bliss.scanning import scan, chain
-from bliss.scanning.acquisition import timer, calc, motor, counter
-from bliss.common import event
 from bliss.shell.standard import plotselect, plotinit, cen, com, peak, fwhm
 from bliss.scanning.scan import ScanDisplay
 from bliss.scanning import scan_tools
@@ -116,7 +113,7 @@ def test_plotselect1(session):
 
     # Select counter via library function
     plot.plotselect(simul_counter1)
-    s = scans.ascan(roby, 0, .1, 5, 0, mg, simul_counter4, save=False)
+    scans.ascan(roby, 0, .1, 5, 0, mg, simul_counter4, save=False)
 
     # _get_selected_counter_name() is valid only after a scan.
     assert simul_counter1.fullname == scan_tools.get_selected_counter_name()

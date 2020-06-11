@@ -789,7 +789,10 @@ class ScanDataListener(_ScanPrinterBase):
         """
         if self.scan_display is None:
             self.scan_display = ScanDisplay(self.session_name)
-        requested_channels = self.scan_display.displayed_channels
+
+        requested_channels = []
+        if self.scan_display.enable_scan_display_filter:
+            requested_channels = self.scan_display.displayed_channels
         if requested_channels == []:
             requested_channels = self.displayable_channel_names.copy()
 

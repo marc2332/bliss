@@ -348,9 +348,15 @@ class ScanDisplay(ParametersWardrobe):
                 "_extra_args": [],
                 "_next_scan_metadata": None,
                 "displayed_channels": [],
+                "enable_scan_display_filter": True,
             },
             property_attributes=("session", "extra_args", "flint_output_enabled"),
-            not_removable=("auto", "motor_position", "displayed_channels"),
+            not_removable=(
+                "auto",
+                "motor_position",
+                "displayed_channels",
+                "enable_scan_display_filter",
+            ),
         )
 
         self.add("_session_name", session_name)

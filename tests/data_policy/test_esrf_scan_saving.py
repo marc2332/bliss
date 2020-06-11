@@ -45,22 +45,26 @@ def test_inhouse_scan_saving(session, esrf_data_policy):
 
 def test_visitor_scan_saving(session, esrf_data_policy):
     scan_saving = session.scan_saving
+    scan_saving.mount_point = "fs1"
     scan_saving_config = esrf_data_policy
     scan_saving.proposal = "mx415"
-    assert scan_saving.base_path == scan_saving_config["visitor_data_root"]
-    assert scan_saving.icat_base_path == scan_saving_config["visitor_data_root"]
+    assert scan_saving.base_path == scan_saving_config["visitor_data_root"]["fs1"]
+    assert scan_saving.icat_base_path == scan_saving_config["visitor_data_root"]["fs1"]
 
 
 def test_tmp_scan_saving(session, esrf_data_policy):
     scan_saving = session.scan_saving
+    scan_saving.mount_point = "fs1"
     scan_saving_config = esrf_data_policy
     scan_saving.proposal = "test123"
-    assert scan_saving.base_path == scan_saving_config["tmp_data_root"].format(
+    expected = scan_saving_config["tmp_data_root"]["fs1"].format(
         beamline=scan_saving.beamline
     )
-    assert scan_saving.icat_base_path == scan_saving_config[
-        "icat_tmp_data_root"
-    ].format(beamline=scan_saving.beamline)
+    assert scan_saving.base_path == expected
+    expected = scan_saving_config["icat_tmp_data_root"].format(
+        beamline=scan_saving.beamline
+    )
+    assert scan_saving.icat_base_path == expected
 
 
 def test_auto_dataset_increment(session, esrf_data_policy):
@@ -91,20 +95,17 @@ def test_newproposal(
     metadata_experiment_tango_server,
     metadata_manager_tango_server,
 ):
+    scan_saving = session.scan_saving
     mdexp_dev_fqdn, mdexp_dev = metadata_experiment_tango_server
 
-    session.scan_saving.sample = "toto"
-    session.scan_saving.dataset = "x"
-
+    scan_saving.sample = "toto"
+    scan_saving.dataset = "x"
     newproposal("mx415")  # should reset sample and dataset
-
-    assert session.scan_saving.proposal == "mx415"
-    assert session.scan_saving.sample == "sample"
-    assert session.scan_saving.dataset == "0001"
-
-    session.scan_saving.get()
-
-    assert mdexp_dev.proposal == session.scan_saving.proposal
+    assert scan_saving.proposal == "mx415"
+    assert scan_saving.sample == "sample"
+    assert scan_saving.dataset == "0001"
+    scan_saving.get()
+    assert mdexp_dev.proposal == scan_saving.proposal
 
 
 def test_data_policy_scan_check_servers(
@@ -113,12 +114,13 @@ def test_data_policy_scan_check_servers(
     metadata_experiment_tango_server,
     metadata_manager_tango_server,
 ):
+    scan_saving = session.scan_saving
     mdexp_dev_fqdn, mdexp_dev = metadata_experiment_tango_server
     mdmgr_dev_fqdn, mdmgr_dev = metadata_manager_tango_server
 
-    session.scan_saving.proposal = "newproposal"
-    session.scan_saving.sample = "newsample"
-    session.scan_saving.dataset = "newdataset"
+    scan_saving.proposal = "newproposal"
+    scan_saving.sample = "newsample"
+    scan_saving.dataset = "newdataset"
 
     diode = session.env_dict["diode"]
     s = loopscan(3, 0.01, diode, save=False)
@@ -213,3 +215,97 @@ def test_session_scan_saving_clone(
     # check that the same redis structure is used by the clone
     scan_saving.proposal = "toto"
     assert scan_saving2.proposal == "toto"
+
+
+def test_mount_points(session, esrf_data_policy):
+    scan_saving = session.scan_saving
+    scan_saving_config = esrf_data_policy
+
+    # Test setting mount points
+    for mp in ["", "fs1", "fs2", "fs3"]:
+        scan_saving.mount_point = mp
+        assert scan_saving.mount_point == mp
+    with pytest.raises(ValueError):
+        scan_saving.mount_point = "non-existing"
+    scan_saving.mount_point == mp
+
+    # Test temp mount points (has sf1 and sf2 and fixed icat)
+    scan_saving.proposal = "temp123"
+
+    icat_expected = scan_saving_config["icat_tmp_data_root"].format(
+        beamline=scan_saving.beamline
+    )
+
+    scan_saving.mount_point = ""
+    expected = scan_saving_config["tmp_data_root"]["fs1"].format(
+        beamline=scan_saving.beamline
+    )
+    assert scan_saving.base_path == expected
+    assert scan_saving.icat_base_path == icat_expected
+
+    scan_saving.mount_point = "fs1"
+    expected = scan_saving_config["tmp_data_root"]["fs1"].format(
+        beamline=scan_saving.beamline
+    )
+    assert scan_saving.base_path == expected
+    assert scan_saving.icat_base_path == icat_expected
+
+    scan_saving.mount_point = "fs2"
+    expected = scan_saving_config["tmp_data_root"]["fs2"].format(
+        beamline=scan_saving.beamline
+    )
+    assert scan_saving.base_path == expected
+    assert scan_saving.icat_base_path == icat_expected
+
+    scan_saving.mount_point = "fs3"
+    expected = scan_saving_config["tmp_data_root"]["fs1"].format(
+        beamline=scan_saving.beamline
+    )
+    assert scan_saving.base_path == expected
+    assert scan_saving.icat_base_path == icat_expected
+
+    # Test visitor mount points (has sf1 and sf3 and no fixed icat)
+    scan_saving.proposal = "hg123"
+
+    scan_saving.mount_point = ""
+    expected = scan_saving_config["visitor_data_root"]["fs1"]
+    assert scan_saving.base_path == expected
+    assert scan_saving.icat_base_path == expected
+
+    scan_saving.mount_point = "fs1"
+    expected = scan_saving_config["visitor_data_root"]["fs1"]
+    assert scan_saving.base_path == expected
+    assert scan_saving.icat_base_path == expected
+
+    scan_saving.mount_point = "fs2"
+    expected = scan_saving_config["visitor_data_root"]["fs1"]
+    assert scan_saving.base_path == expected
+    assert scan_saving.icat_base_path == expected
+
+    scan_saving.mount_point = "fs3"
+    expected = scan_saving_config["visitor_data_root"]["fs3"]
+    assert scan_saving.base_path == expected
+    assert scan_saving.icat_base_path == expected
+
+    # Test inhouse mount points (no named mount points)
+    scan_saving.proposal = "blc123"
+
+    expected = scan_saving_config["inhouse_data_root"].format(
+        beamline=scan_saving.beamline
+    )
+
+    scan_saving.mount_point = ""
+    assert scan_saving.base_path == expected
+    assert scan_saving.icat_base_path == expected
+
+    scan_saving.mount_point = "fs1"
+    assert scan_saving.base_path == expected
+    assert scan_saving.icat_base_path == expected
+
+    scan_saving.mount_point = "fs2"
+    assert scan_saving.base_path == expected
+    assert scan_saving.icat_base_path == expected
+
+    scan_saving.mount_point = "fs3"
+    assert scan_saving.base_path == expected
+    assert scan_saving.icat_base_path == expected

@@ -36,6 +36,8 @@ def test_config_withpolicy(nexus_writer_config):
     expected_filenames = {}
     expected_filenames["dataset"] = tmpdir.join(
         session.name,
+        "fs1",
+        "id00",
         "tmp",
         "testproposal",
         "id00",
@@ -44,10 +46,23 @@ def test_config_withpolicy(nexus_writer_config):
         "sample_0001.h5",
     )
     expected_filenames["sample"] = tmpdir.join(
-        session.name, "tmp", "testproposal", "id00", "sample", "testproposal_sample.h5"
+        session.name,
+        "fs1",
+        "id00",
+        "tmp",
+        "testproposal",
+        "id00",
+        "sample",
+        "testproposal_sample.h5",
     )
     expected_filenames["proposal"] = tmpdir.join(
-        session.name, "tmp", "testproposal", "id00", "testproposal_id00.h5"
+        session.name,
+        "fs1",
+        "id00",
+        "tmp",
+        "testproposal",
+        "id00",
+        "testproposal_id00.h5",
     )
     assert filenames == expected_filenames
 

@@ -263,6 +263,7 @@ def plotinit(*counters):
         counters: String, alias, object identifying an object providing data to
             record. It can be a counter name, a counter, an axis, an alias.
     """
+    # Avoid cyclic import
     from bliss.scanning.scan import ScanDisplay
 
     sd = ScanDisplay()
@@ -281,6 +282,8 @@ def plotselect(*counters):
         counters: String, alias, object identifying an object providing data to
             record. It can be a counter name, a counter, an axis, an alias.
     """
+    # Avoid cyclic import
+    from bliss.scanning.scan import ScanDisplay
 
     plot_select = HashSetting("%s:plot_select" % current_session.name)
     channel_names = get_channel_names(*counters)
@@ -289,6 +292,9 @@ def plotselect(*counters):
         fullname = channel_name  # should be like: <controller.counter>
         counter_names[fullname] = "Y1"
     plot_select.set(counter_names)
+
+    scan_display = ScanDisplay()
+    scan_display.displayed_channels = channel_names
 
     if flint_proxy.check_flint():
         channel_names = get_channel_names(*counters)

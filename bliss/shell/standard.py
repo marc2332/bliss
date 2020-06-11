@@ -788,11 +788,14 @@ def plotselect(*counters: _providing_channel):
     if not counters:
         print("")
         print("plotselect usage:")
-        print("    plotselect(<counters>*)")
+        print("    plotselect(<counters>*)  - Select a set of counters")
+        print("    plotselect(None)         - Deselect everything")
         print("example:")
         print("    plotselect(counter1, counter2)")
         print("")
     else:
+        if len(counters) == 1 and counters[0] is None:
+            counters = []
         plot_module.plotselect(*counters)
     print("")
     print("Currently plotted counter(s):")

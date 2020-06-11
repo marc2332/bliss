@@ -369,9 +369,11 @@ class CacheConnection:
             for msg in pubsub.listen():
                 if msg.get("channel") == b"__redis__:invalidate":
                     inv_names = msg.get("data")
-                    with self._lock:
-                        for inv_name in inv_names:
+                    for inv_name in inv_names:
+                        try:
                             self._cache_values.pop(inv_name.decode(), None)
+                        except UnicodeDecodeError:
+                            pass
         finally:
             with self._lock:
                 cnx = self._cnx

@@ -424,3 +424,31 @@ def test_nested_property_evaluation():
     result, cli, _ = _feed_cli_with_input("b.bar.foo\r", local_locals={"b": b})
     result, cli, _ = _feed_cli_with_input("b.bar.foo\r", local_locals={"b": b})
     assert b.bar.foo == 1
+
+
+def test_deprecation_warning(beacon, capfd, log_context):
+    def test_deprecated():
+        print("bla")
+        from bliss.common.deprecation import deprecated_warning
+
+        deprecated_warning(
+            kind="function",
+            name="ct",
+            replacement="sct",
+            reason="`ct` does no longer allow to save data",
+            since_version="1.5.0",
+            skip_backtrace_count=5,
+            only_once=False,
+        )
+
+    with bliss_repl({"func": test_deprecated}) as bliss_repl_ctx:
+        inp, br = bliss_repl_ctx
+        inp.send_text("func()\r")
+        result = br.app.run()
+        br._execute(result)
+        captured = capfd.readouterr()
+
+    out = _repl_out_to_string(captured.out)
+    err = _repl_out_to_string(captured.err)
+    assert "bla" in out
+    assert "Function ct is deprecated since" in err

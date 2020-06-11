@@ -508,8 +508,7 @@ class BasicScanSaving(EvalParametersWardrobe):
         """Directory of the scan *data file*
         """
         base_path = self.get_cached_property("base_path", eval_dict)
-        template = os.path.join(base_path, self.template)
-        return os.path.abspath(self.eval_template(template, eval_dict=eval_dict))
+        return self._get_root_path(base_path, eval_dict=eval_dict)
 
     @property_with_eval_dict
     def data_path(self, eval_dict=None):
@@ -517,8 +516,7 @@ class BasicScanSaving(EvalParametersWardrobe):
         This is before the writer modifies the name (given by `self.filename`)
         """
         root_path = self.get_cached_property("root_path", eval_dict)
-        data_filename = self.get_cached_property("eval_data_filename", eval_dict)
-        return os.path.join(root_path, data_filename)
+        return self._get_data_path(root_path, eval_dict=eval_dict)
 
     @property_with_eval_dict
     def data_fullpath(self, eval_dict=None):
@@ -526,6 +524,28 @@ class BasicScanSaving(EvalParametersWardrobe):
         This is before the writer modifies the name (given by `self.filename`)
         """
         data_path = self.get_cached_property("data_path", eval_dict)
+        return self._get_data_fullpath(data_path, eval_dict=eval_dict)
+
+    @with_eval_dict
+    def _get_root_path(self, base_path, eval_dict=None):
+        """Directory of the scan *data file*
+        """
+        template = os.path.join(base_path, self.template)
+        return os.path.abspath(self.eval_template(template, eval_dict=eval_dict))
+
+    @with_eval_dict
+    def _get_data_path(self, root_path, eval_dict=None):
+        """Full path for the scan *data file* without the extension
+        This is before the writer modifies the name (given by `self.filename`)
+        """
+        data_filename = self.get_cached_property("eval_data_filename", eval_dict)
+        return os.path.join(root_path, data_filename)
+
+    @with_eval_dict
+    def _get_data_fullpath(self, data_path, eval_dict=None):
+        """Full path for the scan *data file* with the extension.
+        This is before the writer modifies the name (given by `self.filename`)
+        """
         unknowns = self._template_named_fields(data_path)
         data_path = data_path.format(**{f: "{" + f + "}" for f in unknowns})
         return os.path.extsep.join((data_path, self.file_extension))
@@ -884,8 +904,23 @@ class ESRFScanSaving(BasicScanSaving):
         """Directory of the scan *data file* reachable by ICAT
         """
         base_path = self.get_cached_property("icat_base_path", eval_dict)
-        template = os.path.join(base_path, self.template)
-        return os.path.abspath(self.eval_template(template, eval_dict=eval_dict))
+        return self._get_root_path(base_path, eval_dict=eval_dict)
+
+    @property_with_eval_dict
+    def icat_data_path(self, eval_dict=None):
+        """Full path for the scan *data file* without the extension,
+        reachable by ICAT
+        """
+        root_path = self.get_cached_property("icat_root_path", eval_dict)
+        return self._get_data_path(root_path, eval_dict=eval_dict)
+
+    @property_with_eval_dict
+    def icat_data_fullpath(self, eval_dict=None):
+        """Full path for the scan *data file* with the extension,
+        reachable by ICAT
+        """
+        data_path = self.get_cached_property("icat_data_path", eval_dict)
+        return self._get_data_fullpath(data_path, eval_dict=eval_dict)
 
     @property
     def data_filename(self):
@@ -958,18 +993,15 @@ class ESRFScanSaving(BasicScanSaving):
                 return
 
     def _dataset_exists(self, dataset_name, eval_dict):
-        # TODO: check existance with ICAT database instead?
+        # TODO: check existance with ICAT database not possible
         eval_dict.pop("root_path", None)
         eval_dict.pop("data_path", None)
         eval_dict.pop("data_fullpath", None)
         eval_dict["dataset"] = dataset_name
-        # TODO: what should be used?
-        # data directory:
+        # Check whether directory exists
         path = self.get_cached_property("root_path", eval_dict)
-        # theoretical full path:
+        # Check whether file exists
         # path = self.get_cached_property("data_fullpath", eval_dict)
-        # full path as given by the writer instance:
-        # path = self.get_cached_property("filename", eval_dict)
         return os.path.exists(path)
 
     def _dataset_name_generator(self, prefix):

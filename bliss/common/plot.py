@@ -275,8 +275,8 @@ def plotselect(*counters):
     """
     Select counter(s) to use for:
     * alignment (bliss/common/scans.py:_get_selected_counter_name())
-    * flint display (bliss/flint/plot1d.py)
-    Saved as a HashSetting with '<session_name>:plot_select' key.
+    * scan display (tool binded with F5)
+    * flint
 
     Args:
         counters: String, alias, object identifying an object providing data to
@@ -285,15 +285,8 @@ def plotselect(*counters):
     # Avoid cyclic import
     from bliss.scanning.scan import ScanDisplay
 
-    plot_select = HashSetting("%s:plot_select" % current_session.name)
-    channel_names = get_channel_names(*counters)
-    counter_names = dict()
-    for channel_name in channel_names:
-        fullname = channel_name  # should be like: <controller.counter>
-        counter_names[fullname] = "Y1"
-    plot_select.set(counter_names)
-
     scan_display = ScanDisplay()
+    channel_names = get_channel_names(*counters)
     scan_display.displayed_channels = channel_names
 
     if flint_proxy.check_flint():
@@ -311,7 +304,6 @@ def meshselect(*counters):
     Select counter(s) to use for scatter :
     * alignment (bliss/common/scans.py:_get_selected_counter_name())
     * flint display (bliss/flint/plot1d.py)
-    Saved as a HashSetting with '<session_name>:plot_select' key.
     """
     if flint_proxy.check_flint():
         channel_names = get_channel_names(*counters)
@@ -325,17 +317,12 @@ def meshselect(*counters):
 
 def get_plotted_counters():
     """
-    Returns names of plotted counters as a list (get list from a HashSetting
-    with '<session_name>:plot_select' key).
+    Returns names of displayed counters.
     """
-    plot_select = HashSetting("%s:plot_select" % current_session.name)
+    from bliss.scanning.scan import ScanDisplay
 
-    plotted_cnt_list = list()
-
-    for cnt_name in plot_select.get_all():
-        plotted_cnt_list.append(cnt_name)
-
-    return plotted_cnt_list
+    scan_display = ScanDisplay()
+    return scan_display.displayed_channels
 
 
 def display_motor(

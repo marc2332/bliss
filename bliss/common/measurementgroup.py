@@ -382,7 +382,8 @@ class MeasurementGroup:
                 counter_names.extend(
                     cnt_name
                     for cnt_name in default_group_counters
-                    if cnt_name.startswith(counter_pattern)
+                    if cnt_name == counter_pattern
+                    or cnt_name.startswith(counter_pattern + ":")
                 )
             else:
                 counter_names.extend(

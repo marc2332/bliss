@@ -596,7 +596,6 @@ class Log:
             logging.getLogger().addHandler(self._stdout_handler)
 
             def filter_(record):
-                print(record)
                 # filter shell exceptions
                 if record.name in ["exceptions", "user_input"]:
                     return False

@@ -11,6 +11,17 @@ from bliss.common import plot
 from bliss.flint.client import proxy
 
 
+class ExtTestLogging(testutils.TestLogging):
+    def __exit__(self, exc_type, exc_value, traceback):
+        try:
+            testutils.TestLogging.__exit__(self, exc_type, exc_value, traceback)
+        except RuntimeError:
+            # In case of problem, display the received logs
+            for r in self.records:
+                print(r.levelname, r.name, self.format(r))
+            raise
+
+
 @contextmanager
 def attached_flint_context():
     """
@@ -50,7 +61,7 @@ def test_created_flint(flint_session):
     flint = plot.get_flint(creation_allowed=False)
 
     # Check messages and stdout
-    listener = testutils.TestLogging(proxy.FLINT_OUTPUT_LOGGER.name, info=1)
+    listener = ExtTestLogging(proxy.FLINT_OUTPUT_LOGGER.name, info=1)
     with listener:
         flint.ping()
         for _ in range(10):
@@ -66,7 +77,7 @@ def test_attached_flint(attached_flint_session):
     """
     flint = plot.get_flint()
     # Check messages and stdout
-    listener = testutils.TestLogging(proxy.FLINT_OUTPUT_LOGGER.name, info=1)
+    listener = ExtTestLogging(proxy.FLINT_OUTPUT_LOGGER.name, info=1)
     with listener:
         flint.ping()
         for _ in range(10):

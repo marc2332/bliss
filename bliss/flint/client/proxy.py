@@ -92,10 +92,16 @@ class FlintClient:
             self.__attach_flint(process)
         except Exception:
             if hasattr(process, "stdout"):
-                FLINT_LOGGER.error(
-                    "Flint can't start. You can enable the logs with the following line."
-                )
-                FLINT_LOGGER.error("    SCAN_DISPLAY.flint_output_enabled = True")
+                from bliss.scanning.scan import ScanDisplay
+
+                FLINT_LOGGER.error("Flint can't start.")
+                scan_display = ScanDisplay()
+                if not scan_display.flint_output_enabled:
+                    FLINT_LOGGER.error(
+                        "You can enable the logs with the following line."
+                    )
+                    FLINT_LOGGER.error("    SCAN_DISPLAY.flint_output_enabled = True")
+
                 FLINT_OUTPUT_LOGGER.error("---STDOUT---")
                 self.__log_process_output_to_logger(
                     process, "stdout", FLINT_OUTPUT_LOGGER, logging.ERROR

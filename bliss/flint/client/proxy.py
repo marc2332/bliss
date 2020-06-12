@@ -157,6 +157,11 @@ class FlintClient:
                 )
             process = psutil.Process(process)
 
+        def raise_if_dead(process):
+            if hasattr(process, "returncode"):
+                if process.returncode is not None:
+                    raise RuntimeError("Processus terminaded")
+
         pid = process.pid
         FLINT_LOGGER.debug("Attach flint PID: %d...", pid)
         beacon = get_default_connection()
@@ -169,7 +174,9 @@ class FlintClient:
         # Current URL
         key = config.get_flint_key(pid)
         for _ in range(3):
+            raise_if_dead(process)
             value = redis.brpoplpush(key, key, timeout=5)
+
             if value is not None:
                 break
         if value is None:
@@ -179,6 +186,7 @@ class FlintClient:
         url = value.decode().split()[-1]
 
         # Return flint proxy
+        raise_if_dead(process)
         FLINT_LOGGER.debug("Creating flint proxy...")
         proxy = rpc.Client(url, timeout=3)
 

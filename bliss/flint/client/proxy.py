@@ -89,7 +89,22 @@ class FlintClient:
     def __start_flint(self):
         process = self.__create_flint()
         try:
-            self.__attach_flint(process)
+            # Try 3 times
+            for nb in range(4):
+                try:
+                    self.__attach_flint(process)
+                    break
+                except:
+                    # Is the process has terminated?
+                    if process.returncode is not None:
+                        if process.returncode != 0:
+                            raise subprocess.CalledProcessError(
+                                process.returncode, "flint"
+                            )
+                        # Else it is just a normal close
+                        raise RuntimeError("Flint have been closed")
+                    if nb == 3:
+                        raise
         except Exception:
             if hasattr(process, "stdout"):
                 from bliss.scanning.scan import ScanDisplay

@@ -105,6 +105,28 @@ class FlintClient:
                         raise RuntimeError("Flint have been closed")
                     if nb == 3:
                         raise
+        except subprocess.CalledProcessError as e:
+            # The process have terminated with an error
+            from bliss.scanning.scan import ScanDisplay
+
+            FLINT_LOGGER.error("Flint has terminated with an error.")
+            scan_display = ScanDisplay()
+            if not scan_display.flint_output_enabled:
+                FLINT_LOGGER.error("You can enable the logs with the following line.")
+                FLINT_LOGGER.error("    SCAN_DISPLAY.flint_output_enabled = True")
+            out, err = process.communicate(timeout=1)
+
+            def normalize(data):
+                try:
+                    return data.decode("utf-8")
+                except UnicodeError:
+                    return data.decode("latin1")
+
+            out = normalize(out)
+            err = normalize(err)
+            FLINT_OUTPUT_LOGGER.error("---STDOUT---\n%s", out)
+            FLINT_OUTPUT_LOGGER.error("---STDERR---\n%s", err)
+            raise subprocess.CalledProcessError(e.returncode, e.cmd, out, err)
         except Exception:
             if hasattr(process, "stdout"):
                 from bliss.scanning.scan import ScanDisplay

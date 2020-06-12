@@ -153,6 +153,7 @@ class DeviceProxy(Proxy):
             if name == "_DeviceProxy__logger":
                 return super().__getattr__("_DeviceProxy__logger")
             else:
+                self.__wrapped__.ping()  # this may raise the "not connected" error, instead of reporting AttributeError
                 raise
         else:
             if not callable(attr):

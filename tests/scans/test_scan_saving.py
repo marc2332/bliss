@@ -7,7 +7,7 @@
 
 import pytest
 from bliss.common.standard import info
-from bliss.common.scans import ct
+from bliss.common.scans import ct, sct
 from bliss.scanning import scan_saving as scan_saving_module
 
 
@@ -123,7 +123,7 @@ does not exist  directory  {root_path}
         s = ct(0.1, session.env_dict["diode"])
         assert s.scan_info["filename"] == ""
     else:
-        s = ct(0.1, session.env_dict["diode"], save=True, name="sname")
+        s = sct(0.1, session.env_dict["diode"], save=True, name="sname")
     assert s.scan_info["data_policy"] == "None"
     assert s.scan_info["data_writer"] == writer
     assert s.node.parent.db_name == scan_saving.scan_parent_db_name

@@ -141,7 +141,7 @@ def test_mythen_from_config(run_command, beacon):
 
 def test_mythen_ct_scan(run_command, session):
     mythen = session.config.get("mythen1")
-    scan = scans.ct(0.1, mythen, return_scan=True, save=False)
+    scan = scans.ct(0.1, mythen, return_scan=True)
     data = scan.get_data()["spectrum"]
     assert data.shape == (1, 1280)
     assert list(data[0]) == list(range(1280))

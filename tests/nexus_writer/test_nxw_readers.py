@@ -48,7 +48,7 @@ def _test_nxw_readers(
 
     # make sure the file exists
     filename = scan_utils.session_filename(scan_saving=session.scan_saving)
-    scans.ct(0.1, detectorobj, save=True)
+    scans.sct(0.1, detectorobj, save=True)
 
     # start readers
     startevent = gevent.event.Event()

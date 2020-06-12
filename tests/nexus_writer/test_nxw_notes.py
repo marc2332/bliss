@@ -18,7 +18,7 @@ def test_nxw_notes(nexus_writer_config):
 
 @nxw_test_utils.writer_stdout_on_exception
 def _test_nxw_notes(session=None, tmpdir=None, writer=None, **kwargs):
-    scan = scans.ct(.1, run=False, save=True)
+    scan = scans.sct(.1, run=False, save=True)
     notes = ["test1", "text2", "text3"]
     for note in notes:
         scan.add_comment(note)

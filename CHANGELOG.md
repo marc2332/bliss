@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
         - Free line image profile for diffraction images
           (2 dedicated anchors for the start and a stop)
         - Added image colormap normalization: square-root, gamma, arcsinh
+- sct: like ct but saves data by default
 
 ### Changes
 - Flint:
@@ -33,6 +34,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 	- Provide tool to remove curves close to the y1/y2 indicators
 	- Rework the check of the flint API at startup to reduce pointless warnings
     - Group Lima ROI channels by ROI name in the property tree
+- ct: 
+    - ct now works with count_time or counter as first argument.
+      if count_time default value of 1s will be used.
+    - ct does no longer allow to save data, use sct instead
+    - ct does no longer collect metadata and positioners for scan_info
+      this is to reduce the time cosumed by ct on top of the counting time
+      in case positioners or metadata is needed, use `sct` instead.
 
 ### Fixed
 - Flint:

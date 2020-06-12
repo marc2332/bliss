@@ -43,7 +43,7 @@ def test_nxw_ct_base_nopolicy(nexus_writer_base_nopolicy):
 
 @nxw_test_utils.writer_stdout_on_exception
 def _test_nxw_ct(session=None, tmpdir=None, writer=None, **kwargs):
-    scan = scans.ct(.1, run=False, save=True)
+    scan = scans.sct(.1, run=False, save=True)
     nxw_test_utils.run_scan(scan)
     nxw_test_utils.wait_scan_data_finished([scan], writer=writer)
     nxw_test_data.assert_scan_data(

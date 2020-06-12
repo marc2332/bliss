@@ -22,7 +22,7 @@ from random import randint
 from contextlib import contextmanager
 import redis
 
-from bliss import global_map
+from bliss import global_map, global_log
 from bliss.common.session import DefaultSession
 from bliss.common.utils import get_open_ports
 from bliss.common.logtools import logbook_printer
@@ -137,6 +137,7 @@ def clean_gevent():
 @pytest.fixture
 def clean_globals():
     yield
+    global_log.clear()
     global_map.clear()
     # reset module-level globals
     simulation_diode.DEFAULT_CONTROLLER = None

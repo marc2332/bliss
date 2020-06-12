@@ -718,3 +718,20 @@ def test_dmesh_return_to_target_pos(default_session, beacon):
     d = s.get_data()
     assert min(d[m0]) == pytest.approx(0.0)
     assert max(d[m0]) == pytest.approx(3.0)
+
+
+def test_ct_sct(session, beacon, scan_tmpdir):
+    scan_saving = session.scan_saving
+    scan_saving.base_path = str(scan_tmpdir)
+
+    diode = beacon.get("diode")
+    ct = scans.ct(.1, diode)
+    sct = scans.sct(.1, diode)
+    assert ct.scan_info["save"] == False
+    assert ct.node.info["save"] == False
+
+    assert sct.scan_info["save"] == True
+    assert sct.node.info["save"] == True
+
+    assert "positioners" in sct.scan_info
+    assert "positioners" not in ct.scan_info

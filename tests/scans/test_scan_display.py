@@ -379,7 +379,7 @@ def test_standard_scan_display(session):
             # ============= START THE CT SCAN ===================================
             lines = []
             # print('Start ct(0.1,diode4,diode5) ...', end='', flush=True)
-            s = scans.ct(0.1, diode4, diode5, save=False)
+            s = scans.ct(0.1, diode4, diode5)
             # EXPECTED OUTPUT
             if 1:
                 # diode4  =  4.00000      (  40.0000   /s)    simulation_diode_sampling_controller

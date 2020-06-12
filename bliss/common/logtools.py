@@ -596,6 +596,7 @@ class Log:
             logging.getLogger().addHandler(self._stdout_handler)
 
             def filter_(record):
+                print(record)
                 # filter shell exceptions
                 if record.name in ["exceptions", "user_input"]:
                     return False
@@ -702,6 +703,20 @@ class Log:
                 deactivated.add(name)
 
         return deactivated
+
+    def clear(self):
+        try:
+            self._stdout_handler.close()
+        except AttributeError:
+            pass
+        else:
+            del self._stdout_handler
+        try:
+            self._beacon_handler.close()
+        except AttributeError:
+            pass
+        else:
+            del self._beacon_handler
 
 
 def create_logger_name(G, node_id):

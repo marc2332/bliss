@@ -11,7 +11,7 @@ import itertools
 from glob import glob
 from nexus_writer_service.utils import scan_utils
 from nexus_writer_service.io import nexus
-from bliss.common.scans import ct
+from bliss.common import scans
 import nxw_test_utils
 
 
@@ -55,7 +55,7 @@ def _test_scan_utils(
     **kwargs,
 ):
     session.scan_saving.writer = data_writer
-    scan = ct(0.1, session.env_dict["diode3"], save=save)
+    scan = scans.sct(0.1, session.env_dict["diode3"], save=save)
 
     # Expected file names based in the policy alone (ignore save/writer settings)
     master_filenames = {}

@@ -253,6 +253,20 @@ ct(count_time, *counter_args, **kwargs)
 
 Counts for a specified time.
 
+!!! warning
+    `ct` serves for _beamline snapshots_. It does neither collect any metadata
+    nor offers the possibilty to save the results. Use `sct` instead.
+
+## sct
+
+```python
+sct(count_time, *counter_args, **kwargs)
+```
+
+Similar to `ct`.
+
+Counts for a specified time and saves the results like any other scan.
+
 ## pointscan
 
 Performs a scan over many positions given as a list.

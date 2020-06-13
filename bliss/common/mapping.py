@@ -42,7 +42,6 @@ class Map:
 
         self.G.find_children = self.find_children
         self.G.find_predecessors = self.find_predecessors
-        self.node_attributes_list = ["name", "address", "plugin"]
         self.__waiting_queue = []
         self.__lock = False
 
@@ -160,13 +159,6 @@ class Map:
         else:
             try:
                 node["tag"] = instance.name
-            except AttributeError:
-                pass
-        for attr in self.node_attributes_list:
-            # Adding attributes from the node_attributes_list
-            # attributes can be appended also at runtime
-            try:
-                node[attr] = getattr(instance, attr)
             except AttributeError:
                 pass
 

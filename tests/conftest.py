@@ -35,7 +35,8 @@ from bliss.controllers.wago.wago import ModulesConfig
 from bliss.controllers.wago.emulator import WagoEmulator
 from bliss.controllers import simulation_diode
 from bliss.common import plot
-from bliss.common.tango import DeviceProxy, DevFailed, ApiUtil
+from bliss.common.tango import Database, DeviceProxy, DevFailed, ApiUtil, DevState
+from bliss.common.utils import grouped
 from bliss import logging_startup
 from bliss.scanning import scan_meta
 
@@ -246,25 +247,48 @@ def scan_tmpdir(tmpdir):
 
 @contextmanager
 def lima_simulator_context(personal_name, device_name):
+    db = Database()
     device_fqdn = f"tango://{os.environ['TANGO_HOST']}/{device_name}"
 
     p = subprocess.Popen(["LimaCCDs", personal_name])
 
-    dev_proxy = DeviceProxy(device_fqdn)
+    with gevent.Timeout(
+        10, RuntimeError(f"Lima {personal_name} tango server is not running")
+    ):
+        lima_proxies = []
+        classes_devs_list = db.get_device_class_list(f"LimaCCDs/{personal_name}")
+        for tg_dev, tg_class in grouped(classes_devs_list.value_string, 2):
+            if (
+                tg_class.startswith("LimaCCDs")
+                or tg_class.startswith("RoiCounter")
+                or tg_class.startswith("Bpm")
+            ):
+                lima_proxies.append(
+                    DeviceProxy(f"tango://{os.environ['TANGO_HOST']}/{tg_dev}")
+                )
 
-    with gevent.Timeout(10, RuntimeError(f"{device_name} is not running")):
         while True:
             try:
-                dev_proxy.state()
-            except DevFailed as e:
+                [dev_proxy.ping() for dev_proxy in lima_proxies]
+            except DevFailed:
                 gevent.sleep(0.5)
             else:
                 break
 
-    try:
-        yield device_fqdn, dev_proxy
-    finally:
-        wait_terminate(p)
+        while True:
+            try:
+                [dev_proxy.state() for dev_proxy in lima_proxies]
+            except DevFailed:
+                gevent.sleep(0.1)
+            else:
+                break
+        # wait for all devices to be ok
+        # while not all(dev_proxy.state() == DevState.ON for dev_proxy in lima_proxies):
+        #    gevent.sleep(0.1)
+
+    yield device_fqdn, lima_proxies[0]  # LimaCCDs is the first
+
+    wait_terminate(p)
 
 
 @pytest.fixture
@@ -281,21 +305,38 @@ def lima_simulator2(ports):
 
 @pytest.fixture
 def bliss_tango_server(ports, beacon):
+    db = Database()
 
     device_name = "id00/bliss/test"
     device_fqdn = "tango://localhost:{}/{}".format(ports.tango_port, device_name)
 
     bliss_ds = [sys.executable, "-u", "-m", "bliss.tango.servers.bliss_ds"]
-    p = subprocess.Popen(bliss_ds + ["test"], stdout=subprocess.PIPE)
-
-    with gevent.Timeout(10, RuntimeError("Bliss tango server is not running")):
-        wait_for(p.stdout, "Ready to accept request")
-
-    # important: close to prevent filling up the pipe as it is not read during tests
-    p.stdout.close()
+    p = subprocess.Popen(bliss_ds + ["test"])
 
     dev_proxy = DeviceProxy(device_fqdn)
 
+    with gevent.Timeout(10, RuntimeError("Bliss tango server is not running")):
+        while True:
+            try:
+                dev_proxy.ping()
+                dev_proxy.state()
+            except DevFailed as e:
+                gevent.sleep(0.5)
+            else:
+                break
+
+        while dev_proxy.state() != DevState.STANDBY:
+            gevent.sleep(0.1)
+
+        # wait for all axes to be created
+        classes_devs_list = db.get_device_class_list("Bliss/test")
+        nb_axes = 0
+        for tg_dev, tg_class in grouped(classes_devs_list.value_string, 2):
+            if tg_class.startswith("BlissAxis"):
+                nb_axes += 1
+
+        while len(dev_proxy.axis_device_names) < nb_axes:
+            gevent.sleep(0.1)
     yield device_fqdn, dev_proxy
 
     wait_terminate(p)
@@ -311,15 +352,21 @@ def dummy_tango_server(ports, beacon):
         "-u",
         os.path.join(os.path.dirname(__file__), "dummy_tg_server.py"),
     ]
-    p = subprocess.Popen(dummy_ds + ["dummy"], stdout=subprocess.PIPE)
-
-    with gevent.Timeout(10, RuntimeError("Bliss tango server is not running")):
-        wait_for(p.stdout, "Ready to accept request")
-
-    # important: close to prevent filling up the pipe as it is not read during tests
-    p.stdout.close()
+    p = subprocess.Popen(dummy_ds + ["dummy"])
 
     dev_proxy = DeviceProxy(device_fqdn)
+
+    with gevent.Timeout(10, RuntimeError("Dummy tango server is not running")):
+        while True:
+            try:
+                dev_proxy.ping()
+            except DevFailed as e:
+                gevent.sleep(0.5)
+            else:
+                break
+
+        while dev_proxy.state() != DevState.CLOSE:
+            gevent.sleep(0.1)
 
     yield device_fqdn, dev_proxy
 
@@ -347,6 +394,9 @@ def wago_tango_server(ports, default_session, wago_emulator):
                 gevent.sleep(0.5)
             else:
                 break
+
+        while dev_proxy.state() != DevState.ON:
+            gevent.sleep(0.1)
 
     yield device_fqdn, dev_proxy
 
@@ -593,18 +643,20 @@ def metadata_manager_tango_server(ports):
 
     p = subprocess.Popen(["MetadataManager", "test"])
 
+    dev_proxy = DeviceProxy(device_fqdn)
+
     with gevent.Timeout(10, RuntimeError("MetadataManager is not running")):
         while True:
             try:
-                dev_proxy = DeviceProxy(device_fqdn)
                 dev_proxy.ping()
-                dev_proxy.state()
             except DevFailed as e:
-                gevent.sleep(0.1)
+                gevent.sleep(0.5)
             else:
                 break
 
-    gevent.sleep(1)
+        while dev_proxy.state() != DevState.OFF:
+            gevent.sleep(0.1)
+
     yield device_fqdn, dev_proxy
     wait_terminate(p)
 
@@ -616,18 +668,20 @@ def metadata_experiment_tango_server(ports):
 
     p = subprocess.Popen(["MetaExperiment", "test"])
 
+    dev_proxy = DeviceProxy(device_fqdn)
+
     with gevent.Timeout(10, RuntimeError("MetaExperiment is not running")):
         while True:
             try:
-                dev_proxy = DeviceProxy(device_fqdn)
                 dev_proxy.ping()
-                dev_proxy.state()
             except DevFailed as e:
-                gevent.sleep(0.1)
+                gevent.sleep(0.5)
             else:
                 break
 
-    gevent.sleep(1)
+        while dev_proxy.state() != DevState.ON:
+            gevent.sleep(0.1)
+
     yield device_fqdn, dev_proxy
     wait_terminate(p)
 
@@ -639,17 +693,19 @@ def nexus_writer_service(ports):
 
     p = subprocess.Popen(["NexusWriterService", "testwriters", "--log", "info"])
 
+    dev_proxy = DeviceProxy(device_fqdn)
+
     with gevent.Timeout(10, RuntimeError("Nexus writer is not running")):
         while True:
             try:
-                dev_proxy = DeviceProxy(device_fqdn)
                 dev_proxy.ping()
-                dev_proxy.state()
             except DevFailed as e:
-                gevent.sleep(0.1)
+                gevent.sleep(0.5)
             else:
                 break
 
-    gevent.sleep(1)
+        while dev_proxy.state() != DevState.ON:
+            gevent.sleep(0.1)
+
     yield device_fqdn, dev_proxy
     wait_terminate(p)

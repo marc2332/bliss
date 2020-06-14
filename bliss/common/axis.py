@@ -40,6 +40,10 @@ warnings.simplefilter("once", DeprecationWarning)
 DEFAULT_POLLING_TIME = 0.02
 
 
+class AxisOnLimitError(RuntimeError):
+    pass
+
+
 class GroupMove:
     def __init__(self, parent=None):
         self.parent = parent
@@ -1833,7 +1837,7 @@ class Axis:
             self._update_settings(state)
             if not state.MOVING:
                 if limit_error and (state.LIMPOS or state.LIMNEG):
-                    raise RuntimeError(str(state))
+                    raise AxisOnLimitError(str(state))
                 return state
             gevent.sleep(polling_time)
 

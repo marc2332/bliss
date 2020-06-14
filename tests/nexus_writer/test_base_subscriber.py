@@ -63,7 +63,7 @@ def test_base_subscriber(session):
     nnodes = 7
 
     scan = scans.loopscan(10, .1, *detectors, save=False, run=False)
-    db_name = db_root + ":{:0d}_{}".format(1, scan.name)
+    db_name = db_root + ":_{:0d}_{}".format(1, scan.name)
     subscriber = CountNodesSubscriber(db_name, node_type="scan")
 
     # Listen

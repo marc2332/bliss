@@ -118,7 +118,9 @@ class ErrorReport:
 
 
 class CaptureOutput:
-    SIZE = 100
+    SIZE = 20
+    MAX_PARAGRAPH_SIZE = 1000
+    patched = False
 
     _data = defaultdict(list)
     history_num = 1
@@ -127,6 +129,9 @@ class CaptureOutput:
         return "".join(self._data[index])[:-1]
 
     def append(self, args, kwargs):
+        if len(self._data) > self.MAX_PARAGRAPH_SIZE:
+            return
+
         args = (str(arg) for arg in args)
         sep = kwargs.pop("sep", " ")
         end = kwargs.pop("end", "\n")
@@ -166,7 +171,9 @@ class CaptureOutput:
 
             return wrapped
 
-        builtins.print = memorize_arguments(builtins.print)
+        if not self.patched:
+            builtins.print = memorize_arguments(builtins.print)
+            type(self).patched = True
 
 
 def install_excepthook():

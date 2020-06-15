@@ -755,6 +755,8 @@ class Scan:
         self.__scan_number = None
         self.root_node = None
         self._scan_info = dict(scan_info) if scan_info is not None else dict()
+        self._shadow_scan_number = not save
+        self._add_to_scans_queue = name != "ct"
 
         if scan_saving is None:
             scan_saving = current_session.scan_saving.clone()
@@ -765,6 +767,7 @@ class Scan:
         self.__scan_saving = scan_saving
         scan_config = scan_saving.get()
 
+        self._scan_info["shadow_scan_number"] = self._shadow_scan_number
         self._scan_info["save"] = save
         self._scan_info["data_writer"] = scan_saving.writer
         self._scan_info["data_policy"] = scan_saving.data_policy
@@ -898,6 +901,8 @@ class Scan:
             self._scan_info["start_timestamp"] = start_timestamp
 
             node_name = str(self.__scan_number) + "_" + self.name
+            if self._shadow_scan_number:
+                node_name = "_" + node_name
             self._create_data_node(node_name)
             self._current_pipeline_stream = self.root_node.db_connection.pipeline()
             self._pending_watch_callback = weakref.WeakKeyDictionary()
@@ -919,9 +924,15 @@ class Scan:
             self._scan_info["end_timestamp"] = self.node.info["end_timestamp"]
 
     def __repr__(self):
-        return "Scan(number={}, name={}, path={})".format(
-            self.__scan_number, self.name, self.writer.filename
-        )
+        number = self.__scan_number
+        if self._shadow_scan_number:
+            number = ""
+            path = "'not saved'"
+        else:
+            number = f"number={self.__scan_number}, "
+            path = self.writer.filename
+
+        return f"Scan({number}name={self.name}, path={path}"
 
     @property
     def name(self):
@@ -1510,7 +1521,8 @@ class Scan:
                         self._data_watch_task.kill()
 
             # Add scan to the globals
-            current_session.scans.append(self)
+            if self._add_to_scans_queue:
+                current_session.scans.append(self)
 
             if self.writer:
                 # write scan_info to file
@@ -1577,13 +1589,19 @@ class Scan:
 
     def _next_scan_number(self):
         LAST_SCAN_NUMBER = "last_scan_number"
+        if self._shadow_scan_number:
+            LAST_SCAN_NUMBER = "last_shadow_scan_number"
         filename = self.writer.filename
         # last scan number is stored in the parent of the scan
         parent_node = self.__scan_saving.get_parent_node()
         last_scan_number = parent_node.connection.hget(
             parent_node.db_name, LAST_SCAN_NUMBER
         )
-        if last_scan_number is None and "{scan_number}" not in filename:
+        if (
+            not self._shadow_scan_number
+            and last_scan_number is None
+            and "{scan_number}" not in filename
+        ):
             max_scan_number = 0
             for scan_entry in self.writer.get_scan_entries():
                 try:
@@ -1592,6 +1610,7 @@ class Scan:
                     max_scan_number = max(
                         int(scan_entry.split("_")[0]), max_scan_number
                     )
+
                 except ValueError:
                     # the following is the good code for the Nexus writer
                     try:

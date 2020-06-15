@@ -755,7 +755,7 @@ class Scan:
         self.__scan_number = None
         self.root_node = None
         self._scan_info = dict(scan_info) if scan_info is not None else dict()
-        self._silent_numbering = not save
+        self._shadow_scan_number = not save
         self._add_to_scans_queue = name != "ct"
 
         if scan_saving is None:
@@ -767,7 +767,7 @@ class Scan:
         self.__scan_saving = scan_saving
         scan_config = scan_saving.get()
 
-        self._scan_info["silent_numbering"] = self._silent_numbering
+        self._scan_info["shadow_scan_number"] = self._shadow_scan_number
         self._scan_info["save"] = save
         self._scan_info["data_writer"] = scan_saving.writer
         self._scan_info["data_policy"] = scan_saving.data_policy
@@ -901,7 +901,7 @@ class Scan:
             self._scan_info["start_timestamp"] = start_timestamp
 
             node_name = str(self.__scan_number) + "_" + self.name
-            if self._silent_numbering:
+            if self._shadow_scan_number:
                 node_name = "_" + node_name
             self._create_data_node(node_name)
             self._current_pipeline_stream = self.root_node.db_connection.pipeline()
@@ -925,7 +925,7 @@ class Scan:
 
     def __repr__(self):
         number = self.__scan_number
-        if self._silent_numbering:
+        if self._shadow_scan_number:
             number = ""
             path = "'not saved'"
         else:
@@ -1589,8 +1589,8 @@ class Scan:
 
     def _next_scan_number(self):
         LAST_SCAN_NUMBER = "last_scan_number"
-        if self._silent_numbering:
-            LAST_SCAN_NUMBER = "last_silent_scan_number"
+        if self._shadow_scan_number:
+            LAST_SCAN_NUMBER = "last_shadow_scan_number"
         filename = self.writer.filename
         # last scan number is stored in the parent of the scan
         parent_node = self.__scan_saving.get_parent_node()
@@ -1598,7 +1598,7 @@ class Scan:
             parent_node.db_name, LAST_SCAN_NUMBER
         )
         if (
-            not self._silent_numbering
+            not self._shadow_scan_number
             and last_scan_number is None
             and "{scan_number}" not in filename
         ):

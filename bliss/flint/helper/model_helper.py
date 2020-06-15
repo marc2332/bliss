@@ -253,7 +253,7 @@ def removeItemAndKeepAxes(plot: plot_model.Plot, item: plot_model.Item):
 
 def createScatterItem(
     plot: plot_model.Plot, channel: scan_model.Channel
-) -> Tuple[plot_model.Item, bool]:
+) -> Tuple[plot_item_model.ScatterItem, bool]:
     """
     Create an item to a plot using a channel.
 

@@ -488,7 +488,7 @@ class _ScanPrinterBase:
                     cnt = self.NO_NAME
                 counter_labels.append(cnt)
                 controller_labels.append(ctrl)
-            except:
+            except Exception:
                 counter_labels.append("")
                 controller_labels.append("")
 
@@ -497,7 +497,7 @@ class _ScanPrinterBase:
             counter_labels.insert(0, "")  # 'index'
             channel_labels.insert(0, "#")
 
-        return [controller_labels, counter_labels, channel_labels]
+        return [controller_labels, channel_labels]  # counter_labels useless in table
 
     def build_header(self, scan_info):
         # ------------ BUILD THE HEADER TO BE DISPLAY -----------------------------

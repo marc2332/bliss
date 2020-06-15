@@ -12,13 +12,12 @@ from typing import Callable
 from typing import Optional
 
 import logging
-import numpy
-import weakref
 
 from silx.gui import qt
 from silx.gui.widgets.LegendIconWidget import LegendIconWidget
 from silx.gui import colors as silx_colors
 from silx.gui import icons
+from silx.gui import utils
 
 from bliss.flint.model import flint_model
 from bliss.flint.model import plot_model
@@ -37,6 +36,8 @@ _logger = logging.getLogger(__name__)
 PlotItemRole = qt.Qt.UserRole + 100
 VisibilityRole = qt.Qt.UserRole + 101
 RadioRole = qt.Qt.UserRole + 102
+CheckRole = qt.Qt.UserRole + 103
+FlintModelRole = qt.Qt.UserRole + 104
 
 
 _colormapPixmap: Dict[str, qt.QPixmap] = {}
@@ -54,7 +55,6 @@ class VisibilityPropertyItemDelegate(qt.QStyledItemDelegate):
         editor.toggled.connect(self.__commitData)
         state = index.data(VisibilityRole)
         editor.setChecked(state == qt.Qt.Checked)
-        state = index.data(VisibilityRole)
         self.__updateEditorStyle(editor, state)
         return editor
 
@@ -72,6 +72,100 @@ class VisibilityPropertyItemDelegate(qt.QStyledItemDelegate):
     def setModelData(self, editor, model, index):
         state = qt.Qt.Checked if editor.isChecked() else qt.Qt.Unchecked
         model.setData(index, state, role=VisibilityRole)
+
+    def updateEditorGeometry(self, editor, option, index):
+        # Center the widget to the cell
+        size = editor.sizeHint()
+        half = size / 2
+        halfPoint = qt.QPoint(half.width(), half.height() - 1)
+        pos = option.rect.center() - halfPoint
+        editor.move(pos)
+
+
+class CheckBoxItemDelegate(qt.QStyledItemDelegate):
+    """CheckBox delegate to edit CheckStateRole only.
+
+    Without that Qt is not able to display properly a check box without
+    the text on the side.
+
+    This allows to center the check box and hide a bug which make the default
+    check box hit box at the wrong location (cause of custom the cell margin).
+
+    Use a custom CheckRole to avoid to display the default check box on
+    background.
+    """
+
+    def createEditor(self, parent, option, index):
+        if not index.isValid():
+            return super(CheckBoxItemDelegate, self).createEditor(parent, option, index)
+
+        # Create group to avoid interferences
+        editor = qt.QWidget(parent=parent)
+        editor.setContentsMargins(1, 1, 1, 1)
+        layout = qt.QHBoxLayout(editor)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(1)
+
+        check = qt.QCheckBox(parent=editor)
+        check.setObjectName("check")
+        check.toggled.connect(self.__commitData)
+        check.setMinimumSize(check.minimumSizeHint())
+        check.setMaximumSize(check.minimumSizeHint())
+        layout.addWidget(check)
+
+        self.setEditorData(editor, index)
+        return editor
+
+    def __commitData(self):
+        editor = self.sender().parent()
+        self.commitData.emit(editor)
+
+    def setEditorData(self, editor, index):
+        check = editor.findChildren(qt.QCheckBox, "check")[0]
+        state = index.data(role=CheckRole)
+        with utils.blockSignals(check):
+            check.setVisible(state is not None)
+            check.setChecked(state == qt.Qt.Checked)
+
+    def setModelData(self, editor, model, index):
+        check = editor.findChildren(qt.QCheckBox, "check")[0]
+        state = qt.Qt.Checked if check.isChecked() else qt.Qt.Unchecked
+        model.setData(index, state, role=CheckRole)
+
+    def updateEditorGeometry(self, editor, option, index):
+        # Center the widget to the cell
+        size = editor.sizeHint()
+        half = size / 2
+        halfPoint = qt.QPoint(half.width(), half.height() - 1)
+        pos = option.rect.center() - halfPoint
+        editor.move(pos)
+
+
+class StyleItemDelegate(qt.QStyledItemDelegate):
+    """Style delegate to edit item style.
+    """
+
+    def createEditor(self, parent, option, index):
+        if not index.isValid():
+            return super(StyleItemDelegate, self).createEditor(parent, option, index)
+
+        editor = StylePropertyWidget(parent)
+        editor.setEditable(True)
+        editor.setMinimumSize(editor.sizeHint())
+        self.__updateEditor(editor, index)
+        return editor
+
+    def __updateEditor(self, editor: qt.QWidget, index: qt.QModelIndex):
+        plotItem = index.data(PlotItemRole)
+        flintModel = index.data(FlintModelRole)
+        editor.setPlotItem(plotItem)
+        editor.setFlintModel(flintModel)
+
+    def setEditorData(self, editor, index):
+        self.__updateEditor(editor, index)
+
+    def setModelData(self, editor, model, index):
+        pass
 
     def updateEditorGeometry(self, editor, option, index):
         # Center the widget to the cell
@@ -375,35 +469,47 @@ class RadioPropertyItemDelegate(qt.QStyledItemDelegate):
                 parent, option, index
             )
 
-        editor = qt.QRadioButton(parent=parent)
-        editor.setAutoExclusive(False)
-        editor.clicked.connect(self.__editorsChanged)
-        editor.setMinimumSize(editor.minimumSizeHint())
-        editor.setMaximumSize(editor.minimumSizeHint())
+        # Create group to avoid interferences
+        editor = qt.QWidget(parent=parent)
+        editor.setContentsMargins(1, 1, 1, 1)
+        layout = qt.QHBoxLayout(editor)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(1)
+
+        radio = qt.QRadioButton(parent=editor)
+        radio.setObjectName("radio")
+        radio.setAutoExclusive(False)
+        radio.clicked.connect(self.__editorsChanged)
+        radio.setMinimumSize(radio.minimumSizeHint())
+        radio.setMaximumSize(radio.minimumSizeHint())
+        layout.addWidget(radio)
+
         editor.setSizePolicy(qt.QSizePolicy.Fixed, qt.QSizePolicy.Fixed)
+        self.setEditorData(editor, index)
         return editor
 
     def __editorsChanged(self):
-        editor = self.sender()
+        editor = self.sender().parent()
         self.commitData.emit(editor)
 
     def setEditorData(self, editor: qt.QWidget, index):
+        radio = editor.findChildren(qt.QRadioButton, "radio")[0]
         data = index.data(role=RadioRole)
-        old = editor.blockSignals(True)
-        if data == qt.Qt.Checked:
-            editor.setVisible(True)
-            editor.setChecked(True)
-        elif data == qt.Qt.Unchecked:
-            editor.setVisible(True)
-            editor.setChecked(False)
-        elif data is None:
-            editor.setVisible(False)
-        else:
-            _logger.warning("Unsupported data %s", data)
-        editor.blockSignals(old)
+        with utils.blockSignals(radio):
+            if data is None:
+                radio.setVisible(False)
+            elif data == qt.Qt.Checked:
+                radio.setVisible(True)
+                radio.setChecked(True)
+            elif data == qt.Qt.Unchecked:
+                radio.setVisible(True)
+                radio.setChecked(False)
+            else:
+                _logger.warning("Unsupported data %s", data)
 
     def setModelData(self, editor, model, index):
-        data = qt.Qt.Checked if editor.isChecked() else qt.Qt.Unchecked
+        radio = editor.findChildren(qt.QRadioButton, "radio")[0]
+        data = qt.Qt.Checked if radio.isChecked() else qt.Qt.Unchecked
         model.setData(index, data, role=RadioRole)
 
     def updateEditorGeometry(self, editor, option, index):

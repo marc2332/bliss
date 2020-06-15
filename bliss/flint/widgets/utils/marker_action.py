@@ -31,6 +31,8 @@ def _getAutoPrecision(plot):
 
 
 class _PointWithValue(roi_items.PointROI):
+    NAME = roi_items.PointROI.NAME + " (with value)"
+
     def __init__(self, parent=None):
         super(_PointWithValue, self).__init__(parent=parent)
         self.sigRegionChanged.connect(self.__updateValue)
@@ -51,6 +53,8 @@ class _PointWithValue(roi_items.PointROI):
 
 
 class _VLineWithValue(roi_items.VerticalLineROI):
+    NAME = roi_items.VerticalLineROI.NAME + " (with value)"
+
     def __init__(self, parent=None):
         super(_VLineWithValue, self).__init__(parent=parent)
         self.sigRegionChanged.connect(self.__updateValue)
@@ -69,6 +73,27 @@ class _VLineWithValue(roi_items.VerticalLineROI):
         self.setName(text)
 
 
+class _HLineWithValue(roi_items.HorizontalLineROI):
+    NAME = roi_items.HorizontalLineROI.NAME + " (with value)"
+
+    def __init__(self, parent=None):
+        super(_HLineWithValue, self).__init__(parent=parent)
+        self.sigRegionChanged.connect(self.__updateValue)
+
+    def _connectToPlot(self, plot):
+        roi_items.HorizontalLineROI._connectToPlot(self, plot)
+        self.__updateValue()
+
+    def __updateValue(self):
+        if self.parent() is None:
+            return
+        y = self.getPosition()
+        plot = self.parent().parent()
+        _xdigits, ydigits = _getAutoPrecision(plot)
+        text = f"{y:.{ydigits}f}"
+        self.setName(text)
+
+
 class MarkerAction(qt.QWidgetAction):
     def __init__(self, plot, parent, kind):
         super(MarkerAction, self).__init__(parent)
@@ -79,15 +104,19 @@ class MarkerAction(qt.QWidgetAction):
         menu = qt.QMenu(parent)
         menu.aboutToShow.connect(self.__aboutToShow)
 
-        action = self.__manager.getInteractionModeAction(_PointWithValue)
-        action.setSingleShot(True)
-        menu.addAction(action)
-        action = self.__manager.getInteractionModeAction(_VLineWithValue)
-        action.setSingleShot(True)
-        menu.addAction(action)
-        action = self.__manager.getInteractionModeAction(roi_items.RectangleROI)
-        action.setSingleShot(True)
-        menu.addAction(action)
+        roiClasses = [
+            _PointWithValue,
+            _VLineWithValue,
+            _HLineWithValue,
+            roi_items.CrossROI,
+            roi_items.LineROI,
+            roi_items.RectangleROI,
+        ]
+
+        for roiClass in roiClasses:
+            action = self.__manager.getInteractionModeAction(roiClass)
+            action.setSingleShot(True)
+            menu.addAction(action)
 
         menu.addSeparator()
 

@@ -1233,21 +1233,27 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
         dproxy = datasets.get(node.fullname)
         if dproxy is not None:
             return dproxy
+
+        data_expected = self._node_data_saved(node)
         # Detector data type known?
-        if not node.dtype:
+        if data_expected and not node.dtype:
             # Detector data dtype not known at this point
             return dproxy
         # Detector data shape known?
         detector_shape = node.shape
-        if not all(detector_shape):
+        if data_expected and not all(detector_shape):
             # Detector data shape not known at this point
             # TODO: this is why 0 cannot indicate variable length
             return dproxy
-        # Detector save x images per file?
+        # Number of images saved per file
+        external_images_per_file = None
         try:
             external_images_per_file = node.images_per_file
         except AttributeError:
-            external_images_per_file = None
+            pass
+        except Exception:
+            if data_expected:
+                return dproxy
 
         # Create parent: NXdetector, NXpositioner or measurement
         device = self.device(subscan, node)
@@ -1446,7 +1452,7 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
         # Skip when no data expected
         if not self._node_data_saved(node):
             if last:
-                self.logger.debug(
+                self.logger.info(
                     "no data to be saved for node {}".format(repr(node.fullname))
                 )
             return
@@ -1514,7 +1520,8 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
         if node.type in ["channel", "node_ref_channel"]:
             return True
         else:
-            return node.info.get("saving_mode", "MANUAL") != "MANUAL"
+            # Assume saving is enabled by default
+            return node.info.get("saving_mode", None) != "MANUAL"
 
     def _save_reference_mode(self, file_format):
         """
@@ -1541,7 +1548,7 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
         """
         nproxy = self._node_proxy(node)
         if nproxy is None:
-            msg = "{} not initialized".format(repr(node.fullname))
+            msg = f"{repr(node.fullname)} not initialized (most likely missing info)"
             self._set_state(self.STATES.FAULT, msg)
         else:
             nproxy.ensure_existance()

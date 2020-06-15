@@ -250,6 +250,7 @@ class _DataItem(_property_tree_helper.ScanRowItem):
 
         self.__valueAxis.modelUpdated = self.__valueAxisChanged
         self.__style.setData(plotItem, role=delegates.PlotItemRole)
+        self.__style.setData(self.__flintModel, role=delegates.FlintModelRole)
         self.__remove.setData(plotItem, role=delegates.PlotItemRole)
 
         if plotItem is not None:
@@ -264,7 +265,6 @@ class _DataItem(_property_tree_helper.ScanRowItem):
         if self.__channel is None:
             self.setPlotItemLookAndFeel(plotItem)
 
-        # FIXME: It have to be converted into delegate
         self.__treeView.openPersistentEditor(self.__xAxis.index())
         self.__treeView.openPersistentEditor(self.__yAxis.index())
         if self.__treeView.isPersistentEditorOpen(self.__valueAxis.index()):
@@ -272,11 +272,11 @@ class _DataItem(_property_tree_helper.ScanRowItem):
         self.__treeView.openPersistentEditor(self.__valueAxis.index())
         self.__treeView.openPersistentEditor(self.__displayed.index())
         self.__treeView.openPersistentEditor(self.__remove.index())
-        widget = delegates.StylePropertyWidget(self.__treeView)
-        widget.setEditable(True)
-        widget.setPlotItem(self.__plotItem)
-        widget.setFlintModel(self.__flintModel)
-        self.__treeView.setIndexWidget(self.__style.index(), widget)
+        if self.__treeView.isPersistentEditorOpen(self.__style.index()):
+            self.__treeView.closePersistentEditor(self.__style.index())
+        self.__treeView.openPersistentEditor(self.__style.index())
+        # FIXME: why do we have to do that?
+        self.__treeView.resizeColumnToContents(self.__style.column())
 
         self.__xAxis.modelUpdated = self.__xAxisChanged
         self.__yAxis.modelUpdated = self.__yAxisChanged
@@ -308,6 +308,7 @@ class ScatterPlotPropertyWidget(qt.QWidget):
         self.__valueDelegate = delegates.CheckBoxItemDelegate(self)
         self.__visibilityDelegate = delegates.VisibilityPropertyItemDelegate(self)
         self.__removeDelegate = delegates.RemovePropertyItemDelegate(self)
+        self.__styleDelegate = delegates.StyleItemDelegate(self)
 
         model = qt.QStandardItemModel(self)
 
@@ -501,6 +502,7 @@ class ScatterPlotPropertyWidget(qt.QWidget):
             self.VisibleColumn, self.__visibilityDelegate
         )
         self.__tree.setItemDelegateForColumn(self.RemoveColumn, self.__removeDelegate)
+        self.__tree.setItemDelegateForColumn(self.StyleColumn, self.__styleDelegate)
         self.__tree.setStyleSheet("QTreeView:item {padding: 0px 8px;}")
         header = self.__tree.header()
         header.setStyleSheet("QHeaderView { qproperty-defaultAlignment: AlignCenter; }")

@@ -37,6 +37,7 @@ PlotItemRole = qt.Qt.UserRole + 100
 VisibilityRole = qt.Qt.UserRole + 101
 RadioRole = qt.Qt.UserRole + 102
 CheckRole = qt.Qt.UserRole + 103
+FlintModelRole = qt.Qt.UserRole + 104
 
 
 _colormapPixmap: Dict[str, qt.QPixmap] = {}
@@ -130,6 +131,41 @@ class CheckBoxItemDelegate(qt.QStyledItemDelegate):
         check = editor.findChildren(qt.QCheckBox, "check")[0]
         state = qt.Qt.Checked if check.isChecked() else qt.Qt.Unchecked
         model.setData(index, state, role=CheckRole)
+
+    def updateEditorGeometry(self, editor, option, index):
+        # Center the widget to the cell
+        size = editor.sizeHint()
+        half = size / 2
+        halfPoint = qt.QPoint(half.width(), half.height() - 1)
+        pos = option.rect.center() - halfPoint
+        editor.move(pos)
+
+
+class StyleItemDelegate(qt.QStyledItemDelegate):
+    """Style delegate to edit item style.
+    """
+
+    def createEditor(self, parent, option, index):
+        if not index.isValid():
+            return super(StyleItemDelegate, self).createEditor(parent, option, index)
+
+        editor = StylePropertyWidget(parent)
+        editor.setEditable(True)
+        editor.setMinimumSize(editor.sizeHint())
+        self.__updateEditor(editor, index)
+        return editor
+
+    def __updateEditor(self, editor: qt.QWidget, index: qt.QModelIndex):
+        plotItem = index.data(PlotItemRole)
+        flintModel = index.data(FlintModelRole)
+        editor.setPlotItem(plotItem)
+        editor.setFlintModel(flintModel)
+
+    def setEditorData(self, editor, index):
+        self.__updateEditor(editor, index)
+
+    def setModelData(self, editor, model, index):
+        pass
 
     def updateEditorGeometry(self, editor, option, index):
         # Center the widget to the cell

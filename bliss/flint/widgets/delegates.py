@@ -81,6 +81,65 @@ class VisibilityPropertyItemDelegate(qt.QStyledItemDelegate):
         editor.move(pos)
 
 
+class CheckBoxItemDelegate(qt.QStyledItemDelegate):
+    """CheckBox delegate to edit CheckStateRole only.
+
+    Without that Qt is not able to display properly a check box without
+    the text on the side.
+
+    This allows to center the check box and hide a bug which make the default
+    check box hit box at the wrong location (cause of custom the cell margin).
+
+    Use a custom CheckRole to avoid to display the default check box on
+    background.
+    """
+
+    def createEditor(self, parent, option, index):
+        if not index.isValid():
+            return super(CheckBoxItemDelegate, self).createEditor(parent, option, index)
+
+        # Create group to avoid interferences
+        editor = qt.QWidget(parent=parent)
+        editor.setContentsMargins(1, 1, 1, 1)
+        layout = qt.QHBoxLayout(editor)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(1)
+
+        check = qt.QCheckBox(parent=editor)
+        check.setObjectName("check")
+        check.toggled.connect(self.__commitData)
+        check.setMinimumSize(check.minimumSizeHint())
+        check.setMaximumSize(check.minimumSizeHint())
+        layout.addWidget(check)
+
+        self.setEditorData(editor, index)
+        return editor
+
+    def __commitData(self):
+        editor = self.sender().parent()
+        self.commitData.emit(editor)
+
+    def setEditorData(self, editor, index):
+        check = editor.findChildren(qt.QCheckBox, "check")[0]
+        state = index.data(role=CheckRole)
+        with utils.blockSignals(check):
+            check.setVisible(state is not None)
+            check.setChecked(state == qt.Qt.Checked)
+
+    def setModelData(self, editor, model, index):
+        check = editor.findChildren(qt.QCheckBox, "check")[0]
+        state = qt.Qt.Checked if check.isChecked() else qt.Qt.Unchecked
+        model.setData(index, state, role=CheckRole)
+
+    def updateEditorGeometry(self, editor, option, index):
+        # Center the widget to the cell
+        size = editor.sizeHint()
+        half = size / 2
+        halfPoint = qt.QPoint(half.width(), half.height() - 1)
+        pos = option.rect.center() - halfPoint
+        editor.move(pos)
+
+
 class RemovePlotItemButton(qt.QToolButton):
     def __init__(self, parent: qt.QWidget = None):
         super(RemovePlotItemButton, self).__init__(parent=parent)

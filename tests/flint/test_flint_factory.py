@@ -81,7 +81,8 @@ def test_attached_flint(attached_flint_session):
     with listener:
         flint.ping()
         for _ in range(10):
+            # wait until and answer
+            time.sleep(0.5)
             if len(listener.records) >= 1:
                 # Early break
                 break
-            time.sleep(0.5)

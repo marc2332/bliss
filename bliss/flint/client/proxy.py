@@ -89,13 +89,56 @@ class FlintClient:
     def __start_flint(self):
         process = self.__create_flint()
         try:
-            self.__attach_flint(process)
+            # Try 3 times
+            for nb in range(4):
+                try:
+                    self.__attach_flint(process)
+                    break
+                except:
+                    # Is the process has terminated?
+                    if process.returncode is not None:
+                        if process.returncode != 0:
+                            raise subprocess.CalledProcessError(
+                                process.returncode, "flint"
+                            )
+                        # Else it is just a normal close
+                        raise RuntimeError("Flint have been closed")
+                    if nb == 3:
+                        raise
+        except subprocess.CalledProcessError as e:
+            # The process have terminated with an error
+            from bliss.scanning.scan import ScanDisplay
+
+            FLINT_LOGGER.error("Flint has terminated with an error.")
+            scan_display = ScanDisplay()
+            if not scan_display.flint_output_enabled:
+                FLINT_LOGGER.error("You can enable the logs with the following line.")
+                FLINT_LOGGER.error("    SCAN_DISPLAY.flint_output_enabled = True")
+            out, err = process.communicate(timeout=1)
+
+            def normalize(data):
+                try:
+                    return data.decode("utf-8")
+                except UnicodeError:
+                    return data.decode("latin1")
+
+            out = normalize(out)
+            err = normalize(err)
+            FLINT_OUTPUT_LOGGER.error("---STDOUT---\n%s", out)
+            FLINT_OUTPUT_LOGGER.error("---STDERR---\n%s", err)
+            raise subprocess.CalledProcessError(e.returncode, e.cmd, out, err)
         except Exception:
             if hasattr(process, "stdout"):
-                FLINT_LOGGER.error(
-                    "Flint can't start. You can enable the logs with the following line."
-                )
-                FLINT_LOGGER.error("    SCAN_DISPLAY.flint_output_enabled = True")
+                from bliss.scanning.scan import ScanDisplay
+
+                FLINT_LOGGER.error("Flint can't start.")
+                scan_display = ScanDisplay()
+                if not scan_display.flint_output_enabled:
+                    FLINT_LOGGER.error(
+                        "You can enable the logs with the following line."
+                    )
+                    FLINT_LOGGER.error("    SCAN_DISPLAY.flint_output_enabled = True")
+
                 FLINT_OUTPUT_LOGGER.error("---STDOUT---")
                 self.__log_process_output_to_logger(
                     process, "stdout", FLINT_OUTPUT_LOGGER, logging.ERROR
@@ -124,9 +167,8 @@ class FlintClient:
         FLINT_LOGGER.warning("Flint starting...")
         env = dict(os.environ)
         env["BEACON_HOST"] = _get_beacon_config()
-        # NOTE: Mitigate problem on machines with many cores (>=32)
-        #       Flint uses an incredible amount of CPU without this limitation
-        # FIXME: Understand the problem properly
+        # Do not use all the cores anyway used algorithms request it
+        # NOTE:  Mitigate problem occurred with silx colormap computation
         env["OMP_NUM_THREADS"] = "4"
         if poll_patch is not None:
             poll_patch.set_ld_preload(env)
@@ -157,6 +199,11 @@ class FlintClient:
                 )
             process = psutil.Process(process)
 
+        def raise_if_dead(process):
+            if hasattr(process, "returncode"):
+                if process.returncode is not None:
+                    raise RuntimeError("Processus terminaded")
+
         pid = process.pid
         FLINT_LOGGER.debug("Attach flint PID: %d...", pid)
         beacon = get_default_connection()
@@ -169,7 +216,9 @@ class FlintClient:
         # Current URL
         key = config.get_flint_key(pid)
         for _ in range(3):
+            raise_if_dead(process)
             value = redis.brpoplpush(key, key, timeout=5)
+
             if value is not None:
                 break
         if value is None:
@@ -179,6 +228,7 @@ class FlintClient:
         url = value.decode().split()[-1]
 
         # Return flint proxy
+        raise_if_dead(process)
         FLINT_LOGGER.debug("Creating flint proxy...")
         proxy = rpc.Client(url, timeout=3)
 

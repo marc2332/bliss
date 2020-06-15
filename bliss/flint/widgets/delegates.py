@@ -36,6 +36,7 @@ _logger = logging.getLogger(__name__)
 PlotItemRole = qt.Qt.UserRole + 100
 VisibilityRole = qt.Qt.UserRole + 101
 RadioRole = qt.Qt.UserRole + 102
+CheckRole = qt.Qt.UserRole + 103
 
 
 _colormapPixmap: Dict[str, qt.QPixmap] = {}
@@ -53,7 +54,6 @@ class VisibilityPropertyItemDelegate(qt.QStyledItemDelegate):
         editor.toggled.connect(self.__commitData)
         state = index.data(VisibilityRole)
         editor.setChecked(state == qt.Qt.Checked)
-        state = index.data(VisibilityRole)
         self.__updateEditorStyle(editor, state)
         return editor
 

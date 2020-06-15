@@ -31,11 +31,11 @@ class Opiom:
 
         global_map.register(self, children_list=[self._cnx], tag=f"opiom:{name}")
 
-        self.__program = config_tree.get("program", "default")
-        default_prg_root = config_tree.get("opiom-prg-root", OPIOM_PRG_ROOT)
-        self.__base_path = config_tree.get("opiom_prg_root", default_prg_root)
+        self.__program = config.get("program", "default")
+        default_prg_root = config.get("opiom-prg-root", OPIOM_PRG_ROOT)
+        self.__base_path = config.get("opiom_prg_root", default_prg_root)
 
-        program_path = config_tree.get("program-path")
+        program_path = config.get("program-path")
         if program_path is not None:
             pg_path = os.path.splitext(program_path)[0]
             self.__base_path, self.__program = os.path.split(pg_path)

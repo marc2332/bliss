@@ -17,6 +17,7 @@ from silx.gui import qt
 from silx.gui.widgets.LegendIconWidget import LegendIconWidget
 from silx.gui import colors as silx_colors
 from silx.gui import icons
+from silx.gui import utils
 
 from bliss.flint.model import flint_model
 from bliss.flint.model import plot_model
@@ -373,35 +374,47 @@ class RadioPropertyItemDelegate(qt.QStyledItemDelegate):
                 parent, option, index
             )
 
-        editor = qt.QRadioButton(parent=parent)
-        editor.setAutoExclusive(False)
-        editor.clicked.connect(self.__editorsChanged)
-        editor.setMinimumSize(editor.minimumSizeHint())
-        editor.setMaximumSize(editor.minimumSizeHint())
+        # Create group to avoid interferences
+        editor = qt.QWidget(parent=parent)
+        editor.setContentsMargins(1, 1, 1, 1)
+        layout = qt.QHBoxLayout(editor)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(1)
+
+        radio = qt.QRadioButton(parent=editor)
+        radio.setObjectName("radio")
+        radio.setAutoExclusive(False)
+        radio.clicked.connect(self.__editorsChanged)
+        radio.setMinimumSize(radio.minimumSizeHint())
+        radio.setMaximumSize(radio.minimumSizeHint())
+        layout.addWidget(radio)
+
         editor.setSizePolicy(qt.QSizePolicy.Fixed, qt.QSizePolicy.Fixed)
+        self.setEditorData(editor, index)
         return editor
 
     def __editorsChanged(self):
-        editor = self.sender()
+        editor = self.sender().parent()
         self.commitData.emit(editor)
 
     def setEditorData(self, editor: qt.QWidget, index):
+        radio = editor.findChildren(qt.QRadioButton, "radio")[0]
         data = index.data(role=RadioRole)
-        old = editor.blockSignals(True)
-        if data == qt.Qt.Checked:
-            editor.setVisible(True)
-            editor.setChecked(True)
-        elif data == qt.Qt.Unchecked:
-            editor.setVisible(True)
-            editor.setChecked(False)
-        elif data is None:
-            editor.setVisible(False)
-        else:
-            _logger.warning("Unsupported data %s", data)
-        editor.blockSignals(old)
+        with utils.blockSignals(radio):
+            if data is None:
+                radio.setVisible(False)
+            elif data == qt.Qt.Checked:
+                radio.setVisible(True)
+                radio.setChecked(True)
+            elif data == qt.Qt.Unchecked:
+                radio.setVisible(True)
+                radio.setChecked(False)
+            else:
+                _logger.warning("Unsupported data %s", data)
 
     def setModelData(self, editor, model, index):
-        data = qt.Qt.Checked if editor.isChecked() else qt.Qt.Unchecked
+        radio = editor.findChildren(qt.QRadioButton, "radio")[0]
+        data = qt.Qt.Checked if radio.isChecked() else qt.Qt.Unchecked
         model.setData(index, data, role=RadioRole)
 
     def updateEditorGeometry(self, editor, option, index):

@@ -298,7 +298,7 @@ class DataNodeIterator(object):
                         # Watching END scan event to clear all streams link with this scan
                         data_stream = self.create_data_stream(f"{child_name}_data")
                         stream2nodes[data_stream] = new_child
-                        reader.add_streams(data_stream, first_index=0)
+                        reader.add_streams(data_stream, first_index=0, priority=1)
 
                 else:
                     stream.remove(index)

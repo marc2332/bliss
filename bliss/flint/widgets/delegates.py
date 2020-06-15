@@ -12,8 +12,6 @@ from typing import Callable
 from typing import Optional
 
 import logging
-import numpy
-import weakref
 
 from silx.gui import qt
 from silx.gui.widgets.LegendIconWidget import LegendIconWidget

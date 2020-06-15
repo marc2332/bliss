@@ -23,7 +23,7 @@ import numpy
 from bliss.data.node import get_session_node
 
 # derived from silx function, this could maybe enter into silx again
-from bliss.common.utils import dicttonx
+from silx.io.dictdump import dicttonx
 
 from bliss.data.nodes.lima import LimaImageChannelDataNode
 from bliss.data.nodes.channel import ChannelDataNode

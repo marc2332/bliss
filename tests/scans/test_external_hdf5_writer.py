@@ -7,7 +7,6 @@
 
 import pytest
 import gevent
-import pprint
 
 import numpy
 import h5py
@@ -17,8 +16,7 @@ from silx.io.dictdump import h5todict
 from bliss.scanning.acquisition.counter import SamplingCounterAcquisitionSlave
 from bliss.scanning.acquisition.lima import LimaAcquisitionMaster
 from bliss.scanning.acquisition import timer
-from bliss.scanning.chain import AcquisitionChain, AcquisitionMaster
-from bliss.scanning.channel import AcquisitionChannel
+from bliss.scanning.chain import AcquisitionChain
 from bliss.scanning.scan import Scan
 from bliss.scanning.group import Group
 

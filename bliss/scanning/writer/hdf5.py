@@ -11,7 +11,7 @@ import h5py
 import numpy
 import time
 import datetime
-from bliss.common.utils import dicttonx
+from silx.io.dictdump import dicttonx
 from bliss.scanning.writer.file import FileWriter
 from bliss.scanning.scan_meta import categories_names
 import functools

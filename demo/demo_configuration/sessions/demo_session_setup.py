@@ -15,7 +15,7 @@ r1 = Roi(0, 0, 1023, 1023)
 beamviewer.roi_counters["roi1"] = r1
 
 # Resize the image with the one we are exported using the plugin
-tomocam.image.roi = 0, 0, 560, 540
+tomocam.image.roi = 0, 0, 640, 540
 
 load_script("demo_session.py")
 current_session.env_dict["SCAN_DISPLAY"].auto = False

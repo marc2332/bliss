@@ -45,6 +45,12 @@ AcquisitionMode = enum.Enum("AcquisitionMode", "MCA HWSCA")
 
 TriggerMode = enum.Enum("TriggerMode", "SOFTWARE SYNC GATE")
 
+TriggerModeNames = {
+    "SOFTWARE": TriggerMode.SOFTWARE,
+    "SYNC": TriggerMode.SYNC,
+    "GATE": TriggerMode.GATE,
+}
+
 PresetMode = enum.Enum("PresetMode", "NONE REALTIME LIVETIME EVENTS TRIGGERS")
 
 Stats = collections.namedtuple(

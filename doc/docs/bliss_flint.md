@@ -200,7 +200,7 @@ A single scan can involve many widgets for MCAs.
 The policy is to use a single and always the same widget per detector.
 
 ```python
-timescan(1, lima_tomo_simulator)
+timescan(1, tomocam)
 ```
 
 ![MCA widget](img/flint/demo-mca.png)
@@ -222,7 +222,7 @@ The policy is to use a single and always the same widget per detector.
 The demo session provides a tomography projection example.
 
 ```python
-timescan(1, lima_tomo_simulator)
+timescan(1, tomocam)
 ```
 
 ![Image widget](img/flint/demo-image.png)
@@ -239,7 +239,7 @@ Lima ROIs can be edited with `edit_roi_counters` command. This BLISS command is
 based on a Flint programming interface which also can be used for user scripts.
 
 ```python
-edit_roi_counters(lima_tomo_simulator, 0.1)
+edit_roi_counters(tomocam, 0.1)
 ```
 
 ![Editing Lima ROIs](img/flint/demo-image-roi.png)
@@ -254,7 +254,7 @@ The selection can be cancelled using `Ctrl-c` in the BLISS shell.
 This ROIs can now be scanned.
 
 ```python
-loopscan(20, 1, lima_tomo_simulator.counters.roi2_avg)
+loopscan(20, 1, tomocam.counters.roi2_avg)
 ```
 
 ![Scanned Lima ROI](img/flint/demo-image-scanned-roi.png)

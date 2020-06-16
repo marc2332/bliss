@@ -12,9 +12,10 @@
     - slit_vertical_gap
     - slit_vertical_offset
     - beamviewer
-    - lima_tomo_simulator
-    - mca_simulator
-    - mca2_simulator
+    - tomocam
+    - diffcam
+    - mca1
+    - mca2
     - MG1
     - sim_ct_gauss
     - sim_ct_gauss_noise

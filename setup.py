@@ -241,6 +241,7 @@ def main():
             "bin/beacon-server-list",
             "bin/SlitsSimulationLimaCCDs",
             "bin/TomoSimulationLimaCCDs",
+            "bin/DiffSimulationLimaCCDs",
         ],
         entry_points={"console_scripts": console_script_entry_points},
         install_requires=install_requires,

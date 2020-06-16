@@ -478,7 +478,7 @@ class Session:
                     continue
                 print(f" - {os.path.join(dirname, filename)}")
 
-    def user_script_load(self, scriptname=None, export_global=False):
+    def user_script_load(self, scriptname=None, export_global="user"):
         """
         load a script and export all public (= not starting with _)
         objects and functions to current environment or to a namespace.
@@ -487,9 +487,9 @@ class Session:
         Args:
             scriptname: the python file to load (script path can be absolute relative to script_homedir)
         Optional args:
-            export_global=False (default): return a namespace
+            export_global="user" (default): export objects to "user" namespace in session env dict (eg. user.myfunc())
+            export_global=False: return a namespace
             export_global=True: export objects to session env dict
-            export_global="user": export objects to "user" namespace in session env dict (eg. user.myfunc())
         """
         return self._user_script_exec(
             scriptname, load=True, export_global=export_global
@@ -546,6 +546,15 @@ class Session:
         except Exception:
             sys.excepthook(*sys.exc_info())
 
+        def safe_save_to_env_dict(env_dict, key, value):
+            """ Print warning and backup if env_dict[key] already exists """
+            if key in env_dict and value is not env_dict[key]:
+                print(
+                    f"Warning: {key} already exists in session env, backed up to {key}_bak."
+                )
+                env_dict[key + "_bak"] = env_dict[key]
+            env_dict[key] = value
+
         # case: run file
         if not load:
             return
@@ -555,7 +564,7 @@ class Session:
             for k in globals_dict.keys():
                 if k.startswith("_"):
                     continue
-                self.env_dict[k] = globals_dict[k]
+                safe_save_to_env_dict(self.env_dict, k, globals_dict[k])
 
         else:
             env_dict = dict()
@@ -568,8 +577,12 @@ class Session:
             ns = SimpleNamespace(**env_dict)
 
             if isinstance(export_global, str):
-                # case: export to given namespace in env dict
-                self.env_dict[export_global] = ns
+                if isinstance(self.env_dict.get(export_global), SimpleNamespace):
+                    # case: export and merge to existing namespace in env dict
+                    self.env_dict[export_global].__dict__.update(ns.__dict__)
+                else:
+                    # case: export to given (non existing) namespace in env dict
+                    safe_save_to_env_dict(self.env_dict, export_global, ns)
             else:
                 # case: export_global is False, return the namespace
                 return ns

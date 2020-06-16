@@ -36,9 +36,9 @@ Argument:
 
 Optional argument:
 
-* `export_global=False` (default): return a namespace
+* `export_global="user"` (default): export to a "user" namespace in current environment (and merge if pre-existing)
+* `export_global=False`: return a namespace
 * `export_global=True`: export to current environment
-* `export_global="user"`: export a "user" namespace to current environment ()
 
 Return value:
 
@@ -74,57 +74,67 @@ Return value:
 
 ## Examples
 
-!!! example "File `/path/to/demo.py`"
+!!! example "Script file `/path/to/demo.py`"
+
+    ```python
+
+    import time
+    # 'time' module is now usable in this file, but also in the session
+    # 'demo' after loading of the script.
+
+    print("[loading script] align_spectrometer()")
+
+    # this function will be usable in the session once this script is loaded
+    def align_spectrometer(energy=5.0):
+        print(f"Aligning spectrometer for energy {energy} ...")
+        time.sleep(1)
+        print(f"Spectrometer is aligned :)")
+    ```
+
+### Example of script loading and usage:
 
 ```python
-
-import time
-# 'time' module is now usable in this file, but also in the session
-# 'demo' after loading of the script.
-
-print("[loading script]: align_spectrometer()")
-
-def align_spectrometer(energy=5.0):
-    print(f"Aligning spectrometer for energy {energy}...")
-    time.sleep(1)
-    print(f"Spectrometer is aligned :)")
+# Export to "user" namespace (default) in global env dict
+DEMO [1]: user_script_load('/path/to/demo')
+Loading [/path/to/demo.py]...
+[loading script] align_spectrometer()
+DEMO [2]:
+DEMO [2]: user.align_spectrometer(energy=7.5)
+Aligning spectrometer for energy 7.5 ...
+Spectrometer is aligned :)
 ```
 
-Example of script loading and usage:
-
 ```python
-DEMO [1]: demo = user_script_load('demo')
+# Export to a custom "demo" namespace in global env dict
+DEMO [1]: user_script_load('/path/to/demo', export_global="demo")
 Loading [/path/to/demo.py]...
-[loading script]: align_spectrometer()
+[loading script] align_spectrometer()
 DEMO [2]:
 DEMO [2]: demo.align_spectrometer(energy=7.5)
-Aligning spectrometer for energy 7.5  ...
+Aligning spectrometer for energy 7.5 ...
 Spectrometer is aligned :)
-DEMO [3]:
 ```
 
 alternative usage:
 
 ```python
-DEMO [1]: user_script_load('demo', export_global="demo")
+# Export to global env dict
+DEMO [1]: user_script_load('/path/to/demo', export_global=True)
 Loading [/path/to/demo.py]...
-[loading script]: align_spectrometer()
-DEMO [2]:
-DEMO [2]: demo.align_spectrometer(energy=7.5)
-Aligning spectrometer for energy 7.5  ...
-Spectrometer is aligned :)
-DEMO [3]:
-```
-
-or
-
-```python
-DEMO [1]: user_script_load('demo', export_global=True)
-Loading [/path/to/demo.py]...
-[loading script]: align_spectrometer()
+[loading script] align_spectrometer()
 DEMO [2]:
 DEMO [2]: align_spectrometer(energy=7.5)
-Aligning spectrometer for energy 7.5  ...
+Aligning spectrometer for energy 7.5 ...
 Spectrometer is aligned :)
-DEMO [3]:
+```
+
+```python
+# Return a namespace
+DEMO [1]: demo = user_script_load('/path/to/demo', export_global=False)
+Loading [/path/to/demo.py]...
+[loading script] align_spectrometer()
+DEMO [2]:
+DEMO [2]: demo.align_spectrometer(energy=7.5)
+Aligning spectrometer for energy 7.5 ...
+Spectrometer is aligned :)
 ```

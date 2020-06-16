@@ -419,14 +419,25 @@ def _get_flint_pid_from_redis(session_name):
     return None
 
 
-def get_flint(start_new=False, creation_allowed=True):
+def get_flint(start_new=False, creation_allowed=True, mandatory=True):
     """Get the running flint proxy or create one.
 
     Arguments:
         start_new: If true, force starting a new flint subprocess (which will be
             the new current one)
         creation_allowed: If false, a new application will not be created.
+        mandatory: If True (default), a Flint proxy must be returned else
+            an exception is raised.
+            If False, try to return a Flint proxy, else None is returned.
     """
+    if not mandatory:
+        # Protect call to flint
+        try:
+            return get_flint(start_new=start_new, creation_allowed=creation_allowed)
+        except:
+            # A warning should already be displayed in case of problem
+            return None
+
     global FLINT
     try:
         session_name = current_session.name

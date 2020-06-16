@@ -292,10 +292,12 @@ def plotselect(*counters):
 
     if flint_proxy.check_flint():
         channel_names = get_channel_names(*counters)
-        flint = flint_proxy.get_flint()
-        plot_id = flint.get_default_live_scan_plot("curve")
-        if plot_id is not None:
-            flint.set_displayed_channels(plot_id, channel_names)
+        flint = flint_proxy.get_flint(mandatory=False)
+        # Make it safe
+        if flint is not None:
+            plot_id = flint.get_default_live_scan_plot("curve")
+            if plot_id is not None:
+                flint.set_displayed_channels(plot_id, channel_names)
 
 
 def meshselect(*counters):
@@ -307,10 +309,12 @@ def meshselect(*counters):
     """
     if flint_proxy.check_flint():
         channel_names = get_channel_names(*counters)
-        flint = flint_proxy.get_flint()
-        plot_id = flint.get_default_live_scan_plot("scatter")
-        if plot_id is not None:
-            flint.set_displayed_channels(plot_id, channel_names)
+        flint = flint_proxy.get_flint(mandatory=False)
+        # Make it safe
+        if flint is not None:
+            plot_id = flint.get_default_live_scan_plot("scatter")
+            if plot_id is not None:
+                flint.set_displayed_channels(plot_id, channel_names)
 
 
 def get_plotted_counters():

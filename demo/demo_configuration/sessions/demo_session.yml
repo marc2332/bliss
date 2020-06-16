@@ -13,6 +13,7 @@
     - slit_vertical_offset
     - beamviewer
     - tomocam
+    - diffcam
     - mca_simulator
     - mca2_simulator
     - MG1

@@ -20,6 +20,11 @@
   class: Lima
   tango_url: id00/limaccds/tomo_simulator
 
+- name: diffcam
+  plugin: bliss
+  class: Lima
+  tango_url: id00/limaccds/diff_simulator
+
 - name: mca_simulator
   module: mca
   class: SimulatedMCA

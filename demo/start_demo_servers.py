@@ -128,6 +128,7 @@ def start_tango_servers():
             ("SlitsSimulationLimaCCDs", "slits_simulator"),
         ),
         ("id00/limaccds/tomo_simulator", ("TomoSimulationLimaCCDs", "tomo_simulator")),
+        ("id00/limaccds/diff_simulator", ("DiffSimulationLimaCCDs", "diff_simulator")),
         ("id00/metadata/demo_session", ("MetadataManager", "demo")),
         ("id00/metaexp/demo_session", ("MetaExperiment", "demo")),
         ("id00/bliss_nxwriter/demo_session", ("NexusWriterService", "demo")),

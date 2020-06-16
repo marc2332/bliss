@@ -1,0 +1,49 @@
+device:
+- class: Simulator
+  tango_name: id00/simulator/diff_simulator
+- class: LimaCCDs
+  properties:
+    LimaCameraType: Simulator
+  tango_name: id00/limaccds/diff_simulator
+- class: CtAccumulation
+  tango_name: id00/ctaccumulation/diff_simulator
+- class: CtAcquisition
+  tango_name: id00/ctacquisition/diff_simulator
+- class: CtBuffer
+  tango_name: id00/ctbuffer/diff_simulator
+- class: CtConfig
+  tango_name: id00/ctconfig/diff_simulator
+- class: CtEvent
+  tango_name: id00/ctevent/diff_simulator
+- class: CtImage
+  tango_name: id00/ctimage/diff_simulator
+- class: CtSaving
+  tango_name: id00/ctsaving/diff_simulator
+- class: CtShutter
+  tango_name: id00/ctshutter/diff_simulator
+- class: CtVideo
+  tango_name: id00/ctvideo/diff_simulator
+- class: CtControl
+  tango_name: id00/ctcontrol/diff_simulator
+- class: RoiCounterDeviceServer
+  tango_name: id00/roicounter/diff_simulator
+- class: BpmDeviceServer
+  tango_name: id00/bpm/diff_simulator
+- class: LiveViewer
+  tango_name: id00/liveviewer/diff_simulator
+- class: PeakFinderDeviceServer
+  tango_name: id00/peakfinder/diff_simulator
+- class: BackgroundSubstractionDeviceServer
+  tango_name: id00/backgroundsubstraction/diff_simulator
+- class: FlatfieldDeviceServer
+  tango_name: id00/flatfield/diff_simulator
+- class: LimaTacoCCDs
+  tango_name: id00/limatacoccds/diff_simulator
+- class: MaskDeviceServer
+  tango_name: id00/mask/diff_simulator
+- class: Roi2spectrumDeviceServer
+  tango_name: id00/roi2spectrum/diff_simulator
+- class: DiffSimulationDeviceServer
+  tango_name: id00/slitssimulation/diff_simulator
+personal_name: diff_simulator
+server: LimaCCDs

@@ -481,32 +481,31 @@ class Session:
     def user_script_load(self, scriptname=None, export_global=False):
         """
         load a script and export all public (= not starting with _)
-        objects and functions to the returned namespace.
-        (or optionnaly can export to the current environment.
-        Use with caution: risk of overwriting important stuff)
-        (exceptions are printed but not thrown)
+        objects and functions to current environment or to a namespace.
+        (exceptions are printed but not thrown, execution is stopped)
 
         Args:
-            scriptname: the python file to load (can be an absolute path or relative to script_homedir)
-            export_global (default: False): whether to export to session or return a namespace
+            scriptname: the python file to load (script path can be absolute relative to script_homedir)
+        Optional args:
+            export_global=False (default): return a namespace
+            export_global=True: export objects to session env dict
+            export_global="user": export objects to "user" namespace in session env dict (eg. user.myfunc())
         """
         return self._user_script_exec(
-            scriptname, return_namespace=True, export_global=export_global
+            scriptname, load=True, export_global=export_global
         )
 
     def user_script_run(self, scriptname=None):
         """
         Execute a script without exporting objects or functions to current environment.
-        (exceptions are printed but not thrown)
+        (exceptions are printed but not thrown, execution is stopped)
 
         Args:
-            scriptname: the python file to run (can be an absolute path or relative to script_homedir)
+            scriptname: the python file to run (script path can be absolute or relative to script_homedir)
         """
-        self._user_script_exec(scriptname, return_namespace=False)
+        self._user_script_exec(scriptname, load=False)
 
-    def _user_script_exec(
-        self, scriptname, return_namespace=False, export_global=False
-    ):
+    def _user_script_exec(self, scriptname, load=False, export_global=False):
         if not scriptname:
             self.user_script_list()
             return
@@ -533,7 +532,7 @@ class Session:
         except Exception:
             raise RuntimeError(f"Failed to read [{filepath}] !")
 
-        if return_namespace is True:
+        if load is True:
             print(f"Loading [{filepath}]...")
         else:
             print(f"Running [{filepath}]...")
@@ -547,13 +546,18 @@ class Session:
         except Exception:
             sys.excepthook(*sys.exc_info())
 
+        # case: run file
+        if not load:
+            return
+
+        # case: export to global env dict
         if export_global is True:
             for k in globals_dict.keys():
                 if k.startswith("_"):
                     continue
                 self.env_dict[k] = globals_dict[k]
 
-        elif return_namespace is True:
+        else:
             env_dict = dict()
             for k in c_code.co_names:
                 if k.startswith("_"):
@@ -561,10 +565,14 @@ class Session:
                 if k not in globals_dict:
                     continue
                 env_dict[k] = globals_dict[k]
-            return SimpleNamespace(**env_dict)
+            ns = SimpleNamespace(**env_dict)
 
-        else:
-            return None
+            if isinstance(export_global, str):
+                # case: export to given namespace in env dict
+                self.env_dict[export_global] = ns
+            else:
+                # case: export_global is False, return the namespace
+                return ns
 
     def setup(self, env_dict=None, verbose=False):
         if get_current_session() is None:

@@ -138,8 +138,12 @@ def test_user_script(session4, capsys):
     user_script_load("sessions/scripts/script3", export_global=True)
     assert "toto" in session4.env_dict
 
+    expected_symbols = ["ascan", "time", "test1", "a"]
     ns = user_script_load("sessions/subdir/scripts/simple_script")
-    assert list(ns.__dict__) == ["ascan", "time", "test1", "a"]
+    assert list(ns.__dict__) == expected_symbols
+
+    user_script_load("sessions/subdir/scripts/simple_script", export_global="user_ns")
+    assert list(session4.env_dict["user_ns"].__dict__) == expected_symbols
 
 
 def test_prdef(session2, capsys):

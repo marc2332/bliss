@@ -4,7 +4,7 @@
 Python files from a local directory can be executed in a bliss session using the functions
 `user_script_load(<file_name>)` or `user_script_run(<file_name>)`.
 
-All commands in the file are then executed. And each subsequent call re-execute the commands again.
+All commands in the file are executed. And each subsequent call re-execute the commands again.
 
 A preferred directory can be set with the function `user_script_homedir()` and `user_script_list()` will display the python scripts available from this directory.
 
@@ -14,26 +14,31 @@ A preferred directory can be set with the function `user_script_homedir()` and `
 
 !!! info "Error handling"
     In case of error, the functions `user_script_load()` and `user_script_run()` catch
-    and display exceptions, but do not prevent the rest of the script from executing.
+    and display exceptions, and the script execution is stopped. Exceptions are printed not thrown.
 
 ## User script functions
 
 ### Run script
 
-`user_script_run()` function executes all commands in the file. Nothing is exported to the current environment.
+`user_script_run(script_name)` function executes all commands in the file. Nothing is exported to the current environment.
 
 Argument:
 
-* `script_name`: the python file to execute
+* `script_name`: the python file to execute (relative or absolute path)
 
 ### Load script
 
-`user_script_load()` function executes all commands in the file and export all symbols.
+`user_script_load(script_name)` function executes all commands in the file and export all symbols.
 
-Arguments:
+Argument:
 
-* `script_name`: the python file to execute
-* `export_global` (optional, default is False): export to current environment or return a namespace
+* `script_name`: the python file to execute (relative or absolute path)
+
+Optional argument:
+
+* `export_global=False` (default): return a namespace
+* `export_global=True`: export to current environment
+* `export_global="user"`: export a "user" namespace to current environment ()
 
 Return value:
 
@@ -59,7 +64,7 @@ Return value:
     There is no predefined user script directory by default.
     If none is set, you can still load scripts by giving an absolute path.
 
-    You can specify a default directory by adding this line to a session yaml configuration file:
+    You can specify a default directory by adding this line to a session .yml configuration file:
 
     `default-userscript-dir: <absolute_path_to_dir>`
 
@@ -93,6 +98,32 @@ Loading [/path/to/demo.py]...
 [loading script]: align_spectrometer()
 DEMO [2]:
 DEMO [2]: demo.align_spectrometer(energy=7.5)
+Aligning spectrometer for energy 7.5  ...
+Spectrometer is aligned :)
+DEMO [3]:
+```
+
+alternative usage:
+
+```python
+DEMO [1]: user_script_load('demo', export_global="demo")
+Loading [/path/to/demo.py]...
+[loading script]: align_spectrometer()
+DEMO [2]:
+DEMO [2]: demo.align_spectrometer(energy=7.5)
+Aligning spectrometer for energy 7.5  ...
+Spectrometer is aligned :)
+DEMO [3]:
+```
+
+or
+
+```python
+DEMO [1]: user_script_load('demo', export_global=True)
+Loading [/path/to/demo.py]...
+[loading script]: align_spectrometer()
+DEMO [2]:
+DEMO [2]: align_spectrometer(energy=7.5)
 Aligning spectrometer for energy 7.5  ...
 Spectrometer is aligned :)
 DEMO [3]:

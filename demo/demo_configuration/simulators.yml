@@ -15,7 +15,7 @@
   class: Lima
   tango_url: id00/limaccds/slits_simulator
 
-- name: lima_tomo_simulator
+- name: tomocam
   plugin: bliss
   class: Lima
   tango_url: id00/limaccds/tomo_simulator

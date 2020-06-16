@@ -15,7 +15,7 @@ r1 = Roi(0, 0, 1023, 1023)
 beamviewer.roi_counters["roi1"] = r1
 
 # Resize the image with the one we are exported using the plugin
-lima_tomo_simulator.image.roi = 0, 0, 560, 540
+tomocam.image.roi = 0, 0, 560, 540
 
 load_script("demo_session.py")
 current_session.env_dict["SCAN_DISPLAY"].auto = False
@@ -31,7 +31,7 @@ Some ideas for scans:
 - amesh(sy,-.75,.75,30,sz,-.75,.75,30,.001,fluo_diode)
 - amesh(sy,-.1,.1,20,sz,-.3,0,30,.001,fluo_diode)
 - umv(slit_vertical_gap,.1);ascan(slit_vertical_offset,-1,1,30,.1,beamviewer)
-- timescan(1, lima_tomo_simulator)
+- timescan(1, tomocam)
 - timescan(1, mca_simulator)
 
 Slits are fully open when slit_top=10 and slit_bottom=10

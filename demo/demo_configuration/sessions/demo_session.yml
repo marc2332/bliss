@@ -14,8 +14,8 @@
     - beamviewer
     - tomocam
     - diffcam
-    - mca_simulator
-    - mca2_simulator
+    - mca1
+    - mca2
     - MG1
     - sim_ct_gauss
     - sim_ct_gauss_noise

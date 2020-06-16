@@ -37,7 +37,7 @@ Some ideas for scans:
 - umv(slit_vertical_gap,.1);ascan(slit_vertical_offset,-1,1,30,.1,beamviewer)
 - timescan(1, tomocam)
 - timescan(1, diffcam)
-- timescan(1, mca_simulator)
+- timescan(1, mca1)
 
 Slits are fully open when slit_top=10 and slit_bottom=10
 Slits are not aligned, yet!

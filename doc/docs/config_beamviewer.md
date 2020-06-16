@@ -70,14 +70,14 @@ has_foil: False
 channel: 0
 counter_name: mydiode      
 
-tango_url: idxx/limaccds/bv1
+camera_tango_url: idxx/limaccds/bv1
 
 ```
 
 `modbustcp / url` defines the wago control box host as in standard wago
 controller.
 
-`tango_url` defines the `limaccds` Tango device server of associated Basler camera.
+`camera_tango_url` defines the `limaccds` Tango device server of associated Basler camera.
 
 #### Configuration optionnal parameters
 
@@ -100,7 +100,7 @@ controller.
     - default value : `diode`
     - counter name of diode current reading when EBV is used in counts/scans
 
-* `tango_url`
+* `camera_tango_url`
     - default value : `None`
     - if provided, the EBV will be extended with the BPM powers (Bpm measurements and BeamViewer Live display)
 
@@ -148,3 +148,21 @@ At the BPM level some camera parameters can be modified:
 * `myebv.bpm.rotation`
 
 more here: [Beamviewer Usage](using_beamviewer.md)
+
+
+
+
+
+# BPM Controller (camera only + BPM measurements)
+
+Single cameras which are not part of an EBV set (i.e without the Wago part for the control of the LED/Foil/Screen) can be used to perform BPM measurements.  
+
+A standalone `BpmController` object can be associated to the camera and created from the configuration files like this:
+
+```
+name: mybpm
+plugin: bliss
+module: ebv
+class: BpmController
+camera_tango_url: idxx/limaccds/camname
+```

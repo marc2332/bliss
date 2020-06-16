@@ -50,6 +50,12 @@ from bliss.flint.client.live_plots import LiveImagePlot
       - type: 750-479
         logical_names: current
 
+
+- name: mybpm
+  plugin: bliss
+  module: ebv
+  class: BpmController
+  camera_tango_url: idxx/limaccds/camname
 """
 
 

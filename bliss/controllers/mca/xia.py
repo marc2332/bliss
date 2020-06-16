@@ -465,8 +465,12 @@ class BaseXIA(BaseMCA):
         if mode is None:
             mode = TriggerMode.SOFTWARE
         # Check arguments
-        if mode not in self.supported_trigger_modes:
-            raise ValueError("{!s} trigger mode not supported".format(mode))
+        if type(mode) == str:
+            if mode not in [m.name for m in self.supported_trigger_modes]:
+                raise ValueError("{!s} trigger mode not supported".format(mode))
+        else:
+            if mode not in self.supported_trigger_modes:
+                raise ValueError("{!s} trigger mode not supported".format(mode))
         # XMAP Trigger
         if self.detector_type == DetectorType.XMAP:
             self.set_xmap_gate_master(mode)

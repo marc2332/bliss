@@ -50,6 +50,12 @@ from bliss.flint.client.live_plots import LiveImagePlot
       - type: 750-479
         logical_names: current
 
+
+- name: mybpm
+  plugin: bliss
+  module: ebv
+  class: BpmController
+  camera_tango_url: idxx/limaccds/camname
 """
 
 
@@ -145,11 +151,12 @@ class BpmAcqSlave(SamplingCounterAcquisitionSlave):
 
 
 class BpmController(SamplingCounterController):
-    def __init__(self, name, cam_tango_url, register_counters=False):
+    def __init__(self, name, config, register_counters=True):
 
         super().__init__(name, register_counters=register_counters)
 
-        self._cam_tango_url = cam_tango_url
+        self._config = config
+        self._cam_tango_url = config["camera_tango_url"]
         self._cam_proxy = self._get_proxy()
         self._bpm_proxy = self._get_proxy(Lima._BPM)
 
@@ -467,9 +474,7 @@ class EBV:
         # --- bpm counters controller
 
         if self._cam_tango_url:
-            self._bpm = BpmController(
-                self.name, self._cam_tango_url, register_counters=False
-            )
+            self._bpm = BpmController(self.name, config_node, register_counters=False)
 
         self.initialize()
 

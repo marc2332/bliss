@@ -69,9 +69,8 @@ class Camera(CameraBase):
         display_list = list()
         for name in read_attr_list:
             try:
-                value = getattr(self, name) 
+                value = getattr(self, name)
             except:
                 value = "!ERROR!"
             display_list.append(f"{name} = {value}")
         return "\n".join(display_list)
-

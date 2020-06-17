@@ -474,10 +474,13 @@ class BaseXIA(BaseMCA):
         if mode is None:
             mode = TriggerMode.SOFTWARE
         if type(mode) == str:
-            mode = TriggerModeNames[mode]
+            try:
+                mode = TriggerModeNames[mode]
+            except:
+                raise ValueError("{!s} trigger mode not supported".format(mode))
 
         # Check argument
-        if mode not in [m.name for m in self.supported_trigger_modes]:
+        if mode not in self.supported_trigger_modes:
             raise ValueError("{!s} trigger mode not supported".format(mode))
 
         log_debug(self, "set trigger_mode to '%s'", mode)

@@ -25,13 +25,14 @@ __all__ = [
     "TANGO",
 ]
 
-TCP, SERIAL, GPIB, UDP, MODBUSTCP, TANGO = (
+TCP, SERIAL, GPIB, UDP, MODBUSTCP, TANGO, VXI11 = (
     "tcp",
     "serial",
     "gpib",
     "udp",
     "modbustcp",
     "tango",
+    "vxi11",
 )
 
 
@@ -153,6 +154,10 @@ def get_comm_type(config):
         if comm_type:
             raise ValueError("More than one communication channel found")
         comm_type = TANGO
+    if "vxi11" in config:
+        if comm_type:
+            raise ValueError("More than one communication channel found")
+        comm_type = VXI11
     if comm_type is None:
         raise ValueError("get_comm_type(): No communication channel found in config")
     return comm_type
@@ -237,6 +242,9 @@ def get_comm(config, ctype=None, **opts):
             raise RuntimeError(f"The given url {url} is not a valid: use 'host:port'")
         opts.update(config["modbustcp"])
         from .modbus import ModbusTCP as klass
+    elif comm_type == VXI11:
+        opts.update(config["vxi11"])
+        from .vxi11 import Vxi11 as klass
     elif comm_type == TANGO:
         raise ValueError("Use 'get_tango_proxy' to retrieve a tango DeviceProxy")
 

@@ -177,6 +177,7 @@ class MachInfo(BeaconObject):
     def __info__(self):
         str_info = f"MACHINE INFORMATION   ( {self.tango_uri} )\n\n"
         attributes = (
+            "SR_Mode",
             "SR_Current",
             "SR_Lifetime",
             "SR_Single_Bunch_Current",
@@ -189,6 +190,7 @@ class MachInfo(BeaconObject):
         tables = []
 
         (
+            sr_mode,
             sr_curr,
             ltime,
             sb_curr,
@@ -198,6 +200,9 @@ class MachInfo(BeaconObject):
             refill_time,
             op_message,
         ) = self._read_attributes(attributes)
+
+        # SR_Mode: MDT, USM ...
+        tables.append(("SR Mode:", f"{self.SRMODE(sr_mode).name}"))
 
         # SR_Current is in mA.
         tables.append(("Current:", f"{sr_curr:3.2f} mA"))
@@ -249,6 +254,64 @@ class MachInfo(BeaconObject):
             if error:
                 raise tango.DevFailed(*error)
         return (attr.value for attr in dev_attrs)
+
+    @property
+    def sr_mode_as_string(self):
+        mode, = self._read_attributes(("SR_Mode",))
+        return self.SRMODE(mode).name
+
+    @property
+    def sr_mode(self):
+        mode, = self._read_attributes(("SR_Mode",))
+        return mode
+
+    @property
+    def automatic_mode(self):
+        """
+        Return the FE automatic mode status, True or False
+        """
+        mode, = self._read_attributes(("Automatic_Mode",))
+        return mode
+
+    @automatic_mode.setter
+    def automatic_mode(self, newmode):
+        """
+        Set the automatic mode of the FE, True or False
+        """
+        if newmode is True:
+            tango.DeviceProxy(self.tango_uri).Automatic()
+        else:
+            tango.DeviceProxy(self.tango_uri).Manual()
+
+    @property
+    def all_information(self):
+        """
+        Return most of all the machine information as a dictionnary
+          - 
+        """
+        attributes = (
+            "FE_State",
+            "SR_Mode",
+            "SR_Current",
+            "SR_Lifetime",
+            "SR_Single_Bunch_Current",
+            "Auto_Mode_Time",
+            "Automatic_Mode",
+            "SR_Filling_Mode",
+            "SR_Refill_Countdown",
+            "SR_Operator_Mesg",
+            "FE_Itlk_State",
+            "PSS_Itlk_State",
+            "EXP_Itlk_State",
+            "HQPS_Itlk_State",
+            "UHV_Valve_State",
+        )
+        attributes = {
+            attr_name: value
+            for attr_name, value in zip(attributes, self._read_attributes(attributes))
+        }
+        attributes["SR_Mode"] = self.SRMODE(attributes["SR_Mode"]).name
+        return attributes
 
 
 class WaitForRefillPreset(ChainPreset):

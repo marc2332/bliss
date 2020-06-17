@@ -5,18 +5,12 @@ accelerator.
 
 `MachInfo` class provides:
 
+* properties to get some machine available information
 * counters to access to accelerator information
 * helper functions to implement refill pretection in a sequence
 
 
-## MachInfo counters
-
-MachInfo BLISS counters reflect the following information:
-
-* `current`: Ring current of the machine
-* `lifetime`: Remaining Lifetime of the beam
-* `sbcurr`: Ring current of the machine in Single Bunch mode
-* `refill`: Countdown to the Refill
+## Configuration
 
 Configuration example:
 
@@ -27,25 +21,18 @@ Configuration example:
   name: mama
 ```
 
-`MachInfo` object shell info provides in addition of standard counters:
 
-* url of the tango device used
-* AutoMode timing
-* Operator Message
+## machinfo properties
 
-```pyton
-DEMO  [5]: mama
-  Out [5]: MACHINE INFORMATION   ( //acs:10000/fe/master/id21 )
+* `sr_mode`: operation mode in: [`USM`; `MDT`; `Shutdown`; `SafetyTest`; `IdTest`]
+* `automatic_mode`: activation of automatic FE mode: `True` or `False`
+* `tango_uri`: address of the Front-End Tango device server
+* `counters`:
+    - `current`: Ring current of the machine
+    - `lifetime`: Remaining Lifetime of the beam
+    - `sbcurr`: Ring current of the machine in Single Bunch mode
+    - `refill`: Countdown to the Refill
 
-           -----------------  ---------------------------------------------
-           Current:           8.79 mA
-           Lifetime:          245231s = 2days 20h 7mn 11s
-           Refill CountDown:  6519s = 1h 48mn 39s
-           Filling Mode:      7/8 multibunch
-           AutoMode:          True (remaining: 498183s = 5days 18h 23mn 3s)
-           -----------------  ---------------------------------------------
-           Operator Message: Mar  8 08:00 Delivery:Next Refill at 16:00;
-```
 
 Counters usage in a scan:
 ```pyton
@@ -69,6 +56,59 @@ DEMO [9]: mama.counters.current
             Tango unit = "mA"
             scalar
             value: 8.82
+
+DEMO [10]: mama.counters.current.value
+ Out [10]: 194.43
+```
+
+
+### `__info__`
+
+`MachInfo` object shell info provides:
+
+* url of the tango device used
+* AutoMode timing
+* Operator Message
+
+```pyton
+DEMO  [5]: mama
+  Out [5]: MACHINE INFORMATION   ( //acs:10000/fe/master/id21 )
+
+           -----------------  ---------------------------------------------
+           SR Mode:           USM
+           Current:           8.79 mA
+           Lifetime:          245231s = 2days 20h 7mn 11s
+           Refill CountDown:  6519s = 1h 48mn 39s
+           Filling Mode:      7/8 multibunch
+           AutoMode:          True (remaining: 498183s = 5days 18h 23mn 3s)
+           -----------------  ---------------------------------------------
+           Operator Message: Jun  3 12:00 Back to USM
+```
+
+
+
+### all_information
+
+`all_information` property returns most of all the machine information as a
+dictionnary:
+
+```python
+DEMO [9]: pprint.pprint(mama.all_information)
+{'Auto_Mode_Time': 502822,
+ 'Automatic_Mode': True,
+ 'EXP_Itlk_State': tango._tango.DevState.ON,
+ 'FE_Itlk_State': tango._tango.DevState.ON,
+ 'FE_State': 'FE open',
+ 'HQPS_Itlk_State': tango._tango.DevState.ON,
+ 'PSS_Itlk_State': tango._tango.DevState.ON,
+ 'SR_Current': 195.93514894706684,
+ 'SR_Filling_Mode': '7/8 multibunch',
+ 'SR_Lifetime': 66281.93637072828,
+ 'SR_Mode': 'USM',
+ 'SR_Operator_Mesg': 'Jun  3 12:00 Back to USM',
+ 'SR_Refill_Countdown': 2034.0,
+ 'SR_Single_Bunch_Current': -0.04008001020600001,
+ 'UHV_Valve_State': tango._tango.DevState.ON}
 ```
 
 

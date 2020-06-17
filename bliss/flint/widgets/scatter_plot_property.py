@@ -21,6 +21,7 @@ from bliss.flint.model import plot_model
 from bliss.flint.model import plot_item_model
 from bliss.flint.model import scan_model
 from bliss.flint.helper import model_helper
+from bliss.flint.utils import qt_backport
 from . import delegates
 from . import _property_tree_helper
 
@@ -298,7 +299,7 @@ class ScatterPlotPropertyWidget(qt.QWidget):
         self.__scan: Optional[scan_model.Scan] = None
         self.__flintModel: Union[None, flint_model.FlintState] = None
         self.__plotModel: Union[None, plot_model.Plot] = None
-        self.__tree = qt.QTreeView(self)
+        self.__tree = qt_backport.QTreeView(self)
         self.__tree.setEditTriggers(qt.QAbstractItemView.NoEditTriggers)
         self.__tree.setUniformRowHeights(True)
 

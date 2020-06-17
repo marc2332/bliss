@@ -248,45 +248,28 @@ def scan_tmpdir(tmpdir):
 @contextmanager
 def lima_simulator_context(personal_name, device_name):
     db = Database()
-    device_fqdn = f"tango://{os.environ['TANGO_HOST']}/{device_name}"
+    fqdn_prefix = f"tango://{os.environ['TANGO_HOST']}"
+    device_fqdn = f"{fqdn_prefix}/{device_name}"
+    admin_device_fqdn = f"{fqdn_prefix}/dserver/LimaCCDs/{personal_name}"
 
     p = subprocess.Popen(["LimaCCDs", personal_name])
 
+    dev_proxy = DeviceProxy(device_fqdn)
+    adm_dev_proxy = DeviceProxy(admin_device_fqdn)
+
     with gevent.Timeout(
-        10, RuntimeError(f"Lima {personal_name} tango server is not running")
+        15, RuntimeError(f"Lima {personal_name} tango server is not running")
     ):
-        lima_proxies = []
-        classes_devs_list = db.get_device_class_list(f"LimaCCDs/{personal_name}")
-        for tg_dev, tg_class in grouped(classes_devs_list.value_string, 2):
-            if (
-                tg_class.startswith("LimaCCDs")
-                or tg_class.startswith("RoiCounter")
-                or tg_class.startswith("Bpm")
-            ):
-                lima_proxies.append(
-                    DeviceProxy(f"tango://{os.environ['TANGO_HOST']}/{tg_dev}")
-                )
-
         while True:
             try:
-                [dev_proxy.ping() for dev_proxy in lima_proxies]
+                adm_dev_proxy.ping()
             except DevFailed:
-                gevent.sleep(0.5)
+                sys.excepthook(*sys.exc_info())
+                gevent.sleep(1)
             else:
                 break
 
-        while True:
-            try:
-                [dev_proxy.state() for dev_proxy in lima_proxies]
-            except DevFailed:
-                gevent.sleep(0.1)
-            else:
-                break
-        # wait for all devices to be ok
-        # while not all(dev_proxy.state() == DevState.ON for dev_proxy in lima_proxies):
-        #    gevent.sleep(0.1)
-
-    yield device_fqdn, lima_proxies[0]  # LimaCCDs is the first
+    yield device_fqdn, dev_proxy
 
     wait_terminate(p)
 
@@ -308,7 +291,7 @@ def bliss_tango_server(ports, beacon):
     db = Database()
 
     device_name = "id00/bliss/test"
-    fqdn_prefix = f"tango://localhost:{ports.tango_port}"
+    fqdn_prefix = f"tango://{os.environ['TANGO_HOST']}"
     device_fqdn = f"{fqdn_prefix}/{device_name}"
     admin_device_fqdn = f"{fqdn_prefix}/dserver/bliss/test"
 

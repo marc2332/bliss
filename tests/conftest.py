@@ -308,35 +308,31 @@ def bliss_tango_server(ports, beacon):
     db = Database()
 
     device_name = "id00/bliss/test"
-    device_fqdn = "tango://localhost:{}/{}".format(ports.tango_port, device_name)
+    fqdn_prefix = f"tango://localhost:{ports.tango_port}"
+    device_fqdn = f"{fqdn_prefix}/{device_name}"
+    admin_device_fqdn = f"{fqdn_prefix}/dserver/bliss/test"
 
     bliss_ds = [sys.executable, "-u", "-m", "bliss.tango.servers.bliss_ds"]
     p = subprocess.Popen(bliss_ds + ["test"])
 
     dev_proxy = DeviceProxy(device_fqdn)
+    adm_dev_proxy = DeviceProxy(admin_device_fqdn)
 
     with gevent.Timeout(10, RuntimeError("Bliss tango server is not running")):
         while True:
+            # wait for admin device to be ready
+            # it is ready last, according to Tango experts
             try:
-                dev_proxy.ping()
-                dev_proxy.state()
+                adm_dev_proxy.ping()
             except DevFailed as e:
                 gevent.sleep(0.5)
             else:
                 break
 
+        # just for the beauty of it, let's ensure it is in the good state
         while dev_proxy.state() != DevState.STANDBY:
             gevent.sleep(0.1)
 
-        # wait for all axes to be created
-        classes_devs_list = db.get_device_class_list("Bliss/test")
-        nb_axes = 0
-        for tg_dev, tg_class in grouped(classes_devs_list.value_string, 2):
-            if tg_class.startswith("BlissAxis"):
-                nb_axes += 1
-
-        while len(dev_proxy.axis_device_names) < nb_axes:
-            gevent.sleep(0.1)
     yield device_fqdn, dev_proxy
 
     wait_terminate(p)

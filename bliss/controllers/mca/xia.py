@@ -20,6 +20,7 @@ from .base import (
     PresetMode,
     Stats,
     TriggerMode,
+    TriggerModeNames,
     AcquisitionMode,
     MCABeaconObject,
 )
@@ -460,30 +461,44 @@ class BaseXIA(BaseMCA):
 
     @trigger_mode.setter
     def trigger_mode(self, mode):
-        log_debug(self, "set trigger_mode to %s", mode)
-        # Cast arguments
+        """Set a combination of parameters to reflect <mode> triggering
+        mode:
+        * 'mapping mode'
+        * 'gate ignore'
+        * 'advance mode'
+        * 'xmap_gate_master'
+        """
+        log_debug(self, "try to set trigger_mode to '%s'", mode)
+
+        # Cast argument
         if mode is None:
             mode = TriggerMode.SOFTWARE
-        # Check arguments
         if type(mode) == str:
-            if mode not in [m.name for m in self.supported_trigger_modes]:
-                raise ValueError("{!s} trigger mode not supported".format(mode))
-        else:
-            if mode not in self.supported_trigger_modes:
-                raise ValueError("{!s} trigger mode not supported".format(mode))
-        # XMAP Trigger
+            mode = TriggerModeNames[mode]
+
+        # Check argument
+        if mode not in [m.name for m in self.supported_trigger_modes]:
+            raise ValueError("{!s} trigger mode not supported".format(mode))
+
+        log_debug(self, "set trigger_mode to '%s'", mode)
+
+        # XMAP Trigger: set trigger mode on MASTER
+        # (possibly many cards -> can be another det number)
         if self.detector_type == DetectorType.XMAP:
             self.set_xmap_gate_master(mode)
-        # Configure mapping mode and gate ignore
+
+        # Configure 'mapping mode' and 'gate ignore'
         gate_ignore = 0 if mode == TriggerMode.GATE else 1
         mapping_mode = 0 if mode == TriggerMode.SOFTWARE else 1
         self._proxy.set_acquisition_value("gate_ignore", gate_ignore)
         self._proxy.set_acquisition_value("mapping_mode", mapping_mode)
-        # Configure advance mode
+
+        # Configure 'advance mode'
         if mode != TriggerMode.SOFTWARE:
             gate = 1
             self._proxy.set_acquisition_value("pixel_advance_mode", gate)
         self._proxy.apply_acquisition_values()
+
         self._trigger_mode = mode
 
     def set_xmap_gate_master(self, mode):

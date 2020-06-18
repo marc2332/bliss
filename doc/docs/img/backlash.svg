@@ -13,7 +13,7 @@
    height="1122.5197"
    id="svg2"
    version="1.1"
-   inkscape:version="0.92.1 r15371"
+   inkscape:version="0.92.4 (5da689c313, 2019-01-14)"
    sodipodi:docname="backlash.svg">
   <defs
      id="defs4">
@@ -246,16 +246,16 @@
      borderopacity="1.0"
      inkscape:pageopacity="0.0"
      inkscape:pageshadow="2"
-     inkscape:zoom="0.98994949"
-     inkscape:cx="563.10606"
-     inkscape:cy="637.10463"
+     inkscape:zoom="0.97834852"
+     inkscape:cx="486.20044"
+     inkscape:cy="471.927"
      inkscape:document-units="px"
      inkscape:current-layer="layer1"
      showgrid="true"
      inkscape:window-width="1864"
      inkscape:window-height="1179"
-     inkscape:window-x="439"
-     inkscape:window-y="38"
+     inkscape:window-x="422"
+     inkscape:window-y="34"
      inkscape:window-maximized="0"
      showguides="true"
      inkscape:guide-bbox="true">
@@ -319,7 +319,7 @@
          id="tspan4250"
          x="656"
          y="198.90067"
-         style="font-size:12.80000019px;line-height:1;stroke-width:1.06666672">DIAL</tspan></text>
+         style="font-size:12.80000019px;line-height:1;stroke-width:1.06666672">CONTROLER</tspan></text>
     <g
        id="g4352"
        transform="translate(16.000007,42.666634)">
@@ -511,7 +511,7 @@
          id="tspan4250-4"
          x="656"
          y="380.23398"
-         style="font-size:12.80000019px;line-height:1;stroke-width:1.06666672">DIAL</tspan></text>
+         style="font-size:12.80000019px;line-height:1;stroke-width:1.06666672">CONTROLER</tspan></text>
     <g
        transform="translate(16.000007,223.99996)"
        id="g4352-5">
@@ -692,7 +692,7 @@
          id="tspan4250-6"
          x="656"
          y="561.56726"
-         style="font-size:12.80000019px;line-height:1;stroke-width:1.06666672">DIAL</tspan></text>
+         style="font-size:12.80000019px;line-height:1;stroke-width:1.06666672">CONTROLER</tspan></text>
     <g
        transform="translate(16.000007,405.3333)"
        id="g4352-4">
@@ -873,7 +873,7 @@
          id="tspan4250-7"
          x="656"
          y="742.90063"
-         style="font-size:12.80000019px;line-height:1;stroke-width:1.06666672">DIAL</tspan></text>
+         style="font-size:12.80000019px;line-height:1;stroke-width:1.06666672">CONTROLER</tspan></text>
     <g
        transform="translate(16.000007,586.66663)"
        id="g4352-6">
@@ -1110,5 +1110,15 @@
          x="174.80638"
          y="829.75854"
          style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:12.80000019px;line-height:1;font-family:Courier;-inkscape-font-specification:'Courier, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-feature-settings:normal;text-align:start;writing-mode:lr-tb;text-anchor:start;stroke-width:1.06666672">axis.move(+4)</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:29.33333397px;line-height:1.25;font-family:sans-serif;-inkscape-font-specification:'sans-serif, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-feature-settings:normal;text-align:start;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none"
+       x="52.4646"
+       y="922.52515"
+       id="text1101"><tspan
+         sodipodi:role="line"
+         id="tspan1099"
+         x="52.4646"
+         y="922.52515">user = sign * ctrl / steps_per_unit  +  offset</tspan></text>
   </g>
 </svg>

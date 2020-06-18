@@ -403,7 +403,7 @@ Changing acceleration:
 
 ### backlash
 
-![backlash](img/backlash.svg)
+![backlash](img/backlash_paths.svg)
 
 ### is_moving
 

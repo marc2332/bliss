@@ -947,6 +947,8 @@ class CurvePlotPropertyWidget(qt.QWidget):
     def __updateTree(self):
         collapsed = _property_tree_helper.getPathFromCollapsedNodes(self.__tree)
         selectedItem = self.selectedPlotItem()
+        scrollx = self.__tree.horizontalScrollBar().value()
+        scrolly = self.__tree.verticalScrollBar().value()
 
         model = self.__tree.model()
         model.clear()
@@ -1071,6 +1073,8 @@ class CurvePlotPropertyWidget(qt.QWidget):
 
         self.__tree.expandAll()
         _property_tree_helper.collapseNodesFromPaths(self.__tree, collapsed)
+        self.__tree.horizontalScrollBar().setValue(scrollx)
+        self.__tree.verticalScrollBar().setValue(scrolly)
 
         with qtutils.blockSignals(self):
             self.selectPlotItem(selectedItem)

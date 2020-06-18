@@ -17,7 +17,7 @@ def measurement_group_selection(obj, *args, **kwargs):
         dialogs.append([UserCheckBox(label=fullname, defval=enabled)])
 
     choices = BlissDialog(
-        dialogs, title=f"MeasurementGroup {obj.name} Counter selection", paddings=(3, 3)
+        dialogs, title=f"MeasurementGroup {obj.name} Counter selection", paddings=(0, 0)
     ).show()
     if choices:
         values = list(zip(obj.available, choices.values()))

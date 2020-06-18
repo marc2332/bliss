@@ -219,6 +219,11 @@ class Transfocator:
 
         self._init_meta_data_publishing()
 
+    def __del__(self):
+        # remove meta
+        scan_meta_obj = get_user_scan_meta()
+        scan_meta_obj.instrument.remove(self)
+
     def _init_meta_data_publishing(self):
         scan_meta_obj = get_user_scan_meta()
         scan_meta_obj.instrument.set(

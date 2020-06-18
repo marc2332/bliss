@@ -811,37 +811,35 @@ def edit_roi_counters(detector: Lima, acq_time: Optional[float] = None):
     roi_counters = detector.roi_counters
     name = f"{detector.name} [{roi_counters.config_name}]"
 
-    if acq_time:
-        setup_globals.SCAN_DISPLAY.auto = True
-        scan = scans.ct(acq_time, detector)
-    else:
-        try:
-            scan = current_session.scans[-1]
-        except IndexError:
-            print(
-                f"SCANS list is empty -- do an acquisition with {detector.name} before editing roi counters"
-            )
-            return
-        else:
-            for node in scan.nodes:
-                try:
-                    # just make sure there is at least an image from this detector;
-                    # only acq. channels have .fullname, the easiest is to try...except
-                    # for the test
-                    if node.fullname == f"{detector.name}:image":
-                        break
-                except AttributeError:
-                    continue
-            else:
-                print(
-                    f"Last scan did not save an image from {detector.name}: do an acquisition before editing roi counters"
-                )
-                return
+    if acq_time is not None:
+        # Open flint before doing the ct
+        plot_module.get_flint()
+        scans.ct(acq_time, detector)
 
-    plot = scan.get_plot(detector.image, plot_type="image", wait=True)
-    if not plot:
-        print("Flint is not available -- cannot edit roi counters")
+    # Check that Flint is already there
+    try:
+        flint = plot_module.get_flint(creation_allowed=False)
+    except:
+        print("Flint is not available")
+        print(" - Hint: Specify a count time to process a ct on this detector")
         return
+    channel_name = f"{detector.name}:image"
+
+    # That it contains an image displayed for this detector
+    try:
+        plot_id = flint.get_live_scan_plot(channel_name, "image")
+    except:
+        # The detector widget is not yet displayed
+        print("Detector not yet displayed in Flint")
+        print(" - Hint: Specify a count time to process a ct on this detector")
+        return
+
+    # Reach the plot widget
+    plot = plot_module.plot_image(existing_id=plot_id)
+    if not plot:
+        raise RuntimeError(
+            "Internal error. A plot from this detector was expected but it is not available. Or Flint was closed in between."
+        )
 
     selections = []
     for roi in roi_counters.get_rois():

@@ -91,7 +91,9 @@ from bliss.scanning.scan import ScanDisplay
 
 from tabulate import tabulate
 
+from bliss.common.utils import typeguardTypeError_to_hint
 from typing import Optional
+from bliss.controllers.lima.lima_base import Lima
 from bliss.common.types import (
     _countable,
     _scannable,
@@ -794,7 +796,9 @@ def plotselect(*counters: _providing_channel):
     print("")
 
 
-def edit_roi_counters(detector, acq_time=None):
+@typeguardTypeError_to_hint
+@typeguard.typechecked
+def edit_roi_counters(detector: Lima, acq_time: Optional[float] = None):
     """
     Edit the given detector ROI counters.
     When called without arguments, it will use the image from specified detector

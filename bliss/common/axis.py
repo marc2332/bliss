@@ -223,6 +223,16 @@ class GroupMove:
                         motion.target_pos = (
                             motion.axis.dial * motion.axis.steps_per_unit
                         )
+                        # Adjust the difference between encoder and motor controller indexer
+                        if (
+                            motion.axis._read_position_mode
+                            == Axis.READ_POSITION_MODE.ENCODER
+                        ):
+                            controller_position = controller.read_position(motion.axis)
+                            enc_position = motion.target_pos
+                            delta_pos = controller_position - enc_position
+                            motion.target_pos += delta_pos
+
                     backlash_motion = Motion(
                         motion.axis,
                         motion.target_pos + motion.backlash,

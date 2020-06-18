@@ -44,6 +44,30 @@ class AxisOnLimitError(RuntimeError):
     pass
 
 
+def _prepare_one_controller_motions(controller, motions):
+    try:
+        controller.prepare_all(*motions)
+    except NotImplementedError:
+        for motion in motions:
+            controller.prepare_move(motion)
+
+
+def _start_one_controller_motions(controller, motions):
+    try:
+        controller.start_all(*motions)
+    except NotImplementedError:
+        for motion in motions:
+            controller.start_one(motion)
+
+
+def _stop_one_controller_motions(controller, motions):
+    try:
+        controller.stop_all(*motions)
+    except NotImplementedError:
+        for motion in motions:
+            controller.stop(motion.axis)
+
+
 class GroupMove:
     def __init__(self, parent=None):
         self.parent = parent
@@ -1684,21 +1708,12 @@ class Axis:
             if motion is None:
                 return
 
-            def prepare_one(controller, motions):
-                controller.prepare_move(motions[0])
-
-            def start_one(controller, motions):
-                controller.start_one(motions[0])
-
-            def stop_one(controller, motions):
-                controller.stop(motions[0].axis)
-
             self._group_move = GroupMove()
             self._group_move.move(
                 {self.controller: [motion]},
-                prepare_one,
-                start_one,
-                stop_one,
+                _prepare_one_controller_motions,
+                _start_one_controller_motions,
+                _stop_one_controller_motions,
                 wait=False,
                 polling_time=polling_time,
             )

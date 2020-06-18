@@ -8,7 +8,12 @@
 import gevent
 import numpy
 import uuid
-from bliss.common.axis import Axis, AxisState, DEFAULT_POLLING_TIME, GroupMove
+from bliss.common.axis import Axis, AxisState, GroupMove, DEFAULT_POLLING_TIME
+from bliss.common.axis import (
+    _prepare_one_controller_motions,
+    _start_one_controller_motions,
+    _stop_one_controller_motions,
+)
 from bliss.common.utils import grouped
 
 
@@ -77,27 +82,6 @@ class _Group(object):
         return self._group_move.is_moving or any(
             m.is_moving for m in self._axes.values()
         )
-
-    def _prepare_one_controller_motions(self, controller, motions):
-        try:
-            controller.prepare_all(*motions)
-        except NotImplementedError:
-            for motion in motions:
-                controller.prepare_move(motion)
-
-    def _start_one_controller_motions(self, controller, motions):
-        try:
-            controller.start_all(*motions)
-        except NotImplementedError:
-            for motion in motions:
-                controller.start_one(motion)
-
-    def _stop_one_controller_motions(self, controller, motions):
-        try:
-            controller.stop_all(*motions)
-        except NotImplementedError:
-            for motion in motions:
-                controller.stop(motion.axis)
 
     @property
     def state(self):
@@ -184,9 +168,9 @@ class _Group(object):
 
         self._group_move.move(
             motions_dict,
-            self._prepare_one_controller_motions,
-            self._start_one_controller_motions,
-            self._stop_one_controller_motions,
+            _prepare_one_controller_motions,
+            _start_one_controller_motions,
+            _stop_one_controller_motions,
             wait=wait,
             polling_time=polling_time,
         )

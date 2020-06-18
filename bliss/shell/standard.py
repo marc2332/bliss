@@ -801,16 +801,18 @@ def plotselect(*counters: _providing_channel):
 def edit_roi_counters(detector: Lima, acq_time: Optional[float] = None):
     """
     Edit the given detector ROI counters.
+
     When called without arguments, it will use the image from specified detector
-    from the last scan/ct as a reference. If 'acq_time' is specified,
+    from the last scan/ct as a reference. If `acq_time` is specified,
     it will do a 'ct()' with the given count time to acquire a new image.
 
+                   # Flint will be open if it is not yet the case
+        BLISS [1]: edit_roi_counters(pilatus1, 0.1)
+
+                   # Flint but already be open
         BLISS [1]: ct(0.1, pilatus1)
         BLISS [2]: edit_roi_counters(pilatus1)
     """
-    roi_counters = detector.roi_counters
-    name = f"{detector.name} [{roi_counters.config_name}]"
-
     if acq_time is not None:
         # Open flint before doing the ct
         plot_module.get_flint()
@@ -842,6 +844,7 @@ def edit_roi_counters(detector: Lima, acq_time: Optional[float] = None):
         )
 
     selections = []
+    roi_counters = detector.roi_counters
     for roi in roi_counters.get_rois():
         selection = dict(
             kind="Rectangle",
@@ -850,7 +853,9 @@ def edit_roi_counters(detector: Lima, acq_time: Optional[float] = None):
             label=roi.name,
         )
         selections.append(selection)
-    print(("Waiting for ROI edition to finish on {}...".format(name)))
+
+    name = f"{detector.name} [{roi_counters.config_name}]"
+    print(f"Waiting for ROI edition to finish on {name}...")
     selections = plot.select_shapes(selections)
     roi_labels, rois = [], []
     ignored = 0
@@ -864,10 +869,11 @@ def edit_roi_counters(detector: Lima, acq_time: Optional[float] = None):
         rois.append((x, y, w, h))
         roi_labels.append(label)
     if ignored:
-        print(("{} ROI(s) ignored (no name)".format(ignored)))
+        print(f"{ignored} ROI(s) ignored (no name)")
     roi_counters.clear()
     roi_counters[roi_labels] = rois
-    print(("Applied ROIS {} to {}".format(", ".join(sorted(roi_labels)), name)))
+    roi_string = ", ".join(sorted(roi_labels))
+    print(f"Applied ROIS {roi_string} to {name}")
 
 
 def interlock_show(wago_obj=None):

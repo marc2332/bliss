@@ -198,6 +198,8 @@ class FlintApi:
             if scan is None:
                 continue
             channel = scan.getChannelByName(channel_name)
+            if channel is None:
+                continue
             plot = widget.plotModel()
             if plot is None:
                 continue

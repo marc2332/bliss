@@ -816,7 +816,7 @@ def edit_roi_counters(detector: Lima, acq_time: Optional[float] = None):
     if acq_time is not None:
         # Open flint before doing the ct
         plot_module.get_flint()
-        scans.ct(acq_time, detector)
+        scans.ct(acq_time, detector.image)
 
     # Check that Flint is already there
     try:

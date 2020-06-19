@@ -487,6 +487,25 @@ class FlintApi:
 
         scan.stopMonitoring()
 
+    def set_static_image(self, channel_name, data):
+        """Update the displayed image data relative to a channel name.
+
+        This can be use to display a custom image to a detector, in case
+        the processing was done in BLISS side.
+        """
+        from .manager import monitoring
+
+        if not data.flags.writeable:
+            # Image from the network should be writable
+            # FIXME: this should be fixed on our RPC
+            data = numpy.array(data)
+
+        scan = monitoring.StaticImageScan(None, channel_name)
+        manager = self.__flintModel.mainManager()
+        plots = scan_info_helper.create_plot_model(scan.scanInfo(), scan)
+        manager.updateWidgetsWithPlots(scan, plots, True, None)
+        scan.setData(data)
+
     def _get_live_plot_widget(self, plot_id):
         if not isinstance(plot_id, str) or not plot_id.startswith("live:"):
             raise ValueError(f"'{plot_id}' is not a valid plot_id")

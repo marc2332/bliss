@@ -810,33 +810,36 @@ class ESRFScanSaving(BasicScanSaving):
     def base_path(self, eval_dict=None):
         """Root directory depending in the proposal type (inhouse, visitor, tmp)
         """
-        ptype = self.get_cached_property("proposal_type", eval_dict)
-        if ptype == "inhouse":
-            base_path = self._get_mount_point(
-                "inhouse_data_root", "/data/{beamline}/inhouse"
-            )
-        elif ptype == "visitor":
-            base_path = self._get_mount_point("visitor_data_root", "/data/visitor")
-        else:
-            base_path = self._get_mount_point("tmp_data_root", "/data/{beamline}/tmp")
-        return self.eval_template(base_path, eval_dict=eval_dict)
+        return self._get_base_path(icat=False, eval_dict=eval_dict)
 
     @property_with_eval_dict
     def icat_base_path(self, eval_dict=None):
+        """ICAT root directory depending in the proposal type (inhouse, visitor, tmp)
+        """
+        return self._get_base_path(icat=True, eval_dict=eval_dict)
+
+    @with_eval_dict
+    def _get_base_path(self, icat=False, eval_dict=None):
         """Root directory depending in the proposal type (inhouse, visitor, tmp)
         """
         ptype = self.get_cached_property("proposal_type", eval_dict)
+        # When <type>_data_root is missing: use hardcoded default
+        # When icat_<type>_data_root is missing: use <type>_data_root
         if ptype == "inhouse":
-            key = "icat_inhouse_data_root"
+            template = self._get_mount_point(
+                "inhouse_data_root", "/data/{beamline}/inhouse"
+            )
+            if icat:
+                template = self._get_mount_point("icat_inhouse_data_root", template)
         elif ptype == "visitor":
-            key = "icat_visitor_data_root"
+            template = self._get_mount_point("visitor_data_root", "/data/visitor")
+            if icat:
+                template = self._get_mount_point("icat_visitor_data_root", template)
         else:
-            key = "icat_tmp_data_root"
-        default = self.get_cached_property("base_path", eval_dict)
-        base_path = self.scan_saving_config.get(key, default)
-        if not isinstance(base_path, str):
-            raise RuntimeError(f"'{key}' does not allow different mount points")
-        return self.eval_template(base_path, eval_dict=eval_dict)
+            template = self._get_mount_point("tmp_data_root", "/data/{beamline}/tmp")
+            if icat:
+                template = self._get_mount_point("icat_tmp_data_root", template)
+        return self.eval_template(template, eval_dict=eval_dict)
 
     def _get_mount_point(self, key, default):
         """Get proposal type's mount point which defines `base_path`
@@ -860,7 +863,7 @@ class ESRFScanSaving(BasicScanSaving):
         :param str key: scan saving configuration dict key
         :param str default: when key is not in configuration
                             it returns {"": default})
-        :returns dict:
+        :returns dict: always at least one key-value pair
         """
         mount_points = self.scan_saving_config.get(key, default)
         if isinstance(mount_points, str):
@@ -877,6 +880,7 @@ class ESRFScanSaving(BasicScanSaving):
         mount_points = set()
         for k in ["inhouse_data_root", "visitor_data_root", "tmp_data_root"]:
             mount_points |= self._mount_points_from_config(k, "").keys()
+            mount_points |= self._mount_points_from_config(f"icat_{k}", "").keys()
         return mount_points
 
     @property

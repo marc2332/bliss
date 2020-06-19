@@ -222,6 +222,7 @@ def test_mount_points(session, esrf_data_policy):
     scan_saving_config = esrf_data_policy
 
     # Test setting mount points
+    assert scan_saving.mount_points == {"", "fs1", "fs2", "fs3"}
     for mp in ["", "fs1", "fs2", "fs3"]:
         scan_saving.mount_point = mp
         assert scan_saving.mount_point == mp

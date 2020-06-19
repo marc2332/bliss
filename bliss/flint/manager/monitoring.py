@@ -17,6 +17,7 @@ import contextlib
 import gevent
 import datetime
 import time
+import numpy
 
 from silx.gui import qt
 
@@ -230,3 +231,51 @@ class MonitoringScan(scan_model.Scan):
         self._setState(scan_model.ScanState.FINISHED)
         self.scanSuccessed.emit()
         self.scanFinished.emit()
+
+
+class StaticImageScan(scan_model.Scan):
+    def __init__(self, parent, channel_name: str):
+        scan_model.Scan.__init__(self, parent=parent)
+        topMaster = scan_model.Device(self)
+        topMaster.setName("static")
+        device = scan_model.Device(self)
+        device.setMaster(topMaster)
+        device_name = channel_name.split(":", 1)[0]
+        device.setName(device_name)
+        channel = scan_model.Channel(device)
+        channel.setName(channel_name)
+        channel.setType(scan_model.ChannelType.IMAGE)
+        self._channel = channel
+
+        scanInfo = {
+            "type": "static",
+            "acquisition_chain": {"static": {"images": [channel_name]}},
+            "start_time": datetime.datetime.now(),
+            "title": "Static data",
+        }
+        self.setScanInfo(scanInfo)
+
+        self.seal()
+        self.__isSet = False
+
+    def setData(self, array):
+        assert not self.__isSet
+        self.__isSet = True
+        _logger.debug("Start static scan")
+        self._setState(scan_model.ScanState.PROCESSING)
+        self.scanStarted.emit()
+        try:
+            data = scan_model.Data(
+                None, array=array, source="bliss", receivedTime=datetime.datetime.now()
+            )
+            self._channel.setData(data)
+            self._fireScanDataUpdated(channelName=self._channel.name())
+        except:
+            self._setState(scan_model.ScanState.FINISHED)
+            self.scanSuccessed.emit()
+        else:
+            self._setState(scan_model.ScanState.FINISHED)
+            self.scanFailed.emit()
+        finally:
+            _logger.debug("Stop static scan")
+            self.scanFinished.emit()

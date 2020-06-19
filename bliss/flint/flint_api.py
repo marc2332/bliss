@@ -263,8 +263,6 @@ class FlintApi:
                 children of the plot and referenced as it's object name.
         """
         plot = self._get_plot_widget(plot_id, expect_silx_api=True)
-        from silx.gui.utils.testutils import QTest
-
         action: qt.QAction = plot.findChild(qt.QAction, qaction)
         action.trigger()
 

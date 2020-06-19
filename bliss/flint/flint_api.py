@@ -477,7 +477,7 @@ class FlintApi:
         """
         plot_id = self.get_live_scan_plot(channel_name, "image")
         if plot_id is None:
-            raise RuntimeError("THe channel name is not part of any widget")
+            raise RuntimeError("The channel name is not part of any widget")
         from .manager import monitoring
 
         plot = self._get_live_plot_widget(plot_id)

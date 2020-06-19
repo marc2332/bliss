@@ -18,6 +18,7 @@ import typing
 import typeguard
 import subprocess
 import fnmatch
+import numpy
 
 from gevent import sleep
 
@@ -71,6 +72,7 @@ from bliss.common import logtools
 from bliss.common.logtools import *
 from bliss.common.interlocks import interlock_state
 from bliss.common.session import get_current_session
+from bliss.data.nodes import lima
 
 from bliss.scanning.scan_tools import (
     cen,
@@ -819,22 +821,25 @@ def edit_roi_counters(detector: Lima, acq_time: Optional[float] = None):
         scans.ct(acq_time, detector.image)
 
     # Check that Flint is already there
-    try:
-        flint = plot_module.get_flint(creation_allowed=False)
-    except:
-        print("Flint is not available")
-        print(" - Hint: Specify a count time to process a ct on this detector")
-        return
+    flint = plot_module.get_flint()
     channel_name = f"{detector.name}:image"
 
     # That it contains an image displayed for this detector
     try:
         plot_id = flint.get_live_scan_plot(channel_name, "image")
     except:
-        # The detector widget is not yet displayed
-        print("Detector not yet displayed in Flint")
-        print(" - Hint: Specify a count time to process a ct on this detector")
-        return
+        # Create a single frame from detector data
+        # or a placeholder
+
+        try:
+            data = lima.read_image(detector._proxy, -1)
+        except:
+            # Else create a checker board place holder
+            y, x = numpy.mgrid[0 : detector.image.height, 0 : detector.image.width]
+            data = ((y // 16 + x // 16) % 2).astype(numpy.uint8)
+
+        flint.set_static_image(channel_name, data)
+        plot_id = flint.get_live_scan_plot(channel_name, "image")
 
     # Reach the plot widget
     plot = plot_module.plot_image(existing_id=plot_id)

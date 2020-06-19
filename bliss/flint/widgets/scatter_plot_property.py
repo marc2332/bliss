@@ -484,6 +484,9 @@ class ScatterPlotPropertyWidget(qt.QWidget):
 
     def __updateTree(self):
         collapsed = _property_tree_helper.getPathFromCollapsedNodes(self.__tree)
+        scrollx = self.__tree.horizontalScrollBar().value()
+        scrolly = self.__tree.verticalScrollBar().value()
+
         model = self.__tree.model()
         model.clear()
 
@@ -600,3 +603,5 @@ class ScatterPlotPropertyWidget(qt.QWidget):
 
         self.__tree.expandAll()
         _property_tree_helper.collapseNodesFromPaths(self.__tree, collapsed)
+        self.__tree.horizontalScrollBar().setValue(scrollx)
+        self.__tree.verticalScrollBar().setValue(scrolly)

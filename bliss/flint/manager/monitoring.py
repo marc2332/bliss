@@ -44,7 +44,6 @@ class MonitoringScan(scan_model.Scan):
         channel.setType(scan_model.ChannelType.IMAGE)
         self._channel = channel
 
-        "tomocam:image"
         scanInfo = {
             "type": "monitoring",
             "acquisition_chain": {"mon": {"images": [channel_name]}},

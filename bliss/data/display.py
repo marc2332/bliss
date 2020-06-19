@@ -318,7 +318,16 @@ class _ScanPrinterBase:
         + "   file      : {filename}\n"
         + "   user      : {user_name}\n"
         + "   session   : {session_name}\n"
-        + "   hidden    : [ {not_shown_counters_str} ]"
+        + "   skipped   : [ {not_shown_counters_str} ]\n"
+    )
+
+    EXTRA_HEADER = (
+        "   unselected: [ {not_selected} ]\n"
+        + "                 (use \033[90mplotselect\033[0m to custom this list)\n"
+    )
+
+    EXTRA_HEADER_2 = (
+        "                 (use \033[90mplotselect\033[0m to filter this list)\n"
     )
 
     DEFAULT_WIDTH = 12
@@ -541,36 +550,43 @@ class _ScanPrinterBase:
         header = self.HEADER.format(
             not_shown_counters_str=not_shown_counters_str, **scan_info
         )
-        if scan_info.get("type") == "ct":
-            header += "\n"
 
         return header
 
-    def print_scan_header(self, scan_info):
-        """Print the header of a new scan"""
-        header = self.build_header(scan_info)
-        print(header)
-
-    def print_data_header(self, scan_info):
-        """Print the header of the data table"""
+    def build_extra_header(self):
         not_selected = [
             c
             for c in self.displayable_channel_names
             if c not in self.sorted_channel_names
         ]
-        if len(not_selected) > 0:
-            not_selected = [f"'\033[91m{c}\033[0m'" for c in not_selected]
-            not_selected = ", ".join(not_selected)
-            line = f"   unselected: [ {not_selected} ]"
-            print(line)
-            print(
-                "                 (use \033[90mplotselect\033[0m to custom this list)"
-            )
-            print()
+        if len(not_selected) == 0:
+            return self.EXTRA_HEADER_2
+
+        not_selected = [f"'\033[91m{c}\033[0m'" for c in not_selected]
+        not_selected = ", ".join(not_selected)
+        return self.EXTRA_HEADER.format(not_selected=not_selected)
+
+    def print_scan_header(self, scan_info):
+        """Print the header of a new scan"""
+        header = self.build_header(scan_info)
+        if scan_info.get("type") != "ct":
+            header += self.build_extra_header()
+        print(header)
+
+    def print_data_header(self, scan_info, first=False):
+        """Print the header of the data table.
+
+        The first one skip the EXTRA_HEADER, cause it is already part of the
+        scan header.
+        """
+        if not first:
+            header = "\n" + self.build_extra_header()
+        else:
+            header = ""
 
         self.build_header(scan_info)
-        if str(self._tab):
-            print(self._tab)
+        tab = str(self._tab)
+        print(header + tab)
 
     def build_data_output(self, scan_info, data):
         """ data is a dict, one scalar per channel (last point) """
@@ -807,6 +823,11 @@ class ScanDataListener(_ScanPrinterBase):
                 return True
         return False
 
+    def collect_channels_info(self, scan_info):
+        super(ScanDataListener, self).collect_channels_info(scan_info)
+        # Update the displayed channels before printing the scan header
+        self.update_displayed_channels_from_user_request()
+
     def on_scan_new_child(self, scan_info, data_channel):
         pass
 
@@ -830,6 +851,8 @@ class ScanDataListener(_ScanPrinterBase):
             if scan_info.get("type") != "ct":
                 updated = self.update_displayed_channels_from_user_request()
                 self.update_header = self.update_header or updated
+            else:
+                self.update_header = False
 
             # Skip if partial data
             for cname in self.sorted_channel_names:
@@ -840,10 +863,8 @@ class ScanDataListener(_ScanPrinterBase):
                 self.update_header = False
                 # The table header have to be updated
                 # It is always the case the very first time
-                if not self.first_header:
-                    print()
+                self.print_data_header(scan_info, first=self.first_header)
                 self.first_header = False
-                self.print_data_header(scan_info)
 
             # Check if we receive more than one scan points (i.e. lines) per 'scan_data' event
             bsize = min([len(data[cname]) for cname in data])

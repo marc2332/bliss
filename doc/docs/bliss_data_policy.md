@@ -46,6 +46,17 @@ Data path: /data/idxy/inhouse/idxy2002/idxy/sample/sample_0001
 The default beamline proposal is also accessible through https://data.esrf.fr
 and comes with an electronic logbook. This is not the case for test proposals.
 
+The command `endproposal()` does exactly the same thing and is called
+at the end of an experiment to ensure all data is being registered
+for backup immediately (instead of waiting until the next scan is
+started).
+
+```python
+DEMO  [3]: endproposal()
+Proposal set to 'idxy2002'
+Data path: /data/idxy/inhouse/idxy2002/idxy/sample/sample_0001
+```
+
 ### Sample
 
 Change *sample* name with the command `newsample()`

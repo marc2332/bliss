@@ -1340,3 +1340,14 @@ class ESRFScanSaving(BasicScanSaving):
         # beware: self.dataset getter and setter do different actions
         self.dataset = "" if not dataset_name else dataset_name
         lprint(f"Dataset set to '{self.dataset}`\nData path: {self.root_path}")
+
+    def endproposal(self):
+        """Close the active dataset (if any) and go to the default inhouse proposal
+        """
+        self.newproposal("")
+
+    def enddataset(self):
+        """Close the active dataset (if any) and go the the next dataset
+        """
+        self._icat_ensure_notrunning()
+        self.dataset = ""

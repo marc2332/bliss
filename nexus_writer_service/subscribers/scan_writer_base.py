@@ -1228,32 +1228,15 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
         if subscan is None:
             # unknown, unexpected or disabled
             return dproxy
-        # Already initialized?
+        # Proxy already initialized?
         datasets = subscan.datasets
         dproxy = datasets.get(node.fullname)
         if dproxy is not None:
             return dproxy
-
-        data_expected = self._node_data_saved(node)
-        # Detector data type known?
-        if data_expected and not node.dtype:
-            # Detector data dtype not known at this point
+        # Already fully initialized in Redis?
+        data_info = self._detector_data_info(node)
+        if not data_info:
             return dproxy
-        # Detector data shape known?
-        detector_shape = node.shape
-        if data_expected and not all(detector_shape):
-            # Detector data shape not known at this point
-            # TODO: this is why 0 cannot indicate variable length
-            return dproxy
-        # Number of images saved per file
-        external_images_per_file = None
-        try:
-            external_images_per_file = node.images_per_file
-        except AttributeError:
-            pass
-        except Exception:
-            if data_expected:
-                return dproxy
 
         # Create parent: NXdetector, NXpositioner or measurement
         device = self.device(subscan, node)
@@ -1287,12 +1270,10 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
             device=device,
             scan_shape=scan_shape,
             scan_save_shape=scan_save_shape,
-            detector_shape=detector_shape,
-            external_images_per_file=external_images_per_file,
-            dtype=node.dtype,
             saveorder=self.saveorder,
             publishorder=self.saveorder,
             parentlogger=subscan.logger,
+            **data_info,
         )
         datasets[node.fullname] = dproxy
         self._add_to_dataset_links(subscan, dproxy)
@@ -1516,12 +1497,46 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
         Check whether data associated for this node is actually saved.
 
         :param bliss.data.node.DataNode node:
+        :returns bool or None: when None -> we don't know (yet)
         """
-        if node.type in ["channel", "node_ref_channel"]:
-            return True
+        if node.type == "lima":
+            # MANUAL or missing: do not expect data
+            # anything else: expect data
+            return node.info.get("saving_mode", "MANUAL") != "MANUAL"
         else:
-            # Assume saving is enabled by default
-            return node.info.get("saving_mode", None) != "MANUAL"
+            return True
+
+    def _detector_data_info(self, node):
+        node_type = node.type
+        if node_type == "lima":
+            if not len(node.ref_data):
+                return None
+        data_expected = self._node_data_saved(node)
+
+        # Number of images saved per file
+        if node_type == "lima":
+            external_images_per_file = node.images_per_file
+        else:
+            external_images_per_file = None
+
+        # Detector data type known?
+        dtype = node.dtype
+        if data_expected and not dtype:
+            # Detector data dtype not known at this point
+            return None
+
+        # Detector data shape known?
+        detector_shape = node.shape
+        if data_expected and not all(detector_shape):
+            # Detector data shape not known at this point
+            # TODO: this is why 0 cannot indicate variable length
+            return None
+
+        return {
+            "dtype": dtype,
+            "detector_shape": detector_shape,
+            "external_images_per_file": external_images_per_file,
+        }
 
     def _save_reference_mode(self, file_format):
         """

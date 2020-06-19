@@ -50,6 +50,7 @@ def validate_scan_data(
     policy=True,
     alt=False,
     softtimer="master",
+    save_images=True,
 ):
     """
     :param bliss.scanning.scan.Scan scan:
@@ -63,6 +64,7 @@ def validate_scan_data(
     :param bool policy: data policy
     :param bool alt: alternative writer options
     :param str softtimer: "detector", "master" or neither
+    :param bool save_images: save lima images
     """
     # Parse arguments
     if config:
@@ -113,6 +115,7 @@ def validate_scan_data(
             detectors=detectors,
             master_name=master_name,
             softtimer=softtimer,
+            save_images=save_images,
         )
         validate_instrument(
             nxentry["instrument"],
@@ -125,6 +128,7 @@ def validate_scan_data(
             detectors=detectors,
             master_name=master_name,
             softtimer=softtimer,
+            save_images=save_images,
         )
         if not variable_length:
             validate_plots(
@@ -138,6 +142,7 @@ def validate_scan_data(
                 master_name=master_name,
                 softtimer=softtimer,
                 save_options=save_options,
+                save_images=save_images,
             )
         validate_applications(
             nxentry,
@@ -263,6 +268,7 @@ def validate_measurement(
     detectors=None,
     master_name=None,
     softtimer=None,
+    save_images=True,
 ):
     """
     :param h5py.Group nxentry:
@@ -274,6 +280,7 @@ def validate_measurement(
     :param list(str) detectors:
     :param str master_name:
     :param str softtimer:
+    :param bool save_images:
     """
     assert measurement.attrs["NX_class"] == "NXcollection"
     # Detectors
@@ -305,6 +312,8 @@ def validate_measurement(
     else:
         scan_shape = tuple()
     for ndim, names in datasets.items():
+        if not save_images and ndim == 2:
+            continue
         for name in names:
             dset = measurement[name]
             dshape = dset.shape
@@ -314,7 +323,13 @@ def validate_measurement(
                 # TODO: timescans will have variable length data channels
                 assert dshape == eshape, name
             scan_shape = eshape[: len(scan_shape)]
-            assert_dataset(dset, ndim, save_options, variable_length=variable_length)
+            assert_dataset(
+                dset,
+                ndim,
+                save_options,
+                variable_length=variable_length,
+                save_images=save_images,
+            )
 
 
 def validate_instrument(
@@ -328,6 +343,7 @@ def validate_instrument(
     detectors=None,
     master_name=None,
     softtimer=None,
+    save_images=True,
 ):
     """
     :param h5py.Group nxentry:
@@ -340,6 +356,7 @@ def validate_instrument(
     :param list(str) detectors:
     :param str master_name:
     :param str softtimer:
+    :param bool save_images:
     """
     # Positioner groups
     expected_posg = {
@@ -393,7 +410,13 @@ def validate_instrument(
         else:
             islima_image = name in ["lima_simulator_image", "lima_simulator2_image"]
         if islima_image:
-            assert_dataset(instrument[name]["data"], 2, save_options, variable_length)
+            assert_dataset(
+                instrument[name]["data"],
+                2,
+                save_options,
+                variable_length=variable_length,
+                save_images=save_images,
+            )
     # Validate content of other groups
     content = nexus.nxtodict(instrument["beamstop"])
     assert content == {"@NX_class": "NXbeam_stop", "status": "in"}
@@ -412,6 +435,7 @@ def validate_plots(
     master_name=None,
     softtimer=None,
     save_options=None,
+    save_images=True,
 ):
     """
     :param h5py.Group nxentry:
@@ -424,6 +448,7 @@ def validate_plots(
     :param str master_name:
     :param str softtimer:
     :param dict save_options:
+    :param bool save_images:
     """
     plots = expected_plots(
         technique,
@@ -444,6 +469,7 @@ def validate_plots(
                 positioners=positioners,
                 master_name=master_name,
                 save_options=save_options,
+                save_images=save_images,
             )
         else:
             assert name not in nxentry, name
@@ -522,6 +548,7 @@ def validate_nxdata(
     positioners=None,
     master_name="timer",
     save_options=None,
+    save_images=True,
 ):
     """
     :param h5py.Group nxdata:
@@ -532,6 +559,7 @@ def validate_nxdata(
     :param list positioners: fast axis first
     :param str master_name:
     :param dict save_options:
+    :param bool save_images:
     """
     assert nxdata.attrs["NX_class"] == "NXdata", nxdata.name
     signals = nexus.nxDataGetSignals(nxdata)
@@ -560,11 +588,17 @@ def validate_nxdata(
         escan_shape = tuple(
             es if es else ds for es, ds in zip(escan_shape, dscan_shape)
         )
+        if not save_images and detector_ndim == 2:
+            continue
         assert dscan_shape == escan_shape, dset.name
         expected = nexus.nxDatasetInterpretation(scan_ndim, detector_ndim, dset.ndim)
         assert dset.attrs.get("interpretation", None) == expected, dset.name
         assert_dataset(
-            dset, detector_ndim, save_options, variable_length=variable_length
+            dset,
+            detector_ndim,
+            save_options,
+            variable_length=variable_length,
+            save_images=save_images,
         )
     # Validate axes
     if not scan_shape:
@@ -1167,7 +1201,9 @@ def assert_set_equal(actual, expected, msg=""):
     assert actual == expected, msg
 
 
-def assert_dataset(dset, detector_ndim, save_options, variable_length=False):
+def assert_dataset(
+    dset, detector_ndim, save_options, variable_length=False, save_images=True
+):
     """
     Check whether dataset contains the expected data
 
@@ -1175,9 +1211,12 @@ def assert_dataset(dset, detector_ndim, save_options, variable_length=False):
     :param int detector_ndim:
     :param dict save_options:
     :param bool variable_length:
+    :param bool save_images:
     """
     detaxis = tuple(range(-detector_ndim, 0))
     if "lima_simulator" in dset.name and detector_ndim == 2:
+        if not save_images:
+            return
         # Check external data (VDS or raw external)
         if dset.parent.attrs.get("NX_class", "") == "NXdetector":
             if "lima_simulator2" in dset.name:

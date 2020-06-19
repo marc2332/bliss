@@ -435,7 +435,6 @@ def test_enable_disable_pattern(test_mg, patterns, expected_counters):
 
 def test_enable_disable_issue_1736(test_mg_two_lima_same_prefix):
     mg = test_mg_two_lima_same_prefix
-
     mg.disable_all()
 
     mg.enable("lima_simulator")
@@ -445,6 +444,12 @@ def test_enable_disable_issue_1736(test_mg_two_lima_same_prefix):
     mg.disable("lima_simulator")
 
     assert len(mg.enabled) == 0
+
+    mg.enable("lima_simulator")
+    mg.enable("lima_simulator2")
+    mg.disable("lima_simulator")
+    # check that the enabled counters are all from the second simulator
+    assert all("lima_simulator2" in fullname for fullname in mg.enabled)
 
 
 def test_bad_controller(test_mg):

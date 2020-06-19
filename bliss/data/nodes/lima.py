@@ -23,8 +23,18 @@ except ImportError:
     h5py = None
 
 VIDEO_HEADER_FORMAT = "!IHHqiiHHHH"
+DATA_ARRAY_MAGIC = struct.unpack(">I", b"DTAY")[0]
 HEADER_SIZE = struct.calcsize(VIDEO_HEADER_FORMAT)
 VIDEO_MODES = {0: numpy.uint8, 1: numpy.uint16, 2: numpy.int32, 3: numpy.int64}
+IMAGE_MODES = {
+    0: numpy.uint8,
+    1: numpy.uint16,
+    2: numpy.uint32,
+    4: numpy.int8,
+    5: numpy.int16,
+    6: numpy.int32,
+}
+
 
 UNSET = object()
 """Allow to discriminate None and unset value from function argument,
@@ -196,21 +206,56 @@ def read_video_last_image(proxy) -> typing.Optional[typing.Tuple[numpy.ndarray, 
     return data, image_frame_number
 
 
+def read_image(proxy, image_nb: int) -> numpy.ndarray:
+    """Read and decode image (or last image ready) from a Lima detector.
+
+    Argument:
+        proxy: A Tango Lima proxy
+        image_nb: The image index to decode, else -1 to use the last index
+            (last_image_ready).
+
+    Returns:
+        The frame data (as a numpy array)
+
+    Raises:
+        IndexError: when no images are yet taken
+        ImageFormatNotSupported: when the retrieved data is not supported
+    """
+    if image_nb == -1:
+        image_nb = proxy.last_image_ready
+        if image_nb == -1:
+            raise IndexError("No image has been taken yet")
+
+    try:
+        raw_msg = proxy.readImage(image_nb)
+    except Exception:
+        raise RuntimeError("Error while reading image")
+    else:
+        raw_msg = raw_msg[-1]
+
+    struct_format = "<IHHIIHHHHHHHHHHHHHHHHHHIII"
+    header_size = struct.calcsize(struct_format)
+    values = struct.unpack(struct_format, raw_msg[:header_size])
+    if values[0] != DATA_ARRAY_MAGIC:
+        raise ImageFormatNotSupported("Not a Lima data")
+    header_offset = values[2]
+
+    format_id = values[4]
+    data_format = IMAGE_MODES.get(format_id)
+    if data_format is None:
+        raise ImageFormatNotSupported(
+            "Image format from Lima Tango device not supported (found %s)." % format_id
+        )
+
+    data = numpy.fromstring(raw_msg[header_offset:], dtype=data_format)
+    data.shape = values[8], values[7]
+    return data
+
+
 class LimaImageChannelDataNode(DataNode):
     DATA = b"__data__"
 
     class LimaDataView(object):
-        DataArrayMagic = struct.unpack(">I", b"DTAY")[0]
-
-        IMAGE_MODES = {
-            0: numpy.uint8,
-            1: numpy.uint16,
-            2: numpy.uint32,
-            4: numpy.int8,
-            5: numpy.int16,
-            6: numpy.int32,
-        }
-
         def __init__(self, data, data_ref, from_index, to_index, from_stream=False):
             self.data = data
             self.data_ref = data_ref
@@ -421,13 +466,12 @@ class LimaImageChannelDataNode(DataNode):
                 # should be in memory
                 if self.buffer_max_number > (self.last_image_ready - image_nb):
                     try:
-                        raw_msg = proxy.readImage(image_nb)
-                    except Exception:
+                        return read_image(proxy, image_nb)
+                    except RuntimeError:
                         # As it's asynchronous, image seems to be no
                         # more available so read it from file
                         return None
-                    else:
-                        return self._tango_unpack(raw_msg[-1])
+                return None
 
         def get_filenames(self):
             """All saved image filenames
@@ -468,26 +512,6 @@ class LimaImageChannelDataNode(DataNode):
                     raise RuntimeError("Format not managed yet")
 
             raise IndexError("Cannot retrieve image %d from file" % image_nb)
-
-        def _tango_unpack(self, msg):
-            struct_format = "<IHHIIHHHHHHHHHHHHHHHHHHIII"
-            header_size = struct.calcsize(struct_format)
-            values = struct.unpack(struct_format, msg[:header_size])
-            if values[0] != self.DataArrayMagic:
-                raise RuntimeError("No Lima data")
-            header_offset = values[2]
-
-            format_id = values[4]
-            data_format = self.IMAGE_MODES.get(format_id)
-            if data_format is None:
-                raise ImageFormatNotSupported(
-                    "Image format from Lima Tango device not supported (found %s)."
-                    % format_id
-                )
-
-            data = numpy.fromstring(msg[header_offset:], dtype=data_format)
-            data.shape = values[8], values[7]
-            return data
 
     def __init__(self, name, **keys):
         shape = keys.pop("shape", None)

@@ -146,8 +146,16 @@ class Shutter(BeaconObject, BaseShutter):
 
     name = BeaconObject.config_getter("name")
 
+    def _init(self):
+        """
+        This method may contains all software initialization
+        like communication, internal state...
+        """
+        pass
+
     def _initialize_with_setting(self):
         if not self._local_initialized:
+            self._init()
             if self._external_ctrl is not None:
                 # Check if the external control is compatible
                 # with a switch object and if it has open/close state

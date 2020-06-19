@@ -19,6 +19,9 @@
     - MG1
     - sim_ct_gauss
     - sim_ct_gauss_noise
+    - transfocator
+    - wcid00a
+    - white_beam_attn
 - class: MeasurementGroup
   name: MG1
   counters:

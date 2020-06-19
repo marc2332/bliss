@@ -93,6 +93,7 @@ class BeaconObject:
                             return
                         try:
                             fence["in_set"] = True
+                            self._initialize_with_setting()
                             if set_unmarshalling is not None:
                                 value = set_unmarshalling(self, value)
                             rvalue = fset(self, value)

@@ -195,11 +195,11 @@ def parse_devices(devices, short_names=True, multivalue_positioners=False):
                 if parts[1] == "roi_counters":
                     subparts = parts[-1].split("_")
                     device_name = ":".join([parts[0], subparts[0]])
-                    datatype = ":".join(subparts[1:])
+                    datatype = "_".join(subparts[1:])
                     device["metadata_keys"] = {subparts[0]: "selection"}
                 else:
                     device_name = ":".join(parts[:2])
-                    datatype = ":".join(parts[2:])
+                    datatype = parts[2]
             else:
                 device_name = parts[0]
                 datatype = ":".join(parts[1:])

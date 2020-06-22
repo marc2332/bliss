@@ -1,6 +1,6 @@
 import subprocess
 import time
-
+import builtins
 import pytest
 import numpy
 
@@ -226,6 +226,26 @@ def test_umv_typecheck(session):
 
 def test_umv_signature(session):
     assert str(umv.__signature__) == "(*args: 'motor1, pos1, motor2, pos2, ...')"
+
+
+@pytest.fixture
+def capture_output_patch():
+    orig_print = builtins.print
+    from bliss.shell.cli.repl import CaptureOutput
+
+    capout = CaptureOutput()
+    capout.patch_print()
+    yield
+    builtins.print = orig_print
+
+
+@pytest.mark.xfail()
+def test_umv_shell(capfd, default_session, capture_output_patch):
+    roby = default_session.config.get("roby")
+    umv(roby, 1)
+    output = capfd.readouterr().out.splitlines()
+    # first 3 items are: empty line, motor name, empty line
+    assert all(x != "" for x in output[3:])
 
 
 def test_umvr_lib_mode(capsys, default_session):

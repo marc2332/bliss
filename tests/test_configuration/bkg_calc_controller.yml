@@ -1,0 +1,60 @@
+# Simulated actuator (bi-state)
+- plugin: bliss
+  name: bkg_actuator
+  class: actuator
+  controller:
+        - module: simulation_actuator
+          class: SimulationActuator
+  actuator_cmd: set_in
+
+# Simulated counter GAUSSAIN distribution
+- plugin: bliss
+  class: SimulationCounter
+  name: simul_raw1
+  distribution: GAUSSIAN
+  mu_offset: -1.0
+  sigma_factor: 0.4
+  height_factor: 100.0
+  noise_factor: 0.1
+  
+# Simulated counter constant value = 12
+- plugin: bliss
+  class: SimulationCounter
+  name: simul_raw2
+  distribution: FLAT
+  height_factor: 12.0
+  noise_factor: 0.0
+
+# Dark counter on simulated counter with open_close object
+- plugin: bliss
+  module: calccnt_background
+  class: BackgroundCalcCounterController
+  open_close: $bkg_actuator
+  name: simul_dark1
+  inputs:
+    - counter: $simul_raw1
+      tags: dark1
+    - counter: $simul_raw2
+      tags: dark2
+  outputs:
+    - name: simul_dark1_cnt1
+      tags: dark1
+    - name: simul_dark1_cnt2
+      tags: dark2
+
+# Dark counter on simulated counter without open_close object
+- plugin: bliss
+  module: calccnt_background
+  class: BackgroundCalcCounterController
+  name: simul_dark2
+  inputs:
+    - counter: $simul_raw1
+      tags: dark1
+    - counter: $simul_raw2
+      tags: dark2
+  outputs:
+    - name: simul_dark2_cnt1
+      tags: dark1
+    - name: simul_dark2_cnt2
+      tags: dark2
+      

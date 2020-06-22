@@ -307,8 +307,50 @@ The constants defined in the config can be modified during runtime accessing `.c
 ```
 
 
+### Background Calc Counter Controller
 
+BackgroundCalcCounterController is a class which allows to manage the 
+background of a set of existing counters.
 
+To get the background of a detector, you need to make an action which 
+garantee that no photons will hit the detector during the counting time. 
+To do so, the `.take_background()` method uses the object reference by the
+`open_close` field in the YAML file. This `open_close` object should have the 
+`.open()`, `.close()` method and `.state` attribute. The `.state` attribute 
+should return at least "OPEN". The counting time may be adjusted as 
+a parameter of the `.take_background` method. The default value is 1 second.
+
+If no `open_close` object is defined (No field in the YAML file), calling the 
+`take_background()` method will register the values of the counters as background
+or , if `set_value=xxx` parameter is given, `xxx` will set as background value
+for all input counters.
+
+Each input counter has its equivalent as output. The relation between them 
+is garantee by the `tag` field in the YAML file
+
+#### Location: `bliss.controllers.calccnt_background.py`
+
+#### YAML configuration examples
+```
+- plugin: bliss
+  module: calccnt_background
+  class: BackgroundCalcCounterController
+  openclose: $simul_valve
+  name: dark
+  inputs:
+    - counter: $p201.counters.I0_raw
+      tags: I0_background
+      
+    - counter: $p201.counters.I1_raw
+      tags: I1_background
+      
+  outputs:
+    - name: I0
+      tags: I0_background
+      
+    - name: I1
+      tags: I1_background
+```
 
 
 

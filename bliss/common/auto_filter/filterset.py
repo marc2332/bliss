@@ -426,6 +426,7 @@ class FilterSet:
         if repeat:
             self._nb_cycles += 1
             log_debug(self, "Repeating count")
+            print(f"Autof: repeating count:filter was {fidx} now {data[new_fidx, 0]}")
         else:
             log_debug(self, "no filter change")
             self._nb_cycles = 0
@@ -523,11 +524,17 @@ class FilterSet:
         """
         setter/getter for the filter
         """
+        f = self.get_filter()
+        t = self.get_transmission()
+        print(f"Filter = {f}, transm = {t:.5g} @ {self.energy:.5g} keV")
         return self.get_filter()
 
     @filter.setter
     def filter(self, new_filter):
-        self.set_filter(new_filter)
+        f = self.get_filter()
+        if f != new_filter:
+            print(f"Change filter {self.name} from {self.get_filter()} to {new_filter}")
+            self.set_filter(new_filter)
 
     @property
     def transmission(self):

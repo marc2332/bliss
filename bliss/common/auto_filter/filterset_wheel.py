@@ -150,7 +150,8 @@ class FilterSet_Wheel(FilterSet):
             raise ValueError(
                 f"Wrong filter value {new_filter} range is [0-{self._nb_filters-1}]"
             )
-        self._rotation_axis.move(self._filters[filter_id]["position"])
+        with lprint_disable():
+            self._rotation_axis.move(self._filters[filter_id]["position"])
 
     def get_filter(self):
         """

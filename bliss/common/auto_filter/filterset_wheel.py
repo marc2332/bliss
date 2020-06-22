@@ -104,6 +104,7 @@ import time
 import numpy as np
 
 from bliss.common.auto_filter.filterset import FilterSet
+from bliss.common.logtools import lprint_disable
 
 
 class FilterSet_Wheel(FilterSet):
@@ -148,7 +149,7 @@ class FilterSet_Wheel(FilterSet):
         """
         if filter_id not in range(len(self._filters)):
             raise ValueError(
-                f"Wrong filter value {new_filter} range is [0-{self._nb_filters-1}]"
+                f"Wrong filter position {filter_id} supported values {self._positions}"
             )
         with lprint_disable():
             self._rotation_axis.move(self._filters[filter_id]["position"])
@@ -164,6 +165,9 @@ class FilterSet_Wheel(FilterSet):
             filt = self._positions.index(position)
             return filt
         else:
+            raise ValueError(
+                f"The Filterset {self.name} motor ({self._rotation_axis.name}) position is {position:.4f}\n        Please move it to a filter position: {self._positions} "
+            )
             return None
 
     def get_transmission(self, filter_id=None):

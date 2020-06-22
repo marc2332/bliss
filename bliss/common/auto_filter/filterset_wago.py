@@ -106,6 +106,11 @@ class FilterSet_Wago(FilterSet):
         self._wago_cmd = config.get("wago_cmd")
         self._wago_status = config.get("wago_status")
 
+        # optional config
+        self._inverted = config.get("inverted", False)
+        self._overlap_time = config.get("overlap_time", 0)
+        self._settle_time = config.get("settle_time", 0)
+
         # never forget to call grandmother !!!
         super().__init__(name, config)
 
@@ -117,16 +122,24 @@ class FilterSet_Wago(FilterSet):
         info_list = []
         info_list.append(f"Filterset Wago: {self._name}")
 
-        info_list.append(f" - Wago: {self._wago}")
+        info_list.append(f" - Wago: {self._wago.name}")
         info_list.append(
-            f" - Idx   Pos. Mat. Thickness    Transm. @ {self._energy_setting:.5g} keV:"
+            f" - Idx   Mat. Thickness    Transm. @ {self._last_energy:.5g} keV:"
         )
-        info_list.append("   -------------------------------------------------")
+        info_list.append("   ---------------------------------------------")
+        for filter in self._config_filters:
+            idx = self._config_filters.index(filter)
+            info_list.append(
+                f"   {idx:<4}  {filter['material']:<4} {filter['thickness']:10.8f}   {filter['transmission_calc']:.5g}"
+            )
+
+        info_list.append("\n\n Combined filter set:")
+        info_list.append(f" - Idx  Transm. @ {self._last_energy:.5g} keV:")
+        info_list.append("   --------------------------")
         for filter in self._filters:
             idx = self._filters.index(filter)
-            info_list.append(
-                f"   {idx:<4}  {filter['position']:<4} {filter['material']:<4} {filter['thickness']:10.8f}   {filter['transmission_calc']:.5g}"
-            )
+            info_list.append(f"   {idx:<4} {filter['transmission_calc']:.5g}")
+
         return "\n".join(info_list) + "\n" + super().__info__()
 
     # --------------------------------------------------------------
@@ -138,21 +151,28 @@ class FilterSet_Wago(FilterSet):
         """
         Set the new filter, for the wago filter_id is a mask
         """
-        if filter_id < 0 or filter_id > pow(2, self._nbfilters) - 1:
+        if filter_id < 0 or filter_id > self._filtmask:
             raise ValueError(
-                f"Wrong filter value {new_filter} range is [0-{self._nb_filters-1}]"
+                f"Wrong filter value {filter_id} range is [0-{self._filtmask}]"
             )
-        self._rotation_axis.move(self._filters[filter_id]["position"])
+        if self._inverted:
+            mask = self._filtmask - filter_id
+        else:
+            mask = filter_id
+        nbits = self._config_nb_filters
+        wmask = [int(x) for x in f"{mask:0{nbits}b}"]
+        self._wago.set(self._wago_cmd, wmask)
 
     def get_filter(self):
         """
         Return the wago filter mask.
         """
         mask = 0
-        val = self._wago.get(self._wago_cmd)
-        for f in self._nb_filters:
+        val = self._wago.get(self._wago_status)
+        # inverse for the loop
+        val.reverse()
+        for f in range(self._config_nb_filters):
             mask += int(val[f]) << f
-        self._filtmask = mask
         return mask
 
     def get_transmission(self, filter_id=None):
@@ -174,22 +194,45 @@ class FilterSet_Wago(FilterSet):
     def build_filterset(self):
         """
         Build pattern (index here)  and transmission arrays.
-        A filterset, like Wago, is made of 4 real filters 
+        A filterset, like Wago, is made of 4 real filters (or more)
         which can be combined to produce 15 patterns and transmissions.
         A filtersets like a wheel just provides 20 real filters and exactly
         the same amount of patterns and transmissions.
         """
 
-        p = []
-        t = []
-        for filter in self._filters:
+        # make a mask in case of inverted filterset
+        self._filtmask = pow(2, self._config_nb_filters) - 1
+
+        nbits = self._config_nb_filters
+        # filter id 0 is no filter
+        p = [0]
+        t = [1.]
+        self._built_filters = [{"position": 0, "transmission_calc": 1.}]
+
+        for filt_id in range(1, self._filtmask + 1):
             # store just the index of the filters as the possible pattern
-            p.append(self._filters.index(filter))
-            t.append(filter["transmission_calc"])
+            p.append(filt_id)
+            mask = [int(x) for x in f"{filt_id:0{nbits}b}"]
+            mask.reverse()
+            trans = 1.
+
+            # TODO : optimize to loop only on the effective bits
+            for f in range(nbits):
+                if int(mask[f]) == 1:
+                    trans *= self._config_filters[f]["transmission_calc"]
+
+            t.append(trans)
+            self._built_filters.append(
+                {"position": filt_id, "transmission_calc": trans}
+            )
         self._fpattern = np.array(p, dtype=np.int)
         self._ftransm = np.array(t)
-
         return len(self._fpattern)
 
     def get_filters(self):
-        return []
+        """
+        Return the list of the public filters, a list of dictionnary items with at least:
+        - position
+        - transmission_calc
+        """
+        return self._built_filters

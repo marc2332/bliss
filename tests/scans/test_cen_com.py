@@ -133,6 +133,25 @@ def test_plotselect_axis(session):
     assert plot.get_plotted_counters() == ["axis:roby"]
 
 
+def test_plotselect_template_axis(session):
+    plot.plotselect("*:roby")
+    assert plot.get_plotted_counters() == ["axis:roby"]
+
+
+def test_plotselect_template_diode(session):
+    diode = getattr(setup_globals, "diode")
+    diode2 = getattr(setup_globals, "diode2")
+    plot.plotselect("*diode*")
+    assert diode.fullname in plot.get_plotted_counters()
+    assert diode2.fullname in plot.get_plotted_counters()
+
+
+def test_plotselect_template_not_twice(session):
+    roby = getattr(setup_globals, "roby")
+    plot.plotselect("*:roby", roby)
+    assert plot.get_plotted_counters().count("axis:roby") == 1
+
+
 def test_plotselect_alias(session):
     aliases = session.env_dict["ALIASES"]
     diode = getattr(setup_globals, "diode")

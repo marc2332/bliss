@@ -339,7 +339,7 @@ scan_saving:
 
 ##### Multiple mount points
 
-Multiple mount points can be configured for each proposal type (visitor, inhouse and temp) and optionally a fixed mount point for the icat servers (`MetadataManager` and `MetaExperiment`)
+Multiple mount points can be configured for each proposal type (visitor, inhouse and temp) and optionally for the icat servers (`MetadataManager` and `MetaExperiment`)
 
 ```yaml
 ...

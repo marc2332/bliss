@@ -137,13 +137,9 @@ class TangoShutter(BaseShutter):
         state = self.state
         if state.name in ("OPEN", "RUNNING"):
             log_warning(self, "Already open, command ignored")
-        if state == TangoShutterState.CLOSED:
-            try:
-                self.__control.open()
-                self._wait(TangoShutterState.OPEN, timeout)
-            except RuntimeError as err:
-                print(err)
-                raise
+        elif state == TangoShutterState.CLOSED:
+            self.__control.open()
+            self._wait(TangoShutterState.OPEN, timeout)
         else:
             raise RuntimeError(f"Cannot open: {state.value}")
 
@@ -158,12 +154,8 @@ class TangoShutter(BaseShutter):
         if state == TangoShutterState.CLOSED:
             log_warning(self, "Already closed, command ignored")
         elif state.name in ("OPEN", "RUNNING"):
-            try:
-                self.__control.close()
-                self._wait(TangoShutterState.CLOSED, timeout)
-            except RuntimeError as err:
-                print(err)
-                raise
+            self.__control.close()
+            self._wait(TangoShutterState.CLOSED, timeout)
         else:
             raise RuntimeError(f"Cannot close: {state.value}")
 
@@ -201,6 +193,14 @@ class TangoShutter(BaseShutter):
             self._wait_mode(mode=mode)
         except DevFailed:
             raise RuntimeError(f"Cannot set {mode} opening")
+
+    def reset(self):
+        """Reset
+        Args:
+        Raises:
+            RuntimeError: Cannot execute 
+        """
+        self.__control.Reset()
 
     def _wait(self, state, timeout=3):
         """Wait execution to finish

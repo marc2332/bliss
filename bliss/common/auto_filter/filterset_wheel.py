@@ -193,11 +193,20 @@ class FilterSet_Wheel(FilterSet):
 
         p = []
         t = []
-        for filter in self._filters:
+        for filter in self._config_filters:
             # store just the index of the filters as the possible pattern
-            p.append(self._filters.index(filter))
+            p.append(self._config_filters.index(filter))
             t.append(filter["transmission_calc"])
         self._fpattern = np.array(p, dtype=np.int)
         self._ftransm = np.array(t)
 
         return len(self._fpattern)
+
+    def get_filters(self):
+        """
+        Return the list of the public filters, a list of dictionnary items with at least:
+        - position
+        - transmission_calc
+        For the wheel filterset _filters = _config_filters
+        """
+        return self._config_filters

@@ -786,13 +786,18 @@ def plotselect(*counters: _providing_channel):
 
     # If called without arguments, prints help.
     if not counters:
-        print("")
-        print("plotselect usage:")
-        print("    plotselect(<counters>*)  - Select a set of counters")
-        print("    plotselect(None)         - Deselect everything")
-        print("example:")
-        print("    plotselect(counter1, counter2)")
-        print("")
+        print(
+            """
+plotselect usage:
+    plotselect(<counters>*)                  - Select a set of counters
+
+example:
+    plotselect(counter1, counter2)")
+    plotselect('*')                          - Select everything
+    plotselect('beamviewer:roi_counters:*')  - Select all the ROIs from a beamviewer
+    plotselect('beamviewer:*_sum')           - Select any sum ROIs from a beamviewer
+"""
+        )
     else:
         if len(counters) == 1 and counters[0] is None:
             counters = []

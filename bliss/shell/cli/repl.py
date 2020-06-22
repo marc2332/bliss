@@ -167,7 +167,7 @@ class CaptureOutput:
         def memorize_arguments(func):
             @functools.wraps(func)
             def wrapped(*args, **kwargs):
-                self.append(args, kwargs)
+                self.append(args, dict(kwargs))
                 return func(*args, **kwargs)
 
             return wrapped

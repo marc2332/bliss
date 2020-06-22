@@ -300,6 +300,7 @@ class AutoFilter(BeaconObject):
                 *counter_args,
                 scan_info=scan_pars,
                 scan_type="dscan",
+                name="dscan",
                 **kwargs,
             )
 
@@ -328,6 +329,7 @@ class AutoFilter(BeaconObject):
                 *counter_args,
                 scan_info=scan_pars,
                 scan_type="dscan",
+                name="dscan",
                 **kwargs,
             )
 

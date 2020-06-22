@@ -235,7 +235,7 @@ class _AddItemAction(qt.QWidgetAction):
         icon = icons.getQIcon("flint:icons/add-item")
         widget.setIcon(icon)
         widget.setAutoRaise(True)
-        widget.setToolTip("CReate new items in the plot")
+        widget.setToolTip("Create new items in the plot")
         widget.setPopupMode(qt.QToolButton.InstantPopup)
         widget.setEnabled(False)
         widget.setText("Create items")

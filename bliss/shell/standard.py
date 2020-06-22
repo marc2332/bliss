@@ -18,6 +18,7 @@ import typing
 import typeguard
 import subprocess
 import fnmatch
+import numpy
 
 from gevent import sleep
 
@@ -71,6 +72,7 @@ from bliss.common import logtools
 from bliss.common.logtools import *
 from bliss.common.interlocks import interlock_state
 from bliss.common.session import get_current_session
+from bliss.data.nodes import lima
 
 from bliss.scanning.scan_tools import (
     cen,
@@ -91,7 +93,9 @@ from bliss.scanning.scan import ScanDisplay
 
 from tabulate import tabulate
 
+from bliss.common.utils import typeguardTypeError_to_hint
 from typing import Optional
+from bliss.controllers.lima.lima_base import Lima
 from bliss.common.types import (
     _countable,
     _scannable,
@@ -794,52 +798,58 @@ def plotselect(*counters: _providing_channel):
     print("")
 
 
-def edit_roi_counters(detector, acq_time=None):
+@typeguardTypeError_to_hint
+@typeguard.typechecked
+def edit_roi_counters(detector: Lima, acq_time: Optional[float] = None):
     """
     Edit the given detector ROI counters.
+
     When called without arguments, it will use the image from specified detector
-    from the last scan/ct as a reference. If 'acq_time' is specified,
+    from the last scan/ct as a reference. If `acq_time` is specified,
     it will do a 'ct()' with the given count time to acquire a new image.
 
+                   # Flint will be open if it is not yet the case
+        BLISS [1]: edit_roi_counters(pilatus1, 0.1)
+
+                   # Flint but already be open
         BLISS [1]: ct(0.1, pilatus1)
         BLISS [2]: edit_roi_counters(pilatus1)
     """
-    roi_counters = detector.roi_counters
-    name = f"{detector.name} [{roi_counters.config_name}]"
+    if acq_time is not None:
+        # Open flint before doing the ct
+        plot_module.get_flint()
+        scans.ct(acq_time, detector.image)
 
-    if acq_time:
-        setup_globals.SCAN_DISPLAY.auto = True
-        scan = scans.ct(acq_time, detector)
-    else:
+    # Check that Flint is already there
+    flint = plot_module.get_flint()
+    channel_name = f"{detector.name}:image"
+
+    # That it contains an image displayed for this detector
+    try:
+        plot_id = flint.get_live_scan_plot(channel_name, "image")
+    except:
+        # Create a single frame from detector data
+        # or a placeholder
+
         try:
-            scan = current_session.scans[-1]
-        except IndexError:
-            print(
-                f"SCANS list is empty -- do an acquisition with {detector.name} before editing roi counters"
-            )
-            return
-        else:
-            for node in scan.nodes:
-                try:
-                    # just make sure there is at least an image from this detector;
-                    # only acq. channels have .fullname, the easiest is to try...except
-                    # for the test
-                    if node.fullname == f"{detector.name}:image":
-                        break
-                except AttributeError:
-                    continue
-            else:
-                print(
-                    f"Last scan did not save an image from {detector.name}: do an acquisition before editing roi counters"
-                )
-                return
+            data = lima.read_image(detector._proxy, -1)
+        except:
+            # Else create a checker board place holder
+            y, x = numpy.mgrid[0 : detector.image.height, 0 : detector.image.width]
+            data = ((y // 16 + x // 16) % 2).astype(numpy.uint8)
 
-    plot = scan.get_plot(detector.image, plot_type="image", wait=True)
+        flint.set_static_image(channel_name, data)
+        plot_id = flint.get_live_scan_plot(channel_name, "image")
+
+    # Reach the plot widget
+    plot = plot_module.plot_image(existing_id=plot_id)
     if not plot:
-        print("Flint is not available -- cannot edit roi counters")
-        return
+        raise RuntimeError(
+            "Internal error. A plot from this detector was expected but it is not available. Or Flint was closed in between."
+        )
 
     selections = []
+    roi_counters = detector.roi_counters
     for roi in roi_counters.get_rois():
         selection = dict(
             kind="Rectangle",
@@ -848,7 +858,9 @@ def edit_roi_counters(detector, acq_time=None):
             label=roi.name,
         )
         selections.append(selection)
-    print(("Waiting for ROI edition to finish on {}...".format(name)))
+
+    name = f"{detector.name} [{roi_counters.config_name}]"
+    print(f"Waiting for ROI edition to finish on {name}...")
     selections = plot.select_shapes(selections)
     roi_labels, rois = [], []
     ignored = 0
@@ -862,10 +874,11 @@ def edit_roi_counters(detector, acq_time=None):
         rois.append((x, y, w, h))
         roi_labels.append(label)
     if ignored:
-        print(("{} ROI(s) ignored (no name)".format(ignored)))
+        print(f"{ignored} ROI(s) ignored (no name)")
     roi_counters.clear()
     roi_counters[roi_labels] = rois
-    print(("Applied ROIS {} to {}".format(", ".join(sorted(roi_labels)), name)))
+    roi_string = ", ".join(sorted(roi_labels))
+    print(f"Applied ROIS {roi_string} to {name}")
 
 
 def interlock_show(wago_obj=None):

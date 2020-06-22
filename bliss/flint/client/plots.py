@@ -171,11 +171,23 @@ class BasePlot(object):
             result = results.get()
             return result
         except Exception:
-            flint.cancel_request(request_id)
-            proxy.FLINT_LOGGER.warning("Plot selection cancelled. An error orrured.")
+            try:
+                flint.cancel_request(request_id)
+            except:
+                proxy.FLINT_LOGGER.debug(
+                    "Error while canceling the request", exc_info=True
+                )
+                pass
+            proxy.FLINT_LOGGER.warning("Plot selection cancelled. An error occurred.")
             raise
         except KeyboardInterrupt:
-            flint.cancel_request(request_id)
+            try:
+                flint.cancel_request(request_id)
+            except:
+                proxy.FLINT_LOGGER.debug(
+                    "Error while canceling the request", exc_info=True
+                )
+                pass
             proxy.FLINT_LOGGER.warning("Plot selection cancelled by bliss user.")
             raise
 

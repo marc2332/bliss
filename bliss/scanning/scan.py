@@ -932,7 +932,7 @@ class Scan:
             number = f"number={self.__scan_number}, "
             path = self.writer.filename
 
-        return f"Scan({number}name={self.name}, path={path}"
+        return f"Scan({number}name={self.name}, path={path})"
 
     @property
     def name(self):

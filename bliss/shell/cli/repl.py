@@ -7,6 +7,7 @@
 
 """Bliss REPL (Read Eval Print Loop)"""
 
+import builtins
 import os
 import sys
 import signal
@@ -16,7 +17,7 @@ import functools
 import traceback
 import gevent
 import logging
-from collections import deque
+from collections import deque, defaultdict
 
 from ptpython.repl import PythonRepl
 import ptpython.layout
@@ -114,6 +115,65 @@ class ErrorReport:
     @expert_mode.setter
     def expert_mode(self, enable):
         self._expert_mode = bool(enable)
+
+
+class CaptureOutput:
+    SIZE = 20
+    MAX_PARAGRAPH_SIZE = 1000
+    patched = False
+
+    _data = defaultdict(list)
+    history_num = 1
+
+    def to_str(self, index: int) -> str:
+        return "".join(self._data[index])[:-1]
+
+    def append(self, args, kwargs):
+        if len(self._data) > self.MAX_PARAGRAPH_SIZE:
+            return
+
+        args = (str(arg) for arg in args)
+        sep = kwargs.pop("sep", " ")
+        end = kwargs.pop("end", "\n")
+
+        stringed = sep.join(args) + end
+
+        self._data[self.history_num].append(stringed)
+
+    def __len__(self):
+        return len(self._data)
+
+    def end_of_paragraph(self, num):
+        type(self).history_num = num
+        self._data[self.history_num] = []
+        try:
+            del self._data[self.history_num - self.SIZE]
+        except KeyError:
+            pass
+
+    def __getitem__(self, index):
+        """
+        Use [-1] to get the last element stdout
+        or [n] coresponding to shell output line number
+        """
+        if index < 0:
+            index = self.history_num + index
+        if index not in self._data:
+            raise IndexError
+        return self.to_str(index)
+
+    def patch_print(self):
+        def memorize_arguments(func):
+            @functools.wraps(func)
+            def wrapped(*args, **kwargs):
+                self.append(args, kwargs)
+                return func(*args, **kwargs)
+
+            return wrapped
+
+        if not self.patched:
+            builtins.print = memorize_arguments(builtins.print)
+            type(self).patched = True
 
 
 def install_excepthook():
@@ -230,7 +290,7 @@ class BlissRepl(PythonRepl):
         else:
             ptpython.layout.status_bar = NEWstatus_bar
 
-        super(BlissRepl, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.current_task = None
         if title:
@@ -257,6 +317,9 @@ class BlissRepl(PythonRepl):
         self.show_status_bar = True
         self.confirm_exit = True
         self.enable_mouse_support = False
+
+        self.captured_output = CaptureOutput()
+        self.captured_output.patch_print()
 
         if self.use_tmux:
             self.exit_message = (
@@ -320,6 +383,8 @@ class BlissRepl(PythonRepl):
                         formatted_output = FormattedText(
                             out_prompt + [("", result_str)]
                         )
+
+                    self.captured_output.append((result_str,), {})
 
                     print_formatted_text(
                         formatted_output,
@@ -641,6 +706,10 @@ def embed(*args, **kwargs):
                 break
             except BaseException:
                 sys.excepthook(*sys.exc_info())
+            finally:
+                cmd_line_i.captured_output.end_of_paragraph(
+                    cmd_line_i.current_statement_index
+                )
 
     finally:
         warnings.filterwarnings("default")

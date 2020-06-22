@@ -171,6 +171,7 @@ __all__ = (
         "where",
         "fwhm",
         "menu",
+        "ladd",
     ]
     + scans.__all__
     + logtools.__all__
@@ -1114,3 +1115,31 @@ def _launch_pymca(filename: typing.Union[str, None] = None):
     if filename:
         args.append(filename)
     return subprocess.Popen(args)
+
+
+def ladd(index=-1):
+    """
+    Send to the logbook given cell output and the print that was
+    performed during the elaboration.
+    Only a fixed size of output are kept in memory (normally last 100).
+
+    Args:
+        index (int): Index of the cell to be sent to logbook, can
+                     be positive reflectiong the prompt index
+                     or negative.
+                     Default is -1 (previous cell)
+
+    Example:
+        BLISS [2]: diode
+          Out [2]: 'diode` counter info:
+                     counter type = sampling
+                     sampling mode = MEAN
+                     fullname = simulation_diode_sampling_controller:diode
+                     unit = None
+                     mode = MEAN (1)
+
+        BLISS [3]: ladd()  # sends last otput from diode
+    """
+    from bliss.shell.cli.repl import CaptureOutput
+
+    logtools.logbook_printer.send_to_elogbook("info", CaptureOutput()[index])

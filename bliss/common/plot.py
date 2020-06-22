@@ -290,7 +290,6 @@ def plotselect(*counters):
     scan_display.displayed_channels = channel_names
 
     if flint_proxy.check_flint():
-        channel_names = get_channel_names(*counters)
         flint = flint_proxy.get_flint(mandatory=False)
         # Make it safe
         if flint is not None:

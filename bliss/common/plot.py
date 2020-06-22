@@ -150,6 +150,7 @@ import functools
 from bliss import current_session, is_bliss_shell, global_map
 from bliss.config.settings import HashSetting
 from bliss.common.protocols import Scannable
+from bliss.common.utils import get_matching_names, is_pattern
 
 from bliss.flint.client import plots as flint_plots
 from bliss.flint.client import proxy as flint_proxy
@@ -366,19 +367,33 @@ def display_motor(
 
 def get_channel_names(*objs) -> List[str]:
     """
-    ?? returns a list containing aqc-channels names produced by provieded objects??
-    # FIXME: For now only counters and axis are supported.
+    Returns a list of channel names.
+
+    Arguments:
+        objs: This can be axis or counter objects, plus channel names or channel
+              names with escape chars like `*` or `?`.
+    Result:
+        A list of channel names, without validation (it could not exists).
     """
+    all_objects: List[str] = []
     result: List[str] = []
     for obj in objs:
         # An object could contain many channels?
         channel_names: List[str] = []
         if isinstance(obj, str):
-            alias = global_map.aliases.get(obj)
-            if alias is not None:
-                channel_names = get_channel_names(alias)
+            if is_pattern(obj):
+                if len(all_objects) == 0:
+                    all_objects += [
+                        "axis:" + n for n in global_map.get_axes_names_iter()
+                    ]
+                    all_objects += [c.fullname for c in global_map.get_counters_iter()]
+                channel_names = get_matching_names([obj], all_objects)[obj]
             else:
-                channel_names = [obj]
+                alias = global_map.aliases.get(obj)
+                if alias is not None:
+                    channel_names = get_channel_names(alias)
+                else:
+                    channel_names = [obj]
         elif isinstance(obj, Scannable):
             channel_names = ["axis:%s" % obj.name]
         elif hasattr(obj, "fullname"):
@@ -387,7 +402,9 @@ def get_channel_names(*objs) -> List[str]:
         else:
             # FIXME: Add a warning
             pass
-        result.extend(channel_names)
+        for c in channel_names:
+            if c not in result:
+                result.append(c)
     return result
 
 

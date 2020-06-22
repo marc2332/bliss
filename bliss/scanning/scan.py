@@ -932,7 +932,7 @@ class Scan:
             number = f"number={self.__scan_number}, "
             path = self.writer.filename
 
-        return f"Scan({number}name={self.name}, path={path}"
+        return f"Scan({number}name={self.name}, path={path})"
 
     @property
     def name(self):
@@ -1488,15 +1488,6 @@ class Scan:
                     except AttributeError:
                         pass
 
-            # put final state
-            with capture():
-                if not killed:
-                    self._set_state(ScanState.DONE)
-                elif killed_by_user:
-                    self._set_state(ScanState.USER_ABORTED)
-                else:
-                    self._set_state(ScanState.KILLED)
-
             # kill watchdog task, if any
             with capture():
                 if self._watchdog_task is not None:
@@ -1505,7 +1496,22 @@ class Scan:
 
             # execute "stop" preset
             with capture():
-                self._execute_preset("_stop")
+                try:
+                    self._execute_preset("_stop")
+                except BaseException as e:
+                    killed = True
+                    if e == KeyboardInterrupt:
+                        killed_by_user = True
+                    raise e
+
+            # put final state
+            with capture():
+                if not killed:
+                    self._set_state(ScanState.DONE)
+                elif killed_by_user:
+                    self._set_state(ScanState.USER_ABORTED)
+                else:
+                    self._set_state(ScanState.KILLED)
 
             if self._data_watch_task is not None:
                 # call "scan end" data watch callback

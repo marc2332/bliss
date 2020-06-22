@@ -158,8 +158,10 @@ __all__ = (
         "bench",
         "clear",
         "newproposal",
+        "endproposal",
         "newsample",
         "newdataset",
+        "enddataset",
         "silx_view",
         "pymca",
         "cen",
@@ -1067,6 +1069,18 @@ def newdataset(dataset_name: Optional[str] = None):
     """Change the dataset name used to determine the saving path.
     """
     current_session.scan_saving.newdataset(dataset_name)
+
+
+def endproposal():
+    """Close the active dataset and move to the default inhouse proposal.
+    """
+    current_session.scan_saving.endproposal()
+
+
+def enddataset():
+    """Close the active dataset.
+    """
+    current_session.scan_saving.enddataset()
 
 
 # Silx

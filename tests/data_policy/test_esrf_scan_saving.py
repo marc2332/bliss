@@ -8,8 +8,8 @@
 import pytest
 import time
 import os
-
 from bliss.common.standard import loopscan
+from bliss.common.tango import DevFailed
 from bliss.shell.standard import newproposal, newsample, newdataset
 
 
@@ -310,3 +310,54 @@ def test_mount_points(session, esrf_data_policy):
     scan_saving.mount_point = "fs3"
     assert scan_saving.base_path == expected
     assert scan_saving.icat_base_path == expected
+
+
+def test_session_ending(
+    session,
+    esrf_data_policy,
+    metadata_experiment_tango_server,
+    metadata_manager_tango_server,
+):
+    mdexp_dev_fqdn, mdexp_dev = metadata_experiment_tango_server
+    mdmgr_dev_fqdn, mdmgr_dev = metadata_manager_tango_server
+    scan_saving = session.scan_saving
+    scan_saving.newproposal("hg123")
+    scan_saving.newsample("sample1")
+
+    scan_saving.icat_sync()
+    os.makedirs(scan_saving.root_path)
+    assert scan_saving.proposal == "hg123"
+    assert scan_saving.sample == "sample1"
+    assert scan_saving.dataset == "0001"
+    scan_saving._icat_wait_until_state(["RUNNING"])
+    assert mdexp_dev.proposal == "hg123"
+    assert mdexp_dev.sample == "sample1"
+    assert mdmgr_dev.datasetName == "0001"
+
+    scan_saving.enddataset()
+    assert scan_saving.proposal == "hg123"
+    assert scan_saving.sample == "sample1"
+    assert scan_saving.dataset == "0002"
+    scan_saving._icat_wait_until_state(["STANDBY"])
+    assert mdexp_dev.proposal == "hg123"
+    assert mdexp_dev.sample == "sample1"
+    assert mdmgr_dev.datasetName == ""
+
+    scan_saving.icat_sync()
+    assert scan_saving.proposal == "hg123"
+    assert scan_saving.sample == "sample1"
+    assert scan_saving.dataset == "0002"
+    scan_saving._icat_wait_until_state(["RUNNING"])
+    assert mdexp_dev.proposal == "hg123"
+    assert mdexp_dev.sample == "sample1"
+    assert mdmgr_dev.datasetName == "0002"
+
+    scan_saving.endproposal()
+    assert scan_saving.proposal != "hg123"
+    assert scan_saving.sample == "sample"
+    assert scan_saving.dataset == "0001"
+    scan_saving._icat_wait_until_state(["STANDBY"])
+    assert mdexp_dev.proposal != "hg123"
+    assert mdexp_dev.sample not in ["sample", "sample1"]
+    with pytest.raises(DevFailed):
+        mdmgr_dev.datasetName

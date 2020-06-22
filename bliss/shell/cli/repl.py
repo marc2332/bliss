@@ -17,6 +17,7 @@ import functools
 import traceback
 import gevent
 import logging
+import __future__
 from collections import deque, defaultdict
 
 from ptpython.repl import PythonRepl
@@ -329,6 +330,23 @@ class BlissRepl(PythonRepl):
         self.typing_helper = TypingHelper(self)
 
         self._application_stopper_callback = weakref.WeakSet()
+
+    def get_compiler_flags(self):
+        """
+        Give the current compiler flags by looking for _Feature instances
+        in the globals. Pached here to avoid `Unhandled exception in event loop` e.g. on quit.
+        """
+        flags = 0
+
+        for value in self.get_globals().values():
+            try:
+                if isinstance(value, __future__._Feature):
+                    f = value.compiler_flag
+                    flags |= f
+            except:
+                pass
+
+        return flags
 
     def _another_execute(self, line):
         """

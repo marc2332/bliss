@@ -92,6 +92,7 @@ With pairs transmission/energy:
 import math
 import time
 import numpy as np
+from gevent import sleep
 
 from bliss.common.auto_filter.filterset import FilterSet
 
@@ -155,13 +156,23 @@ class FilterSet_Wago(FilterSet):
             raise ValueError(
                 f"Wrong filter value {filter_id} range is [0-{self._filtmask}]"
             )
-        if self._inverted:
-            mask = self._filtmask - filter_id
-        else:
-            mask = filter_id
+
         nbits = self._config_nb_filters
+
+        # do not let 0 filter to be set otherwise detector
+        # can be damaged, so first set on new filters by
+        # making a logic OR between previous and new mask
+
+        mask = self.get_filter() | filter_id
+        mask = (self._filtmask - mask) if self._inverted else mask
         wmask = [int(x) for x in f"{mask:0{nbits}b}"]
         self._wago.set(self._wago_cmd, wmask)
+        sleep(self._overlap_time)
+
+        mask = (self._filtmask - filter_id) if self._inverted else filter_id
+        wmask = [int(x) for x in f"{mask:0{nbits}b}"]
+        self._wago.set(self._wago_cmd, wmask)
+        sleep(self._settle_time)
 
     def get_filter(self):
         """

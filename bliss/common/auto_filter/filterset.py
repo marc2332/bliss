@@ -160,8 +160,8 @@ class FilterSet:
         self._calc_transmissions(self._last_energy)
 
         # Now ask the public filterset
+        self._nb_filters = self.build_filterset()
         self._filters = self.get_filters()
-        self._nb_filters = len(self._filters)
 
     def __info__(self):
         self._calc_transmissions()
@@ -243,7 +243,7 @@ class FilterSet:
 
         log_info(self, "Regenerating absorption table")
 
-        self._nb_filtset = self.build_filterset()
+        self._nb_filtset = self._nb_filters
 
         min_trans = np.sqrt(self._min_cntrate / self._max_cntrate)
         max_trans = np.sqrt(min_trans)

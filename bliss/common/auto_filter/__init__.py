@@ -64,7 +64,7 @@ class AutoFilterCounterController(SamplingCounterController):
         values = []
         for cnt in counters:
             if cnt.tag == "filteridx":
-                values.append(self._autof.filter)
+                values.append(self._autof.filterset.get_filter())
             elif cnt.tag == "transmission":
                 values.append(self._autof.transmission)
         return values

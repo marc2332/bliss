@@ -408,14 +408,15 @@ def test_scan_display_ct(session, scan_data_listener_process):
     # GRAB THE SCAN DISPLAY LINES
     grab_lines(p, lines)
 
-    assert (
-        lines[9].strip()
-        == "diode4  =  4.00000      (  40.0000   /s)    simulation_diode_sampling_controller"
-    )
-    assert (
-        lines[10].strip()
-        == "diode5  =  5.00000      (  50.0000   /s)    simulation_diode_sampling_controller"
-    )
+    line_diode4 = "diode4  =  4.00000      (  40.0000   /s)    simulation_diode_sampling_controller"
+    line_diode5 = "diode5  =  5.00000      (  50.0000   /s)    simulation_diode_sampling_controller"
+    try:
+        assert lines[9].strip() == line_diode4
+        assert lines[10].strip() == line_diode5
+    except:
+        # Help for debug
+        print("".join(lines))
+        raise
 
 
 def test_scan_display_loopscan(session, scan_data_listener_process):

@@ -1607,40 +1607,20 @@ class Scan:
         filename = self.writer.filename
         # last scan number is stored in the parent of the scan
         parent_node = self.__scan_saving.get_parent_node()
-        last_scan_number = parent_node.connection.hget(
-            parent_node.db_name, LAST_SCAN_NUMBER
-        )
+        cnx = parent_node.connection
+        last_scan_number = cnx.hget(parent_node.db_name, LAST_SCAN_NUMBER)
         if (
             not self._shadow_scan_number
             and last_scan_number is None
             and "{scan_number}" not in filename
         ):
-            max_scan_number = 0
-            for scan_entry in self.writer.get_scan_entries():
-                try:
-                    # TODO: this has to be removed when internal hdf5 writer
-                    # is deprecated
-                    max_scan_number = max(
-                        int(scan_entry.split("_")[0]), max_scan_number
-                    )
-
-                except ValueError:
-                    # the following is the good code for the Nexus writer
-                    try:
-                        max_scan_number = max(
-                            int(scan_entry.split(".")[0]), max_scan_number
-                        )
-                    except Exception:
-                        continue
-            name = parent_node.db_name
-            with pipeline(parent_node._struct) as p:
-                p.hsetnx(name, LAST_SCAN_NUMBER, max_scan_number)
-                p.hincrby(name, LAST_SCAN_NUMBER, 1)
-                _, scan_number = p.execute()
+            # next scan number from the file (1 when not existing)
+            next_scan_number = self.writer.last_scan_number + 1
+            cnx.hsetnx(parent_node.db_name, LAST_SCAN_NUMBER, next_scan_number)
         else:
-            cnx = parent_node.connection
-            scan_number = cnx.hincrby(parent_node.db_name, LAST_SCAN_NUMBER, 1)
-        return scan_number
+            # next scan number from Redis
+            next_scan_number = cnx.hincrby(parent_node.db_name, LAST_SCAN_NUMBER, 1)
+        return next_scan_number
 
     def _execute_preset(self, method_name):
         preset_tasks = [

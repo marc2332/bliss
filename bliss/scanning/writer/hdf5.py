@@ -11,10 +11,30 @@ import h5py
 import numpy
 import time
 import datetime
+import gevent
 from silx.io.dictdump import dicttonx
 from bliss.scanning.writer.file import FileWriter
 from bliss.scanning.scan_meta import categories_names
 import functools
+
+
+def get_scan_entries(filename, timeout=3):
+    try:
+        f = open(filename, mode="rb")
+    except IOError:
+        # File does not exist or no read permissions
+        return []
+    try:
+        with gevent.Timeout(timeout):
+            while True:
+                try:
+                    with h5py.File(f, mode="r") as h5f:
+                        return list(h5f.keys())
+                except Exception:
+                    # Scans are being added
+                    gevent.sleep(0.1)
+    finally:
+        f.close()
 
 
 class Writer(FileWriter):
@@ -232,8 +252,15 @@ class Writer(FileWriter):
             self.file = None
 
     def get_scan_entries(self):
-        try:
-            with h5py.File(self.filename, mode="r") as f:
-                return list(f.keys())
-        except IOError:  # file doesn't exist
-            return []
+        return get_scan_entries(self.filename)
+
+    @property
+    def last_scan_number(self):
+        """Scans start numbering from 1 so 0 indicates
+        no scan exists in the file.
+        """
+        entry_names = self.get_scan_entries()
+        if entry_names:
+            return max(int(s.split("_")[0]) for s in entry_names)
+        else:
+            return 0

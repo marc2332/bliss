@@ -839,7 +839,7 @@ class Scan:
             scan_display = ScanDisplay()
             if scan_display.auto:
                 if self.is_flint_recommended():
-                    get_flint()
+                    get_flint(mandatory=False)
 
         self.__state = ScanState.IDLE
         self.__state_change = gevent.event.Event()

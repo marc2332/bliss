@@ -122,7 +122,12 @@ class GroupMove:
         for controller, motions in motions_dict.items():
             if prepare_motion is not None:
                 prepare_motion(controller, motions)
+
             for motion_obj in motions:
+                target_pos = motion_obj.user_target_pos
+                if target_pos is not None and not isinstance(target_pos, str):
+                    motion_obj.axis._set_position = target_pos
+
                 msg = motion_obj.user_msg
                 if msg:
                     lprint(msg)
@@ -223,6 +228,16 @@ class GroupMove:
                         motion.target_pos = (
                             motion.axis.dial * motion.axis.steps_per_unit
                         )
+                        # Adjust the difference between encoder and motor controller indexer
+                        if (
+                            motion.axis._read_position_mode
+                            == Axis.READ_POSITION_MODE.ENCODER
+                        ):
+                            controller_position = controller.read_position(motion.axis)
+                            enc_position = motion.target_pos
+                            delta_pos = controller_position - enc_position
+                            motion.target_pos += delta_pos
+
                     backlash_motion = Motion(
                         motion.axis,
                         motion.target_pos + motion.backlash,
@@ -1597,8 +1612,6 @@ class Axis:
             user_target_pos += user_initial_pos
 
         motion = self._get_motion(user_target_pos)
-
-        self._set_position = user_target_pos
 
         return motion
 

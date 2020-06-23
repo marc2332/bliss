@@ -513,7 +513,7 @@ def test_stop_after_first_walk_event(session):
     task = gevent.spawn(spawn_walk, stop_handler)
 
     diode = session.env_dict["diode"]
-    scans.loopscan(1, 0, diode)
+    scans.loopscan(1, 0, diode, save=False)
 
     with gevent.Timeout(1.):
         event.wait()

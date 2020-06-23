@@ -8,9 +8,6 @@
 import pytest
 from bliss import setup_globals
 from bliss.common import scans
-from bliss.scanning import scan, chain
-from bliss.scanning.acquisition import timer, calc, motor, counter
-from bliss.common import event
 from bliss.shell.standard import plotselect, plotinit, cen, com, peak, fwhm
 from bliss.scanning.scan import ScanDisplay
 from bliss.scanning import scan_tools
@@ -116,7 +113,7 @@ def test_plotselect1(session):
 
     # Select counter via library function
     plot.plotselect(simul_counter1)
-    s = scans.ascan(roby, 0, .1, 5, 0, mg, simul_counter4, save=False)
+    scans.ascan(roby, 0, .1, 5, 0, mg, simul_counter4, save=False)
 
     # _get_selected_counter_name() is valid only after a scan.
     assert simul_counter1.fullname == scan_tools.get_selected_counter_name()
@@ -134,6 +131,25 @@ def test_plotselect_axis(session):
 
     plot.plotselect(roby)
     assert plot.get_plotted_counters() == ["axis:roby"]
+
+
+def test_plotselect_template_axis(session):
+    plot.plotselect("*:roby")
+    assert plot.get_plotted_counters() == ["axis:roby"]
+
+
+def test_plotselect_template_diode(session):
+    diode = getattr(setup_globals, "diode")
+    diode2 = getattr(setup_globals, "diode2")
+    plot.plotselect("*diode*")
+    assert diode.fullname in plot.get_plotted_counters()
+    assert diode2.fullname in plot.get_plotted_counters()
+
+
+def test_plotselect_template_not_twice(session):
+    roby = getattr(setup_globals, "roby")
+    plot.plotselect("*:roby", roby)
+    assert plot.get_plotted_counters().count("axis:roby") == 1
 
 
 def test_plotselect_alias(session):

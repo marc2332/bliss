@@ -8,7 +8,7 @@ louie >= 2.0
 gevent >= 1.4
 gxx_linux-64
 h5py >= 2.9
-jedi >= 0.16
+jedi >= 0.17.1
 jinja2 >= 2.7
 mendeleev
 mock
@@ -52,6 +52,7 @@ tango-metadata >= 4.0.3
 pyqt
 silx == 0.13.0b2
 ipython != 7.15.0
+ipykernel >= 5.2  # make sure qtconsole is working
 pyopengl
 scipy
 sortedcontainers

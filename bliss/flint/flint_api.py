@@ -198,6 +198,8 @@ class FlintApi:
             if scan is None:
                 continue
             channel = scan.getChannelByName(channel_name)
+            if channel is None:
+                continue
             plot = widget.plotModel()
             if plot is None:
                 continue
@@ -261,8 +263,6 @@ class FlintApi:
                 children of the plot and referenced as it's object name.
         """
         plot = self._get_plot_widget(plot_id, expect_silx_api=True)
-        from silx.gui.utils.testutils import QTest
-
         action: qt.QAction = plot.findChild(qt.QAction, qaction)
         action.trigger()
 
@@ -475,7 +475,7 @@ class FlintApi:
         """
         plot_id = self.get_live_scan_plot(channel_name, "image")
         if plot_id is None:
-            raise RuntimeError("THe channel name is not part of any widget")
+            raise RuntimeError("The channel name is not part of any widget")
         from .manager import monitoring
 
         plot = self._get_live_plot_widget(plot_id)
@@ -484,6 +484,25 @@ class FlintApi:
             raise RuntimeError("Unexpected scan type %s" % type(scan))
 
         scan.stopMonitoring()
+
+    def set_static_image(self, channel_name, data):
+        """Update the displayed image data relative to a channel name.
+
+        This can be use to display a custom image to a detector, in case
+        the processing was done in BLISS side.
+        """
+        from .manager import monitoring
+
+        if not data.flags.writeable:
+            # Image from the network should be writable
+            # FIXME: this should be fixed on our RPC
+            data = numpy.array(data)
+
+        scan = monitoring.StaticImageScan(None, channel_name)
+        manager = self.__flintModel.mainManager()
+        plots = scan_info_helper.create_plot_model(scan.scanInfo(), scan)
+        manager.updateWidgetsWithPlots(scan, plots, True, None)
+        scan.setData(data)
 
     def _get_live_plot_widget(self, plot_id):
         if not isinstance(plot_id, str) or not plot_id.startswith("live:"):

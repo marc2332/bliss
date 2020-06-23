@@ -40,8 +40,11 @@ class SlitsSimulationTask(Core.Processlib.LinkTask):
         )
 
         for axis in self._axes:
-            pos = float(self.redis_conn.hget(f"axis.{axis}", "dial_position"))
-            self._axes_pos[axis] = pos
+            pos = self.redis_conn.hget(f"axis.{axis}", "dial_position")
+            try:
+                self._axes_pos[axis] = float(pos)
+            except TypeError:
+                self._axes_pos[axis] = 0.0
 
         print(" ".join(f"{name}={pos}" for name, pos in self._axes_pos.items()))
         self.redraw(

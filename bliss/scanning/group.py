@@ -18,7 +18,7 @@ from bliss.scanning.chain import (
 from bliss.scanning.scan import Scan as Scanning_Scan
 from bliss.data.nodes.scan import Scan as Data_Scan
 from bliss.data.node import get_session_node
-from bliss.scanning.scan import ScanState
+from bliss.scanning.scan import ScanState, ScanPreset
 from bliss.data.node import _create_node
 from bliss import current_session
 
@@ -147,7 +147,25 @@ class Sequence:
         else:
             self.group_custom_slave = None
 
+        class StatePreset(ScanPreset):
+            def __init__(self, sequence):
+                ScanPreset.__init__(self)
+                self._sequence = sequence
+
+            def stop(self, scan):
+                max_state = max([x.state for x in self._sequence._scans])
+                if max_state == ScanState.KILLED:
+                    raise Exception(
+                        "at least one of the scans in the sequence was KILLED"
+                    )
+                elif max_state == ScanState.USER_ABORTED:
+                    raise KeyboardInterrupt(
+                        "at least one of the scans in the sequence was USER_ABORTED"
+                    )
+
         self.scan = ScanGroup(chain, self.title, save=True, scan_info=self.scan_info)
+        state_preset = StatePreset(self)
+        self.scan.add_preset(state_preset)
 
     @property
     def node(self):

@@ -208,6 +208,14 @@ class TangoShutter(BaseShutter):
         except DevFailed:
             raise RuntimeError(f"Cannot set {mode} opening")
 
+    def reset(self):
+        """Reset
+        Args:
+        Raises:
+            RuntimeError: Cannot execute 
+        """
+        self.__control.Reset()
+
     def _wait(self, state, timeout=3):
         """Wait execution to finish
         Args:

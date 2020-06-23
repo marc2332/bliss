@@ -11,6 +11,7 @@ import functools
 import logging
 from gevent.time import time
 from bliss.scanning.writer.file import FileWriter
+from bliss.scanning.writer.hdf5 import get_scan_entries
 from bliss import current_session
 from bliss.common.tango import DeviceProxy, DevState, DevFailed
 from tango import CommunicationFailed, ConnectionFailed
@@ -151,11 +152,18 @@ class Writer(FileWriter):
         pass
 
     def get_scan_entries(self):
-        try:
-            with nexus.File(self.filename, mode="r") as f:
-                return list(f.keys())
-        except IOError:  # file doesn't exist
-            return []
+        return get_scan_entries(self.filename)
+
+    @property
+    def last_scan_number(self):
+        """Scans start numbering from 1 so 0 indicates
+        no scan exists in the file.
+        """
+        entry_names = self.get_scan_entries()
+        if entry_names:
+            return max(int(s.split(".")[0]) for s in entry_names)
+        else:
+            return 0
 
     @property
     def _writer_uri(self):

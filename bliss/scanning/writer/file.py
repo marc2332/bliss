@@ -183,3 +183,10 @@ class FileWriter(object):
         Should return all scan entries from this path
         """
         return []
+
+    @property
+    def last_scan_number(self):
+        """Scans start numbering from 1 so 0 indicates
+        no scan exists in the file.
+        """
+        return 0

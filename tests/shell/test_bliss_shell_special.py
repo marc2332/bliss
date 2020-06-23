@@ -295,4 +295,4 @@ t = Test()
     ][0]
     _sc = sb.content.text()
     display_sig = "".join([x[1] for x in sb.content.text()])
-    assert display_sig == " func(a, b: True|False=None, c=None) "
+    assert display_sig == " func(a, b: 'True|False'=None, c=None) "

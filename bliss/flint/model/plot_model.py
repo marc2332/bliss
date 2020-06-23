@@ -133,12 +133,14 @@ class Plot(qt.QObject):
         Mostly designed to reduce computation on the redraw side.
         """
         self.__inTransaction += 1
-        self.transactionStarted.emit()
+        if self.__inTransaction == 1:
+            self.transactionStarted.emit()
         try:
             yield self
         finally:
             self.__inTransaction -= 1
-            self.transactionFinished.emit()
+            if self.__inTransaction == 0:
+                self.transactionFinished.emit()
 
     def addItem(self, item: Item):
         item._setPlot(self)

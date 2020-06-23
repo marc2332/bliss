@@ -303,6 +303,7 @@ class ScatterPlotPropertyWidget(qt.QWidget):
         self.__tree.setEditTriggers(qt.QAbstractItemView.NoEditTriggers)
         self.__tree.setUniformRowHeights(True)
 
+        self.__structureInvalidated: bool = False
         self.__xyAxisInvalidated: bool = False
         self.__xAxisDelegate = delegates.RadioPropertyItemDelegate(self)
         self.__yAxisDelegate = delegates.RadioPropertyItemDelegate(self)
@@ -363,7 +364,10 @@ class ScatterPlotPropertyWidget(qt.QWidget):
         self.__setScan(scanModel)
 
     def __structureChanged(self):
-        self.__updateTree()
+        if self.__plotModel.isInTransaction():
+            self.__structureInvalidated = True
+        else:
+            self.__updateTree()
 
     def __itemValueChanged(
         self, item: plot_model.Item, eventType: plot_model.ChangeEventType
@@ -379,8 +383,10 @@ class ScatterPlotPropertyWidget(qt.QWidget):
                 self.__updateTree()
 
     def __transactionFinished(self):
-        if self.__xyAxisInvalidated:
+        updateTree = self.__xyAxisInvalidated or self.__structureInvalidated
+        if updateTree:
             self.__xyAxisInvalidated = False
+            self.__structureInvalidated = False
             self.__updateTree()
 
     def plotModel(self) -> Union[None, plot_model.Plot]:
@@ -484,6 +490,9 @@ class ScatterPlotPropertyWidget(qt.QWidget):
 
     def __updateTree(self):
         collapsed = _property_tree_helper.getPathFromCollapsedNodes(self.__tree)
+        scrollx = self.__tree.horizontalScrollBar().value()
+        scrolly = self.__tree.verticalScrollBar().value()
+
         model = self.__tree.model()
         model.clear()
 
@@ -600,3 +609,5 @@ class ScatterPlotPropertyWidget(qt.QWidget):
 
         self.__tree.expandAll()
         _property_tree_helper.collapseNodesFromPaths(self.__tree, collapsed)
+        self.__tree.horizontalScrollBar().setValue(scrollx)
+        self.__tree.verticalScrollBar().setValue(scrolly)

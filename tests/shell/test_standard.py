@@ -122,10 +122,10 @@ def test_wm_exception(default_session, capsys):
     assert captured.out[: len(output)] == output
 
     errmsg = "Traceback (most recent call last):\n"
-    assert captured.err[: len(errmsg)] == errmsg
+    assert errmsg in captured.err
 
     errmsg = "RuntimeError: Error on motor 'bad': BAD POSITION\n"
-    assert captured.err[-len(errmsg) :] == errmsg
+    assert errmsg in captured.err
 
 
 def test_sta_normal(default_session, capsys):
@@ -164,10 +164,10 @@ def test_sta_exception(default_session, capsys):
     assert captured.out[: len(output)] == output
 
     errmsg = "Traceback (most recent call last):\n"
-    assert captured.err[: len(errmsg)] == errmsg
+    assert errmsg in captured.err
 
     errmsg = "RuntimeError: Error on motor 'bad': BAD POSITION\n"
-    assert captured.err[-len(errmsg) :] == errmsg
+    assert errmsg in captured.err
 
 
 def test_stm_normal(default_session, capsys):
@@ -196,10 +196,10 @@ def test_stm_exception(default_session, capsys):
     assert captured.out[: len(output)] == output
 
     errmsg = "Traceback (most recent call last):\n"
-    assert captured.err[: len(errmsg)] == errmsg
+    assert errmsg in captured.err
 
     errmsg = "RuntimeError: Error on motor 'bad': BAD POSITION\n"
-    assert captured.err[-len(errmsg) :] == errmsg
+    assert errmsg in captured.err
 
 
 def execute_in_subprocess(command):

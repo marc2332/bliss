@@ -347,9 +347,16 @@ class ScanDisplay(ParametersWardrobe):
                 "motor_position": True,
                 "_extra_args": [],
                 "_next_scan_metadata": None,
+                "displayed_channels": [],
+                "enable_scan_display_filter": True,
             },
             property_attributes=("session", "extra_args", "flint_output_enabled"),
-            not_removable=("auto", "motor_position"),
+            not_removable=(
+                "auto",
+                "motor_position",
+                "displayed_channels",
+                "enable_scan_display_filter",
+            ),
         )
 
         self.add("_session_name", session_name)
@@ -839,7 +846,7 @@ class Scan:
             scan_display = ScanDisplay()
             if scan_display.auto:
                 if self.is_flint_recommended():
-                    get_flint()
+                    get_flint(mandatory=False)
 
         self.__state = ScanState.IDLE
         self.__state_change = gevent.event.Event()
@@ -932,7 +939,7 @@ class Scan:
             number = f"number={self.__scan_number}, "
             path = self.writer.filename
 
-        return f"Scan({number}name={self.name}, path={path}"
+        return f"Scan({number}name={self.name}, path={path})"
 
     @property
     def name(self):
@@ -1488,15 +1495,6 @@ class Scan:
                     except AttributeError:
                         pass
 
-            # put final state
-            with capture():
-                if not killed:
-                    self._set_state(ScanState.DONE)
-                elif killed_by_user:
-                    self._set_state(ScanState.USER_ABORTED)
-                else:
-                    self._set_state(ScanState.KILLED)
-
             # kill watchdog task, if any
             with capture():
                 if self._watchdog_task is not None:
@@ -1505,7 +1503,22 @@ class Scan:
 
             # execute "stop" preset
             with capture():
-                self._execute_preset("_stop")
+                try:
+                    self._execute_preset("_stop")
+                except BaseException as e:
+                    killed = True
+                    if e == KeyboardInterrupt:
+                        killed_by_user = True
+                    raise e
+
+            # put final state
+            with capture():
+                if not killed:
+                    self._set_state(ScanState.DONE)
+                elif killed_by_user:
+                    self._set_state(ScanState.USER_ABORTED)
+                else:
+                    self._set_state(ScanState.KILLED)
 
             if self._data_watch_task is not None:
                 # call "scan end" data watch callback
@@ -1594,40 +1607,20 @@ class Scan:
         filename = self.writer.filename
         # last scan number is stored in the parent of the scan
         parent_node = self.__scan_saving.get_parent_node()
-        last_scan_number = parent_node.connection.hget(
-            parent_node.db_name, LAST_SCAN_NUMBER
-        )
+        cnx = parent_node.connection
+        last_scan_number = cnx.hget(parent_node.db_name, LAST_SCAN_NUMBER)
         if (
             not self._shadow_scan_number
             and last_scan_number is None
             and "{scan_number}" not in filename
         ):
-            max_scan_number = 0
-            for scan_entry in self.writer.get_scan_entries():
-                try:
-                    # TODO: this has to be removed when internal hdf5 writer
-                    # is deprecated
-                    max_scan_number = max(
-                        int(scan_entry.split("_")[0]), max_scan_number
-                    )
-
-                except ValueError:
-                    # the following is the good code for the Nexus writer
-                    try:
-                        max_scan_number = max(
-                            int(scan_entry.split(".")[0]), max_scan_number
-                        )
-                    except Exception:
-                        continue
-            name = parent_node.db_name
-            with pipeline(parent_node._struct) as p:
-                p.hsetnx(name, LAST_SCAN_NUMBER, max_scan_number)
-                p.hincrby(name, LAST_SCAN_NUMBER, 1)
-                _, scan_number = p.execute()
+            # next scan number from the file (1 when not existing)
+            next_scan_number = self.writer.last_scan_number + 1
+            cnx.hsetnx(parent_node.db_name, LAST_SCAN_NUMBER, next_scan_number)
         else:
-            cnx = parent_node.connection
-            scan_number = cnx.hincrby(parent_node.db_name, LAST_SCAN_NUMBER, 1)
-        return scan_number
+            # next scan number from Redis
+            next_scan_number = cnx.hincrby(parent_node.db_name, LAST_SCAN_NUMBER, 1)
+        return next_scan_number
 
     def _execute_preset(self, method_name):
         preset_tasks = [

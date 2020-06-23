@@ -7,13 +7,19 @@
 
 import re
 import contextlib
+
 from prompt_toolkit.input.defaults import create_pipe_input
-from bliss.shell.cli.repl import BlissRepl
 from prompt_toolkit.output import DummyOutput
 from prompt_toolkit.eventloop import get_event_loop
+import pytest
+import gevent
+
+from bliss.shell.cli.repl import BlissRepl, CaptureOutput
 
 
-def _feed_cli_with_input(text, check_line_ending=True, local_locals={}):
+def _feed_cli_with_input(
+    text, check_line_ending=True, local_locals={}, local_globals=None
+):
     """
     Create a Prompt, feed it with the given user input and return the CLI
     object.
@@ -29,10 +35,22 @@ def _feed_cli_with_input(text, check_line_ending=True, local_locals={}):
     def mylocals():
         return local_locals
 
+    if local_globals:
+
+        def myglobals():
+            return local_globals
+
+    else:
+        myglobals = None
+
     try:
 
         br = BlissRepl(
-            input=inp, output=DummyOutput(), session="test_session", get_locals=mylocals
+            input=inp,
+            output=DummyOutput(),
+            session="test_session",
+            get_locals=mylocals,
+            get_globals=myglobals,
         )
         inp.send_text(text)
         result = br.app.run()
@@ -452,3 +470,64 @@ def test_deprecation_warning(beacon, capfd, log_context):
     err = _repl_out_to_string(captured.err)
     assert "bla" in out
     assert "Function ct is deprecated since" in err
+
+
+def test_captured_output():
+
+    CaptureOutput._data.clear()
+
+    def f(num):
+        print(num + 1)
+        return num + 2
+
+    result, cli, br = _feed_cli_with_input("f(1)\r", local_locals={"f": f})
+    br._execute(result)
+
+    # necessary to advance to next paragraph to replicate
+    # shell behavior
+    CaptureOutput().end_of_paragraph(br.current_statement_index)
+
+    captured = CaptureOutput()[-1]
+    assert "2" in captured
+    assert "3" in captured
+    captured = CaptureOutput()[1]
+    assert "2" in captured
+    assert "3" in captured
+    with pytest.raises(IndexError):
+        CaptureOutput()[3]
+    br._execute("f(3)")
+    CaptureOutput().end_of_paragraph(br.current_statement_index)
+
+    captured = CaptureOutput()[-1]
+    assert "4" in captured
+    assert "5" in captured
+    captured = CaptureOutput()[1]
+    assert "2" in captured
+    assert "3" in captured
+    captured = CaptureOutput()[2]
+    assert "4" in captured
+    assert "5" in captured
+    with pytest.raises(IndexError):
+        CaptureOutput()[-10]
+
+
+def test_getattribute_evaluation():
+    n = None
+
+    class A:
+        def __init__(self):
+            global n
+            n = 0
+
+        def __getattribute__(self, value):
+            global n
+
+            if n < 1:
+                n += 1
+                raise RuntimeError
+            return 0
+
+    a = A()
+
+    with gevent.timeout.Timeout(1):
+        result, cli, _ = _feed_cli_with_input("a.foo()\r", local_globals={"a": a})

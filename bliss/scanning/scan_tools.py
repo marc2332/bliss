@@ -7,6 +7,7 @@ from bliss import current_session, global_map
 from bliss.common.types import _countable, _scannable
 from bliss.common.plot import display_motor
 from bliss.scanning.scan import Scan
+from bliss.scanning.scan import ScanDisplay
 
 """
 Alignment Helpers: cen peak com that interact with plotselect 
@@ -40,8 +41,9 @@ def get_selected_counter_name(counter=None):
     if not current_session.scans:
         raise RuntimeError("Scans list is empty!")
     scan_counter_names = set(get_counter_names(current_session.scans[-1]))
-    plot_select = HashSetting("%s:plot_select" % current_session.name)
-    selected_flint_counter_names = set(plot_select.keys())
+
+    scan_display = ScanDisplay()
+    selected_flint_counter_names = scan_display.displayed_channels
     alignment_counts = scan_counter_names.intersection(selected_flint_counter_names)
 
     if not alignment_counts:

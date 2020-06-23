@@ -7,6 +7,7 @@ from bliss.controllers.counter import SamplingCounterController
 from bliss.common.soft_axis import SoftAxis
 from bliss.scanning.scan import ScanState, Scan, ScanPreset
 from bliss.scanning.chain import AcquisitionMaster, AcquisitionChain
+from bliss.scanning.group import Sequence
 
 
 def test_exception_in_reading(session):
@@ -117,6 +118,73 @@ def test_exception_on_KeyboardInterrupt(default_session):
 
     assert s.state == ScanState.USER_ABORTED
     assert s.node.info["state"] == ScanState.USER_ABORTED
+
+
+def test_exception_in_preset(default_session):
+    diode = default_session.config.get("diode")
+    roby = default_session.config.get("roby")
+
+    class Preset1(ScanPreset):
+        def stop(self, scan):
+            raise BufferError()
+
+    s = scans.ascan(roby, 0, 1, 3, .1, diode, save=False, run=False)
+    p = Preset1()
+    s.add_preset(p)
+    scan_task = gevent.spawn(s.run)
+    scan_task.join()
+    assert s.state == ScanState.KILLED
+    assert s.node.info["state"] == ScanState.KILLED
+
+    class Preset2(ScanPreset):
+        def start(self, scan):
+            raise BufferError()
+
+    s = scans.ascan(roby, 0, 1, 3, .1, diode, save=False, run=False)
+    p = Preset2()
+    s.add_preset(p)
+    scan_task = gevent.spawn(s.run)
+    scan_task.join()
+    assert s.state == ScanState.KILLED
+    assert s.node.info["state"] == ScanState.KILLED
+
+    class Preset3(ScanPreset):
+        def prepare(self, scan):
+            raise BufferError()
+
+    s = scans.ascan(roby, 0, 1, 3, .1, diode, save=False, run=False)
+    p = Preset3()
+    s.add_preset(p)
+    scan_task = gevent.spawn(s.run)
+    scan_task.join()
+    assert s.state == ScanState.KILLED
+    assert s.node.info["state"] == ScanState.KILLED
+
+
+def test_sequence_state(default_session):
+    diode = default_session.config.get("diode")
+    roby = default_session.config.get("roby")
+
+    seq = Sequence()
+
+    def task():
+        class Preset1(ScanPreset):
+            def stop(self, scan):
+                raise BufferError()
+
+        with seq.sequence_context() as scan_seq:
+            s1 = scans.ascan(roby, 0, 1, 3, .1, diode, save=False, run=False)
+            scan_seq.add_and_run(s1)
+            s = scans.ascan(roby, 0, 1, 3, .1, diode, save=False, run=False)
+            p = Preset1()
+            s.add_preset(p)
+            scan_seq.add_and_run(s)
+
+    scan_task = gevent.spawn(task)
+    scan_task.join()
+
+    assert seq.scan.state == ScanState.KILLED
+    assert seq.scan.node.info["state"] == ScanState.KILLED
 
 
 @pytest.mark.parametrize(

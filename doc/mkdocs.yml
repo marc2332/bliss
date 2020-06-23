@@ -95,7 +95,7 @@ nav:
                       - Tango attribute as counters: config_taac.md
                       - Temperature framework:
                             - Temperature controllers in Bliss: config_tempctrl.md
-                            - Eurotherm: config_eurotherm.md                                                       
+                            - Eurotherm: config_eurotherm.md
                             - Keller: config_keller.md
                             - Keithley 3706: config_keithley_3706.md
                             - Meerstetter: config_meerstetter.md
@@ -112,7 +112,7 @@ nav:
                             - Wago: config_wago.md
                             - Wago groups: config_wago_group.md
                             - config_wago_interlock.md
-                      
+
                 - Tango Device Servers:
                       - Introduction: config_tango_ds.md
                       - BlissAxis: config_tango_axis.md
@@ -160,7 +160,6 @@ nav:
                 - ESRF BeamViewer (EBV): using_beamviewer.md
                 - MCA:
                     - MCA: using_mca.md
-                - Shutter: using_shutter.md
                 - Moco: using_moco.md
         - Data:
                 - Data policy: data_policy.md

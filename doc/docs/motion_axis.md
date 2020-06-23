@@ -13,7 +13,7 @@ Other more or less related pages:
 * [How to write a new class to support a motor controller in BLISS](dev_write_motctrl.md)
 * [How to write a Calculational Motor Controller](dev_write_calc_ctrl.md)
 * [Usual scans](scan_default.md)
-* [Shutters](using_shutter.md)
+* [Shutters](config_shutter.md)
 
 ## Configuration
 

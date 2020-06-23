@@ -6,12 +6,13 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import weakref
-import struct
-import numpy
+import math
+from tabulate import tabulate
 
 from bliss.config.channels import Cache
+from bliss.config.beacon_object import BeaconObject
 from bliss.common.shutter import Shutter as BaseShutter
-from . import _ackcommand
+from bliss.common.shutter import BaseShutterState
 
 
 class Shutter(BaseShutter):
@@ -36,31 +37,25 @@ class Shutter(BaseShutter):
                 " the reference axis" % self.name
             )
 
-    @property
-    def closed_position(self):
-        return self.settings.get("closed_position", self.config.get("closed_position"))
+    closed_position = BeaconObject.property_setting("closed_position")
 
     @closed_position.setter
     def closed_position(self, position):
-        if self.mode != self.CONFIGURATION:
+        if self._is_initialized and self.mode != self.CONFIGURATION:
             raise RuntimeError(
                 "Shutter %s: can set the closed position, "
                 "not in Configuration mode" % self.name
             )
-        self.settings.set("closed_position", position)
 
-    @property
-    def opened_position(self):
-        return self.settings.get("opened_position", self.config.get("opened_position"))
+    opened_position = BeaconObject.property_setting("opened_position")
 
     @opened_position.setter
     def opened_position(self, position):
-        if self.mode != self.CONFIGURATION:
+        if self._is_initialized and self.mode != self.CONFIGURATION:
             raise RuntimeError(
                 "Shutter %s: can set the opened position, "
                 "not in Configuration mode" % self.name
             )
-        self.settings.set("opened_position", position)
 
     def __init__(self, name, controller, config):
         BaseShutter.__init__(self, name, config)
@@ -77,10 +72,6 @@ class Shutter(BaseShutter):
             self._axis.position  # real init
         else:
             raise RuntimeError("Shutter %s has no axis_name configured" % self.name)
-
-    def _initialize_hardware(self):
-        # will trigger _set_mode
-        self.mode = self.mode
 
     def _set_mode(self, mode):
         self._axis.activate_tracking(False)
@@ -166,8 +157,19 @@ class Shutter(BaseShutter):
     def _state(self):
         curr_pos = self._axis.position
         if curr_pos == self.closed_position:
-            return self.CLOSED
+            return BaseShutterState.CLOSED
         elif curr_pos == self.opened_position:
-            return self.OPEN
+            return BaseShutterState.OPEN
         else:
-            return self.UNKNOWN
+            return BaseShutterState.UNKNOWN
+
+    def __info__(self):
+        tables = [
+            ("State:", f"{self.state.name}"),
+            ("Mode:", f"{self.mode.name}"),
+            ("open position:", f"{self.opened_position}"),
+            ("closed position:", f"{self.closed_position}"),
+        ]
+        info = f"Shutter ({self.name})\n"
+        info += tabulate(tables)
+        return info

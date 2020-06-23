@@ -29,7 +29,7 @@ from gevent import Timeout, sleep
 from bliss import global_map
 from bliss.common.shutter import BaseShutter, BaseShutterState
 from bliss.common.tango import DeviceProxy, DevFailed
-from bliss.common.logtools import log_warning
+from bliss.common.logtools import log_warning, lprint
 
 
 TangoShutterState = Enum(
@@ -136,12 +136,19 @@ class TangoShutter(BaseShutter):
         """
         state = self.state
         if state.name in ("OPEN", "RUNNING"):
-            log_warning(self, "Already open, command ignored")
+            log_warning(self, f"{self.name} already open, command ignored")
         elif state == TangoShutterState.CLOSED:
-            self.__control.open()
-            self._wait(TangoShutterState.OPEN, timeout)
+            try:
+                self.__control.open()
+                self._wait(TangoShutterState.OPEN, timeout)
+                lprint(f"{self.name} was {state.name} and is now {self.state.name}")
+            except RuntimeError as err:
+                print(err)
+                raise
         else:
-            raise RuntimeError(f"Cannot open: {state.value}")
+            raise RuntimeError(
+                f"Cannot open {self.name}, current state is: {state.value}"
+            )
 
     def close(self, timeout=60):
         """Close
@@ -152,16 +159,23 @@ class TangoShutter(BaseShutter):
         """
         state = self.state
         if state == TangoShutterState.CLOSED:
-            log_warning(self, "Already closed, command ignored")
+            log_warning(self, f"{self.name} already closed, command ignored")
         elif state.name in ("OPEN", "RUNNING"):
-            self.__control.close()
-            self._wait(TangoShutterState.CLOSED, timeout)
+            try:
+                self.__control.close()
+                self._wait(TangoShutterState.CLOSED, timeout)
+                lprint(f"{self.name} was {state.name} and is now {self.state.name}")
+            except RuntimeError as err:
+                print(err)
+                raise
         else:
-            raise RuntimeError(f"Cannot close: {state.value}")
+            raise RuntimeError(
+                f"Cannot close {self.name}, current state is: {state.value}"
+            )
 
     @property
     def mode(self):
-        """ Get the opening mode.
+        """ Get the opening mode. (only for FrontEnd).
         Raises:
             NotImplementedError: Not a Frontend shutter
         """
@@ -177,7 +191,7 @@ class TangoShutter(BaseShutter):
 
     @mode.setter
     def mode(self, mode):
-        """Set the frontend opening mode
+        """Set the opening mode (only for FrontEnd).
         Args:
             mode (str): MANUAL or AUTOMATIC
         Raises: NotImplementedError: Not a Fronend shutter.

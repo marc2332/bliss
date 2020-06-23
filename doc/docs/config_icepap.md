@@ -96,29 +96,8 @@ LIST MODE), to operate opening and closing of a shutter. This is done
 by moving back and forth a stepper motor between two pre-defined
 positions. The change is trigger by an external signal.
 
-#### Specific IcePAP shutter configuration
+For details, see: [Shutter configuration](config_shutter.md)
 
-* **axis_name**: name of existing IcePAP axis to move as a shutter
-* **closed_position**: position of the shutter when it is closed (in user position)
-* **opened_position**: position of the shutter when it is open (in user position)
-
-#### Shutter YAML configuration example
-
-```YAML
-controller:
-   class: icepap
-   ...
-   axes:
-       - name: fshut_mot
-         ...
-   shutters:
-       - name: fshutter
-         axis_name: fshut_mot
-         closed_position: 0
-         opened_position: 1
-```
-
-More information about **Shutter** objects [here](using_shutter.md)
 
 ### Linked axis configuration
 

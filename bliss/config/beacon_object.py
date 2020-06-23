@@ -93,6 +93,7 @@ class BeaconObject:
                             return
                         try:
                             fence["in_set"] = True
+                            self._initialize_with_setting()
                             if set_unmarshalling is not None:
                                 value = set_unmarshalling(self, value)
                             rvalue = fset(self, value)
@@ -123,7 +124,7 @@ class BeaconObject:
         config -- a configuration node
         share_hardware -- mean that several instances of bliss share the same hardware
         and need to initialize it with the configuration if no other peer has done it.
-        if share_hardware is False initialization of parameters will be done ones per peer.
+        if share_hardware is False initialization of parameters will be done once per peer.
         path (list) can be used to define a offset inside the config that is supposed to be used as
         config for this object.
         if name is supplied the config name is ignored and the provided name is used instead.
@@ -288,6 +289,7 @@ class BeaconObject:
             self._in_initialize_with_setting = True
             if not self._local_initialized:
                 self.__update_settings()
+                self._init()
                 self._local_initialized = True
             if not self.__initialized.value:
                 values = self._settings.get_all()
@@ -325,6 +327,14 @@ class BeaconObject:
     @property
     def _is_initialized(self):
         return self.__initialized.value
+
+    def _init(self):
+        """
+        This method should contains all software initialization
+        like communication, internal state...
+        This method will be called once.
+        """
+        pass
 
     def __filter_attribute(self, filter):
         # Follow the order of declaration in the class

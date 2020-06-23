@@ -74,7 +74,8 @@ class GroupMove:
         self._move_task = None
         self._motions_dict = dict()
         self._stop_motion = None
-        self._user_stopped = False
+        self._interrupted_move = False
+        self._backlash_started_event = gevent.event.Event()
 
     # Public API
 
@@ -95,7 +96,7 @@ class GroupMove:
     ):
         self._motions_dict = motions_dict
         self._stop_motion = stop_motion
-        self._user_stopped = False
+        self._interrupted_move = False
 
         hooks = collections.defaultdict(list)
         executed_hooks = dict()
@@ -188,62 +189,79 @@ class GroupMove:
         with capture_exceptions(raise_index=0) as capture:
             if self._move_task is not None:
                 with capture():
-                    self._stop_move(self._motions_dict, self._stop_motion)
+                    self._stop_move(self._motions_dict, self._stop_motion, wait=False)
                 if wait:
                     self._move_task.get()
 
     # Internal methods
 
-    def _monitor_move(self, motions_dict, move_func):
-        monitor_move = dict()
+    def _monitor_move(self, motions_dict, move_func, stop_func):
+        monitor_move_tasks = {}
         for controller, motions in motions_dict.items():
             for motion in motions:
                 if move_func is None:
                     move_func = "_handle_move"
                 task = gevent.spawn(getattr(motion.axis, move_func), motion)
-                monitor_move[motion] = task
+                monitor_move_tasks[task] = motion
+
         try:
-            gevent.joinall(monitor_move.values(), raise_error=True)
-        finally:
-            # update the last motor state
-            for motion, task in monitor_move.items():
-                try:
-                    motion.last_state = task.get(block=False)
-                except BaseException:
-                    pass
+            gevent.joinall(monitor_move_tasks, raise_error=True)
+        except BaseException:
+            # in case of error, all moves are stopped
+            # _stop_move is called with the same monitoring tasks:
+            # the stop command will be sent, then the same monitoring continues
+            # in '_stop_move'
+            self._stop_move(motions_dict, stop_func, monitor_move_tasks)
+            raise
+        else:
+            # everything went fine: update the last motor state ;
+            # we know the tasks have all completed successfully
+            for task, motion in monitor_move_tasks.items():
+                motion.last_state = task.get()
 
-    def _stop_move(self, motions_dict, stop_motion):
-        self._user_stopped = True
-        stop = []
-        for controller, motions in motions_dict.items():
-            stop.append(gevent.spawn(stop_motion, controller, motions))
-        # Raise exception if any, when all the stop tasks are finished
-        for task in gevent.joinall(stop):
-            task.get()
+    def _stop_move(self, motions_dict, stop_motion, stop_wait_tasks=None, wait=True):
+        self._interrupted_move = True
 
-    def _stop_wait(self, motions_dict, exception_capture):
-        stop_wait = []
+        stop_tasks = []
         for controller, motions in motions_dict.items():
-            for motion in motions:
-                stop_wait.append(
-                    gevent.spawn(motion.axis._move_loop, motion.polling_time)
-                )
-        gevent.joinall(stop_wait)
-        task_index = 0
-        for controller, motions in motions_dict.items():
-            for motion in motions:
-                with exception_capture():
-                    motion.last_state = stop_wait[task_index].get()
-                task_index += 1
+            stop_tasks.append(gevent.spawn(stop_motion, controller, motions))
+
+        with capture_exceptions(raise_index=0) as capture:
+            # wait for all stop commands to be sent
+            with capture():
+                gevent.joinall(stop_tasks, raise_error=True)
+            if capture.failed:
+                with capture():
+                    gevent.joinall(stop_tasks)
+
+            if wait:
+                if stop_wait_tasks is None:
+                    # create tasks to wait for end of motion
+                    stop_wait_tasks = {}
+                    for controller, motions in motions_dict.items():
+                        for motion in motions:
+                            stop_wait_tasks[
+                                gevent.spawn(
+                                    motion.axis._move_loop, motion.polling_time
+                                )
+                            ] = motion
+
+                # wait for end of motion
+                gevent.joinall(stop_wait_tasks)
+
+                for task, motion in stop_wait_tasks.items():
+                    motion.last_state = None
+                    with capture():
+                        motion.last_state = task.get()
 
     @protect_from_one_kill
     def _do_backlash_move(self, motions_dict):
-        backlash_move = []
+        backlash_motions = collections.defaultdict(list)
         for controller, motions in motions_dict.items():
             for motion in motions:
                 if motion.backlash:
-                    if self._user_stopped:
-                        # have to recalculate target: do backlash from where it stopped
+                    if self._interrupted_move:
+                        # have to recalculate target: do backlash move from where it stopped
                         motion.target_pos = (
                             motion.axis.dial * motion.axis.steps_per_unit
                         )
@@ -262,66 +280,84 @@ class GroupMove:
                         motion.target_pos + motion.backlash,
                         motion.backlash,
                     )
-                    backlash_motion.polling_time = motion.polling_time
+                    backlash_motions[controller].append(backlash_motion)
 
-                    backlash_move.append(
-                        gevent.spawn(motion.axis._backlash_move, backlash_motion)
-                    )
-        gevent.joinall(backlash_move)
-        gevent.joinall(backlash_move, raise_error=True)
+        if backlash_motions:
+            backlash_mv_group = GroupMove()
+            backlash_mv_group._do_move(
+                backlash_motions,
+                _start_one_controller_motions,
+                _stop_one_controller_motions,
+                None,
+                self._backlash_started_event,
+            )
+
+    def _do_move(
+        self, motions_dict, start_motion, stop_motion, move_func, started_event
+    ):
+        for controller, motions in motions_dict.items():
+            for motion in motions:
+                motion.last_state = None
+        with capture_exceptions(raise_index=0) as capture:
+            # Spawn start motion tasks for all controllers
+            start = [
+                gevent.spawn(start_motion, controller, motions)
+                for controller, motions in motions_dict.items()
+            ]
+
+            # wait for start tasks to be all done,
+            # in case of error or if wait is interrupted (ctrl-c, kill...)
+            # we will immediately stop and return
+            with capture():
+                gevent.joinall(start, raise_error=True)
+            if capture.failed:
+                # either a start task failed, or ctrl-c or kill happened.
+                # First, let all start task to finish
+                # /!\ it is important to join those, to ensure stop is called
+                # after tasks are done otherwise there is a risk 'end' is
+                # called before 'start' is all done
+                with capture():
+                    gevent.joinall(start)
+                # then, stop all axes and wait end of motion
+                self._stop_move(motions_dict, stop_motion)
+                # exit
+                return
+
+            # All controllers are now started
+            if started_event is not None:
+                started_event.set()
+
+            if self.parent:
+                event.send(self.parent, "move_done", False)
+
+            # Spawn the monitoring for all motions
+            with capture():
+                self._monitor_move(motions_dict, move_func, stop_motion)
 
     def _move(self, motions_dict, start_motion, stop_motion, move_func, started_event):
         # Set axis moving state
         for motions in motions_dict.values():
             for motion in motions:
-                motion.last_state = None
                 motion.axis._set_moving_state()
 
                 for _, chan in motion.axis._beacon_channels.items():
                     chan.unregister_callback(chan._setting_update_cb)
+
         with capture_exceptions(raise_index=0) as capture:
             try:
-                # Spawn start motion for all controllers
-                start = [
-                    gevent.spawn(start_motion, controller, motions)
-                    for controller, motions in motions_dict.items()
-                ]
-
-                # Wait for the controllers to be started
                 with capture():
-                    gevent.joinall(start, raise_error=True)
-                if capture.failed:
-                    gevent.joinall(start)
-                    # start failed, stop all axes and wait end of motion
-                    with capture():
-                        self._stop_move(motions_dict, stop_motion)
-
-                    self._stop_wait(motions_dict, capture)
-                    return
-
-                # All the controllers are now started
-                started_event.set()
-
-                if self.parent:
-                    event.send(self.parent, "move_done", False)
-
-                # Spawn the monitoring for all motions
-                with capture():
-                    self._monitor_move(motions_dict, move_func)
-                if capture.failed:
-                    with capture():
-                        self._stop_move(motions_dict, stop_motion)
-                    self._stop_wait(motions_dict, capture)
-
+                    self._do_move(
+                        motions_dict,
+                        start_motion,
+                        stop_motion,
+                        move_func,
+                        started_event,
+                    )
                 # Do backlash move, if needed
                 with capture():
                     self._do_backlash_move(motions_dict)
-                if capture.failed:
-                    with capture():
-                        self._stop_move(motions_dict, stop_motion)
-                    self._stop_wait(motions_dict, capture)
             finally:
-                reset_setpos = capture.failed or self._user_stopped
+                reset_setpos = bool(capture.failed) or self._interrupted_move
 
                 # cleanup
                 # -------
@@ -330,16 +366,10 @@ class GroupMove:
                 for motions in motions_dict.values():
                     for motion in motions:
                         state = motion.last_state
-                        if state is not None:
-                            continue
-
-                        with capture():
-                            state = motion.axis.hw_state
                         if state is None:
-                            state = AxisState("FAULT")
-                        # update state and update dial pos.
-                        with capture():
-                            motion.axis._update_settings(state)
+                            # update state and update dial pos.
+                            with capture():
+                                motion.axis._update_settings()
 
                 # update set position if motor has been stopped,
                 # or if an exception happened or if motion type is
@@ -382,7 +412,7 @@ class GroupMove:
 
                         motion.axis._set_move_done()
 
-                if self._user_stopped:
+                if self._interrupted_move:
                     lprint("")
                     for motion in motions:
                         _axis = motion.axis
@@ -1494,9 +1524,40 @@ class Axis:
         else:
             return self.READ_POSITION_MODE.CONTROLLER
 
-    def _update_settings(self, state):
-        self.settings.set("state", state)
-        self._update_dial()
+    def _update_settings(self, state=None):
+        """Update position and state in redis
+
+        By defaul, state is read from hardware; otherwise the given state is used
+        Position is always read.
+
+        In case of an exception (represented as X) during one of the readings,
+        state is set to FAULT:
+
+        state | pos | axis state | axis pos
+        ------|-----|-----------------------
+          OK  | OK  |   state    |  pos 
+          X   | OK  |   FAULT    |  pos 
+          OK  |  X  |   FAULT    |  not updated
+          X   |  X  |   FAULT    |  not updated
+        """
+        state_reading_exc = None
+
+        if state is None:
+            try:
+                state = self.hw_state
+            except BaseException:
+                # save exception to re-raise it afterwards
+                state_reading_exc = sys.excepthook(*sys.exc_info())
+                state = AxisState("FAULT")
+        try:
+            self._update_dial()
+        except BaseException:
+            state = AxisState("FAULT")
+            raise
+        finally:
+            self.settings.set("state", state)
+            if state_reading_exc:
+                raise state_reading_exc
 
     def dial2user(self, position, offset=None):
         """
@@ -1708,11 +1769,6 @@ class Axis:
             self._do_encoder_reading()
 
         return state
-
-    def _backlash_move(self, backlash_motion):
-        self.__controller.prepare_move(backlash_motion)
-        self.__controller.start_one(backlash_motion)
-        return self._handle_move(backlash_motion)
 
     def _do_encoder_reading(self):
         enc_dial = self.encoder.read()

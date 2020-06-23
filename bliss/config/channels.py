@@ -19,6 +19,7 @@ import gevent.queue
 from .conductor import client
 from bliss.common.event import saferef
 
+from redis.exceptions import ConnectionError
 
 _NotProvided = type("_NotProvided", (), {})()
 _Query = namedtuple("_Query", "id")
@@ -242,28 +243,37 @@ class Bus(AdvancedInstantiationInterface):
 
     def _listen(self):
         # Loop over events
-        for event in self._pubsub.listen():
+        try:
+            for event in self._pubsub.listen():
 
-            # Filter events
-            event_type = event.get("type")
-            if event_type != "message":
-                continue
+                # Filter events
+                event_type = event.get("type")
+                if event_type != "message":
+                    continue
 
-            # Extract info
-            name = event.get("channel").decode()
-            data = pickle.loads(event.get("data"))
-            channel = self._channels.get(name)
+                # Extract info
+                name = event.get("channel").decode()
+                data = pickle.loads(event.get("data"))
+                channel = self._channels.get(name)
 
-            # Run the corresponding handler
-            if isinstance(data, _Query):
-                self._on_query(name, channel, data)
-            if isinstance(data, _Reply):
-                self._on_reply(name, channel, data)
-            if isinstance(data, _Value):
-                self._on_value(name, channel, data)
+                # Run the corresponding handler
+                if isinstance(data, _Query):
+                    self._on_query(name, channel, data)
+                if isinstance(data, _Reply):
+                    self._on_reply(name, channel, data)
+                if isinstance(data, _Value):
+                    self._on_value(name, channel, data)
 
-            # Delete channel reference
-            del channel
+                # Delete channel reference
+                del channel
+        except ConnectionError as e:
+            raise ConnectionError(
+                "Connection to Beacon server lost. "
+                + "This is a serious problem! "
+                + "Please quite the bliss session and try to restart it. ("
+                + str(e)
+                + ")"
+            )
 
     # Event handlers
 

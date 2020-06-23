@@ -94,7 +94,7 @@ from bliss.scanning.scan import ScanDisplay
 from tabulate import tabulate
 
 from bliss.common.utils import typeguardTypeError_to_hint
-from typing import Optional
+from typing import Optional, Union
 from bliss.controllers.lima.lima_base import Lima
 from bliss.common.types import (
     _countable,
@@ -1073,7 +1073,7 @@ def newsample(sample_name: Optional[str] = None):
 
 
 @typeguard.typechecked
-def newdataset(dataset_name: Optional[str] = None):
+def newdataset(dataset_name: Optional[Union[str, int]] = None):
     """Change the dataset name used to determine the saving path.
     """
     current_session.scan_saving.newdataset(dataset_name)

@@ -186,7 +186,7 @@ class LinkedAxis(Axis):
     @property
     @lazy_init
     def _hw_position(self):
-        if self.__in_disprotected_move or self.is_moving:
+        if self.__in_disprotected_move and self.is_moving:
             # do not really read hw pos when moving,
             # since it can be a disprotected move, that
             # would report an error

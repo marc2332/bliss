@@ -30,6 +30,10 @@ def interface_property(name, mode=False):
     return property(getter, setter)
 
 
+class RoiMythenCounter(RoiMcaCounter):
+    pass
+
+
 class Mythen(CounterController):
 
     _settings = [
@@ -160,7 +164,7 @@ class Mythen(CounterController):
     def counters(self):
         counters = [self._spectrum]
         counters.extend(
-            [RoiMcaCounter(self, roi, None) for roi in self.rois.get_names()]
+            [RoiMythenCounter(self, roi, None) for roi in self.rois.get_names()]
         )
 
         return counter_namespace(counters)

@@ -150,6 +150,7 @@ import functools
 from bliss import current_session, is_bliss_shell, global_map
 from bliss.config.settings import HashSetting
 from bliss.common.protocols import Scannable
+from bliss.common.utils import get_matching_names, is_pattern
 
 from bliss.flint.client import plots as flint_plots
 from bliss.flint.client import proxy as flint_proxy
@@ -263,6 +264,7 @@ def plotinit(*counters):
         counters: String, alias, object identifying an object providing data to
             record. It can be a counter name, a counter, an axis, an alias.
     """
+    # Avoid cyclic import
     from bliss.scanning.scan import ScanDisplay
 
     sd = ScanDisplay()
@@ -274,24 +276,21 @@ def plotselect(*counters):
     """
     Select counter(s) to use for:
     * alignment (bliss/common/scans.py:_get_selected_counter_name())
-    * flint display (bliss/flint/plot1d.py)
-    Saved as a HashSetting with '<session_name>:plot_select' key.
+    * scan display (tool binded with F5)
+    * flint
 
     Args:
         counters: String, alias, object identifying an object providing data to
             record. It can be a counter name, a counter, an axis, an alias.
     """
+    # Avoid cyclic import
+    from bliss.scanning.scan import ScanDisplay
 
-    plot_select = HashSetting("%s:plot_select" % current_session.name)
+    scan_display = ScanDisplay()
     channel_names = get_channel_names(*counters)
-    counter_names = dict()
-    for channel_name in channel_names:
-        fullname = channel_name  # should be like: <controller.counter>
-        counter_names[fullname] = "Y1"
-    plot_select.set(counter_names)
+    scan_display.displayed_channels = channel_names
 
     if flint_proxy.check_flint():
-        channel_names = get_channel_names(*counters)
         flint = flint_proxy.get_flint(mandatory=False)
         # Make it safe
         if flint is not None:
@@ -305,7 +304,6 @@ def meshselect(*counters):
     Select counter(s) to use for scatter :
     * alignment (bliss/common/scans.py:_get_selected_counter_name())
     * flint display (bliss/flint/plot1d.py)
-    Saved as a HashSetting with '<session_name>:plot_select' key.
     """
     if flint_proxy.check_flint():
         channel_names = get_channel_names(*counters)
@@ -319,17 +317,12 @@ def meshselect(*counters):
 
 def get_plotted_counters():
     """
-    Returns names of plotted counters as a list (get list from a HashSetting
-    with '<session_name>:plot_select' key).
+    Returns names of displayed counters.
     """
-    plot_select = HashSetting("%s:plot_select" % current_session.name)
+    from bliss.scanning.scan import ScanDisplay
 
-    plotted_cnt_list = list()
-
-    for cnt_name in plot_select.get_all():
-        plotted_cnt_list.append(cnt_name)
-
-    return plotted_cnt_list
+    scan_display = ScanDisplay()
+    return scan_display.displayed_channels
 
 
 def display_motor(
@@ -374,19 +367,33 @@ def display_motor(
 
 def get_channel_names(*objs) -> List[str]:
     """
-    ?? returns a list containing aqc-channels names produced by provieded objects??
-    # FIXME: For now only counters and axis are supported.
+    Returns a list of channel names.
+
+    Arguments:
+        objs: This can be axis or counter objects, plus channel names or channel
+              names with escape chars like `*` or `?`.
+    Result:
+        A list of channel names, without validation (it could not exists).
     """
+    all_objects: List[str] = []
     result: List[str] = []
     for obj in objs:
         # An object could contain many channels?
         channel_names: List[str] = []
         if isinstance(obj, str):
-            alias = global_map.aliases.get(obj)
-            if alias is not None:
-                channel_names = get_channel_names(alias)
+            if is_pattern(obj):
+                if len(all_objects) == 0:
+                    all_objects += [
+                        "axis:" + n for n in global_map.get_axes_names_iter()
+                    ]
+                    all_objects += [c.fullname for c in global_map.get_counters_iter()]
+                channel_names = get_matching_names([obj], all_objects)[obj]
             else:
-                channel_names = [obj]
+                alias = global_map.aliases.get(obj)
+                if alias is not None:
+                    channel_names = get_channel_names(alias)
+                else:
+                    channel_names = [obj]
         elif isinstance(obj, Scannable):
             channel_names = ["axis:%s" % obj.name]
         elif hasattr(obj, "fullname"):
@@ -395,7 +402,9 @@ def get_channel_names(*objs) -> List[str]:
         else:
             # FIXME: Add a warning
             pass
-        result.extend(channel_names)
+        for c in channel_names:
+            if c not in result:
+                result.append(c)
     return result
 
 

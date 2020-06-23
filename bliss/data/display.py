@@ -314,11 +314,20 @@ class FormatedTab:
 class _ScanPrinterBase:
     HEADER = (
         "\033[92m** Scan {scan_nb}: {title} **\033[0m\n\n"
-        + "   date   : {start_time_str}\n"
-        + "   file   : {filename}\n"
-        + "   user   : {user_name}\n"
-        + "   session: {session_name}\n"
-        + "   hidden : [ {not_shown_counters_str} ]\n"
+        + "   date      : {start_time_str}\n"
+        + "   file      : {filename}\n"
+        + "   user      : {user_name}\n"
+        + "   session   : {session_name}\n"
+        + "   skipped   : [ {not_shown_counters_str} ]\n"
+    )
+
+    EXTRA_HEADER = (
+        "   unselected: [ {not_selected} ]\n"
+        + "                 (use \033[90mplotselect\033[0m to custom this list)\n"
+    )
+
+    EXTRA_HEADER_2 = (
+        "                 (use \033[90mplotselect\033[0m to filter this list)\n"
     )
 
     DEFAULT_WIDTH = 12
@@ -330,10 +339,11 @@ class _ScanPrinterBase:
     def __init__(self):
 
         self.scan_name = None
-        self.scan_is_running = None
+        self.scan_is_running = False
 
         self.channels_number = None
-        self.sorted_channel_names = None
+        self.displayable_channel_names = None
+        self.sorted_channel_names = []
         self.display_names = None
         self.channel_units = None
         self.other_channels = None
@@ -441,23 +451,27 @@ class _ScanPrinterBase:
         )
         self.other_channels += channels["spectra"] + channels["images"]
 
-        self.sorted_channel_names = []
+        displayable_channels = []
         # First the timer channel if any
         timer_cname = "timer:elapsed_time"
         if timer_cname in channel_names:
-            self.sorted_channel_names.append(timer_cname)
+            displayable_channels.append(timer_cname)
 
         # Then the masters scalars channels
         self._possible_motors = []
         for cname in master_scalar_channels:
             if cname != timer_cname:
-                self.sorted_channel_names.append(cname)
+                displayable_channels.append(cname)
                 self._possible_motors.append(self.display_names[cname])
 
         # Finally the other scalars channels
         for cname in scalar_channels:
             if cname != timer_cname:
-                self.sorted_channel_names.append(cname)
+                displayable_channels.append(cname)
+
+        #  Store the channels contained in the scan_info
+        self.displayable_channel_names = displayable_channels
+        self.sorted_channel_names = displayable_channels.copy()
 
     def build_columns_labels(self, channel_with_unit=True, with_index=True):
         # Build the columns labels (multi-line with counter and controller names)
@@ -500,9 +514,8 @@ class _ScanPrinterBase:
         return [controller_labels, channel_labels]  # counter_labels useless in table
 
     def build_header(self, scan_info):
-        # ------------ BUILD THE HEADER TO BE DISPLAY -----------------------------
-
-        self._tab = ""
+        """Build the header to be displayed
+        """
         if scan_info.get("type") != "ct":
 
             col_max_width = 40
@@ -526,6 +539,8 @@ class _ScanPrinterBase:
                     break
 
             self._tab.add_separator(self.RAW_SEP)
+        else:
+            self._tab = ""
 
         # A message about not shown channels
         not_shown_counters_str = ""
@@ -537,6 +552,41 @@ class _ScanPrinterBase:
         )
 
         return header
+
+    def build_extra_header(self):
+        not_selected = [
+            c
+            for c in self.displayable_channel_names
+            if c not in self.sorted_channel_names
+        ]
+        if len(not_selected) == 0:
+            return self.EXTRA_HEADER_2
+
+        not_selected = [f"'\033[91m{c}\033[0m'" for c in not_selected]
+        not_selected = ", ".join(not_selected)
+        return self.EXTRA_HEADER.format(not_selected=not_selected)
+
+    def print_scan_header(self, scan_info):
+        """Print the header of a new scan"""
+        header = self.build_header(scan_info)
+        if scan_info.get("type") != "ct":
+            header += self.build_extra_header()
+        print(header)
+
+    def print_data_header(self, scan_info, first=False):
+        """Print the header of the data table.
+
+        The first one skip the EXTRA_HEADER, cause it is already part of the
+        scan header.
+        """
+        if not first:
+            header = "\n" + self.build_extra_header()
+        else:
+            header = ""
+
+        self.build_header(scan_info)
+        tab = str(self._tab)
+        print(header + tab)
 
     def build_data_output(self, scan_info, data):
         """ data is a dict, one scalar per channel (last point) """
@@ -649,11 +699,7 @@ class _ScanPrinterBase:
             self._warning_messages = []
 
             self.collect_channels_info(scan_info)
-            header = self.build_header(scan_info)
-
-            print(header)
-            if str(self._tab):
-                print(self._tab)
+            self.print_scan_header(scan_info)
 
     def on_scan_data(self, scan_info, data):
         raise NotImplementedError
@@ -739,19 +785,62 @@ class ScanPrinter(_ScanPrinterBase):
 
 class ScanDataListener(_ScanPrinterBase):
     def __init__(self, session_name):
-
         super().__init__()
 
         self.session_name = session_name
-        self.scan_display = ScanDisplay(self.session_name)
+        self.scan_display = None
+        self.scan_info = None
+        self.update_header = False
         self._pool = ThreadPool(1)
+
+    def update_displayed_channels_from_user_request(self) -> bool:
+        """If enabled, check ScanDisplay content and compare it to the
+        current displayed channel selection.
+
+        If there is a mismatch, update the selection and redisplay the
+        table header.
+
+        Returns:
+            True if the channel selection was changed.
+        """
+        if self.scan_display is None:
+            self.scan_display = ScanDisplay(self.session_name)
+
+        requested_channels = []
+        if self.scan_display.enable_scan_display_filter:
+            requested_channels = self.scan_display.displayed_channels
+        if requested_channels == []:
+            requested_channels = self.displayable_channel_names.copy()
+
+        # Check if the content or the order have changed
+        if self.sorted_channel_names != requested_channels:
+            # Filter it with available channels
+            requested_channels = [
+                r for r in requested_channels if r in self.displayable_channel_names
+            ]
+            if self.sorted_channel_names != requested_channels:
+                self.sorted_channel_names = requested_channels
+                return True
+        return False
+
+    def collect_channels_info(self, scan_info):
+        super(ScanDataListener, self).collect_channels_info(scan_info)
+        # Update the displayed channels before printing the scan header
+        self.update_displayed_channels_from_user_request()
 
     def on_scan_new_child(self, scan_info, data_channel):
         pass
 
     @_post_in_pool
-    def on_scan_data(self, data_dim, master_name, channel_info):
+    def on_scan_new(self, scan_info):
+        if not self.scan_is_running:
+            self.update_header = True
+            self.first_header = True
+            self.scan_info = scan_info
+        super(ScanDataListener, self).on_scan_new(scan_info)
 
+    @_post_in_pool
+    def on_scan_data(self, data_dim, master_name, channel_info):
         if data_dim != "0d":
             return False
 
@@ -759,11 +848,23 @@ class ScanDataListener(_ScanPrinterBase):
         data = channel_info["data"]
 
         if self.is_new_data_valid(scan_info, data):
+            if scan_info.get("type") != "ct":
+                updated = self.update_displayed_channels_from_user_request()
+                self.update_header = self.update_header or updated
+            else:
+                self.update_header = False
 
             # Skip if partial data
             for cname in self.sorted_channel_names:
                 if len(data[cname]) <= self.scan_steps_index:
                     return False
+
+            if self.update_header:
+                self.update_header = False
+                # The table header have to be updated
+                # It is always the case the very first time
+                self.print_data_header(scan_info, first=self.first_header)
+                self.first_header = False
 
             # Check if we receive more than one scan points (i.e. lines) per 'scan_data' event
             bsize = min([len(data[cname]) for cname in data])
@@ -775,6 +876,7 @@ class ScanDataListener(_ScanPrinterBase):
                 print(line)
                 self.scan_steps_index += 1
 
+    @_post_in_pool
     def on_scan_end(self, scan_info):
         super().on_scan_end(scan_info)
 

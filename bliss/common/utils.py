@@ -960,6 +960,18 @@ def modify_annotations(annotations):
     return decorate
 
 
+def is_pattern(pattern: str) -> bool:
+    """Return true if the input string is a pattern for `get_matching_names`.
+    """
+    if "?" in pattern:
+        return True
+    if "*" in pattern:
+        return True
+    if "[" in pattern:
+        return True
+    return False
+
+
 def get_matching_names(patterns, names, strict_pattern_as_short_name=False):
 
     """ search a pattern into a list of names (unix pattern style) 

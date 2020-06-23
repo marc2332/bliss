@@ -649,6 +649,11 @@ class CurvePlotWidget(plot_helper.PlotWidget):
         for _item, itemKeys in items.items():
             for key in itemKeys:
                 self.__plot.remove(*key)
+        for curve in self.__plot.getAllCurves():
+            legend = curve.getName()
+            if legend.startswith("Fit "):
+                # Guess it's a fit from silx
+                self.__plot.removeCurve(legend)
         self.__view.plotCleared()
 
     def __cleanAllItems(self):

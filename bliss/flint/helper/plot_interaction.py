@@ -458,7 +458,7 @@ class ShapesSelector(Selector):
             if kind == "Rectangle":
                 roi = RectangleROI()
                 roi.setGeometry(origin=shape["origin"], size=shape["size"])
-                roi.setLabel(shape["label"])
+                roi.setName(shape["label"])
                 rois.append(roi)
             else:
                 raise ValueError(f"Unknown shape of type {kind}")

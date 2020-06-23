@@ -595,6 +595,7 @@ class CurvePlotPropertyWidget(qt.QWidget):
         self.__tree.setEditTriggers(qt.QAbstractItemView.NoEditTriggers)
         self.__tree.setUniformRowHeights(True)
 
+        self.__structureInvalidated: bool = False
         self.__xAxisInvalidated: bool = False
         self.__xAxisDelegate = delegates.RadioPropertyItemDelegate(self)
         self.__yAxesDelegate = YAxesPropertyItemDelegate(self)
@@ -823,7 +824,10 @@ class CurvePlotPropertyWidget(qt.QWidget):
         self.__setScan(scanModel)
 
     def __structureChanged(self):
-        self.__updateTree()
+        if self.__plotModel.isInTransaction():
+            self.__structureInvalidated = True
+        else:
+            self.__updateTree()
 
     def __itemValueChanged(
         self, item: plot_model.Item, eventType: plot_model.ChangeEventType
@@ -836,8 +840,10 @@ class CurvePlotPropertyWidget(qt.QWidget):
                 self.__updateTree()
 
     def __transactionFinished(self):
-        if self.__xAxisInvalidated:
+        updateTree = self.__xAxisInvalidated or self.__structureInvalidated
+        if updateTree:
             self.__xAxisInvalidated = False
+            self.__structureInvalidated = False
             self.__updateTree()
 
     def plotModel(self) -> Union[None, plot_model.Plot]:
@@ -1046,7 +1052,9 @@ class CurvePlotPropertyWidget(qt.QWidget):
                                 yChannel = plotItem.yChannel()
                                 if yChannel is not None:
                                     yChannelName = yChannel.name()
-                                    parentChannel = channelItems[yChannelName]
+                                    parentChannel = channelItems.get(yChannelName, None)
+                                    if parentChannel is None:
+                                        parent = itemWithoutLocation
                                 xAxisItem = channelItems[xChannelName]
                                 xAxisItem.setSelectedXAxis()
                                 if yChannel is None:

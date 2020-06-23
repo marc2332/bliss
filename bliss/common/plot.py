@@ -294,9 +294,12 @@ def plotselect(*counters):
         flint = flint_proxy.get_flint(mandatory=False)
         # Make it safe
         if flint is not None:
-            plot_id = flint.get_default_live_scan_plot("curve")
-            if plot_id is not None:
-                flint.set_displayed_channels(plot_id, channel_names)
+            try:
+                plot_id = flint.get_default_live_scan_plot("curve")
+                if plot_id is not None:
+                    flint.set_displayed_channels(plot_id, channel_names)
+            except:
+                FLINT_LOGGER.error("Error while executing plotselect", exc_info=True)
 
 
 def meshselect(*counters):

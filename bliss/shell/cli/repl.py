@@ -53,7 +53,7 @@ from bliss.shell.cli.ptpython_statusbar_patch import NEWstatus_bar, TMUXstatus_b
 from bliss.common.logtools import logbook_printer
 from bliss.shell.cli.protected_dict import ProtectedDict
 from bliss.shell import standard
-
+from redis.exceptions import ConnectionError
 import __main__
 
 logger = logging.getLogger(__name__)
@@ -422,8 +422,17 @@ class BlissRepl(PythonRepl):
         try:
             # return super(BlissRepl, self)._execute(*args, **kwargs)
             return self._another_execute(*args, **kwargs)
-        except:
-            return sys.exc_info()
+        except BaseException as e:
+            if isinstance(e, ConnectionError):
+                raise ConnectionError(
+                    "Connection to Beacon server lost. "
+                    + "This is a serious problem! "
+                    + "Please quite the bliss session and try to restart it. ("
+                    + str(e)
+                    + ")"
+                )
+            else:
+                return sys.exc_info()
 
     def _execute(self, *args, **kwargs):
         self.current_task = gevent.spawn(self._execute_task, *args, **kwargs)

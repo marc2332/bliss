@@ -517,48 +517,42 @@ def test_save_images(session, beacon, lima_simulator, scan_tmpdir):
     lima_sim = beacon.get("lima_simulator")
     robz2 = session.env_dict["robz2"]
     scan_saving = session.scan_saving
-    saved_base_path = scan_saving.base_path
-    try:
-        scan_saving.base_path = str(scan_tmpdir)
-        scan_saving.images_path_template = ""
+    scan_saving.base_path = str(scan_tmpdir)
+    scan_saving.images_path_template = ""
 
-        s = scans.ascan(robz2, 0, 1, 2, 0.001, lima_sim, run=False)
-        scan_path = s.writer.filename
-        images_path = os.path.dirname(scan_path)
-        image_filename = "lima_simulator_000%d.edf"
+    s = scans.ascan(robz2, 0, 1, 2, 0.001, lima_sim, run=False)
+    scan_path = s.writer.filename
+    images_path = os.path.dirname(scan_path)
+    image_filename = "lima_simulator_000%d.edf"
 
-        s.run()
+    s.run()
 
-        assert os.path.isfile(scan_path)
-        for i in range(2):
-            assert os.path.isfile(os.path.join(images_path, image_filename % i))
+    assert os.path.isfile(scan_path)
+    for i in range(2):
+        assert os.path.isfile(os.path.join(images_path, image_filename % i))
 
-        os.unlink(scan_path)
-        os.unlink(os.path.join(images_path, image_filename % 0))
+    os.unlink(scan_path)
+    os.unlink(os.path.join(images_path, image_filename % 0))
 
-        s = scans.ascan(robz2, 1, 0, 2, 0.001, lima_sim, save_images=False, run=False)
+    s = scans.ascan(robz2, 1, 0, 2, 0.001, lima_sim, save_images=False, run=False)
 
-        s.run()
+    s.run()
 
-        scan_path = s.writer.filename
-        assert os.path.isfile(scan_path)
-        assert not os.path.isfile(
-            os.path.join(scan_saving.base_path, image_filename % 0)
-        )
+    scan_path = s.writer.filename
+    assert os.path.isfile(scan_path)
+    assert not os.path.isfile(os.path.join(scan_saving.base_path, image_filename % 0))
 
-        os.unlink(scan_path)
+    os.unlink(scan_path)
 
-        s = scans.ascan(
-            robz2, 0, 1, 2, 0.001, lima_sim, save=False, save_images=True, run=False
-        )
+    s = scans.ascan(
+        robz2, 0, 1, 2, 0.001, lima_sim, save=False, save_images=True, run=False
+    )
 
-        s.run()
+    s.run()
 
-        scan_path = s.writer.filename
-        assert not os.path.isfile(scan_path)
-        assert not os.path.isfile(os.path.join(images_path, image_filename % 0))
-    finally:
-        scan_saving.base_path = saved_base_path
+    scan_path = s.writer.filename
+    assert not os.path.isfile(scan_path)
+    assert not os.path.isfile(os.path.join(images_path, image_filename % 0))
 
 
 def test_motor_group(session):

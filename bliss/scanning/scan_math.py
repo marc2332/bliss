@@ -110,8 +110,8 @@ def cen(x: numpy.ndarray, y: numpy.ndarray) -> typing.Tuple[float, float]:
     if x.ndim != 1:
         raise TypeError("x and y arrays must have a single dimension.")
 
-    if x.size == 0:
-        _logger.warning("Input data is empty")
+    if x.size < 2:
+        # gradient expect 2 points
         return Cen(numpy.nan, numpy.nan)
 
     slope = numpy.gradient(y, x)

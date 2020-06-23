@@ -395,19 +395,29 @@ class BasicScanSaving(EvalParametersWardrobe):
         )
 
     def __dir__(self):
-        keys = super().__dir__()
-        return (
-            keys
-            + [
+        keys = list(self.PROPERTY_ATTRIBUTES)
+        keys.extend([p for p in self.DEFAULT_VALUES if not p.startswith("_")])
+        keys.extend(
+            [
+                "clone",
                 "get",
+                "get_data_info",
                 "get_path",
                 "get_parent_node",
                 "filename",
                 "root_path",
+                "data_path",
+                "data_fullpath",
                 "images_path",
+                "writer_object",
+                "file_extension",
+                "scan_parent_db_name",
+                "newproposal",
+                "newsample",
+                "newdataset",
             ]
-            + self.PROPERTY_ATTRIBUTES
         )
+        return keys
 
     def __info__(self):
         d = {}
@@ -754,6 +764,19 @@ class ESRFScanSaving(BasicScanSaving):
         super().__init__(name)
         self._tango_metadata_manager = None
         self._tango_metadata_experiment = None
+
+    def __dir__(self):
+        keys = super().__dir__()
+        keys.extend(
+            [
+                "proposal_type",
+                "icat_sync",
+                "icat_root_path",
+                "icat_data_path",
+                "icat_data_fullpath",
+            ]
+        )
+        return keys
 
     @property
     def scan_saving_config(self):

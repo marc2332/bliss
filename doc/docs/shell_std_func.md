@@ -281,8 +281,17 @@ what is given to both stdout and to the logbook.
 Everything that should be logged to the logbook for any reason should use this
 instead of the normal print.
 
-You can use `lprint()` even when using Bliss in library mode: no output will
-be send to stdout, but messages will be forwarded to logbook.
+`lprint()` can be used even when using Bliss in library mode: no output will be
+send to stdout, but messages will be forwarded to logbook.
+
+`lprint_disable()` turns off output of `lprint()` instructions to stdout.
+
+Following example will be silent:
+```python
+with lprint_disable():
+    for axis in axes_list:
+        axis.hw_limit(limit, wait=False)
+```
 
 ### prdef (print definition)
 * `prdef(<function>)`: Display information about given function :

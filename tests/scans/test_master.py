@@ -59,7 +59,7 @@ def test_stopiter_with_top_master(session, lima_simulator, dummy_acq_device):
     device = dummy_acq_device.get(None, name="device", npoints=1)
     chain.add(lima_master, device)
 
-    scan = Scan(chain, "test")
+    scan = Scan(chain, "test", save=False)
     scan.run()
     assert device.nb_trigger == 2
 

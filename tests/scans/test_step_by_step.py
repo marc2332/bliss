@@ -298,7 +298,7 @@ def test_all_dnscan(session):
 def test_scan_watch_data_no_print(session, capsys):
     roby = session.config.get("roby")
     diode = session.config.get("diode")
-    scans.ascan(roby, 0, 10, 10, 0.01, diode)
+    scans.ascan(roby, 0, 10, 10, 0.01, diode, save=False)
     captured = capsys.readouterr()
 
     assert captured.out == ""
@@ -367,7 +367,7 @@ def test_scan_watch_data_set_callback_to_test_saferef(session, capsys):
 
     scan.set_scan_watch_callbacks(on_scan_new, on_scan_data, on_scan_end)
 
-    scans.ascan(roby, 0, 1, 3, 0.01, diode)
+    scans.ascan(roby, 0, 1, 3, 0.01, diode, save=False)
 
     captured = capsys.readouterr()
     assert captured.out == "scan_new\n" + "scan_data\n" * 4 + "scan_end\n"
@@ -376,7 +376,7 @@ def test_scan_watch_data_set_callback_to_test_saferef(session, capsys):
     del on_scan_data
     del on_scan_end
 
-    scans.ascan(roby, 0, 1, 3, 0.01, diode)
+    scans.ascan(roby, 0, 1, 3, 0.01, diode, save=False)
 
     captured = capsys.readouterr()
     assert captured.out == ""
@@ -517,55 +517,49 @@ def test_save_images(session, beacon, lima_simulator, scan_tmpdir):
     lima_sim = beacon.get("lima_simulator")
     robz2 = session.env_dict["robz2"]
     scan_saving = session.scan_saving
-    saved_base_path = scan_saving.base_path
-    try:
-        scan_saving.base_path = str(scan_tmpdir)
-        scan_saving.images_path_template = ""
+    scan_saving.base_path = str(scan_tmpdir)
+    scan_saving.images_path_template = ""
 
-        s = scans.ascan(robz2, 0, 1, 2, 0.001, lima_sim, run=False)
-        scan_path = s.writer.filename
-        images_path = os.path.dirname(scan_path)
-        image_filename = "lima_simulator_000%d.edf"
+    s = scans.ascan(robz2, 0, 1, 2, 0.001, lima_sim, run=False)
+    scan_path = s.writer.filename
+    images_path = os.path.dirname(scan_path)
+    image_filename = "lima_simulator_000%d.edf"
 
-        s.run()
+    s.run()
 
-        assert os.path.isfile(scan_path)
-        for i in range(2):
-            assert os.path.isfile(os.path.join(images_path, image_filename % i))
+    assert os.path.isfile(scan_path)
+    for i in range(2):
+        assert os.path.isfile(os.path.join(images_path, image_filename % i))
 
-        os.unlink(scan_path)
-        os.unlink(os.path.join(images_path, image_filename % 0))
+    os.unlink(scan_path)
+    os.unlink(os.path.join(images_path, image_filename % 0))
 
-        s = scans.ascan(robz2, 1, 0, 2, 0.001, lima_sim, save_images=False, run=False)
+    s = scans.ascan(robz2, 1, 0, 2, 0.001, lima_sim, save_images=False, run=False)
 
-        s.run()
+    s.run()
 
-        scan_path = s.writer.filename
-        assert os.path.isfile(scan_path)
-        assert not os.path.isfile(
-            os.path.join(scan_saving.base_path, image_filename % 0)
-        )
+    scan_path = s.writer.filename
+    assert os.path.isfile(scan_path)
+    assert not os.path.isfile(os.path.join(scan_saving.base_path, image_filename % 0))
 
-        os.unlink(scan_path)
+    os.unlink(scan_path)
 
-        s = scans.ascan(
-            robz2, 0, 1, 2, 0.001, lima_sim, save=False, save_images=True, run=False
-        )
+    s = scans.ascan(
+        robz2, 0, 1, 2, 0.001, lima_sim, save=False, save_images=True, run=False
+    )
 
-        s.run()
+    s.run()
 
-        scan_path = s.writer.filename
-        assert not os.path.isfile(scan_path)
-        assert not os.path.isfile(os.path.join(images_path, image_filename % 0))
-    finally:
-        scan_saving.base_path = saved_base_path
+    scan_path = s.writer.filename
+    assert not os.path.isfile(scan_path)
+    assert not os.path.isfile(os.path.join(images_path, image_filename % 0))
 
 
 def test_motor_group(session):
     diode = session.config.get("diode")
     roby = session.config.get("roby")
     robz = session.config.get("robz")
-    scan = scans.a2scan(roby, 0, 1, robz, 0, 1, 5, 0.1, diode)
+    scan = scans.a2scan(roby, 0, 1, robz, 0, 1, 5, 0.1, diode, save=False)
 
     children = list(scan.node.children())
     axis_master = children[0]

@@ -77,6 +77,13 @@ def configure_parser_arguments(parser: ArgumentParser):
         default=False,
         help="Start with cleared local user settings. ",
     )
+    parser.add_argument(
+        "--log-file",
+        type=str,
+        dest="log_file",
+        default=None,
+        help="Store logs in a file.",
+    )
 
 
 def get_flint_key(pid=None) -> str:

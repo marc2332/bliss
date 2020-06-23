@@ -212,7 +212,7 @@ def initApplication(argv):
     return qapp
 
 
-def config_logging():
+def config_logging(options):
     # Basic default formatter
     fs = logging.BASIC_FORMAT
     dfs = None
@@ -230,19 +230,25 @@ def config_logging():
     ROOT_LOGGER.addHandler(handler_stdout)
     ROOT_LOGGER.addHandler(handler_stderr)
 
+    if options.log_file:
+        handler_file = logging.FileHandler(filename=options.log_file, mode="w")
+        handler_file.setFormatter(formatter)
+        handler_file.setLevel(logging.INFO)
+        ROOT_LOGGER.addHandler(handler_file)
+
     logging.captureWarnings(True)
     ROOT_LOGGER.level = logging.INFO
 
 
 def main():
-    config_logging()
-
     options = parse_options()
     if options.debug:
         logging.root.setLevel(logging.DEBUG)
     else:
         silx_log = logging.getLogger("silx")
         silx_log.setLevel(logging.WARNING)
+
+    config_logging(options)
 
     need_gevent_loop = True
     if options.gevent_poll:

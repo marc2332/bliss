@@ -54,7 +54,7 @@ check_lint:
     - conda create --quiet --name testenv --file requirements-conda.txt --file requirements-test-conda.txt
     - source activate testenv
     - conda install pytest-profiling --yes
-    - pip install .
+    - pip install . --no-deps
     # run tests on source
     - echo ${PYTEST_ARGS}
     - python setup.py test --addopts "$PYTEST_ARGS"
@@ -107,10 +107,33 @@ test_writer_cov:
   variables:
     PYTEST_ARGS: '--cov nexus_writer_service --cov-report html:htmlcov_writer --cov-report term --profile --durations=30 -m writer --runwritertests'
 
+# Tests for windows are disabled for the moment (job begin with .)
+# (they cannot run currently because of (at least) redis version for win64 is limited to v3.2.100)
+.test_bliss_windows:
+  stage: tests
+  image: continuumio/miniconda3:latest
+  tags:
+    - builder
+    - conda
+    - win
+  before_script:
+    - call conda config --append channels conda-forge
+    - call conda config --add channels defaults
+    - call conda config --add channels esrf-bcu
+    - call conda config --add channels tango-controls
+  script:
+    - call conda create --quiet --name testenv --file requirements-conda-win64.txt --file requirements-test-conda-win64.txt
+    - call conda activate testenv
+    - call pip install . --no-deps
+    - call python setup.py test --addopts "-x --durations=30"
 
 package:
   stage: build
   image: continuumio/miniconda3:latest
+  tags:
+    - conda
+    - builder
+    - linux
   script:
     # install opengl libraries (needed to avoid problem with pyopengl dependency)
     - apt-get update && apt-get -y install libgl1-mesa-glx
@@ -131,6 +154,45 @@ package:
     - mkdir conda-local-channel conda-local-channel/linux-64
     - cp -r dist/linux-64/*.tar.bz2 conda-local-channel/linux-64/
     - conda index conda-local-channel
+  artifacts:
+    paths:
+      - dist/
+      - conda-local-channel/
+    expire_in: 7 days
+  only:
+    - tags
+
+package_windows:
+  stage: build
+  image: continuumio/miniconda3:latest
+  tags:
+    - conda
+    - builder
+    - win
+  before_script:
+    - call conda config --append channels conda-forge
+    - call conda config --append channels http://bcu-ci.esrf.fr/stable
+    - call conda config --add channels defaults
+    - call conda config --add channels esrf-bcu
+    - call conda config --add channels tango-controls
+    - call conda config --show channels
+    # - call conda config --remove channels http://bcu-ci.esrf.fr/stable
+  script: 
+    # create package env and install all requirements and conda-build
+    # note: no need to install whole requirements.txt here (probably for linux either)
+    - call conda create --yes --quiet --name buildenv python=3.7 conda-build lz4-c -c conda-forge
+    - call conda activate buildenv
+    # triggering the creation of bliss/release.py file
+    - python -c "from setup import generate_release_file;generate_release_file()"
+    # creating the meta.yaml file for conda packet generation
+    - cd scripts
+    - python create_recipe.py
+    - call conda build . --prefix-length=80  --output-folder=../dist/
+    # creating a local conda channel to serve bliss packet for next stage
+    - cd ..
+    - mkdir conda-local-channel conda-local-channel\win-64
+    - copy dist\win-64\*.tar.bz2 conda-local-channel\win-64\
+    - call conda index conda-local-channel
   artifacts:
     paths:
       - dist/
@@ -176,6 +238,10 @@ create_user_doc:
 .template_test_package:
   stage: package_tests
   image: continuumio/miniconda3:latest
+  tags:
+    - conda
+    - builder
+    - linux
   script:
     # install Xvfb and opengl libraries (needed for test_flint)
     - apt-get update && apt-get -y install xvfb libxi6
@@ -257,6 +323,7 @@ deploy_bliss:
     # for other tags the package will be published to http://bcu-ci.esrf.fr/stable/
     - if [[ $COMMIT_TAG == *rc* ]]; then export BASEDIR='/conda-devel'; else export BASEDIR='/conda'; fi
     - cp -r dist/linux-64/*.tar.bz2 ${BASEDIR}/linux-64/
+    - cp -r dist/win-64/*.tar.bz2 ${BASEDIR}/win-64/
     # Updating conda package index metadata
     - conda index ${BASEDIR}
   only:

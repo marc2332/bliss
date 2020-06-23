@@ -36,11 +36,13 @@ def get_user_scan_meta():
     if USER_SCAN_META is None:
         USER_SCAN_META = scan_meta()
         USER_SCAN_META.positioners.set("positioners", fill_positioners)
-        USER_SCAN_META.instrument.set("NX_class", {"NX_class": "NXinstrument"})
-        USER_SCAN_META.technique.set("NX_class", {"NX_class": "NXcollection"})
-        USER_SCAN_META.sample.set("NX_class", {"NX_class": "NXsample"})
-        USER_SCAN_META.proposal.set("NX_class", {"NX_class": "NXcollection"})
-        USER_SCAN_META.sample_description.set("NX_class", {"NX_class": "NXcollection"})
+        USER_SCAN_META.instrument.set("@NX_class", {"@NX_class": "NXinstrument"})
+        USER_SCAN_META.technique.set("@NX_class", {"@NX_class": "NXcollection"})
+        USER_SCAN_META.sample.set("@NX_class", {"@NX_class": "NXsample"})
+        USER_SCAN_META.proposal.set("@NX_class", {"@NX_class": "NXcollection"})
+        USER_SCAN_META.sample_description.set(
+            "@NX_class", {"@NX_class": "NXcollection"}
+        )
     return USER_SCAN_META
 
 
@@ -91,6 +93,8 @@ def scan_meta(info=None):
                 try:
                     if callable(values):
                         values = values(scan)
+                        if values is None:
+                            continue
                     cat_dict = rd.setdefault(category.name.lower(), dict())
                     cat_dict.update(values)
                 except Exception as e:
@@ -110,6 +114,12 @@ def scan_meta(info=None):
 
     def copy(self):
         return scan_meta(copy_module.deepcopy(_infos))
+        # TODO: does this really need to be a deepcopy?
+        # there is a pretty weired thing e.g. in mulitposition
+        # when one replaces
+        # scan_meta_obj.instrument.set(self, lambda _:self.metadata_dict())
+        # with
+        # scan_meta_obj.instrument.set(self, self.metadata_dict)
 
     attrs["copy"] = copy
 

@@ -253,7 +253,7 @@ def removeItemAndKeepAxes(plot: plot_model.Plot, item: plot_model.Item):
 
 def createScatterItem(
     plot: plot_model.Plot, channel: scan_model.Channel
-) -> Tuple[plot_model.Item, bool]:
+) -> Tuple[plot_item_model.ScatterItem, bool]:
     """
     Create an item to a plot using a channel.
 
@@ -619,7 +619,6 @@ def updateDisplayedChannelNames(
                         item, _updated = createCurveItem(plot, channel, yAxis="left")
                     else:
                         assert False
-                    assert not _updated
                 item.setVisible(True)
         for item in unneeded_items:
             plot.removeItem(item)

@@ -310,6 +310,18 @@ class Scan(qt.QObject, _Sealable):
         return result[1]
 
 
+class DeviceType(enum.Enum):
+    """Enumerate the kind of devices"""
+
+    NONE = 0
+    """Default type"""
+
+    VIRTUAL_ROI = 1
+    """Device containing channel data from the same ROI.
+    It is a GUI concept, there is no related device on the BLISS side.
+    """
+
+
 class Device(qt.QObject, _Sealable):
     """
     Description of a device.
@@ -322,6 +334,7 @@ class Device(qt.QObject, _Sealable):
         qt.QObject.__init__(self, parent=parent)
         _Sealable.__init__(self)
         self.__name: str = ""
+        self.__type: DeviceType = DeviceType.NONE
         self.__channels: List[Channel] = []
         self.__master: Optional[Device] = None
         self.__topMaster: Optional[Device] = None
@@ -379,6 +392,17 @@ class Device(qt.QObject, _Sealable):
         """
         # FIXME: This have to be improved
         return self.__master is None
+
+    def setType(self, deviceType: DeviceType):
+        if self.isSealed():
+            raise SealedError()
+        self.__type = deviceType
+
+    def type(self) -> DeviceType:
+        """
+        Returns the kind of this channel.
+        """
+        return self.__type
 
 
 class ChannelType(enum.Enum):
@@ -562,11 +586,14 @@ class Channel(qt.QObject, _Sealable):
 
     def isDataCompatible(self, data: Data) -> bool:
         """
-        True if this `data` is compoatible with this channel.
+        True if this `data` is compatible with this channel.
         """
         if data is None:
             return True
-        if self.ndim != data.array().ndim:
+        array = data.array()
+        if array is None:
+            return True
+        if self.ndim != array.ndim:
             return False
         return True
 
@@ -611,7 +638,7 @@ class Data(qt.QObject):
 
     This object was designed to be non-mutable in order to allow fast comparison,
     and to store metadata relative to the measurement (like unit, error) or
-    helper to deal with the data (like hash). Counld be renamed into `Quantity`.
+    helper to deal with the data (like hash). Could be renamed into `Quantity`.
     """
 
     def __init__(

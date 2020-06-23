@@ -5,6 +5,7 @@
 # Copyright (c) 2015-2020 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
+
 """Base class and enumerations for multichannel analyzers."""
 
 # Imports
@@ -19,7 +20,7 @@ import tabulate
 import gevent
 
 from bliss.controllers.mca.roi import RoiConfig
-from bliss.common.logtools import *
+from bliss.common.logtools import log_debug
 from bliss.common.utils import autocomplete_property
 from bliss.config.beacon_object import BeaconObject
 from bliss.controllers.counter import CounterController
@@ -44,10 +45,17 @@ AcquisitionMode = enum.Enum("AcquisitionMode", "MCA HWSCA")
 
 TriggerMode = enum.Enum("TriggerMode", "SOFTWARE SYNC GATE")
 
+TriggerModeNames = {
+    "SOFTWARE": TriggerMode.SOFTWARE,
+    "SYNC": TriggerMode.SYNC,
+    "GATE": TriggerMode.GATE,
+}
+
 PresetMode = enum.Enum("PresetMode", "NONE REALTIME LIVETIME EVENTS TRIGGERS")
 
 Stats = collections.namedtuple(
-    "Stats", "realtime livetime triggers events icr ocr deadtime"
+    "Stats",
+    "realtime trigger_livetime energy_livetime triggers events icr ocr deadtime",
 )
 
 
@@ -60,11 +68,6 @@ class MCABeaconObject(BeaconObject):
     @property
     def name(self):
         return self.mca.name
-
-    @BeaconObject.lazy_init
-    def init(self):
-        self.mca.initialize_attributes()
-        self.mca.initialize_hardware()
 
     @BeaconObject.property(default=AcquisitionMode.MCA)
     def acquisition_mode(self):
@@ -99,7 +102,10 @@ class BaseMCA(CounterController):
         self.beacon_obj = beacon_obj_class(self, config)
         self._config = config
         self._rois = RoiConfig(self)
-        self.beacon_obj.init()
+
+        # Init
+        self.initialize_attributes()
+        self.initialize_hardware()
 
     def get_acquisition_object(self, acq_params, ctrl_params, parent_acq_params):
 
@@ -351,10 +357,26 @@ class BaseMCA(CounterController):
     def statistics(self):
         stats = self.get_acquisition_statistics()
         datas = [
-            [idx, val.realtime, val.livetime, val.deadtime, val.icr, val.ocr]
+            [
+                idx,
+                val.realtime,
+                val.trigger_livetime,
+                val.energy_livetime,
+                val.deadtime,
+                val.icr,
+                val.ocr,
+            ]
             for (idx, val) in stats.items()
         ]
-        heads = ["det#", "RealTime", "LiveTime", "DeadTime", "ICR", "OCR"]
+        heads = [
+            "det#",
+            "RealTime",
+            "TrigLiveTime",
+            "EneLiveTime",
+            "DeadTime",
+            "ICR",
+            "OCR",
+        ]
         print("\n" + tabulate.tabulate(datas, heads, numalign="right") + "\n")
 
     # Extra logic
@@ -387,15 +409,32 @@ class BaseMCA(CounterController):
             self.stop_acquisition()
 
     def hardware_poll_points(self, acquisition_number, polling_time):
+        log_debug(
+            self,
+            "hardware_poll_points(self, acquisition_number={}, polling_time={})",
+            acquisition_number,
+            polling_time,
+        )
         assert acquisition_number > 1
         sent = current = 0
-        # Loop over polled commands
+
+        # Loop over polled commands ???
         while True:
             # Poll data
             done = not self.is_acquiring()
             current, data, statistics = self.poll_data()
             points = list(range(sent, sent + len(data)))
             sent += len(data)
+
+            log_debug(
+                self,
+                "  hpp--while_True done={}, current={}  points={} sent={}",
+                done,
+                current,
+                points,
+                sent,
+            )
+
             # Check data integrity
             if sorted(data) != sorted(statistics) != points:
                 raise RuntimeError("The polled data overlapped during the acquisition")
@@ -451,7 +490,7 @@ class BaseMCA(CounterController):
     def run_synchronized_acquisition(
         self, acquisition_number, block_size=None, polling_time=0.1
     ):
-        log_debug(self, "run_synchronized_acquisition")
+        log_debug(self, "run_synchronized_acquisition acq_nb={}", acquisition_number)
         # Trigger mode
         self.trigger_mode = TriggerMode.SYNC
         # Acquisition number
@@ -591,7 +630,8 @@ def mca_counters(mca):
 
     - counters.spectrum_det<N>
     - counters.realtime_det<N>
-    - counters.livetime_det<N>
+    - counters.trigger_livetime_det<N>
+    - counters.energy_livetime_det<N>
     - counters.triggers_det<N>
     - counters.events_det<N>
     - counters.icr_det<N>
@@ -632,7 +672,8 @@ def mca_counter_groups(mca):
 
     - groups.spectrum
     - groups.realtime
-    - groups.livetime
+    - groups.trigger_livetime
+    - groups.energy_livetime
     - groups.triggers
     - groups.events
     - groups.icr

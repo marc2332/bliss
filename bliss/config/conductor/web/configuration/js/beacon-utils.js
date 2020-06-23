@@ -66,6 +66,7 @@ function reload_tree(tree, options) {
 }
 
 function show_file(node, panel) {
+  check_invalid_file(node.path);
   show_filename(node.path, panel);
 }
 
@@ -86,6 +87,17 @@ function show_filename(filename, panel) {
     }
     panel.attr("style", "visibility: visible");
   }, "json");
+}
+
+function check_invalid_file(filename) {
+  $.ajax({
+    url: "db_file_invalid/" + filename,
+    success: function (result) {
+      data = $.parseJSON(result);
+      if (data.type === "danger")
+        show_notification(data.message, data.type);
+    }
+  });
 }
 
 function show_item(name, panel) {
@@ -220,16 +232,16 @@ function show_notification(msg, type, fadeOut, fadeOutDelay) {
   }
   if (fadeOutDelay === undefined) {
     if (type === "success") {
+      fadeOutDelay = 3000;
+    }
+    if (type === "info") {
       fadeOutDelay = 5000;
     }
-        else if (type === "info") {
-          fadeOutDelay = 8000;
-        }
     if (type === "warning") {
-      fadeOutDelay = 12000;
-        }
+      fadeOutDelay = 8000;
+    }
     if (type === "danger") {
-      fadeOutDelay = 15000;
+      fadeOutDelay = 10000;
     }
   }
 

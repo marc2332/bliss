@@ -16,8 +16,11 @@ import numpy
 import collections.abc
 from collections.abc import MutableMapping, MutableSequence
 import socket
+import fnmatch
+
 from itertools import zip_longest
 from bliss.common.event import saferef
+
 import typeguard
 
 
@@ -67,6 +70,23 @@ def add_property(inst, name, method):
 def grouped(iterable, n):
     "s -> (s0,s1,s2,...sn-1), (sn,sn+1,sn+2,...s2n-1), (s2n,s2n+1,s2n+2,...s3n-1), ..."
     return zip(*[iter(iterable)] * n)
+
+
+def grouped_with_tail(iterable, n):
+    "like grouped, but does not remove last elements if they not reach the given n length"
+    iterator = iter(iterable)
+    while True:
+        partial = []
+        for _ in range(n):
+            try:
+                value = next(iterator)
+            except StopIteration:
+                if len(partial):
+                    yield partial
+                return
+            else:
+                partial.append(value)
+        yield partial
 
 
 def flatten_gen(items):
@@ -672,104 +692,6 @@ def update_node_info(node, d):
             node.info[key] = value
 
 
-def dicttoh5(
-    treedict,
-    h5file,
-    h5path="/",
-    mode="w",
-    overwrite_data=False,
-    create_dataset_args=None,
-):
-    """Write a nested dictionary to a HDF5 file, using keys as member names.
-
-    If a dictionary value is a sub-dictionary, a group is created. If it is
-    any other data type, it is cast into a numpy array and written as a
-    :mod:`h5py` dataset. Dictionary keys must be strings and cannot contain
-    the ``/`` character.
-
-    taken from silx 0.10.1 
-    (http://www.silx.org/doc/silx/0.10.1/_modules/silx/io/dictdump.html#dicttoh5)
-    
-    HERE EXTENDED TO SUPPORT 'NX_class' Attributes
-    """
-    # ... one could think about propagating something similar to the changes
-    # made here back to silx
-    from silx.io.dictdump import _SafeH5FileWrite, _prepare_hdf5_dataset
-    import warnings
-
-    if not h5path.endswith("/"):
-        h5path += "/"
-
-    with _SafeH5FileWrite(h5file, mode=mode) as h5f:
-        for key in treedict:
-            if isinstance(treedict[key], dict) and len(treedict[key]):
-                # non-empty group: recurse
-                dicttoh5(
-                    treedict[key],
-                    h5f,
-                    h5path + key,
-                    overwrite_data=overwrite_data,
-                    create_dataset_args=create_dataset_args,
-                )
-
-                if "NX_class" not in h5f[h5path + key].attrs:
-                    h5f[h5path + key].attrs["NX_class"] = "NXcollection"
-
-            elif treedict[key] is None or (
-                isinstance(treedict[key], dict) and not len(treedict[key])
-            ):
-                if (h5path + key) in h5f:
-                    if overwrite_data is True:
-                        del h5f[h5path + key]
-                    else:
-                        warnings.warn(
-                            "key (%s) already exists. "
-                            "Not overwriting." % (h5path + key)
-                        )
-                        continue
-                # Create empty group
-                h5f.create_group(h5path + key)
-                # use NXcollection at first, might be overwritten an time later
-                h5f[h5path + key].attrs["NX_class"] = "NXcollection"
-
-            elif key == "NX_class":
-                # assign NX_class
-                try:
-                    h5f[h5path].attrs["NX_class"] = treedict[key]
-                except KeyError:
-                    h5f.create_group(h5path)
-                    h5f[h5path].attrs["NX_class"] = treedict[key]
-
-            else:
-                ds = _prepare_hdf5_dataset(treedict[key])
-                # can't apply filters on scalars (datasets with shape == () )
-                if ds.shape == () or create_dataset_args is None:
-                    if h5path + key in h5f:
-                        if overwrite_data is True:
-                            del h5f[h5path + key]
-                        else:
-                            warnings.warn(
-                                "key (%s) already exists. "
-                                "Not overwriting." % (h5path + key)
-                            )
-                            continue
-
-                    h5f.create_dataset(h5path + key, data=ds)
-
-                else:
-                    if h5path + key in h5f:
-                        if overwrite_data is True:
-                            del h5f[h5path + key]
-                        else:
-                            warnings.warn(
-                                "key (%s) already exists. "
-                                "Not overwriting." % (h5path + key)
-                            )
-                            continue
-
-                    h5f.create_dataset(h5path + key, data=ds, **create_dataset_args)
-
-
 def rounder(template_number, number):
     """Round a number according to a template number
     
@@ -1036,3 +958,69 @@ def modify_annotations(annotations):
         return wrapped_function
 
     return decorate
+
+
+def is_pattern(pattern: str) -> bool:
+    """Return true if the input string is a pattern for `get_matching_names`.
+    """
+    if "?" in pattern:
+        return True
+    if "*" in pattern:
+        return True
+    if "[" in pattern:
+        return True
+    return False
+
+
+def get_matching_names(patterns, names, strict_pattern_as_short_name=False):
+
+    """ search a pattern into a list of names (unix pattern style) 
+
+        pattern     |       meaning
+        ------------|-------------------------------------------
+          *         | matches everything
+          ?         | matches any single character
+          [seq]     | matches any character in seq
+          [!seq]    | matches any character not in seq
+
+        arguments:
+          - patterns: a list of patterns
+          - names: a list of names
+          - strict_pattern_as_short_name: if True patterns without special character,
+            are transformed like this: 'pattern' -> '*:pattern' (as the 'short name' part of a 'fullname')
+
+        return: dict { pattern : matching names }
+
+    """
+
+    special_char = ["*", ":"]
+
+    if not isinstance(patterns, (list, tuple)):
+        patterns = [patterns]
+
+    matches = {}
+    for pat in patterns:
+
+        if not isinstance(pat, str):
+            pat = str(pat)
+
+        sub_pat = [pat]
+
+        if strict_pattern_as_short_name:
+            if all([sc not in pat for sc in special_char]):
+                sub_pat = [f"*:{pat}", f"*:{pat}:*", f"{pat}:*"]
+
+        # store the fullname of matching counters
+        matching_names = []
+        for _pat in sub_pat:
+
+            for name in names:
+                if fnmatch.fnmatch(name, _pat):
+                    matching_names.append(name)
+
+            if matching_names:
+                break
+
+        matches[pat] = matching_names
+
+    return matches

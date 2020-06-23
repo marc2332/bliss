@@ -1,0 +1,50 @@
+# Conda requirements file
+colorama
+cython
+docopt
+flask
+louie >= 2.0
+gevent >= 1.4
+h5py >= 2.9
+jedi >= 0.16
+jinja2 >= 2.7
+mendeleev
+mock
+msgpack-numpy >= 0.4.4.2
+msgpack-python >= 0.6.1
+netifaces
+networkx == 2.4
+numpy >= 1.13
+pandas
+parso >=0.5.1
+pint
+prompt_toolkit == 2.0.10
+psutil
+ptpython >= 2.0
+pyfiglet
+pygments
+pyserial > 2
+python >= 3.7
+ruamel.yaml
+redis
+redis-py == 3.5.1
+hiredis
+requests
+simple-pid
+sqlalchemy
+tabulate
+pytango >= 9.3.1
+tblib
+treelib <= 1.5.5
+pywin32
+cerberus
+typeguard == 2.6.1
+typing_extensions
+numexpr
+
+# Flint
+qt
+silx
+pyopengl
+scipy
+sortedcontainers

@@ -36,7 +36,7 @@ from bliss.comm.scpi import (
 # need to reimplement IDN decoding because keitheley return 'MODEL XXX' in the
 # model field. We just want XXX
 def decode_IDN(s):
-    idn = _decode_IDN(s)
+    idn = _decode_IDN(s.decode())
     idn["model"] = idn["model"].split(" ")[-1].strip()
     return idn
 

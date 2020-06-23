@@ -78,6 +78,7 @@ class LimaAcquisitionMaster(AcquisitionMaster):
         self.__image_status = (False, -1)
         self.__lock = lock.Semaphore()
         self._ready_event = event.Event()
+        self.__live_stopped = False
 
         wait_frame_id = self.acq_params.pop("wait_frame_id", None)
         if wait_frame_id is None:
@@ -252,7 +253,18 @@ class LimaAcquisitionMaster(AcquisitionMaster):
         else:
             self.acq_params["saving_mode"] = "MANUAL"
 
+    def _stop_video_live(self):
+        # external live preview processes may use the cam_proxy in video_live or in an infinit loop (acq_nb_frames=0)
+        # if it is the case, stop the camera/video_live only once (at the 1st wait_ready called before prepare)
+        if not self.__live_stopped:
+            if self.device.proxy.acq_nb_frames == 0:  # target live acquisition
+                if self.device.proxy.acq_status == "Running":
+                    self.device.proxy.video_live = False
+                    self.device.proxy.stopAcq()
+            self.__live_stopped = True  # allow only at first call
+
     def prepare(self):
+
         if self.__sequence_index > 0 and self.prepare_once:
             return
 
@@ -298,8 +310,6 @@ class LimaAcquisitionMaster(AcquisitionMaster):
         self.device.proxy.video_source = "LAST_IMAGE"
 
         self.wait_slaves_prepare()
-        if self.device.proxy.video_live is True:
-            self._lima_controller.stop_bpm_live()
 
         self.device.proxy.video_active = True
         self._lima_controller.prepareAcq()
@@ -330,6 +340,9 @@ class LimaAcquisitionMaster(AcquisitionMaster):
         return True
 
     def wait_ready(self):
+
+        self._stop_video_live()
+
         acq_state = self.device.proxy.acq_status.lower()
         while acq_state == "running":
             if self.fast_synchro:
@@ -458,4 +471,5 @@ class BpmAcquisitionSlave(IntegratingCounterAcquisitionSlave):
         self.device._proxy.Start()
 
     def stop_device(self):
-        self.device._proxy.Stop()
+        # self.device._proxy.Stop() # temporary fix, see issue 1707
+        pass

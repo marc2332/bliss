@@ -177,8 +177,12 @@ class CalcCounterController(CounterController):
 
         self.build_counters(config)
 
-    def get_acquisition_object(self, acq_params, ctrl_params, parent_acq_params):
-        return CalcCounterAcquisitionSlave(self, acq_params, ctrl_params=ctrl_params)
+    def get_acquisition_object(
+        self, acq_params, ctrl_params, parent_acq_params, acq_devices
+    ):
+        return CalcCounterAcquisitionSlave(
+            self, acq_devices, acq_params, ctrl_params=ctrl_params
+        )
 
     def get_default_chain_parameters(self, scan_params, acq_params):
         return acq_params

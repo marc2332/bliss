@@ -25,12 +25,13 @@ import gevent.event
 from silx.gui import qt
 from silx.gui import plot as silx_plot
 import bliss
-from bliss.flint.helper import plot_interaction
+from bliss.flint.helper import plot_interaction, scan_info_helper
 from bliss.flint.helper import model_helper
 from bliss.flint.model import plot_model
 from bliss.flint.model import plot_item_model
 from bliss.flint.model import flint_model
 from bliss.common import event
+from bliss.flint import config
 
 _logger = logging.getLogger(__name__)
 
@@ -100,6 +101,10 @@ class FlintApi:
         """Returns the bliss version"""
         return bliss.release.version
 
+    def get_flint_api_version(self) -> int:
+        """Returns the flint API version"""
+        return config.FLINT_API_VERSION
+
     def register_output_listener(self):
         """Register output listener to ask flint to emit signals for stdout and
         stderr.
@@ -121,6 +126,10 @@ class FlintApi:
     def set_session(self, session_name):
         manager = self.__flintModel.mainManager()
         manager.updateBlissSessionName(session_name)
+
+    def set_tango_metadata_name(self, name: str):
+        manager = self.__flintModel.mainManager()
+        manager.setTangoMetadataName(name)
 
     def get_session_name(self):
         model = self.__flintModel
@@ -183,19 +192,14 @@ class FlintApi:
         """Returns the identifier of a plot according to few constraints.
         """
         plot_class = self.__get_plot_class_by_kind(plot_type)
-
-        scan = self.__flintModel.currentScan()
-        if scan is None:
-            raise RuntimeError("No scan displayed")
-
-        channel = scan.getChannelByName(channel_name)
-        if channel is None:
-            raise ValueError(
-                "The channel '%s' is not part of the current scan" % channel_name
-            )
-
         workspace = self.__flintModel.workspace()
         for iwidget, widget in enumerate(workspace.widgets()):
+            scan = widget.scan()
+            if scan is None:
+                continue
+            channel = scan.getChannelByName(channel_name)
+            if channel is None:
+                continue
             plot = widget.plotModel()
             if plot is None:
                 continue
@@ -259,8 +263,6 @@ class FlintApi:
                 children of the plot and referenced as it's object name.
         """
         plot = self._get_plot_widget(plot_id, expect_silx_api=True)
-        from silx.gui.utils.testutils import QTest
-
         action: qt.QAction = plot.findChild(qt.QAction, qaction)
         action.trigger()
 
@@ -300,6 +302,16 @@ class FlintApi:
 
     # Plot management
 
+    def is_plot_exists(self, plot_id) -> bool:
+        if isinstance(plot_id, str) and plot_id.startswith("live:"):
+            try:
+                self._get_live_plot_widget(plot_id)
+                return True
+            except ValueError:
+                return False
+        else:
+            return plot_id in self._custom_plots
+
     def add_plot(
         self,
         cls_name: str,
@@ -309,7 +321,7 @@ class FlintApi:
     ):
         """Create a new custom plot based on the `silx` API.
 
-        The plot will be created i a new tab on Flint.
+        The plot will be created in a new tab on Flint.
 
         Arguments:
             cls_name: A class name defined by silx. Can be one of "PlotWidget",
@@ -320,6 +332,9 @@ class FlintApi:
             selected: If true (not the default) the plot became the current
                 displayed plot.
             closeable: If true (default), the tab can be closed manually
+
+        Returns:
+            A plot_id
         """
         plot_id = self.create_new_id()
         if not name:
@@ -431,6 +446,63 @@ class FlintApi:
         del self.data_dict[plot_id]
         plot = self._get_plot_widget(plot_id)
         plot.clear()
+
+    def start_image_monitoring(self, channel_name, tango_address):
+        """Start monitoring of an image from a Tango detector.
+
+        The widget used to display result of the image scan for this detector
+        will be used to display the monitoring of the camera.
+
+        Arguments:
+            channel_name: Identifier of the channel in Redis. It is used to
+                find the right plot in Flint.
+            tango_address: Address of the Lima Tango server
+        """
+        from .manager import monitoring
+
+        scan = monitoring.MonitoringScan(None, channel_name, tango_address)
+        manager = self.__flintModel.mainManager()
+        plots = scan_info_helper.create_plot_model(scan.scanInfo(), scan)
+        manager.updateWidgetsWithPlots(scan, plots, True, None)
+        scan.startMonitoring()
+
+    def stop_image_monitoring(self, channel_name):
+        """Stop monitoring of an image from a Tango detector.
+
+        Arguments:
+            channel_name: Identifier of the channel in Redis. It is used to
+                find the right plot in Flint.
+        """
+        plot_id = self.get_live_scan_plot(channel_name, "image")
+        if plot_id is None:
+            raise RuntimeError("The channel name is not part of any widget")
+        from .manager import monitoring
+
+        plot = self._get_live_plot_widget(plot_id)
+        scan = plot.scan()
+        if not isinstance(scan, monitoring.MonitoringScan):
+            raise RuntimeError("Unexpected scan type %s" % type(scan))
+
+        scan.stopMonitoring()
+
+    def set_static_image(self, channel_name, data):
+        """Update the displayed image data relative to a channel name.
+
+        This can be use to display a custom image to a detector, in case
+        the processing was done in BLISS side.
+        """
+        from .manager import monitoring
+
+        if not data.flags.writeable:
+            # Image from the network should be writable
+            # FIXME: this should be fixed on our RPC
+            data = numpy.array(data)
+
+        scan = monitoring.StaticImageScan(None, channel_name)
+        manager = self.__flintModel.mainManager()
+        plots = scan_info_helper.create_plot_model(scan.scanInfo(), scan)
+        manager.updateWidgetsWithPlots(scan, plots, True, None)
+        scan.setData(data)
 
     def _get_live_plot_widget(self, plot_id):
         if not isinstance(plot_id, str) or not plot_id.startswith("live:"):

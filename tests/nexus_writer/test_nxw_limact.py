@@ -35,6 +35,7 @@ def test_nxw_limact_base_nopolicy(nexus_writer_base_nopolicy):
     _test_nxw_limact(**nexus_writer_base_nopolicy)
 
 
+@nxw_test_utils.writer_stdout_on_exception
 def _test_nxw_limact(session=None, tmpdir=None, writer=None, **kwargs):
     lima = session.env_dict["lima_simulator"]
     scan = session.env_dict["limact"](lima, 0.1)
@@ -49,6 +50,6 @@ def _test_nxw_limact(session=None, tmpdir=None, writer=None, **kwargs):
         scan_shape=(1,),
         positioners=[[]],
         detectors=detectors,
-        hastimer=False,
+        softtimer=None,
         **kwargs
     )

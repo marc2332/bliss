@@ -11,10 +11,30 @@ import h5py
 import numpy
 import time
 import datetime
-from bliss.common.utils import dicttoh5
+import gevent
+from silx.io.dictdump import dicttonx
 from bliss.scanning.writer.file import FileWriter
 from bliss.scanning.scan_meta import categories_names
 import functools
+
+
+def get_scan_entries(filename, timeout=3):
+    try:
+        f = open(filename, mode="rb")
+    except IOError:
+        # File does not exist or no read permissions
+        return []
+    try:
+        with gevent.Timeout(timeout):
+            while True:
+                try:
+                    with h5py.File(f, mode="r") as h5f:
+                        return list(h5f.keys())
+                except Exception:
+                    # Scans are being added
+                    gevent.sleep(0.1)
+    finally:
+        f.close()
 
 
 class Writer(FileWriter):
@@ -191,25 +211,27 @@ class Writer(FileWriter):
 
         # pop instrument
         instrument = self.file.create_group(f"{scan_name}/instrument")
-        instrument.attrs["NX_class"] = "NXinstrument"
+        # instrument.attrs["NX_class"] = "NXinstrument"
         instrument_meta = hdf5_scan_meta.pop("instrument")
 
         # pop nexuswriter
         hdf5_scan_meta.pop("nexuswriter")
-
-        dicttoh5(hdf5_scan_meta, self.file, h5path=f"{scan_name}/scan_meta")
+        hdf5_scan_meta.pop("positioners", None)
+        dicttonx(hdf5_scan_meta, self.file, h5path=f"{scan_name}/scan_meta")
         self.file[f"{scan_name}/scan_meta"].attrs["NX_class"] = "NXcollection"
 
         def new_nx_collection(d, x):
-            return d.setdefault(x, {"NX_class": "NXcollection"})
+            return d.setdefault(x, {"@NX_class": "NXcollection"})
 
-        instrument_meta["chain_meta"] = {"NX_class": "NXcollection"}
+        instrument_meta["chain_meta"] = {"@NX_class": "NXcollection"}
         instrument_meta["positioners"] = scan_info.get("positioners", {}).get(
             "positioners_start", {}
         )
+        instrument_meta["positioners"]["@NX_class"] = "NXcollection"
         instrument_meta["positioners_dial"] = scan_info.get("positioners", {}).get(
             "positioners_dial_start", {}
         )
+        instrument_meta["positioners_dial"]["@NX_class"] = "NXcollection"
 
         base_db_name = scan.node.db_name
         for dev in scan.acq_chain.nodes_list:
@@ -221,8 +243,7 @@ class Writer(FileWriter):
                     new_nx_collection, dev_path, instrument_meta["chain_meta"]
                 )
                 d.update(dev_info)
-
-        dicttoh5(instrument_meta, self.file, h5path=f"{scan_name}/instrument")
+        dicttonx(instrument_meta, self.file, h5path=f"{scan_name}/instrument")
 
     def close(self):
         super(Writer, self).close()
@@ -231,8 +252,15 @@ class Writer(FileWriter):
             self.file = None
 
     def get_scan_entries(self):
-        try:
-            with h5py.File(self.filename, mode="r") as f:
-                return list(f.keys())
-        except IOError:  # file doesn't exist
-            return []
+        return get_scan_entries(self.filename)
+
+    @property
+    def last_scan_number(self):
+        """Scans start numbering from 1 so 0 indicates
+        no scan exists in the file.
+        """
+        entry_names = self.get_scan_entries()
+        if entry_names:
+            return max(int(s.split("_")[0]) for s in entry_names)
+        else:
+            return 0

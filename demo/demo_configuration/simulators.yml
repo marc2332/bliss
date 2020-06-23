@@ -15,17 +15,57 @@
   class: Lima
   tango_url: id00/limaccds/slits_simulator
 
-- name: lima_tomo_simulator
+- name: tomocam
   plugin: bliss
   class: Lima
   tango_url: id00/limaccds/tomo_simulator
 
-- name: mca_simulator
+- name: diffcam
+  plugin: bliss
+  class: Lima
+  tango_url: id00/limaccds/diff_simulator
+
+- name: mca1
   module: mca
   class: SimulatedMCA
   plugin: bliss
 
-- name: mca2_simulator
+- name: mca2
   module: mca
   class: SimulatedMCA
   plugin: bliss
+
+- module: transfocator
+  class: TransfocatorMockup
+  name: transfocator
+  plugin: bliss
+  lenses: 8                      # (1)
+  pinhole: 1                     # (2)
+  safety: False                  # (3)
+  controller_ip: localhost       # (4)
+  read_mode: 0                   # (5)
+  cmd_mode: 0                    # (6)
+
+- name: wcid00a
+  module: wago.wago
+  class: WagoMockup
+  modbustcp:
+      url: localhost
+  ignore_missing: True
+  plugin: bliss
+  mapping:
+      - type: 750-405
+        logical_names: in1dig, in2dig
+      - type: 750-516
+        logical_names: out1dig, out2dig, out3dig, out4dig
+      - type: 750-562
+        logical_names: out1_10v, out2_10v
+      - type: 750-468
+        logical_names: in1_10v, in1_10v, in2_10v, in2_10v
+
+- name: white_beam_attn
+  module: white_beam_attenuator
+  class:  WhiteBeamAttenuatorMockup
+  plugin: bliss
+  attenuators:
+    - attenuator: $att1

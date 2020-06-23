@@ -148,7 +148,7 @@ def _replace_node_with_ref(node):
             node[key] = _replace_list_node_with_ref(value)
 
 
-def get_config(base_path="", timeout=3.):
+def get_config(base_path="", timeout=3., raise_yaml_exc=True):
     """
     Return configuration from bliss configuration server
 
@@ -175,13 +175,15 @@ def get_config(base_path="", timeout=3.):
     Args:
         base_path (str): base path to config
         timeout (float): response timeout (seconds)
+        raise_yaml_exc (bool): if False will not raise exceptions related
+                         to yaml parsing and config nodes creation
 
     Returns:
         Config: the configuration object
     """
     global CONFIG
     if CONFIG is None:
-        CONFIG = Config(base_path, timeout)
+        CONFIG = Config(base_path, timeout, raise_yaml_exc=raise_yaml_exc)
     return CONFIG
 
 
@@ -492,6 +494,10 @@ class Node(dict):
         )
 
 
+class InvalidConfig(RuntimeError):
+    pass
+
+
 class Config:
     """
     Bliss static configuration object.
@@ -505,17 +511,19 @@ class Config:
 
     USER_TAG_KEY = "user_tag"
 
-    def __init__(self, base_path, timeout=3, connection=None):
+    def __init__(self, base_path, timeout=3, connection=None, raise_yaml_exc=True):
+        self.raise_yaml_exc = raise_yaml_exc
         self._base_path = base_path
         self._connection = connection or client.get_default_connection()
         self.reload(timeout=timeout)
+        self.invalid_yaml_files = dict()
 
     def close(self):
         self._clear_instances()
         channels.Bus.clear_cache()
         self._connection.close()
 
-    def reload(self, base_path=None, timeout=3):
+    def reload(self, base_path=None, timeout=3, raise_yaml_exc=True):
         """
         Reloads the configuration from the bliss server.
 
@@ -541,6 +549,7 @@ class Config:
         self._file2node = {}
 
         self._clear_instances()
+        self.invalid_yaml_files = dict()
 
         path2file = client.get_config_db_files(
             base_path=base_path, timeout=timeout, connection=self._connection
@@ -555,107 +564,153 @@ class Config:
                 continue
 
             try:
-                # typ='safe' -> Gives dict instead of OrderedDict subclass
-                # (removing comments)
-                # pure=True -> if False 052 is interpreted as octal (using C engine)
-
-                yaml = YAML(pure=True)
-                yaml.allow_duplicate_keys = True
-                d = yaml.load(file_content)
-            except ruamel.yaml.scanner.ScannerError as exp:
-                exp.note = "Error in YAML parsing:\n"
-                exp.note += "----------------\n"
-                exp.note += f"{file_content}\n"
-                exp.note += "----------------\n"
-                exp.note += "Hint: You can check your configuration with an on-line YAML validator like http://www.yamllint.com/ \n\n"
-                exp.problem_mark.name = path
-                raise exp
-            # from ruamel.yaml.parser import ParserError
-            except ruamel.yaml.error.MarkedYAMLError as exp:
-                if exp.problem_mark is not None:
-                    exp.problem_mark.name = path
-                raise
-
-            is_init_file = False
-            if file_name.startswith("__init__"):
-                _, last_path = os.path.split(base_path)
-                is_init_file = not last_path.startswith("@")
-
-            if is_init_file:
-                if d is None:
-                    continue
-
-                parents = Node(self, fs_node if fs_key else None, path)
-                parents["__children__"] = []
-                # do not accept a list in case of __init__ file
-                if isinstance(d, MutableSequence):
-                    raise TypeError("List are not allowed in *%s* file" % path)
                 try:
-                    self._parse(d, parents)
-                except TypeError:
-                    _msg = "Parsing error1 on %s in '%s'" % (self._connection, path)
-                    raise RuntimeError(_msg)
+                    # typ='safe' -> Gives dict instead of OrderedDict subclass
+                    # (removing comments)
+                    # pure=True -> if False 052 is interpreted as octal (using C engine)
 
-                if not fs_key:
-                    self._root_node = parents
-                else:
-                    fs_node[fs_key] = parents
-                continue
-            else:
-                if isinstance(d, MutableSequence):
-                    parents = []
-                    for item in d:
-                        local_parent = Node(self, fs_node, path)
-                        try:
-                            self._parse(item, local_parent)
-                        except TypeError:
-                            _msg = "Parsing error2 on %s in '%s'" % (
-                                self._connection,
-                                path,
-                            )
-                            raise RuntimeError(_msg)
-                        self._create_index(local_parent)
-                        parents.append(local_parent)
-                else:
-                    parents = Node(self, fs_node, path)
+                    yaml = YAML(pure=True)
+                    yaml.allow_duplicate_keys = True
+                    d = yaml.load(file_content)
+                except (
+                    ruamel.yaml.scanner.ScannerError,
+                    ruamel.yaml.parser.ParserError,
+                ) as exp:
+                    exp.note = "Error in YAML parsing:\n"
+                    exp.note += "----------------\n"
+                    exp.note += f"{file_content}\n"
+                    exp.note += "----------------\n"
+                    exp.note += "Hint: You can check your configuration with an on-line YAML validator like http://www.yamllint.com/ \n\n"
+                    exp.problem_mark.name = path
+                    if self.raise_yaml_exc:
+                        raise exp
+                    else:
+                        raise InvalidConfig("Error in YAML parsing", path)
+                except ruamel.yaml.error.MarkedYAMLError as exp:
+                    if exp.problem_mark is not None:
+                        exp.problem_mark.name = path
+                    if self.raise_yaml_exc:
+                        raise exp
+                    else:
+                        raise InvalidConfig("Error in YAML parsing", path)
+                except ruamel.yaml.error.MarkedYAMLError as exp:
+                    if exp.problem_mark is not None:
+                        exp.problem_mark.name = path
+                    if self.raise_yaml_exc:
+                        raise exp
+                    else:
+                        raise InvalidConfig("Error in YAML parsing", path)
+
+                is_init_file = False
+                if file_name.startswith("__init__"):
+                    _, last_path = os.path.split(base_path)
+                    is_init_file = not last_path.startswith("@")
+
+                if is_init_file:
+                    if d is None:
+                        continue
+
+                    parents = Node(self, fs_node if fs_key else None, path)
+                    parents["__children__"] = []
+                    # do not accept a list in case of __init__ file
+                    if isinstance(d, MutableSequence):
+                        _msg = "List are not allowed in *%s* file" % path
+                        if self.raise_yaml_exc:
+                            raise TypeError(_msg)
+                        else:
+                            raise InvalidConfig(_msg, path)
                     try:
                         self._parse(d, parents)
-                    except TypeError:
-                        _msg = "Parsing error3 on %s in '%s'" % (self._connection, path)
-                        raise RuntimeError(_msg)
-                    self._create_index(parents)
+                    except (TypeError, AttributeError):
+                        _msg = ("Error while parsing '{path}'",)
+                        if self.raise_yaml_exc:
+                            raise RuntimeError(_msg)
+                        else:
+                            raise InvalidConfig(_msg, path)
 
-            if isinstance(fs_node, MutableSequence):
-                continue
-            elif fs_key == "":
-                children = fs_node
-            else:
-                children = fs_node.get(fs_key)
-
-            if isinstance(children, MutableSequence):
-                if isinstance(parents, MutableSequence):
-                    children.extend(parents)
-                else:
-                    children.append(parents)
-            elif children is not None:
-                # check if this node is __init__
-                children_node = children.get("__children__")
-                if isinstance(children_node, MutableSequence):  # it's an init node
-                    if isinstance(parents, MutableSequence):
-                        for p in parents:
-                            p._parent = children
-                            children_node.append(p)
+                    if not fs_key:
+                        self._root_node = parents
                     else:
-                        parents._parent = children
-                        children_node.append(parents)
-                else:
-                    if isinstance(parents, MutableSequence):
-                        parents.append(children)
                         fs_node[fs_key] = parents
+                    continue
+                else:
+                    if isinstance(d, MutableSequence):
+                        parents = []
+                        for item in d:
+                            local_parent = Node(self, fs_node, path)
+                            try:
+                                self._parse(item, local_parent)
+                            except (TypeError, AttributeError):
+                                _msg = f"Error while parsing a list on '{path}'"
+                                if self.raise_yaml_exc:
+                                    raise RuntimeError(_msg)
+                                else:
+                                    raise InvalidConfig(_msg, path)
+                            try:
+                                self._create_index(local_parent)
+                            except ValueError as exc:
+                                if self.raise_yaml_exc:
+                                    raise
+                                else:
+                                    # Duplicated key in config
+                                    raise InvalidConfig(" ".join(exc.args), path)
+                            else:
+                                parents.append(local_parent)
                     else:
-                        fs_node[fs_key] = [children, parents]
-            else:
-                fs_node[fs_key] = parents
+                        parents = Node(self, fs_node, path)
+                        try:
+                            self._parse(d, parents)
+                        except (TypeError, AttributeError):
+                            _msg = f"Error while parsing '{path}'"
+                            if self.raise_yaml_exc:
+                                raise RuntimeError(_msg)
+                            else:
+                                raise InvalidConfig(_msg, path)
+                        try:
+                            self._create_index(parents)
+                        except ValueError as exc:
+                            if self.raise_yaml_exc:
+                                raise
+                            else:
+                                raise InvalidConfig(*exc.args, path)
+
+                if isinstance(fs_node, MutableSequence):
+                    continue
+                elif fs_key == "":
+                    children = fs_node
+                else:
+                    children = fs_node.get(fs_key)
+
+                if isinstance(children, MutableSequence):
+                    if isinstance(parents, MutableSequence):
+                        children.extend(parents)
+                    else:
+                        children.append(parents)
+                elif children is not None:
+                    # check if this node is __init__
+                    children_node = children.get("__children__")
+                    if isinstance(children_node, MutableSequence):  # it's an init node
+                        if isinstance(parents, MutableSequence):
+                            for p in parents:
+                                p._parent = children
+                                children_node.append(p)
+                        else:
+                            parents._parent = children
+                            children_node.append(parents)
+                    else:
+                        if isinstance(parents, MutableSequence):
+                            parents.append(children)
+                            fs_node[fs_key] = parents
+                        else:
+                            fs_node[fs_key] = [children, parents]
+                else:
+                    fs_node[fs_key] = parents
+
+            except InvalidConfig as exp:
+                msg, path = exp.args[:2]
+                self.invalid_yaml_files[path] = msg
+                continue
+
         while gc.collect():
             pass
 
@@ -710,7 +765,11 @@ class Config:
 
     def _get_or_create_path_node(self, base_path):
         node = self._root_node
-        sp_path = base_path.split(os.path.sep)
+        if "/" in base_path:
+            sp_path = base_path.split("/")  # beacon server runs on linux
+        else:
+            sp_path = base_path.split("\\")  # beacon server runs on windows
+
         if sp_path[-1].startswith("@"):
             sp_path.pop()
 
@@ -880,7 +939,7 @@ class Config:
 
     def _parse(self, d, parent):
         if d is None:
-            raise RuntimeError("Error parsing %r" % parent)
+            raise TypeError("Error parsing %r" % parent)
         else:
             for key, value in d.items():
                 if isinstance(value, MutableMapping):

@@ -222,7 +222,9 @@ class EvalParametersWardrobe(ParametersWardrobe):
             try:
                 eval_dict[field] = self.eval_template(value, eval_dict=eval_dict)
             except MissingParameter:
-                raise MissingParameter("Parameter {} is missing".format(repr(field)))
+                raise MissingParameter(
+                    f"Parameter {repr(field)} is missing in {repr(template)}"
+                )
 
         # Evaluate string template while avoiding circular references
         fill_dict = {}
@@ -393,19 +395,29 @@ class BasicScanSaving(EvalParametersWardrobe):
         )
 
     def __dir__(self):
-        keys = super().__dir__()
-        return (
-            keys
-            + [
+        keys = list(self.PROPERTY_ATTRIBUTES)
+        keys.extend([p for p in self.DEFAULT_VALUES if not p.startswith("_")])
+        keys.extend(
+            [
+                "clone",
                 "get",
+                "get_data_info",
                 "get_path",
                 "get_parent_node",
                 "filename",
                 "root_path",
+                "data_path",
+                "data_fullpath",
                 "images_path",
+                "writer_object",
+                "file_extension",
+                "scan_parent_db_name",
+                "newproposal",
+                "newsample",
+                "newdataset",
             ]
-            + self.PROPERTY_ATTRIBUTES
         )
+        return keys
 
     def __info__(self):
         d = {}
@@ -506,8 +518,7 @@ class BasicScanSaving(EvalParametersWardrobe):
         """Directory of the scan *data file*
         """
         base_path = self.get_cached_property("base_path", eval_dict)
-        template = os.path.join(base_path, self.template)
-        return os.path.abspath(self.eval_template(template, eval_dict=eval_dict))
+        return self._get_root_path(base_path, eval_dict=eval_dict)
 
     @property_with_eval_dict
     def data_path(self, eval_dict=None):
@@ -515,8 +526,7 @@ class BasicScanSaving(EvalParametersWardrobe):
         This is before the writer modifies the name (given by `self.filename`)
         """
         root_path = self.get_cached_property("root_path", eval_dict)
-        data_filename = self.get_cached_property("eval_data_filename", eval_dict)
-        return os.path.join(root_path, data_filename)
+        return self._get_data_path(root_path, eval_dict=eval_dict)
 
     @property_with_eval_dict
     def data_fullpath(self, eval_dict=None):
@@ -524,6 +534,28 @@ class BasicScanSaving(EvalParametersWardrobe):
         This is before the writer modifies the name (given by `self.filename`)
         """
         data_path = self.get_cached_property("data_path", eval_dict)
+        return self._get_data_fullpath(data_path, eval_dict=eval_dict)
+
+    @with_eval_dict
+    def _get_root_path(self, base_path, eval_dict=None):
+        """Directory of the scan *data file*
+        """
+        template = os.path.join(base_path, self.template)
+        return os.path.abspath(self.eval_template(template, eval_dict=eval_dict))
+
+    @with_eval_dict
+    def _get_data_path(self, root_path, eval_dict=None):
+        """Full path for the scan *data file* without the extension
+        This is before the writer modifies the name (given by `self.filename`)
+        """
+        data_filename = self.get_cached_property("eval_data_filename", eval_dict)
+        return os.path.join(root_path, data_filename)
+
+    @with_eval_dict
+    def _get_data_fullpath(self, data_path, eval_dict=None):
+        """Full path for the scan *data file* with the extension.
+        This is before the writer modifies the name (given by `self.filename`)
+        """
         unknowns = self._template_named_fields(data_path)
         data_path = data_path.format(**{f: "{" + f + "}" for f in unknowns})
         return os.path.extsep.join((data_path, self.file_extension))
@@ -671,6 +703,14 @@ class BasicScanSaving(EvalParametersWardrobe):
     def newdataset(self, dataset_name):
         raise NotImplementedError("No data policy enabled")
 
+    def clone(self):
+        new_scan_saving = self.__class__(
+            self._wardr_name.split(self.REDIS_SETTING_PREFIX + ":")[-1]
+        )
+        for s in self.SLOTS:
+            setattr(new_scan_saving, s, getattr(self, s))
+        return new_scan_saving
+
 
 class ESRFScanSaving(BasicScanSaving):
     """Parameterized representation of the scan data file path
@@ -696,8 +736,9 @@ class ESRFScanSaving(BasicScanSaving):
         "_proposal": "",
         "_sample": "",
         "_dataset": "",
+        "_mount": "",
     }
-    # Order imported for resolving dependencies
+    # Order important for resolving dependencies
     PROPERTY_ATTRIBUTES = BasicScanSaving.PROPERTY_ATTRIBUTES + [
         "template",
         "beamline",
@@ -707,6 +748,7 @@ class ESRFScanSaving(BasicScanSaving):
         "dataset",
         "data_filename",
         "images_path_relative",
+        "mount_point",
     ]
     REDIS_SETTING_PREFIX = "esrf_scan_saving"
     SLOTS = ["_tango_metadata_manager", "_tango_metadata_experiment"]
@@ -720,9 +762,21 @@ class ESRFScanSaving(BasicScanSaving):
 
     def __init__(self, name):
         super().__init__(name)
-
         self._tango_metadata_manager = None
         self._tango_metadata_experiment = None
+
+    def __dir__(self):
+        keys = super().__dir__()
+        keys.extend(
+            [
+                "proposal_type",
+                "icat_sync",
+                "icat_root_path",
+                "icat_data_path",
+                "icat_data_fullpath",
+            ]
+        )
+        return keys
 
     @property
     def scan_saving_config(self):
@@ -779,20 +833,121 @@ class ESRFScanSaving(BasicScanSaving):
     def base_path(self, eval_dict=None):
         """Root directory depending in the proposal type (inhouse, visitor, tmp)
         """
+        return self._get_base_path(icat=False, eval_dict=eval_dict)
+
+    @property_with_eval_dict
+    def icat_base_path(self, eval_dict=None):
+        """ICAT root directory depending in the proposal type (inhouse, visitor, tmp)
+        """
+        return self._get_base_path(icat=True, eval_dict=eval_dict)
+
+    @with_eval_dict
+    def _get_base_path(self, icat=False, eval_dict=None):
+        """Root directory depending in the proposal type (inhouse, visitor, tmp)
+        """
         ptype = self.get_cached_property("proposal_type", eval_dict)
+        # When <type>_data_root is missing: use hardcoded default
+        # When icat_<type>_data_root is missing: use <type>_data_root
         if ptype == "inhouse":
-            base_path = self.scan_saving_config.get(
+            template = self._get_mount_point(
                 "inhouse_data_root", "/data/{beamline}/inhouse"
             )
+            if icat:
+                template = self._get_mount_point("icat_inhouse_data_root", template)
         elif ptype == "visitor":
-            base_path = self.scan_saving_config.get(
-                "visitor_data_root", "/data/visitor"
-            )
+            template = self._get_mount_point("visitor_data_root", "/data/visitor")
+            if icat:
+                template = self._get_mount_point("icat_visitor_data_root", template)
         else:
-            base_path = self.scan_saving_config.get(
-                "tmp_data_root", "/data/{beamline}/tmp"
-            )
-        return self.eval_template(base_path, eval_dict=eval_dict)
+            template = self._get_mount_point("tmp_data_root", "/data/{beamline}/tmp")
+            if icat:
+                template = self._get_mount_point("icat_tmp_data_root", template)
+        return self.eval_template(template, eval_dict=eval_dict)
+
+    def _get_mount_point(self, key, default):
+        """Get proposal type's mount point which defines `base_path`
+
+        :param str key: scan saving configuration dict key
+        :param str default: when key is not in configuration
+        :returns str:
+        """
+        mount_points = self._mount_points_from_config(key, default)
+        current_mp = mount_points.get(self.mount_point, None)
+        if current_mp is None:
+            # Take the first mount point when the current one
+            # is not defined for this proposal type
+            return mount_points[next(iter(mount_points.keys()))]
+        else:
+            return current_mp
+
+    def _mount_points_from_config(self, key, default):
+        """Get all mount points for the proposal type.
+
+        :param str key: scan saving configuration dict key
+        :param str default: when key is not in configuration
+                            it returns {"": default})
+        :returns dict: always at least one key-value pair
+        """
+        mount_points = self.scan_saving_config.get(key, default)
+        if isinstance(mount_points, str):
+            return {"": mount_points}
+        else:
+            return mount_points.to_dict()
+
+    @property
+    def mount_points(self):
+        """All mount points of all proposal types
+
+        :returns set(str):
+        """
+        mount_points = set()
+        for k in ["inhouse_data_root", "visitor_data_root", "tmp_data_root"]:
+            mount_points |= self._mount_points_from_config(k, "").keys()
+            mount_points |= self._mount_points_from_config(f"icat_{k}", "").keys()
+        return mount_points
+
+    @property
+    def mount_point(self):
+        """Current mount point (defines `base_path` selection
+        from scan saving configuration) for all proposal types
+        """
+        if self._mount is None:
+            self._mount = ""
+        return self._mount
+
+    @mount_point.setter
+    def mount_point(self, value):
+        """
+        :param str value:
+        :raises ValueError: not in the available mount points
+        """
+        choices = self.mount_points
+        if value not in choices:
+            raise ValueError(f"The only valid mount points are {choices}")
+        self._mount = value
+
+    @property_with_eval_dict
+    def icat_root_path(self, eval_dict=None):
+        """Directory of the scan *data file* reachable by ICAT
+        """
+        base_path = self.get_cached_property("icat_base_path", eval_dict)
+        return self._get_root_path(base_path, eval_dict=eval_dict)
+
+    @property_with_eval_dict
+    def icat_data_path(self, eval_dict=None):
+        """Full path for the scan *data file* without the extension,
+        reachable by ICAT
+        """
+        root_path = self.get_cached_property("icat_root_path", eval_dict)
+        return self._get_data_path(root_path, eval_dict=eval_dict)
+
+    @property_with_eval_dict
+    def icat_data_fullpath(self, eval_dict=None):
+        """Full path for the scan *data file* with the extension,
+        reachable by ICAT
+        """
+        data_path = self.get_cached_property("icat_data_path", eval_dict)
+        return self._get_data_fullpath(data_path, eval_dict=eval_dict)
 
     @property
     def data_filename(self):
@@ -865,18 +1020,15 @@ class ESRFScanSaving(BasicScanSaving):
                 return
 
     def _dataset_exists(self, dataset_name, eval_dict):
-        # TODO: check existance with ICAT database instead?
+        # TODO: check existance with ICAT database not possible
         eval_dict.pop("root_path", None)
         eval_dict.pop("data_path", None)
         eval_dict.pop("data_fullpath", None)
         eval_dict["dataset"] = dataset_name
-        # TODO: what should be used?
-        # data directory:
+        # Check whether directory exists
         path = self.get_cached_property("root_path", eval_dict)
-        # theoretical full path:
+        # Check whether file exists
         # path = self.get_cached_property("data_fullpath", eval_dict)
-        # full path as given by the writer instance:
-        # path = self.get_cached_property("filename", eval_dict)
         return os.path.exists(path)
 
     def _dataset_name_generator(self, prefix):
@@ -1060,8 +1212,8 @@ class ESRFScanSaving(BasicScanSaving):
             self._icat_wait_until_state(
                 ["ON"], "Cannot start the ICAT dataset (sample or dataset not defined)"
             )
-            root_path = self.get_cached_property("root_path", eval_dict)
-            self.metadata_experiment.dataRoot = root_path
+            dataRoot = self.get_cached_property("icat_root_path", eval_dict)
+            self.metadata_experiment.dataRoot = dataRoot
             self.metadata_manager.startDataset()
             self._icat_wait_until_state(["RUNNING"], "Failed to start the ICAT dataset")
 
@@ -1202,6 +1354,7 @@ class ESRFScanSaving(BasicScanSaving):
         self.proposal = "" if not proposal_name else proposal_name
         self.sample = ""
         self.dataset = ""
+        self._icat_set_proposal(self.proposal)
         lprint(f"Proposal set to '{self.proposal}'\nData path: {self.get_path()}")
 
     def newsample(self, sample_name):
@@ -1214,3 +1367,14 @@ class ESRFScanSaving(BasicScanSaving):
         # beware: self.dataset getter and setter do different actions
         self.dataset = "" if not dataset_name else dataset_name
         lprint(f"Dataset set to '{self.dataset}`\nData path: {self.root_path}")
+
+    def endproposal(self):
+        """Close the active dataset (if any) and go to the default inhouse proposal
+        """
+        self.newproposal("")
+
+    def enddataset(self):
+        """Close the active dataset (if any) and go the the next dataset
+        """
+        self._icat_ensure_notrunning()
+        self.dataset = ""

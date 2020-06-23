@@ -15,7 +15,6 @@ from bliss.common.tango import DeviceProxy
 from bliss.data.node import DataNode
 from bliss.data.events import EventData
 from bliss.config.settings import QueueObjSetting
-from bliss.config.streaming import DataStream
 from silx.third_party.EdfFile import EdfFile
 
 try:
@@ -24,7 +23,18 @@ except ImportError:
     h5py = None
 
 VIDEO_HEADER_FORMAT = "!IHHqiiHHHH"
+DATA_ARRAY_MAGIC = struct.unpack(">I", b"DTAY")[0]
 HEADER_SIZE = struct.calcsize(VIDEO_HEADER_FORMAT)
+VIDEO_MODES = {0: numpy.uint8, 1: numpy.uint16, 2: numpy.int32, 3: numpy.int64}
+IMAGE_MODES = {
+    0: numpy.uint8,
+    1: numpy.uint16,
+    2: numpy.uint32,
+    4: numpy.int8,
+    5: numpy.int16,
+    6: numpy.int32,
+}
+
 
 UNSET = object()
 """Allow to discriminate None and unset value from function argument,
@@ -132,23 +142,120 @@ def image_filenames(ref_data, image_nbs, last_image_saved=None):
     return returned_params
 
 
+def read_video_last_image(proxy) -> typing.Optional[typing.Tuple[numpy.ndarray, int]]:
+    """Read and decode video last image from a Lima detector
+
+    Argument:
+        proxy: A Tango Lima proxy
+
+    Returns:
+        A tuple with the frame data (as a numpy array), and the frame number
+        if an image is available. None if there is not yet acquired image.
+
+    Raises:
+        ImageFormatNotSupported: when the retrieved data is not supported
+    """
+    # get last video image
+    _, raw_data = proxy.video_last_image
+    if len(raw_data) < HEADER_SIZE:
+        raise ImageFormatNotSupported("Image header smaller than the expected size")
+
+    (
+        magic,
+        header_version,
+        image_mode,
+        image_frame_number,
+        image_width,
+        image_height,
+        endian,
+        header_size,
+        pad0,
+        pad1,
+    ) = struct.unpack(VIDEO_HEADER_FORMAT, raw_data[:HEADER_SIZE])
+
+    if magic != 0x5644454f:
+        raise ImageFormatNotSupported("Magic header not supported (found %s)." % magic)
+
+    if header_version != 1:
+        raise ImageFormatNotSupported(
+            "Image header version not supported (found %s)." % header_version
+        )
+    if image_frame_number < 0:
+        return None
+
+    if endian != 0:
+        raise ImageFormatNotSupported(
+            "Decoding video frame from this Lima device is "
+            "not supported by bliss cause of the endianness (found %s)." % endian
+        )
+
+    if pad0 != 0 or pad1 != 0:
+        raise ImageFormatNotSupported(
+            "Decoding video frame from this Lima device is not supported "
+            "by bliss cause of the padding (found %s, %s)." % (pad0, pad1)
+        )
+
+    mode = VIDEO_MODES.get(image_mode)
+    if mode is None:
+        raise ImageFormatNotSupported(
+            "Video format unsupported (found %s)." % image_mode
+        )
+
+    data = numpy.frombuffer(raw_data[header_size:], dtype=mode).copy()
+    data.shape = image_height, image_width
+    return data, image_frame_number
+
+
+def read_image(proxy, image_nb: int) -> numpy.ndarray:
+    """Read and decode image (or last image ready) from a Lima detector.
+
+    Argument:
+        proxy: A Tango Lima proxy
+        image_nb: The image index to decode, else -1 to use the last index
+            (last_image_ready).
+
+    Returns:
+        The frame data (as a numpy array)
+
+    Raises:
+        IndexError: when no images are yet taken
+        ImageFormatNotSupported: when the retrieved data is not supported
+    """
+    if image_nb == -1:
+        image_nb = proxy.last_image_ready
+        if image_nb == -1:
+            raise IndexError("No image has been taken yet")
+
+    try:
+        raw_msg = proxy.readImage(image_nb)
+    except Exception:
+        raise RuntimeError("Error while reading image")
+    else:
+        raw_msg = raw_msg[-1]
+
+    struct_format = "<IHHIIHHHHHHHHHHHHHHHHHHIII"
+    header_size = struct.calcsize(struct_format)
+    values = struct.unpack(struct_format, raw_msg[:header_size])
+    if values[0] != DATA_ARRAY_MAGIC:
+        raise ImageFormatNotSupported("Not a Lima data")
+    header_offset = values[2]
+
+    format_id = values[4]
+    data_format = IMAGE_MODES.get(format_id)
+    if data_format is None:
+        raise ImageFormatNotSupported(
+            "Image format from Lima Tango device not supported (found %s)." % format_id
+        )
+
+    data = numpy.fromstring(raw_msg[header_offset:], dtype=data_format)
+    data.shape = values[8], values[7]
+    return data
+
+
 class LimaImageChannelDataNode(DataNode):
     DATA = b"__data__"
 
     class LimaDataView(object):
-        DataArrayMagic = struct.unpack(">I", b"DTAY")[0]
-
-        IMAGE_MODES = {
-            0: numpy.uint8,
-            1: numpy.uint16,
-            2: numpy.uint32,
-            4: numpy.int8,
-            5: numpy.int16,
-            6: numpy.int32,
-        }
-
-        VIDEO_MODES = {0: numpy.uint8, 1: numpy.uint16, 2: numpy.int32, 3: numpy.int64}
-
         def __init__(self, data, data_ref, from_index, to_index, from_stream=False):
             self.data = data
             self.data_ref = data_ref
@@ -240,64 +347,17 @@ class LimaImageChannelDataNode(DataNode):
                 # FIXME: It should return None
                 return Frame(None, None, None)
 
-            # get last video image
-            _, raw_data = proxy.video_last_image
-            if len(raw_data) <= HEADER_SIZE:
+            result = read_video_last_image(proxy)
+            if result is None:
                 # FIXME: It should return None
                 return Frame(None, None, None)
 
-            (
-                magic,
-                header_version,
-                image_mode,
-                image_frame_number,
-                image_width,
-                image_height,
-                endian,
-                header_size,
-                pad0,
-                pad1,
-            ) = struct.unpack(VIDEO_HEADER_FORMAT, raw_data[:HEADER_SIZE])
-
-            if endian != 0:
-                raise ImageFormatNotSupported(
-                    "Decoding video frame from this Lima device is "
-                    "not supported by bliss cause of the endianness (found %s)."
-                    % endian
-                )
-
-            if pad0 != 0 or pad1 != 0:
-                raise ImageFormatNotSupported(
-                    "Decoding video frame from this Lima device is not supported "
-                    "by bliss cause of the padding (found %s, %s)." % (pad0, pad1)
-                )
-
-            if magic != 0x5644454f:
-                raise ImageFormatNotSupported(
-                    "Magic header not supported (found %s)." % magic
-                )
-
-            if header_version != 1:
-                raise ImageFormatNotSupported(
-                    "Image header version not supported (found %s)." % header_version
-                )
-            if image_frame_number < 0:
-                raise IndexError("Image (from Lima live interface) not available yet.")
-
-            mode = self.VIDEO_MODES.get(image_mode)
-            if mode is None:
-                raise ImageFormatNotSupported(
-                    "Video format unsupported (found %s)." % image_mode
-                )
-
-            data = numpy.frombuffer(raw_data[header_size:], dtype=mode).copy()
-            data.shape = image_height, image_width
-
+            frame, frame_number = result
             if not self.is_video_frame_have_meaning(update=False):
                 # In this case the reached frame have no meaning within the full
                 # scan. It is better not to provide it
-                image_frame_number = None
-            return Frame(data, image_frame_number, "video")
+                frame_number = None
+            return Frame(frame, frame_number, "video")
 
         def get_last_image(self, proxy=UNSET):
             """Returns the last image from the received one, together with the frame id.
@@ -406,13 +466,12 @@ class LimaImageChannelDataNode(DataNode):
                 # should be in memory
                 if self.buffer_max_number > (self.last_image_ready - image_nb):
                     try:
-                        raw_msg = proxy.readImage(image_nb)
-                    except Exception:
+                        return read_image(proxy, image_nb)
+                    except RuntimeError:
                         # As it's asynchronous, image seems to be no
                         # more available so read it from file
                         return None
-                    else:
-                        return self._tango_unpack(raw_msg[-1])
+                return None
 
         def get_filenames(self):
             """All saved image filenames
@@ -454,26 +513,6 @@ class LimaImageChannelDataNode(DataNode):
 
             raise IndexError("Cannot retrieve image %d from file" % image_nb)
 
-        def _tango_unpack(self, msg):
-            struct_format = "<IHHIIHHHHHHHHHHHHHHHHHHIII"
-            header_size = struct.calcsize(struct_format)
-            values = struct.unpack(struct_format, msg[:header_size])
-            if values[0] != self.DataArrayMagic:
-                raise RuntimeError("No Lima data")
-            header_offset = values[2]
-
-            format_id = values[4]
-            data_format = self.IMAGE_MODES.get(format_id)
-            if data_format is None:
-                raise ImageFormatNotSupported(
-                    "Image format from Lima Tango device not supported (found %s)."
-                    % format_id
-                )
-
-            data = numpy.fromstring(msg[header_offset:], dtype=data_format)
-            data.shape = values[8], values[7]
-            return data
-
     def __init__(self, name, **keys):
         shape = keys.pop("shape", None)
         dtype = keys.pop("dtype", None)
@@ -495,9 +534,7 @@ class LimaImageChannelDataNode(DataNode):
             # no alias, name must be fullname
             self._struct.name = fullname
 
-        self.data = DataStream(
-            "%s_data" % self.db_name, maxlen=1, connection=self.db_connection
-        )
+        self.data = self.create_data_stream("%s_data" % self.db_name, maxlen=1)
         self.data_ref = QueueObjSetting(
             f"{self.db_name}_data_ref", connection=self.db_connection
         )

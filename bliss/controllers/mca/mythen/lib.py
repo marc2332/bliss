@@ -126,7 +126,7 @@ def run_command(sock, command, return_type="int", return_shape=(), payload=b""):
         sock.write(raw_command)
         raw_data = sock.raw_read(total_size)
         if len(raw_data) == nbytes_error:
-            error_code = np.asscalar(decode_error(raw_data))
+            error_code = decode_error(raw_data).item()
             if error_code < 0:
                 raise MythenCommandError(error_code, command)
         if len(raw_data) != total_size:
@@ -139,7 +139,7 @@ def run_command(sock, command, return_type="int", return_shape=(), payload=b""):
         return data.split("\x00")[0]
     # Return scalar
     if return_shape == ():
-        return np.asscalar(data)
+        return data.item()
     # Return array
     data.shape = return_shape
     return data

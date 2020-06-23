@@ -5,14 +5,12 @@
 # Copyright (c) 2015-2020 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-import pytest
 import gevent
 from prompt_toolkit.input.defaults import create_pipe_input
 from prompt_toolkit.eventloop import get_event_loop
 from types import SimpleNamespace
 
 from bliss.shell.cli.repl import BlissRepl
-from bliss.shell.cli.repl import _set_pt_event_loop
 from bliss.common.utils import autocomplete_property
 
 
@@ -113,8 +111,8 @@ def test_shell_load_script_error(clean_gevent, beacon, capsys):
     session = beacon.get("test_session5")
     session.setup(env_dict)
 
-    br = _run_incomplete("test1 ", env_dict)
-    out, err = capsys.readouterr()
+    _br = _run_incomplete("test1 ", env_dict)
+    out, _err = capsys.readouterr()
 
     assert "Unhandled exception in event loop" not in out
 
@@ -122,8 +120,6 @@ def test_shell_load_script_error(clean_gevent, beacon, capsys):
 
 
 def test_shell_kwarg_signature(clean_gevent):
-    env_dict = dict()
-
     loc = dict()
     exec(
         """
@@ -297,6 +293,6 @@ t = Test()
         for n in br.ptpython_layout.layout.visible_windows
         if "signature_toolbar" in str(n)
     ][0]
-    sc = sb.content.text()
+    _sc = sb.content.text()
     display_sig = "".join([x[1] for x in sb.content.text()])
-    assert display_sig == " func(a, b: True|False=None, c=None) "
+    assert display_sig == " func(a, b: 'True|False'=None, c=None) "

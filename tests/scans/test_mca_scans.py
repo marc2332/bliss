@@ -154,11 +154,7 @@ def test_mca_scans_with_rois(session):
     simu.rois.clear()
     simu.rois.set("my_roi", 400, 700)
     scan = scans.ct(
-        0.1,
-        simu.counters.my_roi_det0,
-        simu.counters.spectrum_det0,
-        return_scan=True,
-        save=False,
+        0.1, simu.counters.my_roi_det0, simu.counters.spectrum_det0, return_scan=True
     )
     data = scan.get_data()
     assert data["my_roi_det0"][0] == sum(data["spectrum_det0"][0][400:700])
@@ -169,11 +165,7 @@ def test_mca_scans_with_roi_sums(session):
     simu.rois.clear()
     simu.rois.set("my_roi", 400, 700)
     scan = scans.ct(
-        0.1,
-        simu.counters.my_roi,
-        simu.counter_groups.spectrum,
-        return_scan=True,
-        save=False,
+        0.1, simu.counters.my_roi, simu.counter_groups.spectrum, return_scan=True
     )
     data = scan.get_data()
     roi_sum = sum(

@@ -1,8 +1,6 @@
 name: opiom1
 plugin: bliss
-module: opiom
 class: Opiom
 serial:
-  url: rfc2217://ldp2.esrf.fr:28000
-
+        url: tango://id00/tango/dummy
 program: default

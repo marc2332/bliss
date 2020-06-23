@@ -7,6 +7,7 @@
 
 from bliss.controllers.motor import CalcController
 from bliss.common.logtools import *
+from bliss.scanning.scan_meta import get_user_scan_meta
 
 """
 example for single VERTICAL slits:
@@ -87,6 +88,42 @@ example for single HORIZONTAL slits:
 class Slits(CalcController):
     def __init__(self, *args, **kwargs):
         CalcController.__init__(self, *args, **kwargs)
+
+        self._init_meta_data_publishing()
+
+    def _init_meta_data_publishing(self):
+        if not self.name:
+            lprint(
+                "Warning: to publish metadata the slit controller needs a name in config"
+            )
+            return
+        scan_meta_obj = get_user_scan_meta()
+        scan_meta_obj.instrument.set(
+            self, lambda _: {self.name: {**self.metadata_dict(), "@NX_class": "NXslit"}}
+        )
+
+    def metadata_dict(self):
+        """ The status of the slit as dictionary
+        """
+        slit_type = self.config.get("slit_type", default="both")
+        cur_pos = self._do_calc_from_real()
+        meta_dict = dict()
+
+        if slit_type not in ["vertical"]:
+            # OFFSET = ( FRONT - BACK ) / 2
+            # GAP = BACK + FRONT
+            meta_dict.update(
+                {
+                    "horizontal_gap": cur_pos["hoffset"],
+                    "horizontal_offset": cur_pos["hgap"],
+                }
+            )
+
+        if slit_type not in ["horizontal"]:
+            meta_dict.update(
+                {"vertical_gap": cur_pos["voffset"], "vertical_offset": cur_pos["vgap"]}
+            )
+        return meta_dict
 
     def initialize_axis(self, axis):
         CalcController.initialize_axis(self, axis)

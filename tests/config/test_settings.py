@@ -823,6 +823,29 @@ def test_wardrobe_low_level_methods(materials):
         assert materials._get_instance("not existant") == {}
 
 
+def test_wardrobe_atomic_reset_default(materials):
+    """Check that reseting an attribute do not reset others"""
+
+    def get_toy():
+        return settings.ParametersWardrobe(
+            "toy", default_values={"marks": [], "color": "white"}
+        )
+
+    # get a toy, paint it, and mark it
+    toy = get_toy()
+    toy.color = "pink"
+    toy.marks = ["blue", "yellow"]
+
+    # clean up the marks
+    same_toy = get_toy()
+    same_toy.marks = None
+
+    # there is no more marks but the color stay the same
+    again_same_toy = get_toy()
+    assert again_same_toy.marks == []
+    assert again_same_toy.color == "pink"
+
+
 def test_to_beacon(materials):
     materials.to_beacon("mat_eri-als23", *materials.instances)
 

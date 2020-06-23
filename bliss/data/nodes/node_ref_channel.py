@@ -6,9 +6,7 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 from bliss.data.nodes.channel import ChannelDataNode
-from bliss.data.node import get_node, get_nodes
 from bliss.data.events import EventData
-import numpy
 
 
 class NodeRefChannel(ChannelDataNode):
@@ -22,7 +20,7 @@ class NodeRefChannel(ChannelDataNode):
 
     def decode_raw_events(self, events):
         event_data = super().decode_raw_events(events)
-        nodes = get_nodes(*event_data.data)
+        nodes = self.get_nodes(*event_data.data)
         return EventData(
             first_index=event_data.first_index,
             data=nodes,

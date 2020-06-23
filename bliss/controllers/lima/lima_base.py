@@ -473,7 +473,6 @@ class Lima(CounterController):
         return LimaAcquisitionMaster(self, ctrl_params=ctrl_params, **acq_params)
 
     def get_default_chain_parameters(self, scan_params, acq_params):
-
         npoints = acq_params.get("acq_nb_frames", scan_params.get("npoints", 1))
 
         try:
@@ -888,11 +887,6 @@ class Lima(CounterController):
 
     def stopAcq(self):
         self._proxy.stopAcq()
-
-    def stop_bpm_live(self):
-        self._proxy.video_live = False
-        self._proxy.stopAcq()
-        self.bpm.stop()
 
     def _get_proxy(self, type_name="LimaCCDs"):
         if type_name == "LimaCCDs":

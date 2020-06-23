@@ -34,8 +34,9 @@ class Bpm(IntegratingCounterController):
         self._proxy = bpm_proxy
         self._counters.update(
             {
-                "acq_time": LimaBpmCounter("acq_time", 0, self),
+                "acq_time": LimaBpmCounter("acq_time", 0, self, "s"),
                 "intensity": LimaBpmCounter("intensity", 1, self),
+                # FIXME: it is "px" only if "calibration" is unset, else "um"
                 "x": LimaBpmCounter("x", 2, self, "px"),
                 "y": LimaBpmCounter("y", 3, self, "px"),
                 "fwhm_x": LimaBpmCounter("fwhm_x", 4, self, "px"),

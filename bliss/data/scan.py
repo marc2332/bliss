@@ -6,14 +6,15 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 
-import enum
 import sys
 import numpy
 import gevent
 from bliss.common.counter import Counter
 from bliss.common.axis import Axis
 from bliss.data.nodes.scan import get_data_from_nodes
-from bliss.data.node import DataNodeIterator, _get_or_create_node
+from bliss.data.node import _get_or_create_node
+
+from bliss.common.utils import get_matching_names
 
 
 def get_counter_names(scan):
@@ -30,7 +31,7 @@ def get_data(scan):
 
     class DataContainer(dict):
         def __info__(self):
-            return f"DataContainer use [counter],[motor] or {self.keys()}"
+            return f"DataContainer uses a key [counter], [motor] or [name_pattern] matching one of these names:\n {list(self.keys())}"
 
         def __getitem__(self, key):
             if isinstance(key, Counter):
@@ -38,23 +39,35 @@ def get_data(scan):
             elif isinstance(key, Axis):
                 return super().__getitem__(f"axis:{key.name}")
 
-            try:
+            try:  # maybe a fullname
                 return super().__getitem__(key)
-            except KeyError as er:
-                match_value = [
-                    (fullname, data)
-                    for fullname, data in self.items()
-                    if key in fullname.split(":")
-                ]
-                if len(match_value) == 1:
-                    return match_value[0][1]
-                elif len(match_value) > 1:
+
+            except KeyError:
+
+                # --- maybe an axis (comes from config so name is unique)
+                axname = f"axis:{key}"
+                if axname in self.keys():
+                    return super().__getitem__(axname)
+
+                # --- else check if it can match one of the DataContainer keys
+                matches = get_matching_names(
+                    key, self.keys(), strict_pattern_as_short_name=True
+                )[key]
+
+                if len(matches) > 1:
                     raise KeyError(
-                        f"Ambiguous key **{key}**, there is several match ->",
-                        [x[0] for x in match_value],
+                        f"Ambiguous key '{key}', there are several matches -> {matches}"
                     )
+
+                elif len(matches) == 1:
+                    return super().__getitem__(matches[0])
+
                 else:
-                    raise er
+                    msg = "%s not found, try one of those %s" % (
+                        key,
+                        [x.split(":")[-1] for x in self.keys()],
+                    )
+                    raise KeyError(msg)
 
     connection = scan.node.db_connection
     pipeline = connection.pipeline()
@@ -183,7 +196,7 @@ def watch_session_scans(
                 db_name = node.db_name
                 scan_dict = running_scans.pop(db_name)
                 if scan_dict:
-                    scan_info = node.info
+                    scan_info = node.info.get_all()
                     if scan_end_callback:
                         try:
                             scan_end_callback(scan_info)

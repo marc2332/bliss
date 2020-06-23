@@ -65,7 +65,6 @@ def test_select_shapes(flint_session):
 
     def do_actions():
         gevent.sleep(1)
-        flint.test_active(p.plot_id, qaction="roi-select-rectangle")
         flint.test_mouse(
             p.plot_id, mode="press", position=(-5, -5), relative_to_center=True
         )

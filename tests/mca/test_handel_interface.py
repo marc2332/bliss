@@ -309,13 +309,14 @@ def test_get_module_statistics(interface):
 
     expected = {
         8: Stats(
-            1.00758784,
-            0.98603936,
-            3088,
-            2742,
-            3131.720827046904,
-            2721.350825353351,
-            0.13103658479051494,
+            1.00758784,  # realtime
+            0.98603936,  # trigger_livetime
+            0.8755569705699482,  # energy_livetime
+            3088,  # triggers
+            2742,  # events
+            3131.720827046904,  # icr
+            2721.350825353351,  # ocr
+            0.13103658479051494,  # deadtime
         )
     }
 

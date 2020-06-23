@@ -22,10 +22,14 @@ from bliss.flint.model import scan_model
 from bliss.flint.model import flint_model
 from bliss.flint.model import plot_model
 from bliss.flint.model import plot_item_model
-from bliss.flint.widgets.plot_helper import FlintPlot
 from bliss.flint.helper import scan_info_helper
 from bliss.flint.utils import signalutils
-from bliss.flint.widgets import plot_helper
+from .utils import plot_helper
+from .utils import view_helper
+from .utils import refresh_helper
+from .utils import tooltip_helper
+from .utils import export_action
+from .utils import plot_action
 
 
 _logger = logging.getLogger(__name__)
@@ -41,17 +45,17 @@ class McaPlotWidget(plot_helper.PlotWidget):
         self.__items: Dict[plot_model.Item, List[Tuple[str, str]]] = {}
 
         self.__plotWasUpdated: bool = False
-        self.__plot = FlintPlot(parent=self)
+        self.__plot = plot_helper.FlintPlot(parent=self)
         self.__plot.setActiveCurveStyle(linewidth=2)
         self.__plot.setDataMargins(0.02, 0.02, 0.1, 0.1)
 
         self.setFocusPolicy(qt.Qt.StrongFocus)
         self.__plot.installEventFilter(self)
         self.__plot.getWidgetHandle().installEventFilter(self)
-        self.__view = plot_helper.ViewManager(self.__plot)
+        self.__view = view_helper.ViewManager(self.__plot)
 
         self.__aggregator = plot_helper.PlotEventAggregator(self)
-        self.__refreshManager = plot_helper.RefreshManager(self)
+        self.__refreshManager = refresh_helper.RefreshManager(self)
         self.__refreshManager.setAggregator(self.__aggregator)
 
         toolBar = self.__createToolBar()
@@ -77,7 +81,7 @@ class McaPlotWidget(plot_helper.PlotWidget):
         layout.setContentsMargins(0, 1, 0, 0)
         self.setWidget(widget)
 
-        self.__tooltipManager = plot_helper.TooltipItemManager(self, self.__plot)
+        self.__tooltipManager = tooltip_helper.TooltipItemManager(self, self.__plot)
         self.__tooltipManager.setFilter(plot_helper.FlintRawMca)
 
         self.__syncAxisTitle = signalutils.InvalidatableSignal(self)
@@ -86,12 +90,10 @@ class McaPlotWidget(plot_helper.PlotWidget):
         self.__bounding = BoundingRect()
         self.__bounding.setName("bound")
 
-        self.__permanentItems = [self.__bounding, self.__tooltipManager.marker()]
+        self.__plot.addItem(self.__bounding)
+        self.__plot.addItem(self.__tooltipManager.marker())
 
-        for o in self.__permanentItems:
-            self.__plot.addItem(o)
-
-    def getRefreshManager(self) -> plot_helper.RefreshManager:
+    def getRefreshManager(self) -> refresh_helper.RefreshManager:
         return self.__refreshManager
 
     def __createToolBar(self):
@@ -100,9 +102,12 @@ class McaPlotWidget(plot_helper.PlotWidget):
 
         from silx.gui.plot.actions import mode
         from silx.gui.plot.actions import control
+        from silx.gui.widgets.MultiModeAction import MultiModeAction
 
-        toolBar.addAction(mode.ZoomModeAction(self.__plot, self))
-        toolBar.addAction(mode.PanModeAction(self.__plot, self))
+        modeAction = MultiModeAction(self)
+        modeAction.addAction(mode.ZoomModeAction(self.__plot, self))
+        modeAction.addAction(mode.PanModeAction(self.__plot, self))
+        toolBar.addAction(modeAction)
 
         resetZoom = self.__view.createResetZoomAction(parent=self)
         toolBar.addAction(resetZoom)
@@ -111,8 +116,7 @@ class McaPlotWidget(plot_helper.PlotWidget):
         # Axis
         action = self.__refreshManager.createRefreshAction(self)
         toolBar.addAction(action)
-        toolBar.addAction(plot_helper.CustomAxisAction(self.__plot, self, kind="mca"))
-        toolBar.addAction(control.GridAction(self.__plot, "major", self))
+        toolBar.addAction(plot_action.CustomAxisAction(self.__plot, self, kind="mca"))
         toolBar.addSeparator()
 
         # Tools
@@ -125,30 +129,12 @@ class McaPlotWidget(plot_helper.PlotWidget):
         action.setEnabled(False)
         toolBar.addAction(action)
 
-        # FIXME implement that
-        action = qt.QAction(self)
-        action.setText("Raw display")
-        action.setToolTip(
-            "Show a table of the raw data from the displayed scatter (not yet implemented)"
-        )
-        icon = icons.getQIcon("flint:icons/raw-view")
-        action.setIcon(icon)
-        action.setEnabled(False)
-        toolBar.addAction(action)
-
         toolBar.addSeparator()
 
         # Export
 
-        # FIXME implement that
-        action = qt.QAction(self)
-        action.setText("Export to logbook")
-        action.setToolTip("Export this plot to the logbook (not yet implemented)")
-        icon = icons.getQIcon("flint:icons/export-logbook")
-        action.setIcon(icon)
-        action.setEnabled(False)
-        toolBar.addAction(action)
-        toolBar.addAction(plot_helper.ExportOthers(self.__plot, self))
+        self.__exportAction = export_action.ExportAction(self.__plot, self)
+        toolBar.addAction(self.__exportAction)
 
         return toolBar
 
@@ -179,6 +165,7 @@ class McaPlotWidget(plot_helper.PlotWidget):
 
     def setFlintModel(self, flintModel: Optional[flint_model.FlintState]):
         self.__flintModel = flintModel
+        self.__exportAction.setFlintModel(flintModel)
 
     def setPlotModel(self, plotModel: plot_model.Plot):
         if self.__plotModel is not None:
@@ -278,12 +265,6 @@ class McaPlotWidget(plot_helper.PlotWidget):
                 self.__updateTitle(self.__scan)
         self.scanModelUpdated.emit(scan)
         self.__redrawAll()
-
-    def __clear(self):
-        self.__items = {}
-        self.__plot.clear()
-        for o in self.__permanentItems:
-            self.__plot.addItem(o)
 
     def __scanStarted(self):
         self.__updateTitle(self.__scan)

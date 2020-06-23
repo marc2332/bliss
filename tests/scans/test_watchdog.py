@@ -5,7 +5,7 @@ from bliss.scanning import scan
 
 
 def test_watchdog_timeout_normal_stop(session):
-    s = scans.timescan(2, run=False)
+    s = scans.timescan(2, run=False, save=False)
 
     class Watchdog(scan.WatchdogCallback):
         def __init__(self):
@@ -21,7 +21,7 @@ def test_watchdog_timeout_normal_stop(session):
 
 
 def test_watchdog_timeout_with_exception(session):
-    s = scans.timescan(0.1, run=False)
+    s = scans.timescan(0.1, run=False, save=False)
 
     class Watchdog(scan.WatchdogCallback):
         def __init__(self):
@@ -38,7 +38,7 @@ def test_watchdog_timeout_with_exception(session):
 
 
 def test_watchdog_timeout_with_baseexception(session):
-    s = scans.timescan(0.1, run=False)
+    s = scans.timescan(0.1, run=False, save=False)
 
     class Watchdog(scan.WatchdogCallback):
         def __init__(self):
@@ -58,7 +58,7 @@ def test_watchdog_timeout_with_baseexception(session):
 
 
 def test_watchdog_on_scan_data_normal_stop(session):
-    s = scans.timescan(0.1, run=False)
+    s = scans.timescan(0.1, run=False, save=False)
 
     class Watchdog(scan.WatchdogCallback):
         def __init__(self):
@@ -77,7 +77,7 @@ def test_watchdog_on_scan_data_normal_stop(session):
 
 
 def test_watchdog_on_scan_data_with_exception(session):
-    s = scans.timescan(0.1, run=False)
+    s = scans.timescan(0.1, run=False, save=False)
 
     class Watchdog(scan.WatchdogCallback):
         def __init__(self):

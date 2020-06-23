@@ -52,6 +52,8 @@ class Dummy(Device):
     def __init__(self, *args, **kwargs):
         Device.__init__(self, *args, **kwargs)
 
+        self._emulate_device = None
+
         # Forced at init as not read from config.
         # In real undu, they are read from ID DS.
         self.vel = 5
@@ -132,6 +134,10 @@ class Dummy(Device):
     def status(self):
         return "Some Text " + str(self.get_state())
 
+    @command(dtype_in=str)
+    def emulate_device(self, dev):
+        self._emulate_device = dev
+
     @command(dtype_in="DevVarLongArray")
     def DevSerSetParameter(self, _):
         pass
@@ -143,6 +149,13 @@ class Dummy(Device):
     @command(dtype_in="DevVarCharArray")
     def DevSerWriteChar(self, _):
         pass
+
+    @command(dtype_in=int, dtype_out="DevVarCharArray")
+    def DevSerReadChar(self, _):
+        if self._emulate_device == "opiom":
+            return b"OPIOM\r\n"
+        else:
+            return b" "
 
     @command(dtype_in=int, dtype_out="DevVarCharArray")
     def DevSerReadNBinData(self, size):

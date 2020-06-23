@@ -1,10 +1,8 @@
+import yaml
 import subprocess
 import os
-from pprint import pprint
+import sys
 import re
-
-from ruamel.yaml import YAML
-from ruamel.yaml.compat import StringIO
 
 try:
     import conda.cli.python_api as conda
@@ -13,10 +11,19 @@ try:
 except ModuleNotFoundError:
     pass
 
+
 CURDIR = os.path.dirname(os.path.abspath(__file__))
 BLISS_DIR = os.path.dirname(CURDIR)
-REQ_PATH = os.path.join(BLISS_DIR, "requirements-conda.txt")
+sys.path.append(BLISS_DIR)
+
+from setup import console_script_entry_points
+
 META = os.path.join(CURDIR, "meta.yaml")
+
+if sys.platform in ["win32", "cygwin"]:
+    REQ_PATH = os.path.join(BLISS_DIR, "requirements-conda-win64.txt")
+else:
+    REQ_PATH = os.path.join(BLISS_DIR, "requirements-conda.txt")
 
 # regex
 conda_pack_regex = re.compile(
@@ -164,6 +171,7 @@ def main():
 
     template_body = f"""
     build:
+      number: 0
       script: python -m pip install --no-deps .
 
     requirements:
@@ -180,13 +188,18 @@ def main():
       license_family: GPL
     """
 
-    yaml = YAML()
-    yaml.default_flow_style = False
     head = yaml.load(template_head)
     body = yaml.load(template_body)
 
+    print("Git tag version", get_git_tag())
+
     head["package"]["version"] = ".".join(get_git_tag())
     head["source"]["git_rev"] = ".".join(get_git_tag())
+
+    # console script entry points
+    body["build"]["entry_points"] = list()
+    for entry_point in console_script_entry_points:
+        body["build"]["entry_points"].append(entry_point)
 
     # conda current environment
     body["requirements"]["run"] = list()
@@ -219,10 +232,8 @@ def main():
 
     # writing meta.yaml
     with open(META, "w") as f:
-        stream = StringIO()
-        yaml.dump(head, stream=stream)
-        yaml.dump(body, stream=stream)
-        f.write(stream.getvalue())
+        f.write(yaml.dump(head, default_flow_style=False))
+        f.write(yaml.dump(body, default_flow_style=False))
 
 
 if __name__ == "__main__":

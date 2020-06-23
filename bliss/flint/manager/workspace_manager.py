@@ -25,6 +25,7 @@ from bliss.config.settings import HashObjSetting
 from . import manager
 from ..model import flint_model
 from bliss.flint import config
+from bliss.flint.widgets.utils.plot_helper import PlotWidget
 
 
 _logger = logging.getLogger(__name__)
@@ -85,7 +86,7 @@ class WorkspaceData(dict):
 
         widgetDescriptions = []
         for widget in workspace.widgets():
-            if includePlots:
+            if includePlots and isinstance(widget, PlotWidget):
                 model = widget.plotModel()
                 if model is not None:
                     modelId = id(model)
@@ -322,9 +323,10 @@ class WorkspaceManager(qt.QObject):
         widgets = workspace.popWidgets()
         for w in widgets:
             # Make sure we can create object name without collision
-            w.setPlotModel(None)
+            if isinstance(w, PlotWidget):
+                w.setPlotModel(None)
+                w.setScan(None)
             w.setFlintModel(None)
-            w.setScan(None)
             w.setObjectName(None)
             w.deleteLater()
 
@@ -396,12 +398,12 @@ class WorkspaceManager(qt.QObject):
             )
             data = None
 
+        # It have to be done before creating widgets
+        self.__closeWorkspace()
+
         if data is None:
             window.feedDefaultWorkspace(flintModel, newWorkspace)
         else:
-            # It have to be done before creating widgets
-            self.__closeWorkspace()
-
             data.feedWorkspace(newWorkspace, parent=window)
 
             # FIXME: Could be done in the manager callback event
@@ -414,7 +416,8 @@ class WorkspaceManager(qt.QObject):
             # FIXME: Could be done in the manager callback event
             for widget in newWorkspace.widgets():
                 self.parent()._initNewDock(widget)
-                widget.setScan(scan)
+                if isinstance(widget, PlotWidget):
+                    widget.setScan(scan)
 
             data.initLiveWindow(window)
 

@@ -114,10 +114,18 @@ def nexus_writer(session, tmpdir, config=True, alt=False, policy=True):
         "alt": alt,
         "policy": policy,
     }
+    prepare_objects(**info)
     prepare_scan_saving(**info)
     with writer_tango(**info) as writer:
         info["writer"] = writer
         yield info
+
+
+def prepare_objects(session=None, **kwargs):
+    att1 = session.env_dict["att1"]
+    att1.Al()
+    beamstop = session.env_dict["beamstop"]
+    beamstop.IN()
 
 
 def prepare_scan_saving(session=None, tmpdir=None, policy=True, **kwargs):
@@ -136,7 +144,12 @@ def prepare_scan_saving(session=None, tmpdir=None, policy=True, **kwargs):
         scan_saving.writer = "nexus"
         scan_saving_config = scan_saving.scan_saving_config
         for k in ["inhouse_data_root", "visitor_data_root", "tmp_data_root"]:
-            scan_saving_config[k] = scan_saving_config[k].replace("/tmp/scans", tmpdir)
+            mount_points = scan_saving_config[k]
+            if isinstance(mount_points, str):
+                scan_saving_config[k] = mount_points.replace("/tmp/scans", tmpdir)
+            else:
+                for mp in mount_points:
+                    mount_points[mp] = mount_points[mp].replace("/tmp/scans", tmpdir)
         scan_saving.proposal = "testproposal"
         technique = nxw_test_config.technique["withpolicy"]
         scan_saving.technique = technique
@@ -198,6 +211,7 @@ def writer_tango(session=None, tmpdir=None, config=True, alt=False, **kwargs):
         # Changing attributes does not need Init
         for attr, value in attributes.items():
             dev_proxy.write_attribute(attr, value)
+        greenlet.proxy = dev_proxy
         yield greenlet
 
 

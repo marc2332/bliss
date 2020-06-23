@@ -14,6 +14,10 @@ def test_nxw_loopscan(nexus_writer_config):
     _test_nxw_loopscan(**nexus_writer_config)
 
 
+def test_nxw_loopscan_noimages(nexus_writer_config):
+    _test_nxw_loopscan(**nexus_writer_config, save_images=False)
+
+
 def test_nxw_loopscan_alt(nexus_writer_config_alt):
     _test_nxw_loopscan(**nexus_writer_config_alt)
 
@@ -35,11 +39,17 @@ def test_nxw_loopscan_base_nopolicy(nexus_writer_base_nopolicy):
 
 
 @nxw_test_utils.writer_stdout_on_exception
-def _test_nxw_loopscan(session=None, tmpdir=None, writer=None, **kwargs):
+def _test_nxw_loopscan(
+    session=None, tmpdir=None, writer=None, save_images=True, **kwargs
+):
     scan_shape = (10,)
-    scan = scans.loopscan(scan_shape[0], .1, run=False)
+    scan = scans.loopscan(scan_shape[0], .1, run=False, save_images=save_images)
     nxw_test_utils.run_scan(scan)
     nxw_test_utils.wait_scan_data_finished([scan], writer=writer)
     nxw_test_data.assert_scan_data(
-        scan, scan_shape=scan_shape, positioners=[["elapsed_time", "epoch"]], **kwargs
+        scan,
+        scan_shape=scan_shape,
+        positioners=[["elapsed_time", "epoch"]],
+        save_images=save_images,
+        **kwargs
     )

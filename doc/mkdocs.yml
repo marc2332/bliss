@@ -45,7 +45,6 @@ nav:
                       - Electrometers:
                             - MCCE: config_mcce.md
                       - Elettra / ePicea 4 quadrant diode BPM: config_elettra.md
-                      - Encoders: config_encoder.md
                       - Energy and Wavelength: config_enwl.md
                       - ESRF BeamViewer (EBV): config_beamviewer.md
                       - Keithley:
@@ -189,6 +188,7 @@ nav:
                 - Writing a MCA controller: dev_write_mca.md
                 - Writing a temperature controller: dev_write_tempctrl.md
                 - Logging a controller: dev_maplog_controller.md
+                - Integrate dialogs: dev_dialogs.md
                 - Writing a shutter: dev_write_shutter.md
                 - Session Instance Map: dev_instance_map.md
                 - Counters:

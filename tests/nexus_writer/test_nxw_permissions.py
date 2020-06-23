@@ -59,27 +59,27 @@ def _test_tango(session=None, tmpdir=None, writer=None, **kwargs):
     with open(datasetdir, mode="w") as f:
         f.write("test")
     with pytest.raises(RuntimeError):
-        scans.ct(0.1, detector, save=True)
+        scans.sct(0.1, detector, save=True)
     os.remove(datasetdir)
     mkdir(datasetdir)
 
     # File directory does not have write permissions (scan should not start)
     if disable_permissions(datasetdir):
         with pytest.raises(RuntimeError):
-            scans.ct(0.1, detector, save=True)
+            scans.sct(0.1, detector, save=True)
         enable_permissions(datasetdir)
 
     # File already exists with wrong permission
-    scan = scans.ct(0.1, detector, save=True)
+    scan = scans.sct(0.1, detector, save=True)
     nxw_test_utils.wait_scan_data_exists([scan], writer=writer)
     filename = scan_filename(scan)
     if disable_permissions(filename):
         with pytest.raises(RuntimeError):
-            scans.ct(0.1, detector, save=True)
+            scans.sct(0.1, detector, save=True)
 
         # We should have permissions (scan should run)
         enable_permissions(filename)
-        scan = scans.ct(0.1, detector, save=True)
+        scan = scans.sct(0.1, detector, save=True)
     nxw_test_utils.wait_scan_data_finished([scan], writer=writer)
 
 
@@ -87,13 +87,13 @@ def _test_process(session=None, tmpdir=None, writer=None, **kwargs):
     detector = session.env_dict["diode3"]
 
     # File already exists with wrong permission
-    scan = scans.ct(0.1, detector, save=True)
+    scan = scans.sct(0.1, detector, save=True)
     filename = scan_filename(scan)
     if disable_permissions(filename):
         with pytest.raises(RuntimeError):
-            scans.ct(0.1, detector, save=True)
+            scans.sct(0.1, detector, save=True)
 
         # We should have permissions (scan should run)
         enable_permissions(filename)
-        scan = scans.ct(0.1, detector, save=True)
+        scan = scans.sct(0.1, detector, save=True)
     nxw_test_utils.wait_scan_data_finished([scan], writer=writer)

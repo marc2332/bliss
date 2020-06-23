@@ -9,7 +9,8 @@ from bliss.controllers.mca.handel.mapping import parse_mapping_buffer
 def test_stats_from_mapping_mode():
     expected = Stats(
         realtime=0.032,
-        livetime=0.016,
+        trigger_livetime=0.016,
+        energy_livetime=0.008,
         triggers=100,
         events=50,
         icr=6250.0,

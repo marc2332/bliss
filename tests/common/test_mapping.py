@@ -257,6 +257,7 @@ def test_global_map(beacon, s1hg, roby):
     sr = beacon.get("sample_regulation")
     heater = beacon.get("heater")
     hooked_m0 = beacon.get("hooked_m0")
+    beacon.get("primary_slit")
     # m.draw_pygraphviz()
 
     graph_data = node_link_data(m.G)
@@ -283,7 +284,7 @@ def test_global_map(beacon, s1hg, roby):
     # now check if expected links match the map
     expected_links = {
         roby.controller: {"s1f", "s1b", "s1u", "s1d", "roby", "hooked_m0"},
-        s1hg.controller: {"s1vg", "s1vo", "s1hg", "s1ho", "s1f", "s1d", "s1u", "s1b"},
+        "primary_slit": {"s1vg", "s1vo", "s1hg", "s1ho", "s1f", "s1d", "s1u", "s1b"},
         heater.controller: {"thermo_sample", "heater", "sample_regulation"},
         "axes": {
             "s1f",
@@ -299,7 +300,7 @@ def test_global_map(beacon, s1hg, roby):
         },
         "hook0": {"hooked_m0"},
         "controllers": {
-            s1hg.controller,
+            "primary_slit",
             roby.controller,
             heater.controller,
             "motion_hooks",
@@ -374,6 +375,15 @@ def test_walk_node(complex_beamline):
     assert len(nodes_info) == 12
     for node in nodes_info:
         assert node["instance"] in (
+            "controllers Contr_1 Contr_2 Contr_3 Axis_1 Axis_1 Axis_2 m0 m1 m2 m3 Serial_1 TcpIp".split()
+        )
+
+
+def test_find_descendant(complex_beamline):
+    nodes_info = list(complex_beamline.find_descendant("controllers"))
+    assert len(nodes_info) == 12
+    for node in nodes_info:
+        assert node in (
             "controllers Contr_1 Contr_2 Contr_3 Axis_1 Axis_1 Axis_2 m0 m1 m2 m3 Serial_1 TcpIp".split()
         )
 

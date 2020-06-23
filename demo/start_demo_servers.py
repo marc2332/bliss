@@ -96,50 +96,64 @@ def start_beacon(db_path):
     return proc
 
 
-def wait_server_to_be_started(device_fqdn, err_msg):
+def wait_server_to_be_started(admin_device_fqdn, err_msg):
     t0 = time.time()
 
     while True:
-        dev_proxy = DeviceProxy(device_fqdn)
         try:
+            dev_proxy = DeviceProxy(admin_device_fqdn)
             dev_proxy.ping()
-            dev_proxy.state()
-        except DevFailed as e:
-            time.sleep(0.1)
+        except DevFailed:
+            time.sleep(0.5)
         else:
             break
-
-        time.sleep(1)
 
         if time.time() - t0 > 10:
             raise RuntimeError(err_msg)
 
-        return dev_proxy
+    return dev_proxy
 
 
 def start_tango_servers():
     wait_tasks = []
     processes = []
 
-    for device_name, cmdline in (
-        ("id00/limaccds/simulator1", ("LimaCCDs", "simulator")),
+    for device_name, cmdline, server_name in (
+        ("id00/limaccds/simulator1", ("LimaCCDs", "simulator"), "LimaCCDs"),
         (
             "id00/limaccds/slits_simulator",
             ("SlitsSimulationLimaCCDs", "slits_simulator"),
+            "LimaCCDs",
         ),
-        ("id00/limaccds/tomo_simulator", ("TomoSimulationLimaCCDs", "tomo_simulator")),
-        ("id00/metadata/demo_session", ("MetadataManager", "demo")),
-        ("id00/metaexp/demo_session", ("MetaExperiment", "demo")),
-        ("id00/bliss_nxwriter/demo_session", ("NexusWriterService", "demo")),
+        (
+            "id00/limaccds/tomo_simulator",
+            ("TomoSimulationLimaCCDs", "tomo_simulator"),
+            "LimaCCDs",
+        ),
+        (
+            "id00/limaccds/diff_simulator",
+            ("DiffSimulationLimaCCDs", "diff_simulator"),
+            "LimaCCDs",
+        ),
+        ("id00/metadata/demo_session", ("MetadataManager", "demo"), "MetadataManager"),
+        ("id00/metaexp/demo_session", ("MetaExperiment", "demo"), "MetaExperiment"),
+        (
+            "id00/bliss_nxwriter/demo_session",
+            ("NexusWriterService", "demo"),
+            "NexusWriter",
+        ),
     ):
-        device_fqdn = "tango://{}/{}".format(os.environ["TANGO_HOST"], device_name)
+        fqdn_prefix = f"tango://{os.environ['TANGO_HOST']}"
+        device_fqdn = f"{fqdn_prefix}/{device_name}"
+        personal_name = cmdline[-1]
+        admin_device_fqdn = f"{fqdn_prefix}/dserver/{server_name}/{personal_name}"
 
         processes.append(subprocess.Popen(cmdline))
 
         wait_tasks.append(
             threading.Thread(
                 target=wait_server_to_be_started,
-                args=(device_fqdn, f"{device_fqdn} is not running"),
+                args=(admin_device_fqdn, f"{device_fqdn} is not running"),
             )
         )
         wait_tasks[-1].start()

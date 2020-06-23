@@ -7,7 +7,6 @@
 import collections
 import itertools
 import functools
-import operator
 import fnmatch
 from sortedcontainers import SortedKeyList
 
@@ -328,25 +327,7 @@ class MeasurementGroup:
         counters, _ = _get_counters_from_names(
             self._config_counters, container_default_counters_only=True
         )
-        default_group_counters = set(cnt.fullname for cnt in counters)
-        counter_names = []
-        for counter_pattern in counter_patterns:
-            if counter_pattern in (
-                name.split(":")[0] for name in default_group_counters
-            ):
-                # not a 'glob'-like pattern
-                counter_names.extend(
-                    cnt_name
-                    for cnt_name in default_group_counters
-                    if cnt_name.startswith(counter_pattern)
-                )
-            else:
-                counter_names.extend(
-                    cnt.fullname
-                    for cnt in self._available_counters
-                    if fnmatch.fnmatch(cnt.fullname, counter_pattern)
-                    or fnmatch.fnmatch(cnt.name, counter_pattern)
-                )
+        counter_names = self._find_counter_names(counters, counter_patterns)
 
         to_disable = set(counter_names)
         if not to_disable:
@@ -368,11 +349,7 @@ class MeasurementGroup:
         """
         return set(self.available) - set(self.disabled)
 
-    @_check_counter_name
-    def enable(self, *counter_patterns):
-        counters, _ = _get_counters_from_names(
-            self._config_counters, container_default_counters_only=True
-        )
+    def _find_counter_names(self, counters, counter_patterns):
         default_group_counters = set(cnt.fullname for cnt in counters)
         counter_names = []
         for counter_pattern in counter_patterns:
@@ -383,7 +360,8 @@ class MeasurementGroup:
                 counter_names.extend(
                     cnt_name
                     for cnt_name in default_group_counters
-                    if cnt_name.startswith(counter_pattern)
+                    if cnt_name == counter_pattern
+                    or cnt_name.startswith(counter_pattern + ":")
                 )
             else:
                 counter_names.extend(
@@ -392,6 +370,14 @@ class MeasurementGroup:
                     if fnmatch.fnmatch(cnt.fullname, counter_pattern)
                     or fnmatch.fnmatch(cnt.name, counter_pattern)
                 )
+        return counter_names
+
+    @_check_counter_name
+    def enable(self, *counter_patterns):
+        counters, _ = _get_counters_from_names(
+            self._config_counters, container_default_counters_only=True
+        )
+        counter_names = self._find_counter_names(counters, counter_patterns)
 
         to_enable = set(counter_names)
         if not to_enable:

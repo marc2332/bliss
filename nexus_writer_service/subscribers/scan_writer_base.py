@@ -304,7 +304,10 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
         :param default:
         :param bool cache:
         """
-        return subscan.get_info(key, default=default, cache=cache)
+        if subscan is None:
+            return self.get_info(key, default=default, cache=cache)
+        else:
+            return subscan.get_info(key, default=default, cache=cache)
 
     @property
     def save(self):
@@ -352,6 +355,7 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
             self._devices = devices.device_info(
                 self.config_devices,
                 self.info,
+                self.scan_ndim(None),
                 short_names=self.saveoptions["short_names"],
                 multivalue_positioners=self.saveoptions["multivalue_positioners"],
             )
@@ -397,7 +401,10 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
             device = devices.update_device(subdevices, fullname)
         if not device["device_type"]:
             device["device_type"] = self._device_type(node)
-        if self.is_scan_group and device["device_type"] == "positioner":
+        if self.is_scan_group and device["device_type"] in (
+            "positioner",
+            "positionergroup",
+        ):
             device["device_type"] = "groupinfo"
             if device["data_name"] == "value":
                 device["data_name"] = "data"
@@ -1221,31 +1228,20 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
         if subscan is None:
             # unknown, unexpected or disabled
             return dproxy
-        # Already initialized?
+        # Proxy already initialized?
         datasets = subscan.datasets
         dproxy = datasets.get(node.fullname)
         if dproxy is not None:
             return dproxy
-        # Detector data type known?
-        if not node.dtype:
-            # Detector data dtype not known at this point
+        # Already fully initialized in Redis?
+        data_info = self._detector_data_info(node)
+        if not data_info:
             return dproxy
-        # Detector data shape known?
-        detector_shape = node.shape
-        if not all(detector_shape):
-            # Detector data shape not known at this point
-            # TODO: this is why 0 cannot indicate variable length
-            return dproxy
-        # Detector save x images per file?
-        try:
-            external_images_per_file = node.images_per_file
-        except AttributeError:
-            external_images_per_file = None
 
         # Create parent: NXdetector, NXpositioner or measurement
         device = self.device(subscan, node)
         parentname = dataset_proxy.normalize_nexus_name(device["device_name"])
-        if device["device_type"] == "positioner":
+        if device["device_type"] in ("positioner", "positionergroup"):
             # Add as separate positioner group
             parentcontext = self.nxpositioner
             parentcontextargs = subscan, parentname
@@ -1274,12 +1270,10 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
             device=device,
             scan_shape=scan_shape,
             scan_save_shape=scan_save_shape,
-            detector_shape=detector_shape,
-            external_images_per_file=external_images_per_file,
-            dtype=node.dtype,
             saveorder=self.saveorder,
             publishorder=self.saveorder,
             parentlogger=subscan.logger,
+            **data_info,
         )
         datasets[node.fullname] = dproxy
         self._add_to_dataset_links(subscan, dproxy)
@@ -1362,6 +1356,8 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
         :param Subscan subscan:
         :returns int:
         """
+        if subscan is None:
+            return self.get_info("npoints", cache=True)
         # TODO: currently subscans always give 0 (npoints is not published in Redis)
         return self.get_subscan_info(subscan, "npoints", default=0, cache=True)
 
@@ -1437,7 +1433,7 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
         # Skip when no data expected
         if not self._node_data_saved(node):
             if last:
-                self.logger.debug(
+                self.logger.info(
                     "no data to be saved for node {}".format(repr(node.fullname))
                 )
             return
@@ -1501,11 +1497,46 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
         Check whether data associated for this node is actually saved.
 
         :param bliss.data.node.DataNode node:
+        :returns bool or None: when None -> we don't know (yet)
         """
-        if node.type in ["channel", "node_ref_channel"]:
-            return True
-        else:
+        if node.type == "lima":
+            # MANUAL or missing: do not expect data
+            # anything else: expect data
             return node.info.get("saving_mode", "MANUAL") != "MANUAL"
+        else:
+            return True
+
+    def _detector_data_info(self, node):
+        node_type = node.type
+        if node_type == "lima":
+            if not len(node.ref_data):
+                return None
+        data_expected = self._node_data_saved(node)
+
+        # Number of images saved per file
+        if node_type == "lima":
+            external_images_per_file = node.images_per_file
+        else:
+            external_images_per_file = None
+
+        # Detector data type known?
+        dtype = node.dtype
+        if data_expected and not dtype:
+            # Detector data dtype not known at this point
+            return None
+
+        # Detector data shape known?
+        detector_shape = node.shape
+        if data_expected and not all(detector_shape):
+            # Detector data shape not known at this point
+            # TODO: this is why 0 cannot indicate variable length
+            return None
+
+        return {
+            "dtype": dtype,
+            "detector_shape": detector_shape,
+            "external_images_per_file": external_images_per_file,
+        }
 
     def _save_reference_mode(self, file_format):
         """
@@ -1532,7 +1563,7 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
         """
         nproxy = self._node_proxy(node)
         if nproxy is None:
-            msg = "{} not initialized".format(repr(node.fullname))
+            msg = f"{repr(node.fullname)} not initialized (most likely missing info)"
             self._set_state(self.STATES.FAULT, msg)
         else:
             nproxy.ensure_existance()
@@ -1702,7 +1733,7 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
         :returns str, DatasetProxy: fullname and dataset handles
         """
         for fullname, dproxy in subscan.datasets.items():
-            if dproxy.device_type == "positioner":
+            if dproxy.device_type in ("positioner", "positionergroup"):
                 if onlyprincipals and dproxy.data_type != "principal":
                     continue
                 if onlymasters and dproxy.master_index < 0:
@@ -1717,18 +1748,7 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
         :returns str, DatasetProxy: fullname and dataset handle
         """
         for fullname, dproxy in subscan.datasets.items():
-            if dproxy.device_type != "positioner":
-                yield fullname, dproxy
-
-    def principal_iter(self, subscan):
-        """
-        Yields all principal dataset handles
-
-        :param Subscan subscan:
-        :returns str, DatasetProxy: fullname and dataset handle
-        """
-        for fullname, dproxy in subscan.datasets.items():
-            if dproxy.data_type != "principal":
+            if dproxy.device_type not in ("positioner", "positionergroup"):
                 yield fullname, dproxy
 
     def _save_positioners(self, subscan):
@@ -1805,7 +1825,7 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
         :param DatasetProxy dproxy:
         """
         self._add_to_measurement_group(subscan, dproxy)
-        if dproxy.device_type == "positioner":
+        if dproxy.device_type in ("positioner", "positionergroup"):
             self._add_to_positioners_group(subscan, dproxy)
 
     def _add_to_measurement_group(self, subscan, dproxy):
@@ -1815,7 +1835,6 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
         :param Subscan subscan:
         :param DatasetProxy dproxy:
         """
-        posprefix = "pstn_"
         with self.nxmeasurement(subscan) as measurement:
             if measurement is None:
                 return
@@ -1825,23 +1844,11 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
             if not linkname:
                 dproxy.logger.warning("cannot be linked too")
                 return
-            if dproxy.device_type == "positioner":
-                linknames = []
-                # Positioners should always be there under
-                # a different name when not in positioners
-                # snapshot
-                if linkname not in self.motors:
-                    linknames.append(posprefix + linkname)
-                # Principle positioners which are masters should
-                # be there under their normal name
-                if dproxy.master_index >= 0 and dproxy.data_type == "principal":
-                    linknames.append(linkname)
-            else:
-                linknames = [linkname]
+            linknames = [linkname]
             for linkname in linknames:
                 if linkname in measurement:
                     self.logger.warning(
-                        f"Duplicate name '{linkname}' in the measurement group. Rename this detector or positioner (avoid prefix '{posprefix}')."
+                        f"Duplicate name '{linkname}' in the measurement group. Rename this detector or positioner."
                     )
                 else:
                     nexus.createLink(measurement, linkname, dproxy.path)

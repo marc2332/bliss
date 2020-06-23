@@ -42,6 +42,7 @@ class YAxesEditor(qt.QWidget):
         self.__plotItem = None
         layout = qt.QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(1)
 
         self.__group = qt.QButtonGroup(self)
 
@@ -55,8 +56,20 @@ class YAxesEditor(qt.QWidget):
         self.__group.setExclusive(True)
         self.__group.buttonClicked[qt.QAbstractButton].connect(self.__checkedChanged)
 
+        self.__removeButton = delegates.RemovePlotItemButton(self)
+
+        placeHolder = qt.QWidget(self)
+        phLayout = qt.QVBoxLayout(placeHolder)
+        phLayout.setContentsMargins(0, 0, 0, 0)
+        phLayout.addWidget(self.__removeButton)
+        self.__removeButton.setFixedSize(y2Check.sizeHint())
+        placeHolder.setFixedSize(y2Check.sizeHint())
+        icon = icons.getQIcon("flint:icons/remove-item-small")
+        self.__removeButton.setIcon(icon)
+
         layout.addWidget(y1Check)
         layout.addWidget(y2Check)
+        layout.addWidget(placeHolder)
 
     def __getY1Axis(self):
         return self.findChildren(qt.QRadioButton, "y1")[0]
@@ -80,6 +93,9 @@ class YAxesEditor(qt.QWidget):
             self.__plotItemYAxisChanged()
 
         isReadOnly = self.__isReadOnly()
+
+        self.__removeButton.setPlotItem(plotItem)
+        self.__removeButton.setVisible(plotItem is not None and not isReadOnly)
 
         w = self.__getY1Axis()
         w.setEnabled(not isReadOnly)
@@ -219,7 +235,7 @@ class _AddItemAction(qt.QWidgetAction):
         icon = icons.getQIcon("flint:icons/add-item")
         widget.setIcon(icon)
         widget.setAutoRaise(True)
-        widget.setToolTip("CReate new items in the plot")
+        widget.setToolTip("Create new items in the plot")
         widget.setPopupMode(qt.QToolButton.InstantPopup)
         widget.setEnabled(False)
         widget.setText("Create items")
@@ -579,6 +595,7 @@ class CurvePlotPropertyWidget(qt.QWidget):
         self.__tree.setEditTriggers(qt.QAbstractItemView.NoEditTriggers)
         self.__tree.setUniformRowHeights(True)
 
+        self.__structureInvalidated: bool = False
         self.__xAxisInvalidated: bool = False
         self.__xAxisDelegate = delegates.RadioPropertyItemDelegate(self)
         self.__yAxesDelegate = YAxesPropertyItemDelegate(self)
@@ -807,7 +824,10 @@ class CurvePlotPropertyWidget(qt.QWidget):
         self.__setScan(scanModel)
 
     def __structureChanged(self):
-        self.__updateTree()
+        if self.__plotModel.isInTransaction():
+            self.__structureInvalidated = True
+        else:
+            self.__updateTree()
 
     def __itemValueChanged(
         self, item: plot_model.Item, eventType: plot_model.ChangeEventType
@@ -820,8 +840,10 @@ class CurvePlotPropertyWidget(qt.QWidget):
                 self.__updateTree()
 
     def __transactionFinished(self):
-        if self.__xAxisInvalidated:
+        updateTree = self.__xAxisInvalidated or self.__structureInvalidated
+        if updateTree:
             self.__xAxisInvalidated = False
+            self.__structureInvalidated = False
             self.__updateTree()
 
     def plotModel(self) -> Union[None, plot_model.Plot]:
@@ -931,6 +953,8 @@ class CurvePlotPropertyWidget(qt.QWidget):
     def __updateTree(self):
         collapsed = _property_tree_helper.getPathFromCollapsedNodes(self.__tree)
         selectedItem = self.selectedPlotItem()
+        scrollx = self.__tree.horizontalScrollBar().value()
+        scrolly = self.__tree.verticalScrollBar().value()
 
         model = self.__tree.model()
         model.clear()
@@ -950,13 +974,17 @@ class CurvePlotPropertyWidget(qt.QWidget):
             self.VisibleColumn, self.__visibilityDelegate
         )
         self.__tree.setItemDelegateForColumn(self.RemoveColumn, self.__removeDelegate)
+        self.__tree.setStyleSheet("QTreeView:item {padding: 0px 8px;}")
         header = self.__tree.header()
+        header.setStyleSheet("QHeaderView { qproperty-defaultAlignment: AlignCenter; }")
         header.setSectionResizeMode(self.NameColumn, qt.QHeaderView.ResizeToContents)
         header.setSectionResizeMode(self.XAxisColumn, qt.QHeaderView.ResizeToContents)
         header.setSectionResizeMode(self.YAxesColumn, qt.QHeaderView.ResizeToContents)
         header.setSectionResizeMode(self.VisibleColumn, qt.QHeaderView.ResizeToContents)
         header.setSectionResizeMode(self.StyleColumn, qt.QHeaderView.ResizeToContents)
         header.setSectionResizeMode(self.RemoveColumn, qt.QHeaderView.ResizeToContents)
+        header.setMinimumSectionSize(10)
+        header.moveSection(self.StyleColumn, self.VisibleColumn)
 
         sourceTree: Dict[plot_model.Item, qt.QStandardItem] = {}
         scan = self.__scan
@@ -1005,7 +1033,6 @@ class CurvePlotPropertyWidget(qt.QWidget):
                             yChannel = plotItem.yChannel()
                             if yChannel is not None:
                                 yChannelName = yChannel.name()
-                                _logger.error(yChannelName)
                                 parentChannel = channelItems.get(yChannelName, None)
                                 if parentChannel is None:
                                     parent = itemWithoutLocation
@@ -1025,7 +1052,9 @@ class CurvePlotPropertyWidget(qt.QWidget):
                                 yChannel = plotItem.yChannel()
                                 if yChannel is not None:
                                     yChannelName = yChannel.name()
-                                    parentChannel = channelItems[yChannelName]
+                                    parentChannel = channelItems.get(yChannelName, None)
+                                    if parentChannel is None:
+                                        parent = itemWithoutLocation
                                 xAxisItem = channelItems[xChannelName]
                                 xAxisItem.setSelectedXAxis()
                                 if yChannel is None:
@@ -1052,6 +1081,8 @@ class CurvePlotPropertyWidget(qt.QWidget):
 
         self.__tree.expandAll()
         _property_tree_helper.collapseNodesFromPaths(self.__tree, collapsed)
+        self.__tree.horizontalScrollBar().setValue(scrollx)
+        self.__tree.verticalScrollBar().setValue(scrolly)
 
         with qtutils.blockSignals(self):
             self.selectPlotItem(selectedItem)

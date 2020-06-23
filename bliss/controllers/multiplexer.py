@@ -295,11 +295,14 @@ class MultiplexerSwitch(Switch):
     def _init(self):
         try:
             self.__mux_ctrl = self.config.get("mux_controller")
+
         except RuntimeError:
             raise ValueError(
                 "Invalid mux_controller in multiplexer switch {0}".format(self.name)
             )
         self.__mux_name = self.config.get("mux_name")
+
+        self._initialize_hardware()
 
     def _initialize_hardware(self):
         try:
@@ -319,3 +322,10 @@ class MultiplexerSwitch(Switch):
 
     def _get(self):
         return self.__mux_ctrl.getOutputStat(self.__mux_name)
+
+    @Switch.lazy_init
+    def __info__(self):
+        infos = "Multiplexer     : {0}\n".format(self.__mux_name)
+        infos += "Possible states : {0}\n".format(self.states_list())
+        infos += "Current state   : {0}\n".format(self.get())
+        return infos

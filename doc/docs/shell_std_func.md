@@ -164,6 +164,28 @@ simul_mca.deadtime_det1  0D       simul_mca
 ```
 
 
+## Bliss Objects
+
+* `lsobj()`: print the list of BLISS objects defined in a session. Can be used
+  with usual jocker characters:
+
+    - `*`: matches everything
+    - `?`: matches any single character
+    - `[seq]`: matches any character in seq
+    - `[!seq]`: matches any character not in seq
+
+Examples:
+```python
+TEST_SESSION [2]: lsobj("dio*")      # all objects starting by 'dio'
+diode  diode2  diode3  diode4  diode5  diode6  diode7  diode8  diode9
+
+TEST_SESSION [3]: lsobj("[abc]*")    # all objects starting by 'a', 'b' or 'c'
+beamstop  att1  bad  calc_mot1  calc_mot2  custom_axis
+
+TEST_SESSION [6]: lsobj("???")       # all objects with 3-lettres names
+MG1  MG2  bad  s1b  s1d  s1f  s1u
+```
+
 ## Data Policy
 * `newproposal()` `newsample()` `newdataset()`: Change the **proposal** **sample**
 and **dataset** names used to determine the saving path.
@@ -181,6 +203,52 @@ section](bliss_data_policy.md#directory-structure)
 * `silx_view()`: launch Silx View on last scan's data file.
 
 * `pymca()`: launch PyMca on last scan's data file.
+
+## Dialogs
+
+Some bliss objects can be used with dialogs.
+
+To check if an object has dialogs implemented you can use the `menu` function.
+
+Using `menu()` without further arguments will display all objects that has
+dialogs implemented.
+
+Using using `menu(object)` will launch the dialog with his effects. If more than
+one dialog exists for the same object you can either pass the dialog name as a string
+like `menu(lima_simulator, "saving")` or just use `menu(lima_simulator)` and first
+you will select between available dialogs and than use the selected one.
+
+Using
+
+```python
+TEST_SESSION [2]: menu()  
+         Out [2]: Dialog available for the following objects:
+
+                  ACTIVE_MG
+                  MG1
+                  MG2
+                  ascan
+                  lima_simulator
+                  test_mg
+                  transfocator_simulator
+                  wago_simulator
+                  ...
+
+TEST_SESSION [3]: show(trasfocator_simulator)
+                  .. HERE THE DIALOG DISPLAYS ..
+         Out [3]: Transfocator transfocator_simulator:  # effects of dialog
+                  P0  L1  L2   L3  L4   L5   L6  L7  L8
+                  IN  IN  OUT  IN  OUT  OUT  IN  IN  IN
+
+TEST_SESSION [4]: show(lima_simulator, "saving")
+                  .. HERE THE DIALOG DISPLAYS ..
+         Out [4]: # display of return status if present
+
+TEST_SESSION [5]: show(lima_simulator)
+                  .. HERE SUBMENU DIALOG DISPLAYS ..
+                  .. THAN SELECTED DIALOG DISPLAYS ..
+         Out [5]: # display of return status if present
+```
 
 
 ## Wago Interlocks
@@ -213,8 +281,17 @@ what is given to both stdout and to the logbook.
 Everything that should be logged to the logbook for any reason should use this
 instead of the normal print.
 
-You can use `lprint()` even when using Bliss in library mode: no output will
-be send to stdout, but messages will be forwarded to logbook.
+`lprint()` can be used even when using Bliss in library mode: no output will be
+send to stdout, but messages will be forwarded to logbook.
+
+`lprint_disable()` turns off output of `lprint()` instructions to stdout.
+
+Following example will be silent:
+```python
+with lprint_disable():
+    for axis in axes_list:
+        axis.hw_limit(limit, wait=False)
+```
 
 ### prdef (print definition)
 * `prdef(<function>)`: Display information about given function :
@@ -235,6 +312,27 @@ def umv(*args):
     __umove(*args)
 ```
 
+### ladd
+
+The output from a previously execute command can be sent to the logbook
+simply using `ladd(num)`.
+The parameter `num` con refer to the number of shell paragraph or be a
+negative number relative to the current paragraph number.
+If no parameter is specify the previous paragraph is sent (coresponds to -1).
+
+Following an example sending to the logbook for three times the same output:
+
+```python
+
+TEST_SESSION [1]: transfocator_simulator
+         Out [1]: Transfocator transfocator_simulator:
+                  P0   L1  L2  L3  L4   L5  L6   L7  L8
+                  OUT  IN  IN  IN  OUT  IN  OUT  IN  OUT
+
+TEST_SESSION [2]: ladd()  # adds previous paragraph (-1)
+TEST_SESSION [3]: ladd(1)  # can be used with reference to the paragraph number
+TEST_SESSION [4]: ladd(-3)  # can be also used with relative negative reference
+```
 
 ### bench
 

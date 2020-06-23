@@ -8,6 +8,18 @@ from contextlib import contextmanager
 
 from silx.utils import testutils
 from bliss.common import plot
+from bliss.flint.client import proxy
+
+
+class ExtTestLogging(testutils.TestLogging):
+    def __exit__(self, exc_type, exc_value, traceback):
+        try:
+            testutils.TestLogging.__exit__(self, exc_type, exc_value, traceback)
+        except RuntimeError:
+            # In case of problem, display the received logs
+            for r in self.records:
+                print(r.levelname, r.name, self.format(r))
+            raise
 
 
 @contextmanager
@@ -19,6 +31,8 @@ def attached_flint_context():
     """
     flint = plot.get_flint()
     pid = flint._pid
+    # Release the object before calling attach_flint
+    flint = None
     flint = plot.attach_flint(pid)
     yield pid
     flint = None  # Break the reference to the proxy
@@ -44,10 +58,10 @@ def test_created_flint(flint_session):
     """
     Flint is created and attached with subprocess
     """
-    flint = plot.get_flint()
+    flint = plot.get_flint(creation_allowed=False)
 
     # Check messages and stdout
-    listener = testutils.TestLogging(plot.FLINT_OUTPUT_LOGGER.name, info=1)
+    listener = ExtTestLogging(proxy.FLINT_OUTPUT_LOGGER.name, info=1)
     with listener:
         flint.ping()
         for _ in range(10):
@@ -63,11 +77,12 @@ def test_attached_flint(attached_flint_session):
     """
     flint = plot.get_flint()
     # Check messages and stdout
-    listener = testutils.TestLogging(plot.FLINT_OUTPUT_LOGGER.name, info=1)
+    listener = ExtTestLogging(proxy.FLINT_OUTPUT_LOGGER.name, info=1)
     with listener:
         flint.ping()
         for _ in range(10):
+            # wait until and answer
+            time.sleep(0.5)
             if len(listener.records) >= 1:
                 # Early break
                 break
-            time.sleep(0.5)

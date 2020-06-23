@@ -10,6 +10,7 @@ import gevent
 
 from warnings import warn
 from bliss.controllers.motor import Controller
+from bliss.config.settings import QueueSetting
 from bliss.common.utils import object_method
 from bliss.common.axis import AxisState, CyclicTrajectory, Motion
 from bliss.common.logtools import log_error, log_debug
@@ -172,6 +173,8 @@ class PM600(Controller):
         )
         axis.trajectory_pre_xp = axis.config.get("pre_xp", list, default=[])
         axis.trajectory_post_xp = axis.config.get("post_xp", list, default=[])
+
+        axis.trajectory_prog = QueueSetting("{0}.trajectory_prog".format(axis.name))
 
     def finalize_axis(self):
         pass
@@ -425,8 +428,6 @@ class PM600(Controller):
             pre_xp = traj.axis.trajectory_pre_xp
             post_xp = traj.axis.trajectory_post_xp
 
-            # pvt = traj.pvt_pattern if is_cyclic_traj else traj.pvt # not needed
-
             time = traj.pvt["time"]
             positions = traj.pvt["position"]
 
@@ -476,51 +477,42 @@ class PM600(Controller):
             prog.append("DP{0}".format(prf_num))
 
             for p in mr:
-                prog.append("MR{0}".format(p))
+                prog.append("MR{0}".format(int(p)))
 
             prog.append("EP{0}".format(prf_num))
-
-            # TODO profile_mr_list and sequence_dict must go to redis
-            self.profile_mr_list = mr
 
             # SEQUENCE: all commands allowed, and DS/ES
 
             prog.append("DS{0}".format(seq_num))
-            self.sequence_dict = {}
 
             # 1PTxx time to complete each element in a profile definition (unit is ms)
-            prog.append("PT{0}".format(tstep * 1000))
-            self.sequence_dict["PT"] = tstep * 1000
+            prog.append("PT{0}".format(int(tstep) * 1000))
 
             for cmd in pre_xp:
                 prog.append("{0}".format(cmd))
-                self.sequence_dict[cmd[0:2]] = cmd[2:]
 
             # 1XPO execute profile
             prog.append("XP{0}".format(prf_num))
-            self.sequence_dict["XP"] = prf_num
 
             for cmd in post_xp:
                 prog.append("{0}".format(cmd))
-                self.sequence_dict[cmd[0:2]] = cmd[2:]
 
             # 1ES2 end of seq def
             prog.append("ES{0}".format(seq_num))
 
-            log_debug(self, "program ready to be loaded: {0}".format(prog))
+            if prog != traj.axis.trajectory_prog.get():
+                log_debug(self, "program ready to be loaded: {0}".format(prog))
+                self.sock.flush()
+                for cmd in prog:
+                    self.raw_write_read(channel + cmd + "\r")
+                traj.axis.trajectory_prog.set(prog)
+            else:
+                log_debug(self, "same program already loaded: {0}".format(prog))
 
-            # TODO define some clean[up procedure ?
-            # Control-C or escape is supposed to return to idle state ...
-
-            self.sock.flush()
-            for cmd in prog:
-                self.raw_write_read(channel + cmd + "\r")
-
-            gevent.sleep(1)
+            # gevent.sleep(1)
 
     def move_to_trajectory(self, *trajectories):
-        motions = [Motion(t.axis, t.pvt["position"][0], 0) for t in trajectories]
-        self.start_all(*motions)
+        pass
 
     def start_trajectory(self, *trajectories):
         for t in trajectories:
@@ -529,7 +521,8 @@ class PM600(Controller):
             )
 
     def stop_trajectory(self, *trajectories):
-        pass
+        self.raw_write("\003")
+        self.sock.flush()
 
     def has_trajectory_event(self):
         return False
@@ -537,7 +530,7 @@ class PM600(Controller):
     def set_trajectory_events(self, *trajectories):
         pass
 
-    def trajectory_list(self, trajectory):
+    def trajectory_list(self, trajectory, response_time=1):
         self.raw_write(
             "{0}LP{1}\r{0}LS{2}\r".format(
                 trajectory.axis.channel,
@@ -545,8 +538,36 @@ class PM600(Controller):
                 trajectory.axis.trajectory_sequence_number,
             )
         )
-        time.sleep(1)
-        print(self.sock.raw_read().decode())
+        time.sleep(response_time)
+        prog = self.sock.raw_read().decode()
+
+        _prog = [
+            "US{0}".format(trajectory.axis.trajectory_sequence_number),
+            "UP{0}".format(trajectory.axis.trajectory_profile_number),
+            "DP{0}".format(trajectory.axis.trajectory_profile_number),
+        ]
+        _prog += list(
+            map(
+                lambda x: x.replace(" ", ""),
+                prog.split("0{0}:".format(trajectory.axis.channel))[1].splitlines()[1:],
+            )
+        )
+        _prog += [
+            "EP{0}".format(trajectory.axis.trajectory_profile_number),
+            "DS{0}".format(trajectory.axis.trajectory_sequence_number),
+        ]
+        _prog += list(
+            map(
+                lambda x: x.replace(" ", ""),
+                prog.split("0{0}:".format(trajectory.axis.channel))[2].splitlines()[1:],
+            )
+        )
+
+        _prog += ["ES{0}".format(trajectory.axis.trajectory_sequence_number)]
+
+        trajectory.axis.trajectory_prog.set(_prog)
+
+        return prog
 
     def trajectory_backup(self, trajectory):
         # Saves all profiles and sequences definitions to non-volatile flash-mem

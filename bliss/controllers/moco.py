@@ -5,7 +5,6 @@ from bliss.common.counter import SamplingCounter, SamplingMode
 from bliss.controllers.counter import SamplingCounterController
 from bliss.common.axis import AxisState
 from bliss.controllers.motor import Controller
-from bliss.config import static
 
 
 class Moco(object):
@@ -35,6 +34,7 @@ class Moco(object):
 
         # Communication
         self._cnx = get_comm(config_tree, timeout=3)
+        global_map.register(self, children_list=[self._cnx])
 
         # motor
         self.motor = None
@@ -170,6 +170,7 @@ class Moco(object):
 
         return [float(valmin), float(valmax)]
 
+    # OUTBEAM  [{CURR  |  VOLT  |  EXT}]  [{NORM  |  INV}]  [{BIP |  UNIP}]  [<fS>]  [{AUTO  | NOAUTO}]
     def outbeam(
         self,
         source=None,
@@ -180,25 +181,63 @@ class Moco(object):
         silent=False,
     ):
 
-        if source in ["CURR", "VOLT", "EXT"]:
-            comm = f"OUTBEAM {source}"
-            if polarity in ["NORM", "INV"]:
-                comm = f"{comm} {polarity}"
-                if channel in ["BIP", "UNI"]:
-                    comm = f"{comm} channel"
-                    if fullscale is not None:
-                        comm = f"{comm} {float(fullscale)}"
-                        if autoscale in ["AUTO", "NOAUTO"]:
-                            comm = f"{comm} {autoscale}"
-                            self.comm(comm)
-                            return
+        comm = ""
+        if (source is not None) and (source.upper() in ["CURR", "VOLT", "EXT"]):
+            comm = f"{comm} {source}"
+        if (polarity is not None) and (polarity.upper() in ["NORM", "INV"]):
+            comm = f"{comm} {polarity}"
+        if (channel is not None) and (channel.upper() in ["BIP", "UNIP"]):
+            comm = f"{comm} {channel}"
+        if fullscale is not None:
+            comm = f"{comm} {float(fullscale)}"
+        if (autoscale is not None) and (autoscale.upper() in ["AUTO", "NOAUTO"]):
+            comm = f"{comm} {autoscale}"
+        if comm != "":
+            self.comm(f"OUTBEAM {comm}".upper())
+            return
 
         if not silent:
             ans = self.comm("?OUTBEAM")
             rep = ans.split()
             print(f"OUTBEAM: source    : {rep[0]}\t[CURR | VOLT | EXT]")
             print(f"         polarity  : {rep[1]}\t[NORM | INV]")
-            print(f"         channel   : {rep[2]}\t[BIP | UNI]")
+            print(f"         channel   : {rep[2]}\t[BIP | UNIP]")
+            print(f"         fullscale : {rep[3]}")
+            print(f"         autoscale : {rep[4]}\t[AUTO | NOAUTO]")
+
+    # INBEAM [{CURR | VOLT | EXT}] [{NORM | INV}] [{BIP | UNIP}] [<fS>] [{AUTO | NOAUTO}]
+    # INBEAM [SOFT] [<softThresh>]
+    def inbeam(
+        self,
+        source=None,
+        polarity=None,
+        channel=None,
+        fullscale=None,
+        autoscale=None,
+        silent=False,
+    ):
+
+        comm = ""
+        if (source is not None) and (source.upper() in ["CURR", "VOLT", "EXT"]):
+            comm = f"{comm} {source}"
+        if (polarity is not None) and (polarity.upper() in ["NORM", "INV"]):
+            comm = f"{comm} {polarity}"
+        if (channel is not None) and (channel.upper() in ["BIP", "UNIP"]):
+            comm = f"{comm} {channel}"
+        if fullscale is not None:
+            comm = f"{comm} {float(fullscale)}"
+        if (autoscale is not None) and (autoscale.upper() in ["AUTO", "NOAUTO"]):
+            comm = f"{comm} {autoscale}"
+        if comm != "":
+            self.comm(f"INBEAM {comm}".upper())
+            return
+
+        if not silent:
+            ans = self.comm("?INBEAM")
+            rep = ans.split()
+            print(f"INBEAM:  source    : {rep[0]}\t[CURR | VOLT | EXT]")
+            print(f"         polarity  : {rep[1]}\t[NORM | INV]")
+            print(f"         channel   : {rep[2]}\t[BIP | UNIP]")
             print(f"         fullscale : {rep[3]}")
             print(f"         autoscale : {rep[4]}\t[AUTO | NOAUTO]")
 
@@ -329,8 +368,7 @@ class MocoMotor(Controller):
                 f"moco: only 1 motor is allowed, but {len(axes)} are configured."
             )
 
-        static_config = static.get_config()
-        self.moco = static_config.get(config.get("moco"))
+        self.moco = config.get("moco")
 
         super().__init__(self.moco.name + "_motor", config, axes, *args)
 

@@ -5,18 +5,20 @@
 # Copyright (c) 2015-2020 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
+import pytest
 from bliss.common import scans
 import nxw_test_utils
 import nxw_test_data
 
 
+@pytest.mark.xfail()
 def test_nxw_notes(nexus_writer_config):
     _test_nxw_notes(**nexus_writer_config)
 
 
 @nxw_test_utils.writer_stdout_on_exception
 def _test_nxw_notes(session=None, tmpdir=None, writer=None, **kwargs):
-    scan = scans.ct(.1, run=False, save=True)
+    scan = scans.sct(.1, run=False, save=True)
     notes = ["test1", "text2", "text3"]
     for note in notes:
         scan.add_comment(note)

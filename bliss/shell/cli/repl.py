@@ -7,6 +7,7 @@
 
 """Bliss REPL (Read Eval Print Loop)"""
 
+import builtins
 import os
 import sys
 import signal
@@ -16,7 +17,8 @@ import functools
 import traceback
 import gevent
 import logging
-from collections import deque
+import __future__
+from collections import deque, defaultdict
 
 from ptpython.repl import PythonRepl
 import ptpython.layout
@@ -41,7 +43,7 @@ from prompt_toolkit.enums import DEFAULT_BUFFER
 
 from bliss.shell.cli import style as repl_style
 from bliss.shell import initialize
-from bliss.data.display import ScanPrinter, ScanEventHandler
+from bliss.data.display import ScanPrinter, ScanPrinterWithProgressBar
 from .prompt import BlissPrompt
 from .typing_helper import TypingHelper
 
@@ -51,7 +53,7 @@ from bliss.shell.cli.ptpython_statusbar_patch import NEWstatus_bar, TMUXstatus_b
 from bliss.common.logtools import logbook_printer
 from bliss.shell.cli.protected_dict import ProtectedDict
 from bliss.shell import standard
-
+from redis.exceptions import ConnectionError
 import __main__
 
 logger = logging.getLogger(__name__)
@@ -114,6 +116,65 @@ class ErrorReport:
     @expert_mode.setter
     def expert_mode(self, enable):
         self._expert_mode = bool(enable)
+
+
+class CaptureOutput:
+    SIZE = 20
+    MAX_PARAGRAPH_SIZE = 1000
+    patched = False
+
+    _data = defaultdict(list)
+    history_num = 1
+
+    def to_str(self, index: int) -> str:
+        return "".join(self._data[index])[:-1]
+
+    def append(self, args, kwargs):
+        if len(self._data) > self.MAX_PARAGRAPH_SIZE:
+            return
+
+        args = (str(arg) for arg in args)
+        sep = kwargs.pop("sep", " ")
+        end = kwargs.pop("end", "\n")
+
+        stringed = sep.join(args) + end
+
+        self._data[self.history_num].append(stringed)
+
+    def __len__(self):
+        return len(self._data)
+
+    def end_of_paragraph(self, num):
+        type(self).history_num = num
+        self._data[self.history_num] = []
+        try:
+            del self._data[self.history_num - self.SIZE]
+        except KeyError:
+            pass
+
+    def __getitem__(self, index):
+        """
+        Use [-1] to get the last element stdout
+        or [n] coresponding to shell output line number
+        """
+        if index < 0:
+            index = self.history_num + index
+        if index not in self._data:
+            raise IndexError
+        return self.to_str(index)
+
+    def patch_print(self):
+        def memorize_arguments(func):
+            @functools.wraps(func)
+            def wrapped(*args, **kwargs):
+                self.append(args, kwargs)
+                return func(*args, **kwargs)
+
+            return wrapped
+
+        if not self.patched:
+            builtins.print = memorize_arguments(builtins.print)
+            type(self).patched = True
 
 
 def install_excepthook():
@@ -230,7 +291,7 @@ class BlissRepl(PythonRepl):
         else:
             ptpython.layout.status_bar = NEWstatus_bar
 
-        super(BlissRepl, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.current_task = None
         if title:
@@ -258,6 +319,9 @@ class BlissRepl(PythonRepl):
         self.confirm_exit = True
         self.enable_mouse_support = False
 
+        self.captured_output = CaptureOutput()
+        self.captured_output.patch_print()
+
         if self.use_tmux:
             self.exit_message = (
                 "Do you really want to close session? (CTRL-B D to detach)"
@@ -266,6 +330,23 @@ class BlissRepl(PythonRepl):
         self.typing_helper = TypingHelper(self)
 
         self._application_stopper_callback = weakref.WeakSet()
+
+    def get_compiler_flags(self):
+        """
+        Give the current compiler flags by looking for _Feature instances
+        in the globals. Pached here to avoid `Unhandled exception in event loop` e.g. on quit.
+        """
+        flags = 0
+
+        for value in self.get_globals().values():
+            try:
+                if isinstance(value, __future__._Feature):
+                    f = value.compiler_flag
+                    flags |= f
+            except:
+                pass
+
+        return flags
 
     def _another_execute(self, line):
         """
@@ -321,6 +402,8 @@ class BlissRepl(PythonRepl):
                             out_prompt + [("", result_str)]
                         )
 
+                    self.captured_output.append((result_str,), {})
+
                     print_formatted_text(
                         formatted_output,
                         style=self._current_style,
@@ -339,8 +422,17 @@ class BlissRepl(PythonRepl):
         try:
             # return super(BlissRepl, self)._execute(*args, **kwargs)
             return self._another_execute(*args, **kwargs)
-        except:
-            return sys.exc_info()
+        except BaseException as e:
+            if isinstance(e, ConnectionError):
+                raise ConnectionError(
+                    "Connection to Beacon server lost. "
+                    + "This is a serious problem! "
+                    + "Please quite the bliss session and try to restart it. ("
+                    + str(e)
+                    + ")"
+                )
+            else:
+                return sys.exc_info()
 
     def _execute(self, *args, **kwargs):
         self.current_task = gevent.spawn(self._execute_task, *args, **kwargs)
@@ -351,7 +443,7 @@ class BlissRepl(PythonRepl):
                 and len(return_value) >= 3
                 and isinstance(return_value[1], (BaseException, Exception))
             ):
-                raise return_value[1].with_traceback(return_value[2]) from None
+                raise return_value[1].with_traceback(return_value[2])
         except gevent.Timeout:
             self._handle_exception(*args)
         except KeyboardInterrupt:
@@ -571,12 +663,12 @@ def embed(*args, **kwargs):
     try:
         cmd_line_i = cli(*args, **kwargs)
 
-        # set old style print methods for the scans
-        scan_printer = ScanPrinter()
-
         if sys.platform not in ["win32", "cygwin"] and cmd_line_i.use_tmux:
-            # Catch scan events to show the scan display window
-            seh = ScanEventHandler(cmd_line_i)
+            # Catch scan events to show the progress bar
+            seh = ScanPrinterWithProgressBar(cmd_line_i)
+        else:
+            # set old style print methods for the scans
+            scan_printer = ScanPrinter()
 
         if stop_signals:
 
@@ -641,6 +733,10 @@ def embed(*args, **kwargs):
                 break
             except BaseException:
                 sys.excepthook(*sys.exc_info())
+            finally:
+                cmd_line_i.captured_output.end_of_paragraph(
+                    cmd_line_i.current_statement_index
+                )
 
     finally:
         warnings.filterwarnings("default")

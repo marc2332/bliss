@@ -7,6 +7,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Flint:
+    - Added API to start/stop monitorig on Lima
+    - Added image plot GUI to custom live and exposure time while monitoring
+    - Added export to logbook
+    - Added extra markers to manually put in the plots
+    - Added a window menu to change default docks visibility
+    - Added tools to custom style and contrast of the scatters and images
+      in the plot tool bar (and not only on the item property)
+    - Update to silx 0.13
+        - Provide cross profile for images and scatters
+        - Provide extra profile tools for regular scatters to display data slice
+          without interpolation
+        - Provide histogram for scatters
+        - Free line image profile for diffraction images
+          (2 dedicated anchors for the start and a stop)
+        - Added image colormap normalization: square-root, gamma, arcsinh
+- sct: like ct but saves data by default
+
+### Changes
+- Flint:
+    - Allow to select another curve when the fit dialog is open
+    - Profile windows are now docks
+    - Tune the scan status widget to resize the width smaller
+  	- Provide tool to remove curves close to the y1/y2 indicators
+	  - Rework the check of the flint API at startup to reduce pointless warnings
+    - Group Lima ROI channels by ROI name in the property tree
+- ct: 
+    - ct now works with count_time or counter as first argument.
+      if count_time default value of 1s will be used.
+    - ct does no longer allow to save data, use sct instead
+    - ct does no longer collect metadata and positioners for scan_info
+      this is to reduce the time cosumed by ct on top of the counting time
+      in case positioners or metadata is needed, use `sct` instead.
+    - ct (and sct) will no longer be added to SCANS queue of the session
+- scan numbering: scans that are not saved use a shadow scan number and do not increase the scan numbers used in the hdf5 file.
+- user_script:
+    - `user_load_script` now exports to "user" namespace in session env dict by default.
+
+### Fixed
+- Flint:
+    - Fix wrong plot view with d2scan/d3scan
 
 ## [1.4.0] - 2020-05-18
 

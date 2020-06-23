@@ -577,14 +577,14 @@ def updated(h5group, final=False, parents=False):
                 continue
             else:
                 break
-        elif nxclass in [u"NXentry", u"NXsubentry"]:
+        elif nxclass in ["NXentry", "NXsubentry"]:
             if "start_time" not in group:
                 group["start_time"] = tm
             if final:
                 updateDataset(group, "end_time", tm)
-        elif nxclass in [u"NXprocess", u"NXnote"]:
+        elif nxclass in ["NXprocess", "NXnote"]:
             updateDataset(group, "date", tm)
-        elif nxclass == u"NXroot":
+        elif nxclass == "NXroot":
             group.attrs["file_update_time"] = tm
         if not parents:
             break
@@ -647,14 +647,14 @@ def nxRootInit(h5group, rootattrs=None):
         raise ValueError("Group should be the root")
     if rootattrs is None:
         rootattrs = {}
-    if nxClassInstantiate(h5group, None, u"NXroot"):
+    if nxClassInstantiate(h5group, None, "NXroot"):
         h5group.attrs["file_time"] = timestamp()
         h5group.attrs["file_name"] = asNxChar(h5group.file.filename)
         h5group.attrs["HDF5_Version"] = asNxChar(h5py.version.hdf5_version)
         h5group.attrs["h5py_version"] = asNxChar(h5py.version.version)
         h5group.attrs["creator"] = asNxChar("Bliss")
         h5group.attrs["creator_version"] = asNxChar(bliss.__version__)
-        h5group.attrs["NX_class"] = u"NXroot"
+        h5group.attrs["NX_class"] = "NXroot"
         for attr, value in rootattrs.items():
             if value is not None:
                 h5group.attrs[attr] = asNxType(value)
@@ -716,11 +716,11 @@ def nxEntryInit(
     :raises NexusInstanceExists:
     """
     if sub:
-        nxclass = u"NXsubentry"
-        parents = (u"NXentry",)
+        nxclass = "NXsubentry"
+        parents = ("NXentry",)
     else:
-        nxclass = u"NXentry"
-        parents = (u"NXroot",)
+        nxclass = "NXentry"
+        parents = ("NXroot",)
     raiseIsNotNxClass(parent, *parents)
     if nxClassInstantiate(parent, name, nxclass, raise_on_exists=raise_on_exists):
         h5group = parent[name]
@@ -752,7 +752,7 @@ def nxProcessConfigurationInit(
     :raises RuntimeError: parent not NXprocess
     :raises NexusInstanceExists:
     """
-    raiseIsNotNxClass(parent, u"NXprocess")
+    raiseIsNotNxClass(parent, "NXprocess")
     if configdict is not None:
         data = ""
         with StringIO() as s:
@@ -790,19 +790,19 @@ def nxProcess(parent, name, configdict=None, raise_on_exists=False, **kwargs):
     :raises RuntimeError: wrong Nexus class or parent not NXentry
     :raises NexusInstanceExists:
     """
-    raiseIsNotNxClass(parent, u"NXentry")
-    if nxClassInstantiate(parent, name, u"NXprocess", raise_on_exists=raise_on_exists):
+    raiseIsNotNxClass(parent, "NXentry")
+    if nxClassInstantiate(parent, name, "NXprocess", raise_on_exists=raise_on_exists):
         h5group = parent[name]
         updateDataset(h5group, "program", "bliss")
         updateDataset(h5group, "version", bliss.__version__)
-        h5group.attrs["NX_class"] = u"NXprocess"
+        h5group.attrs["NX_class"] = "NXprocess"
         updated(h5group)
     else:
         h5group = parent[name]
     nxProcessConfigurationInit(
         h5group, configdict=configdict, raise_on_exists=raise_on_exists, **kwargs
     )
-    results = nxClassInit(h5group, "results", u"NXcollection")
+    results = nxClassInit(h5group, "results", "NXcollection")
     return h5group
 
 
@@ -822,9 +822,9 @@ def nxNote(parent, name, data=None, type=None, date=None, raise_on_exists=False)
     :raises NexusInstanceExists:
     """
     raiseIsNxClass(parent, None)
-    if nxClassInstantiate(parent, name, u"NXnote", raise_on_exists=raise_on_exists):
+    if nxClassInstantiate(parent, name, "NXnote", raise_on_exists=raise_on_exists):
         h5group = parent[name]
-        h5group.attrs["NX_class"] = u"NXnote"
+        h5group.attrs["NX_class"] = "NXnote"
         update = True
     else:
         h5group = parent[name]
@@ -1005,7 +1005,7 @@ def nxCollection(parent, name, **kwargs):
     :param **kwargs: see `nxClassInit`
     :returns h5py.Group:
     """
-    return nxClassInit(parent, name, u"NXcollection", **kwargs)
+    return nxClassInit(parent, name, "NXcollection", **kwargs)
 
 
 def nxInstrument(parent, name="instrument", **kwargs):
@@ -1018,7 +1018,7 @@ def nxInstrument(parent, name="instrument", **kwargs):
     :returns h5py.Group:
     """
     return nxClassInit(
-        parent, name, u"NXinstrument", parentclasses=(u"NXentry",), **kwargs
+        parent, name, "NXinstrument", parentclasses=("NXentry",), **kwargs
     )
 
 
@@ -1032,7 +1032,7 @@ def nxDetector(parent, name, **kwargs):
     :returns h5py.Group:
     """
     return nxClassInit(
-        parent, name, u"NXdetector", parentclasses=(u"NXinstrument",), **kwargs
+        parent, name, "NXdetector", parentclasses=("NXinstrument",), **kwargs
     )
 
 
@@ -1046,7 +1046,7 @@ def nxPositioner(parent, name, **kwargs):
     :returns h5py.Group:
     """
     return nxClassInit(
-        parent, name, u"NXpositioner", parentclasses=(u"NXinstrument",), **kwargs
+        parent, name, "NXpositioner", parentclasses=("NXinstrument",), **kwargs
     )
 
 
@@ -1061,7 +1061,7 @@ def nxData(parent, name, **kwargs):
     """
     if name is None:
         name = DEFAULT_PLOT_NAME
-    return nxClassInit(parent, name, u"NXdata", **kwargs)
+    return nxClassInit(parent, name, "NXdata", **kwargs)
 
 
 def nxDataGetSignals(data):
@@ -1269,7 +1269,7 @@ def createConcatenatedDataset(
     dtype=None,
     order=None,
     fill_generator=None,
-    **kwargs
+    **kwargs,
 ):
     """
     Create a concatenated dataset (copy of the individual datasets)
@@ -1467,7 +1467,7 @@ def nxDataAddSignals(data, signals, append=True):
     :param list(3-tuple) signals: see `nxCreateDataSet`
     :param bool append:
     """
-    raiseIsNotNxClass(data, u"NXdata")
+    raiseIsNotNxClass(data, "NXdata")
     if append:
         names = nxDataGetSignals(data)
     else:
@@ -1488,7 +1488,7 @@ def nxDataAddAxes(data, axes, append=True):
     :param list(3-tuple) axes: see `nxCreateDataSet`
     :param bool append:
     """
-    raiseIsNotNxClass(data, u"NXdata")
+    raiseIsNotNxClass(data, "NXdata")
     if append:
         names = attr_as_str(data, "axes", [])
     else:
@@ -1573,17 +1573,17 @@ def markDefault(h5node, nxentrylink=True):
     nxclass = nxClass(h5node)
     for parent in iterup(h5node, includeself=False):
         parentnxclass = nxClass(parent)
-        if parentnxclass == u"NXdata":
+        if parentnxclass == "NXdata":
             signals = nxDataGetSignals(parent)
             signal = h5Name(h5node)
             if signal in signals:
                 signals.pop(signals.index(signal))
             nxDataSetSignals(parent, [signal] + signals)
             updated(parent)
-        elif nxclass in [u"NXentry", u"NXsubentry"]:
+        elif nxclass in ["NXentry", "NXsubentry"]:
             parent.attrs["default"] = h5Name(h5node)
             updated(parent)
-        elif nxclass == u"NXdata":
+        elif nxclass == "NXdata":
             parent.attrs["default"] = h5Name(h5node)
             updated(parent)
             nxdata = h5node
@@ -1684,19 +1684,26 @@ def _update_attributes(destination, attrs):
         destination.attrs[k] = v
 
 
-def _dicttonx_create_attr(destination, name, value, update=False):
+def _dicttonx_create_attr(destination, attr, value, update=False):
     """
     Create a group or dataset attribute
 
     :param h5py.Group or h5py.Dataset destination:
-    :param str name:
+    :param str or tuple attr:
     :param str value:
     :param bool update: update value when exists
     """
     if value is None:
         return
-    if name.startswith("@"):
-        name = name[1:]
+    if isinstance(attr, tuple):
+        parent, name = attr
+    elif "@" in attr:
+        parent, name = attr.split("@", maxsplit=1)
+    else:
+        parent = None
+        name = attr
+    if parent:
+        destination = destination[parent]
     if name in destination.attrs and not update:
         return
     if not isString(value):
@@ -1773,10 +1780,12 @@ def _dicttonx_create_group(destination, name, overwrite=False):
 def dicttonx(treedict, destination, overwrite=False, update=False):
     """
     Write a nested dictionary to as Nexus structure in HDF5.
-    Attributes are key-value pairs where the key starts with "@"
-    (attribute values need to be strings). A dictionary with only
-    attribute keys (starting with "@") and "@data" is treated as
-    a dataset.
+    Attributes can bbe defined as one of these dictionary keys:
+        "@attr"
+        "parent@attr"
+        ("parent", "attr")
+        ("", "attr")
+        (None, "attr")
 
     :param dict treedict:
     :param h5py.Group or h5py.Dataset destination:
@@ -1786,12 +1795,9 @@ def dicttonx(treedict, destination, overwrite=False, update=False):
                         disappear or be may be modified
     """
     if isinstance(destination, h5py.Dataset):
-        # treedict: dataset attributes
         if "NX_class" in treedict or "@NX_class" in treedict:
             raise ValueError(
-                "{}: '@NX_class' attribute to allowed for datasets".format(
-                    repr(destination.name)
-                )
+                f"{repr(destination.name)}: '@NX_class' attribute to allowed for datasets"
             )
         for key, value in treedict.items():
             _dicttonx_create_attr(destination, key, value, update=update)
@@ -1801,55 +1807,53 @@ def dicttonx(treedict, destination, overwrite=False, update=False):
         treedict.setdefault("@NX_class", treedict.pop("NX_class"))
     if "NX_class" not in destination.attrs:
         treedict.setdefault("@NX_class", "NXcollection")
+    attrs = {}
     for key, value in treedict.items():
         if isinstance(value, dict):
-            nattrs = sum(k.startswith("@") for k in value.keys())
-            if nattrs == len(value) and "@data" in value:
-                value = value.copy()
-                rdestination = _dicttonx_create_dataset(
-                    destination,
-                    key,
-                    value.pop("@data"),
-                    overwrite=overwrite,
-                    update=update,
-                )
-                dicttonx(value, rdestination, overwrite=overwrite, update=update)
-            else:
-                rdestination = _dicttonx_create_group(
-                    destination, key, overwrite=overwrite
-                )
-                dicttonx(value, rdestination, overwrite=overwrite, update=update)
+            # HDF5 group
+            rdestination = _dicttonx_create_group(destination, key, overwrite=overwrite)
+            dicttonx(value, rdestination, overwrite=overwrite, update=update)
         elif value is None:
             pass
-        elif key.startswith("@"):
-            _dicttonx_create_attr(destination, key, value, update=update)
+        elif isinstance(key, tuple) or "@" in key:
+            # HDF5 attribute
+            attrs[key] = value
         else:
+            # HDF5 dataset
             _dicttonx_create_dataset(
                 destination, key, value, overwrite=overwrite, update=update
             )
+    for key, value in attrs.items():
+        _dicttonx_create_attr(destination, key, value, update=update)
 
 
-def nxtodict(node):
+def nxtodict(node, attr_tuple=False):
     """
     Read a Nexus structure as a dictionary.
 
     :param h5py.Group or h5py.Dataset node:
+    :param bool attr_tuple:
     :returns dict:
     """
     if isinstance(node, h5py.Dataset):
-        result = {"@" + k: v for k, v in node.attrs.items()}
-        result["@data"] = node[()]
+        name = node.name.split("/")[-1]
+        if attr_tuple:
+            result = {(name, k): v for k, v in node.attrs.items()}
+        else:
+            result = {f"{name}@{k}": v for k, v in node.attrs.items()}
+        result[name] = node[()]
         return result
     result = {}
     for key, value in node.items():
         if isinstance(value, h5py.Group):
             result[key] = nxtodict(value)
         else:
-            if value.attrs:
-                d = result[key] = {"@" + k: v for k, v in value.attrs.items()}
-                d["@data"] = value[()]
-            else:
-                result[key] = value[()]
+            result[key] = value[()]
+            for k, v in value.attrs.items():
+                if attr_tuple:
+                    result[(key, k)] = v
+                else:
+                    result[f"{key}@{k}"] = v
     for key, value in node.attrs.items():
         result["@" + key] = value
     return result

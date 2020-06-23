@@ -10,7 +10,12 @@
   channel: 0
   counter_name: ebv_diode
   camera_tango_url: id00/limaccds/simulator2
-      
+
+- name: bpm2
+  plugin: bliss
+  module: ebv
+  class: BpmController
+  camera_tango_url: id00/limaccds/simulator2
 
 - name: ebv_wago_simulator
   plugin: bliss

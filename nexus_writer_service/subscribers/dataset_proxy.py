@@ -160,8 +160,15 @@ class DatasetProxy(BaseProxy):
 
     def __repr__(self):
         return "{}: shape = {}, dtype={}".format(
-            repr(self.path), self.shape, self.dtype.__name__
+            repr(self.path), self.shape, self.dtype_name
         )
+
+    @property
+    def dtype_name(self):
+        try:
+            return self.dtype.__name__
+        except AttributeError:
+            return str(self.dtype)
 
     @property
     def name(self):
@@ -488,7 +495,7 @@ class DatasetProxy(BaseProxy):
             return ""
         fillvalue = numpy.nan
         try:
-            numpy.array(fillvalue, self.dtype)
+            numpy.array(fillvalue, dtype=self.dtype)
         except ValueError:
             fillvalue = 0
         return fillvalue
@@ -921,9 +928,7 @@ class DatasetProxy(BaseProxy):
         :returns str:
         """
         dirname = os.path.dirname(self.filename)
-        name = (
-            "_".join(map(str, self.current_detector_shape)) + "_" + self.dtype.__name__
-        )
+        name = "_".join(map(str, self.current_detector_shape)) + "_" + self.dtype_name
         return os.path.join(dirname, "dummy", "dummy_" + name + ext)
 
     def add_metadata(self, treedict, parent=False, **kwargs):

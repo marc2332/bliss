@@ -14,11 +14,14 @@ import weakref
 from silx.gui import qt
 import silx.resources
 from silx.gui import colors
+from silx.gui.dialog.ColormapDialog import ColormapDialog
+
 from .extended_dock_widget import ExtendedDockWidget
 from bliss.flint.model import plot_model
 from bliss.flint.model import plot_item_model
 from bliss.flint.model import style_model
 from bliss.flint.model import flint_model
+from bliss.flint.model import scan_model
 
 
 class StyleDock(ExtendedDockWidget):
@@ -304,3 +307,52 @@ class _ImageEditor(qt.QWidget):
 
     def _updateLayout(self):
         pass
+
+
+class FlintColormapDialog(ColormapDialog):
+    def __init__(self, parent=None, title="Colormap Dialog"):
+        ColormapDialog.__init__(self, parent=parent, title=title)
+        self.__channelName: Optional[str] = None
+        self.__scan: Optional[scan_model.Scan] = None
+
+    def exec_(self):
+        scan = self.__scan()
+        try:
+            if scan is not None:
+                scan.scanDataUpdated[object].connect(self.__scanDataUpdated)
+            result = ColormapDialog.exec_(self)
+        finally:
+            if scan is not None:
+                scan.scanDataUpdated[object].disconnect(self.__scanDataUpdated)
+        return result
+
+    def __scanDataUpdated(self, event: scan_model.ScanDataUpdateEvent):
+        channelName = self.__channelName
+        if event.isUpdatedChannelName(channelName):
+            self.__updateData()
+
+    def __updateData(self):
+        scan = self.__scan()
+        if scan is None:
+            return
+        channel = scan.getChannelByName(self.__channelName)
+        data = channel.array()
+        # FIXME: This infortunatly do not reuse the item cache from silx
+        self.setData(data)
+
+    def setPlotItem(self, item, scan: scan_model.Scan):
+        if scan is None:
+            return
+        if not isinstance(
+            item, (plot_item_model.ImageItem, plot_item_model.ScatterItem)
+        ):
+            return
+        self.__scan = weakref.ref(scan)
+        if isinstance(item, plot_item_model.ImageItem):
+            channelName = item.imageChannel().name()
+        elif isinstance(item, plot_item_model.ScatterItem):
+            channelName = item.valueChannel().name()
+        else:
+            assert False
+        self.__channelName = channelName
+        self.__updateData()

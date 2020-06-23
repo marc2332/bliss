@@ -11,7 +11,6 @@ import pickle
 from bliss.data.node import DataNodeContainer
 from bliss.data.events import EventData
 from bliss.config import settings
-from bliss.config.streaming import DataStream
 
 
 def _transform_dict_obj(dict_object):
@@ -55,7 +54,7 @@ class Scan(DataNodeContainer):
 
     def __init__(self, name, create=False, **keys):
         DataNodeContainer.__init__(self, self._NODE_TYPE, name, create=create, **keys)
-        self._event = DataStream(f"{self.db_name}_data", connection=self.db_connection)
+        self._event = self.create_data_stream(f"{self.db_name}_data")
 
     def end(self, exception=None):
         if self.new_node:

@@ -5,11 +5,10 @@
 # Copyright (c) 2015-2020 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-import subprocess
 import sys
-import os
+import gevent
+import subprocess
 from bliss.config.conductor import client
-import time
 
 
 def test_single_bliss_session(ports, beacon):
@@ -24,8 +23,12 @@ def test_single_bliss_session(ports, beacon):
             stdout=subprocess.PIPE,
         )
         # wait until setup is finished
-        while not first_shell.stdout.readline().startswith(b"Done"):
-            continue
+        with gevent.Timeout(10):
+            for line in first_shell.stdout:
+                line = line.decode().strip()
+                print(line)
+                if line.startswith("Done"):
+                    break
 
         # ok so check who locked
         beacon_client_conn = client.get_default_connection()

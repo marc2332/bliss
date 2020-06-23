@@ -61,6 +61,48 @@ def test_dscan(session):
     assert numpy.array_equal(scan_data["sim_ct_gauss"], simul_counter.data)
 
 
+def test_d2scan(session):
+    simul_counter = session.env_dict["sim_ct_gauss"]
+    robz = session.env_dict["robz"]
+    robz.position = 1
+    robz2 = session.env_dict["robz2"]
+    robz2.position = -1
+    # contrary to ascan, dscan returns to start pos
+    start_pos = robz2.position
+    s = scans.d2scan(
+        robz2,
+        -0.2,
+        0.2,
+        robz,
+        -0.1,
+        0.1,
+        1,
+        0,
+        simul_counter,
+        return_scan=True,
+        save=False,
+    )
+    # test for issues #1080
+    # use tolerance to get axis precision
+    assert pytest.approx(robz2.tolerance) == 1e-4
+    assert s.scan_info["title"].startswith("d2scan robz2 -0.2 0.2")
+    #
+    assert robz2.position == start_pos
+    scan_data = s.get_data()
+    assert numpy.allclose(
+        scan_data["robz2"],
+        numpy.linspace(start_pos - 0.2, start_pos + 0.2, 2),
+        atol=5e-4,
+    )
+    assert numpy.array_equal(scan_data["sim_ct_gauss"], simul_counter.data)
+
+    requests = s.scan_info["requests"]
+    assert requests["axis:robz2"]["start"] == pytest.approx(-1.2)
+    assert requests["axis:robz2"]["stop"] == pytest.approx(-0.8)
+    assert requests["axis:robz"]["start"] == pytest.approx(0.9)
+    assert requests["axis:robz"]["stop"] == pytest.approx(1.1)
+
+
 def test_lineup(session):
     simul_counter = session.env_dict["sim_ct_gauss"]
     robz2 = session.env_dict["robz2"]
@@ -256,7 +298,7 @@ def test_all_dnscan(session):
 def test_scan_watch_data_no_print(session, capsys):
     roby = session.config.get("roby")
     diode = session.config.get("diode")
-    scans.ascan(roby, 0, 10, 10, 0.01, diode)
+    scans.ascan(roby, 0, 10, 10, 0.01, diode, save=False)
     captured = capsys.readouterr()
 
     assert captured.out == ""
@@ -325,7 +367,7 @@ def test_scan_watch_data_set_callback_to_test_saferef(session, capsys):
 
     scan.set_scan_watch_callbacks(on_scan_new, on_scan_data, on_scan_end)
 
-    scans.ascan(roby, 0, 1, 3, 0.01, diode)
+    scans.ascan(roby, 0, 1, 3, 0.01, diode, save=False)
 
     captured = capsys.readouterr()
     assert captured.out == "scan_new\n" + "scan_data\n" * 4 + "scan_end\n"
@@ -334,7 +376,7 @@ def test_scan_watch_data_set_callback_to_test_saferef(session, capsys):
     del on_scan_data
     del on_scan_end
 
-    scans.ascan(roby, 0, 1, 3, 0.01, diode)
+    scans.ascan(roby, 0, 1, 3, 0.01, diode, save=False)
 
     captured = capsys.readouterr()
     assert captured.out == ""
@@ -388,8 +430,10 @@ def test_calc_counter_callback(session):
         def calc_function(self, input_dict):
             return {"pow": input_dict["sim_ct_gauss"] ** 2}
 
-        def get_acquisition_object(self, acq_params, ctrl_params, parent_acq_params):
-            return CCAS(self, acq_params, ctrl_params=ctrl_params)
+        def get_acquisition_object(
+            self, acq_params, ctrl_params, parent_acq_params, acq_devices
+        ):
+            return CCAS(self, acq_devices, acq_params, ctrl_params=ctrl_params)
 
     config = {
         "inputs": [{"counter": cnt, "tags": "sim_ct_gauss"}],
@@ -473,55 +517,49 @@ def test_save_images(session, beacon, lima_simulator, scan_tmpdir):
     lima_sim = beacon.get("lima_simulator")
     robz2 = session.env_dict["robz2"]
     scan_saving = session.scan_saving
-    saved_base_path = scan_saving.base_path
-    try:
-        scan_saving.base_path = str(scan_tmpdir)
-        scan_saving.images_path_template = ""
+    scan_saving.base_path = str(scan_tmpdir)
+    scan_saving.images_path_template = ""
 
-        s = scans.ascan(robz2, 0, 1, 2, 0.001, lima_sim, run=False)
-        scan_path = s.writer.filename
-        images_path = os.path.dirname(scan_path)
-        image_filename = "lima_simulator_000%d.edf"
+    s = scans.ascan(robz2, 0, 1, 2, 0.001, lima_sim, run=False)
+    scan_path = s.writer.filename
+    images_path = os.path.dirname(scan_path)
+    image_filename = "lima_simulator_000%d.edf"
 
-        s.run()
+    s.run()
 
-        assert os.path.isfile(scan_path)
-        for i in range(2):
-            assert os.path.isfile(os.path.join(images_path, image_filename % i))
+    assert os.path.isfile(scan_path)
+    for i in range(2):
+        assert os.path.isfile(os.path.join(images_path, image_filename % i))
 
-        os.unlink(scan_path)
-        os.unlink(os.path.join(images_path, image_filename % 0))
+    os.unlink(scan_path)
+    os.unlink(os.path.join(images_path, image_filename % 0))
 
-        s = scans.ascan(robz2, 1, 0, 2, 0.001, lima_sim, save_images=False, run=False)
+    s = scans.ascan(robz2, 1, 0, 2, 0.001, lima_sim, save_images=False, run=False)
 
-        s.run()
+    s.run()
 
-        scan_path = s.writer.filename
-        assert os.path.isfile(scan_path)
-        assert not os.path.isfile(
-            os.path.join(scan_saving.base_path, image_filename % 0)
-        )
+    scan_path = s.writer.filename
+    assert os.path.isfile(scan_path)
+    assert not os.path.isfile(os.path.join(scan_saving.base_path, image_filename % 0))
 
-        os.unlink(scan_path)
+    os.unlink(scan_path)
 
-        s = scans.ascan(
-            robz2, 0, 1, 2, 0.001, lima_sim, save=False, save_images=True, run=False
-        )
+    s = scans.ascan(
+        robz2, 0, 1, 2, 0.001, lima_sim, save=False, save_images=True, run=False
+    )
 
-        s.run()
+    s.run()
 
-        scan_path = s.writer.filename
-        assert not os.path.isfile(scan_path)
-        assert not os.path.isfile(os.path.join(images_path, image_filename % 0))
-    finally:
-        scan_saving.base_path = saved_base_path
+    scan_path = s.writer.filename
+    assert not os.path.isfile(scan_path)
+    assert not os.path.isfile(os.path.join(images_path, image_filename % 0))
 
 
 def test_motor_group(session):
     diode = session.config.get("diode")
     roby = session.config.get("roby")
     robz = session.config.get("robz")
-    scan = scans.a2scan(roby, 0, 1, robz, 0, 1, 5, 0.1, diode)
+    scan = scans.a2scan(roby, 0, 1, robz, 0, 1, 5, 0.1, diode, save=False)
 
     children = list(scan.node.children())
     axis_master = children[0]
@@ -676,3 +714,20 @@ def test_dmesh_return_to_target_pos(default_session, beacon):
     d = s.get_data()
     assert min(d[m0]) == pytest.approx(0.0)
     assert max(d[m0]) == pytest.approx(3.0)
+
+
+def test_ct_sct(session, beacon, scan_tmpdir):
+    scan_saving = session.scan_saving
+    scan_saving.base_path = str(scan_tmpdir)
+
+    diode = beacon.get("diode")
+    ct = scans.ct(.1, diode)
+    sct = scans.sct(.1, diode)
+    assert ct.scan_info["save"] == False
+    assert ct.node.info["save"] == False
+
+    assert sct.scan_info["save"] == True
+    assert sct.node.info["save"] == True
+
+    assert "positioners" in sct.scan_info
+    assert "positioners" not in ct.scan_info

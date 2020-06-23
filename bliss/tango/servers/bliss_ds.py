@@ -497,7 +497,7 @@ def register_server(
             db=db,
         )
     except KeyboardInterrupt:
-        print_("\n\nCtrl-C pressed. Exiting...")
+        print("\n\nCtrl-C pressed. Exiting...")
         sys.exit(0)
 
 
@@ -523,16 +523,16 @@ def __register_server(
 
     # try to find which configuration file to use.
     # if we are not able we ask the user.
-    print_("'{0}' is not configured yet.".format(server_instance))
+    print("'{0}' is not configured yet.".format(server_instance))
     if not os.path.exists(os.path.expanduser(config_file)):
         config_file = ""
     config_file = input("config. file [{0}]? ".format(config_file)) or config_file
     config_file = os.path.expanduser(config_file)
     if not config_file:
-        print_("No configuration file was given. Exiting...")
+        print("No configuration file was given. Exiting...")
         sys.exit(-1)
     if not os.path.exists(os.path.expanduser(config_file)):
-        print_("Could not find configuration file. Exiting...")
+        print("Could not find configuration file. Exiting...")
         sys.exit(-2)
 
     properties = dict(config_file=config_file)

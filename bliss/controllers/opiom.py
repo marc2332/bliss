@@ -24,45 +24,18 @@ OPIOM_PRG_ROOT = "/users/blissadm/local/isg/opiom"
 class Opiom:
     FSIZE = 256
 
-    def __init__(self, name, config_tree):
+    def __init__(self, name, config):
         self.name = name
 
-        comm_type = None
-        try:
-            comm_type = get_comm_type(config_tree)
-            key = "serial" if comm_type == SERIAL else "tcp"
-            config_tree[key]["url"]  # test if url is available
-            comm_config = config_tree
-        except Exception:
-            if "serial" in config_tree:
-                comm_type = SERIAL
-                comm_config = dict(serial=dict(url=config_tree["serial"]))
-                warn(
-                    "'serial: <url>' is deprecated. "
-                    "Use 'serial: url: <url>' instead",
-                    DeprecationWarning,
-                )
-            elif "socket" in config_tree:
-                comm_type = TCP
-                comm_config = dict(tcp=dict(url=config_tree["socket"]))
-                warn(
-                    "'socket: <url>' is deprecated. " "Use 'tcp: url: <url>' instead",
-                    DeprecationWarning,
-                )
-            else:
-                raise RuntimeError("opiom: need to specify a communication url")
+        self._cnx = get_comm(config, ctype=SERIAL, timeout=1)
 
-        if comm_type not in (SERIAL, TCP):
-            raise TypeError("opiom: invalid communication type %r" % comm_type)
-
-        self._cnx = get_comm(comm_config, ctype=comm_type, timeout=3)
         global_map.register(self, children_list=[self._cnx], tag=f"opiom:{name}")
 
-        self.__program = config_tree.get("program", "default")
-        default_prg_root = config_tree.get("opiom-prg-root", OPIOM_PRG_ROOT)
-        self.__base_path = config_tree.get("opiom_prg_root", default_prg_root)
+        self.__program = config.get("program", "default")
+        default_prg_root = config.get("opiom-prg-root", OPIOM_PRG_ROOT)
+        self.__base_path = config.get("opiom_prg_root", default_prg_root)
 
-        program_path = config_tree.get("program-path")
+        program_path = config.get("program-path")
         if program_path is not None:
             pg_path = os.path.splitext(program_path)[0]
             self.__base_path, self.__program = os.path.split(pg_path)

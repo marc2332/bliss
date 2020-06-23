@@ -1,8 +1,9 @@
-
+from bliss.shell.dialog.helpers import dialog
 from bliss.shell.cli.user_dialog import UserChoice
 from bliss.shell.cli.pt_widgets import BlissDialog
 
 
+@dialog("Multiplexer", "set")
 def multiplexer_dialog(mux_controller):
     status = mux_controller.getGlobalStat()
     values = mux_controller.getAllPossibleValues()

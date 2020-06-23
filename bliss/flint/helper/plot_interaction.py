@@ -18,7 +18,9 @@ from silx.gui.plot import PlotWidget
 from silx.gui.plot import MaskToolsWidget
 from silx.gui.colors import rgba
 from silx.gui.plot.items.roi import RectangleROI
+from silx.gui.plot.items.roi import PointROI
 from silx.gui.plot.items.roi import RegionOfInterest
+from silx.gui.plot.tools.roi import RegionOfInterestManager
 from bliss.flint.widgets.roi_selection_widget import RoiSelectionWidget
 
 _logger = logging.getLogger(__name__)
@@ -309,9 +311,12 @@ class PointsSelector(Selector):
         assert isinstance(parent, PlotWidget)
         super(PointsSelector, self).__init__(parent)
 
-        self._isSelectionRunning = False
-        self._markersAndPos = []
+        self._manager = RegionOfInterestManager(parent)
+        self._manager.sigRoiAdded.connect(self._roiAdded)
+        self._manager.sigInteractiveRoiCreated.connect(self._roiCreated)
         self._totalPoints = 0
+        self.__widget = None
+        self._selection = None
 
     def setNbPoints(self, nbPoints):
         """
@@ -323,7 +328,23 @@ class PointsSelector(Selector):
 
     def selection(self):
         """Returns the selection"""
-        return tuple(pos for _, pos in self._markersAndPos)
+        if self._manager.isStarted():
+            rois = [r for r in self._manager.getRois() if isinstance(r, PointROI)]
+            pos = [tuple(r.getPosition()) for r in rois]
+            return tuple(pos)
+        else:
+            return self._selection
+
+    def _roiAdded(self):
+        rois = self._manager.getRois()
+        self._updateStatusBar()
+        if len(rois) >= self._totalPoints:
+            self.stop()
+
+    def _roiCreated(self, roi):
+        rois = self._manager.getRois()
+        roi.setName("%d" % len(rois))
+        roi.setColor("pink")
 
     def eventFilter(self, obj, event):
         """Event filter for plot hide and key event"""
@@ -334,21 +355,23 @@ class PointsSelector(Selector):
             if event.key() in (qt.Qt.Key_Delete, qt.Qt.Key_Backspace) or (
                 event.key() == qt.Qt.Key_Z and event.modifiers() & qt.Qt.ControlModifier
             ):
-                if len(self._markersAndPos) > 0:
-                    plot = self.parent()
-                    if plot is not None:
-                        legend, _ = self._markersAndPos.pop()
-                        plot.remove(legend=legend, kind="marker")
-
-                        self._updateStatusBar()
-                        self.selectionChanged.emit()
-                        return True  # Stop further handling of those keys
+                self._removeLastInput()
+                return True  # Stop further handling of those keys
 
             elif event.key() == qt.Qt.Key_Return:
                 self.stop()
                 return True  # Stop further handling of those keys
 
         return super(PointsSelector, self).eventFilter(obj, event)
+
+    def _removeLastInput(self):
+        rois = self._manager.getRois()
+        if len(rois) == 0:
+            return
+        roi = rois[-1]
+        self._manager.removeRoi(roi)
+        self._updateStatusBar()
+        self.selectionChanged.emit()
 
     def start(self):
         """Start interactive selection of points
@@ -360,35 +383,36 @@ class PointsSelector(Selector):
         if plot is None:
             raise RuntimeError("No plot to perform selection")
 
-        self._isSelectionRunning = True
-
-        plot.setInteractiveMode(mode="zoom")
-        self._handleInteractiveModeChanged(None)
-        plot.sigInteractiveModeChanged.connect(self._handleInteractiveModeChanged)
-
         plot.installEventFilter(self)
+
+        self.__widget = qt.QToolButton(plot)
+        action = self._manager.getInteractionModeAction(PointROI)
+        self.__widget.setDefaultAction(action)
+        action.trigger()
+        plot.statusBar().addPermanentWidget(self.__widget)
 
         self._updateStatusBar()
 
     def stop(self):
         """Stop interactive point selection"""
-        if not self._isSelectionRunning:
+        if not self._manager.isStarted():
             return
 
         plot = self.parent()
         if plot is None:
             return
 
+        # Save the current state
+        self._selection = self.selection()
+
+        self._manager.clear()
+        self._manager.stop()
         plot.removeEventFilter(self)
-
-        plot.sigInteractiveModeChanged.disconnect(self._handleInteractiveModeChanged)
-
-        currentMode = plot.getInteractiveMode()
-        if currentMode["mode"] == "zoom":  # Stop handling mouse click
-            plot.sigPlotSignal.disconnect(self._handleSelect)
-
-        plot.statusBar().clearMessage()
-        self._isSelectionRunning = False
+        statusBar = plot.statusBar()
+        statusBar.clearMessage()
+        statusBar.removeWidget(self.__widget)
+        self.__widget.deleteLater()
+        self.__widget = None
         self.selectionFinished.emit()
 
     def reset(self):
@@ -396,10 +420,8 @@ class PointsSelector(Selector):
         plot = self.parent()
         if plot is None:
             return
-
-        for legend, _ in self._markersAndPos:
-            plot.remove(legend=legend, kind="marker")
-        self._markersAndPos = []
+        self._manager.clear()
+        self._updateStatusBar()
         self.selectionChanged.emit()
 
     def _updateStatusBar(self):
@@ -408,57 +430,9 @@ class PointsSelector(Selector):
         if plot is None:
             return
 
-        msg = "Select %d/%d input points" % (
-            len(self._markersAndPos),
-            self._totalPoints,
-        )
-
-        currentMode = plot.getInteractiveMode()
-        if currentMode["mode"] != "zoom":
-            msg += " (Use zoom mode to add/remove points)"
-
+        rois = self._manager.getRois()
+        msg = "Select %d/%d input points" % (len(rois), self._totalPoints)
         plot.statusBar().showMessage(msg)
-
-    def _handleSelect(self, event):
-        """Handle mouse events"""
-        if event["event"] == "mouseClicked" and event["button"] == "left":
-            plot = self.parent()
-            if plot is None:
-                return
-
-            x, y = event["x"], event["y"]
-
-            # Add marker
-            legend = "sx.ginput %d" % len(self._markersAndPos)
-            plot.addMarker(
-                x,
-                y,
-                legend=legend,
-                text="%d" % len(self._markersAndPos),
-                color="red",
-                draggable=False,
-            )
-
-            self._markersAndPos.append((legend, (x, y)))
-            self._updateStatusBar()
-            if len(self._markersAndPos) >= self._totalPoints:
-                self.stop()
-
-    def _handleInteractiveModeChanged(self, source):
-        """Handle change of interactive mode in the plot
-
-        :param source: Objects that triggered the mode change
-        """
-        plot = self.parent()
-        if plot is None:
-            return
-
-        mode = plot.getInteractiveMode()
-        if mode["mode"] == "zoom":  # Handle click events
-            plot.sigPlotSignal.connect(self._handleSelect)
-        else:  # Do not handle click event
-            plot.sigPlotSignal.disconnect(self._handleSelect)
-        self._updateStatusBar()
 
 
 class ShapesSelector(Selector):
@@ -493,13 +467,18 @@ class ShapesSelector(Selector):
     def __roisToDict(self, rois: Sequence[RegionOfInterest]) -> Sequence[Dict]:
         shapes = []
         for roi in rois:
-            shape = dict(
-                origin=roi.getOrigin(),
-                size=roi.getSize(),
-                label=roi.getLabel(),
-                kind=roi._getKind(),
-            )
-            shapes.append(shape)
+            if isinstance(roi, RectangleROI):
+                shape = dict(
+                    origin=roi.getOrigin(),
+                    size=roi.getSize(),
+                    label=roi.getName(),
+                    kind="Rectangle",
+                )
+                shapes.append(shape)
+            else:
+                _logger.error(
+                    "Unsupported ROI kind %s. ROI skipped from results", type(roi)
+                )
         return shapes
 
     def start(self):

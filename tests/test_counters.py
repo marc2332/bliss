@@ -18,7 +18,10 @@ from bliss.shell.cli.repl import ScanPrinter
 from bliss import setup_globals
 from bliss.common.soft_axis import SoftAxis
 
-from bliss.controllers.counter import IntegratingCounterController
+from bliss.controllers.counter import (
+    IntegratingCounterController,
+    SamplingCounterController,
+)
 from bliss.controllers.simulation_diode import (
     SimulationDiodeSamplingCounter,
     SimulationDiodeIntegratingCounter,
@@ -576,3 +579,47 @@ def test_info_counters(beacon, dummy_tango_server):
     assert counter.__info__().startswith(
         f"'{counter.name}` Tango attribute counter info:"
     )
+
+
+def test_multiple_samp_cnt_one_ctrl(default_session):
+    class MySampCtrl1(SamplingCounterController):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+
+            self.counter1 = 0
+            self.counter2 = 0
+            self.counter3 = 0
+            self.counter4 = 0
+            self.counter5 = 0
+
+        def read(self, counter):
+            val = getattr(self, counter.name)
+            setattr(self, counter.name, val + 1)
+            return val
+
+    ctrl1 = MySampCtrl1("ctrl1")
+    counter1 = SamplingCounter("counter1", ctrl1)
+    counter2 = SamplingCounter("counter2", ctrl1)
+    counter3 = SamplingCounter("counter3", ctrl1)
+    counter4 = SamplingCounter("counter4", ctrl1)
+    counter5 = SamplingCounter("counter5", ctrl1)
+    counter2.mode = SamplingMode.SAMPLES
+    counter3.mode = SamplingMode.SINGLE
+    counter4.mode = SamplingMode.LAST
+    counter5.mode = SamplingMode.SAMPLES
+    s = loopscan(3, .1, counter1, counter2, counter3, counter4, counter5, save=False)
+
+    dat = s.get_data()
+    assert "ctrl1:counter1" in dat
+    assert "ctrl1:counter2" in dat
+    assert "ctrl1:counter3" in dat
+    assert "ctrl1:counter4" in dat
+    assert "ctrl1:counter5" in dat
+    assert "ctrl1:counter5_samples" in dat
+    assert all(dat["ctrl1:counter1"] == dat["ctrl1:counter5"])
+
+    s2 = loopscan(3, .1, counter1, counter3, counter4, save=False)
+
+    dat2 = s.get_data()
+    assert all(dat2["ctrl1:counter3"] < dat2["ctrl1:counter1"])
+    assert all(dat2["ctrl1:counter1"] < dat2["ctrl1:counter4"])

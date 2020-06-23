@@ -4,7 +4,7 @@ import contextlib
 
 import bliss
 from bliss.common import plot
-from bliss.common.plot import get_flint, plotselect, meshselect
+from bliss.flint.client import plots
 from bliss.scanning.scan import Scan, ScanDisplay
 from bliss.scanning.chain import AcquisitionChain
 from bliss.scanning.acquisition.lima import LimaAcquisitionMaster
@@ -17,9 +17,9 @@ def test_get_plot(test_session_with_flint, lima_simulator):
     ascan = session.env_dict["ascan"]
     roby = session.config.get("roby")
     diode = session.config.get("diode")
-    flint = get_flint()
+    flint = plot.get_flint()
 
-    plotselect(diode)
+    plot.plotselect(diode)
 
     # s = ascan(roby, 0, 5, 5, 0.001, diode, lima, simu1.counters.spectrum_det0)
     ascan(roby, 0, 5, 5, 0.001, diode, lima)
@@ -78,11 +78,47 @@ def test_image_display(flint_session, lima_simulator, dummy_acq_device):
 
     # depricated access but kept for compatibilty with older versions...
     p = scan.get_plot(lima_sim.image, plot_type="image", wait=True)
-    assert isinstance(p, plot.ImagePlot)
+    assert isinstance(p, plots.ImagePlot)
 
     # new access
     p = plot.get_plot(lima_sim.image, scan=scan, plot_type="image", wait=True)
-    assert isinstance(p, plot.ImagePlot)
+    assert isinstance(p, plots.ImagePlot)
+
+
+@contextlib.contextmanager
+def active_video_live(lima):
+    old = lima.proxy.video_live
+    lima.proxy.video_live = True
+    try:
+        yield
+    finally:
+        lima.proxy.video_live = old
+
+
+def test_image_monitoring(test_session_without_flint, lima_simulator):
+    """Use the Flint monitoring API to check that an image was retrieved"""
+    session = test_session_without_flint
+    lima = session.config.get("lima_simulator")
+    ct = session.env_dict["ct"]
+    channel_name = lima.image.fullname
+    tango_address = lima.proxy.name()
+
+    # initialize the device with an image
+    ct(0.1, lima)
+
+    with active_video_live(lima):
+        # start flint and the monitoring
+        with use_shell_command_with_scan_display():
+            flint = plot.get_flint()
+            flint.start_image_monitoring(channel_name, tango_address)
+            gevent.sleep(2)
+            flint.stop_image_monitoring(channel_name)
+
+        # it should display an image
+        plot_id = flint.get_live_scan_plot(channel_name, "image")
+        nb = flint.test_count_displayed_items(plot_id)
+
+    assert nb == 1
 
 
 @contextlib.contextmanager
@@ -107,14 +143,14 @@ def test_motor_position_in_plot(test_session_with_flint):
     ascan = session.env_dict["ascan"]
     roby = session.config.get("roby")
     diode = session.config.get("diode")
-    flint = get_flint()
+    flint = plot.get_flint()
     import logging
 
     l = logging.getLogger("flint.output")
     l.disabled = False
     l.setLevel(logging.INFO)
 
-    plotselect(diode)
+    plot.plotselect(diode)
     scan = ascan(roby, 0, 5, 5, 0.001, diode)
 
     # synchronize redis events with flint
@@ -134,7 +170,7 @@ def test_meshselect(test_session_with_flint):
     diode = session.config.get("diode")
     diode2 = session.config.get("diode2")
     diode3 = session.config.get("diode3")
-    flint = get_flint()
+    flint = plot.get_flint()
     import logging
 
     logger = logging.getLogger("flint.output")
@@ -149,12 +185,12 @@ def test_meshselect(test_session_with_flint):
     plot_id = flint.get_default_live_scan_plot("scatter")
 
     # Select the second diode
-    meshselect(diode2)
+    plot.meshselect(diode2)
     gevent.sleep(1)
     assert flint.test_count_displayed_items(plot_id) == 1
 
     # Select a diode which was not scanned
-    meshselect(diode3)
+    plot.meshselect(diode3)
     gevent.sleep(1)
     assert flint.test_count_displayed_items(plot_id) == 0
 
@@ -166,7 +202,7 @@ def test_plotselect(test_session_with_flint):
     diode = session.config.get("diode")
     diode2 = session.config.get("diode2")
     diode3 = session.config.get("diode3")
-    flint = get_flint()
+    flint = plot.get_flint()
     import logging
 
     logger = logging.getLogger("flint.output")
@@ -181,11 +217,11 @@ def test_plotselect(test_session_with_flint):
     plot_id = flint.get_default_live_scan_plot("curve")
 
     # Select the second diode
-    plotselect(diode2)
+    plot.plotselect(diode2)
     gevent.sleep(1)
     assert flint.test_count_displayed_items(plot_id) == 1
 
     # Select a diode which was not scanned
-    plotselect(diode3)
+    plot.plotselect(diode3)
     gevent.sleep(1)
     assert flint.test_count_displayed_items(plot_id) == 0

@@ -45,11 +45,15 @@ s.run()
 ascan( axis, start, stop, steps, count_time, cnt1, save=False)
 ```
 
-!!!note:
-    By default, for all standard scans `run=True` and `save=True` except for the
-    `ct()` scan which uses `save=False`.  If `save=False`, the data is generated
-    but not saved to file.
-
+!!! note
+    By default, for all standard scans `run=True` and `save=True` except for 
+    `ct()` which doesn't have a `save` option. If `save=False`, the data is generated
+    and published to redis but not saved to file.
+    
+!!! warning
+    Scans that run with the option `save=False` will not have a scan number that
+    is visible to the user. This is to ensure consecutive scan numbers in the
+    final data file.
 
 #### Examples
 

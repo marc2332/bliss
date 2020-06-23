@@ -1889,7 +1889,7 @@ class RegPlot:
 
     def create_plot(self):
 
-        # Declare a CurvePlot (see bliss.common.plot)
+        # Declare a CurvePlot (see bliss.flint.client.plots)
         self.fig = plot(data=None, name=self.loop.name, closeable=True, selected=True)
 
         self.fig.submit("setGraphXLabel", "Time (s)")

@@ -113,7 +113,7 @@ def test_scan_preset(session):
 
     preset = Preset()
     diode = session.config.get("diode")
-    s = scans.loopscan(2, 0, diode, run=False)
+    s = scans.loopscan(2, 0, diode, run=False, save=False)
     s.add_preset(preset)
     s.run()
     assert preset.prepare_counter == 1
@@ -147,7 +147,7 @@ def test_connect_data_channels(session):
 
     preset = Preset([diode, diode2])
 
-    s = scans.loopscan(2, 0, diode, diode2, run=False)
+    s = scans.loopscan(2, 0, diode, diode2, run=False, save=False)
     s.add_preset(preset)
     s.run()
 

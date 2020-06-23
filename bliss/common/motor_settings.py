@@ -50,6 +50,7 @@ class ControllerAxisSettings:
         self.add("sign", int)
         self.add("backlash", float)
         self.add("velocity", float, config=True)
+        self.add("jog_velocity", float)
         self.add("acceleration", float, config=True)
         self.add("low_limit", floatOrNone)
         self.add("high_limit", floatOrNone)

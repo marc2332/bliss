@@ -24,6 +24,8 @@
   - simu2
   - lima_simulator
   - lima_simulator2
+  - att1
+  - beamstop
   aliases:
   - original_name: m1
     alias_name: robx

@@ -21,6 +21,7 @@ from bliss.flint import config
 
 import logging
 from silx.gui import qt
+from tango.gevent import DeviceProxy
 
 from bliss.flint.model import flint_model
 from bliss.flint.model import plot_model
@@ -28,9 +29,11 @@ from bliss.flint.model import plot_item_model
 from bliss.flint.model import scan_model
 from bliss.flint.helper import model_helper
 from bliss.flint.helper.style_helper import DefaultStyleStrategy
+from bliss.flint.widgets.utils.plot_helper import PlotWidget
 
 from ..helper import scan_info_helper
 from . import workspace_manager
+from . import monitoring
 
 _logger = logging.getLogger(__name__)
 
@@ -44,6 +47,7 @@ class ManageMainBehaviours(qt.QObject):
         self.__flintStarted = gevent.event.Event()
         self.__flintStarted.clear()
         self.__workspaceManager = workspace_manager.WorkspaceManager(self)
+        self.__tangoMetadata = None
 
     def setFlintModel(self, flintModel: flint_model.FlintState):
         if self.__flintModel is not None:
@@ -55,6 +59,16 @@ class ManageMainBehaviours(qt.QObject):
             self.__flintModel.workspaceChanged.connect(self.__workspaceChanged)
             self.__flintModel.currentScanChanged.connect(self.__currentScanChanged)
             self.__flintModel.aliveScanAdded.connect(self.__aliveScanDiscovered)
+
+    def setTangoMetadataName(self, name: str):
+        if name in [None, ""]:
+            device = None
+        else:
+            try:
+                device = DeviceProxy(name)
+            except:
+                raise
+        self.__flintModel.setTangoMetadata(device)
 
     def flintModel(self) -> flint_model.FlintState:
         flintModel = self.__flintModel
@@ -130,9 +144,12 @@ class ManageMainBehaviours(qt.QObject):
             return
         self.__activeDock = widget
 
-        propertyWidget = self.flintModel().propertyWidget()
-        if propertyWidget is not None:
-            propertyWidget.setFocusWidget(widget)
+        if hasattr(widget, "createPropertyWidget"):
+            flintModel = self.flintModel()
+            liveWindow = flintModel.liveWindow()
+            propertyWidget = liveWindow.propertyWidget()
+            if propertyWidget is not None:
+                propertyWidget.setFocusWidget(widget)
 
     def __currentScanChanged(self, previousScan, newScan):
         self.__storeScanIfNeeded(newScan)
@@ -251,6 +268,11 @@ class ManageMainBehaviours(qt.QObject):
         plots = scan_info_helper.create_plot_model(scanInfo, scan)
         self.updateScanAndPlots(scan, plots)
 
+    def __clearPreviousScan(self, scan):
+        if isinstance(scan, monitoring.MonitoringScan):
+            if scan.isMonitoring():
+                scan.stopMonitoring()
+
     def __getCompatiblePlots(self, widget, availablePlots) -> List[plot_model.Plot]:
         compatibleModel = self.__getPlotClassFromWidgetClass(type(widget))
         if compatibleModel is None:
@@ -267,7 +289,6 @@ class ManageMainBehaviours(qt.QObject):
     def updateScanAndPlots(self, scan: scan_model.Scan, plots: List[plot_model.Plot]):
         flintModel = self.flintModel()
         liveWindow = flintModel.liveWindow()
-        workspace = flintModel.workspace()
         previousScan = flintModel.currentScan()
         if previousScan is not None:
             useDefaultPlot = (
@@ -303,8 +324,15 @@ class ManageMainBehaviours(qt.QObject):
         flintModel.setCurrentScan(scan)
 
         # Reuse/create and connect the widgets
+        self.updateWidgetsWithPlots(scan, plots, useDefaultPlot, defaultPlot)
+
+    def updateWidgetsWithPlots(self, scan, plots, useDefaultPlot, defaultPlot):
+        """Update the widgets with a set of plots"""
+        flintModel = self.flintModel()
+        workspace = flintModel.workspace()
         availablePlots = list(plots)
         widgets = flintModel.workspace().widgets()
+        defaultWidget = None
         for widget in widgets:
             plots = self.__getCompatiblePlots(widget, availablePlots)
             if len(plots) == 0:
@@ -314,6 +342,8 @@ class ManageMainBehaviours(qt.QObject):
             plotModel = plots[0]
             availablePlots.remove(plotModel)
             previousWidgetPlot = widget.plotModel()
+            if plotModel is defaultPlot:
+                defaultWidget = widget
 
             # Try to reuse the previous plot
             if not useDefaultPlot and previousWidgetPlot is not None:
@@ -342,6 +372,8 @@ class ManageMainBehaviours(qt.QObject):
                     plotModel.setStyleStrategy(DefaultStyleStrategy(self.__flintModel))
                 widget.setPlotModel(plotModel)
 
+            previousScan = widget.scan()
+            self.__clearPreviousScan(previousScan)
             widget.setScan(scan)
 
         # There is no way in Qt to tabify a widget to a new floating widget
@@ -361,8 +393,12 @@ class ManageMainBehaviours(qt.QObject):
             widget = self.__createWidgetFromPlot(window, plotModel)
             if widget is None:
                 continue
+            if plotModel is defaultPlot:
+                defaultWidget = widget
 
             workspace.addWidget(widget)
+            previousScan = widget.scan()
+            self.__clearPreviousScan(previousScan)
             widget.setScan(scan)
 
             if lastTab is None:
@@ -372,26 +408,23 @@ class ManageMainBehaviours(qt.QObject):
                 window.tabifyDockWidget(lastTab, widget)
             lastTab = widget
 
-        if defaultPlot is not None:
+        if defaultWidget is not None:
             # Try to set the focus on the default plot
-            focusWidget = [
-                w for w in workspace.widgets() if w.plotModel() is defaultPlot
-            ]
-            if len(focusWidget) > 0:
-                focusWidget = focusWidget[0]
-                focusWidget.show()
-                focusWidget.raise_()
-                focusWidget.setFocus(qt.Qt.OtherFocusReason)
+            defaultWidget.show()
+            defaultWidget.raise_()
+            defaultWidget.setFocus(qt.Qt.OtherFocusReason)
+            self.__widgetActivated(defaultWidget)
 
     def __dockClosed(self):
         dock = self.sender()
         flintModel = self.flintModel()
-
-        propertyWidget = flintModel.propertyWidget()
+        liveWindow = flintModel.liveWindow()
+        propertyWidget = liveWindow.propertyWidget()
         if propertyWidget.focusWidget() is dock:
             propertyWidget.setFocusWidget(None)
 
-        dock.setPlotModel(None)
+        if isinstance(dock, PlotWidget):
+            dock.setPlotModel(None)
         dock.setFlintModel(None)
         workspace = flintModel.workspace()
         workspace.removeWidget(dock)
@@ -438,6 +471,58 @@ class ManageMainBehaviours(qt.QObject):
             else:
                 return title
         return title
+
+    def allocateProfileDock(self):
+        from bliss.flint.widgets import holder_widget
+
+        flintModel = self.flintModel()
+        workspace = flintModel.workspace()
+
+        # Search for an existing profile
+        otherProfiles = [
+            w
+            for w in workspace.widgets()
+            if isinstance(w, holder_widget.ProfileHolderWidget)
+        ]
+        for w in otherProfiles:
+            if w.isUsed():
+                continue
+            w.setVisible(True)
+            w.setUsed(True)
+            return w
+
+        # Create the profile widget
+        window = flintModel.liveWindow()
+        widget = holder_widget.ProfileHolderWidget(parent=window)
+        self._initNewDock(widget)
+        workspace.addWidget(widget)
+
+        # Search for another profile
+        lastTab = None if len(otherProfiles) == 0 else otherProfiles[-1]
+
+        def findFreeName(widget, template, others):
+            for i in range(1, 100):
+                name = template % i
+                for w in others:
+                    if w.objectName() == name:
+                        break
+                else:
+                    return name
+            # That's a dup name
+            return template % abs(id(widget))
+
+        widget.setVisible(True)
+        name = findFreeName(widget, "profile-%s", otherProfiles)
+        widget.setObjectName(name)
+        widget.setWindowTitle(name.capitalize().replace("-", " "))
+        widget.setUsed(True)
+
+        if lastTab is not None:
+            window.tabifyDockWidget(lastTab, widget)
+        else:
+            window.addDockWidget(qt.Qt.RightDockWidgetArea, widget)
+            widget.setFloating(True)
+        return widget
 
     def setFlintStarted(self):
         self.__flintStarted.set()

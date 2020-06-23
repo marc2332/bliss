@@ -18,6 +18,15 @@ from argparse import ArgumentParser
 import bliss.release
 
 
+FLINT_API_VERSION = 1
+"""Define an easy way to check flint_api.
+
+Should be updated every time flint_api changes, in order
+to be sure the currently displayed Flint and used Bliss
+are still synchronized.
+"""
+
+
 def configure_parser_arguments(parser: ArgumentParser):
     version = "flint - bliss %s" % (bliss.release.short_version)
     parser.add_argument("-V", "--version", action="version", version=version)
@@ -67,6 +76,13 @@ def configure_parser_arguments(parser: ArgumentParser):
         dest="clear_settings",
         default=False,
         help="Start with cleared local user settings. ",
+    )
+    parser.add_argument(
+        "--log-file",
+        type=str,
+        dest="log_file",
+        default=None,
+        help="Store logs in a file.",
     )
 
 

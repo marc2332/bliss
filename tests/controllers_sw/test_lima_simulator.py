@@ -10,11 +10,12 @@ import types
 import pytest
 import logging
 import io
+import numpy
 from bliss.scanning.acquisition.timer import SoftwareTimerMaster
 from bliss.common.tango import DeviceProxy, DevFailed
 from bliss.common.counter import Counter
 from bliss.controllers.lima.roi import Roi
-from bliss.common.scans import loopscan, timescan, ct, DEFAULT_CHAIN
+from bliss.common.scans import loopscan, timescan, sct, ct, DEFAULT_CHAIN
 import gevent
 from contextlib import contextmanager
 from ..conftest import lima_simulator_context
@@ -156,7 +157,7 @@ def test_lima_mapping_and_saving(session, lima_simulator):
     try:
         simulator.select_directories_mapping("fancy")
         mapped_directory = simulator.get_mapped_path(scan_saving.get_path())
-        ct_scan = ct(0.1, simulator, save=True, run=False)
+        ct_scan = sct(0.1, simulator, save=True, run=False)
 
         try:
             ct_scan.run()
@@ -359,6 +360,29 @@ def test_lima_scan_get_data(session, lima_simulator):
 
     assert raw_image_data.shape == (simulator.image.height, simulator.image.width)
 
+    # check that 'image' and 'lima_simulator' give same matches as 'lima_simulator:image'
+    # (because image s the only counter of lima_simulator)
+    data1 = s.get_data("image").get_image(2)
+    data2 = s.get_data("lima_simulator").get_image(2)
+
+    assert data1.shape == (simulator.image.height, simulator.image.width)
+    assert data2.shape == data1.shape
+    assert numpy.all(data1 == data2)
+
+    # add a roi_counters and check that 'lima_simulator' key has multiple matches now (i.e get_data fails)
+    r1 = Roi(0, 0, 100, 200)
+    simulator.roi_counters["r1"] = r1
+
+    s = loopscan(3, 0.1, simulator)
+
+    try:
+        has_failed = False
+        s.get_data("lima_simulator")
+    except KeyError as e:
+        has_failed = True
+
+    assert has_failed
+
 
 def test_lima_scan_get_last_data(session, lima_simulator):
     simulator = session.config.get("lima_simulator")
@@ -488,7 +512,7 @@ def test_lima_ctrl_params_uploading(
     assert simulator.proxy.saving_max_writing_task == 2
 
     # lets see if we can use mask, background and flatfield
-    img = scan.get_data()["lima_simulator:image"].get_filenames()[0][0]
+    img = scan.get_data()["image"].get_filenames()[0][0]
     simulator.processing.mask = img
     simulator.processing.use_mask = True
 
@@ -568,30 +592,22 @@ def test_lima_saving_mode(default_session, lima_simulator, scan_tmpdir):
     simulator.saving.mode = "ONE_FILE_PER_FRAME"
     scan = loopscan(10, 0.1, simulator)
 
-    assert 10 == len(
-        set([x[0] for x in scan.get_data()["lima_simulator:image"].get_filenames()])
-    )
+    assert 10 == len(set([x[0] for x in scan.get_data()["image"].get_filenames()]))
 
     simulator.saving.mode = "ONE_FILE_PER_N_FRAMES"
     scan = loopscan(10, 0.1, simulator)
 
-    assert 2 == len(
-        set([x[0] for x in scan.get_data()["lima_simulator:image"].get_filenames()])
-    )
+    assert 2 == len(set([x[0] for x in scan.get_data()["image"].get_filenames()]))
 
     simulator.saving.mode = "SPECIFY_MAX_FILE_SIZE"
     scan = loopscan(10, 0.1, simulator)
 
-    assert 3 == len(
-        set([x[0] for x in scan.get_data()["lima_simulator:image"].get_filenames()])
-    )
+    assert 3 == len(set([x[0] for x in scan.get_data()["image"].get_filenames()]))
 
     simulator.saving.mode = "ONE_FILE_PER_SCAN"
     scan = loopscan(10, 0.1, simulator)
 
-    assert 1 == len(
-        set([x[0] for x in scan.get_data()["lima_simulator:image"].get_filenames()])
-    )
+    assert 1 == len(set([x[0] for x in scan.get_data()["image"].get_filenames()]))
 
 
 def test_lima_simulator_dialogs(beacon, lima_simulator, clean_gevent):

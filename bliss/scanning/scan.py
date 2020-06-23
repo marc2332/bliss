@@ -21,14 +21,7 @@ from bliss import current_session, is_bliss_shell
 from bliss.common.event import connect, disconnect
 from bliss.common.cleanup import error_cleanup, axis as cleanup_axis, capture_exceptions
 from bliss.common.greenlet_utils import KillMask
-from bliss.common.plot import (
-    get_flint,
-    check_flint,
-    CurvePlot,
-    ImagePlot,
-    ScatterPlot,
-    McaPlot,
-)
+from bliss.common.plot import get_flint
 from bliss.common.utils import periodic_exec, deep_update
 from bliss.scanning.scan_meta import get_user_scan_meta
 from bliss.common.axis import Axis
@@ -354,9 +347,16 @@ class ScanDisplay(ParametersWardrobe):
                 "motor_position": True,
                 "_extra_args": [],
                 "_next_scan_metadata": None,
+                "displayed_channels": [],
+                "enable_scan_display_filter": True,
             },
             property_attributes=("session", "extra_args", "flint_output_enabled"),
-            not_removable=("auto", "motor_position"),
+            not_removable=(
+                "auto",
+                "motor_position",
+                "displayed_channels",
+                "enable_scan_display_filter",
+            ),
         )
 
         self.add("_session_name", session_name)
@@ -522,14 +522,18 @@ def _get_masters_and_channels(acq_chain):
                 names_count.update([controller_chan_name, chan_name])
     for display_names in display_names_list:
         for fullname, (controller_chan_name, chan_name) in display_names.items():
-            if names_count[chan_name] == 1:
-                # unique short name
-                display_names[fullname] = chan_name
-            else:
-                if names_count[controller_chan_name] == 1:
-                    display_names[fullname] = controller_chan_name
-                else:
-                    display_names[fullname] = fullname
+
+            ## Replace the channel name by the controller name if not unique
+            # if names_count[chan_name] == 1:
+            #     # unique short name
+            #     display_names[fullname] = chan_name
+            # else:
+            #     if names_count[controller_chan_name] == 1:
+            #         display_names[fullname] = controller_chan_name
+            #     else:
+            #         display_names[fullname] = fullname
+
+            display_names[fullname] = chan_name
 
     return chain_dict
 
@@ -758,14 +762,19 @@ class Scan:
         self.__scan_number = None
         self.root_node = None
         self._scan_info = dict(scan_info) if scan_info is not None else dict()
+        self._shadow_scan_number = not save
+        self._add_to_scans_queue = name != "ct"
 
         if scan_saving is None:
-            scan_saving = ScanSaving(current_session.name)
+            scan_saving = current_session.scan_saving.clone()
+        else:
+            scan_saving = scan_saving.clone()
         session_name = scan_saving.session
         user_name = scan_saving.user_name
         self.__scan_saving = scan_saving
         scan_config = scan_saving.get()
 
+        self._scan_info["shadow_scan_number"] = self._shadow_scan_number
         self._scan_info["save"] = save
         self._scan_info["data_writer"] = scan_saving.writer
         self._scan_info["data_policy"] = scan_saving.data_policy
@@ -837,7 +846,7 @@ class Scan:
             scan_display = ScanDisplay()
             if scan_display.auto:
                 if self.is_flint_recommended():
-                    get_flint()
+                    get_flint(mandatory=False)
 
         self.__state = ScanState.IDLE
         self.__state_change = gevent.event.Event()
@@ -899,6 +908,8 @@ class Scan:
             self._scan_info["start_timestamp"] = start_timestamp
 
             node_name = str(self.__scan_number) + "_" + self.name
+            if self._shadow_scan_number:
+                node_name = "_" + node_name
             self._create_data_node(node_name)
             self._current_pipeline_stream = self.root_node.db_connection.pipeline()
             self._pending_watch_callback = weakref.WeakKeyDictionary()
@@ -920,9 +931,15 @@ class Scan:
             self._scan_info["end_timestamp"] = self.node.info["end_timestamp"]
 
     def __repr__(self):
-        return "Scan(number={}, name={}, path={})".format(
-            self.__scan_number, self.name, self.writer.filename
-        )
+        number = self.__scan_number
+        if self._shadow_scan_number:
+            number = ""
+            path = "'not saved'"
+        else:
+            number = f"number={self.__scan_number}, "
+            path = self.writer.filename
+
+        return f"Scan({number}name={self.name}, path={path})"
 
     @property
     def name(self):
@@ -1350,9 +1367,6 @@ class Scan:
         # reset acquisition chain statistics
         self.acq_chain.reset_stats()
 
-        # get scan iterators
-        scan_chain_iterators = [next(i) for i in self.acq_chain.get_iter_list()]
-
         with capture_exceptions(raise_index=0) as capture:
             self._prepare_node()  # create scan node in redis
 
@@ -1384,6 +1398,11 @@ class Scan:
                 if self._watchdog_task is not None:
                     self._watchdog_task.start()
                     self._watchdog_task.on_scan_new(self, self.scan_info)
+
+                # get scan iterators
+                # be careful: this has to be done after "scan_new" callback,
+                # since it is possible to add presets in the callback...
+                scan_chain_iterators = [next(i) for i in self.acq_chain.get_iter_list()]
 
                 # execute scan iterations
                 # NB: "lprint" messages won't be displayed to stdout, this avoids
@@ -1476,15 +1495,6 @@ class Scan:
                     except AttributeError:
                         pass
 
-            # put final state
-            with capture():
-                if not killed:
-                    self._set_state(ScanState.DONE)
-                elif killed_by_user:
-                    self._set_state(ScanState.USER_ABORTED)
-                else:
-                    self._set_state(ScanState.KILLED)
-
             # kill watchdog task, if any
             with capture():
                 if self._watchdog_task is not None:
@@ -1493,7 +1503,22 @@ class Scan:
 
             # execute "stop" preset
             with capture():
-                self._execute_preset("_stop")
+                try:
+                    self._execute_preset("_stop")
+                except BaseException as e:
+                    killed = True
+                    if e == KeyboardInterrupt:
+                        killed_by_user = True
+                    raise e
+
+            # put final state
+            with capture():
+                if not killed:
+                    self._set_state(ScanState.DONE)
+                elif killed_by_user:
+                    self._set_state(ScanState.USER_ABORTED)
+                else:
+                    self._set_state(ScanState.KILLED)
 
             if self._data_watch_task is not None:
                 # call "scan end" data watch callback
@@ -1509,7 +1534,8 @@ class Scan:
                         self._data_watch_task.kill()
 
             # Add scan to the globals
-            current_session.scans.append(self)
+            if self._add_to_scans_queue:
+                current_session.scans.append(self)
 
             if self.writer:
                 # write scan_info to file
@@ -1563,48 +1589,38 @@ class Scan:
             else:
                 event_done.set()
 
-    def get_data(self):
-        """Return a numpy array with the scan data.
+    def get_data(self, key=None):
+        """Return a dictionary of { channel_name: numpy array }.
 
         It is a 1D array corresponding to the scan points.
         Each point is a named structure corresponding to the counter names.
         """
-        return get_data(self)
+        if key:
+            return get_data(self)[key]
+        else:
+            return get_data(self)
 
     def _next_scan_number(self):
         LAST_SCAN_NUMBER = "last_scan_number"
+        if self._shadow_scan_number:
+            LAST_SCAN_NUMBER = "last_shadow_scan_number"
         filename = self.writer.filename
         # last scan number is stored in the parent of the scan
         parent_node = self.__scan_saving.get_parent_node()
-        last_scan_number = parent_node.connection.hget(
-            parent_node.db_name, LAST_SCAN_NUMBER
-        )
-        if last_scan_number is None and "{scan_number}" not in filename:
-            max_scan_number = 0
-            for scan_entry in self.writer.get_scan_entries():
-                try:
-                    # TODO: this has to be removed when internal hdf5 writer
-                    # is deprecated
-                    max_scan_number = max(
-                        int(scan_entry.split("_")[0]), max_scan_number
-                    )
-                except ValueError:
-                    # the following is the good code for the Nexus writer
-                    try:
-                        max_scan_number = max(
-                            int(scan_entry.split(".")[0]), max_scan_number
-                        )
-                    except Exception:
-                        continue
-            name = parent_node.db_name
-            with pipeline(parent_node._struct) as p:
-                p.hsetnx(name, LAST_SCAN_NUMBER, max_scan_number)
-                p.hincrby(name, LAST_SCAN_NUMBER, 1)
-                _, scan_number = p.execute()
+        cnx = parent_node.connection
+        last_scan_number = cnx.hget(parent_node.db_name, LAST_SCAN_NUMBER)
+        if (
+            not self._shadow_scan_number
+            and last_scan_number is None
+            and "{scan_number}" not in filename
+        ):
+            # next scan number from the file (1 when not existing)
+            next_scan_number = self.writer.last_scan_number + 1
+            cnx.hsetnx(parent_node.db_name, LAST_SCAN_NUMBER, next_scan_number)
         else:
-            cnx = parent_node.connection
-            scan_number = cnx.hincrby(parent_node.db_name, LAST_SCAN_NUMBER, 1)
-        return scan_number
+            # next scan number from Redis
+            next_scan_number = cnx.hincrby(parent_node.db_name, LAST_SCAN_NUMBER, 1)
+        return next_scan_number
 
     def _execute_preset(self, method_name):
         preset_tasks = [

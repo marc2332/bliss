@@ -99,8 +99,9 @@ class ChainBuilder:
         # --- Remove duplicates ----------------------------------
         counter_dct = {counter.fullname: counter for counter in counter_list}
 
-        # --- Sort counters ------------------------------------------------------
-        counter_list = [counter for name, counter in sorted(counter_dct.items())]
+        # --- Sort ... or don t sort counters ! ------------------------------------------------------
+        # counter_list = [counter for name, counter in sorted(counter_dct.items())]
+        counter_list = list(counter_dct.values())
 
         # --- Separate real and calc counters
         real_counters = [
@@ -317,8 +318,12 @@ class DefaultAcquisitionChain:
             extra_settings = self._settings.get(node.controller)
             if extra_settings:
                 # print("==== FOUND EXTRA SETTINGS")
-                acq_params = extra_settings.get("acquisition_settings", {})
-                acq_params = node._get_default_chain_parameters(scan_pars, acq_params)
+                acq_params = dict(
+                    extra_settings.get("acquisition_settings", {})
+                )  # make a copy!
+                acq_params.update(
+                    node._get_default_chain_parameters(scan_pars, acq_params)
+                )
                 node.set_parameters(acq_params=acq_params)
 
                 # DEAL WITH CHILDREN NODES PARAMETERS

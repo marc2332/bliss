@@ -8,7 +8,7 @@ louie >= 2.0
 gevent >= 1.4
 gxx_linux-64
 h5py >= 2.9
-jedi >= 0.16
+jedi >= 0.17.1
 jinja2 >= 2.7
 mendeleev
 mock
@@ -30,7 +30,7 @@ pyserial > 2
 python >= 3.7
 ruamel.yaml
 redis >= 5.0
-redis-py >= 3.3.7
+redis-py == 3.5.1
 hiredis
 requests
 simple-pid
@@ -46,11 +46,13 @@ typeguard == 2.6.1
 typing_extensions
 tailon == 1.1.0.1
 numexpr
-tango-metadata >= 4.0.2
+tango-metadata >= 4.0.3
 
 # Flint
-qt
-silx == 0.13.0b0
+pyqt
+silx == 0.13.0b2
+ipython != 7.15.0
+ipykernel >= 5.2  # make sure qtconsole is working
 pyopengl
 scipy
 sortedcontainers

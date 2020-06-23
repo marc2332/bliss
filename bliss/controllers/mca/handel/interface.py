@@ -4,6 +4,7 @@ from __future__ import absolute_import
 
 import os
 import inspect
+import logging
 from functools import reduce
 
 import numpy
@@ -80,6 +81,8 @@ __all__ = [
 
 MAX_STRING_LENGTH = 80
 
+LOGGER = logging.getLogger("HANDEL_rpc")
+
 
 # Helpers
 
@@ -116,17 +119,26 @@ def merge_buffer_data(*data):
 
 
 def init(*path):
+    """ Called at BLISS object init.
+    """
     filename = to_bytes(os.path.join(*path))
+    LOGGER.debug("init (config={%s})", filename)
+
     code = handel.xiaInit(filename)
     check_error(code)
 
 
 def init_handel():
+    """ Called at server startup.
+    """
+    LOGGER.debug("init_handel --")
+
     code = handel.xiaInitHandel()
     check_error(code)
 
 
 def exit():
+    LOGGER.debug("exit()")
     code = handel.xiaExit()
     check_error(code)
 
@@ -135,6 +147,8 @@ def exit():
 
 
 def get_num_detectors():
+    """ Return the number of detectors configured
+    """
     num = ffi.new("unsigned int *")
     code = handel.xiaGetNumDetectors(num)
     check_error(code)
@@ -142,8 +156,10 @@ def get_num_detectors():
 
 
 def get_detectors():
-    n = get_num_detectors()
-    arg = [ffi.new("char []", MAX_STRING_LENGTH) for _ in range(n)]
+    """ ???
+    """
+    det_count = get_num_detectors()
+    arg = [ffi.new("char []", MAX_STRING_LENGTH) for _ in range(det_count)]
     code = handel.xiaGetDetectors(arg)
     check_error(code)
     return tuple(ffi.string(x).decode() for x in arg)
@@ -165,6 +181,10 @@ def get_detector_from_channel(channel):
 
 
 def start_run(channel=None, resume=False):
+    """
+    """
+    LOGGER.debug(f"start_run(channel={channel})")
+
     if channel is None:
         channel = -1  # All channels
     code = handel.xiaStartRun(channel, resume)
@@ -172,6 +192,10 @@ def start_run(channel=None, resume=False):
 
 
 def stop_run(channel=None):
+    """
+    """
+    LOGGER.debug(f"stop_run(channel={channel})")
+
     if channel is None:
         channel = -1  # All channels
     code = handel.xiaStopRun(channel)
@@ -193,6 +217,7 @@ def get_spectrum_length(channel):
 
 
 def get_spectrum(channel):
+    LOGGER.debug(f"get_spectrum(channel={channel})")
     length = get_spectrum_length(channel)
     array = numpy.zeros(length, dtype="uint32")
     data = ffi.cast("uint32_t *", array.ctypes.data)
@@ -214,18 +239,47 @@ def is_channel_running(channel):
     # - bit 0: whether the channel is acquiring
     # - bit 1: whether the channel is running (in the start_run/stop_run sense)
     # We're interested in the first bit of information here
-    return bool(running[0] & 0x1)
+    _running = bool(running[0] & 0x1)
+
+    return _running
 
 
 def is_running():
     """Return True if any channel is running, False otherwise."""
-    return any(is_channel_running(channel) for channel in get_channels())
+
+    running = any(is_channel_running(channel) for channel in get_channels())
+
+    if LOGGER.level == logging.DEBUG:
+        if running:
+            print("R ", end="")
+        else:
+            print("Not Running")
+
+    return running
 
 
 # Statistics
 
+"""
+handel.xiaGetRunData(master, b'module_statistics_2', data)
+read statistics of a whole module and put results in data.
+0: realtime
+1: trigger livetime
+2: reserved    (energy livetime for XMAP)
+3: triggers
+4: MCA events
+5: ICR
+6: OCR
+7: reserved    (underflows for XMAP)
+8: reserved    (overflows for XMAP)
+
+stats_from_normal_mode() returns a Stats named-tuple
+'realtime livetime triggers events icr ocr deadtime'
+"""
+
 
 def get_module_statistics(module):
+    LOGGER.debug(f"get_module_statistics(module={module})")
     channels = get_module_channels(module)
     # FalconX requires a spectrum read for the statistics to be updated
     if get_module_type(module).startswith("falconx"):
@@ -259,6 +313,10 @@ def get_statistics():
     # the statistics can be accessed with a single call per module.
     for module in get_modules():
         result.update(get_module_statistics(module))
+
+    LOGGER.debug("get_statistics()")
+    LOGGER.debug("result=", result)
+
     return result
 
 
@@ -269,7 +327,10 @@ def get_buffer_length(master):
     length = ffi.new("unsigned long *")
     code = handel.xiaGetRunData(master, b"buffer_len", length)
     check_error(code)
-    return length[0]
+    buf_len = length[0]
+    LOGGER.debug(f"get_buffer_length(master={master}) --> {buf_len}")
+
+    return buf_len
 
 
 def is_buffer_full(master, buffer_id):
@@ -278,17 +339,26 @@ def is_buffer_full(master, buffer_id):
     result = ffi.new("unsigned short *")
     code = handel.xiaGetRunData(master, command, result)
     check_error(code)
-    return bool(result[0])
+    ibf = bool(result[0])
+
+    LOGGER.debug(f"is_buffer_full(master={master}, buffer_id={buffer_id}) --> {ibf}")
+
+    return ibf
 
 
 def is_buffer_overrun(master):
     result = ffi.new("unsigned short *")
     code = handel.xiaGetRunData(master, b"buffer_overrun", result)
     check_error(code)
-    return bool(result[0])
+    ibo = bool(result[0])
+    LOGGER.debug(f"is_buffer_overrun(master={master}) --> {ibo}")
+    return ibo
 
 
 def get_raw_buffer(master, buffer_id):
+    LOGGER = logging.getLogger("HANDEL_rpc")
+    LOGGER.debug(f"get_raw_buffer(master={master} buff id={buffer_id})")
+
     bid = to_buffer_id(buffer_id)
     command = b"buffer_%c" % bid
     length = get_buffer_length(master)
@@ -299,15 +369,14 @@ def get_raw_buffer(master, buffer_id):
     # Check magic number
     if array[0] == 0:
         raise RuntimeError(
-            "The buffer {} associated with channel {} is empty".format(
-                str(buffer_id), master
-            )
+            f"The buffer {str(buffer_id)} associated with channel {master} is empty"
         )
     # Return array
     return array
 
 
 def get_buffer_data(master, buffer_id):
+    LOGGER.debug(f"get_buffer_date(master={master} buff id={buffer_id})")
     raw = get_raw_buffer(master, buffer_id)
     return parse_mapping_buffer(raw)
 
@@ -316,7 +385,11 @@ def get_buffer_current_pixel(master):
     current = ffi.new("unsigned long *")
     code = handel.xiaGetRunData(master, b"current_pixel", current)
     check_error(code)
-    return current[0]
+
+    cur_pix = current[0]
+    LOGGER.debug(f"get_buffer_current_pixel(master={master}) --> {cur_pix}")
+
+    return cur_pix
 
 
 def set_buffer_done(master, buffer_id):
@@ -329,7 +402,11 @@ def set_buffer_done(master, buffer_id):
     code = handel.xiaBoardOperation(master, b"buffer_done", bid)
     check_error(code)
     other = b"b" if bid == b"a" else b"a"
-    return is_buffer_full(master, other) and is_channel_running(master)
+    overrun = is_buffer_full(master, other) and is_channel_running(master)
+    LOGGER.debug(
+        f"get_raw_buffer(master={master} buff id={buffer_id} )   overrun={overrun}"
+    )
+    return overrun
 
 
 # Synchronized run
@@ -346,6 +423,7 @@ def set_maximum_pixels_per_buffer():
         get_acquisition_value("num_map_pixels_per_buffer", master)
         for master in get_master_channels()
     )
+    LOGGER.debug(f"set_maximum_pixels_per_buffer()  {value}")
     set_acquisition_value("num_map_pixels_per_buffer", value)
 
 
@@ -375,7 +453,14 @@ def set_all_buffer_done(buffer_id):
 
 def get_current_pixel():
     """Get the current pixel reported by the hardware."""
-    return max(get_buffer_current_pixel(master) for master in get_master_channels())
+
+    current_pixel = max(
+        get_buffer_current_pixel(master) for master in get_master_channels()
+    )
+
+    LOGGER.debug(f"get_current_pixel() ->  {current_pixel}")
+
+    return current_pixel
 
 
 def get_all_buffer_data(buffer_id):
@@ -384,6 +469,9 @@ def get_all_buffer_data(buffer_id):
     Return a tuple (spectrums, statistics) where both values are dictionaries
     of dictionaries, first indexed by pixel and then by channel."""
     data = [get_buffer_data(master, buffer_id) for master in get_master_channels()]
+
+    LOGGER.debug(f"get_all_buffer_data(buffer_id={buffer_id}")
+
     return merge_buffer_data(*data)
 
 
@@ -465,18 +553,28 @@ def get_baseline(channel):
 
 
 def load_system(*path):
+    """ ???
+    """
+    LOGGER.debug("load_system()")
     filename = to_bytes(os.path.join(*path))
     code = handel.xiaLoadSystem(b"handel_ini", filename)
     check_error(code)
 
 
 def save_system(*path):
+    """ ???
+    """
+    LOGGER.debug("save_system()")
     filename = to_bytes(os.path.join(*path))
     code = handel.xiaSaveSystem(b"handel_ini", filename)
     check_error(code)
 
 
 def start_system():
+    """
+    """
+    LOGGER.debug("start_system()")
+
     code = handel.xiaStartSystem()
     check_error(code)
 
@@ -656,7 +754,7 @@ def get_acquisition_value(name, channel=None):
         # Inconsistency
         if value is None:
             raise ValueError(
-                "The acquisition value {} differs from channel to channel".format(name)
+                f"The acquisition value {name} differs from channel to channel"
             )
         # Return
         return value
@@ -752,6 +850,7 @@ def _raw_read(acquisition_number, queue):
     try:
 
         def poll_data(sent):
+            print("call polling")
             current, data, statistics = synchronized_poll_data()
             points = list(range(sent, sent + len(data)))
             # Check data integrity
@@ -762,6 +861,8 @@ def _raw_read(acquisition_number, queue):
             for n in points:
                 queue.put((data[n], statistics[n]))
             # Finished
+            # we should go in this test to send the end of the acquisition
+            print("poll_data", sent, current, acquisition_number)
             if sent == current == acquisition_number:
                 raise StopIteration
             # Sleep
@@ -799,7 +900,8 @@ def _raw_read(acquisition_number, queue):
 
 # int xiaBoardOperation(int detChan, char *name, void *value) with mapping_pixel_next (int 0);
 # int xiaMemoryOperation(int detChan, char *name, void *value);
-# int xiaCommandOperation(int detChan, byte_t cmd, unsigned int lenS, byte_t *send, unsigned int lenR, byte_t *recv);
+# int xiaCommandOperation(int detChan, byte_t cmd, unsigned int lenS,
+#                         byte_t *send, unsigned int lenR, byte_t *recv);
 
 
 # Debugging
@@ -824,6 +926,7 @@ def get_handel_version():
 
 def get_config_files(*path):
     """Return all the ini files in path (including subdirectories)."""
+
     path = os.path.join(*path)
     ext = b".ini" if isinstance(path, bytes) else ".ini"
     sep = b"/" if isinstance(path, bytes) else "/"
@@ -838,5 +941,5 @@ def get_config_files(*path):
 def get_config(*path):
     """Read and return the given config file as a dictionary."""
     filename = os.path.join(*path)
-    with open(filename) as f:
-        return parse_xia_ini_file(f.read())
+    with open(filename) as config_file:
+        return parse_xia_ini_file(config_file.read())

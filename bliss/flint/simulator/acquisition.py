@@ -20,6 +20,7 @@ from silx.gui import qt
 from bliss.flint.model import flint_model
 from bliss.flint.model import scan_model
 from bliss.flint.manager import scan_manager
+from bliss.data.nodes.lima import Frame
 
 
 _logger = logging.getLogger(__name__)
@@ -52,10 +53,10 @@ class _ChannelDataNodeMock:
         return self.__image
 
     def get_last_image(self, id):
-        return self.__image
+        return Frame(self.__image, id, "memory")
 
     def get_last_live_image(self):
-        return self.__image, self.__last_index
+        return Frame(self.__image, self.__last_index, "video")
 
 
 class _VirtualScan:

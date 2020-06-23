@@ -327,6 +327,17 @@ def test_mg(alias_session, lima_simulator):
 
 
 @pytest.fixture
+def test_mg_two_lima_same_prefix(alias_session, lima_simulator, lima_simulator2):
+    lima_simulator2 = alias_session.config.get("lima_simulator2")
+
+    mg = measurementgroup.MeasurementGroup(
+        "local", {"counters": ["lima_simulator", "lima_simulator2"]}
+    )
+
+    return mg
+
+
+@pytest.fixture
 def test_mg_mixed_definition(alias_session, lima_simulator):
     diode = alias_session.config.get("diode")
     diode2 = alias_session.config.get("diode2")
@@ -420,6 +431,25 @@ def test_enable_disable_pattern(test_mg, patterns, expected_counters):
     test_mg.enable_all()
     test_mg.disable(*patterns)
     assert set(test_mg.disabled) == set(expected_counters)
+
+
+def test_enable_disable_issue_1736(test_mg_two_lima_same_prefix):
+    mg = test_mg_two_lima_same_prefix
+    mg.disable_all()
+
+    mg.enable("lima_simulator")
+
+    assert set(mg.enabled) == set(mg_lima_default_counters)
+
+    mg.disable("lima_simulator")
+
+    assert len(mg.enabled) == 0
+
+    mg.enable("lima_simulator")
+    mg.enable("lima_simulator2")
+    mg.disable("lima_simulator")
+    # check that the enabled counters are all from the second simulator
+    assert all("lima_simulator2" in fullname for fullname in mg.enabled)
 
 
 def test_bad_controller(test_mg):

@@ -703,6 +703,20 @@ class Log:
 
         return deactivated
 
+    def clear(self):
+        try:
+            self._stdout_handler.close()
+        except AttributeError:
+            pass
+        else:
+            del self._stdout_handler
+        try:
+            self._beacon_handler.close()
+        except AttributeError:
+            pass
+        else:
+            del self._beacon_handler
+
 
 def create_logger_name(G, node_id):
     """

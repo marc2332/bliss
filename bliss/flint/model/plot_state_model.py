@@ -4,6 +4,7 @@
 #
 # Copyright (c) 2015-2019 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
+
 """Contains implementation of concrete objects used to model plots.
 
 It exists 4 kinds of plots: curves, scatter, image, MCAs. Each plot contains
@@ -84,6 +85,10 @@ class DerivativeData(NamedTuple):
 
 
 class ComputedCurveItem(plot_model.ChildItem, plot_item_model.CurveMixIn):
+    def __init__(self, parent=None):
+        plot_model.ChildItem.__init__(self, parent)
+        plot_item_model.CurveMixIn.__init__(self)
+
     def inputData(self):
         return _getHashableSource(self.source())
 
@@ -126,6 +131,10 @@ class DerivativeItem(ComputedCurveItem, plot_model.IncrementalComputableMixIn):
 
     EXTRA_POINTS = 5
     """Extra points needed before and after a single point to compute a result"""
+
+    def __init__(self, parent=None):
+        ComputedCurveItem.__init__(self, parent=parent)
+        plot_model.IncrementalComputableMixIn.__init__(self)
 
     def name(self) -> str:
         return "Derivative"

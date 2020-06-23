@@ -17,8 +17,10 @@ from bliss.shell.cli.user_dialog import (
 )
 
 from bliss.shell.cli.pt_widgets import display, BlissDialog
+from bliss.shell.dialog.helpers import dialog
 
 
+@dialog("Lima", "saving")
 def lima_saving_parameters_dialog(lima_controller):
 
     modes = [
@@ -65,6 +67,7 @@ def lima_saving_parameters_dialog(lima_controller):
         lima_controller.saving.max_file_size_in_MB = ans[dlg4]
 
 
+@dialog("Lima", "processing")
 def lima_processing_dialog(lima_controller):
 
     dlg1 = UserCheckBox(label="Enable mask", defval=lima_controller.processing.use_mask)
@@ -121,6 +124,7 @@ def validate_roi(str_input, max_value):
         raise ValueError("ROI coordinate exceeds image size!")
 
 
+@dialog("Lima", "image")
 def lima_image_dialog(lima_controller):
 
     rot_dict = {"NONE": 0, "90": 1, "180": 2, "270": 3}
@@ -254,6 +258,7 @@ def lima_image_dialog(lima_controller):
                     ]
 
 
+@dialog("Lima", "centered_roi")
 def centered_roi(lima_controller):
     width, height = lima_controller._image_params._max_dim_lima_ref
 

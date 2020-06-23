@@ -20,6 +20,9 @@ _countable = Counter
 _countables = Union[
     IterableNamespace, Counter, MeasurementGroup, CounterContainer, Tuple
 ]
+_float_or_countables = Union[
+    numbers.Real, IterableNamespace, Counter, MeasurementGroup, CounterContainer, Tuple
+]
 _scannable = Union[Axis, Scannable]
 # Axis is included explicitly in _scannable as the Scannable protocol evaluates
 # all attributes that are part of the protocol during type checking. (py 3.7)
@@ -28,5 +31,5 @@ _scannable_start_stop_list = List[Tuple[_scannable, _float, _float]]
 _position_list = Union[Sequence, numpy.ndarray]
 _scannable_position_list = List[Tuple[_scannable, _position_list]]
 
-_providing_channel = Union[_scannable, Counter, str]
+_providing_channel = Union[None, _scannable, Counter, str]
 """Used by plotselect"""

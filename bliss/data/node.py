@@ -142,14 +142,13 @@ def sessions_list():
     Session may or may not be running.
     """
     session_names = []
-    for node_name in settings.scan(
-        "*_children_list", connection=client.get_redis_connection(db=1)
-    ):
+    conn = client.get_redis_connection(db=1)
+    for node_name in settings.scan("*_children_list", connection=conn):
         if node_name.find(":") > -1:  # can't be a session node
             continue
         session_name = node_name.replace("_children_list", "")
         session_names.append(session_name)
-    return get_nodes(*session_names)
+    return get_nodes(*session_names, connection=conn)
 
 
 def _create_node(name, node_type=None, parent=None, connection=None, **keys):
@@ -171,6 +170,15 @@ def _get_or_create_node(name, node_type=None, parent=None, connection=None, **ke
 class DataNodeIterator(object):
     def __init__(self, node):
         self.node = node
+
+    def get_nodes(self, *args):
+        return self.node.get_nodes(*args)
+
+    def create_data_stream(self, name):
+        return self.node.create_data_stream(name)
+
+    def scan_redis(self, match):
+        return self.node.scan_redis(match)
 
     @protect_from_kill
     def walk(
@@ -211,9 +219,7 @@ class DataNodeIterator(object):
         new_child_func,
         new_data_event=False,
     ):
-        children_stream = DataStream(
-            f"{self.node.db_name}_children_list", connection=self.node.connection
-        )
+        children_stream = self.create_data_stream(f"{self.node.db_name}_children_list")
         reader.add_streams(children_stream, first_index=first_index)
         self._add_existing_children(
             reader,
@@ -226,29 +232,21 @@ class DataNodeIterator(object):
         if self.node.type in SCAN_TYPES:
             # also register for new data
             if new_data_event:
-                data_stream_name = list(
-                    settings.scan(
-                        f"{self.node.db_name}:*_data", connection=self.node.connection
-                    )
-                )
-                child_nodes = get_nodes(
-                    *(name[: -len("_data")] for name in data_stream_name)
+                data_stream_names = list(self.scan_redis(f"{self.node.db_name}:*_data"))
+                child_nodes = self.get_nodes(
+                    *(name[: -len("_data")] for name in data_stream_names)
                 )
                 data_streams = {
-                    DataStream(name, connection=self.node.connection): node
-                    for name, node in zip(data_stream_name, child_nodes)
+                    self.create_data_stream(name): node
+                    for name, node in zip(data_stream_names, child_nodes)
                 }
                 stream2nodes.update(data_streams)
                 reader.add_streams(*data_streams, first_index=0)
-            scan_data_stream = DataStream(
-                f"{self.node.db_name}_data", connection=self.node.connection
-            )
+            scan_data_stream = self.create_data_stream(f"{self.node.db_name}_data")
             stream2nodes[scan_data_stream] = self.node
             reader.add_streams(scan_data_stream, first_index=0, priority=1)
         elif new_data_event:
-            data_stream = DataStream(
-                f"{self.node.db_name}_data", connection=self.node.connection
-            )
+            data_stream = self.create_data_stream(f"{self.node.db_name}_data")
             stream2nodes[data_stream] = self.node
             reader.add_streams(data_stream, first_index=0)
 
@@ -259,7 +257,7 @@ class DataNodeIterator(object):
                     for index, value in events
                 }
                 new_stream = [
-                    DataStream(f"{name}_children_list", connection=self.node.connection)
+                    self.create_data_stream(f"{name}_children_list")
                     for name in children
                 ]
                 reader.add_streams(*new_stream, first_index=first_index)
@@ -287,7 +285,7 @@ class DataNodeIterator(object):
     ):
         with settings.pipeline(stream):
             for (child_name, index), new_child in zip(
-                children.items(), get_nodes(*children)
+                children.items(), self.get_nodes(*children)
             ):
                 if new_child is not None:
                     if filter is None or new_child.type in filter:
@@ -298,11 +296,9 @@ class DataNodeIterator(object):
                             reader, stream2nodes, child_name, first_index
                         )
                         # Watching END scan event to clear all streams link with this scan
-                        data_stream = DataStream(
-                            f"{child_name}_data", connection=self.node.connection
-                        )
+                        data_stream = self.create_data_stream(f"{child_name}_data")
                         stream2nodes[data_stream] = new_child
-                        reader.add_streams(data_stream, first_index=0)
+                        reader.add_streams(data_stream, first_index=0, priority=1)
 
                 else:
                     stream.remove(index)
@@ -312,14 +308,12 @@ class DataNodeIterator(object):
     ):
         with settings.pipeline(stream):
             for (child_name, index), new_child in zip(
-                children.items(), get_nodes(*children)
+                children.items(), self.get_nodes(*children)
             ):
                 if new_child is not None:
                     if filter is None or new_child.type in filter:
                         if new_child.type not in SCAN_TYPES:
-                            data_stream = DataStream(
-                                f"{child_name}_data", connection=self.node.connection
-                            )
+                            data_stream = self.create_data_stream(f"{child_name}_data")
                             stream2nodes[data_stream] = new_child
                             reader.add_streams(data_stream, first_index=0)
                         with AllowKill():
@@ -330,22 +324,22 @@ class DataNodeIterator(object):
                             reader, stream2nodes, child_name, first_index
                         )
                         data_stream_names = list(
-                            settings.scan(
-                                f"{child_name}:*_data", connection=self.node.connection
-                            )
+                            self.scan_redis(f"{child_name}:*_data")
+                        )
+                        sub_child_nodes = self.get_nodes(
+                            *(x[: -len("_data")] for x in data_stream_names)
                         )
                         new_sub_child_streams = list()
                         for sub_child_name, sub_child_node in zip(
-                            data_stream_names,
-                            get_nodes(*(x[: -len("_data")] for x in data_stream_names)),
+                            data_stream_names, sub_child_nodes
                         ):
                             if sub_child_node is not None:
                                 if filter is None or sub_child_node.type in filter:
                                     if sub_child_node.type in SCAN_TYPES:
                                         continue
 
-                                    data_stream = DataStream(
-                                        sub_child_name, connection=self.node.connection
+                                    data_stream = self.create_data_stream(
+                                        sub_child_name
                                     )
                                     stream2nodes[data_stream] = sub_child_node
                                     new_sub_child_streams.append(data_stream)
@@ -357,9 +351,7 @@ class DataNodeIterator(object):
                         # otherwise SCAN_END arrive before other datas.
                         # so stream priority == 1
                         # Watching END scan event to clear all streams link with this scan
-                        data_stream = DataStream(
-                            f"{child_name}_data", connection=self.node.connection
-                        )
+                        data_stream = self.create_data_stream(f"{child_name}_data")
                         stream2nodes[data_stream] = new_child
                         reader.add_streams(data_stream, first_index=0, priority=1)
                 else:
@@ -376,14 +368,11 @@ class DataNodeIterator(object):
             return s.count(":")
 
         streams_names = sorted(
-            settings.scan(
-                f"{parent_db_name}*_children_list", connection=self.node.connection
-            ),
-            key=depth_sort,
+            self.scan_redis(f"{parent_db_name}*_children_list"), key=depth_sort
         )
         if filter_scan:
             # We don't add scan nodes and underneath
-            child_node = get_nodes(
+            child_node = self.get_nodes(
                 *(name[: -len("_children_list")] for name in streams_names)
             )
             scan_names = list(n.db_name for n in child_node if n.type in SCAN_TYPES)
@@ -393,13 +382,10 @@ class DataNodeIterator(object):
                     if stream_name.startswith(scan_name):
                         break
                 else:
-                    children_stream.append(
-                        DataStream(stream_name, connection=self.node.connection)
-                    )
+                    children_stream.append(self.create_data_stream(stream_name))
         else:
             children_stream = (
-                DataStream(stream_name, connection=self.node.connection)
-                for stream_name in streams_names
+                self.create_data_stream(stream_name) for stream_name in streams_names
             )
         reader.add_streams(*children_stream, first_index=first_index)
 
@@ -416,8 +402,8 @@ class DataNodeIterator(object):
         stream_status = dict()
         first_index = int(time.time() * 1000)
         if include_last:
-            children_stream = DataStream(
-                f"{self.node.db_name}_children_list", connection=self.node.connection
+            children_stream = self.create_data_stream(
+                f"{self.node.db_name}_children_list"
             )
             children = children_stream.rev_range(count=1)
             if children:
@@ -434,9 +420,8 @@ class DataNodeIterator(object):
                 if last_node is not None:
                     yield last_node
                     parent = last_node.parent
-                    children_stream = DataStream(
-                        f"{parent.db_name}_children_list",
-                        connection=self.node.connection,
+                    children_stream = self.create_data_stream(
+                        f"{parent.db_name}_children_list"
                     )
                     # look for the last_node
                     for index, child_info in children_stream.rev_range():
@@ -538,14 +523,29 @@ class DataNode:
         else:
             self.__new_node = False
             self._ttl_setter = None
-            self._struct = settings.Struct(db_name, connection=connection)
+            self._struct = self._get_struct(db_name)
             self.__db_name = db_name
 
         # node type cache
         self.node_type = node_type
 
+    def get_nodes(self, *args):
+        return get_nodes(*args, connection=self.db_connection)
+
+    def get_node(self, *args):
+        return get_node(*args, connection=self.db_connection)
+
+    def create_data_stream(self, name, **kw):
+        return DataStream(name, connection=self.db_connection, **kw)
+
+    def scan_redis(self, match):
+        return (x.decode() for x in self.db_connection.keys(match))
+
+    def _get_struct(self, db_name):
+        return settings.Struct(db_name, connection=self.db_connection)
+
     def _create_struct(self, db_name, name, node_type):
-        struct = settings.Struct(db_name, connection=self.db_connection)
+        struct = self._get_struct(db_name)
         struct.name = name
         struct.db_name = db_name
         struct.node_type = node_type
@@ -558,7 +558,7 @@ class DataNode:
 
     @property
     def connection(self):
-        return self._struct._cnx()
+        return self.db_connection
 
     @property
     @protect_from_kill
@@ -586,7 +586,7 @@ class DataNode:
     def parent(self):
         parent_name = self._struct.parent
         if parent_name:
-            parent = get_node(parent_name)
+            parent = self.get_node(parent_name)
             if parent is None:  # clean
                 del self._struct.parent
             return parent
@@ -641,7 +641,7 @@ class DataNodeContainer(DataNode):
         )
         db_name = name if parent is None else self.db_name
         children_queue_name = "%s_children_list" % db_name
-        self._children = DataStream(children_queue_name, connection=connection)
+        self._children = self.create_data_stream(children_queue_name)
 
     def add_children(self, *children):
         for child in children:
@@ -658,7 +658,7 @@ class DataNodeContainer(DataNode):
         }
         with settings.pipeline(self._children):
             for (child_name, index), new_child in zip(
-                children.items(), get_nodes(*children)
+                children.items(), self.get_nodes(*children)
             ):
                 if new_child is not None:
                     yield new_child

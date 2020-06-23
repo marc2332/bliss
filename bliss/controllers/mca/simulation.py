@@ -178,13 +178,25 @@ class SimulatedMCA(BaseMCA):
         data, stats = {}, {}
         for i in self.elements:
             realtime = delta
-            livetime = realtime * numpy.random.normal(0.9, 0.01)
-            triggers = int(10000 * numpy.random.normal(livetime, livetime * 0.2))
+            trigger_livetime = realtime * numpy.random.normal(0.9, 0.01)
+            energy_livetime = trigger_livetime * numpy.random.normal(0.9, 0.01)
+            triggers = int(
+                10000 * numpy.random.normal(trigger_livetime, trigger_livetime * 0.2)
+            )
             events = triggers // 2
             icr = triggers / realtime if realtime else 0.
-            ocr = events / livetime if livetime else 0.
+            ocr = events / trigger_livetime if trigger_livetime else 0.
             deadtime = 1 - ocr / icr if icr else 0.
-            stats[i] = Stats(realtime, livetime, triggers, events, icr, ocr, deadtime)
+            stats[i] = Stats(
+                realtime,
+                trigger_livetime,
+                energy_livetime,
+                triggers,
+                events,
+                icr,
+                ocr,
+                deadtime,
+            )
             size = self._spectrum_size
             data[i] = numpy.zeros(size, dtype=int)
             for _ in range(events):

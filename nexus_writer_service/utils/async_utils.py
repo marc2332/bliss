@@ -28,9 +28,9 @@ def register_signal_handler(signalnum, handler):
         try:
             handler()
         finally:
-            gevent.signal(signalnum, oldhandler)
+            signal.signal(signalnum, oldhandler)
 
-    gevent.signal(signalnum, newhandler)
+    signal.signal(signalnum, newhandler)
 
 
 def kill_on_exit(greenlet):

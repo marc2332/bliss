@@ -33,7 +33,8 @@ class ProtectedDictType(type):
             if key not in self._protected_keys:
                 self._wrapped[key] = value
             else:
-                raise RuntimeError(f"{key} is protected and can not be modified!")
+                if value is not self._wrapped[key]:
+                    raise RuntimeError(f"{key} is protected and can not be modified!")
 
     def repartial(func, parameter):
         @functools.wraps(func)

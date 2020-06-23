@@ -19,7 +19,7 @@
      alias_name: dtime
    - original_name: simu1:realtime_det0 
      alias_name: rtime
-   - original_name: simu1:livetime_det0
+   - original_name: simu1:energy_livetime_det0
      alias_name: ltime
    - original_name: simu1:deadtime_det1
      alias_name: dtime1

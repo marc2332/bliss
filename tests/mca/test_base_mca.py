@@ -88,7 +88,7 @@ def test_base_mca(beacon):
 
 
 def test_base_mca_logic(beacon):
-    stats = Stats(*list(range(1, 8)))
+    stats = Stats(*list(range(1, 9)))
 
     class TestMCA(BaseMCA):
 

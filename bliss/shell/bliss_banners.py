@@ -1,6 +1,13 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
+import sys
+
+if sys.platform in ["win32", "cygwin"]:
+    import os
+
+    os.system("color")
+
 
 def print_rainbow_banner():
     print(

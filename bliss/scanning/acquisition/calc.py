@@ -118,7 +118,7 @@ class CalcCounterAcquisitionSlave(AcquisitionSlave):
         src_acq_devices_list -- list or tuple of acq(device/master) you want to listen to.
     """
 
-    def __init__(self, controller, src_acq_devices_list, ctrl_params=None):
+    def __init__(self, controller, src_acq_devices_list, acq_params, ctrl_params=None):
 
         # name = "AD_" + controller.name
         name = controller.name
@@ -202,7 +202,5 @@ class CalcCounterChainNode(ChainNode):
                 acq_devices.append(acq_obj)
 
         return self.controller.get_acquisition_object(
-            acq_params=acq_devices,
-            ctrl_params=ctrl_params,
-            parent_acq_params=parent_acq_params,
+            acq_params, ctrl_params, parent_acq_params, acq_devices
         )

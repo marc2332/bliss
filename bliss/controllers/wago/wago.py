@@ -2154,10 +2154,16 @@ class Wago(SamplingCounterController):
     def status(self):
         return self.controller.status()
 
-    def interlock_reset(self, instance_num, ask=True):
+    def interlock_reset(self, instance_num):
+        """Will reset a single interlock given the instance number.
+
+        Args:
+            instance_num (int): instance number starting from 1
+        """
         from bliss.controllers.wago.interlocks import interlock_reset as reset
 
         reset(self.controller, instance_num)
+        return ShellStr("Interlock succesfully reset")
 
     def interlock_show(self):
         from bliss.shell.interlocks import interlock_show as show
@@ -2210,8 +2216,36 @@ class Wago(SamplingCounterController):
                     repr_.append(
                         "Something gone wrong: configurations are not the same"
                     )
+            else:
+                repr_.append(
+                    "Operation aborted, be sure to write YES in capital"
+                    " letters if you want to proceed"
+                )
 
         return ShellStr("\n".join(repr_))
+
+    def interlock_purge(self, ask=True):
+        """Will remove all interlock instances from the Wago
+        Args:
+            ask (boolean): default to True, will ask for the confirmation
+        """
+
+        from bliss.shell.interlocks import interlock_purge as purge
+
+        if ask:
+            yes_no = input(
+                "Are you sure that you want to clear the configuration? (Answer YES to proceed)"
+            )
+        else:
+            yes_no = "YES"
+        if yes_no == "YES":
+            purge(self)
+            return ShellStr("Interlock configuration on PLC was deleted")
+        else:
+            return ShellStr(
+                "Operation aborted, be sure to write YES in capital"
+                " letters if you want to proceed"
+            )
 
     def interlock_to_yml(self):
         from bliss.controllers.wago.interlocks import interlock_to_yml as to_yml

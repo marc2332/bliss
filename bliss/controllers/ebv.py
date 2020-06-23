@@ -16,7 +16,7 @@ from bliss.common.utils import autocomplete_property
 from bliss.common.tango import DeviceProxy
 from bliss.scanning.acquisition.counter import SamplingCounterAcquisitionSlave
 
-from bliss.common.plot import LiveImagePlot
+from bliss.flint.client.live_plots import LiveImagePlot
 
 """
 # EBV mockup
@@ -50,6 +50,12 @@ from bliss.common.plot import LiveImagePlot
       - type: 750-479
         logical_names: current
 
+
+- name: mybpm
+  plugin: bliss
+  module: ebv
+  class: BpmController
+  camera_tango_url: idxx/limaccds/camname
 """
 
 
@@ -145,11 +151,12 @@ class BpmAcqSlave(SamplingCounterAcquisitionSlave):
 
 
 class BpmController(SamplingCounterController):
-    def __init__(self, name, cam_tango_url, register_counters=False):
+    def __init__(self, name, config, register_counters=True):
 
         super().__init__(name, register_counters=register_counters)
 
-        self._cam_tango_url = cam_tango_url
+        self._config = config
+        self._cam_tango_url = config["camera_tango_url"]
         self._cam_proxy = self._get_proxy()
         self._bpm_proxy = self._get_proxy(Lima._BPM)
 
@@ -228,7 +235,7 @@ class BpmController(SamplingCounterController):
 
         # set required params
         self._cam_proxy.video_live = False
-        self._cam_proxy.abortAcq()
+        self._cam_proxy.stopAcq()  # abortAcq()
         self._cam_proxy.acq_mode = "SINGLE"
         self._cam_proxy.acq_trigger_mode = "INTERNAL_TRIGGER"
         self._cam_proxy.acq_nb_frames = 1
@@ -282,7 +289,7 @@ class BpmController(SamplingCounterController):
                     gevent.sleep(0.001)
 
             self._cam_proxy.stopAcq()
-            self._bpm_proxy.Stop()
+            # self._bpm_proxy.Stop() # temporary fix, see issue 1707
 
             return data
 
@@ -467,9 +474,7 @@ class EBV:
         # --- bpm counters controller
 
         if self._cam_tango_url:
-            self._bpm = BpmController(
-                self.name, self._cam_tango_url, register_counters=False
-            )
+            self._bpm = BpmController(self.name, config_node, register_counters=False)
 
         self.initialize()
 

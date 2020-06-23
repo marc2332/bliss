@@ -9,7 +9,11 @@ scan_saving:
     # and to come back to the default (no policy) with
     # current_session.disable_esrf_data_policy()
     beamline: id00
-    tmp_data_root: /tmp/scans/tmp
-    visitor_data_root: /tmp/scans/visitor
-    inhouse_data_root: /tmp/scans/inhouse
- 
+    tmp_data_root:
+        fs1: /tmp/scans/fs1/{beamline}/tmp
+        fs2: /tmp/scans/fs2/{beamline}/tmp
+    icat_tmp_data_root: /tmp/scans/fsi/{beamline}/tmp_icat
+    visitor_data_root:
+        fs1: /tmp/scans/fs1/visitor
+        fs3: /tmp/scans/fs3/visitor
+    inhouse_data_root: /tmp/scans/fsi/{beamline}/inhouse

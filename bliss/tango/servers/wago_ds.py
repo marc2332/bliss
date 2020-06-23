@@ -296,6 +296,10 @@ class Wago(Device):
             self.debug_stream(f"Factory for {attr} is {values}")
         # creating dynamic attributes
         for logical_device, d_ in attrs.items():
+            if logical_device == "status":
+                # there cannot be 2 attributes with the same name =>
+                # 'status' is a reserved Tango attribute
+                continue
             try:
                 if d_["size"] > 1:
                     # if it is an array attribute should be a spectrum

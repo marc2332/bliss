@@ -149,10 +149,16 @@ class DeviceProxy(Proxy):
     def __getattr__(self, name):
         try:
             attr = getattr(self.__wrapped__, name)
-        except AttributeError:
+        except AttributeError as e:
             if name == "_DeviceProxy__logger":
                 return super().__getattr__("_DeviceProxy__logger")
             else:
+                # The cause of this AttributeError maybe
+                # a communication failure with the device.
+                try:
+                    self.__wrapped__.ping()
+                except Exception as cause:
+                    raise e from cause
                 raise
         else:
             if not callable(attr):

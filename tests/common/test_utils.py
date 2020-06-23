@@ -5,7 +5,13 @@ import numpy
 from ruamel.yaml import YAML
 from ruamel.yaml.compat import StringIO
 
-from bliss.common.utils import flatten, merge, ShellStr, prudent_update
+from bliss.common.utils import (
+    flatten,
+    merge,
+    ShellStr,
+    prudent_update,
+    grouped_with_tail,
+)
 
 
 def test_flatten():
@@ -159,3 +165,14 @@ def test_prudent_update_2():
     assert out["device"][0]["properties"]["config"][13] == "LAST"
     assert out["device"][0]["properties"]["Another"] == 12
     assert out["device"][0]["properties"]["config"][14]["hidden"] == 11
+
+
+def test_grouped_with_tail():
+    out = grouped_with_tail([1, 2, 3], 2)
+    assert list(out) == [[1, 2], [3]]
+    out = grouped_with_tail([1, 2, 3, 4], 2)
+    assert list(out) == [[1, 2], [3, 4]]
+    out = grouped_with_tail([1], 2)
+    assert list(out) == [[1]]
+    out = grouped_with_tail([], 2)
+    assert list(out) == []

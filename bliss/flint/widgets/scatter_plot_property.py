@@ -21,6 +21,7 @@ from bliss.flint.model import plot_model
 from bliss.flint.model import plot_item_model
 from bliss.flint.model import scan_model
 from bliss.flint.helper import model_helper
+from bliss.flint.utils import qt_backport
 from . import delegates
 from . import _property_tree_helper
 
@@ -38,6 +39,7 @@ class _DataItem(_property_tree_helper.ScanRowItem):
         self.__style = qt.QStandardItem("")
         self.__remove = qt.QStandardItem("")
         self.__error = qt.QStandardItem("")
+        self.__updateStyle()
 
         self.__plotModel: Optional[plot_model.Plot] = None
         self.__plotItem: Optional[plot_model.Item] = None
@@ -181,23 +183,37 @@ class _DataItem(_property_tree_helper.ScanRowItem):
                     channel = plot_model.ChannelRef(scatter, channelName)
                     scatter.setYChannel(channel)
 
+    def __updateStyle(self):
+        color1 = qt.QColor(0xE8, 0xE8, 0xE8)
+        color2 = qt.QColor(0xF5, 0xF5, 0xF5)
+        self.__xAxis.setBackground(color1)
+        self.__yAxis.setBackground(color2)
+
     def setDevice(self, device: scan_model.Device):
         self.setDeviceLookAndFeel(device)
         self.__xAxis.setData(None, role=delegates.RadioRole)
         self.__yAxis.setData(None, role=delegates.RadioRole)
+        self.__valueAxis.setData(None, role=delegates.CheckRole)
 
     def setChannel(self, channel: scan_model.Channel):
         assert self.__treeView is not None
         self.__channel = channel
         self.setChannelLookAndFeel(channel)
+
+        self.__xAxis.modelUpdated = None
+        self.__yAxis.modelUpdated = None
         self.__valueAxis.modelUpdated = None
-        self.__valueAxis.setCheckable(True)
-        self.__valueAxis.modelUpdated = self.__valueAxisChanged
+
+        self.__xAxis.setData(qt.Qt.Unchecked, role=delegates.RadioRole)
+        self.__yAxis.setData(qt.Qt.Unchecked, role=delegates.RadioRole)
+        self.__valueAxis.setData(qt.Qt.Unchecked, role=delegates.CheckRole)
 
         self.__xAxis.modelUpdated = self.__xAxisChanged
         self.__yAxis.modelUpdated = self.__yAxisChanged
+        self.__valueAxis.modelUpdated = self.__valueAxisChanged
         self.__treeView.openPersistentEditor(self.__yAxis.index())
         self.__treeView.openPersistentEditor(self.__xAxis.index())
+        self.__treeView.openPersistentEditor(self.__valueAxis.index())
 
     def data(self, role=qt.Qt.DisplayRole):
         if role == qt.Qt.ToolTipRole:
@@ -225,17 +241,17 @@ class _DataItem(_property_tree_helper.ScanRowItem):
 
         return None
 
-    def setPlotItem(self, plotItem):
+    def setPlotItem(self, plotItem: plot_model.Item):
         self.__plotItem = plotItem
 
         self.__valueAxis.modelUpdated = None
-        self.__valueAxis.setCheckable(True)
-        self.__valueAxis.setCheckState(qt.Qt.Checked)
-        self.__valueAxis.modelUpdated = self.__valueAxisChanged
+        self.__xAxis.modelUpdated = None
+        self.__yAxis.modelUpdated = None
+        self.__valueAxis.setData(qt.Qt.Checked, role=delegates.CheckRole)
 
-        self.__xAxis.modelUpdated = self.__xAxisChanged
-        self.__yAxis.modelUpdated = self.__yAxisChanged
+        self.__valueAxis.modelUpdated = self.__valueAxisChanged
         self.__style.setData(plotItem, role=delegates.PlotItemRole)
+        self.__style.setData(self.__flintModel, role=delegates.FlintModelRole)
         self.__remove.setData(plotItem, role=delegates.PlotItemRole)
 
         if plotItem is not None:
@@ -250,17 +266,21 @@ class _DataItem(_property_tree_helper.ScanRowItem):
         if self.__channel is None:
             self.setPlotItemLookAndFeel(plotItem)
 
-        # FIXME: It have to be converted into delegate
         self.__treeView.openPersistentEditor(self.__xAxis.index())
         self.__treeView.openPersistentEditor(self.__yAxis.index())
+        if self.__treeView.isPersistentEditorOpen(self.__valueAxis.index()):
+            self.__treeView.closePersistentEditor(self.__valueAxis.index())
+        self.__treeView.openPersistentEditor(self.__valueAxis.index())
         self.__treeView.openPersistentEditor(self.__displayed.index())
         self.__treeView.openPersistentEditor(self.__remove.index())
-        widget = delegates.StylePropertyWidget(self.__treeView)
-        widget.setEditable(True)
-        widget.setPlotItem(self.__plotItem)
-        widget.setFlintModel(self.__flintModel)
-        self.__treeView.setIndexWidget(self.__style.index(), widget)
+        if self.__treeView.isPersistentEditorOpen(self.__style.index()):
+            self.__treeView.closePersistentEditor(self.__style.index())
+        self.__treeView.openPersistentEditor(self.__style.index())
+        # FIXME: why do we have to do that?
+        self.__treeView.resizeColumnToContents(self.__style.column())
 
+        self.__xAxis.modelUpdated = self.__xAxisChanged
+        self.__yAxis.modelUpdated = self.__yAxisChanged
         self.updateError()
 
 
@@ -271,7 +291,7 @@ class ScatterPlotPropertyWidget(qt.QWidget):
     YAxisColumn = 2
     ValueColumn = 3
     VisibleColumn = 4
-    StyleColumn = 4
+    StyleColumn = 5
     RemoveColumn = 6
 
     def __init__(self, parent=None):
@@ -279,15 +299,18 @@ class ScatterPlotPropertyWidget(qt.QWidget):
         self.__scan: Optional[scan_model.Scan] = None
         self.__flintModel: Union[None, flint_model.FlintState] = None
         self.__plotModel: Union[None, plot_model.Plot] = None
-        self.__tree = qt.QTreeView(self)
+        self.__tree = qt_backport.QTreeView(self)
         self.__tree.setEditTriggers(qt.QAbstractItemView.NoEditTriggers)
         self.__tree.setUniformRowHeights(True)
 
+        self.__structureInvalidated: bool = False
         self.__xyAxisInvalidated: bool = False
         self.__xAxisDelegate = delegates.RadioPropertyItemDelegate(self)
         self.__yAxisDelegate = delegates.RadioPropertyItemDelegate(self)
+        self.__valueDelegate = delegates.CheckBoxItemDelegate(self)
         self.__visibilityDelegate = delegates.VisibilityPropertyItemDelegate(self)
         self.__removeDelegate = delegates.RemovePropertyItemDelegate(self)
+        self.__styleDelegate = delegates.StyleItemDelegate(self)
 
         model = qt.QStandardItemModel(self)
 
@@ -341,7 +364,10 @@ class ScatterPlotPropertyWidget(qt.QWidget):
         self.__setScan(scanModel)
 
     def __structureChanged(self):
-        self.__updateTree()
+        if self.__plotModel.isInTransaction():
+            self.__structureInvalidated = True
+        else:
+            self.__updateTree()
 
     def __itemValueChanged(
         self, item: plot_model.Item, eventType: plot_model.ChangeEventType
@@ -357,8 +383,10 @@ class ScatterPlotPropertyWidget(qt.QWidget):
                 self.__updateTree()
 
     def __transactionFinished(self):
-        if self.__xyAxisInvalidated:
+        updateTree = self.__xyAxisInvalidated or self.__structureInvalidated
+        if updateTree:
             self.__xyAxisInvalidated = False
+            self.__structureInvalidated = False
             self.__updateTree()
 
     def plotModel(self) -> Union[None, plot_model.Plot]:
@@ -462,6 +490,9 @@ class ScatterPlotPropertyWidget(qt.QWidget):
 
     def __updateTree(self):
         collapsed = _property_tree_helper.getPathFromCollapsedNodes(self.__tree)
+        scrollx = self.__tree.horizontalScrollBar().value()
+        scrolly = self.__tree.verticalScrollBar().value()
+
         model = self.__tree.model()
         model.clear()
 
@@ -472,15 +503,19 @@ class ScatterPlotPropertyWidget(qt.QWidget):
             return
 
         model.setHorizontalHeaderLabels(
-            ["Name", "X", "Y", "Value", "Displayed", "Style", "Remove", "Message"]
+            ["Name", "X", "Y", "V", "Displayed", "Style", "Remove", "Message"]
         )
         self.__tree.setItemDelegateForColumn(self.YAxisColumn, self.__yAxisDelegate)
         self.__tree.setItemDelegateForColumn(self.XAxisColumn, self.__xAxisDelegate)
+        self.__tree.setItemDelegateForColumn(self.ValueColumn, self.__valueDelegate)
         self.__tree.setItemDelegateForColumn(
             self.VisibleColumn, self.__visibilityDelegate
         )
         self.__tree.setItemDelegateForColumn(self.RemoveColumn, self.__removeDelegate)
+        self.__tree.setItemDelegateForColumn(self.StyleColumn, self.__styleDelegate)
+        self.__tree.setStyleSheet("QTreeView:item {padding: 0px 8px;}")
         header = self.__tree.header()
+        header.setStyleSheet("QHeaderView { qproperty-defaultAlignment: AlignCenter; }")
         header.setSectionResizeMode(self.NameColumn, qt.QHeaderView.ResizeToContents)
         header.setSectionResizeMode(self.XAxisColumn, qt.QHeaderView.ResizeToContents)
         header.setSectionResizeMode(self.YAxisColumn, qt.QHeaderView.ResizeToContents)
@@ -488,6 +523,8 @@ class ScatterPlotPropertyWidget(qt.QWidget):
         header.setSectionResizeMode(self.VisibleColumn, qt.QHeaderView.ResizeToContents)
         header.setSectionResizeMode(self.StyleColumn, qt.QHeaderView.ResizeToContents)
         header.setSectionResizeMode(self.RemoveColumn, qt.QHeaderView.ResizeToContents)
+        header.setMinimumSectionSize(10)
+        header.moveSection(self.StyleColumn, self.VisibleColumn)
 
         scan = self.__scan
         if scan is not None:
@@ -572,3 +609,5 @@ class ScatterPlotPropertyWidget(qt.QWidget):
 
         self.__tree.expandAll()
         _property_tree_helper.collapseNodesFromPaths(self.__tree, collapsed)
+        self.__tree.horizontalScrollBar().setValue(scrollx)
+        self.__tree.verticalScrollBar().setValue(scrolly)

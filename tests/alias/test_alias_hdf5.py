@@ -52,6 +52,7 @@ def test_alias_hdf5_file_items(alias_session, scan_tmpdir):
     expected_dict = {
         f"{a2scan}": {"NX_class": "NXentry"},
         f"{a2scan}/instrument": {"NX_class": "NXinstrument"},
+        f"{a2scan}/instrument/chain_meta": {"NX_class": "NXcollection"},
         f"{a2scan}/instrument/positioners": {"NX_class": "NXcollection"},
         f"{a2scan}/instrument/positioners/robyy": {},
         f"{a2scan}/instrument/positioners/robzz": {},

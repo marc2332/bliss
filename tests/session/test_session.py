@@ -127,19 +127,41 @@ def test_user_script(session4, capsys):
 
     from tests.conftest import BEACON_DB_PATH
 
+    # test user_script_homedir and user_script_list
     user_script_homedir(BEACON_DB_PATH)
     assert user_script_homedir() == BEACON_DB_PATH
     capsys.readouterr()
     user_script_list()
     assert "sessions/subdir/scripts/simple_script.py" in capsys.readouterr()[0]
 
+    # test that user_script_run does not export things
     user_script_run("sessions/scripts/script3")
     assert "toto" not in session4.env_dict
+    assert "user" not in session4.env_dict
+    # test that user_script_load can export to global env dict
     user_script_load("sessions/scripts/script3", export_global=True)
     assert "toto" in session4.env_dict
 
-    ns = user_script_load("sessions/subdir/scripts/simple_script")
-    assert list(ns.__dict__) == ["ascan", "time", "test1", "a"]
+    # test that user_script_load can return a namespace
+    expected_symbols = ["ascan", "time", "test1", "a"]
+    ns = user_script_load("sessions/subdir/scripts/simple_script", export_global=False)
+    assert list(ns.__dict__) == expected_symbols
+
+    session4.env_dict["user"] = 42
+    user_script_load("sessions/subdir/scripts/simple_script")
+
+    # test that user_script_load can export to "user" namespace
+    assert list(session4.env_dict["user"].__dict__) == expected_symbols
+    # test backup of pre existing user
+    assert session4.env_dict["user_bak"] == 42
+
+    session4.env_dict["user_ns"] = session4.env_dict["user"]
+    session4.env_dict["user_ns"].a == 0
+    user_script_load("sessions/subdir/scripts/simple_script", export_global="user_ns")
+    user_script_load("sessions/scripts/script3", export_global="user_ns")
+    # test that user_script_load can merge to existing namespace
+    assert session4.env_dict["user_ns"].a == 42
+    assert session4.env_dict["user_ns"].toto == 42
 
 
 def test_prdef(session2, capsys):
@@ -217,6 +239,13 @@ def test_session_env_dict_protection_imports_globals(beacon):
 
     with pytest.raises(RuntimeError):
         prot_env_dict["ascan"] = 17
+
+    try:
+        from bliss.common.scans import ascan
+
+        prot_env_dict["ascan"] = ascan
+    except RuntimeError:
+        pytest.fail("Items protection should not reject imports")
 
     with pytest.raises(RuntimeError):
         prot_env_dict["SCAN_DISPLAY"] = 17

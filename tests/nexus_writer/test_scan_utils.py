@@ -11,7 +11,7 @@ import itertools
 from glob import glob
 from nexus_writer_service.utils import scan_utils
 from nexus_writer_service.io import nexus
-from bliss.common.scans import ct
+from bliss.common import scans
 import nxw_test_utils
 
 
@@ -55,13 +55,15 @@ def _test_scan_utils(
     **kwargs,
 ):
     session.scan_saving.writer = data_writer
-    scan = ct(0.1, session.env_dict["diode3"], save=save)
+    scan = scans.sct(0.1, session.env_dict["diode3"], save=save)
 
     # Expected file names based in the policy alone (ignore save/writer settings)
     master_filenames = {}
     if policy:
         dataset_filename = tmpdir.join(
             session.name,
+            "fs1",
+            "id00",
             "tmp",
             "testproposal",
             "id00",
@@ -71,6 +73,8 @@ def _test_scan_utils(
         )
         sample_filename = tmpdir.join(
             session.name,
+            "fs1",
+            "id00",
             "tmp",
             "testproposal",
             "id00",
@@ -78,7 +82,13 @@ def _test_scan_utils(
             "testproposal_sample.h5",
         )
         proposal_filename = tmpdir.join(
-            session.name, "tmp", "testproposal", "id00", "testproposal_id00.h5"
+            session.name,
+            "fs1",
+            "id00",
+            "tmp",
+            "testproposal",
+            "id00",
+            "testproposal_id00.h5",
         )
         master_filenames = {"sample": sample_filename, "proposal": proposal_filename}
         filenames = {"dataset": dataset_filename}

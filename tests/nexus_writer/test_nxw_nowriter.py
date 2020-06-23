@@ -13,4 +13,4 @@ def test_nxw_nowriter(alias_session):
     alias_session.scan_saving.writer = "nexus"
     det = alias_session.env_dict["lima_simulator"]
     with pytest.raises(RuntimeError):
-        scans.ct(0.1, det, save=True)
+        scans.sct(0.1, det, save=True)

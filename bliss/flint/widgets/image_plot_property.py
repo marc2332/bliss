@@ -19,6 +19,7 @@ from bliss.flint.model import flint_model
 from bliss.flint.model import plot_model
 from bliss.flint.model import plot_item_model
 from bliss.flint.model import scan_model
+from bliss.flint.utils import qt_backport
 from . import delegates
 from . import _property_tree_helper
 
@@ -102,6 +103,7 @@ class _DataItem(_property_tree_helper.ScanRowItem):
         self.__used.modelUpdated = self.__usedChanged
 
         self.__style.setData(plotItem, role=delegates.PlotItemRole)
+        self.__style.setData(self.__flintModel, role=delegates.FlintModelRole)
         self.__remove.setData(plotItem, role=delegates.PlotItemRole)
 
         if plotItem is not None:
@@ -116,14 +118,13 @@ class _DataItem(_property_tree_helper.ScanRowItem):
         if self.__channel is None:
             self.setPlotItemLookAndFeel(plotItem)
 
-        # FIXME: It have to be converted into delegate
         self.__treeView.openPersistentEditor(self.__displayed.index())
         self.__treeView.openPersistentEditor(self.__remove.index())
-        widget = delegates.StylePropertyWidget(self.__treeView)
-        widget.setEditable(True)
-        widget.setPlotItem(self.__plotItem)
-        widget.setFlintModel(self.__flintModel)
-        self.__treeView.setIndexWidget(self.__style.index(), widget)
+        if self.__treeView.isPersistentEditorOpen(self.__style.index()):
+            self.__treeView.closePersistentEditor(self.__style.index())
+        self.__treeView.openPersistentEditor(self.__style.index())
+        # FIXME: why do we have to do that?
+        self.__treeView.resizeColumnToContents(self.__style.column())
 
 
 class ImagePlotPropertyWidget(qt.QWidget):
@@ -140,12 +141,13 @@ class ImagePlotPropertyWidget(qt.QWidget):
         self.__flintModel: Optional[flint_model.FlintState] = None
         self.__plotModel: Optional[plot_model.Plot] = None
 
-        self.__tree = qt.QTreeView(self)
+        self.__tree = qt_backport.QTreeView(self)
         self.__tree.setEditTriggers(qt.QAbstractItemView.NoEditTriggers)
         self.__tree.setUniformRowHeights(True)
 
         self.__visibilityDelegate = delegates.VisibilityPropertyItemDelegate(self)
         self.__removeDelegate = delegates.RemovePropertyItemDelegate(self)
+        self.__styleDelegate = delegates.StyleItemDelegate(self)
 
         model = qt.QStandardItemModel(self)
         self.__tree.setModel(model)
@@ -303,6 +305,7 @@ class ImagePlotPropertyWidget(qt.QWidget):
         self.__tree.setItemDelegateForColumn(
             self.VisibleColumn, self.__visibilityDelegate
         )
+        self.__tree.setItemDelegateForColumn(self.StyleColumn, self.__styleDelegate)
         self.__tree.setItemDelegateForColumn(self.RemoveColumn, self.__removeDelegate)
         header = self.__tree.header()
         header.setSectionResizeMode(self.NameColumn, qt.QHeaderView.ResizeToContents)
@@ -310,6 +313,8 @@ class ImagePlotPropertyWidget(qt.QWidget):
         header.setSectionResizeMode(self.VisibleColumn, qt.QHeaderView.ResizeToContents)
         header.setSectionResizeMode(self.StyleColumn, qt.QHeaderView.ResizeToContents)
         header.setSectionResizeMode(self.RemoveColumn, qt.QHeaderView.ResizeToContents)
+        header.setMinimumSectionSize(10)
+        header.moveSection(self.StyleColumn, self.VisibleColumn)
 
         scan = self.__scan
         if scan is not None:

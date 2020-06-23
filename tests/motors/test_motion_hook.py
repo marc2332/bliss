@@ -238,6 +238,9 @@ def test_pre_move_error(hooked_error_m0, capsys):
     assert hook1.nb_post_move == 1  # still, post move is executed
     assert hooked_error_m0.state.READY
 
+    # test for issue 1779
+    assert hooked_error_m0._set_position == 0
+
 
 def test_post_move_error(hooked_error_m1, capsys):
     """test a hook which generates error on post_move"""
@@ -267,6 +270,9 @@ def test_post_move_error(hooked_error_m1, capsys):
     assert hook1.nb_pre_move == 1
     assert hook1.nb_post_move == 0  # post_move could not execute
     assert hooked_error_m1.state.READY
+
+    # check that _set_pos is ok if motion hook fails after move
+    assert hooked_error_m1._set_position == 1
 
 
 def test_group_move(hooked_m0, hooked_m1):
@@ -376,3 +382,6 @@ def test_check_ready_exception(hooked_m0):
     with pytest.raises(RuntimeError):
         hooked_m0.move(1)
     assert hook._post_move_called == 1
+
+    # test for issue 1779
+    assert hooked_m0._set_position == 0

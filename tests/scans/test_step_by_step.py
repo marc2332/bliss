@@ -298,7 +298,7 @@ def test_all_dnscan(session):
 def test_scan_watch_data_no_print(session, capsys):
     roby = session.config.get("roby")
     diode = session.config.get("diode")
-    scans.ascan(roby, 0, 10, 10, 0.01, diode)
+    scans.ascan(roby, 0, 10, 10, 0.01, diode, save=False)
     captured = capsys.readouterr()
 
     assert captured.out == ""
@@ -367,7 +367,7 @@ def test_scan_watch_data_set_callback_to_test_saferef(session, capsys):
 
     scan.set_scan_watch_callbacks(on_scan_new, on_scan_data, on_scan_end)
 
-    scans.ascan(roby, 0, 1, 3, 0.01, diode)
+    scans.ascan(roby, 0, 1, 3, 0.01, diode, save=False)
 
     captured = capsys.readouterr()
     assert captured.out == "scan_new\n" + "scan_data\n" * 4 + "scan_end\n"
@@ -376,7 +376,7 @@ def test_scan_watch_data_set_callback_to_test_saferef(session, capsys):
     del on_scan_data
     del on_scan_end
 
-    scans.ascan(roby, 0, 1, 3, 0.01, diode)
+    scans.ascan(roby, 0, 1, 3, 0.01, diode, save=False)
 
     captured = capsys.readouterr()
     assert captured.out == ""
@@ -565,7 +565,7 @@ def test_motor_group(session):
     diode = session.config.get("diode")
     roby = session.config.get("roby")
     robz = session.config.get("robz")
-    scan = scans.a2scan(roby, 0, 1, robz, 0, 1, 5, 0.1, diode)
+    scan = scans.a2scan(roby, 0, 1, robz, 0, 1, 5, 0.1, diode, save=False)
 
     children = list(scan.node.children())
     axis_master = children[0]

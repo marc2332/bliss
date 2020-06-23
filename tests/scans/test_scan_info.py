@@ -147,7 +147,7 @@ def test_scan_meta_master_and_device(session, scan_meta):
     chain = AcquisitionChain()
     chain.add(master, slave)
 
-    s = Scan(chain, name="my_simple")
+    s = Scan(chain, name="my_simple", save=False)
     s.run()
     assert s.scan_info["instrument"] == {**master_dict, **device_dict}
 

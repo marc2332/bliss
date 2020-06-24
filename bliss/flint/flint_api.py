@@ -230,7 +230,7 @@ class FlintApi:
         manager.waitFlintStarted()
 
     def run_method(self, plot_id, method, args, kwargs):
-        plot = self._get_plot_widget(plot_id)
+        plot = self._get_plot_widget(plot_id, expect_silx_api=True)
         method = getattr(plot, method)
         return method(*args, **kwargs)
 

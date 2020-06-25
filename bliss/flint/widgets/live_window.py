@@ -110,15 +110,8 @@ class LiveWindow(MainWindow):
     def __initGui(self):
         scanStatusWidget = ScanStatus(self)
         scanStatusWidget.setObjectName("scan-status-dock")
-        scanStatusWidget.setFeatures(
-            scanStatusWidget.features() & ~qt.QDockWidget.DockWidgetClosable
-        )
-
         propertyWidget = MainPropertyWidget(self)
         propertyWidget.setObjectName("property-widget")
-        propertyWidget.setFeatures(
-            propertyWidget.features() & ~qt.QDockWidget.DockWidgetClosable
-        )
 
         scanStatusWidget.widget().setSizePolicy(
             qt.QSizePolicy.Preferred, qt.QSizePolicy.Preferred
@@ -245,9 +238,6 @@ class LiveWindow(MainWindow):
         curvePlotWidget.setFlintModel(flintModel)
         curvePlotWidget.setObjectName("curve1-dock")
         curvePlotWidget.setWindowTitle("Curve1")
-        curvePlotWidget.setFeatures(
-            curvePlotWidget.features() & ~qt.QDockWidget.DockWidgetClosable
-        )
         curvePlotWidget.widget().setSizePolicy(
             qt.QSizePolicy.Expanding, qt.QSizePolicy.Expanding
         )

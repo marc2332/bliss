@@ -19,7 +19,9 @@ class AcquisitionChannelList(list):
            values_dict - { channel_name: value, ... }
         """
         for channel in self:
-            if channel.fullname in values_dict:
+            if channel.short_name in values_dict:
+                channel.emit(values_dict[channel.short_name])
+            elif channel.fullname in values_dict:
                 channel.emit(values_dict[channel.fullname])
 
     def update_from_iterable(self, iterable):

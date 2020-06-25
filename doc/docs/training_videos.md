@@ -7,8 +7,7 @@
   - [Shell basics](https://cloud.esrf.fr/s/yJJAGLcqAWsafXt) <!---bliss_shell_basic_steps.mp4--->
   - [Dialogs](https://cloud.esrf.fr/s/gr5XC7eRot7tyx3) <!---bliss_dialogs.mp4--->
   - [Tmux usage](https://cloud.esrf.fr/s/PCxx2w8HxSYqQA2) <!--bliss_tmux_usage.mp4--->
-  
-- []() <!------>
+
 ## Motion Control 
   - [Basics around axis and movments](https://cloud.esrf.fr/s/e7yeKEKmNLWo2n6) <!---basics_related_to_axis.mp4--->
 
@@ -24,16 +23,13 @@
   - [Wago](https://cloud.esrf.fr/s/mbHNYm4fSrqqQyD ) <!---  bliss_wago.mp4 --->
   - [White beam attenuators](https://cloud.esrf.fr/s/y9qjxtrzoz2ADg6) <!---bliss_whitebeam_attenuator.mp4--->
 
-## Data Policy 
-
-## Electronic Logbook
-
 ## Data Saving
-  - [Browes through images](https://cloud.esrf.fr/s/nJFodAP2a7woAQt) <!---tips_and_tricks_browse_through_images.mp4 --->
+  - [Introduction to data saving](https://cloud.esrf.fr/s/y5niTN55dxm9zss)
+  - [Browse through images](https://cloud.esrf.fr/s/nJFodAP2a7woAQt) <!---tips_and_tricks_browse_through_images.mp4 --->
 
 ## Flint
   - [How to use Flint](https://cloud.esrf.fr/s/mEGSjBpipSwi3fd) <!---flint.ogv --->
 
 ## Writing BLISS Python scripts
-  - [write and load scrips](https://cloud.esrf.fr/s/pB5rRkxod6rDaPC) <!---write_and_load_scripts.mp4--->
+  - [write and load scripts](https://cloud.esrf.fr/s/pB5rRkxod6rDaPC) <!---write_and_load_scripts.mp4--->
   - [Bliss as a library](https://cloud.esrf.fr/s/XR29oNbkP27HbSM) <!---bliss_as_a_librairy.mp4--->

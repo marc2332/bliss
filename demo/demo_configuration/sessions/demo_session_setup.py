@@ -22,7 +22,8 @@ diffcam.image.roi = 0, 0, 518, 542
 
 
 load_script("demo_session.py")
-current_session.env_dict["SCAN_DISPLAY"].auto = False
+if "SCAN_DISPLAY" in current_session.env_dict:
+    current_session.env_dict["SCAN_DISPLAY"].auto = False
 
 print(
     """

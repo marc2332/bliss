@@ -129,6 +129,7 @@ class ExtendedDockWidget(qt.QDockWidget):
                 features = (
                     qt.QDockWidget.DockWidgetMovable
                     | qt.QDockWidget.DockWidgetFloatable
+                    | qt.QDockWidget.DockWidgetClosable
                 )
             elif self.__isFloatingTabbed():
                 # Avoid strange behaviors but the tool window is still

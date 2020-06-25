@@ -8,7 +8,7 @@
 """Controller classes for XIA multichannel analyzer"""
 
 # Imports
-from bliss.common.logtools import log_debug
+from bliss.common.logtools import log_debug, lprint
 from bliss.common import event
 from bliss.config.beacon_object import BeaconObject
 
@@ -135,7 +135,10 @@ class BaseXIA(BaseMCA):
     def __info__(self):
         info_str = super().__info__()
         info_str += "XIA:\n"
-        info_str += f"    configuration file:\n"
+        info_str += f"    configuration directory:\n"
+        cdir = self.configuration_directory.replace("\\\\", "\\")
+        info_str += f"      - {cdir}\n"
+        info_str += f"    configuration files:\n"
         info_str += f"      - default : {self.default_configuration}\n"
         info_str += f"      - current : {self.current_configuration}\n"
 
@@ -190,13 +193,13 @@ class BaseXIA(BaseMCA):
         The filename is relative to the configuration directory.
         """
         log_debug(self, "_load_configuration(%s)", filename)
-        logger.debug("_load_configuration(%s)", filename)
+        lprint(f"MCA XIA loading: {filename}")
         try:
             self._proxy.init(self.beacon_obj.configuration_directory, filename)
             self._proxy.start_system()  # Takes about 5 seconds
             self._run_checks()
             logger.debug("load_configuration: %s loaded", filename)
-        except:
+        except Exception:
             self.beacon_obj.current_configuration = None
             raise
 
@@ -446,7 +449,6 @@ class BaseXIA(BaseMCA):
     @preset_value.setter
     def preset_value(self, value):
         log_debug(self, "set preset_value to %s", value)
-        mode = self.preset_mode
         # Cast arguments depending on preset mode
         pvalue = self.__preset_value_cast(value)
         # Configure
@@ -489,7 +491,7 @@ class BaseXIA(BaseMCA):
         if type(mode) == str:
             try:
                 mode = TriggerModeNames[mode]
-            except:
+            except Exception:
                 raise ValueError("{!s} trigger mode not supported".format(mode))
 
         # Check argument

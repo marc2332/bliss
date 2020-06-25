@@ -17,6 +17,8 @@ nav:
                       - "Practical example: slits alignment": bliss_slits_alignment.md
                       - User defined sequences: bliss_user_sequences.md
                       - Running BLISS demo session: bliss_demo.md
+        - Training resources:
+                      - Video Tutorials: training_videos.md
         - Installation:
                 - Installing at ESRF: installation_esrf.md
                 - Installing outside ESRF: installation.md

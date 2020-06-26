@@ -6,6 +6,7 @@ docopt
 flask
 louie >= 2.0
 gevent >= 1.4
+greenlet >= 0.4.16
 gxx_linux-64
 h5py >= 2.9
 jedi >= 0.17.1

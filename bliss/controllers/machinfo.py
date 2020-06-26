@@ -19,7 +19,10 @@ from bliss.controllers.counter import counter_namespace
 from bliss.scanning.scan_meta import get_user_scan_meta
 from bliss.scanning.chain import ChainPreset, ChainIterationPreset
 from bliss.common import tango
-from .tango_attr_as_counter import create_tango_counter
+from bliss.controllers.tango_attr_as_counter import (
+    TangoCounterController,
+    TangoAttrCounter,
+)
 
 
 class MachInfo(BeaconObject):
@@ -45,12 +48,16 @@ class MachInfo(BeaconObject):
     def __init__(self, name, config):
         super().__init__(config, share_hardware=False)
         global_map.register(self, tag=name)
-        uri = config["uri"]
-        self.tango_uri = uri
-        self.__counters = [
-            create_tango_counter(uri, name, attr_name)
-            for name, attr_name in self.COUNTERS
-        ]
+        self.tango_uri = config["uri"]
+        self.__counters = []
+        for cnt_name, attr_name in self.COUNTERS:
+            counter_config = config.deep_copy()
+            counter_config["attr_name"] = attr_name
+            controller = TangoCounterController(
+                name, self.tango_uri, global_map_register=False
+            )
+            cnt = TangoAttrCounter(cnt_name, counter_config, controller)
+            self.__counters.append(cnt)
 
         self.__counters_groups = dict()
         self.__check = False

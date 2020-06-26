@@ -51,7 +51,7 @@ class XXX(Controller):
         Controller.__init__(self, *args, **kwargs)
 
     def initialize(self):
-        self.comm = get_comm(self.config)
+        self.comm = get_comm(self.config.config_dict)
 
     def initialize_axis(self, axis):
         """

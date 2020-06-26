@@ -185,7 +185,7 @@ def _create_plot(
     name=None,
     existing_id=None,
     selected=False,
-    closeable=False,
+    closeable=True,
     **kwargs,
 ):
     flint = flint_proxy.get_flint()

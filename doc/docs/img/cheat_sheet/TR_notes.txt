@@ -1,0 +1,9 @@
+
+* [X] lineup  => lineup()   I would guess
+
+* [ ] why all these different species: lineup, loopscan, pointscan, lookupscan? 
+      What is there different than a timescan or a dscan?
+* [ ] MISSING Escan()
+* [ ] moveE() to move mono to energy
+* [ ] getE()    to get current energy
+* [ ] moveU() to move current undulator to energy

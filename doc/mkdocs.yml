@@ -19,6 +19,7 @@ nav:
                       - Running BLISS demo session: bliss_demo.md
         - Training resources:
                       - Video Tutorials: training_videos.md
+                      - CheatSheet: doc_cheatsheet.md
         - Installation:
                 - Installing at ESRF: installation_esrf.md
                 - Installing outside ESRF: installation.md

@@ -70,7 +70,7 @@ git clone https://gitlab.esrf.fr/bliss/bliss.git
 
 cd bliss
 
-conda create -y --name testenv --channel http://bcu-ci.esrf.fr/stable  \
+conda create -y --name testenv --channel esrf-bcu \
   --channel defaults --channel tango-controls --channel conda-forge \
   --file requirements-conda.txt  --file requirements-test-conda.txt
 

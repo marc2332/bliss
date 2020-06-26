@@ -62,6 +62,7 @@ from bliss.config.conductor import client
 from bliss.config import channels
 from bliss.common.utils import prudent_update, Singleton
 from bliss import global_map
+from bliss.comm import service
 
 
 def get_config(base_path="", timeout=3., raise_yaml_exc=True):
@@ -249,13 +250,17 @@ class ConfigNode(MutableMapping):
     # key which triggers a YAML_ collection to be identified as a bliss named item
     NAME_KEY = "name"
     USER_TAG_KEY = "user_tag"
+    RPC_SERVICE_KEY = "service"
+
     indexed_nodes = weakref.WeakValueDictionary()
     tagged_nodes = defaultdict(weakref.WeakSet)
+    services = weakref.WeakSet()
 
     @staticmethod
     def reset_cache():
         ConfigNode.indexed_nodes = weakref.WeakValueDictionary()
         ConfigNode.tagged_nodes = defaultdict(weakref.WeakSet)
+        ConfigNode.services = weakref.WeakSet()
 
     @staticmethod
     def goto_path(d, path_as_list, key_error_exception=True):
@@ -383,6 +388,8 @@ class ConfigNode(MutableMapping):
             user_tags = value if isinstance(value, MutableSequence) else [value]
             for tag in user_tags:
                 ConfigNode.tagged_nodes[tag].add(node)
+        elif key == ConfigNode.RPC_SERVICE_KEY:
+            ConfigNode.services.add(self)
         self._data[key] = convert_value(value, self)
 
     def setdefault(self, key, value):
@@ -437,6 +444,14 @@ class ConfigNode(MutableMapping):
                 return self._parent.plugin
             except AttributeError:
                 return  # no parent == root node, no plugin
+
+    @property
+    def is_service(self):
+        """Is this node is serve with a rpc server"""
+        through_server = self in ConfigNode.services
+        if through_server is False and self._parent:
+            return self._parent.is_service
+        return through_server
 
     def get_inherited_value_and_node(self, key):
         """
@@ -849,6 +864,12 @@ class Config(metaclass=Singleton):
         return sorted(list(ConfigNode.tagged_nodes.keys()))
 
     @property
+    def service_names_list(self):
+        return sorted(
+            name for name, node in ConfigNode.indexed_nodes.items() if node.is_service
+        )
+
+    @property
     def root(self):
         """
         ConfigReference to the root :class:`~bliss.config.static.ConfigNode`
@@ -954,6 +975,9 @@ class Config(metaclass=Singleton):
         Raises:
             RuntimeError: if name is not found in configuration
         """
+        return self._get(name)
+
+    def _get(self, name, direct_access=False):
         if name is None:
             raise TypeError("Cannot get object with None name")
 
@@ -962,6 +986,12 @@ class Config(metaclass=Singleton):
             config_node = self.get_config(name)
             if config_node is None:
                 raise RuntimeError("Object '%s' doesn't exist in config" % name)
+
+            if not direct_access and config_node.is_service:
+                # This is through a service, so just return the Client proxy
+                service_client = service.Client(name, config_node)
+                self._name2instance[name] = service_client
+                return service_client
 
             module_name = config_node.plugin
             if module_name is None:

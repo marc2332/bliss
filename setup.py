@@ -113,6 +113,7 @@ console_script_entry_points = [
     "bliss-flex-server = bliss.controllers.correlator.flex.server:main",
     "bliss-handel-server = bliss.controllers.mca.handel.server:main",
     "bliss-speedgoat-server = bliss.controllers.speedgoat.server:main",
+    "bliss-service = bliss.comm.service:main",
     "flint = bliss.flint.flint:main",
     "CT2 = bliss.tango.servers.ct2_ds:main",
     "BlissAxisManager =  bliss.tango.servers.axis_ds:main",

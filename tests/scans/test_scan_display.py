@@ -244,10 +244,6 @@ def test_fast_scan_display(session):
 def scan_data_listener_process(session):
     """Fixture to check the output displayed by the ScanDataListener for
     the different standard scans"""
-    # put scan file in a different tmp directory or use SAVE = False
-    # env_dict, session_obj = session
-    # session.scan_saving.base_path = str(scan_tmpdir)
-
     # USE A PIPE TO PREVENT POPEN TO USE MAIN PROCESS TERMINAL STDIN (see blocking user input => bliss.data.display => termios.tcgetattr(fd))
     rp, _wp = os.pipe()
 

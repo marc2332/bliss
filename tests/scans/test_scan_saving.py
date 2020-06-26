@@ -5,6 +5,7 @@
 # Copyright (c) 2015-2020 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
+import os
 import pytest
 from bliss.common.standard import info
 from bliss.common.scans import ct, sct
@@ -31,24 +32,25 @@ def test_scan_saving_parent_node(session, scan_saving):
 
 
 @pytest.mark.parametrize("writer", ["hdf5", "nexus", "null"])
-def test_scan_saving_path(writer, session, scan_tmpdir):
+def test_scan_saving_path(writer, session):
     scan_saving = session.scan_saving
-    scan_saving.base_path = str(scan_tmpdir)
     scan_saving.template = "{session}/{scan_name}/{scan_number}"
     scan_saving.data_filename = "{session}_{scan_name}_data"
     scan_saving.writer = writer
+    base_path = os.path.join(scan_saving.base_path, "subdir")
+    scan_saving.base_path = base_path
 
-    assert scan_saving.base_path == str(scan_tmpdir)
+    assert scan_saving.base_path == base_path
     assert scan_saving.template == "{session}/{scan_name}/{scan_number}"
     assert scan_saving.data_filename == "{session}_{scan_name}_data"
 
     # Test all path related methods and properties
-    root_path = f"{scan_tmpdir}/{session.name}/{{scan_name}}/{{scan_number}}"
+    root_path = f"{base_path}/{session.name}/{{scan_name}}/{{scan_number}}"
     assert scan_saving.get_path() == root_path
     assert scan_saving.root_path == root_path
-    images_path = f"{scan_tmpdir}/{session.name}/{{scan_name}}/{{scan_number}}/scan{{scan_number}}/{{img_acq_device}}_"
+    images_path = f"{base_path}/{session.name}/{{scan_name}}/{{scan_number}}/scan{{scan_number}}/{{img_acq_device}}_"
     assert scan_saving.images_path == images_path
-    data_path = f"{scan_tmpdir}/{session.name}/{{scan_name}}/{{scan_number}}/{session.name}_{{scan_name}}_data"
+    data_path = f"{base_path}/{session.name}/{{scan_name}}/{{scan_number}}/{session.name}_{{scan_name}}_data"
     assert scan_saving.data_path == data_path
     if writer == "null":
         data_fullpath = data_path + "."
@@ -96,7 +98,7 @@ def test_scan_saving_path(writer, session, scan_tmpdir):
 does not exist  filename   {filename}
 does not exist  directory  {root_path}
 --------------  ---------  -----------""".format(
-        base_path=str(scan_tmpdir),
+        base_path=base_path,
         session=session.name,
         user_name=scan_saving.user_name,
         date=scan_saving.date,

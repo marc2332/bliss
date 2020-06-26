@@ -122,6 +122,7 @@ def test_subscan_in_hdf5(session, lima_simulator, dummy_acq_master, dummy_acq_de
     master1.terminator = False
 
     scan_saving = ScanSaving("test")
+    scan_saving.base_path = session.scan_saving.base_path
     scan = Scan(chain, "test", scan_saving=scan_saving)
     scan.run()
 
@@ -138,11 +139,8 @@ def test_subscan_in_hdf5(session, lima_simulator, dummy_acq_master, dummy_acq_de
     assert f[subscan_name]["measurement"]["dummy2:nb"]
 
 
-def test_image_reference_in_hdf5(alias_session, scan_tmpdir):
+def test_image_reference_in_hdf5(alias_session):
     env_dict = alias_session.env_dict
-
-    # put scan file in a tmp directory
-    alias_session.scan_saving.base_path = str(scan_tmpdir)
 
     s = scans.ascan(env_dict["robyy"], 0, 1, 2, .1, env_dict["lima_simulator"])
 
@@ -180,11 +178,8 @@ def test_image_reference_in_hdf5(alias_session, scan_tmpdir):
     )
 
 
-def test_lima_instrument_entry(alias_session, scan_tmpdir):
+def test_lima_instrument_entry(alias_session):
     env_dict = alias_session.env_dict
-
-    # put scan file in a tmp directory
-    alias_session.scan_saving.base_path = str(scan_tmpdir)
 
     s = scans.ascan(env_dict["robyy"], 0, 1, 3, .1, env_dict["lima_simulator"])
 
@@ -201,10 +196,7 @@ def test_lima_instrument_entry(alias_session, scan_tmpdir):
     )
 
 
-def test_NXclass_of_scan_meta(session, lima_simulator, scan_tmpdir):
-
-    # put scan file in a tmp directory
-    session.scan_saving.base_path = str(scan_tmpdir)
+def test_NXclass_of_scan_meta(session, lima_simulator):
     lima_sim = session.config.get("lima_simulator")
 
     s = scans.loopscan(3, .1, lima_sim)
@@ -220,14 +212,11 @@ def test_NXclass_of_scan_meta(session, lima_simulator, scan_tmpdir):
         )
 
 
-def test_scan_info_cleaning(alias_session, scan_tmpdir):
+def test_scan_info_cleaning(alias_session):
     env_dict = alias_session.env_dict
     lima_simulator = env_dict["lima_simulator"]
     robyy = env_dict["robyy"]
     diode = alias_session.config.get("diode")
-
-    # put scan file in a tmp directory
-    alias_session.scan_saving.base_path = str(scan_tmpdir)
 
     # test that positioners are remaining in for a simple counter that does not update 'scan_info'
     s1 = scans.ascan(robyy, 0, 1, 3, .1, diode)
@@ -246,10 +235,7 @@ def test_scan_info_cleaning(alias_session, scan_tmpdir):
         assert "axis" not in f["3_ascan/instrument/chain_meta/"]
 
 
-def test_fill_meta_mechanisms(alias_session, lima_simulator, scan_tmpdir):
-
-    # put scan file in a tmp directory
-    alias_session.scan_saving.base_path = str(scan_tmpdir)
+def test_fill_meta_mechanisms(alias_session, lima_simulator):
     lima_sim = alias_session.config.get("lima_simulator")
     transf = alias_session.config.get("transfocator_simulator")
 

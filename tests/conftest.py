@@ -383,18 +383,19 @@ def wago_tango_server(ports, default_session, wago_emulator):
 
 
 @pytest.fixture
-def session(beacon):
+def session(beacon, scan_tmpdir):
     session = beacon.get("test_session")
     session.setup()
+    session.scan_saving.base_path = str(scan_tmpdir)
     yield session
     session.close()
 
 
 @pytest.fixture
-def default_session(beacon):
+def default_session(beacon, scan_tmpdir):
     default_session = DefaultSession()
-
     default_session.setup()
+    default_session.scan_saving.base_path = str(scan_tmpdir)
     yield default_session
     default_session.close()
 
@@ -466,10 +467,11 @@ def skip_tests(config, items):
 
 
 @pytest.fixture
-def alias_session(beacon, lima_simulator):
+def alias_session(beacon, lima_simulator, scan_tmpdir):
     session = beacon.get("test_alias")
     env_dict = dict()
     session.setup(env_dict)
+    session.scan_saving.base_path = str(scan_tmpdir)
 
     ls = env_dict["lima_simulator"]
     rois = ls.roi_counters
@@ -544,9 +546,10 @@ def flint_context(with_flint=True):
 
 
 @pytest.fixture
-def flint_session(xvfb, beacon):
+def flint_session(xvfb, beacon, scan_tmpdir):
     session = beacon.get("flint")
     session.setup()
+    session.scan_saving.base_path = str(scan_tmpdir)
     with flint_context():
         yield session
     session.close()

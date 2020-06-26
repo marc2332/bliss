@@ -29,13 +29,8 @@ from tests.conftest import deep_compare
 
 
 @pytest.fixture
-def alias_session_scans_listener(alias_session, scan_tmpdir):
-
+def alias_session_scans_listener(alias_session):
     env_dict = alias_session.env_dict
-
-    # put scan file in a tmp directory
-    alias_session.scan_saving.base_path = str(scan_tmpdir)
-
     lima_sim = env_dict["lima_simulator"]
 
     # this scan is only to set up the file path in pytest

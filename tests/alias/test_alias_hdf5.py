@@ -25,11 +25,8 @@ def h5dict(scan_file):
         }
 
 
-def test_alias_hdf5_file_items(alias_session, scan_tmpdir):
+def test_alias_hdf5_file_items(alias_session):
     env_dict = alias_session.env_dict
-
-    # put scan file in a tmp directory
-    alias_session.scan_saving.base_path = str(scan_tmpdir)
 
     s = scans.a2scan(
         env_dict["robyy"],
@@ -76,11 +73,8 @@ def test_alias_hdf5_file_items(alias_session, scan_tmpdir):
         assert val.items() <= scan_dict[key].items()
 
 
-def test_alias_hdf5_continuous_scan(alias_session, scan_tmpdir):
+def test_alias_hdf5_continuous_scan(alias_session):
     env_dict = alias_session.env_dict
-
-    # put scan file in a tmp directory
-    alias_session.scan_saving.base_path = str(scan_tmpdir)
 
     diode = alias_session.config.get("diode")
     global_map.aliases.add("myDiode", diode)

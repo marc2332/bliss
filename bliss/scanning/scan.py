@@ -7,6 +7,7 @@
 
 import enum
 import gevent
+import gevent.lock
 import os
 import weakref
 import sys
@@ -735,6 +736,8 @@ class _ScanIterationsRunner:
 
 
 class Scan:
+    SCAN_NUMBER_LOCK = gevent.lock.Semaphore()
+
     def __init__(
         self,
         chain,
@@ -1608,19 +1611,20 @@ class Scan:
         # last scan number is stored in the parent of the scan
         parent_node = self.__scan_saving.get_parent_node()
         cnx = parent_node.connection
-        last_scan_number = cnx.hget(parent_node.db_name, LAST_SCAN_NUMBER)
-        if (
-            not self._shadow_scan_number
-            and last_scan_number is None
-            and "{scan_number}" not in filename
-        ):
-            # next scan number from the file (1 when not existing)
-            next_scan_number = self.writer.last_scan_number + 1
-            cnx.hsetnx(parent_node.db_name, LAST_SCAN_NUMBER, next_scan_number)
-        else:
-            # next scan number from Redis
-            next_scan_number = cnx.hincrby(parent_node.db_name, LAST_SCAN_NUMBER, 1)
-        return next_scan_number
+        with self.SCAN_NUMBER_LOCK:
+            last_scan_number = cnx.hget(parent_node.db_name, LAST_SCAN_NUMBER)
+            if (
+                not self._shadow_scan_number
+                and last_scan_number is None
+                and "{scan_number}" not in filename
+            ):
+                # next scan number from the file (1 when not existing)
+                next_scan_number = self.writer.last_scan_number + 1
+                cnx.hsetnx(parent_node.db_name, LAST_SCAN_NUMBER, next_scan_number)
+            else:
+                # next scan number from Redis
+                next_scan_number = cnx.hincrby(parent_node.db_name, LAST_SCAN_NUMBER, 1)
+            return next_scan_number
 
     def _execute_preset(self, method_name):
         preset_tasks = [

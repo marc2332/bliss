@@ -187,6 +187,12 @@ class PopenGreenlet(gevent.Greenlet):
         self.popenargs = popenargs
         self.popenkw = popenkw
 
+    def __str__(self):
+        if self.process is None:
+            return "None"
+        else:
+            return " ".join(self.process.args)
+
     def _run(self):
         self.process = process = subprocess.Popen(*self.popenargs, **self.popenkw)
         try:
@@ -238,15 +244,10 @@ class PopenGreenlet(gevent.Greenlet):
             kwargs["file"] = sys.stdout
         else:
             kwargs["file"] = file
-        print(
-            "\n### Test's subprocess {} stdout (Reason: {}):".format(
-                self.process.pid, reason
-            ),
-            **kwargs
-        )
+        print(f"\n### {self}: STDOUT", **kwargs)
         for line in self.iter_stdout_lines():
             print(line, **kwargs)
-        print("\n### END PROCESS STDOUT\n", **kwargs)
+        print("\n###########################\n", **kwargs)
 
     def print_stderr(self, reason=None, file=None, **kwargs):
         if self.process is None or self.process.stderr is None:
@@ -255,15 +256,10 @@ class PopenGreenlet(gevent.Greenlet):
             kwargs["file"] = sys.stderr
         else:
             kwargs["file"] = file
-        print(
-            "\n### Test's subprocess {} stderr (Reason: {}):".format(
-                self.process.pid, reason
-            ),
-            **kwargs
-        )
+        print(f"\n### {self}: STDERR", **kwargs)
         for line in self.iter_stderr_lines():
             print(line, **kwargs)
-        print("\n### END PROCESS STDERR\n", **kwargs)
+        print("\n###########################\n", **kwargs)
 
     def print(self, **kwargs):
         self.print_stdout(**kwargs)

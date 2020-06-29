@@ -23,14 +23,17 @@ class StolenLockException(RuntimeError):
     """This exception is raise in case of a stolen lock"""
 
 
-class _ConnectionPool(redis.ConnectionPool):
-    def __init__(self, *args, **kwargs):
-        self._lock = gevent.lock.RLock()
-        super().__init__(*args, **kwargs)
+class GreenletSafeConnectionPool(redis.ConnectionPool):
+    def reset(self):
+        super().reset()
+        self._lock = gevent.lock.RLock()  # ensure gevent lock, not threading.RLock
+
+    def _checkpid(self):
+        # we do not care of being "fork-safe"
+        return
 
     def get_connection(self, command_name, *keys, **options):
-        with self._lock:
-            connection = super().get_connection(command_name, *keys, **options)
+        connection = super().get_connection(command_name, *keys, **options)
 
         if command_name == "pubsub":
             finalize = weakref.finalize(
@@ -39,26 +42,25 @@ class _ConnectionPool(redis.ConnectionPool):
         else:
             finalize = weakref.finalize(gevent.getcurrent(), self.release, connection)
         connection.__finalize__ = finalize
+
         return connection
 
-    def make_connection(self):
-        with self._lock:
-            return super().make_connection()
-
     def release(self, connection):
-        if hasattr(connection, "__finalize__"):
-            connection.__finalize__.detach()
-        # As we register callback when greenlet disappear,
-        # Connection might been removed before the greenlet
-        try:
-            return super().release(connection)
-        except KeyError:
-            pass
+        with self._lock:
+            if hasattr(connection, "__finalize__"):
+                connection.__finalize__.detach()
+            # As we register callback when greenlet disappear,
+            # Connection might been removed before the greenlet
+            try:
+                return super().release(connection)
+            except KeyError:
+                pass
 
     def clean_pubsub(self, connection):
-        connection.disconnect()
-        connection.clear_connect_callbacks()
-        self.release(connection)
+        with self._lock:
+            connection.disconnect()
+            connection.clear_connect_callbacks()
+            self.release(connection)
 
 
 def ip4_broadcast_addresses(default_route_only=False):
@@ -388,7 +390,7 @@ class Connection(object):
                 redis_url = f"unix://{port}"
             else:
                 redis_url = f"redis://{host}:{port}"
-            pool = _ConnectionPool.from_url(redis_url, db=db)
+            pool = GreenletSafeConnectionPool.from_url(redis_url, db=db)
             self._redis_pools[db] = pool
         return pool
 
@@ -413,14 +415,6 @@ class Connection(object):
         cnx = self._redis_connection.pop(db, None)
         if cnx is not None:
             cnx.close()
-
-    def create_redis_connection(self, db=0, address=None):
-        if address is None:
-            address = self.get_redis_connection_address()
-        host, port = address
-        if host == "localhost" and os.name != "nt":
-            return redis.Redis(unix_socket_path=port, db=db)
-        return redis.Redis(host=host, port=port, db=db)
 
     @check_connect
     def get_config_file(self, file_path, timeout=1.0):

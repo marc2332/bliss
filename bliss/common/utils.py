@@ -7,8 +7,10 @@
 
 import os
 import sys
+import builtins
 import inspect
 import gevent
+from gevent import threadpool
 import types
 import itertools
 import functools
@@ -17,6 +19,7 @@ import collections.abc
 from collections.abc import MutableMapping, MutableSequence
 import socket
 import fnmatch
+import contextlib
 
 from itertools import zip_longest
 from bliss.common.event import saferef
@@ -1024,3 +1027,24 @@ def get_matching_names(patterns, names, strict_pattern_as_short_name=False):
         matches[pat] = matching_names
 
     return matches
+
+
+def _tp_print(tp, print_func, *args, **kwargs):
+    return tp.spawn(print_func, *args, **kwargs).get()
+
+
+@contextlib.contextmanager
+def nonblocking_print(
+    data={"count": 0, "orig_print": None, "pool": threadpool.ThreadPool(1)}
+):
+    if data["count"] == 0:
+        orig_print = builtins.print
+        data["orig_print"] = orig_print
+        builtins.print = functools.partial(_tp_print, data["pool"], orig_print)
+    data["count"] += 1
+    try:
+        yield
+    finally:
+        data["count"] -= 1
+        if data["count"] == 0:
+            builtins.print = data["orig_print"]

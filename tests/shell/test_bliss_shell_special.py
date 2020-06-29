@@ -14,7 +14,21 @@ from bliss.shell.cli.repl import BlissRepl
 from bliss.common.utils import autocomplete_property
 
 
-def _run_incomplete(cmd_input, local_locals):
+def _run_incomplete(cmd_input, local_locals, slow=False):
+    """
+    Run an incomplete command in the BLISS shell.
+
+    FIXME: This function should be reworked to get ride of `Timeout`. The
+    processing can change a lot, depending of the load of the machine , and
+    because jedi uses a cache.
+
+    To test it in CI conditions, you can use `rm -rf ~/.cache/jedi`.
+
+    Argument:
+        - cmd_input: Command to execute
+        - local_locals: Environment to use for the auto-completion.
+        - slow: Set to true for tests which require extra processing time.
+    """
     inp = create_pipe_input()
 
     def mylocals():
@@ -26,7 +40,8 @@ def _run_incomplete(cmd_input, local_locals):
         )
         inp.send_text(cmd_input)
 
-        with gevent.Timeout(.5, RuntimeError()):
+        timeout = 2 if slow else 0.5
+        with gevent.Timeout(timeout, RuntimeError()):
             br.app.run()
             # this will necessarily result in RuntimeError as the input line is not complete
 
@@ -49,7 +64,7 @@ def test_shell_signature(beacon):
     session = beacon.get("test_session")
     session.setup(env_dict)
 
-    br = _run_incomplete("ascan(", env_dict)
+    br = _run_incomplete("ascan(", env_dict, slow=True)
 
     sb = [
         n
@@ -186,7 +201,7 @@ def test_shell_autocomplete_property():
     completions = _get_completion(br)
     assert completions == {}
 
-    br = _run_incomplete("tpc.z.", {"tpc": tpc})
+    br = _run_incomplete("tpc.z.", {"tpc": tpc}, slow=True)
     completions = _get_completion(br)
     assert "b" in completions
 
@@ -286,7 +301,7 @@ t = Test()
         loc,
     )
 
-    br = _run_incomplete("t.func(", {"t": loc["t"]})
+    br = _run_incomplete("t.func(", {"t": loc["t"]}, slow=True)
 
     sb = [
         n

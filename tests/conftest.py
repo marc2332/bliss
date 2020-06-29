@@ -264,7 +264,6 @@ def lima_simulator_context(personal_name, device_name):
             try:
                 adm_dev_proxy.ping()
             except DevFailed:
-                sys.excepthook(*sys.exc_info())
                 gevent.sleep(1)
             else:
                 break

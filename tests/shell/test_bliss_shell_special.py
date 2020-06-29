@@ -40,7 +40,9 @@ def _run_incomplete(cmd_input, local_locals, slow=False):
         )
         inp.send_text(cmd_input)
 
-        timeout = 2 if slow else 0.5
+        # Slow tests on CI: 2 seconds is ok; 4 seconds is needed when it is
+        # used together with coverage
+        timeout = 4 if slow else 0.5
         with gevent.Timeout(timeout, RuntimeError()):
             br.app.run()
             # this will necessarily result in RuntimeError as the input line is not complete
@@ -193,7 +195,7 @@ def test_shell_autocomplete_property():
     assert "z" in completions
     del (br)
 
-    br = _run_incomplete("tpc.x.", {"tpc": tpc})
+    br = _run_incomplete("tpc.x.", {"tpc": tpc}, slow=True)
     completions = _get_completion(br)
     assert "b" in completions
 

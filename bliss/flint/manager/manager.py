@@ -77,8 +77,7 @@ class ManageMainBehaviours(qt.QObject):
 
     def initRedis(self):
         connection = get_default_connection()
-        address = connection.get_redis_connection_address()
-        redisConnection = connection.create_redis_connection(address=address)
+        redisConnection = connection.get_redis_connection()
         flintModel = self.flintModel()
         flintModel.setRedisConnection(redisConnection)
         try:

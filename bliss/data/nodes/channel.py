@@ -7,44 +7,109 @@
 
 from bliss.data.node import DataNode
 from bliss.data.events import EventData
+from bliss.config import streaming_events
 import numpy
-import redis
-import functools
 import pickle
 
 # Default length of published channels
 CHANNEL_MAX_LEN = 2048
 
 
-def rectify_data(raw_data, dtype=None):
-    """
-    raw_data: list of numpy arrays (or numpy array of type object with min. shape (1,1))
-    
-    returns a numpy array of dtype containing all data if raw_data
-    in a rectangular structure filled with numpy.nan where nessessary
-    """
-    if dtype is None:
-        dtype = [0].dtype
-    shape = (len(raw_data), numpy.max([len(x) for x in raw_data]))
-    new_data = numpy.full(shape, numpy.nan, dtype=dtype)
-    for i, d in enumerate(raw_data):
-        new_data[i][0 : len(d)] = d
-    return new_data
+def as_array(sequence, dtype):
+    """Convert a sequence of sequences to a numpy array.
+    Pad with NaN's when sequences have unequal size.
 
-
-def data_from_pipeline(data, shape=None, dtype=None):
-    raw_data = numpy.array(data)
+    :param Sequence sequence:
+    :param dtype:
+    :returns numpy.ndarray:
+    """
     try:
-        return raw_data.astype(dtype)
+        return numpy.asarray(sequence, dtype=dtype)
     except ValueError:
-        return rectify_data(raw_data, dtype=dtype)
+        # Sequences have unequal length
+        shape = (len(sequence), numpy.max([len(x) for x in sequence]))
+        arr = numpy.full(shape, numpy.nan, dtype=dtype)
+        for src, dest in zip(sequence, arr):
+            dest[: len(src)] = src
+        return arr
+
+
+class ChannelDataEvent(streaming_events.StreamEvent):
+    TYPE = b"CHANNELDATA"
+    DATA_KEY = b"__DATA__"
+    DESC_KEY = b"__DESC__"
+    NPOINTS_KEY = b"__NPOINTS__"
+
+    def init(self, data, description):
+        """
+        :param Any data:
+        :param dict description:
+        """
+        self.description = description
+        self.data = data
+
+    @property
+    def shape(self):
+        return self.description["shape"]
+
+    @property
+    def ndim(self):
+        return len(self.shape)
+
+    @property
+    def dtype(self):
+        return self.description["dtype"]
+
+    @property
+    def data(self):
+        """Sequence of items when npoints>1, else an item.
+        An item can be itself a sequence.
+        """
+        return self._data
+
+    @property
+    def npoints(self):
+        return self._npoints
+
+    @data.setter
+    def data(self, value):
+        if isinstance(value, numpy.ndarray):
+            if self.ndim == value.ndim:
+                # Only one data point provided
+                npoints = 1
+            else:
+                # Each element is a new data point
+                npoints = len(value)
+                if npoints == 1:
+                    value = value[0]
+        elif isinstance(value, (list, tuple)):
+            # Each element is a new data point
+            npoints = len(value)
+            value = numpy.array(value, dtype=self.dtype)
+            if npoints == 1:
+                value = value[0]
+        else:
+            # Only one data point provided
+            npoints = 1
+        self._data = value
+        self._npoints = npoints
+
+    def _encode(self):
+        raw = super()._encode()
+        raw[self.DESC_KEY] = self.generic_encode(self.description)
+        raw[self.NPOINTS_KEY] = self.encode_integral(self._npoints)
+        raw[self.DATA_KEY] = self.generic_encode(self._data)
+        return raw
+
+    def _decode(self, raw):
+        super()._decode(raw)
+        self.description = self.generic_decode(raw[self.DESC_KEY])
+        self._npoints = self.decode_integral(raw[self.NPOINTS_KEY])
+        self._data = self.generic_decode(raw[self.DATA_KEY])
 
 
 class ChannelDataNode(DataNode):
     _NODE_TYPE = "channel"
-    DATA_KEY = b"data"
-    DESCRIPTION_KEY = b"description"
-    BLOCK_SIZE = b"block_size"
 
     def __init__(self, name, **keys):
         shape = keys.pop("shape", None)
@@ -79,84 +144,97 @@ class ChannelDataNode(DataNode):
     def store(self, event_dict, cnx=None):
         """Publish channel data in Redis
         """
-        data = event_dict.get("data")
-        shape = event_dict["description"]["shape"]
-        dtype = event_dict["description"]["dtype"]
+        ev = ChannelDataEvent(event_dict.get("data"), event_dict["description"])
+        self._queue.add_event(ev, id=self._last_index, cnx=cnx)
+        self._last_index += ev.npoints
 
-        if type(data) is numpy.ndarray:
-            if len(shape) == data.ndim:
-                block_size = 1
-                bytes_data = data.dumps()
+    def __getitem__(self, idx):
+        if isinstance(idx, slice):
+            if idx.step not in (1, None):
+                raise ValueError("Stride not supported")
+
+            if idx.start is None:
+                from_index = 0
             else:
-                block_size = len(data)
-                if block_size == 1:
-                    bytes_data = data[0].dumps()
-                else:
-                    bytes_data = data.dumps()
-        elif type(data) not in (list, tuple):
-            block_size = 1
-            event_dict["description"]["type"] = "x"
-            bytes_data = pickle.dumps(data)
+                from_index = idx.start
+            if from_index < 0:
+                from_index += len(self)
+
+            if idx.stop is None:
+                to_index = -1
+            else:
+                to_index = idx.stop - 1
+            if to_index < 0:
+                to_index += len(self)
+
+            if from_index > to_index:
+                return []
+        elif idx is Ellipsis:
+            from_index = 0
+            to_index = -1
         else:
-            block_size = len(data)
-            data = numpy.array(data, dtype=dtype)
-            if block_size == 1:
-                bytes_data = data[0].dumps()
+            if idx < 0:
+                from_index = idx + len(self)
             else:
-                bytes_data = data.dumps()
-        desc_pickled = pickle.dumps(event_dict["description"])
-
-        self._queue.add(
-            {
-                self.DATA_KEY: bytes_data,
-                self.DESCRIPTION_KEY: desc_pickled,
-                self.BLOCK_SIZE: block_size,
-            },
-            id=self._last_index,
-            cnx=cnx,
-        )
-        self._last_index += block_size
+                from_index = idx
+            to_index = None
+        return self.get(from_index, to_index)
 
     def get(self, from_index, to_index=None):
-        """
-        returns a data slice of the node.
-        
-        if to_index is not provided: 
-        returns a numpy array containing the data
-        
-        if to_index is provided:
-        returns a list of numpy arrays
+        """Returns and item or a slice.
+
+        :param int from_index: positive integer
+        :param int or None to_index: positive integer (get slice until and including this index),
+                                     None (get item at index from_index)
+                                     -1 (get slice until the end)
+        :returns numpy.ndarray, list, scalar, None or callable: only a list when no data
         """
         if from_index is None:
             from_index = 0
         if to_index is None:
-            if from_index < 0:
-                raw_data = self._queue.rev_range(count=1)
-            else:
-                redis_index = from_index + 1  # redis starts at 1
-                raw_data = self._queue_range(redis_index, redis_index)
-            data = self.raw_to_data(from_index, from_index, raw_data)
-            try:
-                return data[-1]
-            except IndexError:
-                return None
+            return self.get_item(from_index)
         else:
-            from_index = max(from_index, 0)
-            redis_from_index = from_index + 1  # redis starts at 1
-            if to_index < 0:
-                redis_to_index = "+"  # means stream end
-            else:
-                redis_to_index = to_index + 1  # redis starts at 1
-            raw_data = self._queue_range(redis_from_index, redis_to_index)
-            if isinstance(raw_data, list):
-                return self.raw_to_data(from_index, to_index, raw_data)
-            else:
-                # pipeline case from get_data
-                # should return the conversion fonction
-                def raw_to_data(raw_data):
-                    return self.raw_to_data(from_index, to_index, raw_data)
+            return self.get_slice(from_index, to_index)
 
-                return raw_to_data
+    def get_item(self, index):
+        """Get data from a single point (None when the index does not exist).
+
+        :param int index:
+        :returns numpy.ndarray, scalar or None:
+        """
+        if index < 0:
+            events = self._queue.rev_range(count=1)
+        else:
+            redis_index = index + 1  # redis starts at 1
+            events = self._queue_range(redis_index, redis_index)
+        data = self.events_to_data(index, index, events)
+        try:
+            return data[-1]
+        except IndexError:
+            return None
+
+    def get_slice(self, start, stop):
+        """Get a data slice (my be shorter or empty than requested).
+
+        :param int start:
+        :param int stop:
+        :returns numpy.ndarray, list, scalar or callable: only a list when no data
+        """
+        if stop < 0:
+            redis_stop = "+"  # means stream end
+        else:
+            redis_stop = stop + 1  # redis starts at 1
+        redis_start = start + 1  # redis starts at 1
+        events = self._queue_range(redis_start, redis_stop)
+        if isinstance(events, list):
+            return self.events_to_data(start, stop, events)
+        else:
+            # pipeline case from get_data
+            # should return the conversion function
+            def events_to_data(events):
+                return self.events_to_data(start, stop, events)
+
+            return events_to_data
 
     def _queue_range(self, from_index, to_index):
         """The result includes `from_index` and `to_index` but
@@ -183,23 +261,24 @@ class ChannelDataNode(DataNode):
             if events:
                 result = events + result
                 idx, raw = events[0]
+                ev = ChannelDataEvent(raw=raw)
                 first_index = int(idx.split(b"-")[0])
                 if first_index <= org_from_index or from_index == 0:
                     break
                 to_index = first_index - 1
                 from_index = first_index
-                blocksize = int(raw[self.BLOCK_SIZE])
+                blocksize = ev.npoints
             elif from_index == 0:
                 break
             blocksize = max(blocksize, 1)
         return result
 
-    def raw_to_data(self, from_index, to_index, raw_datas):
+    def events_to_data(self, from_index, to_index, events):
         """
-        transform internal Stream into data
-        raw_datas -- should be the return of xread or xrange.
+        :param list((index, raw)) events:
+        :returns numpy.ndarray or list: only a list when no data
         """
-        event_data = self.decode_raw_events(raw_datas)
+        event_data = self.decode_raw_events(events)
         first_index = event_data.first_index
         if first_index < 0:
             return []
@@ -222,67 +301,51 @@ class ChannelDataNode(DataNode):
             return data[start:stop]
 
     def decode_raw_events(self, events):
-        """
-        transform internal Stream into data
-        raw_datas -- should be the return of xread or xrange.
+        """Decode and concatenate raw stream data
+
+        :param list((index, raw)) events:
+        :returns EventData:
         """
         data = list()
         descriptions = list()
         first_index = -1
-        shape = None
         dtype = None
-        block_size = 0
-        for i, (index, raw_data) in enumerate(events):
-            description = pickle.loads(raw_data[ChannelDataNode.DESCRIPTION_KEY])
-            block_size = int(raw_data[ChannelDataNode.BLOCK_SIZE])
-            data_type = description.get("type")
+        npoints = 0
+        for i, (index, raw) in enumerate(events):
+            ev = ChannelDataEvent(raw=raw)
             if i == 0:
                 first_index = int(index.split(b"-")[0]) - 1
-                shape = description["shape"]
-                dtype = description["dtype"]
-            if data_type == "x":
-                tmp_data = pickle.loads(raw_data[ChannelDataNode.DATA_KEY])
-                data.append(tmp_data)
+                dtype = ev.dtype
+                npoints = ev.npoints
+            if ev.npoints == 1:
+                data.append(ev.data)
             else:
-                tmp_array = pickle.loads(raw_data[ChannelDataNode.DATA_KEY])
-                if block_size > 1:
-                    data.extend(tmp_array)
-                else:
-                    data.append(tmp_array)
-            descriptions.append(description)
-        if data:
-            data = data_from_pipeline(data, shape=shape, dtype=dtype)
-        else:
-            data = numpy.array([])
+                data.extend(ev.data)
+            descriptions.append(ev.description)
+        data = as_array(data, dtype)
         return EventData(
             first_index=first_index,
             data=data,
             description=descriptions,
-            block_size=block_size,
+            block_size=npoints,
         )
 
     def get_as_array(self, from_index, to_index=None):
+        """Like `get` but ensures the result is a numpy array.
         """
-        returns a data slice of the node as numpy array.
-        if nessessary numpy.nan is inserted shape data as 
-        `rectangular` arrray.
-        """
-        raw_data = self.get(from_index, to_index)
-        if type(raw_data) == numpy.ndarray:
-            return raw_data
-        try:
-            return numpy.array(raw_data).astype(self.dtype)
-        except ValueError:
-            return rectify_data(raw_data, dtype=self.dtype)
+        # This is just because `get` returns [] when no elements
+        return numpy.asarray(self.get(from_index, to_index), self.dtype)
 
     def __len__(self):
         # fetching last event
         # using last index as old queue-len
-        raw_event = self._queue.rev_range(count=1)
-        if not raw_event:
+        events = self._queue.rev_range(count=1)
+        if not events:
             return 0
-        event_data = self.decode_raw_events(raw_event)
-        return event_data.first_index + event_data.block_size
+        first_index, raw = events[0]
+        ev = ChannelDataEvent(raw=raw)
+        first_index = int(first_index.split(b"-")[0]) - 1
+        return first_index + ev.npoints
 
     @property
     def shape(self):

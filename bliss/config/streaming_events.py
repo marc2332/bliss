@@ -197,40 +197,20 @@ class StreamEvent(metaclass=StreamEventMeta):
             raise TypeError(f"Event not of type {self.TYPE}")
 
     @staticmethod
-    def generic_encode(data, direct_fmt=None, **kw):
+    def generic_encode(data, **kw):
         """
         :param Any data:
-        :param bytes direct_fmt: direct encoding
         :returns bytes:
         """
-        if isinstance(data, bytes):
-            return data
-        elif isinstance(direct_fmt, bytes):
-            return direct_fmt % data
-        elif isinstance(data, str):
-            return data.encode()
-        else:
-            return pickle.dumps(data, **kw)
+        return pickle.dumps(data, **kw)
 
     @staticmethod
-    def generic_decode(data, direct_type=None, **kw):
+    def generic_decode(data, **kw):
         """
         :param Any data:
-        :param direct: direct decoding
         :returns Any:
         """
-        if isinstance(data, bytes):
-            if direct_type is None:
-                return pickle.loads(data, **kw)
-            else:
-                if direct_type is bytes:
-                    return data
-                elif direct_type is str:
-                    return data.decode()
-                else:
-                    return direct_type(data.decode())
-        else:
-            return data
+        return pickle.loads(data, **kw)
 
     @classmethod
     def encode_bytes(cls, data):
@@ -242,31 +222,31 @@ class StreamEvent(metaclass=StreamEventMeta):
 
     @classmethod
     def encode_string(cls, data):
-        return cls.generic_decode(data)
+        return data.encode()
 
     @classmethod
-    def decode_string(cls, data, direct_type=str):
-        return cls.generic_decode(data, direct_type=direct_type)
+    def decode_string(cls, data):
+        return data.decode()
 
     @classmethod
     def encode_integral(cls, data):
-        return cls.generic_encode(data, direct_fmt=b"%d")
+        return b"%d" % data
 
     @classmethod
-    def decode_integral(cls, data, direct_type=int):
-        return cls.generic_decode(data, direct_type=direct_type)
+    def decode_integral(cls, data, int_type=int):
+        return int_type(data.decode())
 
     @classmethod
     def encode_decode_methods(cls, data_type):
         if issubclass(data_type, bytes):
             return cls.encode_bytes, cls.decode_bytes
         elif issubclass(data_type, str):
-            decode = functools.partial(cls.decode_string, direct_type=data_type)
-            return cls.encode_string, decode
+            return cls.encode_string, cls.decode_string
         elif issubclass(data_type, numbers.Integral):
-            decode = functools.partial(cls.decode_integral, direct_type=data_type)
+            decode = functools.partial(cls.decode_integral, int_type=data_type)
             return cls.encode_integral, decode
-        return cls.generic_encode, cls.generic_decode
+        else:
+            return cls.generic_encode, cls.generic_decode
 
 
 class _EventTypes:
@@ -305,13 +285,13 @@ class TimeEvent(StreamEvent):
 
     def _encode(self):
         raw = super()._encode()
-        raw[self.TIMESTAMP_KEY] = self.generic_encode(self.timestamp, direct_fmt=b"%f")
+        raw[self.TIMESTAMP_KEY] = self.generic_encode(self.timestamp)
         raw[self.STRTIME_KEY] = self.encode_string(self.strftime)
         return raw
 
     def _decode(self, raw):
         super()._decode(raw)
-        self.timestamp = self.generic_decode(raw[self.TIMESTAMP_KEY], direct_type=float)
+        self.timestamp = self.generic_decode(raw[self.TIMESTAMP_KEY])
 
 
 class StartEvent(TimeEvent):

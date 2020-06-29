@@ -165,9 +165,10 @@ def test_scan_data_0d(session, redis_data_conn):
 
     # redis key is build from node name and counter name with _data suffix
     # ":timer:<counter_name>:<counter_name>_data"
-    redis_key = s.node.db_name + f":timer:{simul_counter.fullname}_data"
+    db_name = f"{s.node.db_name}:timer:{simul_counter.fullname}"
+    redis_key = db_name + "_data"
     raw_stream_data = redis_data_conn.xrange(redis_key, "-", "+")
-    raw_data = (numpy.loads(v.get(b"data")) for i, v in raw_stream_data)
+    raw_data = (numpy.loads(v.get(b"__DATA__")) for i, v in raw_stream_data)
     redis_data = list(raw_data)
     assert numpy.array_equal(redis_data, simul_counter.data)
 
@@ -176,6 +177,26 @@ def test_scan_data_0d(session, redis_data_conn):
     db_names = set([n.db_name for n in session_node.walk(wait=False)])
     assert len(db_names) > 0
     assert db_names == redis_keys.intersection(db_names)
+
+    node = get_node(db_name)
+    assert len(node) == 10
+    assert numpy.array_equal(redis_data, node.get(0, -1))
+    assert numpy.array_equal(redis_data, node.get_as_array(0, -1))
+    assert isinstance(node[2], node.dtype)
+    assert isinstance(node[1:3], numpy.ndarray)
+    assert numpy.equal(redis_data[2], node[2])
+    assert numpy.equal(redis_data[-2], node[-2])
+    assert numpy.array_equal(redis_data, node[:])
+    assert numpy.array_equal(redis_data[1:], node[1:])
+    assert numpy.array_equal(redis_data[:-1], node[:-1])
+    assert numpy.array_equal(redis_data[1:2], node[1:2])
+    assert numpy.array_equal(redis_data[1:3], node[1:3])
+    assert numpy.array_equal(redis_data[-3:-1], node[-3:-1])
+    assert numpy.array_equal(redis_data, node[:11])
+    assert node[3:1] == []
+    assert node[1:1] == []
+    assert node[11:12] == []
+    assert node[10] is None
 
 
 def test_data_iterator_event(beacon, redis_data_conn, session):

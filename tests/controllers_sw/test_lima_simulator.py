@@ -135,7 +135,6 @@ def test_directories_mapping(beacon, lima_simulator):
         simulator.select_directories_mapping("fancy")
         assert simulator.current_directories_mapping == "fancy"
         assert simulator.get_mapped_path("/tmp/scans/bla") == "/tmp/fancy/bla"
-
         assert simulator.get_mapped_path("/data/inhouse") == "/data/inhouse"
     finally:
         simulator.select_directories_mapping("identity")
@@ -149,13 +148,20 @@ def test_lima_mapping_and_saving(session, lima_simulator):
     scan_saving = session.scan_saving
     scan_saving_dump = scan_saving.to_dict()
 
-    scan_saving.base_path = "/tmp/scans"
+    def replace_root_dir():
+        # Replace /tmp/scans with scan_saving.base_path
+        for mapping in simulator.directories_mapping:
+            if isinstance(mapping, dict):
+                for k in mapping:
+                    mapping[k] = mapping[k].replace("/tmp/scans", scan_saving.base_path)
+
     scan_saving.images_path_template = ""
     scan_saving.images_prefix = "toto"
 
     saving_directory = None
     try:
         simulator.select_directories_mapping("fancy")
+        replace_root_dir()
         mapped_directory = simulator.get_mapped_path(scan_saving.get_path())
         ct_scan = sct(0.1, simulator, save=True, run=False)
 
@@ -167,17 +173,17 @@ def test_lima_mapping_and_saving(session, lima_simulator):
     finally:
         scan_saving.from_dict(scan_saving_dump)
         simulator.select_directories_mapping("identity")
+        replace_root_dir()
 
     # cannot use simulator.proxy.saving_directory because it is reset to ''
     assert mapped_directory.startswith(saving_directory)
 
 
-def test_images_dir_prefix_saving(session, scan_tmpdir, lima_simulator):
+def test_images_dir_prefix_saving(session, lima_simulator):
     simulator = session.config.get("lima_simulator")
     scan_saving = session.scan_saving
     scan_saving_dump = scan_saving.to_dict()
 
-    scan_saving.base_path = str(scan_tmpdir)
     scan_saving.template = "test"
     scan_saving.images_path_template = "{scan_name}_{scan_number}/toto"
     scan_saving.images_prefix = "{img_acq_device}"
@@ -207,12 +213,11 @@ def test_images_dir_prefix_saving(session, scan_tmpdir, lima_simulator):
         scan_saving.from_dict(scan_saving_dump)
 
 
-def test_images_dir_prefix_saving_absolute(session, scan_tmpdir, lima_simulator):
+def test_images_dir_prefix_saving_absolute(session, lima_simulator):
     simulator = session.config.get("lima_simulator")
     scan_saving = session.scan_saving
     scan_saving_dump = scan_saving.to_dict()
 
-    scan_saving.base_path = str(scan_tmpdir)
     scan_saving.template = "test"
     scan_saving.images_path_relative = False
     scan_saving.images_path_template = "{base_path}/test/{scan_name}_{scan_number}/toto"
@@ -243,13 +248,12 @@ def test_images_dir_prefix_saving_absolute(session, scan_tmpdir, lima_simulator)
         scan_saving.from_dict(scan_saving_dump)
 
 
-def test_images_dir_saving_null_writer(session, scan_tmpdir, lima_simulator):
+def test_images_dir_saving_null_writer(session, lima_simulator):
     # issue 1010
     simulator = session.config.get("lima_simulator")
     scan_saving = session.scan_saving
     scan_saving_dump = scan_saving.to_dict()
 
-    scan_saving.base_path = str(scan_tmpdir)
     scan_saving.template = "test"
     scan_saving.images_path_relative = False
     scan_saving.images_path_template = "{base_path}/test/{scan_name}_{scan_number}/tata"
@@ -271,13 +275,11 @@ def test_images_dir_saving_null_writer(session, scan_tmpdir, lima_simulator):
         scan_saving.from_dict(scan_saving_dump)
 
 
-def test_dir_no_saving(session, scan_tmpdir, lima_simulator):
+def test_dir_no_saving(session, lima_simulator):
     # issue 1070
     simulator = session.config.get("lima_simulator")
     scan_saving = session.scan_saving
     scan_saving_dump = scan_saving.to_dict()
-
-    scan_saving.base_path = str(scan_tmpdir)
 
     try:
         scan_config = scan_saving.get()
@@ -479,11 +481,7 @@ def test_lima_beacon_objs(default_session, lima_simulator):
     assert simulator.processing.runlevel_roicounter == 9
 
 
-def test_lima_ctrl_params_uploading(
-    default_session, lima_simulator, scan_tmpdir, caplog
-):
-    scan_saving = default_session.scan_saving
-    scan_saving.base_path = str(scan_tmpdir)
+def test_lima_ctrl_params_uploading(default_session, lima_simulator, caplog):
     simulator = default_session.config.get("lima_simulator")
 
     with caplog.at_level(logging.DEBUG, logger="global.controllers.lima_simulator"):
@@ -580,9 +578,7 @@ def test_reapplying_ctrl_params(default_session, caplog):
     #      are set correctly once lima version > 1.9.1 is available on CI
 
 
-def test_lima_saving_mode(default_session, lima_simulator, scan_tmpdir):
-    scan_saving = default_session.scan_saving
-    scan_saving.base_path = str(scan_tmpdir)
+def test_lima_saving_mode(default_session, lima_simulator):
     simulator = default_session.config.get("lima_simulator")
 
     simulator.saving.file_format = "HDF5"

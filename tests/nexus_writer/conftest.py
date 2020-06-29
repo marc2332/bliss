@@ -143,13 +143,20 @@ def prepare_scan_saving(session=None, tmpdir=None, policy=True, **kwargs):
         scan_saving = session.scan_saving
         scan_saving.writer = "nexus"
         scan_saving_config = scan_saving.scan_saving_config
-        for k in ["inhouse_data_root", "visitor_data_root", "tmp_data_root"]:
-            mount_points = scan_saving_config[k]
-            if isinstance(mount_points, str):
-                scan_saving_config[k] = mount_points.replace("/tmp/scans", tmpdir)
-            else:
-                for mp in mount_points:
-                    mount_points[mp] = mount_points[mp].replace("/tmp/scans", tmpdir)
+        roots = ["inhouse_data_root", "visitor_data_root", "tmp_data_root"]
+        for root in roots:
+            for prefix in ["", "icat_"]:
+                key = prefix + root
+                mount_points = scan_saving_config.get(key, None)
+                if mount_points is None:
+                    continue
+                elif isinstance(mount_points, str):
+                    scan_saving_config[key] = mount_points.replace("/tmp/scans", tmpdir)
+                else:
+                    for mp in mount_points:
+                        mount_points[mp] = mount_points[mp].replace(
+                            "/tmp/scans", tmpdir
+                        )
         scan_saving.proposal = "testproposal"
         technique = nxw_test_config.technique["withpolicy"]
         scan_saving.technique = technique

@@ -512,12 +512,10 @@ def test_dmesh(session):
     assert numpy.array_equal(scan_data["sim_ct_gauss"], simul_counter.data)
 
 
-def test_save_images(session, beacon, lima_simulator, scan_tmpdir):
-
+def test_save_images(session, beacon, lima_simulator):
     lima_sim = beacon.get("lima_simulator")
     robz2 = session.env_dict["robz2"]
     scan_saving = session.scan_saving
-    scan_saving.base_path = str(scan_tmpdir)
     scan_saving.images_path_template = ""
 
     s = scans.ascan(robz2, 0, 1, 2, 0.001, lima_sim, run=False)
@@ -674,10 +672,7 @@ def test_typeguardTypeError_to_hint():
         func(1)
 
 
-def test_update_ctrl_params(default_session, beacon, lima_simulator, scan_tmpdir):
-    scan_saving = default_session.scan_saving
-    scan_saving.base_path = str(scan_tmpdir)
-
+def test_update_ctrl_params(default_session, beacon, lima_simulator):
     lima_sim = beacon.get("lima_simulator")
 
     s = scans.loopscan(1, .1, lima_sim, run=False)
@@ -716,10 +711,7 @@ def test_dmesh_return_to_target_pos(default_session, beacon):
     assert max(d[m0]) == pytest.approx(3.0)
 
 
-def test_ct_sct(session, beacon, scan_tmpdir):
-    scan_saving = session.scan_saving
-    scan_saving.base_path = str(scan_tmpdir)
-
+def test_ct_sct(session, beacon):
     diode = beacon.get("diode")
     ct = scans.ct(.1, diode)
     sct = scans.sct(.1, diode)

@@ -138,19 +138,19 @@ def test_sampling_counter_mode(session):
 
     # USING DEFAULT MODE
     assert test_diode.mode.name == "MEAN"
-    s = loopscan(1, 0.1, test_diode)
+    s = loopscan(1, 0.1, test_diode, save=False)
     # assert s.acq_chain.nodes_list[1].device.mode.name == "MEAN"
     assert s.get_data()["test_diode"] == pytest.approx(sum(values) / len(values))
 
     # UPDATING THE MODE
     values = []
     test_diode.mode = SamplingMode.INTEGRATE
-    s = loopscan(1, 0.1, test_diode)
+    s = loopscan(1, 0.1, test_diode, save=False)
     assert s.get_data()["test_diode"] == pytest.approx(sum(values) * 0.1 / len(values))
 
     values = []
     test_diode.mode = "INTEGRATE"
-    s = loopscan(1, 0.1, test_diode)
+    s = loopscan(1, 0.1, test_diode, save=False)
     assert s.get_data()["test_diode"] == pytest.approx(sum(values) * 0.1 / len(values))
 
     ## init as SamplingMode
@@ -174,7 +174,7 @@ def test_sampling_counter_mode(session):
     diode3 = session.config.get("diode3")
     diode3.mode = "INTEGRATE"
 
-    s = loopscan(100, .001, diode2, diode3)
+    s = loopscan(100, .001, diode2, diode3, save=False)
 
     d2 = numpy.sum(numpy.abs(s.get_data()["diode3"])) / .001
     d3 = numpy.sum(numpy.abs(s.get_data()["diode2"]))
@@ -188,7 +188,7 @@ def test_SampCnt_mode_SAMPLES_from_conf(session):
     diode9 = session.config.get("diode9")
     assert diode9.mode.name == "SAMPLES"
 
-    s = loopscan(10, .05, diode2, diode9)
+    s = loopscan(10, .05, diode2, diode9, save=False)
 
     assert (
         "simulation_diode_sampling_controller:diode2"
@@ -204,15 +204,12 @@ def test_SampCnt_mode_SAMPLES_from_conf(session):
     )
 
 
-def test_SampCnt_mode_STATS(session, scan_tmpdir):
-    # put scan file in a tmp directory
-    session.scan_saving.base_path = str(scan_tmpdir)
-
+def test_SampCnt_mode_STATS(session):
     o = Timed_Diode()
 
     ax = SoftAxis("test-sample-pos", o)
     c_slow = SoftCounter(o, "read_slow", name="test-sample", mode=SamplingMode.STATS)
-    s_slow = loopscan(1, .1, c_slow)
+    s_slow = loopscan(1, .1, c_slow, save=False)
 
     data_slow = s_slow.get_data()
     assert all(data_slow["test-sample"] == numpy.array([17]))
@@ -221,7 +218,7 @@ def test_SampCnt_mode_STATS(session, scan_tmpdir):
 
     c_fast = SoftCounter(o, "read_fast", name="test-stat", mode=SamplingMode.STATS)
 
-    s_fast = ascan(ax, 1, 9, 8, .1, c_fast)
+    s_fast = ascan(ax, 1, 9, 8, .1, c_fast, save=False)
 
     data_fast = s_fast.get_data()
 
@@ -262,10 +259,7 @@ def test_SampCnt_STATS_algorithm():
     assert stats.p2v == numpy.max(dat) - numpy.min(dat)
 
 
-def test_SampCnt_mode_SAMPLES(session, scan_tmpdir):
-    # put scan file in a tmp directory
-    session.scan_saving.base_path = str(scan_tmpdir)
-
+def test_SampCnt_mode_SAMPLES(session):
     o = Timed_Diode()
     ax = SoftAxis("test-sample-pos", o)
     c_samp = SoftCounter(o, "read", name="test-samp", mode=SamplingMode.SAMPLES)
@@ -294,17 +288,14 @@ def test_SampCnt_mode_SAMPLES(session, scan_tmpdir):
     assert all((redis_dat.flatten() == samples_h5.flatten())[mask])
 
 
-def test_SampCnt_mode_SINGLE(session, scan_tmpdir):
+def test_SampCnt_mode_SINGLE(session):
     env_dict = session.env_dict
-
-    # put scan file in a tmp directory
-    session.scan_saving.base_path = str(scan_tmpdir)
 
     diode2 = env_dict["diode2"]
     diode8 = env_dict["diode8"]
     assert diode8.mode == SamplingMode.SINGLE
 
-    loops = loopscan(10, .1, diode2, diode8)
+    loops = loopscan(10, .1, diode2, diode8, save=False)
     diode2_dat = loops.get_data()["diode2"]
     diode8_dat = loops.get_data()["diode8"]
 
@@ -336,7 +327,7 @@ def test_SampCnt_mode_LAST(session):
     ax = SoftAxis("test-sample-pos", o)
     c = SoftCounter(o, "read_last", name="test", mode=SamplingMode.LAST)
 
-    s = ascan(ax, 1, 9, 8, .1, c)
+    s = ascan(ax, 1, 9, 8, .1, c, save=False)
 
     assert all(s.get_data()["test"] == numpy.array([2, 2, 2, 2, 2, 2, 2, 2, 2]))
 
@@ -455,7 +446,7 @@ def test_prepare_once_prepare_many(session):
     diode2 = session.config.get("diode2")
     diode3 = session.config.get("diode3")
 
-    s = loopscan(10, .1, diode2, run=False)
+    s = loopscan(10, .1, diode2, run=False, save=False)
     d = SamplingCounterAcquisitionSlave(diode, count_time=.1, npoints=10)
     s.acq_chain.add(s.acq_chain.nodes_list[0], d)
     s.run()
@@ -465,7 +456,7 @@ def test_prepare_once_prepare_many(session):
 
     # diode2 and diode3 are usually on the same SamplingCounterAcquisitionSlave
     # lets see if they can be split as well
-    s = loopscan(10, .1, diode2, run=False)
+    s = loopscan(10, .1, diode2, run=False, save=False)
     d = SamplingCounterAcquisitionSlave(diode3, count_time=.1, npoints=10)
     s.acq_chain.add(s.acq_chain.nodes_list[0], d)
     s.run()

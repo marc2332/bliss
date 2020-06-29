@@ -174,7 +174,7 @@ def test_calc_motor_publishing(session, calc_mot2):
     diode = session.config.get("diode")
     m0 = session.config.get("m0")
 
-    s = scans.a2scan(calc_mot2, 0, 1, m0, 0, 1, 3, 0.1, diode)
+    s = scans.a2scan(calc_mot2, 0, 1, m0, 0, 1, 3, 0.1, diode, save=False)
     pub_motors = s.scan_info["acquisition_chain"]["axis"]["master"]["scalars"]
 
     assert "axis:calc_mot2" in pub_motors

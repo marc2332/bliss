@@ -9,29 +9,27 @@ import pytest
 import os
 
 
-def replace_mount_points(scan_saving_config, test_root, key):
-    """Replace /tmp/scans with the test directory root
-    """
-    mount_points = scan_saving_config[key]
-    if isinstance(mount_points, str):
-        scan_saving_config[key] = mount_points.replace("/tmp/scans", test_root)
-    else:
-        for k in mount_points:
-            mount_points[k] = mount_points[k].replace("/tmp/scans", test_root)
-
-
 @pytest.fixture
-def esrf_data_policy(session, scan_tmpdir):
+def esrf_data_policy(session):
+    tmpdir = session.scan_saving.base_path
     session.enable_esrf_data_policy()
+
+    # Make sure all data saving mount points
+    # have tmpdir as root
     scan_saving_config = session.scan_saving.scan_saving_config
-    test_root = str(scan_tmpdir)
-    keys = [
-        "tmp_data_root",
-        "icat_tmp_data_root",
-        "visitor_data_root",
-        "inhouse_data_root",
-    ]
-    for key in keys:
-        replace_mount_points(scan_saving_config, test_root, key)
+    roots = ["inhouse_data_root", "visitor_data_root", "tmp_data_root"]
+    for root in roots:
+        for prefix in ["", "icat_"]:
+            key = prefix + root
+            mount_points = scan_saving_config.get(key, None)
+            if mount_points is None:
+                continue
+            elif isinstance(mount_points, str):
+                scan_saving_config[key] = mount_points.replace("/tmp/scans", tmpdir)
+            else:
+                for mp in mount_points:
+                    mount_points[mp] = mount_points[mp].replace("/tmp/scans", tmpdir)
+
     yield scan_saving_config
+
     session.disable_esrf_data_policy()

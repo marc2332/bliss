@@ -50,14 +50,9 @@ def wait_scan_data_finished(scan, timeout=10):
             gevent.sleep(0.1)
 
 
-def test_scan_history_with_writer(
-    session, lima_simulator, nexus_writer_service, scan_tmpdir
-):
+def test_scan_history_with_writer(session, lima_simulator, nexus_writer_service):
     lima = session.config.get("lima_simulator")
     session.scan_saving.writer = "nexus"
-
-    scan_saving = session.scan_saving
-    scan_saving.base_path = str(scan_tmpdir)
 
     # simu1 = session.config.get("simu1")
     ascan = session.env_dict["ascan"]

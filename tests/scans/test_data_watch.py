@@ -211,9 +211,7 @@ def test_data_watch_callback(session, diode_acq_device_factory):
     assert all([cb.SCAN_NEW, cb.SCAN_DATA, cb.SCAN_END])
 
 
-def test_parallel_scans(default_session, scan_tmpdir):
-    default_session.scan_saving.base_path = str(scan_tmpdir)
-
+def test_parallel_scans(default_session):
     diode = default_session.config.get("diode")
     sim_ct_gauss = default_session.config.get("sim_ct_gauss")
     robz = default_session.config.get("robz")
@@ -284,9 +282,7 @@ def test_parallel_scans(default_session, scan_tmpdir):
         assert len(array) == 20
 
 
-def test_sequence_scans(default_session, scan_tmpdir):
-    default_session.scan_saving.base_path = str(scan_tmpdir)
-
+def test_sequence_scans(default_session):
     diode = default_session.config.get("diode")
 
     new_scan_args = []

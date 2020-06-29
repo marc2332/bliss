@@ -20,10 +20,7 @@ from bliss.data.node import get_session_node
 from bliss import current_session
 
 
-def test_sequence_terminated_scans(session, scan_tmpdir):
-    # put scan file in a tmp directory
-    session.scan_saving.base_path = str(scan_tmpdir)
-
+def test_sequence_terminated_scans(session):
     diode = session.config.get("diode")
     seq = Sequence()
     with seq.sequence_context() as seq_context:
@@ -43,10 +40,7 @@ def test_sequence_terminated_scans(session, scan_tmpdir):
     assert seq.node.info["title"] == "sequence_of_scans"
 
 
-def test_sequence_future_scans(session, scan_tmpdir):
-    # put scan file in a tmp directory
-    session.scan_saving.base_path = str(scan_tmpdir)
-
+def test_sequence_future_scans(session):
     diode = session.config.get("diode")
     seq = Sequence()
     with seq.sequence_context() as seq_context:
@@ -70,10 +64,7 @@ def test_sequence_future_scans(session, scan_tmpdir):
     )
 
 
-def test_sequence_async_scans(session, scan_tmpdir):
-    # put scan file in a tmp directory
-    session.scan_saving.base_path = str(scan_tmpdir)
-
+def test_sequence_async_scans(session):
     diode = session.config.get("diode")
     sim_ct_gauss = session.config.get("sim_ct_gauss")
     robz = session.config.get("robz")
@@ -106,10 +97,7 @@ def test_sequence_async_scans(session, scan_tmpdir):
         gevent.joinall([g1, g2], raise_error=True)
 
 
-def test_sequence_non_started_scans_in_seq(session, scan_tmpdir):
-    # put scan file in a tmp directory
-    session.scan_saving.base_path = str(scan_tmpdir)
-
+def test_sequence_non_started_scans_in_seq(session):
     diode = session.config.get("diode")
 
     with pytest.raises(RuntimeError):
@@ -121,10 +109,7 @@ def test_sequence_non_started_scans_in_seq(session, scan_tmpdir):
             seq_context.add(s1)
 
 
-def test_sequence_empty_in_seq(session, scan_tmpdir):
-    # put scan file in a tmp directory
-    session.scan_saving.base_path = str(scan_tmpdir)
-
+def test_sequence_empty_in_seq(session):
     diode = session.config.get("diode")
     seq = Sequence()
     with seq.sequence_context() as seq_context:
@@ -137,10 +122,7 @@ def test_sequence_empty_in_seq(session, scan_tmpdir):
             seq_context.add(s1)
 
 
-def test_sequence_custom_channel(session, scan_tmpdir):
-    # put scan file in a tmp directory
-    session.scan_saving.base_path = str(scan_tmpdir)
-
+def test_sequence_custom_channel(session):
     diode = session.config.get("diode")
     seq = Sequence(scan_info={"something": "else"})
     seq.add_custom_channel(AcquisitionChannel("mychannel", numpy.float, ()))
@@ -175,10 +157,7 @@ def test_sequence_custom_channel(session, scan_tmpdir):
     assert seq.node.info["something"] == "else"
 
 
-def test_sequence_add_and_run(session, scan_tmpdir):
-    # put scan file in a tmp directory
-    session.scan_saving.base_path = str(scan_tmpdir)
-
+def test_sequence_add_and_run(session):
     diode = session.config.get("diode")
 
     seq = Sequence()
@@ -195,10 +174,7 @@ def test_sequence_add_and_run(session, scan_tmpdir):
             seq_context.add_and_run(s1)
 
 
-def test_sequence_group(session, scan_tmpdir):
-    # put scan file in a tmp directory
-    session.scan_saving.base_path = str(scan_tmpdir)
-
+def test_sequence_group(session):
     diode = session.config.get("diode")
     s1 = scans.loopscan(3, .1, diode)
     s2 = scans.loopscan(3, .05, diode)
@@ -230,10 +206,7 @@ def test_sequence_group(session, scan_tmpdir):
     assert grouped_scans[1].info["scan_nb"] == s2.scan_info["scan_nb"]
 
 
-def test_sequence_invalid_group(session, scan_tmpdir):
-    # put scan file in a tmp directory
-    session.scan_saving.base_path = str(scan_tmpdir)
-
+def test_sequence_invalid_group(session):
     diode = session.config.get("diode")
     s1 = scans.loopscan(3, .1, diode)
     s2 = scans.loopscan(3, .05, diode, run=False)
@@ -249,10 +222,7 @@ def test_sequence_invalid_group(session, scan_tmpdir):
         g = Group(s1, 158453)
 
 
-def test_sequence_ttl(session, scan_tmpdir):
-    # put scan file in a tmp directory
-    session.scan_saving.base_path = str(scan_tmpdir)
-
+def test_sequence_ttl(session):
     diode = session.config.get("diode")
     s1 = scans.loopscan(3, .1, diode)
     s1_ttl1 = s1.node.connection.ttl(s1.node.db_name)
@@ -270,10 +240,7 @@ def test_sequence_ttl(session, scan_tmpdir):
     assert s1_ttl2 < s1_ttl3
 
 
-def test_sequence_events(session, scan_tmpdir):
-    # put scan file in a tmp directory
-    session.scan_saving.base_path = str(scan_tmpdir)
-
+def test_sequence_events(session):
     diode = session.config.get("diode")
     robz = session.config.get("robz")
 

@@ -6,10 +6,7 @@ from bliss.scanning.scan import Scan
 from bliss import current_session
 
 
-def test_async_demo_default(default_session, scan_tmpdir):
-    # put scan file in a tmp directory
-    default_session.scan_saving.base_path = str(scan_tmpdir)
-
+def test_async_demo_default(default_session):
     diode = default_session.config.get("diode")
     sim_ct_gauss = default_session.config.get("sim_ct_gauss")
     robz = default_session.config.get("robz")
@@ -22,10 +19,7 @@ def test_async_demo_default(default_session, scan_tmpdir):
     gevent.joinall([g1, g2], raise_error=True)
 
 
-def test_async_custon_scan_saving(default_session, scan_tmpdir):
-    # put scan file in a tmp directory
-    default_session.scan_saving.base_path = str(scan_tmpdir)
-
+def test_async_custon_scan_saving(default_session):
     # imaging this is a complex acq procecure where I
     # want to use my own scan_saving within the procecure
     my_scan_saving = ScanSaving(current_session.name)

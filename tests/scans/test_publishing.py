@@ -43,11 +43,10 @@ def lima_session(beacon, scan_tmpdir, lima_simulator):
     session.close()
 
 
-def test_parent_node(session, scan_tmpdir):
+def test_parent_node(session):
     scan_saving = session.scan_saving
-    scan_saving.base_path = str(scan_tmpdir)
     scan_saving.template = "{date}/test"
-    redis_base_path = str(scan_tmpdir).replace("/", ":")
+    redis_base_path = scan_saving.base_path.replace("/", ":")
     parent_node = scan_saving.get_parent_node()
     assert (
         parent_node.db_name == f"test_session{redis_base_path}:{scan_saving.date}:test"
@@ -56,9 +55,8 @@ def test_parent_node(session, scan_tmpdir):
     assert isinstance(parent_node, DataNodeContainer)
 
 
-def test_scan_node(session, redis_data_conn, scan_tmpdir):
+def test_scan_node(session, redis_data_conn):
     scan_saving = session.scan_saving
-    scan_saving.base_path = str(scan_tmpdir)
     parent = scan_saving.get_parent_node()
     m = getattr(setup_globals, "roby")
     m.velocity = 5
@@ -113,13 +111,10 @@ def test_scan_node(session, redis_data_conn, scan_tmpdir):
     assert sessions_list()[0].name == "test_session"
 
 
-def test_interrupted_scan(session, redis_data_conn, scan_tmpdir):
+def test_interrupted_scan(session, redis_data_conn):
     """
     Start a scan and simulate a ctrl-c.
     """
-    scan_saving = session.scan_saving
-    scan_saving.base_path = str(scan_tmpdir)
-
     m = getattr(setup_globals, "roby")
     m.velocity = 10
     diode = getattr(setup_globals, "diode")
@@ -182,7 +177,7 @@ def test_scan_data_0d(session, redis_data_conn):
     assert db_names == redis_keys.intersection(db_names)
 
 
-def test_data_iterator_event(beacon, redis_data_conn, scan_tmpdir, session):
+def test_data_iterator_event(beacon, redis_data_conn, session):
     def iterate_channel_events(scan_db_name, channels):
         for e, n, data in DataNodeIterator(get_node(scan_db_name)).walk_events():
             if e == e.NEW_DATA:
@@ -190,7 +185,6 @@ def test_data_iterator_event(beacon, redis_data_conn, scan_tmpdir, session):
                     channels[n.name] = n.get(0, -1)
 
     scan_saving = session.scan_saving
-    scan_saving.base_path = str(scan_tmpdir)
     parent = scan_saving.get_parent_node()
     m = getattr(setup_globals, "roby")
     m.velocity = 5
@@ -333,11 +327,7 @@ def test_ttl_setter(session, capsys):
     assert err == ""
 
 
-def test_children_timing(beacon, session, scan_tmpdir):
-
-    # put scan file in a tmp directory
-    session.scan_saving.base_path = str(scan_tmpdir)
-
+def test_children_timing(beacon, session):
     diode2 = session.env_dict["diode2"]
 
     def walker(scan_node):
@@ -628,9 +618,7 @@ def test_events_on_controllerchannel_node(beforestart, session):
     assert len(events["NEW_DATA"]) == 1
 
 
-def test_scan_numbering(default_session, beacon, scan_tmpdir):
-    scan_saving = default_session.scan_saving
-    scan_saving.base_path = str(scan_tmpdir)
+def test_scan_numbering(default_session, beacon):
     diode = beacon.get("diode")
 
     l = scans.loopscan(1, .1, diode, save=True)

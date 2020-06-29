@@ -19,12 +19,11 @@ def flush_redis(scan_saving):
 
 
 @pytest.mark.parametrize("writer", ["hdf5", "nexus", "null"])
-def test_flush_redis(writer, session, nexus_writer_service, scan_tmpdir):
+def test_flush_redis(writer, session, nexus_writer_service):
     # Prepare scanning (ensure no file or Redis keys)
     detector = session.env_dict["diode"]
     scan_saving = session.scan_saving
     scan_saving.writer = writer
-    scan_saving.base_path = str(scan_tmpdir)
     get_scan_entries = scan_saving.writer_object.get_scan_entries
     try:
         os.remove(scan_saving.filename)

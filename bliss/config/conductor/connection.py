@@ -46,19 +46,21 @@ class _ConnectionPool(redis.ConnectionPool):
             return super().make_connection()
 
     def release(self, connection):
-        if hasattr(connection, "__finalize__"):
-            connection.__finalize__.detach()
-        # As we register callback when greenlet disappear,
-        # Connection might been removed before the greenlet
-        try:
-            return super().release(connection)
-        except KeyError:
-            pass
+        with self._lock:
+            if hasattr(connection, "__finalize__"):
+                connection.__finalize__.detach()
+            # As we register callback when greenlet disappear,
+            # Connection might been removed before the greenlet
+            try:
+                return super().release(connection)
+            except KeyError:
+                pass
 
     def clean_pubsub(self, connection):
-        connection.disconnect()
-        connection.clear_connect_callbacks()
-        self.release(connection)
+        with self._lock:
+            connection.disconnect()
+            connection.clear_connect_callbacks()
+            self.release(connection)
 
 
 def ip4_broadcast_addresses(default_route_only=False):

@@ -252,266 +252,264 @@ def read_image(proxy, image_nb: int) -> numpy.ndarray:
     return data
 
 
-class LimaImageChannelDataNode(DataNode):
-    DATA = b"__data__"
+class LimaDataView(object):
+    def __init__(self, data, data_ref, from_index, to_index, from_stream=False):
+        self.data = data
+        self.data_ref = data_ref
+        self.from_index = from_index
+        self.to_index = to_index
+        self.last_image_ready = -1
+        self.from_stream = from_stream
 
-    class LimaDataView(object):
-        def __init__(self, data, data_ref, from_index, to_index, from_stream=False):
-            self.data = data
-            self.data_ref = data_ref
-            self.from_index = from_index
-            self.to_index = to_index
-            self.last_image_ready = -1
-            self.from_stream = from_stream
+    @property
+    def ref_status(self):
+        raw_data = self.data.rev_range(count=1)
+        if raw_data:
+            index, raw_event = raw_data[0]
+            return pickle.loads(raw_event[LimaImageChannelDataNode.DATA])
+        else:  # Lima acqusition is not yet started.
+            return {
+                "lima_acq_nb": -1,
+                "buffer_max_number": -1,
+                "last_image_acquired": -1,
+                "last_image_ready": -1,
+                "last_counter_ready": -1,
+                "last_image_saved": -1,
+            }
 
-        @property
-        def ref_status(self):
-            raw_data = self.data.rev_range(count=1)
-            if raw_data:
-                index, raw_event = raw_data[0]
-                return pickle.loads(raw_event[LimaImageChannelDataNode.DATA])
-            else:  # Lima acqusition is not yet started.
-                return {
-                    "lima_acq_nb": -1,
-                    "buffer_max_number": -1,
-                    "last_image_acquired": -1,
-                    "last_image_ready": -1,
-                    "last_counter_ready": -1,
-                    "last_image_saved": -1,
-                }
+    @property
+    def ref_data(self):
+        return self.data_ref[0:]
 
-        @property
-        def ref_data(self):
-            return self.data_ref[0:]
+    @property
+    def last_index(self):
+        """ evaluate the last image index
+        """
+        self._update()
+        if self.to_index >= 0:
+            return self.to_index
+        return self.last_image_ready + 1
 
-        @property
-        def last_index(self):
-            """ evaluate the last image index
-            """
+    @property
+    def current_lima_acq(self):
+        """ return the current server acquisition number
+        """
+        cnx = self.data._cnx()
+        lima_acq = cnx.get(self.server_url)
+        return int(lima_acq if lima_acq is not None else -1)
+
+    def _get_proxy(self):
+        try:
+            proxy = DeviceProxy(self.server_url) if self.server_url else None
+        except Exception:
+            proxy = None
+        return proxy
+
+    def is_video_frame_have_meaning(self, update=True):
+        """Returns True if the frame number reached from the header from
+        the Lima video have a meaning in the full scan.
+
+        Returns a boolean, else None if this information is not yet known.
+        """
+        if update:
             self._update()
-            if self.to_index >= 0:
-                return self.to_index
-            return self.last_image_ready + 1
+        if self.acq_trigger_mode is None:
+            return None
+        # FIXME: This still can be wrong for a scan with many groups of MULTI images
+        # The function is_video_frame_have_meaning itself have not meaning and
+        # should be removed
+        return self.acq_trigger_mode in [
+            "EXTERNAL_TRIGGER_MULTI",
+            "INTERNAL_TRIGGER_MULTI",
+        ]
 
-        @property
-        def current_lima_acq(self):
-            """ return the current server acquisition number
-            """
-            cnx = self.data._cnx()
-            lima_acq = cnx.get(self.server_url)
-            return int(lima_acq if lima_acq is not None else -1)
+    def get_last_live_image(self, proxy=UNSET):
+        """Returns the last image data from stream within it's frame number.
 
-        def _get_proxy(self):
-            try:
-                proxy = DeviceProxy(self.server_url) if self.server_url else None
-            except Exception:
-                proxy = None
-            return proxy
+        If no data is available, the function returns tuple (None, None).
 
-        def is_video_frame_have_meaning(self, update=True):
-            """Returns True if the frame number reached from the header from
-            the Lima video have a meaning in the full scan.
+        If camera device is not configured with INTERNAL_TRIGGER_MULTI, and
+        then the reached frame number have no meaning, a None is returned.
+        """
+        self._update()
 
-            Returns a boolean, else None if this information is not yet known.
-            """
-            if update:
-                self._update()
-            if self.acq_trigger_mode is None:
-                return None
-            # FIXME: This still can be wrong for a scan with many groups of MULTI images
-            # The function is_video_frame_have_meaning itself have not meaning and
-            # should be removed
-            return self.acq_trigger_mode in [
-                "EXTERNAL_TRIGGER_MULTI",
-                "INTERNAL_TRIGGER_MULTI",
-            ]
+        if proxy is UNSET:
+            proxy = self._get_proxy()
 
-        def get_last_live_image(self, proxy=UNSET):
-            """Returns the last image data from stream within it's frame number.
+        if not proxy:
+            # FIXME: It should return None
+            return Frame(None, None, None)
 
-            If no data is available, the function returns tuple (None, None).
+        if not self.from_stream:
+            # FIXME: It should return None
+            return Frame(None, None, None)
 
-            If camera device is not configured with INTERNAL_TRIGGER_MULTI, and
-            then the reached frame number have no meaning, a None is returned.
-            """
+        result = read_video_last_image(proxy)
+        if result is None:
+            # FIXME: It should return None
+            return Frame(None, None, None)
+
+        frame, frame_number = result
+        if not self.is_video_frame_have_meaning(update=False):
+            # In this case the reached frame have no meaning within the full
+            # scan. It is better not to provide it
+            frame_number = None
+        return Frame(frame, frame_number, "video")
+
+    def get_last_image(self, proxy=UNSET):
+        """Returns the last image from the received one, together with the frame id.
+        """
+        self._update()
+
+        if self.last_image_ready < 0:
+            raise IndexError("No image has been taken yet")
+
+        if proxy is UNSET:
+            proxy = self._get_proxy()
+
+        data = None
+        if proxy:
+            # Update to use the latest image
             self._update()
+            frame_number = self.last_image_ready
+            data = self._get_from_server_memory(proxy, frame_number)
+            source = "memory"
 
-            if proxy is UNSET:
-                proxy = self._get_proxy()
-
-            if not proxy:
-                # FIXME: It should return None
-                return Frame(None, None, None)
-
-            if not self.from_stream:
-                # FIXME: It should return None
-                return Frame(None, None, None)
-
-            result = read_video_last_image(proxy)
-            if result is None:
-                # FIXME: It should return None
-                return Frame(None, None, None)
-
-            frame, frame_number = result
-            if not self.is_video_frame_have_meaning(update=False):
-                # In this case the reached frame have no meaning within the full
-                # scan. It is better not to provide it
-                frame_number = None
-            return Frame(frame, frame_number, "video")
-
-        def get_last_image(self, proxy=UNSET):
-            """Returns the last image from the received one, together with the frame id.
-            """
+        if data is None:
+            # Update to use the latest image
             self._update()
+            frame_number = self.last_image_ready
+            data = self._get_from_file(frame_number)
+            source = "file"
 
+        return Frame(data, frame_number, source)
+
+    def get_image(self, image_nb, proxy=UNSET):
+        if image_nb < 0:
+            raise ValueError("image_nb must be a real image number")
+
+        self._update()
+
+        if proxy is UNSET:
+            proxy = self._get_proxy()
+
+        data = None
+        if proxy:
+            data = self._get_from_server_memory(proxy, image_nb)
+
+        if data is None:
+            return self._get_from_file(image_nb)
+        else:
+            return data
+
+    def __getitem__(self, item_index):
+        if isinstance(item_index, tuple):
+            item_index = slice(*item_index)
+        if isinstance(item_index, slice):
+            proxy = self._get_proxy()
+            return tuple(
+                (
+                    self.get_image(self.from_index + image_nb, proxy=proxy)
+                    for image_nb in item_index
+                )
+            )
+        else:
+            if self.from_stream and item_index == -1:
+                return self.get_image(-1)
+            if item_index < 0:
+                start = self.last_index
+                if start == 0:
+                    raise IndexError("No image available")
+            else:
+                start = self.from_index
+            return self.get_image(start + item_index)
+
+    def __iter__(self):
+        proxy = self._get_proxy()
+        for image_nb in range(self.from_index, self.last_index):
+            yield self.get_image(image_nb, proxy=proxy)
+
+    def __len__(self):
+        length = self.last_index - self.from_index
+        return 0 if length < 0 else length
+
+    def _update(self):
+        ref_status = self.ref_status
+        for key in (
+            "server_url",
+            "lima_acq_nb",
+            "buffer_max_number",
+            "last_image_acquired",
+            "last_image_ready",
+            "last_counter_ready",
+            "last_image_saved",
+        ):
+            if key in ref_status:
+                setattr(self, key, ref_status[key])
+        if len(self.ref_data) >= 1:
+            ref_data = self.ref_data[0]
+            for key in ("acq_trigger_mode",):
+                if key in ref_data:
+                    setattr(self, key, ref_data[key])
+
+    def _get_from_server_memory(self, proxy, image_nb):
+        if self.current_lima_acq == self.lima_acq_nb:  # current acquisition is this one
             if self.last_image_ready < 0:
                 raise IndexError("No image has been taken yet")
+            if self.last_image_ready < image_nb:  # image not yet available
+                raise IndexError("Image is not available yet")
+            # should be in memory
+            if self.buffer_max_number > (self.last_image_ready - image_nb):
+                try:
+                    return read_image(proxy, image_nb)
+                except RuntimeError:
+                    # As it's asynchronous, image seems to be no
+                    # more available so read it from file
+                    return None
+            return None
 
-            if proxy is UNSET:
-                proxy = self._get_proxy()
+    def get_filenames(self):
+        """All saved image filenames
+        """
+        self._update()
+        ref_data = self.ref_data[0]
+        return self._get_filenames(ref_data, *range(0, self.last_image_saved + 1))
 
-            data = None
-            if proxy:
-                # Update to use the latest image
-                self._update()
-                frame_number = self.last_image_ready
-                data = self._get_from_server_memory(proxy, frame_number)
-                source = "memory"
+    def _get_filenames(self, ref_data, *image_nbs):
+        """Specific image filenames
+        """
+        return image_filenames(
+            ref_data, image_nbs=image_nbs, last_image_saved=self.last_image_saved
+        )
 
-            if data is None:
-                # Update to use the latest image
-                self._update()
-                frame_number = self.last_image_ready
-                data = self._get_from_file(frame_number)
-                source = "file"
-
-            return Frame(data, frame_number, source)
-
-        def get_image(self, image_nb, proxy=UNSET):
-            if image_nb < 0:
-                raise ValueError("image_nb must be a real image number")
-
-            self._update()
-
-            if proxy is UNSET:
-                proxy = self._get_proxy()
-
-            data = None
-            if proxy:
-                data = self._get_from_server_memory(proxy, image_nb)
-
-            if data is None:
-                return self._get_from_file(image_nb)
-            else:
-                return data
-
-        def __getitem__(self, item_index):
-            if isinstance(item_index, tuple):
-                item_index = slice(*item_index)
-            if isinstance(item_index, slice):
-                proxy = self._get_proxy()
-                return tuple(
-                    (
-                        self.get_image(self.from_index + image_nb, proxy=proxy)
-                        for image_nb in item_index
+    def _get_from_file(self, image_nb):
+        for ref_data in self.ref_data:
+            values = self._get_filenames(ref_data, image_nb)
+            filename, path_in_file, image_index, file_format = values[0]
+            file_format = file_format.lower()
+            if file_format.startswith("edf"):
+                if file_format == "edfconcat":
+                    image_index = 0
+                if EdfFile is not None:
+                    f = EdfFile(filename)
+                    return f.GetData(image_index)
+                else:
+                    raise RuntimeError(
+                        "EdfFile module is not available, " "cannot return image data."
                     )
-                )
+            elif file_format.startswith("hdf5"):
+                if h5py is not None:
+                    with h5py.File(filename, mode="r") as f:
+                        dataset = f[path_in_file]
+                        return dataset[image_index]
             else:
-                if self.from_stream and item_index == -1:
-                    return self.get_image(-1)
-                if item_index < 0:
-                    start = self.last_index
-                    if start == 0:
-                        raise IndexError("No image available")
-                else:
-                    start = self.from_index
-                return self.get_image(start + item_index)
+                raise RuntimeError("Format not managed yet")
 
-        def __iter__(self):
-            proxy = self._get_proxy()
-            for image_nb in range(self.from_index, self.last_index):
-                yield self.get_image(image_nb, proxy=proxy)
+        raise IndexError("Cannot retrieve image %d from file" % image_nb)
 
-        def __len__(self):
-            length = self.last_index - self.from_index
-            return 0 if length < 0 else length
 
-        def _update(self):
-            ref_status = self.ref_status
-            for key in (
-                "server_url",
-                "lima_acq_nb",
-                "buffer_max_number",
-                "last_image_acquired",
-                "last_image_ready",
-                "last_counter_ready",
-                "last_image_saved",
-            ):
-                if key in ref_status:
-                    setattr(self, key, ref_status[key])
-            if len(self.ref_data) >= 1:
-                ref_data = self.ref_data[0]
-                for key in ("acq_trigger_mode",):
-                    if key in ref_data:
-                        setattr(self, key, ref_data[key])
-
-        def _get_from_server_memory(self, proxy, image_nb):
-            if (
-                self.current_lima_acq == self.lima_acq_nb
-            ):  # current acquisition is this one
-                if self.last_image_ready < 0:
-                    raise IndexError("No image has been taken yet")
-                if self.last_image_ready < image_nb:  # image not yet available
-                    raise IndexError("Image is not available yet")
-                # should be in memory
-                if self.buffer_max_number > (self.last_image_ready - image_nb):
-                    try:
-                        return read_image(proxy, image_nb)
-                    except RuntimeError:
-                        # As it's asynchronous, image seems to be no
-                        # more available so read it from file
-                        return None
-                return None
-
-        def get_filenames(self):
-            """All saved image filenames
-            """
-            self._update()
-            ref_data = self.ref_data[0]
-            return self._get_filenames(ref_data, *range(0, self.last_image_saved + 1))
-
-        def _get_filenames(self, ref_data, *image_nbs):
-            """Specific image filenames
-            """
-            return image_filenames(
-                ref_data, image_nbs=image_nbs, last_image_saved=self.last_image_saved
-            )
-
-        def _get_from_file(self, image_nb):
-            for ref_data in self.ref_data:
-                values = self._get_filenames(ref_data, image_nb)
-                filename, path_in_file, image_index, file_format = values[0]
-                file_format = file_format.lower()
-                if file_format.startswith("edf"):
-                    if file_format == "edfconcat":
-                        image_index = 0
-                    if EdfFile is not None:
-                        f = EdfFile(filename)
-                        return f.GetData(image_index)
-                    else:
-                        raise RuntimeError(
-                            "EdfFile module is not available, "
-                            "cannot return image data."
-                        )
-                elif file_format.startswith("hdf5"):
-                    if h5py is not None:
-                        with h5py.File(filename, mode="r") as f:
-                            dataset = f[path_in_file]
-                            return dataset[image_index]
-                else:
-                    raise RuntimeError("Format not managed yet")
-
-            raise IndexError("Cannot retrieve image %d from file" % image_nb)
+class LimaImageChannelDataNode(DataNode):
+    DATA = b"__data__"
 
     def __init__(self, name, **keys):
         shape = keys.pop("shape", None)
@@ -570,7 +568,7 @@ class LimaImageChannelDataNode(DataNode):
             if to_index is None => only one image which as index from_index
             if to_index < 0 => to the end of acquisition
         """
-        return self.LimaDataView(
+        return LimaDataView(
             self.data,
             self.data_ref,
             from_index,

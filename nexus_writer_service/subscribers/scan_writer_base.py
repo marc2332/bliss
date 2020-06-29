@@ -1497,7 +1497,7 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
             files = []
             icurrent = dproxy.npoints
             # e.g node: bliss.data.lima.LimaImageChannelDataNode
-            #     dataview: bliss.data.lima.LimaImageChannelDataNode.LimaDataView
+            #     dataview: bliss.data.lima.LimaDataView
             dataview = node.get(icurrent, -1)
             imgidx = list(range(dataview.from_index, dataview.last_index))
             if imgidx:
@@ -1538,7 +1538,7 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
         """
         icurrent = dproxy.npoints
         # e.g node: bliss.data.lima.LimaImageChannelDataNode
-        #     dataview: bliss.data.lima.LimaImageChannelDataNode.LimaDataView
+        #     dataview: bliss.data.lima.LimaDataView
         dataview = node.get(icurrent, -1)
         lst = []
         try:

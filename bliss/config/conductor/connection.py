@@ -416,14 +416,6 @@ class Connection(object):
         if cnx is not None:
             cnx.close()
 
-    def create_redis_connection(self, db=0, address=None):
-        if address is None:
-            address = self.get_redis_connection_address()
-        host, port = address
-        if host == "localhost" and os.name != "nt":
-            return redis.Redis(unix_socket_path=port, db=db)
-        return redis.Redis(host=host, port=port, db=db)
-
     @check_connect
     def get_config_file(self, file_path, timeout=1.0):
         with gevent.Timeout(timeout, RuntimeError("Can't get configuration file")):

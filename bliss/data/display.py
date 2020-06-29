@@ -19,10 +19,10 @@ import contextlib
 import gevent
 
 from functools import wraps
-from gevent.threadpool import ThreadPool
+
 
 from bliss.data.scan import watch_session_scans
-
+from bliss.common.utils import nonblocking_print
 from bliss.common.axis import Axis
 from bliss.common.event import dispatcher
 from bliss.common import user_status_info
@@ -89,16 +89,6 @@ def _find_unit(obj):
             return _find_unit(obj.controller)
     except Exception:
         return
-
-
-def _post_in_pool(func):
-    # post in a thread to avoid blocking call due to print function
-    @wraps(func)
-    def f(self, *args):
-        task = self._pool.spawn(func, self, *args)
-        return task.get()
-
-    return f
 
 
 class FormatedTab:
@@ -791,7 +781,6 @@ class ScanDataListener(_ScanPrinterBase):
         self.scan_display = None
         self.scan_info = None
         self.update_header = False
-        self._pool = ThreadPool(1)
 
     def update_displayed_channels_from_user_request(self) -> bool:
         """If enabled, check ScanDisplay content and compare it to the
@@ -831,7 +820,6 @@ class ScanDataListener(_ScanPrinterBase):
     def on_scan_new_child(self, scan_info, data_channel):
         pass
 
-    @_post_in_pool
     def on_scan_new(self, scan_info):
         if not self.scan_is_running:
             self.update_header = True
@@ -839,7 +827,6 @@ class ScanDataListener(_ScanPrinterBase):
             self.scan_info = scan_info
         super(ScanDataListener, self).on_scan_new(scan_info)
 
-    @_post_in_pool
     def on_scan_data(self, data_dim, master_name, channel_info):
         if data_dim != "0d":
             return False
@@ -848,37 +835,36 @@ class ScanDataListener(_ScanPrinterBase):
         data = channel_info["data"]
 
         if self.is_new_data_valid(scan_info, data):
-            if scan_info.get("type") != "ct":
-                updated = self.update_displayed_channels_from_user_request()
-                self.update_header = self.update_header or updated
-            else:
-                self.update_header = False
+            with nonblocking_print():
+                if scan_info.get("type") != "ct":
+                    updated = self.update_displayed_channels_from_user_request()
+                    self.update_header = self.update_header or updated
+                else:
+                    self.update_header = False
 
-            # Skip if partial data
-            for cname in self.sorted_channel_names:
-                if len(data[cname]) <= self.scan_steps_index:
-                    return False
+                # Skip if partial data
+                for cname in self.sorted_channel_names:
+                    if len(data[cname]) <= self.scan_steps_index:
+                        return False
 
-            if self.update_header:
-                self.update_header = False
-                # The table header have to be updated
-                # It is always the case the very first time
-                self.print_data_header(scan_info, first=self.first_header)
-                self.first_header = False
+                if self.update_header:
+                    self.update_header = False
+                    # The table header have to be updated
+                    # It is always the case the very first time
+                    self.print_data_header(scan_info, first=self.first_header)
+                    self.first_header = False
 
-            # Check if we receive more than one scan points (i.e. lines) per 'scan_data' event
-            bsize = min([len(data[cname]) for cname in data])
+                # Check if we receive more than one scan points (i.e. lines) per 'scan_data' event
+                bsize = min([len(data[cname]) for cname in data])
 
-            for i in range(bsize - self.scan_steps_index):
-                # convert data in order to keep only the concerned line (one scalar per channel).
-                ndata = {cname: data[cname][self.scan_steps_index] for cname in data}
-                line = self.build_data_output(scan_info, ndata)
-                print(line)
-                self.scan_steps_index += 1
-
-    @_post_in_pool
-    def on_scan_end(self, scan_info):
-        super().on_scan_end(scan_info)
+                for i in range(bsize - self.scan_steps_index):
+                    # convert data in order to keep only the concerned line (one scalar per channel).
+                    ndata = {
+                        cname: data[cname][self.scan_steps_index] for cname in data
+                    }
+                    line = self.build_data_output(scan_info, ndata)
+                    print(line)
+                    self.scan_steps_index += 1
 
     def reset_terminal(self):
         # Prevent user inputs

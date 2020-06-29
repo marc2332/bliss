@@ -195,7 +195,7 @@ def test_shell_autocomplete_property():
     assert "z" in completions
     del (br)
 
-    br = _run_incomplete("tpc.x.", {"tpc": tpc})
+    br = _run_incomplete("tpc.x.", {"tpc": tpc}, slow=True)
     completions = _get_completion(br)
     assert "b" in completions
 

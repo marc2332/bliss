@@ -39,18 +39,23 @@ def _get_read_write(modbus, address_read_write):
             return modbus.read_holding_registers(address_read, value_type_read)
 
         def write(self, value, params={}):
-            digit = params.get("nb_digit", nb_digit)
-            if not isinstance(digit, int):  # automatic digit case
-                raw_value = modbus.read_holding_registers(
-                    address_write, value_type_write
+            if value_type_write == "f":  # float write
+                return modbus.write_float(address_write, value)
+            else:
+                digit = params.get("nb_digit", nb_digit)
+                if not isinstance(digit, int):  # automatic digit case
+                    raw_value = modbus.read_holding_registers(
+                        address_write, value_type_write
+                    )
+                    float_value = modbus.read_holding_registers(
+                        address_read, value_type_read
+                    )
+                    digit = _nb_digit(raw_value, float_value)
+                    params["nb_digit"] = digit
+                write_value = value * 10 ** digit
+                return modbus.write_register(
+                    address_write, value_type_write, write_value
                 )
-                float_value = modbus.read_holding_registers(
-                    address_read, value_type_read
-                )
-                digit = _nb_digit(raw_value, float_value)
-                params["nb_digit"] = digit
-            write_value = value * 10 ** digit
-            return modbus.write_register(address_write, value_type_write, write_value)
 
         return read, write
     else:

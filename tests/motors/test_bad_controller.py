@@ -46,8 +46,8 @@ def test_state_failure(bad_motor, monkeypatch):
     state_index = bad_motor.controller.state_msg_index
 
     assert str(exc.value) == "BAD STATE 1"
-    assert len(infos) == 3
-    assert str(infos[0][1]) == "BAD STATE %d" % (state_index - 2)
+    assert len(infos) == 1
+    assert str(infos[0][1]) == "BAD STATE %d" % state_index
     assert "FAULT" in bad_motor.state
 
     with pytest.raises(RuntimeError):

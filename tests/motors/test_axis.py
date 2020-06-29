@@ -314,18 +314,17 @@ def test_hardware_limits(roby):
         with pytest.raises(RuntimeError):
             roby.move(3)
 
-        assert roby.position == 2
+        assert pytest.approx(roby.position) == 2
 
         # move hit limit because of backlash
         with pytest.raises(RuntimeError):
             roby.move(0)
+
+        assert pytest.approx(roby.position) == 0
+
         roby.move(1)
 
         assert roby.position == 1
-        with pytest.raises(RuntimeError):
-            roby.move(-3)
-
-        assert roby.position == 0
     finally:
         roby.controller.set_hw_limits(roby, None, None)
 
@@ -456,11 +455,27 @@ def test_backlash(roby):
         roby.move(-10)
 
 
+def test_interrupted_backlash(roby):
+    roby.move(-1, wait=False)
+
+    roby._group_move._backlash_started_event.wait()
+
+    # have to kill twice because backlash move is protected
+    roby._group_move._move_task.kill(KeyboardInterrupt, block=False)
+    roby._group_move._move_task.kill(KeyboardInterrupt, block=False)
+    with pytest.raises(KeyboardInterrupt):
+        roby.wait_move()
+
+    # backlash move is interrupted before it finishes
+    assert roby.position < -1
+    assert "READY" in roby.state
+
+
 def test_backlash2(roby):
-    roby.move(10, wait=False)
+    roby.move(1, wait=False)
     assert roby.backlash_move == 0
     roby.wait_move()
-    assert roby.position == 10
+    assert roby.position == 1
 
 
 def test_backlash3(roby):
@@ -491,12 +506,17 @@ def test_backlash4(roby):
 
 
 def test_backlash_stop(roby):
-    roby.move(-10, wait=False)
-    assert roby.backlash_move == -12
-    pos = roby._hw_position
-    roby.stop()
+    t = time.time()
+    roby.acctime = 0.1
+    roby.move(-1000, wait=False)
+    assert roby.backlash_move == -1002
+    time.sleep(0.2)
+    # calculate stop position
+    roby.stop(wait=False)
+    stop_pos = roby._hw_position - roby.acceleration * 0.5 * roby.acctime ** 2
+    roby.wait_move()
 
-    assert pytest.approx(roby.dial, 1e-1) == pos + roby.backlash
+    assert pytest.approx(roby.dial, 1e-1) == stop_pos + roby.backlash
     assert roby._set_position == roby.dial
     assert roby.state.READY
 

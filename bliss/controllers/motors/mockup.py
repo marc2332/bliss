@@ -623,6 +623,20 @@ class FaultyMockup(Mockup):
         else:
             return Mockup.state(self, axis)
 
+    def _check_hw_limits(self, axis):
+        ll, hl = self._Mockup__hw_limit
+        pos = super().read_position(axis)
+        if pos <= ll:
+            return AxisState("READY", "LIMNEG")
+        elif pos >= hl:
+            return AxisState("READY", "LIMPOS")
+        if self._hw_state.OFF:
+            return AxisState("OFF")
+        else:
+            s = AxisState(self._hw_state)
+            s.set("READY")
+            return s
+
     def start_one(self, motion, **kw):
         self.state_msg_index = 0
         if self.bad_start:

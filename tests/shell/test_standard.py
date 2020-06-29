@@ -130,7 +130,7 @@ def test_wm_exception(default_session, capsys):
 
 def test_sta_normal(default_session, capsys):
     bad = default_session.config.get("bad")
-    bad.controller.bad_position = False
+    bad.controller.bad_state = False
     sta()
     captured = capsys.readouterr()
 
@@ -153,7 +153,7 @@ def test_sta_slits(s1hg, capsys):
 
 def test_sta_exception(default_session, capsys):
     bad = default_session.config.get("bad")
-    bad.controller.bad_position = True
+    bad.controller.bad_state = True
     sta()
     captured = capsys.readouterr()
 
@@ -166,13 +166,13 @@ def test_sta_exception(default_session, capsys):
     errmsg = "Traceback (most recent call last):\n"
     assert errmsg in captured.err
 
-    errmsg = "RuntimeError: Error on motor 'bad': BAD POSITION\n"
+    errmsg = "RuntimeError: Error on motor 'bad': BAD STATE"
     assert errmsg in captured.err
 
 
 def test_stm_normal(default_session, capsys):
     bad = default_session.config.get("bad")
-    bad.controller.bad_position = False
+    bad.controller.bad_state = False
     stm("bad")
     captured = capsys.readouterr()
 
@@ -185,7 +185,7 @@ def test_stm_normal(default_session, capsys):
 
 def test_stm_exception(default_session, capsys):
     bad = default_session.config.get("bad")
-    bad.controller.bad_position = True
+    bad.controller.bad_state = True
     stm("bad")
     captured = capsys.readouterr()
 
@@ -198,7 +198,7 @@ def test_stm_exception(default_session, capsys):
     errmsg = "Traceback (most recent call last):\n"
     assert errmsg in captured.err
 
-    errmsg = "RuntimeError: Error on motor 'bad': BAD POSITION\n"
+    errmsg = "RuntimeError: Error on motor 'bad': BAD STATE"
     assert errmsg in captured.err
 
 

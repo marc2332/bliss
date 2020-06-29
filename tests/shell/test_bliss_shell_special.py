@@ -64,7 +64,7 @@ def test_shell_signature(beacon):
     session = beacon.get("test_session")
     session.setup(env_dict)
 
-    br = _run_incomplete("ascan(", env_dict)
+    br = _run_incomplete("ascan(", env_dict, slow=True)
 
     sb = [
         n
@@ -201,7 +201,7 @@ def test_shell_autocomplete_property():
     completions = _get_completion(br)
     assert completions == {}
 
-    br = _run_incomplete("tpc.z.", {"tpc": tpc})
+    br = _run_incomplete("tpc.z.", {"tpc": tpc}, slow=True)
     completions = _get_completion(br)
     assert "b" in completions
 
@@ -301,7 +301,7 @@ t = Test()
         loc,
     )
 
-    br = _run_incomplete("t.func(", {"t": loc["t"]})
+    br = _run_incomplete("t.func(", {"t": loc["t"]}, slow=True)
 
     sb = [
         n

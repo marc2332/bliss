@@ -45,8 +45,8 @@ A LimaChannelDataNode is represented by 4 Redis keys:
 
  {db_name} ->  see DataNode
  {db_name}_info -> see DataNode, with some extra keys like reference: True
- {db_name}_data_ref -> QueueObjSetting, the 'live' reference info
  {db_name}_data -> DataStream, list of reference data
+ {db_name}_data_ref -> QueueObjSetting, the 'live' reference info
 """
 import time
 import inspect

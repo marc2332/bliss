@@ -8,7 +8,6 @@
 import os
 import struct
 import math
-import pickle
 import numpy
 import typing
 from bliss.common.tango import DeviceProxy
@@ -16,6 +15,7 @@ from bliss.data.node import DataNode
 from bliss.data.events import EventData
 from bliss.config.settings import QueueObjSetting
 from silx.third_party.EdfFile import EdfFile
+from bliss.config import streaming_events
 
 try:
     import h5py
@@ -253,9 +253,9 @@ def read_image(proxy, image_nb: int) -> numpy.ndarray:
 
 
 class LimaDataView(object):
-    def __init__(self, data, data_ref, from_index, to_index, from_stream=False):
-        self.data = data
-        self.data_ref = data_ref
+    def __init__(self, queue, queue_ref, from_index, to_index, from_stream=False):
+        self._queue = queue
+        self._queue_ref = queue_ref
         self.from_index = from_index
         self.to_index = to_index
         self.last_image_ready = -1
@@ -263,23 +263,17 @@ class LimaDataView(object):
 
     @property
     def ref_status(self):
-        raw_data = self.data.rev_range(count=1)
-        if raw_data:
-            index, raw_event = raw_data[0]
-            return pickle.loads(raw_event[LimaImageChannelDataNode.DATA])
-        else:  # Lima acqusition is not yet started.
-            return {
-                "lima_acq_nb": -1,
-                "buffer_max_number": -1,
-                "last_image_acquired": -1,
-                "last_image_ready": -1,
-                "last_counter_ready": -1,
-                "last_image_saved": -1,
-            }
+        events = self._queue.rev_range(count=1)
+        if events:
+            index, raw = events[0]
+            ev = LimaImageChannelDataEvent(raw=raw)
+        else:  # Lima acqusition has not yet started.
+            ev = LimaImageChannelDataEvent({})
+        return ev.ref_status
 
     @property
     def ref_data(self):
-        return self.data_ref[0:]
+        return self._queue_ref[0:]
 
     @property
     def last_index(self):
@@ -294,7 +288,7 @@ class LimaDataView(object):
     def current_lima_acq(self):
         """ return the current server acquisition number
         """
-        cnx = self.data._cnx()
+        cnx = self._queue._cnx()
         lima_acq = cnx.get(self.server_url)
         return int(lima_acq if lima_acq is not None else -1)
 
@@ -508,15 +502,71 @@ class LimaDataView(object):
         raise IndexError("Cannot retrieve image %d from file" % image_nb)
 
 
+class LimaImageChannelDataEvent(streaming_events.StreamEvent):
+    TYPE = b"LIMACHANNELDATA"
+    REF_KEY = b"__REFSTATUS__"
+
+    def init(self, ref_status):
+        """
+        :param dict description:
+        """
+        if not ref_status:
+            ref_status = {
+                "lima_acq_nb": -1,
+                "buffer_max_number": -1,
+                "last_image_acquired": -1,
+                "last_image_ready": -1,
+                "last_counter_ready": -1,
+                "last_image_saved": -1,
+            }
+        self.ref_status = ref_status
+
+    def _encode(self):
+        raw = super()._encode()
+        raw[self.REF_KEY] = self.generic_encode(self.ref_status)
+        return raw
+
+    def _decode(self, raw):
+        super()._decode(raw)
+        self.ref_status = self.generic_decode(raw[self.REF_KEY])
+
+    @property
+    def last_index(self):
+        # We can choose from:
+        #   last_image_acquired
+        #   last_image_ready (default for `LimaDataView.last_index`)
+        #   last_counter_ready
+        #   last_image_saved
+        return self.ref_status["last_image_ready"]
+
+    def get_data(self, from_index, ref_data):
+        """
+        :param int from_index:
+        :param HashObjSetting ref_data:
+        :returns list(tuple):
+        """
+        data = list()
+        to_index = self.last_index
+        if to_index >= from_index:
+            # These images are not necessarily saved already
+            image_nbs = list(range(from_index, to_index + 1))
+            try:
+                data = image_filenames(ref_data, image_nbs)
+            except RuntimeError:
+                # Images are not saved
+                data = list()
+        return data
+
+
 class LimaImageChannelDataNode(DataNode):
-    DATA = b"__data__"
+    _NODE_TYPE = "lima"
 
     def __init__(self, name, **keys):
         shape = keys.pop("shape", None)
         dtype = keys.pop("dtype", None)
         fullname = keys.pop("fullname", None)
 
-        DataNode.__init__(self, "lima", name, **keys)
+        DataNode.__init__(self, self._NODE_TYPE, name, **keys)
 
         if keys.get("create", False):
             self.info["shape"] = shape
@@ -532,15 +582,15 @@ class LimaImageChannelDataNode(DataNode):
             # no alias, name must be fullname
             self._struct.name = fullname
 
-        self.data = self.create_associated_stream("data", maxlen=1)
-        self.data_ref = QueueObjSetting(
+        self._queue = self.create_associated_stream("data", maxlen=1)
+        self._queue_ref = QueueObjSetting(
             f"{self.db_name}_data_ref", connection=self.db_connection
         )
         self.from_stream = False
 
         self._local_ref_status = dict()
         self._last_index = 1
-        self._stream_image_count = 0
+        self._stream_image_count = 0  # redis can't start at 0
 
     @property
     def shape(self):
@@ -569,8 +619,8 @@ class LimaImageChannelDataNode(DataNode):
             if to_index < 0 => to the end of acquisition
         """
         return LimaDataView(
-            self.data,
-            self.data_ref,
+            self._queue,
+            self._queue_ref,
             from_index,
             to_index if to_index is not None else from_index + 1,
             from_stream=self.from_stream,
@@ -578,43 +628,32 @@ class LimaImageChannelDataNode(DataNode):
 
     @property
     def ref_data(self):
-        return self.data_ref[0:]
+        # Redis QueueObjSetting to list(dict)
+        return self._queue_ref[0:]
 
     @property
     def images_per_file(self):
         return self.ref_data[0].get("saving_frame_per_file")
 
     def decode_raw_events(self, events):
-        """
-        transform internal Stream into data
-        raw_datas -- should be the return of xread or xrange.
+        """Decode raw stream data and get image URI's.
+
+        :param list((index, raw)) events:
+        :returns EventData:
         """
         data = list()
         first_index = -1
         ref_status = None
         if events:
-            # The number of events is NOT equal to  the number of images
+            # The number of events is NOT equal to the number of images
             # The number of images can be derived from the event data though
-            index, raw_data = events[-1]
-            ref_status = pickle.loads(raw_data[self.DATA])
+            # TODO: this requires to keep using the same DataNode instance!!!
+            index, raw = events[-1]
+            ev = LimaImageChannelDataEvent(raw=raw)
+            ref_status = ev.ref_status
             first_index = self._stream_image_count
-            # We can choose from:
-            #   last_image_acquired
-            #   last_image_ready (default for `LimaDataView.last_index`)
-            #   last_counter_ready
-            #   last_image_saved
-            last_index = ref_status["last_image_ready"]
-            if last_index >= first_index:
-                # Data: filenames of new images since the last call to `decode_raw_events`
-                # These images are not necessarily saved already
-                image_nbs = list(range(first_index, last_index + 1))
-                try:
-                    data = image_filenames(self.ref_data[0], image_nbs)
-                except RuntimeError:
-                    # Images are not saved
-                    data = list()
-                else:
-                    self._stream_image_count = last_index + 1
+            data = ev.get_data(first_index, self.ref_data[0])
+            self._stream_image_count += len(data)
         return EventData(first_index=first_index, data=data, description=ref_status)
 
     def store(self, event_dict, cnx=None):
@@ -631,11 +670,8 @@ class LimaImageChannelDataNode(DataNode):
             )
         else:  # during acquisition
             self._local_ref_status.update(data)
-            self.data.add(
-                {self.DATA: pickle.dumps(self._local_ref_status)},
-                id=self._last_index,
-                cnx=cnx,
-            )
+            ev = LimaImageChannelDataEvent(self._local_ref_status)
+            self._queue.add_event(ev, id=self._last_index, cnx=cnx)
             self._last_index += 1
 
     def add_reference_data(self, ref_data):
@@ -644,14 +680,14 @@ class LimaImageChannelDataNode(DataNode):
         In case of Lima, this corresponds to acquisition ref_data,
         in particular saving data
         """
-        self.data_ref.append(ref_data)
+        self._queue_ref.append(ref_data)
 
     def get_file_references(self):
         """
         Retrieve all files references for this data set
         """
         # take the last in list because it's should be the final
-        final_ref_data = self.data_ref[-1]
+        final_ref_data = self._queue_ref[-1]
         # in that case only one reference will be returned
         overwrite_policy = final_ref_data["overwritePolicy"].lower()
         if overwrite_policy == "multiset":
@@ -686,11 +722,11 @@ class LimaImageChannelDataNode(DataNode):
         db_names.append(self.db_name + "_data")
         db_names.append(self.db_name + "_data_ref")
 
-        raw_data = self.data.range(count=1)
-        if raw_data:
-            index, raw_event = raw_data[0]
-            raw_ref = pickle.loads(raw_event[self.DATA])
-            url = raw_ref.get("server_url")
+        events = self._queue.range(count=1)
+        if events:
+            index, raw = events[0]
+            ev = LimaImageChannelDataEvent(raw=raw)
+            url = ev.ref_status.get("server_url")
             if url is not None:
                 db_names.append(url)
         return db_names

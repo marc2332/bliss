@@ -128,7 +128,7 @@ class ChannelDataNode(DataNode):
         DataNode.__init__(self, self._NODE_TYPE, name, info=info, **keys)
 
         self._queue = self.create_associated_stream("data", maxlen=CHANNEL_MAX_LEN)
-        self._last_index = 1  # redis can't starts at 0
+        self._last_index = 1  # redis can't start at 0
 
     def _create_struct(self, db_name, name, node_type):
         # fix the channel name
@@ -184,9 +184,9 @@ class ChannelDataNode(DataNode):
         """Returns and item or a slice.
 
         :param int from_index: positive integer
-        :param int or None to_index: positive integer (get slice until and including this index),
+        :param int or None to_index: >= 0 (get slice until and including this index),
+                                     < 0 (get slice until the end)
                                      None (get item at index from_index)
-                                     -1 (get slice until the end)
         :returns numpy.ndarray, list, scalar, None or callable: only a list when no data
         """
         if from_index is None:

@@ -278,7 +278,7 @@ def test_reference_with_lima(redis_data_conn, lima_session, with_roi):
     )
     index, ref_status = stream_status.rev_range(count=1)[0]
 
-    live_ref_status = pickle.loads(ref_status.get(b"__data__"))
+    live_ref_status = pickle.loads(ref_status.get(b"__REFSTATUS__"))
     assert live_ref_status["last_image_saved"] == 2  # npoints-1
 
 

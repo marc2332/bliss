@@ -21,14 +21,9 @@ class cs8tango(Controller):
 
     def state(self, axis):
         with self._lock:
-            return (
-                AxisState("MOVING")
-                if setup_globals.robodiff.robot.getCachedVariable(
-                    "TaskStatus"
-                ).getValue()
-                != "-1"
-                else AxisState("READY")
-            )
+            r = setup_globals.robodiff.robot
+            value = r.getCachedVariable("TaskStatus").getValue()
+            return AxisState("MOVING") if value != "-1" else AxisState("READY")
 
     def stop(self, axis):
         with self._lock:

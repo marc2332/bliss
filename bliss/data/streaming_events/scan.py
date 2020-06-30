@@ -5,7 +5,12 @@
 # Copyright (c) 2015-2020 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-"""Data management
 
-   node data types that map to structure in redis
-"""
+from bliss.config import streaming_events
+
+__all__ = ["EndScanEvent"]
+
+
+class EndScanEvent(streaming_events.EndEvent):
+
+    TYPE = b"END_SCAN"

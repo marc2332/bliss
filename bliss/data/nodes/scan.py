@@ -10,6 +10,7 @@ import datetime
 import pickle
 from bliss.data.node import DataNodeContainer
 from bliss.data.events import EventData
+from bliss.data.streaming_events import EndScanEvent
 from bliss.config import settings
 from bliss.config import streaming_events
 
@@ -45,11 +46,6 @@ def _transform(var):
 def pickle_dump(var):
     var = _transform(var)
     return pickle.dumps(var)
-
-
-class EndScanEvent(streaming_events.EndEvent):
-
-    TYPE = b"END_SCAN"
 
 
 class Scan(DataNodeContainer):

@@ -7,9 +7,8 @@
 
 from bliss.data.node import DataNode
 from bliss.data.events import EventData
-from bliss.config import streaming_events
+from bliss.data.streaming_events import ChannelDataEvent
 import numpy
-import pickle
 
 # Default length of published channels
 CHANNEL_MAX_LEN = 2048
@@ -32,80 +31,6 @@ def as_array(sequence, dtype):
         for src, dest in zip(sequence, arr):
             dest[: len(src)] = src
         return arr
-
-
-class ChannelDataEvent(streaming_events.StreamEvent):
-    TYPE = b"CHANNELDATA"
-    DATA_KEY = b"__DATA__"
-    DESC_KEY = b"__DESC__"
-    NPOINTS_KEY = b"__NPOINTS__"
-
-    def init(self, data, description):
-        """
-        :param Any data:
-        :param dict description:
-        """
-        self.description = description
-        self.data = data
-
-    @property
-    def shape(self):
-        return self.description["shape"]
-
-    @property
-    def ndim(self):
-        return len(self.shape)
-
-    @property
-    def dtype(self):
-        return self.description["dtype"]
-
-    @property
-    def data(self):
-        """Sequence of items when npoints>1, else an item.
-        An item can be itself a sequence.
-        """
-        return self._data
-
-    @property
-    def npoints(self):
-        return self._npoints
-
-    @data.setter
-    def data(self, value):
-        if isinstance(value, numpy.ndarray):
-            if self.ndim == value.ndim:
-                # Only one data point provided
-                npoints = 1
-            else:
-                # Each element is a new data point
-                npoints = len(value)
-                if npoints == 1:
-                    value = value[0]
-        elif isinstance(value, (list, tuple)):
-            # Each element is a new data point
-            npoints = len(value)
-            value = numpy.array(value, dtype=self.dtype)
-            if npoints == 1:
-                value = value[0]
-        else:
-            # Only one data point provided
-            npoints = 1
-        self._data = value
-        self._npoints = npoints
-
-    def _encode(self):
-        raw = super()._encode()
-        raw[self.DESC_KEY] = self.generic_encode(self.description)
-        raw[self.NPOINTS_KEY] = self.encode_integral(self._npoints)
-        raw[self.DATA_KEY] = self.generic_encode(self._data)
-        return raw
-
-    def _decode(self, raw):
-        super()._decode(raw)
-        self.description = self.generic_decode(raw[self.DESC_KEY])
-        self._npoints = self.decode_integral(raw[self.NPOINTS_KEY])
-        self._data = self.generic_decode(raw[self.DATA_KEY])
 
 
 class ChannelDataNodeBase(DataNode):
@@ -361,27 +286,26 @@ class ChannelDataNode(ChannelDataNodeBase):
         :param list((index, raw)) events:
         :returns EventData:
         """
-        data = list()
-        descriptions = list()
+        data = []
         first_index = -1
+        description = {}
         dtype = None
-        npoints = 0
         for i, (index, raw) in enumerate(events):
             ev = ChannelDataEvent(raw=raw)
             if i == 0:
                 first_index = int(index.split(b"-")[0]) - 1
                 dtype = ev.dtype
-                npoints = ev.npoints
+                description = ev.description
             if ev.npoints == 1:
                 data.append(ev.data)
             else:
                 data.extend(ev.data)
-            descriptions.append(ev.description)
+        npoints = len(data)
         data = as_array(data, dtype)
         return EventData(
             first_index=first_index,
             data=data,
-            description=descriptions,
+            description=description,
             block_size=npoints,
         )
 

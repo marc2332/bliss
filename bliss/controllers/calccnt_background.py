@@ -88,6 +88,7 @@ class BackgroundCalcCounterController(CalcCounterController):
             cnt = self.get_input_counter_from_tag(tag)
             background = self.background_setting[tag]
             if isinstance(cnt, IntegratingCounter):
+                background /= self.background_setting["background_time"]
                 background *= self._integration_time
             value[tag] = input_dict[tag] - background
 

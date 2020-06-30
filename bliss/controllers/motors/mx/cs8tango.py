@@ -1,12 +1,7 @@
 from bliss import setup_globals
 from bliss.controllers.motor import Controller
-from bliss.common.event import dispatcher
 from bliss.common.axis import AxisState
-import gevent
 import gevent.lock
-import time
-import types
-import sys
 
 
 class cs8tango(Controller):

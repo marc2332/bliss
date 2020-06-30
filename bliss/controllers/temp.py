@@ -395,7 +395,7 @@ class Controller:
         Returns:
            kd value
         """
-        log_info(self, "Controller:read_kd: %s" % (toutput))
+        log_info(self, "Controller:read_kd: %s" % (tloop))
         raise NotImplementedError
 
     def set(self, toutput, sp, **kwargs):

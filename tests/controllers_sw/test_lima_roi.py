@@ -11,6 +11,8 @@ class LimParams(NamedTuple):
     flip: Tuple[bool, bool]
     binning: Tuple[int, int]
     roi: Tuple[int, int, int, int]
+    # Expected roi when retrieving it from Lima
+    expected_roi: Optional[Tuple[int, int, int, int]] = None
 
 
 LimParamList = [
@@ -26,6 +28,7 @@ LimParamList = [
     LimParams("270", (False, True), (1, 1), (0, 0, 1024, 1024)),
     LimParams("90", (True, False), (2, 2), (10, 20, 30, 40)),
     LimParams("90", (True, False), (30, 30), (2, 3, 5, 6)),
+    LimParams("NONE", (False, False), (1, 1), (0, 0, 0, 0), (0, 0, 1024, 1024)),
 ]
 
 
@@ -43,6 +46,10 @@ def test_lima_roi(beacon, lima_simulator, lima_params):
     flip = ls.image.flip
     binning = ls.image.binning
 
+    expected_roi = lima_params.expected_roi
+    if expected_roi is not None:
+        assert all(expected_roi == roi)
+
     ffrefroi = ls._image_params._calc_roi(roi, rot, flip, binning, inverse=True)
 
     ls.proxy.image_bin = [1, 1]
@@ -51,10 +58,12 @@ def test_lima_roi(beacon, lima_simulator, lima_params):
 
     assert all(ffrefroi == ls.proxy.image_roi)
 
-    reverse = ls._image_params._calc_roi(
-        ffrefroi, ls.image.rotation, ls.image.flip, ls.image.binning
-    )
-    assert all(reverse == numpy.array(lima_params.roi))
+    if expected_roi is None or numpy.allclose(expected_roi, lima_params.roi):
+        # If the roi param looks reversible
+        reverse = ls._image_params._calc_roi(
+            ffrefroi, ls.image.rotation, ls.image.flip, ls.image.binning
+        )
+        assert all(reverse == numpy.array(lima_params.roi))
 
 
 @pytest.fixture

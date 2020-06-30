@@ -98,7 +98,7 @@ class DataStream(BaseSetting):
             connection = cnx
         return connection.xrange(self.name, min=from_index, max=to_index, count=count)
 
-    def rev_range(self, from_index="+", to_index="-", count=None):
+    def rev_range(self, from_index="+", to_index="-", count=None, cnx=None):
         """
         Read stream values.
         from_index -- maximum index (default `+` last one)
@@ -107,7 +107,11 @@ class DataStream(BaseSetting):
 
         return a list tuple with (index,dict_values)
         """
-        return self.connection.xrevrange(
+        if cnx is None:
+            connection = self.connection
+        else:
+            connection = cnx
+        return connection.xrevrange(
             self.name, max=from_index, min=to_index, count=count
         )
 

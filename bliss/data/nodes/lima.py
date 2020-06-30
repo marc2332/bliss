@@ -262,6 +262,10 @@ class LimaDataView:
         self.from_stream = from_stream
 
     @property
+    def connection(self):
+        return self._queue._cnx()
+
+    @property
     def ref_status(self):
         events = self._queue.rev_range(count=1)
         if events:
@@ -292,8 +296,7 @@ class LimaDataView:
     def current_lima_acq(self):
         """ return the current server acquisition number
         """
-        cnx = self._queue._cnx()
-        lima_acq = cnx.get(self.server_url)
+        lima_acq = self.connection.get(self.server_url)
         return int(lima_acq if lima_acq is not None else -1)
 
     def _get_proxy(self):

@@ -77,6 +77,11 @@ class Scan(DataNodeContainer):
             self._sync_stream.add_event(event)
 
     def decode_raw_events(self, events):
+        """Decode raw stream data
+
+        :param list((index, raw)) events:
+        :returns EventData:
+        """
         for index, raw in events:
             event = streaming_events.StreamEvent.factory(raw)
             if isinstance(event, EndScanEvent):
@@ -122,6 +127,20 @@ class Scan(DataNodeContainer):
             # Default priority is 1
             kw["priority"] = 1
         super().subscribe_stream(stream_suffix, reader, **kw)
+
+    def _subscribe_on_new_node_after_yield(
+        self, reader, filter, first_index, yield_events
+    ):
+        """
+        :param DataStreamReader reader:
+        :param tuple filter: only these DataNode types are allowed (all by default)
+        :param str or int first_index: Redis stream ID
+        :param bool yield_events:
+        """
+        super()._subscribe_on_new_node_after_yield(
+            reader, filter, first_index, yield_events
+        )
+        self.subscribe_stream("data", reader, first_index=0)
 
 
 def get_data_from_nodes(pipeline, *nodes):

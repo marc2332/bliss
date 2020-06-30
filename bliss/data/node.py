@@ -454,107 +454,109 @@ class DataNode:
             filter = (filter,)
         elif filter:
             filter = tuple(filter)
-        if yield_events:
-            new_child_func = self._yield_events
-        else:
-            new_child_func = self._yield_nodes
         self.subscribe_initial_streams(
             reader, first_index=first_index, yield_data=yield_events
         )
         for stream, events in reader:
             if stream.name.endswith("_children_list"):
-                children = self._read_children_stream(stream_events=events)
-                new_stream = [
-                    self.create_stream(f"{name}_children_list") for name in children
-                ]
-                reader.add_streams(*new_stream, first_index=first_index)
-                yield from new_child_func(reader, filter, stream, children, first_index)
+                yield from self._iter_children_stream_events(
+                    reader, filter, stream, events, yield_events, first_index
+                )
             else:
-                yield from self._iter_data_events(
-                    reader, filter, stream, events, yield_events=yield_events
+                node = reader.get_stream_info(stream, "node")
+                yield from node._iter_data_stream_events(
+                    reader, filter, events, yield_events
                 )
 
-    def _iter_data_events(self, reader, filter, stream, events, yield_events=False):
+    def _filtered_out(self, filter):
+        return filter and self.type not in filter
+
+    def _iter_children_stream_events(
+        self, reader, filter, stream, events, yield_events, first_index
+    ):
         """
         :param DataStreamReader reader:
         :param tuple filter: only these DataNode types are allowed (all by default)
         :param DataStream stream:
         :param list(tuple) events:
         :param bool yield_events:
-        :yields Event:
-        """
-        node = reader.get_stream_info(stream, "node")
-        allowed = not filter or node.type in filter
-        if node.type in SCAN_TYPES:
-            if yield_events and allowed:
-                with AllowKill():
-                    data = node.decode_raw_events(events)
-                    yield Event(type=EventType.END_SCAN, node=node, data=data)
-            # Stop reading events from the scan
-            reader.remove_matching_streams(f"{node.db_name}*")
-        else:
-            if yield_events and allowed:
-                with AllowKill():
-                    data = node.decode_raw_events(events)
-                    yield Event(type=EventType.NEW_DATA, node=node, data=data)
-
-    def _yield_nodes(self, reader, filter, stream, children, first_index):
-        """
-        :param DataStreamReader reader:
-        :param tuple filter: only these DataNode types are allowed (all by default)
-        :param DataStream stream:
-        :param dict children: db_name -> stream ID
         :param str or int first_index: Redis stream ID
         :yields DataNode:
         """
-        for db_name, node in self._iter_new_children(stream, children):
+        children = self._read_children_stream(events=events)
+        new_streams = [self.create_stream(f"{name}_children_list") for name in children]
+        reader.add_streams(*new_streams, first_index=first_index)
+        for node in self._iter_new_children(stream, children):
+            yield from node._yield_on_new_node(
+                reader, filter, first_index, yield_events
+            )
 
-            if not filter or node.type in filter:
-                with AllowKill():
-                    yield node
-
-            if node.type in SCAN_TYPES:
-                node.subscribe_existing_children_streams(
-                    "children_list",
-                    reader,
-                    include_parent=True,
-                    first_index=first_index,
-                )
-                node.subscribe_stream("data", reader, first_index=0)
-
-    def _yield_events(self, reader, filter, stream, children, first_index):
+    def _yield_on_new_node(self, reader, filter, first_index, yield_events):
         """
         :param DataStreamReader reader:
         :param tuple filter: only these DataNode types are allowed (all by default)
-        :param DataStream stream:
-        :param dict children: node.db_name -> stream ID
         :param str or int first_index: Redis stream ID
+        :param bool yield_events:
+        """
+        if self._filtered_out(filter):
+            return
+        self._subscribe_on_new_node_before_yield(
+            reader, filter, first_index, yield_events
+        )
+        if yield_events:
+            with AllowKill():
+                yield Event(type=EventType.NEW_NODE, node=self)
+        else:
+            with AllowKill():
+                yield self
+        self._subscribe_on_new_node_after_yield(
+            reader, filter, first_index, yield_events
+        )
+
+    def _subscribe_on_new_node_before_yield(
+        self, reader, filter, first_index, yield_events
+    ):
+        """
+        :param DataStreamReader reader:
+        :param tuple filter: only these DataNode types are allowed (all by default)
+        :param str or int first_index: Redis stream ID
+        :param bool yield_events:
+        """
+        if yield_events:
+            self.subscribe_stream("data", reader, first_index=0)
+
+    def _subscribe_on_new_node_after_yield(
+        self, reader, filter, first_index, yield_events
+    ):
+        """
+        :param DataStreamReader reader:
+        :param tuple filter: only these DataNode types are allowed (all by default)
+        :param str or int first_index: Redis stream ID
+        :param bool yield_events:
+        """
+        pass
+
+    def _iter_data_stream_events(self, reader, filter, events, yield_events):
+        """
+        :param DataStreamReader reader:
+        :param tuple filter: only these DataNode types are allowed (all by default)
+        :param list(tuple) events:
+        :param bool yield_events:
         :yields Event:
         """
-        for db_name, node in self._iter_new_children(stream, children):
-
-            if not filter or node.type in filter:
-                if node.type not in SCAN_TYPES:
-                    node.subscribe_stream("data", reader, first_index=0)
-                with AllowKill():
-                    yield Event(type=EventType.NEW_NODE, node=node)
-
-            if node.type in SCAN_TYPES:
-                node.subscribe_existing_children_streams(
-                    "children_list",
-                    reader,
-                    include_parent=True,
-                    first_index=first_index,
-                )
-                node.subscribe_existing_children_streams(
-                    "data",
-                    reader,
-                    include_parent=False,
-                    first_index=0,
-                    forbidden_types=SCAN_TYPES,  # TODO why?
-                    allowed_types=filter,
-                )
-                node.subscribe_stream("data", reader, first_index=0)
+        # TODO: better way when events are fully replaced with stream events
+        isend = streaming_events.EndEvent.istype(events[0][1])
+        if yield_events and not self._filtered_out(filter):
+            data = self.decode_raw_events(events)  # EventData
+            if isend:
+                evtype = EventType.END_SCAN
+            else:
+                evtype = EventType.NEW_DATA
+            with AllowKill():
+                yield Event(type=evtype, node=self, data=data)
+        if isend:
+            # Stop reading events this node and its children
+            reader.remove_matching_streams(f"{self.db_name}*")
 
     def _get_last_child(self, filter=None):
         """Get the last child added to the _children_list stream
@@ -665,39 +667,36 @@ class DataNodeContainer(DataNode):
         """
         :param DataStream stream:
         :param dict node_dict: node.db_name -> stream index
-        :yields 2-tuple: (db_name(str), node(DataNode))
+        :yields DataNode:
         """
         with settings.pipeline(stream):
             for (db_name, index), node in zip(
                 node_dict.items(), self.get_nodes(*node_dict)
             ):
                 if node is None:
-                    # Why would that happen?
+                    # TODO: why would this happen?
                     stream.remove(index)
                 else:
-                    yield db_name, node
+                    yield node
 
-    def _read_children_stream(self, stream_events=None):
+    def _read_children_stream(self, events=None):
         """Get direct children from Redis
 
         :param dict events: list((streamID, dict))
-        :returns dict: db_name -> stream ID
+        :returns dict: node.db_name -> stream ID
         """
-        if stream_events is None:
-            stream_events = self._children_stream.range()
-        return {
-            NewDataNodeEvent.factory(raw).db_name: index for index, raw in stream_events
-        }
+        if events is None:
+            events = self._children_stream.range()
+        return {NewDataNodeEvent.factory(raw).db_name: index for index, raw in events}
 
     def children(self):
-        """Iter over children.
+        """Children node iterator
 
-        @return an iterator
+        yields DataNode
         """
-        for db_name, node in self._iter_new_children(
+        yield from self._iter_new_children(
             self._children_stream, self._read_children_stream()
-        ):
-            yield node
+        )
 
     def _get_db_names(self):
         db_names = super()._get_db_names()
@@ -780,7 +779,7 @@ class DataNodeContainer(DataNode):
             forbidden_prefixes = [
                 node.db_name
                 for node in nodes
-                if node is not None and node.type in SCAN_TYPES
+                if node is not None and node.type in forbidden_types
             ]
         else:
             forbidden_prefixes = []
@@ -805,3 +804,35 @@ class DataNodeContainer(DataNode):
         """For hierarchical sort of node names
         """
         return db_name.count(":")
+
+    def _subscribe_on_new_node_before_yield(
+        self, reader, filter, first_index, yield_events
+    ):
+        """
+        :param DataStreamReader reader:
+        :param tuple filter: only these DataNode types are allowed (all by default)
+        :param str or int first_index: Redis stream ID
+        :param bool yield_events:
+        """
+        pass
+
+    def _subscribe_on_new_node_after_yield(
+        self, reader, filter, first_index, yield_events
+    ):
+        """
+        :param DataStreamReader reader:
+        :param tuple filter: only these DataNode types are allowed (all by default)
+        :param str or int first_index: Redis stream ID
+        :param bool yield_events:
+        """
+        self.subscribe_existing_children_streams(
+            "children_list", reader, include_parent=True, first_index=first_index
+        )
+        if yield_events:
+            self.subscribe_existing_children_streams(
+                "data",
+                reader,
+                include_parent=False,
+                first_index=0,
+                allowed_types=filter,
+            )

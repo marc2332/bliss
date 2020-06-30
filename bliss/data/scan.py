@@ -14,7 +14,6 @@ from bliss.common.counter import Counter
 from bliss.common.axis import Axis
 from bliss.data.nodes.scan import get_data_from_nodes
 from bliss.data.node import _get_or_create_node
-
 from bliss.common.utils import get_matching_names
 
 

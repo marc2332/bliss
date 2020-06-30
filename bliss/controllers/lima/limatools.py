@@ -161,7 +161,7 @@ def limatake(
         data_watch_callback=LimaTakeDisplay(*limadevs),
     )
     print(scan.acq_chain._tree)
-    if run == True:
+    if run:
         scan.run()
 
     return scan

@@ -181,14 +181,14 @@ class ExportToLogBookAction(PlotAction):
             with open(filename, "rb") as f:
                 data = f.read()
             os.unlink(filename)
-        except:
+        except Exception:
             _logger.error("Error while creating the screenshot", exc_info=True)
             raise Exception("Error while creating the screenshot")
         data = b"data:image/png;base64," + base64.b64encode(data)
         try:
             tangoMetadata = self.__state.tangoMetadata()
             tangoMetadata.uploadBase64(data)
-        except:
+        except Exception:
             _logger.error("Error while sending the screenshot", exc_info=True)
             raise Exception("Error while sending the screenshot")
 

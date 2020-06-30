@@ -84,7 +84,7 @@ def get_data_from_redis(
             continue
         try:
             data = node.get_as_array(0, -1)
-        except:
+        except Exception:
             # It is supposed to fail if part of the measurements was dropped
             _logger.debug("Backtrace", exc_info=True)
             _logger.warning("Data from channel %s is not reachable", node.name)

@@ -75,7 +75,9 @@ def fit_gaussian(xx: numpy.ndarray, yy: numpy.ndarray) -> GaussianFitResult:
     p0 = [pos, std, height, background]
 
     # Distance to the target function
-    errfunc = lambda p, x, y: _gaussian(x, p) - y
+    def errfunc(p, x, y):
+        return _gaussian(x, p) - y
+
     p1, success = scipy.optimize.leastsq(errfunc, p0[:], args=(xx, yy))
     if not success:
         raise ValueError("Input data can't be fitted")

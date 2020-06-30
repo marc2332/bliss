@@ -147,9 +147,9 @@ def test_motor_position_in_plot(test_session_with_flint):
     flint = plot.get_flint()
     import logging
 
-    l = logging.getLogger("flint.output")
-    l.disabled = False
-    l.setLevel(logging.INFO)
+    logger = logging.getLogger("flint.output")
+    logger.disabled = False
+    logger.setLevel(logging.INFO)
 
     plot.plotselect(diode)
     scan = ascan(roby, 0, 5, 5, 0.001, diode)

@@ -34,7 +34,7 @@ class TestLiveWindow(TestCaseQt):
 
     def test_display_nothing(self):
         # Construct the widget
-        with self.use_widget() as _widget:
+        with self.use_widget():
             pass
 
     def test_feed_default_layout(self):

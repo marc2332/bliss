@@ -99,24 +99,19 @@ class LimaImageParameters(BeaconObject):
 
         # to disable black on a block of code use fmt: off, fmt: on
         # fmt: off
-        rot_mat = {'NONE' : numpy.array([[1,0],
-                                         [0,1]]),
-                     '90' : numpy.array([[0,-1],
-                                         [1,0 ]]),
-                    '180' : numpy.array([[-1,0 ],
-                                         [0 ,-1]]),
-                    '270' : numpy.array([[0 ,1],
-                                         [-1,0]])}
-                                
-                                                    [0 ,-1]])}
-                                        
-        bin_mat = numpy.array([[1./binning[0],0         ],
-                               [0,         1./binning[1]]])
+        rot_mat = {'NONE': numpy.array([[1, 0], [0, 1]]),
+                   '90': numpy.array([[0, -1], [1, 0]]),
+                   '180': numpy.array([[-1, 0], [0, -1]]),
+                   '270': numpy.array([[0, 1], [-1, 0]]),
+                   }
+
         flip_mat = {(False, False): numpy.array([[1, 0], [0, 1]]),
                     (False, True): numpy.array([[1, 0], [0, -1]]),
                     (True, False): numpy.array([[-1, 0], [0, 1]]),
                     (True, True): numpy.array([[-1, 0], [0, -1]]),
                     }
+
+        bin_mat = numpy.array([[1. / binning[0], 0], [0, 1. / binning[1]]])
         # fmt: on
 
         # init stuff

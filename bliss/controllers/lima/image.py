@@ -108,17 +108,15 @@ class LimaImageParameters(BeaconObject):
                     '270' : numpy.array([[0 ,1],
                                          [-1,0]])}
                                 
-        flip_mat = {str([False,False]):numpy.array([[1,0],
-                                                    [0,1]]),
-                    str([False,True ]):numpy.array([[1 ,0],
-                                                    [0,-1]]),
-                    str([True, False]):numpy.array([[-1,0],
-                                                    [0 ,1]]),
-                    str([True, True ]):numpy.array([[-1,0 ],
                                                     [0 ,-1]])}
                                         
         bin_mat = numpy.array([[1./binning[0],0         ],
                                [0,         1./binning[1]]])
+        flip_mat = {(False, False): numpy.array([[1, 0], [0, 1]]),
+                    (False, True): numpy.array([[1, 0], [0, -1]]),
+                    (True, False): numpy.array([[-1, 0], [0, 1]]),
+                    (True, True): numpy.array([[-1, 0], [0, -1]]),
+                    }
         # fmt: on
 
         # init stuff
@@ -126,7 +124,7 @@ class LimaImageParameters(BeaconObject):
         res = numpy.zeros(4)
 
         # define full transformation matrix
-        op = numpy.dot(flip_mat[str(flip)], bin_mat)
+        op = numpy.dot(flip_mat[tuple(flip)], bin_mat)
         op = numpy.dot(rot_mat[rot], op)
 
         if inverse:

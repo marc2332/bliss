@@ -150,7 +150,13 @@ from bliss.comm.util import get_comm, SERIAL
 from bliss.controllers.motor import Controller
 from bliss.common.utils import object_method
 from bliss.common.utils import object_attribute_get, object_attribute_set
-from bliss.common.logtools import *
+from bliss.common.logtools import (
+    log_debug,
+    log_info,
+    log_warning,
+    log_error,
+    log_exception,
+)
 
 # In the motor-controller class 'micos' the functions/methods
 # are set in groups according to on-line doc

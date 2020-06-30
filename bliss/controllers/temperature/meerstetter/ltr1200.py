@@ -25,7 +25,7 @@
         - name: heater
 
 """
-from bliss.common.logtools import *
+from bliss.common.logtools import log_info, log_debug
 from bliss.controllers.temp import Controller
 
 # TODO: see if need to add Input and Loop

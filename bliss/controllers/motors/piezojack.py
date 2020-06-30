@@ -11,7 +11,7 @@ from numpy import arange
 import sys
 
 from bliss.controllers.motor import Controller
-from bliss.common.logtools import *
+from bliss.common.logtools import log_info, log_debug
 
 import bliss.common.motor_settings as settings
 

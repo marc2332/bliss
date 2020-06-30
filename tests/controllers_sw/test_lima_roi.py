@@ -2,24 +2,30 @@ import numpy
 import pytest
 import fabio
 
-from collections import namedtuple
+from typing import NamedTuple, Tuple, Optional
 from bliss.common.scans import ct, loopscan
 
-LimParams = namedtuple("LimParams", ["rotation", "flip", "binning", "roi"])
+
+class LimParams(NamedTuple):
+    rotation: str
+    flip: Tuple[bool, bool]
+    binning: Tuple[int, int]
+    roi: Tuple[int, int, int, int]
+
 
 LimParamList = [
-    LimParams("90", [True, False], [1, 1], [1, 2, 3, 4]),
-    LimParams("180", [True, True], [1, 1], [1, 2, 3, 4]),
-    LimParams("90", [False, True], [1, 1], [1, 2, 3, 4]),
-    LimParams("270", [False, True], [1, 1], [1, 2, 3, 4]),
-    LimParams("NONE", [False, False], [1, 1], [1, 2, 3, 4]),
-    LimParams("90", [True, False], [1, 1], [600, 700, 400, 300]),
-    LimParams("90", [True, False], [1, 1], [0, 0, 10, 20]),
-    LimParams("180", [False, True], [1, 1], [0, 0, 10, 20]),
-    LimParams("270", [True, True], [1, 1], [0, 0, 10, 20]),
-    LimParams("270", [False, True], [1, 1], [0, 0, 1024, 1024]),
-    LimParams("90", [True, False], [2, 2], [10, 20, 30, 40]),
-    LimParams("90", [True, False], [30, 30], [2, 3, 5, 6]),
+    LimParams("90", (True, False), (1, 1), (1, 2, 3, 4)),
+    LimParams("180", (True, True), (1, 1), (1, 2, 3, 4)),
+    LimParams("90", (False, True), (1, 1), (1, 2, 3, 4)),
+    LimParams("270", (False, True), (1, 1), (1, 2, 3, 4)),
+    LimParams("NONE", (False, False), (1, 1), (1, 2, 3, 4)),
+    LimParams("90", (True, False), (1, 1), (600, 700, 400, 300)),
+    LimParams("90", (True, False), (1, 1), (0, 0, 10, 20)),
+    LimParams("180", (False, True), (1, 1), (0, 0, 10, 20)),
+    LimParams("270", (True, True), (1, 1), (0, 0, 10, 20)),
+    LimParams("270", (False, True), (1, 1), (0, 0, 1024, 1024)),
+    LimParams("90", (True, False), (2, 2), (10, 20, 30, 40)),
+    LimParams("90", (True, False), (30, 30), (2, 3, 5, 6)),
 ]
 
 
@@ -58,18 +64,18 @@ def lima_tmpdir(tmpdir):
 
 
 LimParamList2 = [
-    LimParams("90", [True, False], [1, 1], [1, 2, 3, 4]),
-    LimParams("180", [True, True], [1, 1], [1, 2, 3, 4]),
-    # LimParams("90", [False, True], [1, 1], [1, 2, 3, 4]),
-    # LimParams("270", [False, True], [1, 1], [1, 2, 3, 4]),
-    LimParams("NONE", [False, False], [1, 1], [1, 2, 3, 4]),
-    LimParams("90", [True, False], [1, 1], [60, 70, 40, 30]),
-    LimParams("90", [True, False], [1, 1], [0, 0, 10, 20]),
-    LimParams("180", [False, True], [1, 1], [0, 0, 10, 20]),
-    # LimParams("270", [True, True], [1, 1], [0, 0, 10, 20]),
-    LimParams("270", [False, True], [1, 1], [0, 0, 1475, 195]),
-    # LimParams("90", [True, False], [2, 2], [10, 20, 30, 40]),
-    # LimParams("90", [True, False], [30, 30], [2, 3, 5, 6]),
+    LimParams("90", (True, False), (1, 1), (1, 2, 3, 4)),
+    LimParams("180", (True, True), (1, 1), (1, 2, 3, 4)),
+    # LimParams("90", (False, True), (1, 1), (1, 2, 3, 4)),
+    # LimParams("270", (False, True), (1, 1), (1, 2, 3, 4)),
+    LimParams("NONE", (False, False), (1, 1), (1, 2, 3, 4)),
+    LimParams("90", (True, False), (1, 1), (60, 70, 40, 30)),
+    LimParams("90", (True, False), (1, 1), (0, 0, 10, 20)),
+    LimParams("180", (False, True), (1, 1), (0, 0, 10, 20)),
+    # LimParams("270", (True, True), (1, 1), (0, 0, 10, 20)),
+    LimParams("270", (False, True), (1, 1), (0, 0, 1475, 195)),
+    # LimParams("90", (True, False), (2, 2), (10, 20, 30, 40)),
+    # LimParams("90", (True, False), (30, 30), (2, 3, 5, 6)),
 ]
 
 

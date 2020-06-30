@@ -268,9 +268,8 @@ class micos(Controller):
         except ValueError:
             try:
                 serial_line = self.config.get("serial")
-                warn(
-                    "'serial_line' keyword is deprecated. Use 'serial' instead",
-                    DeprecationWarning,
+                log_warning(
+                    self, "'serial_line' keyword is deprecated. Use 'serial' instead"
                 )
                 comm_cfg = {"serial": {"url": serial_line}}
                 self.serial = get_comm(comm_cfg, timeout=1)

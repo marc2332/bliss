@@ -113,7 +113,7 @@ class ChannelDataNodeBase(DataNode):
 
     def __init__(self, name, **kwargs):
         super().__init__(self._NODE_TYPE, name, **kwargs)
-        self._queue = self.create_associated_stream("data", maxlen=CHANNEL_MAX_LEN)
+        self._queue = self._create_stream("data", maxlen=CHANNEL_MAX_LEN)
         self._last_index = 1  # redis can't start at 0
 
     def _init_info(self, **kwargs):

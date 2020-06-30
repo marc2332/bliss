@@ -57,7 +57,7 @@ class Scan(DataNodeContainer):
 
     def __init__(self, name, **kwargs):
         DataNodeContainer.__init__(self, self._NODE_TYPE, name, **kwargs)
-        self._sync_stream = self.create_associated_stream("data")
+        self._sync_stream = self._create_stream("data")
 
     def end(self, exception=None):
         """Publish END event in Redis
@@ -97,26 +97,7 @@ class Scan(DataNodeContainer):
         db_names.append(self.db_name + "_data")
         return db_names
 
-    def subscribe_initial_streams(self, reader, yield_data=False, first_index=0):
-        """Subscribe to a minimal amount of streams so
-        we can eventually get all nodes and events.
-
-        :param DataStreamReader reader:
-        :param bool yield_data:
-        """
-        # Subscribe to the children *_data streams
-        if yield_data:
-            self.subscribe_existing_children_streams(
-                "data", reader, include_parent=False, first_index=0
-            )
-
-        # This is where the new node events are published:
-        super().subscribe_initial_streams(reader, first_index=first_index)
-
-        # Always subscribe to the scan's data stream
-        self.subscribe_stream("data", reader, first_index=0)
-
-    def subscribe_stream(self, stream_suffix, reader, **kw):
+    def _subscribe_stream(self, stream_suffix, reader, **kw):
         """Subscribe to a stream with a particular name,
         associated with this node.
 
@@ -124,23 +105,24 @@ class Scan(DataNodeContainer):
         :param DataStreamReader reader:
         """
         if stream_suffix == "data":
-            # Default priority is 1
+            # Lower priority than all other streams
             kw["priority"] = 1
-        super().subscribe_stream(stream_suffix, reader, **kw)
+        super()._subscribe_stream(stream_suffix, reader, **kw)
 
     def _subscribe_on_new_node_after_yield(
-        self, reader, filter, first_index, yield_events
+        self, reader, filter=None, first_index=None, yield_events=False
     ):
-        """
+        """Subscribe to new streams after yielding the NEW_NODE event.
+
         :param DataStreamReader reader:
         :param tuple filter: only these DataNode types are allowed (all by default)
         :param str or int first_index: Redis stream ID
-        :param bool yield_events:
+        :param bool yield_events: yield Event or DataNode
         """
         super()._subscribe_on_new_node_after_yield(
-            reader, filter, first_index, yield_events
+            reader, filter=filter, first_index=first_index, yield_events=yield_events
         )
-        self.subscribe_stream("data", reader, first_index=0)
+        self._subscribe_stream("data", reader, first_index=0, create=True)
 
 
 def get_data_from_nodes(pipeline, *nodes):

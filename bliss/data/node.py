@@ -62,6 +62,7 @@ from bliss.config import settings
 from bliss.config import streaming
 from bliss.config import streaming_events
 from bliss.data.events import Event, EventType
+from bliss.data.streaming_events import NewDataNodeEvent
 
 
 # make list of available plugins for generating DataNode objects
@@ -545,8 +546,8 @@ class DataNode:
                     evtype = EventType.NEW_DATA
                 yield Event(type=evtype, node=self, data=data)
         if is_end:
-            # Stop reading events this node's streams and
-            # the streams of its children
+            # Stop reading events from this node's streams
+            # and the streams of its children
             reader.remove_matching_streams(f"{self.db_name}*")
 
     def _get_last_child(self, filter=None):
@@ -636,24 +637,6 @@ class DataNode:
         else:
             return None
         return index
-
-
-class NewDataNodeEvent(streaming_events.StreamEvent):
-
-    TYPE = b"NEW_DATA_NODE"
-    DB_KEY = b"db_name"
-
-    def init(self, db_name):
-        self.db_name = db_name
-
-    def _encode(self):
-        raw = super()._encode()
-        raw[self.DB_KEY] = self.encode_string(self.db_name)
-        return raw
-
-    def _decode(self, raw):
-        super()._decode(raw)
-        self.db_name = self.decode_string(raw[self.DB_KEY])
 
 
 class DataNodeContainer(DataNode):

@@ -210,7 +210,8 @@ class NanoBpm:
             "SWbuild",
             "FirmWare Major",
             "FirmWareMinor",
-            "FirmWareBuild" ", BoardID",
+            "FirmWareBuild",
+            "BoardID",
         ]
         # Device configuration parameter keys
         self._deviceConfigKeys = [

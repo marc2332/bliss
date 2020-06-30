@@ -1039,7 +1039,7 @@ class LakeShore331(Controller):
                 % (crvn, user_min_curve, user_max_curve)
             )
 
-        if os.path.isfile(crvfile) == False:
+        if not os.path.isfile(crvfile):
             raise FileNotFoundError("Curve file %s not found" % crvfile)
 
         print("Readings from actual curve %d in LakeShore 331 :" % crvn)

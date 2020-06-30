@@ -77,16 +77,16 @@ import time
 from bliss.comm.util import get_comm
 from bliss.common.logtools import log_info
 
-from bliss.controllers.regulation.temperature.lakeshore.lakeshore335 import (
-    LakeShore335,
-    Input,
+from bliss.controllers.regulation.temperature.lakeshore.lakeshore335 import LakeShore335
+
+# --- patch the Input, Output and Loop classes
+from bliss.controllers.regulation.temperature.lakeshore.lakeshore335 import (  # noqa: F401
+    Input
 )
-
-
-from bliss.controllers.regulation.temperature.lakeshore.lakeshore import (
+from bliss.controllers.regulation.temperature.lakeshore.lakeshore import (  # noqa: F401
     LakeshoreOutput as Output
 )
-from bliss.controllers.regulation.temperature.lakeshore.lakeshore import (
+from bliss.controllers.regulation.temperature.lakeshore.lakeshore import (  # noqa: F401
     LakeshoreLoop as Loop
 )
 

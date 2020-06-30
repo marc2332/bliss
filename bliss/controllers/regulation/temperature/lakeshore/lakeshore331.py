@@ -73,15 +73,16 @@ from bliss.comm import serial
 from bliss.comm.util import get_interface, get_comm
 from bliss.common.logtools import log_info, log_debug, log_debug_data, log_warning
 from bliss.common.utils import autocomplete_property
-
 from bliss.controllers.regulator import Controller
-from bliss.controllers.regulation.temperature.lakeshore.lakeshore import (
+
+# --- patch the Input, Output and Loop classes
+from bliss.controllers.regulation.temperature.lakeshore.lakeshore import (  # noqa: F401
     LakeshoreInput as Input
 )
-from bliss.controllers.regulation.temperature.lakeshore.lakeshore import (
+from bliss.controllers.regulation.temperature.lakeshore.lakeshore import (  # noqa: F401
     LakeshoreOutput as Output
 )
-from bliss.controllers.regulation.temperature.lakeshore.lakeshore import (
+from bliss.controllers.regulation.temperature.lakeshore.lakeshore import (  # noqa: F401
     LakeshoreLoop as Loop
 )
 

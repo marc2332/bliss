@@ -76,10 +76,11 @@ from bliss.comm.util import get_comm
 from bliss.controllers.regulation.temperature.lakeshore.lakeshore331 import LakeShore331
 from bliss.controllers.regulation.temperature.lakeshore.lakeshore import LakeshoreInput
 
-from bliss.controllers.regulation.temperature.lakeshore.lakeshore import (
+# --- patch the Input, Output and Loop classes
+from bliss.controllers.regulation.temperature.lakeshore.lakeshore import (  # noqa: F401
     LakeshoreOutput as Output
 )
-from bliss.controllers.regulation.temperature.lakeshore.lakeshore import (
+from bliss.controllers.regulation.temperature.lakeshore.lakeshore import (  # noqa: F401
     LakeshoreLoop as Loop
 )
 

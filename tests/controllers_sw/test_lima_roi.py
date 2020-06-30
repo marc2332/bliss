@@ -38,12 +38,12 @@ def test_lima_roi(beacon, lima_simulator, lima_params):
     ls.proxy.image_roi = lima_params.roi
     ls.image.sync()
 
-    _roi = ls.image.roi.to_array()
-    _rot = ls.image.rotation
-    _flip = ls.image.flip
-    _bin = ls.image.binning
+    roi = ls.image.roi.to_array()
+    rot = ls.image.rotation
+    flip = ls.image.flip
+    binning = ls.image.binning
 
-    ffrefroi = ls._image_params._calc_roi(_roi, _rot, _flip, _bin, inverse=True)
+    ffrefroi = ls._image_params._calc_roi(roi, rot, flip, binning, inverse=True)
 
     ls.proxy.image_bin = [1, 1]
     ls.proxy.image_flip = [False, False]

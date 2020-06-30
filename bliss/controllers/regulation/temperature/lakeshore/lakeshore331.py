@@ -1125,8 +1125,7 @@ class LakeShore331(Controller):
                     if exp.match(line):
                         calibrationStart = 1
                 if calibrationStart:
-                    l = line.strip(" ")
-                    ll = l.rsplit()
+                    ll = line.strip(" ").rsplit()
                     if len(ll) == 3:
                         command = "CRVPT %d,%d,%6g,%6g" % (
                             crvn,

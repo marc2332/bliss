@@ -470,21 +470,33 @@ class DataNode:
                 reader.add_streams(*new_stream, first_index=first_index)
                 yield from new_child_func(reader, filter, stream, children, first_index)
             else:
-                node = reader.get_stream_info(stream, "node")
-                # New event on scan
-                if node.type in SCAN_TYPES:
+                yield from self._iter_data_events(
+                    reader, filter, stream, events, yield_events=yield_events
+                )
+
+    def _iter_data_events(self, reader, filter, stream, events, yield_events=False):
+        """
+        :param DataStreamReader reader:
+        :param tuple filter: only these DataNode types are allowed (all by default)
+        :param DataStream stream:
+        :param list(tuple) events:
+        :param bool yield_events:
+        :yields Event:
+        """
+        node = reader.get_stream_info(stream, "node")
+        allowed = not filter or node.type in filter
+        if node.type in SCAN_TYPES:
+            if yield_events and allowed:
+                with AllowKill():
                     data = node.decode_raw_events(events)
-                    if data is None:
-                        continue
-                    if yield_events:
-                        with AllowKill():
-                            yield Event(type=EventType.END_SCAN, node=node, data=data)
-                    # Stop reading events from the scan
-                    reader.remove_matching_streams(f"{node.db_name}*")
-                else:
+                    yield Event(type=EventType.END_SCAN, node=node, data=data)
+            # Stop reading events from the scan
+            reader.remove_matching_streams(f"{node.db_name}*")
+        else:
+            if yield_events and allowed:
+                with AllowKill():
                     data = node.decode_raw_events(events)
-                    with AllowKill():
-                        yield Event(type=EventType.NEW_DATA, node=node, data=data)
+                    yield Event(type=EventType.NEW_DATA, node=node, data=data)
 
     def _yield_nodes(self, reader, filter, stream, children, first_index):
         """
@@ -496,10 +508,11 @@ class DataNode:
         :yields DataNode:
         """
         for db_name, node in self._iter_new_children(stream, children):
-            # Yield the node, unless it is filtered out
+
             if not filter or node.type in filter:
                 with AllowKill():
                     yield node
+
             if node.type in SCAN_TYPES:
                 node.subscribe_existing_children_streams(
                     "children_list",
@@ -519,14 +532,13 @@ class DataNode:
         :yields Event:
         """
         for db_name, node in self._iter_new_children(stream, children):
-            # Yield the node's event and subscriber to the node's data stream,
-            # unless the node is filtered out
+
             if not filter or node.type in filter:
                 if node.type not in SCAN_TYPES:
                     node.subscribe_stream("data", reader, first_index=0)
                 with AllowKill():
                     yield Event(type=EventType.NEW_NODE, node=node)
-            # Subscribe to
+
             if node.type in SCAN_TYPES:
                 node.subscribe_existing_children_streams(
                     "children_list",

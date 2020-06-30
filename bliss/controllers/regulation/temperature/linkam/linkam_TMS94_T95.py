@@ -56,8 +56,13 @@ from bliss.controllers.regulation.temperature.linkam.linkam import (  # noqa: F4
 
 
 _last_call = time.time()
-# limit number of commands per second
+
+
 def _send_limit(func):
+    """
+    Limit number of commands per second
+    """
+
     def f(*args, **kwargs):
         global _last_call
         delta_t = time.time() - _last_call

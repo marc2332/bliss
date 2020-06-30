@@ -89,9 +89,15 @@ from bliss.controllers.regulation.temperature.lakeshore.lakeshore import (  # no
 
 
 _last_call = time.time()
-# limit number of commands per second
-# lakeshore 335 supports at most 20 commands per second
+
+
 def _send_limit(func):
+    """
+    Limit number of commands per second
+
+    lakeshore 335 supports at most 20 commands per second
+    """
+
     def f(*args, **kwargs):
         global _last_call
         delta_t = time.time() - _last_call

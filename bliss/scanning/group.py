@@ -153,6 +153,8 @@ class Sequence:
                 self._sequence = sequence
 
             def stop(self, scan):
+                if len(self._sequence._scans) == 0:
+                    return
                 max_state = max([x.state for x in self._sequence._scans])
                 if max_state == ScanState.KILLED:
                     raise Exception(

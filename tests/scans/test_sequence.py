@@ -109,6 +109,12 @@ def test_sequence_non_started_scans_in_seq(session):
             seq_context.add(s1)
 
 
+def test_empty_group(session, capsys):
+    s = Group()
+    out, err = capsys.readouterr()
+    assert err == ""
+
+
 def test_sequence_empty_in_seq(session):
     diode = session.config.get("diode")
     seq = Sequence()

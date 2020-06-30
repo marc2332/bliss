@@ -5,11 +5,9 @@
 # Copyright (c) 2015-2020 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-import gevent
 import textwrap
 import numpy
 from .roi import Roi
-from .properties import LimaProperty, LimaAttrGetterSetter
 from bliss.common.counter import Counter
 from bliss.common.utils import autocomplete_property
 from bliss.config.beacon_object import BeaconObject
@@ -68,10 +66,10 @@ class LimaImageParameters(BeaconObject):
         """transformation for roi from raw full frame reference to 
            lima style reference with rot and flip applied.
            inverse calculation if inverse=True
-           
+
            inverse = False  : full frame ref -> lima ref
            inverse = True   : lima ref -> full frame ref
-           
+
            TODO: this calculation should be one in the lima server!
            see https://gitlab.esrf.fr/bliss/bliss/-/merge_requests/2176#note_65379
         """
@@ -273,7 +271,6 @@ class LimaImageParameters(BeaconObject):
 
     def sync(self):
         """applies all image parameters from the tango server to bliss"""
-        tmp = self._proxy.image_rotation
         self.rotation = self._proxy.image_rotation
         self.flip = self._proxy.image_flip
         self.binning = self._proxy.image_bin
@@ -287,20 +284,7 @@ class ImageCounter(Counter):
 
     # Standard counter interface
 
-    # @property
-    # def name(self):
-    #     return "image"
-
-    # @property
-    # def _counter_controller(self):
-    #     return self._controller
-
-    # def create_acquisition_device(self, node_pars):
-    #     """Instantiate the corresponding acquisition device."""
-    #     return self.controller.create_master_device(node_pars)
-
     def __info__(self):
-        # return LimaAttrGetterSetter.__info__(self)
         return textwrap.dedent(
             f"""       flip:     {self.flip}
        rotation: {self.rotation}
@@ -378,5 +362,3 @@ class ImageCounter(Counter):
     @property
     def height(self):
         return self.roi.height
-
-    #########

@@ -157,7 +157,7 @@ from bliss.flint.client import plots as flint_plots
 from bliss.flint.client import proxy as flint_proxy
 
 from bliss.flint.client.proxy import FLINT_LOGGER
-from bliss.flint.client.proxy import FLINT_OUTPUT_LOGGER
+from bliss.flint.client.proxy import FLINT_OUTPUT_LOGGER  # noqa: F401
 
 
 __all__ = [

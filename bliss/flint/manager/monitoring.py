@@ -10,14 +10,12 @@ Scan class to manage monitoring of a Lima detector
 """
 
 from __future__ import annotations
-from typing import Optional
 
 import logging
 import contextlib
 import gevent
 import datetime
 import time
-import numpy
 
 from silx.gui import qt
 

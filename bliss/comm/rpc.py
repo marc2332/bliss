@@ -206,6 +206,7 @@ class _ServerObject(object):
         self._socket = None
         self._stream = stream
         self._metadata["stream"] = stream
+        self._metadata["real_klass"] = type(obj)
         self._uds_name = None
         self._low_latency_signal = set()
         self._tcp_low_latency = tcp_low_latency
@@ -566,6 +567,7 @@ class _cnx(object):
                     self._class_member.append(name)
             klass = type(metadata["name"], (object,), members)
             self._klass = klass
+            self._real_klass = metadata.get("real_klass")
             self._proxy = klass()
 
     def _call__(self, code, args, kwargs):
@@ -684,6 +686,8 @@ def Client(address, timeout=30., disconnect_callback=None, **kwargs):
                 if name == "__class__":
                     return type(object)
                 raise
+            if name == "__class__" and client._real_klass is not None:
+                return client._real_klass
             return client._proxy.__getattribute__(name)
 
         def __setattr__(self, name, value):

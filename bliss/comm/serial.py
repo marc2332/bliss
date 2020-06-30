@@ -24,6 +24,7 @@ from bliss.common.tango import DeviceProxy
 from bliss import global_map
 
 import serial
+from serial.rfc2217 import *
 
 # Export serial globals to the current module
 globals().update(

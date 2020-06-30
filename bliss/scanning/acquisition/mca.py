@@ -35,6 +35,7 @@ class McaAcquisitionSlave(AcquisitionSlave):
         spectrum_size=None,
         prepare_once=True,
         start_once=True,
+        read_all_triggers=False,
         ctrl_params=None,
     ):
         # Checks
@@ -78,6 +79,9 @@ class McaAcquisitionSlave(AcquisitionSlave):
         self.trigger_mode = trigger_mode
         self.polling_time = polling_time
         self.spectrum_size = spectrum_size
+        self.read_all_triggers = read_all_triggers
+        self.expected_npoints = npoints
+
         # Reading Queue
         self._pending_datas = gevent.queue.Queue()
 
@@ -107,19 +111,42 @@ class McaAcquisitionSlave(AcquisitionSlave):
 
     def prepare(self):
         """Prepare the acquisition."""
+        # The MCA should always take mca_params["npoints"] = number of intervals  (i.e x_npoints - 1)
+        #
+        # Internally if using trigger_mode==SYNC, the mca.hardware_points is set to  mca_params["npoints"] + 1
+        # in order to compensate the fact that in this mode the mca starts the acquisition on scan start()
+        # and not when receiving the first hard trig when x_mot_pos == x_start.
+        # The MCA acqObj handle this internally and it discards the first measure done @ x_mot_pos == x_start if
+        #
+        #
+        # (TO BE TESTED) If using trigger_mode==GATE, the acquisition is expected to start when receiving the first trigger
+        # (up or down edge of the gate).
+
         # Generic configuration
         self.device.trigger_mode = self.trigger_mode
         self.device.spectrum_size = self.spectrum_size
+
         # Mode-specfic configuration
+        self.expected_npoints = self.npoints
+
         if self.soft_trigger_mode:
+            # SOFTWARE
             self.device.preset_mode = PresetMode.REALTIME
             self.device.preset_value = self.preset_time
+            self.read_all_triggers = True  # forced to True with this trig mode
+
         elif self.sync_trigger_mode:
+            # SYNC
+            # with this trigger mode read_all_triggers can be True or False (user choice via acq_params)
             self.device.hardware_points = self.npoints + 1
             self.device.block_size = self.block_size
+            self.expected_npoints = self.npoints + 1
+
         elif self.gate_trigger_mode:
+            # GATE
             self.device.hardware_points = self.npoints
             self.device.block_size = self.block_size
+            self.read_all_triggers = True  # forced to True with this trig mode
 
         self._pending_datas = gevent.queue.Queue()
         event.connect(self.device, "data", self._data_rx)
@@ -146,14 +173,23 @@ class McaAcquisitionSlave(AcquisitionSlave):
 
     def reading(self):
         """Spawn by the chain."""
+
         for nb, values in enumerate(self._pending_datas):
             if isinstance(values, Exception):
                 raise values
 
             spectrums, stats = values
-            # Publish
-            self._publish(spectrums, stats)
-            if self.npoints == nb + 1:
+
+            # do not publish first point if read_all_triggers is False (for SYNC mode)
+            if nb != 0 or self.read_all_triggers:
+                self._publish(spectrums, stats)
+
+            # break when we have received the expected number of points
+            # it depends on the trigger_mode and device.hardware_points
+            # (see prepare)
+            if (
+                nb == self.expected_npoints - 1
+            ):  # -1 because the 'for-loop+enumerate' start at i=0
                 break
 
     def _publish(self, spectrums, stats):

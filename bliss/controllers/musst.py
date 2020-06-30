@@ -252,10 +252,8 @@ class musst(CounterController):
             Fill self._mode_number attribute.
             """
             if self._mode_number is None:
-                print("_read_config")
                 musst = self._musst()
                 string_config = musst.putget("?CHCFG CH%d" % self._channel_id)
-                print("sc=", string_config)
                 split_config = string_config.split()
                 self._mode_number = self._string2mode.get(split_config[0])
                 if self._mode_number == self.ADC10:  # TEST if it's not a 5 volt ADC

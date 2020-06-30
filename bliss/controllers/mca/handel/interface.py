@@ -850,7 +850,6 @@ def _raw_read(acquisition_number, queue):
     try:
 
         def poll_data(sent):
-            print("call polling")
             current, data, statistics = synchronized_poll_data()
             points = list(range(sent, sent + len(data)))
             # Check data integrity
@@ -862,7 +861,6 @@ def _raw_read(acquisition_number, queue):
                 queue.put((data[n], statistics[n]))
             # Finished
             # we should go in this test to send the end of the acquisition
-            print("poll_data", sent, current, acquisition_number)
             if sent == current == acquisition_number:
                 raise StopIteration
             # Sleep

@@ -658,7 +658,6 @@ class NanoBpm:
             xsize = imageDescriptor["XSize"]
             ysize = imageDescriptor["YSize"]
             log_debug(self, "readContinuousFrame(): image size [%s,%s]", xsize, ysize)
-            log_debug(self, "readContinuousFrame(): payload %s", payload)
             data = self.command_socket.read(size=payloadSize[0], timeout=10)
             nextIndex = 0
             (imageSum, XMultAcc, YMultAcc) = struct.unpack(">3Q", data[:24])

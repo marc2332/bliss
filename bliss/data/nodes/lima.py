@@ -11,7 +11,7 @@ import math
 import numpy
 import typing
 from bliss.common.tango import DeviceProxy
-from bliss.data.node import DataNode
+from bliss.data.nodes.channel import ChannelDataNodeBase
 from bliss.data.events import EventData
 from bliss.config.settings import QueueObjSetting
 from silx.third_party.EdfFile import EdfFile
@@ -252,7 +252,7 @@ def read_image(proxy, image_nb: int) -> numpy.ndarray:
     return data
 
 
-class LimaDataView(object):
+class LimaDataView:
     def __init__(self, queue, queue_ref, from_index, to_index, from_stream=False):
         self._queue = queue
         self._queue_ref = queue_ref
@@ -272,8 +272,12 @@ class LimaDataView(object):
         return ev.ref_status
 
     @property
-    def ref_data(self):
+    def all_ref_data(self):
         return self._queue_ref[0:]
+
+    @property
+    def first_ref_data(self):
+        return self.all_ref_data[0]
 
     @property
     def last_index(self):
@@ -428,23 +432,18 @@ class LimaDataView(object):
         return 0 if length < 0 else length
 
     def _update(self):
+        """Set LimadataView attributes from ref_status and the first ref_data
+        """
         ref_status = self.ref_status
-        for key in (
-            "server_url",
-            "lima_acq_nb",
-            "buffer_max_number",
-            "last_image_acquired",
-            "last_image_ready",
-            "last_counter_ready",
-            "last_image_saved",
-        ):
-            if key in ref_status:
-                setattr(self, key, ref_status[key])
-        if len(self.ref_data) >= 1:
-            ref_data = self.ref_data[0]
+        for key, value in ref_status.items():
+            setattr(self, key, value)
+        try:
+            ref_data = self.first_ref_data
+        except IndexError:
+            pass
+        else:
             for key in ("acq_trigger_mode",):
-                if key in ref_data:
-                    setattr(self, key, ref_data[key])
+                setattr(self, key, ref_data.get(key, None))
 
     def _get_from_server_memory(self, proxy, image_nb):
         if self.current_lima_acq == self.lima_acq_nb:  # current acquisition is this one
@@ -466,8 +465,9 @@ class LimaDataView(object):
         """All saved image filenames
         """
         self._update()
-        ref_data = self.ref_data[0]
-        return self._get_filenames(ref_data, *range(0, self.last_image_saved + 1))
+        return self._get_filenames(
+            self.first_ref_data, *range(0, self.last_image_saved + 1)
+        )
 
     def _get_filenames(self, ref_data, *image_nbs):
         """Specific image filenames
@@ -477,29 +477,30 @@ class LimaDataView(object):
         )
 
     def _get_from_file(self, image_nb):
-        for ref_data in self.ref_data:
-            values = self._get_filenames(ref_data, image_nb)
-            filename, path_in_file, image_index, file_format = values[0]
-            file_format = file_format.lower()
-            if file_format.startswith("edf"):
-                if file_format == "edfconcat":
-                    image_index = 0
-                if EdfFile is not None:
-                    f = EdfFile(filename)
-                    return f.GetData(image_index)
-                else:
-                    raise RuntimeError(
-                        "EdfFile module is not available, " "cannot return image data."
-                    )
-            elif file_format.startswith("hdf5"):
-                if h5py is not None:
-                    with h5py.File(filename, mode="r") as f:
-                        dataset = f[path_in_file]
-                        return dataset[image_index]
+        try:
+            ref_data = self.first_ref_data
+        except IndexError:
+            raise IndexError("Cannot retrieve image %d from file" % image_nb)
+        values = self._get_filenames(ref_data, image_nb)
+        filename, path_in_file, image_index, file_format = values[0]
+        file_format = file_format.lower()
+        if file_format.startswith("edf"):
+            if file_format == "edfconcat":
+                image_index = 0
+            if EdfFile is not None:
+                f = EdfFile(filename)
+                return f.GetData(image_index)
             else:
-                raise RuntimeError("Format not managed yet")
-
-        raise IndexError("Cannot retrieve image %d from file" % image_nb)
+                raise RuntimeError(
+                    "EdfFile module is not available, " "cannot return image data."
+                )
+        elif file_format.startswith("hdf5"):
+            if h5py is not None:
+                with h5py.File(filename, mode="r") as f:
+                    dataset = f[path_in_file]
+                    return dataset[image_index]
+        else:
+            raise RuntimeError("Format not managed yet")
 
 
 class LimaImageChannelDataEvent(streaming_events.StreamEvent):
@@ -512,6 +513,7 @@ class LimaImageChannelDataEvent(streaming_events.StreamEvent):
         """
         if not ref_status:
             ref_status = {
+                "server_url": -1,
                 "lima_acq_nb": -1,
                 "buffer_max_number": -1,
                 "last_image_acquired": -1,
@@ -558,56 +560,36 @@ class LimaImageChannelDataEvent(streaming_events.StreamEvent):
         return data
 
 
-class LimaImageChannelDataNode(DataNode):
+class LimaImageChannelDataNode(ChannelDataNodeBase):
     _NODE_TYPE = "lima"
 
-    def __init__(self, name, **keys):
-        shape = keys.pop("shape", None)
-        dtype = keys.pop("dtype", None)
-        fullname = keys.pop("fullname", None)
-
-        DataNode.__init__(self, self._NODE_TYPE, name, **keys)
-
-        if keys.get("create", False):
-            self.info["shape"] = shape
-            self.info["dtype"] = dtype
-            self.info["fullname"] = fullname
-
-        # why not trying to have LimaImageChannelDataNode deriving
-        # from ChannelDataNode instead of DataNode ? This would
-        # leave out the next lines, since it is already part of
-        # ChannelDataNode:
-        # fix the channel name
-        if fullname and fullname.endswith(f":{name}"):
-            # no alias, name must be fullname
-            self._struct.name = fullname
-
-        self._queue = self.create_associated_stream("data", maxlen=1)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # TODO: ending with _data would give a problem?
         self._queue_ref = QueueObjSetting(
             f"{self.db_name}_data_ref", connection=self.db_connection
         )
         self.from_stream = False
-
         self._local_ref_status = dict()
-        self._last_index = 1
-        self._stream_image_count = 0  # redis can't start at 0
+        self._stream_image_count = 0
 
-    @property
-    def shape(self):
-        return self.info.get("shape")
-
-    @property
-    def dtype(self):
-        return self.info.get("dtype")
-
-    @property
-    def fullname(self):
-        return self.info.get("fullname")
-
-    @property
-    def short_name(self):
-        _, _, short_name = self.name.rpartition(":")
-        return short_name
+    def store(self, event_dict, cnx=None):
+        """Publish lima reference in Redis
+        """
+        data = event_dict["data"]
+        if data.get("in_prepare", False):  # in prepare phase
+            ref_data = event_dict["description"]
+            self.info.update(ref_data)
+            self._queue_ref.append(ref_data)
+            self._local_ref_status = data
+            self._local_ref_status["lima_acq_nb"] = self.db_connection.incr(
+                data["server_url"]
+            )
+        else:  # during acquisition
+            self._local_ref_status.update(data)
+            ev = LimaImageChannelDataEvent(self._local_ref_status)
+            self._queue.add_event(ev, id=self._last_index, cnx=cnx)
+            self._last_index += 1
 
     def get(self, from_index, to_index=None):
         """
@@ -626,15 +608,6 @@ class LimaImageChannelDataNode(DataNode):
             from_stream=self.from_stream,
         )
 
-    @property
-    def ref_data(self):
-        # Redis QueueObjSetting to list(dict)
-        return self._queue_ref[0:]
-
-    @property
-    def images_per_file(self):
-        return self.ref_data[0].get("saving_frame_per_file")
-
     def decode_raw_events(self, events):
         """Decode raw stream data and get image URI's.
 
@@ -652,35 +625,30 @@ class LimaImageChannelDataNode(DataNode):
             ev = LimaImageChannelDataEvent(raw=raw)
             ref_status = ev.ref_status
             first_index = self._stream_image_count
-            data = ev.get_data(first_index, self.ref_data[0])
+            data = ev.get_data(first_index, self.first_ref_data)
             self._stream_image_count += len(data)
         return EventData(first_index=first_index, data=data, description=ref_status)
 
-    def store(self, event_dict, cnx=None):
-        """Publish lima reference in Redis
-        """
-        data = event_dict["data"]
-        if data.get("in_prepare", False):  # in prepare phase
-            desc = event_dict["description"]
-            self.info.update(desc)
-            self.add_reference_data(desc)
-            self._local_ref_status = data
-            self._local_ref_status["lima_acq_nb"] = self.db_connection.incr(
-                data["server_url"]
-            )
-        else:  # during acquisition
-            self._local_ref_status.update(data)
-            ev = LimaImageChannelDataEvent(self._local_ref_status)
-            self._queue.add_event(ev, id=self._last_index, cnx=cnx)
-            self._last_index += 1
+    @property
+    def all_ref_data(self):
+        """All reference dicts
 
-    def add_reference_data(self, ref_data):
-        """Save reference data in database
-
-        In case of Lima, this corresponds to acquisition ref_data,
-        in particular saving data
+        :returns list(dict):
         """
-        self._queue_ref.append(ref_data)
+        return self._queue_ref[0:]
+
+    @property
+    def first_ref_data(self):
+        """The first reference data
+
+        :returns dict:
+        :raise IndexError: no reference data yet
+        """
+        return self.all_ref_data[0]
+
+    @property
+    def images_per_file(self):
+        return self.first_ref_data.get("saving_frame_per_file")
 
     def get_file_references(self):
         """
@@ -718,15 +686,17 @@ class LimaImageChannelDataNode(DataNode):
         return references
 
     def _get_db_names(self):
-        db_names = DataNode._get_db_names(self)
-        db_names.append(self.db_name + "_data")
+        db_names = super()._get_db_names()
         db_names.append(self.db_name + "_data_ref")
-
         events = self._queue.range(count=1)
         if events:
             index, raw = events[0]
             ev = LimaImageChannelDataEvent(raw=raw)
             url = ev.ref_status.get("server_url")
-            if url is not None:
+            if url:
                 db_names.append(url)
         return db_names
+
+    def __len__(self):
+        # TODO: based on self._stream_image_count
+        raise NotImplementedError

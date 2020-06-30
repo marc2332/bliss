@@ -55,8 +55,8 @@ class EndScanEvent(streaming_events.EndEvent):
 class Scan(DataNodeContainer):
     _NODE_TYPE = "scan"
 
-    def __init__(self, name, create=False, **keys):
-        DataNodeContainer.__init__(self, self._NODE_TYPE, name, create=create, **keys)
+    def __init__(self, name, **kwargs):
+        DataNodeContainer.__init__(self, self._NODE_TYPE, name, **kwargs)
         self._sync_stream = self.create_associated_stream("data")
 
     def end(self, exception=None):

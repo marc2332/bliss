@@ -1335,7 +1335,7 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
     def _detector_data_info(self, node):
         node_type = node.type
         if node_type == "lima":
-            if not len(node.ref_data):
+            if not len(node.all_ref_data):
                 return None
         data_expected = self._node_data_saved(node)
 

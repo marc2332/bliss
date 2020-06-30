@@ -621,7 +621,7 @@ def test_update_ctrl_params(default_session, beacon, lima_simulator):
 
     lima_data_view = s.get_data()["lima_simulator:image"]
     lima_data_view._update()
-    ref_data = lima_data_view.ref_data[0]
+    ref_data = lima_data_view.first_ref_data
     assert lima_data_view._get_filenames(ref_data, *range(0, 1))[0][0][-7:] == ".edf.gz"
 
 

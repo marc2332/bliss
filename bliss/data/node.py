@@ -167,7 +167,7 @@ def _get_or_create_node(name, node_type=None, parent=None, connection=None, **ke
         return _create_node(name, node_type, parent, connection, **keys)
 
 
-class DataNodeIterator(object):
+class DataNodeIterator:
     """Iterate over nodes or events of a DataNode
     """
 
@@ -202,9 +202,9 @@ class DataNode:
         return db_name if connection.exists(db_name) else None
 
     def __init__(
-        self, node_type, name, parent=None, connection=None, create=False, **keys
+        self, node_type, name, parent=None, connection=None, create=False, **kwargs
     ):
-        info_dict = keys.pop("info", {})
+        info_dict = self._init_info(create=create, **kwargs)
         if connection is None:
             connection = client.get_redis_connection(db=1)
         db_name = "%s:%s" % (parent.db_name, name) if parent else name
@@ -232,6 +232,9 @@ class DataNode:
 
         # node type cache
         self.node_type = node_type
+
+    def _init_info(self, **kwargs):
+        return kwargs.pop("info", {})
 
     def get_nodes(self, *db_names):
         """

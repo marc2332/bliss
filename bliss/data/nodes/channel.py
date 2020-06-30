@@ -108,27 +108,28 @@ class ChannelDataEvent(streaming_events.StreamEvent):
         self._data = self.generic_decode(raw[self.DATA_KEY])
 
 
-class ChannelDataNode(DataNode):
-    _NODE_TYPE = "channel"
+class ChannelDataNodeBase(DataNode):
+    _NODE_TYPE = NotImplemented
 
-    def __init__(self, name, **keys):
-        shape = keys.pop("shape", None)
-        dtype = keys.pop("dtype", None)
-        unit = keys.pop("unit", None)
-        fullname = keys.pop("fullname", None)
-        info = keys.pop("info", dict())
-        if keys.get("create", False):
+    def __init__(self, name, **kwargs):
+        super().__init__(self._NODE_TYPE, name, **kwargs)
+        self._queue = self.create_associated_stream("data", maxlen=CHANNEL_MAX_LEN)
+        self._last_index = 1  # redis can't start at 0
+
+    def _init_info(self, **kwargs):
+        shape = kwargs.get("shape", None)
+        dtype = kwargs.get("dtype", None)
+        unit = kwargs.get("unit", None)
+        fullname = kwargs.get("fullname", None)
+        info = kwargs.get("info", {})
+        if kwargs.get("create", False):
             if shape is not None:
                 info["shape"] = shape
             if dtype is not None:
                 info["dtype"] = dtype
             info["fullname"] = fullname
             info["unit"] = unit
-
-        DataNode.__init__(self, self._NODE_TYPE, name, info=info, **keys)
-
-        self._queue = self.create_associated_stream("data", maxlen=CHANNEL_MAX_LEN)
-        self._last_index = 1  # redis can't start at 0
+        return info
 
     def _create_struct(self, db_name, name, node_type):
         # fix the channel name
@@ -140,13 +141,6 @@ class ChannelDataNode(DataNode):
             elif fullname.startswith("axis:"):
                 name = f"axis:{name}"
         return super()._create_struct(db_name, name, node_type)
-
-    def store(self, event_dict, cnx=None):
-        """Publish channel data in Redis
-        """
-        ev = ChannelDataEvent(event_dict.get("data"), event_dict["description"])
-        self._queue.add_event(ev, id=self._last_index, cnx=cnx)
-        self._last_index += ev.npoints
 
     def __getitem__(self, idx):
         if isinstance(idx, slice):
@@ -180,8 +174,63 @@ class ChannelDataNode(DataNode):
             to_index = None
         return self.get(from_index, to_index)
 
+    @property
+    def shape(self):
+        return self.info.get("shape")
+
+    @property
+    def dtype(self):
+        return self.info.get("dtype")
+
+    @property
+    def fullname(self):
+        return self.info.get("fullname")
+
+    @property
+    def short_name(self):
+        _, _, short_name = self.name.rpartition(":")
+        return short_name
+
+    @property
+    def unit(self):
+        return self.info.get("unit")
+
+    def _get_db_names(self):
+        db_names = super()._get_db_names()
+        db_names.append(self.db_name + "_data")
+        return db_names
+
+    def store(self, event_dict, cnx=None):
+        """Publish channel data in Redis
+        """
+        raise NotImplementedError
+
     def get(self, from_index, to_index=None):
-        """Returns and item or a slice.
+        """Returns an item or a slice.
+        """
+        raise NotImplementedError
+
+    def decode_raw_events(self, events):
+        """Decode raw stream data
+
+        :param list((index, raw)) events:
+        :returns EventData:
+        """
+        raise NotImplementedError
+
+
+class ChannelDataNode(ChannelDataNodeBase):
+    _NODE_TYPE = "channel"
+
+    def store(self, event_dict, cnx=None):
+        """Publish channel data in Redis
+        """
+        ev = ChannelDataEvent(event_dict.get("data"), event_dict["description"])
+        self._queue.add_event(ev, id=self._last_index, cnx=cnx)
+        self._last_index += ev.npoints
+
+    def get(self, from_index, to_index=None):
+        """Returns an item or a slice.
 
         :param int from_index: positive integer
         :param int or None to_index: >= 0 (get slice until and including this index),
@@ -192,11 +241,17 @@ class ChannelDataNode(DataNode):
         if from_index is None:
             from_index = 0
         if to_index is None:
-            return self.get_item(from_index)
+            return self._get_item(from_index)
         else:
-            return self.get_slice(from_index, to_index)
+            return self._get_slice(from_index, to_index)
 
-    def get_item(self, index):
+    def get_as_array(self, from_index, to_index=None):
+        """Like `get` but ensures the result is a numpy array.
+        """
+        # This is just because `get` returns [] when no elements
+        return numpy.asarray(self.get(from_index, to_index), self.dtype)
+
+    def _get_item(self, index):
         """Get data from a single point (None when the index does not exist).
 
         :param int index:
@@ -207,13 +262,13 @@ class ChannelDataNode(DataNode):
         else:
             redis_index = index + 1  # redis starts at 1
             events = self._queue_range(redis_index, redis_index)
-        data = self.events_to_data(index, index, events)
+        data = self._events_to_data(index, index, events)
         try:
             return data[-1]
         except IndexError:
             return None
 
-    def get_slice(self, start, stop):
+    def _get_slice(self, start, stop):
         """Get a data slice (my be shorter or empty than requested).
 
         :param int start:
@@ -227,12 +282,12 @@ class ChannelDataNode(DataNode):
         redis_start = start + 1  # redis starts at 1
         events = self._queue_range(redis_start, redis_stop)
         if isinstance(events, list):
-            return self.events_to_data(start, stop, events)
+            return self._events_to_data(start, stop, events)
         else:
             # pipeline case from get_data
             # should return the conversion function
             def events_to_data(events):
-                return self.events_to_data(start, stop, events)
+                return self._events_to_data(start, stop, events)
 
             return events_to_data
 
@@ -273,7 +328,7 @@ class ChannelDataNode(DataNode):
             blocksize = max(blocksize, 1)
         return result
 
-    def events_to_data(self, from_index, to_index, events):
+    def _events_to_data(self, from_index, to_index, events):
         """
         :param list((index, raw)) events:
         :returns numpy.ndarray or list: only a list when no data
@@ -330,45 +385,10 @@ class ChannelDataNode(DataNode):
             block_size=npoints,
         )
 
-    def get_as_array(self, from_index, to_index=None):
-        """Like `get` but ensures the result is a numpy array.
-        """
-        # This is just because `get` returns [] when no elements
-        return numpy.asarray(self.get(from_index, to_index), self.dtype)
-
     def __len__(self):
-        # fetching last event
-        # using last index as old queue-len
         events = self._queue.rev_range(count=1)
-        if not events:
+        if events:
+            evdata = self.decode_raw_events(events)
+            return evdata.first_index + evdata.block_size
+        else:
             return 0
-        first_index, raw = events[0]
-        ev = ChannelDataEvent(raw=raw)
-        first_index = int(first_index.split(b"-")[0]) - 1
-        return first_index + ev.npoints
-
-    @property
-    def shape(self):
-        return self.info.get("shape")
-
-    @property
-    def dtype(self):
-        return self.info.get("dtype")
-
-    @property
-    def fullname(self):
-        return self.info.get("fullname")
-
-    @property
-    def short_name(self):
-        _, _, short_name = self.name.rpartition(":")
-        return short_name
-
-    @property
-    def unit(self):
-        return self.info.get("unit")
-
-    def _get_db_names(self):
-        db_names = super()._get_db_names()
-        db_names.append(self.db_name + "_data")
-        return db_names

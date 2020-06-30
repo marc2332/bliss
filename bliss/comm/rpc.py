@@ -485,7 +485,7 @@ class _cnx(object):
             self._event.set()
             self._event.clear()
 
-    def __init__(self, address):
+    def __init__(self, address, disconnect_callback):
 
         global_map.register(self, parents_list=["comms"], tag=f"rpc client:{address}")
 
@@ -509,12 +509,22 @@ class _cnx(object):
         self._timeout = 30.
         self._proxy = None
         self._klass = None
+        self._real_klass = None
         self._class_member = list()
+        self._disconnect_callback = disconnect_callback
 
     def connect(self):
         self.try_connect()
 
     def try_connect(self):
+        try:
+            return self._try_connect()
+        except:
+            if self._disconnect_callback is not None:
+                self._disconnect_callback()
+            raise
+
+    def _try_connect(self):
         if self._socket is None:
             try:
                 if self.host:
@@ -614,14 +624,16 @@ class _cnx(object):
             for name in self._class_member:
                 delattr(type(self.proxy), name)
             self._class_member = list()
+            if self._disconnect_callback is not None:
+                self._disconnect_callback()
 
     def close(self):
         if self._reading_task:
             self._reading_task.kill()
 
 
-def Client(address, timeout=30., **kwargs):
-    client = _cnx(address)
+def Client(address, timeout=30., disconnect_callback=None, **kwargs):
+    client = _cnx(address, disconnect_callback)
 
     class Meta(type):
         def __getattribute__(cls, *args):
@@ -633,7 +645,11 @@ def Client(address, timeout=30., **kwargs):
                 if args[0] == "__class__":
                     return type(object)
                 raise
-            return client._klass.__getattribute__(client._klass, *args)
+            if args[0] == "__class__" and client._real_klass is not None:
+                return client._real_klass
+
+            return_val = client._klass.__getattribute__(client._klass, *args)
+            return return_val
 
     class _Proxy(object, metaclass=Meta):
         def __init__(self):

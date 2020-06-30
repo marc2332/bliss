@@ -261,7 +261,6 @@ class MattControl:
 
     def pos_write(self, value):
         log_debug(self, "In pos_write(%s)", value)
-        valarr = []
         valarr = [False] * self.nb_filter
 
         for i in range(self.nb_filter):

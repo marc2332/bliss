@@ -61,7 +61,6 @@ yml configuration example:
       output: $ls331o_2
       channel: 2
 """
-import types
 import time
 import enum
 import re
@@ -69,10 +68,8 @@ import os
 import sys
 
 from bliss import global_map
-from bliss.comm import serial
-from bliss.comm.util import get_interface, get_comm
+from bliss.comm.util import get_comm
 from bliss.common.logtools import log_info, log_debug, log_debug_data, log_warning
-from bliss.common.utils import autocomplete_property
 from bliss.controllers.regulator import Controller
 
 # --- patch the Input, Output and Loop classes

@@ -41,10 +41,24 @@ class ChannelDataEvent(streaming_events.StreamEvent):
 
     @property
     def data(self):
-        """Sequence of items when npoints>1, else an item.
-        An item can be itself a sequence.
+        """Single item (npoints!=1) or sequence (npoints!=1)
         """
         return self._data
+
+    @property
+    def sequence(self):
+        """Sequence of items
+        """
+        if self.npoints == 1:
+            return [self.data]
+        else:
+            return self.data
+
+    @property
+    def array(self):
+        """numpy.ndarray
+        """
+        return numpy.asarray(self.sequence)
 
     @property
     def npoints(self):
@@ -53,7 +67,9 @@ class ChannelDataEvent(streaming_events.StreamEvent):
     @data.setter
     def data(self, value):
         if isinstance(value, numpy.ndarray):
-            if self.ndim == value.ndim:
+            if value.size == 0:
+                npoints = 0
+            elif self.ndim == value.ndim:
                 # Only one data point provided
                 npoints = 1
             else:
@@ -85,3 +101,48 @@ class ChannelDataEvent(streaming_events.StreamEvent):
         self.description = self.generic_decode(raw[self.DESC_KEY])
         self._npoints = self.decode_integral(raw[self.NPOINTS_KEY])
         self._data = self.generic_decode(raw[self.DATA_KEY])
+
+    @classmethod
+    def merge(cls, events):
+        """Merging means stack individual event data.
+        The description is assumed to be the same for
+        all events (not checked).
+
+        :param list((index, raw)) events:
+        :returns ChannelDataEvent:
+        """
+        data = []
+        description = {}
+        dtype = None
+        for i, (index, raw) in enumerate(events):
+            ev = cls(raw=raw)
+            if i == 0:
+                dtype = ev.dtype
+                description = ev.description
+            if ev.npoints == 1:
+                data.append(ev.data)
+            else:
+                data.extend(ev.data)
+        data = cls.as_array(data, dtype)
+        description["shape"] = data.shape[1:]
+        description["dtype"] = dtype
+        return cls(data, description)
+
+    @staticmethod
+    def as_array(sequence, dtype):
+        """Convert a sequence of sequences to a numpy array.
+        Pad with NaN's when sequences have unequal size.
+
+        :param Sequence sequence:
+        :param dtype:
+        :returns numpy.ndarray:
+        """
+        try:
+            return numpy.asarray(sequence, dtype=dtype)
+        except ValueError:
+            # Sequences have unequal length
+            shape = (len(sequence), numpy.max([len(x) for x in sequence]))
+            arr = numpy.full(shape, numpy.nan, dtype=dtype)
+            for src, dest in zip(sequence, arr):
+                dest[: len(src)] = src
+            return arr

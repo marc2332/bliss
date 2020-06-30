@@ -14,25 +14,6 @@ import numpy
 CHANNEL_MAX_LEN = 2048
 
 
-def as_array(sequence, dtype):
-    """Convert a sequence of sequences to a numpy array.
-    Pad with NaN's when sequences have unequal size.
-
-    :param Sequence sequence:
-    :param dtype:
-    :returns numpy.ndarray:
-    """
-    try:
-        return numpy.asarray(sequence, dtype=dtype)
-    except ValueError:
-        # Sequences have unequal length
-        shape = (len(sequence), numpy.max([len(x) for x in sequence]))
-        arr = numpy.full(shape, numpy.nan, dtype=dtype)
-        for src, dest in zip(sequence, arr):
-            dest[: len(src)] = src
-        return arr
-
-
 class ChannelDataNodeBase(DataNode):
     _NODE_TYPE = NotImplemented
 
@@ -286,27 +267,16 @@ class ChannelDataNode(ChannelDataNodeBase):
         :param list((index, raw)) events:
         :returns EventData:
         """
-        data = []
-        first_index = -1
-        description = {}
-        dtype = None
-        for i, (index, raw) in enumerate(events):
-            ev = ChannelDataEvent(raw=raw)
-            if i == 0:
-                first_index = int(index.split(b"-")[0]) - 1
-                dtype = ev.dtype
-                description = ev.description
-            if ev.npoints == 1:
-                data.append(ev.data)
-            else:
-                data.extend(ev.data)
-        npoints = len(data)
-        data = as_array(data, dtype)
+        if events:
+            first_index = int(events[0][0].split(b"-")[0]) - 1
+        else:
+            first_index = -1
+        ev = ChannelDataEvent.merge(events)
         return EventData(
             first_index=first_index,
-            data=data,
-            description=description,
-            block_size=npoints,
+            data=ev.array,
+            description=ev.description,
+            block_size=ev.npoints,
         )
 
     def __len__(self):

@@ -123,13 +123,13 @@ class StreamEvent(metaclass=StreamEventMeta):
     TYPE_KEY = b"__EVENT__"
 
     @classmethod
-    def factory(cls, raw):
-        """The returned object is on instance of
-        this class or a derived classes, depending
-        of the event type.
+    def class_factory(cls, raw):
+        """Returns the class StreamEvent or one of the derived
+        classes, depending of the event type.
 
         :param dict raw: DataStream event data
         :raises StreamDecodeError:
+        :returns type:
         """
         event_type = raw.get(cls.TYPE_KEY, b"")
         try:
@@ -144,7 +144,31 @@ class StreamEvent(metaclass=StreamEventMeta):
         if cls not in usecls.__mro__:
             # Do not allow down-casting (up-casting is allowed)
             raise StreamDecodeError(f"Event not of type {cls.TYPE}")
+        return usecls
+
+    @classmethod
+    def factory(cls, raw):
+        """The returned object is on instance of
+        this class or a derived classes, depending
+        of the event type.
+
+        :param dict raw: DataStream event data
+        :raises StreamDecodeError:
+        :returns StreamEvent:
+        """
+        usecls = cls.class_factory(raw=raw)
         return usecls(raw=raw)
+
+    @classmethod
+    def merge_factory(cls, events):
+        """
+        :param list((index, raw)) events:
+        :returns StreamEvent:
+        """
+        if not events:
+            return
+        usecls = cls.class_factory(events[0][1])
+        return usecls.merge(events)
 
     def __init__(self, *args, raw=None, **kw):
         if raw is None:
@@ -247,6 +271,14 @@ class StreamEvent(metaclass=StreamEventMeta):
             return cls.encode_integral, decode
         else:
             return cls.generic_encode, cls.generic_decode
+
+    @classmethod
+    def merge(cls, events):
+        """
+        :param list((index, raw)) events:
+        :returns StreamEvent:
+        """
+        raise NotImplementedError
 
 
 class _EventTypes:

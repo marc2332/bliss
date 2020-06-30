@@ -89,7 +89,7 @@ from gevent import socket
 from bliss.common.greenlet_utils import KillMask
 from bliss.common.utils import StripIt
 
-from bliss.common.logtools import *
+from bliss.common.logtools import log_debug
 from bliss import global_map
 
 from bliss.common.msgpack_ext import MsgpackContext

@@ -19,7 +19,7 @@ import socket
 import weakref
 from functools import wraps
 from bliss.common import event
-from bliss.common.logtools import *
+from bliss.common.logtools import log_error, log_exception, log_info
 from bliss import global_map
 from .error import SpecClientNotConnectedError
 from .channel import SpecChannel

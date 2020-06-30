@@ -15,7 +15,7 @@ import gevent
 import logging
 from warnings import warn
 from gevent import lock
-from bliss.common.logtools import *
+from bliss.common.logtools import log_debug, log_error, log_info
 from bliss.comm.util import get_comm, TCP
 
 

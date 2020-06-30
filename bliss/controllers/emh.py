@@ -39,7 +39,7 @@ import numpy as np
 from bliss.comm.util import get_comm, TCP
 
 from bliss import global_map
-from bliss.common.logtools import *
+from bliss.common.logtools import log_info
 
 from bliss.common.counter import SamplingCounter
 from bliss.controllers.counter import CounterController

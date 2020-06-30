@@ -64,7 +64,7 @@ from bliss.controllers.wago.wago import WagoController, ModulesConfig
 from bliss.comm.util import get_comm
 import time
 from bliss.common.utils import wrap_methods
-from bliss.common.logtools import *
+from bliss.common.logtools import log_debug
 from bliss import global_map
 
 

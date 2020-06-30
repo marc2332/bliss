@@ -36,7 +36,7 @@ import itertools
 from gevent import lock
 from bliss.common.temperature import Input, Output, Loop
 from bliss.common.utils import set_custom_members
-from bliss.common.logtools import *
+from bliss.common.logtools import log_info, log_debug
 from bliss.config.channels import Cache
 from bliss import global_map
 

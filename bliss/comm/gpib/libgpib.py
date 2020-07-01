@@ -1,5 +1,5 @@
 import os
-import functools
+import ctypes
 from ctypes.util import find_library
 from ctypes import CDLL, POINTER, byref, create_string_buffer
 from ctypes import c_short, c_int, c_long, c_void_p, c_char_p

@@ -7,6 +7,7 @@
 
 import time
 import numpy
+import gevent
 
 from bliss.controllers.motor import Controller
 from bliss.common.axis import AxisState, NoSettingsAxis
@@ -49,6 +50,7 @@ class ESRF_Undulator(Controller):
         global_map.register(self, parents_list=["undulators"])
 
         self.axis_info = {}
+        self._moving_state = dict()
 
         try:
             self.ds_name = self.config.get("ds_name")
@@ -77,6 +79,7 @@ class ESRF_Undulator(Controller):
     """
 
     def initialize_axis(self, axis):
+        self._moving_state[axis] = 0
         try:
             attr_pos_name = axis.config.get("attribute_position", str)
         except KeyError:
@@ -183,6 +186,11 @@ class ESRF_Undulator(Controller):
             "attr_pos_name",
             float(motion.target_pos / motion.axis.steps_per_unit),
         )
+        with gevent.Timeout(1.0):
+            while "READY" in self.state(motion.axis):
+                gevent.sleep(0.020)
+            self._moving_state[motion.axis] = 5
+        log_debug(self, f"end of start {motion.axis.name}")
 
     @object_method
     def enable(self, axis):
@@ -261,12 +269,21 @@ class ESRF_Undulator(Controller):
         _state = ustate_list[undulator_index]
 
         if _state == DevState.ON:
+            log_debug(self, f"{axis.name} READY")
+            if self._moving_state[axis] > 0:
+                self._moving_state[axis] -= 1
+                return AxisState("MOVING")
             return AxisState("READY")
         elif _state == DevState.MOVING:
+            log_debug(self, f"{axis.name} MOVING")
             return AxisState("MOVING")
         elif _state == DevState.DISABLE:
+            self._moving_state[axis] = 0
+            log_debug(self, f"{axis.name} DISABLED")
             return AxisState("DISABLED")
         else:
+            self._moving_state[axis] = 0
+            log_debug(self, f"{axis.name} READY after unknown state")
             return AxisState("READY")
 
     """

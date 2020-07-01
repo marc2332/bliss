@@ -144,6 +144,9 @@ class BaseMCA(CounterController):
         params["spectrum_size"] = acq_params.get("spectrum_size", None)
         params["prepare_once"] = acq_params.get("prepare_once", True)
         params["start_once"] = acq_params.get("start_once", True)
+        params["read_all_triggers"] = acq_params.get(
+            "read_all_triggers", False
+        )  # only used with SYNC trig mode
 
         return params
 

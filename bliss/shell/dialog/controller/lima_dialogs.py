@@ -209,7 +209,7 @@ def lima_image_dialog(lima_controller):
 
         # treat ROI request
         if ans[dlg_roi] == "none":
-            lima_controller._image_params._roi = [0, 0, max_width, max_width]
+            lima_controller._image_params._roi = [0, 0, max_width, max_height]
         elif ans[dlg_roi] == "keep":
             pass
         else:

@@ -11,7 +11,7 @@ from bliss.controllers.motor import Controller
 from bliss.common.utils import object_method
 from bliss.common.axis import AxisState
 from bliss.comm.util import get_comm, TCP
-from bliss.common.logtools import *
+from bliss.common.logtools import log_debug, log_info, log_warning
 from bliss import global_map
 
 """

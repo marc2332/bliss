@@ -8,7 +8,7 @@
 from bliss.controllers.motor import Controller
 from bliss.common.axis import AxisState
 from bliss.common.utils import object_method
-from bliss.common.logtools import *
+from bliss.common.logtools import log_debug, log_info
 from bliss import global_map
 
 from . import pi_gcs

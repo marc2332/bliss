@@ -30,7 +30,7 @@ class FlexDC(Controller):
             self.sock = get_comm(self.config.config_dict, ctype=TCP, port=4000)
         except ValueError:
             host = self.config.get("host")
-            warn("'host' keyword is deprecated. Use 'tcp' instead", DeprecationWarning)
+            log_warning(self, "'host' keyword is deprecated. Use 'tcp' instead")
             comm_cfg = {"tcp": {"url": host}}
             self.sock = get_comm(comm_cfg, port=4000)
 

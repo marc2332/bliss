@@ -18,7 +18,7 @@ from bliss.common.logtools import *
 
 class Socket(BaseSocket):
     def __info__(self):
-        info_str = "UDP SOCKET:  host={self._host} port={self._port} \n"
+        info_str = f"UDP SOCKET:  host={self._host} port={self._port} \n"
         return info_str
 
     def _connect(self, host, port):

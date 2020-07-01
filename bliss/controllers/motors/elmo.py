@@ -499,6 +499,19 @@ class Elmo(Controller):
     def set_encoder(self, encoder, steps):
         self._query("PX=%d" % steps)
 
+    @property
+    def version(self):
+        return self._query("VR")
+
+    def __info__(self):
+        info = "ELMO CONTROLLER\n"
+        info += f"     version: {self.version}\n"
+        info += f"     comm: {self._cnx.__info__()}"
+        return info
+
+    def get_axis_info(self, axis):
+        pass
+
     @object_method(types_info=("None", "None"))
     def input_register(self, axis):
         inp = int(self._query("IP"))

@@ -139,10 +139,8 @@
 
 
 import time
-import sys
 import gevent
 
-from bliss.common import event
 from bliss import global_map
 from bliss.common.utils import Null
 from bliss.common.axis import AxisState

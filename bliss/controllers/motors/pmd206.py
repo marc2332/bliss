@@ -467,7 +467,7 @@ class PMD206(Controller):
         """
         Sends 'HO' command.
         """
-        self.send(
+        self.send(axis,
             "HO=%d,%d,%d,%d,%d,%d"
             % (freq, max_steps, max_counts, first_dir, max_steps, max_counts)
         )

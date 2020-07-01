@@ -1,0 +1,6 @@
+- class: TektronixOsc
+  module: tektronix
+  plugin: bliss
+  name: tektro2
+  vxi11:
+    host: id24tektro54 

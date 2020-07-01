@@ -106,7 +106,7 @@ class RoiConfig:
         return [(name, literal_eval(value)) for (name, value) in self.config.items()]
 
     def has_key(self, name):
-        return self.config.has_key(name)
+        return name in self.config
 
     def update(self, rois):
         for name, roi in rois.items():

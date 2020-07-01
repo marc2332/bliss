@@ -340,7 +340,7 @@ def try_open(fu):
             self.open()
         timeout = keys.get("timeout")
         if timeout and self._timeout != timeout:
-            if gpib_type != self.PROLOGIX:
+            if self.gpib_type != self.PROLOGIX:
                 with KillMask():
                     self._raw_handler.ibtmo(timeout)
             self._timeout = timeout

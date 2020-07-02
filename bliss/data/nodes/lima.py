@@ -191,13 +191,36 @@ def read_image(proxy, image_nb: int) -> numpy.ndarray:
 
 
 class LimaDataView:
-    def __init__(self, queue, queue_ref, from_index, to_index, from_stream=False):
+    def __init__(
+        self,
+        queue,
+        queue_ref,
+        from_index,
+        to_index,
+        last_image_ready=-1,
+        from_stream=False,
+    ):
         self._queue = queue
         self._queue_ref = queue_ref
         self.from_index = from_index
-        self.to_index = to_index
-        self.last_image_ready = -1
+        self._to_index = to_index
+        self.last_image_ready = last_image_ready
         self.from_stream = from_stream
+
+    @property
+    def to_index(self):
+        self._update()
+        last_index = self.last_image_ready
+        if self._to_index >= 0:
+            return min(self._to_index, last_index)
+        else:
+            return last_index
+
+    @property
+    def last_index(self):
+        """WARNING: this is the last image index + 1
+        """
+        return self.to_index + 1
 
     @property
     def connection(self):
@@ -220,15 +243,6 @@ class LimaDataView:
     @property
     def first_ref_data(self):
         return self.all_ref_data[0]
-
-    @property
-    def last_index(self):
-        """ evaluate the last image index
-        """
-        self._update()
-        if self.to_index >= 0:
-            return self.to_index
-        return self.last_image_ready + 1
 
     @property
     def current_lima_acq(self):
@@ -297,6 +311,9 @@ class LimaDataView:
 
     def get_last_image(self, proxy=UNSET):
         """Returns the last image from the received one, together with the frame id.
+
+        :param proxy: lima server proxy
+        :returns Frame:
         """
         self._update()
 
@@ -324,52 +341,89 @@ class LimaDataView:
         return Frame(data, frame_number, source)
 
     def get_image(self, image_nb, proxy=UNSET):
+        """
+        :param int image_nb:
+        :param proxy: lima server proxy
+        :returns numpy.ndarray:
+        """
         if image_nb < 0:
-            raise ValueError("image_nb must be a real image number")
-
+            raise ValueError("image_nb cannot be a negative number")
         self._update()
-
         if proxy is UNSET:
             proxy = self._get_proxy()
-
         data = None
         if proxy:
             data = self._get_from_server_memory(proxy, image_nb)
-
         if data is None:
-            return self._get_from_file(image_nb)
-        else:
-            return data
+            data = self._get_from_file(image_nb)
+        return data
 
-    def __getitem__(self, item_index):
-        if isinstance(item_index, tuple):
-            item_index = slice(*item_index)
-        if isinstance(item_index, slice):
+    def __getitem__(self, idx):
+        if isinstance(idx, slice):
             proxy = self._get_proxy()
-            return tuple(
-                (
-                    self.get_image(self.from_index + image_nb, proxy=proxy)
-                    for image_nb in item_index
-                )
+            start, stop, step = idx.indices(len(self))
+            start += self.from_index
+            stop += self.from_index
+            return numpy.asarray(
+                list(self._image_range(start, stop, step, proxy=proxy))
             )
+        elif isinstance(idx, list):
+            proxy = self._get_proxy()
+            idx = numpy.asarray(idx)
+            if isinstance(idx[0].item(), bool):
+                idx = numpy.nonzero(idx)
+            idx += self.from_index
+            return numpy.asarray(list(self._image_iter(idx, proxy=proxy)))
+        elif isinstance(idx, tuple):
+            # This would slice the image dimensions
+            raise NotImplementedError
         else:
-            if self.from_stream and item_index == -1:
-                return self.get_image(-1)
-            if item_index < 0:
-                start = self.last_index
-                if start == 0:
-                    raise IndexError("No image available")
+            try:
+                idx = int(idx)
+            except Exception as e:
+                raise IndexError from e
+            if self.from_stream and idx == -1:
+                img = self.get_image(-1)
             else:
-                start = self.from_index
-            return self.get_image(start + item_index)
+                if idx < 0:
+                    index = self.to_index + 1 + idx
+                    if index < 0:
+                        raise IndexError("No image available")
+                else:
+                    index = self.from_index + idx
+                img = self.get_image(index)
+            if img is None:
+                raise IndexError
+            return img
 
     def __iter__(self):
         proxy = self._get_proxy()
-        for image_nb in range(self.from_index, self.last_index):
-            yield self.get_image(image_nb, proxy=proxy)
+        yield from self._image_range(self.from_index, self.to_index + 1, proxy=proxy)
+
+    def _image_range(self, start, stop, step=1, proxy=UNSET):
+        yield from self._image_iter(range(start, stop, step), proxy=proxy)
+
+    def _image_iter(self, image_nb_iterator, proxy=UNSET):
+        if proxy is UNSET:
+            proxy = self._get_proxy()
+        for image_nb in image_nb_iterator:
+            try:
+                img = self.get_image(image_nb, proxy=proxy)
+                if img is None:
+                    break
+                yield img
+            except Exception:
+                break
+
+    def as_array(self):
+        if len(self) == 1:
+            # To be consistant with ChannelDataNode
+            return list(self)[0]
+        else:
+            return numpy.asarray(self)
 
     def __len__(self):
-        length = self.last_index - self.from_index
+        length = self.to_index - self.from_index + 1
         return 0 if length < 0 else length
 
     def _update(self):
@@ -386,22 +440,6 @@ class LimaDataView:
             for key in ("acq_trigger_mode",):
                 setattr(self, key, ref_data.get(key, None))
 
-    def _get_from_server_memory(self, proxy, image_nb):
-        if self.current_lima_acq == self.lima_acq_nb:  # current acquisition is this one
-            if self.last_image_ready < 0:
-                raise IndexError("No image has been taken yet")
-            if self.last_image_ready < image_nb:  # image not yet available
-                raise IndexError("Image is not available yet")
-            # should be in memory
-            if self.buffer_max_number > (self.last_image_ready - image_nb):
-                try:
-                    return read_image(proxy, image_nb)
-                except RuntimeError:
-                    # As it's asynchronous, image seems to be no
-                    # more available so read it from file
-                    return None
-            return None
-
     def get_filenames(self):
         """All saved image filenames
         """
@@ -417,7 +455,32 @@ class LimaDataView:
             ref_data, image_nbs=image_nbs, last_image_saved=self.last_image_saved
         )
 
+    def _get_from_server_memory(self, proxy, image_nb):
+        """
+        :param proxy: lima server proxy
+        :param int image_nb:
+        :returns numpy.ndarray or None:
+        """
+        if self.current_lima_acq == self.lima_acq_nb:  # current acquisition is this one
+            if self.last_image_ready < 0:
+                raise IndexError("No image has been taken yet")
+            if self.last_image_ready < image_nb:  # image not yet available
+                raise IndexError("Image is not available yet")
+            # should be in memory
+            if self.buffer_max_number > (self.last_image_ready - image_nb):
+                try:
+                    return read_image(proxy, image_nb)
+                except RuntimeError:
+                    # As it's asynchronous, image seems to be no
+                    # more available so read it from file
+                    return None
+            return None
+
     def _get_from_file(self, image_nb):
+        """
+        :param int image_nb:
+        :returns numpy.ndarray or None:
+        """
         try:
             ref_data = self.first_ref_data
         except IndexError:
@@ -488,9 +551,14 @@ class LimaImageChannelDataNode(ChannelDataNodeBase):
             self._queue,
             self._queue_ref,
             from_index,
-            to_index if to_index is not None else from_index + 1,
+            to_index if to_index is not None else from_index,
             from_stream=self.from_stream,
         )
+
+    def get_as_array(self, from_index, to_index=None):
+        """Like `get` but ensures the result is a numpy array.
+        """
+        return numpy.asarray(self.get(from_index, to_index).as_array(), self.dtype)
 
     def decode_raw_events(self, events):
         """Decode raw stream data and get image URI's.
@@ -582,5 +650,4 @@ class LimaImageChannelDataNode(ChannelDataNodeBase):
         return db_names
 
     def __len__(self):
-        # TODO: based on self._stream_image_count
-        raise NotImplementedError
+        return len(self.get(0, -1))

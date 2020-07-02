@@ -157,46 +157,116 @@ def test_interrupted_scan(session, redis_data_conn):
         assert redis_data_conn.ttl(child_node_name) > 0
 
 
+def _validate_node_indexing(node, shape, dtype, npoints, expected_data, extract):
+    assert node.shape == shape
+    assert node.dtype == dtype
+    assert len(node) == npoints
+    assert numpy.array_equal(expected_data, extract(node.get(0, -1)))
+    assert numpy.array_equal(expected_data, extract(node.get_as_array(0, -1)))
+    assert numpy.array_equal(expected_data[0], extract(node.get(0), slice=False))
+    assert numpy.array_equal(
+        expected_data[0], extract(node.get_as_array(0), slice=False)
+    )
+
+    # Integer indexing
+    # assert isinstance(extract(node[2]), node.dtype)
+    assert numpy.equal(expected_data[2], extract(node[2], slice=False))
+    assert numpy.equal(expected_data[-2], extract(node[-2], slice=False))
+    with pytest.raises(IndexError):
+        extract(node[npoints], slice=False)
+
+    # Slice indexing
+    assert isinstance(extract(node[1:3]), numpy.ndarray)
+    assert numpy.array_equal(expected_data, extract(node[:]))
+    assert numpy.array_equal(expected_data, extract(node[0:npoints]))
+    assert numpy.array_equal(expected_data, extract(node[0 : npoints + 1]))
+    assert numpy.array_equal(expected_data[1:], extract(node[1:]))
+    assert numpy.array_equal(expected_data[:-1], extract(node[:-1]))
+    assert numpy.array_equal(expected_data[-1:], extract(node[-1:]))
+    assert numpy.array_equal(expected_data[1:2], extract(node[1:2]))
+    assert numpy.array_equal(expected_data[1:3], extract(node[1:3]))
+    assert numpy.array_equal(expected_data[-3:-1], extract(node[-3:-1]))
+    assert numpy.array_equal(extract(node[1:1]), [])
+    assert numpy.array_equal(extract(node[npoints:]), [])
+    assert numpy.array_equal(extract(node[npoints + 1 : npoints + 2]), [])
+    with pytest.raises(IndexError):
+        extract(node[3:1])
+
+
 def test_scan_data_0d(session, redis_data_conn):
     simul_counter = session.env_dict.get("sim_ct_gauss")
-    s = scans.timescan(0.1, simul_counter, npoints=10, return_scan=True, save=False)
-
+    npoints = 10
+    s = scans.timescan(
+        0.1, simul_counter, npoints=npoints, return_scan=True, save=False
+    )
     assert s == current_session.scans[-1]
 
-    # redis key is build from node name and counter name with _data suffix
-    # ":timer:<counter_name>:<counter_name>_data"
+    # Check the raw event stream
     db_name = f"{s.node.db_name}:timer:{simul_counter.fullname}"
     redis_key = db_name + "_data"
-    raw_stream_data = redis_data_conn.xrange(redis_key, "-", "+")
-    raw_data = (numpy.loads(v.get(b"__DATA__")) for i, v in raw_stream_data)
-    redis_data = list(raw_data)
-    assert numpy.array_equal(redis_data, simul_counter.data)
+    events = redis_data_conn.xrange(redis_key, "-", "+")
+    expected_data = list(numpy.loads(raw.get(b"__DATA__")) for i, raw in events)
+    assert numpy.array_equal(expected_data, simul_counter.data)
 
+    # Check the generated Redis keys
     redis_keys = set(redis_scan(session.name + "*", connection=redis_data_conn))
     session_node = get_session_node(session.name)
     db_names = set([n.db_name for n in session_node.walk(wait=False)])
     assert len(db_names) > 0
     assert db_names == redis_keys.intersection(db_names)
 
+    # Check DataNode indexing
     node = get_node(db_name)
-    assert len(node) == 10
-    assert numpy.array_equal(redis_data, node.get(0, -1))
-    assert numpy.array_equal(redis_data, node.get_as_array(0, -1))
-    assert isinstance(node[2], node.dtype)
-    assert isinstance(node[1:3], numpy.ndarray)
-    assert numpy.equal(redis_data[2], node[2])
-    assert numpy.equal(redis_data[-2], node[-2])
-    assert numpy.array_equal(redis_data, node[:])
-    assert numpy.array_equal(redis_data[1:], node[1:])
-    assert numpy.array_equal(redis_data[:-1], node[:-1])
-    assert numpy.array_equal(redis_data[1:2], node[1:2])
-    assert numpy.array_equal(redis_data[1:3], node[1:3])
-    assert numpy.array_equal(redis_data[-3:-1], node[-3:-1])
-    assert numpy.array_equal(redis_data, node[:11])
-    assert node[3:1] == []
-    assert node[1:1] == []
-    assert node[11:12] == []
-    assert node[10] is None
+    assert node.db_name == db_name
+    assert node.fullname == "simulation_counter_controller:sim_ct_gauss"
+
+    def extract(arr, slice=True):
+        return arr
+
+    _validate_node_indexing(node, tuple(), float, npoints, expected_data, extract)
+
+
+def test_lima_data_channel_node(lima_session, redis_data_conn):
+    lima_sim = lima_session.env_dict["lima_simulator"]
+    npoints = 10
+    s = scans.timescan(0.1, lima_sim, npoints=npoints)
+
+    # Check the raw event stream
+    db_name = f"{s.node.db_name}:timer:{lima_sim.fullname}:image"
+    redis_key = db_name + "_data"
+    events = redis_data_conn.xrange(redis_key, "-", "+")
+    expected_data = list(pickle.loads(raw.get(b"__REFSTATUS__")) for i, raw in events)
+    assert expected_data[-1]["last_image_acquired"] == npoints - 1
+
+    # Check the generated Redis keys
+    redis_keys = set(redis_scan(lima_session.name + "*", connection=redis_data_conn))
+    session_node = get_session_node(lima_session.name)
+    db_names = set([n.db_name for n in session_node.walk(wait=False)])
+    assert len(db_names) > 0
+    assert db_names == redis_keys.intersection(db_names)
+
+    # Check DataNode indexing
+    node = get_node(db_name)
+    assert node.db_name == db_name
+    assert node.fullname == "lima_simulator:image"
+    expected_data = numpy.arange(1, npoints + 1) * 100
+
+    def extract(view, slice=True):
+        if slice:
+            arr = view[:]
+        else:
+            try:
+                arr = view.as_array()
+            except AttributeError:
+                arr = view
+        if arr.size:
+            return arr.max(axis=(-1, -2))
+        else:
+            return arr
+
+    _validate_node_indexing(
+        node, (1024, 1024), numpy.uint32, npoints, expected_data, extract
+    )
 
 
 def test_data_iterator_event(beacon, redis_data_conn, session):
@@ -241,19 +311,6 @@ def test_data_iterator_event(beacon, redis_data_conn, session):
     for n in x.walk_from_last(filter="channel", wait=False):
         assert all(n.get(0, -1) == channels_data[n.name])
     assert isinstance(n, ChannelDataNode)
-
-
-def test_lima_data_channel_node(redis_data_conn, lima_session):
-    lima_sim = lima_session.env_dict["lima_simulator"]
-
-    timescan = scans.timescan(0.1, lima_sim, npoints=1)
-
-    image_node_db_name = "%s:timer:lima_simulator:image" % timescan.node.db_name
-    image_node = _get_or_create_node(image_node_db_name)
-    assert image_node.db_name == image_node_db_name
-    assert image_node.fullname == "lima_simulator:image"
-    assert image_node.shape == (1024, 1024)
-    assert image_node.dtype == numpy.uint32
 
 
 @pytest.mark.parametrize("with_roi", [False, True], ids=["without ROI", "with ROI"])

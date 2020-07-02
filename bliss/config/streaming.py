@@ -420,10 +420,10 @@ class DataStreamReader:
             return
         with pipeline(self._synchro_stream):
             if end:
-                self._synchro_stream.add(self.SYNC_END)
+                synchro_stream.add(self.SYNC_END)
             else:
-                self._synchro_stream.add(self.SYNC_EVENT)
-            self._synchro_stream.ttl(60)
+                synchro_stream.add(self.SYNC_EVENT)
+            synchro_stream.ttl(60)
 
     @contextmanager
     def _update_streams_context(self):

@@ -5,9 +5,11 @@
 # Copyright (c) 2015-2020 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
+import numpy
+import functools
 from bliss.data.node import DataNode
 from bliss.data.events import EventData, ChannelDataEvent
-import numpy
+
 
 # Default length of published channels
 CHANNEL_MAX_LEN = 2048
@@ -19,7 +21,17 @@ class ChannelDataNodeBase(DataNode):
     def __init__(self, name, **kwargs):
         super().__init__(self._NODE_TYPE, name, **kwargs)
         self._queue = self._create_stream("data", maxlen=CHANNEL_MAX_LEN)
-        self._last_index = 1  # redis can't start at 0
+        self._last_index = self._idx_to_streamid(0)
+
+    @staticmethod
+    def _idx_to_streamid(idx):
+        """Get the Redis stream ID from the sequence index
+
+        :param int idx:
+        :returns int:
+        """
+        # Redis can't has a stream ID 0
+        return idx + 1
 
     def _init_info(self, **kwargs):
         shape = kwargs.get("shape", None)
@@ -48,36 +60,53 @@ class ChannelDataNodeBase(DataNode):
         return super()._create_struct(db_name, name, node_type)
 
     def __getitem__(self, idx):
+        """
+        :param int or slice idx: supports only slices with stride +1
+        """
         if isinstance(idx, slice):
             if idx.step not in (1, None):
-                raise ValueError("Stride not supported")
+                raise IndexError("Stride not supported")
+            n = len(self)
 
             if idx.start is None:
                 from_index = 0
             else:
                 from_index = idx.start
-            if from_index < 0:
-                from_index += len(self)
+                if from_index < 0:
+                    from_index += n
 
             if idx.stop is None:
-                to_index = -1
+                to_index = n
             else:
-                to_index = idx.stop - 1
-            if to_index < 0:
-                to_index += len(self)
+                to_index = idx.stop
+                if to_index < 0:
+                    to_index += n
 
             if from_index > to_index:
-                return []
+                raise IndexError("Reverse order not supported")
+            to_index -= 1
         elif idx is Ellipsis:
             from_index = 0
             to_index = -1
         else:
+            try:
+                idx = int(idx)
+            except Exception as e:
+                raise IndexError from e
             if idx < 0:
                 from_index = idx + len(self)
             else:
                 from_index = idx
             to_index = None
-        return self.get(from_index, to_index)
+        ret = self.get(from_index, to_index)
+        if to_index is None:
+            try:
+                if not ret:
+                    raise IndexError("index out of range")
+            except ValueError:
+                # non-empty numpy.ndarray
+                pass
+        return ret
 
     @property
     def shape(self):
@@ -112,8 +141,23 @@ class ChannelDataNodeBase(DataNode):
 
     def get(self, from_index, to_index=None):
         """Returns an item or a slice.
+
+        :param int index: 
+                    to_index is None:
+                         < 0: last item
+                         >= 0: item at this index
+                    to_index is not None:
+                        positive integer
+        :param int or None to_index: >= 0 (get slice until and including this index),
+                                     < 0 (get slice until the end)
+                                     None (get item at index from_index)
         """
         raise NotImplementedError
+
+    def get_as_array(self, from_index, to_index=None):
+        """Like `get` but ensures the result is a numpy array.
+        """
+        return numpy.asarray(self.get(from_index, to_index), self.dtype)
 
     def decode_raw_events(self, events):
         """Decode raw stream data
@@ -137,10 +181,8 @@ class ChannelDataNode(ChannelDataNodeBase):
     def get(self, from_index, to_index=None):
         """Returns an item or a slice.
 
-        :param int from_index: positive integer
-        :param int or None to_index: >= 0 (get slice until and including this index),
-                                     < 0 (get slice until the end)
-                                     None (get item at index from_index)
+        :param int from_index:
+        :param int or None to_index:
         :returns numpy.ndarray, list, scalar, None or callable: only a list when no data
         """
         if from_index is None:
@@ -150,51 +192,45 @@ class ChannelDataNode(ChannelDataNodeBase):
         else:
             return self._get_slice(from_index, to_index)
 
-    def get_as_array(self, from_index, to_index=None):
-        """Like `get` but ensures the result is a numpy array.
-        """
-        # This is just because `get` returns [] when no elements
-        return numpy.asarray(self.get(from_index, to_index), self.dtype)
-
     def _get_item(self, index):
         """Get data from a single point (None when the index does not exist).
 
-        :param int index:
-        :returns numpy.ndarray, scalar or None:
+        :param int index:  < 0: last item
+                          >= 0: item at this index
+        :returns scalar, None or callable: None instead of IndexError
         """
         if index < 0:
             events = self._queue.rev_range(count=1)
         else:
-            redis_index = index + 1  # redis starts at 1
+            redis_index = self._idx_to_streamid(index)
             events = self._queue_range(redis_index, redis_index)
-        data = self._events_to_data(index, index, events)
-        try:
-            return data[-1]
-        except IndexError:
-            return None
+        return self._get_return(self._event_to_data, events, index)
 
-    def _get_slice(self, start, stop):
-        """Get a data slice (my be shorter or empty than requested).
+    def _get_slice(self, from_index, to_index):
+        """Get a data slice.
 
-        :param int start:
-        :param int stop:
-        :returns numpy.ndarray, list, scalar or callable: only a list when no data
+        :param int from_index: positive integer
+        :param int to_index:    < 0: till the end
+                               >= 0: until and including this index
+        :returns numpy.ndarray, list, scalar or callable: a list when no data
         """
-        if stop < 0:
-            redis_stop = "+"  # means stream end
+        if to_index < 0:
+            redis_to_index = "+"  # means stream end
         else:
-            redis_stop = stop + 1  # redis starts at 1
-        redis_start = start + 1  # redis starts at 1
-        events = self._queue_range(redis_start, redis_stop)
-        if isinstance(events, list):
-            return self._events_to_data(start, stop, events)
-        else:
-            # pipeline case from get_data
-            # should return the conversion function
-            def events_to_data(events):
-                return self._events_to_data(start, stop, events)
+            redis_to_index = self._idx_to_streamid(to_index)
+        redis_from_index = self._idx_to_streamid(from_index)
+        events = self._queue_range(redis_from_index, redis_to_index)
+        return self._get_return(self._events_to_data, events, from_index, to_index)
 
-            return events_to_data
+    def _get_return(self, events_to_data, events, *args):
+        """
+        :param callable or Any events_to_data:
+        """
+        if isinstance(events, list):
+            return events_to_data(*args, events)
+        else:
+            # pipeline case: should return the conversion function
+            return functools.partial(events_to_data, *args)
 
     def _queue_range(self, from_index, to_index):
         """The result includes `from_index` and `to_index` but
@@ -235,6 +271,8 @@ class ChannelDataNode(ChannelDataNodeBase):
 
     def _events_to_data(self, from_index, to_index, events):
         """
+        :param int from_index:
+        :param int to_index:
         :param list((index, raw)) events:
         :returns numpy.ndarray or list: only a list when no data
         """
@@ -259,6 +297,18 @@ class ChannelDataNode(ChannelDataNodeBase):
             return data
         else:
             return data[start:stop]
+
+    def _event_to_data(self, index, events):
+        """
+        :param int index:
+        :param list((index, raw)) events:
+        :returns scalar or None:
+        """
+        data = self._events_to_data(index, index, events)
+        try:
+            return data[-1]
+        except IndexError:
+            return None
 
     def decode_raw_events(self, events):
         """Decode and concatenate raw stream data

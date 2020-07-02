@@ -47,11 +47,6 @@ class LimaImageChannelDataEvent(streaming_events.StreamEvent):
 
     @property
     def last_index(self):
-        # We can choose from:
-        #   last_image_acquired
-        #   last_image_ready (default for `LimaDataView.last_index`)
-        #   last_counter_ready
-        #   last_image_saved
         return self.ref_status["last_image_ready"]
 
     def get_data(self, from_index, ref_data):

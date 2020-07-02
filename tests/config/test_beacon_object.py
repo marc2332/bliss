@@ -9,7 +9,7 @@ import pytest
 import gevent
 from bliss.config.beacon_object import BeaconObject
 from bliss.common import event
-from bliss.config import static
+from bliss.config import static, settings
 
 
 class Ctrl(BeaconObject):
@@ -462,3 +462,19 @@ def test_BeaconObject_config_obj_property_setting_setter2(two_clients):
     ctrl_cfg2 = cfg2.get("hello_ctrl3")
     ctrl2 = Ctrl14(ctrl_cfg2, share_hardware=False)
     assert ctrl2.axis.name == "robz"
+
+
+def test_BeaconObject_with_numpy_array(beacon):
+    name = "neutrino"
+    h = settings.HashObjSetting(f"{name}:settings")
+    h["velocity"] = numpy.array([1, 2, 3])
+
+    class A(BeaconObject):
+        velocity = BeaconObject.property_setting("velocity", default=[0, 0, 0])
+
+        @velocity.setter
+        def velocity(self, value):
+            pass
+
+    a = A({"name": name, "velocity": [1, 1, 1]}, name=name)
+    a.initialize()

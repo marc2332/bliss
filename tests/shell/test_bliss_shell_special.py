@@ -93,6 +93,24 @@ def test_shell_completion(clean_gevent, beacon):
     session.close()
 
 
+def test_shell_hide_private_completion(clean_gevent, beacon):
+    env_dict = dict()
+    session = beacon.get("test_session5")
+    session.setup(env_dict)
+
+    br = _run_incomplete("test_session5.", env_dict)
+    completions = _get_completion(br)
+
+    assert "_load_config" not in completions
+
+    br = _run_incomplete("test_session5._", env_dict)
+    completions = _get_completion(br)
+
+    assert "_load_config" in completions
+
+    session.close()
+
+
 def test_shell_load_script(clean_gevent, beacon):
     env_dict = dict()
     session = beacon.get("test_session5")

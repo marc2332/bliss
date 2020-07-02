@@ -1673,8 +1673,12 @@ class Speedgoat(object):
     def set_param(self, param, value):
         self.params[param] = value
         ret_val = self.params[param]
-        while self.get_param(param) != value:
-            gevent.sleep(0.00001)  # 10us
+        if isinstance(value, np.ndarray):
+            while not np.array_equal(self.get_param(param), value):
+                gevent.sleep(0.00001)  # 10us
+        else:
+            while self.get_param(param) != value:
+                gevent.sleep(0.00001)  # 10us
 
     def get_param(self, param):
         return self.params[param]

@@ -303,7 +303,7 @@ class BeaconObject:
                     if self._disabled_settings.get(name):
                         continue
                     val = values.get(name, Null)
-                    if val != Null:
+                    if val is not Null:
                         try:
                             setattr(self, name, val)
                         except AttributeError:

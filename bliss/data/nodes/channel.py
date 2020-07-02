@@ -6,8 +6,7 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 from bliss.data.node import DataNode
-from bliss.data.events import EventData
-from bliss.data.streaming_events import ChannelDataEvent
+from bliss.data.events import EventData, ChannelDataEvent
 import numpy
 
 # Default length of published channels

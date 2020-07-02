@@ -9,8 +9,7 @@ import time
 import datetime
 import pickle
 from bliss.data.node import DataNodeContainer
-from bliss.data.events import EventData
-from bliss.data.streaming_events import EndScanEvent
+from bliss.data.events import EventData, EndScanEvent
 from bliss.config import settings
 from bliss.config import streaming_events
 

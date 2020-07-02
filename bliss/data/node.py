@@ -61,8 +61,7 @@ from bliss.config.conductor import client
 from bliss.config import settings
 from bliss.config import streaming
 from bliss.config import streaming_events
-from bliss.data.events import Event, EventType
-from bliss.data.streaming_events import NewDataNodeEvent
+from bliss.data.events import Event, EventType, NewDataNodeEvent
 
 
 # make list of available plugins for generating DataNode objects

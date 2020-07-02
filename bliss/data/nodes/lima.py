@@ -12,8 +12,7 @@ import numpy
 import typing
 from bliss.common.tango import DeviceProxy
 from bliss.data.nodes.channel import ChannelDataNodeBase
-from bliss.data.events import EventData
-from bliss.data.streaming_events import LimaImageChannelDataEvent
+from bliss.data.events import EventData, LimaImageChannelDataEvent
 from bliss.config.settings import QueueObjSetting
 from silx.third_party.EdfFile import EdfFile
 

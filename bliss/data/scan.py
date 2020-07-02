@@ -154,7 +154,7 @@ def watch_session_scans(
                     "nodes_data", dict()
                 )
                 if node.type == "channel":
-                    shape = description[0].get("shape")
+                    shape = description.get("shape")
                     dim = len(shape)
                     # in case of zerod, we keep all data value during the scan
                     if dim == 0:

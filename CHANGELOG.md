@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Flint:
+    - `flint()` command can be used to start Flint
     - Added API to start/stop monitorig on Lima
     - Added image plot GUI to custom live and exposure time while monitoring
     - Added export to logbook

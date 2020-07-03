@@ -51,7 +51,7 @@ class FlintClient:
     """
 
     def __init__(self, process=None):
-        self._pid = None
+        self._pid: typing.Optional[int] = None
         self._proxy = None
         self._process = None
         self._greenlets = None
@@ -60,6 +60,11 @@ class FlintClient:
             self.__start_flint()
         else:
             self.__attach_flint(process)
+
+    @property
+    def pid(self) -> typing.Optional[int]:
+        """"Returns the PID of the Flint application connected by this proxy, else None"""
+        return self._pid
 
     @property
     def __wrapped__(self):
@@ -80,6 +85,7 @@ class FlintClient:
         if self._proxy is not None:
             self._proxy.close()
         self._proxy = None
+        self._pid = None
         self._process = None
         if self._greenlets is not None:
             gevent.killall(self._greenlets)

@@ -26,7 +26,7 @@ from bliss.common.plot import get_flint
 from bliss.common.utils import periodic_exec, deep_update
 from bliss.scanning.scan_meta import get_user_scan_meta
 from bliss.common.axis import Axis
-from bliss.common.utils import Statistics, Null, update_node_info, round
+from bliss.common.utils import Statistics, Null, update_node_info
 from bliss.controllers.motor import remove_real_dependent_of_calc
 from bliss.config.settings import ParametersWardrobe
 from bliss.config.settings import pipeline
@@ -1092,10 +1092,7 @@ class Scan:
         return self._multimotors(self._fwhm, counter, axis, return_axes=return_axes)
 
     def _fwhm(self, counter, axis=None):
-        return round(
-            scan_math.cen(*self._get_x_y_data(counter, axis))[1],
-            precision=axis.tolerance,
-        )
+        return scan_math.cen(*self._get_x_y_data(counter, axis))[1]
 
     def peak(self, counter, axis=None, return_axes=False):
         return self._multimotors(self._peak, counter, axis, return_axes=return_axes)
@@ -1107,18 +1104,13 @@ class Scan:
         return self._multimotors(self._com, counter, axis, return_axes=return_axes)
 
     def _com(self, counter, axis):
-        return round(
-            scan_math.com(*self._get_x_y_data(counter, axis)), precision=axis.tolerance
-        )
+        return scan_math.com(*self._get_x_y_data(counter, axis))
 
     def cen(self, counter, axis=None, return_axes=False):
         return self._multimotors(self._cen, counter, axis, return_axes=return_axes)
 
     def _cen(self, counter, axis):
-        return round(
-            scan_math.cen(*self._get_x_y_data(counter, axis))[0],
-            precision=axis.tolerance,
-        )
+        return scan_math.cen(*self._get_x_y_data(counter, axis))[0]
 
     def _multimotors(self, func, counter, axis=None, return_axes=False):
         axes_names = self._get_data_axes_name()

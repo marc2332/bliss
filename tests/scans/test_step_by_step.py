@@ -723,3 +723,5 @@ def test_ct_sct(session, beacon):
 
     assert "positioners" in sct.scan_info
     assert "positioners" not in ct.scan_info
+
+    assert len(session.scans) == 1  # only sct in scans

@@ -766,7 +766,7 @@ class Scan:
         self.root_node = None
         self._scan_info = dict(scan_info) if scan_info is not None else dict()
         self._shadow_scan_number = not save
-        self._add_to_scans_queue = name != "ct"
+        self._add_to_scans_queue = not (name == "ct" and self._shadow_scan_number)
 
         if scan_saving is None:
             scan_saving = current_session.scan_saving.clone()

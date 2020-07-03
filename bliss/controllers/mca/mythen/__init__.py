@@ -8,8 +8,11 @@ import gevent
 from bliss.common.counter import Counter
 from bliss.scanning.chain import AcquisitionSlave
 from bliss.controllers.counter import CounterController
-
+from bliss.controllers.mca.roi import RoiConfig
 from .lib import MythenInterface, MythenCompatibilityError
+from bliss.common.utils import autocomplete_property
+from bliss.controllers.counter import counter_namespace
+from bliss.controllers.mca.base import RoiMcaCounter
 
 
 def interface_property(name, mode=False):
@@ -25,6 +28,10 @@ def interface_property(name, mode=False):
         return getattr(self._interface, setter_name)(value)
 
     return property(getter, setter)
+
+
+class RoiMythenCounter(RoiMcaCounter):
+    pass
 
 
 class Mythen(CounterController):
@@ -63,7 +70,8 @@ class Mythen(CounterController):
         self._hostname = config["hostname"]
         self._interface = MythenInterface(self._hostname)
         self._apply_configuration()
-        self.create_counter(MythenCounter)
+        self._spectrum = self.create_counter(MythenCounter)
+        self._rois = RoiConfig(self)
 
     def get_acquisition_object(self, acq_params, ctrl_params, parent_acq_params):
         return MythenAcquistionSlave(self, ctrl_params=ctrl_params, **acq_params)
@@ -130,11 +138,36 @@ class Mythen(CounterController):
             "  {:<25s} = {}".format(key, value)
             for key, value in self._get_configuration()
         ]
-        return "\n".join(lines)
+
+        info_str = "\n".join(lines)
+        info_str += "\nROIS:\n"
+
+        info_str_shifted = ""
+        for line in self.rois.__info__().split("\n"):
+            info_str_shifted += "    " + line + "\n"
+        info_str += info_str_shifted
+        info_str += "\n"
+
+        return info_str
 
     @property
     def hostname(self):
         return self._hostname
+
+    # Roi handling
+
+    @autocomplete_property
+    def rois(self):
+        return self._rois
+
+    @autocomplete_property
+    def counters(self):
+        counters = [self._spectrum]
+        counters.extend(
+            [RoiMythenCounter(self, roi, None) for roi in self.rois.get_names()]
+        )
+
+        return counter_namespace(counters)
 
     # General configuration
 
@@ -254,7 +287,7 @@ class MythenAcquistionSlave(AcquisitionSlave):
     # Initialization
     def __init__(
         self,
-        controller,
+        *mca_or_mca_counters,
         count_time=0,
         npoints=1,
         trigger_type=AcquisitionSlave.HARDWARE,
@@ -266,7 +299,7 @@ class MythenAcquistionSlave(AcquisitionSlave):
         self.count_time = count_time
 
         super().__init__(
-            controller,
+            *mca_or_mca_counters,
             npoints=npoints,
             trigger_type=trigger_type,
             prepare_once=prepare_once,
@@ -276,6 +309,15 @@ class MythenAcquistionSlave(AcquisitionSlave):
 
         self._software_acquisition = None
         self._acquisition_status = self.status.STOPPED
+
+    # Counter management
+
+    def _do_add_counter(self, counter):
+        super()._do_add_counter(counter)
+        if not isinstance(counter, MythenCounter):
+            counter.register_device(self)
+        else:
+            self._spectrum_counter = counter
 
     # Flow control
 
@@ -319,8 +361,7 @@ class MythenAcquistionSlave(AcquisitionSlave):
             self._acquisition_status = self.status.STOPPED
             self._software_acquisition = None
             self.device.stop()
-        spectrum = self.device.readout()
-        self.channels[0].emit(spectrum)
+        self._publish()
 
     def reading(self):
         if self.trigger_type == AcquisitionSlave.SOFTWARE:
@@ -330,8 +371,19 @@ class MythenAcquistionSlave(AcquisitionSlave):
             if self._acquisition_status != self.status.RUNNING:
                 break
 
-            spectrum = self.device.readout()
-            self.channels[0].emit(spectrum)
+            self._publish(self)
+
+    def _publish(self):
+        spectrum = self.device.readout()
+        spectrum_channel = self._counters[self._spectrum_counter][0]
+        spectrum_channel.emit(spectrum)
+
+        for counter, channels in self._counters.items():
+            if counter is self._spectrum_counter:
+                continue
+            channel = channels[0]
+            point = counter.compute_roi(spectrum)
+            channel.emit(point)
 
     def stop(self):
         if self.trigger_type == AcquisitionSlave.SOFTWARE:

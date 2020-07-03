@@ -179,6 +179,7 @@ def parse_devices(devices, short_names=True, multivalue_positioners=False):
             device["data_info"]["units"] = mcaunitmap.get(datatype, None)
         elif device["device_type"] == "mythen":
             # 'mythen1:spectrum'
+            # 'mythen1:roi1'
             parts = fullname.split(":")
             device_name = parts[0]
             datatype = ":".join(parts[1:])

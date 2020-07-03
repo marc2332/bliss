@@ -21,7 +21,7 @@ from bliss.controllers.mca.base import (
     StatisticsMcaCounter,
     RoiMcaCounter,
 )
-from bliss.controllers.mca.mythen import MythenCounter
+from bliss.controllers.mca.mythen import MythenCounter, RoiMythenCounter
 from bliss.controllers.lima.bpm import LimaBpmCounter
 from bliss.controllers.lima.image import ImageCounter
 from bliss.controllers.lima.roi import RoiStatCounter
@@ -142,7 +142,15 @@ def _device_info_add_ctr(devices, ctr):
         )
         return
     alias = global_map.aliases.get_alias(ctr)
-    if isinstance(ctr, SpectrumMcaCounter):
+    if isinstance(ctr, MythenCounter):
+        device_info = {"type": "mythen"}
+        device = {"device_info": device_info, "device_type": "mythen"}
+        devices[fullname] = device
+    elif isinstance(ctr, RoiMythenCounter):
+        device_info = {"type": "mythen"}
+        device = {"device_info": device_info, "device_type": "mythen"}
+        devices[fullname] = device
+    elif isinstance(ctr, SpectrumMcaCounter):
         device_info = {"type": "mca"}
         device = {"device_info": device_info, "device_type": "mca"}
         devices[fullname] = device
@@ -165,10 +173,6 @@ def _device_info_add_ctr(devices, ctr):
     elif isinstance(ctr, RoiStatCounter):
         device_info = {"type": "lima"}
         device = {"device_info": device_info, "device_type": "lima"}
-        devices[fullname] = device
-    elif isinstance(ctr, MythenCounter):
-        device_info = {"type": "mythen"}
-        device = {"device_info": device_info, "device_type": "mythen"}
         devices[fullname] = device
     elif isinstance(ctr, SamplingCounter):
         device_info = _samplingcounter_device_info(ctr)

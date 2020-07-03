@@ -81,7 +81,11 @@ Mythen on mymythen:
   input_polarity            = 0
   output_polarity           = 0
   selected_module           = 1
-  element_settings          = ('Cu',)"""
+  element_settings          = ('Cu',)
+ROIS:
+    NO ROI defined yet !!
+
+"""
     )
     m.finalize()
     m._interface._sock.close.assert_called_once_with()
@@ -154,3 +158,23 @@ def test_mythen_default_chain_with_counter_namespace(run_command, session):
     data = scan.get_data()["spectrum"]
     assert data.shape == (3, 1280)
     assert np.array_equal(data, [list(range(1280))] * 3)
+
+
+def test_mythen_roi_counters(run_command, session):
+    m0 = session.config.get("m0")
+    mythen = session.config.get("mythen1")
+    mythen.rois.set("my_roi", 100, 200)
+    scan = scans.ascan(m0, 0, 10, 2, 0.1, mythen, return_scan=True, save=False)
+    data = scan.get_data()["my_roi"]
+    assert data.shape == (3,)
+    assert data[0] == sum(scan.get_data()["mythen1:spectrum"][0, 100:200])
+
+
+# ~ def test_mythen_faulty_roi_counters(run_command, session):
+# ~ m0 = session.config.get("m0")
+# ~ mythen = session.config.get("mythen1")
+# ~ mythen.rois.set("my_roi", -100, 200)
+# ~ scan = scans.ascan(m0, 0, 10, 2, 0.1, mythen, return_scan=True, save=False)
+# ~ data = scan.get_data()["my_roi"]
+# ~ assert data.shape == (3,)
+# ~ assert data[0] != 0

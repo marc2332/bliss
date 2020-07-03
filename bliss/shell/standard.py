@@ -146,6 +146,7 @@ __all__ = (
         "move",
         "plotinit",
         "plotselect",
+        "flint",
         "prdef",
         "sync",
         "lslog",
@@ -807,6 +808,31 @@ example:
     for cnt_name in plot_module.get_plotted_counters():
         print(f"- {cnt_name}")
     print("")
+
+
+def flint():
+    """
+    Returns a proxy to the running Flint application used by BLISS, else create
+    one.
+
+    If there is problem to create or to connect to Flint, an exception is
+    raised.
+
+        # This can be used to start Flint
+        BLISS [1]: flint()
+
+        # This can be used to close Flint
+        BLISS [1]: f = flint()
+        BLISS [2]: f.close()
+
+        # This can be used to kill Flint
+        BLISS [1]: f = flint()
+        BLISS [2]: f.kill9()
+    """
+    proxy = plot_module.get_flint(creation_allowed=True, mandatory=True)
+    print("Currently Flint PID: ", proxy.pid)
+    print("")
+    return proxy
 
 
 @typeguardTypeError_to_hint

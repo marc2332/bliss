@@ -2,12 +2,15 @@ import datetime
 import time
 import tabulate
 import logging
+import numbers
+import typeguard
 
 from bliss.scanning.chain import AcquisitionChain
 from bliss.scanning.scan import Scan, ScanState, DataWatchCallback
 from bliss.scanning.toolbox import ChainBuilder
 from bliss.controllers.lima.lima_base import Lima
 from bliss.common.utils import BOLD, RED
+from bliss.common.utils import typeguardTypeError_to_hint
 
 _log = logging.getLogger("bliss.scans")
 
@@ -70,7 +73,15 @@ def _limatake_parse_args(args):
     return alldict, devdict
 
 
-def limatake(expotime, nbframes=1, save=False, run=True, **kwargs):
+@typeguardTypeError_to_hint
+@typeguard.typechecked
+def limatake(
+    expotime: numbers.Real,
+    nbframes: numbers.Integral = 1,
+    save: bool = False,
+    run: bool = True,
+    **kwargs
+):
     """Perform an acquisition with lima devices active in current measurement
     group.
 

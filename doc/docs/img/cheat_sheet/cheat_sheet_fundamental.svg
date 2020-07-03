@@ -676,11 +676,11 @@
      borderopacity="1.0"
      inkscape:pageopacity="0.0"
      inkscape:pageshadow="2"
-     inkscape:zoom="0.71370552"
-     inkscape:cx="662.86824"
-     inkscape:cy="391.01352"
+     inkscape:zoom="3.3176155"
+     inkscape:cx="284.82998"
+     inkscape:cy="418.92926"
      inkscape:document-units="mm"
-     inkscape:current-layer="layer7"
+     inkscape:current-layer="layer4"
      showgrid="true"
      inkscape:window-width="1951"
      inkscape:window-height="1357"
@@ -1230,30 +1230,30 @@
        ry="0.79374748"
        style="opacity:1;vector-effect:none;fill:none;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:0.26458332;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
        id="rect858-0-6-8-2-1-5-4"
-       width="92.604156"
-       height="23.293982"
+       width="92.604141"
+       height="28.585648"
        x="199.76044"
-       y="178.76852" />
+       y="173.47685" />
     <rect
        style="opacity:1;vector-effect:none;fill:#1e9900;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:0.26458332;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
        id="rect901-8-33-0-9"
        width="34.395828"
        height="3.9687498"
        x="203.72919"
-       y="177.44562" />
+       y="172.15395" />
     <text
        xml:space="preserve"
        style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:3.52777767px;line-height:1.25;font-family:Cantarell;-inkscape-font-specification:'Cantarell, Bold';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-feature-settings:normal;text-align:start;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;text-anchor:start;fill:#fcfcfc;fill-opacity:1;stroke:none;stroke-width:0.26458332"
        x="204.82689"
-       y="180.39818"
+       y="175.10651"
        id="text838-2-7-0-7-8-3-8"><tspan
          sodipodi:role="line"
          id="tspan836-4-0-4-0-7-57-3"
          x="204.82689"
-         y="180.39818"
+         y="175.10651"
          style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:3.52777767px;font-family:Cantarell;-inkscape-font-specification:'Cantarell, Bold';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-feature-settings:normal;text-align:start;writing-mode:lr-tb;text-anchor:start;fill:#fcfcfc;fill-opacity:1;stroke-width:0.26458332">Plotting with FLINT</tspan></text>
     <g
-       transform="translate(90.559062,121.69181)"
+       transform="translate(90.274472,120.29747)"
        id="g2744-0-65-5">
       <g
          id="g1904-3-3-0-9-6-3"
@@ -1286,16 +1286,16 @@
        xml:space="preserve"
        style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:3.17499995px;line-height:1.25;font-family:sans-serif;-inkscape-font-specification:'sans-serif, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-feature-settings:normal;text-align:start;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.26458332"
        x="263.36929"
-       y="182.58278"
+       y="177.29111"
        id="text1110-8-5-0-2-1-2-2-0-6"><tspan
          sodipodi:role="line"
          x="263.36929"
-         y="182.58278"
+         y="177.29111"
          style="font-style:italic;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:3.17499995px;font-family:sans-serif;-inkscape-font-specification:'sans-serif, Italic';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-feature-settings:normal;text-align:start;writing-mode:lr-tb;text-anchor:start;stroke-width:0.26458332"
          id="tspan1125-4-9-7-5-8-7-2">scan data display</tspan></text>
     <g
        style="display:inline"
-       transform="translate(90.423727,125.90498)"
+       transform="translate(90.274472,124.84661)"
        id="g2744-0-65-5-4">
       <g
          id="g1904-3-3-0-9-6-3-7"
@@ -1334,8 +1334,8 @@
        ry="0.79374748"
        style="opacity:1;vector-effect:none;fill:none;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:0.26458332;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
        id="rect858-0-6-8-2-1-5"
-       width="92.604164"
-       height="43.656246"
+       width="92.604156"
+       height="39.952152"
        x="199.76042"
        y="129.03743" />
     <rect
@@ -1525,7 +1525,7 @@
          id="tspan1125-4-9-8-1-5-2-8">: data of the previous scan </tspan></text>
     <g
        style="display:inline"
-       transform="translate(90.429258,121.10218)"
+       transform="translate(90.196861,115.81051)"
        id="g2736-8-1-7">
       <g
          id="g1904-3-3-6-3-2-4-1-7"
@@ -1540,10 +1540,41 @@
              id="tspan836-4-0-5-3-0-9-2-9-2-6-7-0-0-4-2"
              x="9.5635834"
              y="147.36484"
-             style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:3.52777767px;font-family:'Courier 10 Pitch';-inkscape-font-specification:'Courier 10 Pitch, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-feature-settings:normal;text-align:start;writing-mode:lr-tb;text-anchor:start;fill:#002aff;fill-opacity:1;stroke:none;stroke-width:0.26458332;stroke-opacity:1">plotselect(diode1)</tspan></text>
+             style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:3.52777767px;font-family:'Courier 10 Pitch';-inkscape-font-specification:'Courier 10 Pitch, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-feature-settings:normal;text-align:start;writing-mode:lr-tb;text-anchor:start;fill:#002aff;fill-opacity:1;stroke:none;stroke-width:0.26458332;stroke-opacity:1">flint()</tspan></text>
       </g>
       <text
          id="text1110-8-0-4-9-7"
+         y="66.624428"
+         x="125.60352"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:3.17499995px;line-height:1.25;font-family:sans-serif;-inkscape-font-specification:'sans-serif, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-feature-settings:normal;text-align:start;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.26458332"
+         xml:space="preserve"><tspan
+           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:3.17499995px;font-family:sans-serif;-inkscape-font-specification:'sans-serif, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-feature-settings:normal;text-align:start;writing-mode:lr-tb;text-anchor:start;stroke-width:0.26458332"
+           y="66.624428"
+           x="125.60352"
+           id="tspan1108-7-1-1-2-5"
+           sodipodi:role="line">: launch flint plotting tool</tspan></text>
+    </g>
+    <g
+       style="display:inline"
+       transform="translate(90.408528,120.08045)"
+       id="g2736-8-1-7-3">
+      <g
+         id="g1904-3-3-6-3-2-4-1-7-3"
+         transform="translate(101.86458,-80.697912)">
+        <text
+           xml:space="preserve"
+           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:3.52777767px;line-height:1.25;font-family:'Courier 10 Pitch';-inkscape-font-specification:'Courier 10 Pitch, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-feature-settings:normal;text-align:start;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;text-anchor:start;fill:#002aff;fill-opacity:1;stroke:none;stroke-width:0.26458332;stroke-opacity:1"
+           x="9.5635834"
+           y="147.36484"
+           id="text838-2-7-3-2-7-6-1-6-7-3-4-8-0-2-0-4"><tspan
+             sodipodi:role="line"
+             id="tspan836-4-0-5-3-0-9-2-9-2-6-7-0-0-4-2-2"
+             x="9.5635834"
+             y="147.36484"
+             style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:3.52777767px;font-family:'Courier 10 Pitch';-inkscape-font-specification:'Courier 10 Pitch, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-feature-settings:normal;text-align:start;writing-mode:lr-tb;text-anchor:start;fill:#002aff;fill-opacity:1;stroke:none;stroke-width:0.26458332;stroke-opacity:1">plotselect(diode1)</tspan></text>
+      </g>
+      <text
+         id="text1110-8-0-4-9-7-4"
          y="66.624428"
          x="150.18445"
          style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:3.17499995px;line-height:1.25;font-family:sans-serif;-inkscape-font-specification:'sans-serif, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-feature-settings:normal;text-align:start;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.26458332"
@@ -1551,7 +1582,7 @@
            style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:3.17499995px;font-family:sans-serif;-inkscape-font-specification:'sans-serif, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-feature-settings:normal;text-align:start;writing-mode:lr-tb;text-anchor:start;stroke-width:0.26458332"
            y="66.624428"
            x="150.18445"
-           id="tspan1108-7-1-1-2-5"
+           id="tspan1108-7-1-1-2-5-5"
            sodipodi:role="line">: select diode1 for plotting</tspan></text>
     </g>
   </g>
@@ -2560,7 +2591,7 @@
        style="opacity:1;vector-effect:none;fill:none;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:0.26458332;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1"
        id="rect858-0-6-8-61-4"
        width="92.604164"
-       height="41.010429"
+       height="42.333332"
        x="9.260417"
        y="52.572918" />
     <rect
@@ -3242,6 +3273,32 @@
              y="147.36484"
              style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:3.52777767px;font-family:'Courier 10 Pitch';-inkscape-font-specification:'Courier 10 Pitch, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-feature-settings:normal;text-align:start;writing-mode:lr-tb;text-anchor:start;fill:#002aff;fill-opacity:1;stroke:none;stroke-width:0.26458332;stroke-opacity:1">ct(0.2, i0diode)</tspan></text>
       </g>
+    </g>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:3.17499995px;line-height:1.25;font-family:sans-serif;-inkscape-font-specification:'sans-serif, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-feature-settings:normal;text-align:start;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.26458332"
+       x="46.5093"
+       y="92.234634"
+       id="text1110-2-7-2-9"><tspan
+         id="tspan1494-7"
+         sodipodi:role="line"
+         x="46.5093"
+         y="92.234634"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:3.17499995px;font-family:sans-serif;-inkscape-font-specification:'sans-serif, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-feature-settings:normal;text-align:start;writing-mode:lr-tb;text-anchor:start;stroke-width:0.26458332">: `ct` saved as a scan</tspan></text>
+    <g
+       transform="translate(1.162709,-55.252167)"
+       id="g1904-3-98-6">
+      <text
+         id="text838-2-7-3-2-7-6-1-6-71-4"
+         y="147.36484"
+         x="9.5635834"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:3.52777767px;line-height:1.25;font-family:'Courier 10 Pitch';-inkscape-font-specification:'Courier 10 Pitch, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-feature-settings:normal;text-align:start;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;text-anchor:start;fill:#002aff;fill-opacity:1;stroke:none;stroke-width:0.26458332;stroke-opacity:1"
+         xml:space="preserve"><tspan
+           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:3.52777767px;font-family:'Courier 10 Pitch';-inkscape-font-specification:'Courier 10 Pitch, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-feature-settings:normal;text-align:start;writing-mode:lr-tb;text-anchor:start;fill:#002aff;fill-opacity:1;stroke:none;stroke-width:0.26458332;stroke-opacity:1"
+           y="147.36484"
+           x="9.5635834"
+           id="tspan836-4-0-5-3-0-9-2-9-4-3"
+           sodipodi:role="line">sct(0.2, i0diode)</tspan></text>
     </g>
   </g>
   <g

@@ -107,7 +107,7 @@ class PMD206(Controller):
             self.sock = get_comm(self.config.config_dict, TCP, port=9760)
         except ValueError:
             host = self.config.get("host")
-            warn("'host' keyword is deprecated. Use 'tcp' instead", DeprecationWarning)
+            log_warning(self, "'host' keyword is deprecated. Use 'tcp' instead")
             if not host.startswith("command://"):
                 host = "command://" + host
             comm_cfg = {"tcp": {"url": host}}

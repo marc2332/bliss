@@ -17,7 +17,6 @@ from silx.gui import icons
 from silx.gui.plot import PlotWindow
 from silx.gui.plot.actions import PlotAction
 from silx.gui.plot.actions import io
-from silx.gui.widgets.MultiModeAction import MultiModeAction
 from bliss.flint.model import flint_model
 
 
@@ -101,7 +100,7 @@ class SwitchAction(qt.QWidgetAction):
         button.setDefaultAction(action)
 
 
-class ExportAction(MultiModeAction):
+class ExportAction(SwitchAction):
     def __init__(self, plot: PlotWindow, parent=None):
         super(ExportAction, self).__init__(parent)
         self._logbookAction = ExportToLogBookAction(plot, self)

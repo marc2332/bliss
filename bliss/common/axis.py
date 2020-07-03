@@ -345,88 +345,83 @@ class GroupMove:
                     chan.unregister_callback(chan._setting_update_cb)
 
         with capture_exceptions(raise_index=0) as capture:
-            try:
-                with capture():
-                    self._do_move(
-                        motions_dict,
-                        start_motion,
-                        stop_motion,
-                        move_func,
-                        started_event,
-                    )
-                # Do backlash move, if needed
-                with capture():
-                    self._do_backlash_move(motions_dict)
-            finally:
-                reset_setpos = bool(capture.failed) or self._interrupted_move
+            with capture():
+                self._do_move(
+                    motions_dict, start_motion, stop_motion, move_func, started_event
+                )
+            # Do backlash move, if needed
+            with capture():
+                self._do_backlash_move(motions_dict)
 
-                # cleanup
-                # -------
-                # update final state ; in case of exception
-                # state is set to FAULT
-                for motions in motions_dict.values():
-                    for motion in motions:
-                        state = motion.last_state
-                        if state is None:
-                            # update state and update dial pos.
-                            with capture():
-                                motion.axis._update_settings()
+            reset_setpos = bool(capture.failed) or self._interrupted_move
 
-                # update set position if motor has been stopped,
-                # or if an exception happened or if motion type is
-                # home search or hw limit search ;
-                # as state update happened just before, this
-                # is equivalent to sync_hard -> emit the signal
-                # (useful for real motor positions update in case
-                # of pseudo axis)
-                # -- jog move is a special case
-                if len(motions_dict) == 1:
-                    motion = motions_dict[list(motions_dict.keys()).pop()][0]
-                    if motion.type == "jog":
-                        reset_setpos = False
-                        motion.axis._jog_cleanup(
-                            motion.saved_velocity, motion.reset_position
-                        )
-                    elif motion.type == "homing":
-                        reset_setpos = True
-                    elif motion.type == "limit_search":
-                        reset_setpos = True
-                if reset_setpos:
-                    with capture():
-                        for motions in motions_dict.values():
-                            for motion in motions:
-                                motion.axis._set_position = motion.axis.position
-                                event.send(motion.axis, "sync_hard")
-
-                hooks = collections.defaultdict(list)
-                for motions in motions_dict.values():
-                    for motion in motions:
-                        axis = motion.axis
-
-                        # group motion hooks
-                        for hook in axis.motion_hooks:
-                            hooks[hook].append(motion)
-
-                        # set move done
-                        for _, chan in axis._beacon_channels.items():
-                            chan.register_callback(chan._setting_update_cb)
-
-                        motion.axis._set_move_done()
-
-                if self._interrupted_move:
-                    lprint("")
-                    for motion in motions:
-                        _axis = motion.axis
-                        _axis_pos = safe_get(_axis, "position", on_error="!ERR")
-                        lprint(f"Axis {_axis.name} stopped at position {_axis_pos}")
-
-                try:
-                    if self.parent:
-                        event.send(self.parent, "move_done", True)
-                finally:
-                    for hook, motions in reversed(list(hooks.items())):
+            # cleanup
+            # -------
+            # update final state ; in case of exception
+            # state is set to FAULT
+            for motions in motions_dict.values():
+                for motion in motions:
+                    state = motion.last_state
+                    if state is None:
+                        # update state and update dial pos.
                         with capture():
-                            hook.post_move(motions)
+                            motion.axis._update_settings()
+
+            # update set position if motor has been stopped,
+            # or if an exception happened or if motion type is
+            # home search or hw limit search ;
+            # as state update happened just before, this
+            # is equivalent to sync_hard -> emit the signal
+            # (useful for real motor positions update in case
+            # of pseudo axis)
+            # -- jog move is a special case
+            if len(motions_dict) == 1:
+                motion = motions_dict[list(motions_dict.keys()).pop()][0]
+                if motion.type == "jog":
+                    reset_setpos = False
+                    motion.axis._jog_cleanup(
+                        motion.saved_velocity, motion.reset_position
+                    )
+                elif motion.type == "homing":
+                    reset_setpos = True
+                elif motion.type == "limit_search":
+                    reset_setpos = True
+            if reset_setpos:
+                with capture():
+                    for motions in motions_dict.values():
+                        for motion in motions:
+                            motion.axis._set_position = motion.axis.position
+                            event.send(motion.axis, "sync_hard")
+
+            hooks = collections.defaultdict(list)
+            for motions in motions_dict.values():
+                for motion in motions:
+                    axis = motion.axis
+
+                    # group motion hooks
+                    for hook in axis.motion_hooks:
+                        hooks[hook].append(motion)
+
+                    # set move done
+                    for _, chan in axis._beacon_channels.items():
+                        chan.register_callback(chan._setting_update_cb)
+
+                    motion.axis._set_move_done()
+
+            if self._interrupted_move:
+                lprint("")
+                for motion in motions:
+                    _axis = motion.axis
+                    _axis_pos = safe_get(_axis, "position", on_error="!ERR")
+                    lprint(f"Axis {_axis.name} stopped at position {_axis_pos}")
+
+            try:
+                if self.parent:
+                    event.send(self.parent, "move_done", True)
+            finally:
+                for hook, motions in reversed(list(hooks.items())):
+                    with capture():
+                        hook.post_move(motions)
 
 
 class Modulo:

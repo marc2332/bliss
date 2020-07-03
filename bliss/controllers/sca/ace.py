@@ -462,6 +462,16 @@ class Ace:
         log_debug(self, "Ace:sca_hhv.setter %s" % value)
         self._set_value("sca_hhv", value)
 
+    def hhv_on(self):
+        log_debug(self, "Ace:hhv_on")
+        cmd = f"HVOLT {self.sca_hhv} ON"
+        self.putget(cmd)
+
+    def hhv_off(self):
+        log_debug(self, "Ace:hhv_off")
+        cmd = f"HVOLT {self.sca_hhv} OFF"
+        self.putget(cmd)
+
     @property
     def counting_source(self):
         """

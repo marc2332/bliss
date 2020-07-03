@@ -622,7 +622,7 @@ def metadata_manager_tango_server(ports):
     device_name = "id00/metadata/test_session"
     device_fqdn = "tango://localhost:{}/{}".format(ports.tango_port, device_name)
 
-    p = subprocess.Popen(["MetadataManager", "test"])
+    p = subprocess.Popen(["MetadataManager", "test", "-v2"])
 
     dev_proxy = DeviceProxy(device_fqdn)
 
@@ -647,7 +647,7 @@ def metadata_experiment_tango_server(ports):
     device_name = "id00/metaexp/test_session"
     device_fqdn = "tango://localhost:{}/{}".format(ports.tango_port, device_name)
 
-    p = subprocess.Popen(["MetaExperiment", "test"])
+    p = subprocess.Popen(["MetaExperiment", "test", "-v2"])
 
     dev_proxy = DeviceProxy(device_fqdn)
 

@@ -133,7 +133,7 @@ does not exist  directory  {root_path}
 
 def test_session_scan_saving_config(beacon):
     class TestESRFScanSaving(scan_saving_module.ESRFScanSaving):
-        def _icat_set_proposal(self, proposal):
+        def _icat_set_proposal(self, proposal, **kw):
             return
 
     scan_saving_module.TestESRFScanSaving = TestESRFScanSaving

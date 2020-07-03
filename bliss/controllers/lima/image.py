@@ -218,9 +218,9 @@ class LimaImageParameters(BeaconObject):
     def roi(self):
         r = self._roi.copy()
         if r[2] == 0:
-            r[2] == self._max_width
+            r[2] = self._max_width
         if r[3] == 0:
-            r[3] == self._max_height
+            r[3] = self._max_height
         return Roi(
             *self._calc_roi(numpy.array(r), self.rotation, self.flip, self.binning)
         )

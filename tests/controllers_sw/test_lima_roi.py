@@ -2,24 +2,33 @@ import numpy
 import pytest
 import fabio
 
-from collections import namedtuple
+from typing import NamedTuple, Tuple, Optional
 from bliss.common.scans import ct, loopscan
 
-LimParams = namedtuple("LimParams", ["rotation", "flip", "binning", "roi"])
+
+class LimParams(NamedTuple):
+    rotation: str
+    flip: Tuple[bool, bool]
+    binning: Tuple[int, int]
+    roi: Tuple[int, int, int, int]
+    # Expected roi when retrieving it from Lima
+    expected_roi: Optional[Tuple[int, int, int, int]] = None
+
 
 LimParamList = [
-    LimParams("90", [True, False], [1, 1], [1, 2, 3, 4]),
-    LimParams("180", [True, True], [1, 1], [1, 2, 3, 4]),
-    LimParams("90", [False, True], [1, 1], [1, 2, 3, 4]),
-    LimParams("270", [False, True], [1, 1], [1, 2, 3, 4]),
-    LimParams("NONE", [False, False], [1, 1], [1, 2, 3, 4]),
-    LimParams("90", [True, False], [1, 1], [600, 700, 400, 300]),
-    LimParams("90", [True, False], [1, 1], [0, 0, 10, 20]),
-    LimParams("180", [False, True], [1, 1], [0, 0, 10, 20]),
-    LimParams("270", [True, True], [1, 1], [0, 0, 10, 20]),
-    LimParams("270", [False, True], [1, 1], [0, 0, 1024, 1024]),
-    LimParams("90", [True, False], [2, 2], [10, 20, 30, 40]),
-    LimParams("90", [True, False], [30, 30], [2, 3, 5, 6]),
+    LimParams("90", (True, False), (1, 1), (1, 2, 3, 4)),
+    LimParams("180", (True, True), (1, 1), (1, 2, 3, 4)),
+    LimParams("90", (False, True), (1, 1), (1, 2, 3, 4)),
+    LimParams("270", (False, True), (1, 1), (1, 2, 3, 4)),
+    LimParams("NONE", (False, False), (1, 1), (1, 2, 3, 4)),
+    LimParams("90", (True, False), (1, 1), (600, 700, 400, 300)),
+    LimParams("90", (True, False), (1, 1), (0, 0, 10, 20)),
+    LimParams("180", (False, True), (1, 1), (0, 0, 10, 20)),
+    LimParams("270", (True, True), (1, 1), (0, 0, 10, 20)),
+    LimParams("270", (False, True), (1, 1), (0, 0, 1024, 1024)),
+    LimParams("90", (True, False), (2, 2), (10, 20, 30, 40)),
+    LimParams("90", (True, False), (30, 30), (2, 3, 5, 6)),
+    LimParams("NONE", (False, False), (1, 1), (0, 0, 0, 0), (0, 0, 1024, 1024)),
 ]
 
 
@@ -32,12 +41,16 @@ def test_lima_roi(beacon, lima_simulator, lima_params):
     ls.proxy.image_roi = lima_params.roi
     ls.image.sync()
 
-    _roi = ls.image.roi.to_array()
-    _rot = ls.image.rotation
-    _flip = ls.image.flip
-    _bin = ls.image.binning
+    roi = ls.image.roi.to_array()
+    rot = ls.image.rotation
+    flip = ls.image.flip
+    binning = ls.image.binning
 
-    ffrefroi = ls._image_params._calc_roi(_roi, _rot, _flip, _bin, inverse=True)
+    expected_roi = lima_params.expected_roi
+    if expected_roi is not None:
+        assert all(expected_roi == roi)
+
+    ffrefroi = ls._image_params._calc_roi(roi, rot, flip, binning, inverse=True)
 
     ls.proxy.image_bin = [1, 1]
     ls.proxy.image_flip = [False, False]
@@ -45,10 +58,12 @@ def test_lima_roi(beacon, lima_simulator, lima_params):
 
     assert all(ffrefroi == ls.proxy.image_roi)
 
-    reverse = ls._image_params._calc_roi(
-        ffrefroi, ls.image.rotation, ls.image.flip, ls.image.binning
-    )
-    assert all(reverse == numpy.array(lima_params.roi))
+    if expected_roi is None or numpy.allclose(expected_roi, lima_params.roi):
+        # If the roi param looks reversible
+        reverse = ls._image_params._calc_roi(
+            ffrefroi, ls.image.rotation, ls.image.flip, ls.image.binning
+        )
+        assert all(reverse == numpy.array(lima_params.roi))
 
 
 @pytest.fixture
@@ -58,18 +73,18 @@ def lima_tmpdir(tmpdir):
 
 
 LimParamList2 = [
-    LimParams("90", [True, False], [1, 1], [1, 2, 3, 4]),
-    LimParams("180", [True, True], [1, 1], [1, 2, 3, 4]),
-    # LimParams("90", [False, True], [1, 1], [1, 2, 3, 4]),
-    # LimParams("270", [False, True], [1, 1], [1, 2, 3, 4]),
-    LimParams("NONE", [False, False], [1, 1], [1, 2, 3, 4]),
-    LimParams("90", [True, False], [1, 1], [60, 70, 40, 30]),
-    LimParams("90", [True, False], [1, 1], [0, 0, 10, 20]),
-    LimParams("180", [False, True], [1, 1], [0, 0, 10, 20]),
-    # LimParams("270", [True, True], [1, 1], [0, 0, 10, 20]),
-    LimParams("270", [False, True], [1, 1], [0, 0, 1475, 195]),
-    # LimParams("90", [True, False], [2, 2], [10, 20, 30, 40]),
-    # LimParams("90", [True, False], [30, 30], [2, 3, 5, 6]),
+    LimParams("90", (True, False), (1, 1), (1, 2, 3, 4)),
+    LimParams("180", (True, True), (1, 1), (1, 2, 3, 4)),
+    # LimParams("90", (False, True), (1, 1), (1, 2, 3, 4)),
+    # LimParams("270", (False, True), (1, 1), (1, 2, 3, 4)),
+    LimParams("NONE", (False, False), (1, 1), (1, 2, 3, 4)),
+    LimParams("90", (True, False), (1, 1), (60, 70, 40, 30)),
+    LimParams("90", (True, False), (1, 1), (0, 0, 10, 20)),
+    LimParams("180", (False, True), (1, 1), (0, 0, 10, 20)),
+    # LimParams("270", (True, True), (1, 1), (0, 0, 10, 20)),
+    LimParams("270", (False, True), (1, 1), (0, 0, 1475, 195)),
+    # LimParams("90", (True, False), (2, 2), (10, 20, 30, 40)),
+    # LimParams("90", (True, False), (30, 30), (2, 3, 5, 6)),
 ]
 
 

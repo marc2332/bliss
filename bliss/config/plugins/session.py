@@ -48,7 +48,9 @@ def get_item(cfg):
         result = dict(type="session", icon="fa fa-list", items=[])
     else:
         items = [
-            get_item(config.get_config(name)) for name in cfg.get("config-objects", ())
+            get_item(config.get_config(name))
+            for name in cfg.get("config-objects", ())
+            if config.get_config(name) is not None
         ]
         result = dict(type="session", icon="fa fa-scribd", items=items)
     return result

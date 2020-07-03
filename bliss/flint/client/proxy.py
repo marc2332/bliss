@@ -425,6 +425,14 @@ def _get_flint_pid_from_redis(session_name):
     return None
 
 
+def _get_cached_flint() -> typing.Optional[FlintClient]:
+    """Returns the cached flint proxy"""
+    global FLINT
+    if FLINT is not None and FLINT.pid is None:
+        FLINT = None
+    return FLINT
+
+
 def get_flint(start_new=False, creation_allowed=True, mandatory=True):
     """Get the running flint proxy or create one.
 
@@ -444,7 +452,6 @@ def get_flint(start_new=False, creation_allowed=True, mandatory=True):
             # A warning should already be displayed in case of problem
             return None
 
-    global FLINT
     try:
         session_name = current_session.name
     except AttributeError:
@@ -454,7 +461,7 @@ def get_flint(start_new=False, creation_allowed=True, mandatory=True):
         check_redis = True
         FLINT_LOGGER.debug("Check cache")
 
-        flint = FLINT
+        flint = _get_cached_flint()
         if flint is not None:
             if psutil.pid_exists(flint._pid):
                 try:
@@ -485,6 +492,7 @@ def get_flint(start_new=False, creation_allowed=True, mandatory=True):
         return None
 
     reset_flint()
+    global FLINT
     FLINT = FlintClient()
     return FLINT
 
@@ -493,8 +501,8 @@ def check_flint() -> bool:
     """
     Returns true if a Flint application from the current session is alive.
     """
-    global FLINT
-    return FLINT is not None
+    flint = _get_cached_flint()
+    return flint is not None
 
 
 def attach_flint(pid: int):
@@ -506,8 +514,10 @@ def attach_flint(pid: int):
     """
     global FLINT
     # Release the previous proxy before attaching the next one
-    if FLINT is not None:
-        FLINT.close_proxy()
+    flint = _get_cached_flint()
+    if flint is not None:
+        flint.close_proxy()
+        flint = None
         FLINT = None
     flint = FlintClient(process=pid)
     FLINT = flint
@@ -519,8 +529,9 @@ def reset_flint():
     """
     global FLINT
     try:
-        if FLINT is not None:
-            FLINT.close_proxy()
+        flint = _get_cached_flint()
+        if flint is not None:
+            flint.close_proxy()
     finally:
         # Anyway, invalidate the proxy
         FLINT = None

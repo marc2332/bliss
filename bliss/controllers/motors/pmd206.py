@@ -470,7 +470,7 @@ class PMD206(Controller):
         self.send(
             axis,
             "HO=%d,%d,%d,%d,%d,%d"
-            % (freq, max_steps, max_counts, first_dir, max_steps, max_counts)
+            % (freq, max_steps, max_counts, first_dir, max_steps, max_counts),
         )
 
     def homing_sequence_status_string(self, status):

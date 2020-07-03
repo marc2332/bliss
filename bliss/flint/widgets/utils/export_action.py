@@ -11,6 +11,7 @@ import os
 import tempfile
 import base64
 import logging
+import weakref
 
 from silx.gui import qt
 from silx.gui import icons
@@ -64,16 +65,14 @@ class SwitchAction(qt.QWidgetAction):
         button = self.__button
         menu.addAction(action)
         if button.defaultAction() is None and action.isEnabled():
-            _logger.error("setDefault %s", action)
-            self.__lastUserDefault = action
-            button.setDefaultAction(action)
+            self._setUserDefault(action)
         action.triggered.connect(self._trigger)
         action.changed.connect(self._changed)
 
     def _changed(self):
         action = self.sender()
         if action.isEnabled():
-            if action is self.__lastUserDefault:
+            if action is self._userDefault():
                 # If it was used as default action
                 button = self.__button
                 defaultAcction = button.defaultAction()
@@ -95,8 +94,17 @@ class SwitchAction(qt.QWidgetAction):
 
     def _trigger(self):
         action = self.sender()
+        self._setUserDefault(action)
+
+    def _userDefault(self):
+        if self.__lastUserDefault is None:
+            return None
+        userDefault = self.__lastUserDefault()
+        return userDefault
+
+    def _setUserDefault(self, action):
+        self.__lastUserDefault = weakref.ref(action)
         button = self.__button
-        self.__lastUserDefault = action
         button.setDefaultAction(action)
 
 

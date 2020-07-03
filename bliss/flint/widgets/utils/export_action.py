@@ -146,17 +146,14 @@ class ExportToLogBookAction(PlotAction):
         if device is None:
             self.setEnabled(False)
             self.setToolTip("No tango-metadata specified")
-            return
-
-        if not hasattr(device, "uploadBase64"):
+        elif not hasattr(device, "uploadBase64"):
             self.setEnabled(False)
             self.setToolTip(
                 "A tango-metadata is specified but does not provide API to upload image"
             )
-            return
-
-        self.setEnabled(True)
-        self.setToolTip("Export this plot to the logbook")
+        else:
+            self.setEnabled(True)
+            self.setToolTip("Export this plot to the logbook")
 
     def _actionTriggered(self):
         try:

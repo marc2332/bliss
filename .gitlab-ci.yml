@@ -113,8 +113,8 @@ test_writer_cov:
   stage: tests
   image: continuumio/miniconda3:latest
   tags:
-    - builder
     - conda
+    - builder
     - win
   before_script:
     - call conda config --append channels conda-forge
@@ -217,6 +217,10 @@ create_reference_doc:
     paths:
       - build/
     expire_in: 7 days
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "web" && $CI_COMMIT_BRANCH == "master"'
+      when: always
+    - when: on_success
 
 create_user_doc:
   stage: build
@@ -234,6 +238,13 @@ create_user_doc:
     paths:
       - doc/site
     expire_in: 7 days
+  rules:
+    # Always generate user documentation for pipelines created by using "Run pipeline" button in the GitLab UI, from the project’s CI/CD > Pipelines section.
+    # This ensures we are able to produce an up-to-date documentation even if the tests are failing on master.
+    - if: '$CI_PIPELINE_SOURCE == "web" && $CI_COMMIT_BRANCH == "master"'
+      when: always
+    # otherwise run this job if previous one is a success (default behavior)
+    - when: on_success
 
 .template_test_package:
   stage: package_tests

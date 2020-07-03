@@ -57,6 +57,13 @@ class _Group(object):
         self._group_move = GroupMove(self)
         self._axes = dict(axes_dict)
 
+    def __info__(self):
+        info = "MOTOR GROUP:"
+        info += "\n    axes: " + ", ".join(self.axes)
+        info += "\n    is moving: " + str(self.is_moving)
+        info += "\n    state: " + str(self.state)
+        return info
+
     @property
     def name(self):
         return self.__name

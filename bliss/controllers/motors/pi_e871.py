@@ -68,7 +68,7 @@ class PI_E871(Controller):
         except:
             self._status = (
                 'communication error : no PI E871 or E873 found on serial "%s"'
-                % self.serial_line
+                % self.serial
             )
             print(self._status)
             log_debug(self, self._status)

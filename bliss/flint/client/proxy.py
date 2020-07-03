@@ -16,6 +16,7 @@ import logging
 import psutil
 import gevent
 import typing
+import signal
 
 import bliss
 from bliss.comm import rpc
@@ -91,6 +92,27 @@ class FlintClient:
             gevent.killall(self._greenlets)
         self._greenlets = None
         self._callbacks = None
+
+    def close(self):
+        """Close Flint and clean up this proxy."""
+        if self._proxy is None:
+            raise RuntimeError("No proxy connected")
+        self._proxy.close_application()
+        self.close_proxy()
+
+    def kill(self):
+        """Interrupt Flint with SIGTERM and clean up this proxy."""
+        if self._pid is None:
+            raise RuntimeError("No proxy connected")
+        os.kill(self._pid, signal.SIGTERM)
+        self.close_proxy()
+
+    def kill9(self):
+        """Interrupt Flint with SIGKILL and clean up this proxy."""
+        if self._pid is None:
+            raise RuntimeError("No proxy connected")
+        os.kill(self._pid, signal.SIGKILL)
+        self.close_proxy()
 
     def __start_flint(self):
         process = self.__create_flint()

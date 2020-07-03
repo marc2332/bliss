@@ -1263,15 +1263,16 @@ class Axis:
         """
         motion = self._get_jog_motion()
 
-        if motion:
+        if motion is not None:
             if new_velocity == 0:
                 self.stop()
             else:
-                self._set_jog_motion(motion, new_velocity)
-                self.controller.start_jog(self, motion.target_pos, motion.delta)
-        elif motion is not None:
-            # important to keep this test, if jog move has been started externally
-            return False
+                if motion:
+                    self._set_jog_motion(motion, new_velocity)
+                    self.controller.start_jog(self, motion.target_pos, motion.delta)
+                else:
+                    # jog move has been started externally
+                    return False
 
         if new_velocity:
             # it is None the first time the channel is initialized,

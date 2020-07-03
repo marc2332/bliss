@@ -81,7 +81,7 @@ class GroupMove:
 
     @property
     def is_moving(self):
-        # A greenlet evaluates to True when not dead
+        # A greenlet evaluates to True when it is alive
         return bool(self._move_task)
 
     def move(
@@ -132,7 +132,7 @@ class GroupMove:
 
         # now check if axes are ready ;
         # the check happens after pre_move hooks execution,
-        # some axes can **become** ready because of the hook
+        # some axes can **become** ready thanks to the hook
         with capture_exceptions(raise_index=0) as capture:
             for axis in axes:
                 with capture():
@@ -298,6 +298,7 @@ class GroupMove:
         for controller, motions in motions_dict.items():
             for motion in motions:
                 motion.last_state = None
+
         with capture_exceptions(raise_index=0) as capture:
             # Spawn start motion tasks for all controllers
             start = [
@@ -305,9 +306,9 @@ class GroupMove:
                 for controller, motions in motions_dict.items()
             ]
 
-            # wait for start tasks to be all done,
-            # in case of error or if wait is interrupted (ctrl-c, kill...)
-            # we will immediately stop and return
+            # wait for start tasks to be all done ;
+            # in case of error or if wait is interrupted (ctrl-c, kill...),
+            # immediately stop and return
             with capture():
                 gevent.joinall(start, raise_error=True)
             if capture.failed:

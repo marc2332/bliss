@@ -24,6 +24,83 @@ from bliss.flint.model import flint_model
 _logger = logging.getLogger(__name__)
 
 
+class SwitchAction(qt.QWidgetAction):
+    """This action provides a default action from a list of actions.
+
+    The default action can be selected from a drop down list. The last one used
+    became the default one.
+
+    The default action is directly usable without using the drop down list.
+    """
+
+    def __init__(self, parent=None):
+        assert isinstance(parent, qt.QWidget)
+        qt.QWidgetAction.__init__(self, parent)
+        button = qt.QToolButton(parent)
+        button.setPopupMode(qt.QToolButton.MenuButtonPopup)
+        self.setDefaultWidget(button)
+        self.__button = button
+        # In case of action enabled/disabled twice, this attribute can restore
+        # a stable state
+        self.__lastUserDefault = None
+
+    def getMenu(self):
+        """Returns the menu.
+
+        :rtype: qt.QMenu
+        """
+        button = self.__button
+        menu = button.menu()
+        if menu is None:
+            menu = qt.QMenu(button)
+            button.setMenu(menu)
+        return menu
+
+    def addAction(self, action):
+        """Add a new action to the list.
+
+        :param qt.QAction action: New action
+        """
+        menu = self.getMenu()
+        button = self.__button
+        menu.addAction(action)
+        if button.defaultAction() is None and action.isEnabled():
+            _logger.error("setDefault %s", action)
+            self.__lastUserDefault = action
+            button.setDefaultAction(action)
+        action.triggered.connect(self._trigger)
+        action.changed.connect(self._changed)
+
+    def _changed(self):
+        action = self.sender()
+        if action.isEnabled():
+            if action is self.__lastUserDefault:
+                # If it was used as default action
+                button = self.__button
+                defaultAcction = button.defaultAction()
+                if defaultAcction is action:
+                    return
+                # Select it back as the default
+                button.setDefaultAction(action)
+        else:
+            button = self.__button
+            defaultAcction = button.defaultAction()
+            if defaultAcction is not action:
+                return
+            # If the action was the default one and is not enabled anymore
+            menu = button.menu()
+            for action in menu.actions():
+                if action.isEnabled():
+                    button.setDefaultAction(action)
+                    break
+
+    def _trigger(self):
+        action = self.sender()
+        button = self.__button
+        self.__lastUserDefault = action
+        button.setDefaultAction(action)
+
+
 class ExportAction(MultiModeAction):
     def __init__(self, plot: PlotWindow, parent=None):
         super(ExportAction, self).__init__(parent)

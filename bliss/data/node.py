@@ -301,6 +301,14 @@ class DataNode:
         """
         return self._create_nonassociated_stream(f"{self.db_name}_{suffix}", **kw)
 
+    @classmethod
+    def _streamid_to_idx(cls, streamID):
+        """
+        :param bytes streamID:
+        :returns int:
+        """
+        return int(streamID.split(b"-")[0])
+
     def search_redis(self, pattern):
         """Look for Redis keys that match a pattern.
 

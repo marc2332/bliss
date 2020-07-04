@@ -23,8 +23,8 @@ class ChannelDataNodeBase(DataNode):
         self._queue = self._create_stream("data", maxlen=CHANNEL_MAX_LEN)
         self._last_index = self._idx_to_streamid(0)
 
-    @staticmethod
-    def _idx_to_streamid(idx):
+    @classmethod
+    def _idx_to_streamid(cls, idx):
         """Get the Redis stream ID from the sequence index
 
         :param int idx:
@@ -32,6 +32,14 @@ class ChannelDataNodeBase(DataNode):
         """
         # Redis can't has a stream ID 0
         return idx + 1
+
+    @classmethod
+    def _streamid_to_idx(cls, streamID):
+        """
+        :param bytes streamID:
+        :returns int:
+        """
+        return super()._streamid_to_idx(streamID) - 1
 
     def _init_info(self, **kwargs):
         shape = kwargs.get("shape", None)
@@ -317,7 +325,7 @@ class ChannelDataNode(ChannelDataNodeBase):
         :returns EventData:
         """
         if events:
-            first_index = int(events[0][0].split(b"-")[0]) - 1
+            first_index = self._streamid_to_idx(events[0][0])
         else:
             first_index = -1
         ev = ChannelDataEvent.merge(events)

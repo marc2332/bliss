@@ -48,6 +48,7 @@ def test_streaming_events_init():
     ]
     for cls, evtype in zip(classes, types):
         assert cls.istype(raw)
+        assert cls.isstricttype(raw) == (cls is ev1.__class__)
         ev2 = cls(raw=raw)
         assert isinstance(ev2, cls)
         assert ev2.TYPE == evtype
@@ -62,6 +63,7 @@ def test_streaming_events_init():
     classes = [streaming_events.TimeEvent, streaming_events.EndEvent]
     for cls in classes:
         assert not cls.istype(raw)
+        assert cls.isstricttype(raw) == (cls is ev1.__class__)
         with pytest.raises(streaming_events.StreamDecodeError):
             ev2 = cls(raw=raw)
         with pytest.raises(streaming_events.StreamDecodeError):

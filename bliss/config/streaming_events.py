@@ -123,6 +123,28 @@ class StreamEvent(metaclass=StreamEventMeta):
     TYPE_KEY = b"__EVENT__"
 
     @classmethod
+    def _use_class(cls, raw):
+        event_type = raw.get(cls.TYPE_KEY, b"")
+        try:
+            # Get the proper class for this event type
+            return cls._SUBCLASS_REGISTRY[event_type]
+        except KeyError:
+            # Event type is missing or unknown:
+            # use the base class
+            return cls._SUBCLASS_REGISTRY[None]
+
+    @classmethod
+    def istype(cls, raw):
+        usecls = cls._use_class(raw)
+        # issubclass does no work?
+        # return issubclass(cls, usecls)
+        return cls in usecls.__mro__
+
+    @classmethod
+    def isstricttype(cls, raw):
+        return raw.get(cls.TYPE_KEY, b"") == cls.TYPE
+
+    @classmethod
     def class_factory(cls, raw):
         """Returns the class StreamEvent or one of the derived
         classes, depending of the event type.
@@ -131,14 +153,7 @@ class StreamEvent(metaclass=StreamEventMeta):
         :raises StreamDecodeError:
         :returns type:
         """
-        event_type = raw.get(cls.TYPE_KEY, b"")
-        try:
-            # Get the proper class for this event type
-            usecls = cls._SUBCLASS_REGISTRY[event_type]
-        except KeyError:
-            # Event type is missing or unknown:
-            # use the base class
-            usecls = cls._SUBCLASS_REGISTRY[None]
+        usecls = cls._use_class(raw)
         # issubclass does not work???
         # if not issubclass(cls, usecls):
         if cls not in usecls.__mro__:
@@ -181,17 +196,6 @@ class StreamEvent(metaclass=StreamEventMeta):
 
     def init(self):
         pass
-
-    @classmethod
-    def istype(cls, raw):
-        event_type = raw.get(cls.TYPE_KEY)
-        try:
-            data_cls = cls._SUBCLASS_REGISTRY[event_type]
-        except KeyError:
-            data_cls = cls._SUBCLASS_REGISTRY[None]
-        # issubclass does no work?
-        return cls in data_cls.__mro__
-        # return issubclass(cls, data_cls)
 
     def encode(self):
         """

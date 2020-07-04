@@ -11,7 +11,6 @@ import pickle
 from bliss.data.node import DataNodeContainer
 from bliss.data.events import EventData, EndScanEvent
 from bliss.config import settings
-from bliss.config import streaming_events
 
 
 def _transform_dict_obj(dict_object):
@@ -77,15 +76,15 @@ class Scan(DataNodeContainer):
         :param list((index, raw)) events:
         :returns EventData:
         """
-        for index, raw in events:
-            event = streaming_events.StreamEvent.factory(raw)
-            if isinstance(event, EndScanEvent):
-                first_index = int(index.split(b"-")[0])
-                return EventData(
-                    first_index=first_index,
-                    data=event.TYPE.decode(),
-                    description=event.exception,
-                )
+        if not events:
+            return None
+        first_index = self._streamid_to_idx(events[0][0])
+        ev = EndScanEvent.merge(events)
+        return EventData(
+            first_index=first_index,
+            data=ev.TYPE.decode(),
+            description=ev.exception,
+        )
 
     def _get_db_names(self):
         db_names = super()._get_db_names()

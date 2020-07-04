@@ -14,3 +14,13 @@ __all__ = ["EndScanEvent"]
 class EndScanEvent(streaming_events.EndEvent):
 
     TYPE = b"END_SCAN"
+
+    @classmethod
+    def merge(cls, events):
+        """Keep only the first event.
+
+        :param list((index, raw)) events:
+        :returns EndScanEvent:
+        """
+        for index, raw in events:
+            return cls(raw=raw)

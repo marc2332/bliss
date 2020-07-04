@@ -733,7 +733,13 @@ def _count_nodes(*args, **kw):
     return _count_node_events(*args, **kw, count_nodes=True)
 
 
-_count_parameters = list(itertools.product([True, False], [None, "scan", "channel"]))
+def filterepoch(node):
+    return node.name == "timer:epoch"
+
+
+_count_parameters = list(
+    itertools.product([True, False], [None, "scan", "channel", filterepoch])
+)
 
 
 @pytest.mark.parametrize("beforestart,filter", _count_parameters)
@@ -750,6 +756,11 @@ def test_walk_events_on_session_node(beforestart, filter, session):
         assert set(events.keys()) == {"NEW_NODE", "NEW_DATA"}
         assert len(events["NEW_NODE"]) == nmasters + nchannels
         assert len(events["NEW_DATA"]) == nmasters + nchannels
+    elif callable(filter):
+        # New node events: epoch
+        assert set(events.keys()) == {"NEW_NODE", "NEW_DATA"}
+        assert len(events["NEW_NODE"]) == 1
+        assert len(events["NEW_DATA"]) == 1
     else:
         # New node events: root nodes, scan, scan master (timer),
         #                  epoch, elapsed_time, n  x (controller, detector)
@@ -773,6 +784,9 @@ def test_walk_nodes_on_session_node(beforestart, filter, session):
     elif filter == "channel":
         # Nodes: epoch, elapsed_time, n x detectors
         assert len(nodes) == nmasters + nchannels
+    elif callable(filter):
+        # Nodes: epoch
+        assert len(nodes) == 1
     else:
         # Nodes: root nodes, scan, scan master (timer),
         #        epoch, elapsed_time, n  x (controller, detector)
@@ -808,6 +822,11 @@ def test_walk_events_on_scan_node(beforestart, filter, session):
         assert set(events.keys()) == {"NEW_NODE", "NEW_DATA"}
         assert len(events["NEW_NODE"]) == nmasters + nchannels
         assert len(events["NEW_DATA"]) == nmasters + nchannels
+    elif callable(filter):
+        # New node events: epoch
+        assert set(events.keys()) == {"NEW_NODE", "NEW_DATA"}
+        assert len(events["NEW_NODE"]) == 1
+        assert len(events["NEW_DATA"]) == 1
     else:
         # New node events: scan master (timer), epoch, elapsed_time,
         #                  n  x (controller, detector)
@@ -828,6 +847,9 @@ def test_walk_nodes_on_scan_node(beforestart, filter, session):
     elif filter == "channel":
         # Nodes: epoch, elapsed_time, n x detector
         assert len(nodes) == nmasters + nchannels
+    elif callable(filter):
+        # Nodes: epoch
+        assert len(nodes) == 1
     else:
         # Nodes: scan master (timer), epoch, elapsed_time,
         #        n x (controller, detector)
@@ -847,6 +869,11 @@ def test_walk_events_on_master_node(beforestart, filter, session):
         assert set(events.keys()) == {"NEW_NODE", "NEW_DATA"}
         assert len(events["NEW_NODE"]) == nmasters + nchannels
         assert len(events["NEW_DATA"]) == nmasters + nchannels
+    elif callable(filter):
+        # New node events: epoch
+        assert set(events.keys()) == {"NEW_NODE", "NEW_DATA"}
+        assert len(events["NEW_NODE"]) == 1
+        assert len(events["NEW_DATA"]) == 1
     else:
         # New node events: epoch, elapsed_time, n x (controller, detector)
         assert set(events.keys()) == {"NEW_NODE", "NEW_DATA"}
@@ -865,6 +892,9 @@ def test_walk_nodes_on_master_node(beforestart, filter, session):
     elif filter == "channel":
         # Nodes: epoch, elapsed_time, n x detector
         assert len(nodes) == nmasters + nchannels
+    elif callable(filter):
+        # Nodes: epoch
+        assert len(nodes) == 1
     else:
         # Nodes: epoch, elapsed_time, n x (controller, detector)
         assert len(nodes) == nmasters + 2 * nchannels
@@ -885,6 +915,8 @@ def test_walk_events_on_controller_node(beforestart, filter, session):
         assert set(events.keys()) == {"NEW_NODE", "NEW_DATA"}
         assert len(events["NEW_NODE"]) == 1
         assert len(events["NEW_DATA"]) == 1
+    elif callable(filter):
+        assert not events
     else:
         # New node events: diode
         assert set(events.keys()) == {"NEW_NODE", "NEW_DATA"}
@@ -906,6 +938,8 @@ def test_walk_nodes_on_controller_node(beforestart, filter, session):
     elif filter == "channel":
         # Nodes: diode
         assert len(nodes) == 1
+    elif callable(filter):
+        assert not nodes
     else:
         # Nodes: diode
         assert len(nodes) == 1
@@ -922,6 +956,8 @@ def test_walk_events_on_masterchannel_node(beforestart, filter, session):
     elif filter == "channel":
         assert set(events.keys()) == {"NEW_DATA"}
         assert len(events["NEW_DATA"]) == 1
+    elif callable(filter):
+        assert not events
     else:
         assert set(events.keys()) == {"NEW_DATA"}
         assert len(events["NEW_DATA"]) == 1
@@ -950,6 +986,8 @@ def test_walk_events_on_controllerchannel_node(beforestart, filter, session):
     elif filter == "channel":
         assert set(events.keys()) == {"NEW_DATA"}
         assert len(events["NEW_DATA"]) == 1
+    elif callable(filter):
+        assert not events
     else:
         assert set(events.keys()) == {"NEW_DATA"}
         assert len(events["NEW_DATA"]) == 1

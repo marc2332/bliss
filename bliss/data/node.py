@@ -5,7 +5,7 @@
 # Copyright (c) 2015-2020 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 """
-Redis structure
+Redis structure data nodes from a scan
 
 --eh3 (DataNodeContainer - inherits from DataNode)
    |
@@ -47,7 +47,41 @@ A LimaChannelDataNode is represented by 4 Redis keys:
  {db_name}_info -> see DataNode, with some extra keys like reference: True
  {db_name}_data -> DataStream, list of reference data
  {db_name}_data_ref -> QueueObjSetting, the 'live' reference info
+
+
+Each DataNode can be iterated over to yield nodes (walk, walk_from_last)
+or events (walk_events, walk_on_new_events) during or after a scan.
+
+This is achieved by subscribing (i.e. adding to the active stream reader)
+to "children_list" and when yielding events, "data" streams.
+
+This is done whenever a new block of raw events is yielded by the reader.
+The raw events are then converted to nodes/events and stream subsciption
+is done before or after yielding those nodes/events, depending on the
+node type:
+
+    DataNode:
+        _subscribe_initial_streams:
+            _subscribe_on_new_node_before_yield
+            _subscribe_on_new_node_after_yield
+
+        _subscribe_on_new_node_before_yield:
+            subscribe/create to "data" stream when yielding events
+
+        _subscribe_on_new_node_after_yield:
+            pass
+
+    DataNodeContainer(DataNode):
+        _subscribe_on_new_node_before_yield:
+            subscribe to existing "data" streams of children when yielding events
+            subscribe/create to "children_list" stream 
+            subscribe to existing "children_list" streams of children
+
+    Scan(DataNodeContainer):
+        _subscribe_on_new_node_after_yield:
+            subscribe/create to "data" stream
 """
+
 import time
 import inspect
 import pkgutil
@@ -365,7 +399,7 @@ class DataNode:
     ):
         """Iterate over child nodes that match the `filter` argument.
 
-        :param tuple filter: only these DataNode types are allowed (all by default)
+        :param tuple or callable filter: only these DataNode types are allowed (all by default)
         :param bool wait: if wait is True (default), the function blocks
                           until a new node appears
         :param DataStreamReaderStopHandler stop_handler:
@@ -386,7 +420,7 @@ class DataNode:
     ):
         """Like `walk` but start from the last node.
 
-        :param tuple filter: only these DataNode types are allowed (all by default)
+        :param tuple or callable filter: only these DataNode types are allowed (all by default)
         :param bool wait: if wait is True (default), the function blocks
                           until a new node appears
         :param bool include_last:
@@ -421,7 +455,7 @@ class DataNode:
     ):
         """Iterate over node and children node events.
 
-        :param tuple filter: only these DataNode types are allowed (all by default)
+        :param tuple or callable filter: only these DataNode types are allowed (all by default)
         :param str or int first_index: Redis stream ID
         :param dict active_streams: stream name (str) -> stream info (dict)
         :param DataStreamReaderStopHandler stop_handler:
@@ -446,7 +480,7 @@ class DataNode:
         """Iterate over the DataStreamReader
 
         :param DataStreamReader reader:
-        :param tuple filter: only these DataNode types are allowed (all by default)
+        :param tuple or callable filter: only these DataNode types are allowed (all by default)
         :param str or int first_index: Redis stream ID
         :param bool yield_events: yield Event or DataNode
         :yields Event or DataNode:
@@ -454,6 +488,8 @@ class DataNode:
         # Make sure filter is a tuple
         if isinstance(filter, str):
             filter = (filter,)
+        elif callable(filter):
+            pass
         elif filter:
             filter = tuple(filter)
         else:
@@ -482,10 +518,13 @@ class DataNode:
 
     def _filtered_out(self, filter):
         """
-        :param tuple filter:
+        :param tuple or callable filter:
         :returns bool:
         """
-        return filter and self.type not in filter
+        if callable(filter):
+            return not filter(self)
+        else:
+            return filter and self.type not in filter
 
     def _iter_children_stream_events(
         self, reader, stream, events, filter=None, first_index=None, yield_events=False
@@ -494,7 +533,7 @@ class DataNode:
         :param DataStreamReader reader:
         :param DataStream stream:
         :param list(2-tuple) events:
-        :param tuple filter: only these DataNode types are allowed (all by default)
+        :param tuple or callable filter: only these DataNode types are allowed (all by default)
         :param str or int first_index: Redis stream ID
         :param bool yield_events: yield Event or DataNode
         :yields Event or DataNode:
@@ -508,7 +547,7 @@ class DataNode:
     def _yield_on_new_node(self, reader, filter, first_index, yield_events):
         """
         :param DataStreamReader reader:
-        :param tuple filter: only these DataNode types are allowed (all by default)
+        :param tuple or callable filter: only these DataNode types are allowed (all by default)
         :param str or int first_index: Redis stream ID
         :param bool yield_events: yield Event or DataNode
         """
@@ -529,7 +568,7 @@ class DataNode:
         """
         :param DataStreamReader reader:
         :param list(2-tuple) events:
-        :param tuple filter: only these DataNode types are allowed (all by default)
+        :param tuple or callable filter: only these DataNode types are allowed (all by default)
         :param bool yield_events: yield Event or DataNode
         :yields Event:
         """
@@ -552,7 +591,7 @@ class DataNode:
     def _get_last_child(self, filter=None):
         """Get the last child added to the _children_list stream
 
-        :param tuple filter: only these DataNode types are allowed (all by default)
+        :param tuple or callable filter: only these DataNode types are allowed (all by default)
         :returns 2-tuple: DataNode, active streams
         """
         # TODO: Why do we need to walk and
@@ -602,7 +641,7 @@ class DataNode:
         """Subscribe to new streams before yielding the NEW_NODE event.
 
         :param DataStreamReader reader:
-        :param tuple filter: only these DataNode types are allowed (all by default)
+        :param tuple or callable filter: only these DataNode types are allowed (all by default)
         :param str or int first_index: Redis stream ID
         :param bool yield_events: yield Event or DataNode
         """
@@ -617,7 +656,7 @@ class DataNode:
         """Subscribe to new streams after yielding the NEW_NODE event.
 
         :param DataStreamReader reader:
-        :param tuple filter: only these DataNode types are allowed (all by default)
+        :param tuple or callable filter: only these DataNode types are allowed (all by default)
         :param str or int first_index: Redis stream ID
         :param bool yield_events: yield Event or DataNode
         """
@@ -708,7 +747,7 @@ class DataNodeContainer(DataNode):
         """Subscribe to new streams before yielding the NEW_NODE event.
 
         :param DataStreamReader reader:
-        :param tuple filter: only these DataNode types are allowed (all by default)
+        :param tuple or callable filter: only these DataNode types are allowed (all by default)
         :param str or int first_index: Redis stream ID
         :param bool yield_events: yield Event or DataNode
         """
@@ -743,7 +782,7 @@ class DataNodeContainer(DataNode):
         :param bool include_parent: including self in the children
         :param tuple forbidden_types: do not add streams associated to DataNode's
                                       with these node types (also not their children)
-        :param tuple filter: only these DataNode types are allowed (all by default)
+        :param tuple or callable filter: only these DataNode types are allowed (all by default)
         :param `**kw`: see `DataStreamReader.add_streams`
         """
         # Get existing stream names (only existing ones)

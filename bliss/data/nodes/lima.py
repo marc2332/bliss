@@ -12,7 +12,7 @@ import numpy
 import typing
 from bliss.common.tango import DeviceProxy
 from bliss.data.nodes.channel import ChannelDataNodeBase
-from bliss.data.events import EventData, LimaImageChannelDataEvent
+from bliss.data.events import EventData, LimaImageStatusEvent
 from bliss.config.settings import QueueObjSetting
 from silx.third_party.EdfFile import EdfFile
 
@@ -231,10 +231,10 @@ class LimaDataView:
         events = self._queue.rev_range(count=1)
         if events:
             index, raw = events[0]
-            ev = LimaImageChannelDataEvent(raw=raw)
+            ev = LimaImageStatusEvent(raw=raw)
         else:  # Lima acqusition has not yet started.
-            ev = LimaImageChannelDataEvent({})
-        return ev.ref_status
+            ev = LimaImageStatusEvent({})
+        return ev.status
 
     @property
     def all_ref_data(self):
@@ -451,7 +451,7 @@ class LimaDataView:
     def _get_filenames(self, ref_data, *image_nbs):
         """Specific image filenames
         """
-        return LimaImageChannelDataEvent.image_filenames(
+        return LimaImageStatusEvent.image_filenames(
             ref_data, image_nbs=image_nbs, last_image_saved=self.last_image_saved
         )
 
@@ -534,7 +534,7 @@ class LimaImageChannelDataNode(ChannelDataNodeBase):
             )
         else:  # during acquisition
             self._local_ref_status.update(data)
-            ev = LimaImageChannelDataEvent(self._local_ref_status)
+            ev = LimaImageStatusEvent(self._local_ref_status)
             self._queue.add_event(ev, id=self._last_index, cnx=cnx)
             self._last_index += 1
 
@@ -568,18 +568,17 @@ class LimaImageChannelDataNode(ChannelDataNodeBase):
         """
         data = list()
         first_index = -1
-        ref_status = None
+        description = None
         if events:
             # The number of events is NOT equal to the number of images
             # The number of images can be derived from the event data though
-            # TODO: this requires to keep using the same DataNode instance!!!
-            index, raw = events[-1]
-            ev = LimaImageChannelDataEvent(raw=raw)
-            ref_status = ev.ref_status
+            # TODO: first_index is only accurate if we use the same DataNode instance!!!
+            ev = LimaImageStatusEvent.merge(events)
+            description = ev.status
             first_index = self._stream_image_count
-            data = ev.get_data(first_index, self.first_ref_data)
+            data = ev.get_data(self.first_ref_data, first_index)
             self._stream_image_count += len(data)
-        return EventData(first_index=first_index, data=data, description=ref_status)
+        return EventData(first_index=first_index, data=data, description=description)
 
     @property
     def all_ref_data(self):
@@ -643,8 +642,8 @@ class LimaImageChannelDataNode(ChannelDataNodeBase):
         events = self._queue.range(count=1)
         if events:
             index, raw = events[0]
-            ev = LimaImageChannelDataEvent(raw=raw)
-            url = ev.ref_status.get("server_url")
+            ev = LimaImageStatusEvent(raw=raw)
+            url = ev.status.get("server_url")
             if url:
                 db_names.append(url)
         return db_names

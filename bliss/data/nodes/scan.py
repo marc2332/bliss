@@ -81,9 +81,7 @@ class Scan(DataNodeContainer):
         first_index = self._streamid_to_idx(events[0][0])
         ev = EndScanEvent.merge(events)
         return EventData(
-            first_index=first_index,
-            data=ev.TYPE.decode(),
-            description=ev.exception,
+            first_index=first_index, data=ev.TYPE.decode(), description=ev.exception
         )
 
     def _get_db_names(self):

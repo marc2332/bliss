@@ -324,16 +324,21 @@ class ChannelDataNode(ChannelDataNodeBase):
         :param list((index, raw)) events:
         :returns EventData:
         """
+        data = list()
+        first_index = -1
+        description = None
+        block_size = 0
         if events:
             first_index = self._streamid_to_idx(events[0][0])
-        else:
-            first_index = -1
-        ev = ChannelDataEvent.merge(events)
+            ev = ChannelDataEvent.merge(events)
+            data = ev.array
+            description = ev.description
+            block_size = ev.npoints
         return EventData(
             first_index=first_index,
-            data=ev.array,
-            description=ev.description,
-            block_size=ev.npoints,
+            data=data,
+            description=description,
+            block_size=block_size,
         )
 
     def __len__(self):

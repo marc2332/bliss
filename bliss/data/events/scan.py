@@ -22,5 +22,4 @@ class EndScanEvent(streaming_events.EndEvent):
         :param list((index, raw)) events:
         :returns EndScanEvent:
         """
-        for index, raw in events:
-            return cls(raw=raw)
+        return cls(raw=events[0][1])

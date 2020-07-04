@@ -235,7 +235,7 @@ def test_lima_data_channel_node(lima_session, redis_data_conn):
     db_name = f"{s.node.db_name}:timer:{lima_sim.fullname}:image"
     redis_key = db_name + "_data"
     events = redis_data_conn.xrange(redis_key, "-", "+")
-    expected_data = list(pickle.loads(raw.get(b"__REFSTATUS__")) for i, raw in events)
+    expected_data = list(pickle.loads(raw.get(b"__STATUS__")) for i, raw in events)
     assert expected_data[-1]["last_image_acquired"] == npoints - 1
 
     # Check the generated Redis keys
@@ -335,7 +335,7 @@ def test_reference_with_lima(redis_data_conn, lima_session, with_roi):
     )
     index, ref_status = stream_status.rev_range(count=1)[0]
 
-    live_ref_status = pickle.loads(ref_status.get(b"__REFSTATUS__"))
+    live_ref_status = pickle.loads(ref_status.get(b"__STATUS__"))
     assert live_ref_status["last_image_saved"] == 2  # npoints-1
 
 

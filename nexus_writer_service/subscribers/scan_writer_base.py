@@ -1499,13 +1499,11 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
             # e.g node: bliss.data.lima.LimaImageChannelDataNode
             #     dataview: bliss.data.lima.LimaDataView
             dataview = node.get(icurrent, -1)
-            imgidx = list(range(dataview.from_index, dataview.last_index))
-            if imgidx:
+            if len(dataview):
                 try:
-                    files = dataview._get_filenames(node.info, *imgidx)
+                    files = dataview.all_image_uris(saved=True)
                 except Exception as e:
-                    # Image was not saved (yet)
-                    dproxy.logger.debug("cannot get image file names: {}".format(e))
+                    dproxy.logger.debug(f"Image not ready yet: {e}")
         # Create image URI's
         uris = []
         file_format0 = None

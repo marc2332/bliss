@@ -2,8 +2,8 @@
 
 import numpy
 from bliss.flint.manager import scan_manager
-from bliss.data.nodes.lima import ImageFormatNotSupported
-from bliss.data.nodes.lima import Frame
+from bliss.data.events.lima_io import ImageFormatNotSupported
+from bliss.data.events.lima_io import Frame
 
 
 ACQUISITION_CHAIN_1 = {

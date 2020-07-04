@@ -36,7 +36,7 @@ import time
 
 import gevent.event
 
-from bliss.data.nodes.lima import ImageFormatNotSupported
+from bliss.data.events.lima_io import ImageFormatNotSupported
 from bliss.data.scan import watch_session_scans
 from bliss.config.conductor.client import clean_all_redis_connection
 

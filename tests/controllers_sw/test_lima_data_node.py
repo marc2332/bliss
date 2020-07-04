@@ -20,7 +20,7 @@ def lima_data_view_test_helper(scan):
     lima_data_view = image_node.get(0)
     ref_data = image_node.info.get_all()
 
-    lima_files = numpy.array(lima_data_view.get_filenames())
+    lima_files = numpy.array(lima_data_view.all_image_uris())
 
     filesystem_files = sorted(glob.glob(ref_data["saving_directory"] + "/*"))
 
@@ -43,11 +43,11 @@ def test_LimaNode_ref_data(default_session, lima_simulator):
     for node in scan.node.walk(wait=False, filter="lima"):
         image_node = node
 
-    lima_data_view = image_node.get(0)
-    lima_data_view._update()
-
     ref_data = image_node.info.get_all()
+    assert "user_detector_name" in ref_data
 
+    lima_data_view = image_node.get(0)
+    ref_data = lima_data_view.first_ref_data
     assert "user_detector_name" in ref_data
 
 

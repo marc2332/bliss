@@ -73,7 +73,7 @@ from bliss.common import logtools
 from bliss.common.logtools import *
 from bliss.common.interlocks import interlock_state
 from bliss.common.session import get_current_session
-from bliss.data.nodes import lima
+from bliss.data.events import lima_io
 
 from bliss.scanning.scan_tools import (
     cen,
@@ -887,7 +887,7 @@ def edit_roi_counters(detector: Lima, acq_time: Optional[float] = None):
         # or a placeholder
 
         try:
-            data = lima.read_image(detector._proxy, -1)
+            data = lima_io.image_from_server(detector._proxy, -1)
         except:
             # Else create a checker board place holder
             y, x = numpy.mgrid[0 : detector.image.height, 0 : detector.image.width]

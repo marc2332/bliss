@@ -264,7 +264,7 @@ class HDF5_Writer(object):
 
         lima_data_view = node.get(0, -1)
 
-        tmp = lima_data_view._get_filenames(node.info, *range(0, len(lima_data_view)))
+        tmp = lima_data_view.all_image_uris()
 
         if tmp != []:
             tmp = numpy.array(tmp, ndmin=2)

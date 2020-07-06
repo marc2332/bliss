@@ -801,7 +801,13 @@ class ScanDataListener(_ScanPrinterBase):
 
         requested_channels = []
         if self.scan_display.scan_display_filter_enabled:
-            requested_channels = self.scan_display.displayed_channels
+            # Use master channel plus user request
+            requested_channels = self.scan_display.displayed_channels.copy()
+            for m in self.master_channel_names:
+                if m in requested_channels:
+                    requested_channels.remove(m)
+            # Always use the masters
+            requested_channels = self.master_channel_names + requested_channels
         if requested_channels == []:
             requested_channels = self.displayable_channel_names.copy()
 

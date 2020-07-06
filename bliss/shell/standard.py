@@ -40,6 +40,7 @@ from bliss.common.standard import (
     sync,
     info,
     __move,
+    reset_equipment,
 )  # noqa: F401
 from bliss.common.standard import wid as std_wid
 from bliss.controllers.lima.limatools import *
@@ -177,7 +178,16 @@ __all__ = (
     ]
     + scans.__all__
     + logtools.__all__
-    + ["cleanup", "error_cleanup", "plot", "lscnt", "lsmg", "lsobj", "wid"]
+    + [
+        "cleanup",
+        "error_cleanup",
+        "plot",
+        "lscnt",
+        "lsmg",
+        "lsobj",
+        "wid",
+        "reset_equipment",
+    ]
     + ["SoftAxis", "SoftCounter", "edit_roi_counters", "edit_mg"]
     + list(limatools.__all__)
     + [

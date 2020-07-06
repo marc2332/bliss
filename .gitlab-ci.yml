@@ -123,7 +123,6 @@ test_writer_cov:
   image: continuumio/miniconda3:latest
   tags:
     - conda
-    - builder
     - win
   before_script:
     - call conda config --append channels conda-forge
@@ -141,7 +140,6 @@ package:
   image: continuumio/miniconda3:latest
   tags:
     - conda
-    - builder
     - linux
   script:
     # install opengl libraries (needed to avoid problem with pyopengl dependency)
@@ -176,7 +174,6 @@ package_windows:
   image: continuumio/miniconda3:latest
   tags:
     - conda
-    - builder
     - win
   before_script:
     - call conda config --append channels conda-forge
@@ -260,7 +257,6 @@ create_user_doc:
   image: continuumio/miniconda3:latest
   tags:
     - conda
-    - builder
     - linux
   script:
     # install Xvfb and opengl libraries (needed for test_flint)
@@ -302,7 +298,6 @@ pages:
     - ''
   tags:
     - conda
-    - builder
     - linux
   script:
     # Preparing
@@ -336,7 +331,6 @@ deploy_bliss:
     - ''
   tags:
     - conda
-    - builder
     - linux
   script:
     # for tags with 'rc' the package will be published to http://bcu-ci.esrf.fr/stable/

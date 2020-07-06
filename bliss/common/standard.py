@@ -29,7 +29,7 @@ from bliss.common.logtools import *
 from bliss.common.logtools import lprint
 from bliss.common.interlocks import interlock_state
 from bliss.controllers.motors import esrf_undulator
-
+from bliss.config.channels import clear_cache
 
 __all__ = (
     [
@@ -43,6 +43,7 @@ __all__ = (
         "move",
         "sync",
         "interlock_state",
+        "reset_equipment",
     ]
     + scans.__all__
     + logtools.__all__
@@ -374,3 +375,22 @@ def rockit(motor, total_move):
         finally:
             rock_task.kill()
             rock_task.get()
+
+
+def reset_equipment(*devices):
+    """
+    This command will force all devices passed as argument to be reset
+    For now we just force an re-initialization on next call.
+    """
+    device_to_reset = set()
+    for dev in devices:
+        device_to_reset.add(dev)
+        try:
+            ctrl = dev.controller
+        except AttributeError:
+            pass
+        else:
+            device_to_reset.add(ctrl)
+    # clear controller cache
+    clear_cache(*device_to_reset)
+    # Maybe in future it'll be good to close the connection and do other things...

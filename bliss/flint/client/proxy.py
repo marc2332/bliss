@@ -215,6 +215,7 @@ class FlintClient:
 
         # Current URL
         key = config.get_flint_key(pid)
+        value = None
         for _ in range(3):
             raise_if_dead(process)
             value = redis.brpoplpush(key, key, timeout=5)

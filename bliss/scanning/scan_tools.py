@@ -1,13 +1,13 @@
 import numpy
 import typeguard
 from typing import Optional
-from bliss.config.settings import HashSetting
 from bliss.data.scan import get_counter_names
 from bliss import current_session, global_map
 from bliss.common.types import _countable, _scannable
 from bliss.common.plot import display_motor
 from bliss.scanning.scan import Scan
 from bliss.scanning.scan import ScanDisplay
+from bliss.common.utils import shorten_signature
 
 """
 Alignment Helpers: cen peak com that interact with plotselect 
@@ -148,69 +148,126 @@ def _scan_calc(func, counter=None, axis=None, scan=None, marker=True, goto=False
 
 
 @typeguard.typechecked
+@shorten_signature(hidden_kwargs=[])
 def fwhm(
     counter: Optional[_countable] = None,
     axis: Optional[_scannable] = None,
     scan: Optional[Scan] = None,
 ):
+    """
+    Return Full Width at Half of the Maximum of previous scan according to <counter>.
+    If <counter> is not specified, use selected counter.
+
+    Example: f = fwhm()
+    """
     return _scan_calc("fwhm", counter=counter, axis=axis, scan=scan, marker=False)
 
 
 @typeguard.typechecked
+@shorten_signature(hidden_kwargs=[])
 def cen(
     counter: Optional[_countable] = None,
     axis: Optional[_scannable] = None,
     scan: Optional[Scan] = None,
 ):
+    """
+    Return the motor position corresponding to the center of the fwhm of the last scan.
+    If <counter> is not specified, use selected counter.
+
+    Example: cen(diode3)
+    """
     return _scan_calc("cen", counter=counter, axis=axis, scan=scan)
 
 
 @typeguard.typechecked
+@shorten_signature(hidden_kwargs=[])
 def goto_cen(
     counter: Optional[_countable] = None,
     axis: Optional[_scannable] = None,
     scan: Optional[Scan] = None,
 ):
+    """
+    Return the motor position corresponding to the center of the fwhm of the last scan.
+    Move scanned motor to this value.
+    If <counter> is not specified, use selected counter.
+
+    Example:
+    """
     return _scan_calc("cen", counter=counter, axis=axis, scan=scan, goto=True)
 
 
 @typeguard.typechecked
+@shorten_signature(hidden_kwargs=[])
 def com(
     counter: Optional[_countable] = None,
     axis: Optional[_scannable] = None,
     scan: Optional[Scan] = None,
 ):
+    """
+    Return center of mass of last scan according to <counter>.
+    If <counter> is not specified, use selected counter.
+
+    Example: scan_com = com(diode2)
+    """
     return _scan_calc("com", counter=counter, axis=axis, scan=scan)
 
 
 @typeguard.typechecked
+@shorten_signature(hidden_kwargs=[])
 def goto_com(
     counter: Optional[_countable] = None,
     axis: Optional[_scannable] = None,
     scan: Optional[Scan] = None,
 ):
+    """
+    Return center of mass of last scan according to <counter>.
+    Move scanned motor to this value.
+    If <counter> is not specified, use selected counter.
+
+    Example: goto_com(diode2)
+    """
     return _scan_calc("com", counter=counter, axis=axis, scan=scan, goto=True)
 
 
 @typeguard.typechecked
+@shorten_signature(hidden_kwargs=[])
 def peak(
     counter: Optional[_countable] = None,
     axis: Optional[_scannable] = None,
     scan: Optional[Scan] = None,
 ):
+    """
+    Return position of scanned motor at maximum of <counter> of last scan.
+    If <counter> is not specified, use selected counter.
+
+    Example: max_of_scan = peak()
+    """
     return _scan_calc("peak", counter=counter, axis=axis, scan=scan)
 
 
 @typeguard.typechecked
+@shorten_signature(hidden_kwargs=[])
 def goto_peak(
     counter: Optional[_countable] = None,
     axis: Optional[_scannable] = None,
     scan: Optional[Scan] = None,
 ):
+    """
+    Return position of scanned motor at maximum of <counter> of last scan.
+    Move scanned motor to this value.
+    If <counter> is not specified, use selected counter.
+
+    Example: goto_peak()
+    """
     return _scan_calc("peak", counter=counter, axis=axis, scan=scan, goto=True)
 
 
 def where():
+    """
+    Draw a vertical line on the plot at current position of scanned motor.
+
+    Example: where()
+    """
     for axis in last_scan_motors():
         display_motor(
             axis, marker_id="current", label="\n\ncurrent\n" + str(axis.position)

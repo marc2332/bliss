@@ -1,26 +1,33 @@
 # Alignment functions
 
-This chapter introduces functions needed for alignment. Those
-functions use the **selected counter** data (`plotselect`) of the **last
+This chapter introduces functions usually used for alignment.
+
+Those functions use the **selected counter** data (`plotselect`) of the **last
 scan** (`SCANS[-1]`) for calculation.
 
 In case of multi counters, it is possible to specify the counter to use
 for the alignment as parameters. i.e:
-    cen(counter=my_counter)
-    goto_com(counter=my_counter)
 
+```python
+cen(counter=my_counter)
+goto_com(counter=my_counter)
+```
 
 In case of multi motors (anscan), all this function can use a specific
-axis either for the calculation or the movement (`goto_` functions). 
-   goto_cen(axis=robz)
-   peak(axis=robz)
-If the axis is not specify, `cen,com,peak` function will return value
-for all axis and the *goto_* function will move all motors.
+axis either for the calculation or the movement (`goto_` functions).
+
+```python
+goto_cen(axis=robz)
+peak(axis=robz)
+```
+
+If the axis is not specify, `cen`, `com`, `peak` functions will return value for
+all axis and the `goto_` functions will move all motors.
 
 ## Counters selection
 
 The counter selection can be done graphically with *Flint* or with the
-*plotselect* user function: `plotselect(<counter_list>)`
+`plotselect` user function: `plotselect(<counter_list>)`
 
 
 !!! example
@@ -60,28 +67,37 @@ currently selected counters.
     The list of selected counters is stored via a HashSetting using
     `<session_name>:plot_select` as key.
 
-## `cen()`
+## fwhm()
 
-This function return the fwhm center motor position and the **fwhm**
-( Full Width at Half Maximum) of the last scan.
-```
-fwhm_center,fwhm = cen()
+This function return th Full Width at Half of the Maximum of data of last scan.
+
+```python
+size = fwhm()
 ```
 
-## `com()`
+## cen()
+
+This function return the motor position corresponding to the center of the fwhm
+of the last scan.
+```
+fwhm_center = cen()
+```
+
+## com()
 
 This function return the motor position of the center of mass.
 ```
 center_of_mass_pos = com()
 ```
-## `peak()`
 
-This function return the motor position at the counter maximum.
+## peak()
+
+This function return the motor position at the counter maximum value.
 ```
 max_pos = peak()
 ```
 
-## Go to function
+## goto_ functions
 
 * all the previous functions have a corresponding `goto_XXX()` function
 to go directly to the calculated position:
@@ -115,6 +131,6 @@ WARNING  bliss.scans: Motor mm1 will move from 10.000000 to 4.805529
 ## where()
 
 To display current position of the motor used in the **last scan** use:
-```
-    where()
+```python
+where()
 ```

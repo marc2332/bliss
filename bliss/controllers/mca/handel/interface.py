@@ -847,11 +847,13 @@ def _hardware_poll_points(npoints):
 
 
 def _raw_read(acquisition_number, queue):
+    module = inspect.getmodule(_raw_read)
     try:
 
         def poll_data(sent):
             current, data, statistics = synchronized_poll_data()
             points = list(range(sent, sent + len(data)))
+            event.send(module, "current_pixel", current)
             # Check data integrity
             if sorted(data) != sorted(statistics) != points:
                 raise RuntimeError("The polled data overlapped during the acquisition")

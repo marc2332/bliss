@@ -796,7 +796,7 @@ class ScanDataListener(_ScanPrinterBase):
             self.scan_display = ScanDisplay(self.session_name)
 
         requested_channels = []
-        if self.scan_display.enable_scan_display_filter:
+        if self.scan_display.scan_display_filter_enabled:
             requested_channels = self.scan_display.displayed_channels
         if requested_channels == []:
             requested_channels = self.displayable_channel_names.copy()

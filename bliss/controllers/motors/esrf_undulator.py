@@ -287,6 +287,15 @@ class ESRF_Undulator(Controller):
             return AxisState("READY")
 
     """
+    POSITION
+    """
+
+    def set_position(self, axis, new_position):
+        """ Implemented to avoid NotImplemented error in apply_config().
+        """
+        return axis.position
+
+    """
     Must send a command to the controller to abort the motion of given axis.
     """
 

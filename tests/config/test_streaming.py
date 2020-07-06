@@ -244,17 +244,26 @@ class DataStreamTestPublishers:
             assert lst == list(range(len(lst)))
 
 
-def test_stream_reader(beacon):
-    with DataStreamTestPublishers(nmaxpub=100) as publishers:
+@pytest.mark.parametrize("with_overhead", [False, True])
+def test_stream_reader(with_overhead, beacon):
+    if with_overhead:
+        nmaxpub = 3
+        overhead = 0.01
+        timeout = 60
+    else:
+        nmaxpub = 100
+        overhead = 0
+        timeout = 60
+    with DataStreamTestPublishers(nmaxpub=nmaxpub) as publishers:
         # Read during publishing
         reader = streaming.DataStreamReader(wait=True)
         try:
-            with gevent.Timeout(20):
+            with gevent.Timeout(timeout):
                 # Start publishing
                 first_stream_name = publishers.spawn_publisher()
                 # Read and verify published data during publishing
                 # TODO: adding an overhead breaks the data reader
-                publishers.process_events(first_stream_name, reader, overhead=0)
+                publishers.process_events(first_stream_name, reader, overhead=overhead)
                 # Read and verify published data again
                 reader.reset_first_index(0)
                 publishers.process_events(first_stream_name, reader)

@@ -408,8 +408,7 @@ class DataNode:
         """Iterate over child nodes that match the `filter` argument.
 
         :param tuple or callable filter: only these DataNode types are allowed (all by default)
-        :param bool wait: if wait is True (default), the function blocks
-                          until a new node appears
+        :param bool wait:
         :param DataStreamReaderStopHandler stop_handler:
         :param dict active_streams: stream name (str) -> stream info (dict)
         :param str or int first_index: Redis stream ID
@@ -435,6 +434,9 @@ class DataNode:
         :param DataStreamReaderStopHandler stop_handler:
         :yields DataNode:
         """
+        active_streams = dict()
+        # Start walking from "now":
+        first_index = streaming.DataStream.now_index()
         if include_last:
             last_node, active_streams = self._get_last_child(filter=filter)
             if last_node is not None:
@@ -445,10 +447,6 @@ class DataNode:
                     raise RuntimeError(
                         f"{last_node.db_name} was not added to the children stream of its parent"
                     )
-        else:
-            active_streams = dict()
-            # Start walking from "now":
-            first_index = streaming.DataStream.now_index()
         yield from self.walk(
             filter,
             wait=wait,
@@ -459,18 +457,24 @@ class DataNode:
 
     @protect_from_kill
     def walk_events(
-        self, filter=None, first_index=0, active_streams=None, stop_handler=None
+        self,
+        filter=None,
+        wait=True,
+        first_index=0,
+        active_streams=None,
+        stop_handler=None,
     ):
         """Iterate over node and children node events.
 
         :param tuple or callable filter: only these DataNode types are allowed (all by default)
+        :param bool wait:
         :param str or int first_index: Redis stream ID
         :param dict active_streams: stream name (str) -> stream info (dict)
         :param DataStreamReaderStopHandler stop_handler:
         :yields Event:
         """
         with streaming.DataStreamReader(
-            active_streams=active_streams, stop_handler=stop_handler
+            wait=wait, active_streams=active_streams, stop_handler=stop_handler
         ) as reader:
             yield from self._iter_reader(
                 reader, filter=filter, first_index=first_index, yield_events=True
@@ -546,8 +550,7 @@ class DataNode:
         :param bool yield_events: yield Event or DataNode
         :yields Event or DataNode:
         """
-        children = self._read_children_stream(events=events)
-        for node in self._iter_new_children(stream, children):
+        for node in self.get_children(events):
             yield from node._yield_on_new_node(
                 reader, filter, first_index, yield_events
             )
@@ -597,14 +600,12 @@ class DataNode:
             reader.remove_matching_streams(f"{self.db_name}*")
 
     def _get_last_child(self, filter=None):
-        """Get the last child added to the _children_list stream
+        """Get the last child added to the _children_list stream of
+        this node or its children.
 
         :param tuple or callable filter: only these DataNode types are allowed (all by default)
         :returns 2-tuple: DataNode, active streams
         """
-        # TODO: Why do we need to walk and
-        #       not just return the last node
-        #       from the _children_list stream?
         active_streams = dict()
         children_stream = self._create_stream("children_list")
         first_index = children_stream.before_last_index()
@@ -612,7 +613,10 @@ class DataNode:
             return None, active_streams
         last_node = None
         for last_node in self.walk(
-            filter, wait=False, active_streams=active_streams, first_index=first_index
+            filter=filter,
+            wait=False,
+            active_streams=active_streams,
+            first_index=first_index,
         ):
             pass
         return last_node, active_streams
@@ -709,40 +713,34 @@ class DataNodeContainer(DataNode):
         for child in children:
             self._children_stream.add_event(NewDataNodeEvent(child.db_name))
 
-    def _iter_new_children(self, stream, node_dict):
-        """
-        :param DataStream stream:
-        :param dict node_dict: node.db_name -> stream index
-        :yields DataNode:
-        """
-        with settings.pipeline(stream):
-            for (db_name, index), node in zip(
-                node_dict.items(), self.get_nodes(*node_dict)
-            ):
-                if node is None:
-                    # TODO: why would this happen?
-                    stream.remove(index)
-                else:
-                    yield node
-
-    def _read_children_stream(self, events=None):
-        """Get direct children from Redis
+    def get_children(self, events=None, purge=False):
+        """Get direct children as published in the _children_list
+        DataStream. When purging missing nodes, you can no longer
+        verify whether all data is still there.
 
         :param dict events: list((streamID, dict))
-        :returns dict: node.db_name -> stream ID
+        :param bool purge: purge missing nodes
+        :returns list(DataNode):
         """
         if events is None:
             events = self._children_stream.range()
-        return {NewDataNodeEvent.factory(raw).db_name: index for index, raw in events}
+        node_dict = {
+            NewDataNodeEvent.factory(raw).db_name: index for index, raw in events
+        }
+        with settings.pipeline(self._children_stream):
+            for index, node in zip(node_dict.values(), self.get_nodes(*node_dict)):
+                if node is None and purge:
+                    # When the index is not present
+                    # it is silently ignored.
+                    self._children_stream.remove(index)
+                else:
+                    yield node
 
-    def children(self):
-        """Children node iterator
-
-        yields DataNode
+    def children(self, purge=False):
         """
-        yield from self._iter_new_children(
-            self._children_stream, self._read_children_stream()
-        )
+        :yields DataNode:
+        """
+        return self.get_children(purge=purge)
 
     def _get_db_names(self):
         db_names = super()._get_db_names()
@@ -829,7 +827,7 @@ class DataNodeContainer(DataNode):
         # Subscribe to the streams associated to the nodes
         for node in nodes:
             if node is None:
-                continue
+                continue  # TODO raise exception instead?
             if node._filtered_out(filter):
                 continue
             if addstream(node.db_name):

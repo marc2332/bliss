@@ -184,7 +184,10 @@ class DataStream(BaseSetting):
         if seq_num < 0:
             from_index = int(indexs[0]) - 1  # 1 millisecond back
             lst = self.rev_range(from_index=index, to_index=from_index, count=2)
-            return lst[-1][0]
+            if len(lst) == 2:
+                return lst[-1][0]
+            else:
+                return b"%d" % from_index
         else:
             indexs[-1] = b"%d" % seq_num
             return b"-".join(indexs)
@@ -403,9 +406,7 @@ class DataStreamReader:
             raise TypeError("All streams must have the same redis connection")
 
         # Create the synchronization stream
-        self.__synchro_stream = DataStream(
-            uuid.uuid1().bytes, maxlen=16, connection=cnx
-        )
+        self.__synchro_stream = DataStream(str(uuid.uuid1()), maxlen=16, connection=cnx)
         return self.__synchro_stream
 
     @property
@@ -455,8 +456,9 @@ class DataStreamReader:
         :param `*streams`: DataStream objects
         :param str or int first_index: Redis stream ID to start reading from
                                        (None: only new events)
-        :param int priority: priority when reading streams in batch,
-                             lowest number is highest priority
+        :param int priority: data from streams with a lower priority is never
+                             yielded as long as higher priority streams have
+                             data. Lower number means higher priority.
         :param dict info: additional stream info
         """
         if priority < 0:
@@ -465,7 +467,7 @@ class DataStreamReader:
             for stream in streams:
                 # print(f"ADD STREAM {stream.name}")
                 self.check_stream_connection(stream)
-                sinfo = self.compile_stream_info(
+                sinfo = self._compile_stream_info(
                     stream, first_index=first_index, priority=priority, **info
                 )
                 self._streams[stream.name] = sinfo
@@ -517,7 +519,7 @@ class DataStreamReader:
         return info.get(key, default)
 
     @staticmethod
-    def compile_stream_info(stream, first_index=None, priority=0, **extra):
+    def _compile_stream_info(stream, first_index=None, priority=0, **extra):
         """
         :param DataStream stream:
         :param str or int first_index: Redis stream ID to start reading from
@@ -547,10 +549,10 @@ class DataStreamReader:
         self._publish_synchro_event()
         self._start_read_task()
 
-    def _read_active_streams(self, only_synchro=False):
+    def _read_active_streams(self, priority_threshold=None):
         """Get data from the active streams
 
-        :param bool only_synchro: read only from the synchronization stream
+        :param int priority_threshold: read only from this priority or higher
         :returns list(2-tuple): list((name, events))
                                 name: name of the stream
                                 events: list((index, raw)))
@@ -558,18 +560,17 @@ class DataStreamReader:
         if not self._active_streams:
             return []
         # Map stream name to index from which to read:
-        if only_synchro:
-            # Other streams will be ignored anyway
-            streams_to_read = {self._synchro_stream.name: self._synchro_index}
+        streams_to_read = sorted(
+            self._active_streams.items(), key=lambda item: item[1]["priority"]
+        )
+        if priority_threshold is None:
+            streams_to_read = {k: v["first_index"] for k, v in streams_to_read}
         else:
             streams_to_read = {
                 k: v["first_index"]
-                for k, v in sorted(
-                    self._active_streams.items(), key=lambda item: item[1]["priority"]
-                )
+                for k, v in streams_to_read
+                if v["priority"] <= priority_threshold
             }
-        # print(f"{self} XREAD(count={self._count}, block={self._block}) ...")
-
         # first_index: yield events with stream ID larger then this
         # block=None: yield nothing when no events
         # block=0: always yield something (no timeout)
@@ -589,7 +590,7 @@ class DataStreamReader:
                 raise RuntimeError(
                     "Add at least once stream before iterating over the events"
                 )
-            sinfo = self.compile_stream_info(
+            sinfo = self._compile_stream_info(
                 self._synchro_stream, first_index=0, priority=-1
             )
             self._active_streams[self._synchro_stream.name] = sinfo
@@ -619,11 +620,12 @@ class DataStreamReader:
         return self._synchro_stream.has_new_data(self._synchro_index)
 
     def _read_task_main(self):
-        """Main reading loop
+        """Main reading loop. The loop ends when there are no more
+        synchronization stream events or on SYNC_END.
         """
         with self._read_task_context():
             keep_reading = True
-            only_synchro = self.has_new_synchro_events()
+            synchro_name = self._synchro_stream.name
             while keep_reading:
                 # When not waiting for new events (wait=False)
                 # will stop reading after reading all current
@@ -633,37 +635,34 @@ class DataStreamReader:
 
                 # When wait=True: wait indefinitely when no events
                 # print(f"\n{self}: READING ...")
-                lst = self._read_active_streams(only_synchro=only_synchro)
+                lst = self._read_active_streams()
+                read_priority = None
                 for name, events in lst:
-                    # print(f"{self}: XREAD {name}: {len(events)} events")
-                    if name == self._synchro_stream.name:
-                        # Ensured to be the first in this loop (priority<0)
-                        self._process_synchro_event(events)
-                        # The active streams have changed.
-                        # So we need to stop reading from the
-                        # old streams and start reading from the
-                        # new streams (ensure priority is respected)
+                    name = name.decode()
+                    sinfo = self._active_streams[name]
+                    if read_priority is None:
+                        read_priority = sinfo["priority"]
+                    if sinfo["priority"] > read_priority:
+                        # Lower priority streams are never read until
+                        # while higher priority streams have unread data
                         keep_reading = True
+                        # print(f"{self}: SKIP {name}: {len(events)} events")
                         break
+                    # print(f"{self}: PROCESS {name}: {len(events)} events")
+                    if name == synchro_name:
+                        self._process_synchro_events(events)
+                        keep_reading = True
                     else:
-                        # Queue stream events and progress the index
-                        # for the next read operation
-                        sinfo = self._active_streams[name.decode()]
-                        self._queue.put((sinfo["stream"], events))
-                        sinfo["first_index"] = events[-1][0]
+                        self._process_consumer_events(sinfo, events)
                         gevent.idle()
                 # print("-------")
 
                 # Keep reading when active streams are modified
                 # by the consumer. This ensures that all streams
                 # are read at least once.
-                # REMARK: destroy synchronization
-                # gevent.sleep(0.3)
                 self._wait_no_consuming()
-                if keep_reading:
-                    only_synchro = False
                 if not keep_reading:
-                    keep_reading = only_synchro = self.has_new_synchro_events()
+                    keep_reading = self.has_new_synchro_events()
 
     def _wait_no_consuming(self):
         """Wait until the consumer is not processing an event
@@ -676,7 +675,7 @@ class DataStreamReader:
             self._consumer_state_changed.clear()
             self._consumer_state_changed.wait()
 
-    def _process_synchro_event(self, events):
+    def _process_synchro_events(self, events):
         """Process events from the synchronization stream.
         Possible events are add stream, remove stream or end.
 
@@ -688,6 +687,16 @@ class DataStreamReader:
                 raise StopIteration
         self._synchro_index = index
         self._update_active_streams()
+
+    def _process_consumer_events(self, sinfo, events):
+        """Queue stream events and progress the index
+        for the next read operation.
+
+        :param dict sinfo: stream info
+        :param list events: list((index, raw)))
+        """
+        self._queue.put((sinfo["stream"], events))
+        sinfo["first_index"] = events[-1][0]
 
     def _update_active_streams(self):
         """Synchronize the consumer defined streams with
@@ -719,13 +728,12 @@ class DataStreamReader:
             if not self._streams and not self._wait:
                 self._queue.put(StopIteration)
 
+            # print(f"{self}: CONSUMING ...")
             for item in self._queue:
                 if isinstance(item, Exception):
                     raise item
                 # print(f"CONSUME {item[0].name}: {len(item[1])} events")
                 self._consumer_state = self.ConsumerState.YIELDING
-                # REMARK: destroy synchronization
-                # gevent.sleep(0.3)
                 yield item
                 self._consumer_state = self.ConsumerState.WAITING
         finally:

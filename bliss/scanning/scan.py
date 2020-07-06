@@ -26,7 +26,7 @@ from bliss.common.plot import get_flint
 from bliss.common.utils import periodic_exec, deep_update
 from bliss.scanning.scan_meta import get_user_scan_meta
 from bliss.common.axis import Axis
-from bliss.common.utils import Statistics, Null, update_node_info
+from bliss.common.utils import Statistics, Null, update_node_info, round
 from bliss.controllers.motor import remove_real_dependent_of_calc
 from bliss.config.settings import ParametersWardrobe
 from bliss.config.settings import pipeline
@@ -1122,7 +1122,7 @@ class Scan:
             for key, value in res.items():
                 if len(s) != 1:
                     s += ", "
-                s += f"{key.name}: {value}"
+                s += f"{key.name}: {round(value,precision=key.tolerance)}"
             s += "}"
             return s
 

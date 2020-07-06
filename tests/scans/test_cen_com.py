@@ -81,8 +81,8 @@ def test_pkcom_a2scan_gauss(session):
     )
 
     p = s.com(simul_counter)
-    assert p[robz] == 2.5
-    assert p[roby] == 5
+    assert p[robz] == pytest.approx(2.5, abs=.01)
+    assert p[roby] == pytest.approx(5, abs=.01)
     assert (
         p.__info__() == "{roby: 5.0, robz: 2.5}"
         or p.__info__() == "{robz: 2.5, roby: 5.0}"

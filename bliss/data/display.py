@@ -303,6 +303,7 @@ class _ScanPrinterBase:
         + "   file      : {filename}\n"
         + "   user      : {user_name}\n"
         + "   session   : {session_name}\n"
+        + "   masters   : [ {master_names} ]\n"
         + "   skipped   : [ {not_shown_counters_str} ]\n"
     )
 
@@ -328,6 +329,7 @@ class _ScanPrinterBase:
 
         self.channels_number = None
         self.displayable_channel_names = None
+        self.master_channel_names = []
         self.sorted_channel_names = []
         self.display_names = None
         self.channel_units = None
@@ -430,6 +432,8 @@ class _ScanPrinterBase:
         self.channel_units = channels["master"]["scalars_units"]
         self.channel_units.update(channels["scalars_units"])
 
+        master_channel_names = master_scalar_channels.copy()
+
         # get none scalar channels (spectra and images)
         self.other_channels = (
             channels["master"]["spectra"] + channels["master"]["images"]
@@ -455,6 +459,7 @@ class _ScanPrinterBase:
                 displayable_channels.append(cname)
 
         #  Store the channels contained in the scan_info
+        self.master_channel_names = master_channel_names
         self.displayable_channel_names = displayable_channels
         self.sorted_channel_names = displayable_channels.copy()
 
@@ -532,8 +537,12 @@ class _ScanPrinterBase:
         if self.other_channels:
             not_shown_counters_str = ", ".join(self.other_channels)
 
+        master_names = ", ".join(self.master_channel_names)
+
         header = self.HEADER.format(
-            not_shown_counters_str=not_shown_counters_str, **scan_info
+            not_shown_counters_str=not_shown_counters_str,
+            master_names=master_names,
+            **scan_info,
         )
 
         return header

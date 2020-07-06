@@ -411,6 +411,14 @@ class FixedShapeCounter:
         s = ascan(self.axis, 0, 1, self.npoints, expo, self.counter)
     """
 
+    @staticmethod
+    def _missing_edge_of_gaussion_left(npoints):
+        p = npoints // 2
+        p2 = p // 4
+        return np.concatenate(
+            (signal.gaussian(p, .1 * npoints)[p2:], np.zeros(p2), np.zeros(npoints - p))
+        )
+
     SIGNALS = {
         "sawtooth": lambda npoints: signal.sawtooth(
             np.arange(0, 2 * np.pi * 1.1, 2 * np.pi * 1.1 / npoints), width=.9
@@ -423,6 +431,14 @@ class FixedShapeCounter:
                 signal.gaussian(npoints // 2, .1 * npoints),
             )
         ),
+        "missing_edge_of_gaussion_left": lambda npoints: FixedShapeCounter._missing_edge_of_gaussion_left(
+            npoints
+        ),
+        "missing_edge_of_gaussion_right": lambda npoints: FixedShapeCounter._missing_edge_of_gaussion_left(
+            npoints
+        )[
+            ::-1
+        ],
         "triangle": lambda npoints: np.concatenate(
             (
                 np.arange(0, 1, 1 / (npoints // 2)),

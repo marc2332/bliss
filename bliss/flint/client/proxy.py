@@ -94,7 +94,7 @@ class FlintClient:
                 try:
                     self.__attach_flint(process)
                     break
-                except:
+                except Exception:
                     # Is the process has terminated?
                     if process.returncode is not None:
                         if process.returncode != 0:
@@ -283,7 +283,7 @@ class FlintClient:
 
             try:
                 proxy.register_output_listener()
-            except:
+            except Exception:
                 # FIXME: This have to be fixed or removed
                 # See: https://gitlab.esrf.fr/bliss/bliss/issues/1249
                 FLINT_LOGGER.error(
@@ -294,7 +294,7 @@ class FlintClient:
         try:
             manager = current_session.scan_saving.metadata_manager
             proxy.set_tango_metadata_name(manager.name())
-        except:
+        except Exception:
             FLINT_LOGGER.debug("Error while registering the logbook", exc_info=True)
             FLINT_LOGGER.error("Logbook for Flint is not available")
 
@@ -320,7 +320,7 @@ class FlintClient:
                 path = f"/proc/{process.pid}/fd/{stream_id}"
                 stream = open(path, "r")
                 was_openned = True
-            except:
+            except Exception:
                 FLINT_LOGGER.debug("Error while opening path %s", path, exc_info=True)
                 FLINT_LOGGER.warning("Flint %s can't be attached.", stream_name)
                 return
@@ -332,7 +332,7 @@ class FlintClient:
                 line = stream.readline()
                 try:
                     line = line.decode()
-                except:
+                except UnicodeError:
                     pass
                 if not line:
                     break
@@ -434,7 +434,10 @@ def get_flint(start_new=False, creation_allowed=True, mandatory=True):
         # Protect call to flint
         try:
             return get_flint(start_new=start_new, creation_allowed=creation_allowed)
-        except:
+        except KeyboardInterrupt:
+            # A warning should already be displayed in case of problem
+            return None
+        except Exception:
             # A warning should already be displayed in case of problem
             return None
 

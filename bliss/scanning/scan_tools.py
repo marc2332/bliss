@@ -147,11 +147,21 @@ def _scan_calc(func, counter=None, axis=None, scan=None, marker=True, goto=False
         return res
 
 
-def fwhm(counter=None, axis=None, scan=None):
+@typeguard.typechecked
+def fwhm(
+    counter: Optional[_countable] = None,
+    axis: Optional[_scannable] = None,
+    scan: Optional[Scan] = None,
+):
     return _scan_calc("fwhm", counter=counter, axis=axis, scan=scan, marker=False)
 
 
-def cen(counter=None, axis=None, scan=None):
+@typeguard.typechecked
+def cen(
+    counter: Optional[_countable] = None,
+    axis: Optional[_scannable] = None,
+    scan: Optional[Scan] = None,
+):
     return _scan_calc("cen", counter=counter, axis=axis, scan=scan)
 
 
@@ -164,7 +174,12 @@ def goto_cen(
     return _scan_calc("cen", counter=counter, axis=axis, scan=scan, goto=True)
 
 
-def com(counter=None, axis=None, scan=None):
+@typeguard.typechecked
+def com(
+    counter: Optional[_countable] = None,
+    axis: Optional[_scannable] = None,
+    scan: Optional[Scan] = None,
+):
     return _scan_calc("com", counter=counter, axis=axis, scan=scan)
 
 
@@ -177,7 +192,12 @@ def goto_com(
     return _scan_calc("com", counter=counter, axis=axis, scan=scan, goto=True)
 
 
-def peak(counter=None, axis=None, scan=None):
+@typeguard.typechecked
+def peak(
+    counter: Optional[_countable] = None,
+    axis: Optional[_scannable] = None,
+    scan: Optional[Scan] = None,
+):
     return _scan_calc("peak", counter=counter, axis=axis, scan=scan)
 
 

@@ -90,8 +90,12 @@ def com(x: numpy.ndarray, y: numpy.ndarray, shift_y=True) -> float:
     if shift_y:
         miny = numpy.min(y)
         y = y - miny
-
-    return numpy.sum(x * y) / numpy.sum(y)
+        den = numpy.sum(y, dtype=numpy.float)
+        if den > 0:
+            return numpy.sum(x * y, dtype=numpy.float) / den
+        else:
+            # let it raise exception if x.size is 0?
+            return numpy.sum(x, dtype=numpy.float) / x.size
 
 
 def cen(x: numpy.ndarray, y: numpy.ndarray) -> typing.Tuple[float, float]:

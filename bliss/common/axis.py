@@ -40,19 +40,48 @@ warnings.simplefilter("once", DeprecationWarning)
 DEFAULT_POLLING_TIME = 0.02
 
 
+class AxisOnLimitError(RuntimeError):
+    pass
+
+
+def _prepare_one_controller_motions(controller, motions):
+    try:
+        controller.prepare_all(*motions)
+    except NotImplementedError:
+        for motion in motions:
+            controller.prepare_move(motion)
+
+
+def _start_one_controller_motions(controller, motions):
+    try:
+        controller.start_all(*motions)
+    except NotImplementedError:
+        for motion in motions:
+            controller.start_one(motion)
+
+
+def _stop_one_controller_motions(controller, motions):
+    try:
+        controller.stop_all(*motions)
+    except NotImplementedError:
+        for motion in motions:
+            controller.stop(motion.axis)
+
+
 class GroupMove:
     def __init__(self, parent=None):
         self.parent = parent
         self._move_task = None
         self._motions_dict = dict()
         self._stop_motion = None
-        self._user_stopped = False
+        self._interrupted_move = False
+        self._backlash_started_event = gevent.event.Event()
 
     # Public API
 
     @property
     def is_moving(self):
-        # A greenlet evaluates to True when not dead
+        # A greenlet evaluates to True when it is alive
         return bool(self._move_task)
 
     def move(
@@ -67,7 +96,7 @@ class GroupMove:
     ):
         self._motions_dict = motions_dict
         self._stop_motion = stop_motion
-        self._user_stopped = False
+        self._interrupted_move = False
 
         hooks = collections.defaultdict(list)
         executed_hooks = dict()
@@ -103,7 +132,7 @@ class GroupMove:
 
         # now check if axes are ready ;
         # the check happens after pre_move hooks execution,
-        # some axes can **become** ready because of the hook
+        # some axes can **become** ready thanks to the hook
         with capture_exceptions(raise_index=0) as capture:
             for axis in axes:
                 with capture():
@@ -135,13 +164,7 @@ class GroupMove:
         started = gevent.event.Event()
 
         self._move_task = gevent.spawn(
-            self._move,
-            motions_dict,
-            start_motion,
-            stop_motion,
-            move_func,
-            started,
-            polling_time,
+            self._move, motions_dict, start_motion, stop_motion, move_func, started
         )
 
         try:
@@ -166,65 +189,79 @@ class GroupMove:
         with capture_exceptions(raise_index=0) as capture:
             if self._move_task is not None:
                 with capture():
-                    self._stop_move(self._motions_dict, self._stop_motion)
+                    self._stop_move(self._motions_dict, self._stop_motion, wait=False)
                 if wait:
                     self._move_task.get()
 
     # Internal methods
 
-    def _monitor_move(self, motions_dict, move_func, polling_time):
-        monitor_move = dict()
+    def _monitor_move(self, motions_dict, move_func, stop_func):
+        monitor_move_tasks = {}
         for controller, motions in motions_dict.items():
             for motion in motions:
                 if move_func is None:
                     move_func = "_handle_move"
-                axis_polling_time = (
-                    motion.axis._polling_time if polling_time is None else polling_time
-                )
-                task = gevent.spawn(
-                    getattr(motion.axis, move_func), motion, axis_polling_time
-                )
-                monitor_move[motion] = task
+                task = gevent.spawn(getattr(motion.axis, move_func), motion)
+                monitor_move_tasks[task] = motion
+
         try:
-            gevent.joinall(monitor_move.values(), raise_error=True)
-        finally:
-            # update the last motor state
-            for motion, task in monitor_move.items():
-                try:
-                    motion.last_state = task.get(block=False)
-                except BaseException:
-                    pass
+            gevent.joinall(monitor_move_tasks, raise_error=True)
+        except BaseException:
+            # in case of error, all moves are stopped
+            # _stop_move is called with the same monitoring tasks:
+            # the stop command will be sent, then the same monitoring continues
+            # in '_stop_move'
+            self._stop_move(motions_dict, stop_func, monitor_move_tasks)
+            raise
+        else:
+            # everything went fine: update the last motor state ;
+            # we know the tasks have all completed successfully
+            for task, motion in monitor_move_tasks.items():
+                motion.last_state = task.get()
 
-    def _stop_move(self, motions_dict, stop_motion):
-        self._user_stopped = True
-        stop = []
-        for controller, motions in motions_dict.items():
-            stop.append(gevent.spawn(stop_motion, controller, motions))
-        # Raise exception if any, when all the stop tasks are finished
-        for task in gevent.joinall(stop):
-            task.get()
+    def _stop_move(self, motions_dict, stop_motion, stop_wait_tasks=None, wait=True):
+        self._interrupted_move = True
 
-    def _stop_wait(self, motions_dict, exception_capture):
-        stop_wait = []
+        stop_tasks = []
         for controller, motions in motions_dict.items():
-            for motion in motions:
-                stop_wait.append(gevent.spawn(motion.axis._move_loop))
-        gevent.joinall(stop_wait)
-        task_index = 0
-        for controller, motions in motions_dict.items():
-            for motion in motions:
-                with exception_capture():
-                    motion.last_state = stop_wait[task_index].get()
-                task_index += 1
+            stop_tasks.append(gevent.spawn(stop_motion, controller, motions))
+
+        with capture_exceptions(raise_index=0) as capture:
+            # wait for all stop commands to be sent
+            with capture():
+                gevent.joinall(stop_tasks, raise_error=True)
+            if capture.failed:
+                with capture():
+                    gevent.joinall(stop_tasks)
+
+            if wait:
+                if stop_wait_tasks is None:
+                    # create tasks to wait for end of motion
+                    stop_wait_tasks = {}
+                    for controller, motions in motions_dict.items():
+                        for motion in motions:
+                            stop_wait_tasks[
+                                gevent.spawn(
+                                    motion.axis._move_loop, motion.polling_time
+                                )
+                            ] = motion
+
+                # wait for end of motion
+                gevent.joinall(stop_wait_tasks)
+
+                for task, motion in stop_wait_tasks.items():
+                    motion.last_state = None
+                    with capture():
+                        motion.last_state = task.get()
 
     @protect_from_one_kill
-    def _do_backlash_move(self, motions_dict, polling_time):
-        backlash_move = []
+    def _do_backlash_move(self, motions_dict):
+        backlash_motions = collections.defaultdict(list)
         for controller, motions in motions_dict.items():
             for motion in motions:
                 if motion.backlash:
-                    if self._user_stopped:
-                        # have to recalculate target: do backlash from where it stopped
+                    if self._interrupted_move:
+                        # have to recalculate target: do backlash move from where it stopped
                         motion.target_pos = (
                             motion.axis.dial * motion.axis.steps_per_unit
                         )
@@ -243,156 +280,148 @@ class GroupMove:
                         motion.target_pos + motion.backlash,
                         motion.backlash,
                     )
-                    axis_polling_time = (
-                        motion.axis._polling_time
-                        if polling_time is None
-                        else polling_time
-                    )
+                    backlash_motions[controller].append(backlash_motion)
 
-                    backlash_move.append(
-                        gevent.spawn(
-                            motion.axis._backlash_move,
-                            backlash_motion,
-                            axis_polling_time,
-                        )
-                    )
-        gevent.joinall(backlash_move)
-        gevent.joinall(backlash_move, raise_error=True)
+        if backlash_motions:
+            backlash_mv_group = GroupMove()
+            backlash_mv_group._do_move(
+                backlash_motions,
+                _start_one_controller_motions,
+                _stop_one_controller_motions,
+                None,
+                self._backlash_started_event,
+            )
 
-    def _move(
-        self,
-        motions_dict,
-        start_motion,
-        stop_motion,
-        move_func,
-        started_event,
-        polling_time,
+    def _do_move(
+        self, motions_dict, start_motion, stop_motion, move_func, started_event
     ):
+        for controller, motions in motions_dict.items():
+            for motion in motions:
+                motion.last_state = None
+
+        with capture_exceptions(raise_index=0) as capture:
+            # Spawn start motion tasks for all controllers
+            start = [
+                gevent.spawn(start_motion, controller, motions)
+                for controller, motions in motions_dict.items()
+            ]
+
+            # wait for start tasks to be all done ;
+            # in case of error or if wait is interrupted (ctrl-c, kill...),
+            # immediately stop and return
+            with capture():
+                gevent.joinall(start, raise_error=True)
+            if capture.failed:
+                # either a start task failed, or ctrl-c or kill happened.
+                # First, let all start task to finish
+                # /!\ it is important to join those, to ensure stop is called
+                # after tasks are done otherwise there is a risk 'end' is
+                # called before 'start' is all done
+                with capture():
+                    gevent.joinall(start)
+                # then, stop all axes and wait end of motion
+                self._stop_move(motions_dict, stop_motion)
+                # exit
+                return
+
+            # All controllers are now started
+            if started_event is not None:
+                started_event.set()
+
+            if self.parent:
+                event.send(self.parent, "move_done", False)
+
+            # Spawn the monitoring for all motions
+            with capture():
+                self._monitor_move(motions_dict, move_func, stop_motion)
+
+    def _move(self, motions_dict, start_motion, stop_motion, move_func, started_event):
         # Set axis moving state
         for motions in motions_dict.values():
             for motion in motions:
-                motion.last_state = None
                 motion.axis._set_moving_state()
 
                 for _, chan in motion.axis._beacon_channels.items():
                     chan.unregister_callback(chan._setting_update_cb)
+
         with capture_exceptions(raise_index=0) as capture:
-            try:
-                # Spawn start motion for all controllers
-                start = [
-                    gevent.spawn(start_motion, controller, motions)
-                    for controller, motions in motions_dict.items()
-                ]
+            with capture():
+                self._do_move(
+                    motions_dict, start_motion, stop_motion, move_func, started_event
+                )
+            # Do backlash move, if needed
+            with capture():
+                self._do_backlash_move(motions_dict)
 
-                # Wait for the controllers to be started
-                with capture():
-                    gevent.joinall(start, raise_error=True)
-                if capture.failed:
-                    gevent.joinall(start)
-                    # start failed, stop all axes and wait end of motion
-                    with capture():
-                        self._stop_move(motions_dict, stop_motion)
+            reset_setpos = bool(capture.failed) or self._interrupted_move
 
-                    self._stop_wait(motions_dict, capture)
-                    return
-
-                # All the controllers are now started
-                started_event.set()
-
-                if self.parent:
-                    event.send(self.parent, "move_done", False)
-
-                # Spawn the monitoring for all motions
-                with capture():
-                    self._monitor_move(motions_dict, move_func, polling_time)
-                if capture.failed:
-                    with capture():
-                        self._stop_move(motions_dict, stop_motion)
-                    self._stop_wait(motions_dict, capture)
-
-                # Do backlash move, if needed
-                with capture():
-                    self._do_backlash_move(motions_dict, polling_time)
-                if capture.failed:
-                    with capture():
-                        self._stop_move(motions_dict, stop_motion)
-                    self._stop_wait(motions_dict, capture)
-            finally:
-                reset_setpos = capture.failed or self._user_stopped
-
-                # cleanup
-                # -------
-                # update final state ; in case of exception
-                # state is set to FAULT
-                for motions in motions_dict.values():
-                    for motion in motions:
-                        state = motion.last_state
-                        if state is not None:
-                            continue
-
-                        with capture():
-                            state = motion.axis.hw_state
-                        if state is None:
-                            state = AxisState("FAULT")
+            # cleanup
+            # -------
+            # update final state ; in case of exception
+            # state is set to FAULT
+            for motions in motions_dict.values():
+                for motion in motions:
+                    state = motion.last_state
+                    if state is None:
                         # update state and update dial pos.
                         with capture():
-                            motion.axis._update_settings(state)
+                            motion.axis._update_settings()
 
-                # update set position if motor has been stopped,
-                # or if an exception happened or if motion type is
-                # home search or hw limit search ;
-                # as state update happened just before, this
-                # is equivalent to sync_hard -> emit the signal
-                # (useful for real motor positions update in case
-                # of pseudo axis)
-                # -- jog move is a special case
-                if len(motions_dict) == 1:
-                    motion = motions_dict[list(motions_dict.keys()).pop()][0]
-                    if motion.type == "jog":
-                        reset_setpos = False
-                        motion.axis._jog_cleanup(
-                            motion.saved_velocity, motion.reset_position
-                        )
-                    elif motion.type == "homing":
-                        reset_setpos = True
-                    elif motion.type == "limit_search":
-                        reset_setpos = True
-                if reset_setpos:
+            # update set position if motor has been stopped,
+            # or if an exception happened or if motion type is
+            # home search or hw limit search ;
+            # as state update happened just before, this
+            # is equivalent to sync_hard -> emit the signal
+            # (useful for real motor positions update in case
+            # of pseudo axis)
+            # -- jog move is a special case
+            if len(motions_dict) == 1:
+                motion = motions_dict[list(motions_dict.keys()).pop()][0]
+                if motion.type == "jog":
+                    reset_setpos = False
+                    motion.axis._jog_cleanup(
+                        motion.saved_velocity, motion.reset_position
+                    )
+                elif motion.type == "homing":
+                    reset_setpos = True
+                elif motion.type == "limit_search":
+                    reset_setpos = True
+            if reset_setpos:
+                with capture():
+                    for motions in motions_dict.values():
+                        for motion in motions:
+                            motion.axis._set_position = motion.axis.position
+                            event.send(motion.axis, "sync_hard")
+
+            hooks = collections.defaultdict(list)
+            for motions in motions_dict.values():
+                for motion in motions:
+                    axis = motion.axis
+
+                    # group motion hooks
+                    for hook in axis.motion_hooks:
+                        hooks[hook].append(motion)
+
+                    # set move done
+                    for _, chan in axis._beacon_channels.items():
+                        chan.register_callback(chan._setting_update_cb)
+
+                    motion.axis._set_move_done()
+
+            if self._interrupted_move:
+                lprint("")
+                for motion in motions:
+                    _axis = motion.axis
+                    _axis_pos = safe_get(_axis, "position", on_error="!ERR")
+                    lprint(f"Axis {_axis.name} stopped at position {_axis_pos}")
+
+            try:
+                if self.parent:
+                    event.send(self.parent, "move_done", True)
+            finally:
+                for hook, motions in reversed(list(hooks.items())):
                     with capture():
-                        for motions in motions_dict.values():
-                            for motion in motions:
-                                motion.axis._set_position = motion.axis.position
-                                event.send(motion.axis, "sync_hard")
-
-                hooks = collections.defaultdict(list)
-                for motions in motions_dict.values():
-                    for motion in motions:
-                        axis = motion.axis
-
-                        # group motion hooks
-                        for hook in axis.motion_hooks:
-                            hooks[hook].append(motion)
-
-                        # set move done
-                        for _, chan in axis._beacon_channels.items():
-                            chan.register_callback(chan._setting_update_cb)
-
-                        motion.axis._set_move_done()
-
-                if self._user_stopped:
-                    lprint("")
-                    for motion in motions:
-                        _axis = motion.axis
-                        _axis_pos = safe_get(_axis, "position", on_error="!ERR")
-                        lprint(f"Axis {_axis.name} stopped at position {_axis_pos}")
-
-                try:
-                    if self.parent:
-                        event.send(self.parent, "move_done", True)
-                finally:
-                    for hook, motions in reversed(list(hooks.items())):
-                        with capture():
-                            hook.post_move(motions)
+                        hook.post_move(motions)
 
 
 class Modulo:
@@ -427,6 +456,7 @@ class Motion:
         self.target_pos = target_pos
         self.delta = delta
         self.backlash = 0
+        self.polling_time = DEFAULT_POLLING_TIME
 
     @property
     def axis(self):
@@ -1263,15 +1293,16 @@ class Axis:
         """
         motion = self._get_jog_motion()
 
-        if motion:
+        if motion is not None:
             if new_velocity == 0:
                 self.stop()
             else:
-                self._set_jog_motion(motion, new_velocity)
-                self.controller.start_jog(self, motion.target_pos, motion.delta)
-        elif motion is not None:
-            # important to keep this test, if jog move has been started externally
-            return False
+                if motion:
+                    self._set_jog_motion(motion, new_velocity)
+                    self.controller.start_jog(self, motion.target_pos, motion.delta)
+                else:
+                    # jog move has been started externally
+                    return False
 
         if new_velocity:
             # it is None the first time the channel is initialized,
@@ -1489,9 +1520,40 @@ class Axis:
         else:
             return self.READ_POSITION_MODE.CONTROLLER
 
-    def _update_settings(self, state):
-        self.settings.set("state", state)
-        self._update_dial()
+    def _update_settings(self, state=None):
+        """Update position and state in redis
+
+        By defaul, state is read from hardware; otherwise the given state is used
+        Position is always read.
+
+        In case of an exception (represented as X) during one of the readings,
+        state is set to FAULT:
+
+        state | pos | axis state | axis pos
+        ------|-----|-----------------------
+          OK  | OK  |   state    |  pos 
+          X   | OK  |   FAULT    |  pos 
+          OK  |  X  |   FAULT    |  not updated
+          X   |  X  |   FAULT    |  not updated
+        """
+        state_reading_exc = None
+
+        if state is None:
+            try:
+                state = self.hw_state
+            except BaseException:
+                # save exception to re-raise it afterwards
+                state_reading_exc = sys.excepthook(*sys.exc_info())
+                state = AxisState("FAULT")
+        try:
+            self._update_dial()
+        except BaseException:
+            state = AxisState("FAULT")
+            raise
+        finally:
+            self.settings.set("state", state)
+            if state_reading_exc:
+                raise state_reading_exc
 
     def dial2user(self, position, offset=None):
         """
@@ -1525,7 +1587,7 @@ class Axis:
         """
         return (position - self.offset) / self.sign
 
-    def _get_motion(self, user_target_pos):
+    def _get_motion(self, user_target_pos, polling_time=None):
         dial_target_pos = self.user2dial(user_target_pos)
         dial = self.dial
         target_pos = dial_target_pos * self.steps_per_unit
@@ -1574,11 +1636,15 @@ class Axis:
             target_pos += delta_pos
         motion = Motion(self, target_pos, delta, user_target_pos=user_target_pos)
         motion.backlash = backlash
+        if polling_time is None:
+            motion.polling_time = self._polling_time
+        else:
+            motion.polling_time = polling_time
 
         return motion
 
     @lazy_init
-    def get_motion(self, user_target_pos, relative=False):
+    def get_motion(self, user_target_pos, relative=False, polling_time=None):
         """Prepare a motion. Internal usage only"""
 
         # To accept both float or numpy array of 1 element
@@ -1611,7 +1677,7 @@ class Axis:
             user_initial_pos = self._set_position
             user_target_pos += user_initial_pos
 
-        motion = self._get_motion(user_target_pos)
+        motion = self._get_motion(user_target_pos, polling_time)
 
         return motion
 
@@ -1675,45 +1741,30 @@ class Axis:
             if self.is_moving:
                 raise RuntimeError("axis %s state is %r" % (self.name, "MOVING"))
 
-            motion = self.get_motion(user_target_pos, relative)
+            motion = self.get_motion(user_target_pos, relative, polling_time)
             if motion is None:
                 return
-
-            def prepare_one(controller, motions):
-                controller.prepare_move(motions[0])
-
-            def start_one(controller, motions):
-                controller.start_one(motions[0])
-
-            def stop_one(controller, motions):
-                controller.stop(motions[0].axis)
 
             self._group_move = GroupMove()
             self._group_move.move(
                 {self.controller: [motion]},
-                prepare_one,
-                start_one,
-                stop_one,
+                _prepare_one_controller_motions,
+                _start_one_controller_motions,
+                _stop_one_controller_motions,
                 wait=False,
-                polling_time=polling_time,
             )
 
         if wait:
             self.wait_move()
 
-    def _handle_move(self, motion, polling_time):
-        state = self._move_loop(polling_time)
+    def _handle_move(self, motion):
+        state = self._move_loop(motion.polling_time)
 
         # after the move
         if self.config.get("check_encoder", bool, self.encoder) and self.encoder:
             self._do_encoder_reading()
 
         return state
-
-    def _backlash_move(self, backlash_motion, polling_time):
-        self.__controller.prepare_move(backlash_motion)
-        self.__controller.start_one(backlash_motion)
-        return self._handle_move(backlash_motion, polling_time)
 
     def _do_encoder_reading(self):
         enc_dial = self.encoder.read()
@@ -1755,6 +1806,9 @@ class Axis:
             self.jog_velocity = velocity
 
             motion = Motion(self, None, None, "jog")
+            motion.polling_time = (
+                self._polling_time if polling_time is None else polling_time
+            )
             motion.saved_velocity = self.velocity
             motion.reset_position = reset_position
             self._set_jog_motion(
@@ -1775,14 +1829,13 @@ class Axis:
                 stop_one,
                 "_jog_move",
                 wait=False,
-                polling_time=polling_time,
             )
 
-    def _jog_move(self, motion, polling_time):
+    def _jog_move(self, motion):
         velocity = motion.target_pos
         direction = motion.delta
 
-        return self._move_loop(polling_time)
+        return self._move_loop(motion.polling_time)
 
     def _jog_cleanup(self, saved_velocity, reset_position):
         self.velocity = saved_velocity
@@ -1825,14 +1878,14 @@ class Axis:
                     self.__move_done_callback.wait()
                     raise
 
-    def _move_loop(self, polling_time=None, ctrl_state_funct="state", limit_error=True):
+    def _move_loop(self, polling_time, ctrl_state_funct="state", limit_error=True):
         state_funct = getattr(self.__controller, ctrl_state_funct)
         while True:
             state = state_funct(self)
             self._update_settings(state)
             if not state.MOVING:
                 if limit_error and (state.LIMPOS or state.LIMNEG):
-                    raise RuntimeError(str(state))
+                    raise AxisOnLimitError(str(state))
                 return state
             gevent.sleep(polling_time)
 
@@ -1878,6 +1931,9 @@ class Axis:
             motion = Motion(
                 self, switch, None, "homing", user_target_pos=f"home switch: {switch}"
             )
+            motion.polling_time = (
+                self._polling_time if polling_time is None else polling_time
+            )
 
             def start_one(controller, motions):
                 controller.home_search(motions[0].axis, motions[0].target_pos)
@@ -1893,13 +1949,12 @@ class Axis:
                 stop_one,
                 "_wait_home",
                 wait=False,
-                polling_time=polling_time,
             )
         if wait:
             self.wait_move()
 
-    def _wait_home(self, motion, polling_time):
-        return self._move_loop(polling_time, ctrl_state_funct="home_state")
+    def _wait_home(self, motion):
+        return self._move_loop(motion.polling_time, ctrl_state_funct="home_state")
 
     @lazy_init
     def hw_limit(self, limit, wait=True, polling_time=None):
@@ -1923,6 +1978,9 @@ class Axis:
                 "limit_search",
                 user_target_pos="lim+" if limit > 0 else "lim-",
             )
+            motion.polling_time = (
+                self._polling_time if polling_time is None else polling_time
+            )
 
             def start_one(controller, motions):
                 controller.limit_search(motions[0].axis, motions[0].target_pos)
@@ -1938,14 +1996,13 @@ class Axis:
                 stop_one,
                 "_wait_limit_search",
                 wait=False,
-                polling_time=polling_time,
             )
 
         if wait:
             self.wait_move()
 
-    def _wait_limit_search(self, motion, polling_time):
-        return self._move_loop(polling_time, limit_error=False)
+    def _wait_limit_search(self, motion):
+        return self._move_loop(motion.polling_time, limit_error=False)
 
     def settings_to_config(
         self, velocity=True, acceleration=True, limits=True, sign=True, backlash=True

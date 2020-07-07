@@ -46,8 +46,8 @@ def test_state_failure(bad_motor, monkeypatch):
     state_index = bad_motor.controller.state_msg_index
 
     assert str(exc.value) == "BAD STATE 1"
-    assert len(infos) == 3
-    assert str(infos[0][1]) == "BAD STATE %d" % (state_index - 2)
+    assert len(infos) == 1
+    assert str(infos[0][1]) == "BAD STATE %d" % state_index
     assert "FAULT" in bad_motor.state
 
     with pytest.raises(RuntimeError):
@@ -135,3 +135,21 @@ def test_bad_sync_hard(bad_motor, roby, capsys):
 
     assert sync_hard_called
     assert f"axis '{bad_motor.name}'" in capsys.readouterr().err
+
+
+def test_issue_1719(bad_motor, capsys):
+    bad_motor.move(1000, wait=False)
+
+    gevent.sleep(bad_motor.acctime)
+
+    bad_motor.controller.bad_position_only_once = True
+
+    try:
+        bad_motor.wait_move()
+    except Exception:
+        pass
+
+    assert (
+        not "TypeError: '<=' not supported between instances of 'NoneType' and 'int'"
+        in capsys.readouterr().err
+    )

@@ -36,7 +36,6 @@ class Motion:
     """Describe a single motion"""
 
     def __init__(self, pi, pf, velocity, acceleration, hard_limits, ti=None):
-
         # TODO: take hard limits into account (complicated).
         # For now just shorten the movement
         self.hard_limits = low_limit, high_limit = hard_limits
@@ -333,9 +332,53 @@ class Mockup(Controller):
     """
 
     def stop(self, axis, t=None):
+        if t is None:
+            t = time.time()
         motion = self._get_axis_motion(axis, t)
         if motion:
-            self._axis_moves[axis]["motion"] = None
+            # simulate deceleration
+            ti = motion.trajectory.ti
+            pi = motion.trajectory.pi
+            pf = motion.trajectory.pf
+            pa = motion.trajectory.pa
+            pb = motion.trajectory.pb
+            pos = self.read_position(axis)
+            d = 1 if motion.trajectory.positive else -1
+            a = motion.trajectory.acceleration
+            v = motion.trajectory.velocity
+
+            if math.isinf(pf):
+                # jog
+                new_pi = pi
+                new_pf = pos + d * motion.trajectory.accel_dp
+            else:
+                if d > 0:
+                    # going from pi to pa, pb, then pf
+                    if pos < pa:
+                        # didn't reach full velocity yet
+                        new_pi = pi
+                        new_pf = pos + (pos - pi)
+                    elif pos > pb:
+                        # already decelerrating
+                        new_pi = pi
+                        new_pf = pf - (pos - pb)
+                    else:
+                        new_pi = pi
+                        new_pf = pf - (pb - pos)
+                else:
+                    if pos > pa:
+                        new_pi = pi
+                        new_pf = pos - (pi - pos)
+                    elif pos < pb:
+                        new_pi = pi
+                        new_pf = pf + (pb - pos)
+                    else:
+                        new_pi = pi
+                        new_pf = pf + (pos - pb)
+
+            self._axis_moves[axis]["motion"] = Motion(
+                new_pi, new_pf, v, a, self.__hw_limit, ti=ti
+            )
 
     def stop_all(self, *motion_list):
         t = time.time()
@@ -348,7 +391,6 @@ class Mockup(Controller):
 
     def home_search(self, axis, switch):
         self._axis_moves[axis]["delta"] = switch
-        self._axis_moves[axis]["end_t"] = None
         self._axis_moves[axis]["t0"] = time.time()
         self._axis_moves[axis]["home_search_start_time"] = time.time()
 
@@ -394,7 +436,6 @@ class Mockup(Controller):
 
         self.set_hw_position(axis, new_position)
         self._axis_moves[axis]["target"] = new_position
-        self._axis_moves[axis]["end_t"] = None
 
         return new_position
 
@@ -570,6 +611,7 @@ class FaultyMockup(Mockup):
         self.bad_state_after_start = False
         self.bad_stop = False
         self.bad_position = False
+        self.bad_position_only_once = False
         self.nan_position = False
         self.state_recovery_delay = 1
         self.state_msg_index = 0
@@ -580,6 +622,20 @@ class FaultyMockup(Mockup):
             raise RuntimeError("BAD STATE %d" % self.state_msg_index)
         else:
             return Mockup.state(self, axis)
+
+    def _check_hw_limits(self, axis):
+        ll, hl = self._Mockup__hw_limit
+        pos = super().read_position(axis)
+        if pos <= ll:
+            return AxisState("READY", "LIMNEG")
+        elif pos >= hl:
+            return AxisState("READY", "LIMPOS")
+        if self._hw_state.OFF:
+            return AxisState("OFF")
+        else:
+            s = AxisState(self._hw_state)
+            s.set("READY")
+            return s
 
     def start_one(self, motion, **kw):
         self.state_msg_index = 0
@@ -603,6 +659,9 @@ class FaultyMockup(Mockup):
 
     def read_position(self, axis, t=None):
         if self.bad_position:
+            raise RuntimeError("BAD POSITION")
+        elif self.bad_position_only_once:
+            self.bad_position_only_once = False
             raise RuntimeError("BAD POSITION")
         elif self.nan_position:
             return float("nan")

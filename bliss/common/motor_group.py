@@ -8,7 +8,12 @@
 import gevent
 import numpy
 import uuid
-from bliss.common.axis import Axis, AxisState, DEFAULT_POLLING_TIME, GroupMove
+from bliss.common.axis import (
+    _prepare_one_controller_motions,
+    _start_one_controller_motions,
+    _stop_one_controller_motions,
+)
+from bliss.common.axis import Axis, AxisState, GroupMove
 from bliss.common.utils import grouped
 
 
@@ -78,27 +83,6 @@ class _Group(object):
             m.is_moving for m in self._axes.values()
         )
 
-    def _prepare_one_controller_motions(self, controller, motions):
-        try:
-            controller.prepare_all(*motions)
-        except NotImplementedError:
-            for motion in motions:
-                controller.prepare_move(motion)
-
-    def _start_one_controller_motions(self, controller, motions):
-        try:
-            controller.start_all(*motions)
-        except NotImplementedError:
-            for motion in motions:
-                controller.start_one(motion)
-
-    def _stop_one_controller_motions(self, controller, motions):
-        try:
-            controller.stop_all(*motions)
-        except NotImplementedError:
-            for motion in motions:
-                controller.stop(motion.axis)
-
     @property
     def state(self):
         if self.is_moving:
@@ -152,7 +136,7 @@ class _Group(object):
 
         wait = kwargs.pop("wait", True)
         relative = kwargs.pop("relative", False)
-        polling_time = kwargs.pop("polling_time", DEFAULT_POLLING_TIME)
+        polling_time = kwargs.pop("polling_time", None)
         axis_pos_dict = {}
         motions_dict = {}
 
@@ -176,7 +160,9 @@ class _Group(object):
         self._group_move = GroupMove(self)
 
         for axis, target_pos in axis_pos_dict.items():
-            motion = axis.get_motion(target_pos, relative=relative)
+            motion = axis.get_motion(
+                target_pos, relative=relative, polling_time=polling_time
+            )
             # motion can be None if axis is not supposed to move
             if motion is not None:
                 motions_dict.setdefault(axis.controller, []).append(motion)
@@ -184,9 +170,9 @@ class _Group(object):
 
         self._group_move.move(
             motions_dict,
-            self._prepare_one_controller_motions,
-            self._start_one_controller_motions,
-            self._stop_one_controller_motions,
+            _prepare_one_controller_motions,
+            _start_one_controller_motions,
+            _stop_one_controller_motions,
             wait=wait,
             polling_time=polling_time,
         )
@@ -318,7 +304,7 @@ class TrajectoryGroup:
         trajectories = self.trajectories_by_controller[controller]
         controller.start_trajectory(*trajectories)
 
-    def move_to_start(self, wait=True, polling_time=DEFAULT_POLLING_TIME):
+    def move_to_start(self, wait=True, polling_time=None):
         """
         Move all enabled motors to the first point of the trajectory
         """
@@ -328,7 +314,7 @@ class TrajectoryGroup:
         for trajectory in self.trajectories:
             pvt = trajectory.pvt
             final_pos = pvt["position"][0]
-            motion = trajectory.axis.get_motion(final_pos)
+            motion = trajectory.axis.get_motion(final_pos, polling_time)
             if not motion:
                 # already at final pos
                 continue
@@ -343,10 +329,9 @@ class TrajectoryGroup:
             self._move_to_trajectory,
             self._stop_trajectory,
             wait=wait,
-            polling_time=polling_time,
         )
 
-    def move_to_end(self, wait=True, polling_time=DEFAULT_POLLING_TIME):
+    def move_to_end(self, wait=True, polling_time=None):
         """
         Move all enabled motors to the last point of the trajectory
         """
@@ -356,7 +341,7 @@ class TrajectoryGroup:
         for trajectory in self.trajectories:
             pvt = trajectory.pvt
             final_pos = pvt["position"][-1]
-            motion = trajectory.axis.get_motion(final_pos)
+            motion = trajectory.axis.get_motion(final_pos, polling_time)
             if not motion:
                 continue
             motions_dict.setdefault(motion.axis.controller, []).append(motion)

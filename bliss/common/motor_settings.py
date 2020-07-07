@@ -6,6 +6,7 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 from bliss.common import event
+from bliss.common.greenlet_utils import KillMask
 from bliss.config import settings
 import sys
 
@@ -83,8 +84,9 @@ class ControllerAxisSettings:
             return None
 
         if self.persistent_setting[setting_name]:
-            hash_setting = settings.HashSetting("axis.%s" % axis.name)
-            value = hash_setting.get(setting_name)
+            with KillMask():
+                hash_setting = settings.HashSetting("axis.%s" % axis.name)
+                value = hash_setting.get(setting_name)
         else:
             chan = axis._beacon_channels.get(setting_name)
             if chan:
@@ -115,7 +117,8 @@ class ControllerAxisSettings:
             value = convert_func(value)
 
         if self.persistent_setting[setting_name]:
-            settings.HashSetting("axis.%s" % axis.name)[setting_name] = value
+            with KillMask():
+                settings.HashSetting("axis.%s" % axis.name)[setting_name] = value
 
         axis._beacon_channels[setting_name].value = value
         event.send(axis, "internal_" + setting_name, value)

@@ -314,6 +314,7 @@ class LinearTrajectory(object):
         f = 1 if self.positive else -1
         if instant < self.ta:
             accel_dp = 0.5 * self.acceleration * dt ** 2
+            # print("ACCELERATING", p+f*accel_dp)
             return p + f * accel_dp
 
         p += f * self.accel_dp
@@ -322,11 +323,13 @@ class LinearTrajectory(object):
         if instant < self.tb:
             t_at_max = dt - self.accel_time
             dp_at_max = self.velocity * t_at_max
+            # print("CONSTANT SPEED", p+f*dp_at_max)
             return p + f * dp_at_max
         else:
             dp_at_max = self.top_vel_dp
             decel_time = instant - self.tb
             decel_dp = 0.5 * self.acceleration * decel_time ** 2
+            # print("SLOWING DOWN", p+f*dp_at_max+f*decel_dp)
             return p + f * dp_at_max + f * decel_dp
 
     def instant(self, position):

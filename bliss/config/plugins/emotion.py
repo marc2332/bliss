@@ -12,17 +12,15 @@ import pkgutil
 import enum
 
 from bliss.common import axis as axis_module
-from bliss.common.axis import Axis
 from bliss.common import encoder as encoder_module
+from bliss.common.axis import Axis
+from bliss.common.utils import auto_coerce
 from bliss.common.encoder import Encoder
 from bliss.config.static import Config
 from bliss.common.tango import DeviceProxy, _DeviceProxy
 from bliss.config.plugins.utils import find_class, replace_reference_by_object
 import bliss.controllers.motors
 from bliss.controllers.motor import CalcController
-
-import gevent
-import sys
 
 
 __KNOWN_AXIS_PARAMS = {
@@ -211,7 +209,7 @@ def controller_edit(cfg, request):
                 try:
                     param_value = __KNOWN_AXIS_PARAMS[param_name](param_value)
                 except KeyError:
-                    pass
+                    param_value = auto_coerce(param_value)
             else:  # controller param
                 obj = ctrl_cfg
             obj[param_name] = param_value
@@ -267,7 +265,7 @@ def axis_edit(cfg, request):
             try:
                 v = __KNOWN_AXIS_PARAMS[k](v)
             except KeyError:
-                pass
+                v = auto_coerce(v)
             axis_cfg[k] = v
         axis_cfg.save()
         if update_server:

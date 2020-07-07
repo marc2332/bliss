@@ -625,6 +625,7 @@ class Aerotech(Controller):
         self._aero_state.create_state("HOMEDONE", "Homing done")
 
     def initialize_hardware(self):
+        log_debug(self, "initialize_hardware")
         self.raw_write("ACKNOWLEDGEALL")
         self.raw_write("RAMP MODE RATE")
         self.raw_write("WAIT MODE NOWAIT")

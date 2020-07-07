@@ -11,6 +11,7 @@ Yaml config may look like this:
   class: AutoFilter
   name: autof_eh1
   package: bliss.common.auto_filter
+  detector_counter_name: roi1
   monitor_counter_name: mon
   min_count_rate: 20000
   max_count_rate: 50000
@@ -71,14 +72,43 @@ class AutoFilterCounterController(SamplingCounterController):
 
 
 class AutoFilter(BeaconObject):
+    detector_counter_name = BeaconObject.property_setting(
+        "detector_counter_name", doc="Detector counter name"
+    )
     monitor_counter_name = BeaconObject.property_setting(
         "monitor_counter_name", doc="Monitor counter name"
     )
+
+    @detector_counter_name.setter
+    def detector_counter_name(self, counter_name):
+        assert isinstance(counter_name, str)
+        return counter_name
 
     @monitor_counter_name.setter
     def monitor_counter_name(self, counter_name):
         assert isinstance(counter_name, str)
         return counter_name
+
+    @property
+    def detector_counter(self):
+        try:
+            return global_map.get_counter_from_fullname(self.detector_counter_name)
+        except AttributeError:
+            return self.detector_counter_name
+
+    @detector_counter.setter
+    def detector_counter(self, counter):
+        if isinstance(counter, str):
+            # check that counter exists ... not sure if the next lines work in all cases
+            try:
+                global_map.get_counter_from_fullname("counter")
+                self.detector_counter_name = counter
+            except AttributeError:
+                raise "unknown detector counter"
+        elif isinstance(counter, _countable):
+            self.detector_counter_name = counter.fullname
+        else:
+            raise "unknown detector counter"
 
     @property
     def monitor_counter(self):
@@ -91,7 +121,6 @@ class AutoFilter(BeaconObject):
     def monitor_counter(self, counter):
         if isinstance(counter, str):
             # check that counter exists ... not sure if the next lines work in all cases
-            # TODO: has to tested with real hardware for p201 counters...
             try:
                 global_map.get_counter_from_fullname("counter")
                 self.monitor_counter_name = counter
@@ -364,7 +393,15 @@ class AutoFilter(BeaconObject):
             }
         )
 
-        # Check monitor exists
+        # Check detector exists
+        detector_counter_name = self.detector_counter_name
+        counters, missing = _get_counters_from_names([detector_counter_name])
+        if missing:
+            raise RuntimeError(
+                f"Can't find detector counter named {detector_counter_name}"
+            )
+        detector_counter = counters[0]
+        # Check detector exists
         monitor_counter_name = self.monitor_counter_name
         counters, missing = _get_counters_from_names([monitor_counter_name])
         if missing:
@@ -372,26 +409,29 @@ class AutoFilter(BeaconObject):
                 f"Can't find monitor counter named {monitor_counter_name}"
             )
         monitor_counter = counters[0]
-        # add the monitor to the list of new corrected counters
-        self.__counters_for_corr.add(monitor_counter.fullname)
+
+        # add the detector/monitor to the list of new corrected counters
+        self.__counters_for_corr.add(detector_counter.fullname)
 
         if not counter_args:  # use the default measurement group
-            counter_args = [get_active_mg()] + [monitor_counter]
+            counter_args = [get_active_mg()] + [detector_counter, monitor_counter]
         else:
-            counter_args = list(counter_args) + [monitor_counter]
+            counter_args = list(counter_args) + [detector_counter, monitor_counter]
 
         default_chain = scans.DEFAULT_CHAIN.get(scan_info, counter_args)
-        final_chain, monitor_channel = self._patch_chain(
-            default_chain, npoints, monitor_counter
+        final_chain, detector_channel = self._patch_chain(
+            default_chain, npoints, detector_counter
         )
 
         class Validator:
             def __init__(self, autofilter):
                 self.__autofilter = weakref.proxy(autofilter)
                 self._point_nb = 0
-                dispatcher.connect(self.new_monitor_value, "new_data", monitor_channel)
+                dispatcher.connect(
+                    self.new_detector_value, "new_data", detector_channel
+                )
 
-            def new_monitor_value(self, event_dict=None, signal=None, sender=None):
+            def new_detector_value(self, event_dict=None, signal=None, sender=None):
                 data = event_dict.get("data")
                 if data is not None:
                     # check for filter change, return false
@@ -403,9 +443,6 @@ class AutoFilter(BeaconObject):
                     self._point_nb += 1
 
         validator = Validator(self)
-        #        top_master = acquisition_objects.LinearStepTriggerMaster(
-        #            npoints, motor, start, stop
-        #        )
 
         motors_positions = list()
         title_list = list()
@@ -443,9 +480,9 @@ class AutoFilter(BeaconObject):
             s.run()
         return s
 
-    def _patch_chain(self, default_chain, npoints, monitor_counter):
+    def _patch_chain(self, default_chain, npoints, detector_counter):
         final_chain = chain.AcquisitionChain(parallel_prepare=True)
-        monitor_channel = None
+        detector_channel = None
         # use the built **default_chain** and replace all
         # acquisition object with autofilter one.
         for master in (
@@ -457,17 +494,18 @@ class AutoFilter(BeaconObject):
             for slave in default_chain._tree.get_node(master).fpointer:
                 final_slave = acquisition_objects.get_new_slave(self, slave, npoints)
                 final_chain.add(final_master, final_slave)
-                if monitor_channel is None:
+                if detector_channel is None:
                     for channel in slave.channels:
-                        if channel.fullname == monitor_counter.fullname:
-                            monitor_channel = channel
+                        if channel.fullname == detector_counter.fullname:
+                            detector_channel = channel
                             break
-        return final_chain, monitor_channel
+        return final_chain, detector_channel
 
     def __info__(self):
         table_info = []
         for sname in (
             "monitor_counter_name",
+            "detector_counter_name",
             "min_count_rate",
             "max_count_rate",
             "always_back",

@@ -85,6 +85,7 @@ from gevent import socket
 
 from bliss.common.greenlet_utils import KillMask
 from bliss.common.utils import StripIt
+from bliss.common import proxy
 
 from bliss.common.logtools import log_debug
 from bliss import global_map
@@ -156,6 +157,9 @@ class ServerError(Exception):
 
 
 def _discover_object(obj):
+    if isinstance(obj, proxy.Proxy):
+        obj = obj.__wrapped__
+
     members = {}
     otype = type(obj)
     for name, member in inspect.getmembers(otype):
@@ -206,7 +210,10 @@ class _ServerObject(object):
         self._socket = None
         self._stream = stream
         self._metadata["stream"] = stream
-        self._metadata["real_klass"] = type(obj)
+        if isinstance(obj, proxy.Proxy):
+            self._metadata["real_klass"] = type(obj.__wrapped__)
+        else:
+            self._metadata["real_klass"] = type(obj)
         self._uds_name = None
         self._low_latency_signal = set()
         self._tcp_low_latency = tcp_low_latency

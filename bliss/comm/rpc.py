@@ -520,6 +520,9 @@ class _cnx(object):
         self._disconnect_callback = disconnect_callback
         self._subclient = weakref.WeakValueDictionary()
 
+    def __del__(self):
+        self.close()
+
     def connect(self):
         self.try_connect()
 

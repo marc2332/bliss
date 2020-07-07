@@ -18,7 +18,7 @@ from bliss.config.beacon_object import BeaconObject
 class LimaImageParameters(BeaconObject):
     def __init__(self, config, proxy, name):
         self._proxy = proxy
-        self._max_width, self._max_height = self._tmp_get_max_width_height()
+        self.init_max_dim()
 
         super().__init__(config, name=name, share_hardware=False, path=["image"])
 
@@ -37,6 +37,9 @@ class LimaImageParameters(BeaconObject):
             return width, height
         except AttributeError:
             return 0, 0
+
+    def init_max_dim(self):
+        self._max_width, self._max_height = self._tmp_get_max_width_height()
 
     def check_init(self):
         """workaround to make sure that lima object can be

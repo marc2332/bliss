@@ -30,3 +30,17 @@ class Camera(CameraBase):
             return transfer_time, 1 / readout_time
         else:
             return readout_time, 1 / (readout_time + transfer_time)
+
+    @property
+    def image_mode(self):
+        return self._proxy.image_mode
+
+    @image_mode.setter
+    def image_mode(self, value):
+        self._proxy.image_mode = value
+        self._lima_device._image_params.init_max_dim()
+
+    def __info__(self):
+        info = f"image_mode = {self.image_mode}\n"
+        info += super().__info__()
+        return info

@@ -237,6 +237,7 @@ class Elmo(Controller):
 
         self._is_homing = dict()
         self._last_state = dict()
+        self._is_aborted = dict()
 
     def initialize_hardware(self):
         # Check that the controller is alive
@@ -251,6 +252,7 @@ class Elmo(Controller):
         axis._mode = Cache(axis, "mode", default_value=None)
         self._is_homing[axis] = False
         self._last_state[axis] = None
+        self._is_aborted[axis] = False
 
     def initialize_hardware_axis(self, axis):
         # Check user-mode
@@ -434,6 +436,10 @@ class Elmo(Controller):
         elif ans == 3:
             state.set("FAULT")
 
+        if self._is_aborted[axis] and not "MOVING" in state:
+            self._is_aborted[axis] = False
+            self._sync_pos(axis)
+
         self._last_state[axis] = state
         return state
 
@@ -453,6 +459,8 @@ class Elmo(Controller):
         self._query("ST")
         if self._is_homing[axis]:
             self._end_home(axis)
+        else:
+            self._is_aborted[axis] = True
 
     @object_method(types_info=("None", "int"))
     def get_user_mode(self, axis):

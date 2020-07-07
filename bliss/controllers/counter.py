@@ -162,9 +162,9 @@ class IntegratingCounterController(CounterController):
 
 
 class CalcCounterController(CounterController):
-    def __init__(self, name, config):
+    def __init__(self, name, config, register_counters=True):
 
-        super().__init__(name)
+        super().__init__(name, register_counters=register_counters)
 
         self._input_counters = []
         self._output_counters = []
@@ -230,8 +230,8 @@ class CalcCounterController(CounterController):
     def counters(self):
         """ return all counters (i.e. the counters of this CounterController and sub counters) """
 
-        counters = {cnt.name: cnt for cnt in self._output_counters}
-        for cnt in self._input_counters:
+        counters = {cnt.name: cnt for cnt in self.outputs}
+        for cnt in self.inputs:
             counters[cnt.name] = cnt
             if isinstance(cnt, CalcCounter):
                 counters.update(
@@ -250,7 +250,7 @@ class CalcCounterController(CounterController):
         * <data_dict> = {'em1ch1': array([0.00256367])}
         """
 
-        for cnt in self._input_counters:
+        for cnt in self.inputs:
             # get registered data for this counter
             data = self.data.get(cnt.name, [])
 
@@ -267,9 +267,7 @@ class CalcCounterController(CounterController):
 
             self.data_index[cnt.name] = data_index + len(new_data)
 
-        input_counter_index = [
-            self.data_index[cnt.name] for cnt in self._input_counters
-        ]
+        input_counter_index = [self.data_index[cnt.name] for cnt in self.inputs]
         new_data_index = min(input_counter_index)
 
         # print(f"\n{self.name} - {new_data_index} - {input_counter_index}")
@@ -279,7 +277,7 @@ class CalcCounterController(CounterController):
 
         # Build a dict of input counter data value indexed by tags instead of counter names.
         input_data_dict = {}
-        for cnt in self._input_counters:
+        for cnt in self.inputs:
             input_data_dict[self.tags[cnt.name]] = numpy.copy(
                 self.data[cnt.name][self.emitted_index + 1 : new_data_index]
             )

@@ -10,6 +10,7 @@ import time
 import gevent
 import numpy
 import pickle as pickle
+import itertools
 from bliss import setup_globals, current_session
 from bliss.common import scans
 from bliss.scanning.scan import Scan, ScanState
@@ -325,6 +326,75 @@ def test_ttl_setter(session, capsys):
     s = scans.loopscan(1, .1, heater, diode, run=False)
     out, err = capsys.readouterr()
     assert err == ""
+
+
+def test_walk_after_nodes_disappeared(session):
+    detector = session.env_dict["diode"]
+    s = scans.loopscan(1, 0.1, detector)
+    session_db_name = session.name
+    scan_db_name = s.node.db_name
+
+    def count(session=True, nodes=False, wait=True):
+        # Count nodes/events when walking on session/scan node
+        n = 0
+        if session:
+            node = get_session_node(session_db_name)
+        else:
+            node = get_node(scan_db_name)
+        if node is None:
+            return 0
+        if nodes:
+            it = node.iterator.walk(wait=wait)
+        else:
+            it = node.iterator.walk_events()
+        # Stop iterating if we don't get a now
+        # event after 0.5 seconds
+        while True:
+            try:
+                with gevent.Timeout(0.5):
+                    next(it)
+                    n += 1
+                    gevent.sleep()
+            except (gevent.Timeout, StopIteration):
+                break
+        return n
+
+    def validate_count(nnodes, nevents):
+        params = itertools.product(*[[True, False]] * 3)
+        for session, nodes, wait in params:
+            if nodes:
+                nexpected = nnodes
+            else:
+                nexpected = nevents
+            if not session:
+                # The scan does not have the NEW_NODE events for
+                # the scan node and its parents
+                nexpected = max(nexpected - nroot - 1, 0)
+            n = count(session=session, nodes=nodes, wait=wait)
+            assert n == nexpected
+
+    # Validate counting when all nodes are still present
+    nroot = len(session.scan_saving._db_path_keys) - 1
+    nnodes = nroot + 6  # + scan, master, epoch, elapsed, controller, diode
+    nevents = nnodes + 4  # + 3 x data + 1 x end
+    validate_count(nnodes, nevents)
+
+    # Scan incomplete
+    names = s.node.scan_redis(s.node.db_name + ":*")
+    keep_suffix = ["_data", "_children_list"]
+    for db_name in names:
+        if not any(db_name.endswith(s) for s in keep_suffix):
+            s.node.connection.delete(db_name)
+    names = list(s.node.scan_redis(s.node.db_name + "*"))
+
+    nnodes = nroot + 1
+    nevents = nnodes + 1
+    validate_count(nnodes, nevents)
+
+    # Scan missing
+    s.node.connection.delete(s.node.db_name)
+    nnodes = nevents = nroot
+    validate_count(nnodes, nevents)
 
 
 def test_children_timing(beacon, session):

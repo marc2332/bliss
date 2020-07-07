@@ -239,6 +239,7 @@ class DataNodeIterator(object):
                 data_streams = {
                     self.create_data_stream(name): node
                     for name, node in zip(data_stream_names, child_nodes)
+                    if node is not None
                 }
                 stream2nodes.update(data_streams)
                 reader.add_streams(*data_streams, first_index=0)
@@ -375,7 +376,9 @@ class DataNodeIterator(object):
             child_node = self.get_nodes(
                 *(name[: -len("_children_list")] for name in streams_names)
             )
-            scan_names = list(n.db_name for n in child_node if n.type in SCAN_TYPES)
+            scan_names = list(
+                n.db_name for n in child_node if n is not None and n.type in SCAN_TYPES
+            )
             children_stream = list()
             for stream_name in streams_names:
                 for scan_name in scan_names:

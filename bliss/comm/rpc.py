@@ -459,6 +459,11 @@ def _member(client, member_info):
         members[name] = _class_method(client, name, doc)
 
 
+class _SubServer:
+    def __init__(self, address):
+        self.address = address
+
+
 class _cnx(object):
     class Retry:
         pass
@@ -513,6 +518,7 @@ class _cnx(object):
         self._real_klass = None
         self._class_member = list()
         self._disconnect_callback = disconnect_callback
+        self._subclient = weakref.WeakValueDictionary()
 
     def connect(self):
         self.try_connect()
@@ -577,6 +583,12 @@ class _cnx(object):
 
         with gevent.Timeout(timeout):
             self.try_connect()
+            # Check if already return a sub client
+            method_name = args[0] if args else ""
+            value = self._subclient.get((code, method_name))
+            if value is not None:
+                return value
+
             uniq_id = numpy.uint16(next(self._counter))
             msg = msgpack.packb((uniq_id, code, args, kwargs), use_bin_type=True)
             with self.wait_queue(self, uniq_id) as w:
@@ -594,6 +606,13 @@ class _cnx(object):
                     elif isinstance(value, self.Retry):
                         self.try_connect()
                         continue
+                    elif isinstance(value, _SubServer):
+                        sub_client = self._subclient.get(value.address)
+                        if sub_client is None:
+                            sub_client = Client(value.address)
+                            self._subclient[value.address] = sub_client
+                        self._subclient[(code, method_name)] = sub_client
+                        return sub_client
                     return value
 
     def _raw_read(self, socket):
@@ -632,6 +651,9 @@ class _cnx(object):
     def close(self):
         if self._reading_task:
             self._reading_task.kill()
+        for client in self._subclient.values():
+            client.close()
+        self._subclient = weakref.WeakValueDictionary()
 
 
 def Client(address, timeout=30., disconnect_callback=None, **kwargs):

@@ -41,7 +41,11 @@ from bliss.common.event import dispatcher
 from bliss.common.measurementgroup import _get_counters_from_names
 from bliss.common.measurementgroup import get_active as get_active_mg
 from bliss.common.counter import SamplingCounter
-from bliss.controllers.counter import SamplingCounterController
+from bliss.controllers.counter import (
+    SamplingCounterController,
+    CalcCounterController,
+    CalcCounter,
+)
 from bliss.common.utils import autocomplete_property
 from bliss.common.utils import rounder
 from bliss import global_map
@@ -50,6 +54,7 @@ from bliss.scanning.scan import ScanPreset
 from bliss.common.axis import Axis
 from bliss.common.cleanup import cleanup, axis as cleanup_axis
 from bliss.common.types import _countable
+from bliss.common.protocols import counter_namespace
 from bliss import global_map
 from bliss.common.auto_filter.filterset import FilterSet
 
@@ -69,6 +74,61 @@ class AutoFilterCounterController(SamplingCounterController):
             elif cnt.tag == "transmission":
                 values.append(self._autof.transmission)
         return values
+
+
+class CorrCounterController(CalcCounterController):
+    def __init__(self, autof, config):
+        self._autof = autof
+        super().__init__(autof.name, {}, register_counters=False)
+        self._ratio_counter = None
+
+        for counter_config in config.get("counters", []):
+            counter_name = counter_config.get("counter_name")
+            tag = counter_config.get("tag")
+            if tag == "ratio":
+                cnt_ratio = CalcCounter(counter_name, self)
+                self.tags[cnt_ratio.name] = tag
+                self._output_counters.append(cnt_ratio)
+                self._ratio_counter = cnt_ratio
+
+    def build_counters(self, config):
+        pass
+
+    @property
+    def inputs(self):
+        mon = self._autof.monitor_counter
+        self.tags[mon.name] = "monitor"
+        det = self._autof.detector_counter
+        self.tags[det.name] = "detector"
+
+        return counter_namespace([mon, det])
+
+    @property
+    def outputs(self):
+        output_counters = list(self._output_counters)
+        det_name = self._autof.detector_counter_name
+        if det_name:
+            det_name = det_name.split(":")[-1]
+            corr_suffix = self._autof.corr_suffix
+            det_corr = CalcCounter(f"{det_name}{corr_suffix}", self)
+            self.tags[det_corr.name] = "detector_corr"
+            self._detector_corr = det_corr
+            output_counters.append(det_corr)
+        return counter_namespace(output_counters)
+
+    def calc_function(self, input_dict):
+        monitor_values = input_dict.get("monitor")
+        detector_values = input_dict.get("detector")
+        if monitor_values and detector_values:
+            transmission = self._autof.transmission
+            detector_corr_values = detector_values * transmission
+            ratio_values = detector_corr_values / monitor_values
+            return {
+                self.tags[self._ratio_counter.name]: ratio_values,
+                self.tags[self._detector_corr.name]: detector_corr_values,
+            }
+        else:
+            return {}
 
 
 class AutoFilter(BeaconObject):
@@ -91,17 +151,19 @@ class AutoFilter(BeaconObject):
 
     @property
     def detector_counter(self):
-        try:
-            return global_map.get_counter_from_fullname(self.detector_counter_name)
-        except AttributeError:
-            return self.detector_counter_name
+        counters, missing = _get_counters_from_names([self.detector_counter_name])
+        if missing:
+            raise RuntimeError(
+                f"Can't find detector counter named {self.detector_counter_name}"
+            )
+        return counters[0]
 
     @detector_counter.setter
     def detector_counter(self, counter):
         if isinstance(counter, str):
             # check that counter exists ... not sure if the next lines work in all cases
             try:
-                global_map.get_counter_from_fullname("counter")
+                global_map.get_counter_from_fullname(counter)
                 self.detector_counter_name = counter
             except AttributeError:
                 raise "unknown detector counter"
@@ -112,24 +174,26 @@ class AutoFilter(BeaconObject):
 
     @property
     def monitor_counter(self):
-        try:
-            return global_map.get_counter_from_fullname(self.monitor_counter_name)
-        except AttributeError:
-            return self.monitor_counter_name
+        counters, missing = _get_counters_from_names([self.monitor_counter_name])
+        if missing:
+            raise RuntimeError(
+                f"Can't find detector counter named {self.monitor_counter_name}"
+            )
+        return counters[0]
 
     @monitor_counter.setter
     def monitor_counter(self, counter):
         if isinstance(counter, str):
             # check that counter exists ... not sure if the next lines work in all cases
             try:
-                global_map.get_counter_from_fullname("counter")
+                global_map.get_counter_from_fullname(counter)
                 self.monitor_counter_name = counter
             except AttributeError:
-                raise "unknown monitor counter"
+                raise "unknown detector counter"
         elif isinstance(counter, _countable):
             self.monitor_counter_name = counter.fullname
         else:
-            raise "unknown monitor counter"
+            raise "unknown detector counter"
 
     min_count_rate = BeaconObject.property_setting(
         "min_count_rate",
@@ -170,7 +234,7 @@ class AutoFilter(BeaconObject):
     def __init__(self, name, config):
         super().__init__(config, share_hardware=False)
 
-        global_map.register(self, tag=self.name)
+        global_map.register(self, tag=self.name, parents_list=["counters"])
 
         self.__energy_axis = None
         self.__counters_for_corr = set()
@@ -255,9 +319,12 @@ class AutoFilter(BeaconObject):
         """ 
         Standard counter namespace
         """
+        counters = []
         if self._cc is not None:
-            return self._cc.counters
-        return []
+            counters += list(self._cc.counters)
+        if self._calc_counter is not None:
+            counters += list(self._calc_counter.outputs)
+        return counter_namespace(counters)
 
     @property
     def transmission(self):
@@ -546,13 +613,19 @@ class AutoFilter(BeaconObject):
         cnts_conf = config.get("counters")
         if cnts_conf is None:
             self._cc = None
+            self._calc_counter = None
             return
 
+        # create the sampling counters for transm and currfilter
         self._cc = AutoFilterCounterController(self.name, self)
+        # create calc counters for det_corr and ratio
+        self._calc_counter = CorrCounterController(self, config)
 
         for conf in cnts_conf:
             name = conf["counter_name"].strip()
             tag = conf["tag"].strip()
+            if tag == "ratio":
+                continue
             cnt = self._cc.create_counter(SamplingCounter, name, mode="SINGLE")
             cnt.tag = tag
             if export_to_session:

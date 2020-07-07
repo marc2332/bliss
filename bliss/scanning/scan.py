@@ -16,7 +16,10 @@ import datetime
 import collections
 from functools import wraps
 import warnings
+from typing import Callable, Any
+import typeguard
 
+from bliss.common.types import _countable
 from bliss import current_session, is_bliss_shell
 from bliss.common.event import connect, disconnect
 from bliss.common.cleanup import error_cleanup, axis as cleanup_axis, capture_exceptions
@@ -1010,6 +1013,21 @@ class Scan:
     def cen(self, counter, axis=None, return_axes=False):
         return self._multimotors(self._cen, counter, axis, return_axes=return_axes)
 
+    @typeguard.typechecked
+    def find_position(
+        self,
+        func: Callable[[Any, Any], float],
+        counter: _countable,
+        axis=None,
+        return_axes=False,
+    ):
+        """evaluate user supplied scan math function"""
+
+        def _find_custom(counter, axis):
+            return func(*self._get_x_y_data(counter, axis))
+
+        return self._multimotors(_find_custom, counter, axis, return_axes=return_axes)
+
     def _cen(self, counter, axis):
         return scan_math.cen(*self._get_x_y_data(counter, axis))[0]
 
@@ -1074,6 +1092,19 @@ class Scan:
 
     def goto_cen(self, counter, axis=None, return_axes=False):
         return self._goto_multimotors(self.cen(counter, axis, return_axes=True))
+
+    @typeguard.typechecked
+    def goto_custom(
+        self,
+        func: Callable[[Any, Any], float],
+        counter: _countable,
+        axis=None,
+        return_axes=False,
+    ):
+        """goto for custom user supplied scan math function"""
+        return self._goto_multimotors(
+            self.find_position(func, counter, axis, return_axes=True)
+        )
 
     def wait_state(self, state):
         while self.__state < state:

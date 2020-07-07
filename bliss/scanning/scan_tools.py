@@ -1,13 +1,13 @@
 import numpy
 import typeguard
-from typing import Optional
+from typing import Optional, Callable, Any
 from bliss.data.scan import get_counter_names
 from bliss import current_session, global_map
 from bliss.common.types import _countable, _scannable
 from bliss.common.plot import display_motor
 from bliss.scanning.scan import Scan
 from bliss.scanning.scan_display import ScanDisplay
-from bliss.common.utils import shorten_signature
+from bliss.common.utils import shorten_signature, typeguardTypeError_to_hint
 
 """
 Alignment Helpers: cen peak com that interact with plotselect 
@@ -106,7 +106,11 @@ def _scan_calc(func, counter=None, axis=None, scan=None, marker=True, goto=False
         counter = get_counter(get_selected_counter_name())
     if scan is None:
         scan = current_session.scans[-1]
-    res = getattr(scan, func)(counter, axis=axis, return_axes=True)
+    if callable(func):
+        res = scan.find_position(func, counter, axis=axis, return_axes=True)
+        func = func.__name__  # for label managment
+    else:
+        res = getattr(scan, func)(counter, axis=axis, return_axes=True)
     if marker:
         clear_markers()
         for ax, value in res.items():
@@ -177,6 +181,17 @@ def cen(
     Example: cen(diode3)
     """
     return _scan_calc("cen", counter=counter, axis=axis, scan=scan)
+
+
+@typeguard.typechecked
+@typeguardTypeError_to_hint
+def find_position(
+    func: Callable[[Any, Any], float],
+    counter: Optional[_countable] = None,
+    axis: Optional[_scannable] = None,
+    scan: Optional[Scan] = None,
+):
+    return _scan_calc(func, counter=counter, axis=axis, scan=scan)
 
 
 @typeguard.typechecked
@@ -260,6 +275,17 @@ def goto_peak(
     Example: goto_peak()
     """
     return _scan_calc("peak", counter=counter, axis=axis, scan=scan, goto=True)
+
+
+@typeguard.typechecked
+@typeguardTypeError_to_hint
+def goto_custom(
+    func: Callable[[Any, Any], float],
+    counter: Optional[_countable] = None,
+    axis: Optional[_scannable] = None,
+    scan: Optional[Scan] = None,
+):
+    return _scan_calc(func, counter=counter, axis=axis, scan=scan, goto=True)
 
 
 def where():

@@ -18,6 +18,7 @@ from bliss.data.nodes.scan import Scan as Data_Scan
 from bliss.scanning.chain import AcquisitionChannel
 from bliss.data.node import get_session_node
 from bliss import current_session
+from bliss.scanning.scan import ScanState
 
 
 def test_sequence_terminated_scans(session):
@@ -341,3 +342,21 @@ def test_sequence_events(session):
     idx2 = event_dump.index(("END_SCAN", "scan_group", "2_sequence_of_scans"))
     assert idx < idx2
     idx = idx2
+
+
+def test_group_with_killed_scan(default_session):
+    diode = default_session.config.get("diode")
+
+    def killed_scan():
+        s = scans.loopscan(10, .1, diode, run=False)
+        g = gevent.spawn(s.run)
+        s.wait_state(ScanState.STARTING)
+        g.kill()
+        return s
+
+    s1 = scans.loopscan(3, .1, diode)
+    s2 = killed_scan()
+
+    g = Group(s1, s2)
+
+    assert g.state == ScanState.KILLED

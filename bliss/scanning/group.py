@@ -21,6 +21,7 @@ from bliss.data.node import get_session_node
 from bliss.scanning.scan import ScanState, ScanPreset
 from bliss.data.node import _create_node
 from bliss import current_session
+from bliss.common.logtools import lprint
 
 
 class ScanGroup(Scanning_Scan):
@@ -127,7 +128,7 @@ class Sequence:
                     gevent.sleep(0)
                 self.group_acq_master.publish_event.wait()
 
-            group_scan.join()
+            group_scan.get()
 
             if err:
                 raise RuntimeError(
@@ -155,15 +156,25 @@ class Sequence:
             def stop(self, scan):
                 if len(self._sequence._scans) == 0:
                     return
-                max_state = max([x.state for x in self._sequence._scans])
+                max_state = ScanState.DONE
+                for s in self._sequence._scans:
+                    if (
+                        isinstance(s, Data_Scan)
+                        and s.info.get("state", ScanState.DONE) > max_state
+                    ):
+                        max_state = s.info.get("state", ScanState.DONE)
+                    elif isinstance(s, Scanning_Scan) and s.state > max_state:
+                        max_state = s.state
                 if max_state == ScanState.KILLED:
-                    raise Exception(
-                        "at least one of the scans in the sequence was KILLED"
+                    lprint(
+                        "Warning: at least one of the scans in the sequence was KILLED"
                     )
+                    scan._set_state(ScanState.KILLED)
                 elif max_state == ScanState.USER_ABORTED:
-                    raise KeyboardInterrupt(
-                        "at least one of the scans in the sequence was USER_ABORTED"
+                    lprint(
+                        "Warning: at least one of the scans in the sequence was USER_ABORTED"
                     )
+                    scan._set_state(ScanState.USER_ABORTED)
 
         self.scan = ScanGroup(chain, self.title, save=True, scan_info=self.scan_info)
         state_preset = StatePreset(self)
@@ -172,6 +183,13 @@ class Sequence:
     @property
     def node(self):
         return self.scan.node
+
+    @property
+    def state(self):
+        if self.scan is None:
+            return ScanState.IDLE
+        else:
+            return self.scan.state
 
 
 class Group(Sequence):

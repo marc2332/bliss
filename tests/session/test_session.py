@@ -145,13 +145,13 @@ def test_user_script(session4, capsys):
     # test that user_script_load can return a namespace
     expected_symbols = ["ascan", "time", "test1", "a"]
     ns = user_script_load("sessions/subdir/scripts/simple_script", export_global=False)
-    assert list(ns.__dict__) == expected_symbols
+    assert list(ns._fields) == expected_symbols
 
     session4.env_dict["user"] = 42
     user_script_load("sessions/subdir/scripts/simple_script")
 
     # test that user_script_load can export to "user" namespace
-    assert list(session4.env_dict["user"].__dict__) == expected_symbols
+    assert list(session4.env_dict["user"]._fields) == expected_symbols
     # test backup of pre existing user
     assert session4.env_dict["user_bak"] == 42
 

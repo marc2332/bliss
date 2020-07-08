@@ -16,15 +16,19 @@ from bliss.scanning.acquisition.counter import IntegratingCounterAcquisitionSlav
 
 
 class MusstIntegratingAcquisitionSlave(IntegratingCounterAcquisitionSlave):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._reading_event = event.Event()
+
+    def start_device(self):
+        self._reading_event.clear()
+
+    def trigger_reading(self):
+        self._reading_event.set()
+
     def reading(self):
-
-        musst = self.device._master_controller
-
-        while not self._stop_flag and musst.STATE != musst.RUN_STATE:
-            gevent.sleep(0.01)
-
-        while musst.STATE == musst.RUN_STATE:
-            gevent.sleep(0.01)
+        self._reading_event.wait()
+        self._reading_event.clear()
 
         counters = list(self._counters.keys())
         data = self.device.get_values(0, *counters)
@@ -36,42 +40,28 @@ class MusstDefaultAcquisitionMaster(AcquisitionMaster):
 
         super().__init__(controller, ctrl_params=ctrl_params)
 
-        self._running_state = False
-        self._event = event.Event()
         self.count_time = count_time
-
-    @property
-    def running_state(self):
-        return self._running_state
 
     @property
     def name(self):
         return f"{self.device.name}_master"
 
     def prepare(self):
-        self._running_state = False
-        self._event.set()
+        pass
 
     def start(self):
-        self._running_state = True
-        self._event.set()
+        pass
 
     def stop(self):
         if self.device.STATE == self.device.RUN_STATE:
             self.device.ABORT
 
     def trigger(self):
-        self.device.ct(self.count_time, wait=False)
         self.trigger_slaves()
-
-    def trigger_ready(self):
-        return self.device.STATE != self.device.RUN_STATE
-
-    def wait_ready(self):
-        while self.device.STATE == self.device.RUN_STATE:
-            gevent.idle()
-        self._running_state = False
-        self._event.set()
+        self.device.ct(self.count_time, wait=True)
+        for slave in self.slaves:
+            if isinstance(slave, MusstIntegratingAcquisitionSlave):
+                slave.trigger_reading()
 
 
 class MusstAcquisitionMaster(AcquisitionMaster):

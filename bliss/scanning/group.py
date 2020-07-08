@@ -127,7 +127,7 @@ class Sequence:
                     gevent.sleep(0)
                 self.group_acq_master.publish_event.wait()
 
-            group_scan.join()
+            group_scan.get()
 
             if err:
                 raise RuntimeError(

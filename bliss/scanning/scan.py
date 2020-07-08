@@ -1310,10 +1310,11 @@ class Scan:
     def _set_state(self, state):
         """Set the scan state
         """
-        self.__state = state
-        self.node.info["state"] = state
-        self._scan_info["state"] = state
-        self.__state_change.set()
+        if self.__state < state:
+            self.__state = state
+            self.node.info["state"] = state
+            self._scan_info["state"] = state
+            self.__state_change.set()
 
     def _fill_meta(self, method_name):
         """Fill metadata from devices using specified method

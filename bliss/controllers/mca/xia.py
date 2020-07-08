@@ -82,6 +82,7 @@ class BaseXIA(BaseMCA):
         global_map.register(
             self._proxy, parents_list=[self, "comms"], tag=f"rpcXia:{self.name}"
         )
+        self._last_pixel_triggered = -1
 
     # Config / Settings
     @property
@@ -112,6 +113,7 @@ class BaseXIA(BaseMCA):
         logger.debug("initialize_hardware()")
         self._proxy = rpc.Client(self.beacon_obj.url)
         event.connect(self._proxy, "data", self._event)
+        event.connect(self._proxy, "current_pixel", self._current_pixel_event)
         # global_map.register(self._proxy, parents_list=[self], tag="comm")
         try:
             # Getting the current configuration will
@@ -128,6 +130,7 @@ class BaseXIA(BaseMCA):
         log_debug(self, "  close proxy")
         self._proxy.close()
         event.disconnect(self._proxy, "data", self._event)
+        event.disconnect(self._proxy, "current_pixel", self._current_pixel_event)
 
     def __info__(self):
         info_str = super().__info__()
@@ -307,6 +310,7 @@ class BaseXIA(BaseMCA):
         log_debug(self, "start_acquisition")
         # Make sure the acquisition is stopped first
         self._proxy.stop_run()
+        self._last_pixel_triggered = -1
         self._proxy.start_run()
 
     def start_hardware_reading(self):
@@ -361,6 +365,15 @@ class BaseXIA(BaseMCA):
 
     def _convert_statistics(self, stats):
         return dict((k, Stats(*v)) for k, v in stats.items())
+
+    def _current_pixel_event(self, value, signal):
+        if value != self._last_pixel_triggered:
+            log_debug(self, "last pixel triggered = %d", value)
+        self._last_pixel_triggered = value
+
+    @property
+    def last_pixel_triggered(self):
+        return self._last_pixel_triggered
 
     # Infos
 

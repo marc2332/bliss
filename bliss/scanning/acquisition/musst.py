@@ -31,7 +31,10 @@ class MusstIntegratingAcquisitionSlave(IntegratingCounterAcquisitionSlave):
         self._reading_event.clear()
 
         counters = list(self._counters.keys())
-        data = self.device.get_values(0, *counters)
+        data = [
+            counters[i].conversion_function(x)
+            for i, x in enumerate(self.device.get_values(0, *counters))
+        ]
         self._emit_new_data(data)
 
 

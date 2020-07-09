@@ -148,16 +148,16 @@ class Checkbox(Checkbox_Orig):
 # ================================================================
 
 
-def _run_dialog(dialog, style, async_=False, extra_bindings=None):
+def _run_dialog(dialog, style, async_=False, extra_bindings=None, full_screen=True):
     " Turn the `Dialog` into an `Application` and run it. "
-    application = _create_app(dialog, style, extra_bindings)
+    application = _create_app(dialog, style, extra_bindings, full_screen)
     if async_:
         return application.run_async()
     else:
         return application.run()
 
 
-def _create_app(dialog, style, extra_bindings=None):
+def _create_app(dialog, style, extra_bindings=None, full_screen=True):
     # Key bindings.
     kb = load_key_bindings()
     merged_bindings = [kb]
@@ -169,7 +169,7 @@ def _create_app(dialog, style, extra_bindings=None):
         key_bindings=merge_key_bindings(merged_bindings),
         mouse_support=True,
         style=style,
-        full_screen=True,
+        full_screen=full_screen,
     )
 
 
@@ -182,7 +182,13 @@ def _return_none():
 
 
 def yes_no_dialog(
-    title="", text="", yes_text="Yes", no_text="No", style=None, async_=False
+    title="",
+    text="",
+    yes_text="Yes",
+    no_text="No",
+    style=None,
+    async_=False,
+    full_screen=True,
 ):
     """
     Display a Yes/No dialog.
@@ -205,10 +211,12 @@ def yes_no_dialog(
         with_background=True,
     )
 
-    return _run_dialog(dialog, style, async_=async_)
+    return _run_dialog(dialog, style, async_=async_, full_screen=full_screen)
 
 
-def button_dialog(title="", text="", buttons=[], style=None, async_=False):
+def button_dialog(
+    title="", text="", buttons=[], style=None, async_=False, full_screen=True
+):
     """
     Display a dialog with button choices (given as a list of tuples).
     Return the value associated with button.
@@ -227,7 +235,7 @@ def button_dialog(title="", text="", buttons=[], style=None, async_=False):
         with_background=True,
     )
 
-    return _run_dialog(dialog, style, async_=async_)
+    return _run_dialog(dialog, style, async_=async_, full_screen=full_screen)
 
 
 def input_dialog(
@@ -239,6 +247,7 @@ def input_dialog(
     password=False,
     style=None,
     async_=False,
+    full_screen=True,
 ):
     """
     Display a text input box.
@@ -273,10 +282,12 @@ def input_dialog(
         with_background=True,
     )
 
-    return _run_dialog(dialog, style, async_=async_)
+    return _run_dialog(dialog, style, async_=async_, full_screen=full_screen)
 
 
-def message_dialog(title="", text="", ok_text="Ok", style=None, async_=False):
+def message_dialog(
+    title="", text="", ok_text="Ok", style=None, async_=False, full_screen=True
+):
     """
     Display a simple message box and wait until the user presses enter.
     """
@@ -287,7 +298,7 @@ def message_dialog(title="", text="", ok_text="Ok", style=None, async_=False):
         with_background=True,
     )
 
-    return _run_dialog(dialog, style, async_=async_)
+    return _run_dialog(dialog, style, async_=async_, full_screen=full_screen)
 
 
 def radiolist_dialog(
@@ -298,6 +309,7 @@ def radiolist_dialog(
     values=None,
     style=None,
     async_=False,
+    full_screen=True,
 ):
     """
     Display a simple list of element the user can choose amongst.
@@ -321,11 +333,17 @@ def radiolist_dialog(
         with_background=True,
     )
 
-    return _run_dialog(dialog, style, async_=async_)
+    return _run_dialog(dialog, style, async_=async_, full_screen=full_screen)
 
 
 def checkbox_dialog(
-    title="", text="", ok_text="Ok", cancel_text="Cancel", style=None, async_=False
+    title="",
+    text="",
+    ok_text="Ok",
+    cancel_text="Cancel",
+    style=None,
+    async_=False,
+    full_screen=True,
 ):
     """
     Display a checkbox.
@@ -347,10 +365,12 @@ def checkbox_dialog(
         with_background=True,
     )
 
-    return _run_dialog(dialog, style, async_=async_)
+    return _run_dialog(dialog, style, async_=async_, full_screen=full_screen)
 
 
-def progress_dialog(title="", text="", run_callback=None, style=None, async_=False):
+def progress_dialog(
+    title="", text="", run_callback=None, style=None, async_=False, full_screen=True
+):
     """
     :param run_callback: A function that receives as input a `set_percentage`
         function and it does the work.
@@ -401,7 +421,7 @@ def progress_dialog(title="", text="", run_callback=None, style=None, async_=Fal
 # ===========================================================================================
 
 
-def display(user_dlg, title=""):
+def display(user_dlg, title="", full_screen=True):
     """ display a single widget in a dialog application """
 
     dlg = None
@@ -414,11 +434,24 @@ def display(user_dlg, title=""):
     values = user_dlg.values
 
     if user_dlg.wtype == "msg":
-        dlg = message_dialog(title, text, ok_text="Ok", style=_ESRF_STYLE, async_=False)
+        dlg = message_dialog(
+            title,
+            text,
+            ok_text="Ok",
+            style=_ESRF_STYLE,
+            async_=False,
+            full_screen=full_screen,
+        )
 
     elif user_dlg.wtype == "yesno":
         dlg = yes_no_dialog(
-            title, text, yes_text="Yes", no_text="No", style=_ESRF_STYLE, async_=False
+            title,
+            text,
+            yes_text="Yes",
+            no_text="No",
+            style=_ESRF_STYLE,
+            async_=False,
+            full_screen=full_screen,
         )
 
     elif user_dlg.wtype in ["input", "file_input"]:
@@ -444,6 +477,7 @@ def display(user_dlg, title=""):
             password=False,
             style=_ESRF_STYLE,
             async_=False,
+            full_screen=full_screen,
         )
 
     elif user_dlg.wtype == "choice":
@@ -455,6 +489,7 @@ def display(user_dlg, title=""):
             values=values,
             style=_ESRF_STYLE,
             async_=False,
+            full_screen=full_screen,
         )
 
     elif user_dlg.wtype == "checkbox":
@@ -465,6 +500,7 @@ def display(user_dlg, title=""):
             cancel_text="Cancel",
             style=_ESRF_STYLE,
             async_=False,
+            full_screen=full_screen,
         )
 
     return dlg
@@ -869,11 +905,15 @@ class BlissDialog(Dialog):
 
         return fbody
 
-    def show(self, async_=False):
+    def show(self, async_=False, full_screen=True):
         gevent.spawn(self.after_launch, 0.1)
 
         ans = _run_dialog(
-            self, self.style, async_=async_, extra_bindings=self.extra_bindings
+            self,
+            self.style,
+            async_=async_,
+            extra_bindings=self.extra_bindings,
+            full_screen=full_screen,
         )
 
         return ans

@@ -191,6 +191,7 @@ nav:
                 - Writing a temperature controller: dev_write_tempctrl.md
                 - Logging a controller: dev_maplog_controller.md
                 - Integrate dialogs: dev_dialogs.md
+                - BLISS utils: dev_utils.md
                 - Writing a shutter: dev_write_shutter.md
                 - Session Instance Map: dev_instance_map.md
                 - Counters:

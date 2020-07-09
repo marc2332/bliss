@@ -13,6 +13,7 @@ All distances and motor positions are in mm
 * d3: (depends on geometry) distance between front leg and reference height
   point
 * d4: (depends on geometry) distance between back1 leg and reference height
+* no_offset: no_offset feature (True by default) to avoid offset accumulation
 * geometry: number 0 please explain these
                    1 ?
                    2 ?
@@ -21,7 +22,7 @@ All distances and motor positions are in mm
                    5 ?
                    6 ?
                    7 ?
-                   8 ?
+                   8 id21 kb|zpz support.
 
 
 Example configuration
@@ -31,6 +32,7 @@ Example configuration
     d2: 1600
     d4: 1070
     geometry: 0
+    no_offset: True
     axes:
         -
             name: $BackMotor1
@@ -82,6 +84,8 @@ class tab3(CalcController):
 
     def initialize_axis(self, axis):
         CalcController.initialize_axis(self, axis)
+
+        # no_offset feature (True by default) to avoid offset accumulation.
         axis.no_offset = self.no_offset
 
     def calc_from_real(self, positions_dict):
@@ -115,6 +119,15 @@ class tab3(CalcController):
             z = front + ((back - front) * self.d3 / self.d2)
         else:
             z = (front + back) / 2
+
+        if self.geometry == 8:
+            bl1 = positions_dict["back1"]
+            bl2 = positions_dict["back2"]
+            fl = positions_dict["front"]
+
+            xtilt = 1000 * numpy.arctan((bl2 - bl1) / self.d1)
+            ytilt = -1000 * numpy.arctan((fl - bl1) / self.d2)
+            z = fl + (bl1 - fl) / 2 + (bl2 - bl1) / 2
 
         return {"z": z, "xtilt": xtilt, "ytilt": ytilt}
 
@@ -153,5 +166,26 @@ class tab3(CalcController):
         else:
             back1 = positions_dict["z"] - (self.d4 * xtan) + (sign * dback * ytan)
         back2 = positions_dict["z"] + (d1 * xtan) + (sign * dback * ytan)
+
+        if self.geometry == 8:
+            xti = positions_dict["xtilt"]
+            yti = positions_dict["ytilt"]
+            z = positions_dict["z"]
+
+            back1 = (
+                z
+                - self.d1 * numpy.tan(xti / 1000) / 2
+                + self.d2 * numpy.tan(yti / 1000) / 2
+            )
+            back2 = (
+                z
+                + self.d1 * numpy.tan(xti / 1000) / 2
+                + self.d2 * numpy.tan(yti / 1000) / 2
+            )
+            front = (
+                z
+                - self.d1 * numpy.tan(xti / 1000) / 2
+                - self.d2 * numpy.tan(yti / 1000) / 2
+            )
 
         return {"back1": back1, "back2": back2, "front": front}

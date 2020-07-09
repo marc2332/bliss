@@ -197,6 +197,7 @@ nav:
                       - counters: dev_ct.md
                       - Calc Counters: dev_calc_counters.md
                 - Acquisition objects: dev_acq.md
+                - Shell signature hint: dev_shell_signature.md
                 - Tips'n'tricks: dev_tipsntricks.md
                 - Dealing with energy: dev_energy.md
                 - Xia handle: config_mca_handel.md

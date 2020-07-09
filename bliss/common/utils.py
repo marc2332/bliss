@@ -564,6 +564,18 @@ class autocomplete_property(property):
     pass
 
 
+# the following code around `UserNamespace` is about a namespace that
+# that has autocomplete_property properties itself.  It provides a
+# signature completion in the bliss shell also for its members.
+# More details in the doc bliss doc.
+#
+# BLISS [1]: from bliss.common.utils import UserNamespace
+# BLISS [2]: def a(self,kwarg=13):
+#       ...:     print(a)
+# BLISS [4]: c=UserNamespace({"a":a})
+# BLISS [5]: c.a(
+#               a(self, kwarg=13)   # signature suggestion
+
 # create a copy of module collections to have a copy of namedtuple
 __SPEC = importlib.util.find_spec("collections")
 mycollections = importlib.util.module_from_spec(__SPEC)

@@ -49,14 +49,15 @@ class MgrUnpacker(Unpacker):
 
 class MgrClient(UDPClient):
     def __init__(self, host):
-        super().__init__(host.encode(), MANAGER_SERVER_ID, MANAGER_SERVER_VERSION)
+        super().__init__(host, MANAGER_SERVER_ID, MANAGER_SERVER_VERSION)
         self.packer = MgrPacker()
         self.unpacker = MgrUnpacker(b"")
 
     def get_config(self):
-        return self.make_call(
+        db_hostanme, db_id, db_version = self.make_call(
             1, None, self.packer.pack_config, self.unpacker.unpack_config
         )
+        return db_hostanme.decode(), db_id, db_version
 
 
 class DBPacker(Packer):
@@ -92,7 +93,7 @@ class DBUnpacker(Unpacker):
         personal_name = self.unpack_string()
         process_name = self.unpack_string()
         server_version = self.unpack_uint()
-        hostname = self.unpack_string()
+        hostname = self.unpack_string().decode()
         pid = self.unpack_uint()
         program_num = self.unpack_uint()
         db_err = self.unpack_int()

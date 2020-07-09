@@ -15,3 +15,5 @@ socat
 ser2net
 tango_serialline
 pytest-rerunfailures
+stomp.py
+coilmq

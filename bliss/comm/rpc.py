@@ -665,6 +665,10 @@ class _cnx(object):
             client.close()
         self._subclient = weakref.WeakValueDictionary()
 
+    @property
+    def connection_address(self):
+        return self._address
+
 
 def Client(address, timeout=30., disconnect_callback=None, **kwargs):
     client = _cnx(address, disconnect_callback)
@@ -701,7 +705,7 @@ def Client(address, timeout=30., disconnect_callback=None, **kwargs):
             client.proxy = self
 
         def __getattribute__(self, name):
-            if name in ["close", "connect"]:
+            if name in ["close", "connect", "connection_address"]:
                 return getattr(client, name)
 
             try:

@@ -133,7 +133,9 @@ def test_shell_load_script_signature(clean_gevent, beacon):
     session.setup(env_dict)
 
     env_dict["user_script_homedir"](str(os.path.dirname(__file__)))
-    x = env_dict["user_script_load"]("script")
+    env_dict["user_script_load"]("script", export_global="x")
+
+    x = env_dict["x"]
 
     assert "MyClass" in dir(x)
     assert "myfunc" in dir(x)

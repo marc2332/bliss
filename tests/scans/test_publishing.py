@@ -422,18 +422,19 @@ def test_walk_after_nodes_disappeared(session):
         if node is None:
             return 0
         if nodes:
-            it = node.iterator.walk(wait=wait)
+            it = node.walk(wait=wait)
         else:
-            it = node.iterator.walk_events()
+            it = node.walk_events()
         # Stop iterating if we don't get a now
-        # event after 0.5 seconds
+        # event after x seconds
         while True:
             try:
-                with gevent.Timeout(0.5):
+                with gevent.Timeout(2):
                     next(it)
                     n += 1
                     gevent.sleep()
-            except (gevent.Timeout, StopIteration):
+            except (StopIteration, gevent.Timeout, gevent.GreenletExit) as e:
+                print(f"Walk ended due to {e.__class__.__name__} '{e}'")
                 break
         return n
 
@@ -688,22 +689,59 @@ def _count_node_events(
 
     s = scans.sct(0.1, *detectors, run=not beforestart, save=False)
     nmasters = 2
-    startlistening_event = gevent.event.Event()
-    startlistening_event.clear()
+    nlistenroot = len(db_name.split(":"))
+    nodes = []
+
+    def process_node(n):
+        """Count nodes and check order
+        """
+        node = n.db_name
+        error_msg = f"Node '{node}' already recieved"
+        assert node not in nodes, error_msg
+        nodes.append(node)
+
+        if not filter:
+            parent = n.parent.db_name
+            if len(parent.split(":")) > nlistenroot:
+                error_msg = f"Child node '{node}' before parent node '{parent}'"
+                assert parent in nodes, error_msg
+
+    # Function to count events or nodes
     if count_nodes:
-        result = []
-
-        def process_event(n):
-            result.append(n.db_name)
-
+        result = nodes
+        process_event = process_node
     else:
         result = {}
+        nodes_with_event = set()
+        end_scan_recieved = False
 
         def process_event(ev):
+            """Count events and check order
+            """
+            nonlocal end_scan_recieved
             e, n, d = ev
-            result.setdefault(e.name, []).append(n.db_name)
+            node = n.db_name
 
-    def walk(timeout=1):
+            # Make sure the END_SCAN event (if any) is the last event
+            error_msg = (
+                f"Event '{e.name}' of '{node}' arrived after the 'END_SCAN' event"
+            )
+            assert not end_scan_recieved, error_msg
+
+            # Make sure the NEW_NODE event (if any) is the first event
+            if e == e.NEW_NODE:
+                process_node(n)
+                error_msg = f"NEW_NODE not the first event of '{node}'"
+                assert node not in nodes_with_event, error_msg
+            elif e == e.END_SCAN:
+                end_scan_recieved = True
+            nodes_with_event.add(node)
+            result.setdefault(e.name, []).append(node)
+
+    startlistening_event = gevent.event.Event()
+    startlistening_event.clear()
+
+    def walk():
         """Stops walking if no event has been received for x seconds
         """
         node = _get_node_object(node_type, db_name, None, None)
@@ -714,13 +752,15 @@ def _count_node_events(
             evgen = node.walk_events(filter=filter, wait=wait)
         while True:
             try:
-                with gevent.Timeout(timeout):
+                with gevent.Timeout(overhead + 2):
                     ev = next(evgen)
                     process_event(ev)
                     gevent.sleep(overhead)
-            except (StopIteration, gevent.Timeout, gevent.GreenletExit):
+            except (StopIteration, gevent.Timeout, gevent.GreenletExit) as e:
+                print(f"Walk ended due to {e.__class__.__name__} '{e}'")
                 break
 
+    # Walk the node and run the scan (if not already done)
     walk_greenlet = gevent.spawn(walk)
     try:
         with gevent.Timeout(10):

@@ -8,7 +8,7 @@
 import os
 import sys
 import shutil
-from collections import namedtuple
+from collections import namedtuple, deque
 import atexit
 import gevent
 import subprocess
@@ -43,7 +43,7 @@ from bliss.common.tango import Database, DeviceProxy, DevFailed, ApiUtil, DevSta
 from bliss.common.utils import grouped
 from bliss import logging_startup
 from bliss.scanning import scan_meta
-
+import socket
 
 BLISS = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 BEACON = [sys.executable, "-m", "bliss.config.conductor.server"]
@@ -635,7 +635,38 @@ def deep_compare(d, u):
 
 
 @pytest.fixture
-def metadata_manager_tango_server(ports):
+def metadata_mock_JOLOKIA_server():
+
+    path = os.path.dirname(__file__)
+    JOLOKIA_path = os.path.join(path, "mock_JOLOKIA.py")
+
+    p = subprocess.Popen(["python", JOLOKIA_path])  # todo: use dynamic port
+
+    gevent.sleep(3)  # todo ... better synchronisation needed
+
+    yield None
+    wait_terminate(p)
+
+    ##todo: this does not free port 8778 systematically in the end...
+
+
+@pytest.fixture
+def metadata_coilmq_server():
+
+    p = subprocess.Popen(
+        ["coilmq", "-b", "0.0.0.0", "-p", "60001"]
+    )  # todo: use dynamic port
+
+    gevent.sleep(3)  # todo ... better syncronisation needed
+
+    yield None
+    wait_terminate(p)
+
+
+@pytest.fixture
+def metadata_manager_tango_server(
+    ports, beacon, metadata_mock_JOLOKIA_server, metadata_coilmq_server
+):
     device_name = "id00/metadata/test_session"
     device_fqdn = "tango://localhost:{}/{}".format(ports.tango_port, device_name)
 
@@ -646,7 +677,9 @@ def metadata_manager_tango_server(ports):
 
 
 @pytest.fixture
-def metadata_experiment_tango_server(ports):
+def metadata_experiment_tango_server(
+    ports, beacon, metadata_mock_JOLOKIA_server, metadata_coilmq_server
+):
     device_name = "id00/metaexp/test_session"
     device_fqdn = "tango://localhost:{}/{}".format(ports.tango_port, device_name)
 
@@ -657,7 +690,52 @@ def metadata_experiment_tango_server(ports):
 
 
 @pytest.fixture
+def icat_listener(metadata_coilmq_server):
+    # stomp does not work well with gevent so
+    # we start a subprocess with a socket on 60002
+    # and connect to it
+
+    local_HOST = "localhost"
+    local_PORT = 60002
+
+    s_in = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+    try:
+        s_in.bind((local_HOST, local_PORT))
+    except socket.error as msg:
+        print("Bind failed. Error Code : " + str(msg[0]) + " Message " + msg[1])
+        raise RuntimeError()
+
+    s_in.listen(10)
+
+    messages = deque(maxlen=20)
+
+    def f():
+        conn, addr = s_in.accept()
+        while True:
+            data_in = conn.recv(10000)
+            messages.append(data_in.decode())
+        #    print("IN: ", data_in)
+
+    g = gevent.spawn(f)
+
+    # start stomp in external process as it does not work well with gevent
+    path = os.path.dirname(__file__)
+    stomp_listener_path = os.path.join(path, "mock_icat_listener.py")
+
+    p = subprocess.Popen(["python", stomp_listener_path])
+
+    gevent.sleep(3)  # todo ... better synchronisation needed
+
+    yield messages
+    p.kill()
+    # would be nice to use wait_terminate(p) but it blocks...
+    g.kill()
+
+
+@pytest.fixture
 def nexus_writer_service(ports):
+    breakpoint()
     device_name = "id00/bliss_nxwriter/test_session"
     device_fqdn = "tango://localhost:{}/{}".format(ports.tango_port, device_name)
 

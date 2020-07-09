@@ -1,7 +1,11 @@
 -
   class: MetadataManager
   properties:
-    queueURLs: [""]
+    queueURLs:
+    - 'localhost:60001' 
+    queueName: '/queue/icatIngest'
+    #icatplus_server: 'https://icatplus.esrf.fr:8443'
+    API_KEY: 'elogbook-0000-000-0000-0000-0000'
 -
   server: MetadataManager
   personal_name: test
@@ -27,7 +31,11 @@
 -
   class: MetaExperiment
   properties:
-    queueURLs: [""]
+    queueURLs:
+      - 'localhost:60001' 
+    queueName: '/queue/icatIngest'
+    #icatplus_server: 'https://icatplus.esrf.fr:8443'
+    API_KEY: 'elogbook-0000-000-0000-0000-0000'
 -
   server: MetaExperiment
   personal_name: test

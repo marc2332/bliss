@@ -73,12 +73,15 @@ node type:
 
     DataNodeContainer(DataNode):
         _subscribe_on_new_node_before_yield:
-            subscribe to existing "data" streams of children when yielding events
             subscribe/create to "children_list" stream 
             subscribe to existing "children_list" streams of children
 
+        _subscribe_on_new_node_after_yield:
+            subscribe to existing "data" streams of children when yielding events
+
     Scan(DataNodeContainer):
         _subscribe_on_new_node_after_yield:
+            super()
             subscribe/create to "data" stream
 """
 
@@ -94,8 +97,7 @@ from bliss.common.greenlet_utils import protect_from_kill, AllowKill
 from bliss.config.conductor import client
 from bliss.config import settings
 from bliss.config import streaming
-from bliss.config import streaming_events
-from bliss.data.events import Event, EventType, NewDataNodeEvent
+from bliss.data.events import Event, EventType, NewNodeEvent
 
 
 # make list of available plugins for generating DataNode objects
@@ -197,21 +199,6 @@ def _get_or_create_node(name, node_type=None, parent=None, connection=None, **ke
         return get_node(db_name, connection=connection)
     else:
         return _create_node(name, node_type, parent, connection, **keys)
-
-
-class DataNodeIterator:
-    """Iterate over nodes or events of a DataNode
-    """
-
-    def __init__(self, node):
-        warnings.warn(
-            "DataNodeIterator is deprecated. Use 'DataNode.walk' instead.",
-            FutureWarning,
-        )
-        self.node = node
-
-    def __getattr__(self, attr):
-        return getattr(self.node, attr)
 
 
 def set_ttl(db_name):
@@ -355,7 +342,10 @@ class DataNode:
 
     @property
     def iterator(self):
-        return DataNodeIterator(self)
+        warnings.warn(
+            "DataNodeIterator is deprecated. Use 'DataNode' itself.", FutureWarning
+        )
+        return self
 
     @property
     @protect_from_kill
@@ -510,23 +500,29 @@ class DataNode:
             reader, filter=filter, first_index=first_index, yield_events=yield_events
         )
         for stream, events in reader:
+            # TODO: otherwise node._children_stream._cnx() throws an exception
             if stream.name.endswith("_children_list"):
-                # TODO: we start from the DataNode we listen on,
-                # not from the DataNode associated to this stream.
-                # Doesn't harm but redundant?
-                yield from self._iter_children_stream_events(
-                    reader,
-                    stream,
-                    events,
-                    filter=filter,
-                    first_index=first_index,
-                    yield_events=yield_events,
-                )
+                handler = self._iter_children_stream_events
             else:
                 node = reader.get_stream_info(stream, "node")
-                yield from node._iter_data_stream_events(
-                    reader, events, filter=filter, yield_events=yield_events
-                )
+                handler = node.get_stream_event_handler(stream)
+            yield from handler(
+                reader,
+                events,
+                filter=filter,
+                first_index=first_index,
+                yield_events=yield_events,
+            )
+
+    def get_stream_event_handler(self, stream):
+        """
+        :param DataStream stream:
+        :returns callable:
+        """
+        if stream.name == f"{self.db_name}_data":
+            return self._iter_data_stream_events
+        else:
+            raise RuntimeError(f"Unknown stream {stream.name}")
 
     def _filtered_out(self, filter):
         """
@@ -537,23 +533,6 @@ class DataNode:
             return not filter(self)
         else:
             return filter and self.type not in filter
-
-    def _iter_children_stream_events(
-        self, reader, stream, events, filter=None, first_index=None, yield_events=False
-    ):
-        """
-        :param DataStreamReader reader:
-        :param DataStream stream:
-        :param list(2-tuple) events:
-        :param tuple or callable filter: only these DataNode types are allowed (all by default)
-        :param str or int first_index: Redis stream ID
-        :param bool yield_events: yield Event or DataNode
-        :yields Event or DataNode:
-        """
-        for node in self.get_children(events):
-            yield from node._yield_on_new_node(
-                reader, filter, first_index, yield_events
-            )
 
     def _yield_on_new_node(self, reader, filter, first_index, yield_events):
         """
@@ -575,29 +554,21 @@ class DataNode:
             reader, filter=filter, first_index=first_index, yield_events=yield_events
         )
 
-    def _iter_data_stream_events(self, reader, events, filter=None, yield_events=False):
+    def _iter_data_stream_events(
+        self, reader, events, filter=None, first_index=None, yield_events=False
+    ):
         """
         :param DataStreamReader reader:
         :param list(2-tuple) events:
         :param tuple or callable filter: only these DataNode types are allowed (all by default)
+        :param str or int first_index: Redis stream ID
         :param bool yield_events: yield Event or DataNode
         :yields Event:
         """
-        # TODO: we still assume that in the case of an EndEvent,
-        #       it is a single event (currently the case)
-        is_end = streaming_events.EndEvent.istype(events[0][1])
         if yield_events and not self._filtered_out(filter):
             with AllowKill():
-                data = self.decode_raw_events(events)  # EventData
-                if is_end:
-                    evtype = EventType.END_SCAN
-                else:
-                    evtype = EventType.NEW_DATA
-                yield Event(type=evtype, node=self, data=data)
-        if is_end:
-            # Stop reading events from this node's streams
-            # and the streams of its children
-            reader.remove_matching_streams(f"{self.db_name}*")
+                data = self.decode_raw_events(events)
+                yield Event(type=EventType.NEW_DATA, node=self, data=data)
 
     def _get_last_child(self, filter=None):
         """Get the last child added to the _children_list stream of
@@ -681,7 +652,7 @@ class DataNode:
         """
         children_stream = self.parent._create_stream("children_list")
         for index, raw in children_stream.rev_range():
-            db_name = NewDataNodeEvent(raw=raw).db_name
+            db_name = NewNodeEvent(raw=raw).db_name
             if db_name == self.db_name:
                 break
         else:
@@ -707,11 +678,16 @@ class DataNodeContainer(DataNode):
             f"{db_name}_children_list"
         )
 
+    def _get_db_names(self):
+        db_names = super()._get_db_names()
+        db_names.append("%s_children_list" % self.db_name)
+        return db_names
+
     def add_children(self, *children):
         """Publish new (direct) child in Redis
         """
         for child in children:
-            self._children_stream.add_event(NewDataNodeEvent(child.db_name))
+            self._children_stream.add_event(NewNodeEvent(child.db_name))
 
     def get_children(self, events=None, purge=False):
         """Get direct children as published in the _children_list
@@ -724,15 +700,14 @@ class DataNodeContainer(DataNode):
         """
         if events is None:
             events = self._children_stream.range()
-        node_dict = {
-            NewDataNodeEvent.factory(raw).db_name: index for index, raw in events
-        }
+        node_dict = {NewNodeEvent.factory(raw).db_name: index for index, raw in events}
         with settings.pipeline(self._children_stream):
             for index, node in zip(node_dict.values(), self.get_nodes(*node_dict)):
-                if node is None and purge:
+                if node is None:
                     # When the index is not present
                     # it is silently ignored.
-                    self._children_stream.remove(index)
+                    if purge:
+                        self._children_stream.remove(index)
                 else:
                     yield node
 
@@ -742,10 +717,31 @@ class DataNodeContainer(DataNode):
         """
         return self.get_children(purge=purge)
 
-    def _get_db_names(self):
-        db_names = super()._get_db_names()
-        db_names.append("%s_children_list" % self.db_name)
-        return db_names
+    def get_stream_event_handler(self, stream):
+        """
+        :param DataStream stream:
+        :returns callable:
+        """
+        if stream.name == f"{self.db_name}_children_list":
+            return self._iter_children_stream_events
+        else:
+            return super().get_stream_event_handler(stream)
+
+    def _iter_children_stream_events(
+        self, reader, events, filter=None, first_index=None, yield_events=False
+    ):
+        """
+        :param DataStreamReader reader:
+        :param list(2-tuple) events:
+        :param tuple or callable filter: only these DataNode types are allowed (all by default)
+        :param str or int first_index: Redis stream ID
+        :param bool yield_events: yield Event or DataNode
+        :yields Event or DataNode:
+        """
+        for node in self.get_children(events):
+            yield from node._yield_on_new_node(
+                reader, filter, first_index, yield_events
+            )
 
     def _subscribe_on_new_node_before_yield(
         self, reader, filter=None, first_index=None, yield_events=False
@@ -757,10 +753,6 @@ class DataNodeContainer(DataNode):
         :param str or int first_index: Redis stream ID
         :param bool yield_events: yield Event or DataNode
         """
-        if yield_events:
-            self._subscribe_existing_children_streams(
-                "data", reader, include_parent=False, first_index=0, filter=filter
-            )
         # Do not use the filter here. Maybe we don't want the node's
         # events but we may want the events from its children
         self._subscribe_stream(
@@ -769,6 +761,21 @@ class DataNodeContainer(DataNode):
         self._subscribe_existing_children_streams(
             "children_list", reader, include_parent=False, first_index=first_index
         )
+
+    def _subscribe_on_new_node_after_yield(
+        self, reader, filter=None, first_index=None, yield_events=False
+    ):
+        """Subscribe to new streams after yielding the NEW_NODE event.
+
+        :param DataStreamReader reader:
+        :param tuple filter: only these DataNode types are allowed (all by default)
+        :param str or int first_index: Redis stream ID
+        :param bool yield_events: yield Event or DataNode
+        """
+        if yield_events:
+            self._subscribe_existing_children_streams(
+                "data", reader, include_parent=False, first_index=0, filter=filter
+            )
 
     def _subscribe_existing_children_streams(
         self,
@@ -797,7 +804,6 @@ class DataNodeContainer(DataNode):
         else:
             pattern = f"{self.db_name}:*_{stream_suffix}"
         stream_names = self.search_redis(pattern)
-        # TODO: Do we need hierarchical sorting?
         stream_names = sorted(stream_names, key=self._node_sort_key)
 
         # Get associated DataNode's
@@ -827,11 +833,11 @@ class DataNodeContainer(DataNode):
         # Subscribe to the streams associated to the nodes
         for node in nodes:
             if node is None:
-                continue  # TODO raise exception instead?
+                continue
             if node._filtered_out(filter):
                 continue
             if addstream(node.db_name):
-                node._subscribe_stream(stream_suffix, reader, create=True, **kw)
+                node._subscribe_stream(stream_suffix, reader, **kw)
 
     @staticmethod
     def _node_sort_key(db_name):

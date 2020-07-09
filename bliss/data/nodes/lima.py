@@ -246,7 +246,7 @@ class LimaDataView:
         """Get the image URI's (universal resource identifiers).
 
         Stops iterating when it encounters an image that is not
-        ready or saved yet, reguardless of how many images you
+        ready or saved yet, regardless of how many images you
         asked for.
 
         :param sequence image_nbs:
@@ -258,13 +258,25 @@ class LimaDataView:
         self.update()
         yield from self.status_event.iter_image_uris(image_nbs=image_nbs, saved=saved)
 
+    def get_filenames(self):
+        warnings.warn(
+            "'get_filenames' is deprecated. Use 'all_image_uris' instead.",
+            FutureWarning,
+        )
+        return self.all_image_uris()
+
+    def _get_filenames(self, ref_data, *image_nbs):
+        warnings.warn(
+            "'_get_filenames' is deprecated. Use 'image_uris' itself.", FutureWarning
+        )
+        return self.image_uris(image_nbs)
+
 
 class LimaImageChannelDataNode(ChannelDataNodeBase):
     _NODE_TYPE = "lima"
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # TODO: ending with _data would give a problem?
         self._queue_ref = QueueObjSetting(
             f"{self.db_name}_data_ref", connection=self.db_connection
         )

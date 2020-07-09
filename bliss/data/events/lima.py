@@ -161,7 +161,7 @@ class LimaImageStatusEvent(streaming_events.StreamEvent):
         """Get the image URI's (universal resource identifiers).
 
         Stops iterating when it encounters an image that is not
-        ready or saved yet, reguardless of how many images you
+        ready or saved yet, regardless of how many images you
         asked for.
 
         :param sequence image_nbs:

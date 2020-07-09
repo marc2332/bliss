@@ -421,8 +421,10 @@ class DataStreamReader:
             return
         with pipeline(self._synchro_stream):
             if end:
+                # print(f"{self}: SYNC_END")
                 synchro_stream.add(self.SYNC_END)
             else:
+                # print(f"{self}: SYNC_EVENT")
                 synchro_stream.add(self.SYNC_EVENT)
             synchro_stream.ttl(60)
 
@@ -465,7 +467,7 @@ class DataStreamReader:
             raise ValueError("Priority must be a positive number")
         with self._update_streams_context():
             for stream in streams:
-                # print(f"ADD STREAM {stream.name}")
+                # print(f"{self}: ADD STREAM {stream.name}")
                 self.check_stream_connection(stream)
                 sinfo = self._compile_stream_info(
                     stream, first_index=first_index, priority=priority, **info
@@ -681,9 +683,11 @@ class DataStreamReader:
 
         :param list events: list((index, raw)))
         """
+        index = self._synchro_index
         for index, raw in events:
             if streaming_events.EndEvent.istype(raw):
                 # stop reader loop (does not stop consumer)
+                # print(f"{self}: STOP reading event")
                 raise StopIteration
         self._synchro_index = index
         self._update_active_streams()
@@ -695,6 +699,11 @@ class DataStreamReader:
         :param dict sinfo: stream info
         :param list events: list((index, raw)))
         """
+        # evtypes = {
+        #    streaming_events.StreamEvent.class_factory(raw).TYPE
+        #    for index, raw in events
+        # }
+        # print(f"QUEUE {sinfo['stream'].name}: {evtypes}")
         self._queue.put((sinfo["stream"], events))
         sinfo["first_index"] = events[-1][0]
 
@@ -732,7 +741,11 @@ class DataStreamReader:
             for item in self._queue:
                 if isinstance(item, Exception):
                     raise item
-                # print(f"CONSUME {item[0].name}: {len(item[1])} events")
+                # evtypes = {
+                #    streaming_events.StreamEvent.class_factory(raw).TYPE
+                #    for index, raw in item[1]
+                # }
+                # print(f"CONSUME {item[0].name}: {evtypes}")
                 self._consumer_state = self.ConsumerState.YIELDING
                 yield item
                 self._consumer_state = self.ConsumerState.WAITING

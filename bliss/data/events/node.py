@@ -7,12 +7,12 @@
 
 from bliss.config import streaming_events
 
-__all__ = ["NewDataNodeEvent"]
+__all__ = ["NewNodeEvent"]
 
 
-class NewDataNodeEvent(streaming_events.StreamEvent):
+class NewNodeEvent(streaming_events.StreamEvent):
 
-    TYPE = b"NEW_DATA_NODE"
+    TYPE = b"NEW_NODE"
     DB_KEY = b"db_name"
 
     def init(self, db_name):

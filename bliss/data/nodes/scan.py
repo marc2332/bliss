@@ -5,45 +5,10 @@
 # Copyright (c) 2015-2020 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-import time
-import datetime
-import pickle
+from bliss.common.greenlet_utils import AllowKill
 from bliss.data.node import DataNodeContainer
-from bliss.data.events import EventData, EndScanEvent
+from bliss.data.events import Event, EventType, EventData, EndScanEvent
 from bliss.config import settings
-
-
-def _transform_dict_obj(dict_object):
-    return_dict = dict()
-    for key, value in dict_object.items():
-        return_dict[key] = _transform(value)
-    return return_dict
-
-
-def _transform_iterable_obj(iterable_obj):
-    return_list = list()
-    for value in iterable_obj:
-        return_list.append(_transform(value))
-    return return_list
-
-
-def _transform_obj_2_name(obj):
-    return obj.name if hasattr(obj, "name") else obj
-
-
-def _transform(var):
-    if isinstance(var, dict):
-        var = _transform_dict_obj(var)
-    elif isinstance(var, (tuple, list)):
-        var = _transform_iterable_obj(var)
-    else:
-        var = _transform_obj_2_name(var)
-    return var
-
-
-def pickle_dump(var):
-    var = _transform(var)
-    return pickle.dumps(var)
 
 
 class Scan(DataNodeContainer):
@@ -115,6 +80,27 @@ class Scan(DataNodeContainer):
             reader, filter=filter, first_index=first_index, yield_events=yield_events
         )
         self._subscribe_stream("data", reader, first_index=0, create=True)
+
+    def _iter_data_stream_events(
+        self, reader, events, filter=None, first_index=None, yield_events=False
+    ):
+        """
+        :param DataStreamReader reader:
+        :param list(2-tuple) events:
+        :param tuple or callable filter: only these DataNode types are allowed (all by default)
+        :param str or int first_index: Redis stream ID
+        :param bool yield_events: yield Event or DataNode
+        :yields Event:
+        """
+        data = self.decode_raw_events(events)
+        if data is None:
+            return
+        if yield_events and not self._filtered_out(filter):
+            with AllowKill():
+                yield Event(type=EventType.END_SCAN, node=self, data=data)
+        # Stop reading events from this node's streams
+        # and the streams of its children
+        reader.remove_matching_streams(f"{self.db_name}*")
 
 
 def get_data_from_nodes(pipeline, *nodes):

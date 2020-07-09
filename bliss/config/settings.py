@@ -171,7 +171,7 @@ def pipeline(*settings):
     # check they have the same connection
     connections = set(setting._cnx() for setting in settings)
     if len(connections) > 1:
-        raise RuntimeError("Cannot groupe redis commands in a pipeline")
+        raise RuntimeError("Cannot group redis commands in a pipeline")
     # save the connection
     cnx = connections.pop()
     cnx_ref = weakref.ref(cnx)

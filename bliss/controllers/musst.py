@@ -363,6 +363,7 @@ class musst(CounterController):
         self.integrating_counters = MusstIntegratingCounterController("integ", self)
 
         self._channels = None
+        self._timer_factor = None
         self._counter_init(config_tree)
 
         # this function will be used by lazy_init
@@ -552,10 +553,10 @@ class musst(CounterController):
 
         time -- If specified, the counters run for that time (in s.)
         """
-
+        self._timer_factor = self.get_timer_factor()
         if time is not None:
-            time *= self.get_timer_factor()
-            self.putget("#RUNCT %d" % time)
+            time_clock = time * self._timer_factor
+            self.putget("#RUNCT %d" % time_clock)
         else:
             self.putget("#RUNCT")
         if wait:
@@ -819,9 +820,26 @@ class musst(CounterController):
                     "Musst (%s) Counter (%s): Error reading from Musst device"
                     % (cnt.controller.name, cnt.name)
                 )
-            val_float = [float(x) for x in val_str.split(" ")]
+            val_float = [
+                self._convert_read(val, cnt)
+                for val, cnt in zip(val_str.split(" "), counters)
+            ]
 
             return val_float
+
+    def _convert_read(self, valstr, cnt):
+        if cnt.channel == "TIMER":
+            if self._timer_factor is None:
+                self._timer_factor = self.get_timer_factor()
+            return int(valstr) / self._timer_factor
+        else:
+            channel_type = cnt.channel_config.get("type")
+            if channel_type == "adc10":
+                return int(valstr) * (10. / 0x7fffffff)
+            elif channel_type == "adc5":
+                return int(valstr) * (5. / 0x7fffffff)
+            else:
+                return float(valstr)
 
     @autocomplete_property
     def counters(self):

@@ -120,4 +120,7 @@ class Camera(CameraBase):
 
     @LimaProperty
     def synchro_mode(self):
-        return "IMAGE"
+        if self._lima_proxy.acq_trigger_mode == "INTERNAL_TRIGGER_MULTI":
+            return "TRIGGER"
+        else:
+            return "IMAGE"

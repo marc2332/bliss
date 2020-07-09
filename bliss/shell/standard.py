@@ -830,7 +830,7 @@ def flint():
         BLISS [2]: f.kill9()
     """
     proxy = plot_module.get_flint(creation_allowed=True, mandatory=True)
-    print("Currently Flint PID: ", proxy.pid)
+    print("Current Flint PID: ", proxy.pid)
     print("")
     return proxy
 

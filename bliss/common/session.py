@@ -12,7 +12,7 @@ import collections
 import functools
 
 from treelib import Tree
-from types import ModuleType, SimpleNamespace
+from types import ModuleType
 
 from bliss import setup_globals, global_map, is_bliss_shell
 from bliss.config import static
@@ -20,6 +20,7 @@ from bliss.config.settings import SimpleSetting
 from bliss.config.conductor.client import get_text_file, get_python_modules, get_file
 from bliss.common.proxy import Proxy
 from bliss.common.logtools import log_warning
+from bliss.common.utils import UserNamespace
 from bliss.scanning import scan_saving
 
 
@@ -574,12 +575,17 @@ class Session:
                 if k not in globals_dict:
                     continue
                 env_dict[k] = globals_dict[k]
-            ns = SimpleNamespace(**env_dict)
+            ns = UserNamespace(env_dict)
 
             if isinstance(export_global, str):
-                if isinstance(self.env_dict.get(export_global), SimpleNamespace):
+                if (
+                    getattr(self.env_dict.get(export_global), "__module__", None)
+                    == "bliss.common.utils.namespace"
+                ):
                     # case: export and merge to existing namespace in env dict
-                    self.env_dict[export_global].__dict__.update(ns.__dict__)
+                    d = self.env_dict[export_global]._asdict()
+                    d.update(env_dict)
+                    self.env_dict[export_global] = UserNamespace(d)
                 else:
                     # case: export to given (non existing) namespace in env dict
                     safe_save_to_env_dict(self.env_dict, export_global, ns)

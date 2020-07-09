@@ -16,6 +16,7 @@ import itertools
 import functools
 import numpy
 import collections.abc
+import importlib.util
 from collections.abc import MutableMapping, MutableSequence
 import socket
 import fnmatch
@@ -365,9 +366,9 @@ def with_custom_members(klass):
         attr_info = custom_attrs.get(name)
         if attr_info:
             orig_type_info, access_mode = attr_info
-            if fget and not "r" in access_mode:
+            if fget and "r" not in access_mode:
                 access_mode = "rw"
-            if fset and not "w" in access_mode:
+            if fset and "w" not in access_mode:
                 access_mode = "rw"
             assert type_info == orig_type_info, "%s get/set types mismatch" % name
         else:
@@ -561,6 +562,48 @@ class autocomplete_property(property):
     """
 
     pass
+
+
+# the following code around `UserNamespace` is about a namespace that
+# that has autocomplete_property properties itself.  It provides a
+# signature completion in the bliss shell also for its members.
+# More details in the doc bliss doc.
+#
+# BLISS [1]: from bliss.common.utils import UserNamespace
+# BLISS [2]: def a(self,kwarg=13):
+#       ...:     print(a)
+# BLISS [4]: c=UserNamespace({"a":a})
+# BLISS [5]: c.a(
+#               a(self, kwarg=13)   # signature suggestion
+
+# create a copy of module collections to have a copy of namedtuple
+__SPEC = importlib.util.find_spec("collections")
+mycollections = importlib.util.module_from_spec(__SPEC)
+__SPEC.loader.exec_module(mycollections)
+sys.modules["mycollections"] = mycollections
+
+from mycollections import namedtuple as UserNamedtuple  # noqa E402
+
+# patch property to trigger jedi signature hint
+UserNamedtuple.__globals__["property"] = autocomplete_property
+
+
+def UserNamespace(env_dict={}):
+    klass = UserNamedtuple("namespace", env_dict, module=__name__ + ".namespace")
+
+    def namespace_dir(self):
+        __dir__ = super(self.__class__, self).__dir__()
+        to_remove = []
+        if "count" not in env_dict:
+            to_remove.append("count")
+        if "index" not in env_dict:
+            to_remove.append("index")
+        return [i for i in __dir__ if i not in to_remove]
+
+    # patch dir function to hide "count" & "index" built-in tuples functions from jedi completion
+    klass.__dir__ = namespace_dir
+    ns = klass(**env_dict)
+    return ns
 
 
 def deep_update(d, u):

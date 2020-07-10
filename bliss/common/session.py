@@ -534,9 +534,9 @@ class Session:
             raise RuntimeError(f"Failed to read [{filepath}] !")
 
         if load is True:
-            print(f"Loading [{filepath}]...")
+            print(f"Loading [{filepath}]")
         else:
-            print(f"Running [{filepath}]...")
+            print(f"Running [{filepath}]")
 
         globals_dict = self.env_dict.copy()
         globals_dict["__file__"] = filepath
@@ -548,19 +548,16 @@ class Session:
             sys.excepthook(*sys.exc_info())
 
         def safe_save_to_env_dict(env_dict, key, value):
-            """ Print warning and backup if env_dict[key] already exists """
+            """ Print warning if env_dict[key] already exists """
             if key in env_dict and value is not env_dict[key]:
-                print(
-                    f"Warning: {key} already exists in session env, backed up to {key}_bak."
-                )
-                env_dict[key + "_bak"] = env_dict[key]
+                print(f"Replaced [{key}] in session env")
             env_dict[key] = value
 
-        # case: run file
+        # case #1: run file
         if not load:
             return
 
-        # case: export to global env dict
+        # case #2: export to global env dict
         if export_global is True:
             for k in globals_dict.keys():
                 if k.startswith("_"):
@@ -582,15 +579,18 @@ class Session:
                     getattr(self.env_dict.get(export_global), "__module__", None)
                     == "bliss.common.utils.namespace"
                 ):
-                    # case: export and merge to existing namespace in env dict
+                    # case #3: export and merge to existing namespace in env dict
                     d = self.env_dict[export_global]._asdict()
                     d.update(env_dict)
                     self.env_dict[export_global] = UserNamespace(d)
+                    print(f"Merged [{export_global}] namespace in session.")
                 else:
-                    # case: export to given (non existing) namespace in env dict
+                    # case #4: export to given (non existing) namespace in env dict
                     safe_save_to_env_dict(self.env_dict, export_global, ns)
+                    print(f"Exported [{export_global}] namespace in session.")
+
             else:
-                # case: export_global is False, return the namespace
+                # case #5: export_global is False, return the namespace
                 return ns
 
     def setup(self, env_dict=None, verbose=False):

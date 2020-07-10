@@ -152,8 +152,6 @@ def test_user_script(session4, capsys):
 
     # test that user_script_load can export to "user" namespace
     assert list(session4.env_dict["user"]._fields) == expected_symbols
-    # test backup of pre existing user
-    assert session4.env_dict["user_bak"] == 42
 
     session4.env_dict["user_ns"] = session4.env_dict["user"]
     session4.env_dict["user_ns"].a == 0

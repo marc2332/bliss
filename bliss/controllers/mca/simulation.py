@@ -19,6 +19,10 @@ class SimulatedMCA(BaseMCA):
     _gate_end = 0.5
     _mapping_modulo = 2
 
+    _fast_channel_dt = 0.9
+    _slow_channel_dt = 0.7
+    _source_count_rate = 10000
+
     # Initialization
 
     def initialize_attributes(self):
@@ -139,9 +143,9 @@ class SimulatedMCA(BaseMCA):
                 gevent.sleep(self._read_overhead)
         finally:
             self.stop_acquisition()
-            spectrums = self.get_acquisition_data()
+            spectra = self.get_acquisition_data()
             statistics = self.get_acquisition_statistics()
-            event.send(self, "data", (spectrums, statistics))
+            event.send(self, "data", (spectra, statistics))
 
     def stop_acquisition(self):
         if self._running:
@@ -175,37 +179,38 @@ class SimulatedMCA(BaseMCA):
 
     # Data generation
 
-    def _generate_pixel(self, delta):
+    def _generate_pixel(self, realtime):
         data, stats = {}, {}
+        nbins = self._spectrum_size
+        loc = nbins // 2
+        scale = nbins // 16
+        bins = numpy.arange(nbins + 1)
         for i in self.elements:
-            realtime = delta
-            trigger_livetime = realtime * numpy.random.normal(0.9, 0.01)
-            energy_livetime = trigger_livetime * numpy.random.normal(0.9, 0.01)
-            triggers = int(
-                10000 * numpy.random.normal(trigger_livetime, trigger_livetime * 0.2)
-            )
-            events = triggers // 2
-            icr = triggers / realtime if realtime else 0.
-            ocr = events / trigger_livetime if trigger_livetime else 0.
-            deadtime = 1 - ocr / icr if icr else 0.
-            stats[i] = Stats(
-                realtime,
-                trigger_livetime,
-                energy_livetime,
-                triggers,
-                events,
-                icr,
-                ocr,
-                deadtime,
-            )
-            size = self._spectrum_size
-            data[i] = numpy.zeros(size, dtype=int)
-            for _ in range(events):
-                loc = numpy.random.normal(size // 2, size // 16)
-                e = int(numpy.random.normal(loc, size // 16))
-                if e >= size:
-                    e = size - 1
-                elif e < 0:
-                    e = 0
-                data[i][e] += 1
+            stats[i] = self._generate_stats(realtime)
+            n = stats[i].events
+            channels = numpy.random.normal(loc=loc, scale=scale, size=n)
+            data[i] = numpy.histogram(channels, bins=bins)[0]
         return data, stats
+
+    def _generate_stats(self, realtime):
+        fast_channel_dt = numpy.random.normal(self._fast_channel_dt, 0.01)
+        fast_channel_dt = numpy.clip(fast_channel_dt, 0, 1)
+        slow_channel_dt = numpy.random.normal(self._slow_channel_dt, 0.01)
+        slow_channel_dt = numpy.clip(slow_channel_dt, 0, 1)
+        trigger_livetime = realtime * fast_channel_dt
+        energy_livetime = realtime * slow_channel_dt
+        triggers = int(self._source_count_rate * trigger_livetime)
+        events = int(self._source_count_rate * energy_livetime)
+        icr = triggers / trigger_livetime if trigger_livetime else 0.
+        ocr = events / realtime if realtime else 0.
+        deadtime = 1 - ocr / icr if icr else 0.
+        return Stats(
+            realtime,
+            trigger_livetime,
+            energy_livetime,
+            triggers,
+            events,
+            icr,
+            ocr,
+            deadtime,
+        )

@@ -26,6 +26,15 @@ from bliss.data.scan import watch_session_scans
 from bliss.scanning.group import Sequence, Group
 from bliss.common.tango import DeviceProxy
 from nexus_writer_service.io import nexus
+from bliss.controllers import simulation_diode
+from bliss.controllers.mca import simulation as simulation_mca
+
+simulation_diode.SimulationDiodeController._read_overhead = 0
+simulation_diode.SimulationDiodeIntegrationController._read_overhead = 0
+simulation_mca.SimulatedMCA._read_overhead = 0
+simulation_mca.SimulatedMCA._init_time = 0
+simulation_mca.SimulatedMCA._prepare_time = 0
+simulation_mca.SimulatedMCA._cleanup_time = 0
 
 
 def run_scans(*scns):
@@ -53,16 +62,18 @@ def stress_many_parallel(test_session, filename, titles, checkoutput=True):
     :param list(str) titles: keep track of the number of scans
     :param bool checkoutput:
     """
+    expotime = 1e-6
     scan_funcs = get_scan_funcs(test_session)
     scanseq = Sequence()
     with scanseq.sequence_context() as scan_seq:
         # Create as many scans as possible
         detectors = get_detectors(test_session)
+        prepare_detectors(test_session, expotime)
         motors = get_motors(test_session)
         scns = []
 
         while detectors:
-            s = get_scan(detectors, motors, scan_funcs)
+            s = get_scan(detectors, motors, scan_funcs, expotime)
             scan_seq.add(s)
             scns.append(s)
         # Run all in parallel
@@ -86,14 +97,15 @@ def stress_bigdata(test_session, filename, titles, checkoutput=True):
     :param list(str) titles: keep track of the number of scans
     :param bool checkoutput:
     """
+    expotime = 1e-6
     detectors = get_detectors(test_session)
-    lima_saving(test_session, frames=100)
+    prepare_detectors(test_session, expotime, frames=1000)
     motors = get_motors(test_session)
 
     mot1, mot2 = motors[:2]
     with print_scan_progress(test_session):
         scan = scans.amesh(
-            mot1, 0, 10, 200, mot2, 1, 20, 300, 1e-6, *detectors, run=False
+            mot1, 0, 10, 200, mot2, 1, 20, 300, expotime, *detectors, run=False
         )
         run_scans(scan)
 
@@ -108,11 +120,12 @@ def stress_fastdata(test_session, filename, titles, checkoutput=True):
     :param list(str) titles: keep track of scans
     :param bool checkoutput:
     """
+    expotime = 1e-6
     detectors = (test_session.env_dict["lima_simulator"],)
-    lima_saving(test_session, frames=1000)
+    prepare_detectors(test_session, expotime, frames=1000)
 
     with print_scan_progress(test_session):
-        scan = scans.loopscan(1000, 1e-6, *detectors, run=False)
+        scan = scans.loopscan(1000, expotime, *detectors, run=False)
         run_scans(scan)
 
     if checkoutput:
@@ -146,7 +159,6 @@ def get_detectors(test_session):
         env_dict.get(f"lima_simulator{i}", env_dict.get(f"lima_simulator{i}alias"))
         for i in ["", 2]
     ]
-    lima_saving(test_session)
     return detectors
 
 
@@ -165,7 +177,18 @@ def get_scan_funcs(test_session):
     }
 
 
-def lima_saving(test_session, frames=100):
+def prepare_detectors(test_session, expotime, frames=100):
+    """Prepare lima controllers for data saving
+
+    :param bliss.common.session.Session test_session:
+    :param num expotime:
+    :param int frames:
+    """
+    simulation_mca.SimulatedMCA._source_count_rate = 1000 / expotime
+    prepare_lima(test_session, frames=frames)
+
+
+def prepare_lima(test_session, frames=100):
     """Prepare lima controllers for data saving
 
     :param bliss.common.session.Session test_session:
@@ -246,14 +269,14 @@ def next_file(test_session):
     return scan_saving.filename
 
 
-def get_scan(detectors, motors, scan_funcs):
+def get_scan(detectors, motors, scan_funcs, expotime):
     """
     :param list detectors: Bliss controller objects
     :param list motors: Bliss scannable objects
     :param list scan_funcs: Bliss scan functions
+    :param num expotime:
     :returns bliss.scanning.scan.Scan:
     """
-    expotime = 1e-6
     options = ["ct", "loopscan"]
     if motors:
         options.append("ascan")
@@ -291,7 +314,6 @@ def print_scan_progress(test_session):
     data = {}
 
     def new_data(ndim, master, info):
-        nonlocal data
         if ndim == "0d":
             for cname, cdata in info["data"].items():
                 data[cname] = len(cdata)

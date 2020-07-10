@@ -11,6 +11,7 @@ from bliss import global_map
 from bliss.config.beacon_object import BeaconObject
 from bliss.common.scans import DEFAULT_CHAIN
 from bliss.common.user_status_info import status_message
+from bliss.common.standard import lprint
 
 from bliss.common import timedisplay
 from bliss.controllers.counter import counter_namespace
@@ -52,6 +53,7 @@ class MachInfo(BeaconObject):
         ]
 
         self.__counters_groups = dict()
+        self.__check = False
         default_counters = config.get("default_counters", list())
         if default_counters:
             # check if allowed (ie: name is in self.COUNTERS)
@@ -84,21 +86,25 @@ class MachInfo(BeaconObject):
     def counter_groups(self):
         return counter_namespace(self._counter_grp)
 
-    @BeaconObject.property(default=True)
+    @property
     def check(self):
         """
         Install a preset for all common scans to pause
         scans when refill
         """
-        pass
+        return self.__check
 
     @check.setter
     def check(self, flag):
         if flag:
             preset = WaitForRefillPreset(self)
             DEFAULT_CHAIN.add_preset(preset, name=self.KEY_NAME)
+            self.__check = True
+            lprint("Activating Wait For Refill on scans")
         else:
             DEFAULT_CHAIN.remove_preset(name=self.KEY_NAME)
+            self.__check = False
+            lprint("Removing Wait For Refill on scans")
 
     @BeaconObject.property(default=True)
     def metadata(self):

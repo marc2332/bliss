@@ -88,7 +88,6 @@ from bliss.scanning.scan_tools import (
 from bliss.common.plot import meshselect  # noqa: F401
 from bliss.common import plot as plot_module
 
-from bliss.shell.interlocks import interlock_show
 from bliss.shell.cli import user_dialog, pt_widgets
 from bliss.scanning.scan import ScanDisplay
 

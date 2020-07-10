@@ -45,6 +45,7 @@ from bliss.common.standard import (
 from bliss.common.standard import wid as std_wid
 from bliss.controllers.lima.limatools import *
 from bliss.controllers.lima import limatools
+from bliss.controllers.lima import roi as lima_roi
 from bliss.common.protocols import CounterContainer
 from bliss.common import measurementgroup
 from bliss.common.soft_axis import SoftAxis
@@ -910,27 +911,38 @@ def edit_roi_counters(detector: Lima, acq_time: Optional[float] = None):
     selections = []
     roi_counters = detector.roi_counters
     for roi in roi_counters.get_rois():
-        selection = dict(
-            kind="Rectangle",
-            origin=(roi.x, roi.y),
-            size=(roi.width, roi.height),
-            label=roi.name,
-        )
+        if isinstance(roi, lima_roi.Roi):
+            selection = dict(
+                kind="Rectangle",
+                origin=(roi.x, roi.y),
+                size=(roi.width, roi.height),
+                label=roi.name,
+            )
+        elif isinstance(roi, lima_roi.ArcRoi):
+            selection = dict(kind="Arc", label=roi.name)
+            selection.update(roi.to_dict())
         selections.append(selection)
 
     name = f"{detector.name} [{roi_counters.config_name}]"
     print(f"Waiting for ROI edition to finish on {name}...")
-    selections = plot.select_shapes(selections)
-    roi_labels, rois = [], []
+    selections = plot.select_shapes(selections, kinds=["rectangle", "arc"])
+    roi_labels: typing.List[str] = []
+    rois: typing.List[typing.Tuple] = []
     ignored = 0
     for selection in selections:
         label = selection["label"]
         if not label:
             ignored += 1
             continue
-        x, y = map(int, map(round, selection["origin"]))
-        w, h = map(int, map(round, selection["size"]))
-        rois.append((x, y, w, h))
+        kind = selection["kind"].lower()
+        if kind == "rectangle":
+            x, y = map(int, map(round, selection["origin"]))
+            w, h = map(int, map(round, selection["size"]))
+            rois.append((x, y, w, h))
+        elif kind == "arc":
+            keys = ("cx", "cy", "r1", "r2", "a1", "a2")
+            roi_tuple = tuple(selection[c] for c in keys)
+            rois.append(roi_tuple)
         roi_labels.append(label)
     if ignored:
         print(f"{ignored} ROI(s) ignored (no name)")

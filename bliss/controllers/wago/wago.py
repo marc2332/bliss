@@ -1116,6 +1116,7 @@ class WagoController:
         self.client = comm
         self.timeout = timeout
         self.modules_config = modules_config
+        self.value_table = {}
 
         # setting up polling
         self.polling_time = polling_time
@@ -1222,7 +1223,7 @@ class WagoController:
             'ANA_OUT': (29109, 49427)}
         """
 
-        self.value_table = {}
+        value_table = {}
         memory = self.modules_config.memory_table
         total_digi_in = len(memory["DIGI_IN"])
         total_digi_out = len(memory["DIGI_OUT"])
@@ -1231,21 +1232,22 @@ class WagoController:
 
         if total_digi_in > 0:
             digi_in_reading = self.client_read_coils(0, total_digi_in)
-            self.value_table["DIGI_IN"] = digi_in_reading
+            value_table["DIGI_IN"] = digi_in_reading
 
         if total_digi_out > 0:
             digi_out_reading = self.client_read_coils(0x200, total_digi_out)
-            self.value_table["DIGI_OUT"] = digi_out_reading
+            value_table["DIGI_OUT"] = digi_out_reading
 
         if total_ana_in > 0:
             ana_in_reading = self.client_read_input_registers(0, total_ana_in * "H")
-            self.value_table["ANA_IN"] = ana_in_reading
+            value_table["ANA_IN"] = ana_in_reading
 
         if total_ana_out > 0:
             ana_out_reading = self.client_read_input_registers(
                 0x200, total_ana_out * "H"
             )
-            self.value_table["ANA_OUT"] = ana_out_reading
+            value_table["ANA_OUT"] = ana_out_reading
+        self.value_table = value_table
 
     def get(self, *logical_names, convert_values=True, flat=True, cached=False):
 
@@ -1267,7 +1269,6 @@ class WagoController:
                     for t in self.modules_config.read_table[name][chann].keys()
                     if t in ("DIGI_IN", "DIGI_OUT", "ANA_IN", "ANA_OUT")
                 ]
-
                 for type_ in types:
                     for mem_pos in self.modules_config.read_table[name][chann][type_][
                         "mem_position"

@@ -11,6 +11,7 @@ from typing import Sequence
 
 import numpy
 import logging
+import typing
 
 from silx.gui import qt, icons
 from silx.gui.plot.actions import PlotAction
@@ -18,6 +19,7 @@ from silx.gui.plot import PlotWidget
 from silx.gui.plot import MaskToolsWidget
 from silx.gui.colors import rgba
 from silx.gui.plot.items.roi import RectangleROI
+from silx.gui.plot.items.roi import ArcROI
 from silx.gui.plot.items.roi import PointROI
 from silx.gui.plot.items.roi import RegionOfInterest
 from silx.gui.plot.tools.roi import RegionOfInterestManager
@@ -444,6 +446,16 @@ class ShapesSelector(Selector):
         self.__dock = None
         self.__roiWidget = None
         self.__selection = None
+        self.__kinds: typing.List[RegionOfInterest] = []
+        self.__mapping = {"rectangle": RectangleROI, "arc": ArcROI}
+
+    def setKinds(self, kinds=typing.List[str]):
+        self.__kinds.clear()
+        for kind in kinds:
+            if kind not in self.__mapping:
+                raise RuntimeError("ROI kind '%s' is not supported" % kind)
+            roiClass = self.__mapping[kind]
+            self.__kinds.append(roiClass)
 
     def setInitialShapes(self, initialShapes: Sequence[Dict] = ()):
         self.__initialShapes = initialShapes
@@ -454,10 +466,21 @@ class ShapesSelector(Selector):
     def __dictToRois(self, shapes: Sequence[Dict]) -> Sequence[RegionOfInterest]:
         rois = []
         for shape in shapes:
-            kind = shape["kind"]
-            if kind == "Rectangle":
+            kind = shape["kind"].lower()
+            if kind == "rectangle":
                 roi = RectangleROI()
                 roi.setGeometry(origin=shape["origin"], size=shape["size"])
+                roi.setName(shape["label"])
+                rois.append(roi)
+            elif kind == "arc":
+                roi = ArcROI()
+                roi.setGeometry(
+                    center=(shape["cx"], shape["cy"]),
+                    innerRadius=shape["r1"],
+                    outerRadius=shape["r2"],
+                    startAngle=numpy.deg2rad(shape["a1"]),
+                    endAngle=numpy.deg2rad(shape["a2"]),
+                )
                 roi.setName(shape["label"])
                 rois.append(roi)
             else:
@@ -475,6 +498,18 @@ class ShapesSelector(Selector):
                     kind="Rectangle",
                 )
                 shapes.append(shape)
+            elif isinstance(roi, ArcROI):
+                shape = dict(
+                    cx=roi.getCenter()[0],
+                    cy=roi.getCenter()[1],
+                    r1=roi.getInnerRadius(),
+                    r2=roi.getOuterRadius(),
+                    a1=numpy.rad2deg(roi.getStartAngle()),
+                    a2=numpy.rad2deg(roi.getEndAngle()),
+                    label=roi.getName(),
+                    kind="Arc",
+                )
+                shapes.append(shape)
             else:
                 _logger.error(
                     "Unsupported ROI kind %s. ROI skipped from results", type(roi)
@@ -484,7 +519,7 @@ class ShapesSelector(Selector):
     def start(self):
         plot = self.parent()
 
-        roiWidget = RoiSelectionWidget(plot)
+        roiWidget = RoiSelectionWidget(plot, kinds=self.__kinds)
         dock = qt.QDockWidget("ROI selection", parent=plot)
         dock.setWidget(roiWidget)
         plot.addTabbedDockWidget(dock)

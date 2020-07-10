@@ -10,6 +10,8 @@ from __future__ import annotations
 from typing import Dict
 from typing import Sequence
 from typing import Tuple
+from typing import List
+from typing import Union
 from typing import TextIO
 from typing import NamedTuple
 
@@ -573,17 +575,28 @@ class FlintApi:
         return "flint_api_request_%d" % self.__requestCount
 
     def request_select_shapes(
-        self, plot_id, initial_shapes: Sequence[Dict] = (), timeout=None
+        self,
+        plot_id,
+        initial_shapes: Sequence[Dict] = (),
+        kinds: Union[str, List[str]] = "rectangle",
+        timeout=None,
     ) -> str:
         """
         Request a shape selection in a specific plot and return the selection.
 
-        A shape is described by a dictionary containing "origin", "size", "kind" (which is "Rectangle), and "label".
+        A shape is described by a dictionary according to it's kind:
+        - For a rectangle it contains "kind" (which is "Rectangle"), and "label",
+            "origin" and "size"
+        - For an arc it contains "kind" (which is "Arc"), and "label",
+            "c1", "c2", "r1", "r2", "a1", "a2" (clockwise, in degree)
 
         Arguments:
             plot_id: Identifier of the plot
-            initial_shapes: A list of shapes describing the current selection. Only Rectangle are supported.
+            initial_shapes: A list of shapes describing the current selection.
+                Only rectangles and arcs are supported.
             timeout: A timeout to enforce the user to do a selection
+            kinds: List or ROI kind which can be created (for now, "rectangle"
+                or "arc")
 
         Return:
             This method returns an event name which have to be registered to
@@ -593,6 +606,9 @@ class FlintApi:
         """
         plot = self._get_plot_widget(plot_id, expect_silx_api=True)
         selector = plot_interaction.ShapesSelector(plot)
+        if isinstance(kinds, str):
+            kinds = [kinds]
+        selector.setKinds(kinds)
         selector.setInitialShapes(initial_shapes)
         selector.setTimeout(timeout)
         return self.__request_selector(plot_id, selector)

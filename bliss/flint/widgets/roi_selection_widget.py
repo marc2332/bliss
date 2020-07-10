@@ -9,17 +9,20 @@
 Provide a RoiSelectionWidget
 """
 
+import typing
+
 from silx.gui import qt
 from silx.gui.plot.tools.roi import RegionOfInterestManager
 from silx.gui.plot.tools.roi import RegionOfInterestTableWidget
 from silx.gui.plot.items.roi import RectangleROI
+from silx.gui.plot.items.roi import RegionOfInterest
 
 
 class RoiSelectionWidget(qt.QMainWindow):
 
     selectionFinished = qt.Signal(object)
 
-    def __init__(self, plot, parent=None):
+    def __init__(self, plot, parent=None, kinds: typing.List[RegionOfInterest] = None):
         qt.QMainWindow.__init__(self, parent)
         # TODO: destroy on close
         self.plot = plot
@@ -35,11 +38,20 @@ class RoiSelectionWidget(qt.QMainWindow):
         self.table = RegionOfInterestTableWidget()
         self.table.setRegionOfInterestManager(self.roi_manager)
 
+        if kinds is None:
+            kinds = [RectangleROI]
+
         self.toolbar = qt.QToolBar()
         self.addToolBar(self.toolbar)
-        rectangle_action = self.roi_manager.getInteractionModeAction(RectangleROI)
-        rectangle_action.setObjectName("roi-select-rectangle")
-        self.toolbar.addAction(rectangle_action)
+
+        first_action = None
+        for roiKind in kinds:
+            action = self.roi_manager.getInteractionModeAction(roiKind)
+            if roiKind is RectangleROI:
+                action.setObjectName("roi-select-rectangle")
+            self.toolbar.addAction(action)
+            if first_action is None:
+                first_action = action
 
         self.toolbar.addSeparator()
         apply_action = qt.QAction(self.roi_manager)
@@ -51,7 +63,8 @@ class RoiSelectionWidget(qt.QMainWindow):
         layout = qt.QVBoxLayout(panel)
         layout.addWidget(self.table)
 
-        rectangle_action.trigger()
+        if first_action is not None:
+            first_action.trigger()
 
     def on_apply(self):
         self.selectionFinished.emit(self.roi_manager.getRois())

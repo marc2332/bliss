@@ -8,11 +8,21 @@
 import pytest
 from bliss import setup_globals
 from bliss.common import scans
-from bliss.shell.standard import plotselect, plotinit, cen, com, peak, fwhm
+from bliss.shell.standard import (
+    plotselect,
+    plotinit,
+    cen,
+    com,
+    peak,
+    fwhm,
+    find_position,
+    goto_custom,
+)
 from bliss.scanning.scan_display import ScanDisplay
 from bliss.scanning import scan_tools
 from bliss.common import plot
 from bliss.controllers.simulation_counter import TestCounterAndAxis
+import numpy
 
 
 def test_pkcom_ascan_gauss(session):
@@ -305,3 +315,31 @@ def test_com_with_neg_y(default_session):
     s = scans.ascan(tca.axis, 0, 1, tca.npoints, .01, tca.counter)
     com = s.com(tca.counter, axis=tca.axis)
     assert pytest.approx(com, abs=.0001) == 0.5987
+
+
+def test_find_position_goto_custom(session):
+    counter = session.config.get("sim_ct_gauss")
+    roby = session.config.get("roby")
+
+    def special_com(x, y):
+        return numpy.average(x, weights=y)
+
+    # test on scan object
+    s = scans.ascan(roby, 0, 1, 15, .01, counter, save=False)
+    assert s.find_position(special_com, counter) == pytest.approx(.5, abs=.01)
+    s.goto_custom(special_com, counter)
+    assert roby.position == pytest.approx(.5, abs=.01)
+
+    roby.move(.7)
+
+    # test in bliss.shell.standard
+    assert find_position(special_com) == pytest.approx(.5, abs=.01)
+    goto_custom(special_com)
+    assert roby.position == pytest.approx(.5, abs=.01)
+
+    roby.move(.7)
+
+    # test custom stuff from setup file
+    assert session.env_dict["find_special"]() == pytest.approx(.5, abs=.01)
+    session.env_dict["goto_special"]()
+    assert roby.position == pytest.approx(.5, abs=.01)

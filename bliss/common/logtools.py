@@ -373,9 +373,8 @@ class LogbookPrint:
             if current_session.scan_saving.proposal_type == "tmp":
                 return
 
-        metadata_manager = current_session.scan_saving.metadata_manager
-
         try:
+            metadata_manager = current_session.scan_saving.metadata_manager
             if metadata_manager.state() != DevState.FAULT:
                 if msg_type == "command":
                     metadata_manager.notifyCommand(msg)

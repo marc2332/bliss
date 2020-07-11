@@ -747,9 +747,9 @@ def _count_node_events(
         node = _get_node_object(node_type, db_name, None, None)
         startlistening_event.set()
         if count_nodes:
-            evgen = node.walk(filter=filter, wait=wait)
+            evgen = node.walk(filter=filter, wait=wait, debug=True)
         else:
-            evgen = node.walk_events(filter=filter, wait=wait)
+            evgen = node.walk_events(filter=filter, wait=wait, debug=True)
         while True:
             try:
                 with gevent.Timeout(overhead + 2):

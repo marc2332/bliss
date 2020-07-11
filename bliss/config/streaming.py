@@ -278,16 +278,25 @@ class DataStreamReader:
     SYNC_END = streaming_events.EndEvent().encode()
     SYNC_EVENT = streaming_events.StreamEvent().encode()
 
-    def __init__(self, wait=True, timeout=None, stop_handler=None, active_streams=None):
+    def __init__(
+        self,
+        wait=True,
+        timeout=None,
+        stop_handler=None,
+        active_streams=None,
+        debug=False,
+    ):
         """
         :param bool wait: stop reading when no new events (timeout ignored)
                           or keep waiting (with timeout)
         :param num timeout: in seconds (None: never timeout)
         :param DataStreamReaderStopHandler stop_handler: for gracefully stopping
         :param dict active_streams: active streams from another reader
+        :param bool debug:
         """
         self._has_consumer = False
         self._cnx = None
+        self._debug = debug
 
         # Mapping: stream name (str) -> stream info (dict)
         # Streams add/removed by the consumer
@@ -421,10 +430,12 @@ class DataStreamReader:
             return
         with pipeline(self._synchro_stream):
             if end:
-                # print(f"{self}: SYNC_END")
+                if self._debug:
+                    print(f"{self}: SYNC_END")
                 synchro_stream.add(self.SYNC_END)
             else:
-                # print(f"{self}: SYNC_EVENT")
+                if self._debug:
+                    print(f"{self}: SYNC_EVENT")
                 synchro_stream.add(self.SYNC_EVENT)
             synchro_stream.ttl(60)
 
@@ -467,7 +478,8 @@ class DataStreamReader:
             raise ValueError("Priority must be a positive number")
         with self._update_streams_context():
             for stream in streams:
-                # print(f"{self}: ADD STREAM {stream.name}")
+                if self._debug:
+                    print(f"{self}: ADD STREAM {stream.name}")
                 self.check_stream_connection(stream)
                 sinfo = self._compile_stream_info(
                     stream, first_index=first_index, priority=priority, **info
@@ -636,7 +648,8 @@ class DataStreamReader:
                 keep_reading = self._wait
 
                 # When wait=True: wait indefinitely when no events
-                # print(f"\n{self}: READING ...")
+                if self._debug:
+                    print(f"\n{self}: READING ...")
                 lst = self._read_active_streams()
                 read_priority = None
                 for name, events in lst:
@@ -648,16 +661,19 @@ class DataStreamReader:
                         # Lower priority streams are never read until
                         # while higher priority streams have unread data
                         keep_reading = True
-                        # print(f"{self}: SKIP {name}: {len(events)} events")
+                        if self._debug:
+                            print(f"{self}: SKIP {name}: {len(events)} events")
                         break
-                    # print(f"{self}: PROCESS {name}: {len(events)} events")
+                    if self._debug:
+                        print(f"{self}: PROCESS {name}: {len(events)} events")
                     if name == synchro_name:
                         self._process_synchro_events(events)
                         keep_reading = True
                     else:
                         self._process_consumer_events(sinfo, events)
                         gevent.idle()
-                # print("-------")
+                if self._debug:
+                    print(f"\n{self}: READING DONE.")
 
                 # Keep reading when active streams are modified
                 # by the consumer. This ensures that all streams
@@ -687,7 +703,8 @@ class DataStreamReader:
         for index, raw in events:
             if streaming_events.EndEvent.istype(raw):
                 # stop reader loop (does not stop consumer)
-                # print(f"{self}: STOP reading event")
+                if self._debug:
+                    print(f"{self}: STOP reading event")
                 raise StopIteration
         self._synchro_index = index
         self._update_active_streams()
@@ -699,11 +716,12 @@ class DataStreamReader:
         :param dict sinfo: stream info
         :param list events: list((index, raw)))
         """
-        # evtypes = {
-        #    streaming_events.StreamEvent.class_factory(raw).TYPE
-        #    for index, raw in events
-        # }
-        # print(f"QUEUE {sinfo['stream'].name}: {evtypes}")
+        if self._debug:
+            evtypes = {
+                streaming_events.StreamEvent.class_factory(raw).TYPE
+                for index, raw in events
+            }
+            print(f"QUEUE {sinfo['stream'].name}: {evtypes}")
         self._queue.put((sinfo["stream"], events))
         sinfo["first_index"] = events[-1][0]
 
@@ -737,15 +755,17 @@ class DataStreamReader:
             if not self._streams and not self._wait:
                 self._queue.put(StopIteration)
 
-            # print(f"{self}: CONSUMING ...")
+            if self._debug:
+                print(f"{self}: CONSUMING ...")
             for item in self._queue:
                 if isinstance(item, Exception):
                     raise item
-                # evtypes = {
-                #    streaming_events.StreamEvent.class_factory(raw).TYPE
-                #    for index, raw in item[1]
-                # }
-                # print(f"CONSUME {item[0].name}: {evtypes}")
+                if self._debug:
+                    evtypes = {
+                        streaming_events.StreamEvent.class_factory(raw).TYPE
+                        for index, raw in item[1]
+                    }
+                    print(f"CONSUME {item[0].name}: {evtypes}")
                 self._consumer_state = self.ConsumerState.YIELDING
                 yield item
                 self._consumer_state = self.ConsumerState.WAITING

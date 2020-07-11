@@ -18,6 +18,7 @@ import itertools
 import traceback
 from functools import wraps
 import logging
+import datetime
 
 from bliss import current_session
 from bliss.config.settings import ParametersWardrobe
@@ -768,6 +769,7 @@ class ESRFScanSaving(BasicScanSaving):
         # saved properties in Redis:
         "_writer_module": "nexus",
         "_proposal": "",
+        "_ESRFScanSaving__proposal_timestamp": 0,
         "_sample": "",
         "_dataset": "",
         "_mount": "",
@@ -874,6 +876,22 @@ class ESRFScanSaving(BasicScanSaving):
         """ICAT root directory depending in the proposal type (inhouse, visitor, tmp)
         """
         return self._get_base_path(icat=True, eval_dict=eval_dict)
+
+    @property
+    def date(self):
+        if self._ESRFScanSaving__proposal_timestamp:
+            tm = datetime.datetime.fromtimestamp(
+                self._ESRFScanSaving__proposal_timestamp
+            )
+        else:
+            tm = datetime.datetime.now()
+        return tm.strftime(self.date_format)
+
+    def _freeze_date(self):
+        self._ESRFScanSaving__proposal_timestamp = time.time()
+
+    def _unfreeze_date(self):
+        self._ESRFScanSaving__proposal_timestamp = 0
 
     @with_eval_dict
     def _get_base_path(self, icat=False, eval_dict=None):
@@ -1354,9 +1372,11 @@ class ESRFScanSaving(BasicScanSaving):
                 if proposal:
                     timeoutmsg = "Failed to start the ICAT proposal"
                     self._icat_wait_until_state(["STANDBY"], timeout=None)
+                    self._freeze_date()
                 else:
                     timeoutmsg = "Failed to reset the ICAT proposal"
                     self._icat_wait_until_state(["OFF"], timeout=None)
+                    self._unfreeze_date()
         except gevent.Timeout:
             self._raise_timeout(timeoutmsg, exception=exception)
 

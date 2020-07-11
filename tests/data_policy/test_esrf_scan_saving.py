@@ -361,3 +361,34 @@ def test_session_ending(
     assert mdexp_dev.sample not in ["sample", "sample1"]
     with pytest.raises(DevFailed):
         mdmgr_dev.datasetName
+
+
+def test_date_in_basepath(
+    session,
+    esrf_data_policy,
+    metadata_experiment_tango_server,
+    metadata_manager_tango_server,
+):
+    # Put date in base path template:
+    scan_saving = session.scan_saving
+    new_base_path = os.path.join(scan_saving.base_path, "{date}")
+    scan_saving.scan_saving_config["inhouse_data_root"] = new_base_path
+
+    # Call newproposal in the past:
+    pasttime = time.time() - 3600 * 24 * 100
+
+    def mytime():
+        return pasttime
+
+    time.time, orgtime = mytime, time.time
+    try:
+        scan_saving.newproposal("ihch123")
+        past = scan_saving.date
+        assert scan_saving.base_path.endswith(past)
+    finally:
+        time.time = orgtime
+
+    # Call newproposal in the present:
+    scan_saving.newproposal("ihch123")
+    assert scan_saving.date != past
+    assert not scan_saving.base_path.endswith(past)

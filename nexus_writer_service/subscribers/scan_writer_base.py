@@ -638,14 +638,27 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
         """
         NXdata signals
         """
-        return {"plot{}D".format(ndim): {"ndim": ndim} for ndim in self.detector_ndims}
+        plots = self.flintplots
+        for ndim in self.detector_ndims:
+            plots["plot{}D".format(ndim)] = {"ndim": ndim}
+        return plots
+
+    @property
+    def flintplots(self):
+        items = self.get_info("_display_extra", default={}).get(
+            "displayed_channels", []
+        )
+        if items:
+            return {"plotselect": {"items": items, "grid": True}}
+        else:
+            return {}
 
     @property
     def plotselect(self):
         """
         Default NXdata group
         """
-        return "plot0D"
+        return ""
 
     def _create_plots(self, subscan):
         """

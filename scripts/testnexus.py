@@ -15,98 +15,141 @@ Setup test environment first with `python scripts/testenv.py`
 import gevent
 import sys
 import os
-import h5py
 import random
 import shutil
+import numpy
 from contextlib import contextmanager
+from fabio.edfimage import EdfImage
 from bliss.config import static
 from bliss.common import scans
 from bliss.data.scan import watch_session_scans
-from bliss.scanning.group import Group
+from bliss.scanning.group import Sequence, Group
+from bliss.common.tango import DeviceProxy
 from nexus_writer_service.io import nexus
+from bliss.controllers import simulation_diode
+from bliss.controllers.mca import simulation as simulation_mca
+
+simulation_diode.SimulationDiodeController._read_overhead = 0
+simulation_diode.SimulationDiodeIntegrationController._read_overhead = 0
+simulation_mca.SimulatedMCA._read_overhead = 0
+simulation_mca.SimulatedMCA._init_time = 0
+simulation_mca.SimulatedMCA._prepare_time = 0
+simulation_mca.SimulatedMCA._cleanup_time = 0
 
 
-def stress_many_parallel(test_session, filename, titles, checkoutput=True):
-    scan_funcs = get_scan_funcs(test_session)
-
-    # Create as many scans as possible
-    detectors = get_detectors(test_session)
-    motors = get_motors(test_session)
-    scns = []
-    while detectors:
-        scns.append(get_scan(detectors, motors, scan_funcs))
-
-    # Run all in parallel
+def run_scans(*scns):
+    """
+    :param bliss.scanning.scan.Scan:
+    """
+    print(f"\nRunning {len(scns)} scans ...")
     glts = [gevent.spawn(s.run) for s in scns]
     try:
         gevent.joinall(glts)
     except KeyboardInterrupt:
-        try:
-            gevent.killall(glts, KeyboardInterrupt)
-        except Exception:
-            return True
+        gevent.killall(glts, KeyboardInterrupt)
+        raise
     else:
         for g in glts:
             g.get()
+    finally:
+        print("\nScans finished.")
+
+
+def stress_many_parallel(test_session, filename, titles, checkoutput=True):
+    """
+    :param bliss.common.session.Session test_session:
+    :param str filename: for data saving
+    :param list(str) titles: keep track of the number of scans
+    :param bool checkoutput:
+    """
+    expotime = 1e-6
+    scan_funcs = get_scan_funcs(test_session)
+    scanseq = Sequence()
+    with scanseq.sequence_context() as scan_seq:
+        # Create as many scans as possible
+        detectors = get_detectors(test_session)
+        prepare_detectors(test_session, expotime)
+        motors = get_motors(test_session)
+        scns = []
+
+        while detectors:
+            s = get_scan(detectors, motors, scan_funcs, expotime)
+            scan_seq.add(s)
+            scns.append(s)
+        # Run all in parallel
+        run_scans(*scns)
 
     # Group the scans
     g = Group(*scns)
     g.wait_all_subscans(timeout=10)
     scns.append(g.scan)
+    scanseq.wait_all_subscans(timeout=10)
+    scns.append(scanseq.scan)
 
     if checkoutput:
         check_output(scns, titles)
 
 
 def stress_bigdata(test_session, filename, titles, checkoutput=True):
+    """
+    :param bliss.common.session.Session test_session:
+    :param str filename: for data saving
+    :param list(str) titles: keep track of the number of scans
+    :param bool checkoutput:
+    """
+    expotime = 1e-6
     detectors = get_detectors(test_session)
-    lima_saving(test_session, frames=100)
+    prepare_detectors(test_session, expotime, frames=1000)
     motors = get_motors(test_session)
 
     mot1, mot2 = motors[:2]
     with print_scan_progress(test_session):
         scan = scans.amesh(
-            mot1, 0, 10, 200, mot2, 1, 20, 300, 1e-6, *detectors, run=False
+            mot1, 0, 10, 200, mot2, 1, 20, 300, expotime, *detectors, run=False
         )
-        g = gevent.spawn(scan.run)
-        try:
-            g.join()
-        except KeyboardInterrupt:
-            try:
-                g.kill(KeyboardInterrupt)
-            except Exception:
-                return True
-        else:
-            g.get()
+        run_scans(scan)
 
     if checkoutput:
         check_output([scan], titles)
 
 
 def stress_fastdata(test_session, filename, titles, checkoutput=True):
+    """
+    :param bliss.common.session.Session test_session:
+    :param str filename: for data saving
+    :param list(str) titles: keep track of scans
+    :param bool checkoutput:
+    """
+    expotime = 1e-6
     detectors = (test_session.env_dict["lima_simulator"],)
-    lima_saving(test_session, frames=1000)
+    prepare_detectors(test_session, expotime, frames=1000)
 
     with print_scan_progress(test_session):
-        scan = scans.loopscan(100000, 1e-6, *detectors, run=False)
-        g = gevent.spawn(scan.run)
-        try:
-            g.join()
-        except KeyboardInterrupt:
-            try:
-                g.kill(KeyboardInterrupt)
-            except Exception:
-                return True
-        else:
-            g.get()
+        scan = scans.loopscan(1000, expotime, *detectors, run=False)
+        run_scans(scan)
 
     if checkoutput:
         check_output([scan], titles)
 
 
-def get_detectors(test_session):
+def get_motors(test_session):
+    """
+    :param bliss.common.session.Session test_session:
+    :returns list: Bliss scannable objects
+    """
     env_dict = test_session.env_dict
-    detectors = [
+    return [env_dict[name] for name in ["robx", "roby", "robz"]]
+
+
+def get_detectors(test_session):
+    """
+    :param bliss.common.session.Session test_session:
+    :returns list: Bliss controller objects
+    """
+    env_dict = test_session.env_dict
+    detectors = ["sim_ct_gauss", "sim_ct_gauss_noise", "thermo_sample"]
+    detectors = [env_dict.get(d) for d in detectors]
+    detectors += [
         env_dict.get(f"diode{i}", env_dict.get(f"diode{i}alias")) for i in range(2, 10)
     ]
     detectors += [
@@ -116,11 +159,41 @@ def get_detectors(test_session):
         env_dict.get(f"lima_simulator{i}", env_dict.get(f"lima_simulator{i}alias"))
         for i in ["", 2]
     ]
-    lima_saving(test_session)
     return detectors
 
 
-def lima_saving(test_session, frames=100):
+def get_scan_funcs(test_session):
+    """
+    :param bliss.common.session.Session test_session:
+    :returns list: Bliss scan functions
+    """
+    env_dict = test_session.env_dict
+    return {
+        "ct": scans.sct,
+        "loopscan": scans.loopscan,
+        "ascan": scans.ascan,
+        "amesh": scans.amesh,
+        "aloopscan": env_dict.get("aloopscan"),
+    }
+
+
+def prepare_detectors(test_session, expotime, frames=100):
+    """Prepare lima controllers for data saving
+
+    :param bliss.common.session.Session test_session:
+    :param num expotime:
+    :param int frames:
+    """
+    simulation_mca.SimulatedMCA._source_count_rate = 1000 / expotime
+    prepare_lima(test_session, frames=frames)
+
+
+def prepare_lima(test_session, frames=100):
+    """Prepare lima controllers for data saving
+
+    :param bliss.common.session.Session test_session:
+    :param int frames:
+    """
     env_dict = test_session.env_dict
     limas = [
         env_dict.get(f"lima_simulator{i}", env_dict.get(f"lima_simulator{i}alias"))
@@ -132,37 +205,78 @@ def lima_saving(test_session, frames=100):
         lima.saving.mode = "ONE_FILE_PER_N_FRAMES"
         lima.saving.frames_per_file = frames
         lima.proxy.set_timeout_millis(60000)
+        simulator = lima._get_proxy("simulator")
+        simulator.mode = "LOADER_PREFETCH"
+        simulator.nb_prefetched_frames = 10
+        # simulator.file_pattern = '/data/id21/inhouse/wout/dev/blissscripts/limapreloaddata/*.edf'
+        # root = test_session.scan_saving.base_path
+        simulator.file_pattern = lima_simulator_images(dirname=lima.name)
 
 
-def get_motors(test_session):
-    env_dict = test_session.env_dict
-    return [env_dict[name] for name in ["robx", "roby", "robz"]]
+def lima_simulator_images(
+    nimages=10, root=None, dirname=None, shape=(1024, 1024), dtype=numpy.uint16
+):
+    """Generate images for preloading the lima simulator
 
-
-def get_scan_funcs(test_session):
-    env_dict = test_session.env_dict
-    return {
-        "ct": scans.ct,
-        "loopscan": scans.loopscan,
-        "ascan": scans.ascan,
-        "amesh": scans.amesh,
-        "aloopscan": env_dict.get("aloopscan"),
-    }
+    :param num nimages: simulator loops of these number of images
+    :param str root:
+    :param str dirname:
+    :param 2-tuple shape: data shape
+    :param dtype: data type
+    """
+    if not root:
+        root = "/tmp/lima_preload_data"
+    if not dirname:
+        dirname = "lima"
+    root = os.path.join(root, dirname)
+    try:
+        shutil.rmtree(root)
+    except FileNotFoundError:
+        pass
+    os.makedirs(root)
+    ndigits = int(numpy.ceil(numpy.log10(nimages + 1)))
+    fmt = "img{{:0{}d}}.edf".format(max(ndigits, 4))
+    for i in range(1, nimages + 1):
+        data = numpy.full(shape, i, dtype=dtype)
+        edf = EdfImage(data=data, header=None)
+        edf.write(os.path.join(root, fmt.format(i)))
+    return os.path.join(root, "*.edf")
 
 
 def prepare_saving(test_session, root=None):
+    """
+    :param bliss.common.session.Session test_session:
+    :param str root:
+    :returns str: file name
+    """
     scan_saving = test_session.scan_saving
     scan_saving.writer = "nexus"
-    scan_saving.data_filename = "stresstest"
+    scan_saving.data_filename = "stresstest_0"
     if root:
         scan_saving.base_path = root
     shutil.rmtree(scan_saving.root_path, ignore_errors=True)
     return scan_saving.filename
 
 
-def get_scan(detectors, motors, scan_funcs):
-    # TODO: scans not stressful enough
-    expotime = 1e-6
+def next_file(test_session):
+    """
+    :param bliss.common.session.Session test_session:
+    :returns str: file name
+    """
+    scan_saving = test_session.scan_saving
+    i = int(scan_saving.data_filename.split("_")[1]) + 1
+    scan_saving.data_filename = f"stresstest_{i}"
+    return scan_saving.filename
+
+
+def get_scan(detectors, motors, scan_funcs, expotime):
+    """
+    :param list detectors: Bliss controller objects
+    :param list motors: Bliss scannable objects
+    :param list scan_funcs: Bliss scan functions
+    :param num expotime:
+    :returns bliss.scanning.scan.Scan:
+    """
     options = ["ct", "loopscan"]
     if motors:
         options.append("ascan")
@@ -190,26 +304,16 @@ def get_scan(detectors, motors, scan_funcs):
         return func(mot, 0.5, 1.5, 5, expotime, [detector], 4, expotime, [detector2])
 
 
-def reader(filename, mode):
-    while True:
-        gevent.sleep(0.1)
-        try:
-            with nexus.File(filename, mode=mode) as f:
-                for entry in f:
-                    list(f[entry]["instrument"].keys())
-                    list(f[entry]["measurement"].keys())
-        except (KeyboardInterrupt, gevent.GreenletExit):
-            break
-        except Exception:
-            pass
-
-
 @contextmanager
 def print_scan_progress(test_session):
+    """Add session scan watcher that prints the
+    channel point progress.
+
+    :param bliss.common.session.Session test_session:
+    """
     data = {}
 
     def new_data(ndim, master, info):
-        nonlocal data
         if ndim == "0d":
             for cname, cdata in info["data"].items():
                 data[cname] = len(cdata)
@@ -244,20 +348,105 @@ def print_scan_progress(test_session):
 
 
 def check_output(scans, titles):
+    """
+    :param list(bliss.scanning.scan.Scan) scans:
+    :param list(str): keep track of scans
+    """
     subscans = {"aloopscan": 2}
 
     # Minimal output check
     titles += [
-        "{}.{}".format(int(s.scan_number), i)
+        f"{int(s.scan_number)}.{i}"
         for s in scans
         for i in range(1, subscans.get(s.name, 1) + 1)
     ]
-    with nexus.File(filename, mode="r") as f:
-        err_msg = "{}: {}/nExpected: {}".format(filename, set(f.keys()), set(titles))
-        assert set(f.keys()) == set(titles), err_msg
+    try:
+        f = None
+        print("Getting scan names from file ...")
+        with gevent.Timeout(60):
+            while True:
+                try:
+                    f = nexus.File(filename, mode="r")
+                    entrees = set(f.keys())
+                    break
+                except OSError:
+                    try:
+                        f.close()
+                    except (AttributeError, OSError):
+                        pass
+    finally:
+        try:
+            f.close()
+        except (AttributeError, OSError):
+            pass
+    expected = set(titles)
+    unexpected = entrees - expected
+    missing = expected - entrees
+    err_msg = f"{filename}:\n missing: {missing}\n unexpected: {unexpected}\n expected: {expected}"
+    assert entrees == expected, err_msg
 
     # Progress report
-    print("{} scans ...".format(len(titles)))
+    print("{} scans done.".format(len(titles)))
+
+
+def reader(filename, mode):
+    """HDF5 reader polling a file.
+
+    :param str filename:
+    :param str mode:
+    """
+    while True:
+        gevent.sleep(0.1)
+        try:
+            with nexus.File(filename, mode=mode) as f:
+                for entry in f:
+                    list(f[entry]["instrument"].keys())
+                    list(f[entry]["measurement"].keys())
+        except (KeyboardInterrupt, gevent.GreenletExit):
+            break
+        except Exception:
+            pass
+
+
+def tangoclient():
+    """Tango client polling the Nexus writer tango device.
+    """
+    proxy = DeviceProxy("id00/bliss_nxwriter/nexus_writer_session")
+    tango_attributes = [
+        "scan_states",
+        "scan_uris",
+        "scan_names",
+        "scan_start",
+        "scan_end",
+        "scan_duration",
+        "scan_info",
+        "scan_progress",
+        "scan_states_info",
+        "scan_event_buffers",
+        "resources",
+    ]
+    while True:
+        try:
+            for attr in tango_attributes:
+                getattr(proxy, attr)
+                gevent.sleep(0.1)
+        except (KeyboardInterrupt, gevent.GreenletExit):
+            break
+
+
+@contextmanager
+def client_context(n, *args, **kwargs):
+    """Launch clients polling the writer ot the file
+    """
+    glts = [gevent.spawn(*args, **kwargs) for _ in range(max(n, 0))]
+    try:
+        yield
+    finally:
+        if glts:
+            gevent.killall(glts)
+            gevent.joinall(glts)
+            for g in glts:
+                g.get()
 
 
 if __name__ == "__main__":
@@ -276,9 +465,20 @@ if __name__ == "__main__":
         "--readers", default=0, type=int, help="Number of parallel readers"
     )
     parser.add_argument(
-        "--n", default=0, type=int, help="Number iterations (unlimited by default)"
+        "--tangoclients", default=0, type=int, help="Number of tango clients"
+    )
+    parser.add_argument(
+        "--niter", default=0, type=int, help="Number iterations (unlimited by default)"
+    )
+    parser.add_argument(
+        "--nscans_per_file",
+        default=1000,
+        type=int,
+        help="Maximum number of scans per file",
     )
     args, unknown = parser.parse_known_args()
+
+    # Select stress test
     if args.type == "many":
         test_func = stress_many_parallel
     elif args.type == "big":
@@ -288,6 +488,7 @@ if __name__ == "__main__":
     else:
         test_func = stress_fastdata
 
+    # Prepare session
     config = static.get_config()
     test_session = config.get("nexus_writer_session")
     test_session.setup()
@@ -296,19 +497,20 @@ if __name__ == "__main__":
         root = "/tmp/testnexus/"
     root = os.path.join(root, args.type)
     filename = prepare_saving(test_session, root=root)
-    readers = [gevent.spawn(reader, filename, "r") for _ in range(max(args.readers, 0))]
-    try:
-        titles = []
-        imax = args.n
-        i = 1
-        while True:
-            gevent.sleep()
-            if test_func(test_session, filename, titles):
-                break
-            if imax and i == imax:
-                break
-            i += 1
-    finally:
-        if readers:
-            gevent.killall(readers)
-            gevent.joinall(readers)
+
+    # Repeat stress test with HDF5 readers and tango clients
+    with client_context(args.tangoclients, tangoclient):
+        keeprunning = True
+        while keeprunning:
+            filename = next_file(test_session)
+            with client_context(args.readers, reader, filename, "r"):
+                titles = []
+                n = 1
+                while len(titles) < args.nscans_per_file:
+                    if test_func(test_session, filename, titles):
+                        keeprunning = False
+                        break
+                    if args.niter and n == args.niter:
+                        keeprunning = False
+                        break
+                    n += 1

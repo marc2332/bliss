@@ -31,8 +31,9 @@ logger = getLogger(__name__, __file__, default="INFO")
 
 
 def find_free_port():
-    """
-    Find an unused port
+    """Find an unused port
+
+    :returns str:
     """
     with closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as sock:
         sock.bind(("", 0))
@@ -41,8 +42,9 @@ def find_free_port():
 
 
 def local_bliss_test_db():
-    """
-    Path to Bliss test suite's YAML files
+    """Path to Bliss test suite's YAML files
+
+    :returns str:
     """
     db_path = os.path.normpath(
         os.path.join(bliss.__file__, "..", "..", "tests", "test_configuration")
@@ -55,8 +57,9 @@ def local_bliss_test_db():
 
 
 def fresh_bliss_test_db(tmpdir):
-    """
-    Create a fresh copy of the Bliss test suite's YAML files
+    """Create a fresh copy of the Bliss test suite's YAML files
+
+    :returns str:
     """
     old_db_path = local_bliss_test_db()
     new_db_path = os.path.join(tmpdir, "test_configuration")
@@ -69,14 +72,16 @@ def fresh_bliss_test_db(tmpdir):
 
 
 def tango_online(uri=None, timeout=10):
-    """
-    Check whether Tango device is online
+    """Check whether Tango device is online
+
+    :param str uri: the tango database itself when missing
+    :param num timeout:
     """
     if uri:
-        uri = "tango://{}/{}".format(os.environ["TANGO_HOST"], uri)
+        uri = f"tango://{os.environ['TANGO_HOST']}/{uri}"
         device = repr(uri)
     else:
-        device = "Tango database {}".format(os.environ["TANGO_HOST"])
+        device = f"Tango database {os.environ['TANGO_HOST']}"
     with gevent.Timeout(10, RuntimeError(device + " not online")):
         while True:
             try:
@@ -94,8 +99,9 @@ def tango_online(uri=None, timeout=10):
 
 
 def beacon_online(timeout=10):
-    """
-    Check whether Beacon server is online
+    """Check whether Beacon server is online
+
+    :param num timeout:
     """
     with gevent.Timeout(timeout, RuntimeError("Beacon not online")):
         while True:
@@ -108,8 +114,9 @@ def beacon_online(timeout=10):
 
 
 def wait_interrupt(prompt):
-    """
-    Wait for CTRL-C
+    """Wait for CTRL-C
+
+    :param str prompt:
     """
     sys.stdout.write(prompt)
     sys.stdout.flush()
@@ -121,21 +128,44 @@ def wait_interrupt(prompt):
             return ""
 
 
-def run(cliargs, logfile, env=None):
+def prefix_from_env(env=None):
+    """Environment variables for the subprocesses
+
+    :param dict env:
     """
-    Run sub process
+    if not env:
+        env = os.environ
+    prefix = ""
+    for k in ["BEACON_HOST", "TANGO_HOST"]:
+        v = env.get(k)
+        if v:
+            prefix += f"{k}={v} "
+    return prefix
+
+
+def run(cliargs, logfile, env=None):
+    """Run subprocess
+
+    :param list cliargs:
+    :param logfile:
+    :param dict env:
     """
     p = subprocess.Popen(
         cliargs, stdout=logfile, stderr=logfile, env=env, universal_newlines=True
     )
-    print("\nLaunched process:")
-    print(" " + " ".join(cliargs))
+    print(f"\nLaunched process {p.pid}:")
+    prefix = prefix_from_env(env=env)
+    print(f" {prefix}" + " ".join(cliargs))
     return p
 
 
 def temp_filename(path, prefix, suffix):
-    """
-    Temporary file name
+    """Temporary file name
+
+    :param str path:
+    :param str prefix:
+    :param str suffix:
+    :returns str:
     """
     if not path:
         path = temproot()
@@ -147,8 +177,12 @@ def temp_filename(path, prefix, suffix):
 
 @contextmanager
 def log(tmpdir=None, prefix="tmp", suffix=".log"):
-    """
-    Open log file
+    """Open log file
+
+    :param str tmpdir:
+    :param str prefix:
+    :param str suffix:
+    :returns fd:
     """
     filename = os.path.join(tmpdir, prefix + suffix)
     with open(filename, mode="w+") as fd:
@@ -161,8 +195,12 @@ class RunContextExit(Exception):
 
 @contextmanager
 def runcontext(cliargs, tmpdir="", prefix="tmp", env=None):
-    """
-    Run sub process and log to file
+    """Run sub process and log to file
+
+    :param list cliargs:
+    :param str tmpdir:
+    :param str prefix:
+    :param dict env:
     """
     with log(tmpdir=tmpdir, prefix=prefix) as fd:
         p = run(cliargs, fd, env=env)
@@ -178,12 +216,14 @@ def runcontext(cliargs, tmpdir="", prefix="tmp", env=None):
             raise RunContextExit
         finally:
             p.terminate()
+            print(f"{p.pid} terminated")
 
 
 @contextmanager
 def testenv(root=None):
-    """
-    Create test environment
+    """Create test environment
+
+    :param str root: directory for logs and config files
     """
     if root:
         os.makedirs(root, exist_ok=True)
@@ -193,18 +233,20 @@ def testenv(root=None):
         with tempfile.TemporaryDirectory(prefix="bliss_testenv_", dir=root) as tmpdir:
             try:
                 yield tmpdir
-            except RunContextExit:
-                pass
+            except RunContextExit as e:
+                print(e)
             finally:
                 shutil.rmtree(tmpdir, ignore_errors=True)
-    except OSError:
-        pass
+    except OSError as e:
+        print(e)
 
 
 @contextmanager
 def beacon(tmpdir=None, freshdb=True):
-    """
-    Start beacon server (+ redis + tango db)
+    """Start beacon server (+ redis + tango db)
+
+    :param str tmpdir:
+    :param bool freshdb:
     """
     params = {}
     if freshdb:
@@ -220,29 +262,31 @@ def beacon(tmpdir=None, freshdb=True):
     params["log_level"] = log_levels.beacon_log_level[level]
     params["tango_debug_level"] = log_levels.tango_cli_log_level[level]
     cliargs = ["beacon-server"]
-    cliargs += ["--{}={}".format(k, v) for k, v in params.items()]
+    cliargs += [f"--{k}={v}" for k, v in params.items()]
 
     env = {}
-    env["BEACON_HOST"] = socket.gethostname() + ":{}".format(params["port"])
-    env["TANGO_HOST"] = socket.gethostname() + ":{}".format(params["tango_port"])
-    prefix = " ".join(["{}={}".format(k, v) for k, v in env.items()])
+    env["BEACON_HOST"] = f"{socket.gethostname()}:{params['port']}"
+    env["TANGO_HOST"] = f"{socket.gethostname()}:{params['tango_port']}"
     os.environ.update(env)
     env["PATH"] = os.environ["PATH"]
 
     with runcontext(cliargs, tmpdir=tmpdir, prefix="beacon"):
         beacon_online(timeout=10)
         tango_online(timeout=10)
-        yield env, prefix
+        yield env
 
 
 @contextmanager
 def lima(env=None, tmpdir=None, name="simulator1"):
-    """
-    Start lima Tango device
+    """Start lima Tango device
+
+    :param dict env:
+    :param str tmpdir:
+    :param str name:
     """
     level = logger.getEffectiveLevel()
     level = log_levels.tango_cli_log_level[level]
-    level = "-v{}".format(level)
+    level = f"-v{level}"
     if name == "simulator1":
         cliargs = ["LimaCCDs", "simulator", level]
     else:
@@ -254,12 +298,15 @@ def lima(env=None, tmpdir=None, name="simulator1"):
 
 @contextmanager
 def metaexperiment(env=None, tmpdir=None, name="test"):
-    """
-    ICAT proposal/sample manager
+    """Start ICAT proposal/sample manager
+
+    :param dict env:
+    :param str tmpdir:
+    :param str name:
     """
     level = logger.getEffectiveLevel()
     level = log_levels.tango_cli_log_level[level]
-    level = "-v{}".format(level)
+    level = f"-v{level}"
     cliargs = ["MetaExperiment", name, level]
     with runcontext(cliargs, tmpdir=tmpdir, prefix="metaexperiment_" + name, env=env):
         for session_name in ("test_session", "nexus_writer_session"):
@@ -269,12 +316,15 @@ def metaexperiment(env=None, tmpdir=None, name="test"):
 
 @contextmanager
 def metadatamanager(env=None, tmpdir=None, name="test"):
-    """
-    ICAT dataset manager
+    """Start ICAT dataset manager.
+
+    :param dict env:
+    :param str tmpdir:
+    :param str name:
     """
     level = logger.getEffectiveLevel()
     level = log_levels.tango_cli_log_level[level]
-    level = "-v{}".format(level)
+    level = f"-v{level}"
     cliargs = ["MetadataManager", name, level]
     with runcontext(cliargs, tmpdir=tmpdir, prefix="metadatamanager_" + name, env=env):
         for session_name in ("test_session", "nexus_writer_session"):
@@ -284,8 +334,11 @@ def metadatamanager(env=None, tmpdir=None, name="test"):
 
 @contextmanager
 def nexuswriterservice(env=None, tmpdir=None, instance="testwriters"):
-    """
-    Start session writer tango device
+    """Start session writer tango device
+
+    :param dict env:
+    :param str tmpdir:
+    :param str instance:
     """
     level = logger.getEffectiveLevel()
     level = log_levels.log_level_name[level]
@@ -295,7 +348,7 @@ def nexuswriterservice(env=None, tmpdir=None, instance="testwriters"):
         instance,
         "--log=" + level,
         "--nologstdout",
-        "--logfile={}".format(logfile),
+        f"--logfile={logfile}",
     ]
     sessions = ["nexus_writer_session", "test_session"]
     with runcontext(cliargs, tmpdir=tmpdir, prefix="nexuswriter_" + instance, env=env):
@@ -306,9 +359,11 @@ def nexuswriterservice(env=None, tmpdir=None, instance="testwriters"):
 
 
 @contextmanager
-def nexuswriterprocesses(env=None, tmpdir=None):
-    """
-    Start session writer process
+def nexuswriterprocess(env=None, tmpdir=None):
+    """Start session writer process
+
+    :param dict env:
+    :param str tmpdir:
     """
     level = logger.getEffectiveLevel()
     level = log_levels.log_level_name[level]
@@ -323,29 +378,29 @@ def nexuswriterprocesses(env=None, tmpdir=None):
         yield
 
 
-def print_env_info(tmpdir, prefix, writer=True):
+def print_env_info(tmpdir, env=None, writer=True):
+    """Print info for clients of the test environment
+
+    :param str tmpdir:
+    :param dict env:
+    :param bool writer:
     """
-    Print info for clients of the test environment
-    """
+    prefix = prefix_from_env(env=env)
     print("\nAll session in the bliss test configuration:")
     print(" " + "\n ".join(get_sessions_list()))
     if not writer:
         print("\nRun Nexus writer as a python process:")
         print(
-            " {} NexusSessionWriter nexus_writer_session --log=info --logfile={}/NexusSessionWriter.log".format(
-                prefix, tmpdir
-            )
+            f" {prefix} NexusSessionWriter nexus_writer_session --log=info --logfile={tmpdir}/NexusSessionWriter.log"
         )
         print("\nRun Nexus writer as a TANGO server:")
         print(
-            " {} NexusWriterService testwriters --log=info --logfile={}/NexusWriterService.log".format(
-                prefix, tmpdir
-            )
+            f" {prefix} NexusWriterService testwriters --log=info --logfile={tmpdir}/NexusWriterService.log"
         )
     print("\nRun Nexus writer stress tests:")
-    print(" {} python scripts/testnexus.py --type many".format(prefix))
+    print(f" {prefix} python scripts/testnexus.py --type many")
     print("\nStart CLI to BLISS session:")
-    print(" {} bliss -s nexus_writer_session --no-tmux".format(prefix))
+    print(f" {prefix} bliss -s nexus_writer_session --no-tmux")
     print("\nOutput logs:")
     print(" " + tmpdir)
     wait_interrupt("\nCTRL-C to stop the servers")
@@ -373,7 +428,7 @@ if __name__ == "__main__":
     args, unknown = parser.parse_known_args()
 
     with testenv(root=args.root) as tmpdir:
-        with beacon(tmpdir=tmpdir, freshdb=args.freshdb) as (env, prefix):
+        with beacon(tmpdir=tmpdir, freshdb=args.freshdb) as env:
             with metaexperiment(env=env, tmpdir=tmpdir, name="test"):
                 with metadatamanager(env=env, tmpdir=tmpdir, name="test"):
                     with lima(env=env, tmpdir=tmpdir, name="simulator1"):
@@ -383,11 +438,11 @@ if __name__ == "__main__":
                                     env=env, tmpdir=tmpdir, instance="testwriters"
                                 )
                             elif args.writer == "PROCESS":
-                                ctx = nexuswriterprocesses(env=env, tmpdir=tmpdir)
+                                ctx = nexuswriterprocess(env=env, tmpdir=tmpdir)
                             else:
                                 ctx = None
                             if ctx is None:
-                                print_env_info(tmpdir, prefix, writer=ctx is not None)
+                                print_env_info(tmpdir, env=env, writer=ctx is not None)
                             else:
                                 with ctx:
-                                    print_env_info(tmpdir, prefix)
+                                    print_env_info(tmpdir, env=env)

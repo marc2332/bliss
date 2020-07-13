@@ -9,7 +9,8 @@ from bliss.scanning.acquisition.lima import LimaAcquisitionMaster
 from bliss.scanning.chain import AcquisitionChain
 from bliss.scanning.scan import Scan
 from bliss.common.session import get_current_session
-
+from bliss.controllers import simulation_diode
+from bliss.controllers.mca import simulation as simulation_mca
 
 # Not required but useful for manual testing:
 from nexus_writer_service.session_api import *
@@ -44,6 +45,15 @@ rois = {"roi1": (500, 550), "roi2": (600, 650), "roi3": (700, 750)}
 for mca in objects_of_type(BaseMCA).values():
     for name, roi in rois.items():
         mca.rois.set(name, *roi)
+
+
+# Remove simulated overheads
+simulation_diode.SimulationDiodeController._read_overhead = 0
+simulation_diode.SimulationDiodeIntegrationController._read_overhead = 0
+simulation_mca.SimulatedMCA._read_overhead = 0
+simulation_mca.SimulatedMCA._init_time = 0
+simulation_mca.SimulatedMCA._prepare_time = 0
+simulation_mca.SimulatedMCA._cleanup_time = 0
 
 
 def run_scan(scan, runasync=False, format="hdf5", frames=3):
@@ -175,30 +185,3 @@ def _add_detectors(chain, master, detectors, scan_params, acq_params):
             chain.add(top_node)
         else:
             chain.add(master, slave=top_node)
-
-
-def produce_data(n):
-    session = get_current_session()
-    session.enable_esrf_data_policy()
-    session.technique = ""
-    newproposal()
-    motors = [session.env_dict[k] for k in ["robx", "roby"]]
-    detectors = [session.env_dict[k] for k in ["xrfxrdMG"]]
-    import random
-
-    for i in range(n):
-        scan = random.choice(["ct", "loopscan", "ascan", "amesh"])
-        expo = random.choice([0.01, 0.02, 0.03])
-        n1 = random.randint(5, 8)
-        n2 = random.randint(3, 6)
-        kwargs = {"save": True, "run": False}
-        if scan == "ct":
-            args = (expo,)
-        elif scan == "loopscan":
-            args = n1, expo
-        elif scan == "ascan":
-            args = motors[0], 0, 3, n1, expo
-        elif scan == "amesh":
-            args = motors[0], -1, 2, n1, motors[1], 0.5, 3, n2, expo
-        s = session.env_dict[scan](*args, *detectors, **kwargs)
-        run_scan(s)

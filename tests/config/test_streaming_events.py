@@ -41,11 +41,7 @@ def test_streaming_events_init():
         streaming_events.TimeEvent,
         streaming_events.EndEvent,
     ]
-    types = [
-        streaming_events.EventTypes.UNKNOWN,
-        streaming_events.EventTypes.time,
-        streaming_events.EventTypes.end,
-    ]
+    types = [ev1.types.UNKNOWN, ev1.types.time, ev1.types.end]
     for cls, evtype in zip(classes, types):
         assert cls.istype(raw)
         assert cls.isstricttype(raw) == (cls is ev1.__class__)
@@ -54,7 +50,7 @@ def test_streaming_events_init():
         assert ev2.TYPE == evtype
         ev2 = cls.factory(raw=raw)
         assert isinstance(ev2, streaming_events.EndEvent)
-        assert ev2.TYPE == streaming_events.EventTypes.END
+        assert ev2.TYPE == ev2.types.END
         assert ev1.time == ev2.time
 
     # Create event based on stream data: down-casting not allowed

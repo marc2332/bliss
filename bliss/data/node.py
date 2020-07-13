@@ -708,7 +708,7 @@ class DataNodeContainer(DataNode):
         """
         if events is None:
             events = self._children_stream.range()
-        node_dict = {NewNodeEvent.factory(raw).db_name: index for index, raw in events}
+        node_dict = {NewNodeEvent(raw=raw).db_name: index for index, raw in events}
         with settings.pipeline(self._children_stream):
             for index, node in zip(node_dict.values(), self.get_nodes(*node_dict)):
                 if node is None:

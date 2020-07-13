@@ -63,7 +63,7 @@ particular type without decoding it:
 
 To know whether an event is of a particular type
 
-    if event.TYPE == EventTypes.MYTYPE:
+    if event.TYPE == event.types.MYTYPE:
         ...
 
     if isinstance(event, MyStreamEvent):
@@ -115,12 +115,21 @@ class StreamEventMeta(type):
         return cls
 
 
+class _EventTypes:
+    def __getattr__(self, attr):
+        attr = attr.upper().encode()
+        if attr in StreamEvent._SUBCLASS_REGISTRY:
+            return attr
+        raise AttributeError(attr)
+
+
 class StreamEvent(metaclass=StreamEventMeta):
     """Base class to encode/decode DataStream events.
     """
 
     TYPE = b"UNKNOWN"
     TYPE_KEY = b"__EVENT__"
+    types = _EventTypes()
 
     @classmethod
     def _use_class(cls, raw):
@@ -283,17 +292,6 @@ class StreamEvent(metaclass=StreamEventMeta):
         :returns StreamEvent:
         """
         raise NotImplementedError
-
-
-class _EventTypes:
-    def __getattr__(self, attr):
-        attr = attr.upper().encode()
-        if attr in StreamEvent._SUBCLASS_REGISTRY:
-            return attr
-        raise AttributeError(attr)
-
-
-EventTypes = _EventTypes()
 
 
 class TimeEvent(StreamEvent):

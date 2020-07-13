@@ -1501,7 +1501,7 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
             dataview = node.get(icurrent, -1)
             if len(dataview):
                 try:
-                    files = dataview.all_image_uris(saved=True)
+                    files = dataview.all_image_references(saved=True)
                 except Exception as e:
                     dproxy.logger.debug(f"Image not ready yet: {e}")
         # Create image URI's

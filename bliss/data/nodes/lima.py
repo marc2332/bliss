@@ -22,7 +22,7 @@ class LimaDataView:
         :param QueueObjSetting queue_ref: acquisition info
         :param int from_index:
         :param int to_index: when <0 we will take the last image
-                            that is "ready" (may change over time)
+                             that is "ready" which may change after `update`
         :param bool from_stream:
         """
         self._queue = queue
@@ -31,6 +31,13 @@ class LimaDataView:
         self._to_index = to_index
         self.from_stream = from_stream
         self._status_event = None
+
+    def __getattr__(self, attr):
+        # Get attribute from the status event
+        try:
+            return getattr(self.status_event, attr)
+        except AttributeError:
+            raise AttributeError(attr)
 
     @property
     def to_index(self):
@@ -56,8 +63,7 @@ class LimaDataView:
     def update(self):
         """Get the latest status event from the data stream
         and add the first element of the reference settings.
-        It is safe to call this as much as you want. It will
-        ass overhead though.
+        It is safe to call this as much as you want.
         """
         events = self._queue.rev_range(count=1)
         if events:
@@ -85,12 +91,6 @@ class LimaDataView:
             FutureWarning,
         )
         return self.status_event.status
-
-    def __getattr__(self, attr):
-        try:
-            return getattr(self.status_event, attr)
-        except AttributeError:
-            raise AttributeError(attr)
 
     @property
     def all_ref_data(self):
@@ -218,8 +218,8 @@ class LimaDataView:
         length = self.to_index - self.from_index + 1
         return 0 if length < 0 else length
 
-    def all_image_uris(self, saved=False):
-        """Get the image URI's (universal resource identifiers).
+    def all_image_references(self, saved=False):
+        """Get the image references.
 
         :param bool saved: ready or ready and saved
         :returns list(tuple): file name, path-in-file, image index, file format
@@ -227,23 +227,36 @@ class LimaDataView:
         :raise RuntimeError: images will never be saved
         """
         self.update()
-        return self.status_event.all_image_uris(saved=saved)
+        return self.status_event.all_image_references(saved=saved)
 
-    def image_uris(self, image_nbs, saved=False):
-        """Get the image URI's (universal resource identifiers).
+    def image_references(self, image_nbs, saved=False):
+        """Get the image references.
 
         :param sequence image_nbs:
         :param bool saved: ready or ready and saved
         :returns list(tuple): file name, path-in-file, image index, file format
                               File format (HDF5, HDF5BS, EDFLZ4, ...) is not file extension!
-        :raise RuntimeError: some images are ready or saved yet
+        :raise RuntimeError: some images are not ready or saved yet
                              or images will never be saved
         """
         self.update()
-        return self.status_event.image_uris(image_nbs, saved=saved)
+        return self.status_event.image_references(image_nbs, saved=saved)
 
-    def iter_image_uris(self, image_nbs=None, saved=False):
-        """Get the image URI's (universal resource identifiers).
+    def image_reference(self, image_nb, saved=False):
+        """Get the image references.
+
+        :param int image_nb:
+        :param bool saved: ready or ready and saved
+        :returns tuple: file name, path-in-file, image index, file format
+                        File format (HDF5, HDF5BS, EDFLZ4, ...) is not file extension!
+        :raise RuntimeError: image is not ready or saved yet
+                             or images will never be saved
+        """
+        self.update()
+        return self.status_event.image_reference(image_nb, saved=saved)
+
+    def iter_image_references(self, image_nbs=None, saved=False):
+        """Get the image references.
 
         Stops iterating when it encounters an image that is not
         ready or saved yet, regardless of how many images you
@@ -256,20 +269,23 @@ class LimaDataView:
         :raises RuntimeError: images will never be saved
         """
         self.update()
-        yield from self.status_event.iter_image_uris(image_nbs=image_nbs, saved=saved)
+        yield from self.status_event.iter_image_references(
+            image_nbs=image_nbs, saved=saved
+        )
 
     def get_filenames(self):
         warnings.warn(
-            "'get_filenames' is deprecated. Use 'all_image_uris' instead.",
+            "'get_filenames' is deprecated. Use 'all_image_references' instead.",
             FutureWarning,
         )
-        return self.all_image_uris()
+        return self.all_image_references()
 
     def _get_filenames(self, ref_data, *image_nbs):
         warnings.warn(
-            "'_get_filenames' is deprecated. Use 'image_uris' itself.", FutureWarning
+            "'_get_filenames' is deprecated. Use 'image_references' itself.",
+            FutureWarning,
         )
-        return self.image_uris(image_nbs)
+        return self.image_references(image_nbs)
 
 
 class LimaImageChannelDataNode(ChannelDataNodeBase):
@@ -341,7 +357,7 @@ class LimaImageChannelDataNode(ChannelDataNodeBase):
             ev.info = self.first_ref_data
             first_index = self._stream_image_count
             try:
-                data = ev.image_uri_range(first_index)
+                data = ev.image_reference_range(first_index)
             except RuntimeError:
                 pass
             self._stream_image_count += len(data)
@@ -365,48 +381,6 @@ class LimaImageChannelDataNode(ChannelDataNodeBase):
     @property
     def images_per_file(self):
         return self.first_ref_data.get("saving_frame_per_file")
-        # TODO: it should be this?
-        info = self.first_ref_data
-        overwrite_policy = info.get("saving_overwrite", "ABORT").lower()
-        if overwrite_policy == "multiset":
-            return info.get("acq_nb_frames")
-        else:
-            return info.get("saving_frame_per_file")
-
-    def get_file_references(self):
-        """
-        Retrieve all files references for this data set
-        """
-        # take the last in list because it's should be the final
-        final_ref_data = self._queue_ref[-1]
-        # in that case only one reference will be returned
-        overwrite_policy = final_ref_data["overwritePolicy"].lower()
-        if overwrite_policy == "multiset":
-            last_file_number = final_ref_data["nextNumber"] + 1
-        else:
-            nb_files = int(
-                math.ceil(
-                    float(final_ref_data["acqNbFrames"])
-                    / final_ref_data["framesPerFile"]
-                )
-            )
-            last_file_number = final_ref_data["nextNumber"] + nb_files
-
-        path_format = "%s%s%s%s" % (
-            final_ref_data["directory"],
-            final_ref_data["prefix"],
-            final_ref_data["indexFormat"],
-            final_ref_data["suffix"],
-        )
-        references = []
-        file_format = final_ref_data["fileFormat"].lower()
-        for next_number in range(final_ref_data["nextNumber"], last_file_number):
-            full_path = path_format % next_number
-            if file_format.startswith("hdf5"):
-                # @todo see what's is needed for hdf5 dataset link
-                pass
-            references.append(full_path)
-        return references
 
     def _get_db_names(self):
         db_names = super()._get_db_names()

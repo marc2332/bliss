@@ -167,7 +167,7 @@ class StreamEvent(metaclass=StreamEventMeta):
         # if not issubclass(cls, usecls):
         if cls not in usecls.__mro__:
             # Do not allow down-casting (up-casting is allowed)
-            raise StreamDecodeError(f"Event not of type {cls.TYPE}")
+            raise StreamDecodeError(f"Event not of type {cls.TYPE}: {raw}")
         return usecls
 
     @classmethod
@@ -231,7 +231,7 @@ class StreamEvent(metaclass=StreamEventMeta):
 
     def _decode(self, raw):
         if not self.istype(raw):
-            raise TypeError(f"Event not of type {self.TYPE}")
+            raise TypeError(f"Event not of type {self.TYPE}: {raw}")
 
     @staticmethod
     def generic_encode(data, **kw):

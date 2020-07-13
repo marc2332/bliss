@@ -20,7 +20,7 @@ def lima_data_view_test_helper(scan):
     lima_data_view = image_node.get(0)
     ref_data = image_node.info.get_all()
 
-    lima_files = numpy.array(lima_data_view.all_image_uris())
+    lima_files = numpy.array(lima_data_view.all_image_references())
 
     filesystem_files = sorted(glob.glob(ref_data["saving_directory"] + "/*"))
 

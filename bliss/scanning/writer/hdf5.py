@@ -141,7 +141,7 @@ class Writer(FileWriter):
                 lima_data_view = channel.data_node.get(0, -1)
 
                 try:
-                    tmp = lima_data_view.all_image_uris()
+                    tmp = lima_data_view.all_image_references()
                 except Exception:
                     tmp = []
 

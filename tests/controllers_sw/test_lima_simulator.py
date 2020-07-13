@@ -510,7 +510,7 @@ def test_lima_ctrl_params_uploading(default_session, lima_simulator, caplog):
     assert simulator.proxy.saving_max_writing_task == 2
 
     # lets see if we can use mask, background and flatfield
-    img = scan.get_data()["image"].all_image_uris()[0][0]
+    img = scan.get_data()["image"].all_image_references()[0][0]
     simulator.processing.mask = img
     simulator.processing.use_mask = True
 
@@ -588,22 +588,30 @@ def test_lima_saving_mode(default_session, lima_simulator):
     simulator.saving.mode = "ONE_FILE_PER_FRAME"
     scan = loopscan(10, 0.1, simulator)
 
-    assert 10 == len(set([x[0] for x in scan.get_data()["image"].all_image_uris()]))
+    assert 10 == len(
+        set([x[0] for x in scan.get_data()["image"].all_image_references()])
+    )
 
     simulator.saving.mode = "ONE_FILE_PER_N_FRAMES"
     scan = loopscan(10, 0.1, simulator)
 
-    assert 2 == len(set([x[0] for x in scan.get_data()["image"].all_image_uris()]))
+    assert 2 == len(
+        set([x[0] for x in scan.get_data()["image"].all_image_references()])
+    )
 
     simulator.saving.mode = "SPECIFY_MAX_FILE_SIZE"
     scan = loopscan(10, 0.1, simulator)
 
-    assert 3 == len(set([x[0] for x in scan.get_data()["image"].all_image_uris()]))
+    assert 3 == len(
+        set([x[0] for x in scan.get_data()["image"].all_image_references()])
+    )
 
     simulator.saving.mode = "ONE_FILE_PER_SCAN"
     scan = loopscan(10, 0.1, simulator)
 
-    assert 1 == len(set([x[0] for x in scan.get_data()["image"].all_image_uris()]))
+    assert 1 == len(
+        set([x[0] for x in scan.get_data()["image"].all_image_references()])
+    )
 
 
 def test_lima_simulator_dialogs(beacon, lima_simulator, clean_gevent):

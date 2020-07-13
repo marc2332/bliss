@@ -204,7 +204,7 @@ def watch_session_scans(
             node_type = node.type
             if watch_scan_group or node_type == "scan":
                 db_name = node.db_name
-                scan_dict = running_scans.pop(db_name)
+                scan_dict = running_scans.pop(db_name, None)
                 if scan_dict:
                     scan_info = node.info.get_all()
                     if scan_end_callback:

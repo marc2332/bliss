@@ -9,6 +9,7 @@ import os
 from bliss.config import streaming_events
 from bliss.data.events import lima_io
 from bliss.common.tango import DeviceProxy
+from bliss.config.settings import HashObjSetting
 
 
 __all__ = ["LimaImageStatusEvent"]
@@ -37,7 +38,18 @@ class LimaImageStatusEvent(streaming_events.StreamEvent):
         "last_image_saved": -1,
     }
 
-    DEFAULT_INFO = {"acq_trigger_mode": None}
+    DEFAULT_INFO = {
+        "acq_trigger_mode": None,
+        "saving_mode": "MANUAL",  # files are not saved
+        "saving_overwrite": "ABORT",  # TODO: still exists ????
+        "acq_nb_frames": None,  # TODO: still exists ????
+        "saving_frame_per_file": None,
+        "saving_next_number": 0,
+        "saving_index_format": "%04d",
+        "lima_version": "<1.9.1",
+        "user_instrument_name": "instrument",
+        "user_detector_name": None,
+    }
 
     def __init__(self, *args, **kwargs):
         self._proxy = None
@@ -51,22 +63,38 @@ class LimaImageStatusEvent(streaming_events.StreamEvent):
         :param connection: Redis db=1 connection needed to
                            get the last image from the server
         """
-        if info is None:
-            info = {}
-        self._add_missing(status, self.DEFAULT_STATUS)
-        self._add_missing(info, self.DEFAULT_INFO)
         self.status = status
         self.info = info
         self.connection = connection
 
+    @property
+    def status(self):
+        return self._status
+
+    @status.setter
+    def status(self, adict):
+        self._status = self._add_missing(adict, self.DEFAULT_STATUS)
+
+    @property
+    def info(self):
+        return self._info
+
+    @info.setter
+    def info(self, adict):
+        self._info = self._add_missing(adict, self.DEFAULT_INFO)
+
     @staticmethod
     def _add_missing(adict, defaults):
-        if adict:
-            missing = set(defaults.keys()) - set(adict.keys())
-            for k in missing:
-                adict[k] = defaults[k]
-        else:
-            adict.update(defaults)
+        """
+        :param dict, HashObjSetting or None adict:
+        :param dict defaults:
+        :returns dict: different object than the given one
+        """
+        if adict is None:
+            adict = {}
+        elif isinstance(adict, HashObjSetting):
+            adict = adict.get_all()
+        return {**defaults, **adict}
 
     def _encode(self):
         raw = super()._encode()
@@ -90,10 +118,10 @@ class LimaImageStatusEvent(streaming_events.StreamEvent):
         return cls(raw=events[-1][1])
 
     def __getattr__(self, attr):
-        if attr in self.DEFAULT_STATUS:
-            return self.status.get(attr, self.DEFAULT_STATUS[attr])
-        elif attr in self.DEFAULT_INFO:
-            return self.info.get(attr, self.DEFAULT_INFO[attr])
+        if attr in self.status:
+            return self.status[attr]
+        elif attr in self.info:
+            return self.info[attr]
         raise AttributeError(attr)
 
     def get_last_index(self, saved=False):
@@ -102,18 +130,18 @@ class LimaImageStatusEvent(streaming_events.StreamEvent):
         else:
             return self.last_image_ready
 
-    def all_image_uris(self, saved=False):
-        """Get the image URI's (universal resource identifiers).
+    def all_image_references(self, saved=False):
+        """Get the image references.
 
         :param bool saved: ready or ready and saved
         :returns list(tuple): file name, path-in-file, image index, file format
                               File format (HDF5, HDF5BS, EDFLZ4, ...) is not file extension!
         :raise RuntimeError: images will never be saved
         """
-        return list(self.iter_image_uris(saved=saved))
+        return list(self.iter_image_references(saved=saved))
 
-    def image_uri_range(self, from_index, to_index=None, saved=False):
-        """Get the image URI's (universal resource identifiers).
+    def image_reference_range(self, from_index, to_index=None, saved=False):
+        """Get the image references.
 
         :param int from_index:
         :param int to_index: maximal ready/saved by default
@@ -123,42 +151,54 @@ class LimaImageStatusEvent(streaming_events.StreamEvent):
         :raise RuntimeError: fixed range which is not ready or saved yet
                              or images will never be saved
         """
-        uris = list()
+        refs = list()
         to_max = to_index is None
         if to_max:
             to_index = self.get_last_index(saved=saved)
         if to_index >= from_index:
             image_nbs = list(range(from_index, to_index + 1))
-            uris = list(self.iter_image_uris(image_nbs, saved=saved))
-            if not to_max and len(uris) != len(image_nbs):
+            refs = list(self.iter_image_references(image_nbs, saved=saved))
+            if not to_max and len(refs) != len(image_nbs):
                 if saved:
                     reason = "saved"
                 else:
                     reason = "ready"
                 raise RuntimeError(f"Some images are not {reason} yet")
-        return uris
+        return refs
 
-    def image_uris(self, image_nbs, saved=False):
-        """Get the image URI's (universal resource identifiers).
+    def image_references(self, image_nbs, saved=False):
+        """Get the image references.
 
         :param sequence image_nbs:
         :param bool saved: ready or ready and saved
         :returns list(tuple): file name, path-in-file, image index, file format
                               File format (HDF5, HDF5BS, EDFLZ4, ...) is not file extension!
-        :raise RuntimeError: some images are ready or saved yet
+        :raise RuntimeError: some images are not ready or saved yet
                              or images will never be saved
         """
-        uris = list(self.iter_image_uris(image_nbs, saved=saved))
-        if len(uris) != len(image_nbs):
+        refs = list(self.iter_image_references(image_nbs, saved=saved))
+        if len(refs) != len(image_nbs):
             if saved:
                 reason = "saved"
             else:
                 reason = "ready"
             raise RuntimeError(f"Some images are not {reason} yet")
-        return uris
+        return refs
 
-    def iter_image_uris(self, image_nbs=None, saved=False):
-        """Get the image URI's (universal resource identifiers).
+    def image_reference(self, image_nb, saved=False):
+        """Get the image references.
+
+        :param int image_nb:
+        :param bool saved: ready or ready and saved
+        :returns tuple: file name, path-in-file, image index, file format
+                        File format (HDF5, HDF5BS, EDFLZ4, ...) is not file extension!
+        :raise RuntimeError: image is not ready or saved yet
+                             or images will never be saved
+        """
+        return self.image_references([image_nb], saved=saved)[0]
+
+    def iter_image_references(self, image_nbs=None, saved=False):
+        """Get the image references.
 
         Stops iterating when it encounters an image that is not
         ready or saved yet, regardless of how many images you
@@ -171,8 +211,7 @@ class LimaImageStatusEvent(streaming_events.StreamEvent):
         :raises RuntimeError: images will never be saved
         """
         info = self.info
-        saving_mode = info.get("saving_mode", "MANUAL")
-        if saving_mode == "MANUAL":  # files are not saved
+        if info["saving_mode"] == "MANUAL":
             raise RuntimeError("Images will never be saved")
 
         max_image_nb = self.get_last_index(saved=saved)
@@ -181,22 +220,17 @@ class LimaImageStatusEvent(streaming_events.StreamEvent):
             to_index = max_image_nb
             image_nbs = list(range(from_index, to_index + 1))
 
-        overwrite_policy = info.get("saving_overwrite", "ABORT").lower()
-        if overwrite_policy == "multiset":
+        # TODO: still exists ???
+        if info["saving_overwrite"] == "multiset":
             nb_image_per_file = info["acq_nb_frames"]
         else:
-            nb_image_per_file = info.get("saving_frame_per_file", 1)
+            nb_image_per_file = info["saving_frame_per_file"]
 
-        first_file_number = info.get("saving_next_number", 0)
-        path_format = os.path.join(
-            info["saving_directory"],
-            "%s%s%s"
-            % (
-                info["saving_prefix"],
-                info.get("saving_index_format", "%04d"),
-                info["saving_suffix"],
-            ),
+        first_file_number = info["saving_next_number"]
+        subdir_format = (
+            info["saving_prefix"] + info["saving_index_format"] + info["saving_suffix"]
         )
+        path_format = os.path.join(info["saving_directory"], subdir_format)
         file_format = info["saving_format"]
 
         for image_nb in image_nbs:
@@ -206,7 +240,7 @@ class LimaImageStatusEvent(streaming_events.StreamEvent):
             file_nb = first_file_number + image_nb // nb_image_per_file
             file_path = path_format % file_nb
             if file_format.lower().startswith("hdf5"):
-                if info.get("lima_version", "<1.9.1") == "<1.9.1":
+                if info["lima_version"] == "<1.9.1":
                     # 'old' lima
                     path_in_file = (
                         "/entry_0000/instrument/"
@@ -329,7 +363,7 @@ class LimaImageStatusEvent(streaming_events.StreamEvent):
         :returns numpy.ndarray or None:
         """
         try:
-            values = self.image_uris([image_nb], saved=True)
+            values = self.image_references([image_nb], saved=True)
         except IndexError:
             raise IndexError("Cannot retrieve image %d from file" % image_nb)
         return lima_io.image_from_file(*values[0])

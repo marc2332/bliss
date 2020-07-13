@@ -268,7 +268,7 @@ class HDF5_Writer(object):
 
         lima_data_view = node.get(0, -1)
 
-        tmp = lima_data_view.all_image_uris()
+        tmp = lima_data_view.all_image_references()
 
         if tmp != []:
             tmp = numpy.array(tmp, ndmin=2)

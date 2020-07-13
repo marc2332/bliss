@@ -111,6 +111,7 @@ class MachInfo(BeaconObject):
     def metadata(self, flag):
         def get_meta(scan):
             attributes = [
+                "SR_Mode",
                 "SR_Filling_Mode",
                 "SR_Single_Bunch_Current",
                 "SR_Current",
@@ -125,15 +126,27 @@ class MachInfo(BeaconObject):
                     attributes, self._read_attributes(attributes)
                 )
             }
-            meta_dict = {}
+            # Standard:
+            meta_dict = {
+                "@NX_class": "NXsource",
+                "name": "ESRF",
+                "type": "Synchrotron",
+                "mode": self.SRMODE(attributes["SR_Mode"]).name,
+                "current": attributes["SR_Current"],
+                "current@units": "mA",
+            }
+            # Non-standard:
             if attributes["SR_Filling_Mode"] == "1 bunch":
-                meta_dict["SB_CURR"] = attributes["SR_Single_Bunch_Current"]
-            meta_dict["Current"] = attributes["SR_Current"]
-            meta_dict["AutoM"] = attributes["Automatic_Mode"]
-            meta_dict["Shutter"] = attributes["FE_State"]
-            meta_dict["RefillIn"] = attributes["SR_Refill_Countdown"]
-            meta_dict["FillMode"] = attributes["SR_Filling_Mode"]
-            meta_dict["Message"] = attributes["SR_Operator_Mesg"]
+                meta_dict["single_bunch_current"] = attributes[
+                    "SR_Single_Bunch_Current"
+                ]
+                meta_dict["single_bunch_current@units"] = "mA"
+            meta_dict["filling_mode"] = attributes["SR_Filling_Mode"]
+            meta_dict["automatic_mode"] = attributes["Automatic_Mode"]
+            meta_dict["front_end"] = attributes["FE_State"]
+            meta_dict["refill_countdown"] = attributes["SR_Refill_Countdown"]
+            meta_dict["refill_countdown@units"] = "s"
+            meta_dict["message"] = attributes["SR_Operator_Mesg"]
             return {"machine": meta_dict}
 
         if flag:

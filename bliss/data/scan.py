@@ -72,8 +72,9 @@ def get_data(scan):
     connection = scan.node.db_connection
     pipeline = connection.pipeline()
     data = DataContainer()
-    nodes_and_index = [(node, 0) for node in scan.nodes.values()]
-    for channel_name, channel_data in get_data_from_nodes(pipeline, *nodes_and_index):
+    for channel_name, channel_data in get_data_from_nodes(
+        pipeline, *scan.nodes.values()
+    ):
         data[channel_name] = channel_data
     return data
 

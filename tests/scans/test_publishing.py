@@ -710,3 +710,102 @@ def test_no_ct_in_scans_queue(beacon, default_session):
     assert len(default_session.scans) == 1
     scans.sct(.1, diode, save=False)
     assert len(default_session.scans) == 1
+
+
+def test_block_size(default_session):
+    npoints = 107
+
+    def block_generator(npoints, dtype):
+        """Emits npoints in blocks
+        """
+        _npoints = 0
+        while npoints != _npoints:
+            blocksize = numpy.random.randint(low=1, high=5)
+            n = numpy.random.randint(low=5, high=10)
+            blocksize -= max(_npoints + blocksize - npoints, 0)
+            yield [numpy.full(n, _npoints + i, dtype=dtype) for i in range(blocksize)]
+            _npoints += blocksize
+
+    class myAcqDev(AcquisitionSlave):
+        def __init__(self):
+            class myDev:
+                def __init__(self):
+                    self.name = "test_def"
+
+            super().__init__(myDev())
+            channel = AcquisitionChannel("test:test", numpy.int16, (1,))
+            self.channels.append(channel)
+            self.data_generator = block_generator(npoints, channel.dtype)
+
+        def prepare(self):
+            pass
+
+        def start(self):
+            channel = self.channels[0]
+            try:
+                block = next(self.data_generator)
+            except StopIteration:
+                channel.emit([])
+            else:
+                channel.shape = block[0].shape
+                if len(block) == 1:
+                    channel.emit(block[0])
+                else:
+                    channel.emit(block)
+
+        def stop(sef):
+            pass
+
+        def trigger(self):
+            pass
+
+    chain = AcquisitionChain()
+    master = SoftwareTimerMaster(1e-6, npoints=npoints, name="timer1")
+    chain.add(master, myAcqDev())
+    s = Scan(chain, name="testscan")
+    s.run()
+
+    for node in s.node.iterator.walk(wait=False):
+        if node.name == "test:test":
+            mynode = node
+            break
+
+    # Single value
+    for i in range(npoints):
+        assert mynode.get(i)[0] == i
+        assert mynode.get_as_array(i)[0] == i
+
+    # First value
+    for j in [0, None]:
+        assert mynode.get(j)[0] == 0
+        assert mynode.get_as_array(j)[0] == 0
+
+    # Last value
+    for j in [-1, -2]:
+        assert mynode.get(j)[0] == npoints - 1
+        assert mynode.get_as_array(j)[0] == npoints - 1
+
+    # Range
+    for i in range(npoints):
+        j0 = max(i - 1, 0)  # could start from 0 but speedup
+        for j in range(j0, npoints):
+            expected = numpy.arange(i, j + 1, dtype=numpy.int16)
+            arr = numpy.array([x[0] for x in mynode.get(i, j)])
+            if expected.size:
+                assert arr.dtype == numpy.int16
+            assert numpy.array_equal(arr, expected)
+            arr = mynode.get_as_array(i, j)[:, 0]
+            if expected.size:
+                assert arr.dtype == numpy.int16
+            assert numpy.array_equal(arr, expected)
+
+    # Full range
+    for i in [0, -1, None]:
+        for j in [-1, -2]:
+            expected = numpy.arange(npoints, dtype=numpy.int16)
+            arr = numpy.array([x[0] for x in mynode.get(i, j)])
+            assert arr.dtype == numpy.int16
+            assert numpy.array_equal(arr, expected)
+            arr = mynode.get_as_array(i, j)[:, 0]
+            assert arr.dtype == numpy.int16
+            assert numpy.array_equal(arr, expected)

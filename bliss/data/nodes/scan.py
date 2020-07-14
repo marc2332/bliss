@@ -98,10 +98,10 @@ class Scan(DataNodeContainer):
         return db_names
 
 
-def get_data_from_nodes(pipeline, *nodes_and_start_index):
+def get_data_from_nodes(pipeline, *nodes):
     scan_channel_get_data_func = dict()  # { channel_name: function }
     scan_image_get_view = dict()
-    for node, start_index in nodes_and_start_index:
+    for node in nodes:
         if node.type == "channel":
             chan = node
             channel_name = chan.fullname
@@ -113,11 +113,11 @@ def get_data_from_nodes(pipeline, *nodes_and_start_index):
                 # as it is in a Redis pipeline, .get() returns the
                 # conversion function only - data will be received
                 # after .execute()
-                scan_channel_get_data_func[channel_name] = chan.get(start_index, -1)
+                scan_channel_get_data_func[channel_name] = chan.get(0, -1)
             finally:
                 chan.db_connection = saved_db_connection
         elif node.type == "lima":
-            scan_image_get_view[node.fullname] = node.get(start_index, -1)
+            scan_image_get_view[node.fullname] = node.get(0, -1)
 
     result = pipeline.execute()
 

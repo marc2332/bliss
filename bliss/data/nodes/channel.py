@@ -136,39 +136,74 @@ class ChannelDataNode(DataNode):
         returns a list of numpy arrays
         """
         self._create_queue()
+        if from_index is None:
+            from_index = 0
         if to_index is None:
-            if from_index == -1:
+            if from_index < 0:
                 raw_data = self._queue.rev_range(count=1)
             else:
                 redis_index = from_index + 1  # redis starts at 1
-                raw_data = self._queue.range(
-                    redis_index, redis_index, cnx=self.db_connection
-                )
-            data = self.raw_to_data(from_index, raw_data)
+                raw_data = self._queue_range(redis_index, redis_index)
+            data = self.raw_to_data(from_index, from_index, raw_data)
             try:
                 return data[-1]
             except IndexError:
                 return None
         else:
+            from_index = max(from_index, 0)
+            redis_from_index = from_index + 1  # redis starts at 1
             if to_index < 0:
-                to_index = "+"  # means stream end
+                redis_to_index = "+"  # means stream end
             else:
-                to_index += 1
-            redis_first_index = from_index + 1
-            raw_data = self._queue.range(
-                redis_first_index, to_index, cnx=self.db_connection
-            )
+                redis_to_index = to_index + 1  # redis starts at 1
+            raw_data = self._queue_range(redis_from_index, redis_to_index)
             if isinstance(raw_data, list):
-                return self.raw_to_data(from_index, raw_data)
+                return self.raw_to_data(from_index, to_index, raw_data)
             else:
                 # pipeline case from get_data
                 # should return the conversion fonction
                 def raw_to_data(raw_data):
-                    return self.raw_to_data(from_index, raw_data)
+                    return self.raw_to_data(from_index, to_index, raw_data)
 
                 return raw_to_data
 
-    def raw_to_data(self, from_index, raw_datas):
+    def _queue_range(self, from_index, to_index):
+        """The result includes `from_index` and `to_index` but
+        can be larger on both sides due to the block size.
+
+        :param int from_index:
+        :param int or str to_index:
+        :returns list(2-tuple) or callable:
+        :raises RuntimeError: when using a Redis pipeline to
+                              get partial queue events
+        """
+        if from_index in [0, 1] and to_index == "+":
+            return self._queue.range(from_index, to_index, cnx=self.db_connection)
+        org_from_index = from_index
+        blocksize = 0
+        result = []
+        while True:
+            from_index = max(from_index - blocksize, 0)
+            events = self._queue.range(from_index, to_index, cnx=self.db_connection)
+            if not isinstance(events, list):
+                raise RuntimeError(
+                    "Redis pipelines can only be used when retrieving the full queue range."
+                )
+            if events:
+                result = events + result
+                idx, raw = events[0]
+                first_index = int(idx.split(b"-")[0])
+                if first_index <= org_from_index or from_index == 0:
+                    break
+                to_index = first_index - 1
+                from_index = first_index
+                blocksize = int(raw[self.BLOCK_SIZE])
+            elif from_index == 0:
+                break
+            blocksize = max(blocksize, 1)
+        return result
+
+    def raw_to_data(self, from_index, to_index, raw_datas):
         """
         transform internal Stream into data
         raw_datas -- should be the return of xread or xrange.
@@ -177,12 +212,23 @@ class ChannelDataNode(DataNode):
         first_index = event_data.first_index
         if first_index < 0:
             return []
-        if first_index != from_index and from_index > 0:
+        if first_index > from_index and from_index > 0:
             raise RuntimeError(
                 "Data is not anymore available first_index:"
                 f"{first_index} request_index:{from_index}"
             )
-        return event_data.data
+        data = event_data.data
+        # Data can be larger on both sides (see _queue_range)
+        start = max(from_index - first_index, 0)
+        ndata = len(data)
+        if to_index < 0:
+            stop = ndata
+        else:
+            stop = start + to_index - from_index + 1
+        if stop - start == ndata:
+            return data
+        else:
+            return data[start:stop]
 
     def decode_raw_events(self, events):
         """

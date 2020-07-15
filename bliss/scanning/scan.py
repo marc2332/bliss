@@ -899,7 +899,8 @@ class Scan:
     def is_flint_recommended(self):
         """Return true if flint is recommended for this scan"""
         scan_info = self._scan_info
-        if scan_info["type"] == "ct":
+        kind = scan_info.get("type", None)
+        if kind == "ct":
             chain = scan_info["acquisition_chain"]
             ndim_data = []
             for _top_master, chain in scan_info["acquisition_chain"].items():

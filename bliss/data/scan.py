@@ -9,6 +9,7 @@
 import sys
 import numpy
 import gevent
+import typing
 from bliss.common.counter import Counter
 from bliss.common.axis import Axis
 from bliss.data.nodes.scan import get_data_from_nodes
@@ -169,7 +170,7 @@ def watch_session_scans(
                     dim = 2
 
                 for master, channels in scan_info["acquisition_chain"].items():
-                    other_names = []
+                    other_names: typing.List[str] = []
                     other_names += channels.get("spectra", [])
                     other_names += channels.get("images", [])
                     other_names += channels.get("master", {}).get("images", [])

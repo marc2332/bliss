@@ -125,7 +125,7 @@ def watch_session_scans(
                 if scan_info:  # scan_found
                     try:
                         scan_new_child_callback(scan_info, node)
-                    except:
+                    except Exception:
                         sys.excepthook(*sys.exc_info())
         elif event_type == event_type.NEW_DATA:
             index, data, description = (
@@ -163,7 +163,7 @@ def watch_session_scans(
                                         master,
                                         {"data": nodes_data, "scan_info": scan_info},
                                     )
-                                except:
+                                except Exception:
                                     sys.excepthook(*sys.exc_info())
                         continue
                 elif node.type == "lima":
@@ -189,7 +189,7 @@ def watch_session_scans(
                                     "scan_info": scan_info,
                                 },
                             )
-                        except:
+                        except Exception:
                             sys.excepthook(*sys.exc_info())
 
         elif event_type == event_type.END_SCAN:
@@ -202,7 +202,7 @@ def watch_session_scans(
                     if scan_end_callback:
                         try:
                             scan_end_callback(scan_info)
-                        except:
+                        except Exception:
                             sys.excepthook(*sys.exc_info())
 
         gevent.idle()

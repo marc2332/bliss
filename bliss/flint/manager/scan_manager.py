@@ -28,6 +28,7 @@ from typing import Optional
 from typing import Dict
 from typing import Tuple
 from typing import List
+from typing import Any
 
 import logging
 import numpy
@@ -43,6 +44,7 @@ from .data_storage import DataStorage
 from bliss.flint.helper import scan_info_helper
 from bliss.flint.model import flint_model
 from bliss.flint.model import scan_model
+from bliss.data.nodes.lima import LimaImageChannelDataNode
 
 
 _logger = logging.getLogger(__name__)
@@ -64,7 +66,7 @@ class _ScanCache:
         """Store metadata relative to lima video"""
         self.data_storage = DataStorage()
         """"Store 0d grouped by masters"""
-        self.__image_views = {}
+        self.__image_views: Dict[str, LimaImageChannelDataNode.LimaDataView] = {}
 
     def store_last_image_view(self, channel_name, image_view):
         self.__image_views[channel_name] = image_view
@@ -106,7 +108,7 @@ class ScanManager:
         self.__cache: Dict[str, _ScanCache] = {}
 
         self._last_event: Dict[
-            Tuple[str, Optional[str]], Tuple[str, numpy.ndarray]
+            Tuple[str, Optional[str]], Tuple[Dict[str, Any], str, numpy.ndarray]
         ] = dict()
 
         self._end_scan_event = gevent.event.Event()
@@ -360,6 +362,8 @@ class ScanManager:
     def __new_scan_data(self, scan_info, data_type, master_name, data):
         scan_id = self.__get_scan_id(scan_info)
         cache = self.__get_scan_cache(scan_id)
+        if cache is None:
+            return
 
         if data_type == "0d":
             channels_data = data["data"]
@@ -452,6 +456,8 @@ class ScanManager:
             return
 
         cache = self.__get_scan_cache(scan_id)
+        if cache is None:
+            return
         try:
             self._end_scan(cache)
         finally:

@@ -45,6 +45,7 @@ from bliss.flint.helper import scan_info_helper
 from bliss.flint.model import flint_model
 from bliss.flint.model import scan_model
 from bliss.data.nodes.lima import LimaImageChannelDataNode
+from bliss.data.node import get_node
 
 
 _logger = logging.getLogger(__name__)
@@ -153,6 +154,7 @@ class ScanManager:
             self.new_scan_data,
             self.end_scan,
             ready_event=ready_event,
+            watch_scan_group=True,
         )
 
         def exception_orrured(future_exception):
@@ -199,10 +201,22 @@ class ScanManager:
             _logger.debug("new_scan from %s ignored", unique)
             return
 
+        node_name = scan_info.get("node_name", None)
+        if node_name is not None:
+            if self.__absorb_events:
+                node = get_node(node_name)
+                is_group = node is not None and node.type == "scan_group"
+            else:
+                # FIXME: absorb_events is used here for testability
+                # it should be done in a better way
+                is_group = False
+        else:
+            is_group = False
+
         self._end_scan_event.clear()
 
         # Initialize cache structure
-        scan = scan_info_helper.create_scan_model(scan_info)
+        scan = scan_info_helper.create_scan_model(scan_info, is_group)
         cache = _ScanCache(unique, scan)
 
         channels = scan_info_helper.iter_channels(scan_info)

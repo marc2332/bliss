@@ -34,6 +34,8 @@ import xdrlib
 import socket
 import os
 import struct
+import functools
+import gevent
 
 RPCVERSION = 2
 
@@ -184,6 +186,15 @@ class Unpacker(xdrlib.Unpacker):
 # Common base class for clients
 
 
+def synchronized(func):
+    @functools.wraps(func)
+    def f(self, *args, **kwargs):
+        with self._lock:
+            return func(self, *args, **kwargs)
+
+    return f
+
+
 class Client:
     def __init__(self, host, prog, vers, port):
         self.host = host
@@ -193,7 +204,9 @@ class Client:
         self.lastxid = 0  # XXX should be more random?
         self.cred = None
         self.verf = None
+        self._lock = gevent.lock.RLock()
 
+    @synchronized
     def make_call(self, proc, args, pack_func, unpack_func):
         # Don't normally override this (but see Broadcast)
         if pack_func is None and args is not None:
@@ -385,6 +398,7 @@ class RawBroadcastUDPClient(RawUDPClient):
     def set_timeout(self, timeout):
         self.timeout = timeout  # Use None for infinite timeout
 
+    @synchronized
     def make_call(self, proc, args, pack_func, unpack_func):
         if pack_func is None and args is not None:
             raise TypeError("non-null args with null pack_func")
@@ -598,6 +612,7 @@ class BroadcastUDPClient(Client):
         if self.user_reply_handler is not None:
             self.user_reply_handler(result, fromaddr)
 
+    @synchronized
     def make_call(self, proc, args, pack_func, unpack_func):
         self.packer.reset()
         if pack_func:

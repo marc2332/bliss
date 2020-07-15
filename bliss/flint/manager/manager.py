@@ -261,6 +261,11 @@ class ManageMainBehaviours(qt.QObject):
         ):
             return
 
+        if isinstance(scan, scan_model.ScanGroup):
+            if scan.type() is None:
+                # Skip groups without types
+                return
+
         # Update the current scan only if the previous one is finished
         # FIXME: It should be managed in a better way, but for now it's fine
         scanInfo = scan.scanInfo()

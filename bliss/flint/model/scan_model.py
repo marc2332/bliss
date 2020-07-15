@@ -206,6 +206,10 @@ class Scan(qt.QObject, _Sealable):
     def scanInfo(self) -> Dict:
         return self.__scanInfo
 
+    def type(self) -> Optional[str]:
+        """Returns the scan type stored in the scan info"""
+        return self.__scanInfo.get("type", None)
+
     def _setFinalScanInfo(self, scanInfo: Dict):
         self.__finalScanInfo = scanInfo
 

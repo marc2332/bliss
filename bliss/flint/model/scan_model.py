@@ -310,6 +310,13 @@ class Scan(qt.QObject, _Sealable):
         return result[1]
 
 
+class ScanGroup(Scan):
+    """Scan group object.
+
+    It can be a normal scan but can contains extra scans.
+    """
+
+
 class DeviceType(enum.Enum):
     """Enumerate the kind of devices"""
 

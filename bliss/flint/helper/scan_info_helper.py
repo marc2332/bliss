@@ -295,7 +295,8 @@ def create_plot_model(
 
     have_scalar = False
     have_scatter = False
-    for _master, channels in scan_info["acquisition_chain"].items():
+    acquisition_chain = scan_info.get("acquisition_chain", None)
+    for _master, channels in acquisition_chain.items():
         scalars = channels.get("scalars", [])
         if len(scalars) > 0:
             have_scalar = True
@@ -309,7 +310,7 @@ def create_plot_model(
         if not have_scalar:
             default_plot = plot
 
-        for master_name, channels_dict in scan_info["acquisition_chain"].items():
+        for master_name, channels_dict in acquisition_chain.items():
             scalars = channels_dict.get("scalars", [])
             master_channels = channels_dict.get("master", {}).get("scalars", [])
 
@@ -400,7 +401,7 @@ def create_plot_model(
     # Scatter plot
 
     if have_scatter:
-        for _master, channels in scan_info["acquisition_chain"].items():
+        for _master, channels in acquisition_chain.items():
             plot = plot_item_model.ScatterPlot()
             if default_plot is None:
                 default_plot = plot
@@ -449,7 +450,7 @@ def create_plot_model(
 
     mca_plots_per_device: Dict[str, List[plot_model.Plot]] = {}
 
-    for _master, channels in scan_info["acquisition_chain"].items():
+    for _master, channels in acquisition_chain.items():
         spectra: List[str] = []
         spectra += channels.get("spectra", [])
         # merge master which are spectra
@@ -479,7 +480,7 @@ def create_plot_model(
 
     image_plots_per_device: Dict[str, List[plot_model.Plot]] = {}
 
-    for _master, channels in scan_info["acquisition_chain"].items():
+    for _master, channels in acquisition_chain.items():
         images: List[str] = []
         images += channels.get("images", [])
         # merge master which are image

@@ -99,8 +99,12 @@ class ChannelDataEvent(streaming_events.StreamEvent):
     def _decode(self, raw):
         super()._decode(raw)
         self.description = self.generic_decode(raw[self.DESC_KEY])
-        self._npoints = self.decode_integral(raw[self.NPOINTS_KEY])
+        self._npoints = self.decode_npoints(raw)
         self._data = self.generic_decode(raw[self.DATA_KEY])
+
+    @classmethod
+    def decode_npoints(cls, raw):
+        return cls.decode_integral(raw[cls.NPOINTS_KEY])
 
     @classmethod
     def merge(cls, events):

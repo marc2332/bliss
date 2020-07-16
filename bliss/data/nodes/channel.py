@@ -92,6 +92,8 @@ class ChannelDataNodeBase(DataNode):
 
             if from_index > to_index:
                 raise IndexError("Reverse order not supported")
+            elif from_index == to_index:
+                return numpy.array([])
             to_index -= 1
         elif idx is Ellipsis:
             from_index = 0
@@ -150,15 +152,17 @@ class ChannelDataNodeBase(DataNode):
     def get(self, from_index, to_index=None):
         """Returns an item or a slice.
 
-        :param int index: 
-                    to_index is None:
-                         < 0: last item
-                         >= 0: item at this index
-                    to_index is not None:
-                        positive integer
-        :param int or None to_index: >= 0 (get slice until and including this index),
-                                     < 0 (get slice until the end)
-                                     None (get item at index from_index)
+        :param int from_index: >= 0 (item at this index)
+                               < 0  (last item (to_index is None), first item (to_index is not None))
+                               None (first item)
+        :param int to_index: >= 0 (get slice until and including this index),
+                             < 0 (get slice until the end)
+                             None (get item at index from_index)
+        :returns numpy.ndarray, list, scalar, None or callable:
+        :raises IndexError: out of range when slicing and
+                              from_index>0 and to_index<0
+                              to_index>0
+                            otherwise returns None or []
         """
         raise NotImplementedError
 
@@ -190,7 +194,7 @@ class ChannelDataNode(ChannelDataNodeBase):
         """Returns an item or a slice.
 
         :param int from_index:
-        :param int or None to_index:
+        :param int to_index:
         :returns numpy.ndarray, list, scalar, None or callable: only a list when no data
         """
         if from_index is None:
@@ -198,6 +202,7 @@ class ChannelDataNode(ChannelDataNodeBase):
         if to_index is None:
             return self._get_item(from_index)
         else:
+            from_index = max(from_index, 0)
             return self._get_slice(from_index, to_index)
 
     def _get_item(self, index):
@@ -208,7 +213,7 @@ class ChannelDataNode(ChannelDataNodeBase):
         :returns scalar, None or callable: None instead of IndexError
         """
         if index < 0:
-            events = self._queue.rev_range(count=1)
+            events = self._queue.rev_range(count=1, cnx=self.db_connection)
         else:
             redis_index = self._idx_to_streamid(index)
             events = self._queue_range(redis_index, redis_index)
@@ -265,42 +270,47 @@ class ChannelDataNode(ChannelDataNodeBase):
             if events:
                 result = events + result
                 idx, raw = events[0]
-                ev = ChannelDataEvent(raw=raw)
-                first_index = int(idx.split(b"-")[0])
+                first_index = self._idx_to_streamid(self._streamid_to_idx(idx))
                 if first_index <= org_from_index or from_index == 0:
                     break
                 to_index = first_index - 1
                 from_index = first_index
-                blocksize = ev.npoints
+                blocksize = ChannelDataEvent.decode_npoints(raw)
             elif from_index == 0:
                 break
             blocksize = max(blocksize, 1)
         return result
 
-    def _events_to_data(self, from_index, to_index, events):
+    def _events_to_data(self, from_index, to_index, events, single=False):
         """
         :param int from_index:
         :param int to_index:
         :param list((index, raw)) events:
+        :param bool single: requested a single value, not a slice
         :returns numpy.ndarray or list: only a list when no data
         """
         event_data = self.decode_raw_events(events)
+        data = event_data.data
+        ndata = len(data)
         first_index = event_data.first_index
-        if first_index < 0:
-            return []
-        if first_index > from_index and from_index > 0:
-            raise RuntimeError(
+
+        # The last index is ALWAYS allowed to be higher than the available data
+        # The first index is SOMETIMES allowed to be lower than the available data
+        allow_lower = (to_index < 0 and from_index == 0) or single
+        is_lower = from_index < first_index or first_index < 0
+        if is_lower and not allow_lower:
+            raise IndexError(
                 "Data is not anymore available first_index:"
                 f"{first_index} request_index:{from_index}"
             )
-        data = event_data.data
+
         # Data can be larger on both sides (see _queue_range)
         start = max(from_index - first_index, 0)
-        ndata = len(data)
         if to_index < 0:
             stop = ndata
         else:
-            stop = start + to_index - from_index + 1
+            nrequested = to_index - from_index + 1
+            stop = min(start + nrequested, ndata)
         if stop - start == ndata:
             return data
         else:
@@ -312,7 +322,7 @@ class ChannelDataNode(ChannelDataNodeBase):
         :param list((index, raw)) events:
         :returns scalar or None:
         """
-        data = self._events_to_data(index, index, events)
+        data = self._events_to_data(index, index, events, single=True)
         try:
             return data[-1]
         except IndexError:

@@ -30,6 +30,7 @@ from bliss.data.node import (
     sessions_list,
 )
 from bliss.data.nodes.channel import ChannelDataNode
+from bliss.data.events.channel import ChannelDataEvent
 from bliss.scanning.acquisition.timer import SoftwareTimerMaster
 from bliss.scanning.channel import AcquisitionChannel
 
@@ -169,7 +170,7 @@ def _validate_node_indexing(node, shape, dtype, npoints, expected_data, extract)
     )
 
     # Integer indexing
-    # assert isinstance(extract(node[2]), node.dtype)
+    assert extract(node[2]).dtype == node.dtype
     assert numpy.equal(expected_data[2], extract(node[2], slice=False))
     assert numpy.equal(expected_data[-2], extract(node[-2], slice=False))
     with pytest.raises(IndexError):
@@ -1145,26 +1146,35 @@ def test_block_size(default_session):
             mynode = node
             break
 
+    full_range = numpy.arange(npoints, dtype=numpy.int16)
+
     # Single value
     for i in range(npoints):
         assert mynode.get(i)[0] == i
         assert mynode.get_as_array(i)[0] == i
+        assert mynode[i][0] == i
+    for j in range(-1, -npoints, -1):
+        assert mynode[j][0] == full_range[j]
 
     # First value
     for j in [0, None]:
         assert mynode.get(j)[0] == 0
         assert mynode.get_as_array(j)[0] == 0
+    assert mynode[0][0] == 0
+    with pytest.raises(IndexError):
+        mynode[None]
 
     # Last value
     for j in [-1, -2]:
         assert mynode.get(j)[0] == npoints - 1
         assert mynode.get_as_array(j)[0] == npoints - 1
+    assert mynode[-1][0] == npoints - 1
 
     # Range
     for i in range(npoints):
         j0 = max(i - 1, 0)  # could start from 0 but speedup
         for j in range(j0, npoints):
-            expected = numpy.arange(i, j + 1, dtype=numpy.int16)
+            expected = full_range[i : j + 1]
             arr = numpy.array([x[0] for x in mynode.get(i, j)])
             if expected.size:
                 assert arr.dtype == numpy.int16
@@ -1172,15 +1182,57 @@ def test_block_size(default_session):
             arr = mynode.get_as_array(i, j)[:, 0]
             if expected.size:
                 assert arr.dtype == numpy.int16
+            assert numpy.array_equal(arr, expected)
+    for i in range(0, npoints):
+        for j in range(i, npoints):
+            expected = full_range[i:j]
+            arr = numpy.array([x[0] for x in mynode[i:j]])
+            assert numpy.array_equal(arr, expected)
+    for i in range(-1, -npoints, -1):
+        for j in range(i, 0):
+            expected = full_range[i:j]
+            arr = numpy.array([x[0] for x in mynode[i:j]])
             assert numpy.array_equal(arr, expected)
 
     # Full range
     for i in [0, -1, None]:
         for j in [-1, -2]:
-            expected = numpy.arange(npoints, dtype=numpy.int16)
             arr = numpy.array([x[0] for x in mynode.get(i, j)])
             assert arr.dtype == numpy.int16
-            assert numpy.array_equal(arr, expected)
+            assert numpy.array_equal(arr, full_range)
             arr = mynode.get_as_array(i, j)[:, 0]
             assert arr.dtype == numpy.int16
-            assert numpy.array_equal(arr, expected)
+            assert numpy.array_equal(arr, full_range)
+    for idx in [slice(None, None), slice(0, None)]:
+        arr = numpy.array([x[0] for x in mynode[idx]])
+        assert arr.dtype == numpy.int16
+        assert numpy.array_equal(arr, full_range)
+
+    # Remove the first block
+    idx, raw = mynode._queue.range(count=1)[0]
+    ndel = ChannelDataEvent.decode_npoints(raw)
+    nleft = npoints - ndel
+    mynode._queue.remove(idx)
+
+    # Starting index inside the removed block
+    for i in range(ndel):
+        # Single value
+        assert mynode.get(i) is None
+        with pytest.raises(IndexError):
+            mynode[i]
+
+        # Slice with open end
+        if i == 0:
+            assert len(mynode.get_as_array(i, -1)) == nleft
+        else:
+            with pytest.raises(IndexError):
+                mynode.get_as_array(i, -1)
+        with pytest.raises(IndexError):
+            mynode[i:]
+
+        # Slice with closed end
+        for add in range(3):
+            with pytest.raises(IndexError):
+                mynode.get_as_array(i, i + add)
+            with pytest.raises(IndexError):
+                mynode[i : i + add + 1]

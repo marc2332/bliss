@@ -26,7 +26,7 @@ class WagoMotor(Controller):
 
     def start_one(self, motion):
         logical_name = motion.axis.config.get("logical_name")
-        logical_channel = motion.axis.config.get("logical_channel")
+        logical_channel = int(motion.axis.config.get("logical_channel"))
 
         self.wago.controller.devwritephys(
             (
@@ -42,7 +42,7 @@ class WagoMotor(Controller):
 
     def read_position(self, axis):
         logical_name = axis.config.get("logical_name")
-        logical_channel = axis.config.get("logical_channel")
+        logical_channel = int(axis.config.get("logical_channel"))
         value = self.wago.get(logical_name)
         try:
             len(value)

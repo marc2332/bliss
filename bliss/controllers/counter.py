@@ -164,7 +164,7 @@ class IntegratingCounterController(CounterController):
 class CalcCounterController(CounterController):
     def __init__(self, name, config, register_counters=True):
 
-        super().__init__(name, register_counters=register_counters)
+        super().__init__(name, register_counters=False)
 
         self._input_counters = []
         self._output_counters = []
@@ -176,6 +176,10 @@ class CalcCounterController(CounterController):
         self.emitted_index = -1
 
         self.build_counters(config)
+
+        if register_counters:
+            for counter in self.outputs:
+                global_map.register(counter, parents_list=["counters"])
 
     def get_acquisition_object(
         self, acq_params, ctrl_params, parent_acq_params, acq_devices

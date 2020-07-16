@@ -74,7 +74,15 @@ class Sequence:
             self.sequence._scans.append(scan)
             self.sequence.group_acq_master.new_subscan(scan)
 
-        def add(self, scan):
+        def add(self, scan: Scanning_Scan):
+            """Add a scan into the group.
+
+            If the scan was not started, this method also flag the scan
+            `scan_info` with the group node_name.
+
+            Argument:
+                scan: A scan
+            """
             assert isinstance(scan, Scanning_Scan)
             self.sequence._scans.append(scan)
 
@@ -82,16 +90,30 @@ class Sequence:
                 # scan is running / has been running already
                 self.sequence.group_acq_master.new_subscan(scan)
             else:
+                scan.scan_info["group"] = self.sequence.node.db_name
                 self.sequence._waiting_scans.append(
                     gevent.spawn(self._wait_before_adding_scan, scan)
                 )
 
-        def add_and_run(self, scan):
+        def add_and_run(self, scan: Scanning_Scan):
+            """Add a scan into the group, run it, and wait for
+            termination.
+
+            This method also flag the scan `scan_info` with
+            the group node_name.
+
+            Argument:
+                scan: A scan
+
+            Raise:
+                RuntimeError: If the scan was already started.
+            """
             assert isinstance(scan, Scanning_Scan)
             if scan.state != 0:
                 raise RuntimeError(
                     f'Error in  add_and_run: scan "{scan.name}" has already been started before!'
                 )
+            scan.scan_info["group"] = self.sequence.node.db_name
 
             self.add(scan)
             g = gevent.spawn(scan.run)

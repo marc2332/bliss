@@ -62,7 +62,10 @@ function reload_tree(tree, options) {
     BEACON_TREES[options.perspective] = data;
     tree_options.data = data;
     tree.treeview(tree_options);
-  }, "json");
+  }, "json")
+  .fail(function() {
+    show_notification("Error while loading tree", "error");
+  });
 }
 
 function show_file(node, panel) {
@@ -86,7 +89,10 @@ function show_filename(filename, panel) {
       panel.html(data.html);
     }
     panel.attr("style", "visibility: visible");
-  }, "json");
+  }, "json")
+  .fail(function() {
+    show_notification("Error fetching file " + filename, "error");
+  });
 }
 
 function check_invalid_file(filename) {
@@ -103,13 +109,19 @@ function check_invalid_file(filename) {
 function show_item(name, panel) {
   $.get("page/" + name, function(data) {
     show_html_data(data, panel);
-  }, "json");
+  }, "json")
+  .fail(function() {
+    show_notification("Error fetching page/" + name, "error");
+  });
 }
 
 function show_main(panel) {
   $.get("main/", function(data) {
     show_html_data(data, panel);
-  }, "json");
+  }, "json")
+  .fail(function() {
+    show_notification("Error fetching main/", "error");
+  });
 }
 
 function show_html_data(data, panel) {
@@ -226,6 +238,9 @@ function move_path(src_path, dst_path, on_success) {
 function show_notification(msg, type, fadeOut, fadeOutDelay) {
   if (type === undefined) {
     type = "success";
+  }
+  if (type === "error") {
+    type = "danger";
   }
   if (fadeOut === undefined) {
     fadeOut = true;

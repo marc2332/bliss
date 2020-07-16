@@ -219,6 +219,13 @@ class ScanManager:
         scan = scan_info_helper.create_scan_model(scan_info, is_group)
         cache = _ScanCache(unique, scan)
 
+        group_name = scan_info.get("group", None)
+        if group_name is not None:
+            group = self.__get_scan_cache(group_name)
+            if group is not None:
+                scan.setGroup(group.scan)
+                group.scan.addSubScan(scan)
+
         channels = scan_info_helper.iter_channels(scan_info)
         for channel in channels:
             if channel.kind == "scalar":

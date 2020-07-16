@@ -26,6 +26,7 @@ from typing import NamedTuple
 import logging
 import numpy
 import enum
+import weakref
 
 from silx.gui import qt
 
@@ -181,6 +182,7 @@ class Scan(qt.QObject, _Sealable):
         self.__scanInfo = {}
         self.__finalScanInfo = None
         self.__state = ScanState.INITIALIZED
+        self.__group = None
 
     def _setState(self, state: ScanState):
         """Private method to set the state of the scan."""
@@ -196,6 +198,14 @@ class Scan(qt.QObject, _Sealable):
             device.seal()
             self.__cacheChannels(device)
         super(Scan, self).seal()
+
+    def setGroup(self, group):
+        self.__group = weakref.ref(group)
+
+    def group(self):
+        if self.__group is None:
+            return None
+        return self.__group()
 
     def setScanInfo(self, scanInfo: Dict):
         if self.isSealed():
@@ -319,6 +329,20 @@ class ScanGroup(Scan):
 
     It can be a normal scan but can contains extra scans.
     """
+
+    subScanAdded = qt.Signal(object)
+    """Emitted when a sub scan is added to this scan."""
+
+    def __init__(self, parent=None):
+        Scan.__init__(self, parent=parent)
+        self.__subScans = []
+
+    def addSubScan(self, scan: Scan):
+        self.__subScans.append(scan)
+        self.subScanAdded.emit(scan)
+
+    def subScans(self) -> List[Scan]:
+        return list(self.__subScans)
 
 
 class DeviceType(enum.Enum):

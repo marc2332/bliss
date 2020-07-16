@@ -29,27 +29,26 @@
     counters:
         - counter_name: apdcnt
           tag: counts
-          mode: LAST
 
         - counter_name: apdtemp
           tag: htemp
           unit: °C
-          mode: SINGLE
+          mode: MEAN
 
         - counter_name: apdcurr
           tag: hcurr
           unit: uA
-          mode: SINGLE
+          mode: MEAN
 
         - counter_name: apdhvmon
           tag: hvmon
           unit: V
-          mode: SINGLE
+          mode: MEAN
 """
 
-import time
 import enum
 import gevent
+from gevent import event
 
 from functools import partial
 
@@ -60,9 +59,12 @@ from bliss.common.logtools import log_debug, log_info
 from bliss.common.soft_axis import SoftAxis
 from bliss.common.axis import AxisState
 
-from bliss.common.counter import SamplingCounter
-from bliss.controllers.counter import SamplingCounterController
-from bliss.scanning.acquisition.counter import SamplingCounterAcquisitionSlave
+from bliss.common.counter import Counter, SamplingCounter
+from bliss.controllers.counter import CounterController, SamplingCounterController
+
+
+from bliss.scanning.acquisition.counter import BaseCounterAcquisitionSlave
+
 from bliss.common.utils import autocomplete_property
 from bliss.common.protocols import counter_namespace
 
@@ -70,29 +72,75 @@ from bliss.common.session import get_current_session
 from bliss.common.greenlet_utils import protect_from_kill
 
 
-class AceAcquisitionSlave(SamplingCounterAcquisitionSlave):
-    def prepare_device(self):
+class AceIAS(BaseCounterAcquisitionSlave):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._reading_event = event.Event()
+
+    def prepare(self):
         pass
 
-    def start_device(self):
-        pass
+    def start(self):
+        self._stop_flag = False
+        self._reading_event.clear()
 
-    def stop_device(self):
-        self.device.ace.counting_stop()
+    def stop(self):
+        self._stop_flag = True
+        self._reading_event.set()
+        if not self.device.ace.counter_is_ready:
+            self.device.ace.counting_stop()
 
     def trigger(self):
-        self._trig_time = time.time()
         self.device.ace.counting_start(self.count_time)
-        self._event.set()
+        gevent.sleep(self.count_time)
+        self._reading_event.set()
+
+    def reading(self):
+        self._reading_event.wait()
+        self._reading_event.clear()
+        with gevent.Timeout(2.0):
+            while not self._stop_flag:
+                status, nremain, ntotal, ctime, counts = self.device.read_counts()
+                if status == "D":
+                    self._emit_new_data([[counts]])
+                    break
+                else:
+                    gevent.sleep(0.001)
 
 
-class AceCC(SamplingCounterController):
+class AceICC(CounterController):
     def __init__(self, name, ace):
         super().__init__(name)
         self.ace = ace
 
     def get_acquisition_object(self, acq_params, ctrl_params, parent_acq_params):
-        return AceAcquisitionSlave(self, ctrl_params=ctrl_params, **acq_params)
+        return AceIAS(self, ctrl_params=ctrl_params, **acq_params)
+
+    def get_default_chain_parameters(self, scan_params, acq_params):
+
+        try:
+            count_time = acq_params["count_time"]
+        except KeyError:
+            count_time = scan_params["count_time"]
+
+        try:
+            npoints = acq_params["npoints"]
+        except KeyError:
+            npoints = scan_params["npoints"]
+
+        params = {"count_time": count_time, "npoints": npoints}
+
+        return params
+
+    def read_counts(self):
+        """ returns status, nremain, ntotal, time, counts """
+        return self.ace.putget("?CT DATA").split()
+
+
+class AceSCC(SamplingCounterController):
+    def __init__(self, name, ace):
+        super().__init__(name)
+        self.ace = ace
 
     def read_all(self, *counters):
         values = []
@@ -103,8 +151,11 @@ class AceCC(SamplingCounterController):
                 values.append(self.ace.head_hvmon)
             elif cnt.tag == "htemp":
                 values.append(self.ace.head_temp)
-            elif cnt.tag == "counts":
-                values.append(self.ace.counts)
+            else:
+                # returned number of data must be equal to the length of '*counters'
+                # so raiseError if one of the received counter is not handled
+                raise ValueError(f"Unknown counter {cnt} with tag {cnt.tag} !")
+
         return values
 
 
@@ -124,6 +175,8 @@ class Ace:
         self._config = config
         self._comm = get_comm(config)
         self._timeout = config.get("timeout", 3.0)
+        self._count_time = None
+
         gpib = config.get("gpib")
         if gpib:
             gpib["eol"] = ""
@@ -384,10 +437,10 @@ class Ace:
 
         if self.sca_mode == "INT":
             return counter_namespace(
-                [self._cc.counters.sca_low, self._cc.counters.counts]
+                [self._scc.counters.sca_low, self._icc.counters.counts]
             )
         else:
-            return self._cc.counters
+            return self._scc.counters + self._icc.counters
 
     # ---- END USER METHODS ------------------------------------------------------------
 
@@ -404,6 +457,13 @@ class Ace:
     @sca_mode.setter
     def sca_mode(self, value):
         """ Set the SCA mode: INT|WIN
+
+        INT: count all photons from low energy at the limit of noise to high energy
+        WIN: In window mode the counter make the difference between Low-level discriminator count 
+             and High-level discriminator count. Users do not access to high-level discriminator 
+             threshold but only the difference between low level and high level. 
+             This difference is the window size. 
+             To resolve PHD a window of 10 to 30mv is a good compromise between count rate and resolution.
         """
         log_debug(self, "Ace:sca_mode.setter %s" % value)
 
@@ -496,6 +556,17 @@ class Ace:
 
     def counting_start(self, count_time):
 
+        # ACE can work in 3 different modes of acquisition:
+
+        # 1) Software triggered => "TCT coun_time" => starts counting when cmd received by FirmeWare
+
+        # 2) Hardware triggered => "TCT coun_time EXT" => starts counting when a trigger signal is send to the Trigger input.
+
+        # 3) 'Continous' mode => Each count on the SCA head produces a signal/pulse sent on the output of the ACE ( SCA OUT TTL or NIM)
+        #    In this case no need to start counting using the TCT command.
+
+        self._count_time = count_time
+
         if self.counter_is_ready():
 
             us_time = int(1e6 * count_time)
@@ -541,8 +612,10 @@ class Ace:
 
     @property
     def counts(self):
+        """ Read the counts value of the on-going or last TCT measurement """
         log_debug(self, "Ace:counts")
-        return float(self.putget("?CT DATA").split()[4])
+        ans = self.putget("?CT DATA").split()
+        return float(ans[4])
 
     @property
     def head_state(self):
@@ -653,7 +726,8 @@ class Ace:
         if cnts_conf is None:
             return
 
-        self._cc = AceCC(self.name + "_cc", self)
+        self._scc = AceSCC(self.name + "_scc", self)
+        self._icc = AceICC(self.name + "_icc", self)
 
         for conf in cnts_conf:
 
@@ -662,7 +736,13 @@ class Ace:
             unit = conf.get("unit")
             mode = conf.get("mode", "SINGLE")
 
-            cnt = self._cc.create_counter(SamplingCounter, name, unit=unit, mode=mode)
+            if chan == "counts":
+                cnt = self._icc.create_counter(Counter, name, unit=unit)
+            else:
+                cnt = self._scc.create_counter(
+                    SamplingCounter, name, unit=unit, mode=mode
+                )
+
             cnt.tag = chan
 
             if export_to_session:

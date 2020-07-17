@@ -259,6 +259,28 @@ class CurvePlot(BasePlot):
             self._plot_id, unique_name, channel_name, position, text
         )
 
+    def set_xaxis_scale(self, value):
+        """
+        Set the X-axis scale of this plot.
+
+        Argument:
+            value: One of "linear" or "log"
+        """
+        assert value in ("linear", "log")
+        flint = self._flint
+        flint.run_method(self._plot_id, "setXAxisLogarithmic", [value == "log"], {})
+
+    def set_yaxis_scale(self, value):
+        """
+        Set the Y-axis scale of this plot.
+
+        Argument:
+            value: One of "linear" or "log"
+        """
+        assert value in ("linear", "log")
+        flint = self._flint
+        flint.run_method(self._plot_id, "setYAxisLogarithmic", [value == "log"], {})
+
 
 class ScatterPlot(BasePlot):
 

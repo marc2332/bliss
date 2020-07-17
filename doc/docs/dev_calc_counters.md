@@ -1,30 +1,34 @@
 
 # Calculational Counters
 
+A Calculational Counter is a "virtual" or "pseudo" counter which has its
+value calculated from another existing counter and not taken directly from a
+physical measure.
+
 Calculational Counters can be typically used:
 
 * to do computations on raw values.
 * to agregate counters.
 
-A calculational counter transforms `N` inputs into `M` outputs.
+A Calculational Counter transforms `N` inputs into `M` outputs.
 
-cf:
+!!! note
+    Some example can be found in:
 
-* `tests/scans/test_calc_counter.py`
-* `tests/test_configuration/simulation_calc_counter.yml`
-* `bliss/controllers/simulation_calc_counter.py`
+    * `tests/scans/test_calc_counter.py`
+    * `tests/test_configuration/simulation_calc_counter.yml`
+    * `bliss/controllers/simulation_calc_counter.py`
 
 A Calculational Counter Controller inherits from `CalCounterControler`.
 
-In case of using Channels instead of Counter as data source, **Calculation
+In case of using Channels instead of Counters as a data source, **Calculation
 Channels** have to be used. This is typically the case when doing calculation
-objects under MUSST channels
+objects under MUSST channels.
 
 
+## Using a Calculational Counter Controller
 
-## To use a Calculational Counter Controller
-
-Configuration can be done in YML of on-the-fly
+Configuration can be done in YML or in the session shell.
 
 **tags** are the roles of each counter, they can be used to identify counter in
 calculation function.
@@ -47,7 +51,7 @@ configuration example:
 ```
 
 
-## To create a Calculational Counter Controller
+## Creating a Calculational Counter Controller
 
 To create a Calculation Counter Controller, the main task is to provide the
 calculation function named `calc_function()` to compute input values.
@@ -102,15 +106,13 @@ class MeanCalcCounterController(CalcCounterController):
 * `self.outputs`: list of calc counters.
 * `input_dict`: values of inputs to compute.
 
-input dict indexed by `tags`
+input dict is indexed by `tags`
 
 calculation is performed on maximum number of elements available for all inputs.
 
-tags are "roles" ?
+tags are "roles".
 
 if no tag -> use counter names
-
-CalcCounter without input counter ???
 
 
 calculation is performed on a 1 to 1 element basis: to reduce the number of
@@ -135,11 +137,6 @@ corresponding YAML config:
     - name: out1
 ```
 
-Number of inputs can be given by the number of counters in the config ???
-
-
-
-
 
 ```python
 def test_calc_counter_from_config(default_session):
@@ -162,7 +159,7 @@ def test_calc_counter_from_config(default_session):
     )
 ```
 
-## Data length change
+## Changing Data length
 
 In previous examples, the length of received data is not considered: the function
 produces the same length of outputs than the length of inputs received.
@@ -170,53 +167,41 @@ produces the same length of outputs than the length of inputs received.
 In case a scan mix counters with different triggering modes, it can be useful to
 remove a point of the scan and/or to re-arrange the points.
 
-see figure ???
-
 cf:
 
 `self.data[cnt.name]`
 
 `self.data_index[cnt.name]`
 
-### Example: zapline reduction
 
 
-
-## Data shape change
-
-1D -> 2D
-
-### example: MCA roi maps
-
-
-
-
-
-
-
-
-## Existing Calculation Counters
+## Pre-defined Calculation Counters
 
 
 ### Expression based Calc Counter Controller / Calc Counter
 
-Do define calculational counters directly in the *YAML* it is possible to use
+To define Calculational Counters directly in the *YAML* it is possible to use
 `ExpressionCalcCounter` or `ExpressionCalcCounterController`.
 
-These two classes extend the Calculation Counter framework such that expressions defined in the *YAML* are evaluated during the calculation.
+These two classes extend the Calculation Counter framework such that expressions
+defined in the *YAML* are evaluated during the calculation.
 
-The expression evaluation is using numexpr module. (Documentation: https://numexpr.readthedocs.io)
+The expression evaluation is using numexpr module. (Documentation:
+https://numexpr.readthedocs.io)
 
-The constants defined in the config can be modified during runtime accessing `.constants` e.g. to apply a calibration
-(in the example below `simu_expr_calc.constants.m = 12`).
-#### Location: `bliss.controllers.expression_based_calc.py`
+The constants defined in the config can be modified during runtime accessing
+`.constants` e.g. to apply a calibration (in the example below
+`simu_expr_calc.constants.m = 12`).
+
+code is in: `bliss.controllers.expression_based_calc.py`
 
 #### YAML configuration examples
 
 ##### Single counter with constant
 
-* output1 = cst * input1 + input2
-```
+* `output1 = cst * input1 + input2`
+
+```yaml
 - plugin: bliss
   module: expression_based_calc
   class: ExpressionCalcCounter
@@ -233,8 +218,9 @@ The constants defined in the config can be modified during runtime accessing `.c
 
 ##### Single counter average
 
-* output1 = (input1 + input2) / 2.0
-```
+* `output1 = (input1 + input2) / 2.0`
+
+```yaml
 - plugin: bliss
   module: expression_based_calc
   class: ExpressionCalcCounter
@@ -251,9 +237,10 @@ The constants defined in the config can be modified during runtime accessing `.c
 
 ##### Multiple counters with constant
 
-* output1 = m * input1
-* output2 = n * input2
-```
+* `output1 = m * input1`
+* `output2 = n * input2`
+
+```yaml
 - plugin: bliss
   module: expression_based_calc
   class: ExpressionCalcCounterController
@@ -270,9 +257,18 @@ The constants defined in the config can be modified during runtime accessing `.c
   outputs:
       - name: out3
         expression:  m*x
-      - name: out4 
+      - name: out4
         expression:  n*y
 ```
+
+!!! warning
+    In *YAML config file*, only the `ExpressionCalcCounterController` must
+    be declared and not all the outputs.
+    
+    In the previous example, only `simu_expr_calc_ctrl` must be put in config,
+    and not `out3` and `out4`
+
+
 
 ##### Multiple counters BPM
 
@@ -309,29 +305,36 @@ The constants defined in the config can be modified during runtime accessing `.c
 
 ### Background Calc Counter Controller
 
-BackgroundCalcCounterController is a class which allows to manage the 
-background of a set of existing counters.
+`BackgroundCalcCounterController` class is designed to manage the background of
+a set of existing counters.
 
-To get the background of a detector, you need to make an action which 
-garantee that no photons will hit the detector during the counting time. 
-To do so, the `.take_background()` method uses the object reference by the
-`open_close` field in the YAML file. This `open_close` object should have the 
-`.open()`, `.close()` method and `.state` attribute. The `.state` attribute 
-should return at least "OPEN". The counting time may be adjusted as 
-a parameter of the `.take_background` method. The default value is 1 second.
+To get the background of a detector, you need to make an action which garantee
+that no photon will hit the detector during the counting time.  To do so, the
+`.take_background()` method uses the object reference by the `open_close` field
+in the YAML file.
 
-If no `open_close` object is defined (No field in the YAML file), calling the 
-`take_background()` method will register the values of the counters as background
-or , if `set_value=xxx` parameter is given, `xxx` will set as background value
-for all input counters.
+This `open_close` object should have:
 
-Each input counter has its equivalent as output. The relation between them 
-is garantee by the `tag` field in the YAML file
+* `.open()` and `.close()` methods
+* `.state` attribute
 
-#### Location: `bliss.controllers.calccnt_background.py`
+The `.state` attribute should return at least `"OPEN"`. The counting time may be
+adjusted as a parameter of the `.take_background` method. The default value is 1
+second.
+
+If no `open_close` object is defined (No field in the YAML file), calling the
+`take_background()` method will register the values of the counters as
+background or, if `set_value=xxx` parameter is given, `xxx` will set as
+background value for all input counters.
+
+Each input counter has its equivalent as output. The relation between them is
+garantee by the `tag` field in the YAML file.
+
+code is in: `bliss.controllers.calccnt_background.py`
 
 #### YAML configuration examples
-```
+
+```yaml
 - plugin: bliss
   module: calccnt_background
   class: BackgroundCalcCounterController
@@ -351,9 +354,4 @@ is garantee by the `tag` field in the YAML file
     - name: I1
       tags: I1_background
 ```
-
-
-
-
-
 

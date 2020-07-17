@@ -1178,9 +1178,11 @@ class Scan:
 
     def _prepare_scan_meta(self):
         self._scan_info["filename"] = self.writer.filename
+        # User metadata:
         self.user_scan_meta = get_user_scan_meta().copy()
         self._update_scan_info_with_user_scan_meta()
-        display_extra = self.__scan_display.pop_scan_meta()
+        # Plot metadata:
+        display_extra = self.__scan_display._pop_scan_metadata()
         if display_extra:
             self._scan_info["_display_extra"] = display_extra
 

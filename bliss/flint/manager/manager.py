@@ -298,7 +298,7 @@ class ManageMainBehaviours(qt.QObject):
             useDefaultPlot = (
                 scan.scanInfo()
                 .get("_display_extra", {})
-                .get("displayed_channels", None)
+                .get("flint_displayed_channels", None)
                 is not None
             )
         else:

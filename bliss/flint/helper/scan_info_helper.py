@@ -320,17 +320,17 @@ def create_plot_model(
     if display_extra is not None:
         if scan is None:
             scan = create_scan_model(scan_info)
-        displayed_channels = display_extra.get("displayed_channels", None)
+        displayed_channels = display_extra.get("flint_displayed_channels", None)
         # Sanitize
         if displayed_channels is not None:
             if not isinstance(displayed_channels, list):
                 _logger.warning(
-                    "_display_extra.displayed_channels is not a list: Key ignored"
+                    "_display_extra.flint_displayed_channels is not a list: Key ignored"
                 )
                 displayed_channels = None
             elif len([False for i in displayed_channels if not isinstance(i, str)]) > 0:
                 _logger.warning(
-                    "_display_extra.displayed_channels must only contains strings: Key ignored"
+                    "_display_extra.flint_displayed_channels must only contains strings: Key ignored"
                 )
                 displayed_channels = None
 

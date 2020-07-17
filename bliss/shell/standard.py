@@ -768,18 +768,32 @@ def plotinit(*counters: _providing_channel):
 
     # If called without arguments, prints help.
     if not counters:
-        print("")
-        print("plotinit usage:")
-        print("    plotinit(<counters>*)")
-        print("example:")
-        print("    plotinit(counter1, counter2)")
-        print("")
+        print(
+            """
+plotinit usage:
+    plotinit(<counters>*)                  - Select a set of counters
+
+example:
+    plotinit(counter1, counter2)")
+    plotinit('*')                          - Select everything
+    plotinit('beamviewer:roi_counters:*')  - Select all the ROIs from a beamviewer
+    plotinit('beamviewer:*_sum')           - Select any sum ROIs from a beamviewer
+"""
+        )
     else:
         plot_module.plotinit(*counters)
     print("")
-    print("Next plotted counter(s):")
-    sd = ScanDisplay()
-    for cnt_name in sd.get_next_scan_channels():
+
+    names = plot_module.get_next_plotted_counters()
+    if names:
+        print("Reset counter(s) for the next scan:")
+        for cnt_name in names:
+            print(f"- {cnt_name}")
+    else:
+        print("Plotted counter(s) for the next scan:")
+        print(" current selection")
+    print("\nPlotted counter(s) in the Nexus file:")
+    for cnt_name in plot_module.get_nexus_plotted_counters():
         print(f"- {cnt_name}")
     print("")
 
@@ -811,8 +825,13 @@ example:
             counters = []
         plot_module.plotselect(*counters)
     print("")
-    print("Currently plotted counter(s):")
+    print(
+        "Plotted counter(s) last selected with plotselect (could be different from the current display):"
+    )
     for cnt_name in plot_module.get_plotted_counters():
+        print(f"- {cnt_name}")
+    print("\nPlotted counter(s) in the Nexus file:")
+    for cnt_name in plot_module.get_nexus_plotted_counters():
         print(f"- {cnt_name}")
     print("")
 

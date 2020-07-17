@@ -267,7 +267,7 @@ def plotinit(*counters):
     """
     scan_display = ScanDisplay()
     channel_names = get_channel_names(*counters)
-    scan_display.init_next_scan_meta(channel_names)
+    scan_display._plotinit(channel_names)
 
 
 def plotselect(*counters):
@@ -283,7 +283,7 @@ def plotselect(*counters):
     """
     scan_display = ScanDisplay()
     channel_names = get_channel_names(*counters)
-    scan_display.displayed_channels = channel_names
+    scan_display._plotselect(channel_names)
 
     if flint_proxy.check_flint():
         flint = flint_proxy.get_flint(mandatory=False)
@@ -319,6 +319,30 @@ def get_plotted_counters():
     """
     scan_display = ScanDisplay()
     return scan_display.displayed_channels
+
+
+def get_next_plotted_counters():
+    """
+    Returns names of counters that will be plotted for the next scan.
+    """
+    scan_display = ScanDisplay()
+    displayed_channels = scan_display.flint_displayed_channels
+    if displayed_channels is None:
+        return []
+    else:
+        return displayed_channels
+
+
+def get_nexus_plotted_counters():
+    """
+    Returns names of counters that will be plotted in the Nexus file
+    """
+    scan_display = ScanDisplay()
+    displayed_channels = scan_display.nexus_displayed_channels
+    if displayed_channels is None:
+        return []
+    else:
+        return displayed_channels
 
 
 def display_motor(

@@ -5,7 +5,6 @@
 # Copyright (c) 2015-2019 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-import typing
 from bliss.common import deprecation
 from bliss import current_session
 from bliss.config.settings import ParametersWardrobe
@@ -27,7 +26,7 @@ class ScanDisplay(ParametersWardrobe):
                 "auto": False,
                 "motor_position": True,
                 "_extra_args": [],
-                "_next_scan_metadata": None,
+                "_scan_metadata": {},
                 "displayed_channels": [],
                 "scan_display_filter_enabled": True,
             },
@@ -36,6 +35,7 @@ class ScanDisplay(ParametersWardrobe):
                 "auto",
                 "motor_position",
                 "displayed_channels",
+                "_scan_metadata",
                 "scan_display_filter_enabled",
             ),
         )
@@ -45,7 +45,7 @@ class ScanDisplay(ParametersWardrobe):
         # Compatibility with deprecated property
         # his could be removed for BLISS 1.6
         stored = self.to_dict()
-        if "enable_scan_display_filter" is stored:
+        if "enable_scan_display_filter" in stored:
             try:
                 value = stored["enable_scan_display_filter"]
                 self.remove(".enable_scan_display_filter")
@@ -155,22 +155,47 @@ class ScanDisplay(ParametersWardrobe):
         logger = plot.FLINT_OUTPUT_LOGGER
         logger.disabled = not enabled
 
-    def init_next_scan_meta(self, display: typing.List[str] = None):
-        """Register extra information for the next scan."""
-        info = self._next_scan_metadata
-        if info is None:
-            info = {}
-        if display is not None:
-            info["displayed_channels"] = display
-        self._next_scan_metadata = info
+    @property
+    def nexus_displayed_channels(self):
+        """Will be used by the Nexus writer when saving a scan."""
+        return self._scan_metadata.get("nexus_displayed_channels")
 
-    def get_next_scan_channels(self) -> typing.List[str]:
-        if self._next_scan_metadata is None:
-            return []
-        return self._next_scan_metadata["displayed_channels"]
+    @nexus_displayed_channels.setter
+    def nexus_displayed_channels(self, values):
+        """None and [] have the same effect"""
+        self._update_scan_metadata(nexus_displayed_channels=values)
 
-    def pop_scan_meta(self) -> typing.Optional[typing.Dict]:
-        """Pop the extra information to feed the scan with."""
-        info = self._next_scan_metadata
-        self._next_scan_metadata = None
-        return info
+    @property
+    def flint_displayed_channels(self):
+        """Will be used by Flint when displaying a new scan.
+        If `None` it Flint keeps the currently selected channels."""
+        return self._scan_metadata.get("flint_displayed_channels")
+
+    @flint_displayed_channels.setter
+    def flint_displayed_channels(self, values):
+        """None and [] have a different effect"""
+        self._update_scan_metadata(flint_displayed_channels=values)
+
+    def _plotinit(self, channel_names):
+        """Set the next Flint plot and Nexus plot"""
+        self.flint_displayed_channels = channel_names
+        self.nexus_displayed_channels = channel_names
+
+    def _plotselect(self, channel_names):
+        """Set the current Flint plot and the next Nexus plot"""
+        self.displayed_channels = channel_names
+        self.nexus_displayed_channels = channel_names
+
+    def _pop_scan_metadata(self):
+        metadata = self._scan_metadata
+        # Preserve the display in Flint until the
+        # next call to `_plotinit`
+        self.flint_displayed_channels = None
+        return metadata
+
+    def _update_scan_metadata(self, **kw):
+        metadata = self._scan_metadata
+        if metadata is None:
+            metadata = {}
+        metadata.update(kw)
+        self._scan_metadata = metadata

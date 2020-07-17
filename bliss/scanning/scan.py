@@ -14,7 +14,6 @@ import sys
 import time
 import datetime
 import collections
-import typing
 from functools import wraps
 import warnings
 
@@ -40,12 +39,10 @@ from bliss.scanning.chain import (
 )
 from bliss.scanning.writer.null import Writer as NullWriter
 from bliss.scanning import scan_math
-from bliss.scanning.scan_saving import ScanSaving
 from bliss.common.logtools import lprint_disable
 from louie import saferef
 from bliss.common.plot import get_plot
 from bliss import __version__ as publisher_version
-from bliss.common import deprecation
 
 
 # STORE THE CALLBACK FUNCTIONS THAT ARE CALLED DURING A SCAN ON THE EVENTS SCAN_NEW, SCAN_DATA, SCAN_END
@@ -332,165 +329,6 @@ class _WatchDogTask(gevent.Greenlet):
                         break
 
             self.__watchdog_timer = gevent.spawn(loop, self._callback.timeout)
-
-
-class ScanDisplay(ParametersWardrobe):
-    SLOTS = []
-
-    def __init__(self, session_name=None):
-        """
-        This class represents the display parameters for scans for a session.
-        """
-        if session_name is None:
-            session_name = current_session.name
-
-        super().__init__(
-            "%s:scan_display_params" % session_name,
-            default_values={
-                "auto": False,
-                "motor_position": True,
-                "_extra_args": [],
-                "_next_scan_metadata": None,
-                "displayed_channels": [],
-                "scan_display_filter_enabled": True,
-            },
-            property_attributes=("session", "extra_args", "flint_output_enabled"),
-            not_removable=(
-                "auto",
-                "motor_position",
-                "displayed_channels",
-                "scan_display_filter_enabled",
-            ),
-        )
-
-        self.add("_session_name", session_name)
-
-        # Compatibility with deprecated property
-        # his could be removed for BLISS 1.6
-        stored = self.to_dict()
-        if "enable_scan_display_filter" is stored:
-            try:
-                value = stored["enable_scan_display_filter"]
-                self.remove(".enable_scan_display_filter")
-            except NameError:
-                self.scan_display_filter_enabled = value
-
-    def __dir__(self):
-        keys = super().__dir__()
-        return keys
-
-    def __repr__(self):
-        return super().__repr__()
-
-    @property
-    def session(self):
-        """ This give the name of the current session or default if no current session is defined """
-        return self._session_name
-
-    @property
-    def extra_args(self):
-        """Returns the list of extra arguments which will be provided to flint
-        at it's next creation"""
-        return self._extra_args
-
-    @extra_args.setter
-    def extra_args(self, extra_args):
-        """Set the list of extra arguments to provide to flint at it's
-        creation"""
-        # FIXME: It could warn to restart flint in case it is already loaded
-        if not isinstance(extra_args, (list, tuple)):
-            raise TypeError(
-                "SCAN_DISPLAY.extra_args expects a list or a tuple of strings"
-            )
-
-        # Do not load it while it is not needed
-        from argparse import ArgumentParser
-        from bliss.flint import config
-
-        # Parse and check flint command line arguments
-        parser = ArgumentParser(prog="Flint")
-        config.configure_parser_arguments(parser)
-        try:
-            parser.parse_args(extra_args)
-        except SystemExit:
-            # Avoid to exit while parsing the arguments
-            pass
-
-        self._extra_args = list(extra_args)
-
-    @property
-    def enable_scan_display_filter(self):
-        """Compatibility with deprecated code"""
-        deprecation.deprecated_warning(
-            "Property",
-            "enable_scan_display_filter",
-            replacement="scan_display_filter_enabled",
-            since_version="1.5",
-            skip_backtrace_count=1,
-        )
-        return self.scan_display_filter_enabled
-
-    @enable_scan_display_filter.setter
-    def enable_scan_display_filter(self, enabled):
-        """Compatibility with deprecated code"""
-        enabled = bool(enabled)
-        deprecation.deprecated_warning(
-            "Property",
-            "enable_scan_display_filter",
-            replacement="scan_display_filter_enabled",
-            since_version="1.5",
-            skip_backtrace_count=1,
-        )
-        self.scan_display_filter_enabled = enabled
-
-    @property
-    def flint_output_enabled(self):
-        """
-        Returns true if the output (strout/stderr) is displayed using the
-        logging system.
-
-        This is an helper to display the `disabled` state of the logger
-        `flint.output`.
-        """
-        from bliss.common import plot
-
-        logger = plot.FLINT_OUTPUT_LOGGER
-        return not logger.disabled
-
-    @flint_output_enabled.setter
-    def flint_output_enabled(self, enabled):
-        """
-        Enable or disable the display of flint output ((strout/stderr) )
-        using the logging system.
-
-        This is an helper to set the `disabled` state of the logger
-        `flint.output`.
-        """
-        from bliss.common import plot
-
-        enabled = bool(enabled)
-        logger = plot.FLINT_OUTPUT_LOGGER
-        logger.disabled = not enabled
-
-    def init_next_scan_meta(self, display: typing.List[str] = None):
-        """Register extra information for the next scan."""
-        info = self._next_scan_metadata
-        if info is None:
-            info = {}
-        if display is not None:
-            info["displayed_channels"] = display
-        self._next_scan_metadata = info
-
-    def get_next_scan_channels(self) -> typing.List[str]:
-        if self._next_scan_metadata is None:
-            return []
-        return self._next_scan_metadata["displayed_channels"]
-
-    def pop_scan_meta(self) -> typing.Optional[typing.Dict]:
-        """Pop the extra information to feed the scan with."""
-        info = self._next_scan_metadata
-        self._next_scan_metadata = None
-        return info
 
 
 def _get_channels_dict(acq_object, channels_dict):
@@ -816,6 +654,8 @@ class Scan:
         self.__scan_saving = scan_saving
         scan_config = scan_saving.get()
 
+        self.__scan_display = current_session.scan_display.clone()
+
         self._scan_info["shadow_scan_number"] = self._shadow_scan_number
         self._scan_info["save"] = save
         self._scan_info["data_writer"] = scan_saving.writer
@@ -883,8 +723,7 @@ class Scan:
         self._init_scan_info_acquisition_chain()
 
         if is_bliss_shell():
-            scan_display = ScanDisplay()
-            if scan_display.auto:
+            if self.__scan_display.auto:
                 if self.is_flint_recommended():
                     get_flint(mandatory=False)
 
@@ -1341,6 +1180,9 @@ class Scan:
         self._scan_info["filename"] = self.writer.filename
         self.user_scan_meta = get_user_scan_meta().copy()
         self._update_scan_info_with_user_scan_meta()
+        display_extra = self.__scan_display.pop_scan_meta()
+        if display_extra:
+            self._scan_info["_display_extra"] = display_extra
 
     def disconnect_all(self):
         for dev in self._devices:

@@ -18,7 +18,7 @@ from bliss.scanning.channel import AcquisitionChannel
 from bliss.scanning.chain import AcquisitionMaster, AcquisitionSlave
 from bliss.scanning.acquisition.counter import SamplingCounterAcquisitionSlave
 from bliss.scanning import scan_meta as scan_meta_module
-from bliss.scanning.scan import ScanSaving
+from bliss.scanning.scan_saving import ScanSaving
 
 
 @pytest.fixture

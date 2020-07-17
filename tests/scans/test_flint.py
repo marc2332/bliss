@@ -5,7 +5,8 @@ import contextlib
 import bliss
 from bliss.common import plot
 from bliss.flint.client import plots
-from bliss.scanning.scan import Scan, ScanDisplay
+from bliss.scanning.scan import Scan
+from bliss.scanning.scan_display import ScanDisplay
 from bliss.scanning.chain import AcquisitionChain
 from bliss.scanning.acquisition.lima import LimaAcquisitionMaster
 

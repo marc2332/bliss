@@ -24,6 +24,7 @@ from bliss.common import event
 
 from bliss import current_session
 from bliss.config.conductor.client import get_default_connection
+from bliss.scanning.scan_display import ScanDisplay
 from bliss.flint import config
 from . import plots
 
@@ -135,8 +136,6 @@ class FlintClient:
                         raise
         except subprocess.CalledProcessError as e:
             # The process have terminated with an error
-            from bliss.scanning.scan import ScanDisplay
-
             FLINT_LOGGER.error("Flint has terminated with an error.")
             scan_display = ScanDisplay()
             if not scan_display.flint_output_enabled:
@@ -157,8 +156,6 @@ class FlintClient:
             raise subprocess.CalledProcessError(e.returncode, e.cmd, out, err)
         except Exception:
             if hasattr(process, "stdout"):
-                from bliss.scanning.scan import ScanDisplay
-
                 FLINT_LOGGER.error("Flint can't start.")
                 scan_display = ScanDisplay()
                 if not scan_display.flint_output_enabled:
@@ -200,9 +197,6 @@ class FlintClient:
         env["OMP_NUM_THREADS"] = "4"
         if poll_patch is not None:
             poll_patch.set_ld_preload(env)
-
-        # Imported here to avoid cyclic dependency
-        from bliss.scanning.scan import ScanDisplay
 
         scan_display = ScanDisplay()
         args = [sys.executable, "-m", "bliss.flint"]

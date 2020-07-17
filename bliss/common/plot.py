@@ -151,6 +151,7 @@ from bliss import current_session, is_bliss_shell, global_map
 from bliss.config.settings import HashSetting
 from bliss.common.protocols import Scannable
 from bliss.common.utils import get_matching_names, is_pattern
+from bliss.scanning.scan_display import ScanDisplay
 
 from bliss.flint.client import plots as flint_plots
 from bliss.flint.client import proxy as flint_proxy
@@ -258,18 +259,15 @@ plot = default_plot
 
 def plotinit(*counters):
     """
-    Select counter(s) to use for the next scan display.
+    Select counter(s) to use for the next scan display. Does not affect the current display.
 
     Args:
         counters: String, alias, object identifying an object providing data to
             record. It can be a counter name, a counter, an axis, an alias.
     """
-    # Avoid cyclic import
-    from bliss.scanning.scan import ScanDisplay
-
-    sd = ScanDisplay()
+    scan_display = ScanDisplay()
     channel_names = get_channel_names(*counters)
-    sd.init_next_scan_meta(channel_names)
+    scan_display.init_next_scan_meta(channel_names)
 
 
 def plotselect(*counters):
@@ -283,9 +281,6 @@ def plotselect(*counters):
         counters: String, alias, object identifying an object providing data to
             record. It can be a counter name, a counter, an axis, an alias.
     """
-    # Avoid cyclic import
-    from bliss.scanning.scan import ScanDisplay
-
     scan_display = ScanDisplay()
     channel_names = get_channel_names(*counters)
     scan_display.displayed_channels = channel_names
@@ -322,8 +317,6 @@ def get_plotted_counters():
     """
     Returns names of displayed counters.
     """
-    from bliss.scanning.scan import ScanDisplay
-
     scan_display = ScanDisplay()
     return scan_display.displayed_channels
 
@@ -331,8 +324,6 @@ def get_plotted_counters():
 def display_motor(
     axis, scan=None, position=None, marker_id=None, label="", silent=True
 ):
-    from bliss.scanning.scan import ScanDisplay
-
     if scan is None:
         scan = current_session.scans[-1]
     scan_display_params = ScanDisplay()

@@ -9,7 +9,7 @@ import pytest
 from bliss import setup_globals
 from bliss.common import scans
 from bliss.shell.standard import plotselect, plotinit, cen, com, peak, fwhm
-from bliss.scanning.scan import ScanDisplay
+from bliss.scanning.scan_display import ScanDisplay
 from bliss.scanning import scan_tools
 from bliss.common import plot
 from bliss.controllers.simulation_counter import TestCounterAndAxis

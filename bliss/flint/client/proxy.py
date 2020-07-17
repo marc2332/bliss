@@ -16,6 +16,7 @@ import logging
 import psutil
 import gevent
 import typing
+import signal
 
 import bliss
 from bliss.comm import rpc
@@ -51,7 +52,7 @@ class FlintClient:
     """
 
     def __init__(self, process=None):
-        self._pid = None
+        self._pid: typing.Optional[int] = None
         self._proxy = None
         self._process = None
         self._greenlets = None
@@ -60,6 +61,11 @@ class FlintClient:
             self.__start_flint()
         else:
             self.__attach_flint(process)
+
+    @property
+    def pid(self) -> typing.Optional[int]:
+        """"Returns the PID of the Flint application connected by this proxy, else None"""
+        return self._pid
 
     @property
     def __wrapped__(self):
@@ -80,11 +86,33 @@ class FlintClient:
         if self._proxy is not None:
             self._proxy.close()
         self._proxy = None
+        self._pid = None
         self._process = None
         if self._greenlets is not None:
             gevent.killall(self._greenlets)
         self._greenlets = None
         self._callbacks = None
+
+    def close(self):
+        """Close Flint and clean up this proxy."""
+        if self._proxy is None:
+            raise RuntimeError("No proxy connected")
+        self._proxy.close_application()
+        self.close_proxy()
+
+    def kill(self):
+        """Interrupt Flint with SIGTERM and clean up this proxy."""
+        if self._pid is None:
+            raise RuntimeError("No proxy connected")
+        os.kill(self._pid, signal.SIGTERM)
+        self.close_proxy()
+
+    def kill9(self):
+        """Interrupt Flint with SIGKILL and clean up this proxy."""
+        if self._pid is None:
+            raise RuntimeError("No proxy connected")
+        os.kill(self._pid, signal.SIGKILL)
+        self.close_proxy()
 
     def __start_flint(self):
         process = self.__create_flint()
@@ -419,6 +447,14 @@ def _get_flint_pid_from_redis(session_name):
     return None
 
 
+def _get_cached_flint() -> typing.Optional[FlintClient]:
+    """Returns the cached flint proxy"""
+    global FLINT
+    if FLINT is not None and FLINT.pid is None:
+        FLINT = None
+    return FLINT
+
+
 def get_flint(start_new=False, creation_allowed=True, mandatory=True):
     """Get the running flint proxy or create one.
 
@@ -438,7 +474,6 @@ def get_flint(start_new=False, creation_allowed=True, mandatory=True):
             # A warning should already be displayed in case of problem
             return None
 
-    global FLINT
     try:
         session_name = current_session.name
     except AttributeError:
@@ -448,7 +483,7 @@ def get_flint(start_new=False, creation_allowed=True, mandatory=True):
         check_redis = True
         FLINT_LOGGER.debug("Check cache")
 
-        flint = FLINT
+        flint = _get_cached_flint()
         if flint is not None:
             if psutil.pid_exists(flint._pid):
                 try:
@@ -479,6 +514,7 @@ def get_flint(start_new=False, creation_allowed=True, mandatory=True):
         return None
 
     reset_flint()
+    global FLINT
     FLINT = FlintClient()
     return FLINT
 
@@ -487,8 +523,8 @@ def check_flint() -> bool:
     """
     Returns true if a Flint application from the current session is alive.
     """
-    global FLINT
-    return FLINT is not None
+    flint = _get_cached_flint()
+    return flint is not None
 
 
 def attach_flint(pid: int):
@@ -500,8 +536,10 @@ def attach_flint(pid: int):
     """
     global FLINT
     # Release the previous proxy before attaching the next one
-    if FLINT is not None:
-        FLINT.close_proxy()
+    flint = _get_cached_flint()
+    if flint is not None:
+        flint.close_proxy()
+        flint = None
         FLINT = None
     flint = FlintClient(process=pid)
     FLINT = flint
@@ -513,8 +551,9 @@ def reset_flint():
     """
     global FLINT
     try:
-        if FLINT is not None:
-            FLINT.close_proxy()
+        flint = _get_cached_flint()
+        if flint is not None:
+            flint.close_proxy()
     finally:
         # Anyway, invalidate the proxy
         FLINT = None

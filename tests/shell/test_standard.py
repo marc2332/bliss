@@ -3,12 +3,14 @@ import time
 import builtins
 import pytest
 import numpy
+import psutil
 
 from bliss.shell.standard import wa, wm, sta, stm, _launch_silx, umv
 
 from bliss.shell.standard import sin, cos, tan, arcsin, arccos, arctan, arctan2
 from bliss.shell.standard import log, log10, sqrt, exp, power, deg2rad, rad2deg
 from bliss.shell.standard import rand, date, sleep
+from bliss.shell.standard import flint
 
 
 @pytest.fixture
@@ -292,3 +294,25 @@ def test_open_silx(xvfb):
     time.sleep(1)
     assert process.returncode is None
     process.terminate()
+
+
+def test_open_close_flint(test_session_without_flint):
+    f = flint()
+    assert f is not None
+    pid = f.pid
+    assert psutil.pid_exists(pid)
+    f.close()
+    process = psutil.Process(pid)
+    psutil.wait_procs([process], timeout=1)
+    assert not psutil.pid_exists(pid)
+
+
+def test_open_kill_flint(test_session_without_flint):
+    f = flint()
+    assert f is not None
+    pid = f.pid
+    assert psutil.pid_exists(pid)
+    f.kill9()
+    process = psutil.Process(pid)
+    psutil.wait_procs([process], timeout=1)
+    assert not psutil.pid_exists(pid)

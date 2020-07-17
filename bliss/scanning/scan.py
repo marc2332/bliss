@@ -880,9 +880,7 @@ class Scan:
 
         self.set_watchdog_callback(watchdog_callback)
         self._acq_chain = chain
-        self._scan_info["acquisition_chain"] = _get_masters_and_channels(
-            self._acq_chain
-        )
+        self._init_scan_info_acquisition_chain()
 
         if is_bliss_shell():
             scan_display = ScanDisplay()
@@ -895,6 +893,12 @@ class Scan:
         self._preset_list = list()
         self.__node = None
         self.__comments = list()  # user comments
+
+    def _init_scan_info_acquisition_chain(self):
+        """Initialize the `acquisition_chain` metadata from `scan_info`"""
+        self._scan_info["acquisition_chain"] = _get_masters_and_channels(
+            self._acq_chain
+        )
 
     def is_flint_recommended(self):
         """Return true if flint is recommended for this scan"""

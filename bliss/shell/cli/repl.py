@@ -351,7 +351,7 @@ class BlissRepl(PythonRepl):
 
         return flags
 
-    def _another_execute(self, line):
+    def _execute_line(self, line):
         """
         Evaluate the line and print the result.
         """
@@ -423,19 +423,9 @@ class BlissRepl(PythonRepl):
 
     def _execute_task(self, *args, **kwargs):
         try:
-            # return super(BlissRepl, self)._execute(*args, **kwargs)
-            return self._another_execute(*args, **kwargs)
-        except BaseException as e:
-            if isinstance(e, ConnectionError):
-                raise ConnectionError(
-                    "Connection to Beacon server lost. "
-                    + "This is a serious problem! "
-                    + "Please quite the bliss session and try to restart it. ("
-                    + str(e)
-                    + ")"
-                )
-            else:
-                return sys.exc_info()
+            return self._execute_line(*args, **kwargs)
+        except BaseException:
+            return sys.exc_info()
 
     def _execute(self, *args, **kwargs):
         self.current_task = gevent.spawn(self._execute_task, *args, **kwargs)
@@ -446,9 +436,17 @@ class BlissRepl(PythonRepl):
                 and len(return_value) >= 3
                 and isinstance(return_value[1], (BaseException, Exception))
             ):
-                raise return_value[1].with_traceback(return_value[2])
+                raise return_value[1].with_traceback(return_value[2]) from None
         except gevent.Timeout:
             self._handle_exception(*args)
+        except ConnectionError as e:
+            raise ConnectionError(
+                "Connection to Beacon server lost. "
+                + "This is a serious problem! "
+                + "Please quit the bliss session and try to restart it. ("
+                + str(e)
+                + ")"
+            )
         except KeyboardInterrupt:
             self.current_task.kill(KeyboardInterrupt)
             print("\n")

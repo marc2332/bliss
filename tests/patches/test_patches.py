@@ -146,9 +146,9 @@ def test_repl_excecute():
     # diffdump can be generated with pytest --pdb option using
     # >>> import pprint
     # >>> pprint.pprint(diff_dump)
-    excecute_dump = [
+    execute_dump = [
         "-     def _execute(self, line):\n",
-        "+     def _another_execute(self, line):\n",
+        "+     def _execute_line(self, line):\n",
         "- \n",
         "-         # WORKAROUND: Due to a bug in Jedi, the current directory is "
         "removed\n",
@@ -184,7 +184,7 @@ def test_repl_excecute():
     brepl = BlissRepl(input=inp1, output=DummyOutput(), session=None)
     ptrepl = PythonRepl(input=inp2, output=DummyOutput())
 
-    p_source = "class myobj:\n" + inspect.getsource(brepl._another_execute)
+    p_source = "class myobj:\n" + inspect.getsource(brepl._execute_line)
     p = black.format_str(p_source, line_length=88)
     o_source = "class myobj:\n" + inspect.getsource(ptrepl._execute)
     o = black.format_str(o_source, line_length=88)
@@ -195,14 +195,14 @@ def test_repl_excecute():
 
     diff_dump = _generate_diff(o, p)
 
-    _compare_dump(excecute_dump, diff_dump)
+    _compare_dump(execute_dump, diff_dump)
 
 
 def test_repl_get_compiler_flags():
     # diffdump can be generated with pytest --pdb option using
     # >>> import pprint
     # >>> pprint.pprint(diff_dump)
-    excecute_dump = [
+    execute_dump = [
         "+             try:\n",
         "-             if isinstance(value, __future__._Feature):\n",
         "+                 if isinstance(value, __future__._Feature):\n",
@@ -235,7 +235,7 @@ def test_repl_get_compiler_flags():
 
     diff_dump = _generate_diff(o, p)
 
-    _compare_dump(excecute_dump, diff_dump)
+    _compare_dump(execute_dump, diff_dump)
 
 
 def test_validator_patch_normalize_containers():

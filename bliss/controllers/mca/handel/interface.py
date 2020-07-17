@@ -499,7 +499,7 @@ def synchronized_poll_data(done=set()):
     overrun_error = RuntimeError("Buffer overrun!")
     # Get info from hardware
     current_pixel = get_current_pixel()
-    full = {x for x in data if all_buffer_full(x)}
+    full = {x for x in data if all_buffer_full(x)}  # <- full is a set, not a dict...
     # Overrun from hardware
     if any_buffer_overrun():
         raise overrun_error

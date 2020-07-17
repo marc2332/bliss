@@ -1,19 +1,22 @@
 """Mimic tomo sequences in Bliss with sinogram re-emission
 
-    python demo/start_demo_servers.py
+Can be run as script:
 
-    TANGO_HOST=lid21data:10000 BEACON_HOST=lid21data:10001 python tomoscan.py
+    flint()
+    import os
+    userscripts = os.path.join(os.getcwd(), "demo", "userscripts")
+    user_script_homedir(userscripts)
+    tomo = user_script_load("tomo.py", export_global=False)
+    tomo.fullfield_tomo(demo_session, expo=0.01)
 """
 
 import numpy
 import gevent
-import gevent.event
 from bliss.common import scans
-from bliss.config import static
-from bliss.scanning.group import Sequence, Group
 from bliss.scanning.chain import AcquisitionChannel
 from bliss.config.streaming import StreamStopReadingHandler
 from bliss.data.node import get_node
+from bliss.scanning.group import Sequence
 
 
 class ScanReEmitter(gevent.Greenlet):
@@ -65,7 +68,7 @@ class ScanReEmitter(gevent.Greenlet):
             raise ValueError(f"Error re-emitting {name}") from e
 
 
-def fullfield_tomo(session, nchunks=4):
+def fullfield_tomo(session, nchunks=4, expo=1e-6):
     mca = session.env_dict["mca1"]
     # Lima does not have a 1D ROI yet
     detector = mca.counter_groups.spectrum.spectrum_det0
@@ -75,7 +78,50 @@ def fullfield_tomo(session, nchunks=4):
     rotmot.velocity = 250000
     rotmot.acceleration = 100000
     npixels = detector.shape[0]
-    seq = Sequence(title="halfturn")
+
+    # Prepare the scans
+    chunkrange = 180 // nchunks
+    chunks = numpy.arange(0, 180, chunkrange)
+    rotinc = 1
+    nrot = 0
+    nrots = (180 - 0) // rotinc
+
+    # FIXME: Lots of duplication, this should be generated from the defined custom_channels
+    acquisition_chain = {
+        # This name have to be bliss.scanning.group.GroupingMaster.name
+        "GroupingMaster": {
+            "master": {
+                "scalars": ["translation", "rotation"],
+                "scalars_units": {"translation": None, "rotation": "degree"},
+            },
+            "scalars": ["sinogram"],
+            "scalars_units": {"sinogram": None},
+        }
+    }
+    scan_info = {
+        "acquisition_chain": acquisition_chain,
+        "type": "sinogram",
+        "data_dim": 2,
+        "count_time": expo,
+        "requests": {
+            "rotation": {
+                "start": 0,
+                "stop": 180,
+                "points": nrots * npixels,
+                "axis-points": nrots,
+                "axis-kind": "slow",
+            },
+            "translation": {
+                "start": 0,
+                "stop": npixels - 1,
+                "points": nrots * npixels,
+                "axis-points": npixels,
+                "axis-kind": "fast",
+            },
+        },
+    }
+
+    seq = Sequence(title="halfturn", scan_info=scan_info)
 
     # Prepare group channels
     def replicate(angles):
@@ -97,30 +143,23 @@ def fullfield_tomo(session, nchunks=4):
         {"name": "translation", "process": translations},
     ]
 
-    # Prepare the scans
-    chunkrange = 180 // nchunks
-    chunks = numpy.arange(0, 180, chunkrange)
-    rotinc = 1
-    expo = 1e-6
-    nrot = 0
-
     session.scan_saving.newdataset("")
     print(session.scan_saving.filename)
     with seq.sequence_context() as scan_seq:
         # Get darks
         print("Dark ...")
-        scan = scans.loopscan(10, expo, detector, name="dark")
-        scan_seq.add(scan)
+        scan = scans.loopscan(10, expo, detector, name="dark", run=False)
+        scan_seq.add_and_run(scan)
         for start in chunks:
             # Get references
             print("References ...")
-            scan = scans.loopscan(10, expo, detector, name="references")
-            scan_seq.add(scan)
-            stop = start + chunkrange
-            nroti = int((stop - start) / rotinc + 0.5) - 1
+            scan = scans.loopscan(10, expo, detector, name="references", run=False)
+            scan_seq.add_and_run(scan)
+            stop = start + chunkrange - rotinc
+            nroti = int((stop - start + 1) / rotinc + 0.5)
             nsteps = nroti - 1
             nrot += nroti
-            print(f"Rotate {start} -> {stop-rotinc} ...")
+            print(f"Rotate {start} -> {stop} ...")
             scan = scans.ascan(
                 rotmot,
                 start,
@@ -143,13 +182,7 @@ def fullfield_tomo(session, nchunks=4):
                 greemit.get()
     data = seq.scan.get_data()
     npixels = npixels * nrot
+    assert nrot == nrots
     assert len(data["sinogram"]) == npixels
     assert len(data["rotation"]) == npixels
     assert len(data["translation"]) == npixels
-
-
-if __name__ == "__main__":
-    config = static.get_config()
-    session = config.get("demo_session")
-    session.setup()
-    fullfield_tomo(session)

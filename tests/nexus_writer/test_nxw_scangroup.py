@@ -49,21 +49,22 @@ def _test_nxw_scangroup(session=None, tmpdir=None, writer=None, **kwargs):
     seq = Sequence()
     seq.add_custom_channel(AcquisitionChannel("customdata", numpy.float, ()))
     seq.add_custom_channel(AcquisitionChannel("diode34", numpy.float, ()))
-    with seq.sequence_context() as scan_seq:
-        scan1 = scans.loopscan(npoints, .1, detector1, run=False)
-        scan2 = scans.ascan(motor, 0, 1, npoints - 1, .1, detector2, run=False)
-        g1 = nxw_test_utils.run_scan(scan1, runasync=True)
-        seq.custom_channels["customdata"].emit(numpy.arange(npoints // 2))
-        g2 = nxw_test_utils.run_scan(scan2, runasync=True)
-        seq.custom_channels["customdata"].emit(numpy.arange(npoints // 2, npoints))
-        gevent.joinall([g1, g2])
-        diode34 = scan1.get_data()["diode3"] + scan2.get_data()["diode4"]
-        seq.custom_channels["diode34"].emit(diode34)
-        scan_seq.add(scan1)
-        scan_seq.add(scan2)
-    scan_grp = Group(scan1, scan2)
-    scan_seq.wait_all_subscans(timeout=10)
-    scan_grp.wait_all_subscans(timeout=10)
+    with gevent.Timeout(30):
+        with seq.sequence_context() as scan_seq:
+            scan1 = scans.loopscan(npoints, .1, detector1, run=False)
+            scan2 = scans.ascan(motor, 0, 1, npoints - 1, .1, detector2, run=False)
+            g1 = nxw_test_utils.run_scan(scan1, runasync=True)
+            seq.custom_channels["customdata"].emit(numpy.arange(npoints // 2))
+            g2 = nxw_test_utils.run_scan(scan2, runasync=True)
+            seq.custom_channels["customdata"].emit(numpy.arange(npoints // 2, npoints))
+            gevent.joinall([g1, g2])
+            diode34 = scan1.get_data()["diode3"] + scan2.get_data()["diode4"]
+            seq.custom_channels["diode34"].emit(diode34)
+            scan_seq.add(scan1)
+            scan_seq.add(scan2)
+        scan_grp = Group(scan1, scan2)
+        scan_seq.wait_all_subscans()
+        scan_grp.wait_all_subscans()
 
     nxw_test_utils.wait_scan_data_finished(
         [scan1, scan2, scan_seq.sequence.scan, scan_grp.scan], writer=writer

@@ -317,7 +317,7 @@ def _extract_device_info(
             device = update_device(subdevices, fullname, data_info=data_info)
             if key == "scalars":
                 if master:
-                    if len(lst) > 1 and ndim <= 1:
+                    if len(lst) > 1 and ndim <= 1 and ":" in fullname:
                         device["device_type"] = "positionergroup"
                         device["master_index"] = 0
                     else:

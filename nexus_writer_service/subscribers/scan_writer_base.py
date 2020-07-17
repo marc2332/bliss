@@ -401,13 +401,6 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
             device = devices.update_device(subdevices, fullname)
         if not device["device_type"]:
             device["device_type"] = self._device_type(node)
-        if self.is_scan_group and device["device_type"] in (
-            "positioner",
-            "positionergroup",
-        ):
-            device["device_type"] = "groupinfo"
-            if device["data_name"] == "value":
-                device["data_name"] = "data"
         return device
 
     def _device_type(self, node):

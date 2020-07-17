@@ -152,7 +152,7 @@ class BasePlot(object):
         application"""
         try:
             return self._flint.is_plot_exists(self._plot_id)
-        except:
+        except Exception:
             # The proxy is maybe dead
             return False
 
@@ -173,7 +173,7 @@ class BasePlot(object):
         except Exception:
             try:
                 flint.cancel_request(request_id)
-            except:
+            except Exception:
                 proxy.FLINT_LOGGER.debug(
                     "Error while canceling the request", exc_info=True
                 )
@@ -183,7 +183,7 @@ class BasePlot(object):
         except KeyboardInterrupt:
             try:
                 flint.cancel_request(request_id)
-            except:
+            except Exception:
                 proxy.FLINT_LOGGER.debug(
                     "Error while canceling the request", exc_info=True
                 )

@@ -45,6 +45,7 @@ from bliss.common.logtools import lprint_disable
 from louie import saferef
 from bliss.common.plot import get_plot
 from bliss import __version__ as publisher_version
+from bliss.common import deprecation
 
 # Globals
 current_module = sys.modules[__name__]
@@ -349,18 +350,28 @@ class ScanDisplay(ParametersWardrobe):
                 "_extra_args": [],
                 "_next_scan_metadata": None,
                 "displayed_channels": [],
-                "enable_scan_display_filter": True,
+                "scan_display_filter_enabled": True,
             },
             property_attributes=("session", "extra_args", "flint_output_enabled"),
             not_removable=(
                 "auto",
                 "motor_position",
                 "displayed_channels",
-                "enable_scan_display_filter",
+                "scan_display_filter_enabled",
             ),
         )
 
         self.add("_session_name", session_name)
+
+        # Compatibility with deprecated property
+        # his could be removed for BLISS 1.6
+        stored = self.to_dict()
+        if "enable_scan_display_filter" is stored:
+            try:
+                value = stored["enable_scan_display_filter"]
+                self.remove(".enable_scan_display_filter")
+            except NameError:
+                self.scan_display_filter_enabled = value
 
     def __dir__(self):
         keys = super().__dir__()
@@ -406,6 +417,31 @@ class ScanDisplay(ParametersWardrobe):
         self._extra_args = list(extra_args)
 
     @property
+    def enable_scan_display_filter(self):
+        """Compatibility with deprecated code"""
+        deprecation.deprecated_warning(
+            "Property",
+            "enable_scan_display_filter",
+            replacement="scan_display_filter_enabled",
+            since_version="1.5",
+            skip_backtrace_count=1,
+        )
+        return self.scan_display_filter_enabled
+
+    @enable_scan_display_filter.setter
+    def enable_scan_display_filter(self, enabled):
+        """Compatibility with deprecated code"""
+        enabled = bool(enabled)
+        deprecation.deprecated_warning(
+            "Property",
+            "enable_scan_display_filter",
+            replacement="scan_display_filter_enabled",
+            since_version="1.5",
+            skip_backtrace_count=1,
+        )
+        self.scan_display_filter_enabled = enabled
+
+    @property
     def flint_output_enabled(self):
         """
         Returns true if the output (strout/stderr) is displayed using the
@@ -430,6 +466,7 @@ class ScanDisplay(ParametersWardrobe):
         """
         from bliss.common import plot
 
+        enabled = bool(enabled)
         logger = plot.FLINT_OUTPUT_LOGGER
         logger.disabled = not enabled
 

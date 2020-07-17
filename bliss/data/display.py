@@ -11,22 +11,17 @@ import sys
 import time
 import datetime
 import numpy
-import operator
 import shutil
 import signal
 import atexit
 import contextlib
 import gevent
 
-from functools import wraps
-
-
 from bliss.data.scan import watch_session_scans
 from bliss.common.utils import nonblocking_print
 from bliss.common.axis import Axis
 from bliss.common.event import dispatcher
 from bliss.common import user_status_info
-from bliss.config.settings import HashSetting
 from bliss.scanning.scan import set_scan_watch_callbacks
 from bliss.scanning.scan import ScanDisplay
 from bliss import global_map
@@ -308,6 +303,7 @@ class _ScanPrinterBase:
         + "   file      : {filename}\n"
         + "   user      : {user_name}\n"
         + "   session   : {session_name}\n"
+        + "   masters   : [ {master_names} ]\n"
         + "   skipped   : [ {not_shown_counters_str} ]\n"
     )
 
@@ -333,6 +329,7 @@ class _ScanPrinterBase:
 
         self.channels_number = None
         self.displayable_channel_names = None
+        self.master_channel_names = []
         self.sorted_channel_names = []
         self.display_names = None
         self.channel_units = None
@@ -435,6 +432,8 @@ class _ScanPrinterBase:
         self.channel_units = channels["master"]["scalars_units"]
         self.channel_units.update(channels["scalars_units"])
 
+        master_channel_names = master_scalar_channels.copy()
+
         # get none scalar channels (spectra and images)
         self.other_channels = (
             channels["master"]["spectra"] + channels["master"]["images"]
@@ -460,6 +459,7 @@ class _ScanPrinterBase:
                 displayable_channels.append(cname)
 
         #  Store the channels contained in the scan_info
+        self.master_channel_names = master_channel_names
         self.displayable_channel_names = displayable_channels
         self.sorted_channel_names = displayable_channels.copy()
 
@@ -537,8 +537,12 @@ class _ScanPrinterBase:
         if self.other_channels:
             not_shown_counters_str = ", ".join(self.other_channels)
 
+        master_names = ", ".join(self.master_channel_names)
+
         header = self.HEADER.format(
-            not_shown_counters_str=not_shown_counters_str, **scan_info
+            not_shown_counters_str=not_shown_counters_str,
+            master_names=master_names,
+            **scan_info,
         )
 
         return header
@@ -796,8 +800,14 @@ class ScanDataListener(_ScanPrinterBase):
             self.scan_display = ScanDisplay(self.session_name)
 
         requested_channels = []
-        if self.scan_display.enable_scan_display_filter:
-            requested_channels = self.scan_display.displayed_channels
+        if self.scan_display.scan_display_filter_enabled:
+            # Use master channel plus user request
+            requested_channels = self.scan_display.displayed_channels.copy()
+            for m in self.master_channel_names:
+                if m in requested_channels:
+                    requested_channels.remove(m)
+            # Always use the masters
+            requested_channels = self.master_channel_names + requested_channels
         if requested_channels == []:
             requested_channels = self.displayable_channel_names.copy()
 

@@ -206,6 +206,18 @@ class BaseMCA(CounterController):
         except Exception:
             pass
 
+        try:
+            info_str += f"\n    trigger mode   : {self.trigger_mode.name}\n"
+        except Exception:
+            pass
+        try:
+            info_str += (
+                f"    preset mode    : {self.preset_mode.name}"
+                f"   value={self.preset_value}\n"
+            )
+        except Exception:
+            pass
+
         # info_str += f"\nConfig:\n"
         # info_str += f"Counters: {self.counters}\n"
         info_str += f"\nROIS:\n"
@@ -341,7 +353,7 @@ class BaseMCA(CounterController):
 
     # Standard counter access
 
-    @property
+    @autocomplete_property
     def counters(self):
         return mca_counters(self)
 

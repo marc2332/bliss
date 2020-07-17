@@ -8,7 +8,8 @@
 """Controller classes for XIA multichannel analyzer"""
 
 # Imports
-from bliss.common.logtools import log_debug, lprint
+from bliss.common.logtools import log_debug
+from bliss.shell.standard import lprint
 from bliss.common import event
 from bliss.config.beacon_object import BeaconObject
 
@@ -26,6 +27,9 @@ from .base import (
 )
 
 from bliss import global_map
+
+from bliss.shell.cli.user_dialog import UserChoice
+from bliss.shell.cli.pt_widgets import display
 
 
 # Logger to use at session startup.
@@ -135,10 +139,10 @@ class BaseXIA(BaseMCA):
     def __info__(self):
         info_str = super().__info__()
         info_str += "XIA:\n"
-        info_str += f"    configuration directory:\n"
+        info_str += "    configuration directory:\n"
         cdir = self.configuration_directory.replace("\\\\", "\\")
         info_str += f"      - {cdir}\n"
-        info_str += f"    configuration files:\n"
+        info_str += "    configuration files:\n"
         info_str += f"      - default : {self.default_configuration}\n"
         info_str += f"      - current : {self.current_configuration}\n"
 
@@ -192,9 +196,8 @@ class BaseXIA(BaseMCA):
         Called once at session startup and then on demand.
         The filename is relative to the configuration directory.
         """
-        log_debug(self, "_load_configuration(%s)", filename)
-        lprint(f"MCA XIA loading: {filename}")
         try:
+            lprint(f"Loading configuration '{filename}'")
             self._proxy.init(self.beacon_obj.configuration_directory, filename)
             self._proxy.start_system()  # Takes about 5 seconds
             self._run_checks()
@@ -544,10 +547,31 @@ class BaseXIA(BaseMCA):
     def set_hardware_scas(self, scas):
         raise NotImplementedError
 
+    # Dialogs to configure XIA device
+    def select_config(self):
+        config_list = self.available_configurations
+        dlg_list = list(zip(config_list, config_list))
+        dlg = UserChoice(label="Configuration File", values=dlg_list)
+        self.load_configuration(display(dlg))
+
+    def select_trig(self):
+        triggers_list = [ttt.name for ttt in TriggerMode]
+        dlg_list = list(zip(triggers_list, ["1 - SOFTWARE", "2 - SYNC", "3 - GATE"]))
+        dlg = UserChoice(label="Trigger Mode", values=dlg_list)
+        ans = display(dlg)
+        print(f"user choose '{ans}'")
+        self.trigger_mode = ans
+
+    def select_preset_mode(self):
+        preset_list = [ppp.name for ppp in self.supported_preset_modes]
+        dlg_list = list(zip(preset_list, preset_list))
+        dlg = UserChoice(label="Preset Mode", values=dlg_list)
+        ans = display(dlg)
+        print(f"user choose '{ans}'")
+        self.preset_mode = ans
+
 
 # Specific XIA classes
-
-
 class XIA(BaseXIA):
     """Generic controller class for a XIA MCA."""
 

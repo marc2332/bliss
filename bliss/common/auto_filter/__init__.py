@@ -117,12 +117,15 @@ class CorrCounterController(CalcCounterController):
         return counter_namespace(output_counters)
 
     def calc_function(self, input_dict):
-        monitor_values = input_dict.get("monitor")
-        detector_values = input_dict.get("detector")
-        if monitor_values and detector_values:
+        monitor_values = input_dict.get("monitor", [])
+        detector_values = input_dict.get("detector", [])
+        if len(monitor_values) and len(detector_values):
             transmission = self._autof.transmission
-            detector_corr_values = detector_values * transmission
+            # calc the corrected counters
+            detector_corr_values = detector_values / transmission
+            # calc the ration counter
             ratio_values = detector_corr_values / monitor_values
+
             return {
                 self.tags[self._ratio_counter.name]: ratio_values,
                 self.tags[self._detector_corr.name]: detector_corr_values,
@@ -477,9 +480,6 @@ class AutoFilter(BeaconObject):
             )
         monitor_counter = counters[0]
 
-        # add the detector/monitor to the list of new corrected counters
-        self.__counters_for_corr.add(detector_counter.fullname)
-
         if not counter_args:  # use the default measurement group
             counter_args = [get_active_mg()] + [detector_counter, monitor_counter]
         else:
@@ -528,12 +528,38 @@ class AutoFilter(BeaconObject):
 
         top_master = acquisition_objects.VariableStepTriggerMaster(*motors_positions)
 
+        # scan type is forced to be either aNscan or dNscan
+        if scan_type == "dscan":
+            scan_type = (
+                f"autof.d{len(title_list)//3}scan"
+                if len(title_list) // 3 > 1
+                else "autof.dscan"
+            )
+        else:
+            scan_type = (
+                f"autof.a{len(title_list)//3}scan"
+                if len(title_list) // 3 > 1
+                else "autof.ascan"
+            )
+        name = kwargs.setdefault("name", None)
+        if not name:
+            name = scan_type
+
+        # build the title
+        args = [scan_type]
+        args += title_list
+        args += [intervals, count_time]
+        template = " ".join(["{{{0}}}".format(i) for i in range(len(args))])
+        title = template.format(*args)
+        scan_info["title"] = title
+
+        #  finally the scan
         timer = final_chain.top_masters.pop(0)
         final_chain.add(top_master, timer)
         s = scan.Scan(
             final_chain,
             scan_info=scan_info,
-            name=kwargs.setdefault("name", "ascan"),
+            name=name,
             save=kwargs.get("save", True),
             save_images=kwargs.get("save_images"),
             data_watch_callback=scan.StepScanDataWatch(),

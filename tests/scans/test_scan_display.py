@@ -424,8 +424,8 @@ def test_scan_display_ct(session, scan_data_listener_process):
     line_diode4 = "diode4  =  4.00000      (  40.0000   /s)    simulation_diode_sampling_controller"
     line_diode5 = "diode5  =  5.00000      (  50.0000   /s)    simulation_diode_sampling_controller"
     try:
-        assert lines[9].strip() == line_diode4
-        assert lines[10].strip() == line_diode5
+        assert lines[10].strip() == line_diode4
+        assert lines[11].strip() == line_diode5
     except:
         # Help for debug
         print("".join(lines))

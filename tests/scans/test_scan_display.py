@@ -9,6 +9,7 @@
 import os
 import sys
 import numpy
+import contextlib
 
 from bliss.common import scans
 
@@ -16,6 +17,7 @@ from bliss.scanning.scan import Scan, StepScanDataWatch
 from bliss.scanning.chain import AcquisitionChain, AcquisitionSlave
 from bliss.scanning.channel import AcquisitionChannel
 from bliss.scanning.acquisition import timer
+from bliss.scanning.scan import ScanDisplay
 
 import subprocess
 import gevent
@@ -40,16 +42,24 @@ def grab_lines(subproc, lines, timeout=30, finish_line="Took "):
         raise TimeoutError
 
 
-def find_data_start(lines, fields, col_sep="|", offset=0):
-    data_start_idx = None
-    dim = len(fields)
+def find_data_start(lines, fields, col_sep="|"):
+    """Check the content of the expected header and return the location of the
+    data.
+
+    Raises an exception if the header was not found or if the header was not
+    containing expected value.
+    """
+    offset = 2
     for idx, line in enumerate(lines):
-        ans = line.strip().split(col_sep)
-        if len(ans) == dim:
-            if False not in [ans[i].strip() == fields[i] for i in range(dim)]:
-                data_start_idx = idx
-                break
-    return data_start_idx + offset
+        ans = [l.strip() for l in line.split(col_sep)]
+        if len(ans) >= 0 and ans[0] == "#":
+            if len(ans) != len(fields) or False in [
+                ans[i] == fields[i] for i in range(len(fields))
+            ]:
+                raise Exception("Unexpected content %s (found %s)" % (fields, ans))
+            return idx + offset
+
+    raise Exception("Data header not found")
 
 
 def extract_data(lines, shape, col_sep="|"):
@@ -78,7 +88,7 @@ def extract_words(lines, col_sep="|", cast_num=True):
             for w in ans:
                 try:
                     w = float(w)
-                except:
+                except Exception:
                     w = w.strip()
                 words.append(w)
         else:
@@ -165,32 +175,32 @@ def test_fast_scan_display(session):
     # USE A PIPE TO PREVENT POPEN TO USE MAIN PROCESS TERMINAL STDIN (see blocking user input => bliss.data.display => termios.tcgetattr(fd))
     rp, _wp = os.pipe()
 
-    with subprocess.Popen(
-        [sys.executable, "-u", "-m", "bliss.data.start_listener", "test_session"],
-        stdin=rp,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-    ) as p:
+    with disable_scan_display_filter():
+        with subprocess.Popen(
+            [sys.executable, "-u", "-m", "bliss.data.start_listener", "test_session"],
+            stdin=rp,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        ) as p:
 
-        try:
+            try:
 
-            wait_for_scan_data_listener_started(p)
+                wait_for_scan_data_listener_started(p)
 
-            # ============= START THE SCAN ===================================
-            lines = []
+                # ============= START THE SCAN ===================================
+                lines = []
 
-            s = Scan(
-                acq_chain,
-                scan_info={"type": "fast_scan", "npoints": nb},
-                save=False,
-                save_images=False,
-                data_watch_callback=StepScanDataWatch(),
-            )
-            s.run()
+                s = Scan(
+                    acq_chain,
+                    scan_info={"type": "fast_scan", "npoints": nb},
+                    save=False,
+                    save_images=False,
+                    data_watch_callback=StepScanDataWatch(),
+                )
+                s.run()
 
-            # EXPECTED OUTPUT
-            if 1:
+                # EXPECTED OUTPUT
 
                 # ** Scan 1: scan **
 
@@ -225,9 +235,7 @@ def test_fast_scan_display(session):
 
                 # find the first line of data
                 # take into account the line separator of the data table (offset=2)
-                data_start_idx = find_data_start(
-                    lines, ["#", "dt[s]", "block_data"], offset=2
-                )
+                data_start_idx = find_data_start(lines, ["#", "dt[s]", "block_data"])
                 assert data_start_idx != None
 
                 # extract data and check values
@@ -236,8 +244,19 @@ def test_fast_scan_display(session):
                 for i in range(nb):
                     assert numpy.all(arry[i, :] == [i, i])
 
-        finally:
-            p.terminate()
+            finally:
+                p.terminate()
+
+
+@contextlib.contextmanager
+def disable_scan_display_filter():
+    try:
+        scan_display = ScanDisplay()
+        old = scan_display.scan_display_filter_enabled
+        scan_display.scan_display_filter_enabled = False
+        yield
+    finally:
+        scan_display.scan_display_filter_enabled = old
 
 
 @pytest.fixture()
@@ -247,18 +266,19 @@ def scan_data_listener_process(session):
     # USE A PIPE TO PREVENT POPEN TO USE MAIN PROCESS TERMINAL STDIN (see blocking user input => bliss.data.display => termios.tcgetattr(fd))
     rp, _wp = os.pipe()
 
-    with subprocess.Popen(
-        [sys.executable, "-u", "-m", "bliss.data.start_listener", "test_session"],
-        stdin=rp,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-    ) as p:
-        try:
-            wait_for_scan_data_listener_started(p)
-            yield p
-        finally:
-            p.terminate()
+    with disable_scan_display_filter():
+        with subprocess.Popen(
+            [sys.executable, "-u", "-m", "bliss.data.start_listener", "test_session"],
+            stdin=rp,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        ) as p:
+            try:
+                wait_for_scan_data_listener_started(p)
+                yield p
+            finally:
+                p.terminate()
 
 
 def test_scan_display_a2scan(session, scan_data_listener_process):
@@ -294,8 +314,7 @@ def test_scan_display_a2scan(session, scan_data_listener_process):
     grab_lines(p, lines)
 
     labels = ["#", "dt[s]", "robz[mm]", "roby", "diode4", "diode5"]
-    data_start_idx = find_data_start(lines, labels, offset=2)
-    assert data_start_idx != None
+    data_start_idx = find_data_start(lines, labels)
 
     nbp = 10
     arry = extract_data(lines[data_start_idx:], (nbp, 6))
@@ -336,8 +355,7 @@ def test_scan_display_a2scan_reverse(session, scan_data_listener_process):
     grab_lines(p, lines)
 
     labels = ["#", "dt[s]", "roby", "robz[mm]", "diode4", "diode5"]
-    data_start_idx = find_data_start(lines, labels, offset=2)
-    assert data_start_idx != None
+    data_start_idx = find_data_start(lines, labels)
 
     nbp = 10
     arry = extract_data(lines[data_start_idx:], (nbp, 6))
@@ -377,8 +395,7 @@ def test_scan_display_ascan(session, scan_data_listener_process):
     grab_lines(p, lines)
 
     labels = ["#", "dt[s]", "roby", "diode4", "diode5"]
-    data_start_idx = find_data_start(lines, labels, offset=2)
-    assert data_start_idx != None
+    data_start_idx = find_data_start(lines, labels)
 
     nbp = 10
     arry = extract_data(lines[data_start_idx:], (nbp, 5))
@@ -407,8 +424,8 @@ def test_scan_display_ct(session, scan_data_listener_process):
     line_diode4 = "diode4  =  4.00000      (  40.0000   /s)    simulation_diode_sampling_controller"
     line_diode5 = "diode5  =  5.00000      (  50.0000   /s)    simulation_diode_sampling_controller"
     try:
-        assert lines[9].strip() == line_diode4
-        assert lines[10].strip() == line_diode5
+        assert lines[10].strip() == line_diode4
+        assert lines[11].strip() == line_diode5
     except:
         # Help for debug
         print("".join(lines))
@@ -445,8 +462,7 @@ def test_scan_display_loopscan(session, scan_data_listener_process):
     grab_lines(p, lines)
 
     labels = ["#", "dt[s]", "diode4", "diode5"]
-    data_start_idx = find_data_start(lines, labels, offset=2)
-    assert data_start_idx != None
+    data_start_idx = find_data_start(lines, labels)
 
     nbp = 10
     arry = extract_data(lines[data_start_idx:], (nbp, 4))
@@ -486,8 +502,7 @@ def test_scan_display_amesh(session, scan_data_listener_process):
     grab_lines(p, lines)
 
     labels = ["#", "dt[s]", "roby", "robz[mm]", "diode4", "diode5"]
-    data_start_idx = find_data_start(lines, labels, offset=2)
-    assert data_start_idx != None
+    data_start_idx = find_data_start(lines, labels)
 
     nbp = 9
     arry = extract_data(lines[data_start_idx:], (nbp, 6))
@@ -522,8 +537,7 @@ def test_scan_display_lookupscan(session, scan_data_listener_process):
     grab_lines(p, lines)
 
     labels = ["#", "dt[s]", "roby", "diode4", "diode5"]
-    data_start_idx = find_data_start(lines, labels, offset=2)
-    assert data_start_idx != None
+    data_start_idx = find_data_start(lines, labels)
 
     nbp = 4
     arry = extract_data(lines[data_start_idx:], (nbp, 5))
@@ -557,8 +571,7 @@ def test_scan_display_pointscan(session, scan_data_listener_process):
     grab_lines(p, lines)
 
     labels = ["#", "dt[s]", "roby", "diode4", "diode5"]
-    data_start_idx = find_data_start(lines, labels, offset=2)
-    assert data_start_idx != None
+    data_start_idx = find_data_start(lines, labels)
 
     nbp = 3
     arry = extract_data(lines[data_start_idx:], (nbp, 5))

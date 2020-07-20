@@ -7,58 +7,12 @@ import gevent
 import numpy
 
 from bliss.scanning.acquisition.motor import (
-    LinearStepTriggerMaster as _LinearStepTriggerMaster
-)
-from bliss.scanning.acquisition.motor import (
     VariableStepTriggerMaster as _VariableStepTriggerMaster
 )
 from bliss.scanning import chain
 from bliss.scanning.acquisition import lima
 from bliss.scanning.channel import AcquisitionChannel
 from bliss.common import event
-
-
-class LinearStepTriggerMaster(_LinearStepTriggerMaster):
-    def __init__(self, *args, **keys):
-        super().__init__(*args, **keys)
-        self._valid_point = None
-        self._event = gevent.event.Event()
-
-    def __iter__(self):
-        position_iter = zip(*self._motor_pos)
-        positions = next(position_iter)
-        while True:
-            self.next_mv_cmd_arg = []
-            for axis, position in zip(self._axes, positions):
-                self.next_mv_cmd_arg += [axis, position]
-            self.reset_point_valid()
-            yield self
-            if self.is_point_valid():
-                try:
-                    positions = next(position_iter)
-                except StopIteration:
-                    self.stop_all_slaves()
-                    break
-
-    def trigger(self):
-        self.trigger_slaves()
-        self.wait_slaves()
-
-    def validate_point(self, point_nb, valid):
-        self._valid_point = valid
-        self._event.set()
-        if valid:
-            positions = [axis.position for axis in self._axes + self._monitor_axes]
-            self.channels.update_from_iterable(positions)
-
-    def reset_point_valid(self):
-        self._valid_point = None
-        self._event.clear()
-
-    def is_point_valid(self):
-        while self._valid_point is None:
-            self._event.wait()
-        return self._valid_point
 
 
 class VariableStepTriggerMaster(_VariableStepTriggerMaster):
@@ -80,6 +34,7 @@ class VariableStepTriggerMaster(_VariableStepTriggerMaster):
                 try:
                     positions = next(position_iter)
                 except StopIteration:
+                    gevent.sleep(1)
                     self.stop_all_slaves()
                     break
 
@@ -328,7 +283,7 @@ class _Lima(_MasterIter):
 
     def stop(self):
         # wait last frame to be save + emit
-        if self.nb_points_to_receive:
+        if self.channels and self.nb_points_to_receive:
             self.emit_event.clear()
             self.emit_event.wait(timeout=1.)
 

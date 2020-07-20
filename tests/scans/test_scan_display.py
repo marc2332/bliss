@@ -8,47 +8,47 @@
 
 import os
 import sys
+import subprocess
+import gevent
 import numpy
-import contextlib
-
+import pytest
+from contextlib import contextmanager
 from bliss.common import scans
-
 from bliss.scanning.scan import Scan, StepScanDataWatch
 from bliss.scanning.chain import AcquisitionChain, AcquisitionSlave
 from bliss.scanning.channel import AcquisitionChannel
 from bliss.scanning.acquisition import timer
 from bliss.scanning.scan import ScanDisplay
 
-import subprocess
-import gevent
-import pytest
 
-
-def grab_lines(subproc, lines, timeout=30, finish_line="Took "):
+@contextmanager
+def grab_lines(subproc, timeout=30, finish_line="Took "):
+    lines = []
     try:
         with gevent.Timeout(timeout):
             for line in subproc.stdout:
                 lines.append(line)
-                # BREAK WHEN RECEIVING THE LAST SCAN DISPLAY LINE
                 if finish_line in line:
                     break
-
-        # print("======== LINES ============")
-        # for line in lines:
-        #     print(line[:-1])  #remove '\n' at end of line
-        # print("======== END LINES ============")
-
     except gevent.Timeout:
+        print("".join(lines))
         raise TimeoutError
 
+    try:
+        yield lines
+    except Exception:
+        print("".join(lines))
+        raise
 
-def find_data_start(lines, fields, col_sep="|"):
+
+def find_data_start(lines, fields):
     """Check the content of the expected header and return the location of the
     data.
 
     Raises an exception if the header was not found or if the header was not
     containing expected value.
     """
+    col_sep = "|"
     offset = 2
     for idx, line in enumerate(lines):
         ans = [l.strip() for l in line.split(col_sep)]
@@ -111,7 +111,40 @@ def wait_for_scan_data_listener_started(popipe):
         )  # NOW LISTENER IS STARTED AND READY
 
 
-def test_fast_scan_display(session):
+@contextmanager
+def disable_scan_display_filter():
+    try:
+        scan_display = ScanDisplay()
+        old = scan_display.scan_display_filter_enabled
+        scan_display.scan_display_filter_enabled = False
+        yield
+    finally:
+        scan_display.scan_display_filter_enabled = old
+
+
+@pytest.fixture()
+def scan_data_listener_process(session):
+    """Fixture to check the output displayed by the ScanDataListener for
+    the different standard scans"""
+    # USE A PIPE TO PREVENT POPEN TO USE MAIN PROCESS TERMINAL STDIN (see blocking user input => bliss.data.display => termios.tcgetattr(fd))
+    rp, _wp = os.pipe()
+
+    with disable_scan_display_filter():
+        with subprocess.Popen(
+            [sys.executable, "-u", "-m", "bliss.data.start_listener", "test_session"],
+            stdin=rp,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        ) as p:
+            try:
+                wait_for_scan_data_listener_started(p)
+                yield p
+            finally:
+                p.terminate()
+
+
+def test_fast_scan_display(session, scan_data_listener_process):
     class BlockDataDevice(AcquisitionSlave):
         def __init__(self, npoints, chunk):
             super().__init__(
@@ -172,126 +205,49 @@ def test_fast_scan_display(session):
     acq_chain = AcquisitionChain()
     acq_chain.add(soft_timer, block_data_device)
 
-    # USE A PIPE TO PREVENT POPEN TO USE MAIN PROCESS TERMINAL STDIN (see blocking user input => bliss.data.display => termios.tcgetattr(fd))
-    rp, _wp = os.pipe()
+    s = Scan(
+        acq_chain,
+        scan_info={"type": "fast_scan", "npoints": nb},
+        save=False,
+        save_images=False,
+        data_watch_callback=StepScanDataWatch(),
+    )
+    s.run()
 
-    with disable_scan_display_filter():
-        with subprocess.Popen(
-            [sys.executable, "-u", "-m", "bliss.data.start_listener", "test_session"],
-            stdin=rp,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-        ) as p:
+    # EXPECTED OUTPUT
+    #                |   timer    |
+    #                |     -      |
+    #         #      |   dt[s]    | block_data
+    #    ------------|------------|------------
+    #         0      |  0.00000   |  0.00000
+    #         1      |0.000756025 |  1.00000
+    #         2      | 0.00124764 |  2.00000
+    #         3      | 0.00176120 |  3.00000
+    #         4      | 0.00224543 |  4.00000
+    #         5      | 0.00273418 |  5.00000
+    #         6      | 0.00320554 |  6.00000
+    #         7      | 0.00368118 |  7.00000
+    #         8      | 0.00415182 |  8.00000
+    #         9      | 0.00499439 |  9.00000
+    #         10     | 0.00548410 |  10.0000
+    #         11     | 0.00596142 |  11.0000
 
-            try:
+    with grab_lines(scan_data_listener_process) as lines:
+        labels = ["#", "dt[s]", "block_data"]
+        data_start_idx = find_data_start(lines, labels)
 
-                wait_for_scan_data_listener_started(p)
-
-                # ============= START THE SCAN ===================================
-                lines = []
-
-                s = Scan(
-                    acq_chain,
-                    scan_info={"type": "fast_scan", "npoints": nb},
-                    save=False,
-                    save_images=False,
-                    data_watch_callback=StepScanDataWatch(),
-                )
-                s.run()
-
-                # EXPECTED OUTPUT
-
-                # ** Scan 1: scan **
-
-                # date   : Tue May 19 11:41:07 2020
-                # file   :
-                # user   : pguillou
-                # session: test_session
-
-                # hidden : [  ]
-
-                #                |   timer    |
-                #                |     -      |
-                #         #      |   dt[s]    | block_data
-                #    ------------|------------|------------
-                #         0      |  0.00000   |  0.00000
-                #         1      |0.000756025 |  1.00000
-                #         2      | 0.00124764 |  2.00000
-                #         3      | 0.00176120 |  3.00000
-                #         4      | 0.00224543 |  4.00000
-                #         5      | 0.00273418 |  5.00000
-                #         6      | 0.00320554 |  6.00000
-                #         7      | 0.00368118 |  7.00000
-                #         8      | 0.00415182 |  8.00000
-                #         9      | 0.00499439 |  9.00000
-                #         10     | 0.00548410 |  10.0000
-                #         11     | 0.00596142 |  11.0000
-
-                # Took 0:00:00.088335[s]
-
-                # GRAB THE SCAN DISPLAY LINES
-                grab_lines(p, lines)
-
-                # find the first line of data
-                # take into account the line separator of the data table (offset=2)
-                data_start_idx = find_data_start(lines, ["#", "dt[s]", "block_data"])
-                assert data_start_idx != None
-
-                # extract data and check values
-                arry = extract_data(lines[data_start_idx:], (nb, 3))
-                arry = numpy.delete(arry, 1, 1)  # remove column dt
-                for i in range(nb):
-                    assert numpy.all(arry[i, :] == [i, i])
-
-            finally:
-                p.terminate()
-
-
-@contextlib.contextmanager
-def disable_scan_display_filter():
-    try:
-        scan_display = ScanDisplay()
-        old = scan_display.scan_display_filter_enabled
-        scan_display.scan_display_filter_enabled = False
-        yield
-    finally:
-        scan_display.scan_display_filter_enabled = old
-
-
-@pytest.fixture()
-def scan_data_listener_process(session):
-    """Fixture to check the output displayed by the ScanDataListener for
-    the different standard scans"""
-    # USE A PIPE TO PREVENT POPEN TO USE MAIN PROCESS TERMINAL STDIN (see blocking user input => bliss.data.display => termios.tcgetattr(fd))
-    rp, _wp = os.pipe()
-
-    with disable_scan_display_filter():
-        with subprocess.Popen(
-            [sys.executable, "-u", "-m", "bliss.data.start_listener", "test_session"],
-            stdin=rp,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-        ) as p:
-            try:
-                wait_for_scan_data_listener_started(p)
-                yield p
-            finally:
-                p.terminate()
+        arry = extract_data(lines[data_start_idx:], (nb, 3))
+        arry = numpy.delete(arry, 1, 1)  # remove column dt
+        for i in range(nb):
+            assert numpy.all(arry[i, :] == [i, i])
 
 
 def test_scan_display_a2scan(session, scan_data_listener_process):
     """Check the output displayed by the ScanDataListener with a2scan"""
-    p = scan_data_listener_process
-
     roby = session.config.get("roby")
     robz = session.config.get("robz")
     diode4 = session.config.get("diode4")
     diode5 = session.config.get("diode5")
-
-    lines = []
-    # print('Start a2scan(robz, 0, 9, roby, 10, 19, 9, 0.01, diode4, diode5) ...', end='', flush=True)
     scans.a2scan(robz, 0, 9, roby, 10, 19, 9, 0.01, diode4, diode5, save=False)
 
     # EXPECTED OUTPUT
@@ -310,31 +266,25 @@ def test_scan_display_a2scan(session, scan_data_listener_process):
     #         8      |  1.97158   |  8.00000   |  18.0000   |  4.00000   |  5.00000
     #         9      |  2.23130   |  9.00000   |  19.0000   |  4.00000   |  5.00000
 
-    # GRAB THE SCAN DISPLAY LINES
-    grab_lines(p, lines)
+    with grab_lines(scan_data_listener_process) as lines:
+        labels = ["#", "dt[s]", "robz[mm]", "roby", "diode4", "diode5"]
+        data_start_idx = find_data_start(lines, labels)
 
-    labels = ["#", "dt[s]", "robz[mm]", "roby", "diode4", "diode5"]
-    data_start_idx = find_data_start(lines, labels)
-
-    nbp = 10
-    arry = extract_data(lines[data_start_idx:], (nbp, 6))
-    arry = numpy.delete(arry, 1, 1)  # remove column dt
-    for i in range(nbp):
-        assert numpy.all(arry[i, :] == [i, i, i + 10, 4, 5])
+        nbp = 10
+        arry = extract_data(lines[data_start_idx:], (nbp, 6))
+        arry = numpy.delete(arry, 1, 1)  # remove column dt
+        for i in range(nbp):
+            assert numpy.all(arry[i, :] == [i, i, i + 10, 4, 5])
 
 
 def test_scan_display_a2scan_reverse(session, scan_data_listener_process):
     """Check the output displayed by the ScanDataListener with a2scan (reversed axis)"""
-    p = scan_data_listener_process
-
     roby = session.config.get("roby")
     robz = session.config.get("robz")
     diode4 = session.config.get("diode4")
     diode5 = session.config.get("diode5")
-
-    lines = []
-    # print('Start a2scan(roby, 0, 9, robz, 10, 19, 9, 0.01, diode4, diode5) ...', end='', flush=True)
     scans.a2scan(roby, 0, 9, robz, 10, 19, 9, 0.01, diode4, diode5, save=False)
+
     # EXPECTED OUTPUT
     #                |   timer    |    axis    |    axis    |..controller|..controller
     #                |     -      |     -      |     -      |     -      |     -
@@ -351,30 +301,24 @@ def test_scan_display_a2scan_reverse(session, scan_data_listener_process):
     #         8      |  2.01668   |  8.00000   |  18.0000   |  4.00000   |  5.00000
     #         9      |  2.26631   |  9.00000   |  19.0000   |  4.00000   |  5.00000
 
-    # GRAB THE SCAN DISPLAY LINES
-    grab_lines(p, lines)
+    with grab_lines(scan_data_listener_process) as lines:
+        labels = ["#", "dt[s]", "roby", "robz[mm]", "diode4", "diode5"]
+        data_start_idx = find_data_start(lines, labels)
 
-    labels = ["#", "dt[s]", "roby", "robz[mm]", "diode4", "diode5"]
-    data_start_idx = find_data_start(lines, labels)
-
-    nbp = 10
-    arry = extract_data(lines[data_start_idx:], (nbp, 6))
-    arry = numpy.delete(arry, 1, 1)  # remove column dt
-    for i in range(nbp):
-        assert numpy.all(arry[i, :] == [i, i, i + 10, 4, 5])
+        nbp = 10
+        arry = extract_data(lines[data_start_idx:], (nbp, 6))
+        arry = numpy.delete(arry, 1, 1)  # remove column dt
+        for i in range(nbp):
+            assert numpy.all(arry[i, :] == [i, i, i + 10, 4, 5])
 
 
 def test_scan_display_ascan(session, scan_data_listener_process):
     """Check the output displayed by the ScanDataListener with ascan"""
-    p = scan_data_listener_process
-
     roby = session.config.get("roby")
     diode4 = session.config.get("diode4")
     diode5 = session.config.get("diode5")
-
-    lines = []
-    # print('Start ascan(roby, 0, 9, 9, 0.1, diode4, diode5) ...', end='', flush=True)
     scans.ascan(roby, 0, 9, 9, 0.1, diode4, diode5, save=False)
+
     # EXPECTED OUTPUT
     #                |   timer    |    axis    |..pling_controller|..pling_controller
     #                |     -      |     -      |        -         |        -
@@ -391,57 +335,40 @@ def test_scan_display_ascan(session, scan_data_listener_process):
     #         8      |  2.07680   |  8.00000   |     4.00000      |     5.00000
     #         9      |  2.33725   |  9.00000   |     4.00000      |     5.00000
 
-    # GRAB THE SCAN DISPLAY LINES
-    grab_lines(p, lines)
+    with grab_lines(scan_data_listener_process) as lines:
+        labels = ["#", "dt[s]", "roby", "diode4", "diode5"]
+        data_start_idx = find_data_start(lines, labels)
 
-    labels = ["#", "dt[s]", "roby", "diode4", "diode5"]
-    data_start_idx = find_data_start(lines, labels)
-
-    nbp = 10
-    arry = extract_data(lines[data_start_idx:], (nbp, 5))
-    arry = numpy.delete(arry, 1, 1)  # remove column dt
-    for i in range(nbp):
-        assert numpy.all(arry[i, :] == [i, i, 4, 5])
+        nbp = 10
+        arry = extract_data(lines[data_start_idx:], (nbp, 5))
+        arry = numpy.delete(arry, 1, 1)  # remove column dt
+        for i in range(nbp):
+            assert numpy.all(arry[i, :] == [i, i, 4, 5])
 
 
 def test_scan_display_ct(session, scan_data_listener_process):
     """Check the output displayed by the ScanDataListener with ascan"""
-    p = scan_data_listener_process
-
     diode4 = session.config.get("diode4")
     diode5 = session.config.get("diode5")
-
-    lines = []
-    # print('Start ct(0.1,diode4,diode5) ...', end='', flush=True)
     scans.ct(0.1, diode4, diode5)
+
     # EXPECTED OUTPUT
     # diode4  =  4.00000      (  40.0000   /s)    simulation_diode_sampling_controller
     # diode5  =  5.00000      (  50.0000   /s)    simulation_diode_sampling_controller
 
-    # GRAB THE SCAN DISPLAY LINES
-    grab_lines(p, lines)
-
-    line_diode4 = "diode4  =  4.00000      (  40.0000   /s)    simulation_diode_sampling_controller"
-    line_diode5 = "diode5  =  5.00000      (  50.0000   /s)    simulation_diode_sampling_controller"
-    try:
+    with grab_lines(scan_data_listener_process) as lines:
+        line_diode4 = "diode4  =  4.00000      (  40.0000   /s)    simulation_diode_sampling_controller"
+        line_diode5 = "diode5  =  5.00000      (  50.0000   /s)    simulation_diode_sampling_controller"
         assert lines[10].strip() == line_diode4
         assert lines[11].strip() == line_diode5
-    except:
-        # Help for debug
-        print("".join(lines))
-        raise
 
 
 def test_scan_display_loopscan(session, scan_data_listener_process):
     """Check the output displayed by the ScanDataListener with ascan"""
-    p = scan_data_listener_process
-
     diode4 = session.config.get("diode4")
     diode5 = session.config.get("diode5")
-
-    lines = []
-    # print('Start loopscan(10,0.1,diode4,diode5) ...', end='', flush=True)
     scans.loopscan(10, 0.1, diode4, diode5, save=False)
+
     # EXPECTED OUTPUT
     #                |   timer    |..de_sampling_controller|..de_sampling_controller
     #                |     -      |           -            |           -
@@ -458,31 +385,25 @@ def test_scan_display_loopscan(session, scan_data_listener_process):
     #         8      |  0.812464  |        4.00000         |        5.00000
     #         9      |  0.914200  |        4.00000         |        5.00000
 
-    # GRAB THE SCAN DISPLAY LINES
-    grab_lines(p, lines)
+    with grab_lines(scan_data_listener_process) as lines:
+        labels = ["#", "dt[s]", "diode4", "diode5"]
+        data_start_idx = find_data_start(lines, labels)
 
-    labels = ["#", "dt[s]", "diode4", "diode5"]
-    data_start_idx = find_data_start(lines, labels)
-
-    nbp = 10
-    arry = extract_data(lines[data_start_idx:], (nbp, 4))
-    arry = numpy.delete(arry, 1, 1)  # remove column dt
-    for i in range(nbp):
-        assert numpy.all(arry[i, :] == [i, 4, 5])
+        nbp = 10
+        arry = extract_data(lines[data_start_idx:], (nbp, 4))
+        arry = numpy.delete(arry, 1, 1)  # remove column dt
+        for i in range(nbp):
+            assert numpy.all(arry[i, :] == [i, 4, 5])
 
 
 def test_scan_display_amesh(session, scan_data_listener_process):
     """Check the output displayed by the ScanDataListener with ascan"""
-    p = scan_data_listener_process
-
     roby = session.config.get("roby")
     robz = session.config.get("robz")
     diode4 = session.config.get("diode4")
     diode5 = session.config.get("diode5")
-
-    lines = []
-    # print('Start amesh(roby,0,2,2,robz,10,12,2,0.01,diode4,diode5) ...', end='', flush=True)
     scans.amesh(roby, 0, 2, 2, robz, 10, 12, 2, 0.01, diode4, diode5, save=False)
+
     # EXPECTED OUTPUT
     #                |   timer    |    axis    |    axis    |..controller|..controller
     #                |     -      |     -      |     -      |     -      |     -
@@ -498,31 +419,25 @@ def test_scan_display_amesh(session, scan_data_listener_process):
     #         7      |  1.67935   |  1.00000   |  12.0000   |  4.00000   |  5.00000
     #         8      |  1.83801   |  2.00000   |  12.0000   |  4.00000   |  5.00000
 
-    # GRAB THE SCAN DISPLAY LINES
-    grab_lines(p, lines)
+    with grab_lines(scan_data_listener_process) as lines:
+        labels = ["#", "dt[s]", "roby", "robz[mm]", "diode4", "diode5"]
+        data_start_idx = find_data_start(lines, labels)
 
-    labels = ["#", "dt[s]", "roby", "robz[mm]", "diode4", "diode5"]
-    data_start_idx = find_data_start(lines, labels)
-
-    nbp = 9
-    arry = extract_data(lines[data_start_idx:], (nbp, 6))
-    arry = numpy.delete(arry, 1, 1)  # remove column dt
-    for i in range(nbp):
-        assert numpy.all(arry[i, :] == [i, i % 3, 10 + i // 3, 4, 5])
+        nbp = 9
+        arry = extract_data(lines[data_start_idx:], (nbp, 6))
+        arry = numpy.delete(arry, 1, 1)  # remove column dt
+        for i in range(nbp):
+            assert numpy.all(arry[i, :] == [i, i % 3, 10 + i // 3, 4, 5])
 
 
 def test_scan_display_lookupscan(session, scan_data_listener_process):
     """Check the output displayed by the ScanDataListener with ascan"""
-    p = scan_data_listener_process
-
     roby = session.config.get("roby")
     diode4 = session.config.get("diode4")
     diode5 = session.config.get("diode5")
-
-    lines = []
-    # print('Start lookupscan(0.01,roby,(0.5,1.2,2.2,33.3),diode4,diode5) ...', end='', flush=True)
     pos = (0.5, 1.2, 2.2, 33.3)
     scans.lookupscan([(roby, pos)], 0.01, diode4, diode5, save=False)
+
     # EXPECTED OUTPUT
     #                |   timer    |    axis    |..pling_controller|..pling_controller
     #                |     -      |     -      |        -         |        -
@@ -533,31 +448,25 @@ def test_scan_display_lookupscan(session, scan_data_listener_process):
     #         2      |  0.277584  |  2.20000   |     4.00000      |     5.00000
     #         3      |  0.719908  |  33.3000   |     4.00000      |     5.00000
 
-    # GRAB THE SCAN DISPLAY LINES
-    grab_lines(p, lines)
+    with grab_lines(scan_data_listener_process) as lines:
+        labels = ["#", "dt[s]", "roby", "diode4", "diode5"]
+        data_start_idx = find_data_start(lines, labels)
 
-    labels = ["#", "dt[s]", "roby", "diode4", "diode5"]
-    data_start_idx = find_data_start(lines, labels)
-
-    nbp = 4
-    arry = extract_data(lines[data_start_idx:], (nbp, 5))
-    arry = numpy.delete(arry, 1, 1)  # remove column dt
-    for i in range(nbp):
-        assert numpy.all(arry[i, :] == [i, pos[i], 4, 5])
+        nbp = 4
+        arry = extract_data(lines[data_start_idx:], (nbp, 5))
+        arry = numpy.delete(arry, 1, 1)  # remove column dt
+        for i in range(nbp):
+            assert numpy.all(arry[i, :] == [i, pos[i], 4, 5])
 
 
 def test_scan_display_pointscan(session, scan_data_listener_process):
     """Check the output displayed by the ScanDataListener with ascan"""
-    p = scan_data_listener_process
-
     roby = session.config.get("roby")
     diode4 = session.config.get("diode4")
     diode5 = session.config.get("diode5")
-
-    lines = []
-    # print('Start pointscan(roby,(0.5,1.1,2.2),0.1,diode4,diode5) ...', end='', flush=True)
     pos = (0.5, 1.1, 2.2)
     scans.pointscan(roby, pos, 0.1, diode4, diode5, save=False)
+
     # EXPECTED OUTPUT
     #                |   timer    |    axis    |..pling_controller|..pling_controller
     #                |     -      |     -      |        -         |        -
@@ -567,17 +476,15 @@ def test_scan_display_pointscan(session, scan_data_listener_process):
     #         1      |  0.207738  |  1.10000   |     4.00000      |     5.00000
     #         2      |  0.452876  |  2.20000   |     4.00000      |     5.00000
 
-    # GRAB THE SCAN DISPLAY LINES
-    grab_lines(p, lines)
+    with grab_lines(scan_data_listener_process) as lines:
+        labels = ["#", "dt[s]", "roby", "diode4", "diode5"]
+        data_start_idx = find_data_start(lines, labels)
 
-    labels = ["#", "dt[s]", "roby", "diode4", "diode5"]
-    data_start_idx = find_data_start(lines, labels)
-
-    nbp = 3
-    arry = extract_data(lines[data_start_idx:], (nbp, 5))
-    arry = numpy.delete(arry, 1, 1)  # remove column dt
-    for i in range(nbp):
-        assert numpy.all(arry[i, :] == [i, pos[i], 4, 5])
+        nbp = 3
+        arry = extract_data(lines[data_start_idx:], (nbp, 5))
+        arry = numpy.delete(arry, 1, 1)  # remove column dt
+        for i in range(nbp):
+            assert numpy.all(arry[i, :] == [i, pos[i], 4, 5])
 
 
 def test_lima_sim_bpm_display_names(beacon, default_session, lima_simulator):

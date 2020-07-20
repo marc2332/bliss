@@ -40,16 +40,24 @@ def grab_lines(subproc, lines, timeout=30, finish_line="Took "):
         raise TimeoutError
 
 
-def find_data_start(lines, fields, col_sep="|", offset=0):
-    data_start_idx = None
-    dim = len(fields)
+def find_data_start(lines, fields, col_sep="|"):
+    """Check the content of the expected header and return the location of the
+    data.
+
+    Raises an exception if the header was not found or if the header was not
+    containing expected value.
+    """
+    offset = 2
     for idx, line in enumerate(lines):
-        ans = line.strip().split(col_sep)
-        if len(ans) == dim:
-            if False not in [ans[i].strip() == fields[i] for i in range(dim)]:
-                data_start_idx = idx
-                break
-    return data_start_idx + offset
+        ans = [l.strip() for l in line.split(col_sep)]
+        if len(ans) >= 0 and ans[0] == "#":
+            if len(ans) != len(fields) or False in [
+                ans[i] == fields[i] for i in range(len(fields))
+            ]:
+                raise Exception("Unexpected content %s (found %s)" % (fields, ans))
+            return idx + offset
+
+    raise Exception("Data header not found")
 
 
 def extract_data(lines, shape, col_sep="|"):
@@ -225,9 +233,7 @@ def test_fast_scan_display(session):
 
                 # find the first line of data
                 # take into account the line separator of the data table (offset=2)
-                data_start_idx = find_data_start(
-                    lines, ["#", "dt[s]", "block_data"], offset=2
-                )
+                data_start_idx = find_data_start(lines, ["#", "dt[s]", "block_data"])
                 assert data_start_idx != None
 
                 # extract data and check values
@@ -294,8 +300,7 @@ def test_scan_display_a2scan(session, scan_data_listener_process):
     grab_lines(p, lines)
 
     labels = ["#", "dt[s]", "robz[mm]", "roby", "diode4", "diode5"]
-    data_start_idx = find_data_start(lines, labels, offset=2)
-    assert data_start_idx != None
+    data_start_idx = find_data_start(lines, labels)
 
     nbp = 10
     arry = extract_data(lines[data_start_idx:], (nbp, 6))
@@ -336,8 +341,7 @@ def test_scan_display_a2scan_reverse(session, scan_data_listener_process):
     grab_lines(p, lines)
 
     labels = ["#", "dt[s]", "roby", "robz[mm]", "diode4", "diode5"]
-    data_start_idx = find_data_start(lines, labels, offset=2)
-    assert data_start_idx != None
+    data_start_idx = find_data_start(lines, labels)
 
     nbp = 10
     arry = extract_data(lines[data_start_idx:], (nbp, 6))
@@ -377,8 +381,7 @@ def test_scan_display_ascan(session, scan_data_listener_process):
     grab_lines(p, lines)
 
     labels = ["#", "dt[s]", "roby", "diode4", "diode5"]
-    data_start_idx = find_data_start(lines, labels, offset=2)
-    assert data_start_idx != None
+    data_start_idx = find_data_start(lines, labels)
 
     nbp = 10
     arry = extract_data(lines[data_start_idx:], (nbp, 5))
@@ -445,8 +448,7 @@ def test_scan_display_loopscan(session, scan_data_listener_process):
     grab_lines(p, lines)
 
     labels = ["#", "dt[s]", "diode4", "diode5"]
-    data_start_idx = find_data_start(lines, labels, offset=2)
-    assert data_start_idx != None
+    data_start_idx = find_data_start(lines, labels)
 
     nbp = 10
     arry = extract_data(lines[data_start_idx:], (nbp, 4))
@@ -486,8 +488,7 @@ def test_scan_display_amesh(session, scan_data_listener_process):
     grab_lines(p, lines)
 
     labels = ["#", "dt[s]", "roby", "robz[mm]", "diode4", "diode5"]
-    data_start_idx = find_data_start(lines, labels, offset=2)
-    assert data_start_idx != None
+    data_start_idx = find_data_start(lines, labels)
 
     nbp = 9
     arry = extract_data(lines[data_start_idx:], (nbp, 6))
@@ -522,8 +523,7 @@ def test_scan_display_lookupscan(session, scan_data_listener_process):
     grab_lines(p, lines)
 
     labels = ["#", "dt[s]", "roby", "diode4", "diode5"]
-    data_start_idx = find_data_start(lines, labels, offset=2)
-    assert data_start_idx != None
+    data_start_idx = find_data_start(lines, labels)
 
     nbp = 4
     arry = extract_data(lines[data_start_idx:], (nbp, 5))
@@ -557,8 +557,7 @@ def test_scan_display_pointscan(session, scan_data_listener_process):
     grab_lines(p, lines)
 
     labels = ["#", "dt[s]", "roby", "diode4", "diode5"]
-    data_start_idx = find_data_start(lines, labels, offset=2)
-    assert data_start_idx != None
+    data_start_idx = find_data_start(lines, labels)
 
     nbp = 3
     arry = extract_data(lines[data_start_idx:], (nbp, 5))

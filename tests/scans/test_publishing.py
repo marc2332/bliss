@@ -13,7 +13,7 @@ import pickle as pickle
 import itertools
 from bliss import setup_globals, current_session
 from bliss.common import scans
-from bliss.scanning.scan import Scan, ScanState
+from bliss.scanning.scan import Scan, ScanState, ScanAbort
 from bliss.scanning.chain import AcquisitionChain, AcquisitionMaster, AcquisitionSlave
 from bliss.scanning.acquisition.motor import SoftwarePositionTriggerMaster
 from bliss.scanning.acquisition.counter import SamplingCounterAcquisitionSlave
@@ -141,8 +141,9 @@ def test_interrupted_scan(session, redis_data_conn):
     assert s._Scan__state == ScanState.STARTING
 
     # Stop the scan like a ctrl-c
-    with pytest.raises(KeyboardInterrupt):
+    with pytest.raises(ScanAbort):
         scan_task.kill(KeyboardInterrupt)
+        scan_task.get()
 
     assert redis_data_conn.ttl(s.node.db_name) > 0
 

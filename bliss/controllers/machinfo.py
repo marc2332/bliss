@@ -74,11 +74,13 @@ class MachInfo(BeaconObject):
                     f"{not_allowed} are not allowed"
                 )
             self._counter_grp = {
-                "default": [
-                    counter
-                    for counter in self.__counters
-                    if counter.name in default_counters
-                ]
+                "default": counter_namespace(
+                    [
+                        counter
+                        for counter in self.__counters
+                        if counter.name in default_counters
+                    ]
+                )
             }
         else:
             self._counter_grp = dict()

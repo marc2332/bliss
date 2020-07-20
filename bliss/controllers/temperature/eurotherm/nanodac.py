@@ -157,6 +157,10 @@ class nanodac(object):
         def pv(self):
             return self._loop.pv
 
+        @property
+        def out(self):
+            return self._loop.op.ch1out
+
         def stop(self):
             self._targetsp = self._loop.targetsp
             os.write(self._pipe[1], b"|")

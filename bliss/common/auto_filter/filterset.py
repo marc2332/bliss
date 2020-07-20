@@ -94,12 +94,13 @@ To Write a new filterset controller one should override these methods:
   * build_filterset()
 """
 import numpy as np
+import contextlib
 from tabulate import tabulate
 
 from bliss.config.beacon_object import BeaconObject
 from bliss.common.logtools import *
 from bliss import global_map
-
+from bliss.common.user_status_info import status_message
 from .element_density import ElementDensity
 
 
@@ -134,6 +135,8 @@ class FilterSet:
         self._det_deadtime_lim = 0.3
         self._det_peakingtime = 1e-6
 
+        # Status message
+        self._print = print
         # good element density module
         self._elt = ElementDensity()
 
@@ -193,6 +196,19 @@ class FilterSet:
         )
         info += "\n"
         return info
+
+    @contextlib.contextmanager
+    def _user_status(self):
+        """
+        Context to display filter information as a user status.
+        i.e: During a scan it'll be displayed next to the progress-bar.
+        """
+        with status_message() as p:
+            self._print = p
+            try:
+                yield p
+            finally:
+                self._print = print
 
     def _calc_densities(self):
         """
@@ -426,7 +442,9 @@ class FilterSet:
         if repeat:
             self._nb_cycles += 1
             log_debug(self, "Repeating count")
-            print(f"Autof: repeating count:filter was {fidx} now {data[new_fidx, 0]}")
+            self._print(
+                f"Autof: repeating count:filter was {fidx} now {data[new_fidx, 0]}"
+            )
         else:
             log_debug(self, "no filter change")
             self._nb_cycles = 0
@@ -526,15 +544,19 @@ class FilterSet:
         """
         f = self.get_filter()
         t = self.get_transmission()
-        print(f"Filter = {f}, transm = {t:.5g} @ {self.energy:.5g} keV")
+        self._print(f"Filter = {f}, transm = {t:.5g} @ {self.energy:.5g} keV")
         return self.get_filter()
 
     @filter.setter
     def filter(self, new_filter):
         f = self.get_filter()
         if f != new_filter:
-            print(f"Change filter {self.name} from {self.get_filter()} to {new_filter}")
+            self._print(
+                f"Change filter {self.name} from {self.get_filter()} to {new_filter}"
+            )
             self.set_filter(new_filter)
+        else:
+            self._print(f"Filter {self.name} is set to {new_filter}")
 
     @property
     def transmission(self):

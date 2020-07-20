@@ -684,6 +684,16 @@ class AutoFilterPreset(ScanPreset):
         self.auto_filter = auto_filter
         super().__init__()
 
+        def user_status():
+            with self.auto_filter.filterset._user_status:
+                yield
+
+        self._user_status = iter(user_status())
+        next(self._user_status)
+
     def stop(self, scan):
-        if self.auto_filter.always_back:
-            self.auto_filter.filterset.set_back_filter()
+        try:
+            if self.auto_filter.always_back:
+                self.auto_filter.filterset.set_back_filter()
+        finally:
+            next(self._user_status, None)

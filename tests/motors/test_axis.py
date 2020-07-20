@@ -944,3 +944,19 @@ def test_user_msg(roby):
         == f"Moving roby from 0 until it is stopped, at constant velocity in positive direction: 10.0\n"
         f"To stop it: roby.stop()"
     )
+
+
+def test_no_hardware_access_if_at_pos(robz):
+    robz.move(1)
+
+    with mock.patch.object(
+        robz.controller, "read_position", return_value=1. * robz.steps_per_unit
+    ) as read_position:
+        robz.move(1)
+        read_position.assert_not_called()
+
+    with mock.patch.object(
+        robz.controller, "state", return_value=AxisState("READY")
+    ) as read_state:
+        robz.move(1)
+        read_state.assert_not_called()

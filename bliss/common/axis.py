@@ -1592,8 +1592,8 @@ class Axis:
         dial = self.dial
         target_pos = dial_target_pos * self.steps_per_unit
         delta = target_pos - dial * self.steps_per_unit
-        if abs(delta) < self.controller.steps_position_precision(self):
-            delta = 0.0
+        if abs(delta) < (self.controller.steps_position_precision(self) / 2):
+            return  # Already in position => no motion
         backlash = self.backlash / self.sign * self.steps_per_unit
         backlash_str = " (with %f backlash)" % self.backlash if backlash else ""
         low_limit_msg = "%s: move to `%f'%s would exceed low limit (%f)"
@@ -1654,6 +1654,19 @@ class Axis:
             self,
             "get_motion: user_target_pos=%g, relative=%r" % (user_target_pos, relative),
         )
+
+        if relative:
+            # start from last set position
+            user_initial_pos = self._set_position
+            user_target_pos += user_initial_pos
+
+        motion = self._get_motion(user_target_pos, polling_time)
+        # We are already in position
+        # Don't need to go further.
+        if motion is None:
+            self._set_position = user_target_pos
+            return
+
         dial_initial_pos = self.dial
         hw_pos = self._hw_position
         read_encoder_position = (
@@ -1671,13 +1684,6 @@ class Axis:
                 "%s: discrepancy between dial (%f) and controller position (%f), aborting"
                 % (self.name, dial_initial_pos, hw_pos)
             )
-
-        if relative:
-            # start from last set position
-            user_initial_pos = self._set_position
-            user_target_pos += user_initial_pos
-
-        motion = self._get_motion(user_target_pos, polling_time)
 
         return motion
 

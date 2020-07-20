@@ -9,6 +9,7 @@
 import os
 import sys
 import numpy
+import contextlib
 
 from bliss.common import scans
 
@@ -16,6 +17,7 @@ from bliss.scanning.scan import Scan, StepScanDataWatch
 from bliss.scanning.chain import AcquisitionChain, AcquisitionSlave
 from bliss.scanning.channel import AcquisitionChannel
 from bliss.scanning.acquisition import timer
+from bliss.scanning.scan import ScanDisplay
 
 import subprocess
 import gevent
@@ -173,77 +175,91 @@ def test_fast_scan_display(session):
     # USE A PIPE TO PREVENT POPEN TO USE MAIN PROCESS TERMINAL STDIN (see blocking user input => bliss.data.display => termios.tcgetattr(fd))
     rp, _wp = os.pipe()
 
-    with subprocess.Popen(
-        [sys.executable, "-u", "-m", "bliss.data.start_listener", "test_session"],
-        stdin=rp,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-    ) as p:
+    with disable_scan_display_filter():
+        with subprocess.Popen(
+            [sys.executable, "-u", "-m", "bliss.data.start_listener", "test_session"],
+            stdin=rp,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        ) as p:
 
-        try:
+            try:
 
-            wait_for_scan_data_listener_started(p)
+                wait_for_scan_data_listener_started(p)
 
-            # ============= START THE SCAN ===================================
-            lines = []
+                # ============= START THE SCAN ===================================
+                lines = []
 
-            s = Scan(
-                acq_chain,
-                scan_info={"type": "fast_scan", "npoints": nb},
-                save=False,
-                save_images=False,
-                data_watch_callback=StepScanDataWatch(),
-            )
-            s.run()
+                s = Scan(
+                    acq_chain,
+                    scan_info={"type": "fast_scan", "npoints": nb},
+                    save=False,
+                    save_images=False,
+                    data_watch_callback=StepScanDataWatch(),
+                )
+                s.run()
 
-            # EXPECTED OUTPUT
-            if 1:
+                # EXPECTED OUTPUT
+                if 1:
 
-                # ** Scan 1: scan **
+                    # ** Scan 1: scan **
 
-                # date   : Tue May 19 11:41:07 2020
-                # file   :
-                # user   : pguillou
-                # session: test_session
+                    # date   : Tue May 19 11:41:07 2020
+                    # file   :
+                    # user   : pguillou
+                    # session: test_session
 
-                # hidden : [  ]
+                    # hidden : [  ]
 
-                #                |   timer    |
-                #                |     -      |
-                #         #      |   dt[s]    | block_data
-                #    ------------|------------|------------
-                #         0      |  0.00000   |  0.00000
-                #         1      |0.000756025 |  1.00000
-                #         2      | 0.00124764 |  2.00000
-                #         3      | 0.00176120 |  3.00000
-                #         4      | 0.00224543 |  4.00000
-                #         5      | 0.00273418 |  5.00000
-                #         6      | 0.00320554 |  6.00000
-                #         7      | 0.00368118 |  7.00000
-                #         8      | 0.00415182 |  8.00000
-                #         9      | 0.00499439 |  9.00000
-                #         10     | 0.00548410 |  10.0000
-                #         11     | 0.00596142 |  11.0000
+                    #                |   timer    |
+                    #                |     -      |
+                    #         #      |   dt[s]    | block_data
+                    #    ------------|------------|------------
+                    #         0      |  0.00000   |  0.00000
+                    #         1      |0.000756025 |  1.00000
+                    #         2      | 0.00124764 |  2.00000
+                    #         3      | 0.00176120 |  3.00000
+                    #         4      | 0.00224543 |  4.00000
+                    #         5      | 0.00273418 |  5.00000
+                    #         6      | 0.00320554 |  6.00000
+                    #         7      | 0.00368118 |  7.00000
+                    #         8      | 0.00415182 |  8.00000
+                    #         9      | 0.00499439 |  9.00000
+                    #         10     | 0.00548410 |  10.0000
+                    #         11     | 0.00596142 |  11.0000
 
-                # Took 0:00:00.088335[s]
+                    # Took 0:00:00.088335[s]
 
-                # GRAB THE SCAN DISPLAY LINES
-                grab_lines(p, lines)
+                    # GRAB THE SCAN DISPLAY LINES
+                    grab_lines(p, lines)
 
-                # find the first line of data
-                # take into account the line separator of the data table (offset=2)
-                data_start_idx = find_data_start(lines, ["#", "dt[s]", "block_data"])
-                assert data_start_idx != None
+                    # find the first line of data
+                    # take into account the line separator of the data table (offset=2)
+                    data_start_idx = find_data_start(
+                        lines, ["#", "dt[s]", "block_data"]
+                    )
+                    assert data_start_idx != None
 
-                # extract data and check values
-                arry = extract_data(lines[data_start_idx:], (nb, 3))
-                arry = numpy.delete(arry, 1, 1)  # remove column dt
-                for i in range(nb):
-                    assert numpy.all(arry[i, :] == [i, i])
+                    # extract data and check values
+                    arry = extract_data(lines[data_start_idx:], (nb, 3))
+                    arry = numpy.delete(arry, 1, 1)  # remove column dt
+                    for i in range(nb):
+                        assert numpy.all(arry[i, :] == [i, i])
 
-        finally:
-            p.terminate()
+            finally:
+                p.terminate()
+
+
+@contextlib.contextmanager
+def disable_scan_display_filter():
+    try:
+        scan_display = ScanDisplay()
+        old = scan_display.scan_display_filter_enabled
+        scan_display.scan_display_filter_enabled = False
+        yield
+    finally:
+        scan_display.scan_display_filter_enabled = old
 
 
 @pytest.fixture()
@@ -253,18 +269,19 @@ def scan_data_listener_process(session):
     # USE A PIPE TO PREVENT POPEN TO USE MAIN PROCESS TERMINAL STDIN (see blocking user input => bliss.data.display => termios.tcgetattr(fd))
     rp, _wp = os.pipe()
 
-    with subprocess.Popen(
-        [sys.executable, "-u", "-m", "bliss.data.start_listener", "test_session"],
-        stdin=rp,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-    ) as p:
-        try:
-            wait_for_scan_data_listener_started(p)
-            yield p
-        finally:
-            p.terminate()
+    with disable_scan_display_filter():
+        with subprocess.Popen(
+            [sys.executable, "-u", "-m", "bliss.data.start_listener", "test_session"],
+            stdin=rp,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        ) as p:
+            try:
+                wait_for_scan_data_listener_started(p)
+                yield p
+            finally:
+                p.terminate()
 
 
 def test_scan_display_a2scan(session, scan_data_listener_process):

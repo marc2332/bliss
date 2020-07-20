@@ -88,7 +88,7 @@ def extract_words(lines, col_sep="|", cast_num=True):
             for w in ans:
                 try:
                     w = float(w)
-                except:
+                except Exception:
                     w = w.strip()
                 words.append(w)
         else:

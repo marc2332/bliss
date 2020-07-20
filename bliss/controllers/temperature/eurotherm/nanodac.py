@@ -131,7 +131,7 @@ class nanodac(object):
         @slope.setter
         def slope(self, val):
             self._slope = val
-            os.write(self._pipe[1], "|")
+            os.write(self._pipe[1], b"|")
 
         @property
         def workingsp(self):
@@ -151,7 +151,7 @@ class nanodac(object):
             if self._ramp_task is None:
                 self._ramp_task = gevent.spawn(self._run)
             else:
-                os.write(self._pipe[1], "|")
+                os.write(self._pipe[1], b"|")
 
         @property
         def pv(self):
@@ -159,7 +159,7 @@ class nanodac(object):
 
         def stop(self):
             self._targetsp = self._loop.targetsp
-            os.write(self._pipe[1], "|")
+            os.write(self._pipe[1], b"|")
 
         def _run(self):
             while abs(self._targetsp - self._loop.targetsp) > 0.1:

@@ -155,6 +155,14 @@ class IntegratingCounterController(CounterController):
 
         params = {"count_time": count_time}
 
+        if self._master_controller is None:
+            try:
+                npoints = acq_params["npoints"]
+            except KeyError:
+                npoints = scan_params["npoints"]
+
+            params["npoints"] = npoints
+
         return params
 
     def get_values(self, from_index, *counters):

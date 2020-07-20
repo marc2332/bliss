@@ -6,7 +6,6 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import time
-import functools
 from collections import namedtuple
 from datetime import datetime
 import gevent
@@ -15,7 +14,6 @@ import numpy
 
 
 from bliss.common.utils import all_equal, deep_update
-from bliss.scanning.chain import ChainNode
 from bliss.scanning.chain import AcquisitionSlave, AcquisitionObject
 from bliss.scanning.channel import AcquisitionChannel
 from bliss.common.counter import SamplingMode
@@ -459,10 +457,18 @@ class IntegratingCounterAcquisitionSlave(BaseCounterAcquisitionSlave):
 
     @AcquisitionObject.parent.setter
     def parent(self, p):
-        self._AcquisitionObject__parent = p
-        self._AcquisitionObject__npoints = p.npoints
-        self._AcquisitionObject__prepare_once = p.prepare_once
-        self._AcquisitionObject__start_once = p.start_once
+        if self.device._master_controller is None:
+            return
+
+        if p.device is self.device._master_controller:
+            self._AcquisitionObject__parent = p
+            self._AcquisitionObject__npoints = p.npoints
+            self._AcquisitionObject__prepare_once = p.prepare_once
+            self._AcquisitionObject__start_once = p.start_once
+        else:
+            raise ValueError(
+                f"Wrong master node! This acquistion object is not placed below the expected master_controller acquisition object"
+            )
 
     def prepare(self):
         self._nb_acq_points = 0

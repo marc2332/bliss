@@ -66,17 +66,17 @@ class Scan(DataNodeContainer):
             kw["priority"] = 1
         super()._subscribe_stream(stream_suffix, reader, **kw)
 
-    def _subscribe_on_new_node_after_yield(
+    def _subscribe_all_streams(
         self, reader, filter=None, first_index=None, yield_events=False
     ):
-        """Subscribe to new streams after yielding the NEW_NODE event.
+        """Subscribe to new streams before yielding the NEW_NODE event.
 
         :param DataStreamReader reader:
-        :param tuple filter: only these DataNode types are allowed (all by default)
+        :param tuple or callable filter: only these DataNode types are allowed (all by default)
         :param str or int first_index: Redis stream ID
         :param bool yield_events: yield Event or DataNode
         """
-        super()._subscribe_on_new_node_after_yield(
+        super()._subscribe_all_streams(
             reader, filter=filter, first_index=first_index, yield_events=yield_events
         )
         self._subscribe_stream("data", reader, first_index=0, create=True)

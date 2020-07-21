@@ -53,36 +53,23 @@ Each DataNode can be iterated over to yield nodes (walk, walk_from_last)
 or events (walk_events, walk_on_new_events) during or after a scan.
 
 This is achieved by subscribing (i.e. adding to the active stream reader)
-to "children_list" and when yielding events, "data" streams.
-
-This is done whenever a new block of raw events is yielded by the reader.
-The raw events are then converted to nodes/events and stream subsciption
-is done before or after yielding those nodes/events, depending on the
-node type:
+to "children_list" streams and when yielding events, "data" streams.
+The subscribing is done whenever a new block of raw events is yielded by
+the reader:
 
     DataNode:
-        _subscribe_initial_streams:
-            _subscribe_on_new_node_before_yield
-            _subscribe_on_new_node_after_yield
-
-        _subscribe_on_new_node_before_yield:
-            subscribe/create to "data" stream when yielding events
-
-        _subscribe_on_new_node_after_yield:
-            pass
+        subscribe/create to the "data" stream when yielding events
 
     DataNodeContainer(DataNode):
-        _subscribe_on_new_node_before_yield:
-            subscribe/create to "children_list" stream 
-            subscribe to existing "children_list" streams of children
-
-        _subscribe_on_new_node_after_yield:
-            subscribe to existing "data" streams of children when yielding events
+        subscribe/create to the "children_list" stream
+        subscribe to existing "children_list" streams of children
+        subscribe to existing "data" streams of children when yielding events
 
     Scan(DataNodeContainer):
-        _subscribe_on_new_node_after_yield:
-            super()
-            subscribe/create to "data" stream
+        subscribe/create to the "children_list" stream
+        subscribe to existing "children_list" streams of children
+        subscribe to existing "data" streams of children when yielding events
+        subscribe/create to the "data" stream
 """
 
 import time
@@ -504,7 +491,7 @@ class DataNode:
             filter = tuple(filter)
         else:
             filter = tuple()
-        self._subscribe_initial_streams(
+        self._subscribe_all_streams(
             reader, filter=filter, first_index=first_index, yield_events=yield_events
         )
         for stream, events in reader:
@@ -549,7 +536,7 @@ class DataNode:
         :param str or int first_index: Redis stream ID
         :param bool yield_events: yield Event or DataNode
         """
-        self._subscribe_on_new_node_before_yield(
+        self._subscribe_all_streams(
             reader, filter=filter, first_index=first_index, yield_events=yield_events
         )
         if not self._filtered_out(filter):
@@ -558,9 +545,6 @@ class DataNode:
                     yield Event(type=EventType.NEW_NODE, node=self)
                 else:
                     yield self
-        self._subscribe_on_new_node_after_yield(
-            reader, filter=filter, first_index=first_index, yield_events=yield_events
-        )
 
     def _iter_data_stream_events(
         self, reader, events, filter=None, first_index=None, yield_events=False
@@ -616,17 +600,7 @@ class DataNode:
         stream = self._create_nonassociated_stream(stream_name)
         reader.add_streams(stream, node=self, **kw)
 
-    def _subscribe_initial_streams(self, reader, **kw):
-        """Subscribe to the appropriate streams so
-        we can eventually get all nodes and events.
-
-        :param DataStreamReader reader:
-        :param `**kw`: see `_subscribe_on_new_node_before_yield`
-        """
-        self._subscribe_on_new_node_before_yield(reader, **kw)
-        self._subscribe_on_new_node_after_yield(reader, **kw)
-
-    def _subscribe_on_new_node_before_yield(
+    def _subscribe_all_streams(
         self, reader, filter=None, first_index=None, yield_events=False
     ):
         """Subscribe to new streams before yielding the NEW_NODE event.
@@ -751,7 +725,7 @@ class DataNodeContainer(DataNode):
                 reader, filter, first_index, yield_events
             )
 
-    def _subscribe_on_new_node_before_yield(
+    def _subscribe_all_streams(
         self, reader, filter=None, first_index=None, yield_events=False
     ):
         """Subscribe to new streams before yielding the NEW_NODE event.
@@ -761,14 +735,33 @@ class DataNodeContainer(DataNode):
         :param str or int first_index: Redis stream ID
         :param bool yield_events: yield Event or DataNode
         """
-        # Do not use the filter here. Maybe we don't want the node's
+        # Do not use the filter for *_children_list. Maybe we don't want the node's
         # events but we may want the events from its children
         self._subscribe_stream(
             "children_list", reader, create=True, first_index=first_index
         )
-        self._subscribe_existing_children_streams(
-            "children_list", reader, include_parent=False, first_index=first_index
-        )
+        if yield_events:
+            # Make sure the NEW_NODE always arrives before NEW_DATA event:
+            # - assume "...:parent_children_list" is created BEFORE "...parent:child_data"
+            # - search for *_children_list AFTER searching for *_data
+            # - subscribe to *_children_list BEFORE subscribing to *_data
+            nodes_with_data = list(
+                self._nodes_with_streams("data", include_parent=False, filter=filter)
+            )
+            nodes_with_children = list(
+                self._nodes_with_streams(
+                    "children_list", include_parent=False, filter=None
+                )
+            )
+            for node in nodes_with_children:
+                node._subscribe_stream("children_list", reader, first_index=first_index)
+            for node in nodes_with_data:
+                node._subscribe_stream("data", reader, first_index=0)
+        else:
+            for node in self._nodes_with_streams(
+                "children_list", include_parent=False, filter=None
+            ):
+                node._subscribe_stream("children_list", reader, first_index=first_index)
 
     def _subscribe_on_new_node_after_yield(
         self, reader, filter=None, first_index=None, yield_events=False
@@ -780,33 +773,22 @@ class DataNodeContainer(DataNode):
         :param str or int first_index: Redis stream ID
         :param bool yield_events: yield Event or DataNode
         """
-        if yield_events:
-            self._subscribe_existing_children_streams(
-                "data", reader, include_parent=False, first_index=0, filter=filter
-            )
+        pass
 
-    def _subscribe_existing_children_streams(
-        self,
-        stream_suffix,
-        reader,
-        include_parent=False,
-        forbidden_types=None,
-        filter=None,
-        **kw,
+    def _nodes_with_streams(
+        self, stream_suffix, include_parent=False, forbidden_types=None, filter=None
     ):
-        """Subscribe to the existing streams with a particular name,
-        associated with all children of this node (recursive).
+        """Find all children nodes recursively (including self or not)
+        which have associated streams with a particular suffix.
 
         :param str stream_suffix: streams to add have the name
                                   "{db_name}_{stream_suffix}"
-        :param DataStreamReader reader:
-        :param bool include_parent: including self in the children
-        :param tuple forbidden_types: do not add streams associated to DataNode's
-                                      with these node types (also not their children)
+        :param bool include_parent: consider self as a child
+        :param tuple forbidden_types: exclude these node types and their children
         :param tuple or callable filter: only these DataNode types are allowed (all by default)
-        :param `**kw`: see `DataStreamReader.add_streams`
+        :yields DataNode:
         """
-        # Get existing stream names (only existing ones)
+        # Get existing stream names
         if include_parent:
             pattern = f"{self.db_name}*_{stream_suffix}"
         else:
@@ -845,7 +827,7 @@ class DataNodeContainer(DataNode):
             if node._filtered_out(filter):
                 continue
             if addstream(node.db_name):
-                node._subscribe_stream(stream_suffix, reader, **kw)
+                yield node
 
     @staticmethod
     def _node_sort_key(db_name):

@@ -7,7 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.0] - 2020-07-21
+
 ### Added
+- event when Tango shutter state changes from BLISS 
+- `reset_equipment` command in standard commands (bliss.common.standard)
+- new `__info__` in motor group
+- Mythen ROI counters
+- hide methods starting with `_` in autocomplete in shell
+- Taco client in bliss.comm
+- new BackgroundCalcCounterController, to manage background for counters
+- 'endproposal', 'enddataset' commands to manually stop an ICAT dataset
+- 'reset()' command in Tango shutter
+- new 'ladd' command to send output to logbook
+- 'machinfo' object: new read-only properties to get storage ring current, and so on
+- homing of Symetrie hexapod
+- tmux option to change terminal window title
+- protection of BLISS builtins in global dictionary
+- Speedgoat motor controller
+- generalized way to add dialogs for BLISS objects
+- root path for data policy when using a LBS or BeGFS caching system
+- dialogs for ascan, dscan, amesh, dmesh
+- new features for axis jog move: change of velocity on-the-fly, jog_velocity property
+- MUSST: timebase and memory info
+- sync() error message now add name of the axis in case of problem
+- Watchdog feature for scans
+- Tolerance for pseudo-axes in NHQ power supply
+- PM600: added flag to allow uploading of trajectory program only if needed
 - Flint:
     - `flint()` command can be used to start Flint
     - Added API to start/stop monitorig on Lima
@@ -27,7 +53,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
         - Added image colormap normalization: square-root, gamma, arcsinh
 - sct: like ct but saves data by default
 
-### Changes
+### Changed
+- always display first master channel in F5 output
+- user_script_load does not do backup anymore
+- motor.position = X now displays a message for users with new position, offset
+- CalcCounterController can use input/output counters specified in Python code
+- remove counter group info from scan data table (F5)
+- standardized OPIOM device communication configuration (YML)
+- disable axis if autopower fails, without raising an error
 - Flint:
     - Allow to select another curve when the fit dialog is open
     - Profile windows are now docks
@@ -36,6 +69,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 	  - Rework the check of the flint API at startup to reduce pointless warnings
     - Group Lima ROI channels by ROI name in the property tree
 - ct: 
+    - ct as a default count time (1 second)
     - ct now works with count_time or counter as first argument.
       if count_time default value of 1s will be used.
     - ct does no longer allow to save data, use sct instead
@@ -48,6 +82,60 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - `user_load_script` now exports to "user" namespace in session env dict by default.
 
 ### Fixed
+- Axes
+    - Geometry 8 of tab3 controller
+    - axis group move exception and uninterruptible backlash issue
+    - prevent communication with hardware if move is too small
+    - motion hooks `_set_position` reset
+    - sync_hard() no more raises an exception on disabled undulators
+- Shell:
+    - incorrect SyntaxError in cells
+    - function arguments completion in shell
+    - doubling of entries in scan saving
+- MUSST: fix for integrating counter read for any count time
+- Lima:
+    - pilatus: internal trigger multi needs synch on trigger
+    - ROI with 0 size
+    - zombie threads when Lima bpm is used
+    - 'acc_max_expo_time' not taken into account in default chain
+- Scans
+    - error in com calculation
+    - rounding problem on goto_cen()
+    - empty scan groups raising errors due to their state preset
+    - scan numbers mixup
+    - concurrent access issue in ScanSaving
+    - exceptions happening during scan no longer shadowed by exceptions in presets
+    - dnscan metadata
+- ELMO controller: fixed abort command
+- numpy array in Beacon object
+- nanodac: target set position issue
+- ASCII formatter for multi-bytes characters in output
+- Icepap shutter support
+- discrepancy error in icepap linked axis
+- measurement group .enable/.disable commands on cameras with the same name prefix
+- ParametersWardrobe reset command
+- MCA
+    - added logging
+    - livetime => trigger_livetime
+    - added energy_livetime
+    - no default config bug
+    - fix trigger mode and hwsca initialization
+    - SYNC mode
+    - msgpack error with XIA server 
+- delay in commands to redis due to keys scan
+- transfocator initialization 
+- MOCO: fixed outbeam, added inbeam
+- opiom: open program file from remote, initialization of boards with the right programs
+- Wago:
+    - fix negative values for thermocouples
+    - WagoMotor adapted to work with Wago DS
+    - key error when reading value, in case of concurrent access
+- data streams:
+    - fix missing priority when adding scan data stream
+    - DataNode.get and block size fix
+- Nexus Writer:
+    - skip reference saving when paths are equal instead of checking existence
+    - scans with save_images=False
 - Flint:
     - Fix wrong plot view with d2scan/d3scan
 

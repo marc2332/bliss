@@ -4,11 +4,13 @@
 #
 # Copyright (c) 2015-2020 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
+
 """
 MCCE (Module de Command et Control des Electrometres)
 Serial interface allows remote reading and programming.
 The parameters of the serial line are:
 8 bits, no parity, 1 stop bit, 9600 bauds
+eol = "\r\n"
 Before sending a set command, the key to be turned off, and back to on after
 executing the command.
 
@@ -33,8 +35,10 @@ channels:
 """
 import enum
 from math import log10
-import serial
-from bliss.comm.serial import Serial
+
+# import serial
+# from bliss.comm.serial import Serial
+from bliss.comm.util import get_comm
 
 
 @enum.unique
@@ -112,25 +116,41 @@ MCCE_TYPE = {
 }
 
 
-class McceController:
+class Mcce:
     """ Commmands """
 
-    def __init__(self, serial_line, address):
-        self.serial_line = Serial(
-            serial_line,
-            baudrate=9600,
-            bytesize=serial.EIGHTBITS,
-            parity=serial.PARITY_NONE,
-            stopbits=serial.STOPBITS_ONE,
-            eol=b"\r\n",
-        )
-        self.address = address  # unique address of the channel
+    def __init__(self, name, config):
+
+        self.__config = config
+        self.__name = name
+        self.__settings = None
+
+        self.serial_line = get_comm(config, timeout=5, eol=b"\r\n")
+
+        self.address = config.get("address", None)  # unique address of the channel
+        if self.address is None:
+            raise RuntimeError(f"address field MUST be specified for mcce {self.name}")
+
         self.remote = True
         self.mcce_range = ()
         self.mcce_gain = None
         self.range_units = McceRangeUnits.A
         self.range_cmd = None
         self.mcce_type = None
+
+        self.init()
+
+    @property
+    def config(self):
+        return self.__config
+
+    @property
+    def name(self):
+        return self.__name
+
+    @property
+    def settings(self):
+        return self.__settings
 
     def __info__(self):
         _ret = "Type: %s (%d)\n" % (MCCE_TYPE[self.mcce_type], self.mcce_type)
@@ -148,6 +168,7 @@ class McceController:
 
     def init(self):
         """ Set default values, depending on the hardware """
+
         # short answer
         self._set_on(False)
         self._send_cmd(McceProgCommands.ANSWER_TYPE, 0)
@@ -370,13 +391,3 @@ class McceController:
         if "AWR" in answer:
             return answer.split("=")[1].strip()
         return False
-
-
-class Mcce(McceController):
-    """ MCCE class """
-
-    def __init__(self, name, config):
-        serial_line = config["serial"]["url"]
-        address = config.get("address", 1)
-        super().__init__(serial_line, address)
-        McceController.init(self)

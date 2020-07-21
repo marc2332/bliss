@@ -44,10 +44,13 @@ def get_item(cfg):
     from ..conductor.web.configuration.config_app import get_item
 
     config = get_config()
-    items = [
-        get_item(config.get_config(name)) for name in cfg.get("config-objects", ())
-    ]
-    result = dict(type="session", icon="fa fa-scribd", items=items)
+    if cfg.get("class") == "MeasurementGroup":
+        result = dict(type="session", icon="fa fa-list", items=[])
+    else:
+        items = [
+            get_item(config.get_config(name)) for name in cfg.get("config-objects", ())
+        ]
+        result = dict(type="session", icon="fa fa-scribd", items=items)
     return result
 
 

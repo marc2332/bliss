@@ -726,8 +726,8 @@ class Ace:
         if cnts_conf is None:
             return
 
-        self._scc = AceSCC(self.name + "_scc", self)
-        self._icc = AceICC(self.name + "_icc", self)
+        self._scc = AceSCC(self.name, self)
+        self._icc = AceICC(self.name, self)
 
         for conf in cnts_conf:
 

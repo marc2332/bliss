@@ -47,14 +47,16 @@ from bliss.common.plot import get_plot
 from bliss import __version__ as publisher_version
 from bliss.common import deprecation
 
-# Globals
-current_module = sys.modules[__name__]
 
 # STORE THE CALLBACK FUNCTIONS THAT ARE CALLED DURING A SCAN ON THE EVENTS SCAN_NEW, SCAN_DATA, SCAN_END
 # THIS FUNCTIONS ARE EXPECTED TO PRINT INFO ABOUT THE SCAN AT THE CONSOLE LEVEL (see bliss/shell/cli/repl => ScanPrinter )
 # USERS CAN OVERRIDE THE DEFAULT TO SPECIFY ITS OWN SCAN INFO DISPLAY
 # BY DEFAULT THE CALLBACKS ARE SET TO NULL() TO AVOID UNNECESSARY PRINTS OUTSIDE A SHELL CONTEXT
 _SCAN_WATCH_CALLBACKS = {"new": Null(), "data": Null(), "end": Null()}
+
+
+class ScanAbort(BaseException):
+    pass
 
 
 def set_scan_watch_callbacks(scan_new=None, scan_data=None, scan_end=None):
@@ -1489,7 +1491,7 @@ class Scan:
                         )
                     except KeyboardInterrupt:
                         killed = killed_by_user = True
-                        raise
+                        raise ScanAbort
                     except BaseException:
                         killed = True
                         raise
@@ -1542,6 +1544,7 @@ class Scan:
                     killed = True
                     if e == KeyboardInterrupt:
                         killed_by_user = True
+                        raise ScanAbort
                     raise e
 
             # put final state

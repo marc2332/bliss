@@ -9,6 +9,7 @@ import gevent
 import pytest
 from gevent.time import time
 from bliss.common import scans
+from bliss.scanning.scan import ScanAbort
 from bliss.data.node import get_session_node
 import nxw_test_utils
 import nxw_test_data
@@ -88,9 +89,8 @@ def _test_nxw_timescan(session=None, tmpdir=None, writer=None, **kwargs):
         except gevent.Timeout:
             continue
     # Stop scan and listener
-    with pytest.raises(KeyboardInterrupt):
+    with pytest.raises(ScanAbort):
         gscan.kill(KeyboardInterrupt)
-        gscan.join()
         gscan.get()
     glisten.kill()
 

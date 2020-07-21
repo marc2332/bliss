@@ -5,7 +5,7 @@ from bliss.common import scans
 from bliss.common.counter import SamplingCounter
 from bliss.controllers.counter import SamplingCounterController
 from bliss.common.soft_axis import SoftAxis
-from bliss.scanning.scan import ScanState, Scan, ScanPreset
+from bliss.scanning.scan import ScanState, Scan, ScanPreset, ScanAbort
 from bliss.scanning.chain import AcquisitionMaster, AcquisitionChain
 from bliss.scanning.group import Sequence
 
@@ -113,8 +113,9 @@ def test_exception_on_KeyboardInterrupt(default_session):
 
     scan_task = gevent.spawn(s.run)
     gevent.sleep(0.5)
-    with pytest.raises(KeyboardInterrupt):
+    with pytest.raises(ScanAbort):
         scan_task.kill(KeyboardInterrupt)
+        scan_task.get()
 
     assert s.state == ScanState.USER_ABORTED
     assert s.node.info["state"] == ScanState.USER_ABORTED

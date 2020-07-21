@@ -1663,8 +1663,14 @@ class ParametersWardrobe(metaclass=ParametersType):
         if get_properties:
             attrs.extend(list(self._property_attributes))
         else:
-            attrs.remove("_creation_date")
-            attrs.remove("_last_accessed")
+            try:
+                attrs.remove("_creation_date")
+            except Exception:
+                pass
+            try:
+                attrs.remove("_last_accessed")
+            except Exception:
+                pass
 
         for attr in attrs:
             instance_[attr] = getattr(self, attr)

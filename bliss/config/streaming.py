@@ -478,6 +478,8 @@ class DataStreamReader:
             raise ValueError("Priority must be a positive number")
         with self._update_streams_context():
             for stream in streams:
+                if stream.name in self._streams:
+                    continue
                 if self._debug:
                     print(f"{self}: ADD STREAM {stream.name}")
                 self.check_stream_connection(stream)
@@ -709,6 +711,13 @@ class DataStreamReader:
         self._synchro_index = index
         self._update_active_streams()
 
+    @staticmethod
+    def _log_events(task, stream, events):
+        content = "\n ".join(
+            [f"{raw[b'__EVENT__']}: {raw.get(b'db_name')}" for idx, raw in events]
+        )
+        print(f"{task} {stream.name}:\n {content}")
+
     def _process_consumer_events(self, sinfo, events):
         """Queue stream events and progress the index
         for the next read operation.
@@ -717,11 +726,7 @@ class DataStreamReader:
         :param list events: list((index, raw)))
         """
         if self._debug:
-            evtypes = {
-                streaming_events.StreamEvent.class_factory(raw).TYPE
-                for index, raw in events
-            }
-            print(f"QUEUE {sinfo['stream'].name}: {evtypes}")
+            self._log_events("QUEUE", sinfo["stream"], events)
         self._queue.put((sinfo["stream"], events))
         sinfo["first_index"] = events[-1][0]
 
@@ -761,11 +766,7 @@ class DataStreamReader:
                 if isinstance(item, Exception):
                     raise item
                 if self._debug:
-                    evtypes = {
-                        streaming_events.StreamEvent.class_factory(raw).TYPE
-                        for index, raw in item[1]
-                    }
-                    print(f"CONSUME {item[0].name}: {evtypes}")
+                    self._log_events("QUEUE", item[0], item[1])
                 self._consumer_state = self.ConsumerState.YIELDING
                 yield item
                 self._consumer_state = self.ConsumerState.WAITING

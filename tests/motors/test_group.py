@@ -10,6 +10,8 @@ import gevent
 import numpy
 from bliss.common import event
 from bliss.common.standard import Group
+from unittest import mock
+from bliss.common.axis import AxisState
 
 
 def test_group_move(robz, roby):
@@ -144,3 +146,37 @@ def test_is_moving_prop(robz, robz2):
     assert robz.is_moving
     assert not robz2.is_moving
     group.stop()
+
+
+def test_no_hardware_access_if_at_pos(robz, roby):
+    g = Group(roby, robz)
+
+    g.move(roby, 1, robz, 2)
+
+    # roby
+    with mock.patch.object(
+        roby.controller, "read_position", return_value=1. * roby.steps_per_unit
+    ) as read_position:
+        g.move(roby, 1, robz, 2)
+        read_position.assert_not_called()
+
+    with mock.patch.object(
+        robz.controller, "state", return_value=AxisState("READY")
+    ) as read_state:
+
+        g.move(roby, 1, robz, 2)
+        read_state.assert_not_called()
+
+    # robz
+    with mock.patch.object(
+        robz.controller, "read_position", return_value=1. * robz.steps_per_unit
+    ) as read_position:
+        g.move(roby, 1, robz, 2)
+        read_position.assert_not_called()
+
+    with mock.patch.object(
+        robz.controller, "state", return_value=AxisState("READY")
+    ) as read_state:
+
+        g.move(roby, 1, robz, 2)
+        read_state.assert_not_called()

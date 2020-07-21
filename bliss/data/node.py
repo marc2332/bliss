@@ -210,21 +210,26 @@ class DataNode:
     def __init__(
         self, node_type, name, parent=None, connection=None, create=False, **kwargs
     ):
-        info_dict = self._init_info(create=create, **kwargs)
+        # The DataNode's Redis connection, used by all Redis queries
         if connection is None:
             connection = client.get_redis_connection(db=1)
+        self.db_connection = connection
+
+        # The DataNode's Redis key and type
         db_name = "%s:%s" % (parent.db_name, name) if parent else name
-        info_hash_name = "%s_info" % db_name
-        self._info = settings.HashObjSetting(info_hash_name, connection=connection)
+        self.__db_name = db_name
+        self.node_type = node_type
+
+        # The info dictionary associated to the DataNode
+        self._info = settings.HashObjSetting(f"{db_name}_info", connection=connection)
+        info_dict = self._init_info(create=create, **kwargs)
         if info_dict:
             info_dict["node_name"] = db_name
             self._info.update(info_dict)
 
-        self.db_connection = connection
-
+        # The DataNode itself is represented by a Redis dictionary
         if create:
             self.__new_node = True
-            self.__db_name = db_name
             self._struct = self._create_struct(db_name, name, node_type)
             if parent:
                 self._struct.parent = parent.db_name
@@ -234,10 +239,6 @@ class DataNode:
             self.__new_node = False
             self._ttl_setter = None
             self._struct = self._get_struct(db_name)
-            self.__db_name = db_name
-
-        # node type cache
-        self.node_type = node_type
 
     def _init_info(self, **kwargs):
         return kwargs.pop("info", {})
@@ -357,6 +358,8 @@ class DataNode:
 
     @protect_from_kill
     def set_ttl(self):
+        """Set the time-to-live for all Redis objects associated to this node
+        """
         db_names = set(self._get_db_names())
         pipeline = self.connection.pipeline()
         for name in db_names:

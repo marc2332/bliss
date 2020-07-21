@@ -287,7 +287,7 @@ class HDF5_Writer(object):
     def finalize(self):
         """stop the iterator loop for this scan and pass once through all
         channels to make sure that all data is written """
-        print(f"{self}: writer finalize")
+        print(f"{self}: writer finalize ...")
 
         # make sure that all data was written until the last point
         # in case we missed anything
@@ -364,6 +364,7 @@ class HDF5_Writer(object):
             ]
 
         self.file.close()
+        print(f"{self}: writer finalize done.")
 
 
 def listen_scans_of_session(session, scan_stack=dict()):

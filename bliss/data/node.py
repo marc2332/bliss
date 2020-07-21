@@ -498,12 +498,8 @@ class DataNode:
             reader, filter=filter, first_index=first_index, yield_events=yield_events
         )
         for stream, events in reader:
-            # TODO: otherwise node._children_stream._cnx() throws an exception
-            if stream.name.endswith("_children_list"):
-                handler = self._iter_children_stream_events
-            else:
-                node = reader.get_stream_info(stream, "node")
-                handler = node.get_stream_event_handler(stream)
+            node = reader.get_stream_info(stream, "node")
+            handler = node.get_stream_event_handler(stream)
             yield from handler(
                 reader,
                 events,
@@ -681,26 +677,28 @@ class DataNodeContainer(DataNode):
 
         :param dict events: list((streamID, dict))
         :param bool purge: purge missing nodes
-        :returns list(DataNode):
+        :yields DataNode:
         """
         if events is None:
             events = self._children_stream.range()
         node_dict = {NewNodeEvent(raw=raw).db_name: index for index, raw in events}
-        with settings.pipeline(self._children_stream):
-            for index, node in zip(node_dict.values(), self.get_nodes(*node_dict)):
-                if node is None:
-                    # When the index is not present
-                    # it is silently ignored.
-                    if purge:
+        nodes = self.get_nodes(*node_dict)
+        if purge:
+            with settings.pipeline(self._children_stream):
+                for index, node in zip(node_dict.values(), nodes):
+                    if node is None:
+                        # When the index is not present
+                        # it is silently ignored.
                         self._children_stream.remove(index)
-                else:
-                    yield node
+        for index, node in zip(node_dict.values(), nodes):
+            if node is not None:
+                yield node
 
     def children(self, purge=False):
         """
         :yields DataNode:
         """
-        return self.get_children(purge=purge)
+        yield from self.get_children(purge=purge)
 
     def get_stream_event_handler(self, stream):
         """

@@ -34,7 +34,6 @@ class VariableStepTriggerMaster(_VariableStepTriggerMaster):
                 try:
                     positions = next(position_iter)
                 except StopIteration:
-                    gevent.sleep(1)
                     self.stop_all_slaves()
                     break
 
@@ -85,6 +84,7 @@ class _Base:
         self.__pending_data = dict()
         self.__last_point_rx = dict()
         self.__valid_point = dict()
+        self.__received_event = gevent.event.Event()
         self._auto_filter = auto_filter
 
     def prepare(self):
@@ -94,6 +94,14 @@ class _Base:
         return self.device.start()
 
     def stop(self):
+        try:
+            with gevent.Timeout(1.):
+                while not self._all_point_rx():
+                    self.__received_event.clear()
+                    self.__received_event.wait()
+        except gevent.Timeout:
+            pass
+
         try:
             return self.device.stop()
         finally:
@@ -117,6 +125,16 @@ class _Base:
 
     def fill_meta_at_scan_end(self, scan_meta):
         return self.device.fill_meta_at_scan_end(scan_meta)
+
+    def _all_point_rx(self):
+        """
+        Check that all point are received
+        """
+        last_valid_point = max(x for x, v in self.__valid_point.items() if v)
+        for last_point in self.__last_point_rx.values():
+            if last_point < last_valid_point:
+                return False
+        return True
 
     def new_data_received(self, event_dict=None, signal=None, sender=None):
         channel_data = event_dict.get("data")
@@ -158,6 +176,7 @@ class _Base:
             self.__last_point_rx[channel_name] = last_point_rx + 1
         else:
             self.__last_point_rx[channel_name] = last_point_rx + len(channel_data)
+        self.__received_event.set()
 
     def validate_point(self, point_nb, valid_flag):
         # for now we just do simple thing we remove all the

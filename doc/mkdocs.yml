@@ -95,6 +95,7 @@ nav:
                       - Shutters, Frontend and Valves: config_shutter.md
                       - Simulation: config_simulation.md
                       - Slits: config_slits.md
+                      - Tripod: config_tab3.md
                       - Tango attribute as counters: config_taac.md
                       - Temperature framework:
                             - Temperature controllers in Bliss: config_tempctrl.md

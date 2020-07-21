@@ -30,6 +30,8 @@ from bliss import global_map
 from bliss.common.shutter import BaseShutter, BaseShutterState
 from bliss.common.tango import DeviceProxy, DevFailed
 from bliss.common.logtools import log_warning, lprint
+from bliss.config.channels import Channel
+from bliss.common import event
 
 
 TangoShutterState = Enum(
@@ -58,6 +60,10 @@ class TangoShutter(BaseShutter):
         self._frontend = None
         self._mode = None
         self._init_type()
+
+        self._state_channel = Channel(
+            f"{name}:state", default_value="UNKNOWN", callback=self.__state_changed
+        )
 
     def _init_type(self):
         self._frontend = "FrontEnd" in self.__control.info().dev_class
@@ -116,6 +122,10 @@ class TangoShutter(BaseShutter):
         except DevFailed:
             raise RuntimeError(f"Communication error with {self.__control.dev_name()}")
 
+    def __state_changed(self, stat):
+        """Send a signal when state changes"""
+        event.send(self, "state", stat)
+
     @property
     def state_string(self):
         """Return state as combined string
@@ -135,6 +145,7 @@ class TangoShutter(BaseShutter):
             RuntimeError: Cannot execute if device in wrong state
         """
         state = self.state
+
         if state.name in ("OPEN", "RUNNING"):
             log_warning(self, f"{self.name} already open, command ignored")
         elif state == TangoShutterState.CLOSED:
@@ -212,7 +223,7 @@ class TangoShutter(BaseShutter):
         """Reset
         Args:
         Raises:
-            RuntimeError: Cannot execute 
+            RuntimeError: Cannot execute
         """
         self.__control.Reset()
 
@@ -227,6 +238,7 @@ class TangoShutter(BaseShutter):
         with Timeout(timeout, RuntimeError("Execution timeout")):
             while self.state != state:
                 sleep(1)
+            self.__state_changed(self.state)
 
     def _wait_mode(self, mode, timeout=3):
         with Timeout(timeout, RuntimeError(f"Cannot set {mode} opening")):

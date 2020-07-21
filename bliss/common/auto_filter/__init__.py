@@ -685,7 +685,7 @@ class AutoFilterPreset(ScanPreset):
         super().__init__()
 
         def user_status():
-            with self.auto_filter.filterset._user_status:
+            with self.auto_filter.filterset._user_status():
                 yield
 
         self._user_status = iter(user_status())

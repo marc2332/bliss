@@ -442,9 +442,7 @@ class FilterSet:
         if repeat:
             self._nb_cycles += 1
             log_debug(self, "Repeating count")
-            self._print(
-                f"Autof: repeating count:filter was {fidx} now {data[new_fidx, 0]}"
-            )
+            self._print(f"Autof: {int(data[new_fidx, 0])}->{fidx}")
         else:
             log_debug(self, "no filter change")
             self._nb_cycles = 0

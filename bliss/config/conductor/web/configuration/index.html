@@ -653,6 +653,10 @@
 
       $(document).on("click", "li.list-group-item", toggle_folder_icon_state);
 
+      $(document).on("click", "[data-filename]", function () {
+        show_filename($(this).attr('data-filename'), $("#content-panel"), $(this).attr('data-name'))
+      });
+
       $("#reload-config").on("click", function () {
         var btn = $(this).button("reloading...");
         request = $.ajax({

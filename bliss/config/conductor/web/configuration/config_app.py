@@ -364,7 +364,7 @@ def index():
 
     node = cfg.root
 
-    template = __get_jinja2().select_template(("index.html",))
+    template = __get_jinja2().get_template("index.html")
 
     full_name = institute = node.get("institute", node.get("synchrotron"))
     laboratory = node.get("laboratory", node.get("beamline"))
@@ -442,7 +442,7 @@ def get_db_file_editor(filename):
         try:
             content = client.get_config_file(filename).decode()
             file_info = __config.get_file_info(filename)
-            template = __get_jinja2().select_template(("editor.html",))
+            template = __get_jinja2().get_template("editor.html")
             html = template.render(
                 dict(name=filename, ftype=file_info["type"], content=content)
             )
@@ -484,6 +484,12 @@ def get_item(cfg):
     if plugin:
         item.update(plugin(cfg))
     return item
+
+
+def default_plugin(obj_cfg):
+    template = __get_jinja2().get_template("default_plugin.html")
+    html = template.render(dict(name=obj_cfg.get("name"), filename=obj_cfg.filename))
+    return html
 
 
 @web_app.route("/item/<name>")
@@ -531,10 +537,10 @@ def get_item_config(name):
     cfg = __config.get_config()
     obj_cfg = cfg.get_config(name)
     plugin = _get_config_plugin(obj_cfg, "get_html")
-    if plugin:
+    if plugin and obj_cfg.get("class") != "MeasurementGroup":
         obj_cfg = plugin(obj_cfg)
     else:
-        obj_cfg = "<!-- TODO -->"
+        obj_cfg = default_plugin(obj_cfg)
     return flask.json.dumps(dict(html=obj_cfg, name=name))
 
 
@@ -604,7 +610,7 @@ def copy_file():
 
     db_files = dict(client.get_config_db_files())
 
-    template = __get_jinja2().select_template(("editor.html",))
+    template = __get_jinja2().get_template("editor.html")
     html = template.render(dict(name=dst_path, content=db_files[src_path]))
     result = dict(
         name=dst_path,

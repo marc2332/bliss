@@ -34,15 +34,23 @@
 
 {% block toolbar %}
 
+
+<div class="container">
 <div class="row">
   <div class="btn-group" role="group" aria-label="global functionality">
     <a class="btn btn-default disabled-btn" href="javascript:void(0)">
       {{ name if name else "unknown session" }}
     </a>
     <button type="button" class="btn btn-primary apply"
-	    data-toggle="tooltip" title="save changes">
-      Save
+      data-toggle="tooltip" title="save changes">
       <span class="fa fa-save"></span>
+      Save
+    </button>
+    <button type="button" class="btn btn-info"
+      data-name="{{name}}" data-filename="{{filename}}"
+      data-toggle="tooltip" title="View in yaml file">
+      <span class="fa fa-eye"></span>
+      Yaml
     </button>
   </div>
 </div>
@@ -60,8 +68,8 @@
       <div class="row">
 	<!-- Text input-->
 	<div class="form-group">
-	  <label class="col-sm-4 control-label" for="name">Name</label>
-	  <div class="col-sm-4">
+	  <label class="col-sm-2 control-label" for="name">Name</label>
+	  <div class="col-sm-3">
 	    <input id="name" name="name" type="text"
 		   placeholder="{{ name }}" value="{{ name }}"
 		   class="form-control input-md" required></input>
@@ -69,8 +77,8 @@
 	</div>
 	<!-- Text input-->
 	<div class="form-group">
-	  <label class="col-sm-4 control-label" for="setup">Setup script</label>
-	  <div class="col-sm-4">
+	  <label class="col-sm-2 control-label" for="setup">Setup script</label>
+	  <div class="col-sm-3">
 	    <input id="setup" name="setup" type="text"
 		   placeholder="{{ setup }}" value="{{ setup }}"
 		   class="form-control input-md"></input>
@@ -116,12 +124,14 @@
 	<!-- vertical button bar -->
 	<div class="col-sm-1 col-v-center col-compact">
 	  <button type="button" title="Select"
-		  class="btn btn-default center-block add"
-		  id="add-session-item">
+		  class="btn btn-lg btn-default center-block add"
+      id="add-session-item"
+      style="margin-top: 25px; margin-bottom: 25px;">
 	    <i class="fa fa-chevron-right"></i>
-	  </button>
+    </button>
+    
 	  <button type="button" title="Unselect"
-		  class="btn btn-default center-block remove"
+		  class="btn btn-lg btn-default center-block remove"
 		  id="remove-session-item">
 	    <i class="fa fa-chevron-left"></i>
 	  </button>
@@ -166,6 +176,7 @@
     </fieldset>
   </form>
 </div> <!-- row -->
+</div> <!-- container -->
 
 {% endblock %}
 
@@ -246,6 +257,7 @@
   function update_session_tree(tree_tag, items) {
     var tree_options = get_tree_options();
     tree_options.multiSelect = true;
+    tree_options.levels = 2;
     tree_options.data = [];
     add_session_tree_nodes(tree_options, items);
     tree_tag.treeview(tree_options);

@@ -12,6 +12,12 @@
       <span class="fa fa-save"></span>
       Save
     </button>
+    <button id="apply" class="btn btn-info"
+      data-filename="{{filename}}"
+      data-toggle="tooltip" title="view in yaml file">
+      <span class="fa fa-eye"></span>
+      Yaml
+    </button>
   </div>
 </div>
 
@@ -29,7 +35,7 @@
 <!-- Text input-->
 <div class="form-group">
   <label class="col-md-2 control-label" for="{{ name }}">{{ name.capitalize() }}</label>
-  <div class="col-md-8">
+  <div class="col-md-4">
     <input id="{{ name }}" name="{{ name }}" type="text"
            class="form-control input-md"
            placeholder="{{ value }}" value="{{ value }}">

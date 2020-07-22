@@ -245,6 +245,55 @@ def scan_tmpdir(tmpdir):
     tmpdir.remove()
 
 
+def wait_tango_device(
+    device_fqdn=None, admin=None, state=DevState.ON, timeout=10, timeout_msg=None
+):
+    msg = timeout_msg if timeout_msg is not None else f"{device_fqdn} is not running"
+    with gevent.Timeout(timeout, RuntimeError(msg)):
+        while True:
+            if admin:
+                dev_proxy = DeviceProxy(admin)
+            else:
+                dev_proxy = DeviceProxy(device_fqdn)
+            try:
+                dev_proxy.ping()
+            except DevFailed as e:
+                gevent.sleep(1)
+            else:
+                break
+
+        dev_proxy = DeviceProxy(device_fqdn)
+        if state is not None:
+            while dev_proxy.state() != state:
+                gevent.sleep(0.1)
+
+    return dev_proxy
+
+
+@contextmanager
+def start_tango_server(*cmdline_args, **kwargs):
+    device_fqdn = kwargs["device_fqdn"]
+
+    for i in range(3):
+        p = subprocess.Popen(cmdline_args)
+
+        try:
+            dev_proxy = wait_tango_device(**kwargs)
+        except BaseException:
+            wait_terminate(p)
+
+            continue
+        else:
+            break
+    else:
+        raise RuntimeError(f"could not start {device_fqdn}")
+
+    try:
+        yield dev_proxy
+    finally:
+        wait_terminate(p)
+
+
 @contextmanager
 def lima_simulator_context(personal_name, device_name):
     db = Database()
@@ -252,25 +301,14 @@ def lima_simulator_context(personal_name, device_name):
     device_fqdn = f"{fqdn_prefix}/{device_name}"
     admin_device_fqdn = f"{fqdn_prefix}/dserver/LimaCCDs/{personal_name}"
 
-    p = subprocess.Popen(["LimaCCDs", personal_name])
-
-    dev_proxy = DeviceProxy(device_fqdn)
-    adm_dev_proxy = DeviceProxy(admin_device_fqdn)
-
-    with gevent.Timeout(
-        15, RuntimeError(f"Lima {personal_name} tango server is not running")
-    ):
-        while True:
-            try:
-                adm_dev_proxy.ping()
-            except DevFailed:
-                gevent.sleep(1)
-            else:
-                break
-
-    yield device_fqdn, dev_proxy
-
-    wait_terminate(p)
+    with start_tango_server(
+        "LimaCCDs",
+        personal_name,
+        device_fqdn=device_fqdn,
+        admin=admin_device_fqdn,
+        state=None,
+    ) as dev_proxy:
+        yield device_fqdn, dev_proxy
 
 
 @pytest.fixture
@@ -294,30 +332,17 @@ def bliss_tango_server(ports, beacon):
     device_fqdn = f"{fqdn_prefix}/{device_name}"
     admin_device_fqdn = f"{fqdn_prefix}/dserver/bliss/test"
 
-    bliss_ds = [sys.executable, "-u", "-m", "bliss.tango.servers.bliss_ds"]
-    p = subprocess.Popen(bliss_ds + ["test"])
-
-    dev_proxy = DeviceProxy(device_fqdn)
-    adm_dev_proxy = DeviceProxy(admin_device_fqdn)
-
-    with gevent.Timeout(10, RuntimeError("Bliss tango server is not running")):
-        while True:
-            # wait for admin device to be ready
-            # it is ready last, according to Tango experts
-            try:
-                adm_dev_proxy.ping()
-            except DevFailed as e:
-                gevent.sleep(0.5)
-            else:
-                break
-
-        # just for the beauty of it, let's ensure it is in the good state
-        while dev_proxy.state() != DevState.STANDBY:
-            gevent.sleep(0.1)
-
-    yield device_fqdn, dev_proxy
-
-    wait_terminate(p)
+    with start_tango_server(
+        sys.executable,
+        "-u",
+        "-m",
+        "bliss.tango.servers.bliss_ds",
+        "test",
+        device_fqdn=device_fqdn,
+        admin=admin_device_fqdn,
+        state=DevState.STANDBY,
+    ) as dev_proxy:
+        yield device_fqdn, dev_proxy
 
 
 @pytest.fixture
@@ -325,30 +350,16 @@ def dummy_tango_server(ports, beacon):
 
     device_name = "id00/tango/dummy"
     device_fqdn = "tango://localhost:{}/{}".format(ports.tango_port, device_name)
-    dummy_ds = [
+
+    with start_tango_server(
         sys.executable,
         "-u",
         os.path.join(os.path.dirname(__file__), "dummy_tg_server.py"),
-    ]
-    p = subprocess.Popen(dummy_ds + ["dummy"])
-
-    dev_proxy = DeviceProxy(device_fqdn)
-
-    with gevent.Timeout(10, RuntimeError("Dummy tango server is not running")):
-        while True:
-            try:
-                dev_proxy.ping()
-            except DevFailed as e:
-                gevent.sleep(0.5)
-            else:
-                break
-
-        while dev_proxy.state() != DevState.CLOSE:
-            gevent.sleep(0.1)
-
-    yield device_fqdn, dev_proxy
-
-    wait_terminate(p)
+        "dummy",
+        device_fqdn=device_fqdn,
+        state=DevState.CLOSE,
+    ) as dev_proxy:
+        yield device_fqdn, dev_proxy
 
 
 @pytest.fixture
@@ -360,25 +371,10 @@ def wago_tango_server(ports, default_session, wago_emulator):
     wago_ds = DeviceProxy(device_fqdn)
     wago_ds.put_property({"Iphost": f"{wago_emulator.host}:{wago_emulator.port}"})
 
-    p = subprocess.Popen(["Wago", "wago_tg_server"])
-
-    dev_proxy = DeviceProxy(device_fqdn)
-
-    with gevent.Timeout(10, RuntimeError("WagoDS is not running")):
-        while True:
-            try:
-                dev_proxy.state()
-            except DevFailed as e:
-                gevent.sleep(0.5)
-            else:
-                break
-
-        while dev_proxy.state() != DevState.ON:
-            gevent.sleep(0.1)
-
-    yield device_fqdn, dev_proxy
-
-    wait_terminate(p)
+    with start_tango_server(
+        "Wago", "wago_tg_server", device_fqdn=device_fqdn
+    ) as dev_proxy:
+        yield device_fqdn, dev_proxy
 
 
 @pytest.fixture
@@ -622,24 +618,10 @@ def metadata_manager_tango_server(ports):
     device_name = "id00/metadata/test_session"
     device_fqdn = "tango://localhost:{}/{}".format(ports.tango_port, device_name)
 
-    p = subprocess.Popen(["MetadataManager", "test", "-v2"])
-
-    dev_proxy = DeviceProxy(device_fqdn)
-
-    with gevent.Timeout(10, RuntimeError("MetadataManager is not running")):
-        while True:
-            try:
-                dev_proxy.ping()
-            except DevFailed as e:
-                gevent.sleep(0.5)
-            else:
-                break
-
-        while dev_proxy.state() != DevState.OFF:
-            gevent.sleep(0.1)
-
-    yield device_fqdn, dev_proxy
-    wait_terminate(p)
+    with start_tango_server(
+        "MetadataManager", "test", "-v2", device_fqdn=device_fqdn, state=DevState.OFF
+    ) as dev_proxy:
+        yield device_fqdn, dev_proxy
 
 
 @pytest.fixture
@@ -647,24 +629,10 @@ def metadata_experiment_tango_server(ports):
     device_name = "id00/metaexp/test_session"
     device_fqdn = "tango://localhost:{}/{}".format(ports.tango_port, device_name)
 
-    p = subprocess.Popen(["MetaExperiment", "test", "-v2"])
-
-    dev_proxy = DeviceProxy(device_fqdn)
-
-    with gevent.Timeout(10, RuntimeError("MetaExperiment is not running")):
-        while True:
-            try:
-                dev_proxy.ping()
-            except DevFailed as e:
-                gevent.sleep(0.5)
-            else:
-                break
-
-        while dev_proxy.state() != DevState.ON:
-            gevent.sleep(0.1)
-
-    yield device_fqdn, dev_proxy
-    wait_terminate(p)
+    with start_tango_server(
+        "MetaExperiment", "test", "-v2", device_fqdn=device_fqdn, state=DevState.ON
+    ) as dev_proxy:
+        yield device_fqdn, dev_proxy
 
 
 @pytest.fixture
@@ -672,21 +640,7 @@ def nexus_writer_service(ports):
     device_name = "id00/bliss_nxwriter/test_session"
     device_fqdn = "tango://localhost:{}/{}".format(ports.tango_port, device_name)
 
-    p = subprocess.Popen(["NexusWriterService", "testwriters", "--log", "info"])
-
-    dev_proxy = DeviceProxy(device_fqdn)
-
-    with gevent.Timeout(10, RuntimeError("Nexus writer is not running")):
-        while True:
-            try:
-                dev_proxy.ping()
-            except DevFailed as e:
-                gevent.sleep(0.5)
-            else:
-                break
-
-        while dev_proxy.state() != DevState.ON:
-            gevent.sleep(0.1)
-
-    yield device_fqdn, dev_proxy
-    wait_terminate(p)
+    with start_tango_server(
+        "NexusWriterService", "testwriters", "--log", "info", device_fqdn=device_fqdn
+    ) as dev_proxy:
+        yield device_fqdn, dev_proxy

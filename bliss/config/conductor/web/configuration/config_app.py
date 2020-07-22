@@ -537,7 +537,7 @@ def get_item_config(name):
     cfg = __config.get_config()
     obj_cfg = cfg.get_config(name)
     plugin = _get_config_plugin(obj_cfg, "get_html")
-    if plugin:
+    if plugin and obj_cfg.get("class") != "MeasurementGroup":
         obj_cfg = plugin(obj_cfg)
     else:
         obj_cfg = default_plugin(obj_cfg)

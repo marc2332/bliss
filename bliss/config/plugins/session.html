@@ -323,7 +323,10 @@
         }
       });
       update_session_trees(SESSION_ITEMS);
-    }, "json");
+    }, "json")
+    .fail(function() {
+      show_notification("Error while getting session {{ name }}", "error");
+    });
   });
 
   function get_selected_items(tree) {

@@ -77,7 +77,10 @@
     $(".revert-editor").on("click", function() {
       $.get("db_file/{{ name }}", function(data) {
         editor.setValue(data.content);
-      }, "json");
+      }, "json")
+      .fail(function() {
+        show_notification("Error", "error");
+      });
     });
   });
 </script>

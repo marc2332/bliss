@@ -156,7 +156,7 @@ class WebConfig(object):
         sessions = {}
         for name, item in self.items.items():
             config = cfg.get_config(name)
-            if config.plugin != "session":
+            if config.plugin != "session" or config.get("class") == "MeasurementGroup":
                 continue
             session_items = {}
             #            for iname, item in self.items.items():

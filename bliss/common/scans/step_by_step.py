@@ -337,7 +337,7 @@ def amesh(
         stop=stop1,
         points=npoints1 * npoints2,
         axis_points=npoints1,
-        axis_kind="fast",
+        axis_kind="fast-backnforth" if backnforth else "fast",
     )
     factory.set_channel_meta(
         f"axis:{motor2.name}",

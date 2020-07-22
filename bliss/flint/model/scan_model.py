@@ -465,6 +465,7 @@ class ChannelType(enum.Enum):
 
 class AxisKind(enum.Enum):
     FAST = "fast"
+    FAST_BACKNFORTH = "fast-backnforth"
     SLOW = "slow"
 
 

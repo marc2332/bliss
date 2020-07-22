@@ -105,7 +105,8 @@ and a column for each points of the scatter (n×m).
 - `axis-points`: Amount of axis points contained in the channel. For scatter axes,
   the amount of points will differ from the amount of point owned by the same row,
   or column.
-- `axis-kind`: Can be `slow` or `fast`. It is also used to speed up solid rendering.
+- `axis-kind`: Can be one of `fast`, `fast-backnforth` or `slow`.
+  It is also used to speed up solid rendering.
 
 ## Scatter example
 

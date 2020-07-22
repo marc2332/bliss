@@ -68,6 +68,15 @@ class _ScanCache:
         self.data_storage = DataStorage()
         """"Store 0d grouped by masters"""
         self.__image_views: Dict[str, LimaImageChannelDataNode.LimaDataView] = {}
+        """Store lima node per channel name"""
+        self.__ignored_channels: Set[str] = set([])
+        """Store a set of channels"""
+
+    def ignore_channel(self, channel_name: str):
+        self.__ignored_channels.add(channel_name)
+
+    def is_ignored(self, channel_name: str):
+        return channel_name in self.__ignored_channels
 
     def store_last_image_view(self, channel_name, image_view):
         self.__image_views[channel_name] = image_view
@@ -442,6 +451,10 @@ class ScanManager:
     ):
         now = time.time()
         scan = cache.scan
+
+        if cache.is_ignored(channel_name):
+            return
+
         if cache.data_storage.has_channel(channel_name):
             group_name = cache.data_storage.get_group(channel_name)
             oldSize = cache.data_storage.get_available_data_size(group_name)
@@ -472,7 +485,8 @@ class ScanManager:
             # Everything which do not except synchronization (images and MCAs)
             channel = scan.getChannelByName(channel_name)
             if channel is None:
-                _logger.error("Channel '%s' not provided", channel_name)
+                cache.ignore_channel(channel_name)
+                _logger.error("Channel '%s' not described in scan_info", channel_name)
             else:
                 # NOTE: No parent for the data, Python managing the life cycle of it (not Qt)
                 data = scan_model.Data(

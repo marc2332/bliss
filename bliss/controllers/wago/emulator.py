@@ -2,7 +2,8 @@ import random
 from collections import defaultdict
 import logging
 from socketserver import TCPServer
-import threading
+import gevent
+import gevent.event
 
 from umodbus import conf
 from umodbus.server.tcp import RequestHandler, get_server
@@ -394,10 +395,8 @@ def Wago(
             address -= 512
         regs_io_words_output[address] = value
 
-    t = threading.currentThread()
-
     try:
-        while getattr(t, "do_run", True):  # handles until a signal from parent thread
+        while True:
             app.handle_request()
     finally:
         app.server_close()
@@ -412,18 +411,17 @@ class WagoEmulator:
 
         self.host = "localhost"
         self.port = get_open_ports(1)[0]
-        self.server_ready_event = threading.Event()
+        self.server_ready_event = gevent.event.Event()  # threading.Event()
 
-        self.t = threading.Thread(
-            target=Wago,
-            args=(self.server_ready_event, (self.host, self.port)),
-            kwargs={"modules": modules, "randomize_values": randomize_values},
-            daemon=True,
+        self.t = gevent.spawn(
+            Wago,
+            self.server_ready_event,
+            (self.host, self.port),
+            modules=modules,
+            randomize_values=randomize_values,
         )
 
-        self.t.start()
         self.server_ready_event.wait()
 
     def close(self):
-        self.t.do_run = False
-        self.t.join(1)
+        gevent.kill(self.t)

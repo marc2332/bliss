@@ -67,6 +67,7 @@ class ScanDataUpdateEvent:
         scan: Scan,
         masterDevice: Optional[Device] = None,
         channel: Optional[Channel] = None,
+        channels: Optional[List[Channel]] = None,
     ):
         """Event emitted when data from a scan is updated.
 
@@ -80,8 +81,12 @@ class ScanDataUpdateEvent:
                 event).
             channel: The channel source of this event
         """
+        nb = sum([channel is not None, channels is not None, masterDevice is not None])
+        if nb > 1:
+            raise ValueError("Only a single attribute have to be set")
         self.__masterDevice = masterDevice
         self.__channel = channel
+        self.__channels = channels
         self.__scan = scan
         self.__channelNames: Optional[Set[str]] = None
 
@@ -118,6 +123,10 @@ class ScanDataUpdateEvent:
     def iterUpdatedChannels(self):
         if self.__channel is not None:
             yield self.__channel
+            return
+        if self.__channels is not None:
+            for channel in self.__channels:
+                yield channel
             return
         for device in self.__iterUpdatedDevices():
             for channel in device.channels():

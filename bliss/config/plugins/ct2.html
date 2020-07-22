@@ -15,10 +15,16 @@
       Save
      <span class="fa fa-save"></span>
     </button>
-    <button id="revert" type="button" class="btn btn-primary"
+    <button id="revert" type="button" class="btn btn-info"
 	    data-toggle="tooltip" title="revert changes">
       Revert
       <span class="fa fa-undo"></span>
+    </button>
+    <button type="button" class="btn btn-info"
+      data-name="{{config['name']}}" data-filename="{{config.filename}}"
+      data-toggle="tooltip" title="view in yaml file">
+      Yaml
+      <span class="fa fa-eye"></span>
     </button>
   </div>
 </div>

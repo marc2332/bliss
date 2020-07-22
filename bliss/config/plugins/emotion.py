@@ -96,6 +96,7 @@ def get_axis_html(cfg):
     ctrl_class = cfg.parent.get("class")
     ctrl_name = cfg.parent.get("name")
     vars = dict(cfg.items())
+    vars["filename"] = cfg.filename
     filename = "emotion_" + ctrl_class + "_axis.html"
     html_template = get_jinja2().select_template([filename, "emotion_axis.html"])
 
@@ -125,6 +126,7 @@ def get_axis_html(cfg):
 def get_ctrl_html(cfg):
     ctrl_class = cfg.get("class")
     vars = dict(cfg.items())
+    vars["filename"] = cfg.filename
 
     filename = "emotion_" + ctrl_class + ".html"
     html_template = get_jinja2().select_template([filename, "emotion_controller.html"])

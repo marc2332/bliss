@@ -10,14 +10,21 @@
     <span class="fa fa-save"></span>
     Apply
   </button>
-
-{% if __tango_server__ %}
-
+  
+  {% if __tango_server__ %}
+  
   <button id="emotion_controller_apply_server" class="btn btn-primary">
     <span class="fa fa-save"></span>
     Apply & Update TANGO server
   </button>
+  
+  <button class="btn btn-info"
+    data-name="{{name}}" data-filename="{{filename}}">
+    <span class="fa fa-eye"></span>
+    Yaml
+  </button>
 
+  <br><br>
 {% endif %}
 
 {% endblock %}

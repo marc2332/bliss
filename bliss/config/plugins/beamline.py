@@ -45,7 +45,7 @@ def __get_main(cfg):
             params[k] = v
     logo = cfg.root.get("logo", "res/logo.png")
 
-    html = template.render(dict(params=params, logo=logo))
+    html = template.render(dict(filename=cfg.root.filename, params=params, logo=logo))
 
     return flask.json.dumps(dict(html=html))
 

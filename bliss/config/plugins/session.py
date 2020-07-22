@@ -81,7 +81,10 @@ def get_html(cfg):
         plugin_items[item_cfg.plugin].append(item)
 
     params = dict(
-        name=cfg["name"], setup=cfg.get("setup-file", ""), plugin_items=plugin_items
+        name=cfg["name"],
+        filename=cfg.filename,
+        setup=cfg.get("setup-file", ""),
+        plugin_items=plugin_items,
     )
 
     html_template = get_jinja2().select_template(["session.html"])

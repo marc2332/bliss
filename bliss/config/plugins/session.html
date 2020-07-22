@@ -42,9 +42,15 @@
       {{ name if name else "unknown session" }}
     </a>
     <button type="button" class="btn btn-primary apply"
-	    data-toggle="tooltip" title="save changes">
-      Save
+      data-toggle="tooltip" title="save changes">
       <span class="fa fa-save"></span>
+      Save
+    </button>
+    <button type="button" class="btn btn-info"
+      data-name="{{name}}" data-filename="{{filename}}"
+      data-toggle="tooltip" title="View in yaml file">
+      <span class="fa fa-eye"></span>
+      Yaml
     </button>
   </div>
 </div>

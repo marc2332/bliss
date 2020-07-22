@@ -315,7 +315,7 @@ class FlintClient:
                 FLINT_LOGGER.debug("Backtrace", exc_info=True)
 
         try:
-            manager = current_session.scan_saving.metadata_manager
+            manager = current_session.scan_saving.icat_proxy.metadata_manager.proxy
             proxy.set_tango_metadata_name(manager.name())
         except Exception:
             FLINT_LOGGER.debug("Error while registering the logbook", exc_info=True)

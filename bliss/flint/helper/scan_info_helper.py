@@ -88,6 +88,8 @@ def iter_channels(scan_info: Dict[str, Any]):
             return channel_name.rsplit(":", 1)[0]
         return None
 
+    channels = set([])
+
     for master_name, data in acquisition_chain.items():
         scalars = _merge_master_keys(data, "scalars")
         spectra = _merge_master_keys(data, "spectra")
@@ -97,16 +99,32 @@ def iter_channels(scan_info: Dict[str, Any]):
             device_name = get_device_from_channel_name(channel_name)
             channel = Channel(channel_name, "scalar", device_name, master_name)
             yield channel
+            channels.add(channel_name)
 
         for channel_name in spectra:
             device_name = get_device_from_channel_name(channel_name)
             channel = Channel(channel_name, "spectrum", device_name, master_name)
             yield channel
+            channels.add(channel_name)
 
         for channel_name in images:
             device_name = get_device_from_channel_name(channel_name)
             channel = Channel(channel_name, "image", device_name, master_name)
             yield channel
+            channels.add(channel_name)
+
+    requests = scan_info.get("requests", {})
+    if not isinstance(requests, dict):
+        _logger.warning("scan_info.requests is not a dict")
+        requests = {}
+
+    for channel_name in requests.keys():
+        if channel_name in channels:
+            continue
+        device_name = get_device_from_channel_name(channel_name)
+        # FIXME: For now, let say everything is scalar here
+        channel = Channel(channel_name, "scalar", device_name, "custom")
+        yield channel
 
 
 def create_scan_model(scan_info: Dict, is_group: bool = False) -> scan_model.Scan:

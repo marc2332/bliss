@@ -19,7 +19,7 @@ from bliss.scanning.acquisition.motor import SoftwarePositionTriggerMaster
 from bliss.scanning.acquisition.counter import SamplingCounterAcquisitionSlave
 from bliss.config.settings import scan as redis_scan
 from bliss.config.streaming import DataStream, DataStreamReaderStopHandler
-from bliss.data.nodes.scan import Scan as ScanNode
+from bliss.data.nodes.scan import ScanNode
 from bliss.data.node import (
     get_session_node,
     get_node,

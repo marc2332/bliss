@@ -5,17 +5,24 @@
 # Copyright (c) 2015-2020 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 """
-Redis structure data nodes from a scan
+Redis data node structure
 
---eh3 (DataNodeContainer - inherits from DataNode)
-   |
-   --scan1 (Scan - inherits from DataNode)
-     |
-     --P201 (DataNodeContainer - inherits from DataNode)
-       |
-       --c0 (ChannelDataNode - inherits from DataNode)
-       |
-       -- frelon (LimaChannelDataNode - inherits from DataNode)
+--session_name (DataNodeContainer - inherits from DataNode)
+    ...
+    |
+    --sample_0001 (DataNodeContainer - inherits from DataNode)
+        |
+        --1_loopscan (ScanNode - inherits from DataNodeContainer)
+            |
+            --timer (DataNodeContainer - inherits from DataNode)
+                |
+                -- epoch (ChannelDataNode - inherits from ChannelDataNodeBase)
+                |
+                -- frelon (LimaChannelDataNode - inherits from ChannelDataNodeBase)
+                |
+                --P201 (DataNodeContainer - inherits from DataNode)
+                    |
+                    --c0 (ChannelDataNode - inherits from ChannelDataNodeBase)
 
 A DataNode is represented by 2 Redis keys:
 

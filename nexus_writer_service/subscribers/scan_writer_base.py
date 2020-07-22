@@ -1006,7 +1006,7 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
         """
         Scan has started
 
-        :param bliss.data.nodes.scan.Scan scan:
+        :param ScanNode scan:
         """
         title = self.get_info("title", "")
         self.logger.info("title = " + repr(title))

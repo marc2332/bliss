@@ -14,7 +14,7 @@ from bliss.scanning.group import Sequence, Group
 from bliss.common import scans
 from bliss.data.node import get_node, _get_or_create_node
 from bliss.data.nodes.node_ref_channel import NodeRefChannel
-from bliss.data.nodes.scan import Scan as Data_Scan
+from bliss.data.nodes.scan import ScanNode
 from bliss.scanning.chain import AcquisitionChannel
 from bliss.data.node import get_session_node
 from bliss import current_session
@@ -34,7 +34,7 @@ def test_sequence_terminated_scans(session):
     grouped_scans = n.get(0, -1)
     assert len(grouped_scans) == 2
     for s in grouped_scans:
-        assert isinstance(s, Data_Scan)
+        assert isinstance(s, ScanNode)
 
     assert len(get_node(seq.node.db_name + ":GroupingMaster:scan_numbers")) == 2
 
@@ -55,7 +55,7 @@ def test_sequence_future_scans(session):
     grouped_scans = n.get(0, -1)
     assert len(grouped_scans) == 2
     for s in grouped_scans:
-        assert isinstance(s, Data_Scan)
+        assert isinstance(s, ScanNode)
     assert grouped_scans[0].info["scan_nb"] == s1.scan_info["scan_nb"]
     assert grouped_scans[1].info["scan_nb"] == s2.scan_info["scan_nb"]
 
@@ -158,7 +158,7 @@ def test_sequence_custom_channel(session):
     grouped_scans = n.get(0, -1)
     assert len(grouped_scans) == 2
     for s in grouped_scans:
-        assert isinstance(s, Data_Scan)
+        assert isinstance(s, ScanNode)
     assert grouped_scans[0].info["scan_nb"] == s1.scan_info["scan_nb"]
     assert grouped_scans[1].info["scan_nb"] == s2.scan_info["scan_nb"]
     assert seq.node.info["something"] == "else"

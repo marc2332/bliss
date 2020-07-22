@@ -11,7 +11,7 @@ from bliss.data.events import Event, EventType, EventData, EndScanEvent
 from bliss.config import settings
 
 
-class Scan(DataNodeContainer):
+class ScanNode(DataNodeContainer):
     _NODE_TYPE = "scan"
 
     def __init__(self, name, **kwargs):

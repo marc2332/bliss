@@ -15,8 +15,8 @@ from bliss.scanning.chain import (
     AcquisitionChannel,
     AcquisitionChain,
 )
-from bliss.scanning.scan import Scan as Scanning_Scan
-from bliss.data.nodes.scan import Scan as Data_Scan
+from bliss.scanning.scan import Scan
+from bliss.data.nodes.scan import ScanNode
 from bliss.data.node import get_session_node
 from bliss.scanning.scan import ScanState, ScanPreset
 from bliss.data.node import _create_node
@@ -24,7 +24,7 @@ from bliss import current_session
 from bliss.common.logtools import lprint
 
 
-class ScanGroup(Scanning_Scan):
+class ScanGroup(Scan):
     def _create_data_node(self, node_name):
         self._Scan__node = _create_node(
             node_name, "scan_group", parent=self.root_node, info=self._scan_info
@@ -79,11 +79,11 @@ class Sequence:
             self.sequence.group_acq_master.new_subscan(scan)
 
         def _add_via_node(self, scan):
-            assert isinstance(scan, Data_Scan)
+            assert isinstance(scan, ScanNode)
             self.sequence._scans.append(scan)
             self.sequence.group_acq_master.new_subscan(scan)
 
-        def add(self, scan: Scanning_Scan):
+        def add(self, scan: Scan):
             """Add a scan into the group.
 
             If the scan was not started, this method also flag the scan
@@ -92,7 +92,7 @@ class Sequence:
             Argument:
                 scan: A scan
             """
-            assert isinstance(scan, Scanning_Scan)
+            assert isinstance(scan, Scan)
             self.sequence._scans.append(scan)
 
             if scan.state >= ScanState.STARTING:
@@ -104,7 +104,7 @@ class Sequence:
                     gevent.spawn(self._wait_before_adding_scan, scan)
                 )
 
-        def add_and_run(self, scan: Scanning_Scan):
+        def add_and_run(self, scan: Scan):
             """Add a scan into the group, run it, and wait for
             termination.
 
@@ -117,7 +117,7 @@ class Sequence:
             Raise:
                 RuntimeError: If the scan was already started.
             """
-            assert isinstance(scan, Scanning_Scan)
+            assert isinstance(scan, Scan)
             if scan.state != 0:
                 raise RuntimeError(
                     f'Error in  add_and_run: scan "{scan.name}" has already been started before!'
@@ -190,11 +190,11 @@ class Sequence:
                 max_state = ScanState.DONE
                 for s in self._sequence._scans:
                     if (
-                        isinstance(s, Data_Scan)
+                        isinstance(s, ScanNode)
                         and s.info.get("state", ScanState.DONE) > max_state
                     ):
                         max_state = s.info.get("state", ScanState.DONE)
-                    elif isinstance(s, Scanning_Scan) and s.state > max_state:
+                    elif isinstance(s, Scan) and s.state > max_state:
                         max_state = s.state
                 if max_state == ScanState.KILLED:
                     lprint(
@@ -229,11 +229,11 @@ class Group(Sequence):
 
         with self.sequence_context() as seq_context:
             for s in scans:
-                if isinstance(s, Data_Scan):
+                if isinstance(s, ScanNode):
                     if s.node_type not in ["scan", "scan_group"]:
                         raise RuntimeError(f"Only scans can be added to group!")
                     scan = s
-                elif isinstance(s, Scanning_Scan):
+                elif isinstance(s, Scan):
                     if s.state < ScanState.STARTING:
                         raise RuntimeError(
                             f"Only scans that have been run before can be added to group!"
@@ -296,7 +296,7 @@ class GroupingMaster(AcquisitionMaster):
     def _new_subscan(self, scan):
         self.publish_event.clear()
 
-        if isinstance(scan, Scanning_Scan):
+        if isinstance(scan, Scan):
             scan = scan.node
 
         self._number_channel.emit(int(scan.info["scan_nb"]))

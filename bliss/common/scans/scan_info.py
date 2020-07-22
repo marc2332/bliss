@@ -33,6 +33,7 @@ class ScanInfoFactory:
         points: typing.Optional[int] = None,
         axis_points: typing.Optional[int] = None,
         axis_kind: typing.Optional[str] = None,
+        group: typing.Optional[str] = None,
     ):
         """
         Define metadata relative to a channel name
@@ -49,6 +50,10 @@ class ScanInfoFactory:
                 GUI. Can be one of:
                 - `fast`: Fast axis for a scatter
                 - `slow` Slow axis for a scatter
+            group: Specify a group for the channel. All the channels from the
+                same group are supposed to contain the same amount of item at
+                the end of the scan. It also can be used as a hint for
+                interactive user selection.
         """
         requests = self._scan_info.setdefault("requests", {})
         assert axis_kind in set([None, "slow", "fast"])
@@ -67,3 +72,5 @@ class ScanInfoFactory:
             meta["axis-points"] = axis_points
         if axis_kind is not None:
             meta["axis-kind"] = axis_kind
+        if group is not None:
+            meta["group"] = group

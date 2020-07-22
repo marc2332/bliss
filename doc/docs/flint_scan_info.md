@@ -60,9 +60,16 @@ Everything is optional, but have to be well typed.
 - `stop` (float): Stop position of the axis
 - `min` (float): Minimal value the channel can have
 - `max` (float): Minimal value the channel can have
-- `points` (integer): Amount of total points which will be transmited by this channel
+- `points` (integer): Amount of total points which will be transmited by this
+                      channel.
 - `axis-points` (integer): Amount of points for the axis (see scatter below)
 - `axis-kind` (string): Kind of axis (see scatter below)
+- `group` (string): Specify a group where the channel belong. All the channels
+                    from the same group are supposed to contain the same amount
+                    of elements at the end of the scan. It also can be used as
+                    a hint to help interactive user selection.
+                    If nothing is set, Flint will group the channel using it's
+                    top master channel name from the acquisition chain.
 
 Unsupported keys will not be used, and Flint will warn about it in the logs.
 

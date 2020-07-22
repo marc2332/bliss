@@ -226,10 +226,19 @@ class ScanManager:
                 scan.setGroup(group.scan)
                 group.scan.addSubScan(scan)
 
+        # Initialize the storage for the channel data
         channels = scan_info_helper.iter_channels(scan_info)
-        for channel in channels:
-            if channel.kind == "scalar":
-                cache.data_storage.create_channel(channel.name, channel.master)
+        for channel_info in channels:
+            if channel_info.kind == "scalar":
+                group_name = None
+                channel = scan.getChannelByName(channel_info.name)
+                if channel is not None:
+                    channel_meta = channel.metadata()
+                    if channel_meta is not None and channel_meta.group is not None:
+                        group_name = channel_meta.group
+                if group_name is None:
+                    group_name = "top:" + channel_info.master
+                cache.data_storage.create_channel(channel_info.name, group_name)
 
         if self.__flintModel is not None:
             self.__flintModel.addAliveScan(scan)
@@ -439,8 +448,9 @@ class ScanManager:
             cache.data_storage.set_data(channel_name, raw_data)
             newSize = cache.data_storage.get_available_data_size(group_name)
             if newSize > oldSize:
-                channels = cache.data_storage.get_channels_by_group(group_name)
-                for channel_name in channels:
+                channel_names = cache.data_storage.get_channels_by_group(group_name)
+                channels = []
+                for channel_name in channel_names:
                     channel = scan.getChannelByName(channel_name)
                     array = cache.data_storage.get_data(channel_name)
                     # Create a view
@@ -448,11 +458,16 @@ class ScanManager:
                     # NOTE: No parent for the data, Python managing the life cycle of it (not Qt)
                     data = scan_model.Data(None, array, receivedTime=now)
                     channel.setData(data)
+                    channels.append(channel)
 
-                # The group name is the master device name
-                master_name = group_name
-                # FIXME: Should be fired by the Scan object (but here we have more informations)
-                scan._fireScanDataUpdated(masterDeviceName=master_name)
+                # The group name can be the master device name
+                if group_name.startswith("top:"):
+                    master_name = group_name[4:]
+                    # FIXME: Should be fired by the Scan object (but here we have more informations)
+                    scan._fireScanDataUpdated(masterDeviceName=master_name)
+                else:
+                    # FIXME: Should be fired by the Scan object (but here we have more informations)
+                    scan._fireScanDataUpdated(channels=channels)
         else:
             # Everything which do not except synchronization (images and MCAs)
             channel = scan.getChannelByName(channel_name)
@@ -554,9 +569,17 @@ class ScanManager:
 
         if len(updated_masters) > 0:
             # FIXME: Should be fired by the Scan object (but here we have more informations)
-            for master_name in updated_masters:
-                # FIXME: This could be a single event
-                scan._fireScanDataUpdated(masterDeviceName=master_name)
+            for group_name in updated_masters:
+                if group_name.startswith("top:"):
+                    master_name = group_name[4:]
+                    scan._fireScanDataUpdated(masterDeviceName=master_name)
+                else:
+                    channels = []
+                    channel_names = cache.data_storage.get_channels_by_group(group_name)
+                    for channel_name in channel_names:
+                        channel = scan.getChannelByName(channel_name)
+                        channels.append(channel)
+                    scan._fireScanDataUpdated(channels=channels)
 
     def wait_end_of_scans(self):
         self._end_scan_event.wait()

@@ -242,19 +242,26 @@ class Scan(qt.QObject, _Sealable):
         raise ValueError("Device %s not found." % name)
 
     def _fireScanDataUpdated(
-        self, channelName: str = None, masterDeviceName: str = None
+        self,
+        channelName: str = None,
+        masterDeviceName: str = None,
+        channels: List[Channel] = None,
     ):
         self.__cacheData = {}
         # FIXME: Only clean up object relative to the edited channels
         self.__cacheMessage = {}
 
-        if masterDeviceName is None and channelName is None:
+        if masterDeviceName is None and channelName is None and channels is None:
             # Propagate the event to all the channels of the this scan
             event = ScanDataUpdateEvent(self)
         elif masterDeviceName is not None:
             # Propagate the event to all the channels contained on this device (recursively)
             device = self.getDeviceByName(masterDeviceName)
             event = ScanDataUpdateEvent(self, masterDevice=device)
+        elif channels is not None:
+            # Propagate the event to many channels
+            channel = self.getChannelByName(channelName)
+            event = ScanDataUpdateEvent(self, channels=channels)
         elif channelName is not None:
             # Propagate the event to a single channel
             channel = self.getChannelByName(channelName)
@@ -469,6 +476,7 @@ class ChannelMetadata(NamedTuple):
     points: Optional[int]
     axisPoints: Optional[int]
     axisKind: Optional[AxisKind]
+    group: Optional[str]
 
 
 class Channel(qt.QObject, _Sealable):

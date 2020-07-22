@@ -312,9 +312,10 @@ def test_parse_channel_metadata():
         "axis-kind": "slow",
     }
     result = scan_info_helper.parse_channel_metadata(meta)
-    assert result == scan_model.ChannelMetadata(
-        1, 2, 3, 4, 5, 6, scan_model.AxisKind.SLOW
+    expected = scan_model.ChannelMetadata(
+        1, 2, 3, 4, 5, 6, scan_model.AxisKind.SLOW, None
     )
+    assert result == expected
 
 
 def test_parse_wrong_values():
@@ -329,7 +330,8 @@ def test_parse_wrong_values():
         "foo": "bar",
     }
     result = scan_info_helper.parse_channel_metadata(meta)
-    assert result == scan_model.ChannelMetadata(1, 2, 3, None, 5, 6, None)
+    expected = scan_model.ChannelMetadata(1, 2, 3, None, 5, 6, None, None)
+    assert result == expected
 
 
 def test_get_all_positioners():

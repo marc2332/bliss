@@ -270,12 +270,13 @@ def parse_channel_metadata(meta: Dict) -> scan_model.ChannelMetadata:
     points = _pop_and_convert(meta, "points", int)
     axisPoints = _pop_and_convert(meta, "axis-points", int)
     axisKind = _pop_and_convert(meta, "axis-kind", scan_model.AxisKind)
+    group = _pop_and_convert(meta, "group", str)
 
     for key in meta.keys():
         _logger.warning("Metadata key %s is unknown. Field ignored.", key)
 
     return scan_model.ChannelMetadata(
-        start, stop, vmin, vmax, points, axisPoints, axisKind
+        start, stop, vmin, vmax, points, axisPoints, axisKind, group
     )
 
 

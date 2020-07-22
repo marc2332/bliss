@@ -45,9 +45,13 @@ class ScanInfoFactory:
             max: Minimal value the channel can have
             points: Amount of total points which will be transmitted by this channel
             axis_points: Amount of points for the axis (see scatter below)
-            axis_kind: Kind of axis (supported "slow" or "fast" for scatters)
+            axis_kind: Kind of axis. It is used to speed up solid rendering in
+                GUI. Can be one of:
+                - `fast`: Fast axis for a scatter
+                - `slow` Slow axis for a scatter
         """
         requests = self._scan_info.setdefault("requests", {})
+        assert axis_kind in set([None, "slow", "fast"])
         meta = requests.setdefault(name, {})
         if start is not None:
             meta["start"] = start

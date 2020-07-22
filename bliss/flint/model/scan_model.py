@@ -103,7 +103,7 @@ class ScanDataUpdateEvent:
         updatedChannels = self.updatedChannelNames()
         return channelName in updatedChannels
 
-    def iterUpdatedDevices(self):
+    def __iterUpdatedDevices(self):
         if self.__channel is not None:
             yield self.__channel.device()
             return
@@ -119,7 +119,7 @@ class ScanDataUpdateEvent:
         if self.__channel is not None:
             yield self.__channel
             return
-        for device in self.iterUpdatedDevices():
+        for device in self.__iterUpdatedDevices():
             for channel in device.channels():
                 if channel.type() not in set([ChannelType.IMAGE, ChannelType.SPECTRUM]):
                     yield channel

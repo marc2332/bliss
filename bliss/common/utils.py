@@ -1091,3 +1091,31 @@ def nonblocking_print(
         data["count"] -= 1
         if data["count"] == 0:
             builtins.print = data["orig_print"]
+
+
+def auto_coerce(s):
+    """Convert variable to a new type from the str representation"""
+    if s is None:
+        return None
+    # Default is unicode string
+    try:
+        if isinstance(s, bytes):
+            s = s.decode()
+    # Pickled data fails at first byte
+    except UnicodeDecodeError:
+        pass
+
+    def boolify(s, **keys):
+        if s in ("True", "true"):
+            return True
+        if s in ("False", "false"):
+            return False
+        raise ValueError("Not Boolean Value!")
+
+    # Cast to standard types
+    for caster in (boolify, int, float):
+        try:
+            return caster(s)
+        except (ValueError, TypeError):
+            pass
+    return s

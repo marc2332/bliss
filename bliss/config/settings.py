@@ -23,7 +23,7 @@ from ruamel.yaml.compat import StringIO
 
 from .conductor import client
 from bliss.config.conductor.client import set_config_db_file, remote_open
-from bliss.common.utils import Null
+from bliss.common.utils import Null, auto_coerce
 from bliss import current_session
 
 logger = logging.getLogger(__name__)
@@ -44,34 +44,6 @@ class DefaultValue:
     @property
     def value(self):
         return self.__value
-
-
-def boolify(s, **keys):
-    if s in ("True", "true"):
-        return True
-    if s in ("False", "false"):
-        return False
-    raise ValueError("Not Boolean Value!")
-
-
-def auto_coerce_from_redis(s):
-    """Convert variable to a new type from the str representation"""
-    if s is None:
-        return None
-    # Default is unicode string
-    try:
-        if isinstance(s, bytes):
-            s = s.decode()
-    # Pickled data fails at first byte
-    except UnicodeDecodeError:
-        pass
-    # Cast to standard types
-    for caster in (boolify, int, float):
-        try:
-            return caster(s)
-        except (ValueError, TypeError):
-            pass
-    return s
 
 
 def pickle_loads(var):
@@ -272,7 +244,7 @@ class SimpleSetting(BaseSetting):
         self,
         name,
         connection=None,
-        read_type_conversion=auto_coerce_from_redis,
+        read_type_conversion=auto_coerce,
         write_type_conversion=str,
         default_value=None,
     ):
@@ -347,7 +319,7 @@ class SimpleSettingProp(BaseSetting):
         self,
         name,
         connection=None,
-        read_type_conversion=auto_coerce_from_redis,
+        read_type_conversion=auto_coerce,
         write_type_conversion=str,
         default_value=None,
         use_object_name=True,
@@ -395,7 +367,7 @@ class QueueSetting(BaseSetting):
         self,
         name,
         connection=None,
-        read_type_conversion=auto_coerce_from_redis,
+        read_type_conversion=auto_coerce,
         write_type_conversion=str,
     ):
         super().__init__(name, connection, read_type_conversion, write_type_conversion)
@@ -531,7 +503,7 @@ class QueueSettingProp(BaseSetting):
         self,
         name,
         connection=None,
-        read_type_conversion=auto_coerce_from_redis,
+        read_type_conversion=auto_coerce,
         write_type_conversion=str,
         use_object_name=True,
     ):
@@ -586,7 +558,7 @@ class BaseHashSetting(BaseSetting):
         self,
         name,
         connection=None,
-        read_type_conversion=auto_coerce_from_redis,
+        read_type_conversion=auto_coerce,
         write_type_conversion=str,
     ):
         super().__init__(name, connection, read_type_conversion, write_type_conversion)
@@ -786,7 +758,7 @@ class OrderedHashSetting(BaseHashSetting):
         self,
         name,
         connection=None,
-        read_type_conversion=auto_coerce_from_redis,
+        read_type_conversion=auto_coerce,
         write_type_conversion=str,
     ):
         super().__init__(name, connection, read_type_conversion, write_type_conversion)
@@ -934,7 +906,7 @@ class HashSetting(BaseHashSetting):
         self,
         name,
         connection=None,
-        read_type_conversion=auto_coerce_from_redis,
+        read_type_conversion=auto_coerce,
         write_type_conversion=str,
         default_values={},
     ):
@@ -1003,7 +975,7 @@ class HashSettingProp(BaseSetting):
         self,
         name,
         connection=None,
-        read_type_conversion=auto_coerce_from_redis,
+        read_type_conversion=auto_coerce,
         write_type_conversion=str,
         default_values={},
         use_object_name=True,

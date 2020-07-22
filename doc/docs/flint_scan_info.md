@@ -80,7 +80,7 @@ done at one point.
 - `start/end` will be also used to constrain the displayed view.
 
 Then `min` and `max` should be set close to the real data which will be provided
-by the channel. Using theorical range of an axis is not a good idea.
+by the channel. Using theoretical range of an axis is not a good idea.
 
 ## Scatter rendering
 

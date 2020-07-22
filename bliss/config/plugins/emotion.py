@@ -59,7 +59,7 @@ def get_jinja2():
 def get_item(cfg):
     klass = cfg.get("class")
     result = {"class": klass}
-    if klass is None:
+    if klass in [None, "MockupAxis", "ModuloAxis"]:
         result["icon"] = "fa fa-gear"
         result["type"] = "axis"
     else:
@@ -85,7 +85,7 @@ def get_tree(cfg, perspective):
 
 def get_html(cfg):
     ctrl_class = cfg.get("class")
-    if ctrl_class is None:
+    if ctrl_class in [None, "MockupAxis", "ModuloAxis"]:
         return get_axis_html(cfg)
     else:
         return get_ctrl_html(cfg)

@@ -491,6 +491,21 @@ class ScatterPlotWidget(plot_helper.PlotWidget):
                 scatter.VisualizationParameter.GRID_MAJOR_ORDER, order
             )
 
+    def __isSolidRenderingSupported(
+        self, xChannel: scan_model.Channel, yChannel: scan_model.Channel
+    ):
+        """For now make it strong
+
+        Only FAST+SLOW axis together can be displayed as solid rendering.
+        """
+        xmeta = xChannel.metadata()
+        ymeta = yChannel.metadata()
+        if xmeta is None or ymeta is None:
+            return False
+        return set([xmeta.axisKind, ymeta.axisKind]) == set(
+            [scan_model.AxisKind.FAST, scan_model.AxisKind.SLOW]
+        )
+
     def __updateItem(self, item: plot_model.Item):
         if self.__plotModel is None:
             return
@@ -556,17 +571,26 @@ class ScatterPlotWidget(plot_helper.PlotWidget):
             scatter.setScan(scan)
             key = legend + "_solid"
             scatter.setName(key)
-            plot.addItem(scatter)
-            if fillStyle == style_model.FillStyle.SCATTER_REGULAR_GRID:
-                scatter.setVisualization(scatter.Visualization.REGULAR_GRID)
-            elif fillStyle == style_model.FillStyle.SCATTER_IRREGULAR_GRID:
-                scatter.setVisualization(scatter.Visualization.IRREGULAR_GRID)
-            elif fillStyle == style_model.FillStyle.SCATTER_INTERPOLATION:
-                scatter.setVisualization(scatter.Visualization.SOLID)
+
+            if self.__isSolidRenderingSupported(xChannel, yChannel):
+                if fillStyle == style_model.FillStyle.SCATTER_REGULAR_GRID:
+                    scatter.setVisualization(scatter.Visualization.REGULAR_GRID)
+                elif fillStyle == style_model.FillStyle.SCATTER_IRREGULAR_GRID:
+                    scatter.setVisualization(scatter.Visualization.IRREGULAR_GRID)
+                elif fillStyle == style_model.FillStyle.SCATTER_INTERPOLATION:
+                    scatter.setVisualization(scatter.Visualization.SOLID)
+                else:
+                    pointBased = True
             else:
-                pointBased = True
-            self.__optimizeRendering(scatter, xChannel, yChannel)
-            plotItems.append((key, "scatter"))
+                if fillStyle == style_model.FillStyle.SCATTER_INTERPOLATION:
+                    scatter.setVisualization(scatter.Visualization.SOLID)
+                else:
+                    pointBased = True
+
+            if not pointBased:
+                plot.addItem(scatter)
+                self.__optimizeRendering(scatter, xChannel, yChannel)
+                plotItems.append((key, "scatter"))
 
         if not pointBased and len(value) >= 1:
             vmin, vmax = colormap.getColormapRange(value)

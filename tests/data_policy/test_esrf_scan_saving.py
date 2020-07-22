@@ -10,7 +10,75 @@ import time
 import os
 from bliss.common.standard import loopscan
 from bliss.common.tango import DevFailed
-from bliss.shell.standard import newproposal, newsample, newdataset
+from bliss.shell.standard import newproposal, newsample, newdataset, enddataset
+
+
+def icat_info(scan_saving, dataset=False):
+    """Information expected to be received by ICAT
+    """
+    url = "http://www.esrf.fr/icat"
+    if dataset:
+        start = f'<tns:dataset xmlns:tns="{url}" complete="true">'
+        end = "</tns:dataset>"
+        exptag = "investigation"
+    else:
+        start = f'<tns:investigation xmlns:tns="{url}">'
+        end = "</tns:investigation>"
+        exptag = "experiment"
+    proposal = f"<tns:{exptag}>{scan_saving.proposal}</tns:{exptag}>"
+    beamline = f"<tns:instrument>{scan_saving.beamline}</tns:instrument>"
+    info = {"start": start, "end": end, "proposal": proposal, "beamline": beamline}
+    if dataset:
+        info["dataset"] = f"<tns:name>{scan_saving.dataset}</tns:name>"
+        info[
+            "sample"
+        ] = f'<tns:sample xmlns:tns="{url}"><tns:name>{scan_saving.sample}</tns:name></tns:sample>'
+        info["path"] = f"<tns:location>{scan_saving.icat_root_path}</tns:location>"
+    return info
+
+
+def assert_icat_received(icat_subscriber, expected, dataset=None, timeout=10):
+    """Check whether ICAT received the correct information
+    """
+    icat_received = icat_subscriber.get(timeout=timeout)
+    print(icat_received)
+    for k, v in expected.items():
+        if k == "start":
+            assert icat_received.startswith(v), k
+        elif k == "end":
+            assert icat_received.endswith(v), k
+        else:
+            assert v in icat_received, k
+
+
+def test_stomp(icat_publisher, icat_subscriber):
+    icat_publisher.sendall(b"MYMESSAGE1\nMYMESSAGE2\n")
+    assert icat_subscriber.get(timeout=5) == "MYMESSAGE1"
+    assert icat_subscriber.get(timeout=5) == "MYMESSAGE2"
+
+
+def test_icat_stomp(
+    session,
+    esrf_data_policy,
+    metadata_experiment_tango_server,
+    metadata_manager_tango_server,
+    icat_subscriber,
+):
+    mdexp_dev_fqdn, mdexp_dev = metadata_experiment_tango_server
+    mdmgr_dev_fqdn, mdmgr_dev = metadata_manager_tango_server
+    scan_saving = session.scan_saving
+    scan_saving.writer = "hdf5"
+
+    diode = session.config.get("diode")
+    newproposal("totoproposal")
+    expected = icat_info(scan_saving)
+    assert_icat_received(icat_subscriber, expected)
+
+    newdataset()
+    loopscan(1, .1, diode)
+    expected = icat_info(scan_saving, dataset=True)
+    enddataset()
+    assert_icat_received(icat_subscriber, expected)
 
 
 def test_inhouse_scan_saving(

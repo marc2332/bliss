@@ -103,13 +103,6 @@ class ScanDataUpdateEvent:
         updatedChannels = self.updatedChannelNames()
         return channelName in updatedChannels
 
-    def isEverythingUpdated(self) -> bool:
-        if self.__masterDevice is not None:
-            return False
-        if self.__channel is not None:
-            return False
-        return True
-
     def iterUpdatedDevices(self):
         if self.__channel is not None:
             yield self.__channel.device()

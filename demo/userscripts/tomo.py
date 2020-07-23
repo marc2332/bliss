@@ -17,6 +17,7 @@ from bliss.scanning.chain import AcquisitionChannel
 from bliss.config.streaming import StreamStopReadingHandler
 from bliss.data.node import get_node
 from bliss.scanning.group import Sequence
+from bliss.common.scans.scan_info import ScanInfoFactory
 
 
 class ScanReEmitter(gevent.Greenlet):
@@ -86,40 +87,32 @@ def fullfield_tomo(session, nchunks=4, expo=1e-6):
     nrot = 0
     nrots = (180 - 0) // rotinc
 
-    # FIXME: Lots of duplication, this should be generated from the defined custom_channels
-    acquisition_chain = {
-        # This name have to be bliss.scanning.group.GroupingMaster.name
-        "GroupingMaster": {
-            "master": {
-                "scalars": ["translation", "rotation"],
-                "scalars_units": {"translation": None, "rotation": "degree"},
-            },
-            "scalars": ["sinogram"],
-            "scalars_units": {"sinogram": None},
-        }
-    }
-    scan_info = {
-        "acquisition_chain": acquisition_chain,
-        "type": "sinogram",
-        "data_dim": 2,
-        "count_time": expo,
-        "requests": {
-            "rotation": {
-                "start": 0,
-                "stop": 180,
-                "points": nrots * npixels,
-                "axis-points": nrots,
-                "axis-kind": "slow",
-            },
-            "translation": {
-                "start": 0,
-                "stop": npixels - 1,
-                "points": nrots * npixels,
-                "axis-points": npixels,
-                "axis-kind": "fast",
-            },
-        },
-    }
+    scan_info = {"type": "sinogram", "count_time": expo}
+    builder = ScanInfoFactory(scan_info)
+
+    # Create data group for each extra data
+    builder.set_channel_meta(
+        "rotation",
+        start=0,
+        stop=180,
+        points=nrots * npixels,
+        axis_points=nrots,
+        axis_kind="slow",
+        group="sinogram",
+    )
+    builder.set_channel_meta(
+        "translation",
+        start=0,
+        stop=npixels - 1,
+        points=nrots * npixels,
+        axis_points=npixels,
+        axis_kind="fast",
+        group="sinogram",
+    )
+    builder.set_channel_meta("sinogram", group="sinogram")
+
+    # Define a default plot
+    builder.add_scatter_plot(x="translation", y="rotation", value="sinogram")
 
     seq = Sequence(title="halfturn", scan_info=scan_info)
 
@@ -134,8 +127,12 @@ def fullfield_tomo(session, nchunks=4, expo=1e-6):
         return flatten([numpy.arange(npixels)] * len(spectra))
 
     channelmap = {}
-    seq.add_custom_channel(AcquisitionChannel("translation", numpy.float, ()))
-    seq.add_custom_channel(AcquisitionChannel("rotation", numpy.float, ()))
+    seq.add_custom_channel(
+        AcquisitionChannel("translation", numpy.float, (), unit="px")
+    )
+    seq.add_custom_channel(
+        AcquisitionChannel("rotation", numpy.float, (), unit="degree")
+    )
     seq.add_custom_channel(AcquisitionChannel("sinogram", numpy.float, ()))
     channelmap[f"axis:{rotmot.name}"] = [{"name": "rotation", "process": replicate}]
     channelmap[detector.fullname] = [

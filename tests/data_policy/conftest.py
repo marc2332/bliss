@@ -9,8 +9,7 @@ import pytest
 import os
 
 
-@pytest.fixture
-def esrf_data_policy(session):
+def _esrf_data_policy(session):
     tmpdir = session.scan_saving.base_path
     session.enable_esrf_data_policy()
 
@@ -33,3 +32,22 @@ def esrf_data_policy(session):
     yield scan_saving_config
 
     session.disable_esrf_data_policy()
+
+
+@pytest.fixture
+def esrf_data_policy(session):
+    yield from _esrf_data_policy(session)
+
+
+@pytest.fixture
+def session2(beacon, scan_tmpdir):
+    session = beacon.get("test_session2")
+    session.setup()
+    session.scan_saving.base_path = str(scan_tmpdir)
+    yield session
+    session.close()
+
+
+@pytest.fixture
+def esrf_data_policy2(session2):
+    yield from _esrf_data_policy(session2)

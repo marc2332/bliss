@@ -24,6 +24,19 @@
       beamlineID: id00
       dataFolderPattern: "{dataRoot}"
       metaExperimentDevice: "id00/metaexp/nexus_writer_session"
+  - tango_name: id00/metadata/scan_saving_test_session
+    class: MetadataManager
+    properties:
+      beamlineID: id00
+      dataFolderPattern: "{dataRoot}"
+      metaExperimentDevice: "id00/metaexp/scan_saving_test_session"
+  - tango_name: id00/metadata/test_session2
+    class: MetadataManager
+    properties:
+      beamlineID: id00
+      dataFolderPattern: "{dataRoot}"
+      metaExperimentDevice: "id00/metaexp/test_session2"
+
 -
   class: MetaExperiment
   properties:
@@ -41,6 +54,14 @@
     properties:
       beamlineID: id00
   - tango_name: id00/metaexp/nexus_writer_session
+    class: MetaExperiment
+    properties:
+      beamlineID: id00
+  - tango_name: id00/metaexp/scan_saving_test_session
+    class: MetaExperiment
+    properties:
+      beamlineID: id00
+  - tango_name: id00/metaexp/test_session2
     class: MetaExperiment
     properties:
       beamlineID: id00

@@ -10,6 +10,8 @@ import fnmatch
 import redis
 import gevent
 from functools import wraps
+from bliss.data import node
+
 from .conductor import client
 from . import settings
 
@@ -100,6 +102,16 @@ class CacheConnection:
         if self._listen_task:
             self._listen_task.kill()
 
+    def disable_caching(self):
+        """
+        After this command, the connection behave like a standard connection.
+
+        This will removed all the pre-fetched object and clear the cache
+        """
+        self._able_to_cache = False
+        self.close()
+        self.clear_all_prefetch()
+
     def open(self):
         if self._cnx is None and self._able_to_cache is not False:
             inv_client = client.get_redis_connection(
@@ -154,13 +166,29 @@ class CacheConnection:
                 self._prefetch_objects[obj] = (name, self.TYPE.KEY)
             elif isinstance(obj, settings.BaseHashSetting):
                 self._prefetch_objects[obj] = (name, self.TYPE.HASH)
+            elif isinstance(obj, node.DataNode):
+                # pre-fetch only the internal **struct** and **info**
+                # need to be symmetric with **remove_prefetch**
+                struct = obj._struct
+                self._prefetch_objects[struct._proxy] = (
+                    struct._proxy.name,
+                    self.TYPE.HASH,
+                )
+                self._prefetch_objects[obj.info] = (obj.info.name, self.TYPE.HASH)
             else:
                 raise ValueError(f"Type not yet managed {obj}")
 
     def remove_prefetch(self, *objects):
         for obj in objects:
-            self._prefetch_objects.pop(obj, None)
-            self._cache_values.pop(obj.name, None)
+            if isinstance(obj, node.DataNode):
+                struct = obj._struct
+                self._prefetch_objects.pop(struct._proxy, None)
+                self._prefetch_objects.pop(obj.info, None)
+            else:
+                self._prefetch_objects.pop(obj, None)
+
+    def clear_all_prefetch(self):
+        self._prefetch_objects.clear()
 
     # KEY
     @auto_connect

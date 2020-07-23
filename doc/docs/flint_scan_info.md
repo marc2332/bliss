@@ -37,13 +37,31 @@ Flint uses this metadata to display the data as a scatter if equals to 2.
 Here is an example to register few metadata to a channel named `my_channel`:
 ```
 requests = {}
-requests[f"my_channel"] = {
+requests["my_channel"] = {
     "start": 1,
     "stop": 2,
 }
 
 scan_info = {}
 scan_info["requests"] = requests
+
+scan = Scan(
+    chain,
+    scan_info=scan_info,
+    ...
+)
+```
+
+An helper is provided to simplify the creation of your `scan_info`. The
+following code is the exact same as the previous one. It is recommended to use
+this way.
+
+```
+scan_info = {}
+
+from bliss.commons.scans.scan_info import ScanInfoBuilder
+builder = ScanInfoBuilder(scan_info)
+builder.set_channel_meta("my_channel", start=1, stop=2)
 
 scan = Scan(
     chain,

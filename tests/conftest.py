@@ -378,6 +378,21 @@ def wago_tango_server(ports, default_session, wago_emulator):
 
 
 @pytest.fixture
+def machinfo_tango_server(ports, beacon):
+    device_name = "id00/tango/machinfo"
+    device_fqdn = "tango://localhost:{}/{}".format(ports.tango_port, device_name)
+
+    with start_tango_server(
+        sys.executable,
+        "-u",
+        os.path.join(os.path.dirname(__file__), "machinfo_tg_server.py"),
+        "machinfo",
+        device_fqdn=device_fqdn,
+    ) as dev_proxy:
+        yield device_fqdn, dev_proxy
+
+
+@pytest.fixture
 def session(beacon, scan_tmpdir):
     session = beacon.get("test_session")
     session.setup()

@@ -306,6 +306,102 @@ def get_device_from_channel(channel_name) -> str:
 def create_plot_model(
     scan_info: Dict, scan: Optional[scan_model.Scan] = None
 ) -> List[plot_model.Plot]:
+    """Create plot models from a scan_info.
+
+    Use the `plots` description or infer the plots from the `acquisition_chain`.
+    Finally update the selection using `_display_extra`.
+    """
+    if "plots" in scan_info:
+        result = read_plot_models(scan_info)
+    else:
+        result = infer_plot_models(scan_info)
+
+    display_extra = scan_info.get("_display_extra", None)
+    if display_extra is not None:
+        if scan is None:
+            scan = create_scan_model(scan_info)
+        displayed_channels = display_extra.get("displayed_channels", None)
+        # Sanitize
+        if displayed_channels is not None:
+            if not isinstance(displayed_channels, list):
+                _logger.warning(
+                    "_display_extra.displayed_channels is not a list: Key ignored"
+                )
+                displayed_channels = None
+            elif len([False for i in displayed_channels if not isinstance(i, str)]) > 0:
+                _logger.warning(
+                    "_display_extra.displayed_channels must only contains strings: Key ignored"
+                )
+                displayed_channels = None
+
+        if displayed_channels is not None:
+            for plot in result:
+                if isinstance(
+                    plot, (plot_item_model.CurvePlot, plot_item_model.ScatterPlot)
+                ):
+                    model_helper.updateDisplayedChannelNames(
+                        plot, scan, displayed_channels
+                    )
+    return result
+
+
+def read_plot_models(scan_info: Dict) -> List[plot_model.Plot]:
+    """Read description of plot models from a scan_info"""
+    result: List[plot_model.Plot] = []
+
+    plots = scan_info.get("plots", None)
+    if not isinstance(plots, list):
+        return []
+
+    for plot_description in plots:
+        if not isinstance(plot_description, dict):
+            _logger.warning("Plot description is not a dict. Skipped.")
+            continue
+
+        kind = plot_description.get("kind", None)
+        if kind != "scatter-plot":
+            _logger.warning("Kind %s unsupported. Skipped.", kind)
+            continue
+
+        plot = plot_item_model.ScatterPlot()
+
+        name = plot_description.get("name", None)
+        if name != None:
+            _logger.warning("'name' not yet supported. name '%s' ignored.", name)
+
+        items = plot_description.get("items", None)
+        if not isinstance(items, list):
+            _logger.warning("'items' not using the right type. List expected. Ignored.")
+            items = []
+
+        for item_description in items:
+            kind = item_description.get("kind", None)
+            if kind == "scatter":
+                item = plot_item_model.ScatterItem(plot)
+
+                xname = item_description.get("x", None)
+                if xname is not None:
+                    x_channel = plot_model.ChannelRef(plot, xname)
+                    item.setXChannel(x_channel)
+                yname = item_description.get("y", None)
+                if yname is not None:
+                    y_channel = plot_model.ChannelRef(plot, yname)
+                    item.setYChannel(y_channel)
+                valuename = item_description.get("value", None)
+                if valuename is not None:
+                    value_channel = plot_model.ChannelRef(plot, valuename)
+                    item.setValueChannel(value_channel)
+                plot.addItem(item)
+            else:
+                _logger.warning("Item 'kind' %s unsupported. Item ignored.", kind)
+        result.append(plot)
+
+    return result
+
+
+def infer_plot_models(scan_info: Dict) -> List[plot_model.Plot]:
+    """Infer description of plot models from a scan_info using
+    `acquisition_chain`."""
     result: List[plot_model.Plot] = []
 
     channel_units = read_units(scan_info)
@@ -531,33 +627,6 @@ def create_plot_model(
         # Move the default plot on top
         result.remove(default_plot)
         result.insert(0, default_plot)
-
-    display_extra = scan_info.get("_display_extra", None)
-    if display_extra is not None:
-        if scan is None:
-            scan = create_scan_model(scan_info)
-        displayed_channels = display_extra.get("displayed_channels", None)
-        # Sanitize
-        if displayed_channels is not None:
-            if not isinstance(displayed_channels, list):
-                _logger.warning(
-                    "_display_extra.displayed_channels is not a list: Key ignored"
-                )
-                displayed_channels = None
-            elif len([False for i in displayed_channels if not isinstance(i, str)]) > 0:
-                _logger.warning(
-                    "_display_extra.displayed_channels must only contains strings: Key ignored"
-                )
-                displayed_channels = None
-
-        if displayed_channels is not None:
-            for plot in result:
-                if isinstance(
-                    plot, (plot_item_model.CurvePlot, plot_item_model.ScatterPlot)
-                ):
-                    model_helper.updateDisplayedChannelNames(
-                        plot, scan, displayed_channels
-                    )
 
     return result
 

@@ -80,3 +80,44 @@ class ScanInfoFactory:
             meta["axis-kind"] = axis_kind
         if group is not None:
             meta["group"] = group
+
+    def add_scatter_plot(
+        self,
+        name: typing.Optional[str] = None,
+        x: typing.Optional[str] = None,
+        y: typing.Optional[str] = None,
+        value: typing.Optional[str] = None,
+    ):
+        """
+        Add a scatter plot definition to this `scan_info`.
+
+        This can be used as default plot for the scan.
+
+        Arguments:
+            name: Unique name for the plot. If not defined a default plot name
+                is used.
+            x: Channel name for the x-axis
+            y: Channel name for the y-axis
+            value: Channel name for the data value
+        """
+        plots = self._scan_info.setdefault("plots", [])
+        if not isinstance(plots, list):
+            raise TypeError("The 'plots' metadata is corrupted. A list is expected.")
+
+        item = {"kind": "scatter"}
+        if x is not None:
+            item["x"] = x
+        if y is not None:
+            item["y"] = y
+        if value is not None:
+            item["value"] = value
+
+        items = []
+        if len(item) > 1:
+            items.append(item)
+
+        plot = {"kind": "scatter-plot", "items": items}
+        if name is not None:
+            plot["name"] = name
+
+        plots.append(plot)

@@ -144,3 +144,45 @@ requests["A"] = {"axis-kind": "fast", "axis-points": 2, "points": 6}
 requests["B"] = {"axis-kind": "slow", "axis-points": 3, "points": 6}
 scan_info["requests"] = requests
 ```
+
+# Plot description
+
+Plots can be described in the `scan_info`.
+
+If there is no plot description, Flint will try to infer plots from other
+`scan_info` fields.
+
+It is stored in the `plots` field.
+
+For now only scatters are supported.
+
+Here is an example.
+```
+plots = [
+    {
+        "name": "unique-plot-name"
+        "kind": "scatter-plot",
+        "items": [
+            {"x": "axis:sx", "y": "axis:sy", "value": "diode2"},
+        ]
+    },
+]
+```
+
+The plot name is not mandatory. It will be used by Flint to reuse the same plot
+widget between scans. A single plot without name will use the default scatter
+plot provided by Flint.
+
+An helper is provided to simplify the creation of your `scan_info`. It is
+recommended to use it.
+
+```
+scan_info = {}
+
+from bliss.commons.scans.scan_info import ScanInfoBuilder
+builder = ScanInfoBuilder(scan_info)
+builder.add_scatter_plot(name="unique-plot-name",
+                         x="axis:sx",
+                         y="axis:sy",
+                         value="diode2")
+```

@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Flint
+    - A scan sequence can now display plots
+- Custom scan description (`scan_info`)
+    - Added fields to explicitly describe scatter plots
+    - Added fields to group channels of the same size
+    - Added `fast-backnforth` channel axis kind
+
 ## [1.5.0] - 2020-07-21
 
 ### Added

@@ -202,9 +202,25 @@ class CT2CounterAcquisitionSlave(IntegratingCounterAcquisitionSlave):
             if not data.size:
                 continue
             data_len = len(data)
-            from_index += data_len
-            self._nb_acq_points += data_len
-            self._emit_new_data(data.T)
+
+            # in read all triggers mode: replace 1st point value (at 0) by 2nd
+            # point value if available.
+            if self.parent.device.read_all_triggers:
+                if from_index == 0:
+                    if data_len > 1:
+                        data[0] = data[1]
+                        from_index += data_len
+                        self._nb_acq_points += data_len
+                        self._emit_new_data(data.T)
+                else:
+                    from_index += data_len
+                    self._nb_acq_points += data_len
+                    self._emit_new_data(data.T)
+            else:
+                from_index += data_len
+                self._nb_acq_points += data_len
+                self._emit_new_data(data.T)
+
         # finally
         data = numpy.array(self.__buffer[from_index:], dtype=numpy.uint32)
         if data.size:

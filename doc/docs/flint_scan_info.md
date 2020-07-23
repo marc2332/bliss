@@ -8,7 +8,7 @@ This informations have to be fixed and known at the build step of the scan.
 The default scan commands provide this metadata, but if you create your own
 scans, you have to feed useful information on your own.
 
-# Mecanism
+# Mechanism
 
 The `scan_info` dictionary allows you to add extra information to a scan.
 
@@ -27,7 +27,7 @@ Flint can compute a progress bar for the scan using this information. If the
 channels do not have the same size, you can use `requests` to specify the expected
 size per channels.
 
-- `data_dim` (int): Dimentionality of the scan
+- `data_dim` (int): Dimensionality of the scan
 - `dim` (int): Alias of `data_dim`
 
 Flint uses this metadata to display the data as a scatter if equals to 2.
@@ -78,7 +78,7 @@ Everything is optional, but have to be well typed.
 - `stop` (float): Stop position of the axis
 - `min` (float): Minimal value the channel can have
 - `max` (float): Minimal value the channel can have
-- `points` (integer): Amount of total points which will be transmited by this
+- `points` (integer): Amount of total points which will be transmitted by this
                       channel.
 - `axis-points` (integer): Amount of points for the axis (see scatter below)
 - `axis-kind` (string): Kind of axis (see scatter below)
@@ -113,7 +113,7 @@ This can be used for general cases of scatters
 
 - `start/end/min/max` are used to constraint the default displayed view. This way
   the full data range can be visible from the beginning to the end of the
-  acquisition without rescaling everytime a new data is received.
+  acquisition without rescaling every time a new data is received.
 
 This can be used for regular mesh. A mesh is regular when you can find a row
 and a column for each points of the scatter (n×m).

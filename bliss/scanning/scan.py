@@ -29,6 +29,7 @@ from bliss.common.utils import Statistics, Null, update_node_info, round
 from bliss.controllers.motor import remove_real_dependent_of_calc
 from bliss.config.settings import ParametersWardrobe
 from bliss.config.settings import pipeline
+from bliss.config.settings_cache import CacheConnection
 from bliss.data.node import _get_or_create_node, _create_node
 from bliss.data.scan import get_data
 from bliss.scanning.chain import (
@@ -645,6 +646,7 @@ class Scan:
         self.__name = name
         self.__scan_number = None
         self.root_node = None
+        self._cache_cnx = None
         self._scan_info = dict(scan_info) if scan_info is not None else dict()
         self._shadow_scan_number = not save
         self._add_to_scans_queue = not (name == "ct" and self._shadow_scan_number)
@@ -772,12 +774,18 @@ class Scan:
         Important: has to be a method, since it can be overwritten in Scan subclasses (like Sequence)
         """
         self.__node = _create_node(
-            node_name, "scan", parent=self.root_node, info=self._scan_info
+            node_name,
+            "scan",
+            parent=self.root_node,
+            info=self._scan_info,
+            connection=self._cache_cnx,
         )
+        self._cache_cnx.add_prefetch(self.__node)
 
     def _prepare_node(self):
         if self.__node is None:
             self.root_node = self.__scan_saving.get_parent_node()
+            self._cache_cnx = CacheConnection(self.root_node.db_connection)
 
             ### order is important in the next lines...
             self.writer.template.update(
@@ -1148,7 +1156,7 @@ class Scan:
     def _prepare_channels(self, channels, parent_node):
         for channel in channels:
             chan_name = channel.short_name
-            self.nodes[channel] = _get_or_create_node(
+            channel_node = _get_or_create_node(
                 chan_name,
                 channel.data_node_type,
                 parent_node,
@@ -1156,9 +1164,12 @@ class Scan:
                 dtype=channel.dtype,
                 unit=channel.unit,
                 fullname=channel.fullname,
+                connection=self._cache_cnx,
             )
-            channel.data_node = self.nodes[channel]
+            channel.data_node = channel_node
             connect(channel, "new_data", self._channel_event)
+            self._cache_cnx.add_prefetch(channel_node)
+            self.nodes[channel] = channel_node
 
     def prepare(self, scan_info, devices_tree):
         self.__nodes = dict()
@@ -1172,7 +1183,10 @@ class Scan:
             else:
                 parent_node = self.nodes[dev_node.bpointer]
             if isinstance(dev, (AcquisitionSlave, AcquisitionMaster)):
-                data_container_node = _create_node(dev.name, parent=parent_node)
+                data_container_node = _create_node(
+                    dev.name, parent=parent_node, connection=self._cache_cnx
+                )
+                self._cache_cnx.add_prefetch(data_container_node)
                 self.nodes[dev] = data_container_node
                 self._prepare_channels(dev.channels, data_container_node)
 
@@ -1283,6 +1297,8 @@ class Scan:
                     # and end the scan node
                     self._end_node()
                     self._set_state(ScanState.KILLED)
+                    # disable connection caching
+                    self._cache_cnx.disable_caching()
                     return
                 self._data_watch_running = False
                 self._data_watch_task = gevent.spawn(
@@ -1447,6 +1463,9 @@ class Scan:
                     self.writer.finalize_scan_entry(self)
                 with capture():
                     self.writer.close()
+
+            # disable connection caching
+            self._cache_cnx.disable_caching()
 
     def add_comment(self, comment):
         """

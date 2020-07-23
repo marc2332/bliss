@@ -9,6 +9,7 @@ import typing
 from bliss.common import deprecation
 from bliss import current_session
 from bliss.config.settings import ParametersWardrobe
+from bliss.config.settings_cache import get_redis_client_cache
 
 
 class ScanDisplay(ParametersWardrobe):
@@ -39,6 +40,7 @@ class ScanDisplay(ParametersWardrobe):
                 "_scan_metadata",
                 "scan_display_filter_enabled",
             ),
+            connection=get_redis_client_cache(),
         )
 
         self.add("_session_name", session_name)

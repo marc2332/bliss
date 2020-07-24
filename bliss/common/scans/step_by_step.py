@@ -24,7 +24,9 @@ __all__ = [
     "d4scan",
     "d5scan",
     "amesh",
+    "a3mesh",
     "dmesh",
+    "d3mesh",
     "lineup",
     "timescan",
     "loopscan",
@@ -460,6 +462,270 @@ def dmesh(
 
     def run_with_cleanup(self, __run__=scan.run):
         with cleanup(motor1, motor2, restore_list=(cleanup_axis.POS,), verbose=True):
+            __run__()
+
+    scan.run = types.MethodType(run_with_cleanup, scan)
+
+    if run:
+        scan.run()
+
+    if return_scan:
+        return scan
+
+
+@typeguardTypeError_to_hint
+@shorten_signature(hidden_kwargs=["title", "name", "scan_type", "return_scan"])
+@typeguard.typechecked
+def a3mesh(
+    motor1: _scannable,
+    start1: _float,
+    stop1: _float,
+    intervals1: _int,
+    motor2: _scannable,
+    start2: _float,
+    stop2: _float,
+    intervals2: _int,
+    motor3: _scannable,
+    start3: _float,
+    stop3: _float,
+    intervals3: _int,
+    count_time: _float,
+    *counter_args: _countables,
+    backnforth1: bool = False,
+    title: Optional[str] = None,
+    save: bool = True,
+    save_images: Optional[bool] = None,
+    sleep_time: Optional[_float] = None,
+    run: bool = True,
+    return_scan: bool = True,
+    scan_type: str = "a3mesh",
+    name: str = "a3mesh",
+    scan_info: Optional[dict] = None,
+):
+    """
+    Mesh scan with 3 motors
+
+    The a3mesh scan traces out a grid using motor1, motor2 and motor3.
+    Each motors uses its own specified start, stop and intervals. Each point is
+    counted for time seconds (or monitor counts).
+
+    The scan of motor1 is done at each point scanned by motor2. The scan of
+    motor1+motor2 is done at each point scanned by motor3. That is, the
+    first motor scan is nested within the second motor scan which is nested
+    within the third motor.
+
+    Use `a3mesh(..., run=False)` to create a scan object and
+    its acquisition chain without executing the actual scan.
+
+    :param backnforth1 if True do back and forth on the first motor
+    """
+    if scan_info is None:
+        scan_info = dict()
+
+    scan_info.update(
+        {
+            "type": scan_type,
+            "save": save,
+            "title": title,
+            "sleep_time": sleep_time,
+            "data_dim": 3,
+        }
+    )
+
+    if title is None:
+        args = (
+            scan_type,
+            motor1.name,
+            rounder(motor1.tolerance, start1),
+            rounder(motor1.tolerance, stop1),
+            intervals1,
+            motor2.name,
+            rounder(motor2.tolerance, start2),
+            rounder(motor2.tolerance, stop2),
+            intervals2,
+            motor3.name,
+            rounder(motor3.tolerance, start3),
+            rounder(motor3.tolerance, stop3),
+            intervals3,
+            count_time,
+        )
+        template = " ".join(["{{{0}}}".format(i) for i in range(len(args))])
+        scan_info["title"] = template.format(*args)
+
+    npoints1 = intervals1 + 1
+    npoints2 = intervals2 + 1
+    npoints3 = intervals3 + 1
+    npoints = npoints1 * npoints2 * npoints3
+
+    scan_info.update(
+        {
+            "npoints1": npoints1,
+            "npoints2": npoints2,
+            "npoints3": npoints3,
+            "npoints": npoints,
+            "start": [start1, start2, start3],
+            "stop": [stop1, stop2, stop3],
+            "count_time": count_time,
+        }
+    )
+
+    factory = ScanInfoFactory(scan_info)
+    factory.set_channel_meta(
+        f"axis:{motor1.name}",
+        start=start1,
+        stop=stop1,
+        points=npoints,
+        axis_points=npoints1,
+        axis_kind="fast-backnforth" if backnforth1 else "fast",
+    )
+    factory.set_channel_meta(
+        f"axis:{motor2.name}",
+        start=start2,
+        stop=stop2,
+        points=npoints,
+        axis_points=npoints2,
+        axis_kind="slow",
+    )
+    factory.set_channel_meta(
+        f"axis:{motor3.name}",
+        start=start3,
+        stop=stop3,
+        points=npoints,
+        axis_points=npoints2,
+    )
+
+    factory.add_scatter_plot(x=f"axis:{motor1.name}", y=f"axis:{motor2.name}")
+
+    scan_params = {
+        "type": scan_type,
+        "npoints": npoints,
+        "count_time": count_time,
+        "sleep_time": sleep_time,
+        "start": [start1, start2, start3],
+        "stop": [stop1, stop2, stop3],
+    }
+
+    chain = DEFAULT_CHAIN.get(
+        scan_params,
+        counter_args,
+        top_master=MeshStepTriggerMaster(
+            motor1,
+            start1,
+            stop1,
+            npoints1,
+            motor2,
+            start2,
+            stop2,
+            npoints2,
+            motor3,
+            start3,
+            stop3,
+            npoints3,
+            backnforth=backnforth1,
+        ),
+    )
+
+    _log.info(
+        "Scanning (%s, %s, %s) from (%f, %f, %f) to (%f, %f, %f) in (%d, %d, %d) points",
+        motor1.name,
+        motor2.name,
+        motor3.name,
+        start1,
+        start2,
+        start3,
+        stop1,
+        stop2,
+        stop3,
+        npoints1,
+        npoints2,
+        npoints3,
+    )
+
+    scan = Scan(
+        chain,
+        scan_info=scan_info,
+        name=name,
+        save=save,
+        save_images=save_images,
+        data_watch_callback=StepScanDataWatch(),
+    )
+
+    if run:
+        scan.run()
+
+    if return_scan:
+        return scan
+
+
+@typeguardTypeError_to_hint
+@shorten_signature(hidden_kwargs=["title", "name", "scan_type", "return_scan"])
+@typeguard.typechecked
+def d3mesh(
+    motor1: _scannable,
+    start1: _float,
+    stop1: _float,
+    intervals1: _int,
+    motor2: _scannable,
+    start2: _float,
+    stop2: _float,
+    intervals2: _int,
+    motor3: _scannable,
+    start3: _float,
+    stop3: _float,
+    intervals3: _int,
+    count_time: _float,
+    *counter_args: _countables,
+    backnforth1: bool = False,
+    title: Optional[str] = None,
+    save: bool = True,
+    save_images: Optional[bool] = None,
+    sleep_time: Optional[_float] = None,
+    run: bool = True,
+    return_scan: bool = True,
+    scan_type: str = "d3mesh",
+    name: str = "d3mesh",
+    scan_info: Optional[dict] = None,
+):
+    """Relative mesh with 3 motors
+    """
+    start1 += motor1._set_position
+    stop1 += motor1._set_position
+    start2 += motor2._set_position
+    stop2 += motor2._set_position
+    start3 += motor3._set_position
+    stop3 += motor3._set_position
+
+    scan = a3mesh(
+        motor1,
+        start1,
+        stop1,
+        intervals1,
+        motor2,
+        start2,
+        stop2,
+        intervals2,
+        motor3,
+        start3,
+        stop3,
+        intervals3,
+        count_time,
+        *counter_args,
+        backnforth1=backnforth1,
+        title=title,
+        save=save,
+        save_images=save_images,
+        sleep_time=sleep_time,
+        run=False,
+        return_scan=True,
+        scan_type=scan_type,
+        name=name,
+        scan_info=scan_info,
+    )
+
+    def run_with_cleanup(self, __run__=scan.run):
+        with cleanup(
+            motor1, motor2, motor3, restore_list=(cleanup_axis.POS,), verbose=True
+        ):
             __run__()
 
     scan.run = types.MethodType(run_with_cleanup, scan)

@@ -116,6 +116,49 @@ def test_dmesh(session):
     assert numpy.array_equal(scan_data["sim_ct_gauss"], simul_counter.data)
 
 
+def test_d3mesh(session):
+    robz2 = session.env_dict["robz2"]
+    robz = session.env_dict["robz"]
+    roby = session.env_dict["roby"]
+    simul_counter = session.env_dict["sim_ct_gauss"]
+    start_robz2 = robz2.position
+    start_robz = robz.position
+    start_roby = robz.position
+    s = scans.d3mesh(
+        robz2,
+        -5,
+        5,
+        3,
+        robz,
+        -3,
+        3,
+        2,
+        roby,
+        -3,
+        3,
+        1,
+        0.01,
+        simul_counter,
+        return_scan=True,
+        save=False,
+    )
+    assert robz2.position == start_robz2
+    assert robz.position == start_robz
+    assert roby.position == start_roby
+    scan_data = s.get_data()
+    size = (3 + 1) * (2 + 1) * (1 + 1)
+    assert len(scan_data["robz2"]) == size
+    assert len(scan_data["robz"]) == size
+    assert len(scan_data["roby"]) == size
+    assert scan_data["robz2"][0] == start_robz2 - 5
+    assert scan_data["robz2"][-1] == start_robz2 + 5
+    assert scan_data["robz"][0] == start_robz - 3
+    assert scan_data["robz"][-1] == start_robz + 3
+    assert scan_data["roby"][0] == start_roby - 3
+    assert scan_data["roby"][-1] == start_roby + 3
+    assert numpy.array_equal(scan_data["sim_ct_gauss"], simul_counter.data)
+
+
 def test_dmesh_return_to_target_pos(default_session, beacon):
     m0 = beacon.get("m0")
     robz = beacon.get("robz")

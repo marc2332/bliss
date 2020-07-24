@@ -5,6 +5,7 @@ py
 pytest == 5.3.5
 pytest-cov
 pytest-mock
+lima-core == 1.9.4
 lima-camera-simulator-tango
 lima-tango-server
 scipy

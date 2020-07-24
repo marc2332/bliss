@@ -356,13 +356,13 @@ SIMPLE_PORTS = [
 UNSUPPORTED_PORT_SETTINGS = [("tango_serial", PARAMS_2), ("tango_serial", PARAMS_3)]
 
 
-# in this module we use "@pytest.mark.flaky(reruns=1)"
+# in this module we use "@pytest.mark.flaky(reruns=3)"
 # due to some unreproducible behaviour of the tango serial server
 # which we do not want to debug here...
 
 
 @pytest.mark.parametrize("get_serial,params", ALL_PORTS, indirect=["get_serial"])
-@pytest.mark.flaky(reruns=1)
+@pytest.mark.flaky(reruns=3)
 def test_serial_write_ascii(get_serial, params, reference_socket):
     with get_serial(params) as serial_port:
         data = b"hello\nworld\n"
@@ -371,7 +371,7 @@ def test_serial_write_ascii(get_serial, params, reference_socket):
 
 
 @pytest.mark.parametrize("get_serial,params", ALL_PORTS, indirect=["get_serial"])
-@pytest.mark.flaky(reruns=1)
+@pytest.mark.flaky(reruns=3)
 def test_serial_read_ascii(get_serial, params, reference_socket):
     with get_serial(params) as serial_port:
         data = b"hello\nworld\n"
@@ -381,7 +381,7 @@ def test_serial_read_ascii(get_serial, params, reference_socket):
 
 
 @pytest.mark.parametrize("get_serial,params", EOL_PORTS, indirect=["get_serial"])
-@pytest.mark.flaky(reruns=1)
+@pytest.mark.flaky(reruns=3)
 def test_serial_write_readline_ascii(get_serial, params, reference_socket):
     with get_serial(params) as serial_port:
         eol = b"\n"
@@ -405,7 +405,7 @@ def test_serial_write_readline_ascii(get_serial, params, reference_socket):
 
 
 @pytest.mark.parametrize("get_serial,params", EOL_PORTS, indirect=["get_serial"])
-@pytest.mark.flaky(reruns=1)
+@pytest.mark.flaky(reruns=3)
 def test_serial_write_read_single_char(get_serial, params, reference_socket):
     with get_serial(params) as serial_port:
 
@@ -425,7 +425,7 @@ def test_serial_write_read_single_char(get_serial, params, reference_socket):
 
 
 @pytest.mark.parametrize("get_serial,params", SIMPLE_PORTS, indirect=["get_serial"])
-@pytest.mark.flaky(reruns=1)
+@pytest.mark.flaky(reruns=3)
 def test_serial_IAC(get_serial, params, reference_socket):
     with get_serial(params) as serial_port:
         IAC = bytes([0xFF])
@@ -443,7 +443,7 @@ def test_serial_IAC(get_serial, params, reference_socket):
 
 
 @pytest.mark.parametrize("get_serial,params", SIMPLE_PORTS, indirect=["get_serial"])
-@pytest.mark.flaky(reruns=1)
+@pytest.mark.flaky(reruns=3)
 def test_raw_write_read(get_serial, params, reference_socket):
     # waiting for ser2net v4
     pytest.xfail()
@@ -467,7 +467,7 @@ def test_raw_write_read(get_serial, params, reference_socket):
 
 
 @pytest.mark.parametrize("get_serial,params", SIMPLE_PORTS, indirect=["get_serial"])
-@pytest.mark.flaky(reruns=1)
+@pytest.mark.flaky(reruns=3)
 def test_raw_write_read2(get_serial, params, reference_socket):
     # waiting for ser2net v4
     pytest.xfail()
@@ -492,7 +492,7 @@ def test_raw_write_read2(get_serial, params, reference_socket):
 
 
 @pytest.mark.parametrize("get_serial,params", ALL_PORTS, indirect=["get_serial"])
-@pytest.mark.flaky(reruns=1)
+@pytest.mark.flaky(reruns=3)
 def test_serial_port_settings(get_serial, params, reference_socket, fake_serial):
 
     with get_serial(params) as (serial_port):
@@ -548,7 +548,7 @@ def test_serial_port_settings(get_serial, params, reference_socket, fake_serial)
 @pytest.mark.parametrize(
     "get_serial,params", UNSUPPORTED_PORT_SETTINGS, indirect=["get_serial"]
 )
-@pytest.mark.flaky(reruns=1)
+@pytest.mark.flaky(reruns=3)
 def test_serial_port_unsupported_settings(
     get_serial, params, reference_socket, fake_serial
 ):
@@ -585,7 +585,7 @@ TROUBLE_PORTS = [
 
 
 @pytest.mark.parametrize("get_serial,params", TROUBLE_PORTS, indirect=["get_serial"])
-@pytest.mark.flaky(reruns=1)
+@pytest.mark.flaky(reruns=3)
 def test_serial_write_ascii_trouble(get_serial, params, reference_socket):
     pytest.xfail()
     with get_serial(params) as serial_port:
@@ -595,7 +595,7 @@ def test_serial_write_ascii_trouble(get_serial, params, reference_socket):
 
 
 @pytest.mark.parametrize("get_serial,params", SIMPLE_PORTS, indirect=["get_serial"])
-@pytest.mark.flaky(reruns=1)
+@pytest.mark.flaky(reruns=3)
 def test_atomic_open_close(get_serial, params, reference_socket):
     with get_serial(params) as serial_port:
         data1 = b"hello world"

@@ -4,6 +4,7 @@
   config-objects: 
     - diode1
     - diode2
+    - sx
     - sy
     - sz
     - fluo_diode

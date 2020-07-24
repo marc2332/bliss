@@ -1,5 +1,6 @@
 """Testing LogWidget."""
 
+import typing
 from bliss.flint.helper import model_helper
 from bliss.flint.model import scan_model, plot_state_model
 from bliss.flint.model import plot_model
@@ -589,12 +590,16 @@ def test_update_displayed_channel_names():
     assert len(plot.items()) == 1
 
 
-def add_item(plot: plot_model.Plot, xName: str, yName: str):
+def add_item(
+    plot: plot_model.Plot, xName: typing.Optional[str], yName: typing.Optional[str]
+):
     item = plot_item_model.CurveItem(plot)
-    channel = plot_model.ChannelRef(plot, xName)
-    item.setXChannel(channel)
-    channel = plot_model.ChannelRef(plot, yName)
-    item.setYChannel(channel)
+    if xName is not None:
+        channel = plot_model.ChannelRef(plot, xName)
+        item.setXChannel(channel)
+    if yName is not None:
+        channel = plot_model.ChannelRef(plot, yName)
+        item.setYChannel(channel)
     plot.addItem(item)
 
 
@@ -667,3 +672,28 @@ def test_remove_channels__no_axis():
     item = plot.items()[0]
     assert item.xChannel() is None
     assert item.yChannel().name() == "y1"
+
+
+def test_remove_channels__no_value():
+    plot = plot_item_model.CurvePlot()
+    add_item(plot, "x1", None)
+
+    basePlot = plot_item_model.CurvePlot()
+    add_item(basePlot, "x1", None)
+
+    scan = scan_model.Scan()
+    master1 = scan_model.Device(scan)
+    channel2 = scan_model.Channel(master1)
+    channel2.setName("y1")
+    master2 = scan_model.Device(scan)
+    channel3 = scan_model.Channel(master2)
+    channel3.setName("x1")
+    channel4 = scan_model.Channel(master2)
+    channel4.setName("y2")
+    scan.seal()
+
+    model_helper.removeNotAvailableChannels(plot, basePlot, scan)
+    assert len(plot.items()) == 1
+    item = plot.items()[0]
+    assert item.xChannel().name() == "x1"
+    assert item.yChannel() is None

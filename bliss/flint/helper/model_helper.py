@@ -483,7 +483,7 @@ def removeNotAvailableChannels(
                         else:
                             item.setXChannel(None)
 
-                if not isConsistent(item):
+                if yChannel is not None and not isConsistent(item):
                     # We have to found a new axis
                     axisName = getDefaultAxis(yChannel.name())
                     if axisName is None:

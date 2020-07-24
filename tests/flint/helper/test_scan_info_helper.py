@@ -346,3 +346,58 @@ def test_get_all_positioners():
     assert positioners[2] == scan_info_helper.PositionerDescription(
         "slit_foo", None, None, None, None, None
     )
+
+
+def test_read_plot_models__empty_scatter():
+    scan_info = {"plots": [{"name": "plot", "kind": "scatter-plot"}]}
+    plots = scan_info_helper.read_plot_models(scan_info)
+    assert len(plots) == 1
+
+
+def test_read_plot_models__empty_scatters():
+    scan_info = {
+        "plots": [
+            {"name": "plot", "kind": "scatter-plot"},
+            {"name": "plot", "kind": "scatter-plot"},
+        ]
+    }
+    plots = scan_info_helper.read_plot_models(scan_info)
+    assert len(plots) == 2
+
+
+def test_read_plot_models__scatter():
+    scan_info = {
+        "plots": [
+            {
+                "name": "plot",
+                "kind": "scatter-plot",
+                "items": [{"kind": "scatter", "x": "a", "y": "b", "value": "c"}],
+            }
+        ]
+    }
+    plots = scan_info_helper.read_plot_models(scan_info)
+    assert len(plots) == 1
+    assert len(plots[0].items()) == 1
+    item = plots[0].items()[0]
+    assert item.xChannel().name() == "a"
+    assert item.yChannel().name() == "b"
+    assert item.valueChannel().name() == "c"
+
+
+def test_read_plot_models__scatter_axis():
+    scan_info = {
+        "plots": [
+            {
+                "name": "plot",
+                "kind": "scatter-plot",
+                "items": [{"kind": "scatter", "x": "a", "y": "b"}],
+            }
+        ]
+    }
+    plots = scan_info_helper.read_plot_models(scan_info)
+    assert len(plots) == 1
+    assert len(plots[0].items()) == 1
+    item = plots[0].items()[0]
+    assert item.xChannel().name() == "a"
+    assert item.yChannel().name() == "b"
+    assert item.valueChannel() is None

@@ -440,12 +440,21 @@ class MeshStepTriggerMaster(_StepTriggerMaster):
             A list containing a numpy array per motors. Each arrays contains
             motor position for each steps of the scan
         """
-        motor_pos = numpy.meshgrid(*motor_pos)
+        motor_pos = [numpy.array(mp) for mp in motor_pos]
+        sizes = [len(i) for i in motor_pos]
+        slices = [slice(0, size) for size in reversed(sizes)]
+        # mgrid always sort stuff consistent order: slowest ... slow ... fast ... fastest
+        # which is not the case for meshgrid
+        indexes = numpy.mgrid[slices]
+        indexes = [i for i in reversed(indexes)]
         if backnforth1:
-            motor_pos[0][::2] = motor_pos[0][::2, ::-1]
-        for x in motor_pos:  # flatten
-            x.shape = (-1,)
-        return motor_pos
+            indexes[0][..., 0::2, :] = indexes[0][..., 0::2, ::-1]
+        # flattenize
+        indexes = [i.flatten() for i in indexes]
+        result = []
+        for pos, index in zip(motor_pos, indexes):
+            result.append(pos[index])
+        return result
 
 
 class LinearStepTriggerMaster(_StepTriggerMaster):

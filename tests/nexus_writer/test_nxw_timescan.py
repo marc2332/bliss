@@ -46,14 +46,13 @@ def test_nxw_timescan_base_nopolicy(nexus_writer_base_nopolicy):
 @nxw_test_utils.writer_stdout_on_exception
 def _test_nxw_timescan(session=None, tmpdir=None, writer=None, **kwargs):
     nodes = {}
-    t0 = None
+    started = gevent.event.Event()
     nminevents = 5
-    tmax = 5
 
     def listenscan(scannode):
-        nonlocal t0
         it = scannode.iterator
         for event_type, node, event_data in it.walk_events():
+            print(f"{event_type}: {node.db_name}")
             if event_type == event_type.NEW_DATA:
                 name = node.fullname
                 if not name:
@@ -62,7 +61,7 @@ def _test_nxw_timescan(session=None, tmpdir=None, writer=None, **kwargs):
                     nodes[name] += 1
                 else:
                     nodes[name] = 1
-                    t0 = time()
+                    started.set()
 
     def listensession():
         it = get_session_node(session.name).iterator
@@ -70,6 +69,7 @@ def _test_nxw_timescan(session=None, tmpdir=None, writer=None, **kwargs):
         try:
             for event_type, node, event_data in it.walk_events(filter="scan"):
                 if event_type == event_type.NEW_NODE:
+                    print(f"Listen to scan {node.db_name}")
                     listeners.append(gevent.spawn(listenscan, node))
         finally:
             for g in listeners:
@@ -78,16 +78,18 @@ def _test_nxw_timescan(session=None, tmpdir=None, writer=None, **kwargs):
     glisten = gevent.spawn(listensession)
     scan = scans.timescan(.1, run=False)
     gscan = nxw_test_utils.run_scan(scan, runasync=True)
-    # Wait until first channel has data
-    while t0 is None:
-        gevent.sleep(0.1)
-    # Wait until all channels have nmin data events
-    while (time() - t0) < tmax or any(v <= nminevents for v in nodes.values()):
-        gevent.sleep(1)
-        try:
-            gscan.get(block=False)
-        except gevent.Timeout:
-            continue
+
+    with gevent.Timeout(30):
+        # Wait until first channel has data
+        started.wait()
+        # Wait until all channels have nmin data events
+        while any(v <= nminevents for v in nodes.values()):
+            gevent.sleep(1)
+            try:
+                gscan.get(block=False)
+            except gevent.Timeout:
+                continue
+
     # Stop scan and listener
     with pytest.raises(ScanAbort):
         gscan.kill(KeyboardInterrupt)

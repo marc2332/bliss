@@ -348,6 +348,8 @@ def amesh(
         axis_kind="slow",
     )
 
+    factory.add_scatter_plot(x=f"axis:{motor1.name}", y=f"axis:{motor2.name}")
+
     scan_params = {
         "type": scan_type,
         "npoints": npoints1 * npoints2,

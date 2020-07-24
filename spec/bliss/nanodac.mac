@@ -1,25 +1,81 @@
-def nanodac_setup '{
-  if($# < 1)
-  {
-    print "Usage: $0 <TANGO_URL>\n"
-    exit
-  }
-  global NANODAC_SERVER_URL
-  NANODAC_SERVER_URL = "$1"
+#%TITLE% nanodac.mac
+#
+#%DESCRIPTION%
+# Macros for the Nanodac temperature Eurotherm controller.
+#
+#%END%
+#
+#%SETUP%
+#  In order to configure a macro motor:
+#  %DL%
+#    %DT% 1)
+#         You must define in MOTORS configuration
+#         %BR%
+#         %DL%
+#           %DT% DEVICE
+#           set to "nanodac"
+#           %DT% TYPE
+#           set to "Macro Motor"
+#           %DT% ADDR
+#           set the Tango device name. Example: id12/nanodac/1
+#           %DT% NUM
+#           must be set to the number of motors used
+#         %XDL%
+#    %DT% 2)
+#         Per nanodac, you must define a motor with:
+#         %BR%
+#         %DL%
+#           %DT% Controller
+#           set to "MAC_MOT"
+#           %DT% Unit
+#           field must be set to the "MOTOR" entry.
+#           %DT% Chan
+#           field must be set to 1
+#           %DT% Add a parameter
+#            %DL%"dead_band" corresponding to the dead band for finishing the motion (0.5) ;
+#            %DL%"tango_wattr" corresponding to the writing attribute (ramp1_targetsp) ;
+#            %DL%"tango_rattr" corresponding to the reading attribute (c1_pv).
+#
+#         %XDL%
+#  %XDL%
+#
+#  In order to configure a macro counter:
+#  %DL%
+#    %DT% 1)
+#         You must have a "SCALERS" defined with:
+#         %BR%
+#         %DL%
+#           %DT% DEVICE
+#           set to "nanodac_c"
+#           %DT% TYPE
+#           set to "Macro Counter"
+#           %DT% ADDR
+#           set the Tango device name. Example: id12/nanodac/1
+#           %DT% NUM
+#           must be set also to the number of couters used.
+#         %XDL%
+#    %DT% 2)
+#         Per nanodac, you must define a counter with:
+#         %BR%
+#         %DL%
+#           %DT% Device
+#           set to "MAC_CNT"
+#           %DT% Mnemonic
+#           must be the motor mnemonique plus "_c"
+#           %DT% Unit
+#           must be set to the "SCALER" entry
+#           %DT% Chan
+#           field must be set to the number of counters
+#           %DT% Add a parameter
+#           %DT%"tango_rattr" c1_pv corresponding to the reading attribute corresponding to channel 1 process value ;
+#            %DT%"tango_rattr" ramp1_workingsp corresponding to the reading attribute  corresponding to channel 1 working setpoint ;
+#            %DT%"tango_rattr" ramp1_targetsp corresponding to the reading attribute corresponding to channel 1 target setpoint ;
+#            %DT%"tango_rattr" ramp1_out corresponding to the reading attribute corresponding to channel 1 output percent value.
+#         %XDL%
+#
+#  %XDL%
+#%END%
 
-  global NANODAC_MOT[]
-  cdef("user_getangles", "_nanodac_getangles\n", "nanodacmot")
-  cdef("user_checkall", "_nanodac_moveall\n", "nanodacmot")
-  cdef("user_motorsrun", "_nanodac_motorsrun\n", "nanodacmot")
-
-  global NANODAC_CNT[]
-  cdef("user_getcounts", "_nanodac_getcounts\n", "nanodaccnt", 0x10)
-}'
-
-def nanodac_unsetup '{
-  cdef("", "", "nanodacmot", "delete")
-  cdef("", "", "nanodaccnt", "delete")
-}'
 
 def nanodac_menu '{
   local option nl i
@@ -89,14 +145,14 @@ def nanodac_menu '{
     } 
    ++nl
  
-    tty_move(0, nl++, "s) Change slope")
-    tty_move(0, nl++, "t) Change target set point")
+    tty_move(0, nl++, "s) Change slope (d/mn)")
+    tty_move(0, nl++, "t) Change target set point (K)")
 
     tty_move(0, nl++, "p) Change the proportional band")
     tty_move(0, nl++, "i) Change the integraltime")
     tty_move(0, nl++, "d) Change the derivativetime")
 
-    option= getval("\n\n\tSwitch outputs  ---> ", "[q]uit")
+    option= getval("\n\n\tSwitch outputs  ---> ", "[q]uit or [Enter]refresh")
 
     if((option != "quit") && (option != "q"))
     {
@@ -104,7 +160,10 @@ def nanodac_menu '{
       {
         local loop_id
         loop_id = getval("\nWich loop?","1")
-        option = getval("\nEnter the slope (deg/min):","1.")
+        local slope_before
+        option = tango_get(NANODAC_SERVER_URL,sprintf("ramp%d_slope",loop_id))
+        option *= 60.
+        option = getval("\nEnter the slope (deg/min):", option)        
         option /= 60.
         tango_put(NANODAC_SERVER_URL,sprintf("ramp%d_slope",loop_id),option)
       }
@@ -144,133 +203,221 @@ def nanodac_ramp_stop '{
   tang_io(NANODAC_SERVER_URL,"stop")
 }'
 
-def nanodac_motsetup '{
-  if($# != 5)
-  {
-    print "Usage: $0 [<tango_rattr> <tango_wattr> <mot_mne> <wait movement> <dead band>]" 
-  }
-  local motmne wtango_rattr tango_wattr ait_flag
-  motmne = "$3"
-  if(motor_num(motmne) == -1) 
-    printf("Invalid motor <%s>\n", motmne)
-  else
-  {
-    tango_rattr = "$1"
-    tango_wattr = "$2"
-    wait_flag = "$4"
-    dead_band = "$5"
 
-    list_add(NANODAC_MOT,motmne)
-    NANODAC_MOT[motmne]["tango_rattr"] = tango_rattr
-    NANODAC_MOT[motmne]["tango_wattr"] = tango_wattr
-    NANODAC_MOT[motmne]["wait_flag"] = wait_flag
-    NANODAC_MOT[motmne]["dead_band"] = dead_band
-  }
+# to change proportional value in PID
+
+def change_P ' {
+local option, loop_id
+print "Usage: $0 proportionalband"
+if($# == 1)
+  {option=$1 }
+else 
+  option=600
+loop_id=2
+tango_put(NANODAC_SERVER_URL,sprintf("ramp%d_pid_proportionalband",loop_id),option)
+
 }'
 
-def nanodac_motunsetup '{
-  local motmne
-  if($# == 1)
-  {
-    motmne = "$1"
-    list_remove(NANODAC_MOT,motmne)
-  }
-  else
-  {
-    list_init NANODAC_MOT
-  }
-}'
 
-def _nanodac_getangles '{
-  local imot mmne mnum value
 
-  for (imot= 1; imot<=list_n(NANODAC_MOT); ++imot) {
-    mmne= list_item(NANODAC_MOT, imot)
-    mnum= motor_num(mmne)
-    if ((mnum!=-1)&&(!motor_par(mnum, "disable"))) {
-      value= tango_get(NANODAC_SERVER_URL,NANODAC_MOT[mmne]["tango_rattr"])
-      NANODAC_MOT[mmne]["old"]= value
-      NANODAC_MOT[mmne]["err"]= (value == -1)
+######################################################################
+############################               ###########################
+############################  MACRO MOTOR  ###########################
+############################               ###########################
+######################################################################
 
-      A[mnum]= value
+#%IU%()
+#%MDESC%
+#    Called by spec after reading the config file
+#
+def nanodac_config(mot_num, type, p1, p2) '{
+
+    if(type=="ctrl") {
+
+        # p1==controller number (0..N)
+        # p2==number of motors supported (1..M) 
+        # p1==unit p2==module p3==channel
+        if (p2 != 1){
+            print "Wrong number of motors in DEVICE config (NUM must be 1)"
+        }
+
     }
-  }
-}'
-
-def _nanodac_moveall '{
-  local imot mmne mnum
-
-  for (imot= 1; imot<=list_n(NANODAC_MOT); ++imot) {
-    mmne= list_item(NANODAC_MOT, imot)
-    mnum= motor_num(mmne)
-    if ((mnum!=-1)&&(!motor_par(mnum, "disable"))) {
-      if ((!NANODAC_MOT[mmne]["err"])&&(A[mnum]!=NANODAC_MOT[mmne]["old"])) {
-        tango_put(NANODAC_SERVER_URL,NANODAC_MOT[mmne]["tango_wattr"],A[mnum])
-      }
+    else if(type=="mot") {
+        if (!( whatis("NANODAC_SERVER_URL") & 0x4000000 )){
+             global NANODAC_SERVER_URL
+             NANODAC_SERVER_URL = motor_par(mot_num,"address")
+        }
+        if(NANODAC_SERVER_URL == 0) {
+             printf("nanodac SCALER error: missing ADDR field\n")
+             return  ".error."
+        }
     }
-  }
-}'
-
-def _nanodac_motorsrun '{
-for (imot= 1; imot<=list_n(NANODAC_MOT); ++imot) {
-    mmne= list_item(NANODAC_MOT, imot)
-    mnum= motor_num(mmne)
-    if ((mnum!=-1)&&(!motor_par(mnum, "disable"))) {
-      if (NANODAC_MOT[mmne]["wait_flag"]) {
-        local read_pos writ_pos
-        read_pos = tango_get(NANODAC_SERVER_URL,NANODAC_MOT[mmne]["tango_rattr"])
-        writ_pos = tango_get(NANODAC_SERVER_URL,NANODAC_MOT[mmne]["tango_wattr"])
-        if(fabs(read_pos - writ_pos) > NANODAC_MOT[mmne]["dead_band"])
-          return 1
-      }
-  }
-}
-}'
-
-def nanodac_cntsetup '{
-  if($# != 2)
-  {
-    print "Usage: $0 [<tango_attr> <cnt_mne>]"
-  }
-  else
-  {
-    local cntmne tango_attr
-    cntmne = "$2"
-    tango_attr = "$1"
-    if(cnt_num(cntmne) == -1)
-      printf("Invalid counter <%s>\n", cntmne)
-    else
-    {
-      list_add(NANODAC_CNT,cntmne)
-      NANODAC_CNT[cntmne]["tango_attr"] = tango_attr
-    } 
-  }
-}'
-
-def nanodac_cntunsetup '{
-  local cmne cnum icnt
-  if($# == 1)
-  {
-    cmne = $1
-    cnum = cnt_num(cmne)
-    list_remove(NANODAC_CNT,cmne) 
-  }
-  else
-  {
-    list_init NANODAC_CNT
-  }
-}'
-
-def _nanodac_getcounts'{
-  local icnt cmne cnum
-  for (icnt=1; icnt<=list_n(NANODAC_CNT); icnt++) {
-    cmne= list_item(NANODAC_CNT, icnt)
-    cnum= cnt_num(cmne)
-    if ((cnum!=-1)&&(!counter_par(cnum, "disable"))) {
-        S[cnum]= tango_get(NANODAC_SERVER_URL,NANODAC_CNT[cmne]["tango_attr"])
-      } else {
-        S[cnum]= -1
-      }
+    else {
+        printf("nanodac_config() : unknown type : %s ", type )
     }
 }'
 
+
+#%IU%()
+#%MDESC%
+# MACRO MOTOR:
+# Called by spec on motor operation.
+#
+def nanodac_cmd(mot_num, key, p1, p2) '{
+    local pos real_pos absolute_error
+    local tango_wattr tango_rattr
+    local _mot_mne _attr
+
+
+    ## Needed - otherwise motor_par gives an error below 
+    if(mot_num == "..") {
+        return
+    }
+   
+    tango_wattr = motor_par(mot_num,"tango_wattr")
+    tango_rattr = motor_par(mot_num,"tango_rattr")	
+    absolute_error = motor_par(mot_num,"absolute_error")
+	
+    # Returns the current motor position in mm or deg
+    if (key == "position") {
+	_attr = tango_wattr	
+        pos = tango_get(NANODAC_SERVER_URL, _attr)
+	if (TANGO_ERR != "0"){
+	    _mot_mne = motor_mne(mot_num)
+	    tty_cntl("md")
+	    print "\n" ATTR_MOT_ERROR " " _mot_nmne  " " NANODAC_SERVER_URL "/"  _attr
+	    printf ("TANGO_ERR_MSG = \"%s\" \n\n", TANGO_ERR)
+	    print TANGO_ERR_STACK
+	    tty_cntl("me")
+	    return ".error."
+	    }    	
+	#printf ("pos = %g", pos)
+        return(pos)
+    }
+
+
+    # Starts a motion (p1==abs pos, p2==rel pos, with pos in mm or deg)
+    if (key == "start_one") {
+	_attr = tango_wattr
+	tango_put(NANODAC_SERVER_URL, _attr, p1)
+	if (TANGO_ERR != "0"){
+	    _mot_mne = motor_mne(mot_num)
+	    tty_cntl("md")
+	    print "\n" ATTR_MOT_ERROR " " _mot_nmne  " " _dev  "/"  _attr
+	    printf ("TANGO_ERR_MSG = \"%s\" \n\n", TANGO_ERR)
+	    print TANGO_ERR_STACK
+	    tty_cntl("me")
+	    return ".error."
+	    }    	
+	}
+
+    # Status
+    if (key == "get_status") {
+	_attr = tango_wattr	
+        pos =  tango_get(NANODAC_SERVER_URL, _attr)
+	_attr = tango_rattr	
+        real_pos = tango_get(NANODAC_SERVER_URL, _attr)
+	if (TANGO_ERR != "0"){
+	    _mot_mne = motor_mne(mot_num)
+	    tty_cntl("md")
+	    print "\n" ATTR_MOT_ERROR " " _mot_nmne  " " _dev  "/"  _attr
+	    printf ("TANGO_ERR_MSG = \"%s\" \n\n", TANGO_ERR)
+	    print TANGO_ERR_STACK
+	    tty_cntl("me")
+	    return ".error."
+	    }    	
+
+        if (absolute_error == 0){
+            absolute_error = 0.5
+        }    
+        
+        if (fabs(real_pos-pos) <=  absolute_error){
+            ## position achieved
+            return(0)
+        }
+        else{
+            ## Still moving
+            printf("%s still moving. Real position = %g\r",\
+                    motor_mne(mot_num), real_pos)
+            return(0x02)
+        }
+    }
+
+    # Stops a single motor.
+    if (key == "abort_one") {
+	_attr = tango_rattr	
+        real_pos = tango_get(NANODAC_SERVER_URL, _attr) 
+	tango_put(NANODAC_SERVER_URL, tango_wattr, real_pos)	
+        printf("\nAsked the motion to stop at the position %g\n\n", real_pos)
+	if (TANGO_ERR != "0"){
+	    _mot_mne = motor_mne(mot_num)
+	    tty_cntl("md")
+	    print "\n" ATTR_MOT_ERROR " " mot_nmne  " " _dev  "/"  _attr
+	    printf ("TANGO_ERR_MSG = \"%s\" \n\n", TANGO_ERR)
+	    print TANGO_ERR_STACK
+	    tty_cntl("me")
+	    return ".error."
+	    }    	
+        # return(0)
+        return 1	
+    }
+    
+
+}'
+
+
+######################################################################
+###########################                 ##########################
+###########################  MACRO COUNTER  ##########################
+###########################                 ##########################
+######################################################################
+
+#%IU%()
+#%MDESC%
+# Called by spec after reading the config file
+#
+def nanodac_c_config(num,type,p1,p2,p3) '{
+    local tango_rattr _attr value _dev
+
+    if(type=="ctrl") {
+       # ?
+    }
+
+    if(type=="cnt") {
+        if (!( whatis("NANODAC_SERVER_URL") & 0x4000000 )){
+            global NANODAC_SERVER_URL
+            NANODAC_SERVER_URL = counter_par(num,"address")
+       }
+       if(NANODAC_SERVER_URL == 0) {
+           printf("nanodac SCALER error: missing ADDR field\n")
+           return  ".error."
+       }        
+        
+    }
+}'
+
+#%IU%()
+#%MDESC%
+# Called by spec on counter operation.
+#
+def nanodac_c_cmd(num,key,p1,p2) '{
+    local tango_rattr _attr value _cnt_mne
+
+    if (key == "counts") {
+
+        tango_rattr = counter_par(num,"tango_rattr")
+        _attr = tango_rattr	
+        value = tango_get(NANODAC_SERVER_URL, _attr)
+	if (TANGO_ERR != "0"){
+	    _cnt_mne = cnt_mne(num)
+	    tty_cntl("md")
+	    print "\n" ATTR_MOT_ERROR " " _cnt_nmne  " " NANODAC_SERVER_URL  "/"  _attr
+	    printf ("TANGO_ERR_MSG = \"%s\" \n\n", TANGO_ERR)
+	    print TANGO_ERR_STACK
+	    tty_cntl("me")
+	    return ".error."
+	    }        
+
+        return(value)
+    }
+}'

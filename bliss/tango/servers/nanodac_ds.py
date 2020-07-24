@@ -93,6 +93,7 @@ class NanodacClass(tango.DeviceClass):
         "ramp1_workingsp": [[tango.DevDouble, tango.SCALAR, tango.READ]],
         "ramp1_targetsp": [[tango.DevDouble, tango.SCALAR, tango.READ_WRITE]],
         "ramp1_pv": [[tango.DevDouble, tango.SCALAR, tango.READ]],
+        "ramp1_out": [[tango.DevDouble, tango.SCALAR, tango.READ]],
         "ramp1_pid_derivativetime": [[tango.DevDouble, tango.SCALAR, tango.READ_WRITE]],
         "ramp1_pid_integraltime": [[tango.DevDouble, tango.SCALAR, tango.READ_WRITE]],
         "ramp1_pid_proportionalband": [
@@ -103,6 +104,7 @@ class NanodacClass(tango.DeviceClass):
         "ramp2_workingsp": [[tango.DevDouble, tango.SCALAR, tango.READ]],
         "ramp2_targetsp": [[tango.DevDouble, tango.SCALAR, tango.READ_WRITE]],
         "ramp2_pv": [[tango.DevDouble, tango.SCALAR, tango.READ]],
+        "ramp2_out": [[tango.DevDouble, tango.SCALAR, tango.READ]],
         "ramp2_pid_derivativetime": [[tango.DevDouble, tango.SCALAR, tango.READ_WRITE]],
         "ramp2_pid_integraltime": [[tango.DevDouble, tango.SCALAR, tango.READ_WRITE]],
         "ramp2_pid_proportionalband": [

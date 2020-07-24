@@ -19,6 +19,7 @@ import datetime
 import logging
 from contextlib import contextmanager
 from . import scan_writer_base
+from .nxdata_proxy import NXdataProxy
 from ..io import nexus
 from ..utils import scan_utils
 
@@ -116,7 +117,7 @@ class NexusScanWriterConfigurable(scan_writer_base.NexusScanWriterBase):
         """
         return self.config_technique.get("plotselect", "")
 
-    def _select_plot_signals(self, subscan, plotname, items=None, ndim=-1, grid=False):
+    def _create_nxdata_proxy(self, subscan, plotname, items=None, ndim=-1, grid=False):
         """
         Select plot signals as specified in the static beamline configuration.
 
@@ -125,19 +126,19 @@ class NexusScanWriterConfigurable(scan_writer_base.NexusScanWriterBase):
         :param list items: signal names for plotting
         :param int ndim: detector dimensions in case no items
         :param bool grid: preserve scan shape
-        :returns dict: (str, tuple): (str, [(name, value, attrs)])
+        :returns NXdataProxy:
         """
         if items:
-            signaldict = {}
+            nxplot = NXdataProxy(plotname, parentlogger=subscan.logger)
             for configname in items:
                 for fullname, dproxy in self.detector_iter(subscan):
                     if self._matching_fullname(configname, fullname):
-                        self._add_signal(plotname, grid, dproxy, signaldict)
+                        nxplot.add_signal(dproxy, grid)
         else:
-            signaldict = super()._select_plot_signals(
+            nxplot = super()._create_nxdata_proxy(
                 subscan, plotname, ndim=ndim, grid=grid
             )
-        return signaldict
+        return nxplot
 
     def _init_subscan(self, subscan):
         """

@@ -29,6 +29,7 @@ from ..io import nexus
 from ..utils import scan_utils
 from ..utils.logging_utils import CustomLogger
 from ..utils.array_order import Order
+from .nxdata_proxy import NXdataProxy
 
 
 logger = logging.getLogger(__name__)
@@ -655,40 +656,39 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
         with self.nxentry(subscan) as nxentry:
             if nxentry is None:
                 return
-            plotselect = self.plotselect
-            firstplot = None
+            default = None
             plots = self.plots
-            subscan.logger.info("Create {} plots".format(len(plots)))
+            if plots:
+                positioners = [
+                    dproxy
+                    for _, dproxy in self.positioner_iter(
+                        subscan, onlyprincipals=True, onlymasters=True
+                    )
+                ]
+                plotselect = self.plotselect
+                subscan.logger.info(f"Create {len(plots)} plots")
+            else:
+                subscan.logger.info("No plots defined for saving")
             for plotname, plotparams in plots.items():
                 if plotname in nxentry:
                     subscan.logger.warning(
-                        "Cannot create plot {} (name already exists)".format(
-                            repr(plotname)
-                        )
+                        f"Cannot create plot {repr(plotname)} (name already exists)"
                     )
                     continue
-                signaldict = self._select_plot_signals(subscan, plotname, **plotparams)
-                if not signaldict:
+                nxproxy = self._create_nxdata_proxy(subscan, plotname, **plotparams)
+                if not nxproxy:
+                    nxproxy.logger.warning("Not created (no signals)")
                     continue
-                # Create axes belonging to the signals and save plots
-                fmt = self._plot_name_format(signaldict)
-                for (i, (k, v)) in enumerate(sorted(signaldict.items()), 1):
-                    name, scan_shape, detector_shape = k
-                    devicetype, signals = v
-                    plotname = fmt.format(name, devicetype, i)
-                    axes = self._select_plot_axes(subscan, scan_shape, detector_shape)
-                    plot = self._create_plot(nxentry, plotname, signals, axes)
-                    if firstplot is None or plotname == plotselect:
-                        firstplot = plot
-                    subscan.logger.info("Plot " + repr(plotname) + " created")
+                nxproxy.add_axes(positioners, self.saveorder)
+                default = nxproxy.save(nxentry, default, plotselect)
             # Default plot
             with self._modify_nxroot():
-                if firstplot is None:
+                if default is None:
                     nexus.markDefault(nxentry)
                 else:
-                    nexus.markDefault(firstplot)
+                    nexus.markDefault(default)
 
-    def _select_plot_signals(self, subscan, plotname, ndim=-1, grid=False):
+    def _create_nxdata_proxy(self, subscan, plotname, ndim=-1, grid=False):
         """
         Select plot signals based on detector dimensions.
 
@@ -696,192 +696,14 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
         :param str plotname:
         :param int ndim: detector dimensions
         :param bool grid: preserve scan shape
-        :returns dict: (str, tuple): (str, [(name, value, attrs)])
+        :returns NXdataProxy:
         """
-        signaldict = {}
+        nxproxy = NXdataProxy(plotname, parentlogger=subscan.logger)
         if ndim >= 0:
             for fullname, dproxy in self.detector_iter(subscan):
                 if dproxy.detector_ndim == ndim:
-                    self._add_signal(plotname, grid, dproxy, signaldict)
-        return signaldict
-
-    @staticmethod
-    def _plot_name_format(signaldict):
-        """
-        When signals have different dimensions, the plot is split in multiple plots.
-
-        :param dict signaldict: (str, tuple): (str, [(name, value, attrs)])
-        :returns str:
-        """
-        fmt = "{}"
-        plotnames = set(fmt.format(name) for name, _, _ in signaldict.keys())
-        if len(plotnames) != len(signaldict):
-            fmt = "{}_{}"
-            plotnames = set(
-                fmt.format(name, devicetype)
-                for (name, _, _), (devicetype, signals) in signaldict.items()
-            )
-            if len(plotnames) != len(signaldict):
-                fmt = "{}_{}{}"
-        return fmt
-
-    def _add_signal(self, plotname, grid, dproxy, signaldict):
-        """
-        Add dataset to NXdata signal dictionary
-
-        :param str plotname:
-        :param bool grid:
-        :param DatasetProxy dproxy:
-        :param dict signaldict:
-        """
-        with dproxy.open() as dset:
-            if dset is None:
-                return
-            linkname = dproxy.linkname
-            if not linkname:
-                dproxy.logger.warning("cannot be linked too")
-                return
-            # Determine signal shape
-            if dproxy.reshaped == grid:
-                if not nexus.HASVIRTUAL:
-                    dproxy.logger.error(
-                        "Cannot reshape for plot {} due to missing VDS support".format(
-                            repr(plotname)
-                        )
-                    )
-                    return
-                if grid:
-                    shape = dproxy.grid_shape
-                else:
-                    shape = dproxy.flat_shape
-                npoints = dataset_proxy.shape_to_size(dset.shape)
-                enpoints = dataset_proxy.shape_to_size(shape)
-                if npoints != enpoints:
-                    dproxy.logger.error(
-                        "Cannot reshape {} to {} for plot {}".format(
-                            dset.shape, shape, repr(plotname)
-                        )
-                    )
-                    return
-            else:
-                shape = dset.shape
-            # Arguments for dataset creation
-            attrs = {}
-            scan_shape, detector_shape = dataset_proxy.split_shape(
-                shape, dproxy.detector_ndim
-            )
-            if shape == dset.shape:
-                # Same shape so this will be a link
-                value = dset
-            else:
-                # Different shape so this will be a virtual dataset
-                scan_ndim = len(scan_shape)
-                detector_ndim = len(detector_shape)
-                value = {"data": nexus.getUri(dset), "shape": shape}
-                interpretation = nexus.nxDatasetInterpretation(
-                    scan_ndim, detector_ndim, scan_ndim
-                )
-                attrs["interpretation"] = interpretation
-            # Add arguments to signaldict
-            signal = (linkname, value, attrs)
-            key = plotname, scan_shape, detector_shape
-            if key not in signaldict:
-                signaldict[key] = dproxy.device_type, []
-            lst = signaldict[key][1]
-            lst.append(signal)
-
-    def _create_plot(self, nxentry, plotname, signals, axes):
-        """
-        Create on NXdata with signals and axes.
-
-        :param h5py.Group nxentry:
-        :param str plotname:
-        :param list signals:
-        :param list axes:
-        :returns h5py.Group:
-        """
-        h5group = nexus.nxData(nxentry, plotname)
-        nexus.nxDataAddSignals(h5group, signals)
-        if axes:
-            nexus.nxDataAddAxes(h5group, axes)
-        return h5group
-
-    def _select_plot_axes(self, subscan, scan_shape, detector_shape):
-        """
-        :param Subscan subscan:
-        :param str scan_shape: signal scan shape
-        :param str scan_shape: signal detector shape
-        :returns list(3-tuple): name, value, attrs
-        """
-        scan_ndim = len(scan_shape)
-        detector_ndim = len(detector_shape)
-        ndim = scan_ndim + detector_ndim
-        if scan_ndim:
-            # Scan axes dict
-            axes = {}
-            for fullname, dproxy in self.positioner_iter(
-                subscan, onlyprincipals=True, onlymasters=True
-            ):
-                with dproxy.open(dproxy) as dset:
-                    if dset is None:
-                        continue
-                    axes[dproxy.master_index] = dproxy.linkname, dset, None
-
-            # TODO: Scatter plot of non-scalar detector
-            #       does not have a visualization so no
-            #       axes for now
-            flattened = scan_ndim != len(axes)
-            if flattened and detector_ndim:
-                return []
-
-            # Sort axes
-            #   grid plot: fast axis last
-            #   scatter plot: fast axis first
-            if self.saveorder.order == "C" and not flattened:
-                # Fast axis last
-                keys = reversed(sorted(axes))
-            else:
-                # Fast axis first
-                keys = sorted(axes)
-
-            # Dataset creation arguments
-            lst = []
-            for i, key in enumerate(keys):
-                name, value, attrs = axes[key]
-                if scan_ndim > 1:  # Grid plot (e.g. image)
-                    # Axis values: shape of scan
-                    value = value[()]
-                    if value.ndim == 1:
-                        value = value.reshape(scan_shape)
-                    avgdims = tuple(j for j in range(value.ndim) if i != j)
-                    # Average along all but axis dimension
-                    value = value.mean(avgdims)
-                    # Make linear
-                    x = numpy.arange(value.size)
-                    mask = numpy.isfinite(value)
-                    try:
-                        m, b = numpy.polyfit(x[mask], value[mask], 1)
-                    except BaseException:
-                        value = numpy.linspace(
-                            numpy.nanmin(value), numpy.nanmax(value), value.size
-                        )
-                    else:
-                        value = m * x + b
-                else:  # Scatter plot (coordinates and value)
-                    if value.ndim > 1:
-                        value = {"data": nexus.getUri(value), "shape": scan_shape}
-                lst.append((name, value, attrs))
-            axes = lst
-        else:
-            axes = []
-
-        # Add axes for the data dimensions (which are always at the end)
-        if ndim - len(axes) == detector_ndim:
-            axes += [
-                ("datadim{}".format(i), numpy.arange(detector_shape[i]), None)
-                for i in range(detector_ndim)
-            ]
-        return axes
+                    nxproxy.add_signal(dproxy, grid)
+        return nxproxy
 
     def _mark_done(self, subscan):
         """

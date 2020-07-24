@@ -264,7 +264,6 @@ class Ace:
 
         elif param == "sca_hhv":
             return ans.split()[0]
-
         # ---------------
 
         return ans
@@ -521,6 +520,23 @@ class Ace:
         """
         log_debug(self, "Ace:sca_hhv.setter %s" % value)
         self._set_value("sca_hhv", value)
+
+    @property
+    def hhv_state(self):
+        """ Get the high voltage state: ON|OFF"""
+        log_debug(self, "Ace:hhv_state")
+        ans = self.putget("?HVOLT").split()[1]
+        return ans
+
+    def hhv_on(self):
+        log_debug(self, "Ace:hhv_on")
+        cmd = f"HVOLT {self.sca_hhv} ON"
+        self.putget(cmd)
+
+    def hhv_off(self):
+        log_debug(self, "Ace:hhv_off")
+        cmd = f"HVOLT {self.sca_hhv} OFF"
+        self.putget(cmd)
 
     @property
     def counting_source(self):

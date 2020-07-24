@@ -423,13 +423,29 @@ class MeshStepTriggerMaster(_StepTriggerMaster):
     def __init__(self, *args, **keys):
         backnforth = keys.pop("backnforth", False)
         _StepTriggerMaster.__init__(self, *args, **keys)
+        self._motor_pos = self._interleaved_motor_pos(
+            *self._motor_pos, backnforth1=backnforth
+        )
 
-        self._motor_pos = numpy.meshgrid(*self._motor_pos)
-        if backnforth:
-            self._motor_pos[0][::2] = self._motor_pos[0][::2, ::-1]
+    @staticmethod
+    def _interleaved_motor_pos(*motor_pos, backnforth1=False):
+        """
+        Compute the motor positions for each steps of the scan.
 
-        for x in self._motor_pos:  # flatten
+        Arguments:
+            motor_pos: Individual motor position
+            backnforth1: Compute back and forth motion for the first motor
+
+        Returns:
+            A list containing a numpy array per motors. Each arrays contains
+            motor position for each steps of the scan
+        """
+        motor_pos = numpy.meshgrid(*motor_pos)
+        if backnforth1:
+            motor_pos[0][::2] = motor_pos[0][::2, ::-1]
+        for x in motor_pos:  # flatten
             x.shape = (-1,)
+        return motor_pos
 
 
 class LinearStepTriggerMaster(_StepTriggerMaster):

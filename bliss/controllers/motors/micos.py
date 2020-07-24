@@ -662,6 +662,12 @@ class micos(Controller):
 
     # TODO: set other things in h/w if necessary
 
+    def steps_position_precision(self, axis):
+        """
+        used by axis / _get_motion to know if already it is in the target position
+        """
+        return axis.cloop_winsize
+
     def set_on(self, axis):
         """
         This function enables/activates axis.

@@ -18,6 +18,7 @@ def decode_tango_eval(x):
     return pickle.loads(base64.b64decode(x))
 
 
+@pytest.mark.flaky(reruns=3)
 def test_2_library_instances(bliss_tango_server, s1hg, s1f, s1b, ports):
     s1hg.dial = 1
     s1hg.position = 1

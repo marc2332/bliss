@@ -16,7 +16,7 @@ def test_watchdog_timeout_normal_stop(session):
 
     s.set_watchdog_callback(Watchdog())
 
-    with gevent.Timeout(1):
+    with gevent.Timeout(3):
         s.run()
 
 
@@ -33,7 +33,7 @@ def test_watchdog_timeout_with_exception(session):
     s.set_watchdog_callback(Watchdog())
 
     with pytest.raises(RuntimeError):
-        with gevent.Timeout(1):
+        with gevent.Timeout(3):
             s.run()
 
 
@@ -72,7 +72,7 @@ def test_watchdog_on_scan_data_normal_stop(session):
 
     s.set_watchdog_callback(Watchdog())
 
-    with gevent.Timeout(1):
+    with gevent.Timeout(3):
         s.run()
 
 
@@ -92,5 +92,5 @@ def test_watchdog_on_scan_data_with_exception(session):
     s.set_watchdog_callback(Watchdog())
 
     with pytest.raises(ValueError):
-        with gevent.Timeout(1):
+        with gevent.Timeout(3):
             s.run()

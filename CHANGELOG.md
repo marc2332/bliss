@@ -30,6 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - dialogs for ascan, dscan, amesh, dmesh
 - new features for axis jog move: change of velocity on-the-fly, jog_velocity property
 - MUSST: timebase and memory info
+- ISG shutter controller
 - sync() error message now add name of the axis in case of problem
 - Watchdog feature for scans
 - Tolerance for pseudo-axes in NHQ power supply
@@ -88,12 +89,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - prevent communication with hardware if move is too small
     - motion hooks `_set_position` reset
     - sync_hard() no more raises an exception on disabled undulators
-- Shell:
+- Shell
     - incorrect SyntaxError in cells
     - function arguments completion in shell
     - doubling of entries in scan saving
 - MUSST: fix for integrating counter read for any count time
-- Lima:
+- Lima
     - pilatus: internal trigger multi needs synch on trigger
     - ROI with 0 size
     - zombie threads when Lima bpm is used
@@ -107,6 +108,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - exceptions happening during scan no longer shadowed by exceptions in presets
     - dnscan metadata
 - ELMO controller: fixed abort command
+- ACE controller: missing command to activate high voltage
 - numpy array in Beacon object
 - nanodac: target set position issue
 - ASCII formatter for multi-bytes characters in output
@@ -126,6 +128,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - transfocator initialization 
 - MOCO: fixed outbeam, added inbeam
 - opiom: open program file from remote, initialization of boards with the right programs
+- nanodac: target setpoint
 - Wago:
     - fix negative values for thermocouples
     - WagoMotor adapted to work with Wago DS
@@ -136,8 +139,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Nexus Writer:
     - skip reference saving when paths are equal instead of checking existence
     - scans with save_images=False
-- Flint:
+- Flint
     - Fix wrong plot view with d2scan/d3scan
+    - Fix replotting a scan using a single axis from 2 top master scan
+- Web configuration application
+    - distinguish measurement groups from sessions
+    - save values with good type (not always strings)
+    - find any config object in yml file
+    - display 500 error
 
 ## [1.4.0] - 2020-05-18
 

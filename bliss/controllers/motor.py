@@ -733,10 +733,7 @@ class CalcController(Controller):
         return pos
 
     def state(self, axis, new_state=None):
-        st = self._reals_group.state
-        if st.READY:
-            self._calc_from_real()
-        return st
+        return self._reals_group.state
 
     def set_position(self, axis, new_pos):
         if not axis in self.pseudos:

@@ -175,6 +175,13 @@ def anmesh(
         data_watch_callback=StepScanDataWatch(),
     )
 
+    # Specify the same group for channel value
+    # FIXME: Replace scan_info read by a bliss API
+    for top_master, acquisition_chain in scan.scan_info["acquisition_chain"].items():
+        for channel_name in acquisition_chain["scalars"]:
+            factory = ScanInfoFactory(scan_info)
+            factory.set_channel_meta(channel_name, group="scatter")
+
     if run:
         scan.run()
 

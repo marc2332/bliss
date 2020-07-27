@@ -416,12 +416,47 @@ def read_plot_models(scan_info: Dict) -> List[plot_model.Plot]:
                 if valuename is not None:
                     value_channel = plot_model.ChannelRef(plot, valuename)
                     item.setValueChannel(value_channel)
+                group_by_names = get_scatter_group_by(
+                    scan_info, [xname, yname, valuename]
+                )
+                if group_by_names:
+                    group_by_channels = [
+                        plot_model.ChannelRef(plot, n) for n in group_by_names
+                    ]
+                    item.setGroupByChannels(group_by_channels)
                 plot.addItem(item)
             else:
                 _logger.warning("Item 'kind' %s unsupported. Item ignored.", kind)
         result.append(plot)
 
     return result
+
+
+def get_scatter_group_by(scan_info, channel_names):
+    def get_group(channel_name):
+        return scan_info.get("requests", {}).get(channel_name, {}).get("group", None)
+
+    def get_kind(channel_name):
+        return (
+            scan_info.get("requests", {}).get(channel_name, {}).get("axis-kind", None)
+        )
+
+    def get_channels_from_group(group_name):
+        requests = scan_info.get("requests", {})
+        return [k for k, v in requests.items() if v.get("group", None) == group_name]
+
+    channel_names = [n for n in channel_names if n is not None]
+    groups = set([get_group(n) for n in channel_names])
+    groups.discard(None)
+    if len(groups) == 0:
+        return None
+    if len(groups) > 1:
+        _logger.warning("Define a scatter using data from different groups. Ignored.")
+        return None
+
+    channel_names = get_channels_from_group(list(groups)[0])
+    channel_names = [n for n in channel_names if get_kind(n) == "step"]
+    return channel_names
 
 
 def infer_plot_models(scan_info: Dict) -> List[plot_model.Plot]:

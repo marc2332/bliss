@@ -118,20 +118,28 @@ class _DataItem(_property_tree_helper.ScanRowItem):
             self.__plotItem.setVisible(state == qt.Qt.Checked)
 
     def setSelectedXAxis(self):
+        assert self.__treeView is not None
         old = self.__xAxis.modelUpdated
         self.__xAxis.modelUpdated = None
         try:
             self.__xAxis.setData(qt.Qt.Checked, role=delegates.RadioRole)
         finally:
             self.__xAxis.modelUpdated = old
+        if self.__treeView.isPersistentEditorOpen(self.__xAxis.index()):
+            self.__treeView.closePersistentEditor(self.__xAxis.index())
+        self.__treeView.openPersistentEditor(self.__xAxis.index())
 
     def setSelectedYAxis(self):
+        assert self.__treeView is not None
         old = self.__yAxis.modelUpdated
         self.__yAxis.modelUpdated = None
         try:
             self.__yAxis.setData(qt.Qt.Checked, role=delegates.RadioRole)
         finally:
             self.__yAxis.modelUpdated = old
+        if self.__treeView.isPersistentEditorOpen(self.__yAxis.index()):
+            self.__treeView.closePersistentEditor(self.__yAxis.index())
+        self.__treeView.openPersistentEditor(self.__yAxis.index())
 
     def __xAxisChanged(self, item: qt.QStandardItem):
         assert self.__channel is not None

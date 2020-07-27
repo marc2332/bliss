@@ -645,9 +645,12 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
 
     @property
     def flintplots(self):
-        items = self.get_info("_display_extra", default={}).get(
-            "nexus_displayed_channels", []
-        )
+        display_extra = self.get_info("_display_extra", default={})
+        items = display_extra.get("displayed_channels", None)
+        if items is None:
+            items = display_extra.get("plotselect", None)
+        if items is None:
+            items = []
         if items:
             return {"plotselect": {"items": items, "grid": True}}
         else:

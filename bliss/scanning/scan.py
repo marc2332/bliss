@@ -1178,12 +1178,21 @@ class Scan:
 
     def _prepare_scan_meta(self):
         self._scan_info["filename"] = self.writer.filename
-        # User metadata:
+        # User metadata
         self.user_scan_meta = get_user_scan_meta().copy()
         self._update_scan_info_with_user_scan_meta()
-        # Plot metadata:
-        display_extra = self.__scan_display._pop_scan_metadata()
-        if display_extra:
+
+        # Plot metadata
+        display_extra = {}
+        displayed_channels = self.__scan_display.displayed_channels
+        if displayed_channels is not None:
+            # Contextual display request
+            display_extra["plotselect"] = displayed_channels
+        displayed_channels = self.__scan_display._pop_next_scan_displayed_channels()
+        if displayed_channels is not None:
+            # Structural display request specified for this scan
+            display_extra["displayed_channels"] = displayed_channels
+        if len(display_extra) > 0:
             self._scan_info["_display_extra"] = display_extra
 
     def disconnect_all(self):

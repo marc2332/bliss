@@ -170,16 +170,16 @@ def test_plotinit(session):
     sd = ScanDisplay()
 
     plotinit("foo")
-    assert sd.flint_displayed_channels == ["foo"]
+    assert sd.next_scan_displayed_channels == ["foo"]
     plotinit(roby)
-    assert sd.flint_displayed_channels == ["axis:roby"]
+    assert sd.next_scan_displayed_channels == ["axis:roby"]
     plotinit(diode)
-    assert sd.flint_displayed_channels == [diode.fullname]
+    assert sd.next_scan_displayed_channels == [diode.fullname]
     plotinit(diode.fullname)
-    assert sd.flint_displayed_channels == [diode.fullname]
+    assert sd.next_scan_displayed_channels == [diode.fullname]
 
     plotinit(diode, roby)
-    assert sd.flint_displayed_channels == [diode.fullname, "axis:roby"]
+    assert sd.next_scan_displayed_channels == [diode.fullname, "axis:roby"]
 
 
 def test_counter_argument_on_cen_com_peak(session):

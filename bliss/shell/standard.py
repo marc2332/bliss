@@ -786,15 +786,11 @@ example:
 
     names = plot_module.get_next_plotted_counters()
     if names:
-        print("Reset counter(s) for the next scan:")
+        print("Plotted counter(s) for the next scan:")
         for cnt_name in names:
             print(f"- {cnt_name}")
     else:
-        print("Plotted counter(s) for the next scan:")
-        print(" current selection")
-    print("\nPlotted counter(s) in the Nexus file:")
-    for cnt_name in plot_module.get_nexus_plotted_counters():
-        print(f"- {cnt_name}")
+        print("No specific counter(s) for the next scan")
     print("")
 
 
@@ -829,9 +825,6 @@ example:
         "Plotted counter(s) last selected with plotselect (could be different from the current display):"
     )
     for cnt_name in plot_module.get_plotted_counters():
-        print(f"- {cnt_name}")
-    print("\nPlotted counter(s) in the Nexus file:")
-    for cnt_name in plot_module.get_nexus_plotted_counters():
         print(f"- {cnt_name}")
     print("")
 

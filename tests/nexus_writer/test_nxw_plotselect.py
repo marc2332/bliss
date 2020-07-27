@@ -24,7 +24,7 @@ def _test_nxw_plotselect(
     scan_saving.technique = ""
     detectors = [env_dict[name] for name in ["diode3", "diode4", "diode5"]]
     names = [env_dict[name].fullname for name in ["diode3", "diode4"]]
-    scan_display._plotselect(names)
+    scan_display.displayed_channels = names
     plots = {}
     plots["plotselect"] = {"ndim": 0, "type": "grid", "signals": ["diode3", "diode4"]}
 

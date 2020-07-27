@@ -265,9 +265,12 @@ def plotinit(*counters):
         counters: String, alias, object identifying an object providing data to
             record. It can be a counter name, a counter, an axis, an alias.
     """
-    scan_display = ScanDisplay()
-    channel_names = get_channel_names(*counters)
-    scan_display._plotinit(channel_names)
+    scan_display = current_session.scan_display
+    if len(counters) == 0:
+        channel_names = None
+    else:
+        channel_names = get_channel_names(*counters)
+    scan_display.next_scan_displayed_channels = channel_names
 
 
 def plotselect(*counters):
@@ -283,7 +286,7 @@ def plotselect(*counters):
     """
     scan_display = ScanDisplay()
     channel_names = get_channel_names(*counters)
-    scan_display._plotselect(channel_names)
+    scan_display.displayed_channels = channel_names
 
     if flint_proxy.check_flint():
         flint = flint_proxy.get_flint(mandatory=False)
@@ -325,20 +328,8 @@ def get_next_plotted_counters():
     """
     Returns names of counters that will be plotted for the next scan.
     """
-    scan_display = ScanDisplay()
-    displayed_channels = scan_display.flint_displayed_channels
-    if displayed_channels is None:
-        return []
-    else:
-        return displayed_channels
-
-
-def get_nexus_plotted_counters():
-    """
-    Returns names of counters that will be plotted in the Nexus file
-    """
-    scan_display = ScanDisplay()
-    displayed_channels = scan_display.nexus_displayed_channels
+    scan_display = current_session.scan_display
+    displayed_channels = scan_display.next_scan_displayed_channels
     if displayed_channels is None:
         return []
     else:

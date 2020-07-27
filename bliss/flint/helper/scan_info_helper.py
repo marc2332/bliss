@@ -320,7 +320,7 @@ def create_plot_model(
     if display_extra is not None:
         if scan is None:
             scan = create_scan_model(scan_info)
-        displayed_channels = display_extra.get("flint_displayed_channels", None)
+        displayed_channels = display_extra.get("displayed_channels", None)
         # Sanitize
         if displayed_channels is not None:
             if not isinstance(displayed_channels, list):

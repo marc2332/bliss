@@ -196,6 +196,24 @@ def test_meshselect(test_session_with_flint):
     assert flint.test_count_displayed_items(plot_id) == 0
 
 
+def test_plotinit__something(session):
+    plot.plotinit("aaa")
+    channels = plot.get_next_plotted_counters()
+    assert channels == ["aaa"]
+
+
+def test_plotinit__nothing(session):
+    plot.plotinit()
+    assert session.scan_display.next_scan_displayed_channels is None
+    assert plot.get_next_plotted_counters() == []
+
+
+def test_plotinit__one_shot(session):
+    plot.plotinit("aaa")
+    session.scan_display._pop_next_scan_displayed_channels()
+    assert plot.get_next_plotted_counters() == []
+
+
 def test_plotselect(test_session_with_flint):
     session = test_session_with_flint
     ascan = session.env_dict["ascan"]

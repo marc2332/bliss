@@ -13,6 +13,7 @@ from typing import Sequence
 from typing import Optional
 
 import logging
+import numpy
 
 from silx.gui import qt
 from silx.gui import icons
@@ -554,6 +555,25 @@ class ScatterPlotWidget(plot_helper.PlotWidget):
                 self.__updatePlotZoom(updateZoomNow)
             return
 
+        # FIXME: This have to be cached and optimized
+        indexes = None
+        groupByChannels = item.groupByChannels()
+        if groupByChannels is not None:
+            mask = numpy.array([True] * len(xx))
+            for channel in groupByChannels:
+                channel = channel.channel(scan)
+                if channel is None:
+                    continue
+                array = channel.array()
+                fvalue = array[-1]
+                mask = numpy.logical_and(mask, array == fvalue)
+
+            # Filter the result according to the groups
+            xx = xx[mask]
+            yy = yy[mask]
+            value = value[mask]
+            indexes = numpy.arange(len(mask))[mask]
+
         legend = valueChannel.name()
         style = item.getStyle(scan)
         colormap = model_helper.getColormapFromItem(item, style)
@@ -566,6 +586,7 @@ class ScatterPlotWidget(plot_helper.PlotWidget):
             fillStyle = style.fillStyle
             scatter = plot_helper.FlintScatter()
             scatter.setData(x=xx, y=yy, value=value, copy=False)
+            scatter.setRealIndexes(indexes)
             scatter.setColormap(colormap)
             scatter.setCustomItem(item)
             scatter.setScan(scan)
@@ -616,6 +637,7 @@ class ScatterPlotWidget(plot_helper.PlotWidget):
                 symbolStyle = "o"
             scatter = plot_helper.FlintScatter()
             scatter.setData(x=xx, y=yy, value=value, copy=False)
+            scatter.setRealIndexes(indexes)
             scatter.setColormap(colormap)
             scatter.setSymbol(symbolStyle)
             scatter.setSymbolSize(style.symbolSize)

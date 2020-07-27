@@ -118,11 +118,13 @@ def anmesh(
     factory = ScanInfoFactory(scan_info)
 
     for i, (motor, start, stop, intervals) in enumerate(motor_tuple_list):
-        kind: Optional[str] = None
+        kind: str
         if i == 0:
             kind = "fast-backnforth" if backnforth else "fast"
         elif i == 1:
             kind = "slow-backnforth" if backnforth else "slow"
+        else:
+            kind = "step"
         factory.set_channel_meta(
             f"axis:{motor.name}",
             start=start,
@@ -130,6 +132,7 @@ def anmesh(
             points=sum_npoints,
             axis_points=intervals + 1,
             axis_kind=kind,
+            group="scatter",
         )
 
     factory.add_scatter_plot(

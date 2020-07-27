@@ -59,7 +59,7 @@ class ScanInfoFactory:
         """
         requests = self._scan_info.setdefault("requests", {})
         assert axis_kind in set(
-            [None, "slow", "fast", "fast-backnforth", "slow-backnforth"]
+            [None, "slow", "fast", "fast-backnforth", "slow-backnforth", "step"]
         )
         meta = requests.setdefault(name, {})
         if start is not None:

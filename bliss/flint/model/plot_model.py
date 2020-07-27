@@ -57,6 +57,7 @@ class ChangeEventType(enum.Enum):
     IMAGE_CHANNEL = enum.auto()
     VALUE_CHANNEL = enum.auto()
     SCANS_STORED = enum.auto()
+    GROUP_BY_CHANNELS = enum.auto()
 
 
 class Plot(qt.QObject):

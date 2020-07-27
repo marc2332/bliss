@@ -19,6 +19,7 @@ from __future__ import annotations
 from typing import Optional
 from typing import Dict
 from typing import Any
+from typing import List
 
 import numpy
 
@@ -322,6 +323,7 @@ class ScatterItem(plot_model.Item):
         self.__x: Optional[plot_model.ChannelRef] = None
         self.__y: Optional[plot_model.ChannelRef] = None
         self.__value: Optional[plot_model.ChannelRef] = None
+        self.__groupBy: Optional[List[plot_model.ChannelRef]] = None
         self.__colormap = None
 
     def __reduce__(self):
@@ -407,6 +409,13 @@ class ScatterItem(plot_model.Item):
     def setValueChannel(self, channel: Optional[plot_model.ChannelRef]):
         self.__value = channel
         self._emitValueChanged(plot_model.ChangeEventType.VALUE_CHANNEL)
+
+    def groupByChannels(self) -> Optional[List[plot_model.ChannelRef]]:
+        return self.__groupBy
+
+    def setGroupByChannels(self, channels: Optional[List[plot_model.ChannelRef]]):
+        self.__groupBy = channels
+        self._emitValueChanged(plot_model.ChangeEventType.GROUP_BY_CHANNELS)
 
     def valueArray(self, scan: scan_model.Scan) -> Optional[numpy.ndarray]:
         channel = self.__value

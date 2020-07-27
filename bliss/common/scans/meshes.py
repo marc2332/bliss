@@ -10,11 +10,12 @@ Most common scan procedures (:func:`~bliss.common.scans.ascan`, \
 :func:`~bliss.common.scans.dscan`, :func:`~bliss.common.scans.timescan`, etc)
 """
 
-__all__ = ["amesh", "a3mesh", "dmesh", "d3mesh"]
+__all__ = ["anmesh", "amesh", "a3mesh", "dmesh", "d3mesh"]
 
 import logging
 import types
 import typeguard
+import numpy
 from typing import Optional
 
 from bliss.common.utils import rounder, shorten_signature, typeguardTypeError_to_hint
@@ -23,9 +24,159 @@ from bliss.scanning.scan import Scan, StepScanDataWatch
 from bliss.scanning.acquisition.motor import MeshStepTriggerMaster
 from .scan_info import ScanInfoFactory
 from .step_by_step import DEFAULT_CHAIN
-from bliss.common.types import _int, _float, _scannable, _countables
+from bliss.common.types import (
+    _int,
+    _float,
+    _scannable,
+    _countables,
+    _scannable_start_stop_intervals_list,
+)
 
 _log = logging.getLogger("bliss.scans")
+
+
+@typeguard.typechecked
+def anmesh(
+    motor_tuple_list: _scannable_start_stop_intervals_list,
+    count_time: _float,
+    *counter_args: _countables,
+    backnforth: bool = False,
+    title: Optional[str] = None,
+    save: bool = True,
+    save_images: Optional[bool] = None,
+    sleep_time: Optional[_float] = None,
+    run: bool = True,
+    return_scan: bool = True,
+    scan_type: str = "anmesh",
+    name: str = "anmesh",
+    scan_info: Optional[dict] = None,
+):
+    """
+    Mesh scan with n-motors
+
+    This scan traces out a grid using all the motors.
+    Each motors uses its own specified start, stop and intervals. Each point is
+    counted for time seconds (or monitor counts).
+
+    The first motor is the faster, and the last motor the slowest.
+    And each motor is nested with the next one.
+
+    Use `anmesh(..., run=False)` to create a scan object and
+    its acquisition chain without executing the actual scan.
+
+    Arguments:
+        motor_tuple_list: List of tuple (motor, start, stop, interval).
+            The first motor is the fastest.
+        backnforth: If True do back and forth for all the motors except the
+            slowest one
+    """
+    assert len(motor_tuple_list) >= 2
+
+    if scan_info is None:
+        scan_info = dict()
+
+    scan_info.update(
+        {
+            "type": scan_type,
+            "save": save,
+            "title": title,
+            "sleep_time": sleep_time,
+            "data_dim": len(motor_tuple_list),
+        }
+    )
+
+    if title is None:
+        args = []
+        args.append(scan_type)
+        for motor, start, stop, intervals in motor_tuple_list:
+            args.append(motor.name)
+            args.append(rounder(motor.tolerance, start))
+            args.append(rounder(motor.tolerance, stop))
+            args.append(intervals)
+        args.append(count_time)
+        template = " ".join(["{{{0}}}".format(i) for i in range(len(args))])
+        scan_info["title"] = template.format(*args)
+
+    motor_list = [info[0] for info in motor_tuple_list]
+    motor_name_list = [info[0].name for info in motor_tuple_list]
+    start_list = [info[1] for info in motor_tuple_list]
+    stop_list = [info[2] for info in motor_tuple_list]
+    npoints_list = [info[3] + 1 for info in motor_tuple_list]
+    sum_npoints = numpy.product(npoints_list)
+
+    scan_info.update(
+        {
+            "npoints": sum_npoints,
+            "start": start_list,
+            "stop": stop_list,
+            "count_time": count_time,
+        }
+    )
+    for i, npoints in enumerate(npoints_list):
+        scan_info[f"npoints{i+1}"] = npoints
+
+    factory = ScanInfoFactory(scan_info)
+
+    for i, (motor, start, stop, intervals) in enumerate(motor_tuple_list):
+        kind: Optional[str] = None
+        if i == 0:
+            kind = "fast-backnforth" if backnforth else "fast"
+        elif i == 1:
+            kind = "slow-backnforth" if backnforth else "slow"
+        factory.set_channel_meta(
+            f"axis:{motor.name}",
+            start=start,
+            stop=stop,
+            points=sum_npoints,
+            axis_points=intervals + 1,
+            axis_kind=kind,
+        )
+
+    factory.add_scatter_plot(
+        x=f"axis:{motor_list[0].name}", y=f"axis:{motor_list[1].name}"
+    )
+
+    scan_params = {
+        "type": scan_type,
+        "npoints": sum_npoints,
+        "count_time": count_time,
+        "sleep_time": sleep_time,
+        "start": start_list,
+        "stop": stop_list,
+    }
+
+    args = []
+    for motor, start, stop, intervals in motor_tuple_list:
+        args.extend([motor, start, stop, intervals + 1])
+    chain = DEFAULT_CHAIN.get(
+        scan_params,
+        counter_args,
+        top_master=MeshStepTriggerMaster(*args, backnforth=backnforth),
+    )
+
+    nmotors = len(motor_tuple_list)
+    template = "Scanning (%s) from (%s) to (%s) in (%s) points" % (
+        ",".join(["%%s"] * nmotors),
+        ",".join(["%%f"] * nmotors),
+        ",".join(["%%f"] * nmotors),
+        ",".join(["%%d"] * nmotors),
+    )
+    _log.info(template, *motor_name_list, *start_list, *stop_list, *npoints_list)
+
+    scan = Scan(
+        chain,
+        scan_info=scan_info,
+        name=name,
+        save=save,
+        save_images=save_images,
+        data_watch_callback=StepScanDataWatch(),
+    )
+
+    if run:
+        scan.run()
+
+    if return_scan:
+        return scan
 
 
 @typeguardTypeError_to_hint
@@ -67,115 +218,23 @@ def amesh(
     Use `amesh(..., run=False)` to create a scan object and
     its acquisition chain without executing the actual scan.
 
-    :param backnforth if True do back and forth on the first motor
+    Argument:
+        backnforth: If True do back and forth on the first motor
     """
-    if scan_info is None:
-        scan_info = dict()
-
-    scan_info.update(
-        {
-            "type": scan_type,
-            "save": save,
-            "title": title,
-            "sleep_time": sleep_time,
-            "data_dim": 2,
-        }
-    )
-
-    if title is None:
-        args = (
-            scan_type,
-            motor1.name,
-            rounder(motor1.tolerance, start1),
-            rounder(motor1.tolerance, stop1),
-            intervals1,
-            motor2.name,
-            rounder(motor2.tolerance, start2),
-            rounder(motor2.tolerance, stop2),
-            intervals2,
-            count_time,
-        )
-        template = " ".join(["{{{0}}}".format(i) for i in range(len(args))])
-        scan_info["title"] = template.format(*args)
-
-    npoints1 = intervals1 + 1
-    npoints2 = intervals2 + 1
-
-    scan_info.update(
-        {
-            "npoints1": npoints1,
-            "npoints2": npoints2,
-            "npoints": npoints1 * npoints2,
-            "start": [start1, start2],
-            "stop": [stop1, stop2],
-            "count_time": count_time,
-        }
-    )
-
-    factory = ScanInfoFactory(scan_info)
-    factory.set_channel_meta(
-        f"axis:{motor1.name}",
-        start=start1,
-        stop=stop1,
-        points=npoints1 * npoints2,
-        axis_points=npoints1,
-        axis_kind="fast-backnforth" if backnforth else "fast",
-    )
-    factory.set_channel_meta(
-        f"axis:{motor2.name}",
-        start=start2,
-        stop=stop2,
-        points=npoints1 * npoints2,
-        axis_points=npoints2,
-        axis_kind="slow",
-    )
-
-    factory.add_scatter_plot(x=f"axis:{motor1.name}", y=f"axis:{motor2.name}")
-
-    scan_params = {
-        "type": scan_type,
-        "npoints": npoints1 * npoints2,
-        "count_time": count_time,
-        "sleep_time": sleep_time,
-        "start": [start1, start2],
-        "stop": [stop1, stop2],
-    }
-
-    chain = DEFAULT_CHAIN.get(
-        scan_params,
-        counter_args,
-        top_master=MeshStepTriggerMaster(
-            motor1,
-            start1,
-            stop1,
-            npoints1,
-            motor2,
-            start2,
-            stop2,
-            npoints2,
-            backnforth=backnforth,
-        ),
-    )
-
-    _log.info(
-        "Scanning (%s, %s) from (%f, %f) to (%f, %f) in (%d, %d) points",
-        motor1.name,
-        motor2.name,
-        start1,
-        start2,
-        stop1,
-        stop2,
-        npoints1,
-        npoints2,
-    )
-
-    scan = Scan(
-        chain,
-        scan_info=scan_info,
-        name=name,
+    scan = anmesh(
+        [(motor1, start1, stop1, intervals1), (motor2, start2, stop2, intervals2)],
+        count_time,
+        *counter_args,
+        backnforth=backnforth,
+        title=title,
         save=save,
         save_images=save_images,
-        data_watch_callback=StepScanDataWatch(),
+        sleep_time=sleep_time,
+        run=False,
+        return_scan=True,
+        scan_type=scan_type,
+        name=name,
+        scan_info=scan_info,
     )
 
     if run:
@@ -300,135 +359,24 @@ def a3mesh(
     Arguments:
         backnforth: if True do back and forth on the first 2 motors
     """
-    if scan_info is None:
-        scan_info = dict()
-
-    scan_info.update(
-        {
-            "type": scan_type,
-            "save": save,
-            "title": title,
-            "sleep_time": sleep_time,
-            "data_dim": 3,
-        }
-    )
-
-    if title is None:
-        args = (
-            scan_type,
-            motor1.name,
-            rounder(motor1.tolerance, start1),
-            rounder(motor1.tolerance, stop1),
-            intervals1,
-            motor2.name,
-            rounder(motor2.tolerance, start2),
-            rounder(motor2.tolerance, stop2),
-            intervals2,
-            motor3.name,
-            rounder(motor3.tolerance, start3),
-            rounder(motor3.tolerance, stop3),
-            intervals3,
-            count_time,
-        )
-        template = " ".join(["{{{0}}}".format(i) for i in range(len(args))])
-        scan_info["title"] = template.format(*args)
-
-    npoints1 = intervals1 + 1
-    npoints2 = intervals2 + 1
-    npoints3 = intervals3 + 1
-    npoints = npoints1 * npoints2 * npoints3
-
-    scan_info.update(
-        {
-            "npoints1": npoints1,
-            "npoints2": npoints2,
-            "npoints3": npoints3,
-            "npoints": npoints,
-            "start": [start1, start2, start3],
-            "stop": [stop1, stop2, stop3],
-            "count_time": count_time,
-        }
-    )
-
-    factory = ScanInfoFactory(scan_info)
-    factory.set_channel_meta(
-        f"axis:{motor1.name}",
-        start=start1,
-        stop=stop1,
-        points=npoints,
-        axis_points=npoints1,
-        axis_kind="fast-backnforth" if backnforth else "fast",
-    )
-    factory.set_channel_meta(
-        f"axis:{motor2.name}",
-        start=start2,
-        stop=stop2,
-        points=npoints,
-        axis_points=npoints2,
-        axis_kind="slow-backnforth" if backnforth else "slow",
-    )
-    factory.set_channel_meta(
-        f"axis:{motor3.name}",
-        start=start3,
-        stop=stop3,
-        points=npoints,
-        axis_points=npoints2,
-    )
-
-    factory.add_scatter_plot(x=f"axis:{motor1.name}", y=f"axis:{motor2.name}")
-
-    scan_params = {
-        "type": scan_type,
-        "npoints": npoints,
-        "count_time": count_time,
-        "sleep_time": sleep_time,
-        "start": [start1, start2, start3],
-        "stop": [stop1, stop2, stop3],
-    }
-
-    chain = DEFAULT_CHAIN.get(
-        scan_params,
-        counter_args,
-        top_master=MeshStepTriggerMaster(
-            motor1,
-            start1,
-            stop1,
-            npoints1,
-            motor2,
-            start2,
-            stop2,
-            npoints2,
-            motor3,
-            start3,
-            stop3,
-            npoints3,
-            backnforth=backnforth,
-        ),
-    )
-
-    _log.info(
-        "Scanning (%s, %s, %s) from (%f, %f, %f) to (%f, %f, %f) in (%d, %d, %d) points",
-        motor1.name,
-        motor2.name,
-        motor3.name,
-        start1,
-        start2,
-        start3,
-        stop1,
-        stop2,
-        stop3,
-        npoints1,
-        npoints2,
-        npoints3,
-    )
-
-    scan = Scan(
-        chain,
-        scan_info=scan_info,
-        name=name,
+    scan = anmesh(
+        [
+            (motor1, start1, stop1, intervals1),
+            (motor2, start2, stop2, intervals2),
+            (motor3, start3, stop3, intervals3),
+        ],
+        count_time,
+        *counter_args,
+        backnforth=backnforth,
+        title=title,
         save=save,
         save_images=save_images,
-        data_watch_callback=StepScanDataWatch(),
+        sleep_time=sleep_time,
+        run=False,
+        return_scan=True,
+        scan_type=scan_type,
+        name=name,
+        scan_info=scan_info,
     )
 
     if run:

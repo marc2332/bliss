@@ -28,6 +28,7 @@ _scannable = Union[Axis, Scannable]
 # all attributes that are part of the protocol during type checking. (py 3.7)
 _scannable_or_name = Union[_scannable, str]
 _scannable_start_stop_list = List[Tuple[_scannable, _float, _float]]
+_scannable_start_stop_intervals_list = List[Tuple[_scannable, _float, _float, _int]]
 _position_list = Union[Sequence, numpy.ndarray]
 _scannable_position_list = List[Tuple[_scannable, _position_list]]
 

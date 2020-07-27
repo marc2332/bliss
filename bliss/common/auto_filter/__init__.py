@@ -25,6 +25,8 @@ Yaml config may look like this:
       tag: fiteridx
     - counter_name: transm
       tag: transmission
+   - counter_name: ratio
+     tag: ratio
   suffix_for_corr_counter: "_corr"
   counters_for_correction:
     - det

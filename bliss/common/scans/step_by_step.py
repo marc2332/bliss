@@ -491,7 +491,7 @@ def a3mesh(
     intervals3: _int,
     count_time: _float,
     *counter_args: _countables,
-    backnforth1: bool = False,
+    backnforth: bool = False,
     title: Optional[str] = None,
     save: bool = True,
     save_images: Optional[bool] = None,
@@ -517,7 +517,8 @@ def a3mesh(
     Use `a3mesh(..., run=False)` to create a scan object and
     its acquisition chain without executing the actual scan.
 
-    :param backnforth1 if True do back and forth on the first motor
+    Arguments:
+        backnforth: if True do back and forth on the first 2 motors
     """
     if scan_info is None:
         scan_info = dict()
@@ -576,7 +577,7 @@ def a3mesh(
         stop=stop1,
         points=npoints,
         axis_points=npoints1,
-        axis_kind="fast-backnforth" if backnforth1 else "fast",
+        axis_kind="fast-backnforth" if backnforth else "fast",
     )
     factory.set_channel_meta(
         f"axis:{motor2.name}",
@@ -584,7 +585,7 @@ def a3mesh(
         stop=stop2,
         points=npoints,
         axis_points=npoints2,
-        axis_kind="slow",
+        axis_kind="slow-backnforth" if backnforth else "slow",
     )
     factory.set_channel_meta(
         f"axis:{motor3.name}",
@@ -621,7 +622,7 @@ def a3mesh(
             start3,
             stop3,
             npoints3,
-            backnforth=backnforth1,
+            backnforth=backnforth,
         ),
     )
 
@@ -675,7 +676,7 @@ def d3mesh(
     intervals3: _int,
     count_time: _float,
     *counter_args: _countables,
-    backnforth1: bool = False,
+    backnforth: bool = False,
     title: Optional[str] = None,
     save: bool = True,
     save_images: Optional[bool] = None,
@@ -710,7 +711,7 @@ def d3mesh(
         intervals3,
         count_time,
         *counter_args,
-        backnforth1=backnforth1,
+        backnforth=backnforth,
         title=title,
         save=save,
         save_images=save_images,

@@ -58,7 +58,9 @@ class ScanInfoFactory:
                 interactive user selection.
         """
         requests = self._scan_info.setdefault("requests", {})
-        assert axis_kind in set([None, "slow", "fast", "fast-backnforth"])
+        assert axis_kind in set(
+            [None, "slow", "fast", "fast-backnforth", "slow-backnforth"]
+        )
         meta = requests.setdefault(name, {})
         if start is not None:
             meta["start"] = start

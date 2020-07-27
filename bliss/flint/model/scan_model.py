@@ -467,6 +467,7 @@ class AxisKind(enum.Enum):
     FAST = "fast"
     FAST_BACKNFORTH = "fast-backnforth"
     SLOW = "slow"
+    SLOW_BACKNFORTH = "slow-backnforth"
 
 
 class ChannelMetadata(NamedTuple):

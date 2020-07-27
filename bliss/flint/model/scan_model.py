@@ -480,6 +480,7 @@ class ChannelMetadata(NamedTuple):
     axisPoints: Optional[int]
     axisKind: Optional[AxisKind]
     group: Optional[str]
+    guessAxisPoints: Optional[int]
 
 
 class Channel(qt.QObject, _Sealable):

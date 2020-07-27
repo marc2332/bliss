@@ -313,7 +313,7 @@ def test_parse_channel_metadata():
     }
     result = scan_info_helper.parse_channel_metadata(meta)
     expected = scan_model.ChannelMetadata(
-        1, 2, 3, 4, 5, 6, scan_model.AxisKind.SLOW, None
+        1, 2, 3, 4, 5, 6, scan_model.AxisKind.SLOW, None, None
     )
     assert result == expected
 
@@ -330,7 +330,7 @@ def test_parse_wrong_values():
         "foo": "bar",
     }
     result = scan_info_helper.parse_channel_metadata(meta)
-    expected = scan_model.ChannelMetadata(1, 2, 3, None, 5, 6, None, None)
+    expected = scan_model.ChannelMetadata(1, 2, 3, None, 5, 6, None, None, None)
     assert result == expected
 
 

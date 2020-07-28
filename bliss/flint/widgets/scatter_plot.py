@@ -241,6 +241,7 @@ class ScatterPlotWidget(plot_helper.PlotWidget):
                 self.__aggregator.callbackTo(self.__transactionFinished)
             )
         self.plotModelUpdated.emit(plotModel)
+        self.__sanitizeItems()
         self.__redrawAll()
         self.__syncAxisTitle.trigger()
         self.__syncAxis.trigger()
@@ -270,14 +271,17 @@ class ScatterPlotWidget(plot_helper.PlotWidget):
         elif eventType == plot_model.ChangeEventType.CUSTOM_STYLE:
             self.__updateItem(item)
         elif eventType == plot_model.ChangeEventType.X_CHANNEL:
+            self.__sanitizeItem(item)
             self.__updateItem(item)
             self.__syncAxisTitle.triggerIf(not inTransaction)
             self.__syncAxis.triggerIf(not inTransaction)
         elif eventType == plot_model.ChangeEventType.Y_CHANNEL:
+            self.__sanitizeItem(item)
             self.__updateItem(item)
             self.__syncAxisTitle.triggerIf(not inTransaction)
             self.__syncAxis.triggerIf(not inTransaction)
         elif eventType == plot_model.ChangeEventType.VALUE_CHANNEL:
+            self.__sanitizeItem(item)
             self.__updateItem(item)
 
     def __scatterAxesUpdated(self):
@@ -378,6 +382,7 @@ class ScatterPlotWidget(plot_helper.PlotWidget):
             if self.__scan.state() != scan_model.ScanState.INITIALIZED:
                 self.__updateTitle(self.__scan)
         self.scanModelUpdated.emit(scan)
+        self.__sanitizeItems()
         self.__redrawAll()
 
     def __scanStarted(self):
@@ -502,6 +507,69 @@ class ScatterPlotWidget(plot_helper.PlotWidget):
         if ymeta.axisKind != scan_model.AxisKind.FORTH:
             return False
         return set([xmeta.axisId, ymeta.axisId]) == set([0, 1])
+
+    def __sanitizeItems(self):
+        scan = self.__scan
+        if scan is None:
+            return
+        plot = self.__plotModel
+        if plot is None:
+            return
+        for item in plot.items():
+            if isinstance(item, plot_item_model.ScatterItem):
+                self.__sanitizeItem(item)
+
+    def __sanitizeItem(self, item: plot_item_model.ScatterItem):
+        if not item.isValid():
+            return
+        if not isinstance(item, plot_item_model.ScatterItem):
+            return
+
+        xChannelRef = item.xChannel()
+        yChannelRef = item.yChannel()
+        if xChannelRef is None or yChannelRef is None:
+            return
+
+        scan = self.__scan
+        assert scan is not None
+        xChannel = xChannelRef.channel(scan)
+        yChannel = yChannelRef.channel(scan)
+        if xChannel is None or yChannel is None:
+            return
+
+        if xChannel.metadata().group != yChannel.metadata().group:
+            # FIXME: This should be cached... Try to display data not from the same group
+            return
+
+        scatterData = scan.getScatterDataByChannel(xChannel)
+        if scatterData is None:
+            # FIXME: This should be cached... Try to display data not from the same group
+            return
+
+        if scatterData.maxDim() <= 2:
+            # Nothing to do
+            return
+
+        # Now we have to find groupBy
+        xId = scatterData.channelAxis(xChannel)
+        yId = scatterData.channelAxis(yChannel)
+        if xId == yId:
+            # FIXME: This should not be displayed anyway
+            _logger.warning("ndim scatter using same axis dim for the 2 axis")
+            return
+
+        # Try to find channels to group together other dimensions
+        axisIds = list(range(scatterData.maxDim()))
+        axisIds.remove(xId)
+        axisIds.remove(yId)
+        groupBys = [scatterData.findGroupableAt(i) for i in axisIds]
+        if None in groupBys:
+            # FIXME: Should not be displayed
+            _logger.warning("ndim scatter can't be grouped to 2d scatter")
+            return
+
+        groupByRefs = [plot_model.ChannelRef(item, c.name()) for c in groupBys]
+        item.setGroupByChannels(groupByRefs)
 
     def __updateItem(self, item: plot_model.Item):
         if self.__plotModel is None:

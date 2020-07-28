@@ -249,7 +249,7 @@ create_user_doc:
     # This ensures we are able to produce an up-to-date documentation even if the tests are failing on master.
     - if: '$CI_PIPELINE_SOURCE == "web" && $CI_COMMIT_BRANCH == "master"'
       when: always
-    # otherwise run this job if previous one is a success (default behavior)
+    # otherwise run this job if all previous ones are a success (default behavior)
     - when: on_success
 
 .template_test_package:
@@ -321,9 +321,14 @@ pages:
     paths:
       - public
     expire_in: 7 days
-  only:
-    - tags
-    - master
+  rules:
+    # Always deploy user documentation for pipelines created by using "Run pipeline" button in the GitLab UI, from the project’s CI/CD > Pipelines section.
+    # This ensures we are able to produce an up-to-date documentation even if the tests are failing on master.
+    - if: '$CI_PIPELINE_SOURCE == "web" && $CI_COMMIT_BRANCH == "master"'
+      when: always
+    # otherwise run this job if all previous ones are a success (default behavior), but only for tags and master
+    - if: '$CI_COMMIT_TAG || $CI_COMMIT_BRANCH == "master"'
+      when: on_success
 
 deploy_bliss:
   stage: deploy

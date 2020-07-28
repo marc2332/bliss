@@ -649,8 +649,6 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
         items = display_extra.get("displayed_channels", None)
         if items is None:
             items = display_extra.get("plotselect", None)
-        if items is None:
-            items = []
         if items:
             return {"plotselect": {"items": items, "grid": True}}
         else:

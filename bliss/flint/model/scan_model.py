@@ -464,11 +464,18 @@ class ChannelType(enum.Enum):
 
 
 class AxisKind(enum.Enum):
-    FAST = "fast"
-    FAST_BACKNFORTH = "fast-backnforth"
-    SLOW = "slow"
-    SLOW_BACKNFORTH = "slow-backnforth"
+    FORTH = "forth"
+    BACKNFORTH = "backnforth"
     STEP = "step"
+
+    # Deprecated code from user scripts from BLISS 1.4
+    FAST = "fast"
+    # Deprecated code from user scripts from BLISS 1.4
+    FAST_BACKNFORTH = "fast-backnforth"
+    # Deprecated code from user scripts from BLISS 1.4
+    SLOW = "slow"
+    # Deprecated code from user scripts from BLISS 1.4
+    SLOW_BACKNFORTH = "slow-backnforth"
 
 
 class ChannelMetadata(NamedTuple):
@@ -477,6 +484,7 @@ class ChannelMetadata(NamedTuple):
     min: Optional[float]
     max: Optional[float]
     points: Optional[int]
+    axisId: Optional[int]
     axisPoints: Optional[int]
     axisKind: Optional[AxisKind]
     group: Optional[str]

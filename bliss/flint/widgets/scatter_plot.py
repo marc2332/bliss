@@ -477,15 +477,9 @@ class ScatterPlotWidget(plot_helper.PlotWidget):
             )
 
         if xmeta.axisKind is not None and ymeta.axisKind is not None:
-            if (
-                xmeta.axisKind == scan_model.AxisKind.FAST
-                or ymeta.axisKind == scan_model.AxisKind.SLOW
-            ):
+            if xmeta.axisId < ymeta.axisId:
                 order = "row"
-            if (
-                xmeta.axisKind == scan_model.AxisKind.SLOW
-                or ymeta.axisKind == scan_model.AxisKind.FAST
-            ):
+            elif xmeta.axisId > ymeta.axisId:
                 order = "column"
 
             scatter.setVisualizationParameter(
@@ -503,9 +497,11 @@ class ScatterPlotWidget(plot_helper.PlotWidget):
         ymeta = yChannel.metadata()
         if xmeta is None or ymeta is None:
             return False
-        return set([xmeta.axisKind, ymeta.axisKind]) == set(
-            [scan_model.AxisKind.FAST, scan_model.AxisKind.SLOW]
-        )
+        if xmeta.axisKind != scan_model.AxisKind.FORTH:
+            return False
+        if ymeta.axisKind != scan_model.AxisKind.FORTH:
+            return False
+        return set([xmeta.axisId, ymeta.axisId]) == set([0, 1])
 
     def __updateItem(self, item: plot_model.Item):
         if self.__plotModel is None:

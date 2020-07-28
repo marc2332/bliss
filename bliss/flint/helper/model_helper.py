@@ -556,7 +556,7 @@ def getFastChannel(
     for channel in [channel1, channel2]:
         m = channel.metadata()
         if m is not None:
-            if m.axisKind == scan_model.AxisKind.FAST:
+            if m.axisId == 0:
                 return channel
     return None
 

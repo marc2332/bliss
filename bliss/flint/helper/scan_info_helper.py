@@ -293,13 +293,37 @@ def parse_channel_metadata(meta: Dict) -> scan_model.ChannelMetadata:
     axisPoints = _pop_and_convert(meta, "axis-points", int)
     guessAxisPoints = _pop_and_convert(meta, "guess-axis-points", int)
     axisKind = _pop_and_convert(meta, "axis-kind", scan_model.AxisKind)
+    axisId = _pop_and_convert(meta, "axis-id", int)
     group = _pop_and_convert(meta, "group", str)
+
+    # Compatibility code with existing user scripts written for BLISS 1.4
+    mapping = {
+        scan_model.AxisKind.FAST: (0, scan_model.AxisKind.FORTH),
+        scan_model.AxisKind.FAST_BACKNFORTH: (0, scan_model.AxisKind.BACKNFORTH),
+        scan_model.AxisKind.SLOW: (1, scan_model.AxisKind.FORTH),
+        scan_model.AxisKind.SLOW_BACKNFORTH: (1, scan_model.AxisKind.BACKNFORTH),
+    }
+    if axisKind in mapping:
+        if axisId is not None:
+            _logger.warning(
+                "Both axis-id and axis-kind with flat/slow is used. axis-id will be ignored"
+            )
+        axisId, axisKind = mapping[axisKind]
 
     for key in meta.keys():
         _logger.warning("Metadata key %s is unknown. Field ignored.", key)
 
     return scan_model.ChannelMetadata(
-        start, stop, vmin, vmax, points, axisPoints, axisKind, group, guessAxisPoints
+        start,
+        stop,
+        vmin,
+        vmax,
+        points,
+        axisId,
+        axisPoints,
+        axisKind,
+        group,
+        guessAxisPoints,
     )
 
 

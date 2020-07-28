@@ -301,7 +301,7 @@ def test_progress_percent_image():
     assert res == 1.0
 
 
-def test_parse_channel_metadata():
+def test_parse_channel_metadata__bliss_1_4():
     meta = {
         "start": 1,
         "stop": 2,
@@ -313,7 +313,25 @@ def test_parse_channel_metadata():
     }
     result = scan_info_helper.parse_channel_metadata(meta)
     expected = scan_model.ChannelMetadata(
-        1, 2, 3, 4, 5, 6, scan_model.AxisKind.SLOW, None, None
+        1, 2, 3, 4, 5, 1, 6, scan_model.AxisKind.FORTH, None, None
+    )
+    assert result == expected
+
+
+def test_parse_channel_metadata():
+    meta = {
+        "start": 1,
+        "stop": 2,
+        "min": 3,
+        "max": 4,
+        "points": 5,
+        "axis-id": 0,
+        "axis-points": 6,
+        "axis-kind": "backnforth",
+    }
+    result = scan_info_helper.parse_channel_metadata(meta)
+    expected = scan_model.ChannelMetadata(
+        1, 2, 3, 4, 5, 0, 6, scan_model.AxisKind.BACKNFORTH, None, None
     )
     assert result == expected
 
@@ -330,7 +348,7 @@ def test_parse_wrong_values():
         "foo": "bar",
     }
     result = scan_info_helper.parse_channel_metadata(meta)
-    expected = scan_model.ChannelMetadata(1, 2, 3, None, 5, 6, None, None, None)
+    expected = scan_model.ChannelMetadata(1, 2, 3, None, 5, None, 6, None, None, None)
     assert result == expected
 
 

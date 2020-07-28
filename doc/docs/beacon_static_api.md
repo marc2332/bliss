@@ -81,4 +81,37 @@ bidule:
 ```
 
 
+# Export temporary some objects.
 
+Sometime you need to get some device during a certain time and doesn't
+expose them as global in a session.
+This is possible by using `session.temporary_config` as follow:
+
+```
+from bliss import current_session
+BLISS [2]: def display_motor_position(*axis_names): 
+      ...:     with current_session.temporary_config() as cfg: 
+      ...:         axes = list() 
+      ...:         for name in axis_names: 
+      ...:             axes.append(cfg.get(name)) 
+      ...:         wm(*axes)
+BLISS [3]: display_motor_position('roby','robz')
+
+             roby          robz[mm]
+--------  -------  ----------------
+User
+ High         inf  1000000000.00000
+ Current  2.00000           1.00000
+ Low         -inf       -1000.00000
+Offset    0.00000           0.00000
+
+Dial
+ High         inf  1000000000.00000
+ Current  2.00000           1.00000
+ Low         -inf       -1000.00000
+BLISS [4]: wa()
+Current Positions: user
+                   dial
+
+
+```

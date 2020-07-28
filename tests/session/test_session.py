@@ -12,7 +12,7 @@ import textwrap
 from bliss import current_session
 from bliss.shell.cli import repl
 from bliss import setup_globals
-from bliss.common import scans
+from bliss.common import scans, session
 from treelib import Tree
 from prompt_toolkit.input.defaults import create_pipe_input
 from prompt_toolkit.output import DummyOutput
@@ -370,3 +370,20 @@ def test_failing_session_globals(failing_session):
     )
     assert "SCANS" in failing_session.env_dict
     assert "SCAN_SAVING" in failing_session.env_dict
+
+
+def test_temp_export_axes(beacon):
+    default_session = session.DefaultSession()
+    env = dict()
+    default_session.setup(env_dict=env)
+
+    def check_axes(*axis_names):
+        axes = list()
+        with default_session.temporary_config as cfg:
+            for name in axis_names:
+                axes.append(cfg.get(name))
+            # check that env dict contains axes
+            assert set(axis_names).intersection(env) == set(axis_names)
+        assert set(axis_names).intersection(env) == set()
+
+    check_axes("roby", "robz")

@@ -80,7 +80,7 @@ def _merge_master_keys(values: Dict, key: str):
 
 
 def iter_channels(scan_info: Dict[str, Any]):
-    acquisition_chain = scan_info["acquisition_chain"]
+    acquisition_chain = scan_info.get("acquisition_chain", {})
 
     def get_device_from_channel_name(channel_name):
         """Returns the device name from the channel name, else None"""
@@ -239,6 +239,8 @@ def create_scan_model(scan_info: Dict, is_group: bool = False) -> scan_model.Sca
 def read_units(scan_info: Dict) -> Dict[str, str]:
     """Merge all units together"""
     units: Dict[str, str] = {}
+    if "acquisition_chain" not in scan_info:
+        return units
     for _master, channel_dict in scan_info["acquisition_chain"].items():
         u = channel_dict.get("scalars_units", {})
         units.update(u)
@@ -250,6 +252,8 @@ def read_units(scan_info: Dict) -> Dict[str, str]:
 def read_display_names(scan_info: Dict) -> Dict[str, str]:
     """Merge all display names together"""
     display_names: Dict[str, str] = {}
+    if "acquisition_chain" not in scan_info:
+        return display_names
     for _master, channel_dict in scan_info["acquisition_chain"].items():
         u = channel_dict.get("display_names", {})
         display_names.update(u)

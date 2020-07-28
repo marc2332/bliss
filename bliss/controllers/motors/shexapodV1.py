@@ -6,7 +6,6 @@ from collections import namedtuple
 from tabulate import tabulate
 
 from bliss.controllers.motors.shexapod import (
-    ROLES,
     Pose,
     BaseHexapodError,
     BaseHexapodProtocol,

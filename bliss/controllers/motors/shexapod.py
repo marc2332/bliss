@@ -14,9 +14,11 @@ YAML_ configuration example:
 
     plugin: emotion
     class: SHexapod
-    version: 2          # (1)
+    version: 2                           # (1)
     tcp:
       url: id99hexa1
+    user_origin: 0 0 328.83 0 0 0        # (2)
+    object_origin: 0 0 328.83 0 0 0
     axes:
       - name: h1tx
         role: tx
@@ -40,24 +42,32 @@ YAML_ configuration example:
 1. API version: valid values: 1 or 2 (optional. If no version is given, it
    tries to discover the API version). Authors recommend to put the version
    whenever possible.
+
+2. User/objects origins are optional, they are set at startup
 """
 
-import re
-from collections import namedtuple
-
-import numpy
 import gevent.lock
-from tabulate import tabulate
+
+from collections import namedtuple
+from math import pi
 
 from bliss.comm.util import get_comm, TCP
 from bliss.comm.tcp import SocketTimeout
 from bliss.common.axis import AxisState
 from bliss.controllers.motor import Controller
-from bliss.common.logtools import *
 from bliss import global_map
 
 ROLES = "tx", "ty", "tz", "rx", "ry", "rz"
 Pose = namedtuple("Pose", ROLES)
+
+# Symetrie hexapods work only with mm and deg, but mrad and microns are more useful units
+CUNIT_TO_UNIT = {
+    "mrad": pi / 180.0 * 1000,
+    "rad": pi / 180.0,
+    "micron": 1 / 1000.0,
+    "mm": 1,
+    "deg": 1,
+}
 
 
 class BaseHexapodProtocol:
@@ -203,6 +213,48 @@ class BaseHexapodError(Exception):
 class SHexapod(Controller):
     """Symetrie hexapod controller"""
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        try:
+            user_origin = self.config.get("user_origin").split()
+            object_origin = self.config.get("object_origin").split()
+            self.set_origin(user_origin, object_origin)
+        except KeyError:
+            pass
+
+    def set_origin(self, user_origin, object_origin):
+        if (len(user_origin) + len(object_origin)) != 12:
+            raise ValueError(
+                "Wrong parameter number: need 12 values to define user and object origin"
+            )
+
+        try:
+            cmd = (
+                "Q80=%f Q81=%f Q82=%f Q83=%f Q84=%f Q85=%f \
+Q86=%f Q87=%f Q88=%f Q89=%f Q90=%f Q91=%f Q20=21"
+                % (
+                    float(user_origin[0]),
+                    float(user_origin[1]),
+                    float(user_origin[2]),
+                    float(user_origin[3]),
+                    float(user_origin[4]),
+                    float(user_origin[5]),
+                    float(object_origin[0]),
+                    float(object_origin[1]),
+                    float(object_origin[2]),
+                    float(object_origin[3]),
+                    float(object_origin[4]),
+                    float(object_origin[5]),
+                )
+            )
+        except ValueError:
+            raise TypeError("Need float values to define user and object origin")
+
+        self.protocol().pmac(cmd)
+
+    def __info__(self):
+        return self.get_info(None)
+
     def protocol(self):
         if hasattr(self, "_protocol"):
             return self._protocol
@@ -283,7 +335,10 @@ class SHexapod(Controller):
     def __get_hw_set_positions(self):
         return dict(
             (
-                (self.__get_axis_role(axis), self.__get_hw_set_position(axis))
+                (
+                    self.__get_axis_role(axis),
+                    self.__get_hw_set_position(axis) * CUNIT_TO_UNIT[axis.unit],
+                )
                 for axis in self.axes.values()
             )
         )
@@ -297,7 +352,10 @@ class SHexapod(Controller):
         pose_dict.update(
             dict(
                 (
-                    (self.__get_axis_role(motion.axis), motion.target_pos)
+                    (
+                        self.__get_axis_role(motion.axis),
+                        motion.target_pos / CUNIT_TO_UNIT[motion.axis.unit],
+                    )
                     for motion in motion_list
                 )
             )
@@ -328,7 +386,9 @@ class SHexapod(Controller):
         return self.protocol().dump()
 
     def read_position(self, axis):
-        return getattr(self.protocol().object_pose, self.__get_axis_role(axis))
+        return CUNIT_TO_UNIT[axis.unit] * getattr(
+            self.protocol().object_pose, self.__get_axis_role(axis)
+        )
 
     def set_position(self, axis, new_position):
         raise NotImplementedError
@@ -354,10 +414,16 @@ class SHexapod(Controller):
         else:
             return self.protocol().racceleration
 
+    #    def set_acceleration(self, axis, new_acc):
+    #        raise NotImplementedError
 
-#    def set_acceleration(self, axis, new_acc):
-#        raise NotImplementedError
+    def make_ref(self):
+        self.protocol().start_homing()  # async or not?
+
+    def reset(self):
+        self.protocol().reset()
 
 
+# at end of file to avoid circular import
 from bliss.controllers.motors.shexapodV1 import HexapodProtocolV1
 from bliss.controllers.motors.shexapodV2 import HexapodProtocolV2

@@ -312,9 +312,10 @@ def test_parse_channel_metadata():
         "axis-kind": "slow",
     }
     result = scan_info_helper.parse_channel_metadata(meta)
-    assert result == scan_model.ChannelMetadata(
-        1, 2, 3, 4, 5, 6, scan_model.AxisKind.SLOW
+    expected = scan_model.ChannelMetadata(
+        1, 2, 3, 4, 5, 6, scan_model.AxisKind.SLOW, None
     )
+    assert result == expected
 
 
 def test_parse_wrong_values():
@@ -329,7 +330,8 @@ def test_parse_wrong_values():
         "foo": "bar",
     }
     result = scan_info_helper.parse_channel_metadata(meta)
-    assert result == scan_model.ChannelMetadata(1, 2, 3, None, 5, 6, None)
+    expected = scan_model.ChannelMetadata(1, 2, 3, None, 5, 6, None, None)
+    assert result == expected
 
 
 def test_get_all_positioners():
@@ -344,3 +346,58 @@ def test_get_all_positioners():
     assert positioners[2] == scan_info_helper.PositionerDescription(
         "slit_foo", None, None, None, None, None
     )
+
+
+def test_read_plot_models__empty_scatter():
+    scan_info = {"plots": [{"name": "plot", "kind": "scatter-plot"}]}
+    plots = scan_info_helper.read_plot_models(scan_info)
+    assert len(plots) == 1
+
+
+def test_read_plot_models__empty_scatters():
+    scan_info = {
+        "plots": [
+            {"name": "plot", "kind": "scatter-plot"},
+            {"name": "plot", "kind": "scatter-plot"},
+        ]
+    }
+    plots = scan_info_helper.read_plot_models(scan_info)
+    assert len(plots) == 2
+
+
+def test_read_plot_models__scatter():
+    scan_info = {
+        "plots": [
+            {
+                "name": "plot",
+                "kind": "scatter-plot",
+                "items": [{"kind": "scatter", "x": "a", "y": "b", "value": "c"}],
+            }
+        ]
+    }
+    plots = scan_info_helper.read_plot_models(scan_info)
+    assert len(plots) == 1
+    assert len(plots[0].items()) == 1
+    item = plots[0].items()[0]
+    assert item.xChannel().name() == "a"
+    assert item.yChannel().name() == "b"
+    assert item.valueChannel().name() == "c"
+
+
+def test_read_plot_models__scatter_axis():
+    scan_info = {
+        "plots": [
+            {
+                "name": "plot",
+                "kind": "scatter-plot",
+                "items": [{"kind": "scatter", "x": "a", "y": "b"}],
+            }
+        ]
+    }
+    plots = scan_info_helper.read_plot_models(scan_info)
+    assert len(plots) == 1
+    assert len(plots[0].items()) == 1
+    item = plots[0].items()[0]
+    assert item.xChannel().name() == "a"
+    assert item.yChannel().name() == "b"
+    assert item.valueChannel() is None

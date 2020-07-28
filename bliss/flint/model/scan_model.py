@@ -26,6 +26,7 @@ from typing import NamedTuple
 import logging
 import numpy
 import enum
+import weakref
 
 from silx.gui import qt
 
@@ -66,6 +67,7 @@ class ScanDataUpdateEvent:
         scan: Scan,
         masterDevice: Optional[Device] = None,
         channel: Optional[Channel] = None,
+        channels: Optional[List[Channel]] = None,
     ):
         """Event emitted when data from a scan is updated.
 
@@ -79,8 +81,12 @@ class ScanDataUpdateEvent:
                 event).
             channel: The channel source of this event
         """
+        nb = sum([channel is not None, channels is not None, masterDevice is not None])
+        if nb > 1:
+            raise ValueError("Only a single attribute have to be set")
         self.__masterDevice = masterDevice
         self.__channel = channel
+        self.__channels = channels
         self.__scan = scan
         self.__channelNames: Optional[Set[str]] = None
 
@@ -102,14 +108,7 @@ class ScanDataUpdateEvent:
         updatedChannels = self.updatedChannelNames()
         return channelName in updatedChannels
 
-    def isEverythingUpdated(self) -> bool:
-        if self.__masterDevice is not None:
-            return False
-        if self.__channel is not None:
-            return False
-        return True
-
-    def iterUpdatedDevices(self):
+    def __iterUpdatedDevices(self):
         if self.__channel is not None:
             yield self.__channel.device()
             return
@@ -125,7 +124,11 @@ class ScanDataUpdateEvent:
         if self.__channel is not None:
             yield self.__channel
             return
-        for device in self.iterUpdatedDevices():
+        if self.__channels is not None:
+            for channel in self.__channels:
+                yield channel
+            return
+        for device in self.__iterUpdatedDevices():
             for channel in device.channels():
                 if channel.type() not in set([ChannelType.IMAGE, ChannelType.SPECTRUM]):
                     yield channel
@@ -181,6 +184,7 @@ class Scan(qt.QObject, _Sealable):
         self.__scanInfo = {}
         self.__finalScanInfo = None
         self.__state = ScanState.INITIALIZED
+        self.__group = None
 
     def _setState(self, state: ScanState):
         """Private method to set the state of the scan."""
@@ -197,6 +201,14 @@ class Scan(qt.QObject, _Sealable):
             self.__cacheChannels(device)
         super(Scan, self).seal()
 
+    def setGroup(self, group):
+        self.__group = weakref.ref(group)
+
+    def group(self):
+        if self.__group is None:
+            return None
+        return self.__group()
+
     def setScanInfo(self, scanInfo: Dict):
         if self.isSealed():
             raise SealedError()
@@ -205,6 +217,10 @@ class Scan(qt.QObject, _Sealable):
 
     def scanInfo(self) -> Dict:
         return self.__scanInfo
+
+    def type(self) -> Optional[str]:
+        """Returns the scan type stored in the scan info"""
+        return self.__scanInfo.get("type", None)
 
     def _setFinalScanInfo(self, scanInfo: Dict):
         self.__finalScanInfo = scanInfo
@@ -226,19 +242,26 @@ class Scan(qt.QObject, _Sealable):
         raise ValueError("Device %s not found." % name)
 
     def _fireScanDataUpdated(
-        self, channelName: str = None, masterDeviceName: str = None
+        self,
+        channelName: str = None,
+        masterDeviceName: str = None,
+        channels: List[Channel] = None,
     ):
         self.__cacheData = {}
         # FIXME: Only clean up object relative to the edited channels
         self.__cacheMessage = {}
 
-        if masterDeviceName is None and channelName is None:
+        if masterDeviceName is None and channelName is None and channels is None:
             # Propagate the event to all the channels of the this scan
             event = ScanDataUpdateEvent(self)
         elif masterDeviceName is not None:
             # Propagate the event to all the channels contained on this device (recursively)
             device = self.getDeviceByName(masterDeviceName)
             event = ScanDataUpdateEvent(self, masterDevice=device)
+        elif channels is not None:
+            # Propagate the event to many channels
+            channel = self.getChannelByName(channelName)
+            event = ScanDataUpdateEvent(self, channels=channels)
         elif channelName is not None:
             # Propagate the event to a single channel
             channel = self.getChannelByName(channelName)
@@ -308,6 +331,27 @@ class Scan(qt.QObject, _Sealable):
         if result[0] != version:
             raise KeyError("Version do not match")
         return result[1]
+
+
+class ScanGroup(Scan):
+    """Scan group object.
+
+    It can be a normal scan but can contains extra scans.
+    """
+
+    subScanAdded = qt.Signal(object)
+    """Emitted when a sub scan is added to this scan."""
+
+    def __init__(self, parent=None):
+        Scan.__init__(self, parent=parent)
+        self.__subScans = []
+
+    def addSubScan(self, scan: Scan):
+        self.__subScans.append(scan)
+        self.subScanAdded.emit(scan)
+
+    def subScans(self) -> List[Scan]:
+        return list(self.__subScans)
 
 
 class DeviceType(enum.Enum):
@@ -421,6 +465,7 @@ class ChannelType(enum.Enum):
 
 class AxisKind(enum.Enum):
     FAST = "fast"
+    FAST_BACKNFORTH = "fast-backnforth"
     SLOW = "slow"
 
 
@@ -432,6 +477,7 @@ class ChannelMetadata(NamedTuple):
     points: Optional[int]
     axisPoints: Optional[int]
     axisKind: Optional[AxisKind]
+    group: Optional[str]
 
 
 class Channel(qt.QObject, _Sealable):

@@ -9,6 +9,7 @@
 import sys
 import numpy
 import gevent
+import typing
 from bliss.common.counter import Counter
 from bliss.common.axis import Axis
 from bliss.data.nodes.scan import get_data_from_nodes
@@ -87,7 +88,13 @@ def watch_session_scans(
     scan_end_callback=None,
     ready_event=None,
     stop_handler=None,
+    watch_scan_group: bool = False,
 ):
+    """
+    Arguments:
+        watch_scan_group: If True the scan groups are also listed like any other
+            scans
+    """
     session_node = _get_or_create_node(session_name, node_type="session")
 
     if session_node is None:
@@ -118,13 +125,19 @@ def watch_session_scans(
                     scan_dictionnary["info"] = scan_info
                     scan_new_callback(scan_info)
             elif node_type == "scan_group":
-                pass
+                if watch_scan_group:
+                    # New scan was created
+                    scan_dictionnary = running_scans.setdefault(db_name, dict())
+                    if not scan_dictionnary:
+                        scan_info = node.info.get_all()
+                        scan_dictionnary["info"] = scan_info
+                        scan_new_callback(scan_info)
             else:
                 scan_info, scan_db_name = _get_scan_info(db_name)
                 if scan_info:  # scan_found
                     try:
                         scan_new_child_callback(scan_info, node)
-                    except:
+                    except Exception:
                         sys.excepthook(*sys.exc_info())
         elif event_type == event_type.NEW_DATA:
             index, data, description = (
@@ -162,14 +175,14 @@ def watch_session_scans(
                                         master,
                                         {"data": nodes_data, "scan_info": scan_info},
                                     )
-                                except:
+                                except Exception:
                                     sys.excepthook(*sys.exc_info())
                         continue
                 elif node.type == "lima":
                     dim = 2
 
                 for master, channels in scan_info["acquisition_chain"].items():
-                    other_names = []
+                    other_names: typing.List[str] = []
                     other_names += channels.get("spectra", [])
                     other_names += channels.get("images", [])
                     other_names += channels.get("master", {}).get("images", [])
@@ -188,12 +201,12 @@ def watch_session_scans(
                                     "scan_info": scan_info,
                                 },
                             )
-                        except:
+                        except Exception:
                             sys.excepthook(*sys.exc_info())
 
         elif event_type == event_type.END_SCAN:
             node_type = node.type
-            if node_type == "scan":
+            if watch_scan_group or node_type == "scan":
                 db_name = node.db_name
                 scan_dict = running_scans.pop(db_name)
                 if scan_dict:
@@ -201,7 +214,7 @@ def watch_session_scans(
                     if scan_end_callback:
                         try:
                             scan_end_callback(scan_info)
-                        except:
+                        except Exception:
                             sys.excepthook(*sys.exc_info())
 
         gevent.idle()

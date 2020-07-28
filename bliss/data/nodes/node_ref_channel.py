@@ -11,9 +11,9 @@ from bliss.data.events import EventData
 
 class NodeRefChannel(ChannelDataNode):
     """
-    A data node that stores references to other DataNodes. It is intened to be used to
-    keep references e.g. of individual scans to group them together as one group or sequence 
-    of scans.
+    A data node that stores references to other DataNodes. It is intended to be
+    used to keep references e.g. of individual scans to group them together as
+    one group or sequence of scans.
     """
 
     _NODE_TYPE = "node_ref_channel"

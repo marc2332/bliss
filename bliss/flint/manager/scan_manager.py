@@ -28,6 +28,7 @@ from typing import Optional
 from typing import Dict
 from typing import Tuple
 from typing import List
+from typing import Any
 
 import logging
 import numpy
@@ -43,6 +44,8 @@ from .data_storage import DataStorage
 from bliss.flint.helper import scan_info_helper
 from bliss.flint.model import flint_model
 from bliss.flint.model import scan_model
+from bliss.data.nodes.lima import LimaImageChannelDataNode
+from bliss.data.node import get_node
 
 
 _logger = logging.getLogger(__name__)
@@ -64,7 +67,16 @@ class _ScanCache:
         """Store metadata relative to lima video"""
         self.data_storage = DataStorage()
         """"Store 0d grouped by masters"""
-        self.__image_views = {}
+        self.__image_views: Dict[str, LimaImageChannelDataNode.LimaDataView] = {}
+        """Store lima node per channel name"""
+        self.__ignored_channels: Set[str] = set([])
+        """Store a set of channels"""
+
+    def ignore_channel(self, channel_name: str):
+        self.__ignored_channels.add(channel_name)
+
+    def is_ignored(self, channel_name: str):
+        return channel_name in self.__ignored_channels
 
     def store_last_image_view(self, channel_name, image_view):
         self.__image_views[channel_name] = image_view
@@ -106,7 +118,7 @@ class ScanManager:
         self.__cache: Dict[str, _ScanCache] = {}
 
         self._last_event: Dict[
-            Tuple[str, Optional[str]], Tuple[str, numpy.ndarray]
+            Tuple[str, Optional[str]], Tuple[Dict[str, Any], str, numpy.ndarray]
         ] = dict()
 
         self._end_scan_event = gevent.event.Event()
@@ -151,6 +163,7 @@ class ScanManager:
             self.new_scan_data,
             self.end_scan,
             ready_event=ready_event,
+            watch_scan_group=True,
         )
 
         def exception_orrured(future_exception):
@@ -197,16 +210,44 @@ class ScanManager:
             _logger.debug("new_scan from %s ignored", unique)
             return
 
+        node_name = scan_info.get("node_name", None)
+        if node_name is not None:
+            if self.__absorb_events:
+                node = get_node(node_name)
+                is_group = node is not None and node.type == "scan_group"
+            else:
+                # FIXME: absorb_events is used here for testability
+                # it should be done in a better way
+                is_group = False
+        else:
+            is_group = False
+
         self._end_scan_event.clear()
 
         # Initialize cache structure
-        scan = scan_info_helper.create_scan_model(scan_info)
+        scan = scan_info_helper.create_scan_model(scan_info, is_group)
         cache = _ScanCache(unique, scan)
 
+        group_name = scan_info.get("group", None)
+        if group_name is not None:
+            group = self.__get_scan_cache(group_name)
+            if group is not None:
+                scan.setGroup(group.scan)
+                group.scan.addSubScan(scan)
+
+        # Initialize the storage for the channel data
         channels = scan_info_helper.iter_channels(scan_info)
-        for channel in channels:
-            if channel.kind == "scalar":
-                cache.data_storage.create_channel(channel.name, channel.master)
+        for channel_info in channels:
+            if channel_info.kind == "scalar":
+                group_name = None
+                channel = scan.getChannelByName(channel_info.name)
+                if channel is not None:
+                    channel_meta = channel.metadata()
+                    if channel_meta is not None and channel_meta.group is not None:
+                        group_name = channel_meta.group
+                if group_name is None:
+                    group_name = "top:" + channel_info.master
+                cache.data_storage.create_channel(channel_info.name, group_name)
 
         if self.__flintModel is not None:
             self.__flintModel.addAliveScan(scan)
@@ -360,6 +401,8 @@ class ScanManager:
     def __new_scan_data(self, scan_info, data_type, master_name, data):
         scan_id = self.__get_scan_id(scan_info)
         cache = self.__get_scan_cache(scan_id)
+        if cache is None:
+            return
 
         if data_type == "0d":
             channels_data = data["data"]
@@ -408,14 +451,19 @@ class ScanManager:
     ):
         now = time.time()
         scan = cache.scan
+
+        if cache.is_ignored(channel_name):
+            return
+
         if cache.data_storage.has_channel(channel_name):
             group_name = cache.data_storage.get_group(channel_name)
             oldSize = cache.data_storage.get_available_data_size(group_name)
             cache.data_storage.set_data(channel_name, raw_data)
             newSize = cache.data_storage.get_available_data_size(group_name)
             if newSize > oldSize:
-                channels = cache.data_storage.get_channels_by_group(group_name)
-                for channel_name in channels:
+                channel_names = cache.data_storage.get_channels_by_group(group_name)
+                channels = []
+                for channel_name in channel_names:
                     channel = scan.getChannelByName(channel_name)
                     array = cache.data_storage.get_data(channel_name)
                     # Create a view
@@ -423,16 +471,22 @@ class ScanManager:
                     # NOTE: No parent for the data, Python managing the life cycle of it (not Qt)
                     data = scan_model.Data(None, array, receivedTime=now)
                     channel.setData(data)
+                    channels.append(channel)
 
-                # The group name is the master device name
-                master_name = group_name
-                # FIXME: Should be fired by the Scan object (but here we have more informations)
-                scan._fireScanDataUpdated(masterDeviceName=master_name)
+                # The group name can be the master device name
+                if group_name.startswith("top:"):
+                    master_name = group_name[4:]
+                    # FIXME: Should be fired by the Scan object (but here we have more informations)
+                    scan._fireScanDataUpdated(masterDeviceName=master_name)
+                else:
+                    # FIXME: Should be fired by the Scan object (but here we have more informations)
+                    scan._fireScanDataUpdated(channels=channels)
         else:
             # Everything which do not except synchronization (images and MCAs)
             channel = scan.getChannelByName(channel_name)
             if channel is None:
-                _logger.error("Channel '%s' not provided", channel_name)
+                cache.ignore_channel(channel_name)
+                _logger.error("Channel '%s' not described in scan_info", channel_name)
             else:
                 # NOTE: No parent for the data, Python managing the life cycle of it (not Qt)
                 data = scan_model.Data(
@@ -452,6 +506,8 @@ class ScanManager:
             return
 
         cache = self.__get_scan_cache(scan_id)
+        if cache is None:
+            return
         try:
             self._end_scan(cache)
         finally:
@@ -527,9 +583,17 @@ class ScanManager:
 
         if len(updated_masters) > 0:
             # FIXME: Should be fired by the Scan object (but here we have more informations)
-            for master_name in updated_masters:
-                # FIXME: This could be a single event
-                scan._fireScanDataUpdated(masterDeviceName=master_name)
+            for group_name in updated_masters:
+                if group_name.startswith("top:"):
+                    master_name = group_name[4:]
+                    scan._fireScanDataUpdated(masterDeviceName=master_name)
+                else:
+                    channels = []
+                    channel_names = cache.data_storage.get_channels_by_group(group_name)
+                    for channel_name in channel_names:
+                        channel = scan.getChannelByName(channel_name)
+                        channels.append(channel)
+                    scan._fireScanDataUpdated(channels=channels)
 
     def wait_end_of_scans(self):
         self._end_scan_event.wait()

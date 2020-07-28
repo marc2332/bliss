@@ -51,6 +51,7 @@ from bliss.scanning.scan import Scan, StepScanDataWatch, ScanDisplay
 from bliss.scanning.acquisition.motor import VariableStepTriggerMaster
 from bliss.scanning.acquisition.motor import MeshStepTriggerMaster
 from bliss.controllers.motor import CalcController
+from .scan_info import ScanInfoFactory
 from bliss.common.types import (
     _int,
     _float,
@@ -329,22 +330,23 @@ def amesh(
         }
     )
 
-    requests = {}
-    requests[f"axis:{motor1.name}"] = {
-        "start": start1,
-        "stop": stop1,
-        "points": npoints1 * npoints2,
-        "axis-points": npoints1,
-        "axis-kind": "fast",
-    }
-    requests[f"axis:{motor2.name}"] = {
-        "start": start2,
-        "stop": stop2,
-        "points": npoints1 * npoints2,
-        "axis-points": npoints2,
-        "axis-kind": "slow",
-    }
-    scan_info["requests"] = requests
+    factory = ScanInfoFactory(scan_info)
+    factory.set_channel_meta(
+        f"axis:{motor1.name}",
+        start=start1,
+        stop=stop1,
+        points=npoints1 * npoints2,
+        axis_points=npoints1,
+        axis_kind="fast-backnforth" if backnforth else "fast",
+    )
+    factory.set_channel_meta(
+        f"axis:{motor2.name}",
+        start=start2,
+        stop=stop2,
+        points=npoints1 * npoints2,
+        axis_points=npoints2,
+        axis_kind="slow",
+    )
 
     scan_params = {
         "type": scan_type,
@@ -714,15 +716,12 @@ def anscan(
     scan_info["start"] = starts_list
     scan_info["stop"] = stops_list
 
-    requests = {}
+    factory = ScanInfoFactory(scan_info)
     for motor, start, stop in motor_tuple_list:
         d = motor.position if scan_type == "dscan" else 0
-        requests[f"axis:{motor.name}"] = {
-            "start": start + d,
-            "stop": stop + d,
-            "points": npoints,
-        }
-    scan_info["requests"] = requests
+        factory.set_channel_meta(
+            f"axis:{motor.name}", start=start + d, stop=stop + d, points=npoints
+        )
 
     _update_with_scan_display_meta(scan_info)
 

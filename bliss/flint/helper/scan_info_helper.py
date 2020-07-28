@@ -88,6 +88,8 @@ def iter_channels(scan_info: Dict[str, Any]):
             return channel_name.rsplit(":", 1)[0]
         return None
 
+    channels = set([])
+
     for master_name, data in acquisition_chain.items():
         scalars = _merge_master_keys(data, "scalars")
         spectra = _merge_master_keys(data, "spectra")
@@ -97,20 +99,39 @@ def iter_channels(scan_info: Dict[str, Any]):
             device_name = get_device_from_channel_name(channel_name)
             channel = Channel(channel_name, "scalar", device_name, master_name)
             yield channel
+            channels.add(channel_name)
 
         for channel_name in spectra:
             device_name = get_device_from_channel_name(channel_name)
             channel = Channel(channel_name, "spectrum", device_name, master_name)
             yield channel
+            channels.add(channel_name)
 
         for channel_name in images:
             device_name = get_device_from_channel_name(channel_name)
             channel = Channel(channel_name, "image", device_name, master_name)
             yield channel
+            channels.add(channel_name)
+
+    requests = scan_info.get("requests", {})
+    if not isinstance(requests, dict):
+        _logger.warning("scan_info.requests is not a dict")
+        requests = {}
+
+    for channel_name in requests.keys():
+        if channel_name in channels:
+            continue
+        device_name = get_device_from_channel_name(channel_name)
+        # FIXME: For now, let say everything is scalar here
+        channel = Channel(channel_name, "scalar", device_name, "custom")
+        yield channel
 
 
-def create_scan_model(scan_info: Dict) -> scan_model.Scan:
-    scan = scan_model.Scan()
+def create_scan_model(scan_info: Dict, is_group: bool = False) -> scan_model.Scan:
+    if is_group:
+        scan = scan_model.ScanGroup()
+    else:
+        scan = scan_model.Scan()
     scan.setScanInfo(scan_info)
 
     devices: Dict[str, scan_model.Device] = {}
@@ -267,12 +288,13 @@ def parse_channel_metadata(meta: Dict) -> scan_model.ChannelMetadata:
     points = _pop_and_convert(meta, "points", int)
     axisPoints = _pop_and_convert(meta, "axis-points", int)
     axisKind = _pop_and_convert(meta, "axis-kind", scan_model.AxisKind)
+    group = _pop_and_convert(meta, "group", str)
 
     for key in meta.keys():
         _logger.warning("Metadata key %s is unknown. Field ignored.", key)
 
     return scan_model.ChannelMetadata(
-        start, stop, vmin, vmax, points, axisPoints, axisKind
+        start, stop, vmin, vmax, points, axisPoints, axisKind, group
     )
 
 
@@ -284,6 +306,102 @@ def get_device_from_channel(channel_name) -> str:
 def create_plot_model(
     scan_info: Dict, scan: Optional[scan_model.Scan] = None
 ) -> List[plot_model.Plot]:
+    """Create plot models from a scan_info.
+
+    Use the `plots` description or infer the plots from the `acquisition_chain`.
+    Finally update the selection using `_display_extra`.
+    """
+    if "plots" in scan_info:
+        result = read_plot_models(scan_info)
+    else:
+        result = infer_plot_models(scan_info)
+
+    display_extra = scan_info.get("_display_extra", None)
+    if display_extra is not None:
+        if scan is None:
+            scan = create_scan_model(scan_info)
+        displayed_channels = display_extra.get("displayed_channels", None)
+        # Sanitize
+        if displayed_channels is not None:
+            if not isinstance(displayed_channels, list):
+                _logger.warning(
+                    "_display_extra.displayed_channels is not a list: Key ignored"
+                )
+                displayed_channels = None
+            elif len([False for i in displayed_channels if not isinstance(i, str)]) > 0:
+                _logger.warning(
+                    "_display_extra.displayed_channels must only contains strings: Key ignored"
+                )
+                displayed_channels = None
+
+        if displayed_channels is not None:
+            for plot in result:
+                if isinstance(
+                    plot, (plot_item_model.CurvePlot, plot_item_model.ScatterPlot)
+                ):
+                    model_helper.updateDisplayedChannelNames(
+                        plot, scan, displayed_channels
+                    )
+    return result
+
+
+def read_plot_models(scan_info: Dict) -> List[plot_model.Plot]:
+    """Read description of plot models from a scan_info"""
+    result: List[plot_model.Plot] = []
+
+    plots = scan_info.get("plots", None)
+    if not isinstance(plots, list):
+        return []
+
+    for plot_description in plots:
+        if not isinstance(plot_description, dict):
+            _logger.warning("Plot description is not a dict. Skipped.")
+            continue
+
+        kind = plot_description.get("kind", None)
+        if kind != "scatter-plot":
+            _logger.warning("Kind %s unsupported. Skipped.", kind)
+            continue
+
+        plot = plot_item_model.ScatterPlot()
+
+        name = plot_description.get("name", None)
+        if name != None:
+            _logger.warning("'name' not yet supported. name '%s' ignored.", name)
+
+        items = plot_description.get("items", None)
+        if not isinstance(items, list):
+            _logger.warning("'items' not using the right type. List expected. Ignored.")
+            items = []
+
+        for item_description in items:
+            kind = item_description.get("kind", None)
+            if kind == "scatter":
+                item = plot_item_model.ScatterItem(plot)
+
+                xname = item_description.get("x", None)
+                if xname is not None:
+                    x_channel = plot_model.ChannelRef(plot, xname)
+                    item.setXChannel(x_channel)
+                yname = item_description.get("y", None)
+                if yname is not None:
+                    y_channel = plot_model.ChannelRef(plot, yname)
+                    item.setYChannel(y_channel)
+                valuename = item_description.get("value", None)
+                if valuename is not None:
+                    value_channel = plot_model.ChannelRef(plot, valuename)
+                    item.setValueChannel(value_channel)
+                plot.addItem(item)
+            else:
+                _logger.warning("Item 'kind' %s unsupported. Item ignored.", kind)
+        result.append(plot)
+
+    return result
+
+
+def infer_plot_models(scan_info: Dict) -> List[plot_model.Plot]:
+    """Infer description of plot models from a scan_info using
+    `acquisition_chain`."""
     result: List[plot_model.Plot] = []
 
     channel_units = read_units(scan_info)
@@ -292,7 +410,8 @@ def create_plot_model(
 
     have_scalar = False
     have_scatter = False
-    for _master, channels in scan_info["acquisition_chain"].items():
+    acquisition_chain = scan_info.get("acquisition_chain", None)
+    for _master, channels in acquisition_chain.items():
         scalars = channels.get("scalars", [])
         if len(scalars) > 0:
             have_scalar = True
@@ -306,7 +425,7 @@ def create_plot_model(
         if not have_scalar:
             default_plot = plot
 
-        for master_name, channels_dict in scan_info["acquisition_chain"].items():
+        for master_name, channels_dict in acquisition_chain.items():
             scalars = channels_dict.get("scalars", [])
             master_channels = channels_dict.get("master", {}).get("scalars", [])
 
@@ -397,7 +516,7 @@ def create_plot_model(
     # Scatter plot
 
     if have_scatter:
-        for _master, channels in scan_info["acquisition_chain"].items():
+        for _master, channels in acquisition_chain.items():
             plot = plot_item_model.ScatterPlot()
             if default_plot is None:
                 default_plot = plot
@@ -446,7 +565,7 @@ def create_plot_model(
 
     mca_plots_per_device: Dict[str, List[plot_model.Plot]] = {}
 
-    for _master, channels in scan_info["acquisition_chain"].items():
+    for _master, channels in acquisition_chain.items():
         spectra: List[str] = []
         spectra += channels.get("spectra", [])
         # merge master which are spectra
@@ -476,7 +595,7 @@ def create_plot_model(
 
     image_plots_per_device: Dict[str, List[plot_model.Plot]] = {}
 
-    for _master, channels in scan_info["acquisition_chain"].items():
+    for _master, channels in acquisition_chain.items():
         images: List[str] = []
         images += channels.get("images", [])
         # merge master which are image
@@ -508,33 +627,6 @@ def create_plot_model(
         # Move the default plot on top
         result.remove(default_plot)
         result.insert(0, default_plot)
-
-    display_extra = scan_info.get("_display_extra", None)
-    if display_extra is not None:
-        if scan is None:
-            scan = create_scan_model(scan_info)
-        displayed_channels = display_extra.get("displayed_channels", None)
-        # Sanitize
-        if displayed_channels is not None:
-            if not isinstance(displayed_channels, list):
-                _logger.warning(
-                    "_display_extra.displayed_channels is not a list: Key ignored"
-                )
-                displayed_channels = None
-            elif len([False for i in displayed_channels if not isinstance(i, str)]) > 0:
-                _logger.warning(
-                    "_display_extra.displayed_channels must only contains strings: Key ignored"
-                )
-                displayed_channels = None
-
-        if displayed_channels is not None:
-            for plot in result:
-                if isinstance(
-                    plot, (plot_item_model.CurvePlot, plot_item_model.ScatterPlot)
-                ):
-                    model_helper.updateDisplayedChannelNames(
-                        plot, scan, displayed_channels
-                    )
 
     return result
 

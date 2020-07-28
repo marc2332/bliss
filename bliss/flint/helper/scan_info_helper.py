@@ -219,6 +219,7 @@ def create_scan_model(scan_info: Dict, is_group: bool = False) -> scan_model.Sca
         if display_name is not None:
             channel.setDisplayName(display_name)
 
+    scatterDataDict: Dict[str, scan_model.ScatterData] = {}
     requests = scan_info.get("requests", None)
     if requests:
         for channel_name, metadata_dict in requests.items():
@@ -226,11 +227,24 @@ def create_scan_model(scan_info: Dict, is_group: bool = False) -> scan_model.Sca
             if channel is not None:
                 metadata = parse_channel_metadata(metadata_dict)
                 channel.setMetadata(metadata)
+                if metadata.group is not None:
+                    scatterData = scatterDataDict.get(metadata.group, None)
+                    if scatterData is None:
+                        scatterData = scan_model.ScatterData()
+                        scatterDataDict[metadata.group] = scatterData
+                    if (
+                        channel.metadata().axisKind is not None
+                        or channel.metadata().axisId is not None
+                    ):
+                        scatterData.addAxisChannel(channel, metadata.axisId)
             else:
                 _logger.warning(
                     "Channel %s is part of the request but not part of the acquisition chain. Info ingored",
                     channel_name,
                 )
+
+    for scatterData in scatterDataDict.values():
+        scan.addScatterData(scatterData)
 
     scan.seal()
     return scan

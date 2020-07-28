@@ -419,3 +419,41 @@ def test_read_plot_models__scatter_axis():
     assert item.xChannel().name() == "a"
     assert item.yChannel().name() == "b"
     assert item.valueChannel() is None
+
+
+def test_read_scatter_data__different_groups():
+    scan_info = {
+        "requests": {
+            "foo": {"group": "scatter1", "axis-id": 0},
+            "foo2": {"group": "scatter1", "axis-id": 1},
+            "bar": {"group": "scatter2", "axis-id": 0},
+        }
+    }
+    scan = scan_info_helper.create_scan_model(scan_info, False)
+    foo = scan.getChannelByName("foo")
+    scatterData = scan.getScatterDataByChannel(foo)
+    assert scatterData is not None
+    foo2 = scan.getChannelByName("foo2")
+    assert scatterData.contains(foo2)
+    bar = scan.getChannelByName("bar")
+    assert not scatterData.contains(bar)
+    assert scatterData.maxDim() == 2
+
+
+def test_read_scatter_data__twice_axis_at_same_place():
+    scan_info = {
+        "requests": {
+            "foo": {"group": "scatter1", "axis-id": 0},
+            "foo2": {"group": "scatter1", "axis-id": 0},
+            "bar": {"group": "scatter1", "axis-id": 1},
+        }
+    }
+    scan = scan_info_helper.create_scan_model(scan_info, False)
+    foo = scan.getChannelByName("foo")
+    scatterData = scan.getScatterDataByChannel(foo)
+    assert scatterData is not None
+    foo2 = scan.getChannelByName("foo2")
+    assert scatterData.contains(foo2)
+    bar = scan.getChannelByName("bar")
+    assert scatterData.contains(bar)
+    assert scatterData.maxDim() == 2

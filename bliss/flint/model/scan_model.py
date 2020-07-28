@@ -185,6 +185,7 @@ class Scan(qt.QObject, _Sealable):
         self.__finalScanInfo = None
         self.__state = ScanState.INITIALIZED
         self.__group = None
+        self.__scatterData: List[ScatterData] = []
 
     def _setState(self, state: ScanState):
         """Private method to set the state of the scan."""
@@ -199,6 +200,8 @@ class Scan(qt.QObject, _Sealable):
         for device in self.__devices:
             device.seal()
             self.__cacheChannels(device)
+        for scatterData in self.__scatterData:
+            scatterData.seal()
         super(Scan, self).seal()
 
     def setGroup(self, group):
@@ -284,6 +287,17 @@ class Scan(qt.QObject, _Sealable):
 
     def getChannelByName(self, name) -> Optional[Channel]:
         return self.__channels.get(name, None)
+
+    def addScatterData(self, scatterData: ScatterData):
+        if self.isSealed():
+            raise SealedError()
+        self.__scatterData.append(scatterData)
+
+    def getScatterDataByChannel(self, channel: Channel) -> Optional[ScatterData]:
+        for data in self.__scatterData:
+            if data.contains(channel):
+                return data
+        return None
 
     def hasCachedResult(self, obj: Any) -> bool:
         """True if the `obj` object have stored cache in this scan."""
@@ -489,6 +503,57 @@ class ChannelMetadata(NamedTuple):
     axisKind: Optional[AxisKind]
     group: Optional[str]
     guessAxisPoints: Optional[int]
+
+
+class ScatterData(_Sealable):
+    """Data structure of a scatter"""
+
+    def __init__(self):
+        super(ScatterData, self).__init__()
+        self.__channels: List[List[Channel]] = []
+        self.__noIndexes: List[Channel] = []
+        self.__contains: Set[Channel] = set([])
+
+    def maxDim(self):
+        return len(self.__channels)
+
+    def channelsAt(self, axisId: int) -> List[Channel]:
+        """Returns the list of channels stored at this axisId"""
+        return self.__channels[axisId]
+
+    def findGroupableAt(self, axisId: int) -> Optional[Channel]:
+        """Returns a channel which can be grouped at a specific axisId"""
+        for channel in self.channelsAt(axisId):
+            if channel.metadata().axisKind == AxisKind.STEP:
+                return channel
+        return None
+
+    def channelAxis(self, channel: Channel):
+        for i in range(len(self.__channels)):
+            if channel in self.__channels[i]:
+                return i
+        raise IndexError()
+
+    def addAxisChannel(self, channel: Channel, axisId: int):
+        """Add channel as an axis of the scatter"""
+        if self.isSealed():
+            raise SealedError()
+        if axisId is None:
+            self.__noIndexes.append(channel)
+        else:
+            while len(self.__channels) <= axisId:
+                self.__channels.append([])
+            self.__channels[axisId].append(channel)
+        self.__contains.add(channel)
+
+    def contains(self, channel: Channel) -> bool:
+        return channel in self.__contains
+
+    def seal(self):
+        for channel in self.__noIndexes:
+            self.__channels.append([channel])
+        del self.__noIndexes
+        super(ScatterData, self).seal()
 
 
 class Channel(qt.QObject, _Sealable):

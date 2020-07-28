@@ -390,7 +390,7 @@ class MocoMotor(Controller):
         state = self.moco.comm("?STATE")
         if state == "IDLE":
             return AxisState("READY")
-        elif state == "RUN":
+        elif state in ["RUN", "MOVE"]:
             return AxisState("MOVING")
 
         return AxisState("OFF")

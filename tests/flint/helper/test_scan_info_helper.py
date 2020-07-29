@@ -457,3 +457,49 @@ def test_read_scatter_data__twice_axis_at_same_place():
     bar = scan.getChannelByName("bar")
     assert scatterData.contains(bar)
     assert scatterData.maxDim() == 2
+
+
+def test_read_scatter_data__non_regular_3d():
+    scan_info = {
+        "requests": {
+            "axis1": {
+                "axis-id": 0,
+                "axis-points-hint": 10,
+                "group": "foo",
+                "max": 9,
+                "min": 0,
+                "points": 500,
+            },
+            "axis2": {
+                "axis-id": 1,
+                "axis-points-hint": 10,
+                "group": "foo",
+                "max": 9,
+                "min": 0,
+                "points": 500,
+            },
+            "diode1": {"axis-points-hint": None, "group": "foo"},
+            "frame": {
+                "axis-id": 2,
+                "axis-kind": "step",
+                "axis-points": 5,
+                "axis-points-hint": None,
+                "group": "foo",
+                "points": 500,
+                "start": 0,
+                "stop": 4,
+            },
+        }
+    }
+
+    scan = scan_info_helper.create_scan_model(scan_info, False)
+    axis1 = scan.getChannelByName("axis1")
+    scatterData = scan.getScatterDataByChannel(axis1)
+    assert scatterData is not None
+    axis2 = scan.getChannelByName("axis2")
+    assert scatterData.contains(axis2)
+    frame = scan.getChannelByName("frame")
+    assert scatterData.contains(frame)
+    diode1 = scan.getChannelByName("diode1")
+    assert not scatterData.contains(diode1)
+    assert scatterData.maxDim() == 3

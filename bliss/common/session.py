@@ -10,9 +10,11 @@ import sys
 import warnings
 import collections
 import functools
+import inspect
 
 from treelib import Tree
 from types import ModuleType
+from weakref import WeakKeyDictionary
 
 from bliss import setup_globals, global_map, is_bliss_shell
 from bliss.config import static
@@ -164,6 +166,7 @@ class Session:
         self.__log = None
         self.__scans = collections.deque(maxlen=20)
         self.__user_script_homedir = SimpleSetting("%s:user_script_homedir" % self.name)
+        self._script_source_cache = WeakKeyDictionary()
 
         self.init(config_tree)
 
@@ -382,6 +385,13 @@ class Session:
     def disable_esrf_data_policy(self):
         self._set_scan_saving()
 
+    def _cache_script_source(self, obj):
+        """ Store source code of obj in cache for prdef """
+        try:
+            self._script_source_cache[obj] = inspect.getsourcelines(obj)
+        except Exception:
+            pass
+
     def load_script(self, script_module_name, session=None):
         """
         load a script name script_module_name and export all public
@@ -427,6 +437,7 @@ class Session:
                     if k.startswith("_"):
                         continue
                     self.env_dict[k] = globals_dict[k]
+                    self._cache_script_source(globals_dict[k])
             finally:
                 sys.meta_path.remove(importer)
         else:
@@ -569,6 +580,7 @@ class Session:
                 if k.startswith("_"):
                     continue
                 safe_save_to_env_dict(self.env_dict, k, globals_dict[k])
+                self._cache_script_source(globals_dict[k])
 
         else:
             env_dict = dict()
@@ -579,6 +591,9 @@ class Session:
                     continue
                 env_dict[k] = globals_dict[k]
             ns = UserNamespace(env_dict)
+
+            for obj in env_dict.values():
+                self._cache_script_source(obj)
 
             if isinstance(export_global, str):
                 if (

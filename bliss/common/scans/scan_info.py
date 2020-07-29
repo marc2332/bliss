@@ -10,6 +10,8 @@ Contains helper to manage the `scan_info` metadata provided inside each scans.
 """
 
 import typing
+import typeguard
+import numbers
 
 
 class ScanInfoFactory:
@@ -23,19 +25,20 @@ class ScanInfoFactory:
     def __init__(self, scan_info: typing.Dict):
         self._scan_info = scan_info
 
+    @typeguard.typechecked
     def set_channel_meta(
         self,
         name: str,
-        start: typing.Optional[float] = None,
-        stop: typing.Optional[float] = None,
-        min: typing.Optional[float] = None,
-        max: typing.Optional[float] = None,
-        points: typing.Optional[int] = None,
-        axis_points: typing.Optional[int] = None,
+        start: typing.Optional[numbers.Real] = None,
+        stop: typing.Optional[numbers.Real] = None,
+        min: typing.Optional[numbers.Real] = None,
+        max: typing.Optional[numbers.Real] = None,
+        points: typing.Optional[numbers.Integral] = None,
+        axis_points: typing.Optional[numbers.Integral] = None,
         axis_kind: typing.Optional[str] = None,
         group: typing.Optional[str] = None,
-        axis_id: typing.Optional[int] = None,
-        axis_points_hint: typing.Optional[int] = None,
+        axis_id: typing.Optional[numbers.Integral] = None,
+        axis_points_hint: typing.Optional[numbers.Integral] = None,
     ):
         """
         Define metadata relative to a channel name
@@ -87,6 +90,7 @@ class ScanInfoFactory:
         if axis_points_hint is not None:
             meta["axis-points-hint"] = axis_points_hint
 
+    @typeguard.typechecked
     def add_scatter_plot(
         self,
         name: typing.Optional[str] = None,

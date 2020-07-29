@@ -97,7 +97,8 @@ def fullfield_tomo(session, nchunks=4, expo=1e-6):
         stop=180,
         points=nrots * npixels,
         axis_points=nrots,
-        axis_kind="slow",
+        axis_id=1,
+        axis_kind="forth",
         group="sinogram",
     )
     builder.set_channel_meta(
@@ -106,7 +107,8 @@ def fullfield_tomo(session, nchunks=4, expo=1e-6):
         stop=npixels - 1,
         points=nrots * npixels,
         axis_points=npixels,
-        axis_kind="fast",
+        axis_id=0,
+        axis_kind="forth",
         group="sinogram",
     )
     builder.set_channel_meta("sinogram", group="sinogram")

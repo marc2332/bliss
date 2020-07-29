@@ -19,7 +19,8 @@ def test_1_set_request():
         max=4,
         points=5,
         axis_points=6,
-        axis_kind="slow",
+        axis_id=1,
+        axis_kind="forth",
         group="g",
     )
     assert "requests" in scan_info
@@ -31,7 +32,8 @@ def test_1_set_request():
         "max": 4,
         "points": 5,
         "axis-points": 6,
-        "axis-kind": "slow",
+        "axis-id": 1,
+        "axis-kind": "forth",
         "group": "g",
     }
     assert scan_info["requests"]["foo"] == expected

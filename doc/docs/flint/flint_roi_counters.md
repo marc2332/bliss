@@ -71,7 +71,7 @@ lima.roi_counters['roi1']
 
 ```
 
-![Screenshot](img/flint_edit_roi_counters.png)
+![Screenshot](img/edit_roi_counters.png)
 
 
 

@@ -21,12 +21,12 @@ To show *Log messages* window:
 
 All the caught exceptions will be displayed there.
 
-![Flint logging widget](img/flint/flint-log-widget.png)
+![Flint logging widget](img/flint-log-widget.png)
 
 
 ## Flint `stdout`/`stderr` in BLISS shell
 
-![Flint logging inside bliss](img/flint/flint-log.png)
+![Flint logging inside bliss](img/flint-log.png)
 
 Flint standard output streams can be displayed inside bliss.
 
@@ -61,7 +61,7 @@ The header of the Flint window will display the PID of the process.
 
 This information must be used in order to attach the Flint process to BLISS.
 
-![Flint logging inside bliss](img/flint/flint-pid.png)
+![Flint logging inside bliss](img/flint-pid.png)
 
 Then, from the BLISS session:
 
@@ -82,7 +82,7 @@ To show the console:
     The console can be detached from the main window to avoid to loose
     display space.
 
-![Flint ipython console](img/flint/flint_ipython_console.jpg)
+![Flint ipython console](img/flint_ipython_console.jpg)
 
 This `IPython` session contains 2 initial objects:
 

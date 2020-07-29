@@ -41,7 +41,7 @@ mv(slit_vertical_gap, 1)
 ascan(slit_vertical_offset, -5.0, 5.0, 20, 0.1, beamviewer.roi_counters)
 ```
 
-![Flint live GUI](img/flint/demo-live-gui.png)
+![Flint live GUI](flint/img/demo-live-gui.png)
 
 Flint provides a ➊ *Live screen* containing various widgets.
 
@@ -53,7 +53,7 @@ scan data.
 
 The previous scan displays the following result.
 
-![Curve widget](img/flint/demo-curve.png)
+![Curve widget](flint/img/demo-curve.png)
 
 The curve widget provides a ➊ toolbar to interact with the plot. It contains
 tools to:
@@ -77,7 +77,7 @@ and can be displayed back. But no style is allocated for it.
 
 The curve widget can be configured to display or hide data acquired by the scan.
 
-![Curve selection](img/flint/demo-curve-selection.png)
+![Curve selection](flint/img/demo-curve-selection.png)
 
 This setup will be reused and be unchanged while the same devices are scanned
 (technically while the scanned acquisition chain is the same as the previous
@@ -92,13 +92,13 @@ without losing the customed selection.
 ascan(slit_vertical_offset, -4.0, 2.0, 40, 0.1, beamviewer.roi_counters)
 ```
 
-![Refined scan](img/flint/demo-curve-refined.png)
+![Refined scan](flint/img/demo-curve-refined.png)
 
 ### Gaussian, derivative, and markers
 
 Flint provides few helpers to annotate the displayed curves.
 
-![Gaussian, derivative, and markers](img/flint/demo-curve-markers.png)
+![Gaussian, derivative, and markers](flint/img/demo-curve-markers.png)
 
 Computed items ➊➋ can be created, and a data processed will be applyed and
 displayed based on a selected curve.
@@ -145,7 +145,7 @@ This can be used to do meshes.
 amesh(sy, -.75, .75, 30, sz, -.75, .75, 30, .001, fluo_diode)
 ```
 
-![Scatter widget](img/flint/demo-scatter.png)
+![Scatter widget](flint/img/demo-scatter.png)
 
 The default plot for meshes uses a ➊ scatter plot, with an image based rendering.
 
@@ -170,13 +170,13 @@ amesh(sy, -.1, .1, 20, sz, -.3, .3, 30, .001, fluo_diode,
 
 Instead of the motors, the encoders can be selected as axes.
 
-![Regular grid mode](img/flint/demo-scatter-regular.png)
+![Regular grid mode](flint/img/demo-scatter-regular.png)
 
 The *regular grid mode* is based on an image, and is then very fast to render.
 An overlay with the location of the points can be added to check the
 displacements.
 
-![Irregular grid mode](img/flint/demo-scatter-irregular.png)
+![Irregular grid mode](flint/img/demo-scatter-irregular.png)
 
 The *irregular grid mode* is based on mesh computed around the mesured points.
 This rendering is much slower without OpenGL, but can help to notice bigger
@@ -187,7 +187,7 @@ displacements. The overlay can also be added.
 
 The curve widget can also be used to display meshes.
 
-![Curves widget from meshes](img/flint/demo-scatter-curve.png)
+![Curves widget from meshes](flint/img/demo-scatter-curve.png)
 
 It presents the values of data acquisition according to the time.
 
@@ -203,7 +203,7 @@ The policy is to use a single and always the same widget per detector.
 timescan(1, tomocam)
 ```
 
-![MCA widget](img/flint/demo-mca.png)
+![MCA widget](flint/img/demo-mca.png)
 
 The configuration dialog allow to ➊ select one or many MCAs to display.
 
@@ -225,7 +225,7 @@ The demo session provides a tomography projection example.
 timescan(1, tomocam)
 ```
 
-![Image widget](img/flint/demo-image.png)
+![Image widget](flint/img/demo-image.png)
 
 We can distinguish a diatom on a top of a needle.
 
@@ -242,7 +242,7 @@ based on a Flint programming interface which also can be used for user scripts.
 edit_roi_counters(tomocam, 0.1)
 ```
 
-![Editing Lima ROIs](img/flint/demo-image-roi.png)
+![Editing Lima ROIs](flint/img/demo-image-roi.png)
 
 A tool ➊ have to be selected to switch the interaction to 'ROI mode'. This allows to
 create ➋ new rectangle ROIs into the image. A list of available ROIs is displayed
@@ -257,4 +257,4 @@ This ROIs can now be scanned.
 loopscan(20, 1, tomocam.counters.roi2_avg)
 ```
 
-![Scanned Lima ROI](img/flint/demo-image-scanned-roi.png)
+![Scanned Lima ROI](flint/img/demo-image-scanned-roi.png)

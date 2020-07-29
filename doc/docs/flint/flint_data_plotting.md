@@ -80,7 +80,7 @@ plot(yy, name="Plot 0")
 
 After the execution of these commands, Flint interface will show up, with a main tab named "Plot 0" (below application's main menu) with a plot with a consinus wave on it.
 
-![Screenshot](img/flint_plot_1d_cosinus.png)
+![Screenshot](img/plot_1d_cosinus.png)
 
 We can add extra keyword arguments that are forwarded to silx. and recover a plot object to interact with it lately:
 

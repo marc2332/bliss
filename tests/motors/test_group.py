@@ -6,11 +6,13 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import pytest
+import time
 import gevent
 import numpy
+from unittest import mock
+
 from bliss.common import event
 from bliss.common.standard import Group
-from unittest import mock
 from bliss.common.axis import AxisState
 
 
@@ -53,12 +55,10 @@ def test_stop(roby, robz):
     assert grp.state.READY
     assert robz.state.READY
     assert roby.state.READY
-    # in the next two comparisons, the accepted error is quite
-    # big due to the fact the motor decelerates
-    assert pytest.approx(robz.position, rel=1e-1) == 1
-    # roby stops, but motor has a backlash ;
-    # the backlash move is executed after stop.
-    assert pytest.approx(roby.position, rel=1e-1) == 1 + roby.backlash
+
+    # ensure motors are stopped (only valid for mockup, of course)
+    assert robz.controller._get_axis_motion(robz) is None
+    assert roby.controller._get_axis_motion(roby) is None
 
 
 def test_ctrlc(roby, robz):

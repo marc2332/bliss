@@ -23,7 +23,7 @@ from bliss.common.axis import Axis
 from bliss.common.event import dispatcher
 from bliss.common import user_status_info
 from bliss.scanning.scan import set_scan_watch_callbacks
-from bliss.scanning.scan import ScanDisplay
+from bliss.scanning.scan_display import ScanDisplay
 from bliss import global_map
 from bliss.scanning.chain import ChainPreset, ChainIterationPreset
 

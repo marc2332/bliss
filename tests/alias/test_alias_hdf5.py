@@ -9,7 +9,7 @@
 from bliss.common import scans
 from bliss.scanning.acquisition.motor import SoftwarePositionTriggerMaster
 from bliss.scanning.acquisition.counter import SamplingCounterAcquisitionSlave
-from bliss.scanning.scan import Scan, ScanSaving
+from bliss.scanning.scan import Scan
 from bliss.scanning.chain import AcquisitionChain
 from bliss import global_map
 

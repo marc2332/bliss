@@ -67,15 +67,7 @@ def validate_scan_data(
     :param bool save_images: save lima images
     """
     # Parse arguments
-    if config:
-        save_options = config_options()
-    else:
-        save_options = base_options()
-    if alt:
-        save_options = {k: not v for k, v in save_options.items()}
-    # Forced in confdtest.py::writer_options
-    save_options["copy_non_external"] = True
-    save_options["allow_external_hdf5"] = True
+    save_options = get_save_options(config=config, alt=alt)
     variable_length = not all(scan_shape)
     if not positioners:
         positioners = []
@@ -153,6 +145,65 @@ def validate_scan_data(
             detectors=detectors,
         )
         validate_notes(nxentry, notes)
+
+
+def assert_scan_nxdata(
+    scan,
+    plots,
+    subscan=1,
+    positioners=None,
+    master_name="timer",
+    scan_shape=tuple(),
+    config=True,
+    alt=False,
+    save_images=True,
+    **kw,
+):
+    """
+    :param bliss.scanning.scan.Scan scan:
+    :param dict plots:
+    :param int subscan:
+    :param list positioners: fast axis first
+    :param str master_name: chain master name
+    :param tuple scan_shape: fast axis first 0D scan by default
+    :param bool config: configurable writer
+    :param bool alt: alternative writer options
+    :param bool save_images: save lima images
+    """
+    save_options = get_save_options(config=config, alt=alt)
+    if not positioners:
+        positioners = []
+    uri = scan_utils.scan_uri(scan, subscan=subscan)
+    with nexus.uriContext(uri) as nxentry:
+        for name, info in plots.items():
+            validate_nxdata(
+                nxentry[name],
+                info["ndim"],
+                info["type"],
+                info["signals"],
+                scan_shape=scan_shape,
+                positioners=positioners,
+                master_name=master_name,
+                save_options=save_options,
+                save_images=save_images,
+            )
+
+
+def get_save_options(config=True, alt=False):
+    """
+    :param bool config: configurable writer
+    :param bool alt: alternative writer options
+    """
+    if config:
+        save_options = config_options()
+    else:
+        save_options = base_options()
+    if alt:
+        save_options = {k: not v for k, v in save_options.items()}
+    # Forced in confdtest.py::writer_options
+    save_options["copy_non_external"] = True
+    save_options["allow_external_hdf5"] = True
+    return save_options
 
 
 def validate_scangroup_data(sequence, config=True, **kwargs):

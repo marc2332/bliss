@@ -121,9 +121,6 @@ def initialize(session_name=None):
     env_dict = __main__.__dict__
 
     exec("from bliss.shell.standard import *", env_dict)
-    from bliss.scanning.scan import ScanDisplay
-
-    env_dict["SCAN_DISPLAY"] = ScanDisplay(session.name)
 
     env_dict["history"] = lambda: print("Please press F3-key to view history!")
 

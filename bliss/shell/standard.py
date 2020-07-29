@@ -87,9 +87,7 @@ from bliss.scanning.scan_tools import (
 )
 from bliss.common.plot import meshselect  # noqa: F401
 from bliss.common import plot as plot_module
-
 from bliss.shell.cli import user_dialog, pt_widgets
-from bliss.scanning.scan import ScanDisplay
 
 from tabulate import tabulate
 
@@ -770,19 +768,29 @@ def plotinit(*counters: _providing_channel):
 
     # If called without arguments, prints help.
     if not counters:
-        print("")
-        print("plotinit usage:")
-        print("    plotinit(<counters>*)")
-        print("example:")
-        print("    plotinit(counter1, counter2)")
-        print("")
+        print(
+            """
+plotinit usage:
+    plotinit(<counters>*)                  - Select a set of counters
+
+example:
+    plotinit(counter1, counter2)")
+    plotinit('*')                          - Select everything
+    plotinit('beamviewer:roi_counters:*')  - Select all the ROIs from a beamviewer
+    plotinit('beamviewer:*_sum')           - Select any sum ROIs from a beamviewer
+"""
+        )
     else:
         plot_module.plotinit(*counters)
     print("")
-    print("Next plotted counter(s):")
-    sd = ScanDisplay()
-    for cnt_name in sd.get_next_scan_channels():
-        print(f"- {cnt_name}")
+
+    names = plot_module.get_next_plotted_counters()
+    if names:
+        print("Plotted counter(s) for the next scan:")
+        for cnt_name in names:
+            print(f"- {cnt_name}")
+    else:
+        print("No specific counter(s) for the next scan")
     print("")
 
 
@@ -813,7 +821,9 @@ example:
             counters = []
         plot_module.plotselect(*counters)
     print("")
-    print("Currently plotted counter(s):")
+    print(
+        "Plotted counter(s) last selected with plotselect (could be different from the current display):"
+    )
     for cnt_name in plot_module.get_plotted_counters():
         print(f"- {cnt_name}")
     print("")

@@ -9,7 +9,8 @@ import pytest
 from bliss import global_map, current_session
 from bliss.common import scans
 from bliss.common.axis import Axis
-from bliss.scanning.scan import Scan, ScanSaving
+from bliss.scanning.scan import Scan
+from bliss.scanning.scan_saving import ScanSaving
 from bliss.scanning.chain import AcquisitionChain
 from bliss.scanning.acquisition import timer
 from bliss.scanning.acquisition.lima import LimaAcquisitionMaster

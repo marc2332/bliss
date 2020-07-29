@@ -116,7 +116,7 @@ class CustomScanSaving(BasicScanSaving):
     ],
 )
 def test_scan_cleanup_writerexceptions(exception_on, session):
-    session._set_scan_saving_class(CustomScanSaving)
+    session._set_scan_saving(CustomScanSaving)
     detectors = (session.env_dict["diode"],)
     session.scan_saving.exception_on = exception_on
     with pytest.raises(RuntimeError):

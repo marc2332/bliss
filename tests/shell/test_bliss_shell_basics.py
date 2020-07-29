@@ -183,7 +183,7 @@ def test_shell_list():
 
 
 def test_shell_ScanSaving(beacon):
-    from bliss.scanning.scan import ScanSaving
+    from bliss.scanning.scan_saving import ScanSaving
 
     s = ScanSaving()
 

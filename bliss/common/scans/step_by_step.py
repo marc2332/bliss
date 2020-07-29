@@ -47,7 +47,7 @@ from bliss.common.cleanup import cleanup, axis as cleanup_axis
 from bliss.common.axis import Axis
 from bliss.common.cleanup import error_cleanup
 from bliss.scanning.toolbox import DefaultAcquisitionChain
-from bliss.scanning.scan import Scan, StepScanDataWatch, ScanDisplay
+from bliss.scanning.scan import Scan, StepScanDataWatch
 from bliss.scanning.acquisition.motor import VariableStepTriggerMaster
 from bliss.scanning.acquisition.motor import MeshStepTriggerMaster
 from bliss.controllers.motor import CalcController
@@ -723,8 +723,6 @@ def anscan(
             f"axis:{motor.name}", start=start + d, stop=stop + d, points=npoints
         )
 
-    _update_with_scan_display_meta(scan_info)
-
     scan_params = dict()
     scan_params["start"] = starts_list
     scan_params["stop"] = stops_list
@@ -1291,7 +1289,6 @@ def timescan(
         scan_info["title"] = template.format(*args)
 
     scan_info.update({"npoints": npoints, "count_time": count_time})
-    _update_with_scan_display_meta(scan_info)
 
     _log.info("Doing %s", scan_type)
 
@@ -1437,12 +1434,3 @@ def pointscan(
         return_scan=return_scan,
         scan_info=scan_info,
     )
-
-
-def _update_with_scan_display_meta(scan_info: Dict):
-    """Read and remove meta stored in the ScanDisplay and feed the scan_info
-    with."""
-    scan_display = ScanDisplay()
-    info = scan_display.pop_scan_meta()
-    if info is not None:
-        scan_info["_display_extra"] = info

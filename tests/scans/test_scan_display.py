@@ -18,7 +18,7 @@ from bliss.scanning.scan import Scan, StepScanDataWatch
 from bliss.scanning.chain import AcquisitionChain, AcquisitionSlave
 from bliss.scanning.channel import AcquisitionChannel
 from bliss.scanning.acquisition import timer
-from bliss.scanning.scan import ScanDisplay
+from bliss.scanning.scan_display import ScanDisplay
 
 
 @contextmanager

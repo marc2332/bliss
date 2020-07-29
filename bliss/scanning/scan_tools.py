@@ -6,7 +6,7 @@ from bliss import current_session, global_map
 from bliss.common.types import _countable, _scannable
 from bliss.common.plot import display_motor
 from bliss.scanning.scan import Scan
-from bliss.scanning.scan import ScanDisplay
+from bliss.scanning.scan_display import ScanDisplay
 from bliss.common.utils import shorten_signature
 
 """

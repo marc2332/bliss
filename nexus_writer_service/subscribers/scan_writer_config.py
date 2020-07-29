@@ -108,14 +108,19 @@ class NexusScanWriterConfigurable(scan_writer_base.NexusScanWriterBase):
         """
         NXdata signals
         """
-        return self.config_technique.get("plots", {})
+        adict = self.flintplots
+        adict.update(self.config_technique.get("plots", {}))
+        return adict
 
     @property
     def plotselect(self):
         """
         Default NXdata group
         """
-        return self.config_technique.get("plotselect", "")
+        if self.flintplots:
+            return ""
+        else:
+            return self.config_technique.get("plotselect", "")
 
     def _create_nxdata_proxy(self, subscan, plotname, items=None, ndim=-1, grid=False):
         """

@@ -5,12 +5,12 @@ from bliss.common.counter import SamplingCounter
 import numpy
 import gevent
 from bliss.common.event import dispatcher
-from bliss.scanning import scan
+from bliss.scanning.scan_display import ScanDisplay
 import math
 from bliss.common.utils import get_open_ports
 
 # deactivate automatic Flint startup
-scan.ScanDisplay().auto = False
+ScanDisplay().auto = False
 
 load_script("script1")
 

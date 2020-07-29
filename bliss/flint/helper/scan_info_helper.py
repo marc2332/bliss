@@ -325,12 +325,12 @@ def create_plot_model(
         if displayed_channels is not None:
             if not isinstance(displayed_channels, list):
                 _logger.warning(
-                    "_display_extra.displayed_channels is not a list: Key ignored"
+                    "_display_extra.flint_displayed_channels is not a list: Key ignored"
                 )
                 displayed_channels = None
             elif len([False for i in displayed_channels if not isinstance(i, str)]) > 0:
                 _logger.warning(
-                    "_display_extra.displayed_channels must only contains strings: Key ignored"
+                    "_display_extra.flint_displayed_channels must only contains strings: Key ignored"
                 )
                 displayed_channels = None
 

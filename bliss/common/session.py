@@ -22,6 +22,7 @@ from bliss.common.proxy import Proxy
 from bliss.common.logtools import log_warning
 from bliss.common.utils import UserNamespace
 from bliss.scanning import scan_saving
+from bliss.scanning import scan_display
 
 
 _SESSION_IMPORTERS = set()
@@ -363,18 +364,23 @@ class Session:
     def env_dict(self):
         return self.__env_dict
 
-    def _set_scan_saving_class(self, scan_saving_class):
-        scan_saving.set_scan_saving_class(scan_saving_class)
+    def _set_scan_saving(self, cls=None):
+        scan_saving.set_scan_saving_class(cls)
 
         self.scan_saving = scan_saving.ScanSaving(self.name)
         if is_bliss_shell():
             self.env_dict["SCAN_SAVING"] = self.scan_saving
 
+    def _set_scan_display(self):
+        self.scan_display = scan_display.ScanDisplay(self.name)
+        if is_bliss_shell():
+            self.env_dict["SCAN_DISPLAY"] = self.scan_display
+
     def enable_esrf_data_policy(self):
-        self._set_scan_saving_class(scan_saving.ESRFScanSaving)
+        self._set_scan_saving(cls=scan_saving.ESRFScanSaving)
 
     def disable_esrf_data_policy(self):
-        self._set_scan_saving_class(None)
+        self._set_scan_saving()
 
     def load_script(self, script_module_name, session=None):
         """
@@ -624,11 +630,13 @@ class Session:
             env_dict["user_script_run"] = self.user_script_run
 
         scan_saving_class_name = self.__scan_saving_config.get("class")
-        if scan_saving_class_name is not None:
+        try:
             scan_saving_class = getattr(scan_saving, scan_saving_class_name)
-        else:
+        except (AttributeError, TypeError):
             scan_saving_class = None
-        self._set_scan_saving_class(scan_saving_class)
+        self._set_scan_saving(cls=scan_saving_class)
+
+        self._set_scan_display()
 
         env_dict["ALIASES"] = global_map.aliases
 

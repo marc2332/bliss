@@ -212,7 +212,9 @@ nav:
                         - Basic: dev_data_policy_basic.md
                         - Custom: dev_data_policy_custom.md
                     - Nexus writer: dev_data_nexus_server.md
-                    - Writing scans to display it on Flint: flint/flint_scan_info.md
+                    - Writing scans to display it on Flint:
+                        - Scan info: flint/flint_scan_info.md
+                        - Examples: flint/flint_scan_info_examples.md
                     - Metadata: dev_data_metadata.md
 
 theme:

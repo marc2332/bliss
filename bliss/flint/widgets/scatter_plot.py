@@ -491,6 +491,12 @@ class ScatterPlotWidget(plot_helper.PlotWidget):
                 scatter.VisualizationParameter.GRID_MAJOR_ORDER, order
             )
 
+        if xmeta.axisPointsHint is not None and ymeta.axisPointsHint is not None:
+            width, height = xmeta.axisPointsHint, ymeta.axisPointsHint
+            scatter.setVisualizationParameter(
+                scatter.VisualizationParameter.BINNED_STATISTIC_SHAPE, (height, width)
+            )
+
     def __isSolidRenderingSupported(
         self, xChannel: scan_model.Channel, yChannel: scan_model.Channel
     ):
@@ -507,6 +513,22 @@ class ScatterPlotWidget(plot_helper.PlotWidget):
         if ymeta.axisKind != scan_model.AxisKind.FORTH:
             return False
         return set([xmeta.axisId, ymeta.axisId]) == set([0, 1])
+
+    def __isHistogramingRenderingSupported(
+        self, xChannel: scan_model.Channel, yChannel: scan_model.Channel
+    ):
+        """True if there is enough metadata to display this 2 axis as an
+        histogram.
+        """
+        xmeta = xChannel.metadata()
+        ymeta = yChannel.metadata()
+        if xmeta is None or ymeta is None:
+            return False
+        if xmeta.axisPointsHint is None:
+            return False
+        if ymeta.axisPointsHint is None:
+            return False
+        return True
 
     def __sanitizeItems(self):
         scan = self.__scan
@@ -657,20 +679,18 @@ class ScatterPlotWidget(plot_helper.PlotWidget):
             key = legend + "_solid"
             scatter.setName(key)
 
-            if self.__isSolidRenderingSupported(xChannel, yChannel):
+            if fillStyle == style_model.FillStyle.SCATTER_INTERPOLATION:
+                scatter.setVisualization(scatter.Visualization.SOLID)
+            elif self.__isSolidRenderingSupported(xChannel, yChannel):
                 if fillStyle == style_model.FillStyle.SCATTER_REGULAR_GRID:
                     scatter.setVisualization(scatter.Visualization.REGULAR_GRID)
                 elif fillStyle == style_model.FillStyle.SCATTER_IRREGULAR_GRID:
                     scatter.setVisualization(scatter.Visualization.IRREGULAR_GRID)
-                elif fillStyle == style_model.FillStyle.SCATTER_INTERPOLATION:
-                    scatter.setVisualization(scatter.Visualization.SOLID)
-                else:
-                    pointBased = True
+            elif self.__isHistogramingRenderingSupported(xChannel, yChannel):
+                # Fall back with an histogram
+                scatter.setVisualization(scatter.Visualization.BINNED_STATISTIC)
             else:
-                if fillStyle == style_model.FillStyle.SCATTER_INTERPOLATION:
-                    scatter.setVisualization(scatter.Visualization.SOLID)
-                else:
-                    pointBased = True
+                pointBased = True
 
             if not pointBased:
                 plot.addItem(scatter)

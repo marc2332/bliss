@@ -35,6 +35,7 @@ class ScanInfoFactory:
         axis_kind: typing.Optional[str] = None,
         group: typing.Optional[str] = None,
         axis_id: typing.Optional[int] = None,
+        axis_points_hint: typing.Optional[int] = None,
     ):
         """
         Define metadata relative to a channel name
@@ -58,6 +59,8 @@ class ScanInfoFactory:
                 the end of the scan. It also can be used as a hint for
                 interactive user selection.
             axis_id: Index of the axis in the scatter. 0 is the fastest.
+            axis_points_hint: Number of approximate points expected in the axis
+                when this number of points is not regular
         """
         requests = self._scan_info.setdefault("requests", {})
         assert axis_kind in set([None, "forth", "backnforth", "step"])
@@ -81,6 +84,8 @@ class ScanInfoFactory:
             meta["axis-kind"] = axis_kind
         if group is not None:
             meta["group"] = group
+        if axis_points_hint is not None:
+            meta["axis-points-hint"] = axis_points_hint
 
     def add_scatter_plot(
         self,

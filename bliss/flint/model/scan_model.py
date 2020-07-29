@@ -502,7 +502,7 @@ class ChannelMetadata(NamedTuple):
     axisPoints: Optional[int]
     axisKind: Optional[AxisKind]
     group: Optional[str]
-    guessAxisPoints: Optional[int]
+    axisPointsHint: Optional[int]
 
 
 class ScatterData(_Sealable):

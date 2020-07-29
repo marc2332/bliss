@@ -305,7 +305,7 @@ def parse_channel_metadata(meta: Dict) -> scan_model.ChannelMetadata:
     vmax = _pop_and_convert(meta, "max", float)
     points = _pop_and_convert(meta, "points", int)
     axisPoints = _pop_and_convert(meta, "axis-points", int)
-    guessAxisPoints = _pop_and_convert(meta, "guess-axis-points", int)
+    axisPointsHint = _pop_and_convert(meta, "axis-points-hint", int)
     axisKind = _pop_and_convert(meta, "axis-kind", scan_model.AxisKind)
     axisId = _pop_and_convert(meta, "axis-id", int)
     group = _pop_and_convert(meta, "group", str)
@@ -337,7 +337,7 @@ def parse_channel_metadata(meta: Dict) -> scan_model.ChannelMetadata:
         axisPoints,
         axisKind,
         group,
-        guessAxisPoints,
+        axisPointsHint,
     )
 
 

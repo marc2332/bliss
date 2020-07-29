@@ -7,12 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
 - Flint
     - A scan sequence can now display plots
+    - Irregular scatters can be displayed with a solid rendering using 2D
+      histogram
+    - n-dim scatters can be displayed in 2D if extra dimensions are steppers
+      (if behave like many frames, only the last one is displayed)
 - Custom scan description (`scan_info`)
     - Added fields to explicitly describe scatter plots
     - Added fields to group channels of the same size
+    - Added fields to describes complex scatters
     - Added `fast-backnforth` channel axis kind
+    - Added `axis-id` to order the scatter axis
+
+### Changed
+- Custom scan description (`scan_info`)
+    - `fast`/`slow` axis kind was replaced by `axis-id`
+    - Axis kind only contains `forth/backnforth/step`
 
 ## [1.5.0] - 2020-07-21
 

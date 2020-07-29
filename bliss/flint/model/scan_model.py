@@ -225,6 +225,10 @@ class Scan(qt.QObject, _Sealable):
         """Returns the scan type stored in the scan info"""
         return self.__scanInfo.get("type", None)
 
+    def hasPlotDescription(self) -> bool:
+        """True if the scan contains plot description"""
+        return len(self.__scanInfo.get("plots", [])) > 0
+
     def _setFinalScanInfo(self, scanInfo: Dict):
         self.__finalScanInfo = scanInfo
 

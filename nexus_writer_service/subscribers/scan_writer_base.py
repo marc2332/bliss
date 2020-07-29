@@ -1262,24 +1262,21 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
         # Skip when no data expected
         if not self._node_data_saved(node):
             if last:
-                self.logger.info(
-                    "no data to be saved for node {}".format(repr(node.fullname))
-                )
+                self.logger.info(f"no data to be saved for node {repr(node.fullname)}")
             return
         # Get/initialize dataset or reference proxy
         nproxy = self._node_proxy(node)
         if nproxy is None:
             if last:
                 self._set_state(
-                    self.STATES.FAULT, "no data for node {}".format(repr(node.fullname))
+                    self.STATES.FAULT,
+                    f"node {repr(node.fullname)} lacks initialization info",
                 )
             return
         # Get data or references (if any)
         self._fetch_new_data(node, nproxy, event_data=event_data)
         # Progress
-        complete = nproxy.log_progress(expect_complete=last)
-        if last and not complete:
-            self._set_state(self.STATES.FAULT, "{} incomplete".format(nproxy))
+        nproxy.log_progress(expect_complete=last)
 
     def _fetch_new_data(self, node, nproxy, event_data=None):
         """

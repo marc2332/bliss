@@ -168,8 +168,8 @@ class BaseProxy(abc.ABC):
 
     def log_progress(self, expect_complete=False):
         """
-        :param bool expect_complete: 
-        :returns int, bool, str:
+        :param bool expect_complete:
+        :returns bool:
         """
         npoints_expected = self.npoints_expected
         npoints_current = self.npoints
@@ -180,11 +180,14 @@ class BaseProxy(abc.ABC):
                     npoints_current, npoints_expected, self._progress_log_suffix
                 )
                 self.logger.debug(msg)
-            else:
+            elif npoints_current:
                 msg = "only {}/{} points published{}".format(
                     npoints_current, npoints_expected, self._progress_log_suffix
                 )
                 self.logger.warning(msg)
+            else:
+                msg = "no data published{}".format(self._progress_log_suffix)
+                self.logger.error(msg)
         else:
             msg = "progress {}/{}{}".format(
                 npoints_current, npoints_expected, self._progress_log_suffix

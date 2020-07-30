@@ -9,7 +9,7 @@
 
 # Imports
 from bliss.common.logtools import log_debug
-from bliss.shell.standard import lprint
+from bliss.common.standard import lprint
 from bliss.common import event
 from bliss.config.beacon_object import BeaconObject
 

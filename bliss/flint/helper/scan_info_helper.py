@@ -303,6 +303,29 @@ def get_device_from_channel(channel_name) -> str:
     return elements[0]
 
 
+def _select_default_counter(scan, plot):
+    """Select a default counter if needed."""
+    for item in plot.items():
+        if isinstance(item, plot_item_model.ScatterItem):
+            if item.valueChannel() is None:
+                # If there is an axis but no value
+                # Pick a value
+                axisChannel = item.xChannel()
+                if axisChannel is None:
+                    axisChannel = item.yChannel()
+
+                # FIXME: This could be improved with the scatter data structure
+                if axisChannel is not None:
+                    acquisition_chain = scan.scanInfo().get("acquisition_chain", None)
+                    counters: List[str] = []
+                    if acquisition_chain is not None:
+                        for _master, channels in acquisition_chain.items():
+                            counters.extend(channels.get("scalars", []))
+                    if len(counters) > 0:
+                        channelRef = plot_model.ChannelRef(plot, counters[0])
+                        item.setValueChannel(channelRef)
+
+
 def create_plot_model(
     scan_info: Dict, scan: Optional[scan_model.Scan] = None
 ) -> List[plot_model.Plot]:
@@ -312,9 +335,11 @@ def create_plot_model(
     Finally update the selection using `_display_extra`.
     """
     if "plots" in scan_info:
-        result = read_plot_models(scan_info)
+        plots = read_plot_models(scan_info)
+        for plot in plots:
+            _select_default_counter(scan, plot)
     else:
-        result = infer_plot_models(scan_info)
+        plots = infer_plot_models(scan_info)
 
     display_extra = scan_info.get("_display_extra", None)
     if display_extra is not None:
@@ -335,14 +360,14 @@ def create_plot_model(
                 displayed_channels = None
 
         if displayed_channels is not None:
-            for plot in result:
+            for plot in plots:
                 if isinstance(
                     plot, (plot_item_model.CurvePlot, plot_item_model.ScatterPlot)
                 ):
                     model_helper.updateDisplayedChannelNames(
                         plot, scan, displayed_channels
                     )
-    return result
+    return plots
 
 
 def read_plot_models(scan_info: Dict) -> List[plot_model.Plot]:

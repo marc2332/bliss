@@ -423,13 +423,42 @@ class MeshStepTriggerMaster(_StepTriggerMaster):
     def __init__(self, *args, **keys):
         backnforth = keys.pop("backnforth", False)
         _StepTriggerMaster.__init__(self, *args, **keys)
+        self._motor_pos = self._interleaved_motor_pos(
+            *self._motor_pos, backnforth=backnforth
+        )
 
-        self._motor_pos = numpy.meshgrid(*self._motor_pos)
+    @staticmethod
+    def _interleaved_motor_pos(*motor_pos, backnforth=False):
+        """
+        Compute the motor positions for each steps of the scan.
+
+        Arguments:
+            motor_pos: Individual motor position
+            backnforth: Compute back and forth motion for the first motors.
+                Only the slowest motor will not change.
+
+        Returns:
+            A list containing a numpy array per motors. Each arrays contains
+            motor position for each steps of the scan
+        """
+        motor_pos = [numpy.array(mp) for mp in motor_pos]
+        sizes = [len(i) for i in motor_pos]
+        slices = [slice(0, size) for size in reversed(sizes)]
+        # mgrid always sort stuff consistent order: slowest ... slow ... fast ... fastest
+        # which is not the case for meshgrid
+        indexes = numpy.mgrid[slices]
+        indexes = [i for i in reversed(indexes)]
         if backnforth:
-            self._motor_pos[0][::2] = self._motor_pos[0][::2, ::-1]
-
-        for x in self._motor_pos:  # flatten
-            x.shape = (-1,)
+            for i in range(0, len(motor_pos) - 1):
+                array = indexes[i]
+                array.shape = -1, numpy.product(array.shape[-1 - i :])
+                array[0::2, :] = array[0::2, ::-1]
+        # flattenize
+        indexes = [i.flatten() for i in indexes]
+        result = []
+        for pos, index in zip(motor_pos, indexes):
+            result.append(pos[index])
+        return result
 
 
 class LinearStepTriggerMaster(_StepTriggerMaster):

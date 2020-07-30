@@ -19,6 +19,15 @@ controller:
     high_limit: 2
     encoder: $syenc
     check_encoder: false
+  - class: MockupAxis
+    name: sx
+    steps_per_unit: 10000
+    velocity: 25000.0
+    acceleration: 10000.0
+    low_limit: -2
+    high_limit: 2
+    encoder: $sxenc
+    check_encoder: false
   - name: slit_top
     steps_per_unit: -1000
     velocity: 500
@@ -41,6 +50,8 @@ controller:
   - name: szenc
     steps_per_unit: 100000
   - name: syenc
+    steps_per_unit: 100000
+  - name: sxenc
     steps_per_unit: 100000
 
 - class: slits

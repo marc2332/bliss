@@ -6,7 +6,9 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 from bliss.common.scans import step_by_step
+from bliss.common.scans.meshes import *
+from bliss.common.scans import meshes
 from bliss.common.scans.step_by_step import *
 from bliss.common.scans.ct import ct, sct
 
-__all__ = ["ct", "sct"] + step_by_step.__all__
+__all__ = ["ct", "sct"] + step_by_step.__all__ + meshes.__all__

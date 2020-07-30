@@ -651,6 +651,8 @@ class ScatterPlotWidget(plot_helper.PlotWidget):
                 if channel is None:
                     continue
                 array = channel.array()
+                if array is None or len(array) == 0:
+                    continue
                 fvalue = array[-1]
                 mask = numpy.logical_and(mask, array == fvalue)
 

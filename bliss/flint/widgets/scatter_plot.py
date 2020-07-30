@@ -45,6 +45,82 @@ from .utils import style_action
 _logger = logging.getLogger(__name__)
 
 
+class _Title:
+    def __init__(self, plot):
+        self.__plot = plot
+
+        self.__hasPreviousImage: bool = False
+        """Remember that there was an image before this scan, to avoid to
+        override the title at startup and waiting for the first image"""
+        self.__lastSubTitle = None
+        """Remembers the last subtitle in case it have to be reuse when
+        displaying the data from the previous scan"""
+
+    def itemUpdated(self, scan, item):
+        self.__updateAll(scan, item)
+
+    def scanRemoved(self, scan):
+        """Removed scan, just before using another scan"""
+        if scan is not None:
+            self.__updateTitle("From previous scan")
+            self.__hasPreviousImage = True
+        else:
+            self.__hasPreviousImage = False
+
+    def scanStarted(self, scan):
+        if not self.__hasPreviousImage:
+            self.__updateAll(scan)
+
+    def scanFinished(self, scan):
+        title = scan_info_helper.get_full_title(scan)
+        if scan.state() == scan_model.ScanState.FINISHED:
+            title += " (finished)"
+        self.__updateTitle(title)
+
+    def __formatItemTitle(self, scan: scan_model.Scan, item=None):
+        if item is None:
+            return None
+
+        groups = {}
+
+        groupByChannels = item.groupByChannels()
+        if groupByChannels is not None:
+            for channel in groupByChannels:
+                channel = channel.channel(scan)
+                if channel is None:
+                    continue
+                array = channel.array()
+                if array is None or len(array) == 0:
+                    continue
+                fvalue = array[-1]
+                groups[channel.name()] = fvalue
+
+        if len(groups) == 0:
+            return None
+        titles = [f"{k} = {v}" for k, v in groups.items()]
+        title = ", ".join(titles)
+        return title
+
+    def __updateTitle(self, title):
+        subtitle = None
+        if self.__lastSubTitle is not None:
+            subtitle = self.__lastSubTitle
+        if subtitle is not None:
+            title = f"{title}\n{subtitle}"
+        self.__plot.setGraphTitle(title)
+
+    def __updateAll(self, scan: scan_model.Scan, item=None):
+        title = scan_info_helper.get_full_title(scan)
+        subtitle = None
+        itemTitle = self.__formatItemTitle(scan, item)
+        self.__lastSubTitle = itemTitle
+        if itemTitle is not None:
+            subtitle = f"{itemTitle}"
+        if subtitle is not None:
+            title = f"{title}\n{subtitle}"
+        self.__plot.setGraphTitle(title)
+
+
 class ScatterPlotWidget(plot_helper.PlotWidget):
     def __init__(self, parent=None):
         super(ScatterPlotWidget, self).__init__(parent=parent)
@@ -58,6 +134,8 @@ class ScatterPlotWidget(plot_helper.PlotWidget):
         self.__plot = plot_helper.FlintPlot(parent=self)
         self.__plot.setActiveCurveStyle(linewidth=2)
         self.__plot.setDataMargins(0.05, 0.05, 0.05, 0.05)
+
+        self.__title = _Title(self.__plot)
 
         self.setFocusPolicy(qt.Qt.StrongFocus)
         self.__plot.installEventFilter(self)
@@ -368,6 +446,7 @@ class ScatterPlotWidget(plot_helper.PlotWidget):
             self.__scan.scanFinished.disconnect(
                 self.__aggregator.callbackTo(self.__scanFinished)
             )
+        self.__title.scanRemoved(self.__scan)
         self.__scan = scan
         if self.__scan is not None:
             self.__scan.scanDataUpdated[object].connect(
@@ -380,7 +459,8 @@ class ScatterPlotWidget(plot_helper.PlotWidget):
                 self.__aggregator.callbackTo(self.__scanFinished)
             )
             if self.__scan.state() != scan_model.ScanState.INITIALIZED:
-                self.__updateTitle(self.__scan)
+                self.__title.scanStarted(self.__scan)
+
         self.scanModelUpdated.emit(scan)
         self.__sanitizeItems()
         self.__redrawAll()
@@ -396,15 +476,12 @@ class ScatterPlotWidget(plot_helper.PlotWidget):
         self.__lastValue.setVisible(True)
         self.__view.scanStarted()
         self.__syncAxis.trigger()
-        self.__updateTitle(self.__scan)
-
-    def __updateTitle(self, scan: scan_model.Scan):
-        title = scan_info_helper.get_full_title(scan)
-        self.__plot.setGraphTitle(title)
+        self.__title.scanStarted(self.__scan)
 
     def __scanFinished(self):
         self.__refreshManager.scanFinished()
         self.__lastValue.setVisible(False)
+        self.__title.scanFinished(self.__scan)
 
     def __scanDataUpdated(self, event: scan_model.ScanDataUpdateEvent):
         plotModel = self.__plotModel
@@ -661,6 +738,8 @@ class ScatterPlotWidget(plot_helper.PlotWidget):
             yy = yy[mask]
             value = value[mask]
             indexes = numpy.arange(len(mask))[mask]
+
+        self.__title.itemUpdated(scan, item)
 
         legend = valueChannel.name()
         style = item.getStyle(scan)

@@ -19,7 +19,7 @@ import typeguard
 import subprocess
 import fnmatch
 import numpy
-
+from pprint import pprint
 from gevent import sleep
 
 from pygments import highlight
@@ -126,11 +126,6 @@ from numpy import (
 from numpy.random import rand
 from time import asctime as date
 
-# gevent sleep
-
-##############
-
-
 __all__ = (
     [
         "wa",
@@ -173,6 +168,7 @@ __all__ = (
         "fwhm",
         "menu",
         "ladd",
+        "pprint",
     ]
     + scans.__all__
     + logtools.__all__

@@ -101,7 +101,7 @@ from bliss.config.beacon_object import BeaconObject
 from bliss.common.logtools import *
 from bliss import global_map
 from bliss.common.user_status_info import status_message
-from .element_density import ElementDensity
+from bliss.physics.materials import Compound
 
 
 class FilterSet:
@@ -137,14 +137,10 @@ class FilterSet:
 
         # Status message
         self._print = print
-        # good element density module
-        self._elt = ElementDensity()
 
         self._config_filters = config.get("filters")
         if not len(self._config_filters):
             raise RuntimeError("Filter list is empty")
-
-        self._config_nb_filters = len(self._config_filters)
 
         self.energy_axis = config.get("energy_axis")
         self._last_energy = self.energy_axis.position
@@ -159,7 +155,7 @@ class FilterSet:
         """
         Initialize filter apparent densities and transmissions
         """
-        self._calc_densities()
+        self._prepare_compounds()
         self._calc_transmissions(self._last_energy)
 
         # Now ask the public filterset
@@ -210,44 +206,39 @@ class FilterSet:
             finally:
                 self._print = print
 
-    def _calc_densities(self):
+    def _prepare_compounds(self):
+        """Create the Compound object that will be used for calculating the transmission
         """
-        Calculate the apparent density of the filters
-        Density can be read from config,by element_density module,
-        or interpolated from pairs of transmission/energy set in config
-        """
-
         for filter in self._config_filters:
-            if "density" in filter:
-                filter["density_calc"] = filter["density"]
-            else:
-                filter["density_calc"] = filter["density"] = self._elt.get_density(
-                    filter["material"]
-                )
+            c = filter["compound"] = Compound(
+                filter["material"], density=filter.get("density")
+            )
+            # Overwrite density if transmission info is provided
             if "transmission" in filter:
                 if not "energy" in filter:
                     raise ValueError(
                         f"filter {filter['name']} has transmission but missing the corresponding energy"
                     )
                 else:
-                    filter["density_calc"] = self._elt.get_calcdensity(
-                        filter["material"],
-                        filter["thickness"],
-                        filter["transmission"],
-                        filter["energy"],
+                    c.density_from_transmission(
+                        filter["energy"], filter["thickness"], filter["transmission"]
                     )
+            # Make sure the compound has a density
+            if c.density is None:
+                raise ValueError(
+                    f"filter {filter['name']} has no density (specify directly or indirectly by the transmission)"
+                )
 
     def _calc_transmissions(self, energy=None):
         """
         Calculate the transmission factors for the filters for the given energy
         """
-
         if energy is None:
             energy = self.energy_axis.position
         for filter in self._config_filters:
-            filter["transmission_calc"] = self._elt.get_transmission(
-                filter["material"], filter["thickness"], energy, filter["density_calc"]
-            )
+            filter["transmission_calc"] = filter["compound"].transmission(
+                energy, filter["thickness"]
+            )[0]
         # save in setting the last energy
         self._last_energy = energy
 

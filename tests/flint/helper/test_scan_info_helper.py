@@ -90,8 +90,8 @@ def test_create_scan_model():
         assert channel.device().name() == device
         assert channel.device().master().name() == master
 
-    assert scan.getChannelByName("timer:elapsed_time").metadata() is not None
-    assert scan.getChannelByName("timer:epoch").metadata() is None
+    assert scan.getChannelByName("timer:elapsed_time").metadata().points is not None
+    assert scan.getChannelByName("timer:epoch").metadata().points is None
 
 
 def test_create_scan_model_with_lima_rois():

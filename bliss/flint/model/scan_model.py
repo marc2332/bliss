@@ -583,11 +583,15 @@ class Channel(qt.QObject, _Sealable):
     """Emitted when setData is invoked.
     """
 
+    _noneMetadata = ChannelMetadata(
+        None, None, None, None, None, None, None, None, None, None
+    )
+
     def __init__(self, parent: Device):
         qt.QObject.__init__(self, parent=parent)
         _Sealable.__init__(self)
         self.__data: Optional[Data] = None
-        self.__metadata: Optional[ChannelMetadata] = None
+        self.__metadata: ChannelMetadata = self._noneMetadata
         self.__name: str = ""
         self.__type: ChannelType = ChannelType.COUNTER
         self.__displayName: Optional[str] = None
@@ -612,7 +616,7 @@ class Channel(qt.QObject, _Sealable):
             raise SealedError()
         self.__metadata = metadata
 
-    def metadata(self) -> Optional[ChannelMetadata]:
+    def metadata(self) -> ChannelMetadata:
         """
         Returns a bunch of metadata stored withing the channel.
         """

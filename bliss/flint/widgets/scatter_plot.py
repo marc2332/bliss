@@ -384,8 +384,6 @@ class ScatterPlotWidget(plot_helper.PlotWidget):
                 vv = set([])
                 for a in axis:
                     metadata = a.metadata()
-                    if metadata is None:
-                        continue
                     v = set([metadata.start, metadata.stop, metadata.min, metadata.max])
                     vv.update(v)
                 vv.discard(None)
@@ -538,8 +536,6 @@ class ScatterPlotWidget(plot_helper.PlotWidget):
         optimize the rendering"""
         xmeta = xChannel.metadata()
         ymeta = yChannel.metadata()
-        if xmeta is None or ymeta is None:
-            return
 
         if ymeta.axisPoints is not None and xmeta.axisPoints is not None:
             scatter.setVisualizationParameter(
@@ -583,8 +579,6 @@ class ScatterPlotWidget(plot_helper.PlotWidget):
         """
         xmeta = xChannel.metadata()
         ymeta = yChannel.metadata()
-        if xmeta is None or ymeta is None:
-            return False
         if xmeta.axisKind != scan_model.AxisKind.FORTH:
             return False
         if ymeta.axisKind != scan_model.AxisKind.FORTH:
@@ -599,8 +593,6 @@ class ScatterPlotWidget(plot_helper.PlotWidget):
         """
         xmeta = xChannel.metadata()
         ymeta = yChannel.metadata()
-        if xmeta is None or ymeta is None:
-            return False
         if xmeta.axisPointsHint is None:
             return False
         if ymeta.axisPointsHint is None:

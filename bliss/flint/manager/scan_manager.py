@@ -243,7 +243,7 @@ class ScanManager:
                 channel = scan.getChannelByName(channel_info.name)
                 if channel is not None:
                     channel_meta = channel.metadata()
-                    if channel_meta is not None and channel_meta.group is not None:
+                    if channel_meta.group is not None:
                         group_name = channel_meta.group
                 if group_name is None:
                     group_name = "top:" + channel_info.master

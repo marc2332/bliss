@@ -713,7 +713,7 @@ class FlintApi:
             request.selector.reset()
 
     def __request_validated(self, request_id: str):
-        """Callback when the request is validaed"""
+        """Callback when the request is validated"""
         request = self.__requests.pop(request_id, None)
         if request is not None:
             selector = request.selector

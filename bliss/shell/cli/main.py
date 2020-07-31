@@ -216,11 +216,7 @@ def main():
             exit(0)
 
     # check beacon connection
-    try:
-        static.get_config()
-    except Exception as e:
-        print("Error while starting BLISS:", e)
-        exit(1)
+    static.get_config()
 
     # Start a specific session
     if arguments["--session"]:

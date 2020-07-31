@@ -237,6 +237,8 @@ def create_scan_model(scan_info: Dict, is_group: bool = False) -> scan_model.Sca
                         or channel.metadata().axisId is not None
                     ):
                         scatterData.addAxisChannel(channel, metadata.axisId)
+                    else:
+                        scatterData.addCounterChannel(channel)
             else:
                 _logger.warning(
                     "Channel %s is part of the request but not part of the acquisition chain. Info ingored",
@@ -353,20 +355,27 @@ def _select_default_counter(scan, plot):
             if item.valueChannel() is None:
                 # If there is an axis but no value
                 # Pick a value
-                axisChannel = item.xChannel()
-                if axisChannel is None:
-                    axisChannel = item.yChannel()
+                axisChannelRef = item.xChannel()
+                if axisChannelRef is None:
+                    axisChannelRef = item.yChannel()
+                if axisChannelRef is None:
+                    continue
+                axisChannel = axisChannelRef.channel(scan)
 
-                # FIXME: This could be improved with the scatter data structure
-                if axisChannel is not None:
+                scatterData = scan.getScatterDataByChannel(axisChannel)
+                names: List[str]
+                if scatterData is not None:
+                    counters = scatterData.counterChannels()
+                    names = [c.name() for c in counters]
+                else:
                     acquisition_chain = scan.scanInfo().get("acquisition_chain", None)
-                    counters: List[str] = []
+                    names = []
                     if acquisition_chain is not None:
                         for _master, channels in acquisition_chain.items():
-                            counters.extend(channels.get("scalars", []))
-                    if len(counters) > 0:
-                        channelRef = plot_model.ChannelRef(plot, counters[0])
-                        item.setValueChannel(channelRef)
+                            names.extend(channels.get("scalars", []))
+                if len(names) > 0:
+                    channelRef = plot_model.ChannelRef(plot, names[0])
+                    item.setValueChannel(channelRef)
 
 
 def create_plot_model(

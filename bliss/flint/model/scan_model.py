@@ -517,6 +517,7 @@ class ScatterData(_Sealable):
         self.__channels: List[List[Channel]] = []
         self.__noIndexes: List[Channel] = []
         self.__contains: Set[Channel] = set([])
+        self.__values: List[Channel] = []
 
     def maxDim(self):
         return len(self.__channels)
@@ -538,6 +539,9 @@ class ScatterData(_Sealable):
                 return i
         raise IndexError()
 
+    def counterChannels(self):
+        return list(self.__values)
+
     def addAxisChannel(self, channel: Channel, axisId: int):
         """Add channel as an axis of the scatter"""
         if self.isSealed():
@@ -549,6 +553,10 @@ class ScatterData(_Sealable):
                 self.__channels.append([])
             self.__channels[axisId].append(channel)
         self.__contains.add(channel)
+
+    def addCounterChannel(self, channel: Channel):
+        """Add channel used as a counter"""
+        self.__values.append(channel)
 
     def contains(self, channel: Channel) -> bool:
         return channel in self.__contains

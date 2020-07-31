@@ -428,7 +428,7 @@ class DataStreamReader:
         synchro_stream = self._synchro_stream
         if synchro_stream is None:
             return
-        with pipeline(self._synchro_stream):
+        with pipeline(synchro_stream):
             if end:
                 if self._debug:
                     print(f"{self}: SYNC_END")

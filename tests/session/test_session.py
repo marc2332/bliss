@@ -7,6 +7,8 @@
 
 import pytest
 import re
+import os
+import textwrap
 from bliss import current_session
 from bliss.shell.cli import repl
 from bliss import setup_globals
@@ -116,10 +118,10 @@ def test_user_script(session4, capsys):
     user_script_run = env_dict.get("user_script_run")
     user_script_list = env_dict.get("user_script_list")
     user_script_homedir = env_dict.get("user_script_homedir")
-    assert user_script_load is not None
-    assert user_script_run is not None
-    assert user_script_list is not None
-    assert user_script_homedir is not None
+    assert callable(user_script_load)
+    assert callable(user_script_run)
+    assert callable(user_script_list)
+    assert callable(user_script_homedir)
 
     assert user_script_homedir() is None
     with pytest.raises(RuntimeError):
@@ -178,6 +180,32 @@ def test_prdef(session2, capsys):
     env_dict["prdef"](scans.ascan)
     output = ansi_escape.sub("", capsys.readouterr()[0])
     assert "@typeguard.typechecked\ndef ascan(" in output
+
+    # test prdef cache - #1900
+    script_file = "/tmp/script.py"
+
+    try:
+        with open(script_file, "w") as f:
+            f.write(visible_func_code)
+
+        user_script_load = env_dict.get("user_script_load")
+        assert callable(user_script_load)
+        user_script_load(script_file)
+        env_dict["prdef"](env_dict["user"].visible_func)
+
+        new_visible_func_code = '\ndef visible_func():\n    print("hello)\n\n'
+
+        with open(script_file, "w") as f:
+            f.write(new_visible_func_code)
+
+        with pytest.raises(SyntaxError):
+            user_script_load(script_file)
+        env_dict["prdef"](env_dict["user"].visible_func)
+        output = ansi_escape.sub("", capsys.readouterr()[0])
+        assert "hello" not in output
+
+    finally:
+        os.unlink(script_file)
 
 
 def test_session_env_dict(session):

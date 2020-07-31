@@ -8,8 +8,9 @@
 """Controller classes for XIA multichannel analyzer"""
 
 # Imports
+from bliss import is_bliss_shell
 from bliss.common.logtools import log_debug
-from bliss.shell.standard import lprint
+from bliss.common.standard import lprint
 from bliss.common import event
 from bliss.config.beacon_object import BeaconObject
 
@@ -28,8 +29,9 @@ from .base import (
 
 from bliss import global_map
 
-from bliss.shell.cli.user_dialog import UserChoice
-from bliss.shell.cli.pt_widgets import display
+if is_bliss_shell():
+    from bliss.shell.cli.user_dialog import UserChoice
+    from bliss.shell.cli.pt_widgets import display
 
 
 # Logger to use at session startup.

@@ -1,0 +1,6 @@
+name: test_config_eval
+plugin: default
+mapping:
+  mot : $roby.position
+  names : [ $roby.name, $robz.name ]
+

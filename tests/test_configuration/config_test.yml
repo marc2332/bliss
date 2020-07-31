@@ -1,0 +1,8 @@
+name: config_test
+test: $roby.position
+mydict:
+  mysubdict:
+    motors:
+      - $roby
+      - $robz
+

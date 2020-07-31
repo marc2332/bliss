@@ -257,9 +257,35 @@ def test_bliss_import_error(beacon):
     assert "CONFIG COULD NOT FIND CLASS" not in str(excinfo.value)
 
 
+def test_config_eval(beacon):
+    obj_cfg = beacon.get_config("test_config_eval")
+
+    # ensure the reference is properly evaluated
+    roby = beacon.get("roby")
+    assert obj_cfg["mapping"]["mot"] == roby.position == 0
+    assert obj_cfg["mapping"]["names"] == ["roby", "robz"]
+
+    roby.position = 1
+
+    # ensure reference is re-evaluated each time
+    assert obj_cfg["mapping"]["mot"] == roby.position == 1
+
+
 def test_references_list_inside_subdict(beacon):
-    node = {"myname": {"mymotors": ["$roby", "$robz"]}}
-    replace_reference_by_object(beacon, node, dict())
-    motor_list = node["myname"]["mymotors"]
-    assert motor_list[0] == beacon.get("roby")
-    assert motor_list[1] == beacon.get("robz")
+    node = beacon.get_config("config_test")
+    motor_list = node["mydict"]["mysubdict"]["motors"]
+    assert motor_list == [beacon.get("roby"), beacon.get("robz")]
+
+
+def test_issue_1619(beacon):
+    obj_cfg = beacon.get_config("config_test")
+
+    x = obj_cfg.get("test")
+
+    obj = beacon.get("config_test")
+
+    # by definition of the default plugin, the default plugin returns the
+    # config node as the object so let's ensure both 'get_config' and 'get'
+    # return the same thing
+    assert obj_cfg is obj
+    assert obj["test"] == x == obj_cfg["test"]

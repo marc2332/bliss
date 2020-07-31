@@ -724,3 +724,9 @@ class FlintApi:
         """Close flint"""
         window = self.__flintModel.mainWindow()
         window.close()
+
+    def set_window_focus(self):
+        """Set the focus to the Flint window"""
+        window = self.__flintModel.mainWindow()
+        window.activateWindow()
+        window.setFocus(qt.Qt.OtherFocusReason)

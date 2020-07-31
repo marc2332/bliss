@@ -120,9 +120,9 @@ def anmesh(
     for i, (motor, start, stop, intervals) in enumerate(motor_tuple_list):
         kind: str
         if i == 0:
-            kind = "fast-backnforth" if backnforth else "fast"
+            kind = "backnforth" if backnforth else "forth"
         elif i == 1:
-            kind = "slow-backnforth" if backnforth else "slow"
+            kind = "backnforth" if backnforth else "forth"
         else:
             kind = "step"
         factory.set_channel_meta(
@@ -130,6 +130,7 @@ def anmesh(
             start=start,
             stop=stop,
             points=sum_npoints,
+            axis_id=i,
             axis_points=intervals + 1,
             axis_kind=kind,
             group="scatter",

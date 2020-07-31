@@ -391,7 +391,6 @@ class DataNode:
         stop_handler=None,
         active_streams=None,
         first_index=0,
-        debug=False,
     ):
         """Iterate over child nodes that match the `filter` argument.
 
@@ -400,7 +399,6 @@ class DataNode:
         :param DataStreamReaderStopHandler stop_handler:
         :param dict active_streams: stream name (str) -> stream info (dict)
         :param str or int first_index: Redis stream ID
-        :param bool debug:
         :yields DataNode:
         """
         with streaming.DataStreamReader(
@@ -412,7 +410,7 @@ class DataNode:
 
     @protect_from_kill
     def walk_from_last(
-        self, filter=None, wait=True, include_last=True, stop_handler=None, debug=False
+        self, filter=None, wait=True, include_last=True, stop_handler=None
     ):
         """Like `walk` but start from the last node.
 
@@ -421,7 +419,6 @@ class DataNode:
                           until a new node appears
         :param bool include_last:
         :param DataStreamReaderStopHandler stop_handler:
-        :param bool debug:
         :yields DataNode:
         """
         active_streams = dict()
@@ -453,7 +450,6 @@ class DataNode:
         first_index=0,
         active_streams=None,
         stop_handler=None,
-        debug=False,
     ):
         """Iterate over node and children node events.
 
@@ -462,14 +458,10 @@ class DataNode:
         :param str or int first_index: Redis stream ID
         :param dict active_streams: stream name (str) -> stream info (dict)
         :param DataStreamReaderStopHandler stop_handler:
-        :param bool debug:
         :yields Event:
         """
         with streaming.DataStreamReader(
-            wait=wait,
-            active_streams=active_streams,
-            stop_handler=stop_handler,
-            debug=debug,
+            wait=wait, active_streams=active_streams, stop_handler=stop_handler
         ) as reader:
             yield from self._iter_reader(
                 reader, filter=filter, first_index=first_index, yield_events=True

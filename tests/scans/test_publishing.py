@@ -11,6 +11,7 @@ import gevent
 import numpy
 import itertools
 import pickle
+import logging
 from bliss import setup_globals, current_session
 from bliss.common import scans
 from bliss.scanning.scan import Scan, ScanState, ScanAbort
@@ -680,6 +681,10 @@ def _count_node_events(
     :param num overhead: per event
     :returns dict or list, int: events or nodes, number of detectors in scan
     """
+    # Show streaming logs when test fails
+    l = logging.getLogger("bliss.config.streaming")
+    l.setLevel(logging.DEBUG)
+
     if beforestart:
         wait = True
 
@@ -748,9 +753,9 @@ def _count_node_events(
         node = _get_node_object(node_type, db_name, None, None)
         startlistening_event.set()
         if count_nodes:
-            evgen = node.walk(filter=filter, wait=wait, debug=True)
+            evgen = node.walk(filter=filter, wait=wait)
         else:
-            evgen = node.walk_events(filter=filter, wait=wait, debug=True)
+            evgen = node.walk_events(filter=filter, wait=wait)
         while True:
             try:
                 with gevent.Timeout(overhead + 2):

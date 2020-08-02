@@ -742,7 +742,10 @@ def prdef(obj_or_name):
     fname = inspect.getfile(obj)
     # make sure cache reloads changed file on disk
     linecache.checkcache(fname)
-    lines, line_nb = inspect.getsourcelines(obj)
+    if obj in current_session._script_source_cache:
+        lines, line_nb = current_session._script_source_cache[obj]
+    else:
+        lines, line_nb = inspect.getsourcelines(obj)
 
     if name == real_name or is_arg_str:
         header = "'{0}' is defined in:\n{1}:{2}\n".format(name, fname, line_nb)

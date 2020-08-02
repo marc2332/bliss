@@ -743,6 +743,13 @@ class Scan:
         """Return true if flint is recommended for this scan"""
         scan_info = self._scan_info
         kind = scan_info.get("type", None)
+
+        # If there is explicit plots, Flint is helpful
+        plots = scan_info.get("plots", [])
+        if len(plots) >= 1:
+            return True
+
+        # For ct, Flint is only recommended if there is MCAs or images
         if kind == "ct":
             chain = scan_info["acquisition_chain"]
             ndim_data = []
@@ -751,7 +758,6 @@ class Scan:
                 ndim_data.extend(chain.get("spectra", []))
                 ndim_data.extend(chain.get("master", {}).get("images", []))
                 ndim_data.extend(chain.get("master", {}).get("spectra", []))
-            # Flint is only recommended if there is MCAs or images
             return len(ndim_data) > 0
 
         return True

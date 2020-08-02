@@ -3,7 +3,7 @@
 
 Flint supports several metadata to improve the plot rendering.
 
-This informations have to be fixed and known at the build step of the scan.
+This informations have to be known and defined at the build step of the scan.
 
 The default scan commands provide this metadata, but if you create your own
 scans, you have to feed useful information on your own.
@@ -74,27 +74,39 @@ scan = Scan(
 
 Everything is optional, but have to be well typed.
 
-- `start` (float): Start position of the axis
-- `stop` (float): Stop position of the axis
-- `min` (float): Minimal value the channel can have
-- `max` (float): Minimal value the channel can have
-- `points` (integer): Amount of total points which will be transmitted by this
-                      channel.
-- `axis-points` (integer): Amount of points for the axis (see scatter below)
-- `axis-kind` (string): Kind of axis (see scatter below)
-- `group` (string): Specify a group where the channel belong. All the channels
-                    from the same group are supposed to contain the same amount
-                    of elements at the end of the scan. It also can be used as
-                    a hint to help interactive user selection.
-                    If nothing is set, Flint will group the channel using it's
-                    top master channel name from the acquisition chain.
+- For `curve/scatter`
+    - `start` (float): Start position of the axis
+    - `stop` (float): Stop position of the axis
+    - `min` (float): Minimal value the channel can have
+    - `max` (float): Maximal value the channel can have
+    - `points` (int): Amount of total points which will be transmitted by this
+                      channel. It is used to compute the scan progress. And it
+                      could be used to optimize memory allocation.
+- For `scatter`
+    - `axis-points` (int): Amount of points for the axis (see scatter below)
+    - `axis-kind` (string): Kind of axis. It can be one of:
+        - `forth`: For an axis always starting from start to stop
+        - `backnforth`: For an axis which goes forth, increment the slower axis
+                        and then goes back
+        - `step`: For extra dimensions for axis which have discrete position
+    - `axis-points` (int): Amount of axis points contained in the channel.
+                           For scatter this amount of points will differ from
+                           the amount of point owned by the same row, or column.
+    - `axis-id` (int): Interleaved position of the axis in the scatter.
+                       Smaller is faster. `0` is the fastest.
+    - `axis-points-hint` (int): Used for irregular scatters. Flint will use it
+                                to display this scatter as an 2D histogram.
+                                This hint became the number of bins to use
+                                (number of pixels)
+- For any kind
+    - `group` (string): Specify a group where the channel belong. All the
+                        channels from the same group are supposed to contain the
+                        same amount of elements at the end of the scan. It also
+                        can be used as a hint to help interactive user selection.
+                        If nothing is set, Flint will group the channel using
+                        it's top master channel name from the acquisition chain.
 
 Unsupported keys will not be used, and Flint will warn about it in the logs.
-
-## General case
-
-- `points`: is used to compute the scan progress. And it could be used to
-  optimize memory allocation.
 
 ## Curve rendering
 
@@ -111,39 +123,12 @@ by the channel. Using theoretical range of an axis is not a good idea.
 
 This can be used for general cases of scatters
 
-- `start/end/min/max` are used to constraint the default displayed view. This way
+- `start/end/min/max` are used to constrain the default displayed view. This way
   the full data range can be visible from the beginning to the end of the
   acquisition without rescaling every time a new data is received.
 
-This can be used for regular mesh. A mesh is regular when you can find a row
-and a column for each points of the scatter (n×m).
-
-- `start/end` are also used to speed up solid rendering of scatters. It is used
-  to know the orientation of the axis and then to compute a polygon mesh.
-- `axis-points`: Amount of axis points contained in the channel. For scatter axes,
-  the amount of points will differ from the amount of point owned by the same row,
-  or column.
-- `axis-kind`: Can be one of `fast`, `fast-backnforth` or `slow`.
-  It is also used to speed up solid rendering.
-
-## Scatter example
-
-Data for a regular scatter for axes `A` and `B` of 2×3 points will be received
-following this pattern:
-
-- `v(A0, B0)`, `v(A1, B0)`, `v(A0, B1)`, `v(A1, B1)`, `v(A0, B2)`, `v(A1, B2)`
-
-- Then the `A` axis is the fast axis.
-- The `B` axis is the slow axis (it is important to describe it too).
-- The number of points for axis `A` is 2
-- The number of points for axis `B` is 3
-
-```
-requests = {}
-requests["A"] = {"axis-kind": "fast", "axis-points": 2, "points": 6}
-requests["B"] = {"axis-kind": "slow", "axis-points": 3, "points": 6}
-scan_info["requests"] = requests
-```
+Other metadata are used to optimize the solid rendering of the scatter. This
+can reduce the CPU constraints and avoid blinking of the display.
 
 # Plot description
 
@@ -186,3 +171,8 @@ builder.add_scatter_plot(name="unique-plot-name",
                          y="axis:sy",
                          value="diode2")
 ```
+
+# Examples
+
+For example which can be used in BLISS shell, you can take a look at
+[scan_info examples](flint_scan_info_examples.md).

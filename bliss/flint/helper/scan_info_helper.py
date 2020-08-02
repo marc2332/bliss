@@ -80,7 +80,7 @@ def _merge_master_keys(values: Dict, key: str):
 
 
 def iter_channels(scan_info: Dict[str, Any]):
-    acquisition_chain = scan_info["acquisition_chain"]
+    acquisition_chain = scan_info.get("acquisition_chain", {})
 
     def get_device_from_channel_name(channel_name):
         """Returns the device name from the channel name, else None"""
@@ -219,6 +219,7 @@ def create_scan_model(scan_info: Dict, is_group: bool = False) -> scan_model.Sca
         if display_name is not None:
             channel.setDisplayName(display_name)
 
+    scatterDataDict: Dict[str, scan_model.ScatterData] = {}
     requests = scan_info.get("requests", None)
     if requests:
         for channel_name, metadata_dict in requests.items():
@@ -226,11 +227,26 @@ def create_scan_model(scan_info: Dict, is_group: bool = False) -> scan_model.Sca
             if channel is not None:
                 metadata = parse_channel_metadata(metadata_dict)
                 channel.setMetadata(metadata)
+                if metadata.group is not None:
+                    scatterData = scatterDataDict.get(metadata.group, None)
+                    if scatterData is None:
+                        scatterData = scan_model.ScatterData()
+                        scatterDataDict[metadata.group] = scatterData
+                    if (
+                        channel.metadata().axisKind is not None
+                        or channel.metadata().axisId is not None
+                    ):
+                        scatterData.addAxisChannel(channel, metadata.axisId)
+                    else:
+                        scatterData.addCounterChannel(channel)
             else:
                 _logger.warning(
                     "Channel %s is part of the request but not part of the acquisition chain. Info ingored",
                     channel_name,
                 )
+
+    for scatterData in scatterDataDict.values():
+        scan.addScatterData(scatterData)
 
     scan.seal()
     return scan
@@ -239,6 +255,8 @@ def create_scan_model(scan_info: Dict, is_group: bool = False) -> scan_model.Sca
 def read_units(scan_info: Dict) -> Dict[str, str]:
     """Merge all units together"""
     units: Dict[str, str] = {}
+    if "acquisition_chain" not in scan_info:
+        return units
     for _master, channel_dict in scan_info["acquisition_chain"].items():
         u = channel_dict.get("scalars_units", {})
         units.update(u)
@@ -250,6 +268,8 @@ def read_units(scan_info: Dict) -> Dict[str, str]:
 def read_display_names(scan_info: Dict) -> Dict[str, str]:
     """Merge all display names together"""
     display_names: Dict[str, str] = {}
+    if "acquisition_chain" not in scan_info:
+        return display_names
     for _master, channel_dict in scan_info["acquisition_chain"].items():
         u = channel_dict.get("display_names", {})
         display_names.update(u)
@@ -287,14 +307,39 @@ def parse_channel_metadata(meta: Dict) -> scan_model.ChannelMetadata:
     vmax = _pop_and_convert(meta, "max", float)
     points = _pop_and_convert(meta, "points", int)
     axisPoints = _pop_and_convert(meta, "axis-points", int)
+    axisPointsHint = _pop_and_convert(meta, "axis-points-hint", int)
     axisKind = _pop_and_convert(meta, "axis-kind", scan_model.AxisKind)
+    axisId = _pop_and_convert(meta, "axis-id", int)
     group = _pop_and_convert(meta, "group", str)
+
+    # Compatibility code with existing user scripts written for BLISS 1.4
+    mapping = {
+        scan_model.AxisKind.FAST: (0, scan_model.AxisKind.FORTH),
+        scan_model.AxisKind.FAST_BACKNFORTH: (0, scan_model.AxisKind.BACKNFORTH),
+        scan_model.AxisKind.SLOW: (1, scan_model.AxisKind.FORTH),
+        scan_model.AxisKind.SLOW_BACKNFORTH: (1, scan_model.AxisKind.BACKNFORTH),
+    }
+    if axisKind in mapping:
+        if axisId is not None:
+            _logger.warning(
+                "Both axis-id and axis-kind with flat/slow is used. axis-id will be ignored"
+            )
+        axisId, axisKind = mapping[axisKind]
 
     for key in meta.keys():
         _logger.warning("Metadata key %s is unknown. Field ignored.", key)
 
     return scan_model.ChannelMetadata(
-        start, stop, vmin, vmax, points, axisPoints, axisKind, group
+        start,
+        stop,
+        vmin,
+        vmax,
+        points,
+        axisId,
+        axisPoints,
+        axisKind,
+        group,
+        axisPointsHint,
     )
 
 
@@ -310,20 +355,27 @@ def _select_default_counter(scan, plot):
             if item.valueChannel() is None:
                 # If there is an axis but no value
                 # Pick a value
-                axisChannel = item.xChannel()
-                if axisChannel is None:
-                    axisChannel = item.yChannel()
+                axisChannelRef = item.xChannel()
+                if axisChannelRef is None:
+                    axisChannelRef = item.yChannel()
+                if axisChannelRef is None:
+                    continue
+                axisChannel = axisChannelRef.channel(scan)
 
-                # FIXME: This could be improved with the scatter data structure
-                if axisChannel is not None:
+                scatterData = scan.getScatterDataByChannel(axisChannel)
+                names: List[str]
+                if scatterData is not None:
+                    counters = scatterData.counterChannels()
+                    names = [c.name() for c in counters]
+                else:
                     acquisition_chain = scan.scanInfo().get("acquisition_chain", None)
-                    counters: List[str] = []
+                    names = []
                     if acquisition_chain is not None:
                         for _master, channels in acquisition_chain.items():
-                            counters.extend(channels.get("scalars", []))
-                    if len(counters) > 0:
-                        channelRef = plot_model.ChannelRef(plot, counters[0])
-                        item.setValueChannel(channelRef)
+                            names.extend(channels.get("scalars", []))
+                if len(names) > 0:
+                    channelRef = plot_model.ChannelRef(plot, names[0])
+                    item.setValueChannel(channelRef)
 
 
 def create_plot_model(

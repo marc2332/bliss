@@ -424,12 +424,20 @@ class FlintScatter(Scatter, FlintItemMixIn):
     def __init__(self):
         Scatter.__init__(self)
         FlintItemMixIn.__init__(self)
+        self.__indexes = None
+
+    def setRealIndexes(self, indexes):
+        """Specify a scatter following the axis and values, which hold the real
+        index from the real data."""
+        self.__indexes = indexes
 
     def getFlintTooltip(self, index, flintModel, scan: scan_model.Scan):
         # Drop other picked indexes
         x = self.getXData(copy=False)[index]
         y = self.getYData(copy=False)[index]
         value = self.getValueData(copy=False)[index]
+        if self.__indexes is not None:
+            index = self.__indexes[index]
 
         plotItem = self.customItem()
         if plotItem is not None:

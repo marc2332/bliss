@@ -170,11 +170,11 @@ nav:
                 - Data format: data_nexus_format.md
                 - Metadata: data_metadata.md
                 - Online visualization:
-                    - Live scans: flint_scan_plotting.md
-                    - Custom data plotting: flint_data_plotting.md
-                    - Data selection: flint_interaction.md
-                    - Editing Lima ROI counters: flint_roi_counters.md
-                    - Debugging: flint_debugging.md
+                    - Live scans: flint/flint_scan_plotting.md
+                    - Custom data plotting: flint/flint_data_plotting.md
+                    - Data selection: flint/flint_interaction.md
+                    - Editing Lima ROI counters: flint/flint_roi_counters.md
+                    - Debugging: flint/flint_debugging.md
                 - Offline visualization:
                     - Warning: data_vis_warning.md
                     - Silx-view: data_vis_silx.md
@@ -212,7 +212,9 @@ nav:
                         - Basic: dev_data_policy_basic.md
                         - Custom: dev_data_policy_custom.md
                     - Nexus writer: dev_data_nexus_server.md
-                    - Writing scans to display it on Flint: flint_scan_info.md
+                    - Writing scans to display it on Flint:
+                        - Scan info: flint/flint_scan_info.md
+                        - Examples: flint/flint_scan_info_examples.md
                     - Metadata: dev_data_metadata.md
 
 theme:

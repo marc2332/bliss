@@ -30,6 +30,15 @@ class ScanGroup(Scanning_Scan):
             node_name, "scan_group", parent=self.root_node, info=self._scan_info
         )
 
+    def is_flint_recommended(self):
+        """Return true if flint is recommended for this scan
+
+        A scan group is usually not displayed, except there is an explicit plot
+        """
+        scan_info = self._scan_info
+        plots = scan_info.get("plots", [])
+        return len(plots) >= 1
+
 
 class Sequence:
     """ should have a scan as internal property that runs

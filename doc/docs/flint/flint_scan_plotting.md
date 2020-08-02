@@ -16,7 +16,7 @@ If the scan contains counters, the curve widget will be displayed automatically.
 
 It will also be displayed mesh scans.
 
-![Flint screenshot](img/flint/flint-curve-widget.png)
+![Flint screenshot](img/flint-curve-widget.png)
 
 ## Scatter widget
 
@@ -25,7 +25,7 @@ scatter widget will be displayed automatically.
 
 That's the case for `mesh` scans.
 
-![Flint screenshot](img/flint/flint-scatter-widget.png)
+![Flint screenshot](img/flint-scatter-widget.png)
 
 ## MCA widget
 
@@ -36,7 +36,7 @@ A specific widget will be created per detector.
 Only the last retrieved data will be displayed, so for a time scan you have to
 create first ROIs on the MCAs to display data in time.
 
-![Flint screenshot](img/flint/flint-mca-widget.png)
+![Flint screenshot](img/flint-mca-widget.png)
 
 ## Image widget
 
@@ -47,13 +47,13 @@ A specific widget will be created per detector.
 Only the last retrieved data will be displayed, so for a time scan you have to
 create first ROIs on the MCAs to display data in time.
 
-![Flint screenshot](img/flint/flint-image-widget.png)
+![Flint screenshot](img/flint-image-widget.png)
 
 ## Count widget
 
 For `ct` scans, the count widget will be automatically displayed.
 
-![Flint screenshot](img/flint/flint-count-widget.png)
+![Flint screenshot](img/flint-count-widget.png)
 
 ## Positioners widget
 
@@ -63,6 +63,6 @@ of all the motors before and after the scan.
 The positioners widget **can** be displayed. The 📜 `Windows` menu provides an
 entry to show/hide this widget.
 
-![Flint screenshot](img/flint/flint-positioners-widget.png)
+![Flint screenshot](img/flint-positioners-widget.png)
 
 [1]: http://silx.org

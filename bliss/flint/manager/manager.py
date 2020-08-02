@@ -262,7 +262,8 @@ class ManageMainBehaviours(qt.QObject):
             return
 
         if isinstance(scan, scan_model.ScanGroup):
-            if scan.type() is None:
+            if scan.type() is None and not scan.hasPlotDescription():
+                # FIXME: type() could be removed when all plot kind will be supported
                 # Skip groups without types
                 return
 

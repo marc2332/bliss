@@ -90,8 +90,8 @@ def test_create_scan_model():
         assert channel.device().name() == device
         assert channel.device().master().name() == master
 
-    assert scan.getChannelByName("timer:elapsed_time").metadata() is not None
-    assert scan.getChannelByName("timer:epoch").metadata() is None
+    assert scan.getChannelByName("timer:elapsed_time").metadata().points is not None
+    assert scan.getChannelByName("timer:epoch").metadata().points is None
 
 
 def test_create_scan_model_with_lima_rois():
@@ -301,7 +301,7 @@ def test_progress_percent_image():
     assert res == 1.0
 
 
-def test_parse_channel_metadata():
+def test_parse_channel_metadata__bliss_1_4():
     meta = {
         "start": 1,
         "stop": 2,
@@ -313,7 +313,25 @@ def test_parse_channel_metadata():
     }
     result = scan_info_helper.parse_channel_metadata(meta)
     expected = scan_model.ChannelMetadata(
-        1, 2, 3, 4, 5, 6, scan_model.AxisKind.SLOW, None
+        1, 2, 3, 4, 5, 1, 6, scan_model.AxisKind.FORTH, None, None
+    )
+    assert result == expected
+
+
+def test_parse_channel_metadata():
+    meta = {
+        "start": 1,
+        "stop": 2,
+        "min": 3,
+        "max": 4,
+        "points": 5,
+        "axis-id": 0,
+        "axis-points": 6,
+        "axis-kind": "backnforth",
+    }
+    result = scan_info_helper.parse_channel_metadata(meta)
+    expected = scan_model.ChannelMetadata(
+        1, 2, 3, 4, 5, 0, 6, scan_model.AxisKind.BACKNFORTH, None, None
     )
     assert result == expected
 
@@ -330,7 +348,7 @@ def test_parse_wrong_values():
         "foo": "bar",
     }
     result = scan_info_helper.parse_channel_metadata(meta)
-    expected = scan_model.ChannelMetadata(1, 2, 3, None, 5, 6, None, None)
+    expected = scan_model.ChannelMetadata(1, 2, 3, None, 5, None, 6, None, None, None)
     assert result == expected
 
 
@@ -401,3 +419,87 @@ def test_read_plot_models__scatter_axis():
     assert item.xChannel().name() == "a"
     assert item.yChannel().name() == "b"
     assert item.valueChannel() is None
+
+
+def test_read_scatter_data__different_groups():
+    scan_info = {
+        "requests": {
+            "foo": {"group": "scatter1", "axis-id": 0},
+            "foo2": {"group": "scatter1", "axis-id": 1},
+            "bar": {"group": "scatter2", "axis-id": 0},
+        }
+    }
+    scan = scan_info_helper.create_scan_model(scan_info, False)
+    foo = scan.getChannelByName("foo")
+    scatterData = scan.getScatterDataByChannel(foo)
+    assert scatterData is not None
+    foo2 = scan.getChannelByName("foo2")
+    assert scatterData.contains(foo2)
+    bar = scan.getChannelByName("bar")
+    assert not scatterData.contains(bar)
+    assert scatterData.maxDim() == 2
+
+
+def test_read_scatter_data__twice_axis_at_same_place():
+    scan_info = {
+        "requests": {
+            "foo": {"group": "scatter1", "axis-id": 0},
+            "foo2": {"group": "scatter1", "axis-id": 0},
+            "bar": {"group": "scatter1", "axis-id": 1},
+        }
+    }
+    scan = scan_info_helper.create_scan_model(scan_info, False)
+    foo = scan.getChannelByName("foo")
+    scatterData = scan.getScatterDataByChannel(foo)
+    assert scatterData is not None
+    foo2 = scan.getChannelByName("foo2")
+    assert scatterData.contains(foo2)
+    bar = scan.getChannelByName("bar")
+    assert scatterData.contains(bar)
+    assert scatterData.maxDim() == 2
+
+
+def test_read_scatter_data__non_regular_3d():
+    scan_info = {
+        "requests": {
+            "axis1": {
+                "axis-id": 0,
+                "axis-points-hint": 10,
+                "group": "foo",
+                "max": 9,
+                "min": 0,
+                "points": 500,
+            },
+            "axis2": {
+                "axis-id": 1,
+                "axis-points-hint": 10,
+                "group": "foo",
+                "max": 9,
+                "min": 0,
+                "points": 500,
+            },
+            "diode1": {"axis-points-hint": None, "group": "foo"},
+            "frame": {
+                "axis-id": 2,
+                "axis-kind": "step",
+                "axis-points": 5,
+                "axis-points-hint": None,
+                "group": "foo",
+                "points": 500,
+                "start": 0,
+                "stop": 4,
+            },
+        }
+    }
+
+    scan = scan_info_helper.create_scan_model(scan_info, False)
+    axis1 = scan.getChannelByName("axis1")
+    scatterData = scan.getScatterDataByChannel(axis1)
+    assert scatterData is not None
+    axis2 = scan.getChannelByName("axis2")
+    assert scatterData.contains(axis2)
+    frame = scan.getChannelByName("frame")
+    assert scatterData.contains(frame)
+    diode1 = scan.getChannelByName("diode1")
+    assert not scatterData.contains(diode1)
+    assert scatterData.maxDim() == 3

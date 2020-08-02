@@ -492,8 +492,6 @@ class CurvePlotWidget(plot_helper.PlotWidget):
             vv = set([])
             for a in axis:
                 metadata = a.metadata()
-                if metadata is None:
-                    continue
                 v = set([metadata.start, metadata.stop, metadata.min, metadata.max])
                 vv.update(v)
             vv.discard(None)

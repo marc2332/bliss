@@ -118,18 +118,22 @@ def anmesh(
     factory = ScanInfoFactory(scan_info)
 
     for i, (motor, start, stop, intervals) in enumerate(motor_tuple_list):
-        kind: Optional[str] = None
+        kind: str
         if i == 0:
-            kind = "fast-backnforth" if backnforth else "fast"
+            kind = "backnforth" if backnforth else "forth"
         elif i == 1:
-            kind = "slow-backnforth" if backnforth else "slow"
+            kind = "backnforth" if backnforth else "forth"
+        else:
+            kind = "step"
         factory.set_channel_meta(
             f"axis:{motor.name}",
             start=start,
             stop=stop,
             points=sum_npoints,
+            axis_id=i,
             axis_points=intervals + 1,
             axis_kind=kind,
+            group="scatter",
         )
 
     factory.add_scatter_plot(
@@ -171,6 +175,13 @@ def anmesh(
         save_images=save_images,
         data_watch_callback=StepScanDataWatch(),
     )
+
+    # Specify the same group for channel value
+    # FIXME: Replace scan_info read by a bliss API
+    for top_master, acquisition_chain in scan.scan_info["acquisition_chain"].items():
+        for channel_name in acquisition_chain["scalars"]:
+            factory = ScanInfoFactory(scan_info)
+            factory.set_channel_meta(channel_name, group="scatter")
 
     if run:
         scan.run()

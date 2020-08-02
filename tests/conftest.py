@@ -181,17 +181,12 @@ def ports(beacon_directory):
         "--redis_port=%d" % ports.redis_port,
         "--redis_socket=" + redis_uds,
         "--db_path=" + beacon_directory,
-        "--posix_queue=0",
         "--tango_port=%d" % ports.tango_port,
         "--webapp_port=%d" % ports.cfgapp_port,
     ]
     proc = subprocess.Popen(BEACON + args, stderr=subprocess.PIPE)
-    wait_for(proc.stderr, "database started on port")
-    gevent.sleep(
-        1
-    )  # ugly synchronisation, would be better to use logging messages? Like 'post_init_cb()' (see databaseds.py in PyTango source code)
-
-    # important: close to prevent filling up the pipe as it is not read during tests
+    with gevent.Timeout(10):
+        wait_for(proc.stderr, "Tango DB started")
     proc.stderr.close()
 
     # disable .rdb files saving (redis persistence)

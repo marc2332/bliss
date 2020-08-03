@@ -1205,7 +1205,8 @@ class LakeShore331(Controller):
         # Query Input Status before reading temperature
         # If status is OK, then read the temperature
         asw = int(self.send_cmd("RDGST?", channel=input_channel))
-        if asw == 0:
+        # new or old value
+        if asw == 0 or asw == 2:
             if unit == "Kelvin":
                 return float(self.send_cmd("KRDG?", channel=input_channel))
             elif unit == "Celsius":

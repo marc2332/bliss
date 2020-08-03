@@ -5,6 +5,7 @@
 # Copyright (c) 2015-2020 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
+import functools
 from bliss.common.event import dispatcher
 from bliss import global_map
 import numpy
@@ -209,16 +210,19 @@ def attach_channels(channels_source, emitter_channel):
     is captured by the destination channel, which will re-emit it
     together with its own channel data.
     """
+
+    def new_emitter(data, channel_source=None):
+        channel_source._current_data = data
+
     for channel_source in channels_source:
         if hasattr(channel_source, "_final_emit"):
             raise RuntimeError("Channel %s is already attached to another channel")
         # replaced the final emit data with one which store
         # the current data
-        def new_emitter(data):
-            channel_source._current_data = data
-
         channel_source._final_emit = channel_source.emit
-        channel_source.emit = new_emitter
+        channel_source.emit = functools.partial(
+            new_emitter, channel_source=channel_source
+        )
         channel_source._current_data = None
 
     emitter_method = emitter_channel.emit

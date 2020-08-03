@@ -1,11 +1,15 @@
 import numpy
 import gevent
 from bliss.scanning.scan import Scan
-from bliss.scanning.chain import AcquisitionChain, AcquisitionMaster
+from bliss.scanning.chain import AcquisitionChain, AcquisitionMaster, attach_channels
 from bliss.scanning.channel import AcquisitionChannel
 from bliss.scanning.acquisition import timer
 from bliss.scanning.acquisition.lima import LimaAcquisitionMaster
-from bliss.scanning.acquisition.motor import LinearStepTriggerMaster, MotorMaster
+from bliss.scanning.acquisition.motor import (
+    LinearStepTriggerMaster,
+    MotorMaster,
+    MeshStepTriggerMaster,
+)
 from bliss.scanning.acquisition.counter import SamplingCounterAcquisitionSlave
 import pytest
 import gevent
@@ -90,6 +94,47 @@ def test_attach_channel(session):
     data = scan.get_data()
     assert len(data["m1"]) == 6
     assert len(data["m0"]) == len(data["m1"])
+
+
+def test_attach_channel_on_mesh(session):
+    m0 = session.config.get("robz")
+    m1 = session.config.get("robz2")
+    m2 = session.config.get("roby")
+    m2.acceleration = 1e6
+    m2.velocity = 1e5
+    top_master = MeshStepTriggerMaster(m0, 0, 10, 2, m1, -1, 1, 5)
+    second_master = MotorMaster(m2, 0, 1e-6, 1e-8)
+
+    ext_channel = AcquisitionChannel(f"axis:{m2.name}", numpy.double, ())
+    second_master.channels.append(ext_channel)
+
+    real_trigger = second_master.trigger
+
+    def new_trigger(*args):
+        real_trigger(*args)
+        gevent.sleep(0)
+        ext_channel.emit([1, 2, 3])
+
+    second_master.trigger = new_trigger
+
+    chain = AcquisitionChain()
+    chain.add(top_master, second_master)
+    attach_channels(top_master.channels, ext_channel)
+
+    scan = Scan(chain, "test", save=False)
+    scan.run()
+    data = scan.get_data()
+
+    npoints = 2 * 5 * 3
+    assert data[m0].shape == (npoints,)
+    assert data[m1].shape == (npoints,)
+    assert data[m2].shape == (npoints,)
+
+    assert numpy.allclose(data[m2], numpy.array([1, 2, 3] * 2 * 5))
+    assert numpy.allclose(
+        data[m1], numpy.array([-1.] * 6 + [-0.5] * 6 + [0.] * 6 + [0.5] * 6 + [1.0] * 6)
+    )
+    assert numpy.allclose(data[m0], numpy.array(([0] * 3 + [10] * 3) * 5))
 
 
 def test_add_multiple_top_masters_same_name(

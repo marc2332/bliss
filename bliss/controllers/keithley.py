@@ -436,7 +436,15 @@ class K6514(BaseMultimeter):
 
 
 class K2000(BaseMultimeter):
-    class Sensor(BaseMultimeter.Sensor):
+    @staticmethod
+    def Sensor(config, ctrl):
+        meas_func = config.get("meas_func", "")
+        if meas_func.startswith("TEMP"):
+            return K2000.TempSensor(config, ctrl)
+        else:
+            return K2000.MultimeterSensor(config, ctrl)
+
+    class MultimeterSensor(BaseMultimeter.Sensor):
         MeasureFunctions = SCPICommands(
             {
                 "CURRent[:DC]": SCPICmd(),
@@ -447,9 +455,67 @@ class K2000(BaseMultimeter):
                 "FRESistance": SCPICmd(),
                 "PERiod": SCPICmd(),
                 "FREQuency": SCPICmd(),
-                "TEMPerature": SCPICmd(),
             }
         )
+
+    class TempSensor(SamplingCounter, BeaconObject):
+        name = BeaconObject.config_getter("name")
+        address = BeaconObject.config_getter("address")
+
+        def __init__(self, config, controller):
+            BeaconObject.__init__(self, config)
+            SamplingCounter.__init__(self, self.name, controller._counter_controller)
+            self.__controller = controller
+
+        @autocomplete_property
+        def comm(self):
+            return self.__controller._keithley_comm
+
+        @autocomplete_property
+        def controller(self):
+            return self.__controller
+
+        @property
+        def index(self):
+            return self.address - 1
+
+        @property
+        def meas_func(self):
+            return "TEMPerature"
+
+        @BeaconObject.property
+        def nplc(self):
+            return self.comm["TEMP:NPLC"]
+
+        @nplc.setter
+        def nplc(self, value):
+            self.comm["TEMP:NPLC"] = value
+
+        @BeaconObject.property(doc="Specify measurement resolution (4 to 7)")
+        def measurement_resolution(self):
+            return self.comm["TEMP:DIG"]
+
+        @measurement_resolution.setter
+        def measurement_resolution(self, value):
+            self.comm["TEMP:DIG"] = value
+
+        @BeaconObject.property(doc="Select thermocouple type (J, K, or T)")
+        def thermocouple_type(self):
+            return self.comm["TEMPerature:TC:TYPE"]
+
+        @thermocouple_type.setter
+        def thermocouple_type(self, value):
+            self.comm["TEMPerature:TC:TYPE"] = value
+
+        def _initialize_with_setting(self):
+            if not self._is_initialized:
+                self.comm("CONF:TEMP")
+            super()._initialize_with_setting()
+
+        def __info__(self):
+            info = f"thermocouple_type = {self.thermocouple_type}\n"
+            info += f"measurement_resolution = {self.measurement_resolution} Digits\n"
+            return info
 
 
 class AmmeterDDCCounterController(SamplingCounterController):

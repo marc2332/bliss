@@ -395,6 +395,11 @@ _sens_2000_commands = {
     ),
     "FRESistance:RANGe[:UPPer]": FloatCmd(doc="select range (V) (0..101e6)"),
     "FRESistance:RANGe:AUTO": OnOffCmd(doc="enable/disable auto-range"),
+    "TEMPerature:NPLCycles": FloatCmd(
+        doc="integration rate in line cycles (PLCs) (0.01..10)"
+    ),
+    "TEMPerature:DIGits": IntCmd(doc="Specify measurement resolution (4 to 7)"),
+    "TEMPerature:TCouple:TYPE": StrCmd(doc="Select thermocouple type (J, K, or T)"),
 }
 
 

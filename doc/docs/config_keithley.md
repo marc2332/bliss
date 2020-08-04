@@ -52,6 +52,18 @@ keithleys:
       - name: pico6
         meas_func: VOLT
         address: 1
+	
+  - model: 2000
+    gpib:
+      url: enet://gpibid11c.esrf.fr
+      pad: 12
+    sensors:
+      - name: sample_temp #Temperature Sensor
+        meas_func: TEMP
+        address: 1
+	nplc: 1 #(optional) 1 is the default for temperature
+	measurement_resolution: 6 #number of digits (optional) (default 6)
+	thermocouple_type: J #Select thermocouple type (J, K, or T) (optional) (default J)
 
   - model: 6485
     gpib:

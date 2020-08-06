@@ -637,6 +637,27 @@ class Mercury(BaseXIA):
                 scas.append((det, int(start), int(stop)))
         return scas
 
+    def estimate_block_size(self, acq_time, block_size=None):
+        if len(self.elements) == 1:
+            if block_size is None:
+                min_block_size = 5
+            else:
+                min_block_size = block_size
+            maxpts = self._calc_max_block_size()
+            estime = int(0.25 / acq_time)
+            estime = max(estime, min_block_size)
+            estime = min(estime, maxpts)
+            log_debug(self, "mercury estimated block_size = %d", estime)
+            return estime
+        else:
+            return block_size
+
+    def _calc_max_block_size(self, mem_in_MB=2.):
+        mem = mem_in_MB * 1024. * 1024.
+        size = self.spectrum_size
+        npts = ((mem / 2.) - 256) / (256 + size)
+        return int(npts)
+
 
 class XMAP(BaseXIA):
     """Controller class for the XMAP (a XIA MCA)."""

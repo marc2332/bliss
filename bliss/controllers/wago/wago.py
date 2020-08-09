@@ -2352,7 +2352,4 @@ class WagoMockup(Wago):
 
     def close(self):
         super().close()
-        try:
-            self.__mockup.close()
-        except AttributeError:
-            pass
+        self.__mockup.close()

@@ -86,34 +86,34 @@ def delete_session(session_name):
         session_config = config.get_config(session_name)
 
         # Gets the name of the setup file (found in YML file).
-        setup_file_name = session_config.get("setup-file")
+        setup_filename = session_config.get("setup-file")
 
         # Gets name of the YML file.
         session_file = session_config.filename
 
-        if setup_file_name is not None:
+        if setup_filename is not None:
             # Gets the full path.
-            if setup_file_name.startswith("."):  # relative path
+            if setup_filename.startswith("."):  # relative path
                 base_path = os.path.dirname(session_file)
-                setup_file_name = os.path.normpath(
-                    os.path.join(base_path, setup_file_name)
+                setup_filename = os.path.normpath(
+                    os.path.join(base_path, setup_filename)
                 )
-                script_file_name = "scripts/%s.py" % session_name
-                script_file_name = os.path.normpath(
-                    os.path.join(base_path, script_file_name)
+                script_filename = "scripts/%s.py" % session_name
+                script_filename = os.path.normpath(
+                    os.path.join(base_path, script_filename)
                 )
 
             # Removes <session_name>_setup.py file.
-            print(("removing .../%s" % setup_file_name))
-            client.remove_config_file(setup_file_name)
+            print(("removing .../%s" % setup_filename))
+            client.remove_config_file(setup_filename)
 
         # Removes YML file.
         print(("removing .../%s" % session_file))
         client.remove_config_file(session_file)
 
         # Removes script file.
-        print(("removing .../%s" % script_file_name))
-        client.remove_config_file(script_file_name)
+        print(("removing .../%s" % script_filename))
+        client.remove_config_file(script_filename)
 
 
 def create_session(session_name):
@@ -130,7 +130,7 @@ def create_session(session_name):
 
     config = static.get_config()
     config.set_config_db_file("sessions/__init__.yml", "plugin: session\n")
-    
+
     # <session_name>.yml: config file created as a config Node.
     filename = "sessions/%s.yml" % session_name
     new_session_node = ConfigNode(config.root, filename=filename)
@@ -145,19 +145,17 @@ def create_session(session_name):
     )
     new_session_node.save()
 
-    config = static.get_config()
-    config.set_config_db_file("sessions/__init__.yml", "plugin: session\n")
     # <session_name>_setup.py: setup file of the session.
     skeleton = sft.xxx_setup_py_template.render(name=session_name)
-    file_name = "sessions/%s_setup.py" % session_name
-    print(("Creating %s" % file_name))
-    config.set_config_db_file(file_name, skeleton)
+    filename = "sessions/%s_setup.py" % session_name
+    print(("Creating %s" % filename))
+    config.set_config_db_file(filename, skeleton)
 
     # scripts/<session_name>.py: additional python script file.
     skeleton = sft.xxx_py_template.render(name=session_name)
-    file_name = "sessions/scripts/%s.py" % session_name
-    print(("Creating %s" % file_name))
-    config.set_config_db_file(file_name, skeleton)
+    filename = "sessions/scripts/%s.py" % session_name
+    print(("Creating %s" % filename))
+    config.set_config_db_file(filename, skeleton)
 
 
 def main():

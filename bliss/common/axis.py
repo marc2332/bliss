@@ -1441,7 +1441,8 @@ class Axis:
                 raise TypeError
         except TypeError:
             raise ValueError("Usage: .dial_limits(low, high)")
-        ll, hl = (float(x) if x is not None else None for x in limits)
+        ll = float(limits[0]) if limits[0] is not None else float("-inf")
+        hl = float(limits[1]) if limits[1] is not None else float("+inf")
         self.settings.set("low_limit", ll)
         self.settings.set("high_limit", hl)
 

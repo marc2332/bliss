@@ -62,6 +62,7 @@ from ruamel.yaml.compat import StringIO
 from bliss.config.conductor import client
 from bliss.config import channels
 from bliss.common.utils import prudent_update
+from bliss import global_map
 
 CONFIG = None
 

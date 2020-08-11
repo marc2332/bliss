@@ -21,6 +21,7 @@ import numpy
 from random import randint
 from contextlib import contextmanager
 import redis
+import weakref
 
 from bliss import global_map, global_log
 from bliss.common.session import DefaultSession
@@ -34,6 +35,7 @@ from bliss.controllers.lima.roi import Roi
 from bliss.controllers.wago.wago import ModulesConfig
 from bliss.controllers.wago.emulator import WagoEmulator
 from bliss.controllers import simulation_diode
+from bliss.controllers import tango_attr_as_counter
 from bliss.common import plot
 from bliss.common.tango import Database, DeviceProxy, DevFailed, ApiUtil, DevState
 from bliss.common.utils import grouped
@@ -145,6 +147,7 @@ def clean_globals():
     simulation_diode.DEFAULT_INTEGRATING_CONTROLLER = None
     scan_meta.USER_SCAN_META = None
     logbook_printer.disabled.clear()
+    tango_attr_as_counter._TangoCounterControllerDict = weakref.WeakValueDictionary()
 
 
 @pytest.fixture

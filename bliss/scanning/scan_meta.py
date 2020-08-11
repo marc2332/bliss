@@ -71,7 +71,12 @@ def scan_meta(info=None):
             categories_info = _infos.setdefault(self._cat, dict())
             categories_info[name] = values
 
-        def remove(self, name):
+        def remove(self, name_or_device):
+            name = (
+                name_or_device
+                if isinstance(name_or_device, str)
+                else name_or_device.name
+            )
             categories_infos = _infos.get(self._cat, dict())
             categories_infos.pop(name, None)
             if not categories_infos:

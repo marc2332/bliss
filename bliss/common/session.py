@@ -11,6 +11,8 @@ import warnings
 import collections
 import functools
 import inspect
+import copy
+import contextlib
 
 from treelib import Tree
 from types import ModuleType
@@ -227,6 +229,45 @@ class Session:
     @property
     def config(self):
         return ConfigProxy(static.get_config, self.env_dict)
+
+    @property
+    @contextlib.contextmanager
+    def temporary_config(self):
+        """
+        Create a context to export temporary some devices.
+        """
+        # store current config status
+        cfg = static.get_config()
+        name2instancekey = set(cfg._name2instance.keys())
+        name2cache = cfg._name2cache.copy()
+
+        # reload is not permited in temporary config
+        previous_reload = cfg.reload
+
+        def reload(*args):
+            raise RuntimeError("Not permitted under tempaorary config context")
+
+        cfg.reload = reload
+
+        try:
+            yield self.config
+        finally:
+            # rollback config
+            cfg.reload = previous_reload
+            diff_keys = set(cfg._name2instance.keys()) - name2instancekey
+            for key in diff_keys:
+                cfg._name2instance.pop(key)
+                self.__env_dict.pop(key, None)
+            cfg_name2cache_key = set(cfg._name2cache)
+            prev_name2cache_key = set(name2cache)
+            added_keys = cfg_name2cache_key - prev_name2cache_key
+            removed_key = prev_name2cache_key - cfg_name2cache_key
+            # remove added cache
+            for key in added_keys:
+                cfg._name2cache.pop(key)
+            # re-insert removed cache
+            for key in removed_key:
+                cfg._name2cache[key] = name2cache[key]
 
     @property
     def setup_file(self):

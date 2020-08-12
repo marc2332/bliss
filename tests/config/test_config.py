@@ -6,7 +6,6 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 from bliss.config.conductor import client
-from bliss.config.plugins.utils import replace_reference_by_object
 import pytest
 import sys, os
 import ruamel
@@ -25,7 +24,7 @@ def test_config_save(beacon, beacon_directory, file_name, node_name, copy):
     test_file_path = os.path.join(beacon_directory, file_name)
     rw_cfg = beacon.get_config(node_name)
     if copy:
-        rw_cfg = rw_cfg.deep_copy()
+        rw_cfg = rw_cfg.clone()
     test_file_contents = client.get_text_file(file_name)
 
     with open(test_file_path, "rb") as f:
@@ -131,19 +130,14 @@ def test_yml_load_error2(beacon, beacon_directory):
 
 
 @pytest.mark.parametrize(
-    "object_name, get_func_name, copy, ref_func",
-    [
-        ["refs_test", "get", False, None],
-        ["refs_test_cpy", "get_config", True, replace_reference_by_object],
-    ],
+    "object_name, get_func_name, copy",
+    [["refs_test", "get", False], ["refs_test_cpy", "get_config", True]],
 )
-def test_references(beacon, object_name, get_func_name, copy, ref_func):
+def test_references(beacon, object_name, get_func_name, copy):
     get_func = getattr(beacon, get_func_name)
     refs_cfg = get_func(object_name)
     if copy:
-        refs_cfg = refs_cfg.deep_copy()
-    if ref_func:
-        ref_func(beacon, refs_cfg)
+        refs_cfg = refs_cfg.clone()
 
     m0 = beacon.get("m0")
     s1hg = beacon.get("s1hg")
@@ -199,8 +193,7 @@ def test_yaml_boolean(beacon):
 def test_config_save_reference(beacon, beacon_directory):
     file_name = "read_write_2.yml"
     node_name = "rw_test_2"
-    rw_cfg = beacon.get_config(node_name).deep_copy()
-    replace_reference_by_object(beacon, rw_cfg, dict())
+    rw_cfg = beacon.get_config(node_name).clone()
     diode = beacon.get("diode")
     diode2 = beacon.get("diode2")
     diode3 = beacon.get("diode3")
@@ -212,7 +205,6 @@ def test_config_save_reference(beacon, beacon_directory):
     beacon.reload()
 
     rw_cfg2 = beacon.get_config(node_name)
-    replace_reference_by_object(beacon, rw_cfg2, dict())
     assert id(rw_cfg2) != id(rw_cfg)
     assert len(rw_cfg2["test_list"]) == len(rw_cfg["test_list"])
     assert [x.name for x in rw_cfg2["test_list"]] == [

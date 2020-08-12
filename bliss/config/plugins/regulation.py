@@ -15,8 +15,7 @@ from bliss.common.regulation import (
     ExternalInput,
     ExternalOutput,
 )
-from bliss.config.plugins.utils import find_class, replace_reference_by_object
-
+from bliss.config.plugins.utils import find_class
 
 TYPE = enum.Enum("TYPE", "INPUT OUTPUT LOOP")
 
@@ -51,8 +50,6 @@ def create_objects_from_config_node(config, node):
 
         else:  # <= else it is an object without a controller (like ExternalIn/out or SoftLoop)
 
-            replace_reference_by_object(config, node)
-
             if node.get("class") in ["SoftLoop", "Loop"]:
                 new_obj = SoftLoop(node)
 
@@ -83,13 +80,13 @@ def create_objects_from_config_node(config, node):
 
         # --- for each subnode of a given type, store info in cache
         for nd in child_nodes:
-            name2cacheditems[nd["name"]] = (node_type, nd.deep_copy(), controller)
+            name2cacheditems[nd["name"]] = (node_type, nd, controller)
 
     # --- add the controller to stored items if it has a name
     if controller_name:
         name2items[controller_name] = controller
 
-    # update the config cache dict NOW to avoid cyclic instanciation (i.e. config.get => create_object_from_... => replace_reference_by_object => config.get )
+    # update the config cache dict NOW to avoid cyclic instanciation (i.e. config.get => create_object_from_... => config.get )
     yield name2items, name2cacheditems
 
     # --- don't forget to instanciate the object for which this function has been called (if not a controller)
@@ -106,7 +103,6 @@ def create_object_from_cache(config, name, object_info):
     # for a better understanding of this function, see bliss.config.static => config.get( obj_name )
 
     node_type, node, controller = object_info
-    replace_reference_by_object(config, node)
 
     controller_module = sys.modules[controller.__module__]
     object_class_name = node.get("class", DEFAULT_CLASS_NAME[node_type])

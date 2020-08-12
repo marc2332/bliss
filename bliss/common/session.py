@@ -301,7 +301,7 @@ class Session:
             aliases.update(child_session._aliases_info())
 
         for alias_cfg in self.__config_aliases:
-            cfg = alias_cfg.deep_copy()
+            cfg = alias_cfg.clone()
             aliases[cfg.pop("original_name")] = cfg
 
         return aliases

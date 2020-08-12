@@ -12,6 +12,7 @@ import logging
 import re
 import weakref
 import datetime
+from collections.abc import MutableSequence, MutableMapping
 
 import tango
 from tango.databaseds.db_errors import *
@@ -107,16 +108,16 @@ class beacon:
         self._index()
 
         # Trick to start
-        self._beacon_dserver_node = static.Node(self._config)
+        self._beacon_dserver_node = static.ConfigNode(self._config.root)
         self._beacon_dserver_node["server"] = "DataBaseds"
         self._beacon_dserver_node["personal_name"] = personal_name
         tango_name = "sys/database/%s" % personal_name
-        databse_device_node = static.Node(self._config, self._beacon_dserver_node)
-        databse_device_node["class"] = "DataBase"
-        databse_device_node["tango_name"] = tango_name
-        self._beacon_dserver_node["device"] = [databse_device_node]
+        database_device_node = static.ConfigNode(self._beacon_dserver_node)
+        database_device_node["class"] = "DataBase"
+        database_device_node["tango_name"] = tango_name
+        self._beacon_dserver_node["device"] = [database_device_node]
         self._beacon_dserver_node["tango_name"] = tango_name
-        self._tango_name_2_node[tango_name] = databse_device_node
+        self._tango_name_2_node[tango_name] = database_device_node
         tango_name = "dserver/databaseds/%s" % personal_name
         self._tango_name_2_node[tango_name] = self._beacon_dserver_node
         server_name = "DataBaseds/%s" % personal_name
@@ -129,32 +130,36 @@ class beacon:
         self._tango_name_2_node = CaseInsensitiveDict()
         self._class_name_2_node = CaseInsensitiveDict()
 
-        for key, values in self._config.root.items():
+        for key, values in self._config.root.raw_items():
             indexing_flag = key == "tango"
-            if isinstance(values, list):
+            if isinstance(values, MutableSequence):
                 self._parse_list(values, indexing_flag)
-            elif isinstance(values, dict):
+            elif isinstance(values, MutableMapping):
                 self._parse_dict(values, indexing_flag)
                 self._index_tango(values)
 
     def _parse_list(self, l, indexing_flag):
+        try:
+            l = l.raw_list
+        except AttributeError:
+            pass
         for v in l:
-            if isinstance(v, list):
+            if isinstance(v, MutableSequence):
                 self._parse_list(v, indexing_flag)
-            elif isinstance(v, dict):
+            elif isinstance(v, MutableMapping):
                 if indexing_flag:
                     self._index_tango(v)
                 self._parse_dict(v, indexing_flag)
 
     def _parse_dict(self, d, indexing_flag):
-        for k, v in d.items():
-            if isinstance(v, dict):
+        for k, v in d.raw_items():
+            if isinstance(v, MutableMapping):
                 if not indexing_flag:
                     indexing_flag = k == "tango"
                 if indexing_flag:
                     self._index_tango(v)
                 self._parse_dict(v, indexing_flag)
-            elif isinstance(v, list):
+            elif isinstance(v, MutableSequence):
                 self._parse_list(v, indexing_flag)
 
     def _index_tango(self, v):
@@ -210,8 +215,8 @@ class beacon:
         server_name = "%s/%s" % (server_exe_name, personal_name)
         server_node = self._personal_2_node.get(server_name)
         if server_node is None:
-            server_node = static.Node(
-                self._config, filename="tango/%s.yml" % server_name.replace("/", "_")
+            server_node = static.ConfigNode(
+                self._config.root, filename=f"tango/{server_name.replace('/','_')}.yml"
             )
             server_node["server"] = server_exe_name
             server_node["personal_name"] = personal_name
@@ -219,7 +224,7 @@ class beacon:
             self._tango_name_2_node["dserver/%s" % server_name.lower()] = server_node
             self._strong_node_ref.add(server_node)
 
-        device_node = static.Node(self._config, parent=server_node)
+        device_node = static.ConfigNode(server_node)
         self._strong_node_ref.add(device_node)
         device_node["tango_name"] = tango_name
         device_node["class"] = klass_name
@@ -453,7 +458,7 @@ class beacon:
             class_properties = self._get_class_attribute(class_name, attr_name)
             attr_property = []
             for nb, (name, values) in enumerate(class_properties.items()):
-                if isinstance(values, list):
+                if isinstance(values, MutableSequence):
                     attr_property.extend(
                         [name, str(len(values))] + [str(x) for x in values]
                     )
@@ -509,7 +514,7 @@ class beacon:
         for prop_name in properties:
             properties_array = []
             values = self._get_class_properties(class_name, prop_name)
-            if isinstance(values, list):
+            if isinstance(values, MutableSequence):
                 values = [str(x) for x in values]
                 properties_array.extend([prop_name, str(len(values))] + values)
             elif values:
@@ -528,7 +533,7 @@ class beacon:
         properties = self._class_name_2_node.get(class_name, dict()).get(
             "properties", dict()
         )
-        return [k for k, v in properties.items() if not isinstance(v, dict)]
+        return [k for k, v in properties.items() if not isinstance(v, MutableMapping)]
         # cache = settings.get_redis_connection()
         # return list(_bytes2str_iter(cache.keys('tango.class.properties.%s*' % class_name)))
 
@@ -590,7 +595,7 @@ class beacon:
             else:
                 result.extend((attr_name, str(len(prop_attr))))
                 for name, values in prop_attr.items():
-                    if isinstance(values, list):
+                    if isinstance(values, MutableSequence):
                         result.extend(
                             [name, str(len(values))] + [str(x) for x in values]
                         )
@@ -608,7 +613,7 @@ class beacon:
         if server_node is None:
             return []
         devices = server_node.get("device")
-        if isinstance(devices, list):
+        if isinstance(devices, MutableSequence):
             name_class = [(n.get("tango_name"), n.get("class")) for n in devices]
         else:
             name_class = [(devices.get("tango_name"), devices.get("class"))]
@@ -688,11 +693,13 @@ class beacon:
 
     def _tango_name_from_class(self, device_list, class_name):
         m = re.compile(class_name.replace("*", ".*"), re.IGNORECASE)
-        if isinstance(device_list, list):
+        if isinstance(device_list, MutableSequence):
             return [
                 x.get("tango_name") for x in device_list if m.match(x.get("class", ""))
             ]
-        elif isinstance(device_list, dict) and m.match(device_list.get("class", "")):
+        elif isinstance(device_list, MutableMapping) and m.match(
+            device_list.get("class", "")
+        ):
             return [device_list.get("tango_name")]
         else:
             return []
@@ -750,7 +757,7 @@ class beacon:
 
                 for key in ask_keys:
                     values = properties.get(key, "")
-                    if isinstance(values, list):
+                    if isinstance(values, MutableSequence):
                         values = [str(x) for x in values]
                         properties_array.extend(
                             [property_name, str(len(values))] + values
@@ -769,7 +776,7 @@ class beacon:
         else:
             return _filter(
                 prop_filter,
-                [k for k, v in properties.items() if not isinstance(v, dict)],
+                [k for k, v in properties.items() if not isinstance(v, MutableMapping)],
             )
 
     @_info
@@ -784,7 +791,7 @@ class beacon:
             return []
         else:
             devices = server_node.get("device")
-            if isinstance(devices, list):
+            if isinstance(devices, MutableSequence):
                 return [x.get("class") for x in devices]
             else:
                 return [devices.get("class")]
@@ -998,10 +1005,8 @@ class beacon:
         attr_id = 0
         class_node = self._class_name_2_node.get(class_name)
         if class_node is None:
-            class_node = static.Node(
-                self._config,
-                parent=self._config.root,
-                filename="tango/%s.yml" % class_name.replace("/", "_"),
+            class_node = static.ConfigNode(
+                self._config.root, filename=f"tango/{class_name.replace('/','_')}.yml"
             )
             class_node["class"] = class_name
             self._strong_node_ref.add(class_node)
@@ -1093,7 +1098,7 @@ class beacon:
                         break
                 old_properties = property_node
         if old_properties is None:
-            properties = static.Node(self._config, parent=device_node)
+            properties = static.ConfigNode(device_node, key=["properties"])
             device_node["properties"] = properties
         else:
             properties = old_properties

@@ -51,7 +51,7 @@ class MachInfo(BeaconObject):
         self.tango_uri = config["uri"]
         self.__counters = []
         for cnt_name, attr_name in self.COUNTERS:
-            counter_config = config.deep_copy()
+            counter_config = config.clone()
             counter_config["attr_name"] = attr_name
             controller = TangoCounterController(
                 name, self.tango_uri, global_map_register=False

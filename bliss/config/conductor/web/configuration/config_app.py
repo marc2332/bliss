@@ -340,7 +340,7 @@ def __get_plugins():
 
 
 def _get_config_user_tags(config_item):
-    user_tag = config_item.get(static.Config.USER_TAG_KEY, [])
+    user_tag = config_item.get(static.ConfigNode.USER_TAG_KEY, [])
     if not isinstance(user_tag, (tuple, list)):
         user_tag = [user_tag]
     return user_tag
@@ -573,7 +573,7 @@ def add_folder():
     folder = flask.request.form["folder"]
 
     filename = os.path.join(folder, "__init__.yml")
-    node = static.Node(cfg, filename=filename)
+    node = static.ConfigNode(cfg.root, filename=filename)
     node.save()
     return flask.json.dumps(dict(message="Folder created!", type="success"))
 
@@ -582,7 +582,7 @@ def add_folder():
 def add_file():
     cfg = __config.get_config()
     filename = flask.request.form["file"]
-    node = static.Node(cfg, filename=filename)
+    node = static.ConfigNode(cfg.root, filename=filename)
     node.save()
     return flask.json.dumps(dict(message="File created!", type="success"))
 
@@ -605,7 +605,7 @@ def copy_file():
     if dst_path.endswith(os.path.pathsep):
         dst_path = os.path.join(dst_path, os.path.split(src_path)[1])
 
-    node = static.Node(cfg, filename=dst_path)
+    node = static.ConfigNode(cfg.root, filename=dst_path)
     node.save()
 
     db_files = dict(client.get_config_db_files())

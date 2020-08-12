@@ -32,7 +32,7 @@ Accessing the configured elements from python is easy
     >>> # get a hold of motor 's1vo' configuration
     >>> s1u_config = config.get_config('s1u')
     >>> s1u_config
-    Node([('name', 's1u')])
+    ConfigNode([('name', 's1u')])
     >>> s1vo_config['velocity']
     500
 
@@ -46,13 +46,14 @@ Accessing the configured elements from python is easy
 """
 
 import os
-import gc
 import re
-import operator
-import weakref
-import collections
-from collections.abc import MutableMapping, MutableSequence
+import json
 import types
+import pickle
+import weakref
+import operator
+from collections import defaultdict
+from collections.abc import Mapping, Sequence, MutableMapping, MutableSequence
 
 import ruamel
 from ruamel.yaml import YAML
@@ -97,55 +98,11 @@ def _find_subconfig(d, path):
     path = path.copy()
     key = path.pop(0)
     sub = d.get(key, _NotProvided)
-    if sub == _NotProvided:
-        return Node()
+    if sub is _NotProvided:
+        return ConfigNode(CONFIG.root)
     if len(path) > 0:
         return _find_subconfig(sub, path)
     return sub
-
-
-def _replace_object_with_ref(obj):
-    try:
-        obj_name = obj.name
-    except AttributeError:
-        return False, obj
-    else:
-        config = get_config()
-        if config._name2instance.get(obj_name):
-            return True, f"${obj_name}"
-        else:
-            return False, obj
-
-
-def _replace_list_node_with_ref(node_list):
-    final_list = []
-    for sub_node in node_list:
-        if isinstance(sub_node, MutableSequence):
-            sub_list = _replace_list_node_with_ref(sub_node)
-            final_list.append(sub_list)
-        elif isinstance(sub_node, MutableMapping):
-            _replace_node_with_ref(sub_node)
-            final_list.append(sub_node)
-        else:
-            replaced, new_value = _replace_object_with_ref(sub_node)
-            final_list.append(new_value if replaced else sub_node)
-    return final_list
-
-
-def _replace_node_with_ref(node):
-    """
-    replace all object with theirs references
-    """
-    for key, value in list(node.items()):
-        replaced, new_value = _replace_object_with_ref(value)
-        if replaced:
-            node[key] = new_value
-            continue
-
-        if isinstance(value, MutableMapping):
-            _replace_node_with_ref(value)
-        elif isinstance(value, MutableSequence):
-            node[key] = _replace_list_node_with_ref(value)
 
 
 def get_config(base_path="", timeout=3., raise_yaml_exc=True):
@@ -168,7 +125,7 @@ def get_config(base_path="", timeout=3., raise_yaml_exc=True):
         >>> # get a hold of motor 's1vo' configuration
         >>> s1u_config = config.get_config('s1u')
         >>> s1u_config
-        Node([('name', 's1u')])
+        ConfigNode([('name', 's1u')])
         >>> s1vo_config['velocity']
         500
 
@@ -206,35 +163,266 @@ def get_config_dict(fullname, node_name):
     return d
 
 
-class Node(dict):
-    """
-    Configuration Node. Do not instantiate this class directly.
+class ConfigReference:
+    @staticmethod
+    def is_reference(name):
+        return name.startswith("$")
 
-    Typical usage goes throught :class:`~bliss.config.static.Config`.
-
-    This class has a :class:`dict` like API::
-
-        >>> from bliss.config.static import get_config
-
-        >>> # access the bliss configuration object
-        >>> config = get_config()
-
-        >>> # get a hold of motor 's1vo' configuration
-        >>> s1u_config = config.get_config('s1u')
-        >>> s1u_config
-        Node([('name', 's1u')])
-        >>> s1vo_config['velocity']
-        500
-    """
-
-    def __init__(self, config=None, parent=None, filename=None):
-        super().__init__()
+    def __init__(self, parent, value):
         self._parent = parent
-        if config is None:
-            config = CONFIG
-        if config:
-            self._config = weakref.proxy(config)
-        config._create_file_index(self, filename)
+        ref, _, attr = value.lstrip("$").partition(".")
+        self._object_name = ref
+        self._attr = attr
+
+    def __getstate__(self):
+        return {
+            "object_name": self.object_name,
+            "attr": self.attr,
+            "parent": self._parent,
+        }
+
+    def __setstate__(self, d):
+        self._object_name = d["object_name"]
+        self._attr = d["attr"]
+        self._parent = d["parent"]
+
+    def __eq__(self, other):
+        if isinstance(other, ConfigReference):
+            return self._object_name == other._object_name and self._attr == other._attr
+        else:
+            return False
+
+    @property
+    def object_name(self):
+        return self._object_name
+
+    @property
+    def attr(self):
+        return self._attr
+
+    def dereference(self):
+        obj = self._parent.config.get(self.object_name)
+        alias = global_map.aliases.get_alias(obj)
+        if alias:
+            obj = global_map.aliases.get(alias)
+        if self.attr:
+            return operator.attrgetter(self.attr)(obj)
+        return obj
+
+    def encode(self):
+        if self.attr:
+            return f"${self.object_name}.{self.attr}"
+        else:
+            return f"${self.object_name}"
+
+
+class ConfigList(MutableSequence):
+    def __init__(self, parent):
+        self._data = []
+        self._parent = parent
+
+    def __getstate__(self):
+        return {"data": self._data, "parent": self._parent}
+
+    def __setstate__(self, d):
+        self._data = d["data"]
+        self._parent = d["parent"]
+
+    @property
+    def raw_list(self):
+        return self._data
+
+    def __eq__(self, other):
+        if isinstance(other, ConfigList):
+            return self.raw_list == other.raw_list
+        else:
+            if isinstance(other, MutableSequence):
+                return list(other) == list(self)
+            return False
+
+    def __getitem__(self, key):
+        value = self._data[key]
+        if isinstance(value, ConfigReference):
+            return value.dereference()
+        return value
+
+    def __len__(self):
+        return len(self._data)
+
+    def __setitem__(self, key, value):
+        self._data[key] = convert_value(value, self._parent)
+
+    def __delitem__(self, key):
+        del self._data[key]
+
+    def __repr__(self):
+        return repr(self._data)
+
+    def encode(self):
+        return self._data
+
+    def insert(self, index, value):
+        self._data.insert(index, convert_value(value, self._parent))
+
+
+def convert_value(value, parent):
+    """Convert value to a ConfigReference, a config node or a config list with the given parent
+
+    Scalars, or values with the right type, are just returned as they are
+    """
+    if value is None or isinstance(
+        value, (ConfigReference, ConfigNode, ConfigList, bool, int, float)
+    ):
+        pass
+    else:
+        if isinstance(value, str):
+            if ConfigReference.is_reference(value):
+                value = ConfigReference(parent, value)
+        else:
+            if isinstance(value, dict):
+                new_node = ConfigNode(parent)
+                build_nodes_from_dict(value, new_node)
+                value = new_node
+            elif isinstance(value, list):
+                value = build_nodes_from_list(value, parent)
+            else:
+                # a custom object from bliss? => make a reference
+                try:
+                    obj_name = value.name
+                except AttributeError:
+                    raise ValueError(f"Cannot make a reference to object {value}")
+                if obj_name in parent.config.names_list:
+                    value = ConfigReference(parent, obj_name)
+                else:
+                    raise ValueError(f"Cannot make a reference to object {value}")
+    return value
+
+
+class ConfigNode(MutableMapping):
+    """
+    Configuration ConfigNode. Do not instantiate this class directly.
+
+    Typical usage goes through :class:`~bliss.config.static.Config`.
+
+    This class has a :class:`dict` like API
+    """
+
+    # key which triggers a YAML_ collection to be identified as a bliss named item
+    NAME_KEY = "name"
+    USER_TAG_KEY = "user_tag"
+    indexed_nodes = weakref.WeakValueDictionary()
+    tagged_nodes = defaultdict(weakref.WeakSet)
+
+    @staticmethod
+    def reset_cache():
+        ConfigNode.indexed_nodes = weakref.WeakValueDictionary()
+        ConfigNode.tagged_nodes = defaultdict(weakref.WeakSet)
+
+    def __init__(self, parent=None, filename=None, path=None):
+        self._data = {}
+        self._parent = parent
+        self._filename = filename
+        self._path = path
+
+    def raw_get(self, key):
+        return self._data.get(key)
+
+    def raw_items(self):
+        return self._data.items()
+
+    def encode(self):
+        return self._data
+
+    @property
+    def config(self):
+        return self.root.config
+
+    @property
+    def root(self):
+        root = self
+        while root.parent:
+            root = root.parent
+        return root
+
+    @property
+    def path(self):
+        """Return a list to access the node in the list+dictionaries from the YAML file parsing
+        """
+        parent_path = []
+        if self.parent:
+            if self.parent.filename == self.filename:
+                parent_path = self.parent.path
+        # return a copy of the path
+        return list(parent_path + self._path if self._path is not None else [])
+
+    def __getstate__(self):
+        return {
+            "data": self._data,
+            "parent": self._parent,
+            "filename": self._filename,
+            "path": self._path,
+        }
+
+    def __setstate__(self, d):
+        self._data = d["data"]
+        self._parent = d["parent"]
+        self._filename = d["filename"]
+        self._path = d["path"]
+
+    def __eq__(self, other):
+        if isinstance(other, ConfigNode):
+            return dict(self.raw_items()) == dict(other.raw_items())
+        elif isinstance(other, MutableMapping):
+            return dict(other) == dict(self)
+        else:
+            return False
+
+    def __getitem__(self, key):
+        """Return value if it is not a reference, otherwise evaluate and return the reference value
+        """
+        value = self._data[key]
+        if isinstance(value, ConfigReference):
+            return value.dereference()
+        return value
+
+    def __setitem__(self, key, value):
+        if key == ConfigNode.NAME_KEY:
+            # need to index this node
+            node = self
+            name = value
+            if name is None or not isinstance(name, str) or name[:1].isdigit():
+                raise ValueError(
+                    f"Invalid name {name} in file ({node.filename}). Must start with [a-zA-Z_]"
+                )
+            if ConfigReference.is_reference(name):
+                # a name must be a string, or a direct reference to an object in config
+                assert not "." in name
+            else:
+                if name in ConfigNode.indexed_nodes:
+                    existing_node = ConfigNode.indexed_nodes[name]
+                    if existing_node.filename == self.filename:
+                        pass
+                    else:
+                        raise ValueError(
+                            f"Duplicated name {name}, already in {existing_node.filename}"
+                        )
+                else:
+                    ConfigNode.indexed_nodes[name] = node
+        elif key == ConfigNode.USER_TAG_KEY:
+            node = obj
+            user_tags = value if isinstance(value, MutableSequence) else [value]
+            for tag in user_tags:
+                ConfigNode.tagged_nodes[tag].add(node)
+        self._data[key] = convert_value(value, self)
+
+    def __delitem__(self, key):
+        del self._data[key]
+
+    def __iter__(self):
+        return iter(self._data)
+
+    def __len__(self):
+        return len(self._data)
 
     def __hash__(self):
         return id(self)
@@ -242,11 +430,15 @@ class Node(dict):
     @property
     def filename(self):
         """Filename where the configuration of this node is located"""
-        return self.get_node_filename()[1]
+        filename = self._filename
+        if filename is None:
+            if self._parent:
+                return self._parent.filename
+        return filename
 
     @property
     def parent(self):
-        """Parent Node or None if it is the root Node"""
+        """Parent Node"""
         return self._parent
 
     @property
@@ -258,31 +450,13 @@ class Node(dict):
     def plugin(self):
         """Active plugin name for this Node or None if no plugin active"""
         plugin = self.get("plugin")
-        if plugin is None:
-            if self == self._config._root_node:
-                return
-            if self._parent is not None:
-                return self._parent.plugin
-            return None
-        else:
+        if plugin:
             return plugin
-
-    def get_node_filename(self):
-        """
-        Returns the Node object corresponding to the filename where this Node
-        is defined
-
-        Returns:
-           ~bliss.config.static.Node: the Node file object where this Node is
-           defined
-        """
-        node = self if not hasattr(self, "_copied_from") else self._copied_from
-        filename = self._config._node2file.get(node)
-        if filename is not None:
-            return self, filename
-        elif self._parent is not None:
-            return self._parent.get_node_filename()
-        return None, None
+        else:
+            try:
+                return self._parent.plugin
+            except AttributeError:
+                return  # no parent == root node, no plugin
 
     def get_inherited_value_and_node(self, key):
         """
@@ -325,155 +499,68 @@ class Node(dict):
         """
         # Get the original node, synchronize it with
         # the copied one
-        parent, filename = self.get_node_filename()
-        if hasattr(self, "_copied_from"):
-            # first copy to not modify
-            copied_node = self.deep_copy()
-            _replace_node_with_ref(copied_node)
-            self._copied_from.clear()
-            self._copied_from.update(copied_node)
-        else:
-            _replace_node_with_ref(self)
+        filename = self.filename
 
         if filename is None:
             return  # Memory
-        nodes_2_save = self._config._file2node[filename]
-        # for save_nodes in self._get_save_list(nodes_2_save, filename):
-        # yaml_contents can be a CommentedMap (hashmap)
-        if len(nodes_2_save) == 1:
-            node = tuple(nodes_2_save)[0]
-            save_nodes = self._get_save_dict(node, filename)
-        else:
-            save_nodes = self._get_save_list(nodes_2_save, filename)
+
         yaml = YAML(pure=True)
         yaml.allow_duplicate_keys = True
         yaml.default_flow_style = False
         try:
             yaml_contents = yaml.load(
-                client.get_text_file(filename, self._config._connection)
+                client.get_text_file(filename, self.config._connection)
             )
         except RuntimeError:
             # file does not exist
-            yaml_contents = save_nodes
+            yaml_contents = self.to_dict()
         else:
-            yaml_contents = prudent_update(yaml_contents, save_nodes)
+            path_in_file = self.path
+            d = yaml_contents
+            while path_in_file:
+                d = d[path_in_file.pop(0)]
+            prudent_update(d, self.to_dict())
 
         string_stream = StringIO()
         yaml.dump(yaml_contents, stream=string_stream)
         file_content = string_stream.getvalue()
-        self._config.set_config_db_file(filename, file_content)
+        self.config.set_config_db_file(filename, file_content)
 
-    def deep_copy(self):
+    def clone(self):
         """
-        full copy of this node an it's children
+        return a full copy of this node
         """
-        node = Node()
-        node._config = self._config
-        node._parent = self._parent
+        node = pickle.loads(pickle.dumps(self, protocol=-1))
         # keep source node in case of saving
-        if hasattr(self, "_copied_from"):
-            node._copied_from = self._copied_from
-        else:
-            node._copied_from = self
-        for key, value in self.items():
-            if isinstance(value, Node):
-                child_node = value.deep_copy()
-                node[key] = child_node
-                child_node._parent = node
-            elif isinstance(value, MutableMapping):
-                child_node = Node()
-                child_node.update(value)
-                node[key] = child_node.deep_copy()
-            elif isinstance(value, MutableSequence):
-                new_list = Node._copy_list(value, node)
-                node[key] = new_list
-            else:
-                node[key] = value
         return node
 
     def to_dict(self):
         """
-        full copy and transform all node to dict object.
+        full copy and transform to dict object.
 
         the return object is a simple dictionary
         """
-        newdict = dict()
-        for key, value in self.items():
-            if isinstance(value, Node):
-                child_dict = value.to_dict()
-                newdict[key] = child_dict
-            elif isinstance(value, MutableSequence):
-                new_list = Node._copy_list(value, self, dict_mode=True)
-                newdict[key] = new_list
-            else:
-                newdict[key] = value
-        return newdict
-
-    @staticmethod
-    def _copy_list(l, parent, dict_mode=False):
-        new_list = list()
-        for v in l:
-            if isinstance(v, Node):
-                if dict_mode:
-                    new_node = v.to_dict()
-                else:
-                    new_node = v.deep_copy()
-                    new_node._parent = parent
-                new_list.append(new_node)
-            elif isinstance(v, MutableMapping):
-                tmp_node = Node()
-                tmp_node.update(v)
-                new_list.append(tmp_node.deep_copy().to_dict())
-            elif isinstance(v, MutableSequence):
-                child_list = Node._copy_list(v, parent, dict_mode=dict_mode)
-                new_list.append(child_list)
-            else:
-                new_list.append(v)
-        return new_list
-
-    def _get_save_dict(self, src_node, filename):
-        return_dict = dict()
-        for key, values in src_node.items():
-            if isinstance(values, Node):
-                if values.filename != filename:
-                    continue
-                return_dict[key] = self._get_save_dict(values, filename)
-            elif isinstance(values, MutableSequence):
-                return_dict[key] = self._get_save_list(values, filename)
-            else:
-                return_dict[key] = values
-        return return_dict
-
-    def _get_save_list(self, l, filename):
-        return_list = []
-        for v in l:
-            if isinstance(v, Node):
-                if v.filename != filename:
-                    break
-                return_list.append(self._get_save_dict(v, filename))
-            else:
-                return_list.append(v)
-        return return_list
+        return json.loads(json.dumps(self._data, cls=ConfigNodeDictEncoder))
 
     @staticmethod
     def _pprint(node, cur_indet, indent, cur_depth, depth):
-        cfg = node._config
+        cfg = node.config
         space = " " * cur_indet
-        print("%s{ filename: %r" % (space, cfg._node2file.get(node)))
+        print(f"{space}{{ filename: {repr(node.filename)}")
         dict_space = " " * (cur_indet + 2)
         for k, v in node.items():
             print("%s%s:" % (dict_space, k), end=" ")
-            if isinstance(v, Node):
+            if isinstance(v, ConfigNode):
                 print()
-                Node._pprint(v, cur_indet + indent, indent, cur_depth + 1, depth)
+                ConfigNode._pprint(v, cur_indet + indent, indent, cur_depth + 1, depth)
             elif isinstance(v, MutableSequence):
                 list_ident = cur_indet + indent
                 list_space = " " * list_ident
                 print("\n%s[" % list_space)
                 for item in v:
-                    if isinstance(item, Node):
+                    if isinstance(item, ConfigNode):
                         print()
-                        Node._pprint(
+                        ConfigNode._pprint(
                             item, list_ident + indent, indent, cur_depth + 1, depth
                         )
                     else:
@@ -483,15 +570,74 @@ class Node(dict):
                 print(v)
         print("%s}" % space)
 
+    def __info__(self):
+        value = repr(self._data)
+        return "filename:<%s>,plugin:%r,%s" % (self.filename, self.plugin, value)
+
     def __repr__(self):
-        config = self._config
-        value = dict.__repr__(self)
-        # filename = config._node2file.get(self)
-        return "filename:<%s>,plugin:%r,%s" % (
-            self.filename,
-            self.plugin,  # self.get("plugin"),
-            value,
-        )
+        return repr(self._data)
+
+
+class ConfigNodeDictEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, (ConfigNode, ConfigList, ConfigReference)):
+            return obj.encode()
+        return super().default(obj)
+
+
+class RootConfigNode(ConfigNode):
+    saved_config_objects = {}
+
+    def __init__(self, config):
+        super().__init__()
+        self._config = config
+
+    def __getstate__(self):
+        RootConfigNode.saved_config_objects[id(self)] = self._config
+        d = super().__getstate__()
+        d["id"] = id(self)
+        return d
+
+    def __setstate__(self, d):
+        super().__setstate__(d)
+        self._config = RootConfigNode.saved_config_objects.pop(d["id"])
+
+    @property
+    def config(self):
+        return self._config
+
+
+def build_nodes_from_list(l, parent, path=None):
+    result = ConfigList(parent)
+    for i, value in enumerate(l):
+        if isinstance(value, dict):
+            node = ConfigNode(parent, path=[i] if path is None else [path, i])
+            build_nodes_from_dict(value, node)
+            result.append(node)
+        elif isinstance(value, list):
+            result.append(
+                build_nodes_from_list(
+                    value, parent, path=[i] if path is None else [path, i]
+                )
+            )
+        else:
+            result.append(value)
+    return result
+
+
+def build_nodes_from_dict(d, parent):
+    if d is None:
+        raise TypeError("Error parsing %r" % parent)
+    else:
+        for key, value in d.items():
+            if isinstance(value, dict):
+                node = ConfigNode(parent, path=[key])
+                build_nodes_from_dict(value, node)
+                parent[key] = node
+            elif isinstance(value, list):
+                parent[key] = build_nodes_from_list(value, parent, path=key)
+            else:
+                parent[key] = value
 
 
 class InvalidConfig(RuntimeError):
@@ -506,17 +652,12 @@ class Config:
     of this class.
     """
 
-    #: key which triggers a YAML_ collection to be identified as a bliss named item
-    NAME_KEY = "name"
-
-    USER_TAG_KEY = "user_tag"
-
     def __init__(self, base_path, timeout=3, connection=None, raise_yaml_exc=True):
         self.raise_yaml_exc = raise_yaml_exc
         self._base_path = base_path
         self._connection = connection or client.get_default_connection()
-        self.reload(timeout=timeout)
         self.invalid_yaml_files = dict()
+        self.reload(timeout=timeout)
 
     def close(self):
         self._clear_instances()
@@ -541,12 +682,9 @@ class Config:
         if base_path is None:
             base_path = self._base_path
 
-        self._name2node = weakref.WeakValueDictionary()
-        self._usertag2node = {}
-        self._root_node = Node(self)
-        self._root_node["__children__"] = []
-        self._node2file = weakref.WeakKeyDictionary()
-        self._file2node = {}
+        ConfigNode.reset_cache()
+        self._root_node = RootConfigNode(self)
+        self._root_node["__children__"] = ConfigList(self._root_node)
 
         self._clear_instances()
         self.invalid_yaml_files = dict()
@@ -610,8 +748,12 @@ class Config:
                     if d is None:
                         continue
 
-                    parents = Node(self, fs_node if fs_key else None, path)
-                    parents["__children__"] = []
+                    if fs_key:
+                        parents = fs_node[fs_key] = ConfigNode(fs_node, filename=path)
+                    else:
+                        parents = self._root_node = RootConfigNode(self)
+
+                    parents["__children__"] = ConfigList(parents)
                     # do not accept a list in case of __init__ file
                     if isinstance(d, MutableSequence):
                         _msg = "List are not allowed in *%s* file" % path
@@ -620,59 +762,40 @@ class Config:
                         else:
                             raise InvalidConfig(_msg, path)
                     try:
-                        self._parse(d, parents)
+                        build_nodes_from_dict(d, parents)
                     except (TypeError, AttributeError):
-                        _msg = ("Error while parsing '{path}'",)
+                        _msg = (f"Error while parsing '{path}'",)
                         if self.raise_yaml_exc:
                             raise RuntimeError(_msg)
                         else:
                             raise InvalidConfig(_msg, path)
 
-                    if not fs_key:
-                        self._root_node = parents
-                    else:
-                        fs_node[fs_key] = parents
                     continue
                 else:
                     if isinstance(d, MutableSequence):
-                        parents = []
-                        for item in d:
-                            local_parent = Node(self, fs_node, path)
+                        parents = ConfigList(fs_node)
+                        for i, item in enumerate(d):
+                            local_parent = ConfigNode(fs_node, path, path=[i])
                             try:
-                                self._parse(item, local_parent)
-                            except (TypeError, AttributeError):
+                                build_nodes_from_dict(item, local_parent)
+                            except (ValueError, TypeError, AttributeError):
                                 _msg = f"Error while parsing a list on '{path}'"
                                 if self.raise_yaml_exc:
                                     raise RuntimeError(_msg)
                                 else:
                                     raise InvalidConfig(_msg, path)
-                            try:
-                                self._create_index(local_parent)
-                            except ValueError as exc:
-                                if self.raise_yaml_exc:
-                                    raise
-                                else:
-                                    # Duplicated key in config
-                                    raise InvalidConfig(" ".join(exc.args), path)
                             else:
                                 parents.append(local_parent)
                     else:
-                        parents = Node(self, fs_node, path)
+                        parents = ConfigNode(fs_node, path)
                         try:
-                            self._parse(d, parents)
-                        except (TypeError, AttributeError):
+                            build_nodes_from_dict(d, parents)
+                        except (ValueError, TypeError, AttributeError):
                             _msg = f"Error while parsing '{path}'"
                             if self.raise_yaml_exc:
                                 raise RuntimeError(_msg)
                             else:
                                 raise InvalidConfig(_msg, path)
-                        try:
-                            self._create_index(parents)
-                        except ValueError as exc:
-                            if self.raise_yaml_exc:
-                                raise
-                            else:
-                                raise InvalidConfig(*exc.args, path)
 
                 if isinstance(fs_node, MutableSequence):
                     continue
@@ -711,9 +834,6 @@ class Config:
                 self.invalid_yaml_files[path] = msg
                 continue
 
-        while gc.collect():
-            pass
-
     @property
     def names_list(self):
         """
@@ -722,7 +842,7 @@ class Config:
         Returns:
             list<str>: sequence of configuration names
         """
-        return sorted(list(self._name2node.keys()))
+        return sorted(list(ConfigNode.indexed_nodes.keys()))
 
     @property
     def user_tags_list(self):
@@ -732,12 +852,12 @@ class Config:
         Returns:
             list<str>: sequence of user tag names
         """
-        return sorted(list(self._usertag2node.keys()))
+        return sorted(list(ConfigNode.tagged_nodes.keys()))
 
     @property
     def root(self):
         """
-        Reference to the root :class:`~bliss.config.static.Node`
+        ConfigReference to the root :class:`~bliss.config.static.ConfigNode`
         """
         return self._root_node
 
@@ -756,12 +876,6 @@ class Config:
 
         full_filename = os.path.join(self._base_path, filename)
         client.set_config_db_file(full_filename, content, connection=self._connection)
-
-    def _create_file_index(self, node, filename):
-        if filename:
-            self._node2file[node] = filename
-            weak_set = self._file2node.setdefault(filename, weakref.WeakSet())
-            weak_set.add(node)
 
     def _get_or_create_path_node(self, base_path):
         node = self._root_node
@@ -786,7 +900,7 @@ class Config:
                 except AttributeError:
                     # because it's a list and we need a dict (reparent)
                     gp = node[0].parent
-                    parent = Node(self, gp)
+                    parent = ConfigNode(gp)
                     for c in node:
                         c._parent = parent
                     gp[sp_path[i - 1]] = gp
@@ -794,7 +908,7 @@ class Config:
                     child = None
 
             if child is None:
-                child = Node(self, node)
+                child = ConfigNode(node)
                 node[p] = child
             node = child
 
@@ -804,23 +918,21 @@ class Config:
 
     def get_config(self, name):
         """
-        Returns the config :class:`~bliss.config.static.Node` with the
+        Returns the config :class:`~bliss.config.static.ConfigNode` with the
         given name
 
         Args:
             name (str): config node name
 
         Returns:
-            ~bliss.config.static.Node: config node or None if object is
+            ~bliss.config.static.ConfigNode: config node or None if object is
             not found
         """
-        # '$' means the item is a reference
-        name = name.lstrip("$")
-        return self._name2node.get(name)
+        return ConfigNode.indexed_nodes.get(name)
 
     def get_user_tag_configs(self, tag_name):
         """
-        Returns the set of config nodes (:class:`~bliss.config.static.Node`)
+        Returns the set of config nodes (:class:`~bliss.config.static.ConfigNode`)
         which have the given user *tag_name*.
 
         Args:
@@ -829,33 +941,27 @@ class Config:
         Returns:
             set<Node>: the set of nodes wich have the given user tag
         """
-        return set(self._usertag2node.get(tag_name, ()))
+        return set(ConfigNode.tagged_nodes.get(tag_name, ()))
 
     def get(self, name):
         """
         Returns an object instance from its configuration name
 
-        If names starts with *$* it means it is a reference.
+        If names starts with *$* it means it is a reference to an existing object in the config
+        If the reference contains '.', the specified attribute can be evaluated by calling '.dereference()'
 
         Args:
             name (str): config node name
 
         Returns:
-            ~bliss.config.static.Node: config node
+            ~bliss.config.static.ConfigNode: config node
 
         Raises:
             RuntimeError: if name is not found in configuration
         """
-
-        base_name, sep, remains = name.partition(".")
-        if remains:
-            obj = self.get(base_name)
-            return operator.attrgetter(remains)(obj)
-
         if name is None:
             raise TypeError("Cannot get object with None name")
 
-        name = name.lstrip("$")
         instance_object = self._name2instance.get(name)
         if instance_object is None:  # we will create it
             config_node = self.get_config(name)
@@ -895,63 +1001,6 @@ class Config:
 
         return self._name2instance.get(name)
 
-    def _create_index(self, node):
-        name = node.get(self.NAME_KEY)
-        if isinstance(name, int) or isinstance(name, str) and name[:1].isdigit():
-            raise ValueError(
-                f"Invalid name ({name}) in config file ({node.filename}). Must start with [a-zA-Z_]"
-            )
-        if name is not None and not name.startswith("$"):
-            if name in self._name2node:
-                prev_node = self.get_config(name)
-                raise ValueError(
-                    "Duplicate key name (%s) in config files "
-                    "(%s) and (%s)" % (name, prev_node.filename, node.filename)
-                )
-            else:
-                self._name2node[name] = node
-
-        user_tags = node.get(self.USER_TAG_KEY)
-        if user_tags is not None:
-            if not isinstance(user_tags, MutableSequence):
-                user_tags = [user_tags]
-            for tag in user_tags:
-                l = self._usertag2node.get(tag)
-                if l is None:
-                    self._usertag2node[tag] = weakref.WeakSet([node])
-                else:
-                    l.add(node)
-
-    def _parse_list(self, l, parent):
-        r_list = []
-        for value in l:
-            if isinstance(value, MutableMapping):
-                node = Node(self, parent)
-                self._parse(value, node)
-                self._create_index(node)
-                r_list.append(node)
-            elif isinstance(value, MutableSequence):
-                child_list = self._parse_list(value, parent)
-                r_list.append(child_list)
-            else:
-                r_list.append(value)
-        return r_list
-
-    def _parse(self, d, parent):
-        if d is None:
-            raise TypeError("Error parsing %r" % parent)
-        else:
-            for key, value in d.items():
-                if isinstance(value, MutableMapping):
-                    node = Node(self, parent=parent)
-                    self._parse(value, node)
-                    self._create_index(node)
-                    parent[key] = node
-                elif isinstance(value, MutableSequence):
-                    parent[key] = self._parse_list(value, parent)
-                else:
-                    parent[key] = value
-
     def _clear_instances(self):
         self._name2instance = weakref.WeakValueDictionary()
         self._name2cache = dict()
@@ -960,4 +1009,4 @@ class Config:
         self.root.pprint(indent=indent, depth=depth)
 
     def __str__(self):
-        return "{0}({1})".format(self.__class__.__name__, self._connection)
+        return f"{self.__class__.__name__}({self._connection})"

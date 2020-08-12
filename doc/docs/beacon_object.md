@@ -25,12 +25,12 @@ Inheriting of `BeaconObject` class, adds to the object instantiating this class:
 
 * `.config` property:
     * it returns the *in-memory configuration*
-    * it's a `Node` object that depict YAML configuration at last reload (or session restart)
+    * it's a `ConfigNode` object that depict YAML configuration at last reload (or session restart)
     * it is updated only on a session start or when calling `.apply_config(reload=True)`
 
 ```python
 DEMO [8]: type (controller_setting1.config)
- Out [8]: <class 'bliss.config.static.Node'>
+ Out [8]: <class 'bliss.config.static.ConfigNode'>
 
 DEMO [9]: controller_setting1.config
  Out [9]: filename:<demo/hack/simple_axis.yml>,plugin:'bliss',

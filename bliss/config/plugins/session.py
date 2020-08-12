@@ -8,8 +8,8 @@
 import os
 import collections
 
-from .utils import find_class
-from ...common.measurementgroup import MeasurementGroup
+from bliss.config.plugins.utils import find_class
+from bliss.common.measurementgroup import MeasurementGroup
 
 
 def create_objects_from_config_node(config, item_cfg_node):
@@ -19,7 +19,7 @@ def create_objects_from_config_node(config, item_cfg_node):
     if issubclass(klass, MeasurementGroup):
         available_counters = _get_available_counters(config, item_cfg_node)
         if available_counters != item_cfg_node.get("counters", list()):
-            item_cfg_node = item_cfg_node.deep_copy()
+            item_cfg_node = item_cfg_node.clone()
             item_cfg_node["counters"] = available_counters
 
     return {item_name: klass(item_name, item_cfg_node)}

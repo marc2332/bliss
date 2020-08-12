@@ -34,7 +34,7 @@ def static_root():
     """
     Get static session configuration
 
-    :returns bliss.config.static.Node:
+    :returns bliss.config.static.ConfigNode:
     """
     return static_config().root
 
@@ -50,7 +50,7 @@ def static_root_get(name, default=None):
 
 def static_root_find(name, default=None, parent=None):
     """
-    :param bliss.config.static.Node parent:
+    :param bliss.config.static.ConfigNode parent:
     :returns dict:
     """
     if parent is None:
@@ -61,11 +61,11 @@ def static_root_find(name, default=None, parent=None):
                 return node.to_dict()
     nodes = []
     for node in parent.values():
-        if isinstance(node, static.Node):
+        if isinstance(node, static.ConfigNode):
             nodes.append(node)
         elif isinstance(node, list):
             for nodei in node:
-                if isinstance(nodei, static.Node):
+                if isinstance(nodei, static.ConfigNode):
                     nodes.append(nodei)
     for node in nodes:
         if node.get("name", None) == name:

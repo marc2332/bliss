@@ -44,7 +44,6 @@ from bliss.common.counter import SamplingCounter, SamplingMode
 from bliss.common import tango
 from bliss import global_map
 from bliss.common.logtools import log_debug, log_warning
-from bliss.config.static import Node
 
 from bliss.controllers.counter import SamplingCounterController
 

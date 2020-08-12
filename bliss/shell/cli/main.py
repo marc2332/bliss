@@ -41,7 +41,7 @@ import logging
 from bliss import release
 from bliss.config import get_sessions_list
 from bliss.config import static
-from bliss.config.static import Node
+from bliss.config.static import ConfigNode
 from bliss.config.conductor import client
 from bliss import logging_startup
 from bliss import current_session, global_map
@@ -128,10 +128,13 @@ def create_session(session_name):
     """
     print(("Creating '%s' BLISS session" % session_name))
 
+    config = static.get_config()
+    config.set_config_db_file("sessions/__init__.yml", "plugin: session\n")
+    
     # <session_name>.yml: config file created as a config Node.
-    file_name = "sessions/%s.yml" % session_name
-    new_session_node = Node(filename=file_name)
-    print(("Creating %s" % file_name))
+    filename = "sessions/%s.yml" % session_name
+    new_session_node = ConfigNode(config.root, filename=filename)
+    print(("Creating %s" % filename))
     new_session_node.update(
         {
             "class": "Session",

@@ -12,7 +12,7 @@ from bliss.config.channels import Cache, EventChannel
 from bliss.common import event
 from bliss.common.utils import Null, autocomplete_property
 from bliss.config.conductor.client import remote_open
-from bliss.config.static import Node
+from bliss.config.static import ConfigNode
 from bliss.config.static import get_config_dict, _find_list, _find_dict, _find_subconfig
 
 
@@ -443,9 +443,9 @@ class BeaconObject:
                 assert hasattr(value, "name")
                 obj_name = value.name
             assert (
-                obj_name in self.config._config.names_list
+                obj_name in self.config.config.names_list
             ), f"{obj_name} does not exist in beacon config!"
-            return self.config._config.get(obj_name)
+            return self.config.config.get(obj_name)
 
         def set_marshalling(self, value):
             if value is None:

@@ -197,8 +197,8 @@ MODULES_CONFIG = {
     "750-459": [0, 0, 4, 0, 4, 4, "fs10", "4 Channel Channel 0/10V Input"],
     "750-461": [0, 0, 2, 0, 2, 2, "thc", "2 Channel PT100 Input"],
     "750-462": [0, 0, 2, 0, 2, 2, "thc", "2 Channel Thermocouple Input"],
+    "750-464": [0, 0, 4, 0, 4, 4, "raw", "4 Channel Resistance Measurement Input"],
     "750-465": [0, 0, 2, 0, 2, 2, "fs20", "2 Channel 0/20mA Input"],
-    "750-464": [0, 0, 4, 0, 4, 4, "thc", "4 Channel Resistance Measurement Input"],
     "750-466": [0, 0, 2, 0, 2, 2, "fs4-20", "2 Channel 4/20mA Input"],
     "750-467": [0, 0, 2, 0, 2, 2, "fs10", "2 Channel 0/10V Input"],
     "750-468": [0, 0, 4, 0, 4, 4, "fs10", "4 Channel 0/10V Input"],
@@ -316,6 +316,15 @@ def get_channel_info(module_name, module_channel=0, extended_mode=False):
                 info["bits"] = 32
                 info["type"] = "ANA_IN"
 
+    elif reading_type.startswith("raw"):
+        info["reading_type"] = "raw"
+        info["bits"] = 16
+        if module_info.ana_in > 0:
+            info["type"] = "ANA_IN"
+        elif module_info.ana_out > 0:
+            info["type"] = "ANA_OUT"
+        else:
+            raise NotImplementedError
     elif reading_type.startswith("fs"):
         info["reading_type"] = "fs"
         info["bits"] = 16
@@ -1171,6 +1180,9 @@ class WagoController:
         with self.lock:
             self.client.close()
 
+    def _read_raw(self, raw_value, **kwargs):
+        return ctypes.c_ushort(raw_value).value
+
     def _read_fs(self, raw_value, **kwargs):
         """Read Digital Input type module. Make full scale conversion.
         """
@@ -1330,6 +1342,9 @@ class WagoController:
     def _read_values(self, raw_values, channel_info):
         reading_type = channel_info["reading_type"]
         bits = channel_info["bits"]
+
+        if reading_type in ("raw",):
+            return self._read_raw(raw_values[0], **channel_info)
 
         if reading_type in ("fs",):
             return self._read_fs(raw_values[0], **channel_info)

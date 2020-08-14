@@ -21,6 +21,7 @@ import numpy
 from random import randint
 from contextlib import contextmanager
 import redis
+import weakref
 
 from bliss import global_map, global_log
 from bliss.common.session import DefaultSession
@@ -34,6 +35,7 @@ from bliss.controllers.lima.roi import Roi
 from bliss.controllers.wago.wago import ModulesConfig
 from bliss.controllers.wago.emulator import WagoEmulator
 from bliss.controllers import simulation_diode
+from bliss.controllers import tango_attr_as_counter
 from bliss.common import plot
 from bliss.common.tango import Database, DeviceProxy, DevFailed, ApiUtil, DevState
 from bliss.common.utils import grouped
@@ -145,6 +147,7 @@ def clean_globals():
     simulation_diode.DEFAULT_INTEGRATING_CONTROLLER = None
     scan_meta.USER_SCAN_META = None
     logbook_printer.disabled.clear()
+    tango_attr_as_counter._TangoCounterControllerDict = weakref.WeakValueDictionary()
 
 
 @pytest.fixture
@@ -181,17 +184,12 @@ def ports(beacon_directory):
         "--redis_port=%d" % ports.redis_port,
         "--redis_socket=" + redis_uds,
         "--db_path=" + beacon_directory,
-        "--posix_queue=0",
         "--tango_port=%d" % ports.tango_port,
         "--webapp_port=%d" % ports.cfgapp_port,
     ]
     proc = subprocess.Popen(BEACON + args, stderr=subprocess.PIPE)
-    wait_for(proc.stderr, "database started on port")
-    gevent.sleep(
-        1
-    )  # ugly synchronisation, would be better to use logging messages? Like 'post_init_cb()' (see databaseds.py in PyTango source code)
-
-    # important: close to prevent filling up the pipe as it is not read during tests
+    with gevent.Timeout(10):
+        wait_for(proc.stderr, "Tango DB started")
     proc.stderr.close()
 
     # disable .rdb files saving (redis persistence)
@@ -373,6 +371,21 @@ def wago_tango_server(ports, default_session, wago_emulator):
 
     with start_tango_server(
         "Wago", "wago_tg_server", device_fqdn=device_fqdn
+    ) as dev_proxy:
+        yield device_fqdn, dev_proxy
+
+
+@pytest.fixture
+def machinfo_tango_server(ports, beacon):
+    device_name = "id00/tango/machinfo"
+    device_fqdn = "tango://localhost:{}/{}".format(ports.tango_port, device_name)
+
+    with start_tango_server(
+        sys.executable,
+        "-u",
+        os.path.join(os.path.dirname(__file__), "machinfo_tg_server.py"),
+        "machinfo",
+        device_fqdn=device_fqdn,
     ) as dev_proxy:
         yield device_fqdn, dev_proxy
 

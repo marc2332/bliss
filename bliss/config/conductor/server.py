@@ -891,24 +891,6 @@ def main(args=None):
     env = dict(os.environ)
     env["BEACON_HOST"] = "%s:%d" % ("localhost", beacon_port)
 
-    # Tango databaseds
-    if _options.tango_port > 0:
-        tango_rp, tango_wp = os.pipe()
-        # Tango database executable
-        args = [sys.executable]
-        args += ["-m", "bliss.tango.servers.databaseds"]
-        # Arguments
-        args += ["-l", str(_options.tango_debug_level)]
-        args += ["--db_access", "beacon"]
-        args += ["--port", str(_options.tango_port)]
-        args += ["2"]
-        # Fire up process
-        tango_process = subprocess.Popen(
-            args, stdout=tango_wp, stderr=subprocess.STDOUT, env=env
-        )
-    else:
-        tango_rp = tango_process = None
-
     # Config web application
     if _options.webapp_port > 0:
         from .web.configuration.config_app import web_app as config_app
@@ -987,6 +969,45 @@ def main(args=None):
     redis_process = subprocess.Popen(
         redis_options, stdout=wp, stderr=subprocess.STDOUT, cwd=_options.db_path
     )
+
+    # Tango databaseds
+    if _options.tango_port > 0:
+        tango_rp, tango_wp = os.pipe()
+        # Tango database executable
+        args = [sys.executable]
+        args += ["-m", "bliss.tango.servers.databaseds"]
+        # Arguments
+        args += ["-l", str(_options.tango_debug_level)]
+        args += ["--db_access", "beacon"]
+        args += ["--port", str(_options.tango_port)]
+        args += ["2"]
+        # Fire up process
+        tango_process = subprocess.Popen(
+            args, stdout=tango_wp, stderr=subprocess.STDOUT, env=env
+        )
+
+        def wait_tango_db():
+            import tango
+            from tango.gevent import DeviceProxy
+
+            with gevent.Timeout(10):
+                # wait until Tango database is really started
+                while True:
+                    try:
+                        gevent.sleep(1)
+                        tango_db_proxy = DeviceProxy(
+                            f"tango://localhost:{_options.tango_port}/sys/database/2"
+                        )
+                        tango_db_proxy.state
+                    except Exception:
+                        continue
+                    else:
+                        _tlog.info("Tango DB started")
+                        break
+
+        wait_tango = gevent.spawn(wait_tango_db)
+    else:
+        wait_tango = tango_rp = tango_process = None
 
     # Safe context
     try:
@@ -1093,6 +1114,7 @@ def main(args=None):
                     tango_rp_processing,
                     log_server_rp_processing,
                     log_viewer_rp_processing,
+                    wait_tango,
                 ],
             )
         )

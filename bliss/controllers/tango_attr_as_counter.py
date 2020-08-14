@@ -102,20 +102,18 @@ writable_attr_name = 'None']
 
 
 class TangoCounterController(SamplingCounterController):
-    def __init__(self, tango_uri, global_map_register=True):
-        proxy = tango.DeviceProxy(tango_uri)
-
-        super().__init__(name=proxy.name())
+    def __init__(self, name, tango_uri, global_map_register=True):
+        super().__init__(name=name)
 
         self._tango_uri = tango_uri
-        self._proxy = proxy
+        self._proxy = tango.DeviceProxy(tango_uri)
         self._attributes_config = None
         if global_map_register:
-            global_map.register(self, tag=self.name, children_list=[proxy])
+            global_map.register(self, tag=self.name, children_list=[self._proxy])
 
     def read_all(self, *counters):
         """
-        Read all attributes at once each time it's requiered.
+        Read all attributes at once each time it's required.
         """
 
         # Build list of attribute names (str) to read (attributes must be unique).
@@ -154,7 +152,7 @@ class TangoCounterController(SamplingCounterController):
 
 
 class tango_attr_as_counter(SamplingCounter):
-    def __init__(self, name, config):
+    def __init__(self, name, config, controller=None):
         self.index = None
 
         self.tango_uri = config.get_inherited("uri")
@@ -169,10 +167,15 @@ class tango_attr_as_counter(SamplingCounter):
             # no index present -> scalar
             pass
 
-        global_map_register = config.get("global_map_register", True)
-        controller = _TangoCounterControllerDict.setdefault(
-            self.tango_uri, TangoCounterController(self.tango_uri, global_map_register)
-        )
+        if controller is None:
+            # a controller is not provided => it is a stand-alone counter from config,
+            # use a generic controller, readings will be grouped by Tango device
+            # to optimise as much as possible
+            # the controller name is
+            controller = _TangoCounterControllerDict.setdefault(
+                self.tango_uri,
+                TangoCounterController("generic_tg_controller", self.tango_uri),
+            )
 
         log_debug(
             controller, "             to read '%s' tango attribute.", self.attribute
@@ -311,13 +314,3 @@ class tango_attr_as_counter(SamplingCounter):
 
 
 TangoAttrCounter = tango_attr_as_counter
-
-
-def create_tango_counter(uri, name, attr_name, unit=None, global_map_register=False):
-    """
-    Helper function to create a tango counter in other controller
-    """
-    config_dict = locals()
-    config = Node()
-    config.update(config_dict)
-    return tango_attr_as_counter(name, config)

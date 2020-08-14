@@ -1,0 +1,5 @@
+device:
+- class: SimulationMachInfo
+  tango_name: id00/tango/machinfo
+personal_name: machinfo
+server: machinfo_tg_server

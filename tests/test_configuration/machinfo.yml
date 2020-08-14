@@ -1,0 +1,9 @@
+- class: MachInfo
+  plugin: bliss
+  module: machinfo
+  name: machinfo
+  uri: id00/tango/machinfo
+  default_counters:
+    - current
+    - lifetime
+

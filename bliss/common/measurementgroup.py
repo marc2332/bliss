@@ -8,12 +8,15 @@ import collections
 import itertools
 import functools
 import fnmatch
+import typeguard
 from sortedcontainers import SortedKeyList
 
 from bliss.config import settings
 from bliss import current_session
 from bliss import global_map
 from bliss.common.proxy import Proxy
+from bliss.common.counter import Counter
+from bliss.common.utils import typeguardTypeError_to_hint
 
 
 def get_all():
@@ -470,7 +473,9 @@ class MeasurementGroup:
 
         return info_str
 
-    def add(self, *counters):
+    @typeguardTypeError_to_hint
+    @typeguard.typechecked
+    def add(self, *counters: Counter):
         """
         Add counter(s) in measurement group, and enable them
         """
@@ -483,7 +488,9 @@ class MeasurementGroup:
 
         self.enable(*new_cnt)
 
-    def remove(self, *counters):
+    @typeguardTypeError_to_hint
+    @typeguard.typechecked
+    def remove(self, *counters: Counter):
         """
         Remove counters from measurement group
         """

@@ -6,43 +6,22 @@ from bliss.shell.standard import ShellStr
 
 @dialog("Slits", "set")
 def slits_menu(obj):
-    """Primary Slits dialog"""
-    conf = obj.config.config_dict
-
-    virtual_motors = {
-        ax["name"]: {"tags": ax["tags"]}
-        for ax in conf["axes"]
-        if not ax["name"].startswith("$")
-    }
-    real_motors = {
-        ax["name"][1:]: {"tags": ax["tags"]}
-        for ax in conf["axes"]
-        if ax["name"].startswith("$")
-    }
-
-    # virtual_motors will be like:
-    # {"s1vg":{"tags":"vgap","obj":<bliss.common.axis.Axis object at ...>}}
-    for name, dict_ in virtual_motors.items():
-        dict_["obj"] = obj.axes[name]
-
+    """Slits dialog"""
+    virtual_motors = {mot.name: (mot, mot.config) for mot in obj.pseudos}
+    real_motors = {mot.name: (mot, mot.config) for mot in obj.reals}
     if len(virtual_motors) != 4 or len(real_motors) != 4:
         raise RuntimeError("Slits configuration problem")
 
-    # sync real motors
-    for name in real_motors.keys():
-        obj.axes[name].sync_hard()
-
     dialogs = []
 
-    for name, info in virtual_motors.items():
-        assert name == info["obj"].name
-        low, high = info["obj"].limits
+    for name, (mot, info) in virtual_motors.items():
+        low, high = mot.limits
         v = Validator(in_frange, low, high)
         dialogs.append(
             [
                 UserInput(
-                    label=f"Slit motor '{name}' tag '{info['tags']}' ({low},{high})",
-                    defval=info["obj"].position,
+                    label=f"Slit motor '{name}' tag '{info.get('tags')}' ({low},{high})",
+                    defval=mot.position,
                     validator=v,
                 )
             ]

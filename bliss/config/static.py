@@ -410,7 +410,7 @@ class ConfigNode(MutableMapping):
                 else:
                     ConfigNode.indexed_nodes[name] = node
         elif key == ConfigNode.USER_TAG_KEY:
-            node = obj
+            node = self
             user_tags = value if isinstance(value, MutableSequence) else [value]
             for tag in user_tags:
                 ConfigNode.tagged_nodes[tag].add(node)

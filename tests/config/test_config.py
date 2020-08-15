@@ -281,3 +281,12 @@ def test_issue_1619(beacon):
     # return the same thing
     assert obj_cfg is obj
     assert obj["test"] == x == obj_cfg["test"]
+
+
+def test_user_tags(beacon):
+    objs = [("diode", "diode2", "diode3"), ("robz",)]
+    assert beacon.user_tags_list == ["TEST.DIODE", "TEST.ROBZ"]
+    for obj_list, tag in zip(objs, beacon.user_tags_list):
+        assert set(
+            [beacon.get_config(obj) for obj in obj_list]
+        ) == beacon.get_user_tag_configs(tag)

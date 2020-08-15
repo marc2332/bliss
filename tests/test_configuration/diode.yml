@@ -3,14 +3,17 @@
   plugin: bliss
   class: simulation_diode
   independent: True
+  user_tag: TEST.DIODE
 -
   name: diode2
   plugin: bliss
   class: simulation_diode
+  user_tag: TEST.DIODE
 -
   name: diode3
   plugin: bliss
   class: simulation_diode
+  user_tag: TEST.DIODE
 
 -
   name: integ_diode

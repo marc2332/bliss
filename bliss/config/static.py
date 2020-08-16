@@ -46,14 +46,13 @@ Accessing the configured elements from python is easy
 """
 
 import os
-import re
 import json
 import types
 import pickle
 import weakref
 import operator
 from collections import defaultdict
-from collections.abc import Mapping, Sequence, MutableMapping, MutableSequence
+from collections.abc import MutableMapping, MutableSequence
 
 import ruamel
 from ruamel.yaml import YAML
@@ -334,6 +333,9 @@ class ConfigNode(MutableMapping):
     def encode(self):
         return self._data
 
+    def reparent(self, new_parent_node):
+        self._parent = new_parent_node
+
     @property
     def config(self):
         return self.root.config
@@ -545,7 +547,6 @@ class ConfigNode(MutableMapping):
 
     @staticmethod
     def _pprint(node, cur_indet, indent, cur_depth, depth):
-        cfg = node.config
         space = " " * cur_indet
         print(f"{space}{{ filename: {repr(node.filename)}")
         dict_space = " " * (cur_indet + 2)
@@ -658,6 +659,8 @@ class Config:
         self._base_path = base_path
         self._connection = connection or client.get_default_connection()
         self.invalid_yaml_files = dict()
+        self._name2instance = weakref.WeakValueDictionary()
+        self._name2cache = dict()
         self.reload(timeout=timeout)
 
     def close(self):
@@ -665,7 +668,7 @@ class Config:
         channels.Bus.clear_cache()
         self._connection.close()
 
-    def reload(self, base_path=None, timeout=3, raise_yaml_exc=True):
+    def reload(self, base_path=None, timeout=3):
         """
         Reloads the configuration from the bliss server.
 
@@ -721,13 +724,6 @@ class Config:
                     exp.note += "----------------\n"
                     exp.note += "Hint: You can check your configuration with an on-line YAML validator like http://www.yamllint.com/ \n\n"
                     exp.problem_mark.name = path
-                    if self.raise_yaml_exc:
-                        raise exp
-                    else:
-                        raise InvalidConfig("Error in YAML parsing", path)
-                except ruamel.yaml.error.MarkedYAMLError as exp:
-                    if exp.problem_mark is not None:
-                        exp.problem_mark.name = path
                     if self.raise_yaml_exc:
                         raise exp
                     else:
@@ -819,7 +815,7 @@ class Config:
                                 p._parent = children
                                 children_node.append(p)
                         else:
-                            parents._parent = children
+                            parents.reparent(children)
                             children_node.append(parents)
                     else:
                         if isinstance(parents, MutableSequence):
@@ -903,7 +899,7 @@ class Config:
                     gp = node[0].parent
                     parent = ConfigNode(gp)
                     for c in node:
-                        c._parent = parent
+                        c.reparent(parent)
                     gp[sp_path[i - 1]] = gp
                     node = gp
                     child = None
@@ -949,7 +945,8 @@ class Config:
         Returns an object instance from its configuration name
 
         If names starts with *$* it means it is a reference to an existing object in the config
-        If the reference contains '.', the specified attribute can be evaluated by calling '.dereference()'
+        If the reference contains '.', the specified attribute can be evaluated
+        by calling '.dereference()'
 
         Args:
             name (str): config node name
@@ -1003,8 +1000,8 @@ class Config:
         return self._name2instance.get(name)
 
     def _clear_instances(self):
-        self._name2instance = weakref.WeakValueDictionary()
-        self._name2cache = dict()
+        self._name2instance.clear()
+        self._name2cache.clear()
 
     def pprint(self, indent=1, depth=None):
         self.root.pprint(indent=indent, depth=depth)

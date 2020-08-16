@@ -2115,11 +2115,12 @@ class Wago(SamplingCounterController):
             tag=f"Wago({self.name})",
         )
 
-        self.__interlock_load_config(config_tree)
+        self.__config_tree = config_tree
+        self.__interlock_load_config()
 
-    def __interlock_load_config(self, config_tree):
+    def __interlock_load_config(self):
         try:
-            config_tree["interlocks"]
+            self.__config_tree["interlocks"]
         except KeyError:
             # no interlock is defined on beacon or configuration mistake
             pass
@@ -2128,7 +2129,7 @@ class Wago(SamplingCounterController):
                 from bliss.controllers.wago.interlocks import beacon_interlock_parsing
 
                 self._interlocks_on_beacon = beacon_interlock_parsing(
-                    config_tree["interlocks"], self.modules_config
+                    self.__config_tree["interlocks"], self.modules_config
                 )
             except Exception as exc:
                 msg = f"Interlock parsing error on Beacon config: {exc!r}"
@@ -2190,11 +2191,9 @@ class Wago(SamplingCounterController):
 
     def interlock_upload(self, ask=True):
         log_debug(self, "Reloading Wago interlocks static config")
-        from bliss.config.static import get_config_dict
 
-        reloaded_config = get_config_dict(self.__filename, self.name)
-
-        self.__interlock_load_config(reloaded_config)
+        self.__config_tree.reload()
+        self.__interlock_load_config()
 
         from bliss.controllers.wago.interlocks import interlock_download as download
         from bliss.controllers.wago.interlocks import interlock_compare as compare

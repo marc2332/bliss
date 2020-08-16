@@ -11,9 +11,6 @@ from bliss.config.settings import HashObjSetting, pipeline
 from bliss.config.channels import Cache, EventChannel
 from bliss.common import event
 from bliss.common.utils import Null, autocomplete_property
-from bliss.config.conductor.client import remote_open
-from bliss.config.static import ConfigNode
-from bliss.config.static import get_config_dict, _find_list, _find_dict, _find_subconfig
 
 
 class BeaconObject:
@@ -231,25 +228,10 @@ class BeaconObject:
         if reload:
             if not self._config_name:
                 raise RuntimeError(
-                    f"to use apply_config of {self.name} a valid config with name has to be provied on init!"
+                    f"Cannot apply config on unindexed config node. Hint: provide configuration of a valid, named object in __init__"
                 )
 
-            d = get_config_dict(self.config.filename, self._config_name)
-
-            if d is None:
-                raise RuntimeError(
-                    f"Can't find config node named:{self._config_name} "
-                    f"in file:{self.config.filename}"
-                )
-
-            if self._path:
-                d = _find_subconfig(d, self._path)
-                if d is None:
-                    raise RuntimeError(
-                        f"Can't find config for beacon object:{self._config_name} with offset {str(self._path)} "
-                    )
-
-            self.config.update(d)
+            self.config.reload()
         try:
             self._settings.remove(*self.__settings_properties().keys())
         except AttributeError:  # apply config before init

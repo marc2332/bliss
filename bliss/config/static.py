@@ -66,45 +66,6 @@ from bliss import global_map
 CONFIG = None
 
 
-def _find_dict(name, d):
-    if d.get("name") == name:
-        return d
-    for key, value in d.items():
-        if isinstance(value, MutableMapping):
-            sub_dict = _find_dict(name, value)
-        elif isinstance(value, MutableSequence):
-            sub_dict = _find_list(name, value)
-        else:
-            continue
-
-        if sub_dict is not None:
-            return sub_dict
-
-
-def _find_list(name, l):
-    for value in l:
-        if isinstance(value, MutableMapping):
-            sub_dict = _find_dict(name, value)
-        elif isinstance(value, MutableSequence):
-            sub_dict = _find_list(name, value)
-        else:
-            continue
-        if sub_dict is not None:
-            return sub_dict
-
-
-def _find_subconfig(d, path):
-    _NotProvided = type("_NotProvided", (), {})()
-    path = path.copy()
-    key = path.pop(0)
-    sub = d.get(key, _NotProvided)
-    if sub is _NotProvided:
-        return ConfigNode(CONFIG.root)
-    if len(path) > 0:
-        return _find_subconfig(sub, path)
-    return sub
-
-
 def get_config(base_path="", timeout=3., raise_yaml_exc=True):
     """
     Return configuration from bliss configuration server
@@ -142,25 +103,6 @@ def get_config(base_path="", timeout=3., raise_yaml_exc=True):
     if CONFIG is None:
         CONFIG = Config(base_path, timeout, raise_yaml_exc=raise_yaml_exc)
     return CONFIG
-
-
-def get_config_dict(fullname, node_name):
-    """Loads from file the node configuration
-    as a dictionary
-    """
-
-    with client.remote_open(fullname) as f:
-        yaml = YAML(pure=True)
-        yaml.allow_duplicate_keys = True
-        d = yaml.load(f.read())
-    if isinstance(d, MutableMapping):
-        d = _find_dict(node_name, d)
-    elif isinstance(d, MutableSequence):
-        d = _find_list(node_name, d)
-    else:
-        d = None
-
-    return d
 
 
 class ConfigReference:
@@ -335,6 +277,18 @@ class ConfigNode(MutableMapping):
 
     def reparent(self, new_parent_node):
         self._parent = new_parent_node
+
+    def reload(self):
+        with client.remote_open(self.filename) as f:
+            yaml = YAML(pure=True)
+            yaml.allow_duplicate_keys = True
+            d = yaml.load(f.read())
+            path_in_file = self.path
+            while path_in_file:
+                d = d[path_in_file.pop(0)]
+            self._data = {}
+            for k, v in d.items():
+                self[k] = v
 
     @property
     def config(self):

@@ -134,7 +134,7 @@ class BeaconObject:
             raise RuntimeError("path has to be provided as list!")
 
         if path:
-            self._config = _find_subconfig(config, path)
+            self._config = config.goto_path(config, path, key_error_exception=False)
         else:
             self._config = config
 

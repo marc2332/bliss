@@ -260,6 +260,19 @@ class ConfigNode(MutableMapping):
         ConfigNode.indexed_nodes = weakref.WeakValueDictionary()
         ConfigNode.tagged_nodes = defaultdict(weakref.WeakSet)
 
+    @staticmethod
+    def goto_path(d, path_as_list, key_error_exception=True):
+        path_in_dict = path_as_list[:]
+        while path_in_dict:
+            try:
+                d = d[path_in_dict.pop(0)]
+            except KeyError:
+                if key_error_exception:
+                    raise
+                else:
+                    return ConfigNode(d)  # return a new config node, with 'd' as parent
+        return d
+
     def __init__(self, parent=None, filename=None, path=None):
         self._data = {}
         self._parent = parent
@@ -282,10 +295,7 @@ class ConfigNode(MutableMapping):
         with client.remote_open(self.filename) as f:
             yaml = YAML(pure=True)
             yaml.allow_duplicate_keys = True
-            d = yaml.load(f.read())
-            path_in_file = self.path
-            while path_in_file:
-                d = d[path_in_file.pop(0)]
+            d = ConfigNode.goto_path(yaml.load(f.read()), self.path)
             self._data = {}
             for k, v in d.items():
                 self[k] = v
@@ -472,11 +482,9 @@ class ConfigNode(MutableMapping):
             # file does not exist
             yaml_contents = self.to_dict()
         else:
-            path_in_file = self.path
-            d = yaml_contents
-            while path_in_file:
-                d = d[path_in_file.pop(0)]
-            prudent_update(d, self.to_dict())
+            prudent_update(
+                ConfigNode.goto_path(yaml_contents, self.path), self.to_dict()
+            )
 
         string_stream = StringIO()
         yaml.dump(yaml_contents, stream=string_stream)

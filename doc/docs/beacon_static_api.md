@@ -21,7 +21,7 @@
 >>> object_1_config
 filename:<directory_1/file_1.yml>,plugin:None,{'name': 'object_1', 'param': 42}
 >>> type(object_1_config)
-<class 'bliss.config.static.Node'>
+<class 'bliss.config.static.ConfigNode'>
 
 >>> #access with dict interface
 >>> object_1_config['param']
@@ -62,7 +62,7 @@ n['truc']='machin'
 
 nn = n['bidule'][0]
 
-type(nn)  #  <class 'bliss.config.static.Node'>
+type(nn)  #  <class 'bliss.config.static.ConfigNode'>
 
 nn['titi'] = "jaune"
 

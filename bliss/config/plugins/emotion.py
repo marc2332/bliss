@@ -16,9 +16,9 @@ from bliss.common import encoder as encoder_module
 from bliss.common.axis import Axis
 from bliss.common.utils import auto_coerce
 from bliss.common.encoder import Encoder
-from bliss.config.static import Config
+from bliss.config.static import ConfigNode, ConfigReference
 from bliss.common.tango import DeviceProxy, _DeviceProxy
-from bliss.config.plugins.utils import find_class, replace_reference_by_object
+from bliss.config.plugins.utils import find_class
 import bliss.controllers.motors
 from bliss.controllers.motor import CalcController
 
@@ -105,7 +105,7 @@ def get_axis_html(cfg):
         if key not in __KNOWN_AXIS_PARAMS:
             extra_params[key] = dict(name=key, label=key.capitalize(), value=value)
 
-    tags = cfg.get(Config.USER_TAG_KEY, [])
+    tags = cfg.get(ConfigNode.USER_TAG_KEY, [])
     if not isinstance(tags, (tuple, list)):
         tags = [tags]
     vars["tags"] = tags
@@ -335,7 +335,6 @@ def create_objects_from_config_node(config, node):
     encoders = dict()
     switches = dict()
     shutters = dict()
-    node = node.to_dict()
     cache_dict = dict()
 
     for (
@@ -351,11 +350,10 @@ def create_objects_from_config_node(config, node):
         (switches, OBJECT_TYPE.SWITCH, None, "Switch", node.get("switches", [])),
     ):
         for config_dict in config_nodes_list:
-            config_dict = config_dict.copy()
-            object_name = config_dict.get("name")
-            if object_name.startswith("$"):
+            object_name = config_dict.raw_get("name")
+            if isinstance(object_name, ConfigReference):
                 object_class = None
-                object_name = object_name.strip("$")
+                object_name = object_name.object_name
             else:
                 cache_dict[object_name] = object_type, config_dict
                 object_class_name = config_dict.get("class")
@@ -380,8 +378,6 @@ def create_objects_from_config_node(config, node):
                             raise
             objects[object_name] = object_class, config_dict
 
-    referenced_objects = dict()
-    replace_reference_by_object(config, node, referenced_objects, greedy=True)
     controller = controller_class(
         controller_name, node, axes, encoders, shutters, switches
     )
@@ -415,7 +411,6 @@ def create_objects_from_config_node(config, node):
 
 def create_object_from_cache(config, name, cache_objects):
     controller, object_type, config_dict = cache_objects
-    replace_reference_by_object(config, config_dict)
     if object_type == OBJECT_TYPE.AXIS:
         return controller.get_axis(name)
     elif object_type == OBJECT_TYPE.ENCODER:

@@ -11,9 +11,6 @@ from bliss.config.settings import HashObjSetting, pipeline
 from bliss.config.channels import Cache, EventChannel
 from bliss.common import event
 from bliss.common.utils import Null, autocomplete_property
-from bliss.config.conductor.client import remote_open
-from bliss.config.static import Node
-from bliss.config.static import get_config_dict, _find_list, _find_dict, _find_subconfig
 
 
 class BeaconObject:
@@ -137,7 +134,7 @@ class BeaconObject:
             raise RuntimeError("path has to be provided as list!")
 
         if path:
-            self._config = _find_subconfig(config, path)
+            self._config = config.goto_path(config, path, key_error_exception=False)
         else:
             self._config = config
 
@@ -231,25 +228,10 @@ class BeaconObject:
         if reload:
             if not self._config_name:
                 raise RuntimeError(
-                    f"to use apply_config of {self.name} a valid config with name has to be provied on init!"
+                    "Cannot apply config on unindexed config node. Hint: provide configuration of a valid, named object in __init__"
                 )
 
-            d = get_config_dict(self.config.filename, self._config_name)
-
-            if d is None:
-                raise RuntimeError(
-                    f"Can't find config node named:{self._config_name} "
-                    f"in file:{self.config.filename}"
-                )
-
-            if self._path:
-                d = _find_subconfig(d, self._path)
-                if d is None:
-                    raise RuntimeError(
-                        f"Can't find config for beacon object:{self._config_name} with offset {str(self._path)} "
-                    )
-
-            self.config.update(d)
+            self.config.reload()
         try:
             self._settings.remove(*self.__settings_properties().keys())
         except AttributeError:  # apply config before init
@@ -443,9 +425,9 @@ class BeaconObject:
                 assert hasattr(value, "name")
                 obj_name = value.name
             assert (
-                obj_name in self.config._config.names_list
+                obj_name in self.config.config.names_list
             ), f"{obj_name} does not exist in beacon config!"
-            return self.config._config.get(obj_name)
+            return self.config.config.get(obj_name)
 
         def set_marshalling(self, value):
             if value is None:

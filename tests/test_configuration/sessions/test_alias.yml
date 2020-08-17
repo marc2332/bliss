@@ -32,4 +32,6 @@
   aliases:
     - original_name: m0
       alias_name: mot0
- 
+- plugin: default
+  name: issue1328
+  mymot: $roby # axis which has an alias 

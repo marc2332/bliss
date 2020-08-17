@@ -151,9 +151,8 @@ def test_lima_mapping_and_saving(session, lima_simulator):
     def replace_root_dir():
         # Replace /tmp/scans with scan_saving.base_path
         for mapping in simulator.directories_mapping:
-            if isinstance(mapping, dict):
-                for k in mapping:
-                    mapping[k] = mapping[k].replace("/tmp/scans", scan_saving.base_path)
+            for k in mapping:
+                mapping[k] = mapping[k].replace("/tmp/scans", scan_saving.base_path)
 
     scan_saving.images_path_template = ""
     scan_saving.images_prefix = "toto"

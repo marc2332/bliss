@@ -31,8 +31,8 @@ class Proxy(object):
     def __init__(self, config):
         if "tcp" in config:
             tcp_config = config.get("tcp")
-            if hasattr(config, "deep_copy"):
-                self._config = tcp_config.deep_copy()
+            if hasattr(config, "clone"):
+                self._config = tcp_config.clone()
             else:
                 self._config = tcp_config.copy()
             self._mode = self.TCP
@@ -80,8 +80,8 @@ class Proxy(object):
     def _check_connection(self):
         if self._mode == self.TCP:
             if self._cnx is None or not self._cnx._connected:
-                if hasattr(self._config, "deep_copy"):
-                    local_cfg = self._config.deep_copy()
+                if hasattr(self._config, "clone"):
+                    local_cfg = self._config.clone()
                 else:
                     local_cfg = self._config.copy()
                 url = local_cfg.pop("url")

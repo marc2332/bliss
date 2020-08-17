@@ -402,7 +402,7 @@ class Lima(CounterController):
         self.__prepare_timeout = config_tree.get("prepare_timeout", None)
         self.__bpm = None
         self.__roi_counters = None
-        self._instrument_name = config_tree._config.root.get("instrument", "")
+        self._instrument_name = config_tree.root.get("instrument", "")
         self.__bg_sub = None
         self.__last = None
         self._camera = None

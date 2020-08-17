@@ -111,7 +111,7 @@ Each plugin module has to define a `create_objects_from_config_node` function,
 that receives:
 
 * the static configuration singleton
-* the Node object that corresponds to the object configuration
+* the ConfigNode object that corresponds to the object configuration
 
 #### `bliss` plugin example
 

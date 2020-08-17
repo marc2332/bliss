@@ -490,6 +490,9 @@ class EBV:
         self._wago.connect()
         self.__update()
 
+    def __close__(self):
+        self._wago.close()
+
     def __led_status_changed(self, state):
         event.send(self, "led_status", state)
 

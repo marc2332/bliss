@@ -7,8 +7,9 @@
 
 import sys
 import itertools
+from bliss.config.static import ConfigReference
 from bliss.common.temperature import Input, Output, Loop
-from bliss.config.plugins.utils import find_class, replace_reference_by_object
+from bliss.config.plugins.utils import find_class
 
 
 def create_objects_from_config_node(config, node):
@@ -27,7 +28,6 @@ def create_objects_from_config_node(config, node):
     inputs = dict()
     outputs = dict()
     loops = dict()
-    node = node.to_dict()
     cache_dict = dict()
 
     for (objects, default_class, config_nodes_list) in (
@@ -36,11 +36,10 @@ def create_objects_from_config_node(config, node):
         (loops, Loop, node.get("ctrl_loops", [])),
     ):
         for config_dict in config_nodes_list:
-            config_dict = config_dict.copy()
-            object_name = config_dict.get("name")
-            if object_name.startswith("$"):
+            object_name = config_dict.raw_get("name")
+            if isinstance(object_name, ConfigReference):
                 object_class = None
-                object_name = object_name.strip("$")
+                object_name = object_name.ref
             else:
                 cache_dict[object_name] = config_dict
                 object_class_name = config_dict.get("class")
@@ -72,5 +71,4 @@ def create_objects_from_config_node(config, node):
 
 def create_object_from_cache(config, name, cache_objects):
     controller, config_dict = cache_objects
-    replace_reference_by_object(config, config_dict)
     return controller.get_object(name)

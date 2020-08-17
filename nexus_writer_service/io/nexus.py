@@ -25,6 +25,7 @@ import pprint
 import logging
 import bliss
 import gevent
+import warnings
 from functools import wraps
 from io import StringIO
 from collections import Counter
@@ -78,6 +79,8 @@ def asNxChar(s, raiseExtended=True):
     :returns np.ndarray(nxcharUnicode or nxcharBytes):
     :raises UnicodeDecodeError: extended ASCII encoding
     """
+    if isinstance(s, numpy.ndarray) and s.dtype in (nxcharBytes, nxcharUnicode):
+        return s
     try:
         # dtype=nxcharUnicode will not attempt decoding bytes
         # so readers will get UnicodeDecodeError when bytes
@@ -548,7 +551,7 @@ def nxClassInstantiate(parent, name, nxclass, raise_on_exists=False):
         group = parent
     else:
         try:
-            group = parent.create_group(name)
+            group = parent.create_group(name, track_order=False)
             exists = False
         except Exception as e:
             exists = True
@@ -584,8 +587,9 @@ def updated(h5group, final=False, parents=False):
                 updateDataset(group, "end_time", tm)
         elif nxclass in ["NXprocess", "NXnote"]:
             updateDataset(group, "date", tm)
-        elif nxclass == "NXroot":
-            group.attrs["file_update_time"] = tm
+        # h5py issue #1641
+        # elif nxclass == "NXroot":
+        #    updateAttribute(group, "file_update_time", tm)
         if not parents:
             break
 
@@ -600,6 +604,25 @@ def updateDataset(parent, name, data):
         parent[name][()] = asNxType(data)
     else:
         parent[name] = asNxType(data)
+
+
+def updateAttribute(parent, name, value):
+    """
+    :param h5py.Group parent:
+    :param str name:
+    :param value:
+    """
+    if value is None:
+        return
+    try:
+        parent.attrs[name] = asNxChar(value)
+    except Exception as e:
+        if "B-tree" in str(e):
+            warnings.warn(
+                f"Cannot set attribute {repr(name)}: h5py issue #1641", UserWarning
+            )
+        else:
+            raise
 
 
 def nxClassInit(
@@ -648,16 +671,15 @@ def nxRootInit(h5group, rootattrs=None):
     if rootattrs is None:
         rootattrs = {}
     if nxClassInstantiate(h5group, None, "NXroot"):
-        h5group.attrs["file_time"] = timestamp()
-        h5group.attrs["file_name"] = asNxChar(h5group.file.filename)
-        h5group.attrs["HDF5_Version"] = asNxChar(h5py.version.hdf5_version)
-        h5group.attrs["h5py_version"] = asNxChar(h5py.version.version)
-        h5group.attrs["creator"] = asNxChar("Bliss")
-        h5group.attrs["creator_version"] = asNxChar(bliss.__version__)
-        h5group.attrs["NX_class"] = "NXroot"
+        updateAttribute(h5group, "file_time", timestamp())
+        updateAttribute(h5group, "file_name", h5group.file.filename)
+        updateAttribute(h5group, "HDF5_Version", h5py.version.hdf5_version)
+        updateAttribute(h5group, "h5py_version", h5py.version.version)
+        updateAttribute(h5group, "creator", "Bliss")
+        updateAttribute(h5group, "creator_version", bliss.__version__)
+        updateAttribute(h5group, "NX_class", "NXroot")
         for attr, value in rootattrs.items():
-            if value is not None:
-                h5group.attrs[attr] = asNxType(value)
+            updateAttribute(h5group, attr, value)
         updated(h5group)
 
 
@@ -673,7 +695,8 @@ def nxInit(h5group, attrs=None, datasets=None):
         for k, v in datasets.items():
             updateDataset(h5group, k, v)
     if attrs:
-        h5group.attrs.update(attrs)
+        for k, v in attrs.items():
+            updateAttribute(h5group, k, v)
 
 
 def nxAddDatasetInit(dic, key, value):
@@ -795,7 +818,7 @@ def nxProcess(parent, name, configdict=None, raise_on_exists=False, **kwargs):
         h5group = parent[name]
         updateDataset(h5group, "program", "bliss")
         updateDataset(h5group, "version", bliss.__version__)
-        h5group.attrs["NX_class"] = "NXprocess"
+        updateAttribute(h5group, "NX_class", "NXprocess")
         updated(h5group)
     else:
         h5group = parent[name]
@@ -824,7 +847,7 @@ def nxNote(parent, name, data=None, type=None, date=None, raise_on_exists=False)
     raiseIsNxClass(parent, None)
     if nxClassInstantiate(parent, name, "NXnote", raise_on_exists=raise_on_exists):
         h5group = parent[name]
-        h5group.attrs["NX_class"] = "NXnote"
+        updateAttribute(h5group, "NX_class", "NXnote")
         update = True
     else:
         h5group = parent[name]
@@ -913,6 +936,7 @@ class File(h5py.File):
                 os.environ["HDF5_USE_FILE_LOCKING"] = "TRUE"
             else:
                 os.environ["HDF5_USE_FILE_LOCKING"] = "FALSE"
+            kwargs["track_order"] = True
             try:
                 super().__init__(filename, mode=mode, swmr=swmr, **kwargs)
                 if mode != "r" and swmr:
@@ -1090,9 +1114,9 @@ def nxDataSetSignals(data, signals):
     :param list(str) signals:
     """
     if signals:
-        data.attrs["signal"] = asNxChar(signals[0])
+        updateAttribute(data, "signal", signals[0])
         if len(signals) > 1:
-            data.attrs["auxiliary_signals"] = asNxChar(signals[1:])
+            updateAttribute(data, "auxiliary_signals", asNxChar(signals[1:]))
         else:
             data.attrs.pop("auxiliary_signals", None)
     else:
@@ -1430,8 +1454,8 @@ def nxCreateDataSet(h5group, name, value, attrs, stringasuri=False):
         h5group[name] = asNxType(value)
     dset = h5group.get(name, None)
     if attrs and dset is not None:
-        attrs = {k: v for k, v in attrs.items() if v is not None}
-        dset.attrs.update(attrs)
+        for k, v in attrs.items():
+            updateAttribute(dset, k, v)
     return dset
 
 
@@ -1498,7 +1522,7 @@ def nxDataAddAxes(data, axes, append=True):
         if name not in names:
             names.append(name)
     if names:
-        data.attrs["axes"] = asNxChar(names)
+        updateAttribute(data, "axes", asNxChar(names))
         updated(data)
 
 
@@ -1581,14 +1605,14 @@ def markDefault(h5node, nxentrylink=True):
             nxDataSetSignals(parent, [signal] + signals)
             updated(parent)
         elif nxclass in ["NXentry", "NXsubentry"]:
-            parent.attrs["default"] = h5Name(h5node)
+            updateAttribute(parent, "default", h5Name(h5node))
             updated(parent)
         elif nxclass == "NXdata":
-            parent.attrs["default"] = h5Name(h5node)
+            updateAttribute(parent, "default", h5Name(h5node))
             updated(parent)
             nxdata = h5node
         else:
-            parent.attrs["default"] = h5Name(h5node)
+            updateAttribute(parent, "default", h5Name(h5node))
             updated(parent)
         h5node = parent
         nxclass = parentnxclass
@@ -1614,7 +1638,7 @@ def _nxentry_plot_link(nxdata):
             i += 1
         plotname = fmt.format(i)
     nxentry[plotname] = h5py.SoftLink(nxdata.name)
-    nxentry.attrs["default"] = plotname
+    updateAttribute(nxentry, "default", plotname)
 
 
 def getDefault(node, signal=True):
@@ -1681,7 +1705,7 @@ def _delete_children(destination):
 
 def _update_attributes(destination, attrs):
     for k, v in attrs.items():
-        destination.attrs[k] = v
+        updateAttribute(destination, k, v)
 
 
 def _dicttonx_create_attr(destination, attr, value, update=False):
@@ -1706,13 +1730,7 @@ def _dicttonx_create_attr(destination, attr, value, update=False):
         destination = destination[parent]
     if name in destination.attrs and not update:
         return
-    if not isString(value):
-        raise ValueError(
-            "Attribute {} of {} must be a string".format(
-                repr(name), repr(destination.name)
-            )
-        )
-    destination.attrs[name] = asNxChar(value)
+    updateAttribute(destination, name, value)
 
 
 def _dicttonx_create_dataset(destination, name, value, overwrite=False, update=False):
@@ -1725,9 +1743,9 @@ def _dicttonx_create_dataset(destination, name, value, overwrite=False, update=F
     :param bool overwrite: existing attributes are deleted
     :param bool update: existing attributes are not deleted
     """
+    value = asNxType(value)
     if name in destination:
         if overwrite:
-            value = asNxType(value)
             try:
                 # Preserve dataset when possible
                 destination[name][()] = value
@@ -1737,7 +1755,6 @@ def _dicttonx_create_dataset(destination, name, value, overwrite=False, update=F
             else:
                 _delete_attributes(destination[name])
         elif update:
-            value = asNxType(value)
             try:
                 # Preserve dataset when possible
                 destination[name][()] = value
@@ -1747,7 +1764,7 @@ def _dicttonx_create_dataset(destination, name, value, overwrite=False, update=F
                 destination[name] = value
                 _update_attributes(destination[name], attrs)
     else:
-        destination[name] = asNxType(value)
+        destination[name] = value
     return destination[name]
 
 
@@ -1762,7 +1779,7 @@ def _dicttonx_create_group(destination, name, overwrite=False):
         if overwrite:
             if not isinstance(destination[name], h5py.Group):
                 del destination[name]
-                destination.create_group(name)
+                destination.create_group(name, track_order=False)
             else:
                 _delete_attributes(destination[name])
                 _delete_children(destination[name])
@@ -1773,7 +1790,7 @@ def _dicttonx_create_group(destination, name, overwrite=False):
                 )
             )
     else:
-        destination.create_group(name)
+        destination.create_group(name, track_order=False)
     return destination[name]
 
 

@@ -363,7 +363,7 @@ class ConfigNode(MutableMapping):
                 )
             if ConfigReference.is_reference(name):
                 # a name must be a string, or a direct reference to an object in config
-                assert not "." in name
+                assert "." not in name
             else:
                 if name in ConfigNode.indexed_nodes:
                     existing_node = ConfigNode.indexed_nodes[name]

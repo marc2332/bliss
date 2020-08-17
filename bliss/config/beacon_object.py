@@ -228,7 +228,7 @@ class BeaconObject:
         if reload:
             if not self._config_name:
                 raise RuntimeError(
-                    f"Cannot apply config on unindexed config node. Hint: provide configuration of a valid, named object in __init__"
+                    "Cannot apply config on unindexed config node. Hint: provide configuration of a valid, named object in __init__"
                 )
 
             self.config.reload()

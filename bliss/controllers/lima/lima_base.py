@@ -25,13 +25,15 @@ from bliss import current_session
 from bliss.config.channels import Cache, clear_cache
 from bliss.scanning.acquisition.lima import LimaAcquisitionMaster
 
-from .properties import LimaProperties, LimaProperty
-from .bpm import Bpm
-from .roi import RoiCounters
-from .image import ImageCounter, LimaImageParameters
-from .shutter import Shutter
-from .bgsub import BgSub
-from .debug import LimaDebug
+from bliss.controllers.lima.properties import LimaProperties, LimaProperty
+from bliss.controllers.lima.bpm import Bpm
+from bliss.controllers.lima.roi import RoiCounters
+from bliss.controllers.lima.image import ImageCounter, LimaImageParameters
+from bliss.controllers.lima.shutter import Shutter
+from bliss.controllers.lima.bgsub import BgSub
+from bliss.controllers.lima.debug import LimaDebug
+from bliss.controllers.lima.saving import LimaSavingParameters
+from bliss.controllers.lima.processing import LimaProcessing
 
 
 class CameraBase(object):

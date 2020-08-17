@@ -13,7 +13,6 @@ from sortedcontainers import SortedKeyList
 from collections.abc import MutableSequence
 
 from bliss.config import settings
-from bliss.config.static import ConfigList
 from bliss import current_session
 from bliss import global_map
 from bliss.common.proxy import Proxy

@@ -48,8 +48,7 @@ class HDF5_Writer(object):
         filename = filename.replace(".", "_external.")
         self.file = h5py.File(filename, mode="a")
 
-        print("Starting to save data for", self.scan_name)
-        print("File:", filename)
+        print(f"\n\n\n\n{self}: Starting to save data to {filename}")
 
         # all channels that are involved in this scan will be added here
         self.channels = list()
@@ -61,6 +60,9 @@ class HDF5_Writer(object):
 
         # listen and treat events for this scan asynchronously
         self._greenlet = gevent.spawn(self.run)
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}({self.scan_name})"
 
     def wait_end(self):
         self._greenlet.get()
@@ -91,13 +93,17 @@ class HDF5_Writer(object):
     def run(self):
         """This function will be used to treat events emitted by the scan."""
         # ~ print("writer run", self.scan_node.db_name)
+        try:
+            self._run()
+        except Exception as e:
+            raise RuntimeError(f"{self}: ERROR on processing event") from e
 
-        scan_iterator = self.scan_node.iterator
-        for event_type, node, event_data in scan_iterator.walk_events():
-            # ~ print(self.scan_db_name, event_type, node.type)
+    def _run(self):
+        for event_type, node, event_data in self.scan_node.walk_events():
+            print(f"{self}: EVENT {event_type} of {node.name}")
+
             # creating new dataset for channel
             if event_type == event_type.NEW_NODE and node.type == "channel":
-                print(self.scan_node.db_name, "create new dataset", node.name)
                 self.channels.append(node)
                 self.channel_indices[node.name] = 0
 
@@ -124,7 +130,6 @@ class HDF5_Writer(object):
 
             # adding data to channel dataset
             elif event_type == event_type.NEW_DATA and node.type == "channel":
-                print(self.scan_node.db_name, "add data", node.name)
                 self.update_data(node)
 
             # adding data to lima dataset
@@ -139,20 +144,18 @@ class HDF5_Writer(object):
                 # in this demo we restrict ourselves to treating all reference in the end
                 pass
             elif event_type == event_type.NEW_DATA and node.type == "scan_group":
-                print("**** NEW_DATA ****", node.db_name)
+                pass
+
             # creating a new entry in the hdf5 for each 'top-master'
             elif event_type == event_type.NEW_NODE and (
                 node.parent.type == "scan" or node.parent.type == "scan_group"
             ):
-                print(self.scan_node.db_name, "add subscan", node.name)
                 # add a new subscan to this scan (this is to deal with "multiple top master" scans)
                 # and the fact that the hdf5 three does not reflect the redis tree in this case
                 self.add_subscan(node)
             elif event_type == event_type.END_SCAN:
                 self.finalize()
                 break
-            else:
-                print("DEBUG: untreated event: ", event_type.name, node.type, node.name)
 
     def add_subscan(self, node):
         """ add a new subscan to this scan 
@@ -250,7 +253,7 @@ class HDF5_Writer(object):
                     # of cause we have to think better what to do in this case...
                     # e.g. external link?
                     print(
-                        "ERROR: trying to link to a scan that is not saved in the current file!"
+                        f"{self}: ERROR trying to link to a scan that is not saved in the current file!"
                     )
 
     def lima_ref_array(self, node):
@@ -265,7 +268,7 @@ class HDF5_Writer(object):
 
         lima_data_view = node.get(0, -1)
 
-        tmp = lima_data_view._get_filenames(node.info, *range(0, len(lima_data_view)))
+        tmp = lima_data_view.all_image_references()
 
         if tmp != []:
             tmp = numpy.array(tmp, ndmin=2)
@@ -284,7 +287,7 @@ class HDF5_Writer(object):
     def finalize(self):
         """stop the iterator loop for this scan and pass once through all
         channels to make sure that all data is written """
-        print("writer finalize", self.scan_node.db_name)
+        print(f"{self}: writer finalize ...")
 
         # make sure that all data was written until the last point
         # in case we missed anything
@@ -317,7 +320,7 @@ class HDF5_Writer(object):
             instrument_meta["positioners_dial"]["@NX_class"] = "NXcollection"
 
         base_db_name = self.scan_node.db_name
-        for node in self.scan_node.iterator.walk(wait=False):
+        for node in self.scan_node.walk(wait=False):
             if node.db_name == base_db_name:
                 continue
             if not isinstance(node, ChannelDataNode) and not isinstance(
@@ -361,6 +364,7 @@ class HDF5_Writer(object):
             ]
 
         self.file.close()
+        print(f"{self}: writer finalize done.")
 
 
 def listen_scans_of_session(session, scan_stack=dict()):
@@ -373,8 +377,8 @@ def listen_scans_of_session(session, scan_stack=dict()):
     def g():
 
         # wait for new events on scan
-        print("Listening to", session)
-        for event_type, node, event_data in session_node.iterator.walk_on_new_events(
+        print(f"Listening to {session}")
+        for event_type, node, event_data in session_node.walk_on_new_events(
             filter=["scan", "scan_group"]
         ):
             if event_type == event_type.NEW_NODE:
@@ -383,9 +387,9 @@ def listen_scans_of_session(session, scan_stack=dict()):
             elif event_type == event_type.END_SCAN:
                 s = scan_stack.get(node.db_name)
                 if s is not None:
-                    print("BEFORE wait END SCAN", node.db_name)
+                    print(f"{s}: BEFORE wait END SCAN")
                     s.wait_end()
-                    print("END SCAN", node.db_name)
+                    print(f"{s}: AFTER wait END SCAN")
                     scan_stack.pop(node.db_name)
 
     # gevent.spawn(g) could be used to instead of g() to run in non-blocking fashion
@@ -394,7 +398,7 @@ def listen_scans_of_session(session, scan_stack=dict()):
     except KeyboardInterrupt:
         for s in scan_stack.values():
             s.finalize()
-        print("---- hdf5 writer terminates ----")
+    print("---- hdf5 writer terminates ----")
 
 
 if __name__ == "__main__":

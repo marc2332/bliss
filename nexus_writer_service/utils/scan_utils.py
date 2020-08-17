@@ -21,33 +21,33 @@ __all__ = ["open_data", "open_dataset", "open_sample", "open_proposal"]
 
 def scan_info(scan):
     """
-    :param bliss.scanning.scan.Scan or bliss.data.nodes.scan.Scan scan:
+    :param Scan or ScanNode scan:
     :returns dict:
     """
     try:
-        # bliss.scanning.scan.Scan
+        # Scan
         return scan.scan_info
     except AttributeError:
-        # bliss.data.nodes.scan.Scan
+        # ScanNode
         return scan.info.get_all()
 
 
 def scan_node(scan):
     """
-    :param bliss.scanning.scan.Scan or bliss.data.nodes.scan.Scan scan:
-    :returns bliss.data.nodes.scan.Scan:
+    :param Scan or ScanNode scan:
+    :returns ScanNode:
     """
     try:
-        # bliss.scanning.scan.Scan
+        # Scan
         return scan.node
     except AttributeError:
-        # bliss.data.nodes.scan.Scan
+        # ScanNode
         return scan
 
 
 def is_scan_group(scan):
     """
-    :param bliss.scanning.scan.Scan or bliss.data.nodes.scan.Scan scan:
+    :param Scan or ScanNode scan:
     :returns bool:
     """
     try:
@@ -58,7 +58,7 @@ def is_scan_group(scan):
 
 def scan_name(scan, subscan=1):
     """
-    :param bliss.scanning.scan.Scan or bliss.data.nodes.scan.Scan scan:
+    :param Scan or ScanNode scan:
     :returns str:
     """
     info = scan_info(scan)
@@ -77,7 +77,7 @@ def scan_filename(scan):
     """
     Name of the file that contains the scan data
 
-    :param bliss.scanning.scan.Scan or bliss.data.nodes.scan.Scan scan:
+    :param Scan or ScanNode scan:
     :returns str or None:
     """
     return scan_info(scan).get("filename", None)
@@ -100,7 +100,7 @@ def scan_master_filenames(scan, config=True):
     """
     Names of the files that contain links to the scan data
 
-    :param bliss.scanning.scan.Scan or bliss.data.nodes.scan.Scan scan:
+    :param Scan or ScanNode scan:
     :param bool config: configurable writer is used
     :returns dict(str):
     """
@@ -136,7 +136,7 @@ def scan_filenames(scan, config=True):
     """
     Names of the files that contain the scan data (raw or as links)
 
-    :param bliss.scanning.scan.Scan or bliss.data.nodes.scan.Scan scan:
+    :param Scan or ScanNode scan:
     :pram bool config: writer parses the extra "nexuswriter" info
     :returns dict(str):
     """
@@ -174,7 +174,7 @@ def scan_uri(scan, subscan=1):
     """
     Get HDF5 uri associated to a scan.
 
-    :param bliss.scanning.scan.Scan or bliss.data.nodes.scan.Scan scan:
+    :param Scan or ScanNode scan:
     :param int subscan:
     :returns str or None:
     """
@@ -189,7 +189,7 @@ def scan_uris(scan, subscan=None):
     """
     Get all scan data uri's, one for each subscan.
 
-    :param list(bliss.scanning.scan.Scan or bliss.data.nodes.scan.Scan) scan:
+    :param list(Scan or ScanNode) scan:
     :param int subscan: all subscans by default
     :returns list(str):
     """

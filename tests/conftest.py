@@ -22,6 +22,7 @@ from random import randint
 from contextlib import contextmanager
 import redis
 import weakref
+from pprint import pprint
 
 from bliss import global_map, global_log
 from bliss.common.session import DefaultSession
@@ -601,29 +602,34 @@ def log_context():
 def deep_compare(d, u):
     """using logic of deep update used here to compare two dicts 
     """
-    stack = [(d, u)]
-    while stack:
-        d, u = stack.pop(0)
-        assert len(d) == len(u)
+    try:
+        stack = [(d, u)]
+        while stack:
+            d, u = stack.pop(0)
+            assert len(d) == len(u)
 
-        for k, v in u.items():
-            assert k in d
-            if not isinstance(v, collections.abc.Mapping):
-                if isinstance(v, numpy.ndarray) and v.size > 1:
-                    assert d[k].shape == v.shape
-                    d[k].dtype == v.dtype
-                    if d[k].dtype != numpy.object:
-                        assert all(
-                            numpy.isnan(d[k].flatten()) == numpy.isnan(v.flatten())
-                        )
-                        mask = numpy.logical_not(numpy.isnan(v.flatten()))
-                        assert all((d[k].flatten() == v.flatten())[mask])
+            for k, v in u.items():
+                assert k in d
+                if not isinstance(v, collections.abc.Mapping):
+                    if isinstance(v, numpy.ndarray) and v.size > 1:
+                        assert d[k].shape == v.shape
+                        d[k].dtype == v.dtype
+                        if d[k].dtype != numpy.object:
+                            assert all(
+                                numpy.isnan(d[k].flatten()) == numpy.isnan(v.flatten())
+                            )
+                            mask = numpy.logical_not(numpy.isnan(v.flatten()))
+                            assert all((d[k].flatten() == v.flatten())[mask])
+                        else:
+                            assert all(d[k].flatten() == v.flatten())
                     else:
-                        assert all(d[k].flatten() == v.flatten())
+                        assert d[k] == v
                 else:
-                    assert d[k] == v
-            else:
-                stack.append((d[k], v))
+                    stack.append((d[k], v))
+    except AssertionError:
+        pprint(d)
+        pprint(u)
+        raise
 
 
 @pytest.fixture

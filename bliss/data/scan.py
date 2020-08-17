@@ -14,7 +14,6 @@ from bliss.common.counter import Counter
 from bliss.common.axis import Axis
 from bliss.data.nodes.scan import get_data_from_nodes
 from bliss.data.node import _get_or_create_node
-
 from bliss.common.utils import get_matching_names
 
 
@@ -96,11 +95,8 @@ def watch_session_scans(
             scans
     """
     session_node = _get_or_create_node(session_name, node_type="session")
-
     if session_node is None:
         return
-
-    data_iterator = session_node.iterator
     running_scans = dict()
 
     def _get_scan_info(db_name):
@@ -111,8 +107,8 @@ def watch_session_scans(
 
     if ready_event is not None:
         ready_event.set()
-    for event_type, node, event_data in data_iterator.walk_on_new_events(
-        stream_stop_reading_handler=stop_handler
+    for event_type, node, event_data in session_node.walk_on_new_events(
+        stop_handler=stop_handler
     ):
         if event_type == event_type.NEW_NODE:
             node_type = node.type
@@ -158,7 +154,7 @@ def watch_session_scans(
                     "nodes_data", dict()
                 )
                 if node.type == "channel":
-                    shape = description[0].get("shape")
+                    shape = description.get("shape")
                     dim = len(shape)
                     # in case of zerod, we keep all data value during the scan
                     if dim == 0:
@@ -208,7 +204,7 @@ def watch_session_scans(
             node_type = node.type
             if watch_scan_group or node_type == "scan":
                 db_name = node.db_name
-                scan_dict = running_scans.pop(db_name)
+                scan_dict = running_scans.pop(db_name, None)
                 if scan_dict:
                     scan_info = node.info.get_all()
                     if scan_end_callback:

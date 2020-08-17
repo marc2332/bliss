@@ -1006,7 +1006,7 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
         """
         Scan has started
 
-        :param bliss.data.nodes.scan.Scan scan:
+        :param ScanNode scan:
         """
         title = self.get_info("title", "")
         self.logger.info("title = " + repr(title))
@@ -1335,7 +1335,7 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
     def _detector_data_info(self, node):
         node_type = node.type
         if node_type == "lima":
-            if not len(node.ref_data):
+            if not len(node.all_ref_data):
                 return None
         data_expected = self._node_data_saved(node)
 
@@ -1497,15 +1497,13 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
             files = []
             icurrent = dproxy.npoints
             # e.g node: bliss.data.lima.LimaImageChannelDataNode
-            #     dataview: bliss.data.lima.LimaImageChannelDataNode.LimaDataView
+            #     dataview: bliss.data.lima.LimaDataView
             dataview = node.get(icurrent, -1)
-            imgidx = list(range(dataview.from_index, dataview.last_index))
-            if imgidx:
+            if len(dataview):
                 try:
-                    files = dataview._get_filenames(node.info, *imgidx)
+                    files = dataview.all_image_references(saved=True)
                 except Exception as e:
-                    # Image was not saved (yet)
-                    dproxy.logger.debug("cannot get image file names: {}".format(e))
+                    dproxy.logger.debug(f"Image not ready yet: {e}")
         # Create image URI's
         uris = []
         file_format0 = None
@@ -1538,7 +1536,7 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
         """
         icurrent = dproxy.npoints
         # e.g node: bliss.data.lima.LimaImageChannelDataNode
-        #     dataview: bliss.data.lima.LimaImageChannelDataNode.LimaDataView
+        #     dataview: bliss.data.lima.LimaDataView
         dataview = node.get(icurrent, -1)
         lst = []
         try:

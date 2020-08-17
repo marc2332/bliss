@@ -9,8 +9,9 @@ import pytest
 import time
 import gevent
 import numpy
-import pickle as pickle
 import itertools
+import pickle
+import logging
 from bliss import setup_globals, current_session
 from bliss.common import scans
 from bliss.scanning.scan import Scan, ScanState, ScanAbort
@@ -18,12 +19,11 @@ from bliss.scanning.chain import AcquisitionChain, AcquisitionMaster, Acquisitio
 from bliss.scanning.acquisition.motor import SoftwarePositionTriggerMaster
 from bliss.scanning.acquisition.counter import SamplingCounterAcquisitionSlave
 from bliss.config.settings import scan as redis_scan
-from bliss.config.streaming import DataStream, StreamStopReadingHandler
-from bliss.data.nodes.scan import Scan as ScanNode
+from bliss.config.streaming import DataStream, DataStreamReaderStopHandler
+from bliss.data.nodes.scan import ScanNode
 from bliss.data.node import (
     get_session_node,
     get_node,
-    DataNodeIterator,
     DataNode,
     DataNodeContainer,
     _get_or_create_node,
@@ -31,6 +31,7 @@ from bliss.data.node import (
     sessions_list,
 )
 from bliss.data.nodes.channel import ChannelDataNode
+from bliss.data.events.channel import ChannelDataEvent
 from bliss.scanning.acquisition.timer import SoftwareTimerMaster
 from bliss.scanning.channel import AcquisitionChannel
 
@@ -101,7 +102,7 @@ def test_scan_node(session, redis_data_conn):
 
     def children(node_name):
         raw_children = redis_data_conn.xrange(node_name + "_children_list", "-", "+")
-        return [v.get(b"child") for i, v in raw_children]
+        return [v.get(b"db_name") for i, v in raw_children]
 
     assert children(s.node.db_name) == [x.encode() for x in scan_children_node]
     assert children(roby_node_db_name) == [x.encode() for x in roby_children_node]
@@ -158,30 +159,121 @@ def test_interrupted_scan(session, redis_data_conn):
         assert redis_data_conn.ttl(child_node_name) > 0
 
 
+def _validate_node_indexing(node, shape, dtype, npoints, expected_data, extract):
+    assert node.shape == shape
+    assert node.dtype == dtype
+    assert len(node) == npoints
+    assert numpy.array_equal(expected_data, extract(node.get(0, -1)))
+    assert numpy.array_equal(expected_data, extract(node.get_as_array(0, -1)))
+    assert numpy.array_equal(expected_data[0], extract(node.get(0), slice=False))
+    assert numpy.array_equal(
+        expected_data[0], extract(node.get_as_array(0), slice=False)
+    )
+
+    # Integer indexing
+    assert extract(node[2]).dtype == node.dtype
+    assert numpy.equal(expected_data[2], extract(node[2], slice=False))
+    assert numpy.equal(expected_data[-2], extract(node[-2], slice=False))
+    with pytest.raises(IndexError):
+        extract(node[npoints], slice=False)
+
+    # Slice indexing
+    assert isinstance(extract(node[1:3]), numpy.ndarray)
+    assert numpy.array_equal(expected_data, extract(node[:]))
+    assert numpy.array_equal(expected_data, extract(node[0:npoints]))
+    assert numpy.array_equal(expected_data, extract(node[0 : npoints + 1]))
+    assert numpy.array_equal(expected_data[1:], extract(node[1:]))
+    assert numpy.array_equal(expected_data[:-1], extract(node[:-1]))
+    assert numpy.array_equal(expected_data[-1:], extract(node[-1:]))
+    assert numpy.array_equal(expected_data[1:2], extract(node[1:2]))
+    assert numpy.array_equal(expected_data[1:3], extract(node[1:3]))
+    assert numpy.array_equal(expected_data[-3:-1], extract(node[-3:-1]))
+    assert numpy.array_equal(extract(node[1:1]), [])
+    assert numpy.array_equal(extract(node[npoints:]), [])
+    assert numpy.array_equal(extract(node[npoints + 1 : npoints + 2]), [])
+    with pytest.raises(IndexError):
+        extract(node[3:1])
+
+
 def test_scan_data_0d(session, redis_data_conn):
     simul_counter = session.env_dict.get("sim_ct_gauss")
-    s = scans.timescan(0.1, simul_counter, npoints=10, return_scan=True, save=False)
-
+    npoints = 10
+    s = scans.timescan(
+        0.1, simul_counter, npoints=npoints, return_scan=True, save=False
+    )
     assert s == current_session.scans[-1]
 
-    # redis key is build from node name and counter name with _data suffix
-    # ":timer:<counter_name>:<counter_name>_data"
-    redis_key = s.node.db_name + f":timer:{simul_counter.fullname}_data"
-    raw_stream_data = redis_data_conn.xrange(redis_key, "-", "+")
-    raw_data = (numpy.loads(v.get(b"data")) for i, v in raw_stream_data)
-    redis_data = list(raw_data)
-    assert numpy.array_equal(redis_data, simul_counter.data)
+    # Check the raw event stream
+    db_name = f"{s.node.db_name}:timer:{simul_counter.fullname}"
+    redis_key = db_name + "_data"
+    events = redis_data_conn.xrange(redis_key, "-", "+")
+    expected_data = list(numpy.loads(raw.get(b"__DATA__")) for i, raw in events)
+    assert numpy.array_equal(expected_data, simul_counter.data)
 
+    # Check the generated Redis keys
     redis_keys = set(redis_scan(session.name + "*", connection=redis_data_conn))
     session_node = get_session_node(session.name)
-    db_names = set([n.db_name for n in DataNodeIterator(session_node).walk(wait=False)])
+    db_names = set([n.db_name for n in session_node.walk(wait=False)])
     assert len(db_names) > 0
     assert db_names == redis_keys.intersection(db_names)
+
+    # Check DataNode indexing
+    node = get_node(db_name)
+    assert node.db_name == db_name
+    assert node.fullname == "simulation_counter_controller:sim_ct_gauss"
+
+    def extract(arr, slice=True):
+        return arr
+
+    _validate_node_indexing(node, tuple(), float, npoints, expected_data, extract)
+
+
+def test_lima_data_channel_node(lima_session, redis_data_conn):
+    lima_sim = lima_session.env_dict["lima_simulator"]
+    npoints = 10
+    s = scans.timescan(0.1, lima_sim, npoints=npoints)
+
+    # Check the raw event stream
+    db_name = f"{s.node.db_name}:timer:{lima_sim.fullname}:image"
+    redis_key = db_name + "_data"
+    events = redis_data_conn.xrange(redis_key, "-", "+")
+    expected_data = list(pickle.loads(raw.get(b"__STATUS__")) for i, raw in events)
+    assert expected_data[-1]["last_image_acquired"] == npoints - 1
+
+    # Check the generated Redis keys
+    redis_keys = set(redis_scan(lima_session.name + "*", connection=redis_data_conn))
+    session_node = get_session_node(lima_session.name)
+    db_names = set([n.db_name for n in session_node.walk(wait=False)])
+    assert len(db_names) > 0
+    assert db_names == redis_keys.intersection(db_names)
+
+    # Check DataNode indexing
+    node = get_node(db_name)
+    assert node.db_name == db_name
+    assert node.fullname == "lima_simulator:image"
+    expected_data = numpy.arange(1, npoints + 1) * 100
+
+    def extract(view, slice=True):
+        if slice:
+            arr = view[:]
+        else:
+            try:
+                arr = view.as_array()
+            except AttributeError:
+                arr = view
+        if arr.size:
+            return arr.max(axis=(-1, -2))
+        else:
+            return arr
+
+    _validate_node_indexing(
+        node, (1024, 1024), numpy.uint32, npoints, expected_data, extract
+    )
 
 
 def test_data_iterator_event(beacon, redis_data_conn, session):
     def iterate_channel_events(scan_db_name, channels):
-        for e, n, data in DataNodeIterator(get_node(scan_db_name)).walk_events():
+        for e, n, data in get_node(scan_db_name).walk_events():
             if e == e.NEW_DATA:
                 if n.type == "channel":
                     channels[n.name] = n.get(0, -1)
@@ -217,23 +309,10 @@ def test_data_iterator_event(beacon, redis_data_conn, session):
     assert len(channels_data["axis:roby"]) == npts
     assert len(channels_data[diode.fullname]) == npts
 
-    x = DataNodeIterator(get_node(s.node.db_name))
+    x = get_node(s.node.db_name)
     for n in x.walk_from_last(filter="channel", wait=False):
         assert all(n.get(0, -1) == channels_data[n.name])
     assert isinstance(n, ChannelDataNode)
-
-
-def test_lima_data_channel_node(redis_data_conn, lima_session):
-    lima_sim = lima_session.env_dict["lima_simulator"]
-
-    timescan = scans.timescan(0.1, lima_sim, npoints=1)
-
-    image_node_db_name = "%s:timer:lima_simulator:image" % timescan.node.db_name
-    image_node = _get_or_create_node(image_node_db_name)
-    assert image_node.db_name == image_node_db_name
-    assert image_node.fullname == "lima_simulator:image"
-    assert image_node.shape == (1024, 1024)
-    assert image_node.dtype == numpy.uint32
 
 
 @pytest.mark.parametrize("with_roi", [False, True], ids=["without ROI", "with ROI"])
@@ -248,7 +327,7 @@ def test_reference_with_lima(redis_data_conn, lima_session, with_roi):
     timescan = scans.timescan(0.1, lima_sim, npoints=3)
 
     session_node = get_session_node(lima_session.name)
-    db_names = set([n.db_name for n in DataNodeIterator(session_node).walk(wait=False)])
+    db_names = set([n.db_name for n in session_node.walk(wait=False)])
 
     image_node_db_name = "%s:timer:lima_simulator:image" % timescan.node.db_name
     assert image_node_db_name in db_names
@@ -258,7 +337,7 @@ def test_reference_with_lima(redis_data_conn, lima_session, with_roi):
     )
     index, ref_status = stream_status.rev_range(count=1)[0]
 
-    live_ref_status = pickle.loads(ref_status.get(b"__data__"))
+    live_ref_status = pickle.loads(ref_status.get(b"__STATUS__"))
     assert live_ref_status["last_image_saved"] == 2  # npoints-1
 
 
@@ -274,14 +353,14 @@ def test_iterator_over_reference_with_lima(redis_data_conn, lima_session, with_r
         lima_sim.roi_counters["myroi"] = [0, 0, 1, 1]
 
     session_node = _get_or_create_node(lima_session.name, node_type="session")
-    iterator = DataNodeIterator(session_node)
 
     with gevent.Timeout(10 + 2 * (npoints + 1) * exp_time):
 
         def watch_scan():
-            for scan_node in iterator.walk_from_last(filter="scan", include_last=False):
-                scan_iterator = DataNodeIterator(scan_node)
-                for event_type, node, data in scan_iterator.walk_events(filter="lima"):
+            for scan_node in session_node.walk_from_last(
+                filter="scan", include_last=False
+            ):
+                for event_type, node, data in scan_node.walk_events(filter="lima"):
                     if event_type == event_type.NEW_DATA:
                         view = node.get(from_index=0, to_index=-1)
                         if len(view) == npoints:
@@ -345,18 +424,19 @@ def test_walk_after_nodes_disappeared(session):
         if node is None:
             return 0
         if nodes:
-            it = node.iterator.walk(wait=wait)
+            it = node.walk(wait=wait)
         else:
-            it = node.iterator.walk_events()
+            it = node.walk_events()
         # Stop iterating if we don't get a now
-        # event after 0.5 seconds
+        # event after x seconds
         while True:
             try:
-                with gevent.Timeout(0.5):
+                with gevent.Timeout(2):
                     next(it)
                     n += 1
                     gevent.sleep()
-            except (gevent.Timeout, StopIteration):
+            except (StopIteration, gevent.Timeout, gevent.GreenletExit) as e:
+                print(f"Walk ended due to {e.__class__.__name__} '{e}'")
                 break
         return n
 
@@ -381,12 +461,12 @@ def test_walk_after_nodes_disappeared(session):
     validate_count(nnodes, nevents)
 
     # Scan incomplete
-    names = s.node.scan_redis(s.node.db_name + ":*")
+    names = s.node.search_redis(s.node.db_name + ":*")
     keep_suffix = ["_data", "_children_list"]
     for db_name in names:
         if not any(db_name.endswith(s) for s in keep_suffix):
             s.node.connection.delete(db_name)
-    names = list(s.node.scan_redis(s.node.db_name + "*"))
+    names = list(s.node.search_redis(s.node.db_name + "*"))
 
     nnodes = nroot + 1
     nevents = nnodes + 1
@@ -403,7 +483,7 @@ def test_children_timing(beacon, session):
 
     def walker(scan_node):
         # print("LISTENING TO", scan_node.db_name)
-        for event_type, node, event_data in scan_node.iterator.walk_events():
+        for event_type, node, event_data in scan_node.walk_events():
             if event_type != event_type.NEW_NODE:
                 continue
             # print(event_type.name, node.db_name)
@@ -464,7 +544,7 @@ def test_scan_end_timing(
         # we will use **walk_event** with current time passed 100ms
         # which is equivalent to **walk_on_new_events** if we have started it
         # 100ms before.
-        for event_type, node, event_data in parent.iterator.walk_events(
+        for event_type, node, event_data in parent.walk_events(
             first_index=first_index, filter="scan"
         ):
             if event_type == event_type.END_SCAN:
@@ -529,7 +609,7 @@ def test_data_shape_of_get(default_session):
     s = Scan(chain, name="toto")
     s.run()
 
-    for node in s.node.iterator.walk(wait=False):
+    for node in s.node.walk(wait=False):
         if node.name == "test:test":
             mynode = node
             break
@@ -545,12 +625,10 @@ def test_stop_before_any_walk_event(default_session):
 
     def spawn_walk(stop_handler):
         event.set()
-        for node in session_node.iterator.walk(
-            stream_stop_reading_handler=stop_handler
-        ):
+        for node in session_node.walk(stop_handler=stop_handler):
             pass
 
-    stop_handler = StreamStopReadingHandler()
+    stop_handler = DataStreamReaderStopHandler()
     task = gevent.spawn(spawn_walk, stop_handler)
     with gevent.Timeout(1.):
         event.wait()
@@ -565,12 +643,10 @@ def test_stop_after_first_walk_event(session):
     event = gevent.event.Event()
 
     def spawn_walk(stop_handler):
-        for node in session_node.iterator.walk(
-            stream_stop_reading_handler=stop_handler
-        ):
+        for node in session_node.walk(stop_handler=stop_handler):
             event.set()
 
-    stop_handler = StreamStopReadingHandler()
+    stop_handler = DataStreamReaderStopHandler()
     task = gevent.spawn(spawn_walk, stop_handler)
 
     diode = session.env_dict["diode"]
@@ -584,109 +660,413 @@ def test_stop_after_first_walk_event(session):
         task.get()
 
 
-def _count_node_events(beforestart, session, db_name, node_type=None):
-    diode = session.env_dict["diode"]
-    s = scans.ct(0.1, diode, run=not beforestart)
+def _count_node_events(
+    beforestart,
+    session,
+    db_name,
+    node_type=None,
+    filter=None,
+    count_nodes=False,
+    wait=True,
+    overhead=0,
+):
+    """
+    :param bool beforestart: start listening to events before the scan starts
+    :param session:
+    :param str db_name: Redis node to listen to
+    :param str node_type:
+    :param str filter:
+    :param bool count_nodes: count nodes insted of events
+    :param bool wait: only applies when `beforestart == False`
+    :param num overhead: per event
+    :returns dict or list, int: events or nodes, number of detectors in scan
+    """
+    # Show streaming logs when test fails
+    l = logging.getLogger("bliss.config.streaming")
+    l.setLevel(logging.DEBUG)
+
+    if beforestart:
+        wait = True
+
+    # Make sure the controller names are different
+    names = ["diode", "thermo_sample", "sim_ct_gauss"]
+    nchannels = len(names)
+    detectors = [session.env_dict[d] for d in names]
+
+    s = scans.sct(0.1, *detectors, run=not beforestart, save=False)
+    nmasters = 2
+    nlistenroot = len(db_name.split(":"))
+    nodes = []
+
+    def process_node(n):
+        """Count nodes and check order
+        """
+        node = n.db_name
+        error_msg = f"Node '{node}' already recieved"
+        assert node not in nodes, error_msg
+        nodes.append(node)
+
+        if not filter:
+            parent = n.parent.db_name
+            if len(parent.split(":")) > nlistenroot:
+                error_msg = f"Child node '{node}' before parent node '{parent}'"
+                assert parent in nodes, error_msg
+
+    # Function to count events or nodes
+    if count_nodes:
+        result = nodes
+        process_event = process_node
+    else:
+        result = {}
+        nodes_with_event = set()
+        end_scan_recieved = False
+
+        def process_event(ev):
+            """Count events and check order
+            """
+            nonlocal end_scan_recieved
+            e, n, d = ev
+            node = n.db_name
+
+            # Make sure the END_SCAN event (if any) is the last event
+            error_msg = (
+                f"Event '{e.name}' of '{node}' arrived after the 'END_SCAN' event"
+            )
+            assert not end_scan_recieved, error_msg
+
+            # Make sure the NEW_NODE event (if any) is the first event
+            if e == e.NEW_NODE:
+                process_node(n)
+                error_msg = f"NEW_NODE not the first event of '{node}'"
+                assert node not in nodes_with_event, error_msg
+            elif e == e.END_SCAN:
+                end_scan_recieved = True
+            nodes_with_event.add(node)
+            result.setdefault(e.name, []).append(node)
+
     startlistening_event = gevent.event.Event()
     startlistening_event.clear()
-    events = {}
 
-    def walk_scan_events():
-        it = _get_node_object(node_type, db_name, None, None).iterator
+    def walk():
+        """Stops walking if no event has been received for x seconds
+        """
+        node = _get_node_object(node_type, db_name, None, None)
         startlistening_event.set()
-        for e, n, d in it.walk_events():
-            events.setdefault(e.name, []).append(n.db_name)
+        if count_nodes:
+            evgen = node.walk(filter=filter, wait=wait)
+        else:
+            evgen = node.walk_events(filter=filter, wait=wait)
+        while True:
+            try:
+                with gevent.Timeout(overhead + 2):
+                    ev = next(evgen)
+                    process_event(ev)
+                    gevent.sleep(overhead)
+            except (StopIteration, gevent.Timeout, gevent.GreenletExit) as e:
+                print(f"Walk ended due to {e.__class__.__name__} '{e}'")
+                break
 
-    g = gevent.spawn(walk_scan_events)
+    # Walk the node and run the scan (if not already done)
+    walk_greenlet = gevent.spawn(walk)
     try:
-        with gevent.Timeout(5):
+        with gevent.Timeout(10):
             startlistening_event.wait()
+        # We are listening to the node now
         if beforestart:
+            # Scan did not run yet
             scan_greenlet = gevent.spawn(s.run)
-            scan_greenlet.get()
+            try:
+                scan_greenlet.get(timeout=60)
+            finally:
+                scan_greenlet.kill()
     finally:
-        gevent.sleep(0.1)
-        g.kill()
+        try:
+            walk_greenlet.get(timeout=60)
+        finally:
+            walk_greenlet.kill()
 
-    return events
+    return result, nmasters, nchannels
+
+
+def _count_nodes(*args, **kw):
+    return _count_node_events(*args, **kw, count_nodes=True)
+
+
+def filterepoch(node):
+    return node.name == "timer:epoch"
+
+
+_count_parameters = itertools.product(
+    [True, False], [True, False], [None, "scan", "channel", filterepoch]
+)
+_count_parameters = [
+    (beforestart, wait, filter)
+    for beforestart, wait, filter in _count_parameters
+    if not beforestart or wait
+]
+
+
+@pytest.mark.parametrize("beforestart, wait, filter", _count_parameters)
+def test_walk_events_on_session_node(beforestart, wait, filter, session):
+    events, nmasters, nchannels = _count_node_events(
+        beforestart, session, session.name, filter=filter, wait=wait
+    )
+    if filter == "scan":
+        assert set(events.keys()) == {"NEW_NODE", "END_SCAN"}
+        assert len(events["NEW_NODE"]) == 1
+        assert len(events["END_SCAN"]) == 1
+    elif filter == "channel":
+        # New node events: epoch, elapsed_time, n x detector
+        assert set(events.keys()) == {"NEW_NODE", "NEW_DATA"}
+        assert len(events["NEW_NODE"]) == nmasters + nchannels
+        assert len(events["NEW_DATA"]) == nmasters + nchannels
+    elif callable(filter):
+        # New node events: epoch
+        assert set(events.keys()) == {"NEW_NODE", "NEW_DATA"}
+        assert len(events["NEW_NODE"]) == 1
+        assert len(events["NEW_DATA"]) == 1
+    else:
+        # New node events: root nodes, scan, scan master (timer),
+        #                  epoch, elapsed_time, n  x (controller, detector)
+        assert set(events.keys()) == {"NEW_NODE", "NEW_DATA", "END_SCAN"}
+        # One less because the NEW_NODE event for session.name is
+        # not emitted on node session.name
+        nroot = len(session.scan_saving._db_path_keys) - 1
+        assert len(events["NEW_NODE"]) == nroot + 2 + nmasters + 2 * nchannels
+        assert len(events["NEW_DATA"]) == nmasters + nchannels
+        assert len(events["END_SCAN"]) == 1
+
+
+@pytest.mark.parametrize("beforestart, wait, filter", _count_parameters)
+def test_walk_nodes_on_session_node(beforestart, wait, filter, session):
+    nodes, nmasters, nchannels = _count_nodes(
+        beforestart, session, session.name, filter=filter, wait=wait
+    )
+    if filter == "scan":
+        # Nodes: scan
+        assert len(nodes) == 1
+    elif filter == "channel":
+        # Nodes: epoch, elapsed_time, n x detectors
+        assert len(nodes) == nmasters + nchannels
+    elif callable(filter):
+        # Nodes: epoch
+        assert len(nodes) == 1
+    else:
+        # Nodes: root nodes, scan, scan master (timer),
+        #        epoch, elapsed_time, n  x (controller, detector)
+        nroot = len(session.scan_saving._db_path_keys) - 1
+        assert len(nodes) == nroot + 2 + nmasters + 2 * nchannels
 
 
 @pytest.mark.parametrize("beforestart", [True, False])
-def test_events_on_session_node(beforestart, session):
-    if not beforestart:
-        pytest.xfail("Channels streams are added too late")
-    events = _count_node_events(beforestart, session, session.name)
-    # New node events: root nodes, scan, scan master (timer),
-    #                  epoch, elapsed_time, diode controller, diode
-    assert set(events.keys()) == {"NEW_NODE", "NEW_DATA", "END_SCAN"}
-    # One less because the NEW_NODE event for session.name is
-    # not emitted on node session.name
-    nroot = len(session.scan_saving._db_path_keys) - 1
-    assert len(events["NEW_NODE"]) == nroot + 6
-    assert len(events["NEW_DATA"]) == 3
-    assert len(events["END_SCAN"]) == 1
-
-
-@pytest.mark.parametrize("beforestart", [True, False])
-def test_events_on_wrong_session_node(beforestart, session):
-    events = _count_node_events(beforestart, session, session.name[:-1])
+def test_walk_events_on_wrong_session_node(beforestart, session):
+    events, nmasters, nchannels = _count_node_events(
+        beforestart, session, session.name[:-1]
+    )
     assert not events
 
 
 @pytest.mark.parametrize("beforestart", [True, False])
-def test_events_on_scan_node(beforestart, session):
-    if not beforestart:
-        pytest.xfail("Channels streams are added too late")
+def test_walk_nodes_on_wrong_session_node(beforestart, session):
+    nodes, nmasters, nchannels = _count_nodes(beforestart, session, session.name[:-1])
+    assert not nodes
+
+
+@pytest.mark.parametrize("beforestart, wait, filter", _count_parameters)
+def test_walk_events_on_scan_node(beforestart, wait, filter, session):
     db_name = session.scan_saving.scan_parent_db_name + ":_1_ct"
-    events = _count_node_events(beforestart, session, db_name, node_type="scan")
-    # New node events: scan master (timer), epoch, elapsed_time,
-    #                  diode controller, diode
-    assert set(events.keys()) == {"NEW_NODE", "NEW_DATA", "END_SCAN"}
-    assert len(events["NEW_NODE"]) == 5
-    assert len(events["NEW_DATA"]) == 3
-    assert len(events["END_SCAN"]) == 1
+    events, nmasters, nchannels = _count_node_events(
+        beforestart, session, db_name, node_type="scan", filter=filter, wait=wait
+    )
+    if filter == "scan":
+        assert set(events.keys()) == {"END_SCAN"}
+        assert len(events["END_SCAN"]) == 1
+    elif filter == "channel":
+        # New node events: epoch, elapsed_time, n x detector
+        assert set(events.keys()) == {"NEW_NODE", "NEW_DATA"}
+        assert len(events["NEW_NODE"]) == nmasters + nchannels
+        assert len(events["NEW_DATA"]) == nmasters + nchannels
+    elif callable(filter):
+        # New node events: epoch
+        assert set(events.keys()) == {"NEW_NODE", "NEW_DATA"}
+        assert len(events["NEW_NODE"]) == 1
+        assert len(events["NEW_DATA"]) == 1
+    else:
+        # New node events: scan master (timer), epoch, elapsed_time,
+        #                  n  x (controller, detector)
+        assert set(events.keys()) == {"NEW_NODE", "NEW_DATA", "END_SCAN"}
+        assert len(events["NEW_NODE"]) == 1 + nmasters + 2 * nchannels
+        assert len(events["NEW_DATA"]) == nmasters + nchannels
+        assert len(events["END_SCAN"]) == 1
 
 
-@pytest.mark.parametrize("beforestart", [True, False])
-def test_events_on_master_node(beforestart, session):
+@pytest.mark.parametrize("beforestart, wait, filter", _count_parameters)
+def test_walk_nodes_on_scan_node(beforestart, wait, filter, session):
+    db_name = session.scan_saving.scan_parent_db_name + ":_1_ct"
+    nodes, nmasters, nchannels = _count_nodes(
+        beforestart, session, db_name, node_type="scan", filter=filter, wait=wait
+    )
+    if filter == "scan":
+        assert not nodes
+    elif filter == "channel":
+        # Nodes: epoch, elapsed_time, n x detector
+        assert len(nodes) == nmasters + nchannels
+    elif callable(filter):
+        # Nodes: epoch
+        assert len(nodes) == 1
+    else:
+        # Nodes: scan master (timer), epoch, elapsed_time,
+        #        n x (controller, detector)
+        assert len(nodes) == 1 + nmasters + 2 * nchannels
+
+
+@pytest.mark.parametrize("beforestart, wait, filter", _count_parameters)
+def test_walk_events_on_master_node(beforestart, wait, filter, session):
     db_name = session.scan_saving.scan_parent_db_name + ":_1_ct:timer"
-    events = _count_node_events(beforestart, session, db_name)
-    # New node events: epoch, elapsed_time, diode controller, diode
-    assert set(events.keys()) == {"NEW_NODE", "NEW_DATA"}
-    assert len(events["NEW_NODE"]) == 4
-    assert len(events["NEW_DATA"]) == 3
+    events, nmasters, nchannels = _count_node_events(
+        beforestart, session, db_name, filter=filter, wait=wait
+    )
+    if filter == "scan":
+        assert not events
+    elif filter == "channel":
+        # New node events: epoch, elapsed_time, n x detector
+        assert set(events.keys()) == {"NEW_NODE", "NEW_DATA"}
+        assert len(events["NEW_NODE"]) == nmasters + nchannels
+        assert len(events["NEW_DATA"]) == nmasters + nchannels
+    elif callable(filter):
+        # New node events: epoch
+        assert set(events.keys()) == {"NEW_NODE", "NEW_DATA"}
+        assert len(events["NEW_NODE"]) == 1
+        assert len(events["NEW_DATA"]) == 1
+    else:
+        # New node events: epoch, elapsed_time, n x (controller, detector)
+        assert set(events.keys()) == {"NEW_NODE", "NEW_DATA"}
+        assert len(events["NEW_NODE"]) == nmasters + 2 * nchannels
+        assert len(events["NEW_DATA"]) == nmasters + nchannels
 
 
-@pytest.mark.parametrize("beforestart", [True, False])
-def test_events_on_controller_node(beforestart, session):
+@pytest.mark.parametrize("beforestart, wait, filter", _count_parameters)
+def test_walk_nodes_on_master_node(beforestart, wait, filter, session):
+    db_name = session.scan_saving.scan_parent_db_name + ":_1_ct:timer"
+    nodes, nmasters, nchannels = _count_nodes(
+        beforestart, session, db_name, filter=filter, wait=wait
+    )
+    if filter == "scan":
+        assert not nodes
+    elif filter == "channel":
+        # Nodes: epoch, elapsed_time, n x detector
+        assert len(nodes) == nmasters + nchannels
+    elif callable(filter):
+        # Nodes: epoch
+        assert len(nodes) == 1
+    else:
+        # Nodes: epoch, elapsed_time, n x (controller, detector)
+        assert len(nodes) == nmasters + 2 * nchannels
+
+
+@pytest.mark.parametrize("beforestart, wait, filter", _count_parameters)
+def test_walk_events_on_controller_node(beforestart, wait, filter, session):
     db_name = (
         session.scan_saving.scan_parent_db_name
         + ":_1_ct:timer:simulation_diode_sampling_controller"
     )
-    events = _count_node_events(beforestart, session, db_name)
-    # New node events: diode
-    assert set(events.keys()) == {"NEW_NODE", "NEW_DATA"}
-    assert len(events["NEW_NODE"]) == 1
-    assert len(events["NEW_DATA"]) == 1
+    events, nmasters, nchannels = _count_node_events(
+        beforestart, session, db_name, filter=filter, wait=wait
+    )
+    if filter == "scan":
+        assert not events
+    elif filter == "channel":
+        assert set(events.keys()) == {"NEW_NODE", "NEW_DATA"}
+        assert len(events["NEW_NODE"]) == 1
+        assert len(events["NEW_DATA"]) == 1
+    elif callable(filter):
+        assert not events
+    else:
+        # New node events: diode
+        assert set(events.keys()) == {"NEW_NODE", "NEW_DATA"}
+        assert len(events["NEW_NODE"]) == 1
+        assert len(events["NEW_DATA"]) == 1
 
 
-@pytest.mark.parametrize("beforestart", [True, False])
-def test_events_on_masterchannel_node(beforestart, session):
+@pytest.mark.parametrize("beforestart, wait, filter", _count_parameters)
+def test_walk_nodes_on_controller_node(beforestart, wait, filter, session):
+    db_name = (
+        session.scan_saving.scan_parent_db_name
+        + ":_1_ct:timer:simulation_diode_sampling_controller"
+    )
+    nodes, nmasters, nchannels = _count_nodes(
+        beforestart, session, db_name, filter=filter, wait=wait
+    )
+    if filter == "scan":
+        assert not nodes
+    elif filter == "channel":
+        # Nodes: diode
+        assert len(nodes) == 1
+    elif callable(filter):
+        assert not nodes
+    else:
+        # Nodes: diode
+        assert len(nodes) == 1
+
+
+@pytest.mark.parametrize("beforestart, wait, filter", _count_parameters)
+def test_walk_events_on_masterchannel_node(beforestart, wait, filter, session):
     db_name = session.scan_saving.scan_parent_db_name + ":_1_ct:timer:elapsed_time"
-    events = _count_node_events(beforestart, session, db_name, node_type="channel")
-    assert set(events.keys()) == {"NEW_DATA"}
-    assert len(events["NEW_DATA"]) == 1
+    events, nmasters, nchannels = _count_node_events(
+        beforestart, session, db_name, node_type="channel", filter=filter, wait=wait
+    )
+    if filter == "scan":
+        assert not events
+    elif filter == "channel":
+        assert set(events.keys()) == {"NEW_DATA"}
+        assert len(events["NEW_DATA"]) == 1
+    elif callable(filter):
+        assert not events
+    else:
+        assert set(events.keys()) == {"NEW_DATA"}
+        assert len(events["NEW_DATA"]) == 1
 
 
-@pytest.mark.parametrize("beforestart", [True, False])
-def test_events_on_controllerchannel_node(beforestart, session):
+@pytest.mark.parametrize("beforestart, wait, filter", _count_parameters)
+def test_walk_nodes_on_masterchannel_node(beforestart, wait, filter, session):
+    db_name = session.scan_saving.scan_parent_db_name + ":_1_ct:timer:elapsed_time"
+    nodes, nmasters, nchannels = _count_nodes(
+        beforestart, session, db_name, node_type="channel", filter=filter, wait=wait
+    )
+    assert not nodes
+
+
+@pytest.mark.parametrize("beforestart, wait, filter", _count_parameters)
+def test_walk_events_on_controllerchannel_node(beforestart, wait, filter, session):
     db_name = (
         session.scan_saving.scan_parent_db_name
         + ":_1_ct:timer:simulation_diode_sampling_controller:diode"
     )
-    events = _count_node_events(beforestart, session, db_name, node_type="channel")
-    assert set(events.keys()) == {"NEW_DATA"}
-    assert len(events["NEW_DATA"]) == 1
+    events, nmasters, nchannels = _count_node_events(
+        beforestart, session, db_name, node_type="channel", filter=filter, wait=wait
+    )
+    if filter == "scan":
+        assert not events
+    elif filter == "channel":
+        assert set(events.keys()) == {"NEW_DATA"}
+        assert len(events["NEW_DATA"]) == 1
+    elif callable(filter):
+        assert not events
+    else:
+        assert set(events.keys()) == {"NEW_DATA"}
+        assert len(events["NEW_DATA"]) == 1
+
+
+@pytest.mark.parametrize("beforestart, wait, filter", _count_parameters)
+def test_walk_nodes_on_controllerchannel_node(beforestart, wait, filter, session):
+    db_name = (
+        session.scan_saving.scan_parent_db_name
+        + ":_1_ct:timer:simulation_diode_sampling_controller:diode"
+    )
+    nodes, nmasters, nchannels = _count_nodes(
+        beforestart, session, db_name, node_type="channel", filter=filter, wait=wait
+    )
+    assert not nodes
 
 
 def test_scan_numbering(default_session, beacon):
@@ -766,31 +1146,40 @@ def test_block_size(default_session):
     s = Scan(chain, name="testscan")
     s.run()
 
-    for node in s.node.iterator.walk(wait=False):
+    for node in s.node.walk(wait=False):
         if node.name == "test:test":
             mynode = node
             break
+
+    full_range = numpy.arange(npoints, dtype=numpy.int16)
 
     # Single value
     for i in range(npoints):
         assert mynode.get(i)[0] == i
         assert mynode.get_as_array(i)[0] == i
+        assert mynode[i][0] == i
+    for j in range(-1, -npoints, -1):
+        assert mynode[j][0] == full_range[j]
 
     # First value
     for j in [0, None]:
         assert mynode.get(j)[0] == 0
         assert mynode.get_as_array(j)[0] == 0
+    assert mynode[0][0] == 0
+    with pytest.raises(IndexError):
+        mynode[None]
 
     # Last value
     for j in [-1, -2]:
         assert mynode.get(j)[0] == npoints - 1
         assert mynode.get_as_array(j)[0] == npoints - 1
+    assert mynode[-1][0] == npoints - 1
 
     # Range
     for i in range(npoints):
         j0 = max(i - 1, 0)  # could start from 0 but speedup
         for j in range(j0, npoints):
-            expected = numpy.arange(i, j + 1, dtype=numpy.int16)
+            expected = full_range[i : j + 1]
             arr = numpy.array([x[0] for x in mynode.get(i, j)])
             if expected.size:
                 assert arr.dtype == numpy.int16
@@ -798,15 +1187,57 @@ def test_block_size(default_session):
             arr = mynode.get_as_array(i, j)[:, 0]
             if expected.size:
                 assert arr.dtype == numpy.int16
+            assert numpy.array_equal(arr, expected)
+    for i in range(0, npoints):
+        for j in range(i, npoints):
+            expected = full_range[i:j]
+            arr = numpy.array([x[0] for x in mynode[i:j]])
+            assert numpy.array_equal(arr, expected)
+    for i in range(-1, -npoints, -1):
+        for j in range(i, 0):
+            expected = full_range[i:j]
+            arr = numpy.array([x[0] for x in mynode[i:j]])
             assert numpy.array_equal(arr, expected)
 
     # Full range
     for i in [0, -1, None]:
         for j in [-1, -2]:
-            expected = numpy.arange(npoints, dtype=numpy.int16)
             arr = numpy.array([x[0] for x in mynode.get(i, j)])
             assert arr.dtype == numpy.int16
-            assert numpy.array_equal(arr, expected)
+            assert numpy.array_equal(arr, full_range)
             arr = mynode.get_as_array(i, j)[:, 0]
             assert arr.dtype == numpy.int16
-            assert numpy.array_equal(arr, expected)
+            assert numpy.array_equal(arr, full_range)
+    for idx in [slice(None, None), slice(0, None)]:
+        arr = numpy.array([x[0] for x in mynode[idx]])
+        assert arr.dtype == numpy.int16
+        assert numpy.array_equal(arr, full_range)
+
+    # Remove the first block
+    idx, raw = mynode._queue.range(count=1)[0]
+    ndel = ChannelDataEvent.decode_npoints(raw)
+    nleft = npoints - ndel
+    mynode._queue.remove(idx)
+
+    # Starting index inside the removed block
+    for i in range(ndel):
+        # Single value
+        assert mynode.get(i) is None
+        with pytest.raises(IndexError):
+            mynode[i]
+
+        # Slice with open end
+        if i == 0:
+            assert len(mynode.get_as_array(i, -1)) == nleft
+        else:
+            with pytest.raises(IndexError):
+                mynode.get_as_array(i, -1)
+        with pytest.raises(IndexError):
+            mynode[i:]
+
+        # Slice with closed end
+        for add in range(3):
+            with pytest.raises(IndexError):
+                mynode.get_as_array(i, i + add)
+            with pytest.raises(IndexError):
+                mynode[i : i + add + 1]

@@ -113,7 +113,7 @@ structured way that reflects the session structure.
 ```python
 from bliss.data.node import get_node
 n = get_node("test_session")
-for node in n.iterator.walk(wait=False):
+for node in n.walk(wait=False):
         print(node.name, node.db_name, node)
 
 test_session    test_session                                                      <bliss.data.node.DataNodeContainer object at 0x7ff7064f36d8>
@@ -151,9 +151,8 @@ point and *n* is the associated
     Better use `get_session_node()` when you know that `get_node()`
     will return a session node.
 
-With the function `n.iterator.walk(wait=False)` you can iterate over all the
-child nodes of the node *n* ([see
-DataNodeIterator](scan_data_node.md#datanodeiterator)).
+With the function `n.walk(wait=False)` you can iterate over all the
+child nodes of the node *n*.
 
 Among the child nodes, two other types of nodes can be ditinguished:
 
@@ -175,11 +174,8 @@ cdn_roby = get_node("test_session:mnt:c:tmp:sample1:1_ascan:axis:roby")
 
 ### Online data analysis
 
-The classes inheriting from the `DataNode` class provide the `iterator` method
-which returns a `DataNodeIterator` object.
-
-The DataNodeIterator provides the best methods to monitor the events happening
-during the experiment and follow the data production.
+The classes inheriting from the `DataNode` class provide the best ways to
+monitor the events happening during the experiment and follow the data production.
 
 The method `walk(filter=None, wait=True)` iterates over existing child nodes
 that match the `filter` argument. If `wait` is True (default), the function
@@ -194,14 +190,14 @@ which contains event type, node object and data (if any).
 session = get_node("test_session")
 def f(filter=None):
     """wait for any new node in the session"""
-    for node in session.iterator.walk(filter=filter):
+    for node in session.walk(filter=filter):
         print(node.name,node.type)
 
 def g(filter='channel'):
     """wait for a new event happening in any node of the
     type 'channel' (ChannelDataNode)
     """
-    for event_type, node, event_data in session.iterator.walk_events(filter=filter):
+    for event_type, node, event_data in session.walk_events(filter=filter):
         print(event_type, node.name, node.get(-1))
 
 # spawn greenlets to avoid blocking
@@ -282,7 +278,7 @@ SCANS[-1].node
 <bliss.data.scan.Scan object at 0x7efda1dd0898>
 
 # there is only one Lima node for this 'ct'
-lima_node = next(SCANS[-1].node.iterator.walk(filter="lima", wait=False))
+lima_node = next(SCANS[-1].node.walk(filter="lima", wait=False))
 
 lima_data_view = lima_node.get(-1)
 

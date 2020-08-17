@@ -7,5 +7,5 @@
 
 """Data management
 
-   node data types that map to structur in redis
+   node data types that map to structure in redis
 """

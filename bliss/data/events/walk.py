@@ -5,9 +5,16 @@
 # Copyright (c) 2015-2020 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
+"""
+Events returned recieved when walking a `DataNode`,
+derived from raw Redis stream events.
+"""
 
 from typing import NamedTuple, Union, Sequence
 from enum import Enum
+
+
+__all__ = ["EventType", "EventData", "Event"]
 
 
 class EventType(Enum):

@@ -14,7 +14,7 @@ from bliss.scanning.group import Sequence, Group
 from bliss.common import scans
 from bliss.data.node import get_node, _get_or_create_node
 from bliss.data.nodes.node_ref_channel import NodeRefChannel
-from bliss.data.nodes.scan import Scan as Data_Scan
+from bliss.data.nodes.scan import ScanNode
 from bliss.scanning.chain import AcquisitionChannel
 from bliss.data.node import get_session_node
 from bliss import current_session
@@ -34,7 +34,7 @@ def test_sequence_terminated_scans(session):
     grouped_scans = n.get(0, -1)
     assert len(grouped_scans) == 2
     for s in grouped_scans:
-        assert isinstance(s, Data_Scan)
+        assert isinstance(s, ScanNode)
 
     assert len(get_node(seq.node.db_name + ":GroupingMaster:scan_numbers")) == 2
 
@@ -55,7 +55,7 @@ def test_sequence_future_scans(session):
     grouped_scans = n.get(0, -1)
     assert len(grouped_scans) == 2
     for s in grouped_scans:
-        assert isinstance(s, Data_Scan)
+        assert isinstance(s, ScanNode)
     assert grouped_scans[0].info["scan_nb"] == s1.scan_info["scan_nb"]
     assert grouped_scans[1].info["scan_nb"] == s2.scan_info["scan_nb"]
 
@@ -143,7 +143,7 @@ def test_sequence_custom_channel(session):
         seq_context.add(s2)
         seq.custom_channels["mychannel"].emit([4.4])
 
-    nodes = [node.db_name for node in seq.node.iterator.walk(wait=False)]
+    nodes = [node.db_name for node in seq.node.walk(wait=False)]
 
     assert seq.node.db_name + ":GroupingMaster:custom_channels" in nodes
     assert seq.node.db_name + ":GroupingMaster:custom_channels:mychannel" in nodes
@@ -158,7 +158,7 @@ def test_sequence_custom_channel(session):
     grouped_scans = n.get(0, -1)
     assert len(grouped_scans) == 2
     for s in grouped_scans:
-        assert isinstance(s, Data_Scan)
+        assert isinstance(s, ScanNode)
     assert grouped_scans[0].info["scan_nb"] == s1.scan_info["scan_nb"]
     assert grouped_scans[1].info["scan_nb"] == s2.scan_info["scan_nb"]
     assert seq.node.info["something"] == "else"
@@ -265,7 +265,7 @@ def test_sequence_events(session):
     event_dump = list()
 
     def my_listener(session_node, event_dump):
-        for i, (event, node, data) in enumerate(session_node.iterator.walk_events()):
+        for i, (event, node, data) in enumerate(session_node.walk_events()):
             event_dump.append(
                 (
                     event.name,

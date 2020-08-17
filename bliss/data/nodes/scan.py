@@ -5,97 +5,102 @@
 # Copyright (c) 2015-2020 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-import time
-import datetime
-import pickle
+from bliss.common.greenlet_utils import AllowKill
 from bliss.data.node import DataNodeContainer
-from bliss.data.events import EventData
+from bliss.data.events import Event, EventType, EventData, EndScanEvent
 from bliss.config import settings
 
 
-def _transform_dict_obj(dict_object):
-    return_dict = dict()
-    for key, value in dict_object.items():
-        return_dict[key] = _transform(value)
-    return return_dict
-
-
-def _transform_iterable_obj(iterable_obj):
-    return_list = list()
-    for value in iterable_obj:
-        return_list.append(_transform(value))
-    return return_list
-
-
-def _transform_obj_2_name(obj):
-    return obj.name if hasattr(obj, "name") else obj
-
-
-def _transform(var):
-    if isinstance(var, dict):
-        var = _transform_dict_obj(var)
-    elif isinstance(var, (tuple, list)):
-        var = _transform_iterable_obj(var)
-    else:
-        var = _transform_obj_2_name(var)
-    return var
-
-
-def pickle_dump(var):
-    var = _transform(var)
-    return pickle.dumps(var)
-
-
-class Scan(DataNodeContainer):
+class ScanNode(DataNodeContainer):
     _NODE_TYPE = "scan"
-    EVENT_TYPE_KEY = b"__EVENT__"
-    END_EVENT = b"END"
-    EXCEPTION_KEY = b"__EXCEPTION__"
 
-    def __init__(self, name, create=False, **keys):
-        DataNodeContainer.__init__(self, self._NODE_TYPE, name, create=create, **keys)
-        self._event = self.create_data_stream(f"{self.db_name}_data")
+    def __init__(self, name, **kwargs):
+        DataNodeContainer.__init__(self, self._NODE_TYPE, name, **kwargs)
+        self._sync_stream = self._create_stream("data")
 
     def end(self, exception=None):
-        if self.new_node:
-            db_name = self.db_name
-            # to avoid to have multiple modification events
-            with settings.pipeline(self._event, self._info) as p:
-                end_timestamp = time.time()
-                end_time = datetime.datetime.fromtimestamp(end_timestamp)
-                new_info = {
-                    "end_time": end_time,
-                    "end_time_str": end_time.strftime("%a %b %d %H:%M:%S %Y"),
-                    "end_timestamp": end_timestamp,
-                }
-                self._info.update(new_info)
-                new_info.pop("end_time")
-                new_info[self.EVENT_TYPE_KEY] = self.END_EVENT
-                new_info[self.EXCEPTION_KEY] = str(exception)
-                self._event.add(new_info)
+        """Publish END event in Redis
+        """
+        if not self.new_node:
+            return
+        # to avoid to have multiple modification events
+        # TODO: what does the comment above mean?
+        with settings.pipeline(self._sync_stream, self._info):
+            event = EndScanEvent()
+            add_info = {
+                "end_time": event.time,
+                "end_time_str": event.strftime,
+                "end_timestamp": event.timestamp,
+            }
+            self._info.update(add_info)
+            self._sync_stream.add_event(event)
 
     def decode_raw_events(self, events):
-        if events:
-            first_index, raw_dict = events[0]
-            first_index = int(first_index.split(b"-")[0])
-            exception_str = raw_dict.get(self.EXCEPTION_KEY, b"None")
-            if exception_str == b"None":
-                exception_str = ""
-            else:
-                exception_str = exception_str.decode()
-            event_type = raw_dict.get(self.EVENT_TYPE_KEY, b"")
-            return EventData(
-                first_index=first_index,
-                data=event_type.decode(),
-                description=exception_str,
-            )
-        else:
-            return EventData()
+        """Decode raw stream data
+
+        :param list((index, raw)) events:
+        :returns EventData:
+        """
+        if not events:
+            return None
+        first_index = self._streamid_to_idx(events[0][0])
+        ev = EndScanEvent.merge(events)
+        return EventData(
+            first_index=first_index, data=ev.TYPE.decode(), description=ev.exception
+        )
 
     def _get_db_names(self):
         db_names = super()._get_db_names()
         db_names.append(self.db_name + "_data")
         return db_names
+
+    def _subscribe_stream(self, stream_suffix, reader, **kw):
+        """Subscribe to a stream with a particular name,
+        associated with this node.
+
+        :param str stream_suffix: stream to add is "{db_name}_{stream_suffix}"
+        :param DataStreamReader reader:
+        """
+        if stream_suffix == "data":
+            # Lower priority than all other streams
+            kw["priority"] = 1
+        super()._subscribe_stream(stream_suffix, reader, **kw)
+
+    def _subscribe_all_streams(
+        self, reader, filter=None, first_index=None, yield_events=False
+    ):
+        """Subscribe to new streams before yielding the NEW_NODE event.
+
+        :param DataStreamReader reader:
+        :param tuple or callable filter: only these DataNode types are allowed (all by default)
+        :param str or int first_index: Redis stream ID
+        :param bool yield_events: yield Event or DataNode
+        """
+        super()._subscribe_all_streams(
+            reader, filter=filter, first_index=first_index, yield_events=yield_events
+        )
+        self._subscribe_stream("data", reader, first_index=0, create=True)
+
+    def _iter_data_stream_events(
+        self, reader, events, filter=None, first_index=None, yield_events=False
+    ):
+        """
+        :param DataStreamReader reader:
+        :param list(2-tuple) events:
+        :param tuple or callable filter: only these DataNode types are allowed (all by default)
+        :param str or int first_index: Redis stream ID
+        :param bool yield_events: yield Event or DataNode
+        :yields Event:
+        """
+        data = self.decode_raw_events(events)
+        if data is None:
+            return
+        if yield_events and not self._filtered_out(filter):
+            with AllowKill():
+                yield Event(type=EventType.END_SCAN, node=self, data=data)
+        # Stop reading events from this node's streams
+        # and the streams of its children
+        reader.remove_matching_streams(f"{self.db_name}*")
 
 
 def get_data_from_nodes(pipeline, *nodes):

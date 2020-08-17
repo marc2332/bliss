@@ -1,0 +1,231 @@
+============================= test session starts ==============================
+platform linux -- Python 3.7.6, pytest-5.3.5, py-1.8.2, pluggy-0.13.1 -- /data/id21/inhouse/wout/dev/virtualenvs/lid21data/bliss_env/bin/python
+cachedir: .pytest_cache
+rootdir: /mntdirect/_data_id21_inhouse/wout/dev/blissmain, inifile: setup.cfg
+plugins: rerunfailures-9.0, mock-3.1.0, cov-2.9.0, typeguard-2.6.1
+collecting ... collected 1 item
+
+tests/scans/test_publishing.py::test_walk_events_on_session_node[False-False-filterepoch] FAILED [100%]
+
+=================================== FAILURES ===================================
+__________ test_walk_events_on_session_node[False-False-filterepoch] ___________
+
+beforestart = False, wait = False
+filter = <function filterepoch at 0x7f50ab5ef4d0>
+session = <bliss.common.session.Session object at 0x7f50b7ebd090>
+
+    @pytest.mark.parametrize("beforestart, wait, filter", _count_parameters)
+    def test_walk_events_on_session_node(beforestart, wait, filter, session):
+        events, nmasters, nchannels = _count_node_events(
+>           beforestart, session, session.name, filter=filter, wait=wait
+        )
+
+tests/scans/test_publishing.py:806: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+tests/scans/test_publishing.py:778: in _count_node_events
+    walk_greenlet.get(timeout=60)
+bliss/common/greenlet_utils.py:102: in get
+    return super().get(*args, **keys)
+src/gevent/greenlet.py:795: in gevent._gevent_cgreenlet.Greenlet.get
+    ???
+src/gevent/greenlet.py:364: in gevent._gevent_cgreenlet.Greenlet._raise_exception
+    ???
+/data/id21/inhouse/wout/dev/virtualenvs/lid21data/bliss_env/lib/python3.7/site-packages/gevent/_compat.py:65: in reraise
+    raise value.with_traceback(tb)
+src/gevent/greenlet.py:854: in gevent._gevent_cgreenlet.Greenlet.run
+    ???
+tests/scans/test_publishing.py:757: in walk
+    process_event(ev)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+>   assert node not in nodes_with_event, error_msg
+E   AssertionError: NEW_NODE not the first event of 'test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct:timer:epoch'
+E   assert 'test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct:timer:epoch' not in {'test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct:timer:epoch'}
+
+tests/scans/test_publishing.py:735: AssertionError
+---------------------------- Captured stdout setup -----------------------------
+ * Serving Flask app "bliss.config.conductor.web.configuration.config_app" (lazy loading)
+ * Environment: production
+   WARNING: This is a development server. Do not use it in a production deployment.
+   Use a production WSGI server instead.
+ * Debug mode: off
+ * Serving Flask app "bliss.config.conductor.web.homepage.homepage_app" (lazy loading)
+ * Environment: production
+   WARNING: This is a development server. Do not use it in a production deployment.
+   Use a production WSGI server instead.
+ * Debug mode: off
+test_session: Executing setup file...
+TEST_SESSION INITIALIZED
+----------------------------- Captured stdout call -----------------------------
+DataStreamReader(0/0 streams active, YIELDING consumer): ADD STREAM test_session_children_list
+DataStreamReader(0/1 streams active, YIELDING consumer): SYNC_EVENT
+
+DataStreamReader(1/1 streams active, YIELDING consumer): READING ...
+data ['test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct_data', 'test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct:timer:elapsed_time_data', 'test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct:timer:epoch_data', 'test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct:timer:simulation_counter_controller:sim_ct_gauss_data', 'test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct:timer:thermo_sample:thermo_sample_data', 'test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct:timer:simulation_diode_sampling_controller:diode_data']
+DataStreamReader(1/1 streams active, YIELDING consumer): PROCESS 7f60af30-cb56-11ea-9ed6-41f3758bd4b4: 1 events
+
+DataStreamReader(2/1 streams active, YIELDING consumer): READING DONE.
+children_list ['test_session:tmp_children_list', 'test_session:tmp:pytest-of-denolf_children_list', 'test_session:tmp:pytest-of-denolf:pytest-1093_children_list', 'test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0_children_list', 'test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct_children_list', 'test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct:timer_children_list', 'test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct:timer:simulation_counter_controller_children_list', 'test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct:timer:thermo_sample_children_list', 'test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct:timer:simulation_diode_sampling_controller_children_list']
+DataStreamReader(2/1 streams active, YIELDING consumer): ADD STREAM test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct:timer:epoch_data
+DataStreamReader(2/2 streams active, YIELDING consumer): SYNC_EVENT
+DataStreamReader(2/2 streams active, WAITING consumer): CONSUMING ...
+
+DataStreamReader(2/2 streams active, WAITING consumer): READING ...
+DataStreamReader(2/2 streams active, WAITING consumer): PROCESS 7f60af30-cb56-11ea-9ed6-41f3758bd4b4: 1 events
+DataStreamReader(3/2 streams active, WAITING consumer): SKIP test_session_children_list: 1 events
+
+DataStreamReader(3/2 streams active, WAITING consumer): READING DONE.
+
+DataStreamReader(3/2 streams active, WAITING consumer): READING ...
+DataStreamReader(3/2 streams active, WAITING consumer): PROCESS test_session_children_list: 1 events
+QUEUE test_session_children_list:
+ b'NEW_NODE': b'test_session:tmp'
+QUEUE test_session_children_list:
+ b'NEW_NODE': b'test_session:tmp'
+DataStreamReader(3/2 streams active, YIELDING consumer): PROCESS test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct:timer:epoch_data: 1 events
+QUEUE test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct:timer:epoch_data:
+ b'CHANNELDATA': None
+DataStreamReader(3/2 streams active, YIELDING consumer): ADD STREAM test_session:tmp_children_list
+DataStreamReader(3/3 streams active, YIELDING consumer): SYNC_EVENT
+
+DataStreamReader(3/3 streams active, YIELDING consumer): READING DONE.
+data ['test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct_data', 'test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct:timer:elapsed_time_data', 'test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct:timer:epoch_data', 'test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct:timer:simulation_counter_controller:sim_ct_gauss_data', 'test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct:timer:thermo_sample:thermo_sample_data', 'test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct:timer:simulation_diode_sampling_controller:diode_data']
+children_list ['test_session:tmp:pytest-of-denolf_children_list', 'test_session:tmp:pytest-of-denolf:pytest-1093_children_list', 'test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0_children_list', 'test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct_children_list', 'test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct:timer_children_list', 'test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct:timer:simulation_counter_controller_children_list', 'test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct:timer:thermo_sample_children_list', 'test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct:timer:simulation_diode_sampling_controller_children_list']
+QUEUE test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct:timer:epoch_data:
+ b'CHANNELDATA': None
+
+DataStreamReader(3/3 streams active, WAITING consumer): READING ...
+DataStreamReader(3/3 streams active, WAITING consumer): PROCESS 7f60af30-cb56-11ea-9ed6-41f3758bd4b4: 1 events
+
+DataStreamReader(4/3 streams active, WAITING consumer): READING DONE.
+
+DataStreamReader(4/3 streams active, WAITING consumer): READING ...
+DataStreamReader(4/3 streams active, WAITING consumer): PROCESS test_session:tmp_children_list: 1 events
+QUEUE test_session:tmp_children_list:
+ b'NEW_NODE': b'test_session:tmp:pytest-of-denolf'
+QUEUE test_session:tmp_children_list:
+ b'NEW_NODE': b'test_session:tmp:pytest-of-denolf'
+
+DataStreamReader(4/3 streams active, YIELDING consumer): READING DONE.
+DataStreamReader(4/3 streams active, YIELDING consumer): ADD STREAM test_session:tmp:pytest-of-denolf_children_list
+DataStreamReader(4/4 streams active, YIELDING consumer): SYNC_EVENT
+data ['test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct_data', 'test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct:timer:elapsed_time_data', 'test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct:timer:epoch_data', 'test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct:timer:simulation_counter_controller:sim_ct_gauss_data', 'test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct:timer:thermo_sample:thermo_sample_data', 'test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct:timer:simulation_diode_sampling_controller:diode_data']
+children_list ['test_session:tmp:pytest-of-denolf:pytest-1093_children_list', 'test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0_children_list', 'test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct_children_list', 'test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct:timer_children_list', 'test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct:timer:simulation_counter_controller_children_list', 'test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct:timer:thermo_sample_children_list', 'test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct:timer:simulation_diode_sampling_controller_children_list']
+
+DataStreamReader(4/4 streams active, WAITING consumer): READING ...
+DataStreamReader(4/4 streams active, WAITING consumer): PROCESS 7f60af30-cb56-11ea-9ed6-41f3758bd4b4: 1 events
+
+DataStreamReader(5/4 streams active, WAITING consumer): READING DONE.
+
+DataStreamReader(5/4 streams active, WAITING consumer): READING ...
+DataStreamReader(5/4 streams active, WAITING consumer): PROCESS test_session:tmp:pytest-of-denolf_children_list: 1 events
+QUEUE test_session:tmp:pytest-of-denolf_children_list:
+ b'NEW_NODE': b'test_session:tmp:pytest-of-denolf:pytest-1093'
+QUEUE test_session:tmp:pytest-of-denolf_children_list:
+ b'NEW_NODE': b'test_session:tmp:pytest-of-denolf:pytest-1093'
+
+DataStreamReader(5/4 streams active, YIELDING consumer): READING DONE.
+DataStreamReader(5/4 streams active, YIELDING consumer): ADD STREAM test_session:tmp:pytest-of-denolf:pytest-1093_children_list
+DataStreamReader(5/5 streams active, YIELDING consumer): SYNC_EVENT
+data ['test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct_data', 'test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct:timer:elapsed_time_data', 'test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct:timer:epoch_data', 'test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct:timer:simulation_counter_controller:sim_ct_gauss_data', 'test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct:timer:thermo_sample:thermo_sample_data', 'test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct:timer:simulation_diode_sampling_controller:diode_data']
+children_list ['test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0_children_list', 'test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct_children_list', 'test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct:timer_children_list', 'test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct:timer:simulation_counter_controller_children_list', 'test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct:timer:thermo_sample_children_list', 'test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct:timer:simulation_diode_sampling_controller_children_list']
+
+DataStreamReader(5/5 streams active, WAITING consumer): READING ...
+DataStreamReader(5/5 streams active, WAITING consumer): PROCESS 7f60af30-cb56-11ea-9ed6-41f3758bd4b4: 1 events
+
+DataStreamReader(6/5 streams active, WAITING consumer): READING DONE.
+
+DataStreamReader(6/5 streams active, WAITING consumer): READING ...
+DataStreamReader(6/5 streams active, WAITING consumer): PROCESS test_session:tmp:pytest-of-denolf:pytest-1093_children_list: 1 events
+QUEUE test_session:tmp:pytest-of-denolf:pytest-1093_children_list:
+ b'NEW_NODE': b'test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0'
+QUEUE test_session:tmp:pytest-of-denolf:pytest-1093_children_list:
+ b'NEW_NODE': b'test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0'
+
+DataStreamReader(6/5 streams active, YIELDING consumer): READING DONE.
+DataStreamReader(6/5 streams active, YIELDING consumer): ADD STREAM test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0_children_list
+DataStreamReader(6/6 streams active, YIELDING consumer): SYNC_EVENT
+data ['test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct_data', 'test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct:timer:elapsed_time_data', 'test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct:timer:epoch_data', 'test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct:timer:simulation_counter_controller:sim_ct_gauss_data', 'test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct:timer:thermo_sample:thermo_sample_data', 'test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct:timer:simulation_diode_sampling_controller:diode_data']
+children_list ['test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct_children_list', 'test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct:timer_children_list', 'test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct:timer:simulation_counter_controller_children_list', 'test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct:timer:thermo_sample_children_list', 'test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct:timer:simulation_diode_sampling_controller_children_list']
+
+DataStreamReader(6/6 streams active, WAITING consumer): READING ...
+DataStreamReader(6/6 streams active, WAITING consumer): PROCESS 7f60af30-cb56-11ea-9ed6-41f3758bd4b4: 1 events
+
+DataStreamReader(7/6 streams active, WAITING consumer): READING DONE.
+
+DataStreamReader(7/6 streams active, WAITING consumer): READING ...
+DataStreamReader(7/6 streams active, WAITING consumer): PROCESS test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0_children_list: 1 events
+QUEUE test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0_children_list:
+ b'NEW_NODE': b'test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct'
+QUEUE test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0_children_list:
+ b'NEW_NODE': b'test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct'
+
+DataStreamReader(7/6 streams active, YIELDING consumer): READING DONE.
+DataStreamReader(7/6 streams active, YIELDING consumer): ADD STREAM test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct_children_list
+DataStreamReader(7/7 streams active, YIELDING consumer): SYNC_EVENT
+data ['test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct:timer:elapsed_time_data', 'test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct:timer:epoch_data', 'test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct:timer:simulation_counter_controller:sim_ct_gauss_data', 'test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct:timer:thermo_sample:thermo_sample_data', 'test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct:timer:simulation_diode_sampling_controller:diode_data']
+children_list ['test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct:timer_children_list', 'test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct:timer:simulation_counter_controller_children_list', 'test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct:timer:thermo_sample_children_list', 'test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct:timer:simulation_diode_sampling_controller_children_list']
+DataStreamReader(7/7 streams active, YIELDING consumer): ADD STREAM test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct_data
+DataStreamReader(7/8 streams active, YIELDING consumer): SYNC_EVENT
+
+DataStreamReader(7/8 streams active, WAITING consumer): READING ...
+DataStreamReader(7/8 streams active, WAITING consumer): PROCESS 7f60af30-cb56-11ea-9ed6-41f3758bd4b4: 2 events
+
+DataStreamReader(9/8 streams active, WAITING consumer): READING DONE.
+
+DataStreamReader(9/8 streams active, WAITING consumer): READING ...
+DataStreamReader(9/8 streams active, WAITING consumer): PROCESS test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct_children_list: 1 events
+QUEUE test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct_children_list:
+ b'NEW_NODE': b'test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct:timer'
+QUEUE test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct_children_list:
+ b'NEW_NODE': b'test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct:timer'
+DataStreamReader(9/8 streams active, YIELDING consumer): SKIP test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct_data: 1 events
+
+DataStreamReader(9/8 streams active, YIELDING consumer): READING DONE.
+DataStreamReader(9/8 streams active, YIELDING consumer): ADD STREAM test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct:timer_children_list
+DataStreamReader(9/9 streams active, YIELDING consumer): SYNC_EVENT
+data ['test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct:timer:elapsed_time_data', 'test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct:timer:epoch_data', 'test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct:timer:simulation_counter_controller:sim_ct_gauss_data', 'test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct:timer:thermo_sample:thermo_sample_data', 'test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct:timer:simulation_diode_sampling_controller:diode_data']
+children_list ['test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct:timer:simulation_counter_controller_children_list', 'test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct:timer:thermo_sample_children_list', 'test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct:timer:simulation_diode_sampling_controller_children_list']
+
+DataStreamReader(9/9 streams active, WAITING consumer): READING ...
+DataStreamReader(9/9 streams active, WAITING consumer): PROCESS 7f60af30-cb56-11ea-9ed6-41f3758bd4b4: 1 events
+DataStreamReader(10/9 streams active, WAITING consumer): SKIP test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct_data: 1 events
+
+DataStreamReader(10/9 streams active, WAITING consumer): READING DONE.
+
+DataStreamReader(10/9 streams active, WAITING consumer): READING ...
+DataStreamReader(10/9 streams active, WAITING consumer): PROCESS test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct:timer_children_list: 5 events
+QUEUE test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct:timer_children_list:
+ b'NEW_NODE': b'test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct:timer:elapsed_time'
+ b'NEW_NODE': b'test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct:timer:epoch'
+ b'NEW_NODE': b'test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct:timer:simulation_counter_controller'
+ b'NEW_NODE': b'test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct:timer:simulation_diode_sampling_controller'
+ b'NEW_NODE': b'test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct:timer:thermo_sample'
+QUEUE test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct:timer_children_list:
+ b'NEW_NODE': b'test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct:timer:elapsed_time'
+ b'NEW_NODE': b'test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct:timer:epoch'
+ b'NEW_NODE': b'test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct:timer:simulation_counter_controller'
+ b'NEW_NODE': b'test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct:timer:simulation_diode_sampling_controller'
+ b'NEW_NODE': b'test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct:timer:thermo_sample'
+DataStreamReader(10/9 streams active, YIELDING consumer): SKIP test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct_data: 1 events
+
+DataStreamReader(10/9 streams active, YIELDING consumer): READING DONE.
+DataStreamReader(10/9 streams active, YIELDING consumer): ADD STREAM test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct:timer:elapsed_time_data
+DataStreamReader(10/10 streams active, YIELDING consumer): SYNC_EVENT
+DataStreamReader(10/10 streams active, IDLE consumer): SYNC_END
+
+DataStreamReader(10/10 streams active, IDLE consumer): READING ...
+DataStreamReader(10/10 streams active, IDLE consumer): PROCESS 7f60af30-cb56-11ea-9ed6-41f3758bd4b4: 2 events
+DataStreamReader(10/10 streams active, IDLE consumer): STOP reading event
+----------------------------- Captured stderr call -----------------------------
+Traceback (most recent call last):
+  File "src/gevent/greenlet.py", line 854, in gevent._gevent_cgreenlet.Greenlet.run
+  File "/mntdirect/_data_id21_inhouse/wout/dev/blissmain/tests/scans/test_publishing.py", line 757, in walk
+    process_event(ev)
+  File "/mntdirect/_data_id21_inhouse/wout/dev/blissmain/tests/scans/test_publishing.py", line 735, in process_event
+    assert node not in nodes_with_event, error_msg
+AssertionError: NEW_NODE not the first event of 'test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct:timer:epoch'
+assert 'test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct:timer:epoch' not in {'test_session:tmp:pytest-of-denolf:pytest-1093:test_walk_events_on_session_no0:_1_ct:timer:epoch'}
+2020-07-21T13:31:35Z <Greenlet at 0x7f50a8e625f0: walk> failed with AssertionError
+
+============================== 1 failed in 6.77s ===============================

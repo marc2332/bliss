@@ -47,7 +47,7 @@ def alias_session_scans_listener(alias_session):
 def test_external_hdf5_writer(
     alias_session_scans_listener, alias_session, dummy_acq_device
 ):
-
+    nscans = 0
     env_dict = alias_session.env_dict
     scan_stack = alias_session_scans_listener
 
@@ -57,7 +57,8 @@ def test_external_hdf5_writer(
     transf = alias_session.config.get("transfocator_simulator")
 
     ## a simple scan
-    s1 = scans.ascan(env_dict["robyy"], 0, 1, 3, .1, lima_sim)
+    scans.ascan(env_dict["robyy"], 0, 1, 3, .1, lima_sim)
+    nscans += 1
 
     ## a scan with multiple top masters
     chain = AcquisitionChain()
@@ -73,16 +74,18 @@ def test_external_hdf5_writer(
     chain.add(master1, diode_device)
     master1.terminator = False
 
-    s2 = Scan(chain, "test", save=True)
-    s2.run()
+    s = Scan(chain, "test", save=True)
+    s.run()
+    nscans += 2
 
     diode2 = alias_session.config.get("diode2")
     # TEST NOT RELIALE when excuting kill ... has to be fixed
     ### test scan with undefined number of points
-    s3 = scans.timescan(.05, diode2, run=False)
+    s = scans.timescan(.05, diode2, run=False)
+    nscans += 1
     gevent.sleep(.2)
     ## just to see if there is no event created before the scan runs...
-    scan_task = gevent.spawn(s3.run)
+    scan_task = gevent.spawn(s.run)
     # todo add synchronisatin once !1594 is merged
     # for now .. incrase sleep time
     gevent.sleep(1)
@@ -91,10 +94,11 @@ def test_external_hdf5_writer(
     except:
         assert scan_task.ready()
     # just until the test above is reliable
-    # ~ s3 = scans.timescan(.05, diode2, npoints=1)
+    # ~ s = scans.timescan(.05, diode2, npoints=1)
 
     ## scan with counter that exports individual samples (SamplingMode.Samples)
-    scan5_a = scans.loopscan(5, 0.1, alias_session.config.get("diode9"), save=True)
+    scans.loopscan(5, 0.1, alias_session.config.get("diode9"), save=True)
+    nscans += 1
 
     ## artifical scan that forces different length of datasets in SamplingMode.Samples
     from bliss.common.counter import SoftCounter, SamplingMode
@@ -122,28 +126,46 @@ def test_external_hdf5_writer(
     a = A()
     ax = SoftAxis("test-sample-pos", a)
     c_samp = SoftCounter(a, "read", name="test-samp", mode=SamplingMode.SAMPLES)
-    scan5_b = scans.ascan(ax, 1, 9, 9, .1, c_samp)
+    scans.ascan(ax, 1, 9, 9, .1, c_samp)
+    nscans += 1
 
     # a group entry
     s1 = scans.loopscan(3, .1, diode_sim)
     s2 = scans.loopscan(3, .05, diode_sim)
     g = Group(s1, s2)
+    nscans += 3
 
     ##wait for all scan entries
     external_writer_file = s1.scan_info["filename"].replace(".", "_external.")
     bliss_writer_file = s1.scan_info["filename"]
 
-    # check that external writer has at least started to procces all scans
+    # check that external writer has at least started to process all scans
     for i in range(0, 20):
-        if len(h5py.File(external_writer_file, mode="r").keys()) < 6:
-            print("##### external writer not done yet")
+        n = 0
+        try:
+            with h5py.File(external_writer_file, mode="r") as f:
+                n = len(f.keys())
+        except Exception as e:
+            print(e)
+        if n < nscans:
+            print(
+                f"##### external writer did not start writing all scans yet ({n} of {nscans})"
+            )
             gevent.sleep(1)
+        else:
+            break
+    else:
+        raise RuntimeError(f"Did not start writing all scans ({n} of {nscans})")
 
     # check that all scans have been finalized
     for i in range(0, 20):
-        if len(scan_stack) > 0:
-            print("##### waiting for finalization", scan_stack)
+        if scan_stack:
+            print(f"##### waiting for finalization {scan_stack}")
             gevent.sleep(1)
+        else:
+            break
+    else:
+        raise RuntimeError(f"Did not finalize scans {scan_stack}")
 
     ## check if external file is the same as the one of bliss writer for simple scan
     external_writer = h5todict(external_writer_file)["2_ascan"]

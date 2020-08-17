@@ -19,6 +19,11 @@ class NodeRefChannel(ChannelDataNode):
     _NODE_TYPE = "node_ref_channel"
 
     def decode_raw_events(self, events):
+        """Decode raw stream data
+
+        :param list((index, raw)) events:
+        :returns EventData:
+        """
         event_data = super().decode_raw_events(events)
         nodes = self.get_nodes(*event_data.data)
         return EventData(

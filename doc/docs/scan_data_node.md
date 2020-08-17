@@ -12,6 +12,11 @@ This object cannot have children nodes.
 * `parent`: the parent node.
 * `info`: info about the node.
 
+### Methods
+
+* `walk(self, filter=None, wait=True, ready_event=None)`
+* `walk_events( filter=None, ready_event=None)`
+
 
 
 ## DataNodeContainer
@@ -58,13 +63,3 @@ hold data.
 This class inherit from the DataNodeContainer class and is designed for scans.
 
 * `type = scan`
-
-
-
-## DataNodeIterator
-
-### Methods
-
-* `walk(self, filter=None, wait=True, ready_event=None)`
-* `walk_events( filter=None, ready_event=None)`
-

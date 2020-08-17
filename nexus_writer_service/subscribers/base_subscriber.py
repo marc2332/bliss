@@ -23,7 +23,7 @@ from gevent.time import time
 from contextlib import contextmanager
 from bliss.data.node import get_node as _get_node
 from bliss.data.node import _get_node_object
-from bliss.config.streaming import StreamStopReadingHandler
+from bliss.config.streaming import DataStreamReaderStopHandler
 from ..utils.logging_utils import CustomLogger
 from ..io import io_utils
 from ..utils.async_utils import greenlet_ident
@@ -228,17 +228,6 @@ class BaseSubscriber(object):
             return get_node(self.node_type, self.db_name)
 
     @property
-    def _node_iterator(self):
-        if self._local_greenlet:
-            try:
-                return self._greenlet._iterator
-            except AttributeError:
-                it = self._greenlet._iterator = self.node.iterator
-                return it
-        else:
-            return None
-
-    @property
     def _nodes(self):
         if self._greenlet is None:
             return []
@@ -275,7 +264,7 @@ class BaseSubscriber(object):
         Handler needed to stop the listener greenlet gracefully
         """
         if self._greenlet is not None:
-            self._greenlet._stop_handler = StreamStopReadingHandler()
+            self._greenlet._stop_handler = DataStreamReaderStopHandler()
 
     @property
     def _stop_handler(self):
@@ -338,7 +327,7 @@ class BaseSubscriber(object):
         try:
             self._event_loop_initialize(**kwargs)
             for event_type, node, event_data in self._walk_events(
-                stream_stop_reading_handler=self._stop_handler
+                stop_handler=self._stop_handler
             ):
                 if event_type == event_type.END_SCAN:
                     if self.node.type in ["scan", "scan_group"]:
@@ -376,7 +365,7 @@ class BaseSubscriber(object):
                 )
 
     def _walk_events(self, **kwargs):
-        yield from self._node_iterator.walk_events(**kwargs)
+        yield from self.node.walk_events(**kwargs)
 
     def _process_event(self, event_type, node, event_data):
         """

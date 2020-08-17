@@ -50,8 +50,7 @@ def _test_nxw_timescan(session=None, tmpdir=None, writer=None, **kwargs):
     nminevents = 5
 
     def listenscan(scannode):
-        it = scannode.iterator
-        for event_type, node, event_data in it.walk_events():
+        for event_type, node, event_data in scannode.walk_events():
             print(f"{event_type}: {node.db_name}")
             if event_type == event_type.NEW_DATA:
                 name = node.fullname
@@ -64,10 +63,10 @@ def _test_nxw_timescan(session=None, tmpdir=None, writer=None, **kwargs):
                     started.set()
 
     def listensession():
-        it = get_session_node(session.name).iterator
+        sessionnode = get_session_node(session.name)
         listeners = []
         try:
-            for event_type, node, event_data in it.walk_events(filter="scan"):
+            for event_type, node, event_data in sessionnode.walk_events(filter="scan"):
                 if event_type == event_type.NEW_NODE:
                     print(f"Listen to scan {node.db_name}")
                     listeners.append(gevent.spawn(listenscan, node))

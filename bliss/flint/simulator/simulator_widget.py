@@ -86,7 +86,7 @@ class SimulatorWidget(qt.QMainWindow):
             return
         try:
             self.__simulator.start(interval, duration, name)
-        except:
+        except Exception:
             _logger.error("Error while starting scan", exc_info=True)
 
     def setSimulator(self, simulator: AcquisitionSimulator):

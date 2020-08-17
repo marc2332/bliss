@@ -4,7 +4,7 @@ import logging
 import pytest
 import numpy
 
-from silx.gui import qt
+from silx.gui import qt  # noqa: F401
 from silx.gui.utils.testutils import TestCaseQt
 from bliss.common import plot
 from bliss.flint.client import plots

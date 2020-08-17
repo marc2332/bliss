@@ -5,11 +5,9 @@
 # Copyright (c) 2015-2020 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-import gevent
 import textwrap
 import numpy
 from .roi import Roi
-from .properties import LimaProperty, LimaAttrGetterSetter
 from bliss.common.counter import Counter
 from bliss.common.utils import autocomplete_property
 from bliss.config.beacon_object import BeaconObject
@@ -71,10 +69,10 @@ class LimaImageParameters(BeaconObject):
         """transformation for roi from raw full frame reference to 
            lima style reference with rot and flip applied.
            inverse calculation if inverse=True
-           
+
            inverse = False  : full frame ref -> lima ref
            inverse = True   : lima ref -> full frame ref
-           
+
            TODO: this calculation should be one in the lima server!
            see https://gitlab.esrf.fr/bliss/bliss/-/merge_requests/2176#note_65379
         """
@@ -104,26 +102,19 @@ class LimaImageParameters(BeaconObject):
 
         # to disable black on a block of code use fmt: off, fmt: on
         # fmt: off
-        rot_mat = {'NONE' : numpy.array([[1,0],
-                                         [0,1]]),
-                     '90' : numpy.array([[0,-1],
-                                         [1,0 ]]),
-                    '180' : numpy.array([[-1,0 ],
-                                         [0 ,-1]]),
-                    '270' : numpy.array([[0 ,1],
-                                         [-1,0]])}
-                                
-        flip_mat = {str([False,False]):numpy.array([[1,0],
-                                                    [0,1]]),
-                    str([False,True ]):numpy.array([[1 ,0],
-                                                    [0,-1]]),
-                    str([True, False]):numpy.array([[-1,0],
-                                                    [0 ,1]]),
-                    str([True, True ]):numpy.array([[-1,0 ],
-                                                    [0 ,-1]])}
-                                        
-        bin_mat = numpy.array([[1./binning[0],0         ],
-                               [0,         1./binning[1]]])
+        rot_mat = {'NONE': numpy.array([[1, 0], [0, 1]]),
+                   '90': numpy.array([[0, -1], [1, 0]]),
+                   '180': numpy.array([[-1, 0], [0, -1]]),
+                   '270': numpy.array([[0, 1], [-1, 0]]),
+                   }
+
+        flip_mat = {(False, False): numpy.array([[1, 0], [0, 1]]),
+                    (False, True): numpy.array([[1, 0], [0, -1]]),
+                    (True, False): numpy.array([[-1, 0], [0, 1]]),
+                    (True, True): numpy.array([[-1, 0], [0, -1]]),
+                    }
+
+        bin_mat = numpy.array([[1. / binning[0], 0], [0, 1. / binning[1]]])
         # fmt: on
 
         # init stuff
@@ -131,7 +122,7 @@ class LimaImageParameters(BeaconObject):
         res = numpy.zeros(4)
 
         # define full transformation matrix
-        op = numpy.dot(flip_mat[str(flip)], bin_mat)
+        op = numpy.dot(flip_mat[tuple(flip)], bin_mat)
         op = numpy.dot(rot_mat[rot], op)
 
         if inverse:
@@ -276,7 +267,6 @@ class LimaImageParameters(BeaconObject):
 
     def sync(self):
         """applies all image parameters from the tango server to bliss"""
-        tmp = self._proxy.image_rotation
         self.rotation = self._proxy.image_rotation
         self.flip = self._proxy.image_flip
         self.binning = self._proxy.image_bin
@@ -290,20 +280,7 @@ class ImageCounter(Counter):
 
     # Standard counter interface
 
-    # @property
-    # def name(self):
-    #     return "image"
-
-    # @property
-    # def _counter_controller(self):
-    #     return self._controller
-
-    # def create_acquisition_device(self, node_pars):
-    #     """Instantiate the corresponding acquisition device."""
-    #     return self.controller.create_master_device(node_pars)
-
     def __info__(self):
-        # return LimaAttrGetterSetter.__info__(self)
         return textwrap.dedent(
             f"""       flip:     {self.flip}
        rotation: {self.rotation}
@@ -381,5 +358,3 @@ class ImageCounter(Counter):
     @property
     def height(self):
         return self.roi.height
-
-    #########

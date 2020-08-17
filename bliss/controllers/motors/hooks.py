@@ -12,7 +12,7 @@ General purpose motion hooks.
 from gevent import sleep
 
 from bliss.common.hook import MotionHook
-from bliss.common.logtools import *
+from bliss.common.logtools import log_debug
 
 
 class SleepHook(MotionHook):

@@ -19,11 +19,12 @@ from gevent import socket, select, lock, event
 from ..common.greenlet_utils import KillMask
 
 from bliss.common.cleanup import capture_exceptions
-from bliss.common.logtools import *
+from bliss.common.logtools import log_debug, log_debug_data
 from bliss.common.tango import DeviceProxy
 from bliss import global_map
 
 import serial
+from serial.rfc2217 import *
 
 # Export serial globals to the current module
 globals().update(

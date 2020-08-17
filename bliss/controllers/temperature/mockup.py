@@ -15,7 +15,7 @@ import math
 from bliss.common.utils import object_method, object_method_type
 from bliss.common.utils import object_attribute_get, object_attribute_type_get
 from bliss.common.utils import object_attribute_set, object_attribute_type_set
-from bliss.common.logtools import *
+from bliss.common.logtools import log_debug, log_info
 
 DEGREE_PER_SECOND = 0.5
 """ all channels will start at this temperature """

@@ -66,7 +66,7 @@ class ManageMainBehaviours(qt.QObject):
         else:
             try:
                 device = DeviceProxy(name)
-            except:
+            except Exception:
                 raise
         self.__flintModel.setTangoMetadata(device)
 
@@ -358,7 +358,7 @@ class ManageMainBehaviours(qt.QObject):
                         if isinstance(item, plot_model.NotReused):
                             try:
                                 previousWidgetPlot.removeItem(item)
-                            except:
+                            except Exception:
                                 pass
 
                     # Reuse only available values

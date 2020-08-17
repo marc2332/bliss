@@ -342,7 +342,6 @@ class RoiCounters(IntegratingCounterController):
     # Representation
 
     def __info__(self):
-        name = self.name.rsplit(":", 1)[-1]
         lines = [f"ROI Counters: {self.config_name}"]
         rois = self.get_rois()
         if rois:

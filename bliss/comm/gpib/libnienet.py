@@ -33,9 +33,9 @@
 #  * all the _not_impl()s
 #  * non-blocking IO
 
-import socket, sys
-from struct import *
-from bliss.common.logtools import *
+import socket
+import sys
+import struct
 from bliss import global_map
 
 # debug = ["io", "ignore_not_impl"] # "dummy_io", "rw"
@@ -122,8 +122,8 @@ class EnetSocket:
 
     def _read_frags(self, many=False):
         while True:
-            header = self._recv(calcsize(self._headfmt))
-            flags, num = unpack(self._headfmt, header)
+            header = self._recv(struct.calcsize(self._headfmt))
+            flags, num = struct.unpack(self._headfmt, header)
             if not many or not flags:
                 yield self._recv(num)
             else:
@@ -142,16 +142,16 @@ class EnetSocket:
 
     def _sresp(self):
         ret = self._read()
-        self.sta, self.err, self.cnt = unpack(
-            self._respfmt, ret[: calcsize(self._respfmt)]
+        self.sta, self.err, self.cnt = struct.unpack(
+            self._respfmt, ret[: struct.calcsize(self._respfmt)]
         )
-        return ret[calcsize(self._respfmt) :]
+        return ret[struct.calcsize(self._respfmt) :]
 
     def _scmd(self, id, argsfmt=b"", *args):
         # assert calcsize("!B" + argsfmt) == 12
         # pad to 12 bytes
-        argsfmt += b"%dx" % (12 - calcsize(b"!B" + argsfmt))
-        self._write(pack(b"!B" + argsfmt, *((id,) + args)))
+        argsfmt += b"%dx" % (12 - struct.calcsize(b"!B" + argsfmt))
+        self._write(struct.pack(b"!B" + argsfmt, *((id,) + args)))
         return self._sresp()
 
     def ibdev(self, pad, sad=0, tmo=13, eot=1, eos=0):
@@ -160,7 +160,7 @@ class EnetSocket:
         intro_resp = enet_5000._scmd(0x0b)
         self.enet1000 = intro_resp.find(b"ENET/1000") > -1
         if self.enet1000:
-            i, h = unpack("!IH", enet_5000._scmd(0x63, b"B", 0x06))
+            i, h = struct.unpack("!IH", enet_5000._scmd(0x63, b"B", 0x06))
             client_id = enet_5000._scmd(0x64)
             enet_5000._scmd(0x65, b"BBB4s", 0, 0, 0, client_id)
             enet_5000._scmd(0x50, b"B", 0x05)
@@ -188,7 +188,7 @@ class EnetSocket:
 
             self._sock.connect()
             self._extra_socket.append(enet_5000)
-            i, h = unpack(b"!IH", self._scmd(0x63, b"B", 0x06))
+            i, h = struct.unpack(b"!IH", self._scmd(0x63, b"B", 0x06))
             self._scmd(0x65, b"BBB4s", 0, 0, 0, client_id)
 
             self._scmd(
@@ -221,7 +221,7 @@ class EnetSocket:
             self._extra_socket.append(enet_5000)
             first_msg = intro_resp.find(b"\0")
             client_id = intro_resp[first_msg + 10 : first_msg + 10 + 6]
-            i, h = unpack(b"!IH", client_id)
+            i, h = struct.unpack(b"!IH", client_id)
             enet_5000._scmd(0x50, b"B", 0x05)
             enet_5000._scmd(0x07, b"BBBBBBBB", 0, 0x18, 0x01, 0, 0, 0, 0, 0x0d)
             enet_5000._scmd(0x50, b"BB", 0x10, 0x01)
@@ -261,7 +261,7 @@ class EnetSocket:
     #      "\x20\xe1\x05\x08\xb4\xe0\x05\x08")
 
     def ibrsp(self):
-        stb, = unpack(b"!B", self._scmd(0x19))
+        stb, = struct.unpack(b"!B", self._scmd(0x19))
         #      "\x63\x16\x40\xc0\x58\x16\x40\x40\x63\x16\x40"))
         return stb
 
@@ -286,14 +286,14 @@ class EnetSocket:
     #      "\x00\x00\x20\xe1\x05\x08\xb3\xe0\x05\x08")
 
     def iblines(self):
-        lines, = unpack("!H", self._scmd(0x0d))
+        lines, = struct.unpack("!H", self._scmd(0x0d))
         #      "\x63\x16\x40\xc0\x58\x16\x40\x40\x63\x16\x40"))
         return lines
 
     def ibln(self, pad, sad=0):
         if sad != 0:
             pad |= 0x80
-        listen, = unpack(b"!H", self._scmd(0x0f, b"B B", pad, sad))
+        listen, = struct.unpack(b"!H", self._scmd(0x0f, b"B B", pad, sad))
         #      "\x00\xf0\x38\x06\x08\x03\x00\x00\x00"))
         return listen
 
@@ -334,8 +334,8 @@ class EnetSocket:
 
     def ibwrt(self, string):
         argsfmt = b"3s I"
-        argsfmt += b"%dx" % (12 - calcsize(b"!B" + argsfmt))
-        header = pack(b"!B" + argsfmt, 0x62, b"\0\0\0", len(string))
+        argsfmt += b"%dx" % (12 - struct.calcsize(b"!B" + argsfmt))
+        header = struct.pack(b"!B" + argsfmt, 0x62, b"\0\0\0", len(string))
         self._write(header + string)
         self._sresp()
         if self.err:
@@ -344,8 +344,8 @@ class EnetSocket:
 
     def ibrd(self, num):
         argsfmt = b"3s I"
-        argsfmt += b"%dx" % (12 - calcsize(b"!B" + argsfmt))
-        self._write(pack(b"!B" + argsfmt, 0x16, b"\0\0\0", num))
+        argsfmt += b"%dx" % (12 - struct.calcsize(b"!B" + argsfmt))
+        self._write(struct.pack(b"!B" + argsfmt, 0x16, b"\0\0\0", num))
         if not self.enet1000:
             self._sresp()
 

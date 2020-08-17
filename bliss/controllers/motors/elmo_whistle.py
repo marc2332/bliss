@@ -11,7 +11,7 @@ from bliss.common.utils import object_method
 from bliss.common.axis import AxisState
 from bliss.config.channels import Cache
 from bliss.controllers.motor import Controller
-from bliss.common.logtools import *
+from bliss.common.logtools import log_info, log_debug
 from bliss import global_map
 
 import time

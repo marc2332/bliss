@@ -140,9 +140,12 @@ class TooltipItemManager:
         # FIXME: Hack to avoid to pass it by argument, could be done in better way
         self.__mouse = x, y
 
+        def isFilterClass(item):
+            return isinstance(item, self.__filterClass)
+
         if x is not None:
             if self.__filterClass is not None:
-                condition = lambda item: isinstance(item, self.__filterClass)
+                condition = isFilterClass
             else:
                 condition = None
             results = [r for r in self.__plot.pickItems(x, y, condition)]

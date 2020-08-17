@@ -10,14 +10,12 @@ Scan class to manage monitoring of a Lima detector
 """
 
 from __future__ import annotations
-from typing import Optional
 
 import logging
 import contextlib
 import gevent
 import datetime
 import time
-import numpy
 
 from silx.gui import qt
 
@@ -94,7 +92,7 @@ class MonitoringScan(scan_model.Scan):
             def limaVideoImageCounterUpdated(event):
                 try:
                     limaCounter[0] = event.attr_value
-                except:
+                except Exception:
                     _logger.error("Error while reading the event", exc_info=True)
 
             proxy = self.getProxy()
@@ -155,7 +153,7 @@ class MonitoringScan(scan_model.Scan):
         _logger.debug("Polling detector %s", proxy)
         try:
             result = lima.read_video_last_image(proxy)
-        except:
+        except Exception:
             _logger.error("Error while reading data", exc_info=True)
             raise
         if not self.isMonitoring():
@@ -182,7 +180,7 @@ class MonitoringScan(scan_model.Scan):
                 )
             self._channel.setData(data)
             self._fireScanDataUpdated(channelName=self._channel.name())
-        except:
+        except Exception:
             # It have already been tried
             counter = None
             _logger.error("Error while propagating data", exc_info=True)
@@ -270,7 +268,7 @@ class StaticImageScan(scan_model.Scan):
             )
             self._channel.setData(data)
             self._fireScanDataUpdated(channelName=self._channel.name())
-        except:
+        except Exception:
             self._setState(scan_model.ScanState.FINISHED)
             self.scanSuccessed.emit()
         else:

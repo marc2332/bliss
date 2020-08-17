@@ -139,10 +139,8 @@
 
 
 import time
-import sys
 import gevent
 
-from bliss.common import event
 from bliss import global_map
 from bliss.common.utils import Null
 from bliss.common.axis import AxisState
@@ -150,7 +148,13 @@ from bliss.comm.util import get_comm, SERIAL
 from bliss.controllers.motor import Controller
 from bliss.common.utils import object_method
 from bliss.common.utils import object_attribute_get, object_attribute_set
-from bliss.common.logtools import *
+from bliss.common.logtools import (
+    log_debug,
+    log_info,
+    log_warning,
+    log_error,
+    log_exception,
+)
 
 # In the motor-controller class 'micos' the functions/methods
 # are set in groups according to on-line doc
@@ -262,9 +266,8 @@ class micos(Controller):
         except ValueError:
             try:
                 serial_line = self.config.get("serial")
-                warn(
-                    "'serial_line' keyword is deprecated. Use 'serial' instead",
-                    DeprecationWarning,
+                log_warning(
+                    self, "'serial_line' keyword is deprecated. Use 'serial' instead"
                 )
                 comm_cfg = {"serial": {"url": serial_line}}
                 self.serial = get_comm(comm_cfg, timeout=1)

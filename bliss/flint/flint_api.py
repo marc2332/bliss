@@ -290,7 +290,7 @@ class FlintApi:
         from silx.gui.utils.testutils import QTest
 
         widget = plot.getWidgetHandle()
-        assert relative_to_center == True
+        assert relative_to_center is True
         rect = qt.QRect(qt.QPoint(0, 0), widget.size())
         base = rect.center()
         position = base + qt.QPoint(position[0], position[1])

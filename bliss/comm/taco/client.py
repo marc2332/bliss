@@ -232,16 +232,17 @@ class _ClientPacker(Packer):
 
     def pack_server_data(self, args):
         """
-        struct _server_data {
- 	DevLong 		ds_id;
-	DevLong 		cmd;
-	DevLong 		argin_type;
-	DevLong 		argout_type;
-	DevArgument 		argin;
- 	DevLong 		access_right;
- 	DevLong 		client_id;
-	DevVarArgumentArray 	var_argument;
-        };
+        .. code-block:: c
+            struct _server_data {
+                DevLong             ds_id;
+                DevLong             cmd;
+                DevLong             argin_type;
+                DevLong             argout_type;
+                DevArgument         argin;
+                DevLong             access_right;
+                DevLong             client_id;
+                DevVarArgumentArray var_argument;
+            };
         """
         ds_id, command, packer, argin = args
         self.pack_int(ds_id)
@@ -459,13 +460,14 @@ class Client:
 
         def unpack():
             """
-            struct _client_data {
-  	    DevLong 		status;
-	    DevLong 		error;
-	    DevLong 		argout_type;
-	    DevArgument 		argout;
-	    DevVarArgumentArray 	var_argument;
-            };
+            .. code-block:: c
+                struct _client_data {
+                    DevLong             status;
+                    DevLong             error;
+                    DevLong             argout_type;
+                    DevArgument         argout;
+                    DevVarArgumentArray var_argument;
+                };
             """
             status, argout_type = cnx.unpacker.unpack_client_data_header()
             if argout_type != cmd.out_type.value:

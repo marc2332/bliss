@@ -93,7 +93,6 @@ class _SingleScanStatus(qt.QWidget):
         title = scan_info_helper.get_full_title(scan)
         self.__widget.scanTitle.setText(title)
 
-        scan_info = scan.scanInfo()
         self.__end = None
         self.__widget.process.setEnabled(False)
         self.__widget.remainingTime.setText("No estimation time")

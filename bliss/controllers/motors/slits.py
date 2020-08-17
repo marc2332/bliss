@@ -6,7 +6,7 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 from bliss.controllers.motor import CalcController
-from bliss.common.logtools import *
+from bliss.common.logtools import lprint, log_info
 from bliss.scanning.scan_meta import get_user_scan_meta
 
 """

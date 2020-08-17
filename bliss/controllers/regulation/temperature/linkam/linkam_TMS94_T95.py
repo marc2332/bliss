@@ -44,16 +44,25 @@ from bliss.common.logtools import log_info, log_debug
 from bliss.controllers.regulator import Controller
 
 # --- patch the Input, Output and Loop classes with their Linkam equivalent -----------
-from bliss.controllers.regulation.temperature.linkam.linkam import LinkamInput as Input
-from bliss.controllers.regulation.temperature.linkam.linkam import (
+from bliss.controllers.regulation.temperature.linkam.linkam import (  # noqa: F401
+    LinkamInput as Input
+)
+from bliss.controllers.regulation.temperature.linkam.linkam import (  # noqa: F401
     LinkamOutput as Output
 )
-from bliss.controllers.regulation.temperature.linkam.linkam import LinkamLoop as Loop
+from bliss.controllers.regulation.temperature.linkam.linkam import (  # noqa: F401
+    LinkamLoop as Loop
+)
 
 
 _last_call = time.time()
-# limit number of commands per second
+
+
 def _send_limit(func):
+    """
+    Limit number of commands per second
+    """
+
     def f(*args, **kwargs):
         global _last_call
         delta_t = time.time() - _last_call

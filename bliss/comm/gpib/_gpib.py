@@ -29,10 +29,9 @@ from .libnienet import EnetSocket
 from ..tcp import Socket
 from ..exceptions import CommunicationError, CommunicationTimeout
 from ...common.greenlet_utils import KillMask, protect_from_kill
-from bliss.comm.util import HexMsg
 
 from bliss.common.tango import DeviceProxy
-from bliss.common.logtools import *
+from bliss.common.logtools import log_debug, log_debug_data
 from bliss import global_map
 
 __TMO_TUPLE = (

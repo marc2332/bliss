@@ -61,7 +61,6 @@ yml configuration example:
       output: $ls331o_2
       channel: 2
 """
-import types
 import time
 import enum
 import re
@@ -69,26 +68,31 @@ import os
 import sys
 
 from bliss import global_map
-from bliss.comm import serial
-from bliss.comm.util import get_interface, get_comm
+from bliss.comm.util import get_comm
 from bliss.common.logtools import log_info, log_debug, log_debug_data, log_warning
-from bliss.common.utils import autocomplete_property
-
 from bliss.controllers.regulator import Controller
-from bliss.controllers.regulation.temperature.lakeshore.lakeshore import (
+
+# --- patch the Input, Output and Loop classes
+from bliss.controllers.regulation.temperature.lakeshore.lakeshore import (  # noqa: F401
     LakeshoreInput as Input
 )
-from bliss.controllers.regulation.temperature.lakeshore.lakeshore import (
+from bliss.controllers.regulation.temperature.lakeshore.lakeshore import (  # noqa: F401
     LakeshoreOutput as Output
 )
-from bliss.controllers.regulation.temperature.lakeshore.lakeshore import (
+from bliss.controllers.regulation.temperature.lakeshore.lakeshore import (  # noqa: F401
     LakeshoreLoop as Loop
 )
 
 _last_call = time.time()
-# limit number of commands per second
-# lakeshore 331 supports at most 20 commands per second
+
+
 def _send_limit(func):
+    """
+    limit number of commands per second.
+
+    lakeshore 331 supports at most 20 commands per second
+    """
+
     def f(*args, **kwargs):
         global _last_call
         delta_t = time.time() - _last_call
@@ -1039,7 +1043,7 @@ class LakeShore331(Controller):
                 % (crvn, user_min_curve, user_max_curve)
             )
 
-        if os.path.isfile(crvfile) == False:
+        if not os.path.isfile(crvfile):
             raise FileNotFoundError("Curve file %s not found" % crvfile)
 
         print("Readings from actual curve %d in LakeShore 331 :" % crvn)
@@ -1125,8 +1129,7 @@ class LakeShore331(Controller):
                     if exp.match(line):
                         calibrationStart = 1
                 if calibrationStart:
-                    l = line.strip(" ")
-                    ll = l.rsplit()
+                    ll = line.strip(" ").rsplit()
                     if len(ll) == 3:
                         command = "CRVPT %d,%d,%6g,%6g" % (
                             crvn,

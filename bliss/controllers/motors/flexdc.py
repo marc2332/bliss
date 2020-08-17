@@ -5,12 +5,9 @@
 # Copyright (c) 2015-2020 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-from warnings import warn
-
 from bliss.controllers.motor import Controller
 from bliss.common.axis import AxisState
-from bliss.common.utils import object_method
-from bliss.common.logtools import *
+from bliss.common.logtools import log_debug, log_error, log_warning
 from bliss import global_map
 
 from bliss.comm.util import get_comm, TCP
@@ -33,7 +30,7 @@ class FlexDC(Controller):
             self.sock = get_comm(self.config.config_dict, ctype=TCP, port=4000)
         except ValueError:
             host = self.config.get("host")
-            warn("'host' keyword is deprecated. Use 'tcp' instead", DeprecationWarning)
+            log_warning(self, "'host' keyword is deprecated. Use 'tcp' instead")
             comm_cfg = {"tcp": {"url": host}}
             self.sock = get_comm(comm_cfg, port=4000)
 

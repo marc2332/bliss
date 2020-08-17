@@ -39,7 +39,9 @@ def calc_coeff(num_points, pol_degree, diff_order=0):
     # and maybe other functions than monomials ....
 
     x = numpy.arange(-num_points, num_points + 1, dtype=numpy.int)
-    monom = lambda x, deg: pow(x, deg)
+
+    def monom(x, deg):
+        return pow(x, deg)
 
     A = numpy.zeros((2 * num_points + 1, pol_degree + 1), numpy.float)
     for i in range(2 * num_points + 1):

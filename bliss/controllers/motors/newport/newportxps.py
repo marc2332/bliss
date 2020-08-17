@@ -15,7 +15,7 @@ from bliss.common.axis import AxisState
 from bliss.common.utils import object_method
 from bliss.controllers.motor import Controller
 from bliss.controllers.motors.newport.xps import XPS
-from bliss.common.logtools import *
+from bliss.common.logtools import log_debug, log_error, log_info
 
 """
 Bliss controller for XPS-Q motor controller.

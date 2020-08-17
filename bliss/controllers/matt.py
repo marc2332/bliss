@@ -64,7 +64,7 @@ from bliss.controllers.wago.wago import WagoController, ModulesConfig
 from bliss.comm.util import get_comm
 import time
 from bliss.common.utils import wrap_methods
-from bliss.common.logtools import *
+from bliss.common.logtools import log_debug
 from bliss import global_map
 
 
@@ -261,7 +261,6 @@ class MattControl:
 
     def pos_write(self, value):
         log_debug(self, "In pos_write(%s)", value)
-        valarr = []
         valarr = [False] * self.nb_filter
 
         for i in range(self.nb_filter):

@@ -174,7 +174,7 @@ class LogWidget(qt.QTreeView):
                     )
             else:
                 dateTimeItem = None
-        except Exception as e:
+        except Exception:
             # Make sure everything is fine
             dateTimeItem = None
             sys.excepthook(*sys.exc_info())

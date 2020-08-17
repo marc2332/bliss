@@ -13,20 +13,16 @@ SpecClientNotConnectedError -- exception class
 SpecConnection
 SpecConnectionDispatcher
 """
-import gevent
 import gevent.socket
 import socket
-import weakref
 from functools import wraps
 from bliss.common import event
-from bliss.common.logtools import *
+from bliss.common.logtools import log_error, log_exception, log_info
 from bliss import global_map
 from .error import SpecClientNotConnectedError
 from .channel import SpecChannel
 from .message import *
 from .message import message as spec_message
-from .reply import SpecReply
-import sys
 
 (DISCONNECTED, PORTSCANNING, WAITINGFORHELLO, CONNECTED) = (1, 2, 3, 4)
 (MIN_PORT, MAX_PORT) = (6510, 6530)

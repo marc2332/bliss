@@ -1,7 +1,6 @@
 # Imports
 import numpy
 import scipy.misc
-from bliss.common.plot import *
 
 # Test data
 

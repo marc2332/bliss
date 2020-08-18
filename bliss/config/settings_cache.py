@@ -106,7 +106,7 @@ class CacheConnection:
         self._prefetch_objects = _PrefetchDict(self)
 
     def __getattr__(self, name):
-        if name.startswith("_"):
+        if name.startswith("__"):
             raise AttributeError(name)
         return getattr(self._base_cnx, name)
 

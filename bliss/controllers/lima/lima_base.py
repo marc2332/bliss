@@ -680,26 +680,6 @@ class Lima(CounterController):
     def processing(self):
         return self._processing
 
-    def configure_saving(self):
-        """shell dialog for saving related settings"""
-        from bliss.shell.dialog.controller.lima_dialogs import (
-            lima_saving_parameters_dialog
-        )
-
-        lima_saving_parameters_dialog(self)
-
-    def configure_processing(self):
-        """shell dialog for processing related settings"""
-        from bliss.shell.dialog.controller.lima_dialogs import lima_processing_dialog
-
-        lima_processing_dialog(self)
-
-    def configure_image(self):
-        """shell dialog for image related settings"""
-        from bliss.shell.dialog.controller.lima_dialogs import lima_image_dialog
-
-        lima_image_dialog(self)
-
     @autocomplete_property
     def saving(self):
         return self._saving

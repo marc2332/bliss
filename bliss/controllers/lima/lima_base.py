@@ -89,336 +89,40 @@ class Lima(CounterController):
     _BPM = "bpm"
     _BG_SUB = "backgroundsubstraction"
 
-    # Standard interface
-
-    class LimaSavingParameters(BeaconObject):
-        _suffix_conversion_dict = {
-            "EDFGZ": ".edf.gz",
-            "EDFLZ4": ".edf.lz4",
-            "HDF5": ".h5",
-            "HDF5GZ": ".h5",
-            "HDF5BS": ".h5",
-            "CBFMHEADER": ".cbf",
-        }
-
-        class SavingMode(enum.IntEnum):
-            ONE_FILE_PER_FRAME = 0
-            ONE_FILE_PER_SCAN = 1
-            ONE_FILE_PER_N_FRAMES = 2
-            SPECIFY_MAX_FILE_SIZE = 3
-
-        def __init__(self, config, proxy, name):
-            self._proxy = proxy
-            super().__init__(config, name=name, share_hardware=False, path=["saving"])
-
-        mode = BeaconObject.property_setting(
-            "mode", default=SavingMode.ONE_FILE_PER_N_FRAMES
-        )
-
-        @mode.setter  ## TODO: write some doc about return of setter
-        def mode(self, mode):
-            if type(mode) is self.SavingMode:
-                return mode
-            elif mode in self.SavingMode.__members__.keys():
-                return self.SavingMode[mode]
-            elif self.SavingMode.__members__.values():
-                return self.SavingMode(mode)
-            else:
-                raise RuntimeError("trying to set unkown saving mode")
-
-        @property
-        def available_saving_modes(self):
-            return list(self.SavingMode.__members__.keys())
-
-        @property
-        def available_saving_formats(self):
-            return self._proxy.getAttrStringValueList("saving_format")
-
-        _frames_per_file_doc = """used in ONE_FILE_PER_N_FRAMES mode"""
-        frames_per_file = BeaconObject.property_setting(
-            "frames_per_file", default=100, doc=_frames_per_file_doc
-        )
-
-        _max_file_size_in_MB_doc = """used in N_MB_PER_FILE mode"""
-        max_file_size_in_MB = BeaconObject.property_setting(
-            "max_file_size_in_MB", default=500, doc=_max_file_size_in_MB_doc
-        )
-
-        _max_writing_tasks = BeaconObject.property_setting(
-            "_max_writing_tasks", default=1
-        )
-
-        @_max_writing_tasks.setter
-        def _max_writing_tasks(self, value):
-            assert isinstance(value, int)
-            assert value > 0
-            return value
-
-        _managed_mode = BeaconObject.property_setting(
-            "_managed_mode", default="SOFTWARE"
-        )
-
-        @_managed_mode.setter
-        def _managed_mode(self, value):
-            assert isinstance(value, str)
-            value = value.upper()
-            assert value in ["SOFTWARE", "HARDWARE"]
-            return value
-
-        file_format = BeaconObject.property_setting("file_format", default="HDF5")
-
-        @file_format.setter
-        def file_format(self, fileformat):
-            avail_ff = self.available_saving_formats
-            if fileformat in avail_ff:
-                return fileformat
-            else:
-                raise RuntimeError(
-                    f"trying to set unkown saving format ({fileformat})."
-                    f"available formats are: {avail_ff}"
-                )
-
-        def _calc_max_frames_per_file(self):
-            (sign, depth, width, height) = self._proxy.image_sizes
-            return int(
-                round(self.max_file_size_in_MB / (depth * width * height / 1024 ** 2))
-            )
-
-        def to_dict(self):
-            """
-            if saving_frame_per_file = -1 it has to be recalculated in the acq 
-            dev and to be replaced by npoints of scan
-            """
-
-            if self.mode == self.SavingMode.ONE_FILE_PER_N_FRAMES:
-                frames = self.frames_per_file
-            elif self.mode == self.SavingMode.ONE_FILE_PER_SCAN:
-                frames = -1
-            elif self.mode == self.SavingMode.SPECIFY_MAX_FILE_SIZE:
-                frames = self._calc_max_frames_per_file()
-            else:
-                frames = 1
-
-            # force saving_max_writing_task in case any HDF based file format is used
-            # this logic could go into lima at some point.
-            if "HDF" in self.settings["file_format"]:
-                max_tasks = 1
-            else:
-                max_tasks = self.settings["_max_writing_tasks"]
-
-            return {
-                "saving_format": self.settings["file_format"],
-                "saving_frame_per_file": frames,
-                "saving_suffix": self.suffix_dict[self.settings["file_format"]],
-                "saving_max_writing_task": max_tasks,
-                "saving_managed_mode": self._managed_mode,
-            }
-
-        @property
-        def suffix_dict(self):
-            _suffix_dict = {k: "." + k.lower() for k in self.available_saving_formats}
-            _suffix_dict.update(self._suffix_conversion_dict)
-            return _suffix_dict
-
-        def __info__(self):
-            tmp = self.to_dict()
-            av_modes = "\n                   ".join((self.available_saving_modes))
-            return textwrap.dedent(
-                f"""                Saving
-                --------------
-                File Format:  {self.file_format}
-                └->  Suffix:  {tmp['saving_suffix']}
-                Current Mode: {self.mode.name}
-                Available Modes:
-                   {av_modes}
-                
-                for ONE_FILE_PER_N_FRAMES mode
-                ------------------------------
-                frames_per_file: {self.frames_per_file}
-                
-                for SPECIFY_MAX_FILE_SIZE mode
-                ------------------------------
-                max file size (MB):  {self.max_file_size_in_MB}
-                └-> frams per file: {self._calc_max_frames_per_file()}
-                
-                Expert Settings
-                ---------------
-                config max_writing_tasks:  {self._max_writing_tasks}
-                current max_writing_tasks: {tmp['saving_max_writing_task']}
-                lima managed_mode:         {self._managed_mode}
-                """
-            )
-
-    class LimaProcessing(BeaconObject):
-
-        BG_SUB_MODES = {
-            "disable": "Disabled",
-            "enable_on_fly": "Enabled (Take bg-image on demand)",
-            "enable_file": "Enabled (Take bg-image from file)",
-        }
-
-        def __init__(self, config, proxy, name):
-            self._proxy = proxy
-            self._mask_changed = False
-            self._flatfield_changed = False
-            self._background_changed = False
-            super().__init__(
-                config, name=name, share_hardware=False, path=["processing"]
-            )
-
-        mask = BeaconObject.property_setting("mask", default="")
-
-        @mask.setter
-        def mask(self, value):
-            assert isinstance(value, str)
-            if self.mask != value:
-                self._mask_changed = True
-            return value
-
-        use_mask = BeaconObject.property_setting("use_mask", default=False)
-
-        @use_mask.setter
-        def use_mask(self, value):
-            assert isinstance(value, bool)
-            return value
-
-        flatfield = BeaconObject.property_setting("flatfield", default="")
-
-        @flatfield.setter
-        def flatfield(self, value):
-            assert isinstance(value, str)
-            if self.flatfield != value:
-                self._flatfield_changed = True
-            return value
-
-        use_flatfield = BeaconObject.property_setting("use_flatfield", default=False)
-
-        @use_flatfield.setter
-        def use_flatfield(self, value):
-            assert isinstance(value, bool)
-            return value
-
-        runlevel_mask = BeaconObject.property_setting("runlevel_mask", default=0)
-        runlevel_flatfield = BeaconObject.property_setting(
-            "runlevel_flatfield", default=1
-        )
-        runlevel_background = BeaconObject.property_setting(
-            "runlevel_background", default=2
-        )
-        runlevel_roicounter = BeaconObject.property_setting(
-            "runlevel_roicounter", default=10
-        )
-        runlevel_bpm = BeaconObject.property_setting("runlevel_bpm", default=10)
-
-        @runlevel_mask.setter
-        def runlevel_mask(self, value):
-            assert isinstance(value, int)
-            return value
-
-        @runlevel_flatfield.setter
-        def runlevel_flatfield(self, value):
-            assert isinstance(value, int)
-            return value
-
-        @runlevel_background.setter
-        def runlevel_background(self, value):
-            assert isinstance(value, int)
-            return value
-
-        @runlevel_roicounter.setter
-        def runlevel_roicounter(self, value):
-            assert isinstance(value, int)
-            return value
-
-        @runlevel_bpm.setter
-        def runlevel_bpm(self, value):
-            assert isinstance(value, int)
-            return value
-
-        background = BeaconObject.property_setting("background", default="")
-
-        @background.setter
-        def background(self, value):
-            assert isinstance(value, str)
-            if self.background != value:
-                self._background_changed = True
-            return value
-
-        use_background_substraction = BeaconObject.property_setting(
-            "use_background_substraction", default="disable"
-        )
-
-        @use_background_substraction.setter
-        def use_background_substraction(self, value):
-            assert isinstance(value, str)
-            assert value in self.BG_SUB_MODES.keys()
-            return value
-
-        def to_dict(self):
-            return {
-                "use_mask": self.use_mask,
-                "use_flatfield": self.use_flatfield,
-                "use_background_substraction": self.use_background_substraction,
-            }
-
-        def __info__(self):
-            return textwrap.dedent(
-                f"""            Mask
-            ----
-            use mask: {self.use_mask}
-            mask image path: {self.mask}
-            
-            Flatfield
-            ---------
-            use flatfield: {self.use_flatfield}
-            flatfield image path: {self.flatfield} 
-            
-            Background Substraction
-            -----------------------
-            mode: {self.BG_SUB_MODES[self.use_background_substraction]}
-            background_image_path: {self.background}
-            
-            Expert Settings
-            ---------------
-            Lima Run-Level:
-               Mask           {self.runlevel_mask}
-               Flatfield:     {self.runlevel_flatfield}
-               Bg-Sub:        {self.runlevel_background}
-               Roi Counters:  {self.runlevel_roicounter}
-               BPM:           {self.runlevel_bpm}
-            """
-            )
-
-    def __init__(self, name, config_tree):
+    def __init__(self, name, config_node):
         """Lima controller.
 
         name -- the controller's name
-        config_tree -- controller configuration
+        config_node -- controller configuration
         in this dictionary we need to have:
         tango_url -- tango main device url (from class LimaCCDs)
         optional:
         tango_timeout -- tango timeout (s)
         """
-        self.__tg_url = config_tree.get("tango_url")
-        self.__tg_timeout = config_tree.get("tango_timeout", 3)
-        self.__prepare_timeout = config_tree.get("prepare_timeout", None)
+        self.__tg_url = config_node.get("tango_url")
+        self.__tg_timeout = config_node.get("tango_timeout", 3)
+        self.__prepare_timeout = config_node.get("prepare_timeout", None)
         self.__bpm = None
         self.__roi_counters = None
-        self._instrument_name = config_tree.root.get("instrument", "")
+        self._instrument_name = config_node.root.get("instrument", "")
         self.__bg_sub = None
         self.__last = None
+        self._config_node = config_node
         self._camera = None
         self._image = None
         self._shutter = None
         self._acquisition = None
         self._accumulation = None
+        self._saving = None
+        self._processing = None
+        self.__image_params = None
         self._debug = None
         self._proxy = self._get_proxy()
         self._cached_ctrl_params = {}
 
         super().__init__(name)
 
-        self._directories_mapping = config_tree.get("directories_mapping", dict())
+        self._directories_mapping = config_node.get("directories_mapping", dict())
         self._active_dir_mapping = settings.SimpleSetting(
             "%s:directories_mapping" % name
         )
@@ -428,48 +132,26 @@ class Lima(CounterController):
             self, parents_list=["lima", "controllers"], children_list=[self._proxy]
         )
 
-        clear_cache(self)
-
-        if current_session:
-            name_prefix = current_session.name
-        else:
-            name_prefix = ""
-
-        self._saving = self.LimaSavingParameters(
-            config_tree, self._proxy, f"{name_prefix}:{self.name}:saving"
-        )
-
-        self._processing = self.LimaProcessing(
-            config_tree, self._proxy, f"{name_prefix}:{self.name}:processing"
-        )
-
-        self._image_params = LimaImageParameters(
-            config_tree, self._proxy, f"{name_prefix}:{self.name}:image"
-        )
-
-        self.set_bliss_device_name()
-
     def set_bliss_device_name(self):
-        ### use tango db to check if device is exported
-        ### if yes, set user device name on init.
         if hasattr(self.proxy, "lima_version"):
             try:
-                if Database().get_device_info(self.__tg_url).exported:
-                    try:
-                        self.proxy.user_instrument_name = self._instrument_name
-                    except DevFailed:
-                        pass
-                    try:
-                        self.proxy.user_detector_name = self.name
-                    except DevFailed:
-                        pass
+                try:
+                    self.proxy.user_instrument_name = self._instrument_name
+                except DevFailed:
+                    pass
+                try:
+                    self.proxy.user_detector_name = self.name
+                except DevFailed:
+                    pass
             except (RuntimeError, DevFailed):
                 pass
 
-    def __close__(self):
-        self._processing.__close__()
-        self._saving.__close__()
-        self._image_params.__close__()
+    @property
+    def _name_prefix(self):
+        try:
+            return f"{current_session.name}:{self.name}"
+        except AttributeError:
+            return self.name
 
     def get_acquisition_object(self, acq_params, ctrl_params, parent_acq_params):
         return LimaAcquisitionMaster(self, ctrl_params=ctrl_params, **acq_params)
@@ -678,10 +360,18 @@ class Lima(CounterController):
 
     @autocomplete_property
     def processing(self):
+        if self._processing is None:
+            self._processing = LimaProcessing(
+                self._config_node, self._proxy, f"{self._name_prefix}:processing"
+            )
         return self._processing
 
     @autocomplete_property
     def saving(self):
+        if self._saving is None:
+            self._saving = LimaSavingParameters(
+                self._config_node, self._proxy, f"{self._name_prefix}:saving"
+            )
         return self._saving
 
     @property
@@ -750,6 +440,14 @@ class Lima(CounterController):
                 base_class_args=(self, self._proxy),
             )
         return self._image
+
+    @autocomplete_property
+    def _image_params(self):
+        if self.__image_params is None:
+            self.__image_params = LimaImageParameters(
+                self._config_node, self._proxy, f"{self._name_prefix}:image"
+            )
+        return self.__image_params
 
     @autocomplete_property
     def shutter(self):

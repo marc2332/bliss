@@ -36,6 +36,12 @@ from bliss.controllers.lima.saving import LimaSavingParameters
 from bliss.controllers.lima.processing import LimaProcessing
 
 
+class LimaBeaconObject(BeaconObject):
+    @BeaconObject.lazy_init
+    def to_dict(self):
+        return dict(self.settings.items())
+
+
 class CameraBase(object):
     def __init__(self, name, lima_device, proxy):
         pass

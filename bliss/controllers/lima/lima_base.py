@@ -488,7 +488,17 @@ class Lima(CounterController):
     def accumulation(self):
         if self._accumulation is None:
             self._accumulation = LimaProperties(
-                "LimaAccumulation", self.proxy, prefix="acc_", strip_prefix=True
+                "LimaAccumulation",
+                self.proxy,
+                prefix="acc_",
+                strip_prefix=True,
+                base_class=LimaBeaconObject,
+                base_class_args=(self._config_node,),
+                base_class_kwargs={
+                    "name": f"{self._name_prefix}:accumulation",
+                    "share_hardware": False,
+                    "path": ["accumulation"],
+                },
             )
         return self._accumulation
 

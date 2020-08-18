@@ -40,7 +40,7 @@ class LimaBeaconObject(BeaconObject):
     @BeaconObject.lazy_init
     def to_dict(self):
         # inherits from 'prefix' from LimaAttrGetterSetter
-        return { self.prefix+k: v for k, v in self.settings.items() }
+        return {self.prefix + k: v for k, v in self.settings.items()}
 
 
 class CameraBase(object):
@@ -217,7 +217,6 @@ class Lima(CounterController):
         return f"{self._proxy.image_sizes}{self._proxy.image_roi}{self._proxy.image_flip}{self._proxy.image_bin}{self._proxy.image_rotation}"
 
     def apply_parameters(self, ctrl_params):
-
         if "image_roi" in ctrl_params:
             # make sure that image_roi is applied last (last element in ctrl_params)
             ctrl_params["image_roi"] = ctrl_params.pop("image_roi")
@@ -354,6 +353,7 @@ class Lima(CounterController):
             **self.saving.to_dict(),
             **self.processing.to_dict(),
             **self._image_params.to_dict(),
+            **self.accumulation.to_dict(),
         }
 
     def clear_cache(self):

@@ -131,7 +131,6 @@ class LimaAcquisitionMaster(AcquisitionMaster):
         lima_master_acc_schema = {
             "acq_mode": {"type": "string", "required": True},
             "acc_time_mode": {"default": "LIVE", "allowed": ["LIVE"]},
-            "acc_max_expo_time": {"type": "numeric", "default": 1.},
         }
 
         lima_master_schema = {

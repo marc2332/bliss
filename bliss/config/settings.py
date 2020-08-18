@@ -1651,7 +1651,6 @@ class ParametersWardrobe(metaclass=ParametersType):
         Raises:
             NameError
         """
-
         if name not in self.instances:
             raise NameError(f"The instance name '{name}' does not exist")
 

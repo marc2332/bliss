@@ -7,11 +7,10 @@ class WagoMotor(Controller):
     def __init__(self, *args, **kwargs):
 
         super().__init__(*args, **kwargs)
-        self.axis_config = self.config.config_dict["axes"]
 
     def initialize(self):
         # initialize hardware communication
-        self.wago = self.config.config_dict["wago"]
+        self.wago = self.config.get("wago", converter=None)
 
         self.axis_settings.config_setting["velocity"] = False
         self.axis_settings.config_setting["acceleration"] = False

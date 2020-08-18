@@ -49,8 +49,13 @@ def camel_to_snake(camelCasedStr):
 
 
 class LimaAttrGetterSetter:
-    def __init__(self, proxy):
+    def __init__(self, proxy, prefix=None):
         self.__proxy = proxy
+        self.__prefix = prefix if prefix is not None else ""
+
+    @property
+    def prefix(self):
+        return self.__prefix
 
     def _get_enum(self, values_enum):
         return values_enum
@@ -184,7 +189,7 @@ def LimaProperties(
         if not base_class_kwargs:
             base_class_kwargs = {}
         o = klass(*base_class_args, **base_class_kwargs)
-        LimaAttrGetterSetter.__init__(o, proxy)
+        LimaAttrGetterSetter.__init__(o, proxy, prefix=prefix if strip_prefix else None)
         return o
     else:
-        return klass(proxy)
+        return klass(proxy, prefix=prefix if strip_prefix else None)

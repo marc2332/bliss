@@ -39,7 +39,8 @@ from bliss.controllers.lima.processing import LimaProcessing
 class LimaBeaconObject(BeaconObject):
     @BeaconObject.lazy_init
     def to_dict(self):
-        return dict(self.settings.items())
+        # inherits from 'prefix' from LimaAttrGetterSetter
+        return { self.prefix+k: v for k, v in self.settings.items() }
 
 
 class CameraBase(object):

@@ -187,11 +187,11 @@ def test_empty_key_object(beacon):
 
 
 def test_prefetch_key(beacon):
-    base_key = "val_"
-    k = [settings.SimpleSetting(f"{base_key}{i}") for i in range(4)]
+    keys = [f"val_{i}" for i in range(4)]
+    k = [settings.SimpleSetting(name) for name in keys]
 
     cache = settings_cache.CacheConnection(k[0].connection)
-    k2 = [settings.SimpleSetting(f"{base_key}{i}", connection=cache) for i in range(4)]
+    k2 = [settings.SimpleSetting(name, connection=cache) for name in keys]
     cache.add_prefetch(*k2)
 
     # init value
@@ -200,7 +200,7 @@ def test_prefetch_key(beacon):
     # generate first cache failed
     assert k2[0].get() == 0
     # check cache
-    assert not (set([f"{base_key}{i}" for i in range(4)]) - cache._cache_values.keys())
+    assert not set(keys) - cache._cache_values.keys()
 
     # remove prefetch
     # should remove cached values

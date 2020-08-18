@@ -10,10 +10,11 @@ import fnmatch
 import redis
 import gevent
 from functools import wraps
-from bliss.data import node
+from collections.abc import MutableMapping
 
-from .conductor import client
-from . import settings
+from bliss.data import node
+from bliss.config.conductor import client
+from bliss.config import settings
 
 _CONNECTION_CACHE = dict()
 _CONNECTION_LOCK = gevent.lock.RLock()
@@ -61,6 +62,29 @@ def synchronized(func):
     return f
 
 
+class _PrefetchDict(MutableMapping):
+    def __init__(self, cache):
+        self._prefetched_objs = weakref.WeakKeyDictionary()
+        self._cache = weakref.proxy(cache)
+
+    def __setitem__(self, key, value):
+        self._prefetched_objs[key] = value
+
+    def __getitem__(self, key):
+        return self._prefetched_objs[key]
+
+    def __delitem__(self, key):
+        name, _ = self._prefetched_objs[key]
+        del self._prefetched_objs[key]
+        self._cache._cache_values.pop(name, None)
+
+    def __iter__(self):
+        return iter(self._prefetched_objs)
+
+    def __len__(self):
+        return len(self._prefetched_objs)
+
+
 class CacheConnection:
     """
     This object cache value for settings locally.
@@ -68,15 +92,6 @@ class CacheConnection:
     """
 
     TYPE = enum.Enum("TYPE", "HASH KEY QUEUE ZSET")
-
-    class _PrefetchDict(weakref.WeakKeyDictionary):
-        def __init__(self, cache):
-            super().__init__()
-            self._cache = weakref.proxy(cache)
-
-        def __delitem__(self, key):
-            super().__delitem__(key)
-            self._cache._cache_values.pop(key)
 
     def __init__(self, cnx):
         self._base_cnx = cnx
@@ -88,7 +103,7 @@ class CacheConnection:
         # None == not initialized
         self._able_to_cache = None
         self._cache_values = dict()
-        self._prefetch_objects = CacheConnection._PrefetchDict(self)
+        self._prefetch_objects = _PrefetchDict(self)
 
     def __getattr__(self, name):
         if name.startswith("_"):
@@ -156,9 +171,9 @@ class CacheConnection:
     def add_prefetch(self, *objects):
         """
         Adds object to be pre-fetched in block in case of any cache failed.
-        Objects added well be always kept in memory even if it is not accessed.
+        Objects will be always kept in memory even if it is not accessed.
 
-        Any settings can be added to be pre-fetched.
+        Any setting can be added to be pre-fetched.
         """
         for obj in objects:
             name = obj.name

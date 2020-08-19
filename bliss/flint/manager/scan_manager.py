@@ -29,6 +29,7 @@ from typing import Dict
 from typing import Tuple
 from typing import List
 from typing import Any
+from typing import Set
 
 import logging
 import numpy
@@ -44,7 +45,7 @@ from .data_storage import DataStorage
 from bliss.flint.helper import scan_info_helper
 from bliss.flint.model import flint_model
 from bliss.flint.model import scan_model
-from bliss.data.nodes.lima import LimaImageChannelDataNode
+from bliss.data.nodes import lima as lima_nodes
 from bliss.data.node import get_node
 
 
@@ -67,7 +68,7 @@ class _ScanCache:
         """Store metadata relative to lima video"""
         self.data_storage = DataStorage()
         """"Store 0d grouped by masters"""
-        self.__image_views: Dict[str, LimaImageChannelDataNode.LimaDataView] = {}
+        self.__image_views: Dict[str, lima_nodes.LimaDataView] = {}
         """Store lima node per channel name"""
         self.__ignored_channels: Set[str] = set([])
         """Store a set of channels"""
@@ -351,7 +352,9 @@ class ScanManager:
         # An updated is needed when bliss provides a most recent frame
         return redis_frame_id > stored_frame_id
 
-    def __get_image(self, cache, image_view, channel_name):
+    def __get_image(
+        self, cache: _ScanCache, image_view: lima_nodes.LimaDataView, channel_name: str
+    ):
         """Try to reach the image"""
         frame = None
         try:

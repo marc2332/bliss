@@ -7,7 +7,6 @@
 
 from __future__ import annotations
 from typing import Dict
-from typing import Optional
 from typing import Any
 
 import numpy
@@ -20,7 +19,7 @@ from silx.gui import qt
 from bliss.flint.model import flint_model
 from bliss.flint.model import scan_model
 from bliss.flint.manager import scan_manager
-from bliss.data.nodes.lima import Frame
+from bliss.data.events.lima_io import Frame
 
 
 _logger = logging.getLogger(__name__)
@@ -67,7 +66,6 @@ class _VirtualScan:
         self.scan_info: Dict[str, Any] = {}
         self.__duration: int = 0
         self.__interval: int = 0
-        self.__timer: Optional[qt.QTimer] = None
         self.__timer = qt.QTimer(parent)
         self.__timer.timeout.connect(self.safeProcessData)
         self.__scan_manager = scanManager
@@ -116,9 +114,13 @@ class _VirtualScan:
     def safeProcessData(self):
         try:
             self.processData()
+        except Exception:
+            _logger.error("Error while updating data", exc_info=True)
+            self.__endOfScan()
         except:
             _logger.error("Error while updating data", exc_info=True)
             self.__endOfScan()
+            raise
 
     def processData(self):
         duration = (time.time() - self.__startTime) * 1000
@@ -610,7 +612,7 @@ class AcquisitionSimulator(qt.QObject):
         nbY = nbPoints // nbX + 1
 
         # Time base
-        index1 = numpy.linspace(0, duration, nbPoints)
+        index1 = numpy.linspace(0, duration, nbX * nbY)
         scan.registerData(1, master_time1_index, index1)
 
         # Motor position

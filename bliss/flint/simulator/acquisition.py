@@ -612,7 +612,7 @@ class AcquisitionSimulator(qt.QObject):
         nbY = nbPoints // nbX + 1
 
         # Time base
-        index1 = numpy.linspace(0, duration, nbPoints)
+        index1 = numpy.linspace(0, duration, nbX * nbY)
         scan.registerData(1, master_time1_index, index1)
 
         # Motor position

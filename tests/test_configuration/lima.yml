@@ -22,6 +22,9 @@
   image:
       rotation: 90
 
+  accumulation:
+      max_expo_time: 2
+
 - name: lima_simulator2
   plugin: bliss
   class: Lima

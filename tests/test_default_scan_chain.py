@@ -306,21 +306,28 @@ def test_default_chain_with_lima_defaults_parameters2(default_session, lima_simu
                     "acquisition_settings": {
                         "acq_mode": "ACCUMULATION",
                         "acq_trigger_mode": "INTERNAL_TRIGGER_MULTI",
-                        "acc_max_expo_time": 0.2,
                     },
                 },
             ]
         )
 
-        assert lima_sim.proxy.acq_trigger_mode == "INTERNAL_TRIGGER"
+        assert lima_sim.proxy.acq_trigger_mode == "INTERNAL_TRIGGER"  # default mode
+        assert lima_sim.accumulation.max_expo_time == 2  # hardcoded in yml file
         s = loopscan(1, .1, lima_sim, save=False)
         assert lima_sim.proxy.acq_trigger_mode == "INTERNAL_TRIGGER_MULTI"
-        assert lima_sim.proxy.acc_max_expo_time == .2
+        assert lima_sim.proxy.acc_max_expo_time == 2  # check that it was set properly
         assert lima_sim.proxy.acq_nb_frames == 1
 
         # test for issue 1705
         s2 = loopscan(2, .1, lima_sim, save=False)
         assert lima_sim.proxy.acq_nb_frames == 2
+
+        # test for issue 1603
+        lima_sim.accumulation.max_expo_time = 1
+        s = loopscan(1, .1, lima_sim, save=False)
+        assert lima_sim.proxy.acc_max_expo_time == 1  # check that it was set properly
+        lima_sim.accumulation.apply_config()
+        assert lima_sim.accumulation.max_expo_time == 2
     finally:
         DEFAULT_CHAIN.set_settings([])
 

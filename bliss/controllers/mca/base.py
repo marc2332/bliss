@@ -148,6 +148,18 @@ class BaseMCA(CounterController):
             "read_all_triggers", False
         )  # only used with SYNC trig mode
 
+        if self.detector_type == DetectorType.MERCURY:
+            if params["trigger_mode"] in [
+                TriggerMode.GATE,
+                TriggerMode.GATE.name,
+                TriggerMode.SYNC,
+                TriggerMode.SYNC.name,
+            ]:
+                block_size = self.estimate_block_size(
+                    params["preset_time"], params["block_size"]
+                )
+                params["block_size"] = block_size
+
         return params
 
     @property

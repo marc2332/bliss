@@ -50,7 +50,7 @@ numexpr
 tango-metadata >= 4.0.3
 
 # Flint
-pyqt
+pyqt >= 5.9
 silx == 0.13.1
 ipython != 7.15.0
 ipykernel >= 5.2  # make sure qtconsole is working

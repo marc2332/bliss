@@ -378,6 +378,28 @@ def _select_default_counter(scan, plot):
                     item.setValueChannel(channelRef)
 
 
+def get_extra_displayed_channels(scan_info: Dict) -> Optional[List[str]]:
+    """Return the list of the displayed channels stored in the scan"""
+    display_extra = scan_info.get("_display_extra", None)
+    if display_extra is not None:
+        displayed_channels = display_extra.get("displayed_channels", None)
+        # Sanitize
+        if displayed_channels is not None:
+            if not isinstance(displayed_channels, list):
+                _logger.warning(
+                    "_display_extra.flint_displayed_channels is not a list: Key ignored"
+                )
+                return None
+            elif len([False for i in displayed_channels if not isinstance(i, str)]) > 0:
+                _logger.warning(
+                    "_display_extra.flint_displayed_channels must only contains strings: Key ignored"
+                )
+                return None
+        return displayed_channels
+    else:
+        return None
+
+
 def create_plot_model(
     scan_info: Dict, scan: Optional[scan_model.Scan] = None
 ) -> List[plot_model.Plot]:
@@ -393,32 +415,14 @@ def create_plot_model(
     else:
         plots = infer_plot_models(scan_info)
 
-    display_extra = scan_info.get("_display_extra", None)
-    if display_extra is not None:
-        if scan is None:
-            scan = create_scan_model(scan_info)
-        displayed_channels = display_extra.get("displayed_channels", None)
-        # Sanitize
-        if displayed_channels is not None:
-            if not isinstance(displayed_channels, list):
-                _logger.warning(
-                    "_display_extra.flint_displayed_channels is not a list: Key ignored"
-                )
-                displayed_channels = None
-            elif len([False for i in displayed_channels if not isinstance(i, str)]) > 0:
-                _logger.warning(
-                    "_display_extra.flint_displayed_channels must only contains strings: Key ignored"
-                )
-                displayed_channels = None
+    displayed_channels = get_extra_displayed_channels(scan_info)
+    if displayed_channels is not None:
+        for plot in plots:
+            if isinstance(
+                plot, (plot_item_model.CurvePlot, plot_item_model.ScatterPlot)
+            ):
+                model_helper.updateDisplayedChannelNames(plot, scan, displayed_channels)
 
-        if displayed_channels is not None:
-            for plot in plots:
-                if isinstance(
-                    plot, (plot_item_model.CurvePlot, plot_item_model.ScatterPlot)
-                ):
-                    model_helper.updateDisplayedChannelNames(
-                        plot, scan, displayed_channels
-                    )
     return plots
 
 

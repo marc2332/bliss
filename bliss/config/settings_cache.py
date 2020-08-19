@@ -99,7 +99,6 @@ class CacheConnection:
         self._lock = gevent.lock.RLock()
         self._listen_task = None
         self._db = cnx.connection_pool.connection_kwargs["db"]
-        # if redis < 6 == False else True
         # None == not initialized
         self._able_to_cache = None
         self._cache_values = dict()
@@ -204,6 +203,19 @@ class CacheConnection:
 
     def clear_all_prefetch(self):
         self._prefetch_objects.clear()
+
+    def pipeline(self):
+        # invalidate all cache
+        self._cache_values.clear()
+        return self._base_cnx.pipeline()
+
+    @auto_connect
+    def evalsha(self, script_name, n, *args):
+        keys = args[:n]
+        self._base_cnx.evalsha(script_name, n, *args)
+        # invalidate cache for those keys
+        for k in keys:
+            self._cache_values.pop(k, None)
 
     # KEY
     @auto_connect

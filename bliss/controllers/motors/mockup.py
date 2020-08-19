@@ -92,7 +92,7 @@ class Mockup(Controller):
 
     def _add_axis(self, axis):
         axis.settings.set("init_count", 0)
-        encoder = axis.config.get("encoder", lambda x: x, default=None)
+        encoder = axis.config.get("encoder", converter=None, default=None)
         if encoder:
             self.initialize_encoder(encoder)
             self.__encoders[encoder]["axis"] = axis.name

@@ -146,7 +146,7 @@ class PI_E712(Controller):
         axis._last_on_target = True
 
         # check servo mode (default true)
-        servo_mode = axis.config.get("servo_mode", lambda x: x, True)
+        servo_mode = axis.config.get("servo_mode", converter=None, default=True)
         if axis.closed_loop != servo_mode:
             # spawn if to avoid recursion
             gevent.spawn(self.activate_closed_loop, axis, servo_mode)

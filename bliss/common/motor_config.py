@@ -56,7 +56,10 @@ class StaticConfig(object):
 
         property_value = self.config_dict.get(property_name)
         if property_value is not None:
-            return converter(property_value)
+            if callable(converter):
+                return converter(property_value)
+            else:
+                return property_value
         else:
             if default != self.NO_VALUE:
                 return default

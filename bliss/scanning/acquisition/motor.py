@@ -330,7 +330,7 @@ def _init_motor_master_channels(channels, axes):
         for axis in axes:
             ctrl = axis.controller
             if ctrl not in ctrl_seen and isinstance(ctrl, CalcController):
-                if ctrl.config.get("emit_real_position", lambda x: x, True):
+                if ctrl.config.get("emit_real_position", converter=None, default=True):
                     monitor_axes.extend(ctrl.reals)
                     channels.extend(
                         (

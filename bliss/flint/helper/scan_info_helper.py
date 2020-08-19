@@ -444,7 +444,7 @@ def read_plot_models(scan_info: Dict) -> List[plot_model.Plot]:
 
         name = plot_description.get("name", None)
         if name is not None:
-            _logger.warning("'name' not yet supported. name '%s' ignored.", name)
+            plot.setName(name)
 
         items = plot_description.get("items", None)
         if not isinstance(items, list):

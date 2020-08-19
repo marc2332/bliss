@@ -412,8 +412,14 @@ class CacheConnection:
                 pipeline.lrange(obj_name, 0, -1)
             elif obj_type == self.TYPE.ZSET:
                 pipeline.zrange(obj_name, 0, -1, withscores=True)
+        ### next lines are copied from redis-py
+        conn = pipeline.connection
+        if not conn:
+            conn = pipeline.connection_pool.get_connection("MULTI", pipeline.shard_hint)
+            pipeline.connection = conn
+        ###
         pipeline_result = pipeline._execute_transaction(
-            self._cnx.connection, pipeline.command_stack, True
+            conn, pipeline.command_stack, True
         )
         for obj_name, result in zip(needed_prefetch_name, pipeline_result):
             self._cache_values[obj_name] = result

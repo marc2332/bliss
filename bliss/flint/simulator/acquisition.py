@@ -7,7 +7,6 @@
 
 from __future__ import annotations
 from typing import Dict
-from typing import Optional
 from typing import Any
 
 import numpy
@@ -67,7 +66,6 @@ class _VirtualScan:
         self.scan_info: Dict[str, Any] = {}
         self.__duration: int = 0
         self.__interval: int = 0
-        self.__timer: Optional[qt.QTimer] = None
         self.__timer = qt.QTimer(parent)
         self.__timer.timeout.connect(self.safeProcessData)
         self.__scan_manager = scanManager
@@ -116,9 +114,13 @@ class _VirtualScan:
     def safeProcessData(self):
         try:
             self.processData()
+        except Exception:
+            _logger.error("Error while updating data", exc_info=True)
+            self.__endOfScan()
         except:
             _logger.error("Error while updating data", exc_info=True)
             self.__endOfScan()
+            raise
 
     def processData(self):
         duration = (time.time() - self.__startTime) * 1000

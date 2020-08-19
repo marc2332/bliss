@@ -160,10 +160,10 @@ def anmesh(
 
     nmotors = len(motor_tuple_list)
     template = "Scanning (%s) from (%s) to (%s) in (%s) points" % (
-        ",".join(["%%s"] * nmotors),
-        ",".join(["%%f"] * nmotors),
-        ",".join(["%%f"] * nmotors),
-        ",".join(["%%d"] * nmotors),
+        ",".join(["%s"] * nmotors),
+        ",".join(["%f"] * nmotors),
+        ",".join(["%f"] * nmotors),
+        ",".join(["%d"] * nmotors),
     )
     _log.info(template, *motor_name_list, *start_list, *stop_list, *npoints_list)
 

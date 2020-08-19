@@ -374,7 +374,7 @@ class PI_E753(Controller):
     def get_axis_info(self, axis):
         """Return Controller specific info about <axis>
         """
-        info_str = "PI INFO:\n"
+        info_str = "PI AXIS INFO:\n"
         info_str += f"     voltage (SVA) = {self.get_voltage(axis)}\n"
         info_str += f"     output voltage (VOL) = {self.get_output_voltage(axis)}\n"
         info_str += f"     closed loop = {self.get_closed_loop(axis)}\n"
@@ -382,8 +382,35 @@ class PI_E753(Controller):
         return info_str
 
     def __info__(self):
-        info_str = f"PI {self.model}\n"
-        info_str += f"     {self.comm.__info__()}"
+        """
+
+        IPSTART:
+        If a DHCP server is present in the network, the
+        IPSTART setting is ignored and the IP address is
+        always obtained from the DHCP server.
+        If the E-753 is directly connected to the Ethernet card in
+        the PC (no DHCP server is present), the current IP
+        address of the E-753 will be as follows:
+        for IPSTART = 0, the IPADR setting will be used
+        for IPSTART = 1, the default value 192.168.0.1 will be
+        used.
+        """
+
+        idn = self.comm.write_readline(b"*IDN?\n").decode()
+        # ifc = self.command("IFC? IPADR MACADR IPSTART", 3)
+        ifc = [
+            bs.decode()
+            for bs in self.comm.write_readlines(b"IFC?  IPADR MACADR IPSTART\n", 3)
+        ]
+
+        info_str = f"CONTROLLER:\n"
+        info_str += f"     ID: {idn}\n"
+        info_str += f"     MAC address: {ifc[1]}\n"
+        info_str += f"     IP address: {ifc[0]}\n"
+        _start_mode = "use IPADR" if ifc[2] == "0" else "use default -> 192.168.0.1"
+        info_str += f"     IP start: IPSTART={ifc[2]}({_start_mode})\n"
+        info_str += f"COMMUNICATION CONFIG:\n     "
+        info_str += self.comm.__info__()
         return info_str
 
     @object_method(types_info=("None", "string"))

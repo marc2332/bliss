@@ -4,6 +4,7 @@ import contextlib
 
 import bliss
 from bliss.common import plot
+from bliss.common.scans.scan_info import ScanInfoFactory
 from bliss.flint.client import plots
 from bliss.scanning.scan import Scan
 from bliss.scanning.scan_display import ScanDisplay
@@ -43,6 +44,36 @@ def test_get_plot(test_session_with_flint, lima_simulator):
 
     p5_data = flint.get_live_scan_data(lima.image.fullname)
     assert len(p5_data.shape) == 2
+
+
+def test_custom_mesh_plot(test_session_with_flint):
+    session = test_session_with_flint
+    # simu1 = session.config.get("simu1")
+    amesh = session.env_dict["amesh"]
+    roby = session.config.get("roby")
+    robz = session.config.get("robz")
+    diode = session.config.get("diode")
+    diode2 = session.config.get("diode2")
+    flint = plot.get_flint()
+
+    s = amesh(roby, 0, 1, 3, robz, 0, 1, 3, 0.001, diode, diode2, run=False)
+
+    # add a custom plot
+    builder = ScanInfoFactory(s.scan_info)
+    builder.add_scatter_plot(
+        name="foo", x="axis:roby", y="axis:robz", value=diode2.fullname
+    )
+    s.run()
+
+    # synchronize redis events with flint
+    flint.wait_end_of_scans()
+
+    p1 = flint.get_default_live_scan_plot("scatter")
+    p2 = flint.get_live_scan_plot(diode2.fullname, "scatter")
+
+    assert p1 != p2
+    assert p2 is not None
+    assert flint.get_plot_name(p2) == "foo"
 
 
 def test_ct_image(test_session_without_flint, lima_simulator):

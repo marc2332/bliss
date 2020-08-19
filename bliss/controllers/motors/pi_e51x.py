@@ -585,6 +585,14 @@ class PI_E51X(Controller):
         _ans = [bs.decode() for bs in self.comm.write_readlines(b"IFC?\n", 6)]
         _txt = _txt + "\n%s :\n%s\n" % ("Communication parameters", "\n".join(_ans))
 
+        """
+        IPSTART
+        <PamValue> defines the startup behavior for configuration of the IP
+        address for TCP/IP communication,
+        0 = use IP address defined with IPADR
+        1 = use DHCP to obtain IP address, if this fails, use IPADR (default);
+        """
+
         _ans = [bs.decode() for bs in self.comm.write_readlines(b"VER?\n", 3)]
         _txt = _txt + "\n%s :\n%s\n" % ("Firmware version", "\n".join(_ans))
 
@@ -599,7 +607,7 @@ class PI_E51X(Controller):
     @object_method(types_info=("None", "string"))
     def get_info(self, axis):
         """
-        Returns a set of usefull information about controller.
+        Return a set of information about controller.
         Helpful to tune the device.
 
         Args:

@@ -8,8 +8,6 @@
 import importlib
 import os
 import enum
-import numpy as np
-from tabulate import tabulate
 import textwrap
 
 from bliss import global_map

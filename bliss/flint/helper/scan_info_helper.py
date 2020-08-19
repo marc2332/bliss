@@ -443,7 +443,7 @@ def read_plot_models(scan_info: Dict) -> List[plot_model.Plot]:
         plot = plot_item_model.ScatterPlot()
 
         name = plot_description.get("name", None)
-        if name != None:
+        if name is not None:
             _logger.warning("'name' not yet supported. name '%s' ignored.", name)
 
         items = plot_description.get("items", None)

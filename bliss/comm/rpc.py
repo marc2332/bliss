@@ -70,9 +70,6 @@ Client::
 import psutil
 import sys
 
-MAX_MEMORY = min(psutil.virtual_memory().total, sys.maxsize)
-MAX_BUFFER_SIZE = int(MAX_MEMORY * 0.8)
-
 import os
 import re
 import inspect
@@ -93,6 +90,10 @@ from bliss.common.logtools import log_debug
 from bliss import global_map
 
 from bliss.common.msgpack_ext import MsgpackContext
+
+
+MAX_MEMORY = min(psutil.virtual_memory().total, sys.maxsize)
+MAX_BUFFER_SIZE = int(MAX_MEMORY * 0.8)
 
 
 @contextlib.contextmanager

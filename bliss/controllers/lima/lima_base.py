@@ -93,6 +93,10 @@ class Lima(CounterController):
     _ROI_COUNTERS = "roicounter"
     _BPM = "bpm"
     _BG_SUB = "backgroundsubstraction"
+    # backward compatibility for old pickled objects in redis,
+    # since classes definition moved
+    LimaSavingParameters = LimaSavingParameters
+    LimaProcessing = LimaProcessing
 
     def __init__(self, name, config_node):
         """Lima controller.

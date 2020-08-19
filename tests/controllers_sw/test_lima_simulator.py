@@ -613,15 +613,6 @@ def test_lima_saving_mode(default_session, lima_simulator):
     )
 
 
-def test_lima_simulator_dialogs(beacon, lima_simulator, clean_gevent):
-    clean_gevent["end-check"] = False
-    simulator = beacon.get("lima_simulator")
-    with pytest.raises(io.UnsupportedOperation):
-        simulator.configure_image()
-        simulator.configure_saving()
-        simulator.configure_processing()
-
-
 def test_reapplication_image_params(beacon, default_session, lima_simulator, caplog):
     simulator = beacon.get("lima_simulator")
     # do one initial scan to set all caches

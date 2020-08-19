@@ -217,6 +217,11 @@ class CacheConnection:
         for k in keys:
             self._cache_values.pop(k, None)
 
+    @auto_connect
+    def delete(self, name):
+        self._base_cnx.delete(name)
+        self._cache_values.pop(name, None)
+
     # KEY
     @auto_connect
     def get(self, name):

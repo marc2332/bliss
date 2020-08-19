@@ -99,7 +99,7 @@ class Icepap(Controller):
 
     def initialize_axis(self, axis):
         if not isinstance(axis, TrajectoryAxis):
-            axis.address = axis.config.get("address", lambda x: x)
+            axis.address = axis.config.get("address", converter=None)
             axis._trajectory_cache = Cache(axis, "trajectory_cache")
 
         if hasattr(axis, "_init_software"):

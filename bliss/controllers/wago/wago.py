@@ -2089,7 +2089,7 @@ class Wago(SamplingCounterController):
         if config_tree.get("tango"):
             try:
                 # if tango url is provided do not consider modbustcp
-                new_config_tree = config_tree.copy()
+                new_config_tree = config_tree.clone()
                 del new_config_tree["modbustcp"]
             except KeyError:
                 pass

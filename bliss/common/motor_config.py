@@ -10,29 +10,38 @@ from bliss.common.utils import Null
 import time
 
 
-def _get_config():
-    from bliss.config import static
-
-    return static.get_config()
-
-
 class StaticConfig(object):
 
     NO_VALUE = Null()
 
-    def __init__(self, config_dict):
-        self.config_dict = config_dict
+    def __init__(self, config_node):
+        if isinstance(config_node, dict):
+            # soft axes controller => no reload, no save
+            self.__config_node = None
+            self.__config_dict = config_node
+        else:
+            self.__config_node = config_node
+            self.__config_dict = config_node.to_dict()
+
         self.__config_has_changed = False
         self.config_channel = None
 
         try:
-            config_chan_name = "config.%s" % config_dict["name"]
+            config_chan_name = "config.%s" % self.config_dict["name"]
         except KeyError:
             # can't have config channel if there is no name
             pass
         else:
             self.config_channel = channels.EventChannel(config_chan_name)
             self.config_channel.register_callback(self._config_changed)
+
+    @property
+    def config_node(self):
+        return self.__config_node
+
+    @property
+    def config_dict(self):
+        return self.__config_dict
 
     def get(self, property_name, converter=str, default=NO_VALUE):
         """Get static property
@@ -54,9 +63,15 @@ class StaticConfig(object):
             self.reload()
             self.__config_has_changed = False
 
-        property_value = self.config_dict.get(property_name)
+        if self.config_node:
+            property_value = self.config_node.get(property_name)  # solve references
+        else:
+            property_value = self.config_dict.get(property_name)
         if property_value is not None:
-            return converter(property_value)
+            if callable(converter):
+                return converter(property_value)
+            else:
+                return property_value
         else:
             if default != self.NO_VALUE:
                 return default
@@ -67,28 +82,24 @@ class StaticConfig(object):
         if self.__config_has_changed:
             self.reload()
             self.__config_has_changed = False
-        cfg = _get_config()
-        config_node = cfg.get_config(self.config_dict["name"])
-        config_node[property_name] = value
-        self.config_dict = config_node.to_dict()
+        if self.config_node is None:
+            self.config_dict[property_name] = value
+        else:
+            self.config_node[property_name] = value
 
     def save(self):
-        cfg = _get_config()
-        config_node = cfg.get_config(self.config_dict["name"])
-        config_node.save()
+        if self.config_node is not None:
+            self.config_node.save()
         self._update_channel()
 
     def reload(self):
         if self.config_channel is None:
             return
-        cfg = _get_config()
-        # this reloads *all* the configuration, hopefully it is not such
-        # a big task and it can be left as simple as it is, if needed
-        # we could selectively reload only parts of the config (e.g one
-        # single object yml file)
-        cfg.reload()
-        config_node = cfg.get_config(self.config_dict["name"])
-        self.config_dict = config_node.to_dict()
+        if self.config_node is None:
+            return
+        self.config_node.reload()
+        self.config_dict.clear()
+        self.config_dict.update(self.config_node.to_dict())
 
     def _update_channel(self):
         if self.config_channel is not None:

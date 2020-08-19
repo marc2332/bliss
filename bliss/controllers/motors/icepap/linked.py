@@ -41,7 +41,7 @@ class LinkedAxis(Axis):
         mot_addresses = linked_axis.get(self.address)
 
         for name, axis in self.controller.axes.items():
-            if axis.config.get("address", lambda x: x) in mot_addresses:
+            if axis.config.get("address", converter=None) in mot_addresses:
                 raise RuntimeError(
                     "Cannot initialize linked axis '%s',"
                     " real axis '%s' found in controller configuration"

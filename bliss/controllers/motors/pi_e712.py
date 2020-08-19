@@ -327,17 +327,21 @@ class PI_E712(Controller):
     def __info__(self):
         idn = self.command("*IDN?")
         ifc = self.command("IFC? IPADR MACADR IPSTART", 3)
-        infos = f"{idn}\n"
-        infos += f"     MAC address : {ifc[1]}\n"
-        infos += f"     IP  address : {ifc[0]}\n"
-        infos += "     IP start    : {0}\n".format(
+        info_str = f"{idn}\n"
+        info_str += f"     MAC address : {ifc[1]}\n"
+        info_str += f"     IP  address : {ifc[0]}\n"
+        info_str += "     IP start    : {0}\n".format(
             ifc[2] == b"1" and "DHCP" or "STATIC"
         )
-        return infos
+        return info_str
 
     def command(self, cmd, nb_line=1):
         """
-        Method to send command to the controller
+        Method to send a command to the controller
+        Read answer if needed (ie. <cmd> contains a '?').
+
+        * Encode <cmd> string.
+        * Add "\n" terminator.
         """
 
         with self.sock.lock:
@@ -867,18 +871,26 @@ class PI_E712(Controller):
         if connected:
             self.get_error()  # read and clear any error
 
-    @object_method(types_info=("None", "None"))
-    def dump(self, axis):
+    @object_method(types_info=("None", "string"))
+    def get_info(self, axis):
+        """ Return hw info
+        Used by tango DS
         """
-        Returns a set of useful information about controller.
+        return self.get_hw_info(axis)
+
+    @object_method(types_info=("None", "None"))
+    def dump_param(self, axis):
+        """ Print hw info
+        """
+        print(self.get_hw_info(axis))
+
+    def get_hw_info(self, axis):
+        """
+        Return a set of information about controller.
         Helpful to tune the device.
 
         Args:
             <axis> : bliss axis
-        Returns:
-            None
-        Raises:
-            ?
         """
         _infos = [
             ("Identifier                 ", "*IDN?"),
@@ -913,7 +925,7 @@ class PI_E712(Controller):
         for text, cmd in _infos:
             _txt = _txt + "    %s %s\n" % (text, self.command(cmd))
 
-        print(_txt)
+        return _txt
 
     def check_power_cut(self):
         """
@@ -942,7 +954,7 @@ class PI_E712(Controller):
 
     def set_sensor_coeffs(self, axis, coeff, value):
         """
-        Needed, when in the table, when senson works the opposite way
+        Needed, when in the table, when sensor works the opposite way
         Returns a list with sensor coefficients:
         * Offset
         * Gain constant order

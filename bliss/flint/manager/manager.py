@@ -64,10 +64,7 @@ class ManageMainBehaviours(qt.QObject):
         if name in [None, ""]:
             device = None
         else:
-            try:
-                device = DeviceProxy(name)
-            except Exception:
-                raise
+            device = DeviceProxy(name)
         self.__flintModel.setTangoMetadata(device)
 
     def flintModel(self) -> flint_model.FlintState:

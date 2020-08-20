@@ -8,9 +8,13 @@
 import gevent
 from contextlib import contextmanager
 import traceback
+import subprocess
+import sys
+import os
 
 from bliss.common import event
 from bliss.comm.rpc import Server, Client
+from bliss.common.utils import get_open_ports
 
 from bliss.common.logtools import get_logger
 
@@ -267,3 +271,35 @@ def test_event_with_lost_remote():
 
     # close client
     client_car.close()
+
+
+def test_issue_1944(beacon):
+    url = f"tcp://127.0.0.1:{get_open_ports(1)[0]}"
+
+    script = subprocess.Popen(
+        [
+            sys.executable,
+            "-u",
+            os.path.join(os.path.dirname(__file__), "issue_1944_server.py"),
+            url,
+        ],
+        stdout=subprocess.PIPE,
+        universal_newlines=True,
+    )
+
+    ### synchronize with process start
+    with gevent.Timeout(5):
+        out = script.stdout.readline()
+        assert out == "OK\n"
+    gevent.sleep(1)
+    ###
+
+    client_obj = Client(url)
+    try:
+        # the next line reproduces the problem in issue #1944
+        names = client_obj.set_root_node(beacon._root_node)
+        # the next line is just the check that the above call worked
+        assert beacon.names_list == names
+    finally:
+        script.terminate()
+        client_obj.close()

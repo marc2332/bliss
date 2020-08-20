@@ -109,12 +109,13 @@ class CacheConnection:
             raise AttributeError(name)
         return getattr(self._base_cnx, name)
 
-    def __del__(self):
-        self.close()
-
     def close(self):
-        if self._listen_task:
+        if self._listen_task is not None:
             self._listen_task.kill()
+        with self._lock:
+            if self._cnx is not None:
+                self._cnx.close()
+        self._cache_values.clear()
 
     def disable_caching(self):
         """
@@ -442,8 +443,7 @@ class CacheConnection:
                             pass
         finally:
             with self._lock:
-                cnx = self._cnx
-                self._cnx = None
-                self._cache_values = dict()
                 pubsub.close()
-                cnx.close()
+                self._listen_task = (
+                    None
+                )  # ensure a .close() won't try to close socket again

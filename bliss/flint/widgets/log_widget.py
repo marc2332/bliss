@@ -66,6 +66,12 @@ class LogWidget(qt.QTreeView):
     ModuleNameColumn = 2
     MessageColumn = 3
 
+    activated = qt.Signal()
+    """Sent when the window get the focus"""
+
+    logEmitted = qt.Signal(int)
+    """Sent when a log was added"""
+
     def __init__(self, parent=None):
         super(LogWidget, self).__init__(parent=parent)
         self.setEditTriggers(qt.QAbstractItemView.NoEditTriggers)
@@ -93,6 +99,10 @@ class LogWidget(qt.QTreeView):
         )
         header.setSectionResizeMode(self.MessageColumn, qt.QHeaderView.Stretch)
 
+    def focusInEvent(self, event):
+        self.activated.emit()
+        return super(LogWidget, self).focusInEvent(event)
+
     @staticmethod
     def _remove_handlers(handlers):
         # NOTE: This function have to be static to avoid cyclic reference to the widget
@@ -110,7 +120,7 @@ class LogWidget(qt.QTreeView):
         """
         return self.model().rowCount()
 
-    def _colorFromLevel(self, levelno: int):
+    def colorFromLevel(self, levelno: int):
         if levelno >= logging.CRITICAL:
             return qt.QColor(240, 0, 240)
         elif levelno >= logging.ERROR:
@@ -157,7 +167,8 @@ class LogWidget(qt.QTreeView):
                 dt = self._formatter.formatTime(record2)
                 dateTimeItem = qt.QStandardItem(dt)
                 levelItem = qt.QStandardItem(record2.levelname)
-                color = self._colorFromLevel(record2.levelno)
+                levelno = record2.levelno
+                color = self.colorFromLevel(levelno)
                 levelItem.setForeground(color)
                 nameItem = qt.QStandardItem(record2.name)
                 messageItem = qt.QStandardItem(message)
@@ -182,13 +193,15 @@ class LogWidget(qt.QTreeView):
         if dateTimeItem is None:
             dateTimeItem = qt.QStandardItem()
             levelItem = qt.QStandardItem("CRITICAL")
-            color = self._colorFromLevel(logging.CRITICAL)
+            levelno = logging.CRITICAL
+            color = self.colorFromLevel(levelno)
             levelItem.setForeground(color)
             nameItem = qt.QStandardItem()
             messageItem = qt.QStandardItem(message)
 
         model: qt.QStandardItemModel = self.model()
         model.appendRow([dateTimeItem, levelItem, nameItem, messageItem])
+        self.logEmitted.emit(levelno)
 
         if model.rowCount() > self._maximumLogCount:
             count = model.rowCount() - self._maximumLogCount

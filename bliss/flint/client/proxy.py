@@ -101,6 +101,13 @@ class FlintClient:
         self._proxy.close_application()
         self.close_proxy()
 
+    def focus(self):
+        """Set the focus to the Flint window."""
+        if self._proxy is None:
+            raise RuntimeError("No proxy connected")
+        self._proxy.set_window_focus()
+        self.close_proxy()
+
     def kill(self):
         """Interrupt Flint with SIGTERM and clean up this proxy."""
         if self._pid is None:

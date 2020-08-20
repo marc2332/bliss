@@ -730,11 +730,6 @@ def get_full_title(scan: scan_model.Scan) -> str:
     return text
 
 
-_PROGRESS_STRATEGIES: MutableMapping[
-    scan_model.Scan, List[_ProgressStrategy]
-] = weakref.WeakKeyDictionary()
-
-
 class _ProgressStrategy:
     def compute(self, scan: scan_model.Scan) -> Optional[float]:
         """Returns the percent of progress of this strategy.
@@ -754,6 +749,11 @@ class _ProgressStrategy:
             size = len(data.array())
 
         return size
+
+
+_PROGRESS_STRATEGIES: MutableMapping[
+    scan_model.Scan, List[_ProgressStrategy]
+] = weakref.WeakKeyDictionary()
 
 
 class _ProgressOfAnyChannels(_ProgressStrategy):

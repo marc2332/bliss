@@ -642,8 +642,6 @@ def infer_plot_models(scan_info: Dict) -> List[plot_model.Plot]:
             item.setXChannel(x_channel)
             item.setYChannel(y_channel)
             item.setValueChannel(data_channel)
-            # FIXME: Have to do something with: scan_info.get("title", ""),
-            # FIXME: Have to do something with: scan_info.get("instrument", {}).get("positioners", dict()),
             plot.addItem(item)
 
             result.append(plot)

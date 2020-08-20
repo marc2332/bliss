@@ -27,6 +27,7 @@ Example YAML_ configuration:
 
 
 Usage::
+started
 
     >>> from bliss.config.static import get_config()
     >>> config = get_config()
@@ -1205,24 +1206,32 @@ class Motor(object):
         )
 
     def start_move(self, sleep_time=0.01, nb_try=20, timeout=0.1, silent=True):
-
+        """
+        Start movement.
+        Re-send piezos movement if speedgoat didn't start them.
+        """
         for ntry in range(nb_try):
-            self._start_move(sleep_time)
-            (started, time_start) = self._wait_start_move(timeout)
-            if started:
-                if not silent:
-                    print(
-                        f"Motor {self.name} started after {ntry+1} try {time_start} s"
-                    )
+            (started, time_start) = self._start_move(sleep_time, timeout)
+            if not started:
+                (started, time_start) = self._wait_start_move(timeout)
+                if started:
+                    if not silent:
+                        print(
+                            f"Motor {self.name} started after {ntry+1} try {time_start} s"
+                        )
+                    return (ntry + 1, time_start)
+            else:
                 return (ntry + 1, time_start)
 
         raise RuntimeError(f"Motor {self.name} did not start")
 
-    def _start_move(self, sleep_time):
+    def _start_move(self, sleep_time, timeout):
         self.set_param("moveTrigger/Value", 0)
         self.set_param("moveTrigger/Value", 1)
+        (started, time_start) = self._wait_start_move(timeout)
         gevent.sleep(sleep_time)
         self.set_param("moveTrigger/Value", 0)
+        return (started, time_start)
 
     def _wait_start_move(self, timeout):
         wait_start = time.time()

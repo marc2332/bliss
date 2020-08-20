@@ -24,11 +24,11 @@ def test_redis_client_name(redis_conn):
 
 
 def test_config_base_path(beacon):
-    saved_cfg = static.CONFIG
-    static.CONFIG = None
+    saved_cfg = static.Config.instance
+    static.Config.instance = None
     try:
         cfg = static.get_config(base_path="./sessions")
         assert "test_session" in cfg.names_list
     finally:
         cfg.close()
-        static.CONFIG = saved_cfg
+        static.Config.instance = saved_cfg

@@ -21,6 +21,10 @@ def get_default_connection():
     return _default_connection
 
 
+def has_default_connection():
+    return _default_connection is not None
+
+
 class _StringIO(io.StringIO):
     def __enter__(self, *args, **kwags):
         return self

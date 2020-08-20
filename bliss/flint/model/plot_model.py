@@ -290,6 +290,9 @@ class ChannelRef(qt.QObject):
             return None
         return data.array()
 
+    def __str__(self):
+        return "<ChannelRef: %s>" % self.__channelName
+
 
 class Item(qt.QObject):
     """Describe a generic item provided by plots.

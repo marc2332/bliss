@@ -13,6 +13,7 @@ from silx.gui import qt
 
 from bliss.flint.widgets.log_widget import LogWidget
 from bliss.flint.widgets.live_window import LiveWindow
+from bliss.flint.widgets.state_indicator import StateIndicator
 from bliss.flint.model import flint_model
 
 _logger = logging.getLogger(__name__)
@@ -26,6 +27,7 @@ class FlintWindow(qt.QMainWindow):
         self.setAttribute(qt.Qt.WA_QuitOnClose, True)
 
         self.__flintState: flint_model.FlintState = None
+        self.__stateIndicator: StateIndicator = None
 
         central_widget = qt.QWidget(self)
 
@@ -44,6 +46,8 @@ class FlintWindow(qt.QMainWindow):
         if self.__flintState is not None:
             self.__flintState.blissSessionChanged.connect(self.__blissSessionChanged)
         self.__updateTitle()
+        if self.__stateIndicator is not None:
+            self.__stateIndicator.setFlintModel(flintState)
 
     def flintModel(self) -> flint_model.FlintState:
         assert self.__flintState is not None
@@ -70,6 +74,7 @@ class FlintWindow(qt.QMainWindow):
         logWindow.setWindowTitle("Log messages")
         logWindow.rejected.connect(self.__saveLogWindowSettings)
         self.__logWindow = logWindow
+        self.__logWidget = logWidget
         logWidget.connect_logger(logging.root)
 
     def initMenus(self):
@@ -88,6 +93,7 @@ class FlintWindow(qt.QMainWindow):
         menubar = self.menuBar()
         fileMenu = menubar.addMenu("&File")
         fileMenu.addAction(exitAction)
+
         windowMenu: qt.QMenu = menubar.addMenu("&Windows")
         windowMenu.addSection("Live scans")
         liveWindow.createWindowActions(windowMenu)
@@ -142,6 +148,16 @@ class FlintWindow(qt.QMainWindow):
         action.setStatusTip("Show the application's About box")
         action.triggered.connect(self.showAboutBox)
         helpMenu.addAction(action)
+
+        stateIndicator = StateIndicator(self)
+        stateIndicator.setLogWidget(self.__logWidget)
+        stateIndicator.setFlintModel(self.__flintState)
+        # widgetAction = qt.QWidgetAction(menubar)
+        # widgetAction.setDefaultWidget(stateIndicator)
+        # menubar.addAction(widgetAction)
+        self.__stateIndicator = stateIndicator
+        menubar.setCornerWidget(stateIndicator, qt.Qt.TopLeftCorner)
+        # self.__tabs.setCornerWidget(stateIndicator)
 
     def openDebugConsole(self):
         """Open a new debug console"""

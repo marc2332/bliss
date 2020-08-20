@@ -374,6 +374,12 @@ def _select_default_counter(scan, plot):
                         for _master, channels in acquisition_chain.items():
                             names.extend(channels.get("scalars", []))
                 if len(names) > 0:
+                    # Try to use a default counter which is not an elapse time
+                    quantityNames = [
+                        n for n in names if scan.getChannelByName(n).unit() != "s"
+                    ]
+                    if len(quantityNames) > 0:
+                        names = quantityNames
                     channelRef = plot_model.ChannelRef(plot, names[0])
                     item.setValueChannel(channelRef)
 

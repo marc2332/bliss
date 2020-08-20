@@ -2,7 +2,7 @@
 
 In order to interact with a given plot, to choose points or regions of interest of different shapes, plot objects propose two methods : `select_point()` and `select_shape()`.
 
-Exemple:
+Example:
 
 ```python
 from bliss.common.plot import *

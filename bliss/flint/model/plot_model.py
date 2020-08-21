@@ -99,6 +99,7 @@ class Plot(qt.QObject):
         self.__items: List[Item] = []
         self.__styleStrategy: Optional[StyleStrategy] = None
         self.__inTransaction: int = 0
+        self.__name = None
 
     def __reduce__(self):
         return (self.__class__, (), self.__getstate__())
@@ -118,6 +119,14 @@ class Plot(qt.QObject):
         self.__styleStrategy = state.pop("style_strategy")
         if self.__styleStrategy is not None:
             self.__styleStrategy.setPlot(self)
+
+    def setName(self, name: str):
+        """Set the name of the plot."""
+        self.__name = name
+
+    def name(self) -> Optional[str]:
+        """Returns the name of the plot, if defined."""
+        return self.__name
 
     def isInTransaction(self) -> bool:
         """True if the plot is in a transaction.
@@ -280,6 +289,9 @@ class ChannelRef(qt.QObject):
         if data is None:
             return None
         return data.array()
+
+    def __str__(self):
+        return "<ChannelRef: %s>" % self.__channelName
 
 
 class Item(qt.QObject):

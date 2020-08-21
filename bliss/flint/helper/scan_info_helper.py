@@ -374,8 +374,36 @@ def _select_default_counter(scan, plot):
                         for _master, channels in acquisition_chain.items():
                             names.extend(channels.get("scalars", []))
                 if len(names) > 0:
+                    # Try to use a default counter which is not an elapse time
+                    quantityNames = [
+                        n for n in names if scan.getChannelByName(n).unit() != "s"
+                    ]
+                    if len(quantityNames) > 0:
+                        names = quantityNames
                     channelRef = plot_model.ChannelRef(plot, names[0])
                     item.setValueChannel(channelRef)
+
+
+def get_extra_displayed_channels(scan_info: Dict) -> Optional[List[str]]:
+    """Return the list of the displayed channels stored in the scan"""
+    display_extra = scan_info.get("_display_extra", None)
+    if display_extra is not None:
+        displayed_channels = display_extra.get("displayed_channels", None)
+        # Sanitize
+        if displayed_channels is not None:
+            if not isinstance(displayed_channels, list):
+                _logger.warning(
+                    "_display_extra.flint_displayed_channels is not a list: Key ignored"
+                )
+                return None
+            elif len([False for i in displayed_channels if not isinstance(i, str)]) > 0:
+                _logger.warning(
+                    "_display_extra.flint_displayed_channels must only contains strings: Key ignored"
+                )
+                return None
+        return displayed_channels
+    else:
+        return None
 
 
 def create_plot_model(
@@ -393,32 +421,14 @@ def create_plot_model(
     else:
         plots = infer_plot_models(scan_info)
 
-    display_extra = scan_info.get("_display_extra", None)
-    if display_extra is not None:
-        if scan is None:
-            scan = create_scan_model(scan_info)
-        displayed_channels = display_extra.get("displayed_channels", None)
-        # Sanitize
-        if displayed_channels is not None:
-            if not isinstance(displayed_channels, list):
-                _logger.warning(
-                    "_display_extra.flint_displayed_channels is not a list: Key ignored"
-                )
-                displayed_channels = None
-            elif len([False for i in displayed_channels if not isinstance(i, str)]) > 0:
-                _logger.warning(
-                    "_display_extra.flint_displayed_channels must only contains strings: Key ignored"
-                )
-                displayed_channels = None
+    displayed_channels = get_extra_displayed_channels(scan_info)
+    if displayed_channels is not None:
+        for plot in plots:
+            if isinstance(
+                plot, (plot_item_model.CurvePlot, plot_item_model.ScatterPlot)
+            ):
+                model_helper.updateDisplayedChannelNames(plot, scan, displayed_channels)
 
-        if displayed_channels is not None:
-            for plot in plots:
-                if isinstance(
-                    plot, (plot_item_model.CurvePlot, plot_item_model.ScatterPlot)
-                ):
-                    model_helper.updateDisplayedChannelNames(
-                        plot, scan, displayed_channels
-                    )
     return plots
 
 
@@ -444,7 +454,7 @@ def read_plot_models(scan_info: Dict) -> List[plot_model.Plot]:
 
         name = plot_description.get("name", None)
         if name is not None:
-            _logger.warning("'name' not yet supported. name '%s' ignored.", name)
+            plot.setName(name)
 
         items = plot_description.get("items", None)
         if not isinstance(items, list):
@@ -632,8 +642,6 @@ def infer_plot_models(scan_info: Dict) -> List[plot_model.Plot]:
             item.setXChannel(x_channel)
             item.setYChannel(y_channel)
             item.setValueChannel(data_channel)
-            # FIXME: Have to do something with: scan_info.get("title", ""),
-            # FIXME: Have to do something with: scan_info.get("instrument", {}).get("positioners", dict()),
             plot.addItem(item)
 
             result.append(plot)
@@ -722,11 +730,6 @@ def get_full_title(scan: scan_model.Scan) -> str:
     return text
 
 
-_PROGRESS_STRATEGIES: MutableMapping[
-    scan_model.Scan, List[_ProgressStrategy]
-] = weakref.WeakKeyDictionary()
-
-
 class _ProgressStrategy:
     def compute(self, scan: scan_model.Scan) -> Optional[float]:
         """Returns the percent of progress of this strategy.
@@ -746,6 +749,11 @@ class _ProgressStrategy:
             size = len(data.array())
 
         return size
+
+
+_PROGRESS_STRATEGIES: MutableMapping[
+    scan_model.Scan, List[_ProgressStrategy]
+] = weakref.WeakKeyDictionary()
 
 
 class _ProgressOfAnyChannels(_ProgressStrategy):

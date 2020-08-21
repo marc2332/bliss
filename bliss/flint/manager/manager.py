@@ -64,10 +64,7 @@ class ManageMainBehaviours(qt.QObject):
         if name in [None, ""]:
             device = None
         else:
-            try:
-                device = DeviceProxy(name)
-            except Exception:
-                raise
+            device = DeviceProxy(name)
         self.__flintModel.setTangoMetadata(device)
 
     def flintModel(self) -> flint_model.FlintState:
@@ -283,12 +280,14 @@ class ManageMainBehaviours(qt.QObject):
         if compatibleModel is None:
             return []
         plots = [p for p in availablePlots if isinstance(p, compatibleModel)]
+        windowTitle = widget.windowTitle()
         if issubclass(
             compatibleModel, (plot_item_model.ImagePlot, plot_item_model.McaPlot)
         ):
             # FIXME: windowTitle should not be used, but for now it is convenient
-            deviceName = widget.windowTitle()
-            plots = [p for p in plots if p.deviceName() == deviceName]
+            plots = [p for p in plots if p.deviceName() == windowTitle]
+        # plot with names will use dedicated widgets
+        plots = [p for p in plots if p.name() is None or p.name() == windowTitle]
         return plots
 
     def updateScanAndPlots(self, scan: scan_model.Scan, plots: List[plot_model.Plot]):
@@ -451,13 +450,17 @@ class ManageMainBehaviours(qt.QObject):
         widget.setPlotModel(plotModel)
         self._initNewDock(widget)
 
-        if isinstance(plotModel, (plot_item_model.ImagePlot, plot_item_model.McaPlot)):
-            title = plotModel.deviceName()
-        else:
-            prefix = str(widgetClass.__name__).replace("PlotWidget", "")
-            title = self.__getUnusedTitle(prefix, workspace)
+        title = plotModel.name()
+        if title is None:
+            if isinstance(
+                plotModel, (plot_item_model.ImagePlot, plot_item_model.McaPlot)
+            ):
+                title = plotModel.deviceName()
+            else:
+                prefix = str(widgetClass.__name__).replace("PlotWidget", "")
+                title = self.__getUnusedTitle(prefix, workspace)
 
-        name = title
+        name = type(plotModel).__name__ + "-" + title
         name = name.replace(":", "--")
         name = name.replace(".", "--")
         name = name.replace(" ", "--")

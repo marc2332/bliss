@@ -72,6 +72,10 @@ Example of YML configuration file to be used with previous controller:
     - Data Set Ready / Data Terminal Ready
     - Default: False
 
+* `eol`
+    - Specify the end-of-line string to use when READING data from a device
+    - Default: b`\n`
+
 * `interCharTimeout`
     - inter byte timeout setting.
     - Default: `None`
@@ -169,6 +173,7 @@ controller:
 - name: ser0
   serial:
     url: /dev/ttyS0
+    eol: b"\r\n"
 ```
 
 <!--   using plugin `comm` in `__init__.py` file does not work ??? -->
@@ -183,7 +188,7 @@ Example to declare a serial line directly from a BLISS shell.
 from bliss.comm.util import get_comm, SERIAL
 
 conf = {"serial": {"url": "/dev/ttyS0"}}
-opt = {"parity": "N"}
+opt = {"parity": "N", "eol":b"\r\n"}
 kom = get_comm(conf, ctype=SERIAL, **opt)
 print(kom.write_readline(b"*IDN?\n"))
 ```
@@ -230,7 +235,7 @@ class Aerotech(Controller):
 
     def initialize(self):
         config = self.config.config_dict
-        opt = {'port':8000, 'eol':'\n'}
+        opt = {'port':8000, 'eol':b'\n'}
         self._comm = get_comm(config, ctype=TCP, **opt)
 ```
 
@@ -288,7 +293,7 @@ function is used by socket to read lines. It is not sent by the
 `write*()` functions and therefore a terminaison character must be
 added in all messages sent to a device.
 
-Default: `\n`
+Default: b`\n`
 
 
 

@@ -779,7 +779,6 @@ class IcatIngesterProxy(object):
         :param dict comm_state:
         :raises IcatError:
         """
-        print(f"Storing {path}")
         self.start_dataset(proposal, sample, dataset, path, comm_state=comm_state)
         comm_state["error_msg"] = "Failed to push ICAT metadata"
         if metadata:

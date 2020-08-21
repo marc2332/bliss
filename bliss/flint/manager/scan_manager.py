@@ -535,7 +535,7 @@ class ScanManager:
         scan = cache.scan
 
         scan_info_helper.get_scan_category(scan_info=scan.scanInfo())
-        scan_category = scan.scanInfo().get("type", None)
+        scan_category = scan.type()
         # If not None, that's default scans known to have aligned data
         default_scan = scan_category is not None
         push_non_aligned_data = not default_scan

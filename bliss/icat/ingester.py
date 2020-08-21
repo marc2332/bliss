@@ -24,12 +24,14 @@ name and Bliss session name.
 import gevent
 import functools
 import json
+import logging
 from bliss.common.tango import DeviceProxy, DevFailed
 from bliss.common.logtools import log_error
 from tango import DevState
 from bliss import current_session
 
 DEFAULT_TIMEOUT = 10
+logger = logging.getLogger(__name__)
 
 
 def find_in_exception_chain(e, cls):
@@ -562,11 +564,12 @@ class IcatIngesterProxy(object):
             ] = f"Failed to reset the ICAT proposal {repr(proposal)}"
         self.ensure_notrunning(comm_state=comm_state)
         self._set_proposal(proposal=proposal, comm_state=comm_state)
-        # TODO: times out somtimes
+        # TODO: times out sometimes
         # if proposal:
         #     self.wait_until_state(["STANDBY"], comm_state=comm_state)
         # else:
         #     self.wait_until_state(["OFF"], comm_state=comm_state)
+        logger.debug(f"Proposal set: {repr(proposal)}")
 
     @icat_comm
     def set_sample(self, sample, comm_state=None):
@@ -580,6 +583,7 @@ class IcatIngesterProxy(object):
         self.ensure_notrunning(comm_state=comm_state)
         self._set_sample(sample, comm_state=comm_state)
         self.wait_until_state(["STANDBY"], comm_state=comm_state)
+        logger.debug(f"Sample set: {repr(sample)}")
 
     @icat_comm
     def set_dataset(self, dataset, comm_state=None):
@@ -594,6 +598,7 @@ class IcatIngesterProxy(object):
         self._set_dataset(dataset, comm_state=comm_state)
         # TODO: this times out sometimes
         # self.wait_until_state(["ON"], comm_state=comm_state)
+        logger.debug(f"Dataset set: {repr(dataset)}")
 
     @icat_comm
     def set_path(self, path, comm_state=None):
@@ -605,6 +610,7 @@ class IcatIngesterProxy(object):
         """
         comm_state["error_msg"] = f"Failed to set the ICAT dataset path to {repr(path)}"
         self._set_path(path, comm_state=comm_state)
+        logger.debug(f"Dataset path set: {repr(path)}")
 
     @icat_comm
     def ensure_notrunning(self, comm_state=None):
@@ -730,6 +736,7 @@ class IcatIngesterProxy(object):
         if path != self.get_path(comm_state=comm_state):
             self.set_path(path, comm_state=comm_state)
         self.ensure_running(comm_state=comm_state)
+        logger.debug(f"Dataset started: {repr(path)}")
 
     @icat_comm
     def stop_dataset(self, comm_state=None):
@@ -738,6 +745,7 @@ class IcatIngesterProxy(object):
         """
         comm_state["error_msg"] = "Failed to stop the ICAT dataset"
         self.ensure_notrunning(comm_state=comm_state)
+        logger.debug("Dataset stopped")
 
     @icat_comm
     def send_to_elogbook(self, msg_type, msg, comm_state=None):

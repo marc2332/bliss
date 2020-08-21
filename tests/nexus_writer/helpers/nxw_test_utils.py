@@ -297,6 +297,9 @@ def writer_stdout_on_exception(func):
     def inner(*args, **kwargs):
         writer = kwargs.get("writer", None)
         with stdout_on_exception(writer):
-            func(*args, **kwargs)
+            # Tests should have their own timeouts, but
+            # just in case we'll add a backup here:
+            with gevent.Timeout(300):
+                func(*args, **kwargs)
 
     return inner

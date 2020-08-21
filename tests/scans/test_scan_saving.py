@@ -131,7 +131,9 @@ does not exist  directory  {root_path}
     assert s.node.parent.db_name == scan_saving.scan_parent_db_name
 
 
-def test_session_scan_saving_config(beacon):
+def test_session_scan_saving_config(
+    beacon, metadata_experiment_tango_server, metadata_manager_tango_server
+):
     class TestESRFScanSaving(scan_saving_module.ESRFScanSaving):
         def _icat_set_proposal(self, proposal, **kw):
             return

@@ -15,9 +15,7 @@ from fnmatch import fnmatch, fnmatchcase
 import networkx as nx
 from functools import wraps
 import weakref
-
 import gevent
-from tango import DevFailed, DevState
 
 from bliss.common.utils import autocomplete_property
 from bliss.common.mapping import format_node, map_id
@@ -374,17 +372,9 @@ class LogbookPrint:
                 return
 
         try:
-            metadata_manager = current_session.scan_saving.metadata_manager
-            if metadata_manager.state() != DevState.FAULT:
-                if msg_type == "command":
-                    metadata_manager.notifyCommand(msg)
-                elif msg_type == "error":
-                    metadata_manager.notifyError(msg)
-                elif msg_type == "debug":
-                    metadata_manager.notifyDebug(msg)
-                else:
-                    metadata_manager.notifyInfo(msg)
-        except DevFailed:
+            icat_proxy = current_session.scan_saving.icat_proxy
+            icat_proxy.send_to_elogbook(msg_type, msg)
+        except RuntimeError:
             log_error(self, "elogbook: MetadataManager communication failed")
 
 

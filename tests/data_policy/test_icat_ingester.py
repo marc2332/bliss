@@ -52,7 +52,7 @@ def _create_state(icat_proxy, base_path, beamline, state, timeout=10):
         print(f"Created state {icat_proxy.state}: {icat_proxy.status}")
 
 
-def test_start_stop_dataset(
+def test_ingester_status(
     session,
     esrf_data_policy,
     metadata_experiment_tango_server,

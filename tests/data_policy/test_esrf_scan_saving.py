@@ -16,6 +16,7 @@ from bliss.shell.standard import (
     newdataset,
     enddataset,
     endproposal,
+    lprint,
 )
 
 
@@ -47,7 +48,7 @@ def assert_icat_received(icat_subscriber, expected, dataset=None, timeout=10):
     """Check whether ICAT received the correct information
     """
     icat_received = icat_subscriber.get(timeout=timeout)
-    print(icat_received)
+    print(f"\nValidating ICAT message: {icat_received}")
     for k, v in expected.items():
         if k == "start":
             assert icat_received.startswith(v), k
@@ -113,9 +114,8 @@ def test_inhouse_scan_saving(
             "inhouse_data_root"
         ].format(beamline=scan_saving.beamline)
         assert_default_sample_dataset(scan_saving)
-        if bset:
-            expected = icat_info(scan_saving)
-            assert_icat_received(icat_subscriber, expected)
+        expected = icat_info(scan_saving)
+        assert_icat_received(icat_subscriber, expected)
 
 
 def test_visitor_scan_saving(
@@ -198,13 +198,12 @@ def test_auto_dataset_increment(
     icat_subscriber,
 ):
     scan_saving = session.scan_saving
-    expected_proposal = icat_info(scan_saving)
+    assert_icat_received(icat_subscriber, icat_info(scan_saving))
     expected_dataset = icat_info(scan_saving, dataset=True)
     assert scan_saving.dataset == "0001"
 
     create_dataset(scan_saving)
     scan_saving.dataset = ""
-    assert_icat_received(icat_subscriber, expected_proposal)
     assert_icat_received(icat_subscriber, expected_dataset)
     expected_dataset = icat_info(scan_saving, dataset=True)
     assert scan_saving.dataset == "0002"
@@ -254,10 +253,10 @@ def test_data_policy_scan_check_servers(
     assert_servers(mdexp_dev, mdmgr_dev, **expected)
 
     scan_saving.proposal = "proposal1"
+    assert_icat_received(icat_subscriber, icat_info(scan_saving))
     expected["proposal"] = "proposal1"
     expected["state"] = "STANDBY"
     assert_servers(mdexp_dev, mdmgr_dev, **expected)
-    expected_proposal = icat_info(scan_saving)
 
     scan_saving.sample = "sample1"
     assert_servers(mdexp_dev, mdmgr_dev, **expected)
@@ -271,11 +270,10 @@ def test_data_policy_scan_check_servers(
 
     expected["path"] = session.scan_saving.icat_root_path
     scan_saving.dataset = "dataset2"
+    assert_icat_received(icat_subscriber, expected_dataset)
     expected["sample"] = "sample1"
     expected["dataset"] = ""
     assert_servers(mdexp_dev, mdmgr_dev, **expected)
-    assert_icat_received(icat_subscriber, expected_proposal)
-    assert_icat_received(icat_subscriber, expected_dataset)
 
     scan_saving.dataset = "dataset2"
     assert_servers(mdexp_dev, mdmgr_dev, **expected)
@@ -297,6 +295,7 @@ def test_data_policy_scan_check_servers(
     assert_servers(mdexp_dev, mdmgr_dev, **expected)
 
     scan_saving.proposal = "proposal2"
+    assert_icat_received(icat_subscriber, icat_info(scan_saving))
     expected["proposal"] = "proposal2"
     expected["path"] = None
     expected["sample"] = None
@@ -342,6 +341,8 @@ def test_data_policy_user_functions(
     icat_subscriber,
 ):
     scan_saving = session.scan_saving
+    assert_icat_received(icat_subscriber, icat_info(scan_saving))
+    expected_dataset = icat_info(scan_saving, dataset=True)
     default_proposal = f"{scan_saving.beamline}{time.strftime('%y%m')}"
 
     assert scan_saving.proposal == default_proposal
@@ -350,15 +351,16 @@ def test_data_policy_user_functions(
     create_dataset(scan_saving)
 
     newproposal("toto")
-    expected_proposal = icat_info(scan_saving)
+    assert_icat_received(icat_subscriber, expected_dataset)
+    assert_icat_received(icat_subscriber, icat_info(scan_saving))
     expected_dataset = icat_info(scan_saving, dataset=True)
     assert scan_saving.proposal == "toto"
     assert scan_saving.sample == "sample"
     assert scan_saving.dataset == "0001"
     create_dataset(scan_saving)
-    assert_icat_received(icat_subscriber, expected_proposal)
 
     newsample("tata")
+    assert_icat_received(icat_subscriber, expected_dataset)
     expected_dataset = icat_info(scan_saving, dataset=True)
     assert scan_saving.proposal == "toto"
     assert scan_saving.sample == "tata"
@@ -374,7 +376,8 @@ def test_data_policy_user_functions(
     create_dataset(scan_saving)
 
     newproposal()
-    expected_proposal = icat_info(scan_saving)
+    assert_icat_received(icat_subscriber, expected_dataset)
+    assert_icat_received(icat_subscriber, icat_info(scan_saving))
     expected_dataset = icat_info(scan_saving, dataset=True)
     assert scan_saving.proposal == default_proposal
     assert scan_saving.sample == "sample"
@@ -382,9 +385,7 @@ def test_data_policy_user_functions(
     create_dataset(scan_saving)
 
     enddataset()
-    assert_icat_received(icat_subscriber, expected_proposal)
     assert_icat_received(icat_subscriber, expected_dataset)
-    expected_proposal = icat_info(scan_saving)
     expected_dataset = icat_info(scan_saving, dataset=True)
     assert scan_saving.proposal == default_proposal
     assert scan_saving.sample == "sample"
@@ -392,13 +393,28 @@ def test_data_policy_user_functions(
     create_dataset(scan_saving)
 
     endproposal()
-    assert_icat_received(icat_subscriber, expected_proposal)
     assert_icat_received(icat_subscriber, expected_dataset)
-    expected_proposal = icat_info(scan_saving)
     expected_dataset = icat_info(scan_saving, dataset=True)
     assert scan_saving.proposal == default_proposal
     assert scan_saving.sample == "sample"
     assert scan_saving.dataset == "0004"
+    create_dataset(scan_saving)
+
+    newproposal("toto")
+    assert_icat_received(icat_subscriber, expected_dataset)
+    assert_icat_received(icat_subscriber, icat_info(scan_saving))
+    expected_dataset = icat_info(scan_saving, dataset=True)
+    assert scan_saving.proposal == "toto"
+    assert scan_saving.sample == "sample"
+    assert scan_saving.dataset == "0002"
+    create_dataset(scan_saving)
+
+    endproposal()
+    assert_icat_received(icat_subscriber, expected_dataset)
+    assert_icat_received(icat_subscriber, icat_info(scan_saving))
+    assert scan_saving.proposal == default_proposal
+    assert scan_saving.sample == "sample"
+    assert scan_saving.dataset == "0005"
 
 
 def test_data_policy_name_validation(
@@ -568,7 +584,7 @@ def test_session_ending(
     default_proposal = f"{scan_saving.beamline}{time.strftime('%y%m')}"
 
     scan_saving.newproposal("hg123")
-    expected_proposal = icat_info(scan_saving)
+    assert_icat_received(icat_subscriber, icat_info(scan_saving))
     scan_saving.newsample("sample1")
     create_dataset(scan_saving)
     assert scan_saving.proposal == "hg123"
@@ -581,11 +597,12 @@ def test_session_ending(
     assert scan_saving.sample == "sample1"
     assert scan_saving.dataset == "0002"
     create_dataset(scan_saving)
-    assert_icat_received(icat_subscriber, expected_proposal)
     assert_icat_received(icat_subscriber, expected_dataset)
     expected_dataset = icat_info(scan_saving, dataset=True)
 
     scan_saving.endproposal()
+    assert_icat_received(icat_subscriber, expected_dataset)
+    assert_icat_received(icat_subscriber, icat_info(scan_saving))
     assert scan_saving.proposal == default_proposal
     assert scan_saving.sample == "sample"
     assert scan_saving.dataset == "0001"
@@ -618,5 +635,24 @@ def test_date_in_basepath(
 
     # Call newproposal in the present:
     scan_saving.newproposal("ihch123")
+    assert scan_saving.date == past
+    assert scan_saving.base_path.endswith(past)
+
+    scan_saving.newproposal("ihch456")
     assert scan_saving.date != past
     assert not scan_saving.base_path.endswith(past)
+
+    scan_saving.newproposal("ihch123")
+    assert scan_saving.date != past
+    assert not scan_saving.base_path.endswith(past)
+
+
+def test_lprint(
+    session,
+    esrf_data_policy,
+    metadata_experiment_tango_server,
+    metadata_manager_tango_server,
+    icat_subscriber,
+):
+    # TODO: validate log message
+    lprint("message1")

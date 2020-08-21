@@ -10,7 +10,6 @@ import os
 import socket
 import logging
 from stompest.config import StompConfig
-from stompest.protocol import StompSession
 from stompest.protocol import StompSpec
 from stompest.sync import Stomp
 

@@ -16,7 +16,7 @@ from nexus_writer_service.io import nexus
 @contextmanager
 def nxroot(path, name):
     filename = os.path.join(str(path), name + ".h5")
-    rootattrs = {"test": "test_root_attr"}
+    rootattrs = {"custom_root_attr": "custom_root_attr"}
     with nexus.nxRoot(filename, mode="a", rootattrs=rootattrs) as f:
         yield f
 
@@ -33,6 +33,16 @@ def test_nexus_entry(scan_tmpdir):
         with pytest.raises(RuntimeError):
             nexus.nxEntry(entry, "entry0002")
         validateNxEntry(entry)
+
+
+def test_nexus_entry_order(scan_tmpdir):
+    with nxroot(scan_tmpdir, "test_nexus_entry") as h5group:
+        for i in range(100):
+            entry = nexus.nxEntry(h5group, str(i))
+            nexus.updateAttribute(h5group, "default", str(i))
+        lst = [int(i) for i in h5group.keys()]
+        assert lst == list(range(100))
+        assert h5group.attrs["default"] == "0"  # h5py issue #1641
 
 
 def test_nexus_process(scan_tmpdir):
@@ -390,9 +400,9 @@ def validateNxRoot(h5group):
         "HDF5_Version",
         "file_name",
         "file_time",
-        "file_update_time",
+        # "file_update_time",
         "h5py_version",
-        "test",
+        "custom_root_attr",
     }
     assert set(h5group.attrs.keys()) == attrs
     assert h5group.attrs["NX_class"] == "NXroot"

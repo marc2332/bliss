@@ -276,20 +276,18 @@ def wait_tango_device(
 @contextmanager
 def start_tango_server(*cmdline_args, **kwargs):
     device_fqdn = kwargs["device_fqdn"]
-
+    exception = None
     for i in range(3):
         p = subprocess.Popen(cmdline_args)
-
         try:
             dev_proxy = wait_tango_device(**kwargs)
-        except BaseException:
+        except Exception as e:
+            exception = e
             wait_terminate(p)
-
-            continue
         else:
             break
     else:
-        raise RuntimeError(f"could not start {device_fqdn}")
+        raise RuntimeError(f"could not start {device_fqdn}") from exception
 
     try:
         yield dev_proxy

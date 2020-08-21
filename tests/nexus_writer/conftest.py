@@ -12,8 +12,9 @@ import gevent
 from gevent import subprocess
 from contextlib import contextmanager
 from bliss.common import measurementgroup
-from bliss.common.tango import DeviceProxy, DevFailed, DevState, Database
+from bliss.common.tango import DevState, Database
 from nexus_writer_service.subscribers.session_writer import all_cli_saveoptions
+from tests.conftest import wait_tango_device
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "helpers"))
 import nxw_test_config
@@ -200,26 +201,28 @@ def writer_tango(session=None, tmpdir=None, config=True, alt=False, **kwargs):
     properties, attributes = writer_options(tango=True, config=config, alt=alt)
     db = Database()
     db.put_device_property(device_name, properties)
-    with nxw_test_utils.popencontext(
-        cliargs, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=env
-    ) as greenlet:
-        with gevent.Timeout(10, RuntimeError("Nexus writer is not running")):
-            while True:
-                try:
-                    dev_proxy = DeviceProxy(device_fqdn)
-                    dev_proxy.ping()
-                except DevFailed as e:
-                    pass
-                else:
-                    break
-                gevent.sleep(0.1)
-            while dev_proxy.state() != DevState.ON:
-                gevent.sleep(0.1)
-        # Changing attributes does not need Init
-        for attr, value in attributes.items():
-            dev_proxy.write_attribute(attr, value)
-        greenlet.proxy = dev_proxy
-        yield greenlet
+    exception = None
+    for i in range(3):
+        with nxw_test_utils.popencontext(
+            cliargs, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=env
+        ) as greenlet:
+            try:
+                dev_proxy = wait_tango_device(
+                    device_fqdn=device_fqdn, state=DevState.ON
+                )
+            except Exception as e:
+                exception = e
+                continue
+            # Changing attributes does not need Init
+            for attr, value in attributes.items():
+                dev_proxy.write_attribute(attr, value)
+            greenlet.proxy = dev_proxy
+            try:
+                yield greenlet
+            finally:
+                break
+    else:
+        raise RuntimeError(f"Could not start {device_fqdn}") from exception
 
 
 @contextmanager

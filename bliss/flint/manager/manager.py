@@ -309,7 +309,7 @@ class ManageMainBehaviours(qt.QObject):
         else:
             defaultPlot = None
 
-        isCt = scan.scanInfo().get("type", None) == "ct"
+        isCt = scan.type() == "ct"
         if isCt:
             # Filter out curves and scatters
             plots = [

@@ -60,10 +60,8 @@ from ruamel.yaml.compat import StringIO
 
 from bliss.config.conductor import client
 from bliss.config import channels
-from bliss.common.utils import prudent_update
+from bliss.common.utils import prudent_update, Singleton
 from bliss import global_map
-
-CONFIG = None
 
 
 def get_config(base_path="", timeout=3., raise_yaml_exc=True):
@@ -99,10 +97,7 @@ def get_config(base_path="", timeout=3., raise_yaml_exc=True):
     Returns:
         Config: the configuration object
     """
-    global CONFIG
-    if CONFIG is None:
-        CONFIG = Config(base_path, timeout, raise_yaml_exc=raise_yaml_exc)
-    return CONFIG
+    return Config(base_path, timeout, raise_yaml_exc=raise_yaml_exc)
 
 
 class ConfigReference:
@@ -550,21 +545,22 @@ class ConfigNodeDictEncoder(json.JSONEncoder):
 
 
 class RootConfigNode(ConfigNode):
-    saved_config_objects = {}
-
     def __init__(self, config):
         super().__init__()
         self._config = config
 
     def __getstate__(self):
-        RootConfigNode.saved_config_objects[id(self)] = self._config
         d = super().__getstate__()
-        d["id"] = id(self)
+        d["config_object"] = (
+            self._config._base_path,
+            self._config._timeout,
+            self._config.raise_yaml_exc,
+        )
         return d
 
     def __setstate__(self, d):
         super().__setstate__(d)
-        self._config = RootConfigNode.saved_config_objects.pop(d["id"])
+        self._config = get_config(*d["config_object"])
 
     @property
     def config(self):
@@ -608,7 +604,7 @@ class InvalidConfig(RuntimeError):
     pass
 
 
-class Config:
+class Config(metaclass=Singleton):
     """
     Bliss static configuration object.
 
@@ -619,6 +615,7 @@ class Config:
     def __init__(self, base_path, timeout=3, connection=None, raise_yaml_exc=True):
         self.raise_yaml_exc = raise_yaml_exc
         self._base_path = base_path
+        self._timeout = timeout
         self._connection = connection or client.get_default_connection()
         self.invalid_yaml_files = dict()
         self._name2instance = weakref.WeakValueDictionary()

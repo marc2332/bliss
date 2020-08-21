@@ -212,7 +212,7 @@ def ports(beacon_directory):
 def beacon(ports):
     redis_db = redis.Redis(port=ports.redis_port)
     redis_db.flushall()
-    static.CONFIG = None
+    static.Config.instance = None
     client._default_connection = connection.Connection("localhost", ports.beacon_port)
     config = static.get_config()
     yield config

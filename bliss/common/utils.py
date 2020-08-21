@@ -1119,3 +1119,14 @@ def auto_coerce(s):
         except (ValueError, TypeError):
             pass
     return s
+
+
+class Singleton(type):
+    def __init__(cls, name, bases, d):
+        super(Singleton, cls).__init__(name, bases, d)
+        cls.instance = None
+
+    def __call__(cls, *args, **kwargs):
+        if cls.instance is None:
+            cls.instance = super(Singleton, cls).__call__(*args, **kwargs)
+        return cls.instance

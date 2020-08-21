@@ -817,10 +817,9 @@ class OrderedHashSetting(BaseHashSetting):
         return value
 
     def remove(self, *keys):
-        cnx = self._cnx().pipeline()
-        cnx.zrem(self._name_order, *keys)
-        cnx.hdel(self._name, *keys)
-        cnx.execute()
+        with pipeline(self) as p:
+            p.zrem(self._name_order, *keys)
+            p.hdel(self._name, *keys)
 
     def clear(self):
         with pipeline(self) as p:
@@ -839,10 +838,10 @@ class OrderedHashSetting(BaseHashSetting):
 
     @write_decorator_dict
     def update(self, values):
-        cnx = self._cnx()
-        if values:
-            for k, v in values.items():
-                cnx.evalsha(self.add_key_script_sha1, 1, self._name, k, v)
+        with pipeline(self) as p:
+            if values:
+                for k, v in values.items():
+                    p.evalsha(self.add_key_script_sha1, 1, self._name, k, v)
 
     def has_key(self, key):
         cnx = self._cnx()
@@ -869,16 +868,15 @@ class OrderedHashSetting(BaseHashSetting):
         return self.get(key)
 
     def __setitem__(self, key, value):
-        cnx = self._cnx().pipeline()
         if value is None:
-            cnx.hdel(self._name, key)
-            cnx.zrem(self._name_order, key)
-            cnx.execute()
+            with pipeline(self) as p:
+                p.hdel(self._name, key)
+                p.zrem(self._name_order, key)
             return
         if self._write_type_conversion:
             value = self._write_type_conversion(value)
+        cnx = self._cnx()
         cnx.evalsha(self.add_key_script_sha1, 1, self._name, key, value)
-        cnx.execute()
 
     def __contains__(self, key):
         return self.has_key(key)
@@ -1252,6 +1250,7 @@ class ParametersWardrobe(metaclass=ParametersType):
         default_values=None,
         property_attributes=None,
         not_removable=None,
+        connection=None,
         **keys,
     ):
         """
@@ -1297,7 +1296,7 @@ class ParametersWardrobe(metaclass=ParametersType):
 
         # different instance names are stored in a queue where
         # the first item is the currently used one
-        self._instances = QueueSetting("parameters:%s" % name)
+        self._instances = QueueSetting("parameters:%s" % name, connection=connection)
         self._wardr_name = name  # name of the ParametersWardrobe
         self._property_attributes = tuple(property_attributes) + (
             "creation_date",
@@ -1309,8 +1308,12 @@ class ParametersWardrobe(metaclass=ParametersType):
 
         # creates the two needed proxies
         _change_to_obj_marshalling(keys)  # allows pickling complex objects
-        self._proxy = OrderedHashSetting(self._hash("default"), **keys)
-        self._proxy_default = OrderedHashSetting(self._hash("default"), **keys)
+        self._proxy = OrderedHashSetting(
+            self._hash("default"), connection=connection, **keys
+        )
+        self._proxy_default = OrderedHashSetting(
+            self._hash("default"), connection=connection, **keys
+        )
 
         # Managing default written to proxy_default
         keys = list(self._proxy_default.keys())

@@ -119,7 +119,7 @@ def test_multiple_greenlets(ports):
 
         assert redis_conn1 is redis_conn2
 
-        assert len(conductor_conn._redis_connection) == 1
+        assert len(conductor_conn._redis_pool_connection.get("default", {})) == 1
 
 
 def test_single_bus_for_channels(beacon):

@@ -30,7 +30,7 @@ pygraphviz >= 1.5
 pyserial > 2
 python >= 3.7
 ruamel.yaml
-redis >= 5.0
+redis >= 6.0.6
 redis-py == 3.5.1
 hiredis
 requests

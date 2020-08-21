@@ -191,13 +191,13 @@ class Connection(object):
         self._redis_query_event = event.Event()
         self._message_key = 0
         self._message_queue = {}
-        self._redis_connection = {}
+        self._redis_pool_connection = {}
         self._clean()
         self._socket = None
         self._connect_lock = gevent.lock.Semaphore()
         self._get_redis_lock = gevent.lock.Semaphore()
         self._send_lock = gevent.lock.Semaphore()
-        self._redis_pools = {}
+        self._named_redis_pools = {}
         self._connected = gevent.event.Event()
         self._raw_read_task = None
         self._greenlet_to_lockobjects = weakref.WeakKeyDictionary()
@@ -381,8 +381,11 @@ class Connection(object):
 
         return self._redis_host, self._redis_port
 
-    def _get_redis_conn_pool(self, db):
-        pool = self._redis_pools.get(db)
+    def _get_redis_conn_pool(self, db, pool_name="default"):
+        redis_pools = self._named_redis_pools.setdefault(
+            pool_name, weakref.WeakValueDictionary()
+        )
+        pool = redis_pools.get(db)
         if pool is None:
             address = self.get_redis_connection_address()
             host, port = address
@@ -391,28 +394,43 @@ class Connection(object):
             else:
                 redis_url = f"redis://{host}:{port}"
             pool = GreenletSafeConnectionPool.from_url(redis_url, db=db)
-            self._redis_pools[db] = pool
+            redis_pools[db] = pool
         return pool
 
-    def get_redis_connection(self, db=0):
+    def get_redis_connection(
+        self, db=0, single_connection_client=False, pool_name="default"
+    ):
         with self._get_redis_lock:
-            conn = self._redis_connection.get(db)
+            redis_connection = self._redis_pool_connection.setdefault(pool_name, {})
+            if single_connection_client:
+                conn = None
+            else:
+                self._redis_port
+                conn = redis_connection.get(db)
+
             if conn is None:
-                pool = self._get_redis_conn_pool(db)
-                conn = redis.Redis(connection_pool=pool)
+                pool = self._get_redis_conn_pool(db, pool_name=pool_name)
+                conn = redis.Redis(
+                    connection_pool=pool,
+                    single_connection_client=single_connection_client,
+                )
                 my_name = f"{socket.gethostname()}:{os.getpid()}"
                 conn.client_setname(my_name)
-                self._redis_connection[db] = conn
-                weakref.finalize(gevent.getcurrent(), self._close_redis_connection, db)
+                redis_connection[db] = conn
+                weakref.finalize(
+                    gevent.getcurrent(), self._close_redis_connection, pool_name, db
+                )
             return conn
 
     def clean_all_redis_connection(self):
-        for conn in self._redis_connection.values():
-            conn.connection_pool.disconnect()
-        self._redis_connection = {}
+        for pool_name, redis_connection in self._redis_pool_connection.items():
+            for conn in redis_connection.values():
+                conn.connection_pool.disconnect()
+        self._redis_pool_connection = {}
 
-    def _close_redis_connection(self, db):
-        cnx = self._redis_connection.pop(db, None)
+    def _close_redis_connection(self, pool_name, db):
+        redis_connection = self._redis_pool_connection.get(pool_name, {})
+        cnx = redis_connection.pop(db, None)
         if cnx is not None:
             cnx.close()
 

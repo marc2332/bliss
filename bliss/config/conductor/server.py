@@ -906,31 +906,35 @@ def main(args=None):
         start_webserver(homepage_app, _options.homepage_port, beacon_port)
 
     # Logger server application
+    log_server_rp = log_server_process = None
     if _options.log_server_port > 0:
-        log_server_rp, log_server_wp = os.pipe()
-        _log.info("launching log_server on port: %s", _options.log_server_port)
         # Logserver executable
         args = [sys.executable]
         args += ["-m", "bliss.config.conductor.log_server"]
         # Arguments
         args += ["--port", str(_options.log_server_port)]
         if not _options.log_output_folder:
-            default_log_folder = os.path.join(str(_options.db_path), "logs")
-            args += ["--log-output-folder", default_log_folder]
+            log_folder = os.path.join(str(_options.db_path), "logs")
         else:
-            args += ["--log-output-folder", str(_options.log_output_folder)]
-        args += ["--log-size", str(_options.log_size)]
-        # Fire up process
+            log_folder = str(_options.log_output_folder)
 
-        log_server_process = subprocess.Popen(
-            args, stdout=log_server_wp, stderr=subprocess.STDOUT, env=env
-        )
-    else:
-        log_server_rp = log_server_process = None
+        if os.access(log_folder, os.R_OK | os.W_OK | os.X_OK):
+            args += ["--log-output-folder", log_folder]
+            args += ["--log-size", str(_options.log_size)]
+            # Fire up process
+            log_server_rp, log_server_wp = os.pipe()
+            _log.info("launching log_server on port: %s", _options.log_server_port)
+            log_server_process = subprocess.Popen(
+                args, stdout=log_server_wp, stderr=subprocess.STDOUT, env=env
+            )
+        else:
+            _lslog.warning("Log path doesn't exist: %s", log_folder)
+            _lslog.warning("Won't starts")
 
     # Logviewer Web application
     if (
         sys.platform not in ["win32", "cygwin"]
+        and log_server_process is not None
         and _options.log_server_port
         and _options.log_viewer_port > 0
     ):

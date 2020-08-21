@@ -468,6 +468,8 @@ class ScanManager:
                 channels = []
                 for channel_name in channel_names:
                     channel = scan.getChannelByName(channel_name)
+                    assert channel is not None
+
                     array = cache.data_storage.get_data(channel_name)
                     # Create a view
                     array = array[0:newSize]

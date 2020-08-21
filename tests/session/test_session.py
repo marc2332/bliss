@@ -387,3 +387,18 @@ def test_temp_export_axes(beacon):
         assert set(axis_names).intersection(env) == set()
 
     check_axes("roby", "robz")
+
+
+def test_issue_1924(beacon):
+    s = beacon.get("test_session")
+    s.setup()
+    assert s.name == "test_session"
+    assert s.scan_saving.session == "test_session"
+    test_session_ss_info = s.scan_saving.__info__()
+    s2 = beacon.get("flint")  # another session, can be any
+    s2.setup()
+    assert s2.name == "flint"
+    assert s2.scan_saving.session == "flint"
+    assert s2.scan_saving.__info__() != test_session_ss_info
+    s.close()
+    s2.close()

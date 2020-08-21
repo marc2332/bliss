@@ -410,7 +410,6 @@ class Session:
 
     def _set_scan_saving(self, cls=None):
         scan_saving.set_scan_saving_class(cls)
-
         self.scan_saving = scan_saving.ScanSaving(self.name)
         if is_bliss_shell():
             self.env_dict["SCAN_SAVING"] = self.scan_saving
@@ -656,8 +655,7 @@ class Session:
                 return ns
 
     def setup(self, env_dict=None, verbose=False):
-        if get_current_session() is None:
-            set_current_session(self, force=True)
+        set_current_session(self, force=True)
         if env_dict is None:
             # use existing env dict
             env_dict = get_current_session().env_dict

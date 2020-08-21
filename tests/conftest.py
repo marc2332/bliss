@@ -217,6 +217,8 @@ def beacon(ports):
     yield config
     config.close()
     client._default_connection.close()
+    # Ensure no connections are created due to garbage collection:
+    client._default_connection = None
 
 
 @pytest.fixture

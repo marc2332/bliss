@@ -198,9 +198,11 @@ def _get_or_create_node(name, node_type=None, parent=None, connection=None, **ke
 def set_ttl(db_name):
     """Create a new DataNode in order to call its set_ttl
     """
-    node = get_node(db_name)
-    if node is not None:
-        node.set_ttl()
+    # Do not create a Redis connection pool during garbage collection
+    if client.has_default_connection():
+        node = get_node(db_name)
+        if node is not None:
+            node.set_ttl()
 
 
 class DataNode:

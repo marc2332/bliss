@@ -778,6 +778,9 @@ def icat_subscriber(stomp_server):
         yield messages
         assert len(messages) == 0, "not all messages have been validated"
     finally:
+        messages.put(StopIteration)
+        for msg in messages:
+            print(f"\nUnvalidated ICAT message: {msg}")
         sock.close()
         glistener.kill()
         wait_terminate(proc)

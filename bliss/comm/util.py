@@ -8,6 +8,7 @@
 """Communication tools (:func:`~bliss.comm.util.get_interface`,
 :func:`~bliss.comm.util.HexMsg`)"""
 
+from collections.abc import MutableMapping
 import re
 
 __all__ = [
@@ -97,7 +98,7 @@ def get_interface(*args, **kwargs):
             for iname, iclass in interfaces.items():
                 if iname in kwargs:
                     ikwargs = kwargs[iname]
-                    if isinstance(ikwargs, dict):
+                    if isinstance(ikwargs, MutableMapping):
                         try:
                             interface = get_tango_proxy(kwargs)
                         except ValueError:

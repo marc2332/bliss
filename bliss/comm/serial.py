@@ -748,7 +748,6 @@ class Serial:
         interCharTimeout=None,
         eol=b"\n",
     ):
-
         self._serial_kwargs = {
             "port": port,
             "baudrate": baudrate,

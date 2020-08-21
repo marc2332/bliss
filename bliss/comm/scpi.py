@@ -411,7 +411,7 @@ class SCPI:
         print scpi['*IDN']
     """
 
-    def __init__(self, interface=None, commands=COMMANDS, **kwargs):
+    def __init__(self, interface, commands=COMMANDS, **kwargs):
         self.interface = interface
         global_map.register(
             self, parents_list=["comms"], children_list=[self.interface], tag=str(self)

@@ -468,6 +468,8 @@ class ScanManager:
                 channels = []
                 for channel_name in channel_names:
                     channel = scan.getChannelByName(channel_name)
+                    assert channel is not None
+
                     array = cache.data_storage.get_data(channel_name)
                     # Create a view
                     array = array[0:newSize]
@@ -535,7 +537,7 @@ class ScanManager:
         scan = cache.scan
 
         scan_info_helper.get_scan_category(scan_info=scan.scanInfo())
-        scan_category = scan.scanInfo().get("type", None)
+        scan_category = scan.type()
         # If not None, that's default scans known to have aligned data
         default_scan = scan_category is not None
         push_non_aligned_data = not default_scan

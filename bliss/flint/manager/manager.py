@@ -259,9 +259,8 @@ class ManageMainBehaviours(qt.QObject):
             return
 
         if isinstance(scan, scan_model.ScanGroup):
-            if scan.type() is None and not scan.hasPlotDescription():
-                # FIXME: type() could be removed when all plot kind will be supported
-                # Skip groups without types
+            # Skip groups without plots
+            if not scan.hasPlotDescription():
                 return
 
         # Update the current scan only if the previous one is finished
@@ -309,7 +308,7 @@ class ManageMainBehaviours(qt.QObject):
         else:
             defaultPlot = None
 
-        isCt = scan.scanInfo().get("type", None) == "ct"
+        isCt = scan.type() == "ct"
         if isCt:
             # Filter out curves and scatters
             plots = [

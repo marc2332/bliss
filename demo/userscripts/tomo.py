@@ -14,7 +14,7 @@ import numpy
 import gevent
 from bliss.common import scans
 from bliss.scanning.chain import AcquisitionChannel
-from bliss.config.streaming import StreamStopReadingHandler
+from bliss.config.streaming import DataStreamReaderStopHandler
 from bliss.data.node import get_node
 from bliss.scanning.group import Sequence
 from bliss.common.scans.scan_info import ScanInfoFactory
@@ -41,11 +41,11 @@ class ScanReEmitter(gevent.Greenlet):
         self.join(timeout=timeout)
 
     def _run(self):
-        self.stop_handler = StreamStopReadingHandler()
+        self.stop_handler = DataStreamReaderStopHandler()
         try:
             it = get_node(self.db_name).iterator
             for event in it.walk_events(
-                filter=self.filter, stream_stop_reading_handler=self.stop_handler
+                filter=self.filter, stop_handler=self.stop_handler
             ):
                 if event.type == event.type.END_SCAN:
                     break

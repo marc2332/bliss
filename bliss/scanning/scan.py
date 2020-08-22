@@ -1173,9 +1173,15 @@ class Scan:
             return self._stream_pipeline_task
 
     def set_ttl(self):
-        for node in self.nodes.values():
-            node.set_ttl()
-        self.node.set_ttl()
+        db_names = set()
+        nodes = list(self.nodes.values())
+        for node in nodes:
+            db_names |= set(node._get_db_names())
+        db_names |= set(self.node._get_db_names())
+        self.node.apply_ttl(db_names)
+        for node in nodes:
+            node.ttl_is_set()
+        self.node.ttl_is_set()
 
     def _device_event(self, event_dict=None, signal=None, sender=None):
         if signal == "end":

@@ -369,13 +369,26 @@ class DataNode:
     def set_ttl(self):
         """Set the time-to-live for all Redis objects associated to this node
         """
-        db_names = set(self._get_db_names())
-        pipeline = self.connection.pipeline()
-        for name in db_names:
-            pipeline.expire(name, DataNode.default_time_to_live)
-        pipeline.execute()
+        self.apply_ttl(set(self._get_db_names()))
+        self.ttl_is_set()
+
+    def ttl_is_set(self):
+        """This DataNode's ttl has been set
+        """
         if self._ttl_setter is not None:
             self._ttl_setter.detach()
+
+    def apply_ttl(self, db_names):
+        """Set time-to-live for a list of Redis objects
+
+        :param list(str) db_names:
+        """
+        p = self.connection.pipeline()
+        try:
+            for name in db_names:
+                p.expire(name, self.default_time_to_live)
+        finally:
+            p.execute()
 
     def _get_db_names(self):
         db_name = self.db_name

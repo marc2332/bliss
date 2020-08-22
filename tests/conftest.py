@@ -20,7 +20,6 @@ import collections.abc
 import numpy
 from random import randint
 from contextlib import contextmanager
-import redis
 import weakref
 from pprint import pprint
 
@@ -43,7 +42,7 @@ from bliss.common.tango import Database, DeviceProxy, DevFailed, ApiUtil, DevSta
 from bliss.common.utils import grouped
 from bliss import logging_startup
 from bliss.scanning import scan_meta
-
+import socket
 
 BLISS = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 BEACON = [sys.executable, "-m", "bliss.config.conductor.server"]
@@ -635,25 +634,188 @@ def deep_compare(d, u):
 
 
 @pytest.fixture
-def metadata_manager_tango_server(ports):
+def metadata_manager_tango_server(ports, beacon, jolokia_server, stomp_server):
     device_name = "id00/metadata/test_session"
     device_fqdn = "tango://localhost:{}/{}".format(ports.tango_port, device_name)
 
+    db = Database()
+    _, port = jolokia_server
+    db.put_class_property("MetadataManager", {"jolokiaPort": port})
+    host, port = stomp_server
+    db.put_class_property("MetadataManager", {"queueURLs": [f"{host}:{port}"]})
+    db.put_class_property("MetadataManager", {"queueName": "/queue/icatIngest"})
+    db.put_class_property(
+        "MetadataManager", {"API_KEY": "elogbook-0000-000-0000-0000-0000"}
+    )
+
     with start_tango_server(
-        "MetadataManager", "test", "-v2", device_fqdn=device_fqdn, state=DevState.OFF
+        sys.executable,
+        "-u",
+        "-m",
+        "metadata_manager.MetadataManager",
+        "test",
+        "-v2",
+        device_fqdn=device_fqdn,
+        state=DevState.OFF,
     ) as dev_proxy:
         yield device_fqdn, dev_proxy
 
 
 @pytest.fixture
-def metadata_experiment_tango_server(ports):
+def metadata_experiment_tango_server(ports, beacon, jolokia_server, stomp_server):
     device_name = "id00/metaexp/test_session"
     device_fqdn = "tango://localhost:{}/{}".format(ports.tango_port, device_name)
 
+    db = Database()
+    _, port = jolokia_server
+    db.put_class_property("MetaExperiment", {"jolokiaPort": port})
+    host, port = stomp_server
+    db.put_class_property("MetaExperiment", {"queueURLs": [f"{host}:{port}"]})
+    db.put_class_property("MetaExperiment", {"queueName": "/queue/icatIngest"})
+    db.put_class_property(
+        "MetaExperiment", {"API_KEY": "elogbook-0000-000-0000-0000-0000"}
+    )
+
     with start_tango_server(
-        "MetaExperiment", "test", "-v2", device_fqdn=device_fqdn, state=DevState.ON
+        sys.executable,
+        "-u",
+        "-m",
+        "metadata_manager.MetaExperiment",
+        "test",
+        "-v2",
+        device_fqdn=device_fqdn,
+        state=DevState.ON,
     ) as dev_proxy:
         yield device_fqdn, dev_proxy
+
+
+def wait_tcp_online(host, port, timeout=10):
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        with gevent.Timeout(timeout):
+            while True:
+                try:
+                    sock.connect((host, port))
+                    break
+                except ConnectionError:
+                    pass
+                gevent.sleep(1)
+    finally:
+        sock.close()
+
+
+@pytest.fixture
+def jolokia_server():
+    port = get_open_ports(1)[0]
+    path = os.path.dirname(__file__)
+    script_path = os.path.join(path, "utils", "jolokia_server.py")
+    p = subprocess.Popen([sys.executable, "-u", script_path, f"--port={port}"])
+    wait_tcp_online("localhost", port)
+    yield ("localhost", port)
+    wait_terminate(p)
+
+    ##todo: this does not free port systematically in the end...
+
+
+@pytest.fixture
+def stomp_server():
+    port = get_open_ports(1)[0]
+    # Add arguments ["--debug", "TEXT"] for debugging
+    proc = subprocess.Popen(["coilmq", "-b", "0.0.0.0", "-p", str(port)])
+    wait_tcp_online("localhost", port)
+    yield ("localhost", port)
+    wait_terminate(proc)
+
+
+@pytest.fixture
+def icat_subscriber(stomp_server):
+    # stomp does not work well with gevent so
+    # we start a subprocess that redirects
+    # stomp messages to a TCP socket
+
+    # Create TCP socket
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    port_out = get_open_ports(1)[0]
+    sock.bind(("localhost", port_out))
+    sock.listen()
+
+    # Listen to this TCP socket
+    messages = gevent.queue.Queue()
+
+    def listener():
+        buffer = b""
+        conn, addr = sock.accept()
+        while True:
+            buffer += conn.recv(16384)
+            if buffer:
+                out, sep, buffer = buffer.rpartition(b"\n")
+                if sep:
+                    for bdata in out.split(b"\n"):
+                        messages.put(bdata.decode())
+            gevent.sleep(0.1)
+
+    glistener = gevent.spawn(listener)
+
+    # Redirect messages received by the STOMP server
+    # to the TCP socket
+    path = os.path.dirname(__file__)
+    script_path = os.path.join(path, "utils", "stomp_subscriber.py")
+    host, port = stomp_server
+    proc = subprocess.Popen(
+        [
+            sys.executable,
+            "-u",
+            script_path,
+            f"--host={host}",
+            f"--port={port}",
+            f"--port_out={port_out}",
+            "--queue=/queue/icatIngest",
+        ]
+    )
+
+    assert messages.get(timeout=10) == "LISTENING"
+    try:
+        yield messages
+        assert len(messages) == 0, "not all messages have been validated"
+    finally:
+        messages.put(StopIteration)
+        for msg in messages:
+            print(f"\nUnvalidated ICAT message: {msg}")
+        sock.close()
+        glistener.kill()
+        wait_terminate(proc)
+
+
+@pytest.fixture
+def icat_publisher(stomp_server):
+    # Create TCP socket
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    port_in = get_open_ports(1)[0]
+    sock.bind(("localhost", port_in))
+    sock.listen()
+
+    # Redirect messages from TCP socket to STOMP server
+    path = os.path.dirname(__file__)
+    script_path = os.path.join(path, "utils", "stomp_publisher.py")
+    host, port = stomp_server
+    proc = subprocess.Popen(
+        [
+            sys.executable,
+            "-u",
+            script_path,
+            f"--host={host}",
+            f"--port={port}",
+            f"--port_in={port_in}",
+            "--queue=/queue/icatIngest",
+        ]
+    )
+    try:
+        conn, addr = sock.accept()
+        with conn:
+            yield conn
+    finally:
+        sock.close()
+        wait_terminate(proc)
 
 
 @pytest.fixture

@@ -967,28 +967,65 @@ class ESRFScanSaving(BasicScanSaving):
         """
         return "{sample}_{dataset}"
 
+    def _reset_proposal(self):
+        """(Re)-enter the default proposal
+        """
+        # Make sure the proposal name will be different:
+        self._proposal = ""
+        # ICAT dataset will be stored (if it exists):
+        self.proposal = None
+
+    def _reset_sample(self):
+        """(Re)-enter the default sample
+        """
+        # Make sure the sample name will be different:
+        self._sample = ""
+        # ICAT dataset will be stored (if it exists):
+        self.sample = None
+
+    def _reset_dataset(self):
+        """Next default dataset (re-entering not allowed)
+        """
+        # Avoid storing the ICAT dataset:
+        self._dataset = ""
+        self.dataset = None
+
     @property_with_eval_dict
     def proposal(self, eval_dict=None):
         if not self._proposal:
-            yymm = time.strftime("%y%m")
-            self._proposal = f"{{beamline}}{yymm}"
-            self._freeze_date()
+            self.proposal = None
         return self.eval_template(self._proposal, eval_dict=eval_dict)
 
     @proposal.setter
-    def proposal(self, value):
-        if value:
+    def proposal(self, name):
+        if name:
             # Alphanumeric, space, dash and underscore
-            if not re.match(r"^[0-9a-zA-Z_\s\-]+$", value):
+            if not re.match(r"^[0-9a-zA-Z_\s\-]+$", name):
                 raise ValueError("Proposal name is invalid")
-            value = value.lower()
-            value = re.sub(r"[^0-9a-z]", "", value)
-        self._proposal = value
-        self._freeze_date()
+            name = name.lower()
+            name = re.sub(r"[^0-9a-z]", "", name)
+        else:
+            yymm = time.strftime("%y%m")
+            name = f"{{beamline}}{yymm}"
+        if name != self._proposal:
+            self._store_dataset()
+            self._proposal = name
+            self._freeze_date()
+            self._reset_sample()
+        self.activate_proposal()
+
+    def activate_proposal(self):
+        """Make sure the proposal is activated (for logbook messages)
+        """
+        self._activate_proposal(self.proposal)
+
+    def _activate_proposal(self, proposal):
+        """Make sure the proposal is activated (for logbook messages)
+        """
         # This is only done to ensure the proposal is created
         # in the ICAT database (e.g. e-logbook can be filled).
-        if self.icat_proxy.proposal != value:
-            self.icat_proxy.proposal = value
+        if self.icat_proxy.proposal != proposal:
+            self.icat_proxy.proposal = proposal
 
     @property_with_eval_dict
     def proposal_type(self, eval_dict=None):
@@ -1005,50 +1042,39 @@ class ESRFScanSaving(BasicScanSaving):
     @property
     def sample(self):
         if not self._sample:
-            self._sample = "sample"
+            self.sample = None
         return self._sample
 
     @sample.setter
-    def sample(self, value):
-        if value:
+    def sample(self, name):
+        if name:
             # Alphanumeric, space, dash and underscore
-            if not re.match(r"^[0-9a-zA-Z_\s\-]+$", value):
+            if not re.match(r"^[0-9a-zA-Z_\s\-]+$", name):
                 raise ValueError("Sample name is invalid")
-            value = re.sub(r"[_\s\-]+", "_", value.strip())
-        self._sample = value
+            name = re.sub(r"[_\s\-]+", "_", name.strip())
+        else:
+            name = "sample"
+        if name != self._sample:
+            self._store_dataset()
+            self._sample = name
+            self._reset_dataset()
 
-    @property_with_eval_dict
-    def dataset(self, eval_dict=None):
+    @property
+    def dataset(self):
         if not self._dataset:
-            self.set_cached_property("dataset", "", eval_dict)
+            self.dataset = None
         return self._dataset
 
     @dataset.setter
-    @with_eval_dict
-    def dataset(self, value, eval_dict=None):
+    def dataset(self, value):
         """
         :param int or str value:
         """
-        self._store_dataset(eval_dict=eval_dict)
+        self._store_dataset()
         for dataset_name in self._dataset_name_generator(value):
-            if not self._dataset_exists(dataset_name, eval_dict=eval_dict):
-                self._dataset = eval_dict["dataset"] = dataset_name
-                eval_dict.pop("root_path", None)
-                eval_dict.pop("data_path", None)
-                eval_dict.pop("data_fullpath", None)
-                return
-
-    def _dataset_exists(self, dataset_name, eval_dict):
-        # TODO: check existance with ICAT database not possible
-        eval_dict.pop("root_path", None)
-        eval_dict.pop("data_path", None)
-        eval_dict.pop("data_fullpath", None)
-        eval_dict["dataset"] = dataset_name
-        # Check whether directory exists
-        path = self.get_cached_property("root_path", eval_dict)
-        # Check whether file exists
-        # path = self.get_cached_property("data_fullpath", eval_dict)
-        return os.path.exists(path)
+            self._dataset = dataset_name
+            if not os.path.exists(self.root_path):
+                break
 
     def _dataset_name_generator(self, prefix):
         """Generates dataset names
@@ -1099,41 +1125,39 @@ class ESRFScanSaving(BasicScanSaving):
 
     def newproposal(self, proposal_name):
         # beware: self.proposal getter and setter do different actions
-        self.proposal = "" if not proposal_name else proposal_name
-        self.sample = ""
-        self.dataset = ""
+        self.proposal = proposal_name
         lprint(f"Proposal set to '{self.proposal}'\nData path: {self.get_path()}")
 
     def newsample(self, sample_name):
         # beware: self.sample getter and setter do different actions
-        self.sample = "" if not sample_name else sample_name
-        self.dataset = ""
+        self.sample = sample_name
         lprint(f"Sample set to '{self.sample}`\nData path: {self.root_path}")
 
     def newdataset(self, dataset_name):
         # beware: self.dataset getter and setter do different actions
-        self.dataset = "" if not dataset_name else dataset_name
+        self.dataset = dataset_name
         lprint(f"Dataset set to '{self.dataset}`\nData path: {self.root_path}")
 
     def endproposal(self):
         """Close the active dataset (if any) and go to the default inhouse proposal
         """
-        self.newproposal("")
+        self.enddataset()
+        self._reset_proposal()
 
     def enddataset(self):
         """Close the active dataset (if any) and go the the next dataset
         """
-        self.dataset = ""
+        self.dataset = None
 
-    @with_eval_dict
-    def _store_dataset(self, eval_dict=None):
+    def _store_dataset(self):
         """Store the dataset in ICAT when the dataset directory exists"""
-        if not self._dataset:
+        if not self._dataset or not self._sample or not self._proposal:
             return
-        path = self.get_cached_property("icat_root_path", eval_dict)
+        path = self.icat_root_path
         if not os.path.exists(path):
             return
-        proposal = self.get_cached_property("proposal", eval_dict)
-        sample = self.get_cached_property("sample", eval_dict)
-        dataset = self.get_cached_property("dataset", eval_dict)
+        proposal = self.proposal
+        sample = self.sample
+        dataset = self.dataset
         self.icat_proxy.store_dataset(proposal, sample, dataset, path)
+        self._dataset = ""

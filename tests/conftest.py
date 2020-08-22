@@ -251,24 +251,28 @@ def wait_tango_device(
     device_fqdn=None, admin=None, state=DevState.ON, timeout=10, timeout_msg=None
 ):
     msg = timeout_msg if timeout_msg is not None else f"{device_fqdn} is not running"
-    with gevent.Timeout(timeout, RuntimeError(msg)):
-        while True:
-            if admin:
-                dev_proxy = DeviceProxy(admin)
-            else:
-                dev_proxy = DeviceProxy(device_fqdn)
-            try:
-                dev_proxy.ping()
-            except DevFailed as e:
-                gevent.sleep(1)
-            else:
-                break
+    exception = None
+    try:
+        with gevent.Timeout(timeout):
+            while True:
+                if admin:
+                    dev_proxy = DeviceProxy(admin)
+                else:
+                    dev_proxy = DeviceProxy(device_fqdn)
+                try:
+                    dev_proxy.ping()
+                except DevFailed as e:
+                    exception = e
+                    gevent.sleep(1)
+                else:
+                    break
 
-        dev_proxy = DeviceProxy(device_fqdn)
-        if state is not None:
-            while dev_proxy.state() != state:
-                gevent.sleep(0.1)
-
+            dev_proxy = DeviceProxy(device_fqdn)
+            if state is not None:
+                while dev_proxy.state() != state:
+                    gevent.sleep(0.1)
+    except gevent.Timeout:
+        raise RuntimeError(msg) from exception
     return dev_proxy
 
 

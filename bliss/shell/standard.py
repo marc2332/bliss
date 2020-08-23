@@ -83,6 +83,8 @@ from bliss.scanning.scan_tools import (
     peak,
     goto_peak,
     where,
+    find_position,
+    goto_custom,
     fwhm,  # noqa: F401
 )
 from bliss.common.plot import meshselect  # noqa: F401
@@ -169,6 +171,8 @@ __all__ = (
         "menu",
         "ladd",
         "pprint",
+        "find_position",
+        "goto_custom",
     ]
     + scans.__all__
     + logtools.__all__

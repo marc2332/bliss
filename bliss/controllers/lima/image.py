@@ -5,10 +5,13 @@
 # Copyright (c) 2015-2020 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-import textwrap
 import numpy
-from .roi import Roi
+import textwrap
+import typeguard
+from typing import Iterable
+
 from bliss.common.counter import Counter
+from bliss.controllers.lima.roi import Roi
 from bliss.common.utils import autocomplete_property
 from bliss.config.beacon_object import BeaconObject
 
@@ -182,12 +185,10 @@ class LimaImageParameters(BeaconObject):
     )
 
     @binning.setter
-    def binning(self, value):
-        if isinstance(value, numpy.ndarray):
-            value = [int(value[0]), int(value[1])]
-        assert isinstance(value, list)
+    @typeguard.typechecked
+    def binning(self, value: Iterable[int]):
         assert len(value) == 2
-        assert isinstance(value[0], int) and isinstance(value[1], int)
+        value = [int(value[0]), int(value[1])]
         return value
 
     flip = BeaconObject.property_setting(
@@ -198,12 +199,10 @@ class LimaImageParameters(BeaconObject):
     )
 
     @flip.setter
-    def flip(self, value):
-        if isinstance(value, numpy.ndarray):
-            value = [bool(value[0]), bool(value[1])]
-        assert isinstance(value, list)
+    @typeguard.typechecked
+    def flip(self, value: Iterable[bool]):
         assert len(value) == 2
-        assert isinstance(value[0], bool) and isinstance(value[1], bool)
+        value = [bool(value[0]), bool(value[1])]
         return value
 
     rotation = BeaconObject.property_setting("rotation", default="NONE")

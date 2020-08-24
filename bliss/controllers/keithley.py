@@ -121,7 +121,7 @@ class KeithleySCPI(BaseSCPIDevice):
         model = str(kwargs.pop("model"))
         commands.update(SCPI_MODEL_COMMANDS.get(model, {}))
         kwargs["commands"] = commands
-        super(KeithleySCPI, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
 
 class BaseSensor(SamplingCounter, BeaconObject):

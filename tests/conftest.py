@@ -132,7 +132,8 @@ def clean_gevent():
             print(ob)  # Better printouts
         greenlets.append(ob)
     all_ready = all(gr.ready() for gr in greenlets)
-    gevent.killall(greenlets)
+    with gevent.Timeout(10, RuntimeError("Dangling greenlets cannot be killed")):
+        gevent.killall(greenlets)
     del greenlets
     if end_check:
         assert all_ready

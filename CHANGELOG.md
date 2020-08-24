@@ -26,6 +26,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - `fast`/`slow` axis kind was replaced by `axis-id`
     - Axis kind only contains `forth/backnforth/step`
 
+### Fixed
+- Fixed first motor position for `amesh` with backnforth enabled
+
 ## [1.5.0] - 2020-07-21
 
 ### Added

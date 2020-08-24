@@ -392,7 +392,7 @@ class BeaconObject:
         return property
 
     @staticmethod
-    def property_setting(name, default=None, doc=None):
+    def property_setting(name, default=None, doc=None, **kwargs):
         def get(self):
             return self.settings.get(name, default)
 
@@ -402,7 +402,7 @@ class BeaconObject:
             self.settings[name] = value
 
         set.__name__ = name
-        bop = BeaconObject._property(get, set, doc=doc)
+        bop = BeaconObject._property(get, set, doc=doc, **kwargs)
         bop.__doc__ = doc
         return bop
 

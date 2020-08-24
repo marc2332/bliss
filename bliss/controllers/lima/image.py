@@ -13,6 +13,12 @@ from bliss.common.utils import autocomplete_property
 from bliss.config.beacon_object import BeaconObject
 
 
+def _to_list(setting, value):
+    if value is None:
+        return  # will take the default value
+    return list(value)
+
+
 class LimaImageParameters(BeaconObject):
     def __init__(self, config, proxy, name):
         self._proxy = proxy
@@ -94,7 +100,7 @@ class LimaImageParameters(BeaconObject):
             roi[3] -= roi[1]
             return roi.astype(numpy.int)
 
-        def check_bondary(pos, i, maxx):
+        def check_boundary(pos, i, maxx):
             if pos[i] < 0:
                 pos[i] += maxx
             elif pos[i] > maxx:
@@ -141,10 +147,10 @@ class LimaImageParameters(BeaconObject):
                 numpy.dot(op, numpy.array([self._max_width, self._max_height]))
             )
 
-        check_bondary(res, 0, mw)
-        check_bondary(res, 1, mh)
-        check_bondary(res, 2, mw)
-        check_bondary(res, 3, mh)
+        check_boundary(res, 0, mw)
+        check_boundary(res, 1, mh)
+        check_boundary(res, 2, mw)
+        check_boundary(res, 3, mh)
 
         # swap if needed
         if res[0] > res[2]:
@@ -171,7 +177,9 @@ class LimaImageParameters(BeaconObject):
 
         return pos2roi(res)
 
-    binning = BeaconObject.property_setting("binning", default=[1, 1])
+    binning = BeaconObject.property_setting(
+        "binning", default=[1, 1], set_marshalling=_to_list, set_unmarshalling=_to_list
+    )
 
     @binning.setter
     def binning(self, value):
@@ -182,7 +190,12 @@ class LimaImageParameters(BeaconObject):
         assert isinstance(value[0], int) and isinstance(value[1], int)
         return value
 
-    flip = BeaconObject.property_setting("flip", default=[False, False])
+    flip = BeaconObject.property_setting(
+        "flip",
+        default=[False, False],
+        set_marshalling=_to_list,
+        set_unmarshalling=_to_list,
+    )
 
     @flip.setter
     def flip(self, value):
@@ -206,7 +219,12 @@ class LimaImageParameters(BeaconObject):
         return value
 
     # _roi is saved in chip reference frame (rot,flip,bin) NOT applied!
-    _roi = BeaconObject.property_setting("roi", default=[0, 0, 0, 0])
+    _roi = BeaconObject.property_setting(
+        "roi",
+        default=[0, 0, 0, 0],
+        set_marshalling=_to_list,
+        set_unmarshalling=_to_list,
+    )
 
     @property
     def roi(self):

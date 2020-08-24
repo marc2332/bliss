@@ -561,6 +561,9 @@ class CacheConnection:
             for msg in pubsub.listen():
                 if msg.get("channel") == b"__redis__:invalidate":
                     inv_names = msg.get("data")
+                    if inv_names is None:
+                        continue
+
                     for inv_name in inv_names:
                         try:
                             self._cache_values.pop(inv_name.decode(), None)
@@ -571,5 +574,6 @@ class CacheConnection:
                 cnx = self._cnx
                 self._cnx = None
                 self._cache_values = dict()
+                pubsub.connection.clear_connect_callbacks()
                 pubsub.close()
                 cnx.close()

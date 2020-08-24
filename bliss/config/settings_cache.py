@@ -337,6 +337,13 @@ class CacheConnection:
         return return_val
 
     @auto_connect
+    def rpush(self, name, *values):
+        return_val = self._cnx.lpush(name, *values)
+        cache_list = self._get_cache_list(name)
+        cache_list.extend(values)
+        return return_val
+
+    @auto_connect
     def lrange(self, name, start, end):
         cache_list = self._get_cache_list(name)
         if end == -1:
@@ -352,6 +359,19 @@ class CacheConnection:
         if cache_list and return_val == cache_list[-1]:
             cache_list.pop(-1)
         return return_val
+
+    @auto_connect
+    def lrem(self, name, count, value):
+        return_val = self._cnx.lrem(name, count, value)
+        if count >= 0:
+            cache_list = self._get_cache_list(name)
+            for i in range(return_val):
+                try:
+                    cache_list.remove(value)
+                except ValueError:  # already removed
+                    pass
+        else:  # re-synchronization on next get
+            self._cache_values.pop(name, None)
 
     # SORTED SET COMMANDS
     @auto_connect

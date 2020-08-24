@@ -369,20 +369,33 @@ class DataNode:
     def set_ttl(self):
         """Set the time-to-live for all Redis objects associated to this node
         """
-        db_names = set(self._get_db_names())
-        pipeline = self.connection.pipeline()
-        for name in db_names:
-            pipeline.expire(name, DataNode.default_time_to_live)
-        pipeline.execute()
+        self.apply_ttl(set(self.get_db_names()))
+        self.ttl_is_set()
+
+    def ttl_is_set(self):
+        """This DataNode's ttl has been set
+        """
         if self._ttl_setter is not None:
             self._ttl_setter.detach()
 
-    def _get_db_names(self):
+    def apply_ttl(self, db_names):
+        """Set time-to-live for a list of Redis objects
+
+        :param list(str) db_names:
+        """
+        p = self.connection.pipeline()
+        try:
+            for name in db_names:
+                p.expire(name, self.default_time_to_live)
+        finally:
+            p.execute()
+
+    def get_db_names(self):
         db_name = self.db_name
         db_names = [db_name, "%s_info" % db_name]
         parent = self.parent
         if parent:
-            db_names.extend(parent._get_db_names())
+            db_names.extend(parent.get_db_names())
         return db_names
 
     @protect_from_kill
@@ -660,8 +673,8 @@ class DataNodeContainer(DataNode):
             f"{db_name}_children_list"
         )
 
-    def _get_db_names(self):
-        db_names = super()._get_db_names()
+    def get_db_names(self):
+        db_names = super().get_db_names()
         db_names.append("%s_children_list" % self.db_name)
         return db_names
 

@@ -18,7 +18,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Added fields to explicitly describe scatter plots
     - Added fields to group channels of the same size
     - Added fields to describes complex scatters
-    - Added `fast-backnforth` channel axis kind
     - Added `axis-id` to order the scatter axis
 
 ### Changed

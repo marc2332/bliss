@@ -85,6 +85,114 @@ class _PrefetchDict(MutableMapping):
         return len(self._prefetched_objs)
 
 
+class _Pipeline:
+    def __init__(self, cache_connection, cnx):
+        self._cache_values = cache_connection._cache_values
+        self._pipeline = cnx.pipeline()
+        self._function_list = list()
+
+    def __getattr__(self, name):
+        return getattr(self._pipeline, name)
+
+    def delete(self, name):
+        def delete_func():
+            self._cache_values.pop(name, None)
+
+        self._function_list.append(delete_func)
+        return self._pipeline.delete(name)
+
+    def set(self, name, value, *args, **kwargs):
+        def set_func():
+            self._cache_values[name] = value
+
+        self._function_list.append(set_func)
+        return self._pipeline.set(name, value, *args, **kwargs)
+
+    def hdel(self, name, *keys):
+        def hdel_func():
+            cached_dict = self._cache_values.get(name)
+            if cached_dict is not None:
+                for k in keys:
+                    cached_dict.pop(k.encode(), None)
+
+        self._function_list.append(hdel_func)
+        return self._pipeline.hdel(name, *keys)
+
+    def hset(self, name, key, value):
+        def hset_func():
+            cached_dict = self._cache_values.get(name)
+            if cached_dict is not None:
+                cached_dict[key.encode()] = value
+
+        self._function_list.append(hset_func)
+        return self._pipeline.hset(name, key, value)
+
+    def hmset(self, name, mapping):
+        def hmset_func():
+            cached_dict = self._cache_values.get(name)
+            if cached_dict is not None:
+                cached_dict.update((k.encode(), v) for k, v in mapping.items())
+
+        self._function_list.append(hmset_func)
+        return self._pipeline.hmset(name, mapping)
+
+    def lpop(self, name, *values):
+        def lpop_func():
+            cached_list = self._cache_values.get(name)
+            if cached_list is not None:
+                try:
+                    cached_list.pop(0)
+                except IndexError:
+                    pass
+
+        self._function_list.append(lpop_func)
+        return self._pipeline.lpop(name, *values)
+
+    def lpush(self, name, *values):
+        def lpush_func():
+            cache_list = self._cache_values.get(name)
+            if cache_list is not None:
+                for v in values:
+                    cache_list.insert(0, v)
+
+        self._function_list.append(lpush_func)
+        return self._pipeline.lpush(name, *values)
+
+    def rpush(self, name, *values):
+        def rpush_func():
+            cache_list = self._cache_values.get(name)
+            if cache_list is not None:
+                cache_list.extend(values)
+
+        self._function_list.append(rpush_func)
+        return self._pipeline.rpush(name, *values)
+
+    def rpop(self, name):
+        def rpop_func():
+            cache_list = self._cache_values.get(name)
+            if cache_list is not None:
+                try:
+                    cache_list.pop(-1)
+                except IndexError:
+                    pass
+
+        self._function_list.append(rpop_func)
+        return self._pipeline.rpop(name)
+
+    def lrem(self, name, *args):
+        def clear_cache():
+            self._cache_values.pop(name, None)
+
+        self._function_list.append(clear_cache)
+        return self._pipeline.lrem(name, *args)
+
+    def execute(self):
+        for func in self._function_list:
+            func()
+        self._function_list.clear()
+        return self._pipeline.execute()
+
+
 class CacheConnection:
     """
     This object cache value for settings locally.
@@ -206,9 +314,7 @@ class CacheConnection:
         self._prefetch_objects.clear()
 
     def pipeline(self):
-        # invalidate all cache
-        self._cache_values.clear()
-        return self._base_cnx.pipeline()
+        return _Pipeline(self, self._base_cnx)
 
     @auto_connect
     def evalsha(self, script_name, n, *args):

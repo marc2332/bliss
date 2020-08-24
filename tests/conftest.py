@@ -610,7 +610,25 @@ def deep_compare(d, u):
 
 
 @pytest.fixture
-def metadata_manager_tango_server(ports, beacon, jolokia_server, stomp_server):
+def metamgr_without_backend(ports, beacon):
+    device_name = "id00/metadata/test_session"
+    device_fqdn = "tango://localhost:{}/{}".format(ports.tango_port, device_name)
+
+    with start_tango_server(
+        sys.executable,
+        "-u",
+        "-m",
+        "metadata_manager.MetadataManager",
+        "test",
+        "-v2",
+        device_fqdn=device_fqdn,
+        state=DevState.OFF,
+    ) as dev_proxy:
+        yield device_fqdn, dev_proxy
+
+
+@pytest.fixture
+def metamgr(ports, beacon, jolokia_server, stomp_server):
     device_name = "id00/metadata/test_session"
     device_fqdn = "tango://localhost:{}/{}".format(ports.tango_port, device_name)
 
@@ -638,7 +656,25 @@ def metadata_manager_tango_server(ports, beacon, jolokia_server, stomp_server):
 
 
 @pytest.fixture
-def metadata_experiment_tango_server(ports, beacon, jolokia_server, stomp_server):
+def metaexp_without_backend(ports, beacon):
+    device_name = "id00/metaexp/test_session"
+    device_fqdn = "tango://localhost:{}/{}".format(ports.tango_port, device_name)
+
+    with start_tango_server(
+        sys.executable,
+        "-u",
+        "-m",
+        "metadata_manager.MetaExperiment",
+        "test",
+        "-v2",
+        device_fqdn=device_fqdn,
+        state=DevState.ON,
+    ) as dev_proxy:
+        yield device_fqdn, dev_proxy
+
+
+@pytest.fixture
+def metaexp(ports, beacon, jolokia_server, stomp_server):
     device_name = "id00/metaexp/test_session"
     device_fqdn = "tango://localhost:{}/{}".format(ports.tango_port, device_name)
 

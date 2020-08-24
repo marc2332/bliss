@@ -24,8 +24,8 @@ import nxw_test_utils
 @pytest.fixture
 def nexus_writer_session(
     beacon,
-    metadata_experiment_tango_server,
-    metadata_manager_tango_server,
+    metaexp_without_backend,
+    metamgr_without_backend,
     lima_simulator,
     lima_simulator2,
 ):

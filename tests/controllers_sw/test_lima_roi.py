@@ -29,6 +29,13 @@ LimParamList = [
     LimParams("90", (True, False), (2, 2), (10, 20, 30, 40)),
     LimParams("90", (True, False), (30, 30), (2, 3, 5, 6)),
     LimParams("NONE", (False, False), (1, 1), (0, 0, 0, 0), (0, 0, 1024, 1024)),
+    LimParams(
+        "NONE",
+        numpy.array((True, True)),
+        numpy.array((2, 2)),
+        (0, 0, 0, 0),
+        (0, 0, 512, 512),
+    ),
 ]
 
 

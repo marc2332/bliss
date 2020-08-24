@@ -18,6 +18,10 @@ class ScanNode(DataNodeContainer):
         DataNodeContainer.__init__(self, self._NODE_TYPE, name, **kwargs)
         self._sync_stream = self._create_stream("data")
 
+    @property
+    def dataset(self):
+        return self.parent
+
     def end(self, exception=None):
         """Publish END event in Redis
         """

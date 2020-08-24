@@ -208,6 +208,16 @@ def _create_node(name, node_type=None, parent=None, connection=None, **keys):
     return _get_node_object(node_type, name, parent, connection, create=True, **keys)
 
 
+def _get_node(name, node_type=None, parent=None, connection=None, **keys):
+    if connection is None:
+        connection = client.get_redis_connection(db=1)
+    db_name = DataNode.exists(name, parent, connection)
+    if db_name:
+        return get_node(db_name, connection=connection)
+    else:
+        return None
+
+
 def _get_or_create_node(name, node_type=None, parent=None, connection=None, **keys):
     if connection is None:
         connection = client.get_redis_connection(db=1)

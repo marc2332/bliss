@@ -21,6 +21,7 @@ from bliss.scanning.acquisition.counter import SamplingCounterAcquisitionSlave
 from bliss.config.settings import scan as redis_scan
 from bliss.config.streaming import DataStream, DataStreamReaderStopHandler
 from bliss.data.nodes.scan import ScanNode
+from bliss.data.nodes.dataset import DatasetNode
 from bliss.data.node import (
     get_session_node,
     get_node,
@@ -52,10 +53,16 @@ def test_parent_node(session):
     redis_base_path = scan_saving.base_path.replace("/", ":")
     parent_node = scan_saving.get_parent_node()
     assert (
+        parent_node.db_name.rpartition(":")[0]
+        == f"test_session{redis_base_path}:{scan_saving.date}"
+    )
+    assert parent_node.parent.type == "container"
+    assert isinstance(parent_node, DataNodeContainer)
+    assert (
         parent_node.db_name == f"test_session{redis_base_path}:{scan_saving.date}:test"
     )
-    assert parent_node.type == "container"
-    assert isinstance(parent_node, DataNodeContainer)
+    assert parent_node.type == "dataset"
+    assert isinstance(parent_node, DatasetNode)
 
 
 def test_scan_node(session, redis_data_conn):
@@ -871,6 +878,57 @@ def test_walk_events_on_wrong_session_node(beforestart, session):
 def test_walk_nodes_on_wrong_session_node(beforestart, session):
     nodes, nmasters, nchannels = _count_nodes(beforestart, session, session.name[:-1])
     assert not nodes
+
+
+@pytest.mark.parametrize("beforestart, wait, filter", _count_parameters)
+def test_walk_events_on_dataset_node(beforestart, wait, filter, session):
+    db_name = session.scan_saving.scan_parent_db_name
+    events, nmasters, nchannels = _count_node_events(
+        beforestart, session, db_name, node_type="scan", filter=filter, wait=wait
+    )
+    if filter == "scan":
+        # New node events: scan
+        assert set(events.keys()) == {"NEW_NODE", "END_SCAN"}
+        assert len(events["NEW_NODE"]) == 1
+        assert len(events["END_SCAN"]) == 1
+    elif filter == "channel":
+        # New node events: epoch, elapsed_time, n x detector
+        assert set(events.keys()) == {"NEW_NODE", "NEW_DATA"}
+        assert len(events["NEW_NODE"]) == nmasters + nchannels
+        assert len(events["NEW_DATA"]) == nmasters + nchannels
+    elif callable(filter):
+        # New node events: epoch
+        assert set(events.keys()) == {"NEW_NODE", "NEW_DATA"}
+        assert len(events["NEW_NODE"]) == 1
+        assert len(events["NEW_DATA"]) == 1
+    else:
+        # New node events: dataset, scan master (timer), epoch,
+        #                  elapsed_time, n  x (controller, detector)
+        assert set(events.keys()) == {"NEW_NODE", "NEW_DATA", "END_SCAN"}
+        assert len(events["NEW_NODE"]) == 2 + nmasters + 2 * nchannels
+        assert len(events["NEW_DATA"]) == nmasters + nchannels
+        assert len(events["END_SCAN"]) == 1
+
+
+@pytest.mark.parametrize("beforestart, wait, filter", _count_parameters)
+def test_walk_nodes_on_dataset_node(beforestart, wait, filter, session):
+    db_name = session.scan_saving.scan_parent_db_name
+    nodes, nmasters, nchannels = _count_nodes(
+        beforestart, session, db_name, node_type="scan", filter=filter, wait=wait
+    )
+    if filter == "scan":
+        # Nodes: scan
+        assert len(nodes) == 1
+    elif filter == "channel":
+        # Nodes: epoch, elapsed_time, n x detector
+        assert len(nodes) == nmasters + nchannels
+    elif callable(filter):
+        # Nodes: epoch
+        assert len(nodes) == 1
+    else:
+        # Nodes: dataset, scan master (timer), epoch,
+        #        elapsed_time, n x (controller, detector)
+        assert len(nodes) == 2 + nmasters + 2 * nchannels
 
 
 @pytest.mark.parametrize("beforestart, wait, filter", _count_parameters)

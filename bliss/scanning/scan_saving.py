@@ -658,7 +658,9 @@ class BasicScanSaving(EvalParametersWardrobe):
         :returns list(tuple):
         """
         parts = self.get_cached_property("_db_path_keys", eval_dict)
-        return list(zip(parts, ["container"] * len(parts)))
+        types = ["container"] * len(parts)
+        types[-1] = "dataset"
+        return list(zip(parts, types))
 
     @property_with_eval_dict
     def writer_object(self, eval_dict=None):
@@ -703,8 +705,9 @@ class BasicScanSaving(EvalParametersWardrobe):
         self.create_path(self.root_path)
 
     def get_parent_node(self):
-        """
-        This method return the parent node which should be used to publish new data
+        """This method return the parent node which should be used to publish new data
+
+        :returns DatasetNode:
         """
         db_path_items = self._db_path_items
         parent_node = None

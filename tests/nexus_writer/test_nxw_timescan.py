@@ -50,8 +50,8 @@ def _test_nxw_timescan(session=None, tmpdir=None, writer=None, **kwargs):
     nminevents = 5
 
     def listenscan(scannode):
+        print(f"Listen to scan {scannode.db_name}")
         for event_type, node, event_data in scannode.walk_events():
-            print(f"{event_type}: {node.db_name}")
             if event_type == event_type.NEW_DATA:
                 name = node.fullname
                 if not name:
@@ -68,7 +68,6 @@ def _test_nxw_timescan(session=None, tmpdir=None, writer=None, **kwargs):
         try:
             for event_type, node, event_data in sessionnode.walk_events(filter="scan"):
                 if event_type == event_type.NEW_NODE:
-                    print(f"Listen to scan {node.db_name}")
                     listeners.append(gevent.spawn(listenscan, node))
         finally:
             for g in listeners:
@@ -80,22 +79,36 @@ def _test_nxw_timescan(session=None, tmpdir=None, writer=None, **kwargs):
 
     with gevent.Timeout(30):
         # Wait until first channel has data
+        print("Wait for the first NEW_DATA event ...")
         started.wait()
         # Wait until all channels have nmin data events
         while any(v <= nminevents for v in nodes.values()):
+            lst = set(nodes.values())
+            nmin = min(lst)
+            nmax = max(lst)
+            print(
+                f"Wait until all channels have at least {nminevents} data events (currently {nmin}/{nmax}) ..."
+            )
             gevent.sleep(1)
             try:
                 gscan.get(block=False)
             except gevent.Timeout:
                 continue
+        print(f"All channels have at least {nminevents} data events.")
 
     # Stop scan and listener
-    with pytest.raises(ScanAbort):
-        gscan.kill(KeyboardInterrupt)
-        gscan.get()
-    glisten.kill()
+    print("Stopping scan ...")
+    with gevent.Timeout(30):
+        with pytest.raises(ScanAbort):
+            print("Sending CTRL-C ...")
+            gscan.kill(KeyboardInterrupt)
+            print("Wait for scan to stop ...")
+            gscan.get()
+        print("Stopping listener ...")
+        glisten.kill()
 
     # Verify data
+    print("Verify data ...")
     nxw_test_utils.wait_scan_data_finished([scan], writer=writer)
     nxw_test_data.assert_scan_data(
         scan, scan_shape=(0,), positioners=[["elapsed_time", "epoch"]], **kwargs

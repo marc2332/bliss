@@ -22,13 +22,7 @@ import nxw_test_utils
 
 
 @pytest.fixture
-def nexus_writer_session(
-    beacon,
-    metaexp_without_backend,
-    metamgr_without_backend,
-    lima_simulator,
-    lima_simulator2,
-):
+def nexus_writer_session(beacon, lima_simulator, lima_simulator2):
     """Writer sessions with lots of different detectors and scan types
     """
     session = beacon.get("nexus_writer_session")
@@ -38,11 +32,20 @@ def nexus_writer_session(
 
 
 @pytest.fixture
-def nexus_writer_base(nexus_writer_session, scan_tmpdir):
+def nexus_writer_session_policy(
+    beacon, nexus_writer_session, metaexp_without_backend, metamgr_without_backend
+):
+    """Writer sessions with lots of different detectors and scan types
+    """
+    yield nexus_writer_session
+
+
+@pytest.fixture
+def nexus_writer_base(nexus_writer_session_policy, scan_tmpdir):
     """Writer session with a Nexus writer
     """
     with nexus_writer(
-        nexus_writer_session, scan_tmpdir, config=False, alt=False, policy=True
+        nexus_writer_session_policy, scan_tmpdir, config=False, alt=False, policy=True
     ) as info:
         yield info
 
@@ -58,21 +61,21 @@ def nexus_writer_base_nopolicy(nexus_writer_session, scan_tmpdir):
 
 
 @pytest.fixture
-def nexus_writer_base_alt(nexus_writer_session, scan_tmpdir):
+def nexus_writer_base_alt(nexus_writer_session_policy, scan_tmpdir):
     """Writer session with a Nexus writer
     """
     with nexus_writer(
-        nexus_writer_session, scan_tmpdir, config=False, alt=True, policy=True
+        nexus_writer_session_policy, scan_tmpdir, config=False, alt=True, policy=True
     ) as info:
         yield info
 
 
 @pytest.fixture
-def nexus_writer_config(nexus_writer_session, scan_tmpdir):
+def nexus_writer_config(nexus_writer_session_policy, scan_tmpdir):
     """Writer session with a Nexus writer
     """
     with nexus_writer(
-        nexus_writer_session, scan_tmpdir, config=True, alt=False, policy=True
+        nexus_writer_session_policy, scan_tmpdir, config=True, alt=False, policy=True
     ) as info:
         yield info
 
@@ -88,11 +91,11 @@ def nexus_writer_config_nopolicy(nexus_writer_session, scan_tmpdir):
 
 
 @pytest.fixture
-def nexus_writer_config_alt(nexus_writer_session, scan_tmpdir):
+def nexus_writer_config_alt(nexus_writer_session_policy, scan_tmpdir):
     """Writer session with a Nexus writer
     """
     with nexus_writer(
-        nexus_writer_session, scan_tmpdir, config=True, alt=True, policy=True
+        nexus_writer_session_policy, scan_tmpdir, config=True, alt=True, policy=True
     ) as info:
         yield info
 

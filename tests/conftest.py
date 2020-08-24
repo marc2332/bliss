@@ -40,6 +40,7 @@ from bliss.controllers import tango_attr_as_counter
 from bliss.common import plot
 from bliss.common.tango import Database, DeviceProxy, DevFailed, ApiUtil, DevState
 from bliss.common.utils import grouped
+from bliss.tango.clients.utils import wait_tango_device, wait_tango_db
 from bliss import logging_startup
 from bliss.scanning import scan_meta
 import socket
@@ -189,10 +190,8 @@ def ports(beacon_directory):
         "--tango_port=%d" % ports.tango_port,
         "--webapp_port=%d" % ports.cfgapp_port,
     ]
-    proc = subprocess.Popen(BEACON + args, stderr=subprocess.PIPE)
-    with gevent.Timeout(10):
-        wait_for(proc.stderr, "Tango DB started")
-    proc.stderr.close()
+    proc = subprocess.Popen(BEACON + args)
+    wait_tango_db(port=ports.tango_port, db=2)
 
     # disable .rdb files saving (redis persistence)
     r = redis.Redis(host="localhost", port=ports.redis_port)
@@ -246,35 +245,6 @@ def redis_data_conn(beacon):
 def scan_tmpdir(tmpdir):
     yield tmpdir
     tmpdir.remove()
-
-
-def wait_tango_device(
-    device_fqdn=None, admin=None, state=DevState.ON, timeout=10, timeout_msg=None
-):
-    msg = timeout_msg if timeout_msg is not None else f"{device_fqdn} is not running"
-    exception = None
-    try:
-        with gevent.Timeout(timeout):
-            while True:
-                if admin:
-                    dev_proxy = DeviceProxy(admin)
-                else:
-                    dev_proxy = DeviceProxy(device_fqdn)
-                try:
-                    dev_proxy.ping()
-                except DevFailed as e:
-                    exception = e
-                    gevent.sleep(1)
-                else:
-                    break
-
-            dev_proxy = DeviceProxy(device_fqdn)
-            if state is not None:
-                while dev_proxy.state() != state:
-                    gevent.sleep(0.1)
-    except gevent.Timeout:
-        raise RuntimeError(msg) from exception
-    return dev_proxy
 
 
 @contextmanager

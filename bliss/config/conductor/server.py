@@ -990,26 +990,18 @@ def main(args=None):
             args, stdout=tango_wp, stderr=subprocess.STDOUT, env=env
         )
 
-        def wait_tango_db():
-            import tango
-            from tango.gevent import DeviceProxy
+        def _wait_tango_db():
+            from bliss.tango.clients.utils import wait_tango_db
 
-            with gevent.Timeout(10):
-                # wait until Tango database is really started
-                while True:
-                    try:
-                        gevent.sleep(1)
-                        tango_db_proxy = DeviceProxy(
-                            f"tango://localhost:{_options.tango_port}/sys/database/2"
-                        )
-                        tango_db_proxy.state
-                    except Exception:
-                        continue
-                    else:
-                        _tlog.info("Tango DB started")
-                        break
+            try:
+                wait_tango_db(port=_options.tango_port, db=2)
+            except Exception:
+                _tlog.error("Tango DB NOT started")
+                raise
+            else:
+                _tlog.info("Tango DB started")
 
-        wait_tango = gevent.spawn(wait_tango_db)
+        wait_tango = gevent.spawn(_wait_tango_db)
     else:
         wait_tango = tango_rp = tango_process = None
 

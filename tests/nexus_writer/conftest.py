@@ -14,7 +14,7 @@ from contextlib import contextmanager
 from bliss.common import measurementgroup
 from bliss.common.tango import DevState, Database
 from nexus_writer_service.subscribers.session_writer import all_cli_saveoptions
-from tests.conftest import wait_tango_device
+from bliss.tango.clients.utils import wait_tango_device
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "helpers"))
 import nxw_test_config

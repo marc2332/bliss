@@ -220,8 +220,8 @@ class CacheConnection:
 
     @auto_connect
     def delete(self, name):
-        self._base_cnx.delete(name)
         self._cache_values.pop(name, None)
+        self._base_cnx.delete(name)
 
     # KEY
     @auto_connect

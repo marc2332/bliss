@@ -23,7 +23,7 @@ def test_motor_pos__mesh2d_backnforth():
     motor_pos = MeshStepTriggerMaster._interleaved_motor_pos(
         [1, 2], [10, 20], backnforth=True
     )
-    expected = numpy.array([2, 1, 1, 2])
+    expected = numpy.array([1, 2, 2, 1])
     numpy.testing.assert_array_almost_equal(motor_pos[0], expected)
     expected = numpy.array([10, 10, 20, 20])
     numpy.testing.assert_array_almost_equal(motor_pos[1], expected)
@@ -45,9 +45,9 @@ def test_motor_pos__mesh3d_backnforth():
     motor_pos = MeshStepTriggerMaster._interleaved_motor_pos(
         [1, 2], [10, 20], [100, 200], backnforth=True
     )
-    expected = numpy.array([2, 1, 1, 2, 2, 1, 1, 2])
+    expected = numpy.array([1, 2, 2, 1, 1, 2, 2, 1])
     numpy.testing.assert_array_almost_equal(motor_pos[0], expected)
-    expected = numpy.array([20, 20, 10, 10, 10, 10, 20, 20])
+    expected = numpy.array([10, 10, 20, 20, 20, 20, 10, 10])
     numpy.testing.assert_array_almost_equal(motor_pos[1], expected)
     expected = numpy.array([100, 100, 100, 100, 200, 200, 200, 200])
     numpy.testing.assert_array_almost_equal(motor_pos[2], expected)
@@ -57,9 +57,9 @@ def test_motor_pos__mesh3d_backnforth_odd():
     motor_pos = MeshStepTriggerMaster._interleaved_motor_pos(
         [1, 2, 3], [10, 20, 30], [100], backnforth=True
     )
-    expected = numpy.array([3, 2, 1, 1, 2, 3, 3, 2, 1])
+    expected = numpy.array([1, 2, 3, 3, 2, 1, 1, 2, 3])
     numpy.testing.assert_array_almost_equal(motor_pos[0], expected)
-    expected = numpy.array([30, 30, 30, 20, 20, 20, 10, 10, 10])
+    expected = numpy.array([10, 10, 10, 20, 20, 20, 30, 30, 30])
     numpy.testing.assert_array_almost_equal(motor_pos[1], expected)
     expected = numpy.array([100, 100, 100, 100, 100, 100, 100, 100, 100])
     numpy.testing.assert_array_almost_equal(motor_pos[2], expected)

@@ -452,7 +452,7 @@ class MeshStepTriggerMaster(_StepTriggerMaster):
             for i in range(0, len(motor_pos) - 1):
                 array = indexes[i]
                 array.shape = -1, numpy.product(array.shape[-1 - i :])
-                array[0::2, :] = array[0::2, ::-1]
+                array[1::2, :] = array[1::2, ::-1]
         # flattenize
         indexes = [i.flatten() for i in indexes]
         result = []

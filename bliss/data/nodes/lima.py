@@ -382,8 +382,8 @@ class LimaImageChannelDataNode(ChannelDataNodeBase):
     def images_per_file(self):
         return self.first_ref_data.get("saving_frame_per_file")
 
-    def _get_db_names(self):
-        db_names = super()._get_db_names()
+    def get_db_names(self):
+        db_names = super().get_db_names()
         db_names.append(self.db_name + "_data_ref")
         events = self._queue.range(count=1)
         if events:

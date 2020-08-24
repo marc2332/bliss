@@ -369,7 +369,7 @@ class DataNode:
     def set_ttl(self):
         """Set the time-to-live for all Redis objects associated to this node
         """
-        self.apply_ttl(set(self._get_db_names()))
+        self.apply_ttl(set(self.get_db_names()))
         self.ttl_is_set()
 
     def ttl_is_set(self):
@@ -390,12 +390,12 @@ class DataNode:
         finally:
             p.execute()
 
-    def _get_db_names(self):
+    def get_db_names(self):
         db_name = self.db_name
         db_names = [db_name, "%s_info" % db_name]
         parent = self.parent
         if parent:
-            db_names.extend(parent._get_db_names())
+            db_names.extend(parent.get_db_names())
         return db_names
 
     @protect_from_kill
@@ -673,8 +673,8 @@ class DataNodeContainer(DataNode):
             f"{db_name}_children_list"
         )
 
-    def _get_db_names(self):
-        db_names = super()._get_db_names()
+    def get_db_names(self):
+        db_names = super().get_db_names()
         db_names.append("%s_children_list" % self.db_name)
         return db_names
 

@@ -1176,8 +1176,8 @@ class Scan:
         db_names = set()
         nodes = list(self.nodes.values())
         for node in nodes:
-            db_names |= set(node._get_db_names())
-        db_names |= set(self.node._get_db_names())
+            db_names |= set(node.get_db_names())
+        db_names |= set(self.node.get_db_names())
         self.node.apply_ttl(db_names)
         for node in nodes:
             node.ttl_is_set()

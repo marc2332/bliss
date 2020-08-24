@@ -139,8 +139,8 @@ class ChannelDataNodeBase(DataNode):
     def unit(self):
         return self.info.get("unit")
 
-    def _get_db_names(self):
-        db_names = super()._get_db_names()
+    def get_db_names(self):
+        db_names = super().get_db_names()
         db_names.append(self.db_name + "_data")
         return db_names
 

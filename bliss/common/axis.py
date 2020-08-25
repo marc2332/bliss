@@ -2430,8 +2430,8 @@ class ModuloAxis(Axis):
 class NoSettingsAxis(Axis):
     def __init__(self, *args, **kwags):
         Axis.__init__(self, *args, **kwags)
-        self.settings.get = mock.MagicMock(return_value=None)
-        self.settings.set = mock.MagicMock(return_value=None)
+        for setting_name in self.settings:
+            self.settings.disable_cache(setting_name)
 
     @property
     def no_offset(self):

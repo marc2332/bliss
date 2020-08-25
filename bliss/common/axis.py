@@ -2079,7 +2079,12 @@ class Axis:
         self.controller._init_settings(self)
 
         # update position (needed for sign change)
-        self.position = self.dial2user(self.dial)
+        pos = self.dial2user(self.dial)
+        if self.position != pos:
+            try:
+                self.position = self.dial2user(self.dial)
+            except NotImplementedError:
+                pass
 
     @lazy_init
     def set_event_positions(self, positions):

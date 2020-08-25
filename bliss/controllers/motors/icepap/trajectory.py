@@ -10,7 +10,7 @@ import hashlib
 import numpy
 from unittest import mock
 from bliss.config import settings
-from bliss.common.axis import Axis, lazy_init, DEFAULT_POLLING_TIME
+from bliss.common.axis import NoSettingsAxis, lazy_init, DEFAULT_POLLING_TIME
 from . import _command, _vdata_header, POSITION, PARAMETER
 
 
@@ -26,7 +26,7 @@ def check_initialized(func):
     return func_wrapper
 
 
-class TrajectoryAxis(Axis):
+class TrajectoryAxis(NoSettingsAxis):
     """
     Virtual Icepap axis with follow a trajectory defined by
     a position table.
@@ -37,9 +37,7 @@ class TrajectoryAxis(Axis):
     SPLINE, LINEAR, CYCLIC = list(range(3))
 
     def __init__(self, name, controller, config):
-        Axis.__init__(self, name, controller, config)
-        self.settings.get = mock.MagicMock(return_value=None)
-        self.settings.set = mock.MagicMock(return_value=None)
+        super().__init__(name, controller, config)
 
         self._axes = None
         self._parameter = None

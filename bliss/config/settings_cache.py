@@ -4,6 +4,7 @@
 #
 # Copyright (c) 2015-2020 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
+import os
 import enum
 import weakref
 import fnmatch
@@ -211,6 +212,7 @@ class CacheConnection:
         self._able_to_cache = None
         self._cache_values = dict()
         self._prefetch_objects = _PrefetchDict(self)
+        self._wakeup_fd = None
 
     def __getattr__(self, name):
         if name.startswith("__"):
@@ -222,7 +224,12 @@ class CacheConnection:
 
     def close(self):
         if self._listen_task:
-            self._listen_task.kill()
+            try:
+                os.close(self._wakeup_fd)
+            except OSError:  # pipe was already closed
+                pass
+            self._wakeup_fd = None
+            self._listen_task.join()
 
     def disable_caching(self):
         """
@@ -264,13 +271,18 @@ class CacheConnection:
                 # so set it to None.
                 pubsub.connection = inv_client.connection
                 inv_client.connection = None
+                rp, wp = os.pipe()
 
                 pubsub.subscribe("redis:invalidate")
-                listen_task = gevent.spawn(self._listen, pubsub)
+                listen_task = gevent.spawn(self._listen, pubsub, rp)
 
                 def local_kill(*args):
-                    listen_task.kill(block=False)
+                    try:
+                        os.close(wp)
+                    except OSError:  # pipe was already closed
+                        pass
 
+                self._wakeup_fd = wp
                 pubsub.connection.register_connect_callback(local_kill)
                 self._cnx = cnx
                 self._listen_task = listen_task
@@ -556,9 +568,17 @@ class CacheConnection:
             self._cache_values[obj_name] = result
         return self._cache_values[name]
 
-    def _listen(self, pubsub):
+    def _listen(self, pubsub, rp):
+        read_fds = [pubsub.connection._sock, rp]
         try:
-            for msg in pubsub.listen():
+            while True:
+                msg = pubsub.get_message()
+                if msg is None:
+                    read_event, _, _ = gevent.select.select(read_fds, [], [])
+                    if rp in read_event:
+                        break
+                    continue
+
                 if msg.get("channel") == b"__redis__:invalidate":
                     inv_names = msg.get("data")
                     if inv_names is None:
@@ -574,6 +594,7 @@ class CacheConnection:
                 cnx = self._cnx
                 self._cnx = None
                 self._cache_values = dict()
+                os.close(rp)
                 pubsub.connection.clear_connect_callbacks()
                 pubsub.close()
                 cnx.close()

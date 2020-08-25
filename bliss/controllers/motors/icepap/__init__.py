@@ -162,6 +162,8 @@ class Icepap(Controller):
         return int(_command(self._cnx, "?%s %s" % (pos_cmd, axis.address)))
 
     def set_position(self, axis, new_pos):
+        if isinstance(axis, TrajectoryAxis):
+            raise NotImplementedError
         if isinstance(axis, LinkedAxis):
             pre_cmd = "%d:DISPROT LINKED;" % axis.address
         else:

@@ -11,7 +11,7 @@ import numpy
 from unittest import mock
 from bliss.config import settings
 from bliss.common.axis import NoSettingsAxis, lazy_init, DEFAULT_POLLING_TIME
-from . import _command, _vdata_header, POSITION, PARAMETER
+from bliss.controllers.motors.icepap.comm import _command, _vdata_header
 
 
 def check_initialized(func):

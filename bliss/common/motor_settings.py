@@ -80,10 +80,11 @@ class ControllerAxisSettings:
             )
 
         disabled_settings = self.disabled_settings.get(axis, set())
-        if setting_name in disabled_settings:
-            return None
 
-        if self.persistent_setting[setting_name]:
+        if (
+            self.persistent_setting[setting_name]
+            and not setting_name in disabled_settings
+        ):
             with KillMask():
                 value = axis.settings._hash.get(setting_name)
         else:
@@ -99,7 +100,8 @@ class ControllerAxisSettings:
         return value
 
     def _clear(self, axis, setting_name):
-        axis.settings._hash[setting_name] = None
+        if not setting_name in self.disabled_settings:
+            axis.settings._hash[setting_name] = None
 
     def set(self, axis, setting_name, value):
         """
@@ -115,11 +117,13 @@ class ControllerAxisSettings:
         if convert_func is not None:
             value = convert_func(value)
 
-        if self.persistent_setting[setting_name]:
-            with KillMask():
-                axis.settings._hash[setting_name] = value
+        if not setting_name in self.disabled_settings:
+            if self.persistent_setting[setting_name]:
+                with KillMask():
+                    axis.settings._hash[setting_name] = value
 
         axis._beacon_channels[setting_name].value = value
+
         event.send(axis, "internal_" + setting_name, value)
         try:
             event.send(axis, setting_name, value)

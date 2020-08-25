@@ -13,6 +13,8 @@ from bliss.config import settings
 from bliss.common.axis import NoSettingsAxis, lazy_init, DEFAULT_POLLING_TIME
 from bliss.controllers.motors.icepap.comm import _command, _vdata_header
 
+PARAMETER, POSITION, SLOPE = (0x1000, 0x2000, 0x4000)
+
 
 def check_initialized(func):
     @functools.wraps(func)

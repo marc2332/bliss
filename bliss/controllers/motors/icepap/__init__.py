@@ -25,6 +25,12 @@ import sys
 import os
 import errno
 from bliss.controllers.motors.icepap.comm import *
+from bliss.controllers.motors.icepap.trajectory import (
+    TrajectoryAxis,
+    PARAMETER,
+    POSITION,
+    SLOPE,
+)
 
 
 def _object_method_filter(obj):
@@ -729,4 +735,3 @@ class Icepap(Controller):
 from .shutter import Shutter
 from .switch import Switch
 from .linked import LinkedAxis, NoSettingsAxis
-from .trajectory import TrajectoryAxis

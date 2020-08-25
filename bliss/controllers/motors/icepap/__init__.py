@@ -153,7 +153,7 @@ class Icepap(Controller):
         return int(_command(self._cnx, "?%s %s" % (pos_cmd, axis.address)))
 
     def set_position(self, axis, new_pos):
-        if isinstance(axis, NoSettingsAxis):
+        if isinstance(axis, LinkedAxis):
             pre_cmd = "%d:DISPROT LINKED;" % axis.address
         else:
             pre_cmd = None
@@ -354,7 +354,7 @@ class Icepap(Controller):
     def start_one(self, motion):
         if isinstance(motion.axis, TrajectoryAxis):
             return motion.axis._start_one(motion)
-        elif isinstance(motion.axis, NoSettingsAxis):
+        elif isinstance(motion.axis, LinkedAxis):
             pre_cmd = "%d:DISPROT LINKED;" % motion.axis.address
         else:
             pre_cmd = None

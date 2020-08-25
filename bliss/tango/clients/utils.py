@@ -6,8 +6,7 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import gevent
-from tango import DevFailed, DevState
-from tango.gevent import DeviceProxy
+from bliss.common.tango import DeviceProxy, DevFailed, DevState
 
 
 def wait_tango_device(
@@ -57,7 +56,10 @@ def wait_tango_device(
                         exception = e
                     else:
                         break
-                gevent.sleep(1)
+                # Sleep 1 second minimum to prevent the exception:
+                #   'The connection request was delayed.
+                #    Last connection request was done less than 1000 ms ago'
+                gevent.sleep(1.1)
             # Device and database are online. Now check the device state.
             if admin:
                 dev_proxy = DeviceProxy(device_fqdn)

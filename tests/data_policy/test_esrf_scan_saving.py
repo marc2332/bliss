@@ -64,15 +64,9 @@ def test_stomp(icat_publisher, icat_subscriber):
     assert icat_subscriber.get(timeout=5) == "MYMESSAGE2"
 
 
-def test_icat_stomp(
-    session,
-    esrf_data_policy,
-    metadata_experiment_tango_server,
-    metadata_manager_tango_server,
-    icat_subscriber,
-):
-    mdexp_dev_fqdn, mdexp_dev = metadata_experiment_tango_server
-    mdmgr_dev_fqdn, mdmgr_dev = metadata_manager_tango_server
+def test_icat_stomp(session, esrf_data_policy, metaexp, metamgr, icat_subscriber):
+    mdexp_dev_fqdn, mdexp_dev = metaexp
+    mdmgr_dev_fqdn, mdmgr_dev = metamgr
     scan_saving = session.scan_saving
     scan_saving.writer = "hdf5"
 
@@ -89,11 +83,7 @@ def test_icat_stomp(
 
 
 def test_inhouse_scan_saving(
-    session,
-    esrf_data_policy,
-    metadata_experiment_tango_server,
-    metadata_manager_tango_server,
-    icat_subscriber,
+    session, esrf_data_policy, metaexp, metamgr, icat_subscriber
 ):
     scan_saving = session.scan_saving
     scan_saving_config = esrf_data_policy
@@ -119,11 +109,7 @@ def test_inhouse_scan_saving(
 
 
 def test_visitor_scan_saving(
-    session,
-    esrf_data_policy,
-    metadata_experiment_tango_server,
-    metadata_manager_tango_server,
-    icat_subscriber,
+    session, esrf_data_policy, metaexp, metamgr, icat_subscriber
 ):
     scan_saving = session.scan_saving
     scan_saving.mount_point = "fs1"
@@ -136,13 +122,7 @@ def test_visitor_scan_saving(
     assert_icat_received(icat_subscriber, expected)
 
 
-def test_tmp_scan_saving(
-    session,
-    esrf_data_policy,
-    metadata_experiment_tango_server,
-    metadata_manager_tango_server,
-    icat_subscriber,
-):
+def test_tmp_scan_saving(session, esrf_data_policy, metaexp, metamgr, icat_subscriber):
     scan_saving = session.scan_saving
     scan_saving.mount_point = "fs1"
     scan_saving_config = esrf_data_policy
@@ -191,11 +171,7 @@ def create_dataset(scan_saving):
 
 
 def test_auto_dataset_increment(
-    session,
-    esrf_data_policy,
-    metadata_experiment_tango_server,
-    metadata_manager_tango_server,
-    icat_subscriber,
+    session, esrf_data_policy, metaexp, metamgr, icat_subscriber
 ):
     scan_saving = session.scan_saving
     assert_icat_received(icat_subscriber, icat_info(scan_saving))
@@ -231,16 +207,11 @@ def test_auto_dataset_increment(
 
 
 def test_data_policy_scan_check_servers(
-    session,
-    esrf_data_policy,
-    metadata_experiment_tango_server,
-    metadata_manager_tango_server,
-    nexus_writer_service,
-    icat_subscriber,
+    session, esrf_data_policy, metaexp, metamgr, nexus_writer_service, icat_subscriber
 ):
     scan_saving = session.scan_saving
-    mdexp_dev_fqdn, mdexp_dev = metadata_experiment_tango_server
-    mdmgr_dev_fqdn, mdmgr_dev = metadata_manager_tango_server
+    mdexp_dev_fqdn, mdexp_dev = metaexp
+    mdmgr_dev_fqdn, mdmgr_dev = metamgr
     diode = session.env_dict["diode"]
 
     expected = {
@@ -334,11 +305,7 @@ def assert_servers(
 
 
 def test_data_policy_user_functions(
-    session,
-    esrf_data_policy,
-    metadata_experiment_tango_server,
-    metadata_manager_tango_server,
-    icat_subscriber,
+    session, esrf_data_policy, metaexp, metamgr, icat_subscriber
 ):
     scan_saving = session.scan_saving
     assert_icat_received(icat_subscriber, icat_info(scan_saving))
@@ -417,12 +384,7 @@ def test_data_policy_user_functions(
     assert scan_saving.dataset == "0005"
 
 
-def test_data_policy_name_validation(
-    session,
-    esrf_data_policy,
-    metadata_experiment_tango_server,
-    metadata_manager_tango_server,
-):
+def test_data_policy_name_validation(session, esrf_data_policy, metaexp, metamgr):
     scan_saving = session.scan_saving
 
     for name in ("with,", "with:", "with;"):
@@ -446,12 +408,7 @@ def test_data_policy_name_validation(
         assert scan_saving.dataset == "dataset_Name"
 
 
-def test_session_scan_saving_clone(
-    session,
-    esrf_data_policy,
-    metadata_experiment_tango_server,
-    metadata_manager_tango_server,
-):
+def test_session_scan_saving_clone(session, esrf_data_policy, metaexp, metamgr):
     scan_saving = session.scan_saving
 
     # just to create a tango dev proxy in scan saving
@@ -471,12 +428,7 @@ def test_session_scan_saving_clone(
     assert scan_saving2.proposal == "toto"
 
 
-def test_mount_points(
-    session,
-    esrf_data_policy,
-    metadata_experiment_tango_server,
-    metadata_manager_tango_server,
-):
+def test_mount_points(session, esrf_data_policy, metaexp, metamgr):
     scan_saving = session.scan_saving
     scan_saving_config = esrf_data_policy
 
@@ -571,15 +523,9 @@ def test_mount_points(
     assert scan_saving.icat_base_path == expected
 
 
-def test_session_ending(
-    session,
-    esrf_data_policy,
-    metadata_experiment_tango_server,
-    metadata_manager_tango_server,
-    icat_subscriber,
-):
-    mdexp_dev_fqdn, mdexp_dev = metadata_experiment_tango_server
-    mdmgr_dev_fqdn, mdmgr_dev = metadata_manager_tango_server
+def test_session_ending(session, esrf_data_policy, metaexp, metamgr, icat_subscriber):
+    mdexp_dev_fqdn, mdexp_dev = metaexp
+    mdmgr_dev_fqdn, mdmgr_dev = metamgr
     scan_saving = session.scan_saving
     default_proposal = f"{scan_saving.beamline}{time.strftime('%y%m')}"
 
@@ -608,12 +554,7 @@ def test_session_ending(
     assert scan_saving.dataset == "0001"
 
 
-def test_date_in_basepath(
-    session,
-    esrf_data_policy,
-    metadata_experiment_tango_server,
-    metadata_manager_tango_server,
-):
+def test_date_in_basepath(session, esrf_data_policy, metaexp, metamgr):
     # Put date in base path template:
     scan_saving = session.scan_saving
     new_base_path = os.path.join(scan_saving.base_path, "{date}")
@@ -647,12 +588,6 @@ def test_date_in_basepath(
     assert not scan_saving.base_path.endswith(past)
 
 
-def test_lprint(
-    session,
-    esrf_data_policy,
-    metadata_experiment_tango_server,
-    metadata_manager_tango_server,
-    icat_subscriber,
-):
+def test_lprint(session, esrf_data_policy, metaexp, metamgr, icat_subscriber):
     # TODO: validate log message
     lprint("message1")

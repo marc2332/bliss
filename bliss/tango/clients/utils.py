@@ -6,8 +6,7 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import gevent
-from tango import DevFailed, DevState
-from tango.gevent import DeviceProxy
+from bliss.common.tango import DeviceProxy, DevFailed, DevState
 
 
 def wait_tango_device(

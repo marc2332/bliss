@@ -25,6 +25,9 @@ import sys
 import os
 import errno
 from bliss.controllers.motors.icepap.comm import *
+from bliss.controllers.motors.icepap.shutter import Shutter
+from bliss.controllers.motors.icepap.switch import Switch
+from bliss.controllers.motors.icepap.linked import LinkedAxis
 from bliss.controllers.motors.icepap.trajectory import (
     TrajectoryAxis,
     PARAMETER,
@@ -730,8 +733,3 @@ class Icepap(Controller):
     def reboot(self):
         _command(self._cnx, "REBOOT")
         self._cnx.close()
-
-
-from .shutter import Shutter
-from .switch import Switch
-from .linked import LinkedAxis, NoSettingsAxis

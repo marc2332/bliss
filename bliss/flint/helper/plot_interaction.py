@@ -24,6 +24,7 @@ from silx.gui.plot.items.roi import PointROI
 from silx.gui.plot.items.roi import RegionOfInterest
 from silx.gui.plot.tools.roi import RegionOfInterestManager
 from bliss.flint.widgets.roi_selection_widget import RoiSelectionWidget
+from bliss.flint.widgets.utils import rois as extra_rois
 
 _logger = logging.getLogger(__name__)
 
@@ -447,7 +448,12 @@ class ShapesSelector(Selector):
         self.__roiWidget = None
         self.__selection = None
         self.__kinds: typing.List[RegionOfInterest] = []
-        self.__mapping = {"rectangle": RectangleROI, "arc": ArcROI}
+        self.__mapping = {
+            "rectangle": RectangleROI,
+            "arc": ArcROI,
+            "rectangle-vreduction": extra_rois.VerticalReductionLimaRoi,
+            "rectangle-hreduction": extra_rois.HorizontalReductionLimaRoi,
+        }
 
     def setKinds(self, kinds=typing.List[str]):
         self.__kinds.clear()
@@ -468,7 +474,13 @@ class ShapesSelector(Selector):
         for shape in shapes:
             kind = shape["kind"].lower()
             if kind == "rectangle":
-                roi = RectangleROI()
+                reduction = shape.get("reduction", None)
+                if reduction is None:
+                    roi = RectangleROI()
+                elif reduction == "vertical":
+                    roi = extra_rois.VerticalReductionLimaRoi()
+                elif reduction == "horizontal":
+                    roi = extra_rois.HorizontalReductionLimaRoi()
                 roi.setGeometry(origin=shape["origin"], size=shape["size"])
                 roi.setName(shape["label"])
                 rois.append(roi)
@@ -497,6 +509,10 @@ class ShapesSelector(Selector):
                     label=roi.getName(),
                     kind="Rectangle",
                 )
+                if isinstance(roi, extra_rois.VerticalReductionLimaRoi):
+                    shape["reduction"] = "vertical"
+                elif isinstance(roi, extra_rois.HorizontalReductionLimaRoi):
+                    shape["reduction"] = "horizontal"
                 shapes.append(shape)
             elif isinstance(roi, ArcROI):
                 shape = dict(

@@ -587,6 +587,8 @@ class FlintApi:
         A shape is described by a dictionary according to it's kind:
         - For a rectangle it contains "kind" (which is "Rectangle"), and "label",
             "origin" and "size"
+        - A rectangle can also contain a "reduction" key, which can be one of
+            "vertical" or "horizontal"
         - For an arc it contains "kind" (which is "Arc"), and "label",
             "c1", "c2", "r1", "r2", "a1", "a2" (clockwise, in degree)
 
@@ -595,8 +597,8 @@ class FlintApi:
             initial_shapes: A list of shapes describing the current selection.
                 Only rectangles and arcs are supported.
             timeout: A timeout to enforce the user to do a selection
-            kinds: List or ROI kind which can be created (for now, "rectangle"
-                or "arc")
+            kinds: List or ROI kind which can be created (for now, "rectangle",
+                "arc", "rectangle-vreduction", "rectangle-hreduction")
 
         Return:
             This method returns an event name which have to be registered to

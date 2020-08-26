@@ -63,6 +63,31 @@ class Roi:
         return numpy.array([self.x, self.y, self.width, self.height])
 
 
+class ArcRoi(object):
+    """ArcRoi mock
+
+    It have to be replaced by the real implementation
+    """
+
+    def __init__(self, cx, cy, r1, r2, a1, a2):
+        self.cx = cx
+        self.cy = cy
+        self.r1 = r1
+        self.r2 = r2
+        self.a1 = a1
+        self.a2 = a2
+
+    def to_dict(self):
+        return {
+            "cx": self.cx,
+            "cy": self.cy,
+            "r1": self.r1,
+            "r2": self.r2,
+            "a1": self.a1,
+            "a2": self.a2,
+        }
+
+
 class RoiStat(enum.IntEnum):
     Id = 0
     Frame = 1

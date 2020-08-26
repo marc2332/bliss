@@ -693,10 +693,9 @@ lua_script = """
 -- ARGV[2]: value of the attribute
 
 local hashkey = KEYS[1]
+local setkey = KEYS[2]
 local attribute = ARGV[1]
 local value = ARGV[2]
-
-local setkey = hashkey .. ":creation_order"
 
 if (redis.call("EXISTS", setkey)==0) then
     -- set does not exist, create it, create hash and return
@@ -833,7 +832,14 @@ class OrderedHashSetting(BaseHashSetting):
         cnx.delete(self._name_order)
         if mapping is not None:
             for k, v in mapping.items():
-                cnx.evalsha(self.add_key_script_sha1, 1, self._name, k, v)
+                cnx.evalsha(
+                    self.add_key_script_sha1,
+                    2,
+                    self._name,
+                    self._name + ":creation_order",
+                    k,
+                    v,
+                )
         cnx.execute()
 
     @write_decorator_dict
@@ -841,7 +847,14 @@ class OrderedHashSetting(BaseHashSetting):
         with pipeline(self) as p:
             if values:
                 for k, v in values.items():
-                    p.evalsha(self.add_key_script_sha1, 1, self._name, k, v)
+                    p.evalsha(
+                        self.add_key_script_sha1,
+                        2,
+                        self._name,
+                        self._name + ":creation_order",
+                        k,
+                        v,
+                    )
 
     def has_key(self, key):
         cnx = self._cnx()
@@ -876,7 +889,14 @@ class OrderedHashSetting(BaseHashSetting):
         if self._write_type_conversion:
             value = self._write_type_conversion(value)
         cnx = self._cnx()
-        cnx.evalsha(self.add_key_script_sha1, 1, self._name, key, value)
+        cnx.evalsha(
+            self.add_key_script_sha1,
+            2,
+            self._name,
+            self._name + ":creation_order",
+            key,
+            value,
+        )
 
     def __contains__(self, key):
         return self.has_key(key)

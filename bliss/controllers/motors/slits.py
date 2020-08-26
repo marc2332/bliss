@@ -105,24 +105,14 @@ class Slits(CalcController):
     def metadata_dict(self):
         """ The status of the slit as dictionary
         """
-        slit_type = self.config.get("slit_type", default="both")
         cur_pos = self._do_calc_from_real()
         meta_dict = dict()
-
-        if slit_type not in ["vertical"]:
-            # OFFSET = ( FRONT - BACK ) / 2
-            # GAP = BACK + FRONT
-            meta_dict.update(
-                {
-                    "horizontal_gap": cur_pos["hoffset"],
-                    "horizontal_offset": cur_pos["hgap"],
-                }
-            )
-
-        if slit_type not in ["horizontal"]:
-            meta_dict.update(
-                {"vertical_gap": cur_pos["voffset"], "vertical_offset": cur_pos["vgap"]}
-            )
+        if "hgap" in cur_pos:
+            meta_dict["horizontal_gap"] = cur_pos["hgap"]
+            meta_dict["horizontal_offset"] = cur_pos["hoffset"]
+        if "vgap" in cur_pos:
+            meta_dict["vertical_gap"] = cur_pos["vgap"]
+            meta_dict["vertical_offset"] = cur_pos["voffset"]
         return meta_dict
 
     def initialize_axis(self, axis):

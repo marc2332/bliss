@@ -12,6 +12,14 @@ started. During the scan, only data of channels are updated.
 .. image:: _static/flint/model/scan_model.png
     :alt: Scan model
     :align: center
+
+.. image:: _static/flint/model/scan_model_group.png
+    :alt: Scan model
+    :align: center
+
+Channels can be structured by groups. Scatter groups are described in a specific
+structure to provide helpers. Channels can be reached by axis id, or channels
+which are not part of axis (named counters).
 """
 
 from __future__ import annotations

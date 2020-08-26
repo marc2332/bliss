@@ -36,6 +36,10 @@ _logger = logging.getLogger(__name__)
 def _getHashableSource(obj: plot_model.Item):
     while isinstance(obj, plot_model.ChildItem):
         obj = obj.source()
+    if obj is None:
+        return tuple()
+    if isinstance(obj, plot_model.ChannelRef):
+        return (obj.name(),)
     if isinstance(obj, plot_item_model.CurveItem):
         x = obj.xChannel()
         y = obj.yChannel()
@@ -430,3 +434,107 @@ class MinCurveItem(CurveStatisticItem, plot_model.IncrementalComputableMixIn):
             min_index, min_location_y, min_location_x, max_y_value, nb + len(xx)
         )
         return result
+
+
+class NormalizedCurveItem(plot_model.ChildItem, plot_item_model.CurveMixIn):
+    """Curve based on a source item, normalized by a side channel."""
+
+    def __init__(self, parent=None):
+        plot_model.ChildItem.__init__(self, parent)
+        plot_item_model.CurveMixIn.__init__(self)
+        self.__monitor: Optional[plot_model.ChannelRef] = None
+
+    def name(self) -> str:
+        monitor = self.__monitor
+        if monitor is None:
+            return "Normalized"
+        else:
+            return "Normalized by %s" % monitor.name()
+
+    def inputData(self):
+        return _getHashableSource(self.source()) + _getHashableSource(self.__monitor)
+
+    def isValid(self):
+        return self.source() is not None and self.__monitor is not None
+
+    def getScanValidation(self, scan: scan_model.Scan) -> Optional[str]:
+        """
+        Returns None if everything is fine, else a message to explain the problem.
+        """
+        xx = self.xArray(scan)
+        yy = self.yArray(scan)
+        monitor = self.__monitor
+        if self.__monitor is not None:
+            if monitor.array(scan) is None:
+                return "No data for the monitor"
+        if xx is None and yy is None:
+            return "No data available for X and Y data"
+        elif xx is None:
+            return "No data available for X data"
+        elif yy is None:
+            return "No data available for Y data"
+        elif xx.ndim != 1:
+            return "Dimension of X data do not match"
+        elif yy.ndim != 1:
+            return "Dimension of Y data do not match"
+        elif len(xx) != len(yy):
+            return "Size of X and Y data do not match"
+        # It's fine
+        return None
+
+    def monitorChannel(self) -> Optional[plot_model.ChannelRef]:
+        return self.__monitor
+
+    def setMonitorChannel(self, channel: Optional[plot_model.ChannelRef]):
+        self.__monitor = channel
+        self._emitValueChanged(plot_model.ChangeEventType.Y_CHANNEL)
+
+    def xData(self, scan: scan_model.Scan) -> Optional[scan_model.Data]:
+        source = self.source()
+        return source.xData(scan)
+
+    def yData(self, scan: scan_model.Scan) -> Optional[scan_model.Data]:
+        source = self.source()
+        data = source.yArray(scan)
+        monitor = self.monitorChannel().array(scan)
+        if data is None or monitor is None:
+            return None
+        # FIXME: Could be cached
+        yy = data / monitor
+        # FIXME: Issue on silx
+        yy[numpy.isinf(yy)] = numpy.nan
+        return scan_model.Data(self, yy)
+
+    def setSource(self, source: plot_model.Item):
+        previousSource = self.source()
+        if previousSource is not None:
+            previousSource.valueChanged.disconnect(self.__sourceChanged)
+        plot_model.ChildItem.setSource(self, source)
+        if source is not None:
+            source.valueChanged.connect(self.__sourceChanged)
+            self.__sourceChanged(plot_model.ChangeEventType.X_CHANNEL)
+            self.__sourceChanged(plot_model.ChangeEventType.Y_CHANNEL)
+
+    def __sourceChanged(self, eventType):
+        if eventType == plot_model.ChangeEventType.Y_CHANNEL:
+            self._emitValueChanged(plot_model.ChangeEventType.Y_CHANNEL)
+        if eventType == plot_model.ChangeEventType.X_CHANNEL:
+            self._emitValueChanged(plot_model.ChangeEventType.X_CHANNEL)
+
+    def displayName(self, axisName, scan: scan_model.Scan) -> str:
+        """Helper to reach the axis display name"""
+        sourceItem = self.source()
+        monitor = self.__monitor
+        if axisName == "x":
+            return sourceItem.displayName("x", scan)
+        elif axisName == "y":
+            if monitor is None:
+                return "norm %s" % (sourceItem.displayName("y", scan))
+            else:
+                monitorName = monitor.displayName(scan)
+                return "norm %s by %s" % (
+                    sourceItem.displayName("y", scan),
+                    monitorName,
+                )
+        else:
+            assert False

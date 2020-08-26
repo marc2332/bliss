@@ -902,8 +902,8 @@ def edit_roi_counters(detector: Lima, acq_time: Optional[float] = None):
         plot_id = flint.get_live_scan_plot(channel_name, "image")
 
     # Reach the plot widget
-    plot = plot_module.plot_image(existing_id=plot_id)
-    if not plot:
+    plot_proxy = plot_module.plot_image(existing_id=plot_id)
+    if not plot_proxy:
         raise RuntimeError(
             "Internal error. A plot from this detector was expected but it is not available. Or Flint was closed in between."
         )
@@ -925,7 +925,7 @@ def edit_roi_counters(detector: Lima, acq_time: Optional[float] = None):
 
     name = f"{detector.name} [{roi_counters.config_name}]"
     print(f"Waiting for ROI edition to finish on {name}...")
-    selections = plot.select_shapes(selections, kinds=["rectangle", "arc"])
+    selections = plot_proxy.select_shapes(selections, kinds=["rectangle", "arc"])
     roi_labels: typing.List[str] = []
     rois: typing.List[typing.Tuple] = []
     ignored = 0

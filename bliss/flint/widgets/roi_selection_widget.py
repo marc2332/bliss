@@ -47,8 +47,6 @@ class RoiSelectionWidget(qt.QMainWindow):
         first_action = None
         for roiKind in kinds:
             action = self.roi_manager.getInteractionModeAction(roiKind)
-            if roiKind is RectangleROI:
-                action.setObjectName("roi-select-rectangle")
             self.toolbar.addAction(action)
             if first_action is None:
                 first_action = action

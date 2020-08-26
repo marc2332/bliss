@@ -54,7 +54,7 @@ def test_select_shape(flint_session):
     assert len(result[1]) == 2
 
 
-def test_select_shapes(flint_session):
+def test_select_shapes__rect(flint_session):
     flint = plot.get_flint()
     p = plot.plot()
     context = []
@@ -82,4 +82,36 @@ def test_select_shapes(flint_session):
     assert isinstance(roi, dict)
     expected_keys = set(["origin", "size", "label", "kind"])
     assert len(expected_keys - roi.keys()) == 0
+    assert roi["kind"] == "Rectangle"
+
+
+def test_select_shapes__rect_reduction(flint_session):
+    flint = plot.get_flint()
+    p = plot.plot()
+    context = []
+
+    def active_gui():
+        result = p.select_shapes(kinds=["rectangle-vreduction"])
+        context.append(result)
+
+    def do_actions():
+        gevent.sleep(1)
+        flint.test_mouse(
+            p.plot_id, mode="press", position=(-5, -5), relative_to_center=True
+        )
+        flint.test_mouse(
+            p.plot_id, mode="release", position=(5, 5), relative_to_center=True
+        )
+        flint.test_active(p.plot_id, qaction="roi-apply-selection")
+
+    gevent.joinall([gevent.spawn(f) for f in [active_gui, do_actions]])
+    assert len(context) == 1
+
+    result = context[0]
+    assert len(result) == 1
+    roi = result[0]
+    assert isinstance(roi, dict)
+    expected_keys = set(["origin", "size", "label", "kind", "reduction"])
+    assert len(expected_keys - roi.keys()) == 0
+    assert roi["reduction"]
     assert roi["kind"] == "Rectangle"

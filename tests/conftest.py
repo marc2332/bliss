@@ -285,7 +285,7 @@ def lima_simulator_context(personal_name, device_name):
         "LimaCCDs",
         personal_name,
         device_fqdn=device_fqdn,
-        admin=admin_device_fqdn,
+        admin_device_fqdn=admin_device_fqdn,
         state=None,
     ) as dev_proxy:
         yield device_fqdn, dev_proxy
@@ -319,7 +319,7 @@ def bliss_tango_server(ports, beacon):
         "bliss.tango.servers.bliss_ds",
         "test",
         device_fqdn=device_fqdn,
-        admin=admin_device_fqdn,
+        admin_device_fqdn=admin_device_fqdn,
         state=DevState.STANDBY,
     ) as dev_proxy:
         yield device_fqdn, dev_proxy

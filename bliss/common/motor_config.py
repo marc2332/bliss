@@ -10,19 +10,12 @@ from bliss.common.utils import Null
 import time
 
 
-class StaticConfig(object):
+class StaticConfig:
 
     NO_VALUE = Null()
 
     def __init__(self, config_node):
-        if isinstance(config_node, dict):
-            # soft axes controller => no reload, no save
-            self.__config_node = None
-            self.__config_dict = config_node
-        else:
-            self.__config_node = config_node
-            self.__config_dict = config_node.to_dict()
-
+        self.__config_dict = config_node
         self.__config_has_changed = False
         self.config_channel = None
 
@@ -34,10 +27,6 @@ class StaticConfig(object):
         else:
             self.config_channel = channels.EventChannel(config_chan_name)
             self.config_channel.register_callback(self._config_changed)
-
-    @property
-    def config_node(self):
-        return self.__config_node
 
     @property
     def config_dict(self):
@@ -63,10 +52,7 @@ class StaticConfig(object):
             self.reload()
             self.__config_has_changed = False
 
-        if self.config_node:
-            property_value = self.config_node.get(property_name)  # solve references
-        else:
-            property_value = self.config_dict.get(property_name)
+        property_value = self.config_dict.get(property_name)
         if property_value is not None:
             if callable(converter):
                 return converter(property_value)
@@ -82,24 +68,20 @@ class StaticConfig(object):
         if self.__config_has_changed:
             self.reload()
             self.__config_has_changed = False
-        if self.config_node is None:
-            self.config_dict[property_name] = value
-        else:
-            self.config_node[property_name] = value
+        self.config_dict[property_name] = value
 
     def save(self):
-        if self.config_node is not None:
-            self.config_node.save()
+        if isinstance(self.config_dict, dict):
+            return
+        self.config_dict.save()
         self._update_channel()
 
     def reload(self):
         if self.config_channel is None:
             return
-        if self.config_node is None:
+        if isinstance(self.config_dict, dict):
             return
-        self.config_node.reload()
-        self.config_dict.clear()
-        self.config_dict.update(self.config_node.to_dict())
+        self.config_dict.reload()
 
     def _update_channel(self):
         if self.config_channel is not None:

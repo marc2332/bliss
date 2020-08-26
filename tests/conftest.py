@@ -191,8 +191,10 @@ def ports(beacon_directory):
         "--tango_port=%d" % ports.tango_port,
         "--webapp_port=%d" % ports.cfgapp_port,
     ]
-    proc = subprocess.Popen(BEACON + args)
-    wait_tango_db(port=ports.tango_port, db=2)
+    proc = subprocess.Popen(BEACON + args, stderr=subprocess.PIPE)
+
+    wait_for(proc.stderr, "Tango DB started")
+    proc.stderr.close()
 
     # disable .rdb files saving (redis persistence)
     r = redis.Redis(host="localhost", port=ports.redis_port)

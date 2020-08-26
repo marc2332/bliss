@@ -112,9 +112,11 @@ def clean_gevent():
                 continue
         except ReferenceError:
             continue
-        if ob.ready():
-            continue
-        ob.kill()
+        if not ob.ready():
+            print(f"Dangling greenlet (setup): {ob}")
+            e = RuntimeError(f"Dangling greenlet cannot be killed: {ob}")
+            with gevent.Timeout(10, e):
+                ob.kill()
 
     d = {"end-check": True}
 
@@ -129,8 +131,8 @@ def clean_gevent():
                 continue
         except ReferenceError:
             continue
-        if end_check and not ob.ready():
-            print(ob)  # Better printouts
+        if not ob.ready():
+            print(f"Dangling greenlet (teardown): {ob}")
         greenlets.append(ob)
     all_ready = all(gr.ready() for gr in greenlets)
     with gevent.Timeout(10, RuntimeError("Dangling greenlets cannot be killed")):

@@ -25,6 +25,7 @@ from bliss.flint.model import scan_model
 from bliss.flint.helper import model_helper, scan_history, scan_info_helper
 from bliss.flint.helper.style_helper import DefaultStyleStrategy
 from bliss.flint.utils import qmodelutils
+from bliss.flint.widgets.select_channel_dialog import SelectChannelDialog
 from . import delegates
 from . import _property_tree_helper
 
@@ -282,6 +283,13 @@ class _AddItemAction(qt.QWidgetAction):
             action.setIcon(icon)
             action.triggered.connect(self.__createGaussianFit)
             menu.addAction(action)
+
+            action = qt.QAction(self)
+            action.setText("Normalized function")
+            icon = icons.getQIcon("flint:icons/item-func")
+            action.setIcon(icon)
+            action.triggered.connect(self.__createNormalized)
+            menu.addAction(action)
         else:
             action = qt.QAction(self)
             action.setText("No available items")
@@ -323,6 +331,27 @@ class _AddItemAction(qt.QWidgetAction):
         if parentItem is not None:
             plot = parentItem.plot()
             newItem = plot_state_model.GaussianFitItem(plot)
+            newItem.setSource(parentItem)
+            with plot.transaction():
+                plot.addItem(newItem)
+
+    def __createNormalized(self):
+        parentItem = self.parent().selectedPlotItem()
+        if parentItem is not None:
+            parentWidget = self.parent()
+            scan = parentWidget.scan()
+            dialog = SelectChannelDialog(parentWidget)
+            dialog.setScan(scan)
+            result = dialog.exec_()
+            if not result:
+                return
+            monitorName = dialog.selectedChannelName()
+            if monitorName is None:
+                return
+            plot = parentItem.plot()
+            newItem = plot_state_model.NormalizedCurveItem(plot)
+            channel = plot_model.ChannelRef(plot, monitorName)
+            newItem.setMonitorChannel(channel)
             newItem.setSource(parentItem)
             with plot.transaction():
                 plot.addItem(newItem)
@@ -859,6 +888,9 @@ class CurvePlotPropertyWidget(qt.QWidget):
             self.__scan.scanDataUpdated[object].connect(self.__scanDataUpdated)
         self.__updateTree()
 
+    def scan(self) -> Optional[scan_model.Scan]:
+        return self.__scan
+
     def __scanDataUpdated(self, event: scan_model.ScanDataUpdateEvent):
         model = self.__tree.model()
         flags = qt.Qt.MatchWildcard | qt.Qt.MatchRecursive
@@ -1012,7 +1044,7 @@ class CurvePlotPropertyWidget(qt.QWidget):
             if isinstance(plotItem, plot_item_model.AxisPositionMarker):
                 continue
 
-            if isinstance(plotItem, plot_model.ComputableMixIn):
+            if isinstance(plotItem, (plot_model.ComputableMixIn, plot_model.ChildItem)):
                 source = plotItem.source()
                 if source is None:
                     parent = itemWithoutLocation

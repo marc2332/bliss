@@ -148,7 +148,6 @@ import numpy
 import functools
 
 from bliss import current_session, is_bliss_shell, global_map
-from bliss.config.settings import HashSetting
 from bliss.common.protocols import Scannable
 from bliss.common.utils import get_matching_names, is_pattern
 from bliss.scanning.scan_display import ScanDisplay

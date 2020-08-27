@@ -996,10 +996,10 @@ def main(args=None):
             try:
                 wait_tango_db(port=_options.tango_port, db=2)
             except Exception:
-                _tlog.error("Tango DB NOT started")
+                _tlog.error("Tango database NOT started")
                 raise
             else:
-                _tlog.info("Tango DB started")
+                _tlog.info("Tango database started")
 
         wait_tango = gevent.spawn(_wait_tango_db)
     else:

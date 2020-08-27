@@ -40,7 +40,7 @@ from bliss.controllers import tango_attr_as_counter
 from bliss.common import plot
 from bliss.common.tango import Database, DeviceProxy, DevFailed, ApiUtil, DevState
 from bliss.common.utils import grouped
-from bliss.tango.clients.utils import wait_tango_device, wait_tango_db
+from bliss.tango.clients.utils import wait_tango_device
 from bliss import logging_startup
 from bliss.scanning import scan_meta
 import socket
@@ -192,8 +192,8 @@ def ports(beacon_directory):
         "--webapp_port=%d" % ports.cfgapp_port,
     ]
     proc = subprocess.Popen(BEACON + args, stderr=subprocess.PIPE)
-
-    wait_for(proc.stderr, "Tango DB started")
+    # TODO: Beacon needs an 'is_ready' command
+    wait_for(proc.stderr, "Tango database started")
     proc.stderr.close()
 
     # disable .rdb files saving (redis persistence)

@@ -75,23 +75,41 @@ def wait_tango_device(
     return dev_proxy
 
 
-def wait_tango_db(host=None, port=20000, db=1, timeout=10):
+def wait_tango_db(host=None, port=10000, db=2, timeout=10):
     """Wait until the tango database comes online and return a proxy.
+    The environment variable TANGO_HOST is never used.
 
-    :param str host:
+    :param str host: local host by default
     :param int port:
-    :param int db:
+    :param int db: typically 2 is for a test database and 1 for production
     :param num timeout:
     :returns DeviceProxy:
     """
     if host is None:
         host = "localhost"
     device_fqdn = f"tango://{host}:{port}/sys/database/{db}"
-    timeout_msg = f"Tango database {device_fqdn} is not running"
-    return wait_tango_device(
-        device_fqdn=device_fqdn,
-        timeout=timeout,
-        wait_db=True,
-        state=DevState.ON,
-        timeout_msg=timeout_msg,
-    )
+    err_msg = f"Tango database {device_fqdn} is not running"
+    exception = None
+    try:
+        with gevent.Timeout(timeout):
+            # Wait for Tango database and its admin device to come online
+            dev_proxy = wait_tango_device(
+                device_fqdn=device_fqdn,
+                timeout=None,
+                wait_db=True,
+                state=DevState.ON,
+                timeout_msg=err_msg,
+            )
+            # Wait until the database is ready
+            err_msg = f"Tango database {device_fqdn} not ready"
+            while True:
+                try:
+                    # TODO: not sure this is enough
+                    dev_proxy.dbgetdeviceexportedlist("*")
+                    break
+                except DevFailed as e:
+                    exception = e
+                gevent.sleep(0.1)
+    except gevent.Timeout:
+        raise RuntimeError(err_msg + str(exception)) from exception
+    return dev_proxy

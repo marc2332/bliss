@@ -168,6 +168,13 @@ controller:
     low_limit: -.inf
     high_limit: .inf
     default_cust_attr: 6.28
+  - class: NoSettingsAxis
+    name: nsa
+    steps_per_unit: 10000
+    velocity: 2500
+    acceleration: 1000
+    low_limit: -5
+    high_limit: 5
   encoders:
   - name: m1enc
     steps_per_unit: 50
@@ -208,6 +215,14 @@ controller:
   - name: $calc_mot1
     tags: real real_mot
   - name: calc_mot2
+    tags: calc_mot
+    s_param: 2
+- class: calc_motor_mockup
+  module: mockup
+  axes:
+  - name: $nsa
+    tags: real real_mot
+  - name: calc_mot3
     tags: calc_mot
     s_param: 2
 - class: mockup

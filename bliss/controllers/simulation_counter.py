@@ -403,11 +403,12 @@ class SimulationCounter(Counter):
         self.config = config
 
 
-class TestCounterAndAxis:
-    """
-    Object that produces an axis and a counter to test different signal shapes in plots
-    axis should always be used between 0 and 1
-    npoints defines how many points are use to sample
+class FixedShapeCounter:
+    """Counter which generates a signal of predefined shape.
+    The predefined shape can be obtained by scanning the
+    associated software axis from 0 to 1:
+
+        s = ascan(self.axis, 0, 1, self.npoints, expo, self.counter)
     """
 
     SIGNALS = {
@@ -459,9 +460,10 @@ class TestCounterAndAxis:
         self.signal = signal
         self._position = 0
 
-    # for SoftAxis
     @property
     def position(self):
+        """The axis position of the associated software counter
+        """
         return self._position
 
     @position.setter
@@ -470,12 +472,17 @@ class TestCounterAndAxis:
         assert value >= 0
         self._position = value
 
-    # for SoftCounter
     def value(self):
+        """The counter value for the simulated counter,
+        based on the current axis position.
+        """
         return self._data[int((self._npoints - 1) * self._position)]
 
-    # ------
     def init_signal(self):
+        """Calculate the values of the simulated counter for an
+        ascan of the associated axis between 0 and 1. This ensures
+        the predefined signal shape.
+        """
         self._data = self.SIGNALS[self._signal](self._npoints)
 
     @property

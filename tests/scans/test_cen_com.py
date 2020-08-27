@@ -21,7 +21,7 @@ from bliss.shell.standard import (
 from bliss.scanning.scan_display import ScanDisplay
 from bliss.scanning import scan_tools
 from bliss.common import plot
-from bliss.controllers.simulation_counter import TestCounterAndAxis
+from bliss.controllers.simulation_counter import FixedShapeCounter
 import numpy
 
 
@@ -310,10 +310,10 @@ def test_goto(session):
 
 
 def test_com_with_neg_y(default_session):
-    tca = TestCounterAndAxis()
-    tca.signal = "sawtooth"
-    s = scans.ascan(tca.axis, 0, 1, tca.npoints, .01, tca.counter)
-    com = s.com(tca.counter, axis=tca.axis)
+    ob = FixedShapeCounter()
+    ob.signal = "sawtooth"
+    s = scans.ascan(ob.axis, 0, 1, ob.npoints, .01, ob.counter)
+    com = s.com(ob.counter, axis=ob.axis)
     assert pytest.approx(com, abs=.0001) == 0.5987
 
 

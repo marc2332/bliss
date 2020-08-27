@@ -25,73 +25,17 @@ import gevent
 import functools
 import json
 import logging
-from bliss.common.tango import DeviceProxy, DevFailed
+from bliss.common.tango import DeviceProxy, DevState
+from bliss.tango.clients.utils import (
+    is_devfailed,
+    is_devfailed_timeout,
+    is_devfailed_notallowed,
+)
 from bliss.common.logtools import log_error
-from tango import DevState
 from bliss import current_session
 
 DEFAULT_TIMEOUT = 10
 logger = logging.getLogger(__name__)
-
-
-def find_in_exception_chain(e, cls):
-    """
-    :param Exception e:
-    :param Exception cls:
-    """
-    while not isinstance(e, cls):
-        try:
-            e = e.__cause__
-        except AttributeError:
-            e = None
-            break
-    return e
-
-
-def devfailed_reason(e, index):
-    """
-    :param Exception e:
-    :param int index:
-    :returns str or None:
-    """
-    try:
-        return find_in_exception_chain(e, DevFailed).args[index].reason
-    except (AttributeError, IndexError):
-        return None
-
-
-def is_devfailed(e):
-    """
-    :param Exception e:
-    :return bool:
-    """
-    return find_in_exception_chain(e, DevFailed) is not None
-
-
-def is_devfailed_timeout(e):
-    """
-    :param Exception e:
-    :return bool:
-    """
-    return devfailed_reason(e, 1) == "API_DeviceTimedOut"
-
-
-def is_devfailed_notallowed(e):
-    """
-    :param Exception e:
-    :return bool:
-    """
-    return devfailed_reason(e, 0) in ("API_AttrNotAllowed", "API_CommandNotAllowed")
-
-
-def is_timeout(e):
-    """
-    :param Exception e:
-    :return bool:
-    """
-    return find_in_exception_chain(
-        e, gevent.Timeout
-    ) is not None or is_devfailed_timeout(e)
 
 
 class IcatError(RuntimeError):

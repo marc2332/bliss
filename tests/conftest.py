@@ -112,9 +112,11 @@ def clean_gevent():
                 continue
         except ReferenceError:
             continue
-        if ob.ready():
-            continue
-        ob.kill()
+        if not ob.ready():
+            print(f"Dangling greenlet (setup): {ob}")
+            e = RuntimeError(f"Dangling greenlet cannot be killed: {ob}")
+            with gevent.Timeout(10, e):
+                ob.kill()
 
     d = {"end-check": True}
 
@@ -129,8 +131,8 @@ def clean_gevent():
                 continue
         except ReferenceError:
             continue
-        if end_check and not ob.ready():
-            print(ob)  # Better printouts
+        if not ob.ready():
+            print(f"Dangling greenlet (teardown): {ob}")
         greenlets.append(ob)
     all_ready = all(gr.ready() for gr in greenlets)
     with gevent.Timeout(10, RuntimeError("Dangling greenlets cannot be killed")):
@@ -280,10 +282,13 @@ def lima_simulator_context(personal_name, device_name):
     admin_device_fqdn = f"{fqdn_prefix}/dserver/LimaCCDs/{personal_name}"
 
     with start_tango_server(
-        "LimaCCDs",
+        sys.executable,
+        "-u",
+        "-m",
+        "bliss.tango.servers.limaccds",
         personal_name,
         device_fqdn=device_fqdn,
-        admin=admin_device_fqdn,
+        admin_device_fqdn=admin_device_fqdn,
         state=None,
     ) as dev_proxy:
         yield device_fqdn, dev_proxy
@@ -317,7 +322,7 @@ def bliss_tango_server(ports, beacon):
         "bliss.tango.servers.bliss_ds",
         "test",
         device_fqdn=device_fqdn,
-        admin=admin_device_fqdn,
+        admin_device_fqdn=admin_device_fqdn,
         state=DevState.STANDBY,
     ) as dev_proxy:
         yield device_fqdn, dev_proxy

@@ -29,7 +29,7 @@ This data policy requires the user to specify *proposal*, *sample* and
 
 ```python
 DEMO  [1]: newproposal("blc123")
-Proposal set to 'blc123`
+Proposal set to 'blc123'
 Data path: /data/id00/inhouse/blc123/id00/sample/sample_0001
 ```
 
@@ -51,7 +51,7 @@ these are the defaults.
 
 ```python
 DEMO  [2]: newsample("sample1")
-Sample set to 'sample1`
+Sample set to 'sample1'
 Data path: /data/id00/inhouse/blc123/id00/sample1/sample1_0001
 ```
 
@@ -64,7 +64,7 @@ that you can always come back to an existing sample.
 
 ```python
 DEMO  [3]: newdataset("area1")
-Dataset set to 'area1`
+Dataset set to 'area1'
 Data path: /data/id00/inhouse/blc123/id00/sample1/sample1_area1
 ```
 
@@ -76,7 +76,7 @@ dataset after you changed dataset.
 
 ```python
 DEMO  [4]: newdataset()
-Dataset set to '0002`
+Dataset set to '0002'
 Data path: /data/id00/inhouse/blc123/id00/sample1/sample1_0002
 ```
 

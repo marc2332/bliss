@@ -1131,12 +1131,12 @@ class ESRFScanSaving(BasicScanSaving):
     def newsample(self, sample_name):
         # beware: self.sample getter and setter do different actions
         self.sample = sample_name
-        lprint(f"Sample set to '{self.sample}`\nData path: {self.root_path}")
+        lprint(f"Sample set to '{self.sample}'\nData path: {self.root_path}")
 
     def newdataset(self, dataset_name):
         # beware: self.dataset getter and setter do different actions
         self.dataset = dataset_name
-        lprint(f"Dataset set to '{self.dataset}`\nData path: {self.root_path}")
+        lprint(f"Dataset set to '{self.dataset}'\nData path: {self.root_path}")
 
     def endproposal(self):
         """Close the active dataset (if any) and go to the default inhouse proposal

@@ -377,6 +377,16 @@ class ConfigNode(MutableMapping):
                 ConfigNode.tagged_nodes[tag].add(node)
         self._data[key] = convert_value(value, self)
 
+    def setdefault(self, key, value):
+        """Re-implement 'setdefault' to not return value but element of the
+        dict (once it is inserted).
+        """
+        try:
+            return self[key]
+        except KeyError:
+            self[key] = value
+            return self[key]
+
     def __delitem__(self, key):
         del self._data[key]
 

@@ -14,8 +14,7 @@ def main(args=None):
     p = argparse.ArgumentParser()
     p.add_argument("--port", type=int, dest="port")
     known_args, _ = p.parse_known_args(sys.argv)
-    print(f"database started on port: {known_args.port}")
-    sys.stdout.flush()
+    print(f"Tango database starting on port {known_args.port} ...", flush=True)
 
     # Run
     base_main(args)

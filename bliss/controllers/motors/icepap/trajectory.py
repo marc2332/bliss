@@ -55,6 +55,10 @@ class TrajectoryAxis(NoSettingsAxis):
         self._acceleration_time = -1
 
     @property
+    def no_offset(self):
+        return True
+
+    @property
     def disabled_axes(self):
         """
         Axes which motion are disabled.

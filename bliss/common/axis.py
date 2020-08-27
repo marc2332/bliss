@@ -2437,7 +2437,3 @@ class NoSettingsAxis(Axis):
         Axis.__init__(self, *args, **kwags)
         for setting_name in self.settings:
             self.settings.disable_cache(setting_name)
-
-    @property
-    def no_offset(self):
-        return True

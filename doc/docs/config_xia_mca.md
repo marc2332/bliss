@@ -13,7 +13,7 @@ BLISS must be installed on the windows PC to be able to run a BLISS RPC server.
 **Handel** is the library used to deal with XIA devices and data. Handel comes
 with **ProSpect** software.
 
-To access XIA device using the Handel library from BLISS runing on a linux
+To access XIA device using the Handel library from BLISS running on a linux
 station, a BLISS rpc server named `bliss-handel-server` must be running on the
 windows PC.
 
@@ -29,16 +29,15 @@ There are 2 versions of ProSpect:
 
 ## Windows PC installation
 
-!!! note
-    Windows version must be 7 or 10 pro 64 bits
+!!! note "Windows version must be 7 or 10 pro 64 bits"
+
+!!! tip "SSH"
+    To make your life easier using a remote windows computer, you can install cygwin
+    and ssh on it
+    http://wikiserv.esrf.fr/bliss/index.php/Full_Cygwin_%2B_OpenSSH_installation_on_a_Windows_host
 
 
-To make your life easier using a remote windows computer, you can install cygwin
-and ssh on it:
-http://wikiserv.esrf.fr/bliss/index.php/Full_Cygwin_%2B_OpenSSH_installation_on_a_Windows_host
-
-
-### Installation of conda and BLISS
+### Installation of conda
 
 * download a conda installer:
     * [miniconda](https://repo.anaconda.com/miniconda/Miniconda3-latest-Windows-x86_64.exe)
@@ -57,15 +56,31 @@ conda config --env --add channels esrf-bcu
 conda config --env --append channels conda-forge
 conda config --env --append channels tango-controls
 ```
+
+### Installation of BLISS
+
+* install BLISS conda package for windows
+    ```
+    conda install bliss
+    ```
+
+*Alternatively* in order to install BLISS from the sources:
+
 * ensure some packages are installed:
-    * `conda install git`
-    * `conda install pip`
+    ```
+    conda install git
+    conda install pip
+    ```
 * clone and install BLISS
-    * `git clone https://gitlab.esrf.fr/bliss/bliss bliss.git`
-    * `cd bliss.git`
-    * remove `pygraphviz` from `requirements-conda.txt`
-    * `conda install --file requirements-conda.txt`
-    * `python setup.py install`
+    ```
+    git clone https://gitlab.esrf.fr/bliss/bliss bliss.git
+    
+    cd bliss.git
+    
+    conda install --file requirements-conda-win64.txt
+    
+    pip install -e . --no-deps
+    ```
 
 * test bliss installation:
     ```
@@ -138,7 +153,7 @@ call %root%\scripts\activate.bat bliss
 bliss-handel-server.exe
 ```
 
-### Developper's details
+### Developer's details
 
 `bliss-handel-server` start-up script is created at installation using
 the **entry_points** definitions in `setup.py` of BLISS repository.
@@ -190,8 +205,9 @@ Example for Xmap:
 
 ```
 
-## NOTES:
+## NOTES
 
-Python script to parse binary mapping data: http://support.xia.com/default.asp?W882
+Python script to parse binary mapping data
+http://support.xia.com/default.asp?W882
 
 

@@ -45,6 +45,7 @@ from bliss.common.standard import (
 from bliss.common.standard import wid as std_wid
 from bliss.controllers.lima.limatools import *
 from bliss.controllers.lima import limatools
+from bliss.controllers.lima import roi as lima_roi
 from bliss.common.protocols import CounterContainer
 from bliss.common import measurementgroup
 from bliss.common.soft_axis import SoftAxis
@@ -901,39 +902,28 @@ def edit_roi_counters(detector: Lima, acq_time: Optional[float] = None):
         plot_id = flint.get_live_scan_plot(channel_name, "image")
 
     # Reach the plot widget
-    plot = plot_module.plot_image(existing_id=plot_id)
-    if not plot:
+    plot_proxy = plot_module.plot_image(existing_id=plot_id)
+    if not plot_proxy:
         raise RuntimeError(
             "Internal error. A plot from this detector was expected but it is not available. Or Flint was closed in between."
         )
 
-    selections = []
     roi_counters = detector.roi_counters
-    for roi in roi_counters.get_rois():
-        selection = dict(
-            kind="Rectangle",
-            origin=(roi.x, roi.y),
-            size=(roi.width, roi.height),
-            label=roi.name,
-        )
-        selections.append(selection)
-
+    selections = [plot_module.convert_roi_to_flint(r) for r in roi_counters.get_rois()]
     name = f"{detector.name} [{roi_counters.config_name}]"
     print(f"Waiting for ROI edition to finish on {name}...")
-    selections = plot.select_shapes(selections)
-    roi_labels, rois = [], []
-    ignored = 0
-    for selection in selections:
-        label = selection["label"]
-        if not label:
-            ignored += 1
-            continue
-        x, y = map(int, map(round, selection["origin"]))
-        w, h = map(int, map(round, selection["size"]))
-        rois.append((x, y, w, h))
-        roi_labels.append(label)
+    selections = plot_proxy.select_shapes(selections, kinds=["rectangle", "arc"])
+
+    result = [plot_module.convert_roi_to_bliss(r) for r in selections]
+    result = [r for r in result if r is not None]
+
+    # Warn on skipped ROIs
+    ignored = len(selections) - len(result)
     if ignored:
         print(f"{ignored} ROI(s) ignored (no name)")
+
+    roi_labels: typing.List[str] = [r[0] for r in result]
+    rois: typing.List[typing.Tuple] = [r[1] for r in result]
     roi_counters.clear()
     roi_counters[roi_labels] = rois
     roi_string = ", ".join(sorted(roi_labels))

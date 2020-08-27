@@ -11,6 +11,7 @@ from typing import Sequence
 
 import numpy
 import logging
+import typing
 
 from silx.gui import qt, icons
 from silx.gui.plot.actions import PlotAction
@@ -18,10 +19,12 @@ from silx.gui.plot import PlotWidget
 from silx.gui.plot import MaskToolsWidget
 from silx.gui.colors import rgba
 from silx.gui.plot.items.roi import RectangleROI
+from silx.gui.plot.items.roi import ArcROI
 from silx.gui.plot.items.roi import PointROI
 from silx.gui.plot.items.roi import RegionOfInterest
 from silx.gui.plot.tools.roi import RegionOfInterestManager
 from bliss.flint.widgets.roi_selection_widget import RoiSelectionWidget
+from bliss.flint.widgets.utils import rois as extra_rois
 
 _logger = logging.getLogger(__name__)
 
@@ -444,6 +447,21 @@ class ShapesSelector(Selector):
         self.__dock = None
         self.__roiWidget = None
         self.__selection = None
+        self.__kinds: typing.List[RegionOfInterest] = []
+        self.__mapping = {
+            "rectangle": RectangleROI,
+            "arc": ArcROI,
+            "rectangle-vreduction": extra_rois.VerticalReductionLimaRoi,
+            "rectangle-hreduction": extra_rois.HorizontalReductionLimaRoi,
+        }
+
+    def setKinds(self, kinds=typing.List[str]):
+        self.__kinds.clear()
+        for kind in kinds:
+            if kind not in self.__mapping:
+                raise RuntimeError("ROI kind '%s' is not supported" % kind)
+            roiClass = self.__mapping[kind]
+            self.__kinds.append(roiClass)
 
     def setInitialShapes(self, initialShapes: Sequence[Dict] = ()):
         self.__initialShapes = initialShapes
@@ -454,10 +472,27 @@ class ShapesSelector(Selector):
     def __dictToRois(self, shapes: Sequence[Dict]) -> Sequence[RegionOfInterest]:
         rois = []
         for shape in shapes:
-            kind = shape["kind"]
-            if kind == "Rectangle":
-                roi = RectangleROI()
+            kind = shape["kind"].lower()
+            if kind == "rectangle":
+                reduction = shape.get("reduction", None)
+                if reduction is None:
+                    roi = RectangleROI()
+                elif reduction == "vertical":
+                    roi = extra_rois.VerticalReductionLimaRoi()
+                elif reduction == "horizontal":
+                    roi = extra_rois.HorizontalReductionLimaRoi()
                 roi.setGeometry(origin=shape["origin"], size=shape["size"])
+                roi.setName(shape["label"])
+                rois.append(roi)
+            elif kind == "arc":
+                roi = ArcROI()
+                roi.setGeometry(
+                    center=(shape["cx"], shape["cy"]),
+                    innerRadius=shape["r1"],
+                    outerRadius=shape["r2"],
+                    startAngle=numpy.deg2rad(shape["a1"]),
+                    endAngle=numpy.deg2rad(shape["a2"]),
+                )
                 roi.setName(shape["label"])
                 rois.append(roi)
             else:
@@ -474,6 +509,22 @@ class ShapesSelector(Selector):
                     label=roi.getName(),
                     kind="Rectangle",
                 )
+                if isinstance(roi, extra_rois.VerticalReductionLimaRoi):
+                    shape["reduction"] = "vertical"
+                elif isinstance(roi, extra_rois.HorizontalReductionLimaRoi):
+                    shape["reduction"] = "horizontal"
+                shapes.append(shape)
+            elif isinstance(roi, ArcROI):
+                shape = dict(
+                    cx=roi.getCenter()[0],
+                    cy=roi.getCenter()[1],
+                    r1=roi.getInnerRadius(),
+                    r2=roi.getOuterRadius(),
+                    a1=numpy.rad2deg(roi.getStartAngle()),
+                    a2=numpy.rad2deg(roi.getEndAngle()),
+                    label=roi.getName(),
+                    kind="Arc",
+                )
                 shapes.append(shape)
             else:
                 _logger.error(
@@ -484,7 +535,7 @@ class ShapesSelector(Selector):
     def start(self):
         plot = self.parent()
 
-        roiWidget = RoiSelectionWidget(plot)
+        roiWidget = RoiSelectionWidget(plot, kinds=self.__kinds)
         dock = qt.QDockWidget("ROI selection", parent=plot)
         dock.setWidget(roiWidget)
         plot.addTabbedDockWidget(dock)
@@ -507,10 +558,6 @@ class ShapesSelector(Selector):
         plot.removeDockWidget(self.__dock)
         if self.__roiWidget is not None:
             self.__roiWidget.clear()
-        # FIXME: silx bug: https://github.com/silx-kit/silx/issues/2940
-        if hasattr(plot, "_dockWidgets"):
-            if self.__dock in plot._dockWidgets:
-                plot._dockWidgets.remove(self.__dock)
         self.__dock = None
         self.__roiWidget = None
 

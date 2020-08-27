@@ -9,7 +9,9 @@ Provides plot helper class to deal with flint proxy.
 """
 
 import numpy
+import typing
 import gevent
+
 from . import proxy
 from bliss.common import event
 
@@ -191,9 +193,15 @@ class BasePlot(object):
             proxy.FLINT_LOGGER.warning("Plot selection cancelled by bliss user.")
             raise
 
-    def select_shapes(self, initial_selection=()):
+    def select_shapes(
+        self,
+        initial_selection=(),
+        kinds: typing.Union[str, typing.List[str]] = "rectangle",
+    ):
         flint = self._flint
-        request_id = flint.request_select_shapes(self._plot_id, initial_selection)
+        request_id = flint.request_select_shapes(
+            self._plot_id, initial_selection, kinds=kinds
+        )
         return self._wait_for_user_selection(request_id)
 
     def select_points(self, nb):

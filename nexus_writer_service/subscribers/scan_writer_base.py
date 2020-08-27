@@ -446,10 +446,12 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
 
     @property
     def _nxroot_kwargs(self):
-        rootattrs = {
-            "publisher": self.get_info("publisher", "Bliss"),
-            "publisher_version": self.get_info("publisher_version", None),
-        }
+        # TODO: h5py issue #1641
+        # rootattrs = {
+        #    "publisher": self.get_info("publisher", "Bliss"),
+        #    "publisher_version": self.get_info("publisher_version", None),
+        # }
+        rootattrs = {"publisher_version": self.get_info("publisher_version", None)}
         return {
             "mode": "a",
             "enable_file_locking": self.saveoptions["enable_file_locking"],

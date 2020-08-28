@@ -393,3 +393,81 @@ def test_scatter_normalization__normal_frame():
     indexes = normalizer.normalize(indexes)
     expected = numpy.arange(scatterSize, dtype=int)[9 * 2 :]
     numpy.testing.assert_allclose(indexes, expected)
+
+
+def test_scatter_normalization__backnforth():
+    scan_info = {"acquisition_chain": {"timer": {"scalars": ["a", "b", "c", "d"]}}}
+    factory = ScanInfoFactory(scan_info)
+    factory.set_channel_meta(
+        "a", axis_id=0, axis_points=3, group="g", axis_kind="backnforth"
+    )
+    factory.set_channel_meta(
+        "b", axis_id=1, axis_points=3, group="g", axis_kind="forth"
+    )
+    factory.add_scatter_plot("foo", x="a", y="b", value="d")
+    scan = scan_info_helper.create_scan_model(scan_info, False)
+    plots = scan_info_helper.create_plot_model(scan_info, scan)
+    plot = plots[0]
+    item = plot.items()[0]
+    scatterSize = 7
+    normalizer = ScatterNormalization(scan, item, scatterSize)
+    xChannel = item.xChannel().channel(scan)
+    yChannel = item.yChannel().channel(scan)
+    assert normalizer.isImageRenderingSupported(xChannel, yChannel)
+    indexes = numpy.arange(scatterSize, dtype=int)
+    indexes = normalizer.normalize(indexes)
+    expected = [0, 1, 2, 5, 4, 3, 6, numpy.nan, numpy.nan]
+    numpy.testing.assert_allclose(indexes, expected)
+
+
+def test_scatter_normalization__3d_backnforth():
+    scan_info = {"acquisition_chain": {"timer": {"scalars": ["a", "b", "c", "d"]}}}
+    factory = ScanInfoFactory(scan_info)
+    factory.set_channel_meta(
+        "a", axis_id=0, axis_points=2, group="g", axis_kind="backnforth"
+    )
+    factory.set_channel_meta(
+        "b", axis_id=1, axis_points=3, group="g", axis_kind="backnforth"
+    )
+    factory.set_channel_meta(
+        "c", axis_id=2, axis_points=4, group="g", axis_kind="forth"
+    )
+    factory.add_scatter_plot("foo", x="a", y="b", value="d")
+    scan = scan_info_helper.create_scan_model(scan_info, False)
+    plots = scan_info_helper.create_plot_model(scan_info, scan)
+    plot = plots[0]
+    item = plot.items()[0]
+    scatterSize = 15
+    normalizer = ScatterNormalization(scan, item, scatterSize)
+    xChannel = item.xChannel().channel(scan)
+    yChannel = item.yChannel().channel(scan)
+    assert normalizer.isImageRenderingSupported(xChannel, yChannel)
+    indexes = numpy.arange(scatterSize, dtype=int)
+    indexes = normalizer.normalize(indexes)
+    expected = [
+        0,
+        1,
+        3,
+        2,
+        4,
+        5,
+        11,
+        10,
+        8,
+        9,
+        7,
+        6,
+        12,
+        13,
+        numpy.nan,
+        14,
+        numpy.nan,
+        numpy.nan,
+        numpy.nan,
+        numpy.nan,
+        numpy.nan,
+        numpy.nan,
+        numpy.nan,
+        numpy.nan,
+    ]
+    numpy.testing.assert_allclose(indexes, expected)

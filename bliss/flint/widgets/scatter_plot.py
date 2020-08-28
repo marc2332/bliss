@@ -125,6 +125,55 @@ class ScatterNormalization:
     """Transform raw scatter data into displayable normalized scatter"""
 
     def __init__(self, scan: scan_model.Scan, item: plot_model.Item, scatterSize: int):
+
+        # Normalize backnforth into regular image
+        channel = item.xChannel().channel(scan)
+        scatter = scan.getScatterDataByChannel(channel)
+        self.__axisKind: List[scan_model.AxisKind] = []
+        self.__indexes = None
+        self.__skipImage = False
+        if scatter:
+            for axisId in range(scatter.maxDim()):
+                channel = scatter.channelsAt(axisId)[0]
+                kind = channel.metadata().axisKind
+                self.__axisKind.append(kind)
+            shape = scatter.shape()
+            self.__nbmin = numpy.prod([(1 if i == -1 else i) for i in shape])
+
+            kinds = set(self.__axisKind)
+            hasNone = None in kinds
+            hasForth = scan_model.AxisKind.FORTH in kinds
+            hasBacknforth = scan_model.AxisKind.BACKNFORTH in kinds
+            _hasStep = scan_model.AxisKind.STEP in kinds
+
+            isForth = hasForth and not hasNone and not hasBacknforth
+            isBacknforth = not isForth and not hasNone
+
+            if isBacknforth:
+                if scatterSize % self.__nbmin == 0:
+                    size = scatterSize
+                else:
+                    size = scatterSize + (self.__nbmin - scatterSize)
+
+                indexes = numpy.arange(size, dtype=int)
+
+                try:
+                    indexes.shape = shape
+                    # Compute the index transformation to revert
+                    # backnforth into a regular image
+                    # Use numpy order
+                    self.__axisKind = list(reversed(self.__axisKind))
+                    for i in reversed(range(len(self.__axisKind))):
+                        kind = self.__axisKind[i]
+                        if kind == scan_model.AxisKind.BACKNFORTH:
+                            indexes.shape = (-1,) + shape[i:]
+                            indexes[1::2, :] = indexes[1::2, ::-1]
+                    self.__indexes = indexes.flatten()
+                except Exception:
+                    # There could be a lot of inconsistencies with meta info
+                    self.__skipImage = True
+
+        # Filter to display the last frame
         groupByChannels = item.groupByChannels()
         if groupByChannels is not None:
             mask = numpy.array([True] * scatterSize)
@@ -138,13 +187,31 @@ class ScatterNormalization:
                 fvalue = array[-1]
                 mask = numpy.logical_and(mask, array == fvalue)
             self.__mask = mask
+            if self.__indexes is not None:
+                mask = numpy.append(
+                    self.__mask, [True] * len(self.__indexes) - scatterSize
+                )
+                self.__mask = mask[self.__indexes]
         else:
             self.__mask = None
 
     def hasNormalization(self) -> bool:
-        return self.__mask is not None
+        return self.__indexes is not None or self.__mask is not None
 
     def normalize(self, array: numpy.ndarray) -> numpy.ndarray:
+        if array is None:
+            return None
+        if len(array) == 0:
+            return array
+
+        # Normalize backnforth into regular image
+        if self.__indexes is not None:
+            if len(array) != len(self.__indexes):
+                extraItems = len(self.__indexes) - len(array)
+                array = numpy.append(array, [numpy.nan] * extraItems)
+            array = array[self.__indexes]
+
+        # Only display last frame
         if self.__mask is None:
             return array
         return array[self.__mask]
@@ -196,10 +263,14 @@ class ScatterNormalization:
     def isImageRenderingSupported(
         self, xChannel: scan_model.Channel, yChannel: scan_model.Channel
     ):
-        """For now make it strong
+        """True if there is enough metadata to display this 2 axis as an image.
 
-        Only FAST+SLOW axis together can be displayed as solid rendering.
+        The scatter data also have to be structured in order to display it.
         """
+        if self.__skipImage:
+            return False
+        if self.__indexes is not None:
+            return True
         xmeta = xChannel.metadata()
         ymeta = yChannel.metadata()
         if xmeta.axisKind != scan_model.AxisKind.FORTH:

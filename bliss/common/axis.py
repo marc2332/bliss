@@ -2065,16 +2065,16 @@ class Axis:
         )
 
         if velocity:
-            self.controller.axis_settings._clear(self, "velocity")
+            self.settings.clear("velocity")
         if acceleration:
-            self.controller.axis_settings._clear(self, "acceleration")
+            self.settings.clear("acceleration")
         if limits:
-            self.controller.axis_settings._clear(self, "low_limit")
-            self.controller.axis_settings._clear(self, "high_limit")
+            self.settings.clear("low_limit")
+            self.settings.clear("high_limit")
         if sign:
-            self.controller.axis_settings._clear(self, "sign")
+            self.settings.clear("sign")
         if backlash:
-            self.controller.axis_settings._clear(self, "backlash")
+            self.settings.clear("backlash")
 
         self.controller._init_settings(self)
 

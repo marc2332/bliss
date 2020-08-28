@@ -187,12 +187,10 @@ class ScatterNormalization:
                 fvalue = array[-1]
                 mask = numpy.logical_and(mask, array == fvalue)
             self.__mask = mask
+
             if self.__indexes is not None:
-                extraSize = len(self.__indexes) - scatterSize
-                if extraSize > 0:
-                    mask = numpy.append(self.__mask, [False] * extraSize)
-                self.__mask = mask[self.__indexes]
-                self.__indexes = self.__indexes[self.__mask]
+                self.__skipImage = True
+                self.__indexes = None
         else:
             self.__mask = None
 
@@ -231,7 +229,11 @@ class ScatterNormalization:
         xmeta = xChannel.metadata()
         ymeta = yChannel.metadata()
 
-        if ymeta.axisPoints is not None and xmeta.axisPoints is not None:
+        if (
+            not self.__skipImage
+            and ymeta.axisPoints is not None
+            and xmeta.axisPoints is not None
+        ):
             scatter.setVisualizationParameter(
                 scatter.VisualizationParameter.GRID_SHAPE,
                 (ymeta.axisPoints, xmeta.axisPoints),
@@ -258,11 +260,19 @@ class ScatterNormalization:
                 scatter.VisualizationParameter.GRID_MAJOR_ORDER, order
             )
 
-        if xmeta.axisPointsHint is not None and ymeta.axisPointsHint is not None:
+        if self.__skipImage or (
+            xmeta.axisPointsHint is not None and ymeta.axisPointsHint is not None
+        ):
             width, height = xmeta.axisPointsHint, ymeta.axisPointsHint
-            scatter.setVisualizationParameter(
-                scatter.VisualizationParameter.BINNED_STATISTIC_SHAPE, (height, width)
-            )
+            if width is None:
+                width = xmeta.axisPoints
+            if height is None:
+                height = ymeta.axisPoints
+            if height is not None and width is not None:
+                scatter.setVisualizationParameter(
+                    scatter.VisualizationParameter.BINNED_STATISTIC_SHAPE,
+                    (height, width),
+                )
 
     def isImageRenderingSupported(
         self, xChannel: scan_model.Channel, yChannel: scan_model.Channel
@@ -291,9 +301,9 @@ class ScatterNormalization:
         """
         xmeta = xChannel.metadata()
         ymeta = yChannel.metadata()
-        if xmeta.axisPointsHint is None:
+        if xmeta.axisPoints is None and xmeta.axisPointsHint is None:
             return False
-        if ymeta.axisPointsHint is None:
+        if ymeta.axisPoints is None and ymeta.axisPointsHint is None:
             return False
         return True
 

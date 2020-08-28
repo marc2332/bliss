@@ -149,6 +149,79 @@ class ScatterNormalization:
             return array
         return array[self.__mask]
 
+    def setupScatterItem(
+        self,
+        scatter: Scatter,
+        xChannel: scan_model.Channel,
+        yChannel: scan_model.Channel,
+    ):
+        """Feed the scatter plot item with metadata from the channels to
+        optimize the rendering"""
+        xmeta = xChannel.metadata()
+        ymeta = yChannel.metadata()
+
+        if ymeta.axisPoints is not None and xmeta.axisPoints is not None:
+            scatter.setVisualizationParameter(
+                scatter.VisualizationParameter.GRID_SHAPE,
+                (ymeta.axisPoints, xmeta.axisPoints),
+            )
+
+        if (
+            xmeta.start is not None
+            and xmeta.stop is not None
+            and ymeta.start is not None
+            and ymeta.stop is not None
+        ):
+            scatter.setVisualizationParameter(
+                scatter.VisualizationParameter.GRID_BOUNDS,
+                ((xmeta.start, ymeta.start), (xmeta.stop, ymeta.stop)),
+            )
+
+        if xmeta.axisKind is not None and ymeta.axisKind is not None:
+            if xmeta.axisId < ymeta.axisId:
+                order = "row"
+            elif xmeta.axisId > ymeta.axisId:
+                order = "column"
+
+            scatter.setVisualizationParameter(
+                scatter.VisualizationParameter.GRID_MAJOR_ORDER, order
+            )
+
+        if xmeta.axisPointsHint is not None and ymeta.axisPointsHint is not None:
+            width, height = xmeta.axisPointsHint, ymeta.axisPointsHint
+            scatter.setVisualizationParameter(
+                scatter.VisualizationParameter.BINNED_STATISTIC_SHAPE, (height, width)
+            )
+
+    def isImageRenderingSupported(
+        self, xChannel: scan_model.Channel, yChannel: scan_model.Channel
+    ):
+        """For now make it strong
+
+        Only FAST+SLOW axis together can be displayed as solid rendering.
+        """
+        xmeta = xChannel.metadata()
+        ymeta = yChannel.metadata()
+        if xmeta.axisKind != scan_model.AxisKind.FORTH:
+            return False
+        if ymeta.axisKind != scan_model.AxisKind.FORTH:
+            return False
+        return set([xmeta.axisId, ymeta.axisId]) == set([0, 1])
+
+    def isHistogramingRenderingSupported(
+        self, xChannel: scan_model.Channel, yChannel: scan_model.Channel
+    ):
+        """True if there is enough metadata to display this 2 axis as an
+        histogram.
+        """
+        xmeta = xChannel.metadata()
+        ymeta = yChannel.metadata()
+        if xmeta.axisPointsHint is None:
+            return False
+        if ymeta.axisPointsHint is None:
+            return False
+        return True
+
 
 class ScatterPlotWidget(plot_helper.PlotWidget):
     def __init__(self, parent=None):
@@ -555,79 +628,6 @@ class ScatterPlotWidget(plot_helper.PlotWidget):
         for item in plotModel.items():
             self.__updateItem(item)
 
-    def __optimizeRendering(
-        self,
-        scatter: Scatter,
-        xChannel: scan_model.Channel,
-        yChannel: scan_model.Channel,
-    ):
-        """Feed the scatter plot item with metadata from the channels to
-        optimize the rendering"""
-        xmeta = xChannel.metadata()
-        ymeta = yChannel.metadata()
-
-        if ymeta.axisPoints is not None and xmeta.axisPoints is not None:
-            scatter.setVisualizationParameter(
-                scatter.VisualizationParameter.GRID_SHAPE,
-                (ymeta.axisPoints, xmeta.axisPoints),
-            )
-
-        if (
-            xmeta.start is not None
-            and xmeta.stop is not None
-            and ymeta.start is not None
-            and ymeta.stop is not None
-        ):
-            scatter.setVisualizationParameter(
-                scatter.VisualizationParameter.GRID_BOUNDS,
-                ((xmeta.start, ymeta.start), (xmeta.stop, ymeta.stop)),
-            )
-
-        if xmeta.axisKind is not None and ymeta.axisKind is not None:
-            if xmeta.axisId < ymeta.axisId:
-                order = "row"
-            elif xmeta.axisId > ymeta.axisId:
-                order = "column"
-
-            scatter.setVisualizationParameter(
-                scatter.VisualizationParameter.GRID_MAJOR_ORDER, order
-            )
-
-        if xmeta.axisPointsHint is not None and ymeta.axisPointsHint is not None:
-            width, height = xmeta.axisPointsHint, ymeta.axisPointsHint
-            scatter.setVisualizationParameter(
-                scatter.VisualizationParameter.BINNED_STATISTIC_SHAPE, (height, width)
-            )
-
-    def __isSolidRenderingSupported(
-        self, xChannel: scan_model.Channel, yChannel: scan_model.Channel
-    ):
-        """For now make it strong
-
-        Only FAST+SLOW axis together can be displayed as solid rendering.
-        """
-        xmeta = xChannel.metadata()
-        ymeta = yChannel.metadata()
-        if xmeta.axisKind != scan_model.AxisKind.FORTH:
-            return False
-        if ymeta.axisKind != scan_model.AxisKind.FORTH:
-            return False
-        return set([xmeta.axisId, ymeta.axisId]) == set([0, 1])
-
-    def __isHistogramingRenderingSupported(
-        self, xChannel: scan_model.Channel, yChannel: scan_model.Channel
-    ):
-        """True if there is enough metadata to display this 2 axis as an
-        histogram.
-        """
-        xmeta = xChannel.metadata()
-        ymeta = yChannel.metadata()
-        if xmeta.axisPointsHint is None:
-            return False
-        if ymeta.axisPointsHint is None:
-            return False
-        return True
-
     def __sanitizeItems(self):
         scan = self.__scan
         if scan is None:
@@ -774,12 +774,12 @@ class ScatterPlotWidget(plot_helper.PlotWidget):
 
             if fillStyle == style_model.FillStyle.SCATTER_INTERPOLATION:
                 scatter.setVisualization(scatter.Visualization.SOLID)
-            elif self.__isSolidRenderingSupported(xChannel, yChannel):
+            elif normalization.isImageRenderingSupported(xChannel, yChannel):
                 if fillStyle == style_model.FillStyle.SCATTER_REGULAR_GRID:
                     scatter.setVisualization(scatter.Visualization.REGULAR_GRID)
                 elif fillStyle == style_model.FillStyle.SCATTER_IRREGULAR_GRID:
                     scatter.setVisualization(scatter.Visualization.IRREGULAR_GRID)
-            elif self.__isHistogramingRenderingSupported(xChannel, yChannel):
+            elif normalization.isHistogramingRenderingSupported(xChannel, yChannel):
                 # Fall back with an histogram
                 scatter.setVisualization(scatter.Visualization.BINNED_STATISTIC)
             else:
@@ -787,7 +787,7 @@ class ScatterPlotWidget(plot_helper.PlotWidget):
 
             if not pointBased:
                 plot.addItem(scatter)
-                self.__optimizeRendering(scatter, xChannel, yChannel)
+                normalization.setupScatterItem(scatter, xChannel, yChannel)
                 plotItems.append((key, "scatter"))
 
         if not pointBased and len(value) >= 1:

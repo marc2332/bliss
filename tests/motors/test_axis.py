@@ -725,7 +725,6 @@ def test_no_offset(roby):
 
 @pytest.mark.parametrize("motor_name", ["roby", "nsa"])
 def test_offset_property(beacon, motor_name):
-    breakpoint()
     mot = beacon.get(motor_name)
 
     mot.move(1)

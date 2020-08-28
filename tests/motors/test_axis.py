@@ -248,7 +248,7 @@ def test_axis_multiple_move(robz):
 
 def test_axis_init(robz):
     assert robz.state.READY
-    assert robz.settings.get("init_count") == 1
+    assert robz.controller._axes_data[robz]["init_count"] == 1
 
 
 def test_stop(robz):

@@ -8,6 +8,7 @@ import math
 import time
 import random
 import gevent
+import collections
 
 from bliss.physics.trajectory import LinearTrajectory
 from bliss.controllers.motor import Controller, CalcController
@@ -15,7 +16,7 @@ from bliss.common.axis import Axis, AxisState
 from bliss.common.switch import Switch as BaseSwitch
 from bliss.common import event
 from bliss.config.static import get_config
-
+from bliss.config.settings import SimpleSetting
 from bliss.common.hook import MotionHook
 from bliss.common.utils import object_method
 from bliss.common.utils import object_attribute_get, object_attribute_set
@@ -58,6 +59,7 @@ class Mockup(Controller):
         self._axis_moves = {}
         self.__encoders = {}
         self.__switches = {}
+        self._axes_data = collections.defaultdict(dict)
 
         # Custom attributes.
         self.__voltages = {}
@@ -68,30 +70,36 @@ class Mockup(Controller):
 
         self._hw_state.create_state("PARKED", "mot au parking")
 
-        # Adds Mockup-specific settings.
-        self.axis_settings.add("init_count", int)
-        self.axis_settings.add("hw_position", float)
-        # those 2 are to simulate a real controller (one with internal settings, that
-        # keep those for multiple clients)
-        self.axis_settings.add("curr_acc", float)
-        self.axis_settings.add("curr_velocity", float)
-
     def steps_position_precision(self, axis):
         """Mockup is really a stepper motor controller"""
         return 1
 
     def read_hw_position(self, axis):
-        return axis.settings.get("hw_position")
+        return self._axes_data[axis]["hw_position"].get()
 
     def set_hw_position(self, axis, position):
-        axis.settings.set("hw_position", position)
+        self._axes_data[axis]["hw_position"].set(position)
 
     """
     Axes initialization actions.
     """
 
     def _add_axis(self, axis):
-        axis.settings.set("init_count", 0)
+        # this is a counter to check if an axis is added multiple times,
+        # it is incremented in `initalize_axis()`
+        self._axes_data[axis]["init_count"] = 0
+        # those 3 are to simulate a real controller (one with internal settings, that
+        # keep those for multiple clients)
+        self._axes_data[axis]["hw_position"] = SimpleSetting(
+            f"motor_mockup:{axis.name}:hw_position"
+        )
+        self._axes_data[axis]["curr_acc"] = SimpleSetting(
+            f"motor_mockup:{axis.name}:curr_acc"
+        )
+        self._axes_data[axis]["curr_velocity"] = SimpleSetting(
+            f"motor_mockup:{axis.name}:curr_velocity"
+        )
+
         encoder = axis.config.get("encoder", converter=None, default=None)
         if encoder:
             self.initialize_encoder(encoder)
@@ -99,6 +107,11 @@ class Mockup(Controller):
         self._axis_moves[axis] = {"motion": None}
         if self.read_hw_position(axis) is None:
             self.set_hw_position(axis, 0)
+
+    def initialize_hardware_axis(self, axis):
+        self._axes_data[axis]["hw_position"].set(0)
+        self._axes_data[axis]["curr_acc"].set(0)
+        self._axes_data[axis]["curr_velocity"].set(0)
 
     def initialize_axis(self, axis):
         log_debug(self, "initializing axis %s", axis.name)
@@ -109,7 +122,7 @@ class Mockup(Controller):
         )
 
         # this is to test axis are initialized only once
-        axis.settings.set("init_count", axis.settings.get("init_count") + 1)
+        self._axes_data[axis]["init_count"] += 1
         axis.stop_jog_called = False
 
         # the next lines are there to test issue #1601
@@ -250,7 +263,7 @@ class Mockup(Controller):
         Return the current velocity taken from controller
         in motor units.
         """
-        return axis.settings.get("curr_velocity") * abs(axis.steps_per_unit)
+        return self._axes_data[axis]["curr_velocity"].get() * abs(axis.steps_per_unit)
 
     def set_velocity(self, axis, new_velocity):
         """
@@ -259,7 +272,7 @@ class Mockup(Controller):
         vel = new_velocity / abs(axis.steps_per_unit)
         if vel >= 1e9:
             raise RuntimeError("Invalid velocity")
-        axis.settings.set("curr_velocity", vel)
+        self._axes_data[axis]["curr_velocity"].set(vel)
         return vel
 
     """
@@ -270,7 +283,7 @@ class Mockup(Controller):
         """
         must return acceleration in controller units / s2
         """
-        return axis.settings.get("curr_acc") * abs(axis.steps_per_unit)
+        return self._axes_data[axis]["curr_acc"].get() * abs(axis.steps_per_unit)
 
     def set_acceleration(self, axis, new_acceleration):
         """
@@ -279,7 +292,7 @@ class Mockup(Controller):
         acc = new_acceleration / abs(axis.steps_per_unit)
         if acc >= 1e9:
             raise RuntimeError("Invalid acceleration")
-        axis.settings.set("curr_acc", acc)
+        self._axes_data[axis]["curr_acc"].set(acc)
         return acc
 
     """

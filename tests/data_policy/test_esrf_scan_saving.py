@@ -588,6 +588,43 @@ def test_date_in_basepath(session, esrf_data_policy, metaexp, metamgr):
     assert not scan_saving.base_path.endswith(past)
 
 
+def test_parallel_sessions(
+    beacon, session, session2, esrf_data_policy, esrf_data_policy2, metaexp, metamgr
+):
+    scan_saving1 = session.scan_saving
+    scan_saving2 = session2.scan_saving
+
+    assert scan_saving1.dataset == "0001"
+    assert scan_saving2.dataset == "0002"
+
+    scan_saving1.newdataset(None)
+    scan_saving2.newdataset(None)
+    assert scan_saving1.dataset == "0001"
+    assert scan_saving2.dataset == "0002"
+
+    scan_saving2.newdataset(None)
+    scan_saving1.newdataset(None)
+    assert scan_saving1.dataset == "0001"
+    assert scan_saving2.dataset == "0002"
+
+    os.makedirs(scan_saving1.get_path())
+    scan_saving1.newdataset(None)
+    assert scan_saving1.dataset == "0003"
+    assert scan_saving2.dataset == "0002"
+
+    scan_saving1.newdataset("0002")
+    assert scan_saving1.dataset == "0003"
+    assert scan_saving2.dataset == "0002"
+
+    scan_saving1.newdataset("named")
+    assert scan_saving1.dataset == "named"
+    assert scan_saving2.dataset == "0002"
+
+    scan_saving2.newdataset("named")
+    assert scan_saving1.dataset == "named"
+    assert scan_saving2.dataset == "named_0002"
+
+
 def test_lprint(session, esrf_data_policy, metaexp, metamgr, icat_subscriber):
     # TODO: validate log message
     lprint("message1")

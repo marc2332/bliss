@@ -29,6 +29,9 @@ from bliss.scanning import writer as writer_module
 from bliss.common.proxy import Proxy
 from bliss.common.logtools import lprint
 from bliss.icat.ingester import IcatIngesterProxy
+from bliss.config.static import get_config
+from bliss.config.settings import scan as scan_redis
+
 
 _SCAN_SAVING_CLASS = None
 
@@ -83,7 +86,7 @@ def with_config_eval_dict(**eval_config):
     evaluation caching.
 
     :param eval_config: use to control what parameters are cached
-                        (named arguments for the `_eval_dict` method)
+                        (named arguments for the `_update_eval_dict` method)
     :returns callable:
     """
 
@@ -296,6 +299,7 @@ class EvalParametersWardrobe(ParametersWardrobe):
                 logger.debug("fget normal property " + repr(name))
                 r = fget(self)
         eval_dict[name] = r
+        logger.debug(f"     eval_dict[{repr(name)}] = {repr(r)}")
         return r
 
     def set_cached_property(self, name, value, eval_dict):
@@ -361,6 +365,7 @@ class BasicScanSaving(EvalParametersWardrobe):
         "data_policy",
     ]
     REDIS_SETTING_PREFIX = "scan_saving"
+    SLOTS = []
 
     def __init__(self, name=None):
         """
@@ -387,10 +392,10 @@ class BasicScanSaving(EvalParametersWardrobe):
 
         The *parent* node should be use as parameters for the Scan.
         """
+        if not name:
+            name = str(uuid.uuid4().hex)
         super().__init__(
-            f"{self.REDIS_SETTING_PREFIX}:{name}"
-            if name
-            else f"{self.REDIS_SETTING_PREFIX}:{uuid.uuid4().hex}",
+            f"{self.REDIS_SETTING_PREFIX}:{name}",
             default_values=self.DEFAULT_VALUES,
             property_attributes=self.PROPERTY_ATTRIBUTES,
             not_removable=self.DEFAULT_VALUES.keys(),
@@ -475,9 +480,17 @@ class BasicScanSaving(EvalParametersWardrobe):
         return "{img_acq_device}"
 
     @property
+    def name(self):
+        """This is the init name or a uuid"""
+        return self._wardr_name.split(self.REDIS_SETTING_PREFIX + ":")[-1]
+
+    @property
     def session(self):
-        """ This give the name of the current session or 'default' if no current session is defined """
-        return current_session.name
+        """This give the name of the current session or 'default' if no current session is defined """
+        try:
+            return current_session.name
+        except AttributeError:
+            return "default"
 
     @property
     def date(self):
@@ -707,9 +720,7 @@ class BasicScanSaving(EvalParametersWardrobe):
         raise NotImplementedError("No data policy enabled")
 
     def clone(self):
-        new_scan_saving = self.__class__(
-            self._wardr_name.split(self.REDIS_SETTING_PREFIX + ":")[-1]
-        )
+        new_scan_saving = self.__class__(self.name)
         for s in self.SLOTS:
             setattr(new_scan_saving, s, getattr(self, s))
         return new_scan_saving
@@ -741,6 +752,7 @@ class ESRFScanSaving(BasicScanSaving):
         "_sample": "",
         "_dataset": "",
         "_mount": "",
+        "_reserved_dataset": "",
     }
     # Order important for resolving dependencies
     PROPERTY_ATTRIBUTES = BasicScanSaving.PROPERTY_ATTRIBUTES + [
@@ -754,8 +766,8 @@ class ESRFScanSaving(BasicScanSaving):
         "images_path_relative",
         "mount_point",
     ]
+    SLOTS = BasicScanSaving.SLOTS + ["_icat_proxy"]
     REDIS_SETTING_PREFIX = "esrf_scan_saving"
-    SLOTS = ["_icat_proxy"]
 
     def __init__(self, name):
         super().__init__(name)
@@ -769,12 +781,33 @@ class ESRFScanSaving(BasicScanSaving):
         return keys
 
     @property
-    def scan_saving_config(self):
-        session_config = current_session.config.get_config(current_session.name)
+    def _session_config(self):
+        """Current session config or static session config if no current session"""
+        try:
+            session_name = current_session.name
+            config = current_session.config
+        except AttributeError:
+            # This may not be a session (and that's ok)
+            session_name = self.name
+            config = get_config()
+        session_config = config.get_config(session_name)
         if session_config is None:
-            session_config = {}
-        return session_config.get(
-            "scan_saving", current_session.config.root.get("scan_saving", {})
+            return {}
+        else:
+            return session_config
+
+    @property
+    def _config_root(self):
+        """Static config root"""
+        try:
+            return current_session.config.root
+        except AttributeError:
+            return get_config().root
+
+    @property
+    def scan_saving_config(self):
+        return self._session_config.get(
+            "scan_saving", self._config_root.get("scan_saving", {})
         )
 
     @property
@@ -1071,10 +1104,29 @@ class ESRFScanSaving(BasicScanSaving):
         :param int or str value:
         """
         self._store_dataset()
+        reserved = self._reserved_datasets()
         for dataset_name in self._dataset_name_generator(value):
             self._dataset = dataset_name
-            if not os.path.exists(self.root_path):
+            root_path = self.root_path
+            if not os.path.exists(root_path) and root_path not in reserved:
+                self._reserved_dataset = root_path
                 break
+
+    def _reserved_datasets(self):
+        """The dataset directories reserved by all sessions,
+        whether the directories exist or not.
+        """
+        reserved = set()
+        cnx = self._proxy._cnx()
+        pattern = f"parameters:{self.REDIS_SETTING_PREFIX}:*:default"
+        self_name = self.name
+        for key in scan_redis(match=pattern, connection=cnx):
+            name = key.split(":")[2]
+            if name == self_name:
+                continue
+            scan_saving = self.__class__(name)
+            reserved.add(scan_saving._reserved_dataset)
+        return reserved
 
     def _dataset_name_generator(self, prefix):
         """Generates dataset names

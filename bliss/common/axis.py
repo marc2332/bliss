@@ -2079,7 +2079,12 @@ class Axis:
         self.controller._init_settings(self)
 
         # update position (needed for sign change)
-        self.position = self.dial2user(self.dial)
+        pos = self.dial2user(self.dial)
+        if self.position != pos:
+            try:
+                self.position = self.dial2user(self.dial)
+            except NotImplementedError:
+                pass
 
     @lazy_init
     def set_event_positions(self, positions):
@@ -2430,9 +2435,5 @@ class ModuloAxis(Axis):
 class NoSettingsAxis(Axis):
     def __init__(self, *args, **kwags):
         Axis.__init__(self, *args, **kwags)
-        self.settings.get = mock.MagicMock(return_value=None)
-        self.settings.set = mock.MagicMock(return_value=None)
-
-    @property
-    def no_offset(self):
-        return True
+        for setting_name in self.settings:
+            self.settings.disable_cache(setting_name)

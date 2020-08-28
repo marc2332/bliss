@@ -9,7 +9,7 @@ import weakref
 import re
 
 from bliss.common.switch import Switch as BaseSwitch
-from . import _ackcommand, _command
+from bliss.controllers.motors.icepap.comm import _ackcommand, _command
 
 
 class Switch(BaseSwitch):

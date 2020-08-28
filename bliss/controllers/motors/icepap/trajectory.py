@@ -10,8 +10,10 @@ import hashlib
 import numpy
 from unittest import mock
 from bliss.config import settings
-from bliss.common.axis import Axis, lazy_init, DEFAULT_POLLING_TIME
-from . import _command, _vdata_header, POSITION, PARAMETER
+from bliss.common.axis import NoSettingsAxis, lazy_init, DEFAULT_POLLING_TIME
+from bliss.controllers.motors.icepap.comm import _command, _vdata_header
+
+PARAMETER, POSITION, SLOPE = (0x1000, 0x2000, 0x4000)
 
 
 def check_initialized(func):
@@ -26,7 +28,7 @@ def check_initialized(func):
     return func_wrapper
 
 
-class TrajectoryAxis(Axis):
+class TrajectoryAxis(NoSettingsAxis):
     """
     Virtual Icepap axis with follow a trajectory defined by
     a position table.
@@ -37,9 +39,7 @@ class TrajectoryAxis(Axis):
     SPLINE, LINEAR, CYCLIC = list(range(3))
 
     def __init__(self, name, controller, config):
-        Axis.__init__(self, name, controller, config)
-        self.settings.get = mock.MagicMock(return_value=None)
-        self.settings.set = mock.MagicMock(return_value=None)
+        super().__init__(name, controller, config)
 
         self._axes = None
         self._parameter = None
@@ -53,6 +53,10 @@ class TrajectoryAxis(Axis):
         self._config_acceleration = -1  # auto max acceleration for motors involved
         self._velocity = -1
         self._acceleration_time = -1
+
+    @property
+    def no_offset(self):
+        return True
 
     @property
     def disabled_axes(self):

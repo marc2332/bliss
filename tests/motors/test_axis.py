@@ -723,49 +723,72 @@ def test_no_offset(roby):
         roby.no_offset = False
 
 
-def test_offset_property(roby):
-    roby.move(1)
+@pytest.mark.parametrize("motor_name", ["roby", "nsa"])
+def test_offset_property(beacon, motor_name):
+    breakpoint()
+    mot = beacon.get(motor_name)
 
-    roby.offset = -1
+    mot.move(1)
 
-    assert roby.position == 0
-    assert roby.dial == 1
-    dll, dhl = roby.dial_limits
-    assert roby.limits == (dll - 1, dhl - 1)
+    mot.offset = -1
 
-
-def test_sign_property(roby):
-    roby.move(1)
-
-    roby.sign = -1
-
-    assert roby.position == -1
-    dll, dhl = roby.dial_limits
-    assert roby.limits == (-dll, -dhl)
+    assert mot.position == 0
+    assert mot.dial == 1
+    dll, dhl = mot.dial_limits
+    assert mot.limits == (dll - 1, dhl - 1)
 
 
-def test_settings_to_config(roby):
-    roby.velocity = 3
-    roby.acceleration = 10
-    roby.limits = None, None
-    assert roby.config_velocity == 2500
-    assert roby.config_acceleration == 1000
-    roby.settings_to_config()
-    assert roby.config_velocity == 3
-    assert roby.config_acceleration == 10
-    roby.velocity = 2500
-    roby.acceleration = 1000
-    roby.settings_to_config()
+@pytest.mark.parametrize("motor_name", ["roby", "nsa"])
+def test_sign_property(beacon, motor_name):
+    mot = beacon.get(motor_name)
+
+    mot.move(1)
+
+    mot.sign = -1
+
+    assert mot.position == -1
+    dll, dhl = mot.dial_limits
+    assert mot.limits == (-dll, -dhl)
 
 
-def test_apply_config(roby):
-    roby.velocity = 1
-    roby.acceleration = 2
-    roby.limits = 0, 10
-    roby.apply_config()
-    assert roby.velocity == 2500
-    assert roby.acceleration == 1000
-    assert roby.limits == (float("-inf"), float("+inf"))
+@pytest.mark.parametrize("motor_name", ["roby", "nsa"])
+def test_settings_to_config(beacon, motor_name):
+    mot = beacon.get(motor_name)
+    cfg = beacon.get_config(motor_name)
+    cfg_acc = cfg.get("acceleration")
+    cfg_vel = cfg.get("velocity")
+
+    mot.velocity = 3
+    mot.acceleration = 10
+    mot.limits = None, None
+    assert mot.config_velocity == cfg_vel
+    assert mot.config_acceleration == cfg_acc
+    mot.settings_to_config()
+    assert mot.config_velocity == 3
+    assert mot.config_acceleration == 10
+    mot.velocity = cfg_vel
+    mot.acceleration = cfg_acc
+    mot.settings_to_config()
+
+
+@pytest.mark.parametrize("motor_name", ["roby", "nsa"])
+def test_apply_config(beacon, motor_name):
+    mot = beacon.get(motor_name)
+    cfg = beacon.get_config(motor_name)
+    cfg_acc = cfg.get("acceleration")
+    cfg_vel = cfg.get("velocity")
+    cfg_limits = (
+        cfg.get("low_limit", float("-inf")),
+        cfg.get("high_limit", float("+inf")),
+    )
+
+    mot.velocity = 1
+    mot.acceleration = 2
+    mot.limits = 0, 10
+    mot.apply_config()
+    assert mot.velocity == cfg_vel
+    assert mot.acceleration == cfg_acc
+    assert mot.limits == cfg_limits
 
 
 def test_jog(robz):
@@ -960,3 +983,24 @@ def test_no_hardware_access_if_at_pos(robz):
     ) as read_state:
         robz.move(1)
         read_state.assert_not_called()
+
+
+def test_issue_1494(beacon):
+    nsa = beacon.get("nsa")
+
+    assert nsa.low_limit == -5.0
+    assert nsa.high_limit == 5.0
+
+    nsa.limits = (-1, 1)
+
+    assert nsa.low_limit == -1.0
+    assert nsa.high_limit == 1.0
+
+
+def test_no_settings_offset(beacon):
+    nsa = beacon.get("nsa")
+
+    assert nsa.position == 0
+    nsa.offset = 1
+    assert nsa.position == pytest.approx(1)
+    assert nsa.dial == pytest.approx(0)

@@ -12,7 +12,7 @@ from bliss.common.axis import (
     lazy_init,
     Motion,
 )
-from . import _ackcommand, _command
+from bliss.controllers.motors.icepap.comm import _ackcommand, _command
 from bliss.common.utils import autocomplete_property
 import types
 import gevent

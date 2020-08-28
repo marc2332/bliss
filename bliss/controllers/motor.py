@@ -15,7 +15,7 @@ from bliss.common.motor_settings import (
     setting_update_from_channel,
     floatOrNone,
 )
-from bliss.common.axis import NoSettingsAxis, Trajectory
+from bliss.common.axis import Trajectory
 from bliss.common.motor_group import Group, TrajectoryGroup
 from bliss.common import event
 from bliss.physics import trajectory
@@ -195,9 +195,7 @@ class Controller:
                     self.initialize_hardware_axis(axis)
                     axis_initialized.value = 1
 
-                    # Apply settings but for NoSettingsAxis.
-                    if not isinstance(axis, NoSettingsAxis):
-                        self._init_settings(axis)
+                    self._init_settings(axis)
             except BaseException:
                 # Failed to initialize
                 self.__initialized_axis[axis] = False

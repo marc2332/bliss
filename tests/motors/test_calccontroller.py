@@ -197,3 +197,16 @@ def test_calc_motor_energy(beacon):
     energy.move(6.56)
     assert abs(mono.position - 17.54141) < 0.001
     energy.controller.close()
+
+
+def test_calc_motor_no_settings_axis(beacon):
+    calc_mot3 = beacon.get("calc_mot3")
+    nsa = beacon.get("nsa")
+
+    nsa.move(1)
+
+    assert calc_mot3.position == pytest.approx(2)
+
+    calc_mot3.move(1)
+
+    assert nsa.position == pytest.approx(0.5)

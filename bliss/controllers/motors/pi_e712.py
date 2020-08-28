@@ -1106,6 +1106,7 @@ class Switch(BaseSwitch):
         )
 
     def _set(self, state):
+        config = self.config
         if state == "DISABLED":  # DON'T KNOW HOW TO DISABLE
             return
         axis = self.__axes.get(state)
@@ -1125,7 +1126,9 @@ class Switch(BaseSwitch):
                 ((float(high_voltage) - low_voltage) / (high_position - low_position)),
                 3,
             )
-            position_offset = -((high_position + low_position) / 2.)
+            position_offset = low_voltage / position_scaling
+
+            position_scaling *= config.get("output-correction", 1.)
             self.__controller.command(
                 "SPA {axis_channel} 0x7001005 {position_scaling}".format(
                     axis_channel=axis.channel, position_scaling=position_scaling
@@ -1164,6 +1167,7 @@ class Switch(BaseSwitch):
 
     @property
     def scaling_and_offset(self):
+        config = self.config
         self.init()
         with self.__controller.sock.lock:
             axis_channel = int(
@@ -1183,4 +1187,5 @@ class Switch(BaseSwitch):
                     "SPA? {axis_channel} 0x7001006".format(axis_channel=axis_channel)
                 )
             )
+            scaling /= config.get("output-correction", 1.)
             return scaling, offset

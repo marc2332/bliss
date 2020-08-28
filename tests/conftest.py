@@ -286,7 +286,6 @@ def start_tango_server(*cmdline_args, **kwargs):
 
 @contextmanager
 def lima_simulator_context(personal_name, device_name):
-    db = Database()
     fqdn_prefix = f"tango://{os.environ['TANGO_HOST']}"
     device_fqdn = f"{fqdn_prefix}/{device_name}"
     admin_device_fqdn = f"{fqdn_prefix}/dserver/LimaCCDs/{personal_name}"
@@ -318,8 +317,6 @@ def lima_simulator2(ports):
 
 @pytest.fixture
 def bliss_tango_server(ports, beacon):
-    db = Database()
-
     device_name = "id00/bliss/test"
     fqdn_prefix = f"tango://{os.environ['TANGO_HOST']}"
     device_fqdn = f"{fqdn_prefix}/{device_name}"

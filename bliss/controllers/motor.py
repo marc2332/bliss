@@ -33,7 +33,7 @@ def get_setting_or_config_value(axis, name):
     if value is None:
         try:
             value = axis.config.get(name, converter)
-        except BaseException:
+        except Exception:
             return None
     return value
 

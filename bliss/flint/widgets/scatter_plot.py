@@ -121,6 +121,35 @@ class _Title:
         self.__plot.setGraphTitle(title)
 
 
+class ScatterNormalization:
+    """Transform raw scatter data into displayable normalized scatter"""
+
+    def __init__(self, scan: scan_model.Scan, item: plot_model.Item, scatterSize: int):
+        groupByChannels = item.groupByChannels()
+        if groupByChannels is not None:
+            mask = numpy.array([True] * scatterSize)
+            for channel in groupByChannels:
+                channel = channel.channel(scan)
+                if channel is None:
+                    continue
+                array = channel.array()
+                if array is None or len(array) == 0:
+                    continue
+                fvalue = array[-1]
+                mask = numpy.logical_and(mask, array == fvalue)
+            self.__mask = mask
+        else:
+            self.__mask = None
+
+    def hasNormalization(self) -> bool:
+        return self.__mask is not None
+
+    def normalize(self, array: numpy.ndarray) -> numpy.ndarray:
+        if self.__mask is None:
+            return array
+        return array[self.__mask]
+
+
 class ScatterPlotWidget(plot_helper.PlotWidget):
     def __init__(self, parent=None):
         super(ScatterPlotWidget, self).__init__(parent=parent)
@@ -711,25 +740,16 @@ class ScatterPlotWidget(plot_helper.PlotWidget):
             return
 
         # FIXME: This have to be cached and optimized
-        indexes = None
-        groupByChannels = item.groupByChannels()
-        if groupByChannels is not None:
-            mask = numpy.array([True] * len(xx))
-            for channel in groupByChannels:
-                channel = channel.channel(scan)
-                if channel is None:
-                    continue
-                array = channel.array()
-                if array is None or len(array) == 0:
-                    continue
-                fvalue = array[-1]
-                mask = numpy.logical_and(mask, array == fvalue)
-
-            # Filter the result according to the groups
-            xx = xx[mask]
-            yy = yy[mask]
-            value = value[mask]
-            indexes = numpy.arange(len(mask))[mask]
+        scatterSize = len(xx)
+        normalization = ScatterNormalization(scan, item, scatterSize)
+        if normalization.hasNormalization():
+            xx = normalization.normalize(xx)
+            yy = normalization.normalize(yy)
+            value = normalization.normalize(value)
+            indexes = numpy.arange(scatterSize)
+            indexes = normalization.normalize(indexes)
+        else:
+            indexes = None
 
         self.__title.itemUpdated(scan, item)
 

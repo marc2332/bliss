@@ -7,13 +7,17 @@ from silx.gui.utils.testutils import TestCaseQt
 from silx.gui import qt
 from silx.gui.plot import items as silx_items
 
+from bliss.common.scans.scan_info import ScanInfoFactory
+
 from bliss.flint.widgets.scatter_plot import ScatterPlotWidget
+from bliss.flint.widgets.scatter_plot import ScatterNormalization
 from bliss.flint.model import scan_model
 from bliss.flint.model import flint_model
 from bliss.flint.model import plot_model
 from bliss.flint.model import style_model
 from bliss.flint.model import plot_item_model
 from bliss.flint.helper import style_helper
+from bliss.flint.helper import scan_info_helper
 
 
 @pytest.mark.usefixtures("local_flint")
@@ -349,3 +353,43 @@ class TestScatterPlot(TestCaseQt):
         scatters = [o for o in silxPlot.getItems() if isinstance(o, silx_items.Scatter)]
         assert len(scatters) == 2
         widget.close()
+
+
+def test_scatter_normalization__normal():
+    scan_info = {"acquisition_chain": {"timer": {"scalars": ["a", "b", "c"]}}}
+    factory = ScanInfoFactory(scan_info)
+    factory.set_channel_meta("a", axis_id=0, axis_points=3, axis_kind="forth")
+    factory.set_channel_meta("b", axis_id=1, axis_points=3, axis_kind="forth")
+    factory.add_scatter_plot("foo", x="a", y="b", value="c")
+    scan = scan_info_helper.create_scan_model(scan_info, False)
+    plots = scan_info_helper.create_plot_model(scan_info, scan)
+    item = plots[0].items()[0]
+    scatterSize = 8
+    normalizer = ScatterNormalization(scan, item, scatterSize)
+    assert not normalizer.hasNormalization()
+    indexes = numpy.arange(scatterSize, dtype=int)
+    indexes = normalizer.normalize(indexes)
+    expected = numpy.arange(scatterSize, dtype=int)
+    numpy.testing.assert_allclose(indexes, expected)
+
+
+def test_scatter_normalization__normal_frame():
+    scan_info = {"acquisition_chain": {"timer": {"scalars": ["a", "b", "c", "d"]}}}
+    factory = ScanInfoFactory(scan_info)
+    factory.set_channel_meta("a", axis_id=0, axis_points=3, axis_kind="forth")
+    factory.set_channel_meta("b", axis_id=1, axis_points=3, axis_kind="forth")
+    factory.set_channel_meta("c", axis_id=2, axis_points=3, axis_kind="step")
+    factory.add_scatter_plot("foo", x="a", y="b", value="d")
+    scan = scan_info_helper.create_scan_model(scan_info, False)
+    plots = scan_info_helper.create_plot_model(scan_info, scan)
+    plot = plots[0]
+    item = plot.items()[0]
+    item.setGroupByChannels([plot_model.ChannelRef(plot, "c")])
+    c = numpy.array([0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2])
+    scatterSize = len(c)
+    scan.getChannelByName("c").setData(scan_model.Data(scan, c))
+    normalizer = ScatterNormalization(scan, item, scatterSize)
+    indexes = numpy.arange(scatterSize, dtype=int)
+    indexes = normalizer.normalize(indexes)
+    expected = numpy.arange(scatterSize, dtype=int)[9 * 2 :]
+    numpy.testing.assert_allclose(indexes, expected)

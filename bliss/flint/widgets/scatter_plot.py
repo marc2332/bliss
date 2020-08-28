@@ -192,8 +192,12 @@ class ScatterNormalization:
                 if extraSize > 0:
                     mask = numpy.append(self.__mask, [False] * extraSize)
                 self.__mask = mask[self.__indexes]
+                self.__indexes = self.__indexes[self.__mask]
         else:
             self.__mask = None
+
+        if self.__indexes is not None:
+            self.__max = numpy.nanmax(self.__indexes) + 1
 
     def hasNormalization(self) -> bool:
         return self.__indexes is not None or self.__mask is not None
@@ -206,10 +210,10 @@ class ScatterNormalization:
 
         # Normalize backnforth into regular image
         if self.__indexes is not None:
-            extraSize = len(self.__indexes) - len(array)
+            extraSize = self.__max - len(array)
             if extraSize > 0:
                 array = numpy.append(array, [numpy.nan] * extraSize)
-            array = array[self.__indexes]
+            return array[self.__indexes]
 
         # Only display last frame
         if self.__mask is None:

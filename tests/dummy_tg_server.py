@@ -4,6 +4,7 @@ from tango.server import Device
 from tango.server import attribute, command
 from tango import AttrWriteType
 from tango import DevState
+from tango import ApiUtil
 
 
 class Dummy(Device):
@@ -163,4 +164,8 @@ class Dummy(Device):
 
 
 if __name__ == "__main__":
+    try:
+        ApiUtil.cleanup()
+    except Exception:
+        pass
     run((Dummy,))

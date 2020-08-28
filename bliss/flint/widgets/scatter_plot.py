@@ -188,9 +188,9 @@ class ScatterNormalization:
                 mask = numpy.logical_and(mask, array == fvalue)
             self.__mask = mask
             if self.__indexes is not None:
-                mask = numpy.append(
-                    self.__mask, [True] * len(self.__indexes) - scatterSize
-                )
+                extraSize = len(self.__indexes) - scatterSize
+                if extraSize > 0:
+                    mask = numpy.append(self.__mask, [False] * extraSize)
                 self.__mask = mask[self.__indexes]
         else:
             self.__mask = None
@@ -206,9 +206,9 @@ class ScatterNormalization:
 
         # Normalize backnforth into regular image
         if self.__indexes is not None:
-            if len(array) != len(self.__indexes):
-                extraItems = len(self.__indexes) - len(array)
-                array = numpy.append(array, [numpy.nan] * extraItems)
+            extraSize = len(self.__indexes) - len(array)
+            if extraSize > 0:
+                array = numpy.append(array, [numpy.nan] * extraSize)
             array = array[self.__indexes]
 
         # Only display last frame

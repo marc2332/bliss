@@ -168,7 +168,6 @@ def clean_globals():
 @pytest.fixture
 def clean_tango():
     # close file descriptors left open by Tango (see tango-controls/pytango/issues/324)
-    return  # do nothing => it seems it is causing problems with Tango, with some 'Tango is not initialized' errors
     try:
         ApiUtil.cleanup()
     except RuntimeError:

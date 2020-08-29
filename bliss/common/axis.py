@@ -784,11 +784,13 @@ class Axis:
             self.__config_backlash = self.config.get("backlash", float, 0)
 
     @property
+    @lazy_init
     def steps_per_unit(self):
         """Current steps per unit (:obj:`float`)"""
         return self.__steps_per_unit
 
     @property
+    @lazy_init
     def config_backlash(self):
         """Current backlash in user units (:obj:`float`)"""
         return self.__config_backlash
@@ -807,6 +809,7 @@ class Axis:
         self.settings.set("backlash", backlash)
 
     @property
+    @lazy_init
     def tolerance(self):
         """Current Axis tolerance in dial units (:obj:`float`)"""
         return self.__tolerance
@@ -851,6 +854,7 @@ class Axis:
         return sign
 
     @sign.setter
+    @lazy_init
     def sign(self, new_sign):
         new_sign = float(
             new_sign
@@ -922,6 +926,7 @@ class Axis:
         return position
 
     @_set_position.setter
+    @lazy_init
     def _set_position(self, new_set_pos):
         new_set_pos = float(
             new_set_pos
@@ -992,6 +997,7 @@ class Axis:
         return dial_pos
 
     @dial.setter
+    @lazy_init
     def dial(self, new_dial):
         if self.is_moving:
             raise RuntimeError(
@@ -1041,6 +1047,7 @@ class Axis:
         return pos
 
     @position.setter
+    @lazy_init
     def position(self, new_pos):
         log_debug(self, "axis.py : position(new_pos=%r)" % new_pos)
         if self.is_moving:
@@ -1222,6 +1229,7 @@ class Axis:
         return _user_vel
 
     @velocity.setter
+    @lazy_init
     def velocity(self, new_velocity):
         # Write -> Converts into motor units to change velocity of axis."
         new_velocity = float(
@@ -1233,6 +1241,7 @@ class Axis:
         return _user_vel
 
     @property
+    @lazy_init
     def config_velocity(self):
         """
         Return the config velocity.
@@ -1327,6 +1336,7 @@ class Axis:
         return _user_jog_vel
 
     @jog_velocity.setter
+    @lazy_init
     def jog_velocity(self, new_velocity):
         new_velocity = float(
             new_velocity
@@ -1336,6 +1346,7 @@ class Axis:
             self._jog_velocity_channel.value = new_velocity
 
     @property
+    @lazy_init
     def config_jog_velocity(self):
         """
         Return the config jog velocity.
@@ -1359,6 +1370,7 @@ class Axis:
         return _acceleration
 
     @acceleration.setter
+    @lazy_init
     def acceleration(self, new_acc):
         if self.is_moving:
             raise RuntimeError(
@@ -1373,6 +1385,7 @@ class Axis:
         return _acceleration
 
     @property
+    @lazy_init
     def config_acceleration(self):
         return self.__config_acceleration
 
@@ -1388,6 +1401,7 @@ class Axis:
         return abs(self.velocity / self.acceleration)
 
     @acctime.setter
+    @lazy_init
     def acctime(self, new_acctime):
         # Converts acctime into acceleration.
         new_acctime = float(
@@ -1432,6 +1446,7 @@ class Axis:
         return ll, hl
 
     @dial_limits.setter
+    @lazy_init
     def dial_limits(self, limits):
         """
         Set low, high limits in dial units
@@ -1458,13 +1473,14 @@ class Axis:
         return tuple(map(self.dial2user, self.dial_limits))
 
     @limits.setter
+    @lazy_init
     def limits(self, limits):
         # Set limits (low, high) in user units.
         try:
             if len(limits) != 2:
                 raise TypeError
         except TypeError:
-            raise ValueError("Usage: .limits(low, high)")
+            raise ValueError("Usage: .limits = low, high")
 
         # accepts iterable (incl. numpy array)
         self.low_limit, self.high_limit = (
@@ -1479,6 +1495,7 @@ class Axis:
         return self.dial2user(ll)
 
     @low_limit.setter
+    @lazy_init
     def low_limit(self, limit):
         # Sets Low Limit
         # <limit> must be given in USER units
@@ -1496,6 +1513,7 @@ class Axis:
         return self.dial2user(hl)
 
     @high_limit.setter
+    @lazy_init
     def high_limit(self, limit):
         # Sets High Limit (given in USER units)
         # Saved in settings in DIAL units.
@@ -1505,6 +1523,7 @@ class Axis:
         self.settings.set("high_limit", limit)
 
     @property
+    @lazy_init
     def config_limits(self):
         """
         Return a tuple (low_limit, high_limit) from IN-MEMORY config in
@@ -2434,6 +2453,6 @@ class ModuloAxis(Axis):
 
 class NoSettingsAxis(Axis):
     def __init__(self, *args, **kwags):
-        Axis.__init__(self, *args, **kwags)
+        super().__init__(*args, **kwags)
         for setting_name in self.settings:
             self.settings.disable_cache(setting_name)

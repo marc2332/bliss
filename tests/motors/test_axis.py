@@ -756,18 +756,30 @@ def test_settings_to_config(beacon, motor_name):
     cfg = beacon.get_config(motor_name)
     cfg_acc = cfg.get("acceleration")
     cfg_vel = cfg.get("velocity")
+    cfg_ll = cfg.get("low_limit")
+    cfg_hl = cfg.get("high_limit")
 
     mot.velocity = 3
     mot.acceleration = 10
     mot.limits = None, None
     assert mot.config_velocity == cfg_vel
     assert mot.config_acceleration == cfg_acc
+    assert mot.config_limits == (cfg_ll, cfg_hl)
     mot.settings_to_config()
-    assert mot.config_velocity == 3
-    assert mot.config_acceleration == 10
-    mot.velocity = cfg_vel
-    mot.acceleration = cfg_acc
-    mot.settings_to_config()
+    try:
+        assert mot.config_velocity == 3
+        assert mot.config_acceleration == 10
+        assert mot.config_limits == (float("-inf"), float("inf"))
+    finally:
+        # put back config files as they were,
+        # since the fixture that starts
+        # all servers (and that copy config. to a temp folder
+        # for the test) has a session scope
+        mot.velocity = cfg_vel
+        mot.acceleration = cfg_acc
+        mot.low_limit = cfg_ll
+        mot.high_limit = cfg_hl
+        mot.settings_to_config()
 
 
 @pytest.mark.parametrize("motor_name", ["roby", "nsa"])

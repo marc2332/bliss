@@ -703,8 +703,8 @@ class Axis:
                 "disabled_cache", []
             )  # get it from controller (parent)
         disabled_cache.extend(config.get("disabled_cache", []))  # get it for this axis
-        for settings_name in disabled_cache:
-            self.settings.disable_cache(settings_name)
+        for setting_name in disabled_cache:
+            self.settings.disable_cache(setting_name)
         self._unit = self.config.get("unit", str, None)
         self._polling_time = config.get("polling_time", DEFAULT_POLLING_TIME)
         global_map.register(self, parents_list=["axes", controller])

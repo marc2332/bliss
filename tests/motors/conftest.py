@@ -49,11 +49,13 @@ s1u = motor_fixture("s1u")
 s1d = motor_fixture("s1d")
 calc_mot1 = calc_motor_fixture("calc_mot1")
 _calc_mot2 = calc_motor_fixture("calc_mot2")
+calc_mot3 = calc_motor_fixture("calc_mot3")
 custom_axis = motor_fixture("custom_axis")
 mono = motor_fixture("mono")
 energy = calc_motor_fixture("energy")
 wavelength = calc_motor_fixture("wavelength")
 mot_maxee = motor_fixture("mot_maxee")
+nsa = motor_fixture("nsa")
 
 # this ensures .__close__() is called
 # for calc_mot1 when calc_mot2 is used

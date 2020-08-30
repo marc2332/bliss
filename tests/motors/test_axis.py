@@ -902,10 +902,18 @@ def test_axis_no_state_setting(m1):
     with mock.patch.object(m1.controller, "state") as new_state:
         new_state.return_value = AxisState("FAULT")
         assert m1.state == state
+        assert m1.hw_state == AxisState("FAULT")
         m1.settings.disable_cache("state")
         assert m1.state == AxisState("FAULT")
+        # re-enable cache
+        new_state.return_value = AxisState("READY")
         m1.settings.disable_cache("state", False)
-        assert m1.state == state
+        assert m1.hw_state == AxisState("READY")
+        # the beacon channel has been removed, there is no source of data
+        # so this will read the hw_state
+        assert m1.state == m1.hw_state
+        new_state.return_value = AxisState("FAULT")
+        assert m1.state == AxisState("READY")
 
 
 def test_axis_disable_cache_settings_from_config(beacon):

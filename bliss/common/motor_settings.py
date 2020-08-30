@@ -8,6 +8,7 @@
 from bliss.common import event
 from bliss.common.greenlet_utils import KillMask
 from bliss.config import settings, settings_cache
+import collections
 import sys
 
 
@@ -41,7 +42,6 @@ def stateSetting(state):
 class ControllerAxisSettings:
     def __init__(self):
         self.setting_names = []
-        self.disabled_settings = {}
         self.convert_func = {}
         self.persistent_setting = {}
         self.config_setting = {}
@@ -73,68 +73,19 @@ class ControllerAxisSettings:
             self.persistent_setting[setting_name] = persistent
             self.config_setting[setting_name] = config
 
-    def get(self, axis, setting_name):
-        if setting_name not in self.setting_names:
-            raise ValueError(
-                "No setting '%s` for axis '%s`" % (setting_name, axis.name)
-            )
 
-        disabled_settings = self.disabled_settings.get(axis, set())
-
-        if (
-            self.persistent_setting[setting_name]
-            and not setting_name in disabled_settings
-        ):
-            with KillMask():
-                value = axis.settings._hash.get(setting_name)
-        else:
-            chan = axis._beacon_channels.get(setting_name)
-            if chan:
-                value = chan.value
-            else:
-                value = None
-        if value is not None:
-            convert_func = self.convert_func.get(setting_name)
-            if convert_func is not None:
-                value = convert_func(value)
-        return value
-
-    def _clear(self, axis, setting_name):
-        if not setting_name in self.disabled_settings:
-            axis.settings._hash[setting_name] = None
-
-    def set(self, axis, setting_name, value):
-        """
-        * set setting
-        * send event
-        * write
-        """
-        if setting_name not in self.setting_names:
-            raise ValueError(
-                "No setting '%s` for axis '%s`" % (setting_name, axis.name)
-            )
-        convert_func = self.convert_func.get(setting_name)
-        if convert_func is not None:
-            value = convert_func(value)
-
-        if not setting_name in self.disabled_settings:
-            if self.persistent_setting[setting_name]:
-                with KillMask():
-                    axis.settings._hash[setting_name] = value
-
-        axis._beacon_channels[setting_name].value = value
-
-        event.send(axis, "internal_" + setting_name, value)
-        try:
-            event.send(axis, setting_name, value)
-        except Exception:
-            sys.excepthook(*sys.exc_info())
+disabled_settings_namedtuple = collections.namedtuple(
+    "disabled_settings", "names config_dict"
+)
 
 
 class AxisSettings:
     def __init__(self, axis):
         self.__axis = axis
         self.__state = None
+        self._disabled_settings = disabled_settings_namedtuple(
+            set(), dict(axis.config.config_dict)
+        )
         cnx_cache = settings_cache.get_redis_client_cache()
         self._hash = settings.HashSetting(
             "axis.%s" % axis.name,
@@ -144,26 +95,101 @@ class AxisSettings:
         # Activate prefetch
         cnx_cache.add_prefetch(self._hash)
 
+    def __iter__(self):
+        for name in self.__axis.controller.axis_settings.setting_names:
+            yield name
+
+    def convert_func(self, setting_name):
+        return self.__axis.controller.axis_settings.convert_func.get(setting_name)
+
+    def config_settings(self):
+        return self.__axis.controller.axis_settings.config_settings()
+
     def set(self, setting_name, value):
         if setting_name == "state":
             if self.__state == value:
                 return
             self.__state = value
-        return self.__axis.controller.axis_settings.set(
-            self.__axis, setting_name, value
-        )
+        """
+        * set setting
+        * send event
+        * write
+        """
+        axis = self.__axis
+        axis_settings = axis.controller.axis_settings
+        if setting_name not in axis_settings.setting_names:
+            raise ValueError(
+                "No setting '%s` for axis '%s`" % (setting_name, axis.name)
+            )
+        convert_func = self.convert_func(setting_name)
+        if convert_func is not None:
+            value = convert_func(value)
 
-    def convert_func(self, setting_name):
-        return self.__axis.controller.axis_settings.convert_func[setting_name]
+        disabled_settings = self._disabled_settings
+        if setting_name in disabled_settings.names:
+            if (
+                setting_name not in ("position", "dial_position")
+                and axis_settings.persistent_setting[setting_name]
+            ):
+                disabled_settings.config_dict[setting_name] = value
+        else:
+            if axis_settings.persistent_setting[setting_name]:
+                with KillMask():
+                    axis.settings._hash[setting_name] = value
 
-    def config_settings(self):
-        return self.__axis.controller.axis_settings.config_settings()
+            axis._beacon_channels[setting_name].value = value
+
+        event.send(axis, "internal_" + setting_name, value)
+        try:
+            event.send(axis, setting_name, value)
+        except Exception:
+            sys.excepthook(*sys.exc_info())
 
     def get(self, setting_name):
-        return self.__axis.controller.axis_settings.get(self.__axis, setting_name)
+        axis = self.__axis
+        axis_settings = axis.controller.axis_settings
+        disabled_settings = self._disabled_settings
+
+        if setting_name not in axis_settings.setting_names:
+            raise ValueError(
+                "No setting '%s` for axis '%s`" % (setting_name, axis.name)
+            )
+
+        if setting_name in disabled_settings.names:
+            return disabled_settings.config_dict.get(setting_name)
+        else:
+            if axis_settings.persistent_setting[setting_name]:
+                with KillMask():
+                    value = axis.settings._hash.get(setting_name)
+            else:
+                chan = axis._beacon_channels.get(setting_name)
+                if chan:
+                    value = chan.value
+                else:
+                    value = None
+
+            if value is not None:
+                convert_func = self.convert_func(setting_name)
+                if convert_func is not None:
+                    value = convert_func(value)
+            return value
 
     def clear(self, setting_name):
-        self.__axis.controller.axis_settings._clear(self.__axis, setting_name)
+        axis = self.__axis
+        axis_settings = axis.controller.axis_settings
+        disabled_settings = self._disabled_settings
+
+        if setting_name in disabled_settings.names:
+            disabled_settings.config_dict[setting_name] = None
+        else:
+            axis.settings._hash[setting_name] = None
+            # reset beacon channel, if it is there
+            try:
+                channel = axis._beacon_channels[setting_name]
+            except KeyError:
+                pass
+            else:
+                channel.value = channel.default_value
 
     def disable_cache(self, setting_name, flag=True):
         """
@@ -172,17 +198,12 @@ class AxisSettings:
         if setting_name == "position":
             self.disable_cache("dial_position", flag)
 
-        disabled_settings = self.__axis.controller.axis_settings.disabled_settings.setdefault(
-            self.__axis, set()
-        )
+        self.clear(setting_name)
+
         if flag:
-            disabled_settings.add(setting_name)
+            self._disabled_settings.names.add(setting_name)
         else:
             try:
-                disabled_settings.remove(setting_name)
+                self._disabled_settings.names.remove(setting_name)
             except KeyError:
                 pass
-
-    def __iter__(self):
-        for name in self.__axis.controller.axis_settings.setting_names:
-            yield name

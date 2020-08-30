@@ -1044,6 +1044,7 @@ class Axis:
         pos = self.settings.get("position")
         if pos is None:
             pos = self.dial2user(self.dial)
+            self.settings.set("position", pos)
         return pos
 
     @position.setter
@@ -1104,6 +1105,7 @@ class Axis:
         if state is None:
             # really read from hw
             state = self.hw_state
+            self.settings.set("state", state)
         return state
 
     @property

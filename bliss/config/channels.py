@@ -118,7 +118,7 @@ class Bus(AdvancedInstantiationInterface):
     # Close
 
     def close(self):
-        for channel in self._channels.values():
+        for channel in list(self._channels.values()):
             channel.close()
         if self._send_task:
             self._send_task.kill()

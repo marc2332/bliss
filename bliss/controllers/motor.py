@@ -583,11 +583,17 @@ class CalcController(Controller):
             setpos_dict[self._axis_tag(axis)] = axis.user2dial(axis._set_position)
         return setpos_dict
 
-    def _real_position_update(self, *args):
+    def _real_position_update(self, pos, sender=None):
         for axis in self.pseudos:
             self._initialize_axis(axis)
 
-        return self._calc_from_real(*args)
+        try:
+            # avoid recursion by disconnecting the signal
+            event.disconnect(sender, "internal_position", self._real_position_update)
+            return self._calc_from_real()
+        finally:
+            # reconnect
+            event.connect(sender, "internal_position", self._real_position_update)
 
     def _real_setpos_update(self, _):
         real_setpos = dict()
@@ -674,7 +680,7 @@ class CalcController(Controller):
         )
         return self.calc_from_real(real_positions)
 
-    def _calc_from_real(self, *args, **kwargs):
+    def _calc_from_real(self, *args):
         new_positions = self._do_calc_from_real()
 
         for tagged_axis_name, dial_pos in new_positions.items():

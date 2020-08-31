@@ -35,7 +35,7 @@ class MyTCPRequestHandler(socketserver.StreamRequestHandler):
             raise RuntimeError("Unknown request")
 
     def _read_request(self):
-        buff = bytearray(10000)
+        buff = bytearray(16384)
         request = b""
         try:
             n = self.rfile.readinto1(buff)
@@ -64,7 +64,7 @@ def main(port=8778):
     aServer = socketserver.TCPServer(("localhost", port), MyTCPRequestHandler)
 
     # Listen forever
-    logger.info("Start")
+    logger.info("Starting ...")
     aServer.serve_forever()
 
 

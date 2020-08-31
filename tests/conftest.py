@@ -14,6 +14,7 @@ import gevent
 import subprocess
 import signal
 import logging
+import json
 import pytest
 import redis
 import collections.abc
@@ -26,7 +27,7 @@ from pprint import pprint
 from bliss import global_map, global_log
 from bliss.common.session import DefaultSession
 from bliss.common.utils import get_open_ports
-from bliss.common.logtools import logbook_printer
+from bliss.common import logtools
 from bliss.config import static
 from bliss.config import settings_cache
 from bliss.config.conductor import client
@@ -151,7 +152,7 @@ def clean_globals():
     simulation_diode.DEFAULT_CONTROLLER = None
     simulation_diode.DEFAULT_INTEGRATING_CONTROLLER = None
     scan_meta.USER_SCAN_META = None
-    logbook_printer.disabled.clear()
+    logtools.logbook_printer.disabled.clear()
     tango_attr_as_counter._TangoCounterControllerDict = weakref.WeakValueDictionary()
 
 
@@ -635,7 +636,9 @@ def metamgr_without_backend(ports, beacon):
 
 
 @pytest.fixture
-def metamgr(ports, beacon, jolokia_server, stomp_server):
+def metamgr_with_backend(
+    ports, beacon, jolokia_server, stomp_server, icat_logbook_server
+):
     device_name = "id00/metadata/test_session"
     device_fqdn = "tango://localhost:{}/{}".format(ports.tango_port, device_name)
 
@@ -647,6 +650,10 @@ def metamgr(ports, beacon, jolokia_server, stomp_server):
     db.put_class_property("MetadataManager", {"queueName": "/queue/icatIngest"})
     db.put_class_property(
         "MetadataManager", {"API_KEY": "elogbook-0000-000-0000-0000-0000"}
+    )
+    port, _ = icat_logbook_server
+    db.put_class_property(
+        "MetadataManager", {"icatplus_server": f"http://localhost:{port}"}
     )
 
     with start_tango_server(
@@ -681,7 +688,9 @@ def metaexp_without_backend(ports, beacon):
 
 
 @pytest.fixture
-def metaexp(ports, beacon, jolokia_server, stomp_server):
+def metaexp_with_backend(
+    ports, beacon, jolokia_server, stomp_server, icat_logbook_server
+):
     device_name = "id00/metaexp/test_session"
     device_fqdn = "tango://localhost:{}/{}".format(ports.tango_port, device_name)
 
@@ -723,35 +732,8 @@ def wait_tcp_online(host, port, timeout=10):
         sock.close()
 
 
-@pytest.fixture
-def jolokia_server():
-    port = get_open_ports(1)[0]
-    path = os.path.dirname(__file__)
-    script_path = os.path.join(path, "utils", "jolokia_server.py")
-    p = subprocess.Popen([sys.executable, "-u", script_path, f"--port={port}"])
-    wait_tcp_online("localhost", port)
-    yield ("localhost", port)
-    wait_terminate(p)
-
-    ##todo: this does not free port systematically in the end...
-
-
-@pytest.fixture
-def stomp_server():
-    port = get_open_ports(1)[0]
-    # Add arguments ["--debug", "TEXT"] for debugging
-    proc = subprocess.Popen(["coilmq", "-b", "0.0.0.0", "-p", str(port)])
-    wait_tcp_online("localhost", port)
-    yield ("localhost", port)
-    wait_terminate(proc)
-
-
-@pytest.fixture
-def icat_subscriber(stomp_server):
-    # stomp does not work well with gevent so
-    # we start a subprocess that redirects
-    # stomp messages to a TCP socket
-
+@contextmanager
+def tcp_listener(data_parser=None):
     # Create TCP socket
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     port_out = get_open_ports(1)[0]
@@ -770,39 +752,107 @@ def icat_subscriber(stomp_server):
                 out, sep, buffer = buffer.rpartition(b"\n")
                 if sep:
                     for bdata in out.split(b"\n"):
-                        messages.put(bdata.decode())
+                        if data_parser == "json":
+                            messages.put(json.loads(bdata))
+                        else:
+                            messages.put(bdata.decode())
             gevent.sleep(0.1)
 
     glistener = gevent.spawn(listener)
-
-    # Redirect messages received by the STOMP server
-    # to the TCP socket
-    path = os.path.dirname(__file__)
-    script_path = os.path.join(path, "utils", "stomp_subscriber.py")
-    host, port = stomp_server
-    proc = subprocess.Popen(
-        [
-            sys.executable,
-            "-u",
-            script_path,
-            f"--host={host}",
-            f"--port={port}",
-            f"--port_out={port_out}",
-            "--queue=/queue/icatIngest",
-        ]
-    )
-
-    assert messages.get(timeout=10) == "LISTENING"
     try:
-        yield messages
+        yield port_out, messages
         assert len(messages) == 0, "not all messages have been validated"
     finally:
         messages.put(StopIteration)
         for msg in messages:
-            print(f"\nUnvalidated ICAT message: {msg}")
-        sock.close()
-        glistener.kill()
+            print(f"\nUnvalidated message: {msg}")
+        with gevent.Timeout(10):
+            sock.close()
+            glistener.kill()
+
+
+@pytest.fixture
+def jolokia_server():
+    port = get_open_ports(1)[0]
+    path = os.path.dirname(__file__)
+    script_path = os.path.join(path, "utils", "jolokia_server.py")
+    p = subprocess.Popen([sys.executable, "-u", script_path, f"--port={port}"])
+    wait_tcp_online("localhost", port)
+    try:
+        yield ("localhost", port)
+    finally:
+        wait_terminate(p)
+
+
+@pytest.fixture
+def logbook():
+    logtools.logbook_printer.add_stdout_handler()
+    logtools.logbook_on = True
+    try:
+        yield
+    finally:
+        logtools.logbook_on = False
+        logtools.logbook_printer.remove_stdout_handler()
+
+
+@pytest.fixture
+def icat_logbook_server(logbook):
+    with tcp_listener("json") as (port_out, icat_requests):
+        port = get_open_ports(1)[0]
+        path = os.path.dirname(__file__)
+        script_path = os.path.join(path, "utils", "icatplus_server.py")
+        p = subprocess.Popen(
+            [
+                sys.executable,
+                "-u",
+                script_path,
+                f"--port={port}",
+                f"--port_out={port_out}",
+            ]
+        )
+        wait_tcp_online("localhost", port)
+        try:
+            assert icat_requests.get(timeout=10) == {"STATUS": "LISTENING"}
+            yield port, icat_requests
+        finally:
+            wait_terminate(p)
+
+
+@pytest.fixture
+def stomp_server():
+    port = get_open_ports(1)[0]
+    # Add arguments ["--debug", "TEXT"] for debugging
+    proc = subprocess.Popen(["coilmq", "-b", "0.0.0.0", "-p", str(port)])
+    wait_tcp_online("localhost", port)
+    try:
+        yield ("localhost", port)
+    finally:
         wait_terminate(proc)
+
+
+@pytest.fixture
+def icat_subscriber(stomp_server):
+    with tcp_listener() as (port_out, messages):
+        path = os.path.dirname(__file__)
+        script_path = os.path.join(path, "utils", "stomp_subscriber.py")
+        host, port = stomp_server
+        proc = subprocess.Popen(
+            [
+                sys.executable,
+                "-u",
+                script_path,
+                f"--host={host}",
+                f"--port={port}",
+                f"--port_out={port_out}",
+                "--queue=/queue/icatIngest",
+            ]
+        )
+
+        try:
+            assert messages.get(timeout=10) == "LISTENING"
+            yield messages
+        finally:
+            wait_terminate(proc)
 
 
 @pytest.fixture

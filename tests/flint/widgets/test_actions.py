@@ -20,8 +20,8 @@ def create_manager():
     return manager
 
 
-def test_logbook(local_flint, metamgr):
-    tango_metadata = metamgr[1]
+def test_logbook(local_flint, metamgr_without_backend):
+    tango_metadata = metamgr_without_backend[1]
 
     manager = create_manager()
     plot = PlotWindow()

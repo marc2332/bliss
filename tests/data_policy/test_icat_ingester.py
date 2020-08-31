@@ -52,10 +52,12 @@ def _create_state(icat_proxy, base_path, beamline, state, timeout=10):
         print(f"Created state {icat_proxy.state}: {icat_proxy.status}")
 
 
-def test_ingester_status(session, esrf_data_policy, metaexp, metamgr):
+def test_ingester_status(
+    session, esrf_data_policy, metaexp_without_backend, metamgr_without_backend
+):
     synctimeout = 30
-    mdexp_dev_fqdn, mdexp_dev = metaexp
-    mdmgr_dev_fqdn, mdmgr_dev = metamgr
+    mdexp_dev_fqdn, mdexp_dev = metaexp_without_backend
+    mdmgr_dev_fqdn, mdmgr_dev = metamgr_without_backend
     icat_proxy = session.scan_saving.icat_proxy
     base_path = session.scan_saving.base_path
     beamline = session.scan_saving.beamline

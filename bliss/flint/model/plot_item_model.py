@@ -28,7 +28,7 @@ from . import plot_model
 
 
 class CurvePlot(plot_model.Plot):
-    """"Define a plot which mastly draw curves."""
+    """"Define a plot which mostly draw curves."""
 
     def __init__(self, parent=None):
         super(CurvePlot, self).__init__(parent=parent)

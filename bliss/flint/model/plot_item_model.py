@@ -204,6 +204,9 @@ class CurveItem(plot_model.Item, CurveMixIn):
         else:
             assert False
 
+    def __str__(self):
+        return "<%s x=%s y=%s />" % (type(self).__name__, self.__x, self.__y)
+
 
 class McaPlot(plot_model.Plot):
     """Define a plot which is specific for MCAs."""

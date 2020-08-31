@@ -208,6 +208,12 @@ class Plot(qt.QObject):
         self.__styleStrategy.setPlot(self)
         self.styleChanged.emit()
 
+    def __str__(self):
+        return "<%s>%s</>" % (
+            type(self).__name__,
+            "".join([str(i) for i in self.__items]),
+        )
+
 
 class NotStored:
     """Flag object which do not have to be stored"""

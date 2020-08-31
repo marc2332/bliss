@@ -87,24 +87,15 @@ class ESRF_Undulator(Controller):
 
         log_debug(self, f"attr_pos_name={attr_pos_name}")
 
-        try:
-            attr_vel_name = axis.config.get("attribute_velocity", str)
-        except KeyError:
-            attr_vel_name = "Velocity"
+        attr_vel_name = axis.config.get("attribute_velocity", str, "Velocity")
         log_debug(self, f"attr_vel_name={attr_vel_name}")
 
-        try:
-            attr_fvel_name = axis.config.get("attribute_first_velocity", str)
-        except KeyError:
-            attr_fvel_name = "FirstVelocity"
-
+        attr_fvel_name = axis.config.get(
+            "attribute_first_velocity", str, "FirstVelocity"
+        )
         log_debug(self, f"attr_fvel_name={attr_fvel_name}")
 
-        try:
-            attr_acc_name = axis.config.get("attribute_acceleration", str)
-        except KeyError:
-            attr_acc_name = "Acceleration"
-
+        attr_acc_name = axis.config.get("attribute_acceleration", str, "Acceleration")
         log_debug(self, f"attr_acc_name={attr_acc_name}")
 
         alpha = axis.config.get("alpha", float, 0.0)
@@ -112,19 +103,18 @@ class ESRF_Undulator(Controller):
 
         log_debug(self, f"alpha={alpha}  period={period}")
 
-        try:
-            undu_prefix = axis.config.get("undu_prefix", str)
-            attr_pos_name = undu_prefix + attr_pos_name
-            attr_vel_name = undu_prefix + attr_vel_name
-            attr_fvel_name = undu_prefix + attr_fvel_name
-            attr_acc_name = undu_prefix + attr_acc_name
-
-        except KeyError:
+        undu_prefix = axis.config.get("undu_prefix", str)
+        if undu_prefix is None:
             log_debug(self, "'undu_prefix' not specified in config")
             if attr_pos_name == "Position":
                 raise RuntimeError("'undu_prefix' must be specified in config")
             else:
                 undu_prefix = ""
+        else:
+            attr_pos_name = undu_prefix + attr_pos_name
+            attr_vel_name = undu_prefix + attr_vel_name
+            attr_fvel_name = undu_prefix + attr_fvel_name
+            attr_acc_name = undu_prefix + attr_acc_name
 
         # check for revolver undulator
         is_revolver = False

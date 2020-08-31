@@ -7,13 +7,35 @@
 
 """
 This class is the main controller of Eurotherm nanodac
+
+yml configuration example:
+
+- class: Nanodac
+  plugin: regulation
+  module: temperature.eurotherm.nanodac
+  controller_ip: 160.103.30.184
+  name: nanodac
+  inputs:
+    - name: nanodac_in1
+      channel: 1
+  outputs:
+    - name: nanodac_out1
+      channel: 1
+  ctrl_loops:
+    - name: nanodac_loop1
+      channel: 1
+      input: $nanodac_in1
+      output: $nanodac_out1
 """
 
 import weakref
 import os
 import time
+import functools
 
 import gevent
+
+from bliss.controllers import regulator
 
 from bliss.comm import modbus
 from .nanodac_mapping import name2address
@@ -248,3 +270,120 @@ class nanodac(object):
 
     def get_soft_ramp(self, loop_number):
         return self.SoftRamp(self, loop_number)
+
+
+def _get_input_channel_from_config(func):
+    @functools.wraps(func)
+    def f(self, tinput):
+        channel_nb = tinput.config.get("channel")
+        if channel_nb is None:
+            raise RuntimeError(
+                f"Input {tinput.name} doesn't have **channel** set in config"
+            )
+        secondary = tinput.config.get("secondary", False)
+        channel = self._controller.get_channel(channel_nb)
+        return func(self, channel, secondary)
+
+    return f
+
+
+def _get_loop_from_config(func):
+    @functools.wraps(func)
+    def f(self, obj, *args):
+        channel_nb = obj.config.get("channel")
+        if channel_nb is None:
+            raise RuntimeError(f"{obj.name} doesn't have **channel** set in config")
+        loop = self._controller.get_loop(channel_nb)
+        secondary = obj.config.get("secondary", False)
+        return func(self, loop, secondary, *args)
+
+    return f
+
+
+class Nanodac(regulator.Controller):
+    """
+    Nanodac regulator controller.
+    """
+
+    def __init__(self, config):
+        super().__init__(config)
+        controller_ip = config.get("controller_ip")
+        if controller_ip is None:
+            raise RuntimeError("controller_ip musst be in configuration")
+        self._controller = nanodac(config.get("name"), config)
+
+    @_get_input_channel_from_config
+    def read_input(self, channel, secondary):
+        return channel.pv2 if secondary else channel.pv
+
+    @_get_loop_from_config
+    def read_output(self, loop, secondary):
+        return loop.op.ch2out if secondary else loop.op.ch1out
+
+    @_get_input_channel_from_config
+    def state_input(self, channel, secondary):
+        status_num = channel.status2 if secondary else channel.status
+        STATUS_2_HUMAN = {
+            0: "Ok",
+            1: "Off",
+            2: "Over range",
+            3: "Under range",
+            4: "Hardware error",
+            5: "Ranging",
+            6: "Overflow",
+            7: "bad",
+            8: "Hardware exceeded",
+            9: "No data",
+            12: "Comm channel error",
+        }
+        return STATUS_2_HUMAN.get(status_num, "Unknown")
+
+    def state_output(self, toutput):
+        return "Ok"
+
+    def start_regulation(self, tloop):
+        pass
+
+    def stop_regulation(self, tloop):
+        pass
+
+    @_get_loop_from_config
+    def get_setpoint(self, loop, secondary):
+        return loop.targetsp
+
+    @_get_loop_from_config
+    def set_setpoint(self, loop, secondary, sp):
+        loop.targetsp = sp
+
+    @_get_loop_from_config
+    def get_kp(self, loop, secondary):
+        return loop.pid.proportionalband
+
+    @_get_loop_from_config
+    def get_ki(self, loop, secondary):
+        return loop.pid.integraltime
+
+    @_get_loop_from_config
+    def get_kd(self, loop, secondary):
+        return loop.pid.derivativetime
+
+    @_get_loop_from_config
+    def start_ramp(self, loop, secondary, sp, **kwargs):
+        loop.automan = 0  # Activate the regulation 0=auto,1=manual
+        loop.targetsp = sp
+
+    @_get_loop_from_config
+    def stop_ramp(self, loop, secondary):
+        loop.targetsp = loop.pv
+
+    @_get_loop_from_config
+    def is_ramping(self, loop, secondary):
+        return loop.targetsp != loop.workingsp
+
+    @_get_loop_from_config
+    def set_ramprate(self, loop, secondary, rate):
+        loop.op.rate = rate
+
+    @_get_loop_from_config
+    def get_ramprate(self, loop, secondary):
+        return loop.op.rate

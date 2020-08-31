@@ -36,6 +36,8 @@ import functools
 import gevent
 
 from bliss.controllers import regulator
+from bliss.common import regulation
+from bliss.common.counter import SamplingCounter
 
 from bliss.comm import modbus
 from .nanodac_mapping import name2address
@@ -387,3 +389,28 @@ class Nanodac(regulator.Controller):
     @_get_loop_from_config
     def get_ramprate(self, loop, secondary):
         return loop.op.rate
+
+
+class Loop(regulation.Loop):
+    def __init__(self, controller, config):
+        super().__init__(controller, config)
+        channel_nb = config.get("channel")
+        if channel_nb is None:
+            raise RuntimeError(f"{self.name} doesn't have **channel** set in config")
+        self.__loop = controller._controller.get_loop(channel_nb)
+        self.create_counter(
+            SamplingCounter,
+            f"{self.name}_working_setpoint",
+            unit=self.input.config.get("unit", "N/A"),
+            mode="SINGLE",
+        )
+
+    def read_all(self, *counters):
+
+        values = []
+        for cnt in counters:
+            if cnt.name.endswith("_working_setpoint"):
+                values.append(self.__loop.workingsp)
+            else:
+                values.extend(super().read_all(cnt))
+        return values

@@ -8,7 +8,8 @@
 import pytest
 import time
 import os
-from bliss.common.standard import loopscan
+from bliss.common.standard import loopscan, mv
+from bliss.common.utils import rounder
 from bliss.common.tango import DevFailed
 from bliss.common.session import set_current_session
 from bliss.shell.standard import (
@@ -774,3 +775,28 @@ def test_lprint(
 ):
     lprint("message1")
     assert_logbook_received(icat_logbook_server, "message1", complete=True)
+
+
+def test_lprint_move_axis(
+    session,
+    esrf_data_policy,
+    metaexp_with_backend,
+    metamgr_with_backend,
+    icat_logbook_server,
+):
+    mot = session.env_dict.get("s1hg")
+    a = mot.position
+    b = 10
+    mv(mot, a)
+    # No logbook messages because we are already on "a"
+
+    def as_string(p):
+        return rounder(mot.tolerance, p)
+
+    for _ in range(10):
+        mv(mot, b)
+        mv_msg = f"Moving s1hg from {as_string(a)} to {as_string(b)}"
+        assert_logbook_received(icat_logbook_server, mv_msg, complete=True)
+        assert_logbook_received(icat_logbook_server, "Moving s1f")
+        assert_logbook_received(icat_logbook_server, "Moving s1b")
+        a, b = b, a

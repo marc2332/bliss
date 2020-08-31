@@ -143,9 +143,10 @@ class ManageMainBehaviours(qt.QObject):
         if hasattr(widget, "createPropertyWidget"):
             flintModel = self.flintModel()
             liveWindow = flintModel.liveWindow()
-            propertyWidget = liveWindow.propertyWidget()
-            if propertyWidget is not None:
-                propertyWidget.setFocusWidget(widget)
+            if liveWindow is not None:
+                propertyWidget = liveWindow.propertyWidget()
+                if propertyWidget is not None:
+                    propertyWidget.setFocusWidget(widget)
 
     def __currentScanChanged(self, previousScan, newScan):
         self.__storeScanIfNeeded(newScan)

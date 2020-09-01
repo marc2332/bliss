@@ -497,9 +497,6 @@ class Channel(AdvancedInstantiationInterface):
             finally:
                 self._firing_callbacks = False
 
-        # Clean up
-        self._callbacks = {ref for ref in self._callback_refs if ref() is not None}
-
     # Representation
 
     def __repr__(self):

@@ -28,7 +28,7 @@ from . import plot_model
 
 
 class CurvePlot(plot_model.Plot):
-    """"Define a plot which mastly draw curves."""
+    """"Define a plot which mostly draw curves."""
 
     def __init__(self, parent=None):
         super(CurvePlot, self).__init__(parent=parent)
@@ -203,6 +203,9 @@ class CurveItem(plot_model.Item, CurveMixIn):
             return self.yChannel().displayName(scan)
         else:
             assert False
+
+    def __str__(self):
+        return "<%s x=%s y=%s />" % (type(self).__name__, self.__x, self.__y)
 
 
 class McaPlot(plot_model.Plot):

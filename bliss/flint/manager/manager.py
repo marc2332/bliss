@@ -143,9 +143,10 @@ class ManageMainBehaviours(qt.QObject):
         if hasattr(widget, "createPropertyWidget"):
             flintModel = self.flintModel()
             liveWindow = flintModel.liveWindow()
-            propertyWidget = liveWindow.propertyWidget()
-            if propertyWidget is not None:
-                propertyWidget.setFocusWidget(widget)
+            if liveWindow is not None:
+                propertyWidget = liveWindow.propertyWidget()
+                if propertyWidget is not None:
+                    propertyWidget.setFocusWidget(widget)
 
     def __currentScanChanged(self, previousScan, newScan):
         self.__storeScanIfNeeded(newScan)
@@ -347,6 +348,14 @@ class ManageMainBehaviours(qt.QObject):
             previousWidgetPlot = widget.plotModel()
             if plotModel is defaultPlot:
                 defaultWidget = widget
+
+            if previousWidgetPlot is not None:
+                # Ad hoc solution to fix plot axis
+                # Instead of using removeNotAvailableChannels
+                # We should use a copyAvailableChannels
+                equivalentPlots = scan.type() == widget.scan().type()
+                if not equivalentPlots:
+                    previousWidgetPlot = None
 
             # Try to reuse the previous plot
             if not useDefaultPlot and previousWidgetPlot is not None:

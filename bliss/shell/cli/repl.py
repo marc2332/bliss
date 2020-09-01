@@ -185,7 +185,7 @@ def install_excepthook():
 
     logger = logging.getLogger("exceptions")
 
-    def repl_excepthook(exc_type, exc_value, tb):
+    def repl_excepthook(exc_type, exc_value, tb, with_elogbook=True):
         err_file = sys.stderr
 
         # Store latest traceback (as a string to avoid memory leaks)
@@ -195,15 +195,21 @@ def install_excepthook():
         logger.error("", exc_info=True)
 
         # Adapt the error message depending on the ERROR_REPORT expert_mode
-        if not ERROR_REPORT._expert_mode:
+        if ERROR_REPORT._expert_mode:
+            traceback.print_exception(exc_type, exc_value, tb, file=err_file)
+        else:
             print(
                 f"!!! === {exc_type.__name__}: {exc_value} === !!! ( for more details type cmd 'last_error' )",
                 file=err_file,
             )
-        else:
-            traceback.print_exception(exc_type, exc_value, tb, file=err_file)
 
-        logbook_printer.send_to_elogbook("error", f"{exc_type.__name__}: {exc_value}")
+        if with_elogbook:
+            try:
+                logbook_printer.send_to_elogbook(
+                    "error", f"{exc_type.__name__}: {exc_value}"
+                )
+            except Exception:
+                repl_excepthook(*sys.exc_info(), with_elogbook=False)
 
     def print_exception(self, context, exc_type, exc_value, tb):
         if gevent.getcurrent() == gevent.get_hub():

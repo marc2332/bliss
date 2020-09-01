@@ -32,23 +32,8 @@ class GreenletSafeConnectionPool(redis.ConnectionPool):
         # we do not care of being "fork-safe"
         return
 
-    def get_connection(self, command_name, *keys, **options):
-        connection = super().get_connection(command_name, *keys, **options)
-
-        if command_name == "pubsub":
-            finalize = weakref.finalize(
-                gevent.getcurrent(), self.clean_pubsub, connection
-            )
-        else:
-            finalize = weakref.finalize(gevent.getcurrent(), self.release, connection)
-        connection.__finalize__ = finalize
-
-        return connection
-
     def release(self, connection):
         with self._lock:
-            if hasattr(connection, "__finalize__"):
-                connection.__finalize__.detach()
             # As we register callback when greenlet disappear,
             # Connection might been removed before the greenlet
             try:

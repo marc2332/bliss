@@ -1,7 +1,6 @@
 """Testing manager module."""
 
 from bliss.flint.manager.manager import ManageMainBehaviours
-from bliss.flint.model import scan_model
 from bliss.flint.model import flint_model
 from bliss.flint.widgets.curve_plot import CurvePlotWidget
 from bliss.flint.helper import scan_info_helper

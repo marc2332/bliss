@@ -239,11 +239,11 @@ def beacon(ports):
     client._default_connection = connection.Connection("localhost", ports.beacon_port)
     config = static.get_config()
     yield config
-    settings_cache.close_all_client_cache()
     config.close()
     client._default_connection.close()
     # Ensure no connections are created due to garbage collection:
     client._default_connection = None
+    settings_cache.close_all_client_cache()
 
 
 @pytest.fixture

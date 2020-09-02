@@ -21,7 +21,7 @@ from silx.gui import qt
 
 from bliss.common import tango
 from bliss.flint.model import scan_model
-from bliss.data.events import lima_io
+from bliss.data import lima_image
 
 _logger = logging.getLogger(__name__)
 
@@ -152,7 +152,7 @@ class MonitoringScan(scan_model.Scan):
         proxy = self.getProxy()
         _logger.debug("Polling detector %s", proxy)
         try:
-            result = lima_io.read_video_last_image(proxy)
+            result = lima_image.read_video_last_image(proxy)
         except Exception:
             _logger.error("Error while reading data", exc_info=True)
             raise

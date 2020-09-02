@@ -12,7 +12,7 @@ import warnings
 from bliss.data.nodes.channel import ChannelDataNodeBase
 from bliss.data.events import EventData, LimaImageStatusEvent
 from bliss.config.settings import QueueObjSetting
-from bliss.data.events import lima_io
+from bliss.data import lima_image
 
 
 class LimaDataView:
@@ -127,7 +127,7 @@ class LimaDataView:
         """
         if not self.from_stream:
             # FIXME: It should return None
-            return lima_io.Frame(None, None, None)
+            return lima_image.Frame(None, None, None)
         self.update()
         return self.status_event.get_last_live_image()
 

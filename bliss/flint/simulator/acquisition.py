@@ -19,7 +19,7 @@ from silx.gui import qt
 from bliss.flint.model import flint_model
 from bliss.flint.model import scan_model
 from bliss.flint.manager import scan_manager
-from bliss.data.events.lima_io import Frame
+from bliss.data.lima_image import Frame
 
 
 _logger = logging.getLogger(__name__)

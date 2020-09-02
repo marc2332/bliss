@@ -11,7 +11,7 @@ from bliss.scanning.toolbox import ChainBuilder
 from bliss.controllers.lima.lima_base import Lima
 from bliss.common.utils import BOLD, RED
 from bliss.common.utils import typeguardTypeError_to_hint
-from bliss.data.events.lima_io import read_video_last_image
+from bliss.data.lima_image import read_video_last_image
 
 _log = logging.getLogger("bliss.scans")
 

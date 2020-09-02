@@ -139,10 +139,13 @@ class FilterSet:
         self._print = print
 
         self._config_filters = config.get("filters")
-        if not len(self._config_filters):
+        if not self._config_filters:
             raise RuntimeError("Filter list is empty")
 
         self.energy_axis = config.get("energy_axis")
+        if self.energy_axis is None:
+            raise RuntimeError("Energy axis does not exist")
+
         self._last_energy = self.energy_axis.position
         if not self._last_energy <= 0 and not self._last_energy > 0:
             raise RuntimeError(
@@ -210,9 +213,11 @@ class FilterSet:
         """Create the Compound object that will be used for calculating the transmission
         """
         for filter in self._config_filters:
-            c = filter["compound"] = Compound(
-                filter["material"], density=filter.get("density")
-            )
+            material = filter.get("material")
+            if not material:
+                filter["compound"] = None
+                continue
+            c = filter["compound"] = Compound(material, density=filter.get("density"))
             # Overwrite density if transmission info is provided
             if "transmission" in filter:
                 if not "energy" in filter:
@@ -221,7 +226,9 @@ class FilterSet:
                     )
                 else:
                     c.density_from_transmission(
-                        filter["energy"], filter["thickness"], filter["transmission"]
+                        filter["energy"],
+                        filter["thickness"] / 10,
+                        filter["transmission"],
                     )
             # Make sure the compound has a density
             if c.density is None:
@@ -236,9 +243,12 @@ class FilterSet:
         if energy is None:
             energy = self.energy_axis.position
         for filter in self._config_filters:
-            filter["transmission_calc"] = filter["compound"].transmission(
-                energy, filter["thickness"]
-            )[0]
+            c = filter.get("compound")
+            if c is None:
+                transmission = 1
+            else:
+                transmission = c.transmission(energy, filter["thickness"] / 10)[0]
+            filter["transmission_calc"] = transmission
         # save in setting the last energy
         self._last_energy = energy
 

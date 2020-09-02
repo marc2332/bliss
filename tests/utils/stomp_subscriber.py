@@ -34,15 +34,16 @@ class MyListener(stomp.ConnectionListener):
             self.s_out.close()
         self.s_out = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.s_out.connect(("localhost", port))
+        logger.info(f"Redirect output to {port}")
 
     def on_message(self, header, message):
         if header.get("destination") != "/queue/icatIngest":
             return
-        if self.s_out is not None:
+        if self.s_out is None:
+            logger.info(f"received message: {message}")
+        else:
             logger.info(f"send to output socket: {message}")
             self.s_out.sendall(message.encode() + b"\n")
-        else:
-            logger.info(f"received message: {message}")
 
 
 def main(host=None, port=60001, queue=None, port_out=0):

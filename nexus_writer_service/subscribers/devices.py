@@ -17,13 +17,13 @@ from collections import OrderedDict
 
 mcanamemap = {
     "spectrum": "data",
-    "icr": "input_rate",
-    "ocr": "output_rate",
-    "triggers": "input_counts",
-    "events": "output_counts",
-    "deadtime": "dead_time",
-    "trigger_livetime": "input_live_time",
-    "energy_livetime": "output_live_time",
+    "icr": "trigger_count_rate",  # triggers/trigger_live_time
+    "ocr": "event_count_rate",  # events/elapsed_time
+    "triggers": "triggers",
+    "events": "events",
+    "deadtime": "fractional_dead_time",
+    "trigger_livetime": "trigger_live_time",
+    "energy_livetime": "live_time",
     "realtime": "elapsed_time",
 }
 

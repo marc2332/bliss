@@ -15,15 +15,18 @@ from bliss.common.counter import IntegratingCounter
 from bliss.controllers.counter import IntegratingCounterController
 from bliss.controllers.counter import counter_namespace
 from bliss.scanning.acquisition.lima import RoiCountersAcquisitionSlave
+from bliss.data.display import FormatedTab
 
 
 class Roi:
     def __init__(self, x, y, width, height, name=None):
-        self.x = x
-        self.y = y
-        self.width = width
-        self.height = height
+        self.x = int(x)
+        self.y = int(y)
+        self.width = int(width)
+        self.height = int(height)
         self.name = name
+
+        assert self.is_valid()
 
     @property
     def p0(self):
@@ -39,43 +42,70 @@ class Roi:
     def __repr__(self):
         return "<%s,%s> <%s x %s>" % (self.x, self.y, self.width, self.height)
 
-    def to_dict(self):
-        return {"x": self.x, "y": self.y, "width": self.width, "height": self.height}
-
     def __eq__(self, other):
         if not isinstance(other, self.__class__):
             return False
-        return self.p0 == other.p0 and self.p1 == other.p1 and self.name == other.name
+        ans = self.x == other.x and self.y == other.y
+        ans = ans and self.width == other.width and self.height == other.height
+        ans = ans and self.name == other.name
+        return ans
 
-    @classmethod
-    def frompoints(cls, p0, p1, name=None):
-        return cls.fromcoords(p0[0], p0[1], p1[0], p1[1], name=name)
-
-    @classmethod
-    def fromcoords(cls, x0, y0, x1, y1, name=None):
-        xmin = min(x0, x1)
-        ymin = min(y0, y1)
-        xmax = max(x0, x1)
-        ymax = max(y0, y1)
-        return cls(xmin, ymin, xmax - xmin, ymax - ymin, name=name)
+    def get_coords(self):
+        return [self.x, self.y, self.width, self.height]
 
     def to_array(self):
-        return numpy.array([self.x, self.y, self.width, self.height])
+        return numpy.array(self.get_coords())
+
+    def to_dict(self):
+        return {"x": self.x, "y": self.y, "width": self.width, "height": self.height}
 
 
 class ArcRoi(object):
-    """ArcRoi mock
-
-    It have to be replaced by the real implementation
+    """ Arc roi defined by coordinates: [center_x, center_y, radius_min, radius_max, angle_min, angle_max]
+        Angles are expressed in degrees.
     """
 
-    def __init__(self, cx, cy, r1, r2, a1, a2):
+    def __init__(self, cx, cy, r1, r2, a1, a2, name=None):
         self.cx = cx
         self.cy = cy
         self.r1 = r1
         self.r2 = r2
         self.a1 = a1
         self.a2 = a2
+        self.name = name
+
+        assert self.is_valid()
+
+    def is_valid(self):
+        ans = self.r1 >= 0 and self.r2 > 0
+        ans = ans and self.a1 != self.a2
+        ans = ans and self.r1 != self.r2
+        return ans
+
+    def __repr__(self):
+        return "<%.1f, %.1f> <%.1f, %.1f> <%.1f, %.1f>" % (
+            self.cx,
+            self.cy,
+            self.r1,
+            self.r2,
+            self.a1,
+            self.a2,
+        )
+
+    def __eq__(self, other):
+        if not isinstance(other, self.__class__):
+            return False
+        ans = self.cx == other.cx and self.cy == other.cy
+        ans = ans and self.r1 == other.r1 and self.r2 == other.r2
+        ans = ans and self.a1 == other.a1 and self.a2 == other.a2
+        ans = ans and self.name == other.name
+        return ans
+
+    def get_coords(self):
+        return [self.cx, self.cy, self.r1, self.r2, self.a1, self.a2]
+
+    def to_array(self):
+        return numpy.array(self.get_coords())
 
     def to_dict(self):
         return {
@@ -156,32 +186,32 @@ class SingleRoiCounters:
 class RoiCounters(IntegratingCounterController):
     """Lima ROI counters
 
-    Example usage:
+        Example usage:
 
-    # add/replace a roi
-    mpx.roi_counters['r1'] = Roi(10, 10, 100, 200)
+        # add/replace a roi
+        mpx.roi_counters['r1'] = Roi(10, 10, 100, 200)
 
-    # add/replace multiple rois
-    mpx.roi_counters['r2', 'r3'] = Roi(20, 20, 300, 400), Roi(20, 20, 300, 400)
+        # add/replace multiple rois
+        mpx.roi_counters['r2', 'r3'] = Roi(20, 20, 300, 400), Roi(20, 20, 300, 400)
 
-    # get roi info
-    r2 = mpx.roi_counters['r2']
+        # get roi info
+        r2 = mpx.roi_counters['r2']
 
-    # get multiple roi info
-    r2, r1 = mpx.roi_counters['r2', 'r1']
+        # get multiple roi info
+        r2, r1 = mpx.roi_counters['r2', 'r1']
 
-    # remove roi
-    del mpx.roi_counters['r1']
+        # remove roi
+        del mpx.roi_counters['r1']
 
-    # clear all rois
-    mpx.roi_counters.clear()
+        # clear all rois
+        mpx.roi_counters.clear()
 
-    # list roi names:
-    mpx.roi_counters.keys()
+        # list roi names:
+        mpx.roi_counters.keys()
 
-    # loop rois
-    for roi_name, roi in mpx.roi_counters.items():
-        pass
+        # loop rois
+        for roi_name, roi in mpx.roi_counters.items():
+            pass
     """
 
     def __init__(self, proxy, acquisition_proxy):
@@ -208,19 +238,30 @@ class RoiCounters(IntegratingCounterController):
         return RoiCountersAcquisitionSlave(self, ctrl_params=ctrl_params, **acq_params)
 
     def _set_roi(self, name, roi_values):
-        if isinstance(roi_values, Roi):
+        if isinstance(roi_values, (Roi, ArcRoi)):
             roi = roi_values
         elif len(roi_values) == 4:
             roi = Roi(*roi_values, name=name)
+        elif len(roi_values) == 6:
+            roi = ArcRoi(*roi_values, name=name)
         else:
             raise TypeError(
-                "Lima.RoiCounters: roi accepts roi (class)"
-                " or (x,y,width,height) values"
+                "Lima.RoiCounters: accepts Roi or ArcRoi objects"
+                " or (x, y, width, height) values"
+                " or (cx, cy, r1, r2, a1, a2) values"
             )
         roi.name = name
         roi_id = self._proxy.addNames((name,))[0]
         self._proxy.Start()
-        self._proxy.setRois((roi_id, roi.x, roi.y, roi.width, roi.height))
+
+        params = [roi_id]
+        params.extend(roi.get_coords())
+
+        if isinstance(roi, Roi):
+            self._proxy.setRois(params)
+        elif isinstance(roi, ArcRoi):
+            self._proxy.setArcRois(params)
+
         self._set_roi_settings(roi_id, roi)
 
     def _set_roi_settings(self, roi_id, roi):
@@ -267,27 +308,28 @@ class RoiCounters(IntegratingCounterController):
         self._proxy.clearAllRois()
         roi_list = [roi for roi in self.get_rois() if roi.is_valid()]
         roi_id_list = self._proxy.addNames([x.name for x in roi_list])
-        rois_values = list()
-        for roi_id, roi in zip(roi_id_list, roi_list):
-            rois_values.extend((roi_id, roi.x, roi.y, roi.width, roi.height))
-            self._roi_ids[roi.name] = roi_id
-        if rois_values:
-            self._proxy.Start()
-            self._proxy.setRois(rois_values)
 
-    def load_rois(self):
-        """
-        Load current ROI counters from Lima and store them in settings
-        """
-        self._clear_rois_settings()
-        roi_names = self._proxy.getNames()
-        rois = self._proxy.getRois(roi_names)
-        for i, name in enumerate(roi_names):
-            roi_id = rois[i * 5]
-            idx = i * 5 + 1
-            x, y, w, h = rois[idx : idx + 4]
-            roi = Roi(x, y, w, h, name=name)
-            self._set_roi_settings(roi_id, roi)
+        rois_values = list()
+        arcrois_values = list()
+        for roi_id, roi in zip(roi_id_list, roi_list):
+
+            if isinstance(roi, Roi):
+                rois_values.extend([roi_id])
+                rois_values.extend(roi.get_coords())
+            elif isinstance(roi, ArcRoi):
+                arcrois_values.extend([roi_id])
+                arcrois_values.extend(roi.get_coords())
+
+            self._roi_ids[roi.name] = roi_id
+
+        if rois_values or arcrois_values:
+            self._proxy.Start()
+
+            if rois_values:
+                self._proxy.setRois(rois_values)
+
+            if arcrois_values:
+                self._proxy.setArcRois(arcrois_values)
 
     # dict like API
 
@@ -367,33 +409,23 @@ class RoiCounters(IntegratingCounterController):
     # Representation
 
     def __info__(self):
-        lines = [f"ROI Counters: {self.config_name}"]
+        header = f"ROI Counters: {self.config_name}"
         rois = self.get_rois()
         if rois:
-            header = "Name", "ROI (<X, Y> <W x H>)"
-            x = max((len(str(roi.x)) for roi in rois))
-            y = max((len(str(roi.y)) for roi in rois))
-            w = max((len(str(roi.width)) for roi in rois))
-            h = max((len(str(roi.height)) for roi in rois))
-            roi_template = (
-                "<{{0.x: >{0}}}, {{0.y: >{1}}}> "
-                "<{{0.width: >{2}}} x {{0.height: >{3}}}>".format(x, y, w, h)
-            )
-            name_len = max(max((len(roi.name) for roi in rois)), len(header[0]))
-            roi_len = (
-                x + y + w + h + 10
-            )  # 10 is surrounding characters (<,>,x and spaces)
-            template = "{{0: >{0}}}  {{1: >{1}}}".format(name_len, roi_len)
-            lines += [
-                template.format(*header),
-                template.format(name_len * "-", roi_len * "-"),
+            labels = ["Name", "ROI coordinates"]
+            tab = FormatedTab([labels])
+            [tab.add_line([roi.name, str(roi)]) for roi in rois if isinstance(roi, Roi)]
+            [
+                tab.add_line([roi.name, str(roi)])
+                for roi in rois
+                if isinstance(roi, ArcRoi)
             ]
-            lines += [
-                template.format(roi.name, roi_template.format((roi))) for roi in rois
-            ]
+            tab.resize(minwidth=10, maxwidth=100)
+            tab.add_separator(sep="-", line_index=1)
+            return "\n".join([header, str(tab)])
+
         else:
-            lines.append("*** no ROIs defined ***")
-        return "\n".join(lines)
+            return "\n".join([header, "*** no ROIs defined ***"])
 
     def get_values(self, from_index, *counters):
         roi_counter_size = len(RoiStat)

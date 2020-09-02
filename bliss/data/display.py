@@ -155,7 +155,7 @@ class FormatedTab:
         self,
         header_lines,
         minwidth=1,
-        maxwidth=None,
+        maxwidth=50,
         col_sep=" ",
         dtype="g",
         align="^",

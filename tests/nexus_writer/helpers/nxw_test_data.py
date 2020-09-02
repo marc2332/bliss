@@ -776,8 +776,8 @@ def expected_plots(
             signals = {
                 "diode2alias",
                 "diode3",
-                "simu1_det0_dead_time",
-                "simu2_det1_dead_time",
+                "simu1_det0_fractional_dead_time",
+                "simu2_det1_fractional_dead_time",
             }
             signals &= channels[0]
             plots["xrf_counters"] = {"ndim": 0, "type": "flat", "signals": signals}
@@ -786,8 +786,8 @@ def expected_plots(
             signals = {
                 "diode4",
                 "diode5",
-                "simu1_det0_dead_time",
-                "simu2_det1_dead_time",
+                "simu1_det0_fractional_dead_time",
+                "simu2_det1_fractional_dead_time",
             }
             signals &= channels[1]
             plots["xas_counters"] = {"ndim": 0, "type": "flat", "signals": signals}
@@ -1032,14 +1032,14 @@ def expected_detector_content(name, config=True):
             if "sum" not in name:
                 datasets |= {
                     "data",
-                    "dead_time",
+                    "fractional_dead_time",
                     "elapsed_time",
-                    "input_live_time",
-                    "input_counts",
-                    "input_rate",
-                    "output_live_time",
-                    "output_counts",
-                    "output_rate",
+                    "trigger_live_time",
+                    "triggers",
+                    "trigger_count_rate",
+                    "live_time",
+                    "events",
+                    "event_count_rate",
                 }
         elif name.startswith("lima"):
             if "roi" in name:
@@ -1127,13 +1127,13 @@ def expected_channels(
                     detname = conname + "_" + detname
                     datasets[1] |= {detname}
                     datasets[0] |= {
-                        detname + "_input_live_time",
-                        detname + "_input_counts",
-                        detname + "_input_rate",
-                        detname + "_output_live_time",
-                        detname + "_output_counts",
-                        detname + "_output_rate",
-                        detname + "_dead_time",
+                        detname + "_trigger_live_time",
+                        detname + "_triggers",
+                        detname + "_trigger_count_rate",
+                        detname + "_live_time",
+                        detname + "_events",
+                        detname + "_event_count_rate",
+                        detname + "_fractional_dead_time",
                         detname + "_elapsed_time",
                         detname + "_roi1",
                         detname + "_roi2",

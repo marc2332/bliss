@@ -11,6 +11,7 @@
 import struct
 import numpy
 import typing
+import enum
 from silx.third_party.EdfFile import EdfFile
 
 
@@ -26,14 +27,62 @@ DATA_HEADER_SIZE = struct.calcsize(DATA_HEADER_FORMAT)
 VIDEO_HEADER_FORMAT = "!IHHqiiHHHH"
 VIDEO_MAGIC = struct.unpack(">I", b"VDEO")[0]
 VIDEO_HEADER_SIZE = struct.calcsize(VIDEO_HEADER_FORMAT)
-VIDEO_MODES = {0: numpy.uint8, 1: numpy.uint16, 2: numpy.int32, 3: numpy.int64}
-IMAGE_MODES = {
-    0: numpy.uint8,
-    1: numpy.uint16,
-    2: numpy.uint32,
-    4: numpy.int8,
-    5: numpy.int16,
-    6: numpy.int32,
+
+
+class VIDEO_MODES(enum.Enum):
+    # From https://github.com/esrf-bliss/Lima/blob/master/common/include/lima/Constants.h#L118
+    Y8 = 0
+    Y16 = 1
+    Y32 = 2
+    Y64 = 3
+    RGB555 = 4
+    RGB565 = 5
+    RGB24 = 6
+    RGB32 = 7
+    BGR24 = 8
+    BGR32 = 9
+    BAYER_RG8 = 10
+    BAYER_RG16 = 11
+    BAYER_BG8 = 12
+    BAYER_BG16 = 13
+    I420 = 14
+    YUV411 = 15
+    YUV422 = 16
+    YUV444 = 17
+    YUV411PACKED = 18
+    YUV422PACKED = 19
+    YUV444PACKED = 20
+
+
+class IMAGE_MODES(enum.Enum):
+    DARRAY_UINT8 = 0
+    DARRAY_UINT16 = 1
+    DARRAY_UINT32 = 2
+    DARRAY_UINT64 = 3
+    DARRAY_INT8 = 4
+    DARRAY_INT16 = 5
+    DARRAY_INT32 = 6
+    DARRAY_INT64 = 7
+    DARRAY_FLOAT32 = 8
+    DARRAY_FLOAT64 = 9
+
+
+# Mapping used for direct conversion from raw data to numpy array
+MODE_TO_NUMPY = {
+    IMAGE_MODES.DARRAY_UINT8: numpy.uint8,
+    IMAGE_MODES.DARRAY_UINT16: numpy.uint16,
+    IMAGE_MODES.DARRAY_UINT32: numpy.uint32,
+    IMAGE_MODES.DARRAY_UINT64: numpy.uint64,
+    IMAGE_MODES.DARRAY_INT8: numpy.int8,
+    IMAGE_MODES.DARRAY_INT16: numpy.int16,
+    IMAGE_MODES.DARRAY_INT32: numpy.int32,
+    IMAGE_MODES.DARRAY_INT64: numpy.int64,
+    IMAGE_MODES.DARRAY_FLOAT32: numpy.float32,
+    IMAGE_MODES.DARRAY_FLOAT64: numpy.float64,
+    VIDEO_MODES.Y8: numpy.uint8,
+    VIDEO_MODES.Y16: numpy.uint16,
+    VIDEO_MODES.Y32: numpy.int32,
+    VIDEO_MODES.Y64: numpy.int64,
 }
 
 
@@ -141,13 +190,19 @@ def decode_devencoded_video(
             "by bliss cause of the padding (found %s, %s)." % (pad0, pad1)
         )
 
-    mode = VIDEO_MODES.get(image_mode)
-    if mode is None:
+    try:
+        mode = VIDEO_MODES(image_mode)
+    except Exception:
         raise ImageFormatNotSupported(
             "Video format unsupported (found %s)." % image_mode
         )
 
-    data = numpy.frombuffer(raw_data[header_size:], dtype=mode).copy()
+    try:
+        dtype = MODE_TO_NUMPY[mode]
+    except Exception:
+        raise ImageFormatNotSupported("Video format %s is not supported" % mode)
+
+    data = numpy.frombuffer(raw_data[header_size:], dtype=dtype).copy()
     data.shape = image_height, image_width
     return data, image_frame_number
 
@@ -212,8 +267,9 @@ def decode_devencoded_image(raw_data: bytes) -> numpy.ndarray:
             "Image header version not supported (found %s)." % version
         )
 
-    data_format = IMAGE_MODES.get(data_type)
-    if data_format is None:
+    try:
+        mode = IMAGE_MODES(data_type)
+    except Exception:
         raise ImageFormatNotSupported(
             "Image format from Lima Tango device not supported (found %s)." % data_type
         )
@@ -225,7 +281,12 @@ def decode_devencoded_image(raw_data: bytes) -> numpy.ndarray:
             "Image header nb_dim==2 expected (found %s)." % nb_dim
         )
 
-    data = numpy.fromstring(raw_data[header_size:], dtype=data_format)
+    try:
+        dtype = MODE_TO_NUMPY[mode]
+    except Exception:
+        raise ImageFormatNotSupported("Data format %s is not supported" % mode)
+
+    data = numpy.fromstring(raw_data[header_size:], dtype=dtype)
     data.shape = dim2, dim1
     return data
 

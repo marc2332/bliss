@@ -97,8 +97,7 @@ import numpy as np
 import contextlib
 from tabulate import tabulate
 
-from bliss.config.beacon_object import BeaconObject
-from bliss.common.logtools import *
+from bliss.common.logtools import log_info, log_debug
 from bliss import global_map
 from bliss.common.user_status_info import status_message
 from bliss.physics.materials import Compound
@@ -220,7 +219,7 @@ class FilterSet:
             c = filter["compound"] = Compound(material, density=filter.get("density"))
             # Overwrite density if transmission info is provided
             if "transmission" in filter:
-                if not "energy" in filter:
+                if "energy" not in filter:
                     raise ValueError(
                         f"filter {filter['name']} has transmission but missing the corresponding energy"
                     )

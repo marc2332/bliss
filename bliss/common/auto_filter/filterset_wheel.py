@@ -99,8 +99,6 @@ With pairs transmission/energy:
 
 """
 
-import math
-import time
 import numpy as np
 
 from bliss.common.auto_filter.filterset import FilterSet

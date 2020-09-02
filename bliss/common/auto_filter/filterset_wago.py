@@ -89,8 +89,6 @@ With pairs transmission/energy:
 
 """
 
-import math
-import time
 import numpy as np
 from gevent import sleep
 

@@ -57,7 +57,6 @@ from bliss.common.axis import Axis
 from bliss.common.cleanup import cleanup, axis as cleanup_axis
 from bliss.common.types import _countable
 from bliss.common.protocols import counter_namespace
-from bliss import global_map
 from bliss.common.auto_filter.filterset import FilterSet
 
 from . import acquisition_objects

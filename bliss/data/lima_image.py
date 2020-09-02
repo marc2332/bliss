@@ -72,11 +72,15 @@ class Frame(typing.NamedTuple):
         yield self[1]
 
 
-def read_video_last_image(proxy) -> typing.Optional[typing.Tuple[numpy.ndarray, int]]:
-    """Read and decode video last image from a Lima detector
+def decode_devencoded_video(
+    raw_data: bytes
+) -> typing.Optional[typing.Tuple[numpy.ndarray, int]]:
+    """Decode data provided by Lima device video attribute.
+
+    See https://lima1.readthedocs.io/en/latest/applications/tango/python/doc/#devencoded-video-image
 
     Argument:
-        proxy: A Tango Lima proxy
+        raw_data: Data returns by Lima video attribute
 
     Returns:
         A tuple with the frame data (as a numpy array), and the frame number
@@ -85,8 +89,10 @@ def read_video_last_image(proxy) -> typing.Optional[typing.Tuple[numpy.ndarray, 
     Raises:
         ImageFormatNotSupported: when the retrieved data is not supported
     """
-    # get last video image
-    _, raw_data = proxy.video_last_image
+    if isinstance(raw_data, tuple):
+        # Support the direct output from proxy.video_last_image
+        raw_data = raw_data[1]
+
     if len(raw_data) < HEADER_SIZE:
         raise ImageFormatNotSupported("Image header smaller than the expected size")
 
@@ -136,6 +142,62 @@ def read_video_last_image(proxy) -> typing.Optional[typing.Tuple[numpy.ndarray, 
     return data, image_frame_number
 
 
+def decode_devencoded_image(raw_data: bytes) -> numpy.ndarray:
+    """Decode data provided by Lima device image attribute
+
+    See https://lima1.readthedocs.io/en/latest/applications/tango/python/doc/#devencoded-data-array
+
+    Argument:
+        raw_data: Data returns by Lima image attribute
+
+    Returns:
+        A numpy array else None if there is not yet acquired image.
+
+    Raises:
+        ImageFormatNotSupported: when the retrieved data is not supported
+    """
+    if isinstance(raw_data, tuple):
+        # Support the direct output from proxy.readImage
+        raw_data = raw_data[-1]
+
+    struct_format = "<IHHIIHHHHHHHHHHHHHHHHHHIII"
+    header_size = struct.calcsize(struct_format)
+    values = struct.unpack(struct_format, raw_data[:header_size])
+    if values[0] != DATA_ARRAY_MAGIC:
+        raise ImageFormatNotSupported("Not a Lima data")
+    header_offset = values[2]
+
+    format_id = values[4]
+    data_format = IMAGE_MODES.get(format_id)
+    if data_format is None:
+        raise ImageFormatNotSupported(
+            "Image format from Lima Tango device not supported (found %s)." % format_id
+        )
+
+    data = numpy.fromstring(raw_data[header_offset:], dtype=data_format)
+    data.shape = values[8], values[7]
+    return data
+
+
+def read_video_last_image(proxy) -> typing.Optional[typing.Tuple[numpy.ndarray, int]]:
+    """Read and decode video last image from a Lima detector
+
+    Argument:
+        proxy: A Tango Lima proxy
+
+    Returns:
+        A tuple with the frame data (as a numpy array), and the frame number
+        if an image is available. None if there is not yet acquired image.
+
+    Raises:
+        ImageFormatNotSupported: when the retrieved data is not supported
+    """
+    # get last video image
+    _, raw_data = proxy.video_last_image
+    decoded = decode_devencoded_video(raw_data)
+    return decoded
+
+
 def image_from_server(proxy, image_nb: int) -> numpy.ndarray:
     """Read and decode image (or last image ready) from a Lima detector.
 
@@ -163,23 +225,8 @@ def image_from_server(proxy, image_nb: int) -> numpy.ndarray:
     else:
         raw_msg = raw_msg[-1]
 
-    struct_format = "<IHHIIHHHHHHHHHHHHHHHHHHIII"
-    header_size = struct.calcsize(struct_format)
-    values = struct.unpack(struct_format, raw_msg[:header_size])
-    if values[0] != DATA_ARRAY_MAGIC:
-        raise ImageFormatNotSupported("Not a Lima data")
-    header_offset = values[2]
-
-    format_id = values[4]
-    data_format = IMAGE_MODES.get(format_id)
-    if data_format is None:
-        raise ImageFormatNotSupported(
-            "Image format from Lima Tango device not supported (found %s)." % format_id
-        )
-
-    data = numpy.fromstring(raw_msg[header_offset:], dtype=data_format)
-    data.shape = values[8], values[7]
-    return data
+    array = decode_devencoded_image(raw_msg)
+    return array
 
 
 def image_from_file(filename, path_in_file, image_index, file_format):

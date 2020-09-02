@@ -575,6 +575,21 @@ class ScatterData(_Sealable):
         del self.__noIndexes
         super(ScatterData, self).seal()
 
+    def shape(self):
+        """Returns the theorical ndim shape based on channels metadata.
+
+        It is supported by numpy arrays. If a channel do not have `axisPoints`
+        specified, -1 is used.
+        """
+        result = []
+        for axisId in range(self.maxDim()):
+            for channel in self.__channels[axisId]:
+                size = channel.metadata().axisPoints
+                if size is not None:
+                    break
+            result.append(size)
+        return tuple(reversed(result))
+
 
 class Channel(qt.QObject, _Sealable):
     """

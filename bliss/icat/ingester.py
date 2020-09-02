@@ -30,6 +30,7 @@ from bliss.tango.clients.utils import (
     is_devfailed,
     is_devfailed_timeout,
     is_devfailed_notallowed,
+    is_devfailed_reconnect_delayed,
 )
 from bliss.common.logtools import log_error
 from bliss import current_session
@@ -117,6 +118,14 @@ class IcatDeviceProxy:
 
     def __repr__(self):
         return repr(self.proxy)
+
+    @icat_comm
+    def ping(self, comm_state=None):
+        """
+        :param dict comm_state:
+        :raises IcatError:
+        """
+        self.exec_command("ping", comm_state=comm_state)
 
     @icat_comm
     def read_attribute(
@@ -255,16 +264,25 @@ class IcatDeviceProxy:
                 return method(*args, **kwargs)
             except Exception as e:
                 comm_state["exception"] = e
+                # Re-raise when not a DevFailed
                 if not is_devfailed(e):
                     raise
-                # This is a DevFailed (or at least the cause is)
-                bretry = is_devfailed_timeout(e) or is_devfailed_notallowed(e)
-                if not bretry:
-                    # This is not a timeout or not-allowed exception
-                    if not retry(e):
-                        raise
-                # This is a DevFailed that is retryable.
-            gevent.sleep(self.period)
+                # "Connection delayed" exception needs a retry
+                if is_devfailed_reconnect_delayed(e):
+                    # The connection request was delayed.
+                    # Last connection request was done less than 1000 ms ago
+                    gevent.sleep(1.1)
+                    continue
+                # Timeout or not-allowed exceptions need a retry
+                if is_devfailed_timeout(e) or is_devfailed_notallowed(e):
+                    gevent.sleep(self.period)
+                    continue
+                # Retry when requested by the user
+                if retry(e):
+                    gevent.sleep(self.period)
+                    continue
+                # Re-raise DevFailed exception that doesn't need a retry
+                raise
 
 
 class IcatIngesterProxy(object):
@@ -368,8 +386,8 @@ class IcatIngesterProxy(object):
 
     @icat_comm
     def ping(self, comm_state=None):
-        self.metadata_experiment.proxy.ping()
-        self.metadata_manager.proxy.ping()
+        self.metadata_experiment.ping(comm_state=comm_state)
+        self.metadata_manager.ping(comm_state=comm_state)
 
     @property
     def state(self):

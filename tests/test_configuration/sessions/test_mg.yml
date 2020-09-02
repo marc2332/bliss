@@ -11,6 +11,8 @@
 
 -
   class: MeasurementGroup
-  name: autof_mg
+  name: autofilter_mg
   counters:
-    - TestFilterCounterAxis:value
+    - sim_autofilter1_det
+    - sim_autofilter1_mon
+    - autofilter1

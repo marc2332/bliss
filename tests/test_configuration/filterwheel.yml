@@ -1,29 +1,31 @@
-- name: autof
+- name: autofilter1
   plugin: bliss
   package: bliss.common.auto_filter
   class: AutoFilter
   min_count_rate: 10000
   max_count_rate: 50000
-  monitor_counter_name: TestFilterCounterAxis:value  # why a name and not a dollar ref? # should it be exchangable?
+  detector_counter_name: sim_autofilter1_det
+  monitor_counter_name: sim_autofilter1_mon
   max_nb_iter: 5
   energy_axis: $energy
-  filterset: $filtW0
+  filterset: $filterwheel1
   counters:
    - counter_name: curratt
      tag: filteridx
    - counter_name: transm
      tag: transmission
+   - counter_name: ratio
+     tag: ratio
 
-- name: filtW0
+- name: filterwheel1
   plugin: bliss
   package: bliss.common.auto_filter.filterset_wheel
   class: FilterSet_Wheel
   rotation_axis: $roby
-  filters:                      # thicknesses in here correspond to energies around 15keV
-    - name: Cu_0
+  energy_axis: $energy
+  filters:
+    - name: Hole1
       position: 0
-      material: Cu
-      thickness: 0.0            # is there always an 0 entry here? material mandatory?
     - name: Cu_1
       position: 1
       material: Cu
@@ -54,16 +56,15 @@
       thickness: 0.25
 
 
-- name: filtW1
+- name: filterwheel2
   plugin: bliss
   package: bliss.common.auto_filter.filterset_wheel
   class: FilterSet_Wheel
   rotation_axis: $roby
-  filters:                      # thicknesses in here correspond to energies around 15keV
-    - name: Mo_0
+  energy_axis: $energy
+  filters:
+    - name: Hole2
       position: 0
-      material: Mo
-      thickness: 0.0            # is there always an 0 entry here? material mandatory?
     - name: Mo_1
       position: 1
       material: Mo

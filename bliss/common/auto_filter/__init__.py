@@ -82,7 +82,6 @@ class CorrCounterController(CalcCounterController):
     def __init__(self, autof, config):
         self._autof = autof
         super().__init__(autof.name, {}, register_counters=False)
-        self._ratio_counter = None
 
         for counter_config in config.get("counters", []):
             counter_name = counter_config.get("counter_name")
@@ -92,6 +91,11 @@ class CorrCounterController(CalcCounterController):
                 self.tags[cnt_ratio.name] = tag
                 self._output_counters.append(cnt_ratio)
                 self._ratio_counter = cnt_ratio
+                break
+        else:
+            raise RuntimeError(
+                f"Ratio counter missing from configuration of {repr(autof.name)}"
+            )
 
     def build_counters(self, config):
         pass
@@ -102,7 +106,6 @@ class CorrCounterController(CalcCounterController):
         self.tags[mon.name] = "monitor"
         det = self._autof.detector_counter
         self.tags[det.name] = "detector"
-
         return counter_namespace([mon, det])
 
     @property
@@ -467,14 +470,19 @@ class AutoFilter(BeaconObject):
 
         # Check detector exists
         detector_counter_name = self.detector_counter_name
+        if not detector_counter_name:
+            raise RuntimeError("'detector_counter_name' missing from configuration")
         counters, missing = _get_counters_from_names([detector_counter_name])
         if missing:
             raise RuntimeError(
                 f"Can't find detector counter named {detector_counter_name}"
             )
         detector_counter = counters[0]
-        # Check detector exists
+
+        # Check monitor exists
         monitor_counter_name = self.monitor_counter_name
+        if not monitor_counter_name:
+            raise RuntimeError("'monitor_counter_name' missing from configuration")
         counters, missing = _get_counters_from_names([monitor_counter_name])
         if missing:
             raise RuntimeError(

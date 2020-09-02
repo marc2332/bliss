@@ -36,10 +36,11 @@
   class: tango_attr_as_counter
   uri: id00/tango/dummy
   attr_name: position
-  
-- name: sim_diffraction_peak
+- 
+  name: sim_autofilter1_ctrs
   plugin: bliss
   module: simulation_counter
-  class: TestFilterCounterAxis
-  attenuator: $autof
-
+  class: AutoFilterDetMon
+  auto_filter: $autofilter1
+  detector_name: sim_autofilter1_det
+  monitor_name: sim_autofilter1_mon

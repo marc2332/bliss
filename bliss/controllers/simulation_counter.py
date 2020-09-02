@@ -548,16 +548,25 @@ class FixedShapeCounter:
         return self._axis
 
 
-class TestFilterCounterAxis:
-    """
-    Object that produces an axis and a counter to test auto filters
+class AutoFilterDetMon:
+    """Simulated monitor (flat signal) and detector counter with
+    has a gaussian shape with maximum `monitor * transmission`.
+
+    The predefined peak shape can be obtained by scanning the
+    associated software axis from 0 to 1:
+
+        s = self.auto_filter.ascan(self.axis, 0, 1, self.npoints, expo, *self.detectors)
     """
 
     def __init__(self, name, config):
-        self._axis = SoftAxis("TestFilterCounterAxis", self)
-        self._counter = SoftCounter(self)
+        self._axis = SoftAxis("AutoFilterDetMon", self)
+        detname = config.get("detector_name", name + "_det")
+        self._detector = SoftCounter(name=detname, value=self.det_value)
+        monname = config.get("monitor_name", name + "_mon")
+        self._monitor = SoftCounter(name=monname, value=self.mon_value)
         self._npoints = config.get("npoints", 50)
-        self._attn = config.get("attenuator", None)
+        self._monitor_value = config.get("monitor_value", 50)
+        self.auto_filter = config.get("auto_filter", None)
         self._position = 0
         self.init_signal()
 
@@ -572,17 +581,19 @@ class TestFilterCounterAxis:
         assert value >= 0
         self._position = value
 
-    # for SoftCounter
-    def value(self):
-        return (
-            self._data[int(round(self._npoints * self._position))]
-            * self._attn.transmission
-        )
+    # for detector
+    def det_value(self):
+        mult = self.auto_filter.transmission * self.mon_value()
+        return self._data[int(round(self._npoints * self._position))] * mult
+
+    # for monitor
+    def mon_value(self):
+        return self._monitor_value
 
     def init_signal(self):
-        self._data = np.exp(
-            signal.gaussian(self._npoints + 1, .1 * self._npoints + 1) * 30
-        )
+        n = self._npoints + 1
+        stdev = .1 * self._npoints + 1
+        self._data = np.exp(signal.gaussian(n, stdev) * 10)
 
     @property
     def npoints(self):
@@ -595,11 +606,19 @@ class TestFilterCounterAxis:
 
     @property
     def counters(self):
-        return counter_namespace([self._counter])
+        return counter_namespace(self.detectors)
 
     @property
-    def counter(self):
-        return self._counter
+    def detectors(self):
+        return [self._detector, self._monitor, self.auto_filter]
+
+    @property
+    def detector(self):
+        return self._detector
+
+    @property
+    def monitor(self):
+        return self._monitor
 
     @property
     def axis(self):

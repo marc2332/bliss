@@ -1,0 +1,9 @@
+- class: Session
+  name: test_autof_session
+  setup-file: ./test_autof_session.py
+  config-objects:
+    - mono
+    - energy
+    - autofilter1
+    - filterwheel1
+    - sim_autofilter1_ctrs

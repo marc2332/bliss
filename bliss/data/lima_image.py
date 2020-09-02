@@ -5,7 +5,7 @@
 # Copyright (c) 2015-2020 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-"""Utility functions to read Lima images from file or server.
+"""Utility functions to read Lima images from file or device server.
 """
 
 import struct
@@ -19,9 +19,13 @@ try:
 except ImportError:
     h5py = None
 
+DATA_HEADER_FORMAT = "<IHHIIHHHHHHHHHHHHHHHHHHIII"
+DATA_MAGIC = struct.unpack(">I", b"DTAY")[0]
+DATA_HEADER_SIZE = struct.calcsize(DATA_HEADER_FORMAT)
+
 VIDEO_HEADER_FORMAT = "!IHHqiiHHHH"
-DATA_ARRAY_MAGIC = struct.unpack(">I", b"DTAY")[0]
-HEADER_SIZE = struct.calcsize(VIDEO_HEADER_FORMAT)
+VIDEO_MAGIC = struct.unpack(">I", b"VDEO")[0]
+VIDEO_HEADER_SIZE = struct.calcsize(VIDEO_HEADER_FORMAT)
 VIDEO_MODES = {0: numpy.uint8, 1: numpy.uint16, 2: numpy.int32, 3: numpy.int64}
 IMAGE_MODES = {
     0: numpy.uint8,
@@ -91,9 +95,13 @@ def decode_devencoded_video(
     """
     if isinstance(raw_data, tuple):
         # Support the direct output from proxy.video_last_image
+        if raw_data[0] != "VIDEO_IMAGE":
+            raise ImageFormatNotSupported(
+                "Data type VIDEO_IMAGE expected (found %s)." % raw_data[0]
+            )
         raw_data = raw_data[1]
 
-    if len(raw_data) < HEADER_SIZE:
+    if len(raw_data) < VIDEO_HEADER_SIZE:
         raise ImageFormatNotSupported("Image header smaller than the expected size")
 
     (
@@ -107,10 +115,12 @@ def decode_devencoded_video(
         header_size,
         pad0,
         pad1,
-    ) = struct.unpack(VIDEO_HEADER_FORMAT, raw_data[:HEADER_SIZE])
+    ) = struct.unpack(VIDEO_HEADER_FORMAT, raw_data[:VIDEO_HEADER_SIZE])
 
-    if magic != 0x5644454f:
-        raise ImageFormatNotSupported("Magic header not supported (found %s)." % magic)
+    if magic != VIDEO_MAGIC:
+        raise ImageFormatNotSupported(
+            "Magic header not supported (found 0x%x)." % magic
+        )
 
     if header_version != 1:
         raise ImageFormatNotSupported(
@@ -158,24 +168,65 @@ def decode_devencoded_image(raw_data: bytes) -> numpy.ndarray:
     """
     if isinstance(raw_data, tuple):
         # Support the direct output from proxy.readImage
-        raw_data = raw_data[-1]
+        if raw_data[0] != "DATA_ARRAY":
+            raise ImageFormatNotSupported(
+                "Data type DATA_ARRAY expected (found %s)." % raw_data[0]
+            )
+        raw_data = raw_data[1]
 
-    struct_format = "<IHHIIHHHHHHHHHHHHHHHHHHIII"
-    header_size = struct.calcsize(struct_format)
-    values = struct.unpack(struct_format, raw_data[:header_size])
-    if values[0] != DATA_ARRAY_MAGIC:
-        raise ImageFormatNotSupported("Not a Lima data")
-    header_offset = values[2]
+    (
+        magic,
+        version,
+        header_size,
+        _category,
+        data_type,
+        endianness,
+        nb_dim,
+        dim1,
+        dim2,
+        _dim3,
+        _dim4,
+        _dim5,
+        _dim6,
+        _dim7,
+        _dim8,
+        _dim_step1,
+        _dim_step2,
+        _dim_step3,
+        _dim_step4,
+        _dim_step5,
+        _dim_step6,
+        _dim_step7,
+        _dim_step8,
+        _pad0,
+        _pad1,
+        _pad2,
+    ) = struct.unpack(DATA_HEADER_FORMAT, raw_data[:DATA_HEADER_SIZE])
 
-    format_id = values[4]
-    data_format = IMAGE_MODES.get(format_id)
-    if data_format is None:
+    if magic != DATA_MAGIC:
         raise ImageFormatNotSupported(
-            "Image format from Lima Tango device not supported (found %s)." % format_id
+            "Magic header not supported (found 0x%x)." % magic
+        )
+    if version not in [1, 2]:
+        raise ImageFormatNotSupported(
+            "Image header version not supported (found %s)." % version
         )
 
-    data = numpy.fromstring(raw_data[header_offset:], dtype=data_format)
-    data.shape = values[8], values[7]
+    data_format = IMAGE_MODES.get(data_type)
+    if data_format is None:
+        raise ImageFormatNotSupported(
+            "Image format from Lima Tango device not supported (found %s)." % data_type
+        )
+    if endianness != 0:
+        raise ImageFormatNotSupported("Unsupported endianness (found %s)." % endianness)
+
+    if nb_dim != 2:
+        raise ImageFormatNotSupported(
+            "Image header nb_dim==2 expected (found %s)." % nb_dim
+        )
+
+    data = numpy.fromstring(raw_data[header_size:], dtype=data_format)
+    data.shape = dim2, dim1
     return data
 
 

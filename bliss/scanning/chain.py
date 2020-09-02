@@ -188,6 +188,12 @@ class ChainPreset:
         """
         pass
 
+    def before_stop(self, chain):
+        """
+        Called at the end of the scan just before calling **stop** on detectors
+        """
+        pass
+    
     def stop(self, chain):
         """
         Called at the end of the chain iteration.
@@ -902,14 +908,24 @@ class AcquisitionChainIter:
     def stop(self):
         all_tasks = []
         stats_dict = self.__acquisition_chain_ref()._stats_dict
-        for tasks in self._execute(
-            "_stop", stats_dict=stats_dict, master_to_slave=True
-        ):
-            with KillMask(masked_kill_nb=1):
-                gevent.joinall(tasks)
-            all_tasks.extend(tasks)
-
         with capture_exceptions(raise_index=0) as capture:
+            #call before_stop on preset
+            with capture():
+                preset_tasks = [
+                    gevent.spawn(preset.before_stop, self.acquisition_chain)
+                    for preset in self._presets_list
+                ]
+
+                gevent.joinall(preset_tasks)  # wait to call all before_stop on preset
+                gevent.joinall(preset_tasks, raise_error=True)
+
+            for tasks in self._execute(
+                "_stop", stats_dict=stats_dict, master_to_slave=True
+            ):
+                with KillMask(masked_kill_nb=1):
+                    gevent.joinall(tasks)
+                all_tasks.extend(tasks)
+
             with capture():
                 gevent.joinall(all_tasks, raise_error=True)
 

@@ -105,7 +105,7 @@ class SamplingCounterAcquisitionSlave(BaseCounterAcquisitionSlave):
             [samples[0]]
         ),
         SamplingMode.SAMPLES: lambda acc_value, statistics, samples, nb_read, count_time: numpy.array(
-            [acc_value / nb_read, samples]
+            [acc_value / nb_read, samples], dtype=object
         ),
         SamplingMode.LAST: lambda acc_value, statistics, samples, nb_read, count_time: numpy.array(
             [samples[-1]]

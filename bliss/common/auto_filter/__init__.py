@@ -518,6 +518,8 @@ class AutoFilter(BeaconObject):
                             node.validate_point(self._point_nb, valid)
                     self._point_nb += 1
 
+        # TODO: what happens when run=False. Don't we need to keep
+        # a reference to this object?
         validator = Validator(self)
 
         motors_positions = list()

@@ -93,6 +93,8 @@ To Write a new filterset controller one should override these methods:
   * get_transmission()
   * build_filterset()
 """
+
+import math
 import numpy as np
 import contextlib
 from tabulate import tabulate
@@ -428,7 +430,7 @@ class FilterSet:
                     self._min_idx = fidx + 1
 
                 if new_fidx < self._min_idx:
-                    new_fidx = self_min_idx
+                    new_fidx = self.min_idx
                 elif new_fidx > self._max_idx:
                     new_fidx = self._max_idx
 
@@ -459,7 +461,7 @@ class FilterSet:
 
         if dtime > dtime_lim:
             if dtime < 1:
-                dtime_cntr = -log(1 - dtime) / self._det_peakingtime
+                dtime_cntr = -math.log(1 - dtime) / self._det_peakingtime
             else:
                 dtime_cntr = 50 / self._det_peakingtime
             if dtime_cntr > cntrate:

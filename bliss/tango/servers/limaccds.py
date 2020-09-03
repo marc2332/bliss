@@ -4,7 +4,7 @@ import sys
 import os
 import six
 import atexit
-import PyTango
+import tango
 from Lima.Server import LimaCCDs
 
 
@@ -21,6 +21,15 @@ def main(args=None):
 
     atexit.register(finalize)
 
+    try:
+        tango.ApiUtil.cleanup()
+    except Exception:
+        pass
+
+    eprint("connection to tango database ...")
+    db = tango.Database()
+    db.build_connection()
+
     LimaCCDs.verboseLevel = 0
     for option in args:
         if option.startswith("-v"):
@@ -29,11 +38,11 @@ def main(args=None):
             except Exception:
                 pass
 
-    pytango_ver = PyTango.__version_info__[:3]
+    tango_ver = tango.__version_info__[:3]
 
     try:
-        eprint("instantiate Util (1) ...")
-        py = PyTango.Util(args)
+        eprint(f"call Util.init({args}) ...")
+        py = tango.Util.init(args)
 
         eprint("add LimcaCCDs class ...")
         py.add_TgClass(LimaCCDs.LimaCCDsClass, LimaCCDs.LimaCCDs, "LimaCCDs")
@@ -44,12 +53,12 @@ def main(args=None):
 
             traceback.print_exc()
 
-        eprint("instantiate Util (2) ...")
-        U = PyTango.Util.instance()
+        eprint("instantiate server with tango.Util.instance ...")
+        U = tango.Util.instance()
 
         # create ct control
         control = LimaCCDs._get_control()
-        if pytango_ver >= (8, 1, 7) and control is not None:
+        if tango_ver >= (8, 1, 7) and control is not None:
             eprint("server_init (with control) ...")
             master_dev_name = LimaCCDs.get_lima_device_name()
             beamline_name, _, camera_name = master_dev_name.split("/")
@@ -87,7 +96,7 @@ def main(args=None):
         eprint("server_run ...")
         U.server_run()
 
-    except PyTango.DevFailed as e:
+    except tango.DevFailed as e:
         eprint(f"-------> Received a DevFailed exception: {e}")
     except Exception as e:
         eprint(f"-------> An unforeseen exception occurred: {e}")

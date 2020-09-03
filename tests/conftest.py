@@ -52,12 +52,21 @@ BEACON_DB_PATH = os.path.join(BLISS, "tests", "test_configuration")
 IMAGES_PATH = os.path.join(BLISS, "tests", "images")
 
 
+def eprint(*args):
+    print(*args, file=sys.stderr, flush=True)
+
+
 def wait_terminate(process):
+    cmd = repr(" ".join(process.args))
+    if process.poll() is not None:
+        eprint(f"Process {cmd} already terminated with code {process.returncode}")
+        return
     process.terminate()
     try:
         with gevent.Timeout(10):
             process.wait()
     except gevent.Timeout:
+        eprint(f"Process {cmd} doesn't finish: try to kill it ...")
         process.kill()
         with gevent.Timeout(10):
             process.wait()
@@ -115,7 +124,7 @@ def clean_gevent():
         except ReferenceError:
             continue
         if not ob.ready():
-            print(f"Dangling greenlet (setup): {ob}")
+            eprint(f"Dangling greenlet (setup): {ob}")
             e = RuntimeError(f"Dangling greenlet cannot be killed: {ob}")
             with gevent.Timeout(10, e):
                 ob.kill()
@@ -134,7 +143,7 @@ def clean_gevent():
         except ReferenceError:
             continue
         if not ob.ready():
-            print(f"Dangling greenlet (teardown): {ob}")
+            eprint(f"Dangling greenlet (teardown): {ob}")
         greenlets.append(ob)
     all_ready = all(gr.ready() for gr in greenlets)
     with gevent.Timeout(10, RuntimeError("Dangling greenlets cannot be killed")):
@@ -159,8 +168,9 @@ def clean_globals():
 
 @pytest.fixture
 def clean_tango():
-    # close file descriptors left open by Tango (see tango-controls/pytango/issues/324)
-    return  # do nothing => it seems it is causing problems with Tango, with some 'Tango is not initialized' errors
+    # https://pytango.readthedocs.io/en/stable/howto.html
+    # Resources: open file descriptors, the TANGO and the CORBA state.
+    # File descriptors: https://github.com/tango-controls/pytango/issues/324
     try:
         ApiUtil.cleanup()
     except RuntimeError:
@@ -285,7 +295,6 @@ def start_tango_server(*cmdline_args, **kwargs):
 
 @contextmanager
 def lima_simulator_context(personal_name, device_name):
-    db = Database()
     fqdn_prefix = f"tango://{os.environ['TANGO_HOST']}"
     device_fqdn = f"{fqdn_prefix}/{device_name}"
     admin_device_fqdn = f"{fqdn_prefix}/dserver/LimaCCDs/{personal_name}"
@@ -317,8 +326,6 @@ def lima_simulator2(ports):
 
 @pytest.fixture
 def bliss_tango_server(ports, beacon):
-    db = Database()
-
     device_name = "id00/bliss/test"
     fqdn_prefix = f"tango://{os.environ['TANGO_HOST']}"
     device_fqdn = f"{fqdn_prefix}/{device_name}"
@@ -773,7 +780,7 @@ def tcp_listener(data_parser=None):
     finally:
         messages.put(StopIteration)
         for msg in messages:
-            print(f"\nUnvalidated message: {msg}")
+            eprint(f"Unvalidated message: {msg}")
         with gevent.Timeout(10):
             sock.close()
             glistener.kill()

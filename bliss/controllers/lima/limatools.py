@@ -11,6 +11,7 @@ from bliss.scanning.toolbox import ChainBuilder
 from bliss.controllers.lima.lima_base import Lima
 from bliss.common.utils import BOLD, RED
 from bliss.common.utils import typeguardTypeError_to_hint
+from bliss.data.events.lima_io import read_video_last_image
 
 _log = logging.getLogger("bliss.scans")
 
@@ -234,3 +235,47 @@ class LimaTakeDisplay(DataWatchCallback):
             # print last images acquired and saved
             msg = self.__update_cam_infos()
             print(msg + "\r", end="")
+
+
+def load_simulator_frames(simulator, nframes, files_pattern):
+    """ Load file-images into a Lima simulator.
+
+        args:
+            - simulator: a Lima object of the type simulator
+            - nframes: number of frames to load
+            - files_pattern: a pattern for the files pathes (e.g: '/home/beam_images/*.edf' )
+    """
+
+    sim = simulator._get_proxy("simulator")
+    sim.mode = "LOADER_PREFETCH"
+    sim.file_pattern = files_pattern
+    sim.nb_prefetched_frames = nframes
+    # update the camera max_size after loading new images
+    simulator._image_params.init_max_dim()
+
+
+def reset_cam(cam, roi=None):
+    """reset lima image parameters and align tango proxy"""
+
+    cam.proxy.image_bin = 1, 1
+    cam.proxy.image_flip = [False, False]
+    cam.proxy.image_rotation = "NONE"
+
+    cam.image.binning = 1, 1
+    cam.image.flip = [False, False]
+    cam.image.rotation = "NONE"
+
+    if roi:
+        cam.proxy.image_roi = roi
+        cam.image.roi = roi
+
+
+def get_last_image(src):
+    # before lima-core 1.9.6rc3 request the image after the scan end maybe problematic because lima reapply the postporc
+    # on top of the base image but forgets to reapply an evantual rotation.
+    # read_video_last_image has a copy of the 'good' final image but is not a good way to retreive one frame among a mutliple images acquisition.
+    # read_video_last_image is not synchronized with the acq, it stores the last image it was able to catch (i.e acq_fps != display_fps).
+    # for a ct(cam) it is ok because just one image is acquired
+    return read_video_last_image(src.proxy)[0].astype(
+        "uint32"
+    )  # src.get_data('image').as_array()

@@ -1023,3 +1023,25 @@ def test_no_settings_offset(beacon):
     nsa.offset = 1
     assert nsa.position == pytest.approx(1)
     assert nsa.dial == pytest.approx(0)
+
+
+def test_invalid_config(beacon):
+    invalid_cfg = beacon.get_config("invalid_cfg_axis")
+
+    invalid_mot = beacon.get("invalid_cfg_axis")
+    with pytest.raises(RuntimeError) as exc:
+        invalid_mot.position  # lazy init
+    assert "velocity" in str(exc.value)
+
+    invalid_cfg["velocity"] = 1
+    with pytest.raises(RuntimeError) as exc:
+        invalid_mot.position  # lazy init
+    assert "acceleration" in str(exc.value)
+
+    invalid_cfg["acceleration"] = 1
+    with pytest.raises(RuntimeError) as exc:
+        invalid_mot.position  # lazy init
+    assert "steps_per_unit" in str(exc.value)
+
+    invalid_cfg["steps_per_unit"] = 1
+    assert invalid_mot.position == 0

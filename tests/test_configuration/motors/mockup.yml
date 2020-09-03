@@ -247,6 +247,9 @@ controller:
       steps_per_unit: 10
       acceleration: 100
       velocity: 1e9
+- class: mockup
+  axes:
+    - name: invalid_cfg_axis
 - class: EnergyWavelength
   axes:
     - name: $mono

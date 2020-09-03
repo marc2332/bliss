@@ -156,7 +156,7 @@ class AxisSettings:
             if value is None:
                 raise RuntimeError(
                     "Axis %s: missing configuration key '%s`"
-                    % (self.name, setting_name)
+                    % (axis.name, setting_name)
                 )
             if setting_name == "steps_per_unit":
                 # steps_per_unit is read-only

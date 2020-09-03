@@ -481,19 +481,6 @@ class LinkamTms94(Controller):
         # return asw
         raise NotImplementedError
 
-    # ------ safety methods (optional) ------------------------------
-
-    def set_in_safe_mode(self, toutput):
-        """
-        Set the output in a safe mode (like stop heating)
-        Raises NotImplementedError if not defined by inheriting class
-
-        Args:
-           toutput:  Output class type object 
-        """
-        log_info(self, "Controller:set_in_safe_mode: %s" % (toutput))
-        # set_hold_on ????
-
     # ----- controller specific methods --------------------------
 
     @_send_limit

@@ -541,19 +541,6 @@ class LakeShore331(Controller):
         log_debug_data(self, "raw answer", asw)
         return asw.decode()
 
-    # ------ safety methods (optional) ------------------------------
-
-    def set_in_safe_mode(self, toutput):
-        """
-            Set the output in a safe mode (like stop heating)
-
-            Args:
-                toutput:  Output class type object 
-        """
-        log_info(self, "set_in_safe_mode: %s" % (toutput))
-
-        toutput.range = 0
-
     # ----- controller specific methods -----------------
 
     @_send_limit

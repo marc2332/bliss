@@ -101,31 +101,30 @@ class RgbCodec(typing.NamedTuple):
     """bit scale to normalize the output to 8 bits"""
 
 
-_OPENCV_RGB_CODECS = {}
+_RGB_CODECS = {}
+_RGB_CODECS[VIDEO_MODES.RGB24] = RgbCodec(None, lambda w, h: (h, w, 3), numpy.uint8, 0)
+_RGB_CODECS[VIDEO_MODES.RGB32] = RgbCodec(None, lambda w, h: (h, w, 4), numpy.uint8, 0)
 
 if cv2:
-    _OPENCV_RGB_CODECS[VIDEO_MODES.YUV422PACKED] = RgbCodec(
+    _RGB_CODECS[VIDEO_MODES.YUV422PACKED] = RgbCodec(
         cv2.COLOR_YUV2RGB_Y422, lambda w, h: (h, w, 2), numpy.uint8, 0
     )
-    _OPENCV_RGB_CODECS[VIDEO_MODES.I420] = RgbCodec(
+    _RGB_CODECS[VIDEO_MODES.I420] = RgbCodec(
         cv2.COLOR_YUV2RGB_I420, lambda w, h: (h + h / 2, w), numpy.uint8, 0
     )
-    _OPENCV_RGB_CODECS[VIDEO_MODES.RGB24] = RgbCodec(
-        None, lambda w, h: (h, w, 3), numpy.uint8, 0
-    )
-    _OPENCV_RGB_CODECS[VIDEO_MODES.BGR24] = RgbCodec(
+    _RGB_CODECS[VIDEO_MODES.BGR24] = RgbCodec(
         cv2.COLOR_BGR2RGB, lambda w, h: (h, w, 3), numpy.uint8, 0
     )
-    _OPENCV_RGB_CODECS[VIDEO_MODES.BAYER_BG16] = RgbCodec(
+    _RGB_CODECS[VIDEO_MODES.BAYER_BG16] = RgbCodec(
         cv2.COLOR_BayerRG2RGB, lambda w, h: (h, w), numpy.uint16, 12
     )
-    _OPENCV_RGB_CODECS[VIDEO_MODES.BAYER_BG8] = RgbCodec(
+    _RGB_CODECS[VIDEO_MODES.BAYER_BG8] = RgbCodec(
         cv2.COLOR_BayerRG2RGB, lambda w, h: (h, w), numpy.uint8, 0
     )
-    _OPENCV_RGB_CODECS[VIDEO_MODES.BAYER_RG16] = RgbCodec(
+    _RGB_CODECS[VIDEO_MODES.BAYER_RG16] = RgbCodec(
         cv2.COLOR_BayerRG2BGR, lambda w, h: (h, w), numpy.uint16, 12
     )
-    _OPENCV_RGB_CODECS[VIDEO_MODES.BAYER_RG8] = RgbCodec(
+    _RGB_CODECS[VIDEO_MODES.BAYER_RG8] = RgbCodec(
         cv2.COLOR_BayerRG2BGR, lambda w, h: (h, w), numpy.uint8, 0
     )
 
@@ -245,7 +244,7 @@ def decode_devencoded_video(
         dtype = MODE_TO_NUMPY[mode]
         data = numpy.frombuffer(raw_data[header_size:], dtype=dtype).copy()
         data.shape = image_height, image_width
-    elif mode in _OPENCV_RGB_CODECS:
+    elif mode in _RGB_CODECS:
         data = decode_rgb_data(raw_data[header_size:], image_width, image_height, mode)
     else:
         raise ImageFormatNotSupported(f"Video format {mode} is not supported")
@@ -349,7 +348,7 @@ def decode_rgb_data(
         height: height of the output image
         mode: LimaCDD video mode
     """
-    codec = _OPENCV_RGB_CODECS.get(mode, None)
+    codec = _RGB_CODECS.get(mode, None)
     if codec is None:
         raise ValueError(f"Video mode {mode} not supported yet.")
 
@@ -362,7 +361,8 @@ def decode_rgb_data(
         return None
 
     npbuf = numpy.ndarray(shape, dtype=codec.input_dtype, buffer=raw_data)
-    npbuf = cv2.cvtColor(npbuf, codec.opencv_code)
+    if codec.opencv_code is not None:
+        npbuf = cv2.cvtColor(npbuf, codec.opencv_code)
     if npbuf.ndim == 3 and npbuf.itemsize > 1 and codec.post_scale != 0:
         in_bits = codec.post_scale
         if in_bits is None:

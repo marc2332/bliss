@@ -26,6 +26,18 @@ RAW_YUV422PACKED_VIDEO = (
     + b"[L\xffL6\x96\x00\x96\xef\x1dg\x1d\x80\x00\x80\x00"
 )
 
+RAW_RGB24_VIDEO = (
+    b"VDEO\x00\x01\x00\x06\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\
+\x00\x02\x00\x00\x00\x02\x00\x00\x00 \x00\x00\x00\x00"
+    + b"\xFF\x00\x00\x00\xFF\x00\x00\x00\xFF\x00\x00\x00"
+)
+
+RAW_RGB32_VIDEO = (
+    b"VDEO\x00\x01\x00\x07\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\
+\x00\x02\x00\x00\x00\x02\x00\x00\x00 \x00\x00\x00\x00"
+    + b"\xFF\x00\x00\x00\x00\xFF\x00\x00\x00\x00\xFF\x00\x00\x00\x00\xFF"
+)
+
 
 def test_decode_image_data():
     """Test data from the result of Lima image attr"""
@@ -75,3 +87,25 @@ def test_decode_video_yuv422packed():
     assert image[1, 0].tolist() == pytest.approx([0, 255, 0], abs=20)
     assert image[2, 0].tolist() == pytest.approx([0, 0, 255], abs=20)
     assert image[3, 0].tolist() == pytest.approx([0, 0, 0], abs=20)
+
+
+def test_decode_video_rgb24():
+    frame = lima_image.decode_devencoded_video(("VIDEO_IMAGE", RAW_RGB24_VIDEO))
+    image = frame[0]
+    assert image.dtype == numpy.uint8
+    assert image.shape == (2, 2, 3)
+    assert image[0, 0].tolist() == pytest.approx([255, 0, 0], abs=20)
+    assert image[0, 1].tolist() == pytest.approx([0, 255, 0], abs=20)
+    assert image[1, 0].tolist() == pytest.approx([0, 0, 255], abs=20)
+    assert image[1, 1].tolist() == pytest.approx([0, 0, 0], abs=20)
+
+
+def test_decode_video_rgb32():
+    frame = lima_image.decode_devencoded_video(("VIDEO_IMAGE", RAW_RGB32_VIDEO))
+    image = frame[0]
+    assert image.dtype == numpy.uint8
+    assert image.shape == (2, 2, 4)
+    assert image[0, 0].tolist() == pytest.approx([255, 0, 0, 0], abs=20)
+    assert image[0, 1].tolist() == pytest.approx([0, 255, 0, 0], abs=20)
+    assert image[1, 0].tolist() == pytest.approx([0, 0, 255, 0], abs=20)
+    assert image[1, 1].tolist() == pytest.approx([0, 0, 0, 255], abs=20)

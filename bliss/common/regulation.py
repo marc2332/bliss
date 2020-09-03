@@ -826,7 +826,7 @@ class Loop(SamplingCounterController):
         all_counters = (
             list(self.input.counters)
             + list(self.output.counters)
-            + [self._counters[self._counter_name]]
+            + list(self._counters.values())
         )
 
         return counter_namespace(all_counters)

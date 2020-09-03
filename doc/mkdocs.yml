@@ -89,6 +89,7 @@ nav:
                             - Temperature:
                                 - Lakeshore: config_lakeshore.md
                                 - Linkam: config_linkam.md
+                                - Nanodac: config_nanodac.md
                       - SCA:
                             - Ace: config_ace.md
                             - Cyberstar: config_cyberstar.md

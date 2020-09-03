@@ -49,6 +49,7 @@ import socket
 BLISS = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 BEACON = [sys.executable, "-m", "bliss.config.conductor.server"]
 BEACON_DB_PATH = os.path.join(BLISS, "tests", "test_configuration")
+IMAGES_PATH = os.path.join(BLISS, "tests", "images")
 
 
 def wait_terminate(process):
@@ -178,6 +179,13 @@ def beacon_directory(tmpdir_factory):
     beacon_dir = os.path.join(tmpdir, "test_configuration")
     shutil.copytree(BEACON_DB_PATH, beacon_dir)
     yield beacon_dir
+
+
+@pytest.fixture(scope="session")
+def images_directory(tmpdir_factory):
+    images_dir = os.path.join(str(tmpdir_factory.getbasetemp()), "images")
+    shutil.copytree(IMAGES_PATH, images_dir)
+    yield images_dir
 
 
 @pytest.fixture(scope="session")

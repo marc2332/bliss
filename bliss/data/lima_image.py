@@ -14,6 +14,10 @@ import typing
 import enum
 from silx.third_party.EdfFile import EdfFile
 
+try:
+    import cv2
+except:
+    cv2 = None
 
 try:
     import h5py
@@ -84,6 +88,46 @@ MODE_TO_NUMPY = {
     VIDEO_MODES.Y32: numpy.int32,
     VIDEO_MODES.Y64: numpy.int64,
 }
+
+
+class RgbCodec(typing.NamedTuple):
+    opencv_code: int
+    """OpenCV identifier for the transformation"""
+    compute_input_shape: typing.Callable
+    """Callable to convert from output image shape to input raw shape"""
+    input_dtype: numpy.dtype
+    """dtype for the input data"""
+    post_scale: int
+    """bit scale to normalize the output to 8 bits"""
+
+
+_OPENCV_RGB_CODECS = {}
+
+if cv2:
+    _OPENCV_RGB_CODECS[VIDEO_MODES.YUV422PACKED] = RgbCodec(
+        cv2.COLOR_YUV2RGB_Y422, lambda w, h: (h, w, 2), numpy.uint8, 0
+    )
+    _OPENCV_RGB_CODECS[VIDEO_MODES.I420] = RgbCodec(
+        cv2.COLOR_YUV2RGB_I420, lambda w, h: (h + h / 2, w), numpy.uint8, 0
+    )
+    _OPENCV_RGB_CODECS[VIDEO_MODES.RGB24] = RgbCodec(
+        None, lambda w, h: (h, w, 3), numpy.uint8, 0
+    )
+    _OPENCV_RGB_CODECS[VIDEO_MODES.BGR24] = RgbCodec(
+        cv2.COLOR_BGR2RGB, lambda w, h: (h, w, 3), numpy.uint8, 0
+    )
+    _OPENCV_RGB_CODECS[VIDEO_MODES.BAYER_BG16] = RgbCodec(
+        cv2.COLOR_BayerRG2RGB, lambda w, h: (h, w), numpy.uint16, 12
+    )
+    _OPENCV_RGB_CODECS[VIDEO_MODES.BAYER_BG8] = RgbCodec(
+        cv2.COLOR_BayerRG2RGB, lambda w, h: (h, w), numpy.uint8, 0
+    )
+    _OPENCV_RGB_CODECS[VIDEO_MODES.BAYER_RG16] = RgbCodec(
+        cv2.COLOR_BayerRG2BGR, lambda w, h: (h, w), numpy.uint16, 12
+    )
+    _OPENCV_RGB_CODECS[VIDEO_MODES.BAYER_RG8] = RgbCodec(
+        cv2.COLOR_BayerRG2BGR, lambda w, h: (h, w), numpy.uint8, 0
+    )
 
 
 class ImageFormatNotSupported(Exception):
@@ -197,13 +241,15 @@ def decode_devencoded_video(
             "Video format unsupported (found %s)." % image_mode
         )
 
-    try:
+    if mode in MODE_TO_NUMPY:
         dtype = MODE_TO_NUMPY[mode]
-    except Exception:
-        raise ImageFormatNotSupported("Video format %s is not supported" % mode)
+        data = numpy.frombuffer(raw_data[header_size:], dtype=dtype).copy()
+        data.shape = image_height, image_width
+    elif mode in _OPENCV_RGB_CODECS:
+        data = decode_rgb_data(raw_data[header_size:], image_width, image_height, mode)
+    else:
+        raise ImageFormatNotSupported(f"Video format {mode} is not supported")
 
-    data = numpy.frombuffer(raw_data[header_size:], dtype=dtype).copy()
-    data.shape = image_height, image_width
     return data, image_frame_number
 
 
@@ -289,6 +335,43 @@ def decode_devencoded_image(raw_data: bytes) -> numpy.ndarray:
     data = numpy.fromstring(raw_data[header_size:], dtype=dtype)
     data.shape = dim2, dim1
     return data
+
+
+def decode_rgb_data(
+    raw_data: bytes, width: int, height: int, mode: int
+) -> numpy.ndarray:
+    """
+    Decode an encoded raw data into numpy array.
+
+    Arguments:
+        raw_data: Encoded raw data
+        width: width of the output image
+        height: height of the output image
+        mode: LimaCDD video mode
+    """
+    codec = _OPENCV_RGB_CODECS.get(mode, None)
+    if codec is None:
+        raise ValueError(f"Video mode {mode} not supported yet.")
+
+    if codec.compute_input_shape is not None:
+        shape = codec.compute_input_shape(width, height)
+    else:
+        shape = height, width
+
+    if len(raw_data) == 0:
+        return None
+
+    npbuf = numpy.ndarray(shape, dtype=codec.input_dtype, buffer=raw_data)
+    npbuf = cv2.cvtColor(npbuf, codec.opencv_code)
+    if npbuf.ndim == 3 and npbuf.itemsize > 1 and codec.post_scale != 0:
+        in_bits = codec.post_scale
+        if in_bits is None:
+            in_bits = 8 * npbuf.dtype.itemsize
+        shift = in_bits - 8
+        if shift > 0:
+            npbuf = numpy.right_shift(npbuf, shift).astype(numpy.uint8)
+
+    return npbuf
 
 
 def read_video_last_image(proxy) -> typing.Optional[typing.Tuple[numpy.ndarray, int]]:

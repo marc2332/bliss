@@ -9,6 +9,11 @@ import pytest
 import numpy
 from bliss.data import lima_image
 
+try:
+    import cv2
+except:
+    cv2 = None
+
 
 RAW_IMAGE = b"YATD\x02\x00@\x00\x02\x00\x00\x00\x02\x00\x00\x00\x00\x00\x02\
 \x00\x02\x00\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x04\x00\x00\x00\x08\
@@ -65,6 +70,7 @@ def test_decode_video_result():
     assert frame[1] == 0
 
 
+@pytest.mark.skipif(not cv2, reason="OpenCV not available")
 def test_decode_data_yuv422packed():
     encoded_image = b"[L\xffL6\x96\x00\x96\xef\x1dg\x1d\x80\x00\x80\x00"
     image = lima_image.decode_rgb_data(
@@ -78,6 +84,7 @@ def test_decode_data_yuv422packed():
     assert image[3, 0].tolist() == pytest.approx([0, 0, 0], abs=20)
 
 
+@pytest.mark.skipif(not cv2, reason="OpenCV not available")
 def test_decode_video_yuv422packed():
     frame = lima_image.decode_devencoded_video(("VIDEO_IMAGE", RAW_YUV422PACKED_VIDEO))
     image = frame[0]

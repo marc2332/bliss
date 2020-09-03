@@ -270,7 +270,7 @@ class Bus(AdvancedInstantiationInterface):
             raise ConnectionError(
                 "Connection to Beacon server lost. "
                 + "This is a serious problem! "
-                + "Please quite the bliss session and try to restart it. ("
+                + "Quit the bliss session and try to restart it. ("
                 + str(e)
                 + ")"
             )
@@ -482,7 +482,7 @@ class Channel(AdvancedInstantiationInterface):
 
     def _fire_callbacks(self):
         value = self._raw_value.value
-        callbacks = [_f for _f in [ref() for ref in self._callback_refs] if _f]
+        callbacks = filter(None, [ref() for ref in self._callback_refs])
 
         # Run callbacks
         for cb in callbacks:
@@ -491,7 +491,7 @@ class Channel(AdvancedInstantiationInterface):
                 self._firing_callbacks = True
                 cb(value)
             # Catch and display exception
-            except:
+            except Exception:
                 sys.excepthook(*sys.exc_info())
             # Clean up the flag
             finally:
@@ -603,9 +603,9 @@ class EventChannel(AdvancedInstantiationInterface):
 
     def _set_raw_value(self, raw_value):
         value = raw_value.value
-        callbacks = [_f for _f in [ref() for ref in self._callback_refs] if _f]
+        callbacks = filter(None, [ref() for ref in self._callback_refs])
         for cb in callbacks:
             try:
                 cb(value)
-            except:
+            except Exception:
                 sys.excepthook(*sys.exc_info())

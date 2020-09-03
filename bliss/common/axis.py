@@ -489,7 +489,7 @@ class Motion:
                 return f"Moving {self.axis.name} from {start_} to {end_}"
 
 
-class Trajectory(object):
+class Trajectory:
     """ Trajectory information
 
     Represents a specific trajectory motion.
@@ -677,20 +677,9 @@ class Axis:
         self.__config = StaticConfig(config)
         self.__settings = AxisSettings(self)
         self.__init_config_properties()
-        self._group_move = GroupMove()
-        self._beacon_channels = dict()
-        self._move_stop_channel = Channel(
-            f"axis.{self.name}.move_stop",
-            default_value=False,
-            callback=self._external_stop,
-        )
-        self._jog_velocity_channel = Channel(
-            f"axis.{self.name}.change_jog_velocity",
-            default_value=None,
-            callback=self._set_jog_velocity,
-        )
-        self._lock = gevent.lock.Semaphore()
         self.__no_offset = False
+        self._group_move = GroupMove()
+        self._lock = gevent.lock.Semaphore()
 
         try:
             config.parent
@@ -708,6 +697,19 @@ class Axis:
         self._unit = self.config.get("unit", str, None)
         self._polling_time = config.get("polling_time", DEFAULT_POLLING_TIME)
         global_map.register(self, parents_list=["axes", controller])
+
+        # create Beacon channels
+        self.settings.init_channels()
+        self._move_stop_channel = Channel(
+            f"axis.{self.name}.move_stop",
+            default_value=False,
+            callback=self._external_stop,
+        )
+        self._jog_velocity_channel = Channel(
+            f"axis.{self.name}.change_jog_velocity",
+            default_value=None,
+            callback=self._set_jog_velocity,
+        )
 
     def __close__(self):
         try:

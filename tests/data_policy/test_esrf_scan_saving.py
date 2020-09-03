@@ -61,11 +61,31 @@ def assert_icat_received(icat_subscriber, expected, dataset=None, timeout=10):
             assert v in icat_received, k
 
 
-def assert_logbook_received(icat_logbook_server, messages, timeout=10, complete=False):
+def assert_logbook_received(
+    icat_logbook_server,
+    messages,
+    timeout=10,
+    complete=False,
+    category=None,
+    scan_saving=None,
+):
+    if not category:
+        category = "info"
     _, queue = icat_logbook_server
     print("\nWaiting of ICAT logbook message ...")
     logbook_received = queue.get(timeout=timeout)
+
     print(f"Validating ICAT logbook message: {logbook_received}")
+    assert logbook_received["category"] == category
+
+    if scan_saving is not None:
+        assert logbook_received["investigation"] == scan_saving.proposal
+        assert logbook_received["instrument"] == scan_saving.beamline
+        # Due to the "atomic datasets" the server is always
+        # STANDBY (no dataset name specified):
+        assert logbook_received["datasetName"] is None
+        # assert logbook_received["datasetName"] == scan_saving.dataset
+
     content = logbook_received["content"]
     if isinstance(messages, str):
         messages = [messages]
@@ -800,3 +820,26 @@ def test_lprint_move_axis(
         assert_logbook_received(icat_logbook_server, "Moving s1f")
         assert_logbook_received(icat_logbook_server, "Moving s1b")
         a, b = b, a
+
+
+def test_elogbook_message_types(
+    session,
+    esrf_data_policy,
+    metaexp_with_backend,
+    metamgr_with_backend,
+    icat_logbook_server,
+):
+    scan_saving = session.scan_saving
+    proxy = scan_saving.icat_proxy
+    types = ["info", "error", "debug", "command", "comment", None]
+    categories = ["info", "error", "debug", "commandLine", "comment", "info"]
+    for msg_type, category in zip(types, categories):
+        msg = str(msg_type)
+        proxy.send_to_elogbook(msg_type, msg)
+        assert_logbook_received(
+            icat_logbook_server,
+            msg,
+            complete=True,
+            category=category,
+            scan_saving=scan_saving,
+        )

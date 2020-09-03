@@ -7,6 +7,7 @@
 
 import sys
 import os
+import re
 import socket
 import json
 import http.server
@@ -42,8 +43,14 @@ class MyTCPRequestHandler(http.server.BaseHTTPRequestHandler):
             self.reply_bad_request()
             return
         length = int(self.headers.get("content-length"))
-        json_dump = self.rfile.read(length)
-        self.on_message(json_dump)
+        adict = json.loads(self.rfile.read(length))
+        fmt = "/logbook/(?P<apikey>[^//]+?)/investigation/name/(?P<investigation>[^//]+?)/instrument/name/(?P<instrument>[^//]+?)/event"
+        m = re.match(fmt, self.path)
+        if not m:
+            self.reply_bad_request()
+            return
+        adict.update(m.groupdict())
+        self.on_message(adict)
         self.reply_ok()
 
     def reply_ok(self):
@@ -61,14 +68,14 @@ class MyTCPRequestHandler(http.server.BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
-    def on_message(self, json_dump):
-        if not json_dump:
+    def on_message(self, adict):
+        if not adict:
             return
         if self.s_out is None:
-            logger.info(f"received message: {json_dump}")
+            logger.info(f"received message: {adict}")
         else:
-            logger.info(f"send to output socket: {json_dump}")
-            self.s_out.sendall(json_dump + b"\n")
+            logger.info(f"send to output socket: {adict}")
+            self.s_out.sendall(json.dumps(adict).encode() + b"\n")
 
 
 def main(port=8443, port_out=0):

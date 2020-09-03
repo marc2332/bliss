@@ -115,15 +115,22 @@ class Bus(AdvancedInstantiationInterface):
         self._send_task = gevent.spawn(self._send)
         self._send_event = gevent.event.Event()
 
+        self.__closing = False
+
     # Close
 
+    @property
+    def closing(self):
+        return self.__closing
+
     def close(self):
-        for channel in list(self._channels.values()):
-            channel.close()
+        self.__closing = True
         if self._send_task:
             self._send_task.kill()
         if self._listen_task:
             self._listen_task.kill()
+        for channel in list(self._channels.values()):
+            channel.close()
 
     @classmethod
     def clear_cache(cls):
@@ -455,7 +462,8 @@ class Channel(AdvancedInstantiationInterface):
                 reply_value = self._default_value
 
             # Set the value
-            self._set_raw_value(reply_value)
+            if not self._bus.closing:
+                self._set_raw_value(reply_value)
 
             # Unregister task if everything went smoothly
             self._query_task = None

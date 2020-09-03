@@ -1442,7 +1442,7 @@ def __create_tango_axis_class(axis):
         % axis.name
     )
 
-    for setting_name in axis.settings:
+    for setting_name in axis.settings.setting_names:
         if setting_name in [
             "velocity",
             "position",
@@ -1456,7 +1456,7 @@ def __create_tango_axis_class(axis):
         ]:
             elog.debug(" BlissAxisManager.py -- std SETTING %s " % (setting_name))
         else:
-            _setting_type = axis.controller.axis_settings.convert_func[setting_name]
+            _setting_type = axis.settings.convert_func(setting_name)
             _attr_type = types_conv_tab[_setting_type]
             elog.debug(
                 " BlissAxisManager.py -- adds SETTING %s as %s attribute"

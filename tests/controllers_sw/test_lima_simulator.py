@@ -8,16 +8,20 @@
 import os
 import types
 import pytest
+import gevent
 import logging
-import io
 import numpy
 from bliss.scanning.acquisition.timer import SoftwareTimerMaster
 from bliss.common.tango import DeviceProxy, DevFailed
 from bliss.common.counter import Counter
 from bliss.controllers.lima.roi import Roi
 from bliss.common.scans import loopscan, timescan, sct, ct, DEFAULT_CHAIN
-import gevent
-from contextlib import contextmanager
+from bliss.controllers.lima.limatools import (
+    load_simulator_frames,
+    reset_cam,
+    get_last_image,
+)
+from math import pi as _PI_
 from ..conftest import lima_simulator_context
 from bliss.config.channels import Cache
 
@@ -122,6 +126,30 @@ def test_rois(beacon, lima_simulator):
     rois.remove("r4")
     assert len(rois) == 1
     assert_lima_rois(roi_dev, dict(r1=r1))
+
+
+def test_arc_rois(beacon, default_session, lima_simulator, images_directory):
+    cam = beacon.get("lima_simulator")
+    img_path = os.path.join(str(images_directory), "chart_2.edf")
+    load_simulator_frames(cam, 1, img_path)
+    reset_cam(cam, roi=[0, 0, 0, 0])
+
+    arc_roi_1 = 316, 443, 50, 88, -120, -180
+
+    radius = 60
+    arc_roi_2 = 130, 320, 0, radius, 0, 360
+
+    cam.roi_counters.clear()
+    cam.roi_counters["ar1"] = arc_roi_1
+    cam.roi_counters["ar2"] = arc_roi_2
+
+    s = ct(cam)
+
+    assert s.get_data("ar1_sum")[0] == 0.0
+
+    asum = s.get_data("ar2_sum")[0]
+    assert asum <= _PI_ * radius ** 2
+    assert asum >= _PI_ * (radius - 1) ** 2
 
 
 def test_directories_mapping(beacon, lima_simulator):

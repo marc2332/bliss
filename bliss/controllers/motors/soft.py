@@ -75,12 +75,18 @@ def get_state_func(obj, state):
     return state_func
 
 
+class SoftAxis(NoSettingsAxis):
+    pass
+
+
 class SoftController(Controller):
     def __init__(
         self, axis_name, obj, axis_config, position, move, stop=None, state=None
     ):
 
-        axes = {axis_name: (NoSettingsAxis, axis_config)}
+        axis_config.setdefault("steps_per_unit", 1)
+
+        axes = {axis_name: (SoftAxis, axis_config)}
 
         super(SoftController, self).__init__(
             "__soft_controller__", {}, axes, {}, {}, {}

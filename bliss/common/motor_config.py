@@ -10,10 +10,7 @@ from bliss.common.utils import Null
 import time
 
 
-class StaticConfig:
-
-    NO_VALUE = Null()
-
+class MotorConfig:
     def __init__(self, config_node):
         self.__config_dict = config_node
         self.__config_has_changed = False
@@ -32,14 +29,13 @@ class StaticConfig:
     def config_dict(self):
         return self.__config_dict
 
-    def get(self, property_name, converter=str, default=NO_VALUE):
+    def get(self, property_name, converter=str, default=None):
         """Get static property
 
         Args:
             property_name (str): Property name
             converter (function): Default :func:`str`, Conversion function from configuration format to Python
-            default: Default: NO_VALUE, default value for property
-            inherited (bool): Default: False, Property can be inherited
+            default: default value for property if key does not exist (defaults to None)
 
         Returns:
             Property value
@@ -51,18 +47,14 @@ class StaticConfig:
         if self.__config_has_changed:
             self.reload()
             self.__config_has_changed = False
-
         property_value = self.config_dict.get(property_name)
-        if property_value is not None:
+        if property_value is None:
+            return default
+        else:
             if callable(converter):
                 return converter(property_value)
             else:
                 return property_value
-        else:
-            if default != self.NO_VALUE:
-                return default
-
-            raise KeyError("no property '%s` in config" % property_name)
 
     def set(self, property_name, value):
         if self.__config_has_changed:

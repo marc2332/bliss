@@ -115,15 +115,22 @@ class Bus(AdvancedInstantiationInterface):
         self._send_task = gevent.spawn(self._send)
         self._send_event = gevent.event.Event()
 
+        self.__closing = False
+
     # Close
 
+    @property
+    def closing(self):
+        return self.__closing
+
     def close(self):
-        for channel in list(self._channels.values()):
-            channel.close()
+        self.__closing = True
         if self._send_task:
             self._send_task.kill()
         if self._listen_task:
             self._listen_task.kill()
+        for channel in list(self._channels.values()):
+            channel.close()
 
     @classmethod
     def clear_cache(cls):
@@ -270,7 +277,7 @@ class Bus(AdvancedInstantiationInterface):
             raise ConnectionError(
                 "Connection to Beacon server lost. "
                 + "This is a serious problem! "
-                + "Please quite the bliss session and try to restart it. ("
+                + "Quit the bliss session and try to restart it. ("
                 + str(e)
                 + ")"
             )
@@ -455,7 +462,8 @@ class Channel(AdvancedInstantiationInterface):
                 reply_value = self._default_value
 
             # Set the value
-            self._set_raw_value(reply_value)
+            if not self._bus.closing:
+                self._set_raw_value(reply_value)
 
             # Unregister task if everything went smoothly
             self._query_task = None
@@ -482,7 +490,7 @@ class Channel(AdvancedInstantiationInterface):
 
     def _fire_callbacks(self):
         value = self._raw_value.value
-        callbacks = [_f for _f in [ref() for ref in self._callback_refs] if _f]
+        callbacks = filter(None, [ref() for ref in self._callback_refs])
 
         # Run callbacks
         for cb in callbacks:
@@ -491,14 +499,11 @@ class Channel(AdvancedInstantiationInterface):
                 self._firing_callbacks = True
                 cb(value)
             # Catch and display exception
-            except:
+            except Exception:
                 sys.excepthook(*sys.exc_info())
             # Clean up the flag
             finally:
                 self._firing_callbacks = False
-
-        # Clean up
-        self._callbacks = {ref for ref in self._callback_refs if ref() is not None}
 
     # Representation
 
@@ -606,9 +611,9 @@ class EventChannel(AdvancedInstantiationInterface):
 
     def _set_raw_value(self, raw_value):
         value = raw_value.value
-        callbacks = [_f for _f in [ref() for ref in self._callback_refs] if _f]
+        callbacks = filter(None, [ref() for ref in self._callback_refs])
         for cb in callbacks:
             try:
                 cb(value)
-            except:
+            except Exception:
                 sys.excepthook(*sys.exc_info())

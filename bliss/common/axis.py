@@ -12,7 +12,7 @@ and :class:`~bliss.common.axis.GroupMove`)
 """
 from bliss import global_map
 from bliss.common.cleanup import capture_exceptions
-from bliss.common.motor_config import StaticConfig
+from bliss.common.motor_config import MotorConfig
 from bliss.common.motor_settings import AxisSettings
 from bliss.common import event
 from bliss.common.greenlet_utils import protect_from_one_kill
@@ -341,8 +341,7 @@ class GroupMove:
             for motion in motions:
                 motion.axis._set_moving_state()
 
-                for _, chan in motion.axis._beacon_channels.items():
-                    chan.unregister_callback(chan._setting_update_cb)
+                motion.axis.settings.unregister_channels_callbacks()
 
         with capture_exceptions(raise_index=0) as capture:
             with capture():
@@ -402,10 +401,9 @@ class GroupMove:
                     for hook in axis.motion_hooks:
                         hooks[hook].append(motion)
 
-                    # set move done
-                    for _, chan in axis._beacon_channels.items():
-                        chan.register_callback(chan._setting_update_cb)
+                    axis.settings.register_channels_callbacks()
 
+                    # set move done
                     motion.axis._set_move_done()
 
             if self._interrupted_move:
@@ -489,7 +487,7 @@ class Motion:
                 return f"Moving {self.axis.name} from {start_} to {end_}"
 
 
-class Trajectory(object):
+class Trajectory:
     """ Trajectory information
 
     Represents a specific trajectory motion.
@@ -674,23 +672,12 @@ class Axis:
         self.__encoder = config.get("encoder")
         if self.__encoder is not None:
             self.__encoder.axis = self
-        self.__config = StaticConfig(config)
+        self.__config = MotorConfig(config)
         self.__settings = AxisSettings(self)
-        self.__init_config_properties()
-        self._group_move = GroupMove()
-        self._beacon_channels = dict()
-        self._move_stop_channel = Channel(
-            f"axis.{self.name}.move_stop",
-            default_value=False,
-            callback=self._external_stop,
-        )
-        self._jog_velocity_channel = Channel(
-            f"axis.{self.name}.change_jog_velocity",
-            default_value=None,
-            callback=self._set_jog_velocity,
-        )
-        self._lock = gevent.lock.Semaphore()
+        self._init_config_properties()
         self.__no_offset = False
+        self._group_move = GroupMove()
+        self._lock = gevent.lock.Semaphore()
 
         try:
             config.parent
@@ -703,11 +690,24 @@ class Axis:
                 "disabled_cache", []
             )  # get it from controller (parent)
         disabled_cache.extend(config.get("disabled_cache", []))  # get it for this axis
-        for settings_name in disabled_cache:
-            self.settings.disable_cache(settings_name)
+        for setting_name in disabled_cache:
+            self.settings.disable_cache(setting_name)
         self._unit = self.config.get("unit", str, None)
         self._polling_time = config.get("polling_time", DEFAULT_POLLING_TIME)
         global_map.register(self, parents_list=["axes", controller])
+
+        # create Beacon channels
+        self.settings.init_channels()
+        self._move_stop_channel = Channel(
+            f"axis.{self.name}.move_stop",
+            default_value=False,
+            callback=self._external_stop,
+        )
+        self._jog_velocity_channel = Channel(
+            f"axis.{self.name}.change_jog_velocity",
+            default_value=None,
+            callback=self._set_jog_velocity,
+        )
 
     def __close__(self):
         try:
@@ -742,7 +742,7 @@ class Axis:
 
     @property
     def config(self):
-        """Reference to the :class:`~bliss.common.motor_config.StaticConfig`"""
+        """Reference to the :class:`~bliss.common.motor_config.MotorConfig`"""
         return self.__config
 
     @property
@@ -760,20 +760,20 @@ class Axis:
         """
         return not self.__move_done.is_set()
 
-    def __init_config_properties(
+    def _init_config_properties(
         self, velocity=True, acceleration=True, limits=True, sign=True, backlash=True
     ):
         self.__steps_per_unit = self.config.get("steps_per_unit", float, 1)
         self.__tolerance = self.config.get("tolerance", float, 1e-4)
         if velocity:
-            if self.controller.axis_settings.config_setting["velocity"]:
+            if "velocity" in self.settings.config_settings:
                 self.__config_velocity = self.config.get("velocity", float)
-            if self.controller.axis_settings.config_setting["jog_velocity"]:
+            if "jog_velocity" in self.settings.config_settings:
                 self.__config_jog_velocity = self.config.get(
                     "jog_velocity", float, self.__config_velocity
                 )
         if acceleration:
-            if self.controller.axis_settings.config_setting["acceleration"]:
+            if "acceleration" in self.settings.config_settings:
                 self.__config_acceleration = self.config.get("acceleration", float)
         if limits:
             self.__config_low_limit = self.config.get("low_limit", float, float("-inf"))
@@ -851,6 +851,7 @@ class Axis:
         return sign
 
     @sign.setter
+    @lazy_init
     def sign(self, new_sign):
         new_sign = float(
             new_sign
@@ -922,6 +923,7 @@ class Axis:
         return position
 
     @_set_position.setter
+    @lazy_init
     def _set_position(self, new_set_pos):
         new_set_pos = float(
             new_set_pos
@@ -992,6 +994,7 @@ class Axis:
         return dial_pos
 
     @dial.setter
+    @lazy_init
     def dial(self, new_dial):
         if self.is_moving:
             raise RuntimeError(
@@ -1038,9 +1041,11 @@ class Axis:
         pos = self.settings.get("position")
         if pos is None:
             pos = self.dial2user(self.dial)
+            self.settings.set("position", pos)
         return pos
 
     @position.setter
+    @lazy_init
     def position(self, new_pos):
         log_debug(self, "axis.py : position(new_pos=%r)" % new_pos)
         if self.is_moving:
@@ -1097,6 +1102,7 @@ class Axis:
         if state is None:
             # really read from hw
             state = self.hw_state
+            self.settings.set("state", state)
         return state
 
     @property
@@ -1222,6 +1228,7 @@ class Axis:
         return _user_vel
 
     @velocity.setter
+    @lazy_init
     def velocity(self, new_velocity):
         # Write -> Converts into motor units to change velocity of axis."
         new_velocity = float(
@@ -1233,6 +1240,7 @@ class Axis:
         return _user_vel
 
     @property
+    @lazy_init
     def config_velocity(self):
         """
         Return the config velocity.
@@ -1327,6 +1335,7 @@ class Axis:
         return _user_jog_vel
 
     @jog_velocity.setter
+    @lazy_init
     def jog_velocity(self, new_velocity):
         new_velocity = float(
             new_velocity
@@ -1336,6 +1345,7 @@ class Axis:
             self._jog_velocity_channel.value = new_velocity
 
     @property
+    @lazy_init
     def config_jog_velocity(self):
         """
         Return the config jog velocity.
@@ -1359,6 +1369,7 @@ class Axis:
         return _acceleration
 
     @acceleration.setter
+    @lazy_init
     def acceleration(self, new_acc):
         if self.is_moving:
             raise RuntimeError(
@@ -1373,6 +1384,7 @@ class Axis:
         return _acceleration
 
     @property
+    @lazy_init
     def config_acceleration(self):
         return self.__config_acceleration
 
@@ -1388,6 +1400,7 @@ class Axis:
         return abs(self.velocity / self.acceleration)
 
     @acctime.setter
+    @lazy_init
     def acctime(self, new_acctime):
         # Converts acctime into acceleration.
         new_acctime = float(
@@ -1432,6 +1445,7 @@ class Axis:
         return ll, hl
 
     @dial_limits.setter
+    @lazy_init
     def dial_limits(self, limits):
         """
         Set low, high limits in dial units
@@ -1458,13 +1472,14 @@ class Axis:
         return tuple(map(self.dial2user, self.dial_limits))
 
     @limits.setter
+    @lazy_init
     def limits(self, limits):
         # Set limits (low, high) in user units.
         try:
             if len(limits) != 2:
                 raise TypeError
         except TypeError:
-            raise ValueError("Usage: .limits(low, high)")
+            raise ValueError("Usage: .limits = low, high")
 
         # accepts iterable (incl. numpy array)
         self.low_limit, self.high_limit = (
@@ -1479,6 +1494,7 @@ class Axis:
         return self.dial2user(ll)
 
     @low_limit.setter
+    @lazy_init
     def low_limit(self, limit):
         # Sets Low Limit
         # <limit> must be given in USER units
@@ -1496,6 +1512,7 @@ class Axis:
         return self.dial2user(hl)
 
     @high_limit.setter
+    @lazy_init
     def high_limit(self, limit):
         # Sets High Limit (given in USER units)
         # Saved in settings in DIAL units.
@@ -1505,6 +1522,7 @@ class Axis:
         self.settings.set("high_limit", limit)
 
     @property
+    @lazy_init
     def config_limits(self):
         """
         Return a tuple (low_limit, high_limit) from IN-MEMORY config in
@@ -2033,7 +2051,7 @@ class Axis:
 
         if any((velocity, acceleration, limits, sign, backlash)):
             self.__config.save()
-            self.__init_config_properties(
+            self._init_config_properties(
                 velocity=velocity,
                 acceleration=acceleration,
                 limits=limits,
@@ -2056,7 +2074,7 @@ class Axis:
         if reload:
             self.config.reload()
 
-        self.__init_config_properties(
+        self._init_config_properties(
             velocity=velocity,
             acceleration=acceleration,
             limits=limits,
@@ -2065,18 +2083,18 @@ class Axis:
         )
 
         if velocity:
-            self.controller.axis_settings._clear(self, "velocity")
+            self.settings.clear("velocity")
         if acceleration:
-            self.controller.axis_settings._clear(self, "acceleration")
+            self.settings.clear("acceleration")
         if limits:
-            self.controller.axis_settings._clear(self, "low_limit")
-            self.controller.axis_settings._clear(self, "high_limit")
+            self.settings.clear("low_limit")
+            self.settings.clear("high_limit")
         if sign:
-            self.controller.axis_settings._clear(self, "sign")
+            self.settings.clear("sign")
         if backlash:
-            self.controller.axis_settings._clear(self, "backlash")
+            self.settings.clear("backlash")
 
-        self.controller._init_settings(self)
+        self.settings.init()
 
         # update position (needed for sign change)
         pos = self.dial2user(self.dial)
@@ -2434,6 +2452,6 @@ class ModuloAxis(Axis):
 
 class NoSettingsAxis(Axis):
     def __init__(self, *args, **kwags):
-        Axis.__init__(self, *args, **kwags)
-        for setting_name in self.settings:
+        super().__init__(*args, **kwags)
+        for setting_name in self.settings.setting_names:
             self.settings.disable_cache(setting_name)

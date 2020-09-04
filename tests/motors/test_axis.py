@@ -248,7 +248,7 @@ def test_axis_multiple_move(robz):
 
 def test_axis_init(robz):
     assert robz.state.READY
-    assert robz.settings.get("init_count") == 1
+    assert robz.controller._axes_data[robz]["init_count"] == 1
 
 
 def test_stop(robz):
@@ -725,7 +725,6 @@ def test_no_offset(roby):
 
 @pytest.mark.parametrize("motor_name", ["roby", "nsa"])
 def test_offset_property(beacon, motor_name):
-    breakpoint()
     mot = beacon.get(motor_name)
 
     mot.move(1)
@@ -757,18 +756,30 @@ def test_settings_to_config(beacon, motor_name):
     cfg = beacon.get_config(motor_name)
     cfg_acc = cfg.get("acceleration")
     cfg_vel = cfg.get("velocity")
+    cfg_ll = cfg.get("low_limit")
+    cfg_hl = cfg.get("high_limit")
 
     mot.velocity = 3
     mot.acceleration = 10
     mot.limits = None, None
     assert mot.config_velocity == cfg_vel
     assert mot.config_acceleration == cfg_acc
+    assert mot.config_limits == (cfg_ll, cfg_hl)
     mot.settings_to_config()
-    assert mot.config_velocity == 3
-    assert mot.config_acceleration == 10
-    mot.velocity = cfg_vel
-    mot.acceleration = cfg_acc
-    mot.settings_to_config()
+    try:
+        assert mot.config_velocity == 3
+        assert mot.config_acceleration == 10
+        assert mot.config_limits == (float("-inf"), float("inf"))
+    finally:
+        # put back config files as they were,
+        # since the fixture that starts
+        # all servers (and that copy config. to a temp folder
+        # for the test) has a session scope
+        mot.velocity = cfg_vel
+        mot.acceleration = cfg_acc
+        mot.low_limit = cfg_ll
+        mot.high_limit = cfg_hl
+        mot.settings_to_config()
 
 
 @pytest.mark.parametrize("motor_name", ["roby", "nsa"])
@@ -891,10 +902,18 @@ def test_axis_no_state_setting(m1):
     with mock.patch.object(m1.controller, "state") as new_state:
         new_state.return_value = AxisState("FAULT")
         assert m1.state == state
+        assert m1.hw_state == AxisState("FAULT")
         m1.settings.disable_cache("state")
         assert m1.state == AxisState("FAULT")
+        # re-enable cache
+        new_state.return_value = AxisState("READY")
         m1.settings.disable_cache("state", False)
-        assert m1.state == state
+        assert m1.hw_state == AxisState("READY")
+        # the beacon channel has been removed, there is no source of data
+        # so this will read the hw_state
+        assert m1.state == m1.hw_state
+        new_state.return_value = AxisState("FAULT")
+        assert m1.state == AxisState("READY")
 
 
 def test_axis_disable_cache_settings_from_config(beacon):
@@ -1004,3 +1023,25 @@ def test_no_settings_offset(beacon):
     nsa.offset = 1
     assert nsa.position == pytest.approx(1)
     assert nsa.dial == pytest.approx(0)
+
+
+def test_invalid_config(beacon):
+    invalid_cfg = beacon.get_config("invalid_cfg_axis")
+
+    invalid_mot = beacon.get("invalid_cfg_axis")
+    with pytest.raises(RuntimeError) as exc:
+        invalid_mot.position  # lazy init
+    assert "velocity" in str(exc.value)
+
+    invalid_cfg["velocity"] = 1
+    with pytest.raises(RuntimeError) as exc:
+        invalid_mot.position  # lazy init
+    assert "acceleration" in str(exc.value)
+
+    invalid_cfg["acceleration"] = 1
+    with pytest.raises(RuntimeError) as exc:
+        invalid_mot.position  # lazy init
+    assert "steps_per_unit" in str(exc.value)
+
+    invalid_cfg["steps_per_unit"] = 1
+    assert invalid_mot.position == 0

@@ -7,14 +7,8 @@
 
 import math
 import numpy
-import inspect
-import functools
-from bliss.common.motor_config import StaticConfig
-from bliss.common.motor_settings import (
-    ControllerAxisSettings,
-    setting_update_from_channel,
-    floatOrNone,
-)
+from bliss.common.motor_config import MotorConfig
+from bliss.common.motor_settings import ControllerAxisSettings, floatOrNone
 from bliss.common.axis import Trajectory
 from bliss.common.motor_group import Group, TrajectoryGroup
 from bliss.common import event
@@ -24,18 +18,6 @@ from bliss import global_map
 from bliss.config.channels import Cache, Channel
 from bliss.config import settings
 from gevent import lock
-
-
-# apply settings or config parameters
-def get_setting_or_config_value(axis, name):
-    converter = axis.settings.convert_func(name)
-    value = axis.settings.get(name)
-    if value is None:
-        try:
-            value = axis.config.get(name, converter)
-        except BaseException:
-            return None
-    return value
 
 
 class Controller:
@@ -48,7 +30,7 @@ class Controller:
 
     def __init__(self, name, config, axes, encoders, shutters, switches):
         self.__name = name
-        self.__config = StaticConfig(config)
+        self.__config = MotorConfig(config)
         self.__initialized_hw = Cache(self, "initialized", default_value=False)
         self.__initialized_hw_axis = dict()
         self.__initialized_encoder = dict()
@@ -171,10 +153,10 @@ class Controller:
     def _initialize_axis(self, axis, *args, **kwargs):
         """
         """
-        if self.__initialized_axis[axis]:
-            return
-
         with self.__lock:
+            if self.__initialized_axis[axis]:
+                return
+
             # Initialize controller hardware only once.
             if not self.__initialized_hw.value:
                 self.initialize_hardware()
@@ -193,89 +175,14 @@ class Controller:
                 axis_initialized = self.__initialized_hw_axis[axis]
                 if not axis_initialized.value:
                     self.initialize_hardware_axis(axis)
+                    axis.settings.check_config_settings()
+                    axis.settings.init()  # get settings, from config or from cache, and apply to hardware
                     axis_initialized.value = 1
 
-                    self._init_settings(axis)
             except BaseException:
                 # Failed to initialize
                 self.__initialized_axis[axis] = False
                 raise
-
-    def _init_settings(self, axis):
-        """ Initialize hardware with settings
-        """
-        props = dict(
-            inspect.getmembers(axis.__class__, lambda o: isinstance(o, property))
-        )
-
-        sign = get_setting_or_config_value(axis, "sign")
-        if sign is None or axis.no_offset:
-            sign = 1
-        axis.settings.set("sign", sign)
-
-        offset = get_setting_or_config_value(axis, "offset")
-        if offset is None or axis.no_offset:
-            offset = 0
-        axis.settings.set("offset", offset)
-
-        backlash = get_setting_or_config_value(axis, "backlash")
-        if backlash is None:
-            backlash = 0
-        axis.backlash = backlash
-
-        low_limit_dial = get_setting_or_config_value(axis, "low_limit")
-        high_limit_dial = get_setting_or_config_value(axis, "high_limit")
-        axis.dial_limits = low_limit_dial, high_limit_dial
-
-        for setting_name in axis.settings.config_settings():
-            # check if setting is in config
-            if axis.config.get(setting_name) is None:
-                raise RuntimeError(
-                    "Axis %s: missing configuration key '%s`"
-                    % (axis.name, setting_name)
-                )
-            # check if setting has a method to initialize (set) its value,
-            # without actually executing the property
-            try:
-                props[setting_name].fset
-            except AttributeError:
-                raise RuntimeError(
-                    "Axis %s: missing method '%s` to set setting value"
-                    % (axis.name, setting_name)
-                )
-
-        for setting_name in axis.settings.config_settings():
-            if setting_name == "steps_per_unit":
-                cval = float(axis.config.get(setting_name))
-                rval = axis.settings._hash.raw_get(setting_name)
-                # Record steps_per_unit
-                if rval is None:
-                    axis.settings.set(setting_name, cval)
-                    continue
-                else:
-                    rval = float(rval)
-                if cval != rval:
-                    ratio = rval / cval
-                    new_dial = axis.dial * ratio
-
-                    axis.settings.set("steps_per_unit", cval)
-                    if not axis.no_offset:
-                        # calculate offset so user pos stays the same
-                        axis.settings.set(
-                            "offset", axis.position - axis.sign * new_dial
-                        )
-                    else:
-                        axis.settings.set("offset", 0)
-                    axis.settings.set("dial_position", new_dial)
-
-                    if math.copysign(rval, cval) != rval:
-                        ll = axis.settings.get("low_limit")
-                        hl = axis.settings.get("high_limit")
-                        axis.settings.set("low_limit", -hl)
-                        axis.settings.set("high_limit", -ll)
-            else:
-                value = get_setting_or_config_value(axis, setting_name)
-                setattr(axis, setting_name, value)
 
     def get_axis(self, axis_name):
         axis = self._axes.get(axis_name)
@@ -303,23 +210,13 @@ class Controller:
                 # reference axis
                 return
 
-            axis._beacon_channels.clear()
-
-            for setting_name in axis.settings:
-                setting_value = get_setting_or_config_value(axis, setting_name)
-                chan_name = "axis.%s.%s" % (axis.name, setting_name)
-                cb = functools.partial(
-                    setting_update_from_channel, setting_name=setting_name, axis=axis
-                )
-                chan = Channel(chan_name, default_value=setting_value, callback=cb)
-                chan._setting_update_cb = cb
-                axis._beacon_channels[setting_name] = chan
-
             if axis.controller is self:
                 axis_initialized = Cache(axis, "initialized", default_value=0)
                 self.__initialized_hw_axis[axis] = axis_initialized
                 self.__initialized_axis[axis] = False
+
             self._add_axis(axis)
+
         return axis
 
     def _add_axis(self, axis):
@@ -583,11 +480,17 @@ class CalcController(Controller):
             setpos_dict[self._axis_tag(axis)] = axis.user2dial(axis._set_position)
         return setpos_dict
 
-    def _real_position_update(self, *args):
+    def _real_position_update(self, pos, sender=None):
         for axis in self.pseudos:
             self._initialize_axis(axis)
 
-        return self._calc_from_real(*args)
+        try:
+            # avoid recursion by disconnecting the signal
+            event.disconnect(sender, "internal_position", self._real_position_update)
+            return self._calc_from_real()
+        finally:
+            # reconnect
+            event.connect(sender, "internal_position", self._real_position_update)
 
     def _real_setpos_update(self, _):
         real_setpos = dict()
@@ -674,7 +577,7 @@ class CalcController(Controller):
         )
         return self.calc_from_real(real_positions)
 
-    def _calc_from_real(self, *args, **kwargs):
+    def _calc_from_real(self, *args):
         new_positions = self._do_calc_from_real()
 
         for tagged_axis_name, dial_pos in new_positions.items():

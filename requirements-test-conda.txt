@@ -6,7 +6,8 @@ pytest == 5.3.5
 pytest-cov
 pytest-mock
 lima-core == 1.9.4
-lima-camera-simulator-tango
+lima-camera-simulator >= 1.9.2
+lima-camera-simulator-tango >= 1.9.2
 lima-tango-server
 scipy
 black == 18.6b4

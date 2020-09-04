@@ -5,7 +5,7 @@
 # Copyright (c) 2015-2020 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-from bliss.common.motor_config import StaticConfig
+from bliss.common.motor_config import MotorConfig
 from bliss.common.counter import SamplingCounter
 from bliss.controllers import counter
 from bliss.common import event
@@ -37,7 +37,7 @@ class Encoder:
         self._counter_controller.create_counter(
             SamplingCounter, "position", unit=config.get("unit")
         )
-        self.__config = StaticConfig(config)
+        self.__config = MotorConfig(config)
         self.__axis_ref = None
 
     @property

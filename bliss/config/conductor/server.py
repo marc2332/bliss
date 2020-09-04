@@ -502,11 +502,6 @@ def _write_config_db_file(client_id, message):
     client_id.sendall(msg)
 
 
-def _send_posix_mq_connection(client_id, client_hostname):
-    # keep it for now for backward compatibility
-    client_id.sendall(protocol.message(protocol.POSIX_MQ_FAILED))
-
-
 def _send_uds_connection(client_id, client_hostname):
     client_hostname = client_hostname.decode()
     try:
@@ -610,8 +605,6 @@ def _client_rx(client, local_connection):
                                 sync.set()
                     elif messageType == protocol.REDIS_QUERY:
                         _send_redis_info(c_id, local_connection)
-                    elif messageType == protocol.POSIX_MQ_QUERY:
-                        _send_posix_mq_connection(c_id, message)
                     elif messageType == protocol.CONFIG_GET_FILE:
                         _send_config_file(c_id, message)
                     elif messageType == protocol.CONFIG_GET_DB_BASE_PATH:
@@ -722,13 +715,6 @@ def main(args=None):
         dest="redis_conf",
         default=redis_conf.get_redis_config_path(),
         help="path to alternative redis configuration file",
-    )
-    parser.add_argument(
-        "--posix_queue",
-        dest="posix_queue",
-        type=int,
-        default=0,
-        help="Use to be posix_queue connection (not managed anymore)",
     )
     parser.add_argument(
         "--port",
@@ -882,10 +868,6 @@ def main(args=None):
         os.chmod(uds_port_name, 0o777)
         uds.listen(512)
         _log.info("server sitting on uds socket: %s", uds_port_name)
-
-    # Check Posix queue are not activated
-    if _options.posix_queue:
-        _log.warning("Posix queue are not managed anymore")
 
     # Environment
     env = dict(os.environ)

@@ -7,7 +7,7 @@
 
 import math
 import numpy
-from bliss.common.motor_config import StaticConfig
+from bliss.common.motor_config import MotorConfig
 from bliss.common.motor_settings import ControllerAxisSettings, floatOrNone
 from bliss.common.axis import Trajectory
 from bliss.common.motor_group import Group, TrajectoryGroup
@@ -30,7 +30,7 @@ class Controller:
 
     def __init__(self, name, config, axes, encoders, shutters, switches):
         self.__name = name
-        self.__config = StaticConfig(config)
+        self.__config = MotorConfig(config)
         self.__initialized_hw = Cache(self, "initialized", default_value=False)
         self.__initialized_hw_axis = dict()
         self.__initialized_encoder = dict()

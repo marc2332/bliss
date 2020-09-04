@@ -10,7 +10,7 @@ from bliss.common.utils import Null
 import time
 
 
-class StaticConfig:
+class MotorConfig:
     def __init__(self, config_node):
         self.__config_dict = config_node
         self.__config_has_changed = False

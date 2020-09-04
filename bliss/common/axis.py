@@ -12,7 +12,7 @@ and :class:`~bliss.common.axis.GroupMove`)
 """
 from bliss import global_map
 from bliss.common.cleanup import capture_exceptions
-from bliss.common.motor_config import StaticConfig
+from bliss.common.motor_config import MotorConfig
 from bliss.common.motor_settings import AxisSettings
 from bliss.common import event
 from bliss.common.greenlet_utils import protect_from_one_kill
@@ -672,7 +672,7 @@ class Axis:
         self.__encoder = config.get("encoder")
         if self.__encoder is not None:
             self.__encoder.axis = self
-        self.__config = StaticConfig(config)
+        self.__config = MotorConfig(config)
         self.__settings = AxisSettings(self)
         self._init_config_properties()
         self.__no_offset = False
@@ -742,7 +742,7 @@ class Axis:
 
     @property
     def config(self):
-        """Reference to the :class:`~bliss.common.motor_config.StaticConfig`"""
+        """Reference to the :class:`~bliss.common.motor_config.MotorConfig`"""
         return self.__config
 
     @property

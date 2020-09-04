@@ -336,3 +336,49 @@ class TestImagePlot(TestCaseQt):
         assert channel.preferedRefreshRate() == newRate
 
         widget.close()
+
+    def test_display_rgb_image(self):
+        # Create a plot with already existing data
+        scan = self.create_scan()
+        plot = self.create_plot_with_chan1()
+        flint = self.create_flint_model()
+
+        array = numpy.array([[255, 0, 0], [0, 255, 0], [0, 0, 255], [0, 0, 0]])
+        array.shape = 2, 2, 3
+        data = scan_model.Data(scan, array)
+        scan.getChannelByName("chan1").setData(data)
+
+        widget = ImagePlotWidget()
+        widget.setFlintModel(flint)
+        widget.setScan(scan)
+        widget.setPlotModel(plot)
+        widget.show()
+
+        silxPlot = widget._silxPlot()
+        self.qWait(1000)
+        assert len(silxPlot.getItems()) > self.NB_PERMANENT_ITEM
+        widget.close()
+
+    def test_display_rgba_image(self):
+        # Create a plot with already existing data
+        scan = self.create_scan()
+        plot = self.create_plot_with_chan1()
+        flint = self.create_flint_model()
+
+        array = numpy.array(
+            [[255, 0, 0, 255], [0, 255, 0, 255], [0, 0, 255, 255], [0, 0, 0, 255]]
+        )
+        array.shape = 2, 2, 4
+        data = scan_model.Data(scan, array)
+        scan.getChannelByName("chan1").setData(data)
+
+        widget = ImagePlotWidget()
+        widget.setFlintModel(flint)
+        widget.setScan(scan)
+        widget.setPlotModel(plot)
+        widget.show()
+
+        silxPlot = widget._silxPlot()
+        self.qWait(1000)
+        assert len(silxPlot.getItems()) > self.NB_PERMANENT_ITEM
+        widget.close()

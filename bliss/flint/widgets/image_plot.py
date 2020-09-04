@@ -588,8 +588,11 @@ class ImagePlotWidget(plot_helper.PlotWidget):
         colormap = model_helper.getColormapFromItem(item, style)
 
         if style.symbolStyle is style_model.SymbolStyle.NO_SYMBOL:
-            imageItem = plot_helper.FlintImage()
-            imageItem.setColormap(colormap)
+            if image.ndim == 3:
+                imageItem = plot_helper.FlintImageRgba()
+            else:
+                imageItem = plot_helper.FlintImage()
+                imageItem.setColormap(colormap)
             imageItem.setData(image, copy=False)
             imageItem.setCustomItem(item)
             imageItem.setScan(scan)

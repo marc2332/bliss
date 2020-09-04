@@ -100,8 +100,10 @@ class ErrorReport:
 
     """
 
-    def __init__(self):
+    _orig_sys_excepthook = sys.excepthook
+    _orig_gevent_print_exception = gevent.hub.Hub.print_exception
 
+    def __init__(self):
         self._expert_mode = False
         self._last_error = LastError()
 
@@ -221,6 +223,11 @@ def install_excepthook():
     sys.excepthook = repl_excepthook
     gevent.hub.Hub.print_exception = print_exception
     return ERROR_REPORT
+
+
+def reset_excepthook():
+    sys.excepthook = ErrorReport._orig_sys_excepthook
+    gevent.hub.Hub.print_exception = ErrorReport._orig_gevent_print_exception
 
 
 # Patch eventloop of prompt_toolkit to be synchronous

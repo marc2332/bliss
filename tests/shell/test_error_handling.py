@@ -5,13 +5,22 @@
 # Copyright (c) 2015-2020 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
+import pytest
 import gevent
 from bliss.shell.cli import repl
 from bliss.common import logtools
 
 
-def test_error_report():
+@pytest.fixture
+def error_report():
     error_report = repl.install_excepthook()
+    try:
+        yield error_report
+    finally:
+        repl.reset_excepthook()
+
+
+def test_error_report(error_report):
     errors = error_report._last_error.errors
     assert len(errors) == 0
     MYERROR = "MYERROR"
@@ -46,16 +55,19 @@ def test_error_report():
 
     logtools.logbook_on = True
 
-    # Exception in greenlet
-    MYERROR = "MYERROR3"
-    gevent.spawn(raise_exception).join()
-    assert len(errors) == 4
-    assert f"RuntimeError: {MYERROR}" in errors[-2]
-    assert "send_to_elogbook" in errors[-1]
+    try:
+        # Exception in greenlet
+        MYERROR = "MYERROR3"
+        gevent.spawn(raise_exception).join()
+        assert len(errors) == 4
+        assert f"RuntimeError: {MYERROR}" in errors[-2]
+        assert "send_to_elogbook" in errors[-1]
 
-    # Exception in gevent loop callback
-    MYERROR = "MYERROR4"
-    raise_hub_exception(2)
-    assert len(errors) == 6
-    assert f"RuntimeError: {MYERROR}" in errors[-2]
-    assert "send_to_elogbook" in errors[-1]
+        # Exception in gevent loop callback
+        MYERROR = "MYERROR4"
+        raise_hub_exception(2)
+        assert len(errors) == 6
+        assert f"RuntimeError: {MYERROR}" in errors[-2]
+        assert "send_to_elogbook" in errors[-1]
+    finally:
+        logtools.logbook_on = False

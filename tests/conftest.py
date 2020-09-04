@@ -637,6 +637,12 @@ def metamgr_without_backend(ports, beacon):
     device_name = "id00/metadata/test_session"
     device_fqdn = "tango://localhost:{}/{}".format(ports.tango_port, device_name)
 
+    db = Database()
+    db.put_class_property("MetadataManager", {"jolokiaPort": 0})
+    db.put_class_property("MetadataManager", {"queueURLs": [""]})
+    db.put_class_property("MetadataManager", {"queueName": ""})
+    db.put_class_property("MetadataManager", {"icatplus_server": ""})
+
     with start_tango_server(
         sys.executable,
         "-u",
@@ -688,6 +694,12 @@ def metamgr_with_backend(
 def metaexp_without_backend(ports, beacon):
     device_name = "id00/metaexp/test_session"
     device_fqdn = "tango://localhost:{}/{}".format(ports.tango_port, device_name)
+
+    db = Database()
+    db.put_class_property("MetaExperiment", {"jolokiaPort": 0})
+    db.put_class_property("MetaExperiment", {"queueURLs": [""]})
+    db.put_class_property("MetaExperiment", {"queueName": ""})
+    db.put_class_property("MetaExperiment", {"icatplus_server": ""})
 
     with start_tango_server(
         sys.executable,

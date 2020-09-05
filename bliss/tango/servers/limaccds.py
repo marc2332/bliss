@@ -21,10 +21,6 @@ def main(args=None):
 
     atexit.register(finalize)
 
-    eprint("connection to tango database ...")
-    db = PyTango.Database()
-    db.build_connection()
-
     LimaCCDs.verboseLevel = 0
     for option in args:
         if option.startswith("-v"):

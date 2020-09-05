@@ -298,10 +298,7 @@ def lima_simulator_context(personal_name, device_name):
     admin_device_fqdn = f"{fqdn_prefix}/dserver/LimaCCDs/{personal_name}"
 
     with start_tango_server(
-        sys.executable,
-        "-u",
-        "-m",
-        "bliss.tango.servers.limaccds",
+        "LimaCCDs",
         personal_name,
         device_fqdn=device_fqdn,
         admin_device_fqdn=admin_device_fqdn,

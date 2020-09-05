@@ -604,11 +604,6 @@ def main(args=None, **kwargs):
     """Main function of the NexusWriter module."""
     # PROTECTED REGION ID(NexusWriter.main) ENABLED START #
 
-    try:
-        tango.ApiUtil.cleanup()
-    except Exception:
-        pass
-
     # Enable gevents for the server
     kwargs.setdefault("green_mode", tango.GreenMode.Gevent)
     return run((NexusWriter,), args=args, **kwargs)

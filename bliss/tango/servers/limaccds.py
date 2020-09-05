@@ -21,11 +21,6 @@ def main(args=None):
 
     atexit.register(finalize)
 
-    try:
-        tango.ApiUtil.cleanup()
-    except Exception:
-        pass
-
     eprint("connection to tango database ...")
     db = tango.Database()
     db.build_connection()

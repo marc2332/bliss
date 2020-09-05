@@ -168,9 +168,7 @@ def clean_globals():
 
 @pytest.fixture
 def clean_tango():
-    # https://pytango.readthedocs.io/en/stable/howto.html
-    # Resources: open file descriptors, the TANGO and the CORBA state.
-    # File descriptors: https://github.com/tango-controls/pytango/issues/324
+    # close file descriptors left open by Tango (see tango-controls/pytango/issues/324)
     try:
         ApiUtil.cleanup()
     except RuntimeError:

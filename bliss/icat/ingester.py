@@ -725,6 +725,8 @@ class IcatIngesterProxy(object):
             cmd = "notifyError"
         elif msg_type == "debug":
             cmd = "notifyDebug"
+        elif msg_type == "comment":
+            cmd = "userComment"
         else:
             cmd = "notifyInfo"
         current_proposal = current_session.scan_saving.proposal

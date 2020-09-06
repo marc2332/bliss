@@ -820,25 +820,6 @@ class ESRFScanSaving(BasicScanSaving):
             self._icat_proxy = IcatIngesterProxy(self.beamline, self.session)
         return self._icat_proxy
 
-    @with_eval_dict
-    def get_data_info(self, eval_dict=None):
-        """
-        :returns list:
-        """
-        info_table = super().get_data_info(eval_dict=eval_dict)
-        try:
-            icat_state = self.icat_proxy.state
-            icat_status = self.icat_proxy.status
-        except RuntimeError:
-            if not os.environ.get("TANGO_HOST"):
-                icat_state = "no TANGO_HOST defined"
-                icat_status = ""
-            else:
-                icat_state = "unknown"
-                icat_status = ""
-        info_table.append(("Metadata", icat_state, icat_status))
-        return info_table
-
     @property
     def images_path_relative(self):
         # Always relative due to the data policy

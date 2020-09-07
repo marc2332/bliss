@@ -20,6 +20,7 @@ class _Stack(qt.QStackedWidget):
         if count >= 1:
             w = self.widget(0)
             self.removeWidget(w)
+            w.setParent(None)
         self.addWidget(widget)
 
     def sizeHint(self):
@@ -34,6 +35,7 @@ class MainPropertyWidget(ExtendedDockWidget):
         super(MainPropertyWidget, self).__init__(parent=parent)
         self.setWindowTitle("Plot properties")
         self.__focusWidget = None
+        self.__view = None
         self.__stack = _Stack(self)
         self.__stack.setSizePolicy(qt.QSizePolicy.Preferred, qt.QSizePolicy.Expanding)
 
@@ -70,10 +72,11 @@ class MainPropertyWidget(ExtendedDockWidget):
 
     def setFocusWidget(self, widget):
         if widget is None:
-            self.__stack.setWidget(self.createEmptyWidget(self))
+            view = self.createEmptyWidget(self)
         else:
-            specificPropertyWidget = widget.createPropertyWidget(self)
-            self.__stack.setWidget(specificPropertyWidget)
+            view = widget.createPropertyWidget(self)
 
+        self.__view = view
+        self.__stack.setWidget(view)
         self.__focusWidget = widget
         self.widgetUpdated.emit()

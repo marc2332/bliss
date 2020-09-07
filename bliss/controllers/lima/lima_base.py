@@ -184,6 +184,7 @@ class Lima(CounterController):
             "INTERNAL_TRIGGER_MULTI",
             "EXTERNAL_GATE",
             "EXTERNAL_TRIGGER_MULTI",
+            "EXTERNAL_START_STOP",
         )
         start_once = acq_trigger_mode not in (
             "INTERNAL_TRIGGER",

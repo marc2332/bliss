@@ -168,9 +168,7 @@ def clean_globals():
 
 @pytest.fixture
 def clean_tango():
-    # https://pytango.readthedocs.io/en/stable/howto.html
-    # Resources: open file descriptors, the TANGO and the CORBA state.
-    # File descriptors: https://github.com/tango-controls/pytango/issues/324
+    # close file descriptors left open by Tango (see tango-controls/pytango/issues/324)
     try:
         ApiUtil.cleanup()
     except RuntimeError:
@@ -300,10 +298,7 @@ def lima_simulator_context(personal_name, device_name):
     admin_device_fqdn = f"{fqdn_prefix}/dserver/LimaCCDs/{personal_name}"
 
     with start_tango_server(
-        sys.executable,
-        "-u",
-        "-m",
-        "bliss.tango.servers.limaccds",
+        "LimaCCDs",
         personal_name,
         device_fqdn=device_fqdn,
         admin_device_fqdn=admin_device_fqdn,

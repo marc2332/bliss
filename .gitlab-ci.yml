@@ -9,6 +9,11 @@ workflow:
 
 default:
   before_script:
+    # /dev/random is super slow
+    # https://www.tango-controls.org/community/forum/c/platforms/gnu-linux/device-server-gets-stuck-then-works-as-expected/
+    # https://stackoverflow.com/questions/26021181/not-enough-entropy-to-support-dev-random-in-docker-containers-running-in-boot2d
+    - rm /dev/random
+    - ln -s /dev/urandom /dev/random
     # set pip cache to the Docker volume
     - echo ${CI_PROJECT_DIR}
     - export PIP_CACHE_DIR="/opt/cache/pip"

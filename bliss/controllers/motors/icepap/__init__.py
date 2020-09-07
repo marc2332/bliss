@@ -288,8 +288,9 @@ class Icepap(Controller):
                 # there is a valid stop code -> not moving
                 pass
             else:
-                # stop_code is 0 -> MOVING (needed for trajectories state)
-                state.set("MOVING")
+                if not state.OFF:
+                    # stop_code is 0 -> MOVING (needed for trajectories state)
+                    state.set("MOVING")
 
         if not state.MOVING:
             # it seems it is not safe to call warning and/or alarm commands

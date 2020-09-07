@@ -545,7 +545,6 @@ class ModbusTcp:
             ):
                 self._fd = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 self._fd.connect((local_host, local_port))
-                self._fd.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
                 self._fd.setsockopt(socket.SOL_IP, socket.IP_TOS, 0x10)
                 self._host = local_host
                 self._port = local_port
@@ -631,7 +630,7 @@ class ModbusTcp:
                 raw_data = fd.recv(16 * 1024)
                 if raw_data:
                     data += raw_data
-                    if len(data) > 7:
+                    while len(data) > 7:
                         log_debug_data(modbus, "raw_read", data[:7])
                         tid, pid, length, uid = struct.unpack(">HHHB", data[:7])
                         if len(data) >= length + 6:  # new msg
@@ -642,6 +641,8 @@ class ModbusTcp:
                             transaction = modbus._transaction.get(tid)
                             if transaction:
                                 transaction.put((uid, func_code, msg))
+                        else:
+                            break
                 else:
                     break
         except socket.error:

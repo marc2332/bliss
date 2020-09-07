@@ -912,3 +912,19 @@ def get_all_positioners(scan_info: Dict) -> List[PositionerDescription]:
         p = PositionerDescription(key, start, end, dial_start, dial_end, units)
         result.append(p)
     return result
+
+
+def is_same(scan_info1: Dict, scan_info2: Dict) -> bool:
+    """Returns true if both scans have the same structure
+
+    This function check the type of the scan and it's masters
+    """
+    type1 = scan_info1.get("type", None)
+    type2 = scan_info2.get("type", None)
+    if type1 != type2:
+        return False
+    acquisition1 = scan_info1.get("acquisition_chain", {})
+    acquisition2 = scan_info2.get("acquisition_chain", {})
+    acquisition1 = dict([(k, v.get("master", None)) for k, v in acquisition1.items()])
+    acquisition2 = dict([(k, v.get("master", None)) for k, v in acquisition2.items()])
+    return acquisition1 == acquisition2

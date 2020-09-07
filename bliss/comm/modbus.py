@@ -631,7 +631,7 @@ class ModbusTcp:
                 raw_data = fd.recv(16 * 1024)
                 if raw_data:
                     data += raw_data
-                    if len(data) > 7:
+                    while len(data) > 7:
                         log_debug_data(modbus, "raw_read", data[:7])
                         tid, pid, length, uid = struct.unpack(">HHHB", data[:7])
                         if len(data) >= length + 6:  # new msg
@@ -642,6 +642,8 @@ class ModbusTcp:
                             transaction = modbus._transaction.get(tid)
                             if transaction:
                                 transaction.put((uid, func_code, msg))
+                        else:
+                            break
                 else:
                     break
         except socket.error:

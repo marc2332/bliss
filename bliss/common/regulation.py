@@ -512,20 +512,6 @@ class Output(SamplingCounterController):
             return self._controller.is_output_ramping(self)
 
     @lazy_init
-    def set_in_safe_mode(self):
-        try:
-            return self._controller.set_in_safe_mode(self)
-
-        except NotImplementedError:
-
-            # if self.limits[0] is not None:
-            #     self.set_value(self.limits[0])
-            # else:
-            #     self.set_value(0)
-
-            pass
-
-    @lazy_init
     def _set_value(self, value):
         """ Set the value for the output. Value is expressed in output unit """
 
@@ -676,9 +662,6 @@ class ExternalOutput(Output):
                     self.device.move(value)
         else:
             raise TypeError("the associated device must be an 'Axis'")
-
-    def set_in_safe_mode(self):
-        pass
 
 
 @with_custom_members
@@ -1001,25 +984,22 @@ class Loop(SamplingCounterController):
         self._start_ramping(value)
 
     def stop(self):
-        """ Stop the regulation and ramping (if any) """
+        """ Stop the ramping """
 
         log_debug(self, "Loop:stop")
 
         self._stop_ramping()
-        self._stop_regulation()
 
     def abort(self):
-        """ Stop the regulation and ramping (if any) and set output device to minimum value """
+        """ Stop the ramping (alias for stop) """
 
         log_debug(self, "Loop:abort")
 
         self._stop_ramping()
-        self._stop_regulation()
-
-        self.output.set_in_safe_mode()
 
     ##--- SOFT AXIS METHODS: makes the Loop object scannable (ex: ascan(loop, ...) )
-    @property
+    # @property
+    @autocomplete_property
     def axis(self):
         """ Return a SoftAxis object that makes the Loop scanable """
 
@@ -1039,6 +1019,7 @@ class Loop(SamplingCounterController):
     def axis_stop(self):
         """ Set the setpoint to the current input device value as if stopping a move on an axis """
 
+        self._stop_ramping()
         self._first_scan_move = True
 
     def axis_state(self):

@@ -561,19 +561,6 @@ class Controller:
         log_info(self, "Controller:WRraw:")
         raise NotImplementedError
 
-    # ------ safety methods (optional) ------------------------------
-
-    def set_in_safe_mode(self, toutput):
-        """
-        Set the output in a safe mode (like stop heating)
-        Raises NotImplementedError if not defined by inheriting class
-
-        Args:
-           toutput:  Output class type object 
-        """
-        log_info(self, "Controller:set_in_safe_mode: %s" % (toutput))
-        raise NotImplementedError
-
     # --- controller methods to customize the PID algo (optional) ------------------------
 
     def get_sampling_frequency(self, tloop):

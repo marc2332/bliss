@@ -162,9 +162,6 @@ class NhqOutput(ExternalOutput):
 
         self.device.setpoint = value
 
-    def set_in_safe_mode(self):
-        pass
-
 
 class NhqCC(SamplingCounterController):
     def __init__(self, name, nhq):

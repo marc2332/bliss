@@ -299,7 +299,14 @@ class DataNode:
         :param str pattern:
         :returns generator: db_name generator
         """
+        # TODO: Redis SCAN too slow
         return (x.decode() for x in self.db_connection.keys(pattern))
+
+    def scan_redis(self, *args, **kw):
+        warnings.warn(
+            "'scan_redis' is deprecated. Use 'search_redis' instead.", FutureWarning
+        )
+        return self.search_redis(*args, **kw)
 
     def _get_struct(self, db_name):
         return settings.Struct(db_name, connection=self.db_connection)

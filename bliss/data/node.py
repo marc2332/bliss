@@ -174,9 +174,32 @@ def sessions_list():
     for node_name in settings.scan("*_children_list", connection=conn):
         if node_name.find(":") > -1:  # can't be a session node
             continue
-        session_name = node_name.replace("_children_list", "")
-        session_names.append(session_name)
+        session_names.append(node_name[:-14])
     return get_nodes(*session_names, connection=conn)
+
+
+def get_last_saved_scan(parent):
+    """
+    :param DataNodeContainer parent:
+    :returns ScanNode or None:
+    """
+
+    def scan_filter(node):
+        return node.type == "scan" and node.info.get("save")
+
+    return parent.get_last_child_container(filter=scan_filter)
+
+
+def get_last_scan_filename(parent):
+    """
+    :param DataNodeContainer parent:
+    :returns str or None:
+    """
+    last_scan_node = get_last_saved_scan(parent)
+    if last_scan_node is None:
+        return None
+    else:
+        return last_scan_node.info.get("filename")
 
 
 def _create_node(name, node_type=None, parent=None, connection=None, **keys):
@@ -416,7 +439,7 @@ class DataNode:
     ):
         """Iterate over child nodes that match the `filter` argument.
 
-        :param tuple or callable filter: only these DataNode types are allowed (all by default)
+        :param None, str, iterable or callable filter: only these DataNode types are allowed (all by default)
         :param bool wait:
         :param DataStreamReaderStopHandler stop_handler:
         :param dict active_streams: stream name (str) -> stream info (dict)
@@ -436,7 +459,7 @@ class DataNode:
     ):
         """Like `walk` but start from the last node.
 
-        :param tuple or callable filter: only these DataNode types are allowed (all by default)
+        :param None, str, iterable or callable filter: only these DataNode types are allowed (all by default)
         :param bool wait: if wait is True (default), the function blocks
                           until a new node appears
         :param bool include_last:
@@ -475,7 +498,7 @@ class DataNode:
     ):
         """Iterate over node and children node events.
 
-        :param tuple or callable filter: only these DataNode types are allowed (all by default)
+        :param None, str, iterable or callable filter: only these DataNode types are allowed (all by default)
         :param bool wait:
         :param str or int first_index: Redis stream ID
         :param dict active_streams: stream name (str) -> stream info (dict)
@@ -501,20 +524,12 @@ class DataNode:
         """Iterate over the DataStreamReader
 
         :param DataStreamReader reader:
-        :param tuple or callable filter: only these DataNode types are allowed (all by default)
+        :param None, str, iterable or callable filter: only these DataNode types are allowed (all by default)
         :param str or int first_index: Redis stream ID
         :param bool yield_events: yield Event or DataNode
         :yields Event or DataNode:
         """
-        # Make sure filter is a tuple
-        if isinstance(filter, str):
-            filter = (filter,)
-        elif callable(filter):
-            pass
-        elif filter:
-            filter = tuple(filter)
-        else:
-            filter = tuple()
+        filter = self._init_node_filter(filter)
         self._subscribe_all_streams(
             reader, filter=filter, first_index=first_index, yield_events=yield_events
         )
@@ -539,9 +554,24 @@ class DataNode:
         else:
             raise RuntimeError(f"Unknown stream {stream.name}")
 
+    @staticmethod
+    def _init_node_filter(filter):
+        """
+        :param None, str, iterable or callable filter:
+        :returns tuple or callable:
+        """
+        if isinstance(filter, str):
+            return (filter,)
+        elif callable(filter):
+            return filter
+        elif filter:
+            return tuple(filter)
+        else:
+            return tuple()
+
     def _filtered_out(self, filter):
         """
-        :param tuple or callable filter:
+        :param None, tuple or callable filter:
         :returns bool:
         """
         if callable(filter):
@@ -552,7 +582,7 @@ class DataNode:
     def _yield_on_new_node(self, reader, filter, first_index, yield_events):
         """
         :param DataStreamReader reader:
-        :param tuple or callable filter: only these DataNode types are allowed (all by default)
+        :param None, tuple or callable filter: only these DataNode types are allowed (all by default)
         :param str or int first_index: Redis stream ID
         :param bool yield_events: yield Event or DataNode
         """
@@ -572,7 +602,7 @@ class DataNode:
         """
         :param DataStreamReader reader:
         :param list(2-tuple) events:
-        :param tuple or callable filter: only these DataNode types are allowed (all by default)
+        :param None, tuple or callable filter: only these DataNode types are allowed (all by default)
         :param str or int first_index: Redis stream ID
         :param bool yield_events: yield Event or DataNode
         :yields Event:
@@ -583,26 +613,12 @@ class DataNode:
                 yield Event(type=EventType.NEW_DATA, node=self, data=data)
 
     def _get_last_child(self, filter=None):
-        """Get the last child added to the _children_list stream of
-        this node or its children.
+        """Get the last child added to the _children_list stream of this node or its children.
 
-        :param tuple or callable filter: only these DataNode types are allowed (all by default)
+        :param None, tuple or callable filter: only these DataNode types are allowed (all by default)
         :returns 2-tuple: DataNode, active streams
         """
-        active_streams = dict()
-        children_stream = self._create_stream("children_list")
-        first_index = children_stream.before_last_index()
-        if first_index is None:
-            return None, active_streams
-        last_node = None
-        for last_node in self.walk(
-            filter=filter,
-            wait=False,
-            active_streams=active_streams,
-            first_index=first_index,
-        ):
-            pass
-        return last_node, active_streams
+        return None, None
 
     def _subscribe_stream(self, stream_suffix, reader, create=False, **kw):
         """Subscribe to a stream with a particular name,
@@ -626,7 +642,7 @@ class DataNode:
         """Subscribe to new streams before yielding the NEW_NODE event.
 
         :param DataStreamReader reader:
-        :param tuple or callable filter: only these DataNode types are allowed (all by default)
+        :param None, tuple or callable filter: only these DataNode types are allowed (all by default)
         :param str or int first_index: Redis stream ID
         :param bool yield_events: yield Event or DataNode
         """
@@ -641,7 +657,7 @@ class DataNode:
         """Subscribe to new streams after yielding the NEW_NODE event.
 
         :param DataStreamReader reader:
-        :param tuple or callable filter: only these DataNode types are allowed (all by default)
+        :param None, tuple or callable filter: only these DataNode types are allowed (all by default)
         :param str or int first_index: Redis stream ID
         :param bool yield_events: yield Event or DataNode
         """
@@ -652,10 +668,14 @@ class DataNode:
 
         :returns bytes or None: stream ID
         """
-        children_stream = self.parent._create_stream("children_list")
+        parent = self.parent
+        if parent is None:
+            return None
+        children_stream = parent._create_stream("children_list")
+        self_db_name = self.db_name
         for index, raw in children_stream.rev_range():
             db_name = NewNodeEvent(raw=raw).db_name
-            if db_name == self.db_name:
+            if db_name == self_db_name:
                 break
         else:
             return None
@@ -737,7 +757,7 @@ class DataNodeContainer(DataNode):
         """
         :param DataStreamReader reader:
         :param list(2-tuple) events:
-        :param tuple or callable filter: only these DataNode types are allowed (all by default)
+        :param None, tuple or callable filter: only these DataNode types are allowed (all by default)
         :param str or int first_index: Redis stream ID
         :param bool yield_events: yield Event or DataNode
         :yields Event or DataNode:
@@ -753,7 +773,7 @@ class DataNodeContainer(DataNode):
         """Subscribe to new streams before yielding the NEW_NODE event.
 
         :param DataStreamReader reader:
-        :param tuple or callable filter: only these DataNode types are allowed (all by default)
+        :param None, tuple or callable filter: only these DataNode types are allowed (all by default)
         :param str or int first_index: Redis stream ID
         :param bool yield_events: yield Event or DataNode
         """
@@ -807,7 +827,7 @@ class DataNodeContainer(DataNode):
                                   "{db_name}_{stream_suffix}"
         :param bool include_parent: consider self as a child
         :param tuple forbidden_types: exclude these node types and their children
-        :param tuple or callable filter: only these DataNode types are allowed (all by default)
+        :param None, tuple or callable filter: only these DataNode types are allowed (all by default)
         :yields DataNode:
         """
         # Get existing stream names
@@ -856,3 +876,57 @@ class DataNodeContainer(DataNode):
         """For hierarchical sort of node names
         """
         return db_name.count(":")
+
+    def _get_last_child(self, filter=None):
+        """Get the last child added to the _children_list stream of this node or its children.
+
+        :param None, tuple or callable filter: only these DataNode types are allowed (all by default)
+        :returns 2-tuple: DataNode, active streams
+        """
+        active_streams = dict()
+        children_stream = self._create_stream("children_list")
+        first_index = children_stream.before_last_index()
+        if first_index is None:
+            return None, active_streams
+        last_node = None
+        for last_node in self.walk(
+            filter=filter,
+            wait=False,
+            active_streams=active_streams,
+            first_index=first_index,
+        ):
+            pass
+        return last_node, active_streams
+
+    def get_child_containers(self, filter=None):
+        """Get the child `DataNodeContainer` of this node and its children.
+
+        :param None, str, iterable or callable filter: only these `DataNodeContainer` types are allowed (all by default)
+        :yields DataNodeContainer:
+        """
+        filter = self._init_node_filter(filter)
+        node_names = self.search_redis("*_children_list")
+        it_node_names = (db_name[:-14] for db_name in node_names)
+        for node in get_nodes(*it_node_names):
+            if node._filtered_out(filter):
+                continue
+            yield node
+
+    def get_last_child_container(self, filter=None):
+        """Get the last child `DataNodeContainer` of this node or its children.
+        The order is based on the Redis streamid in the `*_children_list` streams.
+
+        :param None, str, iterable or callable filter: only these `DataNodeContainer` types are allowed (all by default)
+        :returns DataNodeContainer:
+        """
+        last_node = None
+        last_id = 0, 0
+        for node in self.get_child_containers(filter=filter):
+            streamid = node.get_children_stream_index()
+            if streamid is None:
+                continue
+            node_id = tuple(map(int, streamid.decode().split("-")))
+            if node_id > last_id:
+                last_node = node
+                last_id = node_id
+        return last_node

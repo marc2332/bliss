@@ -215,7 +215,7 @@ class CurvePlotWidget(plot_helper.PlotWidget):
                 bgColor = "#d3d3d3"
         else:
             dataColor = None
-            bgColor = "transparent"
+            bgColor = "white"
         self.__plot.setDataBackgroundColor(dataColor)
         self.__plot.setBackgroundColor(bgColor)
 

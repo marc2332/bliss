@@ -50,6 +50,7 @@ class ControllerAxisSettings:
         self.convert_func = {}
         self.persistent_setting = {}
         self.config_setting = {}
+        self.hardware_setting = {}
 
         # 'offset' must be set BEFORE limits to ensure good dial/user conversion.
         self.add("sign", int)
@@ -57,13 +58,13 @@ class ControllerAxisSettings:
         self.add("backlash", float)
         self.add("low_limit", floatOrNone)
         self.add("high_limit", floatOrNone)
-        self.add("velocity", float, config=True)
-        self.add("jog_velocity", float)
-        self.add("acceleration", float, config=True)
-        self.add("dial_position", float)
+        self.add("velocity", float, config=True, hardware=True)
+        self.add("jog_velocity", float, hardware=True)
+        self.add("acceleration", float, config=True, hardware=True)
+        self.add("dial_position", float, hardware=True)
         self.add("_set_position", float)
-        self.add("position", float)
-        self.add("state", stateSetting, persistent=False)
+        self.add("position", float, hardware=True)
+        self.add("state", stateSetting, persistent=False, hardware=True)
         self.add("steps_per_unit", float, config=True)
 
     @property
@@ -72,12 +73,20 @@ class ControllerAxisSettings:
             setting for setting, config in self.config_setting.items() if config
         )
 
-    def add(self, setting_name, convert_func=str, persistent=True, config=False):
+    def add(
+        self,
+        setting_name,
+        convert_func=str,
+        persistent=True,
+        config=False,
+        hardware=False,
+    ):
         if setting_name not in self.setting_names:
             self.setting_names.append(setting_name)
             self.convert_func[setting_name] = convert_func
             self.persistent_setting[setting_name] = persistent
             self.config_setting[setting_name] = config
+            self.hardware_setting[setting_name] = hardware
 
 
 disabled_settings_namedtuple = collections.namedtuple(
@@ -112,6 +121,10 @@ class AxisSettings:
     @property
     def config_settings(self):
         return self.__axis.controller.axis_settings.config_settings
+
+    @property
+    def hardware_settings(self):
+        return self.__axis.controller.axis_settings.hardware_settings
 
     def register_channels_callbacks(self):
         for chan in self._beacon_channels.values():
@@ -254,7 +267,7 @@ class AxisSettings:
         disabled_settings = self._disabled_settings
         if setting_name in disabled_settings.names:
             if (
-                setting_name not in ("position", "dial_position")
+                not axis_settings.hardware_setting[setting_name]
                 and axis_settings.persistent_setting[setting_name]
             ):
                 disabled_settings.config_dict[setting_name] = value
@@ -280,7 +293,10 @@ class AxisSettings:
             raise NameError("No setting '%s` for axis '%s`" % (setting_name, axis.name))
 
         if setting_name in disabled_settings.names:
-            return disabled_settings.config_dict.get(setting_name)
+            if axis_settings.hardware_setting[setting_name]:
+                return  # will force hardware read
+            else:
+                return disabled_settings.config_dict.get(setting_name)
 
         if axis_settings.persistent_setting[setting_name]:
             with KillMask():

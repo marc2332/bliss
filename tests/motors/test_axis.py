@@ -1045,3 +1045,38 @@ def test_invalid_config(beacon):
 
     invalid_cfg["steps_per_unit"] = 1
     assert invalid_mot.position == 0
+
+
+def test_no_settings_hw_read_acc_vel_pos_state(nsa):
+    cfg_vel = nsa.config_velocity
+    cfg_acc = nsa.config_acceleration
+
+    assert nsa.state == AxisState("READY")
+
+    with mock.patch.object(nsa.controller, "state", return_value=AxisState("OFF")):
+        assert nsa.state == AxisState("OFF")
+
+    assert nsa.velocity == cfg_vel
+
+    with mock.patch.object(nsa.controller, "read_velocity", return_value=888):
+        assert nsa.velocity == pytest.approx(888 / nsa.steps_per_unit)
+        nsa.velocity = 0
+        assert nsa.config.config_dict["velocity"] == cfg_vel
+        assert nsa.settings.get("velocity") is None
+        assert nsa.velocity == pytest.approx(888 / nsa.steps_per_unit)
+
+    assert nsa.acceleration == cfg_acc
+
+    with mock.patch.object(nsa.controller, "read_acceleration", return_value=888):
+        assert nsa.acceleration == pytest.approx(888 / nsa.steps_per_unit)
+        nsa.acceleration = 0
+        assert nsa.config.config_dict["acceleration"] == cfg_acc
+        assert nsa.settings.get("acceleration") is None
+        assert nsa.acceleration == pytest.approx(888 / nsa.steps_per_unit)
+
+    assert nsa.position == 0
+
+    with mock.patch.object(nsa.controller, "read_position", return_value=888):
+        assert nsa.settings.get("position") is None
+        assert nsa.settings.get("dial_position") is None
+        assert nsa.position == pytest.approx(888 / nsa.steps_per_unit)

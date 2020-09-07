@@ -188,6 +188,9 @@ def main():
         "networkx",
         "tblib",
         "sortedcontainers",
+        "typeguard",
+        "typing_extensions",
+        "cerberus",
     ]
 
     tests_require = ["pytest >= 4.1.1", "pytest-cov >= 2.6.1", "scipy"]

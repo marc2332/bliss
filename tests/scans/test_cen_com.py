@@ -5,7 +5,11 @@
 # Copyright (c) 2015-2020 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
+from collections import namedtuple
 import pytest
+import numpy
+from scipy import signal
+
 from bliss import setup_globals
 from bliss.common import scans
 from bliss.shell.standard import (
@@ -22,9 +26,6 @@ from bliss.scanning.scan_display import ScanDisplay
 from bliss.scanning import scan_tools, scan_math
 from bliss.common import plot
 from bliss.controllers.simulation_counter import FixedShapeCounter
-import numpy
-from collections import namedtuple
-from scipy import signal
 
 
 def test_pkcom_ascan_gauss(session):
@@ -345,18 +346,20 @@ def test_find_position_goto_custom(session):
     assert session.env_dict["find_special"]() == pytest.approx(.5, abs=.01)
     session.env_dict["goto_special"]()
     assert roby.position == pytest.approx(.5, abs=.01)
-TestDataset = namedtuple("TestDataset", ["x", "y", "com", "cen", "fwhm"])
+
+
+ExpDataset = namedtuple("ExpDataset", ["x", "y", "com", "cen", "fwhm"])
 # if cen or com are None there will be no test for the concerned parameter
 
-TestData = [
-    TestDataset(
+ExpData = [
+    ExpDataset(
         numpy.arange(100),
         signal.gaussian(100, 10),
         pytest.approx(50, abs=1),
         pytest.approx(50, abs=1),
         pytest.approx(23.55, abs=.1),
     ),  # to test the test...
-    TestDataset(
+    ExpDataset(
         numpy.array(
             [
                 6.2483,
@@ -471,7 +474,7 @@ TestData = [
         pytest.approx(6.38, abs=.1),
         pytest.approx(0.041, abs=.005),
     ),
-    TestDataset(
+    ExpDataset(
         numpy.array(
             [
                 0.0238095,
@@ -589,17 +592,95 @@ TestData = [
 ]
 
 
-@pytest.mark.parametrize("real_test_data", TestData)
-def test_cen_com_with_data(real_test_data):
-    if real_test_data.com is not None:
-        assert real_test_data.com == scan_math.com(real_test_data.x, real_test_data.y)
-    if real_test_data.cen is not None:
+@pytest.mark.parametrize("realExp_data", ExpData)
+def test_cen_com_with_data(realExp_data):
+    if realExp_data.com is not None:
+        assert realExp_data.com == scan_math.com(realExp_data.x, realExp_data.y)
+    if realExp_data.cen is not None:
         assert (
-            real_test_data.cen
-            == scan_math.cen(real_test_data.x, real_test_data.y).position
+            realExp_data.cen == scan_math.cen(realExp_data.x, realExp_data.y).position
         )
-    if real_test_data.fwhm is not None:
-        assert (
-            real_test_data.fwhm
-            == scan_math.cen(real_test_data.x, real_test_data.y).fwhm
-        )
+    if realExp_data.fwhm is not None:
+        assert realExp_data.fwhm == scan_math.cen(realExp_data.x, realExp_data.y).fwhm
+
+
+ExpCenCom = namedtuple("ExpCenCom", ["signal", "com", "cen", "fwhm"])
+
+ExpData2 = [
+    ExpCenCom(
+        "gaussian",
+        pytest.approx(0.5, abs=.01),
+        pytest.approx(0.5, abs=.01),
+        pytest.approx(0.4652, abs=.0001),
+    ),
+    ExpCenCom(
+        "triangle",
+        pytest.approx(0.5, abs=.01),
+        pytest.approx(0.5, abs=.01),
+        pytest.approx(0.5098, abs=.0001),
+    ),
+    ExpCenCom(
+        "flat",
+        pytest.approx(0.5, abs=.01),
+        pytest.approx(0.5, abs=.01),
+        pytest.approx(1, abs=.01),
+    ),
+    ExpCenCom(
+        "sawtooth",
+        pytest.approx(0.6, abs=.01),  # Original test data: -0.441
+        pytest.approx(0.6497, abs=.01),
+        pytest.approx(0.4742, abs=.0001),
+    ),
+    ExpCenCom(
+        "bimodal",
+        pytest.approx(0.4549, abs=.01),
+        pytest.approx(0.4708, abs=.01),
+        pytest.approx(0.7329, abs=.0001),
+    ),
+    ExpCenCom(
+        "square",
+        pytest.approx(0.5, abs=.01),
+        pytest.approx(0.5, abs=.01),
+        pytest.approx(0.3529, abs=.0001),
+    ),
+    ExpCenCom(
+        "erf_down",
+        pytest.approx(0.2699, abs=.01),
+        pytest.approx(0.549, abs=.01),
+        pytest.approx(0, abs=.0001),  # does not make sense ....
+    ),
+    ExpCenCom(
+        "erf_up",
+        pytest.approx(0.75, abs=.01),  # Original test data: -5.3341
+        pytest.approx(0.5294, abs=.01),
+        pytest.approx(0.0, abs=.0001),  # does not make sense ...
+    ),
+    ExpCenCom(
+        "inverted_gaussian",
+        pytest.approx(0.5, abs=.01),
+        pytest.approx(0.5, abs=.01),
+        pytest.approx(0.4652, abs=.0001),
+    ),
+    ExpCenCom(
+        "missing_edge_of_gaussion_right",
+        pytest.approx(0.8656, abs=.0001),
+        pytest.approx(0.8824, abs=.0001),
+        pytest.approx(0.231, abs=.0001),
+    ),
+    ExpCenCom(
+        "missing_edge_of_gaussion_left",
+        pytest.approx(0.1477, abs=.0001),
+        pytest.approx(0.1373, abs=.0001),
+        pytest.approx(0.231, abs=.0001),
+    ),
+]
+
+
+@pytest.mark.parametrize("counter_signal", ExpData2)
+def test_cen_com_with_signals(default_session, counter_signal):
+    tca = FixedShapeCounter()
+    tca.signal = counter_signal.signal
+    s = scans.ascan(tca.axis, 0, 1, tca.npoints, .01, tca.counter, save=False)
+    assert s.com(tca.counter, axis=tca.axis) == counter_signal.com
+    assert s.cen(tca.counter, axis=tca.axis) == counter_signal.cen
+    assert s.fwhm(tca.counter, axis=tca.axis) == counter_signal.fwhm

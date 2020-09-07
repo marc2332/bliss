@@ -1,9 +1,16 @@
+import os
 import numpy
 import pytest
 import fabio
 
+from bliss.common.utils import all_equal
 from typing import NamedTuple, Tuple, Optional
 from bliss.common.scans import ct, loopscan
+from bliss.controllers.lima.limatools import (
+    load_simulator_frames,
+    reset_cam,
+    get_last_image,
+)
 
 
 class LimParams(NamedTuple):
@@ -270,3 +277,103 @@ def test_lima_image_bin_roi(beacon, default_session, lima_simulator):
 
     with pytest.raises(AssertionError):
         cam.image.roi = [156, 181, 400, 150]
+
+
+def test_lima_roi2spectrum(beacon, default_session, lima_simulator, images_directory):
+
+    # chart_3.edf => 2 patterns
+    #
+    # 1 stairs shape in box (20,20,20+20,20+20)  => Horizontal lineProfile is [0,1,2,3,4,5,...]
+    #
+    #  HHHHHH
+    #   HHHHH
+    #    HHHH
+    #     HHH
+    #      HH
+    #       H
+
+    # 1 code-bar shape in box (60,20,60+40,20+40) => Horizontal lineProfile is [40,0,40,0,40,0,...]
+    #  H  H  H  H  H
+    #  H  H  H  H  H
+    #  H  H  H  H  H
+    #  H  H  H  H  H
+    #  H  H  H  H  H
+    #  H  H  H  H  H
+
+    cam = beacon.get("lima_simulator")
+    img_path = os.path.join(str(images_directory), "chart_3.edf")
+    load_simulator_frames(cam, 1, img_path)
+    reset_cam(cam, roi=[0, 0, 0, 0])
+
+    cam.roi_counters.clear()
+    cam.roi2spectrum_counters.clear()
+
+    cam.roi2spectrum_counters["sp1"] = [20, 20, 18, 20]
+    cam.roi2spectrum_counters["sp2"] = [60, 20, 38, 40]
+
+    w1 = cam.roi2spectrum_counters["sp1"].width
+    h1 = cam.roi2spectrum_counters["sp1"].height
+    w2 = cam.roi2spectrum_counters["sp2"].width
+    h2 = cam.roi2spectrum_counters["sp2"].height
+
+    # 1) TEST WITH HORIZONTAL LINE PROFILE (pixels are summed along the vertical axis and the spectrum is along horizontal axis)
+    cam.roi2spectrum_counters.set_roi_modes("horizontal", ["sp1"])
+    cam.roi2spectrum_counters.set_roi_modes("horizontal", ["sp2"])
+
+    s = ct(cam)
+    d1 = s.get_data("sp1")[0]
+    d2 = s.get_data("sp2")[0]
+
+    # check it is really an horizontal line profile
+    assert len(d1) == w1
+    assert len(d2) == w2
+
+    # check measured spectrums are as expected
+    assert list(d1) == list(range(1, w1 + 1))
+    assert all_equal(list(d2[::2])) and d2[::2][0] == h2
+    assert all_equal(list(d2[1::2])) and d2[1::2][0] == 0
+
+    # 2) DO THE SAME BUT WITH VERTICAL LINE PROFILE
+    cam.roi2spectrum_counters["sp1"] = [20, 20, 20, 20]
+    cam.roi2spectrum_counters.set_roi_modes("vertical", ["sp1"])
+    cam.roi2spectrum_counters.set_roi_modes("vertical", ["sp2"])
+
+    s = ct(cam)
+    d1 = s.get_data("sp1")[0]
+    d2 = s.get_data("sp2")[0]
+
+    # check it is really an horizontal line profile
+    assert len(d1) == h1
+    assert len(d2) == h2
+
+    # check measured spectrums are as expected
+    res1 = list(d1)
+    res1.reverse()
+    assert res1 == list(range(1, h1 + 1))
+    assert all_equal(list(d2)) and d2[0] == w2 / 2
+
+    # 3) MIX VERTICAL and HORIZONTAL LINE PROFILE
+    cam.roi2spectrum_counters.set_roi_modes("vertical", ["sp1"])
+    cam.roi2spectrum_counters.set_roi_modes("horizontal", ["sp2"])
+
+    s = ct(cam)
+    d1 = s.get_data("sp1")[0]
+    d2 = s.get_data("sp2")[0]
+
+    # check it is really an horizontal line profile
+    assert len(d1) == h1
+    assert len(d2) == w2
+
+    # check measured spectrums are as expected
+    assert res1 == list(range(1, h1 + 1))
+    assert all_equal(list(d2[::2])) and d2[::2][0] == h2
+    assert all_equal(list(d2[1::2])) and d2[1::2][0] == 0
+
+    # 4) MULTIPLE IMAGES
+
+    frames = 3
+    s = loopscan(frames, 0.1, cam)
+    d1 = s.get_data("sp1")
+
+    assert len(d1) == frames
+    assert all_equal([len(x) for x in d1])

@@ -140,6 +140,7 @@ def test_arc_rois(beacon, default_session, lima_simulator, images_directory):
     arc_roi_2 = 130, 320, 0, radius, 0, 360
 
     cam.roi_counters.clear()
+    cam.roi2spectrum_counters.clear()
     cam.roi_counters["ar1"] = arc_roi_1
     cam.roi_counters["ar2"] = arc_roi_2
 

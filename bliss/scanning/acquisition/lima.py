@@ -459,7 +459,23 @@ class LimaAcquisitionMaster(AcquisitionMaster):
 
 class RoiCountersAcquisitionSlave(IntegratingCounterAcquisitionSlave):
     def prepare_device(self):
-        self.device.upload_rois()
+        self.device.upload_rois()  # upload_rois() call _proxy.start() and _proxy.clearAllRois()
+
+
+class RoiSpectrumAcquisitionSlave(IntegratingCounterAcquisitionSlave):
+    def prepare_device(self):
+
+        # TODO:
+        # SHOULD BE ALWAYS PREPARE_ONCE=TRUE but actually it depends on the parent.PREPARE_ONCE
+        # self.device._proxy.start()
+        # self.device._proxy.clearAllRois()
+        self.device.upload_rois()  # upload_rois() call _proxy.start() and _proxy.clearAllRois()
+
+    def start_device(self):
+        pass
+
+    def stop_device(self):
+        self.device._proxy.Stop()
 
 
 class BpmAcquisitionSlave(IntegratingCounterAcquisitionSlave):

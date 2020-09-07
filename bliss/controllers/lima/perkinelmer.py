@@ -30,3 +30,7 @@ class Camera(CameraBase):
 
     def start_acq_offset_image(self, nb_frames, exposure_time):
         self._proxy.startAcqOffsetImage(nb_frames, exposure_time)
+
+    @LimaProperty
+    def synchro_mode(self):
+        return "IMAGE"

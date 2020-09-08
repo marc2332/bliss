@@ -18,3 +18,4 @@ tango_serialline
 pytest-rerunfailures
 stomp.py
 coilmq
+opencv

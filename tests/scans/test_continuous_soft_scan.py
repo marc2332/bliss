@@ -82,6 +82,7 @@ def test_software_position_trigger_master(session):
     assert data["debug_time"] == pytest.approx(expected_triggers, abs=0.02)
 
 
+@pytest.mark.flaky(reruns=3)
 def test_iter_software_position_trigger_master(session):
     robz = session.config.get("robz")
     robz.velocity = 100

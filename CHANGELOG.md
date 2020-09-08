@@ -19,6 +19,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Added fields to group channels of the same size
     - Added fields to describes complex scatters
     - Added `axis-id` to order the scatter axis
+- Provide codecs for few RGB format from Lima videos
+    - To use it, an optional dependency 'opencv' have to installed in the env
 
 ### Changed
 - Custom scan description (`scan_info`)

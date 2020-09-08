@@ -205,8 +205,8 @@ def decode_devencoded_video(
         image_height,
         endian,
         header_size,
-        pad0,
-        pad1,
+        _pad0,
+        _pad1,
     ) = struct.unpack(VIDEO_HEADER_FORMAT, raw_data[:VIDEO_HEADER_SIZE])
 
     if magic != VIDEO_MAGIC:
@@ -225,12 +225,6 @@ def decode_devencoded_video(
         raise ImageFormatNotSupported(
             "Decoding video frame from this Lima device is "
             "not supported by bliss cause of the endianness (found %s)." % endian
-        )
-
-    if pad0 != 0 or pad1 != 0:
-        raise ImageFormatNotSupported(
-            "Decoding video frame from this Lima device is not supported "
-            "by bliss cause of the padding (found %s, %s)." % (pad0, pad1)
         )
 
     try:

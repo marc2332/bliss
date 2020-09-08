@@ -38,9 +38,18 @@ RAW_RGB24_VIDEO = (
 )
 
 RAW_RGB32_VIDEO = (
-    b"VDEO\x00\x01\x00\x07\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\
-\x00\x02\x00\x00\x00\x02\x00\x00\x00 \x00\x00\x00\x00"
+    b"VDEO\x00\x01\x00\x07\x00\x00\x00\x00\x00\x00\x00\x00\
+\x00\x00\x00\x02\x00\x00\x00\x02\x00\x00\x00 \x00\x00\x00\x00"
     + b"\xFF\x00\x00\x00\x00\xFF\x00\x00\x00\x00\xFF\x00\x00\x00\x00\xFF"
+)
+
+RAW_BAYER_RG16 = (
+    b"VDEO\x00\x01\x00\x0b\x00\x00\x00\x00\x00\x05\x00\x00\
+\x00\x00\x00\x04\x00\x00\x00\x04\x00\x00\x00 \x00\x00\x00\x00"
+    + b"\x8f\x00\x80\x00\x8b\x00E\x00"
+    + b"\x81\x00L\x00u\x00R\x00"
+    + b"w\x00I\x00~\x00S\x00"
+    + b"n\x00I\x00n\x00G\x00"
 )
 
 
@@ -116,3 +125,13 @@ def test_decode_video_rgb32():
     assert image[0, 1].tolist() == pytest.approx([0, 255, 0, 0], abs=20)
     assert image[1, 0].tolist() == pytest.approx([0, 0, 255, 0], abs=20)
     assert image[1, 1].tolist() == pytest.approx([0, 0, 0, 255], abs=20)
+
+
+def test_decode_bayer_rg16():
+    frame = lima_image.decode_devencoded_video(("VIDEO_IMAGE", RAW_BAYER_RG16))
+    image = frame[0]
+    print(image)
+    assert image.dtype == numpy.uint8
+    assert image.shape == (4, 4, 3)
+    assert image[0, 0].tolist() == [8, 7, 4]
+    assert image[3, 3].tolist() == [7, 6, 4]

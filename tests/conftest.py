@@ -51,6 +51,8 @@ BEACON = [sys.executable, "-m", "bliss.config.conductor.server"]
 BEACON_DB_PATH = os.path.join(BLISS, "tests", "test_configuration")
 IMAGES_PATH = os.path.join(BLISS, "tests", "images")
 
+SERVICE = [sys.executable, "-m", "bliss.comm.service"]
+
 
 def eprint(*args):
     print(*args, file=sys.stderr, flush=True)
@@ -972,3 +974,18 @@ def nexus_writer_service(ports):
         "NexusWriterService", "testwriters", "--log", "info", device_fqdn=device_fqdn
     ) as dev_proxy:
         yield device_fqdn, dev_proxy
+
+
+@pytest.fixture
+def sim_ct_gauss_service(beacon):
+    env = dict(os.environ)
+    env["PYTHONUNBUFFERED"] = "1"
+    proc = subprocess.Popen(
+        SERVICE + ["sim_ct_gauss_service"], stdout=subprocess.PIPE, env=env
+    )
+    wait_for(proc.stdout, "Staring service sim_ct_gauss_service")
+    proc.stdout.close()
+    sim = beacon.get("sim_ct_gauss_service")
+    yield sim
+    sim.close()
+    wait_terminate(proc)

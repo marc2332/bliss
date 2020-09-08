@@ -44,3 +44,14 @@
   auto_filter: $autofilter1
   detector_name: sim_autofilter1_det
   monitor_name: sim_autofilter1_mon
+
+- service:
+    counters:
+      - name: sim_ct_gauss_service
+        plugin: bliss
+        class: SimulationCounter
+        distribution: GAUSSIAN
+        mu_offset: 0.0
+        sigma_factor: 1.0
+        height_factor: 100.0
+        noise_factor: 0.0

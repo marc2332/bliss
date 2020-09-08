@@ -6,6 +6,7 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 from bliss.config.conductor import client
+from tests.motors.conftest import s1hg, s1vo, m0
 import pytest
 import sys, os
 import ruamel
@@ -290,3 +291,31 @@ def test_user_tags(beacon):
         assert set(
             [beacon.get_config(obj) for obj in obj_list]
         ) == beacon.get_user_tag_configs(tag)
+
+
+def test_to_dict(beacon, s1hg, s1vo, m0):
+    """
+    - name: refs_test
+      plugin: default
+      m0: $m0
+      slits:
+        - axis: $s1hg
+          position: 0
+        - axis: $s1vo
+          position: 1
+      scan:
+        axis: $m0
+    """
+    refs_test = beacon.get("refs_test")
+
+    refs_test_dict = refs_test.to_dict(resolve_references=False)
+    assert refs_test_dict["m0"] == "$m0"
+    assert refs_test_dict["slits"][0]["axis"] == "$s1hg"
+    assert refs_test_dict["slits"][1]["axis"] == "$s1vo"
+    assert refs_test_dict["scan"]["axis"] == "$m0"
+
+    refs_test_dict = refs_test.to_dict()
+    assert refs_test_dict["m0"] is m0
+    assert refs_test_dict["slits"][0]["axis"] is s1hg
+    assert refs_test_dict["slits"][1]["axis"] is s1vo
+    assert refs_test_dict["scan"]["axis"] is m0

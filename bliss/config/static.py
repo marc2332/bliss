@@ -485,10 +485,11 @@ class ConfigNode(MutableMapping):
             )
         except RuntimeError:
             # file does not exist
-            yaml_contents = self.to_dict()
+            yaml_contents = self.to_dict(resolve_references=False)
         else:
             prudent_update(
-                ConfigNode.goto_path(yaml_contents, self.path), self.to_dict()
+                ConfigNode.goto_path(yaml_contents, self.path),
+                self.to_dict(resolve_references=False),
             )
 
         string_stream = StringIO()
@@ -504,13 +505,25 @@ class ConfigNode(MutableMapping):
         # keep source node in case of saving
         return node
 
-    def to_dict(self):
+    def to_dict(self, resolve_references=True):
         """
         full copy and transform to dict object.
 
         the return object is a simple dictionary
         """
-        return json.loads(json.dumps(self._data, cls=ConfigNodeDictEncoder))
+        if resolve_references:
+
+            def decoder_hook(d):
+                for k, v in d.items():
+                    if isinstance(v, str) and ConfigReference.is_reference(v):
+                        d[k] = ConfigReference(self.parent, v).dereference()
+                return d
+
+            return json.JSONDecoder(object_hook=decoder_hook).decode(
+                json.dumps(self._data, cls=ConfigNodeDictEncoder)
+            )
+        else:
+            return json.loads(json.dumps(self._data, cls=ConfigNodeDictEncoder))
 
     @staticmethod
     def _pprint(node, cur_indet, indent, cur_depth, depth):

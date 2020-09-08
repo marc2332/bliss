@@ -24,7 +24,7 @@ try:
 except ImportError:
     h5py = None
 
-DATA_HEADER_FORMAT = "<IHHIIHHHHHHHHHHHHHHHHHHIII"
+DATA_HEADER_FORMAT = "<IHHIIHHHHHHHHIIIIIIII"
 DATA_MAGIC = struct.unpack(">I", b"DTAY")[0]
 DATA_HEADER_SIZE = struct.calcsize(DATA_HEADER_FORMAT)
 
@@ -288,19 +288,14 @@ def decode_devencoded_image(raw_data: bytes) -> numpy.ndarray:
         _dim4,
         _dim5,
         _dim6,
-        _dim7,
-        _dim8,
         _dim_step1,
         _dim_step2,
         _dim_step3,
         _dim_step4,
         _dim_step5,
         _dim_step6,
-        _dim_step7,
-        _dim_step8,
         _pad0,
         _pad1,
-        _pad2,
     ) = struct.unpack(DATA_HEADER_FORMAT, raw_data[:DATA_HEADER_SIZE])
 
     if magic != DATA_MAGIC:

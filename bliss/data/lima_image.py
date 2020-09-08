@@ -110,7 +110,7 @@ if cv2:
         cv2.COLOR_YUV2RGB_Y422, lambda w, h: (h, w, 2), numpy.uint8, 0
     )
     _RGB_CODECS[VIDEO_MODES.I420] = RgbCodec(
-        cv2.COLOR_YUV2RGB_I420, lambda w, h: (h + h / 2, w), numpy.uint8, 0
+        cv2.COLOR_YUV2RGB_I420, lambda w, h: (h + h // 2, w), numpy.uint8, 0
     )
     _RGB_CODECS[VIDEO_MODES.BGR24] = RgbCodec(
         cv2.COLOR_BGR2RGB, lambda w, h: (h, w, 3), numpy.uint8, 0

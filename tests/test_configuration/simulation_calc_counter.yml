@@ -70,3 +70,16 @@
         tags: x
       - counter : $diode2
         tags: b
+
+- plugin: bliss
+  module: expression_based_calc
+  class: ExpressionCalcCounter
+  name: simu_expr_calc_ref
+  expression: x+b
+  inputs:
+      - counter : $diode
+        tags: x
+  constants:
+      b: $roby.position
+
+  

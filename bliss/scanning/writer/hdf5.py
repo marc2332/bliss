@@ -259,6 +259,6 @@ class Writer(FileWriter):
         """
         entry_names = self.get_scan_entries()
         if entry_names:
-            return max(int(s.split("_")[0]) for s in entry_names)
+            return max(int(s.split(".")[0]) for s in entry_names)
         else:
             return 0

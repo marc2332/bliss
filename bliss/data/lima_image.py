@@ -236,10 +236,12 @@ def decode_devencoded_video(
 
     if mode in MODE_TO_NUMPY:
         dtype = MODE_TO_NUMPY[mode]
-        data = numpy.frombuffer(raw_data[header_size:], dtype=dtype).copy()
+        data = numpy.frombuffer(raw_data, offset=header_size, dtype=dtype).copy()
         data.shape = image_height, image_width
     elif mode in _RGB_CODECS:
-        data = decode_rgb_data(raw_data[header_size:], image_width, image_height, mode)
+        data = decode_rgb_data(
+            raw_data, image_width, image_height, mode, offset=header_size
+        )
     else:
         raise ImageFormatNotSupported(f"Video format {mode} is not supported")
 
@@ -320,19 +322,25 @@ def decode_devencoded_image(raw_data: bytes) -> numpy.ndarray:
     except Exception:
         raise ImageFormatNotSupported("Data format %s is not supported" % mode)
 
-    data = numpy.fromstring(raw_data[header_size:], dtype=dtype)
+    data = numpy.frombuffer(raw_data, offset=header_size, dtype=dtype)
     data.shape = dim2, dim1
+
+    # Create a memory copy only if it is needed
+    if not data.flags.writeable:
+        data = numpy.array(data)
+
     return data
 
 
 def decode_rgb_data(
-    raw_data: bytes, width: int, height: int, mode: int
+    raw_data: bytes, width: int, height: int, mode: int, offset: int = 0
 ) -> numpy.ndarray:
     """
     Decode an encoded raw data into numpy array.
 
     Arguments:
         raw_data: Encoded raw data
+        offset: Location of the data in the buffer
         width: width of the output image
         height: height of the output image
         mode: LimaCDD video mode
@@ -346,10 +354,13 @@ def decode_rgb_data(
     else:
         shape = height, width
 
-    if len(raw_data) == 0:
+    if len(raw_data) - offset <= 0:
         return None
 
-    npbuf = numpy.ndarray(shape, dtype=codec.input_dtype, buffer=raw_data)
+    # Create a view, without memory copy if possible
+    npbuf = numpy.frombuffer(raw_data, offset=offset, dtype=codec.input_dtype)
+    npbuf.shape = shape
+
     if codec.opencv_code is not None:
         npbuf = cv2.cvtColor(npbuf, codec.opencv_code)
     if npbuf.ndim == 3 and npbuf.itemsize > 1 and codec.post_scale != 0:
@@ -359,6 +370,10 @@ def decode_rgb_data(
         shift = in_bits - 8
         if shift > 0:
             npbuf = numpy.right_shift(npbuf, shift).astype(numpy.uint8)
+
+    # Create a memory copy only if it is needed
+    if not npbuf.flags.writeable:
+        npbuf = numpy.array(npbuf)
 
     return npbuf
 

@@ -411,10 +411,10 @@ Maximum rotational acceleration: {accelerations[max_racceleration]} mm/s/s
         self.comm.connect = self.__on_connect
         self.__pending_cmds = {}
 
-    def __on_connect(self, host=None, port=None):
+    def __on_connect(self, host=None, port=None, timeout=None):
         if self.__read_task is not None:
             self.__read_task.kill()
-        self.__connect(host=host, port=port)
+        self.__connect(host=host, port=port, timeout=timeout)
         # on connection, the hardware sends 4 lines of text:
         self.comm.readline()  # "SYMETRIE controller"
         version = self.comm.readline().decode()  # "API version: <api_version>"

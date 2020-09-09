@@ -24,7 +24,7 @@ from bliss.scanning.acquisition.lima import LimaAcquisitionMaster
 from bliss.controllers.lima.properties import LimaProperties, LimaProperty
 from bliss.controllers.lima.bpm import Bpm
 from bliss.controllers.lima.roi import RoiCounters, RoiProfileController
-from bliss.controllers.lima.image import ImageCounter, LimaImageParameters
+from bliss.controllers.lima.image import ImageCounter
 from bliss.controllers.lima.shutter import Shutter
 from bliss.controllers.lima.bgsub import BgSub
 from bliss.controllers.lima.debug import LimaDebug
@@ -234,10 +234,6 @@ class Lima(CounterController):
         return f"{self._proxy.image_sizes}{self._proxy.image_roi}{self._proxy.image_flip}{self._proxy.image_bin}{self._proxy.image_rotation}"
 
     def apply_parameters(self, ctrl_params):
-        if "image_roi" in ctrl_params:
-            # make sure that image_roi is applied last (last element in ctrl_params)
-            ctrl_params["image_roi"] = ctrl_params.pop("image_roi")
-
         def needs_update(key, value):
             if key not in self._cached_ctrl_params:
                 self._cached_ctrl_params[key] = Cache(self, key)
@@ -248,6 +244,8 @@ class Lima(CounterController):
                 return False
 
         self.set_bliss_device_name()
+
+        # -----------------------------------------------------------------------------------
 
         server_start_timestamp = needs_update(
             "server_start_timestamp",
@@ -357,10 +355,53 @@ class Lima(CounterController):
                 log_debug(self, "set runlevel on bpm proxy of %s", self.name)
                 proxy.RunLevel = self.processing.runlevel_bpm
 
+        # ------- send the params to tango-lima ---------------------------------------------
+
+        # Lima rules and order of image transformations:
+        # 0) set back binning to 1,1 before any flip or rot modif (else lima crashes if a roi/subarea is already defined with lima-core < 1.9.6rc3))
+        # 1) flip [Left-Right, Up-Down]  (in bin 1,1 only else lima crashes if a roi/subarea is already defined)
+        # 2) rotation (clockwise and negative angles not possible) (in bin 1,1 only for same reason)
+        # 3) binning
+        # 4) roi (expressed in the current state f(flip, rot, bin))
+
+        # --- Extract special params from ctrl_params and sort them -----------
+        special_params = {}
+
+        if "image_bin" in ctrl_params:
+            special_params["image_bin"] = ctrl_params.pop("image_bin")
+
+        if "image_flip" in ctrl_params:
+            special_params["image_flip"] = ctrl_params.pop("image_flip")
+
+        if "image_rotation" in ctrl_params:
+            special_params["image_rotation"] = ctrl_params.pop("image_rotation")
+
+        if "image_roi" in ctrl_params:
+            # make sure that image_roi is applied last
+            special_params["image_roi"] = ctrl_params.pop("image_roi")
+
+        # --- Apply standard params (special_params excluded/removed)
         for key, value in ctrl_params.items():
             if needs_update(key, value) or update_all:
-                log_debug(self, "updating %s on %s to %s", key, self.name, value)
+                log_debug(self, "apply parameter %s on %s to %s", key, self.name, value)
                 setattr(self.proxy, key, value)
+
+        # --- Select special params that must be updated (caching/filtering)
+        _tmp = {}
+        for key, value in special_params.items():
+            if needs_update(key, value) or update_all:
+                _tmp[key] = value
+        special_params = _tmp
+
+        # be sure to apply the roi as last operation
+        if "image_roi" in special_params:
+            special_params["image_roi"] = special_params.pop("image_roi")
+
+        # --- Apply special params -----------------------
+
+        for key, value in special_params.items():
+            log_debug(self, "apply parameter %s on %s to %s", key, self.name, value)
+            setattr(self.proxy, key, value)
 
         # update lima_hash with last set of parameters
         Cache(self, "lima_hash").value = self._lima_hash
@@ -369,7 +410,7 @@ class Lima(CounterController):
         return {
             **self.saving.to_dict(),
             **self.processing.to_dict(),
-            **self._image_params.to_dict(),
+            **self.image.to_dict(),
             **self.accumulation.to_dict(),
         }
 
@@ -455,23 +496,8 @@ class Lima(CounterController):
     @autocomplete_property
     def image(self):
         if self._image is None:
-            self._image = LimaProperties(
-                "LimaImageCounter",
-                self.proxy,
-                prefix="image_",
-                strip_prefix=True,
-                base_class=ImageCounter,
-                base_class_args=(self, self._proxy),
-            )
+            self._image = ImageCounter(self)
         return self._image
-
-    @autocomplete_property
-    def _image_params(self):
-        if self.__image_params is None:
-            self.__image_params = LimaImageParameters(
-                self._config_node, self._proxy, f"{self._name_prefix}:image"
-            )
-        return self.__image_params
 
     @autocomplete_property
     def shutter(self):

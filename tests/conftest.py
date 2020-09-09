@@ -320,7 +320,7 @@ def lima_simulator_context(personal_name, device_name):
     with start_tango_server(
         "LimaCCDs",
         personal_name,
-        # "-v4",
+        # "-v4",               # to enable debug
         device_fqdn=device_fqdn,
         admin_device_fqdn=admin_device_fqdn,
         state=None,

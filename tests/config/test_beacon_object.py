@@ -362,11 +362,11 @@ def test_beacon_object_within_lima(default_session, lima_simulator):
     # test for issue 1383
     lima_simulator = default_session.config.get("lima_simulator")
 
-    lima_simulator._image_params.flip = [True, True]
+    lima_simulator.image.flip = [True, True]
 
-    assert lima_simulator._image_params.flip == [True, True]
+    assert lima_simulator.image.flip == [True, True]
 
-    lima_simulator._image_params.flip = [False, False]
+    lima_simulator.image.flip = [False, False]
 
 
 class Ctrl12(BeaconObject):
@@ -408,8 +408,8 @@ def test_BeaconObject_property_setting_setter2(two_clients):
 
 def test_beacon_object_within_lima2(default_session, lima_simulator):
     lima_simulator = default_session.config.get("lima_simulator")
-    lima_simulator._image_params.rotation = "90"
-    assert lima_simulator._image_params.rotation == "90"
+    lima_simulator.image.rotation = 90
+    assert lima_simulator.image.rotation == 90
 
 
 class Ctrl13(BeaconObject):

@@ -18,11 +18,7 @@ from bliss.common.counter import Counter
 from bliss.controllers.lima.roi import Roi, ArcRoi, RoiProfile, ROI_PROFILE_MODES
 from bliss.controllers.lima.roi import RoiProfileCounter, RoiStatCounter
 from bliss.common.scans import loopscan, timescan, sct, ct, DEFAULT_CHAIN
-from bliss.controllers.lima.limatools import (
-    load_simulator_frames,
-    reset_cam,
-    get_last_image,
-)
+from bliss.controllers.lima.limatools import load_simulator_frames, reset_cam
 from math import pi as _PI_
 from ..conftest import lima_simulator_context
 from bliss.config.channels import Cache
@@ -780,7 +776,7 @@ def test_lima_beacon_objs(default_session, lima_simulator):
     assert simulator.processing.runlevel_roicounter == 9
     assert simulator.processing.runlevel_background == 2
 
-    assert simulator.image.rotation == "90"
+    assert simulator.image.rotation == 90
     assert simulator.image.flip == [False, False]
 
     simulator.processing.runlevel_roicounter = 8
@@ -814,7 +810,10 @@ def test_lima_ctrl_params_uploading(default_session, lima_simulator, caplog):
 
     # check that a change in ctrl params leads to update in camera
     assert len(caplog.messages) == 1
-    assert "updating saving_max_writing_task on lima_simulator to 2" in caplog.messages
+    assert (
+        "apply parameter saving_max_writing_task on lima_simulator to 2"
+        in caplog.messages
+    )
     assert simulator.proxy.saving_max_writing_task == 2
 
     # lets see if we can use mask, background and flatfield
@@ -957,32 +956,3 @@ def test_reapplication_image_params(beacon, default_session, lima_simulator, cap
     new_roi = simulator.proxy.image_roi
     assert "All parameters will be refeshed on lima_simulator" in caplog.messages
     assert all(old_roi == new_roi)
-
-
-def test_image_param_sync(beacon, default_session, lima_simulator):
-    simulator = beacon.get("lima_simulator")
-
-    # do one initial scan to set all caches and tango properties
-    loopscan(1, 0.1, simulator, save=False)
-    assert list(simulator.image.roi.to_array()) == [0, 0, 1024, 1024]
-    assert simulator.image.flip == [False, False]
-    assert simulator.image.rotation == "90"
-    assert simulator.image.bin == [1, 1]
-
-    simulator.proxy.image_bin = [2, 2]
-    simulator.proxy.image_roi = [1, 2, 30, 40]
-    simulator.proxy.image_flip = [True, False]
-    simulator.proxy.image_rotation = "180"
-
-    assert simulator.image.bin == [1, 1]
-    assert list(simulator.image.roi.to_array()) == [0, 0, 1024, 1024]
-    assert simulator.image.flip == [False, False]
-    assert simulator.image.rotation == "90"
-
-    simulator.image.sync()
-
-    # have in mind that rotation is applied on roi...
-    assert simulator.image.bin == [2, 2]
-    assert list(simulator.image.roi.to_dict().values()) == [2, 1, 40, 30]
-    assert simulator.image.flip == [True, False]
-    assert simulator.image.rotation == "180"

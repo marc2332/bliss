@@ -16,6 +16,7 @@ from silx.gui.plot.tools.roi import RegionOfInterestManager
 from silx.gui.plot.tools.roi import RegionOfInterestTableWidget
 from silx.gui.plot.items.roi import RectangleROI
 from silx.gui.plot.items.roi import RegionOfInterest
+from .utils import rois as rois_mdl
 
 
 class RoiSelectionWidget(qt.QMainWindow):
@@ -34,7 +35,7 @@ class RoiSelectionWidget(qt.QMainWindow):
 
         self.roi_manager = RegionOfInterestManager(plot)
         self.roi_manager.setColor("pink")
-        self.roi_manager.sigRoiAdded.connect(self.on_added)
+        self.roi_manager.sigRoiAdded.connect(self.__roiAdded)
         self.table = RegionOfInterestTableWidget()
         self.table.setRegionOfInterestManager(self.roi_manager)
 
@@ -76,10 +77,29 @@ class RoiSelectionWidget(qt.QMainWindow):
             # In case the mode is not supported
             pass
 
-    def on_added(self, roi):
+    def searchForFreeName(self, roi):
+        """Returns a new name for a ROI.
+
+        The name is picked in order to match roi_counters and
+        roi2spectrum_counters. It was decided to allow to have the same sub
+        names for both Lima devices.
+
+        As this module is generic, it would be better to move this code in more
+        specific place.
+        """
+        rois = self.roi_manager.getRois()
+        roiNames = set([r.getName() for r in rois])
+
+        for i in range(1, 1000):
+            name = f"roi{i}"
+            if name not in roiNames:
+                return name
+        return "roi666.666"
+
+    def __roiAdded(self, roi):
         if not roi.getName():
-            nb_rois = len(self.roi_manager.getRois())
-            roi.setName("roi{}".format(nb_rois))
+            name = self.searchForFreeName(roi)
+            roi.setName(name)
 
     def add_roi(self, roi):
         self.roi_manager.addRoi(roi)

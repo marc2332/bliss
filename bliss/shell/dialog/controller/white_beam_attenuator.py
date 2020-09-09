@@ -23,7 +23,6 @@ def wba_menu(obj, *args, **kwargs):
         except KeyError:
             defval = 0
             dialogs.append([UserMsg(label="WARNING! Attenuator position is UNKNOWN")])
-            exclude_first_result = True
 
         dialogs.append(
             [
@@ -36,9 +35,14 @@ def wba_menu(obj, *args, **kwargs):
         dialogs, title="Attenuator foil selection", paddings=(3, 0)
     ).show()
     if choices:
-        values = list(choices.values())
-        if exclude_first_result:
-            values = values[1:]
-        values = flatten(list(zip(attenuator_names, values)))
+        # exclude 'dynamically' added UserMsg returned values for 'Attenuator position is UNKNOWN'
+        values = zip(
+            attenuator_names,
+            [
+                retval
+                for widget, retval in choices.items()
+                if not isinstance(widget, UserMsg)
+            ],
+        )
         obj.move(flatten(values))
     return obj

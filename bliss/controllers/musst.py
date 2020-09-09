@@ -5,6 +5,7 @@
 # Copyright (c) 2015-2020 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
+import time
 import weakref
 import os
 import hashlib
@@ -12,6 +13,7 @@ import functools
 import numpy
 import gevent
 
+from bliss import global_map
 from bliss.comm import get_comm
 from bliss.common.utils import autocomplete_property
 from bliss.common.greenlet_utils import KillMask, protect_from_kill
@@ -20,13 +22,8 @@ from bliss.config.conductor.client import remote_open
 from bliss.common.switch import Switch as BaseSwitch
 from bliss.controllers.counter import CounterController
 from bliss.scanning.acquisition.musst import MusstDefaultAcquisitionMaster
-from bliss.scanning.acquisition.musst import MusstIntegratingAcquisitionSlave
-from bliss.common.counter import SamplingCounter, IntegratingCounter
-from bliss.controllers.counter import (
-    IntegratingCounterController,
-    SamplingCounterController,
-    counter_namespace,
-)
+from bliss.common.counter import Counter, SamplingCounter
+from bliss.controllers.counter import SamplingCounterController, counter_namespace
 
 
 def _get_simple_property(command_name, doc_sring):
@@ -72,51 +69,40 @@ class MusstSamplingCounter(SamplingCounter):
         self.channel_config = channel_config
 
 
-class MusstIntegratingCounter(IntegratingCounter):
+class MusstIntegratingCounter(Counter):
     def __init__(self, name, channel, channel_config, controller):
-        IntegratingCounter.__init__(self, name, controller)
+        super().__init__(name, controller)
         self.channel = channel
         self.channel_config = channel_config
 
 
 class MusstSamplingCounterController(SamplingCounterController):
-    def __init__(self, name, master_controller):
-        super().__init__(
-            name, master_controller=master_controller, register_counters=False
-        )
+    def __init__(self, musst):
+        super().__init__(musst.name, register_counters=False)
+        self.musst_ctrl = musst
 
     def read_all(self, *counters):
         """ return the values of the given counters as a list.
             If possible this method should optimize the reading of all counters at once.
         """
-        return self._master_controller.read_all(*counters)
+        return self.musst_ctrl.read_all(*counters)
 
 
-class MusstIntegratingCounterController(IntegratingCounterController):
-    def __init__(self, name, master_controller):
-        IntegratingCounterController.__init__(
-            self,
-            name=name,
-            master_controller=master_controller,
-            register_counters=False,
-        )
+class MusstIntegratingCounterController(CounterController):
+    def __init__(self, musst):
+        super().__init__(name=musst.name, register_counters=False)
+        self.musst = musst
 
     def get_acquisition_object(self, acq_params, ctrl_params, parent_acq_params):
-
-        if "count_time" in parent_acq_params:
-            acq_params.setdefault("count_time", parent_acq_params["count_time"])
-        if "npoints" in parent_acq_params:
-            acq_params.setdefault("npoints", parent_acq_params["npoints"])
-
-        return MusstIntegratingAcquisitionSlave(
-            self, ctrl_params=ctrl_params, **acq_params
+        return MusstDefaultAcquisitionMaster(
+            self, self.musst, ctrl_params=ctrl_params, **acq_params
         )
 
-    def get_values(self, from_index, *counters):
-        return self._master_controller.read_all(*counters)
+    def get_default_chain_parameters(self, scan_params, acq_params):
+        return {"count_time": acq_params.get("count_time", scan_params["count_time"])}
 
 
-class musst(CounterController):
+class musst:
     class channel(object):
         COUNTER, ENCODER, SSI, ADC10, ADC5, SWITCH = list(range(6))
 
@@ -312,8 +298,6 @@ class musst(CounterController):
           name:               -- use to reference an external switch
         """
 
-        super().__init__(name)
-
         gpib = config_tree.get("gpib")
         comm_opts = dict()
         if gpib:
@@ -352,6 +336,7 @@ class musst(CounterController):
             "10MHZ": self.F_10MHZ,
             "50MHZ": self.F_50MHZ,
         }
+        self.name = name
         self.__last_md5 = Cache(self, "last__md5")
         self.__prg_root = config_tree.get("musst_prg_root")
         self.__block_size = config_tree.get("block_size", 8 * 1024)
@@ -359,11 +344,12 @@ class musst(CounterController):
             "one_line_programing", "serial_url" in config_tree
         )
 
-        self.sampling_counters = MusstSamplingCounterController("samp", self)
-        self.integrating_counters = MusstIntegratingCounterController("integ", self)
+        self.sampling_counters = MusstSamplingCounterController(self)
+        self.integrating_counters = MusstIntegratingCounterController(self)
 
         self._channels = None
         self._timer_factor = None
+        self._counters = []
         self._counter_init(config_tree)
 
         # this function will be used by lazy_init
@@ -372,24 +358,15 @@ class musst(CounterController):
                 self._channels_init(config_tree)
 
         self._init = init
+        self._last_run = time.time()
+        global_map.register(self, parents_list=["counters"])
 
-    def get_acquisition_object(self, acq_params, ctrl_params, parent_acq_params):
-        return MusstDefaultAcquisitionMaster(
-            self, ctrl_params=ctrl_params, **acq_params
-        )
-
-    def get_default_chain_parameters(self, scan_params, acq_params):
-        params = {}
-        try:
-            params["count_time"] = acq_params["count_time"]
-        except KeyError:
-            params["count_time"] = scan_params["count_time"]
-
-        return params
+    def __getattr__(self, name):
+        return getattr(self.integrating_counters, name)
 
     def _counter_init(self, config_tree):
         """ Handle counters from config """
-
+        self._counters = list()
         channels_list = config_tree.get("channels", list())
         for channel_config in channels_list:
             cnt_name = channel_config.get("counter_name")
@@ -407,16 +384,22 @@ class musst(CounterController):
                     )
 
                 if channel_type in ("cnt",):
-                    self.integrating_counters.create_counter(
-                        MusstIntegratingCounter, cnt_name, cnt_channel, channel_config
+                    self._counters.append(
+                        MusstIntegratingCounter(
+                            cnt_name,
+                            cnt_channel,
+                            channel_config,
+                            self.integrating_counters,
+                        )
                     )
                 elif channel_type in ("encoder", "ssi", "adc5", "adc10"):
-                    cnt = self.sampling_counters.create_counter(
-                        MusstSamplingCounter, cnt_name, cnt_channel, channel_config
+                    cnt = MusstSamplingCounter(
+                        cnt_name, cnt_channel, channel_config, self.sampling_counters
                     )
                     cnt_mode = channel_config.get("counter_mode")
                     if cnt_mode:
                         cnt.mode = cnt_mode
+                    self._counters.append(cnt)
 
     def _channels_init(self, config_tree):
         """ Handle configured channels """
@@ -546,7 +529,7 @@ class musst(CounterController):
         if wait:
             self._wait()
 
-    def ct(self, time=None, wait=True):
+    def ct(self, acq_time=None, wait=True):
         """Starts the system timer, all the counting channels
         and the MCA. All the counting channels
         are previously cleared.
@@ -554,13 +537,17 @@ class musst(CounterController):
         time -- If specified, the counters run for that time (in s.)
         """
         self._timer_factor = self.get_timer_factor()
-        if time is not None:
-            time_clock = time * self._timer_factor
+        diff = time.time() - self._last_run
+        if diff < 0.02:
+            gevent.sleep(0.02 - diff)
+        if acq_time is not None:
+            time_clock = acq_time * self._timer_factor
             self.putget("#RUNCT %d" % time_clock)
         else:
             self.putget("#RUNCT")
         if wait:
             self._wait()
+        self._last_run = time.time()
 
     def upload_file(self, fname, prg_root=None, template_replacement={}):
         """ Load a program into the musst device.
@@ -807,7 +794,7 @@ class musst(CounterController):
                     )
         return list(channels.values())
 
-    # Add a read_all method to read counters (also used by the sub integrating and sampling counter controllers)
+    # Add a read_all method to read counters
     def read_all(self, *counters):
         if len(counters) > 0:
             read_cmd = ""
@@ -843,10 +830,7 @@ class musst(CounterController):
 
     @autocomplete_property
     def counters(self):
-        all_counters = {}
-        all_counters.update(self.integrating_counters._counters)
-        all_counters.update(self.sampling_counters._counters)
-        return counter_namespace(all_counters)
+        return counter_namespace(self._counters)
 
 
 # Musst switch

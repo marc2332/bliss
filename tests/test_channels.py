@@ -20,7 +20,7 @@ from bliss.comm.rpc import Client
 
 def test_channel_not_initialized(beacon):
     c = channels.Channel("tagada")
-    assert c.timeout == 3.0
+    assert c.timeout == channels.DEFAULT_TIMEOUT
     assert c.value is None
 
 

@@ -21,6 +21,7 @@ from bliss.common.event import saferef
 
 from redis.exceptions import ConnectionError
 
+DEFAULT_TIMEOUT = 10.
 _NotProvided = type("_NotProvided", (), {})()
 _Query = namedtuple("_Query", "id")
 _Reply = namedtuple("_Reply", "id value")
@@ -398,7 +399,7 @@ class Channel(AdvancedInstantiationInterface):
 
     @property
     def timeout(self):
-        return self._timeout or 3.
+        return self._timeout or DEFAULT_TIMEOUT
 
     @timeout.setter
     def timeout(self, value):

@@ -22,10 +22,10 @@ def create_objects_from_config_node(config, cfg_node):
     o = klass(item_name, cfg_node.clone())
 
     for key, value in cfg_node.items():
-        if isinstance(value, ConfigReference):
+        if isinstance(cfg_node.raw_get(key), ConfigReference):
             if hasattr(o, key):
                 continue
             else:
-                setattr(o, key, value.dereference())
+                setattr(o, key, value)
 
     return {item_name: o}

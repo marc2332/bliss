@@ -26,6 +26,9 @@ def test_ebv(session, lima_simulator2, clean_gevent, flint_session):
 
     bv1.bpm.snap()
 
+    # test for issue 2023
+    assert bv1.wago_controller
+
 
 def test_bpm(session, lima_simulator2):
     bpm = session.config.get("bpm2")

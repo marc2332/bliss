@@ -177,13 +177,3 @@ DEMO [6]: mama.check
 DEMO [7]: mama.check=True
 
 ```
-
-!!! warning
-    Do not forget to initialize `Machinfo` object in setup.
-    ```
-    try:
-        mama.initialize()
-    except:
-        print("no machinfo")
-    ```
-

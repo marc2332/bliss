@@ -85,6 +85,8 @@ class MachInfo(BeaconObject):
         else:
             self._counter_grp = dict()
 
+        self.initialize()
+
     @property
     @BeaconObject.lazy_init
     def counters(self):

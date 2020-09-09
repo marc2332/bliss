@@ -498,14 +498,22 @@ class Nhq:
 
         if level == 1:
             s1, v1 = self.chA.status, self.chA.voltage
-            s2, v2 = self.chB.status, self.chB.voltage
+            try:
+                s2, v2 = self.chB.status, self.chB.voltage
+            except ValueError:
+                # no channel B on this device
+                s2, v2 = None, None
 
             txt += f"Channel A state : {s1} @ {v1}V\n"
-            txt += f"Channel B state : {s2} @ {v2}V\n"
+            if not None in (s2, v2):
+                txt += f"Channel B state : {s2} @ {v2}V\n"
 
         else:
             txt += "\n" + self.chA.__info__(show_module_info=False) + "\n"
-            txt += "\n" + self.chB.__info__(show_module_info=False) + "\n"
+            try:
+                txt += "\n" + self.chB.__info__(show_module_info=False) + "\n"
+            except Exception:
+                pass
 
         return txt
 
@@ -629,9 +637,17 @@ class Nhq:
                 gevent.sleep(self._comm_delay)
                 asw = self._comm._readline(eol="\r\n")
                 asw = asw.decode()
-                if asw.find("-") == len(asw) - 2:
+
+                if asw.startswith("-"):
+                    # negative value
+                    sign = "-"
+                    asw = asw[1:]
+                else:
+                    sign = ""
+
+                if asw[-3] == "-":
                     f = asw.split("-")
-                    asw = f[0] + "E-" + f[1]
+                    asw = f"{sign}{f[0]}E-{f[1]}"
                 if re.search(r"\?", asw):
                     asw = f"Error. Unexpected reply = {asw}"
                     self._comm.flush()

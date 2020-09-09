@@ -910,25 +910,40 @@ def edit_roi_counters(detector: Lima, acq_time: Optional[float] = None):
         )
 
     roi_counters = detector.roi_counters
-    selections = [plot_module.convert_roi_to_flint(r) for r in roi_counters.get_rois()]
-    name = f"{detector.name} [{roi_counters.config_name}]"
-    print(f"Waiting for ROI edition to finish on {name}...")
-    selections = plot_proxy.select_shapes(selections, kinds=["rectangle", "arc"])
+    roi2spectrum_counters = detector.roi2spectrum_counters
+
+    # Retrieve all the ROIs
+    selections = []
+    for roi in roi_counters.get_rois():
+        roi_dict = plot_module.convert_roi_to_flint(roi)
+        selections.append(roi_dict)
+    config = roi2spectrum_counters.get_roi_modes()
+    for roi in roi2spectrum_counters.get_rois():
+        mode = config[roi.name]
+        roi_dict = plot_module.convert_roi_to_flint(roi, mode)
+        selections.append(roi_dict)
+
+    deviceName = f"{detector.name} [{roi_counters.config_name}, {roi2spectrum_counters.config_name}]"
+    print(f"Waiting for ROI edition to finish on {deviceName}...")
+    selections = plot_proxy.select_shapes(
+        selections,
+        kinds=["rectangle", "arc", "rectangle-vreduction", "rectangle-hreduction"],
+    )
 
     result = [plot_module.convert_roi_to_bliss(r) for r in selections]
     result = [r for r in result if r is not None]
 
-    # Warn on skipped ROIs
-    ignored = len(selections) - len(result)
-    if ignored:
-        print(f"{ignored} ROI(s) ignored (no name)")
-
-    roi_labels: typing.List[str] = [r[0] for r in result]
-    rois: typing.List[typing.Tuple] = [r[1] for r in result]
     roi_counters.clear()
-    roi_counters[roi_labels] = rois
-    roi_string = ", ".join(sorted(roi_labels))
-    print(f"Applied ROIS {roi_string} to {name}")
+    roi2spectrum_counters.clear()
+    for name, roi, mode in result:
+        if mode is None:
+            roi_counters[name] = roi
+        else:
+            roi2spectrum_counters[name] = roi
+            roi2spectrum_counters.set_roi_modes(mode, [name])
+
+    roi_string = ", ".join(sorted([r[0] for r in result]))
+    print(f"Applied ROIS {roi_string} to {deviceName}")
 
 
 def interlock_show(wago_obj=None):

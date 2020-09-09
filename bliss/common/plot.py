@@ -495,11 +495,15 @@ def get_plot(
         print("Argument plot_type uses an invalid value: '%s'." % plot_type)
 
 
-def convert_roi_to_flint(roi):
+def convert_roi_to_flint(roi, mode=None):
     """Convert a received ROI from BLISS to Flint
 
     FIXME: Remove it, the interaction between flint and bliss should use pickle
     to improve flexibility
+
+    Arguments:
+        roi: A ROI object from BLISS
+        mode: A mode used by roi2spectrum
     """
     # Avoid cyclic import
     from bliss.controllers.lima import roi as lima_roi
@@ -511,13 +515,15 @@ def convert_roi_to_flint(roi):
             size=(roi.width, roi.height),
             label=roi.name,
         )
+        if mode is not None:
+            result["reduction"] = mode
     elif isinstance(roi, lima_roi.ArcRoi):
         result = dict(kind="Arc", label=roi.name)
         result.update(roi.to_dict())
     return result
 
 
-def convert_roi_to_bliss(roi) -> Optional[Tuple[str, Any]]:
+def convert_roi_to_bliss(roi) -> Optional[Tuple[str, Any, Optional[str]]]:
     """Convert a received ROIs from Flint to BLISS
 
     FIXME: Remove it, the interaction between flint and bliss should use pickle
@@ -525,14 +531,22 @@ def convert_roi_to_bliss(roi) -> Optional[Tuple[str, Any]]:
     """
     label = roi["label"]
     if not label:
+        FLINT_LOGGER.warning("ROI without name. Skipped.")
         return None
     kind = roi["kind"].lower()
     if kind == "rectangle":
         x, y = map(int, map(round, roi["origin"]))
         w, h = map(int, map(round, roi["size"]))
-        return label, (x, y, w, h)
+        mode = roi.get("reduction", None)
+        if mode not in [None, "vertical", "horizontal"]:
+            FLINT_LOGGER.warning(
+                "ROI %s with unknown reduction mode %s. Skipped.", label, mode
+            )
+            return None
+        return label, (x, y, w, h), mode
     elif kind == "arc":
         keys = ("cx", "cy", "r1", "r2", "a1", "a2")
         roi_tuple = tuple(roi[c] for c in keys)
-        return label, roi_tuple
+        return label, roi_tuple, None
+    FLINT_LOGGER.warning("ROI %s with unknown kind %s. Skipped.", label, kind)
     return None

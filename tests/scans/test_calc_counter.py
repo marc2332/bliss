@@ -8,7 +8,7 @@
 # ----------------------------- TEST -----------------------------------------------------------
 import numpy
 import pytest
-from bliss.common.scans import ascan, loopscan
+from bliss.common.scans import ascan, loopscan, dscan
 from bliss.controllers.simulation_calc_counter import MeanCalcCounterController
 from bliss.scanning.acquisition.motor import LinearStepTriggerMaster
 from bliss.scanning.acquisition.calc import CalcChannelAcquisitionSlave, CalcHook
@@ -310,4 +310,23 @@ def test_expr_calc_counter_beaconobject(default_session):
         s.get_data()["simulation_diode_sampling_controller:diode"] * 20
         + s.get_data()["simulation_diode_sampling_controller:diode2"]
         == s.get_data()["simu_expr_calc_ctrl:simu_expr_calc"]
+    )
+
+
+def test_expr_calc_counter_with_ref(default_session):
+    roby = default_session.config.get("roby")
+    diode = default_session.config.get("diode")
+    simu_expr_calc_ref = default_session.config.get("simu_expr_calc_ref")
+
+    d = simu_expr_calc_ref.constants.to_dict()
+    assert d["b"] == roby.position
+    roby.rmove(1)
+    d = simu_expr_calc_ref.constants.to_dict()
+    assert d["b"] == roby.position
+
+    s = dscan(roby, -.1, .1, 5, 0.001, simu_expr_calc_ref, save=False)
+    assert numpy.array_equal(
+        s.get_data()["simulation_diode_sampling_controller:diode"]
+        + s.get_data()["axis:roby"],
+        s.get_data()["simu_expr_calc_ref_ctrl:simu_expr_calc_ref"],
     )

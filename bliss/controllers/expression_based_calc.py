@@ -1,15 +1,40 @@
 from bliss.common.counter import CalcCounter
 from bliss.controllers.counter import CalcCounterController
 from bliss.config.beacon_object import BeaconObject
+from bliss.config.static import ConfigReference
 import numexpr
 
 
-class ExprCalcParameters(BeaconObject):
-    def __init__(self, config, name):
+class ExprCalcParametersMeta(type):
+    def __new__(metacls, name, bases, namespace, **kwargs):
+        cls = super().__new__(metacls, name, (BeaconObject,), namespace, **kwargs)
+        return cls
+
+    def __call__(cls, name, config):
+        if "constants" in config:
+            for key, value in (
+                config["constants"].to_dict(resolve_references=False).items()
+            ):
+                if isinstance(value, str) and value.startswith("$"):
+                    # this constant is a reference
+                    setattr(cls, key, config["constants"].raw_get(key))
+                else:
+                    setattr(cls, key, BeaconObject.property_setting(key, default=value))
+        return super().__call__(name, config)
+
+
+class ExprCalcParameters(metaclass=ExprCalcParametersMeta):
+    def __init__(self, name, config):
         super().__init__(config, name=name, share_hardware=False, path=["constants"])
 
     def to_dict(self):
-        return {key: getattr(self, key) for key in self.config.to_dict().keys()}
+        ret = {}
+        for key in self.config.keys():
+            v = getattr(self, key)
+            if isinstance(v, ConfigReference):
+                v = v.dereference()
+            ret[key] = v
+        return ret
 
     def __info__(self):
         # TODO: make nicer!
@@ -18,20 +43,9 @@ class ExprCalcParameters(BeaconObject):
 
 class ExpressionCalcCounter(CalcCounter):
     def __init__(self, name, config):
-        class ExprCalcCounterParameters(ExprCalcParameters):
-            # has to be a local class as we set properties on it later (on runtime)
-            pass
-
         self._expression = config["expression"]
 
-        if "constants" in config:
-            for key, value in config["constants"].to_dict().items():
-                setattr(
-                    ExprCalcCounterParameters,
-                    key,
-                    BeaconObject.property_setting(key, default=value),
-                )
-        self.constants = ExprCalcCounterParameters(config, name)
+        self.constants = ExprCalcParameters(name, config)
 
         calc_ctrl_config = {
             "inputs": config["inputs"],
@@ -64,20 +78,9 @@ class ExpressionCalcCounter(CalcCounter):
 
 class ExpressionCalcCounterController(CalcCounterController):
     def __init__(self, name, config):
-        class ExprCalcCntCtrlParameters(ExprCalcParameters):
-            # has to be a local class as we set properties on it later (on runtime)
-            pass
-
-        if "constants" in config:
-            for key, value in config["constants"].to_dict().items():
-                setattr(
-                    ExprCalcCntCtrlParameters,
-                    key,
-                    BeaconObject.property_setting(key, default=value),
-                )
-        self.constants = ExprCalcCntCtrlParameters(config, name)
-
+        self.constants = ExprCalcParameters(name, config)
         self._expressions = dict()
+
         for o in config["outputs"]:
             self._expressions[o["name"]] = o["expression"]
 

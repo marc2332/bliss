@@ -17,13 +17,13 @@ from silx.gui.colors import rgba
 _logger = logging.getLogger(__name__)
 
 
-class _ReductionLimaRoi(RectangleROI):
+class ReductionLimaRoi(RectangleROI):
     class Directions(enum.Enum):
         VERTICAL_REDUCTION = "vertical-reduction"
         HORIZONTAL_REDUCTION = "horizontal-reduction"
 
     def __init__(self, parent=None):
-        super(_ReductionLimaRoi, self).__init__(parent=parent)
+        super(ReductionLimaRoi, self).__init__(parent=parent)
         self.__limaKind = self.Directions.VERTICAL_REDUCTION
         line = items.Shape("polylines")
         # line.setPoints([[0, 0], [0, 0]])
@@ -43,10 +43,10 @@ class _ReductionLimaRoi(RectangleROI):
     def _updated(self, event=None, checkVisibility=True):
         if event in [items.ItemChangedType.VISIBLE]:
             self._updateItemProperty(event, self, self.__line)
-        super(_ReductionLimaRoi, self)._updated(event, checkVisibility)
+        super(ReductionLimaRoi, self)._updated(event, checkVisibility)
 
     def _updatedStyle(self, event, style):
-        super(_ReductionLimaRoi, self)._updatedStyle(event, style)
+        super(ReductionLimaRoi, self)._updatedStyle(event, style)
         self.__line.setColor(style.getColor())
         self.__line.setLineStyle(style.getLineStyle())
         self.__line.setLineWidth(style.getLineWidth())
@@ -81,7 +81,7 @@ class _ReductionLimaRoi(RectangleROI):
         self.__symbol.setPosition(*points[1])
 
 
-class VerticalReductionLimaRoi(_ReductionLimaRoi):
+class VerticalReductionLimaRoi(ReductionLimaRoi):
     """
     Silx ROI displaying a rectangle ROI with extra overlay to show that there is
     a vertical reduction of the data.
@@ -94,11 +94,11 @@ class VerticalReductionLimaRoi(_ReductionLimaRoi):
     SHORT_NAME = "vertical reduction"
 
     def __init__(self, parent=None):
-        _ReductionLimaRoi.__init__(self, parent=parent)
-        self.setLimaKind(_ReductionLimaRoi.Directions.VERTICAL_REDUCTION)
+        ReductionLimaRoi.__init__(self, parent=parent)
+        self.setLimaKind(ReductionLimaRoi.Directions.VERTICAL_REDUCTION)
 
 
-class HorizontalReductionLimaRoi(_ReductionLimaRoi):
+class HorizontalReductionLimaRoi(ReductionLimaRoi):
     """
     Silx ROI displaying a rectangle ROI with extra overlay to show that there is
     a horizontal reduction of the data.
@@ -111,5 +111,5 @@ class HorizontalReductionLimaRoi(_ReductionLimaRoi):
     SHORT_NAME = "horizontal reduction"
 
     def __init__(self, parent=None):
-        _ReductionLimaRoi.__init__(self, parent=parent)
-        self.setLimaKind(_ReductionLimaRoi.Directions.HORIZONTAL_REDUCTION)
+        ReductionLimaRoi.__init__(self, parent=parent)
+        self.setLimaKind(ReductionLimaRoi.Directions.HORIZONTAL_REDUCTION)

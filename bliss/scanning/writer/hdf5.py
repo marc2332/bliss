@@ -259,6 +259,7 @@ class Writer(FileWriter):
         """
         entry_names = self.get_scan_entries()
         if entry_names:
-            return max(int(s.split(".")[0]) for s in entry_names)
+            # entries are like scan_n[.second_number]_name
+            return max(int(s.split("_")[0].split(".")[0]) for s in entry_names)
         else:
             return 0

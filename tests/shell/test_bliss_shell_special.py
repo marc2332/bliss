@@ -43,7 +43,7 @@ def _run_incomplete(cmd_input, local_locals, slow=False):
 
         # Slow tests on CI: 2 seconds is ok; 4 seconds is needed when it is
         # used together with coverage
-        timeout = 4 if slow else 0.5
+        timeout = 5 if slow else 1
         with gevent.Timeout(timeout, RuntimeError()):
             br.app.run()
             # this will necessarily result in RuntimeError as the input line is not complete
@@ -86,7 +86,7 @@ def test_shell_completion(clean_gevent, beacon):
     session = beacon.get("test_session5")
     session.setup(env_dict)
 
-    br = _run_incomplete("m", env_dict)
+    br = _run_incomplete("m", env_dict, slow=True)
     completions = _get_completion(br)
 
     assert "m2" in completions
@@ -247,14 +247,14 @@ def test_shell_autocomplete_property():
 
     tpc = Test_property_class()
 
-    br = _run_incomplete("tpc.", {"tpc": tpc})
+    br = _run_incomplete("tpc.", {"tpc": tpc}, slow=True)
     completions = _get_completion(br)
     assert "x" in completions
     assert "y" in completions
     assert "z" in completions
     del (br)
 
-    br = _run_incomplete("tpc.x.", {"tpc": tpc}, slow=True)
+    br = _run_incomplete("tpc.x.", {"tpc": tpc})
     completions = _get_completion(br)
     assert "b" in completions
 
@@ -262,7 +262,7 @@ def test_shell_autocomplete_property():
     completions = _get_completion(br)
     assert completions == {}
 
-    br = _run_incomplete("tpc.z.", {"tpc": tpc}, slow=True)
+    br = _run_incomplete("tpc.z.", {"tpc": tpc})
     completions = _get_completion(br)
     assert "b" in completions
 
@@ -362,7 +362,7 @@ t = Test()
         loc,
     )
 
-    br = _run_incomplete("t.func(", {"t": loc["t"]}, slow=True)
+    br = _run_incomplete("t.func(", {"t": loc["t"]})
 
     sb = [
         n

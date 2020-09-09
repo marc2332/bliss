@@ -299,7 +299,7 @@ class Connection(object):
         sock.connect(uds_path)
         return sock
 
-    def _uds_query(self, timeout=1.0):
+    def _uds_query(self, timeout=3.0):
         self._uds_query_event.clear()
         self._sendall(
             protocol.message(protocol.UDS_QUERY, socket.gethostname().encode())
@@ -354,7 +354,7 @@ class Connection(object):
             self._greenlet_to_lockobjects.pop(gevent.getcurrent(), None)
 
     @check_connect
-    def get_redis_connection_address(self, timeout=1.0):
+    def get_redis_connection_address(self, timeout=3.0):
         if self._redis_host is None:
             with gevent.Timeout(
                 timeout, RuntimeError("Can't get redis connection information")
@@ -420,7 +420,7 @@ class Connection(object):
             cnx.close()
 
     @check_connect
-    def get_config_file(self, file_path, timeout=1.0):
+    def get_config_file(self, file_path, timeout=3.0):
         with gevent.Timeout(timeout, RuntimeError("Can't get configuration file")):
             with self.WaitingQueue(self) as wq:
                 msg = b"%s|%s" % (wq.message_key(), file_path.encode())
@@ -433,7 +433,7 @@ class Connection(object):
                     return value
 
     @check_connect
-    def get_config_db_tree(self, base_path="", timeout=1.0):
+    def get_config_db_tree(self, base_path="", timeout=3.0):
         with gevent.Timeout(timeout, RuntimeError("Can't get configuration tree")):
             with self.WaitingQueue(self) as wq:
                 msg = b"%s|%s" % (wq.message_key(), base_path.encode())
@@ -447,7 +447,7 @@ class Connection(object):
                     return json.loads(value)
 
     @check_connect
-    def remove_config_file(self, file_path, timeout=1.0):
+    def remove_config_file(self, file_path, timeout=3.0):
         with gevent.Timeout(timeout, RuntimeError("Can't remove configuration file")):
             with self.WaitingQueue(self) as wq:
                 msg = b"%s|%s" % (wq.message_key(), file_path.encode())
@@ -456,7 +456,7 @@ class Connection(object):
                     print(rx_msg)
 
     @check_connect
-    def move_config_path(self, src_path, dst_path, timeout=1.0):
+    def move_config_path(self, src_path, dst_path, timeout=3.0):
         with gevent.Timeout(timeout, RuntimeError("Can't move configuration file")):
             with self.WaitingQueue(self) as wq:
                 msg = b"%s|%s|%s" % (

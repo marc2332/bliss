@@ -37,6 +37,9 @@ class RoiSelectionWidget(qt.QMainWindow):
         self.roi_manager.setColor("pink")
         self.roi_manager.sigRoiAdded.connect(self.__roiAdded)
         self.table = RegionOfInterestTableWidget()
+        # Hide coords
+        horizontalHeader = self.table.horizontalHeader()
+        horizontalHeader.hideSection(3)
         self.table.setRegionOfInterestManager(self.roi_manager)
 
         if kinds is None:

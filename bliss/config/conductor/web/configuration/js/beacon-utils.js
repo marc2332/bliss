@@ -64,7 +64,7 @@ function reload_tree(tree, options) {
     tree.treeview(tree_options);
   }, "json")
   .fail(function() {
-    show_notification("Error while loading tree", "error");
+    show_notification("Error loading " + options.perspective + " tree", "error");
   });
 }
 

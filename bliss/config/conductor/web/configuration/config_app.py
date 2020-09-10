@@ -202,7 +202,7 @@ class WebConfig(object):
     def __build_tree_tags(self):
         result = {}
         for name, item in self.items.items():
-            for tag in item["tags"] or ["__no_tag__"]:
+            for tag in item["tags"] or ["(no tag)"]:
                 tag_data = result.get(tag)
                 if tag_data is None:
                     tag_data = [dict(type="folder", path=tag, icon="fa fa-folder"), {}]

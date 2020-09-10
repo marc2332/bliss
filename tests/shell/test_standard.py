@@ -5,6 +5,7 @@ import pytest
 import numpy
 import psutil
 
+from bliss.shell import standard
 from bliss.shell.standard import wa, wm, sta, stm, _launch_silx, umv
 
 from bliss.shell.standard import sin, cos, tan, arcsin, arccos, arctan, arctan2
@@ -316,3 +317,35 @@ def test_open_kill_flint(test_session_without_flint):
     process = psutil.Process(pid)
     psutil.wait_procs([process], timeout=1)
     assert not psutil.pid_exists(pid)
+
+
+def test_edit_roi_counters(
+    mocker, beacon, default_session, lima_simulator, test_session_with_flint
+):
+    class PlotMock:
+        def select_shapes(self, *args, **kwargs):
+            roi = dict(kind="Rectangle", origin=(10, 11), size=(100, 101), label="roi1")
+            roi2spectrum = dict(
+                kind="Rectangle",
+                origin=(20, 21),
+                size=(200, 201),
+                label="roi1",
+                reduction="vertical",
+            )
+            return [roi, roi2spectrum]
+
+    # Mock few functions to coverage the code without flint
+    mocker.patch("bliss.common.plot.plot_image", return_value=PlotMock())
+
+    cam = beacon.get("lima_simulator")
+
+    cam.roi_counters.clear()
+    cam.roi2spectrum_counters.clear()
+    cam.roi_counters["foo1"] = [20, 20, 18, 20]
+    cam.roi2spectrum_counters["foo1"] = [20, 20, 18, 20]
+    standard.edit_roi_counters(cam)
+    assert "roi1" in cam.roi_counters
+    assert cam.roi_counters["roi1"].width == 100
+    assert "roi1" in cam.roi2spectrum_counters
+    assert cam.roi2spectrum_counters["roi1"].width == 200
+    assert cam.roi2spectrum_counters.get_roi_modes()["roi1"] == "vertical"

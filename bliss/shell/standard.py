@@ -897,7 +897,9 @@ def edit_roi_counters(detector: Lima, acq_time: Optional[float] = None):
         except:
             # Else create a checker board place holder
             y, x = numpy.mgrid[0 : detector.image.height, 0 : detector.image.width]
-            data = ((y // 16 + x // 16) % 2).astype(numpy.uint8)
+            data = ((y // 16 + x // 16) % 2).astype(numpy.uint8) + 2
+            data[0, 0] = 0
+            data[-1, -1] = 5
 
         flint.set_static_image(channel_name, data)
         plot_id = flint.get_live_scan_plot(channel_name, "image")

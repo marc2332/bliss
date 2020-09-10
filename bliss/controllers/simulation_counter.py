@@ -512,8 +512,12 @@ class FixedShapeCounter:
         self.init_signal()
 
     @property
-    def npoints(self):
+    def nsteps(self):
         return self._npoints + 1
+
+    @property
+    def npoints(self):
+        return self._npoints
 
     @npoints.setter
     def npoints(self, value):

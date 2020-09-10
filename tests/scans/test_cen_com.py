@@ -315,7 +315,7 @@ def test_goto(session):
 def test_com_with_neg_y(default_session):
     ob = FixedShapeCounter()
     ob.signal = "sawtooth"
-    s = scans.ascan(ob.axis, 0, 1, ob.npoints, .01, ob.counter)
+    s = scans.ascan(ob.axis, 0, 1, ob.nsteps, .01, ob.counter)
     com = s.com(ob.counter, axis=ob.axis)
     assert pytest.approx(com, abs=.0001) == 0.5987
 

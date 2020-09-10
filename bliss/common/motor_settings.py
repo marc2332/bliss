@@ -97,7 +97,9 @@ disabled_settings_namedtuple = collections.namedtuple(
 class AxisSettings:
     def __init__(self, axis):
         self.__axis = axis
-        self.__state = None
+        self.__prev_state = None
+        self.__prev_position = None
+        self.__prev_dial = None
         self._beacon_channels = {}
         self._disabled_settings = disabled_settings_namedtuple(
             set(), dict(axis.config.config_dict)
@@ -249,10 +251,22 @@ class AxisSettings:
             setattr(axis, setting_name, value)
 
     def set(self, setting_name, value):
+        # the last 3 tests prevent recursion when getting one of those
+        # settings, that can do a set in some circumstances (first time or
+        # 'no settings axis' for example), that emit a new setting event,
+        # that can execute a callback that can get state or position...
         if setting_name == "state":
-            if self.__state == value:
+            if self.__prev_state == value:
                 return
-            self.__state = value
+            self.__prev_state = value
+        if setting_name == "position":
+            if self.__prev_position == value:
+                return
+            self.__prev_position = value
+        if setting_name == "dial_position":
+            if self.__prev_dial == value:
+                return
+            self.__prev_dial = value
 
         axis = self.__axis
         axis_settings = axis.controller.axis_settings

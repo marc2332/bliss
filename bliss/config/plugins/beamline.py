@@ -6,8 +6,8 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 
+from bliss.config.static import ConfigNode, ConfigList
 import os
-import sys
 
 import flask.json
 
@@ -41,7 +41,7 @@ def __get_main(cfg):
 
     params = {}
     for k, v in cfg.root.items():
-        if not isinstance(v, (list, tuple, dict)):
+        if not isinstance(v, (ConfigList, ConfigNode)):
             params[k] = v
     logo = cfg.root.get("logo", "res/logo.png")
 

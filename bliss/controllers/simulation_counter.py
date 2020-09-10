@@ -412,9 +412,9 @@ class FixedShapeCounter:
     """
 
     @staticmethod
-    def _missing_edge_of_gaussion_left(npoints):
+    def _missing_edge_of_gaussian_left(npoints, frac_missing):
         p = npoints // 2
-        p2 = p // 4
+        p2 = int(p * frac_missing)
         return np.concatenate(
             (signal.gaussian(p, .1 * npoints)[p2:], np.zeros(p2), np.zeros(npoints - p))
         )
@@ -431,11 +431,19 @@ class FixedShapeCounter:
                 signal.gaussian(npoints // 2, .1 * npoints),
             )
         ),
-        "missing_edge_of_gaussion_left": lambda npoints: FixedShapeCounter._missing_edge_of_gaussion_left(
-            npoints
+        "missing_edge_of_gaussian_left": lambda npoints: FixedShapeCounter._missing_edge_of_gaussian_left(
+            npoints, 0.25
         ),
-        "missing_edge_of_gaussion_right": lambda npoints: FixedShapeCounter._missing_edge_of_gaussion_left(
-            npoints
+        "missing_edge_of_gaussian_right": lambda npoints: FixedShapeCounter._missing_edge_of_gaussian_left(
+            npoints, 0.25
+        )[
+            ::-1
+        ],
+        "half_gaussian_right": lambda npoints: FixedShapeCounter._missing_edge_of_gaussian_left(
+            npoints, 0.4
+        ),
+        "half_gaussian_left": lambda npoints: FixedShapeCounter._missing_edge_of_gaussian_left(
+            npoints, 0.4
         )[
             ::-1
         ],

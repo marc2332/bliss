@@ -5,10 +5,8 @@
 # Copyright (c) 2015-2020 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-from collections import namedtuple
 import pytest
 import numpy
-from scipy import signal
 
 from bliss import setup_globals
 from bliss.common import scans
@@ -26,6 +24,7 @@ from bliss.scanning.scan_display import ScanDisplay
 from bliss.scanning import scan_tools, scan_math
 from bliss.common import plot
 from bliss.controllers.simulation_counter import FixedShapeCounter
+from tests.test_profiles import test_profiles
 
 
 def test_pkcom_ascan_gauss(session):
@@ -37,22 +36,29 @@ def test_pkcom_ascan_gauss(session):
 
     s = scans.ascan(roby, 0, 10, 10, 0, simul_counter, save=False, return_scan=True)
 
-    p = s.peak(simul_counter)
+    peak = s.peak(simul_counter)
+    cen = s.cen(simul_counter)
     fwhm = s.fwhm(simul_counter)
-    c = s.com(simul_counter)
+    com = s.com(simul_counter)
 
-    assert pytest.approx(p) == 5
-    assert pytest.approx(fwhm, abs=.01) == 4.57
-    assert pytest.approx(c) == 5
+    if False:
+        # For debugging
+        x, y = s._get_x_y_data(simul_counter, roby)
+        _plot_cen_com(x, y, cen=cen, com=com, fwhm=fwhm, title="sim_ct_gauss")
+
+    assert pytest.approx(peak) == 5
+    assert pytest.approx(com) == 5
+    assert pytest.approx(cen) == 5
+    assert pytest.approx(fwhm, abs=.01) == 4.07
     with pytest.raises(AssertionError):
         s.peak(simul_counter, m1)
     with pytest.raises(KeyError):
         s.peak(diode)
 
     s.goto_peak(simul_counter)
-    assert pytest.approx(roby.position) == p
+    assert pytest.approx(roby.position) == peak
     s.goto_com(simul_counter)
-    assert pytest.approx(roby.position) == c
+    assert pytest.approx(roby.position) == com
 
 
 def test_pkcom_a2scan_gauss(session):
@@ -75,7 +81,7 @@ def test_pkcom_a2scan_gauss(session):
     assert pytest.approx(p) == 5
 
     p = s.fwhm(simul_counter, roby)
-    assert pytest.approx(p, abs=.01) == 4.57
+    assert pytest.approx(p, abs=.01) == 4.07
 
     p = s.peak(simul_counter)
     assert p[robz] == 2.5
@@ -102,8 +108,8 @@ def test_pkcom_a2scan_gauss(session):
     )
 
     p = s.fwhm(simul_counter)
-    assert pytest.approx(p[robz], abs=.01) == 2.28
-    assert pytest.approx(p[roby], abs=.01) == 4.57
+    assert pytest.approx(p[robz], abs=.01) == 2.03
+    assert pytest.approx(p[roby], abs=.01) == 4.07
 
 
 def test_pkcom_timescan_gauss(session):
@@ -348,339 +354,96 @@ def test_find_position_goto_custom(session):
     assert roby.position == pytest.approx(.5, abs=.01)
 
 
-ExpDataset = namedtuple("ExpDataset", ["x", "y", "com", "cen", "fwhm"])
-# if cen or com are None there will be no test for the concerned parameter
+@pytest.mark.parametrize("data", test_profiles.experimental_data())
+def test_cen_com_with_data(data):
+    if data.com is None:
+        com = None
+    else:
+        com = scan_math.com(data.x, data.y)
 
-ExpData = [
-    ExpDataset(
-        numpy.arange(100),
-        signal.gaussian(100, 10),
-        pytest.approx(50, abs=1),
-        pytest.approx(50, abs=1),
-        pytest.approx(23.55, abs=.1),
-    ),  # to test the test...
-    ExpDataset(
-        numpy.array(
-            [
-                6.2483,
-                6.2508,
-                6.2583,
-                6.2608,
-                6.2733,
-                6.2708,
-                6.2733,
-                6.2758,
-                6.2783,
-                6.2833,
-                6.2908,
-                6.2933,
-                6.2983,
-                6.3008,
-                6.3083,
-                6.3083,
-                6.3133,
-                6.3108,
-                6.3208,
-                6.3258,
-                6.3283,
-                6.3333,
-                6.3383,
-                6.3408,
-                6.3458,
-                6.3508,
-                6.3558,
-                6.3583,
-                6.3633,
-                6.3633,
-                6.3708,
-                6.3733,
-                6.3733,
-                6.3808,
-                6.3858,
-                6.3883,
-                6.3958,
-                6.3983,
-                6.4008,
-                6.4058,
-                6.4108,
-                6.4158,
-                6.4183,
-                6.4208,
-                6.4258,
-                6.4283,
-                6.4308,
-                6.4358,
-                6.4433,
-                6.4458,
-                6.4483,
-            ]
-        ),
-        numpy.array(
-            [
-                97509.2,
-                97080.6,
-                95261.3,
-                95141.4,
-                93604.9,
-                93774.6,
-                94248,
-                94140.9,
-                94378.8,
-                96796.6,
-                104079,
-                110674,
-                122297,
-                134952,
-                156822,
-                164838,
-                190479,
-                170147,
-                207026,
-                224835,
-                238949,
-                260079,
-                295097,
-                339408,
-                469760,
-                635630,
-                1.22468e+06,
-                1.4857e+06,
-                1.99651e+06,
-                2.37889e+06,
-                3.5033e+06,
-                3.9517e+06,
-                4.10261e+06,
-                4.56964e+06,
-                4.40632e+06,
-                4.12317e+06,
-                3.51486e+06,
-                3.26117e+06,
-                2.87866e+06,
-                2.35846e+06,
-                2.00371e+06,
-                1.57291e+06,
-                1.36902e+06,
-                1.16209e+06,
-                951301,
-                845309,
-                737104,
-                629688,
-                478522,
-                417137,
-                342809,
-            ]
-        ),
-        pytest.approx(6.38, abs=.01),
-        pytest.approx(6.38, abs=.1),
-        pytest.approx(0.041, abs=.005),
-    ),
-    ExpDataset(
-        numpy.array(
-            [
-                0.0238095,
-                0.0238095,
-                0.0285714,
-                0.0285714,
-                0.0666667,
-                0.0619048,
-                0.0666667,
-                0.0761905,
-                0.0857143,
-                0.0904762,
-                0.0952381,
-                0.0904762,
-                0.0904762,
-                0.0904762,
-                0.0952381,
-                0.0952381,
-                0.0952381,
-                0.0714286,
-                0.0666667,
-                0.0666667,
-                0.0619048,
-                0.0619048,
-                0.0619048,
-                0.0619048,
-                0.0619048,
-                0.0666667,
-                0.0809524,
-                0.0809524,
-                0.0761905,
-                0.0809524,
-                0.0857143,
-                0.0857143,
-                0.0714286,
-                0.0619048,
-                0.0619048,
-                0.0619048,
-                0.0571429,
-                0.0571429,
-                0.0619048,
-                0.0619048,
-                0.0571429,
-                0.0666667,
-                0.0714286,
-                0.0714286,
-                0.0666667,
-                0.0619048,
-                0.052381,
-                0.0380952,
-                0.0380952,
-                0.0380952,
-                0.0380952,
-            ]
-        ),
-        numpy.array(
-            [
-                97509.2,
-                97080.6,
-                95261.3,
-                95141.4,
-                93604.9,
-                93774.6,
-                94248,
-                94140.9,
-                94378.8,
-                96796.6,
-                104079,
-                110674,
-                122297,
-                134952,
-                156822,
-                164838,
-                190479,
-                170147,
-                207026,
-                224835,
-                238949,
-                260079,
-                295097,
-                339408,
-                469760,
-                635630,
-                1.22468e+06,
-                1.4857e+06,
-                1.99651e+06,
-                2.37889e+06,
-                3.5033e+06,
-                3.9517e+06,
-                4.10261e+06,
-                4.56964e+06,
-                4.40632e+06,
-                4.12317e+06,
-                3.51486e+06,
-                3.26117e+06,
-                2.87866e+06,
-                2.35846e+06,
-                2.00371e+06,
-                1.57291e+06,
-                1.36902e+06,
-                1.16209e+06,
-                951301,
-                845309,
-                737104,
-                629688,
-                478522,
-                417137,
-                342809,
-            ]
-        ),
-        pytest.approx(0.06, abs=.01),
-        None,
-        None,
-    ),
-]
+    if data.cen is None:
+        cen = None
+    else:
+        cen = scan_math.cen(data.x, data.y).position
+
+    if data.fwhm is None:
+        fwhm = None
+    else:
+        fwhm = scan_math.cen(data.x, data.y).fwhm
+
+    title = data.name
+
+    if False:
+        # For debugging
+        x, y = data.x, data.y
+        _plot_cen_com(x, y, cen=cen, com=com, fwhm=fwhm, title=title)
+
+    assert com == data.com, title
+    assert cen == data.cen, title
+    assert fwhm == data.fwhm, title
 
 
-@pytest.mark.parametrize("realExp_data", ExpData)
-def test_cen_com_with_data(realExp_data):
-    if realExp_data.com is not None:
-        assert realExp_data.com == scan_math.com(realExp_data.x, realExp_data.y)
-    if realExp_data.cen is not None:
-        assert (
-            realExp_data.cen == scan_math.cen(realExp_data.x, realExp_data.y).position
-        )
-    if realExp_data.fwhm is not None:
-        assert realExp_data.fwhm == scan_math.cen(realExp_data.x, realExp_data.y).fwhm
-
-
-ExpCenCom = namedtuple("ExpCenCom", ["signal", "com", "cen", "fwhm"])
-
-ExpData2 = [
-    ExpCenCom(
-        "gaussian",
-        pytest.approx(0.5, abs=.01),
-        pytest.approx(0.5, abs=.01),
-        pytest.approx(0.4652, abs=.0001),
-    ),
-    ExpCenCom(
-        "triangle",
-        pytest.approx(0.5, abs=.01),
-        pytest.approx(0.5, abs=.01),
-        pytest.approx(0.5098, abs=.0001),
-    ),
-    ExpCenCom(
-        "flat",
-        pytest.approx(0.5, abs=.01),
-        pytest.approx(0.5, abs=.01),
-        pytest.approx(1, abs=.01),
-    ),
-    ExpCenCom(
-        "sawtooth",
-        pytest.approx(0.6, abs=.01),  # Original test data: -0.441
-        pytest.approx(0.6497, abs=.01),
-        pytest.approx(0.4742, abs=.0001),
-    ),
-    ExpCenCom(
-        "bimodal",
-        pytest.approx(0.4549, abs=.01),
-        pytest.approx(0.4708, abs=.01),
-        pytest.approx(0.7329, abs=.0001),
-    ),
-    ExpCenCom(
-        "square",
-        pytest.approx(0.5, abs=.01),
-        pytest.approx(0.5, abs=.01),
-        pytest.approx(0.3529, abs=.0001),
-    ),
-    ExpCenCom(
-        "erf_down",
-        pytest.approx(0.2699, abs=.01),
-        pytest.approx(0.549, abs=.01),
-        pytest.approx(0, abs=.0001),  # does not make sense ....
-    ),
-    ExpCenCom(
-        "erf_up",
-        pytest.approx(0.75, abs=.01),  # Original test data: -5.3341
-        pytest.approx(0.5294, abs=.01),
-        pytest.approx(0.0, abs=.0001),  # does not make sense ...
-    ),
-    ExpCenCom(
-        "inverted_gaussian",
-        pytest.approx(0.5, abs=.01),
-        pytest.approx(0.5, abs=.01),
-        pytest.approx(0.4652, abs=.0001),
-    ),
-    ExpCenCom(
-        "missing_edge_of_gaussion_right",
-        pytest.approx(0.8656, abs=.0001),
-        pytest.approx(0.8824, abs=.0001),
-        pytest.approx(0.231, abs=.0001),
-    ),
-    ExpCenCom(
-        "missing_edge_of_gaussion_left",
-        pytest.approx(0.1477, abs=.0001),
-        pytest.approx(0.1373, abs=.0001),
-        pytest.approx(0.231, abs=.0001),
-    ),
-]
-
-
-@pytest.mark.parametrize("counter_signal", ExpData2)
+@pytest.mark.parametrize(
+    "counter_signal", test_profiles.theoretical_profile_parameters()
+)
 def test_cen_com_with_signals(default_session, counter_signal):
     tca = FixedShapeCounter()
-    tca.signal = counter_signal.signal
-    s = scans.ascan(tca.axis, 0, 1, tca.npoints, .01, tca.counter, save=False)
-    assert s.com(tca.counter, axis=tca.axis) == counter_signal.com
-    assert s.cen(tca.counter, axis=tca.axis) == counter_signal.cen
-    assert s.fwhm(tca.counter, axis=tca.axis) == counter_signal.fwhm
+    tca.signal = title = counter_signal.name
+    s = scans.ascan(tca.axis, 0, 1, tca.nsteps, .01, tca.counter, save=False)
+
+    com = s.com(tca.counter, axis=tca.axis)
+    cen = s.cen(tca.counter, axis=tca.axis)
+    fwhm = s.fwhm(tca.counter, axis=tca.axis)
+
+    if False:
+        # For debugging
+        x, y = s._get_x_y_data(tca.counter, tca.axis)
+        _plot_cen_com(x, y, cen=cen, com=com, fwhm=fwhm, title=title)
+
+    assert com == counter_signal.com, title
+    assert cen == counter_signal.cen, title
+    assert fwhm == counter_signal.fwhm, title
+
+
+def _plot_cen_com(x, y, com=None, cen=None, fwhm=None, title="", savedir=False):
+    """For debugging the tests
+    """
+    import matplotlib.pyplot as plt
+    from scipy.interpolate import interp1d
+
+    if savedir:
+        plt.figure(figsize=(4, 3))
+    else:
+        plt.figure()
+
+    ymin = numpy.nanmin(y)
+    ymax = numpy.nanmax(y)
+
+    if cen is not None and fwhm is not None:
+        xa, xb = cen - fwhm / 2, cen + fwhm / 2
+        mask = (x >= xa) & (x <= xb)
+        f = interp1d(x, y, bounds_error=False, assume_sorted=False)
+        x1 = numpy.concatenate([[xa], x[mask], [xb]])
+        y1 = f(x1)
+        y2 = numpy.full_like(y1, ymin)
+        plt.fill_between(x1, y1, y2, alpha=0.3)
+
+    plt.plot(x, y, "-o")
+    if com is not None:
+        plt.axvline(com, label="com", color="r")
+    if cen is not None:
+        plt.axvline(cen, label="cen", color="g")
+    if cen is not None and fwhm is not None:
+        plt.axvline(xa, label="fwhm", color="b")
+        plt.axvline(xb, color="b")
+
+    for f in [0.12, 0.5, 0.88]:
+        plt.axhline(ymin + (ymax - ymin) * f)
+
+    if title:
+        plt.title(title)
+    plt.legend()
+    if savedir:
+        plt.savefig(f"{savedir}/{title.replace(' ', '_')}.png")
+    else:
+        plt.show()

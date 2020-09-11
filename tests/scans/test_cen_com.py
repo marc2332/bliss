@@ -6,6 +6,8 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import pytest
+import numpy
+
 from bliss import setup_globals
 from bliss.common import scans
 from bliss.shell.standard import (
@@ -19,10 +21,10 @@ from bliss.shell.standard import (
     goto_custom,
 )
 from bliss.scanning.scan_display import ScanDisplay
-from bliss.scanning import scan_tools
+from bliss.scanning import scan_tools, scan_math
 from bliss.common import plot
 from bliss.controllers.simulation_counter import FixedShapeCounter
-import numpy
+from tests.test_profiles import test_profiles
 
 
 def test_pkcom_ascan_gauss(session):
@@ -34,22 +36,29 @@ def test_pkcom_ascan_gauss(session):
 
     s = scans.ascan(roby, 0, 10, 10, 0, simul_counter, save=False, return_scan=True)
 
-    p = s.peak(simul_counter)
+    peak = s.peak(simul_counter)
+    cen = s.cen(simul_counter)
     fwhm = s.fwhm(simul_counter)
-    c = s.com(simul_counter)
+    com = s.com(simul_counter)
 
-    assert pytest.approx(p) == 5
-    assert pytest.approx(fwhm, abs=.01) == 4.57
-    assert pytest.approx(c) == 5
+    if False:
+        # For debugging
+        x, y = s._get_x_y_data(simul_counter, roby)
+        _plot_cen_com(x, y, cen=cen, com=com, fwhm=fwhm, title="sim_ct_gauss")
+
+    assert pytest.approx(peak) == 5
+    assert pytest.approx(com) == 5
+    assert pytest.approx(cen) == 5
+    assert pytest.approx(fwhm, abs=.01) == 4.07
     with pytest.raises(AssertionError):
         s.peak(simul_counter, m1)
     with pytest.raises(KeyError):
         s.peak(diode)
 
     s.goto_peak(simul_counter)
-    assert pytest.approx(roby.position) == p
+    assert pytest.approx(roby.position) == peak
     s.goto_com(simul_counter)
-    assert pytest.approx(roby.position) == c
+    assert pytest.approx(roby.position) == com
 
 
 def test_pkcom_a2scan_gauss(session):
@@ -72,7 +81,7 @@ def test_pkcom_a2scan_gauss(session):
     assert pytest.approx(p) == 5
 
     p = s.fwhm(simul_counter, roby)
-    assert pytest.approx(p, abs=.01) == 4.57
+    assert pytest.approx(p, abs=.01) == 4.07
 
     p = s.peak(simul_counter)
     assert p[robz] == 2.5
@@ -99,8 +108,8 @@ def test_pkcom_a2scan_gauss(session):
     )
 
     p = s.fwhm(simul_counter)
-    assert pytest.approx(p[robz], abs=.01) == 2.28
-    assert pytest.approx(p[roby], abs=.01) == 4.57
+    assert pytest.approx(p[robz], abs=.01) == 2.03
+    assert pytest.approx(p[roby], abs=.01) == 4.07
 
 
 def test_pkcom_timescan_gauss(session):
@@ -312,7 +321,7 @@ def test_goto(session):
 def test_com_with_neg_y(default_session):
     ob = FixedShapeCounter()
     ob.signal = "sawtooth"
-    s = scans.ascan(ob.axis, 0, 1, ob.npoints, .01, ob.counter)
+    s = scans.ascan(ob.axis, 0, 1, ob.nsteps, .01, ob.counter)
     com = s.com(ob.counter, axis=ob.axis)
     assert pytest.approx(com, abs=.0001) == 0.5987
 
@@ -343,3 +352,98 @@ def test_find_position_goto_custom(session):
     assert session.env_dict["find_special"]() == pytest.approx(.5, abs=.01)
     session.env_dict["goto_special"]()
     assert roby.position == pytest.approx(.5, abs=.01)
+
+
+@pytest.mark.parametrize("data", test_profiles.experimental_data())
+def test_cen_com_with_data(data):
+    if data.com is None:
+        com = None
+    else:
+        com = scan_math.com(data.x, data.y)
+
+    if data.cen is None:
+        cen = None
+    else:
+        cen = scan_math.cen(data.x, data.y).position
+
+    if data.fwhm is None:
+        fwhm = None
+    else:
+        fwhm = scan_math.cen(data.x, data.y).fwhm
+
+    title = data.name
+
+    if False:
+        # For debugging
+        x, y = data.x, data.y
+        _plot_cen_com(x, y, cen=cen, com=com, fwhm=fwhm, title=title)
+
+    assert com == data.com, title
+    assert cen == data.cen, title
+    assert fwhm == data.fwhm, title
+
+
+@pytest.mark.parametrize(
+    "counter_signal", test_profiles.theoretical_profile_parameters()
+)
+def test_cen_com_with_signals(default_session, counter_signal):
+    tca = FixedShapeCounter()
+    tca.signal = title = counter_signal.name
+    s = scans.ascan(tca.axis, 0, 1, tca.nsteps, .01, tca.counter, save=False)
+
+    com = s.com(tca.counter, axis=tca.axis)
+    cen = s.cen(tca.counter, axis=tca.axis)
+    fwhm = s.fwhm(tca.counter, axis=tca.axis)
+
+    if False:
+        # For debugging
+        x, y = s._get_x_y_data(tca.counter, tca.axis)
+        _plot_cen_com(x, y, cen=cen, com=com, fwhm=fwhm, title=title)
+
+    assert com == counter_signal.com, title
+    assert cen == counter_signal.cen, title
+    assert fwhm == counter_signal.fwhm, title
+
+
+def _plot_cen_com(x, y, com=None, cen=None, fwhm=None, title="", savedir=False):
+    """For debugging the tests
+    """
+    import matplotlib.pyplot as plt
+    from scipy.interpolate import interp1d
+
+    if savedir:
+        plt.figure(figsize=(4, 3))
+    else:
+        plt.figure()
+
+    ymin = numpy.nanmin(y)
+    ymax = numpy.nanmax(y)
+
+    if cen is not None and fwhm is not None:
+        xa, xb = cen - fwhm / 2, cen + fwhm / 2
+        mask = (x >= xa) & (x <= xb)
+        f = interp1d(x, y, bounds_error=False, assume_sorted=False)
+        x1 = numpy.concatenate([[xa], x[mask], [xb]])
+        y1 = f(x1)
+        y2 = numpy.full_like(y1, ymin)
+        plt.fill_between(x1, y1, y2, alpha=0.3)
+
+    plt.plot(x, y, "-o")
+    if com is not None:
+        plt.axvline(com, label="com", color="r")
+    if cen is not None:
+        plt.axvline(cen, label="cen", color="g")
+    if cen is not None and fwhm is not None:
+        plt.axvline(xa, label="fwhm", color="b")
+        plt.axvline(xb, color="b")
+
+    for f in [0.12, 0.5, 0.88]:
+        plt.axhline(ymin + (ymax - ymin) * f)
+
+    if title:
+        plt.title(title)
+    plt.legend()
+    if savedir:
+        plt.savefig(f"{savedir}/{title.replace(' ', '_')}.png")
+    else:
+        plt.show()

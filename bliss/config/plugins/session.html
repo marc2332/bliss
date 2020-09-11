@@ -231,7 +231,7 @@
     $.each(items, function(name, item) {
       var tags = item.tags;
       if (tags == null || tags.length == 0) {
-        tags = ["__no_tag__"];
+        tags = ["(no tag)"];
       }
       $.each(tags, function(idx, tag) {
         var nodes = null;

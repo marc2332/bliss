@@ -5,6 +5,7 @@
 # Copyright (c) 2015-2020 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
+import collections.abc
 import os
 import pkgutil
 import functools
@@ -202,7 +203,7 @@ class WebConfig(object):
     def __build_tree_tags(self):
         result = {}
         for name, item in self.items.items():
-            for tag in item["tags"] or ["__no_tag__"]:
+            for tag in item["tags"] or ["(no tag)"]:
                 tag_data = result.get(tag)
                 if tag_data is None:
                     tag_data = [dict(type="folder", path=tag, icon="fa fa-folder"), {}]
@@ -341,7 +342,7 @@ def __get_plugins():
 
 def _get_config_user_tags(config_item):
     user_tag = config_item.get(static.ConfigNode.USER_TAG_KEY, [])
-    if not isinstance(user_tag, (tuple, list)):
+    if not isinstance(user_tag, collections.abc.MutableSequence):
         user_tag = [user_tag]
     return user_tag
 
@@ -513,7 +514,7 @@ def tree(view):
         result = __config.tree_sessions
     else:
         result = dict(message="unknown view", type="error")
-    return flask.json.dumps(result)
+    return flask.json.dumps(result, cls=static.ConfigNodeDictEncoder)
 
 
 @web_app.route("/tree/<view>/<item>")

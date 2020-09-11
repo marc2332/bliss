@@ -9,7 +9,6 @@ import sys
 import logging
 import logging.handlers
 import contextlib
-from logging import Logger, NullHandler, Formatter
 import re
 from fnmatch import fnmatch, fnmatchcase
 import networkx as nx
@@ -17,7 +16,6 @@ from functools import wraps
 import weakref
 import gevent
 
-from bliss.common.utils import autocomplete_property
 from bliss.common.mapping import format_node, map_id
 from bliss import global_map, current_session
 
@@ -391,7 +389,7 @@ def bliss_logger():
     logging.setLoggerClass(saved_logger_class)
 
 
-class BlissLogger(Logger):
+class BlissLogger(logging.Logger):
     """
     Special logger class with useful methods for communication debug concerning data format
     """
@@ -404,7 +402,7 @@ class BlissLogger(Logger):
         self.set_ascii_format()
 
         # this is to prevent the error message about 'no handler found for logger XXX'
-        self.addHandler(NullHandler())  # this handler does nothing
+        self.addHandler(logging.NullHandler())  # this handler does nothing
 
     def debugon(self):
         """
@@ -555,7 +553,7 @@ class Log:
                 name,
                 obj,
             ) in manager.loggerDict.items()  # All loggers registered in the system
-            if isinstance(obj, Logger)
+            if isinstance(obj, logging.Logger)
             and fnmatchcase(name, glob)  # filter out logging Placeholder objects
         }
         return loggers
@@ -581,7 +579,7 @@ class Log:
         except AttributeError:
             self._stdout_handler = logging.StreamHandler()
             self._stdout_handler.setLevel(logging.DEBUG)
-            self._stdout_handler.setFormatter(Formatter(self._LOG_FORMAT))
+            self._stdout_handler.setFormatter(logging.Formatter(self._LOG_FORMAT))
             logging.getLogger().addHandler(self._stdout_handler)
 
             def filter_(record):
@@ -612,7 +610,7 @@ class Log:
         self._LOG_FORMAT = fmt
         logger = logging.getLogger()
         for handler in logger.handlers:
-            handler.setFormatter(Formatter(self._LOG_FORMAT))
+            handler.setFormatter(logging.Formatter(self._LOG_FORMAT))
 
     def debugon(self, glob_logger_pattern_or_obj):
         """

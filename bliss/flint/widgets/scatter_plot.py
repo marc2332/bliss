@@ -138,7 +138,7 @@ class ScatterNormalization:
                 kind = channel.metadata().axisKind
                 self.__axisKind.append(kind)
             shape = scatter.shape()
-            self.__nbmin = numpy.prod([(1 if i == -1 else i) for i in shape])
+            self.__nbmin = numpy.prod([(1 if i in [-1, None] else i) for i in shape])
 
             kinds = set(self.__axisKind)
             hasNone = None in kinds

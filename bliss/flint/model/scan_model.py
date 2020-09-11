@@ -583,6 +583,7 @@ class ScatterData(_Sealable):
         """
         result = []
         for axisId in range(self.maxDim()):
+            size = None
             for channel in self.__channels[axisId]:
                 size = channel.metadata().axisPoints
                 if size is not None:

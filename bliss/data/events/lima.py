@@ -7,7 +7,7 @@
 
 import os
 from bliss.config import streaming_events
-from bliss.data.events import lima_io
+from bliss.data import lima_image
 from bliss.common.tango import DeviceProxy
 from bliss.config.settings import HashObjSetting
 
@@ -276,19 +276,19 @@ class LimaImageStatusEvent(streaming_events.StreamEvent):
         proxy = self.proxy
         if proxy is None:
             # FIXME: It should return None
-            return lima_io.Frame(None, None, None)
+            return lima_image.Frame(None, None, None)
 
-        result = lima_io.read_video_last_image(proxy)
+        result = lima_image.read_video_last_image(proxy)
         if result is None:
             # FIXME: It should return None
-            return lima_io.Frame(None, None, None)
+            return lima_image.Frame(None, None, None)
 
         frame, frame_number = result
         if not self.is_video_frame_have_meaning():
             # In this case the reached frame have no meaning within the full
             # scan. It is better not to provide it
             frame_number = None
-        return lima_io.Frame(frame, frame_number, "video")
+        return lima_image.Frame(frame, frame_number, "video")
 
     def is_video_frame_have_meaning(self):
         """Returns True if the frame number reached from the header from
@@ -309,7 +309,7 @@ class LimaImageStatusEvent(streaming_events.StreamEvent):
     def get_last_image(self):
         """Returns the last image from the received one, together with the frame id.
 
-        :returns lima_io.Frame:
+        :returns lima_image.Frame:
         """
         frame_number = self.last_image_ready
         if frame_number < 0:
@@ -321,7 +321,7 @@ class LimaImageStatusEvent(streaming_events.StreamEvent):
         if data is None:
             data = self._get_from_file(frame_number)
             source = "file"
-        return lima_io.Frame(data, frame_number, source)
+        return lima_image.Frame(data, frame_number, source)
 
     def get_image(self, image_nb):
         """
@@ -350,7 +350,7 @@ class LimaImageStatusEvent(streaming_events.StreamEvent):
             # should be in memory
             if self.buffer_max_number > (self.last_image_ready - image_nb):
                 try:
-                    return lima_io.image_from_server(self.proxy, image_nb)
+                    return lima_image.image_from_server(self.proxy, image_nb)
                 except RuntimeError:
                     # As it's asynchronous, image seems to be no
                     # longer available so read it from file
@@ -366,7 +366,7 @@ class LimaImageStatusEvent(streaming_events.StreamEvent):
             values = self.image_references([image_nb], saved=True)
         except IndexError:
             raise IndexError("Cannot retrieve image %d from file" % image_nb)
-        return lima_io.image_from_file(*values[0])
+        return lima_image.image_from_file(*values[0])
 
     @property
     def current_lima_acq(self):

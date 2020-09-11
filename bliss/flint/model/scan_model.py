@@ -710,6 +710,7 @@ class Channel(qt.QObject, _Sealable):
             # one value per MCA channel
             return 1
         elif self.__type == ChannelType.IMAGE:
+            # FIXME; This have no meaning anymore as we support RGB and RGBA
             return 2
         else:
             assert False
@@ -754,9 +755,13 @@ class Channel(qt.QObject, _Sealable):
         array = data.array()
         if array is None:
             return True
-        if self.ndim != array.ndim:
-            return False
-        return True
+        if self.ndim == array.ndim:
+            return True
+        if self.__type == ChannelType.IMAGE:
+            if array.ndim == 3:
+                if array.shape[2] in [3, 4]:
+                    return True
+        return False
 
     def setData(self, data: Data):
         """

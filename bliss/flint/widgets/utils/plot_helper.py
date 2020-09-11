@@ -24,6 +24,7 @@ from silx.gui.plot.items.scatter import Scatter
 from silx.gui.plot.items.curve import Curve
 from silx.gui.plot.items.histogram import Histogram
 from silx.gui.plot.items.image import ImageData
+from silx.gui.plot.items.image import ImageRgba
 
 from bliss.flint.model import plot_model
 from bliss.flint.model import plot_item_model
@@ -543,6 +544,30 @@ class FlintImage(ImageData, FlintItemMixIn):
 
         text = f"""
         <li style="white-space:pre">{char} <b>Value:</b> {value}</li>
+        <li style="white-space:pre">     <b>{xName}:</b> {x}</li>
+        <li style="white-space:pre">     <b>{yName}:</b> {y}</li>
+        """
+        return x + 0.5, y + 0.5, text
+
+
+class FlintImageRgba(ImageRgba, FlintItemMixIn):
+    def __init__(self):
+        ImageRgba.__init__(self)
+        FlintItemMixIn.__init__(self)
+
+    def getFlintTooltip(self, index, flintModel, scan: scan_model.Scan):
+        y, x = index
+        image = self.getData(copy=False)
+        value = image[index]
+
+        data = self.getData(copy=False)
+        char = self._getColoredChar(value, data, flintModel)
+
+        xName = "Col/X"
+        yName = "Row/Y"
+
+        text = f"""
+        <li style="white-space:pre">{char} <b>RGB(A):</b> {value}</li>
         <li style="white-space:pre">     <b>{xName}:</b> {x}</li>
         <li style="white-space:pre">     <b>{yName}:</b> {y}</li>
         """

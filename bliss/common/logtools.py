@@ -19,29 +19,9 @@ import gevent
 from bliss.common.mapping import format_node, map_id
 from bliss import global_map, current_session
 
-old_factory = logging.getLogRecordFactory()
 
 logbook_on = False
 
-
-def record_factory(*args, **kwargs):
-    record = old_factory(*args, **kwargs)
-    try:
-        current_session_name = current_session.name
-    except AttributeError:
-        current_session_name = "startup"
-    record.session = current_session_name
-    record.greenlet_ref = weakref.ref(gevent.getcurrent())
-    return record
-
-
-class NoGreenletSocketHandler(logging.handlers.SocketHandler):
-    def emit(self, record):
-        del record.greenlet_ref
-        super().emit(record)
-
-
-logging.setLogRecordFactory(record_factory)
 
 __all__ = [
     "log_debug",
@@ -299,7 +279,7 @@ class LogbookPrint:
 
             def filter_greenlet(record):
                 # filter greenlets
-                current = record.greenlet_ref()
+                current = gevent.getcurrent()
                 while current:
                     # looping parents greenlets
                     # until we find a disabled one
@@ -595,7 +575,7 @@ class Log:
             self._beacon_handler
         except AttributeError:
             host, port = address
-            self._beacon_handler = NoGreenletSocketHandler(host, port)
+            self._beacon_handler = logging.handlers.SocketHandler(host, port)
             self._beacon_handler.setLevel(logging.DEBUG)
             logging.getLogger().addHandler(self._beacon_handler)
 

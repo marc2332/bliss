@@ -20,7 +20,6 @@ from unittest import mock
 import random
 import inspect
 
-
 # For tests involving lprint.
 from ..common.conftest import log_shell_mode  # noqa: F401
 
@@ -124,6 +123,24 @@ def test_position_callback(robz):
     robz.rmove(1)
     assert storage["last_pos"] == pytest.approx(pos + 1)
     assert storage["last_dial_pos"] == pytest.approx(robz.user2dial(pos + 1))
+
+
+def test_position_callback2(default_session):
+    nsa = default_session.config.get("nsa")
+
+    class Callback:
+        def __init__(self, motor):
+            self._motor = motor
+
+        def __call__(self, position, signal=None, sender=None):
+            print(self._motor.position)
+
+    cbk = Callback(nsa)
+
+    event.connect(nsa, "position", cbk)
+
+    with gevent.Timeout(1):
+        nsa.move(2)
 
 
 def test_position_callback_with_exception(roby, calc_mot1):

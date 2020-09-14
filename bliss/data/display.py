@@ -773,11 +773,11 @@ class ScanPrinter(_ScanPrinterBase):
     def _on_motor_position_changed(self, position, signal=None, sender=None):
         labels = []
         for motor in self.real_motors:
-            position = "{0:.03f}".format(motor.position)
+            pos = "{0:.03f}".format(motor.position if sender is not motor else position)
             unit = motor.config.get("unit", default=None)
             if unit:
-                position += "[{0}]".format(unit)
-            labels.append("{0}: {1}".format(motor.name, position))
+                pos += "[{0}]".format(unit)
+            labels.append("{0}: {1}".format(motor.name, pos))
 
         print("\33[2K", end="")
         print(*labels, sep=", ", end="\r")
@@ -941,11 +941,13 @@ def _local_pb(scan, repl, task):
         def on_motor_position_changed(position, signal=None, sender=None):
             labels = []
             for motor in real_motors:
-                position = "{0:.03f}".format(motor.position)
+                pos = "{0:.03f}".format(
+                    motor.position if sender is not motor else position
+                )
                 unit = motor.config.get("unit", default=None)
                 if unit:
-                    position += "[{0}]".format(unit)
-                labels.append("{0}: {1}".format(motor.name, position))
+                    pos += "[{0}]".format(unit)
+                labels.append("{0}: {1}".format(motor.name, pos))
             message_status = messages_dict.get("status")
             if message_status:
                 labels.append(message_status)

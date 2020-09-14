@@ -365,7 +365,13 @@ class _ServerObject(object):
     def _call__(self, code, args, kwargs):
         if code == "introspect":
             self._log.debug("rpc 'introspect'")
-            return self._metadata
+            without_real_class = kwargs.get("without_real_class", False)
+            if without_real_class is False:
+                return self._metadata
+            else:
+                metadata = self._metadata.copy()
+                metadata.pop("real_klass")
+                return metadata
         else:
             name = args[0]
             if code == "call":
@@ -473,7 +479,8 @@ class _SubServer:
 
 class _cnx(object):
     class Retry:
-        pass
+        def __init__(self, exception):
+            self.exception = exception
 
     class wait_queue(object):
         def __init__(self, cnt, uniq_id):
@@ -526,6 +533,7 @@ class _cnx(object):
         self._class_member = list()
         self._disconnect_callback = disconnect_callback
         self._subclient = weakref.WeakValueDictionary()
+        self._in_introspect = False
 
     def __del__(self):
         self.close()
@@ -560,7 +568,15 @@ class _cnx(object):
                 self._socket = None
                 raise
             self._counter = itertools.cycle(range(2 ** 16))
-            metadata = self._call__("introspect", (), {})
+            if self._in_introspect:
+                return
+
+            try:
+                self._in_introspect = True
+                metadata = self._call__("introspect", (), {})
+            finally:
+                self._in_introspect = False
+
             self._log = logging.getLogger("rpc." + metadata["name"])
             stream = metadata.get("stream", False)
             members = dict(_client=self)
@@ -601,6 +617,7 @@ class _cnx(object):
 
             uniq_id = numpy.uint16(next(self._counter))
             msg = msgpack.packb((uniq_id, code, args, kwargs), use_bin_type=True)
+            nb_retry_allowed = 1
             with self.wait_queue(self, uniq_id) as w:
                 while True:
                     self._socket.sendall(msg)
@@ -614,6 +631,23 @@ class _cnx(object):
                         else:
                             raise value
                     elif isinstance(value, self.Retry):
+                        # check if the real class can be unpickled.
+                        # if not AttributeError may be raise during introspect
+                        if (
+                            self._in_introspect
+                            and code == "introspect"
+                            and isinstance(value.exception, AttributeError)
+                        ):
+                            # let's ask to the server is **metadata** without the real_class object
+                            msg = msgpack.packb(
+                                (uniq_id, code, args, {"without_real_class": True}),
+                                use_bin_type=True,
+                            )
+                        if value.exception is not None:
+                            if nb_retry_allowed > 0:
+                                nb_retry_allowed -= 1
+                            else:
+                                raise value.exception
                         self.try_connect()
                         continue
                     elif isinstance(value, _SubServer):
@@ -627,6 +661,7 @@ class _cnx(object):
 
     def _raw_read(self, socket):
         unpacker = msgpack.Unpacker(raw=False, max_buffer_size=MAX_BUFFER_SIZE)
+        exception = None
         try:
             while True:
                 msg = socket.recv(8192)
@@ -643,6 +678,8 @@ class _cnx(object):
                         wq = self._queues.get(call_id)
                         if wq:
                             wq.put(return_values)
+        except Exception as e:
+            exception = e
         finally:
             try:
                 socket.close()
@@ -651,7 +688,7 @@ class _cnx(object):
             self._socket = None
             self._reading_task = None
             for w in self._queues.values():
-                w.put(self.Retry())
+                w.put(self.Retry(exception))
             for name in self._class_member:
                 delattr(type(self.proxy), name)
             self._class_member = list()

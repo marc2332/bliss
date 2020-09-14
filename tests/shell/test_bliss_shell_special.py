@@ -7,6 +7,9 @@
 
 import gevent
 import os
+import contextlib
+import greenlet
+
 from prompt_toolkit.input.defaults import create_pipe_input
 from prompt_toolkit.eventloop import get_event_loop
 from types import SimpleNamespace
@@ -15,7 +18,7 @@ from bliss.shell.cli.repl import BlissRepl
 from bliss.common.utils import autocomplete_property
 
 
-def _run_incomplete(cmd_input, local_locals, slow=False):
+def _run_incomplete(cmd_input, local_locals, stop_condition=None):
     """
     Run an incomplete command in the BLISS shell.
 
@@ -28,171 +31,207 @@ def _run_incomplete(cmd_input, local_locals, slow=False):
     Argument:
         - cmd_input: Command to execute
         - local_locals: Environment to use for the auto-completion.
-        - slow: Set to true for tests which require extra processing time.
+        - stop_condition: Termination condition checked at application rendering
     """
     inp = create_pipe_input()
 
     def mylocals():
         return local_locals
 
+    br = BlissRepl(input=inp, output=None, session="test_session", get_locals=mylocals)
+    inp.send_text(cmd_input)
+
+    class RunAborted(BaseException):
+        pass
+
+    data = {}
+    data["greenlet"] = greenlet.getcurrent()
+
+    def abort_app():
+        """Abort the app.run call"""
+        current = data["greenlet"]
+        current.throw(RunAborted)
+
+    if stop_condition is None:
+        # There is no end condition cause no result is expected
+        # So reduce the timeout, cause we could wait forever
+        timeout = 3
+    else:
+        timeout = 10
+
+    @contextlib.contextmanager
+    def hooked_render():
+        """Context manager to add a hook in the prompt_toolkit renderer.
+
+        The hook test a condition to allow to abort the application execution.
+        """
+        from prompt_toolkit.renderer import Renderer
+
+        old_function = Renderer.render
+
+        def new_function(self, *args, **kwargs):
+            old_function(self, *args, **kwargs)
+            if stop_condition is not None and stop_condition(br):
+                data["abort"] = gevent.spawn(abort_app)
+
+        Renderer.render = new_function
+        try:
+            yield
+        finally:
+            Renderer.render = old_function
+
     try:
-        br = BlissRepl(
-            input=inp, output=None, session="test_session", get_locals=mylocals
-        )
-        inp.send_text(cmd_input)
-
-        # Slow tests on CI: 2 seconds is ok; 4 seconds is needed when it is
-        # used together with coverage
-        timeout = 5 if slow else 1
-        with gevent.Timeout(timeout, RuntimeError()):
-            br.app.run()
-            # this will necessarily result in RuntimeError as the input line is not complete
-
-        assert False  # if we get here the test is pointless
-        return None
-
-    except RuntimeError:
+        # Make sure the run have a termination
+        with gevent.Timeout(timeout):
+            with hooked_render():
+                # Blocking call
+                br.app.run(set_exception_handler=False)
+            # Unreachable code
+            raise RuntimeError("Unreachable code hit: fix the test")
+    except gevent.Timeout:
+        # Ultimate check
+        if stop_condition is None or stop_condition(br):
+            pass
+        else:
+            raise RuntimeError("Unterminated app run")
+    except RunAborted:
+        pass
+    finally:
+        if "abort" in data:
+            data["abort"].kill()
+        data = None
         inp.close()
         get_event_loop().close()
-        return br
+    return br
 
-    inp.close()
-    get_event_loop().close()
-    assert False
-    return None
+
+def _signature_toolbar_from_incomplete_run(command, env_dict):
+    def is_completed(br):
+        sb = [
+            n
+            for n in br.ptpython_layout.layout.visible_windows
+            if "signature_toolbar" in str(n)
+        ]
+        return len(sb) >= 1
+
+    br = _run_incomplete(command, env_dict, stop_condition=is_completed)
+    sb = [
+        n
+        for n in br.ptpython_layout.layout.visible_windows
+        if "signature_toolbar" in str(n)
+    ][0]
+    return sb
+
+
+def _completion_from_incomplete_run(command, env_dict, no_condition=False):
+    def is_completed(br):
+        cl = [
+            n
+            for n in br.ptpython_layout.layout.visible_windows
+            if "MultiColumnCompletionMenuControl" in str(n)
+        ]
+        return len(cl) >= 1
+
+    if no_condition:
+        is_completed = None
+
+    br = _run_incomplete(command, env_dict, stop_condition=is_completed)
+    cl = [
+        n
+        for n in br.ptpython_layout.layout.visible_windows
+        if "MultiColumnCompletionMenuControl" in str(n)
+    ]
+    if len(cl) == 0:
+        return {}
+    return {cc.text for cc in cl[0].content._render_pos_to_completion.values()}
+
+
+def _default_buffer_from_incomplete_run(command, env_dict):
+    data = {}
+    data["input"] = 0
+
+    def on_second_render(br):
+        if data["input"] >= 1:
+            return True
+        data["input"] = data["input"] + 1
+        return False
+
+    br = _run_incomplete(command, env_dict, stop_condition=on_second_render)
+    return br.default_buffer.text
+
+
+@contextlib.contextmanager
+def session_env_dict(beacon, session_name):
+    try:
+        env_dict = dict()
+        session = beacon.get(session_name)
+        session.setup(env_dict)
+        yield env_dict
+    finally:
+        session.close()
 
 
 def test_shell_signature(beacon):
-    env_dict = dict()
-    session = beacon.get("test_session")
-    session.setup(env_dict)
-
-    br = _run_incomplete("ascan(", env_dict, slow=True)
-
-    sb = [
-        n
-        for n in br.ptpython_layout.layout.visible_windows
-        if "signature_toolbar" in str(n)
-    ][0]
-    sc = sb.content.text()
-    assert ("class:signature-toolbar", "jedi.api.interpreter.ascan") not in sc
-    assert ("class:signature-toolbar", "ascan") in sc
-
-    session.close()
+    with session_env_dict(beacon, "test_session") as env_dict:
+        sb = _signature_toolbar_from_incomplete_run("ascan(", env_dict)
+        sc = sb.content.text()
+        assert ("class:signature-toolbar", "jedi.api.interpreter.ascan") not in sc
+        assert ("class:signature-toolbar", "ascan") in sc
 
 
 def test_shell_completion(clean_gevent, beacon):
-    env_dict = dict()
-    session = beacon.get("test_session5")
-    session.setup(env_dict)
-
-    br = _run_incomplete("m", env_dict, slow=True)
-    completions = _get_completion(br)
-
-    assert "m2" in completions
-
-    session.close()
+    with session_env_dict(beacon, "test_session5") as env_dict:
+        c = _completion_from_incomplete_run("m", env_dict)
+        assert "m2" in c
 
 
 def test_shell_hide_private_completion(clean_gevent, beacon):
-    env_dict = dict()
-    session = beacon.get("test_session5")
-    session.setup(env_dict)
-
-    br = _run_incomplete("test_session5.", env_dict)
-    completions = _get_completion(br)
-
-    assert "_load_config" not in completions
-
-    br = _run_incomplete("test_session5._", env_dict)
-    completions = _get_completion(br)
-
-    assert "_load_config" in completions
-
-    session.close()
+    with session_env_dict(beacon, "test_session5") as env_dict:
+        c = _completion_from_incomplete_run("test_session5.", env_dict)
+        assert "_load_config" not in c
+        c = _completion_from_incomplete_run("test_session5._", env_dict)
+        assert "_load_config" in c
 
 
 def test_shell_load_script(clean_gevent, beacon):
-    env_dict = dict()
-    session = beacon.get("test_session5")
-    session.setup(env_dict)
-
-    print(env_dict.keys())
-
-    br = _run_incomplete("tes", env_dict)
-    completions = _get_completion(br)
-
-    assert "test1" in completions
-
-    session.close()
+    with session_env_dict(beacon, "test_session5") as env_dict:
+        c = _completion_from_incomplete_run("tes", env_dict)
+        assert "test1" in c
 
 
 def test_shell_load_script_signature(clean_gevent, beacon):
-    env_dict = dict()
-    session = beacon.get("test_session")
-    session.setup(env_dict)
+    with session_env_dict(beacon, "test_session5") as env_dict:
+        env_dict["user_script_homedir"](str(os.path.dirname(__file__)))
+        env_dict["user_script_load"]("script", export_global="x")
 
-    env_dict["user_script_homedir"](str(os.path.dirname(__file__)))
-    env_dict["user_script_load"]("script", export_global="x")
+        x = env_dict["x"]
 
-    x = env_dict["x"]
+        assert "MyClass" in dir(x)
+        assert "myfunc" in dir(x)
 
-    assert "MyClass" in dir(x)
-    assert "myfunc" in dir(x)
+        mc = x.MyClass()
 
-    mc = x.MyClass()
+        sb = _signature_toolbar_from_incomplete_run("mc.myfunc(", {"x": x, "mc": mc})
+        sc = sb.content.text()
+        assert ("class:signature-toolbar", "kwarg=14") in sc
 
-    br = _run_incomplete("mc.myfunc(", {"x": x, "mc": mc})
-
-    sb = [
-        n
-        for n in br.ptpython_layout.layout.visible_windows
-        if "signature_toolbar" in str(n)
-    ][0]
-    sc = sb.content.text()
-
-    assert ("class:signature-toolbar", "kwarg=14") in sc
-
-    br = _run_incomplete("x.myfunc(", {"x": x, "mc": mc})
-
-    sb = [
-        n
-        for n in br.ptpython_layout.layout.visible_windows
-        if "signature_toolbar" in str(n)
-    ][0]
-    sc = sb.content.text()
-
-    assert ("class:signature-toolbar", "kwarg=13") in sc
-
-    session.close()
+        sb = _signature_toolbar_from_incomplete_run("x.myfunc(", {"x": x, "mc": mc})
+        sc = sb.content.text()
+        assert ("class:signature-toolbar", "kwarg=13") in sc
 
 
 def test_shell_load_script2(clean_gevent, beacon):
-    env_dict = dict()
-    session = beacon.get("test_session")
-    session.setup(env_dict)
-
-    print(env_dict.keys())
-
-    br = _run_incomplete("vis", env_dict)
-    completions = _get_completion(br)
-
-    assert "visible_func" in completions
-
-    session.close()
+    with session_env_dict(beacon, "test_session") as env_dict:
+        c = _completion_from_incomplete_run("vis", env_dict)
+        assert "visible_func" in c
 
 
-def test_shell_load_script_error(clean_gevent, beacon, capsys):
-    env_dict = dict()
-    session = beacon.get("test_session5")
-    session.setup(env_dict)
+def _test_shell_load_script_error(clean_gevent, beacon, capsys):
+    with session_env_dict(beacon, "test_session5") as env_dict:
+        _br = _run_incomplete("test1 ", env_dict)
+        out, _err = capsys.readouterr()
 
-    _br = _run_incomplete("test1 ", env_dict)
-    out, _err = capsys.readouterr()
-
-    assert "Unhandled exception in event loop" not in out
-
-    session.close()
+        assert "Unhandled exception in event loop" not in out
 
 
 def test_shell_kwarg_signature(clean_gevent):
@@ -208,28 +247,9 @@ b=B()
         loc,
     )
 
-    br = _run_incomplete("b.f(", {"b": loc["b"]})
-
-    sb = [
-        n
-        for n in br.ptpython_layout.layout.visible_windows
-        if "signature_toolbar" in str(n)
-    ][0]
+    sb = _signature_toolbar_from_incomplete_run("b.f(", {"b": loc["b"]})
     sc = sb.content.text()
-
     assert ("class:signature-toolbar", "mykw=12") in sc
-
-
-def _get_completion(br):
-    cl = [
-        n
-        for n in br.ptpython_layout.layout.visible_windows
-        if "MultiColumnCompletionMenuControl" in str(n)
-    ]
-    if cl == []:
-        return {}
-    else:
-        return {cc.text for cc in cl[0].content._render_pos_to_completion.values()}
 
 
 def test_shell_autocomplete_property():
@@ -247,92 +267,87 @@ def test_shell_autocomplete_property():
 
     tpc = Test_property_class()
 
-    br = _run_incomplete("tpc.", {"tpc": tpc}, slow=True)
-    completions = _get_completion(br)
-    assert "x" in completions
-    assert "y" in completions
-    assert "z" in completions
-    del (br)
+    c = _completion_from_incomplete_run("tpc.", {"tpc": tpc})
+    assert "x" in c
+    assert "y" in c
+    assert "z" in c
 
-    br = _run_incomplete("tpc.x.", {"tpc": tpc})
-    completions = _get_completion(br)
-    assert "b" in completions
+    c = _completion_from_incomplete_run("tpc.x.", {"tpc": tpc})
+    assert "b" in c
 
-    br = _run_incomplete("tpc.y.", {"tpc": tpc})
-    completions = _get_completion(br)
-    assert completions == {}
+    c = _completion_from_incomplete_run("tpc.y.", {"tpc": tpc}, no_condition=True)
+    assert c == {}
 
-    br = _run_incomplete("tpc.z.", {"tpc": tpc})
-    completions = _get_completion(br)
-    assert "b" in completions
+    c = _completion_from_incomplete_run("tpc.z.", {"tpc": tpc})
+    assert "b" in c
 
 
 def test_shell_comma_object():
-    br = _run_incomplete("print self \r", {})
-    assert br.default_buffer.text == "print(self,\n"
+    text = _default_buffer_from_incomplete_run("print self \r", {})
+    assert text == "print(self,\n"
 
 
 def test_shell_comma_after_comma_inside_callable():
-    br = _run_incomplete("print(1, ", {})
-    assert br.default_buffer.text == "print(1, "
+    text = _default_buffer_from_incomplete_run("print(1, ", {})
+    assert text == "print(1, "
 
 
 def test_shell_comma_int():
-    br = _run_incomplete("print 1 ", {})
-    assert br.default_buffer.text == "print(1,"
+    text = _default_buffer_from_incomplete_run("print 1 ", {})
+    assert text == "print(1,"
 
 
 def test_shell_comma_float():
-    br = _run_incomplete("print 1.1 ", {})
-    assert br.default_buffer.text == "print(1.1,"
+    text = _default_buffer_from_incomplete_run("print 1.1 ", {})
+    assert text == "print(1.1,"
 
 
 def test_shell_comma_bool():
-    br = _run_incomplete("print False ", {})
-    assert br.default_buffer.text == "print(False,"
+    text = _default_buffer_from_incomplete_run("print False ", {})
+    assert text == "print(False,"
 
 
 def test_shell_comma_string():
-    br = _run_incomplete("print 'bla' ", {})
-    assert br.default_buffer.text == "print('bla',"
+    text = _default_buffer_from_incomplete_run("print 'bla' ", {})
+    assert text == "print('bla',"
 
 
 def test_shell_comma_kwarg():
-    br = _run_incomplete("print run=True ", {})
-    assert br.default_buffer.text == "print(run=True,"
+    text = _default_buffer_from_incomplete_run("print run=True ", {})
+    assert text == "print(run=True,"
 
 
 def test_shell_custom_function_kwarg():
     def f(**kwargs):
         return True
 
-    br = _run_incomplete("f ", {"f": f})
-    assert br.default_buffer.text == "f("
+    text = _default_buffer_from_incomplete_run("f ", {"f": f})
+    assert text == "f("
 
 
 def test_shell_custom_function_arg():
     def f(*args):
         return True
 
-    br = _run_incomplete("f ", {"f": f})
-    assert br.default_buffer.text == "f("
-    br = _run_incomplete("f    ", {"f": f})
-    assert br.default_buffer.text == "f(   "
+    text = _default_buffer_from_incomplete_run("f ", {"f": f})
+    assert text == "f("
+    text = _default_buffer_from_incomplete_run("f    ", {"f": f})
+    assert text == "f(   "
 
     def g(par=None):
         return par
 
-    br = _run_incomplete("g ", {"g": g})
-    assert br.default_buffer.text == "g("
-    br = _run_incomplete("g    ", {"g": g})
-    assert br.default_buffer.text == "g(   "
+    text = _default_buffer_from_incomplete_run("g ", {"g": g})
+    assert text == "g("
+    text = _default_buffer_from_incomplete_run("g    ", {"g": g})
+    assert text == "g(   "
 
 
 def test_shell_import():
     import bliss
 
-    br = _run_incomplete("from bliss.comm ", {"bliss": bliss})
-    assert br.default_buffer.text == "from bliss.comm "
+    text = _default_buffer_from_incomplete_run("from bliss.comm ", {"bliss": bliss})
+    assert text == "from bliss.comm "
 
 
 def test_short_signature():
@@ -362,13 +377,7 @@ t = Test()
         loc,
     )
 
-    br = _run_incomplete("t.func(", {"t": loc["t"]})
-
-    sb = [
-        n
-        for n in br.ptpython_layout.layout.visible_windows
-        if "signature_toolbar" in str(n)
-    ][0]
+    sb = _signature_toolbar_from_incomplete_run("t.func(", {"t": loc["t"]})
     _sc = sb.content.text()
     display_sig = "".join([x[1] for x in sb.content.text()])
     assert display_sig == " func(a, b: 'True|False'=None, c=None) "

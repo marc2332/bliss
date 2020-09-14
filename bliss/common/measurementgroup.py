@@ -310,22 +310,14 @@ class MeasurementGroup:
         # remove counters from redis that are not in config, if any
         available_counters = self.available
         disabled_counters = set(self._disabled_setting.get())
-        to_disable = set()
+        not_present_counters = set()
         for cnt_fullname in disabled_counters:
             if (
                 cnt_fullname not in available_counters
                 and cnt_fullname not in self._extra_counters
             ):
-                to_disable.add(cnt_fullname)
-        if to_disable:
-            new_disabled = disabled_counters.difference(to_disable)
-            if not new_disabled:
-                self._disabled_setting.clear()
-            else:
-                self._disabled_setting.set(list(new_disabled))
-        # get disabled counters list
-        disabled = set(self._disabled_setting.get())
-        return disabled
+                not_present_counters.add(cnt_fullname)
+        return disabled_counters - not_present_counters
 
     @property
     def _disabled_setting(self):

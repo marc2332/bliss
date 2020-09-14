@@ -138,7 +138,7 @@ class ScatterNormalization:
                 kind = channel.metadata().axisKind
                 self.__axisKind.append(kind)
             shape = scatter.shape()
-            self.__nbmin = numpy.prod([(1 if i == -1 else i) for i in shape])
+            self.__nbmin = numpy.prod([(1 if i in [-1, None] else i) for i in shape])
 
             kinds = set(self.__axisKind)
             hasNone = None in kinds
@@ -273,6 +273,18 @@ class ScatterNormalization:
                     scatter.VisualizationParameter.BINNED_STATISTIC_SHAPE,
                     (height, width),
                 )
+            # FIXME: Clean up in few time: part of silx 0.14 and 0.13.bugfix
+            if hasattr(scatter.VisualizationParameter, "DATA_BOUNDS_HINT"):
+                if (
+                    xmeta.start is not None
+                    and xmeta.stop is not None
+                    and ymeta.start is not None
+                    and ymeta.stop is not None
+                ):
+                    scatter.setVisualizationParameter(
+                        scatter.VisualizationParameter.DATA_BOUNDS_HINT,
+                        ((ymeta.start, ymeta.stop), (xmeta.start, xmeta.stop)),
+                    )
 
     def isImageRenderingSupported(
         self, xChannel: scan_model.Channel, yChannel: scan_model.Channel

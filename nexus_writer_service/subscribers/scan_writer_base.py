@@ -76,6 +76,16 @@ def default_saveoptions():
     }
 
 
+def timediff(tend, tstart):
+    if tend and tstart:
+        if tend >= tstart:
+            return str(tend - tstart)
+        else:
+            return f"-{tstart-tend}"
+    else:
+        return "NaN"
+
+
 class Subscan(object):
     def __init__(self, subscriber, node, parentlogger=None):
         """
@@ -328,6 +338,14 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
         if not self._filename:
             self._filename = scan_utils.scan_filename(self.node)
         return self._filename
+
+    @property
+    def scan_start_time(self):
+        return self.get_info("start_time", cache=True)
+
+    @property
+    def scan_end_time(self):
+        return self.get_info("end_time", cache=True)
 
     @property
     def uris(self):
@@ -851,7 +869,7 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
         """
         lst = []
         for subscan in self._subscans:
-            for dproxy in list(subscan.datasets.values()):
+            for dproxy in subscan.datasets.values():
                 if dproxy is not None:
                     lst.append(dproxy.progress)
         if lst:
@@ -860,59 +878,109 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
             return 0, 0
 
     @property
-    def progress_string(self):
+    def subscan_progress(self):
         """
-        Mininal/maximal scan data progress
+        Dictionary of subscan progress
         """
-        progress = []
+        pdict = {}
+
+        def getprogress(tpl):
+            return tpl[1]
+
         for subscan in self._subscans:
             lst = []
-            for dproxy in list(subscan.datasets.values()):
+            for dproxy in subscan.datasets.values():
                 if dproxy is not None:
                     lst.append(dproxy.progress_string)
             if lst:
-
-                def getprogress(tpl):
-                    return tpl[1]
-
-                subscan_progress = "{}-{}".format(
+                pstr = "{}-{}".format(
                     min(lst, key=getprogress)[0], max(lst, key=getprogress)[0]
                 )
             else:
-                subscan_progress = "0pts-0pts"
-            progress.append((subscan.name, subscan_progress))
-        if progress:
-            if len(progress) == 1:
-                return progress[0][1]
+                pstr = "0pts-0pts"
+            pdict[subscan.name] = pstr
+        return pdict
+
+    @property
+    def scan_progress(self):
+        """String (progress of all subscans)
+        """
+        pdict = self.subscan_progress
+        if pdict:
+            if len(pdict) == 1:
+                plist = [next(iter(pdict.values()))]
             else:
-                return " ".join([name + ":" + s for name, s in progress])
+                plist = [name + ":" + s for name, s in pdict.items()]
         else:
-            return "0pts-0pts"
+            plist = ["0pts-0pts"]
+        return " ".join(plist)
+
+    @property
+    def progress_string(self):
+        """
+        Mininal/maximal scan data progress for each subscan
+        """
+        return self.scan_progress
 
     def log_progress(self, msg=None):
         data = dataset_proxy.format_bytes(self.current_bytes)
-        progress = self.progress_string
+        progress = self.scan_progress
         duration = self.duration
         if msg:
-            self.logger.info("{} ({} {} {})".format(msg, progress, data, duration))
+            self.logger.info(f"{msg} ({progress} {data} {duration})")
         else:
-            self.logger.info(" {} {} {}".format(progress, data, duration))
+            self.logger.info(f" {progress} {data} {duration}")
 
     @property
-    def info_string(self):
+    def subscan_progress_info(self):
+        """
+        Dictionary of subscan progress info
+        """
         data = dataset_proxy.format_bytes(self.current_bytes)
         state = self.state.name
-        progress = self.progress_string
-        start = self.starttime.strftime("%Y-%m-%d %H:%M:%S")
-        end = self.endtime
+        pdict = self.subscan_progress
+
+        start = self.start_time
+        end = self.end_time
+        init = self.init_time
+
+        # Delay between scan start and writer instantiation
+        startdelay1 = timediff(init, self.scan_start_time)
+
+        # Delay between writer instantiation and start of writing
+        startdelay2 = timediff(start, init)
+
+        # Delay between end of scan and end of writing (or now)
+        if end:
+            enddelay = timediff(end, self.scan_end_time)
+        else:
+            enddelay = timediff(datetime.datetime.now(), self.scan_end_time)
+
+        # Time between start of writing and end of writing (or now)
+        duration = self.duration
+
+        # Format output
+        if start:
+            start = start.strftime("%Y-%m-%d %H:%M:%S")
+        else:
+            start = "not started"
         if end:
             end = end.strftime("%Y-%m-%d %H:%M:%S")
         else:
             end = "not finished"
-        duration = self.duration
-        return "{} {} {} {}, start: {}, end: {}".format(
-            state, progress, data, duration, start, end
-        )
+        template = f"{state},{{}},{data},duration: {duration},start: {start} (delay: {startdelay1} + {startdelay2}),end: {end} (delay: {enddelay})"
+        if pdict:
+            return {name: template.format(s) for name, s in pdict.items()}
+        else:
+            return {"": template.format("0pts-0pts")}
+
+    @property
+    def sort_key(self):
+        tm = self.scan_start_time
+        if tm is None:
+            return super().sort_key
+        else:
+            return tm
 
     @property
     def detector_ndims(self):

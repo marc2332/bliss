@@ -99,8 +99,9 @@ class BaseSubscriber(object):
         """
         self.state = self.STATES.INIT
         self.state_reason = "instantiation"
-        self.starttime = datetime.datetime.now()
-        self.endtime = None
+        self.init_time = datetime.datetime.now()
+        self.start_time = None
+        self.end_time = None
         self.db_name = db_name
         self.node_type = node_type
         if parentlogger is None:
@@ -109,6 +110,7 @@ class BaseSubscriber(object):
         self.resource_profiling = resource_profiling
 
         self._greenlet = None
+        self._active_event = gevent.event.Event()
         self._log_task_period = 5
         self._exception_is_fatal = False
         self._info_cache = {}
@@ -132,13 +134,18 @@ class BaseSubscriber(object):
             else:
                 self.logger.info(reason)
 
-    def start(self):
+    def start(self, wait=False, timeout=None):
         """
         Start listening to Redis events in a separate greenlet
         """
-        if not self.active:
-            self._set_state(self.STATES.INIT, "Starting greenlet", force=True)
-            self._greenlet = gevent.spawn(self._greenlet_main)
+        # Check whether we need a (re)start
+        if self.active:
+            return
+        self._set_state(self.STATES.INIT, "Starting greenlet", force=True)
+        self._greenlet = gevent.spawn(self._greenlet_main)
+        if wait:
+            with gevent.Timeout(timeout):
+                self._active_event.wait()
 
     def stop(self, successfull=False, kill=False, wait=False, timeout=1):
         """
@@ -149,7 +156,7 @@ class BaseSubscriber(object):
         :param bool wait: wait for the listening greenlet to exit
         :param num timeout: on wait
         """
-        if not self.active:
+        if not self.alive:
             return
         if kill:
             self._set_state(self.STATES.FAULT, "Kill subscriber")
@@ -179,10 +186,25 @@ class BaseSubscriber(object):
 
     @property
     def duration(self):
-        tm = self.endtime
-        if tm is None:
-            tm = datetime.datetime.now()
-        return tm - self.starttime
+        """Time between start and end of writing
+        """
+        t0 = self.start_time
+        t1 = self.end_time
+        if t0 is None:
+            t0 = self.init_time
+        if t1 is None:
+            t1 = datetime.datetime.now()
+        if t1 < t0:
+            return t0 - t0
+        else:
+            return t1 - t0
+
+    @property
+    def sort_key(self):
+        if self.start_time is None:
+            return self.init_time
+        else:
+            return self.start_time
 
     def done(self, seconds=0):
         """
@@ -193,15 +215,20 @@ class BaseSubscriber(object):
         """
         if self.active:
             return False
-        if self.endtime is None:
+        if self.end_time is None:
             return False
-        timediff = datetime.datetime.now() - self.endtime
+        timediff = datetime.datetime.now() - self.end_time
         return timediff >= datetime.timedelta(seconds=seconds)
 
     @property
     def active(self):
+        """Greenlet is running and listening
         """
-        Listener greenlet is running
+        return self.alive and self._active_event.is_set()
+
+    @property
+    def alive(self):
+        """Greenlet is running
         """
         return bool(self._greenlet)
 
@@ -254,8 +281,10 @@ class BaseSubscriber(object):
         Greenlet main function
         """
         try:
+            self._active_event.set()
             self.__greenlet_main()
         finally:
+            self._active_event.clear()
             self._greenlet = None
         self.logger.info("Greenlet exits")
 
@@ -317,8 +346,8 @@ class BaseSubscriber(object):
             )
         finally:
             self._set_state(self.STATES.OFF, "Finished succesfully")
-            if self.endtime is None:
-                self.endtime = datetime.datetime.now()
+            if self.end_time is None:
+                self.end_time = datetime.datetime.now()
 
     def _listen_event_loop(self, **kwargs):
         """
@@ -404,8 +433,8 @@ class BaseSubscriber(object):
         """
         Executed at the start of the event loop
         """
-        self.starttime = datetime.datetime.now()
-        self.endtime = None
+        self.start_time = datetime.datetime.now()
+        self.end_time = None
         self._create_stop_handler()
         self._register_event_loop_tasks(**kwargs)
         self._set_state(self.STATES.ON, "Start listening to Redis events")
@@ -414,7 +443,7 @@ class BaseSubscriber(object):
         """
         Executed at the end of the event loop
         """
-        self.endtime = datetime.datetime.now()
+        self.end_time = datetime.datetime.now()
         self._set_state(self.STATES.OFF, "Stop listening to Redis events")
 
     def _register_event_loop_tasks(self, **kwargs):

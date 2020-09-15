@@ -80,10 +80,16 @@ def scan_tango_state(state):
         return DevState.UNKNOWN
 
 
-def align_listofstrings(lst):
+def align_listofstrings(lst, alignsep=","):
+    """Align a list of string on a separator
+    """
+    if not lst:
+        return lst
+    if alignsep == " ":
+        parts = [re.sub(r"\s+", " ", s).strip().split(alignsep) for s in lst]
+    else:
+        parts = [s.split(alignsep) for s in lst]
     if len(lst) > 1:
-        # Align on spaces
-        parts = [re.sub(r"\s+", " ", s).strip().split(" ") for s in lst]
         fmtlst = [
             "{{:>{}}}".format(max(map(len, items)))
             for items in itertools.zip_longest(*parts, fillvalue="")
@@ -91,14 +97,16 @@ def align_listofstrings(lst):
         parts = [items + [""] * (len(fmtlst) - len(items)) for items in parts]
         fmtlst[-1] = fmtlst[-1].replace(">", "<")
         fmt = " ".join(fmtlst)
-        return [fmt.format(*items) for items in parts]
-    elif lst:
-        return [re.sub(r"\s+", " ", lst[0]).strip()]
+        return [s for items in parts for s in fmt.format(*items).split("\n")]
     else:
-        return lst
+        return " ".join(parts[0]).split("\n")
 
 
 def strftime(tm):
+    """
+    :param DateTime tm:
+    :returns str:
+    """
     if tm is None:
         return "not finished"
     else:
@@ -326,8 +334,8 @@ class NexusWriter(Device):
     def read_scan_uris(self):
         # PROTECTED REGION ID(NexusWriter.scan_uris_read) ENABLED START #
         """Return the scan_uris attribute."""
-        data = self.session_writer.scan_uri()
-        lst = list("{}: {}".format(name, value) for name, value in data.items())
+        uscan = self.session_writer.scan_uri()
+        lst = [f"{scan}:,{value}" for scan, value in uscan.items()]
         return align_listofstrings(lst)
         # PROTECTED REGION END #    //  NexusWriter.scan_uris_read
 
@@ -341,9 +349,7 @@ class NexusWriter(Device):
         # PROTECTED REGION ID(NexusWriter.scan_start_read) ENABLED START #
         """Return the scan_start attribute."""
         data = self.session_writer.scan_start()
-        lst = list(
-            "{}: {}".format(name, strftime(value)) for name, value in data.items()
-        )
+        lst = [f"{scan}:,{strftime(value)}" for scan, value in data.items()]
         return align_listofstrings(lst)
         # PROTECTED REGION END #    //  NexusWriter.scan_start_read
 
@@ -351,33 +357,39 @@ class NexusWriter(Device):
         # PROTECTED REGION ID(NexusWriter.scan_end_read) ENABLED START #
         """Return the scan_end attribute."""
         data = self.session_writer.scan_end()
-        lst = list(
-            "{}: {}".format(name, strftime(value)) for name, value in data.items()
-        )
+        lst = [f"{scan}:,{strftime(value)}" for scan, value in data.items()]
         return align_listofstrings(lst)
         # PROTECTED REGION END #    //  NexusWriter.scan_end_read
 
     def read_scan_info(self):
         # PROTECTED REGION ID(NexusWriter.scan_info_read) ENABLED START #
         """Return the scan_info attribute."""
-        data = self.session_writer.scan_info_string()
-        lst = list("{}: {}".format(name, value) for name, value in data.items())
+        pscan = self.session_writer.scan_progress_info()
+        lst = [
+            f"{scan}:{subscan}:,{value}" if len(psubscan) > 1 else f"{scan}:,{value}"
+            for scan, psubscan in pscan.items()
+            for subscan, value in psubscan.items()
+        ]
         return align_listofstrings(lst)
         # PROTECTED REGION END #    //  NexusWriter.scan_info_read
 
     def read_scan_duration(self):
         # PROTECTED REGION ID(NexusWriter.scan_duration_read) ENABLED START #
         """Return the scan_duration attribute."""
-        data = self.session_writer.scan_duration()
-        lst = list("{}: {}".format(name, value) for name, value in data.items())
+        dscan = self.session_writer.scan_duration()
+        lst = [f"{scan}:,{value}" for scan, value in dscan.items()]
         return align_listofstrings(lst)
         # PROTECTED REGION END #    //  NexusWriter.scan_duration_read
 
     def read_scan_progress(self):
         # PROTECTED REGION ID(NexusWriter.scan_progress_read) ENABLED START #
         """Return the scan_progress attribute."""
-        data = self.session_writer.scan_progress_string()
-        lst = list("{}: {}".format(name, value) for name, value in data.items())
+        pscan = self.session_writer.scan_progress()
+        lst = [
+            f"{scan}:{subscan}:,{value}" if len(psubscan) > 1 else f"{scan}:,{value}"
+            for scan, psubscan in pscan.items()
+            for subscan, value in psubscan.items()
+        ]
         return align_listofstrings(lst)
         # PROTECTED REGION END #    //  NexusWriter.scan_progress_read
 
@@ -385,14 +397,11 @@ class NexusWriter(Device):
         # PROTECTED REGION ID(NexusWriter.scan_states_info_read) ENABLED START #
         """Return the scan_states_info attribute."""
         data = self.session_writer.scan_state_info()
-        if not data:
-            return list()
-        n1 = max(map(len, data.keys()))
-        fmt = "{{:{}}} ({{:5}}): {{}}".format(n1)
-        return list(
-            fmt.format(name, scan_tango_state(state).name, reason)
+        lst = [
+            f"{name}:,{scan_tango_state(state).name},{reason}"
             for name, (state, reason) in data.items()
-        )
+        ]
+        return align_listofstrings(lst)
         # PROTECTED REGION END #    //  NexusWriter.scan_states_info_read
 
     # --------
@@ -532,7 +541,6 @@ class NexusWriter(Device):
         """
         # Fill with device properties (attributes are already set)
         self.session_writer.update_saveoptions(**self.saveoptions)
-        # Greenlet not running or None
         self.session_writer.start()
         # PROTECTED REGION END #    //  NexusWriter.start
 

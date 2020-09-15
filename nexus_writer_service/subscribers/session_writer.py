@@ -142,8 +142,8 @@ class NexusSessionWriter(base_subscriber.BaseSubscriber):
     @property
     def progress_string(self):
         n = len(self.writers)
-        nactivate = sum(w.active for w in self.writers.values())
-        return "{} scan writers ({} activate)".format(n, nactivate)
+        nactive = sum(w.active for w in self.writers.values())
+        return "{} scan writers ({} active)".format(n, nactive)
 
     @property
     def progress(self):
@@ -297,28 +297,26 @@ class NexusSessionWriter(base_subscriber.BaseSubscriber):
 
     def log_progress(self, msg=None):
         n = len(self.writers)
-        nactivate = sum(w.active for w in self.writers.values())
+        nactive = sum(w.active for w in self.writers.values())
         if msg:
-            msg = "{} ({} scan writers, {} activate)".format(msg, n, nactivate)
+            msg = "{} ({} scan writers, {} active)".format(msg, n, nactive)
         else:
-            msg = "{} scan writers ({} activate)".format(n, nactivate)
+            msg = "{} scan writers ({} active)".format(n, nactive)
         self.logger.info(msg)
         if self.resource_profiling:
             self.log_resources()
 
-    def log_resources(self):
-        fds = process_utils.log_fd_diff(
-            self.logger.info, self._fds, prefix="{} fds since start"
-        )
-        nfds = len(fds)
+    @property
+    def resources(self):
+        nfds = len(process_utils.file_descriptors())
+        nsockets = len(process_utils.sockets())
         ngreenlets = len(process_utils.greenlets())
         nthreads = len(process_utils.threads())
         mb = int(process_utils.memory() / 1024 ** 2)
-        self.logger.info(
-            "{} threads, {} greenlets, {} fds, {}MB MEM".format(
-                nthreads, ngreenlets, nfds, mb
-            )
-        )
+        return f"{nthreads} threads, {ngreenlets} greenlets, {nsockets} sockets, {nfds} fds, {mb}MB MEM"
+
+    def log_resources(self):
+        self.logger.info(self.resources)
 
     @property
     def state(self):
@@ -338,7 +336,7 @@ class NexusSessionWriter(base_subscriber.BaseSubscriber):
         return list(
             name
             for name, writer in sorted(
-                self.writers.items(), key=lambda item: item[1].starttime
+                self.writers.items(), key=lambda item: item[1].sort_key
             )
         )
 
@@ -371,11 +369,11 @@ class NexusSessionWriter(base_subscriber.BaseSubscriber):
         if name:
             writer = self.writers.get(name, None)
             if writer is None:
-                raise ValueError("No writer for scan {} exists".format(repr(name)))
+                raise ValueError(f"No writer for scan {repr(name)} exists")
             ret[name] = getter(writer)
         else:
             for name, writer in sorted(
-                self.writers.items(), key=lambda item: item[1].starttime
+                self.writers.items(), key=lambda item: item[1].sort_key
             ):
                 ret[name] = getter(writer)
         return ret
@@ -385,99 +383,99 @@ class NexusSessionWriter(base_subscriber.BaseSubscriber):
         :param str name: scan name (all scans by default)
         :returns dict: str->ScanWriterState
         """
+        return self._scan_properties(self._scan_state_getter, name=name)
 
-        def getter(writer):
-            return writer.state
-
-        return self._scan_properties(getter, name=name)
+    @staticmethod
+    def _scan_state_getter(writer):
+        return writer.state
 
     def scan_state_info(self, name=None):
         """
         :param str name: scan name (all scans by default)
         :returns dict: str->(ScanWriterState, str)
         """
+        return self._scan_properties(self._scan_state_info_getter, name=name)
 
-        def getter(writer):
-            return writer.state, writer.state_reason
-
-        return self._scan_properties(getter, name=name)
+    @staticmethod
+    def _scan_state_info_getter(writer):
+        return writer.state, writer.state_reason
 
     def scan_uri(self, name=None):
         """
         :param str name: scan name (all scans by default)
         :returns dict: str->list(str)
         """
+        return self._scan_properties(self._scan_uri_getter, name=name)
 
-        def getter(writer):
-            return writer.uris
-
-        return self._scan_properties(getter, name=name)
+    @staticmethod
+    def _scan_uri_getter(writer):
+        return writer.uris
 
     def scan_start(self, name=None):
         """
         :param str name: scan name (all scans by default)
         :returns dict: str->DateTime
         """
+        return self._scan_properties(self._scan_start_getter, name=name)
 
-        def getter(writer):
-            return writer.starttime
-
-        return self._scan_properties(getter, name=name)
+    @staticmethod
+    def _scan_start_getter(writer):
+        return writer.start_time
 
     def scan_end(self, name=None):
         """
         :param str name: scan name (all scans by default)
         :returns dict: str->DateTime
         """
+        return self._scan_properties(self._scan_end_getter, name=name)
 
-        def getter(writer):
-            return writer.endtime
-
-        return self._scan_properties(getter, name=name)
+    @staticmethod
+    def _scan_end_getter(writer):
+        return writer.end_time
 
     def scan_duration(self, name=None):
         """
         :param str name: scan name (all scans by default)
         :returns dict: str->TimeDelta
         """
+        return self._scan_properties(self._scan_duration_getter, name=name)
 
-        def getter(writer):
-            return writer.duration
-
-        return self._scan_properties(getter, name=name)
+    @staticmethod
+    def _scan_duration_getter(writer):
+        return writer.duration
 
     def scan_progress(self, name=None):
         """
         :param str name: scan name (all scans by default)
-        :returns dict: str->(ScanWriterState, str)
+        :returns dict: scanname->dict(subscanname->str)
         """
+        return self._scan_properties(self._scan_progress_getter, name=name)
 
-        def getter(writer):
-            return writer.progress
+    @staticmethod
+    def _scan_progress_getter(writer):
+        return writer.subscan_progress
 
-        return self._scan_properties(getter, name=name)
-
-    def scan_progress_string(self, name=None):
-        """
-        :param str name: scan name (all scans by default)
-        :returns dict: str->str
-        """
-
-        def getter(writer):
-            return writer.progress_string
-
-        return self._scan_properties(getter, name=name)
-
-    def scan_info_string(self, name=None):
+    def scan_progress_info(self, name=None):
         """
         :param str name: scan name (all scans by default)
-        :returns dict: str->str
+        :returns dict: scanname->dict(subscanname->str)
         """
+        return self._scan_properties(self._scan_progress_info_getter, name=name)
 
-        def getter(writer):
-            return writer.info_string
+    @staticmethod
+    def _scan_progress_info_getter(writer):
+        return writer.subscan_progress_info
 
-        return self._scan_properties(getter, name=name)
+    def scan_event_buffers(self, name=None):
+        """
+        :param str name: scan name (all scans by default)
+        :returns dict: scanname->dict(subscanname->int)
+        """
+        return self._scan_properties(self._scan_event_buffers_getter, name=name)
+
+    @staticmethod
+    def _scan_event_buffers_getter(writer):
+        return writer.buffer_size
 
     def scan_has_write_permissions(self, name):
         """
@@ -486,7 +484,7 @@ class NexusSessionWriter(base_subscriber.BaseSubscriber):
         """
         writer = self.writers.get(name, None)
         if writer is None:
-            raise RuntimeError("Scan {} does not exist".format(repr(name)))
+            raise ValueError(f"No writer for scan {repr(name)} exists")
         else:
             return writer.has_write_permissions
 

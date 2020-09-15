@@ -475,7 +475,7 @@ def items():
         for part in db_file.split(os.path.sep):
             current_level.setdefault(part, [db_file, dict()])
             current_level = current_level[part][1]
-    return flask.json.dumps(result)
+    return flask.json.dumps(result, cls=static.ConfigNodeDictEncoder)
 
 
 def get_item(cfg):
@@ -497,7 +497,7 @@ def default_plugin(obj_cfg):
 def item(name):
     cfg = __config.get_config()
     obj_cfg = cfg.get_config(name)
-    return flask.json.dumps(get_item(obj_cfg))
+    return flask.json.dumps(get_item(obj_cfg), cls=static.ConfigNodeDictEncoder)
 
 
 @web_app.route("/tree/<view>")

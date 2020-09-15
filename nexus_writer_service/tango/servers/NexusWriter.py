@@ -34,8 +34,6 @@ import re
 import os
 import sys
 import itertools
-from tango import LogLevel
-
 
 from nexus_writer_service.patching import freeze_subprocess
 import nexus_writer_service
@@ -253,10 +251,9 @@ class NexusWriter(Device):
         """Initialises the attributes and properties of the NexusWriter."""
         Device.init_device(self)
         # PROTECTED REGION ID(NexusWriter.init_device) ENABLED START #
-        level = nexus_writer_service.logger.getEffectiveLevel()
-        self.get_logger().set_level(log_levels.tango_log_level[level])
         self.session_writer = getattr(self, "session_writer", None)
         if self.session_writer is None:
+            log_levels.init_tango_log_level(device=self)
             self.session_writer = session_writer.NexusSessionWriter(
                 self.session, parentlogger=None, **self.saveoptions
             )
@@ -310,15 +307,13 @@ class NexusWriter(Device):
     def read_tango_log_level(self):
         # PROTECTED REGION ID(NexusWriter.tango_log_level_read) ENABLED START #
         """Return the tango_log_level attribute."""
-        return read_log_level[
-            log_levels.itango_log_level[self.get_logger().get_level()]
-        ]
+        return read_log_level[log_levels.tango_get_log_level()]
         # PROTECTED REGION END #    //  NexusWriter.tango_log_level_read
 
     def write_tango_log_level(self, value):
         # PROTECTED REGION ID(NexusWriter.tango_log_level_write) ENABLED START #
         """Set the tango_log_level attribute."""
-        self.get_logger().set_level(log_levels.tango_log_level[write_log_level[value]])
+        log_levels.tango_set_log_level(write_log_level[value], device=self)
         # PROTECTED REGION END #    //  NexusWriter.tango_log_level_write
 
     def read_scan_states(self):

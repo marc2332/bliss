@@ -9,6 +9,7 @@ import os
 import gevent
 import functools
 import logging
+import datetime
 from gevent.time import time
 from bliss.scanning.writer.file import FileWriter
 from bliss.scanning.writer.hdf5 import get_scan_entries
@@ -102,7 +103,7 @@ class Writer(FileWriter):
         self._retry(
             self.scan_writer_started,
             timeout_msg="Cannot check Nexus writer scan state",
-            fail_msg="Nexus scan writing not started",
+            fail_msg=f"Nexus writing for {self._scan_name} not started before {{time}}",
         )
         self._retry(
             self.is_scan_permitted,
@@ -132,24 +133,20 @@ class Writer(FileWriter):
                     timeout_msg="Cannot check Nexus writer scan state",
                     fail_msg="Nexus writer error",
                     timeout=0,
+                    raise_on_timeout=False,
                 )
 
+    @skip_when_fault
     def finalize_scan_entry(self, scan):
+        # TODO: is_scan_finished check in a different greenlet?
         if not self._state_checked:
             self._retry(
                 self.is_scan_notfault,
                 timeout_msg="Cannot check Nexus writer scan state",
                 fail_msg="Nexus writer error",
                 timeout=0,
+                raise_on_timeout=False,
             )
-        # TODO: currently not checking for finish to not
-        # alarm the user with the warning message
-        # self._retry(
-        #    self.is_scan_finished,
-        #    timeout_msg="Cannot check Nexus writer finished",
-        #    fail_msg="Nexus writer is not finished",
-        # )
-        pass
 
     def get_scan_entries(self):
         return get_scan_entries(self.filename)
@@ -228,11 +225,11 @@ class Writer(FileWriter):
         fail_msg=None,
         timeout=10,
         proxy_timeout=3,
-        raise_on_timeout=False,
+        raise_on_timeout=False,  # TODO: default True when the nexus writer is more responsive
     ):
         """Call `method` until
 
-        * returns True
+        * returns True (returning False means it may return True when called again)
         * raises exception (some Tango communication exceptions are ignored)
         * timeout
 
@@ -240,17 +237,18 @@ class Writer(FileWriter):
         exception instead of returning `False`.
 
         :param callable method: returns True or False
-        :param num timeout_msg:
+        :param str timeout_msg:
         :param str fail_msg:
         :param num timeout: in seconds (try only once when zero)
-        :param bool raise_on_timeout:
+        :param bool raise_on_timeout: log or raise timeout
         """
         t0 = time()
         if not timeout_msg:
             timeout_msg = "Nexus writer check failed"
-        if not fail_msg:
-            fail_msg = timeout_msg
-        err_msg = fail_msg
+        if fail_msg:
+            err_msg = fail_msg
+        else:
+            err_msg = timeout_msg
         cause = None
         first = True
         self._set_proxy_timeout(proxy_timeout)
@@ -277,6 +275,9 @@ class Writer(FileWriter):
                 raise
             gevent.sleep(0.1)
         if raise_on_timeout:
+            err_msg = err_msg.format(
+                time=datetime.datetime.now().strftime("%H:%M:%S.%f")
+            )
             if cause is None:
                 raise RuntimeError(err_msg)
             else:
@@ -284,11 +285,11 @@ class Writer(FileWriter):
         else:
             # Do not repeat the same warning
             previous_msgs = self._warn_msg_dict.setdefault(method.__qualname__, set())
-            if err_msg not in previous_msgs:
+            if err_msg in previous_msgs:
+                logger.debug(err_msg)
+            else:
                 previous_msgs.add(err_msg)
                 logger.warning(err_msg)
-            else:
-                logger.debug(err_msg)
 
     def is_writer_on(self):
         """
@@ -301,7 +302,9 @@ class Writer(FileWriter):
         elif state in [DevState.FAULT, DevState.OFF, DevState.UNKNOWN]:
             reason = self.session_state_reason
             raise RuntimeError(
-                "Nexus writer service is in {} state ({})".format(state.name, reason)
+                "Nexus writer service is in {} state ({}). Call the Nexus writer 'start' method.".format(
+                    state.name, reason
+                )
             )
         else:
             return False

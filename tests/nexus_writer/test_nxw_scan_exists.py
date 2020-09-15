@@ -7,7 +7,6 @@
 
 import pytest
 from bliss.common import scans
-from louie import dispatcher
 import nxw_test_utils
 from nexus_writer_service.io import nexus
 
@@ -28,5 +27,3 @@ def _test_nxw_scan_exists(session=None, tmpdir=None, writer=None, **kwargs):
     with pytest.raises(RuntimeError):
         scan = scans.sct(.1, *detectors, save=True)
     scan = scans.sct(.1, *detectors, save=True)
-    # TODO: no proper cleanup by Bliss
-    dispatcher.reset()

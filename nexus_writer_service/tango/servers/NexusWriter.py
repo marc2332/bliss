@@ -36,17 +36,8 @@ import sys
 import itertools
 from tango import LogLevel
 
-### import bliss to have gevent monkey-patching done
-import bliss
-import gevent.monkey
 
-# revert subprocess monkey-patching
-import subprocess
-
-for _name, _subprocess_item in gevent.monkey.saved["subprocess"].items():
-    setattr(subprocess, _name, _subprocess_item)
-###
-
+from nexus_writer_service.patching import freeze_subprocess
 import nexus_writer_service
 from nexus_writer_service.subscribers import session_writer
 from nexus_writer_service.subscribers.scan_writer_base import NexusScanWriterBase

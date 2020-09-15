@@ -9,6 +9,7 @@ import pytest
 import os
 import numpy
 from contextlib import contextmanager
+import multiprocessing
 import h5py.h5t
 from nexus_writer_service.io import nexus
 
@@ -454,12 +455,12 @@ def validateNxData(h5group, axes, signals):
 def check_string_types(scan_tmpdir, attribute=True, raiseExtended=True):
     # Test following string literals
     sAsciiBytes = b"abc"
-    sAsciiUnicode = u"abc"
+    sAsciiUnicode = "abc"
     sLatinBytes = b"\xe423"
-    sLatinUnicode = u"\xe423"  # not used
-    sUTF8Unicode = u"\u0101bc"
+    sLatinUnicode = "\xe423"  # not used
+    sUTF8Unicode = "\u0101bc"
     sUTF8Bytes = b"\xc4\x81bc"
-    sUTF8AsciiUnicode = u"abc"
+    sUTF8AsciiUnicode = "abc"
     sUTF8AsciiBytes = b"abc"
     # Expected conversion after HDF5 write/read
     strmap = {}
@@ -786,3 +787,47 @@ def test_nexus_dicttonx(scan_tmpdir):
         nexus.dicttonx(treedict1, group, overwrite=True, update=False)
         treedict3 = nexus.nxtodict(group)
         assert treedict2 == treedict3
+
+
+def test_nexus_locked_exception(scan_tmpdir):
+    filename = os.path.join(str(scan_tmpdir), "test.h5")
+    locked = False
+
+    def locking_process(q):
+        import threading
+
+        with nexus.File(filename, mode="a", enable_file_locking=True) as f:
+            f["a"] = 10
+            f.flush()
+            q.put(None)
+            threading.Event().wait()
+
+    q = multiprocessing.Queue()
+    p = multiprocessing.Process(target=locking_process, args=(q,))
+    p.start()
+    try:
+        # Wait until file is expected to be locked
+        q.get(timeout=10)
+        # We should not be able to lock the file
+        try:
+            with nexus.File(filename, mode="r", enable_file_locking=True):
+                pass
+            raise RuntimeError("Locked exception not raises")
+        except Exception as e:
+            assert nexus.isLockedError(e)
+            assert f"pid={p.pid}" in nexus.lockedErrorMessage(filename)
+        # We should be able to open the file without locking
+        with nexus.File(filename) as f:
+            assert f["a"][()] == 10
+    finally:
+        p.kill()
+
+
+def test_nexus_locked_self(scan_tmpdir):
+    filename = os.path.join(str(scan_tmpdir), "test.h5")
+    with nexus.File(filename, mode="a", enable_file_locking=True) as f1:
+        f1["a"] = 10
+        f1.flush()
+        # We should be able to open the file with locking
+        with nexus.File(filename, mode="r", enable_file_locking=True) as f2:
+            assert f2["a"][()] == 10

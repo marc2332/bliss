@@ -12,6 +12,7 @@ import math
 from bliss.common.standard import Group
 from bliss.common.standard import sync
 from bliss.common import event
+from bliss.common.axis import AxisFaultError
 
 
 def test_bad_start(bad_motor):
@@ -153,3 +154,20 @@ def test_issue_1719(bad_motor, capsys):
         not "TypeError: '<=' not supported between instances of 'NoneType' and 'int'"
         in capsys.readouterr().err
     )
+
+
+def test_fault_state(bad_motor):
+    bad_motor.move(1000, wait=False)
+
+    gevent.sleep(bad_motor.acctime)
+
+    bad_motor.controller.fault_state = True
+
+    with pytest.raises(AxisFaultError):
+        bad_motor.wait_move()
+
+    bad_motor.controller.fault_state = False
+
+    bad_motor.move(0)
+
+    assert "READY" in bad_motor.state

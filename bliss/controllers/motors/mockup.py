@@ -620,6 +620,7 @@ class FaultyMockup(Mockup):
         Mockup.__init__(self, *args, **kwargs)
 
         self.bad_state = False
+        self.fault_state = False
         self.bad_start = False
         self.bad_state_after_start = False
         self.bad_stop = False
@@ -633,6 +634,9 @@ class FaultyMockup(Mockup):
         if self.bad_state:
             self.state_msg_index += 1
             raise RuntimeError("BAD STATE %d" % self.state_msg_index)
+        elif self.fault_state:
+            self._axis_moves[axis]["motion"] = None  # stop motion immediately
+            return AxisState("FAULT")
         else:
             return Mockup.state(self, axis)
 

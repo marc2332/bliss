@@ -270,7 +270,12 @@ class Icepap(Controller):
         # STOPCODE bits: 14-17
         stop_code = (status >> 14) & 0xF
         if stop_code:
-            state.set(self.STATUS_STOPCODE.get(stop_code)[0])
+            sc_status = self.STATUS_STOPCODE.get(stop_code)[0]
+            state.set(sc_status)
+            if sc_status not in ("SCEOM", "SCSTOP", "SCABORT"):
+                # we have a limit hit, or a closed loop error etc. =>
+                # this will raise an exception, if it occurs during a move
+                state.set("FAULT")
 
         # DISABLE bits: 4-6
         disable_condition = (status >> 4) & 0x7

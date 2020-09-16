@@ -330,6 +330,7 @@ class ManageMainBehaviours(qt.QObject):
         availablePlots = list(plots)
         widgets = flintModel.workspace().widgets()
         defaultWidget = None
+        usedWidgets = []
         for widget in widgets:
             plots = self.__getCompatiblePlots(widget, availablePlots)
             if len(plots) == 0:
@@ -386,6 +387,7 @@ class ManageMainBehaviours(qt.QObject):
             previousScan = widget.scan()
             self.__clearPreviousScan(previousScan)
             widget.setScan(scan)
+            usedWidgets.append(widget)
 
         # There is no way in Qt to tabify a widget to a new floating widget
         # Then this code tabify the new widgets on an existing widget
@@ -411,6 +413,7 @@ class ManageMainBehaviours(qt.QObject):
             previousScan = widget.scan()
             self.__clearPreviousScan(previousScan)
             widget.setScan(scan)
+            usedWidgets.append(widget)
 
             if lastTab is None:
                 window.addDockWidget(qt.Qt.RightDockWidgetArea, widget)
@@ -419,12 +422,37 @@ class ManageMainBehaviours(qt.QObject):
                 window.tabifyDockWidget(lastTab, widget)
             lastTab = widget
 
-        if defaultWidget is not None:
-            # Try to set the focus on the default plot
-            defaultWidget.show()
-            defaultWidget.raise_()
-            defaultWidget.setFocus(qt.Qt.OtherFocusReason)
-            self.__widgetActivated(defaultWidget)
+        self.__updateFocus(defaultWidget, usedWidgets)
+
+    def __updateFocus(self, defaultWidget, usedWidgets):
+        """
+        Set the focus on a widget which was used as part of the scan.
+
+        It one of the widget was already shown nothing is updated.
+        """
+        for widget in usedWidgets:
+            if hasattr(widget, "_silxPlot"):
+                content = widget._silxPlot().getWidgetHandle()
+            elif isinstance(widget, qt.QDockWidget):
+                content = widget.widget()
+            else:
+                content = widget
+            reallyVisible = not content.visibleRegion().isEmpty()
+            if reallyVisible:
+                # One of the used widget is already visible
+                # Nothing to do
+                return
+
+        # Select a widget part of the scan
+        widget = defaultWidget
+        if widget is None and len(usedWidgets) > 0:
+            widget = usedWidgets[0]
+
+        if widget is not None:
+            widget.show()
+            widget.raise_()
+            widget.setFocus(qt.Qt.OtherFocusReason)
+            self.__widgetActivated(widget)
 
     def __dockClosed(self):
         dock = self.sender()

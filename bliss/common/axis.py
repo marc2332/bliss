@@ -1698,11 +1698,8 @@ class Axis:
         check_encoder = (
             self.config.get("check_encoder", bool, self.encoder) and self.encoder
         )
-        dont_check_discrepancy = read_encoder_position and not check_encoder
-        if (
-            not dont_check_discrepancy
-            and abs(dial_initial_pos - hw_pos) > self.tolerance
-        ):
+        check_discrepancy = not (read_encoder_position and not check_encoder)
+        if check_discrepancy and abs(dial_initial_pos - hw_pos) > self.tolerance:
             raise RuntimeError(
                 "%s: discrepancy between dial (%f) and controller position (%f), aborting"
                 % (self.name, dial_initial_pos, hw_pos)

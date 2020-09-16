@@ -180,7 +180,8 @@ controller:
     steps_per_unit: 50
     tolerance: 0.001
   - name: mot_maxee_enc
-    steps_per_unit: 100
+    steps_per_unit: 1
+
 - class: slits
   name: primary_slit
   axes:

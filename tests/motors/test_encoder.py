@@ -63,11 +63,11 @@ def test_move(m1):
 
 def test_encoder_counter(default_session, m1, m1enc):
     s = scans.loopscan(3, 0.1, m1enc)
-    assert numpy.array_equal(s.get_data()["m1enc:position"], [m1enc.read()] * 3)
+    assert numpy.array_equal(s.get_data()["m1enc"], [m1enc.read()] * 3)
 
     m1enc.counter.conversion_function = lambda x: x * 2
     ct = scans.ct(0.1, m1enc)
-    assert ct.get_data()["m1enc:position"] == m1enc.read() * 2
+    assert ct.get_data()["m1enc"] == m1enc.read() * 2
 
 
 def test_maxee_mode_read_encoder(mot_maxee):
@@ -100,46 +100,41 @@ def test_maxee_mode_check_encoder(mot_maxee):
             mot_maxee.move(2)
 
 
-def test_encoder_filter(mot_maxee):
-    enc_pos = 6.0
+def test_encoder_filter(default_session, mot_maxee):
+    encoder_filter = default_session.config.get("encfilter1")
+    encoder = encoder_filter.encoder
+    assert encoder.axis == mot_maxee
 
-    class Ctrl:
-        def _initialize_encoder(self, *args):
-            pass
-
-        def read_encoder(self, enc):
-            return enc_pos
-
-    ctrl = Ctrl()
-    encoder = encoder_mod.EncoderFilter("my", ctrl, {"encoder_precision": 5.0})
-    encoder.axis = mot_maxee
-
-    expected_value = encoder_noise_round(enc_pos, mot_maxee._set_position, 1.0, 5.0)
-    assert encoder.read() == pytest.approx(expected_value)
-    enc_pos = 3.0
-    expected_value = encoder_noise_round(enc_pos, mot_maxee._set_position, 1.0, 5.0)
-    assert encoder.read() == pytest.approx(expected_value)
-
-
-def test_encoder_filter_with_other_counters(mot_maxee):
-    enc_pos = 6.0
-
-    class Ctrl:
-        def _initialize_encoder(self, *args):
-            pass
-
-        def read_encoder(self, enc):
-            return enc_pos
-
-    ctrl = Ctrl()
-    encoder = encoder_mod.EncoderFilter(
-        "my", ctrl, {"enable_counters": ["position_raw", "position_error"]}
+    enc_pos = 6.0  # big difference compared to motor pos.
+    encoder.controller.set_encoder(encoder, enc_pos * encoder.steps_per_unit)
+    mot_maxee._set_position = 0
+    expected_value = encoder_noise_round(
+        enc_pos,
+        mot_maxee._set_position,
+        encoder.steps_per_unit,
+        encoder_filter.encoder_precision,
     )
-    encoder.axis = mot_maxee
-    enc_position, position_raw, position_error = encoder._read_all_counters(
-        None, *encoder.counters
+
+    ct = scans.ct(0, encoder_filter)
+    data = ct.get_data()
+    corrected_value = data["encfilter1:position"]
+    assert corrected_value == pytest.approx(expected_value)
+    assert data["encfilter1:position_error"] == mot_maxee._set_position - enc_pos
+
+    enc_pos = 0.1  # small difference compared to motor pos.
+    encoder.controller.set_encoder(encoder, enc_pos * encoder.steps_per_unit)
+    mot_maxee._set_position = 0
+    expected_value = encoder_noise_round(
+        enc_pos,
+        mot_maxee._set_position,
+        encoder.steps_per_unit,
+        encoder_filter.encoder_precision,
     )
-    assert position_raw == enc_pos
-    expected_position = encoder_noise_round(enc_pos, mot_maxee._set_position, 1.0, 0.0)
-    assert enc_position == pytest.approx(expected_position)
-    assert position_error == mot_maxee._set_position - enc_pos
+
+    ct = scans.ct(0, encoder_filter)
+    corrected_value = ct.get_data()["encfilter1:position"]
+    assert (
+        corrected_value
+        == pytest.approx(expected_value)
+        == pytest.approx(mot_maxee._set_position)
+    )

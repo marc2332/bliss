@@ -483,7 +483,7 @@ def test_mg_with_encoder(default_session):
     m1enc = default_session.config.get("m1enc")
     test_mg = default_session.config.get("test_mg_enc")
 
-    assert test_mg.available == {diode.fullname, m1enc.counters.position.fullname}
+    assert test_mg.available == {diode.fullname, m1enc.fullname}
 
 
 def test_mg_restart_with_lima_disabled_counters(beacon, lima_simulator):

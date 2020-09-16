@@ -11,11 +11,32 @@ from bliss.common.motor_settings import ControllerAxisSettings, floatOrNone
 from bliss.common.axis import Trajectory
 from bliss.common.motor_group import Group, TrajectoryGroup
 from bliss.common import event
+from bliss.controllers.counter import SamplingCounterController
+from bliss.common.counter import SamplingCounter
 from bliss.physics import trajectory
 from bliss.common.utils import set_custom_members, object_method, grouped
 from bliss import global_map
 from bliss.config.channels import Cache
 from gevent import lock
+
+
+class EncoderCounterController(SamplingCounterController):
+    def __init__(self, motor_controller):
+        super().__init__("encoder")
+
+        self.motor_controller = motor_controller
+
+    def read_all(self, *encoders):
+        try:
+            positions_array = numpy.array(
+                self.motor_controller.read_encoder_multiple(*encoders)
+            )
+        except NotImplementedError:
+            positions_array = numpy.array(
+                list(map(self.motor_controller.read_encoder, encoders))
+            )
+        steps_per_unit = numpy.array([enc.steps_per_unit for enc in encoders])
+        return positions_array / steps_per_unit
 
 
 class Controller:
@@ -34,6 +55,7 @@ class Controller:
         self.__initialized_encoder = dict()
         self.__initialized_axis = dict()
         self.__lock = lock.RLock()
+        self._encoder_counter_controller = EncoderCounterController(self)
         self._axes_config = axes
         self._axes = dict()
         self._encoders_config = encoders
@@ -250,8 +272,14 @@ class Controller:
         encoder = self._encoders.get(encoder_name)
         if encoder is None:  # create it
             encoder_class, encoder_config = self._encoders_config[encoder_name]
-            encoder = encoder_class(encoder_name, self, encoder_config)
+            encoder = self._encoder_counter_controller.create_counter(
+                encoder_class,
+                encoder_name,
+                motor_controller=self,
+                config=encoder_config,
+            )
             self._encoders[encoder_name] = encoder
+
         return encoder
 
     def get_class_name(self):
@@ -364,6 +392,11 @@ class Controller:
         raise NotImplementedError
 
     def read_encoder(self, encoder):
+        """Return the encoder value in *encoder steps*.
+        """
+        raise NotImplementedError
+
+    def read_encoder_multiple(self, *encoder):
         """Return the encoder value in *encoder steps*.
         """
         raise NotImplementedError

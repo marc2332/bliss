@@ -44,6 +44,10 @@ class AxisOnLimitError(RuntimeError):
     pass
 
 
+class AxisFaultError(RuntimeError):
+    pass
+
+
 def _prepare_one_controller_motions(controller, motions):
     try:
         controller.prepare_all(*motions)
@@ -1911,6 +1915,8 @@ class Axis:
             if not state.MOVING:
                 if limit_error and (state.LIMPOS or state.LIMNEG):
                     raise AxisOnLimitError(str(state))
+                elif state.FAULT:
+                    raise AxisFaultError(str(state))
                 return state
             gevent.sleep(polling_time)
 

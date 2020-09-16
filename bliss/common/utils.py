@@ -483,68 +483,6 @@ def common_prefix(paths, sep=os.path.sep):
     return sep.join(x[0] for x in itertools.takewhile(allnamesequal, bydirectorylevels))
 
 
-def human_time_fmt(num, suffix="s"):
-    """
-    format time second in human readable format
-    """
-    for unit in ["", "m", "u", "p", "f"]:
-        if abs(num) < 1:
-            num *= 1000
-            continue
-        return "%3.3f%s%s" % (num, unit, suffix)
-
-
-class Statistics(object):
-    """
-    Calculate statistics from a profiling dictionary
-    key == function name
-    values == list of tuple (start_time,end_time)
-    """
-
-    def __init__(self, profile):
-        self._profile = {
-            key: numpy.array(values, dtype=numpy.float)
-            for key, values in profile.items()
-        }
-
-    @property
-    def elapsed_time(self):
-        """
-        elapsed time function
-        """
-        return {
-            key: values[:, 1] - values[:, 0] for key, values in self._profile.items()
-        }
-
-    @property
-    def min_mean_max_std(self):
-        """
-        dict with (min, mean, max, std) tuple
-        """
-        return {
-            key: (values.min(), values.mean(), values.max(), values.std())
-            for key, values in self.elapsed_time.items()
-        }
-
-    def __info__(self):
-        # due to recursion import standard here
-        from bliss.shell.standard import _tabulate
-
-        data = [("func_name", "min", "mean", "max", "std")]
-
-        for key, values in sorted(self.min_mean_max_std.items()):
-            data.append(
-                (
-                    key,
-                    human_time_fmt(values[0]),
-                    human_time_fmt(values[1]),
-                    human_time_fmt(values[2]),
-                    values[3],
-                )
-            )
-        return _tabulate(data)
-
-
 class autocomplete_property(property):
     """
     a custom property class that will be added to 

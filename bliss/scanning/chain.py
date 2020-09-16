@@ -13,7 +13,6 @@ import enum
 import collections
 from contextlib import contextmanager
 
-
 import gevent
 from treelib import Tree
 
@@ -24,6 +23,7 @@ from bliss.common.greenlet_utils import KillMask
 from bliss.scanning.channel import AcquisitionChannelList, AcquisitionChannel
 from bliss.scanning.channel import duplicate_channel, attach_channels
 from bliss.common.validator import BlissValidator
+from bliss.common.profiling import time_profile
 
 
 TRIGGER_MODE_ENUM = enum.IntEnum("TriggerMode", "HARDWARE SOFTWARE")
@@ -33,8 +33,7 @@ TRIGGER_MODE_ENUM = enum.IntEnum("TriggerMode", "HARDWARE SOFTWARE")
 #
 _running_task_on_device = weakref.WeakValueDictionary()
 _logger = logging.getLogger("bliss.scans")
-_debug = _logger.debug
-_error = _logger.error
+
 
 # Normal chain stop, avoid print error message
 class StopChain(gevent.GreenletExit):
@@ -43,20 +42,15 @@ class StopChain(gevent.GreenletExit):
 
 @contextmanager
 def profile(stats_dict, device_name, func_name):
+    name = f"{device_name}.{func_name}"
     try:
-        call_start = time.time()
-        _debug("Start %s.%s" % (device_name, func_name))
-        yield
+        with time_profile(stats_dict, name, logger=_logger):
+            yield
     except StopChain:
         raise
-    except:
-        _error("Exception caught in %s.%s" % (device_name, func_name))
+    except BaseException as e:
+        _logger.error(f"Exception caught in {name} ({e})")
         raise
-    finally:
-        call_end = time.time()
-        stat = stats_dict.setdefault("%s.%s" % (device_name, func_name), list())
-        stat.append((call_start, call_end))
-        _debug("End %s.%s Took %fs" % (device_name, func_name, call_end - call_start))
 
 
 class DeviceIterator:
@@ -1019,7 +1013,9 @@ class AcquisitionChain:
         self._stats_dict = dict()
 
     def reset_stats(self):
-        self._stats_dict = dict()
+        """Reset time statistics
+        """
+        self._stats_dict.clear()
 
     @property
     def nodes_list(self):

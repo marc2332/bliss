@@ -8,11 +8,20 @@
 from __future__ import annotations
 
 import numpy
+import weakref
+import logging
 
 from silx.gui import qt
 from silx.gui import icons
+from silx.gui import colors
 from silx.gui.plot.tools import roi
 from silx.gui.plot.items import roi as roi_items
+from silx.gui.plot import items
+from silx.gui.plot import PlotWidget
+from silx.utils.weakref import WeakMethodProxy
+
+
+_logger = logging.getLogger(__name__)
 
 
 def _getAutoPrecision(plot):
@@ -101,6 +110,20 @@ class MarkerAction(qt.QWidgetAction):
         self.__manager = roi.RegionOfInterestManager(plot)
         self.__manager.sigRoiAdded.connect(self.__roiAdded)
 
+        assert isinstance(plot, PlotWidget)
+        self._plotRef = weakref.ref(plot, WeakMethodProxy(self.__plotDestroyed))
+
+        self.__tracking = False
+        """Is the plot active items are tracked"""
+
+        self.__useColorFromCursor = True
+        """If true, force the ROI color with the colormap marker color"""
+
+        self._item = None
+        """The selected item"""
+
+        self.setActiveItemTracking(True)
+
         menu = qt.QMenu(parent)
         menu.aboutToShow.connect(self.__aboutToShow)
 
@@ -150,7 +173,7 @@ class MarkerAction(qt.QWidgetAction):
     def __roiAdded(self, roi):
         roi.setEditable(True)
         roi.setSelectable(True)
-        roi.setColor("black")
+        self._updateRoiColor(roi)
 
     def __aboutToShow(self):
         roi = self.__manager.getCurrentRoi()
@@ -166,3 +189,125 @@ class MarkerAction(qt.QWidgetAction):
         if roi is not None:
             self.__manager.removeRoi(roi)
             roi.deleteLater()
+
+    def setActiveItemTracking(self, tracking):
+        """Enable/disable the tracking of the active item of the plot.
+
+        :param bool tracking: Tracking mode
+        """
+        if self.__tracking == tracking:
+            return
+        plot = self.getPlotWidget()
+        if self.__tracking:
+            plot.sigActiveImageChanged.disconnect(self._activeImageChanged)
+            plot.sigActiveScatterChanged.disconnect(self._activeScatterChanged)
+        self.__tracking = tracking
+        if self.__tracking:
+            plot.sigActiveImageChanged.connect(self.__activeImageChanged)
+            plot.sigActiveScatterChanged.connect(self.__activeScatterChanged)
+
+    def setDefaultColorFromCursorColor(self, enabled):
+        """Enabled/disable the use of the colormap cursor color to display the
+        ROIs.
+
+        If set, the manager will update the color of the profile ROIs using the
+        current colormap cursor color from the selected item.
+        """
+        self.__useColorFromCursor = enabled
+
+    def __activeImageChanged(self, previous, legend):
+        """Handle plot item selection"""
+        plot = self.getPlotWidget()
+        item = plot.getImage(legend)
+        self.setPlotItem(item)
+
+    def __activeScatterChanged(self, previous, legend):
+        """Handle plot item selection"""
+        plot = self.getPlotWidget()
+        item = plot.getScatter(legend)
+        self.setPlotItem(item)
+
+    def __plotDestroyed(self, ref):
+        """Handle finalization of PlotWidget
+
+        :param ref: weakref to the plot
+        """
+        self._plotRef = None
+        self._roiManagerRef = None
+        self._pendingRunners = []
+
+    def setPlotItem(self, item):
+        """Set the plot item focused by the profile manager.
+
+        :param ~silx.gui.plot.items.Item item: A plot item
+        """
+        previous = self.getPlotItem()
+        if previous is item:
+            return
+        if item is None:
+            self._item = None
+        else:
+            item.sigItemChanged.connect(self.__itemChanged)
+            self._item = weakref.ref(item)
+        self._updateRoiColors()
+
+    def getDefaultColor(self) -> qt.QColor:
+        """Returns the default ROI color to use according to the given item.
+        """
+        color = "black"
+        item = self.getPlotItem()
+        if isinstance(item, items.ColormapMixIn):
+            colormap = item.getColormap()
+            name = colormap.getName()
+            if name is not None:
+                color = colors.cursorColorForColormap(name)
+        color = colors.asQColor(color)
+        return color
+
+    def _updateRoiColors(self):
+        """Update ROI color according to the item selection"""
+        if not self.__useColorFromCursor:
+            return
+        color = self.getDefaultColor()
+        for roi in self.__manager.getRois():
+            roi.setColor(color)
+
+    def _updateRoiColor(self, roi):
+        """Update a specific ROI according to the current selected item.
+
+        :param RegionOfInterest roi: The ROI to update
+        """
+        if not self.__useColorFromCursor:
+            return
+        color = self.getDefaultColor()
+        roi.setColor(color)
+
+    def __itemChanged(self, changeType):
+        """Handle item changes.
+        """
+        if changeType == (items.ItemChangedType.COLORMAP):
+            self._updateRoiColors()
+
+    def getPlotItem(self):
+        """Returns the item focused by the profile manager.
+
+        :rtype: ~silx.gui.plot.items.Item
+        """
+        if self._item is None:
+            return None
+        item = self._item()
+        if item is None:
+            self._item = None
+        return item
+
+    def getPlotWidget(self):
+        """The plot associated to the profile manager.
+
+        :rtype: ~silx.gui.plot.PlotWidget
+        """
+        if self._plotRef is None:
+            return None
+        plot = self._plotRef()
+        if plot is None:
+            self._plotRef = None
+        return plot

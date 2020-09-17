@@ -6,6 +6,7 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import pytest
+import gevent
 
 
 def motor_fixture(name):
@@ -82,3 +83,35 @@ def bad_motor(beacon):
     bad.position = 0
     bad.sync_hard()
     yield bad
+
+
+def wait_state(mot, state, timeout=1, stop_exception=None):
+    """
+    :param mot Axis, Group, ...:
+    :param str state: "MOVING", "READY", ...
+    """
+    try:
+        with gevent.Timeout(timeout, TimeoutError):
+            if state == "READY":
+                if stop_exception:
+                    with pytest.raises(stop_exception):
+                        mot.wait_move()
+                else:
+                    mot.wait_move()
+            else:
+                while state not in mot.state:
+                    gevent.sleep(0.010)
+    except TimeoutError:
+        AssertionError(
+            f"state {repr(state)} not reached within {timeout} second (current state: {repr(mot.state)})"
+        )
+
+    # Check Axis state API consistency:
+    mot_state = mot.state
+    is_moving = mot.is_moving
+    if state == "MOVING":
+        assert is_moving
+    else:
+        assert not is_moving
+    assert state in mot_state
+    assert getattr(mot_state, state)

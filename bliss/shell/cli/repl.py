@@ -372,88 +372,86 @@ class BlissRepl(PythonRepl):
         """
         Evaluate the line and print the result.
         """
-        output = self.app.output
-
-        def compile_with_flags(code, mode):
-            " Compile code with the right compiler flags. "
-            return compile(
-                code,
-                "<stdin>",
-                mode,
-                flags=self.get_compiler_flags(),
-                dont_inherit=True,
-            )
-
         if line.lstrip().startswith("\x1a"):
             # When the input starts with Ctrl-Z, quit the REPL.
             self.app.exit()
-
         elif line.lstrip().startswith("!"):
             # Run as shell command
             os.system(line[1:])
         else:
-            # Try eval first
+            # First try `eval` and then `exec`
             try:
-                code = compile_with_flags(line, "eval")
-                result = eval(code, self.get_globals(), self.get_locals())
-
-                locals = self.get_locals()
-                locals["_"] = locals["_%i" % self.current_statement_index] = result
-
-                if result is not None:
-                    out_prompt = self.get_output_prompt()
-
-                    result_str = f"{info(result)}\n"  # patched here!!
-
-                    # Align every line to the first one.
-                    line_sep = "\n" + " " * fragment_list_width(out_prompt)
-                    result_str = line_sep.join(result_str.splitlines()) + "\n"
-
-                    # Write output tokens.
-                    if self.enable_syntax_highlighting:
-                        formatted_output = merge_formatted_text(
-                            [
-                                out_prompt,
-                                PygmentsTokens(list(_lex_python_result(result_str))),
-                            ]
-                        )
-                    else:
-                        formatted_output = FormattedText(
-                            out_prompt + [("", result_str)]
-                        )
-
-                    self.captured_output.append((result_str,), {})
-
-                    print_formatted_text(
-                        formatted_output,
-                        style=self._current_style,
-                        style_transformation=self.style_transformation,
-                        include_default_pygments_style=False,
-                    )
-
-            # If not a valid `eval` expression, run using `exec` instead.
+                self._eval_line(line)
+                return
             except SyntaxError:
-                code = compile_with_flags(line, "exec")
-                six.exec_(code, self.get_globals(), self.get_locals())
+                pass  # SyntaxError should not be in exception chain
+            self._exec_line(line)
 
-            output.flush()
+    def _eval_line(self, line):
+        """Try executing line with `eval`
+        """
+        code = self._compile_with_flags(line, "eval")
+        result = eval(code, self.get_globals(), self.get_locals())
+
+        locals = self.get_locals()
+        locals["_"] = locals["_%i" % self.current_statement_index] = result
+
+        if result is None:
+            return
+
+        out_prompt = self.get_output_prompt()
+
+        result_str = f"{info(result)}\n"  # patched here!!
+
+        # Align every line to the first one.
+        line_sep = "\n" + " " * fragment_list_width(out_prompt)
+        result_str = line_sep.join(result_str.splitlines()) + "\n"
+
+        # Write output tokens.
+        if self.enable_syntax_highlighting:
+            formatted_output = merge_formatted_text(
+                [out_prompt, PygmentsTokens(list(_lex_python_result(result_str)))]
+            )
+        else:
+            formatted_output = FormattedText(out_prompt + [("", result_str)])
+
+        self.captured_output.append((result_str,), {})
+
+        print_formatted_text(
+            formatted_output,
+            style=self._current_style,
+            style_transformation=self.style_transformation,
+            include_default_pygments_style=False,
+        )
+
+        self.app.output.flush()
+
+    def _exec_line(self, line):
+        """Try executing line with `exec`
+        """
+        code = self._compile_with_flags(line, "exec")
+        six.exec_(code, self.get_globals(), self.get_locals())
+        self.app.output.flush()
+
+    def _compile_with_flags(self, code, mode):
+        """Compile code with the right compiler flags.
+        """
+        return compile(
+            code, "<stdin>", mode, flags=self.get_compiler_flags(), dont_inherit=True
+        )
 
     def _execute_task(self, *args, **kwargs):
         try:
-            return self._execute_line(*args, **kwargs)
-        except BaseException:
-            return sys.exc_info()
+            self._execute_line(*args, **kwargs)
+        except BaseException as e:
+            return e
 
     def _execute(self, *args, **kwargs):
         self.current_task = gevent.spawn(self._execute_task, *args, **kwargs)
         try:
-            return_value = self.current_task.get()
-            if (
-                isinstance(return_value, tuple)
-                and len(return_value) >= 3
-                and isinstance(return_value[1], (BaseException, Exception))
-            ):
-                raise return_value[1].with_traceback(return_value[2]) from None
+            exception = self.current_task.get()
+            if exception is not None:
+                raise exception  # .with_traceback(exception.__traceback__)
         except gevent.Timeout:
             self._handle_exception(*args)
         except ConnectionError as e:

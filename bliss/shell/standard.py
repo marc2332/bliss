@@ -62,7 +62,7 @@ from bliss.shell.dialog.helpers import find_dialog, dialog as dialog_dec_cls
 
 
 # objects given to Bliss shell user
-from bliss.common.standard import mv, mvr, move
+from bliss.common.standard import mv, mvr, move, rockit
 
 from bliss.common.cleanup import cleanup, error_cleanup
 
@@ -139,6 +139,7 @@ __all__ = (
         "umv",
         "mvr",
         "umvr",
+        "rockit",
         "move",
         "plotinit",
         "plotselect",

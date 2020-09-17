@@ -29,6 +29,7 @@ from bliss.data.node import (
     _get_or_create_node,
     _get_node_object,
     sessions_list,
+    get_last_saved_scan,
 )
 from bliss.data.nodes.channel import ChannelDataNode
 from bliss.data.events.channel import ChannelDataEvent
@@ -1241,3 +1242,23 @@ def test_block_size(default_session):
                 mynode.get_as_array(i, i + add)
             with pytest.raises(IndexError):
                 mynode[i : i + add + 1]
+
+
+def test_get_last_saved_scan(session):
+    session_node = get_session_node(session.name)
+    detectors = (session.env_dict["diode"],)
+
+    node = get_last_saved_scan(session_node)
+    assert node is None
+
+    s = scans.sct(0.1, *detectors)
+    node = get_last_saved_scan(session_node)
+    assert s.node.db_name == node.db_name
+
+    scans.ct(0.1, *detectors)
+    node = get_last_saved_scan(session_node)
+    assert s.node.db_name == node.db_name
+
+    s = scans.sct(0.1, *detectors)
+    node = get_last_saved_scan(session_node)
+    assert s.node.db_name == node.db_name

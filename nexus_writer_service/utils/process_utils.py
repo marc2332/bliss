@@ -15,7 +15,85 @@ import re
 import gc
 import psutil
 from greenlet import greenlet
+import threading
+import gevent.socket
+import socket
+import pprint
+import inspect
 from contextlib import contextmanager
+import functools
+
+
+def _dictobj_replace(obj):
+    if isinstance(obj, (str, bytes)):
+        s = str(obj[:10])
+        return s + "..."
+    elif isinstance(obj, bytearray):
+        s = str(obj[:10])
+        return f"{(s[:-2])}...{(s[-2:])}"
+    else:
+        return obj
+
+
+def print_obj(obj, indent=0):
+    tab = " " * indent
+    if inspect.ismodule(obj):
+        print(f"{tab}+ {repr(obj)}")
+    else:
+        print(f"{tab}+ <{type(obj).__name__} object at 0x{'{:x}'.format(id(obj))}>")
+        if isinstance(obj, dict):
+            obj = {k: _dictobj_replace(v) for k, v in obj.items()}
+        s = "".join(pprint.pformat(obj, indent=indent + 2, compact=True, depth=1))
+        print(f"{tab}|_{s}")
+
+
+def printobj_backref(queue, max_depth=10):
+    ignore = set()
+    ignore.add(id(ignore))
+    ignore.add(id(queue))
+    queue = [(obj, 0) for obj in queue]
+    ignore.add(id(queue))
+    for tpl in queue:
+        ignore.add(id(tpl))
+    gc.collect()
+    while queue:
+        target, depth = queue.pop()
+        ignore.add(id(target))
+        if depth > max_depth:
+            continue
+        print_obj(target, indent=depth)
+        if inspect.ismodule(target):
+            continue
+
+        refs = gc.get_referrers(target)
+        ignore.add(id(refs))
+        for ref in refs:
+            if id(ref) in ignore:
+                continue
+            tpl = (ref, depth + 2)
+            ignore.add(id(tpl))
+            queue.append(tpl)
+
+
+def gc_collect(*classes):
+    """
+    :param classes:
+    :returns set:
+    """
+    ret = []
+    if not classes:
+        return ret
+    # TODO: gevent monitoring says this blocks
+    # find a better way?
+    for ob in gc.get_objects():
+        gevent.sleep()
+        try:
+            if not isinstance(ob, classes):
+                continue
+        except ReferenceError:
+            continue
+        ret.append(ob)
+    return ret
 
 
 def file_descriptors(pid=None):
@@ -32,7 +110,7 @@ def file_descriptors(pid=None):
     for fd in os.listdir(fdpath):
         try:
             dest = os.readlink(os.path.join(fdpath, fd))
-        except BaseException:
+        except Exception:
             pass
         else:
             fds[int(fd)] = dest
@@ -45,7 +123,16 @@ def greenlets():
 
     :returns set:
     """
-    return {obj for obj in gc.get_objects() if isinstance(obj, greenlet)}
+    return set(gc_collect(greenlet))
+
+
+def sockets():
+    """
+    All sockets of this process
+
+    :returns set:
+    """
+    return set(gc_collect(gevent.socket.socket, socket.socket))
 
 
 def threads(pid=None):
@@ -53,10 +140,13 @@ def threads(pid=None):
     All threads of a process
 
     :param int pid: current by default
-    :returns list:
+    :returns set:
     """
-    process = psutil.Process(pid=pid)
-    return process.threads()
+    if pid is None or pid == os.getpid():
+        return set(threading.enumerate())
+    else:
+        process = psutil.Process(pid=pid)
+        return {t.id for t in process.threads()}
 
 
 def memory(pid=None):
@@ -89,7 +179,7 @@ def file_processes(pattern):
             for filename in fds.values():
                 if re.match(pattern, filename):
                     ret.append((filename, proc))
-        except BaseException:
+        except Exception:
             pass
     return ret
 
@@ -155,49 +245,257 @@ def kill(pattern, wait=False):
             proc.wait()
 
 
-def log_fd_diff(logfunc, old_fds, prefix=""):
+def log_diff(logfunc, difffunc, typ, diffargs=None, prefix=""):
     """
-    Print new file descriptors
-
     :param callable logfunc:
-    :param dict old_fds:
+    :param callable difffunc:
+    :param str typ:
+    :param tuple diffargs:
     :param str prefix:
     """
-    new_fds = file_descriptors()
-    diff = set(new_fds.values()) - set(old_fds.values())
+    new, diff = difffunc(*diffargs)
     if diff:
         if prefix:
             prefix = prefix.format(len(diff)) + ": "
         else:
-            prefix = "{} fds difference".format(len(diff))
-        logfunc("{}{}".format(prefix, list(sorted(diff))))
-    return new_fds
+            prefix = f"{len(diff)} {typ} difference "
+        try:
+            lst = sorted(diff)
+        except TypeError:
+            lst = list(diff)
+        printobj_backref(lst)
+        lst = list(map(str, lst))
+        logfunc(f"{prefix}{lst}")
+    return new
 
 
-def _fd_diff_exception(*args, **kwargs):
-    raise RuntimeError(*args, **kwargs)
+def _fd_diff(old):
+    """New file descriptors
+
+    :param dict old:
+    :returns dict, set:
+    """
+    new = file_descriptors()
+    diff = set(new.values()) - set(old.values())
+    return new, diff
 
 
-def raise_fd_diff(old_fds, prefix=""):
+def _class_diff(old, classes):
+    """New instance diff
+
+    :param set old:
+    :param tuple classes:
+    :returns set, set:
+    """
+    new = set(gc_collect(*classes))
+    return new, new - old
+
+
+def _greenlet_diff(old):
+    """
+    New greenlets
+
+    :param set old:
+    :returns set, set:
+    """
+    new = greenlets()
+    return new, new - old
+
+
+def _socket_diff(old):
+    """
+    New sockets
+
+    :param set old:
+    :returns set, set:
+    """
+    new = sockets()
+    return new, new - old
+
+
+def _thread_diff(old):
+    """
+    New threads
+
+    :param set old:
+    :returns set, set:
+    """
+    new = threads()
+    return new, new - old
+
+
+def log_fd_diff(logfunc, old, prefix=""):
+    """
+    Print new file descriptors
+
+    :param callable logfunc:
+    :param dict old:
+    :param str prefix:
+    :returns dict:
+    """
+    return log_diff(logfunc, _fd_diff, "fds", diffargs=(old,), prefix=prefix)
+
+
+def log_greenlet_diff(logfunc, old, prefix=""):
+    """
+    Print new greenlets
+
+    :param callable logfunc:
+    :param set old:
+    :param str prefix:
+    :returns set:
+    """
+    return log_diff(
+        logfunc, _greenlet_diff, "greenlets", diffargs=(old,), prefix=prefix
+    )
+
+
+def log_class_diff(logfunc, old, classes, prefix=""):
+    """Print new class instances
+
+    :param callable logfunc:
+    :param set old:
+    :param str prefix:
+    :returns set:
+    """
+    return log_diff(
+        logfunc, _class_diff, str(classes), diffargs=(old, classes), prefix=prefix
+    )
+
+
+def log_socket_diff(logfunc, old, prefix=""):
+    """
+    Print new sockets
+
+    :param callable logfunc:
+    :param set old:
+    :param str prefix:
+    :returns set:
+    """
+    return log_diff(logfunc, _socket_diff, "sockets", diffargs=(old,), prefix=prefix)
+
+
+def log_thread_diff(logfunc, old, prefix=""):
+    """
+    Print new threads
+
+    :param callable logfunc:
+    :param set old:
+    :param str prefix:
+    :returns set:
+    """
+    return log_diff(logfunc, _thread_diff, "threads", diffargs=(old,), prefix=prefix)
+
+
+def _diff_exception(*args, **kwargs):
+    raise AssertionError(*args, **kwargs)
+
+
+def assert_fd_diff(old, prefix=""):
     """
     Raise exception when new file descriptors
 
-    :param dict old_fds:
+    :param dict old:
     :param str prefix:
+    :returns dict:
     """
-    return log_fd_diff(_fd_diff_exception, old_fds, prefix=prefix)
+    return log_fd_diff(_diff_exception, old, prefix=prefix)
 
 
-@contextmanager
-def fd_leak_ctx(logfunc, prefix=""):
+def assert_greenlet_diff(old, prefix=""):
     """
-    Print new file descriptors created within the context
+    Raise exception when new greenlets
 
-    :param callable logfunc:
+    :param set old:
     :param str prefix:
+    :returns set:
     """
-    old_fds = file_descriptors()
-    try:
-        yield
-    finally:
-        log_fd_diff(logfunc, old_fds, prefix=prefix)
+    return log_greenlet_diff(_diff_exception, old, prefix=prefix)
+
+
+def assert_class_diff(old, classes, prefix=""):
+    """
+    Raise exception when new instances
+
+    :param set old:
+    :param str prefix:
+    :returns set:
+    """
+    return log_class_diff(_diff_exception, old, classes, prefix=prefix)
+
+
+def assert_socket_diff(old, prefix=""):
+    """
+    Raise exception when new sockets
+
+    :param set old:
+    :param str prefix:
+    :returns set:
+    """
+    return log_socket_diff(_diff_exception, old, prefix=prefix)
+
+
+def assert_thread_diff(old, prefix=""):
+    """
+    Raise exception when new threads
+
+    :param set old:
+    :param str prefix:
+    :returns set:
+    """
+    return log_thread_diff(_diff_exception, old, prefix=prefix)
+
+
+class ResourceMonitor:
+    def __init__(self, *classes):
+        self.classes = classes
+
+    def start(self):
+        gevent.get_hub()
+        self.greenlets = greenlets()
+        self.threads = threads()
+        self.fds = file_descriptors()
+        self.sockets = sockets()
+        self.others = set(gc_collect(*self.classes))
+
+    @contextmanager
+    def check_leaks_context(self, msg=None):
+        self.start()
+        try:
+            yield
+        finally:
+            self.check_leaks(msg=msg)
+
+    def wait_gc_collect(self):
+        gevent.sleep(0.1)
+        while gc.collect():
+            gevent.sleep(0.1)
+
+    def check_leaks(self, msg=None):
+        self.wait_gc_collect()
+        assert_class_diff(self.others, self.classes, prefix=msg)
+        assert_socket_diff(self.sockets, prefix=msg)
+        assert_fd_diff(self.fds, prefix=msg)
+        assert_thread_diff(self.threads, prefix=msg)
+        assert_greenlet_diff(self.greenlets, prefix=msg)
+
+
+def gevent_thread_leak():
+    # gevent issue #1601
+    return tuple(map(int, gevent.__version__.split(".")[:3])) < (20, 5, 1)
+
+
+def check_resource_leaks(*classes):
+    """Decorator for function resource checking
+    """
+
+    def _check_resource_leaks(method):
+        @functools.wraps(method)
+        def inner(*args, **kwargs):
+            mon = ResourceMonitor(*classes)
+            with mon.check_leaks_context(msg=method.__name__):
+                method(*args, **kwargs)
+
+        return inner
+
+    return _check_resource_leaks

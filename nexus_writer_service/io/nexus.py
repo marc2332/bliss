@@ -871,7 +871,8 @@ def isErrno(e, errno):
     :returns bool:
     """
     # Because e.__cause__ is None for chained exceptions
-    return "errno = {}".format(errno) in "".join(traceback.format_exc())
+    s = "".join(traceback.format_exception(None, e, None))
+    return f"errno = {errno}" in s
 
 
 def isLockedError(e):
@@ -896,7 +897,7 @@ def lockedErrorMessage(filename):
     :param str filename:
     :returns str:
     """
-    msg = "File is locked (name = {})".format(repr(filename))
+    msg = f"File is locked (name={repr(filename)})"
     pattern = ".+{}$".format(os.path.basename(filename))
     procs = file_processes(pattern)
     if procs:
@@ -1809,7 +1810,7 @@ def dicttonx(treedict, destination, overwrite=False, update=False):
     :param bool overwrite: existing datasets/attributes may
                            disappear or be modified
     :param bool update: existing datasets/attributes do not
-                        disappear or be may be modified
+                        disappear but may be modified
     """
     if isinstance(destination, h5py.Dataset):
         if "NX_class" in treedict or "@NX_class" in treedict:

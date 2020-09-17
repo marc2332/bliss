@@ -12,6 +12,8 @@ import pprint
 import difflib
 import itertools
 from collections import OrderedDict
+from concurrent.futures import ThreadPoolExecutor
+from nexus_writer_service.patching.gevent import original_module
 
 
 differ = difflib.Differ()
@@ -20,19 +22,19 @@ linesepstr = os.linesep.encode("unicode-escape").decode()
 
 
 def codefilename(tmpdir):
-    return os.path.join(str(tmpdir), "test.py")
+    return str(tmpdir.join("test.py"))
 
 
 def outfilename(tmpdir):
-    return os.path.join(str(tmpdir), "out.log")
+    return str(tmpdir.join("out.log"))
 
 
 def errfilename(tmpdir):
-    return os.path.join(str(tmpdir), "err.log")
+    return str(tmpdir.join("err.log"))
 
 
 def allfilename(tmpdir):
-    return os.path.join(str(tmpdir), "all.log")
+    return str(tmpdir.join("all.log"))
 
 
 def read_file(filename):
@@ -87,10 +89,10 @@ def generate_test_script(tmpdir, createlogger=False, **kwargs):
 
 # Expected output of the test script for `expected_std`
 expected_lines = OrderedDict()
-expected_lines["CRITICAL"] = "CRITICAL", "CRITICAL:{}: "
+expected_lines["CRITICAL"] = "CRITICAL", "FATAL:{}: "
 expected_lines["ERROR"] = "ERROR", "ERROR:{}: "
-expected_lines["WARNING"] = "WARNING", "WARNING:{}: "
-expected_lines["INFO"] = "INFO", "INFO:{}: "
+expected_lines["WARNING"] = "WARNING", "WARN :{}: "
+expected_lines["INFO"] = "INFO", "INFO :{}: "
 expected_lines["DEBUG"] = "DEBUG", "DEBUG:{}: "
 expected_lines["PRINTOUT"] = "PRINTOUT", ""
 expected_lines["PRINTERR"] = "PRINTERR", ""
@@ -262,7 +264,7 @@ def validate_output(tmpdir, output, outtype, **kwargs):
     lines = lines.format(*args)
     lines = lines.split(os.linesep)
     output = output.split(os.linesep)
-    timestamp = r" \d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} "
+    timestamp = r" \d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3} "
     output = [re.sub(timestamp, ":", s) for s in output]
 
     if lines != output:
@@ -306,17 +308,7 @@ def cliargs(
     return args
 
 
-def remove_log_files(tmpdir):
-    filenames = [outfilename(tmpdir), errfilename(tmpdir), allfilename(tmpdir)]
-    for filename in filenames:
-        try:
-            os.remove(filename)
-        except FileNotFoundError:
-            pass
-
-
 def generate_output(tmpdir, **kwargs):
-    remove_log_files(tmpdir)
     lst = cliargs(tmpdir, **kwargs)
     p = subprocess.Popen(lst, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     stdout, stderr = p.communicate()
@@ -328,6 +320,15 @@ def generate_output(tmpdir, **kwargs):
         "fileout": fileout,
         "fileerr": fileerr,
     }
+
+
+def run_single_test(args):
+    parameters, values, tmpdir = args
+    kwargs = dict(zip(parameters, values))
+    generate_test_script(tmpdir, **kwargs)
+    result = generate_output(tmpdir, **kwargs)
+    for outtype, output in result.items():
+        validate_output(tmpdir, output, outtype, **kwargs)
 
 
 def run_test(tmpdir, createlogger=None):
@@ -343,18 +344,22 @@ def run_test(tmpdir, createlogger=None):
         "redirectstderr": (False, True),
     }
     parameters = list(choices.keys())
-    values = list(choices.values())
-    for values in itertools.product(*values):
-        kwargs = dict(zip(parameters, values))
-        generate_test_script(tmpdir, **kwargs)
-        result = generate_output(tmpdir, **kwargs)
-        for outtype, output in result.items():
-            validate_output(tmpdir, output, outtype, **kwargs)
+
+    def args_generator():
+        for i, values in enumerate(itertools.product(*choices.values())):
+            tmpdiri = tmpdir.join(str(i))
+            os.makedirs(str(tmpdiri))
+            yield parameters, values, tmpdiri
+
+    with ThreadPoolExecutor(max_workers=100) as pool:
+        list(pool.map(run_single_test, args_generator()))
 
 
 def test_systemlogging(tmpdir):
-    run_test(tmpdir, createlogger=False)
+    with original_module(subprocess, "subprocess"):
+        run_test(tmpdir, createlogger=False)
 
 
 def test_logging(tmpdir):
-    run_test(tmpdir, createlogger=True)
+    with original_module(subprocess, "subprocess"):
+        run_test(tmpdir, createlogger=True)

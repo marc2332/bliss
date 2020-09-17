@@ -15,21 +15,25 @@ Nexus writer service for Bliss
 
 from .tango.servers import NexusWriter
 from .utils.logging_utils import getLogger, add_cli_args
-from .utils.log_levels import tango_cli_log_level
+from .utils.log_levels import tango_cli_slog_level, add_tango_cli_args
 
 
 logger = getLogger(__name__, __file__)
 
 
-def run(server, instance):
+def run(server, instance, log_level):
     """
     :param str server: device server name
     :param str instance: device server instance name
+    :param str log_level:
     :returns Util:
     """
-    verbose = tango_cli_log_level[logger.getEffectiveLevel()]
-    verbose = "-v{:d}".format(verbose)
-    serverargs = [server, instance, verbose]
+    verbose = tango_cli_slog_level.get(log_level, 0)
+    if verbose:
+        verbose = "-v{:d}".format(verbose)
+        serverargs = [server, instance, verbose]
+    else:
+        serverargs = [server, instance]
     return NexusWriter.main(args=serverargs)
 
 
@@ -51,9 +55,10 @@ def main():
         default="nexuswriter",
         help="Server name ('nexuswriter' by default)",
     )
+    add_tango_cli_args(parser)
     add_cli_args(parser)
     args, unknown = parser.parse_known_args()
-    run(args.server, args.instance)
+    run(args.server, args.instance, args.log_tango)
 
 
 if __name__ == "__main__":

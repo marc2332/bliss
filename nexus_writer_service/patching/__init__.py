@@ -9,12 +9,15 @@
 # Copyright (c) 2015-2020 ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-"""Nexus writer monkey patching (for testing)
+"""Nexus writer monkey patching
 
 .. autosummary::
     :toctree:
 
+    freeze_subprocess
+    gevent
     monkey
+    patch_hdf5
     patch_isinstance
     patch_open
     patch_std

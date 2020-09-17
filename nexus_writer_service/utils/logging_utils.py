@@ -151,7 +151,7 @@ def add_cli_args(parser, default="WARNING"):
         type=str.upper,
         dest="level",
         help="Log level ({} by default)".format(repr(default)),
-        choices=["CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"],
+        choices=["CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG", "NOTSET"],
     )
     parser.add_argument(
         "--logfile", default="", type=str, help="Logging output to this file"
@@ -245,7 +245,6 @@ def config(
         "terminator": True,
         "filter_func": None,
         "formatter": True,
-        "fmt": DEFAULT_FORMAT,
     }
 
     # - all messages to ...
@@ -274,7 +273,6 @@ def config(
         "terminator": False,
         "filter_func": None,  # already done by the loggers
         "formatter": False,
-        "fmt": "%(name)s: %(message)s",
     }
 
     # - output and error logger to ...
@@ -363,25 +361,29 @@ def _add_outputhandler(
         _add_formatting(outputhandler, fmt=fmt)
     if filter_func is not None:
         _add_levelfilter(outputhandler, filter_func)
+    outputhandler.addFilter(ShortLevelFilter())
     logger.addHandler(outputhandler)
 
 
 def _add_formatting(outputhandler, fmt=DEFAULT_FORMAT):
     """Define format of the logger output
     """
-    formatter = logging.Formatter(fmt, "%Y-%m-%d %H:%M:%S")
-    outputhandler.setFormatter(formatter)
+    outputhandler.setFormatter(logging.Formatter(fmt))
 
 
 def _add_levelfilter(outputhandler, level_filter):
     """Filter of the logger output
     """
+    outputhandler.addFilter(lambda record: level_filter(record.levelno))
 
-    class Filter(logging.Filter):
-        def filter(self, record):
-            return level_filter(record.levelno)
 
-    outputhandler.addFilter(Filter())
+class ShortLevelFilter(logging.Filter):
+    NAMEMAP = {"WARNING": "WARN ", "CRITICAL": "FATAL", "INFO": "INFO "}
+
+    def filter(self, record):
+        levelname = record.levelname
+        record.levelname = self.NAMEMAP.get(levelname, levelname)
+        return True
 
 
 def getLogger(name, filename, **kwargs):
@@ -397,7 +399,7 @@ def getLogger(name, filename, **kwargs):
 
 class CustomLogger(logging.LoggerAdapter):
     def process(self, msg, kwargs):
-        return "[{}] {}".format(str(self.extra), msg), kwargs
+        return f"[{self.extra}] {msg}", kwargs
 
 
 def filestream(name, filename, **kwargs):

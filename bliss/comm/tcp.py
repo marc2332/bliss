@@ -516,7 +516,6 @@ class Command:
             err_msg = "timeout on command(%s, %d)" % (curr_host, curr_port)
             with gevent.Timeout(local_timeout, CommandTimeout(err_msg)):
                 self._socket.connect((curr_host, curr_port))
-            self._socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
             self._socket.setsockopt(socket.SOL_IP, socket.IP_TOS, 0x10)
             self._host = curr_host
             self._port = curr_port

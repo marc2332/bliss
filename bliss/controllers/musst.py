@@ -63,23 +63,27 @@ def lazy_init(func):
 
 
 class MusstSamplingCounter(SamplingCounter):
-    def __init__(self, name, channel, channel_config, controller):
+    def __init__(self, name, channel, convert, controller):
         SamplingCounter.__init__(self, name, controller)
         self.channel = channel
-        self.channel_config = channel_config
+        self.convert = convert
 
 
 class MusstIntegratingCounter(Counter):
-    def __init__(self, name, channel, channel_config, controller):
+    def __init__(self, name, channel, convert, controller):
         super().__init__(name, controller)
         self.channel = channel
-        self.channel_config = channel_config
+        self.convert = convert
+        # Hack to not references counters
+        self._counters = weakref.WeakValueDictionary()
 
 
 class MusstSamplingCounterController(SamplingCounterController):
     def __init__(self, musst):
         super().__init__(musst.name, register_counters=False)
         self.musst_ctrl = musst
+        # Hack to not references counters
+        self._counters = weakref.WeakValueDictionary()
 
     def read_all(self, *counters):
         """ return the values of the given counters as a list.
@@ -350,7 +354,6 @@ class musst:
         self._channels = None
         self._timer_factor = None
         self._counters = []
-        self._counter_init(config_tree)
 
         # this function will be used by lazy_init
         def init():
@@ -364,43 +367,6 @@ class musst:
     def __getattr__(self, name):
         return getattr(self.integrating_counters, name)
 
-    def _counter_init(self, config_tree):
-        """ Handle counters from config """
-        self._counters = list()
-        channels_list = config_tree.get("channels", list())
-        for channel_config in channels_list:
-            cnt_name = channel_config.get("counter_name")
-            if cnt_name:
-                channel_type = channel_config.get("type")
-                channel_number = channel_config.get("channel")
-                if channel_number in range(1, 7):
-                    cnt_channel = "CH%d" % channel_number
-                elif channel_number in [0, "timer", "TIMER"]:
-                    cnt_channel = "TIMER"
-                else:
-                    raise ValueError(
-                        'Musst Counter: wrong channel "%s" for counter "%s". It should be in [timer, 1, 2, 3, 4, 5, 6]'
-                        % (cnt_channel, cnt_name)
-                    )
-
-                if channel_type in ("cnt",):
-                    self._counters.append(
-                        MusstIntegratingCounter(
-                            cnt_name,
-                            cnt_channel,
-                            channel_config,
-                            self.integrating_counters,
-                        )
-                    )
-                elif channel_type in ("encoder", "ssi", "adc5", "adc10"):
-                    cnt = MusstSamplingCounter(
-                        cnt_name, cnt_channel, channel_config, self.sampling_counters
-                    )
-                    cnt_mode = channel_config.get("counter_mode")
-                    if cnt_mode:
-                        cnt.mode = cnt_mode
-                    self._counters.append(cnt)
-
     def _channels_init(self, config_tree):
         """ Handle configured channels """
 
@@ -408,7 +374,7 @@ class musst:
         channels_list = config_tree.get("channels", list())
         for channel_config in channels_list:
             channel_number = channel_config.get("channel")
-
+            channel = None
             if channel_number is None:
                 raise RuntimeError("musst: channel in config must have a channel")
             elif channel_number in range(1, 7):
@@ -418,7 +384,8 @@ class musst:
                     if channel_name is None:
                         raise RuntimeError("musst: channel in config must have a label")
                     channels = self._channels.setdefault(channel_name.upper(), list())
-                    channels.append(self.get_channel(channel_number, type=channel_type))
+                    channel = self.get_channel(channel_number, type=channel_type)
+                    channels.append(channel)
                 elif channel_type == "switch":
                     ext_switch = channel_config.get("name")
                     if not hasattr(ext_switch, "states_list"):
@@ -426,7 +393,9 @@ class musst:
                             "musst: channels (%s) switch object must have states_list method"
                             % channel_number
                         )
-
+                    channel = self.get_channel(
+                        channel_number, type=channel_type, switch=ext_switch
+                    )
                     for channel_name in ext_switch.states_list():
                         channels = self._channels.setdefault(
                             channel_name.upper(), list()
@@ -439,10 +408,58 @@ class musst:
                                 switch_name=channel_name,
                             )
                         )
+                # will read the musst config to know the type
+                elif channel_type is None:
+                    channel = self.get_channel(channel_number)
                 else:
                     raise ValueError(
                         "musst: channel type can only be one of: (cnt,encoder,ssi,adc5,adc10,switch)"
                     )
+
+            cnt_name = channel_config.get("counter_name")
+            if cnt_name is not None:
+                if channel is None:  # Must be TIMER
+                    cnt_channel = "TIMER"
+                    channel_type = self.channel.COUNTER
+
+                    def convert(string_value):
+                        if self._timer_factor is None:
+                            self._timer_factor = self.get_timer_factor()
+                        return int(string_value) / self._timer_factor
+
+                else:
+                    if channel_type == "switch":
+                        # need to get the real type of musst channel
+                        # so force musst config reading
+                        channel = self.get_channel(channel_number)
+
+                    cnt_channel = "CH%d" % channel._channel_id
+                    channel._read_config()  # to fill the channel type
+                    channel_type = channel._mode_number
+                    if channel_type == "switch":
+
+                        def convert(string_value):
+                            value = channel._convert(string_value)
+                            if hasattr(ext_switch, "convert"):
+                                return ext_switch.convert(value)
+                            return value
+
+                    else:
+                        convert = channel._convert
+                if channel_type == self.channel.COUNTER:
+                    self._counters.append(
+                        MusstIntegratingCounter(
+                            cnt_name, cnt_channel, convert, self.integrating_counters
+                        )
+                    )
+                else:
+                    cnt = MusstSamplingCounter(
+                        cnt_name, cnt_channel, convert, self.sampling_counters
+                    )
+                    cnt_mode = channel_config.get("counter_mode")
+                    if cnt_mode:
+                        cnt.mode = cnt_mode
+                    self._counters.append(cnt)
 
     @lazy_init
     def __info__(self):
@@ -474,15 +491,6 @@ class musst:
             info_str += (
                 f"         CH{ch_idx} ({ch_status:>4}): {ch_value:>10} -  {ch_config}\n"
             )
-
-        #        for (ch_label, chan) in self._channels.items():
-        #            ch = chan[0]
-        #            ch_id = ch._channel_id
-        #            ch_status = ch.status_string
-        #            ch_value = ch.value
-        #            ch._read_config()
-        #            ch_config = ch.mode_str
-        #            info_str += f"       CH{ch_id} {ch_label:15} ({ch_status:>4}): {ch_value:>10} -  {ch_config}\n"
 
         return info_str
 
@@ -808,27 +816,13 @@ class musst:
                     % (cnt.controller.name, cnt.name)
                 )
             val_float = [
-                self._convert_read(val, cnt)
-                for val, cnt in zip(val_str.split(" "), counters)
+                cnt.convert(val) for val, cnt in zip(val_str.split(" "), counters)
             ]
 
             return val_float
 
-    def _convert_read(self, valstr, cnt):
-        if cnt.channel == "TIMER":
-            if self._timer_factor is None:
-                self._timer_factor = self.get_timer_factor()
-            return int(valstr) / self._timer_factor
-        else:
-            channel_type = cnt.channel_config.get("type")
-            if channel_type == "adc10":
-                return int(valstr) * (10. / 0x7fffffff)
-            elif channel_type == "adc5":
-                return int(valstr) * (5. / 0x7fffffff)
-            else:
-                return float(valstr)
-
     @autocomplete_property
+    @lazy_init
     def counters(self):
         return counter_namespace(self._counters)
 

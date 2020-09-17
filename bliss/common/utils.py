@@ -883,9 +883,9 @@ def shorten_signature(original_function=None, *, annotations=None, hidden_kwargs
 
 
 def custom_error_msg(
-    execption_type, message, new_exception_type=None, display_original_msg=False
+    exception_type, message, new_exception_type=None, display_original_msg=False
 ):
-    """decorator to modify exception and/or the correspoinding message"""
+    """decorator to modify exception and/or the corresponding message"""
 
     def _decorate(function):
         @functools.wraps(function)
@@ -893,17 +893,17 @@ def custom_error_msg(
             try:
                 return function(*args, **kwargs)
             except Exception as e:
-                if isinstance(e, execption_type):
+                if isinstance(e, exception_type):
                     if new_exception_type:
                         new_exception = new_exception_type
                     else:
-                        new_exception = execption_type
+                        new_exception = exception_type
                     if display_original_msg:
-                        raise new_exception(message + " " + str(e))
+                        raise new_exception(message + " " + str(e)) from e
                     else:
-                        raise new_exception(message)
+                        raise new_exception(message) from e
                 else:
-                    raise e
+                    raise
 
         return wrapped_function
 

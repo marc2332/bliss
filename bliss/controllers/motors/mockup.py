@@ -91,13 +91,13 @@ class Mockup(Controller):
         # those 3 are to simulate a real controller (one with internal settings, that
         # keep those for multiple clients)
         self._axes_data[axis]["hw_position"] = SimpleSetting(
-            f"motor_mockup:{axis.name}:hw_position"
+            f"motor_mockup:{axis.name}:hw_position", default_value=0
         )
         self._axes_data[axis]["curr_acc"] = SimpleSetting(
-            f"motor_mockup:{axis.name}:curr_acc"
+            f"motor_mockup:{axis.name}:curr_acc", default_value=0
         )
         self._axes_data[axis]["curr_velocity"] = SimpleSetting(
-            f"motor_mockup:{axis.name}:curr_velocity"
+            f"motor_mockup:{axis.name}:curr_velocity", default_value=0
         )
 
         encoder = axis.config.get("encoder", converter=None, default=None)
@@ -109,9 +109,7 @@ class Mockup(Controller):
             self.set_hw_position(axis, 0)
 
     def initialize_hardware_axis(self, axis):
-        self._axes_data[axis]["hw_position"].set(0)
-        self._axes_data[axis]["curr_acc"].set(0)
-        self._axes_data[axis]["curr_velocity"].set(0)
+        pass
 
     def initialize_axis(self, axis):
         log_debug(self, "initializing axis %s", axis.name)

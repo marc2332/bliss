@@ -24,7 +24,6 @@ from ptpython.repl import PythonRepl
 import ptpython.layout
 
 # imports needed to have control over _excecute of ptpython
-import six
 from ptpython.repl import _lex_python_result
 from prompt_toolkit.formatted_text.utils import fragment_list_width
 from prompt_toolkit.formatted_text import merge_formatted_text, FormattedText
@@ -430,7 +429,7 @@ class BlissRepl(PythonRepl):
         """Try executing line with `exec`
         """
         code = self._compile_with_flags(line, "exec")
-        six.exec_(code, self.get_globals(), self.get_locals())
+        exec(code, self.get_globals(), self.get_locals())
         self.app.output.flush()
 
     def _compile_with_flags(self, code, mode):

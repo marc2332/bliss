@@ -655,91 +655,23 @@ class Scan:
         self.__scan_number = None
         self.root_node = None
         self._cache_cnx = None
-        self._scan_info = dict(scan_info) if scan_info is not None else dict()
         self._shadow_scan_number = not save
         self._add_to_scans_queue = not (name == "ct" and self._shadow_scan_number)
 
-        if scan_saving is None:
-            scan_saving = current_session.scan_saving.clone()
-        else:
-            scan_saving = scan_saving.clone()
-        session_name = scan_saving.session
-        user_name = scan_saving.user_name
-        self.__scan_saving = scan_saving
-        scan_config = scan_saving.get()
-
-        self.__scan_display = current_session.scan_display.clone()
-
-        self._scan_info["shadow_scan_number"] = self._shadow_scan_number
-        self._scan_info["save"] = save
-        self._scan_info["data_writer"] = scan_saving.writer
-        self._scan_info["data_policy"] = scan_saving.data_policy
-        self._scan_info["publisher"] = "Bliss"
-        self._scan_info["publisher_version"] = publisher_version
-        if save:
-            self.__writer = scan_config["writer"]
-        else:
-            self.__writer = NullWriter(
-                scan_config["root_path"],
-                scan_config["images_path"],
-                os.path.basename(scan_config["data_path"]),
-            )
-        self.__writer._save_images = save if save_images is None else save_images
         # Double buffer pipeline for streams store
         self._stream_pipeline_lock = gevent.lock.Semaphore()
         self._stream_pipeline_task = None
         self._current_pipeline_stream = None
-        ### make channel names unique in the scope of the scan
-        def check_acq_chan_unique_name(acq_chain):
-            channels = []
-
-            for n in acq_chain._tree.is_branch(acq_chain._tree.root):
-                uniquify_chan_name(acq_chain, n, channels)
-
-        def uniquify_chan_name(acq_chain, node, channels):
-            # TODO: check if name or fullname should be used below
-            if node.channels:
-                for c in node.channels:
-                    if c.name in channels:
-                        if acq_chain._tree.get_node(node).bpointer:
-                            new_name = (
-                                acq_chain._tree.get_node(node).bpointer.name
-                                + ":"
-                                + c.name
-                            )
-                        else:
-                            new_name = c.name
-                        if new_name in channels:
-                            new_name = str(id(c)) + ":" + c.name
-                        c._AcquisitionChannel__name = new_name
-                    channels.append(c.name)
-
-            for n in acq_chain._tree.is_branch(node):
-                uniquify_chan_name(acq_chain, n, channels)
-
-        check_acq_chan_unique_name(chain)
 
         self.__nodes = dict()
         self._devices = []
-
-        self._scan_info["session_name"] = session_name
-        self._scan_info["user_name"] = user_name
-        self._scan_info.setdefault("title", name)
 
         self._data_watch_task = None
         self._data_watch_callback = data_watch_callback
         self._data_watch_callback_event = gevent.event.Event()
         self._data_watch_callback_done = gevent.event.Event()
         self._data_events = dict()
-
         self.set_watchdog_callback(watchdog_callback)
-        self._acq_chain = chain
-        self._init_scan_info_acquisition_chain()
-
-        if is_bliss_shell():
-            if self.__scan_display.auto:
-                if self.is_flint_recommended():
-                    get_flint(mandatory=False)
 
         self.__state = ScanState.IDLE
         self.__state_change = gevent.event.Event()
@@ -747,11 +679,98 @@ class Scan:
         self.__node = None
         self.__comments = list()  # user comments
 
-    def _init_scan_info_acquisition_chain(self):
-        """Initialize the `acquisition_chain` metadata from `scan_info`"""
-        self._scan_info["acquisition_chain"] = _get_masters_and_channels(
-            self._acq_chain
-        )
+        # Scan initialization:
+        self._init_acq_chain(chain)
+        self._init_scan_saving(scan_saving)
+        self._init_scan_display()
+        self._init_scan_info(scan_info=scan_info, save=save)
+        self._init_writer(save=save, save_images=save_images)
+        self._init_flint()
+
+    def _init_scan_saving(self, scan_saving):
+        with time_profile(self._stats_dict, "scan.init.saving", logger=logger):
+            if scan_saving is None:
+                self.__scan_saving = current_session.scan_saving.clone()
+            else:
+                self.__scan_saving = scan_saving.clone()
+
+    def _init_scan_display(self):
+        with time_profile(self._stats_dict, "scan.init.display", logger=logger):
+            self.__scan_display = current_session.scan_display.clone()
+
+    def _init_acq_chain(self, chain):
+        """Initialize acquisition chain"""
+        chain.reset_stats()
+        self._acq_chain = chain
+        with time_profile(self._stats_dict, "scan.init.chain", logger=logger):
+            self._check_acq_chan_unique_name()
+
+    def _check_acq_chan_unique_name(self):
+        """Make channel names unique in the scope of the scan"""
+        names = []
+        for node in self._acq_chain._tree.is_branch(self._acq_chain._tree.root):
+            self._uniquify_chan_name(node, names)
+
+    def _uniquify_chan_name(self, node, names):
+        """Change the node's channel names in case of collision"""
+        if node.channels:
+            for c in node.channels:
+                if c.name in names:
+                    if self._acq_chain._tree.get_node(node).bpointer:
+                        new_name = (
+                            self._acq_chain._tree.get_node(node).bpointer.name
+                            + ":"
+                            + c.name
+                        )
+                    else:
+                        new_name = c.name
+                    if new_name in names:
+                        new_name = str(id(c)) + ":" + c.name
+                    c._AcquisitionChannel__name = new_name
+                names.append(c.name)
+
+        for node in self._acq_chain._tree.is_branch(node):
+            self._uniquify_chan_name(node, names)
+
+    def _init_scan_info(self, scan_info=None, save=True):
+        """Initialize `scan_info`"""
+        with time_profile(self._stats_dict, "scan.init.scan_info", logger=logger):
+            self._scan_info = dict(scan_info) if scan_info is not None else dict()
+            scan_saving = self.__scan_saving
+            self._scan_info.setdefault("title", self.__name)
+            self._scan_info["session_name"] = scan_saving.session
+            self._scan_info["user_name"] = scan_saving.user_name
+            self._scan_info["shadow_scan_number"] = self._shadow_scan_number
+            self._scan_info["save"] = save
+            self._scan_info["data_writer"] = scan_saving.writer
+            self._scan_info["data_policy"] = scan_saving.data_policy
+            self._scan_info["publisher"] = "Bliss"
+            self._scan_info["publisher_version"] = publisher_version
+            self._scan_info["acquisition_chain"] = _get_masters_and_channels(
+                self._acq_chain
+            )
+
+    def _init_writer(self, save=True, save_images=None):
+        """Initialize the data writer if needed"""
+        with time_profile(self._stats_dict, "scan.init.writer", logger=logger):
+            scan_config = self.__scan_saving.get()
+            if save:
+                self.__writer = scan_config["writer"]
+            else:
+                self.__writer = NullWriter(
+                    scan_config["root_path"],
+                    scan_config["images_path"],
+                    os.path.basename(scan_config["data_path"]),
+                )
+            self.__writer._save_images = save if save_images is None else save_images
+
+    def _init_flint(self):
+        """Initialize flint if needed"""
+        with time_profile(self._stats_dict, "scan.init.flint", logger=logger):
+            if is_bliss_shell():
+                if self.__scan_display.auto:
+                    if self.is_flint_recommended():
+                        get_flint(mandatory=False)
 
     def is_flint_recommended(self):
         """Return true if flint is recommended for this scan"""

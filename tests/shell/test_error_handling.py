@@ -71,3 +71,22 @@ def test_error_report(error_report):
         assert "send_to_elogbook" in errors[-1]
     finally:
         logtools.logbook_on = False
+
+
+def test_error_report_chained(error_report):
+    errors = error_report._last_error.errors
+
+    def func1():
+        raise RuntimeError("LEVEL 0")
+
+    def func2():
+        try:
+            func1()
+        except Exception as e:
+            raise RuntimeError("LEVEL 1") from e
+
+    gevent.spawn(func2).join()
+
+    assert len(errors) == 1
+    assert "\nRuntimeError: LEVEL 0" in errors[0]
+    assert "\nRuntimeError: LEVEL 1" in errors[0]

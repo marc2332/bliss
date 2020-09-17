@@ -85,9 +85,8 @@ to
 - 3) to write `instrument` and meta-data entries to hdf5.
 
 ### Meta-data and Instrument dataset
-Each scan has an attached `scan_info` structure (nested dict) which e.g. contains meta-data entries which also have to be put into the hdf5. In Bliss there is a `dicttoh5` 
-function which is derived from its pendant in _silx.io.dictdump_, that puts in place correct `h5dataset.attrs["NX_class"]` attributes when converting the python dict 
-structure into hdf5 datasets.
+Each scan has an attached `scan_info` structure (nested dict) which e.g. contains meta-data to be saved in the HDF5 file. Required Nexus attributes such as `"NX_class"`
+will added automatically when missing.
 
 ## Examples of complex scans
 In order to have some test cases for more demanding scans when working with the presented api a script file that can be executed inside the Bliss shell is provided:

@@ -95,53 +95,6 @@ def test_ptpython_signature_patch():
         importlib.reload(bliss.shell.cli.ptpython_signature_patch)
 
 
-def test_dicttoh5():
-    pytest.xfail()
-    # diffdump can be generated with pytest --pdb option using
-    # >>> import pprint
-    # >>> pprint.pprint(diff_dump)
-    dicttoh5_diff_dump = [
-        "+     # ... one could think about propagating something similar to the "
-        "changes\n",
-        "+     # made here back to silx\n",
-        "+     from silx.io.dictdump import _SafeH5FileWrite, _prepare_hdf5_dataset\n",
-        "+     import warnings\n",
-        '+                 if "NX_class" not in h5f[h5path + key].attrs:\n',
-        '+                     h5f[h5path + key].attrs["NX_class"] = "NXcollection"\n',
-        "+ \n",
-        "-                         logger.warning(\n",
-        "+                         warnings.warn(\n",
-        "+                 # use NXcollection at first, might be overwritten an time "
-        "later\n",
-        '+                 h5f[h5path + key].attrs["NX_class"] = "NXcollection"\n',
-        "+ \n",
-        '+             elif key == "NX_class":\n',
-        "+                 # assign NX_class\n",
-        "+                 try:\n",
-        '+                     h5f[h5path].attrs["NX_class"] = treedict[key]\n',
-        "+                 except KeyError:\n",
-        "+                     h5f.create_group(h5path)\n",
-        '+                     h5f[h5path].attrs["NX_class"] = treedict[key]\n',
-        "-                             logger.warning(\n",
-        "+                             warnings.warn(\n",
-        "+ \n",
-        "-                             logger.warning(\n",
-        "+                             warnings.warn(\n",
-    ]
-
-    o, p = _check_patch(
-        "silx.io.dictdump", "dicttoh5", "bliss.common.utils", "dicttoh5"
-    )
-
-    # strip docstring
-    o = re.sub('"""((.|[\n])*)"""', "", o)
-    p = re.sub('"""((.|[\n])*)"""', "", p)
-
-    diff_dump = _generate_diff(o, p)
-
-    _compare_dump(dicttoh5_diff_dump, diff_dump)
-
-
 def test_repl_excecute():
     # diffdump can be generated with pytest --pdb option using
     # >>> import pprint
@@ -149,6 +102,7 @@ def test_repl_excecute():
     execute_dump = [
         "-     def _execute(self, line):\n",
         "+     def _execute_line(self, line):\n",
+        "-         output = self.app.output\n",
         "- \n",
         "-         # WORKAROUND: Due to a bug in Jedi, the current directory is "
         "removed\n",
@@ -156,8 +110,34 @@ def test_repl_excecute():
         "https://github.com/davidhalter/jedi/issues/1148\n",
         '-         if "" not in sys.path:\n',
         '-             sys.path.insert(0, "")\n',
-        '+                     result_str = f"{info(result)}\\n"  # patched here!!\n',
+        "- \n",
+        "-         def compile_with_flags(code, mode):\n",
+        '-             " Compile code with the right compiler flags. "\n',
+        "-             return compile(\n",
+        "-                 code,\n",
+        '-                 "<stdin>",\n',
+        "-                 mode,\n",
+        "-                 flags=self.get_compiler_flags(),\n",
+        "-                 dont_inherit=True,\n",
+        "-             )\n",
+        "- \n",
+        "- \n",
+        "-             # Try eval first\n",
+        "+             # First try `eval` and then `exec`\n",
+        "+                 self._eval_line(line)\n",
+        '-                 code = compile_with_flags(line, "eval")\n',
+        "-                 result = eval(code, self.get_globals(), "
+        "self.get_locals())\n",
+        "- \n",
+        "-                 locals = self.get_locals()\n",
+        '-                 locals["_"] = locals["_%i" % self.current_statement_index] '
+        "= result\n",
+        "- \n",
+        "-                 if result is not None:\n",
+        "-                     out_prompt = self.get_output_prompt()\n",
+        "- \n",
         "-                     try:\n",
+        "+                 return\n",
         '-                         result_str = "%r\\n" % (result,)\n',
         "-                     except UnicodeDecodeError:\n",
         "-                         # In Python 2: `__repr__` should return a "
@@ -169,8 +149,42 @@ def test_repl_excecute():
         "-                         # characters. Decode as utf-8 in that case.\n",
         '-                         result_str = "%s\\n" % '
         'repr(result).decode("utf-8")\n',
-        "+                     self.captured_output.append((result_str,), {})\n",
-        "+ \n",
+        "- \n",
+        "-                     # Align every line to the first one.\n",
+        '-                     line_sep = "\\n" + " " * '
+        "fragment_list_width(out_prompt)\n",
+        "-                     result_str = line_sep.join(result_str.splitlines()) + "
+        '"\\n"\n',
+        "- \n",
+        "-                     # Write output tokens.\n",
+        "-                     if self.enable_syntax_highlighting:\n",
+        "-                         formatted_output = merge_formatted_text(\n",
+        "-                             [\n",
+        "-                                 out_prompt,\n",
+        "-                                 "
+        "PygmentsTokens(list(_lex_python_result(result_str))),\n",
+        "-                             ]\n",
+        "-                         )\n",
+        "-                     else:\n",
+        "-                         formatted_output = FormattedText(\n",
+        '-                             out_prompt + [("", result_str)]\n',
+        "-                         )\n",
+        "- \n",
+        "-                     print_formatted_text(\n",
+        "-                         formatted_output,\n",
+        "-                         style=self._current_style,\n",
+        "-                         style_transformation=self.style_transformation,\n",
+        "-                         include_default_pygments_style=False,\n",
+        "-                     )\n",
+        "- \n",
+        "-             # If not a valid `eval` expression, run using `exec` "
+        "instead.\n",
+        "+                 pass  # SyntaxError should not be in exception chain\n",
+        "+             self._exec_line(line)\n",
+        '-                 code = compile_with_flags(line, "exec")\n',
+        "-                 six.exec_(code, self.get_globals(), self.get_locals())\n",
+        "- \n",
+        "-             output.flush()\n",
     ]
 
     from ptpython.repl import PythonRepl

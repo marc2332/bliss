@@ -106,7 +106,7 @@ def theoretical_profile_parameters():
             None,
             pytest.approx(0.5, abs=.01),
             pytest.approx(0.5, abs=.01),
-            pytest.approx(0.4652, abs=.0001),
+            pytest.approx(0.465, abs=.001),
         ),
         Dataset(
             "inverted_gaussian",
@@ -114,7 +114,7 @@ def theoretical_profile_parameters():
             None,
             pytest.approx(0.5, abs=.01),
             pytest.approx(0.5, abs=.01),
-            pytest.approx(0.4652, abs=.0001),
+            pytest.approx(0.465, abs=.001),
         ),
         Dataset(
             "triangle",
@@ -122,7 +122,7 @@ def theoretical_profile_parameters():
             None,
             pytest.approx(0.5, abs=.01),
             pytest.approx(0.5, abs=.01),
-            pytest.approx(0.5098, abs=.0001),
+            pytest.approx(0.51, abs=.01),
         ),
         Dataset(
             "flat",
@@ -130,7 +130,7 @@ def theoretical_profile_parameters():
             None,
             pytest.approx(0.5, abs=.01),
             pytest.approx(0.5, abs=.01),
-            pytest.approx(1, abs=.0001),
+            pytest.approx(1, abs=.01),
         ),
         Dataset(
             "sawtooth",
@@ -138,7 +138,7 @@ def theoretical_profile_parameters():
             None,
             pytest.approx(0.5987, abs=.0001),
             pytest.approx(0.6497, abs=.0001),
-            pytest.approx(0.4742, abs=.0001),
+            pytest.approx(0.47, abs=.01),
         ),
         Dataset(
             "bimodal",
@@ -146,7 +146,7 @@ def theoretical_profile_parameters():
             None,
             pytest.approx(0.4323, abs=.0001),
             pytest.approx(0.4686, abs=.0001),
-            pytest.approx(0.7286, abs=.0001),
+            pytest.approx(0.73, abs=.01),
         ),
         Dataset(
             "square",
@@ -154,7 +154,7 @@ def theoretical_profile_parameters():
             None,
             pytest.approx(0.5, abs=.01),
             pytest.approx(0.5, abs=.01),
-            pytest.approx(0.3529, abs=.0001),
+            pytest.approx(0.35, abs=.01),
         ),
         Dataset(
             "erf_down",
@@ -162,7 +162,7 @@ def theoretical_profile_parameters():
             None,
             pytest.approx(0.27, abs=.01),
             pytest.approx(0.52, abs=.01),
-            pytest.approx(0.277, abs=.001),
+            pytest.approx(0.27, abs=.01),
         ),
         Dataset(
             "erf_up",
@@ -170,7 +170,7 @@ def theoretical_profile_parameters():
             None,
             pytest.approx(0.75, abs=.01),
             pytest.approx(0.52, abs=.01),
-            pytest.approx(0.277, abs=.001),
+            pytest.approx(0.27, abs=.01),
         ),
         Dataset(
             "missing_edge_of_gaussian_right",

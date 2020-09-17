@@ -353,8 +353,12 @@ class ManageMainBehaviours(qt.QObject):
                 # Ad hoc solution to fix plot axis
                 # Instead of using removeNotAvailableChannels
                 # We should use a copyAvailableChannels
+                if widget.scan() is None:
+                    previousScanInfo = {}
+                else:
+                    previousScanInfo = widget.scan().scanInfo()
                 equivalentPlots = scan_info_helper.is_same(
-                    scan.scanInfo(), widget.scan().scanInfo()
+                    scan.scanInfo(), previousScanInfo
                 )
                 if not equivalentPlots:
                     previousWidgetPlot = None

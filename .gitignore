@@ -1,33 +1,60 @@
-\#*\#
-\.\#*
-*.pyc
-*.pyo
-*~
-*.py,cover
-*.bck
-build
-*.swp
-doc/build
-doc/source/bliss.*rst
-doc/site
-.coverage
-# for eclipse users
-.settings/
-.project
-.pydevproject
-beacon.rdb
-beacon_data.rdb
-.cache/
-dump.rdb
-*.egg-info/
-htmlcov/
-.eggs
-.coverage*
-.pytest_cache/
-.vscode/*
+# Hidden files
+.*
+
+# Byte / compiled / optimized
+*.py[cod]
+__pycache__/
 *.so
-bliss/release.py
-prof
+
+# Distribution / packaging
+/build/
+*.egg-info/
+.eggs/
+
+# Unittest / coverage
+*.py,cover
+.coverage.*
+htmlcov/
+.cache/
+.pytest_cache/
+
+# Profiler
+/prof/
+
+# mypy
 .mypy_cache/
-graph.dot
-graph.png
+.dmypy.json
+dmypy.json
+
+# Backup from text editor
+*~
+*.bck
+*.swp
+\#*\#
+
+
+# Eclipse IDE
+/.settings/
+/.project
+/.pydevproject
+
+# VisualStudio IDE
+/.vscode/
+/.history/
+
+# Project documentation
+/doc/build
+/doc/source/bliss*.rst
+/doc/site
+
+# Redis output
+/beacon.rdb
+/beacon_data.rdb
+/tests/test_configuration/beacon.rdb
+/tests/test_configuration/beacon_data.rdb
+/dump.rdb
+
+# Various project file
+/bliss/release.py
+/graph.dot
+/graph.png

@@ -6,7 +6,7 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 from bliss.controllers.motor import CalcController
-from bliss.common.logtools import lprint, log_info
+from bliss.common.logtools import lprint, log_debug
 from bliss.scanning.scan_meta import get_user_scan_meta
 
 """
@@ -120,8 +120,8 @@ class Slits(CalcController):
         axis.no_offset = True
 
     def calc_from_real(self, positions_dict):
-        log_info(self, "[SLITS] calc_from_real()")
-        log_info(self, "[SLITS]\treal: %s" % positions_dict)
+        log_debug(self, "[SLITS] calc_from_real()")
+        log_debug(self, "[SLITS]\treal: %s" % positions_dict)
 
         calc_dict = dict()
         slit_type = self.config.get("slit_type", default="both")
@@ -144,13 +144,13 @@ class Slits(CalcController):
                 }
             )
 
-        log_info(self, "[SLITS]\tcalc: %s" % calc_dict)
+        log_debug(self, "[SLITS]\tcalc: %s" % calc_dict)
 
         return calc_dict
 
     def calc_to_real(self, positions_dict):
-        log_info(self, "[SLITS] calc_to_real()")
-        log_info(self, "[SLITS]\tcalc: %s" % positions_dict)
+        log_debug(self, "[SLITS] calc_to_real()")
+        log_debug(self, "[SLITS]\tcalc: %s" % positions_dict)
 
         real_dict = dict()
         slit_type = self.config.get("slit_type", default="both")
@@ -171,6 +171,6 @@ class Slits(CalcController):
                 }
             )
 
-        log_info(self, "[SLITS]\treal: %s" % real_dict)
+        log_debug(self, "[SLITS]\treal: %s" % real_dict)
 
         return real_dict

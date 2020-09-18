@@ -35,8 +35,13 @@ _running_task_on_device = weakref.WeakValueDictionary()
 _logger = logging.getLogger("bliss.scans")
 
 
-# Normal chain stop, avoid print error message
-class StopChain(gevent.GreenletExit):
+# Used to stop a greenlet and avoid logging this exception
+class StopTask(gevent.GreenletExit):
+    pass
+
+
+# Normal chain stop
+class StopChain(StopTask):
     pass
 
 
@@ -46,7 +51,7 @@ def profile(stats_dict, device_name, func_name):
     try:
         with time_profile(stats_dict, name, logger=_logger):
             yield
-    except StopChain:
+    except StopTask:
         raise
     except BaseException as e:
         msg = str(e)
@@ -59,23 +64,54 @@ def profile(stats_dict, device_name, func_name):
 def join_tasks(greenlets, **kw):
     try:
         gevent.joinall(greenlets, raise_error=True, **kw)
-    except StopChain:
-        gevent.killall(greenlets, exception=StopChain)
+    except StopTask as e:
+        gevent.killall(greenlets, exception=type(e))
         raise
     except BaseException:
         gevent.killall(greenlets)
         raise
 
 
-class DeviceIterator:
-    def __init__(self, device):
-        self.__device_ref = weakref.ref(device)
-        self.__sequence_index = 0
+class AbstractDeviceIterator:
+    def __init__(self):
+        self._stats_dict = dict()  # will be set by `_prepare`
+
+    @property
+    def device(self):
+        raise NotImplementedError
+
+    def __next__(self):
+        raise NotImplementedError
 
     def __getattr__(self, name):
         if name.startswith("__"):
             raise AttributeError(name)
         return getattr(self.device, name)
+
+    def _wait_ready(self, stats_dict):
+        tasks = []
+        # Check whether the reading task is healthy
+        # while waiting until the device is ready.
+        if hasattr(self.device, "wait_reading"):
+            tasks.append(gevent.spawn(self.device.wait_reading))
+        tasks.append(gevent.spawn(self.device._wait_ready, stats_dict))
+        join_tasks(tasks, count=1)
+        wait_ready_task = tasks.pop(-1)
+        try:
+            return wait_ready_task.get()
+        finally:
+            gevent.killall(tasks, exception=StopTask)
+
+    def _prepare(self, stats_dict):
+        self._stats_dict = stats_dict
+        self.device._prepare(stats_dict)
+
+
+class DeviceIterator(AbstractDeviceIterator):
+    def __init__(self, device):
+        super().__init__()
+        self.__device_ref = weakref.ref(device)
+        self.__sequence_index = 0
 
     @property
     def device(self):
@@ -91,29 +127,10 @@ class DeviceIterator:
         self.__sequence_index += 1
         return self
 
-    def _wait_ready(self, stats_dict):
-        tasks = []
-        # Check that it's still ok with the readingtask
-        if hasattr(self.device, "wait_reading"):
-            tasks.append(gevent.spawn(self.device.wait_reading))
-        with profile(stats_dict, self.device.name, "wait_ready"):
-            tasks.append(gevent.spawn(self.device.wait_ready))
-            try:
-                gevent.joinall(tasks, raise_error=True, count=1)
-            except:
-                gevent.killall(tasks)
-                raise
-            else:
-                wait_ready_task = tasks.pop(-1)
-                try:
-                    return wait_ready_task.get()
-                finally:
-                    gevent.killall(tasks)
-
     def _prepare(self, stats_dict):
         if self.__sequence_index > 0 and self.device.prepare_once:
             return
-        self.device._prepare(stats_dict)
+        super()._prepare(stats_dict)
 
     def _start(self, stats_dict):
         if self.__sequence_index > 0 and self.device.start_once:
@@ -121,12 +138,17 @@ class DeviceIterator:
         self.device._start(stats_dict)
 
 
-class DeviceIteratorWrapper:
+class DeviceIteratorWrapper(AbstractDeviceIterator):
     def __init__(self, device):
+        super().__init__()
         self.__device = weakref.proxy(device)
         self.__iterator = iter(device)
         self.__current = None
         next(self)
+
+    @property
+    def device(self):
+        return self.__current
 
     def __next__(self):
         try:
@@ -141,34 +163,6 @@ class DeviceIteratorWrapper:
         except Exception as e:
             e.args = (self.__device.name, *e.args)
             raise
-
-    def _wait_ready(self, stats_dict):
-        tasks = []
-        # Check that it's still ok with the readingtask
-        if hasattr(self.device, "wait_reading"):
-            tasks.append(gevent.spawn(self.device.wait_reading))
-        with profile(stats_dict, self.device.name, "wait_ready"):
-            tasks.append(gevent.spawn(self.device.wait_ready))
-            try:
-                gevent.joinall(tasks, raise_error=True, count=1)
-            except:
-                gevent.killall(tasks)
-                raise
-            else:
-                wait_ready_task = tasks.pop(-1)
-                try:
-                    return wait_ready_task.get()
-                finally:
-                    gevent.killall(tasks)
-
-    def __getattr__(self, name):
-        if name.startswith("__"):
-            raise AttributeError(name)
-        return getattr(self.__current, name)
-
-    @property
-    def device(self):
-        return self.__current
 
 
 class ChainPreset:
@@ -547,6 +541,10 @@ class AcquisitionMaster(AcquisitionObject):
         with profile(stats_dict, self.name, "trigger"):
             return self.trigger()
 
+    def _wait_ready(self, stats_dict):
+        with profile(stats_dict, self.name, "wait_ready"):
+            self.wait_ready()
+
     def trigger_slaves(self):
         stats_dict = self.__stats_dict
         with profile(stats_dict, self.name, "trigger_slaves"):
@@ -676,7 +674,7 @@ class AcquisitionMaster(AcquisitionObject):
     def wait_ready(self):
         # wait until ready for next acquisition
         # (not considering slave devices)
-        return True
+        pass
 
     def set_image_saving(self, directory, prefix, force_no_saving=False):
         pass
@@ -710,7 +708,6 @@ class AcquisitionSlave(AcquisitionObject):
 
     def _prepare(self, stats_dict):
         with profile(stats_dict, self.name, "prepare"):
-
             if self._reading_task:
                 raise RuntimeError("%s: Last reading task is not finished." % self.name)
             return self.prepare()
@@ -732,6 +729,10 @@ class AcquisitionSlave(AcquisitionObject):
                 dispatcher.send("start", self)
                 self._reading_task = gevent.spawn(self.reading)
             self.trigger()
+
+    def _wait_ready(self, stats_dict):
+        with profile(stats_dict, self.name, "wait_ready"):
+            self.wait_ready()
 
     def wait_reading(self):
         if self._reading_task is not None:
@@ -760,7 +761,7 @@ class AcquisitionSlave(AcquisitionObject):
 
     def wait_ready(self):
         # wait until ready for next acquisition
-        return True
+        pass
 
 
 class AcquisitionChainIter:

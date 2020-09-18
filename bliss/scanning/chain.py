@@ -49,7 +49,10 @@ def profile(stats_dict, device_name, func_name):
     except StopChain:
         raise
     except BaseException as e:
-        _logger.error(f"Exception caught in {name} ({e})")
+        msg = str(e)
+        if not msg:
+            msg = type(e).__name__
+        _logger.error(f"Exception caught in {name} ({msg})")
         raise
 
 

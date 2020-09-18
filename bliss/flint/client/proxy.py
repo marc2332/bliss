@@ -417,7 +417,13 @@ class FlintClient:
                 plots.ImageStackPlot,
                 plots.ScatterPlot,
             ]
-            plot_class = [p for p in classes if p.WIDGET == plot_class][0]
+            plot_class = plot_class.lower()
+            for cls in classes:
+                if cls.WIDGET.lower() == plot_class:
+                    plot_class = cls
+                    break
+            else:
+                raise ValueError(f"Name '{plot_class}' does not refer to a plot class")
         return plot_class.WIDGET, plot_class
 
 

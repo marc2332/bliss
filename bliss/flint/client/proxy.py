@@ -58,6 +58,12 @@ class FlintClient:
         self._process = None
         self._greenlets = None
         self._callbacks = None
+
+        self._plot_mapping = {}
+        """Store mapping from name to int id.
+        This should be part of flint_api at one point.
+        """
+
         if process is None:
             self.__start_flint()
         else:
@@ -378,6 +384,44 @@ class FlintClient:
     #
     # Helper on top of the proxy
     #
+
+    def get_plot(
+        self,
+        plot_class: typing.Union[str, object],
+        name: str,
+        unique_name: str = None,
+        selected: bool = False,
+        closeable: bool = True,
+    ):
+        """Create or retrieve a plot from this flint instance.
+
+        If the plot does not exists, it will be created in a new tab on Flint.
+
+        Arguments:
+            plot_class: A class defined in `bliss.flint.client.plot`, or a
+                silx class name. Can be one of "PlotWidget",
+                "PlotWindow", "Plot1D", "Plot2D", "ImageView", "StackView",
+                "ScatterView".
+            name: Name of the plot as displayed in the tab header. It is not a
+                unique name.
+            unique_name: If defined the plot can be retrieved from flint.
+            selected: If true (not the default) the plot became the current
+                displayed plot.
+            closeable: If true (default), the tab can be closed manually
+        """
+        silx_class_name, plot_class = self.__get_plot_info(plot_class)
+        if unique_name is not None:
+            flint_plot_id = self._plot_mapping.get(unique_name, None)
+            if flint_plot_id is not None:
+                if self.is_plot_exists(flint_plot_id):
+                    return plot_class(flint=self, plot_id=flint_plot_id)
+
+        plot_id = self._proxy.add_plot(
+            silx_class_name, name=name, selected=selected, closeable=closeable
+        )
+        if unique_name is not None:
+            self._plot_mapping[unique_name] = plot_id
+        return plot_class(plot_id=plot_id, flint=self)
 
     def add_plot(
         self,

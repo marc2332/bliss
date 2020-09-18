@@ -189,12 +189,13 @@ def _create_plot(
     **kwargs,
 ):
     flint = flint_proxy.get_flint()
-    if existing_id is not None:
-        if not flint.is_plot_exists(existing_id):
-            raise ValueError("This plot id '%s' is not part of flint" % existing_id)
-        plot = plot_class(flint=flint, plot_id=existing_id)
-    else:
-        plot = flint.add_plot(plot_class, name, selected, closeable)
+    plot = flint.get_plot(
+        plot_class,
+        name=name,
+        unique_name=existing_id,
+        selected=selected,
+        closeable=closeable,
+    )
     if data is not None:
         plot.plot(data=data, **kwargs)
     return plot

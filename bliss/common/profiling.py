@@ -64,12 +64,12 @@ class Statistics:
         }
 
     @property
-    def min_mean_max_std(self):
+    def _sample_statistics(self):
         """
-        dict with (min, mean, max, std) tuple
+        dict with statistics tuple
         """
         return {
-            key: (values.min(), values.mean(), values.max(), values.std())
+            key: (values.min(), values.mean(), values.max(), values.std(), values.sum())
             for key, values in self.elapsed_time.items()
         }
 
@@ -77,10 +77,10 @@ class Statistics:
         # due to recursion import standard here
         from bliss.shell.standard import _tabulate
 
-        data = [("func_name", "min", "mean", "max", "std")]
+        data = [("func_name", "min", "mean", "max", "std", "total")]
 
         for key, values in sorted(
-            self.min_mean_max_std.items(), key=lambda item: -item[1][1]
+            self._sample_statistics.items(), key=lambda item: -item[1][-1]
         ):
             data.append(
                 (
@@ -88,7 +88,8 @@ class Statistics:
                     human_time_fmt(values[0]),
                     human_time_fmt(values[1]),
                     human_time_fmt(values[2]),
-                    values[3],
+                    human_time_fmt(values[3]),
+                    human_time_fmt(values[4]),
                 )
             )
         return _tabulate(data)

@@ -34,12 +34,7 @@ from bliss.controllers.motor import Controller
 from bliss.config.settings_cache import CacheConnection
 from bliss.data.node import _get_or_create_node, _create_node
 from bliss.data.scan import get_data
-from bliss.scanning.chain import (
-    AcquisitionSlave,
-    AcquisitionMaster,
-    StopChain,
-    CompletedCtrlParamsDict,
-)
+from bliss.scanning.chain import AcquisitionSlave, AcquisitionMaster, StopChain
 from bliss.scanning.writer.null import Writer as NullWriter
 from bliss.scanning import scan_math
 from bliss.common.logtools import disable_user_output

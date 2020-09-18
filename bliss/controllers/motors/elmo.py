@@ -14,6 +14,9 @@ from bliss.common.axis import AxisState
 from bliss.config.channels import Cache
 from bliss.controllers.motor import Controller
 
+import time
+import sys
+
 
 class Elmo(Controller):
     """
@@ -239,6 +242,8 @@ class Elmo(Controller):
         self._last_state = dict()
         self._is_aborted = dict()
 
+        self.off_limit_sleep_time = 1  # seconds
+
     def initialize_hardware(self):
         # Check that the controller is alive
         try:
@@ -259,12 +264,12 @@ class Elmo(Controller):
         mode = int(self._query("UM"))
         asked_mode = axis.config.get("user_mode", int, 5)
         if mode != asked_mode:
-            self._query("UM=%d" % asked_mode)
+            self.set_user_mode(axis, asked_mode)
         # Check closed loop on
         if self._query("MO") != "1":
             self.set_on(axis)
         mode = self._query("UM")
-        axis._mode.value = int(mode)
+        axis._mode = int(mode)
 
     def close(self):
         self._cnx.close()
@@ -310,18 +315,19 @@ class Elmo(Controller):
         self._query("BG")
 
     def stop_jog(self, axis):
+        print("stop jog")
         self._query("JV=0")
         self._query("BG")
 
         while int(self._query("MS")) in (1, 2):
             gevent.sleep(0.01)
+
+        # switch the position regulation
+        self.set_user_mode(axis, 5)
         self._sync_pos(axis)
 
     def _enc_command(self, axis):
-        if axis._mode == 4:
-            return "PY"
-        else:
-            return "PX"
+        return "PX"
 
     def read_position(self, axis):
         if axis._mode == 2:
@@ -354,7 +360,21 @@ class Elmo(Controller):
         self._query("SP=%d" % new_vel)
         return self.read_velocity(axis)
 
+    def limit_search(self, axis, limit):
+        # Check the conditions to allow the movement
+        sleep = self._check_move_conditions()
+
+        # Start search
+        velocity = int(axis.config_velocity * axis.steps_per_unit)
+        self.start_jog(axis, velocity, limit)
+
+        if sleep:
+            time.sleep(self.off_limit_sleep_time)
+
     def home_search(self, axis, switch):
+        # Check the conditions to allow the movement
+        sleep = self._check_move_conditions()
+
         # no pos can be set in home search
         # use then a home_position in config, 0.0 if not there
         # (to perform a homing without changing pos, commands are:
@@ -373,6 +393,10 @@ class Elmo(Controller):
         home_velocity = int(axis.config_velocity * axis.steps_per_unit)
         self.start_jog(axis, home_velocity, switch)
         self._is_homing[axis] = True
+
+        # Sleep only necessary when moving away from a limit switch
+        if sleep:
+            time.sleep(self.off_limit_sleep_time)
 
     def home_state(self, axis):
         state = self._elmostate.new()
@@ -396,16 +420,18 @@ class Elmo(Controller):
         self._query(cmd)
 
     def state(self, axis):
+        limit = False
+
         if self._is_homing[axis]:
             return self.home_state(axis)
 
         state = self._elmostate.new()
-
         # check first that the controller is ready to move
         # bit0 of Status Register (page 3.135)
         ans = int(self._query("SR"))
         if ans & (1 << 7):
             state.set("MOVING")
+
         if ans & 0x1:  # problem into the drive
             state.set("DRIVEFAULT")
         if not (ans & (1 << 4)):  # closed loop open
@@ -418,9 +444,13 @@ class Elmo(Controller):
                 state.set("SLAVESWITCH")
 
         if ans & (1 << 6):
+            limit = True
             state.set("LIMPOS")
+            state.set("READY")
         if ans & (1 << 7):
+            limit = True
             state.set("LIMNEG")
+            state.set("READY")
         if ans & (1 << 8):
             # should be checked in spec ends in MOT_EMERGENCY ?
             state.set("INHIBITSWITCH")
@@ -428,13 +458,14 @@ class Elmo(Controller):
         # Check motion state
         # Wrong if homing
         #
-        ans = int(self._query("MS"))
-        if ans == 0:
-            state.set("READY")
-        elif ans == 1 or ans == 2:
-            state.set("MOVING")
-        elif ans == 3:
-            state.set("FAULT")
+        if limit == False:
+            ans = int(self._query("MS"))
+            if ans == 0:
+                state.set("READY")
+            elif ans == 1 or ans == 2:
+                state.set("MOVING")
+            elif ans == 3:
+                state.set("FAULT")
 
         if self._is_aborted[axis] and not "MOVING" in state:
             self._is_aborted[axis] = False
@@ -444,19 +475,43 @@ class Elmo(Controller):
         return state
 
     def start_one(self, motion):
-        # check first that the controller is ready to move
-        # bit0 of Status Register (page 3.135)
-        ans = int(self._query("SR"))
-        if ans & 0x1:
-            raise RuntimeError("problem into the drive")
-        if not (ans & (1 << 4)):
-            raise RuntimeError("closed loop open")
+        # Check the conditions to allow the movement
+        sleep = self._check_move_conditions()
 
         self._query("PA=%d" % round(motion.target_pos))
         self._query("BG")
 
+        # Sleep only necessary when moving away from a limit switch
+        if sleep:
+            time.sleep(self.off_limit_sleep_time)
+
+    def _check_move_conditions(self):
+        sleep = False
+
+        mode = int(self._query("UM"))
+        # No movements allowd in speed control mode
+        if mode == 2:
+            raise RuntimeError("Speed Control Mode: No movements allowed!")
+
+        # check first that the controller is ready to move
+        # bit0 of Status Register (page 3.135)
+        ans = int(self._query("SR"))
+        if ans & 0x1:
+            raise RuntimeError("Problem with the Elmo controller")
+        if not (ans & (1 << 4)):
+            raise RuntimeError("The positioning loop is open")
+
+        # A sleep time is necessary to leave the limit switch without stopping
+        # the movement again in state()
+        ans_ip = int(self._query("IP"))
+        if ans_ip & (1 << 6) | ans_ip & (1 << 7):
+            sleep = True
+
+        return sleep
+
     def stop(self, axis):
         self._query("ST")
+
         if self._is_homing[axis]:
             self._end_home(axis)
         else:
@@ -468,16 +523,15 @@ class Elmo(Controller):
 
     @object_method(types_info=("int", "int"))
     def set_user_mode(self, axis, mode):
-        commands = ["MO=0", "UM=%d" % mode]
-        if mode == 2:
-            commands.append("PM=1")
-        commands.append("MO=1")
-        for cmd in commands:
-            self._query(cmd)
-        if mode == 5 or mode == 4:
+        self.set_off(axis)
+        cmd = "UM=%d" % mode
+        self._query(cmd)
+        self.set_on(axis)
+
+        if mode == 5:
             axis.sync_hard()
         mode = int(self._query("UM"))
-        axis._mode.value = mode
+        axis._mode = mode
         return mode
 
     @object_method(types_info=("None", ("float", "float")))

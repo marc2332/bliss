@@ -966,7 +966,7 @@ def _local_pb(scan, repl, task):
                 )
         if scan.scan_info.get("type") == "ct":
 
-            class my_pb(progressbar.ProgressBar):
+            class CtProgressBar(progressbar.ProgressBar):
                 def __call__(self, queue, **keys):
                     npoints = int(scan.scan_info.get("count_time", 1) // .1) or None
                     keys["total"] = npoints
@@ -986,12 +986,12 @@ def _local_pb(scan, repl, task):
                         self._ct_tick_task.kill()
                     super().__exit__(*args, **kwargs)
 
-            with my_pb() as pb:
+            with CtProgressBar(repl=repl) as pb:
                 yield pb
         else:
             with user_status_info.callback() as cbk:
                 cbk(set_scan_status)
-                with progressbar.ProgressBar() as pb:
+                with progressbar.ProgressBar(repl=repl) as pb:
                     yield pb
 
     except KeyboardInterrupt:

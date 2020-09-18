@@ -16,9 +16,8 @@ from bliss.common.tango import DevState, Database
 from nexus_writer_service.subscribers.session_writer import all_cli_saveoptions
 from bliss.tango.clients.utils import wait_tango_device
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "helpers"))
-import nxw_test_config
-import nxw_test_utils
+from tests.nexus_writer.helpers import nxw_test_config
+from tests.nexus_writer.helpers import nxw_test_utils
 
 
 @pytest.fixture

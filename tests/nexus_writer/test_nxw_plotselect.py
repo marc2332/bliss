@@ -7,8 +7,8 @@
 
 from bliss.common import scans
 from bliss.common.plot import plotselect, plotinit
-import nxw_test_utils
-import nxw_test_data
+from tests.nexus_writer.helpers import nxw_test_utils
+from tests.nexus_writer.helpers import nxw_test_data
 
 
 def test_nxw_plotselect(nexus_writer_config):

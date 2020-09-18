@@ -6,9 +6,8 @@
 # Copyright (c) 2015-2019 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-
-import nxw_test_utils
-import nxw_test_data
+from tests.nexus_writer.helpers import nxw_test_utils
+from tests.nexus_writer.helpers import nxw_test_data
 
 
 def test_nxw_limact(nexus_writer_config):

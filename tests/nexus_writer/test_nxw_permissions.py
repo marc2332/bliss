@@ -5,14 +5,13 @@
 # Copyright (c) 2015-2020 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-
 import os
 import pytest
-import nxw_test_utils
 from bliss.common import scans
 from nexus_writer_service.utils.scan_utils import scan_filename
 from nexus_writer_service.io.io_utils import mkdir
 from nexus_writer_service.io import nexus
+from tests.nexus_writer.helpers import nxw_test_utils
 
 
 def test_nxw_permissions(nexus_writer_config):

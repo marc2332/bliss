@@ -5,12 +5,11 @@
 # Copyright (c) 2015-2020 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-
 import numpy
 import random
 import itertools
 from nexus_writer_service.utils import array_order
-from nxw_test_math import asproduct
+from tests.nexus_writer.helpers.nxw_test_math import asproduct
 
 
 def test_order_ravel():

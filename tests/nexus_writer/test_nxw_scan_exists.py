@@ -7,8 +7,8 @@
 
 import pytest
 from bliss.common import scans
-import nxw_test_utils
 from nexus_writer_service.io import nexus
+from tests.nexus_writer.helpers import nxw_test_utils
 
 
 def test_nxw_scan_exists(nexus_writer_config):

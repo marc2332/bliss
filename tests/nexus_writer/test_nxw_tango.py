@@ -12,8 +12,8 @@ from datetime import timedelta
 from contextlib import contextmanager
 from bliss.common.tango import DeviceProxy, DevState, DevFailed
 from bliss.common import scans
-import nxw_test_utils
-import nxw_test_data
+from tests.nexus_writer.helpers import nxw_test_utils
+from tests.nexus_writer.helpers import nxw_test_data
 
 
 def test_nxw_tango_logging(nexus_writer_config):

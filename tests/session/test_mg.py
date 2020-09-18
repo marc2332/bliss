@@ -8,6 +8,7 @@
 import pytest
 from bliss import global_map
 from bliss.common import measurementgroup
+from bliss.common.session import DefaultSession
 from bliss.common import scans
 from bliss.common.counter import Counter
 from bliss.controllers.counter import CounterController
@@ -16,6 +17,8 @@ from bliss.scanning import toolbox
 from bliss.controllers import counter
 from bliss.common.counter import Counter
 from bliss.shell.standard import _lsmg
+
+from tests.conftest import lima_simulator_context
 
 # 3 measurement groups : test_mg MG1 MG2 are configured
 # in tests/test_configuration/sessions/test.yml
@@ -481,3 +484,43 @@ def test_mg_with_encoder(default_session):
     test_mg = default_session.config.get("test_mg_enc")
 
     assert test_mg.available == {diode.fullname, m1enc.counters.position.fullname}
+
+
+def test_mg_restart_with_lima_disabled_counters(beacon, lima_simulator):
+    mg_lima_bpm_counters = [
+        "lima_simulator:bpm:x",
+        "lima_simulator:bpm:y",
+        "lima_simulator:bpm:fwhm_x",
+        "lima_simulator:bpm:fwhm_y",
+        "lima_simulator:bpm:intensity",
+        "lima_simulator:bpm:acq_time",
+    ]
+    mg_lima_counters = mg_lima_bpm_counters + ["lima_simulator:image"]
+
+    session = beacon.get("test_session")
+    try:
+        session.setup()
+
+        lima1_mg = session.config.get("test_lima1_mg")
+        lima_simulator = session.config.get("lima_simulator")
+
+        assert lima1_mg.enabled == set(mg_lima_counters)
+        lima1_mg.disable("lima_simulator:bpm*")
+        assert lima1_mg.enabled == {"lima_simulator:image"}
+    finally:
+        session.close()
+
+    beacon._clear_instances()  # simulate BLISS exiting
+    del lima_simulator
+    del lima1_mg
+
+    session = beacon.get("test_session")
+    try:
+        session.setup()
+
+        lima1_mg = session.config.get("test_lima1_mg")
+        assert lima1_mg.available == lima1_mg.enabled == lima1_mg.disabled == set()
+        lima_simulator = session.config.get("lima_simulator")
+        assert lima1_mg.enabled == {"lima_simulator:image"}
+    finally:
+        session.close()

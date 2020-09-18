@@ -1,4 +1,11 @@
-class: MeasurementGroup
-name: test_mg
-counters:
-- diode
+-
+  class: MeasurementGroup
+  name: test_mg
+  counters:
+    -   diode
+-
+  class: MeasurementGroup
+  name: test_lima1_mg
+  counters:
+    - lima_simulator
+

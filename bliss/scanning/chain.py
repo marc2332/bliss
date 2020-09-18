@@ -92,8 +92,9 @@ class AbstractDeviceIterator:
         tasks = []
         # Check whether the reading task is healthy
         # while waiting until the device is ready.
-        if hasattr(self.device, "wait_reading"):
-            tasks.append(gevent.spawn(self.device.wait_reading))
+        if self.device.has_reading_task():
+            # Do not add do time profiling here!
+            tasks.append(gevent.spawn(self.device._wait_reading, self._stats_dict))
         tasks.append(gevent.spawn(self.device._wait_ready, stats_dict))
         join_tasks(tasks, count=1)
         wait_ready_task = tasks.pop(-1)
@@ -122,8 +123,8 @@ class DeviceIterator(AbstractDeviceIterator):
             raise StopIteration
         else:
             if not self.device.prepare_once and not self.device.start_once:
-                if hasattr(self.device, "wait_reading"):
-                    self.device.wait_reading()
+                if self.device.has_reading_task():
+                    self.device._wait_reading(self._stats_dict)
         self.__sequence_index += 1
         return self
 
@@ -156,8 +157,7 @@ class DeviceIteratorWrapper(AbstractDeviceIterator):
         except StopIteration:
             if not self.__device.parent:
                 raise
-            if hasattr(self.__device, "wait_reading"):
-                self.__device.wait_reading()
+            self.__device._wait_reading(self._stats_dict)
             self.__iterator = iter(self.__device)
             self.__current = next(self.__iterator)
         except Exception as e:
@@ -545,6 +545,14 @@ class AcquisitionMaster(AcquisitionObject):
         with profile(stats_dict, self.name, "wait_ready"):
             self.wait_ready()
 
+    def _wait_reading(self, stats_dict):
+        if self.has_reading_task():
+            with profile(stats_dict, self.name, "wait_reading"):
+                self.wait_reading()
+
+    def has_reading_task(self):
+        return hasattr(self, "wait_reading")
+
     def trigger_slaves(self):
         stats_dict = self.__stats_dict
         with profile(stats_dict, self.name, "trigger_slaves"):
@@ -734,9 +742,15 @@ class AcquisitionSlave(AcquisitionObject):
         with profile(stats_dict, self.name, "wait_ready"):
             self.wait_ready()
 
+    def _wait_reading(self, stats_dict):
+        with profile(stats_dict, self.name, "wait_reading"):
+            self.wait_reading()
+
     def wait_reading(self):
         if self._reading_task is not None:
-            return self._reading_task.get()
+            self._reading_task.get()
+
+    def has_reading_task(self):
         return True
 
     # --------------------------- OVERLOAD METHODS  ---------------------------------------------
@@ -863,15 +877,14 @@ class AcquisitionChainIter:
         for tasks in self._execute("_start", stats_dict=stats_dict):
             join_tasks(tasks)
 
-    def wait_all_devices(self):
+    def wait_all_devices(self, stats_dict):
         for acq_dev_iter in (
             x
             for x in self._tree.expand_tree()
             if x is not "root"
             and isinstance(x.device, (AcquisitionSlave, AcquisitionMaster))
         ):
-            if hasattr(acq_dev_iter, "wait_reading"):
-                acq_dev_iter.wait_reading()
+            acq_dev_iter._wait_reading(stats_dict)
             if isinstance(acq_dev_iter.device, AcquisitionMaster):
                 acq_dev_iter.wait_slaves()
             dispatcher.send("end", acq_dev_iter.device)
@@ -901,7 +914,7 @@ class AcquisitionChainIter:
                 gevent.joinall(all_tasks, raise_error=True)
 
             with capture():
-                self.wait_all_devices()
+                self.wait_all_devices(stats_dict)
 
             with capture():
                 preset_tasks = [
@@ -937,7 +950,7 @@ class AcquisitionChainIter:
             gevent.joinall(preset_tasks)
             gevent.joinall(preset_tasks, raise_error=True)
         except StopIteration:  # should we stop all devices?
-            self.wait_all_devices()
+            self.wait_all_devices(stats_dict)
             raise
         return self
 

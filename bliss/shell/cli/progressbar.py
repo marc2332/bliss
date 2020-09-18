@@ -11,6 +11,7 @@ import traceback
 from prompt_toolkit.application import Application
 from prompt_toolkit.shortcuts.progress_bar import base
 from prompt_toolkit.filters import Condition
+from prompt_toolkit.renderer import CPR_Support
 from prompt_toolkit.layout import (
     Layout,
     Window,
@@ -55,6 +56,33 @@ class _ProgressControl(base._ProgressControl):
 
 
 class ProgressBar(base.ProgressBar):
+    def __init__(
+        self,
+        title=None,
+        formatters=None,
+        bottom_toolbar=None,
+        style=None,
+        key_bindings=None,
+        file=None,
+        color_depth=None,
+        output=None,
+        input=None,
+        repl=None,
+    ):
+        base.ProgressBar.__init__(
+            self,
+            title=title,
+            formatters=formatters,
+            bottom_toolbar=bottom_toolbar,
+            style=style,
+            key_bindings=key_bindings,
+            file=file,
+            color_depth=color_depth,
+            output=output,
+            input=input,
+        )
+        self._repl = repl
+
     def __enter__(self):
         """
         Same behavior as prompt_toolkit progressbar
@@ -129,6 +157,12 @@ class ProgressBar(base.ProgressBar):
             output=self.output,
             input=self.input,
         )
+
+        if self._repl is not None:
+            # Propagate CPR state from main repl application in order
+            # to avoid to reinitialize it every time at startup.
+            # This avoid to create a new thread.
+            self.app.renderer.cpr_support = self._repl.app.renderer.cpr_support
 
         # Run application in different thread.
         def run():

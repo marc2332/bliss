@@ -755,11 +755,15 @@ def wait_tcp_online(host, port, timeout=10):
 
 
 @contextmanager
-def tcp_listener(data_parser=None):
+def tcp_message_server(data_parser=None):
+    """Start a TCP server and yield a queue of events.
+    Data packages are separated by newline characters.
+    Supported package encodings are UTF8 (default) and json.
+    """
     # Create TCP socket
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    port_out = get_open_ports(1)[0]
-    sock.bind(("localhost", port_out))
+    port = get_open_ports(1)[0]
+    sock.bind(("localhost", port))
     sock.listen()
 
     # Listen to this TCP socket
@@ -782,8 +786,7 @@ def tcp_listener(data_parser=None):
 
     glistener = gevent.spawn(listener)
     try:
-        yield port_out, messages
-        assert len(messages) == 0, "not all messages have been validated"
+        yield port, messages
     finally:
         messages.put(StopIteration)
         for msg in messages:
@@ -795,6 +798,8 @@ def tcp_listener(data_parser=None):
 
 @pytest.fixture
 def jolokia_server():
+    """One of the ICAT backends
+    """
     port = get_open_ports(1)[0]
     path = os.path.dirname(__file__)
     script_path = os.path.join(path, "utils", "jolokia_server.py")
@@ -808,6 +813,8 @@ def jolokia_server():
 
 @pytest.fixture
 def logbook():
+    """Enables the logbook in BLISS
+    """
     logtools.logbook_printer.add_stdout_handler()
     logtools.logbook_on = True
     try:
@@ -819,7 +826,9 @@ def logbook():
 
 @pytest.fixture
 def icat_logbook_server(logbook):
-    with tcp_listener("json") as (port_out, icat_requests):
+    """ICAT backend for the e-logbook
+    """
+    with tcp_message_server("json") as (port_out, messages):
         port = get_open_ports(1)[0]
         path = os.path.dirname(__file__)
         script_path = os.path.join(path, "utils", "icatplus_server.py")
@@ -834,14 +843,28 @@ def icat_logbook_server(logbook):
         )
         wait_tcp_online("localhost", port)
         try:
-            assert icat_requests.get(timeout=10) == {"STATUS": "LISTENING"}
-            yield port, icat_requests
+            assert messages.get(timeout=10) == {"STATUS": "LISTENING"}
+            yield port, messages
         finally:
             wait_terminate(p)
 
 
 @pytest.fixture
+def icat_logbook_subscriber(icat_logbook_server):
+    _, messages = icat_logbook_server
+    try:
+        yield messages
+        assert len(messages) == 0, "not all messages have been validated"
+    finally:
+        messages.put(StopIteration)
+        for msg in messages:
+            print(f"\nUnvalidated message: {msg}")
+
+
+@pytest.fixture
 def stomp_server():
+    """One of the ICAT backends
+    """
     port = get_open_ports(1)[0]
     # Add arguments ["--debug", "TEXT"] for debugging
     proc = subprocess.Popen(["coilmq", "-b", "0.0.0.0", "-p", str(port)])
@@ -854,7 +877,7 @@ def stomp_server():
 
 @pytest.fixture
 def icat_subscriber(stomp_server):
-    with tcp_listener() as (port_out, messages):
+    with tcp_message_server() as (port_out, messages):
         path = os.path.dirname(__file__)
         script_path = os.path.join(path, "utils", "stomp_subscriber.py")
         host, port = stomp_server

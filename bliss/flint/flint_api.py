@@ -450,7 +450,7 @@ class FlintApi:
         plot.remove(legend)
 
     def clear_data(self, plot_id):
-        del self.data_dict[plot_id]
+        self.data_dict[plot_id].clear()
         plot = self._get_plot_widget(plot_id)
         plot.clear()
 

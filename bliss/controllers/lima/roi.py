@@ -351,7 +351,7 @@ class RoiCounters(IntegratingCounterController):
 
         if name in self._master_controller.roi_spectrums._save_rois.keys():
             raise ValueError(
-                f"Names conflict: '{name}' is already used by a roi2spectrum counter, please use another name"
+                f"Names conflict: '{name}' is already used by a roi_spectrum_counter, please use another name"
             )
 
         if roi_values.__class__ in [
@@ -570,7 +570,7 @@ class RoiCounters(IntegratingCounterController):
 
 class RoiSpectrumController(IntegratingCounterController):
     """
-        A CounterController to manage Lima ROI2SPECTRUM counters
+        A CounterController to manage Lima RoiSpectrumCounters
 
         Example usage:
 
@@ -610,7 +610,9 @@ class RoiSpectrumController(IntegratingCounterController):
     def __init__(self, proxy, acquisition_proxy):
         # leave counters registration to the parent object
         super().__init__(
-            "roi2spectrum", master_controller=acquisition_proxy, register_counters=False
+            "roi_spectrums",
+            master_controller=acquisition_proxy,
+            register_counters=False,
         )
         self._proxy = proxy
         self._current_config = settings.SimpleSetting(
@@ -687,7 +689,7 @@ class RoiSpectrumController(IntegratingCounterController):
         return [cache[name] for name in sorted(cache.keys())]
 
     def remove(self, name):
-        """alias to: del <lima obj>.roi2spectrum[name]"""
+        """alias to: del <lima obj>.roi_spectrums[name]"""
         # calls _remove_rois
         del self[name]
 
@@ -727,7 +729,7 @@ class RoiSpectrumController(IntegratingCounterController):
     # dict like API
 
     def set(self, name, roi_values):
-        """alias to: <lima obj>.roi2spectrum[name] = roi_values"""
+        """alias to: <lima obj>.roi_spectrums[name] = roi_values"""
         self[name] = roi_values
 
     def get(self, name, default=None):

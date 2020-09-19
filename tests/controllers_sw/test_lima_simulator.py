@@ -11,10 +11,12 @@ import pytest
 import gevent
 import logging
 import numpy
+from bliss.common.utils import all_equal
 from bliss.scanning.acquisition.timer import SoftwareTimerMaster
 from bliss.common.tango import DeviceProxy, DevFailed
 from bliss.common.counter import Counter
-from bliss.controllers.lima.roi import Roi
+from bliss.controllers.lima.roi import Roi, ArcRoi, RoiSpectrum
+from bliss.controllers.lima.roi import RoiSpectrumCounter
 from bliss.common.scans import loopscan, timescan, sct, ct, DEFAULT_CHAIN
 from bliss.controllers.lima.limatools import (
     load_simulator_frames,
@@ -134,23 +136,196 @@ def test_arc_rois(beacon, default_session, lima_simulator, images_directory):
     load_simulator_frames(cam, 1, img_path)
     reset_cam(cam, roi=[0, 0, 0, 0])
 
-    arc_roi_1 = 316, 443, 50, 88, -120, -180
-
     radius = 60
-    arc_roi_2 = 130, 320, 0, radius, 0, 360
-
     cam.roi_counters.clear()
-    cam.roi2spectrum_counters.clear()
-    cam.roi_counters["ar1"] = arc_roi_1
-    cam.roi_counters["ar2"] = arc_roi_2
+    cam.roi_counters["a1"] = 316, 443, 50, 88, -120, -180
+    cam.roi_counters["a2"] = 130, 320, 0, radius, 0, 360
 
     s = ct(cam)
 
-    assert s.get_data("ar1_sum")[0] == 0.0
+    assert s.get_data("a1_sum")[0] == 0.0
 
-    asum = s.get_data("ar2_sum")[0]
+    asum = s.get_data("a2_sum")[0]
     assert asum <= _PI_ * radius ** 2
     assert asum >= _PI_ * (radius - 1) ** 2
+
+
+def test_lima_roi_spectrum_api(
+    beacon, default_session, lima_simulator, images_directory
+):
+    cam = beacon.get("lima_simulator")
+    img_path = os.path.join(str(images_directory), "chart_3.edf")  # size=(200x100)
+    load_simulator_frames(cam, 1, img_path)
+    reset_cam(cam, roi=[0, 0, 0, 0])
+
+    # check there is no registered roi
+    assert len(cam.roi_spectrums) == 0
+    assert len(cam.roi_spectrums._roi_ids) == 0
+    assert len(cam.roi_spectrums.counters) == 0
+
+    # add a roi and check that 2 rois with same values and names are equal
+    cam.roi_spectrums["s1"] = 20, 20, 20, 20
+    assert "s1" in cam.roi_spectrums.keys()
+    assert cam.roi_spectrums["s1"] == RoiSpectrum(20, 20, 20, 20, name="s1")
+    assert cam.roi_spectrums["s1"] != RoiSpectrum(20, 20, 20, 20, name="other")
+    assert len(cam.roi_spectrums.counters) == 1
+
+    # add multiple rois in a raw and check that 'bad' name is overwritten with the good name
+    cam.roi_spectrums["s2", "s3"] = (
+        RoiSpectrum(20, 20, 20, 20),
+        RoiSpectrum(20, 20, 20, 20, name="bad"),
+    )
+    assert "s2" in cam.roi_spectrums.keys()
+    assert "s3" in cam.roi_spectrums.keys()
+    assert "bad" not in cam.roi_spectrums.keys()
+    assert cam.roi_spectrums["s3"].name == "s3"
+    assert len(cam.roi_spectrums.counters) == 3
+
+    # add multiple rois in a raw as tuple and check that mode '1' is applied
+    cam.roi_spectrums["s4", "s5"] = (20, 20, 20, 20), (60, 20, 40, 40, 1)
+    assert "s4" in cam.roi_spectrums.keys()
+    assert "s5" in cam.roi_spectrums.keys()
+    assert cam.roi_spectrums["s4"] == RoiSpectrum(20, 20, 20, 20, mode=0, name="s4")
+    assert cam.roi_spectrums["s5"] == RoiSpectrum(60, 20, 40, 40, mode=1, name="s5")
+    assert cam.roi_spectrums["s4"].mode == 0
+    assert cam.roi_spectrums["s5"].mode == 1
+    assert len(cam.roi_spectrums.counters) == 5
+
+    # check counters are added to the Lima.counter_groups
+    assert isinstance(cam.counter_groups["s5"], RoiSpectrumCounter)
+
+    # perform a scan to push rois to TangoDevice (roi_ids are retrieved at that time)
+    assert len(cam.roi_spectrums._roi_ids) == 0
+    ct(cam)
+    assert len(cam.roi_spectrums._roi_ids) == 5
+
+    # check get_roi_mode/set_roi_mode
+    cam.roi_spectrums.set_roi_mode(0, "s1")
+    assert cam.roi_spectrums.get_roi_mode("s1") == 0
+    cam.roi_spectrums.set_roi_mode(1, "s1", "s2")
+    assert cam.roi_spectrums.get_roi_mode("s1", "s2") == {"s1": 1, "s2": 1}
+    cam.roi_spectrums.set_roi_mode("horizontal", "s1")
+    assert cam.roi_spectrums.get_roi_mode("s1") == 0
+
+    # del one roi
+    del cam.roi_spectrums["s5"]
+    assert "s5" not in cam.roi_spectrums.keys()
+    assert len(cam.roi_spectrums) == 4
+    assert len(cam.roi_spectrums._roi_ids) == 4
+    assert len(cam.roi_spectrums.counters) == 4
+
+    # remove one roi
+    cam.roi_spectrums.remove("s4")
+    assert "s4" not in cam.roi_spectrums.keys()
+    assert len(cam.roi_spectrums) == 3
+    assert len(cam.roi_spectrums._roi_ids) == 3
+    assert len(cam.roi_spectrums.counters) == 3
+
+    # clear all
+    cam.roi_spectrums.clear()
+    assert len(cam.roi_spectrums) == 0
+    assert len(cam.roi_spectrums._roi_ids) == 0
+    assert len(cam.roi_spectrums.counters) == 0
+
+
+def test_lima_roi_spectrum_measurements(
+    beacon, default_session, lima_simulator, images_directory
+):
+
+    # chart_3.edf (200x100) => 2 patterns
+    #
+    # 1 stairs shape in box (20,20,20+20,20+20)  => Horizontal lineProfile is [0,1,2,3,4,5,...]
+    #
+    #  HHHHHH
+    #   HHHHH
+    #    HHHH
+    #     HHH
+    #      HH
+    #       H
+
+    # 1 code-bar shape in box (60,20,60+40,20+40) => Horizontal lineProfile is [40,0,40,0,40,0,...]
+    #  H  H  H  H  H
+    #  H  H  H  H  H
+    #  H  H  H  H  H
+    #  H  H  H  H  H
+    #  H  H  H  H  H
+    #  H  H  H  H  H
+
+    cam = beacon.get("lima_simulator")
+    img_path = os.path.join(str(images_directory), "chart_3.edf")
+    load_simulator_frames(cam, 1, img_path)
+    reset_cam(cam, roi=[0, 0, 0, 0])
+
+    cam.roi_spectrums.clear()
+    cam.roi_spectrums["sp1"] = [20, 20, 18, 20]
+    cam.roi_spectrums["sp2"] = [60, 20, 38, 40]
+
+    w1 = cam.roi_spectrums["sp1"].width
+    h1 = cam.roi_spectrums["sp1"].height
+    w2 = cam.roi_spectrums["sp2"].width
+    h2 = cam.roi_spectrums["sp2"].height
+
+    # TEST WITH HORIZONTAL LINE PROFILE
+    # (mode=0, pixels are summed along the vertical axis and the spectrum is along horizontal axis)
+    cam.roi_spectrums.set_roi_mode(0, "sp1", "sp2")
+
+    s = ct(cam)
+    d1 = s.get_data("sp1")[0]
+    d2 = s.get_data("sp2")[0]
+
+    # check it is really an horizontal line profile
+    assert len(d1) == w1
+    assert len(d2) == w2
+
+    # check measured spectrums are as expected
+    assert list(d1) == list(range(1, w1 + 1))
+    assert all_equal(list(d2[::2])) and d2[::2][0] == h2
+    assert all_equal(list(d2[1::2])) and d2[1::2][0] == 0
+
+    # DO THE SAME BUT WITH VERTICAL LINE PROFILE
+    cam.roi_spectrums["sp1"] = [20, 20, 20, 20]
+    cam.roi_spectrums.set_roi_mode("vertical", "sp1")
+    cam.roi_spectrums.set_roi_mode("vertical", "sp2")
+
+    s = ct(cam)
+    d1 = s.get_data("sp1")[0]
+    d2 = s.get_data("sp2")[0]
+
+    # check it is really an horizontal line profile
+    assert len(d1) == h1
+    assert len(d2) == h2
+
+    # check measured spectrums are as expected
+    res1 = list(d1)
+    res1.reverse()
+    assert res1 == list(range(1, h1 + 1))
+    assert all_equal(list(d2)) and d2[0] == w2 / 2
+
+    # MIX VERTICAL and HORIZONTAL LINE PROFILE
+    cam.roi_spectrums.set_roi_mode("vertical", "sp1")
+    cam.roi_spectrums.set_roi_mode("horizontal", "sp2")
+
+    s = ct(cam)
+    d1 = s.get_data("sp1")[0]
+    d2 = s.get_data("sp2")[0]
+
+    # check it is really an horizontal line profile
+    assert len(d1) == h1
+    assert len(d2) == w2
+
+    # check measured spectrums are as expected
+    assert res1 == list(range(1, h1 + 1))
+    assert all_equal(list(d2[::2])) and d2[::2][0] == h2
+    assert all_equal(list(d2[1::2])) and d2[1::2][0] == 0
+
+    # MULTIPLE IMAGES
+
+    frames = 3
+    s = loopscan(frames, 0.1, cam)
+    d1 = s.get_data("sp1")
+
+    assert len(d1) == frames
+    assert all_equal([len(x) for x in d1])
 
 
 def test_directories_mapping(beacon, lima_simulator):

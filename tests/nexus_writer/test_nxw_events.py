@@ -6,7 +6,7 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 from bliss.common import scans
-import nxw_test_utils
+from tests.nexus_writer.helpers import nxw_test_utils
 
 
 def test_nxw_events(nexus_writer_config):

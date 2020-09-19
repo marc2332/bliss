@@ -5,13 +5,12 @@
 # Copyright (c) 2015-2020 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-
 import os
 import pytest
 import gevent
-import nxw_test_utils
 from bliss.common import scans
 from nexus_writer_service.utils.scan_utils import session_filename
+from tests.nexus_writer.helpers import nxw_test_utils
 
 
 def test_nxw_crash(nexus_writer_config):

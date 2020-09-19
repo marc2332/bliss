@@ -6,8 +6,8 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 from bliss.common import scans
-import nxw_test_utils
-import nxw_test_data
+from tests.nexus_writer.helpers import nxw_test_utils
+from tests.nexus_writer.helpers import nxw_test_data
 
 
 def test_nxw_loopscan(nexus_writer_config):

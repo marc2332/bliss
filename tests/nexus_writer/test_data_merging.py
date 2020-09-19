@@ -9,7 +9,7 @@ import numpy
 import itertools
 from nexus_writer_service.utils import data_merging
 from nexus_writer_service.utils.array_order import Order
-from nxw_test_math import asproduct
+from tests.nexus_writer.helpers.nxw_test_math import asproduct
 
 
 def test_data_merging_general():

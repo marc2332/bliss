@@ -16,8 +16,7 @@ from nexus_writer_service.subscribers.scan_writer_base import (
 from nexus_writer_service.subscribers.scan_writer_config import (
     default_saveoptions as config_options
 )
-import nxw_test_config
-import nxw_test_utils
+from . import nxw_test_config
 
 
 def assert_scan_data(scan, **kwargs):

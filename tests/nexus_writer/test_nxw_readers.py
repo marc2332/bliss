@@ -5,15 +5,14 @@
 # Copyright (c) 2015-2020 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-
 import gevent
 import pytest
-import nxw_test_data
-import nxw_test_utils
 from bliss.common import scans
 from bliss.common.tango import DevState
 from nexus_writer_service.utils import scan_utils
 from nexus_writer_service.io import nexus
+from tests.nexus_writer.helpers import nxw_test_data
+from tests.nexus_writer.helpers import nxw_test_utils
 
 
 def test_nxw_readers(nexus_writer_config):

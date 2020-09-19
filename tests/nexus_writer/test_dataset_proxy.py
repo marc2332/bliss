@@ -10,10 +10,10 @@ import numpy
 import random
 import itertools
 from fabio.edfimage import EdfImage
-from nxw_test_math import asproduct
 from nexus_writer_service.subscribers.dataset_proxy import DatasetProxy
 from nexus_writer_service.io import nexus
 from nexus_writer_service.utils.array_order import Order
+from tests.nexus_writer.helpers.nxw_test_math import asproduct
 
 
 def test_dataset_proxy(tmpdir):

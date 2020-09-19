@@ -62,7 +62,7 @@ def assert_icat_received(icat_subscriber, expected, dataset=None, timeout=10):
 
 
 def assert_logbook_received(
-    icat_logbook_server,
+    icat_logbook_subscriber,
     messages,
     timeout=10,
     complete=False,
@@ -71,9 +71,8 @@ def assert_logbook_received(
 ):
     if not category:
         category = "info"
-    _, queue = icat_logbook_server
     print("\nWaiting of ICAT logbook message ...")
-    logbook_received = queue.get(timeout=timeout)
+    logbook_received = icat_logbook_subscriber.get(timeout=timeout)
 
     print(f"Validating ICAT logbook message: {logbook_received}")
     assert logbook_received["category"] == category
@@ -118,11 +117,8 @@ def test_icat_backend(
     metaexp_with_backend,
     metamgr_with_backend,
     icat_subscriber,
-    icat_logbook_server,
+    icat_logbook_subscriber,
 ):
-    mdexp_dev_fqdn, mdexp_dev = metaexp_with_backend
-    mdmgr_dev_fqdn, mdmgr_dev = metamgr_with_backend
-    port, log_messages = icat_logbook_server
     scan_saving = session.scan_saving
     scan_saving.writer = "hdf5"
 
@@ -130,11 +126,11 @@ def test_icat_backend(
     newproposal("totoproposal")
     expected = icat_info(scan_saving)
     assert_icat_received(icat_subscriber, expected)
-    assert_logbook_received(icat_logbook_server, "Proposal set to")
+    assert_logbook_received(icat_logbook_subscriber, "Proposal set to")
 
     newdataset()
     loopscan(1, .1, diode)
-    assert_logbook_received(icat_logbook_server, "Dataset set to")
+    assert_logbook_received(icat_logbook_subscriber, "Dataset set to")
     expected = icat_info(scan_saving, dataset=True)
     enddataset()
     assert_icat_received(icat_subscriber, expected)
@@ -391,7 +387,7 @@ def test_data_policy_user_functions(
     metaexp_with_backend,
     metamgr_with_backend,
     icat_subscriber,
-    icat_logbook_server,
+    icat_logbook_subscriber,
 ):
     scan_saving = session.scan_saving
     assert_icat_received(icat_subscriber, icat_info(scan_saving))
@@ -404,7 +400,7 @@ def test_data_policy_user_functions(
     create_dataset(scan_saving)
 
     newproposal("toto")
-    assert_logbook_received(icat_logbook_server, "toto")
+    assert_logbook_received(icat_logbook_subscriber, "toto")
     assert_icat_received(icat_subscriber, expected_dataset)
     assert_icat_received(icat_subscriber, icat_info(scan_saving))
     expected_dataset = icat_info(scan_saving, dataset=True)
@@ -414,7 +410,7 @@ def test_data_policy_user_functions(
     create_dataset(scan_saving)
 
     newsample("tata")
-    assert_logbook_received(icat_logbook_server, "tata")
+    assert_logbook_received(icat_logbook_subscriber, "tata")
     assert_icat_received(icat_subscriber, expected_dataset)
     expected_dataset = icat_info(scan_saving, dataset=True)
     assert scan_saving.proposal == "toto"
@@ -423,7 +419,7 @@ def test_data_policy_user_functions(
     create_dataset(scan_saving)
 
     newdataset("tutu")
-    assert_logbook_received(icat_logbook_server, "tutu")
+    assert_logbook_received(icat_logbook_subscriber, "tutu")
     assert_icat_received(icat_subscriber, expected_dataset)
     expected_dataset = icat_info(scan_saving, dataset=True)
     assert scan_saving.proposal == "toto"
@@ -432,7 +428,7 @@ def test_data_policy_user_functions(
     create_dataset(scan_saving)
 
     newproposal()
-    assert_logbook_received(icat_logbook_server, default_proposal)
+    assert_logbook_received(icat_logbook_subscriber, default_proposal)
     assert_icat_received(icat_subscriber, expected_dataset)
     assert_icat_received(icat_subscriber, icat_info(scan_saving))
     expected_dataset = icat_info(scan_saving, dataset=True)
@@ -458,7 +454,7 @@ def test_data_policy_user_functions(
     create_dataset(scan_saving)
 
     newproposal("toto")
-    assert_logbook_received(icat_logbook_server, "toto")
+    assert_logbook_received(icat_logbook_subscriber, "toto")
     assert_icat_received(icat_subscriber, expected_dataset)
     assert_icat_received(icat_subscriber, icat_info(scan_saving))
     expected_dataset = icat_info(scan_saving, dataset=True)
@@ -626,18 +622,16 @@ def test_session_ending(
     metaexp_with_backend,
     metamgr_with_backend,
     icat_subscriber,
-    icat_logbook_server,
+    icat_logbook_subscriber,
 ):
-    mdexp_dev_fqdn, mdexp_dev = metaexp_with_backend
-    mdmgr_dev_fqdn, mdmgr_dev = metamgr_with_backend
     scan_saving = session.scan_saving
     default_proposal = f"{scan_saving.beamline}{time.strftime('%y%m')}"
 
     scan_saving.newproposal("hg123")
-    assert_logbook_received(icat_logbook_server, "hg123")
+    assert_logbook_received(icat_logbook_subscriber, "hg123")
     assert_icat_received(icat_subscriber, icat_info(scan_saving))
     scan_saving.newsample("sample1")
-    assert_logbook_received(icat_logbook_server, "sample1")
+    assert_logbook_received(icat_logbook_subscriber, "sample1")
     create_dataset(scan_saving)
     assert scan_saving.proposal == "hg123"
     assert scan_saving.sample == "sample1"
@@ -665,7 +659,7 @@ def test_date_in_basepath(
     esrf_data_policy,
     metaexp_with_backend,
     metamgr_with_backend,
-    icat_logbook_server,
+    icat_logbook_subscriber,
 ):
     # Put date in base path template:
     scan_saving = session.scan_saving
@@ -681,7 +675,7 @@ def test_date_in_basepath(
     time.time, orgtime = mytime, time.time
     try:
         scan_saving.newproposal("ihch123")
-        assert_logbook_received(icat_logbook_server, "ihch123")
+        assert_logbook_received(icat_logbook_subscriber, "ihch123")
         past = scan_saving.date
         assert scan_saving.base_path.endswith(past)
     finally:
@@ -689,17 +683,17 @@ def test_date_in_basepath(
 
     # Call newproposal in the present:
     scan_saving.newproposal("ihch123")
-    assert_logbook_received(icat_logbook_server, "ihch123")
+    assert_logbook_received(icat_logbook_subscriber, "ihch123")
     assert scan_saving.date == past
     assert scan_saving.base_path.endswith(past)
 
     scan_saving.newproposal("ihch456")
-    assert_logbook_received(icat_logbook_server, "ihch456")
+    assert_logbook_received(icat_logbook_subscriber, "ihch456")
     assert scan_saving.date != past
     assert not scan_saving.base_path.endswith(past)
 
     scan_saving.newproposal("ihch123")
-    assert_logbook_received(icat_logbook_server, "ihch123")
+    assert_logbook_received(icat_logbook_subscriber, "ihch123")
     assert scan_saving.date != past
     assert not scan_saving.base_path.endswith(past)
 
@@ -713,7 +707,7 @@ def test_parallel_sessions(
     metaexp_with_backend,
     metamgr_with_backend,
     icat_subscriber,
-    icat_logbook_server,
+    icat_logbook_subscriber,
 ):
     # SCAN_SAVING uses the `current_session`
 
@@ -737,27 +731,27 @@ def test_parallel_sessions(
 
     scan_saving = get_scan_saving1()
     scan_saving.newproposal("blc123")
-    assert_logbook_received(icat_logbook_server, "blc123")
+    assert_logbook_received(icat_logbook_subscriber, "blc123")
     assert_icat_received(icat_subscriber, icat_info(scan_saving))
     assert scan_saving.dataset == "0001"
 
     scan_saving = get_scan_saving2()
     scan_saving.newproposal("blc123")
-    assert_logbook_received(icat_logbook_server, "blc123")
+    assert_logbook_received(icat_logbook_subscriber, "blc123")
     assert_icat_received(icat_subscriber, icat_info(scan_saving))
     assert scan_saving.dataset == "0002"
 
     get_scan_saving1().newdataset(None)
-    assert_logbook_received(icat_logbook_server, "0001")
+    assert_logbook_received(icat_logbook_subscriber, "0001")
     get_scan_saving2().newdataset(None)
-    assert_logbook_received(icat_logbook_server, "0002")
+    assert_logbook_received(icat_logbook_subscriber, "0002")
     assert get_scan_saving1().dataset == "0001"
     assert get_scan_saving2().dataset == "0002"
 
     get_scan_saving2().newdataset(None)
-    assert_logbook_received(icat_logbook_server, "0002")
+    assert_logbook_received(icat_logbook_subscriber, "0002")
     get_scan_saving1().newdataset(None)
-    assert_logbook_received(icat_logbook_server, "0001")
+    assert_logbook_received(icat_logbook_subscriber, "0001")
     assert get_scan_saving1().dataset == "0001"
     assert get_scan_saving2().dataset == "0002"
 
@@ -765,23 +759,23 @@ def test_parallel_sessions(
     expected_dataset = icat_info(scan_saving, dataset=True)
     create_dataset(scan_saving)
     scan_saving.newdataset(None)
-    assert_logbook_received(icat_logbook_server, "0003")
+    assert_logbook_received(icat_logbook_subscriber, "0003")
     assert_icat_received(icat_subscriber, expected_dataset)
     assert get_scan_saving1().dataset == "0003"
     assert get_scan_saving2().dataset == "0002"
 
     get_scan_saving1().newdataset("0002")
-    assert_logbook_received(icat_logbook_server, "0003")
+    assert_logbook_received(icat_logbook_subscriber, "0003")
     assert get_scan_saving1().dataset == "0003"
     assert get_scan_saving2().dataset == "0002"
 
     get_scan_saving1().newdataset("named")
-    assert_logbook_received(icat_logbook_server, "named")
+    assert_logbook_received(icat_logbook_subscriber, "named")
     assert get_scan_saving1().dataset == "named"
     assert get_scan_saving2().dataset == "0002"
 
     get_scan_saving2().newdataset("named")
-    assert_logbook_received(icat_logbook_server, "named_0002")
+    assert_logbook_received(icat_logbook_subscriber, "named_0002")
     assert get_scan_saving1().dataset == "named"
     assert get_scan_saving2().dataset == "named_0002"
 
@@ -791,10 +785,10 @@ def test_lprint(
     esrf_data_policy,
     metaexp_with_backend,
     metamgr_with_backend,
-    icat_logbook_server,
+    icat_logbook_subscriber,
 ):
     lprint("message1")
-    assert_logbook_received(icat_logbook_server, "message1", complete=True)
+    assert_logbook_received(icat_logbook_subscriber, "message1", complete=True)
 
 
 def test_lprint_move_axis(
@@ -802,7 +796,7 @@ def test_lprint_move_axis(
     esrf_data_policy,
     metaexp_with_backend,
     metamgr_with_backend,
-    icat_logbook_server,
+    icat_logbook_subscriber,
 ):
     mot = session.env_dict.get("s1hg")
     a = mot.position
@@ -816,9 +810,9 @@ def test_lprint_move_axis(
     for _ in range(10):
         mv(mot, b)
         mv_msg = f"Moving s1hg from {as_string(a)} to {as_string(b)}"
-        assert_logbook_received(icat_logbook_server, mv_msg, complete=True)
-        assert_logbook_received(icat_logbook_server, "Moving s1f")
-        assert_logbook_received(icat_logbook_server, "Moving s1b")
+        assert_logbook_received(icat_logbook_subscriber, mv_msg, complete=True)
+        assert_logbook_received(icat_logbook_subscriber, "Moving s1f")
+        assert_logbook_received(icat_logbook_subscriber, "Moving s1b")
         a, b = b, a
 
 
@@ -827,7 +821,7 @@ def test_elogbook_message_types(
     esrf_data_policy,
     metaexp_with_backend,
     metamgr_with_backend,
-    icat_logbook_server,
+    icat_logbook_subscriber,
 ):
     scan_saving = session.scan_saving
     proxy = scan_saving.icat_proxy
@@ -837,7 +831,7 @@ def test_elogbook_message_types(
         msg = str(msg_type)
         proxy.send_to_elogbook(msg_type, msg)
         assert_logbook_received(
-            icat_logbook_server,
+            icat_logbook_subscriber,
             msg,
             complete=True,
             category=category,

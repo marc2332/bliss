@@ -5,14 +5,13 @@
 # Copyright (c) 2015-2019 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-
 import pytest
 import itertools
 from glob import glob
 from nexus_writer_service.utils import scan_utils
 from nexus_writer_service.io import nexus
 from bliss.common import scans
-import nxw_test_utils
+from tests.nexus_writer.helpers import nxw_test_utils
 
 
 @pytest.mark.parametrize(

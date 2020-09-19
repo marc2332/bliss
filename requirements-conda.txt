@@ -47,7 +47,7 @@ typeguard == 2.6.1
 typing_extensions
 tailon == 1.1.0.1
 numexpr
-tango-metadata >= 4.0.3
+tango-metadata >= 4.0.6
 
 # Flint
 pyqt >= 5.9

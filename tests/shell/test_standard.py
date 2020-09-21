@@ -341,3 +341,4 @@ def test_edit_roi_counters(
     assert "roi1" in cam.roi_counters
     assert "roi2" in cam.roi_profiles
     plot_mock.select_shapes.assert_called_once()
+    plot_mock.focus.assert_called_once()

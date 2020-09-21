@@ -169,6 +169,7 @@ class FilterSet_Wago(FilterSet):
 
         mask = (self._filtmask - filter_id) if self._inverted else filter_id
         wmask = [int(x) for x in f"{mask:0{nbits}b}"]
+        wmask.reverse()
         self._wago.set(self._wago_cmd, wmask)
         sleep(self._settle_time)
 
@@ -178,8 +179,6 @@ class FilterSet_Wago(FilterSet):
         """
         mask = 0
         val = self._wago.get(self._wago_status)
-        # inverse for the loop
-        val.reverse()
         for f in range(self._config_nb_filters):
             mask += int(val[f]) << f
         return mask

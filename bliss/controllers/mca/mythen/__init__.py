@@ -74,6 +74,14 @@ class Mythen(CounterController):
         self._rois = RoiConfig(self)
 
     def get_acquisition_object(self, acq_params, ctrl_params, parent_acq_params):
+        trigger_mode = acq_params.pop("trigger_mode", None)
+        if trigger_mode is not None:
+            if isinstance(trigger_mode, str):
+                if trigger_mode.upper() == "SOFTWARE":
+                    acq_params["trigger_type"] = AcquisitionSlave.SOFTWARE
+                else:
+                    acq_params["trigger_type"] = AcquisitionSlave.HARDWARE
+
         return MythenAcquistionSlave(self, ctrl_params=ctrl_params, **acq_params)
 
     def get_default_chain_parameters(self, scan_params, acq_params):
@@ -82,13 +90,16 @@ class Mythen(CounterController):
         except KeyError:
             count_time = scan_params["count_time"]
 
-        trigger_mode = acq_params.get(
-            "trigger_mode", MythenAcquistionSlave.TriggerMode.SOFTWARE
-        )
-        if trigger_mode == MythenAcquistionSlave.TriggerMode.SOFTWARE:
-            trigger_type = AcquisitionSlave.SOFTWARE
+        if "trigger_type" not in acq_params:
+            trigger_mode = acq_params.get(
+                "trigger_mode", MythenAcquistionSlave.TriggerMode.SOFTWARE
+            )
+            if trigger_mode == MythenAcquistionSlave.TriggerMode.SOFTWARE:
+                trigger_type = AcquisitionSlave.SOFTWARE
+            else:
+                trigger_type = AcquisitionSlave.HARDWARE
         else:
-            trigger_type = AcquisitionSlave.HARDWARE
+            trigger_type = acq_params["trigger_type"]
 
         prepare_once = acq_params.get("prepare_once", True)
 
@@ -97,9 +108,10 @@ class Mythen(CounterController):
             npoints = 1
             start_once = True  # <= ???
         else:
-            start_once = acq_params.get(
-                "start_once", trigger_type == AcquisitionSlave.HARDWARE
-            )
+            # start_once = acq_params.get(
+            #    "start_once", trigger_type == AcquisitionSlave.HARDWARE
+            # )
+            start_once = False
 
         params = {}
         params["count_time"] = count_time
@@ -248,7 +260,7 @@ class Mythen(CounterController):
 
     # Acquisition routine
 
-    def run(self, acquisition_number=1, acquisition_time=1.):
+    def run(self, acquisition_number=1, acquisition_time=1.0):
         self.nframes = acquisition_number
         self.exposure_time = acquisition_time
         try:
@@ -309,6 +321,7 @@ class MythenAcquistionSlave(AcquisitionSlave):
 
         self._software_acquisition = None
         self._acquisition_status = self.status.STOPPED
+        self._in_publish = False
 
     # Counter management
 
@@ -325,11 +338,15 @@ class MythenAcquistionSlave(AcquisitionSlave):
         self.device.nframes = self.npoints
         self.device.exposure_time = self.count_time
         self.device.gate_mode = self.trigger_type == AcquisitionSlave.HARDWARE
-
-    def start(self):
         if self.trigger_type == AcquisitionSlave.HARDWARE:
             self.device.start()
+
+    def start(self):
         self._acquisition_status = self.status.RUNNING
+        if self.trigger_type == AcquisitionSlave.HARDWARE:
+            self.wait_reading()
+            # trick for now for autof restart reading here
+            self._reading_task = gevent.spawn(self.reading)
 
     def trigger(self):
         if self.trigger_type == AcquisitionSlave.SOFTWARE:
@@ -364,14 +381,14 @@ class MythenAcquistionSlave(AcquisitionSlave):
         self._publish()
 
     def reading(self):
-        if self.trigger_type == AcquisitionSlave.SOFTWARE:
+        if self._in_publish:
             return
-
-        for spectrum_nb in range(self.npoints):
-            if self._acquisition_status != self.status.RUNNING:
-                break
-
-            self._publish(self)
+        try:
+            self._in_publish = True
+            if self.trigger_type == AcquisitionSlave.HARDWARE:
+                self._publish()
+        finally:
+            self._in_publish = False
 
     def _publish(self):
         spectrum = self.device.readout()
@@ -390,5 +407,6 @@ class MythenAcquistionSlave(AcquisitionSlave):
             if self._software_acquisition is not None:
                 self._software_acquisition.kill()
         else:
+            self.wait_reading()
             self._acquisition_status = self.status.STOPPED
             self.device.stop()

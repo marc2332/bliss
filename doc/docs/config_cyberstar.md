@@ -7,7 +7,7 @@ Control communication is only via serial-line RS232 and modules can be chained (
 
 The power supplies provide an SCA output TTL, which is typically integrated via a counter/timer board like the P201 ESRF board.
 
-The BLISS controller provide a SoftAxis to scan the SCA voltage window.
+The BLISS controller provide a SoftAxis to scan the SCA voltage window if the axis_name is provided by the configuration.
 
 The 5 channels models accept an additional configuration parameter to specify the module channel. See the example below for more details.
 

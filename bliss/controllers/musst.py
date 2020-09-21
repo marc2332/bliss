@@ -652,12 +652,11 @@ class musst(CounterController):
             data = numpy.empty((nb_lines, nb_counters), dtype=numpy.int32)
             self._read_data(from_offset, current_offset, data)
         else:
-            nb_lines = current_offset // nb_counters
-            first_nblines = (buffer_memory - from_offset) // nb_counters
-            nb_lines += first_nblines
-            data = numpy.empty((nb_lines, nb_counters), dtype=numpy.int32)
+            nb_lines = (buffer_memory - from_offset + current_offset) // nb_counters
+            data = numpy.empty((nb_lines * nb_counters,), dtype=numpy.int32)
             self._read_data(from_offset, buffer_memory, data)
-            self._read_data(0, current_offset, data[first_nblines:])
+            self._read_data(0, current_offset, data[buffer_memory - from_offset :])
+            data.shape = (nb_lines, nb_counters)
         return data
 
     def _read_data(self, from_offset, to_offset, data):

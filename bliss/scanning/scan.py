@@ -159,7 +159,6 @@ class StepScanDataWatch(DataWatchCallback):
             cb(scan, scan_info)
 
     def on_scan_data(self, data_events, nodes, scan_info):
-
         cb = _SCAN_WATCH_CALLBACKS["data"]()
         if cb is None:
             return
@@ -1155,14 +1154,17 @@ class Scan:
             self._watchdog_task.trigger_data_event(sender, signal)
 
     def _channel_event(self, event_dict, signal=None, sender=None):
-        with KillMask():
-            with self._stream_pipeline_lock:
-                self.nodes[sender].store(event_dict, cnx=self._current_pipeline_stream)
-                pending = self._pending_watch_callback.setdefault(
-                    self._current_pipeline_stream, list()
-                )
-                pending.append((signal, sender))
-        self._swap_pipeline()
+        with time_profile(self._stats_dict, "scan.events.channel", logger=logger):
+            with KillMask():
+                with self._stream_pipeline_lock:
+                    self.nodes[sender].store(
+                        event_dict, cnx=self._current_pipeline_stream
+                    )
+                    pending = self._pending_watch_callback.setdefault(
+                        self._current_pipeline_stream, list()
+                    )
+                    pending.append((signal, sender))
+            self._swap_pipeline()
 
     def _pipeline_execute(self, pipeline, trigger_func):
         while True:
@@ -1208,11 +1210,12 @@ class Scan:
         self.node.ttl_is_set()
 
     def _device_event(self, event_dict=None, signal=None, sender=None):
-        if signal == "end":
-            task = self._swap_pipeline()
-            if task is not None:
-                task.join()
-            self.__trigger_data_watch_callback(signal, sender, sync=True)
+        with time_profile(self._stats_dict, "scan.events.device", logger=logger):
+            if signal == "end":
+                task = self._swap_pipeline()
+                if task is not None:
+                    task.join()
+                self.__trigger_data_watch_callback(signal, sender, sync=True)
 
     def _prepare_channels(self, channels, parent_node):
         for channel in channels:

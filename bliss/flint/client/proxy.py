@@ -410,6 +410,11 @@ class FlintClient:
             closeable: If true (default), the tab can be closed manually
         """
         silx_class_name, plot_class = self.__get_plot_info(plot_class)
+
+        # FIXME: Hack for now, i would prefer to provide a get_live_plot for that
+        if isinstance(unique_name, str) and unique_name.startswith("live:"):
+            return plot_class(flint=self, plot_id=unique_name)
+
         if unique_name is not None:
             flint_plot_id = self._plot_mapping.get(unique_name, None)
             if flint_plot_id is not None:

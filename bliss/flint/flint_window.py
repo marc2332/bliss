@@ -219,7 +219,6 @@ class FlintWindow(qt.QMainWindow):
     def createLiveWindow(self):
         window: qt.QMainWindow = self.createTab("Live scan", LiveWindow)
         window.setObjectName("scan-window")
-        self.setVisible(True)
         return window
 
     def __blissSessionChanged(self):

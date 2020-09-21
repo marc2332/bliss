@@ -277,6 +277,10 @@ class CurvePlotWidget(plot_helper.PlotWidget):
 
         return toolBar
 
+    def logbookAction(self):
+        """Expose a logbook action if one"""
+        return self.__exportAction.logbookAction()
+
     def _silxPlot(self):
         """Returns the silx plot associated to this view.
 

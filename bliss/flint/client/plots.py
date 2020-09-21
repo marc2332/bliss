@@ -99,6 +99,10 @@ class BasePlot(object):
         """Set the focus on this plot"""
         self._flint.set_plot_focus(self._plot_id)
 
+    def export_to_logbook(self):
+        """Set the focus on this plot"""
+        self._flint.export_to_logbook(self._plot_id)
+
     # Data handling
 
     def add_single_data(self, field, data):

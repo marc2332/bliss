@@ -766,3 +766,15 @@ class FlintApi:
             widget.setFocus(qt.Qt.OtherFocusReason)
         else:
             window.setFocusOnPlot(widget)
+
+    def export_to_logbook(self, plot_id):
+        """Export a plot to the logbook if available"""
+        widget = self._get_widget(plot_id)
+        if widget is None:
+            raise ValueError("Widget %s not found" % plot_id)
+        if not hasattr(widget, "logbookAction"):
+            raise RuntimeError("This widget do not allow export to logbook")
+        action = widget.logbookAction()
+        if not action.isEnabled():
+            raise RuntimeError("Logbook action is not enabled")
+        action.trigger()

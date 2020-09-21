@@ -528,6 +528,13 @@ class FlintApi:
         widget = widgets[iwidget]
         return widget
 
+    def _get_widget(self, plot_id):
+        # FIXME: Refactor it, it starts to be ugly
+        if isinstance(plot_id, str) and plot_id.startswith("live:"):
+            widget = self._get_live_plot_widget(plot_id)
+            return widget
+        return self._custom_plots[plot_id].tab
+
     def _get_plot_widget(self, plot_id, expect_silx_api=True, custom_plot=False):
         # FIXME: Refactor it, it starts to be ugly
         if isinstance(plot_id, str) and plot_id.startswith("live:"):
@@ -744,3 +751,18 @@ class FlintApi:
         window = self.__flintModel.mainWindow()
         window.activateWindow()
         window.setFocus(qt.Qt.OtherFocusReason)
+
+    def set_plot_focus(self, plot_id):
+        """Set the focus on a plot"""
+        widget = self._get_widget(plot_id)
+        if widget is None:
+            raise ValueError("Widget %s not found" % plot_id)
+        model = self.__flintModel
+        window = model.mainWindow()
+        if isinstance(plot_id, str) and plot_id.startswith("live:"):
+            window.setFocusOnLiveScan()
+            widget.show()
+            widget.raise_()
+            widget.setFocus(qt.Qt.OtherFocusReason)
+        else:
+            window.setFocusOnPlot(widget)

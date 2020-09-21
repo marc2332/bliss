@@ -280,6 +280,12 @@ class ConfigNode(MutableMapping):
     def raw_items(self):
         return self._data.items()
 
+    def get(self, key, default=None):
+        if key in self._data:
+            return self[key]
+        else:
+            return default
+
     def encode(self):
         return self._data
 

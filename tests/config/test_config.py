@@ -6,8 +6,10 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 from bliss.config.conductor import client
+from bliss.config.static import ConfigNode
 from tests.motors.conftest import s1hg, s1vo, m0
 import pytest
+from unittest.mock import patch
 import sys, os
 import ruamel
 
@@ -139,6 +141,11 @@ def test_references(beacon, object_name, get_func_name, copy):
     refs_cfg = get_func(object_name)
     if copy:
         refs_cfg = refs_cfg.clone()
+
+    # ISSUE 2045
+    with patch.object(ConfigNode, "__getitem__", side_effect=KeyError):
+        with pytest.raises(KeyError):
+            repr(refs_cfg["m0"])
 
     m0 = beacon.get("m0")
     s1hg = beacon.get("s1hg")

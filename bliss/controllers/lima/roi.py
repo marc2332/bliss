@@ -17,6 +17,8 @@ from bliss.scanning.acquisition.lima import RoiCountersAcquisitionSlave
 from bliss.scanning.acquisition.lima import RoiSpectrumAcquisitionSlave
 from bliss.data.display import FormatedTab
 
+from bliss.common.utils import all_equal
+
 _SMODE2INFO = {0: "horizontal", 1: "vertical"}
 _INFO2SMODE = {"horizontal": 0, "vertical": 1}
 
@@ -810,24 +812,34 @@ class RoiSpectrumController(IntegratingCounterController):
             return "\n".join([header, "*** no ROIs defined ***"])
 
     def get_values(self, from_index, *counters):
+        blank = [[] for cnt in counters]
+        spectrums = [[] for cnt in counters]
 
-        # blank = [[[]] for cnt in counters]
-        spectrums = {cnt.name: [] for cnt in counters}
-
-        for cnt in counters:
+        last_num_of_spec = None
+        for i, cnt in enumerate(counters):
             size = cnt.shape[0]
             cid = self._roi_ids[cnt.name]
-
-            # try:
             spec = self._proxy.readImage([int(cid), int(from_index)])
-            # except:
-            #    spec = None
 
-            # if spec is None:
-            #    return blank
-            # else:
             if spec != []:
-                spectrums[cnt.name].append(spec)
+                num_of_spec = len(spec) // size
 
-        # return list(map(numpy.array, spectrums.values()))
-        return list(spectrums.values())
+                if last_num_of_spec and num_of_spec != last_num_of_spec:
+                    # Not the same number of ready frames per counter
+                    # 'reading' won t accept that, so return blank
+                    return blank
+
+                # collect the spectrum per frames (j=>frame, i=>cnt)
+                for j in range(num_of_spec):
+                    spectrums[i].append(list(spec[j * size : (j + 1) * size]))
+
+                # remember the number of ready frames for that counter
+                # to compare with next counter and return blank if different
+                last_num_of_spec = num_of_spec
+
+            else:
+                # if no spectrums ready yet for that counter then return
+                # and let the 'reading' polling call this function again
+                return blank
+
+        return spectrums

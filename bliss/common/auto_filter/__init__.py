@@ -454,7 +454,9 @@ class AutoFilter(BeaconObject):
                 f"Cannot run AutoFilter scan, your energy is not valid: {self.energy_axis.position} keV"
             )
         save_flag = kwargs.get("save", True)
-        programed_device_intervals = (intervals + 1) * self.max_nb_iter
+        # only add twice max number of filter iteration to the total nb points
+        # to be programed to counter devices.
+        programed_device_intervals = (intervals + 1) + (2 * self.max_nb_iter)
         npoints = intervals + 1
         if scan_info is None:
             scan_info = dict()

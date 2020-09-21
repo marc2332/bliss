@@ -49,16 +49,8 @@ import PyQt5.QtCore
 
 import silx
 from silx.gui import qt
-from silx.gui import icons
-
-import bliss.flint.resources
-from bliss.flint.manager.manager import ManageMainBehaviours
-from bliss.flint.manager import scan_manager
 from bliss.flint.model import flint_model
-from bliss.flint import config
-from bliss.flint.helper.rpc_server import FlintServer
-from bliss.flint.flint_window import FlintWindow
-from bliss.flint.flint_api import FlintApi
+
 
 ROOT_LOGGER = logging.getLogger()
 """Application logger"""
@@ -69,6 +61,10 @@ def create_flint_model(settings) -> flint_model.FlintState:
     Create Flint classes and main windows without interaction with the
     environment.
     """
+    from bliss.flint.manager.manager import ManageMainBehaviours
+    from bliss.flint.flint_window import FlintWindow
+    from bliss.flint.flint_api import FlintApi
+
     flintModel = flint_model.FlintState()
     flintModel.setSettings(settings)
 
@@ -101,6 +97,8 @@ def start_flint(flintModel: flint_model.FlintState):
 
     It looks to fix initial layout issue.
     """
+    from bliss.flint.manager import scan_manager
+
     flintWindow = flintModel.mainWindow()
     manager = flintModel.mainManager()
 
@@ -124,6 +122,8 @@ def parse_options():
 
     :raises ExitException: In case of the use of `--help` in the comman line
     """
+    from bliss.flint import config
+
     parser = ArgumentParser()
     config.configure_parser_arguments(parser)
     options = parser.parse_args()
@@ -202,6 +202,9 @@ def initApplication(argv):
     qapp.setApplicationName("flint")
     qapp.setOrganizationName("ESRF")
     qapp.setOrganizationDomain("esrf.eu")
+
+    import bliss.flint.resources
+    from silx.gui import icons
 
     bliss.flint.resources.silx_integration()
     flintIcon = icons.getQIcon("flint:logo/bliss_logo_small")
@@ -317,6 +320,8 @@ def main():
         ROOT_LOGGER.info("gevent use poll patched")
 
     # RPC service of the Flint API
+    from bliss.flint.helper.rpc_server import FlintServer
+
     server = FlintServer(flintModel.flintApi())
 
     # Postpon the real start of flint

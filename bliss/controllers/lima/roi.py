@@ -351,7 +351,7 @@ class RoiCounters(IntegratingCounterController):
 
         if name in self._master_controller.roi_spectrums._save_rois.keys():
             raise ValueError(
-                f"Names conflict: '{name}' is already used by a roi_spectrum_counter, please use another name"
+                f"Names conflict: '{name}' is already used by a roi_spectrum, please use another name"
             )
 
         if roi_values.__class__ in [
@@ -359,6 +359,7 @@ class RoiCounters(IntegratingCounterController):
             ArcRoi,
         ]:  # we don t want others like RoiSpectrum
             roi = roi_values
+            roi.name = name
         elif len(roi_values) == 4:
             roi = Roi(*roi_values, name=name)
         elif len(roi_values) == 6:
@@ -370,20 +371,7 @@ class RoiCounters(IntegratingCounterController):
                 " or (cx, cy, r1, r2, a1, a2) values"
             )
 
-        # TO DO: we don't need to push to proxy now (done in upload_rois)
-        roi.name = name
-        roi_id = self._proxy.addNames((name,))[0]
-        self._proxy.Start()
-
-        params = [roi_id]
-        params.extend(roi.get_coords())
-
-        if roi.__class__ == Roi:
-            self._proxy.setRois(params)
-        elif roi.__class__ == ArcRoi:
-            self._proxy.setArcRois(params)
-
-        self._set_roi_settings(roi_id, roi)
+        self._save_rois[roi.name] = roi
 
     def _set_roi_settings(self, roi_id, roi):
         self._save_rois[roi.name] = roi
@@ -433,7 +421,6 @@ class RoiCounters(IntegratingCounterController):
         rois_values = list()
         arcrois_values = list()
         for roi_id, roi in zip(roi_id_list, roi_list):
-
             if roi.__class__ == Roi:
                 rois_values.extend([roi_id])
                 rois_values.extend(roi.get_coords())
@@ -706,7 +693,6 @@ class RoiSpectrumController(IntegratingCounterController):
         self._save_rois = settings.HashObjSetting("%s:%s" % (self.name, name))
 
     def upload_rois(self):
-        self._proxy.start()
         self._proxy.clearAllRois()
         roi_list = [roi for roi in self.get_rois() if roi.is_valid()]
         roi_id_list = self._proxy.addNames([x.name for x in roi_list])
@@ -723,6 +709,7 @@ class RoiSpectrumController(IntegratingCounterController):
             roi_modes.append(ROI_SPECTRUM_MODES(roi.mode).name)
 
         if rois_values:
+            self._proxy.start()
             self._proxy.setRois(rois_values)
             self._proxy.setRoiModes(roi_modes)
 

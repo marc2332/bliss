@@ -7,7 +7,6 @@
 
 import enum
 import functools
-
 import numpy
 
 from bliss.config import settings
@@ -373,19 +372,16 @@ class RoiCounters(IntegratingCounterController):
 
         self._save_rois[roi.name] = roi
 
-    def _set_roi_settings(self, roi_id, roi):
-        self._save_rois[roi.name] = roi
-        self._roi_ids[roi.name] = roi_id
-
-    def _clear_rois_settings(self):
-        self._remove_rois(roi.name for roi in self.iter_single_roi_counters())
-
     def _remove_rois(self, names):
+        # rois pushed on proxy have an entry in self._roi_ids
+        on_proxy = []
         for name in names:
             del self._save_rois[name]
             if name in self._roi_ids:
+                on_proxy.append(name)
                 del self._roi_ids[name]
-        self._proxy.removeRois(list(names))
+        if on_proxy:
+            self._proxy.removeRois(on_proxy)
 
     def set(self, name, roi_values):
         """alias to: <lima obj>.roi_counters[name] = roi_values"""
@@ -414,7 +410,7 @@ class RoiCounters(IntegratingCounterController):
         self._save_rois = settings.HashObjSetting("%s:%s" % (self.name, name))
 
     def upload_rois(self):
-        self._proxy.clearAllRois()
+
         roi_list = [roi for roi in self.get_rois() if roi.is_valid()]
         roi_id_list = self._proxy.addNames([x.name for x in roi_list])
 
@@ -431,7 +427,9 @@ class RoiCounters(IntegratingCounterController):
             self._roi_ids[roi.name] = roi_id
 
         if rois_values or arcrois_values:
-            self._proxy.Start()
+            # --- just before calling upload_rois the RoiCountersAcquisitionSlave calls:
+            # self._proxy.clearAllRois()
+            # self._proxy.start()          # after the clearAllRois (unlike 'roi2spectrum' proxy)!
 
             if rois_values:
                 self._proxy.setRois(rois_values)
@@ -469,7 +467,7 @@ class RoiCounters(IntegratingCounterController):
         return len(self._save_rois)
 
     def clear(self):
-        self._clear_rois_settings()
+        self._remove_rois(self._save_rois.keys())
 
     def keys(self):
         return self._save_rois.keys()
@@ -640,10 +638,15 @@ class RoiSpectrumController(IntegratingCounterController):
         self._save_rois[roi.name] = roi
 
     def _remove_rois(self, names):
+        # rois pushed on proxy have an entry in self._roi_ids
+        on_proxy = []
         for name in names:
             del self._save_rois[name]
             if name in self._roi_ids:
+                on_proxy.append(name)
                 del self._roi_ids[name]
+        if on_proxy:
+            self._proxy.removeRois(on_proxy)
 
     def set_roi_mode(self, mode, *names):
         """set the mode (0: horizontal, 1:vertical) of all rois or for a list of given roi names"""
@@ -693,7 +696,6 @@ class RoiSpectrumController(IntegratingCounterController):
         self._save_rois = settings.HashObjSetting("%s:%s" % (self.name, name))
 
     def upload_rois(self):
-        self._proxy.clearAllRois()
         roi_list = [roi for roi in self.get_rois() if roi.is_valid()]
         roi_id_list = self._proxy.addNames([x.name for x in roi_list])
 
@@ -709,7 +711,10 @@ class RoiSpectrumController(IntegratingCounterController):
             roi_modes.append(ROI_SPECTRUM_MODES(roi.mode).name)
 
         if rois_values:
-            self._proxy.start()
+            # --- just before calling upload_rois the RoiCountersAcquisitionSlave calls:
+            # self._proxy.start()         # before the clear (unlike 'roicounter' proxy) !
+            # self._proxy.clearAllRois()
+
             self._proxy.setRois(rois_values)
             self._proxy.setRoiModes(roi_modes)
 

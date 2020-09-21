@@ -16,7 +16,7 @@ from bliss.scanning.acquisition.timer import SoftwareTimerMaster
 from bliss.common.tango import DeviceProxy, DevFailed
 from bliss.common.counter import Counter
 from bliss.controllers.lima.roi import Roi, ArcRoi, RoiSpectrum
-from bliss.controllers.lima.roi import RoiSpectrumCounter
+from bliss.controllers.lima.roi import RoiSpectrumCounter, RoiStatCounter
 from bliss.common.scans import loopscan, timescan, sct, ct, DEFAULT_CHAIN
 from bliss.controllers.lima.limatools import (
     load_simulator_frames,
@@ -64,9 +64,12 @@ def test_lima_sim_bpm(beacon, default_session, lima_simulator):
     assert len(data) == 6 + 2  # 6 bpm counters + 2 timer
 
 
-def assert_lima_rois(lima_roi_counter, rois):
-    roi_names = lima_roi_counter.getNames()
-    raw_rois = lima_roi_counter.getRois(roi_names)
+def assert_lima_rois(simulator, rois):
+
+    simulator.roi_counters.upload_rois()
+
+    roi_names = simulator.roi_counters._proxy.getNames()
+    raw_rois = simulator.roi_counters._proxy.getRois(roi_names)
 
     assert set(rois.keys()) == set(roi_names)
 
@@ -78,12 +81,10 @@ def assert_lima_rois(lima_roi_counter, rois):
 
 
 def test_rois(beacon, lima_simulator):
-    simulator = beacon.get("lima_simulator")
-    rois = simulator.roi_counters
+    cam = beacon.get("lima_simulator")
 
-    dev_name = lima_simulator[0].lower()
-    roi_dev = DeviceProxy(dev_name.replace("limaccds", "roicounter"))
-
+    rois = cam.roi_counters
+    proxy = cam.roi_counters._proxy
     assert len(rois) == 0
 
     r1 = Roi(0, 0, 100, 200)
@@ -91,12 +92,16 @@ def test_rois(beacon, lima_simulator):
     r3 = Roi(20, 60, 500, 500)
     r4 = Roi(60, 20, 50, 10)
 
+    # clear and start the roicounter proxy
+    proxy.clearAllRois()
+    proxy.Start()
+
     rois["r1"] = r1
-    assert_lima_rois(roi_dev, dict(r1=r1))
+    assert_lima_rois(cam, dict(r1=r1))
     rois["r2"] = r2
-    assert_lima_rois(roi_dev, dict(r1=r1, r2=r2))
+    assert_lima_rois(cam, dict(r1=r1, r2=r2))
     rois["r3", "r4"] = r3, r4
-    assert_lima_rois(roi_dev, dict(r1=r1, r2=r2, r3=r3, r4=r4))
+    assert_lima_rois(cam, dict(r1=r1, r2=r2, r3=r3, r4=r4))
 
     assert len(rois) == 4
     assert rois["r1"] == r1
@@ -113,21 +118,21 @@ def test_rois(beacon, lima_simulator):
 
     del rois["r1"]
     assert len(rois) == 3
-    assert_lima_rois(roi_dev, dict(r2=r2, r3=r3, r4=r4))
+    assert_lima_rois(cam, dict(r2=r2, r3=r3, r4=r4))
 
     del rois["r3", "r2"]
     assert len(rois) == 1
-    assert_lima_rois(roi_dev, dict(r4=r4))
+    assert_lima_rois(cam, dict(r4=r4))
 
     # test classic interface
 
     rois.set("r1", r1)
     assert len(rois) == 2
-    assert_lima_rois(roi_dev, dict(r1=r1, r4=r4))
+    assert_lima_rois(cam, dict(r1=r1, r4=r4))
 
     rois.remove("r4")
     assert len(rois) == 1
-    assert_lima_rois(roi_dev, dict(r1=r1))
+    assert_lima_rois(cam, dict(r1=r1))
 
 
 def test_arc_rois(beacon, default_session, lima_simulator, images_directory):
@@ -150,13 +155,86 @@ def test_arc_rois(beacon, default_session, lima_simulator, images_directory):
     assert asum >= _PI_ * (radius - 1) ** 2
 
 
-def test_lima_roi_spectrum_api(
-    beacon, default_session, lima_simulator, images_directory
-):
+def test_lima_roi_counters_api(beacon, default_session, lima_simulator):
+
     cam = beacon.get("lima_simulator")
-    img_path = os.path.join(str(images_directory), "chart_3.edf")  # size=(200x100)
-    load_simulator_frames(cam, 1, img_path)
-    reset_cam(cam, roi=[0, 0, 0, 0])
+    cnt_per_roi = 5
+
+    # check there is no registered roi
+    assert len(cam.roi_counters) == 0
+    assert len(cam.roi_counters._roi_ids) == 0
+    assert len(cam.roi_counters.counters) == 0
+
+    # add a roi and check that 2 rois with same values and names are equal
+    cam.roi_counters["r1"] = 20, 20, 20, 20
+    assert "r1" in cam.roi_counters.keys()
+    assert cam.roi_counters["r1"] == Roi(20, 20, 20, 20, name="r1")
+    assert cam.roi_counters["r1"] != Roi(20, 20, 20, 20, name="other")
+    src = list(cam.roi_counters.iter_single_roi_counters())
+    assert len(src) == 1
+    assert len(list(src[0])) == cnt_per_roi
+    assert len(cam.roi_counters.counters) == cnt_per_roi
+
+    # add multiple rois in a raw and check that 'bad' name is overwritten with the good name
+    cam.roi_counters["r2", "r3"] = (
+        Roi(20, 20, 20, 20),
+        Roi(20, 20, 20, 20, name="bad"),
+    )
+    assert "r2" in cam.roi_counters.keys()
+    assert "r3" in cam.roi_counters.keys()
+    assert "bad" not in cam.roi_counters.keys()
+    assert cam.roi_counters["r3"].name == "r3"
+    assert len(cam.roi_counters.counters) == 3 * cnt_per_roi
+
+    # add multiple rois in a raw as tuple
+    cam.roi_counters["r4", "r5"] = (20, 20, 20, 20), (60, 20, 40, 40)
+    assert "r4" in cam.roi_counters.keys()
+    assert "r5" in cam.roi_counters.keys()
+    assert cam.roi_counters["r4"] == Roi(20, 20, 20, 20, name="r4")
+    assert cam.roi_counters["r5"] == Roi(60, 20, 40, 40, name="r5")
+    assert len(cam.roi_counters.counters) == 5 * cnt_per_roi
+
+    # check counters are added to the Lima.counter_groups
+    assert len(cam.counter_groups["r5"]) == 5
+    assert isinstance(cam.counter_groups["r5"]["r5_sum"], RoiStatCounter)
+
+    # check it is not possible to use a name for a roi_counter if already used by a roi_spectrum
+    cam.roi_spectrums["s1"] = 20, 20, 20, 20
+    try:
+        cam.roi_counters["s1"] = 20, 20, 20, 20
+        assert False
+    except ValueError as e:
+        assert e.args[0].startswith("Names conflict")
+
+    # perform a scan to push rois to TangoDevice (roi_ids are retrieved at that time)
+    assert len(cam.roi_counters._roi_ids) == 0
+    ct(cam)
+    assert len(cam.roi_counters._roi_ids) == 5
+
+    # del one roi
+    del cam.roi_counters["r5"]
+    assert "r5" not in cam.roi_counters.keys()
+    assert len(cam.roi_counters) == 4
+    assert len(cam.roi_counters._roi_ids) == 4
+    assert len(cam.roi_counters.counters) == 4 * cnt_per_roi
+
+    # remove one roi
+    cam.roi_counters.remove("r4")
+    assert "r4" not in cam.roi_counters.keys()
+    assert len(cam.roi_counters) == 3
+    assert len(cam.roi_counters._roi_ids) == 3
+    assert len(cam.roi_counters.counters) == 3 * cnt_per_roi
+
+    # clear all
+    cam.roi_counters.clear()
+    assert len(cam.roi_counters) == 0
+    assert len(cam.roi_counters._roi_ids) == 0
+    assert len(cam.roi_counters.counters) == 0
+
+
+def test_lima_roi_spectrums_api(beacon, default_session, lima_simulator):
+
+    cam = beacon.get("lima_simulator")
 
     # check there is no registered roi
     assert len(cam.roi_spectrums) == 0
@@ -193,6 +271,14 @@ def test_lima_roi_spectrum_api(
 
     # check counters are added to the Lima.counter_groups
     assert isinstance(cam.counter_groups["s5"], RoiSpectrumCounter)
+
+    # check it is not possible to use a name for a roi_spectrum if already used by a roi_counter
+    cam.roi_counters["r1"] = 20, 20, 20, 20
+    try:
+        cam.roi_spectrums["r1"] = 20, 20, 20, 20
+        assert False
+    except ValueError as e:
+        assert e.args[0].startswith("Names conflict")
 
     # perform a scan to push rois to TangoDevice (roi_ids are retrieved at that time)
     assert len(cam.roi_spectrums._roi_ids) == 0

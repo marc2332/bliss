@@ -1,21 +1,21 @@
 # Conda requirement file (python 2.7)
 # Test requirements
 
+black == 18.6b4
+coilmq
+opencv
+lima-core == 1.9.4
+lima-camera-simulator >= 1.9.2
+lima-camera-simulator-tango >= 1.9.2
+lima-tango-server >= 1.9.6
 py
 pytest == 5.3.5
 pytest-cov
 pytest-mock
-lima-core == 1.9.4
-lima-camera-simulator >= 1.9.2
-lima-camera-simulator-tango >= 1.9.2
-lima-tango-server
-scipy
-black == 18.6b4
-umodbus == 1.0.2.1
-socat
-ser2net
-tango_serialline
 pytest-rerunfailures
+scipy
+ser2net
+socat
 stomp.py
-coilmq
-opencv
+tango_serialline
+umodbus == 1.0.2.1

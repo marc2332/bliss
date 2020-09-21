@@ -91,7 +91,7 @@ def create_flint_model(settings) -> flint_model.FlintState:
     return flintModel
 
 
-def start_flint(flintModel: flint_model.FlintState):
+def start_flint(flintModel: flint_model.FlintState, splash):
     """
     This have to be executed after the start of the main Qt loop.
 
@@ -102,11 +102,10 @@ def start_flint(flintModel: flint_model.FlintState):
     flintWindow = flintModel.mainWindow()
     manager = flintModel.mainManager()
 
-    flintWindow.show()
-
     # Everything is there we can read the settings
     flintWindow.initFromSettings()
     manager.initRedis()
+    # flintWindow.show()
 
     # Finally scan manager
     scanManager = scan_manager.ScanManager(flintModel)
@@ -114,6 +113,11 @@ def start_flint(flintModel: flint_model.FlintState):
 
     # Flag that flint is started
     manager.setFlintStarted()
+
+    flintWindow.setVisible(True)
+
+    # Close the spash screen
+    splash.finish(flintWindow)
 
 
 def parse_options():
@@ -243,6 +247,21 @@ def config_logging(options):
     ROOT_LOGGER.level = logging.INFO
 
 
+def create_spash_screen():
+    import silx.resources
+
+    splash = qt.QSplashScreen()
+    try:
+        filename = silx.resources.resource_filename("flint:logo/splashscreen.png")
+        if filename is not None:
+            splash.setPixmap(qt.QPixmap(filename))
+    except Exception:
+        ROOT_LOGGER.error("Error while loading splash screen")
+    splash.show()
+    splash.showMessage("Loading Flint...", qt.Qt.AlignLeft, qt.Qt.black)
+    return splash
+
+
 def main():
     options = parse_options()
     if options.debug:
@@ -274,6 +293,8 @@ def main():
         qapp.applicationName(),
     )
     set_global_settings(settings, options)
+
+    splash = create_spash_screen()
 
     flintModel = create_flint_model(settings)
     flintWindow = flintModel.mainWindow()
@@ -325,7 +346,7 @@ def main():
     server = FlintServer(flintModel.flintApi())
 
     # Postpon the real start of flint
-    qt.QTimer.singleShot(10, lambda: start_flint(flintModel))
+    qt.QTimer.singleShot(10, lambda: start_flint(flintModel, splash))
 
     try:
         sys.exit(qapp.exec_())

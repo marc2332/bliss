@@ -112,7 +112,7 @@ class Handler(object):
 
     @get_cryo
     def status(self, cryo):
-        return cryo.__info__()
+        return cryo.info()
 
 
 class Oxford800(Base):

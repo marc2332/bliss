@@ -94,7 +94,7 @@ class LinkamOutput(Output):
 class LinkamLoop(Loop):
     @lazy_init
     def __info__(self):
-        return "\n".join(self.controller.state())
+        return super().__info__() + "\n" + "\n".join(self.controller.state())
 
     def __str__(self):
         # this is for the mapping: it needs a representation of instance

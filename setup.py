@@ -17,7 +17,6 @@ TESTING = any(x in sys.argv for x in ["test", "pytest"])
 
 conda_base = os.environ.get("CONDA_PREFIX")
 extensions = []
-sip_extensions = []
 
 build_flint = False  # sys.platform not in ["win32", "cygwin"]
 

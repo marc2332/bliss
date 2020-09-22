@@ -689,9 +689,8 @@ class Scan:
     def _init_scan_saving(self, scan_saving):
         with time_profile(self._stats_dict, "scan.init.saving", logger=logger):
             if scan_saving is None:
-                self.__scan_saving = current_session.scan_saving.clone()
-            else:
-                self.__scan_saving = scan_saving.clone()
+                scan_saving = current_session.scan_saving
+            self.__scan_saving = scan_saving.clone()
 
     def _init_scan_display(self):
         with time_profile(self._stats_dict, "scan.init.display", logger=logger):
@@ -1354,6 +1353,8 @@ class Scan:
 
         with capture_exceptions(raise_index=0) as capture:
             with time_profile(self._stats_dict, "scan.prepare.node", logger=logger):
+                # check that icat metadata has been colleted for the dataset
+                self.__scan_saving.on_scan_run(not self._shadow_scan_number)
                 self._prepare_node()  # create scan node in redis
 
             # start data watch task, if needed

@@ -1268,6 +1268,7 @@ def assert_dataset(
         if not save_images:
             return
         # Check external data (VDS or raw external)
+        isexternal = isvirtual = False
         if dset.parent.attrs.get("NX_class", "") == "NXdetector":
             if "lima_simulator2" in dset.name:
                 isexternal = bool(dset.external)
@@ -1277,20 +1278,22 @@ def assert_dataset(
                     assert not isexternal, dset.name
             else:
                 try:
-                    isexternal = dset.is_virtual
+                    isvirtual = dset.is_virtual
                 except RuntimeError:
-                    isexternal = False
+                    isvirtual = False
                 if save_options["allow_external_hdf5"]:
-                    assert isexternal, dset.name
+                    assert isvirtual, dset.name
                 else:
-                    assert not isexternal, dset.name
+                    assert not isvirtual, dset.name
         # Check image maxima: 100, 200, ...
-        if variable_length:
-            return
         data = dset[()].max(axis=detaxis).flatten(order="C")
         npoints = numpy.product(dset.shape[:-2], dtype=int)
-        edata = numpy.arange(1, npoints + 1) * 100
-        numpy.testing.assert_array_equal(data, edata, err_msg=dset.name)
+        if not variable_length:
+            edata = numpy.arange(1, npoints + 1) * 100
+            numpy.testing.assert_array_equal(data, edata, err_msg=dset.name)
+        if isvirtual:
+            sources = dset.virtual_sources()
+            assert len(sources) < npoints or npoints <= 1
     else:
         if variable_length:
             return

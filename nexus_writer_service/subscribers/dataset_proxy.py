@@ -589,7 +589,7 @@ class DatasetProxy(BaseProxy):
         cextorder = extorder.order
         csaveorder = self.csaveorder
 
-        # Map uri to list of (idxin(int or slice), idxout(tuple)) tuples
+        # Map uri to list of (idxin(int or slice), idxout(tuple(int or slice))) tuples
         uridict = OrderedDict()
         uris = self._get_external_datasets()
         if self.current_scan_save_shape:
@@ -626,7 +626,8 @@ class DatasetProxy(BaseProxy):
         nuris = sum(len(v) for v in uridict.values())
         return files, nuris, fill_generator
 
-    def _vdsidx_append(self, lst, idxin, idxout):
+    @classmethod
+    def _vdsidx_append(cls, lst, idxin, idxout):
         """Append VDS input/output index or modify the last one
 
         :param list(2-tuple) lst:
@@ -636,14 +637,14 @@ class DatasetProxy(BaseProxy):
         idxin_prev, idxout_prev = lst[-1]
 
         # Input index follows the previous one?
-        inext = self._vdsidx_slice_next(idxin_prev, idxin)
+        inext = cls._vdsidx_slice_next(idxin_prev, idxin)
         if not inext:
             lst.append((idxin, idxout))
             return
 
         # Output index follows the previous one
         onext = [
-            self._vdsidx_slice_next(ilast, i) for ilast, i in zip(idxout_prev, idxout)
+            cls._vdsidx_slice_next(ilast, i) for ilast, i in zip(idxout_prev, idxout)
         ]
         if sum(onext) != 1:
             lst.append((idxin, idxout))
@@ -689,10 +690,13 @@ class DatasetProxy(BaseProxy):
     def _vdsidx_slice_next(idx_prev, idx):
         """Index follows the previous index
         """
+        step = 1
         if isinstance(idx_prev, slice):
-            idx_prev = idx_prev.stop - idx_prev.step
+            if idx_prev.step is not None:
+                step = idx_prev.step
+            idx_prev = next(reversed(range(idx_prev.start, idx_prev.stop, step)))
         # Negative steps not supported by h5py VDS
-        return idx_prev - idx == 1
+        return idx_prev + step == idx
 
     def _add_detidx(self, idx, corder):
         """Add detector dimensions to index

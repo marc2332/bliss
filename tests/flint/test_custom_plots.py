@@ -122,7 +122,7 @@ def test_select_shapes__rect_reduction(flint_session):
     context = []
 
     def active_gui():
-        result = p.select_shapes(kinds=["rectangle-vreduction"])
+        result = p.select_shapes(kinds=["rectangle-vertical-profile"])
         context.append(result)
 
     def do_actions():

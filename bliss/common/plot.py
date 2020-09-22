@@ -495,7 +495,7 @@ def get_plot(
         print("Argument plot_type uses an invalid value: '%s'." % plot_type)
 
 
-def convert_roi_to_flint(roi, mode=None):
+def convert_roi_to_flint(roi):
     """Convert a received ROI from BLISS to Flint
 
     FIXME: Remove it, the interaction between flint and bliss should use pickle
@@ -503,7 +503,6 @@ def convert_roi_to_flint(roi, mode=None):
 
     Arguments:
         roi: A ROI object from BLISS
-        mode: A mode used by roi2spectrum
     """
     # Avoid cyclic import
     from bliss.controllers.lima import roi as lima_roi
@@ -515,8 +514,9 @@ def convert_roi_to_flint(roi, mode=None):
             size=(roi.width, roi.height),
             label=roi.name,
         )
-        if mode is not None:
-            result["reduction"] = mode
+        if isinstance(roi, lima_roi.RoiProfile):
+            assert roi.mode in ["horizontal", "vertical"]
+            result["reduction"] = roi.mode + "_profile"
     elif isinstance(roi, lima_roi.ArcRoi):
         result = dict(kind="Arc", label=roi.name)
         result.update(roi.to_dict())
@@ -538,11 +538,13 @@ def convert_roi_to_bliss(roi) -> Optional[Tuple[str, Any, Optional[str]]]:
         x, y = map(int, map(round, roi["origin"]))
         w, h = map(int, map(round, roi["size"]))
         mode = roi.get("reduction", None)
-        if mode not in [None, "vertical", "horizontal"]:
+        if mode not in [None, "vertical_profile", "horizontal_profile"]:
             FLINT_LOGGER.warning(
                 "ROI %s with unknown reduction mode %s. Skipped.", label, mode
             )
             return None
+        if mode is not None:
+            mode = mode.replace("_profile", "")
         return label, (x, y, w, h), mode
     elif kind == "arc":
         keys = ("cx", "cy", "r1", "r2", "a1", "a2")

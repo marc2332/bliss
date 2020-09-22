@@ -340,12 +340,12 @@ def test_edit_roi_counters(
     cam = beacon.get("lima_simulator")
 
     cam.roi_counters.clear()
-    cam.roi2spectrum_counters.clear()
+    cam.roi_profiles.clear()
     cam.roi_counters["foo1"] = [20, 20, 18, 20]
-    cam.roi2spectrum_counters["foo1"] = [20, 20, 18, 20]
+    cam.roi_profiles["foo1"] = [20, 20, 18, 20]
     standard.edit_roi_counters(cam)
     assert "roi1" in cam.roi_counters
     assert cam.roi_counters["roi1"].width == 100
-    assert "roi1" in cam.roi2spectrum_counters
-    assert cam.roi2spectrum_counters["roi1"].width == 200
-    assert cam.roi2spectrum_counters.get_roi_modes()["roi1"] == "vertical"
+    assert "roi1" in cam.roi_profiles
+    assert cam.roi_profiles["roi1"].width == 200
+    assert cam.roi_profiles.get_roi_modes()["roi1"] == "vertical"

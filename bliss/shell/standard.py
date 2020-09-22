@@ -912,37 +912,42 @@ def edit_roi_counters(detector: Lima, acq_time: Optional[float] = None):
         )
 
     roi_counters = detector.roi_counters
-    roi2spectrum_counters = detector.roi2spectrum_counters
+    roi_profiles = detector.roi_profiles
 
     # Retrieve all the ROIs
     selections = []
     for roi in roi_counters.get_rois():
         roi_dict = plot_module.convert_roi_to_flint(roi)
         selections.append(roi_dict)
-    config = roi2spectrum_counters.get_roi_modes()
-    for roi in roi2spectrum_counters.get_rois():
-        mode = config[roi.name]
-        roi_dict = plot_module.convert_roi_to_flint(roi, mode)
+    for roi in roi_profiles.get_rois():
+        roi_dict = plot_module.convert_roi_to_flint(roi)
         selections.append(roi_dict)
 
-    deviceName = f"{detector.name} [{roi_counters.config_name}, {roi2spectrum_counters.config_name}]"
+    deviceName = (
+        f"{detector.name} [{roi_counters.config_name}, {roi_profiles.config_name}]"
+    )
     print(f"Waiting for ROI edition to finish on {deviceName}...")
     selections = plot_proxy.select_shapes(
         selections,
-        kinds=["rectangle", "arc", "rectangle-vreduction", "rectangle-hreduction"],
+        kinds=[
+            "rectangle",
+            "arc",
+            "rectangle-vertical-profile",
+            "rectangle-horizontal-profile",
+        ],
     )
 
     result = [plot_module.convert_roi_to_bliss(r) for r in selections]
     result = [r for r in result if r is not None]
 
     roi_counters.clear()
-    roi2spectrum_counters.clear()
+    roi_profiles.clear()
     for name, roi, mode in result:
         if mode is None:
             roi_counters[name] = roi
         else:
-            roi2spectrum_counters[name] = roi
-            roi2spectrum_counters.set_roi_modes(mode, [name])
+            roi_profiles[name] = roi
+            roi_profiles.set_roi_mode(mode, name)
 
     roi_string = ", ".join(sorted([r[0] for r in result]))
     print(f"Applied ROIS {roi_string} to {deviceName}")

@@ -451,8 +451,8 @@ class ShapesSelector(Selector):
         self.__mapping = {
             "rectangle": RectangleROI,
             "arc": ArcROI,
-            "rectangle-vreduction": extra_rois.VerticalReductionLimaRoi,
-            "rectangle-hreduction": extra_rois.HorizontalReductionLimaRoi,
+            "rectangle-vertical-profile": extra_rois.HorizontalReductionLimaRoi,
+            "rectangle-horizontal-profile": extra_rois.VerticalReductionLimaRoi,
         }
 
     def setKinds(self, kinds=typing.List[str]):
@@ -477,9 +477,9 @@ class ShapesSelector(Selector):
                 reduction = shape.get("reduction", None)
                 if reduction is None:
                     roi = RectangleROI()
-                elif reduction == "vertical":
+                elif reduction == "horizontal_profile":
                     roi = extra_rois.VerticalReductionLimaRoi()
-                elif reduction == "horizontal":
+                elif reduction == "vertical_profile":
                     roi = extra_rois.HorizontalReductionLimaRoi()
                 roi.setGeometry(origin=shape["origin"], size=shape["size"])
                 roi.setName(shape["label"])
@@ -510,9 +510,9 @@ class ShapesSelector(Selector):
                     kind="Rectangle",
                 )
                 if isinstance(roi, extra_rois.VerticalReductionLimaRoi):
-                    shape["reduction"] = "vertical"
+                    shape["reduction"] = "horizontal_profile"
                 elif isinstance(roi, extra_rois.HorizontalReductionLimaRoi):
-                    shape["reduction"] = "horizontal"
+                    shape["reduction"] = "vertical_profile"
                 shapes.append(shape)
             elif isinstance(roi, ArcROI):
                 shape = dict(

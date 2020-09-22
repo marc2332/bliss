@@ -588,7 +588,7 @@ class FlintApi:
         - For a rectangle it contains "kind" (which is "Rectangle"), and "label",
             "origin" and "size"
         - A rectangle can also contain a "reduction" key, which can be one of
-            "vertical" or "horizontal"
+            "vertical_profile" or "horizontal_profile"
         - For an arc it contains "kind" (which is "Arc"), and "label",
             "c1", "c2", "r1", "r2", "a1", "a2" (clockwise, in degree)
 
@@ -598,7 +598,7 @@ class FlintApi:
                 Only rectangles and arcs are supported.
             timeout: A timeout to enforce the user to do a selection
             kinds: List or ROI kind which can be created (for now, "rectangle",
-                "arc", "rectangle-vreduction", "rectangle-hreduction")
+                "arc", "rectangle-vertical-profile", "rectangle-horizontal-profile")
 
         Return:
             This method returns an event name which have to be registered to

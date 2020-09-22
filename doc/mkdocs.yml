@@ -117,7 +117,8 @@ nav:
                             - Wago: config_wago.md
                             - Wago groups: config_wago_group.md
                             - config_wago_interlock.md
-
+                - Data Policy:
+                      - ICAT Meta-Data: dev_icat.md
                 - Tango Device Servers:
                       - Introduction: config_tango_ds.md
                       - BlissAxis: config_tango_axis.md
@@ -206,6 +207,7 @@ nav:
                 - Xia handle: config_mca_handel.md
                 - Speedgoat: config_speedgoat.md
                 - timedisplay: timedisplay.md
+                - Dataset handling: dev_data_set.md
                 - Data:
                     - Architecture: dev_data_architecture.md
                     - Publishing: dev_data_publishing.md

@@ -114,9 +114,9 @@ class MultiplePositions:
     def _init_meta_data_publishing(self):
         """Publish position in meta data """
         scan_meta_obj = get_user_scan_meta()
-        scan_meta_obj.instrument.set(self, lambda _: self.metadata_dict())
+        scan_meta_obj.instrument.set(self, lambda _: self.metadata())
 
-    def metadata_dict(self):
+    def metadata(self):
         if self.position != "unknown":
             cur_pos_config = [
                 x.to_dict()

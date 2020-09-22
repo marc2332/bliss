@@ -34,6 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - To use it, an optional dependency 'opencv' have to installed in the env
 - Update `edit_roi_counters` to also edit ROIs from Lima roi2spectrum (roi profile)
   and arc ROIs
+- ICAT metadata can now be saved to ICAT
 
 ### Changed
 - Flint
@@ -49,6 +50,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
       the tmux process of one session can be killed without affecting the otheres
     - the default session will no longer use tmux as it is meant for dev. and
       debug usage. It is not expected to have seral useres in these sessions
+- Tango MetadataManager device:
+  - latest version of MetadataManager(4.0.6) required.
+  - by default satasets are no longer in `running` state on MetadataManager. Instead they are
+    pushed including their metadata once the dataset is closed.
+- SCAN_SAVING.dataset moved to SCAN_SAVING.dataset_name, SCAN_SAVING.dataset now represents
+  an object that handels icat metadata of the dataset
+- SCAN_SAVING.sample moved to SCAN_SAVING.sample_name
+- SCAN_SAVING.proposal moved to SCAN_SAVING.proposal_name
 
 ### Fixed
 - Fixed first motor position for `amesh` with backnforth enabled

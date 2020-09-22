@@ -12,3 +12,24 @@
 
     ingester
 """
+
+
+class FieldGroup:
+    """representation of a techniqe as defined for icat
+    fields: all metadata fields requested for this technique
+    """
+
+    def __init__(self, name, fields):
+        self._name = name
+        self._fields = set(fields)
+
+    @property
+    def name(self):
+        return self._name
+
+    @property
+    def fields(self):
+        return self._fields
+
+    def __repr__(self):
+        return f"<{self._name}:{self._fields}>"

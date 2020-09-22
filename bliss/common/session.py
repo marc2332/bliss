@@ -212,6 +212,10 @@ class Session:
         self.__children_tree = None
         self.__include_sessions = config_tree.get("include-sessions")
         self.__config_aliases = config_tree.get("aliases", [])
+        if config_tree.get("icat-mapping"):
+            self.__icat_mapping = self.config.get(config_tree.get("icat-mapping"))
+        else:
+            self.__icat_mapping = None
         self.__default_user_script_homedir = config_tree.get("default-userscript-dir")
         if self.__default_user_script_homedir and not self._get_user_script_home():
             self._set_user_script_home(self.__default_user_script_homedir)
@@ -281,6 +285,10 @@ class Session:
     @property
     def _scripts_module_path(self):
         return self.__scripts_module_path
+
+    @property
+    def icat_mapping(self):
+        return self.__icat_mapping
 
     def _child_session_iter(self):
         sessions_tree = self.sessions_tree

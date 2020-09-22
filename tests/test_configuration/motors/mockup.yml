@@ -261,6 +261,41 @@ controller:
       high_limit: 16.
     - name: wavelength
       tags: wavelength
+- class: mockup
+  axes:
+    - name: llbend1
+      steps_per_unit: -480000
+      sign: 1
+      velocity: 0.06666
+      acceleration: 0.16666
+    - name: llty1
+      steps_per_unit: -12800
+      sign: 1
+      velocity: 1
+      acceleration: 6.25
+    - name: llrz1
+      steps_per_unit: 625488
+      sign: 1
+      velocity: 0.0511
+      acceleration: 0.1279
+- class: llangle_mockup
+  module: mockup
+  bend_zero: 0.0
+  bend_y:  43688.0
+  ty_zero: 30.
+  axes:
+        - name: $llbend1
+          tags: real bend
+        - name: $llty1
+          tags: real ty
+        - name: $llrz1
+          tags: real rz
+        - name: lltruebend1
+          tags: truebend
+        - name: llbragg1
+          tags: angle
+        - name: llbeamy1
+          tags: absty
 hooks:
 - name: hook0
   plugin: bliss

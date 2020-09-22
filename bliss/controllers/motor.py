@@ -110,8 +110,14 @@ class Controller:
         """
         check limits for list of axis and positions
         """
-        for axis, position in grouped(axis_positions, 2):
-            self._check_limits(axis, position)
+        if len(axis_positions) == 1:
+            # assuming axis_positions is just a grouper object with axis, positions
+            for axis, positions in axis_positions[0]:
+                self._check_limits(axis, positions)
+        else:
+            # backward compatibility
+            for axis, positions in grouped(axis_positions, 2):
+                self._check_limits(axis, positions)
 
     def _check_limits(self, axis, user_positions):
         try:
@@ -507,17 +513,22 @@ class CalcController(Controller):
         self.check_limits(axis, positions)
 
     def check_limits(self, *axis_positions):
-        axes = [axis for axis, _ in grouped(axis_positions, 2)]
+        if len(axis_positions) == 1:
+            # assuming axis_positions is just a grouper object with axis, positions
+            grouped_axis_positions = list(axis_positions[0])
+        else:
+            # backward compatibility
+            grouped_axis_positions = list(grouped(axis_positions, 2))
+        axes = set()
         positions_len = []
-        for axis, pos in grouped(axis_positions, 2):
-            axes.append(axis)
+        for axis, pos in grouped_axis_positions:
+            axes.add(axis)
             try:
                 iter(pos)
             except TypeError:
                 positions_len.append(1)
             else:
                 positions_len.append(len(pos))
-        axes = set(axes)
         try:
             left_axis = axes - set(self.pseudos)
             assert not left_axis
@@ -547,7 +558,7 @@ class CalcController(Controller):
                 for tag, pos in axis_to_positions.items()
             }
         axis_to_positions.update(
-            {self._axis_tag(axis): pos for axis, pos in grouped(axis_positions, 2)}
+            {self._axis_tag(axis): pos for axis, pos in grouped_axis_positions}
         )
         real_positions = self.calc_to_real(axis_to_positions)
         real_min_max = dict()

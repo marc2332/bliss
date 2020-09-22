@@ -1,0 +1,30 @@
+- class: MetadataManager
+  properties:
+    queueURLs:
+    - 'bcu-mq-01.esrf.fr:61613'
+    - 'bcu-mq-02.esrf.fr:61613'
+    queueName: '/queue/icatIngest'
+    icatplus_server: 'https://icatplus.esrf.fr:8443'
+    API_KEY: 'elogbook-be70ac55-fd08-4840-9b29-b73262958ca8'
+- server: MetaExperiment
+  personal_name: demo
+  device:
+  - tango_name: id00/metaexp/demo_session
+    class: MetaExperiment
+    properties:
+      beamlineID: id00
+- class: MetaExperiment
+  properties:
+    queueURLs:
+    - 'bcu-mq-01.esrf.fr:61613'
+    - 'bcu-mq-02.esrf.fr:61613'
+    queueName: '/queue/icatIngest'
+- server: MetadataManager
+  personal_name: demo
+  device:
+  - tango_name: id00/metadata/demo_session
+    class: MetadataManager
+    properties:
+      beamlineID: id00
+      dataFolderPattern: '{dataRoot}'
+      metaExperimentDevice: id00/metaexp/demo_session

@@ -275,7 +275,7 @@ class Aliases:
             # obj
             obj = obj_or_name
             for alias in self:
-                if alias == obj:
+                if alias.original_name == obj.name:
                     return alias.name
 
     def __iter__(self):

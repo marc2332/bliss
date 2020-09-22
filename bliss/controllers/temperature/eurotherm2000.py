@@ -180,14 +180,13 @@ class Eurotherm2000Device:
         """
         ident = self.read_register(122)
         if ident >> 12 == 2:
-            log_debug(self, "Connected to Eurotherm model %x" % ident)
+            log_debug(self, "Connected to Eurotherm model 2XXX ident code = %x" % ident)
             self._ident = ident
             self._model = (ident & 0xf00) >> 8
         else:
-            raise Eurotherm2000Error(
-                "Device with identification number %x is not an Eurotherm series 2000 device and cannot be controlled"
-                % (ident)
-            )
+            log_debug(self, "Connected to Eurotherm model ident code = %x" % ident)
+            self._ident = ident
+            self._model = (ident & 0xf00) >> 8
 
     @property
     def model(self):

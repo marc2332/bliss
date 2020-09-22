@@ -1,5 +1,7 @@
 # Eurotherm used with **temperature plugin**:
 
+This controller supports eurotherm series 2000, 2400 and 3200.
+
 ## Example Configuration
 
     - class: eurotherm2000

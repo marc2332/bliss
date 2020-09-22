@@ -104,3 +104,18 @@ class Scannable(Protocol):
         This should 
         """
         raise NotImplementedError
+
+
+@runtime_checkable
+class IcatPublisher(Protocol):
+    """
+    Any controller that has this interface can be used
+    for metadata collection based on the `icat-mapping`
+    tag in the session configuration
+    """
+
+    def metadata(self) -> dict:
+        """
+        Return a dict containing metadata
+        """
+        raise NotImplementedError

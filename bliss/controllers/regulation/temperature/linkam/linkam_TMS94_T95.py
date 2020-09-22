@@ -241,7 +241,7 @@ class LinkamTms94(Controller):
            kp value
         """
         log_info(self, "Controller:get_kp: %s" % (tloop))
-        return -1
+        return "Not available"
 
     def set_ki(self, tloop, ki):
         """
@@ -267,7 +267,7 @@ class LinkamTms94(Controller):
            ki value
         """
         log_info(self, "Controller:get_ki: %s" % (tloop))
-        return -1
+        return "Not available"
 
     def set_kd(self, tloop, kd):
         """
@@ -293,7 +293,7 @@ class LinkamTms94(Controller):
            kd value
         """
         log_info(self, "Controller:get_kd: %s" % (tloop))
-        return -1
+        return "Not available"
 
     def start_regulation(self, tloop):
         """

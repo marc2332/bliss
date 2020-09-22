@@ -7,6 +7,7 @@
 
 import pytest
 import time
+import gevent
 import os
 import gevent
 from bliss.common.standard import loopscan, mv
@@ -24,6 +25,9 @@ from bliss.shell.standard import (
     elog_print,
 )
 from bliss.common import logtools
+from bliss.data.node import get_node
+from bliss.icat.definitions import Definitions
+from bliss.scanning.scan import Scan
 
 
 def icat_info(scan_saving, dataset=False):
@@ -53,7 +57,7 @@ def icat_info(scan_saving, dataset=False):
 def assert_icat_received(icat_subscriber, expected, dataset=None, timeout=10):
     """Check whether ICAT received the correct information
     """
-    print("\nWaiting of ICAT message ...")
+    print("\nWaiting for ICAT message ...")
     icat_received = icat_subscriber.get(timeout=timeout)
     print(f"Validating ICAT message: {icat_received}")
     for k, v in expected.items():
@@ -63,6 +67,17 @@ def assert_icat_received(icat_subscriber, expected, dataset=None, timeout=10):
             assert icat_received.endswith(v), k
         else:
             assert v in icat_received, k
+
+
+def assert_icat_metadata_received(icat_subscriber, phrases, timeout=10):
+    """Check whether ICAT received the correct information
+    """
+    print("\nWaiting for ICAT message ...")
+    icat_received = icat_subscriber.get(timeout=timeout)
+    if isinstance(phrases, str):
+        phrases = [phrases]
+    for phrase in phrases:
+        assert phrase in icat_received
 
 
 def assert_logbook_received(
@@ -169,6 +184,7 @@ def test_visitor_scan_saving(session, icat_subscriber, esrf_data_policy):
 
     scan_saving.mount_point = "fs1"
     scan_saving_config = esrf_data_policy
+    p = scan_saving.icat_proxy.metadata_manager.proxy
     scan_saving.proposal = "mx415"
     assert scan_saving.base_path == scan_saving_config["visitor_data_root"]["fs1"]
     assert scan_saving.icat_base_path == scan_saving_config["visitor_data_root"]["fs1"]
@@ -197,6 +213,10 @@ def test_tmp_scan_saving(session, icat_subscriber, esrf_data_policy):
 
 def assert_default_sample_dataset(scan_saving):
     assert scan_saving.sample == "sample"
+
+
+def test_auto_dataset_increment(session, icat_subscriber, esrf_data_policy):
+    scan_saving = session.scan_saving
     assert scan_saving.dataset == "0001"
     with pytest.raises(AttributeError):
         scan_saving.template = "toto"
@@ -217,12 +237,13 @@ def assert_default_sample_dataset(scan_saving):
 
 
 def create_dataset(scan_saving):
-    """Create the dataset on disk
+    """Create the dataset on disk and in Bliss without having to run a scan
     """
     paths = [scan_saving.root_path, scan_saving.icat_root_path]
     for path in paths:
         if not os.path.exists(path):
             os.makedirs(path)
+    assert scan_saving.dataset_object is not None
 
 
 def test_auto_dataset_increment(session, icat_subscriber, esrf_data_policy):
@@ -265,7 +286,6 @@ def test_data_policy_scan_check_servers(
     esrf_data_policy,
     metaexp_with_backend,
     metamgr_with_backend,
-    nexus_writer_service,
 ):
     scan_saving = session.scan_saving
     assert_icat_received_current_proposal(scan_saving, icat_subscriber)
@@ -296,7 +316,7 @@ def test_data_policy_scan_check_servers(
     scan_saving.dataset = "dataset1"
     assert_servers(mdexp_dev, mdmgr_dev, **expected)
 
-    loopscan(3, 0.01, diode)
+    create_dataset(scan_saving)
     assert_servers(mdexp_dev, mdmgr_dev, **expected)
     expected_dataset = icat_info(scan_saving, dataset=True)
 
@@ -316,14 +336,14 @@ def test_data_policy_scan_check_servers(
     scan_saving.sample = "sample2"
     assert_servers(mdexp_dev, mdmgr_dev, **expected)
 
-    loopscan(3, 0.01, diode)
+    create_dataset(scan_saving)
     assert_servers(mdexp_dev, mdmgr_dev, **expected)
     expected_dataset = icat_info(scan_saving, dataset=True)
 
-    expected["path"] = session.scan_saving.icat_root_path
+    expected["sample"] = "sample2"
+    expected["path"] = scan_saving.icat_root_path
     scan_saving.dataset = ""
     assert_icat_received(icat_subscriber, expected_dataset)
-    expected["sample"] = "sample2"
     assert_servers(mdexp_dev, mdmgr_dev, **expected)
 
     scan_saving.proposal = "proposal2"
@@ -363,6 +383,233 @@ def assert_servers(
         assert mdmgr_dev.datasetName == dataset
     assert str(mdmgr_dev.state()) == state
     assert mdmgr_dev.dataFolder == path
+
+
+def test_dataset_object(session, icat_subscriber, esrf_data_policy):
+    scan_saving = session.scan_saving
+    assert_icat_received_current_proposal(scan_saving, icat_subscriber)
+
+    # Prepare for scanning without the Nexus writer
+    diode = session.env_dict["diode"]
+    scan_saving.writer = "hdf5"
+
+    # First dataset
+    s = loopscan(3, 0.01, diode)
+
+    dataset = scan_saving.dataset_object
+    assert dataset.has_scans
+    assert dataset.has_data
+    assert [s.name for s in dataset.scans] == [s.node.name]
+    assert not dataset.is_closed
+
+    # Second dataset
+    expected_dataset = icat_info(scan_saving, dataset=True)
+    scan_saving.dataset = None
+    assert dataset.is_closed
+    assert scan_saving._dataset_object is None
+    assert_icat_received(icat_subscriber, expected_dataset)
+
+    s = loopscan(3, 0.01, diode)
+    assert scan_saving.dataset_object.node.db_name != dataset.node.db_name
+
+    # Third dataset
+    expected_dataset = icat_info(scan_saving, dataset=True)
+    scan_saving.dataset = None
+    assert_icat_received(icat_subscriber, expected_dataset)
+
+    # Third dataset not in Redis yet
+    n = get_node(session.name)
+    walk_res = [d for d in n.walk(wait=False, filter="dataset")]
+    assert len(walk_res) == 2
+
+    s = loopscan(3, 0.01, diode, save=False)
+
+    # Third dataset in Redis
+    n = get_node(session.name)
+    walk_res = [d for d in n.walk(wait=False, filter="dataset")]
+    assert len(walk_res) == 3
+
+    # Third dataset object does not exist yet
+    assert scan_saving._dataset_object is None
+
+    # Third dataset created upon using it
+    dataset = scan_saving.dataset_object
+    assert not dataset.is_closed
+    assert dataset.has_scans
+    assert not dataset.has_data
+    assert [s.name for s in dataset.scans] == [s.node.name]
+
+    # Does not go to a new dataset (because the current one has no data)
+    scan_saving.dataset = None
+
+    # Still in third dataset
+    assert scan_saving.dataset_object.node.db_name == dataset.node.db_name
+    assert not dataset.is_closed
+    assert dataset.has_scans
+    assert not dataset.has_data
+    assert [s.name for s in dataset.scans] == [s.node.name]
+
+    # Test walk on datasets
+    n = get_node(session.name)
+    walk_res = [d for d in n.walk(wait=False, filter="dataset")]
+    assert len(walk_res) == 3
+
+
+def test_icat_metadata(session, icat_subscriber, esrf_data_policy):
+    scan_saving = session.scan_saving
+    assert_icat_received_current_proposal(scan_saving, icat_subscriber)
+
+    # Prepare for scanning without the Nexus writer
+    diode = session.env_dict["diode"]
+    scan_saving.writer = "hdf5"
+
+    s = loopscan(3, 0.01, diode)
+    icatfields1 = {
+        "InstrumentVariables_name": "roby robz ",
+        "InstrumentVariables_value": "0.0 0.0 ",
+        "SamplePositioners_name": "roby robz",
+        "SamplePositioners_value": "0.0 0.0",
+    }
+    # Check metadata gathering
+    icatfields2 = scan_saving.dataset_object.get_current_icat_metadata()
+    assert icatfields1 == icatfields2
+
+    # Check metadata in redis
+    assert icatfields1 == scan_saving.dataset_object.node.metadata
+
+    scan_saving.dataset = None
+
+    # test reception of metadata on icat server side
+    phrase = (
+        "<tns:name>SamplePositioners_name</tns:name><tns:value>roby robz</tns:value>"
+    )
+    assert_icat_metadata_received(icat_subscriber, phrase)
+
+    s = loopscan(3, 0.01, diode)
+    # Check metadata gathering
+    icatfields2 = scan_saving.dataset_object.get_current_icat_metadata()
+    assert icatfields1 == icatfields2
+
+    scan_saving.enddataset()
+
+    # test walk on datasets
+    n = get_node(session.name)
+    walk_res = [d for d in n.walk(wait=False, filter="dataset")]
+    assert len(walk_res) == 2
+
+
+def test_icat_metadata_custom(session, icat_subscriber, esrf_data_policy):
+    scan_saving = session.scan_saving
+    assert_icat_received_current_proposal(scan_saving, icat_subscriber)
+
+    # Prepare for scanning without the Nexus writer
+    diode = session.env_dict["diode"]
+    scan_saving.writer = "hdf5"
+
+    # do a scan in the 'normal' dataset
+    loopscan(2, .1, diode)
+
+    # create custom dataset
+    scan_saving = ScanSaving("my_custom_scansaving")
+    scan_saving.writer = "hdf5"
+    ds_name = session.scan_saving.dataset
+    ds_name += "_b"
+    scan_saving.dataset = ds_name
+
+    # scan in custom dataset with custom metadata fields
+    # set before and after the scan
+    definitions = Definitions()
+    scan_saving.dataset_object.add_technique(definitions.techniques.FLUO)
+    ls = loopscan(3, .1, diode, run=False)
+    s = Scan(ls.acq_chain, scan_saving=scan_saving)
+    scan_saving.dataset_object.write_metadata_field("FLUO_i0", str(17.1))
+    s.run()
+    scan_saving.dataset_object["FLUO_it"] = str(18.2)
+
+    # close the custom dataset
+    scan_saving.enddataset()
+
+    # do another scan in the 'normal' dataset
+    loopscan(3, .1, diode)
+
+    # close the 'normal' dataset
+    session.scan_saving.enddataset()
+
+    # see if things in redis are correct
+    n = get_node(session.name)
+    walk_res = {d.name: d for d in n.walk(wait=False, filter="dataset")}
+    assert len(walk_res) == 2
+    assert "sample_0001" in walk_res
+    assert "sample_0001_b" in walk_res
+
+    assert walk_res["sample_0001"].is_closed
+    assert walk_res["sample_0001_b"].is_closed
+
+    assert len(walk_res["sample_0001"].metadata) == 4
+    assert len(walk_res["sample_0001_b"].metadata) == 7
+
+    assert "FLUO_i0" in walk_res["sample_0001_b"].metadata
+    assert walk_res["sample_0001_b"].metadata["definition"] == "FLUO"
+
+    # test reception of metadata on icat server side
+    phrases = ["<tns:name>0001_b</tns:name>", "<tns:name>FLUO_i0</tns:name>"]
+    assert_icat_metadata_received(icat_subscriber, phrases)
+    phrase = "<tns:name>0001</tns:name>"
+    assert_icat_metadata_received(icat_subscriber, phrase)
+
+
+def test_icat_metadata_namespaces(session, icat_subscriber, esrf_data_policy):
+    scan_saving = session.scan_saving
+    assert_icat_received_current_proposal(scan_saving, icat_subscriber)
+
+    # Prepare for scanning without the Nexus writer
+    diode = session.env_dict["diode"]
+    scan_saving.writer = "hdf5"
+
+    scan_saving.newdataset("toto")
+
+    existing = {
+        x for x in dir(scan_saving.dataset_object.existing) if not x.startswith("__")
+    }
+    assert set(scan_saving.dataset_object.node.metadata.keys()) == existing
+
+    definitions = Definitions()
+    scan_saving.dataset_object.add_technique(definitions.techniques.FLUO)
+
+    expected = {
+        x for x in dir(scan_saving.dataset_object.expected) if not x.startswith("__")
+    }
+    assert definitions.techniques.FLUO.fields == expected
+
+    # check that the expected keys do not move into existing
+    existing = {
+        x for x in dir(scan_saving.dataset_object.existing) if not x.startswith("__")
+    }
+    assert set(scan_saving.dataset_object.node.metadata.keys()) == existing
+
+    loopscan(1, .1, diode)
+    scan_saving.newdataset("toto1")
+
+    # create a new dataset and see that the old technique is gone
+    scan_saving.dataset_object.add_technique(definitions.techniques.EM)
+    expected = {
+        x for x in dir(scan_saving.dataset_object.expected) if not x.startswith("__")
+    }
+    assert definitions.techniques.EM.fields == expected
+
+    # add a key through .expected and see if it pops up in existing
+    scan_saving.dataset_object.expected.EM_images_count = "24"
+    # TODO: there seems to be a problem there
+    # breakpoint()
+    # sometimes rather random technique fields get pushed into existing
+    # I guess this is due the fact that we always manipulate the class
+    # that is shared between existing and expected on runtime
+    assert "EM_images_count" in dir(scan_saving.dataset_object.existing)
+    assert scan_saving.dataset_object.existing.EM_images_count == "24"
+
+    # see if setting a value to None removes it from existing
+    scan_saving.dataset_object.existing.EM_images_count = None
+    assert "EM_images_count" not in dir(scan_saving.dataset_object.existing)
 
 
 def test_data_policy_user_functions(
@@ -616,6 +863,7 @@ def test_session_ending(
     scan_saving.newsample("sample1")
     assert_logbook_received(icat_logbook_subscriber, "sample1", category="info")
     create_dataset(scan_saving)
+
     assert scan_saving.proposal == "hg123"
     assert scan_saving.sample == "sample1"
     assert scan_saving.dataset == "0001"
@@ -802,26 +1050,14 @@ def test_parallel_sessions(
     assert get_scan_saving2().dataset == "named_0002"
 
 
-def test_elog_print(
-    session,
-    esrf_data_policy,
-    metaexp_with_backend,
-    metamgr_with_backend,
-    icat_logbook_subscriber,
-):
+def test_elog_print(session, icat_logbook_subscriber, esrf_data_policy):
     elog_print("message1")
     assert_logbook_received(
         icat_logbook_subscriber, "message1", complete=True, category="comment"
     )
 
 
-def test_electronic_logbook(
-    session,
-    esrf_data_policy,
-    metaexp_with_backend,
-    metamgr_with_backend,
-    icat_logbook_subscriber,
-):
+def test_electronic_logbook(session, icat_logbook_subscriber, esrf_data_policy):
     lst = [
         ("info", "info"),
         ("warning", "error"),

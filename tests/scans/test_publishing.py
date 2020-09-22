@@ -21,7 +21,6 @@ from bliss.scanning.acquisition.counter import SamplingCounterAcquisitionSlave
 from bliss.config.settings import scan as redis_scan
 from bliss.config.streaming import DataStream, DataStreamReaderStopHandler
 from bliss.data.nodes.scan import ScanNode
-from bliss.data.nodes.dataset import DatasetNode
 from bliss.data.node import (
     get_session_node,
     get_node,
@@ -61,8 +60,8 @@ def test_parent_node(session):
     assert (
         parent_node.db_name == f"test_session{redis_base_path}:{scan_saving.date}:test"
     )
-    assert parent_node.type == "dataset"
-    assert isinstance(parent_node, DatasetNode)
+    assert parent_node.type == "container"
+    assert isinstance(parent_node, DataNodeContainer)
 
 
 def test_scan_node(session, redis_data_conn):

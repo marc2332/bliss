@@ -160,12 +160,9 @@ class NexusSessionWriter(base_subscriber.BaseSubscriber):
     def start(self, **kwargs):
         if self.state in [self.STATES.ON, self.STATES.RUNNING]:
             return
-        g = self._greenlet
         super().start(**kwargs)
-        if g != self._greenlet:
-            async_utils.kill_on_exit(self._greenlet)
-            # async_utils.start_heartbeat(self.logger, 1)
-            async_utils.log_gevent()
+        async_utils.log_gevent()
+        # async_utils.start_heartbeat(self.logger)
 
     def stop(self, **kwargs):
         if self.state == self.STATES.RUNNING:

@@ -7,7 +7,7 @@
 
 import pytest
 from bliss.common.axis import Axis
-from bliss.common.standard import ascan
+from bliss.common.standard import ascan, dmesh
 from bliss.common.motor_group import Group
 from bliss.common import scans
 
@@ -205,3 +205,11 @@ def test_calc_motor_no_settings_axis(beacon, calc_mot3, nsa):
     assert calc_mot3.position == pytest.approx(2)
     calc_mot3.move(1)
     assert nsa.position == pytest.approx(0.5)
+
+
+def test_issue_1909(session):
+    llbragg1 = session.config.get("llbragg1")
+    llbeamy1 = session.config.get("llbeamy1")
+    diode = session.config.get("diode")
+
+    dmesh(llbragg1, -0.005, 0.005, 3, llbeamy1, -1, 1, 2, 0.01, diode)

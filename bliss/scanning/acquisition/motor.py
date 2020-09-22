@@ -8,7 +8,7 @@
 
 import sys
 import time
-
+from itertools import groupby
 import numpy
 import gevent.event
 
@@ -365,31 +365,41 @@ class _StepTriggerMaster(AcquisitionMaster):
             raise TypeError(
                 "_StepTriggerMaster: argument is a mot1,start,stop,nb points,mot2,start2..."
             )
-        self._motor_pos = []
-        self._axes = []
-        controller_2_axes_position = {}
-        for axis, start, stop, nb_point in grouped(args, 4):
-            self._axes.append(axis)
-            positions = numpy.linspace(start, stop, nb_point)
-            self._motor_pos.append(positions)
-            axes_position = controller_2_axes_position.setdefault(axis.controller, [])
-            axes_position.extend((axis, positions))
-        for controller, axes_position in controller_2_axes_position.items():
-            controller.check_limits(*axes_position)
+
+        self._axes = {
+            axis: (start, stop, npoints)
+            for axis, start, stop, npoints in grouped(args, 4)
+        }
+        self._motor_pos = self._get_axis_positions_dict()
+
+        for controller, axes_pos in groupby(
+            self._motor_pos.items(), lambda item: item[0].controller
+        ):
+            controller.check_limits(axes_pos)
 
         mot_group = Group(*self._axes)
 
         AcquisitionMaster.__init__(self, mot_group, trigger_type=trigger_type, **keys)
-        self._monitor_axes = _init_motor_master_channels(self.channels, self._axes)
+        self._monitor_axes = _init_motor_master_channels(self.channels, self.axes_list)
+
+    @property
+    def axes_list(self):
+        # return a list for axes, **sorted by controller**
+        # (axes with same controller come together),
+        # this is important for the "groupby" call in __init__
+        return sorted(self._axes, key=lambda axis: id(axis.controller))
+
+    def _get_axis_positions_dict(self):
+        return {axis: numpy.linspace(*self._axes[axis]) for axis in self.axes_list}
 
     @property
     def npoints(self):
-        return min((len(x) for x in self._motor_pos))
+        return min((len(pos_array) for pos_array in self._motor_pos.values()))
 
     def __iter__(self):
-        for positions in zip(*self._motor_pos):
+        for positions in zip(*self._motor_pos.values()):
             self.next_mv_cmd_arg = list()
-            for axis, position in zip(self._axes, positions):
+            for axis, position in zip(self.axes_list, positions):
                 self.next_mv_cmd_arg += [axis, position]
             yield self
 
@@ -404,7 +414,7 @@ class _StepTriggerMaster(AcquisitionMaster):
 
     def trigger(self):
         self.trigger_slaves()
-        positions = [axis.position for axis in self._axes + self._monitor_axes]
+        positions = [axis.position for axis in self.axes_list + self._monitor_axes]
         self.channels.update_from_iterable(positions)
         self.wait_slaves()
 
@@ -421,24 +431,38 @@ class MeshStepTriggerMaster(_StepTriggerMaster):
     """
 
     def __init__(self, *args, **keys):
-        backnforth = keys.pop("backnforth", False)
-        _StepTriggerMaster.__init__(self, *args, **keys)
-        self._motor_pos = self._interleaved_motor_pos(
-            *self._motor_pos, backnforth=backnforth
-        )
+        self._backnforth = keys.pop("backnforth", False)
+
+        super().__init__(*args, **keys)
+
+    @property
+    def backnforth(self):
+        return self._backnforth
+
+    def _get_axis_positions_dict(self):
+        motors_pos = super()._get_axis_positions_dict()
+        return {
+            axis: positions
+            for axis, positions in zip(
+                motors_pos,
+                self._interleaved_motor_pos(
+                    *motors_pos.values(), backnforth=self.backnforth
+                ),
+            )
+        }
 
     @staticmethod
     def _interleaved_motor_pos(*motor_pos, backnforth=False):
         """
-        Compute the motor positions for each steps of the scan.
+        Compute motor positions for each step of the scan.
 
         Arguments:
             motor_pos: Individual motor position
-            backnforth: Compute back and forth motion for the first motors.
+            backnforth: Compute back and forth motion for the first motor.
                 Only the slowest motor will not change.
 
         Returns:
-            A list containing a numpy array per motors. Each arrays contains
+            A list containing numpy arrays per motor. Each array contains
             motor position for each steps of the scan
         """
         motor_pos = [numpy.array(mp) for mp in motor_pos]

@@ -9,6 +9,7 @@ import time
 import random
 import gevent
 import collections
+import numpy as np
 
 from bliss.physics.trajectory import LinearTrajectory
 from bliss.controllers.motor import Controller, CalcController
@@ -775,3 +776,48 @@ class calc_motor_mockup(CalcController):
         real_pos = positions_dict["calc_mot"] / s_param
 
         return {"real_mot": real_pos}
+
+
+# issue 1909
+class llangle_mockup(CalcController):
+    def initialize(self):
+        CalcController.initialize(self)
+        self.bend_zero = self.config.get("bend_zero", float)
+        self.bend_y = self.config.get("bend_y", float)
+        self.ty_zero = self.config.get("ty_zero", float)
+
+    def calc_from_real(self, positions_dict):
+        # Angle due to pusher not being a rotation
+        # Effect of bending
+        # Effect of translation
+        bend = positions_dict["bend"]
+        rz = positions_dict["rz"]
+        ty = positions_dict["ty"]
+
+        truebend = bend - self.bend_zero  # pass through
+        absty = ty - self.ty_zero
+        bend_offset = np.degrees(truebend * absty / self.bend_y)
+        # only for bent crystal and mono in beam
+        valid = (truebend > 0) & (absty < 75.)
+        angle = np.where(valid, rz + bend_offset, rz)
+        calc_dict = {"angle": angle, "truebend": truebend, "absty": absty}  # computed
+        return calc_dict
+
+    def calc_to_real(self, positions_dict):
+        #
+        angle = positions_dict["angle"]
+        # Effect of bending
+        truebend = positions_dict["truebend"]
+        bend = truebend + self.bend_zero
+        # Effect of translation
+        absty = positions_dict["absty"]  # llty1 / llty2
+        ty = absty + self.ty_zero
+        # Assume we go to the destination ty / bend.
+        # Compute the effect for the angle only
+        bend_offset = np.degrees(truebend * absty / self.bend_y)
+        # only for bent crystal and mono in beam
+        valid = (truebend > 0) & (absty < 75.)
+        # - versus + above:
+        rz = np.where(valid, angle - bend_offset, angle)
+        calc_dict = {"bend": bend, "ty": ty, "rz": rz}
+        return calc_dict

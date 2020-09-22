@@ -1,0 +1,13 @@
+name: icat
+plugin: bliss
+class: ICATmeta
+
+#objects:
+#  secondary_slits: $secondary_slits
+
+positioners:
+  sample: [$roby,$robz]
+
+mapping:
+  InstrumentVariables_name: [ $roby.name, $robz.name ]
+  InstrumentVariables_value: [ $roby.position, $robz.position ]

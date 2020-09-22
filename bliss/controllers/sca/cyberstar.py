@@ -423,12 +423,12 @@ class Cyberstar:
         return self._soft_axis
 
     def _create_soft_axis(self):
-
         axis_name = self._config.get("axis_name")
-        name = axis_name if axis_name is not None else self.name + "_axis"
+        if axis_name is None:
+            return
 
         self._soft_axis = SoftAxis(
-            name,
+            axis_name,
             self,
             position="axis_position",
             move="axis_move",

@@ -100,6 +100,7 @@ class BackgroundCalcCounterController(CalcCounterController):
             background = data_background[cnt.name][0]
             self.background_setting[tag] = data_background[cnt.name][0]
             self.background_setting["background_time"] = time
+            print(f"{cnt.name} - {background}")
 
     def calc_function(self, input_dict):
         value = {}

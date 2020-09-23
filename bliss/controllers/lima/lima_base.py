@@ -7,8 +7,6 @@
 
 import importlib
 import os
-import enum
-import textwrap
 
 from bliss import global_map
 from bliss.common.utils import common_prefix, autocomplete_property
@@ -25,7 +23,7 @@ from bliss.scanning.acquisition.lima import LimaAcquisitionMaster
 
 from bliss.controllers.lima.properties import LimaProperties, LimaProperty
 from bliss.controllers.lima.bpm import Bpm
-from bliss.controllers.lima.roi import RoiCounters, RoiSpectrumController
+from bliss.controllers.lima.roi import RoiCounters, RoiProfileController
 from bliss.controllers.lima.image import ImageCounter, LimaImageParameters
 from bliss.controllers.lima.shutter import Shutter
 from bliss.controllers.lima.bgsub import BgSub
@@ -91,7 +89,7 @@ class Lima(CounterController):
     """
 
     _ROI_COUNTERS = "roicounter"
-    _ROI_SPECTRUMS = "roi2spectrum"
+    _ROI_PROFILES = "roi2spectrum"
     _BPM = "bpm"
     _BG_SUB = "backgroundsubstraction"
     # backward compatibility for old pickled objects in redis,
@@ -114,7 +112,7 @@ class Lima(CounterController):
         self.__prepare_timeout = config_node.get("prepare_timeout", None)
         self.__bpm = None
         self.__roi_counters = None
-        self.__roi_spectrums = None
+        self.__roi_profiles = None
         self._instrument_name = config_node.root.get("instrument", "")
         self.__bg_sub = None
         self.__last = None
@@ -535,16 +533,16 @@ class Lima(CounterController):
         return self.__roi_counters
 
     @autocomplete_property
-    def roi_spectrums(self):
-        if self.__roi_spectrums is None:
-            roi_spectrums_proxy = self._get_proxy(self._ROI_SPECTRUMS)
-            self.__roi_spectrums = RoiSpectrumController(roi_spectrums_proxy, self)
+    def roi_profiles(self):
+        if self.__roi_profiles is None:
+            roi_profiles_proxy = self._get_proxy(self._ROI_PROFILES)
+            self.__roi_profiles = RoiProfileController(roi_profiles_proxy, self)
             global_map.register(
-                self.__roi_spectrums,
+                self.__roi_profiles,
                 parents_list=[self],
-                children_list=[roi_spectrums_proxy],
+                children_list=[roi_profiles_proxy],
             )
-        return self.__roi_spectrums
+        return self.__roi_profiles
 
     @autocomplete_property
     def camera(self):
@@ -669,7 +667,7 @@ class Lima(CounterController):
     def counters(self):
         all_counters = [self.image]
         all_counters += list(self.roi_counters.counters)
-        all_counters += list(self.roi_spectrums.counters)
+        all_counters += list(self.roi_profiles.counters)
         try:
             all_counters += list(self.bpm.counters)
         except RuntimeError:
@@ -696,20 +694,20 @@ class Lima(CounterController):
         # All ROI counters ( => cnt = cam.counter_groups['roi_counters']['r1_sum'], i.e all counters of all rois)
         dct["roi_counters"] = counter_namespace(self.roi_counters.counters)
 
-        # Specific ROI_SPECTRUMS counters
-        for counter in self.roi_spectrums.counters:
+        # Specific roi_profiles counters
+        for counter in self.roi_profiles.counters:
             dct[
                 counter.name
             ] = (
                 counter
             )  # ??? or (for symmetry) counter_namespace([counter]) => cnt = cam.counter_groups['s2']['s2'] ???
 
-        # All ROI_SPECTRUMS counters
-        dct["roi_spectrums"] = counter_namespace(self.roi_spectrums.counters)
+        # All roi_profiles counters
+        dct["roi_profiles"] = counter_namespace(self.roi_profiles.counters)
 
         # Default grouped
         default_counters = (
-            list(dct["images"]) + list(dct["roi_counters"]) + list(dct["roi_spectrums"])
+            list(dct["images"]) + list(dct["roi_counters"]) + list(dct["roi_profiles"])
         )
         dct["default"] = counter_namespace(default_counters)
 

@@ -14,19 +14,23 @@ from bliss.common.counter import IntegratingCounter
 from bliss.controllers.counter import IntegratingCounterController
 from bliss.controllers.counter import counter_namespace
 from bliss.scanning.acquisition.lima import RoiCountersAcquisitionSlave
-from bliss.scanning.acquisition.lima import RoiSpectrumAcquisitionSlave
+from bliss.scanning.acquisition.lima import RoiProfileAcquisitionSlave
 from bliss.data.display import FormatedTab
 
-from bliss.common.utils import all_equal
 
-_SMODE2INFO = {0: "horizontal", 1: "vertical"}
-_INFO2SMODE = {"horizontal": 0, "vertical": 1}
+class ROI_PROFILE_MODES(str, enum.Enum):
+    horizontal = "LINES_SUM"
+    vertical = "COLUMN_SUM"
 
 
-class ROI_SPECTRUM_MODES(enum.IntEnum):
-    LINES_SUM = 0
-    COLUMN_SUM = 1
-
+_PMODE_ALIASES = {
+    "horizontal": ROI_PROFILE_MODES.horizontal,
+    "h": ROI_PROFILE_MODES.horizontal,
+    0: ROI_PROFILE_MODES.horizontal,
+    "vertical": ROI_PROFILE_MODES.vertical,
+    "v": ROI_PROFILE_MODES.vertical,
+    1: ROI_PROFILE_MODES.vertical,
+}
 
 # ============ ROI ===========
 class _BaseRoi:
@@ -147,24 +151,31 @@ class ArcRoi(_BaseRoi):
         }
 
 
-class RoiSpectrum(Roi):
-    def __init__(self, x, y, width, height, mode=0, name=None):
+class RoiProfile(Roi):
+    def __init__(self, x, y, width, height, mode="horizontal", name=None):
 
-        if mode not in [0, 1]:
-            raise ValueError(f"RoiSpectrum mode must be 0 (horizontal) or 1 (vertical)")
-
-        self.mode = mode
+        self.profile_mode = mode
 
         super().__init__(x, y, width, height, name)
 
+    @property
+    def profile_mode(self):
+        return self.mode
+
+    @profile_mode.setter
+    def profile_mode(self, mode):
+        if mode not in _PMODE_ALIASES.keys():
+            raise ValueError(f"the mode should be in {_PMODE_ALIASES.keys()}")
+
+        self.mode = _PMODE_ALIASES[mode].name
+
     def __repr__(self):
-        return "<%s,%s> <%s x %s> <%s:%s>" % (
+        return "<%s,%s> <%s x %s> <%s>" % (
             self.x,
             self.y,
             self.width,
             self.height,
             self.mode,
-            _SMODE2INFO[self.mode],
         )
 
     def __eq__(self, other):
@@ -258,7 +269,7 @@ class SingleRoiCounters:
         yield self.max
 
 
-class RoiSpectrumCounter(IntegratingCounter):
+class RoiProfileCounter(IntegratingCounter):
     def __init__(self, name, controller, conversion_function=None, unit=None):
 
         super().__init__(name, controller, conversion_function, unit)
@@ -274,9 +285,9 @@ class RoiSpectrumCounter(IntegratingCounter):
 
         roi = self._counter_controller._save_rois[self.name]
 
-        if roi.mode == 0:  # horizontal spectrum
+        if roi.mode == ROI_PROFILE_MODES.horizontal.name:
             shape = (roi.width,)
-        elif roi.mode == 1:  # vertical spectrum
+        elif roi.mode == ROI_PROFILE_MODES.vertical.name:
             shape = (roi.height,)
 
         return shape
@@ -350,15 +361,15 @@ class RoiCounters(IntegratingCounterController):
 
     def _set_roi(self, name, roi_values):
 
-        if name in self._master_controller.roi_spectrums._save_rois.keys():
+        if name in self._master_controller.roi_profiles._save_rois.keys():
             raise ValueError(
-                f"Names conflict: '{name}' is already used by a roi_spectrum, please use another name"
+                f"Names conflict: '{name}' is already used by a roi_profile, please use another name"
             )
 
         if roi_values.__class__ in [
             Roi,
             ArcRoi,
-        ]:  # we don t want others like RoiSpectrum
+        ]:  # we don t want others like RoiProfile
             roi = roi_values
             roi.name = name
         elif len(roi_values) == 4:
@@ -555,51 +566,49 @@ class RoiCounters(IntegratingCounterController):
         return list(map(numpy.array, result.values()))
 
 
-class RoiSpectrumController(IntegratingCounterController):
+class RoiProfileController(IntegratingCounterController):
     """
-        A CounterController to manage Lima RoiSpectrumCounters
+        A CounterController to manage Lima RoiProfileCounters
 
         Example usage:
 
         # add/replace a roi
-        cam.roi_spectrums['r1'] = Roi(10, 10, 100, 200)
-        cam.roi_spectrums['r1'] = (10, 10, 100, 200)
+        cam.roi_profiles['r1'] = Roi(10, 10, 100, 200)
+        cam.roi_profiles['r1'] = (10, 10, 100, 200)
 
         # add/replace multiple rois
-        cam.roi_spectrums['r2', 'r3'] = Roi(20, 20, 300, 400), Roi(20, 20, 300, 400)
-        cam.roi_spectrums['r2', 'r3'] = (20, 20, 300, 400), (20, 20, 300, 400)
+        cam.roi_profiles['r2', 'r3'] = Roi(20, 20, 300, 400), Roi(20, 20, 300, 400)
+        cam.roi_profiles['r2', 'r3'] = (20, 20, 300, 400), (20, 20, 300, 400)
 
         # print roi info
-        cam.roi_spectrums['r2']
+        cam.roi_profiles['r2']
 
         # return the roi object
         # !!! WARNING the instance is different at each call !!!
         # (use '==' instead of 'is' to check if 2 rois are the same )
-        r2 = cam.roi_spectrums['r2']
+        r2 = cam.roi_profiles['r2']
 
         # return multiple roi objects
-        r2, r1 = cam.roi_spectrums['r2', 'r1']
+        r2, r1 = cam.roi_profiles['r2', 'r1']
 
         # remove roi
-        del cam.roi_spectrums['r1']
+        del cam.roi_profiles['r1']
 
         # clear all rois
-        cam.roi_spectrums.clear()
+        cam.roi_profiles.clear()
 
         # list roi names:
-        cam.roi_spectrums.keys()
+        cam.roi_profiles.keys()
 
         # loop rois
-        for roi_name, roi in cam.roi_spectrums.items():
+        for roi_name, roi in cam.roi_profiles.items():
             pass
     """
 
     def __init__(self, proxy, acquisition_proxy):
         # leave counters registration to the parent object
         super().__init__(
-            "roi_spectrums",
-            master_controller=acquisition_proxy,
-            register_counters=False,
+            "roi_profiles", master_controller=acquisition_proxy, register_counters=False
         )
         self._proxy = proxy
         self._current_config = settings.SimpleSetting(
@@ -617,7 +626,7 @@ class RoiSpectrumController(IntegratingCounterController):
         if "acq_nb_frames" in parent_acq_params:
             acq_params.setdefault("npoints", parent_acq_params["acq_nb_frames"])
 
-        return RoiSpectrumAcquisitionSlave(self, ctrl_params=ctrl_params, **acq_params)
+        return RoiProfileAcquisitionSlave(self, ctrl_params=ctrl_params, **acq_params)
 
     def _set_roi(self, name, roi_values):
         if name in self._master_controller.roi_counters._save_rois.keys():
@@ -625,16 +634,16 @@ class RoiSpectrumController(IntegratingCounterController):
                 f"Names conflict: '{name}' is already used by a roi_counter, please use another name"
             )
 
-        if roi_values.__class__ == RoiSpectrum:
+        if roi_values.__class__ == RoiProfile:
             roi = roi_values
             roi.name = name
         elif len(roi_values) in [4, 5]:
-            roi = RoiSpectrum(*roi_values, name=name)
+            roi = RoiProfile(*roi_values, name=name)
         else:
             raise TypeError(
-                "Expect a RoiSpectrum object"
+                "Expect a RoiProfile object"
                 " or (x, y, width, height) values"
-                " or (x, y, width, height, mode) values with mode in [0, 1]"
+                f" or (x, y, width, height, mode) values with mode in {_PMODE_ALIASES.keys()}"
             )
 
         self._save_rois[roi.name] = roi
@@ -651,18 +660,19 @@ class RoiSpectrumController(IntegratingCounterController):
             self._proxy.removeRois(on_proxy)
 
     def set_roi_mode(self, mode, *names):
-        """set the mode (0: horizontal, 1:vertical) of all rois or for a list of given roi names"""
-
-        if mode in _INFO2SMODE.keys():
-            mode = _INFO2SMODE[mode]
+        """ set the mode of all rois or for a list of given roi names.
+            Args:
+                mode = 'horizontal' or 'vertical'
+                *names = roi names 
+        """
 
         if not names:
             names = self._save_rois.keys()
 
         for name in names:
             roi = self._save_rois[name]
-            roi.mode = ROI_SPECTRUM_MODES(mode).value
-            self._save_rois[name] = roi
+            roi.profile_mode = mode  # mode is checked here
+            self._save_rois[name] = roi  # to dump the new mode (settings)
 
     def get_roi_mode(self, *names):
         """get the mode (0: horizontal, 1:vertical) of all rois or for a list of given roi names"""
@@ -681,7 +691,7 @@ class RoiSpectrumController(IntegratingCounterController):
         return [cache[name] for name in sorted(cache.keys())]
 
     def remove(self, name):
-        """alias to: del <lima obj>.roi_spectrums[name]"""
+        """alias to: del <lima obj>.roi_profiles[name]"""
         # calls _remove_rois
         del self[name]
 
@@ -710,7 +720,7 @@ class RoiSpectrumController(IntegratingCounterController):
         roi_modes = list()
         for roi in roi_list:
             roi_modes.append(roi.name)
-            roi_modes.append(ROI_SPECTRUM_MODES(roi.mode).name)
+            roi_modes.append(ROI_PROFILE_MODES[roi.mode].value)
 
         if rois_values:
             # --- just before calling upload_rois the RoiCountersAcquisitionSlave calls:
@@ -723,7 +733,7 @@ class RoiSpectrumController(IntegratingCounterController):
     # dict like API
 
     def set(self, name, roi_values):
-        """alias to: <lima obj>.roi_spectrums[name] = roi_values"""
+        """alias to: <lima obj>.roi_profiles[name] = roi_values"""
         self[name] = roi_values
 
     def get(self, name, default=None):
@@ -778,11 +788,11 @@ class RoiSpectrumController(IntegratingCounterController):
         roi = self._save_rois.get(name)
         if roi is None:
             raise AttributeError(
-                "Can't find a roi_spectrum with name: {!r}".format(name)
+                "Can't find a roi_profile with name: {!r}".format(name)
             )
         cached_roi, counter = self.__cached_counters.get(name, (None, None))
         if roi != cached_roi:
-            counter = RoiSpectrumCounter(name, controller=self)
+            counter = RoiProfileCounter(name, controller=self)
             self.__cached_counters[name] = (roi, counter)
 
         return counter
@@ -798,10 +808,10 @@ class RoiSpectrumController(IntegratingCounterController):
     # Representation
 
     def __info__(self):
-        header = f"Roi Spectrum Counters: {self.config_name}"
+        header = f"Roi Profile Counters: {self.config_name}"
         rois = self.get_rois()
         if rois:
-            labels = ["Name", "<x, y> <w, h> <mode:spectrum>"]
+            labels = ["Name", "<x, y> <w, h> <mode>"]
             tab = FormatedTab([labels])
             [tab.add_line([roi.name, str(roi)]) for roi in rois]
             tab.resize(minwidth=10, maxwidth=100)
@@ -813,7 +823,7 @@ class RoiSpectrumController(IntegratingCounterController):
 
     def get_values(self, from_index, *counters):
         blank = [[] for cnt in counters]
-        spectrums = [[] for cnt in counters]
+        profiles = [[] for cnt in counters]
 
         last_num_of_spec = None
         for i, cnt in enumerate(counters):
@@ -831,15 +841,15 @@ class RoiSpectrumController(IntegratingCounterController):
 
                 # collect the spectrum per frames (j=>frame, i=>cnt)
                 for j in range(num_of_spec):
-                    spectrums[i].append(list(spec[j * size : (j + 1) * size]))
+                    profiles[i].append(list(spec[j * size : (j + 1) * size]))
 
                 # remember the number of ready frames for that counter
                 # to compare with next counter and return blank if different
                 last_num_of_spec = num_of_spec
 
             else:
-                # if no spectrums ready yet for that counter then return
+                # if no profiles ready yet for that counter then return
                 # and let the 'reading' polling call this function again
                 return blank
 
-        return spectrums
+        return profiles

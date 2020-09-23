@@ -15,8 +15,8 @@ from bliss.common.utils import all_equal
 from bliss.scanning.acquisition.timer import SoftwareTimerMaster
 from bliss.common.tango import DeviceProxy, DevFailed
 from bliss.common.counter import Counter
-from bliss.controllers.lima.roi import Roi, ArcRoi, RoiSpectrum
-from bliss.controllers.lima.roi import RoiSpectrumCounter, RoiStatCounter
+from bliss.controllers.lima.roi import Roi, ArcRoi, RoiProfile, ROI_PROFILE_MODES
+from bliss.controllers.lima.roi import RoiProfileCounter, RoiStatCounter
 from bliss.common.scans import loopscan, timescan, sct, ct, DEFAULT_CHAIN
 from bliss.controllers.lima.limatools import (
     load_simulator_frames,
@@ -198,8 +198,8 @@ def test_lima_roi_counters_api(beacon, default_session, lima_simulator):
     assert len(cam.counter_groups["r5"]) == 5
     assert isinstance(cam.counter_groups["r5"]["r5_sum"], RoiStatCounter)
 
-    # check it is not possible to use a name for a roi_counter if already used by a roi_spectrum
-    cam.roi_spectrums["s1"] = 20, 20, 20, 20
+    # check it is not possible to use a name for a roi_counter if already used by a roi_profile
+    cam.roi_profiles["s1"] = 20, 20, 20, 20
     try:
         cam.roi_counters["s1"] = 20, 20, 20, 20
         assert False
@@ -232,89 +232,108 @@ def test_lima_roi_counters_api(beacon, default_session, lima_simulator):
     assert len(cam.roi_counters.counters) == 0
 
 
-def test_lima_roi_spectrums_api(beacon, default_session, lima_simulator):
+def test_lima_roi_profiles_api(beacon, default_session, lima_simulator):
 
     cam = beacon.get("lima_simulator")
+    hmode = ROI_PROFILE_MODES["horizontal"].name
+    vmode = ROI_PROFILE_MODES["vertical"].name
 
     # check there is no registered roi
-    assert len(cam.roi_spectrums) == 0
-    assert len(cam.roi_spectrums._roi_ids) == 0
-    assert len(cam.roi_spectrums.counters) == 0
+    assert len(cam.roi_profiles) == 0
+    assert len(cam.roi_profiles._roi_ids) == 0
+    assert len(cam.roi_profiles.counters) == 0
 
     # add a roi and check that 2 rois with same values and names are equal
-    cam.roi_spectrums["s1"] = 20, 20, 20, 20
-    assert "s1" in cam.roi_spectrums.keys()
-    assert cam.roi_spectrums["s1"] == RoiSpectrum(20, 20, 20, 20, name="s1")
-    assert cam.roi_spectrums["s1"] != RoiSpectrum(20, 20, 20, 20, name="other")
-    assert len(cam.roi_spectrums.counters) == 1
+    cam.roi_profiles["s1"] = 20, 20, 20, 20
+    assert "s1" in cam.roi_profiles.keys()
+    assert cam.roi_profiles["s1"] == RoiProfile(20, 20, 20, 20, name="s1")
+    assert cam.roi_profiles["s1"] != RoiProfile(20, 20, 20, 20, name="other")
+    assert len(cam.roi_profiles.counters) == 1
 
     # add multiple rois in a raw and check that 'bad' name is overwritten with the good name
-    cam.roi_spectrums["s2", "s3"] = (
-        RoiSpectrum(20, 20, 20, 20),
-        RoiSpectrum(20, 20, 20, 20, name="bad"),
+    cam.roi_profiles["s2", "s3"] = (
+        RoiProfile(20, 20, 20, 20),
+        RoiProfile(20, 20, 20, 20, name="bad"),
     )
-    assert "s2" in cam.roi_spectrums.keys()
-    assert "s3" in cam.roi_spectrums.keys()
-    assert "bad" not in cam.roi_spectrums.keys()
-    assert cam.roi_spectrums["s3"].name == "s3"
-    assert len(cam.roi_spectrums.counters) == 3
+    assert "s2" in cam.roi_profiles.keys()
+    assert "s3" in cam.roi_profiles.keys()
+    assert "bad" not in cam.roi_profiles.keys()
+    assert cam.roi_profiles["s3"].name == "s3"
+    assert len(cam.roi_profiles.counters) == 3
 
-    # add multiple rois in a raw as tuple and check that mode '1' is applied
-    cam.roi_spectrums["s4", "s5"] = (20, 20, 20, 20), (60, 20, 40, 40, 1)
-    assert "s4" in cam.roi_spectrums.keys()
-    assert "s5" in cam.roi_spectrums.keys()
-    assert cam.roi_spectrums["s4"] == RoiSpectrum(20, 20, 20, 20, mode=0, name="s4")
-    assert cam.roi_spectrums["s5"] == RoiSpectrum(60, 20, 40, 40, mode=1, name="s5")
-    assert cam.roi_spectrums["s4"].mode == 0
-    assert cam.roi_spectrums["s5"].mode == 1
-    assert len(cam.roi_spectrums.counters) == 5
+    # add multiple rois in a raw as tuple and check that mode is properly applied
+    cam.roi_profiles["s4", "s5"] = (20, 20, 20, 20), (60, 20, 40, 40, vmode)
+    assert "s4" in cam.roi_profiles.keys()
+    assert "s5" in cam.roi_profiles.keys()
+    assert cam.roi_profiles["s4"].mode == hmode
+    assert cam.roi_profiles["s5"].mode == vmode
+    assert len(cam.roi_profiles.counters) == 5
 
     # check counters are added to the Lima.counter_groups
-    assert isinstance(cam.counter_groups["s5"], RoiSpectrumCounter)
+    assert isinstance(cam.counter_groups["s5"], RoiProfileCounter)
 
-    # check it is not possible to use a name for a roi_spectrum if already used by a roi_counter
+    # check it is not possible to use a name for a roi_profile if already used by a roi_counter
     cam.roi_counters["r1"] = 20, 20, 20, 20
     try:
-        cam.roi_spectrums["r1"] = 20, 20, 20, 20
+        cam.roi_profiles["r1"] = 20, 20, 20, 20
         assert False
     except ValueError as e:
         assert e.args[0].startswith("Names conflict")
 
     # perform a scan to push rois to TangoDevice (roi_ids are retrieved at that time)
-    assert len(cam.roi_spectrums._roi_ids) == 0
+    assert len(cam.roi_profiles._roi_ids) == 0
     ct(cam)
-    assert len(cam.roi_spectrums._roi_ids) == 5
+    assert len(cam.roi_profiles._roi_ids) == 5
 
     # check get_roi_mode/set_roi_mode
-    cam.roi_spectrums.set_roi_mode(0, "s1")
-    assert cam.roi_spectrums.get_roi_mode("s1") == 0
-    cam.roi_spectrums.set_roi_mode(1, "s1", "s2")
-    assert cam.roi_spectrums.get_roi_mode("s1", "s2") == {"s1": 1, "s2": 1}
-    cam.roi_spectrums.set_roi_mode("horizontal", "s1")
-    assert cam.roi_spectrums.get_roi_mode("s1") == 0
+    cam.roi_profiles.set_roi_mode("horizontal", "s1")
+    assert cam.roi_profiles.get_roi_mode("s1") == hmode
+    cam.roi_profiles.set_roi_mode("vertical", "s1", "s2")
+    assert cam.roi_profiles.get_roi_mode("s1", "s2") == {"s1": vmode, "s2": vmode}
+    cam.roi_profiles.set_roi_mode("horizontal", "s1")
+    assert cam.roi_profiles.get_roi_mode("s1") == hmode
+
+    # test mode aliases
+    cam.roi_profiles["s1"] = 20, 20, 20, 20, "v"
+    assert cam.roi_profiles["s1"].mode == vmode
+    cam.roi_profiles["s1"] = 20, 20, 20, 20, "h"
+    assert cam.roi_profiles["s1"].mode == hmode
+    cam.roi_profiles["s1"] = 20, 20, 20, 20, 1
+    assert cam.roi_profiles["s1"].mode == vmode
+    cam.roi_profiles["s1"] = 20, 20, 20, 20, 0
+    assert cam.roi_profiles["s1"].mode == hmode
+
+    cam.roi_profiles.set_roi_mode("v", "s1")
+    assert cam.roi_profiles.get_roi_mode("s1") == vmode
+    cam.roi_profiles.set_roi_mode("h", "s1")
+    assert cam.roi_profiles.get_roi_mode("s1") == hmode
+    cam.roi_profiles.set_roi_mode(1, "s1")
+    assert cam.roi_profiles.get_roi_mode("s1") == vmode
+    cam.roi_profiles.set_roi_mode(0, "s1")
+    assert cam.roi_profiles.get_roi_mode("s1") == hmode
 
     # del one roi
-    del cam.roi_spectrums["s5"]
-    assert "s5" not in cam.roi_spectrums.keys()
-    assert len(cam.roi_spectrums) == 4
-    assert len(cam.roi_spectrums._roi_ids) == 4
-    assert len(cam.roi_spectrums.counters) == 4
+    del cam.roi_profiles["s5"]
+    assert "s5" not in cam.roi_profiles.keys()
+    assert len(cam.roi_profiles) == 4
+    assert len(cam.roi_profiles._roi_ids) == 4
+    assert len(cam.roi_profiles.counters) == 4
 
     # remove one roi
-    cam.roi_spectrums.remove("s4")
-    assert "s4" not in cam.roi_spectrums.keys()
-    assert len(cam.roi_spectrums) == 3
-    assert len(cam.roi_spectrums._roi_ids) == 3
-    assert len(cam.roi_spectrums.counters) == 3
+    cam.roi_profiles.remove("s4")
+    assert "s4" not in cam.roi_profiles.keys()
+    assert len(cam.roi_profiles) == 3
+    assert len(cam.roi_profiles._roi_ids) == 3
+    assert len(cam.roi_profiles.counters) == 3
 
     # clear all
-    cam.roi_spectrums.clear()
-    assert len(cam.roi_spectrums) == 0
-    assert len(cam.roi_spectrums._roi_ids) == 0
-    assert len(cam.roi_spectrums.counters) == 0
+    cam.roi_profiles.clear()
+    assert len(cam.roi_profiles) == 0
+    assert len(cam.roi_profiles._roi_ids) == 0
+    assert len(cam.roi_profiles.counters) == 0
 
 
-def test_lima_roi_spectrum_measurements(
+def test_lima_roi_profile_measurements(
     beacon, default_session, lima_simulator, images_directory
 ):
 
@@ -342,18 +361,18 @@ def test_lima_roi_spectrum_measurements(
     load_simulator_frames(cam, 1, img_path)
     reset_cam(cam, roi=[0, 0, 0, 0])
 
-    cam.roi_spectrums.clear()
-    cam.roi_spectrums["sp1"] = [20, 20, 18, 20]
-    cam.roi_spectrums["sp2"] = [60, 20, 38, 40]
+    cam.roi_profiles.clear()
+    cam.roi_profiles["sp1"] = [20, 20, 18, 20]
+    cam.roi_profiles["sp2"] = [60, 20, 38, 40]
 
-    w1 = cam.roi_spectrums["sp1"].width
-    h1 = cam.roi_spectrums["sp1"].height
-    w2 = cam.roi_spectrums["sp2"].width
-    h2 = cam.roi_spectrums["sp2"].height
+    w1 = cam.roi_profiles["sp1"].width
+    h1 = cam.roi_profiles["sp1"].height
+    w2 = cam.roi_profiles["sp2"].width
+    h2 = cam.roi_profiles["sp2"].height
 
     # TEST WITH HORIZONTAL LINE PROFILE
     # (mode=0, pixels are summed along the vertical axis and the spectrum is along horizontal axis)
-    cam.roi_spectrums.set_roi_mode(0, "sp1", "sp2")
+    cam.roi_profiles.set_roi_mode("horizontal", "sp1", "sp2")
 
     s = ct(cam)
     d1 = s.get_data("sp1")[0]
@@ -369,9 +388,9 @@ def test_lima_roi_spectrum_measurements(
     assert all_equal(list(d2[1::2])) and d2[1::2][0] == 0
 
     # DO THE SAME BUT WITH VERTICAL LINE PROFILE
-    cam.roi_spectrums["sp1"] = [20, 20, 20, 20]
-    cam.roi_spectrums.set_roi_mode("vertical", "sp1")
-    cam.roi_spectrums.set_roi_mode("vertical", "sp2")
+    cam.roi_profiles["sp1"] = [20, 20, 20, 20]
+    cam.roi_profiles.set_roi_mode("vertical", "sp1")
+    cam.roi_profiles.set_roi_mode("vertical", "sp2")
 
     s = ct(cam)
     d1 = s.get_data("sp1")[0]
@@ -388,8 +407,8 @@ def test_lima_roi_spectrum_measurements(
     assert all_equal(list(d2)) and d2[0] == w2 / 2
 
     # MIX VERTICAL and HORIZONTAL LINE PROFILE
-    cam.roi_spectrums.set_roi_mode("vertical", "sp1")
-    cam.roi_spectrums.set_roi_mode("horizontal", "sp2")
+    cam.roi_profiles.set_roi_mode("vertical", "sp1")
+    cam.roi_profiles.set_roi_mode("horizontal", "sp2")
 
     s = ct(cam)
     d1 = s.get_data("sp1")[0]

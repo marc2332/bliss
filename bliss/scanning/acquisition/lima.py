@@ -14,7 +14,6 @@ from collections import OrderedDict
 
 from bliss.scanning.chain import AcquisitionMaster
 from bliss.scanning.channel import AcquisitionChannel
-from bliss.controllers import lima
 from bliss.common.tango import get_fqn
 from bliss.scanning.acquisition.counter import IntegratingCounterAcquisitionSlave
 
@@ -484,7 +483,7 @@ class RoiCountersAcquisitionSlave(IntegratingCounterAcquisitionSlave):
         self.device._proxy.Stop()
 
 
-class RoiSpectrumAcquisitionSlave(IntegratingCounterAcquisitionSlave):
+class RoiProfileAcquisitionSlave(IntegratingCounterAcquisitionSlave):
     def prepare_device(self):
 
         # TODO:

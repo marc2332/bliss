@@ -2250,7 +2250,7 @@ class Wago(SamplingCounterController):
             ask (boolean): default to True, will ask for the confirmation
         """
 
-        from bliss.shell.interlocks import interlock_purge as purge
+        from .interlocks import interlock_purge
 
         if ask:
             yes_no = input(
@@ -2259,7 +2259,7 @@ class Wago(SamplingCounterController):
         else:
             yes_no = "YES"
         if yes_no == "YES":
-            purge(self)
+            interlock_purge(self)
             return ShellStr("Interlock configuration on PLC was deleted")
         else:
             return ShellStr(

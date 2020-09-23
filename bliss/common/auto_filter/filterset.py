@@ -139,7 +139,7 @@ class FilterSet:
         # Status message
         self._print = print
 
-        self._config_filters = config.get("filters")
+        self._config_filters = [dict(x) for x in config.get("filters", [])]
         if not self._config_filters:
             raise RuntimeError("Filter list is empty")
 

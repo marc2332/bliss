@@ -99,6 +99,10 @@ class SpecMode(qt.QObject):
         peak = scan_math.peak2(x, y)
         cen = scan_math.cen(x, y)
         com = scan_math.com(x, y)
+        # Formatter don't like int
+        peak = float(peak[0]), float(peak[1])
+        cen = float(cen[0]), float(cen[1])
+        com = float(com)
         return f"Peak: {peak[0]:.3} ({peak[1]:.3})  Cen: {cen[0]:.3} (FWHM: {cen[1]:.3})  COM: {com:.3}"
 
     def updateTitle(self, plot: plot_helper.FlintPlot, title: str) -> str:

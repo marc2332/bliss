@@ -71,20 +71,21 @@ def test_autofilter_ascan(autof_session):
     scan_data = s.get_data()
 
     # test that all nessesary counters are published
-    assert "sim_autofilter1_mon" in scan_data
-    assert "sim_autofilter1_det" in scan_data
-    assert "sim_autofilter1_det_corr" in scan_data
+    assert "AutoFilterDetMon:sim_autofilter1_mon" in scan_data
+    assert "AutoFilterDetMon:sim_autofilter1_det" in scan_data
+    assert "autofilter1:sim_autofilter1_det_corr" in scan_data
     assert "autofilter1:curratt" in scan_data
     assert "autofilter1:transm" in scan_data
     assert "autofilter1:ratio" in scan_data
 
     # test that the corrected values are the expected ones
-    assert numpy.allclose(scan_data["sim_autofilter1_det_corr"], sim._data)
+    assert numpy.allclose(scan_data["autofilter1:sim_autofilter1_det_corr"], sim._data)
 
     # test that transm fits to measured value
     assert numpy.allclose(
-        scan_data["sim_autofilter1_det"] / scan_data["autofilter1:transm"],
-        scan_data["sim_autofilter1_det_corr"],
+        scan_data["AutoFilterDetMon:sim_autofilter1_det"]
+        / scan_data["autofilter1:transm"],
+        scan_data["autofilter1:sim_autofilter1_det_corr"],
     )
 
     # test that all filters are out at beginning and end of scan

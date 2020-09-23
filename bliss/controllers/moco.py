@@ -99,6 +99,15 @@ class Moco(object):
     def state(self):
         print(self.comm("?STATE"))
 
+    def oscil(self):
+        return self.comm("?OSCIL")
+
+    def oscilon(self):
+        self.comm("OSCIL ON")
+
+    def osciloff(self):
+        self.comm("OSCIL OFF")
+
     @property
     def amplitude(self):
         return float(self.comm("?AMPLITUDE"))
@@ -383,8 +392,8 @@ class MocoMotor(Controller):
         pass
 
     def read_position(self, axis):
-        ret_val = self.moco.comm("?PIEZO")
-        return float(ret_val)
+        ret_val = float(self.moco.comm("?PIEZO"))
+        return ret_val
 
     def state(self, axis):
         state = self.moco.comm("?STATE")
@@ -404,3 +413,6 @@ class MocoMotor(Controller):
 
     def stop(self, axis):
         pass
+
+    def set_position(self, axis, new_position):
+        return self.read_position(axis)

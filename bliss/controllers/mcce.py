@@ -34,6 +34,8 @@ channels:
        url: "rfc2217://ld231:28017"
 """
 import enum
+import tabulate
+
 from math import log10
 
 # import serial
@@ -94,13 +96,22 @@ class McceRangeUnits(enum.IntEnum):
     KOhm = 5
 
 
+MCCE_RANGE_STR = {
+    1: ("10pA", "30pA", "100pA", "300pA"),
+    2: ("100pA", "300pA", "1nA", "3nA", "10nA", "30nA", "100nA", "300nA"),
+    3: ("10nA", "30nA", "100nA", "300nA", "1uA", "3uA", "10uA", "30uA"),
+    4: ("1000MOhm", "300MOhm", "100MOhm", "30MOhm"),
+    5: ("1000KOhm", "300KOhm", "100KOhm", "30KOhm"),
+    6: ("100pA", "1nA", "10nA", "100nA"),
+}
+
 MCCE_RANGE = {
     1: (1e-11, 3e-11, 1e-10, 3e-10),
     2: (1e-10, 3e-10, 1e-9, 3e-9, 1e-8, 3e-8, 1e-7, 3e-7),
     3: (1e-8, 3e-8, 1e-7, 3e-7, 1e-6, 3e-6, 1e-5, 3e-5),
     4: (1000, 300, 100, 30),
+    5: (1000, 300, 100, 30),
     6: (1e-10, 1e-9, 1e-8, 1e-7),
-    7: (1000, 300, 100, 30),
 }
 
 
@@ -112,6 +123,7 @@ MCCE_TYPE = {
     2: "Photovoltaic High Sensitivity",
     3: "Photovoltaic Medium Sensitivity",
     4: "Photocondictive High Sensitivity",
+    5: "Photocondictive Medium Sensitivity",
     6: "Photovoltaic High Voltage",
 }
 
@@ -125,7 +137,7 @@ class Mcce:
         self.__name = name
         self.__settings = None
 
-        self.serial_line = get_comm(config, timeout=5, eol=b"\r\n")
+        self.serial_line = get_comm(config, timeout=2, eol=b"\r\n")
 
         self.address = config.get("address", None)  # unique address of the channel
         if self.address is None:
@@ -137,6 +149,8 @@ class Mcce:
         self.range_units = McceRangeUnits.A
         self.range_cmd = None
         self.mcce_type = None
+
+        self.nb_try = 3
 
         self.init()
 
@@ -154,16 +168,20 @@ class Mcce:
 
     def __info__(self):
         _ret = "Type: %s (%d)\n" % (MCCE_TYPE[self.mcce_type], self.mcce_type)
+        _ret += self.status
         if self.mcce_type in (4, 5):
             _ret += "Gain Scale: 1, 10, 100"
         else:
             _ret += "Frequency Scale: " + str(MCCE_FREQUENCY).replace(",", " ").strip(
                 "()"
             )
-        _ret += "\nRange Scale: %s\n" % str(self.mcce_range).replace(",", " ").strip(
-            "()"
-        )
-        _ret += self.status
+        _ret += "\nRange Scale: %s\n" % str(self.mcce_range_str).replace(
+            ",", " "
+        ).strip("()")
+        #        _ret += "             %s\n" % str(self.mcce_range).replace(",", " ").strip(
+        #                "()"
+        #            )
+
         return _ret
 
     def init(self):
@@ -178,20 +196,27 @@ class Mcce:
         self.remote = self.set_remote(True)
 
         # get the type of the electrometer
-        try:
+        try_nb = 0
+        try_ok = False
+        while not try_ok:
             _type = self._send_cmd(McceReadCommands.TYPE)
-            self.mcce_type = _type
-            self.mcce_range = MCCE_RANGE[_type]
-            if _type in (4, 5):
-                self.mcce_gain = (1, 10, 100)
-            if _type in McceRangeUnits._value2member_map_:
-                self.range_units = McceRangeUnits._value2member_map_[_type]
-            if _type == 6:
-                self.range_cmd = McceProgCommands.RANGE1
+            if _type:
+                try_ok = True
             else:
-                self.range_cmd = McceProgCommands._value2member_map_[_type + 2]
-        except RuntimeError:
-            raise
+                try_nb += 1
+                if try_nb == self.nb_try:
+                    raise RuntimeError(f"Cannot get type for mcce {self.name}")
+        self.mcce_type = _type
+        self.mcce_range = MCCE_RANGE[_type]
+        self.mcce_range_str = MCCE_RANGE_STR[_type]
+        if _type in (4, 5):
+            self.mcce_gain = (1, 10, 100)
+        if _type in McceRangeUnits._value2member_map_:
+            self.range_units = McceRangeUnits._value2member_map_[_type]
+        if _type == 6:
+            self.range_cmd = McceProgCommands.RANGE1
+        else:
+            self.range_cmd = McceProgCommands._value2member_map_[_type + 2]
 
     def reset(self):
         """ Reset the MCCE """
@@ -229,7 +254,8 @@ class Mcce:
             RuntimeError: Command not executed
         """
         _range = self._send_cmd(McceReadCommands.RANGE)
-        return self.mcce_range[_range], self.range_units.name
+        # return self.mcce_range[_range], self.range_units.name
+        return self.mcce_range_str[_range]
 
     @range.setter
     def range(self, value):
@@ -237,7 +263,10 @@ class Mcce:
         Args:
            (int): The desired range
         """
-        _range = self.mcce_range.index(value)
+        if isinstance(value, str):
+            _range = self.mcce_range_str.index(value)
+        else:
+            _range = self.mcce_range.index(value)
         self._set_on(False)
         self._send_cmd(self.range_cmd, _range)
         self._set_on(True)
@@ -330,8 +359,7 @@ class Mcce:
     @property
     def status(self):
         """ Status of the electrometer """
-        _range, _unit = self.range
-        _ret = "Range: %g %s\n" % (_range, _unit)
+        _ret = f"Range: {self.range}\n"
         if self.mcce_type in (4, 5):
             _ret += "Gain: %d\n" % self.gain
         else:
@@ -360,17 +388,50 @@ class Mcce:
             else:
                 _cmd = "%d %s \r\n" % (self.address, cmd)
 
-            _asw = self.serial_line.write_readline(_cmd.encode())
+            try_ok = False
+            try_nb = 0
+            while not try_ok:
+                try:
+                    _asw = self.serial_line.write_readline(_cmd.encode())
+                    try_ok = True
+                except:
+                    try_nb += 1
+                    print(f"Timeout on mcce {self.name} command {cmd}, retry {try_nb}")
+                    if try_nb == self.nb_try:
+                        raise RuntimeError(f"Timeout on mcce {self.name} command {cmd}")
+
             return self._check_answer(_asw.decode())
 
         if isinstance(cmd, McceProgCommands):
             _cmd = "%d PROG %d %d \r\n" % (self.address, cmd, value)
-            _asw = self.serial_line.write_readline(_cmd.encode())
+
+            try_ok = False
+            try_nb = 0
+            while not try_ok:
+                try:
+                    _asw = self.serial_line.write_readline(_cmd.encode())
+                    try_ok = True
+                except:
+                    try_nb += 1
+                    print(f"Timeout on mcce {self.name} command {cmd}, retry {try_nb}")
+                    if try_nb == self.nb_try:
+                        raise RuntimeError(f"Timeout on mcce {self.name} command {cmd}")
+
             return self._check_answer(_asw.decode())
 
         if isinstance(cmd, McceReadCommands):
             _cmd = "%d READ %d \r\n" % (self.address, cmd)
-            _asw = self.serial_line.write_readline(_cmd.encode())
+            try_ok = False
+            try_nb = 0
+            while not try_ok:
+                try:
+                    _asw = self.serial_line.write_readline(_cmd.encode())
+                    try_ok = True
+                except:
+                    try_nb += 1
+                    print(f"Timeout on mcce {self.name} command {cmd}, retry {try_nb}")
+                    if try_nb == self.nb_try:
+                        raise RuntimeError(f"Timeout on mcce {self.name} command {cmd}")
             return int(self._check_answer(_asw.decode()))
 
         return False
@@ -389,5 +450,9 @@ class Mcce:
         if "ACK" in answer:
             return True
         if "AWR" in answer:
-            return answer.split("=")[1].strip()
+            try:
+                ret_val = answer.split("=")[1].strip()
+                return ret_val
+            except:
+                return False
         return False

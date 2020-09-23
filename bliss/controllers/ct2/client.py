@@ -94,9 +94,17 @@ class CT2Controller(Proxy, CounterController):
 
     def get_acquisition_object(self, acq_params, ctrl_params, parent_acq_params):
 
-        from bliss.scanning.acquisition.ct2 import CT2AcquisitionMaster
+        from bliss.scanning.acquisition.ct2 import (
+            CT2AcquisitionMaster,
+            CT2VarTimeAcquisitionMaster,
+        )
 
-        return CT2AcquisitionMaster(self, ctrl_params=ctrl_params, **acq_params)
+        if isinstance(acq_params["acq_expo_time"], list):
+            return CT2VarTimeAcquisitionMaster(
+                self, ctrl_params=ctrl_params, **acq_params
+            )
+        else:
+            return CT2AcquisitionMaster(self, ctrl_params=ctrl_params, **acq_params)
 
     def get_default_chain_parameters(self, scan_params, acq_params):
         # Extract scan parameters

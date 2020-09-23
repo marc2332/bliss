@@ -130,11 +130,41 @@ class CT2AcquisitionMaster(AcquisitionMaster):
         self._ready_event.wait()
 
 
+class CT2VarTimeAcquisitionMaster(CT2AcquisitionMaster):
+    """
+    Allow point acquisition time to be variable in step scans.
+    """
+
+    def __init__(self, device, acq_expo_time=[], **kwargs):
+        kwargs.pop("npoints", None)
+        kwargs.pop("prepare_once", None)
+        kwargs.pop("start_once", None)
+
+        self._acq_expo_times = acq_expo_time
+        super().__init__(
+            device, prepare_once=False, start_once=False, npoints=1, **kwargs
+        )
+
+    def __iter__(self):
+        npoints = len(self._acq_expo_times)
+        for expo_time in self._acq_expo_times:
+            self.acq_expo_time = expo_time
+            yield self
+
+    def start(self):
+        if (
+            self.parent is None
+            or self.trigger_type == AcquisitionMaster.HARDWARE  # top master
+        ):
+            self.trigger()
+
+
 class CT2CounterAcquisitionSlave(IntegratingCounterAcquisitionSlave):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.__buffer = []
         self.__buffer_event = gevent.event.Event()
+        self._event_connected = False
 
     def prepare_device(self):
         channels = []
@@ -181,7 +211,10 @@ class CT2CounterAcquisitionSlave(IntegratingCounterAcquisitionSlave):
         self.__buffer = []
 
     def start_device(self):
-        event.connect(self.device._master_controller, DataSignal, self.rx_data)
+        # Connect only at scan startup.
+        if not self._event_connected:
+            event.connect(self.device._master_controller, DataSignal, self.rx_data)
+            self._event_connected = True
 
     def stop_device(self):
         event.disconnect(self.device._master_controller, DataSignal, self.rx_data)

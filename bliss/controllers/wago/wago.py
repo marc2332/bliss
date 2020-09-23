@@ -1523,6 +1523,8 @@ class WagoController:
         )
 
         start = time.time()
+        check = None
+        ack = None
         while True:
             if time.time() - start > self.timeout:
                 log_debug(
@@ -1599,6 +1601,7 @@ class WagoController:
         )
 
         start = time.time()
+        command_executed = None
         while True:
             if time.time() - start > self.timeout:
                 log_debug(

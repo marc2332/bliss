@@ -18,7 +18,7 @@ from argparse import ArgumentParser
 import bliss.release
 
 
-FLINT_API_VERSION = 1
+FLINT_API_VERSION = 2
 """Define an easy way to check flint_api.
 
 Should be updated every time flint_api changes, in order

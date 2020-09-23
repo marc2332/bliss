@@ -241,7 +241,7 @@ class LinkamTms94(Controller):
            kp value
         """
         log_info(self, "Controller:get_kp: %s" % (tloop))
-        raise NotImplementedError
+        return "Not available"
 
     def set_ki(self, tloop, ki):
         """
@@ -267,7 +267,7 @@ class LinkamTms94(Controller):
            ki value
         """
         log_info(self, "Controller:get_ki: %s" % (tloop))
-        raise NotImplementedError
+        return "Not available"
 
     def set_kd(self, tloop, kd):
         """
@@ -293,7 +293,7 @@ class LinkamTms94(Controller):
            kd value
         """
         log_info(self, "Controller:get_kd: %s" % (tloop))
-        raise NotImplementedError
+        return "Not available"
 
     def start_regulation(self, tloop):
         """
@@ -418,8 +418,8 @@ class LinkamTms94(Controller):
         """
         log_info(self, "Controller:set_ramprate: %s %s" % (tloop, rate))
 
-        if rate <= 0 or rate > 32:
-            raise ValueError("Ramp value %s is out of bounds [0,32]" % rate)
+        if rate <= 0 or rate > 90:
+            raise ValueError("Ramp value %s is out of bounds [0,90]" % rate)
 
         val = "%4d" % int(round(rate * 100))
         val = val.strip(" ")

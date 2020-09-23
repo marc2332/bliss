@@ -14,7 +14,6 @@ from collections import OrderedDict
 
 from bliss.scanning.chain import AcquisitionMaster
 from bliss.scanning.channel import AcquisitionChannel
-from bliss.controllers import lima
 from bliss.common.tango import get_fqn
 from bliss.scanning.acquisition.counter import IntegratingCounterAcquisitionSlave
 
@@ -459,11 +458,74 @@ class LimaAcquisitionMaster(AcquisitionMaster):
 
 class RoiCountersAcquisitionSlave(IntegratingCounterAcquisitionSlave):
     def prepare_device(self):
+
+        # TODO:
+        # SHOULD BE ALWAYS PREPARE_ONCE=TRUE but actually it depends on the parent.PREPARE_ONCE
+        # So for lima parent it depends on the trigger mode and data_synchronisation:
+        # prepare_once = acq_trigger_mode in (
+        #     "INTERNAL_TRIGGER_MULTI",
+        #     "EXTERNAL_GATE",
+        #     "EXTERNAL_TRIGGER_MULTI",
+        #     "EXTERNAL_START_STOP",
+        # )
+        # data_synchronisation = scan_params.get("data_synchronisation", False)
+        # if data_synchronisation:
+        #     prepare_once = start_once = False
+
+        self.device._proxy.clearAllRois()
+        self.device._proxy.start()  # after the clearAllRois (unlike 'roi2spectrum' proxy)!
         self.device.upload_rois()
+
+    def start_device(self):
+        pass
+
+    def stop_device(self):
+        self.device._proxy.Stop()
+
+
+class RoiProfileAcquisitionSlave(IntegratingCounterAcquisitionSlave):
+    def prepare_device(self):
+
+        # TODO:
+        # SHOULD BE ALWAYS PREPARE_ONCE=TRUE but actually it depends on the parent.PREPARE_ONCE
+        # So for lima parent it depends on the trigger mode and data_synchronisation:
+        # prepare_once = acq_trigger_mode in (
+        #     "INTERNAL_TRIGGER_MULTI",
+        #     "EXTERNAL_GATE",
+        #     "EXTERNAL_TRIGGER_MULTI",
+        #     "EXTERNAL_START_STOP",
+        # )
+        # data_synchronisation = scan_params.get("data_synchronisation", False)
+        # if data_synchronisation:
+        #     prepare_once = start_once = False
+
+        self.device._proxy.start()  # before the clearAllRois (unlike 'roicounter' proxy) !
+        self.device._proxy.clearAllRois()
+        self.device.upload_rois()
+
+    def start_device(self):
+        pass
+
+    def stop_device(self):
+        self.device._proxy.Stop()
 
 
 class BpmAcquisitionSlave(IntegratingCounterAcquisitionSlave):
     def prepare_device(self):
+
+        # TODO:
+        # SHOULD BE ALWAYS PREPARE_ONCE=TRUE but actually it depends on the parent.PREPARE_ONCE
+        # So for lima parent it depends on the trigger mode and data_synchronisation:
+        # prepare_once = acq_trigger_mode in (
+        #     "INTERNAL_TRIGGER_MULTI",
+        #     "EXTERNAL_GATE",
+        #     "EXTERNAL_TRIGGER_MULTI",
+        #     "EXTERNAL_START_STOP",
+        # )
+        # data_synchronisation = scan_params.get("data_synchronisation", False)
+        # if data_synchronisation:
+        #     prepare_once = start_once = False
+
         self.device._proxy.Start()
 
     def start_device(self):

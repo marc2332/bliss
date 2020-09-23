@@ -1,22 +1,25 @@
 # Conda requirements file
 blessings
+cerberus
 colorama
 cython
 docopt
 flask
-louie >= 2.0
 gevent >= 1.4
 greenlet >= 0.4.16
 gxx_linux-64
 h5py >= 2.9
+hiredis
 jedi >= 0.17.1
 jinja2 >= 2.7
+louie >= 2.0
 mendeleev
 mock
 msgpack-numpy >= 0.4.4.2
 msgpack-python >= 0.6.1
 netifaces
 networkx == 2.4
+numexpr
 numpy >= 1.13
 pandas
 parso >=0.5.1
@@ -28,32 +31,29 @@ pyfiglet
 pygments
 pygraphviz >= 1.5
 pyserial > 2
+pytango == 9.3.1
 python >= 3.7
-ruamel.yaml
 redis >= 6.0.6
 redis-py == 3.5.1
-hiredis
 requests
+ruamel.yaml
 simple-pid
 sqlalchemy
 tabulate
+tailon == 1.1.0.1
 tango >= 9.3.2
-pytango == 9.3.1
+tango-metadata >= 4.0.6
 tblib
 tmux >= 2.7
 treelib <= 1.5.5
-cerberus
 typeguard == 2.6.1
 typing_extensions
-tailon == 1.1.0.1
-numexpr
-tango-metadata >= 4.0.6
 
 # Flint
-pyqt >= 5.9
-silx == 0.13.1
-ipython != 7.15.0
 ipykernel >= 5.2  # make sure qtconsole is working
+ipython != 7.15.0
 pyopengl
+pyqt >= 5.9
 scipy
+silx == 0.13.1
 sortedcontainers

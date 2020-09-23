@@ -11,10 +11,12 @@ import pytest
 import gevent
 import logging
 import numpy
+from bliss.common.utils import all_equal
 from bliss.scanning.acquisition.timer import SoftwareTimerMaster
 from bliss.common.tango import DeviceProxy, DevFailed
 from bliss.common.counter import Counter
-from bliss.controllers.lima.roi import Roi
+from bliss.controllers.lima.roi import Roi, ArcRoi, RoiProfile, ROI_PROFILE_MODES
+from bliss.controllers.lima.roi import RoiProfileCounter, RoiStatCounter
 from bliss.common.scans import loopscan, timescan, sct, ct, DEFAULT_CHAIN
 from bliss.controllers.lima.limatools import (
     load_simulator_frames,
@@ -62,9 +64,12 @@ def test_lima_sim_bpm(beacon, default_session, lima_simulator):
     assert len(data) == 6 + 2  # 6 bpm counters + 2 timer
 
 
-def assert_lima_rois(lima_roi_counter, rois):
-    roi_names = lima_roi_counter.getNames()
-    raw_rois = lima_roi_counter.getRois(roi_names)
+def assert_lima_rois(simulator, rois):
+
+    simulator.roi_counters.upload_rois()
+
+    roi_names = simulator.roi_counters._proxy.getNames()
+    raw_rois = simulator.roi_counters._proxy.getRois(roi_names)
 
     assert set(rois.keys()) == set(roi_names)
 
@@ -76,12 +81,10 @@ def assert_lima_rois(lima_roi_counter, rois):
 
 
 def test_rois(beacon, lima_simulator):
-    simulator = beacon.get("lima_simulator")
-    rois = simulator.roi_counters
+    cam = beacon.get("lima_simulator")
 
-    dev_name = lima_simulator[0].lower()
-    roi_dev = DeviceProxy(dev_name.replace("limaccds", "roicounter"))
-
+    rois = cam.roi_counters
+    proxy = cam.roi_counters._proxy
     assert len(rois) == 0
 
     r1 = Roi(0, 0, 100, 200)
@@ -89,12 +92,16 @@ def test_rois(beacon, lima_simulator):
     r3 = Roi(20, 60, 500, 500)
     r4 = Roi(60, 20, 50, 10)
 
+    # clear and start the roicounter proxy
+    proxy.clearAllRois()
+    proxy.Start()
+
     rois["r1"] = r1
-    assert_lima_rois(roi_dev, dict(r1=r1))
+    assert_lima_rois(cam, dict(r1=r1))
     rois["r2"] = r2
-    assert_lima_rois(roi_dev, dict(r1=r1, r2=r2))
+    assert_lima_rois(cam, dict(r1=r1, r2=r2))
     rois["r3", "r4"] = r3, r4
-    assert_lima_rois(roi_dev, dict(r1=r1, r2=r2, r3=r3, r4=r4))
+    assert_lima_rois(cam, dict(r1=r1, r2=r2, r3=r3, r4=r4))
 
     assert len(rois) == 4
     assert rois["r1"] == r1
@@ -111,21 +118,21 @@ def test_rois(beacon, lima_simulator):
 
     del rois["r1"]
     assert len(rois) == 3
-    assert_lima_rois(roi_dev, dict(r2=r2, r3=r3, r4=r4))
+    assert_lima_rois(cam, dict(r2=r2, r3=r3, r4=r4))
 
     del rois["r3", "r2"]
     assert len(rois) == 1
-    assert_lima_rois(roi_dev, dict(r4=r4))
+    assert_lima_rois(cam, dict(r4=r4))
 
     # test classic interface
 
     rois.set("r1", r1)
     assert len(rois) == 2
-    assert_lima_rois(roi_dev, dict(r1=r1, r4=r4))
+    assert_lima_rois(cam, dict(r1=r1, r4=r4))
 
     rois.remove("r4")
     assert len(rois) == 1
-    assert_lima_rois(roi_dev, dict(r1=r1))
+    assert_lima_rois(cam, dict(r1=r1))
 
 
 def test_arc_rois(beacon, default_session, lima_simulator, images_directory):
@@ -134,22 +141,296 @@ def test_arc_rois(beacon, default_session, lima_simulator, images_directory):
     load_simulator_frames(cam, 1, img_path)
     reset_cam(cam, roi=[0, 0, 0, 0])
 
-    arc_roi_1 = 316, 443, 50, 88, -120, -180
-
     radius = 60
-    arc_roi_2 = 130, 320, 0, radius, 0, 360
-
     cam.roi_counters.clear()
-    cam.roi_counters["ar1"] = arc_roi_1
-    cam.roi_counters["ar2"] = arc_roi_2
+    cam.roi_counters["a1"] = 316, 443, 50, 88, -120, -180
+    cam.roi_counters["a2"] = 130, 320, 0, radius, 0, 360
 
     s = ct(cam)
 
-    assert s.get_data("ar1_sum")[0] == 0.0
+    assert s.get_data("a1_sum")[0] == 0.0
 
-    asum = s.get_data("ar2_sum")[0]
+    asum = s.get_data("a2_sum")[0]
     assert asum <= _PI_ * radius ** 2
     assert asum >= _PI_ * (radius - 1) ** 2
+
+
+def test_lima_roi_counters_api(beacon, default_session, lima_simulator):
+
+    cam = beacon.get("lima_simulator")
+    cnt_per_roi = 5
+
+    # check there is no registered roi
+    assert len(cam.roi_counters) == 0
+    assert len(cam.roi_counters._roi_ids) == 0
+    assert len(cam.roi_counters.counters) == 0
+
+    # add a roi and check that 2 rois with same values and names are equal
+    cam.roi_counters["r1"] = 20, 20, 20, 20
+    assert "r1" in cam.roi_counters.keys()
+    assert cam.roi_counters["r1"] == Roi(20, 20, 20, 20, name="r1")
+    assert cam.roi_counters["r1"] != Roi(20, 20, 20, 20, name="other")
+    src = list(cam.roi_counters.iter_single_roi_counters())
+    assert len(src) == 1
+    assert len(list(src[0])) == cnt_per_roi
+    assert len(cam.roi_counters.counters) == cnt_per_roi
+
+    # add multiple rois in a raw and check that 'bad' name is overwritten with the good name
+    cam.roi_counters["r2", "r3"] = (
+        Roi(20, 20, 20, 20),
+        Roi(20, 20, 20, 20, name="bad"),
+    )
+    assert "r2" in cam.roi_counters.keys()
+    assert "r3" in cam.roi_counters.keys()
+    assert "bad" not in cam.roi_counters.keys()
+    assert cam.roi_counters["r3"].name == "r3"
+    assert len(cam.roi_counters.counters) == 3 * cnt_per_roi
+
+    # add multiple rois in a raw as tuple
+    cam.roi_counters["r4", "r5"] = (20, 20, 20, 20), (60, 20, 40, 40)
+    assert "r4" in cam.roi_counters.keys()
+    assert "r5" in cam.roi_counters.keys()
+    assert cam.roi_counters["r4"] == Roi(20, 20, 20, 20, name="r4")
+    assert cam.roi_counters["r5"] == Roi(60, 20, 40, 40, name="r5")
+    assert len(cam.roi_counters.counters) == 5 * cnt_per_roi
+
+    # check counters are added to the Lima.counter_groups
+    assert len(cam.counter_groups["r5"]) == 5
+    assert isinstance(cam.counter_groups["r5"]["r5_sum"], RoiStatCounter)
+
+    # check it is not possible to use a name for a roi_counter if already used by a roi_profile
+    cam.roi_profiles["s1"] = 20, 20, 20, 20
+    try:
+        cam.roi_counters["s1"] = 20, 20, 20, 20
+        assert False
+    except ValueError as e:
+        assert e.args[0].startswith("Names conflict")
+
+    # perform a scan to push rois to TangoDevice (roi_ids are retrieved at that time)
+    assert len(cam.roi_counters._roi_ids) == 0
+    ct(cam)
+    assert len(cam.roi_counters._roi_ids) == 5
+
+    # del one roi
+    del cam.roi_counters["r5"]
+    assert "r5" not in cam.roi_counters.keys()
+    assert len(cam.roi_counters) == 4
+    assert len(cam.roi_counters._roi_ids) == 4
+    assert len(cam.roi_counters.counters) == 4 * cnt_per_roi
+
+    # remove one roi
+    cam.roi_counters.remove("r4")
+    assert "r4" not in cam.roi_counters.keys()
+    assert len(cam.roi_counters) == 3
+    assert len(cam.roi_counters._roi_ids) == 3
+    assert len(cam.roi_counters.counters) == 3 * cnt_per_roi
+
+    # clear all
+    cam.roi_counters.clear()
+    assert len(cam.roi_counters) == 0
+    assert len(cam.roi_counters._roi_ids) == 0
+    assert len(cam.roi_counters.counters) == 0
+
+
+def test_lima_roi_profiles_api(beacon, default_session, lima_simulator):
+
+    cam = beacon.get("lima_simulator")
+    hmode = ROI_PROFILE_MODES["horizontal"].name
+    vmode = ROI_PROFILE_MODES["vertical"].name
+
+    # check there is no registered roi
+    assert len(cam.roi_profiles) == 0
+    assert len(cam.roi_profiles._roi_ids) == 0
+    assert len(cam.roi_profiles.counters) == 0
+
+    # add a roi and check that 2 rois with same values and names are equal
+    cam.roi_profiles["s1"] = 20, 20, 20, 20
+    assert "s1" in cam.roi_profiles.keys()
+    assert cam.roi_profiles["s1"] == RoiProfile(20, 20, 20, 20, name="s1")
+    assert cam.roi_profiles["s1"] != RoiProfile(20, 20, 20, 20, name="other")
+    assert len(cam.roi_profiles.counters) == 1
+
+    # add multiple rois in a raw and check that 'bad' name is overwritten with the good name
+    cam.roi_profiles["s2", "s3"] = (
+        RoiProfile(20, 20, 20, 20),
+        RoiProfile(20, 20, 20, 20, name="bad"),
+    )
+    assert "s2" in cam.roi_profiles.keys()
+    assert "s3" in cam.roi_profiles.keys()
+    assert "bad" not in cam.roi_profiles.keys()
+    assert cam.roi_profiles["s3"].name == "s3"
+    assert len(cam.roi_profiles.counters) == 3
+
+    # add multiple rois in a raw as tuple and check that mode is properly applied
+    cam.roi_profiles["s4", "s5"] = (20, 20, 20, 20), (60, 20, 40, 40, vmode)
+    assert "s4" in cam.roi_profiles.keys()
+    assert "s5" in cam.roi_profiles.keys()
+    assert cam.roi_profiles["s4"].mode == hmode
+    assert cam.roi_profiles["s5"].mode == vmode
+    assert len(cam.roi_profiles.counters) == 5
+
+    # check counters are added to the Lima.counter_groups
+    assert isinstance(cam.counter_groups["s5"], RoiProfileCounter)
+
+    # check it is not possible to use a name for a roi_profile if already used by a roi_counter
+    cam.roi_counters["r1"] = 20, 20, 20, 20
+    try:
+        cam.roi_profiles["r1"] = 20, 20, 20, 20
+        assert False
+    except ValueError as e:
+        assert e.args[0].startswith("Names conflict")
+
+    # perform a scan to push rois to TangoDevice (roi_ids are retrieved at that time)
+    assert len(cam.roi_profiles._roi_ids) == 0
+    ct(cam)
+    assert len(cam.roi_profiles._roi_ids) == 5
+
+    # check get_roi_mode/set_roi_mode
+    cam.roi_profiles.set_roi_mode("horizontal", "s1")
+    assert cam.roi_profiles.get_roi_mode("s1") == hmode
+    cam.roi_profiles.set_roi_mode("vertical", "s1", "s2")
+    assert cam.roi_profiles.get_roi_mode("s1", "s2") == {"s1": vmode, "s2": vmode}
+    cam.roi_profiles.set_roi_mode("horizontal", "s1")
+    assert cam.roi_profiles.get_roi_mode("s1") == hmode
+
+    # test mode aliases
+    cam.roi_profiles["s1"] = 20, 20, 20, 20, "v"
+    assert cam.roi_profiles["s1"].mode == vmode
+    cam.roi_profiles["s1"] = 20, 20, 20, 20, "h"
+    assert cam.roi_profiles["s1"].mode == hmode
+    cam.roi_profiles["s1"] = 20, 20, 20, 20, 1
+    assert cam.roi_profiles["s1"].mode == vmode
+    cam.roi_profiles["s1"] = 20, 20, 20, 20, 0
+    assert cam.roi_profiles["s1"].mode == hmode
+
+    cam.roi_profiles.set_roi_mode("v", "s1")
+    assert cam.roi_profiles.get_roi_mode("s1") == vmode
+    cam.roi_profiles.set_roi_mode("h", "s1")
+    assert cam.roi_profiles.get_roi_mode("s1") == hmode
+    cam.roi_profiles.set_roi_mode(1, "s1")
+    assert cam.roi_profiles.get_roi_mode("s1") == vmode
+    cam.roi_profiles.set_roi_mode(0, "s1")
+    assert cam.roi_profiles.get_roi_mode("s1") == hmode
+
+    # del one roi
+    del cam.roi_profiles["s5"]
+    assert "s5" not in cam.roi_profiles.keys()
+    assert len(cam.roi_profiles) == 4
+    assert len(cam.roi_profiles._roi_ids) == 4
+    assert len(cam.roi_profiles.counters) == 4
+
+    # remove one roi
+    cam.roi_profiles.remove("s4")
+    assert "s4" not in cam.roi_profiles.keys()
+    assert len(cam.roi_profiles) == 3
+    assert len(cam.roi_profiles._roi_ids) == 3
+    assert len(cam.roi_profiles.counters) == 3
+
+    # clear all
+    cam.roi_profiles.clear()
+    assert len(cam.roi_profiles) == 0
+    assert len(cam.roi_profiles._roi_ids) == 0
+    assert len(cam.roi_profiles.counters) == 0
+
+
+def test_lima_roi_profile_measurements(
+    beacon, default_session, lima_simulator, images_directory
+):
+
+    # chart_3.edf (200x100) => 2 patterns
+    #
+    # 1 stairs shape in box (20,20,20+20,20+20)  => Horizontal lineProfile is [0,1,2,3,4,5,...]
+    #
+    #  HHHHHH
+    #   HHHHH
+    #    HHHH
+    #     HHH
+    #      HH
+    #       H
+
+    # 1 code-bar shape in box (60,20,60+40,20+40) => Horizontal lineProfile is [40,0,40,0,40,0,...]
+    #  H  H  H  H  H
+    #  H  H  H  H  H
+    #  H  H  H  H  H
+    #  H  H  H  H  H
+    #  H  H  H  H  H
+    #  H  H  H  H  H
+
+    cam = beacon.get("lima_simulator")
+    img_path = os.path.join(str(images_directory), "chart_3.edf")
+    load_simulator_frames(cam, 1, img_path)
+    reset_cam(cam, roi=[0, 0, 0, 0])
+
+    cam.roi_profiles.clear()
+    cam.roi_profiles["sp1"] = [20, 20, 18, 20]
+    cam.roi_profiles["sp2"] = [60, 20, 38, 40]
+
+    w1 = cam.roi_profiles["sp1"].width
+    h1 = cam.roi_profiles["sp1"].height
+    w2 = cam.roi_profiles["sp2"].width
+    h2 = cam.roi_profiles["sp2"].height
+
+    # TEST WITH HORIZONTAL LINE PROFILE
+    # (mode=0, pixels are summed along the vertical axis and the spectrum is along horizontal axis)
+    cam.roi_profiles.set_roi_mode("horizontal", "sp1", "sp2")
+
+    s = ct(cam)
+    d1 = s.get_data("sp1")[0]
+    d2 = s.get_data("sp2")[0]
+
+    # check it is really an horizontal line profile
+    assert len(d1) == w1
+    assert len(d2) == w2
+
+    # check measured spectrums are as expected
+    assert list(d1) == list(range(1, w1 + 1))
+    assert all_equal(list(d2[::2])) and d2[::2][0] == h2
+    assert all_equal(list(d2[1::2])) and d2[1::2][0] == 0
+
+    # DO THE SAME BUT WITH VERTICAL LINE PROFILE
+    cam.roi_profiles["sp1"] = [20, 20, 20, 20]
+    cam.roi_profiles.set_roi_mode("vertical", "sp1")
+    cam.roi_profiles.set_roi_mode("vertical", "sp2")
+
+    s = ct(cam)
+    d1 = s.get_data("sp1")[0]
+    d2 = s.get_data("sp2")[0]
+
+    # check it is really an horizontal line profile
+    assert len(d1) == h1
+    assert len(d2) == h2
+
+    # check measured spectrums are as expected
+    res1 = list(d1)
+    res1.reverse()
+    assert res1 == list(range(1, h1 + 1))
+    assert all_equal(list(d2)) and d2[0] == w2 / 2
+
+    # MIX VERTICAL and HORIZONTAL LINE PROFILE
+    cam.roi_profiles.set_roi_mode("vertical", "sp1")
+    cam.roi_profiles.set_roi_mode("horizontal", "sp2")
+
+    s = ct(cam)
+    d1 = s.get_data("sp1")[0]
+    d2 = s.get_data("sp2")[0]
+
+    # check it is really an horizontal line profile
+    assert len(d1) == h1
+    assert len(d2) == w2
+
+    # check measured spectrums are as expected
+    assert res1 == list(range(1, h1 + 1))
+    assert all_equal(list(d2[::2])) and d2[::2][0] == h2
+    assert all_equal(list(d2[1::2])) and d2[1::2][0] == 0
+
+    # MULTIPLE IMAGES
+
+    frames = 3
+    s = loopscan(frames, 0.1, cam)
+    d1 = s.get_data("sp1")
+
+    assert len(d1) == frames
+    assert all_equal([len(x) for x in d1])
 
 
 def test_directories_mapping(beacon, lima_simulator):

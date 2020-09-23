@@ -7,7 +7,6 @@
 
 import enum
 import functools
-
 import numpy
 
 from bliss.config import settings
@@ -15,18 +14,58 @@ from bliss.common.counter import IntegratingCounter
 from bliss.controllers.counter import IntegratingCounterController
 from bliss.controllers.counter import counter_namespace
 from bliss.scanning.acquisition.lima import RoiCountersAcquisitionSlave
+from bliss.scanning.acquisition.lima import RoiProfileAcquisitionSlave
 from bliss.data.display import FormatedTab
 
 
-class Roi:
+class ROI_PROFILE_MODES(str, enum.Enum):
+    horizontal = "LINES_SUM"
+    vertical = "COLUMN_SUM"
+
+
+_PMODE_ALIASES = {
+    "horizontal": ROI_PROFILE_MODES.horizontal,
+    "h": ROI_PROFILE_MODES.horizontal,
+    0: ROI_PROFILE_MODES.horizontal,
+    "vertical": ROI_PROFILE_MODES.vertical,
+    "v": ROI_PROFILE_MODES.vertical,
+    1: ROI_PROFILE_MODES.vertical,
+}
+
+# ============ ROI ===========
+class _BaseRoi:
+    def __init__(self, name=None):
+        self.name = name
+        assert self.is_valid()
+
+    def is_valid(self):
+        raise NotImplementedError
+
+    def __repr__(self):
+        raise NotImplementedError
+
+    def __eq__(self, other):
+        raise NotImplementedError
+
+    def get_coords(self):
+        raise NotImplementedError
+
+    def to_array(self):
+        return numpy.array(self.get_coords())
+
+    def to_dict(self):
+        raise NotImplementedError
+
+
+class Roi(_BaseRoi):
     def __init__(self, x, y, width, height, name=None):
+
         self.x = int(x)
         self.y = int(y)
         self.width = int(width)
         self.height = int(height)
-        self.name = name
 
-        assert self.is_valid()
+        super().__init__(name)
 
     @property
     def p0(self):
@@ -43,7 +82,7 @@ class Roi:
         return "<%s,%s> <%s x %s>" % (self.x, self.y, self.width, self.height)
 
     def __eq__(self, other):
-        if not isinstance(other, self.__class__):
+        if other.__class__ != self.__class__:
             return False
         ans = self.x == other.x and self.y == other.y
         ans = ans and self.width == other.width and self.height == other.height
@@ -53,28 +92,25 @@ class Roi:
     def get_coords(self):
         return [self.x, self.y, self.width, self.height]
 
-    def to_array(self):
-        return numpy.array(self.get_coords())
-
     def to_dict(self):
         return {"x": self.x, "y": self.y, "width": self.width, "height": self.height}
 
 
-class ArcRoi(object):
+class ArcRoi(_BaseRoi):
     """ Arc roi defined by coordinates: [center_x, center_y, radius_min, radius_max, angle_min, angle_max]
         Angles are expressed in degrees.
     """
 
     def __init__(self, cx, cy, r1, r2, a1, a2, name=None):
+
         self.cx = cx
         self.cy = cy
         self.r1 = r1
         self.r2 = r2
         self.a1 = a1
         self.a2 = a2
-        self.name = name
 
-        assert self.is_valid()
+        super().__init__(name)
 
     def is_valid(self):
         ans = self.r1 >= 0 and self.r2 > 0
@@ -93,7 +129,7 @@ class ArcRoi(object):
         )
 
     def __eq__(self, other):
-        if not isinstance(other, self.__class__):
+        if other.__class__ != self.__class__:
             return False
         ans = self.cx == other.cx and self.cy == other.cy
         ans = ans and self.r1 == other.r1 and self.r2 == other.r2
@@ -104,9 +140,6 @@ class ArcRoi(object):
     def get_coords(self):
         return [self.cx, self.cy, self.r1, self.r2, self.a1, self.a2]
 
-    def to_array(self):
-        return numpy.array(self.get_coords())
-
     def to_dict(self):
         return {
             "cx": self.cx,
@@ -116,6 +149,55 @@ class ArcRoi(object):
             "a1": self.a1,
             "a2": self.a2,
         }
+
+
+class RoiProfile(Roi):
+    def __init__(self, x, y, width, height, mode="horizontal", name=None):
+
+        self.profile_mode = mode
+
+        super().__init__(x, y, width, height, name)
+
+    @property
+    def profile_mode(self):
+        return self.mode
+
+    @profile_mode.setter
+    def profile_mode(self, mode):
+        if mode not in _PMODE_ALIASES.keys():
+            raise ValueError(f"the mode should be in {_PMODE_ALIASES.keys()}")
+
+        self.mode = _PMODE_ALIASES[mode].name
+
+    def __repr__(self):
+        return "<%s,%s> <%s x %s> <%s>" % (
+            self.x,
+            self.y,
+            self.width,
+            self.height,
+            self.mode,
+        )
+
+    def __eq__(self, other):
+        if other.__class__ != self.__class__:
+            return False
+        ans = self.x == other.x and self.y == other.y
+        ans = ans and self.width == other.width and self.height == other.height
+        ans = ans and self.name == other.name
+        ans = ans and self.mode == other.mode
+        return ans
+
+    def to_dict(self):
+        return {
+            "x": self.x,
+            "y": self.y,
+            "width": self.width,
+            "height": self.height,
+            "mode": self.mode,
+        }
+
+
+# ============ ROI COUNTERS ===========
 
 
 class RoiStat(enum.IntEnum):
@@ -129,6 +211,8 @@ class RoiStat(enum.IntEnum):
 
 
 class RoiStatCounter(IntegratingCounter):
+    """ A Counter object used for the statitics counters associated to one Roi """
+
     def __init__(self, roi_name, stat, **kwargs):
         self.roi_name = roi_name
         self.stat = stat
@@ -151,6 +235,8 @@ class RoiStatCounter(IntegratingCounter):
 
 
 class SingleRoiCounters:
+    """ an iterable container (associated to one roi.name) that yield the RoiStatCounters """
+
     def __init__(self, name, **keys):
         self.name = name
         self.factory = functools.partial(RoiStatCounter, name, **keys)
@@ -183,34 +269,70 @@ class SingleRoiCounters:
         yield self.max
 
 
+class RoiProfileCounter(IntegratingCounter):
+    def __init__(self, name, controller, conversion_function=None, unit=None):
+
+        super().__init__(name, controller, conversion_function, unit)
+
+    @property
+    def dtype(self):
+        """The data type as used by numpy."""
+        return numpy.uint32
+
+    @property
+    def shape(self):
+        """The data shape as used by numpy."""
+
+        roi = self._counter_controller._save_rois[self.name]
+
+        if roi.mode == ROI_PROFILE_MODES.horizontal.name:
+            shape = (roi.width,)
+        elif roi.mode == ROI_PROFILE_MODES.vertical.name:
+            shape = (roi.height,)
+
+        return shape
+
+
+# ============ ROI COUNTER CONTROLLERS ===========
+
+
 class RoiCounters(IntegratingCounterController):
-    """Lima ROI counters
+    """ A CounterController to manage the roi_counters defined on a Lima camera.
+
+        Each Roi object is associated to a SingleRoiCounter which yield the RoiStatCounters (like sum, avg, ...)
 
         Example usage:
 
         # add/replace a roi
-        mpx.roi_counters['r1'] = Roi(10, 10, 100, 200)
+        cam.roi_counters['r1'] = Roi(10, 10, 100, 200)
+        cam.roi_counters['r1'] = (10, 10, 100, 200)
 
         # add/replace multiple rois
-        mpx.roi_counters['r2', 'r3'] = Roi(20, 20, 300, 400), Roi(20, 20, 300, 400)
+        cam.roi_counters['r2', 'r3'] = Roi(20, 20, 300, 400), Roi(20, 20, 300, 400)
+        cam.roi_counters['r2', 'r3'] = (20, 20, 300, 400), (20, 20, 300, 400)
 
-        # get roi info
-        r2 = mpx.roi_counters['r2']
+        # print roi info
+        cam.roi_counters['r2']
 
-        # get multiple roi info
-        r2, r1 = mpx.roi_counters['r2', 'r1']
+        # return the roi object
+        # !!! WARNING the instance is different at each call !!!
+        # (use '==' instead of 'is' to check if 2 rois are the same )
+        r2 = cam.roi_counters['r2']
+
+        # return multiple roi objects
+        r2, r1 = cam.roi_counters['r2', 'r1']
 
         # remove roi
-        del mpx.roi_counters['r1']
+        del cam.roi_counters['r1']
 
         # clear all rois
-        mpx.roi_counters.clear()
+        cam.roi_counters.clear()
 
         # list roi names:
-        mpx.roi_counters.keys()
+        cam.roi_counters.keys()
 
         # loop rois
-        for roi_name, roi in mpx.roi_counters.items():
+        for roi_name, roi in cam.roi_counters.items():
             pass
     """
 
@@ -238,8 +360,18 @@ class RoiCounters(IntegratingCounterController):
         return RoiCountersAcquisitionSlave(self, ctrl_params=ctrl_params, **acq_params)
 
     def _set_roi(self, name, roi_values):
-        if isinstance(roi_values, (Roi, ArcRoi)):
+
+        if name in self._master_controller.roi_profiles._save_rois.keys():
+            raise ValueError(
+                f"Names conflict: '{name}' is already used by a roi_profile, please use another name"
+            )
+
+        if roi_values.__class__ in [
+            Roi,
+            ArcRoi,
+        ]:  # we don t want others like RoiProfile
             roi = roi_values
+            roi.name = name
         elif len(roi_values) == 4:
             roi = Roi(*roi_values, name=name)
         elif len(roi_values) == 6:
@@ -250,33 +382,19 @@ class RoiCounters(IntegratingCounterController):
                 " or (x, y, width, height) values"
                 " or (cx, cy, r1, r2, a1, a2) values"
             )
-        roi.name = name
-        roi_id = self._proxy.addNames((name,))[0]
-        self._proxy.Start()
 
-        params = [roi_id]
-        params.extend(roi.get_coords())
-
-        if isinstance(roi, Roi):
-            self._proxy.setRois(params)
-        elif isinstance(roi, ArcRoi):
-            self._proxy.setArcRois(params)
-
-        self._set_roi_settings(roi_id, roi)
-
-    def _set_roi_settings(self, roi_id, roi):
         self._save_rois[roi.name] = roi
-        self._roi_ids[roi.name] = roi_id
-
-    def _clear_rois_settings(self):
-        self._remove_rois(roi.name for roi in self.iter_single_roi_counters())
 
     def _remove_rois(self, names):
+        # rois pushed on proxy have an entry in self._roi_ids
+        on_proxy = []
         for name in names:
             del self._save_rois[name]
             if name in self._roi_ids:
+                on_proxy.append(name)
                 del self._roi_ids[name]
-        self._proxy.removeRois(list(names))
+        if on_proxy:
+            self._proxy.removeRois(on_proxy)
 
     def set(self, name, roi_values):
         """alias to: <lima obj>.roi_counters[name] = roi_values"""
@@ -305,25 +423,26 @@ class RoiCounters(IntegratingCounterController):
         self._save_rois = settings.HashObjSetting("%s:%s" % (self.name, name))
 
     def upload_rois(self):
-        self._proxy.clearAllRois()
+
         roi_list = [roi for roi in self.get_rois() if roi.is_valid()]
         roi_id_list = self._proxy.addNames([x.name for x in roi_list])
 
         rois_values = list()
         arcrois_values = list()
         for roi_id, roi in zip(roi_id_list, roi_list):
-
-            if isinstance(roi, Roi):
+            if roi.__class__ == Roi:
                 rois_values.extend([roi_id])
                 rois_values.extend(roi.get_coords())
-            elif isinstance(roi, ArcRoi):
+            elif roi.__class__ == ArcRoi:
                 arcrois_values.extend([roi_id])
                 arcrois_values.extend(roi.get_coords())
 
             self._roi_ids[roi.name] = roi_id
 
         if rois_values or arcrois_values:
-            self._proxy.Start()
+            # --- just before calling upload_rois the RoiCountersAcquisitionSlave calls:
+            # self._proxy.clearAllRois()
+            # self._proxy.start()          # after the clearAllRois (unlike 'roi2spectrum' proxy)!
 
             if rois_values:
                 self._proxy.setRois(rois_values)
@@ -361,7 +480,7 @@ class RoiCounters(IntegratingCounterController):
         return len(self._save_rois)
 
     def clear(self):
-        self._clear_rois_settings()
+        self._remove_rois(self._save_rois.keys())
 
     def keys(self):
         return self._save_rois.keys()
@@ -384,7 +503,9 @@ class RoiCounters(IntegratingCounterController):
     def get_single_roi_counters(self, name):
         roi_data = self._save_rois.get(name)
         if roi_data is None:
-            raise AttributeError("Unknown ROI counter {!r}".format(name))
+            raise AttributeError(
+                "Can't find a roi_counter with name: {!r}".format(name)
+            )
         cached_roi_data, counters = self.__cached_counters.get(name, (None, None))
         if cached_roi_data != roi_data:
             counters = SingleRoiCounters(name, controller=self)
@@ -414,11 +535,11 @@ class RoiCounters(IntegratingCounterController):
         if rois:
             labels = ["Name", "ROI coordinates"]
             tab = FormatedTab([labels])
-            [tab.add_line([roi.name, str(roi)]) for roi in rois if isinstance(roi, Roi)]
+            [tab.add_line([roi.name, str(roi)]) for roi in rois if roi.__class__ == Roi]
             [
                 tab.add_line([roi.name, str(roi)])
                 for roi in rois
-                if isinstance(roi, ArcRoi)
+                if roi.__class__ == ArcRoi
             ]
             tab.resize(minwidth=10, maxwidth=100)
             tab.add_separator(sep="-", line_index=1)
@@ -443,3 +564,292 @@ class RoiCounters(IntegratingCounterController):
                 if counter_data is not None:
                     counter_data.append(roi_counter[stat])
         return list(map(numpy.array, result.values()))
+
+
+class RoiProfileController(IntegratingCounterController):
+    """
+        A CounterController to manage Lima RoiProfileCounters
+
+        Example usage:
+
+        # add/replace a roi
+        cam.roi_profiles['r1'] = Roi(10, 10, 100, 200)
+        cam.roi_profiles['r1'] = (10, 10, 100, 200)
+
+        # add/replace multiple rois
+        cam.roi_profiles['r2', 'r3'] = Roi(20, 20, 300, 400), Roi(20, 20, 300, 400)
+        cam.roi_profiles['r2', 'r3'] = (20, 20, 300, 400), (20, 20, 300, 400)
+
+        # print roi info
+        cam.roi_profiles['r2']
+
+        # return the roi object
+        # !!! WARNING the instance is different at each call !!!
+        # (use '==' instead of 'is' to check if 2 rois are the same )
+        r2 = cam.roi_profiles['r2']
+
+        # return multiple roi objects
+        r2, r1 = cam.roi_profiles['r2', 'r1']
+
+        # remove roi
+        del cam.roi_profiles['r1']
+
+        # clear all rois
+        cam.roi_profiles.clear()
+
+        # list roi names:
+        cam.roi_profiles.keys()
+
+        # loop rois
+        for roi_name, roi in cam.roi_profiles.items():
+            pass
+    """
+
+    def __init__(self, proxy, acquisition_proxy):
+        # leave counters registration to the parent object
+        super().__init__(
+            "roi_profiles", master_controller=acquisition_proxy, register_counters=False
+        )
+        self._proxy = proxy
+        self._current_config = settings.SimpleSetting(
+            self.fullname, default_value="default"
+        )
+        settings_name = "%s:%s" % (self.fullname, self._current_config.get())
+        self._roi_ids = {}
+        self.__cached_counters = {}
+        self._save_rois = settings.HashObjSetting(settings_name)
+
+    def get_acquisition_object(self, acq_params, ctrl_params, parent_acq_params):
+        # in case `count_time` is missing in acq_params take it from parent_acq_params
+        if "acq_expo_time" in parent_acq_params:
+            acq_params.setdefault("count_time", parent_acq_params["acq_expo_time"])
+        if "acq_nb_frames" in parent_acq_params:
+            acq_params.setdefault("npoints", parent_acq_params["acq_nb_frames"])
+
+        return RoiProfileAcquisitionSlave(self, ctrl_params=ctrl_params, **acq_params)
+
+    def _set_roi(self, name, roi_values):
+        if name in self._master_controller.roi_counters._save_rois.keys():
+            raise ValueError(
+                f"Names conflict: '{name}' is already used by a roi_counter, please use another name"
+            )
+
+        if roi_values.__class__ == RoiProfile:
+            roi = roi_values
+            roi.name = name
+        elif len(roi_values) in [4, 5]:
+            roi = RoiProfile(*roi_values, name=name)
+        else:
+            raise TypeError(
+                "Expect a RoiProfile object"
+                " or (x, y, width, height) values"
+                f" or (x, y, width, height, mode) values with mode in {_PMODE_ALIASES.keys()}"
+            )
+
+        self._save_rois[roi.name] = roi
+
+    def _remove_rois(self, names):
+        # rois pushed on proxy have an entry in self._roi_ids
+        on_proxy = []
+        for name in names:
+            del self._save_rois[name]
+            if name in self._roi_ids:
+                on_proxy.append(name)
+                del self._roi_ids[name]
+        if on_proxy:
+            self._proxy.removeRois(on_proxy)
+
+    def set_roi_mode(self, mode, *names):
+        """ set the mode of all rois or for a list of given roi names.
+            Args:
+                mode = 'horizontal' or 'vertical'
+                *names = roi names 
+        """
+
+        if not names:
+            names = self._save_rois.keys()
+
+        for name in names:
+            roi = self._save_rois[name]
+            roi.profile_mode = mode  # mode is checked here
+            self._save_rois[name] = roi  # to dump the new mode (settings)
+
+    def get_roi_mode(self, *names):
+        """get the mode (0: horizontal, 1:vertical) of all rois or for a list of given roi names"""
+
+        if len(names) == 1:
+            return self._save_rois[names[0]].mode
+        elif not names:
+            names = self._save_rois.keys()
+
+        # ??? for multiple rois should it returns a dict or a list ???
+        return {name: self._save_rois[name].mode for name in names}
+
+    def get_rois(self):
+        """alias to values()"""
+        cache = self._save_rois
+        return [cache[name] for name in sorted(cache.keys())]
+
+    def remove(self, name):
+        """alias to: del <lima obj>.roi_profiles[name]"""
+        # calls _remove_rois
+        del self[name]
+
+    def get_saved_config_names(self):
+        return list(settings.scan(match="%s:*" % self.name))
+
+    @property
+    def config_name(self):
+        return self._current_config.get()
+
+    @config_name.setter
+    def config_name(self, name):
+        self._current_config.set(name)
+        self._save_rois = settings.HashObjSetting("%s:%s" % (self.name, name))
+
+    def upload_rois(self):
+        roi_list = [roi for roi in self.get_rois() if roi.is_valid()]
+        roi_id_list = self._proxy.addNames([x.name for x in roi_list])
+
+        rois_values = list()
+        for roi_id, roi in zip(roi_id_list, roi_list):
+            rois_values.append(roi_id)
+            rois_values.extend(roi.get_coords())
+            self._roi_ids[roi.name] = roi_id
+
+        roi_modes = list()
+        for roi in roi_list:
+            roi_modes.append(roi.name)
+            roi_modes.append(ROI_PROFILE_MODES[roi.mode].value)
+
+        if rois_values:
+            # --- just before calling upload_rois the RoiCountersAcquisitionSlave calls:
+            # self._proxy.start()         # before the clear (unlike 'roicounter' proxy) !
+            # self._proxy.clearAllRois()
+
+            self._proxy.setRois(rois_values)
+            self._proxy.setRoiModes(roi_modes)
+
+    # dict like API
+
+    def set(self, name, roi_values):
+        """alias to: <lima obj>.roi_profiles[name] = roi_values"""
+        self[name] = roi_values
+
+    def get(self, name, default=None):
+        return self._save_rois.get(name, default=default)
+
+    def __getitem__(self, names):
+        if isinstance(names, str):
+            return self._save_rois[names]
+        else:
+            return [self[name] for name in names]
+
+    def __setitem__(self, names, rois):
+        if isinstance(names, str):
+            self._set_roi(names, rois)
+        else:
+            for name, value in zip(names, rois):
+                self[name] = value
+
+    def __delitem__(self, names):
+        if isinstance(names, str):
+            names = (names,)
+        self._remove_rois(names)
+
+    def __contains__(self, name):
+        return name in self._save_rois
+
+    def __len__(self):
+        return len(self._save_rois)
+
+    def clear(self):
+        self._remove_rois(self._save_rois.keys())
+
+    def keys(self):
+        return self._save_rois.keys()
+
+    def values(self):
+        return self._save_rois.values()
+
+    def items(self):
+        return self._save_rois.items()
+
+    def has_key(self, name):
+        return name in self._save_rois
+
+    def update(self, rois):
+        for name, roi in rois.items():
+            self[name] = roi
+
+    # Counter access
+
+    def get_roi_counter(self, name):
+        roi = self._save_rois.get(name)
+        if roi is None:
+            raise AttributeError(
+                "Can't find a roi_profile with name: {!r}".format(name)
+            )
+        cached_roi, counter = self.__cached_counters.get(name, (None, None))
+        if roi != cached_roi:
+            counter = RoiProfileCounter(name, controller=self)
+            self.__cached_counters[name] = (roi, counter)
+
+        return counter
+
+    def iter_roi_counters(self):
+        for roi in self.get_rois():
+            yield self.get_roi_counter(roi.name)
+
+    @property
+    def counters(self):
+        return counter_namespace([counter for counter in self.iter_roi_counters()])
+
+    # Representation
+
+    def __info__(self):
+        header = f"Roi Profile Counters: {self.config_name}"
+        rois = self.get_rois()
+        if rois:
+            labels = ["Name", "<x, y> <w, h> <mode>"]
+            tab = FormatedTab([labels])
+            [tab.add_line([roi.name, str(roi)]) for roi in rois]
+            tab.resize(minwidth=10, maxwidth=100)
+            tab.add_separator(sep="-", line_index=1)
+            return "\n".join([header, str(tab)])
+
+        else:
+            return "\n".join([header, "*** no ROIs defined ***"])
+
+    def get_values(self, from_index, *counters):
+        blank = [[] for cnt in counters]
+        profiles = [[] for cnt in counters]
+
+        last_num_of_spec = None
+        for i, cnt in enumerate(counters):
+            size = cnt.shape[0]
+            cid = self._roi_ids[cnt.name]
+            spec = self._proxy.readImage([int(cid), int(from_index)])
+
+            if spec != []:
+                num_of_spec = len(spec) // size
+
+                if last_num_of_spec and num_of_spec != last_num_of_spec:
+                    # Not the same number of ready frames per counter
+                    # 'reading' won t accept that, so return blank
+                    return blank
+
+                # collect the spectrum per frames (j=>frame, i=>cnt)
+                for j in range(num_of_spec):
+                    profiles[i].append(list(spec[j * size : (j + 1) * size]))
+
+                # remember the number of ready frames for that counter
+                # to compare with next counter and return blank if different
+                last_num_of_spec = num_of_spec
+
+            else:
+                # if no profiles ready yet for that counter then return
+                # and let the 'reading' polling call this function again
+                return blank
+
+        return profiles

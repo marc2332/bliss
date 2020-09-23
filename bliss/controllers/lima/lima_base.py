@@ -7,8 +7,6 @@
 
 import importlib
 import os
-import enum
-import textwrap
 
 from bliss import global_map
 from bliss.common.utils import common_prefix, autocomplete_property
@@ -25,7 +23,7 @@ from bliss.scanning.acquisition.lima import LimaAcquisitionMaster
 
 from bliss.controllers.lima.properties import LimaProperties, LimaProperty
 from bliss.controllers.lima.bpm import Bpm
-from bliss.controllers.lima.roi import RoiCounters
+from bliss.controllers.lima.roi import RoiCounters, RoiProfileController
 from bliss.controllers.lima.image import ImageCounter, LimaImageParameters
 from bliss.controllers.lima.shutter import Shutter
 from bliss.controllers.lima.bgsub import BgSub
@@ -91,6 +89,7 @@ class Lima(CounterController):
     """
 
     _ROI_COUNTERS = "roicounter"
+    _ROI_PROFILES = "roi2spectrum"
     _BPM = "bpm"
     _BG_SUB = "backgroundsubstraction"
     # backward compatibility for old pickled objects in redis,
@@ -113,6 +112,7 @@ class Lima(CounterController):
         self.__prepare_timeout = config_node.get("prepare_timeout", None)
         self.__bpm = None
         self.__roi_counters = None
+        self.__roi_profiles = None
         self._instrument_name = config_node.root.get("instrument", "")
         self.__bg_sub = None
         self.__last = None
@@ -179,6 +179,20 @@ class Lima(CounterController):
             default_trigger_mode = "INTERNAL_TRIGGER"
 
         acq_trigger_mode = acq_params.get("acq_trigger_mode", default_trigger_mode)
+
+        # Internal_trigger: the software trigger, start the acquisition immediately after acqStart()
+        #  all the acq_nb_frames are acquired in an sequence.
+
+        # Internal_trigger_multi: like internal_trigger except that for each frame startAcq() has to be called.
+
+        # External_trigger: wait for an external trigger signal to start the acquisition of acq_nb_frames.
+
+        # External_trigger_multi: like External_trigger except that each frames need a
+        # new trigger (e.g. 4 pulses for 4 frames)
+
+        # External_gate: wait for a gate signal for each frame, the gate period is the exposure time.
+
+        # External_start_stop
 
         prepare_once = acq_trigger_mode in (
             "INTERNAL_TRIGGER_MULTI",
@@ -519,6 +533,18 @@ class Lima(CounterController):
         return self.__roi_counters
 
     @autocomplete_property
+    def roi_profiles(self):
+        if self.__roi_profiles is None:
+            roi_profiles_proxy = self._get_proxy(self._ROI_PROFILES)
+            self.__roi_profiles = RoiProfileController(roi_profiles_proxy, self)
+            global_map.register(
+                self.__roi_profiles,
+                parents_list=[self],
+                children_list=[roi_profiles_proxy],
+            )
+        return self.__roi_profiles
+
+    @autocomplete_property
     def camera(self):
         if self._camera is None:
             camera_type = self._proxy.lima_type
@@ -641,6 +667,7 @@ class Lima(CounterController):
     def counters(self):
         all_counters = [self.image]
         all_counters += list(self.roi_counters.counters)
+        all_counters += list(self.roi_profiles.counters)
         try:
             all_counters += list(self.bpm.counters)
         except RuntimeError:
@@ -660,15 +687,28 @@ class Lima(CounterController):
         except RuntimeError:
             pass
 
-        # Specific ROI counters
-        for counters in self.roi_counters.iter_single_roi_counters():
-            dct[counters.name] = counter_namespace(counters)
+        # Specific ROI counters  ( => cnt = cam.counter_groups['r1']['r1_sum'], i.e counters per roi)
+        for single_roi_counters in self.roi_counters.iter_single_roi_counters():
+            dct[single_roi_counters.name] = counter_namespace(single_roi_counters)
 
-        # All ROI counters
+        # All ROI counters ( => cnt = cam.counter_groups['roi_counters']['r1_sum'], i.e all counters of all rois)
         dct["roi_counters"] = counter_namespace(self.roi_counters.counters)
 
+        # Specific roi_profiles counters
+        for counter in self.roi_profiles.counters:
+            dct[
+                counter.name
+            ] = (
+                counter
+            )  # ??? or (for symmetry) counter_namespace([counter]) => cnt = cam.counter_groups['s2']['s2'] ???
+
+        # All roi_profiles counters
+        dct["roi_profiles"] = counter_namespace(self.roi_profiles.counters)
+
         # Default grouped
-        default_counters = list(dct["images"]) + list(dct["roi_counters"])
+        default_counters = (
+            list(dct["images"]) + list(dct["roi_counters"]) + list(dct["roi_profiles"])
+        )
         dct["default"] = counter_namespace(default_counters)
 
         # Return namespace

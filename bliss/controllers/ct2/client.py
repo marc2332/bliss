@@ -154,7 +154,7 @@ class CT2CounterController(IntegratingCounterController):
     def get_acquisition_object(self, acq_params, ctrl_params, parent_acq_params):
         from bliss.scanning.acquisition.ct2 import CT2CounterAcquisitionSlave
 
-        if "count_time" in parent_acq_params:
+        if "acq_expo_time" in parent_acq_params:
             acq_params.setdefault("count_time", parent_acq_params["acq_expo_time"])
         if "npoints" in parent_acq_params:
             acq_params.setdefault("npoints", parent_acq_params["npoints"])

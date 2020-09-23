@@ -64,8 +64,8 @@ class SpecMode(qt.QObject):
 
     def createAction(self):
         action = qt.QAction(self)
-        action.setText("Spec statistics")
-        action.setToolTip("Enable/disable Spec statistics for boomers")
+        action.setText("Spec-like statistics")
+        action.setToolTip("Enable/disable Spec-like statistics for boomers")
         action.setCheckable(True)
         icon = icons.getQIcon("flint:icons/spec")
         action.setIcon(icon)

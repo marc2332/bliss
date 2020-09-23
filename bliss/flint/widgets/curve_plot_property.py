@@ -278,6 +278,13 @@ class _AddItemAction(qt.QWidgetAction):
             menu.addAction(action)
 
             action = qt.QAction(self)
+            action.setText("Negative function")
+            icon = icons.getQIcon("flint:icons/item-func")
+            action.setIcon(icon)
+            action.triggered.connect(self.__createNegative)
+            menu.addAction(action)
+
+            action = qt.QAction(self)
             action.setText("Gaussian fit")
             icon = icons.getQIcon("flint:icons/item-func")
             action.setIcon(icon)
@@ -322,6 +329,15 @@ class _AddItemAction(qt.QWidgetAction):
         if parentItem is not None:
             plot = parentItem.plot()
             newItem = plot_state_model.DerivativeItem(plot)
+            newItem.setSource(parentItem)
+            with plot.transaction():
+                plot.addItem(newItem)
+
+    def __createNegative(self):
+        parentItem = self.parent().selectedPlotItem()
+        if parentItem is not None:
+            plot = parentItem.plot()
+            newItem = plot_state_model.NegativeItem(plot)
             newItem.setSource(parentItem)
             with plot.transaction():
                 plot.addItem(newItem)

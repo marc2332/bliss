@@ -130,8 +130,8 @@ class AirpadHook(WagoHook):
     """
 
     def __init__(self, name, config):
-        config.setdefault("pre_move")["value"] = 1
-        config.setdefault("post_move")["value"] = 0
+        config.setdefault("pre_move", {})["value"] = 1
+        config.setdefault("post_move", {})["value"] = 0
         super(AirpadHook, self).__init__(name, config)
 
 
@@ -165,8 +165,8 @@ class WagoAirHook(WagoHook):
         pass
 
     def __init__(self, name, config):
-        config.setdefault("pre_move")["value"] = 1
-        config.setdefault("post_move")["value"] = 0
+        config.setdefault("pre_move", {})["value"] = 1
+        config.setdefault("post_move", {})["value"] = 0
         super(WagoAirHook, self).__init__(name, config)
 
     def set(self, phase, motion_list):

@@ -11,12 +11,15 @@ from typing import List
 from typing import Optional
 
 import datetime
+import logging
 from silx.gui import qt
 
 from . import scan_model
 from . import plot_model
 from . import style_model
 from bliss.flint.utils import qsettingsutils
+
+_logger = logging.getLogger(__name__)
 
 
 class Workspace(qt.QObject):
@@ -54,6 +57,12 @@ class Workspace(qt.QObject):
         self.widgetAdded.emit(widget)
 
     def removeWidget(self, widget):
+        if widget not in self.__widgets:
+            # FIXME: Find the real problem. Here it is just a mitigation
+            _logger.error(
+                "Widget %s (%s) was not part of the workspace", widget, type(widget)
+            )
+            return
         self.__widgets.remove(widget)
         self.widgetRemoved.emit(widget)
 

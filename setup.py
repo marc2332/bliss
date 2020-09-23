@@ -178,6 +178,7 @@ def main():
         "gevent >= 1.4",
         "pygments",
         "numpy >= 1.13",
+        "scipy",
         "mendeleev",
         "pint",
         'silx >= 0.13.0; platform_machine == "x86_64"',

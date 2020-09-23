@@ -868,7 +868,7 @@ class ModulesConfig:
         I.E. 750-842, 750-891
         """
         if module in MODULES_CONFIG and MODULES_CONFIG[module][READING_TYPE] == "cpu":
-            self.__modules[0] == module
+            self.__modules[0] = module
         else:
             raise RuntimeError("Not known CPU module")
 

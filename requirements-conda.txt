@@ -48,6 +48,7 @@ tmux >= 2.7
 treelib <= 1.5.5
 typeguard == 2.6.1
 typing_extensions
+fisx
 
 # Flint
 ipykernel >= 5.2  # make sure qtconsole is working

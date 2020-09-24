@@ -5,8 +5,8 @@ colorama
 cython
 docopt
 flask
-gevent >= 1.4
-greenlet >= 0.4.16
+gevent >= 1.4, <= 20.6.2
+greenlet <= 0.4.16
 gxx_linux-64
 h5py >= 2.9
 hiredis

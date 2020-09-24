@@ -1,0 +1,4 @@
+plugin: bliss
+name: vacgauge
+class: VacuumGauge
+uri: id00/tango/dummy

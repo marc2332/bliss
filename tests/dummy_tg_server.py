@@ -5,8 +5,18 @@ from tango.server import attribute, command
 from tango import AttrWriteType
 from tango import DevState
 
+"""
+Test Tango device server to simulate:
+* Undulator DS
+* Shutter DS
+* Serial line DS ?
+* VacGauge DS
+"""
+
 
 class Dummy(Device):
+
+    # Undulator attributes
     position = attribute(format="%3.2f", unit="mm")
     u23a_position = attribute(format="%3.2f", unit="mm")
     power = attribute(format="%3.2f")
@@ -48,6 +58,9 @@ class Dummy(Device):
         dtype=["DevState"],
         max_dim_x=2,
     )
+
+    # Vacuum gauge attibutes
+    pressure = attribute(format="%6.2f", unit="mBar", access=AttrWriteType.READ)
 
     def __init__(self, *args, **kwargs):
         Device.__init__(self, *args, **kwargs)
@@ -110,6 +123,11 @@ class Dummy(Device):
         # current and max powers
         return [0.136, 1.1]
 
+    # VacGauge attributes
+    def read_pressure(self):
+        return 0.000000012345678
+
+    #
     @command(dtype_out=str)
     def string1(self):
         return "café"
@@ -121,7 +139,7 @@ class Dummy(Device):
         else:
             self.set_state(DevState.STANDBY)
 
-    ###for tango_shutter
+    # for tango_shutter
     @command()
     def open(self):
         self.set_state(DevState.OPEN)

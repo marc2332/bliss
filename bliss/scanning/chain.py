@@ -72,30 +72,32 @@ def join_tasks(greenlets, **kw):
         raise
 
 
-class AbstractDeviceIterator:
+class AbstractAcquisitionObjectIterator:
     def __init__(self):
         self._stats_dict = dict()  # will be set by `acq_prepare`
 
     @property
-    def device(self):
+    def acquisition_object(self):
         raise NotImplementedError
 
     def __next__(self):
         raise NotImplementedError
 
     def __getattr__(self, name):
+        """Get attribute from the acquisition object
+        """
         if name.startswith("__"):
             raise AttributeError(name)
-        return getattr(self.device, name)
+        return getattr(self.acquisition_object, name)
 
     def acq_wait_ready(self, stats_dict):
         tasks = []
-        # Check whether the reading task is healthy
-        # while waiting until the device is ready.
-        if self.device.has_reading_task():
-            # Do not add do time profiling here!
-            tasks.append(gevent.spawn(self.device.wait_reading))
-        tasks.append(gevent.spawn(self.device.acq_wait_ready, stats_dict))
+        # Check whether the reading task is healthy while
+        # waiting until the acquisition object is ready.
+        if self.acquisition_object.has_reading_task():
+            # Do not add to wait_reading time profiling here!
+            tasks.append(gevent.spawn(self.acquisition_object.wait_reading))
+        tasks.append(gevent.spawn(self.acquisition_object.acq_wait_ready, stats_dict))
         join_tasks(tasks, count=1)
         wait_ready_task = tasks.pop(-1)
         try:
@@ -105,63 +107,66 @@ class AbstractDeviceIterator:
 
     def acq_prepare(self, stats_dict):
         self._stats_dict = stats_dict
-        self.device.acq_prepare(stats_dict)
+        self.acquisition_object.acq_prepare(stats_dict)
 
 
-class DeviceIterator(AbstractDeviceIterator):
-    def __init__(self, device):
+class AcquisitionObjectIterator(AbstractAcquisitionObjectIterator):
+    def __init__(self, acquisition_object):
         super().__init__()
-        self.__device_ref = weakref.ref(device)
+        self.__acquisition_object_ref = weakref.ref(acquisition_object)
         self.__sequence_index = 0
 
     @property
-    def device(self):
-        return self.__device_ref()
+    def acquisition_object(self):
+        return self.__acquisition_object_ref()
 
     def __next__(self):
-        if not self.device.parent:
+        if not self.acquisition_object.parent:
             raise StopIteration
         else:
-            if not self.device.prepare_once and not self.device.start_once:
-                if self.device.has_reading_task():
-                    self.device.acq_wait_reading(self._stats_dict)
+            if (
+                not self.acquisition_object.prepare_once
+                and not self.acquisition_object.start_once
+            ):
+                if self.acquisition_object.has_reading_task():
+                    self.acquisition_object.acq_wait_reading(self._stats_dict)
         self.__sequence_index += 1
         return self
 
     def acq_prepare(self, stats_dict):
-        if self.__sequence_index > 0 and self.device.prepare_once:
+        if self.__sequence_index > 0 and self.acquisition_object.prepare_once:
             return
         super().acq_prepare(stats_dict)
 
     def acq_start(self, stats_dict):
-        if self.__sequence_index > 0 and self.device.start_once:
+        if self.__sequence_index > 0 and self.acquisition_object.start_once:
             return
-        self.device.acq_start(stats_dict)
+        self.acquisition_object.acq_start(stats_dict)
 
 
-class DeviceIteratorWrapper(AbstractDeviceIterator):
-    def __init__(self, device):
+class AcquisitionObjectIteratorWrapper(AbstractAcquisitionObjectIterator):
+    def __init__(self, acquisition_object):
         super().__init__()
-        self.__device = weakref.proxy(device)
-        self.__iterator = iter(device)
+        self.__acquisition_object = weakref.proxy(acquisition_object)
+        self.__iterator = iter(acquisition_object)
         self.__current = None
         next(self)
 
     @property
-    def device(self):
+    def acquisition_object(self):
         return self.__current
 
     def __next__(self):
         try:
             self.__current = next(self.__iterator)
         except StopIteration:
-            if not self.__device.parent:
+            if not self.__acquisition_object.parent:
                 raise
-            self.__device.acq_wait_reading(self._stats_dict)
-            self.__iterator = iter(self.__device)
+            self.__acquisition_object.acq_wait_reading(self._stats_dict)
+            self.__iterator = iter(self.__acquisition_object)
             self.__current = next(self.__iterator)
         except Exception as e:
-            e.args = (self.__device.name, *e.args)
+            e.args = (self.__acquisition_object.name, *e.args)
             raise
 
 
@@ -813,20 +818,22 @@ class AcquisitionChainIter:
         # create iterators tree
         self._tree = Tree()
         self._root_node = self._tree.create_node("acquisition chain", "root")
-        device2iter = dict()
-        for dev in sub_tree.expand_tree():
-            if not isinstance(dev, (AcquisitionSlave, AcquisitionMaster)):
+        acqobj2iter = dict()
+        for acq_obj in sub_tree.expand_tree():
+            if not isinstance(acq_obj, AcquisitionObject):
                 continue
-            dev_node = acquisition_chain._tree.get_node(dev)
-            parent = device2iter.get(dev_node.bpointer, "root")
+            node = acquisition_chain._tree.get_node(acq_obj)
+            parent = acqobj2iter.get(node.bpointer, "root")
             try:
-                it = iter(dev)
+                iter(acq_obj)
             except TypeError:
-                dev_iter = DeviceIterator(dev)
+                acq_obj_iter = AcquisitionObjectIterator(acq_obj)
             else:
-                dev_iter = DeviceIteratorWrapper(dev)
-            device2iter[dev] = dev_iter
-            self._tree.create_node(tag=dev.name, identifier=dev_iter, parent=parent)
+                acq_obj_iter = AcquisitionObjectIteratorWrapper(acq_obj)
+            acqobj2iter[acq_obj] = acq_obj_iter
+            self._tree.create_node(
+                tag=acq_obj.name, identifier=acq_obj_iter, parent=parent
+            )
 
     @property
     def acquisition_chain(self):
@@ -834,7 +841,7 @@ class AcquisitionChainIter:
 
     @property
     def top_master(self):
-        return self._tree.children("root")[0].identifier.device
+        return self._tree.children("root")[0].identifier.acquisition_object
 
     def apply_parameters(self):
         for tasks in self._execute("apply_parameters", wait_between_levels=False):
@@ -898,16 +905,13 @@ class AcquisitionChainIter:
             join_tasks(tasks)
 
     def wait_all_devices(self, stats_dict):
-        for acq_dev_iter in (
-            x
-            for x in self._tree.expand_tree()
-            if x is not "root"
-            and isinstance(x.device, (AcquisitionSlave, AcquisitionMaster))
-        ):
-            acq_dev_iter.acq_wait_reading(stats_dict)
-            if isinstance(acq_dev_iter.device, AcquisitionMaster):
-                acq_dev_iter.wait_slaves()
-            dispatcher.send("end", acq_dev_iter.device)
+        for acq_obj_iter in self._tree.expand_tree():
+            if not isinstance(acq_obj_iter, AbstractAcquisitionObjectIterator):
+                continue
+            acq_obj_iter.acq_wait_reading(stats_dict)
+            if isinstance(acq_obj_iter.acquisition_object, AcquisitionMaster):
+                acq_obj_iter.wait_slaves()
+            dispatcher.send("end", acq_obj_iter.acquisition_object)
 
     def stop(self):
         all_tasks = []
@@ -960,10 +964,10 @@ class AcquisitionChainIter:
             join_tasks(tasks)
         try:
             if self.__sequence_index:
-                for dev_iter in self._tree.expand_tree():
-                    if dev_iter is "root":
+                for acq_obj_iter in self._tree.expand_tree():
+                    if acq_obj_iter is "root":
                         continue
-                    next(dev_iter)
+                    next(acq_obj_iter)
             preset_tasks = [
                 gevent.spawn(i.stop) for i in self._current_preset_iterators_list
             ]
@@ -986,23 +990,23 @@ class AcquisitionChainIter:
         prev_level = None
 
         if master_to_slave:
-            devs = list(self._tree.expand_tree(mode=Tree.WIDTH))[1:]
+            acq_obj_iters = list(self._tree.expand_tree(mode=Tree.WIDTH))[1:]
         else:
-            devs = reversed(list(self._tree.expand_tree(mode=Tree.WIDTH))[1:])
+            acq_obj_iters = reversed(list(self._tree.expand_tree(mode=Tree.WIDTH))[1:])
 
-        for dev in devs:
-            node = self._tree.get_node(dev)
+        for acq_obj_iter in acq_obj_iters:
+            node = self._tree.get_node(acq_obj_iter)
             level = self._tree.depth(node)
             if wait_between_levels and prev_level != level:
                 yield tasks
                 tasks = list()
                 prev_level = level
-            func = getattr(dev, func_name)
+            func = getattr(acq_obj_iter, func_name)
             if stats_dict is not None:
                 t = gevent.spawn(func, stats_dict)
             else:
                 t = gevent.spawn(func)
-            _running_task_on_device[dev.device] = t
+            _running_task_on_device[acq_obj_iter.acquisition_object] = t
             tasks.append(t)
         yield tasks
 
@@ -1031,7 +1035,7 @@ class AcquisitionChain:
 
     def get_node_from_devices(self, *devices):
         """
-        Helper method to get AcquisitionMaster/Slave
+        Helper method to get AcquisitionObject
         from countroller and/or counter, motor.
         This will return a list of nodes in the same order
         as the devices. Node will be None if not found.
@@ -1145,7 +1149,7 @@ class AcquisitionChain:
         """
         if not isinstance(preset, ChainPreset):
             raise ValueError("Expected ChainPreset instance")
-        top_masters = [x.identifier for x in self._tree.children("root")]
+        top_masters = self.top_masters
         if master is not None and master not in top_masters:
             raise ValueError(f"master {master} not in {top_masters}")
 

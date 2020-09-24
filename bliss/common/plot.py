@@ -143,9 +143,6 @@ The return values are shown in the following example:
 """
 
 from typing import List
-from typing import Optional
-from typing import Tuple
-from typing import Any
 
 import numpy
 import functools
@@ -493,62 +490,3 @@ def get_plot(
         return flint_plots.ImagePlot(flint=flint, plot_id=plot_id)
     else:
         print("Argument plot_type uses an invalid value: '%s'." % plot_type)
-
-
-def convert_roi_to_flint(roi):
-    """Convert a received ROI from BLISS to Flint
-
-    FIXME: Remove it, the interaction between flint and bliss should use pickle
-    to improve flexibility
-
-    Arguments:
-        roi: A ROI object from BLISS
-    """
-    # Avoid cyclic import
-    from bliss.controllers.lima import roi as lima_roi
-
-    if isinstance(roi, lima_roi.Roi):
-        result = dict(
-            kind="Rectangle",
-            origin=(roi.x, roi.y),
-            size=(roi.width, roi.height),
-            label=roi.name,
-        )
-        if isinstance(roi, lima_roi.RoiProfile):
-            assert roi.mode in ["horizontal", "vertical"]
-            result["reduction"] = roi.mode + "_profile"
-    elif isinstance(roi, lima_roi.ArcRoi):
-        result = dict(kind="Arc", label=roi.name)
-        result.update(roi.to_dict())
-    return result
-
-
-def convert_roi_to_bliss(roi) -> Optional[Tuple[str, Any, Optional[str]]]:
-    """Convert a received ROIs from Flint to BLISS
-
-    FIXME: Remove it, the interaction between flint and bliss should use pickle
-    to improve flexibility
-    """
-    label = roi["label"]
-    if not label:
-        FLINT_LOGGER.warning("ROI without name. Skipped.")
-        return None
-    kind = roi["kind"].lower()
-    if kind == "rectangle":
-        x, y = map(int, map(round, roi["origin"]))
-        w, h = map(int, map(round, roi["size"]))
-        mode = roi.get("reduction", None)
-        if mode not in [None, "vertical_profile", "horizontal_profile"]:
-            FLINT_LOGGER.warning(
-                "ROI %s with unknown reduction mode %s. Skipped.", label, mode
-            )
-            return None
-        if mode is not None:
-            mode = mode.replace("_profile", "")
-        return label, (x, y, w, h), mode
-    elif kind == "arc":
-        keys = ("cx", "cy", "r1", "r2", "a1", "a2")
-        roi_tuple = tuple(roi[c] for c in keys)
-        return label, roi_tuple, None
-    FLINT_LOGGER.warning("ROI %s with unknown kind %s. Skipped.", label, kind)
-    return None

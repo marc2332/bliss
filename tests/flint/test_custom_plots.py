@@ -2,6 +2,7 @@
 
 import gevent
 from bliss.common import plot
+from bliss.controllers.lima import roi as lima_roi
 
 
 def test_select_points(flint_session):
@@ -110,13 +111,10 @@ def test_select_shapes__arc(flint_session):
     result = context[0]
     assert len(result) == 1
     roi = result[0]
-    assert isinstance(roi, dict)
-    expected_keys = set(["cx", "cy", "r1", "r2", "a1", "a2"])
-    assert len(expected_keys - roi.keys()) == 0
-    assert roi["kind"] == "Arc"
+    assert isinstance(roi, lima_roi.ArcRoi)
 
 
-def test_select_shapes__rect_reduction(flint_session):
+def test_select_shapes__rect_profile(flint_session):
     flint = plot.get_flint()
     p = plot.plot()
     context = []
@@ -141,8 +139,5 @@ def test_select_shapes__rect_reduction(flint_session):
     result = context[0]
     assert len(result) == 1
     roi = result[0]
-    assert isinstance(roi, dict)
-    expected_keys = set(["origin", "size", "label", "kind", "reduction"])
-    assert len(expected_keys - roi.keys()) == 0
-    assert roi["reduction"]
-    assert roi["kind"] == "Rectangle"
+    assert isinstance(roi, lima_roi.RoiProfile)
+    assert roi.mode == "vertical"

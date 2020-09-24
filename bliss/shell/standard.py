@@ -916,12 +916,8 @@ def edit_roi_counters(detector: Lima, acq_time: Optional[float] = None):
 
     # Retrieve all the ROIs
     selections = []
-    for roi in roi_counters.get_rois():
-        roi_dict = plot_module.convert_roi_to_flint(roi)
-        selections.append(roi_dict)
-    for roi in roi_profiles.get_rois():
-        roi_dict = plot_module.convert_roi_to_flint(roi)
-        selections.append(roi_dict)
+    selections.extend(roi_counters.get_rois())
+    selections.extend(roi_profiles.get_rois())
 
     deviceName = (
         f"{detector.name} [{roi_counters.config_name}, {roi_profiles.config_name}]"
@@ -935,21 +931,18 @@ def edit_roi_counters(detector: Lima, acq_time: Optional[float] = None):
             "rectangle-vertical-profile",
             "rectangle-horizontal-profile",
         ],
+        use_dict_as_result=False,
     )
-
-    result = [plot_module.convert_roi_to_bliss(r) for r in selections]
-    result = [r for r in result if r is not None]
 
     roi_counters.clear()
     roi_profiles.clear()
-    for name, roi, mode in result:
-        if mode is None:
-            roi_counters[name] = roi
+    for roi in selections:
+        if isinstance(roi, lima_roi.RoiProfile):
+            roi_profiles[roi.name] = roi
         else:
-            roi_profiles[name] = roi
-            roi_profiles.set_roi_mode(mode, name)
+            roi_counters[roi.name] = roi
 
-    roi_string = ", ".join(sorted([r[0] for r in result]))
+    roi_string = ", ".join(sorted([s.name for s in selections]))
     print(f"Applied ROIS {roi_string} to {deviceName}")
 
 

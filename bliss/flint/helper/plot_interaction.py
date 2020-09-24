@@ -8,6 +8,7 @@
 from __future__ import annotations
 from typing import Dict
 from typing import Sequence
+from typing import Optional
 
 import numpy
 import logging
@@ -23,6 +24,8 @@ from silx.gui.plot.items.roi import ArcROI
 from silx.gui.plot.items.roi import PointROI
 from silx.gui.plot.items.roi import RegionOfInterest
 from silx.gui.plot.tools.roi import RegionOfInterestManager
+
+from bliss.controllers.lima import roi as lima_roi
 from bliss.flint.widgets.roi_selection_widget import RoiSelectionWidget
 from bliss.flint.widgets.utils import rois as extra_rois
 
@@ -463,7 +466,11 @@ class ShapesSelector(Selector):
             roiClass = self.__mapping[kind]
             self.__kinds.append(roiClass)
 
-    def setInitialShapes(self, initialShapes: Sequence[Dict] = ()):
+    def setInitialShapes(
+        self, initialShapes: Optional[Sequence[lima_roi._BaseRoi]] = None
+    ):
+        if initialShapes is None:
+            initialShapes = []
         self.__initialShapes = initialShapes
 
     def setTimeout(self, timeout):
@@ -472,64 +479,68 @@ class ShapesSelector(Selector):
     def __dictToRois(self, shapes: Sequence[Dict]) -> Sequence[RegionOfInterest]:
         rois = []
         for shape in shapes:
-            kind = shape["kind"].lower()
-            if kind == "rectangle":
-                reduction = shape.get("reduction", None)
-                if reduction is None:
-                    roi = RectangleROI()
-                elif reduction == "horizontal_profile":
+            if isinstance(shape, lima_roi.RoiProfile):
+                if shape.mode == "horizontal":
                     roi = extra_rois.VerticalReductionLimaRoi()
-                elif reduction == "vertical_profile":
+                elif shape.mode == "vertical":
                     roi = extra_rois.HorizontalReductionLimaRoi()
-                roi.setGeometry(origin=shape["origin"], size=shape["size"])
-                roi.setName(shape["label"])
-                rois.append(roi)
-            elif kind == "arc":
+                else:
+                    _logger.error("RoiProfile mode '%s' unsupported", roi.mode)
+                    continue
+                roi.setGeometry(
+                    origin=(shape.x, shape.y), size=(shape.width, shape.height)
+                )
+            elif isinstance(shape, lima_roi.Roi):
+                roi = RectangleROI()
+                roi.setGeometry(
+                    origin=(shape.x, shape.y), size=(shape.width, shape.height)
+                )
+            elif isinstance(shape, lima_roi.ArcRoi):
                 roi = ArcROI()
                 roi.setGeometry(
-                    center=(shape["cx"], shape["cy"]),
-                    innerRadius=shape["r1"],
-                    outerRadius=shape["r2"],
-                    startAngle=numpy.deg2rad(shape["a1"]),
-                    endAngle=numpy.deg2rad(shape["a2"]),
+                    center=(shape.cx, shape.cy),
+                    innerRadius=shape.r1,
+                    outerRadius=shape.r2,
+                    startAngle=numpy.deg2rad(shape.a1),
+                    endAngle=numpy.deg2rad(shape.a2),
                 )
-                roi.setName(shape["label"])
-                rois.append(roi)
             else:
-                raise ValueError(f"Unknown shape of type {kind}")
+                _logger.error("Unknown ROI kind '%s'", type(roi))
+                continue
+            roi.setName(shape.name)
+            rois.append(roi)
         return rois
 
     def __roisToDict(self, rois: Sequence[RegionOfInterest]) -> Sequence[Dict]:
         shapes = []
         for roi in rois:
             if isinstance(roi, RectangleROI):
-                shape = dict(
-                    origin=roi.getOrigin(),
-                    size=roi.getSize(),
-                    label=roi.getName(),
-                    kind="Rectangle",
-                )
+                x, y = roi.getOrigin()
+                w, h = roi.getSize()
+                name = roi.getName()
                 if isinstance(roi, extra_rois.VerticalReductionLimaRoi):
-                    shape["reduction"] = "horizontal_profile"
+                    mode = "horizontal"
+                    shape = lima_roi.RoiProfile(x, y, w, h, mode=mode, name=name)
                 elif isinstance(roi, extra_rois.HorizontalReductionLimaRoi):
-                    shape["reduction"] = "vertical_profile"
-                shapes.append(shape)
+                    mode = "vertical"
+                    shape = lima_roi.RoiProfile(x, y, w, h, mode=mode, name=name)
+                else:
+                    shape = lima_roi.Roi(x, y, w, h, name=name)
             elif isinstance(roi, ArcROI):
-                shape = dict(
-                    cx=roi.getCenter()[0],
-                    cy=roi.getCenter()[1],
-                    r1=roi.getInnerRadius(),
-                    r2=roi.getOuterRadius(),
-                    a1=numpy.rad2deg(roi.getStartAngle()),
-                    a2=numpy.rad2deg(roi.getEndAngle()),
-                    label=roi.getName(),
-                    kind="Arc",
-                )
-                shapes.append(shape)
+                cx = roi.getCenter()[0]
+                cy = roi.getCenter()[1]
+                r1 = roi.getInnerRadius()
+                r2 = roi.getOuterRadius()
+                a1 = numpy.rad2deg(roi.getStartAngle())
+                a2 = numpy.rad2deg(roi.getEndAngle())
+                name = roi.getName()
+                shape = lima_roi.ArcRoi(cx, cy, r1, r2, a1, a2, name=name)
             else:
                 _logger.error(
                     "Unsupported ROI kind %s. ROI skipped from results", type(roi)
                 )
+                continue
+            shapes.append(shape)
         return shapes
 
     def start(self):

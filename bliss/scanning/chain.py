@@ -49,8 +49,12 @@ class StopChain(StopTask):
 def profile(stats_dict, device_name, func_name):
     name = f"{device_name}.{func_name}"
     try:
-        with time_profile(stats_dict, name, logger=_logger):
+        if stats_dict is None:
+            _logger.error(f"No time profiling of {name}")
             yield
+        else:
+            with time_profile(stats_dict, name, logger=_logger):
+                yield
     except StopTask:
         raise
     except BaseException as e:
@@ -76,9 +80,6 @@ class AbstractAcquisitionObjectIterator:
     """Iterate over an AcquisitionObject, yielding self.
     """
 
-    def __init__(self):
-        self._stats_dict = dict()  # will be set by `acq_prepare`
-
     @property
     def acquisition_object(self):
         raise NotImplementedError
@@ -94,10 +95,6 @@ class AbstractAcquisitionObjectIterator:
         if name.startswith("__"):
             raise AttributeError(name)
         return getattr(self.acquisition_object, name)
-
-    def acq_prepare(self, stats_dict):
-        self._stats_dict = stats_dict
-        self.acquisition_object.acq_prepare(stats_dict)
 
 
 class AcquisitionObjectIteratorObsolete(AbstractAcquisitionObjectIterator):
@@ -120,19 +117,19 @@ class AcquisitionObjectIteratorObsolete(AbstractAcquisitionObjectIterator):
             self.acquisition_object.prepare_once or self.acquisition_object.start_once
         )
         if not once:
-            self.acquisition_object.acq_wait_reading(self._stats_dict)
+            self.acquisition_object.acq_wait_reading()
         self.__sequence_index += 1
         return self
 
-    def acq_prepare(self, stats_dict):
+    def acq_prepare(self):
         if self.__sequence_index > 0 and self.acquisition_object.prepare_once:
             return
-        super().acq_prepare(stats_dict)
+        self.acquisition_object.acq_prepare()
 
-    def acq_start(self, stats_dict):
+    def acq_start(self):
         if self.__sequence_index > 0 and self.acquisition_object.start_once:
             return
-        self.acquisition_object.acq_start(stats_dict)
+        self.acquisition_object.acq_start()
 
 
 class AcquisitionObjectIterator(AbstractAcquisitionObjectIterator):
@@ -156,7 +153,7 @@ class AcquisitionObjectIterator(AbstractAcquisitionObjectIterator):
         except StopIteration:
             if not self.__acquisition_object.parent:
                 raise
-            self.__acquisition_object.acq_wait_reading(self._stats_dict)
+            self.__acquisition_object.acq_wait_reading()
             # Restart iterating:
             self.__iterator = iter(self.__acquisition_object)
             self.__current_acq_object = next(self.__iterator)
@@ -263,8 +260,8 @@ class AcquisitionObject:
         prepare_once=False,
         start_once=False,
         ctrl_params=None,
+        stats_dict=None,
     ):
-
         self.__name = name
         self.__parent = None
         self.__channels = AcquisitionChannelList()
@@ -280,6 +277,8 @@ class AcquisitionObject:
             self._ctrl_params = self.init_ctrl_params(self.device, ctrl_params)
         else:
             self._ctrl_params = ctrl_params
+
+        self._stats_dict = stats_dict
 
     def init_ctrl_params(self, device, ctrl_params):
         """ensure that ctrl-params have been completed"""
@@ -434,17 +433,17 @@ class AcquisitionObject:
         # while AcquisitionMaster sometimes has a reading task.
         return hasattr(self, "wait_reading")
 
-    def acq_wait_reading(self, stats_dict):
+    def acq_wait_reading(self):
         """Wait until reading task has finished
         """
         if self.has_reading_task():
-            with profile(stats_dict, self.name, "wait_reading"):
+            with profile(self._stats_dict, self.name, "wait_reading"):
                 self.wait_reading()
 
-    def acq_wait_ready(self, stats_dict):
+    def acq_wait_ready(self):
         """Wait until ready for next acquisition
         """
-        with profile(stats_dict, self.name, "wait_ready"):
+        with profile(self._stats_dict, self.name, "wait_ready"):
             tasks = []
             # The acquistion object is also considered to be
             # ready when the reading task (if any) is not running.
@@ -461,16 +460,16 @@ class AcquisitionObject:
 
     # --------------------------- OVERLOAD ACQ. CHAIN METHODS ---------------------------------------------
 
-    def acq_prepare(self, stats_dict):
+    def acq_prepare(self):
         raise NotImplementedError
 
-    def acq_start(self, stats_dict):
+    def acq_start(self):
         raise NotImplementedError
 
-    def acq_stop(self, stats_dict):
+    def acq_stop(self):
         raise NotImplementedError
 
-    def acq_trigger(self, stats_dict):
+    def acq_trigger(self):
         raise NotImplementedError
 
     # ---------------------POTENTIALLY OVERLOAD METHODS  ----------------------------------------
@@ -560,7 +559,6 @@ class AcquisitionMaster(AcquisitionObject):
         self.__triggers = list()
         self.__duplicated_channels = {}
         self.__prepared = False
-        self.__stats_dict = {}
         self.__terminator = True
 
     @property
@@ -580,9 +578,8 @@ class AcquisitionMaster(AcquisitionObject):
     def terminator(self, terminator):
         self.__terminator = bool(terminator)
 
-    def acq_prepare(self, stats_dict):
-        self.__stats_dict = stats_dict
-        with profile(stats_dict, self.name, "prepare"):
+    def acq_prepare(self):
+        with profile(self._stats_dict, self.name, "prepare"):
             if not self.__prepared:
 
                 for connect, _ in self.__duplicated_channels.values():
@@ -591,27 +588,26 @@ class AcquisitionMaster(AcquisitionObject):
 
             return self.prepare()
 
-    def acq_start(self, stats_dict):
-        with profile(stats_dict, self.name, "start"):
+    def acq_start(self):
+        with profile(self._stats_dict, self.name, "start"):
             dispatcher.send("start", self)
             return_value = self.start()
             return return_value
 
-    def acq_stop(self, stats_dict):
-        with profile(stats_dict, self.name, "stop"):
+    def acq_stop(self):
+        with profile(self._stats_dict, self.name, "stop"):
             if self.__prepared:
                 for _, cleanup in self.__duplicated_channels.values():
                     cleanup()
                 self.__prepared = False
             return self.stop()
 
-    def acq_trigger(self, stats_dict):
-        with profile(stats_dict, self.name, "trigger"):
+    def acq_trigger(self):
+        with profile(self._stats_dict, self.name, "trigger"):
             return self.trigger()
 
     def trigger_slaves(self):
-        stats_dict = self.__stats_dict
-        with profile(stats_dict, self.name, "trigger_slaves"):
+        with profile(self._stats_dict, self.name, "trigger_slaves"):
             invalid_slaves = list()
             for slave, task in self.__triggers:
                 if not slave.trigger_ready() or not task.successful():
@@ -635,13 +631,10 @@ class AcquisitionMaster(AcquisitionObject):
             else:
                 for slave in self.slaves:
                     if slave.trigger_type == TRIGGER_MODE_ENUM.SOFTWARE:
-                        self.__triggers.append(
-                            (slave, gevent.spawn(slave.acq_trigger, stats_dict))
-                        )
+                        self.__triggers.append((slave, gevent.spawn(slave.acq_trigger)))
 
     def wait_slaves(self):
-        stats_dict = self.__stats_dict
-        with profile(stats_dict, self.name, "wait_slaves"):
+        with profile(self._stats_dict, self.name, "wait_slaves"):
             slave_tasks = [task for _, task in self.__triggers]
             join_tasks(slave_tasks)
 
@@ -770,25 +763,25 @@ class AcquisitionSlave(AcquisitionObject):
 
         self._reading_task = None
 
-    def acq_prepare(self, stats_dict):
-        with profile(stats_dict, self.name, "prepare"):
+    def acq_prepare(self):
+        with profile(self._stats_dict, self.name, "prepare"):
             if self._reading_task:
                 raise RuntimeError("%s: Last reading task is not finished." % self.name)
             return self.prepare()
 
-    def acq_start(self, stats_dict):
-        with profile(stats_dict, self.name, "start"):
+    def acq_start(self):
+        with profile(self._stats_dict, self.name, "start"):
             dispatcher.send("start", self)
             self.start()
             if not self._reading_task:
                 self._reading_task = gevent.spawn(self.reading)
 
-    def acq_stop(self, stats_dict):
-        with profile(stats_dict, self.name, "stop"):
+    def acq_stop(self):
+        with profile(self._stats_dict, self.name, "stop"):
             self.stop()
 
-    def acq_trigger(self, stats_dict):
-        with profile(stats_dict, self.name, "trigger"):
+    def acq_trigger(self):
+        with profile(self._stats_dict, self.name, "trigger"):
             if not self._reading_task:
                 dispatcher.send("start", self)
                 self._reading_task = gevent.spawn(self.reading)
@@ -892,11 +885,8 @@ class AcquisitionChainIter:
 
         join_tasks(preset_tasks)
 
-        stats_dict = self.__acquisition_chain_ref()._stats_dict
         for tasks in self._execute(
-            "acq_prepare",
-            stats_dict=stats_dict,
-            wait_between_levels=not self._parallel_prepare,
+            "acq_prepare", wait_between_levels=not self._parallel_prepare
         ):
             join_tasks(tasks)
 
@@ -914,22 +904,20 @@ class AcquisitionChainIter:
 
         join_tasks(preset_tasks)
 
-        stats_dict = self.__acquisition_chain_ref()._stats_dict
-        for tasks in self._execute("acq_start", stats_dict=stats_dict):
+        for tasks in self._execute("acq_start"):
             join_tasks(tasks)
 
-    def wait_all_devices(self, stats_dict):
+    def wait_all_devices(self):
         for acq_obj_iter in self._tree.expand_tree():
             if not isinstance(acq_obj_iter, AbstractAcquisitionObjectIterator):
                 continue
-            acq_obj_iter.acq_wait_reading(stats_dict)
+            acq_obj_iter.acq_wait_reading()
             if isinstance(acq_obj_iter.acquisition_object, AcquisitionMaster):
                 acq_obj_iter.wait_slaves()
             dispatcher.send("end", acq_obj_iter.acquisition_object)
 
     def stop(self):
         all_tasks = []
-        stats_dict = self.__acquisition_chain_ref()._stats_dict
         with capture_exceptions(raise_index=0) as capture:
             # call before_stop on preset
             with capture():
@@ -941,9 +929,7 @@ class AcquisitionChainIter:
                 gevent.joinall(preset_tasks)  # wait to call all before_stop on preset
                 gevent.joinall(preset_tasks, raise_error=True)
 
-            for tasks in self._execute(
-                "acq_stop", stats_dict=stats_dict, master_to_slave=True
-            ):
+            for tasks in self._execute("acq_stop", master_to_slave=True):
                 with KillMask(masked_kill_nb=1):
                     gevent.joinall(tasks)
                 all_tasks.extend(tasks)
@@ -952,7 +938,7 @@ class AcquisitionChainIter:
                 gevent.joinall(all_tasks, raise_error=True)
 
             with capture():
-                self.wait_all_devices(stats_dict)
+                self.wait_all_devices()
 
             with capture():
                 preset_tasks = [
@@ -970,10 +956,7 @@ class AcquisitionChainIter:
         self.__sequence_index += 1
         if self.__sequence_index == 0:
             self._start_time = time.time()
-        stats_dict = self.__acquisition_chain_ref()._stats_dict
-        wait_ready_tasks = self._execute(
-            "acq_wait_ready", stats_dict=stats_dict, master_to_slave=True
-        )
+        wait_ready_tasks = self._execute("acq_wait_ready", master_to_slave=True)
         for tasks in wait_ready_tasks:
             join_tasks(tasks)
         try:
@@ -988,27 +971,21 @@ class AcquisitionChainIter:
             gevent.joinall(preset_tasks)
             gevent.joinall(preset_tasks, raise_error=True)
         except StopIteration:  # should we stop all devices?
-            self.wait_all_devices(stats_dict)
+            self.wait_all_devices()
             raise
         return self
 
-    def _execute(
-        self,
-        func_name,
-        stats_dict=None,
-        master_to_slave=False,
-        wait_between_levels=True,
-    ):
+    def _execute(self, func_name, master_to_slave=False, wait_between_levels=True):
         tasks = list()
-
         prev_level = None
-
+        stats_dict = self.__acquisition_chain_ref()._stats_dict
         if master_to_slave:
             acq_obj_iters = list(self._tree.expand_tree(mode=Tree.WIDTH))[1:]
         else:
             acq_obj_iters = reversed(list(self._tree.expand_tree(mode=Tree.WIDTH))[1:])
 
         for acq_obj_iter in acq_obj_iters:
+            acq_obj_iter.acquisition_object._stats_dict = stats_dict
             node = self._tree.get_node(acq_obj_iter)
             level = self._tree.depth(node)
             if wait_between_levels and prev_level != level:
@@ -1016,10 +993,7 @@ class AcquisitionChainIter:
                 tasks = list()
                 prev_level = level
             func = getattr(acq_obj_iter, func_name)
-            if stats_dict is not None:
-                t = gevent.spawn(func, stats_dict)
-            else:
-                t = gevent.spawn(func)
+            t = gevent.spawn(func)
             _running_task_on_device[acq_obj_iter.acquisition_object] = t
             tasks.append(t)
         yield tasks

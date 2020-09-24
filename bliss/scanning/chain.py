@@ -94,7 +94,7 @@ class AbstractDeviceIterator:
         # while waiting until the device is ready.
         if self.device.has_reading_task():
             # Do not add do time profiling here!
-            tasks.append(gevent.spawn(self.device.acq_wait_reading, self._stats_dict))
+            tasks.append(gevent.spawn(self.device.wait_reading))
         tasks.append(gevent.spawn(self.device.acq_wait_ready, stats_dict))
         join_tasks(tasks, count=1)
         wait_ready_task = tasks.pop(-1)

@@ -907,10 +907,14 @@ class AcquisitionChainIter:
         for tasks in self._execute("acq_start"):
             join_tasks(tasks)
 
-    def wait_all_devices(self):
+    def _acquisition_object_iterators(self):
         for acq_obj_iter in self._tree.expand_tree():
             if not isinstance(acq_obj_iter, AbstractAcquisitionObjectIterator):
                 continue
+            yield acq_obj_iter
+
+    def wait_all_devices(self):
+        for acq_obj_iter in self._acquisition_object_iterators():
             acq_obj_iter.acq_wait_reading()
             if isinstance(acq_obj_iter.acquisition_object, AcquisitionMaster):
                 acq_obj_iter.wait_slaves()
@@ -961,9 +965,7 @@ class AcquisitionChainIter:
             join_tasks(tasks)
         try:
             if self.__sequence_index:
-                for acq_obj_iter in self._tree.expand_tree():
-                    if acq_obj_iter is "root":
-                        continue
+                for acq_obj_iter in self._acquisition_object_iterators():
                     next(acq_obj_iter)
             preset_tasks = [
                 gevent.spawn(i.stop) for i in self._current_preset_iterators_list

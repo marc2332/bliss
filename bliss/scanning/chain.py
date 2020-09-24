@@ -73,6 +73,9 @@ def join_tasks(greenlets, **kw):
 
 
 class AbstractAcquisitionObjectIterator:
+    """Iterate over an AcquisitionObject, yielding self.
+    """
+
     def __init__(self):
         self._stats_dict = dict()  # will be set by `acq_prepare`
 
@@ -81,6 +84,8 @@ class AbstractAcquisitionObjectIterator:
         raise NotImplementedError
 
     def __next__(self):
+        """Returns self
+        """
         raise NotImplementedError
 
     def __getattr__(self, name):
@@ -95,7 +100,10 @@ class AbstractAcquisitionObjectIterator:
         self.acquisition_object.acq_prepare(stats_dict)
 
 
-class AcquisitionObjectIterator(AbstractAcquisitionObjectIterator):
+class AcquisitionObjectIteratorObsolete(AbstractAcquisitionObjectIterator):
+    """Use for acquisition objects that are not iterable.
+    """
+
     def __init__(self, acquisition_object):
         super().__init__()
         self.__acquisition_object_ref = weakref.ref(acquisition_object)
@@ -108,13 +116,11 @@ class AcquisitionObjectIterator(AbstractAcquisitionObjectIterator):
     def __next__(self):
         if not self.acquisition_object.parent:
             raise StopIteration
-        else:
-            if (
-                not self.acquisition_object.prepare_once
-                and not self.acquisition_object.start_once
-            ):
-                if self.acquisition_object.has_reading_task():
-                    self.acquisition_object.acq_wait_reading(self._stats_dict)
+        once = (
+            self.acquisition_object.prepare_once or self.acquisition_object.start_once
+        )
+        if not once:
+            self.acquisition_object.acq_wait_reading(self._stats_dict)
         self.__sequence_index += 1
         return self
 
@@ -129,30 +135,35 @@ class AcquisitionObjectIterator(AbstractAcquisitionObjectIterator):
         self.acquisition_object.acq_start(stats_dict)
 
 
-class AcquisitionObjectIteratorWrapper(AbstractAcquisitionObjectIterator):
+class AcquisitionObjectIterator(AbstractAcquisitionObjectIterator):
+    """Use for acquisition objects that are iterable.
+    """
+
     def __init__(self, acquisition_object):
         super().__init__()
         self.__acquisition_object = weakref.proxy(acquisition_object)
         self.__iterator = iter(acquisition_object)
-        self.__current = None
+        self.__current_acq_object = None
         next(self)
 
     @property
     def acquisition_object(self):
-        return self.__current
+        return self.__current_acq_object
 
     def __next__(self):
         try:
-            self.__current = next(self.__iterator)
+            self.__current_acq_object = next(self.__iterator)
         except StopIteration:
             if not self.__acquisition_object.parent:
                 raise
             self.__acquisition_object.acq_wait_reading(self._stats_dict)
+            # Restart iterating:
             self.__iterator = iter(self.__acquisition_object)
-            self.__current = next(self.__iterator)
+            self.__current_acq_object = next(self.__iterator)
         except Exception as e:
             e.args = (self.__acquisition_object.name, *e.args)
             raise
+        return self
 
 
 class ChainPreset:
@@ -406,6 +417,14 @@ class AcquisitionObject:
                 f"Cannot add counter {counter.name}: acquisition controller mismatch {counter._counter_controller} != {self.device}"
             )
 
+    def get_iterator(self):
+        try:
+            iter(self)
+        except NotImplementedError:
+            return AcquisitionObjectIteratorObsolete(self)
+        else:
+            return AcquisitionObjectIterator(self)
+
     # --------------------------- ACQ. CHAIN METHODS ---------------------------------------------
 
     def has_reading_task(self):
@@ -505,6 +524,11 @@ class AcquisitionObject:
     def wait_ready(self):
         # wait until ready for next acquisition
         pass
+
+    def __iter__(self):
+        """Needs to yield AcquisitionObject instances when implemented
+        """
+        raise NotImplementedError
 
 
 class AcquisitionMaster(AcquisitionObject):
@@ -819,16 +843,10 @@ class AcquisitionChainIter:
             if not isinstance(acq_obj, AcquisitionObject):
                 continue
             node = acquisition_chain._tree.get_node(acq_obj)
-            parent = acqobj2iter.get(node.bpointer, "root")
-            try:
-                iter(acq_obj)
-            except TypeError:
-                acq_obj_iter = AcquisitionObjectIterator(acq_obj)
-            else:
-                acq_obj_iter = AcquisitionObjectIteratorWrapper(acq_obj)
-            acqobj2iter[acq_obj] = acq_obj_iter
+            parent_acq_obj_iter = acqobj2iter.get(node.bpointer, "root")
+            acqobj2iter[acq_obj] = acq_obj_iter = acq_obj.get_iterator()
             self._tree.create_node(
-                tag=acq_obj.name, identifier=acq_obj_iter, parent=parent
+                tag=acq_obj.name, identifier=acq_obj_iter, parent=parent_acq_obj_iter
             )
 
     @property

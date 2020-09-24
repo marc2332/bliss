@@ -90,21 +90,6 @@ class AbstractAcquisitionObjectIterator:
             raise AttributeError(name)
         return getattr(self.acquisition_object, name)
 
-    def acq_wait_ready(self, stats_dict):
-        tasks = []
-        # Check whether the reading task is healthy while
-        # waiting until the acquisition object is ready.
-        if self.acquisition_object.has_reading_task():
-            # Do not add to wait_reading time profiling here!
-            tasks.append(gevent.spawn(self.acquisition_object.wait_reading))
-        tasks.append(gevent.spawn(self.acquisition_object.acq_wait_ready, stats_dict))
-        join_tasks(tasks, count=1)
-        wait_ready_task = tasks.pop(-1)
-        try:
-            return wait_ready_task.get()
-        finally:
-            gevent.killall(tasks, exception=StopTask)
-
     def acq_prepare(self, stats_dict):
         self._stats_dict = stats_dict
         self.acquisition_object.acq_prepare(stats_dict)
@@ -421,7 +406,56 @@ class AcquisitionObject:
                 f"Cannot add counter {counter.name}: acquisition controller mismatch {counter._counter_controller} != {self.device}"
             )
 
+    # --------------------------- ACQ. CHAIN METHODS ---------------------------------------------
+
+    def has_reading_task(self):
+        """Returns True when the underlying device has a reading task.
+        """
+        # TODO: very convoluted. AcquisitionSlave always has a reading task
+        # while AcquisitionMaster sometimes has a reading task.
+        return hasattr(self, "wait_reading")
+
+    def acq_wait_reading(self, stats_dict):
+        """Wait until reading task has finished
+        """
+        if self.has_reading_task():
+            with profile(stats_dict, self.name, "wait_reading"):
+                self.wait_reading()
+
+    def acq_wait_ready(self, stats_dict):
+        """Wait until ready for next acquisition
+        """
+        with profile(stats_dict, self.name, "wait_ready"):
+            tasks = []
+            # The acquistion object is also considered to be
+            # ready when the reading task (if any) is not running.
+            if self.has_reading_task():
+                # No time profiling of wait_reading here!
+                tasks.append(gevent.spawn(self.wait_reading))
+            tasks.append(gevent.spawn(self.wait_ready))
+            join_tasks(tasks, count=1)
+            wait_ready_task = tasks.pop(-1)
+            try:
+                return wait_ready_task.get()
+            finally:
+                gevent.killall(tasks, exception=StopTask)
+
+    # --------------------------- OVERLOAD ACQ. CHAIN METHODS ---------------------------------------------
+
+    def acq_prepare(self, stats_dict):
+        raise NotImplementedError
+
+    def acq_start(self, stats_dict):
+        raise NotImplementedError
+
+    def acq_stop(self, stats_dict):
+        raise NotImplementedError
+
+    def acq_trigger(self, stats_dict):
+        raise NotImplementedError
+
     # ---------------------POTENTIALLY OVERLOAD METHODS  ----------------------------------------
+
     def apply_parameters(self):
         """Load controller parameters into hardware controller at the beginning of each scan"""
         from bliss.controllers.counter import CounterController
@@ -457,30 +491,8 @@ class AcquisitionObject:
         """
         return None
 
-    # --------------------------- OVERLOAD ACQ. CHAIN METHODS ---------------------------------------------
-
-    def acq_prepare(self, stats_dict):
-        raise NotImplementedError
-
-    def acq_start(self, stats_dict):
-        raise NotImplementedError
-
-    def acq_stop(self, stats_dict):
-        raise NotImplementedError
-
-    def acq_trigger(self, stats_dict):
-        raise NotImplementedError
-
-    def acq_wait_ready(self, stats_dict):
-        raise NotImplementedError
-
-    def acq_wait_reading(self, stats_dict):
-        raise NotImplementedError
-
-    def has_reading_task(self):
-        return hasattr(self, "wait_reading")
-
     # --------------------------- OVERLOAD METHODS  ---------------------------------------------
+
     def prepare(self):
         raise NotImplementedError
 
@@ -489,6 +501,10 @@ class AcquisitionObject:
 
     def stop(self):
         raise NotImplementedError
+
+    def wait_ready(self):
+        # wait until ready for next acquisition
+        pass
 
 
 class AcquisitionMaster(AcquisitionObject):
@@ -568,15 +584,6 @@ class AcquisitionMaster(AcquisitionObject):
     def acq_trigger(self, stats_dict):
         with profile(stats_dict, self.name, "trigger"):
             return self.trigger()
-
-    def acq_wait_ready(self, stats_dict):
-        with profile(stats_dict, self.name, "wait_ready"):
-            self.wait_ready()
-
-    def acq_wait_reading(self, stats_dict):
-        if self.has_reading_task():
-            with profile(stats_dict, self.name, "wait_reading"):
-                self.wait_reading()
 
     def trigger_slaves(self):
         stats_dict = self.__stats_dict
@@ -763,20 +770,9 @@ class AcquisitionSlave(AcquisitionObject):
                 self._reading_task = gevent.spawn(self.reading)
             self.trigger()
 
-    def acq_wait_ready(self, stats_dict):
-        with profile(stats_dict, self.name, "wait_ready"):
-            self.wait_ready()
-
-    def acq_wait_reading(self, stats_dict):
-        with profile(stats_dict, self.name, "wait_reading"):
-            self.wait_reading()
-
     def wait_reading(self):
         if self._reading_task is not None:
             self._reading_task.get()
-
-    def has_reading_task(self):
-        return True
 
     # --------------------------- OVERLOAD METHODS  ---------------------------------------------
 

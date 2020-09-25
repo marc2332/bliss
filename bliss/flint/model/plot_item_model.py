@@ -227,6 +227,10 @@ class McaPlot(plot_model.Plot):
         self.__deviceName = name
 
 
+class OneDimDataPlot(McaPlot):
+    """Hack for now to display Lima 1D ROI inside a right widget"""
+
+
 class McaItem(plot_model.Item):
     """Define a MCA as part of a plot.
 

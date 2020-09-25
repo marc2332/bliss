@@ -204,6 +204,7 @@ class ManageMainBehaviours(qt.QObject):
         from bliss.flint.widgets.image_plot import ImagePlotWidget
         from bliss.flint.widgets.scatter_plot import ScatterPlotWidget
         from bliss.flint.widgets.ct_widget import CtWidget
+        from bliss.flint.widgets.one_dim_data_plot import OneDimDataPlotWidget
 
         mapping = [
             (CurvePlotWidget, plot_item_model.CurvePlot),
@@ -211,6 +212,7 @@ class ManageMainBehaviours(qt.QObject):
             (ImagePlotWidget, plot_item_model.ImagePlot),
             (ScatterPlotWidget, plot_item_model.ScatterPlot),
             (CtWidget, plot_item_model.ScalarPlot),
+            (OneDimDataPlotWidget, plot_item_model.OneDimDataPlot),
         ]
 
         for k, v in mapping:
@@ -283,6 +285,11 @@ class ManageMainBehaviours(qt.QObject):
             return []
         plots = [p for p in availablePlots if isinstance(p, compatibleModel)]
         windowTitle = widget.windowTitle()
+        if issubclass(
+            compatibleModel, (plot_item_model.ImagePlot, plot_item_model.OneDimDataPlot)
+        ):
+            windowTitle = windowTitle.split(" ")[0]
+
         if issubclass(
             compatibleModel, (plot_item_model.ImagePlot, plot_item_model.McaPlot)
         ):
@@ -458,7 +465,9 @@ class ManageMainBehaviours(qt.QObject):
 
         title = plotModel.name()
         if title is None:
-            if isinstance(
+            if isinstance(plotModel, plot_item_model.OneDimDataPlot):
+                title = plotModel.deviceName() + " (1D rois)"
+            elif isinstance(
                 plotModel, (plot_item_model.ImagePlot, plot_item_model.McaPlot)
             ):
                 title = plotModel.deviceName()

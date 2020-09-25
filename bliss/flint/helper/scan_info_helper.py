@@ -657,15 +657,24 @@ def infer_plot_models(scan_info: Dict) -> List[plot_model.Plot]:
     # MCA plot
 
     mca_plots_per_device: Dict[str, List[plot_model.Plot]] = {}
+    roi1d_plots_per_device: Dict[str, List[plot_model.Plot]] = {}
 
     for _master, channels in acquisition_chain.items():
         spectra: List[str] = []
-        spectra += channels.get("spectra", [])
-        # merge master which are spectra
+        rois1d: List[str] = []
+
+        channel_names = []
+        channel_names += channels.get("spectra", [])
         if "spectra" in channels:
             for c in channels.get("master", {}).get("spectra", []):
                 if c not in spectra:
                     spectra.append(c)
+
+        for c in channel_names:
+            if ":roi_profiles:" in c:
+                rois1d.append(c)
+            else:
+                rois1d.append(c)
 
         for spectrum_name in spectra:
             device_name = get_device_from_channel(spectrum_name)
@@ -682,7 +691,23 @@ def infer_plot_models(scan_info: Dict) -> List[plot_model.Plot]:
             item.setMcaChannel(mca_channel)
             plot.addItem(item)
 
+        for roi1d_name in rois1d:
+            device_name = get_device_from_channel(roi1d_name)
+            plot = roi1d_plots_per_device.get(device_name, None)
+            if plot is None:
+                plot = plot_item_model.OneDimDataPlot()
+                plot.setDeviceName(device_name)
+                roi1d_plots_per_device[device_name] = plot
+            if default_plot is None:
+                default_plot = plot
+
+            mca_channel = plot_model.ChannelRef(plot, roi1d_name)
+            item = plot_item_model.McaItem(plot)
+            item.setMcaChannel(mca_channel)
+            plot.addItem(item)
+
     result.extend(mca_plots_per_device.values())
+    result.extend(roi1d_plots_per_device.values())
 
     # Image plot
 

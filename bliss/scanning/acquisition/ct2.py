@@ -12,6 +12,7 @@ import gevent.event
 
 from bliss.common import event
 from bliss.scanning.chain import AcquisitionMaster
+from bliss.scanning.channel import AcquisitionChannel
 from bliss.scanning.acquisition.counter import IntegratingCounterAcquisitionSlave
 from bliss.controllers.ct2.device import (
     AcqMode,
@@ -145,11 +146,18 @@ class CT2VarTimeAcquisitionMaster(CT2AcquisitionMaster):
             device, prepare_once=False, start_once=False, npoints=1, **kwargs
         )
 
+        self._channel_time = AcquisitionChannel("acq_time", numpy.double, (), unit="s")
+        self.channels.extend((self._channel_time,))
+
     def __iter__(self):
         npoints = len(self._acq_expo_times)
         for expo_time in self._acq_expo_times:
             self.acq_expo_time = expo_time
             yield self
+
+    def prepare(self):
+        self._channel_time.emit(self.acq_expo_time)
+        super().prepare()
 
     def start(self):
         if (

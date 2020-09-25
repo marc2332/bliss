@@ -56,6 +56,11 @@ class McaAcquisitionSlave(AcquisitionSlave):
         else:
             trigger_type = McaAcquisitionSlave.HARDWARE
 
+        if isinstance(preset_time, list):
+            prepare_once = False
+            start_once = False
+            npoints = 1
+
         # Parent call
         super().__init__(
             *mca_or_mca_counters,
@@ -75,7 +80,15 @@ class McaAcquisitionSlave(AcquisitionSlave):
 
         # Extra arguments
         self.block_size = block_size
-        self.preset_time = preset_time
+        # Manage scans using software trigger with variable preset_time per point
+        if isinstance(preset_time, list):
+            self.preset_time_list = preset_time
+            self.preset_time_index = 0
+            self.preset_time = preset_time[0]
+        else:
+            self.preset_time_list = None
+            self.preset_time_index = 0
+            self.preset_time = preset_time
         self.trigger_mode = trigger_mode
         self.polling_time = polling_time
         self.spectrum_size = spectrum_size
@@ -86,6 +99,9 @@ class McaAcquisitionSlave(AcquisitionSlave):
         self._pending_datas = gevent.queue.Queue()
 
         # Add counters
+        self._trigger_event = gevent.event.Event()
+        # should be True for the first wait_ready
+        self._trigger_event.set()
 
     # Counter management
 
@@ -132,6 +148,12 @@ class McaAcquisitionSlave(AcquisitionSlave):
         if self.soft_trigger_mode:
             # SOFTWARE
             self.device.preset_mode = PresetMode.REALTIME
+            # manage variable integration time.
+            # in this mode the mca prepare method is call at ech point
+            if self.preset_time_list is not None:
+                if self.preset_time_index < len(self.preset_time_list):
+                    self.preset_time = self.preset_time_list[self.preset_time_index]
+                    self.preset_time_index += 1
             self.device.preset_value = self.preset_time
             self.read_all_triggers = True  # forced to True with this trig mode
 
@@ -169,7 +191,13 @@ class McaAcquisitionSlave(AcquisitionSlave):
 
     def trigger(self):
         """Send a software trigger."""
+        self._trigger_event.clear()
         self.device.trigger()
+        self._trigger_event.set()
+
+    def wait_ready(self):
+        if self.preset_time_list is not None:
+            self._trigger_event.wait()
 
     def reading(self):
         """Spawn by the chain."""

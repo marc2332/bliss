@@ -217,6 +217,11 @@ class TooltipItemManager:
         # Get a visible item
         if plotModel is None:
             return None
+        if isinstance(plotModel, plot_item_model.ImagePlot):
+            # Do not display it for ImagePlot
+            # It's just dump information
+            return None
+
         selectedItem = None
         for item in plotModel.items():
             if item.isVisible():

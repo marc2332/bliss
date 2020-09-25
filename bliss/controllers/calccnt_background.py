@@ -1,10 +1,18 @@
+# -*- coding: utf-8 -*-
+#
+# This file is part of the bliss project
+#
+# Copyright (c) 2015-2020 Beamline Control Unit, ESRF
+# Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 from bliss.config import settings
 
 from bliss.common.scans import ct
+from bliss.common.cleanup import cleanup
 from bliss.controllers.counter import CalcCounterController
 from bliss.common.counter import IntegratingCounter
 from bliss.scanning.acquisition.calc import CalcCounterAcquisitionSlave
+from bliss.common.logtools import user_print
 
 
 class BackgroundCalcCounterController(CalcCounterController):
@@ -77,18 +85,20 @@ class BackgroundCalcCounterController(CalcCounterController):
                 self.take_background_data(time)
             else:
                 # Close beam
-                background_object_state = self.background_object.state
+                self.background_object_state = self.background_object.state
                 self.background_object.close()
-
                 # take background
                 if self.background_object.state == "CLOSED":
-                    self.take_background_data(time)
-                    if background_object_state == "OPEN":
-                        self.background_object.open()
+                    with cleanup(self._close):
+                        self.take_background_data(time)
                 else:
-                    print(
+                    user_print(
                         "Close functions did not succeed, Backgrounds have not been changed !!!"
                     )
+
+    def _close(self):
+        if self.background_object_state == "OPEN":
+            self.background_object.open()
 
     def take_background_data(self, time):
         scan_ct = ct(time, self.inputs, run=False)
@@ -100,7 +110,7 @@ class BackgroundCalcCounterController(CalcCounterController):
             background = data_background[cnt.name][0]
             self.background_setting[tag] = data_background[cnt.name][0]
             self.background_setting["background_time"] = time
-            print(f"{cnt.name} - {background}")
+            user_print(f"{cnt.name} - {background}")
 
     def calc_function(self, input_dict):
         value = {}

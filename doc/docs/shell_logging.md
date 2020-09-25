@@ -424,4 +424,4 @@ Read more information at [Bliss Device Map](dev_instance_map.md)
 ## Electronic logbook
 
 The user can use [elog_print](shell_std_func.md#elog_print) and [elog_add](shell_std_func.md#elog_add)
-to send "comment" messages to the logbook.
+to send "comments" to the logbook.

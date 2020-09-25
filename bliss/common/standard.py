@@ -24,8 +24,6 @@ from bliss.common.soft_axis import SoftAxis
 from bliss.common.counter import SoftCounter
 from bliss.common.cleanup import cleanup, error_cleanup
 from bliss.common import cleanup as cleanup_mod
-from bliss.common import logtools
-from bliss.common.logtools import *
 from bliss.common.logtools import user_print, disable_user_output
 from bliss.common.interlocks import interlock_state
 from bliss.controllers.motors import esrf_undulator
@@ -46,7 +44,6 @@ __all__ = (
         "reset_equipment",
     ]
     + scans.__all__
-    + logtools.__all__
     + ["cleanup", "error_cleanup", "plot"]
     + ["SoftAxis", "SoftCounter"]
 )

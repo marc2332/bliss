@@ -21,6 +21,7 @@ from bliss import global_map, current_session
 
 
 __all__ = [
+    # Destination: beacon and the user
     "log_debug",
     "log_debug_data",
     "log_info",
@@ -28,11 +29,25 @@ __all__ = [
     "log_error",
     "log_critical",
     "log_exception",
+    # Destination: the electronic logbook
+    "elog_print",
+    "elog_debug",
+    "elog_info",
+    "elog_warning",
+    "elog_error",
+    "elog_critical",
+    # Destination: the user
+    "user_print",
+    "user_debug",
+    "user_info",
+    "user_warning",
+    "user_error",
+    "user_critical",
+    # Utilities:
+    "get_logger",
     "set_log_format",
     "hexify",
     "asciify",
-    "get_logger",
-    "elog_print",
 ]
 
 

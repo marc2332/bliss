@@ -1,13 +1,26 @@
 # Adding logging and mapping capabilities to Controller
 
-
 To know how to use logging inside the shell, see: [Shell Logging](shell_logging.md)
 
 To know more about mapping and how to use it, see: [Session map](dev_instance_map.md)
 
+## Summary
+
+Whenever you want to log or print something in a controller, there are three sets
+of functions you can choose from, depending on the intended destination of
+the message you want to log or print:
+
+ * [log_debug, log_warning, ...](dev_maplog_controller.md#log_debug-log_info) send to Beacon (subject to `debugon`/`debugoff`)
+ * [user_print, user_warning, ...](dev_maplog_controller.md#user_debug-user_info) show the user (subject to `disable_user_output`)
+ * [elog_print, elog_warning, ...](dev_maplog_controller.md#elog_debug-elog_info) send to the electronic logbook (not subjected to anything)
+
+Whenever you feel the urge the use `print`, you should use `user_print` because the "user"
+is not necessarily stdout. When it concerns a warning or error message however, consider
+using `user_warning` or `user_error` instead.
+
 ## Logging and Mapping
 
-*Logging* and *Mapping* instances are strictly related in Bliss: every instance
+*Logging* and *Mapping* instances is strictly related in Bliss: every instance
 should be registered to the *session map* before gaining *logging features*.
 
 ## How to Register an instance
@@ -51,14 +64,14 @@ assign a proper name anyway.
     first call to a `log_` method will do it for you automatically.
 
 
-## How to Create a nice session map
+## How to Create a session map
 
 The **map** is in fact a Graph that wants to register every relevant
 instance of a Session, including: Controller, Connections, Devices,
 Axis, and so on.
 
 When registering an instance, it is convenient to add as much information as
-possible in order to use them later for visualiziong or to apply any sort of
+possible in order to use them later for visualizing or to apply any sort of
 elaboration.
 
 For this reason is important to add:
@@ -236,31 +249,44 @@ As a user you can create more string-type nodes if you want.
 "controllers".**
 
 
-## BlissLogger
+## Using the logtools
 
-Bliss provides a BlissLogger for instances/devices that gives some additional power.
+Bliss provides a `BlissLogger` for instances/devices that gives some additional power.
 
 Normally you don't need to care about this fact except that you can use some
-more functionalities in respect to normal Python `logging.Logger`.
+more functionalities in respect to normal Python `logging.Logger(__name__)`.
 
-This is how you can normally proceed to write a controller:
+This is how you can normally proceed add logging and printing to a controller:
 
-1. Import `logtools`: `from bliss.common.logtools import *`
-2. With this, the following functions get accessible:
-
-  * `log_debug()`
-  * `log_debug_data()`
-  * `log_info()`
-  * `log_warning()`
-  * `log_error()`
-  * `log_exception()`
-  * `log_critical()`
-  * `debugon()`
-  * `debugoff()`
-  * `set_log_format()`
-  * `hexify()`
-  * `asciify()`
-  * `get_logger()`
+ 1. Import `logtools`: `from bliss.common.logtools import *`
+ 2. Logging utility functions to send messages to Beacon and the user:
+    * `log_debug()`
+    * `log_debug_data()`
+    * `log_info()`
+    * `log_warning()`
+    * `log_error()`
+    * `log_critical()`
+    * `log_exception()`
+ 3. Configure the logging utility functions above:
+    * `get_logger()`
+    * `set_log_format()`
+    * `hexify()`
+    * `asciify()`
+ 4. Send messages to the user:
+    * `user_debug()`
+    * `user_info()`
+    * `user_warning()`
+    * `user_error()`
+    * `user_critical()`
+    * `user_print()`
+    * `disable_user_output()`
+ 5. Send messages to the electronic logbook:
+    * `elog_debug()`
+    * `elog_info()`
+    * `elog_warning()`
+    * `elog_error()`
+    * `elog_critical()`
+    * `elog_print()`
 
 
 ### log_debug, log_info, ...
@@ -321,11 +347,9 @@ DEMO [33]: hexify(bytes([i for i in range(0,100)]))
    \\x58\\x59\\x5a\\x5b\\x5c\\x5d\\x5e\\x5f\\x60\\x61\\x62\\x63'
 ```
 
-
-
 ### debugon() and debugoff()
 
-Simply to set logging level to DEBUG or reset to default level.
+The methods are available in the [shell](shell_logging.md#debugon-debugoff). They allow setting the logging level to DEBUG or reset to default level.
 
 Let's show an example:
 
@@ -351,7 +375,33 @@ Setting session.controllers.MyController to hide debug messages
 DEMO [63]: mycon.work()  # nothing shows
 ```
 
-##More complex example
+### user_debug, user_info, ...
+
+Instead of using `print` to show a message to the user, the command `user_print` should be used.
+This allows output to be disabled in a context manager:
+
+```python
+with disable_user_output():
+    for axis in axes_list:
+        axis.hw_limit(limit, wait=False)
+```
+
+In addition there are the functions `user_debug`, `user_info`, `user_warning` and `user_error`
+which decorate the message with a level prefix. As opposed to `user_print`, these functions
+are subject to the log level of `bliss.common.logtools.userlogger` (NOTSET by default).
+
+### elog_debug, elog_info, ...
+
+The user can use [elog_print](shell_std_func.md#elog_print) and [elog_add](shell_std_func.md#elog_add) to send
+"comments" to the logbook.
+
+In addition there are the functions `elog_debug`, `elog_info`, `elog_warning` and `elog_error`
+which send level notifications to the electronic logbook. As opposed to `elog_print`, these functions
+are subject to the log level of `bliss.common.logtools.elogbook` (NOTSET by default).
+
+The function `elog_command` can be used to log the execution of a particular function.
+
+## More complex example
 
 First defining a class MyConnection:
 
@@ -403,28 +453,3 @@ DEMO [99]: mycontroller.work()
 DEMO [100]:
 ```
 
-## User logging
-
-Instead of using `print` to show a message to the user, the command `user_print` should be used.
-This allows output to be disabled in a context manager:
-
-```python
-with disable_user_output():
-    for axis in axes_list:
-        axis.hw_limit(limit, wait=False)
-```
-
-In addition there are the functions `user_debug`, `user_info`, `user_warning` and `user_error`
-which decorate the message with a level prefix. As opposed to `user_print`, these functions
-are subject to the log level of `bliss.common.logtools.userlogger` and its handlers.
-
-## Electronic logbook
-
-The user can use [elog_print](shell_std_func.md#elog_print) and [elog_add](shell_std_func.md#elog_add) to send
-"comment" messages to the logbook.
-
-In addition there are the functions `elog_debug`, `elog_info`, `elog_warning` and `elog_error`
-which send level notifications to the electronic logbook. As opposed to `elog_print`, these functions
-are subject to the log level of `bliss.common.logtools.elogbook` and its handlers.
-
-The function `elog_command` can be used to log the execution of a particular function.

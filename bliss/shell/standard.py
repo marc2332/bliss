@@ -71,7 +71,7 @@ from bliss.common.scans import *
 from bliss.scanning.scan import Scan
 
 from bliss.common import logtools
-from bliss.common.logtools import *
+from bliss.common.logtools import elog_print
 from bliss.common.interlocks import interlock_state
 from bliss.common.session import get_current_session
 from bliss.data import lima_image
@@ -171,14 +171,12 @@ __all__ = (
         "where",
         "fwhm",
         "menu",
-        "lprint",
-        "ladd",
         "pprint",
         "find_position",
         "goto_custom",
     ]
     + scans.__all__
-    + logtools.__all__
+    + ["lprint", "ladd", "elog_print", "elog_add"]
     + [
         "cleanup",
         "error_cleanup",
@@ -1229,7 +1227,7 @@ def elog_add(index=-1):
 
 @logtools.elogbook.disable_command_logging
 def lprint(*args, **kw):
-    logtools.elog_print(*args, **kw)
+    elog_print(*args, **kw)
     logtools.user_warning(
         "message is send but use 'elog_print' instead of 'lprint' in the future"
     )

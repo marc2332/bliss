@@ -926,12 +926,11 @@ def edit_roi_counters(detector: Lima, acq_time: Optional[float] = None):
     selections = plot_proxy.select_shapes(
         selections,
         kinds=[
-            "rectangle",
-            "arc",
-            "rectangle-vertical-profile",
-            "rectangle-horizontal-profile",
+            "lima-rectangle",
+            "lima-arc",
+            "lima-vertical-profile",
+            "lima-horizontal-profile",
         ],
-        use_dict_as_result=False,
     )
 
     roi_counters.clear()

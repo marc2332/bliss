@@ -197,60 +197,28 @@ class BasePlot(object):
         self,
         initial_selection: typing.Optional[typing.List[typing.Any]] = None,
         kinds: typing.Union[str, typing.List[str]] = "rectangle",
-        use_dict_as_result=True,
     ):
         """
         Request user selection of shapes.
 
         `initial_selection` is a list of ROIs from `bliss.controllers.lima.roi`.
 
-        For compatibility, a rectangle ROI still can be described as a key-value
-        dictionary. It contains "kind" (which is "Rectangle"), and "label",
-            "origin" and "size" which are tuples of 2 floats.
+        It also supports key-value dictionary for simple rectangle.
+        In this case, the dictionary contains "kind" (which is "Rectangle"),
+        and "label", "origin" and "size" which are tuples of 2 floats.
 
         Arguments:
             initial_selection: List of shapes already selected.
-            kinds: Kind of shapes the user can create
-            use_dict_as_result: If True, rectangle ROIs are passed as a
-                dictionary for compatibility. If false, a list of `bliss.controllers.lima.roi`
-                only is always returned.
+            kinds: List or ROI kind which can be created (for now, "rectangle"
+                (described as a dict), "lima-rectangle", "lima-arc",
+                "lima-vertical-profile",
+                "lima-horizontal-profile")
         """
-        from bliss.controllers.lima import roi as lima_roi
-
         flint = self._flint
-
-        if initial_selection is not None:
-            initial_selection = list(initial_selection)
-            # Retro compatibility
-            for i, roi in enumerate(initial_selection):
-                if not isinstance(roi, dict):
-                    continue
-                kind = roi["kind"].lower()
-                assert kind == "rectangle"
-                x, y = map(int, map(round, roi["origin"]))
-                w, h = map(int, map(round, roi["size"]))
-                name = roi.get["label"]
-                roi = lima_roi.Roi(x, y, w, h, name)
-                initial_selection[i] = roi
-
         request_id = flint.request_select_shapes(
             self._plot_id, initial_selection, kinds=kinds
         )
         result = self._wait_for_user_selection(request_id)
-
-        if use_dict_as_result:
-            # Retro compatibility
-            for i, roi in enumerate(result):
-                if not type(roi) == lima_roi.Roi:
-                    continue
-                roi = dict(
-                    kind="Rectangle",
-                    origin=(roi.x, roi.y),
-                    size=(roi.width, roi.height),
-                    label=roi.name,
-                )
-                result[i] = roi
-
         return result
 
     def select_points(self, nb):

@@ -585,14 +585,16 @@ class FlintApi:
         """
         Request a shape selection in a specific plot and return the selection.
 
-        A shape is described as a ROI object from `bliss.controllers.lima.roi`.
+        A shape is described as a ROI object from `bliss.controllers.lima.roi`,
+        or a dictionary for shapes.
 
         Arguments:
             plot_id: Identifier of the plot
             initial_shapes: A list of shapes describing the current selection.
             timeout: A timeout to enforce the user to do a selection
-            kinds: List or ROI kind which can be created (for now, "rectangle",
-                "arc", "rectangle-vertical-profile", "rectangle-horizontal-profile")
+            kinds: List or ROI kind which can be created (for now, "rectangle"
+            (described as a dict), "lima-rectangle", "lima-arc", "lima-vertical-profile",
+            "lima-horizontal-profile")
 
         Return:
             This method returns an event name which have to be registered to

@@ -92,7 +92,7 @@ def test_select_shapes__arc(flint_session):
     context = []
 
     def active_gui():
-        result = p.select_shapes(kinds=["arc"])
+        result = p.select_shapes(kinds=["lima-arc"])
         context.append(result)
 
     def do_actions():
@@ -120,7 +120,7 @@ def test_select_shapes__rect_profile(flint_session):
     context = []
 
     def active_gui():
-        result = p.select_shapes(kinds=["rectangle-vertical-profile"])
+        result = p.select_shapes(kinds=["lima-vertical-profile"])
         context.append(result)
 
     def do_actions():

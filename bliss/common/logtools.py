@@ -134,8 +134,8 @@ Print a log message associated to a specific instance.
 
 Normally instance is self if we are inside a class, but could
 be any instance that you would like to log.
-Notice that if the instance will be registered automatically
-if is not jet in the device map.\n\n
+Note that the instance will be registered automatically
+with the device map if not already registered.\n\n
 
 Args:
     msg: string containing the log message

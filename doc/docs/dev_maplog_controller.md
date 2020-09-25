@@ -402,3 +402,29 @@ Setting session.controllers.MyController.socket to hide debug messages
 DEMO [99]: mycontroller.work()
 DEMO [100]:
 ```
+
+## User logging
+
+Instead of using `print` to show a message to the user, the command `user_print` should be used.
+This allows output to be disabled in a context manager:
+
+```python
+with disable_user_output():
+    for axis in axes_list:
+        axis.hw_limit(limit, wait=False)
+```
+
+In addition there are the functions `user_debug`, `user_info`, `user_warning` and `user_error`
+which decorate the message with a level prefix. As opposed to `user_print`, these functions
+are subject to the log level of `bliss.common.logtools.userlogger` and its handlers.
+
+## Electronic logbook
+
+The user can use [elog_print](shell_std_func.md#elog_print) and [elog_add](shell_std_func.md#elog_add) to send
+"comment" messages to the logbook.
+
+In addition there are the functions `elog_debug`, `elog_info`, `elog_warning` and `elog_error`
+which send level notifications to the electronic logbook. As opposed to `elog_print`, these functions
+are subject to the log level of `bliss.common.logtools.elogbook` and its handlers.
+
+The function `elog_command` can be used to log the execution of a particular function.

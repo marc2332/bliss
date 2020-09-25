@@ -53,25 +53,6 @@ def test_error_report(error_report):
     assert len(errors) == 2
     assert f"RuntimeError: {MYERROR}" in errors[-1]
 
-    logtools.logbook_on = True
-
-    try:
-        # Exception in greenlet
-        MYERROR = "MYERROR3"
-        gevent.spawn(raise_exception).join()
-        assert len(errors) == 4
-        assert f"RuntimeError: {MYERROR}" in errors[-2]
-        assert "send_to_elogbook" in errors[-1]
-
-        # Exception in gevent loop callback
-        MYERROR = "MYERROR4"
-        raise_hub_exception(2)
-        assert len(errors) == 6
-        assert f"RuntimeError: {MYERROR}" in errors[-2]
-        assert "send_to_elogbook" in errors[-1]
-    finally:
-        logtools.logbook_on = False
-
 
 def test_error_report_chained(error_report):
     errors = error_report._last_error.errors

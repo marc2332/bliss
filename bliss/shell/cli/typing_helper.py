@@ -20,7 +20,6 @@ from prompt_toolkit.enums import DEFAULT_BUFFER
 
 from ptpython.python_input import PythonValidator
 import bliss.shell.cli
-from bliss.common import logtools
 
 __BUILTINS = __import__("builtins", [""], 0).__dict__
 
@@ -210,11 +209,6 @@ class TypingHelper(object):
             bliss.shell.cli.typing_helper_active = (
                 not bliss.shell.cli.typing_helper_active
             )
-
-        @repl.add_key_binding(Keys.F8, filter=has_focus(DEFAULT_BUFFER), eager=True)
-        def _(event):
-            """F8 will toggle elogbook"""
-            logtools.logbook_on = not logtools.logbook_on
 
     def _check_terminating_bracket(self, repl, event):
         """

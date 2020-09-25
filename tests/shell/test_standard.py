@@ -253,8 +253,7 @@ def test_umv_shell(capfd, default_session, capture_output_patch):
 
 
 def test_umvr_lib_mode(capsys, default_session):
-    """lprint should not show anything"""
-
+    """stdout should not have anything"""
     commands = (
         "from bliss.shell.standard import umv",
         "from bliss.config import static",
@@ -273,7 +272,7 @@ def test_umvr_lib_mode(capsys, default_session):
 
 
 def test_sync_lib_mode(capsys, default_session):
-    """lprint should not show anything"""
+    """stdout should not have anything"""
     commands = (
         "from bliss.shell.standard import sync",
         "from bliss.config import static",

@@ -45,7 +45,7 @@ from bliss.scanning.chain import (
 )
 from bliss.scanning.writer.null import Writer as NullWriter
 from bliss.scanning import scan_math
-from bliss.common.logtools import lprint_disable
+from bliss.common.logtools import disable_user_output
 from louie import saferef
 from bliss.common.plot import get_plot
 from bliss import __version__ as publisher_version
@@ -1399,10 +1399,10 @@ class Scan:
                 scan_chain_iterators = [next(i) for i in self.acq_chain.get_iter_list()]
 
                 # execute scan iterations
-                # NB: "lprint" messages won't be displayed to stdout, this avoids
+                # NB: "user_print" messages won't be displayed to stdout, this avoids
                 # output like "moving from X to Y" on motors for example. In principle
                 # there should be no output to stdout from the scan itself
-                with lprint_disable():
+                with disable_user_output():
                     try:
                         # prepare acquisition objects (via AcquisitionChainIter)
                         iterations_runner.send(

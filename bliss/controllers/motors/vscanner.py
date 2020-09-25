@@ -12,7 +12,7 @@ from bliss.controllers.motor import Controller
 from bliss.comm.util import get_comm
 from bliss.common.axis import AxisState
 from bliss import global_map
-from bliss.common.logtools import log_error, log_info, log_debug
+from bliss.common.logtools import log_error, log_debug, user_warning
 from bliss.comm.util import SERIAL
 
 """
@@ -84,16 +84,16 @@ class VSCANNER(Controller):
 
         ini_pos = self.read_position(axis)
         if ini_pos < 0:
-            lprint(
-                f"WARNING: reseting VSCANNER {axis.chan_letter}"
+            user_warning(
+                f"reseting VSCANNER {axis.chan_letter}"
                 f"negative position ({ini_pos}) to 0 !!"
             )
             _cmd = "V%s 0" % (axis.chan_letter)
             self.send_no_ans(axis, _cmd)
 
         if ini_pos > 10:
-            lprint(
-                f"WARNING: reseting VSCANNER {axis.chan_letter}"
+            user_warning(
+                f"reseting VSCANNER {axis.chan_letter}"
                 f"wrong position ({ini_pos}) to 10 !!"
             )
             _cmd = "V%s 10" % (axis.chan_letter)

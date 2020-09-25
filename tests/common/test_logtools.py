@@ -11,16 +11,11 @@ import re
 
 import gevent
 
-from bliss.common.logtools import (
-    Log,
-    lprint_disable,
-    get_logger,
-    set_log_format,
-    hexify,
-)
+from bliss.common.logtools import Log, get_logger, set_log_format, hexify
 from bliss.common.logtools import log_debug, log_debug_data, log_error
+from bliss.common.logtools import user_print, disable_user_output
 from bliss import logging_startup
-from bliss.shell.standard import debugon, debugoff, lprint
+from bliss.shell.standard import debugon, debugoff
 from bliss.common.mapping import Map, map_id
 from bliss import global_map
 import bliss
@@ -342,48 +337,48 @@ def test_lslog(capsys, session, params):
     assert text.count("global.controllers ") == 1
 
 
-def test_lprint(capsys, log_shell_mode):
+def test_user_print(capsys, log_shell_mode):
     string = "this is a test"
-    lprint(string)
+    user_print(string)
     captured = capsys.readouterr().out
     assert captured == string + "\n"
 
 
-def test_lprint_no_end(capsys, log_shell_mode):
-    lprint("my", end="", flush=False)
-    lprint("test")
+def test_user_print_no_end(capsys, log_shell_mode):
+    user_print("my", end="", flush=False)
+    user_print("test")
     captured = capsys.readouterr().out
     assert captured == "mytest\n"
 
 
-def test_lprint_no_sep(capsys, log_shell_mode):
+def test_user_print_no_sep(capsys, log_shell_mode):
     text_list = "this is a test".split()
-    lprint(*text_list, sep=":")
+    user_print(*text_list, sep=":")
     captured = capsys.readouterr().out
     assert captured == ":".join(text_list) + "\n"
 
 
-def test_lprint_disable(capsys, log_shell_mode):
-    with lprint_disable():
-        lprint("something")
+def test_user_print_disable(capsys, log_shell_mode):
+    with disable_user_output():
+        user_print("something")
     assert capsys.readouterr().out == ""
 
 
-def test_nested_lprint_disable(capsys, log_shell_mode):
-    with lprint_disable():
-        with lprint_disable():
-            lprint("something")
-        lprint("should not appear")
+def test_nested_user_print_disable(capsys, log_shell_mode):
+    with disable_user_output():
+        with disable_user_output():
+            user_print("something")
+        user_print("should not appear")
     assert capsys.readouterr().out == ""
 
 
-def test_lprint_greenlet(capsys, log_shell_mode):
+def test_user_print_greenlet(capsys, log_shell_mode):
     def greenlet1():
-        with lprint_disable():
+        with disable_user_output():
             gevent.sleep(.01)
 
     def greenlet2():
-        lprint("showme")
+        user_print("showme")
 
     # gevent.sleep gives control to greenlet2
     gevent.joinall([gevent.spawn(g) for g in (greenlet1, greenlet2)])
@@ -392,11 +387,11 @@ def test_lprint_greenlet(capsys, log_shell_mode):
     assert captured == "showme\n"
 
     def greenlet3():
-        with lprint_disable():
+        with disable_user_output():
             gevent.sleep(.1)
             greenlet2()
 
-    # inside lprint_disable no message should show
+    # inside disable_user_output no message should show
     gevent.joinall([gevent.spawn(g) for g in [greenlet3]])
     captured = capsys.readouterr().out
     assert captured == ""
@@ -407,10 +402,10 @@ def test_lprint_greenlet(capsys, log_shell_mode):
 
     def greenlet4():
         gevent.sleep(.01)
-        lprint("invisible")
+        user_print("invisible")
 
     def greenlet5():
-        with lprint_disable():
+        with disable_user_output():
             greenlet4()
 
     gevent.joinall([gevent.spawn(g) for g in (greenlet5, greenlet3)])
@@ -419,7 +414,7 @@ def test_lprint_greenlet(capsys, log_shell_mode):
     assert captured == "showme\n"
 
 
-def test_lprint_disable_scan(default_session, capsys, log_shell_mode):
+def test_user_print_disable_scan(default_session, capsys, log_shell_mode):
     roby = default_session.config.get("roby")
     diode = default_session.config.get("diode")
     scans.ascan(roby, 0, 10, 3, .1, diode)
@@ -427,7 +422,7 @@ def test_lprint_disable_scan(default_session, capsys, log_shell_mode):
     assert captured == ""
 
 
-def test_lprint_disable_scan_calc_mot(default_session, capsys, log_shell_mode):
+def test_user_print_disable_scan_calc_mot(default_session, capsys, log_shell_mode):
     s1vg = default_session.config.get("s1vg")
     diode = default_session.config.get("diode")
     scans.ascan(s1vg, 0, 1, 3, .1, diode)

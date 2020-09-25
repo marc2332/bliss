@@ -15,6 +15,7 @@ import sys
 from bliss.common.mapping import Map
 from bliss.common.logtools import create_logger_name
 from bliss import global_map
+from ..motors.conftest import s1hg, roby
 
 
 class SimpleNode:

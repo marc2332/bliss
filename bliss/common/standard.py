@@ -26,7 +26,7 @@ from bliss.common.cleanup import cleanup, error_cleanup
 from bliss.common import cleanup as cleanup_mod
 from bliss.common import logtools
 from bliss.common.logtools import *
-from bliss.common.logtools import lprint
+from bliss.common.logtools import user_print, disable_user_output
 from bliss.common.interlocks import interlock_state
 from bliss.controllers.motors import esrf_undulator
 from bliss.config.channels import clear_cache
@@ -75,7 +75,7 @@ def sync(*axes):
         axes: list of axis objects or names. If no axis is given, it syncs all
               all axes present in the session
     """
-    lprint("Forcing axes synchronization with hardware")
+    user_print("Forcing axes synchronization with hardware")
     if axes:
         axes = global_map.get_axis_objects_iter(*axes)
     else:
@@ -363,7 +363,7 @@ def rockit(motor, total_move):
     motor._get_motion(upper_position)
 
     def rock():
-        with logtools.lprint_disable():
+        with disable_user_output():
             while True:
                 motor.move(lower_position)
                 motor.move(upper_position)

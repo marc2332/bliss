@@ -6,17 +6,9 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import pytest
-from bliss.common.logtools import logbook_printer
 
 
-@pytest.fixture
-def log_shell_mode():
-    logbook_printer.add_stdout_handler()
-    yield
-    logbook_printer.remove_stdout_handler()
-
-
-def test_axis_lprint(roby, capsys, log_shell_mode):
+def test_axis_stdout(roby, capsys, log_shell_mode):
     move_user_msg = roby.get_motion(0.1).user_msg
 
     roby.move(0.1)
@@ -42,7 +34,7 @@ def test_axis_lprint(roby, capsys, log_shell_mode):
     )
 
 
-def test_axis_lprint2(roby, bad_motor, capsys, log_shell_mode):
+def test_axis_stdout2(roby, bad_motor, capsys, log_shell_mode):
     """Ensure "Moving..." and "...stopped at..." messages are present.
     """
     roby.move(0.1)

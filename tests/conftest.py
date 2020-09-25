@@ -162,7 +162,7 @@ def clean_globals():
     simulation_diode.DEFAULT_CONTROLLER = None
     simulation_diode.DEFAULT_INTEGRATING_CONTROLLER = None
     scan_meta.USER_SCAN_META = None
-    logtools.logbook_printer.disabled.clear()
+    logtools.userlogger.reset()
     tango_attr_as_counter._TangoCounterControllerDict = weakref.WeakValueDictionary()
 
 
@@ -813,20 +813,30 @@ def jolokia_server():
 
 
 @pytest.fixture
-def logbook():
-    """Enables the logbook in BLISS
-    """
-    logtools.logbook_printer.add_stdout_handler()
-    logtools.logbook_on = True
+def userlogger_enabled():
+    logtools.userlogger.enable()
     try:
         yield
     finally:
-        logtools.logbook_on = False
-        logtools.logbook_printer.remove_stdout_handler()
+        logtools.userlogger.disable()
 
 
 @pytest.fixture
-def icat_logbook_server(logbook):
+def elogbook_enabled():
+    logtools.elogbook.enable()
+    try:
+        yield
+    finally:
+        logtools.elogbook.disable()
+
+
+@pytest.fixture
+def log_shell_mode(userlogger_enabled, elogbook_enabled):
+    pass
+
+
+@pytest.fixture
+def icat_logbook_server():
     """ICAT backend for the e-logbook
     """
     with tcp_message_server("json") as (port_out, messages):
@@ -851,7 +861,7 @@ def icat_logbook_server(logbook):
 
 
 @pytest.fixture
-def icat_logbook_subscriber(icat_logbook_server):
+def icat_logbook_subscriber(elogbook_enabled, icat_logbook_server):
     _, messages = icat_logbook_server
     try:
         yield messages

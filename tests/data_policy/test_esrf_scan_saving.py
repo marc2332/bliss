@@ -21,8 +21,9 @@ from bliss.shell.standard import (
     newdataset,
     enddataset,
     endproposal,
-    lprint,
+    elog_print,
 )
+from bliss.common import logtools
 
 
 def icat_info(scan_saving, dataset=False):
@@ -73,8 +74,7 @@ def assert_logbook_received(
     scan_saving=None,
 ):
     if not category:
-        category = "info"
-
+        category = "comment"
     print("\nWaiting of ICAT logbook message ...")
     logbook_received = icat_logbook_subscriber.get(timeout=timeout)
     print(f"Validating ICAT logbook message: {logbook_received}")
@@ -127,12 +127,12 @@ def test_icat_backends(
 
     diode = session.config.get("diode")
     newproposal("totoproposal")
-    assert_logbook_received(icat_logbook_subscriber, "Proposal set to")
+    assert_logbook_received(icat_logbook_subscriber, "Proposal set to", category="info")
     assert_icat_received_current_proposal(scan_saving, icat_subscriber)
 
     newdataset()
     loopscan(1, .1, diode)
-    assert_logbook_received(icat_logbook_subscriber, "Dataset set to")
+    assert_logbook_received(icat_logbook_subscriber, "Dataset set to", category="info")
     expected = icat_info(scan_saving, dataset=True)
     enddataset()
     assert_icat_received(icat_subscriber, expected)
@@ -379,7 +379,7 @@ def test_data_policy_user_functions(
     create_dataset(scan_saving)
 
     newproposal("toto")
-    assert_logbook_received(icat_logbook_subscriber, "toto")
+    assert_logbook_received(icat_logbook_subscriber, "toto", category="info")
     assert_icat_received(icat_subscriber, expected_dataset)
     assert_icat_received_current_proposal(scan_saving, icat_subscriber)
     expected_dataset = icat_info(scan_saving, dataset=True)
@@ -389,7 +389,7 @@ def test_data_policy_user_functions(
     create_dataset(scan_saving)
 
     newsample("tata")
-    assert_logbook_received(icat_logbook_subscriber, "tata")
+    assert_logbook_received(icat_logbook_subscriber, "tata", category="info")
     assert_icat_received(icat_subscriber, expected_dataset)
     expected_dataset = icat_info(scan_saving, dataset=True)
     assert scan_saving.proposal == "toto"
@@ -398,7 +398,7 @@ def test_data_policy_user_functions(
     create_dataset(scan_saving)
 
     newdataset("tutu")
-    assert_logbook_received(icat_logbook_subscriber, "tutu")
+    assert_logbook_received(icat_logbook_subscriber, "tutu", category="info")
     assert_icat_received(icat_subscriber, expected_dataset)
     expected_dataset = icat_info(scan_saving, dataset=True)
     assert scan_saving.proposal == "toto"
@@ -407,7 +407,7 @@ def test_data_policy_user_functions(
     create_dataset(scan_saving)
 
     newproposal()
-    assert_logbook_received(icat_logbook_subscriber, default_proposal)
+    assert_logbook_received(icat_logbook_subscriber, default_proposal, category="info")
     assert_icat_received(icat_subscriber, expected_dataset)
     assert_icat_received_current_proposal(scan_saving, icat_subscriber)
     expected_dataset = icat_info(scan_saving, dataset=True)
@@ -433,7 +433,7 @@ def test_data_policy_user_functions(
     create_dataset(scan_saving)
 
     newproposal("toto")
-    assert_logbook_received(icat_logbook_subscriber, "toto")
+    assert_logbook_received(icat_logbook_subscriber, "toto", category="info")
     assert_icat_received(icat_subscriber, expected_dataset)
     assert_icat_received_current_proposal(scan_saving, icat_subscriber)
     expected_dataset = icat_info(scan_saving, dataset=True)
@@ -597,10 +597,10 @@ def test_session_ending(
     assert_icat_received_current_proposal(scan_saving, icat_subscriber)
 
     scan_saving.newproposal("hg123")
-    assert_logbook_received(icat_logbook_subscriber, "hg123")
+    assert_logbook_received(icat_logbook_subscriber, "hg123", category="info")
     assert_icat_received_current_proposal(scan_saving, icat_subscriber)
     scan_saving.newsample("sample1")
-    assert_logbook_received(icat_logbook_subscriber, "sample1")
+    assert_logbook_received(icat_logbook_subscriber, "sample1", category="info")
     create_dataset(scan_saving)
     assert scan_saving.proposal == "hg123"
     assert scan_saving.sample == "sample1"
@@ -686,7 +686,7 @@ def test_date_in_basepath(session, icat_logbook_subscriber, esrf_data_policy):
     time.time, orgtime = mytime, time.time
     try:
         scan_saving.newproposal("ihch123")
-        assert_logbook_received(icat_logbook_subscriber, "ihch123")
+        assert_logbook_received(icat_logbook_subscriber, "ihch123", category="info")
         past = scan_saving.date
         assert scan_saving.base_path.endswith(past)
     finally:
@@ -694,17 +694,17 @@ def test_date_in_basepath(session, icat_logbook_subscriber, esrf_data_policy):
 
     # Call newproposal in the present:
     scan_saving.newproposal("ihch123")
-    assert_logbook_received(icat_logbook_subscriber, "ihch123")
+    assert_logbook_received(icat_logbook_subscriber, "ihch123", category="info")
     assert scan_saving.date == past
     assert scan_saving.base_path.endswith(past)
 
     scan_saving.newproposal("ihch456")
-    assert_logbook_received(icat_logbook_subscriber, "ihch456")
+    assert_logbook_received(icat_logbook_subscriber, "ihch456", category="info")
     assert scan_saving.date != past
     assert not scan_saving.base_path.endswith(past)
 
     scan_saving.newproposal("ihch123")
-    assert_logbook_received(icat_logbook_subscriber, "ihch123")
+    assert_logbook_received(icat_logbook_subscriber, "ihch123", category="info")
     assert scan_saving.date != past
     assert not scan_saving.base_path.endswith(past)
 
@@ -739,27 +739,27 @@ def test_parallel_sessions(
 
     scan_saving = get_scan_saving1()
     scan_saving.newproposal("blc123")
-    assert_logbook_received(icat_logbook_subscriber, "blc123")
+    assert_logbook_received(icat_logbook_subscriber, "blc123", category="info")
     assert_icat_received_current_proposal(scan_saving, icat_subscriber)
     assert scan_saving.dataset == "0001"
 
     scan_saving = get_scan_saving2()
     scan_saving.newproposal("blc123")
-    assert_logbook_received(icat_logbook_subscriber, "blc123")
+    assert_logbook_received(icat_logbook_subscriber, "blc123", category="info")
     assert_icat_received_current_proposal(scan_saving, icat_subscriber)
     assert scan_saving.dataset == "0002"
 
     get_scan_saving1().newdataset(None)
-    assert_logbook_received(icat_logbook_subscriber, "0001")
+    assert_logbook_received(icat_logbook_subscriber, "0001", category="info")
     get_scan_saving2().newdataset(None)
-    assert_logbook_received(icat_logbook_subscriber, "0002")
+    assert_logbook_received(icat_logbook_subscriber, "0002", category="info")
     assert get_scan_saving1().dataset == "0001"
     assert get_scan_saving2().dataset == "0002"
 
     get_scan_saving2().newdataset(None)
-    assert_logbook_received(icat_logbook_subscriber, "0002")
+    assert_logbook_received(icat_logbook_subscriber, "0002", category="info")
     get_scan_saving1().newdataset(None)
-    assert_logbook_received(icat_logbook_subscriber, "0001")
+    assert_logbook_received(icat_logbook_subscriber, "0001", category="info")
     assert get_scan_saving1().dataset == "0001"
     assert get_scan_saving2().dataset == "0002"
 
@@ -767,65 +767,62 @@ def test_parallel_sessions(
     expected_dataset = icat_info(scan_saving, dataset=True)
     create_dataset(scan_saving)
     scan_saving.newdataset(None)
-    assert_logbook_received(icat_logbook_subscriber, "0003")
+    assert_logbook_received(icat_logbook_subscriber, "0003", category="info")
     assert_icat_received(icat_subscriber, expected_dataset)
     assert get_scan_saving1().dataset == "0003"
     assert get_scan_saving2().dataset == "0002"
 
     get_scan_saving1().newdataset("0002")
-    assert_logbook_received(icat_logbook_subscriber, "0003")
+    assert_logbook_received(icat_logbook_subscriber, "0003", category="info")
     assert get_scan_saving1().dataset == "0003"
     assert get_scan_saving2().dataset == "0002"
 
     get_scan_saving1().newdataset("named")
-    assert_logbook_received(icat_logbook_subscriber, "named")
+    assert_logbook_received(icat_logbook_subscriber, "named", category="info")
     assert get_scan_saving1().dataset == "named"
     assert get_scan_saving2().dataset == "0002"
 
     get_scan_saving2().newdataset("named")
-    assert_logbook_received(icat_logbook_subscriber, "named_0002")
+    assert_logbook_received(icat_logbook_subscriber, "named_0002", category="info")
     assert get_scan_saving1().dataset == "named"
     assert get_scan_saving2().dataset == "named_0002"
 
 
-def test_lprint(session, icat_logbook_subscriber, esrf_data_policy):
-    lprint("message1")
-    assert_logbook_received(icat_logbook_subscriber, "message1", complete=True)
-
-
-def test_lprint_move_axis(session, icat_logbook_subscriber, esrf_data_policy):
-    mot = session.env_dict.get("s1hg")
-    a = mot.position
-    b = 10
-    mv(mot, a)
-    # No logbook messages because we are already on "a"
-
-    def as_string(p):
-        return rounder(mot.tolerance, p)
-
-    for _ in range(10):
-        mv(mot, b)
-        mv_msg = f"Moving s1hg from {as_string(a)} to {as_string(b)}"
-        assert_logbook_received(icat_logbook_subscriber, mv_msg, complete=True)
-        assert_logbook_received(icat_logbook_subscriber, "Moving s1f")
-        assert_logbook_received(icat_logbook_subscriber, "Moving s1b")
-        a, b = b, a
-
-
-def test_elogbook_message_types(
+def test_elog_print(
     session,
     esrf_data_policy,
     metaexp_with_backend,
     metamgr_with_backend,
     icat_logbook_subscriber,
 ):
+    elog_print("message1")
+    assert_logbook_received(
+        icat_logbook_subscriber, "message1", complete=True, category="comment"
+    )
+
+
+def test_electronic_logbook(
+    session,
+    esrf_data_policy,
+    metaexp_with_backend,
+    metamgr_with_backend,
+    icat_logbook_subscriber,
+):
+    lst = [
+        ("info", "info"),
+        ("warning", "error"),
+        ("error", "error"),
+        ("debug", "debug"),
+        ("critical", "error"),
+        ("command", "commandLine"),
+        ("comment", "comment"),
+        ("print", "comment"),
+    ]
     scan_saving = session.scan_saving
-    proxy = scan_saving.icat_proxy
-    types = ["info", "error", "debug", "command", "comment", None]
-    categories = ["info", "error", "debug", "commandLine", "comment", "info"]
-    for msg_type, category in zip(types, categories):
-        msg = str(msg_type)
-        proxy.send_to_elogbook(msg_type, msg)
+    for method_name, category in lst:
+        msg = repr(method_name + " message")
+        method = getattr(logtools.elogbook, method_name)
+        method(msg)
         assert_logbook_received(
             icat_logbook_subscriber,
             msg,

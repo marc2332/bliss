@@ -18,7 +18,6 @@ from prompt_toolkit.layout.controls import FormattedTextControl
 from prompt_toolkit.layout.layout import Layout
 from ptpython.utils import if_mousedown
 from ptpython.layout import get_inputmode_fragments
-from bliss.common import logtools
 import bliss.shell.cli
 
 
@@ -87,12 +86,6 @@ def NEWstatus_bar(python_input):
                 append((TB + " class:paste-mode-on", " Typing helper (on)"))
             else:
                 append((TB, " Typing helper"))
-
-            append((TB, "[F8]"))
-            if logtools.logbook_on:
-                append((TB + " class:paste-mode-on", " Logbook (on)"))
-            else:
-                append((TB, " Logbook"))
         return result
 
     return ConditionalContainer(
@@ -172,12 +165,6 @@ def TMUXstatus_bar(python_input):
                 append((TB + " class:paste-mode-on", " Typing helper (on) "))
             else:
                 append((TB, " Typing helper "))
-
-            append((TB, "[F8]"))
-            if logtools.logbook_on:
-                append((TB + " class:paste-mode-on", " Logbook (on)"))
-            else:
-                append((TB, " Logbook"))
         return result
 
     return ConditionalContainer(

@@ -8,7 +8,7 @@
 import sys
 import logging
 import logging.handlers
-import contextlib
+from contextlib import contextmanager
 import re
 from fnmatch import fnmatch, fnmatchcase
 import networkx as nx
@@ -18,9 +18,6 @@ import gevent
 
 from bliss.common.mapping import format_node, map_id
 from bliss import global_map, current_session
-
-
-logbook_on = False
 
 
 __all__ = [
@@ -35,7 +32,7 @@ __all__ = [
     "hexify",
     "asciify",
     "get_logger",
-    "lprint",
+    "elog_print",
 ]
 
 
@@ -222,146 +219,307 @@ def set_log_format(instance, frmt):
         raise
 
 
-from logging import LoggerAdapter
-from logging import StreamHandler
+def elogbook_filter(record):
+    """Checks whether an electronic logbook is available.
+    """
+    if current_session:
+        return current_session.scan_saving.elogbook is not None
+    else:
+        # No active session -> no notion of data policy
+        return False
 
 
-class LogbookAdapter(LoggerAdapter):
-    def process(self, msg, kwargs):
-        return msg + f",{self.extra['end']},{chr(self.extra['flush'])}", kwargs
+class PrintFormatter(logging.Formatter):
+    """Adds the level name as a prefix for messages with WARNING level or higher.
+    """
+
+    def format(self, record):
+        msg = record.getMessage()
+        if not getattr(record, "msg_type", None) and record.levelno >= logging.WARNING:
+            msg = record.levelname + ": " + msg
+        return msg
 
 
-class LogbookStdoutHandler(StreamHandler):
+class PrintHandler(logging.Handler):
+    """Redirect log records to `print`. By default the output stream is
+    sys.stdout or sys.stderr depending on the error level.
+
+    Optional: to modify the default print arguments, you can add the
+    `print_kwargs` attribute to the log record.
+    """
+
+    _DEFAULT_PRINT_KWARGS = {"flush": True, "end": "\n", "file": None}
+
+    def __init__(self, *args, **kw):
+        super().__init__(*args, **kw)
+        self.setFormatter(PrintFormatter())
+
     def emit(self, record):
-        """
-        Emit a record.
+        msg = self.format(record)
+        kwargs = self._DEFAULT_PRINT_KWARGS.copy()
+        kwargs.update(getattr(record, "print_kwargs", {}))
+        if kwargs["file"] is None:
+            if record.levelno >= logging.WARNING:
+                kwargs["file"] = sys.stderr
+            else:
+                kwargs["file"] = sys.stdout
+        print(msg, **kwargs)
 
-        If a formatter is specified, it is used to format the record.
-        The record is then written to the stream with a trailing newline.  If
-        exception information is present, it is formatted using
-        traceback.print_exception and appended to the stream.  If the stream
-        has an 'encoding' attribute, it is used to determine how to do the
-        output to the stream.
-        """
+
+class ElogHandler(logging.Handler):
+    """Redirect log records to the electronic logbook. The default message
+    type depends on the record's log level.
+
+    Optional: to overwrite the default message type, you add the `msg_type`
+    attribute to the log record.
+    """
+
+    _MSG_TYPES = {
+        logging.DEBUG: "debug",
+        logging.INFO: "info",
+        logging.WARNING: "warning",
+        logging.ERROR: "error",
+        logging.CRITICAL: "critical",
+    }
+
+    def emit(self, record):
+        msg = self.format(record)
+        msg_type = getattr(record, "msg_type", None)
+        if not msg_type:
+            msg_type = self._MSG_TYPES.get(record.levelno, None)
         try:
-            msg = self.format(record)
-            stream = sys.stdout
-            msg, end, flush = msg.rsplit(",", maxsplit=2)
-            stream.write(msg)
-            if flush:
-                self.flush()
-            if end:
-                stream.write(end)
-            logbook_printer.send_to_elogbook("info", msg)
-        except (KeyboardInterrupt, SystemExit):
-            raise
-        except:
-            self.handleError(record)
+            elogbook = current_session.scan_saving.elogbook
+            elogbook.send_message(msg, msg_type=msg_type)
+        except Exception as e:
+            log_error(self, f"Electronic logbook failed ({e})")
 
 
-class LogbookPrint:
-    def __init__(self):
-        self.extra = {"flush": True, "end": "\n"}
-        self.logger = logging.getLogger("bliss.logbook_print")
-        self.adapter = LogbookAdapter(self.logger, self.extra)
+class ForcedLogger(logging.Logger):
+    """Logger with an additional `forced_log` method which makes sure the message
+    is always send to the handlers, regardless of the level.
+    """
 
-        self.logger.setLevel(logging.INFO)
-        self.logger.propagate = False
+    def forced_log(self, *args, **kw):
+        """Log with INFO level or higher to ensure the message is not filtered
+        out by the logger's log level. Note that the handler's log level may
+        still filter out the message for that particular handler.
+        """
+        level = max(self.getEffectiveLevel(), logging.INFO)
+        self.log(level, *args, **kw)
 
-        self.stdout_handler = LogbookStdoutHandler()
-        self.stdout_handler.setLevel(logging.INFO)
+    def _set_msg_type(self, kw, msg_type):
+        """Add message type to the resulting record. Often useful before
+        calling `forced_log`.
+        """
+        extra = kw.setdefault("extra", {})
+        if not extra.get("msg_type"):
+            extra["msg_type"] = msg_type
 
-        self.disabled = weakref.WeakKeyDictionary()
 
-    def add_stdout_handler(self):
-        """adding handler will prints to stdout lprint messages"""
-        if self.stdout_handler not in self.logger.handlers:
+class PrintLogger(ForcedLogger):
+    """Logger with a `print` method which takes the same arguments as the
+    builtin `print`. It adds attribute `print_kwargs` to the log record.
+    """
 
-            def filter_greenlet(record):
-                # filter greenlets
-                current = gevent.getcurrent()
-                while current:
-                    # looping parents greenlets
-                    # until we find a disabled one
-                    # or we arrive at root
-                    if current in self.disabled.keys():
-                        return False
-                    try:
-                        current = current.spawning_greenlet()
-                    except AttributeError:
-                        current = current.parent
-                return True
+    def print(self, *args, **kw):
+        """Always send to the handlers, regardless of the log level
+        """
+        sep = kw.get("sep", " ")
+        msg = sep.join((str(arg) for arg in args))
 
-            self.logger.addHandler(self.stdout_handler)
-            self.logger.addFilter(filter_greenlet)
+        keys = ["file", "end", "flush", "sep"]  # built-in print API
+        extra = kw.get("extra", {})
+        extra["print_kwargs"] = {k: kw[k] for k in keys if k in kw}
 
-    def remove_stdout_handler(self):
-        if self.stdout_handler in self.logger.handlers:
-            self.logger.removeHandler(self.stdout_handler)
+        self._set_msg_type(kw, "print")
+        self.forced_log(msg, extra=extra)
 
-    def has_stdout_handler(self):
-        return self.stdout_handler in self.logger.handlers
 
-    def add_logbook_handler(self):
-        raise NotImplementedError
+class ElogLogger(ForcedLogger):
+    """Logger with additional `comment` and `command` methods. These methods
+    add the attribute `msg_type` to the log record.
 
-    def remove_logbook_handler(self):
-        raise NotImplementedError
+    It also adds a filter for the `command` messages.
+    """
 
-    def lprint(self, *args, **kwargs):
-        sep = kwargs.pop("sep", " ")
-        self.extra["end"] = kwargs.pop("end", "\n")
-        self.extra["flush"] = kwargs.pop("flush", True)
-        if len(args) > 1:
-            msg = sep.join((str(arg) for arg in args))
-        else:
-            msg = args[0]
-        self.adapter.info(msg)
+    _IGNORED_COMMANDS = {"elog_print("}
 
-    @contextlib.contextmanager
-    def lprint_disable(self):
+    def __init__(self, *args, **kw):
+        super().__init__(*args, **kw)
+        self.addFilter(self._command_filter)
 
-        # lprint_disable keeps track of the current greenlet
+    @classmethod
+    def _command_filter(cls, record):
+        if getattr(record, "msg_type", None) == "command":
+            msg = record.getMessage()
+            if any(msg.startswith(s) for s in cls._IGNORED_COMMANDS):
+                return False
+        return True
+
+    @classmethod
+    def disable_command_logging(cls, method):
+        """Filter out the logging of this method.
+
+        Args:
+            method (str or callable)
+
+        Returns:
+            str or callable: sane as `method`
+        """
+        command = method
+        if not isinstance(command, str):
+            command = command.__name__
+        cls._IGNORED_COMMANDS.add(command + "(")
+        return method
+
+    def comment(self, *args, **kw):
+        """User comment which can be modified later
+        """
+        self._set_msg_type(kw, "comment")
+        self.forced_log(*args, **kw)
+
+    def command(self, *args, **kw):
+        """Specific commands can be filtered out with `disable_command_logging`
+        """
+        self._set_msg_type(kw, "command")
+        self.forced_log(*args, **kw)
+
+
+class GreenletDisableLogger(logging.Logger):
+    """Logger which can be disabled for specific greenlets.
+    """
+
+    def __init__(self, *args, **kw):
+        super().__init__(*args, **kw)
+        self.addFilter(self._greenlet_filter)
+        self.reset()
+
+    def reset(self):
+        """Enable all disabled greenlets
+        """
+        self._disabled_greenlets = weakref.WeakKeyDictionary()
+
+    def _greenlet_filter(self, record):
+        """Filter out this log record when the logging is disabled
+        for the current greenlet.
+        """
         current = gevent.getcurrent()
+        while current:
+            # looping parents greenlets
+            # until we find a disabled one
+            # or we arrive at root
+            if self._disabled_greenlets.get(current, 0) > 0:
+                return False
+            try:
+                current = current.spawning_greenlet()
+            except AttributeError:
+                current = current.parent
+        return True
+
+    @contextmanager
+    def disable_in_greenlet(self, greenlet=None):
+        """Disable logging in a greenlet within this context.
+        It takes the current greenlet by default.
+        """
+        # Increment the greenlet counter
+        if greenlet is None:
+            current = gevent.getcurrent()
         try:
-            # keeping track of nested levels of lprint_disable
-            self.disabled[current] += 1
+            self._disabled_greenlets[current] += 1
         except KeyError:
-            self.disabled[current] = 1
-
-        yield
+            self._disabled_greenlets[current] = 1
 
         try:
-            self.disabled[current] -= 1
-            if self.disabled[current] <= 0:
-                # when we exit the last `with` we can delete the reference
-                del (self.disabled[current])
-        except KeyError:
-            pass
-
-    def send_to_elogbook(self, msg_type, msg):
-        if not logbook_on:
-            return
-
-        if current_session:
-            if current_session.scan_saving.data_policy != "ESRF":
-                return
-            if current_session.scan_saving.proposal_type == "tmp":
-                return
-
-        try:
-            icat_proxy = current_session.scan_saving.icat_proxy
-            icat_proxy.send_to_elogbook(msg_type, msg)
-        except RuntimeError:
-            log_error(self, "elogbook: MetadataManager communication failed")
+            yield
+        finally:
+            # Decrement the greenlet counter
+            try:
+                self._disabled_greenlets[current] -= 1
+                if self._disabled_greenlets[current] <= 0:
+                    del self._disabled_greenlets[current]
+            except KeyError:
+                pass
 
 
-logbook_printer = LogbookPrint()
-lprint = logbook_printer.lprint
-lprint_disable = logbook_printer.lprint_disable
+class UserLogger(PrintLogger, GreenletDisableLogger):
+    """When enabled, log messages are visible to the user.
+    No message propagation to parent loggers.
+
+    In addition to the standard logger methods we have:
+        print: use like the builtin `print` ("info" level or higher)
+        disable_in_greenlet: disable logging for a greenlet (current by default)
+    """
+
+    def __init__(self, _args, **kw):
+        super().__init__(_args, **kw)
+        self.propagate = False
+        self._null_handler = logging.NullHandler()
+        self._print_handler = PrintHandler()
+        self.disable()
+
+    def enable(self):
+        self.addHandler(self._print_handler)
+        self.removeHandler(self._null_handler)
+
+    def disable(self):
+        self.removeHandler(self._print_handler)
+        self.addHandler(self._null_handler)
 
 
-@contextlib.contextmanager
+class Elogbook(PrintLogger, ElogLogger):
+    """When enabled, log messages are send to the electronic logbook.
+    No message propagation to parent loggers.
+
+    In addition to the standard logger methods we have:
+        comment: send a "comment" notification to the electronic logbook
+        command: send a "command" notification to the electronic logbook
+        print: use like the builtin `print` ("comment" notification)
+    """
+
+    def __init__(self, _args, **kw):
+        super().__init__(_args, **kw)
+        self.propagate = False
+        self._null_handler = logging.NullHandler()
+        self._elog_handler = ElogHandler()
+        self._elog_handler.addFilter(elogbook_filter)
+        self.disable()
+
+    def enable(self):
+        self.addHandler(self._elog_handler)
+        self.removeHandler(self._null_handler)
+
+    def disable(self):
+        self.removeHandler(self._elog_handler)
+        self.addHandler(self._null_handler)
+
+    def print(self, *args, **kw):
+        self._set_msg_type(kw, "comment")
+        super().print(*args, **kw)
+
+
+userlogger = UserLogger("bliss.userlogger", level=logging.NOTSET)
+
+user_print = userlogger.print
+user_debug = userlogger.debug
+user_info = userlogger.info
+user_warning = userlogger.warning
+user_error = userlogger.error
+user_critical = userlogger.critical
+disable_user_output = userlogger.disable_in_greenlet
+
+elogbook = Elogbook("bliss.elogbook", level=logging.NOTSET)
+
+elog_print = elogbook.print  # exposed to the shell
+elog_debug = elogbook.debug
+elog_info = elogbook.info
+elog_warning = elogbook.warning
+elog_error = elogbook.error
+elog_critical = elogbook.critical
+elog_comment = elogbook.comment
+elog_command = elogbook.command
+
+
+@contextmanager
 def bliss_logger():
     saved_logger_class = logging.getLoggerClass()
     logging.setLoggerClass(BlissLogger)

@@ -28,7 +28,7 @@ from bliss.data.node import _get_or_create_node
 from bliss.scanning.writer.null import Writer as NullWriter
 from bliss.scanning import writer as writer_module
 from bliss.common.proxy import Proxy
-from bliss.common.logtools import lprint
+from bliss.common.logtools import elog_info, user_print
 from bliss.icat.ingester import IcatIngesterProxy
 from bliss.config.static import get_config
 from bliss.config.settings import scan as scan_redis
@@ -732,6 +732,10 @@ class BasicScanSaving(EvalParametersWardrobe):
             setattr(new_scan_saving, s, getattr(self, s))
         return new_scan_saving
 
+    @property
+    def elogbook(self):
+        return None
+
 
 class ESRFScanSaving(BasicScanSaving):
     """Parameterized representation of the scan data file path
@@ -1166,19 +1170,25 @@ class ESRFScanSaving(BasicScanSaving):
     def newproposal(self, proposal_name):
         # beware: self.proposal getter and setter do different actions
         self.proposal = proposal_name
-        lprint(f"Proposal set to '{self.proposal}'\nData path: {self.root_path}")
+        msg = f"Proposal set to '{self.proposal}'\nData path: {self.get_path()}"
+        elog_info(msg)
+        user_print(msg)
         self._on_data_policy_changed(f"Proposal set to '{self.proposal}'")
 
     def newsample(self, sample_name):
         # beware: self.sample getter and setter do different actions
         self.sample = sample_name
-        lprint(f"Sample set to '{self.sample}'\nData path: {self.root_path}")
+        msg = f"Sample set to '{self.sample}'\nData path: {self.root_path}"
+        elog_info(msg)
+        user_print(msg)
         self._on_data_policy_changed(f"Sample set to '{self.sample}'")
 
     def newdataset(self, dataset_name):
         # beware: self.dataset getter and setter do different actions
         self.dataset = dataset_name
-        lprint(f"Dataset set to '{self.dataset}'\nData path: {self.root_path}")
+        msg = f"Dataset set to '{self.dataset}'\nData path: {self.root_path}"
+        elog_info(msg)
+        user_print(msg)
         self._on_data_policy_changed(f"Dataset set to '{self.dataset}'")
 
     def endproposal(self):
@@ -1214,3 +1224,7 @@ class ESRFScanSaving(BasicScanSaving):
         current_session._emit_event(
             ESRFDataPolicyEvent.Change, message=event, data_path=self.root_path
         )
+
+    @property
+    def elogbook(self):
+        return self.icat_proxy

@@ -49,7 +49,7 @@ from .typing_helper import TypingHelper
 from bliss.common.utils import ShellStr
 from bliss.shell.standard import info
 from bliss.shell.cli.ptpython_statusbar_patch import NEWstatus_bar, TMUXstatus_bar
-from bliss.common.logtools import logbook_printer
+from bliss.common.logtools import userlogger, elogbook
 from bliss.shell.cli.protected_dict import ProtectedDict
 from bliss.shell import standard
 from redis.exceptions import ConnectionError
@@ -186,7 +186,7 @@ def install_excepthook():
 
     logger = logging.getLogger("exceptions")
 
-    def repl_excepthook(exc_type, exc_value, tb, with_elogbook=True):
+    def repl_excepthook(exc_type, exc_value, tb, _with_elogbook=True):
         err_file = sys.stderr
 
         # Store latest traceback (as a string to avoid memory leaks)
@@ -204,13 +204,11 @@ def install_excepthook():
                 file=err_file,
             )
 
-        if with_elogbook:
+        if _with_elogbook:
             try:
-                logbook_printer.send_to_elogbook(
-                    "error", f"{exc_type.__name__}: {exc_value}"
-                )
+                elogbook.error(f"{exc_type.__name__}: {exc_value}")
             except Exception:
-                repl_excepthook(*sys.exc_info(), with_elogbook=False)
+                repl_excepthook(*sys.exc_info(), _with_elogbook=False)
 
     def print_exception(self, context, exc_type, exc_value, tb):
         if gevent.getcurrent() == gevent.get_hub():
@@ -559,8 +557,9 @@ def cli(
 
     set_bliss_shell_mode(True)
 
-    # adding stdout print of lprint messages
-    logbook_printer.add_stdout_handler()
+    # Enable loggers
+    userlogger.enable()  # destination: user
+    elogbook.enable()  # destination: electronic logbook
 
     ERROR_REPORT = install_excepthook()
     ERROR_REPORT.expert_mode = expert_error_report
@@ -736,7 +735,7 @@ def embed(*args, **kwargs):
                 inp = cmd_line_i.app.run()
                 if inp:
                     logging.getLogger("user_input").info(inp)
-                    logbook_printer.send_to_elogbook("command", inp)
+                    elogbook.command(inp)
                 cmd_line_i._execute(inp)
             except KeyboardInterrupt:
                 cmd_line_i.default_buffer.reset()

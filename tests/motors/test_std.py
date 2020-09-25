@@ -7,7 +7,7 @@
 
 import pytest
 import gevent
-from bliss.common.standard import move, mv, mvr, rockit
+from bliss.common.standard import move, mv, mvr, mvd, mvdr, rockit
 from bliss.common import event
 
 
@@ -26,6 +26,31 @@ def test_group_mv(roby, robz):
     mv(roby, 3, robz, 1)
     assert roby.position == pytest.approx(3)
     assert robz.position == pytest.approx(1)
+
+
+def test_mvd(roby):
+    roby.offset = 1
+    mvd(roby, 2)
+    assert roby.position == pytest.approx(3)
+    assert roby.dial == pytest.approx(2)
+
+
+def test_mvdr(roby):
+    roby.offset = 1
+    p1 = roby.dial
+    p2 = roby.position
+    mvdr(roby, 1)
+    assert roby.dial == pytest.approx(p1 + 1)
+    assert roby.position == pytest.approx(p2 + 1)
+
+
+def test_group_mvd(roby, robz):
+    roby.offset, robz.offset = 1, 2
+    mvd(roby, 3, robz, 1)
+    assert roby.dial == pytest.approx(3)
+    assert robz.dial == pytest.approx(1)
+    assert roby.position == pytest.approx(4)
+    assert robz.position == pytest.approx(3)
 
 
 def test_interrupted_mv(roby):

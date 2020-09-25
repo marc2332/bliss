@@ -599,7 +599,8 @@ class LinkamTms94(Controller):
         sb1 = asw[0]
         eb1 = asw[1] - 128
         pb1 = asw[2] - 128 - 96
-        temp = int(asw[6:10], 16) / 10
+        utemp = int(asw[6:10], 16)
+        temp = (-(utemp & 0x8000) | (utemp & 0x7fff))/10
         return {
             "status": self.SB1[sb1],
             "error": self.EB1[eb1],

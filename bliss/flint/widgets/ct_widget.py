@@ -165,6 +165,12 @@ class CtWidget(ExtendedDockWidget):
 
         return toolBar
 
+    def setPlotModel(self, model):
+        pass
+
+    def plotModel(self):
+        return None
+
     def __displayModeChanged(self):
         self.__updateData()
 

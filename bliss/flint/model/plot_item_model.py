@@ -27,6 +27,11 @@ from . import scan_model
 from . import plot_model
 
 
+class ScalarPlot(plot_model.Plot):
+    """"Define that the relative scan contains data which have to be displayed
+    with scalar view (ct widget)."""
+
+
 class CurvePlot(plot_model.Plot):
     """"Define a plot which mostly draw curves."""
 

@@ -505,6 +505,14 @@ def infer_plot_models(scan_info: Dict) -> List[plot_model.Plot]:
         if scan_info.get("data_dim", 1) == 2 or scan_info.get("dim", 1) == 2:
             have_scatter = True
 
+    # Ct
+
+    if scan_info.get("type", None) == "ct":
+        plot = plot_item_model.ScalarPlot()
+        result.append(plot)
+        have_scalar = False
+        have_scatter = False
+
     # Scalar plot
 
     if have_scalar:

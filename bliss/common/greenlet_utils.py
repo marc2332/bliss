@@ -110,37 +110,11 @@ gevent.spawn_later = Greenlet.spawn_later
 
 # timeout patch
 class Timeout(gevent.timeout.Timeout):
-    def start(self):
-        """Schedule the timeout."""
-        if self.pending:
-            raise AssertionError(
-                "%r is already started; to restart it, cancel it first" % self
-            )
-
-        if self.seconds is None:
-            # "fake" timeout (never expires)
-            return
-
-        if (
-            self.exception is None
-            or self.exception is False
-            or isinstance(self.exception, string_types)
-        ):
-            # timeout that raises self
-            throws = self
-        else:
-            # regular timeout with user-provided exception
-            throws = self.exception
-
-        # Make sure the timer updates the current time so that we don't
-        # expire prematurely.
-
-        # start the patch
-        current = getcurrent()
-        if isinstance(current, Greenlet):  # bliss greenlet
-            self.timer.start(super(Greenlet, getcurrent()).throw, throws, update=True)
+    def _on_expiration(self, prev_greenlet, ex):
+        if isinstance(prev_greenlet, Greenlet):  # bliss greenlet
+            super(Greenlet, prev_greenlet).throw(ex)
         else:  # default
-            self.timer.start(getcurrent().throw, throws, update=True)
+            prev_greenlet.throw(ex)
 
 
 timeout.Timeout = Timeout

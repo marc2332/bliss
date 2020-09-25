@@ -224,7 +224,7 @@ def test_exception_in_start_and_stop_and_preset(session, first_iteration, preset
         p = Preset()
         s.add_preset(p)
     try:
-        with gevent.Timeout(1):
+        with gevent.Timeout(3):
             s.run()
     except Exception as e:
         assert isinstance(e, ZeroDivisionError)

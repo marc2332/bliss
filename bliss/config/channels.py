@@ -433,6 +433,8 @@ class Channel(AdvancedInstantiationInterface):
     # Raw value
 
     def _set_raw_value(self, value):
+        if self._bus.closing:
+            return
         # Cast to _Value
         if not isinstance(value, _Value):
             value = _Value(time.time(), value)
@@ -463,11 +465,9 @@ class Channel(AdvancedInstantiationInterface):
                 reply_value = self._default_value
 
             # Set the value
-            if not self._bus.closing:
-                self._set_raw_value(reply_value)
-
             # Unregister task if everything went smoothly
             self._query_task = None
+            self._set_raw_value(reply_value)
 
         # Spawn the query task
         self._query_task = gevent.spawn(query_task)
@@ -611,6 +611,8 @@ class EventChannel(AdvancedInstantiationInterface):
         return value
 
     def _set_raw_value(self, raw_value):
+        if self._bus.closing:
+            return
         value = raw_value.value
         callbacks = filter(None, [ref() for ref in self._callback_refs])
         for cb in callbacks:

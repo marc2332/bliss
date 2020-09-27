@@ -307,9 +307,6 @@ class Bus(AdvancedInstantiationInterface):
         # Ignore value if the channel doesn't exist anymore
         if channel is None:
             return
-        # Ignore values if the channel is not ready
-        if not channel.ready:
-            return
         # Set the provided value
         channel._set_raw_value(value)
 
@@ -390,10 +387,6 @@ class Channel(AdvancedInstantiationInterface):
     def default_value(self):
         return self._default_value
 
-    @property
-    def ready(self):
-        return self._value_event.is_set() and self._subscribed_event.is_set()
-
     # Timeout
 
     @property
@@ -403,14 +396,6 @@ class Channel(AdvancedInstantiationInterface):
     @timeout.setter
     def timeout(self, value):
         self._timeout = value
-
-    def wait_ready(self):
-        timeout_error = RuntimeError(
-            "Timeout: channel {} is not ready".format(self._name)
-        )
-        with gevent.Timeout(self.timeout, timeout_error):
-            self._subscribed_event.wait()
-            self._value_event.wait()
 
     # Exposed value
 
@@ -576,7 +561,6 @@ class EventChannel(AdvancedInstantiationInterface):
         self._callback_refs = set()
         self.__pending_events = list()
         self._subscribed_event = gevent.event.Event()
-        self.ready = True
 
     @property
     def name(self):

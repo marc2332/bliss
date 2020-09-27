@@ -416,7 +416,13 @@ class Channel(AdvancedInstantiationInterface):
 
     @property
     def value(self):
-        self.wait_ready()
+        if self._raw_value is None:
+            if not self._value_event.is_set():
+                self._start_query()
+        with gevent.Timeout(
+            self.timeout, TimeoutError(f"Channel {self.name} did not receive a value")
+        ):
+            self._value_event.wait()
         return self._raw_value.value
 
     @value.setter
@@ -425,7 +431,7 @@ class Channel(AdvancedInstantiationInterface):
             raise RuntimeError(
                 "Channel {}: can't set value while running a callback".format(self.name)
             )
-        self.wait_ready()
+        self._subscribed_event.wait()
         self._set_raw_value(new_value)
         self._bus.schedule_update(self)
 
@@ -464,8 +470,6 @@ class Channel(AdvancedInstantiationInterface):
                 reply_value = self._default_value
 
             # Set the value
-            # Unregister task if everything went smoothly
-            self._query_task = None
             self._set_raw_value(reply_value)
 
         # Spawn the query task

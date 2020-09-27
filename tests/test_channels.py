@@ -93,8 +93,11 @@ def test_channel_repr(beacon):
 
 def test_channel_prevent_concurrent_queries(beacon):
     c1 = channels.Channel("test_chan5")
-    query_task = c1._query_task
     c2 = channels.Channel("test_chan5")
+    g1 = gevent.spawn(getattr, c1, "value")
+    g2 = gevent.spawn(getattr, c2, "value")
+    gevent.joinall([g1, g2])
+    query_task = c1._query_task
     assert query_task.ready()
     assert query_task is c2._query_task
 

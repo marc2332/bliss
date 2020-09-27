@@ -95,7 +95,8 @@ def test_channel_prevent_concurrent_queries(beacon):
     c1 = channels.Channel("test_chan5")
     query_task = c1._query_task
     c2 = channels.Channel("test_chan5")
-    assert query_task == c2._query_task
+    assert query_task.ready()
+    assert query_task is c2._query_task
 
 
 def test_channel_garbage_collection(beacon):

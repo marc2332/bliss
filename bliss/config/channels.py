@@ -373,8 +373,7 @@ class Channel(AdvancedInstantiationInterface):
         if callback is not None:
             self.register_callback(callback)
 
-        if self._raw_value is None:
-            self._start_query()
+        self._subscribed_event.wait(timeout=self.timeout)
 
     def close(self):
         if self._query_task is None:

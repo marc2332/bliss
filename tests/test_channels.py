@@ -186,7 +186,9 @@ def test_with_another_process(channel_subprocess):
     test_subprocess.set_channel_value("bla")
 
     # Wait for new value
-    gevent.sleep(0.1)
+    with gevent.Timeout(1):
+        while c.value != "bla":
+            gevent.sleep(0.01)
     assert c.value == "bla"
     assert len(gc.get_referrers(c)) <= 1
     del c

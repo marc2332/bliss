@@ -357,6 +357,17 @@ class Channel(AdvancedInstantiationInterface):
         redis=None,
         bus=None,
     ):
+        """
+        Create a new channel
+
+        name: channel name
+        value: current channel value (default: _NotProvided, to indicate the value is not set)
+        default_value: optional default value
+        callback: optional callback function to be executed when channel value changes (default: None)
+        timeout: timeout for channel to be initialized (both registered to redis and with a valid value)
+        redis: connection to Beacon (default: None, to indicate the default connection)
+        bus: channel bus (default: None)
+        """
         if timeout is not None:
             self._timeout = timeout
 

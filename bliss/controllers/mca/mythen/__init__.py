@@ -321,7 +321,6 @@ class MythenAcquistionSlave(AcquisitionSlave):
 
         self._software_acquisition = None
         self._acquisition_status = self.status.STOPPED
-        self._in_publish = False
 
     # Counter management
 
@@ -338,15 +337,11 @@ class MythenAcquistionSlave(AcquisitionSlave):
         self.device.nframes = self.npoints
         self.device.exposure_time = self.count_time
         self.device.gate_mode = self.trigger_type == AcquisitionSlave.HARDWARE
-        if self.trigger_type == AcquisitionSlave.HARDWARE:
-            self.device.start()
 
     def start(self):
-        self._acquisition_status = self.status.RUNNING
         if self.trigger_type == AcquisitionSlave.HARDWARE:
-            self.wait_reading()
-            # trick for now for autof restart reading here
-            self._reading_task = gevent.spawn(self.reading)
+            self.device.start()
+        self._acquisition_status = self.status.RUNNING
 
     def trigger(self):
         if self.trigger_type == AcquisitionSlave.SOFTWARE:
@@ -381,14 +376,14 @@ class MythenAcquistionSlave(AcquisitionSlave):
         self._publish()
 
     def reading(self):
-        if self._in_publish:
+        if self.trigger_type == AcquisitionSlave.SOFTWARE:
             return
-        try:
-            self._in_publish = True
-            if self.trigger_type == AcquisitionSlave.HARDWARE:
-                self._publish()
-        finally:
-            self._in_publish = False
+
+        for spectrum_nb in range(self.npoints):
+            if self._acquisition_status != self.status.RUNNING:
+                break
+
+            self._publish(self)
 
     def _publish(self):
         spectrum = self.device.readout()
@@ -407,6 +402,5 @@ class MythenAcquistionSlave(AcquisitionSlave):
             if self._software_acquisition is not None:
                 self._software_acquisition.kill()
         else:
-            self.wait_reading()
             self._acquisition_status = self.status.STOPPED
             self.device.stop()

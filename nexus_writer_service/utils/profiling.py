@@ -143,7 +143,7 @@ def print_time_context(
             if sortmethod:
                 ps = ps.sort_stats(sortmethod)
             if timelimit is None:
-                timelimit = (0.1,)
+                timelimit = tuple()
             elif not isinstance(timelimit, tuple):
                 timelimit = (timelimit,)
             ps.print_stats(*timelimit)

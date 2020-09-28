@@ -13,7 +13,6 @@ import enum
 import collections
 from contextlib import contextmanager
 
-
 import gevent
 from treelib import Tree
 
@@ -24,6 +23,7 @@ from bliss.common.greenlet_utils import KillMask
 from bliss.scanning.channel import AcquisitionChannelList, AcquisitionChannel
 from bliss.scanning.channel import duplicate_channel, attach_channels
 from bliss.common.validator import BlissValidator
+from bliss.common.profiling import time_profile
 
 
 TRIGGER_MODE_ENUM = enum.IntEnum("TriggerMode", "HARDWARE SOFTWARE")
@@ -33,134 +33,134 @@ TRIGGER_MODE_ENUM = enum.IntEnum("TriggerMode", "HARDWARE SOFTWARE")
 #
 _running_task_on_device = weakref.WeakValueDictionary()
 _logger = logging.getLogger("bliss.scans")
-_debug = _logger.debug
-_error = _logger.error
 
-# Normal chain stop, avoid print error message
-class StopChain(gevent.GreenletExit):
+
+# Used to stop a greenlet and avoid logging this exception
+class StopTask(gevent.GreenletExit):
+    pass
+
+
+# Normal chain stop
+class StopChain(StopTask):
     pass
 
 
 @contextmanager
 def profile(stats_dict, device_name, func_name):
+    name = f"{device_name}.{func_name}"
     try:
-        call_start = time.time()
-        _debug("Start %s.%s" % (device_name, func_name))
-        yield
-    except StopChain:
+        if stats_dict is None:
+            _logger.error(f"No time profiling of {name}")
+            yield
+        else:
+            with time_profile(stats_dict, name, logger=_logger):
+                yield
+    except StopTask:
         raise
-    except:
-        _error("Exception caught in %s.%s" % (device_name, func_name))
+    except BaseException as e:
+        msg = str(e)
+        if not msg:
+            msg = type(e).__name__
+        _logger.error(f"Exception caught in {name} ({msg})")
         raise
-    finally:
-        call_end = time.time()
-        stat = stats_dict.setdefault("%s.%s" % (device_name, func_name), list())
-        stat.append((call_start, call_end))
-        _debug("End %s.%s Took %fs" % (device_name, func_name, call_end - call_start))
 
 
-class DeviceIterator:
-    def __init__(self, device):
-        self.__device_ref = weakref.ref(device)
-        self.__sequence_index = 0
+def join_tasks(greenlets, **kw):
+    try:
+        gevent.joinall(greenlets, raise_error=True, **kw)
+    except StopTask as e:
+        gevent.killall(greenlets, exception=type(e))
+        raise
+    except BaseException:
+        gevent.killall(greenlets)
+        raise
 
-    def __getattr__(self, name):
-        if name.startswith("__"):
-            raise AttributeError(name)
-        return getattr(self.device, name)
+
+class AbstractAcquisitionObjectIterator:
+    """Iterate over an AcquisitionObject, yielding self.
+    """
 
     @property
-    def device(self):
-        return self.__device_ref()
+    def acquisition_object(self):
+        raise NotImplementedError
 
     def __next__(self):
-        if not self.device.parent:
+        """Returns self
+        """
+        raise NotImplementedError
+
+    def __getattr__(self, name):
+        """Get attribute from the acquisition object
+        """
+        if name.startswith("__"):
+            raise AttributeError(name)
+        return getattr(self.acquisition_object, name)
+
+
+class AcquisitionObjectIteratorObsolete(AbstractAcquisitionObjectIterator):
+    """Use for acquisition objects that are not iterable.
+    """
+
+    def __init__(self, acquisition_object):
+        super().__init__()
+        self.__acquisition_object_ref = weakref.ref(acquisition_object)
+        self.__sequence_index = 0
+
+    @property
+    def acquisition_object(self):
+        return self.__acquisition_object_ref()
+
+    def __next__(self):
+        if not self.acquisition_object.parent:
             raise StopIteration
-        else:
-            if not self.device.prepare_once and not self.device.start_once:
-                if hasattr(self.device, "wait_reading"):
-                    self.device.wait_reading()
+        once = (
+            self.acquisition_object.prepare_once or self.acquisition_object.start_once
+        )
+        if not once:
+            self.acquisition_object.acq_wait_reading()
         self.__sequence_index += 1
         return self
 
-    def _wait_ready(self, stats_dict):
-        tasks = []
-        # Check that it's still ok with the readingtask
-        if hasattr(self.device, "wait_reading"):
-            tasks.append(gevent.spawn(self.device.wait_reading))
-        with profile(stats_dict, self.device.name, "wait_ready"):
-            tasks.append(gevent.spawn(self.device.wait_ready))
-            try:
-                gevent.joinall(tasks, raise_error=True, count=1)
-            except:
-                gevent.killall(tasks)
-                raise
-            else:
-                wait_ready_task = tasks.pop(-1)
-                try:
-                    return wait_ready_task.get()
-                finally:
-                    gevent.killall(tasks)
-
-    def _prepare(self, stats_dict):
-        if self.__sequence_index > 0 and self.device.prepare_once:
+    def acq_prepare(self):
+        if self.__sequence_index > 0 and self.acquisition_object.prepare_once:
             return
-        self.device._prepare(stats_dict)
+        self.acquisition_object.acq_prepare()
 
-    def _start(self, stats_dict):
-        if self.__sequence_index > 0 and self.device.start_once:
+    def acq_start(self):
+        if self.__sequence_index > 0 and self.acquisition_object.start_once:
             return
-        self.device._start(stats_dict)
+        self.acquisition_object.acq_start()
 
 
-class DeviceIteratorWrapper:
-    def __init__(self, device):
-        self.__device = weakref.proxy(device)
-        self.__iterator = iter(device)
-        self.__current = None
+class AcquisitionObjectIterator(AbstractAcquisitionObjectIterator):
+    """Use for acquisition objects that are iterable.
+    """
+
+    def __init__(self, acquisition_object):
+        super().__init__()
+        self.__acquisition_object = weakref.proxy(acquisition_object)
+        self.__iterator = iter(acquisition_object)
+        self.__current_acq_object = None
         next(self)
+
+    @property
+    def acquisition_object(self):
+        return self.__current_acq_object
 
     def __next__(self):
         try:
-            self.__current = next(self.__iterator)
+            self.__current_acq_object = next(self.__iterator)
         except StopIteration:
-            if not self.__device.parent:
+            if not self.__acquisition_object.parent:
                 raise
-            if hasattr(self.__device, "wait_reading"):
-                self.__device.wait_reading()
-            self.__iterator = iter(self.__device)
-            self.__current = next(self.__iterator)
+            self.__acquisition_object.acq_wait_reading()
+            # Restart iterating:
+            self.__iterator = iter(self.__acquisition_object)
+            self.__current_acq_object = next(self.__iterator)
         except Exception as e:
-            e.args = (self.__device.name, *e.args)
+            e.args = (self.__acquisition_object.name, *e.args)
             raise
-
-    def _wait_ready(self, stats_dict):
-        tasks = []
-        # Check that it's still ok with the readingtask
-        if hasattr(self.device, "wait_reading"):
-            tasks.append(gevent.spawn(self.device.wait_reading))
-        with profile(stats_dict, self.device.name, "wait_ready"):
-            tasks.append(gevent.spawn(self.device.wait_ready))
-            try:
-                gevent.joinall(tasks, raise_error=True, count=1)
-            except:
-                gevent.killall(tasks)
-                raise
-            else:
-                wait_ready_task = tasks.pop(-1)
-                try:
-                    return wait_ready_task.get()
-                finally:
-                    gevent.killall(tasks)
-
-    def __getattr__(self, name):
-        if name.startswith("__"):
-            raise AttributeError(name)
-        return getattr(self.__current, name)
-
-    @property
-    def device(self):
-        return self.__current
+        return self
 
 
 class ChainPreset:
@@ -260,8 +260,8 @@ class AcquisitionObject:
         prepare_once=False,
         start_once=False,
         ctrl_params=None,
+        stats_dict=None,
     ):
-
         self.__name = name
         self.__parent = None
         self.__channels = AcquisitionChannelList()
@@ -277,6 +277,8 @@ class AcquisitionObject:
             self._ctrl_params = self.init_ctrl_params(self.device, ctrl_params)
         else:
             self._ctrl_params = ctrl_params
+
+        self._stats_dict = stats_dict
 
     def init_ctrl_params(self, device, ctrl_params):
         """ensure that ctrl-params have been completed"""
@@ -414,7 +416,64 @@ class AcquisitionObject:
                 f"Cannot add counter {counter.name}: acquisition controller mismatch {counter._counter_controller} != {self.device}"
             )
 
+    def get_iterator(self):
+        try:
+            iter(self)
+        except NotImplementedError:
+            return AcquisitionObjectIteratorObsolete(self)
+        else:
+            return AcquisitionObjectIterator(self)
+
+    # --------------------------- ACQ. CHAIN METHODS ---------------------------------------------
+
+    def has_reading_task(self):
+        """Returns True when the underlying device has a reading task.
+        """
+        # TODO: very convoluted. AcquisitionSlave always has a reading task
+        # while AcquisitionMaster sometimes has a reading task.
+        return hasattr(self, "wait_reading")
+
+    def acq_wait_reading(self):
+        """Wait until reading task has finished
+        """
+        if self.has_reading_task():
+            with profile(self._stats_dict, self.name, "wait_reading"):
+                self.wait_reading()
+
+    def acq_wait_ready(self):
+        """Wait until ready for next acquisition
+        """
+        with profile(self._stats_dict, self.name, "wait_ready"):
+            tasks = []
+            # The acquistion object is also considered to be
+            # ready when the reading task (if any) is not running.
+            if self.has_reading_task():
+                # No time profiling of wait_reading here!
+                tasks.append(gevent.spawn(self.wait_reading))
+            tasks.append(gevent.spawn(self.wait_ready))
+            join_tasks(tasks, count=1)
+            wait_ready_task = tasks.pop(-1)
+            try:
+                return wait_ready_task.get()
+            finally:
+                gevent.killall(tasks, exception=StopTask)
+
+    # --------------------------- OVERLOAD ACQ. CHAIN METHODS ---------------------------------------------
+
+    def acq_prepare(self):
+        raise NotImplementedError
+
+    def acq_start(self):
+        raise NotImplementedError
+
+    def acq_stop(self):
+        raise NotImplementedError
+
+    def acq_trigger(self):
+        raise NotImplementedError
+
     # ---------------------POTENTIALLY OVERLOAD METHODS  ----------------------------------------
+
     def apply_parameters(self):
         """Load controller parameters into hardware controller at the beginning of each scan"""
         from bliss.controllers.counter import CounterController
@@ -451,6 +510,7 @@ class AcquisitionObject:
         return None
 
     # --------------------------- OVERLOAD METHODS  ---------------------------------------------
+
     def prepare(self):
         raise NotImplementedError
 
@@ -458,6 +518,15 @@ class AcquisitionObject:
         raise NotImplementedError
 
     def stop(self):
+        raise NotImplementedError
+
+    def wait_ready(self):
+        # wait until ready for next acquisition
+        pass
+
+    def __iter__(self):
+        """Needs to yield AcquisitionObject instances when implemented
+        """
         raise NotImplementedError
 
 
@@ -490,7 +559,6 @@ class AcquisitionMaster(AcquisitionObject):
         self.__triggers = list()
         self.__duplicated_channels = {}
         self.__prepared = False
-        self.__stats_dict = {}
         self.__terminator = True
 
     @property
@@ -510,9 +578,8 @@ class AcquisitionMaster(AcquisitionObject):
     def terminator(self, terminator):
         self.__terminator = bool(terminator)
 
-    def _prepare(self, stats_dict):
-        self.__stats_dict = stats_dict
-        with profile(stats_dict, self.name, "prepare"):
+    def acq_prepare(self):
+        with profile(self._stats_dict, self.name, "prepare"):
             if not self.__prepared:
 
                 for connect, _ in self.__duplicated_channels.values():
@@ -521,27 +588,26 @@ class AcquisitionMaster(AcquisitionObject):
 
             return self.prepare()
 
-    def _start(self, stats_dict):
-        with profile(stats_dict, self.name, "start"):
+    def acq_start(self):
+        with profile(self._stats_dict, self.name, "start"):
             dispatcher.send("start", self)
             return_value = self.start()
             return return_value
 
-    def _stop(self, stats_dict):
-        with profile(stats_dict, self.name, "stop"):
+    def acq_stop(self):
+        with profile(self._stats_dict, self.name, "stop"):
             if self.__prepared:
                 for _, cleanup in self.__duplicated_channels.values():
                     cleanup()
                 self.__prepared = False
             return self.stop()
 
-    def _trigger(self, stats_dict):
-        with profile(stats_dict, self.name, "trigger"):
+    def acq_trigger(self):
+        with profile(self._stats_dict, self.name, "trigger"):
             return self.trigger()
 
     def trigger_slaves(self):
-        stats_dict = self.__stats_dict
-        with profile(stats_dict, self.name, "trigger_slaves"):
+        with profile(self._stats_dict, self.name, "trigger_slaves"):
             invalid_slaves = list()
             for slave, task in self.__triggers:
                 if not slave.trigger_ready() or not task.successful():
@@ -565,19 +631,12 @@ class AcquisitionMaster(AcquisitionObject):
             else:
                 for slave in self.slaves:
                     if slave.trigger_type == TRIGGER_MODE_ENUM.SOFTWARE:
-                        self.__triggers.append(
-                            (slave, gevent.spawn(slave._trigger, stats_dict))
-                        )
+                        self.__triggers.append((slave, gevent.spawn(slave.acq_trigger)))
 
     def wait_slaves(self):
-        stats_dict = self.__stats_dict
-        with profile(stats_dict, self.name, "wait_slaves"):
+        with profile(self._stats_dict, self.name, "wait_slaves"):
             slave_tasks = [task for _, task in self.__triggers]
-            try:
-                gevent.joinall(slave_tasks, raise_error=True)
-            except:
-                gevent.killall(slave_tasks)
-                raise
+            join_tasks(slave_tasks)
 
     def add_external_channel(
         self, device, name, rename=None, conversion=None, dtype=None
@@ -639,11 +698,7 @@ class AcquisitionMaster(AcquisitionObject):
         tasks = [
             _f for _f in [_running_task_on_device.get(dev) for dev in self.slaves] if _f
         ]
-        try:
-            gevent.joinall(tasks, raise_error=True)
-        except:
-            gevent.killall(tasks)
-            raise
+        join_tasks(tasks)
 
     def wait_slaves_ready(self):
         """
@@ -654,11 +709,7 @@ class AcquisitionMaster(AcquisitionObject):
                 slave.wait_slaves_ready()
 
         tasks = [gevent.spawn(dev.wait_ready) for dev in self.slaves]
-        try:
-            gevent.joinall(tasks, raise_error=True)
-        except:
-            gevent.killall(tasks)
-            raise
+        join_tasks(tasks)
 
     # --------------------------- OVERLOAD METHODS  ---------------------------------------------
 
@@ -680,7 +731,7 @@ class AcquisitionMaster(AcquisitionObject):
     def wait_ready(self):
         # wait until ready for next acquisition
         # (not considering slave devices)
-        return True
+        pass
 
     def set_image_saving(self, directory, prefix, force_no_saving=False):
         pass
@@ -712,26 +763,25 @@ class AcquisitionSlave(AcquisitionObject):
 
         self._reading_task = None
 
-    def _prepare(self, stats_dict):
-        with profile(stats_dict, self.name, "prepare"):
-
+    def acq_prepare(self):
+        with profile(self._stats_dict, self.name, "prepare"):
             if self._reading_task:
                 raise RuntimeError("%s: Last reading task is not finished." % self.name)
             return self.prepare()
 
-    def _start(self, stats_dict):
-        with profile(stats_dict, self.name, "start"):
+    def acq_start(self):
+        with profile(self._stats_dict, self.name, "start"):
             dispatcher.send("start", self)
             self.start()
             if not self._reading_task:
                 self._reading_task = gevent.spawn(self.reading)
 
-    def _stop(self, stats_dict):
-        with profile(stats_dict, self.name, "stop"):
+    def acq_stop(self):
+        with profile(self._stats_dict, self.name, "stop"):
             self.stop()
 
-    def _trigger(self, stats_dict):
-        with profile(stats_dict, self.name, "trigger"):
+    def acq_trigger(self):
+        with profile(self._stats_dict, self.name, "trigger"):
             if not self._reading_task:
                 dispatcher.send("start", self)
                 self._reading_task = gevent.spawn(self.reading)
@@ -739,8 +789,7 @@ class AcquisitionSlave(AcquisitionObject):
 
     def wait_reading(self):
         if self._reading_task is not None:
-            return self._reading_task.get()
-        return True
+            self._reading_task.get()
 
     # --------------------------- OVERLOAD METHODS  ---------------------------------------------
 
@@ -764,7 +813,7 @@ class AcquisitionSlave(AcquisitionObject):
 
     def wait_ready(self):
         # wait until ready for next acquisition
-        return True
+        pass
 
 
 class AcquisitionChainIter:
@@ -782,20 +831,16 @@ class AcquisitionChainIter:
         # create iterators tree
         self._tree = Tree()
         self._root_node = self._tree.create_node("acquisition chain", "root")
-        device2iter = dict()
-        for dev in sub_tree.expand_tree():
-            if not isinstance(dev, (AcquisitionSlave, AcquisitionMaster)):
+        acqobj2iter = dict()
+        for acq_obj in sub_tree.expand_tree():
+            if not isinstance(acq_obj, AcquisitionObject):
                 continue
-            dev_node = acquisition_chain._tree.get_node(dev)
-            parent = device2iter.get(dev_node.bpointer, "root")
-            try:
-                it = iter(dev)
-            except TypeError:
-                dev_iter = DeviceIterator(dev)
-            else:
-                dev_iter = DeviceIteratorWrapper(dev)
-            device2iter[dev] = dev_iter
-            self._tree.create_node(tag=dev.name, identifier=dev_iter, parent=parent)
+            node = acquisition_chain._tree.get_node(acq_obj)
+            parent_acq_obj_iter = acqobj2iter.get(node.bpointer, "root")
+            acqobj2iter[acq_obj] = acq_obj_iter = acq_obj.get_iterator()
+            self._tree.create_node(
+                tag=acq_obj.name, identifier=acq_obj_iter, parent=parent_acq_obj_iter
+            )
 
     @property
     def acquisition_chain(self):
@@ -803,7 +848,7 @@ class AcquisitionChainIter:
 
     @property
     def top_master(self):
-        return self._tree.children("root")[0].identifier.device
+        return self._tree.children("root")[0].identifier.acquisition_object
 
     def apply_parameters(self):
         for tasks in self._execute("apply_parameters", wait_between_levels=False):
@@ -837,29 +882,13 @@ class AcquisitionChainIter:
             else:
                 self._current_preset_iterators_list.append(preset)
                 preset_tasks.append(gevent.spawn(preset.prepare))
-        try:
-            gevent.joinall(preset_tasks, raise_error=True)
-        except StopChain:
-            gevent.killall(preset_tasks, exception=StopChain)
-            raise
-        except:
-            gevent.killall(preset_tasks)
-            raise
 
-        stats_dict = self.__acquisition_chain_ref()._stats_dict
+        join_tasks(preset_tasks)
+
         for tasks in self._execute(
-            "_prepare",
-            stats_dict=stats_dict,
-            wait_between_levels=not self._parallel_prepare,
+            "acq_prepare", wait_between_levels=not self._parallel_prepare
         ):
-            try:
-                gevent.joinall(tasks, raise_error=True)
-            except StopChain:
-                gevent.killall(tasks, exception=StopChain)
-                raise
-            except:
-                gevent.killall(tasks)
-                raise
+            join_tasks(tasks)
 
     def start(self):
         preset_tasks = list()
@@ -872,42 +901,27 @@ class AcquisitionChainIter:
         preset_tasks.extend(
             [gevent.spawn(i.start) for i in self._current_preset_iterators_list]
         )
-        try:
-            gevent.joinall(preset_tasks, raise_error=True)
-        except StopChain:
-            gevent.killall(preset_tasks, exception=StopChain)
-            raise
-        except:
-            gevent.killall(preset_tasks)
-            raise
 
-        stats_dict = self.__acquisition_chain_ref()._stats_dict
-        for tasks in self._execute("_start", stats_dict=stats_dict):
-            try:
-                gevent.joinall(tasks, raise_error=True)
-            except StopChain:
-                gevent.killall(tasks, exception=StopChain)
-                raise
-            except:
-                gevent.killall(tasks)
-                raise
+        join_tasks(preset_tasks)
+
+        for tasks in self._execute("acq_start"):
+            join_tasks(tasks)
+
+    def _acquisition_object_iterators(self):
+        for acq_obj_iter in self._tree.expand_tree():
+            if not isinstance(acq_obj_iter, AbstractAcquisitionObjectIterator):
+                continue
+            yield acq_obj_iter
 
     def wait_all_devices(self):
-        for acq_dev_iter in (
-            x
-            for x in self._tree.expand_tree()
-            if x is not "root"
-            and isinstance(x.device, (AcquisitionSlave, AcquisitionMaster))
-        ):
-            if hasattr(acq_dev_iter, "wait_reading"):
-                acq_dev_iter.wait_reading()
-            if isinstance(acq_dev_iter.device, AcquisitionMaster):
-                acq_dev_iter.wait_slaves()
-            dispatcher.send("end", acq_dev_iter.device)
+        for acq_obj_iter in self._acquisition_object_iterators():
+            acq_obj_iter.acq_wait_reading()
+            if isinstance(acq_obj_iter.acquisition_object, AcquisitionMaster):
+                acq_obj_iter.wait_slaves()
+            dispatcher.send("end", acq_obj_iter.acquisition_object)
 
     def stop(self):
         all_tasks = []
-        stats_dict = self.__acquisition_chain_ref()._stats_dict
         with capture_exceptions(raise_index=0) as capture:
             # call before_stop on preset
             with capture():
@@ -919,9 +933,7 @@ class AcquisitionChainIter:
                 gevent.joinall(preset_tasks)  # wait to call all before_stop on preset
                 gevent.joinall(preset_tasks, raise_error=True)
 
-            for tasks in self._execute(
-                "_stop", stats_dict=stats_dict, master_to_slave=True
-            ):
+            for tasks in self._execute("acq_stop", master_to_slave=True):
                 with KillMask(masked_kill_nb=1):
                     gevent.joinall(tasks)
                 all_tasks.extend(tasks)
@@ -948,22 +960,13 @@ class AcquisitionChainIter:
         self.__sequence_index += 1
         if self.__sequence_index == 0:
             self._start_time = time.time()
-        stats_dict = self.__acquisition_chain_ref()._stats_dict
-        wait_ready_tasks = self._execute(
-            "_wait_ready", stats_dict=stats_dict, master_to_slave=True
-        )
+        wait_ready_tasks = self._execute("acq_wait_ready", master_to_slave=True)
         for tasks in wait_ready_tasks:
-            try:
-                gevent.joinall(tasks, raise_error=True)
-            except:
-                gevent.killall(tasks)
-                raise
+            join_tasks(tasks)
         try:
             if self.__sequence_index:
-                for dev_iter in self._tree.expand_tree():
-                    if dev_iter is "root":
-                        continue
-                    next(dev_iter)
+                for acq_obj_iter in self._acquisition_object_iterators():
+                    next(acq_obj_iter)
             preset_tasks = [
                 gevent.spawn(i.stop) for i in self._current_preset_iterators_list
             ]
@@ -974,35 +977,26 @@ class AcquisitionChainIter:
             raise
         return self
 
-    def _execute(
-        self,
-        func_name,
-        stats_dict=None,
-        master_to_slave=False,
-        wait_between_levels=True,
-    ):
+    def _execute(self, func_name, master_to_slave=False, wait_between_levels=True):
         tasks = list()
-
         prev_level = None
-
+        stats_dict = self.__acquisition_chain_ref()._stats_dict
         if master_to_slave:
-            devs = list(self._tree.expand_tree(mode=Tree.WIDTH))[1:]
+            acq_obj_iters = list(self._tree.expand_tree(mode=Tree.WIDTH))[1:]
         else:
-            devs = reversed(list(self._tree.expand_tree(mode=Tree.WIDTH))[1:])
+            acq_obj_iters = reversed(list(self._tree.expand_tree(mode=Tree.WIDTH))[1:])
 
-        for dev in devs:
-            node = self._tree.get_node(dev)
+        for acq_obj_iter in acq_obj_iters:
+            acq_obj_iter.acquisition_object._stats_dict = stats_dict
+            node = self._tree.get_node(acq_obj_iter)
             level = self._tree.depth(node)
             if wait_between_levels and prev_level != level:
                 yield tasks
                 tasks = list()
                 prev_level = level
-            func = getattr(dev, func_name)
-            if stats_dict is not None:
-                t = gevent.spawn(func, stats_dict)
-            else:
-                t = gevent.spawn(func)
-            _running_task_on_device[dev.device] = t
+            func = getattr(acq_obj_iter, func_name)
+            t = gevent.spawn(func)
+            _running_task_on_device[acq_obj_iter.acquisition_object] = t
             tasks.append(t)
         yield tasks
 
@@ -1019,7 +1013,9 @@ class AcquisitionChain:
         self._stats_dict = dict()
 
     def reset_stats(self):
-        self._stats_dict = dict()
+        """Reset time statistics
+        """
+        self._stats_dict.clear()
 
     @property
     def nodes_list(self):
@@ -1029,7 +1025,7 @@ class AcquisitionChain:
 
     def get_node_from_devices(self, *devices):
         """
-        Helper method to get AcquisitionMaster/Slave
+        Helper method to get AcquisitionObject
         from countroller and/or counter, motor.
         This will return a list of nodes in the same order
         as the devices. Node will be None if not found.
@@ -1143,7 +1139,7 @@ class AcquisitionChain:
         """
         if not isinstance(preset, ChainPreset):
             raise ValueError("Expected ChainPreset instance")
-        top_masters = [x.identifier for x in self._tree.children("root")]
+        top_masters = self.top_masters
         if master is not None and master not in top_masters:
             raise ValueError(f"master {master} not in {top_masters}")
 

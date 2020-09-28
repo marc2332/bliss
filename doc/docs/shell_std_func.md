@@ -16,6 +16,13 @@ DEMO [11]: mv(simot1, 3, spec_m3, 5)
 
 NB: `move()` can take `wait=False` argument to be non-bloquant.
 
+### mvd (dial move)
+* `mvd([<motor>, <position>]+)`: moves motor(s) to given dial position(s).
+
+```
+DEMO [12]: mvd(simot1, 2, spec_m3, 4)
+```
+
 ### umv (updated move)
 * `umv([<motor>, <position>]+)`: same than `move([<motor>, <position>]+)` but
 shows continuously updated positions of motors.
@@ -23,12 +30,18 @@ shows continuously updated positions of motors.
 ```
 DEMO [13]: umv(simot1, 1, spec_m3, 4)
 
- simot1   spec_m3
-   1.390     3.258
+        simot1    spec_m3
+user    0.390     3.258
+dial    1.390     2.258
 ```
+
+### umvd (updated dial move)
+* `umvd([<motor>, <position>]+)`: same than `mvd([<motor>, <position>]+)` but
+shows continuously updated positions of motors.
 
 ### mvr (relative move)
 * `mvr([<motor>, <position>]+)`: move motor(s) relatively to current positions.
+* `mvdr([<motor>, <position>]+)`: move motor(s) relatively to current dial positions.
 
 ```python
 DEMO [5]: wa()
@@ -56,9 +69,14 @@ continuously updated positions of motors.
 
 ```python
 CC4 [4]: umvr(m1, 1)
-m1
-5.000
+        simot1
+user    5.000
+dial    4.000
 ```
+
+### umvdr (updated dial relative move)
+* `umdvr([<motor>, <position_increment>]+)`: Same than `mvdr()` but shows
+continuously updated positions of motors.
 
 ### wa (where all)
 * `wa()`: Shows user and dial positions of configured motors.

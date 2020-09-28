@@ -11,7 +11,6 @@ import warnings
 import collections
 import functools
 import inspect
-import copy
 import contextlib
 
 from treelib import Tree
@@ -21,6 +20,7 @@ from weakref import WeakKeyDictionary
 from bliss import setup_globals, global_map, is_bliss_shell
 from bliss.config import static
 from bliss.config.settings import SimpleSetting
+from bliss.config.channels import EventChannel
 from bliss.config.conductor.client import get_text_file, get_python_modules, get_file
 from bliss.common.proxy import Proxy
 from bliss.common.logtools import log_warning
@@ -169,6 +169,7 @@ class Session:
         self.__scans = collections.deque(maxlen=20)
         self.__user_script_homedir = SimpleSetting("%s:user_script_homedir" % self.name)
         self._script_source_cache = WeakKeyDictionary()
+        self.__data_policy_events = EventChannel(f"{self.name}:esrf_data_policy")
 
         self.init(config_tree)
 
@@ -408,6 +409,12 @@ class Session:
     def env_dict(self):
         return self.__env_dict
 
+    def _emit_event(self, event, **kwargs):
+        if event in scan_saving.ESRFDataPolicyEvent:
+            self.__data_policy_events.post(dict(event_type=event, value=kwargs))
+        else:
+            raise NotImplementedError
+
     def _set_scan_saving(self, cls=None):
         scan_saving.set_scan_saving_class(cls)
         self.scan_saving = scan_saving.ScanSaving(self.name)
@@ -421,9 +428,17 @@ class Session:
 
     def enable_esrf_data_policy(self):
         self._set_scan_saving(cls=scan_saving.ESRFScanSaving)
+        self._emit_event(
+            scan_saving.ESRFDataPolicyEvent.Enable,
+            data_path=self.scan_saving.get_path(),
+        )
 
     def disable_esrf_data_policy(self):
         self._set_scan_saving()
+        self._emit_event(
+            scan_saving.ESRFDataPolicyEvent.Disable,
+            data_path=self.scan_saving.get_path(),
+        )
 
     def _cache_script_source(self, obj):
         """ Store source code of obj in cache for prdef """

@@ -8,10 +8,13 @@
 import pytest
 import time
 import os
+import gevent
 from bliss.common.standard import loopscan, mv
 from bliss.common.utils import rounder
 from bliss.common.tango import DevFailed
 from bliss.common.session import set_current_session
+from bliss.scanning.scan_saving import ESRFDataPolicyEvent
+from bliss.config import channels
 from bliss.shell.standard import (
     newproposal,
     newsample,
@@ -71,9 +74,9 @@ def assert_logbook_received(
 ):
     if not category:
         category = "info"
+
     print("\nWaiting of ICAT logbook message ...")
     logbook_received = icat_logbook_subscriber.get(timeout=timeout)
-
     print(f"Validating ICAT logbook message: {logbook_received}")
     assert logbook_received["category"] == category
 
@@ -95,7 +98,11 @@ def assert_logbook_received(
             assert message in adict["text"]
 
 
-def test_stomp_server(icat_publisher, icat_subscriber):
+def assert_icat_received_current_proposal(scan_saving, icat_subscriber):
+    assert_icat_received(icat_subscriber, icat_info(scan_saving))
+
+
+def test_stomp(icat_publisher, icat_subscriber):
     icat_publisher.sendall(b"MYMESSAGE1\nMYMESSAGE2\n")
     assert icat_subscriber.get(timeout=5) == "MYMESSAGE1"
     assert icat_subscriber.get(timeout=5) == "MYMESSAGE2"
@@ -106,27 +113,22 @@ def test_jolokia_server(jolokia_server):
     pass
 
 
-def test_icat_logbook_server(icat_logbook_server):
+def test_icat_logbook_server(icat_logbook_subscriber):
     # TODO: send test request
     pass
 
 
-def test_icat_backend(
-    session,
-    esrf_data_policy,
-    metaexp_with_backend,
-    metamgr_with_backend,
-    icat_subscriber,
-    icat_logbook_subscriber,
+def test_icat_backends(
+    session, icat_subscriber, icat_logbook_subscriber, esrf_data_policy
 ):
     scan_saving = session.scan_saving
+    assert_icat_received_current_proposal(scan_saving, icat_subscriber)
     scan_saving.writer = "hdf5"
 
     diode = session.config.get("diode")
     newproposal("totoproposal")
-    expected = icat_info(scan_saving)
-    assert_icat_received(icat_subscriber, expected)
     assert_logbook_received(icat_logbook_subscriber, "Proposal set to")
+    assert_icat_received_current_proposal(scan_saving, icat_subscriber)
 
     newdataset()
     loopscan(1, .1, diode)
@@ -136,18 +138,15 @@ def test_icat_backend(
     assert_icat_received(icat_subscriber, expected)
 
 
-def test_inhouse_scan_saving(
-    session,
-    esrf_data_policy,
-    metaexp_with_backend,
-    metamgr_with_backend,
-    icat_subscriber,
-):
+def test_inhouse_scan_saving(session, icat_subscriber, esrf_data_policy):
     scan_saving = session.scan_saving
     scan_saving_config = esrf_data_policy
+    assert_icat_received_current_proposal(scan_saving, icat_subscriber)
+
     for bset in [False, True]:
         if bset:
             scan_saving.proposal = "blc123"
+            assert_icat_received_current_proposal(scan_saving, icat_subscriber)
         assert scan_saving.beamline == scan_saving_config["beamline"]
         if bset:
             assert scan_saving.proposal == "blc123"
@@ -162,36 +161,25 @@ def test_inhouse_scan_saving(
             "inhouse_data_root"
         ].format(beamline=scan_saving.beamline)
         assert_default_sample_dataset(scan_saving)
-        expected = icat_info(scan_saving)
-        assert_icat_received(icat_subscriber, expected)
 
 
-def test_visitor_scan_saving(
-    session,
-    esrf_data_policy,
-    metaexp_with_backend,
-    metamgr_with_backend,
-    icat_subscriber,
-):
+def test_visitor_scan_saving(session, icat_subscriber, esrf_data_policy):
     scan_saving = session.scan_saving
+    assert_icat_received_current_proposal(scan_saving, icat_subscriber)
+
     scan_saving.mount_point = "fs1"
     scan_saving_config = esrf_data_policy
     scan_saving.proposal = "mx415"
     assert scan_saving.base_path == scan_saving_config["visitor_data_root"]["fs1"]
     assert scan_saving.icat_base_path == scan_saving_config["visitor_data_root"]["fs1"]
     assert_default_sample_dataset(scan_saving)
-    expected = icat_info(scan_saving)
-    assert_icat_received(icat_subscriber, expected)
+    assert_icat_received_current_proposal(scan_saving, icat_subscriber)
 
 
-def test_tmp_scan_saving(
-    session,
-    esrf_data_policy,
-    metaexp_with_backend,
-    metamgr_with_backend,
-    icat_subscriber,
-):
+def test_tmp_scan_saving(session, icat_subscriber, esrf_data_policy):
     scan_saving = session.scan_saving
+    assert_icat_received_current_proposal(scan_saving, icat_subscriber)
+
     scan_saving.mount_point = "fs1"
     scan_saving_config = esrf_data_policy
     scan_saving.proposal = "test123"
@@ -204,8 +192,7 @@ def test_tmp_scan_saving(
     )
     assert scan_saving.icat_base_path == expected
     assert_default_sample_dataset(scan_saving)
-    expected = icat_info(scan_saving)
-    assert_icat_received(icat_subscriber, expected)
+    assert_icat_received_current_proposal(scan_saving, icat_subscriber)
 
 
 def assert_default_sample_dataset(scan_saving):
@@ -238,15 +225,9 @@ def create_dataset(scan_saving):
             os.makedirs(path)
 
 
-def test_auto_dataset_increment(
-    session,
-    esrf_data_policy,
-    metaexp_with_backend,
-    metamgr_with_backend,
-    icat_subscriber,
-):
+def test_auto_dataset_increment(session, icat_subscriber, esrf_data_policy):
     scan_saving = session.scan_saving
-    assert_icat_received(icat_subscriber, icat_info(scan_saving))
+    assert_icat_received_current_proposal(scan_saving, icat_subscriber)
     expected_dataset = icat_info(scan_saving, dataset=True)
     assert scan_saving.dataset == "0001"
 
@@ -280,28 +261,31 @@ def test_auto_dataset_increment(
 
 def test_data_policy_scan_check_servers(
     session,
+    icat_subscriber,
     esrf_data_policy,
     metaexp_with_backend,
     metamgr_with_backend,
     nexus_writer_service,
-    icat_subscriber,
 ):
     scan_saving = session.scan_saving
+    assert_icat_received_current_proposal(scan_saving, icat_subscriber)
+
     mdexp_dev_fqdn, mdexp_dev = metaexp_with_backend
     mdmgr_dev_fqdn, mdmgr_dev = metamgr_with_backend
     diode = session.env_dict["diode"]
+    default_proposal = f"{scan_saving.beamline}{time.strftime('%y%m')}"
 
     expected = {
-        "proposal": "",
+        "proposal": default_proposal,
         "sample": None,
         "dataset": None,
         "path": None,
-        "state": "OFF",
+        "state": "STANDBY",
     }
     assert_servers(mdexp_dev, mdmgr_dev, **expected)
 
     scan_saving.proposal = "proposal1"
-    assert_icat_received(icat_subscriber, icat_info(scan_saving))
+    assert_icat_received_current_proposal(scan_saving, icat_subscriber)
     expected["proposal"] = "proposal1"
     expected["state"] = "STANDBY"
     assert_servers(mdexp_dev, mdmgr_dev, **expected)
@@ -343,7 +327,7 @@ def test_data_policy_scan_check_servers(
     assert_servers(mdexp_dev, mdmgr_dev, **expected)
 
     scan_saving.proposal = "proposal2"
-    assert_icat_received(icat_subscriber, icat_info(scan_saving))
+    assert_icat_received_current_proposal(scan_saving, icat_subscriber)
     expected["proposal"] = "proposal2"
     expected["path"] = None
     expected["sample"] = None
@@ -382,15 +366,10 @@ def assert_servers(
 
 
 def test_data_policy_user_functions(
-    session,
-    esrf_data_policy,
-    metaexp_with_backend,
-    metamgr_with_backend,
-    icat_subscriber,
-    icat_logbook_subscriber,
+    session, icat_subscriber, icat_logbook_subscriber, esrf_data_policy
 ):
     scan_saving = session.scan_saving
-    assert_icat_received(icat_subscriber, icat_info(scan_saving))
+    assert_icat_received_current_proposal(scan_saving, icat_subscriber)
     expected_dataset = icat_info(scan_saving, dataset=True)
     default_proposal = f"{scan_saving.beamline}{time.strftime('%y%m')}"
 
@@ -402,7 +381,7 @@ def test_data_policy_user_functions(
     newproposal("toto")
     assert_logbook_received(icat_logbook_subscriber, "toto")
     assert_icat_received(icat_subscriber, expected_dataset)
-    assert_icat_received(icat_subscriber, icat_info(scan_saving))
+    assert_icat_received_current_proposal(scan_saving, icat_subscriber)
     expected_dataset = icat_info(scan_saving, dataset=True)
     assert scan_saving.proposal == "toto"
     assert scan_saving.sample == "sample"
@@ -430,7 +409,7 @@ def test_data_policy_user_functions(
     newproposal()
     assert_logbook_received(icat_logbook_subscriber, default_proposal)
     assert_icat_received(icat_subscriber, expected_dataset)
-    assert_icat_received(icat_subscriber, icat_info(scan_saving))
+    assert_icat_received_current_proposal(scan_saving, icat_subscriber)
     expected_dataset = icat_info(scan_saving, dataset=True)
     assert scan_saving.proposal == default_proposal
     assert scan_saving.sample == "sample"
@@ -456,7 +435,7 @@ def test_data_policy_user_functions(
     newproposal("toto")
     assert_logbook_received(icat_logbook_subscriber, "toto")
     assert_icat_received(icat_subscriber, expected_dataset)
-    assert_icat_received(icat_subscriber, icat_info(scan_saving))
+    assert_icat_received_current_proposal(scan_saving, icat_subscriber)
     expected_dataset = icat_info(scan_saving, dataset=True)
     assert scan_saving.proposal == "toto"
     assert scan_saving.sample == "sample"
@@ -465,15 +444,13 @@ def test_data_policy_user_functions(
 
     endproposal()
     assert_icat_received(icat_subscriber, expected_dataset)
-    assert_icat_received(icat_subscriber, icat_info(scan_saving))
+    assert_icat_received_current_proposal(scan_saving, icat_subscriber)
     assert scan_saving.proposal == default_proposal
     assert scan_saving.sample == "sample"
     assert scan_saving.dataset == "0005"
 
 
-def test_data_policy_name_validation(
-    session, esrf_data_policy, metaexp_with_backend, metamgr_with_backend
-):
+def test_data_policy_name_validation(session, esrf_data_policy):
     scan_saving = session.scan_saving
 
     for name in ("with,", "with:", "with;"):
@@ -497,9 +474,7 @@ def test_data_policy_name_validation(
         assert scan_saving.dataset == "dataset_Name"
 
 
-def test_session_scan_saving_clone(
-    session, esrf_data_policy, metaexp_with_backend, metamgr_with_backend
-):
+def test_session_scan_saving_clone(session, esrf_data_policy):
     scan_saving = session.scan_saving
 
     # just to create a tango dev proxy in scan saving
@@ -519,9 +494,7 @@ def test_session_scan_saving_clone(
     assert scan_saving2.proposal == "toto"
 
 
-def test_mount_points(
-    session, esrf_data_policy, metaexp_with_backend, metamgr_with_backend
-):
+def test_mount_points(session, esrf_data_policy):
     scan_saving = session.scan_saving
     scan_saving_config = esrf_data_policy
 
@@ -617,19 +590,15 @@ def test_mount_points(
 
 
 def test_session_ending(
-    session,
-    esrf_data_policy,
-    metaexp_with_backend,
-    metamgr_with_backend,
-    icat_subscriber,
-    icat_logbook_subscriber,
+    session, icat_subscriber, icat_logbook_subscriber, esrf_data_policy
 ):
     scan_saving = session.scan_saving
     default_proposal = f"{scan_saving.beamline}{time.strftime('%y%m')}"
+    assert_icat_received_current_proposal(scan_saving, icat_subscriber)
 
     scan_saving.newproposal("hg123")
     assert_logbook_received(icat_logbook_subscriber, "hg123")
-    assert_icat_received(icat_subscriber, icat_info(scan_saving))
+    assert_icat_received_current_proposal(scan_saving, icat_subscriber)
     scan_saving.newsample("sample1")
     assert_logbook_received(icat_logbook_subscriber, "sample1")
     create_dataset(scan_saving)
@@ -648,19 +617,61 @@ def test_session_ending(
 
     scan_saving.endproposal()
     assert_icat_received(icat_subscriber, expected_dataset)
-    assert_icat_received(icat_subscriber, icat_info(scan_saving))
+    assert_icat_received_current_proposal(scan_saving, icat_subscriber)
     assert scan_saving.proposal == default_proposal
     assert scan_saving.sample == "sample"
     assert scan_saving.dataset == "0001"
 
 
-def test_date_in_basepath(
-    session,
-    esrf_data_policy,
-    metaexp_with_backend,
-    metamgr_with_backend,
-    icat_logbook_subscriber,
-):
+def test_data_policy_event(session, esrf_data_policy):
+    e = channels.EventChannel(f"{session.name}:esrf_data_policy")
+    full_event_list = list()
+    called_cbk = {"nb": 0}
+    called = gevent.event.Event()
+
+    def f(events_list):
+        # global last_event
+        called_cbk["nb"] += 1
+        full_event_list.extend(events_list)
+        called.set()
+
+    e.register_callback(f)
+
+    def wait_for_event_callback():
+        # give the hand to gevent loop and wait callback to be called
+        with gevent.Timeout(1):
+            called.wait()
+            called.clear()
+
+    scan_saving = session.scan_saving
+
+    wait_for_event_callback()
+    assert called_cbk["nb"] == 1
+    assert full_event_list[-1]["event_type"] == ESRFDataPolicyEvent.Enable
+
+    scan_saving.newproposal("hg123")
+    wait_for_event_callback()
+    assert called_cbk["nb"] == 2
+    assert full_event_list[-1]["event_type"] == ESRFDataPolicyEvent.Change
+    assert full_event_list[-1]["value"]["message"] == "Proposal set to 'hg123'"
+    scan_saving.newsample("sample1")
+    scan_saving.newdataset("42")
+    create_dataset(scan_saving)
+
+    scan_saving.enddataset()
+    create_dataset(scan_saving)
+
+    scan_saving.endproposal()
+    wait_for_event_callback()
+    assert len(full_event_list) == 5
+    wait_for_event_callback()
+
+    session.disable_esrf_data_policy()
+    wait_for_event_callback()
+    assert full_event_list[-1]["event_type"] == ESRFDataPolicyEvent.Disable
+
+
+def test_date_in_basepath(session, icat_logbook_subscriber, esrf_data_policy):
     # Put date in base path template:
     scan_saving = session.scan_saving
     new_base_path = os.path.join(scan_saving.base_path, "{date}")
@@ -699,15 +710,12 @@ def test_date_in_basepath(
 
 
 def test_parallel_sessions(
-    beacon,
     session,
     session2,
-    esrf_data_policy,
-    esrf_data_policy2,
-    metaexp_with_backend,
-    metamgr_with_backend,
     icat_subscriber,
     icat_logbook_subscriber,
+    esrf_data_policy,
+    esrf_data_policy2,
 ):
     # SCAN_SAVING uses the `current_session`
 
@@ -722,23 +730,23 @@ def test_parallel_sessions(
     scan_saving = get_scan_saving1()
     assert scan_saving.session == "test_session"
     assert scan_saving.dataset == "0001"
-    assert_icat_received(icat_subscriber, icat_info(scan_saving))
+    assert_icat_received_current_proposal(scan_saving, icat_subscriber)
 
     scan_saving = get_scan_saving2()
     assert scan_saving.session == "test_session2"
     assert scan_saving.dataset == "0002"
-    assert_icat_received(icat_subscriber, icat_info(scan_saving))
+    assert_icat_received_current_proposal(scan_saving, icat_subscriber)
 
     scan_saving = get_scan_saving1()
     scan_saving.newproposal("blc123")
     assert_logbook_received(icat_logbook_subscriber, "blc123")
-    assert_icat_received(icat_subscriber, icat_info(scan_saving))
+    assert_icat_received_current_proposal(scan_saving, icat_subscriber)
     assert scan_saving.dataset == "0001"
 
     scan_saving = get_scan_saving2()
     scan_saving.newproposal("blc123")
     assert_logbook_received(icat_logbook_subscriber, "blc123")
-    assert_icat_received(icat_subscriber, icat_info(scan_saving))
+    assert_icat_received_current_proposal(scan_saving, icat_subscriber)
     assert scan_saving.dataset == "0002"
 
     get_scan_saving1().newdataset(None)
@@ -780,24 +788,12 @@ def test_parallel_sessions(
     assert get_scan_saving2().dataset == "named_0002"
 
 
-def test_lprint(
-    session,
-    esrf_data_policy,
-    metaexp_with_backend,
-    metamgr_with_backend,
-    icat_logbook_subscriber,
-):
+def test_lprint(session, icat_logbook_subscriber, esrf_data_policy):
     lprint("message1")
     assert_logbook_received(icat_logbook_subscriber, "message1", complete=True)
 
 
-def test_lprint_move_axis(
-    session,
-    esrf_data_policy,
-    metaexp_with_backend,
-    metamgr_with_backend,
-    icat_logbook_subscriber,
-):
+def test_lprint_move_axis(session, icat_logbook_subscriber, esrf_data_policy):
     mot = session.env_dict.get("s1hg")
     a = mot.position
     b = 10

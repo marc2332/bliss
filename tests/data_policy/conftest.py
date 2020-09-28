@@ -7,15 +7,16 @@
 
 import pytest
 import os
+from bliss.common.session import set_current_session
+from bliss.scanning.scan_saving import ESRFScanSaving, ESRFDataPolicyEvent
 
 
-def _esrf_data_policy(session):
-    tmpdir = session.scan_saving.base_path
-    session.enable_esrf_data_policy()
-
+def modify_esrf_policy_mount_points(scan_saving, base_path):
     # Make sure all data saving mount points
-    # have tmpdir as root
-    scan_saving_config = session.scan_saving.scan_saving_config
+    # have base_path as root in the session's
+    # scan saving config (in memory)
+    assert isinstance(scan_saving, ESRFScanSaving)
+    scan_saving_config = scan_saving.scan_saving_config
     roots = ["inhouse_data_root", "visitor_data_root", "tmp_data_root"]
     for root in roots:
         for prefix in ["", "icat_"]:
@@ -24,18 +25,39 @@ def _esrf_data_policy(session):
             if mount_points is None:
                 continue
             elif isinstance(mount_points, str):
-                scan_saving_config[key] = mount_points.replace("/tmp/scans", tmpdir)
+                scan_saving_config[key] = mount_points.replace("/tmp/scans", base_path)
             else:
                 for mp in mount_points:
-                    mount_points[mp] = mount_points[mp].replace("/tmp/scans", tmpdir)
+                    mount_points[mp] = mount_points[mp].replace("/tmp/scans", base_path)
 
-    yield scan_saving_config
+
+def _esrf_data_policy(session):
+    # SCAN_SAVING uses the `current_session`
+    set_current_session(session, force=True)
+    assert session.name == session.scan_saving.session
+
+    # TODO: cannot use enable_esrf_data_policy directly because
+    # we need to modify the in-memory config before setting the proposal.
+    # If enable_esrf_data_policy changes however, we are in trouble.
+
+    tmpdir = session.scan_saving.base_path
+    session._set_scan_saving(cls=ESRFScanSaving)
+    modify_esrf_policy_mount_points(session.scan_saving, tmpdir)
+
+    # session.scan_saving.get_path() set the proposal to the default
+    # proposal and notify ICAT. When using the `icat_subscriber` fixture,
+    # this will be the first event.
+    session._emit_event(
+        ESRFDataPolicyEvent.Enable, data_path=session.scan_saving.get_path()
+    )
+
+    yield session.scan_saving.scan_saving_config
 
     session.disable_esrf_data_policy()
 
 
 @pytest.fixture
-def esrf_data_policy(session):
+def esrf_data_policy(session, metaexp_with_backend, metamgr_with_backend):
     yield from _esrf_data_policy(session)
 
 
@@ -49,5 +71,5 @@ def session2(beacon, scan_tmpdir):
 
 
 @pytest.fixture
-def esrf_data_policy2(session2):
+def esrf_data_policy2(session2, metaexp_with_backend, metamgr_with_backend):
     yield from _esrf_data_policy(session2)

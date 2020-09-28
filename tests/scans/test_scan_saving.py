@@ -152,9 +152,11 @@ def test_session_scan_saving_config(
         scan_saving_test_session.close()
 
 
-def test_default_session_scan_saving(default_session):
-    default_session.enable_esrf_data_policy()
-    scan_saving = default_session.scan_saving
+def test_default_session_scan_saving(
+    session, metaexp_without_backend, metamgr_without_backend
+):
+    session.enable_esrf_data_policy()
+    scan_saving = session.scan_saving
     scan_saving.beamline
 
 

@@ -19,6 +19,7 @@ import traceback
 from functools import wraps
 import logging
 import datetime
+import enum
 
 from bliss import current_session
 from bliss.config.settings import ParametersWardrobe
@@ -41,6 +42,12 @@ ScanSaving = Proxy(lambda: _SCAN_SAVING_CLASS or BasicScanSaving)
 def set_scan_saving_class(klass):
     global _SCAN_SAVING_CLASS
     _SCAN_SAVING_CLASS = klass
+
+
+class ESRFDataPolicyEvent(enum.Enum):
+    Enable = "enabled"
+    Disable = "disabled"
+    Change = "changed"
 
 
 logger = logging.getLogger(__name__)
@@ -1159,27 +1166,35 @@ class ESRFScanSaving(BasicScanSaving):
     def newproposal(self, proposal_name):
         # beware: self.proposal getter and setter do different actions
         self.proposal = proposal_name
-        lprint(f"Proposal set to '{self.proposal}'\nData path: {self.get_path()}")
+        lprint(f"Proposal set to '{self.proposal}'\nData path: {self.root_path}")
+        self._on_data_policy_changed(f"Proposal set to '{self.proposal}'")
 
     def newsample(self, sample_name):
         # beware: self.sample getter and setter do different actions
         self.sample = sample_name
         lprint(f"Sample set to '{self.sample}'\nData path: {self.root_path}")
+        self._on_data_policy_changed(f"Sample set to '{self.sample}'")
 
     def newdataset(self, dataset_name):
         # beware: self.dataset getter and setter do different actions
         self.dataset = dataset_name
         lprint(f"Dataset set to '{self.dataset}'\nData path: {self.root_path}")
+        self._on_data_policy_changed(f"Dataset set to '{self.dataset}'")
 
     def endproposal(self):
         """Close the active dataset (if any) and go to the default inhouse proposal
         """
-        self.enddataset()
+        self._enddataset()
         self._reset_proposal()
+        self._on_data_policy_changed(f"Proposal set to '{self.proposal}'")
 
     def enddataset(self):
         """Close the active dataset (if any) and go the the next dataset
         """
+        self._enddataset()
+        self._on_data_policy_changed(f"Dataset set to '{self.dataset}'")
+
+    def _enddataset(self):
         self.dataset = None
 
     def _store_dataset(self):
@@ -1194,3 +1209,8 @@ class ESRFScanSaving(BasicScanSaving):
         dataset = self.dataset
         self.icat_proxy.store_dataset(proposal, sample, dataset, path)
         self._dataset = ""
+
+    def _on_data_policy_changed(self, event):
+        current_session._emit_event(
+            ESRFDataPolicyEvent.Change, message=event, data_path=self.root_path
+        )

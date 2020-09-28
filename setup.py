@@ -227,6 +227,7 @@ def main():
             "icons/*/*.png",
             "gui/*.ui",
         ],
+        "bliss.icat": ["hdf5_cfg.xml"],
     }
 
     setup(

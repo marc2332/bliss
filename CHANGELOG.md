@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
       histogram
     - n-dim scatters can be displayed in 2D if extra dimensions are steppers
       (if behave like many frames, only the last one is displayed)
+    - Dedicated widget to display data from profile ROIs
 - Custom scan description (`scan_info`)
     - Added fields to explicitly describe scatter plots
     - Added fields to group channels of the same size
@@ -21,6 +22,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Added `axis-id` to order the scatter axis
 - Provide codecs for few RGB format from Lima videos
     - To use it, an optional dependency 'opencv' have to installed in the env
+- Update `edit_roi_counters` to also edit ROIs from Lima roi2spectrum (roi profile)
+  and arc ROIs
 
 ### Changed
 - Custom scan description (`scan_info`)

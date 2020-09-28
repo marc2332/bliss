@@ -28,6 +28,7 @@ from silx.gui import qt
 from silx.gui import plot as silx_plot
 import bliss
 from bliss.flint.helper import plot_interaction, scan_info_helper
+from bliss.controllers.lima import roi as lima_roi
 from bliss.flint.helper import model_helper
 from bliss.flint.model import plot_model
 from bliss.flint.model import plot_item_model
@@ -577,28 +578,23 @@ class FlintApi:
     def request_select_shapes(
         self,
         plot_id,
-        initial_shapes: Sequence[Dict] = (),
+        initial_shapes: Sequence[lima_roi._BaseRoi] = (),
         kinds: Union[str, List[str]] = "rectangle",
         timeout=None,
     ) -> str:
         """
         Request a shape selection in a specific plot and return the selection.
 
-        A shape is described by a dictionary according to it's kind:
-        - For a rectangle it contains "kind" (which is "Rectangle"), and "label",
-            "origin" and "size"
-        - A rectangle can also contain a "reduction" key, which can be one of
-            "vertical" or "horizontal"
-        - For an arc it contains "kind" (which is "Arc"), and "label",
-            "c1", "c2", "r1", "r2", "a1", "a2" (clockwise, in degree)
+        A shape is described as a ROI object from `bliss.controllers.lima.roi`,
+        or a dictionary for shapes.
 
         Arguments:
             plot_id: Identifier of the plot
             initial_shapes: A list of shapes describing the current selection.
-                Only rectangles and arcs are supported.
             timeout: A timeout to enforce the user to do a selection
-            kinds: List or ROI kind which can be created (for now, "rectangle",
-                "arc", "rectangle-vreduction", "rectangle-hreduction")
+            kinds: List or ROI kind which can be created (for now, "rectangle"
+            (described as a dict), "lima-rectangle", "lima-arc", "lima-vertical-profile",
+            "lima-horizontal-profile")
 
         Return:
             This method returns an event name which have to be registered to

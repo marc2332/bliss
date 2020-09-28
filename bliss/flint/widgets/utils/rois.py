@@ -10,20 +10,39 @@ This module contains extra ROIs inherited from silx
 import enum
 import logging
 
-from silx.gui.plot.items.roi import RectangleROI
+import silx.gui.plot.items.roi as silx_rois
 from silx.gui.plot import items
 from silx.gui.colors import rgba
 
 _logger = logging.getLogger(__name__)
 
 
-class _ReductionLimaRoi(RectangleROI):
+class LimaRectRoi(silx_rois.RectangleROI):
+    """Rectangle ROI used to configure Lima detector.
+
+    It is used to count sum, avg, min, max
+    """
+
+
+class LimaArcRoi(silx_rois.ArcROI):
+    """Arc ROI used to configure Lima detector.
+
+    It is used to count sum, avg, min, max
+    """
+
+
+class LimaProfileRoi(silx_rois.RectangleROI):
+    """Rectangle ROI used to configure Lima detector.
+
+    It is used to compute a vertical or horizontal profile.
+    """
+
     class Directions(enum.Enum):
         VERTICAL_REDUCTION = "vertical-reduction"
         HORIZONTAL_REDUCTION = "horizontal-reduction"
 
     def __init__(self, parent=None):
-        super(_ReductionLimaRoi, self).__init__(parent=parent)
+        super(LimaProfileRoi, self).__init__(parent=parent)
         self.__limaKind = self.Directions.VERTICAL_REDUCTION
         line = items.Shape("polylines")
         # line.setPoints([[0, 0], [0, 0]])
@@ -43,10 +62,10 @@ class _ReductionLimaRoi(RectangleROI):
     def _updated(self, event=None, checkVisibility=True):
         if event in [items.ItemChangedType.VISIBLE]:
             self._updateItemProperty(event, self, self.__line)
-        super(_ReductionLimaRoi, self)._updated(event, checkVisibility)
+        super(LimaProfileRoi, self)._updated(event, checkVisibility)
 
     def _updatedStyle(self, event, style):
-        super(_ReductionLimaRoi, self)._updatedStyle(event, style)
+        super(LimaProfileRoi, self)._updatedStyle(event, style)
         self.__line.setColor(style.getColor())
         self.__line.setLineStyle(style.getLineStyle())
         self.__line.setLineWidth(style.getLineWidth())
@@ -81,12 +100,12 @@ class _ReductionLimaRoi(RectangleROI):
         self.__symbol.setPosition(*points[1])
 
 
-class VerticalReductionLimaRoi(_ReductionLimaRoi):
+class LimaHProfileRoi(LimaProfileRoi):
     """
-    Silx ROI displaying a rectangle ROI with extra overlay to show that there is
-    a vertical reduction of the data.
+    Lima ROI for horizontal profile.
 
-    It is used to show a Lima Roi2Spectrum object.
+    It displays a rectangle ROI with extra overlay to show that there is
+    a vertical reduction of the data.
     """
 
     ICON = "flint:icons/add-vreduction"
@@ -94,16 +113,16 @@ class VerticalReductionLimaRoi(_ReductionLimaRoi):
     SHORT_NAME = "vertical reduction"
 
     def __init__(self, parent=None):
-        _ReductionLimaRoi.__init__(self, parent=parent)
-        self.setLimaKind(_ReductionLimaRoi.Directions.VERTICAL_REDUCTION)
+        LimaProfileRoi.__init__(self, parent=parent)
+        self.setLimaKind(LimaProfileRoi.Directions.VERTICAL_REDUCTION)
 
 
-class HorizontalReductionLimaRoi(_ReductionLimaRoi):
+class LimaVProfileRoi(LimaProfileRoi):
     """
-    Silx ROI displaying a rectangle ROI with extra overlay to show that there is
-    a horizontal reduction of the data.
+    Lima ROI for vertical profile.
 
-    It is used to show a Lima Roi2Spectrum object.
+    It displays a rectangle ROI with extra overlay to show that there is
+    a horizontal reduction of the data.
     """
 
     ICON = "flint:icons/add-hreduction"
@@ -111,5 +130,5 @@ class HorizontalReductionLimaRoi(_ReductionLimaRoi):
     SHORT_NAME = "horizontal reduction"
 
     def __init__(self, parent=None):
-        _ReductionLimaRoi.__init__(self, parent=parent)
-        self.setLimaKind(_ReductionLimaRoi.Directions.HORIZONTAL_REDUCTION)
+        LimaProfileRoi.__init__(self, parent=parent)
+        self.setLimaKind(LimaProfileRoi.Directions.HORIZONTAL_REDUCTION)

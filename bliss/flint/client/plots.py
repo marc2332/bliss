@@ -195,14 +195,31 @@ class BasePlot(object):
 
     def select_shapes(
         self,
-        initial_selection=(),
+        initial_selection: typing.Optional[typing.List[typing.Any]] = None,
         kinds: typing.Union[str, typing.List[str]] = "rectangle",
     ):
+        """
+        Request user selection of shapes.
+
+        `initial_selection` is a list of ROIs from `bliss.controllers.lima.roi`.
+
+        It also supports key-value dictionary for simple rectangle.
+        In this case, the dictionary contains "kind" (which is "Rectangle"),
+        and "label", "origin" and "size" which are tuples of 2 floats.
+
+        Arguments:
+            initial_selection: List of shapes already selected.
+            kinds: List or ROI kind which can be created (for now, "rectangle"
+                (described as a dict), "lima-rectangle", "lima-arc",
+                "lima-vertical-profile",
+                "lima-horizontal-profile")
+        """
         flint = self._flint
         request_id = flint.request_select_shapes(
             self._plot_id, initial_selection, kinds=kinds
         )
-        return self._wait_for_user_selection(request_id)
+        result = self._wait_for_user_selection(request_id)
+        return result
 
     def select_points(self, nb):
         flint = self._flint

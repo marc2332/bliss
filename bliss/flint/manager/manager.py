@@ -203,12 +203,16 @@ class ManageMainBehaviours(qt.QObject):
         from bliss.flint.widgets.mca_plot import McaPlotWidget
         from bliss.flint.widgets.image_plot import ImagePlotWidget
         from bliss.flint.widgets.scatter_plot import ScatterPlotWidget
+        from bliss.flint.widgets.ct_widget import CtWidget
+        from bliss.flint.widgets.one_dim_data_plot import OneDimDataPlotWidget
 
         mapping = [
             (CurvePlotWidget, plot_item_model.CurvePlot),
             (McaPlotWidget, plot_item_model.McaPlot),
             (ImagePlotWidget, plot_item_model.ImagePlot),
             (ScatterPlotWidget, plot_item_model.ScatterPlot),
+            (CtWidget, plot_item_model.ScalarPlot),
+            (OneDimDataPlotWidget, plot_item_model.OneDimDataPlot),
         ]
 
         for k, v in mapping:
@@ -282,6 +286,11 @@ class ManageMainBehaviours(qt.QObject):
         plots = [p for p in availablePlots if isinstance(p, compatibleModel)]
         windowTitle = widget.windowTitle()
         if issubclass(
+            compatibleModel, (plot_item_model.ImagePlot, plot_item_model.OneDimDataPlot)
+        ):
+            windowTitle = windowTitle.split(" ")[0]
+
+        if issubclass(
             compatibleModel, (plot_item_model.ImagePlot, plot_item_model.McaPlot)
         ):
             # FIXME: windowTitle should not be used, but for now it is convenient
@@ -292,7 +301,6 @@ class ManageMainBehaviours(qt.QObject):
 
     def updateScanAndPlots(self, scan: scan_model.Scan, plots: List[plot_model.Plot]):
         flintModel = self.flintModel()
-        liveWindow = flintModel.liveWindow()
         previousScan = flintModel.currentScan()
         if previousScan is not None:
             useDefaultPlot = (
@@ -308,21 +316,6 @@ class ManageMainBehaviours(qt.QObject):
             defaultPlot = plots[0]
         else:
             defaultPlot = None
-
-        isCt = scan.type() == "ct"
-        if isCt:
-            # Filter out curves and scatters
-            plots = [
-                p
-                for p in plots
-                if isinstance(p, (plot_item_model.ImagePlot, plot_item_model.McaPlot))
-            ]
-            # FIXME: If we remove image and MCAs, there is maybe nothing to display
-            ctWidget = liveWindow.ctWidget()
-            ctWidget.setScan(scan)
-            ctWidget.show()
-            ctWidget.raise_()
-            ctWidget.setFocus(qt.Qt.OtherFocusReason)
 
         # Set the new scan
         flintModel.setCurrentScan(scan)
@@ -458,6 +451,12 @@ class ManageMainBehaviours(qt.QObject):
             )
             return None
 
+        if isinstance(plotModel, plot_item_model.ScalarPlot):
+            flintModel = self.__flintModel
+            liveWindow = flintModel.liveWindow()
+            ctWidget = liveWindow.ctWidget()
+            return ctWidget
+
         flintModel = self.flintModel()
         workspace = flintModel.workspace()
         widget: qt.QDockWidget = widgetClass(parent)
@@ -466,7 +465,9 @@ class ManageMainBehaviours(qt.QObject):
 
         title = plotModel.name()
         if title is None:
-            if isinstance(
+            if isinstance(plotModel, plot_item_model.OneDimDataPlot):
+                title = plotModel.deviceName() + " (1D rois)"
+            elif isinstance(
                 plotModel, (plot_item_model.ImagePlot, plot_item_model.McaPlot)
             ):
                 title = plotModel.deviceName()

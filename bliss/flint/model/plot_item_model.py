@@ -27,6 +27,11 @@ from . import scan_model
 from . import plot_model
 
 
+class ScalarPlot(plot_model.Plot):
+    """"Define that the relative scan contains data which have to be displayed
+    with scalar view (ct widget)."""
+
+
 class CurvePlot(plot_model.Plot):
     """"Define a plot which mostly draw curves."""
 
@@ -220,6 +225,10 @@ class McaPlot(plot_model.Plot):
 
     def setDeviceName(self, name: str):
         self.__deviceName = name
+
+
+class OneDimDataPlot(McaPlot):
+    """Hack for now to display Lima 1D ROI inside a right widget"""
 
 
 class McaItem(plot_model.Item):

@@ -8,6 +8,8 @@
 from __future__ import annotations
 from typing import Dict
 from typing import Sequence
+from typing import Optional
+from typing import Any
 
 import numpy
 import logging
@@ -19,10 +21,11 @@ from silx.gui.plot import PlotWidget
 from silx.gui.plot import MaskToolsWidget
 from silx.gui.colors import rgba
 from silx.gui.plot.items.roi import RectangleROI
-from silx.gui.plot.items.roi import ArcROI
 from silx.gui.plot.items.roi import PointROI
 from silx.gui.plot.items.roi import RegionOfInterest
 from silx.gui.plot.tools.roi import RegionOfInterestManager
+
+from bliss.controllers.lima import roi as lima_roi
 from bliss.flint.widgets.roi_selection_widget import RoiSelectionWidget
 from bliss.flint.widgets.utils import rois as extra_rois
 
@@ -450,9 +453,10 @@ class ShapesSelector(Selector):
         self.__kinds: typing.List[RegionOfInterest] = []
         self.__mapping = {
             "rectangle": RectangleROI,
-            "arc": ArcROI,
-            "rectangle-vreduction": extra_rois.VerticalReductionLimaRoi,
-            "rectangle-hreduction": extra_rois.HorizontalReductionLimaRoi,
+            "lima-rectangle": extra_rois.LimaRectRoi,
+            "lima-arc": extra_rois.LimaArcRoi,
+            "lima-vertical-profile": extra_rois.LimaVProfileRoi,
+            "lima-horizontal-profile": extra_rois.LimaHProfileRoi,
         }
 
     def setKinds(self, kinds=typing.List[str]):
@@ -463,73 +467,95 @@ class ShapesSelector(Selector):
             roiClass = self.__mapping[kind]
             self.__kinds.append(roiClass)
 
-    def setInitialShapes(self, initialShapes: Sequence[Dict] = ()):
+    def setInitialShapes(
+        self, initialShapes: Optional[Sequence[lima_roi._BaseRoi]] = None
+    ):
+        if initialShapes is None:
+            initialShapes = []
         self.__initialShapes = initialShapes
 
     def setTimeout(self, timeout):
         self.__timeout = timeout
 
-    def __dictToRois(self, shapes: Sequence[Dict]) -> Sequence[RegionOfInterest]:
+    def __roisToGui(self, shapes: Sequence[Any]) -> Sequence[RegionOfInterest]:
         rois = []
         for shape in shapes:
-            kind = shape["kind"].lower()
-            if kind == "rectangle":
-                reduction = shape.get("reduction", None)
-                if reduction is None:
-                    roi = RectangleROI()
-                elif reduction == "vertical":
-                    roi = extra_rois.VerticalReductionLimaRoi()
-                elif reduction == "horizontal":
-                    roi = extra_rois.HorizontalReductionLimaRoi()
-                roi.setGeometry(origin=shape["origin"], size=shape["size"])
-                roi.setName(shape["label"])
-                rois.append(roi)
-            elif kind == "arc":
-                roi = ArcROI()
+            if isinstance(shape, dict):
+                kind = shape["kind"].lower()
+                assert kind == "rectangle"
+                x, y = map(int, map(round, shape["origin"]))
+                w, h = map(int, map(round, shape["size"]))
+                roi = RectangleROI()
+                roi.setGeometry(origin=(x, y), size=(w, h))
+                roi.setName(shape.get["label"])
+            elif isinstance(shape, lima_roi.RoiProfile):
+                if shape.mode == "horizontal":
+                    roi = extra_rois.LimaHProfileRoi()
+                elif shape.mode == "vertical":
+                    roi = extra_rois.LimaVProfileRoi()
+                else:
+                    _logger.error("RoiProfile mode '%s' unsupported", roi.mode)
+                    continue
                 roi.setGeometry(
-                    center=(shape["cx"], shape["cy"]),
-                    innerRadius=shape["r1"],
-                    outerRadius=shape["r2"],
-                    startAngle=numpy.deg2rad(shape["a1"]),
-                    endAngle=numpy.deg2rad(shape["a2"]),
+                    origin=(shape.x, shape.y), size=(shape.width, shape.height)
                 )
-                roi.setName(shape["label"])
-                rois.append(roi)
+                roi.setName(shape.name)
+            elif isinstance(shape, lima_roi.Roi):
+                roi = extra_rois.LimaRectRoi()
+                roi.setGeometry(
+                    origin=(shape.x, shape.y), size=(shape.width, shape.height)
+                )
+                roi.setName(shape.name)
+            elif isinstance(shape, lima_roi.ArcRoi):
+                roi = extra_rois.LimaArcRoi()
+                roi.setGeometry(
+                    center=(shape.cx, shape.cy),
+                    innerRadius=shape.r1,
+                    outerRadius=shape.r2,
+                    startAngle=numpy.deg2rad(shape.a1),
+                    endAngle=numpy.deg2rad(shape.a2),
+                )
+                roi.setName(shape.name)
             else:
-                raise ValueError(f"Unknown shape of type {kind}")
+                _logger.error("Unknown ROI kind '%s'", type(roi))
+                continue
+            rois.append(roi)
         return rois
 
-    def __roisToDict(self, rois: Sequence[RegionOfInterest]) -> Sequence[Dict]:
+    def __roisFromGui(self, rois: Sequence[RegionOfInterest]) -> Sequence[Dict]:
         shapes = []
         for roi in rois:
             if isinstance(roi, RectangleROI):
-                shape = dict(
-                    origin=roi.getOrigin(),
-                    size=roi.getSize(),
-                    label=roi.getName(),
-                    kind="Rectangle",
-                )
-                if isinstance(roi, extra_rois.VerticalReductionLimaRoi):
-                    shape["reduction"] = "vertical"
-                elif isinstance(roi, extra_rois.HorizontalReductionLimaRoi):
-                    shape["reduction"] = "horizontal"
-                shapes.append(shape)
-            elif isinstance(roi, ArcROI):
-                shape = dict(
-                    cx=roi.getCenter()[0],
-                    cy=roi.getCenter()[1],
-                    r1=roi.getInnerRadius(),
-                    r2=roi.getOuterRadius(),
-                    a1=numpy.rad2deg(roi.getStartAngle()),
-                    a2=numpy.rad2deg(roi.getEndAngle()),
-                    label=roi.getName(),
-                    kind="Arc",
-                )
-                shapes.append(shape)
+                x, y = roi.getOrigin()
+                w, h = roi.getSize()
+                name = roi.getName()
+                if isinstance(roi, extra_rois.LimaHProfileRoi):
+                    mode = "horizontal"
+                    shape = lima_roi.RoiProfile(x, y, w, h, mode=mode, name=name)
+                elif isinstance(roi, extra_rois.LimaVProfileRoi):
+                    mode = "vertical"
+                    shape = lima_roi.RoiProfile(x, y, w, h, mode=mode, name=name)
+                elif isinstance(roi, extra_rois.LimaRectRoi):
+                    shape = lima_roi.Roi(x, y, w, h, name=name)
+                else:
+                    shape = dict(
+                        kind="Rectangle", origin=(x, y), size=(w, h), label=name
+                    )
+            elif isinstance(roi, extra_rois.LimaArcRoi):
+                cx = roi.getCenter()[0]
+                cy = roi.getCenter()[1]
+                r1 = roi.getInnerRadius()
+                r2 = roi.getOuterRadius()
+                a1 = numpy.rad2deg(roi.getStartAngle())
+                a2 = numpy.rad2deg(roi.getEndAngle())
+                name = roi.getName()
+                shape = lima_roi.ArcRoi(cx, cy, r1, r2, a1, a2, name=name)
             else:
                 _logger.error(
                     "Unsupported ROI kind %s. ROI skipped from results", type(roi)
                 )
+                continue
+            shapes.append(shape)
         return shapes
 
     def start(self):
@@ -539,7 +565,7 @@ class ShapesSelector(Selector):
         dock = qt.QDockWidget("ROI selection", parent=plot)
         dock.setWidget(roiWidget)
         plot.addTabbedDockWidget(dock)
-        rois = self.__dictToRois(self.__initialShapes)
+        rois = self.__roisToGui(self.__initialShapes)
         for roi in rois:
             roiWidget.add_roi(roi)
         roiWidget.selectionFinished.connect(self.__selectionFinished)
@@ -573,7 +599,7 @@ class ShapesSelector(Selector):
 
     def __selectionFinished(self, selection: Sequence[RegionOfInterest]):
         self.stop()
-        shapes = self.__roisToDict(selection)
+        shapes = self.__roisFromGui(selection)
         self.__selection = shapes
         self.selectionFinished.emit()
 

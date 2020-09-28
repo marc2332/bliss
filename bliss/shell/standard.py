@@ -897,7 +897,9 @@ def edit_roi_counters(detector: Lima, acq_time: Optional[float] = None):
         except:
             # Else create a checker board place holder
             y, x = numpy.mgrid[0 : detector.image.height, 0 : detector.image.width]
-            data = ((y // 16 + x // 16) % 2).astype(numpy.uint8)
+            data = ((y // 16 + x // 16) % 2).astype(numpy.uint8) + 2
+            data[0, 0] = 0
+            data[-1, -1] = 5
 
         flint.set_static_image(channel_name, data)
         plot_id = flint.get_live_scan_plot(channel_name, "image")
@@ -910,25 +912,37 @@ def edit_roi_counters(detector: Lima, acq_time: Optional[float] = None):
         )
 
     roi_counters = detector.roi_counters
-    selections = [plot_module.convert_roi_to_flint(r) for r in roi_counters.get_rois()]
-    name = f"{detector.name} [{roi_counters.config_name}]"
-    print(f"Waiting for ROI edition to finish on {name}...")
-    selections = plot_proxy.select_shapes(selections, kinds=["rectangle", "arc"])
+    roi_profiles = detector.roi_profiles
 
-    result = [plot_module.convert_roi_to_bliss(r) for r in selections]
-    result = [r for r in result if r is not None]
+    # Retrieve all the ROIs
+    selections = []
+    selections.extend(roi_counters.get_rois())
+    selections.extend(roi_profiles.get_rois())
 
-    # Warn on skipped ROIs
-    ignored = len(selections) - len(result)
-    if ignored:
-        print(f"{ignored} ROI(s) ignored (no name)")
+    deviceName = (
+        f"{detector.name} [{roi_counters.config_name}, {roi_profiles.config_name}]"
+    )
+    print(f"Waiting for ROI edition to finish on {deviceName}...")
+    selections = plot_proxy.select_shapes(
+        selections,
+        kinds=[
+            "lima-rectangle",
+            "lima-arc",
+            "lima-vertical-profile",
+            "lima-horizontal-profile",
+        ],
+    )
 
-    roi_labels: typing.List[str] = [r[0] for r in result]
-    rois: typing.List[typing.Tuple] = [r[1] for r in result]
     roi_counters.clear()
-    roi_counters[roi_labels] = rois
-    roi_string = ", ".join(sorted(roi_labels))
-    print(f"Applied ROIS {roi_string} to {name}")
+    roi_profiles.clear()
+    for roi in selections:
+        if isinstance(roi, lima_roi.RoiProfile):
+            roi_profiles[roi.name] = roi
+        else:
+            roi_counters[roi.name] = roi
+
+    roi_string = ", ".join(sorted([s.name for s in selections]))
+    print(f"Applied ROIS {roi_string} to {deviceName}")
 
 
 def interlock_show(wago_obj=None):

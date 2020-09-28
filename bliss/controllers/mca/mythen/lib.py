@@ -7,8 +7,9 @@ from six.moves import reduce
 
 import numpy as np
 from gevent.lock import Semaphore as Lock
-from bliss.comm.tcp import Socket
+from bliss.comm import tcp, udp
 from bliss.config.channels import Cache
+from bliss import global_map
 
 # Constants
 
@@ -161,11 +162,12 @@ def convert(array, nbits):
 
 class MythenInterface:
     def __init__(self, hostname):
-        self._lock = Lock()
         self.name = f"mythen:{hostname}"
-        self._sock = Socket(hostname, TCP_PORT)
+        self._sock = udp.Socket(hostname, UDP_PORT)
+        self._data_sock = tcp.Socket(hostname, TCP_PORT, timeout=1)
         self._version_cache = Cache(self, "version", default_value=None)
         self._element_settings = ["Cu", "Cu", "Cu", "Cu"]
+        global_map.register(self, children_list=[self._sock, self._data_sock])
 
     @property
     def version(self):
@@ -176,10 +178,15 @@ class MythenInterface:
 
     def close(self):
         self._sock.close()
+        self._data_sock.close()
 
-    def _run_command(self, *args, **kwargs):
-        with self._lock:
-            return run_command(self._sock, *args, **kwargs)
+    def close_data_socket(self):
+        self._data_sock.close()
+
+    def _run_command(self, *args, socket=None, **kwargs):
+        sock = socket if socket is not None else self._sock
+        with sock.lock:
+            return run_command(sock, *args, **kwargs)
 
     def _check_version(self, requirement, command):
         sign, version = requirement[:2], requirement[2:]
@@ -398,7 +405,7 @@ class MythenInterface:
         if n > 1:
             self._check_version(">=4.0.0", command)
         shape = n, self.get_nchannels()
-        return self._run_command(command, "int", shape)
+        return self._run_command(command, "int", shape, socket=self._data_sock)
 
     def raw_readout(self, nbits=None, nchannels=None):
         command = "-readoutraw"

@@ -13,6 +13,7 @@ from .lib import MythenInterface, MythenCompatibilityError
 from bliss.common.utils import autocomplete_property
 from bliss.controllers.counter import counter_namespace
 from bliss.controllers.mca.base import RoiMcaCounter
+from bliss.comm import tcp
 
 
 def interface_property(name, mode=False):
@@ -382,8 +383,14 @@ class MythenAcquistionSlave(AcquisitionSlave):
         for spectrum_nb in range(self.npoints):
             if self._acquisition_status != self.status.RUNNING:
                 break
-
-            self._publish(self)
+            while self._acquisition_status == self.status.RUNNING:
+                try:
+                    self._publish()
+                except tcp.SocketTimeout:
+                    self.device._interface.close_data_socket()
+                    continue
+                else:
+                    break
 
     def _publish(self):
         spectrum = self.device.readout()

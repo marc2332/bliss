@@ -120,6 +120,9 @@ class ExportAction(SwitchAction):
     def setFlintModel(self, state: flint_model.FlintState):
         self._logbookAction.setFlintModel(state)
 
+    def logbookAction(self):
+        return self._logbookAction
+
 
 class ExportToLogBookAction(PlotAction):
     """QAction managing the behavior of saving a current plot into the tango

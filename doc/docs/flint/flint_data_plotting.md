@@ -30,7 +30,7 @@ The **bliss.common.plot** module offers several types of plot:
 `class ImagePlot(BasePlot)`
 
   * plots one or several images on top of each other
-  * the images order can be controled using a depth parameter
+  * the images order can be controlled using a depth parameter
   * the plot is created using `plot_image`
 
 
@@ -66,7 +66,7 @@ a suitable type of plot from the data provided.
 ## Basic interface
 
 All the above plot types provide the same interface. They take the data
-as an argumentand return a plot. Here's an example on how to display a cosinus wave in a curve plot.
+as an argument and return a plot. Here's an example on how to display a cosine wave in a curve plot.
 
 ```python
 from bliss.common.plot import *
@@ -78,7 +78,7 @@ yy = numpy.cos(xx)
 plot(yy, name="Plot 0")
 ```
 
-After the execution of these commands, Flint interface will show up, with a main tab named "Plot 0" (below application's main menu) with a plot with a consinus wave on it.
+After the execution of these commands, Flint interface will show up, with a main tab named "Plot 0" (below application's main menu) with a plot with a cosine wave on it.
 
 ![Screenshot](img/plot_1d_cosinus.png)
 
@@ -141,7 +141,7 @@ And the data can be cleared:
 p.clear_data()
 ```
 
-To sum up, here's how to achieve the same cosinus chart of the previous section in a different way:
+To sum up, here's how to achieve the same cosine chart of the previous section in a different way:
 
 ```python
 from bliss.common.plot import *

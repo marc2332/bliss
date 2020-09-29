@@ -264,6 +264,10 @@ class ImagePlotWidget(plot_helper.PlotWidget):
 
         return toolBar
 
+    def logbookAction(self):
+        """Expose a logbook action if one"""
+        return self.__exportAction.logbookAction()
+
     def _silxPlot(self):
         """Returns the silx plot associated to this view.
 
@@ -586,7 +590,6 @@ class ImagePlotWidget(plot_helper.PlotWidget):
         legend = dataChannel.name()
         style = item.getStyle(self.__scan)
         colormap = model_helper.getColormapFromItem(item, style)
-        _logger.error("%s", colormap.getVRange())
 
         if style.symbolStyle is style_model.SymbolStyle.NO_SYMBOL:
             if image.ndim == 3:

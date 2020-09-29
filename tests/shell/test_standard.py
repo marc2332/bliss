@@ -305,7 +305,7 @@ def test_open_close_flint(test_session_without_flint):
     assert psutil.pid_exists(pid)
     f.close()
     process = psutil.Process(pid)
-    psutil.wait_procs([process], timeout=1)
+    psutil.wait_procs([process], timeout=5)
     assert not psutil.pid_exists(pid)
 
 
@@ -323,14 +323,13 @@ def test_open_kill_flint(test_session_without_flint):
 def test_edit_roi_counters(
     mocker, beacon, default_session, lima_simulator, test_session_with_flint
 ):
-    class PlotMock:
-        def select_shapes(self, *args, **kwargs):
-            roi1 = lima_rois.Roi(10, 11, 100, 101, name="roi1")
-            roi2 = lima_rois.RoiProfile(20, 21, 200, 201, name="roi2", mode="vertical")
-            return [roi1, roi2]
-
     # Mock few functions to coverage the code without flint
-    mocker.patch("bliss.common.plot.plot_image", return_value=PlotMock())
+    roi1 = lima_rois.Roi(10, 11, 100, 101, name="roi1")
+    roi2 = lima_rois.RoiProfile(20, 21, 200, 201, name="roi2", mode="vertical")
+    plot_mock = mocker.Mock()
+    plot_mock.select_shapes = mocker.Mock(return_value=[roi1, roi2])
+
+    mocker.patch("bliss.common.plot.plot_image", return_value=plot_mock)
 
     cam = beacon.get("lima_simulator")
 
@@ -341,3 +340,5 @@ def test_edit_roi_counters(
     standard.edit_roi_counters(cam)
     assert "roi1" in cam.roi_counters
     assert "roi2" in cam.roi_profiles
+    plot_mock.select_shapes.assert_called_once()
+    plot_mock.focus.assert_called_once()

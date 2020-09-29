@@ -64,8 +64,8 @@ class SpecMode(qt.QObject):
 
     def createAction(self):
         action = qt.QAction(self)
-        action.setText("Spec statistics")
-        action.setToolTip("Enable/disable Spec statistics for boomers")
+        action.setText("Spec-like statistics")
+        action.setToolTip("Enable/disable Spec-like statistics for boomers")
         action.setCheckable(True)
         icon = icons.getQIcon("flint:icons/spec")
         action.setIcon(icon)
@@ -99,6 +99,10 @@ class SpecMode(qt.QObject):
         peak = scan_math.peak2(x, y)
         cen = scan_math.cen(x, y)
         com = scan_math.com(x, y)
+        # Formatter don't like int
+        peak = float(peak[0]), float(peak[1])
+        cen = float(cen[0]), float(cen[1])
+        com = float(com)
         return f"Peak: {peak[0]:.3} ({peak[1]:.3})  Cen: {cen[0]:.3} (FWHM: {cen[1]:.3})  COM: {com:.3}"
 
     def updateTitle(self, plot: plot_helper.FlintPlot, title: str) -> str:
@@ -276,6 +280,10 @@ class CurvePlotWidget(plot_helper.PlotWidget):
         toolBar.addAction(self.__exportAction)
 
         return toolBar
+
+    def logbookAction(self):
+        """Expose a logbook action if one"""
+        return self.__exportAction.logbookAction()
 
     def _silxPlot(self):
         """Returns the silx plot associated to this view.

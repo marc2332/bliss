@@ -89,6 +89,12 @@ class LogWidget(qt.QTreeView):
         model.setHorizontalHeaderLabels(["Date/time", "Level", "Module", "Message"])
         self.setModel(model)
 
+        self.setAlternatingRowColors(True)
+
+        # It could be very big cells so per pixel is better
+        self.setVerticalScrollMode(qt.QAbstractItemView.ScrollPerPixel)
+        self.setHorizontalScrollMode(qt.QAbstractItemView.ScrollPerPixel)
+
         header = self.header()
         header.setSectionResizeMode(
             self.DateTimeColumn, qt.QHeaderView.ResizeToContents
@@ -139,14 +145,25 @@ class LogWidget(qt.QTreeView):
             # Cache the traceback text to avoid converting it multiple times
             # (it's constant anyway)
             if not record.exc_text:
-                record.exc_text = self.formatException(record.exc_info)
+                record.exc_text = self._formatter.formatException(record.exc_info)
         if record.exc_text:
             s = record.exc_text
         if record.stack_info:
             if s[-1:] != "\n":
                 s = s + "\n"
-            s = s + self.formatStack(record.stack_info)
+            s = s + self._formatter.formatStack(record.stack_info)
         return s
+
+    def __splitCauses(self, stack):
+        """Split a traceback into different causes
+
+        It looks like the record object do not provide anymore always access to
+        individual exceptions. So we have to parse it.
+        """
+        line = "The above exception was the direct cause of the following exception:"
+        causes = stack.split(line)
+        causes = [c.strip() for c in causes]
+        return list(reversed(causes))
 
     def emit(self, record: Union[str, logging.LogRecord]):
         record2: Optional[logging.LogRecord] = None
@@ -175,14 +192,19 @@ class LogWidget(qt.QTreeView):
 
                 stack = self._formatStack(record2)
                 if stack != "":
-                    dateTimeItem.appendRow(
-                        [
-                            qt.QStandardItem(),
-                            qt.QStandardItem(),
-                            qt.QStandardItem(),
-                            qt.QStandardItem(stack),
-                        ]
-                    )
+                    causes = self.__splitCauses(stack)
+                    parentItem = dateTimeItem
+                    for i, cause in enumerate(causes):
+                        title = qt.QStandardItem("Backtrace" if i == 0 else "Caused by")
+                        parentItem.appendRow(
+                            [
+                                title,
+                                qt.QStandardItem(),
+                                qt.QStandardItem(),
+                                qt.QStandardItem(cause),
+                            ]
+                        )
+                        parentItem = title
             else:
                 dateTimeItem = None
         except Exception:
@@ -199,6 +221,9 @@ class LogWidget(qt.QTreeView):
             nameItem = qt.QStandardItem()
             messageItem = qt.QStandardItem(message)
 
+        scroll = self.verticalScrollBar()
+        makeLastVisible = scroll.value() == scroll.maximum()
+
         model: qt.QStandardItemModel = self.model()
         model.appendRow([dateTimeItem, levelItem, nameItem, messageItem])
         self.logEmitted.emit(levelno)
@@ -206,6 +231,9 @@ class LogWidget(qt.QTreeView):
         if model.rowCount() > self._maximumLogCount:
             count = model.rowCount() - self._maximumLogCount
             model.removeRows(0, count)
+
+        if makeLastVisible:
+            self.scrollToBottom()
 
     def connect_logger(self, logger):
         """

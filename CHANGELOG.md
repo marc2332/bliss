@@ -9,12 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Flint
+    - A splash screen to wait for start up
     - A scan sequence can now display plots
     - Irregular scatters can be displayed with a solid rendering using 2D
       histogram
     - n-dim scatters can be displayed in 2D if extra dimensions are steppers
       (if behave like many frames, only the last one is displayed)
     - Dedicated widget to display data from profile ROIs
+    - Added negative function filter on curves
+- Remote Flint API
+    - Added `get_plot` from `flint()` proxy to create and retrieve plots
+    - Provide `focus` method to set the focus to a plot
+    - Provide a method to export a plot to the logbook
 - Custom scan description (`scan_info`)
     - Added fields to explicitly describe scatter plots
     - Added fields to group channels of the same size
@@ -26,12 +32,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and arc ROIs
 
 ### Changed
+- Flint
+    - On a new scan, the focus is set to a widget, only if the scan is not
+      visible on one of them
 - Custom scan description (`scan_info`)
     - `fast`/`slow` axis kind was replaced by `axis-id`
     - Axis kind only contains `forth/backnforth/step`
+- BLISS commands
+    - `edit_roi_counters` now set the focus on the detector widget
 
 ### Fixed
 - Fixed first motor position for `amesh` with backnforth enabled
+- Flint
+    - Fixed Flint segmentation fault on GLX initialization
+    - Fixed default selected x-axis on ascan scans
+    - Fixed black background on OpenGL rendering
+    - Fixed display of statistics on curves using integer array
 
 ## [1.5.0] - 2020-07-21
 

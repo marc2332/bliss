@@ -10,7 +10,6 @@ from typing import Optional
 from typing import List
 
 import time
-import logging
 
 from silx.gui import qt
 import silx.resources
@@ -26,12 +25,7 @@ class _SingleScanStatus(qt.QWidget):
     def __init__(self, parent=None):
         super(_SingleScanStatus, self).__init__(parent=parent)
         filename = silx.resources.resource_filename("flint:gui/scan-status.ui")
-
-        # FIXME: remove this catch of warning when it is possible
-        log = logging.getLogger("py.warnings")
-        log.disabled = True
         widget = qt.loadUi(filename)
-        log.disabled = False
 
         layout = qt.QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)

@@ -88,6 +88,12 @@ class DerivativeData(NamedTuple):
     nb_points: int
 
 
+class NegativeData(NamedTuple):
+    xx: numpy.ndarray
+    yy: numpy.ndarray
+    nb_points: int
+
+
 class ComputedCurveItem(plot_model.ChildItem, plot_item_model.CurveMixIn):
     def __init__(self, parent=None):
         plot_model.ChildItem.__init__(self, parent)
@@ -225,6 +231,75 @@ class DerivativeItem(ComputedCurveItem, plot_model.IncrementalComputableMixIn):
             return sourceItem.displayName("x", scan)
         elif axisName == "y":
             return "d(%s)" % sourceItem.displayName("y", scan)
+        else:
+            assert False
+
+
+class NegativeItem(ComputedCurveItem, plot_model.IncrementalComputableMixIn):
+    """This item use a curve item to negative it."""
+
+    def __init__(self, parent=None):
+        ComputedCurveItem.__init__(self, parent=parent)
+        plot_model.IncrementalComputableMixIn.__init__(self)
+
+    def name(self) -> str:
+        return "Negative"
+
+    def __getstate__(self):
+        state: Dict[str, Any] = {}
+        state.update(plot_model.ChildItem.__getstate__(self))
+        state.update(plot_item_model.CurveMixIn.__getstate__(self))
+        return state
+
+    def __setstate__(self, state):
+        plot_model.ChildItem.__setstate__(self, state)
+        plot_item_model.CurveMixIn.__setstate__(self, state)
+
+    def compute(self, scan: scan_model.Scan) -> Optional[NegativeData]:
+        sourceItem = self.source()
+
+        xx = sourceItem.xArray(scan)
+        yy = sourceItem.yArray(scan)
+        if xx is None or yy is None:
+            return None
+
+        size = min(len(xx), len(yy))
+        return NegativeData(xx[0:size], -yy[0:size], size)
+
+    def incrementalCompute(
+        self, previousResult: NegativeData, scan: scan_model.Scan
+    ) -> NegativeData:
+        """Compute a data using the previous value as basis
+        """
+        sourceItem = self.source()
+        xx = sourceItem.xArray(scan)
+        yy = sourceItem.yArray(scan)
+        if xx is None or yy is None:
+            raise ValueError("Non empty data expected")
+
+        nb = previousResult.nb_points
+        if nb == len(xx) or nb == len(yy):
+            # obviously nothing to compute
+            return previousResult
+
+        xx = xx[nb:]
+        yy = yy[nb:]
+
+        nbInc = min(len(xx), len(yy))
+
+        xx = numpy.append(previousResult.xx, xx[: nbInc + 1])
+        yy = numpy.append(previousResult.yy, -yy[: nbInc + 1])
+
+        result = NegativeData(xx, yy, nb + nbInc)
+        return result
+
+    def displayName(self, axisName, scan: scan_model.Scan) -> str:
+        """Helper to reach the axis display name"""
+        sourceItem = self.source()
+        if axisName == "x":
+            return sourceItem.displayName("x", scan)
+        elif axisName == "y":
+            return "neg(%s)" % sourceItem.displayName("y", scan)
         else:
             assert False
 

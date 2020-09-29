@@ -66,6 +66,7 @@ class TooltipItemManager:
 
     def __onMouseLeft(self):
         self.__updateTooltip(None, None)
+        qt.QToolTip.hideText()
 
     def __normalizePickingIndices(self, item, indices: List[int]):
         if isinstance(item, ImageData):
@@ -193,14 +194,18 @@ class TooltipItemManager:
             else:
                 axis = "left"
 
+        # Hack to force redisplay of the tooltip
+        # FIXME: this should not be needed
+        cursorPos = qt.QCursor.pos() + qt.QPoint(10, 10)
+        uniqueid = f'<meta name="foo" content="{cursorPos.x()}-{cursorPos.y()}" />'
+
         if textResult != []:
-            text = f"<html>{self.UL}" + "".join(textResult) + "</ul></html>"
+            text = f"<html>{self.UL}" + "".join(textResult) + f"</ul>{uniqueid}</html>"
             self.__updateToolTipMarker(x, y, axis)
-            cursorPos = qt.QCursor.pos() + qt.QPoint(10, 10)
-            qt.QToolTip.showText(cursorPos, text, self.__plot)
         else:
+            text = f"<html>No data{uniqueid}</html>"
             self.__updateToolTipMarker(None, None, None)
-            qt.QToolTip.hideText()
+        qt.QToolTip.showText(cursorPos, text, self.__plot)
 
     def __isY2AxisDisplayed(self):
         for item in self.__plot.getItems():
@@ -217,6 +222,11 @@ class TooltipItemManager:
         # Get a visible item
         if plotModel is None:
             return None
+        if isinstance(plotModel, plot_item_model.ImagePlot):
+            # Do not display it for ImagePlot
+            # It's just dump information
+            return None
+
         selectedItem = None
         for item in plotModel.items():
             if item.isVisible():

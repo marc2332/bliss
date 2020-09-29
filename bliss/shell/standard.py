@@ -910,6 +910,7 @@ def edit_roi_counters(detector: Lima, acq_time: Optional[float] = None):
         raise RuntimeError(
             "Internal error. A plot from this detector was expected but it is not available. Or Flint was closed in between."
         )
+    plot_proxy.focus()
 
     roi_counters = detector.roi_counters
     roi_profiles = detector.roi_profiles

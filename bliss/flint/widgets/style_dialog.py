@@ -8,7 +8,6 @@
 from __future__ import annotations
 from typing import Optional
 
-import logging
 import weakref
 
 from silx.gui import qt
@@ -147,11 +146,7 @@ class _ScatterEditor(qt.QWidget):
         super(_ScatterEditor, self).__init__(parent=parent)
 
         filename = silx.resources.resource_filename("flint:gui/style-editor-scatter.ui")
-        # FIXME: remove this catch of warning when it is possible
-        log = logging.getLogger("py.warnings")
-        log.disabled = True
         qt.loadUi(filename, self)
-        log.disabled = False
 
         for s in style_model.FillStyle:
             self._fillStyle.addItem(s.value.name, s)
@@ -287,11 +282,7 @@ class _ImageEditor(qt.QWidget):
         super(_ImageEditor, self).__init__(parent=parent)
 
         filename = silx.resources.resource_filename("flint:gui/style-editor-image.ui")
-        # FIXME: remove this catch of warning when it is possible
-        log = logging.getLogger("py.warnings")
-        log.disabled = True
         qt.loadUi(filename, self)
-        log.disabled = False
 
     def selectStyle(self, style: plot_model.Style):
         colormap = colors.Colormap(style.colormapLut)

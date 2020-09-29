@@ -209,7 +209,11 @@ class FlintPlot(PlotWindow):
 
         # View
         config.grid_mode = self.getGraphGrid()
-        config.axis_displayed = self._isAxesDisplayed()
+        if hasattr(self, "isAxesDisplayed"):
+            # Since silx 0.14
+            config.axis_displayed = self.isAxesDisplayed()
+        else:
+            config.axis_displayed = self._isAxesDisplayed()
 
         # Tools
         config.crosshair_enabled = self.getGraphCursor() is not None

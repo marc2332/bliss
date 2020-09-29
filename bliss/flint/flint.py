@@ -68,6 +68,24 @@ ROOT_LOGGER = logging.getLogger()
 """Application logger"""
 
 
+def patch_qt():
+    """Patch Qt bindings in order simplify the integration.
+    """
+    global PyQt5
+    # Avoid warning in case of locked loop (debug mode/ipython mode)
+    PyQt5.QtCore.pyqtRemoveInputHook()
+
+    if PyQt5.QtCore.qVersion() == "5.9.7":
+        # PyQt5 5.9.7 is using unicode while it is not anymore needed. This
+        # removes a warning by fixing the issue.
+        try:
+            import PyQt5.uic.objcreator
+
+            PyQt5.uic.objcreator.open = lambda f, flag: open(f, flag.replace("U", ""))
+        except ImportError:
+            pass
+
+
 def create_flint_model(settings) -> flint_model.FlintState:
     """"
     Create Flint classes and main windows without interaction with the
@@ -294,8 +312,8 @@ def main():
             ROOT_LOGGER.warning("A QTimer for gevent loop will be created instead.")
             need_gevent_loop = True
 
-    # Avoid warning in case of locked loop (debug mode/ipython mode)
-    PyQt5.QtCore.pyqtRemoveInputHook()
+    # Patch qt binding to remove few warnings
+    patch_qt()
 
     qapp = initApplication(sys.argv)
     settings = qt.QSettings(

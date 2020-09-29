@@ -145,13 +145,13 @@ class LogWidget(qt.QTreeView):
             # Cache the traceback text to avoid converting it multiple times
             # (it's constant anyway)
             if not record.exc_text:
-                record.exc_text = self.formatException(record.exc_info)
+                record.exc_text = self._formatter.formatException(record.exc_info)
         if record.exc_text:
             s = record.exc_text
         if record.stack_info:
             if s[-1:] != "\n":
                 s = s + "\n"
-            s = s + self.formatStack(record.stack_info)
+            s = s + self._formatter.formatStack(record.stack_info)
         return s
 
     def emit(self, record: Union[str, logging.LogRecord]):

@@ -11,7 +11,7 @@ from bliss import global_map
 from bliss.config.beacon_object import BeaconObject
 from bliss.common.scans import DEFAULT_CHAIN
 from bliss.common.user_status_info import status_message
-from bliss.common.standard import lprint
+from bliss.common.logtools import user_print
 
 from bliss.common import timedisplay
 from bliss.controllers.counter import counter_namespace
@@ -111,11 +111,11 @@ class MachInfo(BeaconObject):
             preset = WaitForRefillPreset(self)
             DEFAULT_CHAIN.add_preset(preset, name=self.KEY_NAME)
             self.__check = True
-            lprint("Activating Wait For Refill on scans")
+            user_print("Activating Wait For Refill on scans")
         else:
             DEFAULT_CHAIN.remove_preset(name=self.KEY_NAME)
             self.__check = False
-            lprint("Removing Wait For Refill on scans")
+            user_print("Removing Wait For Refill on scans")
 
     @BeaconObject.property(default=True)
     def metadata(self):

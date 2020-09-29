@@ -1316,7 +1316,7 @@
                y="147.36484"
                x="9.5635834"
                id="tspan836-4-0-5-3-0-9-2-9-2-3-4-8"
-               sodipodi:role="line">lprint()</tspan></text>
+               sodipodi:role="line">elog_print()</tspan></text>
         </g>
         <text
            xml:space="preserve"

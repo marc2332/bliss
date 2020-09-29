@@ -9,8 +9,7 @@
 
 # Imports
 from bliss import is_bliss_shell
-from bliss.common.logtools import log_debug
-from bliss.common.standard import lprint
+from bliss.common.logtools import log_debug, user_print
 from bliss.common import event
 from bliss.config.beacon_object import BeaconObject
 
@@ -199,7 +198,7 @@ class BaseXIA(BaseMCA):
         The filename is relative to the configuration directory.
         """
         try:
-            lprint(f"Loading configuration '{filename}'")
+            user_print(f"Loading configuration '{filename}'")
             self._proxy.init(self.beacon_obj.configuration_directory, filename)
             self._proxy.start_system()  # Takes about 5 seconds
             self._run_checks()

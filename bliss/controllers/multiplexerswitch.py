@@ -6,8 +6,8 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 
-from bliss.common.logtools import lprint
+from bliss.common.logtools import user_warning
 from .multiplexer import MultiplexerSwitch
 
 # Add a print warning
-lprint(f"WARNING: This file [{__file__}] will be deleted in future version ...")
+user_warning(f"This file [{__file__}] will be deleted in future version ...")

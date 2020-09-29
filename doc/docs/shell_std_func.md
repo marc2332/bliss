@@ -273,25 +273,32 @@ wagos if no parameter is given).
   [debug](shell_logging.md#debugon-debugoff) on a BLISS object.
 
 
-### logbook print
+### elog_print
 
-* `lprint()`: replacement for python standard `print()` this function that sends
-what is given to both stdout and to the logbook.
+`elog_print()` can be used like python's standard `print()` to send messages to the logbook.
 
-Everything that should be logged to the logbook for any reason should use this
-instead of the normal print.
+### elog_add
 
-`lprint()` can be used even when using Bliss in library mode: no output will be
-send to stdout, but messages will be forwarded to logbook.
+The output from a previously execute command can be sent to the logbook
+simply using `elog_add(num)`.
+The parameter `num` con refer to the number of shell paragraph or be a
+negative number relative to the current paragraph number.
+If no parameter is specify the previous paragraph is sent (corresponds to -1).
 
-`lprint_disable()` turns off output of `lprint()` instructions to stdout.
+Following an example sending to the logbook for three times the same output:
 
-Following example will be silent:
 ```python
-with lprint_disable():
-    for axis in axes_list:
-        axis.hw_limit(limit, wait=False)
+
+TEST_SESSION [1]: transfocator_simulator
+         Out [1]: Transfocator transfocator_simulator:
+                  P0   L1  L2  L3  L4   L5  L6   L7  L8
+                  OUT  IN  IN  IN  OUT  IN  OUT  IN  OUT
+
+TEST_SESSION [2]: elog_add()  # adds previous paragraph (-1)
+TEST_SESSION [3]: elog_add(1)  # can be used with reference to the paragraph number
+TEST_SESSION [4]: elog_add(-3)  # can be also used with relative negative reference
 ```
+
 
 ### prdef (print definition)
 * `prdef(<function>)`: Display information about given function :
@@ -312,27 +319,6 @@ def umv(*args):
     __umove(*args)
 ```
 
-### ladd
-
-The output from a previously execute command can be sent to the logbook
-simply using `ladd(num)`.
-The parameter `num` con refer to the number of shell paragraph or be a
-negative number relative to the current paragraph number.
-If no parameter is specify the previous paragraph is sent (coresponds to -1).
-
-Following an example sending to the logbook for three times the same output:
-
-```python
-
-TEST_SESSION [1]: transfocator_simulator
-         Out [1]: Transfocator transfocator_simulator:
-                  P0   L1  L2  L3  L4   L5  L6   L7  L8
-                  OUT  IN  IN  IN  OUT  IN  OUT  IN  OUT
-
-TEST_SESSION [2]: ladd()  # adds previous paragraph (-1)
-TEST_SESSION [3]: ladd(1)  # can be used with reference to the paragraph number
-TEST_SESSION [4]: ladd(-3)  # can be also used with relative negative reference
-```
 
 ### bench
 

@@ -4,7 +4,7 @@ Detectors publish their own metadata by default. Here we describe how to add use
 Send user message to the [electronic logbook](https://data.esrf.fr)
 
 ```
-DEMO  [1]: lprint("user message in electronic logbook ")
+DEMO  [1]: elog_print("user message in electronic logbook ")
 ```
 
 

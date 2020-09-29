@@ -21,7 +21,7 @@ from bliss.data.scan import watch_session_scans
 from bliss.common.utils import nonblocking_print
 from bliss.common.axis import Axis
 from bliss.common.event import dispatcher
-from bliss.common.logtools import lprint
+from bliss.common.logtools import user_print
 from bliss.common import user_status_info
 from bliss.scanning.scan import set_scan_watch_callbacks
 from bliss.scanning.scan_display import ScanDisplay
@@ -727,7 +727,7 @@ class ScanPrinter(_ScanPrinterBase):
 
     def print_scan_info(self, scan, scan_info):
         """Print date + scan __repr__ at the beginning of the scan output"""
-        lprint(f"   {scan_info['start_time_str']}: {scan}")
+        user_print(f"   {scan_info['start_time_str']}: {scan}")
 
     def find_and_connect_real_motors(self):
         self.real_motors = []

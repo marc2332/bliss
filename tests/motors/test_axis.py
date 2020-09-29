@@ -20,9 +20,6 @@ from unittest import mock
 import random
 import inspect
 
-# For tests involving lprint.
-from ..common.conftest import log_shell_mode  # noqa: F401
-
 
 def test_property_setting(robz):
     assert robz.velocity == 100

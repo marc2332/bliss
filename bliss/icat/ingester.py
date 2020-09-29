@@ -25,6 +25,7 @@ import gevent
 import functools
 import json
 import logging
+import warnings
 from bliss.common.tango import DeviceProxy, DevState
 from bliss.tango.clients.utils import (
     is_devfailed,
@@ -711,9 +712,20 @@ class IcatIngesterProxy(object):
 
     @icat_comm
     def send_to_elogbook(self, msg_type, msg, comm_state=None):
-        """
-        :param str msg_type:
+        warnings.warn(
+            "Use 'send_message' instead of 'send_to_elogbook'. Note the difference in API.",
+            FutureWarning,
+        )
+        if not msg_type:
+            msg_type = "info"
+        self.send_message(msg, msg_type=msg_type, comm_state=comm_state)
+
+    @icat_comm
+    def send_message(self, msg, msg_type=None, comm_state=None):
+        """Send a message to the electronic logbook
+
         :param str msg:
+        :param str msg_type: "comment" by default
         :param dict comm_state:
         """
         if self.get_state(comm_state=comm_state) == DevState.FAULT:
@@ -721,14 +733,16 @@ class IcatIngesterProxy(object):
         comm_state["error_msg"] = "Failed to send the e-logbook message"
         if msg_type == "command":
             cmd = "notifyCommand"
-        elif msg_type == "error":
-            cmd = "notifyError"
-        elif msg_type == "debug":
-            cmd = "notifyDebug"
         elif msg_type == "comment":
             cmd = "userComment"
-        else:
+        elif msg_type in ("error", "warning", "critical", "fatal", "warn"):
+            cmd = "notifyError"
+        elif msg_type == "info":
             cmd = "notifyInfo"
+        elif msg_type == "debug":
+            cmd = "notifyDebug"
+        else:
+            cmd = "userComment"
         current_proposal = current_session.scan_saving.proposal
         if self.get_proposal(comm_state=comm_state) != current_proposal:
             self.set_proposal(current_proposal, comm_state=comm_state)

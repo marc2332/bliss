@@ -18,7 +18,7 @@ from bliss.common import event
 from bliss.common.greenlet_utils import protect_from_one_kill
 from bliss.common.utils import with_custom_members, safe_get
 from bliss.config.channels import Channel
-from bliss.common.logtools import log_debug, lprint, lprint_disable
+from bliss.common.logtools import log_debug, user_print
 from bliss.common.utils import rounder
 from bliss.common.utils import autocomplete_property
 
@@ -163,7 +163,7 @@ class GroupMove:
 
                 msg = motion_obj.user_msg
                 if msg:
-                    lprint(msg)
+                    user_print(msg)
 
         started = gevent.event.Event()
 
@@ -411,11 +411,11 @@ class GroupMove:
                     motion.axis._set_move_done()
 
             if self._interrupted_move:
-                lprint("")
+                user_print("")
                 for motion in motions:
                     _axis = motion.axis
                     _axis_pos = safe_get(_axis, "position", on_error="!ERR")
-                    lprint(f"Axis {_axis.name} stopped at position {_axis_pos}")
+                    user_print(f"Axis {_axis.name} stopped at position {_axis_pos}")
 
             try:
                 if self.parent:
@@ -1007,7 +1007,7 @@ class Axis:
         new_dial = float(new_dial)  # accepts both float or numpy array of 1 element
         old_dial = self.dial
         new_dial = self.__do_set_dial(new_dial)
-        lprint(f"'{self.name}` dial position reset from {old_dial} to {new_dial}")
+        user_print(f"'{self.name}` dial position reset from {old_dial} to {new_dial}")
 
     def __do_set_position(self, new_pos=None, offset=None):
         dial = self.dial
@@ -1061,7 +1061,7 @@ class Axis:
         if self.no_offset:
             self.dial = new_pos
         if self.__do_set_position(new_pos):
-            lprint(
+            user_print(
                 f"'{self.name}` position reset from {curr_pos} to {new_pos} (sign: {self.sign}, offset: {self.offset})"
             )
 

@@ -56,6 +56,7 @@ from bliss.comm.tcp import SocketTimeout
 from bliss.common.axis import AxisState
 from bliss.controllers.motor import Controller
 from bliss import global_map
+from bliss.common.logtools import user_print
 
 ROLES = "tx", "ty", "tz", "rx", "ry", "rz"
 Pose = namedtuple("Pose", ROLES)
@@ -311,7 +312,7 @@ Q86=%f Q87=%f Q88=%f Q89=%f Q90=%f Q91=%f Q20=21"
             # Wait a little bit
             gevent.sleep(0.5)
             if not protocol.system_status.homing_done:
-                lprint("Home failed check status for more info")
+                user_print("Home failed check status for more info")
             # Wait that all axis are in position
             while True:
                 gevent.sleep(0.2)

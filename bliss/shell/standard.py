@@ -71,7 +71,7 @@ from bliss.common.scans import *
 from bliss.scanning.scan import Scan
 
 from bliss.common import logtools
-from bliss.common.logtools import *
+from bliss.common.logtools import elog_print
 from bliss.common.interlocks import interlock_state
 from bliss.common.session import get_current_session
 from bliss.data import lima_image
@@ -171,13 +171,12 @@ __all__ = (
         "where",
         "fwhm",
         "menu",
-        "ladd",
         "pprint",
         "find_position",
         "goto_custom",
     ]
     + scans.__all__
-    + logtools.__all__
+    + ["lprint", "ladd", "elog_print", "elog_add"]
     + [
         "cleanup",
         "error_cleanup",
@@ -1113,6 +1112,7 @@ def edit_mg(mg: MeasurementGroup):
 
 
 @typeguard.typechecked
+@logtools.elogbook.disable_command_logging
 def newproposal(proposal_name: Optional[str] = None):
     """Change the proposal name used to determine the saving path.
     """
@@ -1120,6 +1120,7 @@ def newproposal(proposal_name: Optional[str] = None):
 
 
 @typeguard.typechecked
+@logtools.elogbook.disable_command_logging
 def newsample(sample_name: Optional[str] = None):
     """Change the sample name used to determine the saving path.
     """
@@ -1127,18 +1128,21 @@ def newsample(sample_name: Optional[str] = None):
 
 
 @typeguard.typechecked
+@logtools.elogbook.disable_command_logging
 def newdataset(dataset_name: Optional[Union[str, int]] = None):
     """Change the dataset name used to determine the saving path.
     """
     current_session.scan_saving.newdataset(dataset_name)
 
 
+@logtools.elogbook.disable_command_logging
 def endproposal():
     """Close the active dataset and move to the default inhouse proposal.
     """
     current_session.scan_saving.endproposal()
 
 
+@logtools.elogbook.disable_command_logging
 def enddataset():
     """Close the active dataset.
     """
@@ -1193,7 +1197,8 @@ def _launch_pymca(filename: typing.Union[str, None] = None):
     return subprocess.Popen(args)
 
 
-def ladd(index=-1):
+@logtools.elogbook.disable_command_logging
+def elog_add(index=-1):
     """
     Send to the logbook given cell output and the print that was
     performed during the elaboration.
@@ -1214,8 +1219,24 @@ def ladd(index=-1):
                      unit = None
                      mode = MEAN (1)
 
-        BLISS [3]: ladd()  # sends last otput from diode
+        BLISS [3]: elog_add()  # sends last otput from diode
     """
     from bliss.shell.cli.repl import CaptureOutput
 
-    logtools.logbook_printer.send_to_elogbook("info", CaptureOutput()[index])
+    logtools.elogbook.comment(CaptureOutput()[index])
+
+
+@logtools.elogbook.disable_command_logging
+def lprint(*args, **kw):
+    elog_print(*args, **kw)
+    logtools.user_warning(
+        "message is send but use 'elog_print' instead of 'lprint' in the future"
+    )
+
+
+@logtools.elogbook.disable_command_logging
+def ladd(*args, **kw):
+    elog_add(*args, **kw)
+    logtools.user_warning(
+        "message is send but use 'elog_add' instead of 'ladd' in the future"
+    )

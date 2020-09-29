@@ -21,7 +21,7 @@ from bliss.data.node import get_session_node
 from bliss.scanning.scan import ScanState, ScanPreset
 from bliss.data.node import _create_node
 from bliss import current_session
-from bliss.common.logtools import lprint
+from bliss.common.logtools import user_warning
 
 
 class ScanGroup(Scan):
@@ -197,13 +197,11 @@ class Sequence:
                     elif isinstance(s, Scan) and s.state > max_state:
                         max_state = s.state
                 if max_state == ScanState.KILLED:
-                    lprint(
-                        "Warning: at least one of the scans in the sequence was KILLED"
-                    )
+                    user_warning("at least one of the scans in the sequence was KILLED")
                     scan._set_state(ScanState.KILLED)
                 elif max_state == ScanState.USER_ABORTED:
-                    lprint(
-                        "Warning: at least one of the scans in the sequence was USER_ABORTED"
+                    user_warning(
+                        "at least one of the scans in the sequence was USER_ABORTED"
                     )
                     scan._set_state(ScanState.USER_ABORTED)
 

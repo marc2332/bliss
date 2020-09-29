@@ -29,7 +29,7 @@ from gevent import Timeout, sleep
 from bliss import global_map
 from bliss.common.shutter import BaseShutter, BaseShutterState
 from bliss.common.tango import DeviceProxy, DevFailed
-from bliss.common.logtools import log_warning, lprint
+from bliss.common.logtools import log_warning, user_print
 from bliss.config.channels import Channel
 from bliss.common import event
 
@@ -152,7 +152,7 @@ class TangoShutter(BaseShutter):
             try:
                 self.__control.open()
                 self._wait(TangoShutterState.OPEN, timeout)
-                lprint(f"{self.name} was {state.name} and is now {self.state.name}")
+                user_print(f"{self.name} was {state.name} and is now {self.state.name}")
             except RuntimeError as err:
                 print(err)
                 raise
@@ -175,7 +175,7 @@ class TangoShutter(BaseShutter):
             try:
                 self.__control.close()
                 self._wait(TangoShutterState.CLOSED, timeout)
-                lprint(f"{self.name} was {state.name} and is now {self.state.name}")
+                user_print(f"{self.name} was {state.name} and is now {self.state.name}")
             except RuntimeError as err:
                 print(err)
                 raise

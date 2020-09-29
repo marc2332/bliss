@@ -12,7 +12,7 @@ import re
 
 from bliss.common.tango import DevFailed
 from bliss.config.beacon_object import BeaconObject
-from bliss.common.standard import lprint
+from bliss.common.logtools import user_error
 
 LimaProperty = type("LimaProperty", (property,), {})
 
@@ -20,11 +20,9 @@ LimaProperty = type("LimaProperty", (property,), {})
 def LimaBeaconObjectProperty(name, lima_get, lima_convert_to_write):
     def fget(self):
         try:
-            ret = lima_get(self)
+            return lima_get(self)
         except DevFailed as exc:
-            lprint(f"Error reading {name}: {exc.args[0].desc.strip()}")
-        else:
-            return ret
+            user_error(f"reading lima property {name} ({exc.args[0].desc.strip()})")
 
     fget.__name__ = name
 

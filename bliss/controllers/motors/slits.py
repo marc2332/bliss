@@ -6,7 +6,7 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 from bliss.controllers.motor import CalcController
-from bliss.common.logtools import lprint, log_debug
+from bliss.common.logtools import user_warning, log_debug
 from bliss.scanning.scan_meta import get_user_scan_meta
 
 """
@@ -93,8 +93,8 @@ class Slits(CalcController):
 
     def _init_meta_data_publishing(self):
         if not self.name:
-            lprint(
-                "Warning: to publish metadata the slit controller needs a name in config"
+            user_warning(
+                "to publish metadata the slit controller needs a name in config"
             )
             return
         scan_meta_obj = get_user_scan_meta()

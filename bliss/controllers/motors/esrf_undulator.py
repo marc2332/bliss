@@ -12,7 +12,7 @@ import gevent
 from bliss.controllers.motor import Controller
 from bliss.common.axis import AxisState, NoSettingsAxis
 from bliss.common.tango import DevState, DeviceProxy
-from bliss.common.logtools import log_debug, lprint
+from bliss.common.logtools import log_debug, user_warning
 from bliss.common.utils import object_method
 from bliss import global_map
 
@@ -22,7 +22,7 @@ class UndulatorAxis(NoSettingsAxis):
         st = self.hw_state
         if "DISABLED" in st:
             self.settings.set("state", st)
-            lprint(f"Warning: undulator {self.name} is disabled, no position update")
+            user_warning(f"undulator {self.name} is disabled, no position update")
         else:
             super().sync_hard()
 

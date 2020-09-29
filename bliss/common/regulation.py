@@ -167,7 +167,7 @@ import enum
 
 from bliss import current_session
 from bliss import global_map
-from bliss.common.logtools import log_debug, lprint_disable
+from bliss.common.logtools import log_debug, disable_user_output
 from bliss.common.utils import with_custom_members, autocomplete_property
 from bliss.common.counter import SamplingCounter
 from bliss.controllers.counter import SamplingCounterController, counter_namespace
@@ -655,7 +655,7 @@ class ExternalOutput(Output):
         log_debug(self, "ExternalOutput:_set_value %s" % value)
 
         if isinstance(self.device, Axis):
-            with lprint_disable():
+            with disable_user_output():
                 if self.mode == "relative":
                     self.device.rmove(value)
                 elif self.mode == "absolute":

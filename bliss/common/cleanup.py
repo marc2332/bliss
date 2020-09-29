@@ -63,11 +63,14 @@ def cleanup(*args, **kwargs):
     lima_device = list()
     stoppable_device = list()
     functions = list()
+    context_managers = list()
     for arg in args:
         if isinstance(arg, Axis):
             motors.append(arg)
         elif type(arg).__name__ == "Lima":
             lima_device.append(arg)
+        elif "__enter__" and "__exit__" in dir(arg):
+            context_managers.append(arg)
         elif callable(arg):
             functions.append(arg)
         else:
@@ -111,6 +114,13 @@ def cleanup(*args, **kwargs):
             for func in functions:
                 try:
                     func(**kwargs)
+                except Exception as exc:
+                    exceptions.append(exc)
+            exc_type, exc_val, exc_tb = sys.exc_info()
+            for context_manager in context_managers:
+                try:
+                    # context_manager.__enter__()
+                    context_manager.__exit__(exc_type, exc_val, exc_tb)
                 except Exception as exc:
                     exceptions.append(exc)
 

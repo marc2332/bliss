@@ -7,6 +7,7 @@
 import pytest
 from unittest import mock
 from bliss.common import cleanup
+from bliss.controllers.tango_shutter import TangoShutterState
 from bliss.common.cleanup import capture_exceptions
 
 
@@ -99,6 +100,31 @@ def test_functions_call():
 
     assert test_flags["test1_called"] == 2
     assert not test_flags["test2_called"]
+
+
+def test_context_manager(beacon, dummy_tango_server):
+    class Simple:
+        def __init__(self):
+            self.stop_called = False
+
+        def __enter__(self):
+            pass
+
+        def __exit__(self, exc_type, exc_val, exc_tb):
+            self.stop_called = True
+
+    s = Simple()
+    sh = beacon.get("safshut")
+    sh.open()
+
+    assert not s.stop_called
+    assert sh.state == TangoShutterState.OPEN
+
+    with cleanup.cleanup(s, sh):
+        pass
+
+    assert s.stop_called
+    assert sh.state == TangoShutterState.CLOSED
 
 
 def test_exceptions_capture(capsys):

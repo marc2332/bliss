@@ -318,7 +318,9 @@ class JogMotorMaster(AcquisitionMaster):
 
 
 def _init_motor_master_channels(channels, axes):
-    monitor_axes = list()
+    # it is important to return monitor_axes in the same order
+    # as channels (for data emitting)
+    monitor_axes = list(axes)
     channels.extend(
         (
             AcquisitionChannel(f"axis:{axis.name}", numpy.double, (), unit=axis.unit)
@@ -372,25 +374,31 @@ class _StepTriggerMaster(AcquisitionMaster):
         }
         self._motor_pos = self._get_axis_positions_dict()
 
+        # iterate through controllers and (axis, positions) ; iteration results are
+        # grouped by controller
+        # id(item[0].controller) is a trick for groupby to work, just to ensure
+        # that controllers with same id -hence same controllers- come together,
+        # read groupby doc for more explanation
         for controller, axes_pos in groupby(
-            self._motor_pos.items(), lambda item: item[0].controller
+            sorted(self._motor_pos.items(), key=lambda item: id(item[0].controller)),
+            lambda item: item[0].controller,
         ):
             controller.check_limits(axes_pos)
 
         mot_group = Group(*self._axes)
 
         AcquisitionMaster.__init__(self, mot_group, trigger_type=trigger_type, **keys)
-        self._monitor_axes = _init_motor_master_channels(self.channels, self.axes_list)
-
-    @property
-    def axes_list(self):
-        # return a list for axes, **sorted by controller**
-        # (axes with same controller come together),
-        # this is important for the "groupby" call in __init__
-        return sorted(self._axes, key=lambda axis: id(axis.controller))
+        # build the channels list, and return list of axis in the same order as channels
+        # the channels order is important for display; we do not use the sorted axes list
+        # because it is preferrable to have channels in the same order as user specified
+        # in the scan command
+        self._monitor_axes = _init_motor_master_channels(self.channels, self._axes)
 
     def _get_axis_positions_dict(self):
-        return {axis: numpy.linspace(*self._axes[axis]) for axis in self.axes_list}
+        return {
+            axis: numpy.linspace(*start_stop_npoints)
+            for axis, start_stop_npoints in self._axes.items()
+        }
 
     @property
     def npoints(self):
@@ -399,7 +407,7 @@ class _StepTriggerMaster(AcquisitionMaster):
     def __iter__(self):
         for positions in zip(*self._motor_pos.values()):
             self.next_mv_cmd_arg = list()
-            for axis, position in zip(self.axes_list, positions):
+            for axis, position in zip(self._axes, positions):
                 self.next_mv_cmd_arg += [axis, position]
             yield self
 
@@ -414,7 +422,7 @@ class _StepTriggerMaster(AcquisitionMaster):
 
     def trigger(self):
         self.trigger_slaves()
-        positions = [axis.position for axis in self.axes_list + self._monitor_axes]
+        positions = [axis.position for axis in self._monitor_axes]
         self.channels.update_from_iterable(positions)
         self.wait_slaves()
 
@@ -569,16 +577,17 @@ class VariableStepTriggerMaster(AcquisitionMaster):
 
     def trigger(self):
         self.trigger_slaves()
-        axes = self._axes + self._monitor_axes
         if self.broadcast_len > 1:
             self.channels.update_from_iterable(
                 [
                     numpy.ones(self.broadcast_len, numpy.float) * axis.position
-                    for axis in axes
+                    for axis in self._monitor_axes
                 ]
             )
         else:
-            self.channels.update_from_iterable([axis.position for axis in axes])
+            self.channels.update_from_iterable(
+                [axis.position for axis in self._monitor_axes]
+            )
 
         self.wait_slaves()
 

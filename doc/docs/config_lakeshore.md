@@ -20,6 +20,7 @@ Lakeshore 336, acessible via GPIB, USB or Ethernet
 
 - class: LakeShore336
   module: temperature.lakeshore.lakeshore336
+  plugin: regulation
   name: lakeshore336
   timeout: 3
   gpib:

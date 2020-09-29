@@ -45,13 +45,17 @@ class Camera(CameraBase):
     def delete_memory_files(self):
         self._proxy.deleteMemoryFiles()
 
+    def reset_high_voltage(self):
+        self._proxy.resetHighVoltage()
+
     def __info__(self):
         status = [
             "temperature",
             "humidity",
-            "serie_id",
+            "high_voltage_state",
             "plugin_status",
             "cam_status",
+            "serie_id",
             "stream_stats",
             "stream_last_info",
         ]

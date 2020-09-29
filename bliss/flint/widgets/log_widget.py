@@ -89,6 +89,12 @@ class LogWidget(qt.QTreeView):
         model.setHorizontalHeaderLabels(["Date/time", "Level", "Module", "Message"])
         self.setModel(model)
 
+        self.setAlternatingRowColors(True)
+
+        # It could be very big cells so per pixel is better
+        self.setVerticalScrollMode(qt.QAbstractItemView.ScrollPerPixel)
+        self.setHorizontalScrollMode(qt.QAbstractItemView.ScrollPerPixel)
+
         header = self.header()
         header.setSectionResizeMode(
             self.DateTimeColumn, qt.QHeaderView.ResizeToContents

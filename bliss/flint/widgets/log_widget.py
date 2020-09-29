@@ -205,6 +205,9 @@ class LogWidget(qt.QTreeView):
             nameItem = qt.QStandardItem()
             messageItem = qt.QStandardItem(message)
 
+        scroll = self.verticalScrollBar()
+        makeLastVisible = scroll.value() == scroll.maximum()
+
         model: qt.QStandardItemModel = self.model()
         model.appendRow([dateTimeItem, levelItem, nameItem, messageItem])
         self.logEmitted.emit(levelno)
@@ -212,6 +215,9 @@ class LogWidget(qt.QTreeView):
         if model.rowCount() > self._maximumLogCount:
             count = model.rowCount() - self._maximumLogCount
             model.removeRows(0, count)
+
+        if makeLastVisible:
+            self.scrollToBottom()
 
     def connect_logger(self, logger):
         """

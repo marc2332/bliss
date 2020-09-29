@@ -1011,6 +1011,18 @@ class ESRFScanSaving(BasicScanSaving):
         self._dataset = ""
         self.dataset = None
 
+    def _ensure_proposal(self):
+        """Make sure a proposal is selected
+        """
+        if not self._proposal:
+            self.proposal = None
+
+    def _ensure_sample(self):
+        """Make sure a sample is selected
+        """
+        if not self._sample:
+            self.sample = None
+
     @property_with_eval_dict
     def proposal(self, eval_dict=None):
         if not self._proposal:
@@ -1077,6 +1089,7 @@ class ESRFScanSaving(BasicScanSaving):
             name = "sample"
         if name != self._sample:
             self._store_dataset()
+            self._ensure_proposal()
             self._sample = name
             self._reset_dataset()
 
@@ -1092,6 +1105,8 @@ class ESRFScanSaving(BasicScanSaving):
         :param int or str value:
         """
         self._store_dataset()
+        self._ensure_proposal()
+        self._ensure_sample()
         reserved = self._reserved_datasets()
         for dataset_name in self._dataset_name_generator(value):
             self._dataset = dataset_name

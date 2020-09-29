@@ -13,7 +13,7 @@ from bliss.common.standard import loopscan, mv
 from bliss.common.utils import rounder
 from bliss.common.tango import DevFailed
 from bliss.common.session import set_current_session
-from bliss.scanning.scan_saving import ESRFDataPolicyEvent
+from bliss.scanning.scan_saving import ESRFDataPolicyEvent, ScanSaving
 from bliss.config import channels
 from bliss.shell.standard import (
     newproposal,
@@ -448,6 +448,20 @@ def test_data_policy_user_functions(
     assert scan_saving.proposal == default_proposal
     assert scan_saving.sample == "sample"
     assert scan_saving.dataset == "0005"
+
+
+def test_fresh_newsample(session, esrf_data_policy):
+    scan_saving = ScanSaving("my_custom_scansaving")
+    scan_saving.newsample("toto")
+    assert scan_saving.sample == "toto"
+    assert scan_saving.dataset == "0001"
+
+
+def test_fresh_newdataset(session, esrf_data_policy):
+    scan_saving = ScanSaving("my_custom_scansaving")
+    scan_saving.newdataset("toto")
+    assert scan_saving.sample == "sample"
+    assert scan_saving.dataset == "toto"
 
 
 def test_data_policy_name_validation(session, esrf_data_policy):

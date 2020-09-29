@@ -154,6 +154,17 @@ class LogWidget(qt.QTreeView):
             s = s + self._formatter.formatStack(record.stack_info)
         return s
 
+    def __splitCauses(self, stack):
+        """Split a traceback into different causes
+
+        It looks like the record object do not provide anymore always access to
+        individual exceptions. So we have to parse it.
+        """
+        line = "The above exception was the direct cause of the following exception:"
+        causes = stack.split(line)
+        causes = [c.strip() for c in causes]
+        return list(reversed(causes))
+
     def emit(self, record: Union[str, logging.LogRecord]):
         record2: Optional[logging.LogRecord] = None
         if isinstance(record, str):
@@ -181,14 +192,19 @@ class LogWidget(qt.QTreeView):
 
                 stack = self._formatStack(record2)
                 if stack != "":
-                    dateTimeItem.appendRow(
-                        [
-                            qt.QStandardItem(),
-                            qt.QStandardItem(),
-                            qt.QStandardItem(),
-                            qt.QStandardItem(stack),
-                        ]
-                    )
+                    causes = self.__splitCauses(stack)
+                    parentItem = dateTimeItem
+                    for i, cause in enumerate(causes):
+                        title = qt.QStandardItem("Backtrace" if i == 0 else "Caused by")
+                        parentItem.appendRow(
+                            [
+                                title,
+                                qt.QStandardItem(),
+                                qt.QStandardItem(),
+                                qt.QStandardItem(cause),
+                            ]
+                        )
+                        parentItem = title
             else:
                 dateTimeItem = None
         except Exception:

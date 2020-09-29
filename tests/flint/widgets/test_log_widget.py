@@ -76,3 +76,34 @@ class TestLogWidget(TestCaseQt):
         self.qWaitForDestroy(ref)
 
         self.assertEqual(len(logger.handlers), nb)
+
+    def test_causes(self):
+        """Coverage with exception containing causes"""
+        widget = LogWidget()
+        self.qWaitForWindowExposed(widget)
+        widget.connect_logger(logger)
+
+        try:
+            try:
+                try:
+                    raise IndexError("AAA")
+                except Exception as e:
+                    raise RuntimeError("BBB") from e
+            except Exception as e:
+                raise RuntimeError("CCC") from e
+        except Exception as e:
+            logger.critical("Hmmmm, no luck", exc_info=e)
+
+        self.qWait()
+        self.assertEqual(widget.logCount(), 1)
+
+        model = widget.model()
+        index = model.index(0, 0)
+        assert model.rowCount(index) == 1
+        index = model.index(0, 0, index)
+        assert model.rowCount(index) == 1
+        index = model.index(0, 0, index)
+        assert model.rowCount(index) == 1
+        index = model.index(0, 0, index)
+        assert model.rowCount(index) == 0
+        widget = None

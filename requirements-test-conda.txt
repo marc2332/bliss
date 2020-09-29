@@ -1,13 +1,13 @@
-# Conda requirement file (python 2.7)
+# Conda requirement file
 # Test requirements
 
 black == 18.6b4
 coilmq
-opencv
-lima-core == 1.9.4
+lima-core >= 1.9.6
 lima-camera-simulator >= 1.9.2
 lima-camera-simulator-tango >= 1.9.2
 lima-tango-server >= 1.9.6
+opencv
 py
 pytest == 5.3.5
 pytest-cov

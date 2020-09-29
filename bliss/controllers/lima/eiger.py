@@ -32,21 +32,49 @@ class Camera(CameraBase):
         )
         return stats_txt
 
-    def initialize(self):
+    def initialize(self, wait=True):
         self._proxy.initialize()
+        if wait:
+            self.wait_initialize()
+
+    def wait_initialize(self):
+        widx = 0
         while True:
             gevent.sleep(0.5)
             status = self._proxy.plugin_status
-            print(f"Detector status: {status:20.20s}", end="\r")
             if status in ["READY", "FAULT"]:
                 break
+            print(
+                "Detector status: {0:15.15} {1:3.3s}".format(status, "." * (widx % 4)),
+                end="\r",
+            )
+            widx += 1
         print(f"Detector status: {status:20.20s}")
+        self.wait_high_voltage()
 
     def delete_memory_files(self):
         self._proxy.deleteMemoryFiles()
 
-    def reset_high_voltage(self):
+    def reset_high_voltage(self, wait=True):
         self._proxy.resetHighVoltage()
+        if wait:
+            self.wait_high_voltage()
+
+    def wait_high_voltage(self):
+        widx = 0
+        while True:
+            gevent.sleep(0.5)
+            state = self._proxy.high_voltage_state
+            if state == "READY":
+                break
+            print(
+                "High Voltage status: {0:10.10s} {1:3.3s}".format(
+                    state, "." * (widx % 4)
+                ),
+                end="\r",
+            )
+            widx += 1
+        print(f"High Voltage status: {state:20.20s}")
 
     def __info__(self):
         status = [

@@ -726,7 +726,14 @@ def __umove(*args, **kwargs):
     kwargs["wait"] = False
     group, motor_pos = __move(*args, **kwargs)
     with error_cleanup(group.stop):
-        motor_names = [global_map.alias_or_name(axis) for axis in motor_pos]
+        motor_names = list()
+        for axis in motor_pos:
+            if axis.unit:
+                motor_names.append(
+                    "{}[{}]".format(global_map.alias_or_name(axis), axis.unit)
+                )
+            else:
+                motor_names.append(global_map.alias_or_name(axis))
         col_len = max(max(map(len, motor_names)), 8)
         hfmt = "^{width}".format(width=col_len)
         rfmt = ">{width}.03f".format(width=col_len)

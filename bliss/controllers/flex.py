@@ -12,15 +12,12 @@ from StaubCom.flex import dm_reader
 from StaubCom.flex import ProxiSense
 import gevent
 import math
-import time
 import itertools
 import os
 import shutil
-import sys
 import configparser
 import ast
 import inspect
-import numpy
 
 import logging
 from logging.handlers import TimedRotatingFileHandler

@@ -6,7 +6,25 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 """Spec motor controller
+    
+YAML_ configuration example:
+
+.. code-block:: yaml
+
+  plugin: emotion
+  class: Spec
+  spec: lid13eh31:xpstest
+  axes:
+    - name: Theta
+      mnemonic: Theta
+      steps_per_unit: 1  # set to 1, to avoid conversions
+                         # between spec units and Bliss units
+      velocity: 20000
+      acceleration: 1000
+
+
 """
+
 import math
 import gevent
 from bliss.common.utils import object_method
@@ -14,20 +32,19 @@ from bliss.comm.spec.error import SpecClientTimeoutError
 from bliss.comm.spec.connection import SpecConnection
 from bliss.controllers.motor import Controller
 from bliss.common.axis import AxisState, NoSettingsAxis
+from bliss.config.static import ConfigList
 
 
 class Spec(Controller):
     def __init__(self, name, config, axes, *args, **kwargs):
-        new_axes = []
-        for axis_cfg in map(list, axes):
-            # change class name for axes created by this controller
-            # to NoSettingsAxis: no settings will be stored in redis,
-            # thus forcing to ask spec every time (no cache)
-            axis_cfg[1] = NoSettingsAxis
+        new_axes = {}
+        for axis_name, axis_cfg in axes.items():
+            axis_cfg = list(axis_cfg)
+            axis_cfg[0] = NoSettingsAxis
             # make sure steps per unit is 1, to avoid conversions
             # between spec units and Bliss units
-            assert axis_cfg[2].get("steps_per_unit", int) == 1
-            new_axes.append(axis_cfg)
+            assert axis_cfg[1].get("steps_per_unit", int) == 1
+            new_axes[axis_name] = axis_cfg
 
         Controller.__init__(self, name, config, new_axes, *args, **kwargs)
 

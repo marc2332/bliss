@@ -80,10 +80,6 @@ class ESRF_Undulator(Controller):
 
     def initialize_axis(self, axis):
         self._moving_state[axis] = 0
-        #try:
-        #    attr_pos_name = axis.config.get("attribute_position", str)
-        #except KeyError:
-        #    attr_pos_name = "Position"
         attr_pos_name = axis.config.get("attribute_position", str, "Position")
 
         log_debug(self, f"attr_pos_name={attr_pos_name}")

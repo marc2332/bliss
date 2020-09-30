@@ -6,6 +6,8 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import gevent
+
+from bliss.common.logtools import user_print
 from .properties import LimaProperty
 from .lima_base import CameraBase
 
@@ -44,12 +46,12 @@ class Camera(CameraBase):
             status = self._proxy.plugin_status
             if status in ["READY", "FAULT"]:
                 break
-            print(
+            user_print(
                 "Detector status: {0:15.15} {1:3.3s}".format(status, "." * (widx % 4)),
                 end="\r",
             )
             widx += 1
-        print(f"Detector status: {status:20.20s}")
+        user_print(f"Detector status: {status:20.20s}")
         self.wait_high_voltage()
 
     def delete_memory_files(self):
@@ -67,14 +69,14 @@ class Camera(CameraBase):
             state = self._proxy.high_voltage_state
             if state == "READY":
                 break
-            print(
+            user_print(
                 "High Voltage status: {0:10.10s} {1:3.3s}".format(
                     state, "." * (widx % 4)
                 ),
                 end="\r",
             )
             widx += 1
-        print(f"High Voltage status: {state:20.20s}")
+        user_print(f"High Voltage status: {state:20.20s}")
 
     def __info__(self):
         status = [

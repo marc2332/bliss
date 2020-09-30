@@ -142,7 +142,7 @@ class NexusSessionWriter(base_subscriber.BaseSubscriber):
     @property
     def progress_string(self):
         n = len(self.writers)
-        nactive = sum(w.active for w in self.writers.values())
+        nactive = sum(w.active for w in list(self.writers.values()))
         return "{} scan writers ({} active)".format(n, nactive)
 
     @property
@@ -297,7 +297,7 @@ class NexusSessionWriter(base_subscriber.BaseSubscriber):
 
     def log_progress(self, msg=None):
         n = len(self.writers)
-        nactive = sum(w.active for w in self.writers.values())
+        nactive = sum(w.active for w in list(self.writers.values()))
         if msg:
             msg = "{} ({} scan writers, {} active)".format(msg, n, nactive)
         else:
@@ -321,7 +321,7 @@ class NexusSessionWriter(base_subscriber.BaseSubscriber):
     @property
     def state(self):
         if self._state == self.STATES.ON:
-            if any(writer.active for writer in self.writers.values()):
+            if any(writer.active for writer in list(self.writers.values())):
                 return self.STATES.RUNNING
         return self._state
 
@@ -336,7 +336,7 @@ class NexusSessionWriter(base_subscriber.BaseSubscriber):
         return list(
             name
             for name, writer in sorted(
-                self.writers.items(), key=lambda item: item[1].sort_key
+                list(self.writers.items()), key=lambda item: item[1].sort_key
             )
         )
 
@@ -373,7 +373,7 @@ class NexusSessionWriter(base_subscriber.BaseSubscriber):
             ret[name] = getter(writer)
         else:
             for name, writer in sorted(
-                self.writers.items(), key=lambda item: item[1].sort_key
+                list(self.writers.items()), key=lambda item: item[1].sort_key
             ):
                 ret[name] = getter(writer)
         return ret

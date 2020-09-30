@@ -1,14 +1,21 @@
 """Statistics handling."""
 
 import logging
-from collections import namedtuple
+import typing
 
 CLOCK_TICK = 320e-9
 
-Stats = namedtuple(
-    "Stats",
-    "realtime trigger_livetime energy_livetime triggers events icr ocr deadtime",
-)
+
+class Stats(typing.NamedTuple):
+    realtime: float
+    trigger_livetime: float
+    energy_livetime: float
+    triggers: int
+    events: int
+    icr: float
+    ocr: float
+    deadtime: float
+
 
 _logger = logging.getLogger(__name__)
 

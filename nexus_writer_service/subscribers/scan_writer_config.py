@@ -172,7 +172,7 @@ class NexusScanWriterConfigurable(scan_writer_base.NexusScanWriterBase):
         :param Subscan subscan:
         :returns str, DatasetProxy: fullname and dataset handle
         """
-        for fullname, dproxy in subscan.datasets.items():
+        for fullname, dproxy in list(subscan.datasets.items()):
             if dproxy.device_type == "mca" and dproxy.data_type == "principal":
                 yield fullname, dproxy
 

@@ -353,7 +353,7 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
     def uris(self):
         filename = self.filename
         ret = {}
-        for subscan in self._subscans:
+        for subscan in list(self._subscans):
             name = self._nxentry_name(subscan)
             ret[name.split(".")[-1]] = filename + "::/" + name
         return [v for _, v in sorted(ret.items())]
@@ -396,7 +396,7 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
 
     @property
     def _enabled_subscans(self):
-        for subscan in self._subscans:
+        for subscan in list(self._subscans):
             if subscan.enabled:
                 yield subscan
 
@@ -860,8 +860,8 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
         Total bytes (data-only) of all subscans
         """
         nbytes = 0
-        for subscan in self._subscans:
-            for dproxy in subscan.datasets.values():
+        for subscan in list(self._subscans):
+            for dproxy in list(subscan.datasets.values()):
                 if dproxy is not None:
                     nbytes += dproxy.current_bytes
         return nbytes
@@ -872,8 +872,8 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
         Mininal/maximal scan data progress
         """
         lst = []
-        for subscan in self._subscans:
-            for dproxy in subscan.datasets.values():
+        for subscan in list(self._subscans):
+            for dproxy in list(subscan.datasets.values()):
                 if dproxy is not None:
                     lst.append(dproxy.progress)
         if lst:
@@ -891,9 +891,9 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
         def getprogress(tpl):
             return tpl[1]
 
-        for subscan in self._subscans:
+        for subscan in list(self._subscans):
             lst = []
-            for dproxy in subscan.datasets.values():
+            for dproxy in list(subscan.datasets.values()):
                 if dproxy is not None:
                     lst.append(dproxy.progress_string)
             if lst:
@@ -992,8 +992,8 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
         All detector dimensions
         """
         ret = set()
-        for subscan in self._subscans:
-            for dproxy in subscan.datasets.values():
+        for subscan in list(self._subscans):
+            for dproxy in list(subscan.datasets.values()):
                 if dproxy is not None:
                     ret.add(dproxy.detector_ndim)
         return ret
@@ -1132,8 +1132,7 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
             # unknown, unexpected or disabled
             return dproxy
         # Proxy already initialized?
-        datasets = subscan.datasets
-        dproxy = datasets.get(node.fullname)
+        dproxy = subscan.datasets.get(node.fullname)
         if dproxy is not None:
             return dproxy
         # Already fully initialized in Redis?
@@ -1178,7 +1177,7 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
             parentlogger=subscan.logger,
             **data_info,
         )
-        datasets[node.fullname] = dproxy
+        subscan.datasets[node.fullname] = dproxy
         self._add_to_dataset_links(subscan, dproxy)
         subscan.logger.debug("New data node " + str(dproxy))
         return dproxy
@@ -1229,7 +1228,7 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
         :param bliss.data.node.DataNode node:
         :returns Subscan:
         """
-        for subscan in self._subscans:
+        for subscan in list(self._subscans):
             if subscan.hasnode(node):
                 break
         else:
@@ -1522,7 +1521,7 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
         scanshape = self.scan_save_shape(subscan)
         scanndim = len(scanshape)
         scanshapes = []
-        for dproxy in subscan.datasets.values():
+        for dproxy in list(subscan.datasets.values()):
             scanshapes.append(dproxy.current_scan_save_shape)
         if expand:
             scanshape = tuple(max(lst) if any(lst) else 1 for lst in zip(*scanshapes))
@@ -1530,7 +1529,7 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
             scanshape = tuple(
                 min(i for i in lst if i) if any(lst) else 1 for lst in zip(*scanshapes)
             )
-        for dproxy in subscan.datasets.values():
+        for dproxy in list(subscan.datasets.values()):
             dproxy.reshape(scanshape, None)
 
     def _fetch_new_redis_data(self, dproxy, node, event_data=None):
@@ -1641,7 +1640,7 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
         :param bool onlymasters: only positioners that are master in the acquisition chain
         :returns str, DatasetProxy: fullname and dataset handles
         """
-        for fullname, dproxy in subscan.datasets.items():
+        for fullname, dproxy in list(subscan.datasets.items()):
             if dproxy.device_type in ("positioner", "positionergroup"):
                 if onlyprincipals and dproxy.data_type != "principal":
                     continue
@@ -1656,7 +1655,7 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
         :param Subscan subscan:
         :returns str, DatasetProxy: fullname and dataset handle
         """
-        for fullname, dproxy in subscan.datasets.items():
+        for fullname, dproxy in list(subscan.datasets.items()):
             if dproxy.device_type not in ("positioner", "positionergroup"):
                 yield fullname, dproxy
 

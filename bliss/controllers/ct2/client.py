@@ -99,7 +99,7 @@ class CT2Controller(Proxy, CounterController):
             CT2VarTimeAcquisitionMaster,
         )
 
-        if isinstance(acq_params["acq_expo_time"], list):
+        if isinstance(acq_params.get("acq_expo_time"), list):
             return CT2VarTimeAcquisitionMaster(
                 self, ctrl_params=ctrl_params, **acq_params
             )

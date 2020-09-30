@@ -39,6 +39,9 @@ class TrajectoryAxis(NoSettingsAxis):
     SPLINE, LINEAR, CYCLIC = list(range(3))
 
     def __init__(self, name, controller, config):
+        controller.axis_settings.config_setting["acceleration"] = False
+        controller.axis_settings.config_setting["velocity"] = False
+
         super().__init__(name, controller, config)
 
         self._axes = None

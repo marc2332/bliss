@@ -164,6 +164,20 @@ def test_references(beacon, object_name, get_func_name, copy):
         s1vo.__close__()
 
 
+def test_issue_2118(beacon):
+    cfg = beacon.get("fscan_eh3")
+    s1hg = beacon.get("s1hg")
+    s1vo = beacon.get("s1vo")
+    cfg = cfg.to_dict()
+
+    try:
+        assert cfg["devices"]["musst"][0] is s1hg
+        assert cfg["devices"]["musst"][1] is s1vo
+    finally:
+        s1hg.__close__()
+        s1vo.__close__()
+
+
 def test_issue_451_infinite_recursion(beacon):
     refs_cfg = beacon.get_config("refs_test")
 

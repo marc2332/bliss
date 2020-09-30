@@ -17,5 +17,9 @@
       position: 1
   scan:
     axis: $m0
-  
+- name: fscan_eh3
+  devices: 
+      musst: [ $s1hg, $s1vo ]
+
+
 

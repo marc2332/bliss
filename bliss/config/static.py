@@ -103,7 +103,9 @@ def get_config(base_path="", timeout=3., raise_yaml_exc=True):
 class ConfigReference:
     @staticmethod
     def is_reference(name):
-        return name.startswith("$")
+        if isinstance(name, str):
+            return name.startswith("$")
+        return False
 
     def __init__(self, parent, value):
         self._parent = parent
@@ -523,6 +525,13 @@ class ConfigNode(MutableMapping):
                 for k, v in d.items():
                     if isinstance(v, str) and ConfigReference.is_reference(v):
                         d[k] = ConfigReference(self.parent, v).dereference()
+                    elif isinstance(v, list):
+                        d[k] = [
+                            ConfigReference(self.parent, item).dereference()
+                            if ConfigReference.is_reference(item)
+                            else item
+                            for item in v
+                        ]
                 return d
 
             return json.JSONDecoder(object_hook=decoder_hook).decode(

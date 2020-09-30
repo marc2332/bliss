@@ -204,7 +204,7 @@ def _discover_object(obj):
 class _ServerObject(object):
     def __init__(self, obj, stream=False, tcp_low_latency=False):
         self._object = obj
-        self._log = logging.getLogger("rpc." + type(obj).__name__)
+        self._log = logging.getLogger(f"{__name__}.{type(obj).__name__}")
         self._metadata = _discover_object(obj)
         self._server_task = None
         self._clients = list()
@@ -581,7 +581,8 @@ class _cnx(object):
             finally:
                 self._in_introspect = False
 
-            self._log = logging.getLogger("rpc." + metadata["name"])
+            name = {metadata["name"]}
+            self._log = logging.getLogger(f"{__name__}.{name}")
             stream = metadata.get("stream", False)
             members = dict(_client=self)
 

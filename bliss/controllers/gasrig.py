@@ -155,7 +155,7 @@ class GasRig(object):
     def __init__(self, name, config):
         self.config = config
         self.name = name
-        self._log = logging.getLogger("{0}.{1}".format(self.__class__.__name__, name))
+        self._log = logging.getLogger(f"{__name__}.{self.__class__.__name__}.{name}")
         wago = config["wago"]
         self.valve_names = set(_get_gasrig_valve_names(wago))
         for counter in wago.counters:

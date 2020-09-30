@@ -180,7 +180,7 @@ class CardInterface(BaseCardInterface):
 
     def __init__(self, address="/dev/ct2_0"):
         self.address = address
-        self.__log = logging.getLogger(str(self))
+        self.__log = logging.getLogger(f"{__name__}.{str(self)}")
         self.__dev = None
 
     def connect(self):
@@ -2053,11 +2053,11 @@ class BaseCard:
     def __init__(self, interface=None):
         self.interface = CardInterface() if interface is None else interface
         self.__interrupt_buffer_size = 0
-        self.__log = logging.getLogger(str(self))
+        self.__log = logging.getLogger(f"{__name__}.{str(self)}")
         self.connect()
 
     def __str__(self):
-        return "{0.__class__.__name__}({0.interface})".format(self)
+        return f"{self.__class__.__name__}({self.interface})"
 
     def __repr__(self):
         return str(self)

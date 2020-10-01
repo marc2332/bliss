@@ -1351,6 +1351,47 @@ def createMergedDataset(h5group, name, uris, virtual=True, **kwargs):
         return createConcatenatedDataset(h5group, name, uris, **kwargs)
 
 
+def vdsmapUri(dset, vdsmap):
+    """
+    :param Dataset dset:
+    :param VDSmap vdsmap:
+    :returns str:
+    """
+    filename = vdsmap.file_name
+    if not os.path.isabs(filename):
+        path = os.path.dirname(dset.file.filename)
+        if filename == ".":
+            filename = os.path.basename(dset.file.filename)
+        filename = os.path.join(path, filename)
+    return filename + "::" + vdsmap.dset_name
+
+
+def vdsmapIsValid(dset, vdsmap):
+    """
+    :param Dataset dset:
+    :param VDSmap vdsmap:
+    :returns bool:
+    """
+    return exists(vdsmapUri(dset, vdsmap))
+
+
+def vdsIsValid(dset):
+    """
+    :param Dataset dset:
+    :returns bool:
+    """
+    if not dset.is_virtual:
+        raise ValueError("Not a virtual dataset")
+    sources = dset.virtual_sources()
+    if not sources:
+        shape = dset.shape
+        return not shape or not all(shape)
+    for vdsmap in sources:
+        if not vdsmapIsValid(dset, vdsmap):
+            return False
+    return True
+
+
 def createLink(h5group, name, destination):
     """
     Create hdf5 soft (supports relative down paths)

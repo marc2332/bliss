@@ -120,22 +120,31 @@ def test_nexus_data(scan_tmpdir):
                 "virtual": virtual,
                 "data": [nexus.getUri(data[name]) for name in datadict],
             }
-            vdata = nexus.nxCreateDataSet(process, next(vdataname), value, None)
+            _tmp = next(vdataname)
+            vdata = nexus.nxCreateDataSet(process, _tmp, value, None)
+            if virtual:
+                assert nexus.vdsIsValid(vdata)
             for i, name in enumerate(datadict):
                 numpy.testing.assert_array_equal(datadict[name], vdata[i])
             value["axis"] = 1
             vdata1 = nexus.nxCreateDataSet(process, next(vdataname), value, None)
+            if virtual:
+                assert nexus.vdsIsValid(vdata1)
             for i, name in enumerate(datadict):
                 numpy.testing.assert_array_equal(datadict[name], vdata1[:, i])
             value["axis"] = 0
             value["newaxis"] = False
             vdata = nexus.nxCreateDataSet(process, next(vdataname), value, None)
+            if virtual:
+                assert nexus.vdsIsValid(vdata)
             for i, name in enumerate(datadict):
                 numpy.testing.assert_array_equal(
                     datadict[name], vdata[i * s[0] : (i + 1) * s[0]]
                 )
             value["axis"] = 1
             vdata = nexus.nxCreateDataSet(process, next(vdataname), value, None)
+            if virtual:
+                assert nexus.vdsIsValid(vdata)
             for i, name in enumerate(datadict):
                 numpy.testing.assert_array_equal(
                     datadict[name], vdata[:, i * s[1] : (i + 1) * s[1]]

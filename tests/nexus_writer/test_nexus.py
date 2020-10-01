@@ -212,7 +212,8 @@ def test_nexus_uri(scan_tmpdir):
     assert b == "/a/b"
 
 
-def test_nexus_links(scan_tmpdir):
+@pytest.mark.parametrize("abspath", [False, True])
+def test_nexus_links(scan_tmpdir, abspath):
     def namegen():
         i = 1
         while True:
@@ -226,21 +227,21 @@ def test_nexus_links(scan_tmpdir):
         assert_same_target(g, g)
         # internal link up
         name = next(linkname)
-        nexus.createLink(g, name, f1["a"])
+        nexus.createLink(g, name, f1["a"], abspath=abspath)
         assert_same_target(f1["a"], g[name])
         link = g.get(name, getlink=True)
         assert link.path == "/a"
         assert isinstance(link, h5py.SoftLink)
         # internal link same level
         name = next(linkname)
-        nexus.createLink(g, name, f1["a/b"])
+        nexus.createLink(g, name, f1["a/b"], abspath=abspath)
         assert_same_target(f1["a/b"], g[name])
         link = g.get(name, getlink=True)
         assert link.path == "."
         assert isinstance(link, h5py.SoftLink)
         # internal link down
         name = next(linkname)
-        nexus.createLink(g, name, f1["a/b/c"])
+        nexus.createLink(g, name, f1["a/b/c"], abspath=abspath)
         assert_same_target(f1["a/b/c"], g[name])
         link = g.get(name, getlink=True)
         assert link.path == "c"
@@ -248,29 +249,38 @@ def test_nexus_links(scan_tmpdir):
         # external link down
         with nxroot(scan_tmpdir, os.path.join("a", "test2")) as f2:
             name = next(linkname)
-            nexus.createLink(f2, name, f1["a"])
+            nexus.createLink(f2, name, f1["a"], abspath=abspath)
             link = f2.get(name, getlink=True)
             assert_same_target(f1["a"], f2[name])
             assert link.path == "/a"
-            assert link.filename == "b/test1.h5"
+            if abspath:
+                assert link.filename == f1.filename
+            else:
+                assert link.filename == "b/test1.h5"
             assert isinstance(link, h5py.ExternalLink)
         # internal link same level
         with nxroot(scan_tmpdir, os.path.join("a", "b", "test2")) as f2:
             name = next(linkname)
-            nexus.createLink(f2, name, f1["a"])
+            nexus.createLink(f2, name, f1["a"], abspath=abspath)
             link = f2.get(name, getlink=True)
             # assert_same_target(f1["a"], f2[name])
             assert link.path == "/a"
-            assert link.filename == "./test1.h5"
+            if abspath:
+                assert link.filename == f1.filename
+            else:
+                assert link.filename == "./test1.h5"
             assert isinstance(link, h5py.ExternalLink)
         # external link up
         with nxroot(scan_tmpdir, os.path.join("a", "b", "c", "test2")) as f2:
             name = next(linkname)
-            nexus.createLink(f2, name, f1["a"])
+            nexus.createLink(f2, name, f1["a"], abspath=abspath)
             assert_same_target(f1["a"], f2[name])
             link = f2.get(name, getlink=True)
             assert link.path, "/a"
-            assert link.filename == "../test1.h5"
+            if abspath:
+                assert link.filename == f1.filename
+            else:
+                assert link.filename == "../test1.h5"
             assert isinstance(link, h5py.ExternalLink)
 
 

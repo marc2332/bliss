@@ -346,35 +346,19 @@ class MythenAcquistionSlave(AcquisitionSlave):
 
     def trigger(self):
         if self.trigger_type == AcquisitionSlave.SOFTWARE:
-            event = gevent.event.Event()
-            self._software_acquisition = gevent.spawn(self._run_soft_acquisition, event)
             try:
-                with gevent.Timeout(5):
-                    event.wait()
-            except:
-                self._software_acquisition.kill()
+                self.device.start()
+                start_event.set()
+                gevent.sleep(self.count_time)
+            finally:
+                self._acquisition_status = self.status.STOPPED
                 self._software_acquisition = None
-            else:
-                # check if there is no problem to start the acquisition
-                try:
-                    self._software_acquisition.get(block=False)
-                except gevent.Timeout:
-                    pass
+                self.device.stop()
+            self._publish()
 
     def wait_ready(self):
         if self._software_acquisition is not None:
             self._software_acquisition.join()
-
-    def _run_soft_acquisition(self, start_event):
-        try:
-            self.device.start()
-            start_event.set()
-            gevent.sleep(self.count_time)
-        finally:
-            self._acquisition_status = self.status.STOPPED
-            self._software_acquisition = None
-            self.device.stop()
-        self._publish()
 
     def reading(self):
         if self.trigger_type == AcquisitionSlave.SOFTWARE:

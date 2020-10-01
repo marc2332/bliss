@@ -275,7 +275,6 @@ class LimaAcquisitionMaster(AcquisitionMaster):
                 if hasattr(self.device.proxy, "lima_version"):
                     lima_version = self.device.proxy.lima_version
                     user_instrument_name = self.device.proxy.user_instrument_name
-
                 else:
                     lima_version = "<1.9.1"
                     user_instrument_name = "instrument"
@@ -283,6 +282,7 @@ class LimaAcquisitionMaster(AcquisitionMaster):
                 self._image_channel.description.update(
                     {
                         "saving_format": self.ctrl_params["saving_format"],
+                        "saving_index_format": self.device.proxy.saving_index_format,
                         "saving_frame_per_file": self.ctrl_params[
                             "saving_frame_per_file"
                         ],

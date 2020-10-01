@@ -66,7 +66,7 @@ class LimaAttrGetterSetter:
 
     def _w_attr_convert(self, value, attr, values_enum=None):
         if values_enum:
-            if value in values_enum:
+            if isinstance(value, enum.Enum) and value in values_enum:
                 v = value.value
             else:
                 try:

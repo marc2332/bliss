@@ -1351,7 +1351,48 @@ def createMergedDataset(h5group, name, uris, virtual=True, **kwargs):
         return createConcatenatedDataset(h5group, name, uris, **kwargs)
 
 
-def createLink(h5group, name, destination):
+def vdsmapUri(dset, vdsmap):
+    """
+    :param Dataset dset:
+    :param VDSmap vdsmap:
+    :returns str:
+    """
+    filename = vdsmap.file_name
+    if not os.path.isabs(filename):
+        path = os.path.dirname(dset.file.filename)
+        if filename == ".":
+            filename = os.path.basename(dset.file.filename)
+        filename = os.path.join(path, filename)
+    return filename + "::" + vdsmap.dset_name
+
+
+def vdsmapIsValid(dset, vdsmap):
+    """
+    :param Dataset dset:
+    :param VDSmap vdsmap:
+    :returns bool:
+    """
+    return exists(vdsmapUri(dset, vdsmap))
+
+
+def vdsIsValid(dset):
+    """
+    :param Dataset dset:
+    :returns bool:
+    """
+    if not dset.is_virtual:
+        raise ValueError("Not a virtual dataset")
+    sources = dset.virtual_sources()
+    if not sources:
+        shape = dset.shape
+        return not shape or not all(shape)
+    for vdsmap in sources:
+        if not vdsmapIsValid(dset, vdsmap):
+            return False
+    return True
+
+
+def createLink(h5group, name, destination, abspath=False):
     """
     Create hdf5 soft (supports relative down paths)
     or external link (supports relative paths).
@@ -1359,6 +1400,7 @@ def createLink(h5group, name, destination):
     :param h5py.Group h5group: location of the link
     :param str name:
     :param str or h5py.Dataset destination:
+    :param bool abspath: absolute file path
     :returns: h5py link object
     """
     if not isString(destination):
@@ -1367,14 +1409,17 @@ def createLink(h5group, name, destination):
         destination = splitUri(destination)
     else:
         destination = h5group.file.filename, destination
-    filename, path = relUri(destination, getUri(h5group))
-    if filename == ".":
-        # TODO: h5py does not support relative up links
-        if ".." in path:
-            path = destination[1]
-        lnk = h5py.SoftLink(path)
+    filename, path = destination
+    lnk_filename, lnk_path = relUri(destination, getUri(h5group))
+    if lnk_filename == ".":
+        # TODO: h5py.SoftLink does not support relative links upwards
+        if ".." in lnk_path:
+            lnk_path = path
+        lnk = h5py.SoftLink(lnk_path)
     else:
-        lnk = h5py.ExternalLink(filename, path)
+        if abspath:
+            lnk_filename = filename
+        lnk = h5py.ExternalLink(lnk_filename, lnk_path)
     h5group[name] = lnk
     return lnk
 

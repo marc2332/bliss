@@ -9,10 +9,15 @@ import os
 import math
 import numpy
 import warnings
+import logging
+
 from bliss.data.nodes.channel import ChannelDataNodeBase
 from bliss.data.events import EventData, LimaImageStatusEvent, ImageNotSaved
 from bliss.config.settings import QueueObjSetting
 from bliss.data import lima_image
+
+
+_logger = logging.getLogger(__name__)
 
 
 class LimaDataView:
@@ -353,6 +358,16 @@ class LimaImageChannelDataNode(ChannelDataNodeBase):
             # The number of events is NOT equal to the number of images
             # The number of images can be derived from the event data though
             # TODO: first_index is only accurate if we use the same DataNode instance!!!
+
+            if len(self._queue_ref) == 0:
+                # Workaround for the issue https://gitlab.esrf.fr/bliss/bliss/-/issues/2128
+                _logger.debug(
+                    f"Inconsistency on the Redis data structure. 'image_data_ref' was removed (or is empty)"
+                )
+                return EventData(
+                    first_index=first_index, data=data, description=description
+                )
+
             ev = LimaImageStatusEvent.merge(events)
             ev.info = self.first_ref_data
             first_index = self._stream_image_count

@@ -38,6 +38,8 @@ __all__ = (
         "iter_counters",
         "mv",
         "mvr",
+        "mvd",
+        "mvdr",
         "move",
         "sync",
         "interlock_state",
@@ -222,6 +224,25 @@ def mvr(*args):
     __move(*args, relative=True)
 
 
+def mvd(*args):
+    """
+    Moves given axes to given absolute dial positions
+
+    Arguments are interleaved axis and respective relative target position.
+    """
+    # __move_dial(*args)
+    __move(*args, dial=True)
+
+
+def mvdr(*args):
+    """
+    Moves given axes to given relative dial positions
+
+    Arguments are interleaved axis and respective relative target position.
+    """
+    __move(*args, relative=True, dial=True)
+
+
 def move(*args, **kwargs):
     """
     Moves given axes to given absolute positions
@@ -237,10 +258,15 @@ def move(*args, **kwargs):
 
 
 def __move(*args, **kwargs):
-    wait, relative = kwargs.get("wait", True), kwargs.get("relative", False)
+    wait, relative, dial = (
+        kwargs.get("wait", True),
+        kwargs.get("relative", False),
+        kwargs.get("dial", False),
+    )
+
     motor_pos = dict()
     for m, p in zip(global_map.get_axis_objects_iter(*args[::2]), args[1::2]):
-        motor_pos[m] = p
+        motor_pos[m] = m.dial2user(p) if dial and not relative else p
     group = Group(*motor_pos.keys())
     group.move(motor_pos, wait=wait, relative=relative)
 

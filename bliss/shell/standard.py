@@ -62,7 +62,7 @@ from bliss.shell.dialog.helpers import find_dialog, dialog as dialog_dec_cls
 
 
 # objects given to Bliss shell user
-from bliss.common.standard import mv, mvr, move, rockit
+from bliss.common.standard import mv, mvr, mvd, mvdr, move, rockit
 
 from bliss.common.cleanup import cleanup, error_cleanup
 
@@ -139,6 +139,10 @@ __all__ = (
         "umv",
         "mvr",
         "umvr",
+        "mvd",
+        "umvd",
+        "mvdr",
+        "umvdr",
         "rockit",
         "move",
         "plotinit",
@@ -665,7 +669,7 @@ def umv(*args):
 
 @custom_error_msg(
     TypeError,
-    "intended usage: umv(motor1, relative_displacement_1, motor2, relative_displacement_2, ... )",
+    "intended usage: umvr(motor1, relative_displacement_1, motor2, relative_displacement_2, ... )",
     new_exception_type=RuntimeError,
     display_original_msg=False,
 )
@@ -681,26 +685,92 @@ def umvr(*args):
     __umove(*args, relative=True)
 
 
+@custom_error_msg(
+    TypeError,
+    "intended usage: umvd(motor1, target_position_1, motor2, target_position_2, ... )",
+    new_exception_type=RuntimeError,
+    display_original_msg=False,
+)
+@modify_annotations({"args": "motor1, pos1, motor2, pos2, ..."})
+@typecheck_var_args_pattern([_scannable, _float])
+def umvd(*args):
+    """
+    Moves given axes to given absolute dial positions providing updated display of
+    the motor(s) user position(s) while it(they) is(are) moving.
+
+    Arguments are interleaved axis and respective absolute target position.
+    """
+    __umove(*args, dial=True)
+
+
+@custom_error_msg(
+    TypeError,
+    "intended usage: umvdr(motor1, relative_displacement_1, motor2, relative_displacement_2, ... )",
+    new_exception_type=RuntimeError,
+    display_original_msg=False,
+)
+@modify_annotations({"args": "motor1, rel. pos1, motor2, rel. pos2, ..."})
+@typecheck_var_args_pattern([_scannable, _float])
+def umvdr(*args):
+    """
+    Moves given axes to given relative dial positions providing updated display of
+    the motor(s) user position(s) while it(they) is(are) moving.
+
+    Arguments are interleaved axis and respective relative target position.
+    """
+    __umove(*args, relative=True, dial=True)
+
+
 def __umove(*args, **kwargs):
     kwargs["wait"] = False
     group, motor_pos = __move(*args, **kwargs)
     with error_cleanup(group.stop):
-        motor_names = [global_map.alias_or_name(axis) for axis in motor_pos]
+        motor_names = list()
+        for axis in motor_pos:
+            if axis.unit:
+                motor_names.append(
+                    "{}[{}]".format(global_map.alias_or_name(axis), axis.unit)
+                )
+            else:
+                motor_names.append(global_map.alias_or_name(axis))
         col_len = max(max(map(len, motor_names)), 8)
         hfmt = "^{width}".format(width=col_len)
         rfmt = ">{width}.03f".format(width=col_len)
         print("")
-        print(__row(motor_names, hfmt, sep="  "))
+        # print("   " + __row(motor_names, hfmt, sep="  "))
+        first_row = __row(motor_names, hfmt, sep="  ")
+        row_len = len(first_row)
+        print(first_row.rjust(row_len + 5))
+        print("")
+        magic_char = "\033[F"
 
         while group.is_moving:
             positions = group.position
-            row = __row_positions(positions, motor_pos, rfmt, sep="  ")
-            print("\r" + row, end="", flush=True)
+            dials = group.dial
+            row = "".join(
+                [
+                    "user ",
+                    __row_positions(positions, motor_pos, rfmt, sep="  "),
+                    "\ndial ",
+                    __row_positions(dials, motor_pos, rfmt, sep="  "),
+                ]
+            )
+            ret_depth = magic_char * row.count("\n")
+            print("{}{}".format(ret_depth, row), end="", flush=True)
             sleep(0.1)
         # print last time for final positions
         positions = group.position
-        row = __row_positions(positions, motor_pos, rfmt, sep="  ")
-        print("\r" + row, end="", flush=True)
+        dials = group.dial
+        row = "".join(
+            [
+                "user ",
+                __row_positions(positions, motor_pos, rfmt, sep="  "),
+                "\ndial ",
+                __row_positions(dials, motor_pos, rfmt, sep="  "),
+            ]
+        )
+        ret_depth = magic_char * row.count("\n")
+        print("{}{}".format(ret_depth, row), end="", flush=True)
         print("")
 
     return group, motor_pos

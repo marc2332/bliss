@@ -16,6 +16,7 @@ import numpy
 
 from silx.gui import qt
 from silx.gui import icons
+from silx.gui import colors
 from silx.gui.plot.actions import histogram
 from silx.gui.plot.items.marker import Marker
 
@@ -140,6 +141,9 @@ class ImagePlotWidget(plot_helper.PlotWidget):
 
         self.__title = _Title(self.__plot)
 
+        self.__colormap = colors.Colormap("viridis")
+        """Each detector have a dedicated widget and a dedicated colormap"""
+
         self.setFocusPolicy(qt.Qt.StrongFocus)
         self.__plot.installEventFilter(self)
         self.__plot.getWidgetHandle().installEventFilter(self)
@@ -154,7 +158,7 @@ class ImagePlotWidget(plot_helper.PlotWidget):
         toolBar = self.__createToolBar()
 
         # Try to improve the look and feel
-        # FIXME: THis should be done with stylesheet
+        # FIXME: This should be done with stylesheet
         line = qt.QFrame(self)
         line.setFrameShape(qt.QFrame.HLine)
         line.setFrameShadow(qt.QFrame.Sunken)
@@ -198,6 +202,23 @@ class ImagePlotWidget(plot_helper.PlotWidget):
         self.__plot.addItem(self.__tooltipManager.marker())
         self.__plot.addItem(self.__minMarker)
         self.__plot.addItem(self.__maxMarker)
+
+    def configuration(self):
+        config = super(ImagePlotWidget, self).configuration()
+        try:
+            config.colormap = self.__colormap._toDict()
+        except Exception:
+            # As it relies on private API, make it safe
+            _logger.error("Impossible to save colormap preference", exc_info=True)
+        return config
+
+    def setConfiguration(self, config):
+        try:
+            self.__colormap._setFromDict(config.colormap)
+        except Exception:
+            # As it relies on private API, make it safe
+            _logger.error("Impossible to restore colormap preference", exc_info=True)
+        super(ImagePlotWidget, self).setConfiguration(config)
 
     def getRefreshManager(self) -> plot_helper.RefreshManager:
         return self.__refreshManager
@@ -589,7 +610,7 @@ class ImagePlotWidget(plot_helper.PlotWidget):
 
         legend = dataChannel.name()
         style = item.getStyle(self.__scan)
-        colormap = model_helper.getColormapFromItem(item, style)
+        colormap = model_helper.getColormapFromItem(item, style, self.__colormap)
 
         if style.symbolStyle is style_model.SymbolStyle.NO_SYMBOL:
             if image.ndim == 3:

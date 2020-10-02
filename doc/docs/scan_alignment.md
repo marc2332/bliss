@@ -13,7 +13,7 @@ cen(counter=my_counter)
 goto_com(counter=my_counter)
 ```
 
-In case of multi motors (anscan), all this function can use a specific
+In case of multi motors (anscan), all these functions can use a specific
 axis either for the calculation or the movement (`goto_` functions).
 
 ```python
@@ -21,8 +21,8 @@ goto_cen(axis=robz)
 peak(axis=robz)
 ```
 
-If the axis is not specify, `cen`, `com`, `peak` functions will return value for
-all axis and the `goto_` functions will move all motors.
+If the axis is not specified, `cen`, `com`, `peak` functions will return value for
+all axes and the `goto_` functions will move all motors.
 
 ## Counters selection
 
@@ -58,7 +58,7 @@ currently selected counters.
     ```
 
 
-!!! note "For Developpers"
+!!! note "For Developers"
 
     `plotselect()` user function is imported from `bliss.common.standard`
     and is built on top of `bliss.common.scans.plotselect()` which can
@@ -69,7 +69,7 @@ currently selected counters.
 
 ## fwhm()
 
-This function return th Full Width at Half of the Maximum of data of last scan.
+This function returns th Full Width at Half of the Maximum of data of last scan.
 
 ```python
 size = fwhm()
@@ -77,7 +77,7 @@ size = fwhm()
 
 ## cen()
 
-This function return the motor position corresponding to the center of the fwhm
+This function returns the motor position corresponding to the center of the fwhm
 of the last scan.
 ```
 fwhm_center = cen()
@@ -85,14 +85,14 @@ fwhm_center = cen()
 
 ## com()
 
-This function return the motor position of the center of mass.
+This function returns the motor position of the center of mass.
 ```
 center_of_mass_pos = com()
 ```
 
 ## peak()
 
-This function return the motor position at the counter maximum value.
+This function returns the motor position at the counter maximum value.
 ```
 max_pos = peak()
 ```
@@ -135,7 +135,7 @@ To display current position of the motor used in the **last scan** use:
 where()
 ```
 
-## Custamizable alignment functions: `find_position` and `goto_custom`
+## Customizable alignment functions: `find_position` and `goto_custom`
 
 In case specific math is needed to treat a special signal form it is
 possible to use any python function that calculates an *x-position* based
@@ -149,9 +149,9 @@ DEMO [12]: print(find_position(special_com))
 DEMO [13]: goto_custom(special_com)
 ```
 
-The math function and specific helpers can also be definde in the
+The math function and specific helpers can also be defined in the
 setup script of the session. Here is an example for the setup script
-so that `find_special` and `goto_special` will be avalable in the shell 
+so that `find_special` and `goto_special` will be available in the shell 
 afterwards and can be used without arguments.
 
 ```python
@@ -169,9 +169,10 @@ def goto_special():
 ```
 
 
-## Use of alignment helpers on a specific scan object
-Alignment helpers can also be used on any scan object (not nessesarly the
-last scan that was done). In this case the there is **no interaction with flint** 
+## Use of alignment helpers on a specific scan
+
+Alignment helpers can also be used on any scan object (not necessarily the
+last scan that was done). In this case there is **no interaction with flint** 
 and **plotselect is not used** to avoid confusion. Here is an example:
 
 ```python

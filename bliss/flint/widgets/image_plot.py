@@ -222,6 +222,9 @@ class ImagePlotWidget(plot_helper.PlotWidget):
             _logger.error("Impossible to restore colormap preference", exc_info=True)
         super(ImagePlotWidget, self).setConfiguration(config)
 
+    def defaultColormap(self):
+        return self.__colormap
+
     def getRefreshManager(self) -> plot_helper.RefreshManager:
         return self.__refreshManager
 

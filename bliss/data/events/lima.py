@@ -12,7 +12,13 @@ from bliss.common.tango import DeviceProxy
 from bliss.config.settings import HashObjSetting
 
 
-__all__ = ["LimaImageStatusEvent"]
+__all__ = ["LimaImageStatusEvent", "ImageNotSaved"]
+
+
+class ImageNotSaved(RuntimeError):
+    """Raised when an API have to return data related to saved images."""
+
+    pass
 
 
 class LimaImageStatusEvent(streaming_events.StreamEvent):
@@ -208,11 +214,11 @@ class LimaImageStatusEvent(streaming_events.StreamEvent):
         :param bool saved: ready or ready and saved
         :yields list(tuple): file name, path-in-file, image index, file format
                              File format (HDF5, HDF5BS, EDFLZ4, ...) is not file extension!
-        :raises RuntimeError: images will never be saved
+        :raises ImageNotSaved: In case the detector was not setup to save images
         """
         info = self.info
         if info["saving_mode"] == "MANUAL":
-            raise RuntimeError("Images will never be saved")
+            raise ImageNotSaved("Detector was not setup to save the images")
 
         max_image_nb = self.get_last_index(saved=saved)
         if image_nbs is None:

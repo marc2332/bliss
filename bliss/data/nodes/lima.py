@@ -10,7 +10,7 @@ import math
 import numpy
 import warnings
 from bliss.data.nodes.channel import ChannelDataNodeBase
-from bliss.data.events import EventData, LimaImageStatusEvent
+from bliss.data.events import EventData, LimaImageStatusEvent, ImageNotSaved
 from bliss.config.settings import QueueObjSetting
 from bliss.data import lima_image
 
@@ -358,7 +358,9 @@ class LimaImageChannelDataNode(ChannelDataNodeBase):
             first_index = self._stream_image_count
             try:
                 data = ev.image_reference_range(first_index)
-            except RuntimeError:
+            except ImageNotSaved:
+                # If images are not supposed to be saved we can't expect to
+                # find references
                 pass
             self._stream_image_count += len(data)
             description = ev.status

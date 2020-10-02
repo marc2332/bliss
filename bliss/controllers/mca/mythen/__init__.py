@@ -109,10 +109,9 @@ class Mythen(CounterController):
             npoints = 1
             start_once = True  # <= ???
         else:
-            # start_once = acq_params.get(
-            #    "start_once", trigger_type == AcquisitionSlave.HARDWARE
-            # )
-            start_once = False
+            start_once = acq_params.get(
+                "start_once", trigger_type == AcquisitionSlave.HARDWARE
+            )
 
         params = {}
         params["count_time"] = count_time
@@ -314,7 +313,7 @@ class MythenAcquistionSlave(AcquisitionSlave):
         super().__init__(
             *mca_or_mca_counters,
             npoints=npoints,
-            trigger_type=AcquisitionSlave.SOFTWARE,
+            trigger_type=trigger_type,
             prepare_once=prepare_once,
             start_once=start_once,
             ctrl_params=ctrl_params,
@@ -322,16 +321,8 @@ class MythenAcquistionSlave(AcquisitionSlave):
 
         self._software_acquisition = None
         self._acquisition_status = self.status.STOPPED
-        # From the chain point of view, the mythen is always seen
-        # with a software trigger. Because with this stupid detector,
-        # Data retrieving must be synchronized with the trigger.
-        # Data reading need to be called after the trigger even if this one
-        # is HARDWARE :-(
-        # So we trig the data reading in the trigger method.
-        self.__trigger_type = trigger_type
         self._event = gevent.event.Event()
         self._trigger_event = gevent.event.Event()
-        self._started = False
 
     # Counter management
 
@@ -347,44 +338,44 @@ class MythenAcquistionSlave(AcquisitionSlave):
     def prepare(self):
         self.device.nframes = self.npoints
         self.device.exposure_time = self.count_time
-        self.device.gate_mode = self.__trigger_type == AcquisitionSlave.HARDWARE
+        self.device.gate_mode = self.trigger_type == AcquisitionSlave.HARDWARE
 
     def start(self):
-        if not self._started and self.__trigger_type == AcquisitionSlave.HARDWARE:
+        if self.trigger_type == AcquisitionSlave.HARDWARE:
             self.device.start()
-            self._started = True
+            self._trigger_event.set()
         self._acquisition_status = self.status.RUNNING
 
     def trigger(self):
         try:
             self._trigger_event.clear()
             self._event.clear()
-            if self.__trigger_type == AcquisitionSlave.SOFTWARE:
-                try:
-                    self.device.start()
-                    self._event.wait(self.count_time)
-                finally:
-                    self._acquisition_status = self.status.STOPPED
-                    self._software_acquisition = None
-                    self.device.stop()
-                self._publish()
-            else:
+            try:
+                self.device.start()
                 self._event.wait(self.count_time)
-                while self._acquisition_status == self.status.RUNNING:
-                    try:
-                        self._publish()
-                    except tcp.SocketTimeout:
-                        self.device._interface.close_data_socket()
-                        continue
-                    else:
-                        break
+            finally:
+                self._acquisition_status = self.status.STOPPED
+                self._software_acquisition = None
+                self.device.stop()
+            self._publish()
         finally:
             self._trigger_event.set()
 
-    def wait_ready(self):
-        while self._acquisition_status == self.status.RUNNING:
-            if self._trigger_event.wait(1):
+    def reading(self):
+        if self.trigger_type == AcquisitionSlave.SOFTWARE:
+            return
+
+        for spectrum_nb in range(self.npoints):
+            if self._acquisition_status != self.status.RUNNING:
                 break
+            while self._acquisition_status == self.status.RUNNING:
+                try:
+                    self._publish()
+                except tcp.SocketTimeout:
+                    self.device._interface.close_data_socket()
+                    continue
+                else:
+                    break
 
     def _publish(self):
         spectrum = self.device.readout()
@@ -400,7 +391,8 @@ class MythenAcquistionSlave(AcquisitionSlave):
 
     def stop(self):
         self._event.set()
-        if self.__trigger_type != AcquisitionSlave.SOFTWARE:
+        if self.trigger_type != AcquisitionSlave.SOFTWARE:
             self.device.stop()
             self._acquisition_status = self.status.STOPPED
+            self.wait_reading()  # let the last point to be published
         self._trigger_event.wait(1.5)

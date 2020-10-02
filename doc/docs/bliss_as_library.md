@@ -145,7 +145,7 @@ ice.initialize()
 
 mbv4 = ice.get_axis("mbv4mot")
 
-mbv4.position()
+mbv4.position
 >>>  0.07099143206854346
 ```
 

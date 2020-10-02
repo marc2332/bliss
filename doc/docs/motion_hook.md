@@ -170,7 +170,7 @@ class DetectorSafetyHook(MotionHook):
         # determine desired positions of all detector motors:
     # - if motor in this motion, get its target position
     # - otherwise, get its current position
-        target_pos = dict([(axis, axis.position()) for axis in self.axes_roles])
+        target_pos = dict([(axis, axis.position) for axis in self.axes_roles])
         for motion in motion_list:
             if motion.axis in target_pos:
                 target_pos[motion.axis] = motion.target_pos

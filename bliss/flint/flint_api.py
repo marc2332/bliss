@@ -14,6 +14,7 @@ from typing import List
 from typing import Union
 from typing import TextIO
 from typing import NamedTuple
+from typing import Optional
 
 import sys
 import logging
@@ -766,6 +767,46 @@ class FlintApi:
             widget.setFocus(qt.Qt.OtherFocusReason)
         else:
             window.setFocusOnPlot(widget)
+
+    def set_plot_colormap(
+        self,
+        plot_id,
+        lut: Optional[str] = None,
+        vmin: Optional[Union[float, str]] = None,
+        vmax: Optional[Union[float, str]] = None,
+        normalization: Optional[str] = None,
+        gammaNormalization: Optional[float] = None,
+        autoscale: Optional[bool] = None,
+        autoscaleMode: Optional[str] = None,
+    ):
+        """
+        Allows to setup the default colormap of a widget.
+        """
+        widget = self._get_widget(plot_id)
+        if not hasattr(widget, "defaultColormap"):
+            raise TypeError("Widget %s is not an image widget" % plot_id)
+
+        colormap = widget.defaultColormap()
+        if lut is not None:
+            colormap.setName(lut)
+        if vmin is not None:
+            if vmin == "auto":
+                vmin = None
+            colormap.setVMin(vmin)
+        if vmax is not None:
+            if vmax == "auto":
+                vmax = None
+            colormap.setVMin(vmax)
+        if normalization is not None:
+            colormap.setNormalization(normalization)
+        if gammaNormalization is not None:
+            colormap.setGammaNormalizationParameter(gammaNormalization)
+            colormap.setNormalization("gamma")
+        if autoscale is not None:
+            if autoscale:
+                colormap.setVRange(None, None)
+        if autoscaleMode is not None:
+            colormap.setAutoscaleMode(autoscaleMode)
 
     def export_to_logbook(self, plot_id):
         """Export a plot to the logbook if available"""

@@ -8,8 +8,11 @@
 Provides plot helper class to deal with flint proxy.
 """
 
-import numpy
 import typing
+from typing import Union
+from typing import Optional
+
+import numpy
 import gevent
 
 from . import proxy
@@ -387,6 +390,45 @@ class ImagePlot(BasePlot):
         flint = self._flint
         request_id = flint.request_select_mask_image(self._plot_id, initial_mask)
         return self._wait_for_user_selection(request_id)
+
+    def set_colormap(
+        self,
+        lut: Optional[str] = None,
+        vmin: Optional[Union[float, str]] = None,
+        vmax: Optional[Union[float, str]] = None,
+        normalization: Optional[str] = None,
+        gamma_normalization: Optional[float] = None,
+        autoscale: Optional[bool] = None,
+        autoscale_mode: Optional[str] = None,
+    ):
+        """
+        Allows to setup the default colormap of this plot.
+
+        Arguments:
+            lut: A name of a LUT. At least the following names are supported:
+                 'gray', 'reversed gray', 'temperature', 'red', 'green', 'blue',
+                 'jet', 'viridis', 'magma', 'inferno', 'plasma'.
+            vmin: Can be a float or 'auto' to set the min level value
+            vmax: Can be a float or 'auto' to set the max level value
+            normalization: Can be on of 'linear', 'log', 'arcsinh', 'sqrt', 'gamma'
+            gamma_normalization: float defining the gamma normalization.
+                                 If defined the 'normalization' argument  is
+                                 ignored
+            autoscale: If true, the auto scale is set for min and max
+                       (vmin and vmax arguments are ignored)
+            autoscale_mode: Can be one of "minmax" or "3stddev"
+        """
+        flint = self._flint
+        flint.set_plot_colormap(
+            self._plot_id,
+            lut=lut,
+            vmin=vmin,
+            vmax=vmax,
+            normalization=normalization,
+            gammaNormalization=gamma_normalization,
+            autoscale=autoscale,
+            autoscaleMode=autoscale_mode,
+        )
 
 
 class HistogramImagePlot(BasePlot):

@@ -385,6 +385,23 @@ class FlintClient:
     # Helper on top of the proxy
     #
 
+    def get_live_plot(self, image_detector: typing.Optional[str]):
+        """Retrieve a live plot
+
+        This is an helper to simplify access to the plots used to display scans
+        from BLISS.
+        """
+        if image_detector is not None:
+            # FIXME: The plot could be created if it is not found
+            # FIXME: The plot have to be found despite there is not yet image
+            plot_class = plots.ImagePlot
+            plot_id = self.get_live_scan_plot(
+                channel_name=f"{image_detector}:image", plot_type="image"
+            )
+            return plot_class(plot_id=plot_id, flint=self)
+
+        raise ValueError("No plot requested")
+
     def get_plot(
         self,
         plot_class: typing.Union[str, object],

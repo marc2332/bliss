@@ -143,6 +143,7 @@ class ImagePlotWidget(plot_helper.PlotWidget):
 
         self.__colormap = colors.Colormap("viridis")
         """Each detector have a dedicated widget and a dedicated colormap"""
+        self.__colormapInitialized = False
 
         self.setFocusPolicy(qt.Qt.StrongFocus)
         self.__plot.installEventFilter(self)
@@ -215,6 +216,7 @@ class ImagePlotWidget(plot_helper.PlotWidget):
     def setConfiguration(self, config):
         try:
             self.__colormap._setFromDict(config.colormap)
+            self.__colormapInitialized = True
         except Exception:
             # As it relies on private API, make it safe
             _logger.error("Impossible to restore colormap preference", exc_info=True)
@@ -319,6 +321,11 @@ class ImagePlotWidget(plot_helper.PlotWidget):
         self.__exportAction.setFlintModel(flintModel)
         self.__styleAction.setFlintModel(flintModel)
         self.__contrastAction.setFlintModel(flintModel)
+
+        if flintModel is not None:
+            if not self.__colormapInitialized:
+                style = flintModel.defaultImageStyle()
+                self.__colormap.setName(style.colormapLut)
 
     def setPlotModel(self, plotModel: plot_model.Plot):
         if self.__plotModel is not None:

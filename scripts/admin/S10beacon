@@ -50,7 +50,7 @@ if [ -n "${BEACON_TANGO_DATABASE}" ] && \
 fi
 
 script=`which beacon-server`
-opts="--db_path=${BEACON_DB_PATH} --posix_queue=0 --port=${BEACON_PORT} --webapp_port=${BEACON_WEB_PORT} ${TANGO_PORT_OPT}"
+opts="--db_path=${BEACON_DB_PATH} --port=${BEACON_PORT} --webapp_port=${BEACON_WEB_PORT} ${TANGO_PORT_OPT}"
 log="${BLISSADM}/admin/log/beacon.log"
 service="bliss beacon"
 beacon_user="$BEACON_USER"

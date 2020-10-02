@@ -49,6 +49,26 @@ create first ROIs on the MCAs to display data in time.
 
 ![Flint screenshot](img/flint-image-widget.png)
 
+This plot provides an API to [interact with region of interest](flint_interaction.md)
+and to custom the colormap, and few other things. This can be used in scripts.
+
+```python
+ct(tomocam)
+
+# Make sure the scan was also completed in flint side
+f = flint()
+f.wait_end_of_scans()
+
+p = f.get_live_plot(image_detector="tomocam")
+
+p.set_colormap(lut="gray",
+               vmin=0, vmax="auto",
+               normalization="log",
+               autoscale_mode="stddev3")
+
+p.export_to_logbook()
+```
+
 ## Count widget
 
 For `ct` scans, the count widget will be automatically displayed.

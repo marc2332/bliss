@@ -16,6 +16,7 @@ doc/site
 .project
 .pydevproject
 beacon.rdb
+beacon_data.rdb
 .cache/
 dump.rdb
 *.egg-info/

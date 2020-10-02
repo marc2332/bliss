@@ -373,6 +373,12 @@ class Connection(object):
         pool = redis_pools.get(db)
         if pool is None:
             address = self.get_redis_connection_address()
+            if db == 1:
+                try:
+                    address = self.get_redis_data_server_connection_address()
+                except RuntimeError:  # Service not running on beacon server
+                    pass
+
             host, port = address
             if host == "localhost":
                 redis_url = f"unix://{port}"
@@ -526,6 +532,22 @@ class Connection(object):
                     return host, port
 
     @check_connect
+    def get_redis_data_server_connection_address(self, timeout=3.):
+        with gevent.Timeout(
+            timeout, RuntimeError("Can't retrieve redis " "data server connection")
+        ):
+            with self.WaitingQueue(self) as wq:
+                msg = b"%s|" % wq.message_key()
+                self._socket.sendall(
+                    protocol.message(protocol.REDIS_DATA_SERVER_QUERY, msg)
+                )
+                for rx_msg in wq.queue():
+                    if isinstance(rx_msg, RuntimeError):
+                        raise rx_msg
+                    host, port = rx_msg.split(b"|")
+                    return host.decode(), port.decode()
+
+    @check_connect
     def set_client_name(self, name, timeout=3.0):
         self._set_client_name(name, timeout)
 
@@ -630,6 +652,7 @@ class Connection(object):
                             protocol.CLIENT_NAME_OK,
                             protocol.WHO_LOCKED_RX,
                             protocol.LOG_SERVER_ADDRESS_OK,
+                            protocol.REDIS_DATA_SERVER_OK,
                         ):
                             message_key, value = self._get_msg_key(message)
                             queue = self._message_queue.get(message_key)
@@ -645,6 +668,7 @@ class Connection(object):
                             protocol.CONFIG_GET_PYTHON_MODULE_FAILED,
                             protocol.WHO_LOCKED_FAILED,
                             protocol.LOG_SERVER_ADDRESS_FAIL,
+                            protocol.REDIS_DATA_SERVER_FAILED,
                         ):
                             message_key, value = self._get_msg_key(message)
                             queue = self._message_queue.get(message_key)

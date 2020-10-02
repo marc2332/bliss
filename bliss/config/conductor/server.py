@@ -46,6 +46,7 @@ _waiting_lock = weakref.WeakKeyDictionary()
 _log = logging.getLogger("beacon")
 _tlog = _log.getChild("tango")
 _rlog = _log.getChild("redis")
+_rlog_data = _log.getChild("redis_data")
 _wlog = _log.getChild("web")
 _lslog = _log.getChild("log_server")
 _logv = _log.getChild("log_viewer")
@@ -205,6 +206,29 @@ def _send_redis_info(client_id, local_connection):
     contents = b"%s:%s" % (host.encode(), str(port).encode())
 
     client_id.sendall(protocol.message(protocol.REDIS_QUERY_ANSWER, contents))
+
+
+def _send_redis_data_server_info(client_id, message, local_connection):
+    try:
+        message_key, _ = message.split(b"|")
+    except ValueError:  # message is bad, skip it
+        return
+    port = _options.redis_data_port
+    if port == 0:
+        client_id.sendall(
+            protocol.message(
+                protocol.REDIS_DATA_SERVER_FAILED,
+                b"%s|Redis Data server is not started" % (message_key),
+            )
+        )
+    else:
+        if local_connection:
+            port = _options.redis_data_socket
+            host = "localhost"
+        else:
+            host = socket.gethostname()
+        contents = b"%s|%s|%s" % (message_key, host.encode(), str(port).encode())
+        client_id.sendall(protocol.message(protocol.REDIS_DATA_SERVER_OK, contents))
 
 
 def _send_config_file(client_id, message):
@@ -502,11 +526,6 @@ def _write_config_db_file(client_id, message):
     client_id.sendall(msg)
 
 
-def _send_posix_mq_connection(client_id, client_hostname):
-    # keep it for now for backward compatibility
-    client_id.sendall(protocol.message(protocol.POSIX_MQ_FAILED))
-
-
 def _send_uds_connection(client_id, client_hostname):
     client_hostname = client_hostname.decode()
     try:
@@ -610,8 +629,8 @@ def _client_rx(client, local_connection):
                                 sync.set()
                     elif messageType == protocol.REDIS_QUERY:
                         _send_redis_info(c_id, local_connection)
-                    elif messageType == protocol.POSIX_MQ_QUERY:
-                        _send_posix_mq_connection(c_id, message)
+                    elif messageType == protocol.REDIS_DATA_SERVER_QUERY:
+                        _send_redis_data_server_info(c_id, message, local_connection)
                     elif messageType == protocol.CONFIG_GET_FILE:
                         _send_config_file(c_id, message)
                     elif messageType == protocol.CONFIG_GET_DB_BASE_PATH:
@@ -724,12 +743,25 @@ def main(args=None):
         help="path to alternative redis configuration file",
     )
     parser.add_argument(
-        "--posix_queue",
-        dest="posix_queue",
+        "--redis-data-port",
+        dest="redis_data_port",
+        default=6380,
         type=int,
-        default=0,
-        help="Use to be posix_queue connection (not managed anymore)",
+        help="redis data connection port (0 mean don't start redis data server)",
     )
+    parser.add_argument(
+        "--redis-data-conf",
+        dest="redis_data_conf",
+        default=redis_conf.get_redis_data_config_path(),
+        help="path to alternative redis configuration file for data server",
+    )
+    parser.add_argument(
+        "--redis-data-socket",
+        dest="redis_data_socket",
+        default="/tmp/redis_data.sock",
+        help="Unix socket for redis (default to /tmp/redis_data.sock)",
+    )
+
     parser.add_argument(
         "--port",
         dest="port",
@@ -883,10 +915,6 @@ def main(args=None):
         uds.listen(512)
         _log.info("server sitting on uds socket: %s", uds_port_name)
 
-    # Check Posix queue are not activated
-    if _options.posix_queue:
-        _log.warning("Posix queue are not managed anymore")
-
     # Environment
     env = dict(os.environ)
     env["BEACON_HOST"] = "%s:%d" % ("localhost", beacon_port)
@@ -958,6 +986,12 @@ def main(args=None):
             "--port",
             "%d" % _options.redis_port,
         ]
+        redis_data_options = [
+            "redis-server",
+            _options.redis_data_conf,
+            "--port",
+            "%d" % _options.redis_data_port,
+        ]
     else:
         redis_options = [
             "redis-server",
@@ -969,10 +1003,32 @@ def main(args=None):
             "--port",
             "%d" % _options.redis_port,
         ]
+        redis_data_options = [
+            "redis-server",
+            _options.redis_data_conf,
+            "--unixsocket",
+            _options.redis_data_socket,
+            "--unixsocketperm",
+            "777",
+            "--port",
+            "%d" % _options.redis_data_port,
+        ]
 
     redis_process = subprocess.Popen(
         redis_options, stdout=wp, stderr=subprocess.STDOUT, cwd=_options.db_path
     )
+
+    if _options.redis_data_port > 0:
+        redis_data_rp, redis_data_wp = os.pipe()
+
+        redis_data_process = subprocess.Popen(
+            redis_data_options,
+            stdout=redis_data_wp,
+            stderr=subprocess.STDOUT,
+            cwd=_options.db_path,
+        )
+    else:
+        redis_data_process = redis_data_rp = None
 
     # Tango databaseds
     if _options.tango_port > 0:
@@ -1009,6 +1065,7 @@ def main(args=None):
     try:
         logger = {
             rp: _rlog,
+            redis_data_rp: _rlog_data,
             tango_rp: _tlog,
             log_server_rp: _lslog,
             log_viewer_rp: _logv,
@@ -1062,40 +1119,23 @@ def main(args=None):
 
         rp_processing = gevent.spawn(do_rp_processing, rp)
 
-        def do_tango_rp_processing(fd):
-            while True:
-                msg = gevent.os.tp_read(fd, 8192)
-                if msg:
-                    logger.get(fd, _log).info(msg.decode())
+        if redis_data_rp:
+            redis_data_rp_processing = gevent.spawn(do_rp_processing, redis_data_rp)
+        else:
+            redis_data_rp_processing = None
 
         if tango_rp:
-            tango_rp_processing = gevent.spawn(do_tango_rp_processing, tango_rp)
+            tango_rp_processing = gevent.spawn(do_rp_processing, tango_rp)
         else:
             tango_rp_processing = None
 
-        def do_log_server_rp_processing(fd):
-            while True:
-                msg = gevent.os.tp_read(fd, 8192)
-                if msg:
-                    logger.get(fd, _log).info(msg.decode())
-
         if log_server_rp:
-            log_server_rp_processing = gevent.spawn(
-                do_log_server_rp_processing, log_server_rp
-            )
+            log_server_rp_processing = gevent.spawn(do_rp_processing, log_server_rp)
         else:
             log_server_rp_processing = None
 
-        def do_log_viewer_rp_processing(fd):
-            while True:
-                msg = gevent.os.tp_read(fd, 8192)
-                if msg:
-                    logger.get(fd, _log).info(msg.decode())
-
         if log_viewer_rp:
-            log_viewer_rp_processing = gevent.spawn(
-                do_log_viewer_rp_processing, log_viewer_rp
-            )
+            log_viewer_rp_processing = gevent.spawn(do_rp_processing, log_viewer_rp)
         else:
             log_viewer_rp_processing = None
 
@@ -1107,6 +1147,7 @@ def main(args=None):
                     udp_processing,
                     tcp_processing,
                     rp_processing,
+                    redis_data_rp_processing,
                     tango_rp_processing,
                     log_server_rp_processing,
                     log_viewer_rp_processing,
@@ -1166,6 +1207,8 @@ def main(args=None):
         _log.info("Cleaning up the subprocesses")
         if redis_process:
             redis_process.terminate()
+        if redis_data_process:
+            redis_data_process.terminate()
         if tango_process:
             tango_process.terminate()
         if log_server_process:

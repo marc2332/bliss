@@ -199,13 +199,16 @@ def images_directory(tmpdir_factory):
 @pytest.fixture(scope="session")
 def ports(beacon_directory):
     redis_uds = os.path.join(beacon_directory, "redis.sock")
-    ports = namedtuple("Ports", "redis_port tango_port beacon_port cfgapp_port")(
-        *get_open_ports(4)
-    )
+    redis_data_uds = os.path.join(beacon_directory, "redis_data.sock")
+    ports = namedtuple(
+        "Ports", "redis_port redis_data_port tango_port beacon_port cfgapp_port"
+    )(*get_open_ports(5))
     args = [
         "--port=%d" % ports.beacon_port,
         "--redis_port=%d" % ports.redis_port,
         "--redis_socket=" + redis_uds,
+        "--redis-data-port=%d" % ports.redis_data_port,
+        "--redis-data-socket=" + redis_data_uds,
         "--db_path=" + beacon_directory,
         "--tango_port=%d" % ports.tango_port,
         "--webapp_port=%d" % ports.cfgapp_port,
@@ -233,6 +236,8 @@ def ports(beacon_directory):
 def beacon(ports):
     redis_db = redis.Redis(port=ports.redis_port)
     redis_db.flushall()
+    redis_data_db = redis.Redis(port=ports.redis_data_port)
+    redis_data_db.flushall()
     static.Config.instance = None
     client._default_connection = connection.Connection("localhost", ports.beacon_port)
     config = static.get_config()

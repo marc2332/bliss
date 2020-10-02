@@ -30,10 +30,10 @@ Do not forget to declare the plugin to use in a ` __init__.yml ` file:
 This simulation axis can now be used by BLISS:
 
     BLISS [5]: sm = config.get("simot1")
-    BLISS [6]: sm.position()
+    BLISS [6]: sm.position
       Out [6]: 2.0
     BLISS [7]: sm.move(4)
-    BLISS [8]: sm.position()
+    BLISS [8]: sm.position
       Out [8]: 4.0
 
 

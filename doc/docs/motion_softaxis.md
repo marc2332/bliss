@@ -46,7 +46,7 @@ mpx1_energy = SoftAxis('mpx1_energy', mpx1, position='energy_threshold',
 
 # You can use it like a "normal" bliss axis
 # (although no fancy backlash, acceleration, velocity parameter)
-print(mpx1_energy.position())
+print(mpx1_energy.position)
 
 # now you can scan the energy_threshold like this:
 ascan(mpx1_energy, 10, 20, 100, 0.1, mpx1_temp)
@@ -85,7 +85,7 @@ magnet1 = DeviceProxy('id31/magnet/1')
 mag1_axis = SoftAxis('mfield', magnet1, position='field',
                      move='SetField')
 
-print(mag_axis.position())
+print(mag_axis.position)
 ```
 
 !!! note

@@ -118,7 +118,7 @@ class FlintWindow(qt.QMainWindow):
         BLISS_HELP_ROOT = "https://bliss.gitlab-pages.esrf.fr/bliss/master/"
         BLISS_HELP_URL = BLISS_HELP_ROOT
         FLINT_DEMO_URL = BLISS_HELP_ROOT + "bliss_flint.html"
-        FLINT_HELP_URL = BLISS_HELP_ROOT + "flint_scan_plotting.html"
+        FLINT_HELP_URL = BLISS_HELP_ROOT + "flint/flint_scan_plotting.html"
 
         def openUrl(url):
             qt.QDesktopServices.openUrl(qt.QUrl(url))

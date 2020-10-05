@@ -39,7 +39,7 @@ from tabulate import tabulate
 from bliss.config.beacon_object import BeaconObject
 from bliss.common import scans
 from bliss.scanning import chain, scan
-from bliss.common.event import dispatcher
+from bliss.common.event import dispatcher, connect
 from bliss.common.measurementgroup import _get_counters_from_names
 from bliss.common.measurementgroup import get_active as get_active_mg
 from bliss.common.counter import SamplingCounter
@@ -257,6 +257,14 @@ class AutoFilter(BeaconObject):
         # this property set calls initialize()
         self.energy_axis = config.get("energy_axis")
 
+        # Flag that indicates that transmission needs to be recalculated
+        # TODO to be seen that this works also when energy axis changes on runtime
+        self._energy_changed = True
+        connect(self.energy_axis, "position", self._set_energy_changed)
+
+    def _set_energy_changed(self, new_energy):
+        self._energy_changed = True
+
     def initialize(self, new_filterset=None):
         """
         intialize the behind filterset
@@ -279,6 +287,7 @@ class AutoFilter(BeaconObject):
                 self.__last_energy,
                 self.always_back,
             )
+            self._energy_changed = False
         else:
             self.__initialized = False
 
@@ -338,7 +347,8 @@ class AutoFilter(BeaconObject):
         """
         Return the current transmission given by the filter
         """
-        if self.__last_energy != self.energy_axis.position:
+        # if self.__last_energy != self.energy_axis.position:
+        if self._energy_changed:
             self.initialize()
         return self.filterset.transmission
 

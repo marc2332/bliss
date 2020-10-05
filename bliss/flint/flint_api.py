@@ -191,6 +191,10 @@ class FlintApi:
         plot_class = self.__get_plot_class_by_kind(plot_type)
         workspace = self.__flintModel.workspace()
         for iwidget, widget in enumerate(workspace.widgets()):
+            if not hasattr(widget, "scan") or not hasattr(widget, "plotModel"):
+                # Skip widgets which does not display scans (like profile)
+                # FIXME: Use interface to flag classes
+                continue
             plot = widget.plotModel()
             if plot is None:
                 continue
@@ -254,7 +258,7 @@ class FlintApi:
         plot_class = self.__get_plot_class_by_kind(plot_type)
         workspace = self.__flintModel.workspace()
         for iwidget, widget in enumerate(workspace.widgets()):
-            if not hasattr(widget, "scan"):
+            if not hasattr(widget, "scan") or not hasattr(widget, "plotModel"):
                 # Skip widgets which does not display scans (like profile)
                 # FIXME: Use interface to flag classes
                 continue

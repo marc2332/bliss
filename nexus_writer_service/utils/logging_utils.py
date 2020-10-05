@@ -18,32 +18,27 @@ import argparse
 from ..patching import monkey
 
 
-def iter_rawio(obj, lastresort=False):
+def iter_fileio(obj, lastresort=False):
+    """Yield the raw IO objects (FileIO) associated to the logger and log handlers.
+    """
     if hasattr(obj, "handlers"):
         if obj.hasHandlers:
             for h in obj.handlers:
-                for o in iter_rawio(h):
-                    yield o
+                yield from iter_fileio(h)
             if obj.propagate and obj.parent is not None:
-                for o in iter_rawio(obj.parent):
-                    yield o
+                yield from iter_fileio(obj.parent)
         elif lastresort:
             # By default sys.stderr with WARNING level
-            for o in iter_rawio(logging.lastResort):
-                yield o
+            yield from iter_fileio(logging.lastResort)
     elif hasattr(obj, "logger"):
-        for o in iter_rawio(obj.logger):
-            yield o
+        yield from iter_fileio(obj.logger, lastresort=lastresort)
     elif hasattr(obj, "stream"):
-        for o in iter_rawio(obj.stream):
-            yield o
+        yield from iter_fileio(obj.stream)
     elif hasattr(obj, "buffer"):
-        for o in iter_rawio(obj.buffer):
-            yield o
+        yield from iter_fileio(obj.buffer)
     elif hasattr(obj, "raw"):
-        for o in iter_rawio(obj.raw):
-            yield o
-    else:
+        yield from iter_fileio(obj.raw)
+    elif isinstance(obj, io.FileIO):
         yield obj
 
 
@@ -311,8 +306,8 @@ def add_streamhandler(
     """Direct logger output to a stream
     """
     if logger.hasHandlers:
-        add = set(iter_rawio(stream))
-        existing = set(iter_rawio(logger))
+        add = set(iter_fileio(stream))
+        existing = set(iter_fileio(logger))
         if not add - existing:
             return
     if terminator:
@@ -330,7 +325,7 @@ def add_filehandler(
     """
     filename = os.path.abspath(filename)
     if logger.hasHandlers:
-        existing = set(stream.name for stream in iter_rawio(logger))
+        existing = set(stream.name for stream in iter_fileio(logger))
         if filename in existing:
             return
     if maxMBytes:

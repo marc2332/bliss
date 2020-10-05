@@ -69,7 +69,7 @@ def test_custom_mesh_plot(test_session_with_flint):
     # synchronize redis events with flint
     flint.wait_end_of_scans()
 
-    p1 = flint.get_default_live_scan_plot("scatter")
+    p1 = flint.get_live_plot("default-scatter")
     p2 = flint.get_live_scan_plot(diode2.fullname, "scatter")
 
     assert p1 != p2
@@ -243,17 +243,17 @@ def test_meshselect(test_session_with_flint):
     # synchronize redis events with flint
     flint.wait_end_of_scans()
 
-    plot_id = flint.get_default_live_scan_plot("scatter")
+    p1 = flint.get_live_plot("default-scatter")
 
     # Select the second diode
     plot.meshselect(diode2)
     gevent.sleep(1)
-    assert flint.test_count_displayed_items(plot_id) == 1
+    assert flint.test_count_displayed_items(p1.plot_id) == 1
 
     # Select a diode which was not scanned
     plot.meshselect(diode3)
     gevent.sleep(1)
-    assert flint.test_count_displayed_items(plot_id) == 0
+    assert flint.test_count_displayed_items(p1.plot_id) == 0
 
 
 def test_plotinit__something(session):
@@ -293,14 +293,14 @@ def test_plotselect(test_session_with_flint):
     # synchronize redis events with flint
     flint.wait_end_of_scans()
 
-    plot_id = flint.get_default_live_scan_plot("curve")
+    p1 = flint.get_live_plot("default-curve")
 
     # Select the second diode
     plot.plotselect(diode2)
     gevent.sleep(1)
-    assert flint.test_count_displayed_items(plot_id) == 1
+    assert flint.test_count_displayed_items(p1.plot_id) == 1
 
     # Select a diode which was not scanned
     plot.plotselect(diode3)
     gevent.sleep(1)
-    assert flint.test_count_displayed_items(plot_id) == 0
+    assert flint.test_count_displayed_items(p1.plot_id) == 0

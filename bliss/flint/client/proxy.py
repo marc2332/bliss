@@ -385,18 +385,53 @@ class FlintClient:
     # Helper on top of the proxy
     #
 
-    def get_live_plot(self, image_detector: typing.Optional[str]):
-        """Retrieve a live plot
+    def get_live_plot(
+        self,
+        kind: typing.Optional[str] = None,
+        image_detector: typing.Optional[str] = None,
+        mca_detector: typing.Optional[str] = None,
+    ):
+        """Retrieve a live plot.
 
         This is an helper to simplify access to the plots used to display scans
         from BLISS.
+
+        Arguments:
+            kind: Can be one of "default-curve", "default-scatter"
+            image_detector: Name of the detector displaying image.
+            mca_detector: Name of the detector displaying MCA data.
         """
-        if image_detector is not None:
+        if kind is not None:
+            if kind == "default-curve":
+                plot_class = plots.CurvePlot
+                plot_type = "curve"
+            elif kind == "default-scatter":
+                plot_class = plots.ScatterPlot
+                plot_type = "scatter"
+            else:
+                raise ValueError(f"Unexpected plot kind '{kind}'.")
+
+            plot_id = self.get_default_live_scan_plot(plot_type)
+            if plot_id is None:
+                raise ValueError(f"No {plot_type} plot available")
+
+            return plot_class(plot_id=plot_id, flint=self)
+
+        elif image_detector is not None:
             # FIXME: The plot could be created if it is not found
             # FIXME: The plot have to be found despite there is not yet image
             plot_class = plots.ImagePlot
             plot_id = self.get_live_scan_plot(
                 channel_name=f"{image_detector}:image", plot_type="image"
+            )
+            return plot_class(plot_id=plot_id, flint=self)
+
+        elif mca_detector is not None:
+            # FIXME: The plot could be created if it is not found
+            # FIXME: The plot have to be found despite there is not yet image
+            plot_class = plots.McaPlot
+            plot_id = self.get_live_scan_plot(
+                channel_name=f"{mca_detector}", plot_type="mca"
             )
             return plot_class(plot_id=plot_id, flint=self)
 

@@ -204,6 +204,10 @@ class ImagePlotWidget(plot_helper.PlotWidget):
         self.__plot.addItem(self.__minMarker)
         self.__plot.addItem(self.__maxMarker)
 
+    def deviceName(self):
+        # FIXME: This have to be saved in the configuration
+        return self.windowTitle().split(" ")[0]
+
     def configuration(self):
         config = super(ImagePlotWidget, self).configuration()
         try:

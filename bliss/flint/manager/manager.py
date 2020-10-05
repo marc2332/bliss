@@ -285,16 +285,17 @@ class ManageMainBehaviours(qt.QObject):
             return []
         plots = [p for p in availablePlots if isinstance(p, compatibleModel)]
         windowTitle = widget.windowTitle()
-        if issubclass(
-            compatibleModel, (plot_item_model.ImagePlot, plot_item_model.OneDimDataPlot)
-        ):
-            windowTitle = windowTitle.split(" ")[0]
+
+        if hasattr(widget, "deviceName"):
+            deviceName = widget.deviceName()
+        else:
+            deviceName = None
 
         if issubclass(
             compatibleModel, (plot_item_model.ImagePlot, plot_item_model.McaPlot)
         ):
-            # FIXME: windowTitle should not be used, but for now it is convenient
-            plots = [p for p in plots if p.deviceName() == windowTitle]
+            plots = [p for p in plots if p.deviceName() == deviceName]
+
         # plot with names will use dedicated widgets
         plots = [p for p in plots if p.name() is None or p.name() == windowTitle]
         return plots

@@ -93,6 +93,10 @@ class McaPlotWidget(plot_helper.PlotWidget):
         self.__plot.addItem(self.__bounding)
         self.__plot.addItem(self.__tooltipManager.marker())
 
+    def deviceName(self):
+        # FIXME: This have to be saved in the configuration
+        return self.windowTitle()
+
     def getRefreshManager(self) -> refresh_helper.RefreshManager:
         return self.__refreshManager
 

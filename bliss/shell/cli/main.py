@@ -229,7 +229,12 @@ def main():
     else:
         session_name = None
 
-    if arguments["--no-tmux"] or sys.platform in ["win32", "cygwin"]:
+    # no tmux for DEFAULT session!
+    if (
+        arguments["--no-tmux"]
+        or sys.platform in ["win32", "cygwin"]
+        or session_name is None
+    ):
 
         # disable those ugly loggers from jedi
         logging.getLogger("parso.python.diff").disabled = True
@@ -273,12 +278,9 @@ def main():
         # A smaller number also change their UID, to effectively "become" another user.
 
         # to use different tmux servers per session the session name is included in the sock name
-        # for the default session there is a new socket per instance of the session.
-        tmux_session_name = (
-            "DEFAULT" + f"_pid{os.getpid()}" if session_name == None else session_name
-        )
+        # for the default session there is no tmux at all
 
-        tsock = f"/tmp/bliss_tmux_{tmux_session_name}_{uid}.sock"
+        tsock = f"/tmp/bliss_tmux_{session_name}_{uid}.sock"
 
         ans = subprocess.run(
             ["tmux", "-S", tsock, "has-session", "-t", "=%s" % session],

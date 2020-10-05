@@ -160,6 +160,17 @@ class FlintApi:
             return None
         return data.array()
 
+    def __get_widget_class_by_kind(self, plot_type: str):
+        if plot_type == "image":
+            from bliss.flint.widgets.image_plot import ImagePlotWidget
+
+            return ImagePlotWidget
+        elif plot_type == "mca":
+            from bliss.flint.widgets.mca_plot import McaPlotWidget
+
+            return McaPlotWidget
+        raise ValueError(f"Unknown widget for plot type '{plot_type}'")
+
     def __get_plot_class_by_kind(self, plot_type: str):
         assert plot_type in ["scatter", "image", "curve", "mca"]
         plot_classes = {
@@ -189,6 +200,51 @@ class FlintApi:
 
         # FIXME: If nothing found, a default plot should be created
         return None
+
+    def get_live_plot_detector(
+        self, detector_name: str, plot_type: str, create: bool = True
+    ):
+        """Returns the widget used for a specific detector and plot type.
+
+        Arguments:
+            detector_name: Name of the detector
+            plot_type: "image" or "mca"
+            create: If true, the plot is created if not found.
+        """
+        if plot_type not in ["image", "mca"]:
+            return TypeError(f"Unexpected plot kind '{plot_type}' for detector plot")
+        widget_class = self.__get_widget_class_by_kind(plot_type)
+        workspace = self.__flintModel.workspace()
+        for iwidget, widget in enumerate(workspace.widgets()):
+            if not hasattr(widget, "scan") or not hasattr(widget, "plotModel"):
+                # Skip widgets which does not display scans (like profile)
+                # FIXME: Use interface to flag classes
+                continue
+            if not hasattr(widget, "scan") or not hasattr(widget, "deviceName"):
+                # Skip widgets which does not display scans (like profile)
+                # FIXME: Use interface to flag classes
+                continue
+            if not isinstance(widget, widget_class):
+                continue
+            if widget.deviceName() != detector_name:
+                continue
+            return f"live:{iwidget}"
+
+        if create:
+            # The widget was not found, we can create it
+            # scan = monitoring.StaticImageScan(None, channel_name)
+            manager = self.__flintModel.mainManager()
+            plot_class = self.__get_plot_class_by_kind(plot_type)
+            plot = plot_class()
+            plot.setDeviceName(detector_name)
+            scan = None
+            manager.updateWidgetsWithPlots(scan, [plot], True, None)
+            iwidget = len(workspace.widgets()) - 1
+            return f"live:{iwidget}"
+
+        raise ValueError(
+            f"A dedicated {plot_type} widget for the detector {detector_name} is not available"
+        )
 
     def get_live_scan_plot(
         self, channel_name: str, plot_type: str, as_axes: bool = False

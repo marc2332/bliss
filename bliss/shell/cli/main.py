@@ -247,7 +247,7 @@ def main():
 
         if session_name is None:
             session = (
-                f"__DEFAULT__"  # {os.getpid()}
+                "__DEFAULT__"
             )  # see __DEFAULT__ in bliss.shell.cli.repl => def cli()
         else:
             session = session_name
@@ -272,7 +272,13 @@ def main():
         # Some programs change their EUID to add or subtract from the actions they are allowed to take.
         # A smaller number also change their UID, to effectively "become" another user.
 
-        tsock = f"/tmp/bliss_tmux_{uid}.sock"
+        # to use different tmux servers per session the session name is included in the sock name
+        # for the default session there is a new socket per instance of the session.
+        tmux_session_name = (
+            "DEFAULT" + f"_pid{os.getpid()}" if session_name == None else session_name
+        )
+
+        tsock = f"/tmp/bliss_tmux_{tmux_session_name}_{uid}.sock"
 
         ans = subprocess.run(
             ["tmux", "-S", tsock, "has-session", "-t", "=%s" % session],

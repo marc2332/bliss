@@ -93,9 +93,13 @@ def test_channel_repr(beacon):
 
 def test_channel_prevent_concurrent_queries(beacon):
     c1 = channels.Channel("test_chan5")
-    query_task = c1._query_task
     c2 = channels.Channel("test_chan5")
-    assert query_task == c2._query_task
+    g1 = gevent.spawn(getattr, c1, "value")
+    g2 = gevent.spawn(getattr, c2, "value")
+    gevent.joinall([g1, g2])
+    query_task = c1._query_task
+    assert query_task.ready()
+    assert query_task is c2._query_task
 
 
 def test_channel_garbage_collection(beacon):
@@ -130,7 +134,6 @@ class Test:
         self.chan = channels.Channel('test_chan', value=value)
         # wait at least until channel has subscribed to redis
         # (for value query to work fine)
-        self.chan.wait_ready()
         self.chan.register_callback(self.chan_value_updated)
     def set_channel_value(self, value):
         self.chan.value = value
@@ -183,7 +186,9 @@ def test_with_another_process(channel_subprocess):
     test_subprocess.set_channel_value("bla")
 
     # Wait for new value
-    gevent.sleep(0.1)
+    with gevent.Timeout(1):
+        while c.value != "bla":
+            gevent.sleep(0.01)
     assert c.value == "bla"
     assert len(gc.get_referrers(c)) <= 1
     del c

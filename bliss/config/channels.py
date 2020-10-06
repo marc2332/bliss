@@ -307,9 +307,6 @@ class Bus(AdvancedInstantiationInterface):
         # Ignore value if the channel doesn't exist anymore
         if channel is None:
             return
-        # Ignore values if the channel is not ready
-        if not channel.ready:
-            return
         # Set the provided value
         channel._set_raw_value(value)
 
@@ -360,6 +357,17 @@ class Channel(AdvancedInstantiationInterface):
         redis=None,
         bus=None,
     ):
+        """
+        Create a new channel
+
+        name: channel name
+        value: current channel value (default: _NotProvided, to indicate the value is not set)
+        default_value: optional default value
+        callback: optional callback function to be executed when channel value changes (default: None)
+        timeout: timeout for channel to be initialized (both registered to redis and with a valid value)
+        redis: connection to Beacon (default: None, to indicate the default connection)
+        bus: channel bus (default: None)
+        """
         if timeout is not None:
             self._timeout = timeout
 
@@ -373,8 +381,7 @@ class Channel(AdvancedInstantiationInterface):
         if callback is not None:
             self.register_callback(callback)
 
-        if self._raw_value is None:
-            self._start_query()
+        self._subscribed_event.wait(timeout=self.timeout)
 
     def close(self):
         if self._query_task is None:
@@ -391,10 +398,6 @@ class Channel(AdvancedInstantiationInterface):
     def default_value(self):
         return self._default_value
 
-    @property
-    def ready(self):
-        return self._value_event.is_set() and self._subscribed_event.is_set()
-
     # Timeout
 
     @property
@@ -405,19 +408,17 @@ class Channel(AdvancedInstantiationInterface):
     def timeout(self, value):
         self._timeout = value
 
-    def wait_ready(self):
-        timeout_error = RuntimeError(
-            "Timeout: channel {} is not ready".format(self._name)
-        )
-        with gevent.Timeout(self.timeout, timeout_error):
-            self._subscribed_event.wait()
-            self._value_event.wait()
-
     # Exposed value
 
     @property
     def value(self):
-        self.wait_ready()
+        if self._raw_value is None:
+            if not self._value_event.is_set():
+                self._start_query()
+        with gevent.Timeout(
+            self.timeout, TimeoutError(f"Channel {self.name} did not receive a value")
+        ):
+            self._value_event.wait()
         return self._raw_value.value
 
     @value.setter
@@ -426,13 +427,15 @@ class Channel(AdvancedInstantiationInterface):
             raise RuntimeError(
                 "Channel {}: can't set value while running a callback".format(self.name)
             )
-        self.wait_ready()
+        self._subscribed_event.wait()
         self._set_raw_value(new_value)
         self._bus.schedule_update(self)
 
     # Raw value
 
     def _set_raw_value(self, value):
+        if self._bus.closing:
+            return
         # Cast to _Value
         if not isinstance(value, _Value):
             value = _Value(time.time(), value)
@@ -463,11 +466,7 @@ class Channel(AdvancedInstantiationInterface):
                 reply_value = self._default_value
 
             # Set the value
-            if not self._bus.closing:
-                self._set_raw_value(reply_value)
-
-            # Unregister task if everything went smoothly
-            self._query_task = None
+            self._set_raw_value(reply_value)
 
         # Spawn the query task
         self._query_task = gevent.spawn(query_task)
@@ -573,7 +572,6 @@ class EventChannel(AdvancedInstantiationInterface):
         self._callback_refs = set()
         self.__pending_events = list()
         self._subscribed_event = gevent.event.Event()
-        self.ready = True
 
     @property
     def name(self):
@@ -611,6 +609,8 @@ class EventChannel(AdvancedInstantiationInterface):
         return value
 
     def _set_raw_value(self, raw_value):
+        if self._bus.closing:
+            return
         value = raw_value.value
         callbacks = filter(None, [ref() for ref in self._callback_refs])
         for cb in callbacks:

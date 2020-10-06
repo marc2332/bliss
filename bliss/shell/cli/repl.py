@@ -44,7 +44,7 @@ from prompt_toolkit.enums import DEFAULT_BUFFER
 
 from bliss.shell.cli import style as repl_style
 from bliss.shell import initialize
-from bliss.data.display import ScanPrinter, ScanPrinterWithProgressBar
+from bliss.shell.data.display import ScanPrinter, ScanPrinterWithProgressBar
 from .prompt import BlissPrompt
 from .typing_helper import TypingHelper
 

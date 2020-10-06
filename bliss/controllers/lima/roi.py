@@ -14,7 +14,7 @@ from bliss.common.counter import IntegratingCounter
 from bliss.controllers.counter import IntegratingCounterController
 from bliss.controllers.counter import counter_namespace
 from bliss.scanning.acquisition.lima import RoiProfileAcquisitionSlave
-from bliss.data.display import FormatedTab
+from bliss.shell.data.display import FormatedTab
 
 
 # ----------------- helpers for ROI transformation (flip, rotation, binning) --------------

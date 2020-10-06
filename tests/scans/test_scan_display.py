@@ -126,12 +126,18 @@ def disable_scan_display_filter():
 def scan_data_listener_process(session):
     """Fixture to check the output displayed by the ScanDataListener for
     the different standard scans"""
-    # USE A PIPE TO PREVENT POPEN TO USE MAIN PROCESS TERMINAL STDIN (see blocking user input => bliss.data.display => termios.tcgetattr(fd))
+    # USE A PIPE TO PREVENT POPEN TO USE MAIN PROCESS TERMINAL STDIN (see blocking user input => bliss.shell.data.display => termios.tcgetattr(fd))
     rp, _wp = os.pipe()
 
     with disable_scan_display_filter():
         with subprocess.Popen(
-            [sys.executable, "-u", "-m", "bliss.data.start_listener", "test_session"],
+            [
+                sys.executable,
+                "-u",
+                "-m",
+                "bliss.shell.data.start_listener",
+                "test_session",
+            ],
             stdin=rp,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,

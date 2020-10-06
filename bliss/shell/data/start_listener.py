@@ -10,7 +10,7 @@ import sys
 import traceback
 import time
 import gevent
-from bliss.data.display import ScanDataListener
+from bliss.shell.data.display import ScanDataListener
 
 
 def main(session_name):

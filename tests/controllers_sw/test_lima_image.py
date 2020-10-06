@@ -11,7 +11,7 @@ from bliss.controllers.lima.limatools import (
 )
 
 from bliss.data.lima_image import image_from_server
-from bliss.data.display import FormatedTab
+from bliss.shell.data.display import FormatedTab
 
 
 # --- Notes about rect vs roi ------------

@@ -20,11 +20,12 @@ def bind_key(repl, action, *keys, **kwargs):
       executed if the resulting line has no syntax error
 
     Example binding `wa()` to F2 key::
-        
+
         from prompt_toolkit.keys import Keys
         from bliss.shell.standard import wa
-        from bliss.shell import repl_config, bind_key
-        
+        from bliss.shell.cli.utils import bind_key
+        from bliss.shell.cli.utils import repl_config
+
         @repl_config
         def configure(repl):
             bind_key(repl, wa, Keys.F2)

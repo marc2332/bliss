@@ -397,10 +397,6 @@ class ManageMainBehaviours(qt.QObject):
         # Try to reuse the previous plot
         if not useDefaultPlot and previousWidgetPlot is not None:
             with previousWidgetPlot.transaction():
-                # Ad hoc solution to fix plot axis
-                # Instead of using removeNotAvailableChannels
-                # We should use a copyAvailableChannels
-
                 # Clean up temporary items
                 for item in list(previousWidgetPlot.items()):
                     if isinstance(item, plot_model.NotReused):
@@ -412,8 +408,8 @@ class ManageMainBehaviours(qt.QObject):
                 # Reuse only available values
                 # FIXME: Make it work first for curves, that's the main use case
                 if isinstance(previousWidgetPlot, plot_item_model.CurvePlot):
-                    model_helper.removeNotAvailableChannels(
-                        previousWidgetPlot, plotModel, scan
+                    model_helper.copyItemsFromChannelNames(
+                        previousWidgetPlot, plotModel
                     )
 
         if useDefaultPlot or previousWidgetPlot is None or previousWidgetPlot.isEmpty():

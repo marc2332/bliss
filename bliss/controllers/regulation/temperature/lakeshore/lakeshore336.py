@@ -91,28 +91,6 @@ from bliss.controllers.regulation.temperature.lakeshore.lakeshore import (  # no
 )
 
 
-_last_call = time.time()
-
-
-def _send_limit(func):
-    """
-    Limit number of commands per second
-    lakeshore 336 supports at most 20 commands per second
-    """
-
-    def f(*args, **kwargs):
-        global _last_call
-        delta_t = time.time() - _last_call
-        if delta_t <= 0.15:
-            time.sleep(0.15 - delta_t)
-        try:
-            return func(*args, **kwargs)
-        finally:
-            _last_call = time.time()
-
-    return f
-
-
 class LakeShore336(LakeShore335):
 
     NUMINPUT = {1: "A", 2: "B", 3: "C", 4: "D"}

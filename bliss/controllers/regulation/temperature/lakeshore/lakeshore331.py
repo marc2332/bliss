@@ -70,7 +70,7 @@ import sys
 from bliss import global_map
 from bliss.comm.util import get_comm
 from bliss.common.logtools import log_info, log_debug, log_debug_data, log_warning
-from bliss.controllers.regulator import Controller
+from bliss.controllers.regulator import send_limit
 
 # --- patch the Input, Output and Loop classes
 from bliss.controllers.regulation.temperature.lakeshore.lakeshore import (  # noqa: F401
@@ -82,28 +82,6 @@ from bliss.controllers.regulation.temperature.lakeshore.lakeshore import (  # no
 from bliss.controllers.regulation.temperature.lakeshore.lakeshore import (  # noqa: F401
     LakeshoreLoop as Loop
 )
-
-_last_call = time.time()
-
-
-def _send_limit(func):
-    """
-    limit number of commands per second.
-
-    lakeshore 331 supports at most 20 commands per second
-    """
-
-    def f(*args, **kwargs):
-        global _last_call
-        delta_t = time.time() - _last_call
-        if delta_t <= 0.15:
-            time.sleep(0.15 - delta_t)
-        try:
-            return func(*args, **kwargs)
-        finally:
-            _last_call = time.time()
-
-    return f
 
 
 class LakeShore331(Controller):
@@ -543,7 +521,7 @@ class LakeShore331(Controller):
 
     # ----- controller specific methods -----------------
 
-    @_send_limit
+    @send_limit
     def send_cmd(self, command, *args, channel=None):
         """ Send a command to the controller
             Args:

@@ -1,6 +1,6 @@
 name: mymoco
 plugin: bliss
-class: Moco 
+class: Moco
 serial:
     url: tango://id00/tango/dummy
 counters:

@@ -31,7 +31,7 @@ from bliss.flint.client.live_plots import LiveImagePlot
   channel: 0
   counter_name: ebv_diode
   camera_tango_url: id00/limaccds/simulator2
-      
+
 
 - name: ebv_wago_simulator
   plugin: bliss
@@ -268,7 +268,6 @@ class BpmController(SamplingCounterController):
             gevent.sleep(self._acq_expo)
 
             with gevent.Timeout(2.0):
-                data = []
                 while self._cam_proxy.last_image_ready == -1:
                     gevent.sleep(0.001)
 

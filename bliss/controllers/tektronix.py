@@ -14,11 +14,14 @@ from bliss.controllers.oscilloscope import (
     OscilloscopeAnalogChannel,
     OscAnalogChanData,
     OscMeasData,
+    OscilloscopeTrigger,
 )
+
 from bliss.comm.util import get_comm
 from ruamel.yaml import YAML
 import gevent
 import numpy
+from bliss.common.utils import autocomplete_property
 
 
 class TektronixOscCtrl(OscilloscopeHardwareController):
@@ -164,3 +167,30 @@ class TektronixOsc(Oscilloscope):
 
     def __close__(self):
         self._device.__close__()
+
+    @autocomplete_property
+    def trigger(self):
+        return TektronixTrigger(self._device)
+
+
+class TektronixTrigger(OscilloscopeTrigger):
+    def __info__(self):
+        current = self._get_settings()
+        return (
+            f"tigger info \n"
+            + f"source: {current['SOURCE']}  possible:({self._device.get_channel_names()}) \n"
+            + f"type:   {current['TYPE']}"
+        )
+
+    def _get_settings(self):
+        return self._device.header_to_dict(self._device.write_read("TRIGGER?"))
+
+    def get_current_setting(self, param):
+        current = self._get_settings()
+        return current[param.upper()]
+
+    def set_trigger_setting(self, param, value):
+        if param == "source":
+            self._device.write(f":TRIGGER:A:EDGE:{param.upper()} {value};")
+        else:
+            raise NotImplementedError

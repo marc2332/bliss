@@ -72,6 +72,55 @@ class Oscilloscope:
     def idn(self):
         return self.device.idn()
 
+    @autocomplete_property
+    def trigger(self):
+        return OscilloscopeTrigger()
+
+class OscilloscopeTrigger:
+    def __init__(self, device):
+        self._device = device
+
+    def __info__(self):
+        return "this is trigger info"
+
+    def get_current_setting(self, param):
+        raise NotImplementedError
+
+    def set_trigger_setting(self, param, value):
+        raise NotImplementedError
+
+    @property
+    def type(self):
+        return self.get_current_setting("type")
+
+    @type.setter
+    def type(self, trig_type):
+        self.set_trigger_setting("type", trig_type)
+
+    @property
+    def source(self):
+        return self.get_current_setting("source")
+
+    @source.setter
+    def source(self, ch):
+        self.set_trigger_setting("source", ch)
+
+    @property
+    def coupling(self):
+        # to be implemented
+        return None
+
+    @property
+    def level(self):
+        # to be implemented
+        return None
+
+    @property
+    def slope(self):
+        # to be implemented
+        return None
+
+
 
 class OscilloscopeHardwareController:
     """functions tha deal with hardware related stuff"""

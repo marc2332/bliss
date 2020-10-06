@@ -603,6 +603,7 @@ def updateDisplayedChannelNames(
     else:
         raise ValueError("This plot type %s is not supported" % type(plot))
 
+    unneeded_items = set(unneeded_items)
     with plot.transaction():
         for item in used_items:
             item.setVisible(True)
@@ -621,11 +622,15 @@ def updateDisplayedChannelNames(
                     plot.addItem(item)
                 else:
                     if kind == "scatter":
-                        item, _updated = createScatterItem(plot, channel)
+                        item, updated = createScatterItem(plot, channel)
+                        if updated:
+                            unneeded_items.discard(item)
                     elif kind == "curve":
                         # FIXME: We have to deal with left/right axis
                         # FIXME: Item can't be added without topmaster
-                        item, _updated = createCurveItem(plot, channel, yAxis="left")
+                        item, updated = createCurveItem(plot, channel, yAxis="left")
+                        if updated:
+                            unneeded_items.discard(item)
                     else:
                         assert False
                 item.setVisible(True)

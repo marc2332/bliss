@@ -18,7 +18,6 @@ def test_bpm_read_all(session, lima_simulator2, mocker):
 
     # Test all counters together
     all_result = bpm.raw_read()
-    all_result = numpy.array(all_result)[:, 0]
     numpy.testing.assert_allclose(all_result, from_device[:-1])
 
     # Test single one

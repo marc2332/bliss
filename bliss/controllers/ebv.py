@@ -7,9 +7,9 @@ from bliss.controllers.wago.wago import ModulesConfig, WagoController, get_wago_
 from bliss.config.channels import Channel
 from bliss.common.counter import SamplingCounter
 from bliss.controllers.counter import SamplingCounterController, counter_namespace
-from bliss.common.utils import grouped
 from bliss.common import event
 from bliss import global_map
+from bliss.common.logtools import log_critical
 
 from bliss.controllers.lima.lima_base import Lima
 from bliss.common.utils import autocomplete_property
@@ -301,18 +301,14 @@ class BpmController(SamplingCounterController):
 
     def read_all(self, *counters):
         # BPM data are : timestamp, intensity, center_x, center_y, fwhm_x, fwhm_y, frameno
-        result_size = 7
+        expected_result_size = 7
         all_result = self._snap_and_get_results()
-        nb_result = len(all_result) // result_size
-        counter2index = [
-            (numpy.zeros((nb_result,)), cnt.value_index) for cnt in counters
-        ]
+        if len(all_result) != expected_result_size:
+            log_critical(self, "One and only one value is expected per counter")
 
-        for i, raw in enumerate(grouped(all_result, result_size)):
-            for res, j in counter2index:
-                res[i] = raw[j]
-
-        return [x[0] for x in counter2index]
+        indexes = [cnt.value_index for cnt in counters]
+        result = list(all_result[indexes])
+        return result
 
     def get_acquisition_object(self, acq_params, ctrl_params, parent_acq_params):
         return BpmAcqSlave(self, ctrl_params=ctrl_params, **acq_params)

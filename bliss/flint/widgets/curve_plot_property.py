@@ -862,6 +862,11 @@ class CurvePlotPropertyWidget(qt.QWidget):
                 self.__xAxisInvalidated = True
             else:
                 self.__updateTree()
+        elif eventType == plot_model.ChangeEventType.Y_CHANNEL:
+            if self.__plotModel.isInTransaction():
+                self.__xAxisInvalidated = True
+            else:
+                self.__updateTree()
 
     def __transactionFinished(self):
         updateTree = self.__xAxisInvalidated or self.__structureInvalidated

@@ -61,5 +61,3 @@ left, right = p.select_shape('hline')
 bottom, top = p.select_shape('vline')
 points = p.select_shape('polygon')
 ```
-
-

@@ -562,19 +562,28 @@ def getFastChannel(
 
 
 def getColormapFromItem(
-    item: plot_model.Item, style: style_model.Style
+    item: plot_model.Item,
+    style: style_model.Style,
+    defaultColormap: Optional[colors.Colormap] = None,
 ) -> colors.Colormap:
     """Returns the colormap from an item, taking care of the cache.
     """
     colormap = item.colormap()
     if colormap is None:
-        # Store the colormap
-        # FIXME as the colormap is exposed to the colormap dialog
-        # it have to be synchronized to the item style
-        colormap = colors.Colormap(style.colormapLut)
+        if defaultColormap is None:
+            # Store the colormap
+            # FIXME as the colormap is exposed to the colormap dialog
+            # it have to be synchronized to the item style
+            colormap = colors.Colormap(style.colormapLut)
+        else:
+            colormap = defaultColormap
         item.setColormap(colormap)
     else:
-        colormap.setName(style.colormapLut)
+        if colormap is defaultColormap:
+            # The default colormap must not be changed
+            pass
+        else:
+            colormap.setName(style.colormapLut)
     return colormap
 
 

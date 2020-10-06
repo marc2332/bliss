@@ -127,12 +127,17 @@ class PlotConfiguration:
         self.grid_mode: bool = False
         self.axis_displayed: bool = True
         # Tools
-        self.spec_mode: bool = False
         self.crosshair_enabled: bool = False
         self.colorbar_displayed: bool = False
         self.profile_widget_displayed: bool = False
         self.roi_widget_displayed: bool = False
         self.histogram_widget_displayed: bool = False
+
+        # Curve widget
+        self.spec_mode: bool = False
+
+        # Image widget
+        self.colormap: Optional[Dict] = None
 
     def __reduce__(self):
         return (self.__class__, (), self.__getstate__())

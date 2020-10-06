@@ -1,3 +1,4 @@
+import pytest
 import gevent
 import numpy
 import contextlib
@@ -68,7 +69,7 @@ def test_custom_mesh_plot(test_session_with_flint):
     # synchronize redis events with flint
     flint.wait_end_of_scans()
 
-    p1 = flint.get_default_live_scan_plot("scatter")
+    p1 = flint.get_live_plot("default-scatter")
     p2 = flint.get_live_scan_plot(diode2.fullname, "scatter")
 
     assert p1 != p2
@@ -85,6 +86,34 @@ def test_ct_image(test_session_without_flint, lima_simulator):
         ct(0.1, lima)
     flint = plot.get_flint(creation_allowed=False)
     assert flint is not None
+
+
+def test_live_plot_image(test_session_without_flint, lima_simulator):
+    """Test the API provided by the live image plot"""
+    session = test_session_without_flint
+    lima = session.config.get("lima_simulator")
+    ct = session.env_dict["ct"]
+    with use_shell_command_with_scan_display():
+        ct(0.1, lima)
+    flint = plot.get_flint(creation_allowed=False)
+    assert flint is not None
+
+    p = flint.get_live_plot(image_detector="lima_simulator")
+    assert p is not None
+    p.set_colormap(lut="viridis")
+    p.set_colormap(lut="gray")
+    p.set_colormap(vmin=50)
+    p.set_colormap(vmin="auto")
+    p.set_colormap(vmax=10000)
+    p.set_colormap(vmax="auto")
+    p.set_colormap(normalization="log")
+    p.set_colormap(gamma_normalization=0.5)
+    p.set_colormap(normalization="linear")
+    with pytest.raises(Exception):
+        p.set_colormap(normalization="foo")
+    p.set_colormap(autoscale=True)
+    p.set_colormap(autoscale_mode="minmax")
+    p.set_colormap(autoscale_mode="stddev3")
 
 
 def test_ct_diode(test_session_without_flint):
@@ -214,17 +243,17 @@ def test_meshselect(test_session_with_flint):
     # synchronize redis events with flint
     flint.wait_end_of_scans()
 
-    plot_id = flint.get_default_live_scan_plot("scatter")
+    p1 = flint.get_live_plot("default-scatter")
 
     # Select the second diode
     plot.meshselect(diode2)
     gevent.sleep(1)
-    assert flint.test_count_displayed_items(plot_id) == 1
+    assert flint.test_count_displayed_items(p1.plot_id) == 1
 
     # Select a diode which was not scanned
     plot.meshselect(diode3)
     gevent.sleep(1)
-    assert flint.test_count_displayed_items(plot_id) == 0
+    assert flint.test_count_displayed_items(p1.plot_id) == 0
 
 
 def test_plotinit__something(session):
@@ -264,14 +293,14 @@ def test_plotselect(test_session_with_flint):
     # synchronize redis events with flint
     flint.wait_end_of_scans()
 
-    plot_id = flint.get_default_live_scan_plot("curve")
+    p1 = flint.get_live_plot("default-curve")
 
     # Select the second diode
     plot.plotselect(diode2)
     gevent.sleep(1)
-    assert flint.test_count_displayed_items(plot_id) == 1
+    assert flint.test_count_displayed_items(p1.plot_id) == 1
 
     # Select a diode which was not scanned
     plot.plotselect(diode3)
     gevent.sleep(1)
-    assert flint.test_count_displayed_items(plot_id) == 0
+    assert flint.test_count_displayed_items(p1.plot_id) == 0

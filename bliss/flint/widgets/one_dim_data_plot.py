@@ -11,4 +11,6 @@ from .mca_plot import McaPlotWidget
 
 
 class OneDimDataPlotWidget(McaPlotWidget):
-    pass
+    def deviceName(self):
+        # FIXME: This have to be saved in the configuration
+        return self.windowTitle().split(" ")[0]

@@ -163,8 +163,6 @@ nav:
                 - Grouping scans: scan_group.md
         - Instruments:
                 - ESRF BeamViewer (EBV): using_beamviewer.md
-                - MCA:
-                    - MCA: using_mca.md
                 - Moco: using_moco.md
         - Data:
                 - Data policy: data_policy.md

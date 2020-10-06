@@ -40,6 +40,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Axis kind only contains `forth/backnforth/step`
 - BLISS commands
     - `edit_roi_counters` now set the focus on the detector widget
+- tmux
+    - independent tmux servers & sockets are used for diffrent sessions this way
+      the tmux process of one session can be killed without affecting the otheres
+    - the default session will no longer use tmux as it is meant for dev. and
+      debug usage. It is not expected to have seral useres in these sessions
 
 ### Fixed
 - Fixed first motor position for `amesh` with backnforth enabled

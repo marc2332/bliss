@@ -40,7 +40,7 @@ import gevent.event
 from tango import DevState, Util, Database, DbDevInfo
 from tango.server import Device, attribute, command, device_property
 
-from bliss import shell
+from bliss.shell.initialize import initialize
 from bliss.common import event
 from bliss.common.utils import grouped
 from bliss.config import settings
@@ -140,7 +140,7 @@ _SHELL_INFO = None
 
 
 def load_shell(session_name):
-    result = shell.initialize(session_name)
+    result = initialize(session_name)
     global _SHELL_INFO
     _SHELL_INFO = result
     return result
@@ -181,7 +181,7 @@ class Bliss(Device):
         if self.__startup:
             shell_info = _SHELL_INFO
         else:
-            shell_info = shell.initialize(self.session_name)
+            shell_info = initialize(self.session_name)
         self.__user_ns, self.__session = shell_info
         self.__startup = False
 

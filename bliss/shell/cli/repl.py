@@ -43,7 +43,7 @@ from prompt_toolkit.filters import has_focus
 from prompt_toolkit.enums import DEFAULT_BUFFER
 
 from bliss.shell.cli import style as repl_style
-from bliss.shell import initialize
+from bliss.shell.initialize import initialize
 from bliss.shell.data.display import ScanPrinter, ScanPrinterWithProgressBar
 from .prompt import BlissPrompt
 from .typing_helper import TypingHelper

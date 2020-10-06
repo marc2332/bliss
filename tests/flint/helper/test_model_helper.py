@@ -601,6 +601,7 @@ def add_item(
         channel = plot_model.ChannelRef(plot, yName)
         item.setYChannel(channel)
     plot.addItem(item)
+    return item
 
 
 def test_remove_channels__remove_value():
@@ -697,3 +698,30 @@ def test_remove_channels__no_value():
     item = plot.items()[0]
     assert item.xChannel().name() == "x1"
     assert item.yChannel() is None
+
+
+def test_copy_config_tree():
+    source = plot_item_model.CurvePlot()
+    destination = plot_item_model.CurvePlot()
+
+    item = add_item(source, "x", "y1")
+    item.setYAxis("right")
+
+    item2 = plot_state_model.DerivativeItem(source)
+    item2.setSource(item)
+    source.addItem(item2)
+
+    item3 = plot_state_model.GaussianFitItem(source)
+    item3.setSource(item2)
+    source.addItem(item3)
+
+    add_item(source, "x", "y2")
+    destItem = add_item(destination, "x", "y1")
+    add_item(destination, "x", "y3")
+
+    model_helper.copyItemsFromChannelNames(source, destination)
+    assert destItem.yAxis() == "right"
+    items = list(destination.items())
+    assert len(items) == 4
+    assert type(items[-1]) == plot_state_model.GaussianFitItem
+    assert items[-1].source() is items[-2]

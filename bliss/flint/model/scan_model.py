@@ -300,6 +300,9 @@ class Scan(qt.QObject, _Sealable):
     def getChannelByName(self, name) -> Optional[Channel]:
         return self.__channels.get(name, None)
 
+    def getChannelNames(self) -> List[str]:
+        return list(self.__channels.keys())
+
     def addScatterData(self, scatterData: ScatterData):
         if self.isSealed():
             raise SealedError()

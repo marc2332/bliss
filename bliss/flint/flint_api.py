@@ -33,6 +33,7 @@ from bliss.controllers.lima import roi as lima_roi
 from bliss.flint.helper import model_helper
 from bliss.flint.model import plot_model
 from bliss.flint.model import plot_item_model
+from bliss.flint.model import plot_state_model
 from bliss.flint.model import flint_model
 from bliss.common import event
 from bliss.flint import config
@@ -506,6 +507,92 @@ class FlintApi:
                 ref = plot_model.ChannelRef(item, channel_name)
                 item.initProperties(unique_name, ref, position, text)
                 model.addItem(item)
+
+    def update_user_data(
+        self, plot_id, unique_name: str, channel_name: str, ydata: numpy.array
+    ):
+        """Add user data to a live plot.
+
+        It will define a curve in the plot using the y-data provided and the
+        x-data from the parent item (defined by the `channel_name`)
+
+        The key `unique_name` + `channel_name` is unique. So if it already
+        exists the item will be updated.
+
+        Arguments:
+            plot_id: Identifier of the plot
+            unique_name: Name of this item in the property tree
+            channel_name: Name of the channel that will be used as parent for
+                this item. If this parent item does not exist, it is created
+                but set hidden.
+            ydata: Y-data for this item. If `None`, if the item already exists,
+                it is removed from the plot
+        """
+        ydata = _aswritablearray(ydata)
+        plot = self._get_plot_widget(plot_id, expect_silx_api=False)
+        model = plot.plotModel()
+        if model is None:
+            raise Exception("No model linked to this plot")
+
+        scan = plot.scan()
+        if scan is None:
+            raise Exception("No scan linked to this plot")
+
+        channel = scan.getChannelByName(channel_name)
+        if channel is None:
+            raise Exception("Channel name '%s' does not exists")
+
+        with model.transaction():
+            # Get the item on which attach the user item
+            for parentItem in list(model.items()):
+                if not isinstance(parentItem, plot_item_model.CurveItem):
+                    continue
+                channelRef = parentItem.yChannel()
+                if channelRef is None:
+                    continue
+                if channelRef.name() != channel_name:
+                    continue
+                break
+            else:
+                parentItem = None
+
+            # Search for previous user item
+            if parentItem is not None:
+                for userItem in list(model.items()):
+                    if not isinstance(userItem, plot_state_model.UserValueItem):
+                        continue
+                    if not userItem.isChildOf(parentItem):
+                        continue
+                    if userItem.name() != unique_name:
+                        continue
+                    break
+                else:
+                    userItem = None
+            else:
+                userItem = None
+
+            if userItem is not None:
+                if ydata is not None:
+                    userItem.setYArray(ydata)
+                else:
+                    model.removeItem(userItem)
+            else:
+                if ydata is not None:
+                    if parentItem is None:
+                        parentItem, _updated = model_helper.createCurveItem(
+                            model, channel, yAxis="left"
+                        )
+                        # It was not there before, so hide it
+                        parentItem.setVisible(False)
+
+                    userItem = plot_state_model.UserValueItem(model)
+                    userItem.setName(unique_name)
+                    userItem.setYArray(ydata)
+                    userItem.setSource(parentItem)
+                    model.addItem(userItem)
+                else:
+                    # Nothing to do
+                    pass
 
     def update_data(self, plot_id, field, data):
         self.data_dict[plot_id][field] = data

@@ -11,6 +11,9 @@ import numpy
 
 @pytest.fixture
 def autof_session(beacon, scan_tmpdir):
+    mono = beacon.get("mono")
+    mono.move(7)
+
     autof_session = beacon.get("test_autof_session")
     autof_session.setup()
     autof_session.scan_saving.base_path = str(scan_tmpdir)
@@ -79,7 +82,7 @@ def test_autofilter_ascan(autof_session):
     assert "autofilter1:ratio" in scan_data
 
     # test that the corrected values are the expected ones
-    assert numpy.allclose(scan_data["autofilter1:sim_autofilter1_det_corr"], sim._data)
+    assert numpy.allclose(scan_data["autofilter1:sim_autofilter1_det_corr"], sim._data * sim.mon_value())
 
     # test that transm fits to measured value
     assert numpy.allclose(

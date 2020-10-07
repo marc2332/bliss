@@ -13,6 +13,7 @@ from .helpers import get_cs_kind
 
 
 _elementsInstance = fisx.Elements()
+_elementsInstance.initializeAsPyMca()
 _cs_catalog = {}
 _element_catalog = {}
 

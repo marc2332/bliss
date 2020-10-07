@@ -208,7 +208,7 @@ def test_with_another_process(channel_subprocess):
     assert cc.timeout == 0.1
 
     # Make sure it times out
-    with pytest.raises(RuntimeError):
+    with pytest.raises(TimeoutError):
         assert cc.value == "bla"
 
     # Restore subprocess

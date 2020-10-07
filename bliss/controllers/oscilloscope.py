@@ -76,6 +76,11 @@ class Oscilloscope:
     def trigger(self):
         return OscilloscopeTrigger()
 
+    @property
+    def timebase(self):
+        return OscilloscopeTimebase()
+
+
 class OscilloscopeTrigger:
     def __init__(self, device):
         self._device = device
@@ -120,6 +125,15 @@ class OscilloscopeTrigger:
         # to be implemented
         return None
 
+
+class OscilloscopeTimebase:
+    @property
+    def time_per_div(self):
+        # to be implemented
+        return None
+
+    def __info__(self):
+        return "this is timebase info"
 
 
 class OscilloscopeHardwareController:

@@ -22,6 +22,7 @@ from ruamel.yaml import YAML
 import gevent
 import numpy
 from bliss.common.utils import autocomplete_property
+from bliss.common.utils import deep_update
 
 
 class TektronixOscCtrl(OscilloscopeHardwareController):
@@ -74,19 +75,67 @@ class TektronixOscCtrl(OscilloscopeHardwareController):
         else:
             raise RuntimeError("unknown response!")
 
+    def _complete_keys(self, index, last_prefix, sequence, final):
+        """
+            Compound Commands
+
+There can be more than one SCPI command on the same command line. This is done by entering the commands separated by a semi-colon (;). For example:
+MEASURE:VOLTAGE:DC?;DC:RATIO?
+
+This is equivalent to the following two commands:
+MEASURE:VOLTAGE:DC?
+MEASURE:VOLTAGE:DC:RATIO?
+
+A feature of compound commands is that the following command starts at the last node of the previous command. This often makes the command line shorter than it would be otherwise. But what if you want a to use a command on a different branch?
+
+If this is the case, you must put a colon (:) before the command that follows the semi-colon (;). This returns the command tree to the root. For example this is a valid command line:
+MEASURE:VOLTAGE:DC?;:MEASURE:CURRENT:DC? 
+            """
+        c = sequence[index]
+        if ":" in c and " " in c:
+            if c.index(":") < c.index(" "):
+                new_prefix, new_command = c.split(":", 1)
+                sequence[index] = new_command
+                self._complete_keys(
+                    index, last_prefix + ":" + new_prefix, sequence, final
+                )
+                return
+        elif ('"' in c and " " in c and c.index('"') > c.index(" ")) or (
+            '"' not in c and " " in c
+        ):
+            new_prefix, value = c.split(" ", 1)
+            final[last_prefix + ":" + new_prefix] = value
+        else:
+            final[last_prefix] = c
+
+        if len(sequence) > index + 1:
+            self._complete_keys(index + 1, last_prefix, sequence, final)
+
     def header_to_dict(self, header_string):
+        # a good examples to see if this code is working are TRIGGER? and :WFMOutpre? and HORIZONTAL?
+
         if not hasattr(self, "_yaml"):
             self._yaml = YAML(pure=True)
-            self._yaml.allow_duplicate_keys = True
         if isinstance(header_string, bytes):
             header_string = header_string.decode()
-        yml = ""
-        for entry in header_string.split(";"):
-            first_space = entry.find(" ")
-            key = entry[:first_space]
-            value = entry[first_space + 1 :]
-            yml += f"'{key}': {value}\n"
-        return dict(self._yaml.load(yml))
+        res = dict()
+        for top_level_entry in header_string.strip(":\n").split(";:"):
+            seq = top_level_entry.split(";")
+            self._complete_keys(0, "", seq, res)
+
+        res2 = dict()
+        for key, value in res.items():
+            yml = ""
+            count = 0
+            for p in key.strip(":").split(":"):
+                yml += " " * count + p + ":\n"
+                count += 1
+            yml += " " * count
+            yml = yml.strip("\n") + " " + value
+            tmp = self._yaml.load(yml)
+            deep_update(res2, tmp)
+
+        return res2
 
     def get_channel_names(self):
         ### SAVe:WAVEform:SOURCEList? not the correct command ...
@@ -127,6 +176,7 @@ class TektronixOscCtrl(OscilloscopeHardwareController):
         head = self.write_read(":WFMOutpre?")
         datastring = self._comm.write_read(b":CURVE?")  # raw binary comm
         header = self.header_to_dict(head)
+        header = header["WFMOUTPRE"]
 
         raw_data = numpy.frombuffer(datastring, dtype=numpy.int16)[-length:]
         data = (raw_data.astype(numpy.float) - header["YOFF"]) * header[
@@ -178,8 +228,8 @@ class TektronixTrigger(OscilloscopeTrigger):
         current = self._get_settings()
         return (
             f"tigger info \n"
-            + f"source: {current['SOURCE']}  possible:({self._device.get_channel_names()}) \n"
-            + f"type:   {current['TYPE']}"
+            + f"source: {current['TRIGGER']['A']['EDGE']['SOURCE']}  possible:({self._device.get_channel_names()}) \n"
+            #      + f"type:   {current['TYPE']}"
         )
 
     def _get_settings(self):

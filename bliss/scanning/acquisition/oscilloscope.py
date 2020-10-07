@@ -33,7 +33,7 @@ class OscilloscopeAcquisitionSlave(BaseCounterAcquisitionSlave):
             npoints=npoints,
             trigger_type=trigger_type,
             ctrl_params=ctrl_params,
-            prepare_once=True,
+            prepare_once=False,
             start_once=False,
         )
 
@@ -52,7 +52,7 @@ class OscilloscopeAcquisitionSlave(BaseCounterAcquisitionSlave):
             self._counters[counter].append(self.channels[-1])
 
     def prepare(self):
-        pass
+        self.device._scope._device.acq_prepare()
 
     def start(self):
         self.device._scope._device.acq_start()

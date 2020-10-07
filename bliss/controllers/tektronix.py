@@ -154,6 +154,9 @@ MEASURE:VOLTAGE:DC?;:MEASURE:CURRENT:DC?
         m = self.strip(ans).split(",")
         return m
 
+    def acq_prepare(self):
+        pass
+
     def acq_start(self):
         self.write("acquire:state 0")  # stop
         self.write("acquire:stopafter SEQUENCE")  # single

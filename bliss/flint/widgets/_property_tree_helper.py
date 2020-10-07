@@ -93,6 +93,8 @@ class ScanRowItem(StandardRowItem):
             icon = icons.getQIcon("flint:icons/channel-curve")
         elif isinstance(plotItem, plot_state_model.CurveStatisticItem):
             icon = icons.getQIcon("flint:icons/item-stats")
+        elif isinstance(plotItem, plot_state_model.UserValueItem):
+            icon = icons.getQIcon("flint:icons/item-channel")
         elif isinstance(plotItem, plot_item_model.CurveMixIn):
             icon = icons.getQIcon("flint:icons/item-func")
         else:

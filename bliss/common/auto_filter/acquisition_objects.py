@@ -338,7 +338,7 @@ def get_new_slave(auto_filter, slave, npoints):
         return get_new_master(auto_filter, slave, npoints)
     try:
         iter(slave)
-    except TypeError:  # not iterable
+    except (TypeError,NotImplementedError):  # not iterable
         return _Slave(auto_filter, slave, npoints=npoints)
     else:  # can be iterable
         return _SlaveIter(auto_filter, slave, npoints=npoints)

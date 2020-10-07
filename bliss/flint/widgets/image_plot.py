@@ -150,6 +150,7 @@ class ImagePlotWidget(plot_helper.PlotWidget):
         self.__plot.getWidgetHandle().installEventFilter(self)
         self.__view = view_helper.ViewManager(self.__plot)
         self.__view.setResetWhenScanStarts(False)
+        self.__view.setResetWhenPlotCleared(False)
 
         self.__aggregator = plot_helper.PlotEventAggregator(self)
         self.__refreshManager = refresh_helper.RefreshManager(self)
@@ -549,6 +550,7 @@ class ImagePlotWidget(plot_helper.PlotWidget):
         for _item, itemKeys in self.__items.items():
             for description in itemKeys:
                 self.__plot.remove(description.key, description.kind)
+        self.__view.plotCleared()
 
     def __cleanItem(self, item: plot_model.Item):
         itemKeys = self.__items.pop(item, [])

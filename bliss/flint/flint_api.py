@@ -322,6 +322,16 @@ class FlintApi:
                 count += 1
         return count
 
+    def test_displayed_channel_names(self, plot_id):
+        """Debug purpose function to returns displayed channels from a live plot widget."""
+        widget = self._get_plot_widget(plot_id, expect_silx_api=False, custom_plot=True)
+        if widget is None:
+            raise Exception("Widget %s not found" % plot_id)
+        plot = widget.plotModel()
+        if plot is None:
+            return []
+        return model_helper.getChannelNamesDisplayedAsValue(plot)
+
     def test_active(self, plot_id, qaction: str = None):
         """Debug purpose function to simulate a click on an activable element.
 

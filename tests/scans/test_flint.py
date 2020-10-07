@@ -302,3 +302,56 @@ def test_plotselect(test_session_with_flint):
     plot.plotselect(diode3)
     gevent.sleep(1)
     assert flint.test_count_displayed_items(p1.plot_id) == 0
+
+
+def test_plotselect__before_startup(test_session_with_flint):
+    session = test_session_with_flint
+    ascan = session.env_dict["ascan"]
+    roby = session.config.get("roby")
+    diode = session.config.get("diode")
+    diode2 = session.config.get("diode2")
+
+    plot.plotselect(diode2)
+
+    logger = logging.getLogger("flint.output")
+    logger.disabled = False
+    logger.setLevel(logging.INFO)
+
+    flint = plot.get_flint()
+    ascan(roby, 0, 5, 2, 0.001, diode, diode2)
+
+    # synchronize redis events with flint
+    flint.wait_end_of_scans()
+    p1 = flint.get_live_plot("default-curve")
+    assert diode2.fullname in flint.test_displayed_channel_names(p1.plot_id)
+
+
+def test_plotselect__switch_scan(test_session_with_flint):
+    session = test_session_with_flint
+    ascan = session.env_dict["ascan"]
+    loopscan = session.env_dict["loopscan"]
+    roby = session.config.get("roby")
+    diode = session.config.get("diode")
+    diode2 = session.config.get("diode2")
+
+    flint = plot.get_flint()
+
+    plot.plotselect(diode2)
+
+    logger = logging.getLogger("flint.output")
+    logger.disabled = False
+    logger.setLevel(logging.INFO)
+
+    ascan(roby, 0, 5, 2, 0.001, diode, diode2)
+
+    # synchronize redis events with flint
+    flint.wait_end_of_scans()
+    p1 = flint.get_live_plot("default-curve")
+    assert diode2.fullname in flint.test_displayed_channel_names(p1.plot_id)
+
+    loopscan(5, 0.1, diode, diode2)
+
+    # synchronize redis events with flint
+    flint.wait_end_of_scans()
+    p1 = flint.get_live_plot("default-curve")
+    assert diode2.fullname in flint.test_displayed_channel_names(p1.plot_id)

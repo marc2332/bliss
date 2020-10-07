@@ -102,7 +102,7 @@ With pairs transmission/energy:
 import numpy as np
 
 from bliss.common.auto_filter.filterset import FilterSet
-from bliss.common.logtools import lprint_disable
+from bliss.common.logtools import disable_user_output
 
 
 class FilterSet_Wheel(FilterSet):
@@ -149,7 +149,7 @@ class FilterSet_Wheel(FilterSet):
             raise ValueError(
                 f"Wrong filter position {filter_id} supported values {self._positions}"
             )
-        with lprint_disable():
+        with disable_user_output():
             self._rotation_axis.move(self._filters[filter_id]["position"])
 
     def get_filter(self):

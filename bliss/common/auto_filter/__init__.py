@@ -37,9 +37,10 @@ import weakref
 import numpy
 from tabulate import tabulate
 from bliss.config.beacon_object import BeaconObject
+from bliss.config import static
 from bliss.common import scans
 from bliss.scanning import chain, scan
-from bliss.common.event import dispatcher, connect
+from bliss.common.event import dispatcher, connect,disconnect
 from bliss.common.measurementgroup import _get_counters_from_names
 from bliss.common.measurementgroup import get_active as get_active_mg
 from bliss.common.counter import SamplingCounter
@@ -61,6 +62,15 @@ from bliss.common.auto_filter.filterset import FilterSet
 
 from . import acquisition_objects
 
+def _unmarshalling_energy_axis(auto_filter,value):
+    if isinstance(value,str):
+        config = static.get_config()
+        return config.get(value)
+    else:
+        return value
+
+def _marshalling_energy_axis(auto_filter,value):
+    return value.name
 
 class AutoFilterCounterController(SamplingCounterController):
     def __init__(self, name, autof):
@@ -207,11 +217,20 @@ class AutoFilter(BeaconObject):
         must_be_in_config=True,
         doc="Minimum allowed count rate on monitor",
     )
+    @min_count_rate.setter
+    def min_count_rate(self,value):
+        #To be sure that filter are re-calculated
+        self._energy_changed = True
+    
     max_count_rate = BeaconObject.property_setting(
         "max_count_rate",
         must_be_in_config=True,
         doc="Maximum allowed count rate on monitor",
     )
+    @max_count_rate.setter
+    def max_count_rate(self,value):
+        self._energy_changed = True
+        
     always_back = BeaconObject.property_setting(
         "always_back",
         must_be_in_config=False,
@@ -232,7 +251,7 @@ class AutoFilter(BeaconObject):
     @filterset.setter
     def filterset(self, new_filterset):
         assert isinstance(new_filterset, FilterSet)
-        self.initialize(new_filterset)
+        self._energy_changed = True
         # as this is a config_obj_property_setting
         # the setter has to return the name of the
         # corresponding beacon object
@@ -243,7 +262,6 @@ class AutoFilter(BeaconObject):
 
         global_map.register(self, tag=self.name, parents_list=["counters"])
 
-        self.__energy_axis = None
         self.__counters_for_corr = set()
 
         # build counters
@@ -253,59 +271,58 @@ class AutoFilter(BeaconObject):
         counters = config.get("counters_for_correction", [])
         self.counters_for_correction = counters
 
-        # check energy motor is in config
-        # this property set calls initialize()
-        self.energy_axis = config.get("energy_axis")
-
         # Flag that indicates that transmission needs to be recalculated
-        # TODO to be seen that this works also when energy axis changes on runtime
         self._energy_changed = True
-        connect(self.energy_axis, "position", self._set_energy_changed)
 
     def _set_energy_changed(self, new_energy):
         self._energy_changed = True
 
-    def initialize(self, new_filterset=None):
+    def __close__(self):
+        #added to let the test pass :-(
+        energy_axis = self.energy_axis
+        if energy_axis is not None:
+            disconnect(energy_axis,"position",self._set_energy_changed)
+    
+    def initialize(self):
         """
         intialize the behind filterset
         """
-        if new_filterset:
-            _filterset = new_filterset
-        else:
-            _filterset = self.filterset
-
+        if not self._energy_changed:
+            return
+        
+        _filterset = self.filterset
         self.__initialized = True
         # Synchronize the filterset with countrate range and energy
         # and tell it to store back filter if necessary
-        self.__last_energy = self.energy_axis.position
-        if self.__last_energy > 0:
+        energy = self.energy_axis.position
+        if energy > 0:
             # filterset sync. method return the maximum effective number of filters
             # which will correspond to the maximum number of filter changes
             self.max_nb_iter = _filterset.sync(
                 self.min_count_rate,
                 self.max_count_rate,
-                self.__last_energy,
+                energy,
                 self.always_back,
             )
             self._energy_changed = False
         else:
             self.__initialized = False
 
-    @property
-    def energy_axis(self):
-        """
-        Setter/getter for the energy axis,
-        check the instance is an axis
-        """
-        return self.__energy_axis
-
+    energy_axis = BeaconObject.property_setting('energy_axis',
+                                                must_be_in_config=True,
+                                                set_marshalling=_marshalling_energy_axis,
+                                                set_unmarshalling=_unmarshalling_energy_axis)
+ 
     @energy_axis.setter
     def energy_axis(self, energy_axis):
-        if energy_axis != self.__energy_axis:
+        previous_energy_axis = self.energy_axis
+        if self._in_initialize_with_setting or energy_axis != previous_energy_axis:
             if isinstance(energy_axis, Axis):
-                self.__energy_axis = energy_axis
                 # change on energy, so get filterset initialized back
-                self.initialize()
+                self._energy_changed = True
+                if previous_energy_axis is not None:
+                    disconnect(previous_energy_axis,"position",self._set_energy_changed)
+                connect(energy_axis, "position", self._set_energy_changed)
             else:
                 raise ValueError(f"{energy_axis} is not a Bliss Axis")
 
@@ -347,9 +364,7 @@ class AutoFilter(BeaconObject):
         """
         Return the current transmission given by the filter
         """
-        # if self.__last_energy != self.energy_axis.position:
-        if self._energy_changed:
-            self.initialize()
+        self.initialize()
         return self.filterset.transmission
 
     @property

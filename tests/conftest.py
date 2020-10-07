@@ -182,11 +182,23 @@ def config_app_port(ports):
 
 
 @pytest.fixture(scope="session")
-def beacon_directory(tmpdir_factory):
+def beacon_tmpdir(tmpdir_factory):
     tmpdir = str(tmpdir_factory.mktemp("beacon"))
-    beacon_dir = os.path.join(tmpdir, "test_configuration")
+    yield tmpdir
+
+
+@pytest.fixture(scope="session")
+def beacon_directory(beacon_tmpdir):
+    beacon_dir = os.path.join(beacon_tmpdir, "test_configuration")
     shutil.copytree(BEACON_DB_PATH, beacon_dir)
     yield beacon_dir
+
+
+@pytest.fixture(scope="session")
+def log_directory(beacon_tmpdir):
+    log_dir = os.path.join(beacon_tmpdir, "log")
+    os.mkdir(log_dir)
+    yield log_dir
 
 
 @pytest.fixture(scope="session")
@@ -197,21 +209,24 @@ def images_directory(tmpdir_factory):
 
 
 @pytest.fixture(scope="session")
-def ports(beacon_directory):
+def ports(beacon_directory, log_directory):
     redis_uds = os.path.join(beacon_directory, "redis.sock")
     redis_data_uds = os.path.join(beacon_directory, "redis_data.sock")
     ports = namedtuple(
-        "Ports", "redis_port redis_data_port tango_port beacon_port cfgapp_port"
-    )(*get_open_ports(5))
+        "Ports",
+        "redis_port redis_data_port tango_port beacon_port cfgapp_port logserver_port",
+    )(*get_open_ports(6))
     args = [
         "--port=%d" % ports.beacon_port,
         "--redis_port=%d" % ports.redis_port,
         "--redis_socket=" + redis_uds,
         "--redis-data-port=%d" % ports.redis_data_port,
         "--redis-data-socket=" + redis_data_uds,
-        "--db_path=" + beacon_directory,
+        "--db_path=%s" % beacon_directory,
         "--tango_port=%d" % ports.tango_port,
         "--webapp_port=%d" % ports.cfgapp_port,
+        "--log_server_port=%d" % ports.logserver_port,
+        "--log_output_folder=%s" % log_directory,
     ]
     proc = subprocess.Popen(BEACON + args, stderr=subprocess.PIPE)
     # TODO: Beacon needs an 'is_ready' command

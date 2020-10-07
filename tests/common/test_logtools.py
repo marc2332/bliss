@@ -8,7 +8,7 @@
 import pytest
 import logging
 import re
-
+import os
 import gevent
 
 from bliss.common.logtools import Log, get_logger, set_log_format, hexify
@@ -467,3 +467,14 @@ def test_lima_devproxy_logger(default_session, lima_simulator, capsys, caplog):
     lima.proxy.set_timeout_millis(10)
     assert "call set_timeout_millis(10,)" in caplog.text
     debugoff(lima)
+
+
+def test_log_server(beacon, session, log_directory, log_context):
+    logging.getLogger("user_input").info("TEST USER INPUT LOGGER")
+    logging.getLogger("exceptions").info("TEST EXCEPTION LOGGER")
+    gevent.sleep(1)  # ensure log is written
+    with open(os.path.join(log_directory, session.name + ".log"), "r") as logfile:
+        l = logfile.readline()
+        assert "TEST USER INPUT" in l
+        l = logfile.readline()
+        assert "TEST EXCEPTION" in l

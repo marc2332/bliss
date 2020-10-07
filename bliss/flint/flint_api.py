@@ -480,8 +480,8 @@ class FlintApi:
         """Update the location of an axis marker in a plot.
 
         Arguments:
-            unique_name: Name of the marker to edit
             plot_id: Identifier of the plot
+            unique_name: Name of the marker to edit
             channel_name: Name of the channel which is used as an axis by this
                 marker
             position: Position in this axis. If the position is None or not

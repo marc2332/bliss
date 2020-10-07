@@ -419,7 +419,7 @@ class AcquisitionObject:
     def get_iterator(self):
         try:
             iter(self)
-        except NotImplementedError:
+        except (NotImplementedError, TypeError):
             return AcquisitionObjectIteratorObsolete(self)
         else:
             return AcquisitionObjectIterator(self)

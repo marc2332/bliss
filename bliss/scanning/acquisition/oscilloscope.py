@@ -77,7 +77,7 @@ class OscilloscopeAcquisitionSlave(BaseCounterAcquisitionSlave):
             with gevent.timeout.Timeout(self.count_time):
                 while not self.device._scope._device.acq_done():
                     gevent.sleep(self.count_time / 5.0)
-        except TimeoutError:
+        except gevent.timeout.Timeout:
             raise TimeoutError("scope did not finish aquisition within count time")
 
         self.device._scope._device.wait_ready()

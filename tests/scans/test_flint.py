@@ -2,6 +2,7 @@ import pytest
 import gevent
 import numpy
 import contextlib
+import logging
 
 import bliss
 from bliss.common import plot
@@ -205,7 +206,6 @@ def test_motor_position_in_plot(test_session_with_flint):
     roby = session.config.get("roby")
     diode = session.config.get("diode")
     flint = plot.get_flint()
-    import logging
 
     logger = logging.getLogger("flint.output")
     logger.disabled = False
@@ -232,7 +232,6 @@ def test_meshselect(test_session_with_flint):
     diode2 = session.config.get("diode2")
     diode3 = session.config.get("diode3")
     flint = plot.get_flint()
-    import logging
 
     logger = logging.getLogger("flint.output")
     logger.disabled = False
@@ -282,7 +281,6 @@ def test_plotselect(test_session_with_flint):
     diode2 = session.config.get("diode2")
     diode3 = session.config.get("diode3")
     flint = plot.get_flint()
-    import logging
 
     logger = logging.getLogger("flint.output")
     logger.disabled = False

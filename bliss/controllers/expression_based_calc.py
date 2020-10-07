@@ -5,12 +5,9 @@ from bliss.config.static import ConfigReference
 import numexpr
 
 
-class ExprCalcParametersMeta(type):
-    def __new__(metacls, name, bases, namespace, **kwargs):
-        cls = super().__new__(metacls, name, (BeaconObject,), namespace, **kwargs)
-        return cls
-
-    def __call__(cls, name, config):
+class ExprCalcParameters(BeaconObject):
+    def __new__(cls, name, config):
+        cls = type(cls.__name__, (cls,), {})
         if "constants" in config:
             for key, value in (
                 config["constants"].to_dict(resolve_references=False).items()
@@ -20,10 +17,8 @@ class ExprCalcParametersMeta(type):
                     setattr(cls, key, config["constants"].raw_get(key))
                 else:
                     setattr(cls, key, BeaconObject.property_setting(key, default=value))
-        return super().__call__(name, config)
+        return object.__new__(cls)
 
-
-class ExprCalcParameters(metaclass=ExprCalcParametersMeta):
     def __init__(self, name, config):
         super().__init__(config, name=name, share_hardware=False, path=["constants"])
 

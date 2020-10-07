@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Flint
     - A splash screen to wait for start up
     - A scan sequence can now display plots
+    - Extra items (fit, derivative) from default curve plot will be inherited
+      into the next scan
     - Irregular scatters can be displayed with a solid rendering using 2D
       histogram
     - n-dim scatters can be displayed in 2D if extra dimensions are steppers
@@ -39,6 +41,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Flint
     - On a new scan, the focus is set to a widget, only if the scan is not
       visible on one of them
+    - On live curve plot property, clicking on radio button when it is already
+      checked will remove the curve
 - Custom scan description (`scan_info`)
     - `fast`/`slow` axis kind was replaced by `axis-id`
     - Axis kind only contains `forth/backnforth/step`
@@ -53,6 +57,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Fixed first motor position for `amesh` with backnforth enabled
 - Flint
+    - Fixed plot display in order to always use `plotselect` selection
+    - Fixed `plotselect` in order to skip Flint loading
     - Fixed Flint segmentation fault on GLX initialization
     - Fixed default selected x-axis on ascan scans
     - Fixed black background on OpenGL rendering

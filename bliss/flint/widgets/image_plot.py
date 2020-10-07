@@ -549,7 +549,6 @@ class ImagePlotWidget(plot_helper.PlotWidget):
         for _item, itemKeys in self.__items.items():
             for description in itemKeys:
                 self.__plot.remove(description.key, description.kind)
-        self.__view.plotCleared()
 
     def __cleanItem(self, item: plot_model.Item):
         itemKeys = self.__items.pop(item, [])

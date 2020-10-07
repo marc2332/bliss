@@ -78,6 +78,21 @@ class MultiplexStreamToCallback(TextIO):
         self.__listener = listener
 
 
+def _aswritablearray(data):
+    """Returns a writable numpy array. Create a copy if the array is in read-only.
+
+    Numpy array from the network looks to be non-writable.
+
+    This should be fixed in the RPC layer.
+    """
+    if data is None:
+        return None
+    data = numpy.asarray(data)
+    if not data.flags.writeable:
+        data = numpy.array(data)
+    return data
+
+
 class FlintApi:
     """Flint interface, meant to be exposed through an RPC server."""
 
@@ -571,11 +586,7 @@ class FlintApi:
         """
         from .manager import monitoring
 
-        if not data.flags.writeable:
-            # Image from the network should be writable
-            # FIXME: this should be fixed on our RPC
-            data = numpy.array(data)
-
+        data = _aswritablearray(data)
         scan = monitoring.StaticImageScan(None, channel_name)
         manager = self.__flintModel.mainManager()
         plots = scan_info_helper.create_plot_model(scan.scanInfo(), scan)

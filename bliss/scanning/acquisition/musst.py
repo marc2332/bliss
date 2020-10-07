@@ -15,39 +15,13 @@ from bliss.scanning.channel import AcquisitionChannel
 from bliss.scanning.acquisition.counter import IntegratingCounterAcquisitionSlave
 
 
-class MusstIntegratingAcquisitionSlave(IntegratingCounterAcquisitionSlave):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._reading_event = event.Event()
-
-    def start_device(self):
-        self._reading_event.clear()
-
-    def trigger_reading(self):
-        self._reading_event.set()
-
-    def reading(self):
-        self._reading_event.wait()
-        self._reading_event.clear()
-
-        counters = list(self._counters.keys())
-        data = [
-            counters[i].conversion_function(x)
-            for i, x in enumerate(self.device.get_values(0, *counters))
-        ]
-        self._emit_new_data(data)
-
-
 class MusstDefaultAcquisitionMaster(AcquisitionMaster):
-    def __init__(self, controller, count_time=None, npoints=1, ctrl_params=None):
+    def __init__(self, controller, musst, count_time=None, npoints=1, ctrl_params=None):
 
         super().__init__(controller, ctrl_params=ctrl_params)
 
         self.count_time = count_time
-
-    @property
-    def name(self):
-        return f"{self.device.name}_master"
+        self.musst = musst
 
     def prepare(self):
         pass
@@ -56,15 +30,19 @@ class MusstDefaultAcquisitionMaster(AcquisitionMaster):
         pass
 
     def stop(self):
-        if self.device.STATE == self.device.RUN_STATE:
-            self.device.ABORT
+        if self.musst.STATE == self.musst.RUN_STATE:
+            self.musst.ABORT
 
     def trigger(self):
         self.trigger_slaves()
-        self.device.ct(self.count_time, wait=True)
-        for slave in self.slaves:
-            if isinstance(slave, MusstIntegratingAcquisitionSlave):
-                slave.trigger_reading()
+        self.musst.ct(self.count_time, wait=True)
+        if self._counters:
+            data = (
+                c.conversion_function(x)
+                for c, x in zip(self._counters, self.musst.read_all(*self._counters))
+            )
+            for channel_data, channel in zip(data, self.channels):
+                channel.emit(channel_data)
 
 
 class MusstAcquisitionMaster(AcquisitionMaster):

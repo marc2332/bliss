@@ -47,6 +47,7 @@ class YAxesEditor(qt.QWidget):
         layout.setSpacing(1)
 
         self.__group = qt.QButtonGroup(self)
+        self.__group.buttonPressed.connect(self.__buttonPressed)
 
         y1Check = qt.QRadioButton(self)
         y1Check.setObjectName("y1")
@@ -78,6 +79,11 @@ class YAxesEditor(qt.QWidget):
 
     def __getY2Axis(self):
         return self.findChildren(qt.QRadioButton, "y2")[0]
+
+    def __buttonPressed(self, button):
+        if button.isChecked():
+            # Remove the item if the radio is already checked
+            self.__removeButton.click()
 
     def yAxis(self) -> str:
         if self.__getY1Axis().isChecked():

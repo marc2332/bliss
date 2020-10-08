@@ -23,6 +23,55 @@ import gevent
 import numpy
 from bliss.common.utils import autocomplete_property
 from bliss.common.utils import deep_update
+from functools import partial
+import pprint
+
+
+class ConfigNamespace(object):
+    def __new__(cls, tree, device, prefix=None):
+        cls = type(cls.__name__, (cls,), {})
+        for key in tree:
+            if isinstance(tree[key], dict):
+                setattr(
+                    cls,
+                    key,
+                    autocomplete_property(
+                        fget=partial(ConfigNamespace._getter, key=key),
+                        fset=partial(ConfigNamespace._setter, key=key),
+                    ),
+                )
+            else:
+                # to avoid autocompletion for the final values ...
+                setattr(
+                    cls,
+                    key,
+                    property(
+                        fget=partial(ConfigNamespace._getter, key=key),
+                        fset=partial(ConfigNamespace._setter, key=key),
+                    ),
+                )
+        return object.__new__(cls)
+
+    def _setter(self, value, key):
+        cmd = ":" + ":".join(self._prefix) + ":" + key + " " + str(value) + ";"
+        self._device.write(cmd)
+
+    def _getter(self, key):
+        value = self._tree[key]
+        if isinstance(value, dict):
+            return ConfigNamespace(value, self._device, [*self._prefix, key])
+        return self._tree[key]
+
+    def __init__(self, tree, device, prefix=None):
+        if prefix is None:
+            self._prefix = list()
+        else:
+            self._prefix = prefix
+        self._tree = tree
+        self._device = device
+
+    def __info__(self):
+        return pprint.pformat(self._tree, indent=2)
 
 
 class TektronixOscCtrl(OscilloscopeHardwareController):
@@ -224,6 +273,16 @@ class TektronixOsc(Oscilloscope):
     @autocomplete_property
     def trigger(self):
         return TektronixTrigger(self._device)
+
+    @autocomplete_property
+    def full_trigger_api(self):
+        tree = self.device.header_to_dict(self.device.write_read(":Trigger?"))
+        return ConfigNamespace(tree["TRIGGER"], self.device, ["TRIGGER"])
+
+    @autocomplete_property
+    def full_horizontal_api(self):
+        tree = self.device.header_to_dict(self.device.write_read(":HORIZONTAL?"))
+        return ConfigNamespace(tree["HORIZONTAL"], self.device, ["HORIZONTAL"])
 
 
 class TektronixTrigger(OscilloscopeTrigger):

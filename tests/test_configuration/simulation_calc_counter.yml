@@ -104,3 +104,25 @@
       b: $roby.position
 
   
+  
+- plugin: bliss
+  module: simulation_calc_counter
+  class: Times2CalcCounterController
+  name: times2
+  inputs:
+    - counter: $sim_ct_gauss
+      tags: data1
+
+  outputs:
+    - name: times2out
+    
+- plugin: bliss
+  module: simulation_calc_counter
+  class: Times2CalcCounterController
+  name: times2_1d
+  inputs:
+    - counter: $simu1.counters.spectrum_det0
+      tags: data1
+
+  outputs:
+    - name: times2out_1d

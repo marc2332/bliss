@@ -348,3 +348,27 @@ def test_if_expr_calc_are_disjunct(default_session):
     # check that the second counter is not influenced by the first one
     assert c2.constants.m == 20
     assert "n" not in dir(c2.constants)
+def test_expr_calc_counter_1d(default_session):
+
+    # 0d
+    times2 = default_session.config.get("times2")
+    s = loopscan(20, .1, times2)
+    data = s.get_data()
+    assert (
+        data["times2:times2out"].shape
+        == data["simulation_counter_controller:sim_ct_gauss"].shape
+    )
+    assert all(
+        data["times2:times2out"]
+        == data["simulation_counter_controller:sim_ct_gauss"] * 2
+    )
+
+    # 1d
+    times2_1d = default_session.config.get("times2_1d")
+    s = loopscan(20, .1, times2_1d)
+    data = s.get_data()
+    assert data["times2_1d:times2out_1d"].shape == data["simu1:spectrum_det0"].shape
+    assert all(data["times2_1d:times2out_1d"] == data["simu1:spectrum_det0"] * 2)
+
+    # 2d
+    # Todo: To be added!

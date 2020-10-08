@@ -32,8 +32,11 @@ from bliss.common.logtools import elog_info, user_print
 from bliss.icat.ingester import IcatIngesterProxy
 from bliss.config.static import get_config
 from bliss.config.settings import scan as scan_redis
-from bliss.icat.dataset import Dataset
 from bliss.common.utils import autocomplete_property
+from bliss.icat.proposal import Proposal
+from bliss.icat.sample import Sample
+from bliss.icat.dataset import Dataset
+
 
 _SCAN_SAVING_CLASS = None
 
@@ -670,7 +673,6 @@ class BasicScanSaving(EvalParametersWardrobe):
         """
         parts = self.get_cached_property("_db_path_keys", eval_dict)
         types = ["container"] * len(parts)
-        types[-1] = "dataset"
         return list(zip(parts, types))
 
     @property_with_eval_dict
@@ -716,24 +718,36 @@ class BasicScanSaving(EvalParametersWardrobe):
         self.create_path(self.root_path)
 
     def get_parent_node(self, create=True):
-        """This method return the parent node which should be used to publish new data
+        """This method returns the parent node which should be used to publish new data
 
         :param bool create:
         :returns DatasetNode or None: can only return `None` when `create=False`
         """
-        db_path_items = self._db_path_items
-        parent_node = None
+        return self._get_node(self._db_path_items, create=create)
+
+    def _get_node(self, db_path_items, create=True):
+        """This method returns the parent node which should be used to publish new data
+
+        :param list((str,str)) db_path_items:
+        :param bool create:
+        :returns DatasetNode or None: can only return `None` when `create=False`
+        """
+        node = None
         if create:
             for item_name, node_type in db_path_items:
-                parent_node = _get_or_create_node(
-                    item_name, node_type, parent=parent_node
-                )
+                node = _get_or_create_node(item_name, node_type, parent=node)
+                self._fill_node_info(node, node_type)
         else:
             for item_name, node_type in db_path_items:
-                parent_node = _get_node(item_name, node_type, parent=parent_node)
-                if parent_node is None:
+                node = _get_node(item_name, node_type, parent=node)
+                if node is None:
                     return None
-        return parent_node
+        return node
+
+    def _fill_node_info(self, node, node_type):
+        """Add missing keys to node info
+        """
+        pass
 
     def _get_writer_class(self, writer_module_name):
         module_name = f"{writer_module.__name__}.{writer_module_name}"
@@ -772,8 +786,8 @@ class ESRFScanSaving(BasicScanSaving):
         base_path/template/data_filename+file_extension
 
     where the base_path is determined by the proposal name,
-    the template is fixed to "{proposal}/{beamline}/{sample}/{sample}_{dataset}"
-    and the data_filename is fixed to "{sample}_{dataset}".
+    the template is fixed to "{proposal_name}/{beamline}/{sample_name}/{sample_name}_{dataset_name}"
+    and the data_filename is fixed to "{sample_name}_{dataset_name}".
     """
 
     DEFAULT_VALUES = {
@@ -797,22 +811,35 @@ class ESRFScanSaving(BasicScanSaving):
     PROPERTY_ATTRIBUTES = BasicScanSaving.PROPERTY_ATTRIBUTES + [
         "template",
         "beamline",
-        "proposal",
+        "proposal_name",
         "base_path",
-        "sample",
-        "dataset",
+        "sample_name",
+        "dataset_name",
         "data_filename",
         "images_path_relative",
         "mount_point",
-        "dataset_object",
+        "proposal",
+        "sample",
+        "dataset",
     ]
-    SLOTS = BasicScanSaving.SLOTS + ["_icat_proxy", "_dataset_object"]
+    SLOTS = BasicScanSaving.SLOTS + [
+        "_icat_proxy",
+        "_proposal_object",
+        "_sample_object",
+        "_dataset_object",
+    ]
     REDIS_SETTING_PREFIX = "esrf_scan_saving"
-    NO_EVAL_PROPERTY = BasicScanSaving.NO_EVAL_PROPERTY | {"dataset_object"}
+    NO_EVAL_PROPERTY = BasicScanSaving.NO_EVAL_PROPERTY | {
+        "proposal",
+        "sample",
+        "dataset",
+    }
 
     def __init__(self, name):
         super().__init__(name)
         self._icat_proxy = None
+        self._proposal_object = None
+        self._sample_object = None
         self._dataset_object = None
 
     def __dir__(self):
@@ -880,19 +907,141 @@ class ESRFScanSaving(BasicScanSaving):
         return re.sub(r"[^0-9a-z]", "", bl.lower())
 
     @autocomplete_property
-    def dataset_object(self):
+    def proposal(self):
+        """Nothing is created in Redis for the moment.
+        """
+        if self._proposal_object is None:
+            # This is just for caching purposes
+            self._ensure_proposal()
+            self._proposal_object = self._get_proposal_object(create=True)
+        return self._proposal_object
+
+    @autocomplete_property
+    def sample(self):
+        """Nothing is created in Redis for the moment.
+        """
+        if self._sample_object is None:
+            # This is just for caching purposes
+            self._ensure_sample()
+            self._sample_object = self._get_sample_object(create=True)
+        return self._sample_object
+
+    @autocomplete_property
+    def dataset(self):
         """The dataset will be created in Redis when it does not exist yet.
         """
         if self._dataset_object is None:
-            # This is just for caching purposes. The Dataset object
-            # is stateless so it could in principle be instantiated
-            # when needed.
+            # This is just for caching purposes
+            self._ensure_dataset()
             self._dataset_object = self._get_dataset_object(create=True)
         return self._dataset_object
 
     @property
     def template(self):
-        return "{proposal}/{beamline}/{sample}/{sample}_{dataset}"
+        return "{proposal_name}/{beamline}/{sample_name}/{sample_name}_{dataset_name}"
+
+    @property
+    def _icat_proposal_path(self):
+        # See template
+        return os.sep.join(self.icat_root_path.split(os.sep)[:-3])
+
+    @property
+    def _icat_sample_path(self):
+        # See template
+        return os.sep.join(self.icat_root_path.split(os.sep)[:-1])
+
+    @property
+    def _icat_dataset_path(self):
+        # See template
+        return self.icat_root_path
+
+    @property_with_eval_dict
+    def _db_path_keys(self, eval_dict=None):
+        session = self.session
+        base_path = self.get_cached_property("base_path", eval_dict).split(os.sep)
+        proposal = self.get_cached_property("proposal_name", eval_dict)
+        sample = self.get_cached_property("sample_name", eval_dict)
+        # When dataset="0001" the DataNode.name will be the integer 1
+        # so use the file name instead.
+        # dataset = self.get_cached_property("dataset", eval_dict)
+        data_filename = self.get_cached_property("eval_data_filename", eval_dict)
+        return [session] + base_path + [proposal, sample, data_filename]
+
+    @property_with_eval_dict
+    def _db_path_items(self, eval_dict=None):
+        """For scan's parent node creation (see `get_parent_node`)
+
+        :returns list(tuple):
+        """
+        parts = self.get_cached_property("_db_path_keys", eval_dict)
+        types = ["container"] * len(parts)
+        # See template:
+        types[-3] = "proposal"
+        types[-2] = "sample"
+        types[-1] = "dataset"
+        return list(zip(parts, types))
+
+    @property
+    def _db_proposal_items(self):
+        # See _db_path_items
+        return self._db_path_items[:-2]
+
+    @property
+    def _db_sample_items(self):
+        # See _db_path_items
+        return self._db_path_items[:-1]
+
+    @property
+    def _db_dataset_items(self):
+        # See _db_path_items
+        return self._db_path_items
+
+    def _fill_node_info(self, node, node_type):
+        """Add missing keys to node info
+        """
+        if node_type == "proposal":
+            info = {
+                "__name__": self.proposal_name,
+                "__path__": self._icat_proposal_path,
+            }
+        elif node_type == "sample":
+            info = {"__name__": self.sample_name, "__path__": self._icat_sample_path}
+        elif node_type == "dataset":
+            info = {
+                "__name__": self.dataset_name,
+                "__path__": self._icat_dataset_path,
+                "__closed__": False,
+            }
+        else:
+            return
+        existing = list(node.info.keys())
+        info = {k: v for k, v in info.items() if k not in existing}
+        if info:
+            node.info.update(info)
+
+    def _get_proposal_node(self, create=True):
+        """This method returns the proposal node
+
+        :param bool create:
+        :returns ProposalNode or None: can only return `None` when `create=False`
+        """
+        return self._get_node(self._db_proposal_items, create=create)
+
+    def _get_sample_node(self, create=True):
+        """This method returns the sample node
+
+        :param bool create:
+        :returns SampleNode or None: can only return `None` when `create=False`
+        """
+        return self._get_node(self._db_sample_items, create=create)
+
+    def _get_dataset_node(self, create=True):
+        """This method returns the dataset node
+
+        :param bool create:
+        :returns DatasetNode or None: can only return `None` when `create=False`
+        """
+        return self._get_node(self._db_dataset_items, create=create)
 
     @property_with_eval_dict
     def base_path(self, eval_dict=None):
@@ -1034,7 +1183,7 @@ class ESRFScanSaving(BasicScanSaving):
     def data_filename(self):
         """File name template without extension
         """
-        return "{sample}_{dataset}"
+        return "{sample_name}_{dataset_name}"
 
     def _reset_proposal(self):
         """(Re)-enter the default proposal
@@ -1042,7 +1191,7 @@ class ESRFScanSaving(BasicScanSaving):
         # Make sure the proposal name will be different:
         self._proposal = ""
         # ICAT dataset will be stored (if it exists):
-        self.proposal = None
+        self.proposal_name = None
 
     def _reset_sample(self):
         """(Re)-enter the default sample
@@ -1050,35 +1199,41 @@ class ESRFScanSaving(BasicScanSaving):
         # Make sure the sample name will be different:
         self._sample = ""
         # ICAT dataset will be stored (if it exists):
-        self.sample = None
+        self.sample_name = None
 
     def _reset_dataset(self):
         """Next default dataset (re-entering not allowed)
         """
         # Avoid storing the ICAT dataset:
         self._dataset = ""
-        self.dataset = None
+        self.dataset_name = None
 
     def _ensure_proposal(self):
         """Make sure a proposal is selected
         """
         if not self._proposal:
-            self.proposal = None
+            self.proposal_name = None
 
     def _ensure_sample(self):
         """Make sure a sample is selected
         """
         if not self._sample:
-            self.sample = None
+            self.sample_name = None
+
+    def _ensure_dataset(self):
+        """Make sure a dataset is selected
+        """
+        if not self._dataset:
+            self.dataset_name = None
 
     @property_with_eval_dict
-    def proposal(self, eval_dict=None):
+    def proposal_name(self, eval_dict=None):
         if not self._proposal:
-            self.proposal = None
+            self.proposal_name = None
         return self.eval_template(self._proposal, eval_dict=eval_dict)
 
-    @proposal.setter
-    def proposal(self, name):
+    @proposal_name.setter
+    def proposal_name(self, name):
         if name:
             # Alphanumeric, space, dash and underscore
             if not re.match(r"^[0-9a-zA-Z_\s\-]+$", name):
@@ -1089,6 +1244,8 @@ class ESRFScanSaving(BasicScanSaving):
             yymm = time.strftime("%y%m")
             name = f"{{beamline}}{yymm}"
         if name != self._proposal:
+            self._close_proposal()
+            self._close_sample()
             self._close_dataset()
             self._proposal = name
             self._freeze_date()
@@ -1098,7 +1255,7 @@ class ESRFScanSaving(BasicScanSaving):
     def activate_proposal(self):
         """Make sure the proposal is activated (for logbook messages)
         """
-        self._activate_proposal(self.proposal)
+        self._activate_proposal(self.proposal_name)
 
     def _activate_proposal(self, proposal):
         """Make sure the proposal is activated (for logbook messages)
@@ -1110,7 +1267,7 @@ class ESRFScanSaving(BasicScanSaving):
 
     @property_with_eval_dict
     def proposal_type(self, eval_dict=None):
-        proposal = self.get_cached_property("proposal", eval_dict)
+        proposal = self.get_cached_property("proposal_name", eval_dict)
         bl = self.get_cached_property("beamline", eval_dict)
         for proposal_prefix in ("blc", "ih", bl):
             if proposal.startswith(proposal_prefix):
@@ -1121,13 +1278,13 @@ class ESRFScanSaving(BasicScanSaving):
         return "visitor"
 
     @property
-    def sample(self):
+    def sample_name(self):
         if not self._sample:
-            self.sample = None
+            self.sample_name = None
         return self._sample
 
-    @sample.setter
-    def sample(self, name):
+    @sample_name.setter
+    def sample_name(self, name):
         if name:
             # Alphanumeric, space, dash and underscore
             if not re.match(r"^[0-9a-zA-Z_\s\-]+$", name):
@@ -1136,19 +1293,20 @@ class ESRFScanSaving(BasicScanSaving):
         else:
             name = "sample"
         if name != self._sample:
+            self._close_sample()
             self._close_dataset()
             self._ensure_proposal()
             self._sample = name
             self._reset_dataset()
 
     @property
-    def dataset(self):
+    def dataset_name(self):
         if not self._dataset:
-            self.dataset = None
+            self.dataset_name = None
         return self._dataset
 
-    @dataset.setter
-    def dataset(self, value):
+    @dataset_name.setter
+    def dataset_name(self, value):
         """
         :param int or str value:
         """
@@ -1228,7 +1386,7 @@ class ESRFScanSaving(BasicScanSaving):
 
     def newproposal(self, proposal_name):
         # beware: self.proposal getter and setter do different actions
-        self.proposal = proposal_name
+        self.proposal_name = proposal_name
         msg = f"Proposal set to '{self.proposal}'\nData path: {self.get_path()}"
         elog_info(msg)
         user_print(msg)
@@ -1236,7 +1394,7 @@ class ESRFScanSaving(BasicScanSaving):
 
     def newsample(self, sample_name):
         # beware: self.sample getter and setter do different actions
-        self.sample = sample_name
+        self.sample_name = sample_name
         msg = f"Sample set to '{self.sample}'\nData path: {self.root_path}"
         elog_info(msg)
         user_print(msg)
@@ -1250,39 +1408,66 @@ class ESRFScanSaving(BasicScanSaving):
         If `newdataset` is not used, the metadata gathering is done at the
         start of the first scan that aves data.
         """
-        # beware: self.dataset getter and setter do different actions
+        # beware: self.dataset_name getter and setter do different actions
         _dataset = self._dataset
-        self.dataset = dataset_name
+        self.dataset_name = dataset_name
         try:
             self._init_dataset()
         except Exception:
             self._dataset = _dataset
             raise
+
         msg = f"Dataset set to '{self.dataset}'\nData path: {self.root_path}"
         elog_info(msg)
         user_print(msg)
-        self._on_data_policy_changed(f"Dataset set to '{self.dataset}'")
+        self._on_data_policy_changed(f"Dataset set to '{self.dataset_name}'")
 
     def endproposal(self):
         """Close the active dataset (if any) and go to the default inhouse proposal
         """
         self._enddataset()
         self._reset_proposal()
-        self._on_data_policy_changed(f"Proposal set to '{self.proposal}'")
+        self._on_data_policy_changed(f"Proposal set to '{self.proposal_name}'")
 
     def enddataset(self):
         """Close the active dataset (if any) and go the the next dataset
         """
         self._enddataset()
-        self._on_data_policy_changed(f"Dataset set to '{self.dataset}'")
+        self._on_data_policy_changed(f"Dataset set to '{self.dataset_name}'")
 
     def _enddataset(self):
-        self.dataset = None
+        self.dataset_name = None
 
     def _on_data_policy_changed(self, event):
         current_session._emit_event(
             ESRFDataPolicyEvent.Change, message=event, data_path=self.root_path
         )
+
+    def _get_proposal_object(self, create=True):
+        """Create a new Proposal instance.
+
+        :param bool create: Create in Redis when it does not exist
+        """
+        if not self._proposal:
+            raise RuntimeError("proposal not specified")
+        node = self._get_proposal_node(create=create)
+        if node is None:
+            raise RuntimeError("proposal does not exist in Redis")
+        return Proposal(node)
+
+    def _get_sample_object(self, create=True):
+        """Create a new Sample instance.
+
+        :param bool create: Create in Redis when it does not exist
+        """
+        if not self._proposal:
+            raise RuntimeError("proposal not specified")
+        if not self._sample:
+            raise RuntimeError("sample not specified")
+        node = self._get_sample_node(create=create)
+        if node is None:
+            raise RuntimeError("sample does not exist in Redis")
+        return Sample(node)
 
     def _get_dataset_object(self, create=True):
         """Create a new Dataset instance. The Dataset may be already closed,
@@ -1299,40 +1484,45 @@ class ESRFScanSaving(BasicScanSaving):
             raise RuntimeError("sample not specified")
         if not self._dataset:
             raise RuntimeError("dataset not specified")
-        dataset_node = self.get_parent_node(create=create)
-        if dataset_node is None:
+        node = self._get_dataset_node(create=create)
+        if node is None:
             raise RuntimeError("dataset does not exist in Redis")
-        return Dataset(
-            self.icat_proxy,
-            dataset_node,
-            self.proposal,
-            self.sample,
-            self.icat_root_path,
-            self.dataset,
-        )
+        return Dataset(node)
 
     @property
     def elogbook(self):
         return self.icat_proxy
+
+    def _close_proposal(self):
+        """Close the current proposal.
+        """
+        self._proposal_object = None
+        self._proposal = ""
+
+    def _close_sample(self):
+        """Close the current sample.
+        """
+        self._sample_object = None
+        self._sample = ""
 
     def _close_dataset(self):
         """Close the current dataset. This will NOT create the dataset in Redis
         if it does not exist yet. If the dataset if already closed it does NOT
         raise an exception.
         """
-        dataset_object = self._dataset_object
-        if dataset_object is None:
+        dataset = self._dataset_object
+        if dataset is None:
             # The dataset object has not been cached
             try:
-                dataset_object = self._get_dataset_object(create=False)
+                dataset = self._get_dataset_object(create=False)
             except RuntimeError:
                 # The dataset is not fully defined or does not exist.
                 # Do nothing in that case.
-                dataset_object = None
-        if dataset_object is not None:
-            if not dataset_object.is_closed:
+                dataset = None
+        if dataset is not None:
+            if not dataset.is_closed:
                 # Finalize in Redis and send to ICAT
-                dataset_object.close()
+                dataset.close(self.icat_proxy)
         self._dataset_object = None
         self._dataset = ""
 
@@ -1347,8 +1537,8 @@ class ESRFScanSaving(BasicScanSaving):
         Metadata will be gathered if not already done. RuntimeError is raised
         when the dataset is already closed.
         """
-        dataset_object = self.dataset_object  # Created in Redis when missing
-        if dataset_object.is_closed:
+        dataset = self.dataset  # Created in Redis when missing
+        if dataset.is_closed:
             raise RuntimeError("Dataset is already closed (choose a different name)")
-        if not dataset_object.metadata_gathering_done:
-            dataset_object.gather_metadata()
+        if not dataset.metadata_gathering_done:
+            dataset.gather_metadata()

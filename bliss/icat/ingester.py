@@ -33,7 +33,6 @@ from bliss.tango.clients.utils import (
     is_devfailed_notallowed,
     is_devfailed_reconnect_delayed,
 )
-from bliss.common.logtools import log_error
 from bliss import current_session
 
 DEFAULT_TIMEOUT = 10
@@ -743,13 +742,13 @@ class IcatIngesterProxy(object):
             cmd = "notifyDebug"
         else:
             cmd = "userComment"
-        current_proposal = current_session.scan_saving.proposal
+        current_proposal = current_session.scan_saving.proposal_name
         if self.get_proposal(comm_state=comm_state) != current_proposal:
             self.set_proposal(current_proposal, comm_state=comm_state)
         try:
             self.metadata_manager.exec_command(cmd, args=(msg,), comm_state=comm_state)
         except IcatError as e:
-            log_error(self, f"elogbook: {e}")
+            logger.error(self, f"elogbook: {e}")
 
     @icat_comm
     def store_dataset(

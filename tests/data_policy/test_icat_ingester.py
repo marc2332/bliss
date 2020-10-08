@@ -53,7 +53,7 @@ def _create_state(icat_proxy, base_path, beamline, state, timeout=10):
 
 
 def test_ingester_status(
-    session, esrf_data_policy, metaexp_without_backend, metamgr_without_backend
+    session, metaexp_without_backend, metamgr_without_backend, esrf_data_policy
 ):
     synctimeout = 30
     mdexp_dev_fqdn, mdexp_dev = metaexp_without_backend

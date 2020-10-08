@@ -24,9 +24,9 @@ def masterfile_templates():
     """
     return {
         "sample": os.path.join(
-            "..", os.path.extsep.join(("{proposal}_{sample}", "h5"))
+            "..", os.path.extsep.join(("{proposal_name}_{sample_name}", "h5"))
         ),
         "proposal": os.path.join(
-            "..", "..", os.path.extsep.join(("{proposal}_{beamline}", "h5"))
+            "..", "..", os.path.extsep.join(("{proposal_name}_{beamline}", "h5"))
         ),
     }

@@ -1,7 +1,7 @@
 ## Dataset handling in bliss (according to ESRF Datapolicy)
 
 in Bliss icat datasets are represented as `dataset` objects that
-can be accessed (for debugging) via `SCAN_SAVING.dataset_object`.
+can be accessed (for debugging) via `SCAN_SAVING.dataset`.
 These objects map to a group of scans in redis and also collect the
 associated icat metadata.
 
@@ -52,23 +52,35 @@ DEMO_SESSION [14]: definitions.techniques.FLUO
 To add a specific technique to a dataset object use `add_technique`
          
 ```python
-DEMO_SESSION [15]: SCAN_SAVING.dataset_object.add_technique(definitions.techniques.FLUO)
+DEMO_SESSION [15]: SCAN_SAVING.dataset.add_technique(definitions.techniques.FLUO)
 
 ``` 
 
-actually adding metadata can be done like this:
+actually adding metadata can be in two ways, either like this:
 
 ```python
-scan_saving.dataset_object.write_metadata_field("FLUO_i0", str(17.1))
+scan_saving.dataset["FLUO_i0"] =  str(17.1)
 ```
 
-please note that icat only accepts strings as metadata values.
+or through namespaces that are intended for commandline usage:
+```python
+DEMO_SESSION [ 8]: SCAN_SAVING.dataset.expected.FLUO_i0 = str(17.1)
 
-once metadata is added it is possible to check which fields are still missing
+DEMO_SESSION [ 9]: SCAN_SAVING.dataset.existing
+
+DEMO_SESSION [10]: SCAN_SAVING.dataset.all
+```
+Please note that icat only accepts strings as metadata values.
+
+The `expected` namespace contains all fields that are used by the concerned techniques 
+(that are added to that dataset). The `existing` namespace contains all fields that are sofar published
+and `all` contains all accepted icat keys.
+
+Once metadata is added it is possible to check which fields are still missing
 in the dataset to have a full set of metadata:
 
 ```python
-DEMO_SESSION [16]: SCAN_SAVING.dataset_object.missing_technique_fields
+DEMO_SESSION [16]: SCAN_SAVING.dataset.missing_technique_fields
          Out [16]: {'FLUO_scanDim1', 'TOMO_it_end', 'FLUO_scanRange2',...}
 ```
 
@@ -91,42 +103,65 @@ from pprint import pprint
 
 
 def demo_with_technique():
+    """ a demo procedure using a custom scan saving"""
+
     scan_saving = ScanSaving("my_custom_scansaving")
 
+    # how is it suppsed to work with the dataset name?
+    ds_name = current_session.scan_saving.dataset
+    ds_name += "_b"
+
     # create a new dataset ony for the scans in here.
-    scan_saving.newdataset("my_new_dataset")
+    scan_saving.newdataset(ds_name)
 
     definitions = Definitions()
 
-    scan_saving.dataset_object.add_technique(definitions.techniques.FLUO)
+    scan_saving.dataset.add_technique(definitions.techniques.FLUO)
 
     # just prepare a custom scan ...
     ls = loopscan(3, .1, diode1, run=False)
     s = Scan(ls.acq_chain, scan_saving=scan_saving)
 
     # add some metadata before the scan runs
-    scan_saving.dataset_object.write_metadata_field("FLUO_i0", str(17.1))
+    scan_saving.dataset["FLUO_i0"] = str(17.1)
 
     # run the scan[s]
     s.run()
 
     # add some metadata after the scan runs
-    scan_saving.dataset_object.write_metadata_field("FLUO_it", str(18.2))
+    scan_saving.dataset["FLUO_it"] = str(18.2)
+
+    # just for the debug print at the end
+    node = scan_saving.dataset.node
+
+    # should this print be obligatory?
+    scan_saving.dataset.check_metatdata_consistency()
 
     # close the dataset
     scan_saving.enddataset()
-
 ```
 
 ## check already collected metadata
 to check already collected metatdata use `get_current_icat_metadata`
 
 ```
-DEMO_SESSION [2]: SCAN_SAVING.dataset_object.get_current_icat_metadata()
+DEMO_SESSION [2]: SCAN_SAVING.dataset.get_current_icat_metadata()
          Out [2]: {'InstrumentVariables_name': 'sy sz ', 'InstrumentVariables_value': '0.0 0.0 ', 'InstrumentSlitSecondary_vertical_gap': '0.0', 'InstrumentSlitSecondary_vertical_offset': '0.0', 'SamplePositioners_name': 'sy sz', 'SamplePositioners_value': '0.0 0.0'}
 ```
 
-## redis stream to receive events on datasets of a session
-there is a demo in `bliss.git/bliss/icat/demo_listener.py`. This part of the 
-implementation of datasest is still experimental (not used for publishing
-to icat) may change. 
+for commandline usage there is also the namespace `.existing` that can be used
+
+```
+DEMO_SESSION [10]: SCAN_SAVING.dataset.existing
+         Out [10]: Namespace containing:
+                   .InstrumentVariables_name     ('sy sz ')
+                   .InstrumentVariables_value     ('0.0 0.0 ')
+                   .InstrumentSlitSecondary_vertical_gap     ('0.0')
+                   .InstrumentSlitSecondary_vertical_offset     ('0.0')
+                   .SamplePositioners_name     ('sy sz')
+                   .SamplePositioners_value     ('0.0 0.0')
+                   .FLUO_i0     ('17.1')
+```
+
+## Receive events on datasets of a session through redis
+there is a demo in `bliss.git/bliss/icat/demo_listener.py`.

@@ -2,7 +2,7 @@
 #
 # This file is part of the bliss project
 #
-# Copyright (c) 2015-2010 Beamline Control Unit, ESRF
+# Copyright (c) 2015-2020 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 
@@ -13,6 +13,8 @@ from bliss.icat import FieldGroup
 from bliss.icat.definitions import Definitions
 from bliss.common.utils import autocomplete_property
 from types import SimpleNamespace
+from bliss.icat.policy import DataPolicyObject
+from bliss.icat.sample import Sample
 
 
 class CustomSetterNamespace(SimpleNamespace):
@@ -81,79 +83,14 @@ class CustomSetterNamespace(SimpleNamespace):
         return "Namespace containing:\n" + res
 
 
-class Dataset:
+class Dataset(DataPolicyObject):
 
-    # ~ BASE_ICAT_FIELDS = {
-    # ~ "title",
-    # ~ "proposal",
-    # ~ "folder_path",
-    # ~ "start_time",
-    # ~ "end_time",
-    # ~ "definition",
-    # ~ "Sample_name",
-    # ~ }
-    # defintion: space separated list of techniques?
+    REQUIRED_INFO = DataPolicyObject.REQUIRED_INFO | {"__closed__"}
+    NODE_TYPE = "dataset"
 
-    def __init__(
-        self,
-        icat_proxy,
-        dataset_node,
-        proposal=None,
-        sample=None,
-        root_path=None,
-        name=None,
-    ):
-        self._icat_proxy = icat_proxy  # 2 tango proxies
+    def __init__(self, node):
+        super().__init__(node)
         self.definitions = Definitions()
-
-        # management of dataset in redis
-        self._node = dataset_node
-        redis_sample = self.sample  # self._node.info.get("__sample__")
-        redis_proposal = self.proposal  # self._node.info.get("__proposal__")
-        redis_root_path = self.root_path  # self._node.info.get("__root_path__")
-        redis_name = self.name  # self._node.info.get("___name__")
-
-        if (
-            proposal is not None
-            or sample is not None
-            or root_path is not None
-            or name is not None
-        ):
-            # check that there is no contradiction
-            # could be managed in a nicer way
-            # if proposal, sample, root_path, name
-            # were not in the constructor
-            assert (
-                redis_sample is None or redis_sample == sample
-            ), f"Inconsistency with sample name in datatset {self.sample} vs. {sample}"
-            assert (
-                redis_proposal is None or redis_proposal == proposal
-            ), f"Inconsistency with proposal name in datatset {self.proposal} vs. {proposal}"
-            assert (
-                redis_root_path is None or redis_root_path == root_path
-            ), f"Inconsistency with root_path name in datatset {self.root_path} vs. {root_path}"
-            assert (
-                redis_name is None or redis_name == name
-            ), f"Inconsistency with name in datatset {self.name} vs. {name}"
-
-            if redis_sample is None:
-                self._node.info["__sample__"] = sample
-            if redis_proposal is None:
-                self._node.info["__proposal__"] = proposal
-            if redis_root_path is None:
-                self._node.info["__root_path__"] = root_path
-            if redis_name is None:
-                self._node.info["__name__"] = name
-
-        elif self._node.info.get("__closed__") is None:
-            raise RuntimeError(
-                "dataset has not been initalized, please provied sample proposal and root_path"
-            )
-
-        self._log_debug("new dataset object")
-
-    def _log_debug(self, msg):
-        log_debug(self, f"Dataset({self.root_path}: {msg}")
 
     def gather_metadata(self):
         """Initialize the dataset node info"""
@@ -293,9 +230,11 @@ class Dataset:
         if "definition" not in self._node.metadata and len(self._node.techniques) != 0:
             self.write_metadata_field("definition", " ".join(self._node.techniques))
 
-    def close(self):
+    def close(self, icat_proxy):
         """Close the dataset in Redis and send to ICAT.
         The dataset will not be closed when it has no data on disk.
+
+        :param IcatIngesterProxy icat_proxy:
         """
         if self.is_closed:
             raise RuntimeError("The dataset is already closed")
@@ -305,50 +244,41 @@ class Dataset:
             self._log_debug("not closed because no data")
             return
         self.finalize_metadata()
-        self._store_in_icat()
+        self._store_in_icat(icat_proxy)
         self._node.info["__closed__"] = True
         self._log_debug("closed dataset")
 
-    def _store_in_icat(self):
+    def _store_in_icat(self, icat_proxy):
         """Only send to ICAT when the path exists
+
+        :param IcatIngesterProxy icat_proxy:
         """
         self._log_debug("store in ICAT")
-        self._icat_proxy.store_dataset(
-            self.proposal,
-            self.sample,
+        sample = self.sample
+        icat_proxy.store_dataset(
+            sample.proposal.name,
+            sample.name,
             self.name,
-            self.root_path,
+            self.path,
             metadata=self.get_current_icat_metadata(),
         )
 
     @property
-    def proposal(self):
-        return self._node.info.get("__proposal__")
-
-    @property
     def sample(self):
-        return self._node.info.get("__sample__")
+        return Sample(self._node.parent)
 
     @property
-    def name(self):
-        return self._node.info.get("__name__")
+    def proposal(self):
+        return self.sample.proposal
 
     @property
-    def root_path(self):
-        return self._node.info.get("__root_path__")
-
-    @autocomplete_property
-    def node(self):
-        return self._node
-
-    @property
-    def scans(self):
+    def scan_nodes(self):
         yield from self._node.children()
 
     @property
     def has_scans(self):
         try:
-            next(self.scans)
+            next(self.scan_nodes)
         except StopIteration:
             return False
         else:
@@ -356,7 +286,7 @@ class Dataset:
 
     @property
     def has_data(self):
-        return os.path.exists(self.root_path)
+        return os.path.exists(self.path)
 
     @property
     def is_closed(self):

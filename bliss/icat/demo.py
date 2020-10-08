@@ -21,26 +21,26 @@ def demo_with_technique():
 
     definitions = Definitions()
 
-    scan_saving.dataset_object.add_technique(definitions.techniques.FLUO)
+    scan_saving.dataset.add_technique(definitions.techniques.FLUO)
 
     # just prepare a custom scan ...
     ls = loopscan(3, .1, diode1, run=False)
     s = Scan(ls.acq_chain, scan_saving=scan_saving)
 
     # add some metadata before the scan runs
-    scan_saving.dataset_object["FLUO_i0"] = str(17.1)
+    scan_saving.dataset["FLUO_i0"] = str(17.1)
 
     # run the scan[s]
     s.run()
 
     # add some metadata after the scan runs
-    scan_saving.dataset_object["FLUO_it"] = str(18.2)
+    scan_saving.dataset["FLUO_it"] = str(18.2)
 
     # just for the debug print at the end
-    node = scan_saving.dataset_object.node
+    node = scan_saving.dataset.node
 
     # should this print be obligatory?
-    scan_saving.dataset_object.check_metatdata_consistency()
+    scan_saving.dataset.check_metatdata_consistency()
 
     # close the dataset
     scan_saving.enddataset()

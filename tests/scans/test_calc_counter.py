@@ -330,3 +330,21 @@ def test_expr_calc_counter_with_ref(default_session):
         + s.get_data()["axis:roby"],
         s.get_data()["simu_expr_calc_ref_ctrl:simu_expr_calc_ref"],
     )
+
+
+def test_if_expr_calc_are_disjunct(default_session):
+    c1 = default_session.config.get("simu_expr_calc_ctrl")
+
+    assert c1.constants.m == 10
+    assert c1.constants.n == 100
+    assert "p" not in dir(c1.constants)
+
+    c2 = default_session.config.get("simu_expr_calc_ctrl2")
+
+    # check that the import of the first couter does not influence the second one
+    assert "p" not in dir(c1.constants)
+    assert c1.constants.m == 10
+
+    # check that the second counter is not influenced by the first one
+    assert c2.constants.m == 20
+    assert "n" not in dir(c2.constants)

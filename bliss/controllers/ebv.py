@@ -160,7 +160,6 @@ class BpmController(SamplingCounterController):
         self._cam_proxy = self._get_proxy()
         self._bpm_proxy = self._get_proxy(Lima._BPM)
 
-        self._acq_mode = 0
         self._acq_expo = None
         self._is_live = False
 
@@ -261,36 +260,34 @@ class BpmController(SamplingCounterController):
             raise TypeError(f"cannot handle data-type {data_type}")
 
     def _snap_and_get_image(self):
-        if self._acq_mode == 0:
-            self._cam_proxy.prepareAcq()
-            self._cam_proxy.startAcq()
+        self._cam_proxy.prepareAcq()
+        self._cam_proxy.startAcq()
 
-            gevent.sleep(self._acq_expo)
+        gevent.sleep(self._acq_expo)
 
-            with gevent.Timeout(2.0):
-                while self._cam_proxy.last_image_ready == -1:
-                    gevent.sleep(0.001)
+        with gevent.Timeout(2.0):
+            while self._cam_proxy.last_image_ready == -1:
+                gevent.sleep(0.001)
 
-            return self._get_image()
+        return self._get_image()
 
     def _snap_and_get_results(self):
-        if self._acq_mode == 0:
-            self._bpm_proxy.Start()
-            self._cam_proxy.prepareAcq()
-            self._cam_proxy.startAcq()
+        self._bpm_proxy.Start()
+        self._cam_proxy.prepareAcq()
+        self._cam_proxy.startAcq()
 
-            gevent.sleep(self._acq_expo)
+        gevent.sleep(self._acq_expo)
 
-            with gevent.Timeout(2.0):
-                data = []
-                while len(data) == 0:
-                    data = self._bpm_proxy.GetResults(0)
-                    gevent.sleep(0.001)
+        with gevent.Timeout(2.0):
+            data = []
+            while len(data) == 0:
+                data = self._bpm_proxy.GetResults(0)
+                gevent.sleep(0.001)
 
-            self._cam_proxy.stopAcq()
-            # self._bpm_proxy.Stop() # temporary fix, see issue 1707
+        self._cam_proxy.stopAcq()
+        # self._bpm_proxy.Stop() # temporary fix, see issue 1707
 
-            return data
+        return data
 
     def raw_read(self, prepare=True):
 

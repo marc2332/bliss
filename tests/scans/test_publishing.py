@@ -384,6 +384,28 @@ def test_iterator_over_reference_with_lima(redis_data_conn, lima_session, with_r
     assert numpy.allclose(next(view_iterator2), img0)
 
 
+def test_corrupt_lima_data_channel_node(lima_session, redis_data_conn):
+    lima_sim = lima_session.env_dict["lima_simulator"]
+    npoints = 10
+    s = scans.timescan(0.1, lima_sim, npoints=npoints)
+
+    images = []
+    for ev in s.node.walk_events(wait=False, filter="lima"):
+        if ev.type == ev.type.NEW_DATA:
+            images.extend(ev.data.data)
+    assert len(images) == npoints
+
+    # Remove the static lima info (contains lima_version, directory, ...)
+    queue_ref_key = f"{s.node.db_name}:timer:{lima_sim.fullname}:image_data_ref"
+    redis_data_conn.delete(queue_ref_key)
+
+    images = []
+    for ev in s.node.walk_events(wait=False, filter="lima"):
+        if ev.type == ev.type.NEW_DATA:
+            images.extend(ev.data.data)
+    assert len(images) == 0
+
+
 def test_ttl_on_data_node(beacon, redis_data_conn):
     redis_data_conn.delete("testing")
     node = DataNode("test", "testing", create=True)

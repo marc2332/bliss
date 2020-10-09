@@ -7,4 +7,15 @@
 """
 Package containing complex classes which are usually not main part of the
 application.
+
+.. autosummary::
+    :toctree:
+
+    model_helper
+    plot_interaction
+    rpc_server
+    scan_history
+    scan_info_helper
+    style_helper
+
 """

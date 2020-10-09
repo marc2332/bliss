@@ -386,26 +386,41 @@ def _select_default_counter(scan, plot):
                     item.setValueChannel(channelRef)
 
 
-def get_extra_displayed_channels(scan_info: Dict) -> Optional[List[str]]:
+class DisplayExtra(NamedTuple):
+    displayed_channels: Optional[List[str]]
+    plotselect: Optional[List[str]]
+
+
+def parse_display_extra(scan_info: Dict) -> DisplayExtra:
     """Return the list of the displayed channels stored in the scan"""
+
+    def parse_optional_list_of_string(data, name):
+        """Sanitize data from scan_info protocol"""
+        if data is None:
+            return None
+
+        if not isinstance(data, list):
+            _logger.warning("%s is not a list: Key ignored", name)
+            return None
+
+        if not all([isinstance(i, str) for i in data]):
+            _logger.warning("%s must only contains strings: Key ignored", name)
+            return None
+
+        return data
+
     display_extra = scan_info.get("_display_extra", None)
     if display_extra is not None:
-        displayed_channels = display_extra.get("displayed_channels", None)
-        # Sanitize
-        if displayed_channels is not None:
-            if not isinstance(displayed_channels, list):
-                _logger.warning(
-                    "_display_extra.flint_displayed_channels is not a list: Key ignored"
-                )
-                return None
-            elif len([False for i in displayed_channels if not isinstance(i, str)]) > 0:
-                _logger.warning(
-                    "_display_extra.flint_displayed_channels must only contains strings: Key ignored"
-                )
-                return None
-        return displayed_channels
+        raw = display_extra.get("displayed_channels", None)
+        displayed_channels = parse_optional_list_of_string(
+            raw, "_display_extra.displayed_channels"
+        )
+        raw = display_extra.get("plotselect", None)
+        plotselect = parse_optional_list_of_string(raw, "_display_extra.plotselect")
     else:
-        return None
+        displayed_channels = None
+        plotselect = None
+    return DisplayExtra(displayed_channels, plotselect)
 
 
 def create_plot_model(
@@ -423,13 +438,44 @@ def create_plot_model(
     else:
         plots = infer_plot_models(scan_info)
 
-    displayed_channels = get_extra_displayed_channels(scan_info)
-    if displayed_channels is not None:
-        for plot in plots:
-            if isinstance(
-                plot, (plot_item_model.CurvePlot, plot_item_model.ScatterPlot)
-            ):
-                model_helper.updateDisplayedChannelNames(plot, scan, displayed_channels)
+    def filter_with_scan_content(channel_names, scan):
+        if scan is None:
+            return channel_names
+        if channel_names is None:
+            return channel_names
+        # Filter selection by available channels
+        intersection = set(channel_names) & set(scan.getChannelNames())
+        _logger.error("intersection %s", intersection)
+        if len(channel_names) != len(intersection):
+            # Remove missing without breaking the order
+            for name in list(channel_names):
+                if name not in intersection:
+                    channel_names.remove(name)
+                    _logger.warning(
+                        "Skip display of channel '%s' from scan_info. Not part of the scan",
+                        name,
+                    )
+            if len(channel_names) == 0:
+                channel_names = None
+        return channel_names
+
+    display_extra = parse_display_extra(scan_info)
+    displayed_channels = filter_with_scan_content(
+        display_extra.displayed_channels, scan
+    )
+
+    for plot in plots:
+        channel_names = None
+        if isinstance(plot, plot_item_model.CurvePlot):
+            if displayed_channels is None:
+                channel_names = filter_with_scan_content(display_extra.plotselect, scan)
+            else:
+                channel_names = displayed_channels
+        elif isinstance(plot, plot_item_model.ScatterPlot):
+            if displayed_channels:
+                channel_names = displayed_channels
+        if channel_names:
+            model_helper.updateDisplayedChannelNames(plot, scan, channel_names)
 
     return plots
 

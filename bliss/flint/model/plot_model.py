@@ -325,6 +325,12 @@ class Item(qt.QObject):
         self.setVisible(state.pop("visible"))
         self.setCustomStyle(state.pop("style"))
 
+    def copy(self, parent):
+        state = self.__getstate__()
+        newItem = type(self)(parent)
+        newItem.__setstate__(state)
+        return newItem
+
     def version(self) -> int:
         """Version of this item.
 
@@ -443,6 +449,13 @@ class ChildItem(Item):
     def __setstate__(self, state):
         Item.__setstate__(self, state)
         self.__source = state.pop("source")
+
+    def copy(self, parent):
+        state = self.__getstate__()
+        newItem = type(self)(parent)
+        state["source"] = None
+        newItem.__setstate__(state)
+        return newItem
 
     def isChildOf(self, parent: Item) -> bool:
         source = self.source()

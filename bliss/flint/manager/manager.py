@@ -340,54 +340,10 @@ class ManageMainBehaviours(qt.QObject):
 
             plotModel = plots[0]
             availablePlots.remove(plotModel)
-            previousWidgetPlot = widget.plotModel()
             if plotModel is defaultPlot:
                 defaultWidget = widget
 
-            if previousWidgetPlot is not None:
-                # Ad hoc solution to fix plot axis
-                # Instead of using removeNotAvailableChannels
-                # We should use a copyAvailableChannels
-                if widget.scan() is None:
-                    previousScanInfo = {}
-                else:
-                    previousScanInfo = widget.scan().scanInfo()
-                equivalentPlots = scan_info_helper.is_same(
-                    scan.scanInfo(), previousScanInfo
-                )
-                if not equivalentPlots:
-                    previousWidgetPlot = None
-
-            # Try to reuse the previous plot
-            if not useDefaultPlot and previousWidgetPlot is not None:
-                with previousWidgetPlot.transaction():
-                    # Clean up temporary items
-                    for item in list(previousWidgetPlot.items()):
-                        if isinstance(item, plot_model.NotReused):
-                            try:
-                                previousWidgetPlot.removeItem(item)
-                            except Exception:
-                                pass
-
-                    # Reuse only available values
-                    # FIXME: Make it work first for curves, that's the main use case
-                    if isinstance(previousWidgetPlot, plot_item_model.CurvePlot):
-                        model_helper.removeNotAvailableChannels(
-                            previousWidgetPlot, plotModel, scan
-                        )
-
-            if (
-                useDefaultPlot
-                or previousWidgetPlot is None
-                or previousWidgetPlot.isEmpty()
-            ):
-                if plotModel.styleStrategy() is None:
-                    plotModel.setStyleStrategy(DefaultStyleStrategy(self.__flintModel))
-                widget.setPlotModel(plotModel)
-
-            previousScan = widget.scan()
-            self.__clearPreviousScan(previousScan)
-            widget.setScan(scan)
+            self.updateWidgetWithPlot(widget, scan, plotModel, useDefaultPlot)
             usedWidgets.append(widget)
 
         # There is no way in Qt to tabify a widget to a new floating widget
@@ -424,6 +380,46 @@ class ManageMainBehaviours(qt.QObject):
             lastTab = widget
 
         self.__updateFocus(defaultWidget, usedWidgets)
+
+    def updateWidgetWithPlot(self, widget, scan, plotModel, useDefaultPlot):
+        previousWidgetPlot = widget.plotModel()
+        if previousWidgetPlot is not None:
+            if widget.scan() is None:
+                previousScanInfo = {}
+            else:
+                previousScanInfo = widget.scan().scanInfo()
+            equivalentPlots = scan_info_helper.is_same(
+                scan.scanInfo(), previousScanInfo
+            )
+            if not equivalentPlots:
+                previousWidgetPlot = None
+
+        # Try to reuse the previous plot
+        if not useDefaultPlot and previousWidgetPlot is not None:
+            with previousWidgetPlot.transaction():
+                # Clean up temporary items
+                for item in list(previousWidgetPlot.items()):
+                    if isinstance(item, plot_model.NotReused):
+                        try:
+                            previousWidgetPlot.removeItem(item)
+                        except Exception:
+                            pass
+
+                # Reuse only available values
+                # FIXME: Make it work first for curves, that's the main use case
+                if isinstance(previousWidgetPlot, plot_item_model.CurvePlot):
+                    model_helper.copyItemsFromChannelNames(
+                        previousWidgetPlot, plotModel
+                    )
+
+        if useDefaultPlot or previousWidgetPlot is None or previousWidgetPlot.isEmpty():
+            if plotModel.styleStrategy() is None:
+                plotModel.setStyleStrategy(DefaultStyleStrategy(self.__flintModel))
+            widget.setPlotModel(plotModel)
+
+        previousScan = widget.scan()
+        self.__clearPreviousScan(previousScan)
+        widget.setScan(scan)
 
     def __updateFocus(self, defaultWidget, usedWidgets):
         """

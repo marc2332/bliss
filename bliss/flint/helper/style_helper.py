@@ -157,19 +157,17 @@ class DefaultStyleStrategy(plot_model.StyleStrategy):
         plot = self.plot()
         if isinstance(plot, plot_item_model.ScatterPlot):
             self.computeItemStyleFromScatterPlot(plot)
-            return
         elif isinstance(plot, plot_item_model.ImagePlot):
             self.computeItemStyleFromImagePlot(plot)
-            return
+        else:
+            scans: List[Optional[scan_model.Scan]] = []
+            for item in plot.items():
+                if isinstance(item, plot_item_model.ScanItem):
+                    scans.append(item.scan())
+            if scans == []:
+                scans.append(None)
 
-        scans: List[Optional[scan_model.Scan]] = []
-        for item in plot.items():
-            if isinstance(item, plot_item_model.ScanItem):
-                scans.append(item.scan())
-        if scans == []:
-            scans.append(None)
-
-        self.computeItemStyleFromCurvePlot(plot, scans)
+            self.computeItemStyleFromCurvePlot(plot, scans)
 
     def getStyleFromItem(
         self, item: plot_model.Item, scan: scan_model.Scan = None

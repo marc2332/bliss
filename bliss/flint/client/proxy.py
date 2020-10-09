@@ -551,8 +551,13 @@ def _get_flint_pid_from_redis(session_name):
 def _get_cached_flint() -> typing.Optional[FlintClient]:
     """Returns the cached flint proxy"""
     global FLINT
-    if FLINT is not None and FLINT.pid is None:
-        FLINT = None
+    if FLINT is not None:
+        if FLINT.pid is None:
+            FLINT = None
+        else:
+            # Make sure the application is alive anyway the proxy is there
+            if not psutil.pid_exists(FLINT.pid):
+                FLINT = None
     return FLINT
 
 

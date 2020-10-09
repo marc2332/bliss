@@ -603,6 +603,7 @@ def updateDisplayedChannelNames(
     else:
         raise ValueError("This plot type %s is not supported" % type(plot))
 
+    unneeded_items = set(unneeded_items)
     with plot.transaction():
         for item in used_items:
             item.setVisible(True)
@@ -621,13 +622,75 @@ def updateDisplayedChannelNames(
                     plot.addItem(item)
                 else:
                     if kind == "scatter":
-                        item, _updated = createScatterItem(plot, channel)
+                        item, updated = createScatterItem(plot, channel)
+                        if updated:
+                            unneeded_items.discard(item)
                     elif kind == "curve":
                         # FIXME: We have to deal with left/right axis
                         # FIXME: Item can't be added without topmaster
-                        item, _updated = createCurveItem(plot, channel, yAxis="left")
+                        item, updated = createCurveItem(plot, channel, yAxis="left")
+                        if updated:
+                            unneeded_items.discard(item)
                     else:
                         assert False
                 item.setVisible(True)
         for item in unneeded_items:
             plot.removeItem(item)
+
+
+def copyItemsFromChannelNames(
+    sourcePlot: plot_model.Plot, destinationPlot: plot_model.Plot
+):
+    """Copy from the source plot the item which was setup into the destination plot"""
+    if not isinstance(sourcePlot, plot_item_model.CurvePlot):
+        raise TypeError("Only available for curve plot. Found %s" % type(sourcePlot))
+    if not isinstance(destinationPlot, type(sourcePlot)):
+        raise TypeError(
+            "Both plots must have the same type. Found %s" % type(destinationPlot)
+        )
+
+    availableItems = {}
+    for item in sourcePlot.items():
+        if isinstance(item, plot_item_model.CurveItem):
+            channel = item.yChannel()
+            if channel is None:
+                continue
+            name = channel.name()
+            availableItems[name] = item
+
+    with destinationPlot.transaction():
+        for item in destinationPlot.items():
+            if isinstance(item, plot_item_model.CurveItem):
+                channel = item.yChannel()
+                if channel is None:
+                    continue
+                name = channel.name()
+                sourceItem = availableItems.get(name)
+                if sourceItem is not None:
+                    copyItemConfig(sourceItem, item)
+
+
+def copyItemConfig(sourceItem: plot_model.Item, destinationItem: plot_model.Item):
+    """Copy the configuration and the item tree from a source item to a
+    destination item"""
+    if not isinstance(sourceItem, plot_item_model.CurveItem):
+        raise TypeError("Only available for curve item. Found %s" % type(sourceItem))
+    if not isinstance(destinationItem, type(sourceItem)):
+        raise TypeError(
+            "Both items must have the same type. Found %s" % type(destinationItem)
+        )
+
+    destinationItem.setYAxis(sourceItem.yAxis())
+
+    sourceToDest = {}
+    sourceToDest[sourceItem] = destinationItem
+
+    destinationPlot = destinationItem.plot()
+    for item in sourceItem.plot().items():
+        if item.isChildOf(sourceItem):
+            newItem = item.copy(destinationPlot)
+            newItem.setParent(destinationPlot)
+            destinationSource = sourceToDest[item.source()]
+            newItem.setSource(destinationSource)
+            destinationPlot.addItem(newItem)
+            sourceToDest[item] = newItem

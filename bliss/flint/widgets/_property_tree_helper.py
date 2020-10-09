@@ -22,16 +22,15 @@ from bliss.flint.model import plot_state_model
 class StandardRowItem(qt.QStandardItem):
     """Default standard item to simplify creation of trees with many columns.
 
-    This item is tghe first item of the row (first column) and store other
+    This item is the first item of the row (first column) and store other
     items of the row (other columns).
 
     The method `rowItems` provides the list of the item in the row, in order to
     append it to other items of the tree using the default `appendRow` method.
 
-    .. code-block::
+    .. code-block:: python
 
         parent.appendRow(item.rowItems())
-    ```
     """
 
     def __init__(self):

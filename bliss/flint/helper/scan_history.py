@@ -35,6 +35,7 @@ def get_all_scans(session_name: str) -> typing.List[ScanDesc]:
     Returns all scans still references from the history.
 
     .. code-block:: python
+
         from bliss import current_session
         scans = get_scans(current_session.name)
         print(scans[0].node_name)

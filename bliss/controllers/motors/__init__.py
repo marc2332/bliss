@@ -10,16 +10,12 @@
 .. autosummary::
     :toctree:
 
-    calc_motor_mockup
-    energy_wl
     flexdc
     galildmc213
     icepap
-    id16beam
-    id31diffractlintilt
-    id31diffract
+    id16
     kb
-    md2
+    mx
     mockup
     nf8753
     pi_c663
@@ -31,17 +27,12 @@
     pi_gcs
     pm600
     pmd206
-    setpoint
     slitbox
     slits
-    spectro_eh1_test_v1
-    spectro_eh1_test_v2
     tab3
     tabsup
     tangoemot
-    template
     trans4
-    undulator
     vscanner
 """
 __all__ = []

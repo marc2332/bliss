@@ -2,6 +2,5 @@
 .. autosummary::
     :toctree:
 
-    lakeshore
-    linkam
+    temperature
 """

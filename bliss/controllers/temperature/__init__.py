@@ -6,5 +6,4 @@
     eurotherm
     mockup
     oxfordcryo
-    bronkhorst_mfc
 """

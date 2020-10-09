@@ -18,6 +18,28 @@ It will also be displayed mesh scans.
 
 ![Flint screenshot](img/flint-curve-widget.png)
 
+This plot provides an API to [interact with region of interest](flint_interaction.md)
+and to custom few things. The following lines shows how to add processed data from
+BLISS shell.
+
+```python
+scan = ascan(sx,0,2,100,0.01, diode1, diode2)
+
+# Denoise the signal from the diode1
+import scipy.signal
+ydata = scan.get_data()[diode1.fullname]
+n = 15
+b = [1.0 / n] * n
+ydenoised = scipy.signal.lfilter(b, 1, ydata)
+
+# Make sure flint is uptodate with the last scan
+f.wait_end_of_scans()
+
+# Get the live plot and attach the denoised signal to the diode1
+p = f.get_live_plot("default-curve")
+p.update_user_data("denoized", diode1.fullname, ydenoised)
+```
+
 ## Scatter widget
 
 If the scan contains counters data which have to be displayed is 2D, the

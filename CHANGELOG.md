@@ -27,6 +27,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Provides a `set_colormap` method to custom live plot image colormap
     - Provide `focus` method to set the focus to a plot
     - Provide a method to export a plot to the logbook
+    - Provide `update_user_data` method to feed live plot with processed data
+      from BLISS shell
 - Custom scan description (`scan_info`)
     - Added fields to explicitly describe scatter plots
     - Added fields to group channels of the same size

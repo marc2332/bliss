@@ -355,3 +355,36 @@ def test_plotselect__switch_scan(test_session_with_flint):
     flint.wait_end_of_scans()
     p1 = flint.get_live_plot("default-curve")
     assert diode2.fullname in flint.test_displayed_channel_names(p1.plot_id)
+
+
+def test_update_user_data(test_session_with_flint):
+    session = test_session_with_flint
+    ascan = session.env_dict["ascan"]
+    roby = session.config.get("roby")
+    diode = session.config.get("diode")
+    diode2 = session.config.get("diode2")
+    flint = plot.get_flint()
+
+    logger = logging.getLogger("flint.output")
+    logger.disabled = False
+    logger.setLevel(logging.INFO)
+
+    ascan(roby, 0, 5, 2, 0.001, diode, diode2)
+
+    # synchronize redis events with flint
+    flint.wait_end_of_scans()
+
+    p1 = flint.get_live_plot("default-curve")
+
+    data = numpy.arange(3)
+    # Create on selected item
+    p1.update_user_data("foo", diode.fullname, data)
+    # Create on non-selected item
+    p1.update_user_data("foo", diode2.fullname, data)
+    # Remove
+    p1.update_user_data("foo", diode.fullname, None)
+    # Remove a non-existing item
+    p1.update_user_data("foo2", diode.fullname, None)
+
+    gevent.sleep(1)
+    assert flint.test_count_displayed_items(p1.plot_id) == 2

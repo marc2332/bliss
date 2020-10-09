@@ -613,3 +613,84 @@ class NormalizedCurveItem(plot_model.ChildItem, plot_item_model.CurveMixIn):
                 )
         else:
             assert False
+
+
+class UserValueItem(
+    plot_model.ChildItem, plot_item_model.CurveMixIn, plot_model.NotReused
+):
+    """This item is used to add to the plot data provided by the user.
+
+    The y-data is custom and the x-data is provided by the linked item.
+    """
+
+    def __init__(self, parent=None):
+        plot_model.ChildItem.__init__(self, parent=parent)
+        plot_item_model.CurveMixIn.__init__(self)
+        self.__name = "userdata"
+        self.__y = None
+
+    def setName(self, name):
+        self.__name = name
+
+    def name(self) -> str:
+        return self.__name
+
+    def displayName(self, axisName, scan: scan_model.Scan) -> str:
+        if axisName == "x":
+            sourceItem = self.source()
+            return sourceItem.displayName("x", scan)
+        elif axisName == "y":
+            return self.__name
+
+    def isValid(self):
+        return self.source() is not None and self.__y is not None
+
+    def inputData(self):
+        return _getHashableSource(self.source())
+
+    def xData(self, scan: scan_model.Scan) -> Optional[scan_model.Data]:
+        source = self.source()
+        if source is None:
+            return None
+        return source.xData(scan)
+
+    def setYArray(self, array):
+        self.__y = array
+        self._emitValueChanged(plot_model.ChangeEventType.Y_CHANNEL)
+
+    def yData(self, scan: scan_model.Scan) -> Optional[scan_model.Data]:
+        return scan_model.Data(self, self.__y)
+
+    def getScanValidation(self, scan: scan_model.Scan) -> Optional[str]:
+        """
+        Returns None if everything is fine, else a message to explain the problem.
+        """
+        xx = self.xArray(scan)
+        yy = self.yArray(scan)
+        if xx is None and yy is None:
+            return "No data available for X and Y data"
+        elif xx is None:
+            return "No data available for X data"
+        elif yy is None:
+            return "No data available for Y data"
+        elif xx.ndim != 1:
+            return "Dimension of X data do not match"
+        elif yy.ndim != 1:
+            return "Dimension of Y data do not match"
+        elif len(xx) != len(yy):
+            return "Size of X and Y data do not match"
+        # It's fine
+        return None
+
+    def setSource(self, source: plot_model.Item):
+        previousSource = self.source()
+        if previousSource is not None:
+            previousSource.valueChanged.disconnect(self.__sourceChanged)
+        plot_model.ChildItem.setSource(self, source)
+        if source is not None:
+            source.valueChanged.connect(self.__sourceChanged)
+            self.__sourceChanged(plot_model.ChangeEventType.X_CHANNEL)
+
+    def __sourceChanged(self, eventType):
+        if eventType == plot_model.ChangeEventType.X_CHANNEL:
+            self._emitValueChanged(plot_model.ChangeEventType.X_CHANNEL)

@@ -21,6 +21,7 @@ TODO :
 YAML_ configuration example:
 
 .. code-block:: yaml
+
     - class: tango_attr_as_counter
       uri: orion:10000/fe/id/11
       counters:

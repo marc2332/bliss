@@ -7,3 +7,4 @@ Contents:
 
 .. automodule:: bliss
 
+.. include:: glossary.rst

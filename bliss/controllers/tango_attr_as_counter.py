@@ -7,11 +7,11 @@
 
 """
 Tango number attribute as a counter:
-* counter name can be different than attributre name
+* counter name can be different than attribute name
 * if unit is not specified, unit is taken from tango configuration (if any)
 * conversion factor is taken from tango configuration (if any)
 
-TODO :
+TODO:
 * alarm ?
 * writability ?
 * string attribute
@@ -21,6 +21,7 @@ TODO :
 YAML_ configuration example:
 
 .. code-block:: yaml
+
     - class: tango_attr_as_counter
       uri: orion:10000/fe/id/11
       counters:
@@ -29,14 +30,6 @@ YAML_ configuration example:
           unit: mA
         - name: lifetime
           attr_name: SR_Lifetime
-
-TESTS:
-pytest tests/controllers_sw/test_tango_attr_counters.py
-
-Test files:
-bliss/tests/controllers_sw/test_tango_attr_counters.py
-bliss/tests/test_configuration/tango_attribute_counter.yml
-
 """
 
 import weakref

@@ -769,14 +769,13 @@ class FlintApi:
             initial_shapes: A list of shapes describing the current selection.
             timeout: A timeout to enforce the user to do a selection
             kinds: List or ROI kind which can be created (for now, "rectangle"
-            (described as a dict), "lima-rectangle", "lima-arc", "lima-vertical-profile",
-            "lima-horizontal-profile")
+                   (described as a dict), "lima-rectangle", "lima-arc",
+                   "lima-vertical-profile", "lima-horizontal-profile")
 
         Return:
             This method returns an event name which have to be registered to
-            reach the result.
-
-            The event event is list of shapes describing the selection
+            reach the result. The event result is list of shapes describing the
+            selection.
         """
         plot = self._get_plot_widget(plot_id, expect_silx_api=True)
         selector = plot_interaction.ShapesSelector(plot)

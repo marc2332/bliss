@@ -27,8 +27,8 @@ remote.
 
 * :class:`~bliss.controllers.ct2.client.CT2` - a remote CT2 device. This
   object is probably the one you will use most of the times. It talks to
-  a remote CT2 through bliss rpc. The bliss rpc server runs on the machine
-  where the card is phisically installed in a PCI/cPCI slot.
+  a remote CT2 through bliss rpc. The bliss RPC server runs on the machine
+  where the card is physically installed in a PCI/cPCI slot.
 
 * :class:`~bliss.controllers.ct2.device.CT2` - a local CT2 device. This
   object is instantiated by the bliss rpc server

@@ -7,4 +7,10 @@
 """
 Package containing few data and process class to simulate a specific working
 environment.
+
+.. autosummary::
+    :toctree:
+
+    acquisition
+    simulator_widget
 """

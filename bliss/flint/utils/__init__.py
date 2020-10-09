@@ -9,4 +9,14 @@ Package contains helper function which are usually very small and simple, and
 could be easily be copy-pasted into another place.
 
 This functions are usually grouped into modules by themes.
+
+.. autosummary::
+    :toctree:
+
+    mathutils
+    qmodelutils
+    qsettingsutils
+    signalutils
+    stringutils
+    svgutils
 """

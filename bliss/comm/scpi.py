@@ -140,8 +140,8 @@ def min_max_cmd(cmd_expr):
 
     Example::
 
-    >>> min_max_cmd('SYSTem:ERRor[:NEXT]')
-    ('SYST:ERR', 'SYSTEM:ERROR:NEXT')
+        >>> min_max_cmd('SYSTem:ERRor[:NEXT]')
+        ... ('SYST:ERR', 'SYSTEM:ERROR:NEXT')
     """
     result_min, optional = "", 0
     for c in cmd_expr:
@@ -339,16 +339,17 @@ class SCPIError(CommunicationError):
 
 def sanitize_msgs(*msgs, **opts):
     """
-    Transform a tuple of messages into a list  of
-    (<individual commands>, <individual queries>, <full_message>):
+    Transform a tuple of messages into a list of
+    `(<individual commands>, <individual queries>, <full_message>)`.
 
-    if strict_query=True, sep=';', eol='\n' (default):
-        msgs = ('*rst', '*idn?;*cls') =>
-            (['*RST', '*IDN?', '*CLS'], ['*IDN?'], '*RST\n*IDN?\n*CLS')
+    .. code-block::
 
-    if strict_query=False, sep=';', eol='\n' (default):
-        msgs = ('*rst', '*idn?;*cls') =>
-            (['*RST', '*IDN?', '*CLS'], ['*IDN?'], '*RST\n*IDN?;*CLS')
+        if strict_query=True, sep=';', eol='\\n' (default):
+            msgs = ('*rst', '*idn?;*cls') =>
+                (['*RST', '*IDN?', '*CLS'], ['*IDN?'], '*RST\\n*IDN?\\n*CLS')
+        if strict_query=False, sep=';', eol='\\n' (default):
+            msgs = ('*rst', '*idn?;*cls') =>
+                (['*RST', '*IDN?', '*CLS'], ['*IDN?'], '*RST\\n*IDN?;*CLS')
     """
     eol = opts.get("eol", "\n")
     # eol has to be a string
@@ -556,9 +557,9 @@ class SCPI:
             >>> # set ESE to 1 and ask for IDN and ESE
             >>> (_, idn), (_, ese) = instrument.read('*ESE 1; *IDN?; *ESE?')
 
-        Args:
-            *msgs (str): raw message to be queried (ex: '*IDN?')
-            **kwargs: supported kwargs: *raw* (default: False), *eol*,
+        Arguments:
+            *msgs (str): raw message to be queried (ex: `'*IDN?'`)
+            **kwargs: supported kwargs: *raw* (default: `False`), *eol*,
                       *sep* (command separator)
         Returns:
             list: list of query results. Each result is a pair
@@ -615,7 +616,7 @@ class SCPI:
             instrumment.write('*RST')
 
         Args:
-            *msgs (str): raw command (ex: '*CLS')
+            *msgs (str): raw command (ex: `'*CLS'`)
 
         Raises:
             CommunicationError: in case of device not accessible

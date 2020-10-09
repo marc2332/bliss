@@ -407,6 +407,7 @@ class ImagePlot(BasePlot):
 
         Argument:
             initial_mask: An initial mask image, else None
+
         Return:
             A numpy array containing the user mask image
         """
@@ -429,17 +430,18 @@ class ImagePlot(BasePlot):
 
         Arguments:
             lut: A name of a LUT. At least the following names are supported:
-                 'gray', 'reversed gray', 'temperature', 'red', 'green', 'blue',
-                 'jet', 'viridis', 'magma', 'inferno', 'plasma'.
-            vmin: Can be a float or 'auto' to set the min level value
-            vmax: Can be a float or 'auto' to set the max level value
-            normalization: Can be on of 'linear', 'log', 'arcsinh', 'sqrt', 'gamma'
+                 `"gray"`, `"reversed gray"`, `"temperature"`, `"red"`, `"green"`,
+                 `"blue"`, `"jet"`, `"viridis"`, `"magma"`, `"inferno"`, `"plasma"`.
+            vmin: Can be a float or "`auto"` to set the min level value
+            vmax: Can be a float or "`auto"` to set the max level value
+            normalization: Can be on of `"linear"`, `"log"`, `"arcsinh"`,
+                           `"sqrt"`, `"gamma"`.
             gamma_normalization: float defining the gamma normalization.
-                                 If defined the 'normalization' argument  is
-                                 ignored
+                                 If this argument is defined the `normalization`
+                                 argument is ignored
             autoscale: If true, the auto scale is set for min and max
                        (vmin and vmax arguments are ignored)
-            autoscale_mode: Can be one of "minmax" or "3stddev"
+            autoscale_mode: Can be one of `"minmax"` or `"3stddev"`
         """
         flint = self._flint
         flint.set_plot_colormap(

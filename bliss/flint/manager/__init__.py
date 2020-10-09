@@ -6,4 +6,13 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 """
 Package containing managers interacting with events and model.
+
+.. autosummary::
+    :toctree:
+
+    data_storage
+    manager
+    monitoring
+    scan_manager
+    workspace_manager
 """

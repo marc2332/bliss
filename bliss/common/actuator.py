@@ -38,9 +38,11 @@ class AbstractActuator:
 
     def set_in(self, timeout=None):
         """ Set the actuator in position IN
+
         Args:
            timeout (float): timeout [s] after which the action is not
                             completed, if check set
+
         Raises:
            Timeout: timeout (if check the position asked)
         """
@@ -63,9 +65,11 @@ class AbstractActuator:
 
     def set_out(self, timeout=None):
         """ Set the actuator in position OUT
+
         Args:
            timeout (float): timeout [s] after which the action is not
                             completed, if check set
+
         Raises:
            Timeout: timeout (if check the position asked)
         """
@@ -86,6 +90,7 @@ class AbstractActuator:
 
     def is_in(self):
         """ Check if the actuator is in position IN.
+
         Returns:
             (bool): True if IN, False otherwise
         """
@@ -102,6 +107,7 @@ class AbstractActuator:
 
     def is_out(self):
         """ Check if the actuator is in position OUT.
+
         Returns:
             (bool): True if OUT, False otherwise
         """
@@ -118,9 +124,11 @@ class AbstractActuator:
 
     def toggle(self, timeout=None):
         """ Toggle between IN/OUT
+
         Args:
            timeout (float): timeout [s] after which the action is not
                             completed, if check set
+
         Raises:
            Timeout: timeout (if check the position asked)
         """
@@ -131,7 +139,8 @@ class AbstractActuator:
 
     @property
     def state(self):
-        """ Get the state of the actuator
+        """ Get the state of the actuator.
+
         Returns:
             (str): The state of the actuator
         """

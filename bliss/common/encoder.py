@@ -186,13 +186,16 @@ class EncoderFilter(Encoder):
 
 def encoder_noise_round(obs_value, expected_value, stepsize, noise):
     """
-    obs_value      = the digital number coming from hardware
-    expected_value = the value we expect to get based on setpoint
-    stepsize       = the digitization precision
-    noise          = typical read noise
-    returns a value you can use for feedback (
-         - removes digization
-         - weights estimate if noise > 0
+    Process the value to allow to use it as feedback:
+
+    - removes digization
+    - weights estimate if noise > 0
+
+    Arguments:
+        obs_value: the digital number coming from hardware
+        expected_value: the value we expect to get based on setpoint
+        stepsize: the digitization precision
+        noise: typical read noise
     """
     diff = obs_value - expected_value
     diff_steps = diff / abs(stepsize)

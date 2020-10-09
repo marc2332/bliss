@@ -328,14 +328,16 @@ class HexMsg:
     """
     Encapsulate a message with a hexadecimal representation.
     Useful to have in log messages since it only computes the hex representation
-    if the log message is recorded. Example::
+    if the log message is recorded.
+
+    Example::
 
         import logging
         from bliss.comm.util import HexMsg
 
         logging.basicConfig(level=logging.INFO)
 
-        msg_from_socket = '\x00\x00\x00\x021\n'
+        msg_from_socket = '\\x00\\x00\\x00\\x021\\n'
         logging.debug('Rx: %r', HexMsg(msg_from_socket))
     """
 

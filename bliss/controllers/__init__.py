@@ -22,8 +22,6 @@ and their common API and functionality can be determined
     ebv
     emh
     expression_based_calc
-    flex
-    gasrig
     keithley
     keithley428
     keithley_scpi_mapping

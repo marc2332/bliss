@@ -10,15 +10,17 @@ from bliss.scanning.chain import AcquisitionMaster
 """
 Configuration YML:
 
-- class: Elettra
-  module: tango_elettra
-  name: el2
-  uri: //id20ctrl2:20000/id20/elettra/ss1
-  counters:
-  - counter_name: el2x
-    measure: Y
-  - counter_name: el2y
-    measure: Z
+.. code-block:: yaml
+
+    - class: Elettra
+      module: tango_elettra
+      name: el2
+      uri: //id20ctrl2:20000/id20/elettra/ss1
+      counters:
+      - counter_name: el2x
+        measure: Y
+      - counter_name: el2y
+        measure: Z
 """
 
 MEASURE_KEYS = {

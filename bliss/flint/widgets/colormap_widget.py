@@ -28,9 +28,23 @@ class ColormapWidget(ExtendedDockWidget):
         dialog.setWindowFlags(qt.Qt.Widget)
         dialog.setFixedSize(qt.QWIDGETSIZE_MAX, qt.QWIDGETSIZE_MAX)
         dialog.setVisible(True)
-        self.setWidget(dialog)
         dialog.installEventFilter(self)
         self.__dialog = weakref.ref(dialog)
+
+        # FIXME: THis should be done with stylesheet
+        mainWidget = qt.QFrame(self)
+        mainWidget.setFrameShape(qt.QFrame.StyledPanel)
+        mainWidget.setAutoFillBackground(True)
+        layout = qt.QVBoxLayout(mainWidget)
+        layout.addWidget(dialog)
+        layout.setContentsMargins(0, 0, 0, 0)
+
+        # FIXME: THis should be done with stylesheet
+        widget = qt.QFrame(self)
+        layout = qt.QVBoxLayout(widget)
+        layout.addWidget(mainWidget)
+        layout.setContentsMargins(0, 1, 0, 0)
+        self.setWidget(widget)
 
         self.__owner = None
         self.__channelName: Optional[str] = None

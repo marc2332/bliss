@@ -15,6 +15,7 @@ Package containing Qt widgets.
     ct_widget
     curve_plot_property
     curve_plot
+    colormap_widget
     delegates
     extended_dock_widget
     eye_check_box

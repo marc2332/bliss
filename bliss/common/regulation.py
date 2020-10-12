@@ -278,6 +278,15 @@ class Input(SamplingCounterController):
         log_debug(self, "Input:state")
         return self._controller.state_input(self)
 
+    def allow_regulation(self):
+        """ This method is called by the SoftLoop to check if the regulation should be suspended.
+            If this method returns False, the SoftLoop will pause the PID algorithm that computes the output value.
+            As soon as this method returns True, the PID algorithm is resumed.
+            While returning False, you must ensure that the read method of the Input
+            still returns a numerical value (like the last readable value). 
+         """
+        return True
+
 
 class ExternalInput(Input):
     """ Implements the access to an external input device (i.e. not accessed via the regulation controller itself, like an axis or a counter)
@@ -1681,15 +1690,16 @@ class SoftLoop(Loop):
 
         while not self._stop_event.is_set():
 
-            input_value = self.input.read()
-            power_value = self.pid(input_value)
+            if self.input.allow_regulation():
+                input_value = self.input.read()
+                power_value = self.pid(input_value)
 
-            output_value = self._get_power2unit(power_value)
+                output_value = self._get_power2unit(power_value)
 
-            self._pid_output_value = output_value
+                self._pid_output_value = output_value
 
-            if not self.is_in_idleband():
-                self.output.set_value(output_value)
+                if not self.is_in_idleband():
+                    self.output.set_value(output_value)
 
             gevent.sleep(self.pid.sample_time)
 

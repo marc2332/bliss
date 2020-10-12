@@ -7,6 +7,7 @@
 
 import pytest
 import time
+import gevent
 import os
 import gevent
 from bliss.common.standard import loopscan, mv
@@ -24,6 +25,10 @@ from bliss.shell.standard import (
     elog_print,
 )
 from bliss.common import logtools
+from bliss.data.node import get_node
+from bliss.icat.definitions import Definitions
+from bliss.scanning.scan import Scan
+from bliss.icat.dataset import Dataset
 
 
 def icat_info(scan_saving, dataset=False):
@@ -38,14 +43,14 @@ def icat_info(scan_saving, dataset=False):
         start = f'<tns:investigation xmlns:tns="{url}">'
         end = "</tns:investigation>"
         exptag = "experiment"
-    proposal = f"<tns:{exptag}>{scan_saving.proposal}</tns:{exptag}>"
+    proposal = f"<tns:{exptag}>{scan_saving.proposal_name}</tns:{exptag}>"
     beamline = f"<tns:instrument>{scan_saving.beamline}</tns:instrument>"
     info = {"start": start, "end": end, "proposal": proposal, "beamline": beamline}
     if dataset:
-        info["dataset"] = f"<tns:name>{scan_saving.dataset}</tns:name>"
+        info["dataset"] = f"<tns:name>{scan_saving.dataset_name}</tns:name>"
         info[
             "sample"
-        ] = f'<tns:sample xmlns:tns="{url}"><tns:name>{scan_saving.sample}</tns:name></tns:sample>'
+        ] = f'<tns:sample xmlns:tns="{url}"><tns:name>{scan_saving.sample_name}</tns:name></tns:sample>'
         info["path"] = f"<tns:location>{scan_saving.icat_root_path}</tns:location>"
     return info
 
@@ -53,7 +58,7 @@ def icat_info(scan_saving, dataset=False):
 def assert_icat_received(icat_subscriber, expected, dataset=None, timeout=10):
     """Check whether ICAT received the correct information
     """
-    print("\nWaiting of ICAT message ...")
+    print("\nWaiting for ICAT message ...")
     icat_received = icat_subscriber.get(timeout=timeout)
     print(f"Validating ICAT message: {icat_received}")
     for k, v in expected.items():
@@ -63,6 +68,17 @@ def assert_icat_received(icat_subscriber, expected, dataset=None, timeout=10):
             assert icat_received.endswith(v), k
         else:
             assert v in icat_received, k
+
+
+def assert_icat_metadata_received(icat_subscriber, phrases, timeout=10):
+    """Check whether ICAT received the correct information
+    """
+    print("\nWaiting for ICAT message ...")
+    icat_received = icat_subscriber.get(timeout=timeout)
+    if isinstance(phrases, str):
+        phrases = [phrases]
+    for phrase in phrases:
+        assert phrase in icat_received
 
 
 def assert_logbook_received(
@@ -81,12 +97,12 @@ def assert_logbook_received(
     assert logbook_received["category"] == category
 
     if scan_saving is not None:
-        assert logbook_received["investigation"] == scan_saving.proposal
+        assert logbook_received["investigation"] == scan_saving.proposal_name
         assert logbook_received["instrument"] == scan_saving.beamline
         # Due to the "atomic datasets" the server is always
         # STANDBY (no dataset name specified):
         assert logbook_received["datasetName"] is None
-        # assert logbook_received["datasetName"] == scan_saving.dataset
+        # assert logbook_received["datasetName"] == scan_saving.dataset_name
 
     content = logbook_received["content"]
     if isinstance(messages, str):
@@ -145,14 +161,15 @@ def test_inhouse_scan_saving(session, icat_subscriber, esrf_data_policy):
 
     for bset in [False, True]:
         if bset:
-            scan_saving.proposal = "blc123"
+            scan_saving.proposal_name = "blc123"
             assert_icat_received_current_proposal(scan_saving, icat_subscriber)
         assert scan_saving.beamline == scan_saving_config["beamline"]
         if bset:
-            assert scan_saving.proposal == "blc123"
+            assert scan_saving.proposal_name == "blc123"
         else:
             assert (
-                scan_saving.proposal == f"{scan_saving.beamline}{time.strftime('%y%m')}"
+                scan_saving.proposal_name
+                == f"{scan_saving.beamline}{time.strftime('%y%m')}"
             )
         assert scan_saving.base_path == scan_saving_config["inhouse_data_root"].format(
             beamline=scan_saving.beamline
@@ -169,7 +186,8 @@ def test_visitor_scan_saving(session, icat_subscriber, esrf_data_policy):
 
     scan_saving.mount_point = "fs1"
     scan_saving_config = esrf_data_policy
-    scan_saving.proposal = "mx415"
+    p = scan_saving.icat_proxy.metadata_manager.proxy
+    scan_saving.proposal_name = "mx415"
     assert scan_saving.base_path == scan_saving_config["visitor_data_root"]["fs1"]
     assert scan_saving.icat_base_path == scan_saving_config["visitor_data_root"]["fs1"]
     assert_default_sample_dataset(scan_saving)
@@ -182,7 +200,7 @@ def test_tmp_scan_saving(session, icat_subscriber, esrf_data_policy):
 
     scan_saving.mount_point = "fs1"
     scan_saving_config = esrf_data_policy
-    scan_saving.proposal = "test123"
+    scan_saving.proposal_name = "test123"
     expected = scan_saving_config["tmp_data_root"]["fs1"].format(
         beamline=scan_saving.beamline
     )
@@ -196,66 +214,71 @@ def test_tmp_scan_saving(session, icat_subscriber, esrf_data_policy):
 
 
 def assert_default_sample_dataset(scan_saving):
-    assert scan_saving.sample == "sample"
-    assert scan_saving.dataset == "0001"
+    assert scan_saving.sample_name == "sample"
+
+
+def test_auto_dataset_increment(session, icat_subscriber, esrf_data_policy):
+    scan_saving = session.scan_saving
+    assert scan_saving.dataset_name == "0001"
     with pytest.raises(AttributeError):
         scan_saving.template = "toto"
     assert scan_saving.get_path() == os.path.join(
         scan_saving.base_path,
-        scan_saving.proposal,
+        scan_saving.proposal_name,
         scan_saving.beamline,
-        scan_saving.sample,
-        f"{scan_saving.sample}_{scan_saving.dataset}",
+        scan_saving.sample_name,
+        f"{scan_saving.sample_name}_{scan_saving.dataset_name}",
     )
-    scan_saving.sample = ""
-    assert scan_saving.sample == "sample"
-    scan_saving.dataset = ""
-    assert scan_saving.dataset == "0001"
+    scan_saving.sample_name = ""
+    assert scan_saving.sample_name == "sample"
+    scan_saving.dataset_name = ""
+    assert scan_saving.dataset_name == "0001"
     with pytest.raises(AttributeError):
         scan_saving.template = ""
     assert scan_saving.get_path().endswith("0001")
 
 
 def create_dataset(scan_saving):
-    """Create the dataset on disk
+    """Create the dataset on disk and in Bliss without having to run a scan
     """
     paths = [scan_saving.root_path, scan_saving.icat_root_path]
     for path in paths:
         if not os.path.exists(path):
             os.makedirs(path)
+    assert scan_saving.dataset is not None
 
 
 def test_auto_dataset_increment(session, icat_subscriber, esrf_data_policy):
     scan_saving = session.scan_saving
     assert_icat_received_current_proposal(scan_saving, icat_subscriber)
     expected_dataset = icat_info(scan_saving, dataset=True)
-    assert scan_saving.dataset == "0001"
+    assert scan_saving.dataset_name == "0001"
 
     create_dataset(scan_saving)
-    scan_saving.dataset = ""
+    scan_saving.dataset_name = ""
     assert_icat_received(icat_subscriber, expected_dataset)
     expected_dataset = icat_info(scan_saving, dataset=True)
-    assert scan_saving.dataset == "0002"
+    assert scan_saving.dataset_name == "0002"
 
     create_dataset(scan_saving)
     path = scan_saving.get_path()
     new_filename = os.path.join(path, scan_saving.data_filename + ".h5")
     with open(new_filename, "w") as f:
-        scan_saving.dataset = ""
+        scan_saving.dataset_name = ""
         assert_icat_received(icat_subscriber, expected_dataset)
         expected_dataset = icat_info(scan_saving, dataset=True)
-        assert scan_saving.dataset == "0003"
+        assert scan_saving.dataset_name == "0003"
         # create_dataset(scan_saving)
 
-    scan_saving.dataset = "dataset"
+    scan_saving.dataset_name = "dataset"
     # No directory -> not in ICAT
     # assert_icat_received(icat_subscriber, expected_dataset)
     expected_dataset = icat_info(scan_saving, dataset=True)
 
     create_dataset(scan_saving)
-    scan_saving.dataset = "dataset"
+    scan_saving.dataset_name = "dataset"
     assert_icat_received(icat_subscriber, expected_dataset)
-    assert scan_saving.dataset == "dataset_0002"
+    assert scan_saving.dataset_name == "dataset_0002"
     assert scan_saving.get_path().endswith("dataset_0002")
 
 
@@ -265,7 +288,6 @@ def test_data_policy_scan_check_servers(
     esrf_data_policy,
     metaexp_with_backend,
     metamgr_with_backend,
-    nexus_writer_service,
 ):
     scan_saving = session.scan_saving
     assert_icat_received_current_proposal(scan_saving, icat_subscriber)
@@ -284,49 +306,49 @@ def test_data_policy_scan_check_servers(
     }
     assert_servers(mdexp_dev, mdmgr_dev, **expected)
 
-    scan_saving.proposal = "proposal1"
+    scan_saving.proposal_name = "proposal1"
     assert_icat_received_current_proposal(scan_saving, icat_subscriber)
     expected["proposal"] = "proposal1"
     expected["state"] = "STANDBY"
     assert_servers(mdexp_dev, mdmgr_dev, **expected)
 
-    scan_saving.sample = "sample1"
+    scan_saving.sample_name = "sample1"
     assert_servers(mdexp_dev, mdmgr_dev, **expected)
 
-    scan_saving.dataset = "dataset1"
+    scan_saving.dataset_name = "dataset1"
     assert_servers(mdexp_dev, mdmgr_dev, **expected)
 
-    loopscan(3, 0.01, diode)
+    create_dataset(scan_saving)
     assert_servers(mdexp_dev, mdmgr_dev, **expected)
     expected_dataset = icat_info(scan_saving, dataset=True)
 
     expected["path"] = session.scan_saving.icat_root_path
-    scan_saving.dataset = "dataset2"
+    scan_saving.dataset_name = "dataset2"
     assert_icat_received(icat_subscriber, expected_dataset)
     expected["sample"] = "sample1"
     expected["dataset"] = ""
     assert_servers(mdexp_dev, mdmgr_dev, **expected)
 
-    scan_saving.dataset = "dataset2"
+    scan_saving.dataset_name = "dataset2"
     assert_servers(mdexp_dev, mdmgr_dev, **expected)
 
-    scan_saving.dataset = "dataset3"
+    scan_saving.dataset_name = "dataset3"
     assert_servers(mdexp_dev, mdmgr_dev, **expected)
 
-    scan_saving.sample = "sample2"
+    scan_saving.sample_name = "sample2"
     assert_servers(mdexp_dev, mdmgr_dev, **expected)
 
-    loopscan(3, 0.01, diode)
+    create_dataset(scan_saving)
     assert_servers(mdexp_dev, mdmgr_dev, **expected)
     expected_dataset = icat_info(scan_saving, dataset=True)
 
-    expected["path"] = session.scan_saving.icat_root_path
-    scan_saving.dataset = ""
-    assert_icat_received(icat_subscriber, expected_dataset)
     expected["sample"] = "sample2"
+    expected["path"] = scan_saving.icat_root_path
+    scan_saving.dataset_name = ""
+    assert_icat_received(icat_subscriber, expected_dataset)
     assert_servers(mdexp_dev, mdmgr_dev, **expected)
 
-    scan_saving.proposal = "proposal2"
+    scan_saving.proposal_name = "proposal2"
     assert_icat_received_current_proposal(scan_saving, icat_subscriber)
     expected["proposal"] = "proposal2"
     expected["path"] = None
@@ -365,6 +387,271 @@ def assert_servers(
     assert mdmgr_dev.dataFolder == path
 
 
+def test_data_policy_objects(session, icat_subscriber, esrf_data_policy):
+    scan_saving = session.scan_saving
+    assert_icat_received_current_proposal(scan_saving, icat_subscriber)
+
+    # Prepare for scanning without the Nexus writer
+    diode = session.env_dict["diode"]
+    scan_saving.writer = "hdf5"
+
+    proposal = scan_saving.proposal
+    sample = scan_saving.sample
+    dataset = scan_saving.dataset
+
+    assert proposal.node.type == "proposal"
+    assert str(proposal) == scan_saving.proposal_name
+    assert proposal.name == scan_saving.proposal_name
+    assert proposal.has_samples
+    assert len(list(proposal.sample_nodes)) == 1
+
+    assert sample.node.type == "sample"
+    assert str(sample) == scan_saving.sample_name
+    assert sample.proposal.name == scan_saving.proposal_name
+    assert sample.name == scan_saving.sample_name
+    assert sample.has_datasets
+    assert len(list(sample.dataset_nodes)) == 1
+    assert sample.proposal.node.db_name == proposal.node.db_name
+
+    assert dataset.node.type == "dataset"
+    assert str(dataset) == scan_saving.dataset_name
+    assert dataset.proposal.name == scan_saving.proposal_name
+    assert dataset.sample.name == scan_saving.sample_name
+    assert dataset.name == scan_saving.dataset_name
+    assert not dataset.has_scans
+    assert len(list(dataset.scan_nodes)) == 0
+    assert dataset.proposal.node.db_name == proposal.node.db_name
+    assert dataset.sample.node.db_name == sample.node.db_name
+
+    loopscan(3, 0.01, diode)
+
+    assert dataset.has_scans
+    assert len(list(dataset.scan_nodes)) == 1
+
+    assert dataset.path.startswith(proposal.path)
+    assert dataset.path.startswith(sample.path)
+    assert sample.path.startswith(proposal.path)
+    assert len(dataset.path) > len(proposal.path)
+    assert len(dataset.path) > len(sample.path)
+    assert len(sample.path) > len(proposal.path)
+
+
+def test_dataset_object(session, icat_subscriber, esrf_data_policy):
+    scan_saving = session.scan_saving
+    assert_icat_received_current_proposal(scan_saving, icat_subscriber)
+
+    # Prepare for scanning without the Nexus writer
+    diode = session.env_dict["diode"]
+    scan_saving.writer = "hdf5"
+
+    # First dataset
+    s = loopscan(3, 0.01, diode)
+
+    dataset = scan_saving.dataset
+    assert dataset.has_scans
+    assert dataset.has_data
+    assert [s.name for s in dataset.scan_nodes] == [s.node.name]
+    assert not dataset.is_closed
+
+    # Second dataset
+    expected_dataset = icat_info(scan_saving, dataset=True)
+    scan_saving.dataset_name = None
+    assert dataset.is_closed
+    assert scan_saving._dataset_object is None
+    assert_icat_received(icat_subscriber, expected_dataset)
+
+    s = loopscan(3, 0.01, diode)
+    assert scan_saving.dataset.node.db_name != dataset.node.db_name
+
+    # Third dataset
+    expected_dataset = icat_info(scan_saving, dataset=True)
+    scan_saving.dataset_name = None
+    assert_icat_received(icat_subscriber, expected_dataset)
+
+    # Third dataset not in Redis yet
+    n = get_node(session.name)
+    walk_res = [d for d in n.walk(wait=False, filter="dataset")]
+    assert len(walk_res) == 2
+
+    s = loopscan(3, 0.01, diode, save=False)
+
+    # Third dataset in Redis
+    n = get_node(session.name)
+    walk_res = [d for d in n.walk(wait=False, filter="dataset")]
+    assert len(walk_res) == 3
+
+    # Third dataset object does not exist yet
+    assert scan_saving._dataset_object is None
+
+    # Third dataset created upon using it
+    dataset = scan_saving.dataset
+    assert not dataset.is_closed
+    assert dataset.has_scans
+    assert not dataset.has_data
+    assert [s.name for s in dataset.scan_nodes] == [s.node.name]
+
+    # Does not go to a new dataset (because the current one has no data)
+    scan_saving.dataset_name = None
+
+    # Still in third dataset
+    assert scan_saving.dataset.node.db_name == dataset.node.db_name
+    assert not dataset.is_closed
+    assert dataset.has_scans
+    assert not dataset.has_data
+    assert [s.name for s in dataset.scan_nodes] == [s.node.name]
+
+    # Test walk on datasets
+    n = get_node(session.name)
+    walk_res = [d for d in n.walk(wait=False, filter="dataset")]
+    assert len(walk_res) == 3
+
+
+def test_icat_metadata(session, icat_subscriber, esrf_data_policy):
+    scan_saving = session.scan_saving
+    assert_icat_received_current_proposal(scan_saving, icat_subscriber)
+
+    # Prepare for scanning without the Nexus writer
+    diode = session.env_dict["diode"]
+    scan_saving.writer = "hdf5"
+
+    s = loopscan(3, 0.01, diode)
+    icatfields1 = {
+        "InstrumentVariables_name": "roby robz ",
+        "InstrumentVariables_value": "0.0 0.0 ",
+        "SamplePositioners_name": "roby robz",
+        "SamplePositioners_value": "0.0 0.0",
+    }
+    # Check metadata gathering
+    icatfields2 = scan_saving.dataset.get_current_icat_metadata()
+    assert icatfields1 == icatfields2
+
+    # Check metadata in redis
+    assert icatfields1 == scan_saving.dataset.node.metadata
+
+    scan_saving.dataset_name = None
+
+    # test reception of metadata on icat server side
+    phrase = (
+        "<tns:name>SamplePositioners_name</tns:name><tns:value>roby robz</tns:value>"
+    )
+    assert_icat_metadata_received(icat_subscriber, phrase)
+
+    s = loopscan(3, 0.01, diode)
+    # Check metadata gathering
+    icatfields2 = scan_saving.dataset.get_current_icat_metadata()
+    assert icatfields1 == icatfields2
+
+    scan_saving.enddataset()
+
+    # test walk on datasets
+    n = get_node(session.name)
+    walk_res = [d for d in n.walk(wait=False, filter="dataset")]
+    assert len(walk_res) == 2
+
+
+def test_icat_metadata_custom(session, icat_subscriber, esrf_data_policy):
+    scan_saving = session.scan_saving
+    assert_icat_received_current_proposal(scan_saving, icat_subscriber)
+
+    # Prepare for scanning without the Nexus writer
+    diode = session.env_dict["diode"]
+    scan_saving.writer = "hdf5"
+
+    # do a scan in the 'normal' dataset
+    loopscan(2, .1, diode)
+
+    # create custom dataset
+    scan_saving = ScanSaving("my_custom_scansaving")
+    scan_saving.writer = "hdf5"
+    ds_name = session.scan_saving.dataset_name
+    ds_name += "_b"
+    scan_saving.dataset_name = ds_name
+
+    # scan in custom dataset with custom metadata fields
+    # set before and after the scan
+    definitions = Definitions()
+    scan_saving.dataset.add_technique(definitions.techniques.FLUO)
+    ls = loopscan(3, .1, diode, run=False)
+    s = Scan(ls.acq_chain, scan_saving=scan_saving)
+    scan_saving.dataset.write_metadata_field("FLUO_i0", str(17.1))
+    s.run()
+    scan_saving.dataset["FLUO_it"] = str(18.2)
+
+    # close the custom dataset
+    scan_saving.enddataset()
+
+    # do another scan in the 'normal' dataset
+    loopscan(3, .1, diode)
+
+    # close the 'normal' dataset
+    session.scan_saving.enddataset()
+
+    # see if things in redis are correct
+    n = get_node(session.name)
+    datasets = {Dataset(d) for d in n.walk(wait=False, filter="dataset")}
+    assert all(d.is_closed for d in datasets)
+    datasets = {d.name: d for d in datasets}
+    assert datasets.keys() == {"0001", "0001_b"}
+
+    assert len(datasets["0001"].node.metadata) == 4
+    assert len(datasets["0001_b"].node.metadata) == 7
+
+    assert "FLUO_i0" in datasets["0001_b"].node.metadata
+    assert datasets["0001_b"].node.metadata["definition"] == "FLUO"
+
+    # test reception of metadata on icat server side
+    phrases = ["<tns:name>0001_b</tns:name>", "<tns:name>FLUO_i0</tns:name>"]
+    assert_icat_metadata_received(icat_subscriber, phrases)
+    phrase = "<tns:name>0001</tns:name>"
+    assert_icat_metadata_received(icat_subscriber, phrase)
+
+
+def test_icat_metadata_namespaces(session, icat_subscriber, esrf_data_policy):
+    scan_saving = session.scan_saving
+    assert_icat_received_current_proposal(scan_saving, icat_subscriber)
+
+    # Prepare for scanning without the Nexus writer
+    diode = session.env_dict["diode"]
+    scan_saving.writer = "hdf5"
+
+    scan_saving.newdataset("toto")
+
+    existing = {x for x in dir(scan_saving.dataset.existing) if not x.startswith("__")}
+    assert set(scan_saving.dataset.node.metadata.keys()) == existing
+
+    definitions = Definitions()
+    scan_saving.dataset.add_technique(definitions.techniques.FLUO)
+
+    expected = {x for x in dir(scan_saving.dataset.expected) if not x.startswith("__")}
+    assert definitions.techniques.FLUO.fields == expected
+
+    # check that the expected keys do not move into existing
+    existing = {x for x in dir(scan_saving.dataset.existing) if not x.startswith("__")}
+    assert set(scan_saving.dataset.node.metadata.keys()) == existing
+
+    loopscan(1, .1, diode)
+    scan_saving.newdataset("toto1")
+
+    # create a new dataset and see that the old technique is gone
+    scan_saving.dataset.add_technique(definitions.techniques.EM)
+    expected = {x for x in dir(scan_saving.dataset.expected) if not x.startswith("__")}
+    assert definitions.techniques.EM.fields == expected
+
+    # add a key through .expected and see if it pops up in existing
+    scan_saving.dataset.expected.EM_images_count = "24"
+    # TODO: there seems to be a problem there
+    # breakpoint()
+    # sometimes rather random technique fields get pushed into existing
+    # I guess this is due the fact that we always manipulate the class
+    # that is shared between existing and expected on runtime
+    assert "EM_images_count" in dir(scan_saving.dataset.existing)
+    assert scan_saving.dataset.existing.EM_images_count == "24"
+
+    # see if setting a value to None removes it from existing
+    scan_saving.dataset.existing.EM_images_count = None
+    assert "EM_images_count" not in dir(scan_saving.dataset.existing)
+
+
 def test_data_policy_user_functions(
     session, icat_subscriber, icat_logbook_subscriber, esrf_data_policy
 ):
@@ -373,9 +660,9 @@ def test_data_policy_user_functions(
     expected_dataset = icat_info(scan_saving, dataset=True)
     default_proposal = f"{scan_saving.beamline}{time.strftime('%y%m')}"
 
-    assert scan_saving.proposal == default_proposal
-    assert scan_saving.sample == "sample"
-    assert scan_saving.dataset == "0001"
+    assert scan_saving.proposal_name == default_proposal
+    assert scan_saving.sample_name == "sample"
+    assert scan_saving.dataset_name == "0001"
     create_dataset(scan_saving)
 
     newproposal("toto")
@@ -383,27 +670,27 @@ def test_data_policy_user_functions(
     assert_icat_received(icat_subscriber, expected_dataset)
     assert_icat_received_current_proposal(scan_saving, icat_subscriber)
     expected_dataset = icat_info(scan_saving, dataset=True)
-    assert scan_saving.proposal == "toto"
-    assert scan_saving.sample == "sample"
-    assert scan_saving.dataset == "0001"
+    assert scan_saving.proposal_name == "toto"
+    assert scan_saving.sample_name == "sample"
+    assert scan_saving.dataset_name == "0001"
     create_dataset(scan_saving)
 
     newsample("tata")
     assert_logbook_received(icat_logbook_subscriber, "tata", category="info")
     assert_icat_received(icat_subscriber, expected_dataset)
     expected_dataset = icat_info(scan_saving, dataset=True)
-    assert scan_saving.proposal == "toto"
-    assert scan_saving.sample == "tata"
-    assert scan_saving.dataset == "0001"
+    assert scan_saving.proposal_name == "toto"
+    assert scan_saving.sample_name == "tata"
+    assert scan_saving.dataset_name == "0001"
     create_dataset(scan_saving)
 
     newdataset("tutu")
     assert_logbook_received(icat_logbook_subscriber, "tutu", category="info")
     assert_icat_received(icat_subscriber, expected_dataset)
     expected_dataset = icat_info(scan_saving, dataset=True)
-    assert scan_saving.proposal == "toto"
-    assert scan_saving.sample == "tata"
-    assert scan_saving.dataset == "tutu"
+    assert scan_saving.proposal_name == "toto"
+    assert scan_saving.sample_name == "tata"
+    assert scan_saving.dataset_name == "tutu"
     create_dataset(scan_saving)
 
     newproposal()
@@ -411,25 +698,25 @@ def test_data_policy_user_functions(
     assert_icat_received(icat_subscriber, expected_dataset)
     assert_icat_received_current_proposal(scan_saving, icat_subscriber)
     expected_dataset = icat_info(scan_saving, dataset=True)
-    assert scan_saving.proposal == default_proposal
-    assert scan_saving.sample == "sample"
-    assert scan_saving.dataset == "0002"
+    assert scan_saving.proposal_name == default_proposal
+    assert scan_saving.sample_name == "sample"
+    assert scan_saving.dataset_name == "0002"
     create_dataset(scan_saving)
 
     enddataset()
     assert_icat_received(icat_subscriber, expected_dataset)
     expected_dataset = icat_info(scan_saving, dataset=True)
-    assert scan_saving.proposal == default_proposal
-    assert scan_saving.sample == "sample"
-    assert scan_saving.dataset == "0003"
+    assert scan_saving.proposal_name == default_proposal
+    assert scan_saving.sample_name == "sample"
+    assert scan_saving.dataset_name == "0003"
     create_dataset(scan_saving)
 
     endproposal()
     assert_icat_received(icat_subscriber, expected_dataset)
     expected_dataset = icat_info(scan_saving, dataset=True)
-    assert scan_saving.proposal == default_proposal
-    assert scan_saving.sample == "sample"
-    assert scan_saving.dataset == "0004"
+    assert scan_saving.proposal_name == default_proposal
+    assert scan_saving.sample_name == "sample"
+    assert scan_saving.dataset_name == "0004"
     create_dataset(scan_saving)
 
     newproposal("toto")
@@ -437,31 +724,31 @@ def test_data_policy_user_functions(
     assert_icat_received(icat_subscriber, expected_dataset)
     assert_icat_received_current_proposal(scan_saving, icat_subscriber)
     expected_dataset = icat_info(scan_saving, dataset=True)
-    assert scan_saving.proposal == "toto"
-    assert scan_saving.sample == "sample"
-    assert scan_saving.dataset == "0002"
+    assert scan_saving.proposal_name == "toto"
+    assert scan_saving.sample_name == "sample"
+    assert scan_saving.dataset_name == "0002"
     create_dataset(scan_saving)
 
     endproposal()
     assert_icat_received(icat_subscriber, expected_dataset)
     assert_icat_received_current_proposal(scan_saving, icat_subscriber)
-    assert scan_saving.proposal == default_proposal
-    assert scan_saving.sample == "sample"
-    assert scan_saving.dataset == "0005"
+    assert scan_saving.proposal_name == default_proposal
+    assert scan_saving.sample_name == "sample"
+    assert scan_saving.dataset_name == "0005"
 
 
 def test_fresh_newsample(session, esrf_data_policy):
     scan_saving = ScanSaving("my_custom_scansaving")
     scan_saving.newsample("toto")
-    assert scan_saving.sample == "toto"
-    assert scan_saving.dataset == "0001"
+    assert scan_saving.sample_name == "toto"
+    assert scan_saving.dataset_name == "0001"
 
 
 def test_fresh_newdataset(session, esrf_data_policy):
     scan_saving = ScanSaving("my_custom_scansaving")
     scan_saving.newdataset("toto")
-    assert scan_saving.sample == "sample"
-    assert scan_saving.dataset == "toto"
+    assert scan_saving.sample_name == "sample"
+    assert scan_saving.dataset_name == "toto"
 
 
 def test_data_policy_name_validation(session, esrf_data_policy):
@@ -469,23 +756,23 @@ def test_data_policy_name_validation(session, esrf_data_policy):
 
     for name in ("with,", "with:", "with;"):
         with pytest.raises(ValueError):
-            scan_saving.proposal = name
+            scan_saving.proposal_name = name
         with pytest.raises(ValueError):
-            scan_saving.sample = name
+            scan_saving.sample_name = name
         with pytest.raises(ValueError):
-            scan_saving.dataset = name
+            scan_saving.dataset_name = name
 
     for name in (" HG- 64", "HG__64", "hg_64", "  H -- G   -- 6_4  "):
-        scan_saving.proposal = name
-        assert scan_saving.proposal == "hg64"
+        scan_saving.proposal_name = name
+        assert scan_saving.proposal_name == "hg64"
 
     for name in (" sample Name", "sample  Name", "  sample -- Name "):
-        scan_saving.sample = name
-        assert scan_saving.sample == "sample_Name"
+        scan_saving.sample_name = name
+        assert scan_saving.sample_name == "sample_Name"
 
     for name in (" dataset Name", "dataset  Name", "  dataset -- Name "):
-        scan_saving.dataset = name
-        assert scan_saving.dataset == "dataset_Name"
+        scan_saving.dataset_name = name
+        assert scan_saving.dataset_name == "dataset_Name"
 
 
 def test_session_scan_saving_clone(session, esrf_data_policy):
@@ -504,8 +791,8 @@ def test_session_scan_saving_clone(session, esrf_data_policy):
     assert id(scan_saving._icat_proxy) == id(scan_saving2._icat_proxy)
 
     # check that the same redis structure is used by the clone
-    scan_saving.proposal = "toto"
-    assert scan_saving2.proposal == "toto"
+    scan_saving.proposal_name = "toto"
+    assert scan_saving2.proposal_name == "toto"
 
 
 def test_mount_points(session, esrf_data_policy):
@@ -522,7 +809,7 @@ def test_mount_points(session, esrf_data_policy):
     scan_saving.mount_point == mp
 
     # Test temp mount points (has sf1 and sf2 and fixed icat)
-    scan_saving.proposal = "temp123"
+    scan_saving.proposal_name = "temp123"
 
     icat_expected = scan_saving_config["icat_tmp_data_root"].format(
         beamline=scan_saving.beamline
@@ -557,7 +844,7 @@ def test_mount_points(session, esrf_data_policy):
     assert scan_saving.icat_base_path == icat_expected
 
     # Test visitor mount points (has sf1 and sf3 and no fixed icat)
-    scan_saving.proposal = "hg123"
+    scan_saving.proposal_name = "hg123"
 
     scan_saving.mount_point = ""
     expected = scan_saving_config["visitor_data_root"]["fs1"]
@@ -580,7 +867,7 @@ def test_mount_points(session, esrf_data_policy):
     assert scan_saving.icat_base_path == expected
 
     # Test inhouse mount points (no named mount points)
-    scan_saving.proposal = "blc123"
+    scan_saving.proposal_name = "blc123"
 
     expected = scan_saving_config["inhouse_data_root"].format(
         beamline=scan_saving.beamline
@@ -616,15 +903,16 @@ def test_session_ending(
     scan_saving.newsample("sample1")
     assert_logbook_received(icat_logbook_subscriber, "sample1", category="info")
     create_dataset(scan_saving)
-    assert scan_saving.proposal == "hg123"
-    assert scan_saving.sample == "sample1"
-    assert scan_saving.dataset == "0001"
+
+    assert scan_saving.proposal_name == "hg123"
+    assert scan_saving.sample_name == "sample1"
+    assert scan_saving.dataset_name == "0001"
     expected_dataset = icat_info(scan_saving, dataset=True)
 
     scan_saving.enddataset()
-    assert scan_saving.proposal == "hg123"
-    assert scan_saving.sample == "sample1"
-    assert scan_saving.dataset == "0002"
+    assert scan_saving.proposal_name == "hg123"
+    assert scan_saving.sample_name == "sample1"
+    assert scan_saving.dataset_name == "0002"
     create_dataset(scan_saving)
     assert_icat_received(icat_subscriber, expected_dataset)
     expected_dataset = icat_info(scan_saving, dataset=True)
@@ -632,9 +920,9 @@ def test_session_ending(
     scan_saving.endproposal()
     assert_icat_received(icat_subscriber, expected_dataset)
     assert_icat_received_current_proposal(scan_saving, icat_subscriber)
-    assert scan_saving.proposal == default_proposal
-    assert scan_saving.sample == "sample"
-    assert scan_saving.dataset == "0001"
+    assert scan_saving.proposal_name == default_proposal
+    assert scan_saving.sample_name == "sample"
+    assert scan_saving.dataset_name == "0001"
 
 
 def test_data_policy_event(session, esrf_data_policy):
@@ -743,39 +1031,39 @@ def test_parallel_sessions(
 
     scan_saving = get_scan_saving1()
     assert scan_saving.session == "test_session"
-    assert scan_saving.dataset == "0001"
+    assert scan_saving.dataset_name == "0001"
     assert_icat_received_current_proposal(scan_saving, icat_subscriber)
 
     scan_saving = get_scan_saving2()
     assert scan_saving.session == "test_session2"
-    assert scan_saving.dataset == "0002"
+    assert scan_saving.dataset_name == "0002"
     assert_icat_received_current_proposal(scan_saving, icat_subscriber)
 
     scan_saving = get_scan_saving1()
     scan_saving.newproposal("blc123")
     assert_logbook_received(icat_logbook_subscriber, "blc123", category="info")
     assert_icat_received_current_proposal(scan_saving, icat_subscriber)
-    assert scan_saving.dataset == "0001"
+    assert scan_saving.dataset_name == "0001"
 
     scan_saving = get_scan_saving2()
     scan_saving.newproposal("blc123")
     assert_logbook_received(icat_logbook_subscriber, "blc123", category="info")
     assert_icat_received_current_proposal(scan_saving, icat_subscriber)
-    assert scan_saving.dataset == "0002"
+    assert scan_saving.dataset_name == "0002"
 
     get_scan_saving1().newdataset(None)
     assert_logbook_received(icat_logbook_subscriber, "0001", category="info")
     get_scan_saving2().newdataset(None)
     assert_logbook_received(icat_logbook_subscriber, "0002", category="info")
-    assert get_scan_saving1().dataset == "0001"
-    assert get_scan_saving2().dataset == "0002"
+    assert get_scan_saving1().dataset_name == "0001"
+    assert get_scan_saving2().dataset_name == "0002"
 
     get_scan_saving2().newdataset(None)
     assert_logbook_received(icat_logbook_subscriber, "0002", category="info")
     get_scan_saving1().newdataset(None)
     assert_logbook_received(icat_logbook_subscriber, "0001", category="info")
-    assert get_scan_saving1().dataset == "0001"
-    assert get_scan_saving2().dataset == "0002"
+    assert get_scan_saving1().dataset_name == "0001"
+    assert get_scan_saving2().dataset_name == "0002"
 
     scan_saving = get_scan_saving1()
     expected_dataset = icat_info(scan_saving, dataset=True)
@@ -783,45 +1071,33 @@ def test_parallel_sessions(
     scan_saving.newdataset(None)
     assert_logbook_received(icat_logbook_subscriber, "0003", category="info")
     assert_icat_received(icat_subscriber, expected_dataset)
-    assert get_scan_saving1().dataset == "0003"
-    assert get_scan_saving2().dataset == "0002"
+    assert get_scan_saving1().dataset_name == "0003"
+    assert get_scan_saving2().dataset_name == "0002"
 
     get_scan_saving1().newdataset("0002")
     assert_logbook_received(icat_logbook_subscriber, "0003", category="info")
-    assert get_scan_saving1().dataset == "0003"
-    assert get_scan_saving2().dataset == "0002"
+    assert get_scan_saving1().dataset_name == "0003"
+    assert get_scan_saving2().dataset_name == "0002"
 
     get_scan_saving1().newdataset("named")
     assert_logbook_received(icat_logbook_subscriber, "named", category="info")
-    assert get_scan_saving1().dataset == "named"
-    assert get_scan_saving2().dataset == "0002"
+    assert get_scan_saving1().dataset_name == "named"
+    assert get_scan_saving2().dataset_name == "0002"
 
     get_scan_saving2().newdataset("named")
     assert_logbook_received(icat_logbook_subscriber, "named_0002", category="info")
-    assert get_scan_saving1().dataset == "named"
-    assert get_scan_saving2().dataset == "named_0002"
+    assert get_scan_saving1().dataset_name == "named"
+    assert get_scan_saving2().dataset_name == "named_0002"
 
 
-def test_elog_print(
-    session,
-    esrf_data_policy,
-    metaexp_with_backend,
-    metamgr_with_backend,
-    icat_logbook_subscriber,
-):
+def test_elog_print(session, icat_logbook_subscriber, esrf_data_policy):
     elog_print("message1")
     assert_logbook_received(
         icat_logbook_subscriber, "message1", complete=True, category="comment"
     )
 
 
-def test_electronic_logbook(
-    session,
-    esrf_data_policy,
-    metaexp_with_backend,
-    metamgr_with_backend,
-    icat_logbook_subscriber,
-):
+def test_electronic_logbook(session, icat_logbook_subscriber, esrf_data_policy):
     lst = [
         ("info", "info"),
         ("warning", "error"),

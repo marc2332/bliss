@@ -1,0 +1,24 @@
+name: icat
+plugin: bliss
+class: ICATmeta
+
+# in the objects section a mapping between entire bliss
+# objects that produce nexus/icat compliant metadata
+# and icat objects can be done. The keys in the following
+# mapping are the keys of bliss.icat.instrument.INSTRUMENTATION
+
+objects:
+  secondary_slit: $secondary_slits
+
+# as icat defines its own sub groups of positioners there
+# is a dedicated section here. Keys in there are icat 
+positioners:
+  sample: [$sy,$sz]
+
+# in the mapping section individual keys can be mapped to 
+# icat keys under mapping musst be valid icat field names
+mapping:
+  InstrumentVariables_name: [ $sy.name, $sz.name ]
+  InstrumentVariables_value: [ $sy.position, $sz.position ]
+  # by the way, this is just a demo ... this mapping
+  # does probably not make sense...

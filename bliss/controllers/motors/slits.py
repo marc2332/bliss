@@ -88,31 +88,43 @@ example for single HORIZONTAL slits:
 class Slits(CalcController):
     def __init__(self, *args, **kwargs):
         CalcController.__init__(self, *args, **kwargs)
+        self.slit_type = self.config.get("slit_type", default="both")
 
         self._init_meta_data_publishing()
 
     def _init_meta_data_publishing(self):
+        """this is about metadata publishing to the h5 file"""
         if not self.name:
             user_warning(
                 "to publish metadata the slit controller needs a name in config"
             )
             return
         scan_meta_obj = get_user_scan_meta()
-        scan_meta_obj.instrument.set(
-            self, lambda _: {self.name: {**self.metadata_dict(), "@NX_class": "NXslit"}}
-        )
+        scan_meta_obj.instrument.set(self, lambda _: {self.name: self.metadata()})
 
-    def metadata_dict(self):
-        """ The status of the slit as dictionary
+    # used by the IcatPublisher protocol
+    def metadata(self):
+        """ 
+        this is about metadata publishing to the h5 file AND ICAT
         """
         cur_pos = self._do_calc_from_real()
         meta_dict = dict()
-        if "hgap" in cur_pos:
-            meta_dict["horizontal_gap"] = cur_pos["hgap"]
-            meta_dict["horizontal_offset"] = cur_pos["hoffset"]
-        if "vgap" in cur_pos:
-            meta_dict["vertical_gap"] = cur_pos["vgap"]
-            meta_dict["vertical_offset"] = cur_pos["voffset"]
+
+        if self.slit_type not in ["vertical"]:
+            meta_dict.update(
+                {
+                    "horizontal_gap": cur_pos["hoffset"],
+                    "horizontal_offset": cur_pos["hgap"],
+                }
+            )
+
+        if self.slit_type not in ["horizontal"]:
+            meta_dict.update(
+                {"vertical_gap": cur_pos["vgap"], "vertical_offset": cur_pos["voffset"]}
+            )
+
+        meta_dict["@NX_class"] = "NXslit"
+
         return meta_dict
 
     def initialize_axis(self, axis):
@@ -124,9 +136,8 @@ class Slits(CalcController):
         log_debug(self, "[SLITS]\treal: %s" % positions_dict)
 
         calc_dict = dict()
-        slit_type = self.config.get("slit_type", default="both")
 
-        if slit_type not in ["vertical"]:
+        if self.slit_type not in ["vertical"]:
             # OFFSET = ( FRONT - BACK ) / 2
             # GAP = BACK + FRONT
             calc_dict.update(
@@ -136,7 +147,7 @@ class Slits(CalcController):
                 }
             )
 
-        if slit_type not in ["horizontal"]:
+        if self.slit_type not in ["horizontal"]:
             calc_dict.update(
                 {
                     "voffset": (positions_dict["up"] - positions_dict["down"]) / 2.0,
@@ -153,9 +164,8 @@ class Slits(CalcController):
         log_debug(self, "[SLITS]\tcalc: %s" % positions_dict)
 
         real_dict = dict()
-        slit_type = self.config.get("slit_type", default="both")
 
-        if slit_type not in ["vertical"]:
+        if self.slit_type not in ["vertical"]:
             real_dict.update(
                 {
                     "front": (positions_dict["hgap"] / 2.0) + positions_dict["hoffset"],
@@ -163,7 +173,7 @@ class Slits(CalcController):
                 }
             )
 
-        if slit_type not in ["horizontal"]:
+        if self.slit_type not in ["horizontal"]:
             real_dict.update(
                 {
                     "up": (positions_dict["vgap"] / 2.0) + positions_dict["voffset"],

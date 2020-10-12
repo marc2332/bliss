@@ -160,8 +160,17 @@ def wait_tango_device(
                     err_msg = f"{timeout_msg}: {device_fqdn} not in {state} state"
                 else:
                     err_msg = f"{device_fqdn} not in {state} state"
-                while dev_proxy.state() != state:
-                    gevent.sleep(0.1)
+                try:
+                    actual_state = None
+                    while actual_state != state:
+                        actual_state = dev_proxy.state()
+                        gevent.sleep(0.1)
+                except gevent.Timeout:
+                    if timeout_msg:
+                        err_msg = f"{timeout_msg}: {device_fqdn} is {actual_state} instead of {state}"
+                    else:
+                        err_msg = f"{device_fqdn} is {actual_state} instead of {state}"
+                    raise
     except gevent.Timeout:
         raise RuntimeError(err_msg) from exception
     return dev_proxy

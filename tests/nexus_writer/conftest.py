@@ -160,7 +160,7 @@ def prepare_scan_saving(session=None, tmpdir=None, policy=True, **kwargs):
                         mount_points[mp] = mount_points[mp].replace(
                             "/tmp/scans", tmpdir
                         )
-        scan_saving.proposal = "testproposal"
+        scan_saving.proposal_name = "testproposal"
         technique = nxw_test_config.technique["withpolicy"]
         scan_saving.technique = technique
         measurementgroup.set_active_name(technique + "MG")

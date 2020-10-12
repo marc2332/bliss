@@ -1,6 +1,7 @@
 - class: Session
   name: demo_session
   setup-file: ./demo_session_setup.py
+  icat-mapping: icat
   config-objects: 
     - diode1
     - diode2

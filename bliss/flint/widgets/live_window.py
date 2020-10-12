@@ -96,6 +96,14 @@ class LiveWindow(MainWindow):
 
         self.__initGui()
 
+    def postInit(self):
+        colormapWidget = self.colormapWidget(create=False)
+        if colormapWidget is not None:
+            # Between creation and display this flag have disappeared
+            # FIXME: This could be maybe patched in the extended dock impl
+            colormapWidget.setWindowFlag(qt.Qt.WindowStaysOnTopHint, True)
+            colormapWidget.show()
+
     def configuration(self) -> LiveWindowConfiguration:
         """Returns a global configuration of this window
 

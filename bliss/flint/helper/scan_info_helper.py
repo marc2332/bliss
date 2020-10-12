@@ -445,7 +445,6 @@ def create_plot_model(
             return channel_names
         # Filter selection by available channels
         intersection = set(channel_names) & set(scan.getChannelNames())
-        _logger.error("intersection %s", intersection)
         if len(channel_names) != len(intersection):
             # Remove missing without breaking the order
             for name in list(channel_names):

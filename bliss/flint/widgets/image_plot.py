@@ -205,6 +205,22 @@ class ImagePlotWidget(plot_helper.PlotWidget):
         self.__plot.addItem(self.__minMarker)
         self.__plot.addItem(self.__maxMarker)
 
+        self.widgetActivated.connect(self.__activated)
+
+    def __activated(self):
+        self.__initColormapWidget()
+
+    def __initColormapWidget(self):
+        live = self.flintModel().liveWindow()
+        colormapWidget = live.acquireColormapWidget(self)
+        if colormapWidget is not None:
+            for item in self.__plot.getItems():
+                if isinstance(item, plot_helper.FlintImage):
+                    colormapWidget.setItem(item)
+                    break
+            else:
+                colormapWidget.setColormap(self.__colormap)
+
     def deviceName(self):
         # FIXME: This have to be saved in the configuration
         return self.windowTitle().split(" ")[0]
@@ -260,7 +276,8 @@ class ImagePlotWidget(plot_helper.PlotWidget):
         action = style_action.FlintItemStyleAction(self.__plot, self)
         toolBar.addAction(action)
         self.__styleAction = action
-        action = style_action.FlintItemContrastAction(self.__plot, self)
+        action = style_action.FlintSharedColormapAction(self.__plot, self)
+        action.setInitColormapWidgetCallback(self.__initColormapWidget)
         toolBar.addAction(action)
         self.__contrastAction = action
         toolBar.addSeparator()
@@ -627,12 +644,22 @@ class ImagePlotWidget(plot_helper.PlotWidget):
         style = item.getStyle(self.__scan)
         colormap = model_helper.getColormapFromItem(item, style, self.__colormap)
 
+        live = self.flintModel().liveWindow()
+        if live is not None:
+            colormapWidget = live.ownedColormapWidget(self)
+        else:
+            colormapWidget = None
+
         if style.symbolStyle is style_model.SymbolStyle.NO_SYMBOL:
             if image.ndim == 3:
                 imageItem = plot_helper.FlintImageRgba()
+                if colormapWidget is not None:
+                    colormapWidget.setItem(None)
             else:
                 imageItem = plot_helper.FlintImage()
                 imageItem.setColormap(colormap)
+                if colormapWidget is not None:
+                    colormapWidget.setItem(imageItem)
             imageItem.setData(image, copy=False)
             imageItem.setCustomItem(item)
             imageItem.setScan(scan)

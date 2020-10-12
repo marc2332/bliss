@@ -7,6 +7,7 @@
 
 
 import os
+import datetime
 from bliss import current_session
 from bliss.common.logtools import log_warning
 from bliss.icat import FieldGroup
@@ -104,7 +105,9 @@ class Dataset(DataPolicyObject):
         if current_session.icat_mapping:
             metadata = current_session.icat_mapping.get_metadata()
         else:
-            metadata = {}
+            metadata = dict()
+
+        metadata["startDate"] = datetime.datetime.now().isoformat()
 
         assert isinstance(metadata, dict)
         for k, v in metadata.items():
@@ -226,9 +229,10 @@ class Dataset(DataPolicyObject):
     def finalize_metadata(self):
         # check if a definiton is provided otherwhise use
         # names of application definition
-        # TODO: This logic has to be revised with Alex & Andy
         if "definition" not in self._node.metadata and len(self._node.techniques) != 0:
             self.write_metadata_field("definition", " ".join(self._node.techniques))
+
+        self.write_metadata_field("endDate", datetime.datetime.now().isoformat())
 
     def close(self, icat_proxy):
         """Close the dataset in Redis and send to ICAT.

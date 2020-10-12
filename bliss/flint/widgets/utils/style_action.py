@@ -150,3 +150,32 @@ class FlintItemContrastAction(PlotAction):
                 item.colormap().setFromColormap(saveColormap)
         finally:
             colormap.sigChanged.disconnect(updateCustomStyle)
+
+
+class FlintSharedColormapAction(PlotAction):
+    def __init__(self, plot, parent=None):
+        self._dialog = None  # To store an instance of ColormapDialog
+        super(FlintSharedColormapAction, self).__init__(
+            plot,
+            icon="flint:icons/contrast",
+            text="Contrast",
+            tooltip="Edit the contrast of this item",
+            triggered=self._actionTriggered,
+            checkable=False,
+            parent=parent,
+        )
+        self.__flintModel = None
+        self.__initColormapWidget = None
+
+    def setInitColormapWidgetCallback(self, callback):
+        self.__initColormapWidget = callback
+
+    def setFlintModel(self, flintModel):
+        self.__flintModel = flintModel
+
+    def _actionTriggered(self, checked=False):
+        liveWindow = self.__flintModel.liveWindow()
+        liveWindow.colormapWidget(create=True)
+        callback = self.__initColormapWidget
+        if callback is not None:
+            callback()

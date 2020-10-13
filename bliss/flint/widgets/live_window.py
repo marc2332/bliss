@@ -275,11 +275,15 @@ class LiveWindow(MainWindow):
             self.__colormapWidget = None
             colormapWidget.deleteLater()
 
-    def colormapWidget(self, create=True) -> Optional[PositionersWidget]:
+    def colormapWidget(self, create=True, show=False) -> Optional[PositionersWidget]:
         """Returns the widget used to display colormaps."""
         if self.__colormapWidget is None and create:
             widget = self.__createColormapWidget()
             self.__colormapWidget = widget
+        elif show:
+            widget = self.__colormapWidget
+            widget.show()
+            widget.raise_()
         return self.__colormapWidget
 
     def __toggleColormapWidget(self):

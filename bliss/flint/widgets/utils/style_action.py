@@ -175,7 +175,7 @@ class FlintSharedColormapAction(PlotAction):
 
     def _actionTriggered(self, checked=False):
         liveWindow = self.__flintModel.liveWindow()
-        liveWindow.colormapWidget(create=True)
+        liveWindow.colormapWidget(create=True, show=True)
         callback = self.__initColormapWidget
         if callback is not None:
             callback()

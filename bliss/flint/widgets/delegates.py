@@ -270,7 +270,7 @@ class StylePropertyWidget(qt.QWidget):
 
         if self.__buttonContrast is not None:
             self.__buttonContrast.setVisible(isEditable)
-        else:
+        elif isEditable:
             icon = icons.getQIcon("flint:icons/contrast")
             self.__buttonContrast = qt.QToolButton()
             self.__buttonContrast.setToolTip("Edit the contrast of this item")

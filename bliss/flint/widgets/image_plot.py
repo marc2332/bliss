@@ -273,9 +273,6 @@ class ImagePlotWidget(plot_helper.PlotWidget):
         toolBar.addSeparator()
 
         # Item
-        action = style_action.FlintItemStyleAction(self.__plot, self)
-        toolBar.addAction(action)
-        self.__styleAction = action
         action = style_action.FlintSharedColormapAction(self.__plot, self)
         action.setInitColormapWidgetCallback(self.__initColormapWidget)
         toolBar.addAction(action)
@@ -344,7 +341,6 @@ class ImagePlotWidget(plot_helper.PlotWidget):
     def setFlintModel(self, flintModel: Optional[flint_model.FlintState]):
         self.__flintModel = flintModel
         self.__exportAction.setFlintModel(flintModel)
-        self.__styleAction.setFlintModel(flintModel)
         self.__contrastAction.setFlintModel(flintModel)
 
         if flintModel is not None:

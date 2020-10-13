@@ -75,6 +75,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Fixed default selected x-axis on ascan scans
     - Fixed black background on OpenGL rendering
     - Fixed display of statistics on curves using integer array
+    - Fixed displayed mask after the user mask selection
 
 ## [1.5.0] - 2020-07-21
 

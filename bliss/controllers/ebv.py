@@ -7,9 +7,9 @@ from bliss.controllers.wago.wago import ModulesConfig, WagoController, get_wago_
 from bliss.config.channels import Channel
 from bliss.common.counter import SamplingCounter
 from bliss.controllers.counter import SamplingCounterController, counter_namespace
-from bliss.common.utils import grouped
 from bliss.common import event
 from bliss import global_map
+from bliss.common.logtools import log_critical
 
 from bliss.controllers.lima.lima_base import Lima
 from bliss.common.utils import autocomplete_property
@@ -31,7 +31,7 @@ from bliss.flint.client.live_plots import LiveImagePlot
   channel: 0
   counter_name: ebv_diode
   camera_tango_url: id00/limaccds/simulator2
-      
+
 
 - name: ebv_wago_simulator
   plugin: bliss
@@ -160,7 +160,6 @@ class BpmController(SamplingCounterController):
         self._cam_proxy = self._get_proxy()
         self._bpm_proxy = self._get_proxy(Lima._BPM)
 
-        self._acq_mode = 0
         self._acq_expo = None
         self._is_live = False
 
@@ -261,37 +260,34 @@ class BpmController(SamplingCounterController):
             raise TypeError(f"cannot handle data-type {data_type}")
 
     def _snap_and_get_image(self):
-        if self._acq_mode == 0:
-            self._cam_proxy.prepareAcq()
-            self._cam_proxy.startAcq()
+        self._cam_proxy.prepareAcq()
+        self._cam_proxy.startAcq()
 
-            gevent.sleep(self._acq_expo)
+        gevent.sleep(self._acq_expo)
 
-            with gevent.Timeout(2.0):
-                data = []
-                while self._cam_proxy.last_image_ready == -1:
-                    gevent.sleep(0.001)
+        with gevent.Timeout(2.0):
+            while self._cam_proxy.last_image_ready == -1:
+                gevent.sleep(0.001)
 
-            return self._get_image()
+        return self._get_image()
 
     def _snap_and_get_results(self):
-        if self._acq_mode == 0:
-            self._bpm_proxy.Start()
-            self._cam_proxy.prepareAcq()
-            self._cam_proxy.startAcq()
+        self._bpm_proxy.Start()
+        self._cam_proxy.prepareAcq()
+        self._cam_proxy.startAcq()
 
-            gevent.sleep(self._acq_expo)
+        gevent.sleep(self._acq_expo)
 
-            with gevent.Timeout(2.0):
-                data = []
-                while len(data) == 0:
-                    data = self._bpm_proxy.GetResults(0)
-                    gevent.sleep(0.001)
+        with gevent.Timeout(2.0):
+            data = []
+            while len(data) == 0:
+                data = self._bpm_proxy.GetResults(0)
+                gevent.sleep(0.001)
 
-            self._cam_proxy.stopAcq()
-            # self._bpm_proxy.Stop() # temporary fix, see issue 1707
+        self._cam_proxy.stopAcq()
+        # self._bpm_proxy.Stop() # temporary fix, see issue 1707
 
-            return data
+        return data
 
     def raw_read(self, prepare=True):
 
@@ -302,18 +298,14 @@ class BpmController(SamplingCounterController):
 
     def read_all(self, *counters):
         # BPM data are : timestamp, intensity, center_x, center_y, fwhm_x, fwhm_y, frameno
-        result_size = 7
+        expected_result_size = 7
         all_result = self._snap_and_get_results()
-        nb_result = len(all_result) // result_size
-        counter2index = [
-            (numpy.zeros((nb_result,)), cnt.value_index) for cnt in counters
-        ]
+        if len(all_result) != expected_result_size:
+            log_critical(self, "One and only one value is expected per counter")
 
-        for i, raw in enumerate(grouped(all_result, result_size)):
-            for res, j in counter2index:
-                res[i] = raw[j]
-
-        return [x[0] for x in counter2index]
+        indexes = [cnt.value_index for cnt in counters]
+        result = list(all_result[indexes])
+        return result
 
     def get_acquisition_object(self, acq_params, ctrl_params, parent_acq_params):
         return BpmAcqSlave(self, ctrl_params=ctrl_params, **acq_params)

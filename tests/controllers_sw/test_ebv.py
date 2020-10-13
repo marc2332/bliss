@@ -6,6 +6,23 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 from bliss.common.scans import ct
+import numpy
+
+
+def test_bpm_read_all(session, lima_simulator2, mocker):
+    """White box test to check if each counters is at the right place"""
+    bpm = session.config.get("bpm2")
+    # BPM data are : timestamp, intensity, center_x, center_y, fwhm_x, fwhm_y, frameno
+    from_device = numpy.array([10, 20, 30, 40, 50, 60, 70])
+    mocker.patch.object(bpm, "_snap_and_get_results", return_value=from_device)
+
+    # Test all counters together
+    all_result = bpm.raw_read()
+    numpy.testing.assert_allclose(all_result, from_device[:-1])
+
+    # Test single one
+    for counter in bpm.counters:
+        assert bpm.read_all(counter) == [from_device[counter.value_index]]
 
 
 def test_ebv(session, lima_simulator2, clean_gevent, flint_session):

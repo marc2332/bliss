@@ -647,6 +647,7 @@ class MaskImageSelector(Selector):
         dock = self.__dock
         if dock is None:
             return
+        self.__dock.resetSelectionMask()
         self.__dock = None
         dock.visibilityChanged.disconnect(self.__selectionCancelled)
         plot = self.parent()

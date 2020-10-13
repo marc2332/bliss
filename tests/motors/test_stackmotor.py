@@ -6,6 +6,9 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import pytest
+import numpy
+
+from bliss.common.scans import ascan
 
 
 def test_stackmotor_on(session):
@@ -53,3 +56,15 @@ def test_stackmotor_off(session):
     assert pytest.approx(mstack.position) == pos_mstack + small_move
     assert pytest.approx(roby.position) == pos_roby + small_move
     assert pytest.approx(m2.position) == pos_m2
+
+
+def test_stackmotor_scan(session):
+    mstack = session.config.get("mstack")
+    diode = session.config.get("diode")
+
+    # stackmotor pseudo motor is scannable
+    scan = ascan(mstack, 0, 1, 2, 0.01, diode, save=False)
+    scan_data = scan.get_data()
+    assert numpy.allclose(scan_data["axis:mstack"], [0., 0.5, 1.])
+    assert numpy.allclose(scan_data["axis:roby"], [0., 0., 1.])
+    assert numpy.allclose(scan_data["axis:m2"], [0., 0.5, 0.])

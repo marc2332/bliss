@@ -5,6 +5,8 @@
 # Copyright (c) 2015-2020 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
+import numpy
+
 from bliss.common.logtools import log_debug
 from bliss.common.utils import object_method
 from bliss.controllers.motor import CalcController
@@ -110,29 +112,34 @@ class StackMotor(CalcController):
         return calc_dict
 
     def calc_to_real(self, positions_dict):
-        ### TODO handle numpy arrays (#1622)
-
         log_debug(self, "calc_to_real: received positions: %s", positions_dict)
 
         real_dict = dict()
 
+        stack_positions = numpy.array(positions_dict["stack"])
+        mss_target = numpy.zeros(stack_positions.shape)
+        mls_target = numpy.zeros(stack_positions.shape)
+
         # calculate position of small and large stroke motors
         if self.stack_active:
-            delta = positions_dict["stack"] - self.mls.position - self.mss.position
-            if (
-                self.mss.position + delta > self.mss_low_limit
-                and self.mss.position + delta < self.mss_high_limit
-            ):
-                # move is made with small stroke motor
-                mss_target = self.mss.position + delta
-                mls_target = self.mls.position
-            else:
-                # small stroke motor is brought back to middle position
-                mss_target = (self.mss_low_limit + self.mss_high_limit) / 2
-                mls_target = positions_dict["stack"] - mss_target
+            delta = stack_positions - self.mls.position - self.mss.position
+            small_move = numpy.logical_and(
+                self.mss.position + delta > self.mss_low_limit,
+                self.mss.position + delta < self.mss_high_limit,
+            )
+            big_move = numpy.invert(small_move)
+
+            # move is made with small stroke motor
+            mss_target[small_move] = self.mss.position + delta[small_move]
+            mls_target[small_move] = self.mls.position
+
+            # small stroke motor is brought back to middle position
+            mss_target[big_move] = (self.mss_low_limit + self.mss_high_limit) / 2
+            mls_target[big_move] = stack_positions[big_move] - mss_target[big_move]
+
         else:
-            mss_target = self.mss.position
-            mls_target = positions_dict["stack"] - mss_target
+            mss_target.fill(self.mss.position)
+            mls_target = stack_positions - mss_target
 
         real_dict.update({"mls": mls_target, "mss": mss_target})
 

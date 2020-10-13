@@ -3,7 +3,7 @@ controller:
     class: StackMotor
     axes:
       # large stroke motor
-      - name: $m0
+      - name: $roby
         tags: real mls
 
       # small stroke motor

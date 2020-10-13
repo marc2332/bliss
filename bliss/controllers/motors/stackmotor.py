@@ -5,9 +5,6 @@
 # Copyright (c) 2015-2020 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-import ast
-
-from bliss import global_map
 from bliss.common.logtools import log_debug
 from bliss.common.utils import object_method
 from bliss.controllers.motor import CalcController
@@ -53,16 +50,16 @@ class StackMotor(CalcController):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        for i in ast.literal_eval(self.config.get("axes")):
-            if "real mls" in i.values():
-                self.mls = i["name"][1:]
-            if "real mss" in i.values():
-                self.mss = i["name"][1:]
-                self.mss_low_limit = float(i["low_limit"])
-                self.mss_high_limit = float(i["high_limit"])
-                self.absolute_limits = bool(i["absolute_limits"])
-            if "stack" in i.values():
-                self.stackmotor = i["name"]
+        for axis in self.config.config_dict["axes"]:
+            if "real mls" in axis["tags"]:
+                self.mls = axis["name"]
+            if "real mss" in axis["tags"]:
+                self.mss = axis["name"]
+                self.mss_low_limit = float(axis["low_limit"])
+                self.mss_high_limit = float(axis["high_limit"])
+                self.absolute_limits = bool(axis["absolute_limits"])
+            if "stack" in axis["tags"]:
+                self.stackmotor = axis["name"]
         self.stack_active = True
 
     @object_method()
@@ -74,11 +71,8 @@ class StackMotor(CalcController):
         """
         self.stack_active = True
         if not self.absolute_limits:
-            p = [
-                i[1] for i in global_map.get_axes_positions_iter() if i[0] == self.mss
-            ][0]
-            self.mss_low_limit += p
-            self.mss_high_limit += p
+            self.mss_low_limit += self.mss.position
+            self.mss_high_limit += self.mss.position
 
     @object_method()
     def stack_off(self, _):
@@ -89,17 +83,21 @@ class StackMotor(CalcController):
         self.stack_active = False
 
     def __info__(self):
+        info_str = "Controller: StackMotor\n"
+        return info_str
+
+    def get_axis_info(self, axis):
         s = (
             "STACK MOTOR:\n"
-            + f"     large stroke motor: {self.mls}\n"
-            + f"     small stroke motor: {self.mss} in [{self.mss_low_limit},{self.mss_high_limit}]\n"
+            + f"     large stroke motor: {self.mls.name}\n"
+            + f"     small stroke motor: {self.mss.name} in [{self.mss_low_limit},{self.mss_high_limit}]\n"
             + f'     stack is {["OFF","ON"][self.stack_active]}\n'
-            + f"     {self.stackmotor} = {self.mls} + {self.mss}\n"
+            + f"     {self.stackmotor} = {self.mls.name} + {self.mss.name}\n"
         )
         return s
 
     def calc_from_real(self, positions_dict):
-        log_debug(self, "calc_from_real: received positions:\n", positions_dict)
+        log_debug(self, "calc_from_real: received positions: %s", positions_dict)
 
         calc_dict = dict()
         calc_dict.update({"stack": positions_dict["mls"] + positions_dict["mss"]})
@@ -108,33 +106,26 @@ class StackMotor(CalcController):
     def calc_to_real(self, positions_dict):
         ### TODO handle numpy arrays (#1622)
 
-        log_debug(self, "calc_to_real: received positions:\n", positions_dict)
+        log_debug(self, "calc_to_real: received positions: %s", positions_dict)
 
         real_dict = dict()
 
-        # build dict of current positions
-        pos = {
-            motor: position
-            for motor, position in zip(
-                [i.name for i in self.reals], [i.position for i in self.reals]
-            )
-        }
         # calculate position of small and large stroke motors
         if self.stack_active:
-            delta = positions_dict["stack"] - pos[self.mls] - pos[self.mss]
+            delta = positions_dict["stack"] - self.mls.position - self.mss.position
             if (
-                pos[self.mss] + delta > self.mss_low_limit
-                and pos[self.mss] + delta < self.mss_high_limit
+                self.mss.position + delta > self.mss_low_limit
+                and self.mss.position + delta < self.mss_high_limit
             ):
                 # move is made with small stroke motor
-                mss_target = pos[self.mss] + delta
-                mls_target = pos[self.mls]
+                mss_target = self.mss.position + delta
+                mls_target = self.mls.position
             else:
                 # small stroke motor is brought back to middle position
                 mss_target = (self.mss_low_limit + self.mss_high_limit) / 2
                 mls_target = positions_dict["stack"] - mss_target
         else:
-            mss_target = pos[self.mss]
+            mss_target = self.mss.position
             mls_target = positions_dict["stack"] - mss_target
 
         real_dict.update({"mls": mls_target, "mss": mss_target})

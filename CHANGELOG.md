@@ -19,12 +19,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
       (if behave like many frames, only the last one is displayed)
     - Dedicated widget to display data from profile ROIs
     - Added negative function filter on curves
-    - The colormap is now part of the live image widget configuration and reused
-      for each new scans
+    - The colormap is now part of the live image/scatter widget configuration
+      and reused for each new scans
+    - The colormaps from live plots are now editable in a common dockable widget
 - Remote Flint API
     - Added `get_plot` and `get_live_plot` from `flint()` proxy to create and
       retrieve plots
-    - Provides a `set_colormap` method to custom live plot image colormap
+    - Provides a `set_colormap` method to custom live image/scatter plots
     - Provide `focus` method to set the focus to a plot
     - Provide a method to export a plot to the logbook
     - Provide `update_user_data` method to feed live plot with processed data

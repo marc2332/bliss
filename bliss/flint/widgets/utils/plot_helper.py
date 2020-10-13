@@ -136,7 +136,7 @@ class PlotConfiguration:
         # Curve widget
         self.spec_mode: bool = False
 
-        # Image widget
+        # Image/scatter widget
         self.colormap: Optional[Dict] = None
 
     def __reduce__(self):

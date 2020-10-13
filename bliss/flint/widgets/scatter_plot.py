@@ -17,6 +17,7 @@ import numpy
 
 from silx.gui import qt
 from silx.gui import icons
+from silx.gui import colors
 from silx.gui.plot.actions import histogram
 from silx.gui.plot.items.shape import BoundingRect
 from silx.gui.plot.items.shape import Shape
@@ -334,6 +335,8 @@ class ScatterPlotWidget(plot_helper.PlotWidget):
         self.__plot.setActiveCurveStyle(linewidth=2)
         self.__plot.setDataMargins(0.05, 0.05, 0.05, 0.05)
 
+        self.__colormap = colors.Colormap("viridis")
+
         self.__title = _Title(self.__plot)
 
         self.setFocusPolicy(qt.Qt.StrongFocus)
@@ -396,6 +399,39 @@ class ScatterPlotWidget(plot_helper.PlotWidget):
         self.__plot.addItem(self.__lastValue)
         self.__plot.addItem(self.__rect)
 
+        self.widgetActivated.connect(self.__activated)
+
+    def __activated(self):
+        self.__initColormapWidget()
+
+    def __initColormapWidget(self):
+        live = self.flintModel().liveWindow()
+        colormapWidget = live.acquireColormapWidget(self)
+        if colormapWidget is not None:
+            for item in self.__plot.getItems():
+                if isinstance(item, plot_helper.FlintScatter):
+                    colormapWidget.setItem(item)
+                    break
+            else:
+                colormapWidget.setColormap(self.__colormap)
+
+    def configuration(self):
+        config = super(ScatterPlotWidget, self).configuration()
+        try:
+            config.colormap = self.__colormap._toDict()
+        except Exception:
+            # As it relies on private API, make it safe
+            _logger.error("Impossible to save colormap preference", exc_info=True)
+        return config
+
+    def setConfiguration(self, config):
+        try:
+            self.__colormap._setFromDict(config.colormap)
+        except Exception:
+            # As it relies on private API, make it safe
+            _logger.error("Impossible to restore colormap preference", exc_info=True)
+        super(ScatterPlotWidget, self).setConfiguration(config)
+
     def getRefreshManager(self) -> plot_helper.RefreshManager:
         return self.__refreshManager
 
@@ -428,7 +464,8 @@ class ScatterPlotWidget(plot_helper.PlotWidget):
         action = style_action.FlintItemStyleAction(self.__plot, self)
         toolBar.addAction(action)
         self.__styleAction = action
-        action = style_action.FlintItemContrastAction(self.__plot, self)
+        action = style_action.FlintSharedColormapAction(self.__plot, self)
+        action.setInitColormapWidgetCallback(self.__initColormapWidget)
         toolBar.addAction(action)
         self.__contrastAction = action
         toolBar.addSeparator()
@@ -856,7 +893,7 @@ class ScatterPlotWidget(plot_helper.PlotWidget):
 
         legend = valueChannel.name()
         style = item.getStyle(scan)
-        colormap = model_helper.getColormapFromItem(item, style)
+        colormap = model_helper.getColormapWithItemStyle(item, style, self.__colormap)
 
         scatter = None
         curve = None
@@ -941,6 +978,12 @@ class ScatterPlotWidget(plot_helper.PlotWidget):
             plot.addItem(curve)
             plotItems.append((key, "curve"))
 
+        live = self.flintModel().liveWindow()
+        if live is not None:
+            colormapWidget = live.ownedColormapWidget(self)
+        else:
+            colormapWidget = None
+
         if scatter is not None:
             # Profile is not selectable,
             # so it does not interfere with profile interaction
@@ -948,6 +991,12 @@ class ScatterPlotWidget(plot_helper.PlotWidget):
             self.__plot._setActiveItem("scatter", scatter.getLegend())
         elif curve is not None:
             self.__plot._setActiveItem("curve", curve.getLegend())
+
+        if colormapWidget is not None:
+            if scatter is not None:
+                colormapWidget.setItem(scatter)
+            else:
+                colormapWidget.setItem(None)
 
         self.__items[item] = plotItems
         self.__updatePlotZoom(updateZoomNow)

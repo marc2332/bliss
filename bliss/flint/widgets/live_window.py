@@ -46,6 +46,7 @@ class LiveWindowConfiguration:
         self.show_count_widget: bool = False
         self.show_positioners_widget: bool = False
         self.show_colormap_dialog: bool = False
+        self.colormap_geometry: Optional[qt.QRect] = None
 
     def __reduce__(self):
         return (self.__class__, (), self.__getstate__())
@@ -93,6 +94,7 @@ class LiveWindow(MainWindow):
         self.__ctWidget = None
         self.__positionersWidget = None
         self.__colormapWidget = None
+        self.__lastColormapWidgetFloatingGeometry = None
 
         self.__initGui()
 
@@ -116,6 +118,7 @@ class LiveWindow(MainWindow):
         config.show_positioners_widget = displayed
         displayed = self.__colormapWidget is not None
         config.show_colormap_dialog = displayed
+        config.colormap_geometry = self.__lastColormapWidgetFloatingGeometry
         return config
 
     def setConfiguration(self, config: LiveWindowConfiguration):
@@ -128,6 +131,7 @@ class LiveWindow(MainWindow):
         colormapWidget = self.__colormapWidget is not None
         if config.show_colormap_dialog != colormapWidget:
             self.__toggleColormapWidget()
+        self.__lastColormapWidgetFloatingGeometry = config.colormap_geometry
 
     def __initGui(self):
         scanStatusWidget = ScanStatus(self)
@@ -249,7 +253,6 @@ class LiveWindow(MainWindow):
 
     def __createColormapWidget(self):
         widget = ColormapWidget(self)
-        widget.setAttribute(qt.Qt.WA_DeleteOnClose)
         widget.windowClosed.connect(self.__colormapWidgetClosed)
         widget.destroyed.connect(self.__colormapWidgetClosed)
         widget.setObjectName("colormap-dock")
@@ -257,13 +260,20 @@ class LiveWindow(MainWindow):
 
         self.addDockWidget(qt.Qt.RightDockWidgetArea, widget)
         widget.setFloating(True)
+        if self.__lastColormapWidgetFloatingGeometry is not None:
+            widget.setGeometry(self.__lastColormapWidgetFloatingGeometry)
         widget.setVisible(True)
         widget.setWindowFlag(qt.Qt.WindowStaysOnTopHint, True)
 
         return widget
 
     def __colormapWidgetClosed(self):
-        self.__colormapWidget = None
+        colormapWidget = self.__colormapWidget
+        if colormapWidget is not None:
+            if colormapWidget.isFloating():
+                self.__lastColormapWidgetFloatingGeometry = colormapWidget.geometry()
+            self.__colormapWidget = None
+            colormapWidget.deleteLater()
 
     def colormapWidget(self, create=True) -> Optional[PositionersWidget]:
         """Returns the widget used to display colormaps."""
@@ -277,7 +287,8 @@ class LiveWindow(MainWindow):
         if widget is None:
             self.colormapWidget(create=True)
         else:
-            widget.deleteLater()
+            widget.close()
+            self.__colormapWidgetClosed()
 
     def scanStatusWidget(self) -> Optional[ScanStatus]:
         """Returns the widget used to display the scan status."""
@@ -618,3 +629,5 @@ class LiveWindow(MainWindow):
             self.addDockWidget(qt.Qt.RightDockWidgetArea, colormapWidget)
             colormapWidget.setFloating(True)
             colormapWidget.setVisible(True)
+            if self.__lastColormapWidgetFloatingGeometry is not None:
+                widget.setGeometry(self.__lastColormapWidgetFloatingGeometry)

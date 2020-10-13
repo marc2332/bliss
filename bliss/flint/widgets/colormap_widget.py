@@ -52,6 +52,7 @@ class ColormapWidget(ExtendedDockWidget):
 
     def eventFilter(self, widget, event):
         if event.type() == qt.QEvent.HideToParent:
+            self.windowClosed.emit()
             self.deleteLater()
         return widget.eventFilter(widget, event)
 

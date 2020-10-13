@@ -60,27 +60,33 @@ class StackMotor(CalcController):
                 self.absolute_limits = bool(axis["absolute_limits"])
             if "stack" in axis["tags"]:
                 self.stackmotor = axis["name"]
-        self.stack_active = True
+        self._stack_on()
 
-    @object_method()
-    def stack_on(self, _):
-        """
-        Activate the stack:
-        When active and moving the stack, the short motor alone will be moved if it remains within its limits,
-        when moving outside its limits, it will be moved into its middle position and the move will be made with the large motor.
-        """
+    def _stack_on(self):
         self.stack_active = True
         if not self.absolute_limits:
             self.mss_low_limit += self.mss.position
             self.mss_high_limit += self.mss.position
 
+    def _stack_off(self):
+        self.stack_active = False
+
     @object_method()
-    def stack_off(self, _):
+    def stack_on(self, axis):
+        """
+        Activate the stack:
+        When active and moving the stack, the short motor alone will be moved if it remains within its limits,
+        when moving outside its limits, it will be moved into its middle position and the move will be made with the large motor.
+        """
+        self._stack_on()
+
+    @object_method()
+    def stack_off(self, axis):
         """
         Dectivate the stack:
         when inactive, only the large motor will move when moving the stack, the small motor will not move.
         """
-        self.stack_active = False
+        self._stack_off()
 
     def __info__(self):
         info_str = "Controller: StackMotor\n"

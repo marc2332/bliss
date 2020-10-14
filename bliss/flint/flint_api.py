@@ -144,6 +144,7 @@ class FlintApi:
         return next(self._id_generator)
 
     def set_session(self, session_name):
+        self.wait_started()
         manager = self.__flintModel.mainManager()
         manager.updateBlissSessionName(session_name)
 

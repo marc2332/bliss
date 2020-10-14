@@ -70,7 +70,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed first motor position for `amesh` with backnforth enabled
 - Flint
     - Fixed plot display in order to always use `plotselect` selection
-    - Fixed `plotselect` in order to skip Flint loading
+    - Fixed `plotselect` was requesting Flint creating with some conditions
+    - Fixed inconsistency with Flint layout at startup. Now the exact same
+      layout is supposed retrieved
     - Fixed Flint segmentation fault on GLX initialization
     - Fixed default selected x-axis on ascan scans
     - Fixed black background on OpenGL rendering

@@ -119,7 +119,9 @@ class WorkspaceData(dict):
         if "window_config" in self:
             config = self["window_config"]
             window.setConfiguration(config)
+
         layout = self["layout"]
+        _logger.debug("Restore layout state")
         window.restoreState(layout)
 
     def feedWorkspace(self, workspace: flint_model.Workspace, parent: qt.QMainWindow):
@@ -129,6 +131,13 @@ class WorkspaceData(dict):
         for data in widgetDescriptions:
             if isinstance(data, tuple):
                 data = _WidgetDescriptionCompatibility(*data, None)
+
+            if data.objectName is None or data.objectName == "":
+                _logger.warning(
+                    "Widget %s from workspace configuration have no name. Skipped.",
+                    data.className,
+                )
+                continue
 
             widget = data.className(parent)
             widget.setObjectName(data.objectName)
@@ -370,6 +379,7 @@ class WorkspaceManager(qt.QObject):
         data.initLiveWindow(window)
 
     def loadWorkspace(self, name: str):
+        _logger.debug("Load workspace %s", name)
         flintModel = self.mainManager().flintModel()
 
         newWorkspace = flint_model.Workspace()

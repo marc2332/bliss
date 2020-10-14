@@ -57,6 +57,7 @@ from gevent import lock
 from bliss.common.regulation import Input, Output, Loop
 from bliss.common.utils import set_custom_members
 from bliss.common.logtools import log_info
+import time
 
 
 class Controller:
@@ -682,3 +683,26 @@ class Controller:
         """
         log_info(self, "Controller:get_output_ramprate: %s" % (toutput))
         raise NotImplementedError
+
+
+def send_limit(func):
+    """
+    Limit number of commands per second
+
+    lakeshore 331/340 supports at most 20 commands per second
+    """
+
+    last_call = time.time()
+
+    def f(*args, **kwargs):
+
+        nonlocal last_call
+        delta_t = time.time() - last_call
+        if delta_t <= 0.15:
+            time.sleep(0.15 - delta_t)
+        try:
+            return func(*args, **kwargs)
+        finally:
+            last_call = time.time()
+
+    return f

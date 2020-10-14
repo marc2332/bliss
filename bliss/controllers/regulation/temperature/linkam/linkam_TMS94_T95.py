@@ -41,7 +41,7 @@ import enum
 from bliss import global_map
 from bliss.comm.util import get_comm
 from bliss.common.logtools import log_info, log_debug
-from bliss.controllers.regulator import Controller
+from bliss.controllers.regulator import send_limit
 
 # --- patch the Input, Output and Loop classes with their Linkam equivalent -----------
 from bliss.controllers.regulation.temperature.linkam.linkam import (  # noqa: F401
@@ -53,27 +53,6 @@ from bliss.controllers.regulation.temperature.linkam.linkam import (  # noqa: F4
 from bliss.controllers.regulation.temperature.linkam.linkam import (  # noqa: F401
     LinkamLoop as Loop
 )
-
-
-_last_call = time.time()
-
-
-def _send_limit(func):
-    """
-    Limit number of commands per second
-    """
-
-    def f(*args, **kwargs):
-        global _last_call
-        delta_t = time.time() - _last_call
-        if delta_t <= 0.30:
-            time.sleep(0.30 - delta_t)
-        try:
-            return func(*args, **kwargs)
-        finally:
-            _last_call = time.time()
-
-    return f
 
 
 class LinkamTms94(Controller):
@@ -483,7 +462,7 @@ class LinkamTms94(Controller):
 
     # ----- controller specific methods --------------------------
 
-    @_send_limit
+    @send_limit
     def send_cmd(self, command, arg=None):
         """ Send a command to the controller
             Args:

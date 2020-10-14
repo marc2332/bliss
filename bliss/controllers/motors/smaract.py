@@ -55,9 +55,9 @@ import collections
 import gevent
 
 from bliss.common.axis import AxisState
-from bliss.comm.util import get_comm, TCP
+from bliss.comm.util import get_comm
 from bliss.controllers.motor import Controller
-from bliss.common.logtools import *
+from bliss.common.logtools import log_debug, log_warning
 from bliss import global_map
 
 # Notes:
@@ -235,7 +235,7 @@ Features = collections.namedtuple(
 )
 
 
-class Channel(object):
+class Channel:
 
     hold_time = InfiniteHoldTime
 
@@ -453,6 +453,8 @@ class SmarAct(Controller):
     def initialize(self):
         self.comm = get_comm(self.config.config_dict, port=self.DEFAULT_PORT)
         global_map.register(self, children_list=[self.comm])
+        # set communication mode to synchronous at controller initialization (issue #2167)
+        self["CM"] = 0
 
     def initialize_hardware(self):
         # set communication mode to synchronous

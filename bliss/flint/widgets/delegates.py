@@ -145,12 +145,16 @@ class StyleItemDelegate(qt.QStyledItemDelegate):
     """Style delegate to edit item style.
     """
 
+    def __init__(self, parent=None, editable=True):
+        qt.QStyledItemDelegate.__init__(self, parent=parent)
+        self.__editable = editable
+
     def createEditor(self, parent, option, index):
         if not index.isValid():
             return super(StyleItemDelegate, self).createEditor(parent, option, index)
 
         editor = StylePropertyWidget(parent)
-        editor.setEditable(True)
+        editor.setEditable(self.__editable)
         editor.setMinimumSize(editor.sizeHint())
         self.__updateEditor(editor, index)
         return editor
@@ -237,6 +241,8 @@ class StylePropertyWidget(qt.QWidget):
         layout.addWidget(self.__legend)
         layout.addSpacing(2)
 
+        self.__displayContrast = False
+
         self.__buttonStyle: Optional[qt.QToolButton] = None
         self.__buttonContrast: Optional[qt.QToolButton] = None
 
@@ -270,7 +276,7 @@ class StylePropertyWidget(qt.QWidget):
 
         if self.__buttonContrast is not None:
             self.__buttonContrast.setVisible(isEditable)
-        else:
+        elif isEditable and self.__displayContrast:
             icon = icons.getQIcon("flint:icons/contrast")
             self.__buttonContrast = qt.QToolButton()
             self.__buttonContrast.setToolTip("Edit the contrast of this item")

@@ -147,7 +147,7 @@ class ImagePlotPropertyWidget(qt.QWidget):
 
         self.__visibilityDelegate = delegates.VisibilityPropertyItemDelegate(self)
         self.__removeDelegate = delegates.RemovePropertyItemDelegate(self)
-        self.__styleDelegate = delegates.StyleItemDelegate(self)
+        self.__styleDelegate = delegates.StyleItemDelegate(self, editable=False)
 
         model = qt.QStandardItemModel(self)
         self.__tree.setModel(model)

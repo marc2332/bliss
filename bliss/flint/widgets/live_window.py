@@ -13,6 +13,7 @@ from typing import Any
 
 import enum
 import functools
+import logging
 
 from silx.gui import qt
 from silx.gui import utils
@@ -25,6 +26,10 @@ from bliss.flint.widgets.scan_status import ScanStatus
 from bliss.flint.widgets.ct_widget import CtWidget
 from bliss.flint.widgets.positioners_widget import PositionersWidget
 from bliss.flint.widgets.extended_dock_widget import MainWindow
+from bliss.flint.widgets.colormap_widget import ColormapWidget
+
+
+_logger = logging.getLogger(__name__)
 
 
 class _PredefinedLayouts(enum.Enum):
@@ -40,6 +45,8 @@ class LiveWindowConfiguration:
         # Mode
         self.show_count_widget: bool = False
         self.show_positioners_widget: bool = False
+        self.show_colormap_dialog: bool = False
+        self.colormap_geometry: Optional[qt.QRect] = None
 
     def __reduce__(self):
         return (self.__class__, (), self.__getstate__())
@@ -86,8 +93,18 @@ class LiveWindow(MainWindow):
         self.__propertyWidget = None
         self.__ctWidget = None
         self.__positionersWidget = None
+        self.__colormapWidget = None
+        self.__lastColormapWidgetFloatingGeometry = None
 
         self.__initGui()
+
+    def postInit(self):
+        colormapWidget = self.colormapWidget(create=False)
+        if colormapWidget is not None:
+            # Between creation and display this flag have disappeared
+            # FIXME: This could be maybe patched in the extended dock impl
+            colormapWidget.setWindowFlag(qt.Qt.WindowStaysOnTopHint, True)
+            colormapWidget.show()
 
     def configuration(self) -> LiveWindowConfiguration:
         """Returns a global configuration of this window
@@ -99,6 +116,9 @@ class LiveWindow(MainWindow):
         config.show_count_widget = displayed
         displayed = self.__positionersWidget is not None
         config.show_positioners_widget = displayed
+        displayed = self.__colormapWidget is not None
+        config.show_colormap_dialog = displayed
+        config.colormap_geometry = self.__lastColormapWidgetFloatingGeometry
         return config
 
     def setConfiguration(self, config: LiveWindowConfiguration):
@@ -108,6 +128,10 @@ class LiveWindow(MainWindow):
         positionersWidgetDisplayed = self.__positionersWidget is not None
         if config.show_positioners_widget != positionersWidgetDisplayed:
             self.__togglePositionersWidget()
+        colormapWidget = self.__colormapWidget is not None
+        if config.show_colormap_dialog != colormapWidget:
+            self.__toggleColormapWidget()
+        self.__lastColormapWidgetFloatingGeometry = config.colormap_geometry
 
     def __initGui(self):
         scanStatusWidget = ScanStatus(self)
@@ -204,6 +228,72 @@ class LiveWindow(MainWindow):
         else:
             widget.deleteLater()
 
+    def acquireColormapWidget(self, newOwner):
+        """Acquire the colormap widget.
+
+        Returns the colormap widget if it was acquired, else returns None.
+        """
+        if self.__colormapWidget is None:
+            return None
+        self.__colormapWidget.setOwner(newOwner)
+        return self.__colormapWidget
+
+    def ownedColormapWidget(self, owner):
+        """Returns the colormap =widget if it was acquired by this widget.
+
+        Else returns None
+        """
+        colormapWidget = self.__colormapWidget
+        if colormapWidget is None:
+            return None
+        currentOwner = self.__colormapWidget.owner()
+        if currentOwner is owner:
+            return colormapWidget
+        return None
+
+    def __createColormapWidget(self):
+        widget = ColormapWidget(self)
+        widget.windowClosed.connect(self.__colormapWidgetClosed)
+        widget.destroyed.connect(self.__colormapWidgetClosed)
+        widget.setObjectName("colormap-dock")
+        widget.setWindowTitle("Colormap")
+
+        self.addDockWidget(qt.Qt.RightDockWidgetArea, widget)
+        widget.setFloating(True)
+        if self.__lastColormapWidgetFloatingGeometry is not None:
+            widget.setGeometry(self.__lastColormapWidgetFloatingGeometry)
+        widget.setVisible(True)
+        widget.setWindowFlag(qt.Qt.WindowStaysOnTopHint, True)
+
+        return widget
+
+    def __colormapWidgetClosed(self):
+        colormapWidget = self.__colormapWidget
+        if colormapWidget is not None:
+            if colormapWidget.isFloating():
+                self.__lastColormapWidgetFloatingGeometry = colormapWidget.geometry()
+            self.__colormapWidget = None
+            colormapWidget.deleteLater()
+
+    def colormapWidget(self, create=True, show=False) -> Optional[PositionersWidget]:
+        """Returns the widget used to display colormaps."""
+        if self.__colormapWidget is None and create:
+            widget = self.__createColormapWidget()
+            self.__colormapWidget = widget
+        elif show:
+            widget = self.__colormapWidget
+            widget.show()
+            widget.raise_()
+        return self.__colormapWidget
+
+    def __toggleColormapWidget(self):
+        widget = self.colormapWidget(create=False)
+        if widget is None:
+            self.colormapWidget(create=True)
+        else:
+            widget.close()
+            self.__colormapWidgetClosed()
+
     def scanStatusWidget(self) -> Optional[ScanStatus]:
         """Returns the widget used to display the scan status."""
         return self.__scanStatusWidget
@@ -272,6 +362,12 @@ class LiveWindow(MainWindow):
         action.triggered.connect(self.__togglePositionersWidget)
         showPositionersAction = action
 
+        action = qt.QAction(menu)
+        action.setText("Colormap")
+        action.setCheckable(True)
+        action.triggered.connect(self.__toggleColormapWidget)
+        showColormapAction = action
+
         def updateActions():
             scanStatus = self.scanStatusWidget()
             showScanStateAction.setChecked(
@@ -284,12 +380,15 @@ class LiveWindow(MainWindow):
             ctWidget = self.ctWidget(create=False)
             showCountAction.setChecked(ctWidget is not None)
             positionersWidget = self.positionersWidget(create=False)
+            colormapWidget = self.colormapWidget(create=False)
             showPositionersAction.setChecked(positionersWidget is not None)
+            showColormapAction.setChecked(colormapWidget is not None)
 
         menu.addAction(showScanStateAction)
         menu.addAction(showPropertyAction)
         menu.addAction(showCountAction)
         menu.addAction(showPositionersAction)
+        menu.addAction(showColormapAction)
         menu.aboutToShow.connect(updateActions)
 
     def createLayoutActions(self, parent: qt.QObject) -> List[qt.QAction]:
@@ -442,6 +541,7 @@ class LiveWindow(MainWindow):
         positionersWidget = self.positionersWidget(create=False)
         if positionersWidget is not None:
             widgets.append(positionersWidget)
+        colormapWidget = self.colormapWidget(create=False)
 
         with utils.blockSignals(self):
             if layoutKind == _PredefinedLayouts.ONE_STACK:
@@ -528,3 +628,10 @@ class LiveWindow(MainWindow):
 
             else:
                 assert False
+
+        if colormapWidget is not None:
+            self.addDockWidget(qt.Qt.RightDockWidgetArea, colormapWidget)
+            colormapWidget.setFloating(True)
+            colormapWidget.setVisible(True)
+            if self.__lastColormapWidgetFloatingGeometry is not None:
+                widget.setGeometry(self.__lastColormapWidgetFloatingGeometry)

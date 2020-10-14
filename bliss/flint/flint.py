@@ -146,6 +146,9 @@ def start_flint(flintModel: flint_model.FlintState, splash):
 
     flintWindow.setVisible(True)
 
+    liveWindow = flintModel.liveWindow()
+    liveWindow.postInit()
+
     # Close the spash screen
     splash.finish(flintWindow)
 

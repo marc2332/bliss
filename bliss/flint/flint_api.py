@@ -951,7 +951,7 @@ class FlintApi:
         """
         widget = self._get_widget(plot_id)
         if not hasattr(widget, "defaultColormap"):
-            raise TypeError("Widget %s is not an image widget" % plot_id)
+            raise TypeError("Widget %s does not expose a colormap" % plot_id)
 
         colormap = widget.defaultColormap()
         if lut is not None:

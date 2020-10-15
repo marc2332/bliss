@@ -30,29 +30,33 @@ class LogServer(StreamServer):
 
     def handle(self, socket, address):
         while True:
-            chunk = socket.recv(4)
-            if len(chunk) < 4:
-                break
-            slen = struct.unpack(">L", chunk)[0]
-            chunk = socket.recv(slen)
-            if not len(chunk):  # socket closed by client
-                break
+            try:
+                chunk = socket.recv(4)
+                if len(chunk) < 4:
+                    break
+                slen = struct.unpack(">L", chunk)[0]
+                chunk = socket.recv(slen)
+                if not len(chunk):  # socket closed by client
+                    break
 
-            while len(chunk) < slen:
-                data = socket.recv(slen - len(chunk))
-                if not len(data):  # socket closed by client
-                    return
-                chunk = chunk + data
-            record_dict = pickle.loads(chunk)
+                while len(chunk) < slen:
+                    data = socket.recv(slen - len(chunk))
+                    if not len(data):  # socket closed by client
+                        return
+                    chunk = chunk + data
+                record_dict = pickle.loads(chunk)
 
-            if "application" not in record_dict:
-                record_dict["application"] = "bliss"
+                if "application" not in record_dict:
+                    record_dict["application"] = "bliss"
 
-            self.prepare_handler(record_dict, self.db_path, self.log_size)
+                self.prepare_handler(record_dict, self.db_path, self.log_size)
 
-            # There is extra "session" and "application" to the record
-            record = logging.makeLogRecord(record_dict)
-            self.log_record(record)
+                # There is extra "session" and "application" to the record
+                record = logging.makeLogRecord(record_dict)
+                self.log_record(record)
+            except Exception:
+                _log.error("Error while processing message", exc_info=True)
+                raise
 
     def prepare_handler(self, record_dict, root_path, log_size):
         """

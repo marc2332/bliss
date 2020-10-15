@@ -40,7 +40,7 @@ from bliss.config.beacon_object import BeaconObject
 from bliss.config import static
 from bliss.common import scans
 from bliss.scanning import chain, scan
-from bliss.common.event import dispatcher, connect,disconnect
+from bliss.common.event import dispatcher, connect, disconnect
 from bliss.common.measurementgroup import _get_counters_from_names
 from bliss.common.measurementgroup import get_active as get_active_mg
 from bliss.common.counter import SamplingCounter
@@ -62,15 +62,18 @@ from bliss.common.auto_filter.filterset import FilterSet
 
 from . import acquisition_objects
 
-def _unmarshalling_energy_axis(auto_filter,value):
-    if isinstance(value,str):
+
+def _unmarshalling_energy_axis(auto_filter, value):
+    if isinstance(value, str):
         config = static.get_config()
         return config.get(value)
     else:
         return value
 
-def _marshalling_energy_axis(auto_filter,value):
+
+def _marshalling_energy_axis(auto_filter, value):
     return value.name
+
 
 class AutoFilterCounterController(SamplingCounterController):
     def __init__(self, name, autof):
@@ -217,20 +220,22 @@ class AutoFilter(BeaconObject):
         must_be_in_config=True,
         doc="Minimum allowed count rate on monitor",
     )
+
     @min_count_rate.setter
-    def min_count_rate(self,value):
-        #To be sure that filter are re-calculated
+    def min_count_rate(self, value):
+        # To be sure that filter are re-calculated
         self._energy_changed = True
-    
+
     max_count_rate = BeaconObject.property_setting(
         "max_count_rate",
         must_be_in_config=True,
         doc="Maximum allowed count rate on monitor",
     )
+
     @max_count_rate.setter
-    def max_count_rate(self,value):
+    def max_count_rate(self, value):
         self._energy_changed = True
-        
+
     always_back = BeaconObject.property_setting(
         "always_back",
         must_be_in_config=False,
@@ -278,18 +283,18 @@ class AutoFilter(BeaconObject):
         self._energy_changed = True
 
     def __close__(self):
-        #added to let the test pass :-(
+        # added to let the test pass :-(
         energy_axis = self.energy_axis
         if energy_axis is not None:
-            disconnect(energy_axis,"position",self._set_energy_changed)
-    
+            disconnect(energy_axis, "position", self._set_energy_changed)
+
     def initialize(self):
         """
         intialize the behind filterset
         """
         if not self._energy_changed:
             return
-        
+
         _filterset = self.filterset
         self.__initialized = True
         # Synchronize the filterset with countrate range and energy
@@ -299,20 +304,19 @@ class AutoFilter(BeaconObject):
             # filterset sync. method return the maximum effective number of filters
             # which will correspond to the maximum number of filter changes
             self.max_nb_iter = _filterset.sync(
-                self.min_count_rate,
-                self.max_count_rate,
-                energy,
-                self.always_back,
+                self.min_count_rate, self.max_count_rate, energy, self.always_back
             )
             self._energy_changed = False
         else:
             self.__initialized = False
 
-    energy_axis = BeaconObject.property_setting('energy_axis',
-                                                must_be_in_config=True,
-                                                set_marshalling=_marshalling_energy_axis,
-                                                set_unmarshalling=_unmarshalling_energy_axis)
- 
+    energy_axis = BeaconObject.property_setting(
+        "energy_axis",
+        must_be_in_config=True,
+        set_marshalling=_marshalling_energy_axis,
+        set_unmarshalling=_unmarshalling_energy_axis,
+    )
+
     @energy_axis.setter
     def energy_axis(self, energy_axis):
         previous_energy_axis = self.energy_axis
@@ -321,7 +325,9 @@ class AutoFilter(BeaconObject):
                 # change on energy, so get filterset initialized back
                 self._energy_changed = True
                 if previous_energy_axis is not None:
-                    disconnect(previous_energy_axis,"position",self._set_energy_changed)
+                    disconnect(
+                        previous_energy_axis, "position", self._set_energy_changed
+                    )
                 connect(energy_axis, "position", self._set_energy_changed)
             else:
                 raise ValueError(f"{energy_axis} is not a Bliss Axis")

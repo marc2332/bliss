@@ -82,7 +82,9 @@ def test_autofilter_ascan(autof_session):
     assert "autofilter1:ratio" in scan_data
 
     # test that the corrected values are the expected ones
-    assert numpy.allclose(scan_data["autofilter1:sim_autofilter1_det_corr"], sim._data * sim.mon_value())
+    assert numpy.allclose(
+        scan_data["autofilter1:sim_autofilter1_det_corr"], sim._data * sim.mon_value()
+    )
 
     # test that transm fits to measured value
     assert numpy.allclose(

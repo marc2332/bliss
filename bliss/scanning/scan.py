@@ -14,7 +14,6 @@ import sys
 import time
 import datetime
 import collections
-from functools import wraps
 import warnings
 from typing import Callable, Any
 import typeguard
@@ -28,12 +27,10 @@ from bliss.common.greenlet_utils import KillMask
 from bliss.common.plot import get_flint
 from bliss.common.utils import periodic_exec, deep_update
 from bliss.scanning.scan_meta import get_user_scan_meta
-from bliss.common.axis import Axis
+from bliss.common.motor_group import is_motor_group
 from bliss.common.utils import Null, update_node_info, round
 from bliss.common.profiling import Statistics, time_profile
-from bliss.controllers.motor import remove_real_dependent_of_calc
-from bliss.config.settings import ParametersWardrobe
-from bliss.config.settings import pipeline
+from bliss.controllers.motor import Controller
 from bliss.config.settings_cache import CacheConnection
 from bliss.data.node import _get_or_create_node, _create_node
 from bliss.data.scan import get_data
@@ -955,23 +952,19 @@ class Scan:
         else:
             self._watchdog_task = None
 
-    def _get_data_axes_name(self):
+    def _get_data_axes(self):
         """
-        Return all axes in this scan
+        Return all axes objects in this scan
         """
-        acq_chain = self._scan_info["acquisition_chain"]
         master_axes = []
-        for top_level_master in acq_chain.keys():
-            for scalar_master in acq_chain[top_level_master]["master"]["scalars"]:
-                ma = scalar_master.split(":")[-1]
-                if ma in self._scan_info["positioners"]["positioners_start"]:
-                    master_axes.append(ma)
+        for node in self.acq_chain.nodes_list:
+            if not isinstance(node, AcquisitionMaster):
+                continue
+            if isinstance(node.device, Controller):
+                master_axes.append(node.device)
+            if is_motor_group(node.device):
+                master_axes.extend(node.device.axes.values())
 
-        if len(master_axes) == 0:
-            if self._scan_info.get("type") == "timescan":
-                return ["elapsed_time"]
-            else:
-                raise RuntimeError("No axis detected in scan.")
         return master_axes
 
     def update_ctrl_params(self, ctrl, new_param_dict):
@@ -1055,7 +1048,8 @@ class Scan:
         return scan_math.cen(*self._get_x_y_data(counter, axis))[0]
 
     def _multimotors(self, func, counter, axis=None, return_axes=False):
-        axes_names = self._get_data_axes_name()
+        motors = self._get_data_axes()
+        axes_names = [axis.name for axis in motors]
         res = collections.UserDict()
 
         def info():
@@ -1072,21 +1066,18 @@ class Scan:
 
         if axis is not None:
             if isinstance(axis, str):
-                assert axis in axes_names or "epoch" in axis or "elapsed_time" in axis
+                assert axis in axes_names or axis in ["elapsed_time", "epoch"]
             else:
                 assert axis.name in axes_names
             res[axis] = func(counter, axis=axis)
-        elif len(axes_names) == 1 and (
-            "elapsed_time" in axes_names or "epoch" in axes_names
-        ):
+        elif len(axes_names) == 1 and axes_names[0] in ["elapsed_time", "epoch"]:
             res = {axis: func(counter, axis=axes_names[0])}
         else:
-            ##ToDo: does this work for SoftAxis (not always exported)?
-            motors = [current_session.env_dict[axis_name] for axis_name in axes_names]
+            # allow "timer axis" for timescan
+            if self.scan_info.get("type") in ["loopscan", "timescan"]:
+                motors = ["elapsed_time"]
             if len(motors) < 1:
-                raise
-            # check if there is some calcaxis with associated real
-            motors = remove_real_dependent_of_calc(motors)
+                raise RuntimeError("No axis found in this scan.")
             for mot in motors:
                 res[mot] = func(counter, axis=mot)
 
@@ -1097,6 +1088,8 @@ class Scan:
 
     def _goto_multimotors(self, goto):
         for key in goto.keys():
+            if key in ["elapsed_time", "epoch"]:
+                RuntimeError("Cannot move. Time travel forbidden.")
             assert not isinstance(key, str)
         with error_cleanup(
             *goto.keys(), restore_list=(cleanup_axis.POS,), verbose=True

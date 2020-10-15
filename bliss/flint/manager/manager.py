@@ -37,6 +37,26 @@ from . import monitoring
 _logger = logging.getLogger(__name__)
 
 
+class BlissLogServerHandler(logging.handlers.SocketHandler):
+    """
+    Add 'session' field to emitted records
+
+    The session field allow the log server to dispatch log records to
+    the appropriate files
+    """
+
+    def __init__(self, host, port):
+        logging.handlers.SocketHandler.__init__(self, host, port)
+        self.session = None
+
+    def emit(self, record):
+        if self.session is None:
+            return
+        record.session = self.session
+        record.application = "flint"
+        return super().emit(record)
+
+
 class ManageMainBehaviours(qt.QObject):
     def __init__(self, parent=None):
         super(ManageMainBehaviours, self).__init__(parent=parent)
@@ -47,6 +67,7 @@ class ManageMainBehaviours(qt.QObject):
         self.__flintStarted.clear()
         self.__workspaceManager = workspace_manager.WorkspaceManager(self)
         self.__tangoMetadata = None
+        self.__beaconLogHandler = None
 
     def setFlintModel(self, flintModel: flint_model.FlintState):
         if self.__flintModel is not None:
@@ -81,6 +102,33 @@ class ManageMainBehaviours(qt.QObject):
         except Exception:
             _logger.error("Error while loading the workspace", exc_info=True)
 
+    def createBeaconLogServer(self, sessionName):
+        rootLogger = logging.getLogger()
+        if self.__beaconLogHandler is not None:
+            _logger.info("Beacon logger about to be disconnected")
+            rootLogger.removeHandler(self.__beaconLogHandler)
+            self.__beaconLogHandler = None
+
+        try:
+            from bliss.config.conductor.client import get_log_server_address
+
+            host, port = get_log_server_address()
+        except Exception:
+            _logger.error("Beacon server is not available", exc_info=True)
+            return
+
+        try:
+            _logger.debug("About to create Beacon logger handler")
+            handler = BlissLogServerHandler(host, port)
+            handler.setLevel(logging.INFO)
+            handler.session = sessionName
+        except Exception:
+            _logger.error("Can't create BlissLogServerHandler", exc_info=True)
+        else:
+            rootLogger.addHandler(handler)
+            self.__beaconLogHandler = handler
+            _logger.info("Beacon logger connected")
+
     def updateBlissSessionName(self, sessionName):
         flintModel = self.flintModel()
         previousSessionName = flintModel.blissSessionName()
@@ -88,13 +136,23 @@ class ManageMainBehaviours(qt.QObject):
             # FIXME: In case of a restart of bliss, is it safe?
             return False
 
+        # Early update of the beacon logger if possible
+        beaconLogHandler = self.__beaconLogHandler
+        if beaconLogHandler is not None:
+            beaconLogHandler.session = sessionName
+
         redis = flintModel.redisConnection()
         key = config.get_flint_key()
         current_value = redis.lindex(key, 0).decode()
         value = sessionName + " " + current_value.split()[-1]
         redis.lpush(key, value)
         redis.rpop(key)
+
         flintModel.setBlissSessionName(sessionName)
+
+        if beaconLogHandler is None:
+            self.createBeaconLogServer(sessionName)
+
         self.workspaceManager().loadLastWorkspace()
         return True
 

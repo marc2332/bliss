@@ -1,7 +1,6 @@
 import sys
 import pickle
 import logging
-import logging.handlers
 from logging.handlers import RotatingFileHandler
 import struct
 import argparse
@@ -10,17 +9,26 @@ import pathlib
 from gevent.server import StreamServer
 
 
-INITIALIZED_SESSIONS = []  # store names of initialized sessions for creating FileHandlers
-
 _log = logging.getLogger("log_server")
 
 
-class Handler:
-    def __init__(self, db_path, log_size):
+class LogServer(StreamServer):
+    """Process logging record received inside the `handle` function,
+    and dispatch them into different logging handlers."""
+
+    _handlers = {}
+    """
+    Store initialized FileHandlers.
+
+    There is a single handler per session.
+    """
+
+    def __init__(self, listener, db_path, log_size):
         self.db_path = db_path
         self.log_size = log_size
+        super(LogServer, self).__init__(listener, self.handle)
 
-    def __call__(self, socket, address):
+    def handle(self, socket, address):
         while True:
             chunk = socket.recv(4)
             if len(chunk) < 4:
@@ -35,28 +43,38 @@ class Handler:
                 if not len(data):  # socket closed by client
                     return
                 chunk = chunk + data
-            obj = pickle.loads(chunk)
+            record_dict = pickle.loads(chunk)
 
-            check_session(obj["session"], self.db_path, self.log_size)
+            self.prepare_handler(record_dict, self.db_path, self.log_size)
 
             # adding a 'session' argument to log messages
-            record = logging.makeLogRecord(obj)
-            handle_log_record(record)
+            record = logging.makeLogRecord(record_dict)
+            self.log_record(record)
 
+    def prepare_handler(self, record_dict, root_path, log_size):
+        """
+        Check if a session has a RotatingFileHandler and if not it
+        creates one.
+        """
+        session = record_dict["session"]
+        if session not in self._handlers:
+            handler = self.create_bliss_session_handler(
+                self.db_path, session, self.log_size
+            )
+            self._handlers[session] = handler
+            root_logger = logging.getLogger()
+            root_logger.addHandler(handler)
 
-def handle_log_record(record):
-    logger = logging.getLogger(record.name)
-    logger.handle(record)
+    def log_record(self, record):
+        logger = logging.getLogger(record.name)
+        logger.handle(record)
 
+    def create_bliss_session_handler(self, dir_path, session, log_size):
+        """Create a dedicated handler to store log in a file for a specific
+        BLISS session"""
 
-def check_session(session, root_path, log_size=1):
-    """
-    Check if a session has a RotatingFileHandler and if not it
-    creates one
-    """
-    if session not in INITIALIZED_SESSIONS:
-        # creating handler
-        dir_path = pathlib.Path(root_path)
+        # create root directory if needed
+        dir_path = pathlib.Path(dir_path)
         if not dir_path.exists():
             dir_path.mkdir()
 
@@ -78,9 +96,7 @@ def check_session(session, root_path, log_size=1):
         )  # adapt to needs
         handler.addFilter(filter_func)
         handler.setFormatter(formatter)
-        logging.getLogger().addHandler(handler)
-
-        INITIALIZED_SESSIONS.append(session)
+        return handler
 
 
 def main(args=None):
@@ -100,12 +116,12 @@ def main(args=None):
         "--log-output-folder", "--log_output_folder", type=str, dest="log_output_folder"
     )
     p.add_argument("--log-size", "--log_size", type=float, dest="log_size")
-    _options = p.parse_args(args)
+    options = p.parse_args(args)
 
-    _log.info(f"Initialize StreamServer on port {_options.port}")
-    server = StreamServer(
-        ("0.0.0.0", _options.port),
-        Handler(_options.log_output_folder, _options.log_size),
+    _log.info(f"Initialize LogServer on port {options.port}")
+
+    server = LogServer(
+        ("0.0.0.0", options.port), options.log_output_folder, options.log_size
     )
     server.serve_forever()
 

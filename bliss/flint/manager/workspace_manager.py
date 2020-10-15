@@ -119,19 +119,44 @@ class WorkspaceData(dict):
         if "window_config" in self:
             config = self["window_config"]
             window.setConfiguration(config)
+
         layout = self["layout"]
+        _logger.debug("Restore layout state")
         window.restoreState(layout)
 
     def feedWorkspace(self, workspace: flint_model.Workspace, parent: qt.QMainWindow):
         plots: dict = self["plots"]
         widgetDescriptions = self["widgets"]
 
+        descriptions = []
         for data in widgetDescriptions:
             if isinstance(data, tuple):
                 data = _WidgetDescriptionCompatibility(*data, None)
+            descriptions.append(data)
+
+        objectNames = set([d.objectName for d in descriptions])
+
+        def pickUnusedObjectName():
+            for i in range(100):
+                name = f"dock-%01d" % i
+                if name not in objectNames:
+                    objectNames.add(name)
+                    return name
+            return "dock-666-666"
+
+        for data in descriptions:
+
+            if data.objectName is None or data.objectName == "":
+                _logger.warning(
+                    "Widget %s from workspace configuration have no name. Generate one.",
+                    data.className,
+                )
+                objectName = pickUnusedObjectName()
+            else:
+                objectName = data.objectName
 
             widget = data.className(parent)
-            widget.setObjectName(data.objectName)
+            widget.setObjectName(objectName)
             widget.setWindowTitle(data.windowTitle)
             if hasattr(widget, "setConfiguration") and data.config is not None:
                 widget.setConfiguration(data.config)
@@ -370,6 +395,7 @@ class WorkspaceManager(qt.QObject):
         data.initLiveWindow(window)
 
     def loadWorkspace(self, name: str):
+        _logger.debug("Load workspace %s", name)
         flintModel = self.mainManager().flintModel()
 
         newWorkspace = flint_model.Workspace()

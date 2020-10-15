@@ -142,6 +142,7 @@ def start_flint(flintModel: flint_model.FlintState, splash):
     flintModel.setScanManager(scanManager)
 
     # Flag that flint is started
+    ROOT_LOGGER.info("Flint started")
     manager.setFlintStarted()
 
     flintWindow.setVisible(True)
@@ -234,7 +235,8 @@ def initApplication(argv):
     qapp = qt.QApplication.instance()
     if qapp is None:
         # Do not recreate OpenGL context when docking/undocking windows
-        # qt.QCoreApplication.setAttribute(qt.Qt.AA_ShareOpenGLContexts)
+        qt.QCoreApplication.setAttribute(qt.Qt.AA_ShareOpenGLContexts)
+        ROOT_LOGGER.debug("Create Qt application")
         qapp = qt.QApplication(argv)
     qapp.setApplicationName("flint")
     qapp.setOrganizationName("ESRF")
@@ -249,6 +251,7 @@ def initApplication(argv):
 
     # Care of the formatting for numbers (no coma)
     qt.QLocale.setDefault(qt.QLocale.c())
+    ROOT_LOGGER.debug("Qt application initialized")
     return qapp
 
 

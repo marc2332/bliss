@@ -15,7 +15,6 @@ from typing import List
 from typing import ClassVar
 
 import gevent.event
-from bliss.config.conductor.client import get_default_connection
 from bliss.config.conductor.client import get_redis_connection
 from bliss.flint import config
 
@@ -73,10 +72,9 @@ class ManageMainBehaviours(qt.QObject):
         return flintModel
 
     def initRedis(self):
-        connection = get_default_connection()
-        redisConnection = connection.get_redis_connection()
+        redis = get_redis_connection()
         flintModel = self.flintModel()
-        flintModel.setRedisConnection(redisConnection)
+        flintModel.setRedisConnection(redis)
         try:
             # NOTE: Here the session can not yet be defined
             self.workspaceManager().loadLastWorkspace()
@@ -90,7 +88,7 @@ class ManageMainBehaviours(qt.QObject):
             # FIXME: In case of a restart of bliss, is it safe?
             return False
 
-        redis = get_redis_connection()
+        redis = flintModel.redisConnection()
         key = config.get_flint_key()
         current_value = redis.lindex(key, 0).decode()
         value = sessionName + " " + current_value.split()[-1]

@@ -14,6 +14,7 @@ from typing import Any
 import enum
 import functools
 import logging
+import weakref
 
 from silx.gui import qt
 from silx.gui import utils
@@ -114,7 +115,7 @@ class LiveWindow(MainWindow):
         config = LiveWindowConfiguration()
         displayed = self.__ctWidget is not None
         config.show_count_widget = displayed
-        displayed = self.__positionersWidget is not None
+        displayed = self.positionersWidget(create=False) is not None
         config.show_positioners_widget = displayed
         displayed = self.__colormapWidget is not None
         config.show_colormap_dialog = displayed
@@ -125,7 +126,7 @@ class LiveWindow(MainWindow):
         ctWidgetDisplayed = self.__ctWidget is not None
         if config.show_count_widget != ctWidgetDisplayed:
             self.__toggleCtWidget()
-        positionersWidgetDisplayed = self.__positionersWidget is not None
+        positionersWidgetDisplayed = self.positionersWidget(create=False) is not None
         if config.show_positioners_widget != positionersWidgetDisplayed:
             self.__togglePositionersWidget()
         colormapWidget = self.__colormapWidget is not None
@@ -216,10 +217,14 @@ class LiveWindow(MainWindow):
 
     def positionersWidget(self, create=True) -> Optional[PositionersWidget]:
         """Returns the widget used to display positioners."""
-        if self.__positionersWidget is None and create:
+        if self.__positionersWidget is None:
+            widget = None
+        else:
+            widget = self.__positionersWidget()
+        if widget is None and create:
             widget = self.__createPositionersWidget()
-            self.__positionersWidget = widget
-        return self.__positionersWidget
+            self.__positionersWidget = weakref.ref(widget)
+        return widget
 
     def __togglePositionersWidget(self):
         widget = self.positionersWidget(create=False)

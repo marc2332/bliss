@@ -96,6 +96,8 @@ test_bliss_cov:
   extends: .template_test_source
   only:
     - master
+  tags:
+    - bliss_master
   artifacts:
     paths:
       - htmlcov/
@@ -111,6 +113,8 @@ test_writer_cov:
   extends: .template_test_source
   only:
     - master
+  tags:
+    - bliss_master
   artifacts:
     paths:
       - htmlcov_writer/
@@ -251,9 +255,6 @@ create_user_doc:
 .template_test_package:
   stage: package_tests
   image: continuumio/miniconda3:latest
-  tags:
-    - conda
-    - linux
   script:
     # install Xvfb and opengl libraries (needed for test_flint)
     - apt-get update && apt-get -y install xvfb libxi6
@@ -269,6 +270,8 @@ test_bliss_package:
   extends: .template_test_package
   only:
     - tags
+  tags:
+    - bliss_master
   artifacts:
     paths:
       - htmlcov/
@@ -281,6 +284,8 @@ test_writer_package:
   extends: .template_test_package
   only:
     - tags
+  tags:
+    - bliss_master
   artifacts:
     paths:
       - htmlcov_writer/

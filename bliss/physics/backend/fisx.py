@@ -8,14 +8,12 @@
 import numpy
 from scipy.interpolate import interp1d
 import fisx
-import mendeleev
 from .helpers import get_cs_kind
 
 
 _elementsInstance = fisx.Elements()
 _elementsInstance.initializeAsPyMca()
 _cs_catalog = {}
-_element_catalog = {}
 
 
 def _get_from_cs_catalog(Z, kind):
@@ -49,32 +47,20 @@ def _get_from_cs_catalog(Z, kind):
         raise ValueError(f"{kind} not supported")
 
 
-def _get_from_element_catalog(symbol_or_z):
-    if not isinstance(symbol_or_z, str):
-        symbol_or_z = int(symbol_or_z)
-    e = _element_catalog.get(symbol_or_z)
-    if e is None:
-        e = mendeleev.element(symbol_or_z)
-        _element_catalog[symbol_or_z] = e
-        _element_catalog[e.symbol] = e
-        _element_catalog[e.atomic_number] = e
-    return e
-
-
 def element_atomicnumber_to_symbol(Z: int) -> str:
-    return _get_from_element_catalog(Z).symbol
+    return _elementsInstance.getElementNames()[Z - 1]
 
 
 def element_symbol_to_atomicnumber(symbol: str) -> int:
-    return _get_from_element_catalog(symbol).atomic_number
+    return _elementsInstance.getAtomicNumber(symbol)
 
 
 def element_density(Z: int):
-    return _get_from_element_catalog(Z).density
+    return _elementsInstance.getDensity(element_atomicnumber_to_symbol(Z))
 
 
 def atomic_weight(Z: int):
-    return _get_from_element_catalog(Z).atomic_weight
+    return _elementsInstance.getAtomicMass(element_atomicnumber_to_symbol(Z))
 
 
 def cross_section(Z, energies, kind):

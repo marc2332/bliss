@@ -20,6 +20,24 @@ def _set_backend(name):
 
 
 @pytest.mark.parametrize("backend", backend.MATERIAL_BACKENDS)
+def test_element(backend):
+    _set_backend(backend)
+    for x in ["c", "C", 6]:
+        el = materials.Element(x)
+        assert el.Z == 6
+        assert el.symbol == "C"
+        assert el.atomic_weight == 12.01
+        assert el.atomic_number == 6
+    for x in ["ca", "Ca", 20]:
+        el = materials.Element(x)
+        assert el.Z == 20
+        assert el.symbol == "Ca"
+        assert el.atomic_weight == 40.08
+        assert el.atomic_number == 20
+        assert el.density == pytest.approx(1.55, rel=0.01)
+
+
+@pytest.mark.parametrize("backend", backend.MATERIAL_BACKENDS)
 def test_element_compare(backend):
     _set_backend(backend)
     el1 = materials.Element("Fe")

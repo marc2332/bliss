@@ -128,19 +128,35 @@ class WorkspaceData(dict):
         plots: dict = self["plots"]
         widgetDescriptions = self["widgets"]
 
+        descriptions = []
         for data in widgetDescriptions:
             if isinstance(data, tuple):
                 data = _WidgetDescriptionCompatibility(*data, None)
+            descriptions.append(data)
+
+        objectNames = set([d.objectName for d in descriptions])
+
+        def pickUnusedObjectName():
+            for i in range(100):
+                name = f"dock-%01d" % i
+                if name not in objectNames:
+                    objectNames.add(name)
+                    return name
+            return "dock-666-666"
+
+        for data in descriptions:
 
             if data.objectName is None or data.objectName == "":
                 _logger.warning(
-                    "Widget %s from workspace configuration have no name. Skipped.",
+                    "Widget %s from workspace configuration have no name. Generate one.",
                     data.className,
                 )
-                continue
+                objectName = pickUnusedObjectName()
+            else:
+                objectName = data.objectName
 
             widget = data.className(parent)
-            widget.setObjectName(data.objectName)
+            widget.setObjectName(objectName)
             widget.setWindowTitle(data.windowTitle)
             if hasattr(widget, "setConfiguration") and data.config is not None:
                 widget.setConfiguration(data.config)

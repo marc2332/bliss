@@ -5,7 +5,6 @@
 # Copyright (c) 2015-2020 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-import math
 import numpy
 from bliss.common.motor_config import MotorConfig
 from bliss.common.motor_settings import ControllerAxisSettings, floatOrNone
@@ -15,8 +14,7 @@ from bliss.common import event
 from bliss.physics import trajectory
 from bliss.common.utils import set_custom_members, object_method, grouped
 from bliss import global_map
-from bliss.config.channels import Cache, Channel
-from bliss.config import settings
+from bliss.config.channels import Cache
 from gevent import lock
 
 
@@ -410,18 +408,6 @@ class Controller:
         raise NotImplementedError
 
 
-def remove_real_dependent_of_calc(motors):
-    """
-    remove real motors if depend of a calc axis
-    """
-    realmot = set()
-    for mot in motors:
-        ctrl = mot.controller
-        if isinstance(ctrl, CalcController):
-            realmot.update(ctrl.reals)
-    return set(motors) - realmot
-
-
 class CalcController(Controller):
     def __init__(self, *args, **kwargs):
         Controller.__init__(self, *args, **kwargs)
@@ -645,7 +631,7 @@ class CalcController(Controller):
         return self._reals_group.state
 
     def set_position(self, axis, new_pos):
-        if not axis in self.pseudos:
+        if axis not in self.pseudos:
             raise RuntimeError(
                 "Cannot set dial position on motor '%s` from CalcController" % axis.name
             )

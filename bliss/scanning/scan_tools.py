@@ -79,17 +79,6 @@ def get_selected_counter_name(counter=None):
     return alignment_counts.pop()
 
 
-def last_scan_motor(axis=None):
-    """
-    Return the last motor used in the last scan
-    """
-    if not len(current_session.scans):
-        raise RuntimeError("No scan available.")
-    scan = current_session.scans[-1]
-    axis_name = scan._get_data_axis_name(axis=axis)
-    return current_session.env_dict[axis_name]
-
-
 def last_scan_motors():
     """
     Return a list of motor used in the last scan
@@ -97,8 +86,10 @@ def last_scan_motors():
     if not len(current_session.scans):
         raise RuntimeError("No scan available.")
     scan = current_session.scans[-1]
-    axes_name = scan._get_data_axes_name()
-    return [current_session.env_dict[axis_name] for axis_name in axes_name]
+    axes = scan._get_data_axes()
+    # if not len(axes):
+    #     raise RuntimeError("No axis detected in scan.")
+    return axes
 
 
 def _scan_calc(func, counter=None, axis=None, scan=None, marker=True, goto=False):
@@ -121,6 +112,10 @@ def _scan_calc(func, counter=None, axis=None, scan=None, marker=True, goto=False
                 label=func + "\n" + str(value),
                 marker_id=func,
             )
+
+            if ax in ["elapsed_time", "epoch"]:
+                continue
+
             # display current position if in scan range
             scan_dat = scan.get_data()[ax]
             if (

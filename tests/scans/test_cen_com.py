@@ -318,6 +318,29 @@ def test_goto(session):
         goto_cen("countername")
 
 
+def test_issue_2098(default_session):
+    from bliss.scanning.scan_tools import goto_peak
+
+    calc_mot1 = default_session.config.get("calc_mot1")
+    diode = default_session.config.get("diode")
+    scans.ascan(calc_mot1, 0, 1, 5, 0.1, diode, save=False)
+    goto_peak()
+
+
+def test_softaxis_peak(default_session):
+    from tests.test_counters import Timed_Diode
+    from bliss.common.counter import SamplingMode, SoftCounter
+    from bliss.common.soft_axis import SoftAxis
+    from bliss.scanning.scan_tools import goto_peak
+
+    o = Timed_Diode()
+    ax = SoftAxis("test-sample-pos", o)
+    c = SoftCounter(o, "read_last", name="test", mode=SamplingMode.LAST)
+
+    scans.ascan(ax, 1, 9, 8, .1, c, save=False)
+    goto_peak()
+
+
 def test_com_with_neg_y(default_session):
     ob = FixedShapeCounter()
     ob.signal = "sawtooth"

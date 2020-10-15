@@ -20,7 +20,7 @@ class LogServer(StreamServer):
     """
     Store initialized FileHandlers.
 
-    There is a single handler per session.
+    There is a single handler per session and application.
     """
 
     def __init__(self, listener, db_path, log_size):
@@ -45,9 +45,12 @@ class LogServer(StreamServer):
                 chunk = chunk + data
             record_dict = pickle.loads(chunk)
 
+            if "application" not in record_dict:
+                record_dict["application"] = "bliss"
+
             self.prepare_handler(record_dict, self.db_path, self.log_size)
 
-            # adding a 'session' argument to log messages
+            # There is extra "session" and "application" to the record
             record = logging.makeLogRecord(record_dict)
             self.log_record(record)
 
@@ -57,13 +60,29 @@ class LogServer(StreamServer):
         creates one.
         """
         session = record_dict["session"]
-        if session not in self._handlers:
-            handler = self.create_bliss_session_handler(
-                self.db_path, session, self.log_size
-            )
-            self._handlers[session] = handler
-            root_logger = logging.getLogger()
-            root_logger.addHandler(handler)
+        application = record_dict["application"]
+        key = session, application
+
+        if key not in self._handlers:
+            if application == "bliss":
+                handler = self.create_bliss_session_handler(
+                    self.db_path, session, self.log_size
+                )
+            elif application == "flint":
+                handler = self.create_flint_session_handler(
+                    self.db_path, session, self.log_size
+                )
+            else:
+                _log.error(
+                    "Unknown application '%s'. Logs from this source will be ignored.",
+                    application,
+                )
+                handler = None
+
+            self._handlers[key] = handler
+            if handler is not None:
+                root_logger = logging.getLogger()
+                root_logger.addHandler(handler)
 
     def log_record(self, record):
         logger = logging.getLogger(record.name)
@@ -87,12 +106,52 @@ class LogServer(StreamServer):
         def filter_func(rec):
             # filter if a message is for the right session
             # and consequently the right log file
-            if rec.session == session:
-                return True
-            return False
+            if not hasattr(rec, "application") and not hasattr(rec, "session"):
+                return False
+            if rec.application != "bliss":
+                return False
+            if rec.session != session:
+                return False
+            return True
 
         formatter = logging.Formatter(
             "%(asctime)s %(session)s %(name)s %(levelname)s : %(msg)s"
+        )  # adapt to needs
+        handler.addFilter(filter_func)
+        handler.setFormatter(formatter)
+        return handler
+
+    def create_flint_session_handler(self, dir_path, session, log_size):
+        """Create a dedicated handler to store log in a file for Flint when
+        running in a specific session.
+
+        As many Flint can run at same time. The process identifier is also
+        logged.
+        """
+        # Create root directory if needed
+        dir_path = pathlib.Path(dir_path)
+        if not dir_path.exists():
+            dir_path.mkdir()
+
+        file_path = dir_path / f"flint_{session}.log"
+        _log.info(f"Appending to file {file_path}")
+        handler = RotatingFileHandler(
+            file_path, maxBytes=1024 ** 2 * log_size, backupCount=10
+        )
+
+        def filter_func(rec):
+            # filter if a message is for the right session
+            # and consequently the right log file
+            if not hasattr(rec, "application") and not hasattr(rec, "session"):
+                return False
+            if rec.application != "flint":
+                return False
+            if rec.session != session:
+                return False
+            return True
+
+        formatter = logging.Formatter(
+            "%(asctime)s %(session)s %(process)s %(name)s %(levelname)s : %(msg)s"
         )  # adapt to needs
         handler.addFilter(filter_func)
         handler.setFormatter(formatter)

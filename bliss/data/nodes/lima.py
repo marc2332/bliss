@@ -9,7 +9,7 @@ import numpy
 import warnings
 import logging
 
-from bliss.data.nodes.channel import ChannelDataNodeBase
+from bliss.data.nodes.channel import _ChannelDataNodeBase
 from bliss.data.events import EventData, LimaImageStatusEvent, ImageNotSaved
 from bliss.config.settings import QueueObjSetting
 from bliss.data import lima_image
@@ -291,7 +291,7 @@ class LimaDataView:
         return self.image_references(image_nbs)
 
 
-class LimaImageChannelDataNode(ChannelDataNodeBase):
+class LimaImageChannelDataNode(_ChannelDataNodeBase):
     _NODE_TYPE = "lima"
 
     def __init__(self, *args, **kwargs):

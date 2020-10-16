@@ -1,6 +1,6 @@
-# Editing Lima ROI counters
+# Editing Lima ROIs
 
-BLISS provides a helper function to edit Lima ROI (*Region-Of-Interest*) via Flint,
+BLISS provides a helper function to edit Lima ROI (region of interest) via Flint,
 to create counters automatically from areas defined by the user graphically using
 mouse dragging.
 
@@ -12,70 +12,55 @@ If an acquisition time is given, `ct(acq_time, detector)` is executed before the
 ROI counter edition is started.
 
 !!! note
-    SCAN_DISPLAY.auto is set to True in order to make sure Flint will display the image
+    Flint will start anyway `SCAN_DISPLAY.auto` was set to true or not
 
-If no acquisition time is given, it assumes the **last scan** was made with the detector,
-and the image from the last scan will be used for ROI editing.
+If no acquisition time is given, **no acquisition is done**.
 
-```py
-lima_simulator = config.get("lima_simulator")
-edit_roi_counters(lima_simulator, 0.1)
-
-Waiting for ROI edition to finish on lima_simulator [default]...
-
-# be sure that the ROI Selection press button (orange square and green plus symbol) is pressed.
-# then create (mouse dragging), edit or remove the ROIs
-```
-Clicking on the `Apply` button once ROI edition is terminated returns to the BLISS
-shell prompt.
-
-Back on BLISS shell
+It assumes the last scan was made with the detector, and the image from the
+last scan will be used for ROI editing. If the detector do not contain yet
+images, an empty image pattern is generated using the image size of the
+detector.
 
 ```py
-lima
-	
-	Out [120]: Simulator - Generator (Simulator) - Lima Simulator
-
-                    Image:
-                    bin = [1 1]
-                    flip = [False False]
-                    height = 1024
-                    roi = <0,0> <1024 x 1024>
-                    rotation = rotation_enum.NONE
-                    sizes = [   0    4 1024 1024]
-                    type = Bpp32
-                    width = 1024
-
-                    Acquisition:
-                    expo_time = 0.1
-                    mode = mode_enum.SINGLE
-                    nb_frames = 1
-                    status = Ready
-                    status_fault_error = No error
-                    trigger_mode = trigger_mode_enum.INTERNAL_TRIGGER_MULTI
-
-                    ROI Counters: default
-                    Name    ROI (<X, Y> <W x H>)
-                    ----  ----------------------
-                    roi1  <356, 424> <416 x 325>
-                    roi2  <164, 266> <190 x  24>
-                    roi3  <701, 212> <176 x 139>
-
-                    BPM Counters:
-                    acq_time, intensity, x, y, fwhm_x, fwhm_y
-
-# ROIs are stored in lima object as a dictionary in 'roi_counters' member
-lima.roi_counters['roi1']
-
-         Out [123]: <356,424> <416 x 325>
-
+DEMO_SESSION [1]: edit_roi_counters(tomocam, 1.0)
+WARNING 2020-10-16 15:39:45,049 flint: Flint starting...
+Waiting for ROI edition to finish on tomocam [default, default]...
+WARNING 2020-10-16 15:39:46,999 flint: Waiting for selection in Flint window.
 ```
 
 ![Screenshot](img/edit_roi_counters.png)
 
+The previous ROIs are editable or removable. And new ROIs can be created.
 
+With BLISS 1.6 four kind of ROIs are supported for Lima detectors:
 
+- Rectangle ROI counter
+- Arc ROI counter
+- Rectangle ROI with vertical profile
+- Rectangle ROI with horizontal profile
 
+Clicking on the `Apply` button once ROI edition is terminated returns to the
+BLISS shell prompt.
 
+Back on BLISS shell the ROIs can be summarized this way:
 
+```python
+DEMO_SESSION [2]: tomocam.roi_counters
+         Out [2]: ROI Counters: default
+                     Name                 ROI coordinates
+                  ---------- ------------------------------------------
+                     roi1               <77,58> <164 x 132>
+                     roi2    <492.5, 79.9> <104.0, 149.8> <179.3, 50.7>
+```
+This ROIs are used by Lima to compute pixel based statistics like sum,
+average, standard deviation, min, max.
 
+```python
+DEMO_SESSION [3]: tomocam.roi_profiles
+         Out [3]: Roi Profile Counters: default
+                     Name           <x, y> <w, h> <mode>
+                  ---------- ----------------------------------
+                     roi3     <74,265> <210 x 187> <vertical>
+                     roi4    <371,281> <232 x 203> <horizontal>
+```
+This ROIs are used by Lima to compute vertical or horizontal data reduction.

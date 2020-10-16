@@ -469,7 +469,7 @@ def test_lima_devproxy_logger(default_session, lima_simulator, capsys, caplog):
     debugoff(lima)
 
 
-def test_log_server(beacon, session, log_directory, log_context):
+def test_log_server(session, log_directory, log_context):
     logging.getLogger("user_input").info("TEST USER INPUT LOGGER")
     logging.getLogger("exceptions").info("TEST EXCEPTION LOGGER")
     gevent.sleep(1)  # ensure log is written

@@ -20,6 +20,7 @@ from bliss.common.mapping import Map, map_id
 from bliss import global_map
 import bliss
 from bliss.common import scans
+from bliss.common import plot
 
 
 @pytest.fixture
@@ -469,7 +470,7 @@ def test_lima_devproxy_logger(default_session, lima_simulator, capsys, caplog):
     debugoff(lima)
 
 
-def test_log_server(beacon, session, log_directory, log_context):
+def test_log_server(session, log_directory, log_context):
     logging.getLogger("user_input").info("TEST USER INPUT LOGGER")
     logging.getLogger("exceptions").info("TEST EXCEPTION LOGGER")
     gevent.sleep(1)  # ensure log is written
@@ -478,3 +479,13 @@ def test_log_server(beacon, session, log_directory, log_context):
         assert "TEST USER INPUT" in l
         l = logfile.readline()
         assert "TEST EXCEPTION" in l
+
+
+def test_log_server__flint(test_session_with_flint, log_directory, log_context):
+    session = test_session_with_flint
+    flint = plot.get_flint()
+    flint.test_log_error("TEST FLINT LOGGED ERROR")
+    gevent.sleep(1)  # ensure log is written
+    with open(os.path.join(log_directory, f"flint_{session.name}.log"), "r") as logfile:
+        blob = logfile.read()
+        assert "TEST FLINT LOGGED ERROR" in blob

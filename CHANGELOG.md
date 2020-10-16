@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - The colormap is now part of the live image/scatter widget configuration
       and reused for each new scans
     - The colormaps from live plots are now editable in a common dockable widget
+    - Logs are saved using beacon service (`/var/log/bliss/flint_{session}.log`)
 - Remote Flint API
     - Added `get_plot` and `get_live_plot` from `flint()` proxy to create and
       retrieve plots

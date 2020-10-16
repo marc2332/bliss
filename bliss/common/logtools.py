@@ -674,20 +674,25 @@ class BlissLogger(logging.Logger):
         return hexify(in_str)
 
 
-class CustomSocketHandler(logging.handlers.SocketHandler):
+class BeaconLogServerHandler(logging.handlers.SocketHandler):
     """
-    Add 'session' field to emitted records
+    Logging handler to emit logs into Beacon log service.
 
-    The session field allow the log server to dispatch log records to
-    the appropriate files
+    Use default socket handler, and custom log records to specify `session`
+    and `application` fields.
+
+    This extra information allow the log server to dispatch log records to
+    the appropriate files.
     """
 
     def emit(self, record):
         try:
-            record.session = current_session.name
+            session_name = current_session.name
         except AttributeError:
             # not in a session
             return
+        record.application = "bliss"
+        record.session = session_name
         return super().emit(record)
 
 
@@ -765,7 +770,7 @@ class Log:
             self._beacon_handler
         except AttributeError:
             host, port = address
-            self._beacon_handler = CustomSocketHandler(host, port)
+            self._beacon_handler = BeaconLogServerHandler(host, port)
             self._beacon_handler.setLevel(logging.DEBUG)
             logging.getLogger().addHandler(self._beacon_handler)
 

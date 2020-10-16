@@ -395,6 +395,11 @@ class FlintApi:
         elif mode == "release":
             QTest.mouseMove(widget, position)
 
+    def test_log_error(self, msg):
+        """Debug purpose function to log a message into the default logging
+        system"""
+        _logger.error("%s", msg)
+
     # Plot management
 
     def is_plot_exists(self, plot_id) -> bool:

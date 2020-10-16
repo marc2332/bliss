@@ -654,6 +654,7 @@ class Lima(CounterController):
             f"Image:\n{self.image.__info__()}\n\n"
             f"Acquisition:\n{self.acquisition.__info__()}\n\n"
             f"{self.roi_counters.__info__()}\n\n"
+            f"{self.roi_profiles.__info__()}\n\n"
             f"{self.bpm.__info__()}\n\n"
             f"{self.saving.__info__()}\n\n"
             f"{self.processing.__info__()}\n"

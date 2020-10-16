@@ -563,7 +563,7 @@ class NexusScanWriterConfigurable(scan_writer_base.NexusScanWriterBase):
                 return
             self.logger.info("Create scan links in masters ...")
             linkname, ext = os.path.splitext(os.path.basename(nxentry.file.filename))
-            linkname += ": " + nxentry.name[1:]
+            linkname += "_" + nxentry.name[1:]
             for filename in filenames:
                 with self.nxroot(filename=filename) as nxroot:
                     if nxroot is None:

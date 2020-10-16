@@ -67,6 +67,7 @@ Bliss comes with the `LimaAcquisitionMaster` class, encapsulating a
 Tango Lima device for use within an acquisition chain:
 
 ```python
+from bliss.scanning.acquisition.lima import LimaAcquisitionMaster
 params = { "acq_nb_frames": 10,
            "acq_expo_time": 0.3,
            "acq_trigger_mode": "INTERNAL_TRIGGER_MULTI" }
@@ -122,10 +123,8 @@ an each scan on this sample can be stored inside the container.
 ??? no more data_manager...
 
 ```python
-from bliss.common.data_manager import Container, Scan
-
-sample = Container('my_sample`')
-scan = Scan(name='scan', chain=chain, parent=sample)
+from bliss.scanning.scan import Scan
+scan = Scan(name='scan', chain=chain)
 ```
 
 Launching a scan is done by calling run method :

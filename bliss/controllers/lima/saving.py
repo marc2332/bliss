@@ -158,7 +158,7 @@ class LimaSavingParameters(BeaconObject):
             for SPECIFY_MAX_FILE_SIZE mode
             ------------------------------
             max file size (MB):  {self.max_file_size_in_MB}
-             └-> frams per file: {self._calc_max_frames_per_file()}
+             └-> frames per file: {self._calc_max_frames_per_file()}
 
             Expert Settings
             ---------------

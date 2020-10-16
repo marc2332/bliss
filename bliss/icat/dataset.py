@@ -13,75 +13,9 @@ from bliss.common.logtools import log_warning
 from bliss.icat import FieldGroup
 from bliss.icat.definitions import Definitions
 from bliss.common.utils import autocomplete_property
-from types import SimpleNamespace
+from bliss.common.namespace_wrapper import NamespaceWrapper
 from bliss.icat.policy import DataPolicyObject
 from bliss.icat.sample import Sample
-
-
-class CustomSetterNamespace(SimpleNamespace):
-    def __setattr__(self, key, value):
-        super().__setattr__(key, value)
-        if (
-            not (key.startswith("__") or key.startswith("_CustomSetterNamespace__"))
-            and self.__init_done
-        ):
-            if key in self.__key_list:
-                self.__setter(key, value)
-            else:
-                raise AttributeError(f"AttributeError: no attribute '{key}'")
-
-    def __getattribute__(self, key):
-        if (
-            key.startswith("__")
-            or key.startswith("_CustomSetterNamespace__")
-            or not self.__init_done
-        ):
-            return super().__getattribute__(key)
-        else:
-            return self.__getter(key)
-
-    def __init__(self, key_list, getter, setter, init_value_dict=None):
-        """
-            key_list: list of attributes of the Namespace
-            getter: function that takes key as arg
-            setter: function that takes key, value as arg
-            init_value_dict: values that are taken during init (if provided)
-        """
-        self.__key_list = key_list
-        self.__getter = getter
-        self.__setter = setter
-        if init_value_dict:
-            init_values = init_value_dict.copy()
-            for key in key_list:
-                if key not in init_values:
-                    init_values[key] = None
-        else:
-            init_values = dict()
-            for key in key_list:
-                init_values[key] = getter(key)
-
-        self.__init_done = False
-        super().__init__(**init_values)
-        self.__init_done = True
-
-    @property
-    def __dict__(self):
-        return dict(
-            filter(
-                lambda elem: not elem[0].startswith("_CustomSetterNamespace__"),
-                super().__dict__.items(),
-            )
-        )
-
-    def __info__(self):
-        res = ""
-        for key in self.__dict__.keys():
-            val = self.__getter(key)
-            if val:
-                res += "." + key + "     ('" + val + "')" + "\n"
-            else:
-                res += "." + key + "\n"
-        return "Namespace containing:\n" + res
 
 
 class Dataset(DataPolicyObject):
@@ -201,7 +135,7 @@ class Dataset(DataPolicyObject):
     @autocomplete_property
     def expected(self):
         """namespace containing expected keys"""
-        return CustomSetterNamespace(
+        return NamespaceWrapper(
             self.expected_technique_fields,
             self._node.info.get,
             self.write_metadata_field,
@@ -210,14 +144,14 @@ class Dataset(DataPolicyObject):
     @autocomplete_property
     def existing(self):
         """namespace to access all existing keys"""
-        return CustomSetterNamespace(
+        return NamespaceWrapper(
             self._node.metadata.keys(), self._node.info.get, self.write_metadata_field
         )
 
     @autocomplete_property
     def all(self):
         """namespace to access all possible keys"""
-        return CustomSetterNamespace(
+        return NamespaceWrapper(
             self.definitions.all, self._node.info.get, self.write_metadata_field
         )
 

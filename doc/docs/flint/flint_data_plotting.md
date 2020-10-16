@@ -98,6 +98,14 @@ p.plot(some_extra_data, yaxis='right')
 
 ## Advanced interface
 
+To be able to reuse a plot you can use the function from Flint object.
+Based on the unique name, this will create a plot only if needed, else it will
+retrieve the existing plot.
+
+```python
+f = flint()
+p = f.get_plot("plot1d", "My title", "uniquename999")
+```
 
 For a finer control over the plotted data, the data management is
 separated from the plot management. In order to add more data to

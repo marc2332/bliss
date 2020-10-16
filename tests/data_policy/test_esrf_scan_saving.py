@@ -646,7 +646,7 @@ def test_icat_metadata_namespaces(session, icat_subscriber, esrf_data_policy):
     scan_saving.newdataset("toto")
 
     existing = {x for x in dir(scan_saving.dataset.existing) if not x.startswith("__")}
-    assert set(scan_saving.dataset.node.metadata.keys()) == existing
+    assert scan_saving.dataset.get_current_icat_metadata_fields() == existing
 
     definitions = Definitions()
     scan_saving.dataset.add_technique(definitions.techniques.FLUO)
@@ -656,7 +656,7 @@ def test_icat_metadata_namespaces(session, icat_subscriber, esrf_data_policy):
 
     # check that the expected keys do not move into existing
     existing = {x for x in dir(scan_saving.dataset.existing) if not x.startswith("__")}
-    assert set(scan_saving.dataset.node.metadata.keys()) == existing
+    assert scan_saving.dataset.get_current_icat_metadata_fields() == existing
 
     loopscan(1, .1, diode)
     scan_saving.newdataset("toto1")

@@ -99,7 +99,7 @@ class Dataset(DataPolicyObject):
             technique = tdict.get(technique)
             if technique is None:
                 raise ValueError(f"Unknown technique ({list(tdict.keys())})")
-        self._node.info["__techniques__"] = self._node.techniques.union(
+        self._node.info["__techniques__"] = self._technique_names.union(
             [technique.name]
         )
 
@@ -107,13 +107,21 @@ class Dataset(DataPolicyObject):
     def techniques(self):
         """list of techniques used in this dataset"""
         tdict = self.definitions.techniques._asdict()
-        return [tdict[name] for name in self._node.techniques]
+        return [tdict[name] for name in self._technique_names]
+
+    @property
+    def _technique_names(self):
+        """list of technique names used in this dataset"""
+        return self._node.techniques
 
     def finalize_metadata(self):
         # check if a definiton is provided otherwhise use
         # names of application definition
-        if "definition" not in self._node.metadata and len(self._node.techniques) != 0:
-            self.write_metadata_field("definition", " ".join(self._node.techniques))
+        if (
+            not self.has_metadata_field("definition")
+            and len(self._technique_names) != 0
+        ):
+            self.write_metadata_field("definition", " ".join(self._technique_names))
 
         self.write_metadata_field("endDate", datetime.datetime.now().isoformat())
 

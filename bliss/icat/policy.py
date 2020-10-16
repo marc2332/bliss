@@ -42,7 +42,11 @@ class DataPolicyObject:
 
     def __getitem__(self, key):
         """Get metadata field from Redis"""
-        return self._node.info[key]
+        return self.read_metadata_field(key)
+
+    def __contains__(self, key):
+        """Check metadata field in Redis"""
+        return self.has_metadata_field(key)
 
     @property
     def name(self):
@@ -67,21 +71,53 @@ class DataPolicyObject:
         """
         return self._node.metadata
 
+    def get_current_icat_metadata_fields(self):
+        """Get all metadata field names from Redis
+        """
+        return self._node.metadata_fields
+
+    def has_metadata_field(self, key):
+        """Check metadata field exists in Redis
+        """
+        return key in self.get_current_icat_metadata_fields()
+
+    def read_metadata_field(self, key):
+        """Get the value of one metadata field from Redis
+        Raises `KeyError` when field is missing.
+        """
+        return self._node.info[key]
+
+    def get_metadata_field(self, key, default=None):
+        """Get the value of one metadata field from Redis
+        Returns `default` when field is missing.
+        """
+        try:
+            return self.read_metadata_field(key)
+        except KeyError:
+            return default
+
     def write_metadata_field(self, key, value):
-        """Store metadata key-value pair in Redis
+        """Store metadata key-value pair in Redis.
+        Remove key when the value is `None`.
+        Raises `KeyError` when the key is not valid.
+        Raises `ValueError` when the value is not a string.
         """
         if value is None:
-            if key in self._node.info:
-                self._node.info.pop(key)
+            self.remove_metadata_field(key)
             return
-
-        assert self.validate_fieldname(
-            key
-        ), f"{repr(key)} is not an accepted key for ICAT"
-        assert isinstance(
-            value, str
-        ), f"{repr(value)} is not an accepted value for ICAT (only strings are allowed)"
+        if not isinstance(value, str):
+            raise ValueError(
+                f"{repr(value)} is not an accepted value for ICAT (only strings are allowed)"
+            )
+        if not self.validate_fieldname(key):
+            raise KeyError(f"{repr(key)} is not an accepted key for ICAT")
         self._node.info[key] = value
+
+    def remove_metadata_field(self, key):
+        """Remove a metadata field from Redis if it exists.
+        """
+        if self.has_metadata_field(key):
+            self._node.info.pop(key)
 
     def validate_fieldname(self, fieldname):
         return False
@@ -95,19 +131,19 @@ class DataPolicyObject:
     def expected(self):
         """namespace to read/write expected metadata fields"""
         return NamespaceWrapper(
-            self.expected_fields, self._node.info.get, self.write_metadata_field
+            self.expected_fields, self.get_metadata_field, self.write_metadata_field
         )
 
     @property
     def existing_fields(self):
         """all existing metadata fields"""
-        return set(self._node.metadata.keys())
+        return set(self.get_current_icat_metadata_fields())
 
     @autocomplete_property
     def existing(self):
         """namespace to read/write existing metadata fields"""
         return NamespaceWrapper(
-            self._node.metadata.keys(), self._node.info.get, self.write_metadata_field
+            self.existing_fields, self.read_metadata_field, self.write_metadata_field
         )
 
     @property
@@ -119,7 +155,7 @@ class DataPolicyObject:
     def missing(self):
         """namespace to read/write mising metadata fields"""
         return NamespaceWrapper(
-            self.missing_fields, self._node.info.get, self.write_metadata_field
+            self.missing_fields, self.read_metadata_field, self.write_metadata_field
         )
 
     def check_metadata_consistency(self):

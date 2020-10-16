@@ -9,7 +9,6 @@
 import os
 import datetime
 from bliss import current_session
-from bliss.common.logtools import log_warning
 from bliss.icat import FieldGroup
 from bliss.icat.definitions import Definitions
 from bliss.common.utils import autocomplete_property
@@ -26,6 +25,23 @@ class Dataset(DataPolicyObject):
     def __init__(self, node):
         super().__init__(node)
         self.definitions = Definitions()
+
+    def write_metadata_field(self, fieldname, value):
+        if self.is_closed:
+            raise RuntimeError("The dataset is already closed")
+        super().write_metadata_field(fieldname, value)
+
+    def validate_fieldname(self, fieldname):
+        return fieldname in self.definitions.all
+
+    @property
+    def expected_fields(self):
+        """all fields required by this dataset"""
+        all_fields = super().expected_fields
+        # All technique fields are required
+        for t in self.techniques:
+            all_fields.update(t.fields)
+        return all_fields
 
     def gather_metadata(self, on_exists=None):
         """Initialize the dataset node info.
@@ -78,101 +94,20 @@ class Dataset(DataPolicyObject):
     def add_technique(self, technique):
         if self.is_closed:
             raise RuntimeError("The dataset is already closed")
-
-        assert isinstance(technique, FieldGroup)
+        if not isinstance(technique, FieldGroup):
+            tdict = self.definitions.techniques._asdict()
+            technique = tdict.get(technique)
+            if technique is None:
+                raise ValueError(f"Unknown technique ({list(tdict.keys())})")
         self._node.info["__techniques__"] = self._node.techniques.union(
             [technique.name]
         )
 
-    def write_metadata_field(self, fieldname, value):
-        if self.is_closed:
-            raise RuntimeError("The dataset is already closed")
-
-        if value is None:
-            if fieldname in self._node.info:
-                self._node.info.pop(fieldname)
-            return
-
-        assert self.validate_fieldname(
-            fieldname
-        ), f"{fieldname} is not an accepted key in this dataset!"
-        assert isinstance(
-            value, str
-        ), f"{value} is not an accepted value for ICAT (only strings are allowed)!"
-        self._node.info[fieldname] = value
-
-    def validate_fieldname(self, fieldname):
-        return fieldname in self.definitions.all
-
-    @property
-    def missing_technique_fields(self):
-        """returns a list of requiered metadata fields that
-        are not yet filled"""
-        return self.expected_technique_fields.difference(self.existing_fields)
-
     @property
     def techniques(self):
         """list of techniques used in this dataset"""
-        # return [t.name for t in self._techniques]
-        t = [
-            self.definitions.techniques._asdict()[name]
-            for name in self._node.techniques
-        ]
-        return t
-
-    @property
-    def expected_technique_fields(self):
-        """all fields required by this dataset"""
-        all_fields = set()
-        for t in self.techniques:
-            all_fields.update(t.fields)
-        return all_fields
-
-    @property
-    def existing_fields(self):
-        return set(self._node.metadata.keys())
-
-    @autocomplete_property
-    def expected(self):
-        """namespace containing expected keys"""
-        return NamespaceWrapper(
-            self.expected_technique_fields,
-            self._node.info.get,
-            self.write_metadata_field,
-        )
-
-    @autocomplete_property
-    def existing(self):
-        """namespace to access all existing keys"""
-        return NamespaceWrapper(
-            self._node.metadata.keys(), self._node.info.get, self.write_metadata_field
-        )
-
-    @autocomplete_property
-    def all(self):
-        """namespace to access all possible keys"""
-        return NamespaceWrapper(
-            self.definitions.all, self._node.info.get, self.write_metadata_field
-        )
-
-    # dict like access for scripts
-    def __setitem__(self, key, value):
-        self.write_metadata_field(key, value)
-
-    def __getitem__(self, key):
-        return self._node.info[key]
-
-    def check_metatdata_consistency(self):
-        mtf = self.missing_technique_fields
-        if mtf:
-            log_warning(
-                self,
-                f"The following metadata fields are expected by a given technique but not provided: {mtf}",
-            )
-
-    # todo make this a propery...
-    def get_current_icat_metadata(self):
-        return self._node.metadata
+        tdict = self.definitions.techniques._asdict()
+        return [tdict[name] for name in self._node.techniques]
 
     def finalize_metadata(self):
         # check if a definiton is provided otherwhise use

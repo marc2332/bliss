@@ -13,3 +13,9 @@ class SampleNode(DataNodeContainer):
 
     def __init__(self, name, **kwargs):
         super().__init__(self._NODE_TYPE, name, **kwargs)
+
+    @property
+    def metadata(self):
+        return dict(
+            filter(lambda elem: not elem[0].startswith("__"), self.info.items())
+        )

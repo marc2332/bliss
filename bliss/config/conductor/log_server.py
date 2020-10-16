@@ -52,48 +52,63 @@ class LogServer(StreamServer):
                     record_dict["application"] = "bliss"
 
                 record = logging.makeLogRecord(record_dict)
-
-                self.prepare_handler(record, self.db_path, self.log_size)
-
-                # There is extra "session" and "application" to the record
                 self.log_record(record)
             except Exception:
                 _log.error("Error while processing message", exc_info=True)
                 raise
 
-    def prepare_handler(self, record, root_path, log_size):
-        """
-        Check if a session has a RotatingFileHandler and if not it
-        creates one.
+    def get_handler(self, record):
+        """Returns the dedicated handler associated to this record
+
+        If the handle is not yet exists, it is created.
         """
         session = record.session
         application = record.application
         key = session, application
-
         if key not in self._handlers:
-            if application == "bliss":
-                handler = self.create_bliss_session_handler(
-                    self.db_path, session, self.log_size
-                )
-            elif application == "flint":
-                handler = self.create_flint_session_handler(
-                    self.db_path, session, self.log_size
-                )
-            else:
-                _log.error(
-                    "Unknown application '%s'. Logs from this source will be ignored.",
-                    application,
-                )
-                handler = None
-
+            handler = self.create_handler(record)
+            # This only create a single time handler anyway it is None
             self._handlers[key] = handler
-            if handler is not None:
-                root_logger = logging.getLogger()
-                root_logger.addHandler(handler)
+        else:
+            handler = self._handlers[key]
+        return handler
+
+    def create_handler(self, record):
+        """
+        Create a new handler associated to this record.
+
+        If will create a dedicated RotatingFileHandler per tuple session/application.
+
+        If the record is not valid None is returned.
+        """
+        session = record.session
+        application = record.application
+        if application == "bliss":
+            handler = self.create_bliss_session_handler(
+                self.db_path, session, self.log_size
+            )
+        elif application == "flint":
+            handler = self.create_flint_session_handler(
+                self.db_path, session, self.log_size
+            )
+        else:
+            _log.error(
+                "Unknown application '%s'. Logs from this source will be ignored.",
+                application,
+            )
+            handler = None
+        return handler
 
     def log_record(self, record):
-        logger = logging.getLogger(record.name)
-        logger.handle(record)
+        """Log a record to the beacon log service
+
+        Arguments:
+            record: A logging.LogRecord object with extra attributes `session`
+                and `application`.
+        """
+        handler = self.get_handler(record)
+        if handler is not None:
+            handler.emit(record)
 
     def create_bliss_session_handler(self, dir_path, session, log_size):
         """Create a dedicated handler to store log in a file for a specific
@@ -110,21 +125,9 @@ class LogServer(StreamServer):
             file_path, maxBytes=1024 ** 2 * log_size, backupCount=10
         )
 
-        def filter_func(rec):
-            # filter if a message is for the right session
-            # and consequently the right log file
-            if not hasattr(rec, "application") and not hasattr(rec, "session"):
-                return False
-            if rec.application != "bliss":
-                return False
-            if rec.session != session:
-                return False
-            return True
-
         formatter = logging.Formatter(
             "%(asctime)s %(session)s %(name)s %(levelname)s : %(msg)s"
         )  # adapt to needs
-        handler.addFilter(filter_func)
         handler.setFormatter(formatter)
         return handler
 
@@ -146,21 +149,9 @@ class LogServer(StreamServer):
             file_path, maxBytes=1024 ** 2 * log_size, backupCount=10
         )
 
-        def filter_func(rec):
-            # filter if a message is for the right session
-            # and consequently the right log file
-            if not hasattr(rec, "application") and not hasattr(rec, "session"):
-                return False
-            if rec.application != "flint":
-                return False
-            if rec.session != session:
-                return False
-            return True
-
         formatter = logging.Formatter(
             "%(asctime)s %(session)s %(process)s %(name)s %(levelname)s : %(msg)s"
         )  # adapt to needs
-        handler.addFilter(filter_func)
         handler.setFormatter(formatter)
         return handler
 

@@ -5,17 +5,8 @@
 # Copyright (c) 2015-2020 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-from bliss.data.node import DataNodeContainer
+from bliss.data.nodes.dataset import _DataPolicyNode
 
 
-class ProposalNode(DataNodeContainer):
+class ProposalNode(_DataPolicyNode):
     _NODE_TYPE = "proposal"
-
-    def __init__(self, name, **kwargs):
-        super().__init__(self._NODE_TYPE, name, **kwargs)
-
-    @property
-    def metadata(self):
-        return dict(
-            filter(lambda elem: not elem[0].startswith("__"), self.info.items())
-        )

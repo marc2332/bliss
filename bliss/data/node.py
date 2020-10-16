@@ -146,7 +146,9 @@ def _get_node_object(node_type, name, parent, connection, create=False, **kwargs
                 and x not in (DataNode, DataNodeContainer)
                 and inspect.getmodule(x) == m,
             )
-            assert len(classes)==1, "there should be only 1 public class inheriting from DataNode in the plugin"
+            assert (
+                len(classes) == 1
+            ), "there should be only 1 public class inheriting from DataNode in the plugin"
             klass = classes[0][-1]
             module_info["class"] = klass
         return klass(

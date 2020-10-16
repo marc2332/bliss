@@ -1911,7 +1911,9 @@ class Axis:
             self._update_settings(state)
             if not state.MOVING:
                 if limit_error and (state.LIMPOS or state.LIMNEG):
-                    raise AxisOnLimitError(str(state))
+                    raise AxisOnLimitError(
+                        f"{self.name}: {str(state)} at {self.position}"
+                    )
                 elif state.FAULT:
                     raise AxisFaultError(str(state))
                 return state

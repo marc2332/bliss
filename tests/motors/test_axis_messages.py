@@ -6,6 +6,8 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import pytest
+from unittest import mock
+from bliss.common.axis import AxisState, AxisOnLimitError
 
 
 def test_axis_stdout(roby, capsys, log_shell_mode):
@@ -47,3 +49,16 @@ def test_axis_stdout2(roby, bad_motor, capsys, log_shell_mode):
 
     out, err = capsys.readouterr()
     assert "Axis roby stopped at position" in out
+
+
+def test_axis_stderr1(roby):
+    with mock.patch.object(roby.controller, "state") as new_state:
+        new_state.return_value = AxisState("READY", "LIMNEG")
+        assert roby.state.LIMNEG
+        with pytest.raises(
+            AxisOnLimitError,
+            match=r"roby: READY \(Axis is READY\) \| "
+            r"LIMNEG \(Hardware low limit active\) at [0-9\.]*",
+        ):
+            roby.jog()
+            roby.stop()

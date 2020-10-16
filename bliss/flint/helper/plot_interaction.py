@@ -611,9 +611,12 @@ class MaskImageSelector(Selector):
         self.__timeout = None
         self.__selection = None
         self.__dock: MaskToolsWidget.MaskToolsDockWidget = None
+        self.__initialMask: Optional[numpy.ndarray] = None
 
     def setInitialMask(self, mask: numpy.ndarray, copy=True):
-        self.__dock.setSelectionMask(mask, copy=copy)
+        if copy and mask is not None:
+            mask = numpy.array(mask)
+        self.__initialMask = mask
 
     def setTimeout(self, timeout):
         self.__timeout = timeout
@@ -622,6 +625,8 @@ class MaskImageSelector(Selector):
         plot = self.parent()
 
         dock = MaskToolsWidget.MaskToolsDockWidget(plot=plot, name="Mask tools")
+        dock.setSelectionMask(self.__initialMask, copy=False)
+
         # Inject a default selection by default
         dock.widget().rectAction.trigger()
 

@@ -46,25 +46,28 @@ class LogServer(StreamServer):
                     chunk = chunk + data
                 record_dict = pickle.loads(chunk)
 
+                # Backward compatibility with BLISS <1.6
+                # FIXME: This can be remove for BLISS 1.7
                 if "application" not in record_dict:
                     record_dict["application"] = "bliss"
 
-                self.prepare_handler(record_dict, self.db_path, self.log_size)
+                record = logging.makeLogRecord(record_dict)
+
+                self.prepare_handler(record, self.db_path, self.log_size)
 
                 # There is extra "session" and "application" to the record
-                record = logging.makeLogRecord(record_dict)
                 self.log_record(record)
             except Exception:
                 _log.error("Error while processing message", exc_info=True)
                 raise
 
-    def prepare_handler(self, record_dict, root_path, log_size):
+    def prepare_handler(self, record, root_path, log_size):
         """
         Check if a session has a RotatingFileHandler and if not it
         creates one.
         """
-        session = record_dict["session"]
-        application = record_dict["application"]
+        session = record.session
+        application = record.application
         key = session, application
 
         if key not in self._handlers:

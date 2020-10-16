@@ -86,8 +86,8 @@ class CustomSetterNamespace(SimpleNamespace):
 
 class Dataset(DataPolicyObject):
 
-    REQUIRED_INFO = DataPolicyObject.REQUIRED_INFO | {"__closed__"}
-    NODE_TYPE = "dataset"
+    _REQUIRED_INFO = DataPolicyObject._REQUIRED_INFO | {"__closed__"}
+    _NODE_TYPE = "dataset"
 
     def __init__(self, node):
         super().__init__(node)

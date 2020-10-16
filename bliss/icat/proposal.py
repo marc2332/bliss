@@ -10,7 +10,7 @@ from bliss.icat.policy import DataPolicyObject
 
 class Proposal(DataPolicyObject):
 
-    NODE_TYPE = "proposal"
+    _NODE_TYPE = "proposal"
 
     @property
     def sample_nodes(self):

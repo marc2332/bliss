@@ -11,7 +11,7 @@ from bliss.icat.proposal import Proposal
 
 class Sample(DataPolicyObject):
 
-    NODE_TYPE = "sample"
+    _NODE_TYPE = "sample"
 
     @property
     def proposal(self):

@@ -13,8 +13,8 @@ class DataPolicyObject:
     """A data policy object with a Redis representation
     """
 
-    REQUIRED_INFO = {"__name__", "__path__"}
-    NODE_TYPE = NotImplemented
+    _REQUIRED_INFO = {"__name__", "__path__"}
+    _NODE_TYPE = NotImplemented
 
     def __init__(self, node):
         """
@@ -22,12 +22,12 @@ class DataPolicyObject:
         """
         self._node = node
         node_type = node.type
-        if node_type != self.NODE_TYPE:
+        if node_type != self._NODE_TYPE:
             raise RuntimeError(
-                f"Node type must be '{self.NODE_TYPE}' instead of '{node_type}'"
+                f"Node type must be '{self._NODE_TYPE}' instead of '{node_type}'"
             )
         existing = set(node.info.keys())
-        undefined = self.REQUIRED_INFO - existing
+        undefined = self._REQUIRED_INFO - existing
         if undefined:
             raise RuntimeError(f"Missing node info: {undefined}")
 
@@ -47,4 +47,4 @@ class DataPolicyObject:
         return self._node
 
     def _log_debug(self, msg):
-        log_debug(self, f"{self.NODE_TYPE}({self}): {msg}")
+        log_debug(self, f"{self._NODE_TYPE}({self}): {msg}")

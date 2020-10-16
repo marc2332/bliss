@@ -856,6 +856,7 @@ class FlintApi:
         """
         plot = self._get_plot_widget(plot_id, expect_silx_api=True)
         selector = plot_interaction.MaskImageSelector(plot)
+        initial_mask = _aswritablearray(initial_mask)
         if initial_mask is not None:
             selector.setInitialMask(initial_mask, copy=False)
         selector.setTimeout(timeout)

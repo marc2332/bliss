@@ -522,11 +522,16 @@ def test_icat_metadata(session, icat_subscriber, esrf_data_policy):
         "SamplePositioners_value": "0.0 0.0",
     }
     # Check metadata gathering
-    icatfields2 = scan_saving.dataset.get_current_icat_metadata()
+    icatfields2 = dict(scan_saving.dataset.get_current_icat_metadata())
+    icatfields2.pop("startDate")
+    # no endDate because dataset is not closed yet
     assert icatfields1 == icatfields2
 
     # Check metadata in redis
-    assert icatfields1 == scan_saving.dataset.node.metadata
+    icatfields2 = dict(scan_saving.dataset.node.metadata)
+    icatfields2.pop("startDate")
+    # no endDate because dataset is not closed yet
+    assert icatfields1 == icatfields2
 
     scan_saving.dataset_name = None
 
@@ -538,15 +543,22 @@ def test_icat_metadata(session, icat_subscriber, esrf_data_policy):
 
     s = loopscan(3, 0.01, diode)
     # Check metadata gathering
-    icatfields2 = scan_saving.dataset.get_current_icat_metadata()
+    icatfields2 = dict(scan_saving.dataset.get_current_icat_metadata())
+    icatfields2.pop("startDate")
     assert icatfields1 == icatfields2
 
+    # Check metadata after dataset closing
+    dataset = scan_saving.dataset
     scan_saving.enddataset()
+    icatfields2 = dict(dataset.get_current_icat_metadata())
+    icatfields2.pop("startDate")
+    icatfields2.pop("endDate")
+    assert icatfields1 == icatfields2
 
     # test walk on datasets
     n = get_node(session.name)
-    walk_res = [d for d in n.walk(wait=False, filter="dataset")]
-    assert len(walk_res) == 2
+    walk_res = [d.name for d in n.walk(wait=False, filter="dataset")]
+    assert len(walk_res) == 2, walk_res
 
 
 def test_icat_metadata_custom(session, icat_subscriber, esrf_data_policy):
@@ -593,11 +605,17 @@ def test_icat_metadata_custom(session, icat_subscriber, esrf_data_policy):
     datasets = {d.name: d for d in datasets}
     assert datasets.keys() == {"0001", "0001_b"}
 
-    assert len(datasets["0001"].node.metadata) == 4
-    assert len(datasets["0001_b"].node.metadata) == 7
+    metadata_0001 = datasets["0001"].node.metadata
+    assert len(metadata_0001) == 6, metadata_0001.keys()
+    metadata_0001b = datasets["0001_b"].node.metadata
+    assert len(metadata_0001b) == 9, metadata_0001b.keys()
 
-    assert "FLUO_i0" in datasets["0001_b"].node.metadata
-    assert datasets["0001_b"].node.metadata["definition"] == "FLUO"
+    assert "startDate" in metadata_0001
+    assert "startDate" in metadata_0001b
+    assert "endDate" in metadata_0001
+    assert "endDate" in metadata_0001b
+    assert "FLUO_i0" in metadata_0001b
+    assert metadata_0001b["definition"] == "FLUO"
 
     # test reception of metadata on icat server side
     phrases = ["<tns:name>0001_b</tns:name>", "<tns:name>FLUO_i0</tns:name>"]

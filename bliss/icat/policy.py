@@ -46,11 +46,11 @@ class DataPolicyObject:
 
     @property
     def name(self):
-        return self._node.info.get("__name__")
+        return self._node.info["__name__"]
 
     @property
     def path(self):
-        return self._node.info.get("__path__")
+        return self._node.info["__path__"]
 
     @autocomplete_property
     def node(self):

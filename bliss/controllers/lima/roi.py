@@ -745,6 +745,29 @@ class RoiCounters(IntegratingCounterController):
         else:
             return "\n".join([header, "*** no ROIs defined ***"])
 
+    @property
+    def buffer_size(self):
+        return self._proxy.BufferSize
+
+    @buffer_size.setter
+    def buffer_size(self, value):
+        self._proxy.BufferSize = int(value)
+
+    @property
+    def mask_file(self):
+        filename = self._proxy.MaskFile
+        if not len(filename):
+            return None
+        else:
+            return filename
+
+    @mask_file.setter
+    def mask_file(self, filename):
+        if filename is None:
+            self._proxy.MaskFile = ""
+        else:
+            self._proxy.MaskFile = filename
+
     def get_values(self, from_index, *counters):
         roi_counter_size = len(RoiStat)
         try:

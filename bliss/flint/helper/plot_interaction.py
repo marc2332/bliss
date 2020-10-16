@@ -658,11 +658,6 @@ class MaskImageSelector(Selector):
         plot = self.parent()
         plot.removeDockWidget(dock)
 
-        # FIXME: silx bug: https://github.com/silx-kit/silx/issues/2940
-        if hasattr(plot, "_dockWidgets"):
-            if dock in plot._dockWidgets:
-                plot._dockWidgets.remove(dock)
-
     def selection(self):
         """Returns the selection"""
         return self.__selection

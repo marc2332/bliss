@@ -604,13 +604,36 @@ class ShapesSelector(Selector):
         self.selectionFinished.emit()
 
 
+class MaskToolsDockWidget(MaskToolsWidget.MaskToolsDockWidget):
+    """Mask tool which make sure the current mask is always used anyway the
+    activate item change"""
+
+    def __init__(self, parent=None, plot=None, name="Mask"):
+        self._restoreBehavior = self._RestoreMaskBehaviour(self, plot)
+        MaskToolsWidget.MaskToolsDockWidget.__init__(
+            self, parent=parent, plot=plot, name=name
+        )
+
+    class _RestoreMaskBehaviour:
+        def __init__(self, parent, plot):
+            self.__mask = None
+            self.parent = parent
+            plot.sigActiveImageChanged.connect(self.activeItemChanged)
+
+        def activeItemChanged(self, previous, legend):
+            if previous is not None:
+                self.__mask = self.parent.getSelectionMask(copy=True)
+            if legend is not None:
+                self.parent.setSelectionMask(self.__mask, copy=False)
+
+
 class MaskImageSelector(Selector):
     def __init__(self, parent=None):
         assert isinstance(parent, PlotWidget)
         super(MaskImageSelector, self).__init__(parent=parent)
         self.__timeout = None
         self.__selection = None
-        self.__dock: MaskToolsWidget.MaskToolsDockWidget = None
+        self.__dock: MaskToolsDockWidget = None
         self.__initialMask: Optional[numpy.ndarray] = None
 
     def setInitialMask(self, mask: numpy.ndarray, copy=True):
@@ -624,7 +647,7 @@ class MaskImageSelector(Selector):
     def start(self):
         plot = self.parent()
 
-        dock = MaskToolsWidget.MaskToolsDockWidget(plot=plot, name="Mask tools")
+        dock = MaskToolsDockWidget(plot=plot, name="Mask tools")
         dock.setSelectionMask(self.__initialMask, copy=False)
 
         # Inject a default selection by default

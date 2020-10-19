@@ -232,14 +232,18 @@ def reset_excepthook():
 def _set_pt_event_loop():
     if not is_windows():
         from prompt_toolkit.eventloop.posix import PosixEventLoop
+        from prompt_toolkit.eventloop.select import PollSelector
 
         class _PosixLoop(PosixEventLoop):
-            EVENT_LOOP_DAEMON_GREENLETS = []
+            EVENT_LOOP_DAEMON_GREENLETS = weakref.WeakSet()
+
+            def __init__(self, *kwargs):
+                super().__init__(selector=PollSelector)
 
             def run_in_executor(self, callback, _daemon=False):
                 t = gevent.spawn(callback)
                 if _daemon:
-                    _PosixLoop.EVENT_LOOP_DAEMON_GREENLETS.append(t)
+                    _PosixLoop.EVENT_LOOP_DAEMON_GREENLETS.add(t)
 
                 class F(future.Future):
                     def result(self):
@@ -706,7 +710,7 @@ def embed(*args, **kwargs):
             signal.signal(signal.SIGTERM, stop_current_task_and_exit)
 
             def watch_pipe(r):
-                gevent.os.tp_read(r, 1)
+                gevent.select.select([r], [], [])
                 exit()
 
             gevent.spawn(watch_pipe, r)

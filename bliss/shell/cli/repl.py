@@ -8,6 +8,7 @@
 """Bliss REPL (Read Eval Print Loop)"""
 
 import builtins
+import fcntl
 import os
 import sys
 import signal
@@ -239,6 +240,8 @@ def _set_pt_event_loop():
 
             def __init__(self, *kwargs):
                 super().__init__(selector=PollSelector)
+                # ensure that write schedule pipe is non blocking
+                fcntl.fcntl(self._schedule_pipe[1], fcntl.F_SETFL, os.O_NONBLOCK)
 
             def run_in_executor(self, callback, _daemon=False):
                 t = gevent.spawn(callback)

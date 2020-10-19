@@ -648,10 +648,6 @@ class MaskImageSelector(Selector):
         plot = self.parent()
 
         dock = MaskToolsDockWidget(plot=plot, name="Mask tools")
-        dock.setSelectionMask(self.__initialMask, copy=False)
-
-        # Inject a default selection by default
-        dock.widget().rectAction.trigger()
 
         # Inject a button to validate the selection
         group = dock.widget().otherToolGroup
@@ -663,8 +659,22 @@ class MaskImageSelector(Selector):
         layout.addWidget(self._validate)
 
         plot.addTabbedDockWidget(dock)
-        dock.show()
-        dock.visibilityChanged.connect(self.__selectionCancelled)
+
+        try:
+            plot.setUpdatesEnabled(False)
+            dock.setUpdatesEnabled(False)
+
+            dock.show()
+
+            # Must be done after the show else it is not working
+            dock.setSelectionMask(self.__initialMask, copy=False)
+            # Inject a default selection by default
+            dock.widget().rectAction.trigger()
+
+            dock.visibilityChanged.connect(self.__selectionCancelled)
+        finally:
+            plot.setUpdatesEnabled(True)
+            dock.setUpdatesEnabled(True)
 
         self.__dock = dock
 

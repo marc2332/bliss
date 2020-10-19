@@ -217,7 +217,8 @@ class TrajectoryAxis(NoSettingsAxis):
         # check memory
         # memory_max = int(self.controller.raw_write("0:?memory").split(" ")[2])
         # limited to 400000 due to the timeout on the icepap DSP
-        memory_max = 390000
+        # memory_max = 390000
+        memory_max = 300000
 
         # build parameter table
         param_data = _vdata_header(parameter, self, PARAMETER, addr="255")

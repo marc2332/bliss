@@ -9,24 +9,16 @@ import re
 import time
 import gevent
 import hashlib
-import functools
 from collections import namedtuple
-from bliss.common.greenlet_utils import protect_from_kill
 from bliss.config.channels import Cache
 from bliss.controllers.motor import Controller
 from bliss.common.axis import AxisState, Axis
 from bliss.common.utils import object_method
-from bliss.common.logtools import *
 from bliss import global_map
 from bliss.comm.tcp import Command
-import struct
 import numpy
 import sys
-import os
-import errno
-from bliss.controllers.motors.icepap.comm import *
-from bliss.controllers.motors.icepap.shutter import Shutter
-from bliss.controllers.motors.icepap.switch import Switch
+from bliss.controllers.motors.icepap.comm import _command, _ackcommand, _vdata_header
 from bliss.controllers.motors.icepap.linked import LinkedAxis
 from bliss.controllers.motors.icepap.trajectory import (
     TrajectoryAxis,
@@ -129,7 +121,12 @@ class Icepap(Controller):
             axis._init_hardware()
 
     def steps_position_precision(self, axis):
-        return 1
+        """
+        IcePap axes are working in steps but traj in float.
+        """
+        if isinstance(axis, TrajectoryAxis):
+            return axis.config.config_dict.get("precision", 1e-6)
+        return axis.config.config_dict.get("precision", 1)
 
     # Axis power management
     def set_on(self, axis):

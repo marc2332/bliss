@@ -604,16 +604,42 @@ class ShapesSelector(Selector):
         self.selectionFinished.emit()
 
 
+class MaskToolsDockWidget(MaskToolsWidget.MaskToolsDockWidget):
+    """Mask tool which make sure the current mask is always used anyway the
+    activate item change"""
+
+    def __init__(self, parent=None, plot=None, name="Mask"):
+        self._restoreBehavior = self._RestoreMaskBehaviour(self, plot)
+        MaskToolsWidget.MaskToolsDockWidget.__init__(
+            self, parent=parent, plot=plot, name=name
+        )
+
+    class _RestoreMaskBehaviour:
+        def __init__(self, parent, plot):
+            self.__mask = None
+            self.parent = parent
+            plot.sigActiveImageChanged.connect(self.activeItemChanged)
+
+        def activeItemChanged(self, previous, legend):
+            if previous is not None:
+                self.__mask = self.parent.getSelectionMask(copy=True)
+            if legend is not None:
+                self.parent.setSelectionMask(self.__mask, copy=False)
+
+
 class MaskImageSelector(Selector):
     def __init__(self, parent=None):
         assert isinstance(parent, PlotWidget)
         super(MaskImageSelector, self).__init__(parent=parent)
         self.__timeout = None
         self.__selection = None
-        self.__dock: MaskToolsWidget.MaskToolsDockWidget = None
+        self.__dock: MaskToolsDockWidget = None
+        self.__initialMask: Optional[numpy.ndarray] = None
 
     def setInitialMask(self, mask: numpy.ndarray, copy=True):
-        self.__dock.setSelectionMask(mask, copy=copy)
+        if copy and mask is not None:
+            mask = numpy.array(mask)
+        self.__initialMask = mask
 
     def setTimeout(self, timeout):
         self.__timeout = timeout
@@ -621,9 +647,7 @@ class MaskImageSelector(Selector):
     def start(self):
         plot = self.parent()
 
-        dock = MaskToolsWidget.MaskToolsDockWidget(plot=plot, name="Mask tools")
-        # Inject a default selection by default
-        dock.widget().rectAction.trigger()
+        dock = MaskToolsDockWidget(plot=plot, name="Mask tools")
 
         # Inject a button to validate the selection
         group = dock.widget().otherToolGroup
@@ -635,8 +659,22 @@ class MaskImageSelector(Selector):
         layout.addWidget(self._validate)
 
         plot.addTabbedDockWidget(dock)
-        dock.show()
-        dock.visibilityChanged.connect(self.__selectionCancelled)
+
+        try:
+            plot.setUpdatesEnabled(False)
+            dock.setUpdatesEnabled(False)
+
+            dock.show()
+
+            # Must be done after the show else it is not working
+            dock.setSelectionMask(self.__initialMask, copy=False)
+            # Inject a default selection by default
+            dock.widget().rectAction.trigger()
+
+            dock.visibilityChanged.connect(self.__selectionCancelled)
+        finally:
+            plot.setUpdatesEnabled(True)
+            dock.setUpdatesEnabled(True)
 
         self.__dock = dock
 
@@ -652,11 +690,6 @@ class MaskImageSelector(Selector):
         dock.visibilityChanged.disconnect(self.__selectionCancelled)
         plot = self.parent()
         plot.removeDockWidget(dock)
-
-        # FIXME: silx bug: https://github.com/silx-kit/silx/issues/2940
-        if hasattr(plot, "_dockWidgets"):
-            if dock in plot._dockWidgets:
-                plot._dockWidgets.remove(dock)
 
     def selection(self):
         """Returns the selection"""

@@ -98,6 +98,9 @@ def anmesh(
         scan_info["title"] = template.format(*args)
 
     motor_list = [info[0] for info in motor_tuple_list]
+    if len(motor_list) != len(set(motor_list)):
+        raise ValueError("Duplicated axis, check scan arguments")
+
     motor_name_list = [info[0].name for info in motor_tuple_list]
     start_list = [info[1] for info in motor_tuple_list]
     stop_list = [info[2] for info in motor_tuple_list]

@@ -171,13 +171,13 @@ Took 0:00:05.226827
 In case a scan for more than 5 motors is needed, `anscan` and `dnscan` functions
 can be used with a slightly different list of parameters:
 
-`anscan([(<mot1>, <start1>, <stop1>),...,(<motN>, <startN>, <stopN>)],<counting_time>, <intervals>, counter1, ... counterN )`
+`anscan([(<mot1>, <start1>, <stop1>),...,(<motN>, <startN>, <stopN>)], <intervals>, <counting_time>, counter1, ... counterN )`
 
 `(<mot>, <start>, <stop>)` can be repeated as much as needed.
 
 idem for dnscan with relative start and stop positions:
 
-`dnscan([(<mot1>, <start1>, <stop1>),...,(<motN>, <startN>, <stopN>)],<counting_time>, <intervals>, counter1, ... counterN )`
+`dnscan([(<mot1>, <start1>, <stop1>),...,(<motN>, <startN>, <stopN>)], <intervals>, <counting_time>, counter1, ... counterN )`
 
 
 ## amesh

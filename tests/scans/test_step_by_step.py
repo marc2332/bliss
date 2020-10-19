@@ -179,7 +179,7 @@ def test_anscan(session):
     roby = session.env_dict["roby"]
     robz = session.env_dict["robz"]
     diode = session.env_dict["diode"]
-    s = scans.anscan([(roby, 0, 0.1), (robz, 0.1, 0.2)], 0.1, 1, diode, save=False)
+    s = scans.anscan([(roby, 0, 0.1), (robz, 0.1, 0.2)], 1, 0.1, diode, save=False)
     scan_data = s.get_data()
     assert numpy.array_equal(scan_data["roby"], (0, 0.1))
     assert numpy.array_equal(scan_data["robz"], (0.1, 0.2))
@@ -648,3 +648,22 @@ def test_ct_sct(session, beacon):
     assert "positioners" not in ct.scan_info
 
     assert len(session.scans) == 1  # only sct in scans
+
+
+@pytest.mark.parametrize("scan_type", ["anscan", "lookupscan", "anmesh"])
+def test_duplicated_motor_in_multiple_motor_scan(session, beacon, scan_type):
+    # fix for issue 1564
+    diode = beacon.get("diode")
+    roby = beacon.get("roby")
+    robz = beacon.get("robz")
+    scan_func = getattr(scans, scan_type)
+    # the ranges, diode and count time won't be used, normally - should be stopped before
+    if scan_type == "anscan":
+        args = (((roby, 0, 1), (robz, 0, 1), (roby, 0, 1)), 10, 0.1, diode)
+    elif scan_type == "lookupscan":
+        args = (((roby, (0, 1)), (robz, (0, 1)), (roby, (0, 1))), 0.1, diode)
+    elif scan_type == "anmesh":
+        args = (((roby, 0, 1, 10), (robz, 0, 1, 10), (roby, 0, 1, 10)), 0.1, diode)
+    with pytest.raises(ValueError) as excinfo:
+        scan_func(*args, run=False)
+    assert "Duplicated axis" in str(excinfo)

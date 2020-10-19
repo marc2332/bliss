@@ -117,8 +117,8 @@ def ascan(
     """
     return anscan(
         [(motor, start, stop)],
-        count_time,
         intervals,
+        count_time,
         *counter_args,
         name=name,
         title=title,
@@ -185,8 +185,8 @@ def dscan(
     """
     return dnscan(
         [(motor, start, stop)],
-        count_time,
         intervals,
+        count_time,
         *counter_args,
         name=name,
         title=title,
@@ -302,8 +302,8 @@ def a2scan(
     """
     return anscan(
         [(motor1, start1, stop1), (motor2, start2, stop2)],
-        count_time,
         intervals,
+        count_time,
         *counter_args,
         name=name,
         title=title,
@@ -365,10 +365,15 @@ def lookupscan(
     npoints = len(motor_pos_tuple_list[0][1])
     motors_positions = list()
     title_list = list()
+    scan_axes = set()
 
     for m_tup in motor_pos_tuple_list:
+        mot = m_tup[0]
+        if mot in scan_axes:
+            raise ValueError(f"Duplicated axis {mot.name}")
+        scan_axes.add(mot)
         assert len(m_tup[1]) == npoints
-        motors_positions.extend((m_tup[0], m_tup[1]))
+        motors_positions.extend((mot, m_tup[1]))
 
     if not title:
         title = "lookupscan %f on motors (%s)" % (
@@ -423,8 +428,8 @@ def lookupscan(
 @typeguard.typechecked
 def anscan(
     motor_tuple_list: _scannable_start_stop_list,
-    count_time: _float,
     intervals: _int,
+    count_time: _float,
     *counter_args: _countables,
     scan_type: Optional[str] = None,
     name: Optional[str] = None,
@@ -438,15 +443,15 @@ def anscan(
 ):
     """
     anscan usage:
-      anscan( [(m1, start_m1_pos, stop_m1_pos), (m2, start_m2_pos, stop_m2_pos)], ctime, intervals, counter)
+      anscan( [(m1, start_m1_pos, stop_m1_pos), (m2, start_m2_pos, stop_m2_pos)], intervals, ctime, *counter_args)
     10 points scan at 0.1 second integration on motor **m1** from
     *stop_m1_pos* to *stop_m1_pos* and **m2** from *start_m2_pos* to
     *stop_m2_pos* and with one counter.
     
     arguments:
     motor_tuple_list: a list of tuples of the following type (motor,start,stop)
-    count_time: count time in seconds
     intervals: number of intervals
+    count_time: count time in seconds
     *counter_args: as many counter-providing objects as used in the scan (seperated by comma)
     
     keyword arguments:
@@ -462,7 +467,7 @@ def anscan(
     scan_params: Optional[dict] = None,
 
     example:
-      anscan( [(m1, 1, 2), (m2, 3, 7)], 0.1, 10, diode2)
+      anscan( [(m1, 1, 2), (m2, 3, 7)], 10, 0.1, diode2)
     10 points scan at 0.1 second integration on motor **m1** from
     1 to 2 and **m2** from 3 to 7 and with diode2 as the only counter.
     """
@@ -474,8 +479,12 @@ def anscan(
     title_list = list()
     starts_list = list()
     stops_list = list()
+    scan_axes = set()
     for m_tup in motor_tuple_list:
         mot = m_tup[0]
+        if mot in scan_axes:
+            raise ValueError(f"Duplicated axis {mot.name}")
+        scan_axes.add(mot)
         d = mot._set_position if scan_type == "dscan" else 0
         start = m_tup[1]
         stop = m_tup[2]
@@ -542,8 +551,8 @@ def anscan(
 @typeguard.typechecked
 def dnscan(
     motor_tuple_list: _scannable_start_stop_list,
-    count_time: _float,
     intervals: _int,
+    count_time: _float,
     *counter_args: _countables,
     scan_type: Optional[str] = None,
     name: Optional[str] = None,
@@ -557,7 +566,7 @@ def dnscan(
 ):
     """
     dnscan usage:
-      dnscan([(m0, rel_start_m0, rel_end_m0), (m1, rel_start_m1, rel_stop_m1)], 0.1, 10, counter)
+      dnscan([(m0, rel_start_m0, rel_end_m0), (m1, rel_start_m1, rel_stop_m1)], 10, 0.1, counter)
     
     arguments:
     motor_tuple_list: a list of tuples of the following type (motor,start,stop) start and stop are relative positions
@@ -579,13 +588,13 @@ def dnscan(
 
     
     example:
-      dnscan([(m0, -1, 1),(m1, -2, 2)],0.1, 10, diode2)
+      dnscan([(m0, -1, 1),(m1, -2, 2)], 10, 0.1, diode2)
     """
 
     scan = anscan(
         motor_tuple_list,
-        count_time,
         intervals,
+        count_time,
         *counter_args,
         save=save,
         save_images=save_images,
@@ -645,8 +654,8 @@ def a3scan(
     """
     return anscan(
         [(motor1, start1, stop1), (motor2, start2, stop2), (motor3, start3, stop3)],
-        count_time,
         intervals,
+        count_time,
         *counter_args,
         name=name,
         title=title,
@@ -699,8 +708,8 @@ def a4scan(
             (motor3, start3, stop3),
             (motor4, start4, stop4),
         ],
-        count_time,
         intervals,
+        count_time,
         *counter_args,
         name=name,
         title=title,
@@ -756,8 +765,8 @@ def a5scan(
             (motor4, start4, stop4),
             (motor5, start5, stop5),
         ],
-        count_time,
         intervals,
+        count_time,
         *counter_args,
         name=name,
         title=title,
@@ -801,8 +810,8 @@ def d3scan(
     """
     return dnscan(
         [(motor1, start1, stop1), (motor2, start2, stop2), (motor3, start3, stop3)],
-        count_time,
         intervals,
+        count_time,
         *counter_args,
         name=name,
         title=title,
@@ -854,8 +863,8 @@ def d4scan(
             (motor3, start3, stop3),
             (motor4, start4, stop4),
         ],
-        count_time,
         intervals,
+        count_time,
         *counter_args,
         name=name,
         title=title,
@@ -911,8 +920,8 @@ def d5scan(
             (motor4, start4, stop4),
             (motor5, start5, stop5),
         ],
-        count_time,
         intervals,
+        count_time,
         *counter_args,
         name=name,
         title=title,
@@ -988,8 +997,8 @@ def d2scan(
     """
     return dnscan(
         [(motor1, start1, stop1), (motor2, start2, stop2)],
-        count_time,
         intervals,
+        count_time,
         *counter_args,
         name=name,
         title=title,

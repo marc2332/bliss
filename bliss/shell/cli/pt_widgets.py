@@ -19,6 +19,7 @@ from prompt_toolkit.key_binding.bindings.focus import focus_next, focus_previous
 from prompt_toolkit.key_binding.defaults import load_key_bindings
 from prompt_toolkit.key_binding.key_bindings import KeyBindings, merge_key_bindings
 from prompt_toolkit.layout import Layout
+from prompt_toolkit.layout import containers
 from prompt_toolkit.layout.containers import HSplit, VSplit
 from prompt_toolkit.layout.dimension import Dimension as D
 from prompt_toolkit.widgets import (
@@ -882,3 +883,51 @@ class BlissDialog(Dialog):
         gevent.sleep(delay)
         get_app().layout.focus_next()
         get_app().layout.focus_last()
+
+
+def select_dialog(dialog_classes, title: str = None):
+    """
+    Display a dialog with button choices (given as a list of tuples).
+    Return the value associated with button.
+
+    Returns:
+        The selected dialog class else None if the dialog was cancelled.
+    """
+    if title is None:
+        title = "Select dialog"
+
+    def button_handler(dialog_class, foo=None):
+        get_app().exit(result=dialog_class)
+
+    key_bindings = KeyBindings()
+
+    rows = []
+    max_size = max([len(str(d)) for d in dialog_classes])
+    for num, dialog_class in enumerate(dialog_classes):
+        on_click = functools.partial(button_handler, dialog_class)
+
+        label_button = str(dialog_class).capitalize()
+        if num <= 8:
+            key_bindings.add(f"{num+1}")(on_click)
+            label = f"{num + 1}."
+        else:
+            label = "#."
+
+        button = Button(
+            text=label_button, handler=on_click, width=len(label_button) + 4
+        )
+
+        num_label = Label(label)
+        empty = containers.Window(
+            style="class:frame.border", width=max_size - len(label_button), height=1
+        )
+        row = VSplit([num_label, button, empty], align=containers.HorizontalAlign.LEFT)
+        rows.append(row)
+
+    body = HSplit(rows, key_bindings=key_bindings)
+
+    cancel = Button(text="Cancel", handler=functools.partial(button_handler, None))
+    body = Box(body)
+
+    dialog = Dialog(title=title, body=body, buttons=[cancel], with_background=True)
+    return _run_dialog(dialog, style=_ESRF_STYLE, async_=False)

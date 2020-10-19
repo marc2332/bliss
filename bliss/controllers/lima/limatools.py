@@ -252,11 +252,14 @@ def load_simulator_frames(simulator, nframes, files_pattern):
     sim.file_pattern = files_pattern
     sim.nb_prefetched_frames = nframes
     # update the camera max_size after loading new images
-    simulator.image._get_detector_max_size()
+    simulator.image._read_detector_max_size()
+    reset_cam(simulator, roi=[0, 0, 0, 0])
 
 
 def reset_cam(cam, roi=None):
     """reset lima image parameters and align tango proxy"""
+
+    # --- reset the proxy params
 
     try:  # tmp fix for lima-core <= 1.9.6
         cam.proxy.image_rotation = (
@@ -270,6 +273,7 @@ def reset_cam(cam, roi=None):
     cam.proxy.image_flip = [False, False]
     cam.proxy.image_bin = [1, 1]
 
+    # --- reset bliss image params
     cam.image.binning = [1, 1]
     cam.image.flip = [False, False]
     cam.image.rotation = 0

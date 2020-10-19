@@ -286,13 +286,16 @@ class ImageCounter(Counter):
             roi, img_size, self.flip, self.rotation, self.binning
         )
 
+    def _read_detector_max_size(self):
+        log_debug(self, "get proxy.max_size")
+        w, h = self._proxy.image_max_dim
+        self._max_width, self._max_height = int(w), int(h)
+
     def _get_detector_max_size(self):
         """read and return the detector size (raw value without considering binning and rotation) """
 
         if self._max_width == 0 or self._max_height == 0:
-            log_debug(self, "get proxy.max_size")
-            w, h = self._proxy.image_max_dim
-            self._max_width, self._max_height = int(w), int(h)
+            self._read_detector_max_size()
             if self._max_width == 0 or self._max_height == 0:
                 raise RuntimeError("There is a problem with the device server!")
 

@@ -27,6 +27,7 @@ Options:
     -S, --show-sessions           Display available sessions and tree of sub-sessions
     --show-sessions-only          Display available sessions names only
 """
+import bliss
 
 import warnings
 

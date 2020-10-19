@@ -104,7 +104,7 @@ def perform_anscan(n):
     if motors and options:
         count_time, intervals, save, sleep_time, run = options
         return anscan(
-            motors, count_time, intervals, save=save, sleep_time=sleep_time, run=run
+            motors, intervals, count_time, save=save, sleep_time=sleep_time, run=run
         )
 
 
@@ -115,7 +115,7 @@ def perform_dnscan(n):
     if motors and options:
         count_time, intervals, save, sleep_time, run = options
         return dnscan(
-            motors, count_time, intervals, save=save, sleep_time=sleep_time, run=run
+            motors, intervals, count_time, save=save, sleep_time=sleep_time, run=run
         )
 
 

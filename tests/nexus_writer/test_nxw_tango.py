@@ -20,7 +20,7 @@ def test_nxw_tango_logging(nexus_writer_config):
     _test_nxw_tango_logging(**nexus_writer_config)
 
 
-# @pytest.mark.xfail(reason="Writer is not responsive enough")
+@pytest.mark.xfail(reason="Writer is not responsive enough")
 def test_nxw_tango_api(nexus_writer_config):
     _test_nxw_tango_api(**nexus_writer_config)
 
@@ -35,50 +35,54 @@ def _test_nxw_tango_api(session=None, tmpdir=None, writer=None, **kwargs):
     scan = scans.timescan(.1, run=False)
     gscan = nxw_test_utils.run_scan(scan, runasync=True)
 
-    # This test will check the responsiveness of the tango server.
-    # This is the equivalent of having `nclients` jive panels open.
-    proxy = writer.proxy
-    nclients = 1
-    pollinterval = 0.010
-    proxy.set_timeout_millis(3000)
-
-    print("Wait until the scan is being written ...")
-    with gevent.Timeout(10):
-        while proxy.state() != DevState.RUNNING:
-            gevent.sleep(0.1)
-        while not proxy.scan_progress:
-            gevent.sleep(0.1)
-        scan_name = scan.node.name
-        assert proxy.scan_progress[0].startswith(f"{scan_name}: ")
-
     try:
-        with gevent.Timeout(100):
-            with poll_context(
-                proxy,
-                channels_have_data,
-                scan_name,
-                nclients=nclients,
-                pollinterval=pollinterval,
-            ) as glts:
-                print("Poll until all channels have data ...")
-                gevent.joinall(glts)
-    finally:
-        with gevent.Timeout(100):
-            with poll_context(
-                proxy,
-                writer_finished,
-                scan_name,
-                nclients=nclients,
-                pollinterval=pollinterval,
-            ) as glts:
-                print("Sending CTRL-C ...")
-                gscan.kill(KeyboardInterrupt)
-                try:
-                    print("Wait for scan writer to stop ...")
+        # This test will check the responsiveness of the tango server.
+        # This is the equivalent of having `nclients` jive panels open.
+        proxy = writer.proxy
+        nclients = 1
+        pollinterval = 0.010
+        proxy.set_timeout_millis(3000)
+
+        print("Wait until the scan is being written ...")
+        with gevent.Timeout(10):
+            while proxy.state() != DevState.RUNNING:
+                gevent.sleep(0.1)
+            while not proxy.scan_progress:
+                gevent.sleep(0.1)
+            scan_name = scan.node.name
+            assert proxy.scan_progress[0].startswith(f"{scan_name}: ")
+
+        try:
+            with gevent.Timeout(100):
+                with poll_context(
+                    proxy,
+                    channels_have_data,
+                    scan_name,
+                    nclients=nclients,
+                    pollinterval=pollinterval,
+                ) as glts:
+                    print("Poll until all channels have data ...")
                     gevent.joinall(glts)
-                finally:
-                    print("Wait for scan to stop ...")
-                    gscan.join()
+        finally:
+            with gevent.Timeout(100):
+                with poll_context(
+                    proxy,
+                    writer_finished,
+                    scan_name,
+                    nclients=nclients,
+                    pollinterval=pollinterval,
+                ) as glts:
+                    print("Sending CTRL-C ...")
+                    gscan.kill(KeyboardInterrupt)
+                    try:
+                        print("Wait for scan writer to stop ...")
+                        gevent.joinall(glts)
+                    finally:
+                        print("Wait for scan to stop ...")
+                        gscan.join()
+    finally:
+        if gscan:
+            gscan.kill(KeyboardInterrupt, timeout=10)
 
     # Verify data
     print("Verify data ...")

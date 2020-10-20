@@ -13,7 +13,6 @@ from bliss.config import settings
 from bliss.common.counter import IntegratingCounter
 from bliss.controllers.counter import IntegratingCounterController
 from bliss.controllers.counter import counter_namespace
-from bliss.scanning.acquisition.lima import RoiCountersAcquisitionSlave
 from bliss.scanning.acquisition.lima import RoiProfileAcquisitionSlave
 from bliss.data.display import FormatedTab
 
@@ -500,6 +499,9 @@ class RoiCounters(IntegratingCounterController):
         self._save_rois = settings.HashObjSetting(settings_name)
 
     def get_acquisition_object(self, acq_params, ctrl_params, parent_acq_params):
+        # avoid cyclic import
+        from bliss.scanning.acquisition.lima import RoiCountersAcquisitionSlave
+
         # in case `count_time` is missing in acq_params take it from parent_acq_params
         if "acq_expo_time" in parent_acq_params:
             acq_params.setdefault("count_time", parent_acq_params["acq_expo_time"])

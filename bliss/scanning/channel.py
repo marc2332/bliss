@@ -185,6 +185,7 @@ def duplicate_channel(source, name=None, conversion=None, dtype=None):
         source.shape,
         source.description,
         source.reference,
+        source.unit,
         source.data_node_type,
     )
 

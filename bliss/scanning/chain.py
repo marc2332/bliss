@@ -711,6 +711,20 @@ class AcquisitionMaster(AcquisitionObject):
         tasks = [gevent.spawn(dev.wait_ready) for dev in self.slaves]
         join_tasks(tasks)
 
+    def stop_all_slaves(self):
+        """
+        This method will stop all slaves depending of this master
+        """
+        for slave in self.slaves:
+            if isinstance(slave, AcquisitionMaster):
+                slave.stop_all_slaves()
+
+        tasks = [gevent.spawn(dev.stop) for dev in self.slaves]
+        try:
+            gevent.joinall(tasks, raise_error=True)
+        finally:
+            gevent.killall(tasks)
+
     # --------------------------- OVERLOAD METHODS  ---------------------------------------------
 
     def prepare(self):
@@ -1016,6 +1030,10 @@ class AcquisitionChain:
         """Reset time statistics
         """
         self._stats_dict.clear()
+
+    @property
+    def top_masters(self):
+        return [x.identifier for x in self._tree.children("root")]
 
     @property
     def nodes_list(self):

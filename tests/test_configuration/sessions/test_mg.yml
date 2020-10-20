@@ -9,3 +9,10 @@
   counters:
     - lima_simulator
 
+-
+  class: MeasurementGroup
+  name: autofilter_mg
+  counters:
+    - sim_autofilter1_det
+    - sim_autofilter1_mon
+    - autofilter1

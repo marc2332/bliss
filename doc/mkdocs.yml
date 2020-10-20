@@ -43,6 +43,7 @@ nav:
                       - 2D detectors (Lima): config_lima.md
                       - Actuators: config_actuator.md
                       - APC: config_apc.md
+                      - AutoFilter: config_autofilter.md
                       - Correlators:
                             - Flex: config_correlator_flex.md
                       - Electrometers:

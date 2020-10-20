@@ -262,7 +262,6 @@ class LimaAcquisitionMaster(AcquisitionMaster):
             self.__live_stopped = True  # allow only at first call
 
     def prepare(self):
-
         if self.__sequence_index > 0 and self.prepare_once:
             return
 
@@ -272,29 +271,7 @@ class LimaAcquisitionMaster(AcquisitionMaster):
             )
 
             if self.acq_params["saving_mode"] != "MANUAL":
-                if hasattr(self.device.proxy, "lima_version"):
-                    lima_version = self.device.proxy.lima_version
-                    user_instrument_name = self.device.proxy.user_instrument_name
-                else:
-                    lima_version = "<1.9.1"
-                    user_instrument_name = "instrument"
-
-                self._image_channel.description.update(
-                    {
-                        "saving_format": self.ctrl_params["saving_format"],
-                        "saving_index_format": self.device.proxy.saving_index_format,
-                        "saving_frame_per_file": self.ctrl_params[
-                            "saving_frame_per_file"
-                        ],
-                        "saving_suffix": self.ctrl_params["saving_suffix"],
-                        "saving_mode": self.acq_params["saving_mode"],
-                        "saving_directory": self._unmapped_path,
-                        "saving_prefix": self.acq_params["saving_prefix"],
-                        "user_detector_name": self.device.proxy.user_detector_name,
-                        "user_instrument_name": user_instrument_name,
-                        "lima_version": lima_version,
-                    }
-                )
+                self._image_channel.description.update(self._get_saving_description())
 
         # make sure that parameters are in the good order for lima:
         self.acq_params.move_to_end("acq_mode", last=False)
@@ -391,6 +368,29 @@ class LimaAcquisitionMaster(AcquisitionMaster):
                     attr_names, self.device.proxy.read_attributes(attr_names)
                 )
             }
+
+    def _get_saving_description(self):
+        if hasattr(self.device.proxy, "lima_version"):
+            lima_version = self.device.proxy.lima_version
+            user_instrument_name = self.device.proxy.user_instrument_name
+
+        else:
+            lima_version = "<1.9.1"
+            user_instrument_name = "instrument"
+
+        description = {
+            "saving_format": self.ctrl_params["saving_format"],
+            "saving_index_format": self.device.proxy.saving_index_format,
+            "saving_frame_per_file": self.ctrl_params["saving_frame_per_file"],
+            "saving_suffix": self.ctrl_params["saving_suffix"],
+            "saving_mode": self.acq_params["saving_mode"],
+            "saving_directory": self._unmapped_path,
+            "saving_prefix": self.acq_params["saving_prefix"],
+            "user_detector_name": self.device.proxy.user_detector_name,
+            "user_instrument_name": user_instrument_name,
+            "lima_version": lima_version,
+        }
+        return description
 
     def reading(self):
         acq_trigger_mode = self.acq_params.get("acq_trigger_mode", "INTERNAL_TRIGGER")

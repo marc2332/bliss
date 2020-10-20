@@ -475,6 +475,9 @@ class FixedShapeCounter:
         "erf_down": lambda npoints: 1 - erf(np.arange(-3, 3, 6 / (npoints))),
         "erf_up": lambda npoints: erf(np.arange(-3, 3, 6 / (npoints))),
         "inverted_gaussian": lambda npoints: 1 - signal.gaussian(npoints, .2 * npoints),
+        "expo_gaussian": lambda npoints: np.exp(
+            signal.gaussian(npoints, .1 * npoints) * 30
+        ),
     }
 
     def __init__(self, signal="sawtooth", npoints=50):
@@ -539,6 +542,83 @@ class FixedShapeCounter:
     @property
     def counter(self):
         return self._counter
+
+    @property
+    def axis(self):
+        return self._axis
+
+
+class AutoFilterDetMon:
+    """Simulated monitor (flat signal) and detector counter with
+    has a gaussian shape with maximum `monitor * transmission`.
+
+    The predefined peak shape can be obtained by scanning the
+    associated software axis from 0 to 1:
+
+        s = self.auto_filter.ascan(self.axis, 0, 1, self.npoints, expo, *self.detectors)
+    """
+
+    def __init__(self, name, config):
+        self._axis = SoftAxis("AutoFilterDetMon", self)
+        detname = config.get("detector_name", name + "_det")
+        self._detector = SoftCounter(name=detname, value=self.det_value)
+        monname = config.get("monitor_name", name + "_mon")
+        self._monitor = SoftCounter(name=monname, value=self.mon_value)
+        self._npoints = config.get("npoints", 50)
+        self._monitor_value = config.get("monitor_value", 50)
+        self.auto_filter = config.get("auto_filter", None)
+        self._position = 0
+        self.init_signal()
+
+    # for SoftAxis
+    @property
+    def position(self):
+        return self._position
+
+    @position.setter
+    def position(self, value):
+        assert value <= 1
+        assert value >= 0
+        self._position = value
+
+    # for detector
+    def det_value(self):
+        mult = self.auto_filter.transmission * self.mon_value()
+        return self._data[int(round(self._npoints * self._position))] * mult
+
+    # for monitor
+    def mon_value(self):
+        return self._monitor_value
+
+    def init_signal(self):
+        n = self._npoints + 1
+        stdev = .1 * self._npoints + 1
+        self._data = np.exp(signal.gaussian(n, stdev) * 10)
+
+    @property
+    def npoints(self):
+        return self._npoints
+
+    @npoints.setter
+    def npoints(self, value):
+        self._npoints = value
+        self.init_signal()
+
+    @property
+    def counters(self):
+        return counter_namespace(self.detectors)
+
+    @property
+    def detectors(self):
+        return [self._detector, self._monitor, self.auto_filter]
+
+    @property
+    def detector(self):
+        return self._detector
+
+    @property
+    def monitor(self):
+        return self._monitor
 
     @property
     def axis(self):

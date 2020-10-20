@@ -464,18 +464,6 @@ def _class_method(client, name, doc):
     return classmethod(method)
 
 
-def _member(client, member_info):
-    name, mtype, doc = info["name"], info["type"], info["doc"]
-    if mtype == "attribute":
-        members[name] = _property(name, doc)
-    elif mtype == "method":
-        members[name] = _method(name, doc)
-    elif mtype == "staticmethod":
-        members[name] = _static_method(client, name, doc)
-    elif mtype == "classmethod":
-        members[name] = _class_method(client, name, doc)
-
-
 class _SubServer:
     def __init__(self, address):
         self.address = address
@@ -583,7 +571,6 @@ class _cnx(object):
 
             name = {metadata["name"]}
             self._log = logging.getLogger(f"{__name__}.{name}")
-            stream = metadata.get("stream", False)
             members = dict(_client=self)
 
             for name, info in metadata["members"].items():

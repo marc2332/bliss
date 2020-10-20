@@ -18,6 +18,7 @@ import warnings
 from typing import Callable, Any
 import typeguard
 import logging
+import numpy
 
 from bliss.common.types import _countable
 from bliss import current_session, is_bliss_shell
@@ -34,12 +35,7 @@ from bliss.controllers.motor import Controller
 from bliss.config.settings_cache import CacheConnection
 from bliss.data.node import _get_or_create_node, _create_node
 from bliss.data.scan import get_data
-from bliss.scanning.chain import (
-    AcquisitionSlave,
-    AcquisitionMaster,
-    StopChain,
-    CompletedCtrlParamsDict,
-)
+from bliss.scanning.chain import AcquisitionSlave, AcquisitionMaster, StopChain
 from bliss.scanning.writer.null import Writer as NullWriter
 from bliss.scanning import scan_math
 from bliss.common.logtools import disable_user_output
@@ -1086,6 +1082,14 @@ class Scan:
             return res
 
     def _goto_multimotors(self, goto):
+        bad_pos = [(mot, pos) for mot, pos in goto.items() if not numpy.isfinite(pos)]
+        if len(bad_pos) > 0:
+            motors = ", ".join([mot.name for mot, pos in goto.items()])
+            pos = [pos for mot, pos in goto.items()]
+            pos = ", ".join(
+                [(f"{p}" if numpy.isfinite(p) else f"{p} (bad)") for p in pos]
+            )
+            raise RuntimeError(f"Motor(s) move aborted. Request: {motors} -> {pos}")
         for key in goto.keys():
             if key in ["elapsed_time", "epoch"]:
                 RuntimeError("Cannot move. Time travel forbidden.")

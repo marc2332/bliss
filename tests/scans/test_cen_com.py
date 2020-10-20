@@ -27,6 +27,18 @@ from bliss.controllers.simulation_counter import FixedShapeCounter
 from tests.test_profiles import test_profiles
 
 
+def test_move_to_nan(session):
+
+    roby = getattr(setup_globals, "roby")
+    robz = getattr(setup_globals, "robz")
+    simul_counter = getattr(setup_globals, "sim_ct_gauss")
+
+    s = scans.ascan(roby, 0, 1, 1, 0, simul_counter, save=False, return_scan=True)
+
+    with pytest.raises(RuntimeError):
+        s._goto_multimotors({roby: 0.5, robz: numpy.nan})
+
+
 def test_pkcom_ascan_gauss(session):
 
     roby = getattr(setup_globals, "roby")

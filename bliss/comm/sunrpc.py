@@ -32,7 +32,7 @@ Original source: http://svn.python.org/projects/python/trunk/Demo/rpc/rpc.py
 
 import xdrlib
 import socket
-import os
+import sys
 import struct
 import functools
 import gevent

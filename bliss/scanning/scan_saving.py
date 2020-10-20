@@ -1540,5 +1540,4 @@ class ESRFScanSaving(BasicScanSaving):
         dataset = self.dataset  # Created in Redis when missing
         if dataset.is_closed:
             raise RuntimeError("Dataset is already closed (choose a different name)")
-        if not dataset.metadata_gathering_done:
-            dataset.gather_metadata()
+        dataset.gather_metadata(on_exists="skip")

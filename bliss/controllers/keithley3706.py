@@ -8,48 +8,27 @@
 """
 Keithley K3706 multimeter.
 
-
-BEURKOUILLE:
-
-to initialize properly:
-
-dans le code:
-  change all nplc to 5  (3 endroits)
-  et changer slot_ dans read_all()
-
-relancer la session 
-dans la session:
-k37dcm.send_prog_dmm()
-
-puis relancer la session  ???
-
+# to initialize:
+# in the code:
+#   change all nplc to 5  (3 places)
+#   and change slot_ in read_all()
+#
+# in a session:
+# k37dcm.send_prog_dmm()
+#
+# then relaunch thesession  ???
 
 """
 
 import time
 import math
-import weakref
-import functools
-import collections
-import functools
-
-import numpy
-import gevent
-
 from blessings import Terminal
-from six import print_
-
 from pt100 import lookuptable
 
 from bliss.comm.util import get_comm, TCP
-
-from bliss.common.protocols import counter_namespace
-
-from bliss.common.counter import SamplingCounter, IntegratingCounter
-from bliss.scanning.acquisition.timer import SoftwareTimerMaster
+from bliss.common.counter import SamplingCounter
 from bliss.controllers.counter import SamplingCounterController
-
-from bliss.common.logtools import log_debug, log_info, log_warning
+from bliss.common.logtools import log_debug, user_print
 from bliss import global_map
 
 
@@ -110,7 +89,7 @@ scan.background(bufM{0})
 
 """
 ERRORS:
-   1114  interlock : check connectors 
+   1114  interlock : check connectors
 
 """
 
@@ -243,10 +222,7 @@ class Keithley3706(SamplingCounterController):
         global_map.register(self, children_list=[self.comm])
 
         #  To be executed once after device reboot:
-        # self.config_slot(1)
-        # self.config_slot(2)
-        # self.config_slot(3)
-        # self.config_slot(4)
+        # self.config_all_slots()
 
     def __info__(self):
         info_str = "KEITHLEY 3706\n"
@@ -312,14 +288,14 @@ class Keithley3706(SamplingCounterController):
         self.send_prog_slot(slot_idx)
 
         log_debug(self, "wait start of scan")
-        print(self.comm.write_readline(b"*IDN?\n", timeout=15).decode())
+        user_print(self.comm.write_readline(b"*IDN?\n", timeout=15).decode())
         log_debug(self, "scan started")
 
         scan_points_read = self.get_scan_states()[1]
         last_scan_index = 0
 
         while scan_points_read < 1:
-            print("...")
+            user_print("...")
             time.sleep(0.05)
             scan_points_read = self.get_scan_states()[1]
 
@@ -329,30 +305,24 @@ class Keithley3706(SamplingCounterController):
             buff_from = last_scan_index * self.chan_count + 1
             buff_to = scan_points_read * self.chan_count
 
-            # print ("reading {}..{}".format(buff_from, buff_to))
-            buff = self.read(
-                "printbuffer({},{},bufM{})".format(buff_from, buff_to, slot_idx)
-            )
+            buff = self.read(f"printbuffer({buff_from},{buff_to},bufM{slot_idx})")
 
-            print(list(map(float, buff.split(","))))
+            user_print(list(map(float, buff.split(","))))
 
             last_scan_index = scan_points_read
             scan_points_read = self.get_scan_states()[1]
 
         # Read potential remaining points.
         if scan_points_read != self.scancount:
-            print("ERROR : not all points read ??")
+            user_print("ERROR : not all points read ??")
         else:
             buff_from = last_scan_index * self.chan_count + 1
             buff_to = scan_points_read * self.chan_count
-            print("reading {}..{}".format(buff_from, buff_to))
+            user_print(f"reading {buff_from}..{buff_to}")
 
-            # print ("reading {}..{}".format(buff_from, buff_to))
-            buff = self.read(
-                "printbuffer({},{},bufM{})".format(buff_from, buff_to, slot_idx)
-            )
+            buff = self.read(f"printbuffer({buff_from},{buff_to},bufM{slot_idx})")
 
-            print(list(map(float, buff.split(","))))
+            user_print(list(map(float, buff.split(","))))
 
     def run_slot_reading(self, slot_idx):
         """
@@ -370,24 +340,20 @@ class Keithley3706(SamplingCounterController):
 
         # check state/number of points read.
         scan_points_read = self.get_scan_states()[1]
-        last_scan_index = 0
 
         while scan_points_read < self.scancount:
             time.sleep(0.05)
-            print(".")
+            user_print(".")
             scan_points_read = self.get_scan_states()[1]
 
         # Read all points.
         if scan_points_read != self.scancount:
-            print("ERROR : not all points read ??")
+            user_print("ERROR : not all points read ??")
         else:
             buff_from = 1
             buff_to = scan_points_read * self.chan_count
-            # print ("reading {}..{}".format(buff_from, buff_to))
 
-            buff = self.read(
-                "printbuffer({},{},bufM{})".format(buff_from, buff_to, slot_idx)
-            )
+            buff = self.read(f"printbuffer({buff_from},{buff_to},bufM{slot_idx})")
 
             self.values_ohms[slot_idx] = list(map(float, buff.split(",")))
             self.values_degrees[slot_idx] = list(
@@ -442,7 +408,7 @@ class Keithley3706(SamplingCounterController):
         The write eol terminator is here the same used by socket to read lines.
         """
         if self._print_com:
-            print(">>", message)
+            user_print(">>", message)
         self.comm.flush()
         _cmd = message + self.msg_eol
         _cmd_bytes = _cmd.encode()
@@ -451,8 +417,8 @@ class Keithley3706(SamplingCounterController):
         time.sleep(0.01)
         err = self.get_error()
         if err[0] != 0:
-            print_(" {t.red}ERROR:{t.normal}".format(t=t)),
-            print(err)
+            user_print(" {t.red}ERROR:{t.normal}".format(t=t)),
+            user_print(err)
 
     def get_error(self):
         self.comm.write(b"count = errorqueue.count" + self.msg_eol.encode())
@@ -484,7 +450,7 @@ class Keithley3706(SamplingCounterController):
         Termination char is removed from answer by socket object.
         """
         if self._print_com:
-            print(">>", message)
+            user_print(">>", message)
         self.comm.flush()  # ???
         _cmd = message + self.msg_eol
         _cmd_bytes = _cmd.encode()
@@ -520,17 +486,17 @@ class Keithley3706(SamplingCounterController):
     def print_slot_config(self, slot_idx):
         ans = self.get_slot_config(slot_idx)
         for ii in range(len(ans)):
-            print("{}: {}".format(ii + 1, ans[ii]))
+            user_print(f"{ii + 1}: {ans[ii]}")
 
     def send_prog_dmm(self):
-        print("    --- SEND PROG DMM  --- ")
+        user_print("    --- SEND PROG DMM  --- ")
 
         for instruction in k37dcm_prog_dmm.split("\n"):
             if instruction.find("#") == -1:
                 self.send(instruction)
             else:
-                print(instruction)
-        print("    --------------------    ")
+                user_print(instruction)
+        user_print("    --------------------    ")
 
     def send_prog_slot(self, slot_idx):
         """
@@ -545,7 +511,7 @@ class Keithley3706(SamplingCounterController):
         log_debug(self, "send_prog_slot(slot_idx=%s)", slot_idx)
 
         chan_string = self.get_channels_string()
-        chan_string = "{0}001:{0}018".format(slot_idx)
+        chan_string = f"{slot_idx}001:{slot_idx}018"
 
         k37dcm_prog_slot_N = k37dcm_prog_slot.format(
             slot_idx, 2 * 9, chan_string, self.scancount
@@ -556,8 +522,8 @@ class Keithley3706(SamplingCounterController):
                 log_debug(self, "send_prog_slot: send %s", instruction)
                 self.send(instruction)
             else:
-                print(instruction)
-        # print ("    --------------------    ")
+                user_print(instruction)
+        # user_print ("    --------------------    ")
 
     def get_channels_string(self):
         """
@@ -568,8 +534,9 @@ class Keithley3706(SamplingCounterController):
 
         for chan in self.counters:
             if "_ohms" not in chan.name:
-                msg = "Counter {}: slot={} channel={} unit={} id={}"
-                # print msg.format(chan.name, chan.slot,chan.channel, chan.unit, chan.id)
+                user_print(
+                    f"Counter {chan.name}: slot={chan.slot} channel={chan.channel} unit={chan.unit} id={chan.id}"
+                )
 
                 chan_list_str_comma += str(chan.id) + ","
         # Removes ending ","...
@@ -578,31 +545,31 @@ class Keithley3706(SamplingCounterController):
         # print chan_list_str
         return chan_list_str
 
-    def read_channels(self):
+    def read_channels(self, chan_n):
         """
         """
-        self.send("bufcnt=dmm.makebuffer({})".format(self.chan_count))
+        self.send(f"bufcnt=dmm.makebuffer({self.chan_count})")
         self.send("bufcnt.clear()")
         self.send("bufcnt.appendmode=1")
 
         self.wait_end_of_scan()
 
-        read_str = self.read("printbuffer({}, {}, bufcnt)".format(1, chan_n))
+        read_str = self.read(f"printbuffer({1}, {chan_n}, bufcnt)")
         ret_vals = read_str.split()
 
-        print("---------ret_vals-----------")
-        print(ret_vals)
-        print("----------------------------")
+        user_print("---------ret_vals-----------")
+        user_print(ret_vals)
+        user_print("----------------------------")
 
     def wait_end_of_scan(self):
         t0 = time.time()
         duration = time.time() - t0
         while self.is_scan_running():
-            print("Scan is running...({}s)".format(duration))
+            user_print(f"Scan is running...({duration}s)")
             time.sleep(0.5)
             duration = time.time() - t0
 
-        print("scan duration : {}s ".format(duration))
+        user_print(f"scan duration : {duration}s ")
 
     def is_scan_running(self):
         if self.get_scan_states()[0] == 2:
@@ -624,13 +591,11 @@ class Keithley3706(SamplingCounterController):
         #  scan.FAILED_INIT or 5
         #  scan.SUCCESS or 6
         scan_states = list(map(int, map(float, ans.split("\t"))))
-        # print "SSS=", scan_states
+        # user_print "SSS=", scan_states
         return scan_states
 
     def get_buffer(self):
-        buf = self.read(
-            "printbuffer(1,{},bufM1)".format(self.scancount * self.chan_count)
-        )
+        buf = self.read(f"printbuffer(1,{self.scancount * self.chan_count},bufM1)")
         return buf
 
     def read_buffer(self):
@@ -642,12 +607,10 @@ class Keithley3706(SamplingCounterController):
         for ii in range(nb_chan):
             chan_values[ii] = list(map(float, buf_list[ii::nb_chan]))
             if len(chan_values[ii]) == self.scancount:
-                print("ok, {} values read.".format(self.scancount))
+                user_print(f"ok, {self.scancount} values read.")
             else:
-                print(
-                    "ERROR: wrong number of values read : {}".format(
-                        len(chan_values[ii])
-                    )
+                user_print(
+                    f"ERROR: wrong number of values read: {len(chan_values[ii])}"
                 )
 
         return chan_values
@@ -655,17 +618,22 @@ class Keithley3706(SamplingCounterController):
     def print_counters(self):
         for chan in self.counters:
             if "_ohms" not in chan.name:
-                msg = "Counter {}: slot={} channel={} unit={} id={}"
-                print(
-                    msg.format(chan.name, chan.slot, chan.channel, chan.unit, chan.id)
+                user_print(
+                    f"Counter {chan.name}: slot={chan.slot} channel={chan.channel} unit={chan.unit} id={chan.id}"
                 )
+
+    def config_all_slots(self):
+        self.config_slot(1)
+        self.config_slot(2)
+        self.config_slot(3)
+        self.config_slot(4)
 
     def config_slot(self, slot_idx):
         """
         Applies PT100_4W_conf custom configuration to all channels of
         slot number <slot_idx>.
         """
-        print("     ------- CONFIG SLOT {} ----------".format(slot_idx))
+        user_print(f"     ------- CONFIG SLOT {slot_idx} ----------")
         self.send('dmm.func="fourwireohms"')
         self.send("dmm.autorange=dmm.OFF")
         self.send("dmm.aperture=0.02")
@@ -674,14 +642,14 @@ class Keithley3706(SamplingCounterController):
         self.send("dmm.nplc=5")
         self.send("dmm.measurecount=1")
         # self.send("dmm.close(\"{}011,{}922\")".format(slot_idx, slot_idx))
-        self.send('channel.open("slot{}")'.format(slot_idx))  # oepn or close ??? :_(
+        self.send('channel.open("slot{}")'.format(slot_idx))  # open or close ??? :_(
         self.send('channel.setpole("slot{}",4)'.format(slot_idx))
         # ->>> channel.setpole("slot4", 4)
 
         self.send('dmm.configure.set("PT100_4W_conf")')
         self.send('dmm.setconfig("slot{}", "PT100_4W_conf")'.format(slot_idx))
         # ->>> dmm.setconfig("slot4", "PT100_4W_conf")
-        print("")
+        user_print("")
 
 
 #     def config_all_slots(self):
@@ -689,7 +657,7 @@ class Keithley3706(SamplingCounterController):
 #         Applies PT100_4W_conf custom configuration to all channels of
 #         all slots.
 #         """
-#         print ("     ------- CONFIG ALL SLOTS ----------")
+#         user_print ("     ------- CONFIG ALL SLOTS ----------")
 #         self.send('dmm.func="fourwireohms"')
 #         self.send("dmm.autorange=dmm.OFF")
 #         self.send("dmm.aperture=0.02")
@@ -709,7 +677,7 @@ class Keithley3706(SamplingCounterController):
 #         for i in range(4):
 #             self.send('dmm.setconfig("slot{}", "PT100_4W_conf")'.format(i + 1))
 #             # ->>> dmm.setconfig("slot4", "PT100_4W_conf")
-#         print ("")
+#         user_print ("")
 
 
 notes_to_freq4 = {
@@ -748,4 +716,48 @@ for (nn,tt) in notes:
     k37dcm.comm.write(b"beeper.beep(%g, %d)\n" % (nn, notes_to_freq4[tt]))
 
 
+"""
+
+
+"""
+AFTER REBOOT / BEFORE CONFIG
+
+SESSION_TEMP [1]: k37dcm.print_slot_config(1)
+1: nofunction
+2: nofunction
+3: nofunction
+4: nofunction
+5: nofunction
+6: nofunction
+7: nofunction
+8: nofunction
+9: nofunction
+10: nofunction
+11: nofunction
+"""
+
+"""
+SESSION_TEMP [9]: k37dcm.print_slot_config(1)   # idem 2 3 4
+1: PT100_4W_conf
+2: PT100_4W_conf
+3: PT100_4W_conf
+4: PT100_4W_conf
+5: PT100_4W_conf
+6: PT100_4W_conf
+7: PT100_4W_conf
+8: PT100_4W_conf
+9: PT100_4W_conf
+10: PT100_4W_conf
+11: PT100_4W_conf
+12: PT100_4W_conf
+13: PT100_4W_conf
+14: PT100_4W_conf
+15: PT100_4W_conf
+16: PT100_4W_conf
+17: PT100_4W_conf
+18: PT100_4W_conf
+19: PT100_4W_conf
+20: PT100_4W_conf
+21: nofunction
+22: nofunction
 """

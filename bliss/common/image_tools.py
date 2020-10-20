@@ -11,13 +11,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from PIL import Image
-from PIL import (
-    TiffImagePlugin,
-    BmpImagePlugin,
-    JpegImagePlugin,
-    PngImagePlugin,
-    GifImagePlugin,
-)
 
 NUMPY_MODES = {
     "L": np.uint8,
@@ -221,8 +214,7 @@ def zero_array(size, mode):
 
 
 def gauss2d(w, h, A=100, sx=10, sy=10, cx=0, cy=0):
-    """ Creates a 2D Gaussian array 
-        
+    """ Create a 2D Gaussian array
         -  w: image width
         -  h: image height
         -  A: Gaussian amplitude (max)
@@ -359,7 +351,7 @@ def create_beam_images(
 
         # save as image file (edf)
         fpath = f"{fdir}/frame_{i:04d}.edf"
-        array2file(arry, fpath)
+        array_to_file(arry, fpath)
 
 
 def create_ring_image(fpath, w=800, h=600, cx=0, cy=0, r1=100, r2=120, a1=0, a2=180):
@@ -379,6 +371,6 @@ def create_ring_image(fpath, w=800, h=600, cx=0, cy=0, r1=100, r2=120, a1=0, a2=
     r = (a + b + c) * 1
     r = r.astype("uint32")
 
-    array2file(r, fpath)
+    array_to_file(r, fpath)
 
     return r

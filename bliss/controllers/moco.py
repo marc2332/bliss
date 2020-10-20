@@ -1,3 +1,5 @@
+import gevent
+
 from bliss import global_map
 from bliss.comm.util import get_comm
 from bliss.common.greenlet_utils import protect_from_kill
@@ -33,6 +35,9 @@ class Moco(object):
         # Communication
         self._cnx = get_comm(config_tree, timeout=3)
         global_map.register(self, children_list=[self._cnx])
+
+        # default config
+        self._default_config = config_tree.get("default_config", None)
 
         # motor
         self.motor = None
@@ -75,6 +80,22 @@ class Moco(object):
                     return (msg.strip("\r\n".encode())).decode()
                 else:
                     return msg.strip("\r\n".encode())
+
+    """
+    MOCO Default Config
+    """
+
+    def set_default_config(self):
+        if self._default_config is not None:
+            try:
+                fd = open(self._default_config)
+                for line in fd:
+                    self.comm(line[:-1])
+                    gevent.sleep(0.01)
+            except:
+                raise RuntimeError(
+                    f"moco (set_default_config) File {self._default_config} does not exist"
+                )
 
     """
     MOCO counters
@@ -177,6 +198,41 @@ class Moco(object):
 
         return [float(valmin), float(valmax)]
 
+    def oprange(self, vmin=None, vmax=None, vsafe=None, silent=False):
+        ans = self.comm("?OPRANGE")
+        [valmin, valmax, valsafe] = ans.split()
+
+        if vmin is not None:
+            if vmin < -10.0 and vmin > 10.0:
+                raise RuntimeError(
+                    f"moco: OPRANGE: Min. value {vmin} outside limits [-10:10]"
+                )
+            valmin = vmin
+        if vmax is not None:
+            if vmax < -10.0 and vmax > 10.0:
+                raise RuntimeError(
+                    f"moco: OPRANGE: Max. value {vmax} outside limits [-10:10]"
+                )
+            valmax = vmax
+        if vsafe is not None:
+            if vsafe < -10.0 and vmax > 10.0:
+                raise RuntimeError(
+                    f"moco: OPRANGE: Safe value {vsafe} outside limits [-10:10]"
+                )
+            valsafe = vsafe
+
+        if vmin is not None or vmax is not None or vsafe != valsafe:
+            comm = f"OPRANGE {valmin} {valmax} {valsafe}"
+            self.comm(comm)
+            gevent.sleep(0.1)
+            ans = self.comm("?OPRANGE")
+            [valmin, valmax, valsafe] = ans.split()
+
+        if not silent:
+            print(f"OPRANGE: [{valmin} - {valmax} - {valsafe}]")
+
+        return [float(valmin), float(valmax), float(valsafe)]
+
     # OUTBEAM  [{CURR  |  VOLT  |  EXT}]  [{NORM  |  INV}]  [{BIP |  UNIP}]  [<fS>]  [{AUTO  | NOAUTO}]
     def outbeam(
         self,
@@ -188,29 +244,66 @@ class Moco(object):
         silent=False,
     ):
 
-        comm = ""
-        if (source is not None) and (source.upper() in ["CURR", "VOLT", "EXT"]):
-            comm = f"{comm} {source}"
-        if (polarity is not None) and (polarity.upper() in ["NORM", "INV"]):
-            comm = f"{comm} {polarity}"
-        if (channel is not None) and (channel.upper() in ["BIP", "UNIP"]):
-            comm = f"{comm} {channel}"
-        if fullscale is not None:
-            comm = f"{comm} {float(fullscale)}"
-        if (autoscale is not None) and (autoscale.upper() in ["AUTO", "NOAUTO"]):
-            comm = f"{comm} {autoscale}"
-        if comm != "":
-            self.comm(f"OUTBEAM {comm}".upper())
-            return
+        ans = self.comm("?OUTBEAM")
+        rep = ans.split()
+        valsource = rep[0].upper()
+        valpolarity = rep[1].upper()
+        valchannel = rep[2].upper()
+        valfullscale = rep[3]
+        valautoscale = rep[4].upper()
 
-        if not silent:
+        sendcomm = False
+
+        if source is not None:
+            if source.upper() not in ["CURR", "VOLT", "EXT"]:
+                raise RuntimeError(
+                    f"moco (OUTBEAM) Unknown source value ({source}) [CURR/VOLT/EXT]"
+                )
+            valsource = source.upper()
+            sendcomm = True
+        if polarity is not None:
+            if polarity.upper() not in ["NORM", "INV"]:
+                raise RuntimeError(
+                    f"moco (OUTBEAM) Unknown polarity value ({polarity}) [NORM/INV]"
+                )
+            valpolarity = polarity.upper()
+            sendcomm = True
+        if channel is not None:
+            if channel.upper() not in ["BIP", "UNIP"]:
+                raise RuntimeError(
+                    f"moco (OUTBEAM) Unknown channel value ({channel}) [BIP/UNIP]"
+                )
+            valchannel = channel.upper()
+            sendcomm = True
+        if fullscale is not None:
+            valfullscale = fullscale
+            sendcomm = True
+        if autoscale is not None:
+            if autoscale.upper() not in ["AUTO", "NOAUTO"]:
+                raise RuntimeError(
+                    f"moco (OUTBEAM) Unknown autoscale value ({autoscale}) [AUTO/NOAUTO]"
+                )
+            valautoscale = autoscale.upper()
+            sendcomm = True
+
+        if sendcomm:
+            comm = f"OUTBEAM {valsource} {valpolarity} {valchannel} {valfullscale} {valautoscale}"
+            self.comm(comm)
+            gevent.sleep(0.1)
             ans = self.comm("?OUTBEAM")
             rep = ans.split()
-            print(f"OUTBEAM: source    : {rep[0]}\t[CURR | VOLT | EXT]")
-            print(f"         polarity  : {rep[1]}\t[NORM | INV]")
-            print(f"         channel   : {rep[2]}\t[BIP | UNIP]")
-            print(f"         fullscale : {rep[3]}")
-            print(f"         autoscale : {rep[4]}\t[AUTO | NOAUTO]")
+            valsource = rep[0]
+            valpolarity = rep[1]
+            valchannel = rep[2]
+            valfullscale[3]
+            valautoscale = rep[4]
+
+        if not silent:
+            print(f"OUTBEAM:  source    : {valsource}\t[CURR | VOLT | EXT]")
+            print(f"          polarity  : {valpolarity}\t[NORM | INV]")
+            print(f"          channel   : {valchannel}\t[BIP | UNIP]")
+            print(f"          fullscale : {valfullscale}")
+            print(f"          autoscale : {valautoscale}\t[AUTO | NOAUTO]")
 
     # INBEAM [{CURR | VOLT | EXT}] [{NORM | INV}] [{BIP | UNIP}] [<fS>] [{AUTO | NOAUTO}]
     # INBEAM [SOFT] [<softThresh>]
@@ -221,32 +314,85 @@ class Moco(object):
         channel=None,
         fullscale=None,
         autoscale=None,
+        threshold=None,
         silent=False,
     ):
 
-        comm = ""
-        if (source is not None) and (source.upper() in ["CURR", "VOLT", "EXT"]):
-            comm = f"{comm} {source}"
-        if (polarity is not None) and (polarity.upper() in ["NORM", "INV"]):
-            comm = f"{comm} {polarity}"
-        if (channel is not None) and (channel.upper() in ["BIP", "UNIP"]):
-            comm = f"{comm} {channel}"
-        if fullscale is not None:
-            comm = f"{comm} {float(fullscale)}"
-        if (autoscale is not None) and (autoscale.upper() in ["AUTO", "NOAUTO"]):
-            comm = f"{comm} {autoscale}"
-        if comm != "":
-            self.comm(f"INBEAM {comm}".upper())
-            return
+        ans = self.comm("?INBEAM")
+        rep = ans.split()
+        valsource = rep[0].upper()
+        if valsource == "SOFT":
+            valthreshold = rep[1]
+        else:
+            valpolarity = rep[1].upper()
+            valchannel = rep[2].upper()
+            valfullscale = rep[3]
+            valautoscale = rep[4].upper()
 
-        if not silent:
+        sendcomm = False
+
+        if source is not None:
+            if source.upper() not in ["SOFT", "CURR", "VOLT", "EXT"]:
+                raise RuntimeError(
+                    f"moco (INBEAM) Unknown source value ({source}) [SOFT/CURR/VOLT/EXT]"
+                )
+            valsource = source.upper()
+            sendcomm = True
+        if threshold is not None:
+            valthreshold = threshold
+            sendcomm = True
+        if polarity is not None:
+            if polarity.upper() not in ["NORM", "INV"]:
+                raise RuntimeError(
+                    f"moco (INBEAM) Unknown polarity value ({polarity}) [NORM/INV]"
+                )
+            valpolarity = polarity.upper()
+            sendcomm = True
+        if channel is not None:
+            if channel.upper() not in ["BIP", "UNIP"]:
+                raise RuntimeError(
+                    f"moco (INBEAM) Unknown channel value ({channel}) [BIP/UNIP]"
+                )
+            valchannel = channel.upper()
+            sendcomm = True
+        if fullscale is not None:
+            valfullscale = fullscale
+            sendcomm = True
+        if autoscale is not None:
+            if autoscale.upper() not in ["AUTO", "NOAUTO"]:
+                raise RuntimeError(
+                    f"moco (INBEAM) Unknown autoscale value ({autoscale}) [AUTO/NOAUTO]"
+                )
+            valautoscale = autoscale.upper()
+            sendcomm = True
+
+        if sendcomm:
+            if source == "SOFT":
+                comm = f"INBEAM {valsource} {valthreshold}"
+            else:
+                comm = f"INBEAM {valsource} {valpolarity} {valchannel} {valfullscale} {valautoscale}"
+            self.comm(comm)
+            gevent.sleep(0.1)
             ans = self.comm("?INBEAM")
             rep = ans.split()
-            print(f"INBEAM:  source    : {rep[0]}\t[CURR | VOLT | EXT]")
-            print(f"         polarity  : {rep[1]}\t[NORM | INV]")
-            print(f"         channel   : {rep[2]}\t[BIP | UNIP]")
-            print(f"         fullscale : {rep[3]}")
-            print(f"         autoscale : {rep[4]}\t[AUTO | NOAUTO]")
+            valsource = rep[0]
+            if valsource == "SOFT":
+                valthreshold = rep[1]
+            else:
+                valpolarity = rep[1]
+                valchannel = rep[2]
+                valfullscale[3]
+                valautoscale = rep[4]
+
+        if not silent:
+            print(f"INBEAM:  source    : {valsource}\t[CURR | VOLT | EXT]")
+            if valsource == "SOFT":
+                print(f"         Threshold : {valthreshold}")
+            else:
+                print(f"         polarity  : {valpolarity}\t[NORM | INV]")
+                print(f"         channel   : {valchannel}\t[BIP | UNIP]")
+                print(f"         fullscale : {valfullscale}")
+                print(f"         autoscale : {valautoscale}\t[AUTO | NOAUTO]")
 
     def go(self, setpoint=None):
         # setpoint: sPoint | #

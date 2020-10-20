@@ -181,7 +181,6 @@ if __name__ == "__main__":
         print("-a energy attenuator_position(s)_string fname")
         sys.exit(0)
 
-    import os
     import sys
 
     if len(sys.argv) < 4:
@@ -207,6 +206,6 @@ if __name__ == "__main__":
         attstr = sys.argv[3]
         print("transmission: %f %%" % get_transmission_factor(egy, attstr, fname))
     else:
-        printUsage()
+        print_usage()
 
     sys.exit(0)

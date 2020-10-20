@@ -137,25 +137,29 @@ class LimaSavingParameters(BeaconObject):
 
     def __info__(self):
         tmp = self.to_dict()
-        av_modes = "\n                   ".join((self.available_saving_modes))
+        mode_prefix = """\
+             - """
+
+        av_modes = f"\n{mode_prefix}".join(self.available_saving_modes)
         return textwrap.dedent(
-            f"""                Saving
+            f"""\
+                Saving
             --------------
-            File Format:  {self.file_format}
-            └->  Suffix:  {tmp['saving_suffix']}
-            Current Mode: {self.mode.name}
+            File Format:   {self.file_format}
+             └->  Suffix:  {tmp['saving_suffix']}
+            Current Mode:  {self.mode.name}
             Available Modes:
-                {av_modes}
-            
+{mode_prefix}{av_modes}
+
             for ONE_FILE_PER_N_FRAMES mode
             ------------------------------
             frames_per_file: {self.frames_per_file}
-            
+
             for SPECIFY_MAX_FILE_SIZE mode
             ------------------------------
             max file size (MB):  {self.max_file_size_in_MB}
-            └-> frams per file: {self._calc_max_frames_per_file()}
-            
+             └-> frames per file: {self._calc_max_frames_per_file()}
+
             Expert Settings
             ---------------
             config max_writing_tasks:  {self._max_writing_tasks}

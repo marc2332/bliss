@@ -9,20 +9,37 @@ own process.
 This allows the GUI to segfault without breaking the sequencer. But it can make
 the debugging a little more complex.
 
+Here is an overview of available solutions to debug problems.
+
+![Flint architecture](img/flint_debug.png)
+
+## Default beacon logging
+
+By default Flint uses a Beacon service to store logging inside a file.
+
+Beacon will create a dedicated Flint logging per session.
+
+By default the Beacon logging service will create new files for Flint together
+with BLISS logging: inside `/var/log/bliss/`. But logs for Flint are stored
+in a dedicated file: `/var/log/bliss/flint_{session}.log`.
+
+As the beacon service have to be retrieved first, early logging messages are
+not saved. First the bliss session have to be set to Flint. After than
+messages are send to the log server.
+
 ## Logging inside Flint
 
 Flint can display logs on a separated window using the standard python logging
-system.
+system. This can catch early messages.
 
 To show *Log messages* window:
 
-* Menu: `Windows` ↴ `Show log`.
-* or `Ctrl-L` shortcut
+!!!note
+    Menu: `Windows` ▶ `Show log`.
 
 All the caught exceptions will be displayed there.
 
 ![Flint logging widget](img/flint-log-widget.png)
-
 
 ## Flint `stdout`/`stderr` in BLISS shell
 
@@ -33,7 +50,8 @@ Flint standard output streams can be displayed inside bliss.
 It allows to display not only information from the logging system, but also
 other things uncaught.
 
-This is disabled by default. It can be enabled via `SCAN_DISPLAY`:
+THe service is enabled by default but not displayed.
+It can be displayed on the BLISS console via `SCAN_DISPLAY`:
 
 ```python
 SCAN_DISPLAY.flint_output_enabled = True
@@ -43,9 +61,8 @@ All the outputs from Flint will be redirected to the BLISS session.
 
 * If Flint was created by this BLISS process, the output comes from 2 pipes (for
   both output).
-* If Flint was attached, the output comes from RPC events.
-
-This technique does not allow to catch the early output.
+* If Flint was attached, the output comes from RPC events. This technique does
+  not allow to catch the early output.
 
 ## Flint `stdout`/`stderr` in a console
 
@@ -70,16 +87,35 @@ from bliss.common import plot
 plot.attach_flint(PID)
 ```
 
+## Save Flint logs into a specific file
+
+The Flint application support command line argument to specify an extra file
+in which logs will be saved.
+
+This can be used together with the beacon log service.
+
+```shell
+flint --log-file myfile.log
+```
+
+It also can be setup from BLISS:
+
+```python
+SCAN_DISPLAY.extra_args = ["--log-file", "myfile.log"]
+flint()
+```
+
 ## IPython
 
 Flint also provides an `IPython` console embedded in the GUI.
 
 To show the console:
 
-* Menu: `Help` ▶ `IPython console`.
+!!!note
+    Menu: `Windows` ▶ `IPython console`.
 
 !!!note
-    The console can be detached from the main window to avoid to loose
+    The console can be detached from the main window to avoid to lose
     display space.
 
 ![Flint ipython console](img/flint_ipython_console.jpg)

@@ -318,7 +318,7 @@ class BaseXIA(BaseMCA):
         """ ??? """
         log_debug(self, "start_acquisition")
         # Make sure the acquisition is stopped first
-        self._proxy.stop_run()
+        # self._proxy.stop_run()
         self._last_pixel_triggered = -1
         self._proxy.start_run()
 

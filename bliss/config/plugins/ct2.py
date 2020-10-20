@@ -87,6 +87,8 @@ def __update_config_value(config, name, value):
 def device_edit(cfg, request):
     import flask.json
 
+    result = dict()
+
     if request.method != "POST":
         return
 

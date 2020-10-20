@@ -7,14 +7,24 @@
 
 import time
 import numpy
-import gevent
+import functools
 
 from bliss.controllers.motor import Controller
 from bliss.common.axis import AxisState, NoSettingsAxis
-from bliss.common.tango import DevState, DeviceProxy
-from bliss.common.logtools import log_debug, user_warning
+from bliss.common.tango import DevState, DeviceProxy, AttributeProxy
+from bliss.common.logtools import user_print, user_warning
+from bliss.common.logtools import log_debug, disable_user_output
 from bliss.common.utils import object_method
 from bliss import global_map
+
+
+def lazy_init(func):
+    @functools.wraps(func)
+    def f(self, *args, **kwargs):
+        self._init()
+        return func(self, *args, **kwargs)
+
+    return f
 
 
 class UndulatorAxis(NoSettingsAxis):
@@ -50,7 +60,6 @@ class ESRF_Undulator(Controller):
         global_map.register(self, parents_list=["undulators"])
 
         self.axis_info = {}
-        self._moving_state = dict()
 
         try:
             self.ds_name = self.config.get("ds_name")
@@ -79,7 +88,7 @@ class ESRF_Undulator(Controller):
     """
 
     def initialize_axis(self, axis):
-        self._moving_state[axis] = 0
+
         attr_pos_name = axis.config.get("attribute_position", str, "Position")
 
         log_debug(self, f"attr_pos_name={attr_pos_name}")
@@ -173,10 +182,6 @@ class ESRF_Undulator(Controller):
             "attr_pos_name",
             float(motion.target_pos / motion.axis.steps_per_unit),
         )
-        with gevent.Timeout(1.0):
-            while "READY" in self.state(motion.axis):
-                gevent.sleep(0.020)
-            self._moving_state[motion.axis] = 5
         log_debug(self, f"end of start {motion.axis.name}")
 
     @object_method
@@ -257,19 +262,14 @@ class ESRF_Undulator(Controller):
 
         if _state == DevState.ON:
             log_debug(self, f"{axis.name} READY")
-            if self._moving_state[axis] > 0:
-                self._moving_state[axis] -= 1
-                return AxisState("MOVING")
             return AxisState("READY")
         elif _state == DevState.MOVING:
             log_debug(self, f"{axis.name} MOVING")
             return AxisState("MOVING")
         elif _state == DevState.DISABLE:
-            self._moving_state[axis] = 0
             log_debug(self, f"{axis.name} DISABLED")
             return AxisState("DISABLED")
         else:
-            self._moving_state[axis] = 0
             log_debug(self, f"{axis.name} READY after unknown state")
             return AxisState("READY")
 
@@ -318,7 +318,7 @@ class ESRF_Undulator(Controller):
             velocity = getattr(self.device, self.axis_info[axis].get("attr_vel_name"))
             first_vel = getattr(self.device, self.axis_info[axis].get("attr_fvel_name"))
             acceleration = getattr(
-                self.device, self.axis_info[axis].get("attr_fvel_name")
+                self.device, self.axis_info[axis].get("attr_acc_name")
             )
 
         info_str += (
@@ -340,3 +340,81 @@ class ESRF_Undulator(Controller):
         info_str += f"     config period: {self.axis_info[axis].get('period')}\n"
 
         return info_str
+
+    @lazy_init
+    def _test_suite(self, axis):
+        """Set of tests to be used to validate the behaviour of an undulator.
+        * at max speed
+        *   very long moves ~100 mm
+        *   moves (10mm)
+        *   small moves (1mm)
+        *   very small moves (10 um)
+
+        Usage example: u55a.controller._test_suite(u55a)
+        """
+
+        attr_pos_uri = self.ds_name + "/" + self.axis_info[axis]["attr_pos_name"]
+        attr_pos = AttributeProxy(attr_pos_uri)
+        # user_print(attr_pos.get_config())
+
+        # min max values can be : 'Not specified'
+        try:
+            small_gap = float(attr_pos.get_config().min_value) + 2.0
+        except ValueError:
+            small_gap = 15
+        try:
+            large_gap = float(attr_pos.get_config().max_value / 2.0)
+        except ValueError:
+            large_gap = 50
+
+        user_print("\nUndulator test suite \n")
+        user_print("Will use following value:")
+        user_print(f"  small gap = {small_gap}")
+        user_print(f"  large gap = {large_gap}")
+        user_print("\n")
+
+        max_velocity = 5
+        user_print(f"set velocity to {max_velocity}mm/s")
+        axis.velocity = max_velocity
+
+        user_print(f"move to small gap ({small_gap}mm)")
+        axis.move(small_gap)
+
+        # long move at full speed
+        user_print(f"move to large gap ({large_gap})")
+        axis.move(large_gap)
+
+        test_movements = [
+            {"desc": "10um", "dist_mm": 0.01, "nb_moves": 25},
+            {"desc": "1mm", "dist_mm": 1, "nb_moves": 15},
+            {"desc": "10mmm", "dist_mm": 10, "nb_moves": 5},
+        ]
+
+        user_print(" LARGE GAP--------------")
+        for tm in test_movements:
+            user_print(f"     {tm['nb_moves']} {tm['desc']} movements")
+            nb_moves = tm["nb_moves"]
+            dist_mm = tm["dist_mm"]
+            for ii in range(nb_moves):
+                user_print(f"\r {ii}/{nb_moves} ", end="")
+                with disable_user_output():
+                    axis.move(dist_mm, relative=True)
+                    axis.move(-dist_mm, relative=True)
+
+        user_print(f"move to small gap ({small_gap}mm)")
+        axis.move(small_gap)
+        user_print(" SMALL GAP--------------")
+
+        for tm in test_movements:
+            user_print(f"     {tm['nb_moves']} {tm['desc']} movements")
+            nb_moves = tm["nb_moves"]
+            dist_mm = tm["dist_mm"]
+            for ii in range(nb_moves):
+                user_print(f"\r {ii}/{nb_moves} ", end="")
+                with disable_user_output():
+                    axis.move(dist_mm, relative=True)
+                    axis.move(-dist_mm, relative=True)
+
+        user_print(f"moving to large gap ({large_gap})")
+        user_print("now you can test double Ctrl-C")
+        axis.move(large_gap)

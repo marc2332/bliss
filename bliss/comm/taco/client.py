@@ -208,25 +208,25 @@ class _ClientPacker(Packer):
 
     def pack_dev_shortarr(self, x):
         self.pack_uint(1)
-        arr = numpy.array(x, dtype.numpy.int16)
+        arr = numpy.array(x, dtype=numpy.int16)
         self.pack_uint(len(arr))
         self._Packer__buf.write(arr.tobytes())
 
     def pack_dev_intarr(self, x):
         self.pack_uint(1)
-        arr = numpy.array(x, dtype.numpy.int32)
+        arr = numpy.array(x, dtype=numpy.int32)
         self.pack_uint(len(arr))
         self._Packer__buf.write(arr.tobytes())
 
     def pack_dev_floatarr(self, x):
         self.pack_uint(1)
-        arr = numpy.array(x, dtype.numpy.float32)
+        arr = numpy.array(x, dtype=numpy.float32)
         self.pack_uint(len(arr))
         self._Packer__buf.write(arr.tobytes())
 
     def pack_dev_doublearr(self, x):
         self.pack_uint(1)
-        arr = numpy.array(x, dtype.numpy.double)
+        arr = numpy.array(x, dtype=numpy.double)
         self.pack_uint(len(arr))
         self._Packer__buf.write(arr.tobytes())
 

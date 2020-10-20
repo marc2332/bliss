@@ -197,6 +197,8 @@ class BaseXIA(BaseMCA):
         Called once at session startup and then on demand.
         The filename is relative to the configuration directory.
         """
+        # call exit to avoid crash when reloading a config.
+        self._proxy.exit()
         try:
             user_print(f"Loading configuration '{filename}'")
             self._proxy.init(self.beacon_obj.configuration_directory, filename)

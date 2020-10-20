@@ -789,6 +789,31 @@ class BlissDialog(Dialog):
         self.show_error = False
         wdlg.error_state = False
 
+    def _get_zbody(self, dlg):
+        if dlg.wtype == "container":
+            z_list = []
+            for subdlg in dlg.dlgs:
+                subbody = self._get_zbody(subdlg)
+                z_list.append(subbody)
+
+            if dlg.splitting == "h":
+                zbody = HSplit(z_list, padding=dlg.padding)
+            else:
+                zbody = VSplit(z_list, padding=dlg.padding)
+
+            if dlg.border:
+                zbody = Box(zbody, padding=dlg.border)
+
+            if dlg.title is not None:
+                zbody = Frame(zbody, dlg.title)
+
+        else:
+            dlg_widget = DlgWidget(dlg, boss=self)
+            zbody = dlg_widget.body
+            self.flatten_wdlg_list.append(dlg_widget)
+
+        return zbody
+
     def build(self):
         y_list = []
 
@@ -809,32 +834,9 @@ class BlissDialog(Dialog):
             x_list = []
             for user_dlg in user_dlgs:
 
-                if user_dlg.wtype == "container":
-                    z_list = []
-                    for subw in user_dlg.dlgs:
-
-                        dlg_widget = DlgWidget(subw, boss=self)
-                        z_list.append(dlg_widget.body)
-
-                        self.flatten_wdlg_list.append(dlg_widget)
-
-                    if user_dlg.splitting == "h":
-                        zbody = HSplit(z_list, padding=user_dlg.padding)
-                    else:
-                        zbody = VSplit(z_list, padding=user_dlg.padding)
-
-                    if user_dlg.border:
-                        zbody = Box(zbody, padding=user_dlg.border)
-
-                    if user_dlg.title is not None:
-                        zbody = Frame(zbody, user_dlg.title)
-
-                    x_list.append(zbody)
-
-                else:
-                    dlg_widget = DlgWidget(user_dlg, boss=self)
-                    x_list.append(dlg_widget.body)
-                    self.flatten_wdlg_list.append(dlg_widget)
+                # introspect container of containers
+                zbody = self._get_zbody(user_dlg)
+                x_list.append(zbody)
 
             xbody = VSplit(x_list, padding=self.paddings[1])
             y_list.append(xbody)

@@ -18,6 +18,153 @@ from bliss.scanning.acquisition.lima import RoiProfileAcquisitionSlave
 from bliss.data.display import FormatedTab
 
 
+# ----------------- helpers for ROI transformation (flip, rotation, binning) --------------
+
+_DEG2RAD = numpy.pi / 180.0
+_RAD2DEG = 180.0 / numpy.pi
+
+
+def raw_roi_to_current_roi(raw_roi, raw_img_size, flip, rotation, binning):
+
+    """ Computes the new roi after applying the transformations {flip, rotation, binning} on the raw_roi.
+    args:
+        - raw_roi: roi coordinates expressed in the {unbinned, unflipped, unrotated} image referential (i.e camera chip size).
+        - raw_img_size: size of the {unbinned, unflipped, unrotated} image where the roi is defined.
+        - flip: flipping to apply (e.g. [1,0])
+        - rotation: rotation to apply
+        - binning: binning to apply (e.g. [1,1])
+         
+    """
+    assert raw_roi[2] != 0
+    assert raw_roi[3] != 0
+
+    new_roi = raw_roi
+    w0, h0 = raw_img_size
+
+    # bin roi
+    xbin, ybin = binning
+    if xbin != 1 or ybin != 1:
+        x, y, w, h = new_roi
+        new_roi = [x // xbin, y // ybin, w // xbin, h // ybin]
+        w0, h0 = w0 // xbin, h0 // ybin
+
+    # flip roi
+    if flip[0]:
+        x, y, w, h = new_roi
+        new_roi = [w0 - w - x, y, w, h]
+
+    if flip[1]:
+        x, y, w, h = new_roi
+        new_roi = [x, h0 - h - y, w, h]
+
+    # rotate roi
+    if rotation != 0:
+        new_roi = calc_roi_rotation(new_roi, rotation, (w0, h0))
+
+    x, y, w, h = new_roi
+    return [int(x), int(y), int(w), int(h)]
+
+
+def current_roi_to_raw_roi(current_roi, img_size, flip, rotation, binning):
+
+    """ computes the raw_roi (without flip, rot, bin) from the current_roi (with flip, rot, bin)
+        args:
+            - current_roi: roi coordinates expressed in the {binned, flipped, rotated} image referential.
+            - img_size: the actual size of the image where the roi is defined (taking into account binning and rotation)
+            - flip: current image flipping (e.g. [1,0])
+            - rotation: current image rotation
+            - binning: current image binning (e.g. [1,1])
+
+    """
+
+    assert current_roi[2] != 0
+    assert current_roi[3] != 0
+
+    raw_roi = [
+        float(current_roi[0]),
+        float(current_roi[1]),
+        float(current_roi[2]),
+        float(current_roi[3]),
+    ]
+    w0, h0 = img_size
+
+    # inverse rotation
+    if rotation != 0:
+        raw_roi = calc_roi_rotation(raw_roi, -rotation, (w0, h0))
+        if rotation in [90, 270]:
+            w0, h0 = img_size[1], img_size[0]
+
+    # unflipped roi
+    if flip[0]:
+        x, y, w, h = raw_roi
+        raw_roi = [w0 - w - x, y, w, h]
+
+    if flip[1]:
+        x, y, w, h = raw_roi
+        raw_roi = [x, h0 - h - y, w, h]
+
+    # unbinned roi
+    xbin, ybin = binning
+    if xbin != 1 or ybin != 1:
+        x, y, w, h = raw_roi
+        raw_roi = x * xbin, y * ybin, w * xbin, h * ybin
+
+    return raw_roi
+
+
+def calc_roi_rotation(roi, angle, img_size):
+    """ computes the roi rotation.
+        args:
+            - roi: roi coordinates
+            - angle: the angle of the rotation (degree)
+            - img_size: size of the image where the roi is defined
+    """
+
+    assert roi[2] != 0
+    assert roi[3] != 0
+
+    # define the camera fullframe
+    w0, h0 = img_size
+    p0 = (0, 0)
+    p1 = (w0, h0)
+    frame = numpy.array([p0, p1], dtype="float32")
+
+    # define the subarea
+    x, y, w, h = roi
+    r0 = (x, y)
+    r1 = (x + w, y + h)
+    rect = numpy.array([r0, r1], dtype="float32")
+
+    # define the rotation matrix
+    theta = _DEG2RAD * angle * -1  # Lima rotation is clockwise !
+    R = numpy.array(
+        [[numpy.cos(theta), -numpy.sin(theta)], [numpy.sin(theta), numpy.cos(theta)]],
+        dtype="float32",
+    )
+
+    new_frame = numpy.dot(frame, R)
+    new_rect = numpy.dot(rect, R)
+
+    # find top left corner of rotated fullframe (new origin)
+    ox = numpy.amin(new_frame[:, 0])
+    oy = numpy.amin(new_frame[:, 1])
+
+    # find top left corner of the subarea and reset origin to ox,oy
+    x0 = numpy.amin(new_rect[:, 0]) - ox
+    y0 = numpy.amin(new_rect[:, 1]) - oy
+
+    # find the new subarea width
+    w = abs(new_rect[0, 0] - new_rect[1, 0])
+    h = abs(new_rect[0, 1] - new_rect[1, 1])
+
+    new_roi = [x0, y0, w, h]
+
+    return new_roi
+
+
+# -------------------------------------------------------------------------------------------
+
+
 class ROI_PROFILE_MODES(str, enum.Enum):
     horizontal = "LINES_SUM"
     vertical = "COLUMN_SUM"
@@ -33,6 +180,8 @@ _PMODE_ALIASES = {
 }
 
 # ============ ROI ===========
+
+
 class _BaseRoi:
     def __init__(self, name=None):
         self.name = name

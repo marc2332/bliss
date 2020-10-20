@@ -12,6 +12,7 @@ from bliss.controllers.lima.lima_base import Lima
 from bliss.common.utils import BOLD, RED
 from bliss.common.utils import typeguardTypeError_to_hint
 from bliss.data.lima_image import read_video_last_image
+from bliss.common.tango import DevFailed
 
 _log = logging.getLogger("bliss.scans")
 
@@ -251,19 +252,31 @@ def load_simulator_frames(simulator, nframes, files_pattern):
     sim.file_pattern = files_pattern
     sim.nb_prefetched_frames = nframes
     # update the camera max_size after loading new images
-    simulator._image_params.init_max_dim()
+    simulator.image._read_detector_max_size()
+    reset_cam(simulator, roi=[0, 0, 0, 0])
 
 
 def reset_cam(cam, roi=None):
     """reset lima image parameters and align tango proxy"""
 
-    cam.proxy.image_bin = 1, 1
-    cam.proxy.image_flip = [False, False]
-    cam.proxy.image_rotation = "NONE"
+    # --- reset the proxy params
 
-    cam.image.binning = 1, 1
+    try:  # tmp fix for lima-core <= 1.9.6
+        cam.proxy.image_rotation = (
+            "NONE"
+        )  # this applies rotation but then proxy fails while updating its roi internally
+    except DevFailed:
+        cam.proxy.image_rotation = (
+            "NONE"
+        )  # retry as now rotation is NONE so it will update its roi successfully
+
+    cam.proxy.image_flip = [False, False]
+    cam.proxy.image_bin = [1, 1]
+
+    # --- reset bliss image params
+    cam.image.binning = [1, 1]
     cam.image.flip = [False, False]
-    cam.image.rotation = "NONE"
+    cam.image.rotation = 0
 
     if roi:
         cam.proxy.image_roi = roi

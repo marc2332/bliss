@@ -5,15 +5,29 @@
 # Copyright (c) 2015-2020 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
-import numpy
-import textwrap
-import typeguard
 from typing import Iterable
-
+import typeguard
 from bliss.common.counter import Counter
-from bliss.controllers.lima.roi import Roi
-from bliss.common.utils import autocomplete_property
+from bliss.controllers.lima.roi import raw_roi_to_current_roi, current_roi_to_raw_roi
+
 from bliss.config.beacon_object import BeaconObject
+from bliss.common.logtools import log_debug
+
+# ========== RULES of Tango-Lima ==================
+
+# order of image transformation:
+# 0) set back binning to 1,1 before any flip or rot modif (else lima crashes if a roi/subarea is already defined))
+# 1) flip [Left-Right, Up-Down]  (in bin 1,1 only else lima crashes if a roi/subarea is already defined)
+# 2) rotation (clockwise and negative angles not possible) (in bin 1,1 only for same reasons)
+# 3) binning
+# 4) roi (expressed in the current state => roi = f(flip, rot, bin))
+
+# note:
+# rot 180 = flip LR + UD
+# rot 270 = LR + UD + rot90
+
+#  roi is defined in the current image referential (i.e roi = f(rot, flip, bin))
+#  raw_roi is defined in the raw image referential (i.e with bin=1,1  flip=False,False, rot=0)
 
 
 def _to_list(setting, value):
@@ -23,162 +37,8 @@ def _to_list(setting, value):
 
 
 class LimaImageParameters(BeaconObject):
-    def __init__(self, config, proxy, name):
-        self._proxy = proxy
-        self.init_max_dim()
-
+    def __init__(self, config, name):
         super().__init__(config, name=name, share_hardware=False, path=["image"])
-
-    def _tmp_get_max_width_height(self):
-        """TODO: this function should be removed once the equivalent of it 
-           is exposed directly on the lima tango server"""
-        try:
-            tmp_roi = self._proxy.image_roi
-            tmp_bin = self._proxy.image_bin
-            self._proxy.image_bin = [1, 1]
-            self._proxy.image_roi = [0, 0, 0, 0]
-            _, _, width, height = self._proxy.image_roi
-            self._proxy.image_bin = tmp_bin
-            self._proxy.image_roi = tmp_roi
-
-            return width, height
-        except AttributeError:
-            return 0, 0
-
-    def init_max_dim(self):
-        self._max_width, self._max_height = self._tmp_get_max_width_height()
-
-    def check_init(self):
-        """workaround to make sure that lima object can be
-           instantiated without running device server
-           TODO: to be removed
-        """
-        if self._max_width == 0 or self._max_height == 0:
-            self._max_width, self._max_height = self._tmp_get_max_width_height()
-            if self._max_width == 0 or self._max_height == 0:
-                raise RuntimeError("There is a problem with the device server!")
-
-    @property
-    def _max_dim_full_frame_ref(self):
-        self.check_init()
-        return (self._max_width, self._max_height)
-
-    @property
-    def _max_dim_lima_ref(self):
-        self.check_init()
-        tmp = self._calc_roi(
-            numpy.array([0, 0, self._max_width, self._max_height]),
-            self.rotation,
-            self.flip,
-            self.binning,
-        )
-        return (tmp[2], tmp[3])
-
-    def _calc_roi(self, roi, rot, flip, binning, inverse=False):
-        """transformation for roi from raw full frame reference to 
-           lima style reference with rot and flip applied.
-           inverse calculation if inverse=True
-
-           inverse = False  : full frame ref -> lima ref
-           inverse = True   : lima ref -> full frame ref
-
-           TODO: this calculation should be one in the lima server!
-           see https://gitlab.esrf.fr/bliss/bliss/-/merge_requests/2176#note_65379
-        """
-        self.check_init()
-
-        assert isinstance(roi, numpy.ndarray)
-
-        def roi2pos(roi):
-            """trasform roi(x,y,width,height) -> pos(x1,y1,x2,y2) top-left, bottom-right"""
-            pos = roi.copy()
-            pos[2] += pos[0]
-            pos[3] += pos[1]
-            return pos
-
-        def pos2roi(pos):
-            """trasform pos(x1,y1,x2,y2) top-left, bottom-right -> roi(x,y,width,height)"""
-            roi = pos.copy()
-            roi[2] -= roi[0]
-            roi[3] -= roi[1]
-            return roi.astype(numpy.int)
-
-        def check_boundary(pos, i, maxx):
-            if pos[i] < 0:
-                pos[i] += maxx
-            elif pos[i] > maxx:
-                pos[i] -= maxx
-
-        # to disable black on a block of code use fmt: off, fmt: on
-        # fmt: off
-        rot_mat = {'NONE': numpy.array([[1, 0], [0, 1]]),
-                   '90': numpy.array([[0, -1], [1, 0]]),
-                   '180': numpy.array([[-1, 0], [0, -1]]),
-                   '270': numpy.array([[0, 1], [-1, 0]]),
-                   }
-
-        flip_mat = {(False, False): numpy.array([[1, 0], [0, 1]]),
-                    (False, True): numpy.array([[1, 0], [0, -1]]),
-                    (True, False): numpy.array([[-1, 0], [0, 1]]),
-                    (True, True): numpy.array([[-1, 0], [0, -1]]),
-                    }
-
-        bin_mat = numpy.array([[1. / binning[0], 0], [0, 1. / binning[1]]])
-        # fmt: on
-
-        # init stuff
-        pos = roi2pos(roi)
-        res = numpy.zeros(4)
-
-        # define full transformation matrix
-        op = numpy.dot(flip_mat[tuple(flip)], bin_mat)
-        op = numpy.dot(rot_mat[rot], op)
-
-        if inverse:
-            op = numpy.linalg.inv(op)
-
-        # calc top-left, bottom-right
-        res[0:2] = numpy.dot(op, pos[0:2])
-        res[2:4] = numpy.dot(op, pos[2:4])
-
-        # check boundaries
-        if inverse:
-            mw = self._max_width
-            mh = self._max_height
-        else:
-            mw, mh = numpy.abs(
-                numpy.dot(op, numpy.array([self._max_width, self._max_height]))
-            )
-
-        check_boundary(res, 0, mw)
-        check_boundary(res, 1, mh)
-        check_boundary(res, 2, mw)
-        check_boundary(res, 3, mh)
-
-        # swap if needed
-        if res[0] > res[2]:
-            res[0:4:2] = numpy.flip(res[0:4:2])
-        if res[1] > res[3]:
-            res[1:4:2] = numpy.flip(res[1:4:2])
-
-        # fix zero
-        r_w, r_h = numpy.abs(numpy.dot(op, roi[2:4]))
-        if res[0] == 0 and res[2] - pos[0] > r_w:
-            res[0] = res[2]
-            res[2] += r_w
-        if res[1] == 0 and res[3] - pos[1] > r_h:
-            res[1] = res[3]
-            res[3] += r_h
-        if res[2] == 0:
-            res[2] = mw
-        if res[3] == 0:
-            res[3] = mh
-
-        # deal with float / int stuff
-        if not inverse:
-            res = numpy.ceil(res)
-
-        return pos2roi(res)
 
     binning = BeaconObject.property_setting(
         "binning", default=[1, 1], set_marshalling=_to_list, set_unmarshalling=_to_list
@@ -187,6 +47,7 @@ class LimaImageParameters(BeaconObject):
     @binning.setter
     @typeguard.typechecked
     def binning(self, value: Iterable[int]):
+        log_debug(self, f"set binning {value}")
         assert len(value) == 2
         value = [int(value[0]), int(value[1])]
         return value
@@ -201,6 +62,7 @@ class LimaImageParameters(BeaconObject):
     @flip.setter
     @typeguard.typechecked
     def flip(self, value: Iterable[bool]):
+        log_debug(self, f"set flip {value}")
         assert len(value) == 2
         value = [bool(value[0]), bool(value[1])]
         return value
@@ -209,6 +71,7 @@ class LimaImageParameters(BeaconObject):
 
     @rotation.setter
     def rotation(self, value):
+        log_debug(self, f"set rotation {value}")
         if isinstance(value, int):
             value = str(value)
         if value == "0":
@@ -217,96 +80,53 @@ class LimaImageParameters(BeaconObject):
         assert value in ["NONE", "90", "180", "270"]
         return value
 
-    # _roi is saved in chip reference frame (rot,flip,bin) NOT applied!
     _roi = BeaconObject.property_setting(
-        "roi",
+        "_roi",
         default=[0, 0, 0, 0],
         set_marshalling=_to_list,
         set_unmarshalling=_to_list,
     )
 
-    @property
-    def roi(self):
-        r = self._roi.copy()
-        if r[2] == 0:
-            r[2] = self._max_width
-        if r[3] == 0:
-            r[3] = self._max_height
-        return Roi(
-            *self._calc_roi(numpy.array(r), self.rotation, self.flip, self.binning)
-        )
-
-    def _validate_roi(self, roi_array):
-        """roi_array_list is roi in full-frame reference system"""
-        assert isinstance(roi_array, numpy.ndarray)
-        assert all(roi_array >= 0), "Roi too big!"
-        assert roi_array[0] + roi_array[2] <= self._max_width, "Roi too big!"
-        assert roi_array[1] + roi_array[3] <= self._max_height, "Roi too big!"
-
-    @roi.setter
-    def roi(self, roi_values):
-        if roi_values is None:
-            self._roi = [0, 0, 0, 0]
-        elif isinstance(roi_values, str) and roi_values == "NONE":
-            # Check it is an str first to avoid to use == within numpy.array
-            self._roi = [0, 0, 0, 0]
-        elif len(roi_values) == 4:
-            new_roi = self._calc_roi(
-                numpy.array(roi_values),
-                self.rotation,
-                self.flip,
-                self.binning,
-                inverse=True,
-            )
-            self._validate_roi(new_roi)
-            self._roi = new_roi
-        elif isinstance(roi_values[0], Roi):
-            roi_obj = roi_values[0]
-            r = [roi_obj.x, roi_obj.y, roi_obj.width, roi_obj.height]
-            new_roi = self._calc_roi(
-                numpy.array(r), self.rotation, self.flip, self.binning, inverse=True
-            )
-            self._validate_roi(new_roi)
-            self._roi = new_roi
-        else:
-            raise TypeError(
-                "Lima.image: set roi only accepts roi (class)"
-                " or (x,y,width,height) values"
-            )
-
-    def to_dict(self):
-        return {
-            "image_rotation": self.rotation,
-            "image_flip": self.flip,
-            "image_bin": self.binning,
-            "image_roi": list(self.roi.to_array()),
-        }
-
-    def sync(self):
-        """applies all image parameters from the tango server to bliss"""
-        self.rotation = self._proxy.image_rotation
-        self.flip = self._proxy.image_flip
-        self.binning = self._proxy.image_bin
-        self.roi = self._proxy.image_roi  # it is important that roi comes last!
+    @_roi.setter
+    @typeguard.typechecked
+    def _roi(self, value: Iterable[int]):
+        log_debug(self, f"set _roi {value}")
+        assert len(value) == 4
+        value = [int(value[0]), int(value[1]), int(value[2]), int(value[3])]
+        return value
 
 
 class ImageCounter(Counter):
-    def __init__(self, controller, proxy):
-        self._proxy = proxy
+    def __init__(self, controller):
+        self._proxy = controller._proxy
+        self._max_width = 0
+        self._max_height = 0
+        self._cur_roi = None
+        self._raw_roi = (
+            None
+        )  # caching self._image_params._roi to avoid unecessary access to redis
+
         super().__init__("image", controller)
 
-    # Standard counter interface
+        self._image_params = LimaImageParameters(
+            controller._config_node, f"{controller._name_prefix}:image"
+        )
 
     def __info__(self):
-        return textwrap.dedent(
-            f"""       flip:     {self.flip}
-       rotation: {self.rotation}
-       roi:      {self.roi}
-       binning:  {self.binning}
-       width:    {self.width}
-       height:   {self.height}
-       type:     {self.type}"""
-        )
+
+        lines = []
+
+        lines.append(f"width:    {self.width}")
+        lines.append(f"height:   {self.height}")
+        lines.append(f"depth:    {self.depth}")
+        lines.append(f"bpp:      {self.bpp}")
+
+        lines.append(f"binning:  {self.binning}")
+        lines.append(f"flip:     {self.flip}")
+        lines.append(f"rotation: {self.rotation}")
+        lines.append(f"roi:      {self.roi}")
+
+        return "\n".join(lines)
 
     @property
     def dtype(self):
@@ -318,60 +138,219 @@ class ImageCounter(Counter):
         # Because it is a reference
         return (0, 0)
 
-    # Specific interface
-
-    @autocomplete_property
-    def proxy(self):
-        return self._proxy
+    # ------- Specific interface ----------------------------------
 
     @property
-    def flip(self):
-        return self._counter_controller._image_params.flip
+    def fullsize(self):
+        """return the detector size taking into account the current binning and rotation"""
 
-    @flip.setter
-    def flip(self, value):
-        self._counter_controller._image_params.flip = value
+        w0, h0 = self._get_detector_max_size()
 
-    @property
-    def rotation(self):
-        return self._counter_controller._image_params.rotation
+        xbin, ybin = self.binning
+        w0 = int(w0 / xbin)
+        h0 = int(h0 / ybin)
 
-    @rotation.setter
-    def rotation(self, value):
-        self._counter_controller._image_params.rotation = value
+        if (abs(self.rotation) % 360) // 90 in [0, 2]:
+            fw, fh = w0, h0
+        else:
+            fw, fh = h0, w0  # switch w and h if rotation in [90, 270]
 
-    @autocomplete_property
-    def roi(self):
-        return self._counter_controller._image_params.roi
-
-    @roi.setter
-    def roi(self, value):
-        self._counter_controller._image_params.roi = value
+        return fw, fh
 
     @property
-    def binning(self):
-        return self._counter_controller._image_params.binning
-
-    @binning.setter
-    def binning(self, value):
-        self._counter_controller._image_params.binning = value
+    def depth(self):
+        return self._proxy.image_sizes[1]
 
     @property
-    def bin(self):
-        return self._counter_controller._image_params.binning
-
-    @bin.setter
-    def bin(self, value):
-        self._counter_controller._image_params.binning = value
-
-    def sync(self):
-        """applies all image parameters from the tango server to bliss"""
-        return self._counter_controller._image_params.sync()
+    def bpp(self):
+        return self._proxy.image_type
 
     @property
     def width(self):
-        return self.roi.width
+        return self.roi[2]
 
     @property
     def height(self):
-        return self.roi.height
+        return self.roi[3]
+
+    @property
+    def binning(self):
+        return self._image_params.binning
+
+    @binning.setter
+    def binning(self, value):
+        self._image_params.binning = value
+        self._update_roi()
+
+    @property
+    def flip(self):
+        return self._image_params.flip
+
+    @flip.setter
+    def flip(self, value):
+        self._image_params.flip = value
+        self._update_roi()
+
+    @property
+    def rotation(self):
+        if self._image_params.rotation == "NONE":
+            return 0
+        else:
+            return int(self._image_params.rotation)
+
+    @rotation.setter
+    def rotation(self, value):
+        self._image_params.rotation = value
+        self._update_roi()
+
+    @property
+    def raw_roi(self):
+        # raw_roi is defined in the raw image referential (i.e with bin=1,1  flip=False,False, rot=0)
+        # roi is defined in the current image referential (i.e roi = f(rot, flip, bin))
+
+        # handle lazy init
+        if self._raw_roi is None:
+            _roi = self._image_params._roi
+
+            # # handle the default raw_roi = [0,0,0,0]
+            if _roi[2] == 0 or _roi[3] == 0:
+                w0, h0 = self._get_detector_max_size()
+                if _roi[2] == 0:
+                    _roi[2] = w0
+                if _roi[3] == 0:
+                    _roi[3] = h0
+                self._image_params._roi = _roi
+
+            self._raw_roi = _roi
+
+        return self._raw_roi
+
+    @property
+    def roi(self):
+        # roi is defined in the current image referential (i.e roi = f(rot, flip, bin))
+        # raw_roi is defined in the raw image referential (i.e with bin=1,1  flip=False,False, rot=0)
+
+        # handle lazy init
+        if self._cur_roi is None:
+            detector_size = self._get_detector_max_size()
+            self._cur_roi = raw_roi_to_current_roi(
+                self.raw_roi, detector_size, self.flip, self.rotation, self.binning
+            )
+
+        return self._cur_roi
+
+    @roi.setter
+    def roi(self, value):
+        roi = self._check_roi_validity(value)
+        self._raw_roi = self._calc_raw_roi(roi)  # computes the new _raw_roi
+        self._image_params._roi = (
+            self._raw_roi
+        )  # store the new _raw_roi in redis/settings
+        self._cur_roi = roi
+
+    @property
+    def subarea(self):
+        """ Returns the active area of the detector (like 'roi').
+            The rectangular area is defined by the top-left corner and bottom-right corner positions.
+            Example: subarea = [x0, y0, x1, y1] 
+        """
+        x, y, w, h = self.roi
+        return [x, y, x + w, y + h]
+
+    @subarea.setter
+    def subarea(self, value):
+        """ Define a reduced active area on the detector chip (like 'roi').
+            The rectangular area is defined by the top-left corner and bottom-right corner positions.
+            Example: subarea = [x0, y0, x1, y1] 
+        """
+        px0, py0, px1, py1 = value
+        x0 = min(px0, px1)
+        x1 = max(px0, px1)
+        y0 = min(py0, py1)
+        y1 = max(py0, py1)
+        w = x1 - x0
+        h = y1 - y0
+        self.roi = [x0, y0, w, h]
+
+    def _update_roi(self):
+        detector_size = self._get_detector_max_size()
+        self._cur_roi = raw_roi_to_current_roi(
+            self.raw_roi, detector_size, self.flip, self.rotation, self.binning
+        )
+
+    def _calc_raw_roi(self, roi):
+        """ computes the raw_roi from a given roi and current bin, flip, rot """
+
+        img_size = self.fullsize  #!!!! NOT _get_detector_max_size() !!!
+        return current_roi_to_raw_roi(
+            roi, img_size, self.flip, self.rotation, self.binning
+        )
+
+    def _read_detector_max_size(self):
+        log_debug(self, "get proxy.max_size")
+        w, h = self._proxy.image_max_dim
+        self._max_width, self._max_height = int(w), int(h)
+
+    def _get_detector_max_size(self):
+        """read and return the detector size (raw value without considering binning and rotation) """
+
+        if self._max_width == 0 or self._max_height == 0:
+            self._read_detector_max_size()
+            if self._max_width == 0 or self._max_height == 0:
+                raise RuntimeError("There is a problem with the device server!")
+
+        return self._max_width, self._max_height
+
+    def _check_roi_validity(self, roi):
+        """ check if the roi coordinates are valid, else trim the roi to fits image size """
+
+        w0, h0 = self.fullsize
+        x, y, w, h = roi
+
+        if w == 0:
+            w = w0
+
+        if h == 0:
+            h = h0
+
+        # bx = x < 0 or x >= w0
+        # by = y < 0 or y >= h0
+        # bw = w < 1 or (x + w) > w0
+        # bh = h < 1 or (y + h) > h0
+
+        # if bx or by or bw or bh:
+        #     raise ValueError(
+        #         f"the given roi {roi} is not fitting the current image size {(w0, h0)}"
+        #     )
+
+        # --- In case we don t want to raise an error
+        # --- we can just trim the roi so that it fits the current image size
+        x = max(x, 0)
+        x = min(x, w0 - 1)
+        y = max(y, 0)
+        y = min(y, h0 - 1)
+        w = max(w, 1)
+        w = min(w, w0 - x)
+        h = max(h, 1)
+        h = min(h, h0 - y)
+
+        return [int(x), int(y), int(w), int(h)]
+
+    def to_dict(self):
+        return {
+            "image_bin": self.binning,
+            "image_flip": self.flip,
+            "image_rotation": self._image_params.rotation,  # as str (to apply to proxy)
+            "image_roi": self.roi,
+        }
+
+    def get_geometry(self):
+        w, h = self.fullsize
+        return {
+            "fullwidth": w,
+            "fullheight": h,
+            "binning": self.binning,
+            "flip": self.flip,
+            "rotation": self.rotation,
+            "roi": self.roi,
+        }

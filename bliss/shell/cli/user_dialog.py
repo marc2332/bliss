@@ -35,16 +35,14 @@ class _UserDlg:
 class UserYesNo(_UserDlg):
     """ A simple question, expecting YES or NO as an answer """
 
-    def __init__(self, name=None, label="Do you want to continue?", defval=False):
+    def __init__(self, name=None, label="", defval=False):
         super().__init__(wtype="yesno", name=name, label=label, defval=defval)
 
 
 class UserMsg(_UserDlg):
     """ A simple message (=label) to be displayed """
 
-    def __init__(
-        self, name=None, label="This is a message!", text_align=None, text_expand=True
-    ):
+    def __init__(self, name=None, label="", text_align=None, text_expand=True):
         super().__init__(
             wtype="msg",
             name=name,

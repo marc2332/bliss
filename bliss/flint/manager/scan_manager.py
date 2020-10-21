@@ -562,7 +562,8 @@ class ScanManager:
                 previous_data = channel.data()
                 if not is_same_data(array, previous_data):
                     if push_non_aligned_data:
-                        data = scan_model.Data(channel, array)
+                        # NOTE: No parent for the data, Python managing the life cycle of it (not Qt)
+                        data = scan_model.Data(None, array)
                         channel.setData(data)
                         updated_masters.add(group_name)
                     else:

@@ -64,8 +64,7 @@ Usage of a MOCO object is described here: [MOCO Usage](using_moco.md).
       role: piezo
 
 - plugin: emotion
-  package: bliss.controllers.moco
-  class: MocoMotor
+  class: MocoMotorController
   moco: $mocoeh1
   axes:
     - name: qgth2

@@ -364,7 +364,8 @@ class Elmo_whistle(Controller):
         self._query("BG")
 
         # wait for stabilization
-        time.sleep(1)
+        while int(self._query("MS")) == 2:
+            time.sleep(0.01)
 
         # switch the user mode
         self.set_user_mode(axis, 5)

@@ -47,15 +47,16 @@ gpib:
   pad: 13                                         # primary address
   timeout: 3.                                     # in seconds
 channels:
-  - type: CNT                  # encoder/cnt/ssi/adc10/switch
-    channel: 2                 # 
-    name: enc_sy               # 
-    label: "lab_enc_mono"      # ?
-    counter_name: enc_mono     # related counter
-    counter_mode: SINGLE       # MEAN, LAST,INTEGRATE etc.
-counters:
-  - name: enc_mono
-    channel: CH1
+  - type: cnt
+    channel: timer
+    label: "lab_musst_timer"
+    counter_name: musst_timer  # declare a counter associated to that channel
+  - type: encoder              
+    channel: 1                 
+    label: "lab_enc_samy"      
+    counter_name: enc_samy     # declare a counter
+    counter_mode: SINGLE       # declare a mode for that counter
+
 ```
 
 
@@ -86,23 +87,21 @@ Config parameters list:
 * **musst_prg_root**: default path for musst programs
 * **block_size**: default is 8k but can be lowered to 512 depend on gpib.
 * **one_line_programing**: default is False we send several lines to program the musst
-* **channels:**: list of configured channels, in this dictionary we need to have:
-    * **label:**: the name alias for the channels
-    * **type:**: channel type (`cnt`, `encoder`, `ssi`, `adc5`, `adc10` or `switch`)
-        - `CNT`
-        - `ENCODER`
-        - `SSI`
-        - `ADC10`
-        - `ADC5`
-        - `SWITCH`
-    * **channel:**: channel number
-    * **name:**: use to reference an external switch
-    * **counter_name**:
+* **channels**: list of configured channels, in this dictionary we need to have:
+    * **type**: channel type (`cnt`, `encoder`, `ssi`, `adc5`, `adc10` or `switch`)
+    * **channel**: channel number
+    * **label**: the name alias for the channels
+    * **name**: use to reference an external switch
+    * **counter_name**: if present, use that name to create a counter associated to that channel 
     * **counter_mode**: [Counter Sampling Mode](dev_ct.md#sampling-counter-modes)
 
-* **counters:**: list of the counters, in this dictionary we need to have:
-    * **name:**: counter name
-    * **channel:**: musst channel
+**Note:**
+
+  If the **type** is `cnt` the associated counter is an integrating counter.
+  
+  If the **type** is in [`encoder`, `ssi`, `adc5`, `adc10`] the associated counter is a sampling counter.
+  
+  **counter_mode** is only used with sampling counters.
 
 ## Commands
 

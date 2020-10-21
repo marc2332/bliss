@@ -35,6 +35,7 @@ import numpy
 import enum
 import logging
 import contextlib
+import weakref
 
 from silx.gui import qt
 from . import scan_model
@@ -310,7 +311,7 @@ class Item(qt.QObject):
     def __init__(self, parent=None):
         super(Item, self).__init__(parent=parent)
         self.__isVisible: bool = True
-        self.__plot: Optional[Plot] = None
+        self.__plotRef: Optional[Plot] = None
         self.__version = 0
         self.__customStyle: Optional[style_model.Style] = None
 
@@ -373,11 +374,20 @@ class Item(qt.QObject):
         return False
 
     def _setPlot(self, plot: Optional[Plot]):
-        self.__plot = plot
+        if plot is None:
+            self.__plotRef = None
+        else:
+            self.__plotRef = weakref.ref(plot)
 
     def plot(self) -> Optional[Plot]:
         """Returns the plot containing this item."""
-        return self.__plot
+        ref = self.__plotRef
+        if ref is None:
+            return None
+        plot = ref()
+        if plot is None:
+            self.__plotRef = None
+        return plot
 
     def _emitValueChanged(self, eventType: ChangeEventType):
         self.__version = (self.__version + 1) % 0x1000000
@@ -535,17 +545,27 @@ class StyleStrategy:
     """"Compute and store styles used by items from a plot"""
 
     def __init__(self):
-        self.__plot: Optional[Plot] = None
+        self.__plotRef: Optional[Plot] = None
 
     def __reduce__(self):
         return (self.__class__, ())
 
     def setPlot(self, plot: Plot):
-        self.__plot = plot
+        if plot is not None:
+            self.__plotRef = weakref.ref(plot)
+        else:
+            self.__plotRef = None
         self.invalidateStyles()
 
     def plot(self) -> Optional[Plot]:
-        return self.__plot
+        """Returns the plot in which this style is applied."""
+        ref = self.__plotRef
+        if ref is None:
+            return None
+        plot = ref()
+        if plot is None:
+            self.__plotRef = None
+        return plot
 
     def invalidateStyles(self):
         pass

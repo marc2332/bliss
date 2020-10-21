@@ -71,7 +71,7 @@ check_lint:
     - pip install . --no-deps
     # run tests on source
     - echo ${PYTEST_ARGS}
-    - python setup.py test --addopts "$PYTEST_ARGS"
+    - python setup.py test
   variables:
     CHANGES: '\.(py|cfg)$|requirements|gitlab-ci|^(bin|extensions|scripts|spec|tests)/'
 

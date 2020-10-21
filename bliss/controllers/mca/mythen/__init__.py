@@ -13,6 +13,7 @@ from .lib import MythenInterface, MythenCompatibilityError
 from bliss.common.utils import autocomplete_property
 from bliss.controllers.counter import counter_namespace
 from bliss.controllers.mca.base import RoiMcaCounter
+from bliss.comm import tcp
 
 
 def interface_property(name, mode=False):
@@ -108,10 +109,9 @@ class Mythen(CounterController):
             npoints = 1
             start_once = True  # <= ???
         else:
-            # start_once = acq_params.get(
-            #    "start_once", trigger_type == AcquisitionSlave.HARDWARE
-            # )
-            start_once = False
+            start_once = acq_params.get(
+                "start_once", trigger_type == AcquisitionSlave.HARDWARE
+            )
 
         params = {}
         params["count_time"] = count_time
@@ -321,7 +321,8 @@ class MythenAcquistionSlave(AcquisitionSlave):
 
         self._software_acquisition = None
         self._acquisition_status = self.status.STOPPED
-        self._in_publish = False
+        self._event = gevent.event.Event()
+        self._trigger_event = gevent.event.Event()
 
     # Counter management
 
@@ -338,57 +339,43 @@ class MythenAcquistionSlave(AcquisitionSlave):
         self.device.nframes = self.npoints
         self.device.exposure_time = self.count_time
         self.device.gate_mode = self.trigger_type == AcquisitionSlave.HARDWARE
-        if self.trigger_type == AcquisitionSlave.HARDWARE:
-            self.device.start()
 
     def start(self):
-        self._acquisition_status = self.status.RUNNING
         if self.trigger_type == AcquisitionSlave.HARDWARE:
-            self.wait_reading()
-            # trick for now for autof restart reading here
-            self._reading_task = gevent.spawn(self.reading)
+            self.device.start()
+            self._trigger_event.set()
+        self._acquisition_status = self.status.RUNNING
 
     def trigger(self):
-        if self.trigger_type == AcquisitionSlave.SOFTWARE:
-            event = gevent.event.Event()
-            self._software_acquisition = gevent.spawn(self._run_soft_acquisition, event)
-            try:
-                with gevent.Timeout(5):
-                    event.wait()
-            except:
-                self._software_acquisition.kill()
-                self._software_acquisition = None
-            else:
-                # check if there is no problem to start the acquisition
-                try:
-                    self._software_acquisition.get(block=False)
-                except gevent.Timeout:
-                    pass
-
-    def wait_ready(self):
-        if self._software_acquisition is not None:
-            self._software_acquisition.join()
-
-    def _run_soft_acquisition(self, start_event):
         try:
-            self.device.start()
-            start_event.set()
-            gevent.sleep(self.count_time)
+            self._trigger_event.clear()
+            self._event.clear()
+            try:
+                self.device.start()
+                self._event.wait(self.count_time)
+            finally:
+                self._acquisition_status = self.status.STOPPED
+                self._software_acquisition = None
+                self.device.stop()
+            self._publish()
         finally:
-            self._acquisition_status = self.status.STOPPED
-            self._software_acquisition = None
-            self.device.stop()
-        self._publish()
+            self._trigger_event.set()
 
     def reading(self):
-        if self._in_publish:
+        if self.trigger_type == AcquisitionSlave.SOFTWARE:
             return
-        try:
-            self._in_publish = True
-            if self.trigger_type == AcquisitionSlave.HARDWARE:
-                self._publish()
-        finally:
-            self._in_publish = False
+
+        for spectrum_nb in range(self.npoints):
+            if self._acquisition_status != self.status.RUNNING:
+                break
+            while self._acquisition_status == self.status.RUNNING:
+                try:
+                    self._publish()
+                except tcp.SocketTimeout:
+                    self.device._interface.close_data_socket()
+                    continue
+                else:
+                    break
 
     def _publish(self):
         spectrum = self.device.readout()
@@ -403,10 +390,9 @@ class MythenAcquistionSlave(AcquisitionSlave):
             channel.emit(point)
 
     def stop(self):
-        if self.trigger_type == AcquisitionSlave.SOFTWARE:
-            if self._software_acquisition is not None:
-                self._software_acquisition.kill()
-        else:
-            self.wait_reading()
-            self._acquisition_status = self.status.STOPPED
+        self._event.set()
+        if self.trigger_type != AcquisitionSlave.SOFTWARE:
             self.device.stop()
+            self._acquisition_status = self.status.STOPPED
+            self.wait_reading()  # let the last point to be published
+        self._trigger_event.wait(1.5)

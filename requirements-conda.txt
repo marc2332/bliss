@@ -42,7 +42,7 @@ sqlalchemy
 tabulate
 tailon == 1.1.0.1
 tango >= 9.3.2
-tango-metadata >= 4.0.6
+tango-metadata >= 4.0.7
 tblib
 tmux >= 2.7
 treelib <= 1.5.5

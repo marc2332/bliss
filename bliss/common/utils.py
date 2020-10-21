@@ -17,6 +17,7 @@ import functools
 import numpy
 import collections.abc
 import importlib.util
+import distutils.util
 from collections.abc import MutableMapping, MutableSequence
 import socket
 import fnmatch
@@ -72,12 +73,21 @@ def add_property(inst, name, method):
 
 
 def grouped(iterable, n):
-    "s -> (s0,s1,s2,...sn-1), (sn,sn+1,sn+2,...s2n-1), (s2n,s2n+1,s2n+2,...s3n-1), ..."
+    """
+    Group elements of an iterable n by n.
+    Return a zip object.
+    s -> (s0,s1,s2,...sn-1), (sn,sn+1,sn+2,...s2n-1), (s2n,s2n+1,s2n+2,...s3n-1), ...
+    Excedentary elements are discarded.
+    Example:
+    DEMO [5]: list(grouped([1,2,3,4,5], 2))
+    Out  [5]: [(1, 2), (3, 4)]
+    """
     return zip(*[iter(iterable)] * n)
 
 
 def grouped_with_tail(iterable, n):
-    "like grouped, but does not remove last elements if they not reach the given n length"
+    """like grouped(), but do not remove last elements if they not reach the
+    given length n"""
     iterator = iter(iterable)
     while True:
         partial = []
@@ -156,8 +166,9 @@ def object_method(
 
     The same as add_object_method but its purpose is to be used as a
     decorator to the controller method which is to be exported as object method.
-    
-    Returns a method where _object_method_ attribute is filled with a dict of elements to characterize it.
+
+    Return a method where _object_method_ attribute is filled with a dict of
+    elements to characterize it.
     """
 
     def get_wrapper(func):
@@ -177,13 +188,13 @@ def object_method(
         return wrapper
 
     if method is None:
-        # Passes here if decorator is called with decorator arguments
+        # Passe here if decorator is called with decorator arguments
         def object_method_wrap(func):
             return get_wrapper(func)
 
         return object_method_wrap
     else:
-        # Passes here if the decorator is called without arguments
+        # Passe here if the decorator is called without arguments
         return get_wrapper(method)
 
 
@@ -786,7 +797,7 @@ def BOLD(msg):
 def shorten_signature(original_function=None, *, annotations=None, hidden_kwargs=None):
     """decorator that can be used to simplyfy the signature displayed in the bliss shell.
        by default it is removing the annotation of each parameter or replacing it with a custum one.
-       
+
        annotations: dict with parameters as key
        hidden_kwargs: list of parameters that should not be displayed but remain usable.
     """

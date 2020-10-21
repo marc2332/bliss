@@ -10,7 +10,7 @@ The class describes all the information required to create a widget for any kind
 The default backend is Prompt-toolkit.
 
 
-The predefined dialogs are: 
+The predefined dialogs are:
 
 * `UserMsg( "This is a message" )`: display a message to the user.
 * `UserYesNo( "Do you want to continue?" )`: asks a question, expecting a yes or a no answer.
@@ -24,21 +24,22 @@ The predefined dialogs are:
 
 All dialogs have the following attributes:
 
-*  `label`:       the widget label 
+*  `label`:       the widget label
 *  `defval`:      the default value
 *  `text_align`:  the label text alignment. Allowed are `["CENTER", "LEFT", "JUSTIFY", "RIGHT"]`
 *  `text_expand`: enable label text to expand (True or False)
+*  `full_screen`: display dialog on the entier area of the terminal (True by default)
 
-UserInput dialogs have these extra arguments:  
+UserInput dialogs have these extra arguments:
 
 *  `validator`:   the validator function (optional)
 *  `completer`:   the list of words for auto-completion (optional)
 
 The UserChoice dialogs have a special argument:
 
-*  `values`:      the list of choices. One choice is a pair (value, text). 
+*  `values`:      the list of choices. One choice is a pair (value, text).
 
-                  ex: values = [(1,"red"), (2,"blue"), (3,"green")] 
+                  ex: values = [(1,"red"), (2,"blue"), (3,"green")]
 
 ## Display the dialog on screen ( Prompt-toolkit backend )
 
@@ -46,8 +47,8 @@ The UserChoice dialogs have a special argument:
 
 Any user dialog can be transformed into a prompt toolkit widget and display on screen with the `display` function.
 They `display` function is designed for a single dialog like `UserMsg` or `UserYesNo`.
-In the case of a `UserYesNo` dialog, the `display` function returns the answer as a Boolean. 
- 
+In the case of a `UserYesNo` dialog, the `display` function returns the answer as a Boolean.
+
 ```python
 from bliss.shell.cli.user_dialog import UserMsg, UserYesNo
 from bliss.shell.cli.pt_widgets import display
@@ -67,18 +68,18 @@ display(dlg, title='Bliss manager')
 ### Multiple inputs dialog
 
 Multiple widgets dialog can be built with the `BlissDialog` object and display on screen with its `.show()` method.
-The first argument of the `BlissDialog` object is a 2d list of user dialogs. 
+The first argument of the `BlissDialog` object is a 2d list of user dialogs.
 The first dimension represent the vertical layout and the second dimension the horizontal layout.
-The space between the widgets can be specified with the `padding` argument. 
-After pressing the `ok` button, a dictionary with widget values will be returned. 
+The space between the widgets can be specified with the `padding` argument.
+After pressing the `ok` button, a dictionary with widget values will be returned.
 The dictionary is indexed by the dialog name (if not None) else by the dialog object itself.
 If pressing the `cancel` button, it will return `False`.
 
 ```python
-user_dlg_list = [   [dlg_x1_y1, dlg_x2_y1, ...], 
-                    [dlg_x1_y2, dlg_x2_y2, ...], 
-                    [dlg_x1_y3, dlg_x2_y3, ...],  ]  
-                    
+user_dlg_list = [   [dlg_x1_y1, dlg_x2_y1, ...],
+                    [dlg_x1_y2, dlg_x2_y2, ...],
+                    [dlg_x1_y3, dlg_x2_y3, ...],  ]
+
 ```
 
 `BlissDialog(user_dlg_list,title="BlissDialog", paddings=(1, 1), show_help=False)`
@@ -98,7 +99,7 @@ BlissDialog( [  [dlg1], [dlg2, dlg3]  ] , title='Bliss manager',paddings=(3,3)).
 
 ![Screenshot](img/dlg_input.png)
 
-#### Container ( dialogs group ) 
+#### Container ( dialogs group )
 
 A sub-set of dialogs can be grouped using the `Container` object:
 
@@ -134,7 +135,7 @@ BlissDialog( [  [dlg1], [ ct1, ct2]  ] , title='Bliss manager').show()
 The `UserInput` object takes an optional `validator` argument. The `validator` argument must be an object of the type `Validator`.
 The validator object takes as first argument a function instance and the function arguments as an extra arguments.
 The validation function will be called when leaving the input field of the widget in order to check that the user input is corresponding to the expected type of answer.
-The validation function must raise or produce an exception if the user input is not what expected. 
+The validation function must raise or produce an exception if the user input is not what expected.
 
 For example we can check that the user input is an integer or if it is included in a given range.
 
@@ -171,7 +172,7 @@ The `UserIntInput` and `UserFloatInput` are already defined and check if the use
 #### UserInput completer
 
 The `UserInput` object takes an optional `completer` argument. The `completer` argument must be a list of strings which will be used as a completion list when the user is typing.
-For file path completion, there already exists a `UserFileInput` object which implements a special path completer. 
+For file path completion, there already exists a `UserFileInput` object which implements a special path completer.
 
 ```python
 from bliss.shell.cli.user_dialog import UserInput, UserFileInput

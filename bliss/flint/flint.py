@@ -49,6 +49,9 @@ except ImportError:
 import PyQt5.QtCore
 
 import silx
+# Have to be imported early to prevent segfault (noticed with WSL)
+# See https://github.com/silx-kit/silx/issues/3232
+import silx.gui.plot.matplotlib
 from silx.gui import qt
 from bliss.flint.model import flint_model
 

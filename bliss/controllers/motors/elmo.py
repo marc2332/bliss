@@ -294,7 +294,7 @@ class Elmo(Controller):
         if not raw_reply.startswith(send_message):  # something weird happened
             self._cnx.close()
             raise RuntimeError(
-                "received reply: %s\n" "expected message starts with %s" % msg
+                f"received reply: {raw_reply}\nExpected message starts with {msg}"
             )
         reply = raw_reply[len(send_message) :]
         if not in_error_code and reply.endswith("?"):

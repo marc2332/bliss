@@ -137,6 +137,9 @@ class ScanManager:
             self.__flintModel.blissSessionChanged.connect(self.__bliss_session_changed)
             self.__bliss_session_changed()
 
+    def _cache(self):
+        return self.__cache
+
     def __bliss_session_changed(self):
         session_name = self.__flintModel.blissSessionName()
         self._spawn_scans_session_watch(session_name)

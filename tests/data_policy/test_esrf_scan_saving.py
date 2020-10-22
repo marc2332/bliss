@@ -511,8 +511,10 @@ def test_icat_metadata(session, icat_subscriber, esrf_data_policy):
     assert_icat_received_current_proposal(scan_saving, icat_subscriber)
 
     # Prepare for scanning without the Nexus writer
-    diode = session.env_dict["diode"]
     scan_saving.writer = "hdf5"
+    diode = session.env_dict["diode"]
+    att1 = session.env_dict["att1"]
+    att1.Al200()
 
     s = loopscan(3, 0.01, diode)
     icatfields1 = {
@@ -520,6 +522,15 @@ def test_icat_metadata(session, icat_subscriber, esrf_data_policy):
         "InstrumentVariables_value": "0.0 0.0 ",
         "SamplePositioners_name": "roby robz",
         "SamplePositioners_value": "0.0 0.0",
+        "InstrumentSlitPrimary_vertical_offset": "0.0",
+        "InstrumentSlitPrimary_horizontal_offset": "0.0",
+        "InstrumentSlitPrimary_horizontal_gap": "0.0",
+        "InstrumentSlitPrimary_vertical_gap": "0.0",
+        "InstrumentAttenuator01_status": "in",
+        "InstrumentAttenuator01_thickness": "200",
+        "InstrumentAttenuator01Positioners_value": "2.5",
+        "InstrumentAttenuator01Positioners_name": "att1z",
+        "InstrumentAttenuator01_type": "Al",
     }
     # Check metadata gathering
     icatfields2 = dict(scan_saving.dataset.get_current_icat_metadata())
@@ -606,9 +617,9 @@ def test_icat_metadata_custom(session, icat_subscriber, esrf_data_policy):
     assert datasets.keys() == {"0001", "0001_b"}
 
     metadata_0001 = datasets["0001"].node.metadata
-    assert len(metadata_0001) == 6, metadata_0001.keys()
+    assert len(metadata_0001) == 10  # , metadata_0001.keys()
     metadata_0001b = datasets["0001_b"].node.metadata
-    assert len(metadata_0001b) == 9, metadata_0001b.keys()
+    assert len(metadata_0001b) == 13  # , metadata_0001b.keys()
 
     assert "startDate" in metadata_0001
     assert "startDate" in metadata_0001b

@@ -114,7 +114,7 @@ class MultiplePositions:
     def _init_meta_data_publishing(self):
         """Publish position in meta data """
         scan_meta_obj = get_user_scan_meta()
-        scan_meta_obj.instrument.set(self, lambda _: self.metadata())
+        scan_meta_obj.instrument.set(self, lambda _: {self.name: self.metadata()})
 
     def metadata(self):
         if self.position != "unknown":
@@ -124,7 +124,9 @@ class MultiplePositions:
                 if x["label"] == self.position
             ][0]
             if "metadata" in cur_pos_config:
-                return {self.name: cur_pos_config["metadata"]}
+                return cur_pos_config["metadata"]
+        # no metadata or in unknown position -> return empty dict
+        return dict()
 
     def add_label_move_method(self, pos_label):
         """Add a method named after the position label to move to the

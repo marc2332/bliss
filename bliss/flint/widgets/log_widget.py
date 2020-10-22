@@ -81,7 +81,7 @@ class LogWidget(qt.QTreeView):
         self._handlers = weakref.WeakKeyDictionary()
         self.destroyed.connect(functools.partial(self._remove_handlers, self._handlers))
         self._maximumLogCount = 0
-        self.setMaximumLogCount(10000)
+        self.setMaximumLogCount(1000)
         self._formatter = logging.Formatter()
 
         model = qt.QStandardItemModel(self)

@@ -23,8 +23,52 @@ from redis.exceptions import ConnectionError
 
 DEFAULT_TIMEOUT = 10.
 _NotProvided = type("_NotProvided", (), {})()
-_Query = namedtuple("_Query", "id")
-_Reply = namedtuple("_Reply", "id value")
+
+
+class _Query:
+    def __init__(self, name, id):
+        self.name = name
+        self.id = id
+        self._expected_replies = None
+        self._expected_reply_event = gevent.event.Event()
+        self.reply_queue = gevent.queue.Queue()
+
+    @property
+    def _raw_value(self):
+        return self
+
+    @property
+    def expected_replies(self):
+        self._expected_reply_event.wait()
+        return self._expected_replies
+
+    @expected_replies.setter
+    def expected_replies(self, value):
+        self._expected_replies = value
+        self._expected_reply_event.set()
+
+    def __getstate__(self):
+        return {"name": self.name, "id": self.id}
+
+    def __setstate__(self, state):
+        self.name = state["name"]
+        self.id = state["id"]
+        self._expected_replies = None
+        self._expected_reply_event = gevent.event.Event()
+        self.reply_queue = gevent.queue.Queue()
+
+
+class _Reply:
+    def __init__(self, name, id, value):
+        self.name = name
+        self.id = id
+        self.value = value
+
+    @property
+    def _raw_value(self):
+        return self
+
+
 _Value = namedtuple("_Value", "timestamp value")
 
 
@@ -106,7 +150,7 @@ class Bus(AdvancedInstantiationInterface):
         self._pubsub = redis.pubsub()
 
         # Internal structures
-        self._reply_queues = {}
+        self._queries = {}
         self._current_subs = set()
         self._pending_updates = set()
         self._channels = weakref.WeakValueDictionary()
@@ -160,15 +204,16 @@ class Bus(AdvancedInstantiationInterface):
         # Initialize
         reply_value = None
         query_id = uuid.uuid1().hex
-        reply_queue = gevent.queue.Queue()
 
         try:
+            query = _Query(name, query_id)
             # Register reply queue
-            self._reply_queues[query_id] = reply_queue
+            self._queries[query_id] = query
 
             # Send the query
-            expected_replies = self._publish(name, _Query(query_id))
-
+            self.schedule_update(query)
+            expected_replies = query.expected_replies
+            reply_queue = query.reply_queue
             # Loop over replies
             while expected_replies:
                 reply = reply_queue.get()
@@ -179,8 +224,12 @@ class Bus(AdvancedInstantiationInterface):
                     reply_value = reply.value
                     break
         finally:
+            try:
+                self._pending_updates.remove(query)
+            except KeyError:
+                pass
             # Unregister queue
-            del self._reply_queues[query_id]
+            del self._queries[query_id]
 
         # Return value
         return reply_value
@@ -199,9 +248,11 @@ class Bus(AdvancedInstantiationInterface):
             raise TypeError(",".join((f"For channel named : **{name}**",) + e.args))
 
     def _send_updates(self, pipeline=None):
-        while self._pending_updates:
-            channel = self._pending_updates.pop()
+        channels_to_update = self._pending_updates
+        self._pending_updates = set()
+        for channel in channels_to_update:
             self._publish(channel.name, channel._raw_value, pipeline)
+        return channels_to_update
 
     # Background tasks
     def _send(self):
@@ -243,10 +294,15 @@ class Bus(AdvancedInstantiationInterface):
 
             # Create and run the pipeline of pending updates
             pipeline = self._redis.pipeline()
-            self._send_updates(pipeline)
-            pipeline.execute()
+            channels = self._send_updates(pipeline)
+            channel = None
+            for expected_replies, channel in zip(pipeline.execute(), channels):
+                if isinstance(channel, _Query):
+                    channel.expected_replies = expected_replies
 
             # Delete channel references
+            del channel
+            del channels
             del current_channels
 
     def _listen(self):
@@ -293,15 +349,15 @@ class Bus(AdvancedInstantiationInterface):
         else:
             value = channel._raw_value
         # Reply with the corresponding query id
-        reply = _Reply(query.id, value)
-        self._publish(name, reply)
+        reply = _Reply(name, query.id, value)
+        self.schedule_update(reply)
 
     def _on_reply(self, name, channel, reply):
         # Ignore replies if the id doesn't match any query id
-        if reply.id not in self._reply_queues:
+        if reply.id not in self._queries:
             return
         # Put the reply in the corresponding queue
-        self._reply_queues[reply.id].put(reply)
+        self._queries[reply.id].reply_queue.put(reply)
 
     def _on_value(self, name, channel, value):
         # Ignore value if the channel doesn't exist anymore
@@ -377,11 +433,11 @@ class Channel(AdvancedInstantiationInterface):
         if value != _NotProvided:
             self._set_raw_value(value)
             self._bus.schedule_update(self)
+        else:
+            self._start_query()
 
         if callback is not None:
             self.register_callback(callback)
-
-        self._subscribed_event.wait(timeout=self.timeout)
 
     def close(self):
         if self._query_task is None:
@@ -412,9 +468,6 @@ class Channel(AdvancedInstantiationInterface):
 
     @property
     def value(self):
-        if self._raw_value is None:
-            if not self._value_event.is_set():
-                self._start_query()
         with gevent.Timeout(
             self.timeout, TimeoutError(f"Channel {self.name} did not receive a value")
         ):
@@ -427,6 +480,11 @@ class Channel(AdvancedInstantiationInterface):
             raise RuntimeError(
                 "Channel {}: can't set value while running a callback".format(self.name)
             )
+        # Don't need to query anymore
+        # as we know now the value
+        if self._query_task:
+            self._query_task.kill()
+
         self._subscribed_event.wait()
         self._set_raw_value(new_value)
         self._bus.schedule_update(self)
@@ -455,9 +513,6 @@ class Channel(AdvancedInstantiationInterface):
             return
 
         def query_task():
-            # Wait subscription
-            self._subscribed_event.wait()
-
             # Run the query
             reply_value = self._bus.query(self.name)
 

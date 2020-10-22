@@ -691,6 +691,23 @@ class Aerotech(Controller):
             raise ValueError("Aerotech axis [%s] not initialised" % axis.name)
         return aero_axis
 
+    def _cmd(self, cmd, axis, *cmd_args, reply=True):
+        aero_name = self._aero_name(axis)
+        if aero_name:
+            args = [aero_name] + cmd_args
+        else:
+            args = cmd_args
+        if reply:
+            # args are comma-separated when asking the controller
+            cmd_args = f"({','.join(map(str,args))})"
+        else:
+            # args are space-separated when sending a command
+            cmd_args = f"{' '.join(map(str, args))}"
+        return f'{cmd}{"" if reply else " "}{cmd_args}'
+
+    def _cmd_no_reply(self, *args):
+        return self._cmd(*args, reply=False)
+
     def _axis_from_aeroname(self, aeroname):
         for (axis_name, aero_type) in self._aero_axis.items():
             if aero_type == aeroname:
@@ -698,18 +715,18 @@ class Aerotech(Controller):
         raise ValueError("No aerotech axis configured for [%s]" % aeroname)
 
     def clear_error(self, axis):
-        self.raw_write("FAULTACK %s" % self._aero_name(axis))
+        self.raw_write(self._cmd_no_reply("FAULTACK", axis))
 
     def read_status(self, axis):
-        status = self.raw_write_read("AXISSTATUS(%s)" % self._aero_name(axis))
+        status = self.raw_write_read(self._cmd("AXISSTATUS", axis))
         axis_status = AerotechStatus(int(status), self.AXIS_STATUS_BITS)
 
-        fault = self.raw_write_read("AXISFAULT(%s)" % self._aero_name(axis))
+        fault = self.raw_write_read(self._cmd("AXISFAULT", axis))
         axis_fault = AerotechStatus(int(fault), self.AXIS_FAULT_BITS)
 
         if int(fault) > 0 and not axis_status.MoveActive:
             self.clear_error(axis)
-            fault = self.raw_write_read("AXISFAULT(%s)" % self._aero_name(axis))
+            fault = self.raw_write_read(self._cmd("AXISFAULT", axis))
             axis_fault = AerotechStatus(int(fault), self.AXIS_FAULT_BITS)
 
         return (axis_fault, axis_status)
@@ -765,23 +782,10 @@ class Aerotech(Controller):
         return info
 
     def set_on(self, axis):
-        self.raw_write("ENABLE %s" % self._aero_name(axis))
+        self.raw_write(self._cmd_no_reply("ENABLE", axis))
 
     def set_off(self, axis):
-        self.raw_write("DISABLE %s" % self._aero_name(axis))
-
-    def start_one(self, motion):
-        axis = motion.axis
-        pos = motion.target_pos / axis.steps_per_unit
-        aero_name = self._aero_name(axis)
-        speed = self._aero_speed[axis.name]
-
-        move_cmd = "%s %f" % ("D" if not aero_name else aero_name, pos)
-        speed_cmd = "%sF %f" % (aero_name, speed)
-
-        cmd = "MOVEABS %s %s" % (move_cmd, speed_cmd)
-        self.raw_write(cmd)
-        self._is_moving[axis.name] = True
+        self.raw_write(self._cmd_no_reply("DISABLE", axis))
 
     def start_all(self, *motion_list):
         moves = []
@@ -807,20 +811,20 @@ class Aerotech(Controller):
 
     def start_jog(self, axis, velocity, direction):
         jog_vel = direction * velocity / abs(axis.steps_per_unit)
-        cmd = "FREERUN %s %f" % (self._aero_name(axis), jog_vel)
+        cmd = self._cmd_no_reply("FREERUN", axis, jog_vel)
         self.raw_write(cmd)
         self._is_moving[axis.name] = True
 
     def stop_jog(self, axis):
-        cmd = "FREERUN %s 0" % (self._aero_name(axis))
+        cmd = self._cmd_no_reply("FREERUN", axis, 0)
         self.raw_write(cmd)
 
     def read_position(self, axis):
         is_moving = self._is_moving.get(axis.name, False)
         if not is_moving:
-            reply = self.raw_write_read("CMDPOS(%s)" % self._aero_name(axis))
+            reply = self.raw_write_read(self._cmd("CMDPOS", axis))
         else:
-            reply = self.raw_write_read("PFBK(%s)" % self._aero_name(axis))
+            reply = self.raw_write_read(self._cmd("PFBK", axis))
 
         pos = float(reply) * axis.steps_per_unit
         return pos
@@ -838,14 +842,8 @@ class Aerotech(Controller):
 
     def set_acceleration(self, axis, new_acc):
         acc = new_acc / abs(axis.steps_per_unit)
-        self.raw_write(f"RAMP RATE {self._aero_name(axis)} {acc}")
+        self.raw_write(self._cmd_no_reply("RAMP RATE", axis, acc))
         self._aero_acc[axis.name] = acc
-
-    def stop(self, axis=None):
-        if axis is not None:
-            self.raw_write("ABORT %s" % self._aero_name(axis))
-        else:
-            self.raw_write("ABORT")
 
     def stop_all(self, *motion_list):
         axis_names = []
@@ -859,8 +857,10 @@ class Aerotech(Controller):
         home_dir = (switch > 0) and 0 or 1
         self.set_param(axis, "HomeSetup", home_dir)
 
+        # TODO: fix implementation => wait will be done until 'home_state' returns good value,
+        # there should be no loop here
         # start homing and wait for reply
-        cmd = "HOME %s" % self._aero_name(axis)
+        cmd = self._cmd_no_reply("HOME", axis)
         log_debug_data(self, "SEND", cmd)
         send_cmd = cmd + self.CMD_TERM
         with self._comm.lock:
@@ -962,27 +962,32 @@ class Aerotech(Controller):
         step_enc = int(step_pos * enc_units + 0.5)
 
         # --- reset previous control
-        self.raw_write("PSOCONTROL %s RESET" % name)
+        self.raw_write(self._cmd_no_reply("PSOCONTROL", axis, "RESET"))
 
         # --- define mask window
-        self.raw_write("PSOWINDOW %s 1 INPUT 1" % name)
-        self.raw_write("PSOWINDOW %s 1 RANGE %d, %d" % (name, start_enc, stop_enc))
+        self.raw_write(self._cmd_no_reply("PSOWINDOW", axis, 1, "INPUT 1"))
+        self.raw_write(
+            self._cmd_no_reply(
+                "PSOWINDOW", axis, 1, "RANGE %d, %d" % (start_enc, stop_enc)
+            )
+        )
 
         # --- define pulse 10usec up
-        self.raw_write("PSOPULSE %s TIME 10,10" % name)
+        self.raw_write(self._cmd_no_reply("PSOPULSE", axis, "TIME 10,10"))
 
         # --- define distance tracking
-        self.raw_write("PSOTRACK %s INPUT 1" % name)
-        self.raw_write("PSOTRACK %s RESET %d" % (name, 0x40))
-        self.raw_write("PSODISTANCE %s FIXED %d" % (name, step_enc))
+        self.raw_write(self._cmd_no_reply("PSOTRACK", axis, "INPUT 1"))
+        self.raw_write(self._cmd_no_reply("PSOTRACK", axis, "RESET %d" % 0x40))
+        self.raw_write(self._cmd_no_reply("PSODISTANCE", axis, "FIXED %d" % step_enc))
 
         # --- activate output mode
-        self.raw_write("PSOOUTPUT %s PULSE WINDOW MASK EDGE 2" % name)
-        self.raw_write("PSOCONTROL %s ARM" % name)
+        self.raw_write(
+            self._cmd_no_reply("PSOOUTPUT", axis, "PULSE WINDOW MASK EDGE 2")
+        )
+        self.raw_write(self._cmd_no_reply("PSOCONTROL", axis, "ARM"))
 
     def stop_output_pulse(self, axis):
-        name = self._aero_name(axis)
-        self.raw_write("PSOCONTROL %s OFF" % name)
+        self.raw_write(self._cmd_no_reply("PSOCONTROL", axis, "OFF"))
 
     @object_method(types_info=("str", "str"))
     def get_param(self, axis, name):
@@ -990,7 +995,7 @@ class Aerotech(Controller):
             param = AerotechParameter[name]
         except KeyError:
             raise ValueError("Unknown aerotech parameter [%s]" % name)
-        cmd = "GETPARM(%s,%d)" % (self._aero_name(axis), param.value)
+        cmd = self._cmd("GETPARM", axis, param.value)
         return self.raw_write_read(cmd)
 
     @object_method(types_info=(("str", "float"), "None"))
@@ -999,10 +1004,10 @@ class Aerotech(Controller):
             param = AerotechParameter[name]
         except KeyError:
             raise ValueError("Unknown aerotech parameter [%s]" % name)
-        if int(value) == value:
-            cmd = "SETPARM %s, %d, %d" % (self._aero_name(axis), param.value, value)
         else:
-            cmd = "SETPARM %s, %d, %f" % (self._aero_name(axis), param.value, value)
+            param = param.value
+
+        cmd = self._cmd("SETPARM", axis, param, value)
         self.raw_write(cmd)
 
     @object_method(types_info=("str", "list"))
@@ -1023,8 +1028,7 @@ class Aerotech(Controller):
         partxt = "Aerotech axis %s parameters:\n" % self._aero_name(axis)
         for idx, par in enumerate(AerotechParameter):
             if name_start is None or par.name.startswith(name_start):
-                cmd = "GETPARM(%s,%d)" % (self._aero_name(axis), par.value)
-                value = self.raw_write_read(cmd)
+                value = self.get_param(axis, par.value)
                 partxt += "%30s [%d] = %s\n" % (par.name, par.value, value)
 
         return partxt

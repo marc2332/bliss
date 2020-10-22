@@ -346,9 +346,9 @@ class DataNode:
 
     def _create_struct(self, db_name, name, node_type):
         struct = self._get_struct(db_name)
+        struct.node_type = node_type
         struct.name = name
         struct.db_name = db_name
-        struct.node_type = node_type
         return struct
 
     @property

@@ -336,3 +336,49 @@ def test_mixture_cross_sections(backend):
     t2 = c2.transmission(energies, 0.01)
     t3 = materials.Element("Al").transmission(energies, 0.01)
     numpy.testing.assert_allclose(t, t1 * t2 * t3)
+
+
+@pytest.mark.parametrize("backend", backend.MATERIAL_BACKENDS)
+def test_element_transmission(backend):
+    _set_backend(backend)
+    # http://henke.lbl.gov/optical_constants/filter2.html
+    # Cu Density=8.96 Thickness=20. microns
+    #  Photon Energy (eV), Transmission
+    #     16000.      0.32744
+    energy = 16.
+    thickness = 20e-4
+    material = materials.Element("Cu")
+    calculated = material.transmission(energy, thickness)
+    expected = [0.32744]
+    if backend == "xraylib":
+        rtol = 0.5  # % relative difference
+    else:
+        # Large difference due to photoelectric cross section
+        rtol = 7  # % relative difference
+    numpy.testing.assert_allclose(calculated, expected, rtol=rtol / 100.)
+
+
+@pytest.mark.parametrize("backend", backend.MATERIAL_BACKENDS)
+def test_compound_transmission(backend):
+    _set_backend(backend)
+    # http://henke.lbl.gov/optical_constants/filter2.html
+    # FeCrNi Density=7.87 Thickness=20. microns
+    # Photon Energy (eV), Transmission
+    #     11000.      0.11999
+    #     12000.      0.18717
+    #     13000.      0.26024
+    #     14000.      0.33388
+    #     15000.      0.40439
+    #     16000.      0.46970
+    density = 7.87
+    thickness = 20e-4
+    energies = numpy.linspace(11, 16, 6)
+    expected = [0.11999, 0.18717, 0.26024, 0.33388, 0.40439, 0.46970]
+    material = materials.Compound("FeCrNi", density=density)
+    calculated = material.transmission(energies, thickness)
+    if backend == "xraylib":
+        rtol = 2  # % relative difference
+    else:
+        # Large difference due to photoelectric cross section
+        rtol = 30  # % relative difference
+    numpy.testing.assert_allclose(calculated, expected, rtol=rtol / 100.)

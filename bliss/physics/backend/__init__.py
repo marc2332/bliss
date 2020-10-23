@@ -28,13 +28,15 @@ class MaterialBackend:
     """
 
     _BACKEND = None
+    BACKEND_NAME = None
 
     @classmethod
     def get_backend(cls):
         if cls._BACKEND is None:
-            for mod in MATERIAL_BACKENDS.values():
+            for modname, mod in MATERIAL_BACKENDS.items():
                 if mod is not None:
                     cls._BACKEND = mod
+                    cls.BACKEND_NAME = modname
                     break
         if cls._BACKEND is None:
             raise RuntimeError(
@@ -52,3 +54,4 @@ class MaterialBackend:
         if backend is None:
             raise RuntimeError(f"Backend '{name}' not available")
         cls._BACKEND = backend
+        cls.BACKEND_NAME = name

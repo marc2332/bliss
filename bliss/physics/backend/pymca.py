@@ -26,7 +26,7 @@ def _get_from_cs_catalog(Z, kind):
     if kind == kind.TOTAL:
         return csdict["total"]
     elif kind == kind.PHOTO:
-        return csdict["photoelectric"]
+        return csdict["photo"]
     elif kind == kind.COHERENT:
         return csdict["coherent"]
     elif kind == kind.INCOHERENT:

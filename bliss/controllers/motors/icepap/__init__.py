@@ -7,7 +7,9 @@
 
 import re
 import time
+import math
 import gevent
+import weakref
 import hashlib
 from collections import namedtuple
 from bliss.config.channels import Cache
@@ -85,7 +87,8 @@ class Icepap(Controller):
         global_map.register(self, children_list=[self._cnx])
 
         # Timestamps of last power command (ON or OFF) for each axis.
-        self._last_axis_power_time = dict()
+        self._last_axis_power_time = {}
+        self._limit_search_in_progress = weakref.WeakKeyDictionary()
 
     def initialize(self):
         self._icestate = AxisState()
@@ -264,23 +267,33 @@ class Icepap(Controller):
         if state_mode:
             state.set(self.STATUS_MODCODE.get(state_mode)[0])
 
-        # STOPCODE bits: 14-17
-        stop_code = (status >> 14) & 0xF
-        if stop_code:
-            sc_status = self.STATUS_STOPCODE.get(stop_code)[0]
-            state.set(sc_status)
-            if sc_status not in ("SCEOM", "SCSTOP", "SCABORT"):
-                # we have a limit hit, or a closed loop error etc. =>
-                # this will raise an exception, if it occurs during a move
-                state.set("FAULT")
-
         # DISABLE bits: 4-6
         disable_condition = (status >> 4) & 0x7
         if disable_condition:
             state.set(self.STATUS_DISCODE.get(disable_condition)[0])
 
+        stop_code = (status >> 14) & 0xF
+
         if state.READY:
-            # if motor is ready then no need to investigate deeper
+            # important: stopcode for error cond. has to be examinated when axis is READY only!
+            # STOPCODE bits: 14-17
+            if stop_code:
+                sc_status = self.STATUS_STOPCODE.get(stop_code)[0]
+                state.set(sc_status)
+                if sc_status not in ("SCEOM", "SCSTOP", "SCABORT"):
+                    in_limit_search = self._limit_search_in_progress.get(axis, 0)
+                    if in_limit_search > 0 and sc_status == "SCLIMPOS":
+                        # do not put FAULT state, since we reached the limit we wanted
+                        return state
+                    elif (
+                        in_limit_search < 0 and sc_status == "SCLINNEG"
+                    ):  # typo here, from icepap firmware
+                        # do not put FAULT, since we reached the limit we wanted
+                        return state
+                    else:
+                        # we have a limit hit, or a closed loop error etc. =>
+                        # this will raise an exception, if it occurs during a move
+                        state.set("FAULT")
             return state
 
         # This moving consideration is valid only if axis is ENABLED.
@@ -363,9 +376,11 @@ class Icepap(Controller):
         pass
 
     def start_jog(self, axis, velocity, direction):
+        self._limit_search_in_progress[axis] = 0
         _ackcommand(self._cnx, "JOG %s %d" % (axis.address, int(velocity * direction)))
 
     def start_one(self, motion):
+        self._limit_search_in_progress[motion.axis] = 0
         if isinstance(motion.axis, TrajectoryAxis):
             return motion.axis._start_one(motion)
         elif isinstance(motion.axis, LinkedAxis):
@@ -381,12 +396,14 @@ class Icepap(Controller):
 
     def start_all(self, *motions):
         if len(motions) > 1:
+            for motion in motions:
+                self._limit_search_in_progress[motion.axis] = 0
             cmd = "MOVE GROUP "
             cmd += " ".join(
                 ["%s %d" % (m.axis.address, round(m.target_pos)) for m in motions]
             )
             _ackcommand(self._cnx, cmd)
-        elif motions:
+        else:
             self.start_one(motions[0])
 
     def stop(self, axis):
@@ -406,6 +423,7 @@ class Icepap(Controller):
             self.stop(motions[0].axis)
 
     def home_search(self, axis, switch):
+        self._limit_search_in_progress[axis] = 0
         home_src = self.home_source(axis)
         if home_src == "Lim+":
             home_dir = "+1"
@@ -447,10 +465,22 @@ class Icepap(Controller):
         return home_src.split()[1]
 
     def limit_search(self, axis, limit):
-        if ("LIMPOS" if limit > 0 else "LIMNEG") not in self.state(axis):
+        self._limit_search_in_progress[axis] = 0
+        limit = int(math.copysign(1, limit))  # ensure limit is 1 or -1 only
+        searched_lim = "LIMPOS" if limit > 0 else "LIMNEG"
+        if searched_lim in self.state(axis):
+            # if icepap is already at limit, there might be a stopcode in state,
+            # which makes us reporting 'FAULT' => in this case we need to ignore
+            # the stopcode, this is done via '_limit_search_in_progress'
+            self._limit_search_in_progress[axis] = limit
+        else:
+            # start limit search
             cmd = "SRCH LIM" + ("+" if limit > 0 else "-")
             _ackcommand(self._cnx, "%s:%s" % (axis.address, cmd))
-            # TODO: MG18Nov14: remove this sleep (state is not immediately MOVING)
+            # set that we are searching limit
+            self._limit_search_in_progress[axis] = limit
+            # TODO: can we remove this sleep one day?
+            # at the moment state is not immediately MOVING
             gevent.sleep(0.1)
 
     @object_method(types_info=("None", "float"), filter=_object_method_filter)

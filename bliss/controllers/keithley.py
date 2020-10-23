@@ -283,6 +283,17 @@ class SensorZeroCheckMixin:
 
 
 class BaseMultimeter(BeaconObject):
+    class _CounterController(SamplingCounterController):
+        def __init__(self, *args, comm=None, **kwargs):
+            super().__init__(*args, **kwargs)
+            self.__comm = comm
+
+        def read_all(self, *counters):
+            for counter in counters:
+                counter._initialize_with_setting()
+            values = self.__comm["READ"]
+            return [values[cnt.index] for cnt in counters]
+
     def __init__(self, config, interface=None):
         self.__name = config.get("name", "keithley")
         kwargs = dict(config)
@@ -292,14 +303,9 @@ class BaseMultimeter(BeaconObject):
         self._keithley_comm = KeithleySCPI(**kwargs)
         comm = self._keithley_comm
 
-        class _CounterController(SamplingCounterController):
-            def read_all(self, *counters):
-                for counter in counters:
-                    counter._initialize_with_setting()
-                values = comm["READ"]
-                return [values[cnt.index] for cnt in counters]
-
-        self._counter_controller = _CounterController("keithley")
+        self._counter_controller = BaseMultimeter._CounterController(
+            "keithley", comm=comm
+        )
 
     def __str__(self):
         return "{0}({1})".format(self.__class__.__name__, self.name)
@@ -586,7 +592,7 @@ def Multimeter(config):
         # Discover model
         interface, _, _ = get_interface(**config)
         decode_IDN = SCPI_COMMANDS["*IDN"].get("get")
-        idn = decode_IDN(interface.write_readline(b"*IDN?\n"))
+        idn = decode_IDN(interface.write_readline(b"*IDN?\n").decode())
         model = idn["model"]
         kwargs["interface"] = interface
         config["model"] = model

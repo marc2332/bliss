@@ -85,6 +85,7 @@ from gevent import socket
 
 from bliss.common.greenlet_utils import KillMask
 from bliss.common.utils import StripIt
+from bliss.common import proxy
 
 from bliss.common.logtools import log_debug
 from bliss import global_map
@@ -156,6 +157,9 @@ class ServerError(Exception):
 
 
 def _discover_object(obj):
+    if isinstance(obj, proxy.Proxy):
+        obj = obj.__wrapped__
+
     members = {}
     otype = type(obj)
     for name, member in inspect.getmembers(otype):
@@ -206,6 +210,10 @@ class _ServerObject(object):
         self._socket = None
         self._stream = stream
         self._metadata["stream"] = stream
+        if isinstance(obj, proxy.Proxy):
+            self._metadata["real_klass"] = type(obj.__wrapped__)
+        else:
+            self._metadata["real_klass"] = type(obj)
         self._uds_name = None
         self._low_latency_signal = set()
         self._tcp_low_latency = tcp_low_latency
@@ -357,7 +365,13 @@ class _ServerObject(object):
     def _call__(self, code, args, kwargs):
         if code == "introspect":
             self._log.debug("rpc 'introspect'")
-            return self._metadata
+            without_real_class = kwargs.get("without_real_class", False)
+            if without_real_class is False:
+                return self._metadata
+            else:
+                metadata = self._metadata.copy()
+                metadata.pop("real_klass")
+                return metadata
         else:
             name = args[0]
             if code == "call":
@@ -458,9 +472,15 @@ def _member(client, member_info):
         members[name] = _class_method(client, name, doc)
 
 
+class _SubServer:
+    def __init__(self, address):
+        self.address = address
+
+
 class _cnx(object):
     class Retry:
-        pass
+        def __init__(self, exception):
+            self.exception = exception
 
     class wait_queue(object):
         def __init__(self, cnt, uniq_id):
@@ -485,7 +505,7 @@ class _cnx(object):
             self._event.set()
             self._event.clear()
 
-    def __init__(self, address):
+    def __init__(self, address, disconnect_callback):
 
         global_map.register(self, parents_list=["comms"], tag=f"rpc client:{address}")
 
@@ -509,12 +529,27 @@ class _cnx(object):
         self._timeout = 30.
         self._proxy = None
         self._klass = None
+        self._real_klass = None
         self._class_member = list()
+        self._disconnect_callback = disconnect_callback
+        self._subclient = weakref.WeakValueDictionary()
+        self._in_introspect = False
+
+    def __del__(self):
+        self.close()
 
     def connect(self):
         self.try_connect()
 
     def try_connect(self):
+        try:
+            return self._try_connect()
+        except:
+            if self._disconnect_callback is not None:
+                self._disconnect_callback()
+            raise
+
+    def _try_connect(self):
         if self._socket is None:
             try:
                 if self.host:
@@ -533,7 +568,15 @@ class _cnx(object):
                 self._socket = None
                 raise
             self._counter = itertools.cycle(range(2 ** 16))
-            metadata = self._call__("introspect", (), {})
+            if self._in_introspect:
+                return
+
+            try:
+                self._in_introspect = True
+                metadata = self._call__("introspect", (), {})
+            finally:
+                self._in_introspect = False
+
             self._log = logging.getLogger("rpc." + metadata["name"])
             stream = metadata.get("stream", False)
             members = dict(_client=self)
@@ -556,6 +599,7 @@ class _cnx(object):
                     self._class_member.append(name)
             klass = type(metadata["name"], (object,), members)
             self._klass = klass
+            self._real_klass = metadata.get("real_klass")
             self._proxy = klass()
 
     def _call__(self, code, args, kwargs):
@@ -565,8 +609,15 @@ class _cnx(object):
 
         with gevent.Timeout(timeout):
             self.try_connect()
+            # Check if already return a sub client
+            method_name = args[0] if args else ""
+            value = self._subclient.get((code, method_name))
+            if value is not None:
+                return value
+
             uniq_id = numpy.uint16(next(self._counter))
             msg = msgpack.packb((uniq_id, code, args, kwargs), use_bin_type=True)
+            nb_retry_allowed = 1
             with self.wait_queue(self, uniq_id) as w:
                 while True:
                     self._socket.sendall(msg)
@@ -580,12 +631,37 @@ class _cnx(object):
                         else:
                             raise value
                     elif isinstance(value, self.Retry):
+                        # check if the real class can be unpickled.
+                        # if not AttributeError may be raise during introspect
+                        if (
+                            self._in_introspect
+                            and code == "introspect"
+                            and isinstance(value.exception, AttributeError)
+                        ):
+                            # let's ask to the server is **metadata** without the real_class object
+                            msg = msgpack.packb(
+                                (uniq_id, code, args, {"without_real_class": True}),
+                                use_bin_type=True,
+                            )
+                        if value.exception is not None:
+                            if nb_retry_allowed > 0:
+                                nb_retry_allowed -= 1
+                            else:
+                                raise value.exception
                         self.try_connect()
                         continue
+                    elif isinstance(value, _SubServer):
+                        sub_client = self._subclient.get(value.address)
+                        if sub_client is None:
+                            sub_client = Client(value.address)
+                            self._subclient[value.address] = sub_client
+                        self._subclient[(code, method_name)] = sub_client
+                        return sub_client
                     return value
 
     def _raw_read(self, socket):
         unpacker = msgpack.Unpacker(raw=False, max_buffer_size=MAX_BUFFER_SIZE)
+        exception = None
         try:
             while True:
                 msg = socket.recv(8192)
@@ -602,6 +678,8 @@ class _cnx(object):
                         wq = self._queues.get(call_id)
                         if wq:
                             wq.put(return_values)
+        except Exception as e:
+            exception = e
         finally:
             try:
                 socket.close()
@@ -610,18 +688,27 @@ class _cnx(object):
             self._socket = None
             self._reading_task = None
             for w in self._queues.values():
-                w.put(self.Retry())
+                w.put(self.Retry(exception))
             for name in self._class_member:
                 delattr(type(self.proxy), name)
             self._class_member = list()
+            if self._disconnect_callback is not None:
+                self._disconnect_callback()
 
     def close(self):
         if self._reading_task:
             self._reading_task.kill()
+        for client in self._subclient.values():
+            client.close()
+        self._subclient = weakref.WeakValueDictionary()
+
+    @property
+    def connection_address(self):
+        return self._address
 
 
-def Client(address, timeout=30., **kwargs):
-    client = _cnx(address)
+def Client(address, timeout=30., disconnect_callback=None, **kwargs):
+    client = _cnx(address, disconnect_callback)
 
     class Meta(type):
         def __getattribute__(cls, *args):
@@ -633,7 +720,11 @@ def Client(address, timeout=30., **kwargs):
                 if args[0] == "__class__":
                     return type(object)
                 raise
-            return client._klass.__getattribute__(client._klass, *args)
+            if args[0] == "__class__" and client._real_klass is not None:
+                return client._real_klass
+
+            return_val = client._klass.__getattribute__(client._klass, *args)
+            return return_val
 
     class _Proxy(object, metaclass=Meta):
         def __init__(self):
@@ -651,7 +742,7 @@ def Client(address, timeout=30., **kwargs):
             client.proxy = self
 
         def __getattribute__(self, name):
-            if name in ["close", "connect"]:
+            if name in ["close", "connect", "connection_address"]:
                 return getattr(client, name)
 
             try:
@@ -668,6 +759,8 @@ def Client(address, timeout=30., **kwargs):
                 if name == "__class__":
                     return type(object)
                 raise
+            if name == "__class__" and client._real_klass is not None:
+                return client._real_klass
             return client._proxy.__getattribute__(name)
 
         def __setattr__(self, name, value):

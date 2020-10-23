@@ -218,7 +218,7 @@ class Input(SamplingCounterController):
             SamplingCounter,
             self.name + "_counter",
             unit=config.get("unit", "N/A"),
-            mode="SINGLE",
+            mode=config.get("sampling-counter-mode", "SINGLE"),
         )
 
     def read_all(self, *counters):
@@ -375,7 +375,7 @@ class Output(SamplingCounterController):
             SamplingCounter,
             self.name + "_counter",
             unit=config.get("unit", "N/A"),
-            mode="SINGLE",
+            mode=config.get("sampling-counter-mode", "SINGLE"),
         )
 
     def read_all(self, *counters):

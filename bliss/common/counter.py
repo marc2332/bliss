@@ -54,6 +54,10 @@ class SamplingMode(enum.IntEnum):
     INTEGRATE_STATS = enum.auto()
 
 
+def _identity(val):
+    return val
+
+
 class Counter:
     """ Counter class """
 
@@ -64,7 +68,7 @@ class Counter:
         self.__counter_controller._counters[self.name] = self
 
         self._conversion_function = (
-            conversion_function if conversion_function is not None else lambda x: x
+            conversion_function if conversion_function is not None else _identity
         )
         assert callable(self._conversion_function)
         self._unit = unit
@@ -135,6 +139,11 @@ class Counter:
         return info_str
 
 
+SamplingCounterStatistics = namedtuple(
+    "SamplingCounterStatistics", "mean N std var min max p2v count_time timestamp"
+)
+
+
 class SamplingCounter(Counter):
     def __init__(
         self,
@@ -154,11 +163,7 @@ class SamplingCounter(Counter):
             # <mode> can also be a string
             self._mode = SamplingMode[mode]
 
-        stats = namedtuple(
-            "SamplingCounterStatistics",
-            "mean N std var min max p2v count_time timestamp",
-        )
-        self._statistics = stats(
+        self._statistics = SamplingCounterStatistics(
             numpy.nan,
             numpy.nan,
             numpy.nan,

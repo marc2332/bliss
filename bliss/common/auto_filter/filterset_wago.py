@@ -208,6 +208,8 @@ class FilterSet_Wago(FilterSet):
         the same amount of patterns and transmissions.
         """
 
+        self._config_nb_filters = len(self._config_filters)
+
         # make a mask in case of inverted filterset
         self._filtmask = pow(2, self._config_nb_filters) - 1
 

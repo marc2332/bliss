@@ -4,6 +4,7 @@
 #
 # Copyright (c) 2015-2020 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
+
 import collections
 import itertools
 import functools
@@ -290,11 +291,23 @@ class MeasurementGroup:
         s_list = self._all_states.get()
         return s_list
 
+    @functools.lru_cache(maxsize=1)
+    def _get_available_counters(self):
+        """Return available counters from static config
+
+        Thanks to the lru cache, if the method is called with same args
+        it returns a memorized value.
+        This allows to be more efficient to get enabled or disabled
+        counters, without repeating costly calls.
+        """
+        return set(cnt.fullname for cnt in self._available_counters)
+
     @property
     def available(self):
         """available counters from the static config
         """
-        return set(cnt.fullname for cnt in self._available_counters)
+        self._get_available_counters.cache_clear()
+        return self._get_available_counters()
 
     @property
     def _available_counters(self):
@@ -303,12 +316,12 @@ class MeasurementGroup:
         )
         return set(counters)
 
-    @property
-    def disabled(self):
-        """ Disabled counter names
+    def _get_disabled_counters(self):
+        """Return list of disabled counters
+
+        Remove counters from redis that are not in config, if any
         """
-        # remove counters from redis that are not in config, if any
-        available_counters = self.available
+        available_counters = self._get_available_counters()
         disabled_counters = set(self._disabled_setting.get())
         not_present_counters = set()
         for cnt_fullname in disabled_counters:
@@ -318,6 +331,13 @@ class MeasurementGroup:
             ):
                 not_present_counters.add(cnt_fullname)
         return disabled_counters - not_present_counters
+
+    @property
+    def disabled(self):
+        """ Disabled counter names
+        """
+        self._get_available_counters.cache_clear()
+        return self._get_disabled_counters()
 
     @property
     def _disabled_setting(self):
@@ -346,11 +366,15 @@ class MeasurementGroup:
         else:
             self._disabled_setting.set(list(new_disabled))
 
+    def _get_enabled_counters(self):
+        return set(self._get_available_counters()) - set(self._get_disabled_counters())
+
     @property
     def enabled(self):
         """returns Enabled counter names list
         """
-        return set(self.available) - set(self.disabled)
+        self._get_available_counters.cache_clear()
+        return self._get_enabled_counters()
 
     def _find_counter_names(self, counters, counter_patterns):
         default_group_counters = set(cnt.fullname for cnt in counters)
@@ -450,6 +474,10 @@ class MeasurementGroup:
     def __info__(self):
         """ function used when printing a measurement group.
         """
+        self._get_available_counters.cache_clear()
+        enabled_counters = self._get_enabled_counters()
+        disabled_counters = self._get_disabled_counters()
+
         info_str = "MeasurementGroup: %s (state='%s')\n" % (
             self.name,
             self.active_state_name,
@@ -460,14 +488,14 @@ class MeasurementGroup:
         info_str = info_str.strip("; ")
         info_str += "\n\n"
 
-        enabled = list(self.enabled) + ["Enabled"]
+        enabled = list(enabled_counters) + ["Enabled"]
 
         max_len = max((len(x) for x in enabled))
         str_format = "  %-" + "%ds" % max_len + "  %s\n"
         info_str += str_format % ("Enabled", "Disabled")
         info_str += str_format % ("-" * max_len, "-" * max_len)
         for enable, disable in itertools.zip_longest(
-            sorted(self.enabled), sorted(self.disabled), fillvalue=""
+            sorted(enabled_counters), sorted(disabled_counters), fillvalue=""
         ):
             info_str += str_format % (enable, disable)
 

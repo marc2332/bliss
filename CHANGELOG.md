@@ -70,6 +70,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Fixed first motor position for `amesh` with backnforth enabled
 - Flint
+    - Fixed memory leak on tree property and data
     - Fixed plot display in order to always use `plotselect` selection
     - Fixed `plotselect` was requesting Flint creating with some conditions
     - Fixed inconsistency with Flint layout at startup. Now the exact same
@@ -79,6 +80,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Fixed black background on OpenGL rendering
     - Fixed display of statistics on curves using integer array
     - Fixed displayed mask after the user mask selection
+ - Fixed memory leak on Tango DeviceProxy
+    - Used by Redis stream client retrieving image from node (like Flint)
 
 ## [1.5.0] - 2020-07-21
 

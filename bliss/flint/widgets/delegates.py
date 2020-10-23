@@ -246,8 +246,8 @@ class StylePropertyWidget(qt.QWidget):
         self.__buttonStyle: Optional[qt.QToolButton] = None
         self.__buttonContrast: Optional[qt.QToolButton] = None
 
-        self.__plotItem: Union[None, plot_model.Plot] = None
         self.__flintModel: Union[None, flint_model.FlintState] = None
+        self.__plotItem: Union[None, plot_model.Item] = None
         self.__scan: Union[None, scan_model.Scan] = None
 
     def setEditable(self, isEditable):

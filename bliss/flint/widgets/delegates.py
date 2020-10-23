@@ -461,8 +461,11 @@ class HookedStandardItem(qt.QStandardItem):
 
     def setData(self, value, role=qt.Qt.UserRole + 1):
         qt.QStandardItem.setData(self, value, role)
-        if self.modelUpdated is not None:
-            self.modelUpdated(self)
+        if self.modelUpdated is None:
+            return
+        method = self.modelUpdated()
+        if method is not None:
+            method(self)
 
 
 class RadioPropertyItemDelegate(qt.QStyledItemDelegate):

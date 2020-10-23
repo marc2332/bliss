@@ -7,6 +7,7 @@
 
 import pytest
 import numpy
+from bliss.physics.backend import MaterialBackend
 
 
 @pytest.fixture
@@ -32,13 +33,22 @@ def test_autofilter_api(autof_session):
     autofilter1 = autof_session.env_dict["autofilter1"]
     filterw = autof_session.env_dict["filterwheel1"]
 
-    # change filter
+    # no filter
     filterw.filter = 0
     assert autofilter1.transmission == 1
-    filterw.filter = 2
-    # Transmission of 20um Cu at 16keV roughly 0.327 according to
+
+    # 20 micron copper
     # http://henke.lbl.gov/optical_constants/filter2.html
-    assert autofilter1.transmission == pytest.approx(0.327, abs=.005)
+    # Cu Density=8.96 Thickness=20. microns
+    #  Photon Energy (eV), Transmission
+    #     16000.      0.32744
+    filterw.filter = 2
+    if MaterialBackend.BACKEND_NAME == "xraylib":
+        rtol = 0.5  # % relative difference
+    else:
+        # Large difference due to photoelectric cross section
+        rtol = 7  # % relative difference
+    assert autofilter1.transmission == pytest.approx(0.32744, rel=rtol / 100)
 
     # change energy and see if transmission is updated
     filterw.filter = 2

@@ -8,6 +8,8 @@
 from __future__ import annotations
 
 import logging
+import weakref
+
 from silx.gui import qt
 from .extended_dock_widget import ExtendedDockWidget
 
@@ -36,6 +38,7 @@ class MainPropertyWidget(ExtendedDockWidget):
         self.setWindowTitle("Plot properties")
         self.__focusWidget = None
         self.__view = None
+        self.__viewSource = None
         self.__stack = _Stack(self)
         self.__stack.setSizePolicy(qt.QSizePolicy.Preferred, qt.QSizePolicy.Expanding)
 
@@ -71,10 +74,17 @@ class MainPropertyWidget(ExtendedDockWidget):
         return self.__focusWidget
 
     def setFocusWidget(self, widget):
+
+        viewSource = None
+        if self.__viewSource is not None:
+            viewSource = self.__viewSource()
+
         if widget is None:
             view = self.createEmptyWidget(self)
-        else:
+            self.__viewSource = None
+        elif widget is not viewSource:
             view = widget.createPropertyWidget(self)
+            self.__viewSource = weakref.ref(widget)
 
         self.__view = view
         self.__stack.setWidget(view)

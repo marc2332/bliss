@@ -238,6 +238,11 @@ def elogbook_filter(record):
     """Checks whether an electronic logbook is available.
     """
     if current_session:
+        try:
+            scan_saving = current_session.scan_saving
+        except AttributeError:
+            # no scan saving yet ? (like, called from session setup)
+            return False
         return current_session.scan_saving.elogbook is not None
     else:
         # No active session -> no notion of data policy

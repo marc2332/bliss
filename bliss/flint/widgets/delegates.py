@@ -261,6 +261,8 @@ class StylePropertyWidget(qt.QWidget):
         h = style.pixelMetric(qt.QStyle.PM_ExclusiveIndicatorHeight)
         indicatorSize = qt.QSize(w, h) + qt.QSize(4, 4)
 
+        layout = self.layout()
+
         if self.__buttonStyle is not None:
             self.__buttonStyle.setVisible(isEditable)
         elif isEditable:
@@ -271,7 +273,6 @@ class StylePropertyWidget(qt.QWidget):
             self.__buttonStyle.setAutoRaise(True)
             self.__buttonStyle.clicked.connect(self.__editStyle)
             self.__buttonStyle.setFixedSize(indicatorSize)
-            layout = self.layout()
             layout.addWidget(self.__buttonStyle)
 
         if self.__buttonContrast is not None:
@@ -284,7 +285,6 @@ class StylePropertyWidget(qt.QWidget):
             self.__buttonContrast.setAutoRaise(True)
             self.__buttonContrast.clicked.connect(self.__editConstrast)
             self.__buttonContrast.setFixedSize(indicatorSize)
-            layout = self.layout()
             layout.addWidget(self.__buttonContrast)
         self.__updateEditButton()
 

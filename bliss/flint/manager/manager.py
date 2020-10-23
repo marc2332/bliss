@@ -14,6 +14,7 @@ from typing import Optional
 from typing import List
 from typing import ClassVar
 
+import tracemalloc
 import gevent.event
 from bliss.config.conductor.client import get_redis_connection
 from bliss.flint import config
@@ -29,6 +30,7 @@ from bliss.flint.model import scan_model
 from bliss.flint.helper import model_helper
 from bliss.flint.helper.style_helper import DefaultStyleStrategy
 from bliss.flint.widgets.utils.plot_helper import PlotWidget
+from bliss.flint.utils import memutils
 
 from ..helper import scan_info_helper
 from . import workspace_manager
@@ -57,6 +59,54 @@ class BlissLogServerHandler(logging.handlers.SocketHandler):
         return super().emit(record)
 
 
+class MemoryMonitoring(qt.QObject):
+    def __init__(self, parent=None):
+        qt.QObject.__init__(self, parent=parent)
+        self.__timer = qt.QTimer(self)
+        self.__timer.setInterval(30000)
+        self.__timer.timeout.connect(self.logMoritoring)
+
+    def start(self):
+        memutils.patch_count_qobject_instance(scan_model.Scan)
+        memutils.patch_count_qobject_instance(scan_model.Data)
+        memutils.patch_count_qobject_instance(plot_model.Plot)
+        memutils.patch_count_qobject_instance(plot_model.Item)
+        tracemalloc.start()
+        self.__snapshot = tracemalloc.take_snapshot()
+        self.__timer.start()
+
+    def stop(self):
+        self.__timer.stop()
+        tracemalloc.stop()
+        self.__snapshot = None
+
+    def flintModel(self) -> flint_model.FlintState:
+        return self.parent().flintModel()
+
+    def logMoritoring(self):
+        app = qt.QApplication.instance()
+        _logger.info("== Memory monitoring ==")
+        _logger.info("GUI")
+        _logger.info("- Nb widgets: %s", len(app.allWidgets()))
+        _logger.info("Scans processed: %s", scan_model.Scan.SUM_INSTANCE)
+        _logger.info("- Nb scan ref: %s", scan_model.Scan.ALIVE_INSTANCE)
+        _logger.info("- Nb data ref: %s", scan_model.Data.ALIVE_INSTANCE)
+        _logger.info("Plot created: %s", plot_model.Plot.SUM_INSTANCE)
+        _logger.info("- Nb plot ref: %s", plot_model.Plot.ALIVE_INSTANCE)
+        _logger.info("- Nb item ref: %s", plot_model.Item.ALIVE_INSTANCE)
+
+        _logger.info("Tracemalloc")
+        snapshot = tracemalloc.take_snapshot()
+        stats = snapshot.compare_to(self.__snapshot, "lineno")
+        for stat in stats[:10]:
+            _logger.info("- %s", stat)
+
+        flintModel = self.flintModel()
+        scanManager = flintModel.scanManager()
+        _logger.info("Scan manager")
+        _logger.info("- Cache size: %s", len(scanManager._cache()))
+
+
 class ManageMainBehaviours(qt.QObject):
     def __init__(self, parent=None):
         super(ManageMainBehaviours, self).__init__(parent=parent)
@@ -68,6 +118,20 @@ class ManageMainBehaviours(qt.QObject):
         self.__workspaceManager = workspace_manager.WorkspaceManager(self)
         self.__tangoMetadata = None
         self.__beaconLogHandler = None
+        self.__memMonitoring = MemoryMonitoring(self)
+
+    def memoryMonitoring(self) -> MemoryMonitoring:
+        """Provide an helper to monitor the memory.
+
+        By default it is not used.
+
+        Can be started by calling:
+
+        .. code-block::
+
+            manager.memoryMonitoring().start()
+        """
+        return self.__memMonitoring
 
     def setFlintModel(self, flintModel: flint_model.FlintState):
         if self.__flintModel is not None:

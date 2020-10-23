@@ -110,14 +110,14 @@ class ComputedCurveItem(plot_model.ChildItem, plot_item_model.CurveMixIn):
         if not self.isResultValid(result):
             return None
         data = result.xx
-        return scan_model.Data(self, data)
+        return scan_model.Data(None, data)
 
     def yData(self, scan: scan_model.Scan) -> Optional[scan_model.Data]:
         result = self.reachResult(scan)
         if not self.isResultValid(result):
             return None
         data = result.yy
-        return scan_model.Data(self, data)
+        return scan_model.Data(None, data)
 
     def setSource(self, source: plot_model.Item):
         previousSource = self.source()
@@ -578,7 +578,7 @@ class NormalizedCurveItem(plot_model.ChildItem, plot_item_model.CurveMixIn):
         yy = data / monitor
         # FIXME: Issue on silx
         yy[numpy.isinf(yy)] = numpy.nan
-        return scan_model.Data(self, yy)
+        return scan_model.Data(None, yy)
 
     def setSource(self, source: plot_model.Item):
         previousSource = self.source()
@@ -659,7 +659,7 @@ class UserValueItem(
         self._emitValueChanged(plot_model.ChangeEventType.Y_CHANNEL)
 
     def yData(self, scan: scan_model.Scan) -> Optional[scan_model.Data]:
-        return scan_model.Data(self, self.__y)
+        return scan_model.Data(None, self.__y)
 
     def getScanValidation(self, scan: scan_model.Scan) -> Optional[str]:
         """

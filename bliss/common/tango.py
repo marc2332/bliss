@@ -142,11 +142,30 @@ class DeviceProxy(Proxy):
             functools.partial(_DeviceProxy, *args, **kwargs), init_once=True
         )
 
+        object.__setattr__(self, "_DeviceProxy__dev_name", "not-yet-set")
         dev_name = self.__wrapped__.dev_name()
+        object.__setattr__(self, "_DeviceProxy__dev_name", dev_name)
+
         global_map.register(self, parents_list=["comms"], tag=dev_name)
         object.__setattr__(self, "_DeviceProxy__logger", get_logger(self).debug)
 
         self.set_source(DevSource.DEV)
+
+    def __str__(self):
+        """
+        Re-implemented function as workaround for Tango issue:
+
+        https://github.com/tango-controls/pytango/issues/298
+        """
+        return f"{type(self).__name__}({self.__dev_name})"
+
+    def __repr__(self):
+        """
+        Re-implemented function as workaround for Tango issue:
+
+        https://github.com/tango-controls/pytango/issues/298
+        """
+        return f"{type(self).__name__}({self.__dev_name},{id(self)})"
 
     def __getattr__(self, name):
         try:

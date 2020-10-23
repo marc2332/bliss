@@ -819,7 +819,7 @@ class Data(qt.QObject):
         source: str = None,
         receivedTime: float = None,
     ):
-        super(Data, self).__init__(parent=parent)
+        qt.QObject.__init__(self, parent=parent)
         self.__array = array
         self.__frameId = frameId
         self.__source = source

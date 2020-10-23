@@ -10,6 +10,7 @@ from __future__ import annotations
 from typing import List
 from typing import Dict
 
+from silx.utils.weakref import WeakList
 from silx.gui import qt
 from silx.gui import icons
 
@@ -35,6 +36,8 @@ class StandardRowItem(qt.QStandardItem):
 
     def __init__(self):
         super(StandardRowItem, self).__init__()
+        # FIXME: This hard ref sounds too dangerous as items are not QObject.
+        # It would be simply to split the row and the first item.
         self.__rowItems = [self]
 
     def setOtherRowItems(self, *args):
@@ -42,7 +45,10 @@ class StandardRowItem(qt.QStandardItem):
         self.__rowItems.extend(args)
 
     def rowItems(self) -> List[qt.QStandardItem]:
-        return self.__rowItems
+        items = self.__rowItems
+        # release the refs when it should not anymore needed
+        self.__rowItems = WeakList(items)
+        return items
 
 
 class ScanRowItem(StandardRowItem):

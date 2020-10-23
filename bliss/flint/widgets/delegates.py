@@ -267,7 +267,7 @@ class StylePropertyWidget(qt.QWidget):
             self.__buttonStyle.setVisible(isEditable)
         elif isEditable:
             icon = icons.getQIcon("flint:icons/style")
-            self.__buttonStyle = qt.QToolButton()
+            self.__buttonStyle = qt.QToolButton(self)
             self.__buttonStyle.setToolTip("Edit the style of this item")
             self.__buttonStyle.setIcon(icon)
             self.__buttonStyle.setAutoRaise(True)
@@ -279,7 +279,7 @@ class StylePropertyWidget(qt.QWidget):
             self.__buttonContrast.setVisible(isEditable)
         elif isEditable and self.__displayContrast:
             icon = icons.getQIcon("flint:icons/contrast")
-            self.__buttonContrast = qt.QToolButton()
+            self.__buttonContrast = qt.QToolButton(self)
             self.__buttonContrast.setToolTip("Edit the contrast of this item")
             self.__buttonContrast.setIcon(icon)
             self.__buttonContrast.setAutoRaise(True)

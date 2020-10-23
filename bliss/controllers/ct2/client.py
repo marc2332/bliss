@@ -138,9 +138,12 @@ class CT2Controller(Proxy, CounterController):
     def __info__(self):
         infos = f"CT2Controller [address={self.board_address}]\n"
         infos += "Counters:\n"
+        internal_timer_counter = (
+            self.internal_timer_counter
+        )  # be careful: this is one RPC call
         for name, cnt in self._counters.items():
             infos += f"  channel {cnt.channel:2d} : {name}"
-            if cnt.channel == self.internal_timer_counter:
+            if cnt.channel == internal_timer_counter:
                 infos += " [timer]"
             infos += "\n"
         infos += "External signals:\n"

@@ -226,6 +226,10 @@ def test_channels_advanced(beacon):
     c1 = channels.Channel("test_chan7", bus=bus1)
     assert c1.value is None
 
+    # ensure that _raw_send as reach **del current_channels**
+    # otherwise c1 will be kept by local current_channels in _raw_send
+    gevent.sleep(0.1)
+
     # Channel 1 is unreferenced but not unsubscribed
     del c1
     assert bus1.get_channel("test_chan7") is None

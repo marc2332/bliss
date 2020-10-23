@@ -2,7 +2,7 @@
 import pytest
 import numpy as np
 
-from mock import Mock
+from mock import Mock, MagicMock
 
 from bliss.common import scans
 from bliss.controllers.mca.mythen import Mythen
@@ -47,7 +47,8 @@ def run_command(monkeypatch):
         # Not managed
         assert False
 
-    monkeypatch.setattr(mythenlib, "Socket", Mock())
+    monkeypatch.setattr(mythenlib.udp, "Socket", MagicMock())
+    monkeypatch.setattr(mythenlib.tcp, "Socket", MagicMock())
     monkeypatch.setattr(mythenlib, "run_command", run_command)
     run_command.setters = setters
     run_command.commands = commands

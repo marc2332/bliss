@@ -13,6 +13,7 @@ from typing import Optional
 
 import logging
 import functools
+import weakref
 
 from silx.gui import qt
 from silx.gui import icons
@@ -522,8 +523,8 @@ class _DataItem(_property_tree_helper.ScanRowItem):
         self.__channel = channel
         self.setChannelLookAndFeel(channel)
         self.__updateXAxisStyle(True, qt.Qt.Unchecked)
-        self.__xaxis.modelUpdated = self.__xAxisChanged
-        self.__yaxes.modelUpdated = self.__yAxisChanged
+        self.__xaxis.modelUpdated = weakref.WeakMethod(self.__xAxisChanged)
+        self.__yaxes.modelUpdated = weakref.WeakMethod(self.__yAxisChanged)
 
         self.__treeView.openPersistentEditor(self.__xaxis.index())
         self.__treeView.openPersistentEditor(self.__yaxes.index())
@@ -564,13 +565,15 @@ class _DataItem(_property_tree_helper.ScanRowItem):
         self.__style.setData(plotItem, role=delegates.PlotItemRole)
         self.__remove.setData(plotItem, role=delegates.PlotItemRole)
 
-        self.__yaxes.modelUpdated = self.__yAxisChanged
+        self.__yaxes.modelUpdated = weakref.WeakMethod(self.__yAxisChanged)
 
         if plotItem is not None:
             isVisible = plotItem.isVisible()
             state = qt.Qt.Checked if isVisible else qt.Qt.Unchecked
             self.__displayed.setData(state, role=delegates.VisibilityRole)
-            self.__displayed.modelUpdated = self.__visibilityViewChanged
+            self.__displayed.modelUpdated = weakref.WeakMethod(
+                self.__visibilityViewChanged
+            )
         else:
             self.__displayed.setData(None, role=delegates.VisibilityRole)
             self.__displayed.modelUpdated = None
@@ -579,7 +582,7 @@ class _DataItem(_property_tree_helper.ScanRowItem):
             self.setPlotItemLookAndFeel(plotItem)
 
         if isinstance(plotItem, plot_item_model.CurveItem):
-            self.__xaxis.modelUpdated = self.__xAxisChanged
+            self.__xaxis.modelUpdated = weakref.WeakMethod(self.__xAxisChanged)
             useXAxis = True
         elif isinstance(plotItem, plot_item_model.CurveMixIn):
             # self.__updateXAxisStyle(False, None)

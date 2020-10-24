@@ -13,6 +13,10 @@ This module should be removed at one point.
 
 from silx.gui import qt
 
+import logging
+
+_logger = logging.getLogger(__name__)
+
 
 class QTreeView(qt.QTreeView):
     """This class provides Qt 5.10 API for Qt 5.9 library
@@ -22,6 +26,7 @@ class QTreeView(qt.QTreeView):
         qt.QTreeView.__init__(self, *args, **kwargs)
         self._opened = set({})
         if not hasattr(qt.QTreeView, "isPersistentEditorOpen"):
+            _logger.info("Apply backport from Qt 5.10")
             self.isPersistentEditorOpen = self._isPersistentEditorOpen
             self.openPersistentEditor = self._openPersistentEditor
             self.closePersistentEditor = self._closePersistentEditor

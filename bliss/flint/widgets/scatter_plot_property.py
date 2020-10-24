@@ -12,6 +12,7 @@ from typing import Dict
 from typing import Optional
 
 import logging
+import weakref
 
 from silx.gui import qt
 from silx.gui import icons
@@ -216,9 +217,9 @@ class _DataItem(_property_tree_helper.ScanRowItem):
         self.__yAxis.setData(qt.Qt.Unchecked, role=delegates.RadioRole)
         self.__valueAxis.setData(qt.Qt.Unchecked, role=delegates.CheckRole)
 
-        self.__xAxis.modelUpdated = self.__xAxisChanged
-        self.__yAxis.modelUpdated = self.__yAxisChanged
-        self.__valueAxis.modelUpdated = self.__valueAxisChanged
+        self.__xAxis.modelUpdated = weakref.WeakMethod(self.__xAxisChanged)
+        self.__yAxis.modelUpdated = weakref.WeakMethod(self.__yAxisChanged)
+        self.__valueAxis.modelUpdated = weakref.WeakMethod(self.__valueAxisChanged)
         self.__treeView.openPersistentEditor(self.__yAxis.index())
         self.__treeView.openPersistentEditor(self.__xAxis.index())
         self.__treeView.openPersistentEditor(self.__valueAxis.index())
@@ -257,7 +258,7 @@ class _DataItem(_property_tree_helper.ScanRowItem):
         self.__yAxis.modelUpdated = None
         self.__valueAxis.setData(qt.Qt.Checked, role=delegates.CheckRole)
 
-        self.__valueAxis.modelUpdated = self.__valueAxisChanged
+        self.__valueAxis.modelUpdated = weakref.WeakMethod(self.__valueAxisChanged)
         self.__style.setData(plotItem, role=delegates.PlotItemRole)
         self.__style.setData(self.__flintModel, role=delegates.FlintModelRole)
         self.__remove.setData(plotItem, role=delegates.PlotItemRole)
@@ -266,7 +267,9 @@ class _DataItem(_property_tree_helper.ScanRowItem):
             isVisible = plotItem.isVisible()
             state = qt.Qt.Checked if isVisible else qt.Qt.Unchecked
             self.__displayed.setData(state, role=delegates.VisibilityRole)
-            self.__displayed.modelUpdated = self.__visibilityViewChanged
+            self.__displayed.modelUpdated = weakref.WeakMethod(
+                self.__visibilityViewChanged
+            )
         else:
             self.__displayed.setData(None, role=delegates.VisibilityRole)
             self.__displayed.modelUpdated = None
@@ -287,8 +290,8 @@ class _DataItem(_property_tree_helper.ScanRowItem):
         # FIXME: why do we have to do that?
         self.__treeView.resizeColumnToContents(self.__style.column())
 
-        self.__xAxis.modelUpdated = self.__xAxisChanged
-        self.__yAxis.modelUpdated = self.__yAxisChanged
+        self.__xAxis.modelUpdated = weakref.WeakMethod(self.__xAxisChanged)
+        self.__yAxis.modelUpdated = weakref.WeakMethod(self.__yAxisChanged)
         self.updateError()
 
 

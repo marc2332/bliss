@@ -12,6 +12,7 @@ from typing import Dict
 from typing import Optional
 
 import logging
+import weakref
 
 from silx.gui import qt
 
@@ -87,7 +88,7 @@ class _DataItem(_property_tree_helper.ScanRowItem):
         self.setChannelLookAndFeel(channel)
         self.__used.modelUpdated = None
         self.__used.setCheckable(True)
-        self.__used.modelUpdated = self.__usedChanged
+        self.__used.modelUpdated = weakref.WeakMethod(self.__usedChanged)
 
     def setPlotItem(self, plotItem):
         self.__plotItem = plotItem
@@ -95,7 +96,7 @@ class _DataItem(_property_tree_helper.ScanRowItem):
         self.__used.modelUpdated = None
         self.__used.setData(plotItem, role=delegates.PlotItemRole)
         self.__used.setCheckState(qt.Qt.Checked)
-        self.__used.modelUpdated = self.__usedChanged
+        self.__used.modelUpdated = weakref.WeakMethod(self.__usedChanged)
 
         self.__style.setData(plotItem, role=delegates.PlotItemRole)
         self.__remove.setData(plotItem, role=delegates.PlotItemRole)
@@ -104,7 +105,9 @@ class _DataItem(_property_tree_helper.ScanRowItem):
             isVisible = plotItem.isVisible()
             state = qt.Qt.Checked if isVisible else qt.Qt.Unchecked
             self.__displayed.setData(state, role=delegates.VisibilityRole)
-            self.__displayed.modelUpdated = self.__visibilityViewChanged
+            self.__displayed.modelUpdated = weakref.WeakMethod(
+                self.__visibilityViewChanged
+            )
         else:
             self.__displayed.setData(None, role=delegates.VisibilityRole)
             self.__displayed.modelUpdated = None

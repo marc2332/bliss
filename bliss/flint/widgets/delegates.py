@@ -246,8 +246,8 @@ class StylePropertyWidget(qt.QWidget):
         self.__buttonStyle: Optional[qt.QToolButton] = None
         self.__buttonContrast: Optional[qt.QToolButton] = None
 
-        self.__plotItem: Union[None, plot_model.Plot] = None
         self.__flintModel: Union[None, flint_model.FlintState] = None
+        self.__plotItem: Union[None, plot_model.Item] = None
         self.__scan: Union[None, scan_model.Scan] = None
 
     def setEditable(self, isEditable):
@@ -261,30 +261,30 @@ class StylePropertyWidget(qt.QWidget):
         h = style.pixelMetric(qt.QStyle.PM_ExclusiveIndicatorHeight)
         indicatorSize = qt.QSize(w, h) + qt.QSize(4, 4)
 
+        layout = self.layout()
+
         if self.__buttonStyle is not None:
             self.__buttonStyle.setVisible(isEditable)
         elif isEditable:
             icon = icons.getQIcon("flint:icons/style")
-            self.__buttonStyle = qt.QToolButton()
+            self.__buttonStyle = qt.QToolButton(self)
             self.__buttonStyle.setToolTip("Edit the style of this item")
             self.__buttonStyle.setIcon(icon)
             self.__buttonStyle.setAutoRaise(True)
             self.__buttonStyle.clicked.connect(self.__editStyle)
             self.__buttonStyle.setFixedSize(indicatorSize)
-            layout = self.layout()
             layout.addWidget(self.__buttonStyle)
 
         if self.__buttonContrast is not None:
             self.__buttonContrast.setVisible(isEditable)
         elif isEditable and self.__displayContrast:
             icon = icons.getQIcon("flint:icons/contrast")
-            self.__buttonContrast = qt.QToolButton()
+            self.__buttonContrast = qt.QToolButton(self)
             self.__buttonContrast.setToolTip("Edit the contrast of this item")
             self.__buttonContrast.setIcon(icon)
             self.__buttonContrast.setAutoRaise(True)
             self.__buttonContrast.clicked.connect(self.__editConstrast)
             self.__buttonContrast.setFixedSize(indicatorSize)
-            layout = self.layout()
             layout.addWidget(self.__buttonContrast)
         self.__updateEditButton()
 
@@ -461,8 +461,11 @@ class HookedStandardItem(qt.QStandardItem):
 
     def setData(self, value, role=qt.Qt.UserRole + 1):
         qt.QStandardItem.setData(self, value, role)
-        if self.modelUpdated is not None:
-            self.modelUpdated(self)
+        if self.modelUpdated is None:
+            return
+        method = self.modelUpdated()
+        if method is not None:
+            method(self)
 
 
 class RadioPropertyItemDelegate(qt.QStyledItemDelegate):

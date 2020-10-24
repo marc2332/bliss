@@ -2,7 +2,7 @@ from bliss.controllers.motor import Controller
 from bliss.common.axis import AxisState
 
 
-class MocoMotorController(Controller):
+class Moco(Controller):
     """
     bliss.controllers.motor.Controller
     """

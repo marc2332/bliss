@@ -8,6 +8,7 @@
 import os
 import itertools
 import gevent
+import pytest
 
 
 def _dataset_path(base_path, proposal, beamline, sample, dataset):
@@ -52,6 +53,7 @@ def _create_state(icat_proxy, base_path, beamline, state, timeout=10):
         print(f"Created state {icat_proxy.state}: {icat_proxy.status}")
 
 
+@pytest.mark.skip()
 def test_ingester_status(
     session, metaexp_without_backend, metamgr_without_backend, esrf_data_policy
 ):

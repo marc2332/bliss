@@ -983,7 +983,8 @@ def sim_ct_gauss_service(beacon):
     proc = subprocess.Popen(
         SERVICE + ["sim_ct_gauss_service"], stdout=subprocess.PIPE, env=env
     )
-    wait_for(proc.stdout, "Staring service sim_ct_gauss_service")
+    wait_for(proc.stdout, "Starting service sim_ct_gauss_service")
+    gevent.sleep(0.5)
     proc.stdout.close()
     sim = beacon.get("sim_ct_gauss_service")
     yield sim

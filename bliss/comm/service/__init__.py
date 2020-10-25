@@ -9,6 +9,7 @@ import time
 import argparse
 import weakref
 import gevent
+import gevent.event
 
 from bliss.config import settings, static
 from bliss.comm import rpc
@@ -159,8 +160,10 @@ def _start_server(obj, name, info, services, server_loop, obj_to_server):
     obj_to_server[obj] = info, server
     _set_info(info, port)
     _Port2Object[port] = obj
-    print(f"Staring service {name} for object {obj} at port {port}")
-    server_loop.append(gevent.spawn(server.run))
+    server_ready_event = gevent.event.Event()
+    server_loop.append(gevent.spawn(server.run, server_ready_event))
+    server_ready_event.wait()
+    print(f"Starting service {name} for object {obj} at port {port}")
     return port
 
 

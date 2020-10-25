@@ -8,6 +8,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+
+### Changed
+
+### Fixed
+
+### Removed
+
+## [1.6.0 - 2020-10-25]
+
+### Added
+
+- ICAT metadata can now be saved to ICAT
+- Controllers
+    - shutter can be now used in cleanup context managers (will close the shutter on cleanup)
+    - Micos motor controller: add steps_position_precision
+    - Symetrie hexapod: added `origin` and `user_origin` options in YML config
+    - Keithley temperature sensor
+    - wago: added modules 750-464 & 750-473
+    - Elmo: added support for linear motors
 - Flint
     - A splash screen to wait for start up
     - A scan sequence can now display plots
@@ -23,52 +42,135 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
       and reused for each new scans
     - The colormaps from live plots are now editable in a common dockable widget
     - Logs are saved using beacon service (`/var/log/bliss/flint_{session}.log`)
-- Remote Flint API
-    - Added `get_plot` and `get_live_plot` from `flint()` proxy to create and
-      retrieve plots
-    - Provides a `set_colormap` method to custom live image/scatter plots
-    - Provide `focus` method to set the focus to a plot
-    - Provide a method to export a plot to the logbook
-    - Provide `update_user_data` method to feed live plot with processed data
-      from BLISS shell
-- Custom scan description (`scan_info`)
-    - Added fields to explicitly describe scatter plots
-    - Added fields to group channels of the same size
-    - Added fields to describes complex scatters
-    - Added `axis-id` to order the scatter axis
-- Provide codecs for few RGB format from Lima videos
-    - To use it, an optional dependency 'opencv' have to installed in the env
-- Update `edit_roi_counters` to also edit ROIs from Lima roi2spectrum (roi profile)
-  and arc ROIs
-- ICAT metadata can now be saved to ICAT
+    - Remote Flint API
+        - Added `get_plot` and `get_live_plot` from `flint()` proxy to create and
+          retrieve plots
+        - Provides a `set_colormap` method to custom live image/scatter plots
+        - Provide `focus` method to set the focus to a plot
+        - Provide a method to export a plot to the logbook
+        - Provide `update_user_data` method to feed live plot with processed data
+          from BLISS shell
+- Lima
+    - Provide codecs for few RGB format from Lima video image
+        - To use it, an optional dependency 'opencv' have to installed in the env
+    - Arc rois (for sinograms)
+    - Update `edit_roi_counters` to also edit ROIs from Lima roi2spectrum (roi profile)
+      and arc ROIs
+    - new Eiger camera class
+- Nexus Writer
+    - NXData with default plot following plotinit, plotselect in HDF5 file
+    - MCA counters in NXDetector
+- Redis
+    - added option to start 2 databases, one for settings one for data
+    - client-side caching to optimize settings
+- RPC
+    - Easily expose bliss object through server service
+- Scans
+    - custom scan math functions
+        - `find_position` and `goto_custom` take an user-supplied callback
+    - Custom scan description (`scan_info`)
+        - Added fields to explicitly describe scatter plots
+        - Added fields to group channels of the same size
+        - Added fields to describes complex scatters
+        - Added `axis-id` to order the scatter axis
+    - chain: add `before_stop` hook just before stopping devices
+    - display filename, scan number and date at the beginning of a scan
+    - CT2: new acquisition master for Variable Integration time in step scans for p201 and calc counters linked to p201
+    - improved scan statistics
+        - added metadata to timing measure
+        - include `wait_reading` timing
+    - ESRF data policy event channel
+    - AutoFilter providing a step-by-step ascan which can repeat counting to fit with the countrate range by changing the filter provided by the FilterSet controller behind
+- Standard functions
+    - added `pprint`
+    - added `rockit`
+    - umvd, umvdr, mvd, mvdr: functions for moving in dial position
 
 ### Changed
+
+- references in configuration YML files are now evaluated on demand, not only once
+- lprint, ladd renamed to user_print or elog_print and elog_add
+- expression-based calc counters can now have their constants as configuration references
+- Axis
+    - Indicate position when hard limit is reached
+- BLISS commands
+    - `edit_roi_counters` now set the focus on the detector widget
+- Controllers
+    - machinfo "wait for refill" is no longer shared between multiple sessions
+    - nanodac moved to Regulation framework
+    - icepap: take stop code into account (put controller in FAULT state)
+    - symetrie hexapod: added timeout argument in connecto
+    - MCCE refactoring
+        - serial object configuration to use official get_comm
+        - Manage retry in case of timeout
+        - Add range as string
+    - move moco motor code in `bliss.controllers.motors.moco` instead of `bliss.controllers.moco`
 - Flint
     - On a new scan, the focus is set to a widget, only if the scan is not
       visible on one of them
     - On live curve plot property, clicking on radio button when it is already
       checked will remove the curve
-- Custom scan description (`scan_info`)
-    - `fast`/`slow` axis kind was replaced by `axis-id`
-    - Axis kind only contains `forth/backnforth/step`
-- BLISS commands
-    - `edit_roi_counters` now set the focus on the detector widget
+    - Custom scan description (`scan_info`)
+        - `fast`/`slow` axis kind was replaced by `axis-id`
+        - Axis kind only contains `forth/backnforth/step`
+- Lima
+    - accumulation parameters for Lima devices are now controller parameters, and handled via a Beacon object (saved in redis)
+    - image and roi dialogs
+- Redis
+    - turned on I/O threads for data
+    - data is not persisted to disk anymore (when the second redis DB is used)
+- Scans
+    - scan_saving: remove tango manager status from the display table
+    - SCAN_SAVING.dataset moved to SCAN_SAVING.dataset_name, SCAN_SAVING.dataset now represents
+      an object handling icat metadata of the dataset
+    - SCAN_SAVING.sample moved to SCAN_SAVING.sample_name
+    - SCAN_SAVING.proposal moved to SCAN_SAVING.proposal_name
+- Tango MetadataManager device
+  - latest version of MetadataManager(4.0.7) required.
+  - by default datasets are no longer in `running` state on MetadataManager. Instead they are
+    pushed including their metadata once the dataset is closed.
 - tmux
     - independent tmux servers & sockets are used for diffrent sessions this way
       the tmux process of one session can be killed without affecting the otheres
     - the default session will no longer use tmux as it is meant for dev. and
       debug usage. It is not expected to have seral useres in these sessions
-- Tango MetadataManager device:
-  - latest version of MetadataManager(4.0.6) required.
-  - by default satasets are no longer in `running` state on MetadataManager. Instead they are
-    pushed including their metadata once the dataset is closed.
-- SCAN_SAVING.dataset moved to SCAN_SAVING.dataset_name, SCAN_SAVING.dataset now represents
-  an object that handels icat metadata of the dataset
-- SCAN_SAVING.sample moved to SCAN_SAVING.sample_name
-- SCAN_SAVING.proposal moved to SCAN_SAVING.proposal_name
+- Tests
+    - improved dangling greenlets monitoring
 
 ### Fixed
+
 - Fixed first motor position for `amesh` with backnforth enabled
+- Fixed memory leak on Tango DeviceProxy
+    - Used by Redis stream client retrieving image from node (like Flint)
+- user_script_load now really reloads the script file
+- aliases: avoid object comparisons with == as it calls __eq__
+    - potentially on remote objects
+- modbus communication fix
+- too many opened file descriptors because of channels initialization
+- Axis
+    - ensure no communication with hardware if movement does not happen (for example, if movement is too small)
+    - NoSettingsAxis in calc. controller
+    - NoSettingsAxis missing settings
+    - prevent recursion when settings are set
+- Beacon configuration application
+    - documentation search bar not working in Firefox
+- Controllers
+    - wago interlocks: fixed a bug on names longer than 32 chars
+    - Moco move state
+    - machinfo
+        - counters now show in measurement group
+        - metadata saving when session is restarted
+    - speedgoat: prevent movement when already in position
+    - nhq communication parsing
+    - white beam attenuator dialog
+    - oxford800 info and doc
+    - Mythen detector support
+    - Eurotherm 2000 also works with 32XX models
+    - Linkam
+    - P201/CT2: fix `acq_count_time` not defined when in ExtGate
+    - icepap trajectory: do not require velocity and acceleration in config
+    - MUSST counters
+    - ESRF Undulators
 - Flint
     - Fixed memory leak on tree property and data
     - Fixed plot display in order to always use `plotselect` selection
@@ -80,8 +182,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Fixed black background on OpenGL rendering
     - Fixed display of statistics on curves using integer array
     - Fixed displayed mask after the user mask selection
- - Fixed memory leak on Tango DeviceProxy
-    - Used by Redis stream client retrieving image from node (like Flint)
+- Lima
+    - Frelon "frame transfer" mode
+    - Perkin Elmer "synchro" mode to IMAGE + EXTERNAL_START_STOP trigger mode
+    - operations on image (flipping, binning, rotation) vs ROIs
+- Nexus Writer
+    - slitset positions inverted for offset and gap
+    - nexus file: link names not nexus compliant
+- Regulation framework
+    - calling "stop" on loop only stops ramping, not regulation
+    - better documentation
+- Scans
+    - Synchronization issues with data streams
+    - cen, com and scan math functions greatly improved
+    - measurement groups: Lima counters were all enabled when starting device server
+    - Cannot dmesh two pseudo motors with number of scan points on each
+    - Error in `goto_peak` with Calc Motor when the real motor is not in the session
+    - better error message when a motor is used twice in the same multi-motors scan
+- Shell
+    - file descriptors not being cleaned up because of progress bar
+    - user_scripts: command line completion works for function names, but not for arguments
+    - blocking calls in gevent loop
+- Tests
+    - properly wait for Tango devices to be started
+    - property wait for Tango DB to be started
+- Tmux
+    - one tmux server per session, one socket per tmux server
+
+### Removed
+
+- tmux context menu
+- TCP_NODELAY option (Nagle algorithm for tinygrams) removed in Command object
+- pixmaptools SIP extension
+- posix_queue command line option for Beacon server startup script
 
 ## [1.5.0] - 2020-07-21
 

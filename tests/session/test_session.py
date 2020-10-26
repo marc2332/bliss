@@ -402,3 +402,12 @@ def test_issue_1924(beacon):
     assert s2.scan_saving.__info__() != test_session_ss_info
     s.close()
     s2.close()
+
+
+def test_issue_2218(beacon):
+    scan_saving_cfg = beacon.root["scan_saving"]
+    scan_saving_cfg["class"] = "ESRFScanSaving"
+    default_session = session.DefaultSession()
+    env = dict()
+    default_session.setup(env_dict=env)
+    assert default_session.scan_saving.__class__.__name__ != "ESRFScanSaving"

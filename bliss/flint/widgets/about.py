@@ -89,8 +89,8 @@ class _Logo(silx.gui.plot.PlotWidget):
             for p in polylines:
                 if len(line) != 0:
                     line.append(numpy.array([float("NaN"), float("NaN")]))
-                for l in p:
-                    line.append(l)
+                for ln in p:
+                    line.append(ln)
         line = numpy.array(line)
         return line
 

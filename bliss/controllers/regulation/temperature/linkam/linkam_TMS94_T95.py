@@ -41,7 +41,7 @@ import enum
 from bliss import global_map
 from bliss.comm.util import get_comm
 from bliss.common.logtools import log_info, log_debug
-from bliss.controllers.regulator import send_limit
+from bliss.controllers.regulator import Controller, send_limit
 
 # --- patch the Input, Output and Loop classes with their Linkam equivalent -----------
 from bliss.controllers.regulation.temperature.linkam.linkam import (  # noqa: F401

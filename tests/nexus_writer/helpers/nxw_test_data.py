@@ -305,6 +305,8 @@ def validate_nxentry(
     expected |= expected_applications(technique, config=config, policy=policy)
     if notes:
         expected.add("notes")
+    if policy:
+        expected.add("sample")
     assert_set_equal(actual, expected)
 
 

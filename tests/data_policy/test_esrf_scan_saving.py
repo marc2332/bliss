@@ -30,6 +30,8 @@ from bliss.data.node import get_node
 from bliss.icat.definitions import Definitions
 from bliss.scanning.scan import Scan
 from bliss.icat.dataset import Dataset
+from bliss.icat.nexus import IcatToNexus, nxcharUnicode
+from tests.conftest import deep_compare
 
 
 def icat_info(scan_saving, dataset=False):
@@ -630,6 +632,54 @@ def test_icat_metadata_custom(session, icat_subscriber, esrf_data_policy):
     assert_icat_metadata_received(icat_subscriber, phrases)
     phrase = "<tns:name>0001</tns:name>"
     assert_icat_metadata_received(icat_subscriber, phrase)
+
+
+def test_icat_metadata_to_nexus(session, esrf_data_policy):
+    dataset = session.scan_saving.dataset
+    dataset.add_technique("FLUO")
+    dataset["FLUO_i0"] = "1"
+    dataset.gather_metadata()
+    metadict = dataset.get_current_icat_metadata()
+
+    converter = IcatToNexus()
+    nxtreedict = converter.create_nxtreedict(metadict)
+    expected = {
+        "FLUO": {"@NX_class": "NXsubentry", "i0": 1.0, "i0@units": ""},
+        "instrument": {
+            "@NX_class": "NXinstrument",
+            "variables": {
+                "@NX_class": "NXcollection",
+                "name": numpy.array("roby robz ", dtype=nxcharUnicode),
+                "value": numpy.array("0.0 0.0 ", dtype=nxcharUnicode),
+            },
+            "insertion_device": {
+                "@NX_class": "NXinsertion_device",
+                "gap": {
+                    "@NX_class": "NXpositioner",
+                    "name": numpy.array("roby robz", dtype=nxcharUnicode),
+                    "value": numpy.array("0.0 0.0", dtype=nxcharUnicode),
+                },
+            },
+            "primary_slit": {
+                "@NX_class": "NXslit",
+                "horizontal_gap": numpy.array("0.0", dtype=nxcharUnicode),
+                "horizontal_offset": numpy.array("0.0", dtype=nxcharUnicode),
+                "vertical_gap": numpy.array("0.0", dtype=nxcharUnicode),
+                "vertical_offset": numpy.array("0.0", dtype=nxcharUnicode),
+            },
+        },
+        "sample": {
+            "@NX_class": "NXsample",
+            "name": numpy.array("sample", dtype=nxcharUnicode),
+            "positioners": {
+                "@NX_class": "NXpositioner",
+                "name": numpy.array("roby", dtype=nxcharUnicode),
+                "value": numpy.array("0.0", dtype=nxcharUnicode),
+            },
+        },
+        "start_time": nxtreedict["start_time"],
+    }
+    deep_compare(nxtreedict, expected)
 
 
 def test_icat_metadata_namespaces(session, icat_subscriber, esrf_data_policy):

@@ -75,7 +75,7 @@ class LiveImagePlot:
         """ Start a Live display in Flint, calling 'self.data_cb' to refresh the image data """
 
         if self._get_data_cb is None:
-            raise ValueError(f"self._get_data_cb is None!")
+            raise ValueError("self._get_data_cb is None!")
 
         if not self.is_plot_active():
             self.create_plot(self._get_data_cb())

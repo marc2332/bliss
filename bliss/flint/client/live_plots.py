@@ -118,7 +118,7 @@ class LiveImagePlot:
                     if not self.is_plot_active():
                         break
 
-            except Exception as _e:
+            except Exception:
                 break
 
             gevent.sleep(self._sleep_time)

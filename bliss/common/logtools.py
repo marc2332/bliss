@@ -612,15 +612,15 @@ class BlissLogger(logging.Logger):
         """
         Represents the given data according to the previous settled format
         through methods:
-            * set_hex_format
-            * set_ascii_format
+
+        * set_hex_format
+        * set_ascii_format
 
         Or in dict form if data is a dictionary
 
-        Args:
+        Arguments:
             msg: The plain text message
-            data: dict
-                  or raw bytestring
+            data: dict or raw bytestring
         """
         if self.isEnabledFor(logging.DEBUG):
             data = args[-1]

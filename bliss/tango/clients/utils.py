@@ -126,6 +126,7 @@ def wait_tango_device(
                     err_msg = db_err_msg
                     if wait_db:
                         exception = e
+                        gevent.sleep(0.1)
                     else:
                         raise
                 else:

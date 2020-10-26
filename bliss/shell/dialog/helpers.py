@@ -1,6 +1,5 @@
 from bliss import global_map
-from bliss.shell.cli.user_dialog import UserChoice
-from bliss.shell.cli.pt_widgets import BlissDialog
+from bliss.shell.cli.pt_widgets import select_dialog
 
 
 def in_frange(str_input, mini, maxi):
@@ -43,18 +42,11 @@ def find_dialog(obj):
                 return display_func(obj, *args, **kwargs)
             elif len(dialog_classes) > 1:
                 # there are multiple dialogs => show main dialog to select sub-dialog
-                values = [(n, cls) for (n, cls) in enumerate(dialog_classes)]
-                choices = BlissDialog(
-                    [[UserChoice(values=values)]],
-                    title=f"Dialog Selection for {obj.name}",
-                    paddings=(3, 3),
-                ).show()
-                if choices:
-                    index = next(iter(choices.values()))  # getting first item
-                    submenu = values[index][1]
-                    display_func = dialog_classes[submenu]
+                title = f"Dialog Selection for {obj.name}"
+                submenu_class = select_dialog(dialog_classes, title=title)
+                if submenu_class:
+                    display_func = dialog_classes[submenu_class]
                     return display_func(obj, *args, **kwargs)
-
             else:
                 raise ValueError(
                     "Available dialogs types are: " + ", ".join(dialog_classes)

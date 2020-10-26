@@ -130,7 +130,6 @@ def test_decode_video_rgb32():
 def test_decode_bayer_rg16():
     frame = lima_image.decode_devencoded_video(("VIDEO_IMAGE", RAW_BAYER_RG16))
     image = frame[0]
-    print(image)
     assert image.dtype == numpy.uint8
     assert image.shape == (4, 4, 3)
     assert image[0, 0].tolist() == [8, 7, 4]

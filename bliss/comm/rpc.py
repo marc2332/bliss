@@ -267,8 +267,10 @@ class _ServerObject(object):
             self._socket.close()
             self._socket = None
 
-    def run(self):
+    def run(self, ready_event=None):
         server_socket = self._socket
+        if ready_event:
+            ready_event.set()
         try:
             while True:
                 new_client, addr = server_socket.accept()

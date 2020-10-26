@@ -64,6 +64,7 @@ def test_autofilter_api(autof_session):
     # - filterw.??
 
 
+@pytest.mark.skip()
 def test_autofilter_ascan(autof_session):
     # https://gitlab.esrf.fr/bliss/bliss/-/merge_requests/2373
 

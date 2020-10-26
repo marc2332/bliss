@@ -9,14 +9,6 @@ place.
 
 By default, BLISS is saving data in the HDF5 format, following Nexus convention.
 
-Available categories are:
-
-* instrument
-* sample
-* sample_description
-* proposal
-* technique
-
 ### Filling metadata
 
 The `get_user_scan_meta()` function from `bliss.scanning.scan_meta` returns the scan metadata object.

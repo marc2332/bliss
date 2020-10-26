@@ -38,10 +38,7 @@ def _object_method_filter(obj):
 
 class Icepap(Controller):
     """
-    IcePAP stepper controller without Deep Technology of Communication.
-    But if you prefer to have it (DTC) move to IcePAP controller class.
-    Use this class controller at your own risk, because you won't
-    have any support...
+    IcePAP stepper controller 
     """
 
     STATUS_DISCODE = {

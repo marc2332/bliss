@@ -16,7 +16,6 @@ from silx.gui.plot.tools.roi import RegionOfInterestManager
 from silx.gui.plot.tools.roi import RegionOfInterestTableWidget
 from silx.gui.plot.items.roi import RectangleROI
 from silx.gui.plot.items.roi import RegionOfInterest
-from .utils import rois as rois_mdl
 
 
 class RoiSelectionWidget(qt.QMainWindow):

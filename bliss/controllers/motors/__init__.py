@@ -29,6 +29,7 @@
     pmd206
     slitbox
     slits
+    stackmotor
     tab3
     tabsup
     tangoemot

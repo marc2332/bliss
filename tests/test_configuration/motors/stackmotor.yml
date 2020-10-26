@@ -1,0 +1,22 @@
+controller:
+  - module: stackmotor
+    class: StackMotor
+    axes:
+      # large stroke motor
+      - name: $roby
+        tags: real mls
+
+      # small stroke motor
+      - name: $m2
+        tags: real mss
+        # low and high limits
+        low_limit: -1
+        high_limit: 1
+        # absolute limits:
+        #   if False, limits are calculated from the current position when stack is enabled
+        #   at startup stack is enabled
+        absolute_limits: False
+
+      - name: mstack
+        tags: stack
+        unit: mrad

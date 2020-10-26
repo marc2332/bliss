@@ -13,6 +13,9 @@ positions:
     "@NX_class": NXattenuator
     type: Al
     status: in
+    Positioners_name: $att1z.name
+    Positioners_value: $att1z.position
+
     
 - label: Al40
   description: Attenuator in Al40 position
@@ -26,6 +29,9 @@ positions:
     thickness: 40
     thickness@unit: um
     status: in
+    Positioners_name: $att1z.name
+    Positioners_value: $att1z.position
+
     
 - label: Al200
   description: Attenuator in Al200 position
@@ -39,5 +45,8 @@ positions:
     thickness: 200
     thickness@unit: um
     status: in
+    Positioners_name: $att1z.name
+    Positioners_value: $att1z.position
+
 
 

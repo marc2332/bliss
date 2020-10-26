@@ -2,8 +2,9 @@ name: icat
 plugin: bliss
 class: ICATmeta
 
-#objects:
-#  secondary_slits: $secondary_slits
+objects:
+  primary_slit: $primary_slit
+  attenuator01: $att1
 
 positioners:
   sample: [$roby,$robz]

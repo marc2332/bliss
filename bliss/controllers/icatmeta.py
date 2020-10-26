@@ -40,10 +40,12 @@ class ICATmeta:
             assert hasattr(
                 device, "metadata"
             ), f"{device.name} has no metadata function"
-            prefix = commonprefix(list(instrumentation[key].fields))
+            prefix = commonprefix(list(instrumentation[key].fields)).strip("_")
+            # have to deal with cases where there is no tailing `_` in the prefix
+            # e.g. attenuator positions
             obj_meta = device.metadata()
             for icat_key in instrumentation[key].fields:
-                obj_key = icat_key.split(prefix)[-1]
+                obj_key = icat_key.split(prefix)[-1].strip("_")
                 if obj_key in obj_meta:
                     res[icat_key] = str(obj_meta[obj_key])
 

@@ -531,6 +531,8 @@ def test_icat_metadata(session, icat_subscriber, esrf_data_policy):
         "InstrumentAttenuator01Positioners_value": "2.5",
         "InstrumentAttenuator01Positioners_name": "att1z",
         "InstrumentAttenuator01_type": "Al",
+        "InstrumentInsertionDevice_gap_value": "0.0 0.0",
+        "InstrumentInsertionDevice_gap_name": "roby robz",
     }
     # Check metadata gathering
     icatfields2 = dict(scan_saving.dataset.get_current_icat_metadata())
@@ -617,9 +619,9 @@ def test_icat_metadata_custom(session, icat_subscriber, esrf_data_policy):
     assert datasets.keys() == {"0001", "0001_b"}
 
     metadata_0001 = datasets["0001"].node.metadata
-    assert len(metadata_0001) == 10  # , metadata_0001.keys()
+    assert len(metadata_0001) == 12  # , metadata_0001.keys()
     metadata_0001b = datasets["0001_b"].node.metadata
-    assert len(metadata_0001b) == 13  # , metadata_0001b.keys()
+    assert len(metadata_0001b) == 15  # , metadata_0001b.keys()
 
     assert "startDate" in metadata_0001
     assert "startDate" in metadata_0001b

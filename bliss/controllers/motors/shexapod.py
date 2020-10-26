@@ -216,12 +216,12 @@ class SHexapod(Controller):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        try:
-            user_origin = self.config.get("user_origin").split()
-            object_origin = self.config.get("object_origin").split()
-            self.set_origin(user_origin, object_origin)
-        except KeyError:
-            pass
+
+        user_origin = self.config.get("user_origin", "")
+        object_origin = self.config.get("object_origin", "")
+
+        if user_origin and object_origin:
+            self.set_origin(user_origin.split(), object_origin.split())
 
     def set_origin(self, user_origin, object_origin):
         if (len(user_origin) + len(object_origin)) != 12:

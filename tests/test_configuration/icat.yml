@@ -7,7 +7,7 @@ objects:
   attenuator01: $att1
 
 positioners:
-  sample: [$roby,$robz]
+  sample: $roby
   insertion_device_gap: [$roby,$robz]
 
 mapping:

@@ -520,8 +520,8 @@ def test_icat_metadata(session, icat_subscriber, esrf_data_policy):
     icatfields1 = {
         "InstrumentVariables_name": "roby robz ",
         "InstrumentVariables_value": "0.0 0.0 ",
-        "SamplePositioners_name": "roby robz",
-        "SamplePositioners_value": "0.0 0.0",
+        "SamplePositioners_name": "roby",
+        "SamplePositioners_value": "0.0",
         "InstrumentSlitPrimary_vertical_offset": "0.0",
         "InstrumentSlitPrimary_horizontal_offset": "0.0",
         "InstrumentSlitPrimary_horizontal_gap": "0.0",
@@ -549,9 +549,7 @@ def test_icat_metadata(session, icat_subscriber, esrf_data_policy):
     scan_saving.dataset_name = None
 
     # test reception of metadata on icat server side
-    phrase = (
-        "<tns:name>SamplePositioners_name</tns:name><tns:value>roby robz</tns:value>"
-    )
+    phrase = "<tns:name>SamplePositioners_name</tns:name><tns:value>roby</tns:value>"
     assert_icat_metadata_received(icat_subscriber, phrase)
 
     s = loopscan(3, 0.01, diode)

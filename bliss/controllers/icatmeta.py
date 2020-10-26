@@ -7,7 +7,7 @@
 from bliss.icat.definitions import Definitions
 from os.path import commonprefix
 from bliss.common.protocols import IcatPublisher
-from bliss.config.static import ConfigList
+from collections.abc import MutableSequence
 
 
 class ICATmeta:
@@ -27,7 +27,7 @@ class ICATmeta:
     def get_metadata(self):
         res = dict()
         for key, value in self.mapping.items():
-            if isinstance(value, ConfigList):
+            if isinstance(value, MutableSequence):
                 res[key] = ""
                 for sub_value in value:
                     res[key] += str(sub_value) + " "
@@ -51,8 +51,8 @@ class ICATmeta:
 
         positioners = self.definitions.positioners._asdict()
         for key, pos_list in self.positioners.items():
-            if not isinstance(pos_list, list):
-                pos_list = list(pos_list)
+            if not isinstance(pos_list, MutableSequence):
+                pos_list = [pos_list]
 
             assert key in positioners, f"{key} not a known positioner group in icat"
 

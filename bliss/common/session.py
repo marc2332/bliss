@@ -822,6 +822,15 @@ class DefaultSession(Session):
     def __init__(self):
         Session.__init__(self, "__DEFAULT__", {"config-objects": []})
 
+    def _set_scan_saving(self, cls=None):
+        # no special scan saving class for default session
+        if cls is not None:
+            log_warning(
+                self,
+                f"Not setting scan saving policy to {cls.__name__} in default session.",
+            )
+        super()._set_scan_saving(None)
+
     def _load_config(self, verbose=True):
         return
 

@@ -46,7 +46,7 @@ except ImportError:
 
 # Enforce loading of PyQt5
 # In case silx/matplotlib tries to import PySide, PyQt4...
-import PyQt5.QtCore
+import PyQt5.QtCore  # noqa
 
 import silx
 

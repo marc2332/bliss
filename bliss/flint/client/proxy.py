@@ -613,7 +613,7 @@ def get_flint(start_new=False, creation_allowed=True, mandatory=True):
             if pid is not None:
                 try:
                     return attach_flint(pid)
-                except:
+                except:  # noqa
                     FLINT_LOGGER.error(
                         "Impossible to attach Flint to the already existing PID %s", pid
                     )

@@ -117,7 +117,7 @@ class _VirtualScan:
         except Exception:
             _logger.error("Error while updating data", exc_info=True)
             self.__endOfScan()
-        except:
+        except:  # noqa
             _logger.error("Error while updating data", exc_info=True)
             self.__endOfScan()
             raise

@@ -269,8 +269,8 @@ class MarkerAction(qt.QWidgetAction):
         if not self.__useColorFromCursor:
             return
         color = self.getDefaultColor()
-        for roi in self.__manager.getRois():
-            roi.setColor(color)
+        for r in self.__manager.getRois():
+            r.setColor(color)
 
     def _updateRoiColor(self, roi):
         """Update a specific ROI according to the current selected item.

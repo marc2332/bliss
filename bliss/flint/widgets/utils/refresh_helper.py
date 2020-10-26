@@ -77,8 +77,8 @@ class RefreshManager(qt.QObject):
         action = qt.QAction(menu)
         action.setCheckable(True)
         action.setChecked(currentRate is None)
-        action.setText(f"As fast as possible")
-        action.setToolTip(f"The plot is updated when a new data is received")
+        action.setText("As fast as possible")
+        action.setToolTip("The plot is updated when a new data is received")
         action.triggered.connect(functools.partial(self.setRefreshMode, None))
         menu.addAction(action)
 
@@ -89,7 +89,7 @@ class RefreshManager(qt.QObject):
             action = qt.QAction(menu)
             action.setEnabled(False)
             action.setText(f"{periode} ms")
-            action.setToolTip(f"Last mesured rate when scan was precessing")
+            action.setToolTip("Last measured rate when scan was processing")
             menu.addAction(action)
 
     def createRefreshAction(self, parent: qt.QWidget):

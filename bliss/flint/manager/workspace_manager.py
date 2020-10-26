@@ -138,7 +138,7 @@ class WorkspaceData(dict):
 
         def pickUnusedObjectName():
             for i in range(100):
-                name = f"dock-%01d" % i
+                name = "dock-%01d" % i
                 if name not in objectNames:
                     objectNames.add(name)
                     return name

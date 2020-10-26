@@ -446,18 +446,15 @@ def get_channel_name(channel_item):
 def get_plot(
     channel_item, plot_type, scan=None, as_axes=False, wait=False, silent=False
 ):
-    """Return the first plot object of type 'plot_type' showing the
-    'channel_item' from Flint live scan view.
+    """Return the first plot object of type `plot_type` showing the
+    `channel_item` from Flint live scan view.
 
-    Argument:
+    Arguments:
         channel_item: must be a channel
-        plot_type: can be "image", "curve", "scatter", "mca"
-
-    Keyword argument:
-        as_axes (defaults to False): If true, reach a plot with this channel as
-            X-axes (curves ans scatters), or Y-axes (scatter)
-        wait (defaults to False): wait for plot to be shown
-
+        plot_type: can be `"image"`, `"curve"`, `"scatter"`, `"mca"`
+        as_axes: If true, reach a plot with this channel as X-axes (curves and
+                 scatters), or Y-axes (scatter)
+        wait: wait for plot to be shown
     Return:
         The expected plot, else None
     """

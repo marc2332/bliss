@@ -9,7 +9,6 @@ from bliss.icat.policy import DataPolicyObject
 
 
 class Proposal(DataPolicyObject):
-
     _NODE_TYPE = "proposal"
 
     @property

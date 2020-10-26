@@ -23,8 +23,8 @@ def masterfile_templates():
     :returns dict(str):
     """
     return {
-        "sample": os.path.join(
-            "..", os.path.extsep.join(("{proposal_name}_{sample_name}", "h5"))
+        "dataset_collection": os.path.join(
+            "..", os.path.extsep.join(("{proposal_name}_{collection_name}", "h5"))
         ),
         "proposal": os.path.join(
             "..", "..", os.path.extsep.join(("{proposal_name}_{beamline}", "h5"))

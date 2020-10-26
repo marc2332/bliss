@@ -8,6 +8,7 @@
 from bliss.common.logtools import log_debug, log_warning
 from bliss.common.utils import autocomplete_property
 from bliss.common.namespace_wrapper import NamespaceWrapper
+from bliss.icat.definitions import Definitions
 
 
 class DataPolicyObject:
@@ -32,6 +33,8 @@ class DataPolicyObject:
         undefined = self._REQUIRED_INFO - existing
         if undefined:
             raise RuntimeError(f"Missing node info: {undefined}")
+        self.definitions = Definitions()
+        self._expected_field = set()
 
     def __str__(self):
         return self.name
@@ -66,29 +69,47 @@ class DataPolicyObject:
     def _log_warning(self, msg):
         log_warning(self, f"{self._NODE_TYPE}({self}): {msg}")
 
+    @property
+    def parent(self):
+        return None
+
     def get_current_icat_metadata(self):
-        """Get all metadata key-value pairs from Redis
+        """Get all metadata key-value pairs from Redis (self and parents)
         """
-        return self._node.metadata
+        if self.parent:
+            metadata = self.parent.get_current_icat_metadata()
+        else:
+            metadata = dict()
+        metadata.update(self._node.metadata)
+        return metadata
 
     def get_current_icat_metadata_fields(self):
-        """Get all metadata field names from Redis
+        """Get all metadata field names from Redis (self and parents).
         """
-        return self._node.metadata_fields
+        metadata_fields = self._node.metadata_fields
+        if self.parent:
+            metadata_fields |= self.parent.get_current_icat_metadata_fields()
+        return metadata_fields
 
     def has_metadata_field(self, key):
-        """Check metadata field exists in Redis
+        """Check metadata field exists in Redis (self and parents).
         """
         return key in self.get_current_icat_metadata_fields()
 
     def read_metadata_field(self, key):
-        """Get the value of one metadata field from Redis
+        """Get the value of one metadata field from Redis (self and parents).
         Raises `KeyError` when field is missing.
         """
-        return self._node.info[key]
+        try:
+            return self._node.info[key]
+        except KeyError:
+            if self.parent:
+                return self.parent.read_metadata_field(key)
+            else:
+                raise
 
     def get_metadata_field(self, key, default=None):
-        """Get the value of one metadata field from Redis
+        """Get the value of one metadata field from Redis (self and parents).
         Returns `default` when field is missing.
         """
         try:
@@ -97,7 +118,7 @@ class DataPolicyObject:
             return default
 
     def write_metadata_field(self, key, value):
-        """Store metadata key-value pair in Redis.
+        """Store metadata key-value pair in Redis. Does not affect the parent.
         Remove key when the value is `None`.
         Raises `KeyError` when the key is not valid.
         Raises `ValueError` when the value is not a string.
@@ -115,17 +136,34 @@ class DataPolicyObject:
 
     def remove_metadata_field(self, key):
         """Remove a metadata field from Redis if it exists.
+        Does not affect the parents.
         """
-        if self.has_metadata_field(key):
-            self._node.info.pop(key)
+        self._node.info.pop(key, None)
+
+    def remove_all_metadata_fields(self):
+        """Remove a metadata field from Redis if it exists.
+        Does not affect the parents.
+        """
+        for key in self.get_current_icat_metadata_fields():
+            self.remove_metadata_field(key)
 
     def validate_fieldname(self, fieldname):
-        return False
+        return fieldname in self.definitions.all
+
+    @autocomplete_property
+    def all(self):
+        """namespace to access all possible keys"""
+        return NamespaceWrapper(
+            self.definitions.all, self.get_metadata_field, self.write_metadata_field
+        )
 
     @property
     def expected_fields(self):
         """all required metadata fields"""
-        return set()
+        if self.parent:
+            return self._expected_field | self.parent.expected_fields
+        else:
+            return self._expected_field
 
     @autocomplete_property
     def expected(self):
@@ -137,13 +175,13 @@ class DataPolicyObject:
     @property
     def existing_fields(self):
         """all existing metadata fields"""
-        return set(self.get_current_icat_metadata_fields())
+        return self.get_current_icat_metadata_fields()
 
     @autocomplete_property
     def existing(self):
         """namespace to read/write existing metadata fields"""
         return NamespaceWrapper(
-            self.existing_fields, self.read_metadata_field, self.write_metadata_field
+            self.existing_fields, self.get_metadata_field, self.write_metadata_field
         )
 
     @property
@@ -155,7 +193,7 @@ class DataPolicyObject:
     def missing(self):
         """namespace to read/write mising metadata fields"""
         return NamespaceWrapper(
-            self.missing_fields, self.read_metadata_field, self.write_metadata_field
+            self.missing_fields, self.get_metadata_field, self.write_metadata_field
         )
 
     def check_metadata_consistency(self):
@@ -166,3 +204,7 @@ class DataPolicyObject:
                 f"The following metadata fields are expected by a given technique but not provided: {mtf}"
             )
         return not mtf
+
+    @property
+    def metadata_is_complete(self):
+        return not self.missing_fields

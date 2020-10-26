@@ -143,9 +143,6 @@ class Definitions:
         tup_class = namedtuple(name, dct)
         return tup_class(**dct)
 
-    # ~ def _reevaluate_globals(self):
-    # ~ self._positioners=self._make_named_tuple('positioners',POSITIONERS)
-
     @autocomplete_property
     def positioners(self):
         return self._positioners

@@ -22,7 +22,7 @@ two data policies
 
 ## ESRF data policy
 
-This data policy requires the user to specify *proposal*, *sample* and
+This data policy requires the user to specify *proposal*, *collection* and
 *dataset*. This will completely define how data is organized.
 
 ### Change proposal
@@ -47,16 +47,26 @@ The data root directory is derived from the proposal name
 These root path can be [configured](installation_esrf.md#ESRF data policy) but
 these are the defaults.
 
-### Change sample
+### Change collection
+
+A collection is a group of datasets that share some characteristics
 
 ```python
-DEMO  [2]: newsample("sample1")
-Sample set to 'sample1'
+DEMO  [2]: newcollection("sample1")
+Dataset collection set to 'sample1'
 Data path: /data/id00/inhouse/blc123/id00/sample1/sample1_0001
 ```
 
-When no sample name is given, the default sample name "sample" is used. Note
-that you can always come back to an existing sample.
+When no collection name is given, the default "sample" is used. Note
+that you can always come back to an existing collection to add more dataset.
+
+When the datasets in a collection share the same sample, you can use
+
+```python
+DEMO  [2]: newsample("sample1")
+Dataset collection set to 'sample1'
+Data path: /data/id00/inhouse/blc123/id00/sample1/sample1_0001
+```
 
 ### Change dataset
 

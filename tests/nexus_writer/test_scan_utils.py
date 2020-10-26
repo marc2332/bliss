@@ -70,7 +70,7 @@ def _test_scan_utils(
             "sample_0001",
             "sample_0001.h5",
         )
-        sample_filename = tmpdir.join(
+        collection_filename = tmpdir.join(
             session.name,
             "fs1",
             "id00",
@@ -89,7 +89,10 @@ def _test_scan_utils(
             "id00",
             "testproposal_id00.h5",
         )
-        master_filenames = {"sample": sample_filename, "proposal": proposal_filename}
+        master_filenames = {
+            "dataset_collection": collection_filename,
+            "proposal": proposal_filename,
+        }
         filenames = {"dataset": dataset_filename}
     else:
         dataset_filename = tmpdir.join(session.name, "a_b.h5")
@@ -116,7 +119,7 @@ def _test_scan_utils(
         filenames = {}
     elif not saves_masters:
         master_filenames = {}
-        filenames.pop("sample", None)
+        filenames.pop("dataset_collection", None)
         filenames.pop("proposal", None)
 
     # Check file names from session (save settings are irrelevant)
@@ -146,7 +149,7 @@ def _test_scan_utils(
         filenames = {}
     elif not saves_masters:
         master_filenames = {}
-        filenames.pop("sample", None)
+        filenames.pop("dataset_collection", None)
         filenames.pop("proposal", None)
 
     # Check file names from scan object

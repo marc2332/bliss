@@ -45,7 +45,7 @@ def test_config_withpolicy(nexus_writer_config):
         "sample_0001",
         "sample_0001.h5",
     )
-    expected_filenames["sample"] = tmpdir.join(
+    expected_filenames["dataset_collection"] = tmpdir.join(
         session.name,
         "fs1",
         "id00",

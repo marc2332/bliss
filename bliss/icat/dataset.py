@@ -10,11 +10,9 @@ import os
 import datetime
 from bliss import current_session
 from bliss.icat import FieldGroup
-from bliss.icat.definitions import Definitions
 from bliss.common.utils import autocomplete_property
-from bliss.common.namespace_wrapper import NamespaceWrapper
 from bliss.icat.policy import DataPolicyObject
-from bliss.icat.sample import Sample
+from bliss.icat.dataset_collection import DatasetCollection
 
 
 class Dataset(DataPolicyObject):
@@ -24,15 +22,7 @@ class Dataset(DataPolicyObject):
 
     def __init__(self, node):
         super().__init__(node)
-        self.definitions = Definitions()
-
-    def write_metadata_field(self, fieldname, value):
-        if self.is_closed:
-            raise RuntimeError("The dataset is already closed")
-        super().write_metadata_field(fieldname, value)
-
-    def validate_fieldname(self, fieldname):
-        return fieldname in self.definitions.all
+        self._collection = None
 
     @property
     def expected_fields(self):
@@ -51,7 +41,6 @@ class Dataset(DataPolicyObject):
             on_exists="overwrite": overwrite in Redis
             else: raise RuntimeError
         """
-
         if self.is_closed:
             raise RuntimeError("The dataset is already closed")
 
@@ -149,22 +138,28 @@ class Dataset(DataPolicyObject):
         :param IcatIngesterProxy icat_proxy:
         """
         self._log_debug("store in ICAT")
-        sample = self.sample
+        collection = self.collection
         icat_proxy.store_dataset(
-            sample.proposal.name,
-            sample.name,
+            collection.proposal.name,
+            collection.name,
             self.name,
             self.path,
             metadata=self.get_current_icat_metadata(),
         )
 
-    @property
-    def sample(self):
-        return Sample(self._node.parent)
+    @autocomplete_property
+    def collection(self):
+        if self._collection is None:
+            self._collection = DatasetCollection(self._node.parent)
+        return self._collection
+
+    @autocomplete_property
+    def proposal(self):
+        return self.collection.proposal
 
     @property
-    def proposal(self):
-        return self.sample.proposal
+    def parent(self):
+        return self.collection
 
     @property
     def scan_nodes(self):
@@ -186,3 +181,36 @@ class Dataset(DataPolicyObject):
     @property
     def is_closed(self):
         return self._node.is_closed
+
+    @autocomplete_property
+    def description(self):
+        # TODO: use Dataset_description when it gets introduced
+        return self.get_metadata_field("Sample_description")
+
+    @description.setter
+    def description(self, value):
+        # TODO: use Dataset_description when it gets introduced
+        if value is not None:
+            # TODO: remove this block when Dataset_description gets introduced
+            sample_description = self.sample_description
+            if sample_description:
+                value = f"{sample_description} ({value})"
+        self["Sample_description"] = value
+
+    @autocomplete_property
+    def sample_description(self):
+        # TODO: use Dataset_description when it gets introduced
+        return self.collection.sample_description
+
+    @sample_description.setter
+    def sample_description(self, value):
+        # TODO: use Dataset_description when it gets introduced
+        self.collection.sample_description = value
+
+    @autocomplete_property
+    def sample_name(self):
+        return self.get_metadata_field("Sample_name")
+
+    @sample_name.setter
+    def sample_name(self, value):
+        self["Sample_name"] = value

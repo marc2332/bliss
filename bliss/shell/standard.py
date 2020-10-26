@@ -164,6 +164,7 @@ __all__ = (
         "newproposal",
         "endproposal",
         "newsample",
+        "newcollection",
         "newdataset",
         "enddataset",
         "silx_view",
@@ -1194,18 +1195,44 @@ def newproposal(proposal_name: Optional[str] = None):
 
 @typeguard.typechecked
 @logtools.elogbook.disable_command_logging
-def newsample(sample_name: Optional[str] = None):
-    """Change the sample name used to determine the saving path.
+def newsample(collection_name: Optional[str] = None, description: Optional[str] = None):
+    """Same as `newcollection` with sample name equal to the collection name.
     """
-    current_session.scan_saving.newsample(sample_name)
+    current_session.scan_saving.newsample(collection_name, description=description)
 
 
 @typeguard.typechecked
 @logtools.elogbook.disable_command_logging
-def newdataset(dataset_name: Optional[Union[str, int]] = None):
-    """Change the dataset name used to determine the saving path.
+def newcollection(
+    collection_name: Optional[str] = None,
+    sample_name: Optional[str] = None,
+    sample_description: Optional[str] = None,
+):
+    """Change the collection name used to determine the saving path.
+    Metadata can be modified later if needed.
     """
-    current_session.scan_saving.newdataset(dataset_name)
+    current_session.scan_saving.newcollection(
+        collection_name, sample_name=sample_name, sample_description=sample_description
+    )
+
+
+@typeguard.typechecked
+@logtools.elogbook.disable_command_logging
+def newdataset(
+    dataset_name: Optional[Union[str, int]] = None,
+    description: Optional[str] = None,
+    sample_name: Optional[str] = None,
+    sample_description: Optional[str] = None,
+):
+    """Change the dataset name used to determine the saving path.
+    The description can be modified until the dataset is closed.
+    """
+    current_session.scan_saving.newdataset(
+        dataset_name,
+        description=description,
+        sample_name=sample_name,
+        sample_description=sample_description,
+    )
 
 
 @logtools.elogbook.disable_command_logging

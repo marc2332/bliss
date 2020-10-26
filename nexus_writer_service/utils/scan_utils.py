@@ -16,7 +16,7 @@ from . import data_policy
 from .logging_utils import print_out
 
 
-__all__ = ["open_data", "open_dataset", "open_sample", "open_proposal"]
+__all__ = ["open_data", "open_dataset", "open_dataset_collection", "open_proposal"]
 
 
 def scan_info(scan):
@@ -246,14 +246,14 @@ def open_dataset(scan, block=False):
         print_out("No data saved for this scan")
 
 
-def open_sample(scan, block=False, config=True):
+def open_dataset_collection(scan, block=False, config=True):
     """
-    Open sample in silx
+    Open collection in silx
 
     :param bool block: block thread until silx is closed
     :param bool config: configurable writer is used
     """
-    filename = scan_master_filenames(scan, config=config).get("sample")
+    filename = scan_master_filenames(scan, config=config).get("dataset_collection")
     if filename:
         open_uris([filename], block=block)
     else:
@@ -262,7 +262,7 @@ def open_sample(scan, block=False, config=True):
 
 def open_proposal(scan, block=False, config=True):
     """
-    Open sample in silx
+    Open proposal in silx
 
     :param bool block: block thread until silx is closed
     :param bool config: configurable writer is used

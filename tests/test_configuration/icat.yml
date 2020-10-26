@@ -8,6 +8,7 @@ objects:
 
 positioners:
   sample: [$roby,$robz]
+  insertion_device_gap: [$roby,$robz]
 
 mapping:
   InstrumentVariables_name: [ $roby.name, $robz.name ]

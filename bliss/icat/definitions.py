@@ -94,10 +94,21 @@ class Definitions:
                 )
             else:
                 for pos in pos_parent.iterfind('.//group[@NX_class="NXpositioner"]'):
-                    process_node(pos, fields)
+                    if pos.get("groupName") != "positioners":
+                        # deal with insertion device / nested positioners declaration
+                        fields2 = list()
+                        pos_group_name2 = pos_group_name + "_" + pos.get("groupName")
+                        process_node(pos, fields2)
+                        POSITIONERS[pos_group_name2] = FieldGroup(
+                            pos_group_name2, sorted(fields2)
+                        )
 
-            POSITIONERS[pos_group_name] = FieldGroup(pos_group_name, sorted(fields))
-            self._positioners = self._make_named_tuple("positioners", POSITIONERS)
+                    else:
+                        process_node(pos, fields)
+
+            if fields:
+                POSITIONERS[pos_group_name] = FieldGroup(pos_group_name, sorted(fields))
+        self._positioners = self._make_named_tuple("positioners", POSITIONERS)
 
         # populate SAMPLE
         sample_entry = xml.find('.//group[@NX_class="NXsample"]')

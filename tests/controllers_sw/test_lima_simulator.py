@@ -856,6 +856,7 @@ def test_lima_ctrl_params_uploading(default_session, lima_simulator, caplog):
     assert " starting background sub proxy of lima_simulator" in caplog.messages
 
 
+@pytest.mark.flaky(reruns=3)
 def test_reapplying_ctrl_params(default_session, caplog):
     simulator = default_session.config.get("lima_simulator")
 

@@ -27,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Keithley temperature sensor
     - wago: added modules 750-464 & 750-473
     - Elmo: added support for linear motors
+    - Stackmotors: pair of motors mounted on top of each other
 - Flint
     - A splash screen to wait for start up
     - A scan sequence can now display plots

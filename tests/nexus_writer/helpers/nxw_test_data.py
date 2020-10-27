@@ -471,7 +471,13 @@ def validate_instrument(
     content = nexus.nxtodict(instrument["beamstop"])
     assert content == {"@NX_class": "NXbeam_stop", "status": "in"}
     content = nexus.nxtodict(instrument["att1"])
-    assert content == {"@NX_class": "NXattenuator", "status": "in", "type": "Al"}
+    assert content == {
+        "Positioners_name": "att1z",
+        "Positioners_value": 0.5,
+        "status": "in",
+        "type": "Al",
+        "@NX_class": "NXattenuator",
+    }
 
 
 def validate_plots(

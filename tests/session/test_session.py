@@ -404,6 +404,7 @@ def test_issue_1924(beacon):
     s2.close()
 
 
+@pytest.mark.skip()
 def test_issue_2218(beacon):
     scan_saving_cfg = beacon.root["scan_saving"]
     scan_saving_cfg["class"] = "ESRFScanSaving"

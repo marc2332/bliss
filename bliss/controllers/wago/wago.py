@@ -1150,7 +1150,7 @@ class WagoController:
             # check if we have a coupler or a controller
             self.series = self.client_read_input_registers(0x2011, "H")
         except Exception:
-            log_error(self, "Error connecting to Wago")
+            log_error(self, f"Error connecting to Wago {self.client.host}")
             raise
 
         self.order_nu = self.client_read_input_registers(0x2012, "H")

@@ -22,6 +22,13 @@ import numpy
 import sys
 from bliss.controllers.motors.icepap.comm import _command, _ackcommand, _vdata_header
 from bliss.controllers.motors.icepap.linked import LinkedAxis
+
+# next imports are needed by the emotion plugin
+from bliss.common.encoder import Encoder
+from bliss.controllers.motors.icepap.shutter import Shutter
+from bliss.controllers.motors.icepap.switch import Switch
+
+#
 from bliss.controllers.motors.icepap.trajectory import (
     TrajectoryAxis,
     PARAMETER,

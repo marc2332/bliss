@@ -71,7 +71,7 @@ check_lint:
     - pip install . --no-deps
     # run tests on source
     - echo ${PYTEST_ARGS}
-    - python setup.py test
+    - if [ -z $PYTEST_ARGS ]; then python setup.py test; else python setup.py test --addopts "$PYTEST_ARGS";fi
   variables:
     CHANGES: '\.(py|cfg)$|requirements|gitlab-ci|^(bin|extensions|scripts|spec|tests)/'
 
@@ -81,7 +81,7 @@ test_bliss:
   except:
     - master
   variables:
-    PYTEST_ARGS: '--durations=30'
+    PYTEST_ARGS: ''
 
 test_writer:
   # Run hdf5 writer tests without coverage for any branches except the master
@@ -89,7 +89,7 @@ test_writer:
   except:
     - master
   variables:
-    PYTEST_ARGS: '--durations=30 -m writer --runwritertests'
+    PYTEST_ARGS: '-m writer --runwritertests'
 
 test_bliss_cov:
   # Run bliss tests with coverage for master only
@@ -277,7 +277,7 @@ test_bliss_package:
       - htmlcov/
     expire_in: 7 days
   variables:
-    PYTEST_ARGS: '--cov bliss --cov-report html:htmlcov --cov-report term'
+    PYTEST_ARGS: ''
 
 test_writer_package:
   # Run HDF5 writer tests using the bliss conda package
@@ -291,7 +291,7 @@ test_writer_package:
       - htmlcov_writer/
     expire_in: 7 days
   variables:
-    PYTEST_ARGS: '--cov nexus_writer_service --cov-report html:htmlcov_writer --cov-report term -m writer --runwritertests'
+    PYTEST_ARGS: '-m writer --runwritertests'
 
 pages:
   stage: deploy

@@ -311,7 +311,9 @@ class ElogHandler(logging.Handler):
             elogbook = current_session.scan_saving.elogbook
             elogbook.send_message(msg, msg_type=msg_type)
         except Exception as e:
-            log_error(self, f"Electronic logbook failed ({e})")
+            err_msg = f"Electronic logbook failed ({e})"
+            # ignore logbook error for the moment
+            pass
 
 
 class ForcedLogger(logging.Logger):

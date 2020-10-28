@@ -36,7 +36,7 @@ check_style:
   script:
     - pip install -r requirements-dev.txt
     # run black
-    - LC_ALL=C.UTF-8 black --check --safe .
+    - LC_ALL=C.UTF-8 black --check --safe $(git diff origin/master... --diff-filter=ACMR --name-only | grep \\.py$)
 
 check_lint:
   stage: style

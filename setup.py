@@ -233,7 +233,7 @@ def main():
         "bliss.icat": ["hdf5_cfg.xml"],
         "bliss.controller.demo": ["*.h5", "*.npy", "*.edf.gz"],
         "bliss.controllers.speedgoat": ["*.bat", "*.dll", "*.h"],
-        "bliss.tango.servers": ["*.xmi", "ct2_ds/*xmi"],
+        "bliss.tango.servers": ["*.xmi", "ct2_ds/*.xmi"],
     }
 
     setup(

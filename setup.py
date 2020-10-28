@@ -209,7 +209,9 @@ def main():
             "css/*.*",
             "js/*.*",
             "res/*.*",
+            "css/bootstrap-notify-styles/*.*",
         ],
+        "bliss.config.conductor.web": ["*.html"],
         "bliss.config.conductor.web.homepage": [
             "*.html",
             "css/*.*",
@@ -229,6 +231,9 @@ def main():
             "gui/*.ui",
         ],
         "bliss.icat": ["hdf5_cfg.xml"],
+        "bliss.controller.demo": ["*.h5", "*.npy", "*.edf.gz"],
+        "bliss.controllers.speedgoat": ["*.bat", "*.dll", "*.h"],
+        "bliss.tango.servers": ["*.xmi", "ct2_ds/*.xmi"],
     }
 
     setup(

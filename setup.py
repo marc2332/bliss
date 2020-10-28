@@ -202,7 +202,7 @@ def main():
         setup_requires += ["pytest-runner"]
 
     package_data = {
-        "bliss.config.redis": ["redis.conf"],
+        "bliss.config.redis": ["*.conf"],
         "bliss.config.plugins": ["*.html"],
         "bliss.config.conductor.web.configuration": [
             "*.html",

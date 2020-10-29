@@ -10,9 +10,8 @@ import logging
 import logging.handlers
 from contextlib import contextmanager
 import re
-from fnmatch import fnmatch, fnmatchcase
+from fnmatch import fnmatchcase
 import networkx as nx
-from functools import wraps
 import weakref
 import gevent
 

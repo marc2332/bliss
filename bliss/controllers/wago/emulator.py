@@ -410,7 +410,7 @@ class WagoEmulator:
         self.port = get_open_ports(1)[0]
         self.server_ready_event = gevent.event.Event()  # threading.Event()
 
-        self.t = gevent.spawn(
+        self.task = gevent.spawn(
             Wago,
             self.server_ready_event,
             (self.host, self.port),
@@ -421,4 +421,4 @@ class WagoEmulator:
         self.server_ready_event.wait()
 
     def close(self):
-        gevent.kill(self.t)
+        self.task.kill()

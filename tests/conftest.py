@@ -233,7 +233,13 @@ def ports(beacon_directory, log_directory):
     proc = subprocess.Popen(BEACON + args, stderr=subprocess.PIPE)
     # TODO: Beacon needs an 'is_ready' command
     wait_for(proc.stderr, "Tango database started")
-    proc.stderr.close()
+
+    def read_std(stream):
+        while True:
+            sys.stderr.write(stream.read(1024))
+
+    # redirect the content of the stream
+    dispatcher = gevent.spawn(read_std, proc.stderr)
 
     # disable .rdb files saving (redis persistence)
     r = redis.Redis(host="localhost", port=ports.redis_port)
@@ -246,6 +252,7 @@ def ports(beacon_directory, log_directory):
     yield ports
 
     atexit._run_exitfuncs()
+    dispatcher.kill()
     wait_terminate(proc)
 
 

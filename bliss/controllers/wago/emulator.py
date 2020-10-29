@@ -8,6 +8,7 @@ import gevent.event
 from umodbus import conf
 from umodbus.server.tcp import RequestHandler, get_server
 from umodbus.utils import log_to_stream
+from umodbus import log as umodbus_logger
 
 from bliss.controllers.wago.helpers import to_unsigned, bytestring_to_wordarray
 from bliss.controllers.wago.wago import MODULES_CONFIG, ModulesConfig
@@ -420,5 +421,11 @@ class WagoEmulator:
 
         self.server_ready_event.wait()
 
+    def clean_loggers(self):
+        for h in umodbus_logger.handlers:
+            umodbus_logger.removeHandler(h)
+        umodbus_logger.addHandler(logging.NullHandler())
+
     def close(self):
+        self.clean_loggers()
         self.task.kill()

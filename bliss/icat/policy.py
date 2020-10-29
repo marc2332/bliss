@@ -73,22 +73,24 @@ class DataPolicyObject:
     def parent(self):
         return None
 
-    def get_current_icat_metadata(self):
+    def get_current_icat_metadata(self, pattern=None):
         """Get all metadata key-value pairs from Redis (self and parents)
         """
         if self.parent:
-            metadata = self.parent.get_current_icat_metadata()
+            metadata = self.parent.get_current_icat_metadata(pattern=pattern)
         else:
             metadata = dict()
-        metadata.update(self._node.metadata)
+        metadata.update(self._node.get_metadata(pattern=pattern))
         return metadata
 
-    def get_current_icat_metadata_fields(self):
+    def get_current_icat_metadata_fields(self, pattern=None):
         """Get all metadata field names from Redis (self and parents).
         """
-        metadata_fields = self._node.metadata_fields
+        metadata_fields = self._node.get_metadata_fields(pattern=pattern)
         if self.parent:
-            metadata_fields |= self.parent.get_current_icat_metadata_fields()
+            metadata_fields |= self.parent.get_current_icat_metadata_fields(
+                pattern=pattern
+            )
         return metadata_fields
 
     def has_metadata_field(self, key):

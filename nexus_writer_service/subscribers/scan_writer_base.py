@@ -1798,9 +1798,10 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
             dataset = Dataset(self.node.parent)
         except RuntimeError:
             return  # No data policy
-        metadict = dataset.collection.get_current_icat_metadata()
-        nxtreedict = converter.create_nxtreedict(metadict)
-        self._subscan_dicttonx(subscan, nxtreedict)
+        metadict = dataset.get_current_icat_metadata(pattern="Sample")
+        if metadict:
+            nxtreedict = converter.create_nxtreedict(metadict)
+            self._subscan_dicttonx(subscan, nxtreedict)
 
     def _subscan_dicttonx(self, subscan, nxtreedict):
         if not nxtreedict:

@@ -11,7 +11,6 @@ from umodbus.utils import log_to_stream
 
 from bliss.controllers.wago.helpers import to_unsigned, bytestring_to_wordarray
 from bliss.controllers.wago.wago import MODULES_CONFIG, ModulesConfig
-from bliss.controllers.wago.helpers import remove_comments, splitlines
 
 from bliss.common.utils import get_open_ports
 

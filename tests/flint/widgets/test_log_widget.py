@@ -6,7 +6,8 @@ import pytest
 from silx.gui.utils.testutils import TestCaseQt
 from bliss.flint.widgets.log_widget import LogWidget
 
-logger = logging.getLogger(__name__)
+test_logger = logging.getLogger("bliss.tests." + __name__)
+test_logger.propagate = False
 
 
 @pytest.mark.usefixtures("xvfb")
@@ -25,11 +26,11 @@ class TestLogWidget(TestCaseQt):
     def test_logging(self):
         widget = LogWidget()
         self.qWaitForWindowExposed(widget)
-        widget.connect_logger(logger)
+        widget.connect_logger(test_logger)
         self.assertEqual(widget.logCount(), 0)
-        logger.warning("Tout le %s s'eclate", "monde")
+        test_logger.warning("Tout le %s s'eclate", "monde")
         self.qWait()
-        logger.error("A la queu%s%s", "leu", "leu")
+        test_logger.error("A la queu%s%s", "leu", "leu")
         self.qWait()
         self.assertEqual(widget.logCount(), 2)
         widget = None
@@ -37,10 +38,10 @@ class TestLogWidget(TestCaseQt):
     def test_buggy_logging(self):
         widget = LogWidget()
         self.qWaitForWindowExposed(widget)
-        widget.connect_logger(logger)
+        widget.connect_logger(test_logger)
         self.assertEqual(widget.logCount(), 0)
-        logger.warning("Two fields expected %s %f", "foo")
-        logger.warning("Float field expected %f", "foo")
+        test_logger.warning("Two fields expected %s %f", "foo")
+        test_logger.warning("Float field expected %f", "foo")
         self.qWait()
         self.assertEqual(widget.logCount(), 2)
         widget = None
@@ -48,13 +49,13 @@ class TestLogWidget(TestCaseQt):
     def test_max_logs(self):
         widget = LogWidget()
         self.qWaitForWindowExposed(widget)
-        widget.connect_logger(logger)
+        widget.connect_logger(test_logger)
         widget.setMaximumLogCount(2)
         self.assertEqual(widget.logCount(), 0)
-        logger.warning("A1")
-        logger.warning("A1")
-        logger.warning("B2")
-        logger.warning("B2")
+        test_logger.warning("A1")
+        test_logger.warning("A1")
+        test_logger.warning("B2")
+        test_logger.warning("B2")
         self.qWait()
         self.assertEqual(widget.logCount(), 2)
 
@@ -64,24 +65,24 @@ class TestLogWidget(TestCaseQt):
         widget = None
 
     def test_handler_released_on_destroy(self):
-        nb = len(logger.handlers)
+        nb = len(test_logger.handlers)
         widget = LogWidget()
         widget.show()
         self.qWaitForWindowExposed(widget)
-        widget.connect_logger(logger)
-        self.assertEqual(len(logger.handlers), nb + 1)
+        widget.connect_logger(test_logger)
+        self.assertEqual(len(test_logger.handlers), nb + 1)
 
         ref = weakref.ref(widget)
         widget = None
         self.qWaitForDestroy(ref)
 
-        self.assertEqual(len(logger.handlers), nb)
+        self.assertEqual(len(test_logger.handlers), nb)
 
     def test_causes(self):
         """Coverage with exception containing causes"""
         widget = LogWidget()
         self.qWaitForWindowExposed(widget)
-        widget.connect_logger(logger)
+        widget.connect_logger(test_logger)
 
         try:
             try:
@@ -92,7 +93,7 @@ class TestLogWidget(TestCaseQt):
             except Exception as e:
                 raise RuntimeError("CCC") from e
         except Exception as e:
-            logger.critical("Hmmmm, no luck", exc_info=e)
+            test_logger.critical("Hmmmm, no luck", exc_info=e)
 
         self.qWait()
         self.assertEqual(widget.logCount(), 1)

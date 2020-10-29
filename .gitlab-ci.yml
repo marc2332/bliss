@@ -69,9 +69,11 @@ check_lint:
     - source activate testenv
     - conda install pytest-profiling --yes
     - pip install . --no-deps
+    # Make sure python will not reach source from git
+    - mv bliss bliss_
     # run tests on source
     - echo ${PYTEST_ARGS}
-    - if [ -z $PYTEST_ARGS ]; then python setup.py test; else python setup.py test --addopts "$PYTEST_ARGS";fi
+    - pytest tests $PYTEST_ARGS
   variables:
     CHANGES: '\.(py|cfg)$|requirements|gitlab-ci|^(bin|extensions|scripts|spec|tests)/'
 
@@ -142,7 +144,7 @@ test_writer_cov:
     - call conda create --quiet --name testenv --file requirements-conda-win64.txt --file requirements-test-conda-win64.txt
     - call conda activate testenv
     - call pip install . --no-deps
-    - call python setup.py test --addopts "-x --durations=30"
+    - call pytest tests -x --durations=30
 
 package:
   stage: build

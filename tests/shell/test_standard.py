@@ -303,8 +303,6 @@ def test_open_close_flint(test_session_without_flint):
     pid = f.pid
     assert psutil.pid_exists(pid)
     f.close()
-    process = psutil.Process(pid)
-    psutil.wait_procs([process], timeout=5)
     assert not psutil.pid_exists(pid)
 
 
@@ -314,8 +312,12 @@ def test_open_kill_flint(test_session_without_flint):
     pid = f.pid
     assert psutil.pid_exists(pid)
     f.kill9()
-    process = psutil.Process(pid)
-    psutil.wait_procs([process], timeout=1)
+    try:
+        process = psutil.Process(pid)
+    except psutil.NoSuchProcess:
+        pass
+    else:
+        psutil.wait_procs([process], timeout=1)
     assert not psutil.pid_exists(pid)
 
 

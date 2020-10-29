@@ -561,13 +561,13 @@ def flint_context(with_flint=True):
     else:
         flint = plot.get_flint(creation_allowed=False)
         if flint is not None:
-            flint.close_application()
+            flint.close()
             flint = None  # Break the reference to the proxy
             plot.reset_flint()
     yield
     flint = plot.get_flint(creation_allowed=False)
     if flint is not None:
-        flint.close_application()
+        flint.close()
         flint = None  # Break the reference to the proxy
     plot.reset_flint()
 

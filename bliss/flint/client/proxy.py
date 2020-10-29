@@ -92,19 +92,30 @@ class FlintClient:
     def close_proxy(self):
         if self._proxy is not None:
             self._proxy.close()
+        if self._callbacks is not None:
+            stdout_callback, stderr_callback = self._callbacks
+            event.disconnect(self._proxy, "flint_stdout", stdout_callback)
+            event.disconnect(self._proxy, "flint_stderr", stderr_callback)
+        self._callbacks = None
         self._proxy = None
         self._pid = None
         self._process = None
         if self._greenlets is not None:
-            gevent.killall(self._greenlets)
+            gevent.killall(self._greenlets, timeout=2.0)
         self._greenlets = None
-        self._callbacks = None
 
     def close(self):
         """Close Flint and clean up this proxy."""
         if self._proxy is None:
             raise RuntimeError("No proxy connected")
         self._proxy.close_application()
+        try:
+            p = psutil.Process(self._pid)
+        except psutil.NoSuchProcess:
+            # process already closed
+            pass
+        else:
+            psutil.wait_procs([p], timeout=4.0)
         self.close_proxy()
 
     def focus(self):

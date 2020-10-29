@@ -404,11 +404,12 @@ def test_issue_1924(beacon):
     s2.close()
 
 
-@pytest.mark.skip()
 def test_issue_2218(beacon):
+    # No data policy allowed in the default session
     scan_saving_cfg = beacon.root["scan_saving"]
     scan_saving_cfg["class"] = "ESRFScanSaving"
     default_session = session.DefaultSession()
-    env = dict()
-    default_session.setup(env_dict=env)
+    default_session.setup()
+    assert default_session.scan_saving.__class__.__name__ != "ESRFScanSaving"
+    default_session.enable_esrf_data_policy()
     assert default_session.scan_saving.__class__.__name__ != "ESRFScanSaving"

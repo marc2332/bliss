@@ -856,11 +856,11 @@ def test_lima_ctrl_params_uploading(default_session, lima_simulator, caplog):
     assert " starting background sub proxy of lima_simulator" in caplog.messages
 
 
-@pytest.mark.skip()
 def test_reapplying_ctrl_params(default_session, caplog):
     simulator = default_session.config.get("lima_simulator")
 
     with lima_simulator_context("simulator", "id00/limaccds/simulator1"):
+        gevent.sleep(1.1)  # wait until the DeviceProxy becomes usable again
         with caplog.at_level(logging.DEBUG, logger="global.controllers.lima_simulator"):
             scan = loopscan(1, 0.1, simulator, save=False)
         assert "All parameters will be refeshed on lima_simulator" in caplog.messages
@@ -871,12 +871,14 @@ def test_reapplying_ctrl_params(default_session, caplog):
             scan = loopscan(1, 0.1, simulator, save=False)
 
     with lima_simulator_context("simulator", "id00/limaccds/simulator1"):
+        gevent.sleep(1.1)  # wait until the DeviceProxy becomes usable again
         caplog.clear()
         with caplog.at_level(logging.DEBUG, logger="global.controllers.lima_simulator"):
             scan = loopscan(1, 0.1, simulator, save=False)
         assert "All parameters will be refeshed on lima_simulator" in caplog.messages
 
     with lima_simulator_context("simulator", "id00/limaccds/simulator1"):
+        gevent.sleep(1.1)  # wait until the DeviceProxy becomes usable again
         caplog.clear()
         with caplog.at_level(logging.DEBUG, logger="global.controllers.lima_simulator"):
             scan = loopscan(1, 0.1, simulator, save=False)

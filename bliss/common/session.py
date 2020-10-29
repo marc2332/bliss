@@ -170,6 +170,8 @@ class Session:
         self.__user_script_homedir = SimpleSetting("%s:user_script_homedir" % self.name)
         self._script_source_cache = WeakKeyDictionary()
         self.__data_policy_events = EventChannel(f"{self.name}:esrf_data_policy")
+        self.scan_saving = None
+        self.scan_display = None
 
         self.init(config_tree)
 

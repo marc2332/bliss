@@ -242,7 +242,7 @@ def elogbook_filter(record):
         except AttributeError:
             # no scan saving yet ? (like, called from session setup)
             return False
-        return current_session.scan_saving.elogbook is not None
+        return scan_saving.elogbook is not None
     else:
         # No active session -> no notion of data policy
         return False

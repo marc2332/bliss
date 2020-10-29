@@ -56,16 +56,14 @@ def Wago(
     regs_io_boolean_input = defaultdict(random_bit)  # initialize at a random value
     regs_io_boolean_output = defaultdict(random_bit)  # initialize at a random value
 
-    regs_word = defaultdict(
-        int
-    )  # modbus input registers and holding registers shares the same area
+    # modbus input registers and holding registers shares the same area
+    regs_word = defaultdict(int)
 
-    regs_io_words_input = defaultdict(
-        random_word
-    )  # modbus input registers and holding registers shares the same area
-    regs_io_words_output = defaultdict(
-        random_word
-    )  # modbus input registers and holding registers shares the same area
+    # modbus input registers and holding registers shares the same area
+    regs_io_words_input = defaultdict(random_word)
+
+    # modbus input registers and holding registers shares the same area
+    regs_io_words_output = defaultdict(random_word)
 
     regs_interlock = defaultdict(int)
 

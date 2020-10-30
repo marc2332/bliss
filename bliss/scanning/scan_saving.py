@@ -959,6 +959,7 @@ class ESRFScanSaving(BasicScanSaving):
     def _db_path_keys(self, eval_dict=None):
         session = self.session
         base_path = self.get_cached_property("base_path", eval_dict).split(os.sep)
+        base_path = [p for p in base_path if p]
         proposal = self.get_cached_property("proposal_name", eval_dict)
         sample = self.get_cached_property("sample_name", eval_dict)
         # When dataset="0001" the DataNode.name will be the integer 1

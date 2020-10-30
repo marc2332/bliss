@@ -24,7 +24,7 @@ import enum
 from bliss import current_session
 from bliss.config.settings import ParametersWardrobe
 from bliss.config.settings_cache import get_redis_client_cache
-from bliss.data.node import _get_node, _get_or_create_node
+from bliss.data.node import datanode_factory
 from bliss.scanning.writer.null import Writer as NullWriter
 from bliss.scanning import writer as writer_module
 from bliss.common.proxy import Proxy
@@ -735,11 +735,13 @@ class BasicScanSaving(EvalParametersWardrobe):
         node = None
         if create:
             for item_name, node_type in db_path_items:
-                node = _get_or_create_node(item_name, node_type, parent=node)
+                node = datanode_factory(
+                    item_name, node_type, parent=node, on_not_state="create"
+                )
                 self._fill_node_info(node, node_type)
         else:
             for item_name, node_type in db_path_items:
-                node = _get_node(item_name, node_type, parent=node)
+                node = datanode_factory(item_name, parent=node, on_not_state=None)
                 if node is None:
                     return None
         return node

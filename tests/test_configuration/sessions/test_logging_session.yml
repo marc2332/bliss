@@ -2,4 +2,4 @@
   name: test_logging_session
   setup-file: ./test_logging_session.py
   config-objects:
-    - diode
+    - loginitcontroller1

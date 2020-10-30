@@ -52,23 +52,41 @@ def check_scripts_finished(session):
 
 def check_user_logging(capsys):
     captured = capsys.readouterr().err.split("\n")
-    expected = "ERROR: test_logging_session.py: user error"
+    captured = [s for s in captured if s]
+    assert len(captured) == 6, captured
+    expected = "ERROR: LogInitController: user error"
     assert captured[0] == expected
-    expected = "ERROR: logscript.py: user error"
+    expected = "LogInitController: Beacon error"
+    assert expected in captured[1]
+    expected = "ERROR: test_logging_session.py: user error"
     assert captured[2] == expected
+    expected = "test_logging_session.py: Beacon error"
+    assert expected in captured[3]
+    expected = "ERROR: logscript.py: user error"
+    assert captured[4] == expected
+    expected = "logscript.py: Beacon error"
+    assert expected in captured[5]
 
 
 def check_beacon_logging(caplog):
     records = caplog.get_records("setup")
-    expected = "test_logging_session.py: Beacon error"
+    assert len(records) == 3, records
+    expected = "LogInitController: Beacon error"
     assert records[0].levelname == "ERROR"
     assert records[0].message == expected
-    expected = "logscript.py: Beacon error"
+    expected = "test_logging_session.py: Beacon error"
     assert records[1].levelname == "ERROR"
     assert records[1].message == expected
+    expected = "logscript.py: Beacon error"
+    assert records[2].levelname == "ERROR"
+    assert records[2].message == expected
 
 
 def check_elogbook(icat_logbook_subscriber):
+    msginfo = icat_logbook_subscriber.get(timeout=3)
+    assert msginfo["category"] == "error"
+    expected = "LogInitController: E-logbook error"
+    assert msginfo["content"][0]["text"] == expected
     msginfo = icat_logbook_subscriber.get(timeout=3)
     assert msginfo["category"] == "error"
     expected = "test_logging_session.py: E-logbook error"

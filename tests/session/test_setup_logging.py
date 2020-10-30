@@ -108,14 +108,16 @@ def check_elogbook(icat_logbook_subscriber):
     assert msginfo["content"][0]["text"] == expected
 
 
-def test_script_logging(logging_session, capsys, caplog, icat_logbook_subscriber):
+def test_setup_logging_no_data_policy(
+    logging_session, capsys, caplog, icat_logbook_subscriber
+):
     check_scripts_finished(logging_session)
     check_user_logging(capsys)
     check_beacon_logging(caplog)
     assert len(icat_logbook_subscriber) == 0
 
 
-def test_script_logging_without_elogserver(
+def test_setup_logging_without_elogserver(
     logging_session_without_elogserver, capsys, caplog, icat_logbook_subscriber
 ):
     check_scripts_finished(logging_session_without_elogserver)
@@ -124,7 +126,7 @@ def test_script_logging_without_elogserver(
     assert len(icat_logbook_subscriber) == 0
 
 
-def test_script_logging_with_elogserver(
+def test_setup_logging_with_elogserver(
     logging_session_with_elogserver, capsys, caplog, icat_logbook_subscriber
 ):
     check_scripts_finished(logging_session_with_elogserver)

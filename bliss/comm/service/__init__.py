@@ -196,7 +196,7 @@ def main():
             if prev_info is None:
                 _set_info(info, server._socket.getsockname()[1])
                 obj_to_server[obj] = info, server
-                service[name] = info, server
+                services[name] = info, server
             return obj
 
         obj = plugins.get_local_server(obj, start_sub_server)

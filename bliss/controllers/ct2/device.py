@@ -147,9 +147,9 @@ class CT2(object):
     DefaultInputConfig = {"channel": None, "polarity inverted": False, "counter": None}
     DefaultOutputConfig = {"channel": 10, "counter": 10}
 
-    def __init__(self, card):
+    def __init__(self, ctcard):
         self._log = logging.getLogger(type(self).__name__)
-        self._card = card
+        self._card = ctcard
         self.__acq_mode = self.DefaultAcqMode
         self.__acq_status = AcqStatus.Ready
         self.__acq_expo_time = 1.0
@@ -911,15 +911,22 @@ def _build_card_config(device_config):
         address = int(channel["address"])
         level = channel.get("level", "TTL")
         ohm = channel.get("50 ohm", False)
+
+        # if address is a valid input channel number
         if address in card_class.INPUT_CHANNELS:
             input = channel.setdefault("input", {})
             input["level"] = level
             input["50 ohm"] = ohm
+
+        # AND if this address is also one of those that can be used as an output
+        # compare the address to the given output channel (out_ch)
         if address in card_class.OUTPUT_CHANNELS:
             output = channel.setdefault("output", {})
+            # configure this address as an output
             if address == out_ch:
                 output["level"] = level
                 input["level"] = "DISABLE"
+            # this address is an input so disable output capacity
             else:
                 output["level"] = "DISABLE"
 
@@ -959,6 +966,7 @@ def create_and_configure_device(config_or_name):
     external = device_config.get("external sync", {})
     input_config = external.get("input", CT2.DefaultInputConfig)
     output_config = external.get("output", CT2.DefaultOutputConfig)
+
     device = CT2(card_obj)
     device.input_config = input_config
     device.output_config = output_config

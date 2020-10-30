@@ -3737,7 +3737,7 @@ def configure_card(card, config):
     :param config: configuration dictionary or dictionary like object
     :type config: dict
     """
-    
+
     card.request_exclusive_access()
     card.set_interrupts()
     card.reset_FIFO_error_flags()

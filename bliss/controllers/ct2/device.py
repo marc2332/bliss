@@ -867,9 +867,20 @@ class CT2(object):
     def configure(self, device_config):
         card_config = _build_card_config(device_config)
         card.configure_card(self._card, card_config)
+
         external = device_config.get("external sync", {})
         self.input_config = external.get("input", self.DefaultInputConfig)
-        self.output_config = external.get("output", self.DefaultOutputConfig)
+
+        # apply default output channel only if this address is not used in the channels list
+        uchans = [
+            int(channel["address"]) for channel in card_config.get("channels", ())
+        ]
+        if self.DefaultOutputConfig["channel"] in uchans:
+            self.output_config = external.get(
+                "output", {"channel": None, "counter": None}
+            )
+        else:
+            self.output_config = external.get("output", self.DefaultOutputConfig)
 
     @property
     def is_endless_acq(self):

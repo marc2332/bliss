@@ -32,7 +32,6 @@ from bliss.common import session
 from bliss.common.session import DefaultSession
 from bliss.config.conductor.client import get_default_connection
 from bliss.shell.bliss_banners import print_rainbow_banner
-import __main__
 
 _log = logging.getLogger("bliss.shell")
 
@@ -42,7 +41,20 @@ session.set_current_session = functools.partial(
 )
 
 
-def initialize(session_name=None):
+def initialize(session_name=None, session_env=None) -> session.Session:
+    """
+    Initialize a session.
+
+    Create a session from its name, and update a provided env dictionary.
+
+    Arguments:
+        session_name: Name of the session to load
+        session_env: Dictionary containing an initial env to feed. If not defined
+                     an empty dict is used
+    """
+    if session_env is None:
+        session_env = {}
+
     # Add config to the user namespace
     config = static.get_config()
     error_flag = False
@@ -118,14 +130,12 @@ def initialize(session_name=None):
         session = config.get(session_name)
         print("%s: Loading config..." % session.name)
 
-    env_dict = __main__.__dict__
+    exec("from bliss.shell.standard import *", session_env)
 
-    exec("from bliss.shell.standard import *", env_dict)
-
-    env_dict["history"] = lambda: print("Please press F3-key to view history!")
+    session_env["history"] = lambda: print("Please press F3-key to view history!")
 
     try:
-        session.setup(env_dict, verbose=True)
+        session.setup(session_env, verbose=True)
     except Exception:
         error_flag = True
         sys.excepthook(*sys.exc_info())
@@ -136,6 +146,6 @@ def initialize(session_name=None):
         print("Done.")
         print("")
 
-    env_dict["SCANS"] = current_session.scans
+    session_env["SCANS"] = current_session.scans
 
-    return session.env_dict, session
+    return session

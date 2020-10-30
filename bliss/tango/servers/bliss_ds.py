@@ -136,14 +136,14 @@ class InputChannel(object):
         return False
 
 
-_SHELL_INFO = None
+_SHELL_SESSION = None
 
 
 def load_shell(session_name):
-    result = initialize(session_name)
-    global _SHELL_INFO
-    _SHELL_INFO = result
-    return result
+    session = initialize(session_name)
+    global _SHELL_SESSION
+    _SHELL_SESSION = session
+    return session
 
 
 class Bliss(Device):
@@ -179,10 +179,11 @@ class Bliss(Device):
             self.session_name = util.get_ds_inst_name()
 
         if self.__startup:
-            shell_info = _SHELL_INFO
+            session = _SHELL_SESSION
         else:
-            shell_info = initialize(self.session_name)
-        self.__user_ns, self.__session = shell_info
+            session = initialize(self.session_name)
+
+        self.__user_ns = session.env_dict
         self.__startup = False
 
         # redirect output
@@ -590,9 +591,8 @@ def __initialize(args, db=None):
 
     this_dir = os.path.dirname(os.path.abspath(__file__))
     suffix = "_ds.py"
-    inits = []
 
-    shell_info = ns, session = load_shell(session_name)
+    session = load_shell(session_name)
 
     object_names = session.object_names or []
 

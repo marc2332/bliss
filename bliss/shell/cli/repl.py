@@ -55,7 +55,6 @@ from bliss.common.logtools import userlogger, elogbook
 from bliss.shell.cli.protected_dict import ProtectedDict
 from bliss.shell import standard
 from redis.exceptions import ConnectionError
-import __main__
 
 logger = logging.getLogger(__name__)
 
@@ -574,33 +573,36 @@ def cli(
     ERROR_REPORT = install_excepthook()
     ERROR_REPORT.expert_mode = expert_error_report
 
-    protected_user_ns = ProtectedDict(__main__.__dict__)
-    # add 2 GLOBALS to manage protected keys
-    protected_user_ns["protect"] = protected_user_ns.protect
-    protected_user_ns["unprotect"] = protected_user_ns.unprotect
+    # user namespace
+    user_ns = {}
+    protected_user_ns = ProtectedDict(user_ns)
+
+    # This 2 commands can be used buy user script loaded during
+    # the initialization
+    user_ns["protect"] = protected_user_ns.protect
+    user_ns["unprotect"] = protected_user_ns.unprotect
 
     if session_name and not session_name.startswith("__DEFAULT__"):
         try:
-            user_ns, session = initialize(session_name)
+            session = initialize(session_name, session_env=user_ns)
         except RuntimeError as e:
             if use_tmux:
                 print("\n", "*" * 20, "\n", e, "\n", "*" * 20)
                 gevent.sleep(10)  # just to let the eyes to see the message ;)
             raise
     else:
-        user_ns, session = initialize(session_name=None)
+        session = initialize(session_name=None, session_env=user_ns)
 
     if session.name != "__DEFAULT__":
-
         protected_user_ns.protect(session.object_names)
-
         # protect Aliases if they exist
         if "ALIASES" in protected_user_ns:
             for alias in protected_user_ns["ALIASES"].names_iter():
                 if alias in protected_user_ns:
                     protected_user_ns.protect(alias)
 
-    # ADD 2 GLOBALS TO HANDLE THE LAST ERROR AND THE ERROR REPORT MODE (IN SHELL ENV ONLY)
+    # Add 2 GLOBALS to handle thelast error and the error report mode
+    # (in the shell env only)
     user_ns["ERROR_REPORT"] = ERROR_REPORT
     user_ns["last_error"] = ERROR_REPORT.last_error
 

@@ -238,7 +238,7 @@ class CT2CounterAcquisitionSlave(IntegratingCounterAcquisitionSlave):
 
             # in read all triggers mode: replace 1st point value (at 0) by 2nd
             # point value if available.
-            if self.parent.device.read_all_triggers:
+            if self.device._master_controller.read_all_triggers:    
                 if from_index == 0:
                     if data_len > 1:
                         data[0] = data[1]

@@ -161,6 +161,7 @@ class CT2Controller(Proxy, CounterController):
 class CT2CounterController(IntegratingCounterController):
     def __init__(self, name, master_controller):
         super().__init__(name=name, master_controller=master_controller)
+        self.counter_indexes = {}
 
     def get_acquisition_object(self, acq_params, ctrl_params, parent_acq_params):
         from bliss.scanning.acquisition.ct2 import CT2CounterAcquisitionSlave

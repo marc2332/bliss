@@ -79,7 +79,6 @@ import itertools
 import contextlib
 import numpy
 import louie
-import gevent.queue
 import gevent.lock
 from gevent import socket
 

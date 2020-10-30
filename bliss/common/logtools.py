@@ -14,6 +14,7 @@ from fnmatch import fnmatchcase
 import networkx as nx
 import weakref
 import gevent
+from time import time
 
 from bliss.common.mapping import format_node, map_id
 from bliss import global_map, current_session
@@ -301,6 +302,9 @@ class ElogHandler(logging.Handler):
         logging.CRITICAL: "critical",
     }
 
+    _LAST_FAILURE_EPOCH = 0
+    _LOG_ERROR_DELAY = 60
+
     def emit(self, record):
         msg = self.format(record)
         msg_type = getattr(record, "msg_type", None)
@@ -308,11 +312,19 @@ class ElogHandler(logging.Handler):
             msg_type = self._MSG_TYPES.get(record.levelno, None)
         try:
             elogbook = current_session.scan_saving.elogbook
+            # Do not try sending when the server is offline or not
+            # responsive enough. Otherwise Bliss will be slowed down
+            # too much.
+            elogbook.ping(timeout=1)
+            # Send message with default timeout of 10 seconds
             elogbook.send_message(msg, msg_type=msg_type)
+            self._LAST_FAILURE_EPOCH = 0
         except Exception as e:
-            err_msg = f"Electronic logbook failed ({e})"
-            # ignore logbook error for the moment
-            pass
+            time_since_last = time() - self._LAST_FAILURE_EPOCH
+            if time_since_last > self._LOG_ERROR_DELAY:
+                self._LAST_FAILURE_EPOCH = time()
+                err_msg = f"Electronic logbook failed ({e})"
+                user_error(err_msg)
 
 
 class ForcedLogger(logging.Logger):

@@ -50,22 +50,33 @@ def check_scripts_finished(session):
     assert session.env_dict.get("scriptfinished")
 
 
-def check_user_logging(capsys):
+def check_user_logging(capsys, elog_offline=False):
     captured = capsys.readouterr().err.split("\n")
     captured = [s for s in captured if s]
-    assert len(captured) == 6, captured
+    assert len(captured) == 6 + elog_offline, captured
+    i = 0
     expected = "ERROR: LogInitController: user error"
-    assert captured[0] == expected
+    assert captured[i] == expected
+    i += 1
+    if elog_offline:
+        expected = "Electronic logbook failed "
+        assert expected in captured[i]
+        i += 1
     expected = "LogInitController: Beacon error"
-    assert expected in captured[1]
+    assert expected in captured[i]
+    i += 1
     expected = "ERROR: test_logging_session.py: user error"
-    assert captured[2] == expected
+    assert captured[i] == expected
+    i += 1
     expected = "test_logging_session.py: Beacon error"
-    assert expected in captured[3]
+    assert expected in captured[i]
+    i += 1
     expected = "ERROR: logscript.py: user error"
-    assert captured[4] == expected
+    assert captured[i] == expected
+    i += 1
     expected = "logscript.py: Beacon error"
-    assert expected in captured[5]
+    assert expected in captured[i]
+    i += 1
 
 
 def check_beacon_logging(caplog):
@@ -108,7 +119,7 @@ def test_script_logging_without_elogserver(
     logging_session_without_elogserver, capsys, caplog, icat_logbook_subscriber
 ):
     check_scripts_finished(logging_session_without_elogserver)
-    check_user_logging(capsys)
+    check_user_logging(capsys, elog_offline=True)
     check_beacon_logging(caplog)
     assert len(icat_logbook_subscriber) == 0
 

@@ -442,6 +442,7 @@ class DataNode(metaclass=DataNodeMetaClass):
     @property
     @protect_from_kill
     def fullname(self):
+        warnings.warn("fullname is deprecated", FutureWarning)
         return self._struct.fullname
 
     @property

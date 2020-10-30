@@ -84,7 +84,7 @@ if not hasattr(time, "clock_gettime"):
         t = timespec()
         if __clock_gettime(clk_id, ctypes.pointer(t)) != 0:
             errno_ = ctypes.get_errno()
-            errno.set_errno(0)
+            ctypes.set_errno(0)
             raise OSError(errno_, "time.monotonic error: %s" % os.strerror(errno_))
         return t.tv_sec + t.tv_nsec * 1E-9
 
@@ -3737,6 +3737,7 @@ def configure_card(card, config):
     :param config: configuration dictionary or dictionary like object
     :type config: dict
     """
+    
     card.request_exclusive_access()
     card.set_interrupts()
     card.reset_FIFO_error_flags()

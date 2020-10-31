@@ -8,10 +8,10 @@ import gevent.event
 from umodbus import conf
 from umodbus.server.tcp import RequestHandler, get_server
 from umodbus.utils import log_to_stream
+from umodbus import log as umodbus_logger
 
 from bliss.controllers.wago.helpers import to_unsigned, bytestring_to_wordarray
 from bliss.controllers.wago.wago import MODULES_CONFIG, ModulesConfig
-from bliss.controllers.wago.helpers import remove_comments, splitlines
 
 from bliss.common.utils import get_open_ports
 
@@ -57,16 +57,14 @@ def Wago(
     regs_io_boolean_input = defaultdict(random_bit)  # initialize at a random value
     regs_io_boolean_output = defaultdict(random_bit)  # initialize at a random value
 
-    regs_word = defaultdict(
-        int
-    )  # modbus input registers and holding registers shares the same area
+    # modbus input registers and holding registers shares the same area
+    regs_word = defaultdict(int)
 
-    regs_io_words_input = defaultdict(
-        random_word
-    )  # modbus input registers and holding registers shares the same area
-    regs_io_words_output = defaultdict(
-        random_word
-    )  # modbus input registers and holding registers shares the same area
+    # modbus input registers and holding registers shares the same area
+    regs_io_words_input = defaultdict(random_word)
+
+    # modbus input registers and holding registers shares the same area
+    regs_io_words_output = defaultdict(random_word)
 
     regs_interlock = defaultdict(int)
 
@@ -413,7 +411,7 @@ class WagoEmulator:
         self.port = get_open_ports(1)[0]
         self.server_ready_event = gevent.event.Event()  # threading.Event()
 
-        self.t = gevent.spawn(
+        self.task = gevent.spawn(
             Wago,
             self.server_ready_event,
             (self.host, self.port),
@@ -423,5 +421,11 @@ class WagoEmulator:
 
         self.server_ready_event.wait()
 
+    def clean_loggers(self):
+        for h in umodbus_logger.handlers:
+            umodbus_logger.removeHandler(h)
+        umodbus_logger.addHandler(logging.NullHandler())
+
     def close(self):
-        gevent.kill(self.t)
+        self.clean_loggers()
+        self.task.kill()

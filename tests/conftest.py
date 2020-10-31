@@ -10,7 +10,9 @@ import sys
 import shutil
 from collections import namedtuple
 import atexit
+import gc
 import gevent
+from gevent import Greenlet
 import subprocess
 import signal
 import logging
@@ -114,45 +116,86 @@ def clean_louie():
     disp.reset()
 
 
+class GreenletsContext:
+    """
+    This context ensure that every greenlet created during its execution
+    are properly released.
+
+    If a greenlet is still alive at the exit, a warning is displayed,
+    and it tries to kill it.
+
+    It is not concurrency safe. The global context is used to
+    check available greenlets.
+    """
+
+    def __init__(self):
+        self.greenlets_before = weakref.WeakSet()
+        self.all_greenlets_ready = None
+
+    def __enter__(self):
+        self.greenlets_before.clear()
+        self.all_greenlets_ready = None
+
+        for ob in gc.get_objects():
+            try:
+                if not isinstance(ob, Greenlet):
+                    continue
+            except ReferenceError:
+                continue
+            self.greenlets_before.add(ob)
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        greenlets = []
+        for ob in gc.get_objects():
+            try:
+                if not isinstance(ob, Greenlet):
+                    continue
+            except ReferenceError:
+                continue
+            if ob in self.greenlets_before:
+                continue
+
+            if not ob.ready():
+                eprint(f"Dangling greenlet (teardown): {ob}")
+            greenlets.append(ob)
+
+        self.greenlets_before.clear()
+        self.all_greenlets_ready = all(gr.ready() for gr in greenlets)
+        with gevent.Timeout(10, RuntimeError("Dangling greenlets cannot be killed")):
+            gevent.killall(greenlets)
+
+
 @pytest.fixture
 def clean_gevent():
-    import gc
-    from gevent import Greenlet
+    """
+    Context manager to check that greenlets are properly released during a test.
 
-    for ob in gc.get_objects():
-        try:
-            if not isinstance(ob, Greenlet):
-                continue
-        except ReferenceError:
-            continue
-        if not ob.ready():
-            eprint(f"Dangling greenlet (setup): {ob}")
-            e = RuntimeError(f"Dangling greenlet cannot be killed: {ob}")
-            with gevent.Timeout(10, e):
-                ob.kill()
+    It is not concurrency safe. The global context is used to
+    check available greenlets.
 
+    If the fixture is used as the last argument if will only test the greenlets
+    creating during the test.
+
+    .. code-block:: python
+
+        def test_a(fixture_a, fixture_b, clean_gevent):
+            ...
+
+    If the fixture is used as the first argument if will also test greenlets
+    created by sub fixtures.
+
+    .. code-block:: python
+
+        def test_b(clean_gevent, fixture_a, fixture_b):
+            ...
+    """
     d = {"end-check": True}
-
-    yield d
-
+    context = GreenletsContext()
+    with context:
+        yield d
     end_check = d.get("end-check")
-
-    greenlets = []
-    for ob in gc.get_objects():
-        try:
-            if not isinstance(ob, Greenlet):
-                continue
-        except ReferenceError:
-            continue
-        if not ob.ready():
-            eprint(f"Dangling greenlet (teardown): {ob}")
-        greenlets.append(ob)
-    all_ready = all(gr.ready() for gr in greenlets)
-    with gevent.Timeout(10, RuntimeError("Dangling greenlets cannot be killed")):
-        gevent.killall(greenlets)
-    del greenlets
     if end_check:
-        assert all_ready
+        assert context.all_greenlets_ready
 
 
 @pytest.fixture
@@ -233,7 +276,13 @@ def ports(beacon_directory, log_directory):
     proc = subprocess.Popen(BEACON + args, stderr=subprocess.PIPE)
     # TODO: Beacon needs an 'is_ready' command
     wait_for(proc.stderr, "Tango database started")
-    proc.stderr.close()
+
+    def read_std(stream):
+        while True:
+            sys.stderr.write(stream.read(1024))
+
+    # redirect the content of the stream
+    dispatcher = gevent.spawn(read_std, proc.stderr)
 
     # disable .rdb files saving (redis persistence)
     r = redis.Redis(host="localhost", port=ports.redis_port)
@@ -246,6 +295,7 @@ def ports(beacon_directory, log_directory):
     yield ports
 
     atexit._run_exitfuncs()
+    dispatcher.kill()
     wait_terminate(proc)
 
 
@@ -561,13 +611,13 @@ def flint_context(with_flint=True):
     else:
         flint = plot.get_flint(creation_allowed=False)
         if flint is not None:
-            flint.close_application()
+            flint.close()
             flint = None  # Break the reference to the proxy
             plot.reset_flint()
     yield
     flint = plot.get_flint(creation_allowed=False)
     if flint is not None:
-        flint.close_application()
+        flint.close()
         flint = None  # Break the reference to the proxy
     plot.reset_flint()
 

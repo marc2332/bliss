@@ -13,10 +13,7 @@ import collections
 from itertools import zip_longest
 import functools
 
-from prompt_toolkit import print_formatted_text, HTML
 from tabulate import tabulate
-
-from bliss.common import tango
 
 from bliss.common.utils import add_property, flatten
 from bliss.config.conductor.client import synchronized

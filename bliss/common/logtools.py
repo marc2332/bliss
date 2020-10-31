@@ -10,9 +10,8 @@ import logging
 import logging.handlers
 from contextlib import contextmanager
 import re
-from fnmatch import fnmatch, fnmatchcase
+from fnmatch import fnmatchcase
 import networkx as nx
-from functools import wraps
 import weakref
 import gevent
 
@@ -243,7 +242,7 @@ def elogbook_filter(record):
         except AttributeError:
             # no scan saving yet ? (like, called from session setup)
             return False
-        return current_session.scan_saving.elogbook is not None
+        return scan_saving.elogbook is not None
     else:
         # No active session -> no notion of data policy
         return False
@@ -711,6 +710,13 @@ class Log:
     _LOG_FORMAT = None
     _LOG_DEFAULT_LEVEL = logging.WARNING
 
+    def __init__(self, map):
+        self.map = map
+        for node_name in ("global", "controllers"):
+            get_logger(node_name)
+        self._stdout_handler = None
+        self._beacon_handler = None
+
     @staticmethod
     def _find_loggers(glob):
         # be sure all logger are created under controller
@@ -750,43 +756,41 @@ class Log:
                 loggers[logger.name] = logger
         return loggers
 
-    def __init__(self, map):
-        self.map = map
-        for node_name in ("global", "controllers"):
-            get_logger(node_name)
-
     def start_stdout_handler(self):
-        try:
-            self._stdout_handler
-        except AttributeError:
-            self._stdout_handler = logging.StreamHandler()
-            self._stdout_handler.setLevel(logging.DEBUG)
-            self._stdout_handler.setFormatter(logging.Formatter(self._LOG_FORMAT))
-            logging.getLogger().addHandler(self._stdout_handler)
+        if self._stdout_handler is not None:
+            return
 
-            def filter_(record):
-                # filter shell exceptions
-                if record.name in ["exceptions", "user_input"]:
-                    return False
-                return True
+        handler = logging.StreamHandler()
+        handler.setLevel(logging.DEBUG)
+        handler.setFormatter(logging.Formatter(self._LOG_FORMAT))
+        logging.getLogger().addHandler(handler)
 
-            self._stdout_handler.addFilter(filter_)
+        def filter_(record):
+            # filter shell exceptions
+            if record.name in ["exceptions", "user_input"]:
+                return False
+            return True
+
+        handler.addFilter(filter_)
+        self._stdout_handler = handler
 
     def start_beacon_handler(self, address):
-        try:
-            self._beacon_handler
-        except AttributeError:
-            host, port = address
-            self._beacon_handler = BeaconLogServerHandler(host, port)
-            self._beacon_handler.setLevel(logging.DEBUG)
-            logging.getLogger().addHandler(self._beacon_handler)
+        if self._beacon_handler is not None:
+            return
 
-            # handler for user input and exceptions
-            for log_name in ("user_input", "exceptions"):
-                log = logging.getLogger(log_name)
-                log.addHandler(self._beacon_handler)
-                log.setLevel(logging.INFO)
-                log.propagate = False
+        host, port = address
+        handler = BeaconLogServerHandler(host, port)
+        handler.setLevel(logging.DEBUG)
+        logging.getLogger().addHandler(handler)
+
+        # handler for user input and exceptions
+        for log_name in ("user_input", "exceptions"):
+            log = logging.getLogger(log_name)
+            log.addHandler(handler)
+            log.setLevel(logging.INFO)
+            log.propagate = False
+
+        self._beacon_handler = handler
 
     def set_log_format(self, fmt):
         self._LOG_FORMAT = fmt
@@ -873,18 +877,12 @@ class Log:
         return deactivated
 
     def clear(self):
-        try:
+        if self._stdout_handler is not None:
             self._stdout_handler.close()
-        except AttributeError:
-            pass
-        else:
-            del self._stdout_handler
-        try:
+            self._stdout_handler = None
+        if self._beacon_handler is not None:
             self._beacon_handler.close()
-        except AttributeError:
-            pass
-        else:
-            del self._beacon_handler
+            self._beacon_handler = None
 
 
 def create_logger_name(G, node_id):

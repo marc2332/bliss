@@ -17,18 +17,11 @@ from silx.gui import qt
 
 from bliss.flint.widgets.log_widget import LogWidget
 from bliss.flint.widgets.live_window import LiveWindow
+from bliss.flint.widgets.custom_plot import CustomPlot
 from bliss.flint.widgets.state_indicator import StateIndicator
 from bliss.flint.model import flint_model
 
 _logger = logging.getLogger(__name__)
-
-
-class CustomPlot(NamedTuple):
-    """Store information to a plot created remotly and providing silx API."""
-
-    plot: qt.QWidget
-    tab: qt.QWidget
-    title: str
 
 
 class FlintWindow(qt.QMainWindow):
@@ -71,9 +64,10 @@ class FlintWindow(qt.QMainWindow):
         return self.__tabs
 
     def __tabCloseRequested(self, tabIndex):
-        new_tab_widget = self.__tabs.widget(tabIndex)
-        plot_id = new_tab_widget._plot_id
-        self.removeCustomPlot(plot_id)
+        widget = self.__tabs.widget(tabIndex)
+        if isinstance(widget, CustomPlot):
+            plotId = widget.plotId()
+            self.removeCustomPlot(plotId)
 
     def __initLogWindow(self):
         logWindow = qt.QDialog(self)
@@ -304,22 +298,23 @@ class FlintWindow(qt.QMainWindow):
         settings.setValue("pos", self.__logWindow.pos())
         settings.endGroup()
 
-    def createCustomPlot(self, widget, name, plot_id, selected, closeable):
+    def createCustomPlot(self, plotWidget, name, plot_id, selected, closeable):
         """Create a custom plot"""
-        widgetHolder = self.createTab(name, selected=selected, closeable=closeable)
-        # FIXME: Hack to know how to close the widget
-        widgetHolder._plot_id = plot_id
-        qt.QVBoxLayout(widgetHolder)
-        self.__customPlots[plot_id] = CustomPlot(widget, widgetHolder, name)
-        widgetHolder.layout().addWidget(widget)
-        widget.show()
+        customPlot = self.createTab(
+            name, widgetClass=CustomPlot, selected=selected, closeable=closeable
+        )
+        customPlot.setPlotId(plot_id)
+        customPlot.setName(name)
+        customPlot.setPlot(plotWidget)
+        self.__customPlots[plot_id] = customPlot
+        plotWidget.show()
 
     def removeCustomPlot(self, plot_id):
         """Remove a custom plot by its id"""
         customPlot = self.__customPlots.pop(plot_id)
-        self.removeTab(customPlot.tab)
-        customPlot.plot.close()
+        self.removeTab(customPlot)
 
     def customPlot(self, plot_id) -> CustomPlot:
         """If the plot does not exist, returns None"""
-        return self.__customPlots.get(plot_id)
+        plot = self.__customPlots.get(plot_id)
+        return plot

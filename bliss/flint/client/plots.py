@@ -384,7 +384,7 @@ class CurvePlot(BasePlot):
 class ScatterPlot(BasePlot):
 
     # Name of the corresponding silx widget
-    WIDGET = "Plot1D"
+    WIDGET = "ScatterView"
 
     # Name of the method to add data to the plot
     METHOD = "addScatter"

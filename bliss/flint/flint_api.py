@@ -42,14 +42,6 @@ from bliss.flint import config
 _logger = logging.getLogger(__name__)
 
 
-class CustomPlot(NamedTuple):
-    """Store information to a plot created remotly and providing silx API."""
-
-    plot: qt.QWidget
-    tab: qt.QWidget
-    title: str
-
-
 class Request(NamedTuple):
     """Store information about a request."""
 
@@ -108,8 +100,6 @@ class FlintApi:
         """Store the current requests"""
 
         self.__flintModel = flintModel
-        # FIXME: _custom_plots should be owned by flint model or window
-        self._custom_plots: Dict[object, CustomPlot] = {}
         self.data_event = collections.defaultdict(dict)
         self.data_dict = collections.defaultdict(dict)
 
@@ -413,7 +403,8 @@ class FlintApi:
             except ValueError:
                 return False
         else:
-            return plot_id in self._custom_plots
+            window = self.__flintModel.mainWindow()
+            return window.customPlot(plot_id) is not None
 
     def add_plot(
         self,
@@ -442,30 +433,24 @@ class FlintApi:
         plot_id = self.create_new_id()
         if not name:
             name = "Plot %d" % plot_id
-        new_tab_widget = self.__flintModel.mainWindow().createTab(
-            name, selected=selected, closeable=closeable
-        )
-        # FIXME: Hack to know how to close the widget
-        new_tab_widget._plot_id = plot_id
-        qt.QVBoxLayout(new_tab_widget)
+        window = self.__flintModel.mainWindow()
         cls = getattr(silx_plot, cls_name)
-        plot = cls(new_tab_widget)
-        self._custom_plots[plot_id] = CustomPlot(plot, new_tab_widget, name)
-        new_tab_widget.layout().addWidget(plot)
-        plot.show()
+        plot = cls(window)
+        window.createCustomPlot(
+            plot, name, plot_id, selected=selected, closeable=closeable
+        )
         return plot_id
 
     def get_plot_name(self, plot_id):
         if isinstance(plot_id, str) and plot_id.startswith("live:"):
             widget = self._get_live_plot_widget(plot_id)
             return widget.windowTitle()
-        return self._custom_plots[plot_id].title
+        window = self.__flintModel.mainWindow()
+        return window.customPlot(plot_id).title
 
     def remove_plot(self, plot_id):
-        custom_plot = self._custom_plots.pop(plot_id)
         window = self.__flintModel.mainWindow()
-        window.removeTab(custom_plot.tab)
-        custom_plot.plot.close()
+        return window.removeCustomPlot(plot_id)
 
     def get_interface(self, plot_id):
         plot = self._get_plot_widget(plot_id)
@@ -711,7 +696,9 @@ class FlintApi:
         if isinstance(plot_id, str) and plot_id.startswith("live:"):
             widget = self._get_live_plot_widget(plot_id)
             return widget
-        return self._custom_plots[plot_id].tab
+        window = self.__flintModel.mainWindow()
+        customPlot = window.customPlot(plot_id)
+        return customPlot.tab
 
     def _get_plot_widget(self, plot_id, expect_silx_api=True, custom_plot=False):
         # FIXME: Refactor it, it starts to be ugly
@@ -730,9 +717,11 @@ class FlintApi:
                 f"The widget associated to '{plot_id}' only provides a silx API"
             )
 
+        window = self.__flintModel.mainWindow()
+        customPlot = window.customPlot(plot_id)
         if custom_plot:
-            return self._custom_plots[plot_id]
-        return self._custom_plots[plot_id].plot
+            return customPlot
+        return customPlot.plot
 
     # API to custom default live plots
 
@@ -869,7 +858,7 @@ class FlintApi:
         custom_plot = self._get_plot_widget(plot_id, custom_plot=True)
 
         # Set the focus as an user input is requested
-        if isinstance(custom_plot, CustomPlot):
+        if isinstance(custom_plot, NamedTuple):
             plot = custom_plot.plot
             # Set the focus as an user input is requested
             window = self.__flintModel.mainWindow()

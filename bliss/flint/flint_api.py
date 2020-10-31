@@ -20,10 +20,7 @@ import sys
 import logging
 import itertools
 import functools
-import collections
 import numpy
-
-import gevent.event
 
 from silx.gui import qt
 from silx.gui import plot as silx_plot
@@ -101,8 +98,6 @@ class FlintApi:
         """Store the current requests"""
 
         self.__flintModel = flintModel
-        self.data_event = collections.defaultdict(dict)
-        self.data_dict = collections.defaultdict(dict)
 
         self.stdout = MultiplexStreamToCallback(sys.stdout)
         sys.stdout = self.stdout
@@ -147,14 +142,6 @@ class FlintApi:
     def get_session_name(self):
         model = self.__flintModel
         return model.blissSessionName()
-
-    def wait_data(self, master, plot_type, index):
-        ev = (
-            self.data_event[master]
-            .setdefault(plot_type, {})
-            .setdefault(index, gevent.event.Event())
-        )
-        ev.wait(timeout=3)
 
     def get_live_scan_data(self, channel_name):
         scan = self.__flintModel.currentScan()
@@ -593,41 +580,28 @@ class FlintApi:
                     pass
 
     def update_data(self, plot_id, field, data):
-        self.data_dict[plot_id][field] = data
+        custom_plot = self._get_plot_widget(plot_id, live_plot=False)
+        custom_plot.updateData(field, data)
 
     def remove_data(self, plot_id, field):
-        del self.data_dict[plot_id][field]
+        custom_plot = self._get_plot_widget(plot_id, live_plot=False)
+        custom_plot.removeData(field)
 
     def get_data(self, plot_id, field=None):
-        if field is None:
-            return self.data_dict[plot_id]
-        else:
-            return self.data_dict[plot_id].get(field, [])
+        custom_plot = self._get_plot_widget(plot_id, live_plot=False)
+        return custom_plot.getData(field)
 
     def select_data(self, plot_id, method, names, kwargs):
-        plot = self._get_plot_widget(plot_id, live_plot=False)
-        silxPlot = plot._silxPlot()
-
-        # Hackish legend handling
-        if "legend" not in kwargs and method.startswith("add"):
-            kwargs["legend"] = " -> ".join(names)
-        # Get the data to plot
-        args = tuple(self.data_dict[plot_id][name] for name in names)
-        method = getattr(silxPlot, method)
-        # Plot
-        method(*args, **kwargs)
+        custom_plot = self._get_plot_widget(plot_id, live_plot=False)
+        return custom_plot.selectData(method, names, kwargs)
 
     def deselect_data(self, plot_id, names):
-        plot = self._get_plot_widget(plot_id, live_plot=False)
-        silxPlot = plot._silxPlot()
-        legend = " -> ".join(names)
-        silxPlot.remove(legend)
+        custom_plot = self._get_plot_widget(plot_id, live_plot=False)
+        return custom_plot.deselectData(names)
 
     def clear_data(self, plot_id):
-        self.data_dict[plot_id].clear()
-        plot = self._get_plot_widget(plot_id, live_plot=False)
-        silxPlot = plot._silxPlot()
-        silxPlot.clear()
+        custom_plot = self._get_plot_widget(plot_id, live_plot=False)
+        return custom_plot.clearData()
 
     def start_image_monitoring(self, channel_name, tango_address):
         """Start monitoring of an image from a Tango detector.

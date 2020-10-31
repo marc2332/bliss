@@ -408,24 +408,6 @@ class McaPlot(CurvePlot):
     pass
 
 
-class CurveListPlot(BasePlot):
-
-    # Name of the corresponding silx widget
-    WIDGET = "CurvesView"
-
-    # Name of the method to add data to the plot
-    METHOD = None
-
-    # The dimension of the data to plot
-    DATA_DIMENSIONS = (2,)
-
-    # Single / Multiple data handling
-    MULTIPLE = False
-
-    # Data input number for a single representation
-    DATA_INPUT_NUMBER = 1
-
-
 class ImagePlot(BasePlot):
 
     # Name of the corresponding silx widget

@@ -39,13 +39,6 @@ This interface supports several types of plot:
   * two histograms along the X and Y dimensions are displayed
   * the plot is created using ``plot_image_with_histogram``
 
-- **curve list plot**:
-
-  * plot a single list of 1D data as curves
-  * a slider and an envelop view are provided
-  * the plot is created using ``plot_curve_list``
-  * this widget is not integrated yet!
-
 - **image stack plot**:
 
   * plot a single stack of image
@@ -162,7 +155,6 @@ from bliss.flint.client.proxy import FLINT_OUTPUT_LOGGER  # noqa: F401
 __all__ = [
     "plot",
     "plot_curve",
-    "plot_curve_list",
     "plot_image",
     "plot_scatter",
     "plot_image_with_histogram",
@@ -202,7 +194,6 @@ def _create_plot(
 
 
 plot_curve = functools.partial(_create_plot, flint_plots.CurvePlot)
-plot_curve_list = functools.partial(_create_plot, flint_plots.CurveListPlot)
 plot_scatter = functools.partial(_create_plot, flint_plots.ScatterPlot)
 plot_image = functools.partial(_create_plot, flint_plots.ImagePlot)
 plot_image_with_histogram = functools.partial(

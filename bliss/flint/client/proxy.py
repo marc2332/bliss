@@ -515,7 +515,6 @@ class FlintClient:
         if isinstance(plot_class, str):
             classes = [
                 plots.CurvePlot,
-                plots.CurveListPlot,
                 plots.HistogramImagePlot,
                 plots.ImagePlot,
                 plots.ImageStackPlot,

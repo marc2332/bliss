@@ -131,6 +131,9 @@ console_script_entry_points = [
     "NexusWriterService = nexus_writer_service.nexus_writer_service:main",
     "NexusSessionWriter = nexus_writer_service.subscribers.session_writer:main",
     "RegisterNexusWriter = nexus_writer_service.nexus_register_writer:main",
+    "SlitsSimulationLimaCCDs = bliss.tango.servers.demo.lima_slits_simulator_ds:main",
+    "TomoSimulationLimaCCDs = bliss.tango.servers.demo.lima_tomo_simulator_ds:main",
+    "DiffSimulationLimaCCDs = bliss.tango.servers.demo.lima_diff_simulator_ds:main",
 ]
 
 if sys.platform not in ["win32", "cygwin"]:
@@ -247,12 +250,7 @@ def main():
         packages=packages,
         package_data=package_data,
         ext_modules=extensions,
-        scripts=[
-            "bin/beacon-server-list",
-            "bin/SlitsSimulationLimaCCDs",
-            "bin/TomoSimulationLimaCCDs",
-            "bin/DiffSimulationLimaCCDs",
-        ],
+        scripts=["bin/beacon-server-list"],
         entry_points={"console_scripts": console_script_entry_points},
         install_requires=install_requires,
         tests_require=tests_require,

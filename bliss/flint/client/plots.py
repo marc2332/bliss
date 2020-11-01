@@ -498,11 +498,37 @@ class StackView(BasePlot):
     DATA_INPUT_NUMBER = 1
 
 
-class McaPlot(Plot1D):
-    pass
+class LiveCurvePlot(Plot1D):
+
+    WIDGET = None
+
+    ALIASES = ["curve"]
+
+
+class LiveImagePlot(Plot2D):
+
+    WIDGET = None
+
+    ALIASES = ["image"]
+
+
+class LiveScatterPlot(Plot1D):
+
+    WIDGET = None
+
+    ALIASES = ["scatter"]
+
+
+class LiveMcaPlot(Plot1D):
+
+    WIDGET = None
+
+    ALIASES = ["mca"]
 
 
 CUSTOM_CLASSES = [Plot1D, Plot2D, ScatterView, ImageView, StackView]
+
+LIVE_CLASSES = [LiveCurvePlot, LiveImagePlot, LiveScatterPlot, LiveMcaPlot]
 
 # For compatibility
 CurvePlot = Plot1D

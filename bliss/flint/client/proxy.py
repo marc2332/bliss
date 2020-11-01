@@ -414,10 +414,10 @@ class FlintClient:
         """
         if kind is not None:
             if kind == "default-curve":
-                plot_class = plots.CurvePlot
+                plot_class = plots.LiveCurvePlot
                 plot_type = "curve"
             elif kind == "default-scatter":
-                plot_class = plots.ScatterPlot
+                plot_class = plots.LiveScatterPlot
                 plot_type = "scatter"
             else:
                 raise ValueError(f"Unexpected plot kind '{kind}'.")
@@ -429,12 +429,12 @@ class FlintClient:
             return plot_class(plot_id=plot_id, flint=self)
 
         elif image_detector is not None:
-            plot_class = plots.ImagePlot
+            plot_class = plots.LiveImagePlot
             plot_id = self.get_live_plot_detector(image_detector, plot_type="image")
             return plot_class(plot_id=plot_id, flint=self)
 
         elif mca_detector is not None:
-            plot_class = plots.McaPlot
+            plot_class = plots.LiveMcaPlot
             plot_id = self.get_live_plot_detector(mca_detector, plot_type="mca")
             return plot_class(plot_id=plot_id, flint=self)
 

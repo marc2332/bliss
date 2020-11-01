@@ -63,7 +63,9 @@ class FlintClient:
         """Store mapping from name to int id.
         This should be part of flint_api at one point.
         """
+        self._init(process)
 
+    def _init(self, process):
         if process is None:
             self.__start_flint()
         else:

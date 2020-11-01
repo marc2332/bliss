@@ -15,13 +15,18 @@ def _get_real_flint(*args, **kwargs):
     """Replacement function for monkey patch of `bliss.common.plot`"""
     from bliss.flint import flint
     from silx.gui import qt
+    from bliss.flint.client.proxy import FlintClient
 
     flint.initApplication([])
     settings = qt.QSettings()
     flint_model = flint.create_flint_model(settings)
-    interface = flint_model.flintApi()
-    interface._pid = -666
-    return interface
+
+    class FlintClientMock(FlintClient):
+        def _init(self, process):
+            self._proxy = flint_model.flintApi()
+            self._pid = -666
+
+    return FlintClientMock()
 
 
 @contextmanager

@@ -24,6 +24,9 @@ class BasePlot(object):
     # Name of the corresponding silx widget
     WIDGET = NotImplemented
 
+    # Available name to identify this plot
+    ALIASES = []
+
     # Name of the method to add data to the plot
     METHOD = NotImplemented
 
@@ -286,10 +289,13 @@ class BasePlot(object):
 # Plot classes
 
 
-class CurvePlot(BasePlot):
+class Plot1D(BasePlot):
 
     # Name of the corresponding silx widget
-    WIDGET = "Plot1D"
+    WIDGET = "silx.gui.plot.Plot1D"
+
+    # Available name to identify this plot
+    ALIASES = ["curve", "plot1d"]
 
     # Name of the method to add data to the plot
     METHOD = "addCurve"
@@ -381,10 +387,13 @@ class CurvePlot(BasePlot):
         flint.run_method(self._plot_id, "setYAxisLogarithmic", [value == "log"], {})
 
 
-class ScatterPlot(BasePlot):
+class ScatterView(BasePlot):
 
     # Name of the corresponding silx widget
-    WIDGET = "ScatterView"
+    WIDGET = "silx.gui.plot.ScatterView"
+
+    # Available name to identify this plot
+    ALIASES = ["scatter"]
 
     # Name of the method to add data to the plot
     METHOD = "addScatter"
@@ -404,14 +413,13 @@ class ScatterPlot(BasePlot):
         self.set_colormap = self._set_colormap
 
 
-class McaPlot(CurvePlot):
-    pass
-
-
-class ImagePlot(BasePlot):
+class Plot2D(BasePlot):
 
     # Name of the corresponding silx widget
-    WIDGET = "Plot2D"
+    WIDGET = "silx.gui.plot.Plot2D"
+
+    # Available name to identify this plot
+    ALIASES = ["image", "plot2d"]
 
     # Name of the method to add data to the plot
     METHOD = "addImage"
@@ -448,10 +456,13 @@ class ImagePlot(BasePlot):
         return self._wait_for_user_selection(request_id)
 
 
-class HistogramImagePlot(BasePlot):
+class ImageView(BasePlot):
 
     # Name of the corresponding silx widget
-    WIDGET = "ImageView"
+    WIDGET = "silx.gui.plot.ImageView"
+
+    # Available name to identify this plot
+    ALIASES = ["imageview", "histogramimage"]
 
     # Name of the method to add data to the plot
     METHOD = "setImage"
@@ -466,10 +477,13 @@ class HistogramImagePlot(BasePlot):
     DATA_INPUT_NUMBER = 1
 
 
-class ImageStackPlot(BasePlot):
+class StackView(BasePlot):
 
     # Name of the corresponding silx widget
-    WIDGET = "StackView"
+    WIDGET = "silx.gui.plot.StackView"
+
+    # Available name to identify this plot
+    ALIASES = ["stack", "imagestack"]
 
     # Name of the method to add data to the plot
     METHOD = "setStack"
@@ -482,3 +496,17 @@ class ImageStackPlot(BasePlot):
 
     # Data input number for a single representation
     DATA_INPUT_NUMBER = 1
+
+
+class McaPlot(Plot1D):
+    pass
+
+
+CUSTOM_CLASSES = [Plot1D, Plot2D, ScatterView, ImageView, StackView]
+
+# For compatibility
+CurvePlot = Plot1D
+ImagePlot = Plot2D
+ScatterPlot = ScatterView
+HistogramImagePlot = ImageView
+ImageStackPlot = StackView

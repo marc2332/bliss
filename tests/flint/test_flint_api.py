@@ -28,10 +28,10 @@ class TestFlint(TestCaseQt):
         assert p.name == "Some name"
 
     def test_remove_custom_plot(self):
-        widget = plots.CurvePlot(name="foo-rm")
-        plot_id = widget.plot_id
-        flint_api = widget._flint
-        flint_api.remove_plot(plot_id)
+        flint = plot.get_flint()
+        p = flint.get_plot(plot_class="curve", name="foo-rm")
+        flint.remove_plot(p.plot_id)
+        assert flint.is_plot_exists("foo-rm") is False
 
     def test_custom_plot_curveplot(self):
         widget = plots.CurvePlot(name="foo")

@@ -18,12 +18,12 @@ from typing import Optional
 
 import sys
 import logging
+import importlib
 import itertools
 import functools
 import numpy
 
 from silx.gui import qt
-from silx.gui import plot as silx_plot
 import bliss
 from bliss.flint.helper import plot_interaction, scan_info_helper
 from bliss.controllers.lima import roi as lima_roi
@@ -398,7 +398,7 @@ class FlintApi:
 
     def add_plot(
         self,
-        cls_name: str,
+        class_name: str,
         name: str = None,
         selected: bool = False,
         closeable: bool = True,
@@ -408,9 +408,10 @@ class FlintApi:
         The plot will be created in a new tab on Flint.
 
         Arguments:
-            cls_name: A class name defined by silx. Can be one of "PlotWidget",
-                "PlotWindow", "Plot1D", "Plot2D", "ImageView", "StackView",
-                "ScatterView".
+            class_name: A class to display a plot. Can be one of:
+                "silx.gui.plot.Plot1D", "silx.gui.plot.Plot2D",
+                "silx.gui.plot.ImageView", "silx.gui.plot.StackView",
+                "silx.gui.plot.ScatterView".
             name: Name of the plot as displayed in the tab header. It is not a
                 unique name.
             selected: If true (not the default) the plot became the current
@@ -423,9 +424,22 @@ class FlintApi:
         plot_id = self.create_new_id()
         if not name:
             name = "Plot %d" % plot_id
+
+        def get_class(class_name):
+            try:
+                module_name, class_name = class_name.rsplit(".", 1)
+                module = importlib.import_module(module_name)
+                class_obj = getattr(module, class_name)
+                return class_obj
+            except Exception:
+                _logger.debug(
+                    "Error while reaching class name '%s'", class_name, exc_info=True
+                )
+                raise ValueError("Unknown class name %s" % class_name)
+
+        class_obj = get_class(class_name)
         window = self.__flintModel.mainWindow()
-        cls = getattr(silx_plot, cls_name)
-        plot = cls(window)
+        plot = class_obj(parent=window)
         window.createCustomPlot(
             plot, name, plot_id, selected=selected, closeable=closeable
         )

@@ -18,7 +18,7 @@ def test_empty_plot(flint_session):
 def test_simple_plot(flint_session):
     sin = flint_session.env_dict["sin_data"]
     p = plot.plot(sin)
-    assert "CurvePlot" in repr(p)
+    assert "Plot1D" in repr(p)
     data = p.get_data()
     assert data == {
         "default": pytest.approx(sin),
@@ -30,7 +30,7 @@ def test_plot_curve_with_x(flint_session):
     sin = flint_session.env_dict["sin_data"]
     cos = flint_session.env_dict["cos_data"]
     p = plot.plot({"sin": sin, "cos": cos}, x="sin")
-    assert "CurvePlot" in repr(p)
+    assert "Plot1D" in repr(p)
     data = p.get_data()
     assert data == {"sin": pytest.approx(sin), "cos": pytest.approx(cos)}
 
@@ -38,12 +38,12 @@ def test_plot_curve_with_x(flint_session):
 def test_image_plot(flint_session):
     grey_image = flint_session.env_dict["grey_image"]
     p = plot.plot(grey_image)
-    assert "ImagePlot" in repr(p)
+    assert "Plot2D" in repr(p)
     data = p.get_data()
     assert data == {"default": pytest.approx(grey_image)}
     colored_image = flint_session.env_dict["colored_image"]
     p = plot.plot(colored_image)
-    assert "ImagePlot" in repr(p)
+    assert "Plot2D" in repr(p)
     data = p.get_data()
     assert data == {"default": pytest.approx(colored_image)}
 
@@ -54,7 +54,7 @@ def test_curve_plot(flint_session):
     scan = flint_session.env_dict["sin_cos_scan"]
     for sin_cos in (dct, struct, scan):
         p = plot.plot(sin_cos)
-        assert "CurvePlot" in repr(p)
+        assert "Plot1D" in repr(p)
         data = p.get_data()
         assert data == {
             "x": pytest.approx(sin_cos["x"]),

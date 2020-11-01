@@ -454,9 +454,8 @@ class FlintClient:
 
         Arguments:
             plot_class: A class defined in `bliss.flint.client.plot`, or a
-                silx class name. Can be one of "PlotWidget",
-                "PlotWindow", "Plot1D", "Plot2D", "ImageView", "StackView",
-                "ScatterView".
+                silx class name. Can be one of "Plot1D", "Plot2D", "ImageView",
+                "StackView", "ScatterView".
             name: Name of the plot as displayed in the tab header. It is not a
                 unique name.
             unique_name: If defined the plot can be retrieved from flint.
@@ -464,7 +463,7 @@ class FlintClient:
                 displayed plot.
             closeable: If true (default), the tab can be closed manually
         """
-        silx_class_name, plot_class = self.__get_plot_info(plot_class)
+        plot_class = self.__normalize_plot_class(plot_class)
 
         # FIXME: Hack for now, i would prefer to provide a get_live_plot for that
         if isinstance(unique_name, str) and unique_name.startswith("live:"):
@@ -476,6 +475,7 @@ class FlintClient:
                 if self.is_plot_exists(flint_plot_id):
                     return plot_class(flint=self, plot_id=flint_plot_id)
 
+        silx_class_name = plot_class.WIDGET
         plot_id = self._proxy.add_plot(
             silx_class_name, name=name, selected=selected, closeable=closeable
         )
@@ -505,29 +505,28 @@ class FlintClient:
                 displayed plot.
             closeable: If true (default), the tab can be closed manually
         """
-        silx_class_name, plot_class = self.__get_plot_info(plot_class)
+        plot_class = self.__normalize_plot_class(plot_class)
+        silx_class_name = plot_class.WIDGET
         plot_id = self._proxy.add_plot(
             silx_class_name, name=name, selected=selected, closeable=closeable
         )
         return plot_class(plot_id=plot_id, flint=self)
 
-    def __get_plot_info(self, plot_class):
+    def __normalize_plot_class(self, plot_class: typing.Union[str, object]):
+        """Returns a BLISS side plot class.
+
+        Arguments:
+            plot_class: A BLISS side plot class, or one of its alias
+        """
         if isinstance(plot_class, str):
-            classes = [
-                plots.CurvePlot,
-                plots.HistogramImagePlot,
-                plots.ImagePlot,
-                plots.ImageStackPlot,
-                plots.ScatterPlot,
-            ]
             plot_class = plot_class.lower()
-            for cls in classes:
-                if cls.WIDGET.lower() == plot_class:
+            for cls in plots.CUSTOM_CLASSES:
+                if plot_class in cls.ALIASES:
                     plot_class = cls
                     break
             else:
                 raise ValueError(f"Name '{plot_class}' does not refer to a plot class")
-        return plot_class.WIDGET, plot_class
+        return plot_class
 
 
 def _get_beacon_config():

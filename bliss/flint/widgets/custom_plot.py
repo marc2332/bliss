@@ -68,34 +68,8 @@ class CustomPlot(qt.QWidget):
             )
         return method(self, self.__plot, self.__data, args, kwargs)
 
-    def updateData(self, field, data):
-        self.__data[field] = data
-
-    def removeData(self, field):
-        del self.__data[field]
-
     def getData(self, field=None):
         if field is None:
             return self.__data
         else:
             return self.__data.get(field, [])
-
-    def selectData(self, method, names, kwargs):
-        # FIXME: method is not needed, that's ugly
-        # FIXME: kwargs is not a good idea
-        # Hackish legend handling
-        if "legend" not in kwargs and method.startswith("add"):
-            kwargs["legend"] = " -> ".join(names)
-        # Get the data to plot
-        args = tuple(self.__data[name] for name in names)
-        method = getattr(self.__plot, method)
-        # Plot
-        method(*args, **kwargs)
-
-    def deselectData(self, names):
-        legend = " -> ".join(names)
-        self.__plot.remove(legend)
-
-    def clearData(self):
-        self.__data.clear()
-        self.__plot.clear()

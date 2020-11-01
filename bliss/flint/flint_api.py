@@ -609,30 +609,6 @@ class FlintApi:
                     # Nothing to do
                     pass
 
-    def update_data(self, plot_id, field, data):
-        custom_plot = self._get_plot_widget(plot_id, live_plot=False)
-        custom_plot.updateData(field, data)
-
-    def remove_data(self, plot_id, field):
-        custom_plot = self._get_plot_widget(plot_id, live_plot=False)
-        custom_plot.removeData(field)
-
-    def get_data(self, plot_id, field=None):
-        custom_plot = self._get_plot_widget(plot_id, live_plot=False)
-        return custom_plot.getData(field)
-
-    def select_data(self, plot_id, method, names, kwargs):
-        custom_plot = self._get_plot_widget(plot_id, live_plot=False)
-        return custom_plot.selectData(method, names, kwargs)
-
-    def deselect_data(self, plot_id, names):
-        custom_plot = self._get_plot_widget(plot_id, live_plot=False)
-        return custom_plot.deselectData(names)
-
-    def clear_data(self, plot_id):
-        custom_plot = self._get_plot_widget(plot_id, live_plot=False)
-        return custom_plot.clearData()
-
     def start_image_monitoring(self, channel_name, tango_address):
         """Start monitoring of an image from a Tango detector.
 

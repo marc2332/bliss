@@ -52,6 +52,54 @@ class BasePlot(object):
 
     def _init_plot(self):
         """Inherits it to custom the plot initialization"""
+
+        @self._remotify
+        def select_data(holder, widget, data_dict, args, kwargs):
+            method, names, kwargs = args
+            if "legend" not in kwargs and method.startswith("add"):
+                kwargs["legend"] = " -> ".join(names)
+            # Get the data to plot
+            args = tuple(data_dict[name] for name in names)
+            widget_method = getattr(widget, method)
+            # Plot
+            widget_method(*args, **kwargs)
+
+        @self._remotify
+        def update_data(holder, widget, data_dict, args, kwargs):
+            field, data = args
+            data_dict[field] = data
+
+        @self._remotify
+        def remove_data(holder, widget, data_dict, args, kwargs):
+            field = args[0]
+            data_dict[field]
+
+        @self._remotify
+        def get_data(holder, widget, data_dict, args, kwargs):
+            field = args[0]
+            if field is None:
+                return data_dict
+            else:
+                return data_dict.get(field, [])
+
+        @self._remotify
+        def deselect_data(holder, widget, data_dict, args, kwargs):
+            names = args[0]
+            legend = " -> ".join(names)
+            widget.remove(legend)
+
+        @self._remotify
+        def clear_data(holder, widget, data_dict, args, kwargs):
+            data_dict.clear()
+            widget.clear()
+
+        self.__select_data = select_data
+        self.__update_data = update_data
+        self.__remove_data = remove_data
+        self.__get_data = get_data
+        self.__deselect_data = deselect_data
+        self.__clear_data = clear_data
+
         if self._xlabel is not None:
             self.submit("setGraphXLabel", self._xlabel)
         if self._ylabel is not None:
@@ -120,7 +168,7 @@ class BasePlot(object):
                     self.DATA_DIMENSIONS, data.ndim
                 )
             )
-        return self._flint.update_data(self._plot_id, field, data)
+        return self.__update_data(field, data)
 
     def add_data(self, data, field="default"):
         # Get fields
@@ -141,19 +189,19 @@ class BasePlot(object):
         return data_dict
 
     def remove_data(self, field):
-        return self._flint.remove_data(self._plot_id, field)
+        self.__remove_data(field)
 
     def select_data(self, *names, **kwargs):
-        return self._flint.select_data(self._plot_id, self.METHOD, names, kwargs)
+        self.__select_data(self.METHOD, names, kwargs)
 
     def deselect_data(self, *names):
-        return self._flint.deselect_data(self._plot_id, names)
+        self.__deselect_data(names)
 
     def clear_data(self):
-        return self._flint.clear_data(self._plot_id)
+        self.__clear_data()
 
-    def get_data(self):
-        return self._flint.get_data(self._plot_id)
+    def get_data(self, field=None):
+        return self.__get_data(field)
 
     # Plotting
 

@@ -28,6 +28,7 @@ class CustomPlot(qt.QWidget):
         self.__plotId = None
         self.__name = None
         self.__data = {}
+        self.__methods = {}
 
     def setName(self, name):
         self.__name = name
@@ -52,6 +53,20 @@ class CustomPlot(qt.QWidget):
 
     def _silxPlot(self):
         return self.__plot
+
+    def registerMethod(self, method_id, method):
+        if method_id in self.__methods:
+            raise ValueError(f"Method {method_id} already registred")
+        self.__methods[method_id] = method
+
+    def runMethod(self, method_id, args, kwargs):
+        method = self.__methods.get(method_id)
+        if method_id is None:
+            plot_id = self.plotId()
+            raise ValueError(
+                "Method '%s' on plot id '%s' is unknown", method_id, plot_id
+            )
+        return method(self, self.__plot, self.__data, args, kwargs)
 
     def updateData(self, field, data):
         self.__data[field] = data

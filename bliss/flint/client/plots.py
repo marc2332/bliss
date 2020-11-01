@@ -14,6 +14,7 @@ from typing import Optional
 
 import numpy
 import gevent
+import marshal
 
 from . import proxy
 from bliss.common import event
@@ -244,6 +245,20 @@ class BasePlot(object):
         flint = self._flint
         request_id = flint.request_select_shape(self._plot_id, shape)
         return self._wait_for_user_selection(request_id)
+
+    def _remotify(self, func):
+        """Make a function callable remotely"""
+        method_id = func.__qualname__
+        plot_id = self._plot_id
+        if func.__closure__:
+            raise TypeError("Only function without closure are supported.")
+        serialized_func = marshal.dumps(func.__code__)
+        self._flint.register_custom_method(plot_id, method_id, serialized_func)
+
+        def handler(*args, **kwargs):
+            return self._flint.run_custom_method(plot_id, method_id, args, kwargs)
+
+        return handler
 
     def _set_colormap(
         self,

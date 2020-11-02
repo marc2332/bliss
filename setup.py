@@ -109,6 +109,7 @@ console_script_entry_points = [
     "bliss = bliss.shell.cli.main:main",
     "bliss-emulator = bliss.controllers.emulator:main",
     "beacon-server = bliss.config.conductor.server:main",
+    "beacon-server-list = bliss.config.beacon_server_list:main",
     "bliss-ct2-server = bliss.controllers.ct2.server:main",
     "bliss-flex-server = bliss.controllers.correlator.flex.server:main",
     "bliss-handel-server = bliss.controllers.mca.handel.server:main",
@@ -131,6 +132,9 @@ console_script_entry_points = [
     "NexusWriterService = nexus_writer_service.nexus_writer_service:main",
     "NexusSessionWriter = nexus_writer_service.subscribers.session_writer:main",
     "RegisterNexusWriter = nexus_writer_service.nexus_register_writer:main",
+    "SlitsSimulationLimaCCDs = bliss.tango.servers.demo.lima_slits_simulator_ds:main",
+    "TomoSimulationLimaCCDs = bliss.tango.servers.demo.lima_tomo_simulator_ds:main",
+    "DiffSimulationLimaCCDs = bliss.tango.servers.demo.lima_diff_simulator_ds:main",
 ]
 
 if sys.platform not in ["win32", "cygwin"]:
@@ -247,12 +251,6 @@ def main():
         packages=packages,
         package_data=package_data,
         ext_modules=extensions,
-        scripts=[
-            "bin/beacon-server-list",
-            "bin/SlitsSimulationLimaCCDs",
-            "bin/TomoSimulationLimaCCDs",
-            "bin/DiffSimulationLimaCCDs",
-        ],
         entry_points={"console_scripts": console_script_entry_points},
         install_requires=install_requires,
         tests_require=tests_require,

@@ -20,11 +20,13 @@ Usage:
 
 # Imports
 import sys
+import os
 import logging
 import argparse
 
 from bliss.comm.rpc import Server as RpcServer
 from bliss.controllers.ct2 import card, device
+from bliss.config.static import get_config
 
 
 DEFAULT_BIND = "0.0.0.0"
@@ -58,21 +60,33 @@ def Server(*args, **kwargs):
     return server
 
 
-def create_device(card_type, address):
-    config = {"class": card_type + "Card", "address": address}
-    card_obj = card.create_and_configure_card(config)
-    return device.CT2(card_obj)
+def create_device(cfg):
+    card_add = cfg["card_address"]  # make it mandatory
+    card_type = cfg.get("type", DEFAULT_CARD_TYPE)
+    card_cfg = {"class": card_type, "address": card_add}
+    card_obj = card.create_card_from_configure(card_cfg)
+    ct2dev = device.CT2(card_obj)
+    ct2dev.configure(cfg)
+    return ct2dev
 
 
-def run(
-    bind=DEFAULT_BIND,
-    port=DEFAULT_PORT,
-    card_type=DEFAULT_CARD_TYPE,
-    address=DEFAULT_CARD_ADDRESS,
-):
+def run(cfg):
+
+    port = cfg.get("port", DEFAULT_PORT)
+    bind = cfg.get("bind", DEFAULT_BIND)
+
+    if cfg.get("port") is None:
+        add = cfg.get("address")
+        head = "tcp://"
+        if add.startswith(head):
+            res = add[len(head) :].split(":")
+            if len(res) == 2:
+                port = int(res[1])
+
     access = "tcp://{}:{}".format(bind, port)
-    device = create_device(card_type, address)
-    server = Server(device, stream=True)
+
+    ct2dev = create_device(cfg)
+    server = Server(ct2dev, stream=True)
     server.bind(access)
     log.info("Serving CT2 on {access}...".format(access=access))
     try:
@@ -87,19 +101,7 @@ def main(args=None):
     if args is None:
         args = sys.argv[1:]
     parser = argparse.ArgumentParser(description="CT2 server")
-    parser.add_argument(
-        "--address", default=DEFAULT_CARD_ADDRESS, type=str, help="card address"
-    )
-    parser.add_argument(
-        "--type",
-        default=DEFAULT_CARD_TYPE,
-        type=str,
-        dest="card_type",
-        help="card type",
-        choices=["P201", "C208"],
-    )
-    parser.add_argument("--port", default=DEFAULT_PORT, type=int, help="server port")
-    parser.add_argument("--bind", default=DEFAULT_BIND, type=str, help="server bind")
+    parser.add_argument("--name", type=str, help="name of the card in Beacon config")
     parser.add_argument(
         "--log-level",
         default=DEFAULT_LOG_LEVEL,
@@ -110,10 +112,22 @@ def main(args=None):
 
     arguments = vars(parser.parse_args(args))
 
+    obj_name = arguments["name"]
+    if obj_name is None:
+        raise ValueError(f"Argument '--name' is required")
+
+    config = get_config()
+    cfg = config.get_config(obj_name)
+    if cfg is None:
+        raise ValueError(
+            f"Cannot find object '{obj_name}' on BEACON_HOST={os.getenv('BEACON_HOST')}"
+        )
+
     log_level = arguments.pop("log_level", DEFAULT_LOG_LEVEL).upper()
     fmt = "%(levelname)s %(asctime)-15s %(name)s: %(message)s"
     logging.basicConfig(level=getattr(logging, log_level), format=fmt)
-    run(**arguments)
+
+    run(cfg)
 
 
 if __name__ == "__main__":

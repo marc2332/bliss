@@ -3565,6 +3565,7 @@ class C208Card(BaseCard):
 
 
 def get_ct2_card_class(card_type):
+    card_type = card_type.upper()
     if card_type is None or "P201" in card_type:
         klass = P201Card
     elif "C208" in card_type:

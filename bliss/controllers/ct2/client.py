@@ -61,18 +61,15 @@ class CT2CounterTimer(CT2Counter):
 class CT2Controller(Proxy, CounterController):
     def __init__(self, device_config, name="ct2_cc", **kwargs):
 
-        board_address = device_config["address"]
+        server_address = device_config["address"]
 
         Proxy.__init__(
-            self, functools.partial(Client, board_address, **kwargs), init_once=True
+            self, functools.partial(Client, server_address, **kwargs), init_once=True
         )
 
         CounterController.__init__(self, name=name, register_counters=False)
 
         global_map.register(self, children_list=[self.__wrapped__])
-
-        # Remote call
-        self.configure(device_config)
 
         slave = CT2CounterController("ct2_counters_controller", self)
 
@@ -82,6 +79,7 @@ class CT2Controller(Proxy, CounterController):
             if ct_name:
                 address = int(channel["address"])
                 slave.create_counter(CT2Counter, ct_name, address)
+
         # Add ct2 counter timer
         timer = device_config.get("timer", None)
         if timer is not None:
@@ -90,7 +88,7 @@ class CT2Controller(Proxy, CounterController):
                 slave.create_counter(CT2CounterTimer, ct_name)
 
         self._counters = slave._counters
-        self.board_address = board_address
+        self.server_address = server_address
 
     def get_acquisition_object(self, acq_params, ctrl_params, parent_acq_params):
 
@@ -136,7 +134,7 @@ class CT2Controller(Proxy, CounterController):
         return params
 
     def __info__(self):
-        infos = f"CT2Controller [address={self.board_address}]\n"
+        infos = f"CT2Controller [address={self.server_address}]\n"
         infos += "Counters:\n"
         internal_timer_counter = (
             self.internal_timer_counter
@@ -193,8 +191,10 @@ def __get_device_config(name):
 
 def create_and_configure_device(config_or_name):
     """
-    Create a device from the given configuration (beacon compatible) or its
-    configuration name.
+    Create a client device from the given configuration (beacon compatible) or its
+    configuration name. 
+    The card configuration is already loaded by the remote object ('device.CT2.configure').
+    The client device ('CT2Controller') read the configuration to create the counters.
 
     Args:
         config_or_name: (config or name: configuration dictionary (or

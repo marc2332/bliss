@@ -1,11 +1,11 @@
 # Workflow determines rules for the entire pipeline
-# here pipeline runs for TAG and BRANCHES, but not merge requests
-# (i.e. we want to avoid detached pipelines for merge requests, MR will show branch pipeline status)
-# ('rules' usage below would have lead to detached pipelines for MR)
+# here pipeline runs for TAGS, MERGE REQUESTS, and MASTER branch, but not other branches
+# (i.e. we want to avoid twice CI on merge requests and branches)
 workflow:
   rules:
     - if: $CI_COMMIT_TAG
     - if: $CI_MERGE_REQUEST_ID
+    - if: '$CI_COMMIT_BRANCH == "master"'
 
 default:
   before_script:

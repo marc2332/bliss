@@ -897,16 +897,19 @@ def lockedErrorMessage(filename):
     :param str filename:
     :returns str:
     """
-    msg = f"File is locked (name={repr(filename)})"
     pattern = ".+{}$".format(os.path.basename(filename))
     procs = file_processes(pattern)
     if procs:
-        msg += " by one of these processes:"
-        for fname, proc in procs:
-            msg += "\n {}: {}".format(proc, fname)
-        msg += "\n"
-    msg += "Please terminate the locking process. External applications should open the file in read-only mode with file locking disabled."
-    return msg
+        msg = f"The Nexus file is locked: {repr(filename)}"
+        msg += "\nThese local processes are accessing the file but not necessarily locking it:"
+        for _, proc in procs:
+            msg += f"\n {proc}"
+        msg += "\nRemote processes are not shown."
+    else:
+        msg = f"The Nexus file is locked by a remote process: {repr(filename)}"
+    msg += "\nTerminate the locking process or use a different acquisition file in order to continue."
+    # msg += " External applications should open the file in read-only mode with file locking disabled."
+    return msg + "\n"
 
 
 class File(h5py.File):

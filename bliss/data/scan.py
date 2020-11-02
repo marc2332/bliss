@@ -13,7 +13,7 @@ import typing
 from bliss.common.counter import Counter
 from bliss.common.axis import Axis
 from bliss.data.nodes.scan import get_data_from_nodes
-from bliss.data.node import _get_or_create_node
+from bliss.data.node import get_or_create_node
 from bliss.common.utils import get_matching_names
 
 
@@ -94,7 +94,7 @@ def watch_session_scans(
         watch_scan_group: If True the scan groups are also listed like any other
             scans
     """
-    session_node = _get_or_create_node(session_name, node_type="session")
+    session_node = get_or_create_node(session_name, node_type="session")
     if session_node is None:
         return
     running_scans = dict()

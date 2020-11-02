@@ -33,7 +33,7 @@ from bliss.common.utils import Null, update_node_info, round
 from bliss.common.profiling import Statistics, time_profile
 from bliss.controllers.motor import Controller
 from bliss.config.settings_cache import CacheConnection
-from bliss.data.node import _get_or_create_node, _create_node
+from bliss.data.node import get_or_create_node, create_node
 from bliss.data.scan import get_data
 from bliss.scanning.chain import AcquisitionSlave, AcquisitionMaster, StopChain
 from bliss.scanning.writer.null import Writer as NullWriter
@@ -791,9 +791,9 @@ class Scan:
         
         Important: has to be a method, since it can be overwritten in Scan subclasses (like Sequence)
         """
-        self.__node = _create_node(
+        self.__node = create_node(
             node_name,
-            "scan",
+            node_type="scan",
             parent=self.root_node,
             info=self._scan_info,
             connection=self._cache_cnx,
@@ -1216,10 +1216,10 @@ class Scan:
     def _prepare_channels(self, channels, parent_node):
         for channel in channels:
             chan_name = channel.short_name
-            channel_node = _get_or_create_node(
+            channel_node = get_or_create_node(
                 chan_name,
-                channel.data_node_type,
-                parent_node,
+                node_type=channel.data_node_type,
+                parent=parent_node,
                 shape=channel.shape,
                 dtype=channel.dtype,
                 unit=channel.unit,
@@ -1248,7 +1248,7 @@ class Scan:
             else:
                 parent_node = self.nodes[dev_node.bpointer]
             if isinstance(dev, (AcquisitionSlave, AcquisitionMaster)):
-                data_container_node = _create_node(
+                data_container_node = create_node(
                     dev.name, parent=parent_node, connection=self._cache_cnx
                 )
                 self._cache_cnx.add_prefetch(data_container_node)

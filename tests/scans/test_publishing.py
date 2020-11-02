@@ -26,8 +26,8 @@ from bliss.data.node import (
     get_node,
     DataNode,
     DataNodeContainer,
-    _get_or_create_node,
-    _get_node_object,
+    get_or_create_node,
+    datanode_factory,
     sessions_list,
     get_last_saved_scan,
 )
@@ -359,7 +359,7 @@ def test_iterator_over_reference_with_lima(redis_data_conn, lima_session, with_r
     if with_roi:
         lima_sim.roi_counters["myroi"] = [0, 0, 1, 1]
 
-    session_node = _get_or_create_node(lima_session.name, node_type="session")
+    session_node = get_or_create_node(lima_session.name, node_type="session")
 
     with gevent.Timeout(10 + 2 * (npoints + 1) * exp_time):
 
@@ -779,7 +779,9 @@ def _count_node_events(
     def walk():
         """Stops walking if no event has been received for x seconds
         """
-        node = _get_node_object(node_type, db_name, None, None)
+        node = datanode_factory(
+            db_name, node_type=node_type, on_not_state="instantiate"
+        )
         startlistening_event.set()
         if count_nodes:
             evgen = node.walk(filter=filter, wait=wait)

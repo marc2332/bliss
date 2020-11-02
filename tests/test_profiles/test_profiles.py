@@ -66,10 +66,10 @@ def experimental_data():
             fwhm = pytest.approx(0.25, abs=0.01)
         elif name == "stepup.dat":
             com = None
-            fwhm = pytest.approx(8.42, abs=0.01)
+            fwhm = pytest.approx(8.43, abs=0.01)
         elif name == "vibcut.dat":
             com = None
-            fwhm = pytest.approx(0.48, abs=0.01)
+            fwhm = pytest.approx(0.5, abs=0.01)
         elif name == "step_up.dat":
             com = None
             fwhm = 0
@@ -79,6 +79,9 @@ def experimental_data():
         elif name == "erf_down.dat":
             com = None
             fwhm = pytest.approx(0.54, abs=0.01)
+        elif name == "erf_down2.dat":
+            com = None
+            fwhm = pytest.approx(0.019, abs=0.002)
         elif name == "erf_up.dat":
             com = None
             fwhm = pytest.approx(0.54, abs=0.01)
@@ -202,6 +205,6 @@ def theoretical_profile_parameters():
             None,
             pytest.approx(0.91, abs=.01),
             pytest.approx(0.96, abs=.01),
-            pytest.approx(0.12, abs=.01),  # underestimation
+            pytest.approx(0.23, abs=.01),
         ),
     ]

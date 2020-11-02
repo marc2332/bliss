@@ -455,11 +455,6 @@ def get_card_html(cfg):
     html_template = get_jinja2().select_template([filename, "ct2.html"])
     return html_template.render(**params)
 
-    if value is None:
-        value = dictio["default"]
-    if value is None:
-        return
-
 
 def value_to_config(form, key, dictio):
     type_str, default = dictio["type"], dictio["default"]

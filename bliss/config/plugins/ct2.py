@@ -94,6 +94,7 @@ def device_edit(cfg, request):
     orig_card_name = form.get("__original_name__")
     card_name = form["device-name"]
     if card_name != orig_card_name:
+        result = {}
         result["message"] = "Change of card name not supported yet!"
         result["type"] = "danger"
         return flask.json.dumps(result)

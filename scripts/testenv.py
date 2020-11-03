@@ -216,7 +216,12 @@ def runcontext(cliargs, tmpdir="", prefix="tmp", env=None):
             raise RunContextExit
         finally:
             p.terminate()
-            print(f"{p.pid} terminated")
+            try:
+                p.wait(timeout=10)
+            except Exception:
+                print(f"{p.pid} STILL RUNNING")
+            else:
+                print(f"{p.pid} terminated")
 
 
 @contextmanager

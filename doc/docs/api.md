@@ -1,0 +1,1 @@
+<meta http-equiv="refresh" content="0; url=https://bliss.gitlab-pages.esrf.fr/bliss/master/api/index.html" />

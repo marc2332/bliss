@@ -184,7 +184,7 @@ nav:
                     - Silx-view: data_vis_silx.md
                     - Pymca: data_vis_pymca.md
         - Developers corner:
-                - 'API documentation ⚙|api/index.html': api.md
+                - API documentation ⚙: api.md
                 - Guidelines: dev_guidelines.md
                 - Writing documentation: dev_documentation.md
                 - Testing: dev_testing.md

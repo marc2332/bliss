@@ -12,6 +12,7 @@ import tempfile
 import shutil
 import threading
 from tango import DeviceProxy, DevFailed
+from bliss.tango.clients import utils as tango_utils
 from docopt import docopt
 
 BLISS = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -88,10 +89,7 @@ def start_beacon(db_path):
 
     proc = subprocess.Popen(BEACON + args)
     try:
-        wait_tango_device(
-            f"tango://localhost:{ports.tango_port}/sys/database/2",
-            "Tango database is not running",
-        )
+        tango_utils.wait_tango_db(host="localhost", port=ports.tango_port, db=2)
 
         time.sleep(1)  # Waiting for Redis?
 
@@ -108,26 +106,6 @@ def start_beacon(db_path):
         raise
 
     return proc
-
-
-def wait_tango_device(admin_device_fqdn, err_msg, timeout=10):
-    t0 = time.time()
-    exception = None
-
-    while True:
-        try:
-            dev_proxy = DeviceProxy(admin_device_fqdn)
-            dev_proxy.ping()
-        except DevFailed as e:
-            exception = e
-            time.sleep(0.5)
-        else:
-            break
-
-        if time.time() - t0 > timeout:
-            raise RuntimeError(err_msg) from exception
-
-    return dev_proxy
 
 
 def start_tango_servers():
@@ -174,8 +152,7 @@ def start_tango_servers():
 
             wait_tasks.append(
                 threading.Thread(
-                    target=wait_tango_device,
-                    args=(admin_device_fqdn, f"{device_fqdn} is not running"),
+                    target=tango_utils.wait_tango_device, args=(admin_device_fqdn,)
                 )
             )
             wait_tasks[-1].start()

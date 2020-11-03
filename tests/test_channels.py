@@ -128,7 +128,7 @@ beacon_host = sys.argv[1]
 beacon_port = int(sys.argv[2])
 beacon_connection = connection.Connection(beacon_host, beacon_port)
 client._default_connection = beacon_connection
- 
+
 class Test:
     def create_channel(self, value=channels._NotProvided):
         self.chan = channels.Channel('test_chan', value=value)

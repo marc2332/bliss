@@ -439,9 +439,11 @@ def _calc_cen(x, y):
     # This is either an edge or a partial peak
     idx_lim = [idx_above_half[0], idx_above_half[-1]]
     if max_left:
-        grad_down = [False, True]
+        # Step down
+        grad_down = [True, True]
     else:
-        grad_down = [True, False]
+        # Step up
+        grad_down = [False, False]
 
     x_start, x_end = _optimize_limits(x, y, y_lim, idx_lim, grad_down)
     if max_left:

@@ -2,7 +2,6 @@
 
 import os
 import sys
-from collections import namedtuple
 import subprocess
 import redis
 import socket
@@ -13,18 +12,23 @@ import shutil
 import threading
 from bliss.tango.clients import utils as tango_utils
 from docopt import docopt
+from typing import NamedTuple
 
 BLISS = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 BEACON = [sys.executable, "-m", "bliss.config.conductor.server"]
 BEACON_DB_PATH = os.path.join(BLISS, "demo", "demo_configuration")
 CMDLINE_ARGS = docopt(
     """
-Usage: start_demo_servers [--beacon-port=<beacon_port>] [--tango-port=<tango_port>] [--redis-port=<redis_port>]
+Usage: start_demo_servers [--beacon-port=<arg>]
+                          [--tango-port=<arg>]
+                          [--redis-port=<arg>]
+                          [--redis-data-port=<arg>]
 
 Options:
-    --beacon-port=<beacon_port>   Beacon server port [default: 10001]
-    --tango-port=<tango_port>     Tango database server port [default: 10000]
-    --redis-port=<redis_port>     Redis server port [default: 10002]
+    --tango-port=<arg>       Tango database server port [default: 10000]
+    --beacon-port=<arg>      Beacon server port [default: 10001]
+    --redis-port=<arg>       Redis server for stats [default: 10002]
+    --redis-data-port=<arg>  Redis server for data [default: 10003]
 """
 )
 
@@ -71,15 +75,24 @@ def cleanup_processes(processes):
 def start_beacon(db_path):
 
     redis_uds = os.path.join(db_path, "redis_demo.sock")
-    ports = namedtuple("Ports", "redis_port tango_port beacon_port")(
-        int(CMDLINE_ARGS["--redis-port"]),
-        int(CMDLINE_ARGS["--tango-port"]),
-        int(CMDLINE_ARGS["--beacon-port"]),
-    )
+    redis_data_uds = os.path.join(db_path, "redis_data_demo.sock")
+
+    class Ports(NamedTuple):
+        beacon_port: int
+        tango_port: int
+        redis_port: int
+        redis_data_port: int
+
+    port_names = ["--beacon-port", "--tango-port", "--redis-port", "--redis-data-port"]
+    port_list = (int(CMDLINE_ARGS[p]) for p in port_names)
+    ports = Ports(*port_list)
+
     args = [
         "--port=%d" % ports.beacon_port,
         "--redis_port=%d" % ports.redis_port,
         "--redis_socket=" + redis_uds,
+        "--redis-data-port=%d" % ports.redis_data_port,
+        "--redis-data-socket=" + redis_data_uds,
         "--db_path=" + db_path,
         "--tango_port=%d" % ports.tango_port,
         # "--log-level=INFO",

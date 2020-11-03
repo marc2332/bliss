@@ -279,7 +279,8 @@ def ports(beacon_directory, log_directory):
 
     def read_std(stream):
         while True:
-            sys.stderr.write(stream.read(1024))
+            line = stream.readline()
+            sys.stderr.write("BEACON: %a" % line)
 
     # redirect the content of the stream
     dispatcher = gevent.spawn(read_std, proc.stderr)

@@ -238,11 +238,11 @@ def elogbook_filter(record):
     """
     if current_session:
         try:
-            scan_saving = current_session.scan_saving
+            elogbook = current_session.scan_saving.elogbook
         except AttributeError:
-            # no scan saving yet ? (like, called from session setup)
+            # Data policy is not initialized
             return False
-        return scan_saving.elogbook is not None
+        return elogbook is not None
     else:
         # No active session -> no notion of data policy
         return False

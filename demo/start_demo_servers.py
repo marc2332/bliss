@@ -11,7 +11,6 @@ import time
 import tempfile
 import shutil
 import threading
-from tango import DeviceProxy, DevFailed
 from bliss.tango.clients import utils as tango_utils
 from docopt import docopt
 

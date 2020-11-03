@@ -7,4 +7,5 @@ markdown-inline-graphviz
 markdown>=3.2
 mkdocs>=1.1
 mkdocs-material==5.5.14  # issue 2257 (support Firefox 60.9.0esr)
+mkdocs-material-extensions>=1.0
 pymdown-extensions>=6.3

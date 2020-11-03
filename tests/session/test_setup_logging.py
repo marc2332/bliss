@@ -6,6 +6,7 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import pytest
+from bliss.scanning.scan_saving import set_scan_saving_class
 
 
 @pytest.fixture
@@ -24,10 +25,16 @@ def logging_session(beacon_with_logging):
 
 
 @pytest.fixture
-def logging_session_without_elogserver(beacon_with_logging):
+def beacon_with_logging_esrf(beacon_with_logging):
     scan_saving_cfg = beacon_with_logging.root["scan_saving"]
     scan_saving_cfg["class"] = "ESRFScanSaving"
-    session = beacon_with_logging.get("test_logging_session")
+    yield beacon_with_logging
+    set_scan_saving_class(None)
+
+
+@pytest.fixture
+def logging_session_without_elogserver(beacon_with_logging_esrf):
+    session = beacon_with_logging_esrf.get("test_logging_session")
     session.setup()
     yield session
     session.close()
@@ -35,11 +42,9 @@ def logging_session_without_elogserver(beacon_with_logging):
 
 @pytest.fixture
 def logging_session_with_elogserver(
-    beacon_with_logging, metaexp_with_backend, metamgr_with_backend
+    beacon_with_logging_esrf, metaexp_with_backend, metamgr_with_backend
 ):
-    scan_saving_cfg = beacon_with_logging.root["scan_saving"]
-    scan_saving_cfg["class"] = "ESRFScanSaving"
-    session = beacon_with_logging.get("test_logging_session")
+    session = beacon_with_logging_esrf.get("test_logging_session")
     session.setup()
     yield session
     session.close()

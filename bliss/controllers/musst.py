@@ -393,9 +393,6 @@ class musst:
                             "musst: channels (%s) switch object must have states_list method"
                             % channel_number
                         )
-                    channel = self.get_channel(
-                        channel_number, type=channel_type, switch=ext_switch
-                    )
                     for channel_name in ext_switch.states_list():
                         channels = self._channels.setdefault(
                             channel_name.upper(), list()

@@ -327,7 +327,6 @@ for ESRF, see: <http://wikiserv.esrf.fr/bliss/index.php/BLISS_Releasing>
 ├─ requirements-conda.txt       modules to Conda-install to run BLISS
 ├─ requirements-dev.txt         modules to Conda-install to develop BLISS
 ├─ requirements-doc-conda.txt   modules to Conda-install to build documentation
-├─ requirements-doc.txt         modules to PIP-install   to build documentation
 ├─ requirements-test-conda.txt  modules to Conda-install to run tests
 ├─ setup.cfg       options to use for test; aliases;
 └─ setup.py        BLISS configuration file

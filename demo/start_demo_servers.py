@@ -10,9 +10,13 @@ import time
 import tempfile
 import shutil
 import threading
-from bliss.tango.clients import utils as tango_utils
+import gevent
+
 from docopt import docopt
 from typing import NamedTuple
+
+from bliss.tango.clients import utils as tango_utils
+
 
 BLISS = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 BEACON = [sys.executable, "-m", "bliss.config.conductor.server"]
@@ -153,23 +157,17 @@ def start_tango_servers():
     try:
         for device_name, cmdline, server_name in tango_devices:
             fqdn_prefix = f"tango://{os.environ['TANGO_HOST']}"
-            device_fqdn = f"{fqdn_prefix}/{device_name}"
+            # device_fqdn = f"{fqdn_prefix}/{device_name}"
             personal_name = cmdline[-1]
             admin_device_fqdn = f"{fqdn_prefix}/dserver/{server_name}/{personal_name}"
-
             processes.append(subprocess.Popen(cmdline))
+            green_wait = gevent.spawn(tango_utils.wait_tango_device, admin_device_fqdn)
+            wait_tasks.append(green_wait)
 
-            wait_tasks.append(
-                threading.Thread(
-                    target=tango_utils.wait_tango_device, args=(admin_device_fqdn,)
-                )
-            )
-            wait_tasks[-1].start()
-
-        for task in wait_tasks:
-            task.join()
+        gevent.joinall(wait_tasks)
     except BaseException:
         cleanup_processes(processes)
+        gevent.killall(wait_tasks)
         raise
 
     return processes

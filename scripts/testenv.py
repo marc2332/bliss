@@ -256,8 +256,10 @@ def beacon(tmpdir=None, freshdb=True):
     params["port"] = find_free_port()
     params["tango_port"] = find_free_port()
     params["redis_port"] = find_free_port()
+    params["redis-data-port"] = find_free_port()
     params["webapp_port"] = find_free_port()
     params["redis_socket"] = temp_filename(tmpdir, "redis_", ".sock")
+    params["redis-data-socket"] = temp_filename(tmpdir, "redis_data_", ".sock")
     level = logger.getEffectiveLevel()
     params["log_level"] = log_levels.beacon_log_level[level]
     params["tango_debug_level"] = log_levels.tango_cli_log_level[level]

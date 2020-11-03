@@ -124,37 +124,34 @@ def start_tango_servers():
     wait_tasks = []
     processes = []
 
-    try:
+    tango_devices = [
+        ("id00/limaccds/simulator1", ("LimaCCDs", "simulator"), "LimaCCDs"),
+        (
+            "id00/limaccds/slits_simulator",
+            ("SlitsSimulationLimaCCDs", "slits_simulator"),
+            "LimaCCDs",
+        ),
+        (
+            "id00/limaccds/tomo_simulator",
+            ("TomoSimulationLimaCCDs", "tomo_simulator"),
+            "LimaCCDs",
+        ),
+        (
+            "id00/limaccds/diff_simulator",
+            ("DiffSimulationLimaCCDs", "diff_simulator"),
+            "LimaCCDs",
+        ),
+        ("id00/metadata/demo_session", ("MetadataManager", "demo"), "MetadataManager"),
+        ("id00/metaexp/demo_session", ("MetaExperiment", "demo"), "MetaExperiment"),
+        (
+            "id00/bliss_nxwriter/demo_session",
+            ("NexusWriterService", "demo"),
+            "NexusWriter",
+        ),
+    ]
 
-        for device_name, cmdline, server_name in (
-            ("id00/limaccds/simulator1", ("LimaCCDs", "simulator"), "LimaCCDs"),
-            (
-                "id00/limaccds/slits_simulator",
-                ("SlitsSimulationLimaCCDs", "slits_simulator"),
-                "LimaCCDs",
-            ),
-            (
-                "id00/limaccds/tomo_simulator",
-                ("TomoSimulationLimaCCDs", "tomo_simulator"),
-                "LimaCCDs",
-            ),
-            (
-                "id00/limaccds/diff_simulator",
-                ("DiffSimulationLimaCCDs", "diff_simulator"),
-                "LimaCCDs",
-            ),
-            (
-                "id00/metadata/demo_session",
-                ("MetadataManager", "demo"),
-                "MetadataManager",
-            ),
-            ("id00/metaexp/demo_session", ("MetaExperiment", "demo"), "MetaExperiment"),
-            (
-                "id00/bliss_nxwriter/demo_session",
-                ("NexusWriterService", "demo"),
-                "NexusWriter",
-            ),
-        ):
+    try:
+        for device_name, cmdline, server_name in tango_devices:
             fqdn_prefix = f"tango://{os.environ['TANGO_HOST']}"
             device_fqdn = f"{fqdn_prefix}/{device_name}"
             personal_name = cmdline[-1]

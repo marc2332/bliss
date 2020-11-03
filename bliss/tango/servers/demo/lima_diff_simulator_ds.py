@@ -15,12 +15,13 @@ from Lima.Server import plugins
 
 plugins.__all__.append("DiffSimulationPlugin")
 
-from Lima.Server.LimaCCDs import main
+from Lima.Server import LimaCCDs
 
 
 def main():
     sys.argv[0] = re.sub(r"(-script\.pyw?|\.exe)?$", "", sys.argv[0])
-    sys.exit(main())
+    result = LimaCCDs.main()
+    sys.exit(result)
 
 
 if __name__ == "__main__":

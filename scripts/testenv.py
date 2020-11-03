@@ -21,7 +21,8 @@ from gevent import socket
 from gevent import sleep
 from contextlib import closing, contextmanager, ExitStack
 import bliss
-from tango import DeviceProxy, DevFailed, Database
+from bliss.common.tango import DevState
+from bliss.tango.clients.utils import wait_tango_device, wait_tango_db
 from bliss.config import get_sessions_list
 from nexus_writer_service.io.io_utils import temproot, tempname
 from nexus_writer_service.utils.logging_utils import getLogger, add_cli_args
@@ -71,33 +72,6 @@ def fresh_bliss_test_db(tmpdir):
     return new_db_path
 
 
-def tango_online(uri=None, timeout=10):
-    """Check whether Tango device is online
-
-    :param str uri: the tango database itself when missing
-    :param num timeout:
-    """
-    if uri:
-        uri = f"tango://{os.environ['TANGO_HOST']}/{uri}"
-        device = repr(uri)
-    else:
-        device = f"Tango database {os.environ['TANGO_HOST']}"
-    with gevent.Timeout(10, RuntimeError(device + " not online")):
-        while True:
-            try:
-                if uri:
-                    dev_proxy = DeviceProxy(uri)
-                    dev_proxy.ping()
-                    dev_proxy.state()
-                else:
-                    db = Database()
-                    db.build_connection()
-            except DevFailed as e:
-                gevent.sleep(0.1)
-            else:
-                break
-
-
 def beacon_online(timeout=10):
     """Check whether Beacon server is online
 
@@ -108,7 +82,7 @@ def beacon_online(timeout=10):
             try:
                 get_sessions_list()
             except Exception:
-                sleep(0.1)
+                sleep(0.5)
             else:
                 break
 
@@ -240,8 +214,6 @@ def testenv(root=None):
                 yield tmpdir
             except RunContextExit as e:
                 print(e)
-            finally:
-                shutil.rmtree(tmpdir, ignore_errors=True)
     except OSError as e:
         print(e)
 
@@ -278,8 +250,8 @@ def beacon(tmpdir=None, freshdb=True):
     env["PATH"] = os.environ["PATH"]
 
     with runcontext(cliargs, tmpdir=tmpdir, prefix="beacon"):
-        beacon_online(timeout=10)
-        tango_online(timeout=10)
+        beacon_online()
+        wait_tango_db(port=params["tango_port"])
         yield env
 
 
@@ -295,11 +267,15 @@ def lima(env=None, tmpdir=None, name="simulator1"):
     level = log_levels.tango_cli_log_level[level]
     level = f"-v{level}"
     if name == "simulator1":
+        dserver = "simulator"
         cliargs = ["LimaCCDs", "simulator", level]
     else:
+        dserver = name
         cliargs = ["LimaCCDs", name, level]
     with runcontext(cliargs, tmpdir=tmpdir, prefix="lima_" + name, env=env):
-        tango_online(uri="id00/limaccds/" + name, timeout=10)
+        device_fqdn = "id00/limaccds/" + name
+        admin_device_fqdn = "dserver/LimaCCDs/" + dserver
+        wait_tango_device(device_fqdn=device_fqdn, admin_device_fqdn=admin_device_fqdn)
         yield
 
 
@@ -317,7 +293,8 @@ def metaexperiment(env=None, tmpdir=None, name="test"):
     cliargs = ["MetaExperiment", name, level]
     with runcontext(cliargs, tmpdir=tmpdir, prefix="metaexperiment_" + name, env=env):
         for session_name in ("test_session", "nexus_writer_session"):
-            tango_online(uri="id00/metaexp/" + session_name, timeout=10)
+            device_fqdn = "id00/metaexp/" + session_name
+            wait_tango_device(device_fqdn=device_fqdn)
         yield
 
 
@@ -335,7 +312,8 @@ def metadatamanager(env=None, tmpdir=None, name="test"):
     cliargs = ["MetadataManager", name, level]
     with runcontext(cliargs, tmpdir=tmpdir, prefix="metadatamanager_" + name, env=env):
         for session_name in ("test_session", "nexus_writer_session"):
-            tango_online(uri="id00/metadata/" + session_name, timeout=10)
+            device_fqdn = "id00/metadata/" + session_name
+            wait_tango_device(device_fqdn=device_fqdn, state=DevState.OFF)
         yield
 
 
@@ -360,8 +338,8 @@ def nexuswriterservice(env=None, tmpdir=None, instance="testwriters"):
     sessions = ["nexus_writer_session", "test_session"]
     with runcontext(cliargs, tmpdir=tmpdir, prefix="nexuswriter_" + instance, env=env):
         for session_name in sessions:
-            device_name = "id00/bliss_nxwriter/" + session_name
-            tango_online(uri=device_name, timeout=20)
+            device_fqdn = "id00/bliss_nxwriter/" + session_name
+            wait_tango_device(device_fqdn=device_fqdn)
         yield
 
 
@@ -381,7 +359,7 @@ def nexuswriterprocess(env=None, tmpdir=None):
             ctx = runcontext(
                 cliargs, tmpdir=tmpdir, prefix="nexuswriter_" + session, env=env
             )
-            files = [stack.enter_context(ctx)]
+            stack.enter_context(ctx)
         yield
 
 
@@ -434,22 +412,32 @@ if __name__ == "__main__":
     add_cli_args(parser, default="INFO")
     args, unknown = parser.parse_known_args()
 
-    with testenv(root=args.root) as tmpdir:
-        with beacon(tmpdir=tmpdir, freshdb=args.freshdb) as env:
-            with metaexperiment(env=env, tmpdir=tmpdir, name="test"):
-                with metadatamanager(env=env, tmpdir=tmpdir, name="test"):
-                    with lima(env=env, tmpdir=tmpdir, name="simulator1"):
-                        with lima(env=env, tmpdir=tmpdir, name="simulator2"):
-                            if args.writer == "TANGO":
-                                ctx = nexuswriterservice(
-                                    env=env, tmpdir=tmpdir, instance="testwriters"
-                                )
-                            elif args.writer == "PROCESS":
-                                ctx = nexuswriterprocess(env=env, tmpdir=tmpdir)
-                            else:
-                                ctx = None
-                            if ctx is None:
-                                print_env_info(tmpdir, env=env, writer=ctx is not None)
-                            else:
-                                with ctx:
-                                    print_env_info(tmpdir, env=env)
+    with ExitStack() as stack:
+        ctx = testenv(root=args.root)
+        tmpdir = stack.enter_context(ctx)
+
+        ctx = beacon(tmpdir=tmpdir, freshdb=args.freshdb)
+        env = stack.enter_context(ctx)
+
+        ctx = metaexperiment(env=env, tmpdir=tmpdir, name="test")
+        stack.enter_context(ctx)
+
+        ctx = metadatamanager(env=env, tmpdir=tmpdir, name="test")
+        stack.enter_context(ctx)
+
+        ctx = lima(env=env, tmpdir=tmpdir, name="simulator1")
+        stack.enter_context(ctx)
+
+        ctx = lima(env=env, tmpdir=tmpdir, name="simulator2")
+        stack.enter_context(ctx)
+
+        if args.writer == "TANGO":
+            ctx = nexuswriterservice(env=env, tmpdir=tmpdir, instance="testwriters")
+        elif args.writer == "PROCESS":
+            ctx = nexuswriterprocess(env=env, tmpdir=tmpdir)
+        else:
+            ctx = None
+        writer = ctx is not None
+        if writer:
+            stack.enter_context(ctx)
+        print_env_info(tmpdir, env=env, writer=writer)

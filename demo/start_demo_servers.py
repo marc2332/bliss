@@ -2,7 +2,6 @@
 
 import os
 import sys
-from collections import namedtuple
 import subprocess
 import redis
 import socket
@@ -11,20 +10,29 @@ import time
 import tempfile
 import shutil
 import threading
-from tango import DeviceProxy, DevFailed
+import gevent
+
 from docopt import docopt
+from typing import NamedTuple
+
+from bliss.tango.clients import utils as tango_utils
+
 
 BLISS = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 BEACON = [sys.executable, "-m", "bliss.config.conductor.server"]
 BEACON_DB_PATH = os.path.join(BLISS, "demo", "demo_configuration")
 CMDLINE_ARGS = docopt(
     """
-Usage: start_demo_servers [--beacon-port=<beacon_port>] [--tango-port=<tango_port>] [--redis-port=<redis_port>]
+Usage: start_demo_servers [--beacon-port=<arg>]
+                          [--tango-port=<arg>]
+                          [--redis-port=<arg>]
+                          [--redis-data-port=<arg>]
 
 Options:
-    --beacon-port=<beacon_port>   Beacon server port [default: 10001]
-    --tango-port=<tango_port>     Tango database server port [default: 10000]
-    --redis-port=<redis_port>     Redis server port [default: 10002]
+    --tango-port=<arg>       Tango database server port [default: 10000]
+    --beacon-port=<arg>      Beacon server port [default: 10001]
+    --redis-port=<arg>       Redis server for stats [default: 10002]
+    --redis-data-port=<arg>  Redis server for data [default: 10003]
 """
 )
 
@@ -71,15 +79,24 @@ def cleanup_processes(processes):
 def start_beacon(db_path):
 
     redis_uds = os.path.join(db_path, "redis_demo.sock")
-    ports = namedtuple("Ports", "redis_port tango_port beacon_port")(
-        int(CMDLINE_ARGS["--redis-port"]),
-        int(CMDLINE_ARGS["--tango-port"]),
-        int(CMDLINE_ARGS["--beacon-port"]),
-    )
+    redis_data_uds = os.path.join(db_path, "redis_data_demo.sock")
+
+    class Ports(NamedTuple):
+        beacon_port: int
+        tango_port: int
+        redis_port: int
+        redis_data_port: int
+
+    port_names = ["--beacon-port", "--tango-port", "--redis-port", "--redis-data-port"]
+    port_list = (int(CMDLINE_ARGS[p]) for p in port_names)
+    ports = Ports(*port_list)
+
     args = [
         "--port=%d" % ports.beacon_port,
         "--redis_port=%d" % ports.redis_port,
         "--redis_socket=" + redis_uds,
+        "--redis-data-port=%d" % ports.redis_data_port,
+        "--redis-data-socket=" + redis_data_uds,
         "--db_path=" + db_path,
         "--tango_port=%d" % ports.tango_port,
         # "--log-level=INFO",
@@ -88,10 +105,7 @@ def start_beacon(db_path):
 
     proc = subprocess.Popen(BEACON + args)
     try:
-        wait_tango_device(
-            f"tango://localhost:{ports.tango_port}/sys/database/2",
-            "Tango database is not running",
-        )
+        tango_utils.wait_tango_db(host="localhost", port=ports.tango_port, db=2)
 
         time.sleep(1)  # Waiting for Redis?
 
@@ -110,80 +124,50 @@ def start_beacon(db_path):
     return proc
 
 
-def wait_tango_device(admin_device_fqdn, err_msg, timeout=10):
-    t0 = time.time()
-    exception = None
-
-    while True:
-        try:
-            dev_proxy = DeviceProxy(admin_device_fqdn)
-            dev_proxy.ping()
-        except DevFailed as e:
-            exception = e
-            time.sleep(0.5)
-        else:
-            break
-
-        if time.time() - t0 > timeout:
-            raise RuntimeError(err_msg) from exception
-
-    return dev_proxy
-
-
 def start_tango_servers():
     wait_tasks = []
     processes = []
 
-    try:
+    tango_devices = [
+        ("id00/limaccds/simulator1", ("LimaCCDs", "simulator"), "LimaCCDs"),
+        (
+            "id00/limaccds/slits_simulator",
+            ("SlitsSimulationLimaCCDs", "slits_simulator"),
+            "LimaCCDs",
+        ),
+        (
+            "id00/limaccds/tomo_simulator",
+            ("TomoSimulationLimaCCDs", "tomo_simulator"),
+            "LimaCCDs",
+        ),
+        (
+            "id00/limaccds/diff_simulator",
+            ("DiffSimulationLimaCCDs", "diff_simulator"),
+            "LimaCCDs",
+        ),
+        ("id00/metadata/demo_session", ("MetadataManager", "demo"), "MetadataManager"),
+        ("id00/metaexp/demo_session", ("MetaExperiment", "demo"), "MetaExperiment"),
+        (
+            "id00/bliss_nxwriter/demo_session",
+            ("NexusWriterService", "demo"),
+            "NexusWriter",
+        ),
+    ]
 
-        for device_name, cmdline, server_name in (
-            ("id00/limaccds/simulator1", ("LimaCCDs", "simulator"), "LimaCCDs"),
-            (
-                "id00/limaccds/slits_simulator",
-                ("SlitsSimulationLimaCCDs", "slits_simulator"),
-                "LimaCCDs",
-            ),
-            (
-                "id00/limaccds/tomo_simulator",
-                ("TomoSimulationLimaCCDs", "tomo_simulator"),
-                "LimaCCDs",
-            ),
-            (
-                "id00/limaccds/diff_simulator",
-                ("DiffSimulationLimaCCDs", "diff_simulator"),
-                "LimaCCDs",
-            ),
-            (
-                "id00/metadata/demo_session",
-                ("MetadataManager", "demo"),
-                "MetadataManager",
-            ),
-            ("id00/metaexp/demo_session", ("MetaExperiment", "demo"), "MetaExperiment"),
-            (
-                "id00/bliss_nxwriter/demo_session",
-                ("NexusWriterService", "demo"),
-                "NexusWriter",
-            ),
-        ):
+    try:
+        for device_name, cmdline, server_name in tango_devices:
             fqdn_prefix = f"tango://{os.environ['TANGO_HOST']}"
-            device_fqdn = f"{fqdn_prefix}/{device_name}"
+            # device_fqdn = f"{fqdn_prefix}/{device_name}"
             personal_name = cmdline[-1]
             admin_device_fqdn = f"{fqdn_prefix}/dserver/{server_name}/{personal_name}"
-
             processes.append(subprocess.Popen(cmdline))
+            green_wait = gevent.spawn(tango_utils.wait_tango_device, admin_device_fqdn)
+            wait_tasks.append(green_wait)
 
-            wait_tasks.append(
-                threading.Thread(
-                    target=wait_tango_device,
-                    args=(admin_device_fqdn, f"{device_fqdn} is not running"),
-                )
-            )
-            wait_tasks[-1].start()
-
-        for task in wait_tasks:
-            task.join()
+        gevent.joinall(wait_tasks)
     except BaseException:
         cleanup_processes(processes)
+        gevent.killall(wait_tasks)
         raise
 
     return processes

@@ -63,6 +63,12 @@ class DataPolicyObject:
     def node(self):
         return self._node
 
+    @property
+    def is_frozen(self):
+        """Forzen means it does take metadata fields from its parent
+        """
+        return self._node.info.get("__frozen__")
+
     def _log_debug(self, msg):
         log_debug(self, f"{self._NODE_TYPE}({self}): {msg}")
 
@@ -76,22 +82,40 @@ class DataPolicyObject:
     def get_current_icat_metadata(self, pattern=None):
         """Get all metadata key-value pairs from Redis (self and parents)
         """
-        if self.parent:
+        if not self.is_frozen and self.parent:
             metadata = self.parent.get_current_icat_metadata(pattern=pattern)
+            metadata.update(self._node.get_metadata(pattern=pattern))
         else:
-            metadata = dict()
-        metadata.update(self._node.get_metadata(pattern=pattern))
+            metadata = self._node.get_metadata(pattern=pattern)
         return metadata
 
     def get_current_icat_metadata_fields(self, pattern=None):
         """Get all metadata field names from Redis (self and parents).
         """
         metadata_fields = self._node.get_metadata_fields(pattern=pattern)
-        if self.parent:
+        if not self.is_frozen and self.parent:
             metadata_fields |= self.parent.get_current_icat_metadata_fields(
                 pattern=pattern
             )
         return metadata_fields
+
+    def freeze_inherited_icat_metadata(self):
+        """After this, changes in the parent metadata no longer affect
+        the current metadata.
+        """
+        if self.is_frozen or not self.parent:
+            return
+        self_fields = self._node.get_metadata_fields()
+        parent_fields = self.parent.get_current_icat_metadata_fields()
+        for key in parent_fields - self_fields:
+            value = self.parent.read_metadata_field(key)
+            self.write_metadata_field(key, value)
+        self._node.info["__frozen__"] = True
+
+    def unfreeze_inherited_icat_metadata(self):
+        """After this, the parent metadata affect the current metadata.
+        """
+        self._node.info["__frozen__"] = False
 
     def has_metadata_field(self, key):
         """Check metadata field exists in Redis (self and parents).

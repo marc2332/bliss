@@ -129,6 +129,7 @@ class Dataset(DataPolicyObject):
             return
         self.finalize_metadata()
         self._store_in_icat(icat_proxy)
+        self.freeze_inherited_icat_metadata()
         self._node.info["__closed__"] = True
         self._log_debug("closed dataset")
 

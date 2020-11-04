@@ -801,6 +801,23 @@ def test_icat_metadata_inheritance(session, esrf_data_policy):
     assert scan_saving.dataset.metadata_is_complete
 
 
+def test_icat_metadata_freezing(session, esrf_data_policy):
+    scan_saving = session.scan_saving
+
+    mdatafield = "Sample_name"
+    scan_saving.collection[mdatafield] = "value1"
+    assert scan_saving.dataset[mdatafield] == "value1"
+    scan_saving.collection[mdatafield] = "value2"
+    assert scan_saving.dataset[mdatafield] == "value2"
+    scan_saving.dataset.freeze_inherited_icat_metadata()
+    scan_saving.collection[mdatafield] = "value3"
+    assert scan_saving.dataset[mdatafield] == "value2"
+    scan_saving.dataset.unfreeze_inherited_icat_metadata()
+    assert scan_saving.dataset[mdatafield] == "value2"
+    scan_saving.dataset[mdatafield] = None
+    assert scan_saving.dataset[mdatafield] == "value3"
+
+
 def test_data_policy_user_functions(
     session, icat_subscriber, icat_logbook_subscriber, esrf_data_policy
 ):

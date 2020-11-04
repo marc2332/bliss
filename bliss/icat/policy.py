@@ -59,7 +59,7 @@ class DataPolicyObject:
     def path(self):
         return self._node.info["__path__"]
 
-    @autocomplete_property
+    @property
     def node(self):
         return self._node
 

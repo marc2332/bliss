@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Flint:
+    - Data from Lima detectors and MCAs are not anymore hidden on a `amesh` scan
+    - Data from MCAs are again displayed inside an MCA widget
+
 ### Removed
 
 ## [1.6.0 - 2020-10-25]

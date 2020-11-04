@@ -843,6 +843,15 @@ class ESRFScanSaving(BasicScanSaving):
         self._proposal_object = None
         self._collection_object = None
         self._dataset_object = None
+        self._remove_deprecated()
+
+    def _remove_deprecated(self):
+        stored = self.to_dict()
+        if "_sample" in stored:
+            # Deprecated in Bliss 1.7
+            value = stored["_sample"]
+            self.remove("._sample")
+            self._collection = value
 
     def __dir__(self):
         keys = super().__dir__()

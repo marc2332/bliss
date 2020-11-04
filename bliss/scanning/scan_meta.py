@@ -27,6 +27,11 @@ CATEGORIES = enum.Enum(
 )
 
 
+class META_TIMING(enum.Flag):
+    START = enum.auto()
+    END = enum.auto()
+
+
 def categories_names():
     return [cat.name.lower() for cat in CATEGORIES]
 
@@ -36,7 +41,9 @@ def get_user_scan_meta():
     if USER_SCAN_META is None:
         USER_SCAN_META = scan_meta()
         USER_SCAN_META.positioners.set("positioners", fill_positioners)
+        USER_SCAN_META.positioners.timing = META_TIMING.START | META_TIMING.END
         USER_SCAN_META.instrument.set("@NX_class", {"@NX_class": "NXinstrument"})
+        USER_SCAN_META.instrument.timing = META_TIMING.END
         USER_SCAN_META.technique.set("@NX_class", {"@NX_class": "NXcollection"})
         USER_SCAN_META.sample.set("@NX_class", {"@NX_class": "NXsample"})
         USER_SCAN_META.proposal.set("@NX_class", {"@NX_class": "NXcollection"})
@@ -46,13 +53,23 @@ def get_user_scan_meta():
     return USER_SCAN_META
 
 
-def scan_meta(info=None):
+def scan_meta(info=None, meta_timing=None):
 
     _infos = dict() if info is None else info
+    _meta_timing = dict() if meta_timing is None else meta_timing
 
     class Category:
         def __init__(self, cat):
             self._cat = cat
+            _meta_timing.setdefault(self._cat, META_TIMING.START)
+
+        @property
+        def timing(self):
+            return _meta_timing[self._cat]
+
+        @timing.setter
+        def timing(self, timing):
+            _meta_timing[self._cat] = timing
 
         def set(self, name_or_device, values):
             """
@@ -91,20 +108,23 @@ def scan_meta(info=None):
 
     attrs = {cat.name.lower(): make_prop(cat) for cat in CATEGORIES}
 
-    def to_dict(self, scan):
+    def to_dict(self, scan, timing=META_TIMING.START):
         rd = dict()
         for category, infos in _infos.items():
-            for name, values in infos.items():
-                try:
-                    if callable(values):
-                        values = values(scan)
-                        if values is None:
-                            continue
-                    cat_dict = rd.setdefault(category.name.lower(), dict())
-                    cat_dict.update(values)
-                except Exception as e:
-                    err_msg = f"Invalid field {repr(name)} in category {repr(category.name)} of user scan metadata ({str(e)})"
-                    raise RuntimeError(err_msg) from e
+            if (
+                timing in getattr(self, category.name.lower()).timing
+            ):  # how to do this nicer?
+                for name, values in infos.items():
+                    try:
+                        if callable(values):
+                            values = values(scan)
+                            if values is None:
+                                continue
+                        cat_dict = rd.setdefault(category.name.lower(), dict())
+                        cat_dict.update(values)
+                    except Exception as e:
+                        err_msg = f"Invalid field {repr(name)} in category {repr(category.name)} of user scan metadata ({str(e)})"
+                        raise RuntimeError(err_msg) from e
         return rd
 
     attrs["to_dict"] = to_dict
@@ -118,7 +138,7 @@ def scan_meta(info=None):
     attrs["clear"] = clear
 
     def copy(self):
-        return scan_meta(copy_module.deepcopy(_infos))
+        return scan_meta(copy_module.deepcopy(_infos), _meta_timing)
         # TODO: does this really need to be a deepcopy?
         # there is a pretty weired thing e.g. in mulitposition
         # when one replaces

@@ -95,6 +95,7 @@ from bliss.common.msgpack_ext import MsgpackContext
 
 MAX_MEMORY = min(psutil.virtual_memory().total, sys.maxsize)
 MAX_BUFFER_SIZE = int(MAX_MEMORY * 0.8)
+READ_BUFFER_SIZE = int(128 * 1024)
 
 
 @contextlib.contextmanager
@@ -326,7 +327,7 @@ class _ServerObject(object):
         try:
             while True:
                 gevent.select.select([client_sock], [], [])
-                msg = client_sock.recv(8192)
+                msg = client_sock.recv(READ_BUFFER_SIZE)
                 if not msg:
                     break
                 unpacker.feed(msg)
@@ -666,7 +667,7 @@ class _cnx(object):
         exception = None
         try:
             while True:
-                msg = socket.recv(8192)
+                msg = socket.recv(READ_BUFFER_SIZE)
                 if not msg:
                     break
                 unpacker.feed(msg)

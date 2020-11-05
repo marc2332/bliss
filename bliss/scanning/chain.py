@@ -23,7 +23,7 @@ from bliss.common.greenlet_utils import KillMask
 from bliss.scanning.channel import AcquisitionChannelList, AcquisitionChannel
 from bliss.scanning.channel import duplicate_channel, attach_channels
 from bliss.common.validator import BlissValidator
-from bliss.common.profiling import time_profile
+from bliss.common.profiling import simple_time_profile
 
 
 TRIGGER_MODE_ENUM = enum.IntEnum("TriggerMode", "HARDWARE SOFTWARE")
@@ -53,7 +53,7 @@ def profile(stats_dict, device_name, func_name):
             _logger.error(f"No time profiling of {name}")
             yield
         else:
-            with time_profile(stats_dict, name, logger=_logger):
+            with simple_time_profile(stats_dict, name, logger=_logger):
                 yield
     except StopTask:
         raise

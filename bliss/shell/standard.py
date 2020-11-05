@@ -105,6 +105,8 @@ from bliss.common.types import (
     _providing_channel,
 )
 
+from bliss.common.profiling import time_profile
+
 
 ############## imports that are only used simpyly the
 ############## shell user access to these functions
@@ -178,6 +180,7 @@ __all__ = (
         "pprint",
         "find_position",
         "goto_custom",
+        "time_profile",
     ]
     + scans.__all__
     + ["lprint", "ladd", "elog_print", "elog_add"]

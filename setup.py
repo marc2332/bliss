@@ -196,6 +196,7 @@ def main():
         "typeguard",
         "typing_extensions",
         "cerberus",
+        "yappi",
     ]
 
     tests_require = ["pytest >= 4.1.1", "pytest-cov >= 2.6.1", "scipy"]

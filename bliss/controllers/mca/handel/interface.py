@@ -838,6 +838,7 @@ def _hardware_poll_points(npoints):
         raw_read_task = gevent.spawn(_raw_read, npoints, queue)
         for args in queue:
             event.send(module, "data", args)
+            gevent.idle()
     finally:
         event.send(module, "data", StopIteration)
         if raw_read_task.ready():
@@ -848,12 +849,22 @@ def _hardware_poll_points(npoints):
 
 def _raw_read(acquisition_number, queue):
     module = inspect.getmodule(_raw_read)
+    send_pixel_task = None
     try:
+        current_pixel_event = gevent.event.Event()
+        current_pixel_dict = {"current": -1}
+
+        def send_current_pixel():
+            while True:
+                current_pixel_event.wait()
+                current_pixel_event.clear()
+                event.send(module, "current_pixel", current_pixel_dict["current"])
 
         def poll_data(sent):
             current, data, statistics = synchronized_poll_data()
             points = list(range(sent, sent + len(data)))
-            event.send(module, "current_pixel", current)
+            current_pixel_dict["current"] = current
+            current_pixel_event.set()
             # Check data integrity
             if sorted(data) != sorted(statistics) != points:
                 raise RuntimeError("The polled data overlapped during the acquisition")
@@ -869,6 +880,7 @@ def _raw_read(acquisition_number, queue):
             gevent.sleep(0)
             return sent
 
+        send_pixel_task = gevent.spawn(send_current_pixel)
         sent = 0
         while is_running():
             sent = poll_data(sent)
@@ -881,6 +893,8 @@ def _raw_read(acquisition_number, queue):
         raise
     finally:
         queue.put(StopIteration)
+        if send_pixel_task is not None:
+            send_pixel_task.kill()
 
 
 # Not exposed

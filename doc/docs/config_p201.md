@@ -106,11 +106,11 @@ By default it runs on port **8909**. To run with different options type:
 Minimal configuration example:
 
 ```yaml
-plugin: ct2                   # (1)
-name: p201_eh1                # (2)
-class: CT2                    # (3)
-type: P201 ???
-address: tcp://lid421:8909    # (4)
+plugin: ct2                   
+name: p201_eh1                
+class: CT2                    
+type: P201
+address: tcp://lid421:8909    
 ```
 
 (replace the address with the one that makes sense to you)
@@ -169,9 +169,9 @@ channels:                      # (14)
 9.  Input signal channel (mandatory if input keyword is given). Valid:
     \[1, 10\]
 10. Interpret input signal polarity inverted (optional, default: False)
-11. Output signal: used for output gate signal
-12. Output signal channel (mandatory if ouput keyword is given). Valid:
-    \[9, 10\]
+11. Output signal: used for output gate signal (optional, default: {'channel' = 10})
+12. Output signal channel (mandatory if ouput keyword is given, else set to 10). Valid:
+    \[9, 10\] or use `None` to deactivate the output signal feature (to count with this channel).
 13. Output signal mode (optional, default: gate). Only possible value
     today is gate
 14. Channel configuration

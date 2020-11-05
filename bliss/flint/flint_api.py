@@ -970,7 +970,7 @@ class FlintApi:
         if vmax is not None:
             if vmax == "auto":
                 vmax = None
-            colormap.setVMin(vmax)
+            colormap.setVMax(vmax)
         if normalization is not None:
             colormap.setNormalization(normalization)
         if gammaNormalization is not None:

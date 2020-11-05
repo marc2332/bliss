@@ -266,11 +266,12 @@ class beacon:
         return (
             self._class_name_2_node.get(klass_name, dict())
             .get("properties", dict())
-            .get(prop_name, "")
+            .get(prop_name, None)
         )
 
     @_info
     def delete_class_property(self, klass_name, prop_name):
+        # TODO: not supported yet
         # class_property = self._get_class_properties(klass_name,prop_name)
         # class_property.clear()
         pass
@@ -514,13 +515,13 @@ class beacon:
         for prop_name in properties:
             properties_array = []
             values = self._get_class_properties(class_name, prop_name)
-            if isinstance(values, MutableSequence):
+            if values is None:
+                properties_array.extend([prop_name, "0"])
+            elif isinstance(values, MutableSequence):
                 values = [str(x) for x in values]
                 properties_array.extend([prop_name, str(len(values))] + values)
-            elif values:
-                properties_array.extend([prop_name, "1", str(values)])
             else:
-                properties_array.extend([prop_name, "0"])
+                properties_array.extend([prop_name, "1", str(values)])
             result.extend(properties_array)
         return result
 

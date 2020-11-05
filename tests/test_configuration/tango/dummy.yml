@@ -1,9 +1,15 @@
-device:
-- class: Dummy
-  tango_name: id00/tango/dummy
+-
+  class: Dummy
   properties:
-    dummy_property1: dummy_value1
-    dummy_property2: dummy_value2
-  alias: dummy_alias
-personal_name: dummy
-server: dummy_tg_server
+    dummy_cls_property1: dummy_cls_value1
+    dummy_cls_property2: ""
+- 
+  device:
+  - class: Dummy
+    tango_name: id00/tango/dummy
+    properties:
+      dummy_property1: dummy_value1
+      dummy_property2: ""
+    alias: dummy_alias
+  personal_name: dummy
+  server: dummy_tg_server

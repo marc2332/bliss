@@ -1,4 +1,4 @@
-import ACS
+from . import ACS
 
 class Device(ACS.Device):
 

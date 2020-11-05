@@ -907,7 +907,7 @@ def test_walk_nodes_on_wrong_session_node(beforestart, session):
 def test_walk_events_on_dataset_node(beforestart, wait, filter, session):
     db_name = session.scan_saving.scan_parent_db_name
     events, nmasters, nchannels = _count_node_events(
-        beforestart, session, db_name, node_type="scan", filter=filter, wait=wait
+        beforestart, session, db_name, node_type="dataset", filter=filter, wait=wait
     )
     if filter == "scan":
         # New node events: scan
@@ -937,7 +937,7 @@ def test_walk_events_on_dataset_node(beforestart, wait, filter, session):
 def test_walk_nodes_on_dataset_node(beforestart, wait, filter, session):
     db_name = session.scan_saving.scan_parent_db_name
     nodes, nmasters, nchannels = _count_nodes(
-        beforestart, session, db_name, node_type="scan", filter=filter, wait=wait
+        beforestart, session, db_name, node_type="dataset", filter=filter, wait=wait
     )
     if filter == "scan":
         # Nodes: scan

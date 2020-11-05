@@ -236,6 +236,99 @@ def test_create_curve_plot_from_motor_scan():
     assert set(expected_curves) == set(curves)
 
 
+def test_amesh_scan_with_image_and_mca():
+
+    scan_info = {
+        "type": "amesh",
+        "title": "amesh sy -0.75 0.75 30 sz -0.75 0.75 30 0.001",
+        "data_dim": 2,
+        "npoints": 961,
+        "start": [-0.75, -0.75],
+        "stop": [0.75, 0.75],
+        "count_time": 0.001,
+        "npoints1": 31,
+        "npoints2": 31,
+        "requests": {
+            "axis:sy": {
+                "start": -0.75,
+                "stop": 0.75,
+                "points": 961,
+                "axis-points": 31,
+                "axis-id": 0,
+                "axis-kind": "forth",
+                "group": "scatter",
+            },
+            "axis:sz": {
+                "start": -0.75,
+                "stop": 0.75,
+                "points": 961,
+                "axis-points": 31,
+                "axis-id": 1,
+                "axis-kind": "forth",
+                "group": "scatter",
+            },
+            "timer:elapsed_time": {"group": "scatter"},
+            "timer:epoch": {"group": "scatter"},
+            "SampleStageDiode:fluo_signal": {"group": "scatter"},
+            "mca1:realtime_det0": {"group": "scatter"},
+            "mca1:trigger_livetime_det0": {"group": "scatter"},
+            "mca1:energy_livetime_det0": {"group": "scatter"},
+            "mca1:triggers_det0": {"group": "scatter"},
+            "mca1:events_det0": {"group": "scatter"},
+            "mca1:icr_det0": {"group": "scatter"},
+            "mca1:ocr_det0": {"group": "scatter"},
+            "mca1:deadtime_det0": {"group": "scatter"},
+        },
+        "plots": [
+            {
+                "kind": "scatter-plot",
+                "items": [{"kind": "scatter", "x": "axis:sy", "y": "axis:sz"}],
+            },
+            {
+                "kind": "scatter-plot",
+                "name": "foo",
+                "items": [{"kind": "scatter", "x": "axis:sy", "y": "axis:sz"}],
+            },
+        ],
+        "acquisition_chain": {
+            "axis": {
+                "master": {"scalars": ["axis:sy", "axis:sz"]},
+                "scalars": [
+                    "timer:elapsed_time",
+                    "timer:epoch",
+                    "SampleStageDiode:fluo_signal",
+                    "mca1:realtime_det0",
+                    "mca1:trigger_livetime_det0",
+                    "mca1:energy_livetime_det0",
+                    "mca1:triggers_det0",
+                    "mca1:events_det0",
+                    "mca1:icr_det0",
+                    "mca1:ocr_det0",
+                    "mca1:deadtime_det0",
+                ],
+                "spectra": ["mca1:spectrum_det0"],
+                "images": ["tomocam:image"],
+            }
+        },
+        "_display_extra": {"plotselect": []},
+    }
+    scan = scan_info_helper.create_scan_model(scan_info)
+    result_plots = scan_info_helper.create_plot_model(scan_info, scan)
+    result_kinds = [type(p) for p in result_plots]
+    assert set(result_kinds) == set(
+        [
+            plot_item_model.ScatterPlot,
+            plot_item_model.CurvePlot,
+            plot_item_model.ImagePlot,
+            plot_item_model.McaPlot,
+        ]
+    )
+    # The first one is the scatter
+    assert result_kinds[0] == plot_item_model.ScatterPlot
+    assert result_kinds[1] == plot_item_model.ScatterPlot
+    assert result_plots[1].name() == "foo"
+
+
 def test_progress_percent_curve():
     scan_info = {
         "npoints": 10,

@@ -435,6 +435,19 @@ def create_plot_model(
         plots = read_plot_models(scan_info)
         for plot in plots:
             _select_default_counter(scan, plot)
+
+        def contains_default_plot_kind(plots, kind):
+            """Returns true if the list contain a default plot for this kind."""
+            for p in plots:
+                if p.name() is None:
+                    if type(p) == kind:
+                        return True
+            return False
+
+        aq_plots = infer_plot_models(scan_info)
+        for plot in aq_plots:
+            if not contains_default_plot_kind(plots, plot):
+                plots.append(plot)
     else:
         plots = infer_plot_models(scan_info)
 
@@ -714,14 +727,14 @@ def infer_plot_models(scan_info: Dict) -> List[plot_model.Plot]:
         channel_names += channels.get("spectra", [])
         if "spectra" in channels:
             for c in channels.get("master", {}).get("spectra", []):
-                if c not in spectra:
-                    spectra.append(c)
+                if c not in channel_names:
+                    channel_names.append(c)
 
         for c in channel_names:
             if ":roi_profiles:" in c:
                 rois1d.append(c)
             else:
-                rois1d.append(c)
+                spectra.append(c)
 
         for spectrum_name in spectra:
             device_name = get_device_from_channel(spectrum_name)

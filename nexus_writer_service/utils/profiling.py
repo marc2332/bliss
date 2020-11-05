@@ -7,9 +7,14 @@ import cProfile
 import pstats
 
 try:
-    from StringIO import StringIO
+    import yappi
 except ImportError:
-    from io import StringIO
+    yappi = None
+else:
+    yappi.set_context_backend("greenlet")
+    yappi.set_clock_type("wall")
+
+from io import StringIO
 import logging
 from contextlib import contextmanager
 from .logging_utils import log
@@ -97,6 +102,72 @@ def print_malloc_snapshot(
     log(logger, "============================================")
 
 
+DEFAULT_SORTBY = "cumtime"
+
+
+def print_pstats_snapshot(
+    snapshot, logger=None, timelimit=None, sortby=None, color=False
+):
+    """
+    :param Stats snapshot:
+    :param logger:
+    :param int or float timelimit: number of lines or fraction (float between 0 and 1)
+    :param str sortby: sort time profile
+    :param bool color:
+    """
+    if isinstance(sortby, str):
+        sortby = [sortby]
+    elif not sortby:
+        sortby = [DEFAULT_SORTBY]
+    for sortmethod in sortby:
+        snapshot.stream = s = StringIO()
+        if color:
+            pstats.f8 = durationfmtcolor
+        else:
+            pstats.f8 = durationfmt
+        ps = snapshot.sort_stats(sortmethod)
+        if timelimit is None:
+            timelimit = tuple()
+        elif not isinstance(timelimit, tuple):
+            timelimit = (timelimit,)
+        ps.print_stats(*timelimit)
+
+        log(logger, "================Time profile================")
+        msg = "\n" + s.getvalue()
+        log(logger, msg)
+        log(logger, "============================================")
+
+
+pstats_to_yappi_sort = {
+    None: DEFAULT_SORTBY,
+    "name": "name",
+    "ncalls": "ncall",
+    "cumtime": "ttot",  # including subcalls
+    "tottime": "tsub",  # exluding subcalls
+}
+
+
+def print_yappi_snapshot(snapshot, logger=None, sortby=None):
+    """
+    :param YFuncStat snapshot:
+    :param logger:
+    :param str sortby: sort time profile
+    """
+    if isinstance(sortby, str):
+        sortby = [sortby]
+    elif not sortby:
+        sortby = [DEFAULT_SORTBY]
+    for sortmethod in sortby:
+        s = StringIO()
+        sortmethod = pstats_to_yappi_sort[sortmethod]
+        snapshot = snapshot.sort(sortmethod)
+        snapshot.print_all(out=s)
+        log(logger, "================Time profile================")
+        msg = "\n" + s.getvalue()
+        log(logger, msg)
+        log(logger, "============================================")
+
+
 @contextmanager
 def print_malloc_context(logger=None, **kwargs):
     """
@@ -115,8 +186,8 @@ def print_malloc_context(logger=None, **kwargs):
 
 
 @contextmanager
-def print_time_context(
-    logger=None, timelimit=None, sortby="cumtime", color=False, filename=None
+def print_time_context_cprofile(
+    logger=None, timelimit=None, sortby=None, color=False, filename=None
 ):
     """
     :param logger:
@@ -131,30 +202,50 @@ def print_time_context(
         yield
     finally:
         pr.disable()
-        if isinstance(sortby, str):
-            sortby = [sortby]
-        if color:
-            pstats.f8 = durationfmtcolor
-        else:
-            pstats.f8 = durationfmt
-        for i, sortmethod in enumerate(sortby):
-            s = StringIO()
-            ps = pstats.Stats(pr, stream=s)
-            if sortmethod:
-                ps = ps.sort_stats(sortmethod)
-            if timelimit is None:
-                timelimit = tuple()
-            elif not isinstance(timelimit, tuple):
-                timelimit = (timelimit,)
-            ps.print_stats(*timelimit)
-            if filename and i == 0:
-                io_utils.rotatefiles(filename)
-                ps.dump_stats(filename)
-            log(logger, "================Time profile================")
-            msg = "\n" + s.getvalue()
-            msg += "\n Saved as {}".format(repr(filename))
-            log(logger, msg)
-            log(logger, "============================================")
+        snapshot = pstats.Stats(pr)
+        print_pstats_snapshot(snapshot, logger=logger, sortby=sortby, color=color)
+        if filename:
+            io_utils.rotatefiles(filename)
+            # for pyprof2calltree
+            snapshot.dump_stats(filename)
+            log(logger, f"Statistics saved as {repr(filename)}")
+
+
+@contextmanager
+def print_time_context_yappi(
+    logger=None, timelimit=None, sortby=None, color=False, filename=None
+):
+    """
+    :param logger:
+    :param int or float timelimit: number of lines or fraction (float between 0 and 1)
+    :param str sortby: sort time profile
+    :param bool color:
+    :param str filename:
+    """
+    yappi.clear_stats()
+    yappi.start(builtins=True)
+    try:
+        yield
+    finally:
+        yappi.stop()
+        stats = yappi.get_func_stats()
+        yappi.clear_stats()
+        # print_yappi_snapshot(stats)
+        snapshot = yappi.convert2pstats(stats)
+        print_pstats_snapshot(snapshot, logger=logger, sortby=sortby, color=color)
+        if filename:
+            io_utils.rotatefiles(filename)
+            # callgrind: for qcachegrind
+            stats.save(filename, type="callgrind")
+            # for pyprof2calltree
+            # snapshot.save(filename)
+            log(logger, f"Statistics saved as {repr(filename)}")
+
+
+if yappi is None:
+    print_time_context = print_time_context_cprofile
+else:
+    print_time_context = print_time_context_yappi
 
 
 @contextmanager
@@ -163,7 +254,7 @@ def profile(
     time=True,
     memlimit=10,
     timelimit=None,
-    sortby="cumtime",
+    sortby=None,
     color=False,
     filename=None,
     units="KB",

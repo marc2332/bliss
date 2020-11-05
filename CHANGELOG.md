@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Flint:
     - Data from Lima detectors and MCAs are not anymore hidden on a `amesh` scan
     - Data from MCAs are again displayed inside an MCA widget
+    - Fix vmax on set_plot_colormap remote API
 
 ### Removed
 

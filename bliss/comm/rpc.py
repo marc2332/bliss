@@ -212,8 +212,9 @@ class _ServerObject(object):
         self._metadata["stream"] = stream
         if isinstance(obj, proxy.Proxy):
             self._metadata["real_klass"] = type(obj.__wrapped__)
-        else:
+        elif not inspect.ismodule(obj):
             self._metadata["real_klass"] = type(obj)
+        # if obj is a module it cannot be pickled, and 'real_klass' makes no sense
         self._uds_name = None
         self._low_latency_signal = set()
         self._tcp_low_latency = tcp_low_latency
@@ -372,7 +373,7 @@ class _ServerObject(object):
                 return self._metadata
             else:
                 metadata = self._metadata.copy()
-                metadata.pop("real_klass")
+                metadata.pop("real_klass", None)
                 return metadata
         else:
             name = args[0]

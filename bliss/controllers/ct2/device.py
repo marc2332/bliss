@@ -824,13 +824,14 @@ class CT2(object):
     @output_config.setter
     def output_config(self, config):
         config = config or {}
+        config = _check_external_output_config(config)
         channel = config.setdefault("channel", None)
         counter = config.setdefault("counter", channel)
         mode = config.setdefault("mode", "gate")
         if channel is not None and channel not in self._card.OUTPUT_CHANNELS:
-            raise ValueError("invalid output config channel %r", channel)
+            raise ValueError(f"invalid output channel {channel}")
         if mode not in ("gate",):
-            raise ValueError("invalid output mode %r", mode)
+            raise ValueError(f"invalid output mode {mode}")
         self.__output_config = config
 
     @property
@@ -839,6 +840,8 @@ class CT2(object):
 
     @output_channel.setter
     def output_channel(self, channel):
+        if channel is not None and channel not in self._card.OUTPUT_CHANNELS:
+            raise ValueError(f"invalid output channel {channel}")
         trig = self.output_config
         trig["channel"] = channel
         trig["counter"] = channel
@@ -867,20 +870,8 @@ class CT2(object):
     def configure(self, device_config):
         card_config = _build_card_config(device_config)
         card.configure_card(self._card, card_config)
-
-        external = device_config.get("external sync", {})
-        self.input_config = external.get("input", self.DefaultInputConfig)
-
-        # apply default output channel only if this address is not used in the channels list
-        uchans = [
-            int(channel["address"]) for channel in card_config.get("channels", ())
-        ]
-        if self.DefaultOutputConfig["channel"] in uchans:
-            self.output_config = external.get(
-                "output", {"channel": None, "counter": None}
-            )
-        else:
-            self.output_config = external.get("output", self.DefaultOutputConfig)
+        self.input_config = _get_external_input_config(device_config)
+        self.output_config = _get_external_output_config(device_config)
 
     @property
     def is_endless_acq(self):
@@ -911,13 +902,36 @@ def __get_device_config(name):
     return device_config
 
 
+def _get_external_input_config(device_config):
+    external = device_config.get("external sync", {})
+    return external.get("input", CT2.DefaultInputConfig)
+
+
+def _get_external_output_config(device_config):
+    external = device_config.get("external sync", {})
+    return external.get("output", CT2.DefaultOutputConfig)
+
+
+def _check_external_output_config(output_config):
+    channel = output_config.get("channel")
+    if channel is not None:
+        if channel in ["None", "none"]:
+            output_config["channel"] = None
+    return output_config
+
+
 def _build_card_config(device_config):
     card_config = dict(device_config)
     card_config["class"] = card_type = card_config.pop("type", "P201")
     card_class = card.get_ct2_card_class(card_type)
-    out_ch = int(
-        card_config.get("external sync", {}).get("output", {}).get("channel", -1)
-    )
+
+    out_cfg = _get_external_output_config(device_config)
+    out_ch = _check_external_output_config(out_cfg)["channel"]
+    if out_ch is None:
+        out_ch = -1
+    else:
+        out_ch = int(out_ch)
+
     for channel in card_config.get("channels", ()):
         address = int(channel["address"])
         level = channel.get("level", "TTL")

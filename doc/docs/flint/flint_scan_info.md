@@ -176,3 +176,30 @@ builder.add_scatter_plot(name="unique-plot-name",
 
 For example which can be used in BLISS shell, you can take a look at
 [scan_info examples](flint_scan_info_examples.md).
+
+# Scan sequence
+
+Metadata can also be added to the BLISS scan sequence in order
+to make them understandable client side.
+
+- `set_sequence_info` can be used to say how many scans are expected. This is
+  used by Flint to display the progress of the sequence.
+- A sub scan must added to the sequence before running. This is needed to
+  provide parenting of the scans in Flint.
+
+```
+from bliss.scanning.group import Sequence
+from bliss.common.scans.scan_info import ScanInfoFactory
+
+flint()
+scan_info = {}
+factory = ScanInfoFactory(scan_info)
+factory.set_sequence_info(scan_count=10)
+
+seq = Sequence(scan_info=scan_info)
+with seq.sequence_context() as scan_seq:
+    for i in range(10):
+        s = loopscan(10, 0.5, tomocam, run=False)
+        scan_seq.add(s)
+        s.run()
+```

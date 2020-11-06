@@ -1,11 +1,13 @@
 # Workflow determines rules for the entire pipeline
-# here pipeline runs for TAGS, MERGE REQUESTS, and MASTER branch, but not other branches
+# here pipeline runs for TAGS, MERGE REQUESTS, MASTER branch, and release
+# branches like (1.6.x) but not other branches.
 # (i.e. we want to avoid twice CI on merge requests and branches)
 workflow:
   rules:
     - if: $CI_COMMIT_TAG
     - if: $CI_MERGE_REQUEST_ID
     - if: '$CI_COMMIT_BRANCH == "master"'
+    - if: '$CI_COMMIT_BRANCH =~ /^\d+\.\d+\.x$/'
 
 default:
   before_script:

@@ -436,12 +436,11 @@ def create_plot_model(
         for plot in plots:
             _select_default_counter(scan, plot)
 
-        def contains_default_plot_kind(plots, kind):
+        def contains_default_plot_kind(plots, plot):
             """Returns true if the list contain a default plot for this kind."""
             for p in plots:
-                if p.name() is None:
-                    if type(p) == kind:
-                        return True
+                if p.hasSameTarget(plot):
+                    return True
             return False
 
         aq_plots = infer_plot_models(scan_info)

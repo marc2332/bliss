@@ -423,6 +423,22 @@ def parse_display_extra(scan_info: Dict) -> DisplayExtra:
     return DisplayExtra(displayed_channels, plotselect)
 
 
+def removed_same_plots(plots, remove_plots) -> List[plot_model.Plot]:
+    """Returns plots from an initial list of `plots` in which same plots was
+    removed."""
+    if remove_plots == []:
+        return list(plots)
+    result = []
+    for p in plots:
+        for p2 in remove_plots:
+            if p.hasSameTarget(p2):
+                break
+        else:
+            result.append(p)
+            continue
+    return result
+
+
 def create_plot_model(
     scan_info: Dict, scan: Optional[scan_model.Scan] = None
 ) -> List[plot_model.Plot]:

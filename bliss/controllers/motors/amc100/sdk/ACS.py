@@ -4,6 +4,8 @@ import sys
 import socket
 import json
 
+import gevent
+
 class AttoException(Exception):
     def __init__(self, errorText = None):
         self.errorText = errorText
@@ -17,7 +19,8 @@ class Device(object):
     def __init__(self, address):
         self.address  = address
         self.language = 0
-
+        self._lock = gevent.lock.Semaphore()
+        
     def __del__(self):
         self.close()
 
@@ -68,8 +71,9 @@ class Device(object):
         """
         if not self.is_open:
             raise AttoException("not connected, use connect()");
-        self.sendRequest(method, params)
-        return self.getResponse()
+        with self._lock:
+            self.sendRequest(method, params)
+            return self.getResponse()
 
     def printError(self, errorNumber):
         """ Converts the errorNumber into an error string an prints it to the

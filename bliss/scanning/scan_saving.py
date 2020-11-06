@@ -24,7 +24,7 @@ import enum
 from bliss import current_session
 from bliss.config.settings import ParametersWardrobe
 from bliss.config.settings_cache import get_redis_client_cache
-from bliss.data.node import _get_node, _get_or_create_node
+from bliss.data.node import datanode_factory
 from bliss.scanning.writer.null import Writer as NullWriter
 from bliss.scanning import writer as writer_module
 from bliss.common.proxy import Proxy
@@ -735,11 +735,13 @@ class BasicScanSaving(EvalParametersWardrobe):
         node = None
         if create:
             for item_name, node_type in db_path_items:
-                node = _get_or_create_node(item_name, node_type, parent=node)
+                node = datanode_factory(
+                    item_name, node_type, parent=node, on_not_state="create"
+                )
                 self._fill_node_info(node, node_type)
         else:
             for item_name, node_type in db_path_items:
-                node = _get_node(item_name, node_type, parent=node)
+                node = datanode_factory(item_name, parent=node, on_not_state=None)
                 if node is None:
                     return None
         return node
@@ -959,6 +961,7 @@ class ESRFScanSaving(BasicScanSaving):
     def _db_path_keys(self, eval_dict=None):
         session = self.session
         base_path = self.get_cached_property("base_path", eval_dict).split(os.sep)
+        base_path = [p for p in base_path if p]
         proposal = self.get_cached_property("proposal_name", eval_dict)
         sample = self.get_cached_property("sample_name", eval_dict)
         # When dataset="0001" the DataNode.name will be the integer 1
@@ -1540,5 +1543,4 @@ class ESRFScanSaving(BasicScanSaving):
         dataset = self.dataset  # Created in Redis when missing
         if dataset.is_closed:
             raise RuntimeError("Dataset is already closed (choose a different name)")
-        if not dataset.metadata_gathering_done:
-            dataset.gather_metadata()
+        dataset.gather_metadata(on_exists="skip")

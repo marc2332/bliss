@@ -77,6 +77,20 @@ the reader:
         subscribe to existing "children_list" streams of children
         subscribe to existing "data" streams of children when yielding events
         subscribe/create to the "data" stream
+
+Use the following utility functions to instantiate a DataNode:
+
+    Absolute Redis key name:
+        get_node: None when not in required state
+        get_nodes: None when not in required state
+
+    Absolute or relative Redis key name:
+        create_node: create in Redis regardless of what exists
+        get_or_create_node: create in Redis when not in required state
+        datanode_factory: when not in required state:
+                            return DataNode and create
+                            return DataNode but don't create
+                            return None
 """
 
 import time
@@ -94,7 +108,7 @@ from bliss.config import streaming
 from bliss.data.events import Event, EventType, NewNodeEvent
 
 
-# make list of available plugins for generating DataNode objects
+# Dict of available plugins for generating DataNode objects
 node_plugins = dict()
 for importer, module_name, _ in pkgutil.iter_modules(
     [os.path.join(os.path.dirname(__file__), "nodes")], prefix="bliss.data.nodes."
@@ -103,11 +117,21 @@ for importer, module_name, _ in pkgutil.iter_modules(
     node_plugins[node_type] = {"name": module_name}
 
 
-def _get_node_object(node_type, name, parent, connection, create=False, **keys):
+def _get_node_object(node_type, name, parent, connection, create=False, **kwargs):
+    """Instantiated a DataNode class and optionally create it in Redis.
+    This does not perform any checks on what already exists in Redis.
+
+    :returns DataNode:
+    """
     module_info = node_plugins.get(node_type)
     if module_info is None:
         return DataNodeContainer(
-            node_type, name, parent, connection=connection, create=create, **keys
+            node_type,
+            name,
+            parent=parent,
+            connection=connection,
+            create=create,
+            **kwargs,
         )
     else:
         klass = module_info.get("class")
@@ -124,40 +148,148 @@ def _get_node_object(node_type, name, parent, connection, create=False, **keys):
             # there should be only 1 class inheriting from DataNode in the plugin
             klass = classes[0][-1]
             module_info["class"] = klass
-        return klass(name, parent=parent, connection=connection, create=create, **keys)
+        return klass(
+            name, parent=parent, connection=connection, create=create, **kwargs
+        )
 
 
-def get_node(db_name, connection=None):
-    return get_nodes(db_name, connection=connection)[0]
+def get_node(db_name, **kwargs):
+    """Do not create in Redis.
 
-
-def get_nodes(*db_names, **kw):
+    :param str db_name: Redis key
+    :param **kwargs: see `get_nodes`
+    :returns DataNode or None: `None` when node not in `state`
     """
-    :param `*db_names`: str
-    :param connection:
-    :return list(DataNode):
+    return get_nodes(db_name, **kwargs)[0]
+
+
+def create_node(name, node_type=None, parent=None, connection=None, **kwargs):
+    """Create in Redis regardless of its state.
+
+    :returns DataNode:
     """
-    connection = kw.get("connection")
     if connection is None:
         connection = client.get_redis_connection(db=1)
+    return _get_node_object(node_type, name, parent, connection, create=True, **kwargs)
+
+
+def get_or_create_node(name, **kwargs):
+    """Create in Redis when node not in `state`.
+
+    :param str name: absolute or relative to parent (if any)
+    :param **kwargs:
+    :returns DataNode:
+    """
+    return datanode_factory(name, on_not_state="create", **kwargs)
+
+
+def _default_datanode_state(state):
+    """DataNode state in Redis
+
+    :param str or None state:
+    :returns str:
+    """
+    if state is None:
+        return "supported"
+    if state not in {"exists", "initialized", "supported"}:
+        raise ValueError("State should be 'exists', 'initialized' or 'supported'")
+    return state
+
+
+def get_nodes(*db_names, connection=None, state=None, **kwargs):
+    """Do not create in Redis.
+
+    :param `*db_names`: Redis keys (str)
+    :param Connection connection:
+    :param str state: "exists" < "initialized" < "supported"
+    :param **kwargs: see `_get_node_object`
+    :return list(DataNode or None): `None` when node not in `state`
+    """
+    state = _default_datanode_state(state)
+    if connection is None:
+        connection = client.get_redis_connection(db=1)
+
+    # Get attributes from the principal representations in 1 call (pipeline)
     pipeline = connection.pipeline()
     for db_name in db_names:
-        data = settings.Struct(db_name, connection=pipeline)
-        data.name
-        data.node_type
-    return [
-        None
-        if name is None
-        else _get_node_object(
-            None if node_type is None else node_type.decode(), db_name, None, connection
+        pipeline.exists(db_name)
+        struct = DataNode._get_struct(db_name, connection=pipeline)
+        struct.version
+        struct.node_type
+    iter_result = grouped(pipeline.execute(), 3)
+    it = enumerate(zip(db_names, iter_result))
+
+    # Instantiate a DataNode when it is in `state`.
+    nodes = [None] * len(db_names)
+    for i, (db_name, (valid, version, node_type)) in it:
+        if state != "exists":
+            valid &= bool(version)  # initialized
+        if state == "supported":
+            valid &= DataNode.supported_version(version)
+        if valid:
+            if node_type:
+                node_type = node_type.decode()
+            nodes[i] = _get_node_object(node_type, db_name, None, connection, **kwargs)
+    return nodes
+
+
+def _get_db_name(name, parent=None, connection=None, state=None):
+    """
+    :returns str or None: `None` when node not in `state`
+    """
+    state = _default_datanode_state(state)
+    if state == "exists":
+        func = DataNode.existing_db_name
+    elif state == "supported":
+        func = DataNode.supported_db_name
+    else:
+        func = DataNode.initialized_db_name
+    return func(name, parent=parent, connection=connection)
+
+
+def datanode_factory(
+    name,
+    node_type=None,
+    parent=None,
+    connection=None,
+    state=None,
+    on_not_state=None,
+    **kwargs,
+):
+    """
+    :param str name: absolute or relative to parent (if any)
+    :param str node_type: ignored when node already in `state`
+    :param DataNode parent:
+    :param Connection connection: a new one will be created when `None`
+    :param str state: default is "supported"
+    :param str on_not_state: when the node is not in `state`
+                             * "create": create in Redis
+                             * "instantiate": instantiate DataNode but do not create in Redis
+                             * else: return None
+    :param **kwargs: see `_get_node_object`
+    :returns DataNode or None:
+    """
+    if connection is None:
+        connection = client.get_redis_connection(db=1)
+    # None if the node is not in `state`
+    db_name = _get_db_name(name, parent=parent, connection=connection, state=state)
+    # Create the DataNode or return None
+    if db_name:
+        return get_node(db_name, connection=connection, state=state, **kwargs)
+    elif on_not_state == "create":
+        return _get_node_object(
+            node_type, name, parent, connection, create=True, **kwargs
         )
-        for db_name, (name, node_type) in zip(db_names, grouped(pipeline.execute(), 2))
-    ]
+    elif on_not_state == "instantiate":
+        return _get_node_object(
+            node_type, name, parent, connection, create=False, **kwargs
+        )
 
 
 def get_session_node(session_name):
-    """ Return a session node even if the session doesn't exist yet.
-    This method is an helper if you want to follow session events.
+    """Do not create in Redis but instantiate even when it does not exist yet.
+
+    :returns DataNodeContainer:
     """
     if session_name.find(":") > -1:
         raise ValueError(f"Session name can't contains ':' -> ({session_name})")
@@ -165,7 +297,7 @@ def get_session_node(session_name):
 
 
 def sessions_list():
-    """ Return all available session node(s).
+    """Return all available session node(s).
     Return only sessions having data published in Redis.
     Session may or may not be running.
     """
@@ -175,7 +307,7 @@ def sessions_list():
         if node_name.find(":") > -1:  # can't be a session node
             continue
         session_names.append(node_name[:-14])
-    return get_nodes(*session_names, connection=conn)
+    return [n for n in get_nodes(*session_names, connection=conn) if n is not None]
 
 
 def get_last_saved_scan(parent):
@@ -202,30 +334,19 @@ def get_last_scan_filename(parent):
         return last_scan_node.info.get("filename")
 
 
-def _create_node(name, node_type=None, parent=None, connection=None, **keys):
-    if connection is None:
-        connection = client.get_redis_connection(db=1)
-    return _get_node_object(node_type, name, parent, connection, create=True, **keys)
+def _get_or_create_node(*args, **kwargs):
+    warnings.warn(
+        "'_get_or_create_node' is deprecated. Use 'get_or_create_node' instead.",
+        FutureWarning,
+    )
+    return get_or_create_node(*args, **kwargs)
 
 
-def _get_node(name, node_type=None, parent=None, connection=None, **keys):
-    if connection is None:
-        connection = client.get_redis_connection(db=1)
-    db_name = DataNode.exists(name, parent, connection)
-    if db_name:
-        return get_node(db_name, connection=connection)
-    else:
-        return None
-
-
-def _get_or_create_node(name, node_type=None, parent=None, connection=None, **keys):
-    if connection is None:
-        connection = client.get_redis_connection(db=1)
-    db_name = DataNode.exists(name, parent, connection)
-    if db_name:
-        return get_node(db_name, connection=connection)
-    else:
-        return _create_node(name, node_type, parent, connection, **keys)
+def _create_node(*args, **kwargs):
+    warnings.warn(
+        "'_create_node' is deprecated. Use 'create_node' instead.", FutureWarning
+    )
+    return create_node(*args, **kwargs)
 
 
 def set_ttl(db_name):
@@ -233,32 +354,57 @@ def set_ttl(db_name):
     """
     # Do not create a Redis connection pool during garbage collection
     if client.has_default_connection():
-        node = get_node(db_name)
+        node = get_node(db_name, state="exists")
         if node is not None:
             node.set_ttl()
 
 
-class DataNode:
+class DataNodeMetaClass(type):
+    def __call__(cls, *args, **kwargs):
+        """This wraps the __init__ execution
+        """
+        instance = super().__call__(*args, **kwargs)
+        instance._finalize_init(**kwargs)
+        return instance
+
+
+class DataNode(metaclass=DataNodeMetaClass):
+    """The DataNode can have these states, depending associated Redis keys:
+
+        1. exists: the principal Redis key is created in Redis
+        2. initialized: all Redis keys are created and initialized
+        3. supported: initialized + version can be handled by the current implementation
+    
+    Use the utility methods `get_node`, `get_nodes`, ... to instantiate
+    a `DataNode` depending on its state.
+    """
+
     default_time_to_live = 24 * 3600  # 1 day
+    VERSION = (1, 0)  # change major version for incompatible API changes
 
     @staticmethod
-    @protect_from_kill
-    def exists(name, parent=None, connection=None):
-        if connection is None:
-            connection = client.get_redis_connection(db=1)
-        db_name = "%s:%s" % (parent.db_name, name) if parent else name
-        return db_name if connection.exists(db_name) else None
+    def _principal_db_name(name, parent=None):
+        """Redis key of the principal representation of a `DataNode` in Redis
+        """
+        return f"{parent.db_name}:{name}" if parent else name
 
     def __init__(
         self, node_type, name, parent=None, connection=None, create=False, **kwargs
     ):
+        """
+        :param str node_type:
+        :param str name: used in the associated Redis keys
+        :param DataNode parent:
+        :param bool create: create the associated Redis keys
+        :param kwargs: see `_init_info`
+        """
         # The DataNode's Redis connection, used by all Redis queries
         if connection is None:
             connection = client.get_redis_connection(db=1)
         self.db_connection = connection
 
         # The DataNode's Redis key and type
-        db_name = "%s:%s" % (parent.db_name, name) if parent else name
+        db_name = self._principal_db_name(name, parent=parent)
         self.__db_name = db_name
         self.node_type = node_type
 
@@ -273,31 +419,42 @@ class DataNode:
         if create:
             self.__new_node = True
             self._struct = self._create_struct(db_name, name, node_type)
-            if parent:
-                self._struct.parent = parent.db_name
-                parent.add_children(self)
-            self._ttl_setter = weakref.finalize(self, set_ttl, db_name)
         else:
             self.__new_node = False
             self._ttl_setter = None
-            self._struct = self._get_struct(db_name)
+            self._struct = self._get_struct(db_name, connection=self.db_connection)
 
     def _init_info(self, **kwargs):
         return kwargs.pop("info", {})
 
-    def get_nodes(self, *db_names):
+    def _finalize_init(self, create=False, parent=None, **kwargs):
+        if create:
+            # Mark node as "initialized" in Redis
+            self._mark_initialized()
+            # Add to the children_list stream of the parent
+            if parent is not None:
+                self._struct.parent = parent.db_name
+                parent.add_children(self)
+            # Set TTL on garbage collection
+            self._ttl_setter = weakref.finalize(self, set_ttl, self.__db_name)
+
+    def get_nodes(self, *db_names, **kw):
         """
         :param `*db_names`: str
+        :param `**kw`: see `get_nodes`
         :return list(DataNode):
         """
-        return get_nodes(*db_names, connection=self.db_connection)
+        kw.setdefault("connection", self.db_connection)
+        return get_nodes(*db_names, **kw)
 
-    def get_node(self, db_name):
+    def get_node(self, db_name, **kw):
         """
         :param str db_name:
+        :param `**kw`: see `get_node`
         :return DataNode:
         """
-        return get_node(db_name, connection=self.db_connection)
+        kw.setdefault("connection", self.db_connection)
+        return get_node(db_name, **kw)
 
     def _create_nonassociated_stream(self, name, **kw):
         """Create any stream, not necessarily associated to this DataNode
@@ -307,7 +464,8 @@ class DataNode:
         :param `**kw`: see `DataStream`
         :returns DataStream:
         """
-        return streaming.DataStream(name, connection=self.db_connection, **kw)
+        kw.setdefault("connection", self.db_connection)
+        return streaming.DataStream(name, **kw)
 
     def _create_stream(self, suffix, **kw):
         """Create a stream associated to this DataNode.
@@ -341,15 +499,118 @@ class DataNode:
         )
         return self.search_redis(*args, **kw)
 
-    def _get_struct(self, db_name):
-        return settings.Struct(db_name, connection=self.db_connection)
+    @property
+    @protect_from_kill
+    def exists(self):
+        return bool(self.db_connection.exists(self.db_name))
+
+    @classmethod
+    @protect_from_kill
+    def existing_db_name(cls, name, parent=None, connection=None):
+        """Principal Redis key exists.
+
+        :returns str or None:
+        """
+        if connection is None:
+            connection = client.get_redis_connection(db=1)
+        db_name = cls._principal_db_name(name, parent=parent)
+        if connection.exists(db_name):
+            return db_name
+
+    @classmethod
+    @protect_from_kill
+    def initialized_db_name(cls, name, parent=None, connection=None):
+        """Initialized in Redis. Stronger than `exists`.
+
+        :returns str or None:
+        """
+        if connection is None:
+            connection = client.get_redis_connection(db=1)
+        db_name = cls._principal_db_name(name, parent=parent)
+        if connection.exists(db_name):
+            struct = cls._get_struct(db_name, connection=connection)
+            if struct.version:
+                return db_name
+
+    @property
+    def initialized(self):
+        return bool(self.version)
+
+    def _mark_initialized(self):
+        self._struct.version = self.encode_version(self.VERSION)
+
+    @classmethod
+    @protect_from_kill
+    def supported_db_name(cls, name, parent=None, connection=None):
+        """The version in Redis is supported by the current implementation.
+        Stronger than `initialized`.
+
+        :returns str or None:
+        """
+        if connection is None:
+            connection = client.get_redis_connection(db=1)
+        db_name = cls._principal_db_name(name, parent=parent)
+        if connection.exists(db_name):
+            struct = cls._get_struct(db_name, connection=connection)
+            if cls.supported_version(struct.version):
+                return db_name
+
+    @property
+    def supported(self):
+        return self.supported_version(self.version)
+
+    @classmethod
+    def supported_version(cls, version):
+        """Version can be handled by the current implementation
+
+        :param tuple, bytes or None version:
+        :returns bool:
+        """
+        if not isinstance(version, tuple):
+            version = cls.decode_version(version)
+        if version:
+            return version[0] == cls.VERSION[0]
+        return False
+
+    @classmethod
+    def _get_struct(cls, db_name, connection=None):
+        """Principal Redis representation of a `DataNode`
+        """
+        if connection is None:
+            connection = client.get_redis_connection(db=1)
+        return settings.Struct(db_name, connection=connection)
 
     def _create_struct(self, db_name, name, node_type):
-        struct = self._get_struct(db_name)
+        """Create principal Redis representation of a `DataNode`
+        """
+        struct = self._get_struct(db_name, connection=self.db_connection)
+        struct.version = None  # bool(version) means initialized
         struct.name = name
         struct.db_name = db_name
         struct.node_type = node_type
         return struct
+
+    @staticmethod
+    def decode_version(version):
+        """
+        :param str, bytes or None version:
+        :returns tuple or None:
+        """
+        if version:
+            if isinstance(version, bytes):
+                version = version.decode()
+            if version[0] == "v":
+                return tuple(map(int, version[1:].split(".")))
+
+    @staticmethod
+    def encode_version(version):
+        """
+        :param tuple or None version:
+        :returns str or None:
+        """
+        if version:
+            # Prefix is needed: float on decoding otherwise
+            return "v" + ".".join(map(str, version))
 
     @property
     @protect_from_kill
@@ -368,6 +629,7 @@ class DataNode:
     @property
     @protect_from_kill
     def fullname(self):
+        warnings.warn("fullname is deprecated", FutureWarning)
         return self._struct.fullname
 
     @property
@@ -376,6 +638,14 @@ class DataNode:
         if self.node_type is not None:
             return self.node_type
         return self._struct.node_type
+
+    @property
+    @protect_from_kill
+    def version(self):
+        """`
+        :returns None or tuple:
+        """
+        return self.decode_version(self._struct.version)
 
     @property
     def iterator(self):
@@ -694,7 +964,7 @@ class DataNode:
 
 class DataNodeContainer(DataNode):
     def __init__(
-        self, node_type, name, parent=None, connection=None, create=False, **keys
+        self, node_type, name, parent=None, connection=None, create=False, **kwargs
     ):
         DataNode.__init__(
             self,
@@ -703,7 +973,7 @@ class DataNodeContainer(DataNode):
             parent=parent,
             connection=connection,
             create=create,
-            **keys,
+            **kwargs,
         )
         db_name = name if parent is None else self.db_name
         self._children_stream = self._create_nonassociated_stream(

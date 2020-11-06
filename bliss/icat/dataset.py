@@ -93,24 +93,37 @@ class Dataset(DataPolicyObject):
         super().__init__(node)
         self.definitions = Definitions()
 
-    def gather_metadata(self):
-        """Initialize the dataset node info"""
+    def gather_metadata(self, on_exists=None):
+        """Initialize the dataset node info.
+
+        When metadata already exists in Redis:
+            on_exists="skip": do nothing
+            on_exists="overwrite": overwrite in Redis
+            else: raise RuntimeError
+        """
 
         if self.is_closed:
             raise RuntimeError("The dataset is already closed")
 
-        if self._node.info.get("__metadata_gathered__"):
-            raise RuntimeError("metadata for this dataset has already been collected!")
+        if self.metadata_gathering_done:
+            if on_exists == "skip":
+                return
+            elif on_exists == "overwrite":
+                pass
+            else:
+                raise RuntimeError("Metadata gathering already done")
 
+        # Gather metadata
         if current_session.icat_mapping:
-            metadata = current_session.icat_mapping.get_metadata()
+            infodict = current_session.icat_mapping.get_metadata()
         else:
-            metadata = dict()
+            infodict = dict()
 
-        metadata["startDate"] = datetime.datetime.now().isoformat()
+        # Add additional metadata
+        infodict["startDate"] = datetime.datetime.now().isoformat()
 
-        assert isinstance(metadata, dict)
-        for k, v in metadata.items():
+        # Check metadata
+        for k, v in infodict.items():
             assert self.validate_fieldname(
                 k
             ), f"{k} is not an accepted key in this dataset!"
@@ -118,10 +131,11 @@ class Dataset(DataPolicyObject):
                 v, str
             ), f"{v} is not an accepted value for ICAT (only strings are allowed)!"
 
-        self._node.info["__closed__"] = False
-        self._node.info.update(metadata)
+        # Add other info keys (not metadata)
+        infodict["__metadata_gathered__"] = True
 
-        self._node.info["__metadata_gathered__"] = True
+        # Update the node's info
+        self._node.info.update(infodict)
 
     @property
     def metadata_gathering_done(self):

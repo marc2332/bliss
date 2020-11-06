@@ -1149,3 +1149,10 @@ def test_electronic_logbook(session, icat_logbook_subscriber, esrf_data_policy):
             category=category,
             scan_saving=scan_saving,
         )
+
+
+def test_parallel_scans(session, esrf_data_policy):
+    glts = [
+        gevent.spawn(session.scan_saving.clone().on_scan_run, True) for _ in range(100)
+    ]
+    gevent.joinall(glts, raise_error=True, timeout=10)

@@ -19,14 +19,14 @@ from bliss.scanning.scan import Scan
 from bliss.data.nodes.scan import ScanNode
 from bliss.data.node import get_session_node
 from bliss.scanning.scan import ScanState, ScanPreset
-from bliss.data.node import _create_node
+from bliss.data.node import create_node
 from bliss import current_session
 from bliss.common.logtools import user_warning
 
 
 class ScanGroup(Scan):
     def _create_data_node(self, node_name):
-        self._Scan__node = _create_node(
+        self._Scan__node = create_node(
             node_name, "scan_group", parent=self.root_node, info=self._scan_info
         )
 

@@ -12,7 +12,7 @@ import re
 
 from bliss.scanning.group import Sequence, Group
 from bliss.common import scans
-from bliss.data.node import get_node, _get_or_create_node
+from bliss.data.node import get_node, get_or_create_node
 from bliss.data.nodes.node_ref_channel import NodeRefChannel
 from bliss.data.nodes.scan import ScanNode
 from bliss.scanning.chain import AcquisitionChannel
@@ -221,7 +221,7 @@ def test_sequence_invalid_group(session):
     with pytest.raises(RuntimeError):
         g = Group(s1, s2)
 
-    n = _get_or_create_node("bla:bla:bla")
+    n = get_or_create_node("bla:bla:bla")
     with pytest.raises(RuntimeError):
         g = Group(s1, n)
 

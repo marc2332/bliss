@@ -21,8 +21,7 @@ import logging
 import traceback
 from gevent.time import time
 from contextlib import contextmanager
-from bliss.data.node import get_node as _get_node
-from bliss.data.node import _get_node_object
+from bliss.data.node import datanode_factory
 from bliss.config.streaming import DataStreamReaderStopHandler
 from ..utils.logging_utils import CustomLogger
 from ..io import io_utils
@@ -51,12 +50,11 @@ class PeriodicTask(object):
 
 def get_node(node_type, db_name):
     """
-    Get DataNode instance event if the Redis node does not exist yet
+    Get DataNode instance even if the Redis node does not exist yet
     """
-    node = _get_node(db_name)
-    if node is None:
-        node = _get_node_object(node_type, db_name, None, None)
-    return node
+    return datanode_factory(
+        db_name, node_type=node_type, state="exists", on_not_state="instantiate"
+    )
 
 
 class BaseSubscriber(object):

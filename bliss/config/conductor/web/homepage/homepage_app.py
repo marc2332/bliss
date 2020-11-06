@@ -31,6 +31,7 @@ def __get_jinja2():
 
 
 web_app = flask.Flask(__name__)
+web_app.domain = "esrf.fr"
 
 
 @web_app.route("/")
@@ -77,6 +78,11 @@ def static_file(dir, filename):
     return flask.send_from_directory(os.path.join(__this_path, dir), filename)
 
 
+def domain_name():
+    """ return the fully qualified domain name """
+    return f"{socket.gethostname()}.{web_app.domain}"
+
+
 #
 # Redirections to other web applications
 # (so that we don't need to remember all ports)
@@ -84,21 +90,21 @@ def static_file(dir, filename):
 @web_app.route("/configuration/")
 @web_app.route("/config/")
 def config():
-    return flask.redirect(f"http://{socket.gethostname()}:{web_app.config_port}")
+    return flask.redirect(f"http://{domain_name()}:{web_app.config_port}")
 
 
 @web_app.route("/multivisor/")
 @web_app.route("/status/")
 def multivisor():
-    return flask.redirect(f"http://{socket.gethostname()}:22000")
+    return flask.redirect(f"http://{domain_name()}:22000")
 
 
 @web_app.route("/supervisor/")
 def supervisor():
-    return flask.redirect(f"http://{socket.gethostname()}:9001")
+    return flask.redirect(f"http://{domain_name()}:9001")
 
 
 @web_app.route("/log/")
 @web_app.route("/logs/")
 def log_viewer():
-    return flask.redirect(f"http://{socket.gethostname()}:{web_app.log_port}")
+    return flask.redirect(f"http://{domain_name()}:{web_app.log_port}")

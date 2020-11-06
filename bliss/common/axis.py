@@ -1915,7 +1915,7 @@ class Axis:
                         f"{self.name}: {str(state)} at {self.position}"
                     )
                 elif state.FAULT:
-                    raise AxisFaultError(str(state))
+                    raise AxisFaultError(f"{self.name}: {str(state)}")
                 return state
             gevent.sleep(polling_time)
 

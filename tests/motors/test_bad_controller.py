@@ -163,9 +163,10 @@ def test_fault_state(bad_motor):
 
     bad_motor.controller.fault_state = True
 
-    with pytest.raises(AxisFaultError):
+    with pytest.raises(AxisFaultError) as excinfo:
         bad_motor.wait_move()
 
+    assert bad_motor.name in str(excinfo.value)
     bad_motor.controller.fault_state = False
 
     bad_motor.move(0)

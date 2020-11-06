@@ -31,6 +31,7 @@ import bliss
 from bliss.flint.helper import plot_interaction, scan_info_helper
 from bliss.controllers.lima import roi as lima_roi
 from bliss.flint.helper import model_helper
+from bliss.flint.model import scan_model
 from bliss.flint.model import plot_model
 from bliss.flint.model import plot_item_model
 from bliss.flint.model import plot_state_model
@@ -166,6 +167,8 @@ class FlintApi:
 
     def get_live_scan_data(self, channel_name):
         scan = self.__flintModel.currentScan()
+        if isinstance(scan, scan_model.ScanGroup):
+            scan = scan.subScans()[-1]
         if scan is None:
             raise RuntimeError("No scan available")
         channel = scan.getChannelByName(channel_name)

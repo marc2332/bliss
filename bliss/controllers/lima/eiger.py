@@ -96,6 +96,7 @@ class Camera(CameraBase):
             "auto_summation",
             "efficiency_correction",
             "virtual_pixel_correction",
+            "retrigger",
             "pixel_mask",
             "compression_type",
         ]

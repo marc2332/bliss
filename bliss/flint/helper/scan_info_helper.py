@@ -558,6 +558,12 @@ def infer_plot_models(scan_info: Dict) -> List[plot_model.Plot]:
     have_scalar = False
     have_scatter = False
     acquisition_chain = scan_info.get("acquisition_chain", None)
+    if len(acquisition_chain.keys()) == 1:
+        first_key = list(acquisition_chain.keys())[0]
+        if first_key == "GroupingMaster":
+            # Make sure groups does not generate anything plots
+            return []
+
     for _master, channels in acquisition_chain.items():
         scalars = channels.get("scalars", [])
         if len(scalars) > 0:

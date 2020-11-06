@@ -14,21 +14,21 @@ from bliss.scanning.chain import AcquisitionChain
 from bliss.scanning.acquisition.lima import LimaAcquisitionMaster
 
 
-def test_get_plot(test_session_with_flint, lima_simulator):
-    session = test_session_with_flint
+def test_ascan(test_session_without_flint, lima_simulator):
+    """
+    Test that a ascan data is displayed in Flint when using SCAN_DISPLAY.auto=True
+    """
+    session = test_session_without_flint
     lima = session.config.get("lima_simulator")
     # simu1 = session.config.get("simu1")
     ascan = session.env_dict["ascan"]
     roby = session.config.get("roby")
     diode = session.config.get("diode")
+
+    with use_shell_command_with_scan_display():
+        ascan(roby, 0, 5, 5, 0.001, diode, lima)
+
     flint = plot.get_flint()
-
-    plot.plotselect(diode)
-
-    # s = ascan(roby, 0, 5, 5, 0.001, diode, lima, simu1.counters.spectrum_det0)
-    ascan(roby, 0, 5, 5, 0.001, diode, lima)
-
-    # synchronize redis events with flint
     flint.wait_end_of_scans()
 
     p1_data = flint.get_live_scan_data("axis:roby")
@@ -37,12 +37,6 @@ def test_get_plot(test_session_with_flint, lima_simulator):
     assert len(p1_data) == 6  # 5 intervals
     assert len(p2_data) == 6  # 5 intervals
     assert numpy.allclose(p1_data, numpy.arange(6))
-
-    # p3 = s.get_plot(simu1.counters.spectrum_det0, wait=True)
-    # p4 = s.get_plot(simu1, wait=True)
-    #
-    # assert p3.plot_id == p4.plot_id
-    # assert p3.get_data()["simu1:spectrum_det0"].shape[0] == 1024
 
     p5_data = flint.get_live_scan_data(lima.image.fullname)
     assert len(p5_data.shape) == 2

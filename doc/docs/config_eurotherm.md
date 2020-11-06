@@ -4,19 +4,22 @@ This controller supports eurotherm series 2000, 2400 and 3200.
 
 ## Example Configuration
 
-    - class: eurotherm2000
-      serial: 
-        url: "rfc2217://lid032:28008"
-      inputs:
-        - name: T
-          type: pv 
-      outputs:
-        - name: sp
-          resolution: full
-          unit: deg
-          low_limit: 0
-          high_limit: 300
-          deadband: 0.1
+```yml
+- class: eurotherm2000
+  plugin: temperature
+  serial: 
+    url: "rfc2217://lid032:28008"
+  inputs:
+    - name: T
+      type: pv 
+  outputs:
+    - name: sp
+      resolution: full
+      unit: deg
+      low_limit: 0
+      high_limit: 300
+      deadband: 0.1
+```
 
 Aboves example worked on rocketport serial line made available via ser2net using the follwing parameters in ser2net.conf:
 

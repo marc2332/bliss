@@ -50,6 +50,7 @@ The oxford800 hostname will be used to set **cryoname** parameter of the YML fil
 
 ```YAML
 - class: Oxford800
+  plugin: temperature
   module: oxfordcryo.oxford800
   cryoname: id10oxford800
   outputs:

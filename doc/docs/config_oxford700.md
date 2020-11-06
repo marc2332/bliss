@@ -3,17 +3,17 @@
 ## YAML configuration file example
 
 ```YAML
-plugin: temperature
-package: bliss.controllers.temperature.oxfordcryo.oxford700
-class: oxford700
-serial:
-  url: rfc2217://lid032:28008
-outputs:
-  - name: ox
-    tango_server: ox
-description: Oxford 700 Cryo from instrument pool
-user_tag:
-- SAMPLENV.CRYO
+- class: oxford700
+  plugin: temperature
+  module: oxfordcryo.oxford700
+  serial:
+    url: rfc2217://lid032:28008
+  outputs:
+    - name: ox
+      tango_server: ox
+  description: Oxford 700 Cryo from instrument pool
+  user_tag:
+    - SAMPLENV.CRYO
 
 ```
 

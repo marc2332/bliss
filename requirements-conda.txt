@@ -49,6 +49,7 @@ treelib <= 1.5.5
 typeguard == 2.6.1
 typing_extensions
 fisx >= 1.1.9
+yappi
 
 # Flint
 ipykernel >= 5.2  # make sure qtconsole is working

@@ -30,7 +30,8 @@ from bliss.common.utils import periodic_exec, deep_update
 from bliss.scanning.scan_meta import get_user_scan_meta
 from bliss.common.motor_group import is_motor_group
 from bliss.common.utils import Null, update_node_info, round
-from bliss.common.profiling import Statistics, time_profile
+from bliss.common.profiling import SimpleTimeStatistics
+from bliss.common.profiling import simple_time_profile as time_profile
 from bliss.controllers.motor import Controller
 from bliss.config.settings_cache import CacheConnection
 from bliss.data.node import get_or_create_node, create_node
@@ -900,7 +901,7 @@ class Scan:
 
     @property
     def statistics(self):
-        return Statistics(self._stats_dict)
+        return SimpleTimeStatistics(self._stats_dict)
 
     def get_plot(
         self, channel_item, plot_type, as_axes=False, wait=False, silent=False

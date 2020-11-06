@@ -9,12 +9,74 @@
 """
 
 import time
+from io import StringIO
 from contextlib import contextmanager
 import numpy
+import yappi
+from bliss.common.logtools import user_print
+
+
+yappi.set_context_backend("greenlet")
+yappi.set_clock_type("wall")
+
+
+yappi_to_pstats_sort = {
+    "ncall": "ncalls",
+    "ttot": "cumtime",  # including subcalls
+    "tsub": "tottime",  # excluding subcalls
+}
+
+
+def print_yappi_snapshot(stats, sortby=None, filename=None, restrictions=tuple()):
+    """
+    :param YFuncStat stats:
+    :param str sortby: tsub (excluding subs), ttot or tavg (ttot/ncalls)
+    :param str filename: can be inspected with qcachegrind
+    :param tuple restrictions:
+    """
+    if not sortby:
+        sortby = "ttot"
+    s = StringIO()
+
+    # YAPPI output is limited
+    # stats = stats.sort(sortby)
+    # stats.print_all(out=s)
+    # Therefore convert to pstats
+    sortby = yappi_to_pstats_sort.get(sortby, "ttot")
+    pstat = yappi.convert2pstats(stats)
+    pstat.stream = s
+    pstat = pstat.sort_stats(sortby)
+    pstat.print_stats(*restrictions)
+
+    user_print(s.getvalue())
+    if filename:
+        stats.save(filename, type="callgrind")
 
 
 @contextmanager
-def time_profile(stats_dict, name, logger=None):
+def time_profile(*restrictions, sortby=None, filename=None):
+    """
+    :param restrictions: integer (number of lines)
+                         float (percentage of lines)
+                         str (regular expression)
+    :param str sortby: tsub (excluding subcalls), ttot or tavg (ttot/ncalls)
+    :param str filename: can be inspected with qcachegrind
+    """
+    yappi.clear_stats()
+    yappi.start(builtins=True)
+    try:
+        yield
+    finally:
+        yappi.stop()
+        stats = yappi.get_func_stats()
+        yappi.clear_stats()
+        print_yappi_snapshot(
+            stats, sortby=sortby, filename=filename, restrictions=restrictions
+        )
+
+
+@contextmanager
+def simple_time_profile(stats_dict, name, logger=None):
     """Add the time spend in this context to the stats dict.
     """
     try:
@@ -30,18 +92,7 @@ def time_profile(stats_dict, name, logger=None):
             logger.debug("End %s Took %fs" % (name, call_end - call_start))
 
 
-def human_time_fmt(num, suffix="s"):
-    """
-    format time second in human readable format
-    """
-    for unit in ["", "m", "u", "p", "f"]:
-        if abs(num) < 1:
-            num *= 1000
-            continue
-        return "%3.3f%s%s" % (num, unit, suffix)
-
-
-class Statistics:
+class SimpleTimeStatistics:
     """
     Calculate statistics from a profiling dictionary
     key == function name
@@ -85,11 +136,22 @@ class Statistics:
             data.append(
                 (
                     key,
-                    human_time_fmt(values[0]),
-                    human_time_fmt(values[1]),
-                    human_time_fmt(values[2]),
-                    human_time_fmt(values[3]),
-                    human_time_fmt(values[4]),
+                    self.human_time_fmt(values[0]),
+                    self.human_time_fmt(values[1]),
+                    self.human_time_fmt(values[2]),
+                    self.human_time_fmt(values[3]),
+                    self.human_time_fmt(values[4]),
                 )
             )
         return _tabulate(data)
+
+    @staticmethod
+    def human_time_fmt(num, suffix="s"):
+        """
+        format time second in human readable format
+        """
+        for unit in ["", "m", "u", "p", "f"]:
+            if abs(num) < 1:
+                num *= 1000
+                continue
+            return "%3.3f%s%s" % (num, unit, suffix)

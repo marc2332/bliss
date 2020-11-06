@@ -20,6 +20,7 @@ import gevent
 import logging
 import __future__
 from collections import deque, defaultdict
+from datetime import datetime
 
 from ptpython.repl import PythonRepl
 import ptpython.layout
@@ -192,8 +193,10 @@ def install_excepthook():
 
         # Store latest traceback (as a string to avoid memory leaks)
         ERROR_REPORT._last_error.append(
-            "".join(traceback.format_exception(exc_type, exc_value, tb))
+            datetime.now().strftime("%d/%m/%Y %H:%M:%S ")
+            + "".join(traceback.format_exception(exc_type, exc_value, tb))
         )
+
         logger.error("", exc_info=True)
 
         # Adapt the error message depending on the ERROR_REPORT expert_mode

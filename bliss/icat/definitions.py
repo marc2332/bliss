@@ -33,12 +33,6 @@ class Definitions:
     def __init__(self):
         self._populate()
 
-    def _add_technique(self, new_technique):
-        assert isinstance(new_technique, FieldGroup)
-        techniques = dict(self._techniques._asdict())
-        techniques[new_technique.name] = new_technique
-        self._techniques = self._make_named_tuple("techniques", techniques)
-
     def _populate(self):
         """ used on modul import to initialize globals of this module
         """

@@ -83,14 +83,12 @@ class Dataset(DataPolicyObject):
     def add_technique(self, technique):
         if self.is_closed:
             raise RuntimeError("The dataset is already closed")
-        if not isinstance(technique, FieldGroup):
-            tdict = self.definitions.techniques._asdict()
-            technique = tdict.get(technique)
-            if technique is None:
-                raise ValueError(f"Unknown technique ({list(tdict.keys())})")
-        self._node.info["__techniques__"] = self._technique_names.union(
-            [technique.name]
-        )
+        if isinstance(technique, FieldGroup):
+            technique = technique.name
+        available = self.definitions.techniques._fields
+        if technique not in available:
+            raise ValueError(f"Unknown technique ({available})")
+        self._node.add_technique(technique)
 
     @property
     def techniques(self):

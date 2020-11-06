@@ -61,3 +61,10 @@ class DatasetNode(_DataPolicyNode):
     @property
     def techniques(self):
         return self.info.get("__techniques__", set())
+
+    @techniques.setter
+    def techniques(self, names: set):
+        self.info["__techniques__"] = names
+
+    def add_technique(self, name):
+        self.techniques |= {name}

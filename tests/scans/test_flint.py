@@ -12,6 +12,7 @@ from bliss.scanning.scan import Scan
 from bliss.scanning.scan_display import ScanDisplay
 from bliss.scanning.chain import AcquisitionChain
 from bliss.scanning.acquisition.lima import LimaAcquisitionMaster
+from bliss.scanning.group import Sequence
 
 
 def test_ascan(test_session_without_flint, lima_simulator):
@@ -382,3 +383,34 @@ def test_update_user_data(test_session_with_flint):
 
     gevent.sleep(1)
     assert flint.test_count_displayed_items(p1.plot_id) == 2
+
+
+def test_sequence(test_session_with_flint, lima_simulator):
+    session = test_session_with_flint
+    lima = session.config.get("lima_simulator")
+    ascan = session.env_dict["ascan"]
+    roby = session.config.get("roby")
+    diode = session.config.get("diode")
+
+    flint = plot.get_flint()
+
+    scan_info = {}
+    factory = ScanInfoFactory(scan_info)
+    factory.add_scatter_plot(x="x", y="y", value="diode")
+
+    seq = Sequence(scan_info=scan_info)
+    with seq.sequence_context() as scan_seq:
+        s = ascan(roby, 0, 5, 5, 0.001, diode, lima, run=False)
+        scan_seq.add(s)
+        s.run()
+
+    flint.wait_end_of_scans()
+
+    p1_data = flint.get_live_scan_data("axis:roby")
+    p2_data = flint.get_live_scan_data(diode.fullname)
+    p3_data = flint.get_live_scan_data(lima.image.fullname)
+
+    assert len(p1_data) == 6  # 5 intervals
+    assert len(p2_data) == 6  # 5 intervals
+    assert numpy.allclose(p1_data, numpy.arange(6))
+    assert len(p3_data.shape) == 2

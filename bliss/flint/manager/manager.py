@@ -377,21 +377,20 @@ class ManageMainBehaviours(qt.QObject):
 
     def __aliveScanDiscovered(self, scan):
         currentScan = self.flintModel().currentScan()
-        if (
-            currentScan is not None
-            and currentScan.state() != scan_model.ScanState.FINISHED
-        ):
-            return
-
-        if isinstance(scan, scan_model.ScanGroup):
-            # Skip groups without plots
-            if not scan.hasPlotDescription():
+        parentPlots = None
+        if currentScan is not None:
+            if currentScan is scan.group():
+                parentPlots = scan_info_helper.create_plot_model(
+                    currentScan.scanInfo(), currentScan
+                )
+            elif currentScan.state() != scan_model.ScanState.FINISHED:
+                # Update the current scan only if the previous one is finished
                 return
 
-        # Update the current scan only if the previous one is finished
-        # FIXME: It should be managed in a better way, but for now it's fine
         scanInfo = scan.scanInfo()
         plots = scan_info_helper.create_plot_model(scanInfo, scan)
+        if parentPlots is not None:
+            plots = scan_info_helper.removed_same_plots(plots, parentPlots)
         self.updateScanAndPlots(scan, plots)
 
     def __clearPreviousScan(self, scan):
@@ -439,7 +438,8 @@ class ManageMainBehaviours(qt.QObject):
             defaultPlot = None
 
         # Set the new scan
-        flintModel.setCurrentScan(scan)
+        if scan.group() is None:
+            flintModel.setCurrentScan(scan)
 
         # Reuse/create and connect the widgets
         self.updateWidgetsWithPlots(scan, plots, useDefaultPlot, defaultPlot)
@@ -499,7 +499,8 @@ class ManageMainBehaviours(qt.QObject):
                 window.tabifyDockWidget(lastTab, widget)
             lastTab = widget
 
-        self.__updateFocus(defaultWidget, usedWidgets)
+        if scan.group() is None:
+            self.__updateFocus(defaultWidget, usedWidgets)
 
     def updateWidgetWithPlot(self, widget, scan, plotModel, useDefaultPlot):
         previousWidgetPlot = widget.plotModel()

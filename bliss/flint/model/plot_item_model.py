@@ -231,6 +231,13 @@ class McaPlot(plot_model.Plot):
     def setDeviceName(self, name: str):
         self.__deviceName = name
 
+    def hasSameTarget(self, other: plot_model.Plot) -> bool:
+        if type(self) is not type(other):
+            return False
+        if self.__deviceName != other.deviceName():
+            return False
+        return True
+
 
 class OneDimDataPlot(McaPlot):
     """Hack for now to display Lima 1D ROI inside a right widget"""
@@ -282,6 +289,13 @@ class ImagePlot(plot_model.Plot):
 
     def setDeviceName(self, name: str):
         self.__deviceName = name
+
+    def hasSameTarget(self, other: plot_model.Plot) -> bool:
+        if type(self) is not type(other):
+            return False
+        if self.__deviceName != other.deviceName():
+            return False
+        return True
 
 
 class ImageItem(plot_model.Item):

@@ -10,6 +10,7 @@ from typing import Optional
 from typing import List
 
 import time
+import logging
 
 from silx.gui import qt
 import silx.resources
@@ -19,6 +20,9 @@ from bliss.flint.model import flint_model
 from bliss.flint.widgets.extended_dock_widget import ExtendedDockWidget
 from bliss.flint.utils import stringutils
 from bliss.flint.helper import scan_info_helper
+
+
+_logger = logging.getLogger(__name__)
 
 
 class _SingleScanStatus(qt.QWidget):
@@ -31,10 +35,16 @@ class _SingleScanStatus(qt.QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(widget)
         self.__widget = widget
+        self.__widget.childProcess.setVisible(False)
 
         self.__scan: Optional[scan_model.Scan] = None
         self.__start: Optional(float) = None
         self.__end: Optional(float) = None
+
+        self.__childScan: Optional[scan_model.Scan] = None
+        self.__childStart: Optional(float) = None
+        self.__childEnd: Optional(float) = None
+
         self.__updateNoScan()
 
     def scan(self) -> Optional[scan_model.Scan]:
@@ -67,29 +77,37 @@ class _SingleScanStatus(qt.QWidget):
                 self.__widget.process.setVisible(False)
                 self.__widget.noAcquisition.setVisible(True)
                 self.__widget.noAcquisition.setText("FINISHED")
-                self.__widget.remainingTime.setText("")
+                self.__widget.childProcess.setVisible(False)
+                self.setActiveChildScan(None)
             elif scan.state() == scan_model.ScanState.INITIALIZED:
                 self.__widget.process.setVisible(False)
                 self.__widget.noAcquisition.setVisible(True)
                 self.__widget.noAcquisition.setText("INITIALIZING")
-                self.__widget.remainingTime.setText("")
 
     def __updateNoScan(self):
         self.__widget.scanTitle.setText("No scan available")
         self.__widget.process.setVisible(False)
         self.__widget.noAcquisition.setVisible(True)
         self.__widget.noAcquisition.setText("NO SCAN")
-        self.__widget.remainingTime.setText("")
 
     def __updateScanInfo(self):
         scan = self.__scan
+        childScan = self.__childScan
         assert scan is not None
         title = scan_info_helper.get_full_title(scan)
+
+        if childScan is not None:
+            childTitle = scan_info_helper.get_full_title(childScan)
+            title = f"{title} - {childTitle}"
+        self.__widget.setToolTip(title)
+
+        self.__childEnd = None
+        self.__widget.childProcess.setEnabled(False)
+
         self.__widget.scanTitle.setText(title)
 
         self.__end = None
         self.__widget.process.setEnabled(False)
-        self.__widget.remainingTime.setText("No estimation time")
 
     def updateRemaining(self):
         scan = self.__scan
@@ -99,11 +117,13 @@ class _SingleScanStatus(qt.QWidget):
             if remaining < 0:
                 remaining = 0
             remaining = stringutils.human_readable_duration(seconds=round(remaining))
-            self.__widget.remainingTime.setText(f"Remaining time: {remaining}")
+            # self.__widget.remainingTime.setText(f"Remaining time: {remaining}")
         percent = scan_info_helper.get_scan_progress_percent(scan)
         if percent is not None:
             self.__widget.process.setValue(percent * 100)
             self.__widget.process.setEnabled(True)
+
+        self.updateChildRemaining()
 
     def __scanStarted(self):
         self.__start = time.time()
@@ -113,6 +133,56 @@ class _SingleScanStatus(qt.QWidget):
         self.__start = None
         self.__end = None
         self.__updateScan()
+
+    def activeChildScan(self) -> Optional[scan_model.Scan]:
+        return self.__childScan
+
+    def setActiveChildScan(self, scan: scan_model.Scan = None):
+        if self.__childScan is scan:
+            return
+        if self.__childScan is not None:
+            self.__childScan.scanStarted.disconnect(self.__childScanStarted)
+            self.__childScan.scanFinished.disconnect(self.__childScanFinished)
+        self.__childScan = scan
+        if self.__childScan is not None:
+            self.__childScan.scanStarted.connect(self.__childScanStarted)
+            self.__childScan.scanFinished.connect(self.__childScanFinished)
+        self.__updateChildScan()
+
+    def __updateChildScan(self):
+        scan = self.__childScan
+        if scan is None:
+            self.__updateNoChildScan()
+        else:
+            if scan.state() == scan_model.ScanState.PROCESSING:
+                self.__widget.childProcess.setVisible(True)
+                self.updateChildRemaining()
+            elif scan.state() == scan_model.ScanState.FINISHED:
+                pass
+            elif scan.state() == scan_model.ScanState.INITIALIZED:
+                self.__widget.childProcess.setVisible(False)
+        self.__updateScanInfo()
+
+    def __updateNoChildScan(self):
+        self.__widget.childProcess.setVisible(False)
+
+    def updateChildRemaining(self):
+        scan = self.__childScan
+        if scan is None:
+            return
+        percent = scan_info_helper.get_scan_progress_percent(scan)
+        if percent is not None:
+            self.__widget.childProcess.setValue(percent * 100)
+            self.__widget.childProcess.setEnabled(True)
+
+    def __childScanStarted(self):
+        self.__childStart = time.time()
+        self.__updateChildScan()
+
+    def __childScanFinished(self):
+        self.__childStart = None
+        self.__childEnd = None
+        self.__updateChildScan()
 
 
 class ScanStatus(ExtendedDockWidget):
@@ -159,6 +229,12 @@ class ScanStatus(ExtendedDockWidget):
             self.__flintModel.aliveScanRemoved.connect(self.__aliveScanRemoved)
             self.__flintModel.currentScanChanged.connect(self.__currentScanChanged)
 
+    def __getWidgetByScan(self, scan):
+        for w in self.__scanWidgets:
+            if w.scan() is scan:
+                return w
+        return None
+
     def __addScanWidget(self, widget):
         layout = self.__widget.layout()
 
@@ -189,8 +265,10 @@ class ScanStatus(ExtendedDockWidget):
     def __removeWidgetFromScan(self, scan):
         if len(self.__scanWidgets) == 1:
             # Do not remove the last scan widget
-            if self.__timer.isActive():
-                self.__timer.stop()
+            if self.__scanWidgets[0].scan() is scan:
+                _logger.debug("Update stopped")
+                if self.__timer.isActive():
+                    self.__timer.stop()
             return
 
         if self.__flintModel.currentScan() is scan:
@@ -210,6 +288,12 @@ class ScanStatus(ExtendedDockWidget):
         widget.deleteLater()
 
     def __aliveScanAdded(self, scan):
+        if scan.group() is not None:
+            widget = self.__getWidgetByScan(scan.group())
+            if widget is not None:
+                widget.setActiveChildScan(scan)
+                return
+
         widget = _SingleScanStatus(self)
         widget.setScan(scan)
         self.__addScanWidget(widget)

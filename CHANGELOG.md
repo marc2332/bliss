@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Flint:
+    - Custom scan description (`scan_info`)
+        - A `set_sequence_info` was added to define the amount of excepted scans
+          from a sequence
+
 ### Changed
 
 ### Fixed
@@ -17,6 +22,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Data from Lima detectors and MCAs are not anymore hidden on a `amesh` scan
     - Data from MCAs are again displayed inside an MCA widget
     - Fix vmax on set_plot_colormap remote API
+    - Data from Lima detectors and MCAs from a sub scan of a sequence are not
+      anymore hidden
 
 ### Removed
 

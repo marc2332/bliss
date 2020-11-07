@@ -423,6 +423,22 @@ def parse_display_extra(scan_info: Dict) -> DisplayExtra:
     return DisplayExtra(displayed_channels, plotselect)
 
 
+def removed_same_plots(plots, remove_plots) -> List[plot_model.Plot]:
+    """Returns plots from an initial list of `plots` in which same plots was
+    removed."""
+    if remove_plots == []:
+        return list(plots)
+    result = []
+    for p in plots:
+        for p2 in remove_plots:
+            if p.hasSameTarget(p2):
+                break
+        else:
+            result.append(p)
+            continue
+    return result
+
+
 def create_plot_model(
     scan_info: Dict, scan: Optional[scan_model.Scan] = None
 ) -> List[plot_model.Plot]:
@@ -436,12 +452,11 @@ def create_plot_model(
         for plot in plots:
             _select_default_counter(scan, plot)
 
-        def contains_default_plot_kind(plots, kind):
+        def contains_default_plot_kind(plots, plot):
             """Returns true if the list contain a default plot for this kind."""
             for p in plots:
-                if p.name() is None:
-                    if type(p) == kind:
-                        return True
+                if p.hasSameTarget(plot):
+                    return True
             return False
 
         aq_plots = infer_plot_models(scan_info)
@@ -558,6 +573,12 @@ def infer_plot_models(scan_info: Dict) -> List[plot_model.Plot]:
     have_scalar = False
     have_scatter = False
     acquisition_chain = scan_info.get("acquisition_chain", None)
+    if len(acquisition_chain.keys()) == 1:
+        first_key = list(acquisition_chain.keys())[0]
+        if first_key == "GroupingMaster":
+            # Make sure groups does not generate anything plots
+            return []
+
     for _master, channels in acquisition_chain.items():
         scalars = channels.get("scalars", [])
         if len(scalars) > 0:
@@ -885,12 +906,35 @@ class _ProgressOfChannel(_ProgressStrategy):
         return size / self.__maxPoints
 
 
+class _ProgressOfSequence(_ProgressStrategy):
+    def __init__(self, scan: scan_model.Scan):
+        super(_ProgressOfSequence, self).__init__()
+        scanInfo = scan.scanInfo()
+        sequenceInfo = scanInfo.get("sequence-info", {})
+        scanCount = sequenceInfo.get("scan-count", None)
+        if isinstance(scanCount, int) and scanCount > 0:
+            self.__scanCount = scanCount
+        else:
+            self.__scanCount = None
+
+    def compute(self, scan: scan_model.Scan) -> Optional[float]:
+        if self.__scanCount is None:
+            return None
+
+        subScans = scan.subScans()
+        return len(subScans) / self.__scanCount
+
+
 def _create_progress_strategies(scan: scan_model.Scan) -> List[_ProgressStrategy]:
     scan_info = scan.scanInfo()
     if scan_info is None:
         return []
 
     strategies = []
+
+    if isinstance(scan, scan_model.ScanGroup):
+        strategy = _ProgressOfSequence(scan)
+        strategies.append(strategy)
 
     requests = scan_info.get("requests", None)
     if requests:

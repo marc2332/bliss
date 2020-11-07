@@ -131,3 +131,15 @@ class ScanInfoFactory:
             plot["name"] = name
 
         plots.append(plot)
+
+    def set_sequence_info(self, scan_count: typing.Optional[int] = None):
+        """
+        Set extra-info for a sequence.
+
+        Arguments:
+            scan_count: Set it if you know the amount of scan which will be part
+                        your sequence. THis can be used to know client side the
+                        progress of the sequence.
+        """
+        info = self._scan_info.setdefault("sequence-info", {})
+        info["scan-count"] = int(scan_count)

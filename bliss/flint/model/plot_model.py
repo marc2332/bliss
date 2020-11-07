@@ -215,6 +215,13 @@ class Plot(qt.QObject):
             "".join([str(i) for i in self.__items]),
         )
 
+    def hasSameTarget(self, other: Plot) -> bool:
+        if type(self) is not type(other):
+            return False
+        if self.__name != other.name():
+            return False
+        return True
+
 
 class NotStored:
     """Flag object which do not have to be stored"""

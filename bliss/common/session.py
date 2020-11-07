@@ -819,20 +819,25 @@ class Session:
 
 
 class DefaultSession(Session):
+    """Session without config, setup scripts and data policy
+    """
+
     def __init__(self):
         Session.__init__(self, "__DEFAULT__", {"config-objects": []})
 
     def _set_scan_saving(self, cls=None):
-        # no special scan saving class for default session
         if cls is not None:
-            log_warning(
-                self,
-                f"Not setting scan saving policy to {cls.__name__} in default session.",
-            )
+            log_warning(self, "No data policy allowed in this session.")
         super()._set_scan_saving(None)
 
+    def enable_esrf_data_policy(self):
+        pass
+
+    def disable_esrf_data_policy(self):
+        pass
+
     def _load_config(self, verbose=True):
-        return
+        pass
 
     def resetup(self, verbose=False):
-        return
+        pass

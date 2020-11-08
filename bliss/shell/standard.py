@@ -1133,14 +1133,17 @@ def edit_mg(mg: MeasurementGroup):
     measurement group.
     """
     active_mg = measurementgroup.ACTIVE_MG if mg is None else mg
+    available_counters = active_mg._available_counters
     try:
-        available = list(sorted(active_mg.available))
+        available = list(
+            sorted(active_mg._get_available_counters_names(available_counters))
+        )
     except AttributeError:
         if mg is None:
             raise RuntimeError("No active measurement group")
         else:
             raise RuntimeError(f"Object **{mg}** is not a measurement group")
-    enabled = active_mg.enabled
+    enabled = active_mg._get_enabled_counters_names(available_counters)
 
     dlgs = [
         user_dialog.UserCheckBox(label=name, defval=name in enabled)
@@ -1152,7 +1155,6 @@ def edit_mg(mg: MeasurementGroup):
         for i in range(0, len(dlgs), nb_counter_per_column)
     ]
 
-    print(len(cnts))
     dialog = pt_widgets.BlissDialog(
         [cnts],
         title=f"Edition measurement group: **{active_mg.name}**  "

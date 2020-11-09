@@ -253,6 +253,43 @@ def images_directory(tmpdir_factory):
     yield images_dir
 
 
+def redirect_stream_to(stream_in, stream_out, prefix=None):
+    """Create and return a greenlet which consume a stream content and print it
+    to another stream.
+
+    Arguments:
+        stream_in: Stream to consume
+        stream_out: Stream to feed
+        prefix: If set, prefix the output with this label
+    """
+
+    def read_std():
+        while not stream_in.closed:
+            data = stream_in.readline()
+            if isinstance(data, bytes):
+                if data == b"":
+                    break
+                if data == b"\n":
+                    # Skip empty lines
+                    continue
+                try:
+                    data = data + b"\F0\F2"
+                    line = data.decode("utf-8")
+                except UnicodeDecodeError:
+                    line = "%a" % data
+            else:
+                if line == "":
+                    break
+                if line == "\n":
+                    # Skip empty lines
+                    continue
+            if prefix:
+                line = f"{prefix}: {line}"
+            stream_out.write(line)
+
+    return gevent.spawn(read_std)
+
+
 @pytest.fixture(scope="session")
 def ports(beacon_directory, log_directory):
     redis_uds = os.path.join(beacon_directory, "redis.sock")
@@ -277,13 +314,8 @@ def ports(beacon_directory, log_directory):
     # TODO: Beacon needs an 'is_ready' command
     wait_for(proc.stderr, "Tango database started")
 
-    def read_std(stream):
-        while True:
-            line = stream.readline()
-            sys.stderr.write("BEACON: %a" % line)
-
     # redirect the content of the stream
-    dispatcher = gevent.spawn(read_std, proc.stderr)
+    dispatcher = redirect_stream_to(proc.stderr, sys.stderr, prefix="BEACON")
 
     # disable .rdb files saving (redis persistence)
     r = redis.Redis(host="localhost", port=ports.redis_port)

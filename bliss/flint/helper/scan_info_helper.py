@@ -196,7 +196,7 @@ def create_scan_model(scan_info: Dict, is_group: bool = False) -> scan_model.Sca
 
         # Some magic to create virtual device for each ROIs
         if parent.name() == "roi_counters":
-            if short_name.startswith("roi") and "_" in short_name:
+            if "_" in short_name:
                 # guess the computation part do not contain _
                 # FIXME: It would be good to have a real ROI concept in BLISS
                 roi_name, _ = short_name.rsplit("_", 1)

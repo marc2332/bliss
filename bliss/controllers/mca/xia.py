@@ -197,9 +197,9 @@ class BaseXIA(BaseMCA):
         Called once at session startup and then on demand.
         The filename is relative to the configuration directory.
         """
-        # call exit to avoid crash when reloading a config.
-        self._proxy.exit()
         try:
+            # call exit to avoid crash when reloading a config.
+            self._proxy.exit()
             user_print(f"Loading configuration '{filename}'")
             self._proxy.init(self.beacon_obj.configuration_directory, filename)
             self._proxy.start_system()  # Takes about 5 seconds
@@ -318,7 +318,8 @@ class BaseXIA(BaseMCA):
         """ ??? """
         log_debug(self, "start_acquisition")
         # Make sure the acquisition is stopped first
-        # self._proxy.stop_run()
+        if self.is_acquiring():
+            self._proxy.stop_run()
         self._last_pixel_triggered = -1
         self._proxy.start_run()
 
@@ -521,6 +522,7 @@ class BaseXIA(BaseMCA):
         if mode != TriggerMode.SOFTWARE:
             gate = 1
             self._proxy.set_acquisition_value("pixel_advance_mode", gate)
+            self._proxy.set_acquisition_value("input_logic_polarity", 0)
         self._proxy.apply_acquisition_values()
 
         self._trigger_mode = mode

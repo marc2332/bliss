@@ -265,7 +265,7 @@ def config_logging(options):
     dfs = None
     formatter = logging.Formatter(fs, dfs)
 
-    # Logs level < ERROR to stdout and llevel >= ERROR to stderr
+    # Logs level < ERROR to stdout and level >= ERROR to stderr
     # As result bliss console will display a better result
     handler_stdout = logging.StreamHandler(sys.stdout)
     handler_stdout.setFormatter(formatter)

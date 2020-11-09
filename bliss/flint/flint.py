@@ -284,7 +284,6 @@ def config_logging(options):
         ROOT_LOGGER.addHandler(handler_file)
 
     logging.captureWarnings(True)
-    ROOT_LOGGER.level = logging.INFO
 
 
 def create_spash_screen():
@@ -305,8 +304,11 @@ def create_spash_screen():
 def main():
     options = parse_options()
     if options.debug:
-        logging.root.setLevel(logging.DEBUG)
+        ROOT_LOGGER.setLevel(logging.DEBUG)
+        mpl_log = logging.getLogger("matplotlib")
+        mpl_log.setLevel(logging.INFO)
     else:
+        ROOT_LOGGER.setLevel(logging.INFO)
         silx_log = logging.getLogger("silx")
         silx_log.setLevel(logging.WARNING)
 

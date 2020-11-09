@@ -27,7 +27,7 @@ from bliss.common.cleanup import error_cleanup, axis as cleanup_axis, capture_ex
 from bliss.common.greenlet_utils import KillMask
 from bliss.common.plot import get_flint
 from bliss.common.utils import periodic_exec, deep_update
-from bliss.scanning.scan_meta import get_user_scan_meta
+from bliss.scanning.scan_meta import get_user_scan_meta, META_TIMING
 from bliss.common.motor_group import is_motor_group
 from bliss.common.utils import Null, update_node_info, round
 from bliss.common.profiling import SimpleTimeStatistics
@@ -1259,19 +1259,23 @@ class Scan:
                 for signal in ("start", "end"):
                     connect(dev, signal, self._device_event)
 
-    def _update_scan_info_with_user_scan_meta(self):
+    def _update_scan_info_with_user_scan_meta(self, meta_timing):
+        # be aware: this is patched in ct!
         with time_profile(
             self._stats_dict, "scan.prepare.user_scan_meta", logger=logger
         ):
             with KillMask(masked_kill_nb=1):
-                deep_update(self._scan_info, self.user_scan_meta.to_dict(self))
+                deep_update(
+                    self._scan_info,
+                    self.user_scan_meta.to_dict(self, timing=meta_timing),
+                )
             self._scan_info["scan_meta_categories"] = self.user_scan_meta.cat_list()
 
     def _prepare_scan_meta(self):
         self._scan_info["filename"] = self.writer.filename
         # User metadata
         self.user_scan_meta = get_user_scan_meta().copy()
-        self._update_scan_info_with_user_scan_meta()
+        self._update_scan_info_with_user_scan_meta(META_TIMING.START)
 
         # Plot metadata
         display_extra = {}
@@ -1460,7 +1464,7 @@ class Scan:
                 self._fill_meta("fill_meta_at_scan_end")
 
             with capture():
-                self._update_scan_info_with_user_scan_meta()
+                self._update_scan_info_with_user_scan_meta(META_TIMING.END)
 
                 with KillMask(masked_kill_nb=1):
                     # update scan_info in redis

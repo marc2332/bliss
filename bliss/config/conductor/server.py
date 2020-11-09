@@ -24,16 +24,24 @@ import tempfile
 import gevent
 import ipaddress
 import subprocess
+from contextlib import contextmanager, ExitStack
 from gevent import select
 from gevent import monkey
+from gevent.socket import cancel_wait_ex
 
 from bliss.common import event
 from . import protocol
 from .. import redis as redis_conf
 from functools import reduce
 
-if sys.platform in ["win32", "cygwin"]:
+
+try:
     import win32api
+except ImportError:
+    IS_WINDOWS = False
+else:
+    IS_WINDOWS = True
+
 
 # Globals
 
@@ -43,13 +51,16 @@ _lock_object = {}
 _client_to_object = weakref.WeakKeyDictionary()
 _client_to_name = weakref.WeakKeyDictionary()
 _waiting_lock = weakref.WeakKeyDictionary()
-_log = logging.getLogger("beacon")
-_tlog = _log.getChild("tango")
-_rlog = _log.getChild("redis")
-_rlog_data = _log.getChild("redis_data")
-_wlog = _log.getChild("web")
-_lslog = _log.getChild("log_server")
-_logv = _log.getChild("log_viewer")
+uds_port_name = None
+
+
+beacon_logger = logging.getLogger("beacon")
+tango_logger = beacon_logger.getChild("tango")
+redis_logger = beacon_logger.getChild("redis")
+redis_data_logger = beacon_logger.getChild("redis_data")
+web_logger = beacon_logger.getChild("web")
+log_server_logger = beacon_logger.getChild("log_server")
+log_viewer_logger = beacon_logger.getChild("log_viewer")
 
 
 # Helpers
@@ -93,10 +104,8 @@ class _WaitStolenReply(object):
 
 
 def _releaseAllLock(client_id):
-    #    print '_releaseAllLock',client_id
     objset = _client_to_object.pop(client_id, set())
     for obj in objset:
-        #        print 'release',obj
         _lock_object.pop(obj)
     # Inform waiting client
     tmp_dict = dict(_waiting_lock)
@@ -112,8 +121,6 @@ def _releaseAllLock(client_id):
 
 
 def _lock(client_id, prio, lock_obj, raw_message):
-    #    print '_lock_object',_lock_object
-    #    print
     all_free = True
     for obj in lock_obj:
         socket_id, compteur, lock_prio = _lock_object.get(obj, (None, None, None))
@@ -145,7 +152,7 @@ def _lock(client_id, prio, lock_obj, raw_message):
             with _WaitStolenReply(stolen_lock) as w:
                 w.wait(3.)
         except RuntimeError:
-            _log.warning("some client(s) didn't reply to the stolen lock")
+            beacon_logger.warning("some client(s) didn't reply to the stolen lock")
 
         obj_already_locked = _client_to_object.get(client_id, set())
         _client_to_object[client_id] = set(lock_obj).union(obj_already_locked)
@@ -153,9 +160,6 @@ def _lock(client_id, prio, lock_obj, raw_message):
         client_id.sendall(protocol.message(protocol.LOCK_OK_REPLY, raw_message))
     else:
         _waiting_lock[client_id] = lock_obj
-
-
-#    print '_lock_object',_lock_object
 
 
 def _unlock(client_id, priority, unlock_obj):
@@ -166,7 +170,6 @@ def _unlock(client_id, priority, unlock_obj):
 
     for obj in unlock_obj:
         socket_id, compteur, prio = _lock_object.get(obj, (None, None, None))
-        #        print socket_id,compteur,prio,obj
         if socket_id and socket_id == client_id:
             compteur -= 1
             if compteur <= 0:
@@ -187,9 +190,6 @@ def _unlock(client_id, priority, unlock_obj):
         if try_lock_object.intersection(unlock_object):
             objs = _waiting_lock.pop(client_sock)
             client_sock.sendall(protocol.message(protocol.LOCK_RETRY))
-
-
-#    print '_lock_object',_lock_object
 
 
 def _clean(client):
@@ -516,7 +516,7 @@ def _write_config_db_file(client_id, message):
             msg = protocol.message(
                 protocol.CONFIG_SET_DB_FILE_OK, b"%s|0" % message_key
             )
-    except:
+    except BaseException:
         msg = protocol.message(
             protocol.CONFIG_SET_DB_FILE_FAILED,
             b"%s|%s" % (message_key, traceback.format_exc().encode()),
@@ -529,15 +529,11 @@ def _write_config_db_file(client_id, message):
 def _send_uds_connection(client_id, client_hostname):
     client_hostname = client_hostname.decode()
     try:
-        if client_hostname == socket.gethostname() and sys.platform not in [
-            "win32",
-            "cygwin",
-        ]:
+        if uds_port_name and client_hostname == socket.gethostname():
             client_id.sendall(protocol.message(protocol.UDS_OK, uds_port_name.encode()))
         else:
-
             client_id.sendall(protocol.message(protocol.UDS_FAILED))
-    except:
+    except BaseException:
         sys.excepthook(*sys.exc_info())
 
 
@@ -558,12 +554,11 @@ def _send_who_locked(client_id, message):
         socket_id, compteur, lock_prio = _lock_object.get(name, (None, None, None))
         if socket_id is None:
             continue
-        else:
-            msg = b"%s|%s|%s" % (
-                message_key,
-                name,
-                _client_to_name.get(socket_id, b"Unknown"),
-            )
+        msg = b"%s|%s|%s" % (
+            message_key,
+            name,
+            _client_to_name.get(socket_id, b"Unknown"),
+        )
         client_id.sendall(protocol.message(protocol.WHO_LOCKED_RX, msg))
     client_id.sendall(protocol.message(protocol.WHO_LOCKED_END, b"%s|" % message_key))
 
@@ -599,7 +594,7 @@ def _client_rx(client, local_connection):
         while not stopFlag:
             try:
                 raw_data = client.recv(16 * 1024)
-            except:
+            except BaseException:
                 break
 
             if raw_data:
@@ -667,13 +662,13 @@ def _client_rx(client, local_connection):
                         data = None
                         stopFlag = True
                     break
-                except:
+                except BaseException:
                     sys.excepthook(*sys.exc_info())
-                    _log.error("Error with client id %r, close it", client)
+                    beacon_logger.error("Error with client id %r, close it", client)
                     raise
 
             tcp_data = data
-    except:
+    except BaseException:
         sys.excepthook(*sys.exc_info())
     finally:
         try:
@@ -682,32 +677,261 @@ def _client_rx(client, local_connection):
             client.close()
 
 
-def sigterm_handler(_signo, _stack_frame):
-    """On signal received, close the signal pipe to do a clean exit."""
-    os.write(sig_write, b"!")
+@contextmanager
+def pipe():
+    rp, wp = os.pipe()
+    try:
+        yield (rp, wp)
+    finally:
+        os.close(wp)
+        os.close(rp)
 
 
+def log_tangodb_started():
+    """Raise exception when tango database not started in 10 seconds
+    """
+    from bliss.tango.clients.utils import wait_tango_db
+
+    try:
+        wait_tango_db(port=_options.tango_port, db=2)
+    except Exception:
+        tango_logger.error("Tango database NOT started")
+        raise
+    else:
+        tango_logger.info("Tango database started")
+
+
+@contextmanager
 def start_webserver(web_app, webapp_port, beacon_port, debug=True):
+    """Part of the 'Beacon server'"""
     try:
         import flask
     except ImportError:
-        _wlog.error("flask cannot be imported: web application won't be available")
+        web_logger.error("flask cannot be imported: web application won't be available")
         return
 
-    _wlog.info(f"Web application '{web_app.name}' sitting on port: {webapp_port}")
-    web_app.beacon_port = beacon_port
+    web_logger.info(f"Web application '{web_app.name}' listening on port {webapp_port}")
+    if beacon_port:
+        web_app.beacon_port = beacon_port  # create global beacon connection
+    web_app.logger.propagate = True  # use root logger
+    web_app.logger.handlers = []
+    # Note: Flask uses click.echo for direct stdout printing
+
     # force not to use reloader because it would fork a subprocess
-    return gevent.spawn(
+    with spawn_context(
         web_app.run,
         host="0.0.0.0",
         port=webapp_port,
         use_debugger=debug,
         use_reloader=False,
         threaded=False,
-    )
+    ):
+        yield
 
 
-# Main execution
+@contextmanager
+def start_udp_server():
+    """Part of the 'Beacon server'"""
+    udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    udp.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    udp.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+    udp.bind(("", protocol.DEFAULT_UDP_SERVER_PORT))
+    try:
+        yield udp
+    finally:
+        udp.close()
+
+
+@contextmanager
+def start_tcp_server():
+    """Part of the 'Beacon server'"""
+    tcp = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    tcp.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    tcp.bind(("", _options.port))
+    tcp.listen(512)  # limit to 512 clients
+    try:
+        yield tcp
+    finally:
+        tcp.close()
+
+
+@contextmanager
+def start_uds_server():
+    """Part of the 'Beacon server'"""
+    global uds_port_name
+    if IS_WINDOWS:
+        uds_port_name = None
+        yield None
+        return
+    path = tempfile._get_default_tempdir()
+    random_name = next(tempfile._get_candidate_names())
+    uds_port_name = os.path.join(path, f"beacon_{random_name}.sock")
+    try:
+        uds = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        uds.bind(uds_port_name)
+        os.chmod(uds_port_name, 0o777)
+        uds.listen(512)
+        try:
+            yield uds
+        finally:
+            uds.close()
+    finally:
+        try:
+            os.unlink(uds_port_name)
+        except Exception:
+            pass
+
+
+def udp_server_main(sock, beacon_port):
+    """Beacon server: listen on UDP port
+    """
+    port = sock.getsockname()[1]
+    beacon_logger.info("start listening on UDP port %s", port)
+
+    try:
+        udp_reply = b"%s|%d" % (socket.gethostname().encode(), beacon_port)
+
+        while True:
+            try:
+                buff, address = sock.recvfrom(8192)
+            except cancel_wait_ex:
+                return
+            send_flag = True
+            if buff.find(b"Hello") > -1:
+                if _options.add_filter:
+                    for add in _options.add_filter:
+                        if ipaddress.ip_address(address[0]) in ipaddress.ip_network(
+                            add
+                        ):
+                            break
+                    else:
+                        send_flag = False
+            if send_flag:
+                beacon_logger.info(
+                    "UDP: address request from %s. Replying with %r", address, udp_reply
+                )
+                sock.sendto(udp_reply, address)
+            else:
+                beacon_logger.info(
+                    "UDP: filter address %s with filter %a",
+                    address,
+                    _options.add_filter,
+                )
+    finally:
+        beacon_logger.info("stop listening on UDP port %s", port)
+
+
+def tcp_server_main(sock):
+    """Beacon server: listen on TCP port
+    """
+    port = sock.getsockname()[1]
+    beacon_logger.info("start listening on TCP port %s", port)
+    beacon_logger.info("configuration path: %s", _options.db_path)
+    try:
+        while True:
+            try:
+                newSocket, addr = sock.accept()
+            except cancel_wait_ex:
+                return
+            newSocket.setsockopt(socket.SOL_IP, socket.IP_TOS, 0x10)
+            localhost = addr[0] == "127.0.0.1"
+            gevent.spawn(_client_rx, newSocket, localhost)
+    finally:
+        beacon_logger.info("stop listening on TCP port %s", port)
+
+
+def uds_server_main(sock):
+    """Beacon server: listen on UDS socket
+    """
+    beacon_logger.info("start listening on UDS socket %s", uds_port_name)
+    try:
+        while True:
+            try:
+                newSocket, addr = sock.accept()
+            except cancel_wait_ex:
+                return
+            gevent.spawn(_client_rx, newSocket, True)
+    finally:
+        beacon_logger.info("stop listening on UDS socket %s", uds_port_name)
+
+
+def stream_to_log(stream, log_func):
+    """Forward a stream to a log function
+    """
+    while True:
+        msg = gevent.os.tp_read(stream, 8192)
+        if msg:
+            log_func(msg.decode())
+
+
+@contextmanager
+def logged_subprocess(args, logger, **kw):
+    """Subprocess with stdout/stderr logging
+    """
+    with pipe() as (rp_out, wp_out):
+        with pipe() as (rp_err, wp_err):
+            log_stdout = gevent.spawn(stream_to_log, rp_out, logger.info)
+            log_stderr = gevent.spawn(stream_to_log, rp_err, logger.error)
+            greenlets = [log_stdout, log_stderr]
+            proc = subprocess.Popen(args, stdout=wp_out, stderr=wp_err, **kw)
+            msg = f"(pid={proc.pid}) {repr(' '.join(args))}"
+            beacon_logger.info(f"started {msg}")
+            try:
+                yield
+            finally:
+                beacon_logger.info(f"terminating {msg}")
+                proc.terminate()
+                gevent.killall(greenlets)
+                beacon_logger.info(f"terminated {msg}")
+
+
+@contextmanager
+def spawn_context(func, *args, **kw):
+    g = gevent.spawn(func, *args, **kw)
+    try:
+        yield
+    finally:
+        g.kill()
+
+
+def wait():
+    """Wait for exit signal
+    """
+
+    with pipe() as (rp, wp):
+
+        def sigterm_handler(*args, **kw):
+            # This is executed in the hub so use a pipe
+            # Find a better way:
+            # https://github.com/gevent/gevent/issues/1683
+            os.write(wp, b"!")
+
+        event = gevent.event.Event()
+
+        def sigterm_greenlet():
+            # Graceful shutdown
+            gevent.os.tp_read(rp, 1)
+            beacon_logger.info("Received a termination signal")
+            event.set()
+
+        with spawn_context(sigterm_greenlet):
+            # Binds system signals.
+            signal.signal(signal.SIGTERM, sigterm_handler)
+            if IS_WINDOWS:
+                signal.signal(signal.SIGINT, sigterm_handler)
+                # ONLY FOR Win7 (COULD BE IGNORED ON Win10 WHERE CTRL-C PRODUCES A SIGINT)
+                win32api.SetConsoleCtrlHandler(sigterm_handler, True)
+            else:
+                signal.signal(signal.SIGHUP, sigterm_handler)
+                signal.signal(signal.SIGQUIT, sigterm_handler)
+
+            try:
+                event.wait()
+            except KeyboardInterrupt:
+                beacon_logger.info("Received a keyboard interrupt")
+            except Exception as exc:
+                sys.excepthook(*sys.exc_info())
+                beacon_logger.critical("An unexpected exception occured:\n%r", exc)
 
 
 def main(args=None):
@@ -861,360 +1085,155 @@ def main(args=None):
     global _options
     _options = parser.parse_args(args)
 
+    # Pimp my path
+    _options.db_path = os.path.abspath(os.path.expanduser(_options.db_path))
+
     # Logging configuration
     log_level = _options.log_level.upper()
     log_fmt = "%(levelname)s %(asctime)-15s %(name)s: %(message)s"
     logging.basicConfig(level=log_level, format=log_fmt)
 
-    # Signal pipe
-    global sig_write
-    sig_read, sig_write = os.pipe()
+    with ExitStack() as context_stack:
+        # For sub-processes
+        env = dict(os.environ)
 
-    # Binds system signals.
-    signal.signal(signal.SIGTERM, sigterm_handler)
-    if sys.platform in ["win32", "cygwin"]:
-        signal.signal(signal.SIGINT, sigterm_handler)
+        # Start the Beacon server
+        ctx = start_udp_server()
+        udp_socket = context_stack.enter_context(ctx)
+        ctx = start_tcp_server()
+        tcp_socket = context_stack.enter_context(ctx)
+        ctx = start_uds_server()
+        uds_socket = context_stack.enter_context(ctx)
+        beacon_port = tcp_socket.getsockname()[1]
+        env["BEACON_HOST"] = "%s:%d" % ("localhost", beacon_port)
 
-    else:
-        signal.signal(signal.SIGHUP, sigterm_handler)
-        signal.signal(signal.SIGQUIT, sigterm_handler)
+        # Logger server application
+        if _options.log_server_port > 0:
+            # Logserver executable
+            args = [sys.executable]
+            args += ["-m", "bliss.config.conductor.log_server"]
 
-    # Pimp my path
-    _options.db_path = os.path.abspath(os.path.expanduser(_options.db_path))
-
-    # Broadcast
-    udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    udp.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    udp.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-    udp.bind(("", protocol.DEFAULT_UDP_SERVER_PORT))
-
-    # TCP
-    tcp = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    tcp.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    tcp.bind(("", _options.port))
-    beacon_port = tcp.getsockname()[1]
-    _log.info("server sitting on port: %s", beacon_port)
-    _log.info("configuration path: %s", _options.db_path)
-    tcp.listen(512)  # limit to 512 clients
-
-    # UDS
-    global uds_port_name
-    uds_port_name = os.path.join(
-        tempfile._get_default_tempdir(),
-        "beacon_%s.sock" % next(tempfile._get_candidate_names()),
-    )
-
-    if sys.platform in ["win32", "cygwin"]:
-        uds = None
-
-    else:
-
-        uds = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        uds.bind(uds_port_name)
-        os.chmod(uds_port_name, 0o777)
-        uds.listen(512)
-        _log.info("server sitting on uds socket: %s", uds_port_name)
-
-    # Environment
-    env = dict(os.environ)
-    env["BEACON_HOST"] = "%s:%d" % ("localhost", beacon_port)
-
-    # Config web application
-    if _options.webapp_port > 0:
-        from .web.configuration.config_app import web_app as config_app
-
-        start_webserver(config_app, _options.webapp_port, beacon_port)
-
-    # Homepage web application
-    if _options.homepage_port > 0:
-        from .web.homepage.homepage_app import web_app as homepage_app
-
-        homepage_app.config_port = _options.webapp_port
-        homepage_app.log_port = _options.log_viewer_port
-        start_webserver(homepage_app, _options.homepage_port, beacon_port)
-
-    # Logger server application
-    log_server_rp = log_server_process = None
-    if _options.log_server_port > 0:
-        # Logserver executable
-        args = [sys.executable]
-        args += ["-m", "bliss.config.conductor.log_server"]
-        # Arguments
-        args += ["--port", str(_options.log_server_port)]
-        if not _options.log_output_folder:
-            log_folder = os.path.join(str(_options.db_path), "logs")
-        else:
-            log_folder = str(_options.log_output_folder)
-
-        if os.access(log_folder, os.R_OK | os.W_OK | os.X_OK):
-            args += ["--log-output-folder", log_folder]
-            args += ["--log-size", str(_options.log_size)]
-            # Fire up process
-            log_server_rp, log_server_wp = os.pipe()
-            _log.info("launching log_server on port: %s", _options.log_server_port)
-            log_server_process = subprocess.Popen(
-                args, stdout=log_server_wp, stderr=subprocess.STDOUT, env=env
-            )
-        else:
-            _lslog.warning("Log path doesn't exist: %s", log_folder)
-            _lslog.warning("Won't starts")
-
-    # Logviewer Web application
-    if (
-        sys.platform not in ["win32", "cygwin"]
-        and log_server_process is not None
-        and _options.log_server_port
-        and _options.log_viewer_port > 0
-    ):
-        log_viewer_rp, log_viewer_wp = os.pipe()
-        args = ["tailon"]
-        args += ["-b", f"0.0.0.0:{_options.log_viewer_port}"]
-        args += [os.path.join(_options.log_output_folder, "*")]
-        log_viewer_process = subprocess.Popen(
-            args, stdout=log_viewer_wp, stderr=subprocess.STDOUT, env=env
-        )
-    else:
-        log_viewer_rp = log_viewer_process = None
-
-    # Start redis
-    rp, wp = os.pipe()
-
-    if sys.platform in ["win32", "cygwin"]:
-        redis_options = [
-            "redis-server",
-            _options.redis_conf,
-            "--port",
-            "%d" % _options.redis_port,
-        ]
-        redis_data_options = [
-            "redis-server",
-            _options.redis_data_conf,
-            "--port",
-            "%d" % _options.redis_data_port,
-        ]
-    else:
-        redis_options = [
-            "redis-server",
-            _options.redis_conf,
-            "--unixsocket",
-            _options.redis_socket,
-            "--unixsocketperm",
-            "777",
-            "--port",
-            "%d" % _options.redis_port,
-        ]
-        redis_data_options = [
-            "redis-server",
-            _options.redis_data_conf,
-            "--unixsocket",
-            _options.redis_data_socket,
-            "--unixsocketperm",
-            "777",
-            "--port",
-            "%d" % _options.redis_data_port,
-        ]
-
-    redis_process = subprocess.Popen(
-        redis_options, stdout=wp, stderr=subprocess.STDOUT, cwd=_options.db_path
-    )
-
-    if _options.redis_data_port > 0:
-        redis_data_rp, redis_data_wp = os.pipe()
-
-        redis_data_process = subprocess.Popen(
-            redis_data_options,
-            stdout=redis_data_wp,
-            stderr=subprocess.STDOUT,
-            cwd=_options.db_path,
-        )
-    else:
-        redis_data_process = redis_data_rp = None
-
-    # Tango databaseds
-    if _options.tango_port > 0:
-        tango_rp, tango_wp = os.pipe()
-        # Tango database executable
-        args = [sys.executable]
-        args += ["-m", "bliss.tango.servers.databaseds"]
-        # Arguments
-        args += ["-l", str(_options.tango_debug_level)]
-        args += ["--db_access", "beacon"]
-        args += ["--port", str(_options.tango_port)]
-        args += ["2"]
-        # Fire up process
-        tango_process = subprocess.Popen(
-            args, stdout=tango_wp, stderr=subprocess.STDOUT, env=env
-        )
-
-        def _wait_tango_db():
-            from bliss.tango.clients.utils import wait_tango_db
-
-            try:
-                wait_tango_db(port=_options.tango_port, db=2)
-            except Exception:
-                _tlog.error("Tango database NOT started")
-                raise
+            # Arguments
+            args += ["--port", str(_options.log_server_port)]
+            if not _options.log_output_folder:
+                log_folder = os.path.join(str(_options.db_path), "logs")
             else:
-                _tlog.info("Tango database started")
+                log_folder = str(_options.log_output_folder)
 
-        wait_tango = gevent.spawn(_wait_tango_db)
-    else:
-        wait_tango = tango_rp = tango_process = None
+            # Start log server when the log folder is writeable
+            if os.access(log_folder, os.R_OK | os.W_OK | os.X_OK):
+                args += ["--log-output-folder", log_folder]
+                args += ["--log-size", str(_options.log_size)]
+                beacon_logger.info(
+                    "launching log_server on port: %s", _options.log_server_port
+                )
+                ctx = logged_subprocess(args, log_server_logger, env=env)
+                context_stack.enter_context(ctx)
 
-    # Safe context
-    try:
-        logger = {
-            rp: _rlog,
-            redis_data_rp: _rlog_data,
-            tango_rp: _tlog,
-            log_server_rp: _lslog,
-            log_viewer_rp: _logv,
-        }
-        udp_reply = b"%s|%d" % (socket.gethostname().encode(), beacon_port)
+                # Logviewer Web application
+                if not IS_WINDOWS and _options.log_viewer_port > 0:
+                    args = ["tailon"]
+                    args += ["-b", f"0.0.0.0:{_options.log_viewer_port}"]
+                    args += [os.path.join(_options.log_output_folder, "*")]
+                    ctx = logged_subprocess(args, log_viewer_logger, env=env)
+                    context_stack.enter_context(ctx)
+            else:
+                log_server_logger.warning("Log path doesn't exist: %s", log_folder)
+                log_server_logger.warning("Log server not started")
 
-        # ==== UDP case ============
-        def do_udp_processing(fd):
-            while True:
-                buff, address = fd.recvfrom(8192)
-                if buff.find(b"Hello") > -1:
-                    send_flag = True
-                    if _options.add_filter:
-                        for add in _options.add_filter:
-                            if ipaddress.ip_address(address[0]) in ipaddress.ip_network(
-                                add
-                            ):
-                                break
-                        else:
-                            send_flag = False
-                if send_flag:
-                    _log.info(
-                        "address request from %s. Replying with %r", address, udp_reply
-                    )
-                    # udp.sendto(udp_reply, address)
-                else:
-                    _log.info("filter address %s with filter %s", address, add)
-
-                fd.sendto(udp_reply, address)
-
-        udp_processing = gevent.spawn(do_udp_processing, udp)
-
-        # ==== TCP case ============
-        def do_tcp_processing(sk):
-            while True:
-                newSocket, addr = sk.accept()
-                newSocket.setsockopt(socket.SOL_IP, socket.IP_TOS, 0x10)
-                localhost = addr[0] == "127.0.0.1"
-                gevent.spawn(_client_rx, newSocket, localhost)
-
-        tcp_processing = gevent.spawn(do_tcp_processing, tcp)
-
-        # ==== Logging case ============
-        def do_rp_processing(fd):
-            while True:
-                msg = gevent.os.tp_read(fd, 8192)
-
-                # Log the message properly
-                if msg:
-                    logger.get(fd, _log).info(msg.decode())
-
-        rp_processing = gevent.spawn(do_rp_processing, rp)
-
-        if redis_data_rp:
-            redis_data_rp_processing = gevent.spawn(do_rp_processing, redis_data_rp)
+        # Start redis
+        if IS_WINDOWS:
+            redis_options = [
+                "redis-server",
+                _options.redis_conf,
+                "--port",
+                "%d" % _options.redis_port,
+            ]
+            redis_data_options = [
+                "redis-server",
+                _options.redis_data_conf,
+                "--port",
+                "%d" % _options.redis_data_port,
+            ]
         else:
-            redis_data_rp_processing = None
+            redis_options = [
+                "redis-server",
+                _options.redis_conf,
+                "--unixsocket",
+                _options.redis_socket,
+                "--unixsocketperm",
+                "777",
+                "--port",
+                "%d" % _options.redis_port,
+            ]
+            redis_data_options = [
+                "redis-server",
+                _options.redis_data_conf,
+                "--unixsocket",
+                _options.redis_data_socket,
+                "--unixsocketperm",
+                "777",
+                "--port",
+                "%d" % _options.redis_data_port,
+            ]
 
-        if tango_rp:
-            tango_rp_processing = gevent.spawn(do_rp_processing, tango_rp)
-        else:
-            tango_rp_processing = None
+        ctx = logged_subprocess(redis_options, redis_logger, cwd=_options.db_path)
+        context_stack.enter_context(ctx)
 
-        if log_server_rp:
-            log_server_rp_processing = gevent.spawn(do_rp_processing, log_server_rp)
-        else:
-            log_server_rp_processing = None
-
-        if log_viewer_rp:
-            log_viewer_rp_processing = gevent.spawn(do_rp_processing, log_viewer_rp)
-        else:
-            log_viewer_rp_processing = None
-
-        # ==== Define processes list ============
-        proc_list = list(
-            filter(
-                None,
-                [
-                    udp_processing,
-                    tcp_processing,
-                    rp_processing,
-                    redis_data_rp_processing,
-                    tango_rp_processing,
-                    log_server_rp_processing,
-                    log_viewer_rp_processing,
-                    wait_tango,
-                ],
+        if _options.redis_data_port > 0:
+            ctx = logged_subprocess(
+                redis_data_options, redis_data_logger, cwd=_options.db_path
             )
-        )
+            context_stack.enter_context(ctx)
 
-        # ==== UDS case (UNIX only) ============
-        if sys.platform not in ["win32", "cygwin"]:
+        # Start Tango database
+        if _options.tango_port > 0:
+            # Tango database executable
+            args = [sys.executable]
+            args += ["-m", "bliss.tango.servers.databaseds"]
 
-            def do_uds_processing(sk):
-                while True:
-                    newSocket, addr = sk.accept()
-                    gevent.spawn(_client_rx, newSocket, True)
+            # Arguments
+            args += ["-l", str(_options.tango_debug_level)]
+            args += ["--db_access", "beacon"]
+            args += ["--port", str(_options.tango_port)]
+            args += ["2"]
 
-            uds_processing = gevent.spawn(do_uds_processing, uds)
+            # Start tango database
+            ctx = logged_subprocess(args, tango_logger, env=env)
+            context_stack.enter_context(ctx)
+            ctx = spawn_context(log_tangodb_started)
+            context_stack.enter_context(ctx)
 
-            proc_list.append(uds_processing)
+        # Start processing Beacon requests
+        if uds_socket is not None:
+            ctx = spawn_context(uds_server_main, uds_socket)
+            context_stack.enter_context(ctx)
+        if tcp_socket is not None:
+            ctx = spawn_context(tcp_server_main, tcp_socket)
+            context_stack.enter_context(ctx)
+        if udp_socket is not None:
+            ctx = spawn_context(udp_server_main, udp_socket, beacon_port)
+            context_stack.enter_context(ctx)
 
-        #  ====  SIGNAL case ============
-        def do_signal_processing(sg):
-            gevent.os.tp_read(sg, 1)
-            _log.info("Received an interruption signal!")
-            gevent.killall(proc_list)
+        # Config web application
+        if _options.webapp_port > 0:
+            from .web.configuration.config_app import web_app as config_app
 
-        signal_processing = gevent.spawn(do_signal_processing, sig_read)
+            ctx = start_webserver(config_app, _options.webapp_port, beacon_port)
+            beacon_port = None  # global beacon connection is made
+            context_stack.enter_context(ctx)
 
-        # ============ handle CTRL-C under windows  ============
-        # ONLY FOR Win7 (COULD BE IGNORED ON Win10 WHERE CTRL-C PRODUCES A SIGINT)
-        if sys.platform in ["win32", "cygwin"]:
+        # Homepage web application
+        if _options.homepage_port > 0:
+            from .web.homepage.homepage_app import web_app as homepage_app
 
-            def CTRL_C_handler(a, b=None):
-                os.write(sig_write, b"!")
+            homepage_app.config_port = _options.webapp_port
+            homepage_app.log_port = _options.log_viewer_port
+            ctx = start_webserver(homepage_app, _options.homepage_port, beacon_port)
+            context_stack.enter_context(ctx)
 
-            # ===== Install CTRL_C handler ======================
-            win32api.SetConsoleCtrlHandler(CTRL_C_handler, True)
-
-        # ==== Join on processes ============
-        gevent.joinall(proc_list)
-
-    # Ignore keyboard interrupt
-    except KeyboardInterrupt:
-        _log.info("Received a keyboard interrupt!")
-        return
-
-    except Exception as exc:
-        sys.excepthook(*sys.exc_info())
-        _log.critical("An expected exception occured:\n%r", exc)
-
-    # Cleanup
-    finally:
-        try:
-            os.unlink(uds_port_name)
-        except:
-            pass
-        _log.info("Cleaning up the subprocesses")
-        if redis_process:
-            redis_process.terminate()
-        if redis_data_process:
-            redis_data_process.terminate()
-        if tango_process:
-            tango_process.terminate()
-        if log_server_process:
-            log_server_process.terminate()
-        if log_viewer_process:
-            log_viewer_process.terminate()
+        # Wait for exit signal
+        wait()
 
 
 if __name__ == "__main__":

@@ -235,11 +235,15 @@ def handle_exception(exc_type, exc_value, exc_traceback):
     )
 
 
-def initApplication(argv):
+def initApplication(argv, options):
     qapp = qt.QApplication.instance()
     if qapp is None:
-        # Do not recreate OpenGL context when docking/undocking windows
-        qt.QCoreApplication.setAttribute(qt.Qt.AA_ShareOpenGLContexts)
+        if options.share_opengl_contexts:
+            # This allows to reuse OpenGL context when docking/undocking windows
+            # Can be disabled by command line in order to prevent segfault in
+            # some environments
+            ROOT_LOGGER.debug("Setup AA_ShareOpenGLContexts")
+            qt.QCoreApplication.setAttribute(qt.Qt.AA_ShareOpenGLContexts)
         ROOT_LOGGER.debug("Create Qt application")
         qapp = qt.QApplication(argv)
     qapp.setApplicationName("flint")
@@ -327,7 +331,7 @@ def main():
     # Patch qt binding to remove few warnings
     patch_qt()
 
-    qapp = initApplication(sys.argv)
+    qapp = initApplication(sys.argv, options)
     settings = qt.QSettings(
         qt.QSettings.IniFormat,
         qt.QSettings.UserScope,

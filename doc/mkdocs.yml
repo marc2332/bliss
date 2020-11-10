@@ -54,6 +54,8 @@ nav:
                       - Keithley:
                             - Ammeter and Multimeter: config_keithley.md
                             - 428: config_keithley_428.md
+                            - Keithley 3706: config_keithley_3706.md
+                      - Keller: config_keller.md
                       - Machine info: config_machine.md
                       - MCA:
                             - General: config_mca.md
@@ -87,10 +89,9 @@ nav:
                       - Power supply:
                             - Nhq: config_nhq.md
                       - Regulation framework:
-                            - Temperature:
-                                - Lakeshore: config_lakeshore.md
-                                - Linkam: config_linkam.md
-                                - Nanodac: config_nanodac.md
+                            - Lakeshore: config_lakeshore.md
+                            - Linkam: config_linkam.md
+                            - Eurotherm Nanodac: config_nanodac.md
                       - SCA:
                             - Ace: config_ace.md
                             - Cyberstar: config_cyberstar.md
@@ -100,10 +101,7 @@ nav:
                       - Tripod: config_tab3.md
                       - Tango attribute as counters: config_taac.md
                       - Temperature framework:
-                            - Temperature controllers in Bliss: config_tempctrl.md
-                            - Eurotherm: config_eurotherm.md
-                            - Keller: config_keller.md
-                            - Keithley 3706: config_keithley_3706.md
+                            - Eurotherm2000: config_eurotherm.md
                             - Meerstetter: config_meerstetter.md
                             - Oxford700: config_oxford700.md
                             - Oxford800: config_oxford800.md
@@ -148,6 +146,9 @@ nav:
                 - Hook: motion_hook.md
                 - Stack: motion_stack.md
                 - Trajectories: motion_traj.md
+        - Regulation:
+                - Regulation framework (new): regul_regulation_fw.md
+                - Temperature framework (old): regul_temperature_fw.md
         - Scanning:
                 - Measurement groups: config_mg.md
                 - Default scans: scan_default.md

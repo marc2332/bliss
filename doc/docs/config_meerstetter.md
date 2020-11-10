@@ -2,19 +2,14 @@
 
 ## Configuration example
 ```YAML
-    - class: ltr1200
-    module: meerstetter.ltr1200
-    host: 160.103.23.56
-    dev_addr: 1
-    outputs:
-        - name: heater
+- class: ltr1200
+  plugin: temperature
+  module: meerstetter.ltr1200
+  host: 160.103.23.56
+  dev_addr: 1
+  outputs:
+    - name: heater
 ```
-
-aboves example works in case there is a \_\_init__.yml in the same directory containing
-
-    plugin: temperature
-
-In case there is no \_\_init__.yml this line needs to be added the device configuration
 
 ## further reading at ESRF
 

@@ -281,6 +281,8 @@ def ports(beacon_directory, log_directory):
         "--homepage-port=%d" % ports.homepage_port,
         "--log_server_port=%d" % ports.logserver_port,
         "--log_output_folder=%s" % log_directory,
+        "--log-level=WARN",
+        "--tango_debug_level=0",
     ]
     proc = subprocess.Popen(BEACON + args)
     wait_ports(ports)

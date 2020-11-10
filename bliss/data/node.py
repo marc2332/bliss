@@ -180,7 +180,7 @@ def get_or_create_node(name, **kwargs):
     :param **kwargs:
     :returns DataNode:
     """
-    return datanode_factory(name, on_not_state="create", **kwargs)
+    return datanode_factory(name, create_not_state=True, **kwargs)
 
 
 def _default_datanode_state(state):
@@ -233,57 +233,36 @@ def get_nodes(*db_names, connection=None, state=None, **kwargs):
     return nodes
 
 
-def _get_db_name(name, parent=None, connection=None, state=None):
-    """
-    :returns str or None: `None` when node not in `state`
-    """
-    state = _default_datanode_state(state)
-    if state == "exists":
-        func = DataNode.existing_db_name
-    elif state == "supported":
-        func = DataNode.supported_db_name
-    else:
-        func = DataNode.initialized_db_name
-    return func(name, parent=parent, connection=connection)
-
-
 def datanode_factory(
     name,
     node_type=None,
     parent=None,
     connection=None,
     state=None,
-    on_not_state=None,
+    create_not_state=False,
     **kwargs,
 ):
-    """
+    """Instantiate a DataNode class. When not in `state`, optionally
+    (re)create the node in Redis.
+
     :param str name: absolute or relative to parent (if any)
     :param str node_type: ignored when node already in `state`
     :param DataNode parent:
     :param Connection connection: a new one will be created when `None`
     :param str state: default is "supported"
-    :param str on_not_state: when the node is not in `state`
-                             * "create": create in Redis
-                             * "instantiate": instantiate DataNode but do not create in Redis
-                             * else: return None
+    :param bool create_not_state:
     :param **kwargs: see `_get_node_object`
-    :returns DataNode or None:
+    :returns DataNode:
     """
     if connection is None:
         connection = client.get_redis_connection(db=1)
-    # None if the node is not in `state`
-    db_name = _get_db_name(name, parent=parent, connection=connection, state=state)
-    # Create the DataNode or return None
-    if db_name:
-        return get_node(db_name, connection=connection, state=state, **kwargs)
-    elif on_not_state == "create":
-        return _get_node_object(
-            node_type, name, parent, connection, create=True, **kwargs
+    db_name = DataNode._principal_db_name(name, parent=parent)
+    node = get_node(db_name, connection=connection, state=state, **kwargs)
+    if node is None:
+        node = _get_node_object(
+            node_type, name, parent, connection, create=create_not_state, **kwargs
         )
-    elif on_not_state == "instantiate":
-        return _get_node_object(
-            node_type, name, parent, connection, create=False, **kwargs
-        )
+    return node
 
 
 def get_session_node(session_name):
@@ -504,56 +483,12 @@ class DataNode(metaclass=DataNodeMetaClass):
     def exists(self):
         return bool(self.db_connection.exists(self.db_name))
 
-    @classmethod
-    @protect_from_kill
-    def existing_db_name(cls, name, parent=None, connection=None):
-        """Principal Redis key exists.
-
-        :returns str or None:
-        """
-        if connection is None:
-            connection = client.get_redis_connection(db=1)
-        db_name = cls._principal_db_name(name, parent=parent)
-        if connection.exists(db_name):
-            return db_name
-
-    @classmethod
-    @protect_from_kill
-    def initialized_db_name(cls, name, parent=None, connection=None):
-        """Initialized in Redis. Stronger than `exists`.
-
-        :returns str or None:
-        """
-        if connection is None:
-            connection = client.get_redis_connection(db=1)
-        db_name = cls._principal_db_name(name, parent=parent)
-        if connection.exists(db_name):
-            struct = cls._get_struct(db_name, connection=connection)
-            if struct.version:
-                return db_name
-
     @property
     def initialized(self):
         return bool(self.version)
 
     def _mark_initialized(self):
         self._struct.version = self.encode_version(self.VERSION)
-
-    @classmethod
-    @protect_from_kill
-    def supported_db_name(cls, name, parent=None, connection=None):
-        """The version in Redis is supported by the current implementation.
-        Stronger than `initialized`.
-
-        :returns str or None:
-        """
-        if connection is None:
-            connection = client.get_redis_connection(db=1)
-        db_name = cls._principal_db_name(name, parent=parent)
-        if connection.exists(db_name):
-            struct = cls._get_struct(db_name, connection=connection)
-            if cls.supported_version(struct.version):
-                return db_name
 
     @property
     def supported(self):

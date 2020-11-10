@@ -27,6 +27,9 @@ def test_nxw_tango_api(nexus_writer_config):
 
 @nxw_test_utils.writer_stdout_on_exception
 def _test_nxw_tango_logging(writer=None, **kwargs):
+    assert not any(line.startswith("INFO") for line in writer.iter_stdout_lines())
+    writer.proxy.writer_log_level = 2
+    writer.proxy.init()
     assert any(line.startswith("INFO") for line in writer.iter_stdout_lines())
 
 

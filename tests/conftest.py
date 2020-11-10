@@ -43,7 +43,7 @@ from bliss.controllers import tango_attr_as_counter
 from bliss.common import plot
 from bliss.common.tango import Database, DeviceProxy, DevFailed, ApiUtil, DevState
 from bliss.common.utils import grouped
-from bliss.tango.clients.utils import wait_tango_device
+from bliss.tango.clients.utils import wait_tango_device, wait_tango_db
 from bliss import logging_startup
 from bliss.scanning import scan_meta
 import socket
@@ -253,51 +253,22 @@ def images_directory(tmpdir_factory):
     yield images_dir
 
 
-def redirect_stream_to(stream_in, stream_out, prefix=None):
-    """Create and return a greenlet which consume a stream content and print it
-    to another stream.
-
-    Arguments:
-        stream_in: Stream to consume
-        stream_out: Stream to feed
-        prefix: If set, prefix the output with this label
-    """
-
-    def read_std():
-        while not stream_in.closed:
-            data = stream_in.readline()
-            if isinstance(data, bytes):
-                if data == b"":
-                    break
-                if data == b"\n":
-                    # Skip empty lines
-                    continue
-                try:
-                    data = data + b"\F0\F2"
-                    line = data.decode("utf-8")
-                except UnicodeDecodeError:
-                    line = "%a" % data
-            else:
-                if line == "":
-                    break
-                if line == "\n":
-                    # Skip empty lines
-                    continue
-            if prefix:
-                line = f"{prefix}: {line}"
-            stream_out.write(line)
-
-    return gevent.spawn(read_std)
-
-
 @pytest.fixture(scope="session")
 def ports(beacon_directory, log_directory):
     redis_uds = os.path.join(beacon_directory, "redis.sock")
     redis_data_uds = os.path.join(beacon_directory, "redis_data.sock")
-    ports = namedtuple(
-        "Ports",
-        "redis_port redis_data_port tango_port beacon_port cfgapp_port logserver_port",
-    )(*get_open_ports(6))
+
+    port_names = [
+        "redis_port",
+        "redis_data_port",
+        "tango_port",
+        "beacon_port",
+        "cfgapp_port",
+        "logserver_port",
+        "homepage_port",
+    ]
+
+    ports = namedtuple("Ports", " ".join(port_names))(*get_open_ports(7))
     args = [
         "--port=%d" % ports.beacon_port,
         "--redis_port=%d" % ports.redis_port,
@@ -307,15 +278,14 @@ def ports(beacon_directory, log_directory):
         "--db_path=%s" % beacon_directory,
         "--tango_port=%d" % ports.tango_port,
         "--webapp_port=%d" % ports.cfgapp_port,
+        "--homepage-port=%d" % ports.homepage_port,
         "--log_server_port=%d" % ports.logserver_port,
         "--log_output_folder=%s" % log_directory,
+        "--log-level=WARN",
+        "--tango_debug_level=0",
     ]
-    proc = subprocess.Popen(BEACON + args, stderr=subprocess.PIPE)
-    # TODO: Beacon needs an 'is_ready' command
-    wait_for(proc.stderr, "Tango database started")
-
-    # redirect the content of the stream
-    dispatcher = redirect_stream_to(proc.stderr, sys.stderr, prefix="BEACON")
+    proc = subprocess.Popen(BEACON + args)
+    wait_ports(ports)
 
     # disable .rdb files saving (redis persistence)
     r = redis.Redis(host="localhost", port=ports.redis_port)
@@ -328,8 +298,13 @@ def ports(beacon_directory, log_directory):
     yield ports
 
     atexit._run_exitfuncs()
-    dispatcher.kill()
     wait_terminate(proc)
+
+
+def wait_ports(ports, timeout=10):
+    with gevent.Timeout(timeout):
+        wait_tcp_online("localhost", ports.beacon_port)
+        wait_tango_db(port=ports.tango_port, db=2)
 
 
 @pytest.fixture
@@ -855,7 +830,7 @@ def wait_tcp_online(host, port, timeout=10):
                     break
                 except ConnectionError:
                     pass
-                gevent.sleep(1)
+                gevent.sleep(0.1)
     finally:
         sock.close()
 

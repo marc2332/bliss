@@ -257,10 +257,18 @@ def images_directory(tmpdir_factory):
 def ports(beacon_directory, log_directory):
     redis_uds = os.path.join(beacon_directory, "redis.sock")
     redis_data_uds = os.path.join(beacon_directory, "redis_data.sock")
-    ports = namedtuple(
-        "Ports",
-        "redis_port redis_data_port tango_port beacon_port cfgapp_port logserver_port",
-    )(*get_open_ports(6))
+
+    port_names = [
+        "redis_port",
+        "redis_data_port",
+        "tango_port",
+        "beacon_port",
+        "cfgapp_port",
+        "logserver_port",
+        "homepage_port",
+    ]
+
+    ports = namedtuple("Ports", " ".join(port_names))(*get_open_ports(7))
     args = [
         "--port=%d" % ports.beacon_port,
         "--redis_port=%d" % ports.redis_port,
@@ -270,6 +278,7 @@ def ports(beacon_directory, log_directory):
         "--db_path=%s" % beacon_directory,
         "--tango_port=%d" % ports.tango_port,
         "--webapp_port=%d" % ports.cfgapp_port,
+        "--homepage-port=%d" % ports.homepage_port,
         "--log_server_port=%d" % ports.logserver_port,
         "--log_output_folder=%s" % log_directory,
     ]

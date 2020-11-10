@@ -27,8 +27,21 @@ from bliss.config import plugins
 from bliss.common import event
 
 
-web_app = flask.Flask(__name__)
-beacon_port = None
+class BeaconFlask(flask.Flask):
+    @property
+    def beacon_port(self):
+        return client.get_default_connection()._port
+
+    @beacon_port.setter
+    def beacon_port(self, value):
+        if value:
+            conn = connection.Connection("localhost", value)
+        else:
+            conn = None
+        client._default_connection = conn
+
+
+web_app = BeaconFlask(__name__)
 
 __this_file = os.path.realpath(__file__)
 __this_path = os.path.dirname(__this_file)
@@ -45,7 +58,7 @@ def check_config(f):
     return wrapper
 
 
-class WebConfig(object):
+class WebConfig:
 
     EXT_MAP = {
         "": dict(type="text", icon="file-o"),
@@ -74,8 +87,6 @@ class WebConfig(object):
         self.__tree_plugins = None
         self.__tree_tags = None
         self.__tree_sessions = None
-        beacon_conn = connection.Connection("localhost", beacon_port)
-        client._default_connection = beacon_conn
         event.connect(server.__name__, "config_changed", self.__on_config_changed)
 
     def __on_config_changed(self):

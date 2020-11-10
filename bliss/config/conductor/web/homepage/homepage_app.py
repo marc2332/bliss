@@ -12,7 +12,8 @@ import socket
 from jinja2 import Environment, FileSystemLoader
 
 from bliss.config import static
-
+from bliss.config.conductor import client
+from bliss.config.conductor import connection
 
 __this_file = os.path.realpath(__file__)
 __this_path = os.path.dirname(__this_file)
@@ -30,8 +31,24 @@ def __get_jinja2():
     return __environment
 
 
-web_app = flask.Flask(__name__)
-web_app.domain = "esrf.fr"
+class BeaconFlask(flask.Flask):
+    def __init__(self, *args, **kw):
+        self.domain = "esrf.fr"
+
+    @property
+    def beacon_port(self):
+        return client.get_default_connection()._port
+
+    @beacon_port.setter
+    def beacon_port(self, value):
+        if value:
+            conn = connection.Connection("localhost", value)
+        else:
+            conn = None
+        client._default_connection = conn
+
+
+web_app = BeaconFlask(__name__)
 
 
 @web_app.route("/")

@@ -736,12 +736,14 @@ class BasicScanSaving(EvalParametersWardrobe):
         if create:
             for item_name, node_type in db_path_items:
                 node = datanode_factory(
-                    item_name, node_type, parent=node, on_not_state="create"
+                    item_name, node_type=node_type, parent=node, create_not_state=True
                 )
                 self._fill_node_info(node, node_type)
         else:
             for item_name, node_type in db_path_items:
-                node = datanode_factory(item_name, parent=node, on_not_state=None)
+                node = datanode_factory(
+                    item_name, node_type=node_type, parent=node, create_not_state=False
+                )
                 if node is None:
                     return None
         return node

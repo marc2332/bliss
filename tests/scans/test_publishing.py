@@ -1343,3 +1343,27 @@ def test_get_last_saved_scan(session):
     s = scans.sct(0.1, *detectors)
     node = get_last_saved_scan(session_node)
     assert s.node.db_name == node.db_name
+
+
+def test_datanode_factory(beacon):
+    info = {"var1": 10}
+
+    def func_create():
+        node = datanode_factory(
+            "test1", node_type="testing", info=info, create_not_state=True
+        )
+        assert node.type == "testing"
+        assert node.info.get("var1") == 10
+
+    glts = [gevent.spawn(func_create) for _ in range(100)]
+    gevent.joinall(glts, raise_error=True)
+
+    def func_not_create():
+        node = datanode_factory(
+            "test2", node_type="testing", info=info, create_not_state=False
+        )
+        assert node.type == "testing"
+        assert node.info.get("var1") == 10
+
+    glts = [gevent.spawn(func_not_create) for _ in range(100)]
+    gevent.joinall(glts, raise_error=True)

@@ -934,6 +934,28 @@ def wait():
                 beacon_logger.critical("An unexpected exception occured:\n%r", exc)
 
 
+def configure_logging():
+    """Configure the root logger:
+        * set log level according to CLI arguments
+        * send DEBUG and INFO to STDOUT
+        * send WARNING, ERROR and CRITICAL to STDERR
+    """
+    log_fmt = "%(levelname)s %(asctime)-15s %(name)s: %(message)s"
+
+    rootlogger = logging.getLogger()
+    rootlogger.setLevel(_options.log_level.upper())
+
+    handler = logging.StreamHandler(sys.stdout)
+    handler.addFilter(lambda record: record.levelno < logging.WARNING)
+    handler.setFormatter(logging.Formatter(log_fmt))
+    rootlogger.addHandler(handler)
+
+    handler = logging.StreamHandler(sys.stderr)
+    handler.addFilter(lambda record: record.levelno >= logging.WARNING)
+    handler.setFormatter(logging.Formatter(log_fmt))
+    rootlogger.addHandler(handler)
+
+
 def main(args=None):
     # Monkey patch needed for web server
     # just keep for consistency because it's already patched
@@ -1089,9 +1111,7 @@ def main(args=None):
     _options.db_path = os.path.abspath(os.path.expanduser(_options.db_path))
 
     # Logging configuration
-    log_level = _options.log_level.upper()
-    log_fmt = "%(levelname)s %(asctime)-15s %(name)s: %(message)s"
-    logging.basicConfig(level=log_level, format=log_fmt)
+    configure_logging()
 
     with ExitStack() as context_stack:
         # For sub-processes

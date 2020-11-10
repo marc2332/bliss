@@ -220,8 +220,8 @@ def writer_tango(session=None, tmpdir=None, config=True, alt=False, **kwargs):
                 dev_proxy.write_attribute(attr, value)
 
             # DEBUG(1), INFO(2), WARNING(3), ...
-            assert int(dev_proxy.writer_log_level) == 2
-            assert int(dev_proxy.tango_log_level) == 2
+            assert int(dev_proxy.writer_log_level) == 3
+            assert int(dev_proxy.tango_log_level) == 3
 
             greenlet.proxy = dev_proxy
             try:
@@ -295,7 +295,7 @@ def writer_options(tango=True, config=True, alt=False, resource_profiling=False)
 
 def writer_cli_logargs(tmpdir):
     return (
-        "--log=info",  # applies to log_tango as well (abbreviations allowed)
+        "--log=warning",  # applies to log_tango as well (abbreviations allowed)
         "--redirectstdout",
         "--redirectstderr",
         "--logfileout={}".format(tmpdir.join("writer.stdout.log")),

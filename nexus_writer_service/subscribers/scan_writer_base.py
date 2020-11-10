@@ -21,6 +21,8 @@ import logging
 import datetime
 from contextlib import contextmanager
 from bliss.data.node import get_node
+from bliss.icat.dataset import Dataset
+from bliss.icat.nexus import IcatToNexus
 from . import devices
 from . import dataset_proxy
 from . import reference_proxy
@@ -846,9 +848,11 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
         with self._capture_finalize_exceptions():
             self._create_plots(subscan)
         with self._capture_finalize_exceptions():
-            self._fetch_subscan_metadata(subscan)
+            self._fetch_subscan_user_metadata(subscan)
         with self._capture_finalize_exceptions():
             self._fetch_subscan_notes(subscan)
+        with self._capture_finalize_exceptions():
+            self._fetch_subscan_metadata(subscan)
 
     @property
     def current_bytes(self):
@@ -1764,38 +1768,60 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
                 pass
             nexus.createLink(parent, linkname, dproxy.path)
 
+    def _fetch_subscan_user_metadata(self, subscan):
+        """
+        Dump metadata for a subscan
+
+        :param Subscan subscan:
+        """
+        subscan.logger.info("Save scan user metadata")
+        info = self.info
+        categories = set(info["scan_meta_categories"])
+        categories -= {"positioners", "nexuswriter"}
+        nxtreedict = {}
+        for cat in categories:
+            add = info.get(cat, {})
+            if "NX_class" in add:
+                add["@NX_class"] = add.pop("NX_class")
+            nxtreedict[cat] = add
+        self._subscan_dicttonx(subscan, nxtreedict)
+
     def _fetch_subscan_metadata(self, subscan):
         """
         Dump metadata for a subscan
 
         :param Subscan subscan:
         """
+        subscan.logger.info("Save scan metadata")
+        converter = IcatToNexus()
+        try:
+            dataset = Dataset(self.node.parent)
+        except RuntimeError:
+            return  # No data policy
+        metadict = dataset.get_current_icat_metadata(pattern="Sample")
+        if metadict:
+            nxtreedict = converter.create_nxtreedict(metadict)
+            self._subscan_dicttonx(subscan, nxtreedict)
+
+    def _subscan_dicttonx(self, subscan, nxtreedict):
+        if not nxtreedict:
+            return
         with self.nxentry(subscan) as parent:
             if parent is None:
                 return
-            subscan.logger.info("Save scan metadata")
-            info = self.info
-            categories = set(info["scan_meta_categories"])
-            categories -= {"positioners", "nexuswriter"}
-            scan_meta = {}
-            for cat in categories:
-                add = info.get(cat, {})
-                if set(add.keys()) - {"NX_class", "@NX_class"}:
-                    scan_meta[cat] = add
-            if scan_meta:
-                try:
-                    nexus.dicttonx(scan_meta, parent)
-                except Exception as e:
-                    self._set_state(self.STATES.FAULT, e)
-                    subscan.logger.error(
-                        "Scan metadata not saved due to exception:\n{}".format(
-                            traceback.format_exc()
-                        )
+            try:
+                nexus.dicttonx(nxtreedict, parent)
+            except Exception as e:
+                self._set_state(self.STATES.FAULT, e)
+                subscan.logger.error(
+                    "Scan metadata not saved due to exception:\n{}".format(
+                        traceback.format_exc()
                     )
-                else:
-                    subscan.logger.info(
-                        "Saved metadata categories: {}".format(list(scan_meta.keys()))
-                    )
+                )
+            else:
+                subscan.logger.info(
+                    "Updated metadata groups: {}".format(list(nxtreedict.keys()))
+                )
 
     def _fetch_subscan_notes(self, subscan):
         """

@@ -16,13 +16,13 @@ Redis data node structure
             |
             --timer (DataNodeContainer - inherits from DataNode)
                 |
-                -- epoch (ChannelDataNode - inherits from ChannelDataNodeBase)
+                -- epoch (ChannelDataNode - inherits from _ChannelDataNodeBase)
                 |
-                -- frelon (LimaChannelDataNode - inherits from ChannelDataNodeBase)
+                -- frelon (LimaChannelDataNode - inherits from _ChannelDataNodeBase)
                 |
                 --P201 (DataNodeContainer - inherits from DataNode)
                     |
-                    --c0 (ChannelDataNode - inherits from ChannelDataNodeBase)
+                    --c0 (ChannelDataNode - inherits from _ChannelDataNodeBase)
 
 A DataNode is represented by 2 Redis keys:
 
@@ -141,11 +141,14 @@ def _get_node_object(node_type, name, parent, connection, create=False, **kwargs
             classes = inspect.getmembers(
                 m,
                 lambda x: inspect.isclass(x)
+                and not x.__name__.startswith("_")
                 and issubclass(x, DataNode)
                 and x not in (DataNode, DataNodeContainer)
                 and inspect.getmodule(x) == m,
             )
-            # there should be only 1 class inheriting from DataNode in the plugin
+            assert (
+                len(classes) == 1
+            ), "there should be only 1 public class inheriting from DataNode in the plugin"
             klass = classes[0][-1]
             module_info["class"] = klass
         return klass(

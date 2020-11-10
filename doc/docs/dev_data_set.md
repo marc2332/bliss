@@ -1,12 +1,11 @@
 ## Dataset handling in bliss (according to ESRF Datapolicy)
-
-in Bliss icat datasets are represented as `dataset` objects that
-can be accessed (for debugging) via `SCAN_SAVING.dataset`.
+In Bliss icat datasets are represented as `dataset` objects that
+can be accessed via `SCAN_SAVING.dataset`.
 These objects map to a group of scans in redis and also collect the
 associated icat metadata.
 
-## ICAT definitons
-to have access to the icat fields that are defined by [DAU in hdf5_cfg.xml](https://gitlab.esrf.fr/icat/hdf5-master-config/-/blob/master/hdf5_cfg.xml)
+## ICAT metadata fields
+To have access to the icat fields that are defined by [DAU in hdf5_cfg.xml](https://gitlab.esrf.fr/icat/hdf5-master-config/-/blob/master/hdf5_cfg.xml)
 use the provided icat definition object
 
 ```python
@@ -31,7 +30,61 @@ DEMO_SESSION [8]: definitions.sample
          Out [8]: <Sample:{'SampleEnvironmentSensors_name', 'SampleEnvironment_name', ...}
 ```
 
-### Technique related fields in ICAT
+## Sample fields
+
+### Dataset specific
+The sample name and description can be defined for each dataset
+
+```python
+DEMO_SESSION [9]: SCAN_SAVING.dataset["Sample_name"] = "my sample name"
+DEMO_SESSION [10]: SCAN_SAVING.dataset["Sample_description"] = "my sample description"
+```
+
+These two metadata fields can also be accessed like this (not the case for other metadata fields)
+
+```python
+DEMO_SESSION [11]: SCAN_SAVING.dataset.sample_name = "my sample name"
+DEMO_SESSION [12]: SCAN_SAVING.dataset.sample_description = "my sample description"
+```
+
+You can also specify those when starting the dataset
+
+```python
+DEMO_SESSION [19]: newdataset("dataset name", sample_name="sample name", sample_description="...")
+```
+
+### Collection defaults
+
+To specify the sample name and description for all datasets in a collection
+
+```python
+DEMO_SESSION [13]: SCAN_SAVING.collection["Sample_name"] = "my sample name"
+DEMO_SESSION [14]: SCAN_SAVING.collection["Sample_description"] = "my sample description"
+```
+
+or equivalent
+
+```python
+DEMO_SESSION [15]: SCAN_SAVING.collection.sample_name = "my sample name"
+DEMO_SESSION [16]: SCAN_SAVING.collection.sample_description = "my sample description"
+```
+
+You can also specify those when starting the collection
+
+```python
+DEMO_SESSION [17]: newcollection("collection_name", sample_name="sample name", sample_description="...")
+```
+
+or when the sample and the collection are conceptually the same
+
+```python
+DEMO_SESSION [18]: newsample("sample name", sample_description="...")
+```
+
+This metadata inheritance applies to all metadata fields. See [here](dev_data_set.md#metadata-inheritance) for details.
+
+
+## Technique related fields in ICAT
 
 Currently the follwoing techniques are defined in nexus:
 
@@ -86,6 +139,30 @@ DEMO_SESSION [16]: SCAN_SAVING.dataset.missing_technique_fields
 
 Positioners and Instrument related fields can be [filled automatically](dev_icat.md).
 
+## Metadata inheritance
+
+Metadata fields which are set on `scan_saving.collection` or `scan_saving.proposal` will be used
+as defaults for `scan_saving.dataset`. This is for example how the sample name is managed:
+
+```python
+DEMO_SESSION [10]: scan_saving.collection["Sample_name"] = "my sample"
+DEMO_SESSION [11]: scan_saving.dataset.existing
+         Out [11]: Namespace containing:
+                   .Sample_name     ('my sample')
+DEMO_SESSION [12]: scan_saving.dataset["Sample_name"] = "other name"
+DEMO_SESSION [13]: scan_saving.dataset.existing
+         Out [13]: Namespace containing:
+                   .Sample_name     ('other name')
+DEMO_SESSION [14]: newdataset()
+DEMO_SESSION [16]: scan_saving.dataset.existing
+         Out [17]: Namespace containing:
+                   .Sample_name     ('my sample')
+```
+
+So the value of the `Sample_name` metadata field of a dataset is the value set on the collection
+when not specified explicitely for the dataset itself. This logic applies to all metadata fields.
+
+
 ## Custom datasets for procedures
 There is an example in `bliss.git/bliss/icat/demo.py` that will be discussed here. 
 In this example an isolated dataset for a dedicated experimental procedure is created 
@@ -135,21 +212,22 @@ def demo_with_technique():
     node = scan_saving.dataset.node
 
     # should this print be obligatory?
-    scan_saving.dataset.check_metatdata_consistency()
+    scan_saving.dataset.check_metadata_consistency()
 
     # close the dataset
     scan_saving.enddataset()
 ```
 
-## check already collected metadata
-to check already collected metatdata use `get_current_icat_metadata`
+## Collected metadata
+To get the metadata of the current dataset use `get_current_icat_metadata`
 
 ```
 DEMO_SESSION [2]: SCAN_SAVING.dataset.get_current_icat_metadata()
          Out [2]: {'InstrumentVariables_name': 'sy sz ', 'InstrumentVariables_value': '0.0 0.0 ', 'InstrumentSlitSecondary_vertical_gap': '0.0', 'InstrumentSlitSecondary_vertical_offset': '0.0', 'SamplePositioners_name': 'sy sz', 'SamplePositioners_value': '0.0 0.0'}
 ```
 
-for commandline usage there is also the namespace `.existing` that can be used
+For commandline usage there is also the namespace `.existing` that can be used to
+view and modify the current metadata
 
 ```
 DEMO_SESSION [10]: SCAN_SAVING.dataset.existing

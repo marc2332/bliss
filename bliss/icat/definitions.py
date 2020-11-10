@@ -33,12 +33,6 @@ class Definitions:
     def __init__(self):
         self._populate()
 
-    def _add_technique(self, new_technique):
-        assert isinstance(new_technique, FieldGroup)
-        techniques = dict(self._techniques._asdict())
-        techniques[new_technique.name] = new_technique
-        self._techniques = self._make_named_tuple("techniques", techniques)
-
     def _populate(self):
         """ used on modul import to initialize globals of this module
         """
@@ -53,9 +47,9 @@ class Definitions:
             for y in techniques:
                 if y.tag != "link":
                     process_node(y, fields)
-
-            TECHNIQUES[tech_name] = FieldGroup(tech_name, fields)
-            self._techniques = self._make_named_tuple("techniques", TECHNIQUES)
+            if fields:
+                TECHNIQUES[tech_name] = FieldGroup(tech_name, fields)
+        self._techniques = self._make_named_tuple("techniques", TECHNIQUES)
 
         # populate INSTRUMENTATION
         # dict that contains all known instumentation groups
@@ -73,16 +67,17 @@ class Definitions:
 
             for inst_field in y:
                 process_node(y, fields)
+            if fields:
+                INSTRUMENTATION[inst_group_name] = FieldGroup(inst_group_name, fields)
 
-            INSTRUMENTATION[inst_group_name] = FieldGroup(inst_group_name, fields)
-
-        INSTRUMENTATION["instrument"] = FieldGroup("instrument", glob_inst_fields)
+        if glob_inst_fields:
+            INSTRUMENTATION["instrument"] = FieldGroup("instrument", glob_inst_fields)
         self._instrumentation = self._make_named_tuple(
             "instrumentation", INSTRUMENTATION
         )
 
         # populate POSITIONERS
-        # dict that contains all known positiner groups
+        # dict that contains all known positioners groups
         POSITIONERS = dict()
         for pos_parent in xml.iterfind('.//group[@NX_class="NXpositioner"]/..'):
             fields = list()
@@ -139,33 +134,49 @@ class Definitions:
                 ALL.add(text)
         self._all = tuple(ALL)
 
-    def _make_named_tuple(self, name, dct):
+    @staticmethod
+    def _make_named_tuple(name, dct):
         tup_class = namedtuple(name, dct)
         return tup_class(**dct)
 
-    # ~ def _reevaluate_globals(self):
-    # ~ self._positioners=self._make_named_tuple('positioners',POSITIONERS)
-
     @autocomplete_property
     def positioners(self):
+        """
+        :returns namedtuple(FieldGroup):
+        """
         return self._positioners
 
     @autocomplete_property
     def instrumentation(self):
+        """
+        :returns namedtuple(FieldGroup):
+        """
         return self._instrumentation
 
     @autocomplete_property
     def techniques(self):
+        """
+        :returns namedtuple(FieldGroup):
+        """
         return self._techniques
 
     @autocomplete_property
     def all(self):
+        """
+        :returns tuple(str):
+        """
         return self._all
 
     @autocomplete_property
     def notes(self):
+        """
+        :returns FieldGroup:
+        """
         return self._notes
 
     @autocomplete_property
     def sample(self):
+        """
+        :returns FieldGroup:
+        """
         return self._sample

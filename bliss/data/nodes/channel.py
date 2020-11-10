@@ -15,7 +15,7 @@ from bliss.data.events import EventData, ChannelDataEvent
 CHANNEL_MAX_LEN = 2048
 
 
-class ChannelDataNodeBase(DataNode):
+class _ChannelDataNodeBase(DataNode):
     _NODE_TYPE = NotImplemented
 
     def __init__(self, name, **kwargs):
@@ -180,7 +180,7 @@ class ChannelDataNodeBase(DataNode):
         raise NotImplementedError
 
 
-class ChannelDataNode(ChannelDataNodeBase):
+class ChannelDataNode(_ChannelDataNodeBase):
     _NODE_TYPE = "channel"
 
     def store(self, event_dict, cnx=None):

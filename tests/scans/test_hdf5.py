@@ -203,7 +203,6 @@ def test_NXclass_of_scan_meta(session, lima_simulator):
     s = scans.loopscan(3, .1, lima_sim)
     with h5py.File(s.writer.filename, mode="r") as f:
         assert f["1_loopscan/scan_meta"].attrs["NX_class"] == "NXcollection"
-        assert f["1_loopscan/scan_meta/sample"].attrs["NX_class"] == "NXsample"
         assert (
             f["1_loopscan/instrument/chain_meta/timer/lima_simulator"].attrs["NX_class"]
             == "NXcollection"

@@ -40,7 +40,7 @@ def demo_with_technique():
     node = scan_saving.dataset.node
 
     # should this print be obligatory?
-    scan_saving.dataset.check_metatdata_consistency()
+    scan_saving.dataset.check_metadata_consistency()
 
     # close the dataset
     scan_saving.enddataset()

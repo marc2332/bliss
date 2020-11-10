@@ -8,5 +8,5 @@
 from bliss.data.nodes.dataset import _DataPolicyNode
 
 
-class ProposalNode(_DataPolicyNode):
-    _NODE_TYPE = "proposal"
+class DatasetCollectionNode(_DataPolicyNode):
+    _NODE_TYPE = "dataset_collection"

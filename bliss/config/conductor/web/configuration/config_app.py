@@ -12,6 +12,7 @@ import functools
 import mimetypes
 import traceback
 
+import gevent
 import gevent.lock
 
 import flask
@@ -101,11 +102,14 @@ class WebConfig:
 
     def get_config(self):
         with self.__lock:
-            cfg = static.get_config(raise_yaml_exc=False)
-            if self.__new_config:
-                cfg.reload()
-                self.__new_config = False
-            return cfg
+            with gevent.Timeout(30, TimeoutError):
+                web_app.logger.info("Loading beacon configuration ...")
+                cfg = static.get_config(raise_yaml_exc=False)
+                if self.__new_config:
+                    cfg.reload()
+                    self.__new_config = False
+                web_app.logger.info("Beacon configuration loaded")
+                return cfg
 
     @property
     def items(self):

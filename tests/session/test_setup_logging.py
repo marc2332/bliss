@@ -5,6 +5,7 @@
 # Copyright (c) 2015-2020 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
+import os
 import pytest
 from bliss.scanning.scan_saving import set_scan_saving_class
 
@@ -84,18 +85,24 @@ def check_user_logging(capsys, elog_offline=False):
     i += 1
 
 
-def check_beacon_logging(caplog):
+def check_beacon_logging(caplog, logfile):
     records = caplog.get_records("setup")
+    with open(logfile, "r") as f:
+        lines = [l.rstrip() for l in f]
     assert len(records) == 3, records
+    assert len(lines) == 3, lines
     expected = "LogInitController: Beacon error"
     assert records[0].levelname == "ERROR"
     assert records[0].message == expected
+    assert expected in lines[0]
     expected = "test_logging_session.py: Beacon error"
     assert records[1].levelname == "ERROR"
     assert records[1].message == expected
+    assert expected in lines[1]
     expected = "logscript.py: Beacon error"
     assert records[2].levelname == "ERROR"
     assert records[2].message == expected
+    assert expected in lines[2]
 
 
 def check_elogbook(icat_logbook_subscriber):
@@ -114,27 +121,40 @@ def check_elogbook(icat_logbook_subscriber):
 
 
 def test_setup_logging_no_data_policy(
-    logging_session, capsys, caplog, icat_logbook_subscriber
+    logging_session, capsys, caplog, log_directory, icat_logbook_subscriber
 ):
+    logfile = os.path.join(log_directory, logging_session.name + ".log")
     check_scripts_finished(logging_session)
     check_user_logging(capsys)
-    check_beacon_logging(caplog)
+    check_beacon_logging(caplog, logfile)
     assert len(icat_logbook_subscriber) == 0
 
 
 def test_setup_logging_without_elogserver(
-    logging_session_without_elogserver, capsys, caplog, icat_logbook_subscriber
+    logging_session_without_elogserver,
+    capsys,
+    caplog,
+    log_directory,
+    icat_logbook_subscriber,
 ):
+    logfile = os.path.join(
+        log_directory, logging_session_without_elogserver.name + ".log"
+    )
     check_scripts_finished(logging_session_without_elogserver)
     check_user_logging(capsys, elog_offline=True)
-    check_beacon_logging(caplog)
+    check_beacon_logging(caplog, logfile)
     assert len(icat_logbook_subscriber) == 0
 
 
 def test_setup_logging_with_elogserver(
-    logging_session_with_elogserver, capsys, caplog, icat_logbook_subscriber
+    logging_session_with_elogserver,
+    capsys,
+    caplog,
+    log_directory,
+    icat_logbook_subscriber,
 ):
+    logfile = os.path.join(log_directory, logging_session_with_elogserver.name + ".log")
     check_scripts_finished(logging_session_with_elogserver)
     check_user_logging(capsys)
-    check_beacon_logging(caplog)
+    check_beacon_logging(caplog, logfile)
     check_elogbook(icat_logbook_subscriber)

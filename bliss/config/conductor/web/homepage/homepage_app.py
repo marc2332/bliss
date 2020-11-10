@@ -43,7 +43,7 @@ class BeaconFlask(flask.Flask):
     @beacon_port.setter
     def beacon_port(self, value):
         if value:
-            conn = connection.Connection("localhost", value)
+            conn = connection.Connection("127.0.0.1", value)
         else:
             conn = None
         client._default_connection = conn

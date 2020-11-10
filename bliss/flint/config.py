@@ -47,6 +47,14 @@ def configure_parser_arguments(parser: ArgumentParser):
         "but could have issue with remote desktop (default: matplotlib is used)",
     )
     parser.add_argument(
+        "--disable-share-opengl-contexts",
+        dest="share_opengl_contexts",
+        action="store_false",
+        default=True,
+        help="Disable AA_ShareOpenGLContexts used by Qt in order to prevent "
+        "segmentation fault with some environment.",
+    )
+    parser.add_argument(
         "--enable-simulator",
         dest="simulator",
         action="store_true",

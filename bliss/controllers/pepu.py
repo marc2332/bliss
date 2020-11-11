@@ -620,8 +620,6 @@ class PEPU(CounterController):
             url = "command://" + url
         config["tcp"]["url"] = url
 
-        self._log = logging.getLogger("PEPU({0})".format(url))
-
         self.conn = get_comm(config, TCP, eol="\n")
 
         self.in_channels = dict([(i, ChannelIN(self, i)) for i in self.IN_CHANNELS])

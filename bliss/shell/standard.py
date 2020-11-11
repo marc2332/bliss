@@ -225,8 +225,6 @@ _MAX_COLS = 9
 _MISSING_VAL = "-----"
 _FLOAT_FORMAT = ".05f"
 
-_log = logging.getLogger("bliss.shell.standard")
-
 
 def _print_errors_with_traceback(errors, device_type="motor"):
     """ RE-raise caught errors with original traceback """

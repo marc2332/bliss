@@ -1492,7 +1492,7 @@ class Signals(object):
 class Speedgoat(object):
     def __init__(self, name, config):
         url = _to_zerorpc_url(config["url"], default_port=8200)
-        self._log = logging.getLogger("{}({})".format(type(self).__name__, name))
+        self._log = logging.getLogger(f"{__name__}.{type(self).__name__}.{name}")
         self._conn = rpc.Client(url)
         self._cache = dict(
             params=None,

@@ -33,17 +33,30 @@ from bliss.comm.spec.connection import SpecConnection
 from bliss.controllers.motor import Controller
 from bliss.common.axis import AxisState, NoSettingsAxis
 from bliss.config.static import ConfigList
+import logging
+
+_log = logging.getLogger("bliss.controllers.motors.spec")
 
 
 class Spec(Controller):
     def __init__(self, name, config, axes, *args, **kwargs):
         new_axes = {}
+
+        # _log.warning(f"axes[{axes}]")
+
         for axis_name, axis_cfg in axes.items():
             axis_cfg = list(axis_cfg)
+
+            # change class name for axes created by this controller
+            # to NoSettingsAxis: no settings will be stored in redis,
+            # thus forcing to ask spec every time (no cache)
             axis_cfg[0] = NoSettingsAxis
+
             # make sure steps per unit is 1, to avoid conversions
             # between spec units and Bliss units
-            assert axis_cfg[1].get("steps_per_unit", int) == 1
+            assert (
+                axis_cfg[1].get("steps_per_unit", int) == 1
+            ), "steps_per_unit must be defined and equal to 1"
             new_axes[axis_name] = axis_cfg
 
         Controller.__init__(self, name, config, new_axes, *args, **kwargs)

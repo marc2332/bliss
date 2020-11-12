@@ -896,11 +896,11 @@ def interlock_download(
 
         log_debug(
             wago,
-            "Wago interlock n.%d with description %s has %d n_of_channels, flags:%b",
+            "Wago interlock n.%d with description %s has %d n_of_channels, flags:%s",
             i,
             description,
             n_of_channels,
-            flags,
+            bin(flags),
         )
         logical_device_key, logical_device_channel = wago.devhard2log(
             (register_type_to_int("OB"), offset)
@@ -981,7 +981,7 @@ def interlock_state(wago: Union[TangoWago, WagoController]):
 
 def interlock_purge(wago: Union[TangoWago, WagoController]):
     """Purges all interlocks available into a PLC"""
-    log_info(wago, f"Interlock: Uploading interlock on Wago")
+    log_info(wago, "Interlock: Purges all interlocks available into a PLC")
 
     free_inst, available_inst, imsk = wago.devwccomm(
         (COMMANDS["ACTIVE"], COMMANDS["INTERLOCK"])

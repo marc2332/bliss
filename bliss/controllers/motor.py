@@ -6,6 +6,9 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import numpy
+import functools
+from gevent import lock
+
 from bliss.common.motor_config import MotorConfig
 from bliss.common.motor_settings import ControllerAxisSettings, floatOrNone
 from bliss.common.axis import Trajectory
@@ -16,7 +19,6 @@ from bliss.physics import trajectory
 from bliss.common.utils import set_custom_members, object_method, grouped
 from bliss import global_map
 from bliss.config.channels import Cache
-from gevent import lock
 
 
 class EncoderCounterController(SamplingCounterController):
@@ -39,6 +41,16 @@ class EncoderCounterController(SamplingCounterController):
             )
         steps_per_unit = numpy.array([enc.steps_per_unit for enc in encoders])
         return positions_array / steps_per_unit
+
+
+def check_disabled(func):
+    @functools.wraps(func)
+    def func_wrapper(self, *args, **kwargs):
+        if self._disabled:
+            raise RuntimeError(f"Controller is disabled. Check hardware and restart.")
+        return func(self, *args, **kwargs)
+
+    return func_wrapper
 
 
 class Controller:
@@ -64,6 +76,7 @@ class Controller:
         self._switches_config = switches
         self._switches = dict()
         self._tagged = dict()
+        self._disabled = False
 
         self.axis_settings = ControllerAxisSettings()
 
@@ -77,7 +90,11 @@ class Controller:
         return obj
 
     def _init(self):
-        self.initialize()
+        try:
+            self.initialize()
+        except BaseException:
+            self._disabled = True
+            raise
 
     @property
     def axes(self):
@@ -91,6 +108,7 @@ class Controller:
     def shutters(self):
         return self._shutters
 
+    @check_disabled
     def get_shutter(self, name):
         shutter = self._shutters.get(name)
         if shutter is None:
@@ -101,6 +119,7 @@ class Controller:
     def switches(self):
         return self._switches
 
+    @check_disabled
     def get_switch(self, name):
         switch = self._switches.get(name)
         if switch is None:
@@ -175,6 +194,11 @@ class Controller:
             self.initialize_encoder(encoder)
             self.__initialized_encoder[encoder] = True
 
+    @check_disabled
+    def axis_initialized(self, axis):
+        return self.__initialized_axis[axis]
+
+    @check_disabled
     def _initialize_axis(self, axis, *args, **kwargs):
         """
         """
@@ -184,7 +208,11 @@ class Controller:
 
             # Initialize controller hardware only once.
             if not self.__initialized_hw.value:
-                self.initialize_hardware()
+                try:
+                    self.initialize_hardware()
+                except BaseException:
+                    self._disabled = True
+                    raise
                 self.__initialized_hw.value = True
 
             # Consider axis is initialized => prevent re-entering
@@ -209,6 +237,7 @@ class Controller:
                 self.__initialized_axis[axis] = False
                 raise
 
+    @check_disabled
     def get_axis(self, axis_name):
         axis = self._axes.get(axis_name)
         if axis is None:  # create it
@@ -267,6 +296,7 @@ class Controller:
     def finalize_axis(self, axis):
         raise NotImplementedError
 
+    @check_disabled
     def get_encoder(self, encoder_name):
         encoder = self._encoders.get(encoder_name)
         if encoder is None:  # create it

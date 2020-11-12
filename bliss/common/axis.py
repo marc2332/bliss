@@ -656,7 +656,17 @@ class CyclicTrajectory(Trajectory):
 def lazy_init(func):
     @functools.wraps(func)
     def func_wrapper(self, *args, **kwargs):
-        self.controller._initialize_axis(self)
+        if self.disabled:
+            raise RuntimeError(f"Axis {self.name} is disabled")
+        try:
+            self.controller._initialize_axis(self)
+        except Exception:
+            self._disabled = True
+            raise
+        else:
+            if not self.controller.axis_initialized(self):
+                # failed to initialize
+                self._disabled = True
         return func(self, *args, **kwargs)
 
     return func_wrapper
@@ -694,6 +704,7 @@ class Axis(Scannable):
         self._group_move = GroupMove()
         self._lock = gevent.lock.Semaphore()
         self.__positioner = True
+        self._disabled = False
 
         try:
             config.parent
@@ -922,6 +933,14 @@ class Axis(Scannable):
             if self.name in [axis.name for axis in axis_list]:
                 return True
         return False
+
+    @property
+    def disabled(self):
+        return self._disabled
+
+    def enable(self):
+        self._disabled = False
+        self.hw_state  # force update
 
     @lazy_init
     def on(self):
@@ -2201,6 +2220,7 @@ class Axis(Scannable):
         if backlash:
             self.settings.clear("backlash")
 
+        self._disabled = False
         self.settings.init()
 
         # update position (needed for sign change)

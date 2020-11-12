@@ -380,7 +380,7 @@ class MapWithAliases(Map):
         def request(axis):
             state = safe_get(axis, "state", on_error)
             try:
-                disabled_state = "DISABLED" in state
+                disabled_state = axis.disabled or "DISABLED" in state
             except TypeError:
                 disabled_state = False
             if disabled_state:

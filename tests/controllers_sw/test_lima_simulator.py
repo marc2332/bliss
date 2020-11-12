@@ -938,7 +938,7 @@ def test_reapplication_image_params(beacon, default_session, lima_simulator, cap
     assert "All parameters will be refeshed on lima_simulator" in caplog.messages
 
     # emulate use of another bliss session
-    Cache(simulator, "last_session_used").value = "toto_session"
+    Cache(simulator, "last_session").value = "toto_session"
 
     caplog.clear()
     with caplog.at_level(logging.DEBUG, logger="global.controllers.lima_simulator"):

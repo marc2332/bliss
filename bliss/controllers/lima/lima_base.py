@@ -6,6 +6,7 @@
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
 import importlib
+import numpy
 import os
 
 from bliss import global_map
@@ -235,30 +236,52 @@ class Lima(CounterController):
         """
         return f"{self._proxy.image_sizes}{self._proxy.image_roi}{self._proxy.image_flip}{self._proxy.image_bin}{self._proxy.image_rotation}"
 
-    def apply_parameters(self, ctrl_params):
-        def needs_update(key, value):
-            if key not in self._cached_ctrl_params:
-                self._cached_ctrl_params[key] = Cache(self, key)
-            if str(self._cached_ctrl_params[key].value) != str(value):
-                self._cached_ctrl_params[key].value = value
+    def _needs_update(self, key, new_value, proxy=None):
+        try:
+            cached_value = self._cached_ctrl_params[key].value
+        except KeyError:
+            self._cached_ctrl_params[key] = Cache(self, key)
+            self._cached_ctrl_params[key].value = str(new_value)
+            if proxy:
+                # check if new value is different from Lima value
+                try:
+                    lima_value = getattr(proxy, key)
+                except AttributeError:
+                    return True
+                if isinstance(lima_value, numpy.ndarray):
+                    return str(lima_value) != str(new_value)
+                try:
+                    return lima_value != new_value
+                except ValueError:
+                    return str(lima_value) != str(new_value)
+            return True
+        else:
+            if cached_value != str(new_value):
+                self._cached_ctrl_params[key].value = str(new_value)
                 return True
-            else:
-                return False
+        return False
+
+    def apply_parameters(self, ctrl_params):
 
         self.set_bliss_device_name()
 
         # -----------------------------------------------------------------------------------
 
-        server_start_timestamp = needs_update(
-            "server_start_timestamp",
-            Database().get_device_info(self.__tg_url).started_date,
-        )
-        last_session_used = needs_update("last_session_used", str(current_session.name))
+        server_started_date = Database().get_device_info(self.__tg_url).started_date
+        server_start_timestamp_cache = Cache(self, "server_start_timestamp")
+        server_restarted = server_start_timestamp_cache.value != server_started_date
+        if server_restarted:
+            server_start_timestamp_cache.value = server_started_date
+        last_session_cache = Cache(self, "last_session")
+        other_session_started = last_session_cache.value != current_session.name
+        if other_session_started:
+            last_session_cache.value = current_session.name
         lima_hash_different = Cache(self, "lima_hash").value != self._lima_hash
 
-        update_all = server_start_timestamp or last_session_used or lima_hash_different
+        update_all = server_restarted or other_session_started or lima_hash_different
         if update_all:
             log_debug(self, "All parameters will be refeshed on %s", self.name)
+            self._cached_ctrl_params.clear()
 
         assert ctrl_params["saving_format"] in self.saving.available_saving_formats
         ctrl_params["saving_suffix"] = self.saving.suffix_dict[
@@ -267,11 +290,7 @@ class Lima(CounterController):
 
         use_mask = ctrl_params.pop("use_mask")
         assert type(use_mask) == bool
-        if (
-            needs_update("use_mask", use_mask)
-            or self.processing._mask_changed
-            or update_all
-        ):
+        if self.processing._mask_changed or self._needs_update("use_mask", use_mask):
             maskp = self._get_proxy("mask")
             global_map.register(maskp, parents_list=[self], tag="mask")
             maskp.Stop()
@@ -285,10 +304,8 @@ class Lima(CounterController):
 
         use_flatfield = ctrl_params.pop("use_flatfield")
         assert type(use_flatfield) == bool
-        if (
-            needs_update("use_flatfield", use_flatfield)
-            or self.processing._flatfield_changed
-            or update_all
+        if self.processing._flatfield_changed or self._needs_update(
+            "use_flatfield", use_flatfield
         ):
             ff_proxy = self._get_proxy("flatfield")
             global_map.register(ff_proxy, parents_list=[self], tag="flatfield")
@@ -304,10 +321,8 @@ class Lima(CounterController):
         use_bg_sub = ctrl_params.pop("use_background_substraction")
         assert isinstance(use_bg_sub, str)
         assert use_bg_sub in self.processing.BG_SUB_MODES.keys()
-        if (
-            needs_update("use_background_substraction", use_bg_sub)
-            or self.processing._background_changed
-            or update_all
+        if self.processing._background_changed or self._needs_update(
+            "use_background_substraction", use_bg_sub
         ):
             bg_proxy = self._get_proxy("backgroundsubstraction")
             global_map.register(bg_proxy, parents_list=[self], tag="bg_sub")
@@ -328,9 +343,10 @@ class Lima(CounterController):
                 log_debug(self, " starting background sub proxy of %s", self.name)
                 bg_proxy.Start()
 
-        if (
-            needs_update("runlevel_roicounter", self.processing.runlevel_roicounter)
-            or update_all
+        if self._needs_update(
+            "runlevel_roicounter",
+            self.processing.runlevel_roicounter,
+            proxy=self.roi_counters._proxy,
         ):
             proxy = self.roi_counters._proxy
             state = proxy.State()
@@ -345,7 +361,9 @@ class Lima(CounterController):
                 log_debug(self, "set runlevel on roi_counter proxy of %s", self.name)
                 proxy.RunLevel = self.processing.runlevel_roicounter
 
-        if needs_update("runlevel_bpm", self.processing.runlevel_bpm) or update_all:
+        if self._needs_update(
+            "runlevel_bpm", self.processing.runlevel_bpm, proxy=self.bpm._proxy
+        ):
             proxy = self.bpm._proxy
             state = proxy.State()
             if state == DevState.ON:
@@ -370,28 +388,28 @@ class Lima(CounterController):
         special_params = {}
 
         if "image_bin" in ctrl_params:
-            special_params["image_bin"] = ctrl_params.pop("image_bin")
+            special_params["image_bin"] = numpy.array(ctrl_params.pop("image_bin"))
 
         if "image_flip" in ctrl_params:
-            special_params["image_flip"] = ctrl_params.pop("image_flip")
+            special_params["image_flip"] = numpy.array(ctrl_params.pop("image_flip"))
 
         if "image_rotation" in ctrl_params:
             special_params["image_rotation"] = ctrl_params.pop("image_rotation")
 
         if "image_roi" in ctrl_params:
             # make sure that image_roi is applied last
-            special_params["image_roi"] = ctrl_params.pop("image_roi")
+            special_params["image_roi"] = numpy.array(ctrl_params.pop("image_roi"))
 
         # --- Apply standard params (special_params excluded/removed)
         for key, value in ctrl_params.items():
-            if needs_update(key, value) or update_all:
+            if self._needs_update(key, value, self.proxy):
                 log_debug(self, "apply parameter %s on %s to %s", key, self.name, value)
                 setattr(self.proxy, key, value)
 
         # --- Select special params that must be updated (caching/filtering)
         _tmp = {}
         for key, value in special_params.items():
-            if needs_update(key, value) or update_all:
+            if self._needs_update(key, value, self.proxy):
                 _tmp[key] = value
         special_params = _tmp
 

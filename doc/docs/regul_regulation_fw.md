@@ -1,7 +1,7 @@
 # Regulation framework
 
 !!! info
-    The `Regulation` framework has replaced the older [Temperature](regul_temperature_fw.md) framework.
+    The `Regulation` framework replaces the older [Temperature](regul_temperature_fw.md) framework.
 
     The hardware controllers based on the new Regulation framework  are:
 

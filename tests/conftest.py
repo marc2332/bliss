@@ -227,6 +227,11 @@ def config_app_port(ports):
 
 
 @pytest.fixture(scope="session")
+def homepage_app_port(ports):
+    yield ports.homepage_port
+
+
+@pytest.fixture(scope="session")
 def beacon_tmpdir(tmpdir_factory):
     tmpdir = str(tmpdir_factory.mktemp("beacon"))
     yield tmpdir

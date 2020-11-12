@@ -25,8 +25,8 @@
     In the `Regulation` framework:
 
     - the methods `setpoint`, `ramprate`, `stop`, `deadband` are accessed via the `Loop` object
-    - if the ramprate is set to zero, the setpoint method does the same as the old set method.
-    #the `setpoint` does the same as the old `ramp` method and if `ramprate==0` the same as the old `set`
+    - `setpoint` method does the same as the old `ramp` method.
+    - if the `ramprate` is set to zero, the `setpoint` method does the same as the old `set` method.
 
 
 
@@ -127,9 +127,7 @@ reading a diode and moving an axis.
 
 ### External Input/Output
 
-<!--  Request TODO: can there be a reference to SamplingCounter ? -->
-
-Any `SamplingCounter` can be directly interfaced with an `ExternalInput` and any `Axis` with a `ExternalOutput` or `ExternalInput`.
+Any [SamplingCounter](bliss_counters.md#sampling-counters) can be directly interfaced with an `ExternalInput` and any [Axis](bliss_motion_control_basics.md#what-is-a-bliss-axis-?) with a `ExternalOutput` or `ExternalInput`.
 
 ```yaml
 -   class: ExternalInput  # an ExternalInput object to interface a counter as an input

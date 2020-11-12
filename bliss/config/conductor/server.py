@@ -33,6 +33,8 @@ from bliss.common import event
 from . import protocol
 from .. import redis as redis_conf
 from functools import reduce
+from . import client
+from . import connection
 
 
 try:
@@ -702,28 +704,28 @@ def log_tangodb_started():
 
 
 @contextmanager
-def start_webserver(web_app, webapp_port, beacon_port, debug=True):
+def start_webserver(web_app, webapp_port):
     """Part of the 'Beacon server'"""
-    try:
-        import flask
-    except ImportError:
-        web_logger.error("flask cannot be imported: web application won't be available")
-        return
-
     web_logger.info(f"Web application '{web_app.name}' listening on port {webapp_port}")
-    if beacon_port:
-        web_app.beacon_port = beacon_port  # create global beacon connection
+
+    # Note: Flask uses click.echo for direct stdout printing
+    #       werkzeug._internal._log sets the log level of logger "werkzeug" to INFO
     web_app.logger.propagate = True  # use root logger
     web_app.logger.handlers = []
-    # Note: Flask uses click.echo for direct stdout printing
+    try:
+        from werkzeug import _internal
+    except ImportError:
+        pass
+    else:
+        _internal._logger = web_app.logger.getChild("werkzeug")
 
-    # force not to use reloader because it would fork a subprocess
     with spawn_context(
         web_app.run,
         host="0.0.0.0",
         port=webapp_port,
-        use_debugger=debug,
-        use_reloader=False,
+        debug=web_app.debug,
+        use_debugger=True,
+        use_reloader=False,  # prevent forking a subprocess
         threaded=False,
     ):
         yield
@@ -838,6 +840,18 @@ def tcp_server_main(sock):
             gevent.spawn(_client_rx, newSocket, localhost)
     finally:
         beacon_logger.info("stop listening on TCP port %s", port)
+
+
+def ensure_global_beacon_connection(beacon_port):
+    """Avoid auto-discovery of port for the global connection object.
+    Also ensures the global connection is too Beacon and not Redis.
+    """
+    if client._default_connection is None:
+        # TODO: "localhost" causes socket.getaddrinfo to hang
+        client._default_connection = connection.Connection("127.0.0.1", beacon_port)
+        # TODO: connecting here causes a ConnectionRefusedError when
+        #       connecting to the webapp
+        # client._default_connection.connect()
 
 
 def uds_server_main(sock):
@@ -1237,20 +1251,35 @@ def main(args=None):
 
         # Config web application
         if _options.webapp_port > 0:
-            from .web.configuration.config_app import web_app as config_app
+            try:
+                import flask
+            except ImportError:
+                web_logger.error(
+                    "flask cannot be imported: web application won't be available"
+                )
+            else:
+                from .web.configuration.config_app import web_app as config_app
 
-            ctx = start_webserver(config_app, _options.webapp_port, beacon_port)
-            beacon_port = None  # global beacon connection is made
-            context_stack.enter_context(ctx)
+                ensure_global_beacon_connection(beacon_port)
+                ctx = start_webserver(config_app, _options.webapp_port)
+                context_stack.enter_context(ctx)
 
         # Homepage web application
         if _options.homepage_port > 0:
-            from .web.homepage.homepage_app import web_app as homepage_app
+            try:
+                import flask
+            except ImportError:
+                web_logger.error(
+                    "flask cannot be imported: web application won't be available"
+                )
+            else:
+                from .web.homepage.homepage_app import web_app as homepage_app
 
-            homepage_app.config_port = _options.webapp_port
-            homepage_app.log_port = _options.log_viewer_port
-            ctx = start_webserver(homepage_app, _options.homepage_port, beacon_port)
-            context_stack.enter_context(ctx)
+                ensure_global_beacon_connection(beacon_port)
+                homepage_app.config_port = _options.webapp_port
+                homepage_app.log_port = _options.log_viewer_port
+                ctx = start_webserver(homepage_app, _options.homepage_port)
+                context_stack.enter_context(ctx)
 
         # Wait for exit signal
         wait()

@@ -1,7 +1,7 @@
 # Regulation framework
 
 !!! info
-    The `Regulation` framework has replaced the older [Temperature](regul_temperature_fw.md) framework.
+    The `Regulation` framework replaces the older [Temperature](regul_temperature_fw.md) framework.
 
     The hardware controllers based on the new Regulation framework  are:
 
@@ -10,60 +10,61 @@
     - linkam TMS94/T95
 
     In addition to the management of a regulation hardware, this new framework brings solutions to:
-    
-    - create a software regulation Loop using any Bliss object as Input or Output ([SoftLoop](#softloop))
-    - use a Loop as a pseudo axis for scanning purpose ([Loop.axis](#scanning))
-    - monitor the regulation with a Live plot in Flint ([Loop.plot](#start-and-monitor-the-regulation-loop))
+
+    - creating a software regulation Loop using any Bliss object as Input or Output ([SoftLoop](#softloop))
+    - using a Loop as a pseudo axis for scanning purpose ([Loop.axis](#scanning))
+    - monitoring the regulation with a Live plot in Flint ([Loop.plot](#start-and-monitor-the-regulation-loop))
 
 !!! note
     In the older `Temperature` framework:
 
-    - the methods `set`, `ramp`, `stop` were accessible from both the `Loop` or the associated `Loop.output` 
+    - the methods `set`, `ramp`, `stop` were accessible from both the `Loop` or the associated `Loop.output`
     - the `deadband` was defined on the `Output`
-    
-    
+
+
     In the `Regulation` framework:
 
     - the methods `setpoint`, `ramprate`, `stop`, `deadband` are accessed via the `Loop` object
-    - the `setpoint` does the same as the old `ramp` and if `ramprate==0` the same as the old `set`
-    
+    - `setpoint` method does the same as the old `ramp` method.
+    - if the `ramprate` is set to zero, the `setpoint` method does the same as the old `set` method.
 
 
-The Regulation framework provides 3 kind of objects:
 
-* The `Input`  to evaluate the actual state of the system (like the room temperature).
-* The `Output` to perform an action on the system via its output device (like an heater).
-* The `Loop`   to manage the regulation of the system via the *PID* parameters and a given setpoint (like the target temperature for the room).
+The Regulation framework provides 3 kinds of objects:
+
+* `Input`  to evaluate the actual state of the system (like the room temperature).
+* `Output` to perform an action on the system via its output device (like an heater).
+* `Loop`   to manage the regulation of the system via the *PID* parameters and a given setpoint (like the target temperature for the room).
 
 
 
 The regulation process can be described by the following steps:
 
-1. The **Input** reads the actual value of the processed variable (i.e. the physical parameter that is monitored by the regulation).
-2. The **Loop** computes an output value that depends on the actual value of the Input, the "distance" to the setpoint and the *PID* parameters.
+1. **Input** reads the actual value of the processed variable (i.e. the physical parameter that is monitored by the regulation).
+2. **Loop** computes an output value that depends on the actual value of the Input, the "distance" to the setpoint and the *PID* parameters.
 3. The output value is sent to the **Output**. The output device has an effect on the system and modifies the value of the processed variable.
-4. back to step 1) and loop forever so that the processed value reaches the setpoint value and stays stable around that value (deadband).  
+4. back to step 1) and loop forever so that the processed value reaches the setpoint value and stays stable around that value (deadband).
 
 
-The **Input**, **Output** and **Loop** objects will access the **Controller** class written for the equipment.
+**Input**, **Output** and **Loop** objects will access the **Controller** class written for the equipment.
 
-The **ExternalInput**, **ExternalOutput** encapsulate any object of the Bliss configuration into Input/Output 
+**ExternalInput**, **ExternalOutput** encapsulate any object of the Bliss configuration into Input/Output
 and can be used by a **SoftLoop**.
 
-The **SoftLoop** runs a software PID algorithm using any pair of Input/Output.
+**SoftLoop** runs a software PID algorithm using any pair of Input/Output.
 
-See [Interacting with the Loop object](regul_regulation_fw.md#interacting-with-the-loop-object), for further details about the usage of the Loop object within a Bliss session.
+See [Interacting with the Loop object](regul_regulation_fw.md#interacting-with-the-loop-object) for further details about the usage of the Loop object within a Bliss session.
 
 
 ## Configure a regulation hardware
 
-The `hardware regulation` case corresponds to the situation where a regulation hardware exists and if the regulation input and output devices are connected to that hardware (like a lakeshore controller with temperature probes and heaters). 
+The `hardware regulation` case corresponds to the situation, where a regulation hardware exists and the regulation input and output devices are connected to that hardware (like a lakeshore controller with temperature probes and heaters).
 
 A controller can declare multiple inputs, outputs and loops. But one loop is always associated to one input and one output.
 
 **The loops, inputs and outputs linked to that controller are declared within the configuration of the controller.**
 
-To define a new controller class based on the regulation framework for a new hardware, see [Writting a custom controller for a regulation hardware](regul_regulation_fw.md#writting-a-custom-controller-for-a-regulation-hardware).
+To define a new controller class based on the regulation framework for a new hardware, see [Writing a custom controller for a regulation hardware](regul_regulation_fw.md#writing-a-custom-controller-for-a-regulation-hardware).
 
 !!! example "YML file example"
 
@@ -77,7 +78,7 @@ To define a new controller class based on the regulation framework for a new har
      url: lakeshore336se2:7777
      eol: "\r\n"
   inputs:   # the section to declare Inputs
-    - name: ls336_A     # one input 
+    - name: ls336_A     # one input
       channel: A
       unit: Kelvin
     - name: ls336_A_c   # another input, same hw channel but using Celsius
@@ -90,10 +91,10 @@ To define a new controller class based on the regulation framework for a new har
     - name: ls336_B     # another input, different hw channel
       channel: B
       unit: Kelvin
-    - name: ls336_B_c   
+    - name: ls336_B_c
       channel: B
       unit: Celsius
-    - name: ls336_B_su  
+    - name: ls336_B_su
       channel: B
       unit: Sensor_unit
 
@@ -107,8 +108,8 @@ To define a new controller class based on the regulation framework for a new har
 
   ctrl_loops:
     - name: ls336l_1    # one loop
-      input: $ls336_B   # a reference to one of the inputs above 
-      output: $ls336o_1 # a reference to one of the outputs above 
+      input: $ls336_B   # a reference to one of the inputs above
+      output: $ls336o_1 # a reference to one of the outputs above
       channel: 1
     - name: ls336l_2    # another loop
       input: $ls336_B   # a reference to another input from above
@@ -120,28 +121,28 @@ To define a new controller class based on the regulation framework for a new har
 
 ## Configure a software regulation
 
-The `software regulation` case corresponds to the situation where there is no existing hardware for the regulation.
-For example, it may be necessary to regulate a temperature by moving a cryostream with a motor (axis) or beam position 
+`Software regulation` can be applied, where no existing hardware for regulation is available.
+For example, it may be necessary to regulate a temperature by moving a cryostream with a motor (axis) or a beam position by
 reading a diode and moving an axis.
 
 ### External Input/Output
 
-Any `SamplingCounter` can be directly interfaced by an `ExternalInput` and any `Axis` by a `ExternalOutput` or `ExternalInput`.
+Any [SamplingCounter](bliss_counters.md#sampling-counters) can be directly interfaced with an `ExternalInput` and any [Axis](bliss_motion_control_basics.md#what-is-a-bliss-axis-?) with a `ExternalOutput` or `ExternalInput`.
 
 ```yaml
--   class: ExternalInput  # a ExternalInput object to interface a counter as an input
+-   class: ExternalInput  # an ExternalInput object to interface a counter as an input
     plugin: regulation    # use the regulation plugin for standard regulation classes
     name: myinput         # a name for this input
     device: $mycnt        # a reference to a SamplingCounter that must exist in the configuration
-    unit: volt            # (optional) a unit for this input
-    
--   class: ExternalOutput   # a ExternalOutput object to interface an axis as an output
+    unit: volt            # (optional) unit for this input
+
+-   class: ExternalOutput   # an ExternalOutput object to interface an axis as an output
     plugin: regulation      # use the regulation plugin for standard regulation classes
     name: myoutput          # a name for this output
     device: $robz           # a reference to an axis that must exist in the configuration
-    unit: mm                # (optional) a unit for this output
-    low_limit: -0.06        # (optional) the low limit for a value applied to this output
-    high_limit: 0.06        # (optional) the high limit for a value applied to this output
+    unit: mm                # (optional) unit for this output
+    low_limit: -0.06        # (optional) low limit for a value applied to this output
+    high_limit: 0.06        # (optional) high limit for a value applied to this output
     ramprate: 0.0           # (optional) usually no ramping for an axis as output
     mode: relative          # (optional) type of axis motion, in ['relative', 'absolute']
 ```
@@ -155,11 +156,11 @@ from the `ExternalInput` or the `ExternalOutput` classes.
     plugin: bliss             # custom object uses the standard bliss plugin
     name: chi2_diode_pos      # a name for this input
     device: $moco_chi2        # a reference to an object of the config that will be interfaced as an input
-    unit: log(finm/foutm)     # (optional) a unit for this input
+    unit: log(finm/foutm)     # (optional) unit for this input
     signal_beam_limit: 1e-07     # (custom) extra attribute
     offset_finm: 1.70147994e-11  # (custom) extra attribute
     offset_foutm: 1.5094417e-11  # (custom) extra attribute
-    
+
 ```
 
 The custom `Chi2DiodeInput` is defined somewhere else (e.g *'id26/controllers/chi2_diode_device.py'*):
@@ -169,9 +170,9 @@ from bliss.common.regulation import ExternalInput
 
 class Chi2DiodeInput(ExternalInput):
 
-    def __init__(self, name, config): # (name, config) args to satisfy bliss plugin requierements
+    def __init__(self, name, config): # (name, config) args to satisfy bliss plugin requirements
         super().__init__(config)
-        
+
         # custom attributes
         self.offset_finm = config['offset_finm']
         self.offset_foutm = config['offset_foutm']
@@ -180,22 +181,22 @@ class Chi2DiodeInput(ExternalInput):
 
     def _get_chi2_counts(self):  # custom method
         count_chi2 = self.device.comm('?fbeam') # self.device is defined via the yml config (see 'device: $moco_chi2')
-        count_finm = float(count_chi2.split()[0]) 
+        count_finm = float(count_chi2.split()[0])
         count_foutm = float(count_chi2.split()[1])
         return count_finm, count_foutm
-        
+
     def read(self): # MANDATORY: must be implemented (not implemented in the base class)
         """ """
         count_finm, count_foutm = self._get_chi2_counts()
-        
+
         d1 = count_finm - self.offset_finm
         d2 = count_foutm - self.offset_foutm
-        
+
         if d1 > 0 and d2 > 0:
             self._last_value = (d1 - d2)/(d1+d2)
-        
+
         return self._last_value
-        
+
     def state(self):   # override base class implementation
         """ returns the input device state """
         return "READY"
@@ -204,14 +205,14 @@ class Chi2DiodeInput(ExternalInput):
         """ this method inhibits the SoftLoop regulation if returning False """
 
         count_finm, count_foutm = self._get_chi2_counts()
-        
+
         d1 = count_finm - self.offset_finm
         d2 = count_foutm - self.offset_foutm
-        
+
         if d1 <= 0 or d2 <= 0:
             return False
-            
-        signal_beam = d1 + d2 
+
+        signal_beam = d1 + d2
         if signal_beam >= self.signal_beam_limit:
             return True
         else:
@@ -221,7 +222,7 @@ class Chi2DiodeInput(ExternalInput):
 
 
 
-The YML configuration of the `ExternalInput` and `ExternalOutput` objects has a special keyword `device` to 
+The YML configuration of the `ExternalInput` and `ExternalOutput` objects has a special keyword `device` to
 make a reference to the Bliss object that should be interfaced. It can be accessed via the Input/Output object with `.device`.
 
 For `ExternalOutput` interfacing an axis, a special keyword `mode` exist to define the kind of motion.
@@ -233,34 +234,35 @@ Default mode is 'relative'.
 
     The *relative* motion mode is usually the most adapted.
 
-    The *low_limit* and the *high_limit* values should be chosen carefully. 
-    
+    The *low_limit* and the *high_limit* values should be chosen carefully.
+
     In combination with the *relative* motion mode, users should use:
 
         high_limit = - low_limit = maximum_step_size
-    
-    
-    The loop waits for the axis to reach its new position before doing the next PID iteration.
-    Therefore, a small value for the *maximum_step_size* is prefered in order to perform the motion in a short delay, 
-    and then perform the next PID iteration as soon as possible.
-    
-    The motion time should be smaller than *1/SoftLoop.sampling_frequency*. 
-    
-    On the other hand if the *maximum_step_size* is too small, the expected effect of 
-    moving the axis is too weak and has a negligeable effect on the system.
 
-    Start with a small value (like 2 times the axis tolerance) and increase slightly until 
+
+    The loop waits for the axis to reach its new position before doing the next PID iteration.
+    Therefore, a small value for the *maximum_step_size* is preferred in order to perform the motion in a short delay,
+    and then perform the next PID iteration as soon as possible.
+
+    The motion time should be smaller than *1/SoftLoop.sampling_frequency*.
+
+    On the other hand if the *maximum_step_size* is too small, the expected effect of
+    moving the axis is too weak and has a negligible effect on the system.
+
+    Start with a small value (like 2 times the axis tolerance) and increase slightly until
     you obtain significant effects on the system.
 
-    
+
 
 ### SoftLoop
 
-To perform a regulation with the `ExternalInput`/`ExternalOutput` objects, users must declare a `SoftLoop`. 
+To perform a regulation with the `ExternalInput`/`ExternalOutput` objects, users must declare a `SoftLoop`.
 
 The `SoftLoop` object inherits from the `Loop` class and implements its own PID algorithm (using the *simple_pid* Python module).
 
-Because there is no shared hardware controller for the regulation, the `ExternalInput`, `ExternalOutput` and `SoftLoop` have independent configurations (i.e not all declared under the same Controller class).
+
+Because there is no shared hardware controller for the regulation, `ExternalInput`, `ExternalOutput` and `SoftLoop` have independent configurations (i.e. not all declared under the same Controller class).
 
 Inside the SoftLoop configuration section, there are references (`$`) to the input and output objects that should be used for the regulation. Notice that a SoftLoop can reference both the standard and the external types of Input/Output objects.
 
@@ -275,8 +277,8 @@ Inside the SoftLoop configuration section, there are references (`$`) to the inp
     P: -25                    # positive or negative Kp 'switches the output direction'
     I: 0.0
     D: 0.0
-    low_limit: -1.0           # low limit of the PID output range. Usaually equal to 0 (absolute) or -1 (relative).
-    high_limit: 1.0           # high limit of the PID output range. Usaually equal to 1.
+    low_limit: -1.0           # low limit of the PID output range. Usually equal to 0 (absolute) or -1 (relative).
+    high_limit: 1.0           # high limit of the PID output range. Usually equal to 1.
     frequency: 10.0           # frequency of the regulation loop evaluation
     deadband: 0.00025         # deadband width (like a tolerance for the setpoint)
     deadband_time: 3.0        # minimum time (sec) to consider that the setpoint has been reached
@@ -292,8 +294,8 @@ Inside the SoftLoop configuration section, there are references (`$`) to the inp
     signal_beam_limit: 1e-07     # (custom) extra attribute
     offset_finm: 1.70147994e-11  # (custom) extra attribute
     offset_foutm: 1.5094417e-11  # (custom) extra attribute
-    
-    
+
+
 -   class: ExternalOutput   # a ExternalOutput object to interface an axis as an output
     plugin: regulation      # use the regulation plugin for standard regulation class
     name: chi2_motor_pos    # a name for this output
@@ -311,7 +313,7 @@ Type the name of the regulation loop in a Bliss shell to print information.
 
 ```python
 
-TEST_SESSION [3]: sample_regulation_new  
+TEST_SESSION [3]: sample_regulation_new
 Out [3]:
                   === Loop: sample_regulation_new ===
                   controller: Mockup
@@ -353,12 +355,12 @@ Out [3]:
 - `Loop.is_in_deadband`: return *True* if the input value is in the dead band.
 - `Loop.deadband_time`: the minimum time to be 'stabilized' in the deadband (default 1s).
 - `Loop.wait_mode`: this mode is used by the pseudo axis to determine if the axis is MOVING or READY.
-  
+
     mode=1: `WaitMode.RAMP`    : READY as soon as the `Loop.axis` has finished ramping to the setpoint.
-  
-    mode=2: `WaitMode.DEADBAND`: READY when the Input value is stabilized in the `deadband` for 
+
+    mode=2: `WaitMode.DEADBAND`: READY when the Input value is stabilized in the `deadband` for
     a time longer than `deadband_time` (default mode).
-            
+
 **Counters:**
 
 A `Loop` is `SamplingCounterController` which as 3 sampling counters (`Loop.counters`):
@@ -397,11 +399,11 @@ TEST_SESSION [5]: loop.setpoint=10
 ![Screenshot](img/regul_plot_2.png)
 
 
-The left y-axis is the value read from the Input (red curve, *processed value*). 
+The left y-axis is the value read from the Input (red curve, *processed value*).
 
 The right Y axis is the value read from the Output (green curve, *Output*).
 
-The solid blue curve is the setpoint and the dashed blue curve is the deadband. 
+The solid blue curve is the setpoint and the dashed blue curve is the deadband.
 
 
 ### Ramping
@@ -426,8 +428,8 @@ It returns *False* if the ramping is disabled or if the `workingsetpoint` is equ
 If the controller hardware doesn't have the ramping feature, the Loop object will automatically provide a software ramping object (`regulation.SoftRamp`). The `SoftLoop` is using a `SoftRamp`. Use `Loop.soft_ramp` to access the object.
 
 
-The Output object also has a ramping feature (same behavior as the Loop soft_ramp). 
-If `loop.output.ramprate != 0` then any new value sent to the output will use a ramp to reach that value. 
+The Output object also has a ramping feature (same behaviour as the Loop soft_ramp).
+If `loop.output.ramprate != 0` then any new value sent to the output will use a ramp to reach that value.
 The output ramping is useful when the hardware must be protected against brutal variations (like a high voltage output).
 By, default the output ramprate is set to zero.
 
@@ -437,7 +439,7 @@ The Loop object has a special method `Loop.axis` that returns the loop as an `Ax
 
 ```python
 TEST_SESSION [3]: sample_regulation_new.axis.name
-         Out [3]: 'sample_regulation_new_axis'  
+         Out [3]: 'sample_regulation_new_axis'
 TEST_SESSION [4]: sample_regulation_new.axis
          Out [4]: AXIS:
                 name (R): sample_regulation_new_axis
@@ -465,25 +467,25 @@ The axis name (*{Loop.name}+'_axis'*) is exported in the session and can by foun
 
 The axis `tolerance` parameter is set to the same value as the `loop.deadband` value.
 
-The `Loop.axis` can be used like a motor in a scan and the `Loop` as counters. 
+The `Loop.axis` can be used like a motor in a scan and the `Loop` as counters.
 
 ```python
-TEST_SESSION [9]: ascan(loop.axis, 0, 10, 10, 1, loop)         
-Out [9]: Scan(number=252, name=ascan, path=/tmp/scans/test_session/data.h5)  
+TEST_SESSION [9]: ascan(loop.axis, 0, 10, 10, 1, loop)
+Out [9]: Scan(number=252, name=ascan, path=/tmp/scans/test_session/data.h5)
 ```
 
 !!! Note
     The Loop is a `CounterController` with 3 counters for the *setpoint*, *input* and *output* values.
-    Actually only the setpoint counter is owned by the Loop, the 2 others are respectively owned by 
+    Actually only the setpoint counter is owned by the Loop, the 2 others are respectively owned by
     the loop.input and the loop.output objects.
-    However they are all retrieved by the `Loop.counters` method for conveniency. 
-    Therefore, under `lscnt()` the 3 counters are not all listed under the Loop.
+    However they are all retrieved by the `Loop.counters` method for convenience.
+    Therefore, `lscnt()` does not list all under the Loop.
 
 
 #### Motion state and waiting mode
 
-Behind the scene, while moving the `Loop.axis` to a new position, 
-the Loop sets a new setpoint and waits it reaches the deadband around the new setpoint.
+Behind the scene, while moving the `Loop.axis` to a new position,
+the Loop sets a new setpoint and waits until it reaches the deadband around the new setpoint.
 
 The axis is considered `MOVING` until the input value as reached the setpoint value.
 
@@ -494,7 +496,7 @@ If the `Loop.wait_mode` is:
 ![Screenshot](img/regul_ramp_mode.png)
 
 
-- `WaitMode.DEADBAND` (=2): the axis is READY when the Input value is stablized in the `deadband` for 
+- `WaitMode.DEADBAND` (=2): the axis is READY when the Input value is stabilized within the `deadband` for
 a time longer than `deadband_time` (default mode).
 
 ![Screenshot](img/regul_deadband_mode.png)
@@ -503,31 +505,31 @@ a time longer than `deadband_time` (default mode).
 
 ## SoftLoop specificities
 
-With a standard `Loop` the PID algorithm is handled by the hardware of the controller and 
-the controller directly sends the new values to the output device.
+With a standard `Loop` the PID algorithm is handled by the controller hardware and
+the controller sends the new values directly to the output device.
 
-With a `SoftLoop` the PID algorithm is handled by Bliss in a parallel task. 
+With a `SoftLoop` the PID algorithm is handled by Bliss in a parallel task.
 
 - `SoftLoop.sampling_frequency`: adjust the update frequency of the PID algorithm.
 - `SoftLoop.pid_range`: adjust the PID min/max range (*output power range*).
-    
-    [ 0, 1] for uni-directionnal 'moves' on the output (like heating more or less, [0% <=> 100%]) 
-    
-    [-1, 1] for bi-directionnal 'moves' on the output (like heating/cooling or the moving direction for a motor, [-100% <=> +100%]).
-    
+
+    [ 0, 1] for unidirectional 'moves' on the output (like heating more or less, [0% <=> 100%])
+
+    [-1, 1] for bidirectional 'moves' on the output (like heating/cooling or the moving direction for a motor, [-100% <=> +100%]).
+
     Under the YML configuration of the `SoftLoop` the corresponding keywords are `low_limit` and `high_limit`.
 
     ```yml
-    - 
-        class: SoftLoop    
+    -
+        class: SoftLoop
         plugin: regulation
         name: chi2_regul
-        input: $chi2_diode_pos    
-        output: $chi2_motor_pos   
-        
-        low_limit: -1.0  # <-- low limit for the value computed by PID algo. Usaually equal to 0 (absolute) or -1 (relative).
-        high_limit: 1.0  # <-- high limit for the value computed by PID algo. Usaually equal to 1.
-        
+        input: $chi2_diode_pos
+        output: $chi2_motor_pos
+
+        low_limit: -1.0  # <-- low limit for the value computed by PID algo. Usually equal to 0 (absolute) or -1 (relative).
+        high_limit: 1.0  # <-- high limit for the value computed by PID algo. Usually equal to 1.
+
     ```
 
 #### PID range and Output limits
@@ -545,20 +547,20 @@ When the PID algorithm computes a value for the Output to reach the setpoint:
     Also can be accessed via the output object with `Loop.output.limits`.
 
 
-## Writting a custom controller for a regulation hardware
+## Writing a custom controller for a regulation hardware
 
-The custom controller class must inherit from the Regulation `Controller` class: 
+The custom controller class must inherit from the Regulation `Controller` class:
 
 `from bliss.controllers.regulator import Controller`
 
-The `Controller` class has pre-defined methods that must be filled in the child class (the `raise NotImplementedError` methods). Other methods or attributes (custom methods or attributes) can be freely defined by the developer.
+The `Controller` class has pre-defined methods, which must be filled in the child class (the `raise NotImplementedError` methods). Other methods or attributes (custom methods or attributes) can be freely defined by the developer.
 
 ```python
 
 from bliss.controllers.regulator import Controller
 
 class MyCustomController(Controller):
-    
+
     # ------ init methods ------------------------
 
     def initialize_controller(self):
@@ -572,7 +574,7 @@ class MyCustomController(Controller):
     # ------ get methods ------------------------
 
     def read_input(self, tinput):
-        
+
     def read_output(self, toutput):
 
     def state_input(self, tinput):
@@ -616,5 +618,4 @@ class MyCustomController(Controller):
     def get_ramprate(self, tloop):
 
 ```
-
 

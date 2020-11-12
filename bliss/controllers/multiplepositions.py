@@ -75,8 +75,9 @@ from bliss.common.motor_group import Group
 from bliss.common.axis import AxisState
 from bliss.config.channels import Channel
 from bliss.common import event
+from bliss.common.utils import flatten
 from bliss.common.logtools import log_warning, log_error
-from bliss import global_map
+from bliss import global_map, is_bliss_shell
 from bliss.scanning.scan_meta import get_user_scan_meta
 
 
@@ -283,7 +284,12 @@ class MultiplePositions:
             self._group = Group(*axis_list)
             event.connect(self._group, "move_done", self.__move_done)
             try:
-                self._group.move(dict(zip(axis_list, destination_list)), wait=wait)
+                if is_bliss_shell() and wait:
+                    from bliss.shell.standard import umv
+
+                    umv(*flatten(zip(axis_list, destination_list)))
+                else:
+                    self._group.move(dict(zip(axis_list, destination_list)), wait=wait)
             except Exception:
                 event.disconnect(self._group, "move_done", self.__move_done)
                 raise

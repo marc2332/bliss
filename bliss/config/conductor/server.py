@@ -844,14 +844,10 @@ def tcp_server_main(sock):
 
 def ensure_global_beacon_connection(beacon_port):
     """Avoid auto-discovery of port for the global connection object.
-    Also ensures the global connection is too Beacon and not Redis.
+    Ensures the global connection is too Beacon and not Redis.
     """
     if client._default_connection is None:
-        # TODO: "localhost" causes socket.getaddrinfo to hang
-        client._default_connection = connection.Connection("127.0.0.1", beacon_port)
-        # TODO: connecting here causes a ConnectionRefusedError when
-        #       connecting to the webapp
-        # client._default_connection.connect()
+        client._default_connection = connection.Connection("localhost", beacon_port)
 
 
 def uds_server_main(sock):
@@ -872,6 +868,7 @@ def uds_server_main(sock):
 def stream_to_log(stream, log_func):
     """Forward a stream to a log function
     """
+    gevent.get_hub().threadpool.maxsize += 1
     while True:
         msg = gevent.os.tp_read(stream, 8192)
         if msg:
@@ -924,6 +921,7 @@ def wait():
 
         def sigterm_greenlet():
             # Graceful shutdown
+            gevent.get_hub().threadpool.maxsize += 1
             gevent.os.tp_read(rp, 1)
             beacon_logger.info("Received a termination signal")
             event.set()

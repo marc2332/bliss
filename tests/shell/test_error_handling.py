@@ -8,6 +8,7 @@
 import pytest
 import gevent
 from bliss.shell.cli import repl
+from datetime import date as datetime
 from bliss.common import logtools
 
 
@@ -71,3 +72,4 @@ def test_error_report_chained(error_report):
     assert len(errors) == 1
     assert "\nRuntimeError: LEVEL 0" in errors[0]
     assert "\nRuntimeError: LEVEL 1" in errors[0]
+    assert datetime.today().strftime("%d/%m/%Y") in errors[0]

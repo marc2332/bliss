@@ -5,7 +5,7 @@
 # Copyright (c) 2015-2020 Beamline Control Unit, ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.import logging
 import networkx as nx
-from functools import wraps, partial
+from functools import partial
 import weakref
 import logging
 import subprocess
@@ -478,7 +478,7 @@ class Map:
                          that will the label of represented nodes
         """
         try:
-            from networkx.drawing.nx_agraph import graphviz_layout, to_agraph
+            from networkx.drawing.nx_agraph import to_agraph
 
             self.update_labels(format_node)
             if ref_node is not None:

@@ -1,7 +1,6 @@
 # Configuring the P201 counter card
 
-This chapter assumes you have have a running a BLISS configuration
-server (beacon) available on your system.
+This chapter assumes you have a running [Beacon server](beacon_install.md) available on your system.
 
 The CT2 card exists in two versions:
 
@@ -64,17 +63,29 @@ see: [CT2 driver project on gitlab](https://gitlab.esrf.fr/Hardware/P201)
     * `bliss_drivers config`
     * (need root password, see: https://passdoggo.esrf.fr)
 
-BLISS has to be installed to get `bliss-ct2-server` script.
 
-The *CT2 Bliss RPC server* has to run on the PC where the card is installed by
-typing:
+## Starting the Bliss CT2 RPC server
+
+**requirements:**
+
+- [Install Bliss](installation_esrf.md) to get `bliss-ct2-server` script
+- a running [Beacon server](beacon_install.md) must be available.
+- the card musst have been declared in the [Beacon configuration](config_p201.md#configuration)
+
+**launch server script:**
+
+On the computer where the card is installed, start the server by typing:
 
 ```bash
+$ bliss-ct2-server --name p201_eh1
 
-$ bliss-ct2-server
 INFO 2017-10-30 15:14:57,680 CardInterface(/dev/ct2_0): connecting to /dev/ct2_0
 INFO 2017-10-30 15:14:57,684 CT2Server: Serving CT2 on tcp://0.0.0.0:8909...
 ```
+
+The `--name` argument is name of the card as declared in the [Beacon configuration](config_p201.md#configuration).
+
+The script will create a CT2 controller, apply the configuration found on Beacon and start the RPC service.
 
 !!! note
     If you are at ESRF, use supervisor to start it.
@@ -85,7 +96,7 @@ INFO 2017-10-30 15:14:57,684 CT2Server: Serving CT2 on tcp://0.0.0.0:8909...
     priority=100
     
     [program:P201_zerorpc]
-    command=bash -c ". /users/blissadm/bin/blissenv && exec bliss-ct2-server --address /dev/ct2_0"
+    command=bash -c ". /users/blissadm/bin/blissenv && exec bliss-ct2-server --name p201_eh1"
     priority=800
     environment=HOME="/users/blissadm"
     user=blissadm
@@ -98,8 +109,10 @@ INFO 2017-10-30 15:14:57,684 CT2Server: Serving CT2 on tcp://0.0.0.0:8909...
     stdout_capture_maxbytes=1MB
     ```
 
-By default it runs on port **8909**. To run with different options type:
-`bliss-ct2-server --help`.
+
+By default it runs on port **8909**. 
+
+To run with different options type: `bliss-ct2-server --help`.
 
 ## Configuration
 
@@ -109,11 +122,12 @@ Minimal configuration example:
 plugin: ct2                   
 name: p201_eh1                
 class: CT2                    
-type: P201
-address: tcp://lid421:8909    
+type: P201                   
+address: tcp://lid421:8909   # RPC server address
+card_address: /dev/ct2_0     # card hardware address 
 ```
 
-(replace the address with the one that makes sense to you)
+(replace the `address` with the one that makes sense to you)
 
 Since the full YAML configuration can be quite complex, we suggest using the
 the web configuration tool which provides a more user friendly interface:
@@ -125,7 +139,8 @@ To use counters in a BLISS session, the P201 object (`p201_eh1`) has to be added
 to the `config-objects` list.
 
 !!! attention
-    The counters corresponding to the channels are not exported.
+    Because of the possible large number of channels, the associated counters are not directly exported.
+    instead the counters are accessed via the controller with `p201_eh1.counters`.
 
 
 Here is a more complete example including channel configuration and external
@@ -136,58 +151,61 @@ plugin: ct2                    # (1)
 name: p201_eh1                 # (2)
 class: CT2                     # (3)
 address: tcp://lid312:8909     # (4)
-type: P201                     # (5)
-clock: CLK_100_MHz             # (6)
-external sync:                 # (7)
-  input:                       # (8)
-    channel: 9                 # (9)
-    polarity inverted: False   # (10)
-  output:                      # (11)
-    channel: 10                # (12)
-    mode: gate                 # (13)
-channels:                      # (14)
-- address: 1                   # (15)
-  counter name: pC1            # (16)
-  50 ohm: true                 # (17)
-  level: TTL                   # (18)
+card_address: /dev/ct2_0       # (5)
+type: P201                     # (6)
+clock: CLK_100_MHz             # (7)
+external sync:                 # (8)
+  input:                       # (9)
+    channel: 9                 # (10)
+    polarity inverted: False   # (11)
+  output:                      # (12)
+    channel: 10                # (13)
+    mode: gate                 # (14)
+channels:                      # (15)
+- address: 1                   # (16)
+  counter name: pC1            # (17)
+  50 ohm: true                 # (18)
+  level: TTL                   # (19)
 - address: 10
-  level: NIM                   # (19)
+  level: NIM                   # (20)
 ```
 
 1.  plugin name (mandatory: `ct2`)
 2.  controller name (mandatory)
 3.  plugin class (mandatory)
-4.  card address (mandatory). `tcp://<host>:<port>` to connect to a
-    remote BLISS rpc CT2 server or `/dev/ct_<card_nb>` for a local card.
-5.  card type (optional, default: `P201`). Valid values are: `P201`
+4.  server address (mandatory). `tcp://<host>:<port>` to connect to a
+    remote BLISS CT2 rpc server.
+5.  card address (mandatory). Usually `/dev/ct2_0`. 
+6.  card type (optional, default: `P201`). Valid values are: `P201`
     (historical: before the C208 was forseen to be supported as well)
-6.  card clock (optional, default: `CLK_100_MHz`)
+7.  card clock (optional, default: `CLK_100_MHz`)
     - There is a bug on P201 card at 100 MHz -> 12.5 MHz forced
-7.  External synchronization signal configuration
-8.  Input signal: used for external trigger/gate (optional, default: no
+8.  External synchronization signal configuration
+9.  Input signal: used for external trigger/gate (optional, default: no
     input)
-9.  Input signal channel (mandatory if input keyword is given). Valid:
+10.  Input signal channel (mandatory if input keyword is given). Valid:
     \[1, 10\]
-10. Interpret input signal polarity inverted (optional, default: False)
-11. Output signal: used for output gate signal (optional, default: {'channel' = 10})
-12. Output signal channel (mandatory if ouput keyword is given, else set to 10). Valid:
+11. Interpret input signal polarity inverted (optional, default: False)
+12. Output signal: used for output gate signal (optional, default: {'channel' = 10})
+13. Output signal channel (mandatory if ouput keyword is given, else set to 10). Valid:
     \[9, 10\] or use `None` to deactivate the output signal feature (to count with this channel).
-13. Output signal mode (optional, default: gate). Only possible value
+14. Output signal mode (optional, default: gate). Only possible value
     today is gate
-14. Channel configuration
-15. channel address (mandatory). Valid: \[1, 10\]
-16. counter name (optional). Needed if want to count on this channel.
-17. true to enable 50 ohm.
-18. channel input level (optional, default: TTL)
-19. channel input/output level (optional, default: TTL)
+15. Channel configuration
+16. channel address (mandatory). Valid: \[1, 10\]
+17. counter name (optional). Needed if want to count on this channel.
+18. true to enable 50 ohm.
+19. channel input level (optional, default: TTL)
+20. channel input/output level (optional, default: TTL)
 
 !!! note
     If external sync input/output channel is given, the channel counter name
-    is ignored as this channel cannot be used to count
+    is ignored as this channel cannot be used to count.
 
-!!! note
-    If a BLISS rpc *address* is set, the `type` is ignored. In this case it is
-    specified at the BLISS rpc server command line.
+    If external sync output (12) is not declared, then by default the channel 10 is configured as an output.
+    To prevent this default and to be able to count with channel 10, the external sync output channel (13) 
+    musst be set to `channel: None`.
+    
 
 
 ### Configuring 2 or more *independent* cards
@@ -413,10 +431,6 @@ cards:
     wait([finish_master, finish_slave])
     print('Done!')
 
-!!! note
-    you can change the input and output channels at any time in a program by
-    means of `<dev>.input_channel = <channel number>` and
-    `<dev>.output_channel = <channel number>`, respectively.
 
 ## Spec & TANGO configuration
 

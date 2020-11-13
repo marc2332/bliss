@@ -9,6 +9,8 @@ from functools import partial
 import weakref
 import logging
 import subprocess
+import tempfile
+import os.path
 
 __all__ = ["Map", "format_node"]
 
@@ -493,7 +495,7 @@ class Map:
             logger.error("Missing pygraphviz package")
 
     def draw_pygraphviz(
-        self, ref_node=None, filename="graph", format_node="tag->name->class->id"
+        self, ref_node=None, filename=None, format_node="tag->name->class->id"
     ) -> None:
         """
         Simple tool to draw the map into graphviz format
@@ -502,21 +504,29 @@ class Map:
             ref_node: If given a partial map will be drawn that includes
                       the given node and his area of interest
             filename: name of the output file without extension, the function will
-                      create a filename.dot and filename.png
+                      create a filename.dot and filename.png.
+                      If None the file will be generated as a temporary file.
             format_node: Format string (according to Bliss map formatting)
                          that will the label of represented nodes
         """
+        if filename is None:
+            # FIXME: BLISS could provide a default tmp directory for this kind of use
+            root = tempfile.mkdtemp(prefix=__name__)
+            target = os.path.join(root, "graph")
+        else:
+            target = filename
+
         self.save_to_dotfile(
-            ref_node=ref_node, filename=filename, format_node=format_node
+            ref_node=ref_node, filename=target, format_node=format_node
         )
 
         try:
-            subprocess.run(["dot", f"{filename}.dot", "-Tpng", "-o", f"{filename}.png"])
+            subprocess.run(["dot", f"{target}.dot", "-Tpng", "-o", f"{target}.png"])
         except FileNotFoundError:
             logger.error("Missing graphviz software")
             return
         try:
-            subprocess.run(["xdg-open", f"{filename}.png"])
+            subprocess.run(["xdg-open", f"{target}.png"])
         except Exception:
             logger.exception("Exception opening xdg-open")
 

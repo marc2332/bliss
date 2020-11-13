@@ -398,12 +398,10 @@ class FlintItemMixIn:
     ) -> Tuple[int, int, str]:
         return None, None, None
 
-    def _getColoredChar(self, value, data, flintModel):
+    def _getColoredChar(self, value, flintModel):
         colormap = self.getColormap()
-        # FIXME silx 0.13 provides a better API for that
-        vmin, vmax = colormap.getColormapRange(data)
-        data = numpy.array([float(value), vmin, vmax])
-        colors = colormap.applyToData(data)
+        data = numpy.array([float(value)])
+        colors = colormap.applyToData(data, reference=self)
         cssColor = f"#{colors[0,0]:02X}{colors[0,1]:02X}{colors[0,2]:02X}"
 
         if flintModel is not None and flintModel.getDate() == "0214":
@@ -464,8 +462,7 @@ class FlintScatter(Scatter, FlintItemMixIn):
             yName = "Y"
             vName = "Value"
 
-        data = self.getValueData(copy=False)
-        char = self._getColoredChar(value, data, flintModel)
+        char = self._getColoredChar(value, flintModel)
 
         text = f"""
             <li style="white-space:pre">{char} <b>{vName}:</b> {value} (index {index})</li>
@@ -544,9 +541,7 @@ class FlintImage(ImageData, FlintItemMixIn):
         y, x = index
         image = self.getData(copy=False)
         value = image[index]
-
-        data = self.getData(copy=False)
-        char = self._getColoredChar(value, data, flintModel)
+        char = self._getColoredChar(value, flintModel)
 
         xName = "Col/X"
         yName = "Row/Y"
@@ -568,9 +563,7 @@ class FlintImageRgba(ImageRgba, FlintItemMixIn):
         y, x = index
         image = self.getData(copy=False)
         value = image[index]
-
-        data = self.getData(copy=False)
-        char = self._getColoredChar(value, data, flintModel)
+        char = self._getColoredChar(value, flintModel)
 
         xName = "Col/X"
         yName = "Row/Y"

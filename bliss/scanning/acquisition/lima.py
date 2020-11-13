@@ -323,7 +323,7 @@ class LimaAcquisitionMaster(AcquisitionMaster):
             if self.fast_synchro:
                 if self.device.proxy.ready_for_next_image:
                     break
-                gevent.idle()
+                gevent.sleep(0)
             else:
                 self._ready_event.clear()
                 new_image_acquired, last_image_acquired = self.__image_status

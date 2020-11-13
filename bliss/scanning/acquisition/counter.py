@@ -508,6 +508,6 @@ class IntegratingCounterAcquisitionSlave(BaseCounterAcquisitionSlave):
                 from_index += len(data[0])
                 self._nb_acq_points += len(data[0])
                 self._emit_new_data(data)
-                gevent.idle()
+                gevent.sleep(0)
             else:
                 gevent.sleep(self.count_time / 2.0)

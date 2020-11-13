@@ -78,7 +78,9 @@ class WidgetDescription:
 
 
 class WorkspaceData(dict):
-    def setWorkspace(self, workspace: flint_model.Workspace, includePlots: bool):
+    def setWorkspace(
+        self, workspace: flint_model.Workspace, liveWindow, includePlots: bool
+    ):
         plots = {}
         if includePlots:
             for plot in workspace.plots():
@@ -86,6 +88,11 @@ class WorkspaceData(dict):
 
         widgetDescriptions = []
         for widget in workspace.widgets():
+            if liveWindow is not None and widget is liveWindow.ctWidget(create=False):
+                # FIXME: The ct widget is at the same time a widget and a value
+                # in the live_property config (we have to remove one of the other)
+                continue
+
             if includePlots and isinstance(widget, PlotWidget):
                 model = widget.plotModel()
                 if model is not None:
@@ -499,10 +506,10 @@ class WorkspaceManager(qt.QObject):
             return
 
         data = WorkspaceData()
-        includePlots = workspace.name() != self.DEFAULT
-        data.setWorkspace(workspace, includePlots=includePlots)
-
         window = flintModel.liveWindow()
+        includePlots = workspace.name() != self.DEFAULT
+        data.setWorkspace(workspace, window, includePlots=includePlots)
+
         data.setLiveWindow(window)
 
         settings = self.__getSettings()

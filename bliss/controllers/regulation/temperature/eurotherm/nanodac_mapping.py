@@ -179,7 +179,10 @@ name2address = dict(
         ("loop.1.sp.manualtrack", (0x1667, "b")),
         ("loop.1.sp.rangehigh", ((0x1659 * 2) + 0x8000, "f")),
         ("loop.1.sp.rangelow", ((0x165a * 2) + 0x8000, "f")),
-        ("loop.1.sp.rate", ((0x1662 * 2) + 0x8000, "f")),
+        (
+            "loop.1.sp.rate",
+            (((0x1662 * 2) + 0x8000, "f"), ((0x1662 * 2) + 0x8000, "f", 0)),
+        ),
         ("loop.1.sp.ratedisable", (0x1663, "b")),
         ("loop.1.sp.ratedone", (0x020a, "b")),
         ("loop.1.sp.servotopv", ((0x166c * 2) + 0x8000, "f")),

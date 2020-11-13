@@ -384,11 +384,11 @@ class Nanodac(regulator.Controller):
 
     @_get_loop_from_config
     def set_ramprate(self, loop, secondary, rate):
-        loop.op.rate = rate
+        loop.sp.rate = rate
 
     @_get_loop_from_config
     def get_ramprate(self, loop, secondary):
-        return loop.op.rate
+        return loop.sp.rate
 
 
 class Loop(regulation.Loop):

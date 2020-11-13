@@ -12,6 +12,7 @@ import functools
 import mimetypes
 import traceback
 
+import gevent
 import gevent.lock
 
 import flask
@@ -21,14 +22,11 @@ from jinja2 import Environment, FileSystemLoader
 
 from bliss.config.conductor import server
 from bliss.config.conductor import client
-from bliss.config.conductor import connection
 from bliss.config import static
 from bliss.config import plugins
 from bliss.common import event
 
-
 web_app = flask.Flask(__name__)
-beacon_port = None
 
 __this_file = os.path.realpath(__file__)
 __this_path = os.path.dirname(__this_file)
@@ -45,7 +43,7 @@ def check_config(f):
     return wrapper
 
 
-class WebConfig(object):
+class WebConfig:
 
     EXT_MAP = {
         "": dict(type="text", icon="file-o"),
@@ -74,8 +72,6 @@ class WebConfig(object):
         self.__tree_plugins = None
         self.__tree_tags = None
         self.__tree_sessions = None
-        beacon_conn = connection.Connection("localhost", beacon_port)
-        client._default_connection = beacon_conn
         event.connect(server.__name__, "config_changed", self.__on_config_changed)
 
     def __on_config_changed(self):
@@ -90,11 +86,14 @@ class WebConfig(object):
 
     def get_config(self):
         with self.__lock:
-            cfg = static.get_config(raise_yaml_exc=False)
-            if self.__new_config:
-                cfg.reload()
-                self.__new_config = False
-            return cfg
+            with gevent.Timeout(30, TimeoutError):
+                web_app.logger.info("Loading beacon configuration ...")
+                cfg = static.get_config(raise_yaml_exc=False)
+                if self.__new_config:
+                    cfg.reload()
+                    self.__new_config = False
+                web_app.logger.info("Beacon configuration loaded")
+                return cfg
 
     @property
     def items(self):

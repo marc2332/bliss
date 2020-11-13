@@ -9,10 +9,10 @@ import os
 import traceback
 import flask
 import socket
+import gevent
 from jinja2 import Environment, FileSystemLoader
 
 from bliss.config import static
-
 
 __this_file = os.path.realpath(__file__)
 __this_path = os.path.dirname(__this_file)
@@ -37,7 +37,10 @@ web_app.domain = "esrf.fr"
 @web_app.route("/")
 def index():
     try:
-        cfg = static.get_config()
+        with gevent.Timeout(30, TimeoutError):
+            web_app.logger.info("Loading beacon configuration ...")
+            cfg = static.get_config()
+            web_app.logger.info("Beacon configuration loaded")
     except Exception as e:
         error = f"{e.__class__.__name__}: {e.args[0]}"
         details = traceback.format_exc()

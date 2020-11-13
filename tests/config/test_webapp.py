@@ -15,8 +15,11 @@ import itertools
 import shutil
 
 
-def test_home(beacon, config_app_port):
+def test_home(beacon, config_app_port, homepage_app_port):
     r = requests.get("http://localhost:%d" % config_app_port)
+    assert r.status_code == 200  # OK
+
+    r = requests.get("http://localhost:%d" % homepage_app_port)
     assert r.status_code == 200  # OK
 
 

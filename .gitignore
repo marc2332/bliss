@@ -1,3 +1,7 @@
+# Files ignored for the project.
+# You also can exclude a file locally - i.e. only on the current computer
+# by editing the file $GIT_DIR/info/exclude
+
 # Hidden files
 .*
 

@@ -442,6 +442,7 @@ class BasicScanSaving(EvalParametersWardrobe):
                 "scan_parent_db_name",
                 "newproposal",
                 "newcollection",
+                "newsample",
                 "newdataset",
                 "on_scan_run",
             ]
@@ -761,10 +762,13 @@ class BasicScanSaving(EvalParametersWardrobe):
     def newproposal(self, proposal_name):
         raise NotImplementedError("No data policy enabled")
 
-    def newcollection(self, collection_name):
+    def newcollection(self, collection_name, **kw):
         raise NotImplementedError("No data policy enabled")
 
-    def newdataset(self, dataset_name):
+    def newsample(self, collection_name, **kw):
+        raise NotImplementedError("No data policy enabled")
+
+    def newdataset(self, dataset_name, **kw):
         raise NotImplementedError("No data policy enabled")
 
     def clone(self):

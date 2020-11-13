@@ -34,7 +34,10 @@ def beacon_with_logging_esrf(beacon_with_logging):
 
 
 @pytest.fixture
-def logging_session_without_elogserver(beacon_with_logging_esrf):
+def logging_session_without_elogserver(beacon_with_logging_esrf, log_directory):
+    logfile = os.path.join(log_directory, "test_logging_session.log")
+    with open(logfile, "w"):
+        pass
     session = beacon_with_logging_esrf.get("test_logging_session")
     session.setup()
     yield session
@@ -43,8 +46,11 @@ def logging_session_without_elogserver(beacon_with_logging_esrf):
 
 @pytest.fixture
 def logging_session_with_elogserver(
-    beacon_with_logging_esrf, metaexp_with_backend, metamgr_with_backend
+    beacon_with_logging_esrf, metaexp_with_backend, metamgr_with_backend, log_directory
 ):
+    logfile = os.path.join(log_directory, "test_logging_session.log")
+    with open(logfile, "w"):
+        pass
     session = beacon_with_logging_esrf.get("test_logging_session")
     session.setup()
     yield session
@@ -65,7 +71,7 @@ def check_user_logging(capsys, elog_offline=False):
     assert captured[i] == expected
     i += 1
     if elog_offline:
-        expected = "Electronic logbook failed "
+        expected = "Electronic logbook failed"
         assert expected in captured[i]
         i += 1
     expected = "LogInitController: Beacon error"

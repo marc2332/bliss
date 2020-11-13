@@ -58,7 +58,5 @@ dmypy.json
 /tests/test_configuration/beacon_data.rdb
 /dump.rdb
 
-# Various project file
+# Generated release module
 /bliss/release.py
-/graph.dot
-/graph.png

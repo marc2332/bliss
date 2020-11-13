@@ -85,7 +85,9 @@ def test_2_clients_1_dead(beacon, two_clients):
     conductor_conn.lock(roby.name)
     assert conductor_conn.who_locked(roby.name) == {roby.name: "test1"}
     conductor_conn.close()
-    assert not conductor_conn2.who_locked(roby.name)
+    with gevent.Timeout(3):
+        while conductor_conn2.who_locked(roby.name):
+            gevent.sleep(0.1)
     conductor_conn2.lock(roby.name)
     assert conductor_conn2.who_locked(roby.name) == {roby.name: "test2"}
 

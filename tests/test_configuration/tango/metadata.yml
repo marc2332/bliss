@@ -36,6 +36,12 @@
       beamlineID: id00
       dataFolderPattern: "{dataRoot}"
       metaExperimentDevice: "id00/metaexp/test_session2"
+  - tango_name: id00/metadata/test_logging_session
+    class: MetadataManager
+    properties:
+      beamlineID: id00
+      dataFolderPattern: "{dataRoot}"
+      metaExperimentDevice: "id00/metaexp/test_logging_session"
 
 -
   class: MetaExperiment
@@ -62,6 +68,10 @@
     properties:
       beamlineID: id00
   - tango_name: id00/metaexp/test_session2
+    class: MetaExperiment
+    properties:
+      beamlineID: id00
+  - tango_name: id00/metaexp/test_logging_session
     class: MetaExperiment
     properties:
       beamlineID: id00

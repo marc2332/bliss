@@ -60,6 +60,7 @@ scan_saving_test_session
 test_alias
 test_alias2
 test_autof_session
+test_logging_session
 test_session
 test_session2
 test_session3

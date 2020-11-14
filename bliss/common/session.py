@@ -170,6 +170,8 @@ class Session:
         self.__user_script_homedir = SimpleSetting("%s:user_script_homedir" % self.name)
         self._script_source_cache = WeakKeyDictionary()
         self.__data_policy_events = EventChannel(f"{self.name}:esrf_data_policy")
+        self.scan_saving = None
+        self.scan_display = None
 
         self.init(config_tree)
 
@@ -426,10 +428,20 @@ class Session:
             raise NotImplementedError
 
     def _set_scan_saving(self, cls=None):
+        """Defines the data policy, which includes the electronic logbook
+        """
         scan_saving.set_scan_saving_class(cls)
         self.scan_saving = scan_saving.ScanSaving(self.name)
         if is_bliss_shell():
             self.env_dict["SCAN_SAVING"] = self.scan_saving
+
+    @property
+    def _config_scan_saving_class(self):
+        scan_saving_class_name = self.__scan_saving_config.get("class")
+        try:
+            return getattr(scan_saving, scan_saving_class_name)
+        except (AttributeError, TypeError):
+            return None
 
     def _set_scan_display(self):
         self.scan_display = scan_display.ScanDisplay(self.name)
@@ -681,22 +693,53 @@ class Session:
 
     def setup(self, env_dict=None, verbose=False):
         set_current_session(self, force=True)
+
+        # Session environment
         if env_dict is None:
-            # use existing env dict
             env_dict = get_current_session().env_dict
         self.__env_dict = env_dict
 
+        # Data policy needs to be defined before instantiating the
+        # session objects
+        self._set_scan_saving(cls=self._config_scan_saving_class)
+
+        # Instantiate the session objects
         try:
             self._load_config(verbose)
         except Exception:
             sys.excepthook(*sys.exc_info())
+        finally:
+            env_dict["config"] = self.config
 
-        if self.__scripts_module_path and self.name not in _SESSION_IMPORTERS:
-            sys.meta_path.append(_StringImporter(self.__scripts_module_path, self.name))
-            _SESSION_IMPORTERS.add(self.name)
+        self._register_session_importers(self)
 
-        env_dict["config"] = self.config
+        self._set_scan_display()
 
+        self._additional_env_variables(env_dict)
+
+        for child_session in self._child_session_iter():
+            self._register_session_importers(child_session)
+            child_session._setup(env_dict, nested=True)
+
+        self._setup(env_dict)
+
+    @staticmethod
+    def _register_session_importers(session):
+        """Allows remote scripts to be registered and executed locally
+        """
+        if session.__scripts_module_path and session.name not in _SESSION_IMPORTERS:
+            sys.meta_path.append(
+                _StringImporter(session.__scripts_module_path, session.name)
+            )
+            _SESSION_IMPORTERS.add(session.name)
+
+    def _additional_env_variables(self, env_dict):
+        """Add additional variables to the session environment
+        """
+        from bliss.common.measurementgroup import ACTIVE_MG
+
+        env_dict["ALIASES"] = global_map.aliases
+        env_dict["ACTIVE_MG"] = ACTIVE_MG
         if "load_script" not in env_dict:
             env_dict["load_script"] = self.load_script
         if "user_script_homedir" not in env_dict:
@@ -707,34 +750,6 @@ class Session:
             env_dict["user_script_load"] = self.user_script_load
         if "user_script_run" not in env_dict:
             env_dict["user_script_run"] = self.user_script_run
-
-        scan_saving_class_name = self.__scan_saving_config.get("class")
-        try:
-            scan_saving_class = getattr(scan_saving, scan_saving_class_name)
-        except (AttributeError, TypeError):
-            scan_saving_class = None
-        self._set_scan_saving(cls=scan_saving_class)
-
-        self._set_scan_display()
-
-        env_dict["ALIASES"] = global_map.aliases
-
-        from bliss.common.measurementgroup import ACTIVE_MG
-
-        env_dict["ACTIVE_MG"] = ACTIVE_MG
-
-        for child_session in self._child_session_iter():
-            if child_session.name not in _SESSION_IMPORTERS:
-                sys.meta_path.append(
-                    _StringImporter(
-                        child_session._scripts_module_path, child_session.name
-                    )
-                )
-                _SESSION_IMPORTERS.add(child_session.name)
-
-            child_session._setup(env_dict, nested=True)
-
-        self._setup(env_dict)
 
     def _setup(self, env_dict, nested=False):
         if self.setup_file is None:

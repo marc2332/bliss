@@ -1,0 +1,4 @@
+- name: loginitcontroller1
+  plugin: bliss
+  package: tests.controllers
+  class: LogInitController

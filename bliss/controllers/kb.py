@@ -22,6 +22,38 @@ from bliss.common import plot
 from bliss.shell.standard import umvr, umv
 from bliss.common.utils import BOLD, YELLOW
 
+"""
+- plugin: bliss
+  package: kb
+  class: KbController
+  name: kb
+  saving: True               <- Save or data during slits scans
+  focus:
+    - device: $hfocus
+    - device: $vfocus
+
+- plugin: bliss
+  package: kb
+  class: KbFocus
+  name: hfocus
+  offset_motor: $kbho
+  offset_start: 0.0          <- Start position of the iterative dscan
+  bender_upstream: $kbhbd1
+  bender_downstream: $kbhbd2
+  bender_increment: 20       <- def. val., can be set when calling focus
+  counter: $bpm.bpm.x
+
+- plugin: bliss
+  package: kb
+  class: KbFocus
+  name: vfocus
+  offset_motor: $kbvo
+  offset_start: 0.0
+  bender_upstream: $kbvbd1
+  bender_downstream: $kbvbd2
+  bender_increment: 20
+  counter: $bpm.bpm.y
+"""
 
 def kb_plot(curve, y_data, x_data, x_cursor_pos=None, y_label="y", x_label="x"):
     """
@@ -112,15 +144,15 @@ class KbController:
 class KbFocus:
     """
     KbFocus is a class designed to focus a kb mirror.
-    Two iteratives methods of focusing are provided, parabolic fitting
-    and interaction matrix with 2 algorithms, one based on a parabolic
-    fit and the other one on a linear regression.
+    Two iteratives methods of focusing are provided, using interaction
+    matrix: one based on a parabolic fit and the other one on a linear
+    regression.
 
     The principle is to change the bending of the mirror and to control
     the gain in term of focusing. The quality of focusing is depicted
-    by a minimal movement of the beam (bpm counters) during a scan
-    (rel_start rel_end) of slits.
-    Once a correction has been done, we try to evaluate the next
+    by a minimal movement of the beam (bpm counters) during a scan of
+    slits.
+    Once a correction has been done, we evaluate the next
     correction to apply considering the previous one and the gain.
     """
 
@@ -134,7 +166,7 @@ class KbFocus:
         self._offs_start = config.get("offset_start")
         self._bender_up = config.get("bender_upstream")
         self._bender_down = config.get("bender_downstream")
-        self._bender_inc = config.get("bender_increment", 5)
+        self._bender_inc_config = config.get("bender_increment", 5)
         self._cnt = config.get("counter")
 
         self._corr_mode = "intm"
@@ -165,12 +197,6 @@ class KbFocus:
     def scan(self, start_position, end_position, nb_points, int_time):
         """
         Make a scan on slits and fits the data with a polynom of 2nd degree
-        Args:
-            (float): Start position
-            (float): End position
-            (int): Number of points
-        Return:
-            (Numpy Array, list): Scan data [
         """
         mot = self._offs
         cnt = self._cnt
@@ -219,9 +245,10 @@ class KbFocus:
         )
 
     def scan_print(self, data_raw, data_fit):
-        # Display and save statistics about 1st scan:
-        #   min/max/pic_to_valley/average/std_deviation on raw and fitted data.
-        # Stats are saved to have an history of the changes.
+        """
+        Display scans statistics:
+          min/max/pic_to_valley/average/std_deviation on raw and fitted data.
+        """
         print(BOLD("\n    Scan statistics"))
         raw_min = np.min(data_raw)
         raw_max = np.max(data_raw)
@@ -306,12 +333,26 @@ class KbFocus:
         corr2 = -self._C[1]
         return (corr1, corr2)
 
-    def focus(self, start, stop, nbp, intt, bender_increment):
+    def focus(self, dstart, dstop, nbp, intt, bender_increment=None):
+        """
+        Main Focusing method to be called by users
+        - The iteration is using dscan. At each iteration, a movement to
+          the start position is done prior to the scan. This start
+          position will be the one given in the YML file.
+        - User may change the bender increment using the 
+          "bender_increment" parameter. If not set, the value given in
+          the YML file will be used. If not set in the YML file, 5 is
+          the default value.
+        """
         self._coeff = []
         self._motd = []
         self._rawd = []
         self._fitd = []
-        self._bender_inc = bender_increment
+        
+        if bender_increment is not None:
+            self._bender_inc = bender_increment
+        else:
+            self._bender_inc = self._bender_inc_config
 
         self._partial = 100.0
 
@@ -446,8 +487,38 @@ class KbFocus:
                     (corr1_quad, corr2_quad) = self._intm_quad_correction()
                     (corr1_linreg, corr2_linreg) = self._intm_linreg_correction()
 
+"""
+YAML file examplefor KB Motors:
 
+- plugin: emotion                   
+  package: kb
+  class: KbMirrorCalcMotor
+  name: kbmirror
+  distance: 85          <- distance between the 2 rotatin points in mm
+  axes:
+    - name: $kbvrot      <- Main rotation
+      tags: real rot
+    - name: $kbvecrot    <- eccentric rotation
+      tags: real ecrot
+    - name: kbvry       <- tilt rotation
+      tags: tilt
+    - name: kbvtz       <- vertical/horizontal translation
+      tags: height
+"""
 class KbMirrorCalcMotor(CalcController):
+    """
+    A kb mirror is controlled typically by two rotation motors. 
+    One, main rotation (kbrot), is located at the middle of the mirror
+    while a second one is set in an eccentric point. The
+    combination of both allows to drive the mirror (the center
+    of it) to a certain 'tilt' angle and 'height' (for vertically
+    positioned mirrors, but we will use the 'height' term for 
+    all mirrors).
+    The "distance" parameter, given in mm is the distance between the
+    two rotation points
+    This controller musst be instanciated for each mirror of a KB system
+    """
+    
     def __init__(self, *args, **kwargs):
         CalcController.__init__(self, *args, **kwargs)
         self.distance = self.config.get("distance", float)

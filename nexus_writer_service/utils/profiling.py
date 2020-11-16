@@ -263,6 +263,7 @@ def time_context_yappi(
     color=False,
     filename=None,
     min_duration=None,
+    yappi_output=False,
 ):
     """
     :param logger:
@@ -272,6 +273,7 @@ def time_context_yappi(
     :param bool color:
     :param str or bool filename:
     :param num min_duration: no output when time < min_duration
+    :param bool yappi_output: output formatted by yappi
     """
     if clock not in ("cpu", "wall"):
         clock = DEFAULT_CLOCK
@@ -283,11 +285,13 @@ def time_context_yappi(
         nonlocal filename
         stats = yappi.get_func_stats()
         yappi.clear_stats()
-        # log_yappi_snapshot(stats)
-        snapshot = yappi.convert2pstats(stats)
-        log_pstats_snapshot(
-            snapshot, logger=logger, timelimit=timelimit, sortby=sortby, color=color
-        )
+        if yappi_output:
+            log_yappi_snapshot(stats)
+        else:
+            snapshot = yappi.convert2pstats(stats)
+            log_pstats_snapshot(
+                snapshot, logger=logger, timelimit=timelimit, sortby=sortby, color=color
+            )
         if filename:
             if not isinstance(filename, str):
                 filename = DEFAULT_FILENAME

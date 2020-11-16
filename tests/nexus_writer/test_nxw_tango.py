@@ -20,7 +20,6 @@ def test_nxw_tango_logging(nexus_writer_config):
     _test_nxw_tango_logging(**nexus_writer_config)
 
 
-@pytest.mark.xfail(reason="Writer is not responsive enough")
 def test_nxw_tango_api(nexus_writer_config):
     _test_nxw_tango_api(**nexus_writer_config)
 

@@ -439,12 +439,9 @@ class _DataItem(_property_tree_helper.ScanRowItem):
             yAxis = item.data(role=YAxesPropertyItemDelegate.YAxesRole)
             assert yAxis in ["left", "right"]
 
-            curve, wasUpdated = model_helper.createCurveItem(
+            _curve, _wasUpdated = model_helper.createCurveItem(
                 plot, self.__channel, yAxis
             )
-            if wasUpdated:
-                # It's now an item with a value
-                self.setPlotItem(curve)
 
     def __visibilityViewChanged(self, item: qt.QStandardItem):
         if self.__plotItem is not None:

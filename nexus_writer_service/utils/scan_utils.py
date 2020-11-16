@@ -32,6 +32,20 @@ def scan_info(scan):
         return scan.info.get_all()
 
 
+def scan_info_get(scan, key, default=None):
+    """
+    :param Scan or ScanNode scan:
+    :param str key:
+    :param default:
+    """
+    try:
+        # Scan
+        return scan.scan_info.get(key, default)
+    except AttributeError:
+        # ScanNode
+        return scan.info.get(key, default)
+
+
 def scan_node(scan):
     """
     :param Scan or ScanNode scan:
@@ -61,9 +75,10 @@ def scan_name(scan, subscan=1):
     :param Scan or ScanNode scan:
     :returns str:
     """
-    info = scan_info(scan)
-    if info["data_writer"] == "nexus":
-        return "{}.{}".format(info["scan_nb"], subscan)
+    data_writer = scan_info_get(scan, "data_writer")
+    if data_writer == "nexus":
+        scan_nb = scan_info_get(scan, "scan_nb")
+        return f"{scan_nb}.{subscan}"
     else:
         name = scan_node(scan).name
         if subscan == 1:
@@ -80,7 +95,7 @@ def scan_filename(scan):
     :param Scan or ScanNode scan:
     :returns str or None:
     """
-    return scan_info(scan).get("filename", None)
+    return scan_info_get(scan, "filename")
 
 
 @config_utils.with_scan_saving
@@ -106,8 +121,8 @@ def scan_master_filenames(scan, config=True):
     """
     if not config:
         return {}
-    info = scan_info(scan)
-    return info.get("nexuswriter", {}).get("masterfiles", {})
+    info = scan_info_get(scan, "nexuswriter", {})
+    return info.get("masterfiles", {})
 
 
 @config_utils.with_scan_saving
@@ -141,12 +156,12 @@ def scan_filenames(scan, config=True):
     :returns dict(str):
     """
     filenames = {}
-    info = scan_info(scan)
-    filename = info.get("filename", None)
+    filename = scan_info_get(scan, "filename", None)
     if filename:
         filenames["dataset"] = filename
     if config:
-        filenames.update(info.get("nexuswriter", {}).get("masterfiles", {}))
+        info = scan_info_get(scan, "nexuswriter", {})
+        filenames.update(info.get("masterfiles", {}))
     return filenames
 
 
@@ -197,7 +212,7 @@ def scan_uris(scan, subscan=None):
         try:
             tree = scan.acq_chain._tree
         except AttributeError:
-            nsubscans = len(scan_info(scan)["acquisition_chain"])
+            nsubscans = len(scan_info_get(scan, "acquisition_chain", []))
         else:
             nsubscans = len(tree.children(tree.root))
         subscans = range(1, nsubscans + 1)

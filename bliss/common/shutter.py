@@ -142,7 +142,7 @@ class Shutter(BeaconObject, BaseShutter):
         self._external_ctrl = config.get("external-control")
         self.__settings = HashObjSetting("shutter:%s" % name)
         self.__state = Cache(self, "state", default_value=BaseShutterState.UNKNOWN)
-        self.__lock = lock.Semaphore()
+        self.__lock = lock.RLock()
 
     name = BeaconObject.config_getter("name")
 

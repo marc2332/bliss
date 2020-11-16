@@ -2256,7 +2256,7 @@ class Wago(SamplingCounterController):
         else:
             yes_no = "YES"
         if yes_no == "YES":
-            interlock_purge(self)
+            interlock_purge(self.controller)
             return ShellStr("Interlock configuration on PLC was deleted")
         else:
             return ShellStr(

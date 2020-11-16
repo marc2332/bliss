@@ -384,7 +384,7 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
 
     @property
     def scan_number(self):
-        return self.get_info("scan_nb")
+        return self.get_info("scan_nb", cache=True)
 
     @property
     def _expected_subscans(self):
@@ -598,7 +598,9 @@ class NexusScanWriterBase(base_subscriber.BaseSubscriber):
             self._h5missing("subscan " + repr(subscan.name))
             return None
         try:
-            name = scan_utils.scan_name(self.node, i + 1)
+            # name = scan_utils.scan_name(self.node, i + 1)
+            # More efficient (caching)
+            name = f"{self.scan_number}.{i + 1}"
         except AttributeError as e:
             self._h5missing(str(e))
             return None

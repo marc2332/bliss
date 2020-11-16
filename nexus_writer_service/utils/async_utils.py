@@ -9,38 +9,60 @@
 # Copyright (c) 2015-2020 ESRF
 # Distributed under the GNU LGPLv3. See LICENSE for more info.
 
+import os
+import logging
 import gevent
 from gevent import monkey
 from gevent import signal
+from gevent import hub
 import gevent.lock
 from contextlib import contextmanager, ExitStack
 from . import logging_utils
 
 
-def register_signal_handler(signalnum, handler):
+_logger = logging.getLogger(__name__)
+
+
+def register_signal_handler(signalnum, handler, *args, **kw):
     """
     :param int signalnum:
     :param callable handler:
+    :param *args: for `handler`
+    :param **kw: for `handler`
     """
-    oldhandler = signal.getsignal(signalnum)
 
-    def newhandler(*args):
+    def wrapper():
         try:
-            handler()
+            handler(*args, **kw)
         finally:
-            signal.signal(signalnum, oldhandler)
+            watcher.cancel()
+            os.kill(os.getpid(), signalnum)
 
-    signal.signal(signalnum, newhandler)
+    watcher = hub.signal(signalnum, wrapper)
+    return watcher
 
 
-def kill_on_exit(greenlet):
+@contextmanager
+def kill_on_exit(timeout=3):
+    """Within this context SIGQUIT, SIGINT and SIGTERM trigger
+    killing the current greenlet. This can be used if explicit
+    finalization is required in a greenlet.
+
+    :param num timeout: for `Greenlet.kill`
     """
-    Make sure greenlet is killed in SIGQUIT and SIGINT
-
-    :param Greenlet greenlet:
-    """
-    for signalnum in signal.SIGQUIT, signal.SIGINT:
-        register_signal_handler(signalnum, greenlet.kill)
+    handler = gevent.getcurrent().kill
+    watchers = [
+        register_signal_handler(signalnum, handler, timeout=timeout)
+        for signalnum in (signal.SIGQUIT, signal.SIGINT, signal.SIGTERM)
+    ]
+    try:
+        yield
+    finally:
+        for w in watchers:
+            try:
+                w.cancel()
+            except Exception as e:
+                _logger.error(f"Exception during kill_on_exit cleanup: {e}")
 
 
 def log_gevent():
@@ -77,8 +99,9 @@ def start_heartbeat(logger, interval=1):
     :param num interval:
     """
 
-    class hartbeat(gevent.Greenlet):
+    class heartbeat(gevent.Greenlet):
         def _run(self):
+            kill_on_exit()
             try:
                 from itertools import count
 
@@ -95,10 +118,7 @@ def start_heartbeat(logger, interval=1):
             except gevent.GreenletExit:
                 logger.info("heartbeat exits")
 
-    greenlet = hartbeat()
-    kill_on_exit(greenlet)
-    greenlet.start()
-    return greenlet
+    return heartbeat.spawn()
 
 
 @contextmanager

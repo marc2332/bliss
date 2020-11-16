@@ -130,4 +130,6 @@ def tango_set_log_level(level, device=None):
     level = tango_log_level[level]
     if device:
         device.get_logger().set_level(level)
-    Logging.get_core_logger().set_level(level)
+    core_logger = Logging.get_core_logger()
+    if core_logger is not None:
+        core_logger.set_level(level)

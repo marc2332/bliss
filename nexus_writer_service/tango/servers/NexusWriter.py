@@ -42,14 +42,6 @@ from nexus_writer_service.subscribers.scan_writer_base import NexusScanWriterBas
 from nexus_writer_service.utils import log_levels
 
 
-# Not sure why this keep showing output in info level
-def DebugIt():
-    def wrap(func):
-        return func
-
-    return wrap
-
-
 def session_tango_state(state):
     SessionWriterStates = session_writer.NexusSessionWriter.STATES
     if state == SessionWriterStates.INIT:

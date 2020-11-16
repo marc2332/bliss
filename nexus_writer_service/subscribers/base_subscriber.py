@@ -25,7 +25,7 @@ from bliss.data.node import datanode_factory
 from bliss.config.streaming import DataStreamReaderStopHandler
 from ..utils.logging_utils import CustomLogger
 from ..io import io_utils
-from ..utils.async_utils import greenlet_ident
+from ..utils.async_utils import greenlet_ident, kill_on_exit
 from ..utils import profiling
 
 
@@ -278,12 +278,13 @@ class BaseSubscriber(object):
         """
         Greenlet main function
         """
-        try:
-            self._active_event.set()
-            self.__greenlet_main()
-        finally:
-            self._active_event.clear()
-            self._greenlet = None
+        with kill_on_exit():
+            try:
+                self._active_event.set()
+                self.__greenlet_main()
+            finally:
+                self._active_event.clear()
+                self._greenlet = None
         self.logger.info("Greenlet exits")
 
     def _create_stop_handler(self):
@@ -334,14 +335,19 @@ class BaseSubscriber(object):
         except gevent.GreenletExit:
             self._set_state(self.STATES.FAULT, "GreenletExit")
             self.logger.warning("Stop listening to Redis events (greenlet killed)")
+            raise
         except KeyboardInterrupt:
             self._set_state(self.STATES.FAULT, "KeyboardInterrupt")
             self.logger.warning("Stop listening to Redis events (KeyboardInterrupt)")
+            raise
         except BaseException as e:
             self._set_state(self.STATES.FAULT, e)
             self.logger.error(
-                "Stop listening due to exception:\n{}".format(traceback.format_exc())
+                "Stop listening to Redis events due to exception:\n{}".format(
+                    traceback.format_exc()
+                )
             )
+            raise
         finally:
             self._set_state(self.STATES.OFF, "Finished succesfully")
             if self.end_time is None:

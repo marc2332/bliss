@@ -258,6 +258,7 @@ class Writer(FileWriter):
                 if method():
                     return
             except ConnectionFailed as e:
+                cause = e
                 err_msg = deverror_parse(e.args[0], msg=timeout_msg)
                 if e.args[0].reason in ["API_DeviceNotExported", "DB_DeviceNotDefined"]:
                     raise_on_timeout = self._fault = True
@@ -274,22 +275,19 @@ class Writer(FileWriter):
                 raise_on_timeout = self._fault = True
                 raise
             gevent.sleep(0.1)
+        err_msg_show = err_msg.format(
+            time=datetime.datetime.now().strftime("%H:%M:%S.%f")
+        )
         if raise_on_timeout:
-            err_msg = err_msg.format(
-                time=datetime.datetime.now().strftime("%H:%M:%S.%f")
-            )
-            if cause is None:
-                raise RuntimeError(err_msg)
-            else:
-                raise RuntimeError(err_msg) from cause
+            raise RuntimeError(err_msg_show) from cause
         else:
             # Do not repeat the same warning
             previous_msgs = self._warn_msg_dict.setdefault(method.__qualname__, set())
             if err_msg in previous_msgs:
-                logger.debug(err_msg)
+                logger.debug(err_msg_show)
             else:
                 previous_msgs.add(err_msg)
-                logger.warning(err_msg)
+                logger.warning(err_msg_show)
 
     def is_writer_on(self):
         """

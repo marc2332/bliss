@@ -26,11 +26,9 @@ Minimalistic configuration example:
 import sys
 import enum
 import logging
-import functools
 
 import numpy
 import gevent
-from gevent import lock
 from gevent import select
 from louie import dispatcher
 
@@ -797,9 +795,9 @@ class CT2(object):
         counter = config.setdefault("counter", channel)
         polarity = config.setdefault("polarity inverted", False)
         if channel is not None and channel not in self._card.INPUT_CHANNELS:
-            raise ValueError("invalid input config channel %r", channel)
+            raise ValueError(f"invalid input config channel {channel}")
         if polarity not in (True, False):
-            raise ValueError("invalid input config polarity inververted %r", polarity)
+            raise ValueError(f"invalid input config polarity inververted {polarity}")
         self.__input_config = config
 
     @property

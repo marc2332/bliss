@@ -769,10 +769,9 @@ class CurvePlotPropertyWidget(qt.QWidget):
         selectionModel = self.__tree.selectionModel()
         if select is None:
             # Break reentrant signals
-            indices = selectionModel.selectedRows()
-            index = indices[0] if len(indices) > 0 else qt.QModelIndex()
-            if index.isValid():
-                selectionModel.select(qt.QModelIndex(), qt.QItemSelectionModel.Clear)
+            selectionModel.setCurrentIndex(
+                qt.QModelIndex(), qt.QItemSelectionModel.Clear
+            )
             return
         if select is self.selectedPlotItem():
             # Break reentrant signals
@@ -784,7 +783,7 @@ class CurvePlotPropertyWidget(qt.QWidget):
         else:
             index = item.index()
         selectionModel = self.__tree.selectionModel()
-        selectionModel.select(index, flags)
+        selectionModel.setCurrentIndex(index, flags)
 
     def __selectionChanged(self, current: qt.QModelIndex, previous: qt.QModelIndex):
         model = self.__tree.model()

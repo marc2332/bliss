@@ -9,6 +9,7 @@ This module contains extra ROIs inherited from silx
 """
 import enum
 import logging
+import numpy
 
 import silx.gui.plot.items.roi as silx_rois
 from silx.gui.plot import items
@@ -22,6 +23,23 @@ class LimaRectRoi(silx_rois.RectangleROI):
 
     It is used to count sum, avg, min, max
     """
+
+    def __init__(self, parent=None):
+        silx_rois.RectangleROI.__init__(self, parent=parent)
+        self.sigEditingFinished.connect(self.__normalizeGeometry)
+
+    def setFirstShapePoints(self, points):
+        # Normalize the ROI position to the pixel
+        points = points.astype(int)
+        silx_rois.RectangleROI.setFirstShapePoints(self, points)
+
+    def __normalizeGeometry(self):
+        # Normalize the ROI position to the pixel
+        pixelcenter = numpy.array([0.5, 0.5])
+        pos1 = self.getOrigin()
+        pos2 = (pos1 + self.getSize() + pixelcenter).astype(int)
+        pos1 = (pos1 + pixelcenter).astype(int)
+        self.setGeometry(origin=pos1, size=pos2 - pos1)
 
 
 class LimaArcRoi(silx_rois.ArcROI):

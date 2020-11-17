@@ -131,6 +131,36 @@ def all_equal(iterable):
     return next(g, True) and not next(g, False)
 
 
+def split_keys_to_tree(dico, separator):
+    """ Takes a dict, iterate over keys and split the key around 'separator' into tags.
+        Then creates a nested dict (like a tree) where each tag is a node.
+
+        example: with dico = {'A_B_C':1, 'A_B_D':2} and separator = '_'
+            returns {'A':
+                        {'B': 
+                            {'C':1, 'D':2}, 
+                        },
+                    }
+    """
+
+    tree = {}
+
+    for k, v in dico.items():
+        tags = k.split(separator)
+        if not tags:
+            raise ValueError(f"cannot handle key {k}")
+
+        depth = len(tags) - 1
+        tmp = tree
+        for i, tag in enumerate(tags):
+            if i != depth:
+                tmp = tmp.setdefault(tag, {})
+            else:
+                tmp[tag] = v
+
+    return tree
+
+
 """
 functions to add custom attributes and commands to an object.
 """

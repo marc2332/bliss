@@ -176,7 +176,7 @@ from bliss.common.soft_axis import SoftAxis
 from bliss.common.axis import Axis, AxisState
 
 from simple_pid import PID
-from bliss.common.plot import plot
+from bliss.common.plot import get_flint
 
 import functools
 
@@ -453,7 +453,8 @@ class Output(SamplingCounterController):
         lines.append(
             f"current value: {self.read():.3f} {self.config.get('unit', 'N/A')}"
         )
-        lines.append(f"ramp rate: {self.ramprate}")
+        lines.append(f"\n=== Output.set_value ramping options ===")
+        lines.append(f"ramprate: {self.ramprate}")
         lines.append(f"ramping: {self.is_ramping()}")
         lines.append(f"limits: {self._limits}")
         return "\n".join(lines)
@@ -633,7 +634,8 @@ class ExternalOutput(Output):
         lines.append(
             f"current value: {self.read():.3f} {self.config.get('unit', 'N/A')}"
         )
-        lines.append(f"ramp rate: {self.ramprate}")
+        lines.append(f"\n=== Output.set_value ramping options ===")
+        lines.append(f"ramprate: {self.ramprate}")
         lines.append(f"ramping: {self.is_ramping()}")
         lines.append(f"limits: {self._limits}")
         return "\n".join(lines)
@@ -716,6 +718,7 @@ class Loop(SamplingCounterController):
 
         self._ramp = SoftRamp(self.input.read, self._set_setpoint)
         self._use_soft_ramp = None
+        self._force_ramping_from_current_pv = config.get("ramp_from_pv", False)
 
         # useful attribute for a temperature controller writer
         self._attr_dict = {}
@@ -923,9 +926,9 @@ class Loop(SamplingCounterController):
         self._history_counter += 1
 
         self.history_data["time"].append(xval)
+        self.history_data["setpoint"].append(self._get_working_setpoint())
         self.history_data["input"].append(self.input.read())
         self.history_data["output"].append(self.output.read())
-        self.history_data["setpoint"].append(self.setpoint)
 
         for data in self.history_data.values():
             dx = len(data) - self._history_size
@@ -1129,13 +1132,16 @@ class Loop(SamplingCounterController):
         lines.append(
             f"output: {self.output.name} @ {self.output.read():.3f} {self.output.config.get('unit', 'N/A')}"
         )
+
+        lines.append(f"\n=== Setpoint ===")
         lines.append(
             f"setpoint: {self.setpoint} {self.input.config.get('unit', 'N/A')}"
         )
         lines.append(
-            f"ramp rate: {self.ramprate} {self.input.config.get('unit', 'N/A')}/s"
+            f"ramprate: {self.ramprate} {self.input.config.get('unit', 'N/A')}/s"
         )
         lines.append(f"ramping: {self.is_ramping()}")
+        lines.append(f"\n=== PID ===")
         lines.append(f"kp: {self.kp}")
         lines.append(f"ki: {self.ki}")
         lines.append(f"kd: {self.kd}")
@@ -1345,8 +1351,10 @@ class Loop(SamplingCounterController):
             self._use_soft_ramp = False
 
             current_value = self.input.read()
-            if not self._x_is_in_deadband(current_value):
-                self._controller.set_setpoint(self, current_value)
+
+            if self._force_ramping_from_current_pv:
+                if not self._x_is_in_deadband(current_value):
+                    self._set_setpoint(current_value)
 
             self._controller.start_ramp(self, value)
 
@@ -1877,6 +1885,7 @@ class RegPlot:
         self.task = None
         self._stop_event = gevent.event.Event()
         self.sleep_time = 0.1
+        self.fig = None
 
     def __del__(self):
         self.stop()
@@ -1884,7 +1893,13 @@ class RegPlot:
     def create_plot(self):
 
         # Declare a CurvePlot (see bliss.flint.client.plots)
-        self.fig = plot(data=None, name=self.loop.name, closeable=True, selected=True)
+        self.fig = get_flint().get_plot(
+            plot_class="Plot1D",
+            name=self.loop.name,
+            unique_name=f"regul_plot_{self.loop.name}",
+            closeable=True,
+            selected=True,
+        )
 
         self.fig.submit("setGraphXLabel", "Time (s)")
         self.fig.submit(
@@ -1907,10 +1922,10 @@ class RegPlot:
         )
 
     def is_plot_active(self):
-        try:
-            return self.fig._flint.get_plot_name(self.fig.plot_id)
-        except:
+        if self.fig is None:
             return False
+        else:
+            return self.fig.is_open()
 
     def start(self):
         if not self.is_plot_active():
@@ -1928,13 +1943,13 @@ class RegPlot:
                 self.task.join()
 
     def run(self):
-
+        # error_cnt = 0
         while not self._stop_event.is_set() and self.is_plot_active():
 
-            try:
-                # update data history
-                self.loop._store_history_data()
+            # update data history
+            self.loop._store_history_data()
 
+            try:
                 self.fig.submit("setAutoReplot", False)
 
                 self.fig.add_data(self.loop.history_data["time"], field="time")
@@ -1969,7 +1984,10 @@ class RegPlot:
 
                 self.fig.submit("setAutoReplot", True)
 
-            except:
+            except Exception as e:
+                # if error_cnt == 0:
+                #     print(e.args)
+                # error_cnt += 1
                 pass
 
             gevent.sleep(self.sleep_time)

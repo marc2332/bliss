@@ -56,6 +56,7 @@ from bliss.common.utils import (
     modify_annotations,
     custom_error_msg,
     shorten_signature,
+    TypeguardTypeError,
 )
 from bliss.common.measurementgroup import MeasurementGroup
 from bliss.shell.dialog.helpers import find_dialog, dialog as dialog_dec_cls
@@ -525,7 +526,7 @@ def wa(**kwargs):
 
 
 @custom_error_msg(
-    TypeError,
+    TypeguardTypeError,
     "intended usage: wm(axis1, axis2, ... ) Hint:",
     new_exception_type=RuntimeError,
     display_original_msg=True,
@@ -652,7 +653,7 @@ def wm(*axes: _scannable_or_name, **kwargs):
 
 
 @custom_error_msg(
-    TypeError,
+    TypeguardTypeError,
     "intended usage: umv(motor1, target_position_1, motor2, target_position_2, ... )",
     new_exception_type=RuntimeError,
     display_original_msg=False,
@@ -670,7 +671,7 @@ def umv(*args):
 
 
 @custom_error_msg(
-    TypeError,
+    TypeguardTypeError,
     "intended usage: umvr(motor1, relative_displacement_1, motor2, relative_displacement_2, ... )",
     new_exception_type=RuntimeError,
     display_original_msg=False,
@@ -688,7 +689,7 @@ def umvr(*args):
 
 
 @custom_error_msg(
-    TypeError,
+    TypeguardTypeError,
     "intended usage: umvd(motor1, target_position_1, motor2, target_position_2, ... )",
     new_exception_type=RuntimeError,
     display_original_msg=False,
@@ -706,7 +707,7 @@ def umvd(*args):
 
 
 @custom_error_msg(
-    TypeError,
+    TypeguardTypeError,
     "intended usage: umvdr(motor1, relative_displacement_1, motor2, relative_displacement_2, ... )",
     new_exception_type=RuntimeError,
     display_original_msg=False,

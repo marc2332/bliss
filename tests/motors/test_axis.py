@@ -1141,3 +1141,23 @@ def test_change_velocity_limits(robz):
 
     with pytest.raises(ValueError, match="is below"):
         robz.velocity = old_min_velocity - 6
+        
+def test_coupled_calc(beacon):
+    roby = beacon.get("roby")
+    m0 = beacon.get("m0")
+    cc = beacon.get("coupled_calc1")
+
+    cc.move(1)
+
+    assert roby.position == 1
+    assert m0.position == 1
+
+    m0.move(2)
+
+    assert m0.position == 2
+    assert cc.position == 1
+
+    cc.move(1)
+
+    assert roby.position == 1
+    assert m0.position == 1

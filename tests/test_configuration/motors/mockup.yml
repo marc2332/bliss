@@ -348,3 +348,14 @@ hooks:
     tags: real real_mot
   - name: calc_mot5
     tags: calc_mot
+    
+- class: CoupledMotionCalc
+  module: mockup
+  axes:
+  - name: $roby
+    tags: real mot1
+  - name: $m0
+    tags: real mot2
+  
+  - name: coupled_calc1
+    tags: calc_mot

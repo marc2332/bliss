@@ -216,8 +216,9 @@ def execute_in_subprocess(command):
     return output.decode(), err.decode(), returncode
 
 
-def test_umv_typecheck(session):
-    m0 = session.env_dict["m0"]
+def test_umv_typecheck(default_session):
+    m0 = default_session.config.get("m0")
+    calc_mot5 = default_session.config.get("calc_mot5")
 
     umv(m0, 1.2)
     with pytest.raises(RuntimeError):
@@ -226,6 +227,8 @@ def test_umv_typecheck(session):
         umv(1, m0)
     with pytest.raises(RuntimeError):
         umv()
+    with pytest.raises(TypeError):
+        umv(calc_mot5, 1)
 
 
 def test_umv_signature(session):

@@ -316,3 +316,10 @@ hooks:
   module: motors.mockup
   post_move_error: true
 
+- class: FaultyCalc
+  module: mockup
+  axes:
+  - name: $roby
+    tags: real real_mot
+  - name: calc_mot5
+    tags: calc_mot

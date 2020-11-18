@@ -246,6 +246,7 @@ class PM600(Controller):
         reply = self.io_command("AP", axis.channel, position)
         if reply != "OK":
             log_error(self, "PM600 Error: Unexpected response to set_position" + reply)
+        return self.read_position(axis)
 
     def state(self, axis):
         """
@@ -314,6 +315,13 @@ class PM600(Controller):
         return answer
 
     def io_command(self, command, channel, value=None):
+        ans = self._io_command(command, channel, value)
+        if ans is None:
+            log_debug(self, f"PM600 Error: retry {channel}{command}")
+            ans = self._io_command(command, channel, value)
+        return ans
+
+    def _io_command(self, command, channel, value=None):
         if value:
             cmd = channel + command + str(value) + "\r"
         else:
@@ -339,7 +347,8 @@ class PM600(Controller):
         idx = answer.find(":")
         replied_channel = int(answer[:idx])
         if int(channel) != replied_channel:
-            log_error(self, "PM600 Error: Wrong channel replied [%s]", replied_channel)
+            log_debug(self, "PM600 Error: Wrong channel replied [%s]", replied_channel)
+            return
         return answer[idx + 1 :]
 
     def raw_write_read(self, command):
@@ -451,7 +460,14 @@ class PM600(Controller):
 
             if tstep * 1000 > 65635:
                 raise RuntimeError(
-                    "Too long time duration per profile step {0} (maxi: 65)".format(
+                    "Too long time duration per profile step {0} (maxi: 65 seconds)".format(
+                        tstep
+                    )
+                )
+
+            if tstep * 1000 < 100:
+                raise RuntimeError(
+                    "Too short time duration per profile step {0} (min: 0.1 seconds)".format(
                         tstep
                     )
                 )
@@ -485,8 +501,8 @@ class PM600(Controller):
 
             prog.append("DS{0}".format(seq_num))
 
-            # 1PTxx time to complete each element in a profile definition (unit is ms)
-            prog.append("PT{0}".format(int(tstep) * 1000))
+            # 1PTxx time to complete each interval in a profile definition (unit is ms)
+            prog.append("PT{0}".format(int(tstep * 1000)))
 
             for cmd in pre_xp:
                 prog.append("{0}".format(cmd))

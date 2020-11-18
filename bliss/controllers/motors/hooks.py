@@ -92,6 +92,9 @@ class WagoHook(MotionHook):
             )
         super(WagoHook, self)._add_axis(axis)
 
+    def __info__(self):
+        return f"WagoHook {self.wago.name} channel {self.channel} STATUS: {self.wago.controller.get(self.channel)}"
+
     def set(self, phase):
         value = self.config[phase]["value"]
         wait = self.config[phase].get("wait", 0)

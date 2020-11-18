@@ -54,7 +54,7 @@ def print_yappi_snapshot(stats, sortby=None, filename=None, restrictions=tuple()
 
 
 @contextmanager
-def time_profile(*restrictions, sortby=None, filename=None):
+def _time_profile(*restrictions, sortby=None, filename=None):
     """
     :param restrictions: integer (number of lines)
                          float (percentage of lines)
@@ -63,7 +63,7 @@ def time_profile(*restrictions, sortby=None, filename=None):
     :param str filename: can be inspected with qcachegrind
     """
     yappi.clear_stats()
-    yappi.start(builtins=True)
+    yappi.start(builtins=False)
     try:
         yield
     finally:
@@ -73,6 +73,57 @@ def time_profile(*restrictions, sortby=None, filename=None):
         print_yappi_snapshot(
             stats, sortby=sortby, filename=filename, restrictions=restrictions
         )
+
+
+class ProfilerMeta(type):
+    """Singleton pattern but with updating profiler arguments
+    """
+
+    _instance = None
+
+    def __call__(cls, *restrictions, sortby=None, filename=None):
+        if cls._instance is None:
+            cls._instance = super(ProfilerMeta, cls).__call__(
+                *restrictions, sortby=sortby, filename=filename
+            )
+        else:
+            cls._instance._restrictions = restrictions
+            cls._instance._sortby = sortby
+            cls._instance._filename = filename
+        return cls._instance
+
+
+class time_profile(metaclass=ProfilerMeta):
+    """Singleton profile manager for time profiling
+    """
+
+    def __init__(self, *restrictions, sortby=None, filename=None):
+        """
+        :param restrictions: integer (number of lines)
+                             float (percentage of lines)
+                             str (regular expression)
+        :param str sortby: tsub (excluding subcalls), ttot or tavg (ttot/ncalls)
+        :param str filename: can be inspected with qcachegrind
+        """
+        self._restrictions = restrictions
+        self._sortby = sortby
+        self._filename = filename
+        self._ctr = 0
+        self._ctx = None
+
+    def __enter__(self):
+        self._ctr += 1
+        if self._ctx is None:
+            self._ctx = _time_profile(
+                *self._restrictions, sortby=self._sortby, filename=self._filename
+            )
+            self._ctx.__enter__()
+
+    def __exit__(self, *args):
+        self._ctr -= 1
+        if not self._ctr:
+            self._ctx.__exit__(*args)
+            self._ctx = None
 
 
 @contextmanager

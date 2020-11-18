@@ -13,7 +13,6 @@
 Basic Redis node subscriber
 """
 
-import os
 import gevent
 import datetime
 import enum
@@ -24,7 +23,6 @@ from contextlib import contextmanager
 from bliss.data.node import datanode_factory
 from bliss.config.streaming import DataStreamReaderStopHandler
 from ..utils.logging_utils import CustomLogger
-from ..io import io_utils
 from ..utils.async_utils import greenlet_ident, kill_on_exit
 from ..utils import profiling
 
@@ -317,16 +315,13 @@ class BaseSubscriber(object):
         """
         try:
             if self.resource_profiling:
-                dumpname = os.path.join(
-                    io_utils.temproot(), "pyprof_pid{}.cprof".format(os.getpid())
-                )
                 with profiling.profile(
-                    logger=self.logger,
+                    logger=logger,
                     timelimit=100,
                     memlimit=30,
                     sortby=["cumtime", "tottime"],
                     color=False,
-                    filename=dumpname,
+                    filename=True,
                     units="MB",
                 ):
                     self._listen_event_loop()

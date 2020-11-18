@@ -14,11 +14,17 @@ else:
     yappi.set_context_backend("greenlet")
     yappi.set_clock_type("wall")
 
+import os
 from io import StringIO
 import logging
-from contextlib import contextmanager
+from contextlib import contextmanager, ExitStack
 from .logging_utils import log
 from ..io import io_utils
+
+
+DEFAULT_FILENAME = os.path.join(
+    io_utils.temproot(), "pyprof_pid{}.cprof".format(os.getpid())
+)
 
 
 class bcolors:
@@ -169,7 +175,7 @@ def print_yappi_snapshot(snapshot, logger=None, sortby=None):
 
 
 @contextmanager
-def print_malloc_context(logger=None, **kwargs):
+def memory_context(logger=None, **kwargs):
     """
     :param logger:
     :param **kwargs: see print_malloc_snapshot
@@ -186,7 +192,7 @@ def print_malloc_context(logger=None, **kwargs):
 
 
 @contextmanager
-def print_time_context_cprofile(
+def time_context_cprofile(
     logger=None, timelimit=None, sortby=None, color=False, filename=None
 ):
     """
@@ -194,7 +200,7 @@ def print_time_context_cprofile(
     :param int or float timelimit: number of lines or fraction (float between 0 and 1)
     :param str sortby: sort time profile
     :param bool color:
-    :param str filename:
+    :param str or bool filename:
     """
     pr = cProfile.Profile()
     pr.enable()
@@ -205,6 +211,8 @@ def print_time_context_cprofile(
         snapshot = pstats.Stats(pr)
         print_pstats_snapshot(snapshot, logger=logger, sortby=sortby, color=color)
         if filename:
+            if not isinstance(filename, str):
+                filename = DEFAULT_FILENAME
             io_utils.rotatefiles(filename)
             # for pyprof2calltree
             snapshot.dump_stats(filename)
@@ -212,7 +220,7 @@ def print_time_context_cprofile(
 
 
 @contextmanager
-def print_time_context_yappi(
+def time_context_yappi(
     logger=None, timelimit=None, sortby=None, color=False, filename=None
 ):
     """
@@ -220,10 +228,10 @@ def print_time_context_yappi(
     :param int or float timelimit: number of lines or fraction (float between 0 and 1)
     :param str sortby: sort time profile
     :param bool color:
-    :param str filename:
+    :param str or bool filename:
     """
     yappi.clear_stats()
-    yappi.start(builtins=True)
+    yappi.start(builtins=False)
     try:
         yield
     finally:
@@ -234,6 +242,8 @@ def print_time_context_yappi(
         snapshot = yappi.convert2pstats(stats)
         print_pstats_snapshot(snapshot, logger=logger, sortby=sortby, color=color)
         if filename:
+            if not isinstance(filename, str):
+                filename = DEFAULT_FILENAME
             io_utils.rotatefiles(filename)
             # callgrind: for qcachegrind
             stats.save(filename, type="callgrind")
@@ -243,13 +253,13 @@ def print_time_context_yappi(
 
 
 if yappi is None:
-    print_time_context = print_time_context_cprofile
+    time_context = time_context_cprofile
 else:
-    print_time_context = print_time_context_yappi
+    time_context = time_context_yappi
 
 
 @contextmanager
-def profile(
+def profile_context(
     memory=True,
     time=True,
     memlimit=10,
@@ -267,31 +277,57 @@ def profile(
     :param int or float timelimit: number of lines or fraction (float between 0 and 1)
     :param str sortby: sort time profile
     :param bool color:
-    :param str filename: dump for visual tools
+    :param str or bool filename: dump for visual tools
     :param str units: memory units
     :param logger:
     """
-    if not memory and not time:
-        return
-    elif memory and time:
-        with print_time_context(
-            timelimit=timelimit,
-            sortby=sortby,
-            color=color,
-            filename=filename,
-            logger=logger,
-        ):
-            with print_malloc_context(limit=memlimit, units=units, logger=logger):
-                yield
-    elif memory:
-        with print_malloc_context(limit=memlimit, units=units, logger=logger):
-            yield
-    else:
-        with print_time_context(
-            timelimit=timelimit,
-            sortby=sortby,
-            color=color,
-            filename=filename,
-            logger=logger,
-        ):
-            yield
+    with ExitStack() as stack:
+        if time:
+            ctx = time_context(
+                timelimit=timelimit,
+                sortby=sortby,
+                color=color,
+                filename=filename,
+                logger=logger,
+            )
+            stack.enter_context(ctx)
+        if memory:
+            ctx = memory_context(limit=memlimit, units=units, logger=logger)
+            stack.enter_context(ctx)
+        yield
+
+
+class ProfilerMeta(type):
+    """Singleton pattern but with updating profiler arguments
+    """
+
+    _instance = None
+
+    def __call__(cls, **kw):
+        if cls._instance is None:
+            cls._instance = super(ProfilerMeta, cls).__call__(**kw)
+        else:
+            cls._instance._kw = kw
+        return cls._instance
+
+
+class profile(metaclass=ProfilerMeta):
+    """Singleton profile manager for time and memory profiling
+    """
+
+    def __init__(self, **kw):
+        self._kw = kw
+        self._ctr = 0
+        self._ctx = None
+
+    def __enter__(self):
+        self._ctr += 1
+        if self._ctx is None:
+            self._ctx = profile_context(**self._kw)
+            self._ctx.__enter__()
+
+    def __exit__(self, *args):
+        self._ctr -= 1
+        if not self._ctr:
+            self._ctx.__exit__(*args)
+            self._ctx = None

@@ -130,7 +130,10 @@ def initialize(session_name=None, session_env=None) -> session.Session:
         session = config.get(session_name)
         print("%s: Loading config..." % session.name)
 
-    exec("from bliss.shell.standard import *", session_env)
+    from bliss.shell import standard
+
+    cmds = {k: standard.__dict__[k] for k in standard.__all__}
+    session_env.update(cmds)
 
     session_env["history"] = lambda: print("Please press F3-key to view history!")
 

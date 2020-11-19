@@ -603,7 +603,6 @@ def __initialize(args, db=None):
         device_map=device_map,
         manager_device_name=bliss_dev_name,
         object_names=object_names,
-        shell_info=shell_info,
     )
 
     for name in os.listdir(this_dir):

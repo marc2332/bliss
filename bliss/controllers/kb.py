@@ -8,6 +8,7 @@
 """
 class KbController: KB controller
 class KbFocus: KB focusing procedures
+class KbMirrorCalcMotor: Calculational Motor
 """
 
 import tabulate
@@ -16,6 +17,7 @@ import numpy as np
 
 from bliss.controllers.motor import CalcController
 from bliss.setup_globals import *
+from bliss.common.logtools import user_print
 from bliss.common.scans import dscan
 from bliss.config import settings
 from bliss.common import plot
@@ -27,7 +29,7 @@ from bliss.common.utils import BOLD, YELLOW
   package: kb
   class: KbController
   name: kb
-  saving: True               <- Save or data during slits scans
+  saving: True               <- Save or not data during slits scans
   focus:
     - device: $hfocus
     - device: $vfocus
@@ -54,6 +56,7 @@ from bliss.common.utils import BOLD, YELLOW
   bender_increment: 20
   counter: $bpm.bpm.y
 """
+
 
 def kb_plot(curve, y_data, x_data, x_cursor_pos=None, y_label="y", x_label="x"):
     """
@@ -249,7 +252,7 @@ class KbFocus:
         Display scans statistics:
           min/max/pic_to_valley/average/std_deviation on raw and fitted data.
         """
-        print(BOLD("\n    Scan statistics"))
+        user_print(BOLD("\n    Scan statistics"))
         raw_min = np.min(data_raw)
         raw_max = np.max(data_raw)
         raw_ptv = raw_max - raw_min
@@ -269,23 +272,23 @@ class KbFocus:
         avg_str = ["    ", "AVG", f"{raw_avg:.3f}", f"{fit_avg:.3f}"]
         lines = [min_str, max_str, ptv_str, std_str, avg_str]
         mystr = tabulate.tabulate(lines, headers=title_str, tablefmt="plain")
-        print(mystr)
+        user_print(mystr)
 
     def _intm_quad_matrix(self):
         """
         Calculate Interaction Matrix - Quadratic Method
         """
-        self.k = dict()
-        self.k["a1"] = (self._coeff[1][0] - self._coeff[0][0]) / self._bender_inc
-        self.k["a2"] = (self._coeff[2][0] - self._coeff[1][0]) / self._bender_inc
-        self.k["b1"] = (self._coeff[1][1] - self._coeff[0][1]) / self._bender_inc
-        self.k["b2"] = (self._coeff[2][1] - self._coeff[1][1]) / self._bender_inc
+        self._k = dict()
+        self._k["a1"] = (self._coeff[1][0] - self._coeff[0][0]) / self._bender_inc
+        self._k["a2"] = (self._coeff[2][0] - self._coeff[1][0]) / self._bender_inc
+        self._k["b1"] = (self._coeff[1][1] - self._coeff[0][1]) / self._bender_inc
+        self._k["b2"] = (self._coeff[2][1] - self._coeff[1][1]) / self._bender_inc
 
-        self.det = self.k["a1"] * self.k["b2"] - self.k["b1"] * self.k["a2"]
+        self._det = self._k["a1"] * self._k["b2"] - self._k["b1"] * self._k["a2"]
 
-        if self.det == 0:
+        if self._det == 0:
             raise RuntimeError("Determinant == 0")
-        if self.k["a1"] * self.k["a2"] * self.k["b1"] * self.k["b2"] == 0:
+        if self._k["a1"] * self._k["a2"] * self._k["b1"] * self._k["b2"] == 0:
             raise RuntimeError("error: there is a 0 element in K")
 
     def _intm_quad_correction(self):
@@ -293,11 +296,11 @@ class KbFocus:
         Calculate correction - Interaction Matrix - Quadratic Method
         """
         corr1 = (
-            -self._coeff[-1][0] * self.k["b2"] + self._coeff[-1][1] * self.k["a2"]
-        ) / self.det
+            -self._coeff[-1][0] * self._k["b2"] + self._coeff[-1][1] * self._k["a2"]
+        ) / self._det
         corr2 = (
-            -self._coeff[-1][1] * self.k["a1"] + self._coeff[-1][0] * self.k["b1"]
-        ) / self.det
+            -self._coeff[-1][1] * self._k["a1"] + self._coeff[-1][0] * self._k["b1"]
+        ) / self._det
         return (corr1, corr2)
 
     def _intm_linreg_matrix(self):
@@ -339,7 +342,7 @@ class KbFocus:
         - The iteration is using dscan. At each iteration, a movement to
           the start position is done prior to the scan. This start
           position will be the one given in the YML file.
-        - User may change the bender increment using the 
+        - User may change the bender increment using the
           "bender_increment" parameter. If not set, the value given in
           the YML file will be used. If not set in the YML file, 5 is
           the default value.
@@ -348,7 +351,7 @@ class KbFocus:
         self._motd = []
         self._rawd = []
         self._fitd = []
-        
+
         if bender_increment is not None:
             self._bender_inc = bender_increment
         else:
@@ -359,12 +362,12 @@ class KbFocus:
         self._yplot_data = []
         self._yplot_label = []
 
-        print(YELLOW("\nMoving Slit Offset Motor to intial position"))
+        user_print(YELLOW("\nMoving Slit Offset Motor to intial position"))
         umv(self._offs, self._offs_start)
 
-        print(YELLOW("\nGet intial beam profile"))
+        user_print(YELLOW("\nGet intial beam profile"))
         # Scan 1
-        (motd, rawd, fitd, coeff) = self.scan(start, stop, nbp, intt)
+        (motd, rawd, fitd, coeff) = self.scan(dstart, dstop, nbp, intt)
         self._xplot_data = motd
         self._xplot_label = f"{self._offs.name}"
         self._yplot_data.append(rawd)
@@ -379,12 +382,12 @@ class KbFocus:
         self._rawd.append(rawd)
         self._fitd.append(fitd)
 
-        print(YELLOW("\nMove Upstream Bender Motor and get beam profile"))
+        user_print(YELLOW("\nMove Upstream Bender Motor and get beam profile"))
         # Move upstream bender
         umvr(self._bender_up, self._bender_inc)
 
         # Scan 2
-        (motd, rawd, fitd, coeff) = self.scan(start, stop, nbp, intt)
+        (motd, rawd, fitd, coeff) = self.scan(dstart, dstop, nbp, intt)
         self._yplot_data.append(rawd)
         self._yplot_label.append(f"{self._cnt.name}_raw_2")
         self._yplot_data.append(fitd)
@@ -397,12 +400,12 @@ class KbFocus:
         self._rawd.append(rawd)
         self._fitd.append(fitd)
 
-        print(YELLOW("\nMove Downstream Bender Motor and get beam profile"))
+        user_print(YELLOW("\nMove Downstream Bender Motor and get beam profile"))
         # Move Downstream bender
         umvr(self._bender_down, self._bender_inc)
 
         # Scan 3
-        (motd, rawd, fitd, coeff) = self.scan(start, stop, nbp, intt)
+        (motd, rawd, fitd, coeff) = self.scan(dstart, dstop, nbp, intt)
         self._yplot_data.append(rawd)
         self._yplot_label.append(f"{self._cnt.name}_raw_3")
         self._yplot_data.append(fitd)
@@ -428,16 +431,18 @@ class KbFocus:
         end = False
         while not end:
 
-            print(YELLOW("\nCorrections"))
-            print("\n(a) Apply Interaction Matrix (Quadratic) and check Beam Profile")
-            print(f"    {self._bender_up.name}: {corr1_quad:.3f}")
-            print(f"    {self._bender_down.name}: {corr2_quad:.3f}")
-            print(
+            user_print(YELLOW("\nCorrections"))
+            user_print(
+                "\n(a) Apply Interaction Matrix (Quadratic) and check Beam Profile"
+            )
+            user_print(f"    {self._bender_up.name}: {corr1_quad:.3f}")
+            user_print(f"    {self._bender_down.name}: {corr2_quad:.3f}")
+            user_print(
                 "(b) Apply Interaction Matrix (Linear Regression) and check Beam Profile"
             )
-            print(f"    {self._bender_up.name}: {corr1_linreg:.3f}")
-            print(f"    {self._bender_down.name}: {corr2_linreg:.3f}")
-            print("(c) Exit\n")
+            user_print(f"    {self._bender_up.name}: {corr1_linreg:.3f}")
+            user_print(f"    {self._bender_down.name}: {corr2_linreg:.3f}")
+            user_print("(c) Exit\n")
             rep = click.prompt(BOLD("Your choice (a/b/c)"), default="c")
             if rep in ["a", "b", "c"]:
                 if rep == "c":
@@ -457,20 +462,20 @@ class KbFocus:
                         corr1 = corr1_linreg * self._partial / 100.0
                         corr2 = corr2_linreg * self._partial / 100.0
 
-                    print(YELLOW("\nApply Bender Motor Corrections"))
+                    user_print(YELLOW("\nApply Bender Motor Corrections"))
                     pos1 = self._bender_up.position + corr1
                     pos2 = self._bender_down.position + corr2
-                    print(
+                    user_print(
                         f"    {self._bender_up.name} Correction: {corr1:.3f} - New Position: {pos1:.3f}"
                     )
-                    print(
+                    user_print(
                         f"    {self._bender_down.name} Correction: {corr2:.3f} - New Position: {pos2:.3f}"
                     )
                     umvr(self._bender_up, corr1)
                     umvr(self._bender_down, corr2)
 
-                    print(YELLOW("\nGet Beam Profile"))
-                    (motd, rawd, fitd, coeff) = self.scan(start, stop, nbp, intt)
+                    user_print(YELLOW("\nGet Beam Profile"))
+                    (motd, rawd, fitd, coeff) = self.scan(dstart, dstop, nbp, intt)
                     self._nscan = self._nscan + 1
                     self._yplot_data.append(rawd)
                     self._yplot_label.append(f"{self._cnt.name}_raw_{self._nscan}")
@@ -487,10 +492,11 @@ class KbFocus:
                     (corr1_quad, corr2_quad) = self._intm_quad_correction()
                     (corr1_linreg, corr2_linreg) = self._intm_linreg_correction()
 
+
 """
 YAML file examplefor KB Motors:
 
-- plugin: emotion                   
+- plugin: emotion
   package: kb
   class: KbMirrorCalcMotor
   name: kbmirror
@@ -505,20 +511,22 @@ YAML file examplefor KB Motors:
     - name: kbvtz       <- vertical/horizontal translation
       tags: height
 """
+
+
 class KbMirrorCalcMotor(CalcController):
     """
-    A kb mirror is controlled typically by two rotation motors. 
+    A kb mirror is controlled typically by two rotation motors.
     One, main rotation (kbrot), is located at the middle of the mirror
     while a second one is set in an eccentric point. The
     combination of both allows to drive the mirror (the center
     of it) to a certain 'tilt' angle and 'height' (for vertically
-    positioned mirrors, but we will use the 'height' term for 
+    positioned mirrors, but we will use the 'height' term for
     all mirrors).
-    The "distance" parameter, given in mm is the distance between the
+    The 'distance' parameter, given in mm is the distance between the
     two rotation points
     This controller musst be instanciated for each mirror of a KB system
     """
-    
+
     def __init__(self, *args, **kwargs):
         CalcController.__init__(self, *args, **kwargs)
         self.distance = self.config.get("distance", float)

@@ -915,9 +915,11 @@ def typecheck_var_args_pattern(args_pattern, empty_var_pos_args_allowed=False):
                 if param.kind == inspect.Parameter.VAR_POSITIONAL:
                     var_args = args[i:]
                     if not empty_var_pos_args_allowed and len(var_args) == 0:
-                        raise TypeError(f"Arguments of type {args_pattern} missing!")
+                        raise TypeguardTypeError(
+                            f"Arguments of type {args_pattern} missing!"
+                        )
                     if len(var_args) % len(args_pattern) != 0:
-                        raise TypeError(
+                        raise TypeguardTypeError(
                             f"Wrong number of arguments (not a multiple of {len(args_pattern)} [{args_pattern}])"
                         )
                     for j, a in enumerate(var_args):

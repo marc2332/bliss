@@ -821,3 +821,11 @@ class llangle_mockup(CalcController):
         rz = np.where(valid, angle - bend_offset, angle)
         calc_dict = {"bend": bend, "ty": ty, "rz": rz}
         return calc_dict
+
+
+class FaultyCalc(CalcController):
+    def calc_from_real(self, positions_dict):
+        return {"calc_mot": None}
+
+    def calc_to_real(self, positions_dict):
+        return {self._axis_tag(x): None for x in self.reals}

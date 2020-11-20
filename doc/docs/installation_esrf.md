@@ -220,7 +220,7 @@ idXX/metadata/session_WWZ/datasetName->__value: ""
 idXX/metadata/session_WWZ/metadataFile->__value: ""
 
 CLASS/MetadataManager->API_key: elogbook-be70ac55-fd08-4840-9b29-b73262958ca8
-CLASS/MetadataManager->icatplus_server: "https://icatplus.esrf.fr:8443"
+CLASS/MetadataManager->icatplus_server: "https://icatplus.esrf.fr"
 CLASS/MetadataManager->queueName: "/queue/icatIngest"
 CLASS/MetadataManager->queueURLs: bcu-mq-01.esrf.fr:61613,\
                                   bcu-mq-02.esrf.fr:61613

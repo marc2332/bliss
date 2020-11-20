@@ -40,7 +40,7 @@ import gevent.event
 from tango import DevState, Util, Database, DbDevInfo
 from tango.server import Device, attribute, command, device_property
 
-from bliss.shell.initialize import initialize
+from bliss.shell.cli import repl
 from bliss.common import event
 from bliss.common.utils import grouped
 from bliss.config import settings

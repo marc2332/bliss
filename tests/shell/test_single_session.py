@@ -18,7 +18,7 @@ def test_single_bliss_session(ports, beacon):
                 sys.executable,
                 "-u",
                 "-c",
-                "from bliss.shell.initialize import *; initialize('test_session'); import time; time.sleep(1000)",
+                "from bliss.shell.cli import repl; repl.initialize('test_session'); import time; time.sleep(1000)",
             ],
             stdout=subprocess.PIPE,
         )
@@ -42,7 +42,7 @@ def test_single_bliss_session(ports, beacon):
             [
                 sys.executable,
                 "-c",
-                "from bliss.shell.initialize import *; initialize('test_session')",
+                "from bliss.shell.cli import repl; repl.initialize('test_session')",
             ],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,

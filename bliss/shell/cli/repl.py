@@ -18,6 +18,9 @@ import functools
 import traceback
 import gevent
 import logging
+import platform
+from gevent import socket
+
 import __future__
 from collections import deque, defaultdict
 from datetime import datetime
@@ -31,35 +34,53 @@ from prompt_toolkit.formatted_text.utils import fragment_list_width
 from prompt_toolkit.formatted_text import merge_formatted_text, FormattedText
 from prompt_toolkit.formatted_text import PygmentsTokens
 from prompt_toolkit.shortcuts import print_formatted_text
-
-###
-
 from prompt_toolkit.keys import Keys
 from prompt_toolkit.utils import is_windows
 from prompt_toolkit.eventloop.defaults import set_event_loop
 from prompt_toolkit.eventloop import future
-
 from prompt_toolkit.filters import has_focus
 from prompt_toolkit.enums import DEFAULT_BUFFER
 
-from bliss.shell.cli import style as repl_style
-from bliss.shell.initialize import initialize
 from bliss.shell.data.display import ScanPrinter, ScanPrinterWithProgressBar
-from .prompt import BlissPrompt
-from .typing_helper import TypingHelper
+from bliss.shell.cli import style as repl_style
+from bliss.shell.cli.prompt import BlissPrompt
+from bliss.shell.cli.typing_helper import TypingHelper
+from bliss.shell.cli.ptpython_statusbar_patch import NEWstatus_bar, TMUXstatus_bar
 
 from bliss.common.utils import ShellStr
+from bliss import release, current_session
+from bliss.config import static
 from bliss.shell.standard import info
-from bliss.shell.cli.ptpython_statusbar_patch import NEWstatus_bar, TMUXstatus_bar
 from bliss.common.logtools import userlogger, elogbook
 from bliss.shell.cli.protected_dict import ProtectedDict
 from bliss.shell import standard
 from redis.exceptions import ConnectionError
 
+from bliss.common import session as session_mdl
+from bliss.common.session import DefaultSession
+from bliss.config.conductor.client import get_default_connection
+from bliss.shell.bliss_banners import print_rainbow_banner
+
+
 logger = logging.getLogger(__name__)
 
 if sys.platform in ["win32", "cygwin"]:
     import win32api
+
+    class Terminal:
+        def __getattr__(self, prop):
+            if prop.startswith("__"):
+                raise AttributeError(prop)
+            return ""
+
+
+else:
+    from blessings import Terminal
+
+
+session_mdl.set_current_session = functools.partial(
+    session_mdl.set_current_session, force=False
+)
 
 
 # =================== ERROR REPORTING ============================
@@ -533,6 +554,119 @@ def configure_repl(repl):
             b.complete_next()
         else:
             b.start_completion(select_first=False)
+
+
+def initialize(session_name=None, session_env=None) -> session_mdl.Session:
+    """
+    Initialize a session.
+
+    Create a session from its name, and update a provided env dictionary.
+
+    Arguments:
+        session_name: Name of the session to load
+        session_env: Dictionary containing an initial env to feed. If not defined
+                     an empty dict is used
+    """
+    if session_env is None:
+        session_env = {}
+
+    # Add config to the user namespace
+    config = static.get_config()
+    error_flag = False
+
+    """ BLISS CLI welcome messages """
+
+    t = Terminal()
+
+    # Version
+    _version = "version %s" % release.short_version
+
+    # Hostname
+    _hostname = platform.node()
+
+    # Beacon host/port
+    try:
+        _host = get_default_connection()._host
+        _port = str(get_default_connection()._port)
+    except:
+        _host = "UNKNOWN"
+        _port = "UNKNOWN"
+
+    # Conda environment
+    try:
+        _conda_env = (
+            "(in {t.blue}%s{t.normal} Conda environment)".format(t=t)
+            % os.environ["CONDA_DEFAULT_ENV"]
+        )
+    except KeyError:
+        _conda_env = ""
+
+    print_rainbow_banner()
+    print("")
+    print(
+        "Welcome to BLISS %s running on {t.blue}%s{t.normal} %s".format(t=t)
+        % (_version, _hostname, _conda_env)
+    )
+    print("Copyright (c) 2015-2020 Beamline Control Unit, ESRF")
+    print("-")
+    print(
+        "Connected to Beacon server on {t.blue}%s{t.normal} (port %s)".format(t=t)
+        % (_host, _port)
+    )
+
+    """ Setup(s) """
+    if session_name is None:
+        session = DefaultSession()
+    else:
+        # we will lock the session name
+        # this will prevent to start serveral bliss shell
+        # with the same session name
+        # lock will only be released at the end of process
+        default_cnx = get_default_connection()
+        try:
+            default_cnx.lock(session_name, timeout=1.)
+        except RuntimeError:
+            try:
+                lock_dict = default_cnx.who_locked(session_name)
+            except RuntimeError:  # Beacon is to old to answer
+                raise RuntimeError(f"{session_name} is already started")
+            else:
+                raise RuntimeError(
+                    f"{session_name} is already running on %s"
+                    % lock_dict.get(session_name)
+                )
+        # set the client name to somethings useful
+        try:
+            default_cnx.set_client_name(
+                f"host:{socket.gethostname()},pid:{os.getpid()} cmd: **bliss -s {session_name}**"
+            )
+        except RuntimeError:  # Beacon is too old
+            pass
+        session = config.get(session_name)
+        print("%s: Loading config..." % session.name)
+
+    from bliss.shell import standard
+
+    cmds = {k: standard.__dict__[k] for k in standard.__all__}
+    session_env.update(cmds)
+
+    session_env["history"] = lambda: print("Please press F3-key to view history!")
+
+    try:
+        session.setup(session_env, verbose=True)
+    except Exception:
+        error_flag = True
+        sys.excepthook(*sys.exc_info())
+
+    if error_flag:
+        print("Warning: error(s) happened during setup, setup may not be complete.")
+    else:
+        print("Done.")
+        print("")
+
+    session_env["SCANS"] = current_session.scans
+
+    return session
 
 
 def cli(

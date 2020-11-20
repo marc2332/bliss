@@ -316,13 +316,16 @@ class BaseSubscriber(object):
         try:
             if self.resource_profiling:
                 with profiling.profile(
-                    logger=logger,
-                    timelimit=100,
+                    memory=False,
+                    time=True,
                     memlimit=30,
-                    sortby=["cumtime", "tottime"],
+                    timelimit=30,
+                    sortby="tottime",
+                    clock="cpu",
                     color=False,
                     filename=True,
                     units="MB",
+                    logger=logger,
                 ):
                     self._listen_event_loop()
             else:

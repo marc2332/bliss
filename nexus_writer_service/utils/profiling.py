@@ -12,7 +12,6 @@ except ImportError:
     yappi = None
 else:
     yappi.set_context_backend("greenlet")
-    yappi.set_clock_type("wall")
 
 import os
 from io import StringIO
@@ -108,7 +107,8 @@ def print_malloc_snapshot(
     log(logger, "============================================")
 
 
-DEFAULT_SORTBY = "cumtime"
+DEFAULT_SORTBY = "tottime"
+DEFAULT_CLOCK = "cpu"
 
 
 def print_pstats_snapshot(
@@ -193,11 +193,12 @@ def memory_context(logger=None, **kwargs):
 
 @contextmanager
 def time_context_cprofile(
-    logger=None, timelimit=None, sortby=None, color=False, filename=None
+    logger=None, timelimit=None, clock=None, sortby=None, color=False, filename=None
 ):
     """
     :param logger:
     :param int or float timelimit: number of lines or fraction (float between 0 and 1)
+    :param str clock: always wall
     :param str sortby: sort time profile
     :param bool color:
     :param str or bool filename:
@@ -209,7 +210,9 @@ def time_context_cprofile(
     finally:
         pr.disable()
         snapshot = pstats.Stats(pr)
-        print_pstats_snapshot(snapshot, logger=logger, sortby=sortby, color=color)
+        print_pstats_snapshot(
+            snapshot, logger=logger, timelimit=timelimit, sortby=sortby, color=color
+        )
         if filename:
             if not isinstance(filename, str):
                 filename = DEFAULT_FILENAME
@@ -221,15 +224,19 @@ def time_context_cprofile(
 
 @contextmanager
 def time_context_yappi(
-    logger=None, timelimit=None, sortby=None, color=False, filename=None
+    logger=None, timelimit=None, clock=None, sortby=None, color=False, filename=None
 ):
     """
     :param logger:
     :param int or float timelimit: number of lines or fraction (float between 0 and 1)
+    :param str clock: "wall" or "cpu"
     :param str sortby: sort time profile
     :param bool color:
     :param str or bool filename:
     """
+    if clock not in ("cpu", "wall"):
+        clock = DEFAULT_CLOCK
+    yappi.set_clock_type(clock)
     yappi.clear_stats()
     yappi.start(builtins=False)
     try:
@@ -240,7 +247,9 @@ def time_context_yappi(
         yappi.clear_stats()
         # print_yappi_snapshot(stats)
         snapshot = yappi.convert2pstats(stats)
-        print_pstats_snapshot(snapshot, logger=logger, sortby=sortby, color=color)
+        print_pstats_snapshot(
+            snapshot, logger=logger, timelimit=timelimit, sortby=sortby, color=color
+        )
         if filename:
             if not isinstance(filename, str):
                 filename = DEFAULT_FILENAME
@@ -264,6 +273,7 @@ def profile_context(
     time=True,
     memlimit=10,
     timelimit=None,
+    clock=None,
     sortby=None,
     color=False,
     filename=None,
@@ -275,6 +285,7 @@ def profile_context(
     :param bool time: execution time
     :param int memlimit: number of lines
     :param int or float timelimit: number of lines or fraction (float between 0 and 1)
+    :param str clock: "wall" or "cpu"
     :param str sortby: sort time profile
     :param bool color:
     :param str or bool filename: dump for visual tools
@@ -285,6 +296,7 @@ def profile_context(
         if time:
             ctx = time_context(
                 timelimit=timelimit,
+                clock=clock,
                 sortby=sortby,
                 color=color,
                 filename=filename,

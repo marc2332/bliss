@@ -80,9 +80,9 @@ def excepthook(etype, value, tb, show_tb=False):
 excepthook_tb = functools.partial(excepthook, show_tb=True)
 
 
-def sanatize_command(cmd):
+def sanitize_command(cmd):
     """
-    sanatize command line (adds parenthesis if missing)
+    sanitize command line (adds parenthesis if missing)
     (not very robust!!!)
     """
     if "(" in cmd or "=" in cmd:  # good python format
@@ -140,7 +140,7 @@ _SHELL_SESSION = None
 
 
 def load_shell(session_name):
-    session = initialize(session_name)
+    session = repl.initialize(session_name)
     global _SHELL_SESSION
     _SHELL_SESSION = session
     return session
@@ -159,7 +159,7 @@ class Bliss(Device):
     #: Sanitize is not perfect! You simply cannot transform one language into
     #: another. Avoid the temptation of using it just to try to please the user
     #: with a 'spec' like syntax as much as possible
-    sanatize_command = device_property(dtype=bool, default_value=False)
+    sanitize_command = device_property(dtype=bool, default_value=False)
 
     def __init__(self, *args, **kwargs):
         self._log = logging.getLogger("bliss.tango.Bliss")
@@ -181,7 +181,7 @@ class Bliss(Device):
         if self.__startup:
             session = _SHELL_SESSION
         else:
-            session = initialize(self.session_name)
+            session = repl.initialize(self.session_name)
 
         self.__user_ns = session.env_dict
         self.__startup = False
@@ -299,8 +299,8 @@ class Bliss(Device):
             return self.__user_ns.get("_")
 
     def __execute(self, cmd):
-        if self.sanatize_command:
-            cmd = sanatize_command(cmd)
+        if self.sanitize_command:
+            cmd = sanitize_command(cmd)
         try:
             exec(cmd, self.__user_ns)
         except gevent.GreenletExit:

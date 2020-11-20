@@ -17,7 +17,6 @@ from bliss.common.logtools import user_print
 
 
 yappi.set_context_backend("greenlet")
-yappi.set_clock_type("wall")
 
 
 yappi_to_pstats_sort = {
@@ -26,23 +25,32 @@ yappi_to_pstats_sort = {
     "tsub": "tottime",  # excluding subcalls
 }
 
+DEFAULT_SORTBY = "tsub"
+DEFAULT_CLOCK = "cpu"
 
-def print_yappi_snapshot(stats, sortby=None, filename=None, restrictions=tuple()):
+
+def print_yappi_snapshot(
+    stats, sortby=None, filename=None, restrictions=tuple(), clock=None
+):
     """
     :param YFuncStat stats:
     :param str sortby: tsub (excluding subs), ttot or tavg (ttot/ncalls)
     :param str filename: can be inspected with qcachegrind
     :param tuple restrictions:
+    :param str clock:
     """
-    if not sortby:
-        sortby = "ttot"
+    if sortby not in yappi_to_pstats_sort:
+        sortby = DEFAULT_SORTBY
+    if clock not in ("wall", "cpu"):
+        clock = DEFAULT_CLOCK
+    yappi.set_clock_type(clock)
     s = StringIO()
 
     # YAPPI output is limited
     # stats = stats.sort(sortby)
     # stats.print_all(out=s)
     # Therefore convert to pstats
-    sortby = yappi_to_pstats_sort.get(sortby, "ttot")
+    sortby = yappi_to_pstats_sort[sortby]
     pstat = yappi.convert2pstats(stats)
     pstat.stream = s
     pstat = pstat.sort_stats(sortby)
@@ -54,13 +62,14 @@ def print_yappi_snapshot(stats, sortby=None, filename=None, restrictions=tuple()
 
 
 @contextmanager
-def _time_profile(*restrictions, sortby=None, filename=None):
+def _time_profile(*restrictions, sortby=None, filename=None, clock=None):
     """
     :param restrictions: integer (number of lines)
                          float (percentage of lines)
                          str (regular expression)
     :param str sortby: tsub (excluding subcalls), ttot or tavg (ttot/ncalls)
     :param str filename: can be inspected with qcachegrind
+    :param str clock: "wall" or "cpu"
     """
     yappi.clear_stats()
     yappi.start(builtins=False)
@@ -71,7 +80,11 @@ def _time_profile(*restrictions, sortby=None, filename=None):
         stats = yappi.get_func_stats()
         yappi.clear_stats()
         print_yappi_snapshot(
-            stats, sortby=sortby, filename=filename, restrictions=restrictions
+            stats,
+            sortby=sortby,
+            filename=filename,
+            restrictions=restrictions,
+            clock=clock,
         )
 
 
@@ -81,15 +94,16 @@ class ProfilerMeta(type):
 
     _instance = None
 
-    def __call__(cls, *restrictions, sortby=None, filename=None):
+    def __call__(cls, *restrictions, sortby=None, filename=None, clock=None):
         if cls._instance is None:
             cls._instance = super(ProfilerMeta, cls).__call__(
-                *restrictions, sortby=sortby, filename=filename
+                *restrictions, sortby=sortby, filename=filename, clock=clock
             )
         else:
             cls._instance._restrictions = restrictions
             cls._instance._sortby = sortby
             cls._instance._filename = filename
+            cls._instance._clock = clock
         return cls._instance
 
 
@@ -97,17 +111,19 @@ class time_profile(metaclass=ProfilerMeta):
     """Singleton profile manager for time profiling
     """
 
-    def __init__(self, *restrictions, sortby=None, filename=None):
+    def __init__(self, *restrictions, sortby=None, filename=None, clock=None):
         """
         :param restrictions: integer (number of lines)
                              float (percentage of lines)
                              str (regular expression)
         :param str sortby: tsub (excluding subcalls), ttot or tavg (ttot/ncalls)
         :param str filename: can be inspected with qcachegrind
+        :param str clock: "wall" or "cpu"
         """
         self._restrictions = restrictions
         self._sortby = sortby
         self._filename = filename
+        self._clock = clock
         self._ctr = 0
         self._ctx = None
 
@@ -115,7 +131,10 @@ class time_profile(metaclass=ProfilerMeta):
         self._ctr += 1
         if self._ctx is None:
             self._ctx = _time_profile(
-                *self._restrictions, sortby=self._sortby, filename=self._filename
+                *self._restrictions,
+                sortby=self._sortby,
+                filename=self._filename,
+                clock=self._clock
             )
             self._ctx.__enter__()
 
